@@ -48,6 +48,7 @@ The patches do not alter arguments, return values, game state, or Duckov saves. 
 - Progressed-save migration preserved the generation and prior usage totals. Gameplay passed exact immediate healing (12 HP), clean delayed healing (30 x 2 HP), partial overheal (0.612381 HP), successful full-health/base use, cancellation, damage interleaving, and unrelated totem regeneration.
 - Restart persistence, final JSON/CSV consistency, and normal-shutdown cleanup passed with exact 6-use/132.61238098144531-HP agreement, matching atomic profiles, and no checkpoint or temporary residue.
 - Final 62,435-byte folder-rooted ZIP and lowercase SHA-256 sidecar: independently verified; SHA-256 `700ae5372060b6d191a579b633d80cd96e4bf678257b951ac9765c9fd4102e28`.
+- Draft PR #2 targets `main`, remains unmerged, and its required `source-safety` and `core` checks are green on the current branch head.
 
 ## Known limitations
 
