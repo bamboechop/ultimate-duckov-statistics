@@ -59,7 +59,14 @@ public sealed class ProfileRepository
         ValidateIdentity(identity);
         if (current != null)
         {
-            CloseClean();
+            if (current.Slot == identity.Slot)
+            {
+                CloseSessionForSameSlotReopen();
+            }
+            else
+            {
+                CloseClean();
+            }
         }
 
         var result = new ProfileOpenResult();
@@ -267,6 +274,24 @@ public sealed class ProfileRepository
         SaveCurrent();
         sessionStore.Delete(GetSessionPath(currentDirectory));
         diagnostic($"Closed generation {current.GenerationId} cleanly.");
+        current = null;
+        currentDirectory = null;
+    }
+
+    private void CloseSessionForSameSlotReopen()
+    {
+        if (current == null || currentDirectory == null)
+        {
+            return;
+        }
+
+        // OnSetFile can select the already-open slot immediately after
+        // OnCollectSaveData. Keep that pre-save observation persisted until
+        // Open compares the newly observed identity, but retire the prior UDS
+        // session so the re-selection is never reported as an interruption.
+        SaveCurrent();
+        sessionStore.Delete(GetSessionPath(currentDirectory));
+        diagnostic($"Closed generation {current.GenerationId} for same-slot re-selection.");
         current = null;
         currentDirectory = null;
     }

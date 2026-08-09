@@ -341,6 +341,44 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    public void SameInstanceSameSlotReopenConsumesNativeSaveProofWithoutRotating()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var ids = new Queue<string>();
+        ids.Enqueue("generation-a");
+        ids.Enqueue("session-a");
+        ids.Enqueue("session-b");
+        var repository = CreateRepository(temporaryDirectory.Path, ids);
+        var original = CreateIdentity(slot: 1, creationTicks: 100);
+        repository.Open(original);
+        repository.Record(CreateUse("event-one", "generation-a"));
+        repository.PrepareForNativeSave(original);
+
+        var evolved = CreateIdentity(slot: 1, creationTicks: 100);
+        evolved.ContentSha256 = new string('f', 64);
+        evolved.SaveTimeBinary = TestTime
+            .AddSeconds(1)
+            .ToBinary();
+        evolved.ObservedWriteUtcTicks++;
+        evolved.ObservedLength++;
+
+        var result = repository.Open(evolved, "SaveSlotSelected");
+
+        Assert.False(result.RotatedGeneration);
+        Assert.False(result.CreatedNew);
+        Assert.False(result.InterruptedSessionRecovered);
+        Assert.Equal("generation-a", repository.Current.GenerationId);
+        Assert.Equal(1, repository.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(0, repository.Current.InterruptedSessionCount);
+        Assert.Equal(evolved.ContentSha256, repository.Current.Identity.ContentSha256);
+        Assert.Null(repository.Current.PendingSave);
+        Assert.False(Directory.Exists(
+            System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "archives")));
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     public void CleanCloseClearsPendingSaveIntentBeforeLaterChange()
     {
         using var temporaryDirectory = new TemporaryDirectory();

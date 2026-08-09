@@ -169,6 +169,7 @@ Automated pass criteria:
 - A profile or nested statistics document newer than the supported schema is moved byte-for-byte into a read-only archive; UDS creates a separate current schema-1 generation and never saves/downgrades the unsupported object.
 - Missing legacy identity/statistics fields are migrated locally before identity checks.
 - A same-slot content change is accepted only when an active UDS pre-save intent matches the stored SHA-256, Duckov's persisted `SaveTime` advances, and that time falls within 30 seconds of the public `OnCollectSaveData` observation. The interrupted UDS session and its totals survive that proven save step.
+- Reopening the already-open slot on the same `ProfileRepository` instance retires the previous session checkpoint without clearing the pre-save intent before identity comparison; the normal evolved save keeps its generation and totals, consumes the intent, starts a fresh session checkpoint, and records no interruption.
 - Same-timestamp deletion-shaped changes with no advanced `SaveTime`, changes after clean shutdown, and changes after an expired pre-save intent all rotate conservatively. A nonzero pre-fingerprint profile also rotates conservatively.
 - A transient fingerprint read failure does not erase a previously stored continuity proof.
 - A stable item ID keeps its first canonical group, and JSON/item/group CSV totals remain mutually consistent after a conflicting later classification.
@@ -178,10 +179,10 @@ Automated pass criteria:
 | Check | Status | Evidence |
 | --- | --- | --- |
 | Profile schema safety | Passed automated 2026-08-09 | Future top-level and nested schemas archived without rewrite; direct save guard rejects downgrade; missing legacy fields normalize before identity checks |
-| Save reuse continuity | Passed automated 2026-08-09 | Native pre-save intent plus advanced `SaveTime` preserves an interrupted normal save; unchanged time, clean-close removal, expired intent, uncertain legacy identity, and failed refresh remain conservative |
+| Save reuse continuity | Passed automated 2026-08-09 | Native pre-save intent plus advanced `SaveTime` preserves interrupted and same-instance/same-slot normal saves; unchanged time, clean-close removal, expired intent, uncertain legacy identity, and failed refresh remain conservative |
 | Classification/export invariant | Passed automated 2026-08-09 | First canonical group is frozen for a stable item ID; item, group, overall, JSON, and CSV activation totals agree |
 | Clean deployment replacement | Passed automated 2026-08-09 | Normal replacement ends with five permitted files; simulated partial backup cleanup failure retains the backup with a warning without replacing or damaging the committed new deployment |
-| Full Release suite/build | Passed automated 2026-08-09 | 47 tests; Duckov contract including `OnCollectSaveData` passed; native build 0 warnings/0 errors; package exact-inventory validation passed |
+| Full Release suite/build | Passed automated 2026-08-09 | 48 tests; Duckov contract including `OnCollectSaveData` passed; native build 0 warnings/0 errors; package exact-inventory validation passed |
 
 Targeted manual continuity acceptance after approved deployment:
 
@@ -249,6 +250,40 @@ Phase-B recovery evidence, 2026-08-09: passed. The active restart recovered the 
 Phase-C inactive-reuse evidence, 2026-08-09: passed. The cold launch contains the sorted local package name but no `Mod Loaded`, `[UDS]`, setup, activation, or deactivation marker. Slot-6 UDS generation `9ee62a9a702d40ba85d3870721e9b072` remained byte-identical at SHA-256 `66d1c1144003e3da6d5ecb3b4c4dbebcc19683fe9658e8afe5cf8e9860611748`, with two uses, one prior interruption, no pending save, and no session residue. Duckov's slot-6 save changed from SHA-256 `158e9619c0a657911d738ba42404cc43a82ac28460a9cac31fbe346539dcd317`/46,685 bytes/`17:55:44.3041416Z` to `28e655dae30abb794c1384662eae8947419cb565f0eb17063ddc172bff16ecc4`/44,028 bytes/`18:03:23.7751385Z`. Progressed slot 1 remained byte-identical at profile SHA-256 `809cfaf20de760d7f535897cc19eac1f5e0203b11547e46b37171217646be71c` and save SHA-256 `6d634d69f147cbb3d1e650329a5f04d3a6f77d9d8ad8ab166c893cfe617c9950`.
 
 Phase-D active-detection evidence, 2026-08-09: passed. Startup detected the inactive replacement, archived generation `9ee62a9a702d40ba85d3870721e9b072` as `SaveIdentityChanged`, and opened new generation `badb76d6cbb14b44915c2ddaf26ba166` with `created=True`, `rotated=True`, and `interrupted=False`. The archive's matching 1,698-byte primary/backup profiles retain SHA-256 `66d1c1144003e3da6d5ecb3b4c4dbebcc19683fe9658e8afe5cf8e9860611748`, exactly two uses and one recovered interruption; both profile files and both diagnostics files are read-only. The current profile has zero activations, amounts, items, groups, interruptions, and pending save state, retains both Supported capabilities, and has matching primary/backup SHA-256 `0739922b9f49b419e44aaaa81a9f2aa49cd270818b004b28204b7996b50fd963`. Normal exit recorded application quit/destruction, one unsubscription, and a clean close. No session, temporary, or repair residue remains. Slot-1 profile SHA-256 remains `809cfaf20de760d7f535897cc19eac1f5e0203b11547e46b37171217646be71c`; no UDS exception appears.
+
+### Same-process same-slot re-selection gate
+
+The later review finding about `Open` clearing the pending save proof before comparing an already-open slot reopens persistence and final-release acceptance. Use only disposable slot 6. Do not touch progressed slot 1 or streaming slot 2. Do not exit or restart Duckov between steps 3 and 7.
+
+Precondition and deployment:
+
+1. Duckov is closed. Codex records the current slot-6 generation, totals, profile/backup hashes, archive inventory, session/pending state, and Duckov save SHA-256/`SaveTime` without modifying any save.
+2. Codex reruns the 48-test build and contract/package validation. After explicit approval, deployment replaces only `Duckov_Data\Mods\UltimateDuckovStatistics`; Codex verifies the exact five-file inventory and hashes.
+
+Manual phase:
+
+1. Cold-launch Duckov and apply the accepted per-launch activation workaround before selecting any save.
+2. Select only slot 6. Outside a raid, open UDS and record the displayed generation, total uses, per-item totals, and interrupted-session count; then close the panel.
+3. Enter a raid, complete exactly one successful consumable use, record its display name/group/amount, and extract normally so Duckov performs its normal save.
+4. After the base loads, open UDS once and record the same generation plus the incremented total. Close the panel.
+5. Without exiting Duckov, return to the main menu using Duckov's UI. Do not open Mods and do not toggle UDS.
+6. Select slot 6 again in that same Duckov process. This must fire the same-slot `OnSetFile` path after the completed save.
+7. Outside a raid, open UDS. Confirm the generation is identical to steps 2 and 4, every previous total remains, the one new use remains counted exactly once, and the interrupted-session count did not increase. Exit Duckov normally.
+
+Codex postconditions:
+
+- `Player.log` contains the same-process same-slot selection and no UDS exception.
+- The selection reports `created=False` and `rotated=False`; diagnostics contain the same-slot session-transition close and no `SaveIdentityChanged` archive.
+- The prior session checkpoint was retired before re-open, so no interruption was recovered; normal exit removes the replacement checkpoint.
+- The profile retains the same generation and exact totals, adopts the evolved Duckov identity, has no pending-save observation after comparison, and has matching valid primary/backup JSON.
+- Archive inventory, slot-1 profile, and slot-2 state remain unchanged; no `.tmp`, `.repair`, or `session.json*` residue remains.
+
+| Same-slot check | Status | Evidence |
+| --- | --- | --- |
+| Same-instance regression | Passed automated 2026-08-09 | A single repository instance prepares a native save, reopens the same slot with an evolved hash/`SaveTime`, preserves generation and totals, consumes the proof, deletes the prior checkpoint, starts a replacement checkpoint, and records no rotation/interruption |
+| Same-process Duckov re-selection | Passed manual 2026-08-09 | After the second Aspirin use/save, same-process slot-6 selection retained generation `badb76d6cbb14b44915c2ddaf26ba166`, two uses/two `StackUnit`, and zero interruptions; diagnostics recorded the dedicated transition close and `created=False`, `rotated=False` |
+
+Same-process re-selection evidence, 2026-08-09: passed. The validated five-file deployment exactly matched the package and left no deployment residue. The accepted run opened slot-6 generation `badb76d6cbb14b44915c2ddaf26ba166` at one prior Aspirin activation, counted one additional raid Aspirin (`Healing`, one `StackUnit`) for a total of two, and then returned to the main menu without ending the Duckov process. At `18:43:17Z`, diagnostics recorded `Closed generation ... for same-slot re-selection` immediately followed by `Save slot selected ... created=False rotated=False`; no interruption was recovered. Normal exit at `18:43:55Z` recorded application quit/destruction, native-hook unsubscription, and a clean close. The revision-18 profile retains exactly two Aspirin activations/two `StackUnit`, zero interruptions, and no pending save. Its identity exactly matches Duckov's 47,626-byte save at SHA-256 `8f1ce8d3da9fde9cbc8d13e90e4f09537e2c49cafd218b28766b83a6ed824ca8` and `SaveTime` binary `5250904996310185719`; matching primary/backup profiles have SHA-256 `d2b27369b8e42726888443c7bedabd9e4dda38c15f56dcf030541634be0787f7`. Archive count remains six, slot-1 profile SHA-256 remains `809cfaf20de760d7f535897cc19eac1f5e0203b11547e46b37171217646be71c`, and no session, pending, `.tmp`, or `.repair` residue exists. No UDS exception appears; repeated bare `startIndex` messages remain the previously classified native Duckov initialization noise.
 
 ## Checkpoint 5 — UI and exports
 
@@ -340,7 +375,9 @@ Superseded pre-review release-candidate evidence, 2026-08-09: the earlier 33-tes
 
 Superseded review-hardened release-candidate evidence, 2026-08-09: the 43-test candidate produced a 44,085-byte ZIP with SHA-256 `b37a4af0d6e98c1a0197049685e1175bb705606fcc2cc996e27c677b85d330d5`. The interrupted-normal-save finding reopened persistence, deployment cleanup, manual continuity, source/PR currency, and final artifact gates. That ZIP and checksum are not the release candidate. Regenerate them only after the follow-up interrupted-save continuity gate passes.
 
-Final follow-up release-candidate evidence, 2026-08-09: after all four interruption/reuse phases passed, `create-release.ps1` reran all 47 Release tests, the Duckov `2.3.30` / Steam `24013657` / Unity `2022.3.62f2` contract probe including `OnCollectSaveData`, a warning-free native build, and exact five-file package validation. `UltimateDuckovStatistics-v0.1.0.zip` is 45,803 bytes with SHA-256 `7d930422e6e1c7e4b13a3bdd6a1f682e1350edd5448738762807b299eeeec581`; its lowercase sidecar matches exactly. Independent extraction contains only folder-rooted `info.ini`, `INSTALL.md`, `LICENSE`, `UltimateDuckovStatistics.Core.dll`, and `UltimateDuckovStatistics.dll`; the extracted package passes validation and every file is byte-identical to the validated source package. No Duckov, Unity, framework, or Harmony assembly is present.
+Superseded final follow-up release-candidate evidence, 2026-08-09: after all four interruption/reuse phases passed, `create-release.ps1` reran all 47 Release tests, the Duckov `2.3.30` / Steam `24013657` / Unity `2022.3.62f2` contract probe including `OnCollectSaveData`, a warning-free native build, and exact five-file package validation. `UltimateDuckovStatistics-v0.1.0.zip` was 45,803 bytes with SHA-256 `7d930422e6e1c7e4b13a3bdd6a1f682e1350edd5448738762807b299eeeec581`. The same-instance/same-slot finding reopened persistence, deployment, manual continuity, source/PR currency, and artifact gates; that ZIP and checksum are no longer the release candidate.
+
+Final same-slot release-candidate evidence, 2026-08-09: after the same-instance regression and real Duckov same-process gate passed, `create-release.ps1` reran all 48 Release tests, the Duckov `2.3.30` / Steam `24013657` / Unity `2022.3.62f2` contract probe including `OnCollectSaveData`, a warning-free native build, and exact five-file package validation. `UltimateDuckovStatistics-v0.1.0.zip` is 45,978 bytes with SHA-256 `283373237ad5e40ae0919a6a608141c4e60528b9b99c4076c4feec678aa62534`; its lowercase sidecar matches exactly. Independent extraction contains only folder-rooted `info.ini`, `INSTALL.md`, `LICENSE`, `UltimateDuckovStatistics.Core.dll`, and `UltimateDuckovStatistics.dll`; the extracted package passes validation and every file is byte-identical to the validated source package. No Duckov, Unity, framework, or Harmony assembly is present.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
@@ -348,9 +385,10 @@ Final follow-up release-candidate evidence, 2026-08-09: after all four interrupt
 | Fresh/reused save matrix | Passed 2026-08-09 | Slot 6 zero isolation, one stack-unit use, capability carryover correction/retest, restart persistence, Duckov-driven delete/reuse, read-only archive, new zero generation, and no cross-slot leak verified |
 | Review-hardening continuity matrix | Passed 2026-08-09 | Active slot-1 fingerprint continuity, inactive slot-6 deletion/reuse, subsequent mismatch rotation, exact read-only one-use archive, new zero generation, clean sessions/logs, and slot-1 isolation verified |
 | Follow-up interrupted-save continuity | Passed 2026-08-09 | Forced save-step interruption preserved generation/totals and recovered once; clean recovery cleared checkpoints; inactive reuse stayed byte-isolated and then archived the exact old generation read-only before a new zero profile |
-| Log and artifact inspection | Passed 2026-08-09 | Original matrices plus forced interruption, recovery, inactive reuse, final archive/current profiles, diagnostics, capabilities, and checkpoint cleanup inspected; no UDS exception or residue |
-| Source committed and pushed | Passed 2026-08-09 | Follow-up save-lineage/deployment implementation is commit `33930c0aa38bb3694a0affc19310fd4659c94081`, authored and committed by `bamboechop <info@bamboechop.at>`, and pushed to `origin/feat/consumable-mvp`; this final acceptance record is included in the subsequent evidence commit |
-| Draft PR current and unmerged | Passed 2026-08-09 | PR #1 remains open, draft, and unmerged; its head, validation summary, 47-test result, interruption/reuse acceptance, and final ZIP checksum were refreshed after the final evidence push |
-| Installable ZIP and SHA-256 | Passed 2026-08-09 | Independently extracted exact five-file folder-rooted ZIP; 45,803 bytes; SHA-256 `7d930422e6e1c7e4b13a3bdd6a1f682e1350edd5448738762807b299eeeec581`; exact matching sidecar ready |
+| Same-process same-slot continuity | Passed 2026-08-09 | Automated same-instance regression and real Duckov same-process selection both preserved generation/totals, consumed the pending proof, retired the prior checkpoint, and recorded no rotation/interruption |
+| Log and artifact inspection | Passed 2026-08-09 | Same-process selection log, diagnostics, current/archive profiles, matching evolved identity, pending/session cleanup, unchanged archive inventory, and slot-1 isolation inspected; no UDS exception or residue |
+| Source committed and pushed | Reopened 2026-08-09 | Same-slot implementation and final manual/release evidence are not yet committed or pushed |
+| Draft PR current and unmerged | Reopened 2026-08-09 | PR #1 must be refreshed after the same-slot gate passes and must remain draft and unmerged |
+| Installable ZIP and SHA-256 | Passed 2026-08-09 | Independently extracted exact five-file folder-rooted ZIP; 45,978 bytes; SHA-256 `283373237ad5e40ae0919a6a608141c4e60528b9b99c4076c4feec678aa62534`; exact matching sidecar ready |
 
 The M0/M1 Goal remains active until every row above passes. Do not merge the PR and do not publish a GitHub release.

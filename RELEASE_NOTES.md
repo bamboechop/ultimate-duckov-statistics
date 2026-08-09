@@ -24,7 +24,7 @@ UDS fingerprints the selected save read-only and stores the fingerprint only in 
 - Overview, Items, and Diagnostics views outside raids, with configurable F8 access.
 - JSON and flattened CSV exports.
 - Atomic profile writes, backup recovery, bounded diagnostics, and generation archives.
-- Read-only SHA-256 and `SaveTime` continuity checks, plus a native pre-save intent checkpoint that distinguishes interrupted normal saves from slot reuse even when Windows creation timestamps remain unchanged.
+- Read-only SHA-256 and `SaveTime` continuity checks, plus a native pre-save intent checkpoint that distinguishes interrupted normal saves from slot reuse even when Windows creation timestamps remain unchanged; same-process selection of the already-open slot preserves that proof until identity comparison while retiring the prior UDS session checkpoint.
 - Future-schema profiles are preserved byte-for-byte in read-only archives and are never downgraded or overwritten.
 - Exact five-file staged deployment replaces stale mod contents and rejects game, Unity, framework, and Harmony assemblies; failure to clean an already-replaced backup cannot roll back the verified new deployment.
 
@@ -37,14 +37,15 @@ UDS fingerprints the selected save read-only and stores the fingerprint only in 
 
 ## Validation
 
-- 47 Release tests pass, including profile-schema safety, interrupted native-save continuity, stale-intent rejection, group/export invariants, committed deployment cleanup failure, and capability carryover.
+- 48 Release tests pass, including profile-schema safety, interrupted native-save continuity, same-instance/same-slot re-selection, stale-intent rejection, group/export invariants, committed deployment cleanup failure, and capability carryover.
 - The native contract probe passes against Duckov `2.3.30`, Steam build `24013657`, and Unity `2022.3.62f2`.
 - The progressed slot-1 matrix passed base exclusion, cancellation exclusion, two-group raid use, amount tracking, F8 raid rejection, restart persistence, and JSON/CSV export inspection.
 - The fresh/reused slot-6 matrix passed zero isolation, stack-unit tracking, restart persistence, Duckov-driven deletion, read-only archival, new-generation zeroing, and cross-slot isolation.
 - The review-hardening continuity gate passed: slot 1 retained its fingerprinted generation across an active restart, UDS remained provably inactive while slot 6 was deleted/reused, and the next active launch archived the old one-use generation read-only and started a fingerprint-matched zero generation without affecting slot 1.
 - The follow-up interruption gate passed: a forced termination immediately after Duckov saved retained two slot-6 uses and the UDS session checkpoint; the next launch reopened the same generation, recovered exactly one interruption, and cleared the pending marker on clean exit. A later inactive delete/reuse left UDS byte-identical, and the following active launch archived that exact two-use generation read-only before starting a separate zero generation.
+- The same-process re-selection gate passed: after a second Aspirin use and normal save, selecting slot 6 again without terminating Duckov retained generation `badb76d6cbb14b44915c2ddaf26ba166`, both uses, and zero interruptions; diagnostics recorded the dedicated same-slot checkpoint close followed by `created=False` and `rotated=False`.
 - The validated installable ZIP contains exactly the five documented package files and no Duckov, Unity, framework, or Harmony DLL.
-- Final `UltimateDuckovStatistics-v0.1.0.zip`: 45,803 bytes, SHA-256 `7d930422e6e1c7e4b13a3bdd6a1f682e1350edd5448738762807b299eeeec581`. The lowercase sidecar matches exactly.
+- Final `UltimateDuckovStatistics-v0.1.0.zip`: 45,978 bytes, SHA-256 `283373237ad5e40ae0919a6a608141c4e60528b9b99c4076c4feec678aa62534`. The lowercase sidecar matches exactly.
 
 ## Known limitations
 

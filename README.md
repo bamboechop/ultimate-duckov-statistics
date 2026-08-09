@@ -23,7 +23,7 @@ Game assemblies are referenced locally with copy-local disabled. They are never 
 
 > **v0.1.0 activation note:** Duckov `2.3.30` does not automatically reactivate persisted local mods on the verified setup with zero Workshop subscriptions. Open **Mods** on every cold launch and check UDS once if its indicator is blank. See [INSTALL.md](INSTALL.md#important-activate-uds-on-every-cold-launch).
 
-UDS fingerprints saves read-only and never modifies them. While active, it records a short-lived pre-save intent in its own external profile from Duckov's public save-collection event, so a normal save completed immediately before a crash can retain the same UDS generation. If a save changes while UDS is inactive, that proof is unavailable and UDS conservatively archives the prior statistics generation rather than risk merging a reused slot.
+UDS fingerprints saves read-only and never modifies them. While active, it records a short-lived pre-save intent in its own external profile from Duckov's public save-collection event, so a normal save completed immediately before a crash or same-process re-selection of the current slot can retain the same UDS generation. If a save changes while UDS is inactive, that proof is unavailable and UDS conservatively archives the prior statistics generation rather than risk merging a reused slot.
 
 ## Development commands
 
