@@ -1,0 +1,19 @@
+# Build outputs
+artifacts/
+bin/
+obj/
+TestResults/
+
+# Local game/tool configuration
+.env
+*.user
+*.suo
+
+# IDEs
+.idea/
+.vs/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db

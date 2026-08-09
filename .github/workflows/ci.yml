@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat/consumable-mvp]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+      - name: Restore game-independent projects
+        run: dotnet restore .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj
+      - name: Test core
+        run: dotnet test .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj -c Release --no-restore --collect:"XPlat Code Coverage"
+      - name: Build contract probe
+        run: dotnet build .\tools\DuckovContractProbe\DuckovContractProbe.csproj -c Release
+
+  source-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject forbidden binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f \( -iname '0Harmony.dll' -o -iname 'TeamSoda.Duckov.Core.dll' -o -iname 'ItemStatsSystem.dll' -o -iname 'Assembly-CSharp.dll' -o -iname 'UnityEngine*.dll' \) -print -quit | grep -q .; then
+            echo 'Forbidden game/Harmony binary is present in the repository.' >&2
+            exit 1
+          fi
