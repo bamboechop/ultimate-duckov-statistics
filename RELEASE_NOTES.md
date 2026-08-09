@@ -49,7 +49,7 @@ The patches do not alter arguments, return values, game state, or Duckov saves. 
 - Previously gameplay-tested deployment: all five hashes matched its then-current audited package and no staging or backup residue remained. The P1 follow-up is validated without redeploying or repeating manual gameplay, as requested.
 - Progressed-save migration preserved the generation and prior usage totals. Gameplay passed exact immediate healing (12 HP), clean delayed healing (30 x 2 HP), partial overheal (0.612381 HP), successful full-health/base use, cancellation, damage interleaving, and unrelated totem regeneration.
 - Restart persistence, final JSON/CSV consistency, and normal-shutdown cleanup passed with exact 6-use/132.61238098144531-HP agreement, matching atomic profiles, and no checkpoint or temporary residue.
-- The prior committed P1 ZIP (64,918 bytes, SHA-256 `a68b503cb8d3a67e1232726de00970f00ecdd0beb3e6e6fec7e7033b45a43c03`) is superseded by the P2 retryable-cleanup follow-up. Committed-head artifact regeneration remains pending.
+- The committed P2 follow-up ZIP is 65,840 bytes with SHA-256 `6790280f3286570dcb52e9ec3c8826bdeb0188f7a696b3af045e1ea8a0785425`; its lowercase sidecar matches an independent extraction and exact five-file audit. Both packaged DLLs embed source commit `c98b874762a14d3ec4c228df305e7a70719f4689`.
 - Draft PR #2 targets `main` and remains unmerged. Final-head CI will be rechecked after the P2 follow-up is pushed.
 
 ## Known limitations
