@@ -27,8 +27,10 @@ public sealed class ProfileRepository
     private readonly Action<string> diagnostic;
     private readonly AtomicJsonStore<ProfileDocument> profileStore = new();
     private readonly AtomicJsonStore<SessionCheckpoint> sessionStore = new();
+    private readonly List<CapabilityRecord> configuredCapabilities = new();
     private ProfileDocument? current;
     private string? currentDirectory;
+    private bool capabilitiesConfigured;
 
     public ProfileRepository(
         string dataRoot,
@@ -104,6 +106,7 @@ public sealed class ProfileRepository
             }
         }
 
+        ApplyConfiguredCapabilities();
         result.InterruptedSessionRecovered = RecoverInterruptedSession();
         StartSession();
         return result;
@@ -125,11 +128,15 @@ public sealed class ProfileRepository
 
     public void SetCapabilities(IEnumerable<CapabilityRecord> capabilities)
     {
-        var profile = Current;
-        profile.Capabilities = capabilities.Select(CloneCapability).ToList();
-        profile.Revision++;
-        profile.UpdatedUtc = EnsureUtc(utcNow());
-        SaveCurrent();
+        if (capabilities == null)
+        {
+            throw new ArgumentNullException(nameof(capabilities));
+        }
+
+        configuredCapabilities.Clear();
+        configuredCapabilities.AddRange(capabilities.Select(CloneCapability));
+        capabilitiesConfigured = true;
+        ApplyConfiguredCapabilities();
     }
 
     public void Rotate(SaveIdentitySnapshot identity, string reason)
@@ -216,8 +223,30 @@ public sealed class ProfileRepository
                 SaveGenerationId = generationId,
                 CreatedUtc = now,
                 UpdatedUtc = now
-            }
+            },
+            Capabilities = capabilitiesConfigured
+                ? configuredCapabilities.Select(CloneCapability).ToList()
+                : new List<CapabilityRecord>()
         };
+    }
+
+    private void ApplyConfiguredCapabilities()
+    {
+        if (!capabilitiesConfigured)
+        {
+            return;
+        }
+
+        var profile = Current;
+        if (CapabilitiesEqual(profile.Capabilities, configuredCapabilities))
+        {
+            return;
+        }
+
+        profile.Capabilities = configuredCapabilities.Select(CloneCapability).ToList();
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        SaveCurrent();
     }
 
     private bool RecoverInterruptedSession()
@@ -351,6 +380,31 @@ public sealed class ProfileRepository
         Version = source.Version,
         Detail = source.Detail
     };
+
+    private static bool CapabilitiesEqual(
+        IReadOnlyList<CapabilityRecord>? stored,
+        IReadOnlyList<CapabilityRecord> configured)
+    {
+        if (stored == null || stored.Count != configured.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < stored.Count; index++)
+        {
+            var left = stored[index];
+            var right = configured[index];
+            if (!string.Equals(left.AdapterId, right.AdapterId, StringComparison.Ordinal)
+                || left.State != right.State
+                || !string.Equals(left.Version, right.Version, StringComparison.Ordinal)
+                || !string.Equals(left.Detail, right.Detail, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private static void ValidateIdentity(SaveIdentitySnapshot identity)
     {

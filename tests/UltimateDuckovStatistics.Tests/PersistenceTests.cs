@@ -98,6 +98,44 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    public void RuntimeCapabilitiesFollowSlotTransitionsAndGenerationRotations()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var ids = new Queue<string>();
+        ids.Enqueue("generation-one");
+        ids.Enqueue("session-one");
+        ids.Enqueue("generation-two");
+        ids.Enqueue("session-two");
+        ids.Enqueue("generation-three");
+        ids.Enqueue("session-three");
+        var repository = CreateRepository(temporaryDirectory.Path, ids);
+        var capabilities = new[]
+        {
+            new CapabilityRecord
+            {
+                AdapterId = "native-item-use",
+                State = AdapterCapabilityState.Supported,
+                Version = "native-item-use/2.3.30",
+                Detail = "public native hooks"
+            }
+        };
+
+        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        repository.SetCapabilities(capabilities);
+        Assert.Equal("native-item-use", Assert.Single(repository.Current.Capabilities).AdapterId);
+
+        repository.Open(CreateIdentity(slot: 2, creationTicks: 200), "SaveSlotSelected");
+        Assert.Equal("native-item-use", Assert.Single(repository.Current.Capabilities).AdapterId);
+
+        repository.Rotate(CreateIdentity(slot: 2, creationTicks: 200), "DuckovNewGame");
+        var rotatedCapability = Assert.Single(repository.Current.Capabilities);
+        Assert.Equal(AdapterCapabilityState.Supported, rotatedCapability.State);
+        Assert.Equal("native-item-use/2.3.30", rotatedCapability.Version);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     public void ReusedSaveSlotArchivesOldGenerationReadOnlyAndStartsAtZero()
     {
         using var temporaryDirectory = new TemporaryDirectory();

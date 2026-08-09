@@ -32,6 +32,12 @@ dotnet test .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Test
 dotnet build .\src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj -c Release --no-restore
 ```
 
+Create the validated installable ZIP and SHA-256 sidecar with:
+
+```powershell
+.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.1.0
+```
+
 See [INSTALL.md](INSTALL.md) for installation and compatibility details.
 
 ## License
