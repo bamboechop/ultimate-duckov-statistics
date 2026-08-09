@@ -126,11 +126,27 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 2)
+        {
+            profile.SchemaVersion = 2;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 2)
+        {
+            profile.Statistics.SchemaVersion = 2;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
             changed = true;
         }
+
+        // Repair schema-2 pre-release profiles written before delayed healing
+        // buffs were promoted to the canonical Healing group.
+        changed |= ProfileGroupReconciler.PromoteProvenHealingItems(profile.Statistics);
 
         return changed;
     }

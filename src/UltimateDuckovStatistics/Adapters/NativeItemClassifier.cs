@@ -26,8 +26,10 @@ internal static class NativeItemClassifier
                     result.AppliesFoodEnergy |= foodDrink.energyValue != 0;
                     result.AppliesDrinkHydration |= foodDrink.waterValue != 0;
                     break;
-                case AddBuff:
+                case AddBuff addBuff:
                     result.AppliesBuff = true;
+                    result.AppliesPositiveHealing |= addBuff.buffPrefab != null
+                                                     && addBuff.buffPrefab.GetComponentInChildren<HealAction>(true) != null;
                     break;
                 case RemoveBuff:
                     result.RemovesDebuff = true;

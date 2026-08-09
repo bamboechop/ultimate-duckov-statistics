@@ -123,6 +123,7 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label($"{UiText.Get("ui.save_slot")}: {profile.Slot.ToString(CultureInfo.InvariantCulture)}");
         GUILayout.Label($"{UiText.Get("ui.generation")}: {profile.GenerationId}");
         GUILayout.Label($"{UiText.Get("ui.total_uses")}: {profile.Statistics.Overall.ActivationCount.ToString(CultureInfo.InvariantCulture)}");
+        GUILayout.Label($"{UiText.Get("ui.actual_hp")}: {FormatHealing(profile.Statistics.Overall)}");
         GUILayout.Label($"{UiText.Get("ui.amount")}: {FormatAmounts(profile.Statistics.Overall)}");
         GUILayout.Label($"{UiText.Get("ui.interrupted_sessions")}: {profile.InterruptedSessionCount.ToString(CultureInfo.InvariantCulture)}");
         GUILayout.Space(12);
@@ -131,7 +132,7 @@ internal sealed class NativeStatisticsPanel
         {
             GUILayout.Label(
                 $"{group.Key}: {group.Value.ActivationCount.ToString(CultureInfo.InvariantCulture)} " +
-                $"({FormatAmounts(group.Value)})");
+                $"({FormatAmounts(group.Value)}; {FormatHealing(group.Value)} HP)");
         }
     }
 
@@ -154,6 +155,7 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label(UiText.Get("ui.item_name"), GUILayout.Width(250));
         GUILayout.Label(UiText.Get("ui.group"), GUILayout.Width(170));
         GUILayout.Label(UiText.Get("ui.activations"), GUILayout.Width(90));
+        GUILayout.Label(UiText.Get("ui.actual_hp"), GUILayout.Width(120));
         GUILayout.Label(UiText.Get("ui.amount"));
         GUILayout.EndHorizontal();
         itemScroll = GUILayout.BeginScrollView(itemScroll);
@@ -165,6 +167,7 @@ internal sealed class NativeStatisticsPanel
             GUILayout.Label(item.DisplayName, GUILayout.Width(250));
             GUILayout.Label(item.Group.ToString(), GUILayout.Width(170));
             GUILayout.Label(item.Totals.ActivationCount.ToString(CultureInfo.InvariantCulture), GUILayout.Width(90));
+            GUILayout.Label(FormatHealing(item.Totals), GUILayout.Width(120));
             GUILayout.Label(FormatAmounts(item.Totals));
             GUILayout.EndHorizontal();
         }
@@ -184,6 +187,10 @@ internal sealed class NativeStatisticsPanel
             foreach (var capability in profile.Capabilities)
             {
                 GUILayout.Label($"{capability.AdapterId}: {capability.State} ({capability.Version})");
+                if (!string.IsNullOrWhiteSpace(capability.Detail))
+                {
+                    GUILayout.Label($"  {capability.Detail}");
+                }
             }
         }
 
@@ -317,6 +324,9 @@ internal sealed class NativeStatisticsPanel
                 .OrderBy(entry => entry.Key, StringComparer.Ordinal)
                 .Select(entry => $"{entry.Value.ToString("0.###", CultureInfo.InvariantCulture)} {entry.Key}"));
     }
+
+    private static string FormatHealing(AggregateTotals totals) =>
+        totals.ActualHealthRestored.ToString("0.###", CultureInfo.InvariantCulture);
 
     private enum PanelTab
     {

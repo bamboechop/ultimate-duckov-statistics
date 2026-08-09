@@ -11,6 +11,7 @@ internal static class UiText
             ["ui.items"] = "Items",
             ["ui.diagnostics"] = "Diagnostics",
             ["ui.total_uses"] = "Successful raid uses",
+            ["ui.actual_hp"] = "Actual HP restored",
             ["ui.save_slot"] = "Save slot",
             ["ui.generation"] = "UDS generation",
             ["ui.interrupted_sessions"] = "Interrupted sessions recovered",
@@ -36,7 +37,7 @@ internal static class UiText
             ["ui.export_complete"] = "Export complete",
             ["ui.export_failed"] = "Export failed; see Diagnostics and Player.log.",
             ["ui.reset_complete"] = "UDS profile reset; prior generation archived read-only.",
-            ["ui.integrity_note"] = "Only successful raid uses count. Base, cancelled, interrupted, and failed uses do not count.",
+            ["ui.integrity_note"] = "Only successful raid uses count. Healing is actual HP restored to the main duck; overheal, base, unrelated regeneration, and failed uses are excluded.",
             ["ui.open_hint"] = "Press the configured hotkey outside raids to show or hide this panel."
         };
 

@@ -9,6 +9,10 @@ using System.Text.RegularExpressions;
 const string expectedGameVersion = "2.3.30";
 const string expectedSteamBuild = "24013657";
 const string expectedUnityVersion = "2022.3.62f2";
+var minimumHarmonyVersion = new Version(2, 4, 1, 0);
+string[] healthAddParameters = ["System.Single"];
+string[] buffAddParameters = ["Duckov.Buffs.Buff", "CharacterMainControl", "System.Int32"];
+string[] effectTriggerParameters = ["ItemStatsSystem.EffectTriggerEventContext"];
 
 if (args.Length != 1 || string.IsNullOrWhiteSpace(args[0]))
 {
@@ -41,6 +45,22 @@ try
     }
     AssertEqual("Steam build", expectedSteamBuild, buildMatch.Groups["id"].Value);
 
+    var harmonyPath = Path.Combine(
+        steamApps,
+        "workshop",
+        "content",
+        "3167020",
+        "3589088839",
+        "0Harmony.dll");
+    RequireFile(harmonyPath);
+    var harmonyVersion = AssemblyName.GetAssemblyName(harmonyPath).Version ?? new Version(0, 0);
+    if (harmonyVersion < minimumHarmonyVersion)
+    {
+        throw new ContractException(
+            $"HarmonyLib version mismatch. Required at least '{minimumHarmonyVersion}', found '{harmonyVersion}'.");
+    }
+    VerifyHarmonyReflectionContract(harmonyPath);
+
     var globalGameManagersPath = Path.Combine(gameRoot, "Duckov_Data", "globalgamemanagers");
     RequireFile(globalGameManagersPath);
     var globalGameManagersText = Encoding.ASCII.GetString(File.ReadAllBytes(globalGameManagersPath));
@@ -68,10 +88,31 @@ try
         core.RequireProperty(string.Empty, "LevelManager", "IsRaidMap");
         core.RequireProperty(string.Empty, "LevelManager", "IsBaseLevel");
         core.RequireMethod(string.Empty, "LevelManager", "GetCurrentLevelInfo", parameterCount: 0);
+        core.RequireMethod(
+            string.Empty,
+            "Health",
+            "AddHealth",
+            parameterCount: 1,
+            mustBePublic: true,
+            returnTypeFragment: "System.Void",
+            parameterTypeFragments: healthAddParameters);
+        core.RequireProperty(string.Empty, "Health", "CurrentHealth", "System.Single");
+        core.RequireProperty(string.Empty, "Health", "MaxHealth", "System.Single");
+        core.RequireProperty(string.Empty, "Health", "IsMainCharacterHealth", "System.Boolean");
+        core.RequireMethod(
+            "Duckov.Buffs",
+            "CharacterBuffManager",
+            "AddBuff",
+            parameterCount: 3,
+            mustBePublic: true,
+            returnTypeFragment: "System.Void",
+            parameterTypeFragments: buffAddParameters);
 
         core.RequireType("Duckov.ItemUsage", "Drug");
         core.RequireType("Duckov.ItemUsage", "FoodDrink");
         core.RequireType("Duckov.ItemUsage", "AddBuff");
+        core.RequireField("Duckov.ItemUsage", "AddBuff", "buffPrefab");
+        core.RequireType(string.Empty, "HealAction");
         core.RequireType("Duckov.ItemUsage", "RemoveBuff");
         core.RequireType("Duckov.ItemUsage", "SpawnEgg");
     }
@@ -81,6 +122,14 @@ try
         itemStats.RequireEvent("ItemStatsSystem", "UsageUtilities", "OnItemUsedStaticEvent", "System.Action", "ItemStatsSystem.Item");
         itemStats.RequireEvent("ItemStatsSystem", "Item", "onUseStatic", "System.Action", "ItemStatsSystem.Item", "System.Object");
         itemStats.RequireField("ItemStatsSystem", "UsageUtilities", "behaviors");
+        itemStats.RequireMethod(
+            "ItemStatsSystem",
+            "EffectAction",
+            "NotifyTriggered",
+            parameterCount: 1,
+            mustBeAssembly: true,
+            returnTypeFragment: "System.Void",
+            parameterTypeFragments: effectTriggerParameters);
 
         foreach (var property in new[]
                  {
@@ -96,7 +145,8 @@ try
     Console.WriteLine($"  Unity: {unityMatch.Value}");
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
-    Console.WriteLine("  Native loader, lifecycle, raid/save events, and item-use correlation hooks are present.");
+    Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
+    Console.WriteLine("  Native loader, lifecycle, item-use, and exact healing-attribution hooks are present.");
     return 0;
 }
 catch (ContractException exception)
@@ -152,6 +202,65 @@ static string HashFile(string path)
     return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
 }
 
+static void VerifyHarmonyReflectionContract(string harmonyPath)
+{
+    var assembly = Assembly.LoadFrom(harmonyPath);
+    var harmonyType = assembly.GetType("HarmonyLib.Harmony", throwOnError: true)!;
+    var harmonyMethodType = assembly.GetType("HarmonyLib.HarmonyMethod", throwOnError: true)!;
+    var patchesType = assembly.GetType("HarmonyLib.Patches", throwOnError: true)!;
+    var patchType = assembly.GetType("HarmonyLib.Patch", throwOnError: true)!;
+    var patchMethod = harmonyType.GetMethod(
+        "Patch",
+        BindingFlags.Instance | BindingFlags.Public,
+        binder: null,
+        [typeof(MethodBase), harmonyMethodType, harmonyMethodType, harmonyMethodType, harmonyMethodType],
+        modifiers: null);
+    var unpatchAllMethod = harmonyType.GetMethod(
+        "UnpatchAll",
+        BindingFlags.Instance | BindingFlags.Public,
+        binder: null,
+        [typeof(string)],
+        modifiers: null);
+    var getPatchInfoMethod = harmonyType.GetMethod(
+        "GetPatchInfo",
+        BindingFlags.Static | BindingFlags.Public,
+        binder: null,
+        [typeof(MethodBase)],
+        modifiers: null);
+    var prefixesMember = FindPublicInstanceMember(patchesType, "Prefixes");
+    var postfixesMember = FindPublicInstanceMember(patchesType, "Postfixes");
+    var transpilersMember = FindPublicInstanceMember(patchesType, "Transpilers");
+    var finalizersMember = FindPublicInstanceMember(patchesType, "Finalizers");
+    var ownerMember = patchType.GetProperty("owner", BindingFlags.Instance | BindingFlags.Public)
+                      as MemberInfo
+                      ?? patchType.GetField("owner", BindingFlags.Instance | BindingFlags.Public);
+    var patchMethodProperty = patchType.GetProperty(
+        "PatchMethod",
+        BindingFlags.Instance | BindingFlags.Public);
+    var priorityField = harmonyMethodType.GetField("priority", BindingFlags.Instance | BindingFlags.Public);
+    var harmonyConstructor = harmonyType.GetConstructor([typeof(string)]);
+    var harmonyMethodConstructor = harmonyMethodType.GetConstructor([typeof(MethodInfo)]);
+    if (harmonyConstructor == null
+        || harmonyMethodConstructor == null
+        || patchMethod == null
+        || unpatchAllMethod == null
+        || getPatchInfoMethod == null
+        || prefixesMember == null
+        || postfixesMember == null
+        || transpilersMember == null
+        || finalizersMember == null
+        || ownerMember == null
+        || patchMethodProperty?.PropertyType != typeof(MethodInfo)
+        || priorityField?.FieldType != typeof(int))
+    {
+        throw new ContractException("HarmonyLib reflection API required by UDS is missing or changed.");
+    }
+}
+
+static MemberInfo? FindPublicInstanceMember(Type type, string name) =>
+    type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public)
+    ?? type.GetField(name, BindingFlags.Instance | BindingFlags.Public) as MemberInfo;
+
 internal sealed class ContractException : Exception
 {
     public ContractException(string message)
@@ -196,7 +305,11 @@ internal sealed class AssemblyMetadata : IDisposable
         string methodName,
         int parameterCount,
         bool mustBeFamily = false,
-        bool mustBeVirtual = false)
+        bool mustBeVirtual = false,
+        bool mustBePublic = false,
+        bool mustBeAssembly = false,
+        string? returnTypeFragment = null,
+        string[]? parameterTypeFragments = null)
     {
         var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
         foreach (var handle in type.GetMethods())
@@ -213,7 +326,34 @@ internal sealed class AssemblyMetadata : IDisposable
                 continue;
             }
 
+            if (returnTypeFragment != null
+                && !signature.ReturnType.Contains(returnTypeFragment, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (parameterTypeFragments != null
+                && (parameterTypeFragments.Length != signature.ParameterTypes.Length
+                    || parameterTypeFragments.Where(
+                            (fragment, index) => !signature.ParameterTypes[index].Contains(
+                                fragment,
+                                StringComparison.Ordinal))
+                        .Any()))
+            {
+                continue;
+            }
+
             if (mustBeFamily && (method.Attributes & MethodAttributes.MemberAccessMask) != MethodAttributes.Family)
+            {
+                continue;
+            }
+
+            if (mustBePublic && (method.Attributes & MethodAttributes.MemberAccessMask) != MethodAttributes.Public)
+            {
+                continue;
+            }
+
+            if (mustBeAssembly && (method.Attributes & MethodAttributes.MemberAccessMask) != MethodAttributes.Assembly)
             {
                 continue;
             }
@@ -229,13 +369,21 @@ internal sealed class AssemblyMetadata : IDisposable
         throw new ContractException($"Required method not found: {@namespace}.{typeName}.{methodName}({parameterCount} parameter(s)).");
     }
 
-    public void RequireProperty(string @namespace, string typeName, string propertyName)
+    public void RequireProperty(
+        string @namespace,
+        string typeName,
+        string propertyName,
+        string? propertyTypeFragment = null)
     {
         var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
         foreach (var handle in type.GetProperties())
         {
             var property = reader.GetPropertyDefinition(handle);
-            if (string.Equals(reader.GetString(property.Name), propertyName, StringComparison.Ordinal))
+            if (string.Equals(reader.GetString(property.Name), propertyName, StringComparison.Ordinal)
+                && (propertyTypeFragment == null
+                    || property.DecodeSignature(typeProvider, reader).ReturnType.Contains(
+                        propertyTypeFragment,
+                        StringComparison.Ordinal)))
             {
                 return;
             }

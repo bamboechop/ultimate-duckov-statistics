@@ -39,6 +39,7 @@ A version change triggers compatibility checks, not an automatic global shutdown
 
 - The repository is public from the beginning.
 - `v0.1.0` is a GitHub pre-release containing the consumable-usage MVP.
+- `v0.2.0` is a GitHub pre-release containing M2 healing attribution after its manual acceptance matrix passes.
 - No Steam Workshop upload in v0.1.
 - Release artifact includes the installable ZIP, SHA-256 checksum, installation instructions, compatibility information, and known limitations.
 - No Duckov assemblies or bundled Harmony assembly may appear in the package.
@@ -254,7 +255,7 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Repository, solution, native `ModBehaviour`, diagnostics, local references, build, package, deploy, load/unload smoke test.
 2. **M1 — Consumable usage MVP (`v0.1.0`)**
     - Successful raid item uses, canonical groups, per-item/group/total tables, amount consumed, persistence, UI, exports.
-3. **M2 — Healing attribution**
+3. **M2 — Healing attribution (`v0.2.0`)**
     - Actual HP restored, delayed effects, overheal exclusion, item attribution.
 4. **M3 — Run lifecycle and movement**
     - Run summaries, active timers, extraction/death/interruption, records, maps, physical/teleport distance.

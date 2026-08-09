@@ -11,8 +11,9 @@ internal sealed class NativeItemUseAdapter : IDisposable
     internal const string AdapterVersion = "native-item-use/2.3.30";
     private static readonly TimeSpan PendingLifetime = TimeSpan.FromMinutes(2);
     private readonly Func<string> saveGenerationIdProvider;
-    private readonly Action<ItemUseCompletion> completionHandler;
+    private readonly Func<ItemUseCompletion, bool> completionHandler;
     private readonly Action<string> diagnosticHandler;
+    private readonly IHealingAttributionObserver? healingObserver;
     private readonly ItemUseCorrelator correlator;
     private readonly SubscriptionGate subscriptionGate = new();
     private readonly NativeRaidContext raidContext = new();
@@ -20,13 +21,15 @@ internal sealed class NativeItemUseAdapter : IDisposable
 
     public NativeItemUseAdapter(
         Func<string> saveGenerationIdProvider,
-        Action<ItemUseCompletion> completionHandler,
-        Action<string> diagnosticHandler)
+        Func<ItemUseCompletion, bool> completionHandler,
+        Action<string> diagnosticHandler,
+        IHealingAttributionObserver? healingObserver = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.completionHandler = completionHandler ?? throw new ArgumentNullException(nameof(completionHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.healingObserver = healingObserver;
         correlator = new ItemUseCorrelator(() => Guid.NewGuid().ToString("N"));
     }
 
@@ -40,6 +43,7 @@ internal sealed class NativeItemUseAdapter : IDisposable
             return;
         }
 
+        CharacterMainControl.OnMainCharacterStartUseItem += OnMainPlayerUseStarted;
         Item.onUseStatic += OnUseStarted;
         UsageUtilities.OnItemUsedStaticEvent += OnUsageSucceeded;
         CA_UseItem.OnItemUsedByPlayer += OnMainPlayerUseCompleted;
@@ -56,9 +60,15 @@ internal sealed class NativeItemUseAdapter : IDisposable
         }
 
         var expired = correlator.ExpireBefore(nowUtc.Subtract(PendingLifetime));
+        var expiredHealing = healingObserver?.ExpirePendingBefore(nowUtc.Subtract(PendingLifetime)) ?? 0;
         if (expired > 0)
         {
             diagnosticHandler($"Expired {expired} incomplete item-use correlation(s) without counting them.");
+        }
+
+        if (expiredHealing > 0 && expiredHealing != expired)
+        {
+            diagnosticHandler($"Expired {expiredHealing} incomplete healing-attribution context(s).");
         }
 
         nextExpiryUtc = nowUtc.AddSeconds(30);
@@ -67,6 +77,7 @@ internal sealed class NativeItemUseAdapter : IDisposable
     public void ResetPending()
     {
         correlator.Clear();
+        healingObserver?.Reset();
         diagnosticHandler("Pending item-use correlations cleared for a profile transition.");
     }
 
@@ -77,12 +88,32 @@ internal sealed class NativeItemUseAdapter : IDisposable
             return;
         }
 
+        CharacterMainControl.OnMainCharacterStartUseItem -= OnMainPlayerUseStarted;
         Item.onUseStatic -= OnUseStarted;
         UsageUtilities.OnItemUsedStaticEvent -= OnUsageSucceeded;
         CA_UseItem.OnItemUsedByPlayer -= OnMainPlayerUseCompleted;
         raidContext.Dispose();
         correlator.Clear();
+        healingObserver?.Reset();
         diagnosticHandler("Native item-use hooks unsubscribed.");
+    }
+
+    private void OnMainPlayerUseStarted(Item item)
+    {
+        try
+        {
+            if (ReferenceEquals(item, null))
+            {
+                return;
+            }
+
+            BeginUse(item, replaceExisting: true);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            diagnosticHandler($"Failed to prepare item-use correlation: {exception.GetType().Name}");
+        }
     }
 
     private void OnUseStarted(Item item, object user)
@@ -96,36 +127,8 @@ internal sealed class NativeItemUseAdapter : IDisposable
                 return;
             }
 
-            var generationId = saveGenerationIdProvider();
-            if (string.IsNullOrWhiteSpace(generationId))
-            {
-                diagnosticHandler("Item use ignored because no save generation is active.");
-                return;
-            }
-
-            var typeId = item.TypeID;
-            var displayName = ReadDisplayName(item, typeId);
-            correlator.Begin(new ItemUseSnapshot
-            {
-                RuntimeItemId = item.GetInstanceID(),
-                ItemId = $"duckov:item:{typeId.ToString(CultureInfo.InvariantCulture)}",
-                DisplayName = displayName,
-                Classification = NativeItemClassifier.Describe(item),
-                Stackable = item.Stackable,
-                StackCount = item.StackCount,
-                UsesDurability = item.UseDurability,
-                Durability = item.Durability,
-                TimestampUtc = DateTime.UtcNow,
-                SaveGenerationId = generationId,
-                RunId = raidContext.CurrentRunId,
-                MapId = NativeRaidContext.GetMapId(),
-                GameVersion = Application.version ?? string.Empty,
-                GameBuild = "24013657",
-                GameplayContext = NativeRaidContext.GetGameplayContext(),
-                IntegrityTags = NativeIntegrityProbe.Read(),
-                AdapterCapability = AdapterCapabilityState.Supported,
-                AdapterVersion = AdapterVersion
-            });
+            BeginUse(item, replaceExisting: false);
+            healingObserver?.BeginApplication(item.GetInstanceID());
         }
         catch (Exception exception)
         {
@@ -136,6 +139,7 @@ internal sealed class NativeItemUseAdapter : IDisposable
 
     private void OnUsageSucceeded(Item item)
     {
+        int? runtimeItemId = null;
         try
         {
             if (ReferenceEquals(item, null))
@@ -143,15 +147,27 @@ internal sealed class NativeItemUseAdapter : IDisposable
                 return;
             }
 
-            if (!correlator.MarkSuccessful(item.GetInstanceID(), item.Durability))
+            runtimeItemId = item.GetInstanceID();
+            if (!correlator.MarkSuccessful(runtimeItemId.Value, item.Durability))
             {
                 diagnosticHandler("Successful item-use hook had no main-player pre-use correlation; ignored.");
+            }
+            else
+            {
+                healingObserver?.MarkSuccessful(runtimeItemId.Value);
             }
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
             diagnosticHandler($"Failed to mark item use successful: {exception.GetType().Name}");
+        }
+        finally
+        {
+            if (runtimeItemId.HasValue)
+            {
+                healingObserver?.EndApplication(runtimeItemId.Value);
+            }
         }
     }
 
@@ -164,18 +180,61 @@ internal sealed class NativeItemUseAdapter : IDisposable
                 return;
             }
 
+            var runtimeItemId = item.GetInstanceID();
             var result = correlator.CompleteByMainPlayer(
-                item.GetInstanceID(),
+                runtimeItemId,
                 TryReadFinalStack(item),
                 TryReadFinalDurability(item),
                 DateTime.UtcNow);
-            completionHandler(result);
+            var persisted = completionHandler(result);
+            healingObserver?.CompleteUse(runtimeItemId, persisted ? result.NormalizedEvent : null);
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
             diagnosticHandler($"Failed to complete item-use correlation: {exception.GetType().Name}");
         }
+    }
+
+    private void BeginUse(Item item, bool replaceExisting)
+    {
+        var runtimeItemId = item.GetInstanceID();
+        if (!replaceExisting && correlator.Contains(runtimeItemId))
+        {
+            return;
+        }
+
+        var generationId = saveGenerationIdProvider();
+        if (string.IsNullOrWhiteSpace(generationId))
+        {
+            diagnosticHandler("Item use ignored because no save generation is active.");
+            return;
+        }
+
+        var typeId = item.TypeID;
+        var snapshot = new ItemUseSnapshot
+        {
+            RuntimeItemId = runtimeItemId,
+            ItemId = $"duckov:item:{typeId.ToString(CultureInfo.InvariantCulture)}",
+            DisplayName = ReadDisplayName(item, typeId),
+            Classification = NativeItemClassifier.Describe(item),
+            Stackable = item.Stackable,
+            StackCount = item.StackCount,
+            UsesDurability = item.UseDurability,
+            Durability = item.Durability,
+            TimestampUtc = DateTime.UtcNow,
+            SaveGenerationId = generationId,
+            RunId = raidContext.CurrentRunId,
+            MapId = NativeRaidContext.GetMapId(),
+            GameVersion = Application.version ?? string.Empty,
+            GameBuild = "24013657",
+            GameplayContext = NativeRaidContext.GetGameplayContext(),
+            IntegrityTags = NativeIntegrityProbe.Read(),
+            AdapterCapability = AdapterCapabilityState.Supported,
+            AdapterVersion = AdapterVersion
+        };
+        correlator.Begin(snapshot);
+        healingObserver?.BeginUse(snapshot);
     }
 
     private static int? TryReadFinalStack(Item item)

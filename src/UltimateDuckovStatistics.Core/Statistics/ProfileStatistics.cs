@@ -39,6 +39,9 @@ public sealed class AggregateTotals
 
     [DataMember(Order = 2)]
     public Dictionary<string, double> AmountsByUnit { get; set; } = new(StringComparer.Ordinal);
+
+    [DataMember(Order = 3)]
+    public double ActualHealthRestored { get; set; }
 }
 
 [DataContract]

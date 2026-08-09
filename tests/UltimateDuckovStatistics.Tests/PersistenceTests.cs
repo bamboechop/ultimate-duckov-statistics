@@ -74,6 +74,176 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    public void RepositoryMigratesEveryV01AggregateWithoutLosingUsageStatistics()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var legacy = CreateDocument("generation-v01", revision: 12);
+        legacy.SchemaVersion = 1;
+        legacy.Statistics.SchemaVersion = 1;
+        legacy.Statistics.Overall.ActivationCount = 3;
+        legacy.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)] = 3;
+        legacy.Statistics.Items["item:a"] = new()
+        {
+            ItemId = "item:a",
+            DisplayName = "Legacy medkit",
+            Group = CanonicalItemGroup.Healing,
+            Totals = new()
+            {
+                ActivationCount = 3,
+                AmountsByUnit = new() { [nameof(ConsumptionUnit.StackUnit)] = 3 }
+            }
+        };
+        legacy.Statistics.Groups[nameof(CanonicalItemGroup.Healing)] = new()
+        {
+            ActivationCount = 3,
+            AmountsByUnit = new() { [nameof(ConsumptionUnit.StackUnit)] = 3 }
+        };
+        new AtomicJsonStore<ProfileDocument>().Save(path, legacy);
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.MigratedSchema);
+        Assert.Equal(2, repository.Current.SchemaVersion);
+        Assert.Equal(2, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
+        Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
+        Assert.Equal(3, repository.Current.Statistics.Items["item:a"].Totals.ActivationCount);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Healing")]
+    public void RepositoryRepairsPreReleaseDelayedHealingGroupWithoutChangingGenerationOrTotals()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var profile = CreateDocument("generation-schema-2", revision: 58);
+        profile.Statistics.Overall.ActivationCount = 2;
+        profile.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.Durability)] = 50;
+        profile.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)] = 1;
+        profile.Statistics.Overall.ActualHealthRestored = 60;
+        profile.Statistics.Items["item:water"] = new()
+        {
+            ItemId = "item:water",
+            DisplayName = "Water",
+            Group = CanonicalItemGroup.Drink,
+            EffectTags = new List<ItemEffectTag> { ItemEffectTag.Drink },
+            Totals = new()
+            {
+                ActivationCount = 1,
+                AmountsByUnit = new() { [nameof(ConsumptionUnit.Durability)] = 50 }
+            }
+        };
+        profile.Statistics.Items["item:injector"] = new()
+        {
+            ItemId = "item:injector",
+            DisplayName = "Recovery Injector",
+            Group = CanonicalItemGroup.Drink,
+            EffectTags = new List<ItemEffectTag> { ItemEffectTag.Drink, ItemEffectTag.Buff },
+            Totals = new()
+            {
+                ActivationCount = 1,
+                AmountsByUnit = new() { [nameof(ConsumptionUnit.StackUnit)] = 1 },
+                ActualHealthRestored = 60
+            }
+        };
+        profile.Statistics.Groups[nameof(CanonicalItemGroup.Drink)] = new()
+        {
+            ActivationCount = 2,
+            AmountsByUnit = new()
+            {
+                [nameof(ConsumptionUnit.Durability)] = 50,
+                [nameof(ConsumptionUnit.StackUnit)] = 1
+            },
+            ActualHealthRestored = 60
+        };
+        new AtomicJsonStore<ProfileDocument>().Save(path, profile);
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.MigratedSchema);
+        Assert.Equal("generation-schema-2", repository.Current.GenerationId);
+        Assert.Equal(2, repository.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(60, repository.Current.Statistics.Overall.ActualHealthRestored);
+        var injector = repository.Current.Statistics.Items["item:injector"];
+        Assert.Equal(CanonicalItemGroup.Healing, injector.Group);
+        Assert.Contains(ItemEffectTag.Healing, injector.EffectTags);
+        Assert.Equal(1, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Drink)].ActivationCount);
+        Assert.Equal(0, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Drink)].ActualHealthRestored);
+        Assert.Equal(1, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Healing)].ActivationCount);
+        Assert.Equal(60, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Healing)].ActualHealthRestored);
+        Assert.Equal(
+            repository.Current.Statistics.Overall.ActivationCount,
+            repository.Current.Statistics.Groups.Values.Sum(group => group.ActivationCount));
+        Assert.Equal(
+            repository.Current.Statistics.Overall.ActualHealthRestored,
+            repository.Current.Statistics.Groups.Values.Sum(group => group.ActualHealthRestored));
+        repository.CloseClean();
+
+        var persisted = new AtomicJsonStore<ProfileDocument>().Load(path).Value!;
+        Assert.Equal("generation-schema-2", persisted.GenerationId);
+        Assert.Equal(CanonicalItemGroup.Healing, persisted.Statistics.Items["item:injector"].Group);
+        Assert.Equal(60, persisted.Statistics.Overall.ActualHealthRestored);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void RepositoryRecoversAndMigratesV01BackupSnapshot()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var legacy = CreateDocument("generation-v01-backup", revision: 8);
+        legacy.SchemaVersion = 1;
+        legacy.Statistics.SchemaVersion = 1;
+        legacy.Statistics.Overall.ActivationCount = 2;
+        store.Save(path, legacy);
+        store.Save(path, CreateDocument("generation-discarded", revision: 9));
+        File.WriteAllText(path, "{ corrupt-primary");
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.True(result.MigratedSchema);
+        Assert.Equal(ProductInfo.SchemaVersion, repository.Current.SchemaVersion);
+        Assert.Equal("generation-v01-backup", repository.Current.GenerationId);
+        Assert.Equal(2, repository.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void RepositoryRecoversAndMigratesV01TemporarySnapshot()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var legacy = CreateDocument("generation-v01-temporary", revision: 6);
+        legacy.SchemaVersion = 1;
+        legacy.Statistics.SchemaVersion = 1;
+        legacy.Statistics.Overall.ActivationCount = 4;
+        new AtomicJsonStore<ProfileDocument>().Save(AtomicJsonPaths.GetTemporaryPath(path), legacy);
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.True(result.MigratedSchema);
+        Assert.Equal(ProductInfo.SchemaVersion, repository.Current.SchemaVersion);
+        Assert.Equal("generation-v01-temporary", repository.Current.GenerationId);
+        Assert.Equal(4, repository.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     public void RepositoryNormalizesMissingLegacyFieldsBeforeIdentityChecks()
     {
         using var temporaryDirectory = new TemporaryDirectory();
@@ -243,6 +413,7 @@ public sealed class PersistenceTests
         var first = CreateRepository(temporaryDirectory.Path, firstIds);
         first.Open(CreateIdentity(slot: 1, creationTicks: 100));
         first.Record(CreateUse("event-one", "generation-old"));
+        first.Record(CreateHealing("healing-one", "event-one", "generation-old", 12.5));
         var firstGenerationDirectory = System.IO.Path.GetDirectoryName(first.CurrentProfilePath)!;
         new DiagnosticStore(
             System.IO.Path.Combine(firstGenerationDirectory, "diagnostics.json"),
@@ -259,6 +430,7 @@ public sealed class PersistenceTests
         Assert.True(result.RotatedGeneration);
         Assert.Equal("generation-new", second.Current.GenerationId);
         Assert.Equal(0, second.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(0, second.Current.Statistics.Overall.ActualHealthRestored);
         var archive = Assert.Single(Directory.EnumerateDirectories(
             System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "archives")));
         Assert.Contains("generation-old", archive, StringComparison.Ordinal);
@@ -269,6 +441,9 @@ public sealed class PersistenceTests
         Assert.Equal(
             "old-generation evidence",
             Assert.Single(new AtomicJsonStore<DiagnosticsDocument>().Load(archivedDiagnostics).Value!.Entries).Message);
+        var archived = new AtomicJsonStore<ProfileDocument>().Load(archivedProfile).Value!;
+        Assert.Equal(1, archived.Statistics.Overall.ActivationCount);
+        Assert.Equal(12.5, archived.Statistics.Overall.ActualHealthRestored, precision: 6);
         second.CloseClean();
     }
 
@@ -502,6 +677,7 @@ public sealed class PersistenceTests
         var first = CreateRepository(temporaryDirectory.Path, firstIds);
         first.Open(CreateIdentity(slot: 1, creationTicks: 100));
         first.Record(CreateUse("event-one", "generation-a"));
+        first.Record(CreateHealing("healing-one", "event-one", "generation-a", 9));
 
         var secondIds = new Queue<string>();
         secondIds.Enqueue("session-b");
@@ -511,6 +687,7 @@ public sealed class PersistenceTests
         Assert.True(result.InterruptedSessionRecovered);
         Assert.Equal(1, second.Current.InterruptedSessionCount);
         Assert.Equal(1, second.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(9, second.Current.Statistics.Overall.ActualHealthRestored, precision: 6);
         second.CloseClean();
 
         var thirdIds = new Queue<string>();
@@ -615,5 +792,23 @@ public sealed class PersistenceTests
         ActivationCount = 1,
         AmountConsumed = 1,
         ConsumptionUnit = ConsumptionUnit.Item
+    };
+
+    private static HealingApplied CreateHealing(
+        string eventId,
+        string sourceItemUseEventId,
+        string generationId,
+        double amount) => new()
+    {
+        EventId = eventId,
+        ApplicationId = $"application-{eventId}",
+        SourceItemUseEventId = sourceItemUseEventId,
+        TimestampUtc = TestTime,
+        SaveGenerationId = generationId,
+        GameplayContext = GameplayContext.Raid,
+        ItemId = "duckov:item:42",
+        DisplayName = "Test item",
+        Group = CanonicalItemGroup.Healing,
+        ActualHealthRestored = amount
     };
 }
