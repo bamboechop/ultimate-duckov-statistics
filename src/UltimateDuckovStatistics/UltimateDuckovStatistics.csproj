@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>UltimateDuckovStatistics</AssemblyName>
+    <RootNamespace>UltimateDuckovStatistics</RootNamespace>
+    <Description>Duckov adapter and native UI for Ultimate Duckov Statistics.</Description>
+    <DuckovPath Condition="'$(DuckovPath)' == ''">$(DUCKOV_PATH)</DuckovPath>
+    <DuckovManagedPath>$(DuckovPath)\Duckov_Data\Managed</DuckovManagedPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />
+    <Reference Include="TeamSoda.Duckov.Core" HintPath="$(DuckovManagedPath)\TeamSoda.Duckov.Core.dll" Private="false" />
+    <Reference Include="ItemStatsSystem" HintPath="$(DuckovManagedPath)\ItemStatsSystem.dll" Private="false" />
+    <Reference Include="UnityEngine" HintPath="$(DuckovManagedPath)\UnityEngine.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(DuckovManagedPath)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="UnityEngine.IMGUIModule" HintPath="$(DuckovManagedPath)\UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(DuckovManagedPath)\UnityEngine.InputLegacyModule.dll" Private="false" />
+  </ItemGroup>
+
+  <Target Name="ValidateDuckovPath" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(DuckovPath)' == ''" Text="DUCKOV_PATH is required to build the Duckov adapter." />
+    <Error Condition="!Exists('$(DuckovManagedPath)\TeamSoda.Duckov.Core.dll')" Text="Duckov managed assemblies were not found under $(DuckovManagedPath)." />
+  </Target>
+</Project>

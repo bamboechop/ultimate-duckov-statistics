@@ -1,0 +1,381 @@
+using System.Collections.Immutable;
+using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
+
+const string expectedGameVersion = "2.3.30";
+const string expectedSteamBuild = "24013657";
+const string expectedUnityVersion = "2022.3.62f2";
+
+if (args.Length != 1 || string.IsNullOrWhiteSpace(args[0]))
+{
+    Console.Error.WriteLine("Usage: DuckovContractProbe <Duckov game root>");
+    return 2;
+}
+
+try
+{
+    var gameRoot = Path.GetFullPath(args[0]);
+    var managedRoot = Path.Combine(gameRoot, "Duckov_Data", "Managed");
+    var corePath = Path.Combine(managedRoot, "TeamSoda.Duckov.Core.dll");
+    var itemStatsPath = Path.Combine(managedRoot, "ItemStatsSystem.dll");
+
+    RequireFile(corePath);
+    RequireFile(itemStatsPath);
+
+    var gameVersion = ReadIniValue(Path.Combine(gameRoot, "Info.ini"), "version");
+    AssertEqual("Duckov version", expectedGameVersion, gameVersion);
+
+    var steamApps = Directory.GetParent(Directory.GetParent(gameRoot)?.FullName ?? string.Empty)?.FullName
+        ?? throw new ContractException("Could not derive the Steam apps directory from the game path.");
+    var manifestPath = Path.Combine(steamApps, "appmanifest_3167020.acf");
+    RequireFile(manifestPath);
+    var manifest = File.ReadAllText(manifestPath);
+    var buildMatch = Regex.Match(manifest, "\\\"buildid\\\"\\s+\\\"(?<id>[0-9]+)\\\"");
+    if (!buildMatch.Success)
+    {
+        throw new ContractException($"Steam build ID was not found in {manifestPath}.");
+    }
+    AssertEqual("Steam build", expectedSteamBuild, buildMatch.Groups["id"].Value);
+
+    var globalGameManagersPath = Path.Combine(gameRoot, "Duckov_Data", "globalgamemanagers");
+    RequireFile(globalGameManagersPath);
+    var globalGameManagersText = Encoding.ASCII.GetString(File.ReadAllBytes(globalGameManagersPath));
+    var unityMatch = Regex.Match(globalGameManagersText, "2022\\.3\\.[0-9]+f[0-9]+");
+    if (!unityMatch.Success)
+    {
+        throw new ContractException("Unity version was not found in globalgamemanagers.");
+    }
+    AssertEqual("Unity version", expectedUnityVersion, unityMatch.Value);
+
+    using (var core = new AssemblyMetadata(corePath))
+    {
+        core.RequireType("Duckov.Modding", "ModBehaviour");
+        core.RequireMethod("Duckov.Modding", "ModBehaviour", "OnAfterSetup", parameterCount: 0, mustBeFamily: true, mustBeVirtual: true);
+        core.RequireMethod("Duckov.Modding", "ModBehaviour", "OnBeforeDeactivate", parameterCount: 0, mustBeFamily: true, mustBeVirtual: true);
+
+        core.RequireEvent(string.Empty, "CA_UseItem", "OnItemUsedByPlayer", "System.Action", "ItemStatsSystem.Item");
+        core.RequireEvent(string.Empty, "RaidUtilities", "OnNewRaid", "System.Action", "RaidInfo");
+        core.RequireEvent(string.Empty, "RaidUtilities", "OnRaidEnd", "System.Action", "RaidInfo");
+        core.RequireEvent(string.Empty, "LevelManager", "OnNewGameReport", "System.Action");
+        core.RequireEvent("Saves", "SavesSystem", "OnSetFile", "System.Action");
+        core.RequireEvent("Saves", "SavesSystem", "OnSaveDeleted", "System.Action");
+
+        core.RequireProperty(string.Empty, "LevelManager", "IsRaidMap");
+        core.RequireProperty(string.Empty, "LevelManager", "IsBaseLevel");
+        core.RequireMethod(string.Empty, "LevelManager", "GetCurrentLevelInfo", parameterCount: 0);
+
+        core.RequireType("Duckov.ItemUsage", "Drug");
+        core.RequireType("Duckov.ItemUsage", "FoodDrink");
+        core.RequireType("Duckov.ItemUsage", "AddBuff");
+        core.RequireType("Duckov.ItemUsage", "RemoveBuff");
+        core.RequireType("Duckov.ItemUsage", "SpawnEgg");
+    }
+
+    using (var itemStats = new AssemblyMetadata(itemStatsPath))
+    {
+        itemStats.RequireEvent("ItemStatsSystem", "UsageUtilities", "OnItemUsedStaticEvent", "System.Action", "ItemStatsSystem.Item");
+        itemStats.RequireEvent("ItemStatsSystem", "Item", "onUseStatic", "System.Action", "ItemStatsSystem.Item", "System.Object");
+        itemStats.RequireField("ItemStatsSystem", "UsageUtilities", "behaviors");
+
+        foreach (var property in new[]
+                 {
+                     "TypeID", "DisplayName", "Stackable", "StackCount", "UseDurability", "MaxDurability", "Durability", "UsageUtilities"
+                 })
+        {
+            itemStats.RequireProperty("ItemStatsSystem", "Item", property);
+        }
+    }
+
+    Console.WriteLine("Duckov compatibility contract passed.");
+    Console.WriteLine($"  Game: {gameVersion} (Steam build {expectedSteamBuild})");
+    Console.WriteLine($"  Unity: {unityMatch.Value}");
+    Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
+    Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
+    Console.WriteLine("  Native loader, lifecycle, raid/save events, and item-use correlation hooks are present.");
+    return 0;
+}
+catch (ContractException exception)
+{
+    Console.Error.WriteLine($"Compatibility contract failed: {exception.Message}");
+    return 1;
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"Compatibility probe error: {exception}");
+    return 1;
+}
+
+static void RequireFile(string path)
+{
+    if (!File.Exists(path))
+    {
+        throw new ContractException($"Required file does not exist: {path}");
+    }
+}
+
+static string ReadIniValue(string path, string key)
+{
+    RequireFile(path);
+    foreach (var line in File.ReadLines(path))
+    {
+        var index = line.IndexOf('=');
+        if (index < 1)
+        {
+            continue;
+        }
+
+        if (string.Equals(line[..index].Trim(), key, StringComparison.OrdinalIgnoreCase))
+        {
+            return line[(index + 1)..].Trim();
+        }
+    }
+
+    throw new ContractException($"Key '{key}' was not found in {path}.");
+}
+
+static void AssertEqual(string label, string expected, string actual)
+{
+    if (!string.Equals(expected, actual, StringComparison.Ordinal))
+    {
+        throw new ContractException($"{label} mismatch. Expected '{expected}', found '{actual}'.");
+    }
+}
+
+static string HashFile(string path)
+{
+    using var stream = File.OpenRead(path);
+    return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+}
+
+internal sealed class ContractException : Exception
+{
+    public ContractException(string message)
+        : base(message)
+    {
+    }
+}
+
+internal sealed class AssemblyMetadata : IDisposable
+{
+    private readonly FileStream stream;
+    private readonly PEReader peReader;
+    private readonly MetadataReader reader;
+    private readonly SignatureTypeNameProvider typeProvider = new();
+
+    public AssemblyMetadata(string path)
+    {
+        stream = File.OpenRead(path);
+        peReader = new PEReader(stream);
+        if (!peReader.HasMetadata)
+        {
+            throw new ContractException($"Assembly has no managed metadata: {path}");
+        }
+
+        reader = peReader.GetMetadataReader();
+    }
+
+    public void Dispose()
+    {
+        peReader.Dispose();
+        stream.Dispose();
+    }
+
+    public void RequireType(string @namespace, string name)
+    {
+        _ = FindType(@namespace, name);
+    }
+
+    public void RequireMethod(
+        string @namespace,
+        string typeName,
+        string methodName,
+        int parameterCount,
+        bool mustBeFamily = false,
+        bool mustBeVirtual = false)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var handle in type.GetMethods())
+        {
+            var method = reader.GetMethodDefinition(handle);
+            if (!string.Equals(reader.GetString(method.Name), methodName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var signature = method.DecodeSignature(typeProvider, reader);
+            if (signature.ParameterTypes.Length != parameterCount)
+            {
+                continue;
+            }
+
+            if (mustBeFamily && (method.Attributes & MethodAttributes.MemberAccessMask) != MethodAttributes.Family)
+            {
+                continue;
+            }
+
+            if (mustBeVirtual && (method.Attributes & MethodAttributes.Virtual) == 0)
+            {
+                continue;
+            }
+
+            return;
+        }
+
+        throw new ContractException($"Required method not found: {@namespace}.{typeName}.{methodName}({parameterCount} parameter(s)).");
+    }
+
+    public void RequireProperty(string @namespace, string typeName, string propertyName)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var handle in type.GetProperties())
+        {
+            var property = reader.GetPropertyDefinition(handle);
+            if (string.Equals(reader.GetString(property.Name), propertyName, StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
+        throw new ContractException($"Required property not found: {@namespace}.{typeName}.{propertyName}.");
+    }
+
+    public void RequireField(string @namespace, string typeName, string fieldName)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var handle in type.GetFields())
+        {
+            var field = reader.GetFieldDefinition(handle);
+            if (string.Equals(reader.GetString(field.Name), fieldName, StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
+        throw new ContractException($"Required field not found: {@namespace}.{typeName}.{fieldName}.");
+    }
+
+    public void RequireEvent(string @namespace, string typeName, string eventName, params string[] parameterTypeFragments)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var handle in type.GetEvents())
+        {
+            var eventDefinition = reader.GetEventDefinition(handle);
+            if (!string.Equals(reader.GetString(eventDefinition.Name), eventName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var accessors = eventDefinition.GetAccessors();
+            if (accessors.Adder.IsNil || accessors.Remover.IsNil)
+            {
+                throw new ContractException($"Event has incomplete accessors: {@namespace}.{typeName}.{eventName}.");
+            }
+
+            var adder = reader.GetMethodDefinition(accessors.Adder);
+            var signature = adder.DecodeSignature(typeProvider, reader);
+            if (signature.ParameterTypes.Length != 1)
+            {
+                throw new ContractException($"Event add accessor has an unexpected signature: {@namespace}.{typeName}.{eventName}.");
+            }
+
+            var delegateType = signature.ParameterTypes[0];
+            if (parameterTypeFragments.All(fragment => delegateType.Contains(fragment, StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            throw new ContractException(
+                $"Event signature mismatch for {@namespace}.{typeName}.{eventName}. Found '{delegateType}'.");
+        }
+
+        throw new ContractException($"Required event not found: {@namespace}.{typeName}.{eventName}.");
+    }
+
+    private TypeDefinitionHandle FindType(string @namespace, string name)
+    {
+        foreach (var handle in reader.TypeDefinitions)
+        {
+            var definition = reader.GetTypeDefinition(handle);
+            if (string.Equals(reader.GetString(definition.Namespace), @namespace, StringComparison.Ordinal)
+                && string.Equals(reader.GetString(definition.Name), name, StringComparison.Ordinal))
+            {
+                return handle;
+            }
+        }
+
+        var qualifiedName = string.IsNullOrEmpty(@namespace) ? name : $"{@namespace}.{name}";
+        throw new ContractException($"Required type not found: {qualifiedName}.");
+    }
+}
+
+internal sealed class SignatureTypeNameProvider : ISignatureTypeProvider<string, MetadataReader>
+{
+    public string GetArrayType(string elementType, ArrayShape shape) => $"{elementType}[{new string(',', shape.Rank - 1)}]";
+
+    public string GetByReferenceType(string elementType) => $"{elementType}&";
+
+    public string GetFunctionPointerType(MethodSignature<string> signature) => "methodptr";
+
+    public string GetGenericInstantiation(string genericType, ImmutableArray<string> typeArguments) =>
+        $"{genericType}<{string.Join(",", typeArguments)}>";
+
+    public string GetGenericMethodParameter(MetadataReader genericContext, int index) => $"!!{index}";
+
+    public string GetGenericTypeParameter(MetadataReader genericContext, int index) => $"!{index}";
+
+    public string GetModifiedType(string modifier, string unmodifiedType, bool isRequired) => unmodifiedType;
+
+    public string GetPinnedType(string elementType) => elementType;
+
+    public string GetPointerType(string elementType) => $"{elementType}*";
+
+    public string GetPrimitiveType(PrimitiveTypeCode typeCode) => typeCode switch
+    {
+        PrimitiveTypeCode.Boolean => "System.Boolean",
+        PrimitiveTypeCode.Byte => "System.Byte",
+        PrimitiveTypeCode.Char => "System.Char",
+        PrimitiveTypeCode.Double => "System.Double",
+        PrimitiveTypeCode.Int16 => "System.Int16",
+        PrimitiveTypeCode.Int32 => "System.Int32",
+        PrimitiveTypeCode.Int64 => "System.Int64",
+        PrimitiveTypeCode.IntPtr => "System.IntPtr",
+        PrimitiveTypeCode.Object => "System.Object",
+        PrimitiveTypeCode.SByte => "System.SByte",
+        PrimitiveTypeCode.Single => "System.Single",
+        PrimitiveTypeCode.String => "System.String",
+        PrimitiveTypeCode.TypedReference => "System.TypedReference",
+        PrimitiveTypeCode.UInt16 => "System.UInt16",
+        PrimitiveTypeCode.UInt32 => "System.UInt32",
+        PrimitiveTypeCode.UInt64 => "System.UInt64",
+        PrimitiveTypeCode.UIntPtr => "System.UIntPtr",
+        PrimitiveTypeCode.Void => "System.Void",
+        _ => typeCode.ToString()
+    };
+
+    public string GetSZArrayType(string elementType) => $"{elementType}[]";
+
+    public string GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind)
+    {
+        var definition = reader.GetTypeDefinition(handle);
+        return Qualify(reader.GetString(definition.Namespace), reader.GetString(definition.Name));
+    }
+
+    public string GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind)
+    {
+        var reference = reader.GetTypeReference(handle);
+        return Qualify(reader.GetString(reference.Namespace), reader.GetString(reference.Name));
+    }
+
+    public string GetTypeFromSpecification(
+        MetadataReader reader,
+        MetadataReader genericContext,
+        TypeSpecificationHandle handle,
+        byte rawTypeKind) => reader.GetTypeSpecification(handle).DecodeSignature(this, genericContext);
+
+    private static string Qualify(string @namespace, string name) =>
+        string.IsNullOrEmpty(@namespace) ? name : $"{@namespace}.{name}";
+}

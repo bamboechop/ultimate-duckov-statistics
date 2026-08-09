@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>UltimateDuckovStatistics.Core</AssemblyName>
+    <RootNamespace>UltimateDuckovStatistics.Core</RootNamespace>
+    <Description>Game-independent statistics, persistence, and export domain for Ultimate Duckov Statistics.</Description>
+  </PropertyGroup>
+</Project>
