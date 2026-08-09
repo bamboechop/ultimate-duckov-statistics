@@ -7,6 +7,8 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.healing";
     private static readonly Version MinimumHarmonyVersion = new(2, 4, 1, 0);
+    private static readonly object PendingCleanupLock = new();
+    private static ReflectiveHarmonyPatcher? pendingCleanup;
     private readonly object harmony;
     private readonly ConstructorInfo harmonyMethodConstructor;
     private readonly FieldInfo harmonyPriorityField;
@@ -37,9 +39,26 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
 
     public static bool IsHarmonyLoaded => FindHarmonyAssembly() != null;
 
+    internal static bool HasPendingCleanup
+    {
+        get
+        {
+            lock (PendingCleanupLock)
+            {
+                return pendingCleanup != null;
+            }
+        }
+    }
+
     public static bool TryCreate(out ReflectiveHarmonyPatcher? patcher, out string detail)
     {
         patcher = null;
+        if (!TryCompletePendingCleanup(out var cleanupDetail))
+        {
+            detail = $"Harmony cleanup from a previous UDS activation is still pending: {cleanupDetail}";
+            return false;
+        }
+
         var assembly = FindHarmonyAssembly();
         if (assembly == null)
         {
@@ -192,13 +211,36 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
 
     public void Dispose()
     {
+        if (!TryDispose(out var detail))
+        {
+            throw new InvalidOperationException(detail);
+        }
+    }
+
+    internal bool TryDispose(out string detail)
+    {
         if (disposed)
         {
-            return;
+            ClearPendingCleanup(this);
+            detail = "Harmony patches are already removed.";
+            return true;
         }
 
-        disposed = true;
-        unpatchAllMethod.Invoke(harmony, new object?[] { HarmonyId });
+        try
+        {
+            unpatchAllMethod.Invoke(harmony, new object?[] { HarmonyId });
+            disposed = true;
+            ClearPendingCleanup(this);
+            detail = "Harmony patches removed.";
+            return true;
+        }
+        catch (Exception exception)
+        {
+            RegisterPendingCleanup(this);
+            var unwrapped = Unwrap(exception);
+            detail = $"Harmony patch cleanup failed: {unwrapped.GetType().Name}: {unwrapped.Message}";
+            return false;
+        }
     }
 
     private object? CreateHarmonyMethod(MethodInfo? method, int priority)
@@ -216,6 +258,42 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
 
     private static Assembly? FindHarmonyAssembly() => AppDomain.CurrentDomain.GetAssemblies()
         .FirstOrDefault(candidate => candidate.GetType("HarmonyLib.Harmony", throwOnError: false) != null);
+
+    private static bool TryCompletePendingCleanup(out string detail)
+    {
+        ReflectiveHarmonyPatcher? pending;
+        lock (PendingCleanupLock)
+        {
+            pending = pendingCleanup;
+        }
+
+        if (pending == null)
+        {
+            detail = "No pending Harmony cleanup.";
+            return true;
+        }
+
+        return pending.TryDispose(out detail);
+    }
+
+    private static void RegisterPendingCleanup(ReflectiveHarmonyPatcher patcher)
+    {
+        lock (PendingCleanupLock)
+        {
+            pendingCleanup = patcher;
+        }
+    }
+
+    private static void ClearPendingCleanup(ReflectiveHarmonyPatcher patcher)
+    {
+        lock (PendingCleanupLock)
+        {
+            if (ReferenceEquals(pendingCleanup, patcher))
+            {
+                pendingCleanup = null;
+            }
+        }
+    }
 
     private static Exception Unwrap(Exception exception) =>
         exception is TargetInvocationException { InnerException: not null } invocation

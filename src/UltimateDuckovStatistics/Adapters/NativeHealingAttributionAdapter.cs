@@ -18,14 +18,16 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     private readonly Action<string> diagnosticHandler;
     private readonly HealingAttributionTracker tracker;
     private readonly Dictionary<int, string?> itemApplicationScopes = new();
-    private ReflectiveHarmonyPatcher? patcher;
+    private readonly RetryableHarmonyPatcherLease patcherLease = new();
     private PatchRegistration[] patchRegistrations = Array.Empty<PatchRegistration>();
     private CharacterBuffManager? subscribedBuffManager;
     private bool lifecycleSubscribed;
     private bool retryWhenHarmonyLoads;
     private DateTime nextInitializationAttemptUtc;
     private DateTime nextConflictCheckUtc;
-    private bool conflictCleanupPending;
+    private bool patchCleanupPending;
+    private DateTime nextPatchCleanupAttemptUtc;
+    private string? lastPatchCleanupFailure;
     private bool disposed;
 
     public NativeHealingAttributionAdapter(
@@ -49,7 +51,16 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             throw new ObjectDisposedException(nameof(NativeHealingAttributionAdapter));
         }
 
-        if (Capability.State == AdapterCapabilityState.Supported && patcher != null)
+        if (patchCleanupPending)
+        {
+            CompletePatchCleanup();
+            if (patchCleanupPending)
+            {
+                return Capability;
+            }
+        }
+
+        if (Capability.State == AdapterCapabilityState.Supported && patcherLease.Value != null)
         {
             return Capability;
         }
@@ -62,15 +73,19 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             return Capability;
         }
 
-        if (!ReflectiveHarmonyPatcher.TryCreate(out patcher, out var harmonyDetail) || patcher == null)
+        if (!ReflectiveHarmonyPatcher.TryCreate(out var createdPatcher, out var harmonyDetail)
+            || createdPatcher == null)
         {
-            retryWhenHarmonyLoads = !ReflectiveHarmonyPatcher.IsHarmonyLoaded;
+            retryWhenHarmonyLoads = ReflectiveHarmonyPatcher.HasPendingCleanup
+                                    || !ReflectiveHarmonyPatcher.IsHarmonyLoaded;
             nextInitializationAttemptUtc = DateTime.UtcNow.AddSeconds(1);
             SetCapability(Disabled(harmonyDetail));
             diagnosticHandler(harmonyDetail);
             return Capability;
         }
 
+        patcherLease.Attach(createdPatcher);
+        var patcher = createdPatcher;
         try
         {
             foreach (var method in new[] { healthMethod, effectMethod, buffMethod })
@@ -80,12 +95,12 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                         Array.Empty<HarmonyPatchExpectation>(),
                         out var patchSetDetail))
                 {
-                    patcher.Dispose();
-                    patcher = null;
                     retryWhenHarmonyLoads = false;
                     SetCapability(Disabled(
                         $"Healing attribution disabled because {method.DeclaringType?.Name}.{method.Name} has an unsafe pre-existing Harmony patch set: {patchSetDetail}"));
                     diagnosticHandler(Capability.Detail!);
+                    QueuePatchCleanup();
+                    CompletePatchCleanup();
                     return Capability;
                 }
             }
@@ -132,22 +147,12 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         }
         catch (Exception exception)
         {
-            try
-            {
-                patcher?.Dispose();
-            }
-            catch
-            {
-                // Preserve the original capability failure.
-            }
-
-            patcher = null;
-            HealingHarmonyBridge.Detach(this);
+            DetachRuntimeHooks();
             retryWhenHarmonyLoads = false;
-            patchRegistrations = Array.Empty<PatchRegistration>();
-            conflictCleanupPending = false;
             SetCapability(Disabled($"Healing patch activation failed: {Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}"));
             diagnosticHandler(Capability.Detail!);
+            QueuePatchCleanup();
+            CompletePatchCleanup();
         }
 
         return Capability;
@@ -156,9 +161,13 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     public void Tick()
     {
         var nowUtc = DateTime.UtcNow;
-        if (conflictCleanupPending)
+        if (patchCleanupPending)
         {
-            CompleteConflictCleanup();
+            if (nowUtc >= nextPatchCleanupAttemptUtc)
+            {
+                CompletePatchCleanup();
+            }
+
             return;
         }
 
@@ -180,7 +189,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 if (!IsRegistrationTrusted(registration, out var patchSetDetail))
                 {
                     SchedulePatchSetConflict(registration.Original, patchSetDetail);
-                    CompleteConflictCleanup();
+                    CompletePatchCleanup();
                     return;
                 }
             }
@@ -410,39 +419,19 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     public void Dispose()
     {
-        if (disposed)
+        if (disposed && !patchCleanupPending)
         {
             return;
         }
 
-        disposed = true;
-        if (lifecycleSubscribed)
+        if (!disposed)
         {
-            RaidUtilities.OnNewRaid -= OnRaidTransition;
-            RaidUtilities.OnRaidEnd -= OnRaidTransition;
-            lifecycleSubscribed = false;
+            disposed = true;
+            DetachRuntimeHooks();
+            QueuePatchCleanup();
         }
 
-        if (subscribedBuffManager != null)
-        {
-            subscribedBuffManager.onRemoveBuff -= OnBuffRemoved;
-            subscribedBuffManager = null;
-        }
-
-        Reset();
-        HealingHarmonyBridge.Detach(this);
-        try
-        {
-            patcher?.Dispose();
-        }
-        catch (Exception exception)
-        {
-            Debug.LogException(exception);
-        }
-
-        patcher = null;
-        patchRegistrations = Array.Empty<PatchRegistration>();
-        conflictCleanupPending = false;
+        CompletePatchCleanup();
     }
 
     private static bool TryResolveContracts(
@@ -512,6 +501,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     private bool IsRegistrationTrusted(PatchRegistration registration, out string detail)
     {
+        var patcher = patcherLease.Value;
         if (patcher == null)
         {
             detail = "The UDS Harmony patcher is unavailable.";
@@ -526,13 +516,59 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     private void SchedulePatchSetConflict(MethodInfo? method, string detail)
     {
-        if (conflictCleanupPending)
+        if (patchCleanupPending)
         {
             return;
         }
 
-        conflictCleanupPending = true;
         retryWhenHarmonyLoads = false;
+        DetachRuntimeHooks();
+        var methodName = method == null
+            ? "an internal required hook"
+            : $"{method.DeclaringType?.Name}.{method.Name}";
+        SetCapability(Disabled(
+            $"Healing attribution disabled because {methodName} has an unsafe Harmony patch set: {detail}"));
+        diagnosticHandler(Capability.Detail!);
+        QueuePatchCleanup();
+    }
+
+    private void QueuePatchCleanup()
+    {
+        patchCleanupPending = patcherLease.HasValue;
+        nextPatchCleanupAttemptUtc = DateTime.MinValue;
+        lastPatchCleanupFailure = null;
+        if (!patchCleanupPending)
+        {
+            patchRegistrations = Array.Empty<PatchRegistration>();
+        }
+    }
+
+    private void CompletePatchCleanup()
+    {
+        if (!patchCleanupPending)
+        {
+            return;
+        }
+
+        if (!patcherLease.TryCleanup(out var detail))
+        {
+            nextPatchCleanupAttemptUtc = DateTime.UtcNow.AddSeconds(1);
+            if (!string.Equals(lastPatchCleanupFailure, detail, StringComparison.Ordinal))
+            {
+                diagnosticHandler($"Healing patch cleanup remains pending and will be retried: {detail}");
+                lastPatchCleanupFailure = detail;
+            }
+
+            return;
+        }
+
+        patchRegistrations = Array.Empty<PatchRegistration>();
+        patchCleanupPending = false;
+        lastPatchCleanupFailure = null;
+    }
+
+    private void DetachRuntimeHooks()
+    {
         if (lifecycleSubscribed)
         {
             RaidUtilities.OnNewRaid -= OnRaidTransition;
@@ -548,33 +584,6 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
         Reset();
         HealingHarmonyBridge.Detach(this);
-        var methodName = method == null
-            ? "an internal required hook"
-            : $"{method.DeclaringType?.Name}.{method.Name}";
-        SetCapability(Disabled(
-            $"Healing attribution disabled because {methodName} has an unsafe Harmony patch set: {detail}"));
-        diagnosticHandler(Capability.Detail!);
-    }
-
-    private void CompleteConflictCleanup()
-    {
-        if (!conflictCleanupPending)
-        {
-            return;
-        }
-
-        try
-        {
-            patcher?.Dispose();
-        }
-        catch (Exception exception)
-        {
-            Debug.LogException(exception);
-        }
-
-        patcher = null;
-        patchRegistrations = Array.Empty<PatchRegistration>();
-        conflictCleanupPending = false;
     }
 
     private void SetCapability(CapabilityRecord capability)

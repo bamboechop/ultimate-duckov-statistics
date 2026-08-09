@@ -6,7 +6,7 @@ This draft describes the planned GitHub pre-release. Do not publish or merge it 
 
 Install and enable [HarmonyLib Workshop item 3589088839](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839). The verified build is `2.4.1.0`. UDS discovers Harmony at runtime and never bundles `0Harmony.dll`.
 
-If Harmony is missing, too old, its reflection contract changes, a required Duckov method changes, any foreign prefix/postfix/transpiler/finalizer touches one of the three attribution hooks, or an expected UDS callback disappears, UDS leaves consumable-use tracking available but disables healing attribution and reports the reason in Diagnostics. Loader order is handled by a bounded retry after the Workshop loader makes Harmony available. The exact patch set is checked at activation, periodically, and at attribution callback boundaries.
+If Harmony is missing, too old, its reflection contract changes, a required Duckov method changes, any foreign prefix/postfix/transpiler/finalizer touches one of the three attribution hooks, or an expected UDS callback disappears, UDS leaves consumable-use tracking available but disables healing attribution and reports the reason in Diagnostics. Loader order is handled by a bounded retry after the Workshop loader makes Harmony available. The exact patch set is checked at activation, periodically, and at attribution callback boundaries. Failed unpatch cleanup remains retryable on later ticks, repeated disposal, and the next same-process activation; a new patcher is not created until the old UDS callbacks are removed.
 
 ## Included in v0.2.0
 
@@ -43,14 +43,14 @@ The patches do not alter arguments, return values, game state, or Duckov saves. 
 
 ## Validation status
 
-- Automated Release suite: 103 tests passed after the delayed-healing repair and the provenance/Harmony conflict follow-up.
+- Automated Release suite: 105 tests passed after the delayed-healing repair and the provenance, Harmony conflict, and retryable-cleanup follow-ups.
 - Native Duckov/Harmony contract probe: passed against the versions above, including exact method visibility/signatures and Harmony reflection members.
 - Native build: 0 warnings and 0 errors; the exact five-file package audit passed.
 - Previously gameplay-tested deployment: all five hashes matched its then-current audited package and no staging or backup residue remained. The P1 follow-up is validated without redeploying or repeating manual gameplay, as requested.
 - Progressed-save migration preserved the generation and prior usage totals. Gameplay passed exact immediate healing (12 HP), clean delayed healing (30 x 2 HP), partial overheal (0.612381 HP), successful full-health/base use, cancellation, damage interleaving, and unrelated totem regeneration.
 - Restart persistence, final JSON/CSV consistency, and normal-shutdown cleanup passed with exact 6-use/132.61238098144531-HP agreement, matching atomic profiles, and no checkpoint or temporary residue.
-- The committed P1 follow-up ZIP is 64,918 bytes with SHA-256 `a68b503cb8d3a67e1232726de00970f00ecdd0beb3e6e6fec7e7033b45a43c03`; its lowercase sidecar matches an independent extraction and exact five-file audit. Both packaged DLLs embed source commit `f775fa23910653c06d651f616d3c91346f2fbb1e`.
-- Draft PR #2 targets `main`, remains unmerged, and passed both duplicate `core` and `source-safety` CI runs after the P1 follow-up push.
+- The prior committed P1 ZIP (64,918 bytes, SHA-256 `a68b503cb8d3a67e1232726de00970f00ecdd0beb3e6e6fec7e7033b45a43c03`) is superseded by the P2 retryable-cleanup follow-up. Committed-head artifact regeneration remains pending.
+- Draft PR #2 targets `main` and remains unmerged. Final-head CI will be rechecked after the P2 follow-up is pushed.
 
 ## Known limitations
 

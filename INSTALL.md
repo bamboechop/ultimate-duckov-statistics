@@ -12,7 +12,7 @@ The UDS package must not contain Duckov assemblies or `0Harmony.dll`. HarmonyLib
 
 ## Required HarmonyLib Workshop item
 
-Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.2.0 requires HarmonyLib for healing attribution, but it uses reflection so consumable-use tracking can still load and Diagnostics will report `DisabledIncompatible` if Harmony is missing, too old, its API is incompatible, any foreign prefix, postfix, transpiler, or finalizer touches a required method, or a required UDS callback disappears. UDS validates the exact patch set at activation, periodically, and at attribution callback boundaries. If Duckov activates UDS before the Workshop loader, UDS retries safely after Harmony appears and updates Diagnostics.
+Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.2.0 requires HarmonyLib for healing attribution, but it uses reflection so consumable-use tracking can still load and Diagnostics will report `DisabledIncompatible` if Harmony is missing, too old, its API is incompatible, any foreign prefix, postfix, transpiler, or finalizer touches a required method, or a required UDS callback disappears. UDS validates the exact patch set at activation, periodically, and at attribution callback boundaries. If Duckov activates UDS before the Workshop loader, UDS retries safely after Harmony appears and updates Diagnostics. If Harmony unpatch cleanup fails, UDS keeps attribution detached, retains and retries that cleanup, and prevents a same-process reactivation from colliding with leftover callbacks.
 
 After every cold launch and before selecting a save:
 

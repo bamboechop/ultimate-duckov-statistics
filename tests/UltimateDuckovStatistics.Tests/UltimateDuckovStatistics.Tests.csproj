@@ -4,8 +4,8 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <AssemblyVersion>2.4.1.0</AssemblyVersion>
-    <!-- The linked production patcher targets netstandard2.1, where ObjectDisposedException.ThrowIf is unavailable. -->
-    <NoWarn>$(NoWarn);CA1513</NoWarn>
+    <!-- Linked production adapters target netstandard2.1, where the newer throw helpers are unavailable. -->
+    <NoWarn>$(NoWarn);CA1510;CA1513</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,5 +25,7 @@
     <ProjectReference Include="..\..\src\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ReflectiveHarmonyPatcher.cs"
              Link="ProductionAdapters\ReflectiveHarmonyPatcher.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\RetryableHarmonyPatcherLease.cs"
+             Link="ProductionAdapters\RetryableHarmonyPatcherLease.cs" />
   </ItemGroup>
 </Project>

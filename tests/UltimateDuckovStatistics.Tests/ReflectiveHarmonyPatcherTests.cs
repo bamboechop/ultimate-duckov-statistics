@@ -54,6 +54,65 @@ namespace UltimateDuckovStatistics.Adapters
             }
         }
 
+        [Fact]
+        [Trait("Category", "Healing")]
+        public void FailedCleanupRetainsLeaseAndCanBeRetried()
+        {
+            HarmonyLib.Harmony.ClearAll();
+            Assert.True(ReflectiveHarmonyPatcher.TryCreate(out var patcher, out var createDetail), createDetail);
+            Assert.NotNull(patcher);
+
+            var target = Method(nameof(Target));
+            var prefix = Method(nameof(Prefix));
+            patcher.Patch(target, prefix);
+            var lease = new RetryableHarmonyPatcherLease();
+            lease.Attach(patcher);
+            HarmonyLib.Harmony.FailNextUnpatches(1);
+
+            Assert.False(lease.TryCleanup(out var failedDetail));
+            Assert.Contains("Injected UnpatchAll failure", failedDetail, StringComparison.Ordinal);
+            Assert.True(lease.HasValue);
+            Assert.Same(patcher, lease.Value);
+            Assert.True(ReflectiveHarmonyPatcher.HasPendingCleanup);
+            Assert.Single(Assert.IsType<HarmonyLib.Patches>(HarmonyLib.Harmony.GetPatchInfo(target)).Prefixes);
+
+            Assert.True(lease.TryCleanup(out var retryDetail), retryDetail);
+            Assert.False(lease.HasValue);
+            Assert.Null(lease.Value);
+            Assert.False(ReflectiveHarmonyPatcher.HasPendingCleanup);
+            Assert.Empty(Assert.IsType<HarmonyLib.Patches>(HarmonyLib.Harmony.GetPatchInfo(target)).Prefixes);
+            Assert.Equal(2, HarmonyLib.Harmony.UnpatchAttempts);
+        }
+
+        [Fact]
+        [Trait("Category", "Healing")]
+        public void PendingCleanupBlocksReactivationUntilARegisteredRetrySucceeds()
+        {
+            HarmonyLib.Harmony.ClearAll();
+            Assert.True(ReflectiveHarmonyPatcher.TryCreate(out var patcher, out var createDetail), createDetail);
+            Assert.NotNull(patcher);
+
+            var target = Method(nameof(Target));
+            patcher.Patch(target, Method(nameof(Prefix)));
+            HarmonyLib.Harmony.FailNextUnpatches(2);
+
+            Assert.False(patcher.TryDispose(out var initialFailure));
+            Assert.Contains("Injected UnpatchAll failure", initialFailure, StringComparison.Ordinal);
+            Assert.True(ReflectiveHarmonyPatcher.HasPendingCleanup);
+
+            Assert.False(ReflectiveHarmonyPatcher.TryCreate(out var blockedPatcher, out var blockedDetail));
+            Assert.Null(blockedPatcher);
+            Assert.Contains("previous UDS activation is still pending", blockedDetail, StringComparison.Ordinal);
+            Assert.True(ReflectiveHarmonyPatcher.HasPendingCleanup);
+
+            Assert.True(ReflectiveHarmonyPatcher.TryCreate(out var replacement, out var retryDetail), retryDetail);
+            Assert.NotNull(replacement);
+            Assert.False(ReflectiveHarmonyPatcher.HasPendingCleanup);
+            Assert.Empty(Assert.IsType<HarmonyLib.Patches>(HarmonyLib.Harmony.GetPatchInfo(target)).Prefixes);
+            Assert.Equal(3, HarmonyLib.Harmony.UnpatchAttempts);
+            replacement.Dispose();
+        }
+
         private static MethodInfo Method(string name) => typeof(ReflectiveHarmonyPatcherTests).GetMethod(
             name,
             BindingFlags.Static | BindingFlags.NonPublic)
@@ -119,6 +178,7 @@ namespace HarmonyLib
     public sealed class Harmony
     {
         private static readonly Dictionary<MethodBase, Patches> Registry = new();
+        private static int unpatchFailuresRemaining;
         private readonly string owner;
 
         public Harmony(string owner)
@@ -147,6 +207,13 @@ namespace HarmonyLib
 
         public void UnpatchAll(string ownerId)
         {
+            UnpatchAttempts++;
+            if (unpatchFailuresRemaining > 0)
+            {
+                unpatchFailuresRemaining--;
+                throw new InvalidOperationException("Injected UnpatchAll failure.");
+            }
+
             foreach (var patches in Registry.Values)
             {
                 patches.Prefixes.RemoveAll(patch => patch.owner == ownerId);
@@ -159,7 +226,20 @@ namespace HarmonyLib
         public static Patches? GetPatchInfo(MethodBase original) =>
             Registry.TryGetValue(original, out var patches) ? patches : null;
 
-        public static void ClearAll() => Registry.Clear();
+        public static int UnpatchAttempts { get; private set; }
+
+        public static void FailNextUnpatches(int count)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
+            unpatchFailuresRemaining = count;
+        }
+
+        public static void ClearAll()
+        {
+            Registry.Clear();
+            unpatchFailuresRemaining = 0;
+            UnpatchAttempts = 0;
+        }
 
         private void Add(ICollection<Patch> patches, HarmonyMethod? method)
         {
