@@ -17,6 +17,19 @@ foreach ($name in $required) {
 }
 
 $allFiles = Get-ChildItem -Recurse -File -LiteralPath $resolved
+$allDirectories = @(Get-ChildItem -Recurse -Directory -LiteralPath $resolved)
+if ($allDirectories.Count -ne 0) {
+    throw "Package inventory must not contain subdirectories: $($allDirectories.FullName -join ', ')"
+}
+$actualRelativePaths = @($allFiles | ForEach-Object {
+    $_.FullName.Substring($resolved.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+} | Sort-Object)
+$expectedRelativePaths = @($required | Sort-Object)
+$inventoryDifference = Compare-Object -ReferenceObject $expectedRelativePaths -DifferenceObject $actualRelativePaths
+if ($inventoryDifference) {
+    throw "Package inventory must contain exactly the five permitted files. Found: $($actualRelativePaths -join ', ')"
+}
+
 foreach ($file in $allFiles) {
     if ($forbiddenExact -contains $file.Name) {
         throw "Forbidden dependency found in package: $($file.FullName)"

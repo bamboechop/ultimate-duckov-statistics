@@ -44,7 +44,10 @@ public static class ItemUseReducer
         var item = GetOrCreateItem(profile, itemUse);
         Add(item.Totals, itemUse);
 
-        var groupKey = itemUse.Group.ToString();
+        // A stable item ID has one canonical group for the lifetime of a
+        // generation. Later adapter/mod reclassification must not relabel the
+        // item's historical totals while leaving prior group totals behind.
+        var groupKey = item.Group.ToString();
         if (!profile.Groups.TryGetValue(groupKey, out var group))
         {
             group = new AggregateTotals();
@@ -74,7 +77,6 @@ public static class ItemUseReducer
         }
 
         item.DisplayName = itemUse.DisplayName;
-        item.Group = itemUse.Group;
         item.EffectTags = itemUse.EffectTags.Distinct().ToList();
         return item;
     }

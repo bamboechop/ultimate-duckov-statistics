@@ -12,6 +12,8 @@ Duckov `2.3.30` retains the enabled preference for local mods but, on the verifi
 
 This is an explicitly accepted v0.1.0 workaround for a Duckov loader edge case. UDS does not add Harmony or an unrelated Workshop dependency to bypass it.
 
+UDS fingerprints the selected save read-only and stores the fingerprint only in its own external profile. If a save changes while UDS is inactive, its next active launch archives the previous UDS generation instead of risking a silent merge with a reused slot. Activate UDS before selecting a save on every launch to preserve continuous statistics.
+
 ## Included in v0.1.0
 
 - Successful main-duck consumable activations in raids.
@@ -22,6 +24,9 @@ This is an explicitly accepted v0.1.0 workaround for a Duckov loader edge case. 
 - Overview, Items, and Diagnostics views outside raids, with configurable F8 access.
 - JSON and flattened CSV exports.
 - Atomic profile writes, backup recovery, bounded diagnostics, and generation archives.
+- Conservative SHA-256 save-continuity checks that detect reuse even when Windows creation timestamps remain unchanged.
+- Future-schema profiles are preserved byte-for-byte in read-only archives and are never downgraded or overwritten.
+- Exact five-file staged deployment replaces stale mod contents and rejects game, Unity, framework, and Harmony assemblies.
 
 ## Compatibility
 
@@ -32,12 +37,12 @@ This is an explicitly accepted v0.1.0 workaround for a Duckov loader edge case. 
 
 ## Validation
 
-- 33 Release tests pass, including slot-transition and generation-rotation capability carryover.
+- 43 Release tests pass, including profile-schema safety, save-fingerprint continuity, group/export invariants, exact deployment replacement, and capability carryover.
 - The native contract probe passes against Duckov `2.3.30`, Steam build `24013657`, and Unity `2022.3.62f2`.
 - The progressed slot-1 matrix passed base exclusion, cancellation exclusion, two-group raid use, amount tracking, F8 raid rejection, restart persistence, and JSON/CSV export inspection.
 - The fresh/reused slot-6 matrix passed zero isolation, stack-unit tracking, restart persistence, Duckov-driven deletion, read-only archival, new-generation zeroing, and cross-slot isolation.
 - The validated installable ZIP contains exactly the five documented package files and no Duckov, Unity, framework, or Harmony DLL.
-- `UltimateDuckovStatistics-v0.1.0.zip` SHA-256: `6e63b1c2a6d62d1e1e62a51a15dd26a928fdb98b8cda988e8b972bc7576b7363`.
+- Final `UltimateDuckovStatistics-v0.1.0.zip` SHA-256: pending regeneration after the targeted continuity/deployment acceptance gate.
 
 ## Known limitations
 

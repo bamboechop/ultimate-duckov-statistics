@@ -16,6 +16,8 @@ public sealed class ProfileOpenResult
 
     public bool InterruptedSessionRecovered { get; internal set; }
 
+    public bool UnsupportedSchemaArchived { get; internal set; }
+
     public IReadOnlyList<string> LoadFailures { get; internal set; } = Array.Empty<string>();
 }
 
@@ -83,25 +85,46 @@ public sealed class ProfileRepository
         }
         else
         {
-            current = loaded.Value;
             result.RecoveredSnapshot = loaded.Recovered;
-            if (!IdentityMatches(current.Identity, identity, current.Statistics.Overall.ActivationCount))
+            var candidate = loaded.Value;
+            try
             {
-                ArchiveCurrentDirectory(slotDirectory, "SaveIdentityChanged");
+                result.MigratedSchema = ProfileMigrator.Migrate(candidate);
+            }
+            catch (NotSupportedException exception)
+            {
+                ArchiveCurrentDirectory(slotDirectory, "UnsupportedProfileSchema", candidate.GenerationId);
                 currentDirectory = Path.Combine(slotDirectory, "current");
                 Directory.CreateDirectory(currentDirectory);
-                current = CreateNewProfile(identity, "SaveIdentityChanged");
+                current = CreateNewProfile(identity, "UnsupportedProfileSchema");
                 result.CreatedNew = true;
                 result.RotatedGeneration = true;
+                result.UnsupportedSchemaArchived = true;
                 SaveCurrent();
+                diagnostic(exception.Message);
             }
-            else
+
+            if (!result.UnsupportedSchemaArchived)
             {
-                result.MigratedSchema = ProfileMigrator.Migrate(current);
-                current.Identity = identity;
-                if (loaded.Recovered || result.MigratedSchema)
+                if (!IdentityMatches(candidate.Identity, identity, candidate.Statistics.Overall.ActivationCount))
                 {
+                    ArchiveCurrentDirectory(slotDirectory, "SaveIdentityChanged", candidate.GenerationId);
+                    currentDirectory = Path.Combine(slotDirectory, "current");
+                    Directory.CreateDirectory(currentDirectory);
+                    current = CreateNewProfile(identity, "SaveIdentityChanged");
+                    result.CreatedNew = true;
+                    result.RotatedGeneration = true;
                     SaveCurrent();
+                }
+                else
+                {
+                    var identityChanged = !IdentitiesEqual(candidate.Identity, identity);
+                    current = candidate;
+                    current.Identity = identity;
+                    if (loaded.Recovered || result.MigratedSchema || identityChanged)
+                    {
+                        SaveCurrent();
+                    }
                 }
             }
         }
@@ -171,6 +194,19 @@ public sealed class ProfileRepository
         if (profile.Slot != identity.Slot)
         {
             throw new InvalidOperationException("Cannot refresh a different slot's identity.");
+        }
+
+        if (identity.SaveFilePresent
+            && string.IsNullOrWhiteSpace(identity.ContentSha256)
+            && !string.IsNullOrWhiteSpace(profile.Identity.ContentSha256))
+        {
+            diagnostic("Save identity refresh skipped because a stable content fingerprint was unavailable.");
+            return;
+        }
+
+        if (IdentitiesEqual(profile.Identity, identity))
+        {
+            return;
         }
 
         profile.Identity = identity;
@@ -302,6 +338,7 @@ public sealed class ProfileRepository
             throw new InvalidOperationException("No current profile can be saved.");
         }
 
+        EnsureSchemaCanBeSaved(current);
         current.SchemaVersion = ProductInfo.SchemaVersion;
         current.Statistics.SchemaVersion = ProductInfo.SchemaVersion;
         current.Statistics.SaveGenerationId = current.GenerationId;
@@ -328,9 +365,14 @@ public sealed class ProfileRepository
             : string.IsNullOrWhiteSpace(current?.GenerationId)
                 ? "unknown"
                 : current.GenerationId;
+        var safeGeneration = string.Concat(generation.Select(character => char.IsLetterOrDigit(character) ? character : '-'));
+        if (string.IsNullOrWhiteSpace(safeGeneration))
+        {
+            safeGeneration = "unknown";
+        }
         var archivesDirectory = Path.Combine(slotDirectory, "archives");
         Directory.CreateDirectory(archivesDirectory);
-        var destination = Path.Combine(archivesDirectory, $"{timestamp}-{generation}-{safeReason}");
+        var destination = Path.Combine(archivesDirectory, $"{timestamp}-{safeGeneration}-{safeReason}");
         Directory.Move(source, destination);
         foreach (var file in Directory.EnumerateFiles(destination, "*", SearchOption.AllDirectories))
         {
@@ -363,14 +405,58 @@ public sealed class ProfileRepository
 
         if (stored.SaveFilePresent)
         {
-            return stored.SaveFileCreationUtcTicks.HasValue
-                   && observed.SaveFileCreationUtcTicks.HasValue
-                   && stored.SaveFileCreationUtcTicks.Value == observed.SaveFileCreationUtcTicks.Value;
+            if (string.IsNullOrWhiteSpace(observed.ContentSha256))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(stored.ContentSha256))
+            {
+                return string.Equals(stored.ContentSha256, observed.ContentSha256, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // Profiles written before content fingerprints were introduced
+            // cannot prove continuity once they contain statistics. A zero
+            // profile is harmless to adopt only when every legacy metadata
+            // observation still agrees; Open then persists the fingerprint.
+            return activationCount == 0
+                   && stored.SaveFileCreationUtcTicks == observed.SaveFileCreationUtcTicks
+                   && stored.ObservedWriteUtcTicks == observed.ObservedWriteUtcTicks
+                   && stored.ObservedLength == observed.ObservedLength;
         }
 
         // Two missing files only identify the same harmless zero profile. Any
         // accumulated data with no stable save identity is archived instead.
         return activationCount == 0;
+    }
+
+    private static bool IdentitiesEqual(SaveIdentitySnapshot left, SaveIdentitySnapshot right) =>
+        left.Slot == right.Slot
+        && left.SaveFilePresent == right.SaveFilePresent
+        && left.SaveFileCreationUtcTicks == right.SaveFileCreationUtcTicks
+        && left.ObservedWriteUtcTicks == right.ObservedWriteUtcTicks
+        && left.ObservedLength == right.ObservedLength
+        && string.Equals(left.GameVersion, right.GameVersion, StringComparison.Ordinal)
+        && string.Equals(left.ContentSha256, right.ContentSha256, StringComparison.OrdinalIgnoreCase);
+
+    private static void EnsureSchemaCanBeSaved(ProfileDocument profile)
+    {
+        if (profile.SchemaVersion > ProductInfo.SchemaVersion)
+        {
+            throw new NotSupportedException(
+                $"Profile schema {profile.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion} and will not be saved.");
+        }
+
+        if (profile.Statistics == null)
+        {
+            throw new InvalidOperationException("Profile statistics must be normalized before saving.");
+        }
+
+        if (profile.Statistics.SchemaVersion > ProductInfo.SchemaVersion)
+        {
+            throw new NotSupportedException(
+                $"Statistics schema {profile.Statistics.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion} and will not be saved.");
+        }
     }
 
     private static CapabilityRecord CloneCapability(CapabilityRecord source) => new()
@@ -416,6 +502,12 @@ public sealed class ProfileRepository
         if (identity.Slot < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(identity), "Duckov save slots start at one.");
+        }
+
+        if (identity.ContentSha256 != null
+            && (identity.ContentSha256.Length != 64 || identity.ContentSha256.Any(character => !Uri.IsHexDigit(character))))
+        {
+            throw new ArgumentException("Save content SHA-256 must contain exactly 64 hexadecimal characters.", nameof(identity));
         }
     }
 

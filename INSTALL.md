@@ -21,13 +21,16 @@ Before selecting a save on every cold launch:
 
 This v0.1.0 workaround is required for reliable tracking. No Harmony or unrelated Workshop dependency is required.
 
+UDS stores a read-only SHA-256 fingerprint of the selected Duckov save in UDS's own external profile; it never writes the save. If Duckov is played or a slot is reused while UDS is inactive, the next active launch cannot prove generation continuity and intentionally archives the prior UDS profile instead of merging possibly unrelated statistics. Always activate UDS before selecting a save if you want one continuous statistics generation.
+
 ## Install
 
 1. Close Escape From Duckov.
-2. Extract the `UltimateDuckovStatistics` folder into `<Duckov>\Duckov_Data\Mods\`.
-3. Start Duckov, accept its mod agreement if prompted, enable **Ultimate Duckov Statistics**, and restart if Duckov requests it.
-4. Follow the prominent per-launch activation procedure above.
-5. From the main menu or base, press F8 to open the UDS panel.
+2. For an upgrade, remove only the old `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics\` folder; UDS statistics are stored elsewhere and remain untouched.
+3. Extract the new `UltimateDuckovStatistics` folder into `<Duckov>\Duckov_Data\Mods\`.
+4. Start Duckov, accept its mod agreement if prompted, enable **Ultimate Duckov Statistics**, and restart if Duckov requests it.
+5. Follow the prominent per-launch activation procedure above.
+6. From the main menu or base, press F8 to open the UDS panel.
 
 UDS data and exports are written outside the game saves under `%USERPROFILE%\AppData\LocalLow\TeamSoda\Duckov\UltimateDuckovStatistics\`.
 

@@ -53,6 +53,27 @@ public sealed class ExportTests
 
     [Fact]
     [Trait("Category", "Export")]
+    public void ReclassifiedStableItemKeepsMatchingItemAndGroupExportRows()
+    {
+        var profile = CreateProfile();
+        ItemUseReducer.Apply(
+            profile.Statistics,
+            CreateUse("one", "item:stable", "Item", CanonicalItemGroup.Healing, 1, ConsumptionUnit.Item));
+        ItemUseReducer.Apply(
+            profile.Statistics,
+            CreateUse("two", "item:stable", "Item", CanonicalItemGroup.Drink, 2, ConsumptionUnit.Durability));
+
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var item = Assert.Single(ParseCsv(bundle.ItemsCsv));
+        var group = Assert.Single(ParseCsv(bundle.GroupsCsv));
+
+        Assert.Equal(nameof(CanonicalItemGroup.Healing), item["group"]);
+        Assert.Equal(item["group"], group["group"]);
+        Assert.Equal(ReadLong(item, "activation_count"), ReadLong(group, "activation_count"));
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
     public void WriterCreatesOneCompleteGenerationScopedExportSet()
     {
         using var temporaryDirectory = new TemporaryDirectory();

@@ -1,4 +1,5 @@
 using Saves;
+using System.Security.Cryptography;
 using UltimateDuckovStatistics.Core.Diagnostics;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
@@ -76,6 +77,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             $"Profile opened slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
             $"created={openResult.CreatedNew} rotated={openResult.RotatedGeneration} " +
             $"recovered={openResult.RecoveredSnapshot} migrated={openResult.MigratedSchema} " +
+            $"unsupportedArchived={openResult.UnsupportedSchemaArchived} " +
             $"interrupted={openResult.InterruptedSessionRecovered}.");
     }
 
@@ -115,7 +117,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
-            repository?.Flush();
+            if (repository != null)
+            {
+                repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
+                repository.Flush();
+            }
         }
         catch (Exception exception)
         {
@@ -131,6 +137,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             throw new InvalidOperationException("No profile is open for export.");
         }
 
+        repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
         repository.Flush();
         var result = ProfileExportWriter.Write(repository.Current, repository.CurrentProfilePath, DateTime.UtcNow);
         WriteDiagnostic($"Exported JSON and CSV statistics to {result.Directory}.");
@@ -144,6 +151,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             throw new InvalidOperationException("No profile is open for reset.");
         }
 
+        repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
         repository.Rotate(ReadIdentity(), "UserReset");
         OpenDiagnosticsForCurrentGeneration();
         WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only.");
@@ -162,7 +170,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
         try
         {
-            repository?.CloseClean();
+            if (repository != null)
+            {
+                repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
+                repository.CloseClean();
+            }
         }
         catch (Exception exception)
         {
@@ -177,11 +189,18 @@ internal sealed class NativeProfileCoordinator : IDisposable
         try
         {
             saveResetAwaitingNewGameReport = false;
-            var result = repository!.Open(ReadIdentity(), "SaveSlotSelected");
+            var observed = ReadIdentity();
+            if (repository!.Current.Slot != observed.Slot)
+            {
+                repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
+            }
+
+            var result = repository.Open(observed, "SaveSlotSelected");
             OpenDiagnosticsForCurrentGeneration();
             WriteDiagnostic(
                 $"Save slot selected slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
-                $"created={result.CreatedNew} rotated={result.RotatedGeneration}.");
+                $"created={result.CreatedNew} rotated={result.RotatedGeneration} " +
+                $"unsupportedArchived={result.UnsupportedSchemaArchived}.");
             ProfileChanged?.Invoke();
         }
         catch (Exception exception)
@@ -235,21 +254,65 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
     }
 
-    private static SaveIdentitySnapshot ReadIdentity()
+    private static SaveIdentitySnapshot ReadIdentity() => ReadIdentity(SavesSystem.CurrentSlot);
+
+    private static SaveIdentitySnapshot ReadIdentity(int slot)
     {
-        var slot = SavesSystem.CurrentSlot;
         var savePath = Path.Combine(Application.persistentDataPath, SavesSystem.GetFilePath(slot));
         var file = new FileInfo(savePath);
         file.Refresh();
+        var creationTicks = file.Exists ? file.CreationTimeUtc.Ticks : (long?)null;
+        var writeTicks = file.Exists ? file.LastWriteTimeUtc.Ticks : (long?)null;
+        var length = file.Exists ? file.Length : (long?)null;
+        var contentSha256 = file.Exists
+            ? TryReadStableSha256(file, creationTicks!.Value, writeTicks!.Value, length!.Value)
+            : null;
         return new SaveIdentitySnapshot
         {
             Slot = slot,
             SaveFilePresent = file.Exists,
-            SaveFileCreationUtcTicks = file.Exists ? file.CreationTimeUtc.Ticks : null,
-            ObservedWriteUtcTicks = file.Exists ? file.LastWriteTimeUtc.Ticks : null,
-            ObservedLength = file.Exists ? file.Length : null,
-            GameVersion = Application.version ?? string.Empty
+            SaveFileCreationUtcTicks = creationTicks,
+            ObservedWriteUtcTicks = writeTicks,
+            ObservedLength = length,
+            GameVersion = Application.version ?? string.Empty,
+            ContentSha256 = contentSha256
         };
+    }
+
+    private static string? TryReadStableSha256(
+        FileInfo file,
+        long creationTicks,
+        long writeTicks,
+        long length)
+    {
+        try
+        {
+            byte[] hash;
+            using (var stream = new FileStream(
+                       file.FullName,
+                       FileMode.Open,
+                       FileAccess.Read,
+                       FileShare.ReadWrite | FileShare.Delete))
+            using (var sha256 = SHA256.Create())
+            {
+                hash = sha256.ComputeHash(stream);
+            }
+
+            file.Refresh();
+            if (!file.Exists
+                || file.CreationTimeUtc.Ticks != creationTicks
+                || file.LastWriteTimeUtc.Ticks != writeTicks
+                || file.Length != length)
+            {
+                return null;
+            }
+
+            return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private void OpenDiagnosticsForCurrentGeneration()

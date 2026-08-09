@@ -49,6 +49,27 @@ public sealed class ItemUseReducerTests
 
     [Fact]
     [Trait("Category", "ItemUse")]
+    public void ConflictingLaterClassificationKeepsOriginalItemAndGroupInvariant()
+    {
+        var profile = CreateProfile();
+        var first = CreateEvent("event-a", "type:42", CanonicalItemGroup.Healing, 1, ConsumptionUnit.Item);
+        var reclassified = CreateEvent("event-b", "type:42", CanonicalItemGroup.Drink, 2, ConsumptionUnit.Durability);
+
+        ItemUseReducer.Apply(profile, first);
+        ItemUseReducer.Apply(profile, reclassified);
+
+        var item = Assert.Single(profile.Items).Value;
+        Assert.Equal(CanonicalItemGroup.Healing, item.Group);
+        Assert.Equal(2, item.Totals.ActivationCount);
+        Assert.Equal(2, profile.Groups[nameof(CanonicalItemGroup.Healing)].ActivationCount);
+        Assert.False(profile.Groups.ContainsKey(nameof(CanonicalItemGroup.Drink)));
+        Assert.Equal(
+            profile.Items.Values.Sum(value => value.Totals.ActivationCount),
+            profile.Groups.Values.Sum(value => value.ActivationCount));
+    }
+
+    [Fact]
+    [Trait("Category", "ItemUse")]
     public void UnknownModdedItemIsPreservedByStableIdAndFallbackName()
     {
         var profile = CreateProfile();

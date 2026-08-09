@@ -24,6 +24,9 @@ public sealed class SaveIdentitySnapshot
 
     [DataMember(Order = 6)]
     public string GameVersion { get; set; } = string.Empty;
+
+    [DataMember(Order = 7, EmitDefaultValue = false)]
+    public string? ContentSha256 { get; set; }
 }
 
 [DataContract]

@@ -23,6 +23,8 @@ Game assemblies are referenced locally with copy-local disabled. They are never 
 
 > **v0.1.0 activation note:** Duckov `2.3.30` does not automatically reactivate persisted local mods on the verified setup with zero Workshop subscriptions. Open **Mods** on every cold launch and check UDS once if its indicator is blank. See [INSTALL.md](INSTALL.md#important-activate-uds-on-every-cold-launch).
 
+If a save changes while UDS is inactive, UDS conservatively archives its prior external statistics generation on the next active launch rather than risk merging data from a reused save slot. UDS fingerprints saves read-only and never modifies them.
+
 ## Development commands
 
 ```powershell

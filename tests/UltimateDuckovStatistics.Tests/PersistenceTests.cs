@@ -74,6 +74,104 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    public void RepositoryNormalizesMissingLegacyFieldsBeforeIdentityChecks()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var legacy = CreateDocument("generation-legacy", revision: 4);
+        legacy.SchemaVersion = 0;
+        legacy.Identity = null!;
+        legacy.Statistics = null!;
+        new AtomicJsonStore<ProfileDocument>().Save(path, legacy);
+        var ids = new Queue<string>();
+        ids.Enqueue("session-new");
+        var repository = CreateRepository(temporaryDirectory.Path, ids);
+
+        var result = repository.Open(new SaveIdentitySnapshot { Slot = 1, SaveFilePresent = false });
+
+        Assert.True(result.MigratedSchema);
+        Assert.False(result.RotatedGeneration);
+        Assert.Equal("generation-legacy", repository.Current.GenerationId);
+        Assert.NotNull(repository.Current.Identity);
+        Assert.NotNull(repository.Current.Statistics);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void UnsupportedProfileSchemaIsArchivedByteForByteWithoutDowngrade()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var future = CreateDocument("generation-future", revision: 9);
+        future.SchemaVersion = ProductInfo.SchemaVersion + 1;
+        new AtomicJsonStore<ProfileDocument>().Save(path, future);
+        var raw = File.ReadAllText(path).Insert(1, "\"FutureData\":{\"keep\":\"verbatim\"},");
+        File.WriteAllText(path, raw);
+        var ids = new Queue<string>();
+        ids.Enqueue("generation-safe");
+        ids.Enqueue("session-safe");
+        var repository = CreateRepository(temporaryDirectory.Path, ids);
+
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.UnsupportedSchemaArchived);
+        Assert.True(result.RotatedGeneration);
+        Assert.Equal("generation-safe", repository.Current.GenerationId);
+        var archive = Assert.Single(Directory.EnumerateDirectories(
+            System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "archives")));
+        var archivedProfile = System.IO.Path.Combine(archive, "profile.json");
+        Assert.Equal(raw, File.ReadAllText(archivedProfile));
+        Assert.True((File.GetAttributes(archivedProfile) & FileAttributes.ReadOnly) != 0);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void UnsupportedStatisticsSchemaIsArchivedWithoutBeingSaved()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var future = CreateDocument("generation-future", revision: 9);
+        future.Statistics.SchemaVersion = ProductInfo.SchemaVersion + 1;
+        new AtomicJsonStore<ProfileDocument>().Save(path, future);
+        var raw = File.ReadAllText(path);
+        var ids = new Queue<string>();
+        ids.Enqueue("generation-safe");
+        ids.Enqueue("session-safe");
+        var repository = CreateRepository(temporaryDirectory.Path, ids);
+
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.UnsupportedSchemaArchived);
+        var archive = Assert.Single(Directory.EnumerateDirectories(
+            System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "archives")));
+        Assert.Equal(raw, File.ReadAllText(System.IO.Path.Combine(archive, "profile.json")));
+        Assert.Equal(ProductInfo.SchemaVersion, repository.Current.Statistics.SchemaVersion);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void SaveGuardNeverDowngradesAnUnsupportedCurrentDocument()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var ids = new Queue<string>();
+        ids.Enqueue("generation-a");
+        ids.Enqueue("session-a");
+        var repository = CreateRepository(temporaryDirectory.Path, ids);
+        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        var profilePath = repository.CurrentProfilePath!;
+        var before = File.ReadAllText(profilePath);
+        repository.Current.SchemaVersion = ProductInfo.SchemaVersion + 1;
+
+        Assert.Throws<NotSupportedException>(() => repository.Flush());
+
+        Assert.Equal(before, File.ReadAllText(profilePath));
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     public void SaveSlotsRemainIsolated()
     {
         using var temporaryDirectory = new TemporaryDirectory();
@@ -172,6 +270,84 @@ public sealed class PersistenceTests
             "old-generation evidence",
             Assert.Single(new AtomicJsonStore<DiagnosticsDocument>().Load(archivedDiagnostics).Value!.Entries).Message);
         second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void ReusedSaveWithUnchangedCreationTimestampButDifferentFingerprintRotates()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var firstIds = new Queue<string>();
+        firstIds.Enqueue("generation-old");
+        firstIds.Enqueue("session-old");
+        var first = CreateRepository(temporaryDirectory.Path, firstIds);
+        var original = CreateIdentity(slot: 1, creationTicks: 100);
+        first.Open(original);
+        first.Record(CreateUse("event-one", "generation-old"));
+        first.CloseClean();
+
+        var replacement = CreateIdentity(slot: 1, creationTicks: 100);
+        replacement.ContentSha256 = new string('f', 64);
+        var secondIds = new Queue<string>();
+        secondIds.Enqueue("generation-new");
+        secondIds.Enqueue("session-new");
+        var second = CreateRepository(temporaryDirectory.Path, secondIds);
+
+        var result = second.Open(replacement);
+
+        Assert.True(result.RotatedGeneration);
+        Assert.Equal("generation-new", second.Current.GenerationId);
+        Assert.Equal(0, second.Current.Statistics.Overall.ActivationCount);
+        second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void NonzeroLegacyProfileWithoutFingerprintRotatesConservatively()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var firstIds = new Queue<string>();
+        firstIds.Enqueue("generation-old");
+        firstIds.Enqueue("session-old");
+        var first = CreateRepository(temporaryDirectory.Path, firstIds);
+        var legacyIdentity = CreateIdentity(slot: 1, creationTicks: 100);
+        legacyIdentity.ContentSha256 = null;
+        first.Open(legacyIdentity);
+        first.Record(CreateUse("event-one", "generation-old"));
+        first.CloseClean();
+
+        var secondIds = new Queue<string>();
+        secondIds.Enqueue("generation-new");
+        secondIds.Enqueue("session-new");
+        var second = CreateRepository(temporaryDirectory.Path, secondIds);
+
+        var result = second.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RotatedGeneration);
+        Assert.Equal("generation-new", second.Current.GenerationId);
+        second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void TransientFingerprintReadFailureDoesNotEraseStoredContinuityProof()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var ids = new Queue<string>();
+        ids.Enqueue("generation-a");
+        ids.Enqueue("session-a");
+        var repository = CreateRepository(temporaryDirectory.Path, ids);
+        var stable = CreateIdentity(slot: 1, creationTicks: 100);
+        repository.Open(stable);
+        var unavailable = CreateIdentity(slot: 1, creationTicks: 100);
+        unavailable.ObservedWriteUtcTicks = 999;
+        unavailable.ContentSha256 = null;
+
+        repository.RefreshIdentity(unavailable);
+
+        Assert.Equal(stable.ContentSha256, repository.Current.Identity.ContentSha256);
+        Assert.Equal(stable.ObservedWriteUtcTicks, repository.Current.Identity.ObservedWriteUtcTicks);
+        repository.CloseClean();
     }
 
     [Fact]
@@ -281,7 +457,8 @@ public sealed class PersistenceTests
         SaveFileCreationUtcTicks = creationTicks,
         ObservedWriteUtcTicks = creationTicks + 10,
         ObservedLength = 4096,
-        GameVersion = "2.3.30"
+        GameVersion = "2.3.30",
+        ContentSha256 = creationTicks.ToString("x", System.Globalization.CultureInfo.InvariantCulture).PadLeft(64, '0')
     };
 
     private static ItemUseRecorded CreateUse(string eventId, string generationId) => new()

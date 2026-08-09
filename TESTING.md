@@ -155,6 +155,45 @@ dotnet test .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Test
 | Corruption/backup recovery | Passed automated 2026-08-09 | Corrupt primary recovered from `.bak`; orphaned `.tmp` recovered; two corrupt snapshots archived without overwrite |
 | Interrupted write/session safety | Passed automated 2026-08-09 | Atomic replacement and session checkpoint recovery preserve totals; one interruption recorded exactly once; diagnostics remain bounded and raw trace defaults off |
 
+### Review hardening regression gate
+
+These checks are required after the four pre-release review findings concerning schema safety, missed lifecycle events, item reclassification, and stale deployment contents.
+
+```powershell
+dotnet test .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj -c Release --no-restore
+.\scripts\build.ps1 -DuckovPath $env:DUCKOV_PATH
+```
+
+Automated pass criteria:
+
+- A profile or nested statistics document newer than the supported schema is moved byte-for-byte into a read-only archive; UDS creates a separate current schema-1 generation and never saves/downgrades the unsupported object.
+- Missing legacy identity/statistics fields are migrated locally before identity checks.
+- A save with the same slot and creation timestamp but a different SHA-256 fingerprint rotates; a nonzero pre-fingerprint profile also rotates conservatively.
+- A transient fingerprint read failure does not erase a previously stored continuity proof.
+- A stable item ID keeps its first canonical group, and JSON/item/group CSV totals remain mutually consistent after a conflicting later classification.
+- Deployment stages and verifies a clean package, replaces the old UDS directory, removes a simulated stale `0Harmony.dll` and obsolete DLL, verifies the final exact five-file inventory, and leaves no staging/backup directory.
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Profile schema safety | Passed automated 2026-08-09 | Future top-level and nested schemas archived without rewrite; direct save guard rejects downgrade; missing legacy fields normalize before identity checks |
+| Save reuse continuity | Passed automated 2026-08-09 | Full-content SHA-256 distinguishes same-timestamp replacement; uncertain nonzero legacy identity rotates; failed refresh retains the prior proof |
+| Classification/export invariant | Passed automated 2026-08-09 | First canonical group is frozen for a stable item ID; item, group, overall, JSON, and CSV activation totals agree |
+| Clean deployment replacement | Passed automated 2026-08-09 | Temporary fake Duckov deployment removed stale forbidden/obsolete DLLs and ended with only the five permitted package files |
+| Full Release suite/build | Passed automated 2026-08-09 | 43 tests; Duckov contract passed; native build 0 warnings/0 errors; package exact-inventory validation passed |
+
+Targeted manual continuity acceptance after approved deployment:
+
+1. Confirm Duckov is closed. Codex records current UDS slot-1/slot-6 generation IDs, profile hashes, and save metadata without modifying any save.
+2. Cold-launch Duckov, apply the accepted per-launch activation workaround, and select progressed slot 1. The old two-use pre-fingerprint UDS generation must be archived read-only and a new zero generation must appear. This one-time conservative rotation is expected; the accepted evidence remains in the archive.
+3. In slot 1, complete exactly one successful raid consumable use, finish the raid, exit normally, and report the item/group/amount.
+4. Codex verifies one count, the stored save SHA-256, clean checkpoint removal, and no UDS error. Cold-launch again, activate UDS before selecting slot 1, confirm the same generation and one count, then exit. Codex verifies exact persistence.
+5. Cold-launch, activate UDS, and select disposable slot 6. Confirm a zero generation. Complete exactly one successful raid consumable use, finish, and exit normally. Codex verifies the one-use profile and stored fingerprint.
+6. Cold-launch Duckov without activating or touching UDS. Select only disposable slot 6, delete/reuse it through Duckov, start the new slot, and exit normally. Do not touch slot 1 or slot 2.
+7. Cold-launch once more, activate UDS before selecting slot 6, open the panel, and confirm a different zero generation; then exit normally.
+8. Codex verifies that the inactive reuse produced a fingerprint mismatch, archived the former one-use generation read-only, created a zero generation, left slot 1 unchanged, removed session/temp residue, and emitted no UDS exception.
+
+This targeted gate is pending until the corrected build is deployed with approval and the user completes steps 2-7. The previously accepted broader item-use/UI/export evidence remains valid; this gate specifically revalidates the changed persistence and deployment behavior.
+
 ## Checkpoint 5 — UI and exports
 
 Automated tests must prove JSON and CSV item/group/overall totals agree and that package validation rejects every forbidden dependency.
@@ -241,15 +280,15 @@ Final release-candidate command:
 
 This command reruns the complete Release suite and contract probe, rebuilds and validates the five-file package, creates an installable folder-rooted ZIP, rejects forbidden ZIP entries, and writes a lowercase SHA-256 sidecar.
 
-Final release-candidate evidence, 2026-08-09: 33 tests passed; the Duckov contract probe passed for game `2.3.30`, Steam build `24013657`, and Unity `2022.3.62f2`; the native adapter built with zero warnings/errors; and package validation passed. `UltimateDuckovStatistics-v0.1.0.zip` is 42,353 bytes with SHA-256 `6e63b1c2a6d62d1e1e62a51a15dd26a928fdb98b8cda988e8b972bc7576b7363`. Its sidecar matches exactly. An independent extraction contains the `UltimateDuckovStatistics` folder with exactly the five required files, all byte-identical to the validated package, and passes the package verifier with no game, Unity, framework, or Harmony DLL.
+Superseded pre-review release-candidate evidence, 2026-08-09: the earlier 33-test candidate produced a 42,353-byte ZIP with SHA-256 `6e63b1c2a6d62d1e1e62a51a15dd26a928fdb98b8cda988e8b972bc7576b7363`. Four review findings reopened persistence, classification/export, deployment, and final-release gates. That ZIP and hash are no longer the release candidate. The review-hardened ZIP and sidecar must be regenerated and independently verified only after the targeted manual continuity gate passes.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
 | Progressed save matrix | Passed 2026-08-09 | Slot 1 zero baseline, base exclusion, cancellation exclusion, two-group raid counts/amounts, F8 rejection, restart persistence, clean shutdown, and four-file export all verified |
 | Fresh/reused save matrix | Passed 2026-08-09 | Slot 6 zero isolation, one stack-unit use, capability carryover correction/retest, restart persistence, Duckov-driven delete/reuse, read-only archive, new zero generation, and no cross-slot leak verified |
 | Log and artifact inspection | Passed 2026-08-09 | All gameplay/restart logs, profiles/backups, diagnostics, exports, archives, capabilities, and session cleanup inspected; no UDS exception or residue |
-| Source committed and pushed | Passed 2026-08-09 | All scoped source, regression, documentation, and release-script changes committed as `bamboechop <info@bamboechop.at>` and pushed; local, origin, and PR heads verified equal after the final push |
-| Draft PR current and unmerged | Passed 2026-08-09 | PR #1 remains open, draft, and unmerged on `feat/consumable-mvp`; final head and green CI verified after push |
-| Installable ZIP and SHA-256 | Passed 2026-08-09 | Five-file folder-rooted ZIP independently extracted and verified; 42,353 bytes; SHA-256 `6e63b1c2a6d62d1e1e62a51a15dd26a928fdb98b8cda988e8b972bc7576b7363`; matching sidecar ready |
+| Source committed and pushed | Pending review-fix finalization | Prior accepted commits remain on `feat/consumable-mvp`; the review-hardening changes must be committed as `bamboechop <info@bamboechop.at>` and pushed after targeted acceptance |
+| Draft PR current and unmerged | Pending review-fix finalization | PR #1 remains open, draft, and unmerged; its head/body/green CI must be refreshed after the review-hardening commit |
+| Installable ZIP and SHA-256 | Pending review-fix finalization | The earlier artifact/hash is superseded; regenerate, independently extract, exact-inventory verify, and record the new checksum after targeted acceptance |
 
 The M0/M1 Goal remains active until every row above passes. Do not merge the PR and do not publish a GitHub release.
