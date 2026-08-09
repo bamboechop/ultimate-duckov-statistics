@@ -63,6 +63,7 @@ try
         core.RequireEvent(string.Empty, "LevelManager", "OnNewGameReport", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnSetFile", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnSaveDeleted", "System.Action");
+        core.RequireEvent("Saves", "SavesSystem", "OnCollectSaveData", "System.Action");
 
         core.RequireProperty(string.Empty, "LevelManager", "IsRaidMap");
         core.RequireProperty(string.Empty, "LevelManager", "IsBaseLevel");

@@ -284,10 +284,113 @@ public sealed class PersistenceTests
         var original = CreateIdentity(slot: 1, creationTicks: 100);
         first.Open(original);
         first.Record(CreateUse("event-one", "generation-old"));
+        first.PrepareForNativeSave(original);
+
+        var replacement = CreateIdentity(slot: 1, creationTicks: 100);
+        replacement.ContentSha256 = new string('f', 64);
+        replacement.SaveTimeBinary = original.SaveTimeBinary;
+        var secondIds = new Queue<string>();
+        secondIds.Enqueue("generation-new");
+        secondIds.Enqueue("session-new");
+        var second = CreateRepository(temporaryDirectory.Path, secondIds);
+
+        var result = second.Open(replacement);
+
+        Assert.True(result.RotatedGeneration);
+        Assert.Equal("generation-new", second.Current.GenerationId);
+        Assert.Equal(0, second.Current.Statistics.Overall.ActivationCount);
+        second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void InterruptedSessionSurvivesOneProvenNativeSaveStep()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var firstIds = new Queue<string>();
+        firstIds.Enqueue("generation-a");
+        firstIds.Enqueue("session-a");
+        var first = CreateRepository(temporaryDirectory.Path, firstIds);
+        var original = CreateIdentity(slot: 1, creationTicks: 100);
+        first.Open(original);
+        first.Record(CreateUse("event-one", "generation-a"));
+        first.PrepareForNativeSave(original);
+
+        var evolved = CreateIdentity(slot: 1, creationTicks: 100);
+        evolved.ContentSha256 = new string('f', 64);
+        evolved.SaveTimeBinary = TestTime
+            .AddSeconds(1)
+            .ToBinary();
+        evolved.ObservedWriteUtcTicks++;
+        evolved.ObservedLength++;
+        var secondIds = new Queue<string>();
+        secondIds.Enqueue("session-b");
+        var second = CreateRepository(temporaryDirectory.Path, secondIds);
+
+        var result = second.Open(evolved);
+
+        Assert.False(result.RotatedGeneration);
+        Assert.False(result.CreatedNew);
+        Assert.True(result.InterruptedSessionRecovered);
+        Assert.Equal("generation-a", second.Current.GenerationId);
+        Assert.Equal(1, second.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(evolved.ContentSha256, second.Current.Identity.ContentSha256);
+        Assert.Null(second.Current.PendingSave);
+        second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void CleanCloseClearsPendingSaveIntentBeforeLaterChange()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var firstIds = new Queue<string>();
+        firstIds.Enqueue("generation-old");
+        firstIds.Enqueue("session-old");
+        var first = CreateRepository(temporaryDirectory.Path, firstIds);
+        var original = CreateIdentity(slot: 1, creationTicks: 100);
+        first.Open(original);
+        first.Record(CreateUse("event-one", "generation-old"));
+        first.PrepareForNativeSave(original);
         first.CloseClean();
 
         var replacement = CreateIdentity(slot: 1, creationTicks: 100);
         replacement.ContentSha256 = new string('f', 64);
+        replacement.SaveTimeBinary = TestTime
+            .AddSeconds(1)
+            .ToBinary();
+        var secondIds = new Queue<string>();
+        secondIds.Enqueue("generation-new");
+        secondIds.Enqueue("session-new");
+        var second = CreateRepository(temporaryDirectory.Path, secondIds);
+
+        var result = second.Open(replacement);
+
+        Assert.True(result.RotatedGeneration);
+        Assert.Equal("generation-new", second.Current.GenerationId);
+        Assert.Equal(0, second.Current.Statistics.Overall.ActivationCount);
+        second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    public void ExpiredPendingSaveIntentCannotBridgeLaterSlotReuse()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var firstIds = new Queue<string>();
+        firstIds.Enqueue("generation-old");
+        firstIds.Enqueue("session-old");
+        var first = CreateRepository(temporaryDirectory.Path, firstIds);
+        var original = CreateIdentity(slot: 1, creationTicks: 100);
+        first.Open(original);
+        first.Record(CreateUse("event-one", "generation-old"));
+        first.PrepareForNativeSave(original);
+
+        var replacement = CreateIdentity(slot: 1, creationTicks: 100);
+        replacement.ContentSha256 = new string('f', 64);
+        replacement.SaveTimeBinary = TestTime
+            .AddMinutes(1)
+            .ToBinary();
         var secondIds = new Queue<string>();
         secondIds.Enqueue("generation-new");
         secondIds.Enqueue("session-new");
@@ -458,7 +561,8 @@ public sealed class PersistenceTests
         ObservedWriteUtcTicks = creationTicks + 10,
         ObservedLength = 4096,
         GameVersion = "2.3.30",
-        ContentSha256 = creationTicks.ToString("x", System.Globalization.CultureInfo.InvariantCulture).PadLeft(64, '0')
+        ContentSha256 = creationTicks.ToString("x", System.Globalization.CultureInfo.InvariantCulture).PadLeft(64, '0'),
+        SaveTimeBinary = TestTime.AddTicks(creationTicks).ToBinary()
     };
 
     private static ItemUseRecorded CreateUse(string eventId, string generationId) => new()

@@ -27,6 +27,22 @@ public sealed class SaveIdentitySnapshot
 
     [DataMember(Order = 7, EmitDefaultValue = false)]
     public string? ContentSha256 { get; set; }
+
+    [DataMember(Order = 8, EmitDefaultValue = false)]
+    public long? SaveTimeBinary { get; set; }
+}
+
+[DataContract]
+public sealed class PendingSaveObservation
+{
+    [DataMember(Order = 1)]
+    public string ContentSha256BeforeSave { get; set; } = string.Empty;
+
+    [DataMember(Order = 2, EmitDefaultValue = false)]
+    public long? SaveTimeBinaryBeforeSave { get; set; }
+
+    [DataMember(Order = 3)]
+    public DateTime CollectedUtc { get; set; }
 }
 
 [DataContract]
@@ -80,6 +96,9 @@ public sealed class ProfileDocument
 
     [DataMember(Order = 11)]
     public List<CapabilityRecord> Capabilities { get; set; } = new();
+
+    [DataMember(Order = 12, EmitDefaultValue = false)]
+    public PendingSaveObservation? PendingSave { get; set; }
 }
 
 [DataContract]

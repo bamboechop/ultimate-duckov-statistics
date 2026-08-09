@@ -4,7 +4,13 @@ param(
     [string]$DuckovPath,
 
     [Parameter(Mandatory = $false)]
-    [string]$PackagePath
+    [string]$PackagePath,
+
+    [Parameter(Mandatory = $false, DontShow = $true)]
+    [scriptblock]$BackupCleanupAction = {
+        param([string]$BackupPath)
+        Remove-Item -Recurse -Force -LiteralPath $BackupPath
+    }
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,6 +44,7 @@ $staging = Join-Path $modsRoot ".UltimateDuckovStatistics.deploying-$deploymentI
 $backup = Join-Path $modsRoot ".UltimateDuckovStatistics.previous-$deploymentId"
 $destinationMoved = $false
 $stagingPromoted = $false
+$deploymentCommitted = $false
 
 try {
     New-Item -ItemType Directory -Path $staging | Out-Null
@@ -54,20 +61,28 @@ try {
     Move-Item -LiteralPath $staging -Destination $destination
     $stagingPromoted = $true
     & (Join-Path $PSScriptRoot 'verify-package.ps1') -PackagePath $destination
+    $deploymentCommitted = $true
 
     if ($destinationMoved) {
-        Remove-Item -Recurse -Force -LiteralPath $backup
-        $destinationMoved = $false
+        try {
+            & $BackupCleanupAction $backup
+            $destinationMoved = $false
+        }
+        catch {
+            Write-Warning "The verified UDS deployment succeeded, but the prior deployment backup could not be removed completely. Retained backup path: $backup. $($_.Exception.Message)"
+        }
     }
 }
 catch {
-    if ($stagingPromoted -and (Test-Path -LiteralPath $destination)) {
-        Remove-Item -Recurse -Force -LiteralPath $destination
-        $stagingPromoted = $false
-    }
-    if ($destinationMoved -and (Test-Path -LiteralPath $backup)) {
-        Move-Item -LiteralPath $backup -Destination $destination
-        $destinationMoved = $false
+    if (-not $deploymentCommitted) {
+        if ($stagingPromoted -and (Test-Path -LiteralPath $destination)) {
+            Remove-Item -Recurse -Force -LiteralPath $destination
+            $stagingPromoted = $false
+        }
+        if ($destinationMoved -and (Test-Path -LiteralPath $backup)) {
+            Move-Item -LiteralPath $backup -Destination $destination
+            $destinationMoved = $false
+        }
     }
     throw
 }

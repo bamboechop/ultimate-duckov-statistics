@@ -1,5 +1,7 @@
 using Saves;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using UltimateDuckovStatistics.Core.Diagnostics;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
@@ -12,6 +14,9 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeProfileCoordinator : IDisposable
 {
     private const int DiagnosticCapacity = 200;
+    private static readonly Regex SaveTimePattern = new(
+        "\\\"SaveTime\\\"\\s*:\\s*\\{[^{}]*?\\\"value\\\"\\s*:\\s*(-?\\d+)",
+        RegexOptions.CultureInvariant);
     private readonly string dataRoot;
     private DiagnosticStore? diagnostics;
     private ProfileRepository? repository;
@@ -65,12 +70,13 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 AdapterId = "native-save-lifecycle",
                 State = AdapterCapabilityState.Supported,
                 Version = "native-save-lifecycle/2.3.30",
-                Detail = "Duckov public SavesSystem and LevelManager events"
+                Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             }
         });
 
         SavesSystem.OnSetFile += OnSetFile;
         SavesSystem.OnSaveDeleted += OnSaveDeleted;
+        SavesSystem.OnCollectSaveData += OnCollectSaveData;
         LevelManager.OnNewGameReport += OnNewGameReport;
         subscribed = true;
         WriteDiagnostic(
@@ -164,6 +170,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         {
             SavesSystem.OnSetFile -= OnSetFile;
             SavesSystem.OnSaveDeleted -= OnSaveDeleted;
+            SavesSystem.OnCollectSaveData -= OnCollectSaveData;
             LevelManager.OnNewGameReport -= OnNewGameReport;
             subscribed = false;
         }
@@ -227,6 +234,22 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
     }
 
+    private void OnCollectSaveData()
+    {
+        try
+        {
+            if (repository != null)
+            {
+                repository.PrepareForNativeSave(ReadIdentity(repository.Current.Slot));
+            }
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            WriteDiagnostic($"Pre-save identity refresh failed: {exception.GetType().Name}.", "Error");
+        }
+    }
+
     private void OnNewGameReport()
     {
         try
@@ -264,9 +287,19 @@ internal sealed class NativeProfileCoordinator : IDisposable
         var creationTicks = file.Exists ? file.CreationTimeUtc.Ticks : (long?)null;
         var writeTicks = file.Exists ? file.LastWriteTimeUtc.Ticks : (long?)null;
         var length = file.Exists ? file.Length : (long?)null;
-        var contentSha256 = file.Exists
-            ? TryReadStableSha256(file, creationTicks!.Value, writeTicks!.Value, length!.Value)
-            : null;
+        string? contentSha256 = null;
+        long? saveTimeBinary = null;
+        if (file.Exists)
+        {
+            TryReadStableSaveSnapshot(
+                file,
+                creationTicks!.Value,
+                writeTicks!.Value,
+                length!.Value,
+                out contentSha256,
+                out saveTimeBinary);
+        }
+
         return new SaveIdentitySnapshot
         {
             Slot = slot,
@@ -275,19 +308,25 @@ internal sealed class NativeProfileCoordinator : IDisposable
             ObservedWriteUtcTicks = writeTicks,
             ObservedLength = length,
             GameVersion = Application.version ?? string.Empty,
-            ContentSha256 = contentSha256
+            ContentSha256 = contentSha256,
+            SaveTimeBinary = saveTimeBinary
         };
     }
 
-    private static string? TryReadStableSha256(
+    private static void TryReadStableSaveSnapshot(
         FileInfo file,
         long creationTicks,
         long writeTicks,
-        long length)
+        long length,
+        out string? contentSha256,
+        out long? saveTimeBinary)
     {
+        contentSha256 = null;
+        saveTimeBinary = null;
         try
         {
             byte[] hash;
+            string content;
             using (var stream = new FileStream(
                        file.FullName,
                        FileMode.Open,
@@ -296,6 +335,14 @@ internal sealed class NativeProfileCoordinator : IDisposable
             using (var sha256 = SHA256.Create())
             {
                 hash = sha256.ComputeHash(stream);
+                stream.Position = 0;
+                using var reader = new StreamReader(
+                    stream,
+                    Encoding.UTF8,
+                    detectEncodingFromByteOrderMarks: true,
+                    bufferSize: 4096,
+                    leaveOpen: false);
+                content = reader.ReadToEnd();
             }
 
             file.Refresh();
@@ -304,14 +351,24 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 || file.LastWriteTimeUtc.Ticks != writeTicks
                 || file.Length != length)
             {
-                return null;
+                return;
             }
 
-            return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+            contentSha256 = BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+            var match = SaveTimePattern.Match(content);
+            if (match.Success && long.TryParse(
+                    match.Groups[1].Value,
+                    System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var parsedSaveTime))
+            {
+                saveTimeBinary = parsedSaveTime;
+            }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            return null;
+            contentSha256 = null;
+            saveTimeBinary = null;
         }
     }
 

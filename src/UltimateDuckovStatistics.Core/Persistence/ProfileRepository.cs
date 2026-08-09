@@ -23,6 +23,7 @@ public sealed class ProfileOpenResult
 
 public sealed class ProfileRepository
 {
+    private static readonly TimeSpan NativeSaveIntentWindow = TimeSpan.FromSeconds(30);
     private readonly string dataRoot;
     private readonly Func<DateTime> utcNow;
     private readonly Func<string> idFactory;
@@ -106,7 +107,7 @@ public sealed class ProfileRepository
 
             if (!result.UnsupportedSchemaArchived)
             {
-                if (!IdentityMatches(candidate.Identity, identity, candidate.Statistics.Overall.ActivationCount))
+                if (!IdentityMatches(candidate, identity))
                 {
                     ArchiveCurrentDirectory(slotDirectory, "SaveIdentityChanged", candidate.GenerationId);
                     currentDirectory = Path.Combine(slotDirectory, "current");
@@ -119,9 +120,11 @@ public sealed class ProfileRepository
                 else
                 {
                     var identityChanged = !IdentitiesEqual(candidate.Identity, identity);
+                    var pendingSaveCleared = candidate.PendingSave != null;
                     current = candidate;
                     current.Identity = identity;
-                    if (loaded.Recovered || result.MigratedSchema || identityChanged)
+                    current.PendingSave = null;
+                    if (loaded.Recovered || result.MigratedSchema || identityChanged || pendingSaveCleared)
                     {
                         SaveCurrent();
                     }
@@ -204,13 +207,43 @@ public sealed class ProfileRepository
             return;
         }
 
-        if (IdentitiesEqual(profile.Identity, identity))
+        if (IdentitiesEqual(profile.Identity, identity) && profile.PendingSave == null)
         {
             return;
         }
 
         profile.Identity = identity;
+        profile.PendingSave = null;
         profile.UpdatedUtc = EnsureUtc(utcNow());
+        profile.Revision++;
+        SaveCurrent();
+    }
+
+    public void PrepareForNativeSave(SaveIdentitySnapshot identity)
+    {
+        ValidateIdentity(identity);
+        var profile = Current;
+        if (profile.Slot != identity.Slot)
+        {
+            throw new InvalidOperationException("Cannot prepare a different slot's save identity.");
+        }
+
+        if (!identity.SaveFilePresent
+            || string.IsNullOrWhiteSpace(identity.ContentSha256)
+            || !identity.SaveTimeBinary.HasValue)
+        {
+            diagnostic("Native save intent was not recorded because stable save identity metadata was unavailable.");
+            return;
+        }
+
+        profile.Identity = identity;
+        profile.PendingSave = new PendingSaveObservation
+        {
+            ContentSha256BeforeSave = identity.ContentSha256,
+            SaveTimeBinaryBeforeSave = identity.SaveTimeBinary,
+            CollectedUtc = EnsureUtc(utcNow())
+        };
+        profile.UpdatedUtc = profile.PendingSave.CollectedUtc;
         profile.Revision++;
         SaveCurrent();
     }
@@ -230,6 +263,7 @@ public sealed class ProfileRepository
             return;
         }
 
+        current.PendingSave = null;
         SaveCurrent();
         sessionStore.Delete(GetSessionPath(currentDirectory));
         diagnostic($"Closed generation {current.GenerationId} cleanly.");
@@ -388,11 +422,9 @@ public sealed class ProfileRepository
 
     private static string GetSessionPath(string directory) => Path.Combine(directory, "session.json");
 
-    private static bool IdentityMatches(
-        SaveIdentitySnapshot stored,
-        SaveIdentitySnapshot observed,
-        long activationCount)
+    private static bool IdentityMatches(ProfileDocument candidate, SaveIdentitySnapshot observed)
     {
+        var stored = candidate.Identity;
         if (stored == null || stored.Slot != observed.Slot)
         {
             return false;
@@ -412,14 +444,19 @@ public sealed class ProfileRepository
 
             if (!string.IsNullOrWhiteSpace(stored.ContentSha256))
             {
-                return string.Equals(stored.ContentSha256, observed.ContentSha256, StringComparison.OrdinalIgnoreCase);
+                if (string.Equals(stored.ContentSha256, observed.ContentSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                return ExpectedNativeSaveMatches(candidate.PendingSave, stored, observed);
             }
 
             // Profiles written before content fingerprints were introduced
             // cannot prove continuity once they contain statistics. A zero
             // profile is harmless to adopt only when every legacy metadata
             // observation still agrees; Open then persists the fingerprint.
-            return activationCount == 0
+            return candidate.Statistics.Overall.ActivationCount == 0
                    && stored.SaveFileCreationUtcTicks == observed.SaveFileCreationUtcTicks
                    && stored.ObservedWriteUtcTicks == observed.ObservedWriteUtcTicks
                    && stored.ObservedLength == observed.ObservedLength;
@@ -427,7 +464,7 @@ public sealed class ProfileRepository
 
         // Two missing files only identify the same harmless zero profile. Any
         // accumulated data with no stable save identity is archived instead.
-        return activationCount == 0;
+        return candidate.Statistics.Overall.ActivationCount == 0;
     }
 
     private static bool IdentitiesEqual(SaveIdentitySnapshot left, SaveIdentitySnapshot right) =>
@@ -437,7 +474,40 @@ public sealed class ProfileRepository
         && left.ObservedWriteUtcTicks == right.ObservedWriteUtcTicks
         && left.ObservedLength == right.ObservedLength
         && string.Equals(left.GameVersion, right.GameVersion, StringComparison.Ordinal)
-        && string.Equals(left.ContentSha256, right.ContentSha256, StringComparison.OrdinalIgnoreCase);
+        && string.Equals(left.ContentSha256, right.ContentSha256, StringComparison.OrdinalIgnoreCase)
+        && left.SaveTimeBinary == right.SaveTimeBinary;
+
+    private static bool ExpectedNativeSaveMatches(
+        PendingSaveObservation? pending,
+        SaveIdentitySnapshot stored,
+        SaveIdentitySnapshot observed)
+    {
+        if (pending == null
+            || !stored.SaveTimeBinary.HasValue
+            || !observed.SaveTimeBinary.HasValue
+            || !string.Equals(
+                pending.ContentSha256BeforeSave,
+                stored.ContentSha256,
+                StringComparison.OrdinalIgnoreCase)
+            || pending.SaveTimeBinaryBeforeSave != stored.SaveTimeBinary)
+        {
+            return false;
+        }
+
+        try
+        {
+            var storedSaveTime = DateTime.FromBinary(stored.SaveTimeBinary.Value).ToUniversalTime();
+            var observedSaveTime = DateTime.FromBinary(observed.SaveTimeBinary.Value).ToUniversalTime();
+            var collectedUtc = EnsureUtc(pending.CollectedUtc);
+            return observedSaveTime > storedSaveTime
+                   && observedSaveTime >= collectedUtc
+                   && observedSaveTime <= collectedUtc + NativeSaveIntentWindow;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
 
     private static void EnsureSchemaCanBeSaved(ProfileDocument profile)
     {
@@ -508,6 +578,18 @@ public sealed class ProfileRepository
             && (identity.ContentSha256.Length != 64 || identity.ContentSha256.Any(character => !Uri.IsHexDigit(character))))
         {
             throw new ArgumentException("Save content SHA-256 must contain exactly 64 hexadecimal characters.", nameof(identity));
+        }
+
+        if (identity.SaveTimeBinary.HasValue)
+        {
+            try
+            {
+                _ = DateTime.FromBinary(identity.SaveTimeBinary.Value);
+            }
+            catch (ArgumentException exception)
+            {
+                throw new ArgumentException("Save time metadata is invalid.", nameof(identity), exception);
+            }
         }
     }
 

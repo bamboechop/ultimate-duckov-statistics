@@ -21,7 +21,9 @@ Before selecting a save on every cold launch:
 
 This v0.1.0 workaround is required for reliable tracking. No Harmony or unrelated Workshop dependency is required.
 
-UDS stores a read-only SHA-256 fingerprint of the selected Duckov save in UDS's own external profile; it never writes the save. If Duckov is played or a slot is reused while UDS is inactive, the next active launch cannot prove generation continuity and intentionally archives the prior UDS profile instead of merging possibly unrelated statistics. Always activate UDS before selecting a save if you want one continuous statistics generation.
+UDS stores read-only SHA-256 and `SaveTime` observations of the selected Duckov save in UDS's own external profile; it never writes the save. While active, Duckov's public pre-save event lets UDS persist a short-lived expected-save marker in that external profile. This preserves continuity when Duckov completes a normal save and then crashes before UDS can observe the new file. The marker is cleared after a later observation or clean shutdown and expires after 30 seconds.
+
+If Duckov is played or a slot is reused while UDS is inactive, no expected-save marker is available. The next active launch intentionally archives the prior UDS profile whenever continuity cannot be proven instead of merging possibly unrelated statistics. Always activate UDS before selecting a save if you want one continuous statistics generation.
 
 ## Install
 
