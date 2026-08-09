@@ -41,8 +41,9 @@ UDS fingerprints the selected save read-only and stores the fingerprint only in 
 - The native contract probe passes against Duckov `2.3.30`, Steam build `24013657`, and Unity `2022.3.62f2`.
 - The progressed slot-1 matrix passed base exclusion, cancellation exclusion, two-group raid use, amount tracking, F8 raid rejection, restart persistence, and JSON/CSV export inspection.
 - The fresh/reused slot-6 matrix passed zero isolation, stack-unit tracking, restart persistence, Duckov-driven deletion, read-only archival, new-generation zeroing, and cross-slot isolation.
+- The review-hardening continuity gate passed: slot 1 retained its fingerprinted generation across an active restart, UDS remained provably inactive while slot 6 was deleted/reused, and the next active launch archived the old one-use generation read-only and started a fingerprint-matched zero generation without affecting slot 1.
 - The validated installable ZIP contains exactly the five documented package files and no Duckov, Unity, framework, or Harmony DLL.
-- Final `UltimateDuckovStatistics-v0.1.0.zip` SHA-256: pending regeneration after the targeted continuity/deployment acceptance gate.
+- Final `UltimateDuckovStatistics-v0.1.0.zip` SHA-256: `b37a4af0d6e98c1a0197049685e1175bb705606fcc2cc996e27c677b85d330d5`.
 
 ## Known limitations
 
