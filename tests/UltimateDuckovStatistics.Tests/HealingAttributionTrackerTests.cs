@@ -59,6 +59,25 @@ public sealed class HealingAttributionTrackerTests
         Assert.Empty(completed);
     }
 
+    [Theory]
+    [Trait("Category", "Healing")]
+    [InlineData(40, 40, 100, 0)]
+    [InlineData(40, 45, 100, 5)]
+    [InlineData(90, 100, 100, 10)]
+    [InlineData(90, 120, 100, 10)]
+    [InlineData(40, 35, 100, 0)]
+    public void SynchronousCallDeltaRejectsSuppressedHealingAndUsesActualAppliedAmount(
+        double before,
+        double after,
+        double maximum,
+        double expected)
+    {
+        Assert.Equal(
+            expected,
+            HealingAttributionTracker.CalculateAppliedRestoration(before, after, maximum),
+            precision: 6);
+    }
+
     [Fact]
     [Trait("Category", "Healing")]
     public void DamageAfterTheApplicationDoesNotChangeAttributedHealing()
@@ -128,6 +147,24 @@ public sealed class HealingAttributionTrackerTests
             CreateObservation("application-new", 3)));
 
         Assert.Equal("item:new", healing.ItemId);
+    }
+
+    [Fact]
+    [Trait("Category", "Healing")]
+    public void UnownedRefreshClearsReusedBuffInstanceProvenance()
+    {
+        var tracker = CreateTracker();
+        tracker.BeginUse(CreateContext("use-old", 10, "item:old"));
+        Assert.True(tracker.ReconcileBuff(501, "use-old"));
+        tracker.CompleteUse(10, CreateSuccessfulUse("event-old", "item:old"));
+
+        Assert.True(tracker.ReconcileBuff(501, correlationId: null));
+
+        Assert.Null(tracker.TryGetBuffCorrelation(501));
+        Assert.Equal(0, tracker.BuffSourceCount);
+        Assert.Empty(tracker.Observe(
+            "use-old",
+            CreateObservation("application-after-unowned-refresh", 3)));
     }
 
     [Fact]

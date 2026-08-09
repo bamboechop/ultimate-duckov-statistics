@@ -20,7 +20,7 @@ M0 and M1 are complete. M2 healing attribution is under validation on `feat/heal
 - Steam Workshop item [HarmonyLib (2.4.1.0)](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839), installed and enabled
 - `DUCKOV_PATH` set to the game root, for example `E:\SteamLibrary\steamapps\common\Escape from Duckov`
 
-Game assemblies are referenced locally with copy-local disabled. They are never committed, downloaded by CI, or included in release packages. UDS discovers the separately installed HarmonyLib at runtime and disables only healing attribution if its contracts are unavailable or incompatible. UDS never bundles `0Harmony.dll`.
+Game assemblies are referenced locally with copy-local disabled. They are never committed, downloaded by CI, or included in release packages. UDS discovers the separately installed HarmonyLib at runtime and disables only healing attribution if its contracts are unavailable, its exact UDS callbacks disappear, or any foreign Harmony patch touches a required attribution method. UDS never bundles `0Harmony.dll`.
 
 > **Activation check:** Open **Mods** after a cold launch and confirm both HarmonyLib and UDS are active before selecting a save. See [INSTALL.md](INSTALL.md#required-harmonylib-workshop-item).
 

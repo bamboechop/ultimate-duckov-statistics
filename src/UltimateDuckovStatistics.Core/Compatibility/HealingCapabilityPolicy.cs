@@ -8,7 +8,7 @@ public enum HealingCapabilityCondition
     MissingContracts,
     MissingHarmony,
     IncompatibleHarmony,
-    ForeignTranspiler,
+    UnsafeHarmonyPatchSet,
     ActivationFailure
 }
 

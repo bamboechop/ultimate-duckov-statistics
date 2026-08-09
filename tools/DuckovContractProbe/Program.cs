@@ -227,12 +227,16 @@ static void VerifyHarmonyReflectionContract(string harmonyPath)
         binder: null,
         [typeof(MethodBase)],
         modifiers: null);
-    var transpilersMember = patchesType.GetProperty("Transpilers", BindingFlags.Instance | BindingFlags.Public)
-                            as MemberInfo
-                            ?? patchesType.GetField("Transpilers", BindingFlags.Instance | BindingFlags.Public);
+    var prefixesMember = FindPublicInstanceMember(patchesType, "Prefixes");
+    var postfixesMember = FindPublicInstanceMember(patchesType, "Postfixes");
+    var transpilersMember = FindPublicInstanceMember(patchesType, "Transpilers");
+    var finalizersMember = FindPublicInstanceMember(patchesType, "Finalizers");
     var ownerMember = patchType.GetProperty("owner", BindingFlags.Instance | BindingFlags.Public)
                       as MemberInfo
                       ?? patchType.GetField("owner", BindingFlags.Instance | BindingFlags.Public);
+    var patchMethodProperty = patchType.GetProperty(
+        "PatchMethod",
+        BindingFlags.Instance | BindingFlags.Public);
     var priorityField = harmonyMethodType.GetField("priority", BindingFlags.Instance | BindingFlags.Public);
     var harmonyConstructor = harmonyType.GetConstructor([typeof(string)]);
     var harmonyMethodConstructor = harmonyMethodType.GetConstructor([typeof(MethodInfo)]);
@@ -241,13 +245,21 @@ static void VerifyHarmonyReflectionContract(string harmonyPath)
         || patchMethod == null
         || unpatchAllMethod == null
         || getPatchInfoMethod == null
+        || prefixesMember == null
+        || postfixesMember == null
         || transpilersMember == null
+        || finalizersMember == null
         || ownerMember == null
+        || patchMethodProperty?.PropertyType != typeof(MethodInfo)
         || priorityField?.FieldType != typeof(int))
     {
         throw new ContractException("HarmonyLib reflection API required by UDS is missing or changed.");
     }
 }
+
+static MemberInfo? FindPublicInstanceMember(Type type, string name) =>
+    type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public)
+    ?? type.GetField(name, BindingFlags.Instance | BindingFlags.Public) as MemberInfo;
 
 internal sealed class ContractException : Exception
 {

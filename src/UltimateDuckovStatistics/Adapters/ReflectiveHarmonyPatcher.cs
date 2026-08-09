@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Reflection;
 using UltimateDuckovStatistics.Core.Compatibility;
 
@@ -71,16 +70,25 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
                 throw new MissingFieldException("HarmonyMethod.priority field was not found.");
             }
 
-            if (patchesType.GetProperty("Transpilers", BindingFlags.Instance | BindingFlags.Public) == null
-                && patchesType.GetField("Transpilers", BindingFlags.Instance | BindingFlags.Public) == null)
+            foreach (var collectionName in new[] { "Prefixes", "Postfixes", "Transpilers", "Finalizers" })
             {
-                throw new MissingMemberException("HarmonyLib.Patches.Transpilers member was not found.");
+                if (patchesType.GetProperty(collectionName, BindingFlags.Instance | BindingFlags.Public) == null
+                    && patchesType.GetField(collectionName, BindingFlags.Instance | BindingFlags.Public) == null)
+                {
+                    throw new MissingMemberException($"HarmonyLib.Patches.{collectionName} member was not found.");
+                }
             }
 
             if (patchType.GetProperty("owner", BindingFlags.Instance | BindingFlags.Public) == null
                 && patchType.GetField("owner", BindingFlags.Instance | BindingFlags.Public) == null)
             {
                 throw new MissingMemberException("HarmonyLib.Patch.owner member was not found.");
+            }
+
+            if (patchType.GetProperty("PatchMethod", BindingFlags.Instance | BindingFlags.Public)?.PropertyType
+                != typeof(MethodInfo))
+            {
+                throw new MissingMemberException("HarmonyLib.Patch.PatchMethod property was not found.");
             }
 
             var harmony = harmonyConstructor.Invoke(new object[] { HarmonyId })
@@ -131,39 +139,32 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
         }
     }
 
-    public bool HasForeignTranspiler(MethodBase original, out string owners)
+    public bool IsPatchSetTrusted(
+        MethodBase original,
+        IReadOnlyList<HarmonyPatchExpectation> expectedOwnedPatches,
+        out string detail)
     {
-        owners = string.Empty;
-        var patchInfo = getPatchInfoMethod.Invoke(null, new object[] { original });
-        if (patchInfo == null)
+        if (disposed)
         {
+            detail = "The UDS Harmony patcher is disposed.";
             return false;
         }
 
-        var transpilers = ReflectionContractReader.ReadInstanceMember(patchInfo, "Transpilers") as IEnumerable;
-        if (transpilers == null)
+        try
         {
+            var patchInfo = getPatchInfoMethod.Invoke(null, new object[] { original });
+            return HarmonyPatchSetInspector.TryValidate(
+                patchInfo,
+                HarmonyId,
+                expectedOwnedPatches,
+                out detail);
+        }
+        catch (Exception exception)
+        {
+            var unwrapped = Unwrap(exception);
+            detail = $"Harmony patch inspection failed: {unwrapped.GetType().Name}: {unwrapped.Message}";
             return false;
         }
-
-        var found = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var patch in transpilers)
-        {
-            if (patch == null)
-            {
-                continue;
-            }
-
-            var owner = ReflectionContractReader.ReadInstanceMember(patch, "owner") as string
-                        ?? "unknown";
-            if (!string.Equals(owner, HarmonyId, StringComparison.Ordinal))
-            {
-                found.Add(owner);
-            }
-        }
-
-        owners = string.Join(", ", found.OrderBy(value => value, StringComparer.Ordinal));
-        return found.Count > 0;
     }
 
     public void Patch(
@@ -218,6 +219,6 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
 
     private static Exception Unwrap(Exception exception) =>
         exception is TargetInvocationException { InnerException: not null } invocation
-            ? invocation.InnerException
+            ? invocation.InnerException!
             : exception;
 }

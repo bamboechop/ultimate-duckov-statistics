@@ -5,6 +5,13 @@ using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.Adapters;
 
+internal enum HealingPatchPoint
+{
+    Health,
+    Effect,
+    Buff
+}
+
 internal static class HealingHarmonyBridge
 {
     [ThreadStatic]
@@ -39,7 +46,13 @@ internal static class HealingHarmonyBridge
 
     public static string? PushEffect(EffectAction effectAction)
     {
-        var correlationId = adapter?.ResolveEffectCorrelation(effectAction);
+        var currentAdapter = adapter;
+        if (currentAdapter == null || !currentAdapter.IsPatchPointTrusted(HealingPatchPoint.Effect))
+        {
+            return null;
+        }
+
+        var correlationId = currentAdapter.ResolveEffectCorrelation(effectAction);
         return Push(correlationId);
     }
 
@@ -62,18 +75,23 @@ internal static class HealingHarmonyBridge
     public static HealingHealthPatchState BeginHealthApplication(Health health, float requestedHealth)
     {
         var correlationId = CurrentCorrelationId;
-        if (adapter == null || string.IsNullOrWhiteSpace(correlationId))
+        var currentAdapter = adapter;
+        if (currentAdapter == null
+            || string.IsNullOrWhiteSpace(correlationId)
+            || !currentAdapter.IsPatchPointTrusted(HealingPatchPoint.Health))
         {
             return HealingHealthPatchState.Empty;
         }
 
         try
         {
-            var amount = HealingAttributionTracker.CalculateActualRestoration(
-                health.CurrentHealth,
-                health.MaxHealth,
-                requestedHealth);
-            if (amount <= 0 || !health.IsMainCharacterHealth)
+            var healthBeforeCall = health.CurrentHealth;
+            var maximumHealthBeforeCall = health.MaxHealth;
+            if (HealingAttributionTracker.CalculateActualRestoration(
+                    healthBeforeCall,
+                    maximumHealthBeforeCall,
+                    requestedHealth) <= 0
+                || !health.IsMainCharacterHealth)
             {
                 return HealingHealthPatchState.Empty;
             }
@@ -81,7 +99,8 @@ internal static class HealingHarmonyBridge
             return new HealingHealthPatchState(
                 correlationId,
                 Guid.NewGuid().ToString("N"),
-                amount,
+                healthBeforeCall,
+                maximumHealthBeforeCall,
                 isMainPlayerTarget: true);
         }
         catch
@@ -90,25 +109,43 @@ internal static class HealingHarmonyBridge
         }
     }
 
-    public static void CompleteHealthApplication(HealingHealthPatchState? state)
+    public static void CompleteHealthApplication(Health health, HealingHealthPatchState? state)
     {
-        if (state == null || !state.ShouldRecord)
+        var currentAdapter = adapter;
+        if (state == null
+            || !state.ShouldMeasure
+            || currentAdapter == null
+            || !currentAdapter.IsPatchPointTrusted(HealingPatchPoint.Health))
         {
             return;
         }
 
-        adapter?.RecordHealthApplication(state);
+        try
+        {
+            var amount = HealingAttributionTracker.CalculateAppliedRestoration(
+                state.HealthBeforeCall,
+                health.CurrentHealth,
+                state.MaximumHealthBeforeCall);
+            if (amount > 0)
+            {
+                currentAdapter.RecordHealthApplication(state, amount);
+            }
+        }
+        catch
+        {
+            // A health contract failure must never invent attribution.
+        }
     }
 
     public static void BindBuff(CharacterBuffManager manager, Buff buffPrefab)
     {
-        var correlationId = CurrentCorrelationId;
-        if (adapter == null || string.IsNullOrWhiteSpace(correlationId))
+        var currentAdapter = adapter;
+        if (currentAdapter == null || !currentAdapter.IsPatchPointTrusted(HealingPatchPoint.Buff))
         {
             return;
         }
 
-        adapter.BindAppliedBuff(manager, buffPrefab, correlationId);
+        currentAdapter.ReconcileAppliedBuff(manager, buffPrefab, CurrentCorrelationId);
     }
 
     private static string? Push(string? correlationId)
@@ -140,17 +177,19 @@ internal static class HealingHarmonyBridge
 
 internal sealed class HealingHealthPatchState
 {
-    public static readonly HealingHealthPatchState Empty = new(null, null, 0, false);
+    public static readonly HealingHealthPatchState Empty = new(null, null, 0, 0, false);
 
     public HealingHealthPatchState(
         string? correlationId,
         string? applicationId,
-        double actualHealthRestored,
+        double healthBeforeCall,
+        double maximumHealthBeforeCall,
         bool isMainPlayerTarget)
     {
         CorrelationId = correlationId;
         ApplicationId = applicationId;
-        ActualHealthRestored = actualHealthRestored;
+        HealthBeforeCall = healthBeforeCall;
+        MaximumHealthBeforeCall = maximumHealthBeforeCall;
         IsMainPlayerTarget = isMainPlayerTarget;
     }
 
@@ -158,14 +197,16 @@ internal sealed class HealingHealthPatchState
 
     public string? ApplicationId { get; }
 
-    public double ActualHealthRestored { get; }
+    public double HealthBeforeCall { get; }
+
+    public double MaximumHealthBeforeCall { get; }
 
     public bool IsMainPlayerTarget { get; }
 
-    public bool ShouldRecord => !string.IsNullOrWhiteSpace(CorrelationId)
-                                && !string.IsNullOrWhiteSpace(ApplicationId)
-                                && ActualHealthRestored > 0
-                                && IsMainPlayerTarget;
+    public bool ShouldMeasure => !string.IsNullOrWhiteSpace(CorrelationId)
+                                 && !string.IsNullOrWhiteSpace(ApplicationId)
+                                 && MaximumHealthBeforeCall > HealthBeforeCall
+                                 && IsMainPlayerTarget;
 }
 
 internal static class HealingHarmonyCallbacks
@@ -175,9 +216,9 @@ internal static class HealingHarmonyCallbacks
         __state = HealingHarmonyBridge.BeginHealthApplication(__instance, healthValue);
     }
 
-    private static void HealthPostfix(HealingHealthPatchState __state)
+    private static void HealthPostfix(Health __instance, HealingHealthPatchState __state)
     {
-        HealingHarmonyBridge.CompleteHealthApplication(__state);
+        HealingHarmonyBridge.CompleteHealthApplication(__instance, __state);
     }
 
     private static void EffectPrefix(EffectAction __instance, out string? __state)

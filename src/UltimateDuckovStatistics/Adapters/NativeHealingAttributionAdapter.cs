@@ -19,12 +19,13 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     private readonly HealingAttributionTracker tracker;
     private readonly Dictionary<int, string?> itemApplicationScopes = new();
     private ReflectiveHarmonyPatcher? patcher;
-    private MethodInfo[] patchedMethods = Array.Empty<MethodInfo>();
+    private PatchRegistration[] patchRegistrations = Array.Empty<PatchRegistration>();
     private CharacterBuffManager? subscribedBuffManager;
     private bool lifecycleSubscribed;
     private bool retryWhenHarmonyLoads;
     private DateTime nextInitializationAttemptUtc;
     private DateTime nextConflictCheckUtc;
+    private bool conflictCleanupPending;
     private bool disposed;
 
     public NativeHealingAttributionAdapter(
@@ -74,23 +75,22 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         {
             foreach (var method in new[] { healthMethod, effectMethod, buffMethod })
             {
-                if (patcher.HasForeignTranspiler(method, out var owners))
+                if (!patcher.IsPatchSetTrusted(
+                        method,
+                        Array.Empty<HarmonyPatchExpectation>(),
+                        out var patchSetDetail))
                 {
                     patcher.Dispose();
                     patcher = null;
                     retryWhenHarmonyLoads = false;
-                    SetCapability(new CapabilityRecord
-                    {
-                        AdapterId = AdapterId,
-                        State = HealingCapabilityPolicy.GetState(HealingCapabilityCondition.ForeignTranspiler),
-                        Version = AdapterVersion,
-                        Detail = $"Healing attribution disabled because {method.DeclaringType?.Name}.{method.Name} has foreign transpiler(s): {owners}."
-                    });
+                    SetCapability(Disabled(
+                        $"Healing attribution disabled because {method.DeclaringType?.Name}.{method.Name} has an unsafe pre-existing Harmony patch set: {patchSetDetail}"));
                     diagnosticHandler(Capability.Detail!);
                     return Capability;
                 }
             }
 
+            var registrations = CreatePatchRegistrations(healthMethod, effectMethod, buffMethod);
             HealingHarmonyBridge.Attach(this);
             patcher.Patch(
                 healthMethod,
@@ -101,7 +101,21 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 HealingHarmonyCallbacks.EffectPrefixMethod,
                 finalizer: HealingHarmonyCallbacks.EffectFinalizerMethod);
             patcher.Patch(buffMethod, postfix: HealingHarmonyCallbacks.BuffPostfixMethod);
-            patchedMethods = new[] { healthMethod, effectMethod, buffMethod };
+            patchRegistrations = registrations;
+            foreach (var registration in patchRegistrations)
+            {
+                if (!patcher.IsPatchSetTrusted(
+                        registration.Original,
+                        registration.ExpectedOwnedPatches,
+                        out var patchSetDetail))
+                {
+                    throw new InvalidOperationException(
+                        $"Installed Harmony patch set validation failed for "
+                        + $"{registration.Original.DeclaringType?.Name}.{registration.Original.Name}: "
+                        + patchSetDetail);
+                }
+            }
+
             RaidUtilities.OnNewRaid += OnRaidTransition;
             RaidUtilities.OnRaidEnd += OnRaidTransition;
             lifecycleSubscribed = true;
@@ -130,7 +144,8 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             patcher = null;
             HealingHarmonyBridge.Detach(this);
             retryWhenHarmonyLoads = false;
-            patchedMethods = Array.Empty<MethodInfo>();
+            patchRegistrations = Array.Empty<PatchRegistration>();
+            conflictCleanupPending = false;
             SetCapability(Disabled($"Healing patch activation failed: {Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}"));
             diagnosticHandler(Capability.Detail!);
         }
@@ -141,6 +156,12 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     public void Tick()
     {
         var nowUtc = DateTime.UtcNow;
+        if (conflictCleanupPending)
+        {
+            CompleteConflictCleanup();
+            return;
+        }
+
         if (retryWhenHarmonyLoads && nowUtc >= nextInitializationAttemptUtc)
         {
             Initialize();
@@ -154,11 +175,12 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         if (nowUtc >= nextConflictCheckUtc)
         {
             nextConflictCheckUtc = nowUtc.AddSeconds(2);
-            foreach (var method in patchedMethods)
+            foreach (var registration in patchRegistrations)
             {
-                if (patcher?.HasForeignTranspiler(method, out var owners) == true)
+                if (!IsRegistrationTrusted(registration, out var patchSetDetail))
                 {
-                    DisableForConflict(method, owners);
+                    SchedulePatchSetConflict(registration.Original, patchSetDetail);
+                    CompleteConflictCleanup();
                     return;
                 }
             }
@@ -281,6 +303,31 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     public string? TryGetUseCorrelation(int runtimeItemId) => tracker.TryGetUseCorrelation(runtimeItemId);
 
+    public bool IsPatchPointTrusted(HealingPatchPoint patchPoint)
+    {
+        if (Capability.State != AdapterCapabilityState.Supported)
+        {
+            return false;
+        }
+
+        var registration = patchRegistrations.FirstOrDefault(candidate => candidate.Point == patchPoint);
+        if (registration == null)
+        {
+            SchedulePatchSetConflict(
+                method: null,
+                $"Required internal patch registration is missing for {patchPoint}.");
+            return false;
+        }
+
+        if (IsRegistrationTrusted(registration, out var patchSetDetail))
+        {
+            return true;
+        }
+
+        SchedulePatchSetConflict(registration.Original, patchSetDetail);
+        return false;
+    }
+
     public string? ResolveEffectCorrelation(EffectAction effectAction)
     {
         if (effectAction == null)
@@ -305,7 +352,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         }
     }
 
-    public void BindAppliedBuff(CharacterBuffManager manager, Buff buffPrefab, string correlationId)
+    public void ReconcileAppliedBuff(CharacterBuffManager manager, Buff buffPrefab, string? correlationId)
     {
         try
         {
@@ -318,7 +365,23 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             }
 
             var applied = manager.Buffs.LastOrDefault(buff => buff != null && buff.ID == buffPrefab.ID);
-            if (applied != null && tracker.BindBuff(applied.GetInstanceID(), correlationId))
+            if (applied == null)
+            {
+                return;
+            }
+
+            var runtimeBuffId = applied.GetInstanceID();
+            var changed = tracker.ReconcileBuff(runtimeBuffId, correlationId);
+            if (!changed)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(correlationId))
+            {
+                diagnosticHandler($"Cleared healing provenance for unowned refresh of buff {applied.ID}.");
+            }
+            else
             {
                 diagnosticHandler($"Bound healing buff {applied.ID} to a proven item-use context candidate.");
             }
@@ -329,7 +392,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         }
     }
 
-    public void RecordHealthApplication(HealingHealthPatchState state)
+    public void RecordHealthApplication(HealingHealthPatchState state, double actualHealthRestored)
     {
         foreach (var healing in tracker.Observe(
                      state.CorrelationId,
@@ -337,7 +400,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                      {
                          ApplicationId = state.ApplicationId ?? string.Empty,
                          TimestampUtc = DateTime.UtcNow,
-                         ActualHealthRestored = state.ActualHealthRestored,
+                         ActualHealthRestored = actualHealthRestored,
                          IsMainPlayerTarget = state.IsMainPlayerTarget
                      }))
         {
@@ -378,7 +441,8 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         }
 
         patcher = null;
-        patchedMethods = Array.Empty<MethodInfo>();
+        patchRegistrations = Array.Empty<PatchRegistration>();
+        conflictCleanupPending = false;
     }
 
     private static bool TryResolveContracts(
@@ -419,8 +483,56 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         Detail = detail
     };
 
-    private void DisableForConflict(MethodInfo method, string owners)
+    private static PatchRegistration[] CreatePatchRegistrations(
+        MethodInfo healthMethod,
+        MethodInfo effectMethod,
+        MethodInfo buffMethod) =>
+    [
+        new PatchRegistration(
+            HealingPatchPoint.Health,
+            healthMethod,
+            [
+                new HarmonyPatchExpectation("Prefixes", HealingHarmonyCallbacks.HealthPrefixMethod),
+                new HarmonyPatchExpectation("Postfixes", HealingHarmonyCallbacks.HealthPostfixMethod)
+            ]),
+        new PatchRegistration(
+            HealingPatchPoint.Effect,
+            effectMethod,
+            [
+                new HarmonyPatchExpectation("Prefixes", HealingHarmonyCallbacks.EffectPrefixMethod),
+                new HarmonyPatchExpectation("Finalizers", HealingHarmonyCallbacks.EffectFinalizerMethod)
+            ]),
+        new PatchRegistration(
+            HealingPatchPoint.Buff,
+            buffMethod,
+            [
+                new HarmonyPatchExpectation("Postfixes", HealingHarmonyCallbacks.BuffPostfixMethod)
+            ])
+    ];
+
+    private bool IsRegistrationTrusted(PatchRegistration registration, out string detail)
     {
+        if (patcher == null)
+        {
+            detail = "The UDS Harmony patcher is unavailable.";
+            return false;
+        }
+
+        return patcher.IsPatchSetTrusted(
+            registration.Original,
+            registration.ExpectedOwnedPatches,
+            out detail);
+    }
+
+    private void SchedulePatchSetConflict(MethodInfo? method, string detail)
+    {
+        if (conflictCleanupPending)
+        {
+            return;
+        }
+
+        conflictCleanupPending = true;
+        retryWhenHarmonyLoads = false;
         if (lifecycleSubscribed)
         {
             RaidUtilities.OnNewRaid -= OnRaidTransition;
@@ -436,6 +548,21 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
         Reset();
         HealingHarmonyBridge.Detach(this);
+        var methodName = method == null
+            ? "an internal required hook"
+            : $"{method.DeclaringType?.Name}.{method.Name}";
+        SetCapability(Disabled(
+            $"Healing attribution disabled because {methodName} has an unsafe Harmony patch set: {detail}"));
+        diagnosticHandler(Capability.Detail!);
+    }
+
+    private void CompleteConflictCleanup()
+    {
+        if (!conflictCleanupPending)
+        {
+            return;
+        }
+
         try
         {
             patcher?.Dispose();
@@ -446,11 +573,8 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         }
 
         patcher = null;
-        patchedMethods = Array.Empty<MethodInfo>();
-        retryWhenHarmonyLoads = false;
-        SetCapability(Disabled(
-            $"Healing attribution disabled because {method.DeclaringType?.Name}.{method.Name} has foreign transpiler(s): {owners}."));
-        diagnosticHandler(Capability.Detail!);
+        patchRegistrations = Array.Empty<PatchRegistration>();
+        conflictCleanupPending = false;
     }
 
     private void SetCapability(CapabilityRecord capability)
@@ -479,4 +603,23 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         exception is TargetInvocationException { InnerException: not null } invocation
             ? invocation.InnerException
             : exception;
+
+    private sealed class PatchRegistration
+    {
+        public PatchRegistration(
+            HealingPatchPoint point,
+            MethodInfo original,
+            HarmonyPatchExpectation[] expectedOwnedPatches)
+        {
+            Point = point;
+            Original = original;
+            ExpectedOwnedPatches = expectedOwnedPatches;
+        }
+
+        public HealingPatchPoint Point { get; }
+
+        public MethodInfo Original { get; }
+
+        public HarmonyPatchExpectation[] ExpectedOwnedPatches { get; }
+    }
 }

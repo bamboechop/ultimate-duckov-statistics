@@ -19,7 +19,7 @@ public sealed class HealingCapabilityPolicyTests
     [InlineData(HealingCapabilityCondition.MissingContracts)]
     [InlineData(HealingCapabilityCondition.MissingHarmony)]
     [InlineData(HealingCapabilityCondition.IncompatibleHarmony)]
-    [InlineData(HealingCapabilityCondition.ForeignTranspiler)]
+    [InlineData(HealingCapabilityCondition.UnsafeHarmonyPatchSet)]
     [InlineData(HealingCapabilityCondition.ActivationFailure)]
     public void UnsafeOrUnavailableConditionsDisableAttribution(HealingCapabilityCondition condition)
     {

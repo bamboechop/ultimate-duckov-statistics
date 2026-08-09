@@ -111,6 +111,26 @@ public sealed class HealingAttributionTracker
         return true;
     }
 
+    public bool ReconcileBuff(int runtimeBuffId, string? correlationId)
+    {
+        if (runtimeBuffId == 0)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(correlationId)
+            || !sourcesByCorrelation.ContainsKey(correlationId))
+        {
+            var removed = buffSources.Remove(runtimeBuffId);
+            TrimUnusedProvenSources();
+            return removed;
+        }
+
+        buffSources.TryGetValue(runtimeBuffId, out var previous);
+        buffSources[runtimeBuffId] = correlationId;
+        return !string.Equals(previous, correlationId, StringComparison.Ordinal);
+    }
+
     public void RemoveBuff(int runtimeBuffId)
     {
         buffSources.Remove(runtimeBuffId);
@@ -216,6 +236,28 @@ public sealed class HealingAttributionTracker
         }
 
         return Math.Max(0, Math.Min(maximumHealth, currentHealth + requestedHealth) - currentHealth);
+    }
+
+    public static double CalculateAppliedRestoration(
+        double healthBeforeCall,
+        double healthAfterCall,
+        double maximumHealthBeforeCall)
+    {
+        if (double.IsNaN(healthBeforeCall)
+            || double.IsNaN(healthAfterCall)
+            || double.IsNaN(maximumHealthBeforeCall)
+            || double.IsInfinity(healthBeforeCall)
+            || double.IsInfinity(healthAfterCall)
+            || double.IsInfinity(maximumHealthBeforeCall)
+            || maximumHealthBeforeCall <= healthBeforeCall
+            || healthAfterCall <= healthBeforeCall)
+        {
+            return 0;
+        }
+
+        return Math.Max(
+            0,
+            Math.Min(maximumHealthBeforeCall, healthAfterCall) - healthBeforeCall);
     }
 
     private HealingApplied CreateEvent(SourceState source, HealingObservation observation) => new()
