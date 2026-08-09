@@ -349,8 +349,8 @@ Final follow-up release-candidate evidence, 2026-08-09: after all four interrupt
 | Review-hardening continuity matrix | Passed 2026-08-09 | Active slot-1 fingerprint continuity, inactive slot-6 deletion/reuse, subsequent mismatch rotation, exact read-only one-use archive, new zero generation, clean sessions/logs, and slot-1 isolation verified |
 | Follow-up interrupted-save continuity | Passed 2026-08-09 | Forced save-step interruption preserved generation/totals and recovered once; clean recovery cleared checkpoints; inactive reuse stayed byte-isolated and then archived the exact old generation read-only before a new zero profile |
 | Log and artifact inspection | Passed 2026-08-09 | Original matrices plus forced interruption, recovery, inactive reuse, final archive/current profiles, diagnostics, capabilities, and checkpoint cleanup inspected; no UDS exception or residue |
-| Source committed and pushed | Reopened 2026-08-09 | Follow-up save-lineage/deployment changes and final evidence are not yet committed/pushed |
-| Draft PR current and unmerged | Reopened 2026-08-09 | PR #1 must be refreshed only after follow-up acceptance; it must remain draft and unmerged |
+| Source committed and pushed | Passed 2026-08-09 | Follow-up save-lineage/deployment implementation is commit `33930c0aa38bb3694a0affc19310fd4659c94081`, authored and committed by `bamboechop <info@bamboechop.at>`, and pushed to `origin/feat/consumable-mvp`; this final acceptance record is included in the subsequent evidence commit |
+| Draft PR current and unmerged | Passed 2026-08-09 | PR #1 remains open, draft, and unmerged; its head, validation summary, 47-test result, interruption/reuse acceptance, and final ZIP checksum were refreshed after the final evidence push |
 | Installable ZIP and SHA-256 | Passed 2026-08-09 | Independently extracted exact five-file folder-rooted ZIP; 45,803 bytes; SHA-256 `7d930422e6e1c7e4b13a3bdd6a1f682e1350edd5448738762807b299eeeec581`; exact matching sidecar ready |
 
 The M0/M1 Goal remains active until every row above passes. Do not merge the PR and do not publish a GitHub release.
