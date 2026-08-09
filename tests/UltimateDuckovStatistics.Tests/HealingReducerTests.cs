@@ -39,6 +39,42 @@ public sealed class HealingReducerTests
         Assert.Throws<InvalidOperationException>(() => HealingReducer.Apply(profile, wrongGeneration));
     }
 
+    [Fact]
+    [Trait("Category", "Healing")]
+    public void ProvenDelayedHealingPromotesItemAndMovesItsCompleteTotals()
+    {
+        var profile = CreateProfile();
+        var water = CreateUse();
+        water.EventId = "use-water";
+        water.ItemId = "item:water";
+        water.DisplayName = "Water";
+        water.Group = CanonicalItemGroup.Drink;
+        water.EffectTags = new List<ItemEffectTag> { ItemEffectTag.Drink };
+        water.AmountConsumed = 50;
+        water.ConsumptionUnit = ConsumptionUnit.Durability;
+        ItemUseReducer.Apply(profile, water);
+
+        var injector = CreateUse();
+        injector.Group = CanonicalItemGroup.Drink;
+        injector.EffectTags = new List<ItemEffectTag> { ItemEffectTag.Drink, ItemEffectTag.Buff };
+        ItemUseReducer.Apply(profile, injector);
+
+        Assert.True(HealingReducer.Apply(profile, CreateHealing("heal-injector", 60)));
+
+        var promoted = profile.Items["item:a"];
+        Assert.Equal(CanonicalItemGroup.Healing, promoted.Group);
+        Assert.Equal(
+            new[] { ItemEffectTag.Drink, ItemEffectTag.Buff, ItemEffectTag.Healing },
+            promoted.EffectTags);
+        Assert.Equal(1, profile.Groups[nameof(CanonicalItemGroup.Drink)].ActivationCount);
+        Assert.Equal(50, profile.Groups[nameof(CanonicalItemGroup.Drink)].AmountsByUnit[nameof(ConsumptionUnit.Durability)]);
+        Assert.Equal(1, profile.Groups[nameof(CanonicalItemGroup.Healing)].ActivationCount);
+        Assert.Equal(1, profile.Groups[nameof(CanonicalItemGroup.Healing)].AmountsByUnit[nameof(ConsumptionUnit.Item)]);
+        Assert.Equal(60, profile.Groups[nameof(CanonicalItemGroup.Healing)].ActualHealthRestored);
+        Assert.Equal(profile.Overall.ActivationCount, profile.Groups.Values.Sum(group => group.ActivationCount));
+        Assert.Equal(profile.Overall.ActualHealthRestored, profile.Groups.Values.Sum(group => group.ActualHealthRestored));
+    }
+
     private static ProfileStatistics CreateProfile() => new()
     {
         SaveGenerationId = "generation-a",

@@ -62,4 +62,21 @@ public sealed class ItemClassifierTests
 
         Assert.Equal(expected, result.Group);
     }
+
+    [Fact]
+    [Trait("Category", "Healing")]
+    public void DelayedHealingBuffOutranksItsHydrationCost()
+    {
+        var result = ItemClassifier.Classify(new ItemClassificationInput
+        {
+            AppliesPositiveHealing = true,
+            AppliesDrinkHydration = true,
+            AppliesBuff = true
+        });
+
+        Assert.Equal(CanonicalItemGroup.Healing, result.Group);
+        Assert.Equal(
+            new[] { ItemEffectTag.Healing, ItemEffectTag.Drink, ItemEffectTag.Buff },
+            result.EffectTags);
+    }
 }

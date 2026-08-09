@@ -111,6 +111,8 @@ try
         core.RequireType("Duckov.ItemUsage", "Drug");
         core.RequireType("Duckov.ItemUsage", "FoodDrink");
         core.RequireType("Duckov.ItemUsage", "AddBuff");
+        core.RequireField("Duckov.ItemUsage", "AddBuff", "buffPrefab");
+        core.RequireType(string.Empty, "HealAction");
         core.RequireType("Duckov.ItemUsage", "RemoveBuff");
         core.RequireType("Duckov.ItemUsage", "SpawnEgg");
     }

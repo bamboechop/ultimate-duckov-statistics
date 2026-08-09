@@ -49,6 +49,10 @@ public static class HealingReducer
             throw new InvalidOperationException("Healing cannot be attributed before its successful item use is recorded.");
         }
 
+        // A delayed healing buff may initially look like a generic buff or a
+        // hydration item. Positive, proven healing is decisive classification
+        // evidence, so move the item's complete historical totals exactly once.
+        ProfileGroupReconciler.PromoteItemToHealing(profile, item);
         item.Totals.ActualHealthRestored += healing.ActualHealthRestored;
         var groupKey = item.Group.ToString();
         if (!profile.Groups.TryGetValue(groupKey, out var group))

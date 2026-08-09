@@ -144,6 +144,10 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        // Repair schema-2 pre-release profiles written before delayed healing
+        // buffs were promoted to the canonical Healing group.
+        changed |= ProfileGroupReconciler.PromoteProvenHealingItems(profile.Statistics);
+
         return changed;
     }
 }

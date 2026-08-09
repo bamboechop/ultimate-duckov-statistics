@@ -116,6 +116,83 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "Healing")]
+    public void RepositoryRepairsPreReleaseDelayedHealingGroupWithoutChangingGenerationOrTotals()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var profile = CreateDocument("generation-schema-2", revision: 58);
+        profile.Statistics.Overall.ActivationCount = 2;
+        profile.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.Durability)] = 50;
+        profile.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)] = 1;
+        profile.Statistics.Overall.ActualHealthRestored = 60;
+        profile.Statistics.Items["item:water"] = new()
+        {
+            ItemId = "item:water",
+            DisplayName = "Water",
+            Group = CanonicalItemGroup.Drink,
+            EffectTags = new List<ItemEffectTag> { ItemEffectTag.Drink },
+            Totals = new()
+            {
+                ActivationCount = 1,
+                AmountsByUnit = new() { [nameof(ConsumptionUnit.Durability)] = 50 }
+            }
+        };
+        profile.Statistics.Items["item:injector"] = new()
+        {
+            ItemId = "item:injector",
+            DisplayName = "Recovery Injector",
+            Group = CanonicalItemGroup.Drink,
+            EffectTags = new List<ItemEffectTag> { ItemEffectTag.Drink, ItemEffectTag.Buff },
+            Totals = new()
+            {
+                ActivationCount = 1,
+                AmountsByUnit = new() { [nameof(ConsumptionUnit.StackUnit)] = 1 },
+                ActualHealthRestored = 60
+            }
+        };
+        profile.Statistics.Groups[nameof(CanonicalItemGroup.Drink)] = new()
+        {
+            ActivationCount = 2,
+            AmountsByUnit = new()
+            {
+                [nameof(ConsumptionUnit.Durability)] = 50,
+                [nameof(ConsumptionUnit.StackUnit)] = 1
+            },
+            ActualHealthRestored = 60
+        };
+        new AtomicJsonStore<ProfileDocument>().Save(path, profile);
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.MigratedSchema);
+        Assert.Equal("generation-schema-2", repository.Current.GenerationId);
+        Assert.Equal(2, repository.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(60, repository.Current.Statistics.Overall.ActualHealthRestored);
+        var injector = repository.Current.Statistics.Items["item:injector"];
+        Assert.Equal(CanonicalItemGroup.Healing, injector.Group);
+        Assert.Contains(ItemEffectTag.Healing, injector.EffectTags);
+        Assert.Equal(1, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Drink)].ActivationCount);
+        Assert.Equal(0, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Drink)].ActualHealthRestored);
+        Assert.Equal(1, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Healing)].ActivationCount);
+        Assert.Equal(60, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Healing)].ActualHealthRestored);
+        Assert.Equal(
+            repository.Current.Statistics.Overall.ActivationCount,
+            repository.Current.Statistics.Groups.Values.Sum(group => group.ActivationCount));
+        Assert.Equal(
+            repository.Current.Statistics.Overall.ActualHealthRestored,
+            repository.Current.Statistics.Groups.Values.Sum(group => group.ActualHealthRestored));
+        repository.CloseClean();
+
+        var persisted = new AtomicJsonStore<ProfileDocument>().Load(path).Value!;
+        Assert.Equal("generation-schema-2", persisted.GenerationId);
+        Assert.Equal(CanonicalItemGroup.Healing, persisted.Statistics.Items["item:injector"].Group);
+        Assert.Equal(60, persisted.Statistics.Overall.ActualHealthRestored);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     public void RepositoryRecoversAndMigratesV01BackupSnapshot()
     {
         using var temporaryDirectory = new TemporaryDirectory();
