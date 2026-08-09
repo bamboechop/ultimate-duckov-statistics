@@ -19,6 +19,7 @@ public sealed class ExportTests
         var profile = CreateProfile();
         ItemUseReducer.Apply(profile.Statistics, CreateUse("one", "item:one", "Medkit", CanonicalItemGroup.Healing, 1, ConsumptionUnit.Item));
         ItemUseReducer.Apply(profile.Statistics, CreateUse("two", "item:two", "Juice", CanonicalItemGroup.Drink, 2.5, ConsumptionUnit.Durability));
+        HealingReducer.Apply(profile.Statistics, CreateHealing("heal-one", "one", "item:one", CanonicalItemGroup.Healing, 12.5));
 
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
@@ -34,6 +35,23 @@ public sealed class ExportTests
         Assert.Equal(json.Overall.ActivationCount, json.Items.Sum(item => item.Totals.ActivationCount));
         Assert.Equal(1, ReadDouble(Assert.Single(overview), "item_amount"));
         Assert.Equal(2.5, ReadDouble(Assert.Single(overview), "durability_amount"), precision: 6);
+        Assert.Equal(12.5, ReadDouble(Assert.Single(overview), "actual_hp_restored"), precision: 6);
+        Assert.Equal(
+            json.Overall.ActualHealthRestored,
+            groups.Sum(row => ReadDouble(row, "actual_hp_restored")),
+            precision: 6);
+        Assert.Equal(
+            json.Overall.ActualHealthRestored,
+            items.Sum(row => ReadDouble(row, "actual_hp_restored")),
+            precision: 6);
+        Assert.Equal(
+            json.Overall.ActualHealthRestored,
+            json.Groups.Sum(group => group.Totals.ActualHealthRestored),
+            precision: 6);
+        Assert.Equal(
+            json.Overall.ActualHealthRestored,
+            json.Items.Sum(item => item.Totals.ActualHealthRestored),
+            precision: 6);
         Assert.True(Assert.Single(overview).ContainsKey("unknown_amount"));
         Assert.DoesNotContain("unknown_amount_amount", Assert.Single(overview).Keys);
     }
@@ -125,6 +143,25 @@ public sealed class ExportTests
         ActivationCount = 1,
         AmountConsumed = amount,
         ConsumptionUnit = unit
+    };
+
+    private static HealingApplied CreateHealing(
+        string eventId,
+        string sourceUseEventId,
+        string itemId,
+        CanonicalItemGroup group,
+        double amount) => new()
+    {
+        EventId = eventId,
+        ApplicationId = $"application-{eventId}",
+        SourceItemUseEventId = sourceUseEventId,
+        TimestampUtc = TestTime,
+        SaveGenerationId = "generation-a",
+        GameplayContext = GameplayContext.Raid,
+        ItemId = itemId,
+        DisplayName = itemId,
+        Group = group,
+        ActualHealthRestored = amount
     };
 
     private static StatisticsExportDocument Deserialize(string json)

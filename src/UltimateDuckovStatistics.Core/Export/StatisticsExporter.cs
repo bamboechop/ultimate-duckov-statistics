@@ -199,7 +199,7 @@ public static class StatisticsExporter
 
     private static void AppendTotalsHeader(StringBuilder builder, string prefix)
     {
-        builder.Append(prefix).Append(",activation_count");
+        builder.Append(prefix).Append(",activation_count,actual_hp_restored");
         foreach (var unit in AmountUnits)
         {
             builder.Append(',').Append(GetAmountColumnName(unit));
@@ -210,7 +210,9 @@ public static class StatisticsExporter
 
     private static void AppendTotals(StringBuilder builder, AggregateTotals totals)
     {
-        builder.Append(totals.ActivationCount.ToString(CultureInfo.InvariantCulture));
+        builder.Append(totals.ActivationCount.ToString(CultureInfo.InvariantCulture))
+            .Append(',')
+            .Append(totals.ActualHealthRestored.ToString("R", CultureInfo.InvariantCulture));
         foreach (var unit in AmountUnits)
         {
             builder.Append(',').Append(ReadAmount(totals, unit).ToString("R", CultureInfo.InvariantCulture));
@@ -225,6 +227,7 @@ public static class StatisticsExporter
     private static AggregateTotals CloneTotals(AggregateTotals source) => new()
     {
         ActivationCount = source.ActivationCount,
+        ActualHealthRestored = source.ActualHealthRestored,
         AmountsByUnit = source.AmountsByUnit.ToDictionary(
             entry => entry.Key,
             entry => entry.Value,

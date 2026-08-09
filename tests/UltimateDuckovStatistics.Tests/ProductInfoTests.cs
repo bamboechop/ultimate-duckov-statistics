@@ -5,9 +5,9 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class ProductInfoTests
 {
     [Fact]
-    public void VersionAndSchemaArePinnedForMvp()
+    public void VersionAndSchemaArePinnedForHealingAttribution()
     {
-        Assert.Equal("0.1.0", ProductInfo.Version);
-        Assert.Equal(1, ProductInfo.SchemaVersion);
+        Assert.Equal("0.2.0", ProductInfo.Version);
+        Assert.Equal(2, ProductInfo.SchemaVersion);
     }
 }

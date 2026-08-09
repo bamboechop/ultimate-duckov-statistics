@@ -392,3 +392,61 @@ Final same-slot release-candidate evidence, 2026-08-09: after the same-instance 
 | Installable ZIP and SHA-256 | Passed 2026-08-09 | Independently extracted exact five-file folder-rooted ZIP; 45,978 bytes; SHA-256 `283373237ad5e40ae0919a6a608141c4e60528b9b99c4076c4feec678aa62534`; exact matching sidecar ready |
 
 The M0/M1 Goal remains active until every row above passes. Do not merge the PR and do not publish a GitHub release.
+
+## M2 healing-attribution acceptance — v0.2.0
+
+M2 adds observer-only Harmony patches for exact item healing. Harmony is installed separately through Workshop item `3589088839`; `0Harmony.dll` must remain absent from Git, the five-file UDS package, deployment, and release ZIP.
+
+### Automated and compatibility gate
+
+With Duckov closed:
+
+```powershell
+$env:DUCKOV_PATH = 'E:\SteamLibrary\steamapps\common\Escape from Duckov'
+.\scripts\build.ps1 -DuckovPath $env:DUCKOV_PATH
+```
+
+The gate must pass the full Release tests, exact Duckov and Harmony contracts, a warning-free native build, and exact five-file package validation. Tests cover immediate and delayed healing, partial and full overheal, damage interleaving, unrelated regeneration, non-player targets, overlapping and refreshed buffs, duplicate applications, cancellation/base exclusion, expiry/restart cleanup, schema-1 primary/backup/temporary migration, capability degradation, export consistency, and rejection of bundled Harmony.
+
+### Progressed-save protection
+
+Before launching Duckov, record the selected progressed save and its existing `.bac*` files, then create a timestamped read-only backup copy without editing or restoring any Duckov save. Record the current UDS generation, schema, revision, totals, primary/backup hashes, and any session or temporary residue.
+
+### Manual gameplay matrix
+
+Use the user-selected progressed save. Record exact item display names, starting/ending HP, and expected actual restoration for each action.
+
+1. Cold-launch Duckov. Confirm HarmonyLib and UDS are active before selecting the save.
+2. Outside a raid, open UDS Diagnostics and confirm `native-healing-attribution: Supported` with HarmonyLib `2.4.1.0`.
+3. Confirm the v0.1 profile migrated to schema 2 with the same generation, activations, amounts, groups, and items; all pre-v0.2 healing totals must be zero.
+4. In a raid, damage the main duck and complete one immediate-healing consumable. Verify the increase equals `min(max HP - starting HP, nominal heal)` and is attributed once to that item.
+5. Perform a partial-overheal use and verify only the missing HP is added. Perform a full-health use and verify zero HP is added while its successful activation still counts.
+6. Complete one delayed-healing consumable or healing-over-time buff. Allow multiple ticks and verify their exact total is attributed to the source item.
+7. During a delayed effect, take damage between healing ticks. Verify each tick's clamp-boundary application counts independently; do not use a before/after encounter snapshot.
+8. Observe unrelated regeneration without a consumable source and verify it adds no item healing.
+9. Cancel an eligible use and perform an eligible base use; verify neither adds healing or raid activation totals.
+10. Exit normally, restart, reactivate/verify both mods, reopen the same save, and confirm generation and all values persist exactly once.
+11. Export JSON and CSV, then exit Duckov. Verify overall, group, and item healing totals agree exactly across profile, UI, JSON, and CSV.
+
+After exit, inspect `Player.log`, UDS diagnostics, profile and backup JSON, exports, and temporary/session residue. There must be one setup and cleanup sequence, no UDS exception, no duplicate healing event, no forbidden DLL, and no Duckov save modification by UDS.
+
+### Final release gate
+
+After manual acceptance and source review:
+
+```powershell
+.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.2.0
+```
+
+Independently extract the ZIP, validate its exact five-file inventory and hashes, verify the lowercase sidecar, commit and push the feature branch, open or update a draft unmerged PR, and wait for green CI. Do not publish a GitHub release or merge the PR as part of this Goal.
+
+| M2 check | Status | Evidence |
+| --- | --- | --- |
+| Automated Release suite | Passed pre-gameplay 2026-08-09 | 85 tests; full M0/M1 regression plus immediate/delayed healing, full/partial overheal, interleaving, provenance, restart, migration/recovery, capability, export, and forbidden-package cases |
+| Duckov/Harmony contract | Passed pre-gameplay 2026-08-09 | Duckov 2.3.30, Steam 24013657, Unity 2022.3.62f2, exact healing methods/properties, and Harmony 2.4.1.0 reflection API/hash verified |
+| Five-file package audit | Passed and deployed 2026-08-09 | Exact inventory; no forbidden DLL; deployed Core SHA-256 `9dbadd10002174373b9df96bb9c96d1360fa4bfb908b64325ba1649bc4e4fd60`, adapter SHA-256 `b6fe68240c529d9548626e739e3867256674cd23949cfd78306340a03b2f85af`; every file matched and no deployment residue remained |
+| Progressed-save backup and schema migration | Pending | |
+| Immediate/overheal/base/cancel matrix | Pending | |
+| Delayed/interleaved/unrelated healing matrix | Pending | |
+| Restart and export consistency | Pending | |
+| Source, draft PR, CI, ZIP, and checksum | Pending | |

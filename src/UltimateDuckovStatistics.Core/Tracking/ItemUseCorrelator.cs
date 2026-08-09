@@ -78,6 +78,8 @@ public sealed class ItemUseCorrelator
 
     public int PendingCount => pending.Count;
 
+    public bool Contains(int runtimeItemId) => pending.ContainsKey(runtimeItemId);
+
     public void Begin(ItemUseSnapshot snapshot)
     {
         if (snapshot == null)

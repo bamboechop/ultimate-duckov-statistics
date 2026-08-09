@@ -13,6 +13,49 @@ public sealed class DeploymentTests
         "UltimateDuckovStatistics.dll"
     };
 
+    [Theory]
+    [Trait("Category", "Package")]
+    [InlineData("0Harmony.dll", "Forbidden dependency")]
+    [InlineData("TeamSoda.Duckov.Core.dll", "Forbidden dependency")]
+    [InlineData("UnityEngine.CoreModule.dll", "Framework/game dependency")]
+    [InlineData("System.Runtime.dll", "Framework/game dependency")]
+    public void PackageVerificationRejectsForbiddenDependencies(string dependencyName, string expectedError)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var temporaryDirectory = new TemporaryDirectory();
+        foreach (var name in ExpectedFiles)
+        {
+            File.WriteAllText(Path.Combine(temporaryDirectory.Path, name), $"package:{name}");
+        }
+
+        File.WriteAllText(Path.Combine(temporaryDirectory.Path, dependencyName), "must not be bundled");
+        var repositoryRoot = FindRepositoryRoot();
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "pwsh",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        startInfo.ArgumentList.Add("-NoProfile");
+        startInfo.ArgumentList.Add("-File");
+        startInfo.ArgumentList.Add(Path.Combine(repositoryRoot, "scripts", "verify-package.ps1"));
+        startInfo.ArgumentList.Add("-PackagePath");
+        startInfo.ArgumentList.Add(temporaryDirectory.Path);
+
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start PowerShell.");
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        Assert.NotEqual(0, process.ExitCode);
+        Assert.Contains(expectedError, output + error, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     [Trait("Category", "Package")]
     public void DeploymentReplacesStaleDestinationWithExactPermittedInventory()

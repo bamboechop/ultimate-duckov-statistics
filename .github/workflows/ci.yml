@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, feat/consumable-mvp]
+    branches: [main, feat/consumable-mvp, feat/healing-attribution]
   pull_request:
 
 permissions:

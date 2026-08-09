@@ -22,6 +22,13 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private ProfileRepository? repository;
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
+    private CapabilityRecord healingCapability = new()
+    {
+        AdapterId = NativeHealingAttributionAdapter.AdapterId,
+        State = AdapterCapabilityState.DisabledIncompatible,
+        Version = NativeHealingAttributionAdapter.AdapterVersion,
+        Detail = "Healing attribution has not been initialized."
+    };
 
     public NativeProfileCoordinator()
     {
@@ -56,23 +63,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
         var openResult = repository.Open(ReadIdentity());
         OpenDiagnosticsForCurrentGeneration();
-        repository.SetCapabilities(new[]
-        {
-            new CapabilityRecord
-            {
-                AdapterId = "native-item-use",
-                State = AdapterCapabilityState.Supported,
-                Version = NativeItemUseAdapter.AdapterVersion,
-                Detail = "Duckov public Item/UsageUtilities/CA_UseItem events"
-            },
-            new CapabilityRecord
-            {
-                AdapterId = "native-save-lifecycle",
-                State = AdapterCapabilityState.Supported,
-                Version = "native-save-lifecycle/2.3.30",
-                Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
-            }
-        });
+        UpdateCapabilities();
 
         SavesSystem.OnSetFile += OnSetFile;
         SavesSystem.OnSaveDeleted += OnSaveDeleted;
@@ -87,7 +78,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             $"interrupted={openResult.InterruptedSessionRecovered}.");
     }
 
-    public void HandleItemUse(ItemUseCompletion completion)
+    public bool HandleItemUse(ItemUseCompletion completion)
     {
         if (completion == null)
         {
@@ -101,7 +92,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 WriteDiagnostic($"Item use not counted: {completion.Disposition}.");
             }
 
-            return;
+            return false;
         }
 
         try
@@ -110,6 +101,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             {
                 WriteDiagnostic(
                     $"Counted raid item use; total={repository.Current.Statistics.Overall.ActivationCount}.");
+                return true;
             }
         }
         catch (Exception exception)
@@ -117,6 +109,36 @@ internal sealed class NativeProfileCoordinator : IDisposable
             Debug.LogException(exception);
             WriteDiagnostic($"Failed to persist item use: {exception.GetType().Name}.", "Error");
         }
+
+        return false;
+    }
+
+    public void HandleHealing(HealingApplied healing)
+    {
+        if (healing == null)
+        {
+            throw new ArgumentNullException(nameof(healing));
+        }
+
+        try
+        {
+            if (repository?.Record(healing) == true)
+            {
+                WriteDiagnostic(
+                    $"Attributed {healing.ActualHealthRestored:0.###} actual HP to {healing.DisplayName}.");
+            }
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            WriteDiagnostic($"Failed to persist attributed healing: {exception.GetType().Name}.", "Error");
+        }
+    }
+
+    public void SetHealingCapability(CapabilityRecord capability)
+    {
+        healingCapability = capability ?? throw new ArgumentNullException(nameof(capability));
+        UpdateCapabilities();
     }
 
     public void Flush()
@@ -382,6 +404,28 @@ internal sealed class NativeProfileCoordinator : IDisposable
             Path.Combine(generationDirectory, "diagnostics.json"),
             DiagnosticCapacity,
             () => DateTime.UtcNow);
+    }
+
+    private void UpdateCapabilities()
+    {
+        repository?.SetCapabilities(new[]
+        {
+            new CapabilityRecord
+            {
+                AdapterId = "native-item-use",
+                State = AdapterCapabilityState.Supported,
+                Version = NativeItemUseAdapter.AdapterVersion,
+                Detail = "Duckov public Item/UsageUtilities/CA_UseItem events"
+            },
+            new CapabilityRecord
+            {
+                AdapterId = "native-save-lifecycle",
+                State = AdapterCapabilityState.Supported,
+                Version = "native-save-lifecycle/2.3.30",
+                Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
+            },
+            healingCapability
+        });
     }
 
     private void WriteDiagnostic(string message, string severity = "Info")

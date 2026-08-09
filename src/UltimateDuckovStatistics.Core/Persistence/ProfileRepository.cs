@@ -159,6 +159,20 @@ public sealed class ProfileRepository
         return true;
     }
 
+    public bool Record(HealingApplied healing)
+    {
+        var profile = Current;
+        if (!HealingReducer.Apply(profile.Statistics, healing))
+        {
+            return false;
+        }
+
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        SaveCurrent();
+        return true;
+    }
+
     public void SetCapabilities(IEnumerable<CapabilityRecord> capabilities)
     {
         if (capabilities == null)

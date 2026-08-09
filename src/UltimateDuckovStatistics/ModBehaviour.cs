@@ -16,6 +16,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private const string LogPrefix = "[UDS]";
     private bool initialized;
     private NativeProfileCoordinator? profileCoordinator;
+    private NativeHealingAttributionAdapter? healingAttributionAdapter;
     private NativeItemUseAdapter? itemUseAdapter;
     private NativeStatisticsPanel? statisticsPanel;
 
@@ -31,10 +32,16 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         {
             profileCoordinator = new NativeProfileCoordinator();
             profileCoordinator.Initialize();
+            healingAttributionAdapter = new NativeHealingAttributionAdapter(
+                profileCoordinator.HandleHealing,
+                message => Debug.Log($"{LogPrefix} {message}"));
+            profileCoordinator.SetHealingCapability(healingAttributionAdapter.Initialize());
+            healingAttributionAdapter.CapabilityChanged += profileCoordinator.SetHealingCapability;
             itemUseAdapter = new NativeItemUseAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 profileCoordinator.HandleItemUse,
-                message => Debug.Log($"{LogPrefix} {message}"));
+                message => Debug.Log($"{LogPrefix} {message}"),
+                healingAttributionAdapter);
             profileCoordinator.ProfileChanged += itemUseAdapter.ResetPending;
             itemUseAdapter.Subscribe();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);
@@ -66,6 +73,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private void Update()
     {
         itemUseAdapter?.Tick(DateTime.UtcNow);
+        healingAttributionAdapter?.Tick();
         statisticsPanel?.Tick();
     }
 
@@ -99,6 +107,13 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
         itemUseAdapter?.Dispose();
         itemUseAdapter = null;
+        if (healingAttributionAdapter != null && profileCoordinator != null)
+        {
+            healingAttributionAdapter.CapabilityChanged -= profileCoordinator.SetHealingCapability;
+        }
+
+        healingAttributionAdapter?.Dispose();
+        healingAttributionAdapter = null;
         statisticsPanel = null;
         profileCoordinator?.Dispose();
         profileCoordinator = null;
