@@ -38,7 +38,7 @@ Healing retains the separately installed [HarmonyLib Workshop item 3589088839](h
 - Native Release build: 0 warnings and 0 errors.
 - Exact five-file install package validation: passed; no Duckov, Unity, framework, or Harmony dependency is bundled.
 - Manual M3 deployment/gameplay acceptance: passed on approved, read-only-backed-up slots 1 and 6, covering schema migration, no base run, extraction, death, active-time pause exclusion, stationary and normal movement, genuine teleport/loading separation, map aggregation, exactly-once hard-crash recovery, restart persistence, UI/export agreement, and clean shutdown without M1/M2 regression.
-- The initial archive built from implementation commit `423349d1db846df754577838ecba5657f09e1efa` passed independent verification but is superseded by the review hardening above. Exact replacement committed-head ZIP evidence is recorded after that archive is rebuilt.
+- The final review-hardened archive was built from fix commit `22258f4bcdf7a430f78eb4518f91953cf5120d74`. `UltimateDuckovStatistics-v0.3.0.zip` is 92,145 bytes with SHA-256 `76a28f4c5b8a6ed6a73ef847e8e4d761236536a5c4d3a26019cbaa64a2869982`; its lowercase sidecar matches exactly, independent extraction/package validation passes, and both DLLs report informational version `0.3.0+22258f4bcdf7a430f78eb4518f91953cf5120d74`.
 - Draft-PR CI currency remains the final delivery gate and is recorded on the draft PR after the remote state exists.
 
 ## Known limitations

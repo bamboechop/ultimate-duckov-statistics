@@ -652,3 +652,19 @@ The resulting `UltimateDuckovStatistics-v0.3.0.zip` is 91,220 bytes with SHA-256
 | `UltimateDuckovStatistics.dll` | 87,552 | `f8cb7bbb1909045c7d7cf73cae61fa3772c8bdb09bf0c6e6b2192c688e9e3440` |
 
 Both DLLs report informational version `0.3.0+423349d1db846df754577838ecba5657f09e1efa`, proving that the archive corresponds to the implementation commit above. This evidence remains preserved historically, but the archive is no longer the release candidate after the follow-up review fixes recorded above. A replacement committed-head artifact gate follows after rebuilding from the fix commit.
+
+#### Final review-hardened v0.3.0 committed-artifact gate
+
+Passed 2026-08-10. Fix commit `22258f4bcdf7a430f78eb4518f91953cf5120d74` was rebuilt through `scripts/create-release.ps1`: all 140 Release tests passed, the expanded runtime-integrity Duckov contract probe passed, the native build completed with 0 warnings and 0 errors, and the exact package validator passed.
+
+The replacement `UltimateDuckovStatistics-v0.3.0.zip` is 92,145 bytes with SHA-256 `76a28f4c5b8a6ed6a73ef847e8e4d761236536a5c4d3a26019cbaa64a2869982`. Its UTF-8 sidecar is exactly `76a28f4c5b8a6ed6a73ef847e8e4d761236536a5c4d3a26019cbaa64a2869982  UltimateDuckovStatistics-v0.3.0.zip`. Independent extraction into a fresh directory and `verify-package.ps1` confirmed exactly five permitted files, no bundled Duckov, Unity, framework, or Harmony dependency, and byte identity with the source package:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `info.ini` | 292 | `20653a8a3411c1e7409bae2a541b703af53db5bc3c6e60017cb3a617e71a6353` |
+| `INSTALL.md` | 5,616 | `4d7c634a354fb19578ced3b1e33eedee5e360a40ef30c16c69192be3ed3d0b40` |
+| `LICENSE` | 1,117 | `0f7558f2469ad0901074f6c380ada1ed91861d55adf905267bc70b26cd2e3ccc` |
+| `UltimateDuckovStatistics.Core.dll` | 122,368 | `5012cfbbaa81fa84e65b385e9fed8fa68b6386db38bd04dd969500787a075ed5` |
+| `UltimateDuckovStatistics.dll` | 89,088 | `3ef112136709bdca6369e711ee3dbca333b7b7e9df7a682f7d37cd47bf38152d` |
+
+Both DLLs report informational version `0.3.0+22258f4bcdf7a430f78eb4518f91953cf5120d74`, proving the replacement archive corresponds to the review-fix commit. As before, the following evidence-only documentation commit does not trigger an artifact rebuild cycle; final CI currency is recorded on draft PR #3 at its remote documentation head.
