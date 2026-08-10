@@ -630,3 +630,19 @@ An independent structural assertion pass checked all eight filenames, schema/gen
 Passed 2026-08-10. The final normal exit logged `OnApplicationQuit` and `OnDestroy`, unsubscribed lifecycle/movement and item-use hooks exactly once, stopped the sampler, released the main-duck reference, and closed generation `badb76d6cbb14b44915c2ddaf26ba166` cleanly. The final primary and backup profile are byte-identical at revision 63 and SHA-256 `4a0f46317003b6e78c4a06eb472dadf3caa015316afde961971118b0b7e18552`. They retain exactly three runs, Died 1 / Interrupted 2, one recovered interrupted session, `308.7462019365691` physical metres, 0 teleport metres, 2 item uses, 2 StackUnit, and 0 HP. No active-run primary/backup, session checkpoint, or temporary file remains.
 
 The deployed mod folder still contains exactly five files with the same hashes recorded before gameplay: `20653a8a3411c1e7409bae2a541b703af53db5bc3c6e60017cb3a617e71a6353` (`info.ini`), `4d7c634a354fb19578ced3b1e33eedee5e360a40ef30c16c69192be3ed3d0b40` (`INSTALL.md`), `0f7558f2469ad0901074f6c380ada1ed91861d55adf905267bc70b26cd2e3ccc` (`LICENSE`), `c307ccef94f167b6c6a368ed5904264dc9c0e516161a9af02c1dffc30d32d287` (Core DLL), and `9acfbe137d8c6481e9eebb6a72d8aaeec7ec7feb3a62a9bdb3a72fb58c9622be` (native DLL). External Harmony remains separately installed and was not modified or bundled. The complete manual matrix therefore passes without any UDS write to a Duckov save or any modification of Harmony, another mod, or a game assembly.
+
+#### Final v0.3.0 committed-artifact gate
+
+Passed 2026-08-10. Implementation commit `423349d1db846df754577838ecba5657f09e1efa` was cleanly rebuilt through `scripts/create-release.ps1`: all 134 Release tests passed, the Duckov `2.3.30` / Steam `24013657` / Unity `2022.3.62f2` contract probe passed, the native build completed with 0 warnings and 0 errors, and package validation passed. The package freshness audit now excludes generated `bin` and `obj` trees from authored-source timestamps, preventing generated compiler files from falsely invalidating an otherwise fresh DLL while retaining source freshness enforcement.
+
+The resulting `UltimateDuckovStatistics-v0.3.0.zip` is 91,220 bytes with SHA-256 `4ae77ddc95f5ebb28a24724d1f9a2e16d1ffbf05f63424c34b8d3b3115315296`. Its UTF-8 sidecar is exactly `4ae77ddc95f5ebb28a24724d1f9a2e16d1ffbf05f63424c34b8d3b3115315296  UltimateDuckovStatistics-v0.3.0.zip`. Independent extraction and `verify-package.ps1` validation confirmed exactly five permitted files, no bundled game/Unity/framework/Harmony dependency, and byte identity with the source package:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `info.ini` | 292 | `20653a8a3411c1e7409bae2a541b703af53db5bc3c6e60017cb3a617e71a6353` |
+| `INSTALL.md` | 5,616 | `4d7c634a354fb19578ced3b1e33eedee5e360a40ef30c16c69192be3ed3d0b40` |
+| `LICENSE` | 1,117 | `0f7558f2469ad0901074f6c380ada1ed91861d55adf905267bc70b26cd2e3ccc` |
+| `UltimateDuckovStatistics.Core.dll` | 121,344 | `b7f5a4105a3bcbfbbae3f3704edccdca69a239ab9fbf3f7f89ce8f251533c4e2` |
+| `UltimateDuckovStatistics.dll` | 87,552 | `f8cb7bbb1909045c7d7cf73cae61fa3772c8bdb09bf0c6e6b2192c688e9e3440` |
+
+Both DLLs report informational version `0.3.0+423349d1db846df754577838ecba5657f09e1efa`, proving that the archive corresponds to the implementation commit above. Draft-PR checks are recorded on the PR after the final documentation commit is pushed; the archive intentionally remains tied to the implementation commit so evidence-only documentation cannot create a release-artifact rebuild cycle.
