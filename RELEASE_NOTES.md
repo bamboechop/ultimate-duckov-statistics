@@ -33,12 +33,12 @@ Healing retains the separately installed [HarmonyLib Workshop item 3589088839](h
 
 ## Validation status
 
-- Automated Release suite: 140 tests pass, including complete M0-M2 regression coverage and deterministic lifecycle, exact-main-subject movement cadence/map boundaries, records, migration, checkpoint recovery before identity rotation, read-only preservation, isolation, UI/export agreement, cumulative runtime integrity, retained-owner cleanup retry, capability degradation, deployment, and package cases.
+- Automated Release suite: 143 tests pass, including complete M0-M2 regression coverage and deterministic lifecycle, exact-main-subject movement cadence/map boundaries, records, migration, checkpoint recovery before identity rotation, read-only preservation, isolation, UI/export agreement, cumulative runtime integrity, process-lifetime cleanup ownership across `ModBehaviour` replacement, inert post-disposal callbacks, capability degradation, deployment, and package cases.
 - Native Duckov/Harmony contract probe: passed against the versions above, including exact M3 event/property/method/field visibility and signatures for runtime cheat/rule integrity changes.
 - Native Release build: 0 warnings and 0 errors.
 - Exact five-file install package validation: passed; no Duckov, Unity, framework, or Harmony dependency is bundled.
 - Manual M3 deployment/gameplay acceptance: passed on approved, read-only-backed-up slots 1 and 6, covering schema migration, no base run, extraction, death, active-time pause exclusion, stationary and normal movement, genuine teleport/loading separation, map aggregation, exactly-once hard-crash recovery, restart persistence, UI/export agreement, and clean shutdown without M1/M2 regression.
-- The final review-hardened archive was built from fix commit `22258f4bcdf7a430f78eb4518f91953cf5120d74`. `UltimateDuckovStatistics-v0.3.0.zip` is 92,145 bytes with SHA-256 `76a28f4c5b8a6ed6a73ef847e8e4d761236536a5c4d3a26019cbaa64a2869982`; its lowercase sidecar matches exactly, independent extraction/package validation passes, and both DLLs report informational version `0.3.0+22258f4bcdf7a430f78eb4518f91953cf5120d74`.
+- The final review-hardened archive was built from follow-up implementation commit `aa14d9258113e97ce466633f5d44c68a5c0bf5f1`. `UltimateDuckovStatistics-v0.3.0.zip` is 94,860 bytes with SHA-256 `12decb148d84062912182687302008d41512ed0907e35ad136c369692b51a486`; its lowercase sidecar matches exactly, independent extraction/package validation passes, and both DLLs report informational version `0.3.0+aa14d9258113e97ce466633f5d44c68a5c0bf5f1`.
 - Draft-PR CI currency remains the final delivery gate and is recorded on the draft PR after the remote state exists.
 
 ## Known limitations

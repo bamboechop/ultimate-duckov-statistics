@@ -539,11 +539,13 @@ ilspycmd --disable-updatecheck -r "$env:DUCKOV_PATH\Duckov_Data\Managed" -t Duck
 
 ### Automated acceptance status
 
-`scripts/build.ps1 -DuckovPath 'E:\SteamLibrary\steamapps\common\Escape from Duckov'` is the complete local gate. On 2026-08-10 it passed all 140 Release tests, the expanded Duckov/Harmony contract probe, a native Release build with 0 warnings and 0 errors, and the exact five-file package validator.
+`scripts/build.ps1 -DuckovPath 'E:\SteamLibrary\steamapps\common\Escape from Duckov'` is the complete local gate. On 2026-08-10 it passed all 143 Release tests, the expanded Duckov/Harmony contract probe, a native Release build with 0 warnings and 0 errors, and the exact five-file package validator.
 
-The deterministic suite covers the full M0-M2 regression set plus: control-gated starts; base/loading/placeholder rejection; reordered and duplicate terminal callbacks; extraction/death/interruption; independent pause/loading active-time exclusion; five-second checkpoint throttling; primary/backup/temporary/unrecoverable active-run recovery; one-time interruption recovery including recovery into an old generation before identity rotation/archive; save-slot/generation isolation; exact-main-subject selection; 0.2-second monotonic sampling cadence; physical/jitter/elapsed-threshold/teleport/loading/resume/map-boundary/invalid/duplicate/long-gap/object-replacement movement; unknown maps; aggregate and per-map totals; deterministic records/ties; cumulative mid-run integrity changes and record exclusion; schema-2 field/capability/archive preservation; UI-model and JSON/CSV/profile agreement; capability/integrity degradation; idempotent subscription setup, retained-owner cleanup retry, and reactivation blocking; exact package inventory; forbidden dependencies; and deployment rollback behavior.
+The deterministic suite covers the full M0-M2 regression set plus: control-gated starts; base/loading/placeholder rejection; reordered and duplicate terminal callbacks; extraction/death/interruption; independent pause/loading active-time exclusion; five-second checkpoint throttling; primary/backup/temporary/unrecoverable active-run recovery; one-time interruption recovery including recovery into an old generation before identity rotation/archive; save-slot/generation isolation; exact-main-subject selection; 0.2-second monotonic sampling cadence; physical/jitter/elapsed-threshold/teleport/loading/resume/map-boundary/invalid/duplicate/long-gap/object-replacement movement; unknown maps; aggregate and per-map totals; deterministic records/ties; cumulative mid-run integrity changes and record exclusion; schema-2 field/capability/archive preservation; UI-model and JSON/CSV/profile agreement including Normal/eligible and tagged/ineligible presentation; capability/integrity degradation; idempotent subscription setup; process-lifetime retained-owner cleanup across component destruction; inert callbacks and complete static/instance detachment after injected level-event cleanup failure; reactivation blocking without duplicate subscriptions; exact package inventory; forbidden dependencies; and deployment rollback behavior.
 
 Follow-up review hardening on 2026-08-10 confirmed and repaired three findings: runtime integrity was previously captured only at run start; identity rotation previously archived an unfinished checkpoint before recovery; and `ModBehaviour` previously discarded the adapter that owned failed native unsubscriptions. The focused 16-test gate and complete 140-test Release gate pass. The expanded native probe verifies the exact public cheat/rule events and properties, and the native build remains warning-free. These are deterministic failure-path corrections; the already-passed gameplay matrix below remains the authoritative evidence for unchanged extraction, death, movement, pause, teleport, map, UI/export, and clean normal-shutdown behavior.
+
+A second canonical review pass on 2026-08-10 found that the first cleanup owner remained component-local, a retained level callback could reacquire the main-character instance handler after disposal, and Runs did not visibly show integrity/record eligibility. Implementation commit `aa14d9258113e97ce466633f5d44c68a5c0bf5f1` moves lifecycle cleanup ownership to a process-lifetime, per-component-tokenized owner; blocks replacement while either an active owner or failed cleanup remains; makes all guarded native callbacks inert as soon as disposal begins; retries both static and instance detachment; and adds explicit per-run integrity plus eligible/excluded reason presentation. The production-linked failure-path test injects a level callback removal failure, invokes the retained callback after disposal, proves that it cannot reacquire the instance handler, and verifies that retry leaves no callback. The owner test simulates component destruction/replacement and proves a maximum of one live subscription. The presentation test covers both Normal/eligible and multi-tagged/ineligible runs. The focused 21-test gate and full 143-test suite pass; the unchanged integrity-accumulation and identity-rotation tests remain green.
 
 The package remains exactly these five installation files: `info.ini`, `INSTALL.md`, `LICENSE`, `UltimateDuckovStatistics.Core.dll`, and `UltimateDuckovStatistics.dll`. A runtime export is generation-scoped and contains exactly eight data files: `statistics.json`, `overview.csv`, `groups.csv`, `items.csv`, `runs.csv`, `run_totals.csv`, `map_totals.csv`, and `records.csv`.
 
@@ -653,7 +655,7 @@ The resulting `UltimateDuckovStatistics-v0.3.0.zip` is 91,220 bytes with SHA-256
 
 Both DLLs report informational version `0.3.0+423349d1db846df754577838ecba5657f09e1efa`, proving that the archive corresponds to the implementation commit above. This evidence remains preserved historically, but the archive is no longer the release candidate after the follow-up review fixes recorded above. A replacement committed-head artifact gate follows after rebuilding from the fix commit.
 
-#### Final review-hardened v0.3.0 committed-artifact gate
+#### Superseded first review-hardened v0.3.0 committed-artifact gate
 
 Passed 2026-08-10. Fix commit `22258f4bcdf7a430f78eb4518f91953cf5120d74` was rebuilt through `scripts/create-release.ps1`: all 140 Release tests passed, the expanded runtime-integrity Duckov contract probe passed, the native build completed with 0 warnings and 0 errors, and the exact package validator passed.
 
@@ -667,4 +669,20 @@ The replacement `UltimateDuckovStatistics-v0.3.0.zip` is 92,145 bytes with SHA-2
 | `UltimateDuckovStatistics.Core.dll` | 122,368 | `5012cfbbaa81fa84e65b385e9fed8fa68b6386db38bd04dd969500787a075ed5` |
 | `UltimateDuckovStatistics.dll` | 89,088 | `3ef112136709bdca6369e711ee3dbca333b7b7e9df7a682f7d37cd47bf38152d` |
 
-Both DLLs report informational version `0.3.0+22258f4bcdf7a430f78eb4518f91953cf5120d74`, proving the replacement archive corresponds to the review-fix commit. As before, the following evidence-only documentation commit does not trigger an artifact rebuild cycle; final CI currency is recorded on draft PR #3 at its remote documentation head.
+Both DLLs report informational version `0.3.0+22258f4bcdf7a430f78eb4518f91953cf5120d74`, proving the replacement archive corresponds to the review-fix commit. This archive was superseded after the canonical follow-up findings above.
+
+#### Final canonical-follow-up v0.3.0 committed-artifact gate
+
+Passed 2026-08-10. Implementation commit `aa14d9258113e97ce466633f5d44c68a5c0bf5f1` was rebuilt through `scripts/create-release.ps1`: all 143 Release tests passed, the Duckov/Harmony/runtime-integrity contract probe passed, the native build completed with 0 warnings and 0 errors, and the exact package validator passed.
+
+The replacement `UltimateDuckovStatistics-v0.3.0.zip` is 94,860 bytes with SHA-256 `12decb148d84062912182687302008d41512ed0907e35ad136c369692b51a486`. Its UTF-8 sidecar is exactly `12decb148d84062912182687302008d41512ed0907e35ad136c369692b51a486  UltimateDuckovStatistics-v0.3.0.zip` with LF termination and no BOM. Independent extraction into a fresh directory and `verify-package.ps1` confirmed exactly five permitted files, no bundled Duckov, Unity, framework, or Harmony dependency, and byte identity with the source package:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `info.ini` | 292 | `20653a8a3411c1e7409bae2a541b703af53db5bc3c6e60017cb3a617e71a6353` |
+| `INSTALL.md` | 5,720 | `3e080317db08672040f1c732272663e1ffb5decf1d815fdd8681554b86d602f2` |
+| `LICENSE` | 1,117 | `0f7558f2469ad0901074f6c380ada1ed91861d55adf905267bc70b26cd2e3ccc` |
+| `UltimateDuckovStatistics.Core.dll` | 124,928 | `15cd63f5c02dd0da82fd7171da28616b74262cf92d38bebe82d7bd041da1640d` |
+| `UltimateDuckovStatistics.dll` | 93,184 | `ca9949c241396e9e8ad258798d9b3dcd85746134009c8751c2f0d52569f93640` |
+
+Both DLLs report informational version `0.3.0+aa14d9258113e97ce466633f5d44c68a5c0bf5f1`, proving the replacement archive corresponds to the canonical follow-up implementation commit. The following evidence-only documentation commit does not trigger an artifact rebuild cycle; final CI currency is recorded on draft PR #3 at its remote documentation head.
