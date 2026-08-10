@@ -80,6 +80,23 @@ try
         core.RequireEvent(string.Empty, "CA_UseItem", "OnItemUsedByPlayer", "System.Action", "ItemStatsSystem.Item");
         core.RequireEvent(string.Empty, "RaidUtilities", "OnNewRaid", "System.Action", "RaidInfo");
         core.RequireEvent(string.Empty, "RaidUtilities", "OnRaidEnd", "System.Action", "RaidInfo");
+        core.RequireEvent(string.Empty, "RaidUtilities", "OnRaidDead", "System.Action", "RaidInfo");
+        foreach (var field in new[] { "valid", "ID", "dead", "ended", "raidBeginTime", "raidEndTime", "totalTime" })
+        {
+            core.RequireField(string.Empty, "RaidInfo", field, mustBePublic: true);
+        }
+        core.RequireEvent(string.Empty, "LevelManager", "OnLevelInitialized", "System.Action");
+        core.RequireEvent(string.Empty, "LevelManager", "OnAfterLevelInitialized", "System.Action");
+        core.RequireEvent(string.Empty, "LevelManager", "OnEvacuated", "System.Action", "EvacuationInfo");
+        core.RequireEvent(string.Empty, "LevelManager", "OnMainCharacterDead", "System.Action", "DamageInfo");
+        core.RequireEvent(string.Empty, "PauseMenu", "onPauseMenuOn", "System.Action");
+        core.RequireEvent(string.Empty, "PauseMenu", "onPauseMenuOff", "System.Action");
+        core.RequireEvent(string.Empty, "SceneLoader", "onStartedLoadingScene", "System.Action", "SceneLoadingContext");
+        core.RequireEvent(string.Empty, "SceneLoader", "onFinishedLoadingScene", "System.Action", "SceneLoadingContext");
+        core.RequireEvent(string.Empty, "SceneLoader", "onAfterSceneInitialize", "System.Action", "SceneLoadingContext");
+        core.RequireEvent("Duckov.Scenes", "MultiSceneCore", "OnSubSceneWillBeUnloaded", "System.Action", "Duckov.Scenes.MultiSceneCore", "UnityEngine.SceneManagement.Scene");
+        core.RequireEvent("Duckov.Scenes", "MultiSceneCore", "OnSubSceneLoaded", "System.Action", "Duckov.Scenes.MultiSceneCore", "UnityEngine.SceneManagement.Scene");
+        core.RequireEvent(string.Empty, "CharacterMainControl", "OnSetPositionEvent", "System.Action", "CharacterMainControl", "UnityEngine.Vector3");
         core.RequireEvent(string.Empty, "LevelManager", "OnNewGameReport", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnSetFile", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnSaveDeleted", "System.Action");
@@ -87,7 +104,26 @@ try
 
         core.RequireProperty(string.Empty, "LevelManager", "IsRaidMap");
         core.RequireProperty(string.Empty, "LevelManager", "IsBaseLevel");
+        core.RequireProperty(string.Empty, "LevelManager", "LevelInited", "System.Boolean", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "LevelManager", "MainCharacter", "CharacterMainControl", mustBePublic: true);
+        core.RequireProperty(string.Empty, "InputManager", "InputActived", "System.Boolean", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "GameManager", "Paused", "System.Boolean", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "SceneLoader", "IsSceneLoading", "System.Boolean", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.Scenes", "MultiSceneCore", "IsLoading", "System.Boolean", mustBePublic: true);
+        core.RequireProperty("Duckov.Scenes", "MultiSceneCore", "MainSceneID", "System.String", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "CharacterMainControl", "Main", "CharacterMainControl", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "CharacterMainControl", "IsMainCharacter", "System.Boolean", mustBePublic: true);
+        core.RequireProperty(string.Empty, "CharacterMainControl", "Health", "Health", mustBePublic: true);
+        core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterWalkSpeed", "System.Single", mustBePublic: true);
+        core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterRunSpeed", "System.Single", mustBePublic: true);
+        core.RequireProperty(string.Empty, "CharacterMainControl", "DashSpeed", "System.Single", mustBePublic: true);
+        core.RequireProperty(string.Empty, "Health", "IsDead", "System.Boolean", mustBePublic: true);
+        core.RequireProperty(string.Empty, "SceneInfoEntry", "ID", "System.String", mustBePublic: true);
+        core.RequireProperty(string.Empty, "SceneInfoEntry", "DisplayName", "System.String", mustBePublic: true);
         core.RequireMethod(string.Empty, "LevelManager", "GetCurrentLevelInfo", parameterCount: 0);
+        core.RequireMethod(string.Empty, "CharacterMainControl", "SetPosition", parameterCount: 1, mustBePublic: true, returnTypeFragment: "System.Void", parameterTypeFragments: ["UnityEngine.Vector3"]);
+        core.RequireMethod(string.Empty, "SceneInfoCollection", "GetSceneID", parameterCount: 1, mustBePublic: true, returnTypeFragment: "System.String", parameterTypeFragments: ["System.Int32"]);
+        core.RequireMethod(string.Empty, "SceneInfoCollection", "GetSceneInfo", parameterCount: 1, mustBePublic: true, returnTypeFragment: "SceneInfoEntry", parameterTypeFragments: ["System.String"]);
         core.RequireMethod(
             string.Empty,
             "Health",
@@ -146,7 +182,7 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, lifecycle, item-use, and exact healing-attribution hooks are present.");
+    Console.WriteLine("  Native loader, item/healing, run lifecycle, pause/loading, map, main-duck position, and movement-speed contracts are present.");
     return 0;
 }
 catch (ContractException exception)
@@ -308,6 +344,7 @@ internal sealed class AssemblyMetadata : IDisposable
         bool mustBeVirtual = false,
         bool mustBePublic = false,
         bool mustBeAssembly = false,
+        bool mustBeStatic = false,
         string? returnTypeFragment = null,
         string[]? parameterTypeFragments = null)
     {
@@ -363,6 +400,11 @@ internal sealed class AssemblyMetadata : IDisposable
                 continue;
             }
 
+            if (mustBeStatic && (method.Attributes & MethodAttributes.Static) == 0)
+            {
+                continue;
+            }
+
             return;
         }
 
@@ -373,32 +415,58 @@ internal sealed class AssemblyMetadata : IDisposable
         string @namespace,
         string typeName,
         string propertyName,
-        string? propertyTypeFragment = null)
+        string? propertyTypeFragment = null,
+        bool mustBePublic = false,
+        bool mustBeStatic = false)
     {
         var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
         foreach (var handle in type.GetProperties())
         {
             var property = reader.GetPropertyDefinition(handle);
-            if (string.Equals(reader.GetString(property.Name), propertyName, StringComparison.Ordinal)
-                && (propertyTypeFragment == null
-                    || property.DecodeSignature(typeProvider, reader).ReturnType.Contains(
+            if (!string.Equals(reader.GetString(property.Name), propertyName, StringComparison.Ordinal)
+                || (propertyTypeFragment != null
+                    && !property.DecodeSignature(typeProvider, reader).ReturnType.Contains(
                         propertyTypeFragment,
                         StringComparison.Ordinal)))
             {
-                return;
+                continue;
             }
+
+
+            var accessors = property.GetAccessors();
+            var accessorHandle = !accessors.Getter.IsNil ? accessors.Getter : accessors.Setter;
+            if (accessorHandle.IsNil)
+            {
+                continue;
+            }
+
+            var accessor = reader.GetMethodDefinition(accessorHandle);
+            if (mustBePublic
+                && (accessor.Attributes & MethodAttributes.MemberAccessMask) != MethodAttributes.Public)
+            {
+                continue;
+            }
+
+            if (mustBeStatic && (accessor.Attributes & MethodAttributes.Static) == 0)
+            {
+                continue;
+            }
+
+            return;
         }
 
         throw new ContractException($"Required property not found: {@namespace}.{typeName}.{propertyName}.");
     }
 
-    public void RequireField(string @namespace, string typeName, string fieldName)
+    public void RequireField(string @namespace, string typeName, string fieldName, bool mustBePublic = false)
     {
         var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
         foreach (var handle in type.GetFields())
         {
             var field = reader.GetFieldDefinition(handle);
-            if (string.Equals(reader.GetString(field.Name), fieldName, StringComparison.Ordinal))
+            if (string.Equals(reader.GetString(field.Name), fieldName, StringComparison.Ordinal)
+                && (!mustBePublic
+                    || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Public))
             {
                 return;
             }

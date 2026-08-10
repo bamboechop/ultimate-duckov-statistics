@@ -126,6 +126,78 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.Statistics.Runs == null)
+        {
+            profile.Statistics.Runs = new List<Domain.RunSummary>();
+            changed = true;
+        }
+
+        if (profile.Statistics.RunTotals == null)
+        {
+            profile.Statistics.RunTotals = new RunAggregateTotals();
+            changed = true;
+        }
+
+        if (profile.Statistics.RunTotals.Outcomes == null)
+        {
+            profile.Statistics.RunTotals.Outcomes = new Dictionary<string, long>(StringComparer.Ordinal);
+            changed = true;
+        }
+
+        if (profile.Statistics.RunTotals.Maps == null)
+        {
+            profile.Statistics.RunTotals.Maps = new Dictionary<string, MapRunAggregate>(StringComparer.Ordinal);
+            changed = true;
+        }
+
+        foreach (var map in profile.Statistics.RunTotals.Maps.Values)
+        {
+            if (map.Outcomes == null)
+            {
+                map.Outcomes = new Dictionary<string, long>(StringComparer.Ordinal);
+                changed = true;
+            }
+        }
+
+        if (profile.Statistics.RunRecords == null)
+        {
+            profile.Statistics.RunRecords = new RunDurationRecords();
+            changed = true;
+        }
+
+        if (profile.Statistics.RunRecords.Extraction == null)
+        {
+            profile.Statistics.RunRecords.Extraction = new DurationRecordPair();
+            changed = true;
+        }
+
+        if (profile.Statistics.RunRecords.Death == null)
+        {
+            profile.Statistics.RunRecords.Death = new DurationRecordPair();
+            changed = true;
+        }
+
+        if (profile.Statistics.RunRecords.Maps == null)
+        {
+            profile.Statistics.RunRecords.Maps = new Dictionary<string, MapRunDurationRecords>(StringComparer.Ordinal);
+            changed = true;
+        }
+
+        foreach (var map in profile.Statistics.RunRecords.Maps.Values)
+        {
+            if (map.Extraction == null)
+            {
+                map.Extraction = new DurationRecordPair();
+                changed = true;
+            }
+
+            if (map.Death == null)
+            {
+                map.Death = new DurationRecordPair();
+                changed = true;
+            }
+        }
+
         if (profile.SchemaVersion < 2)
         {
             profile.SchemaVersion = 2;
@@ -135,6 +207,18 @@ public static class ProfileMigrator
         if (profile.Statistics.SchemaVersion < 2)
         {
             profile.Statistics.SchemaVersion = 2;
+            changed = true;
+        }
+
+        if (profile.SchemaVersion < 3)
+        {
+            profile.SchemaVersion = 3;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 3)
+        {
+            profile.Statistics.SchemaVersion = 3;
             changed = true;
         }
 

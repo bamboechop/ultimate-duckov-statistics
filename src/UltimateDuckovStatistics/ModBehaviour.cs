@@ -18,6 +18,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private NativeProfileCoordinator? profileCoordinator;
     private NativeHealingAttributionAdapter? healingAttributionAdapter;
     private NativeItemUseAdapter? itemUseAdapter;
+    private NativeRunLifecycleAdapter? runLifecycleAdapter;
     private NativeStatisticsPanel? statisticsPanel;
 
     protected override void OnAfterSetup()
@@ -37,11 +38,21 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 message => Debug.Log($"{LogPrefix} {message}"));
             profileCoordinator.SetHealingCapability(healingAttributionAdapter.Initialize());
             healingAttributionAdapter.CapabilityChanged += profileCoordinator.SetHealingCapability;
+            runLifecycleAdapter = new NativeRunLifecycleAdapter(
+                () => profileCoordinator.CurrentGenerationId,
+                profileCoordinator.HandleRunCheckpoint,
+                profileCoordinator.HandleRunCompleted,
+                profileCoordinator.SetRunCapabilities,
+                message => Debug.Log($"{LogPrefix} {message}"));
+            runLifecycleAdapter.Initialize();
+            profileCoordinator.ProfileChanging += runLifecycleAdapter.InterruptForProfileTransition;
             itemUseAdapter = new NativeItemUseAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 profileCoordinator.HandleItemUse,
                 message => Debug.Log($"{LogPrefix} {message}"),
-                healingAttributionAdapter);
+                healingAttributionAdapter,
+                () => runLifecycleAdapter.CurrentRunId,
+                () => runLifecycleAdapter.CurrentMapId);
             profileCoordinator.ProfileChanged += itemUseAdapter.ResetPending;
             itemUseAdapter.Subscribe();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);
@@ -72,6 +83,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Update()
     {
+        runLifecycleAdapter?.Tick();
         itemUseAdapter?.Tick(DateTime.UtcNow);
         healingAttributionAdapter?.Tick();
         statisticsPanel?.Tick();
@@ -100,6 +112,13 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Cleanup()
     {
+        if (profileCoordinator != null && runLifecycleAdapter != null)
+        {
+            profileCoordinator.ProfileChanging -= runLifecycleAdapter.InterruptForProfileTransition;
+        }
+
+        runLifecycleAdapter?.Dispose();
+        runLifecycleAdapter = null;
         if (profileCoordinator != null && itemUseAdapter != null)
         {
             profileCoordinator.ProfileChanged -= itemUseAdapter.ResetPending;

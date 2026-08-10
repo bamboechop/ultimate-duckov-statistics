@@ -29,6 +29,15 @@ public sealed class ProfileStatistics
 
     [DataMember(Order = 8)]
     public List<string> RecentEventIds { get; set; } = new();
+
+    [DataMember(Order = 9)]
+    public List<RunSummary> Runs { get; set; } = new();
+
+    [DataMember(Order = 10)]
+    public RunAggregateTotals RunTotals { get; set; } = new();
+
+    [DataMember(Order = 11)]
+    public RunDurationRecords RunRecords { get; set; } = new();
 }
 
 [DataContract]

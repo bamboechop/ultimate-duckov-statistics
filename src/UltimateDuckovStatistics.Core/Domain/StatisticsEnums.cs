@@ -60,3 +60,11 @@ public enum ConsumptionUnit
     [EnumMember] Durability = 2,
     [EnumMember] UnknownAmount = 3
 }
+
+[DataContract]
+public enum RunOutcome
+{
+    [EnumMember] Extracted = 0,
+    [EnumMember] Died = 1,
+    [EnumMember] Interrupted = 2
+}

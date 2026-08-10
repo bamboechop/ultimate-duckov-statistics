@@ -19,8 +19,10 @@ if (-not (Test-Path -LiteralPath $modAssembly) -or -not (Test-Path -LiteralPath 
     throw 'Release assemblies are missing. A successful Release build is required before packaging.'
 }
 
-$modSources = Get-ChildItem -Recurse -File -Path (Join-Path $repoRoot 'src\UltimateDuckovStatistics') -Include '*.cs','*.csproj'
-$coreSources = Get-ChildItem -Recurse -File -Path (Join-Path $repoRoot 'src\UltimateDuckovStatistics.Core') -Include '*.cs','*.csproj'
+$modSources = Get-ChildItem -Recurse -File -Path (Join-Path $repoRoot 'src\UltimateDuckovStatistics') -Include '*.cs','*.csproj' |
+    Where-Object { $_.FullName -notmatch '[\\/](?:bin|obj)[\\/]' }
+$coreSources = Get-ChildItem -Recurse -File -Path (Join-Path $repoRoot 'src\UltimateDuckovStatistics.Core') -Include '*.cs','*.csproj' |
+    Where-Object { $_.FullName -notmatch '[\\/](?:bin|obj)[\\/]' }
 $newestModSourceWrite = ($modSources | Measure-Object -Property LastWriteTimeUtc -Maximum).Maximum
 $newestCoreSourceWrite = ($coreSources | Measure-Object -Property LastWriteTimeUtc -Maximum).Maximum
 if ((Get-Item -LiteralPath $modAssembly).LastWriteTimeUtc -lt $newestModSourceWrite -or

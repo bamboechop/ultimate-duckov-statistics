@@ -2,6 +2,7 @@ using UltimateDuckovStatistics.Core;
 using UltimateDuckovStatistics.Core.Diagnostics;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Statistics;
 
 namespace UltimateDuckovStatistics.Tests;
 
@@ -9,6 +10,7 @@ public sealed class PersistenceTests
 {
     private static readonly DateTime TestTime = new(2026, 8, 9, 12, 0, 0, DateTimeKind.Utc);
     private static readonly string[] ExpectedDiagnosticMessages = { "two", "three" };
+    private static readonly string[] SchemaTwoRecentEventIds = { "use-1", "heal-1" };
 
     [Fact]
     [Trait("Category", "Persistence")]
@@ -105,12 +107,86 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(2, repository.Current.SchemaVersion);
-        Assert.Equal(2, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(3, repository.Current.SchemaVersion);
+        Assert.Equal(3, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
         Assert.Equal(3, repository.Current.Statistics.Items["item:a"].Totals.ActivationCount);
+        Assert.Empty(repository.Current.Statistics.Runs);
+        Assert.Equal(0, repository.Current.Statistics.RunTotals.TotalRuns);
+        Assert.Null(repository.Current.Statistics.RunRecords.Extraction.Shortest);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Migration")]
+    public void RepositoryMigratesSchemaTwoWithoutChangingM1M2DataCapabilitiesOrArchives()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var slotDirectory = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01");
+        var path = System.IO.Path.Combine(slotDirectory, "current", "profile.json");
+        var archivePath = System.IO.Path.Combine(slotDirectory, "archives", "historical-generation", "profile.json");
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(archivePath)!);
+        File.WriteAllText(archivePath, "historical archive bytes");
+        File.SetAttributes(archivePath, File.GetAttributes(archivePath) | FileAttributes.ReadOnly);
+        var archiveHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(archivePath)));
+
+        var legacy = CreateDocument("generation-v02", revision: 41);
+        legacy.SchemaVersion = 2;
+        legacy.Statistics.SchemaVersion = 2;
+        legacy.InterruptedSessionCount = 3;
+        legacy.Statistics.Overall.ActivationCount = 4;
+        legacy.Statistics.Overall.ActualHealthRestored = 72.5;
+        legacy.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.Durability)] = 50;
+        legacy.Statistics.Groups[nameof(CanonicalItemGroup.Healing)] = new AggregateTotals
+        {
+            ActivationCount = 4,
+            ActualHealthRestored = 72.5,
+            AmountsByUnit = new() { [nameof(ConsumptionUnit.Durability)] = 50 }
+        };
+        legacy.Statistics.Items["item:medkit"] = new ItemAggregate
+        {
+            ItemId = "item:medkit",
+            DisplayName = "Medkit",
+            Group = CanonicalItemGroup.Healing,
+            EffectTags = new() { ItemEffectTag.Healing },
+            Totals = new AggregateTotals
+            {
+                ActivationCount = 4,
+                ActualHealthRestored = 72.5,
+                AmountsByUnit = new() { [nameof(ConsumptionUnit.Durability)] = 50 }
+            }
+        };
+        legacy.Statistics.RecentEventIds.AddRange(SchemaTwoRecentEventIds);
+        legacy.Capabilities.Add(new CapabilityRecord
+        {
+            AdapterId = "native-healing-attribution",
+            State = AdapterCapabilityState.Supported,
+            Version = "native-healing-attribution/2.3.30"
+        });
+        new AtomicJsonStore<ProfileDocument>().Save(path, legacy);
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.MigratedSchema);
+        Assert.Equal(ProductInfo.SchemaVersion, repository.Current.SchemaVersion);
+        Assert.Equal("generation-v02", repository.Current.GenerationId);
+        Assert.Equal(41, repository.Current.Revision);
+        Assert.Equal(3, repository.Current.InterruptedSessionCount);
+        Assert.Equal(4, repository.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(72.5, repository.Current.Statistics.Overall.ActualHealthRestored);
+        Assert.Equal(50, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.Durability)]);
+        Assert.Equal(4, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Healing)].ActivationCount);
+        Assert.Equal(72.5, repository.Current.Statistics.Items["item:medkit"].Totals.ActualHealthRestored);
+        Assert.Equal(SchemaTwoRecentEventIds, repository.Current.Statistics.RecentEventIds);
+        Assert.Equal("native-healing-attribution", Assert.Single(repository.Current.Capabilities).AdapterId);
+        Assert.Empty(repository.Current.Statistics.Runs);
+        Assert.Equal(0, repository.Current.Statistics.RunTotals.TotalRuns);
+        Assert.Equal(archiveHash, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(archivePath))));
+        Assert.True(File.GetAttributes(archivePath).HasFlag(FileAttributes.ReadOnly));
         repository.CloseClean();
     }
 
@@ -799,16 +875,16 @@ public sealed class PersistenceTests
         string sourceItemUseEventId,
         string generationId,
         double amount) => new()
-    {
-        EventId = eventId,
-        ApplicationId = $"application-{eventId}",
-        SourceItemUseEventId = sourceItemUseEventId,
-        TimestampUtc = TestTime,
-        SaveGenerationId = generationId,
-        GameplayContext = GameplayContext.Raid,
-        ItemId = "duckov:item:42",
-        DisplayName = "Test item",
-        Group = CanonicalItemGroup.Healing,
-        ActualHealthRestored = amount
-    };
+        {
+            EventId = eventId,
+            ApplicationId = $"application-{eventId}",
+            SourceItemUseEventId = sourceItemUseEventId,
+            TimestampUtc = TestTime,
+            SaveGenerationId = generationId,
+            GameplayContext = GameplayContext.Raid,
+            ItemId = "duckov:item:42",
+            DisplayName = "Test item",
+            Group = CanonicalItemGroup.Healing,
+            ActualHealthRestored = amount
+        };
 }
