@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.Serialization.Json;
 using System.Text;
+using UltimateDuckovStatistics.Core;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
 using UltimateDuckovStatistics.Core.Persistence;
@@ -11,6 +12,17 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class ExportTests
 {
     private static readonly DateTime TestTime = new(2026, 8, 9, 13, 0, 0, DateTimeKind.Utc);
+    private static readonly string[] ExpectedExportFileNames =
+    {
+        "groups.csv",
+        "items.csv",
+        "map_totals.csv",
+        "overview.csv",
+        "records.csv",
+        "run_totals.csv",
+        "runs.csv",
+        "statistics.json"
+    };
 
     [Fact]
     [Trait("Category", "Export")]
@@ -20,12 +32,18 @@ public sealed class ExportTests
         ItemUseReducer.Apply(profile.Statistics, CreateUse("one", "item:one", "Medkit", CanonicalItemGroup.Healing, 1, ConsumptionUnit.Item));
         ItemUseReducer.Apply(profile.Statistics, CreateUse("two", "item:two", "Juice", CanonicalItemGroup.Drink, 2.5, ConsumptionUnit.Durability));
         HealingReducer.Apply(profile.Statistics, CreateHealing("heal-one", "one", "item:one", CanonicalItemGroup.Healing, 12.5));
+        RunReducer.Apply(profile.Statistics, CreateRun("run-one", RunOutcome.Extracted, 95, 123.5, 8));
+        RunReducer.Apply(profile.Statistics, CreateRun("run-two", RunOutcome.Died, 130, 45.25, 2));
 
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
         var overview = ParseCsv(bundle.OverviewCsv);
         var groups = ParseCsv(bundle.GroupsCsv);
         var items = ParseCsv(bundle.ItemsCsv);
+        var runs = ParseCsv(bundle.RunsCsv);
+        var runTotals = Assert.Single(ParseCsv(bundle.RunTotalsCsv));
+        var mapTotals = Assert.Single(ParseCsv(bundle.MapTotalsCsv));
+        var records = ParseCsv(bundle.RecordsCsv);
 
         Assert.Equal(2, json.Overall.ActivationCount);
         Assert.Equal(json.Overall.ActivationCount, ReadLong(Assert.Single(overview), "activation_count"));
@@ -54,6 +72,24 @@ public sealed class ExportTests
             precision: 6);
         Assert.True(Assert.Single(overview).ContainsKey("unknown_amount"));
         Assert.DoesNotContain("unknown_amount_amount", Assert.Single(overview).Keys);
+        Assert.Equal(json.RunTotals.TotalRuns, runs.Count);
+        Assert.Equal(json.RunTotals.TotalRuns, ReadLong(runTotals, "total_runs"));
+        Assert.Equal(json.RunTotals.TotalRuns, ReadLong(mapTotals, "total_runs"));
+        Assert.Equal(json.RunTotals.PhysicalDistance, ReadDouble(runTotals, "physical_distance"), precision: 6);
+        Assert.Equal(json.RunTotals.TeleportDistance, ReadDouble(runTotals, "teleport_distance"), precision: 6);
+        Assert.Equal(json.Runs.Sum(run => run.PhysicalDistance), ReadDouble(runTotals, "physical_distance"), precision: 6);
+        Assert.Equal(json.Runs.Sum(run => run.TeleportDistance), ReadDouble(runTotals, "teleport_distance"), precision: 6);
+        Assert.Equal(4, records.Count(row => row["scope"] == "overall"));
+        Assert.Equal(
+            json.RunRecords.Extraction.Shortest!.RunId,
+            Assert.Single(records, row => row["scope"] == "overall"
+                && row["outcome"] == nameof(RunOutcome.Extracted)
+                && row["record"] == "shortest")["run_id"]);
+        Assert.Equal(
+            json.RunRecords.Death.Shortest!.RunId,
+            Assert.Single(records, row => row["scope"] == "overall"
+                && row["outcome"] == nameof(RunOutcome.Died)
+                && row["record"] == "shortest")["run_id"]);
     }
 
     [Fact]
@@ -102,8 +138,11 @@ public sealed class ExportTests
 
         var result = ProfileExportWriter.Write(profile, profilePath, TestTime);
 
-        Assert.Equal(4, result.Files.Count);
+        Assert.Equal(8, result.Files.Count);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
+        Assert.Equal(
+            ExpectedExportFileNames,
+            result.Files.Select(System.IO.Path.GetFileName).OrderBy(name => name, StringComparer.Ordinal));
         Assert.Empty(Directory.EnumerateFiles(result.Directory, "*.tmp"));
         Assert.Contains("generation-a", result.Directory, StringComparison.Ordinal);
     }
@@ -131,19 +170,19 @@ public sealed class ExportTests
         CanonicalItemGroup group,
         double amount,
         ConsumptionUnit unit) => new()
-    {
-        EventId = eventId,
-        TimestampUtc = TestTime,
-        SaveGenerationId = "generation-a",
-        GameplayContext = GameplayContext.Raid,
-        ItemId = itemId,
-        DisplayName = displayName,
-        Group = group,
-        EffectTags = new List<ItemEffectTag> { ItemEffectTag.Food },
-        ActivationCount = 1,
-        AmountConsumed = amount,
-        ConsumptionUnit = unit
-    };
+        {
+            EventId = eventId,
+            TimestampUtc = TestTime,
+            SaveGenerationId = "generation-a",
+            GameplayContext = GameplayContext.Raid,
+            ItemId = itemId,
+            DisplayName = displayName,
+            Group = group,
+            EffectTags = new List<ItemEffectTag> { ItemEffectTag.Food },
+            ActivationCount = 1,
+            AmountConsumed = amount,
+            ConsumptionUnit = unit
+        };
 
     private static HealingApplied CreateHealing(
         string eventId,
@@ -151,18 +190,50 @@ public sealed class ExportTests
         string itemId,
         CanonicalItemGroup group,
         double amount) => new()
-    {
-        EventId = eventId,
-        ApplicationId = $"application-{eventId}",
-        SourceItemUseEventId = sourceUseEventId,
-        TimestampUtc = TestTime,
-        SaveGenerationId = "generation-a",
-        GameplayContext = GameplayContext.Raid,
-        ItemId = itemId,
-        DisplayName = itemId,
-        Group = group,
-        ActualHealthRestored = amount
-    };
+        {
+            EventId = eventId,
+            ApplicationId = $"application-{eventId}",
+            SourceItemUseEventId = sourceUseEventId,
+            TimestampUtc = TestTime,
+            SaveGenerationId = "generation-a",
+            GameplayContext = GameplayContext.Raid,
+            ItemId = itemId,
+            DisplayName = itemId,
+            Group = group,
+            ActualHealthRestored = amount
+        };
+
+    private static RunSummary CreateRun(
+        string runId,
+        RunOutcome outcome,
+        double activeDurationSeconds,
+        double physicalDistance,
+        double teleportDistance) => new()
+        {
+            RunId = runId,
+            SaveGenerationId = "generation-a",
+            NativeRaidId = $"native-{runId}",
+            MapId = "duckov:map:warehouse",
+            MapDisplayName = "Warehouse",
+            MapKnown = true,
+            StartedUtc = TestTime.AddMinutes(-5),
+            EndedUtc = TestTime,
+            ActiveDurationSeconds = activeDurationSeconds,
+            WallClockDurationSeconds = 300,
+            Outcome = outcome,
+            PhysicalDistance = physicalDistance,
+            TeleportDistance = teleportDistance,
+            IntegrityTags = IntegrityTags.Normal,
+            RecordEligible = true,
+            GameVersion = "2.3.30",
+            GameBuild = "24013657",
+            LifecycleCapability = AdapterCapabilityState.Supported,
+            LifecycleAdapterVersion = ProductInfo.Version,
+            MovementCapability = AdapterCapabilityState.Supported,
+            MovementAdapterVersion = ProductInfo.Version,
+            MapCapability = AdapterCapabilityState.Supported,
+            MapAdapterVersion = ProductInfo.Version
+        };
 
     private static StatisticsExportDocument Deserialize(string json)
     {

@@ -14,6 +14,8 @@ internal sealed class NativeItemUseAdapter : IDisposable
     private readonly Func<ItemUseCompletion, bool> completionHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly IHealingAttributionObserver? healingObserver;
+    private readonly Func<string?>? runIdProvider;
+    private readonly Func<string?>? mapIdProvider;
     private readonly ItemUseCorrelator correlator;
     private readonly SubscriptionGate subscriptionGate = new();
     private readonly NativeRaidContext raidContext = new();
@@ -23,13 +25,17 @@ internal sealed class NativeItemUseAdapter : IDisposable
         Func<string> saveGenerationIdProvider,
         Func<ItemUseCompletion, bool> completionHandler,
         Action<string> diagnosticHandler,
-        IHealingAttributionObserver? healingObserver = null)
+        IHealingAttributionObserver? healingObserver = null,
+        Func<string?>? runIdProvider = null,
+        Func<string?>? mapIdProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.completionHandler = completionHandler ?? throw new ArgumentNullException(nameof(completionHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
         this.healingObserver = healingObserver;
+        this.runIdProvider = runIdProvider;
+        this.mapIdProvider = mapIdProvider;
         correlator = new ItemUseCorrelator(() => Guid.NewGuid().ToString("N"));
     }
 
@@ -224,8 +230,8 @@ internal sealed class NativeItemUseAdapter : IDisposable
             Durability = item.Durability,
             TimestampUtc = DateTime.UtcNow,
             SaveGenerationId = generationId,
-            RunId = raidContext.CurrentRunId,
-            MapId = NativeRaidContext.GetMapId(),
+            RunId = runIdProvider?.Invoke() ?? raidContext.CurrentRunId,
+            MapId = mapIdProvider?.Invoke() ?? NativeRaidContext.GetMapId(),
             GameVersion = Application.version ?? string.Empty,
             GameBuild = "24013657",
             GameplayContext = NativeRaidContext.GetGameplayContext(),

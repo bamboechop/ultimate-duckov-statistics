@@ -16,6 +16,8 @@ public sealed class ProfileOpenResult
 
     public bool InterruptedSessionRecovered { get; internal set; }
 
+    public bool InterruptedRunRecovered { get; internal set; }
+
     public bool UnsupportedSchemaArchived { get; internal set; }
 
     public IReadOnlyList<string> LoadFailures { get; internal set; } = Array.Empty<string>();
@@ -30,6 +32,7 @@ public sealed class ProfileRepository
     private readonly Action<string> diagnostic;
     private readonly AtomicJsonStore<ProfileDocument> profileStore = new();
     private readonly AtomicJsonStore<SessionCheckpoint> sessionStore = new();
+    private readonly AtomicJsonStore<ActiveRunCheckpoint> activeRunStore = new();
     private readonly List<CapabilityRecord> configuredCapabilities = new();
     private ProfileDocument? current;
     private string? currentDirectory;
@@ -114,8 +117,11 @@ public sealed class ProfileRepository
 
             if (!result.UnsupportedSchemaArchived)
             {
+                current = candidate;
                 if (!IdentityMatches(candidate, identity))
                 {
+                    result.InterruptedRunRecovered = RecoverInterruptedRun();
+                    result.InterruptedSessionRecovered = RecoverInterruptedSession();
                     ArchiveCurrentDirectory(slotDirectory, "SaveIdentityChanged", candidate.GenerationId);
                     currentDirectory = Path.Combine(slotDirectory, "current");
                     Directory.CreateDirectory(currentDirectory);
@@ -128,7 +134,6 @@ public sealed class ProfileRepository
                 {
                     var identityChanged = !IdentitiesEqual(candidate.Identity, identity);
                     var pendingSaveCleared = candidate.PendingSave != null;
-                    current = candidate;
                     current.Identity = identity;
                     current.PendingSave = null;
                     if (loaded.Recovered || result.MigratedSchema || identityChanged || pendingSaveCleared)
@@ -140,7 +145,8 @@ public sealed class ProfileRepository
         }
 
         ApplyConfiguredCapabilities();
-        result.InterruptedSessionRecovered = RecoverInterruptedSession();
+        result.InterruptedRunRecovered |= RecoverInterruptedRun();
+        result.InterruptedSessionRecovered |= RecoverInterruptedSession();
         StartSession();
         return result;
     }
@@ -171,6 +177,48 @@ public sealed class ProfileRepository
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();
         return true;
+    }
+
+    public void SaveActiveRun(ActiveRunCheckpoint checkpoint)
+    {
+        if (checkpoint == null)
+        {
+            throw new ArgumentNullException(nameof(checkpoint));
+        }
+
+        if (currentDirectory == null)
+        {
+            throw new InvalidOperationException("No profile generation is open.");
+        }
+
+        if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion
+            || string.IsNullOrWhiteSpace(checkpoint.RunId)
+            || !string.Equals(checkpoint.SaveGenerationId, Current.GenerationId, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Active-run checkpoint does not match the current generation.", nameof(checkpoint));
+        }
+
+        checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
+        activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
+    }
+
+    public bool CompleteRun(RunSummary summary)
+    {
+        var profile = Current;
+        var applied = RunReducer.Apply(profile.Statistics, summary);
+        if (applied)
+        {
+            profile.Revision++;
+            profile.UpdatedUtc = EnsureUtc(summary.EndedUtc);
+            SaveCurrent();
+        }
+
+        if (currentDirectory != null)
+        {
+            activeRunStore.Delete(GetActiveRunPath(currentDirectory));
+        }
+
+        return applied;
     }
 
     public void SetCapabilities(IEnumerable<CapabilityRecord> capabilities)
@@ -385,6 +433,84 @@ public sealed class ProfileRepository
         return true;
     }
 
+    private bool RecoverInterruptedRun()
+    {
+        if (currentDirectory == null)
+        {
+            return false;
+        }
+
+        var path = GetActiveRunPath(currentDirectory);
+        var artifactsExist = File.Exists(path)
+                             || File.Exists(AtomicJsonPaths.GetBackupPath(path))
+                             || File.Exists(AtomicJsonPaths.GetTemporaryPath(path));
+        if (!artifactsExist)
+        {
+            return false;
+        }
+
+        var loaded = activeRunStore.Load(path);
+        var checkpoint = loaded.Value;
+        if (checkpoint == null)
+        {
+            ArchiveActiveRunArtifacts("UnrecoverableActiveRun");
+            diagnostic($"Active-run checkpoint was unreadable and was preserved for diagnostics: {string.Join(" | ", loaded.Failures)}");
+            return false;
+        }
+
+        if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion
+            || string.IsNullOrWhiteSpace(checkpoint.RunId)
+            || !string.Equals(checkpoint.SaveGenerationId, Current.GenerationId, StringComparison.Ordinal))
+        {
+            ArchiveActiveRunArtifacts("IncompatibleActiveRun");
+            diagnostic("Active-run checkpoint did not match the current schema/generation and was preserved for diagnostics.");
+            return false;
+        }
+
+        var summary = checkpoint.ToInterruptedSummary();
+        var applied = RunReducer.Apply(Current.Statistics, summary);
+        if (applied)
+        {
+            Current.Revision++;
+            Current.UpdatedUtc = summary.EndedUtc;
+            SaveCurrent();
+        }
+
+        activeRunStore.Delete(path);
+        diagnostic(
+            applied
+                ? $"Recovered interrupted run {summary.RunId} for generation {summary.SaveGenerationId}."
+                : $"Cleared already-finalized active-run checkpoint {summary.RunId} without duplicating it.");
+        return applied;
+    }
+
+    private void ArchiveActiveRunArtifacts(string reason)
+    {
+        if (currentDirectory == null)
+        {
+            return;
+        }
+
+        var path = GetActiveRunPath(currentDirectory);
+        var paths = new[]
+        {
+            path,
+            AtomicJsonPaths.GetBackupPath(path),
+            AtomicJsonPaths.GetTemporaryPath(path)
+        };
+        var recoveryDirectory = Path.Combine(currentDirectory, "checkpoint-recovery");
+        Directory.CreateDirectory(recoveryDirectory);
+        var timestamp = EnsureUtc(utcNow()).ToString("yyyyMMddTHHmmssfffffffZ", CultureInfo.InvariantCulture);
+        foreach (var source in paths.Where(File.Exists))
+        {
+            var destination = Path.Combine(
+                recoveryDirectory,
+                $"{timestamp}-{reason}-{Path.GetFileName(source)}");
+            File.Move(source, destination);
+            File.SetAttributes(destination, File.GetAttributes(destination) | FileAttributes.ReadOnly);
+        }
+    }
+
     private void StartSession()
     {
         if (currentDirectory == null)
@@ -461,6 +587,8 @@ public sealed class ProfileRepository
 
     private static string GetSessionPath(string directory) => Path.Combine(directory, "session.json");
 
+    private static string GetActiveRunPath(string directory) => Path.Combine(directory, "active-run.json");
+
     private static bool IdentityMatches(ProfileDocument candidate, SaveIdentitySnapshot observed)
     {
         var stored = candidate.Identity;
@@ -495,7 +623,7 @@ public sealed class ProfileRepository
             // cannot prove continuity once they contain statistics. A zero
             // profile is harmless to adopt only when every legacy metadata
             // observation still agrees; Open then persists the fingerprint.
-            return candidate.Statistics.Overall.ActivationCount == 0
+            return HasNoStatistics(candidate.Statistics)
                    && stored.SaveFileCreationUtcTicks == observed.SaveFileCreationUtcTicks
                    && stored.ObservedWriteUtcTicks == observed.ObservedWriteUtcTicks
                    && stored.ObservedLength == observed.ObservedLength;
@@ -503,8 +631,14 @@ public sealed class ProfileRepository
 
         // Two missing files only identify the same harmless zero profile. Any
         // accumulated data with no stable save identity is archived instead.
-        return candidate.Statistics.Overall.ActivationCount == 0;
+        return HasNoStatistics(candidate.Statistics);
     }
+
+    private static bool HasNoStatistics(ProfileStatistics statistics) =>
+        statistics.Overall.ActivationCount == 0
+        && statistics.Overall.ActualHealthRestored == 0
+        && statistics.RunTotals.TotalRuns == 0
+        && statistics.Runs.Count == 0;
 
     private static bool IdentitiesEqual(SaveIdentitySnapshot left, SaveIdentitySnapshot right) =>
         left.Slot == right.Slot

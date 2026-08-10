@@ -3,6 +3,7 @@ using Duckov.Modding;
 using Duckov.Rules;
 using UltimateDuckovStatistics.Core;
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Statistics;
 
 namespace UltimateDuckovStatistics.Adapters;
 
@@ -12,19 +13,9 @@ internal static class NativeIntegrityProbe
     {
         try
         {
-            var result = IntegrityTags.Unknown;
-            if (CheatMode.Active || GameRulesManager.SelectedRuleIndex == RuleIndex.Custom)
-            {
-                result |= IntegrityTags.CheatOrCustomDifficulty;
-            }
-
-            var activeMods = ModManager.GetCurrentActiveModList();
-            if (activeMods.Any(name => !string.Equals(name, ProductInfo.ModId, StringComparison.Ordinal)))
-            {
-                result |= IntegrityTags.ModdedContent;
-            }
-
-            return result == IntegrityTags.Unknown ? IntegrityTags.Normal : result;
+            return RunIntegrityPolicy.Evaluate(
+                CheatMode.Active || GameRulesManager.SelectedRuleIndex == RuleIndex.Custom,
+                ModManager.GetCurrentActiveModList());
         }
         catch
         {

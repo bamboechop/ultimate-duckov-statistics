@@ -29,6 +29,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
         Version = NativeHealingAttributionAdapter.AdapterVersion,
         Detail = "Healing attribution has not been initialized."
     };
+    private List<CapabilityRecord> runCapabilities = new()
+    {
+        DisabledRunCapability(NativeRunLifecycleAdapter.LifecycleAdapterId, NativeRunLifecycleAdapter.LifecycleAdapterVersion),
+        DisabledRunCapability(NativeRunLifecycleAdapter.MovementAdapterId, NativeRunLifecycleAdapter.MovementAdapterVersion),
+        DisabledRunCapability(NativeRunLifecycleAdapter.MapAdapterId, NativeRunLifecycleAdapter.MapAdapterVersion)
+    };
 
     public NativeProfileCoordinator()
     {
@@ -36,6 +42,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     }
 
     public event Action? ProfileChanged;
+
+    public event Action? ProfileChanging;
 
     public string DataRoot => dataRoot;
 
@@ -75,7 +83,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
             $"created={openResult.CreatedNew} rotated={openResult.RotatedGeneration} " +
             $"recovered={openResult.RecoveredSnapshot} migrated={openResult.MigratedSchema} " +
             $"unsupportedArchived={openResult.UnsupportedSchemaArchived} " +
-            $"interrupted={openResult.InterruptedSessionRecovered}.");
+            $"interruptedSession={openResult.InterruptedSessionRecovered} " +
+            $"interruptedRun={openResult.InterruptedRunRecovered}.");
     }
 
     public bool HandleItemUse(ItemUseCompletion completion)
@@ -141,6 +150,44 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
+    public void SetRunCapabilities(IReadOnlyList<CapabilityRecord> capabilities)
+    {
+        if (capabilities == null)
+        {
+            throw new ArgumentNullException(nameof(capabilities));
+        }
+
+        runCapabilities = capabilities.Select(CloneCapability).ToList();
+        UpdateCapabilities();
+    }
+
+    public void HandleRunCheckpoint(ActiveRunCheckpoint checkpoint)
+    {
+        try
+        {
+            repository?.SaveActiveRun(checkpoint);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            WriteDiagnostic($"Failed to persist active-run checkpoint: {exception.GetType().Name}.", "Error");
+        }
+    }
+
+    public bool HandleRunCompleted(RunSummary summary)
+    {
+        try
+        {
+            return repository?.CompleteRun(summary) == true;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            WriteDiagnostic($"Failed to persist completed run: {exception.GetType().Name}.", "Error");
+            return false;
+        }
+    }
+
     public void Flush()
     {
         try
@@ -179,6 +226,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             throw new InvalidOperationException("No profile is open for reset.");
         }
 
+        ProfileChanging?.Invoke();
         repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
         repository.Rotate(ReadIdentity(), "UserReset");
         OpenDiagnosticsForCurrentGeneration();
@@ -217,6 +265,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            ProfileChanging?.Invoke();
             saveResetAwaitingNewGameReport = false;
             var observed = ReadIdentity();
             if (repository!.Current.Slot != observed.Slot)
@@ -243,6 +292,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            ProfileChanging?.Invoke();
             repository!.Rotate(ReadIdentity(), "DuckovSaveDeleted");
             OpenDiagnosticsForCurrentGeneration();
             saveResetAwaitingNewGameReport = true;
@@ -276,6 +326,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            ProfileChanging?.Invoke();
             var identity = ReadIdentity();
             if (saveResetAwaitingNewGameReport)
             {
@@ -425,8 +476,24 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        });
+        }.Concat(runCapabilities));
     }
+
+    private static CapabilityRecord DisabledRunCapability(string adapterId, string version) => new()
+    {
+        AdapterId = adapterId,
+        State = AdapterCapabilityState.DisabledIncompatible,
+        Version = version,
+        Detail = "Run capability has not been initialized."
+    };
+
+    private static CapabilityRecord CloneCapability(CapabilityRecord source) => new()
+    {
+        AdapterId = source.AdapterId,
+        State = source.State,
+        Version = source.Version,
+        Detail = source.Detail
+    };
 
     private void WriteDiagnostic(string message, string severity = "Info")
     {

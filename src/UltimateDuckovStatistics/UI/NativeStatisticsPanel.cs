@@ -16,6 +16,8 @@ internal sealed class NativeStatisticsPanel
     private Rect windowRect = new(80, 60, 880, 650);
     private Vector2 itemScroll;
     private Vector2 diagnosticScroll;
+    private Vector2 runScroll;
+    private Vector2 recordScroll;
     private PanelTab tab;
     private bool visible;
     private bool confirmReset;
@@ -82,6 +84,8 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label(UiText.Get("ui.integrity_note"));
         GUILayout.BeginHorizontal();
         DrawTabButton(PanelTab.Overview, "ui.overview");
+        DrawTabButton(PanelTab.Runs, "ui.runs");
+        DrawTabButton(PanelTab.Records, "ui.records");
         DrawTabButton(PanelTab.Items, "ui.items");
         DrawTabButton(PanelTab.Diagnostics, "ui.diagnostics");
         GUILayout.FlexibleSpace();
@@ -99,6 +103,12 @@ internal sealed class NativeStatisticsPanel
                 break;
             case PanelTab.Items:
                 DrawItems();
+                break;
+            case PanelTab.Runs:
+                DrawRuns();
+                break;
+            case PanelTab.Records:
+                DrawRecords();
                 break;
             case PanelTab.Diagnostics:
                 DrawDiagnostics();
@@ -126,6 +136,15 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label($"{UiText.Get("ui.actual_hp")}: {FormatHealing(profile.Statistics.Overall)}");
         GUILayout.Label($"{UiText.Get("ui.amount")}: {FormatAmounts(profile.Statistics.Overall)}");
         GUILayout.Label($"{UiText.Get("ui.interrupted_sessions")}: {profile.InterruptedSessionCount.ToString(CultureInfo.InvariantCulture)}");
+        var runs = RunStatisticsViewModelFactory.Create(profile);
+        GUILayout.Space(8);
+        GUILayout.Label(
+            $"{UiText.Get("ui.total_runs")}: {runs.TotalRuns.ToString(CultureInfo.InvariantCulture)} " +
+            $"({UiText.Get("ui.extracted_runs")}: {runs.ExtractedRuns.ToString(CultureInfo.InvariantCulture)}, " +
+            $"{UiText.Get("ui.died_runs")}: {runs.DiedRuns.ToString(CultureInfo.InvariantCulture)}, " +
+            $"{UiText.Get("ui.interrupted_runs")}: {runs.InterruptedRuns.ToString(CultureInfo.InvariantCulture)})");
+        GUILayout.Label($"{UiText.Get("ui.physical_distance")}: {FormatDistance(runs.PhysicalDistance, runs.MovementSupported)}");
+        GUILayout.Label($"{UiText.Get("ui.teleport_distance")}: {FormatDistance(runs.TeleportDistance, runs.MovementSupported)}");
         GUILayout.Space(12);
         GUILayout.Label(UiText.Get("ui.group_totals"));
         foreach (var group in profile.Statistics.Groups.OrderBy(entry => entry.Key, StringComparer.Ordinal))
@@ -173,6 +192,124 @@ internal sealed class NativeStatisticsPanel
         }
 
         GUILayout.EndScrollView();
+    }
+
+    private void DrawRuns()
+    {
+        var profile = coordinator.Current;
+        if (profile == null)
+        {
+            return;
+        }
+
+        var model = RunStatisticsViewModelFactory.Create(profile);
+        GUILayout.Space(8);
+        if (model.Runs.Count == 0)
+        {
+            GUILayout.Label(UiText.Get("ui.no_runs"));
+            return;
+        }
+
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(UiText.Get("ui.outcome"), GUILayout.Width(95));
+        GUILayout.Label(UiText.Get("ui.map"), GUILayout.Width(180));
+        GUILayout.Label(UiText.Get("ui.active_time"), GUILayout.Width(110));
+        GUILayout.Label(UiText.Get("ui.wall_time"), GUILayout.Width(135));
+        GUILayout.Label(UiText.Get("ui.physical_distance"), GUILayout.Width(125));
+        GUILayout.Label(UiText.Get("ui.teleport_distance"));
+        GUILayout.EndHorizontal();
+        runScroll = GUILayout.BeginScrollView(runScroll);
+        foreach (var row in model.RunRows)
+        {
+            var run = row.Run;
+            var movementSupported = run.MovementCapability == AdapterCapabilityState.Supported;
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(run.Outcome.ToString(), GUILayout.Width(95));
+            GUILayout.Label(run.MapDisplayName, GUILayout.Width(180));
+            GUILayout.Label(FormatDuration(run.ActiveDurationSeconds), GUILayout.Width(110));
+            GUILayout.Label(FormatDuration(run.WallClockDurationSeconds), GUILayout.Width(135));
+            GUILayout.Label(FormatDistance(run.PhysicalDistance, movementSupported), GUILayout.Width(125));
+            GUILayout.Label(FormatDistance(run.TeleportDistance, movementSupported));
+            GUILayout.EndHorizontal();
+            GUILayout.Label(
+                $"  {UiText.Get("ui.integrity")}: {row.IntegrityTags}; "
+                + $"{UiText.Get("ui.record_status")}: {FormatRecordEligibility(row)}");
+            GUILayout.Space(4);
+        }
+
+        GUILayout.EndScrollView();
+    }
+
+    private void DrawRecords()
+    {
+        var profile = coordinator.Current;
+        if (profile == null)
+        {
+            return;
+        }
+
+        var model = RunStatisticsViewModelFactory.Create(profile);
+        var records = model.Records;
+        GUILayout.Space(8);
+        var hasOverallRecords = records.Extraction.Shortest != null
+                                || records.Extraction.Longest != null
+                                || records.Death.Shortest != null
+                                || records.Death.Longest != null;
+        if (!hasOverallRecords && model.Maps.Count == 0)
+        {
+            GUILayout.Label(UiText.Get("ui.no_records"));
+            return;
+        }
+
+        recordScroll = GUILayout.BeginScrollView(recordScroll);
+        if (hasOverallRecords)
+        {
+            DrawRecordPair(UiText.Get("ui.extraction_records"), records.Extraction);
+            DrawRecordPair(UiText.Get("ui.death_records"), records.Death);
+        }
+        else
+        {
+            GUILayout.Label(UiText.Get("ui.no_records"));
+        }
+
+        if (model.Maps.Count > 0)
+        {
+            GUILayout.Space(8);
+            GUILayout.Label(UiText.Get("ui.per_map"));
+        }
+
+        foreach (var map in model.Maps)
+        {
+            GUILayout.Label(
+                $"{map.DisplayName}: {map.TotalRuns.ToString(CultureInfo.InvariantCulture)} {UiText.Get("ui.total_runs")}, "
+                + $"{FormatDistance(map.PhysicalDistance, model.MovementSupported)} {UiText.Get("ui.physical_distance")}, "
+                + $"{FormatDistance(map.TeleportDistance, model.MovementSupported)} {UiText.Get("ui.teleport_distance")}");
+            if (records.Maps.TryGetValue(map.MapId, out var mapRecords))
+            {
+                DrawRecordPair($"  {UiText.Get("ui.extraction_records")}", mapRecords.Extraction);
+                DrawRecordPair($"  {UiText.Get("ui.death_records")}", mapRecords.Death);
+            }
+        }
+
+        GUILayout.EndScrollView();
+    }
+
+    private static void DrawRecordPair(string title, DurationRecordPair records)
+    {
+        GUILayout.Label(title);
+        if (records.Shortest != null)
+        {
+            GUILayout.Label(
+                $"  {UiText.Get("ui.shortest")}: {FormatDuration(records.Shortest.ActiveDurationSeconds)} " +
+                $"({records.Shortest.MapDisplayName}, {records.Shortest.RunId})");
+        }
+
+        if (records.Longest != null)
+        {
+            GUILayout.Label(
+                $"  {UiText.Get("ui.longest")}: {FormatDuration(records.Longest.ActiveDurationSeconds)} " +
+                $"({records.Longest.MapDisplayName}, {records.Longest.RunId})");
+        }
     }
 
     private void DrawDiagnostics()
@@ -328,9 +465,30 @@ internal sealed class NativeStatisticsPanel
     private static string FormatHealing(AggregateTotals totals) =>
         totals.ActualHealthRestored.ToString("0.###", CultureInfo.InvariantCulture);
 
+    private static string FormatDuration(double seconds) =>
+        TimeSpan.FromSeconds(Math.Max(0, seconds)).ToString(@"hh\:mm\:ss\.fff", CultureInfo.InvariantCulture);
+
+    private static string FormatDistance(double meters, bool supported) => supported
+        ? $"{meters.ToString("0.##", CultureInfo.InvariantCulture)} m"
+        : UiText.Get("ui.unsupported");
+
+    private static string FormatRecordEligibility(RunPresentationRow row) => row.RecordEligibilityReason switch
+    {
+        RunRecordEligibilityReason.Eligible => UiText.Get("ui.record_eligible"),
+        RunRecordEligibilityReason.Interrupted =>
+            $"{UiText.Get("ui.record_excluded")} ({UiText.Get("ui.reason_interrupted")})",
+        RunRecordEligibilityReason.Integrity =>
+            $"{UiText.Get("ui.record_excluded")} ({UiText.Get("ui.integrity")}: {row.IntegrityTags})",
+        RunRecordEligibilityReason.LifecycleUnsupported =>
+            $"{UiText.Get("ui.record_excluded")} ({UiText.Get("ui.reason_lifecycle")})",
+        _ => $"{UiText.Get("ui.record_excluded")} ({UiText.Get("ui.reason_other")})"
+    };
+
     private enum PanelTab
     {
         Overview,
+        Runs,
+        Records,
         Items,
         Diagnostics
     }

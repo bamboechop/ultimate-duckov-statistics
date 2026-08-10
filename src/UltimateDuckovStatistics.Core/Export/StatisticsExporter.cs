@@ -4,6 +4,7 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
+using UltimateDuckovStatistics.Core.Domain;
 
 namespace UltimateDuckovStatistics.Core.Export;
 
@@ -33,6 +34,15 @@ public sealed class StatisticsExportDocument
 
     [DataMember(Order = 8)]
     public List<ItemExportRow> Items { get; set; } = new();
+
+    [DataMember(Order = 9)]
+    public RunAggregateTotals RunTotals { get; set; } = new();
+
+    [DataMember(Order = 10)]
+    public List<RunSummary> Runs { get; set; } = new();
+
+    [DataMember(Order = 11)]
+    public RunDurationRecords RunRecords { get; set; } = new();
 }
 
 [DataContract]
@@ -71,13 +81,21 @@ public sealed class StatisticsExportBundle
         string json,
         string overviewCsv,
         string groupsCsv,
-        string itemsCsv)
+        string itemsCsv,
+        string runsCsv,
+        string runTotalsCsv,
+        string mapTotalsCsv,
+        string recordsCsv)
     {
         Document = document;
         Json = json;
         OverviewCsv = overviewCsv;
         GroupsCsv = groupsCsv;
         ItemsCsv = itemsCsv;
+        RunsCsv = runsCsv;
+        RunTotalsCsv = runTotalsCsv;
+        MapTotalsCsv = mapTotalsCsv;
+        RecordsCsv = recordsCsv;
     }
 
     public StatisticsExportDocument Document { get; }
@@ -89,6 +107,14 @@ public sealed class StatisticsExportBundle
     public string GroupsCsv { get; }
 
     public string ItemsCsv { get; }
+
+    public string RunsCsv { get; }
+
+    public string RunTotalsCsv { get; }
+
+    public string MapTotalsCsv { get; }
+
+    public string RecordsCsv { get; }
 }
 
 public static class StatisticsExporter
@@ -135,7 +161,10 @@ public static class StatisticsExporter
                     EffectTags = item.EffectTags.Select(tag => tag.ToString()).OrderBy(tag => tag, StringComparer.Ordinal).ToList(),
                     Totals = CloneTotals(item.Totals)
                 })
-                .ToList()
+                .ToList(),
+            RunTotals = CloneRunTotals(profile.Statistics.RunTotals),
+            Runs = profile.Statistics.Runs.Select(CloneRun).ToList(),
+            RunRecords = CloneRunRecords(profile.Statistics.RunRecords)
         };
 
         return new StatisticsExportBundle(
@@ -143,7 +172,11 @@ public static class StatisticsExporter
             SerializeJson(document),
             CreateOverviewCsv(document),
             CreateGroupsCsv(document),
-            CreateItemsCsv(document));
+            CreateItemsCsv(document),
+            CreateRunsCsv(document),
+            CreateRunTotalsCsv(document),
+            CreateMapTotalsCsv(document),
+            CreateRecordsCsv(document));
     }
 
     private static string SerializeJson(StatisticsExportDocument document)
@@ -197,6 +230,127 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
+    private static string CreateRunsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine(
+            "run_id,save_generation_id,native_raid_id,map_id,map_display_name,map_known,started_utc,ended_utc,active_duration_seconds,wall_clock_duration_seconds,outcome,physical_distance,teleport_distance,integrity_tags,record_eligible,game_version,game_build,lifecycle_capability,lifecycle_adapter_version,movement_capability,movement_adapter_version,map_capability,map_adapter_version");
+        foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
+        {
+            builder.Append(Csv(run.RunId)).Append(',')
+                .Append(Csv(run.SaveGenerationId)).Append(',')
+                .Append(Csv(run.NativeRaidId ?? string.Empty)).Append(',')
+                .Append(Csv(run.MapId)).Append(',')
+                .Append(Csv(run.MapDisplayName)).Append(',')
+                .Append(run.MapKnown ? "true" : "false").Append(',')
+                .Append(Csv(run.StartedUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',')
+                .Append(Csv(run.EndedUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',')
+                .Append(run.ActiveDurationSeconds.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(run.WallClockDurationSeconds.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(run.Outcome).Append(',')
+                .Append(run.PhysicalDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(run.TeleportDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(Csv(run.IntegrityTags.ToString())).Append(',')
+                .Append(run.RecordEligible ? "true" : "false").Append(',')
+                .Append(Csv(run.GameVersion)).Append(',')
+                .Append(Csv(run.GameBuild)).Append(',')
+                .Append(run.LifecycleCapability).Append(',')
+                .Append(Csv(run.LifecycleAdapterVersion)).Append(',')
+                .Append(run.MovementCapability).Append(',')
+                .Append(Csv(run.MovementAdapterVersion)).Append(',')
+                .Append(run.MapCapability).Append(',')
+                .Append(Csv(run.MapAdapterVersion)).AppendLine();
+        }
+
+        return builder.ToString();
+    }
+
+    private static string CreateRunTotalsCsv(StatisticsExportDocument document)
+    {
+        var totals = document.RunTotals;
+        var builder = new StringBuilder();
+        builder.AppendLine("generation_id,total_runs,extracted,died,interrupted,physical_distance,teleport_distance");
+        builder.Append(Csv(document.GenerationId)).Append(',')
+            .Append(totals.TotalRuns.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(ReadOutcome(totals.Outcomes, RunOutcome.Extracted)).Append(',')
+            .Append(ReadOutcome(totals.Outcomes, RunOutcome.Died)).Append(',')
+            .Append(ReadOutcome(totals.Outcomes, RunOutcome.Interrupted)).Append(',')
+            .Append(totals.PhysicalDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+            .Append(totals.TeleportDistance.ToString("R", CultureInfo.InvariantCulture)).AppendLine();
+        return builder.ToString();
+    }
+
+    private static string CreateMapTotalsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("map_id,map_display_name,map_known,total_runs,extracted,died,interrupted,physical_distance,teleport_distance");
+        foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+        {
+            builder.Append(Csv(map.MapId)).Append(',')
+                .Append(Csv(map.DisplayName)).Append(',')
+                .Append(map.IsKnown ? "true" : "false").Append(',')
+                .Append(map.TotalRuns.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(ReadOutcome(map.Outcomes, RunOutcome.Extracted)).Append(',')
+                .Append(ReadOutcome(map.Outcomes, RunOutcome.Died)).Append(',')
+                .Append(ReadOutcome(map.Outcomes, RunOutcome.Interrupted)).Append(',')
+                .Append(map.PhysicalDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(map.TeleportDistance.ToString("R", CultureInfo.InvariantCulture)).AppendLine();
+        }
+
+        return builder.ToString();
+    }
+
+    private static string CreateRecordsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,map_id,map_display_name,outcome,record,run_id,active_duration_seconds,started_utc");
+        AppendRecordPair(builder, "overall", string.Empty, string.Empty, RunOutcome.Extracted, document.RunRecords.Extraction);
+        AppendRecordPair(builder, "overall", string.Empty, string.Empty, RunOutcome.Died, document.RunRecords.Death);
+        foreach (var map in document.RunRecords.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+        {
+            AppendRecordPair(builder, "map", map.MapId, map.DisplayName, RunOutcome.Extracted, map.Extraction);
+            AppendRecordPair(builder, "map", map.MapId, map.DisplayName, RunOutcome.Died, map.Death);
+        }
+
+        return builder.ToString();
+    }
+
+    private static void AppendRecordPair(
+        StringBuilder builder,
+        string scope,
+        string mapId,
+        string mapName,
+        RunOutcome outcome,
+        DurationRecordPair pair)
+    {
+        AppendRecord(builder, scope, mapId, mapName, outcome, "shortest", pair.Shortest);
+        AppendRecord(builder, scope, mapId, mapName, outcome, "longest", pair.Longest);
+    }
+
+    private static void AppendRecord(
+        StringBuilder builder,
+        string scope,
+        string mapId,
+        string mapName,
+        RunOutcome outcome,
+        string recordKind,
+        DurationRecordReference? record)
+    {
+        if (record == null)
+        {
+            return;
+        }
+
+        builder.Append(scope).Append(',')
+            .Append(Csv(mapId)).Append(',')
+            .Append(Csv(mapName)).Append(',')
+            .Append(outcome).Append(',')
+            .Append(recordKind).Append(',')
+            .Append(Csv(record.RunId)).Append(',')
+            .Append(record.ActiveDurationSeconds.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+            .Append(Csv(record.StartedUtc.ToString("O", CultureInfo.InvariantCulture))).AppendLine();
+    }
+
     private static void AppendTotalsHeader(StringBuilder builder, string prefix)
     {
         builder.Append(prefix).Append(",activation_count,actual_hp_restored");
@@ -233,6 +387,91 @@ public static class StatisticsExporter
             entry => entry.Value,
             StringComparer.Ordinal)
     };
+
+    private static RunAggregateTotals CloneRunTotals(RunAggregateTotals source) => new()
+    {
+        TotalRuns = source.TotalRuns,
+        Outcomes = source.Outcomes.ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal),
+        PhysicalDistance = source.PhysicalDistance,
+        TeleportDistance = source.TeleportDistance,
+        Maps = source.Maps.ToDictionary(
+            entry => entry.Key,
+            entry => new MapRunAggregate
+            {
+                MapId = entry.Value.MapId,
+                DisplayName = entry.Value.DisplayName,
+                IsKnown = entry.Value.IsKnown,
+                TotalRuns = entry.Value.TotalRuns,
+                Outcomes = entry.Value.Outcomes.ToDictionary(outcome => outcome.Key, outcome => outcome.Value, StringComparer.Ordinal),
+                PhysicalDistance = entry.Value.PhysicalDistance,
+                TeleportDistance = entry.Value.TeleportDistance
+            },
+            StringComparer.Ordinal)
+    };
+
+    private static RunSummary CloneRun(RunSummary source) => new()
+    {
+        SchemaVersion = source.SchemaVersion,
+        RunId = source.RunId,
+        SaveGenerationId = source.SaveGenerationId,
+        NativeRaidId = source.NativeRaidId,
+        MapId = source.MapId,
+        MapDisplayName = source.MapDisplayName,
+        MapKnown = source.MapKnown,
+        StartedUtc = source.StartedUtc,
+        EndedUtc = source.EndedUtc,
+        ActiveDurationSeconds = source.ActiveDurationSeconds,
+        WallClockDurationSeconds = source.WallClockDurationSeconds,
+        Outcome = source.Outcome,
+        PhysicalDistance = source.PhysicalDistance,
+        TeleportDistance = source.TeleportDistance,
+        IntegrityTags = source.IntegrityTags,
+        RecordEligible = source.RecordEligible,
+        GameVersion = source.GameVersion,
+        GameBuild = source.GameBuild,
+        LifecycleCapability = source.LifecycleCapability,
+        LifecycleAdapterVersion = source.LifecycleAdapterVersion,
+        MovementCapability = source.MovementCapability,
+        MovementAdapterVersion = source.MovementAdapterVersion,
+        MapCapability = source.MapCapability,
+        MapAdapterVersion = source.MapAdapterVersion
+    };
+
+    private static RunDurationRecords CloneRunRecords(RunDurationRecords source) => new()
+    {
+        Extraction = ClonePair(source.Extraction),
+        Death = ClonePair(source.Death),
+        Maps = source.Maps.ToDictionary(
+            entry => entry.Key,
+            entry => new MapRunDurationRecords
+            {
+                MapId = entry.Value.MapId,
+                DisplayName = entry.Value.DisplayName,
+                Extraction = ClonePair(entry.Value.Extraction),
+                Death = ClonePair(entry.Value.Death)
+            },
+            StringComparer.Ordinal)
+    };
+
+    private static DurationRecordPair ClonePair(DurationRecordPair source) => new()
+    {
+        Shortest = CloneRecord(source.Shortest),
+        Longest = CloneRecord(source.Longest)
+    };
+
+    private static DurationRecordReference? CloneRecord(DurationRecordReference? source) => source == null
+        ? null
+        : new DurationRecordReference
+        {
+            RunId = source.RunId,
+            ActiveDurationSeconds = source.ActiveDurationSeconds,
+            StartedUtc = source.StartedUtc,
+            MapId = source.MapId,
+            MapDisplayName = source.MapDisplayName
+        };
+
+    private static long ReadOutcome(Dictionary<string, long> outcomes, RunOutcome outcome) =>
+        outcomes.TryGetValue(outcome.ToString(), out var value) ? value : 0;
 
     private static string Csv(string value)
     {

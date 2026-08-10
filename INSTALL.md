@@ -1,6 +1,6 @@
 # Installation and compatibility
 
-## Supported baseline for v0.2.0
+## Supported baseline for v0.3.0
 
 - Escape From Duckov `2.3.30`
 - Steam build `24013657`
@@ -12,7 +12,7 @@ The UDS package must not contain Duckov assemblies or `0Harmony.dll`. HarmonyLib
 
 ## Required HarmonyLib Workshop item
 
-Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.2.0 requires HarmonyLib for healing attribution, but it uses reflection so consumable-use tracking can still load and Diagnostics will report `DisabledIncompatible` if Harmony is missing, too old, its API is incompatible, any foreign prefix, postfix, transpiler, or finalizer touches a required method, or a required UDS callback disappears. UDS validates the exact patch set at activation, periodically, and at attribution callback boundaries. If Duckov activates UDS before the Workshop loader, UDS retries safely after Harmony appears and updates Diagnostics. If Harmony unpatch cleanup fails, UDS keeps attribution detached, retains and retries that cleanup, and prevents a same-process reactivation from colliding with leftover callbacks.
+Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.3.0 requires HarmonyLib for M2 healing attribution, but M3 run lifecycle, map identity, and movement use public native Duckov APIs and add no Harmony patches. UDS uses reflection for healing, so consumable-use and M3 tracking can still load while Diagnostics reports healing as `DisabledIncompatible` if Harmony is missing, too old, its API is incompatible, any foreign prefix, postfix, transpiler, or finalizer touches a required method, or a required UDS callback disappears. UDS validates the exact healing patch set at activation, periodically, and at attribution callback boundaries. If Duckov activates UDS before the Workshop loader, UDS retries safely after Harmony appears and updates Diagnostics. If Harmony unpatch cleanup fails, UDS keeps attribution detached, retains and retries that cleanup, and prevents a same-process reactivation from colliding with leftover callbacks.
 
 After every cold launch and before selecting a save:
 
@@ -42,11 +42,19 @@ UDS data and exports are written outside the game saves under `%USERPROFILE%\App
 
 Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics\`. Existing UDS statistics remain outside the game directory unless the user removes them separately.
 
-## Known v0.2.0 limitations
+## M3 data and exports
+
+- A run starts only after native raid initialization when the alive main duck has player control; base and loading activity do not start runs.
+- Run outcomes are Extracted, Died, or Interrupted. Active duration excludes pause/loading; wall-clock duration is diagnostic.
+- Overview, Runs, Records, Items, and Diagnostics are enabled. Each Runs entry shows integrity and whether it is eligible for Records, including the exclusion reason. Records show shortest/longest extraction and death active times overall and per map.
+- Physical movement and teleport/excluded displacement are stored separately. If movement or map compatibility is unavailable, the panel and Diagnostics show that state explicitly.
+- Exports contain `statistics.json`, `overview.csv`, `groups.csv`, `items.csv`, `runs.csv`, `run_totals.csv`, `map_totals.csv`, and `records.csv`.
+
+## Known v0.3.0 limitations
 
 - Statistics begin at installation; no history is reconstructed.
 - Only successful main-duck item uses in raids count.
-- Healing totals start with v0.2.0; v0.1.0 usage history migrates with zero historical healing because past HP restoration cannot be reconstructed reliably.
+- Healing totals start with v0.2.0; v0.1.0 usage history migrates with zero historical healing because past HP restoration cannot be reconstructed reliably. Run and movement history starts with v0.3.0 and is not reconstructed during schema-3 migration.
 - Only healing applied through the verified item/effect paths is attributed. Unrelated regeneration, pets/companions, base use, cancelled uses, failed uses, and overheal are excluded.
-- Overview, Items, and Diagnostics are the only enabled tabs.
+- Duration records exclude Interrupted runs and runs tagged for cheats/custom difficulty or gameplay-altering mods. The required `HarmonyLoadMod` infrastructure by itself does not disqualify a run.
 - UDS itself remains a local GitHub package; only the HarmonyLib dependency is installed through Steam Workshop.
