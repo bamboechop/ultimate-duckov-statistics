@@ -27,5 +27,7 @@
              Link="ProductionAdapters\ReflectiveHarmonyPatcher.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\RetryableHarmonyPatcherLease.cs"
              Link="ProductionAdapters\RetryableHarmonyPatcherLease.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCallbackLifetime.cs"
+             Link="ProductionAdapters\NativeCallbackLifetime.cs" />
   </ItemGroup>
 </Project>

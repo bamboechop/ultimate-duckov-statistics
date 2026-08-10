@@ -13,7 +13,7 @@ This draft describes the planned GitHub pre-release. M3 implementation and its c
 - Shortest and longest extraction and death active-duration records overall and per map, with deterministic duration/start-time/run-ID tie handling.
 - Main-duck-only movement sampled at approximately 5 Hz. Plausibility uses verified native walk/run/dash speed, actual monotonic elapsed time, a 1.75 conservative multiplier, and 0.35 m additive tolerance.
 - Separate physical and teleport/excluded distance, including explicit position changes, loading/resume boundaries, implausible movement, and valid displacement after gaps longer than two seconds.
-- Overview additions plus enabled Runs and Records tabs with per-map context and explicit unsupported movement state.
+- Overview additions plus enabled Runs and Records tabs with per-map context, explicit unsupported movement state, and visible per-run integrity/record-eligibility reasons.
 - Schema-3 atomic persistence and migration preserving M1/M2 generations, activation/amount/group/healing aggregates, capability records, and read-only archives without reconstructing historical runs.
 - JSON plus eight-file flattened export set: `statistics.json`, `overview.csv`, `groups.csv`, `items.csv`, `runs.csv`, `run_totals.csv`, `map_totals.csv`, and `records.csv`.
 

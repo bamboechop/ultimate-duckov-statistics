@@ -55,6 +55,39 @@ public sealed class RunStatisticsViewModelTests
         Assert.False(RunStatisticsViewModelFactory.Create(profile).MovementSupported);
     }
 
+    [Fact]
+    [Trait("Category", "Run")]
+    [Trait("Category", "UI")]
+    public void RunPresentationDistinguishesEligibleNormalAndExcludedTaggedRuns()
+    {
+        var profile = Profile();
+        RunReducer.Apply(
+            profile.Statistics,
+            Run("eligible", RunOutcome.Extracted, 80, TestTime, IntegrityTags.Normal, recordEligible: true));
+        RunReducer.Apply(
+            profile.Statistics,
+            Run(
+                "tagged",
+                RunOutcome.Extracted,
+                90,
+                TestTime.AddMinutes(1),
+                IntegrityTags.CheatOrCustomDifficulty | IntegrityTags.ModdedContent,
+                recordEligible: false));
+
+        var rows = RunStatisticsViewModelFactory.Create(profile).RunRows;
+        var eligible = Assert.Single(rows, row => row.Run.RunId == "eligible");
+        var tagged = Assert.Single(rows, row => row.Run.RunId == "tagged");
+
+        Assert.Equal(IntegrityTags.Normal, eligible.IntegrityTags);
+        Assert.True(eligible.RecordEligible);
+        Assert.Equal(RunRecordEligibilityReason.Eligible, eligible.RecordEligibilityReason);
+        Assert.Equal(
+            IntegrityTags.CheatOrCustomDifficulty | IntegrityTags.ModdedContent,
+            tagged.IntegrityTags);
+        Assert.False(tagged.RecordEligible);
+        Assert.Equal(RunRecordEligibilityReason.Integrity, tagged.RecordEligibilityReason);
+    }
+
     private static ProfileDocument Profile() => new()
     {
         GenerationId = "generation-a",
@@ -70,7 +103,13 @@ public sealed class RunStatisticsViewModelTests
         }
     };
 
-    private static RunSummary Run(string id, RunOutcome outcome, double duration, DateTime started) => new()
+    private static RunSummary Run(
+        string id,
+        RunOutcome outcome,
+        double duration,
+        DateTime started,
+        IntegrityTags integrityTags = IntegrityTags.Normal,
+        bool recordEligible = true) => new()
     {
         RunId = id,
         SaveGenerationId = "generation-a",
@@ -84,8 +123,8 @@ public sealed class RunStatisticsViewModelTests
         Outcome = outcome,
         PhysicalDistance = duration / 2,
         TeleportDistance = 3,
-        IntegrityTags = IntegrityTags.Normal,
-        RecordEligible = true,
+        IntegrityTags = integrityTags,
+        RecordEligible = recordEligible,
         LifecycleCapability = AdapterCapabilityState.Supported,
         MovementCapability = AdapterCapabilityState.Supported,
         MapCapability = AdapterCapabilityState.Supported

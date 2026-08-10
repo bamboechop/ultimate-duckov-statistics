@@ -32,10 +32,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly RunLifecycleTracker tracker;
     private readonly MonotonicCadenceGate sampleCadence = new(SampleIntervalSeconds);
     private readonly ReferenceSubjectGate<CharacterMainControl> mainCharacterGate = new();
-    private readonly IdempotentSubscriptionSet subscriptions = new();
+    private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly List<CapabilityRecord> capabilities = new();
     private CharacterMainControl? mainCharacter;
-    private bool disposed;
     private bool paused;
     private bool loading;
     private MovementObservationKind? pendingBoundary;
@@ -68,12 +67,12 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
-        if (disposed)
+        if (callbackLifetime.DisposalStarted)
         {
             throw new ObjectDisposedException(nameof(NativeRunLifecycleAdapter));
         }
 
-        if (subscriptions.IsActive)
+        if (callbackLifetime.IsActive)
         {
             return capabilities;
         }
@@ -90,7 +89,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
         try
         {
-            subscriptions.Activate(CreateSubscriptions());
+            callbackLifetime.Activate(CreateSubscriptions());
             SetAllCapabilities(
                 AdapterCapabilityState.Supported,
                 "Verified Duckov 2.3.30 public lifecycle, map, main-duck position, and movement-speed contracts.");
@@ -100,7 +99,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
         catch (Exception exception)
         {
-            Unsubscribe();
+            TryCleanup();
             SetAllCapabilities(
                 AdapterCapabilityState.DisabledIncompatible,
                 $"Run-lifecycle activation failed: {exception.GetType().Name}: {exception.Message}");
@@ -112,7 +111,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public void Tick()
     {
-        if (!subscriptions.IsActive || LifecycleCapability.State != AdapterCapabilityState.Supported)
+        if (!callbackLifetime.CanHandleCallbacks || LifecycleCapability.State != AdapterCapabilityState.Supported)
         {
             return;
         }
@@ -148,6 +147,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public void InterruptForProfileTransition()
     {
+        if (callbackLifetime.DisposalStarted)
+        {
+            return;
+        }
+
         if (tracker.IsActive)
         {
             ApplyTerminal(RunLifecycleEventKind.Interrupted);
@@ -161,21 +165,22 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public bool TryCleanup()
     {
-        if (disposed)
-        {
-            return Unsubscribe();
-        }
-
-        disposed = true;
-        if (tracker.IsActive)
+        var firstAttempt = callbackLifetime.BeginDisposal();
+        if (firstAttempt && tracker.IsActive)
         {
             ApplyTerminal(RunLifecycleEventKind.Interrupted);
         }
 
-        DetachMainCharacter();
         sampleCadence.Reset();
         movementMapId = null;
-        var cleaned = Unsubscribe();
+        var cleaned = callbackLifetime.TryCleanup(TryDetachMainCharacter, out var staticCleanupFailure);
+        if (staticCleanupFailure != null)
+        {
+            diagnosticHandler(
+                $"Run-lifecycle subscription cleanup failed; cleanup remains retryable: "
+                + $"{staticCleanupFailure.GetType().Name}: {staticCleanupFailure.Message}");
+        }
+
         if (cleaned)
         {
             diagnosticHandler("Native run-lifecycle and movement hooks unsubscribed; sampler stopped and main-duck reference released.");
@@ -369,6 +374,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void SynchronizeMainCharacter()
     {
+        if (callbackLifetime.DisposalStarted)
+        {
+            return;
+        }
+
         CharacterMainControl? observed = null;
         try
         {
@@ -418,6 +428,22 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         mainCharacterGate.Clear();
+    }
+
+    private bool TryDetachMainCharacter()
+    {
+        try
+        {
+            DetachMainCharacter();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            diagnosticHandler(
+                $"Main-duck instance subscription cleanup failed; cleanup remains retryable: "
+                + $"{exception.GetType().Name}: {exception.Message}");
+            return false;
+        }
     }
 
     private void SynchronizeNativeStates()
@@ -586,40 +612,44 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             Detail = detail
         };
 
-    private bool Unsubscribe()
+    private SubscriptionBinding[] CreateSubscriptions()
     {
-        try
+        var onNewRaid = callbackLifetime.Guard<RaidUtilities.RaidInfo>(OnNewRaid);
+        var onRaidEnd = callbackLifetime.Guard<RaidUtilities.RaidInfo>(OnRaidEnd);
+        var onRaidDead = callbackLifetime.Guard<RaidUtilities.RaidInfo>(OnRaidDead);
+        var onLevelInitialized = callbackLifetime.Guard(OnLevelInitialized);
+        var onAfterLevelInitialized = callbackLifetime.Guard(OnAfterLevelInitialized);
+        var onEvacuated = callbackLifetime.Guard<EvacuationInfo>(OnEvacuated);
+        var onMainCharacterDead = callbackLifetime.Guard<DamageInfo>(OnMainCharacterDead);
+        var onPauseStarted = callbackLifetime.Guard(OnPauseStarted);
+        var onPauseEnded = callbackLifetime.Guard(OnPauseEnded);
+        var onSceneLoadingStarted = callbackLifetime.Guard<SceneLoadingContext>(OnSceneLoadingStarted);
+        var onSceneLoadingFinished = callbackLifetime.Guard<SceneLoadingContext>(OnSceneLoadingFinished);
+        var onSceneAfterInitialize = callbackLifetime.Guard<SceneLoadingContext>(OnSceneAfterInitialize);
+        var onSubSceneWillBeUnloaded = callbackLifetime.Guard<MultiSceneCore, Scene>(OnSubSceneWillBeUnloaded);
+        var onSubSceneLoaded = callbackLifetime.Guard<MultiSceneCore, Scene>(OnSubSceneLoaded);
+        var onCheatModeStatusChanged = callbackLifetime.Guard<bool>(OnCheatModeStatusChanged);
+        var onRuleChanged = callbackLifetime.Guard(OnRuleChanged);
+        return new SubscriptionBinding[]
         {
-            subscriptions.Deactivate();
-            return true;
-        }
-        catch (Exception exception)
-        {
-            diagnosticHandler(
-                $"Run-lifecycle subscription cleanup failed; cleanup remains retryable: {exception.GetType().Name}: {exception.Message}");
-            return false;
-        }
+            new(() => RaidUtilities.OnNewRaid += onNewRaid, () => RaidUtilities.OnNewRaid -= onNewRaid),
+            new(() => RaidUtilities.OnRaidEnd += onRaidEnd, () => RaidUtilities.OnRaidEnd -= onRaidEnd),
+            new(() => RaidUtilities.OnRaidDead += onRaidDead, () => RaidUtilities.OnRaidDead -= onRaidDead),
+            new(() => LevelManager.OnLevelInitialized += onLevelInitialized, () => LevelManager.OnLevelInitialized -= onLevelInitialized),
+            new(() => LevelManager.OnAfterLevelInitialized += onAfterLevelInitialized, () => LevelManager.OnAfterLevelInitialized -= onAfterLevelInitialized),
+            new(() => LevelManager.OnEvacuated += onEvacuated, () => LevelManager.OnEvacuated -= onEvacuated),
+            new(() => LevelManager.OnMainCharacterDead += onMainCharacterDead, () => LevelManager.OnMainCharacterDead -= onMainCharacterDead),
+            new(() => PauseMenu.onPauseMenuOn += onPauseStarted, () => PauseMenu.onPauseMenuOn -= onPauseStarted),
+            new(() => PauseMenu.onPauseMenuOff += onPauseEnded, () => PauseMenu.onPauseMenuOff -= onPauseEnded),
+            new(() => SceneLoader.onStartedLoadingScene += onSceneLoadingStarted, () => SceneLoader.onStartedLoadingScene -= onSceneLoadingStarted),
+            new(() => SceneLoader.onFinishedLoadingScene += onSceneLoadingFinished, () => SceneLoader.onFinishedLoadingScene -= onSceneLoadingFinished),
+            new(() => SceneLoader.onAfterSceneInitialize += onSceneAfterInitialize, () => SceneLoader.onAfterSceneInitialize -= onSceneAfterInitialize),
+            new(() => MultiSceneCore.OnSubSceneWillBeUnloaded += onSubSceneWillBeUnloaded, () => MultiSceneCore.OnSubSceneWillBeUnloaded -= onSubSceneWillBeUnloaded),
+            new(() => MultiSceneCore.OnSubSceneLoaded += onSubSceneLoaded, () => MultiSceneCore.OnSubSceneLoaded -= onSubSceneLoaded),
+            new(() => CheatMode.OnCheatModeStatusChanged += onCheatModeStatusChanged, () => CheatMode.OnCheatModeStatusChanged -= onCheatModeStatusChanged),
+            new(() => GameRulesManager.OnRuleChanged += onRuleChanged, () => GameRulesManager.OnRuleChanged -= onRuleChanged)
+        };
     }
-
-    private SubscriptionBinding[] CreateSubscriptions() => new SubscriptionBinding[]
-    {
-        new(() => RaidUtilities.OnNewRaid += OnNewRaid, () => RaidUtilities.OnNewRaid -= OnNewRaid),
-        new(() => RaidUtilities.OnRaidEnd += OnRaidEnd, () => RaidUtilities.OnRaidEnd -= OnRaidEnd),
-        new(() => RaidUtilities.OnRaidDead += OnRaidDead, () => RaidUtilities.OnRaidDead -= OnRaidDead),
-        new(() => LevelManager.OnLevelInitialized += OnLevelInitialized, () => LevelManager.OnLevelInitialized -= OnLevelInitialized),
-        new(() => LevelManager.OnAfterLevelInitialized += OnAfterLevelInitialized, () => LevelManager.OnAfterLevelInitialized -= OnAfterLevelInitialized),
-        new(() => LevelManager.OnEvacuated += OnEvacuated, () => LevelManager.OnEvacuated -= OnEvacuated),
-        new(() => LevelManager.OnMainCharacterDead += OnMainCharacterDead, () => LevelManager.OnMainCharacterDead -= OnMainCharacterDead),
-        new(() => PauseMenu.onPauseMenuOn += OnPauseStarted, () => PauseMenu.onPauseMenuOn -= OnPauseStarted),
-        new(() => PauseMenu.onPauseMenuOff += OnPauseEnded, () => PauseMenu.onPauseMenuOff -= OnPauseEnded),
-        new(() => SceneLoader.onStartedLoadingScene += OnSceneLoadingStarted, () => SceneLoader.onStartedLoadingScene -= OnSceneLoadingStarted),
-        new(() => SceneLoader.onFinishedLoadingScene += OnSceneLoadingFinished, () => SceneLoader.onFinishedLoadingScene -= OnSceneLoadingFinished),
-        new(() => SceneLoader.onAfterSceneInitialize += OnSceneAfterInitialize, () => SceneLoader.onAfterSceneInitialize -= OnSceneAfterInitialize),
-        new(() => MultiSceneCore.OnSubSceneWillBeUnloaded += OnSubSceneWillBeUnloaded, () => MultiSceneCore.OnSubSceneWillBeUnloaded -= OnSubSceneWillBeUnloaded),
-        new(() => MultiSceneCore.OnSubSceneLoaded += OnSubSceneLoaded, () => MultiSceneCore.OnSubSceneLoaded -= OnSubSceneLoaded),
-        new(() => CheatMode.OnCheatModeStatusChanged += OnCheatModeStatusChanged, () => CheatMode.OnCheatModeStatusChanged -= OnCheatModeStatusChanged),
-        new(() => GameRulesManager.OnRuleChanged += OnRuleChanged, () => GameRulesManager.OnRuleChanged -= OnRuleChanged)
-    };
 
     private RunLifecycleEvent Event(RunLifecycleEventKind kind) => new()
     {
@@ -719,7 +749,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnMainCharacterSetPosition(CharacterMainControl character, Vector3 position)
     {
-        if (!mainCharacterGate.Accepts(character)
+        if (!callbackLifetime.CanHandleCallbacks
+            || !mainCharacterGate.Accepts(character)
             || !tracker.IsActive
             || MovementCapability.State != AdapterCapabilityState.Supported)
         {

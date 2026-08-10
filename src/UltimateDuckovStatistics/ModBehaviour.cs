@@ -19,7 +19,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private NativeProfileCoordinator? profileCoordinator;
     private NativeHealingAttributionAdapter? healingAttributionAdapter;
     private NativeItemUseAdapter? itemUseAdapter;
-    private readonly RetryableCleanupOwner<NativeRunLifecycleAdapter> runLifecycleAdapter = new();
+    private readonly ProcessLifetimeCleanupOwner<NativeRunLifecycleAdapter> runLifecycleAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
 
     protected override void OnAfterSetup()
@@ -32,9 +32,12 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
         try
         {
-            if (runLifecycleAdapter.Value != null && !runLifecycleAdapter.TryCleanup())
+            if (runLifecycleAdapter.HasValue
+                && (!runLifecycleAdapter.HasPendingCleanup || !runLifecycleAdapter.TryCleanupPending()))
             {
-                Debug.LogError($"{LogPrefix} activation blocked while prior run-lifecycle subscriptions await cleanup.");
+                Debug.LogError(
+                    $"{LogPrefix} activation blocked while another run-lifecycle owner is active "
+                    + "or prior subscriptions await cleanup.");
                 return;
             }
 
@@ -59,8 +62,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 profileCoordinator.HandleItemUse,
                 message => Debug.Log($"{LogPrefix} {message}"),
                 healingAttributionAdapter,
-                () => runLifecycleAdapter.Value?.CurrentRunId,
-                () => runLifecycleAdapter.Value?.CurrentMapId);
+                () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentMapId);
             profileCoordinator.ProfileChanged += itemUseAdapter.ResetPending;
             itemUseAdapter.Subscribe();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);
@@ -80,7 +83,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     protected override void OnBeforeDeactivate()
     {
-        if (!initialized && runLifecycleAdapter.Value == null)
+        if (!initialized && runLifecycleAdapter.OwnedValue == null)
         {
             return;
         }
@@ -91,7 +94,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Update()
     {
-        runLifecycleAdapter.Value?.Tick();
+        runLifecycleAdapter.OwnedValue?.Tick();
         itemUseAdapter?.Tick(DateTime.UtcNow);
         healingAttributionAdapter?.Tick();
         statisticsPanel?.Tick();
@@ -120,13 +123,13 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Cleanup()
     {
-        var ownedRunLifecycleAdapter = runLifecycleAdapter.Value;
+        var ownedRunLifecycleAdapter = runLifecycleAdapter.OwnedValue;
         if (profileCoordinator != null && ownedRunLifecycleAdapter != null)
         {
             profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
         }
 
-        if (!runLifecycleAdapter.TryCleanup())
+        if (!runLifecycleAdapter.TryCleanupOwned())
         {
             Debug.LogWarning($"{LogPrefix} run-lifecycle adapter retained for a later cleanup retry.");
         }

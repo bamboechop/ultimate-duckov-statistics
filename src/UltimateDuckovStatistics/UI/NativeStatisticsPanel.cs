@@ -219,8 +219,9 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label(UiText.Get("ui.teleport_distance"));
         GUILayout.EndHorizontal();
         runScroll = GUILayout.BeginScrollView(runScroll);
-        foreach (var run in model.Runs)
+        foreach (var row in model.RunRows)
         {
+            var run = row.Run;
             var movementSupported = run.MovementCapability == AdapterCapabilityState.Supported;
             GUILayout.BeginHorizontal();
             GUILayout.Label(run.Outcome.ToString(), GUILayout.Width(95));
@@ -230,6 +231,10 @@ internal sealed class NativeStatisticsPanel
             GUILayout.Label(FormatDistance(run.PhysicalDistance, movementSupported), GUILayout.Width(125));
             GUILayout.Label(FormatDistance(run.TeleportDistance, movementSupported));
             GUILayout.EndHorizontal();
+            GUILayout.Label(
+                $"  {UiText.Get("ui.integrity")}: {row.IntegrityTags}; "
+                + $"{UiText.Get("ui.record_status")}: {FormatRecordEligibility(row)}");
+            GUILayout.Space(4);
         }
 
         GUILayout.EndScrollView();
@@ -466,6 +471,18 @@ internal sealed class NativeStatisticsPanel
     private static string FormatDistance(double meters, bool supported) => supported
         ? $"{meters.ToString("0.##", CultureInfo.InvariantCulture)} m"
         : UiText.Get("ui.unsupported");
+
+    private static string FormatRecordEligibility(RunPresentationRow row) => row.RecordEligibilityReason switch
+    {
+        RunRecordEligibilityReason.Eligible => UiText.Get("ui.record_eligible"),
+        RunRecordEligibilityReason.Interrupted =>
+            $"{UiText.Get("ui.record_excluded")} ({UiText.Get("ui.reason_interrupted")})",
+        RunRecordEligibilityReason.Integrity =>
+            $"{UiText.Get("ui.record_excluded")} ({UiText.Get("ui.integrity")}: {row.IntegrityTags})",
+        RunRecordEligibilityReason.LifecycleUnsupported =>
+            $"{UiText.Get("ui.record_excluded")} ({UiText.Get("ui.reason_lifecycle")})",
+        _ => $"{UiText.Get("ui.record_excluded")} ({UiText.Get("ui.reason_other")})"
+    };
 
     private enum PanelTab
     {
