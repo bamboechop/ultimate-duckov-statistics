@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
+using Duckov;
+using Duckov.Rules;
 using Duckov.Scenes;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
@@ -10,7 +12,7 @@ using UnityEngine.SceneManagement;
 
 namespace UltimateDuckovStatistics.Adapters;
 
-internal sealed class NativeRunLifecycleAdapter : IDisposable
+internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 {
     internal const string LifecycleAdapterId = "native-run-lifecycle";
     internal const string LifecycleAdapterVersion = "native-run-lifecycle/2.3.30";
@@ -125,6 +127,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable
             var utcNow = DateTime.UtcNow;
             if (tracker.IsActive && tracker.Tick(utcNow, now))
             {
+                tracker.ObserveIntegrity(NativeIntegrityProbe.Read());
                 SaveCheckpoint(utcNow, now);
             }
 
@@ -156,12 +159,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable
         tracker.Apply(Event(RunLifecycleEventKind.RaidCleared));
     }
 
-    public void Dispose()
+    public bool TryCleanup()
     {
         if (disposed)
         {
-            Unsubscribe();
-            return;
+            return Unsubscribe();
         }
 
         disposed = true;
@@ -173,9 +175,16 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable
         DetachMainCharacter();
         sampleCadence.Reset();
         movementMapId = null;
-        Unsubscribe();
-        diagnosticHandler("Native run-lifecycle and movement hooks unsubscribed; sampler stopped and main-duck reference released.");
+        var cleaned = Unsubscribe();
+        if (cleaned)
+        {
+            diagnosticHandler("Native run-lifecycle and movement hooks unsubscribed; sampler stopped and main-duck reference released.");
+        }
+
+        return cleaned;
     }
+
+    public void Dispose() => TryCleanup();
 
     private CapabilityRecord LifecycleCapability => capabilities[0];
 
@@ -255,6 +264,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable
         {
             SampleMainDuck(utcNow, now);
         }
+
+        tracker.ObserveIntegrity(NativeIntegrityProbe.Read());
 
         var transition = tracker.Apply(new RunLifecycleEvent
         {
@@ -575,16 +586,18 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable
             Detail = detail
         };
 
-    private void Unsubscribe()
+    private bool Unsubscribe()
     {
         try
         {
             subscriptions.Deactivate();
+            return true;
         }
         catch (Exception exception)
         {
             diagnosticHandler(
                 $"Run-lifecycle subscription cleanup failed; cleanup remains retryable: {exception.GetType().Name}: {exception.Message}");
+            return false;
         }
     }
 
@@ -603,7 +616,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable
         new(() => SceneLoader.onFinishedLoadingScene += OnSceneLoadingFinished, () => SceneLoader.onFinishedLoadingScene -= OnSceneLoadingFinished),
         new(() => SceneLoader.onAfterSceneInitialize += OnSceneAfterInitialize, () => SceneLoader.onAfterSceneInitialize -= OnSceneAfterInitialize),
         new(() => MultiSceneCore.OnSubSceneWillBeUnloaded += OnSubSceneWillBeUnloaded, () => MultiSceneCore.OnSubSceneWillBeUnloaded -= OnSubSceneWillBeUnloaded),
-        new(() => MultiSceneCore.OnSubSceneLoaded += OnSubSceneLoaded, () => MultiSceneCore.OnSubSceneLoaded -= OnSubSceneLoaded)
+        new(() => MultiSceneCore.OnSubSceneLoaded += OnSubSceneLoaded, () => MultiSceneCore.OnSubSceneLoaded -= OnSubSceneLoaded),
+        new(() => CheatMode.OnCheatModeStatusChanged += OnCheatModeStatusChanged, () => CheatMode.OnCheatModeStatusChanged -= OnCheatModeStatusChanged),
+        new(() => GameRulesManager.OnRuleChanged += OnRuleChanged, () => GameRulesManager.OnRuleChanged -= OnRuleChanged)
     };
 
     private RunLifecycleEvent Event(RunLifecycleEventKind kind) => new()
@@ -673,6 +688,34 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable
     }
 
     private void OnSubSceneLoaded(MultiSceneCore core, Scene scene) => SynchronizeNativeStates();
+
+    private void OnCheatModeStatusChanged(bool _) => RefreshActiveIntegrity();
+
+    private void OnRuleChanged() => RefreshActiveIntegrity();
+
+    private void RefreshActiveIntegrity()
+    {
+        if (!tracker.IsActive)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!tracker.ObserveIntegrity(NativeIntegrityProbe.Read()))
+            {
+                return;
+            }
+
+            var now = NowMonotonic();
+            SaveCheckpoint(DateTime.UtcNow, now);
+            diagnosticHandler($"Active run integrity changed id={tracker.ActiveRunId}; the run is excluded from default duration records.");
+        }
+        catch (Exception exception)
+        {
+            diagnosticHandler($"Active run integrity refresh failed safely: {exception.GetType().Name}: {exception.Message}");
+        }
+    }
 
     private void OnMainCharacterSetPosition(CharacterMainControl character, Vector3 position)
     {

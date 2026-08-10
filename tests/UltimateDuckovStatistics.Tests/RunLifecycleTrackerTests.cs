@@ -1,4 +1,5 @@
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.Tests;
@@ -96,6 +97,39 @@ public sealed class RunLifecycleTrackerTests
         Assert.Equal(RunOutcome.Interrupted, summary.Outcome);
         Assert.False(summary.RecordEligible);
         Assert.Equal(3, summary.ActiveDurationSeconds);
+    }
+
+    [Fact]
+    [Trait("Category", "Run")]
+    [Trait("Category", "Integrity")]
+    public void IntegrityChangesDuringAnActiveRunAccumulateAndDisqualifyRecords()
+    {
+        var tracker = StartedTracker();
+
+        Assert.True(tracker.ObserveIntegrity(IntegrityTags.CheatOrCustomDifficulty));
+        Assert.False(tracker.ObserveIntegrity(IntegrityTags.Normal));
+        Assert.True(tracker.ObserveIntegrity(IntegrityTags.ModdedContent));
+        var checkpoint = tracker.CreateCheckpoint(Origin.AddSeconds(5), 5)!;
+        var completed = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
+
+        var expected = IntegrityTags.CheatOrCustomDifficulty | IntegrityTags.ModdedContent;
+        Assert.Equal(expected, checkpoint.IntegrityTags);
+        Assert.Equal(expected, completed.IntegrityTags);
+        Assert.False(completed.RecordEligible);
+    }
+
+    [Theory]
+    [Trait("Category", "Run")]
+    [Trait("Category", "Integrity")]
+    [InlineData(IntegrityTags.Normal, IntegrityTags.Unknown, IntegrityTags.Unknown)]
+    [InlineData(IntegrityTags.Unknown, IntegrityTags.Normal, IntegrityTags.Unknown)]
+    [InlineData(IntegrityTags.CheatOrCustomDifficulty, IntegrityTags.Unknown, IntegrityTags.CheatOrCustomDifficulty)]
+    public void IntegrityAccumulationNeverUpgradesAnUncertainOrDisqualifiedRun(
+        IntegrityTags accumulated,
+        IntegrityTags observed,
+        IntegrityTags expected)
+    {
+        Assert.Equal(expected, RunIntegrityPolicy.Accumulate(accumulated, observed));
     }
 
     private static RunLifecycleTracker StartedTracker()

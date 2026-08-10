@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using Duckov.Modding;
 using UltimateDuckovStatistics.Adapters;
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.UI;
 using UnityEngine;
 
@@ -18,7 +19,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private NativeProfileCoordinator? profileCoordinator;
     private NativeHealingAttributionAdapter? healingAttributionAdapter;
     private NativeItemUseAdapter? itemUseAdapter;
-    private NativeRunLifecycleAdapter? runLifecycleAdapter;
+    private readonly RetryableCleanupOwner<NativeRunLifecycleAdapter> runLifecycleAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
 
     protected override void OnAfterSetup()
@@ -31,6 +32,12 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
         try
         {
+            if (runLifecycleAdapter.Value != null && !runLifecycleAdapter.TryCleanup())
+            {
+                Debug.LogError($"{LogPrefix} activation blocked while prior run-lifecycle subscriptions await cleanup.");
+                return;
+            }
+
             profileCoordinator = new NativeProfileCoordinator();
             profileCoordinator.Initialize();
             healingAttributionAdapter = new NativeHealingAttributionAdapter(
@@ -38,21 +45,22 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 message => Debug.Log($"{LogPrefix} {message}"));
             profileCoordinator.SetHealingCapability(healingAttributionAdapter.Initialize());
             healingAttributionAdapter.CapabilityChanged += profileCoordinator.SetHealingCapability;
-            runLifecycleAdapter = new NativeRunLifecycleAdapter(
+            var newRunLifecycleAdapter = new NativeRunLifecycleAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 profileCoordinator.HandleRunCheckpoint,
                 profileCoordinator.HandleRunCompleted,
                 profileCoordinator.SetRunCapabilities,
                 message => Debug.Log($"{LogPrefix} {message}"));
-            runLifecycleAdapter.Initialize();
-            profileCoordinator.ProfileChanging += runLifecycleAdapter.InterruptForProfileTransition;
+            runLifecycleAdapter.Assign(newRunLifecycleAdapter);
+            newRunLifecycleAdapter.Initialize();
+            profileCoordinator.ProfileChanging += newRunLifecycleAdapter.InterruptForProfileTransition;
             itemUseAdapter = new NativeItemUseAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 profileCoordinator.HandleItemUse,
                 message => Debug.Log($"{LogPrefix} {message}"),
                 healingAttributionAdapter,
-                () => runLifecycleAdapter.CurrentRunId,
-                () => runLifecycleAdapter.CurrentMapId);
+                () => runLifecycleAdapter.Value?.CurrentRunId,
+                () => runLifecycleAdapter.Value?.CurrentMapId);
             profileCoordinator.ProfileChanged += itemUseAdapter.ResetPending;
             itemUseAdapter.Subscribe();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);
@@ -72,7 +80,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     protected override void OnBeforeDeactivate()
     {
-        if (!initialized)
+        if (!initialized && runLifecycleAdapter.Value == null)
         {
             return;
         }
@@ -83,7 +91,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Update()
     {
-        runLifecycleAdapter?.Tick();
+        runLifecycleAdapter.Value?.Tick();
         itemUseAdapter?.Tick(DateTime.UtcNow);
         healingAttributionAdapter?.Tick();
         statisticsPanel?.Tick();
@@ -112,13 +120,17 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Cleanup()
     {
-        if (profileCoordinator != null && runLifecycleAdapter != null)
+        var ownedRunLifecycleAdapter = runLifecycleAdapter.Value;
+        if (profileCoordinator != null && ownedRunLifecycleAdapter != null)
         {
-            profileCoordinator.ProfileChanging -= runLifecycleAdapter.InterruptForProfileTransition;
+            profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
         }
 
-        runLifecycleAdapter?.Dispose();
-        runLifecycleAdapter = null;
+        if (!runLifecycleAdapter.TryCleanup())
+        {
+            Debug.LogWarning($"{LogPrefix} run-lifecycle adapter retained for a later cleanup retry.");
+        }
+
         if (profileCoordinator != null && itemUseAdapter != null)
         {
             profileCoordinator.ProfileChanged -= itemUseAdapter.ResetPending;

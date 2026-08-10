@@ -117,8 +117,11 @@ public sealed class ProfileRepository
 
             if (!result.UnsupportedSchemaArchived)
             {
+                current = candidate;
                 if (!IdentityMatches(candidate, identity))
                 {
+                    result.InterruptedRunRecovered = RecoverInterruptedRun();
+                    result.InterruptedSessionRecovered = RecoverInterruptedSession();
                     ArchiveCurrentDirectory(slotDirectory, "SaveIdentityChanged", candidate.GenerationId);
                     currentDirectory = Path.Combine(slotDirectory, "current");
                     Directory.CreateDirectory(currentDirectory);
@@ -131,7 +134,6 @@ public sealed class ProfileRepository
                 {
                     var identityChanged = !IdentitiesEqual(candidate.Identity, identity);
                     var pendingSaveCleared = candidate.PendingSave != null;
-                    current = candidate;
                     current.Identity = identity;
                     current.PendingSave = null;
                     if (loaded.Recovered || result.MigratedSchema || identityChanged || pendingSaveCleared)
@@ -143,8 +145,8 @@ public sealed class ProfileRepository
         }
 
         ApplyConfiguredCapabilities();
-        result.InterruptedRunRecovered = RecoverInterruptedRun();
-        result.InterruptedSessionRecovered = RecoverInterruptedSession();
+        result.InterruptedRunRecovered |= RecoverInterruptedRun();
+        result.InterruptedSessionRecovered |= RecoverInterruptedSession();
         StartSession();
         return result;
     }

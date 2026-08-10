@@ -33,12 +33,12 @@ Healing retains the separately installed [HarmonyLib Workshop item 3589088839](h
 
 ## Validation status
 
-- Automated Release suite: 134 tests pass, including complete M0-M2 regression coverage and deterministic lifecycle, exact-main-subject movement cadence/map boundaries, records, migration, checkpoint recovery and read-only preservation, isolation, UI/export agreement, capability degradation, integrity, subscription cleanup, deployment, and package cases.
-- Native Duckov/Harmony contract probe: passed against the versions above, including exact M3 event/property/method/field visibility and signatures.
+- Automated Release suite: 140 tests pass, including complete M0-M2 regression coverage and deterministic lifecycle, exact-main-subject movement cadence/map boundaries, records, migration, checkpoint recovery before identity rotation, read-only preservation, isolation, UI/export agreement, cumulative runtime integrity, retained-owner cleanup retry, capability degradation, deployment, and package cases.
+- Native Duckov/Harmony contract probe: passed against the versions above, including exact M3 event/property/method/field visibility and signatures for runtime cheat/rule integrity changes.
 - Native Release build: 0 warnings and 0 errors.
 - Exact five-file install package validation: passed; no Duckov, Unity, framework, or Harmony dependency is bundled.
 - Manual M3 deployment/gameplay acceptance: passed on approved, read-only-backed-up slots 1 and 6, covering schema migration, no base run, extraction, death, active-time pause exclusion, stationary and normal movement, genuine teleport/loading separation, map aggregation, exactly-once hard-crash recovery, restart persistence, UI/export agreement, and clean shutdown without M1/M2 regression.
-- The final installable archive was built from implementation commit `423349d1db846df754577838ecba5657f09e1efa`. `UltimateDuckovStatistics-v0.3.0.zip` is 91,220 bytes with SHA-256 `4ae77ddc95f5ebb28a24724d1f9a2e16d1ffbf05f63424c34b8d3b3115315296`; its sidecar matches exactly, independent extraction/package validation passes, and both DLLs report informational version `0.3.0+423349d1db846df754577838ecba5657f09e1efa`.
+- The initial archive built from implementation commit `423349d1db846df754577838ecba5657f09e1efa` passed independent verification but is superseded by the review hardening above. Exact replacement committed-head ZIP evidence is recorded after that archive is rebuilt.
 - Draft-PR CI currency remains the final delivery gate and is recorded on the draft PR after the remote state exists.
 
 ## Known limitations

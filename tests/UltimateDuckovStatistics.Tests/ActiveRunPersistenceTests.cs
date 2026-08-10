@@ -105,6 +105,45 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
+    public void IdentityRotationRecoversInterruptedStateIntoTheOldGenerationBeforeArchiving()
+    {
+        using var directory = new TemporaryDirectory();
+        var interrupted = Repository(directory.Path);
+        interrupted.Open(Identity());
+        var oldGeneration = interrupted.CurrentGenerationId;
+        interrupted.SaveActiveRun(Checkpoint(oldGeneration, 11));
+
+        var replacement = Repository(directory.Path);
+        var result = replacement.Open(Identity(creationTicks: 999, hashCharacter: 'f'));
+
+        Assert.True(result.RotatedGeneration);
+        Assert.True(result.InterruptedRunRecovered);
+        Assert.True(result.InterruptedSessionRecovered);
+        Assert.NotEqual(oldGeneration, replacement.CurrentGenerationId);
+        Assert.Empty(replacement.Current.Statistics.Runs);
+        Assert.Equal(0, replacement.Current.InterruptedSessionCount);
+
+        var archive = Assert.Single(Directory.EnumerateDirectories(Path.Combine(
+            directory.Path,
+            "profiles",
+            "slot-01",
+            "archives")));
+        var archived = new AtomicJsonStore<ProfileDocument>().Load(Path.Combine(archive, "profile.json")).Value!;
+        var recovered = Assert.Single(archived.Statistics.Runs);
+        Assert.Equal(oldGeneration, archived.GenerationId);
+        Assert.Equal(oldGeneration, recovered.SaveGenerationId);
+        Assert.Equal(RunOutcome.Interrupted, recovered.Outcome);
+        Assert.Equal(11, recovered.ActiveDurationSeconds);
+        Assert.False(recovered.RecordEligible);
+        Assert.Equal(1, archived.InterruptedSessionCount);
+        Assert.Empty(Directory.EnumerateFiles(archive, "active-run.json*", SearchOption.TopDirectoryOnly));
+        Assert.False(File.Exists(Path.Combine(archive, "session.json")));
+        replacement.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
     public void UnrecoverableCheckpointArtifactsArePreservedReadOnlyWithoutInventingARun()
     {
         using var directory = new TemporaryDirectory();
@@ -161,17 +200,20 @@ public sealed class ActiveRunPersistenceTests
         MapAdapterVersion = "native-map-identity/2.3.30"
     };
 
-    private static SaveIdentitySnapshot Identity(int slot = 1) => new()
-    {
-        Slot = slot,
-        SaveFilePresent = true,
-        SaveFileCreationUtcTicks = 100,
-        ObservedWriteUtcTicks = 110,
-        ObservedLength = 4096,
-        GameVersion = "2.3.30",
-        ContentSha256 = new string(slot == 1 ? 'a' : 'b', 64),
-        SaveTimeBinary = TestTime.ToBinary()
-    };
+    private static SaveIdentitySnapshot Identity(
+        int slot = 1,
+        long creationTicks = 100,
+        char hashCharacter = 'a') => new()
+        {
+            Slot = slot,
+            SaveFilePresent = true,
+            SaveFileCreationUtcTicks = creationTicks,
+            ObservedWriteUtcTicks = 110,
+            ObservedLength = 4096,
+            GameVersion = "2.3.30",
+            ContentSha256 = new string(slot == 1 ? hashCharacter : 'b', 64),
+            SaveTimeBinary = TestTime.ToBinary()
+        };
 
     private static string ActiveRunPath(string root) => Path.Combine(
         root,

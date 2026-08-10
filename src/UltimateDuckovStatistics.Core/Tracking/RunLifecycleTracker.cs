@@ -1,4 +1,5 @@
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Statistics;
 
 namespace UltimateDuckovStatistics.Core.Tracking;
 
@@ -197,6 +198,23 @@ public sealed class RunLifecycleTracker
         }
 
         return movement.Observe(position, monotonicSeconds, maximumPlausibleSpeed, kind);
+    }
+
+    public bool ObserveIntegrity(IntegrityTags integrityTags)
+    {
+        if (active == null)
+        {
+            return false;
+        }
+
+        var accumulated = RunIntegrityPolicy.Accumulate(active.Context.IntegrityTags, integrityTags);
+        if (accumulated == active.Context.IntegrityTags)
+        {
+            return false;
+        }
+
+        active.Context.IntegrityTags = accumulated;
+        return true;
     }
 
     public ActiveRunCheckpoint? CreateCheckpoint(DateTime timestampUtc, double monotonicSeconds)

@@ -96,6 +96,8 @@ try
         core.RequireEvent(string.Empty, "SceneLoader", "onAfterSceneInitialize", "System.Action", "SceneLoadingContext");
         core.RequireEvent("Duckov.Scenes", "MultiSceneCore", "OnSubSceneWillBeUnloaded", "System.Action", "Duckov.Scenes.MultiSceneCore", "UnityEngine.SceneManagement.Scene");
         core.RequireEvent("Duckov.Scenes", "MultiSceneCore", "OnSubSceneLoaded", "System.Action", "Duckov.Scenes.MultiSceneCore", "UnityEngine.SceneManagement.Scene");
+        core.RequireEvent("Duckov", "CheatMode", "OnCheatModeStatusChanged", "System.Action", "System.Boolean");
+        core.RequireEvent("Duckov.Rules", "GameRulesManager", "OnRuleChanged", "System.Action");
         core.RequireEvent(string.Empty, "CharacterMainControl", "OnSetPositionEvent", "System.Action", "CharacterMainControl", "UnityEngine.Vector3");
         core.RequireEvent(string.Empty, "LevelManager", "OnNewGameReport", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnSetFile", "System.Action");
@@ -111,6 +113,8 @@ try
         core.RequireProperty(string.Empty, "SceneLoader", "IsSceneLoading", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty("Duckov.Scenes", "MultiSceneCore", "IsLoading", "System.Boolean", mustBePublic: true);
         core.RequireProperty("Duckov.Scenes", "MultiSceneCore", "MainSceneID", "System.String", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov", "CheatMode", "Active", "System.Boolean", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.Rules", "GameRulesManager", "SelectedRuleIndex", "Duckov.Rules.RuleIndex", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "Main", "CharacterMainControl", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "IsMainCharacter", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "Health", "Health", mustBePublic: true);
@@ -182,7 +186,7 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, item/healing, run lifecycle, pause/loading, map, main-duck position, and movement-speed contracts are present.");
+    Console.WriteLine("  Native loader, item/healing, run lifecycle, pause/loading, map, runtime-integrity, main-duck position, and movement-speed contracts are present.");
     return 0;
 }
 catch (ContractException exception)
