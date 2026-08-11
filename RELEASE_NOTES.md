@@ -35,10 +35,10 @@ Reloads, magazine transfers, and inventory movement do not emit this event. Dry-
 
 - Focused M4 acceptance: passed.
 - Corrective local Release suite: 172 tests pass with the complete M0-M3 regression suite and new reload-equivalent identity, unavailable-outcome, crash-checkpoint, nested-normalization, negative-counter, and overflow regressions.
-- Native Duckov/Harmony contract probe: pending replacement rerun. The corrected probe requires only the public firing event and stable identity properties; it no longer treats private firing loops or loaded-ammunition methods as proof of outcomes.
+- Native Duckov/Harmony contract probe: passed against Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, and HarmonyLib `2.4.1.0`. The corrected probe requires only the public firing event and stable identity properties; it no longer treats private firing loops or loaded-ammunition methods as proof of outcomes.
 - Native Release build: 0 warnings and 0 errors.
 - M4 change-set formatting and analyzer verification: passed. The repository-wide formatting command continues to report two pre-existing whitespace blocks in untouched legacy test files.
-- The earlier package construction, deployment, gameplay evidence, and CI completed but are superseded by the corrective source. Replacement package construction, deployment/manual follow-up, and final remote CI are pending.
+- Corrected committed-head package construction, transactional deployment, and focused manual recovery acceptance passed. Two reload-equivalent TT-33 callbacks remained distinct, survived a forced `taskkill /F` as one interrupted run with exactly two firing actions, and kept ammunition/projectile outcomes unavailable across UI, profile, JSON, and CSV. Final remote CI remains pending; the PR stays draft.
 
 ## Known limitations
 
