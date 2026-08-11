@@ -88,6 +88,8 @@ public sealed class WeaponStatisticsNormalizationResult
     public bool InvalidCounters { get; internal set; }
 
     public bool InvalidCapabilities { get; internal set; }
+
+    public bool InvalidIdentityEntries { get; internal set; }
 }
 
 public static class WeaponStatisticsReducer
@@ -216,6 +218,7 @@ public static class WeaponStatisticsReducer
             {
                 statistics.Weapons.Remove(entry.Key);
                 result.Changed = true;
+                result.InvalidIdentityEntries = true;
                 continue;
             }
 
@@ -247,6 +250,7 @@ public static class WeaponStatisticsReducer
             {
                 statistics.AmmunitionTypes.Remove(entry.Key);
                 result.Changed = true;
+                result.InvalidIdentityEntries = true;
                 continue;
             }
 
@@ -271,7 +275,7 @@ public static class WeaponStatisticsReducer
             NormalizeTotals(ammunition.Totals, result);
         }
 
-        if ((result.InvalidCounters || result.InvalidCapabilities)
+        if ((result.InvalidCounters || result.InvalidCapabilities || result.InvalidIdentityEntries)
             && !statistics.WasRepairedFromInvalidState)
         {
             statistics.WasRepairedFromInvalidState = true;

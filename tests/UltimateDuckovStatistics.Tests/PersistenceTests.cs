@@ -321,6 +321,86 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "Migration")]
+    [Trait("Category", "Weapon")]
+    public void SerializerRepositoryBackupAndRotationPreserveIdentityEntryRepair()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(
+            temporaryDirectory.Path,
+            "profiles",
+            "slot-01",
+            "current",
+            "profile.json");
+        var profile = CreateDocument("generation-corrupt-identities", revision: 10);
+        profile.Capabilities.Add(new CapabilityRecord
+        {
+            AdapterId = WeaponCapabilityIds.FiringActions,
+            State = AdapterCapabilityState.Supported,
+            Version = ProductInfo.Version
+        });
+        var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
+        lifetime.Weapons["weapon:null"] = null!;
+        lifetime.Weapons[string.Empty] = new WeaponAggregate { WeaponId = "weapon:empty" };
+        lifetime.Weapons[" \t"] = new WeaponAggregate { WeaponId = "weapon:whitespace" };
+        lifetime.AmmunitionTypes["ammo:null"] = null!;
+        lifetime.AmmunitionTypes[string.Empty] = new AmmunitionAggregate { AmmunitionId = "ammo:empty" };
+        lifetime.AmmunitionTypes[" \t"] = new AmmunitionAggregate { AmmunitionId = "ammo:whitespace" };
+        var store = new AtomicJsonStore<ProfileDocument>();
+        store.Save(path, profile);
+
+        var roundTripped = store.Load(path).Value!;
+        Assert.Null(roundTripped.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:null"]);
+        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.Weapons.ContainsKey(string.Empty));
+        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.Weapons.ContainsKey(" \t"));
+        Assert.Null(roundTripped.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes["ammo:null"]);
+        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes.ContainsKey(string.Empty));
+        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes.ContainsKey(" \t"));
+
+        var first = CreateRepository(temporaryDirectory.Path, "session-first");
+        var firstResult = first.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(firstResult.MigratedSchema);
+        Assert.Empty(first.Current.Statistics.RunTotals.WeaponStatistics.Weapons);
+        Assert.Empty(first.Current.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes);
+        Assert.True(first.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        Assert.False(WeaponStatisticsReducer.IsEmpty(
+            first.Current.Statistics.RunTotals.WeaponStatistics));
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            WeaponStatisticsViewModelFactory.Create(first.Current).Capabilities.FiringActions.State);
+        first.CloseClean();
+
+        var repaired = store.Load(path).Value!;
+        store.Save(path, repaired);
+        File.WriteAllText(path, "{ corrupt-primary");
+        var second = CreateRepository(temporaryDirectory.Path, "session-second");
+        var secondResult = second.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(secondResult.RecoveredSnapshot);
+        Assert.True(second.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            WeaponStatisticsViewModelFactory.Create(second.Current).Capabilities.FiringActions.State);
+        second.CloseClean();
+
+        var ids = new Queue<string>();
+        ids.Enqueue("generation-after-rotation");
+        ids.Enqueue("session-after-rotation");
+        var third = CreateRepository(temporaryDirectory.Path, ids);
+        var thirdResult = third.Open(CreateIdentity(slot: 1, creationTicks: 999));
+
+        Assert.True(thirdResult.RotatedGeneration);
+        Assert.False(third.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        var archive = Assert.Single(Directory.EnumerateDirectories(
+            System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "archives")));
+        var archived = store.Load(System.IO.Path.Combine(archive, "profile.json")).Value!;
+        Assert.True(archived.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        third.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     [Trait("Category", "Healing")]
     public void RepositoryRepairsPreReleaseDelayedHealingGroupWithoutChangingGenerationOrTotals()
     {

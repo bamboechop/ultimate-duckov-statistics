@@ -266,6 +266,36 @@ public sealed class WeaponStatisticsTests
 
     [Fact]
     [Trait("Category", "Weapon")]
+    [Trait("Category", "Persistence")]
+    public void InvalidIdentityEntriesAreRemovedWithMonotonicRepairProvenance()
+    {
+        var statistics = new WeaponStatisticsAggregate();
+        statistics.Weapons["weapon:null"] = null!;
+        statistics.Weapons[string.Empty] = new WeaponAggregate { WeaponId = "weapon:empty" };
+        statistics.Weapons[" \t"] = new WeaponAggregate { WeaponId = "weapon:whitespace" };
+        statistics.AmmunitionTypes["ammo:null"] = null!;
+        statistics.AmmunitionTypes[string.Empty] = new AmmunitionAggregate { AmmunitionId = "ammo:empty" };
+        statistics.AmmunitionTypes[" \t"] = new AmmunitionAggregate { AmmunitionId = "ammo:whitespace" };
+
+        var first = WeaponStatisticsReducer.NormalizePersisted(statistics);
+
+        Assert.True(first.Changed);
+        Assert.True(first.InvalidIdentityEntries);
+        Assert.True(statistics.WasRepairedFromInvalidState);
+        Assert.Empty(statistics.Weapons);
+        Assert.Empty(statistics.AmmunitionTypes);
+        Assert.False(WeaponStatisticsReducer.IsEmpty(statistics));
+
+        var second = WeaponStatisticsReducer.NormalizePersisted(statistics);
+
+        Assert.False(second.Changed);
+        Assert.False(second.InvalidIdentityEntries);
+        Assert.True(statistics.WasRepairedFromInvalidState);
+        Assert.False(WeaponStatisticsReducer.IsEmpty(statistics));
+    }
+
+    [Fact]
+    [Trait("Category", "Weapon")]
     [Trait("Category", "Compatibility")]
     public void CurrentSupportedCapabilityCannotUpgradePersistedHistoricalUnavailability()
     {
