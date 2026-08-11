@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics v0.4.0 — pre-release draft
 
-This draft describes M4 weapons and ammunition. The first v0.4.0 artifact completed automated, package, deployment, gameplay, and draft-PR CI gates, but later review found merge-blocking native-contract, event-identity, crash-recovery, persisted-data, and documentation defects. That artifact is superseded. A corrected artifact must complete the replacement validation gates before release. Do not publish, tag, merge, mark ready, or upload to Steam Workshop without an explicit later request.
+This draft describes M4 weapons and ammunition. Earlier v0.4.0 artifacts completed automated, package, deployment, gameplay, and draft-PR CI gates, but later reviews found merge-blocking native-contract, event-identity, crash-recovery, persisted-data, and documentation defects. Those artifacts are superseded. The latest committed-head replacement has passed local, package, and deployment validation; final remote CI remains required before independent review. Do not publish, tag, merge, mark ready, or upload to Steam Workshop without an explicit later request.
 
 ## Included in v0.4.0
 
@@ -38,7 +38,7 @@ Reloads, magazine transfers, and inventory movement do not emit this event. Dry-
 - Native Duckov/Harmony contract probe: passed against Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, and HarmonyLib `2.4.1.0`. The corrected probe requires only the public firing event and stable identity properties; it no longer treats private firing loops or loaded-ammunition methods as proof of outcomes.
 - Native Release build: 0 warnings and 0 errors.
 - M4 change-set formatting and analyzer verification: passed. The repository-wide formatting command continues to report two pre-existing whitespace blocks in untouched legacy test files.
-- The second replacement package, transactional deployment, focused manual acceptance, and CI passed. A later review found that missing lifetime capability metadata could still be upgraded when the lifetime aggregate contained persisted data. The fallback now additionally requires a genuinely empty aggregate; production exporter/view-model regressions pass. A new committed-head package, deployment readback, and final remote CI remain pending; the PR stays draft.
+- The third corrective implementation is commit `4397057c194f300b0bd49225bb968511132e847a`. Its committed-head ZIP is 110,705 bytes at SHA-256 `f2bdb3c98786d7a8ba6d56746242c0aa16611391058305388f27881dcf1507a1`; independent extraction and the approved transactional deployment contain exactly the five permitted files and match byte-for-byte. The native DLL product version is `0.4.0+4397057c194f300b0bd49225bb968511132e847a`. Final source push, draft-PR synchronization, and remote CI remain pending; the PR stays draft.
 
 ## Known limitations
 
