@@ -883,6 +883,11 @@ The combat Harmony owner is `at.bamboechop.ultimate-duckov-statistics.combat`, s
 - Package file SHA-256 values are `6a52a97cd830b7bca0e82f9c6137cf75fd19effe2b830bf12dec057d2c416572` (`info.ini`), `20be24cfd85eebcffa507c618da2b16257bff5025179961939dc6c0c62d0b4ab` (`INSTALL.md`), `0f7558f2469ad0901074f6c380ada1ed91861d55adf905267bc70b26cd2e3ccc` (`LICENSE`), `1b2e004b674e6ce434912f03285b1d7e074cf3b5d5cadc56f109c84de1ded091` (Core DLL), and `b330482629f08310b350ee19038188350dc555df19dc0390f1870f75ebe45fb9` (native DLL).
 - Draft PR [#5](https://github.com/bamboechop/ultimate-duckov-statistics/pull/5) targets `main`, is open, draft, and unmerged. Its `core` and `source-safety` GitHub Actions checks passed at hardened implementation head `8029a44357f49d63e96c8ada79f16a9c423e834d`. No `v0.5.0` tag exists.
 
+### Approved backup and deployment — 2026-08-11
+
+- The user approved the v0.5.0 deployment, selected slot 6 as disposable, and requested backups of slots 1 and 6. With Duckov closed, Codex copied both complete 12-file Duckov save families and the complete UDS `slot-01`/`slot-06` profile trees to `C:\Users\micro\AppData\LocalLow\TeamSoda\Duckov\UDS Manual Backups\M5-v0.5.0-20260811T215431900Z`. All 176 copies (8,335,354 bytes) matched their sources by size and SHA-256 and were marked read-only; no save was edited, replaced, restored, or deleted.
+- Transactional deployment replaced only `E:\SteamLibrary\steamapps\common\Escape from Duckov\Duckov_Data\Mods\UltimateDuckovStatistics`. Validation passed before staging, in staging, and after promotion. The deployed inventory is exactly the five package files with the SHA-256 values above; both deployed DLLs report file version `0.5.0.0` and product version `0.5.0+8029a44357f49d63e96c8ada79f16a9c423e834d`. No staging/previous directory remains, Duckov stayed closed, and all 176 backed-up source files remained byte-identical after deployment.
+
 ### Smallest supported manual gameplay matrix (pending)
 
 Use a user-selected disposable/progressed save. Do not modify, delete, replace, or restore any Duckov save. Deployment into the UDS mod directory and any read-only save backup require explicit approval before this checklist begins.
