@@ -6,6 +6,7 @@ public sealed class RetryableCleanupOwnerTests
 {
     [Fact]
     [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
     [Trait("Category", "Lifecycle")]
     public void FailedCleanupRetainsTheSameOwnerUntilRetrySucceeds()
     {
@@ -32,6 +33,7 @@ public sealed class RetryableCleanupOwnerTests
 
     [Fact]
     [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
     [Trait("Category", "Lifecycle")]
     public void FailedCleanupSurvivesBehaviourDestructionAndBlocksReplacementSubscriptions()
     {

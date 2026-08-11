@@ -6,6 +6,7 @@ public sealed class IdempotentSubscriptionSetTests
 {
     [Fact]
     [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
     [Trait("Category", "Lifecycle")]
     public void RepeatedActivationAndDeactivationDoNotDuplicateSubscriptionsOrSamplers()
     {
@@ -30,6 +31,7 @@ public sealed class IdempotentSubscriptionSetTests
 
     [Fact]
     [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
     [Trait("Category", "Lifecycle")]
     public void PartialActivationFailureRollsBackEarlierSubscriptions()
     {
@@ -49,6 +51,7 @@ public sealed class IdempotentSubscriptionSetTests
 
     [Fact]
     [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
     [Trait("Category", "Lifecycle")]
     public void FailedDeactivationRemainsRetryableAndCannotReactivateOverLeftovers()
     {

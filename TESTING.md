@@ -686,3 +686,67 @@ The replacement `UltimateDuckovStatistics-v0.3.0.zip` is 94,860 bytes with SHA-2
 | `UltimateDuckovStatistics.dll` | 93,184 | `ca9949c241396e9e8ad258798d9b3dcd85746134009c8751c2f0d52569f93640` |
 
 Both DLLs report informational version `0.3.0+aa14d9258113e97ce466633f5d44c68a5c0bf5f1`, proving the replacement archive corresponds to the canonical follow-up implementation commit. The following evidence-only documentation commit does not trigger an artifact rebuild cycle; final CI currency is recorded on draft PR #3 at its remote documentation head.
+
+## M4 weapons and ammunition verification
+
+### Proven native semantics
+
+Verified 2026-08-11 against Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, and HarmonyLib `2.4.1.0`.
+
+- Public static `ItemAgent_Gun.OnMainCharacterShootEvent : Action<ItemAgent_Gun>` emits after a successful main-character discharge.
+- `ItemAgent_Gun.TransToFire(bool)` returns before the event when ammunition is empty or durability prevents firing.
+- One accepted discharge loops `ShotCount` times through `ShootOneBullet(Vector3, Vector3, Vector3)` and then calls public `ItemSetting_Gun.UseABullet()` once before the firing event.
+- `ItemAgent_Gun.Item.TypeID` and `ItemSetting_Gun.TargetBulletID` provide event-time stable weapon and ammunition IDs. Display names retain explicit fallback text if unavailable.
+- Semi-automatic, repeated automatic, and burst modes therefore count one firing action and one loaded ammunition unit per discharged round. Multi-projectile weapons retain one firing action and one ammunition unit while reporting `ShotCount` projectiles separately.
+- Reloads, magazine transfers, inventory movement, and dry fire do not emit the event. Trigger attempts and dry-fire counts are unsupported and never fabricated as zero.
+- The adapter additionally requires an active run, Raid context, `ReferenceEquals(agent.Holder, CharacterMainControl.Main)`, `IsMainCharacter`, no loading, and no pause.
+
+The production hook is observation-only and uses no new Harmony patch. Its correlation cache is bounded to 32 runtime weapons; run event-ID deduplication is bounded to 512 entries; compact aggregates are checkpointed through the existing run cadence without raw shot persistence or per-projectile writes.
+
+### Automated protocol
+
+```powershell
+$env:DUCKOV_PATH = 'E:\SteamLibrary\steamapps\common\Escape from Duckov'
+
+dotnet test .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj -c Release --no-restore --filter "Category=Weapon"
+dotnet test .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj -c Release --no-restore
+dotnet run --project .\tools\DuckovContractProbe\DuckovContractProbe.csproj -c Release --no-restore -- $env:DUCKOV_PATH
+dotnet build .\src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj -c Release --no-restore
+
+$tracked = git -c safe.directory=C:/Users/micro/projects/ultimate-duckov-statistics diff --name-only -- '*.cs'
+$untracked = git -c safe.directory=C:/Users/micro/projects/ultimate-duckov-statistics ls-files --others --exclude-standard -- '*.cs'
+$files = @($tracked) + @($untracked) | Sort-Object -Unique
+dotnet format .\UltimateDuckovStatistics.sln --verify-no-changes --no-restore --include $files
+git -c safe.directory=C:/Users/micro/projects/ultimate-duckov-statistics diff --check
+```
+
+Current pre-deployment evidence on 2026-08-11:
+
+- Complete Release suite: 163 passed, 0 failed, 0 skipped.
+- Contract probe: passed with TeamSoda core SHA-256 `298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f`, ItemStats SHA-256 `a276e15c022f71b2214bd05e1b9b0f2e620c16561df576fed0b79c2fe4402e60`, and Harmony SHA-256 `353daafec180bb8e7bbe4da78f2a7cdc78067392e3a4e79dc8e7af295f2371e6`.
+- Native Release build: 0 warnings and 0 errors.
+- M4 change-set formatter verification and `git diff --check`: passed. A repository-wide formatter invocation reports pre-existing whitespace in untouched `ItemUseReducerTests.cs` and `RunStatisticsViewModelTests.cs`; those unrelated lines were preserved.
+- Package, independent ZIP extraction, checksum, deployed hashes, gameplay evidence, committed-head informational versions, and GitHub CI: pending the later gates below.
+
+### User-driven manual acceptance protocol
+
+The user alone launches and controls Duckov. Before deployment, identify the selected test slot paths, obtain approval, and create timestamped backups without writing Duckov save files. Do not require a weapon or ammunition type the user does not possess.
+
+1. From v0.3.0, open the panel outside a raid and confirm Combat is empty, M1-M3 totals remain intact, and all six M4 capabilities are visible in Diagnostics, including disabled `native-trigger-attempts`.
+2. Record the selected weapon names, stable ammunition types where visible, and exact loaded/reserve ammunition before entering the raid.
+3. Confirm base actions and any reload/inventory movement before the active raid do not count.
+4. In an active raid, perform a user-confirmed number of semi-automatic discharges. Record the exact count.
+5. If available, perform a short automatic or burst sequence and record ammunition before/after. If unavailable, retain the automated evidence instead of inventing a scenario.
+6. If available, fire one multi-projectile weapon once. Verify one firing action, one ammunition unit, and the separately reported native projectile count. If unavailable, record that limitation.
+7. If available, switch weapon and/or ammunition type, fire known counts, and verify event-time attribution. Reload without firing and verify no increment.
+8. Dry fire only if safe and convenient. The expected result is no increment because trigger attempts are explicitly unsupported.
+9. Pause and cross a genuine loading boundary; firing statistics must not change during excluded states.
+10. Extract or die, then inspect Overview, Combat, Runs, Diagnostics, profile JSON, `statistics.json`, `combat_totals.csv`, `weapon_totals.csv`, and `ammunition_totals.csv` for exact agreement.
+11. Restart Duckov and confirm persistence. Perform a clean deactivate/reactivate or full restart and confirm no duplicate subscription/count.
+12. Use a fresh or isolated generation, where user-approved, to prove no cross-save leakage.
+
+After each user report, inspect `Player.log`, bounded UDS diagnostics, current profile, active checkpoint state, export files, and deployed hashes. Record exact observed counts and unavailable scenarios here before declaring manual acceptance complete.
+
+### M4 manual/package evidence
+
+Pending. This section must record approved save-backup paths, deployment source/destination hashes, the actual weapon/ammunition matrix, UI/profile/export comparisons, restart/unsubscription evidence, final five-file package inventory, independently extracted ZIP validation, ZIP size and SHA-256, DLL informational versions, and final draft-PR CI.

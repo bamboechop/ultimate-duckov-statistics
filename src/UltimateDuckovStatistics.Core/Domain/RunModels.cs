@@ -1,5 +1,6 @@
 using System.Runtime.Serialization;
 using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Statistics;
 
 namespace UltimateDuckovStatistics.Core.Domain;
 
@@ -93,6 +94,9 @@ public sealed class RunSummary
 
     [DataMember(Order = 24)]
     public string MapAdapterVersion { get; set; } = string.Empty;
+
+    [DataMember(Order = 25)]
+    public WeaponStatisticsAggregate WeaponStatistics { get; set; } = new();
 }
 
 [DataContract]
@@ -161,6 +165,9 @@ public sealed class ActiveRunCheckpoint
     [DataMember(Order = 21)]
     public string MapAdapterVersion { get; set; } = string.Empty;
 
+    [DataMember(Order = 22)]
+    public WeaponStatisticsAggregate WeaponStatistics { get; set; } = new();
+
     public RunSummary ToInterruptedSummary()
     {
         var endedUtc = EnsureUtc(LastObservedUtc == default ? StartedUtc : LastObservedUtc);
@@ -189,7 +196,8 @@ public sealed class ActiveRunCheckpoint
             MovementCapability = MovementCapability,
             MovementAdapterVersion = MovementAdapterVersion,
             MapCapability = MapCapability,
-            MapAdapterVersion = MapAdapterVersion
+            MapAdapterVersion = MapAdapterVersion,
+            WeaponStatistics = WeaponStatisticsReducer.Clone(WeaponStatistics)
         };
     }
 

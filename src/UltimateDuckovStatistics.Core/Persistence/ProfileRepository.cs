@@ -458,6 +458,8 @@ public sealed class ProfileRepository
             return false;
         }
 
+        checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
+
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion
             || string.IsNullOrWhiteSpace(checkpoint.RunId)
             || !string.Equals(checkpoint.SaveGenerationId, Current.GenerationId, StringComparison.Ordinal))
@@ -638,6 +640,9 @@ public sealed class ProfileRepository
         statistics.Overall.ActivationCount == 0
         && statistics.Overall.ActualHealthRestored == 0
         && statistics.RunTotals.TotalRuns == 0
+        && statistics.RunTotals.WeaponStatistics.Totals.FiringActions == 0
+        && statistics.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed == 0
+        && statistics.RunTotals.WeaponStatistics.Totals.Projectiles == 0
         && statistics.Runs.Count == 0;
 
     private static bool IdentitiesEqual(SaveIdentitySnapshot left, SaveIdentitySnapshot right) =>

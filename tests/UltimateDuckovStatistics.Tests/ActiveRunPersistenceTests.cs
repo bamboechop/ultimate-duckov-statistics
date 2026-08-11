@@ -1,5 +1,6 @@
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Statistics;
 
 namespace UltimateDuckovStatistics.Tests;
 
@@ -28,6 +29,10 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(12, run.ActiveDurationSeconds);
         Assert.Equal(4, run.PhysicalDistance);
         Assert.Equal(9, run.TeleportDistance);
+        Assert.Equal(1, run.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(1, run.WeaponStatistics.Totals.AmmunitionUnitsConsumed);
+        Assert.Equal(6, run.WeaponStatistics.Totals.Projectiles);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         Assert.Null(recovery.Current.Statistics.RunRecords.Extraction.Shortest);
         recovery.CloseClean();
 
@@ -35,6 +40,7 @@ public sealed class ActiveRunPersistenceTests
         var repeatedResult = repeated.Open(Identity());
         Assert.False(repeatedResult.InterruptedRunRecovered);
         Assert.Single(repeated.Current.Statistics.Runs);
+        Assert.Equal(1, repeated.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         repeated.CloseClean();
     }
 
@@ -94,11 +100,13 @@ public sealed class ActiveRunPersistenceTests
         repository.Open(Identity(slot: 2));
         Assert.Equal(2, repository.Current.Slot);
         Assert.Empty(repository.Current.Statistics.Runs);
+        Assert.Equal(0, repository.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         repository.CloseClean();
 
         var recovery = Repository(directory.Path);
         Assert.True(recovery.Open(Identity(slot: 1)).InterruptedRunRecovered);
         Assert.Equal(slotOneGeneration, Assert.Single(recovery.Current.Statistics.Runs).SaveGenerationId);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         recovery.CloseClean();
     }
 
@@ -197,7 +205,46 @@ public sealed class ActiveRunPersistenceTests
         MovementCapability = AdapterCapabilityState.Supported,
         MovementAdapterVersion = "native-main-duck-movement/2.3.30",
         MapCapability = AdapterCapabilityState.Supported,
-        MapAdapterVersion = "native-map-identity/2.3.30"
+        MapAdapterVersion = "native-map-identity/2.3.30",
+        WeaponStatistics = CombatStatistics()
+    };
+
+    private static WeaponStatisticsAggregate CombatStatistics()
+    {
+        var statistics = new WeaponStatisticsAggregate();
+        WeaponStatisticsReducer.Apply(statistics, new ShotRecorded
+        {
+            EventId = "shot-checkpoint",
+            TimestampUtc = TestTime,
+            SaveGenerationId = "unused-after-aggregation",
+            RunId = "run-checkpoint",
+            MapId = "duckov:map:warehouse",
+            GameplayContext = GameplayContext.Raid,
+            WeaponId = "duckov:weapon:1",
+            WeaponDisplayName = "Test shotgun",
+            AmmunitionId = "duckov:ammo:2",
+            AmmunitionDisplayName = "Test shell",
+            FiringActionCount = 1,
+            AmmunitionUnitsConsumed = 1,
+            ProjectileCount = 6,
+            Capabilities = SupportedCapabilities()
+        });
+        return statistics;
+    }
+
+    private static WeaponMetricCapabilities SupportedCapabilities() => new()
+    {
+        FiringActions = Supported(),
+        AmmunitionConsumption = Supported(),
+        Projectiles = Supported(),
+        WeaponIdentity = Supported(),
+        AmmunitionIdentity = Supported()
+    };
+
+    private static MetricAvailability Supported() => new()
+    {
+        State = AdapterCapabilityState.Supported,
+        Provenance = "test"
     };
 
     private static SaveIdentitySnapshot Identity(

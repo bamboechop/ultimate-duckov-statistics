@@ -1,50 +1,47 @@
-# Ultimate Duckov Statistics v0.3.0 — pre-release draft
+# Ultimate Duckov Statistics v0.4.0 — pre-release draft
 
-This draft describes the planned GitHub pre-release. M3 implementation and its complete manual gameplay matrix have passed; this delivery intentionally stops at a green unmerged draft PR, so do not publish, tag, merge, or mark it ready without an explicit later request.
+This draft describes M4 weapons and ammunition. Automated and native-contract validation passes; deployment, user-driven gameplay acceptance, final package evidence, and draft-PR CI remain pending. Do not publish, tag, merge, mark ready, or upload to Steam Workshop without an explicit later request.
 
-## Included in v0.3.0
+## Included in v0.4.0
 
-- Everything in v0.1.0 consumable usage and v0.2.0 healing attribution.
-- Reliable run start only after native raid initialization and actual main-duck player control.
-- Exactly-once Extracted, Died, and Interrupted outcomes across duplicate or reordered native callbacks.
-- Monotonic active gameplay duration excluding pause and loading, with wall-clock duration retained diagnostically.
-- Stable run IDs, native raid context, stable map identity with explicit unknown fallback, version, capability, and integrity context.
-- Indefinitely retained compact run summaries and exactly-once interrupted-checkpoint recovery after abrupt termination.
-- Shortest and longest extraction and death active-duration records overall and per map, with deterministic duration/start-time/run-ID tie handling.
-- Main-duck-only movement sampled at approximately 5 Hz. Plausibility uses verified native walk/run/dash speed, actual monotonic elapsed time, a 1.75 conservative multiplier, and 0.35 m additive tolerance.
-- Separate physical and teleport/excluded distance, including explicit position changes, loading/resume boundaries, implausible movement, and valid displacement after gaps longer than two seconds.
-- Overview additions plus enabled Runs and Records tabs with per-map context, explicit unsupported movement state, and visible per-run integrity/record-eligibility reasons.
-- Schema-3 atomic persistence and migration preserving M1/M2 generations, activation/amount/group/healing aggregates, capability records, and read-only archives without reconstructing historical runs.
-- JSON plus eight-file flattened export set: `statistics.json`, `overview.csv`, `groups.csv`, `items.csv`, `runs.csv`, `run_totals.csv`, `map_totals.csv`, and `records.csv`.
+- Everything released in v0.1.0 through v0.3.0: consumables, healing attribution, run lifecycle, records, maps, movement, persistence, and integrity handling.
+- A normalized `ShotRecorded` contract with save-generation, run, map, gameplay, integrity, version, stable weapon, and stable ammunition context captured at event time.
+- Three deliberately separate metrics: successful firing actions, loaded ammunition units consumed by firing, and native projectiles/pellets created.
+- Lifetime, per-map, per-run, per-weapon, and per-ammunition aggregates with stable IDs and fallback display names for unknown or modded content.
+- Exact-main-duck filtering: base, loading, pause, no-active-run, pets, companions, NPCs, and unrelated projectile sources do not enter player weapon totals.
+- A bounded firing-correlation cache and bounded run-level event-ID deduplication; no raw shot journal, scene-wide scan, inventory-wide scan, repeated hot-path reflection, or per-projectile disk write.
+- A process-lifetime weapon subscription owner that blocks replacement activation until failed cleanup succeeds and makes retained post-disposal callbacks inert.
+- Schema-4 migration that preserves M1-M3 data and initializes M4 history empty without reconstruction. Interrupted active-run checkpoints retain already-recorded M4 aggregates exactly once.
+- Combat UI with explicit metric semantics, capability states, lifetime totals, weapon/ammunition tables, and per-run context. Overview includes the lifetime firing-action total.
+- JSON plus ten CSV files. New flattened files are `combat_totals.csv`, `weapon_totals.csv`, and `ammunition_totals.csv`.
 
 ## Native compatibility boundary
 
-M3 uses only verified public Duckov `2.3.30` lifecycle, loading, pause, map, main-character position, and movement-speed APIs. It adds no Harmony patches and performs no global scene/object scan. A capability failure is visible in Diagnostics and disables the affected reporting path rather than fabricating zeroes.
+M4 uses the verified public static `ItemAgent_Gun.OnMainCharacterShootEvent` on Duckov `2.3.30`. `ItemAgent_Gun.TransToFire` returns before that event on empty ammunition or failed durability, creates one projectile per native `ShotCount`, consumes one loaded ammunition item through `ItemSetting_Gun.UseABullet`, and then emits the main-character firing event once per successful discharge. Semi-automatic, repeated automatic, and burst fire therefore produce one firing action per discharged round; one shotgun discharge remains one firing action and one ammunition unit but may create multiple projectiles.
 
-Healing retains the separately installed [HarmonyLib Workshop item 3589088839](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839), verified as `2.4.1.0`. UDS never bundles `0Harmony.dll`. The infrastructure-only `HarmonyLoadMod` is allowed by the run-integrity policy; cheats/custom difficulty and other active gameplay mods remain tagged and excluded from default duration records.
+Reloads, magazine transfers, and inventory movement do not emit this event. Dry-fire trigger attempts also do not emit it, so trigger-pull and dry-fire counts are unavailable rather than fabricated as zero. M4 adds no Harmony patches and never modifies weapon, ammunition, projectile, timing, argument, return, or game state.
 
 ## Compatibility
 
 - Escape From Duckov `2.3.30`
 - Steam build `24013657`
 - Unity `2022.3.62f2`
-- HarmonyLib `2.4.1.0` for healing attribution
+- HarmonyLib `2.4.1.0` only for the existing M2 healing attribution
 - Windows, single-player only
 
 ## Validation status
 
-- Automated Release suite: 143 tests pass, including complete M0-M2 regression coverage and deterministic lifecycle, exact-main-subject movement cadence/map boundaries, records, migration, checkpoint recovery before identity rotation, read-only preservation, isolation, UI/export agreement, cumulative runtime integrity, process-lifetime cleanup ownership across `ModBehaviour` replacement, inert post-disposal callbacks, capability degradation, deployment, and package cases.
-- Native Duckov/Harmony contract probe: passed against the versions above, including exact M3 event/property/method/field visibility and signatures for runtime cheat/rule integrity changes.
+- Focused M4 acceptance: passed.
+- Complete Release suite: 163 tests pass with the complete M0-M3 regression suite.
+- Native Duckov/Harmony contract probe: passed, including exact public firing event, exact private firing/projectile methods, loaded-ammunition method, stable identity properties, ownership path, visibility, and signatures.
 - Native Release build: 0 warnings and 0 errors.
-- Exact five-file install package validation: passed; no Duckov, Unity, framework, or Harmony dependency is bundled.
-- Manual M3 deployment/gameplay acceptance: passed on approved, read-only-backed-up slots 1 and 6, covering schema migration, no base run, extraction, death, active-time pause exclusion, stationary and normal movement, genuine teleport/loading separation, map aggregation, exactly-once hard-crash recovery, restart persistence, UI/export agreement, and clean shutdown without M1/M2 regression.
-- The final review-hardened archive was built from follow-up implementation commit `aa14d9258113e97ce466633f5d44c68a5c0bf5f1`. `UltimateDuckovStatistics-v0.3.0.zip` is 94,860 bytes with SHA-256 `12decb148d84062912182687302008d41512ed0907e35ad136c369692b51a486`; its lowercase sidecar matches exactly, independent extraction/package validation passes, and both DLLs report informational version `0.3.0+aa14d9258113e97ce466633f5d44c68a5c0bf5f1`.
-- Draft-PR CI currency remains the final delivery gate and is recorded on the draft PR after the remote state exists.
+- M4 change-set formatting and analyzer verification: passed. The repository-wide formatting command continues to report two pre-existing whitespace blocks in untouched legacy test files.
+- Package construction, independent extraction/checksum audit, deployed hashes, manual gameplay evidence, final remote CI, and final package metadata: pending.
 
 ## Known limitations
 
-- Statistics begin when the corresponding UDS version is installed; historical healing, runs, duration records, and movement are not reconstructed.
-- F8 does not open UDS during raids.
-- UDS itself is distributed as a local GitHub package, not a Steam Workshop upload.
-- Run compatibility is verified for Duckov `2.3.30`; changed native contracts are reported as unsupported until revalidated.
-- Valid displacement across pause, loading, explicit teleport, object replacement, or a long sampling gap is deliberately excluded from physical distance and retained as teleport/excluded distance when it can be measured.
+- M4 records successful firing actions, not trigger attempts. Dry fire is unavailable and not counted.
+- Duckov `2.3.30` consumes one loaded ammunition unit per accepted gun discharge. The normalized schema keeps ammunition consumption independent so a future proven native weapon contract can report a different value without redefining firing actions.
+- Weapon/ammunition statistics begin with v0.4.0; schema-3 migration does not reconstruct historical firing.
+- F8 remains unavailable during raids; inspect Combat after leaving the raid.
+- Damage, accuracy, hits, kills, deaths, melee, critical/headshot attribution, equipment duration/loadouts, and later-milestone systems remain intentionally out of scope.

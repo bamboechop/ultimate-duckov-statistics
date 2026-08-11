@@ -47,7 +47,10 @@ public static class ProfileExportWriter
             WriteAtomicText(exportDirectory, "runs.csv", bundle.RunsCsv),
             WriteAtomicText(exportDirectory, "run_totals.csv", bundle.RunTotalsCsv),
             WriteAtomicText(exportDirectory, "map_totals.csv", bundle.MapTotalsCsv),
-            WriteAtomicText(exportDirectory, "records.csv", bundle.RecordsCsv)
+            WriteAtomicText(exportDirectory, "records.csv", bundle.RecordsCsv),
+            WriteAtomicText(exportDirectory, "combat_totals.csv", bundle.CombatTotalsCsv),
+            WriteAtomicText(exportDirectory, "weapon_totals.csv", bundle.WeaponTotalsCsv),
+            WriteAtomicText(exportDirectory, "ammunition_totals.csv", bundle.AmmunitionTotalsCsv)
         };
         return new ProfileExportResult(exportDirectory, files);
     }

@@ -14,6 +14,8 @@ public sealed class ExportTests
     private static readonly DateTime TestTime = new(2026, 8, 9, 13, 0, 0, DateTimeKind.Utc);
     private static readonly string[] ExpectedExportFileNames =
     {
+        "ammunition_totals.csv",
+        "combat_totals.csv",
         "groups.csv",
         "items.csv",
         "map_totals.csv",
@@ -21,7 +23,8 @@ public sealed class ExportTests
         "records.csv",
         "run_totals.csv",
         "runs.csv",
-        "statistics.json"
+        "statistics.json",
+        "weapon_totals.csv"
     };
 
     [Fact]
@@ -37,6 +40,7 @@ public sealed class ExportTests
 
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
+        var uiModel = WeaponStatisticsViewModelFactory.Create(profile);
         var overview = ParseCsv(bundle.OverviewCsv);
         var groups = ParseCsv(bundle.GroupsCsv);
         var items = ParseCsv(bundle.ItemsCsv);
@@ -44,6 +48,9 @@ public sealed class ExportTests
         var runTotals = Assert.Single(ParseCsv(bundle.RunTotalsCsv));
         var mapTotals = Assert.Single(ParseCsv(bundle.MapTotalsCsv));
         var records = ParseCsv(bundle.RecordsCsv);
+        var combatTotals = ParseCsv(bundle.CombatTotalsCsv);
+        var weaponTotals = ParseCsv(bundle.WeaponTotalsCsv);
+        var ammunitionTotals = ParseCsv(bundle.AmmunitionTotalsCsv);
 
         Assert.Equal(2, json.Overall.ActivationCount);
         Assert.Equal(json.Overall.ActivationCount, ReadLong(Assert.Single(overview), "activation_count"));
@@ -90,6 +97,21 @@ public sealed class ExportTests
             Assert.Single(records, row => row["scope"] == "overall"
                 && row["outcome"] == nameof(RunOutcome.Died)
                 && row["record"] == "shortest")["run_id"]);
+        var lifetimeCombat = Assert.Single(combatTotals, row => row["scope"] == "lifetime");
+        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.FiringActions, ReadLong(lifetimeCombat, "firing_actions"));
+        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.FiringActions, uiModel.Lifetime.Totals.FiringActions);
+        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed, ReadLong(lifetimeCombat, "ammunition_units_consumed"));
+        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.Projectiles, ReadLong(lifetimeCombat, "projectiles"));
+        Assert.Equal(nameof(AdapterCapabilityState.Supported), lifetimeCombat["firing_actions_state"]);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), lifetimeCombat["trigger_attempts_state"]);
+        Assert.Equal(uiModel.Capabilities.FiringActions.State, json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
+        Assert.Equal(4, combatTotals.Count);
+        Assert.Equal(
+            json.RunTotals.WeaponStatistics.Weapons.Values.Sum(value => value.Totals.FiringActions),
+            weaponTotals.Where(row => row["scope"] == "lifetime").Sum(row => ReadLong(row, "firing_actions")));
+        Assert.Equal(
+            json.RunTotals.WeaponStatistics.AmmunitionTypes.Values.Sum(value => value.Totals.AmmunitionUnitsConsumed),
+            ammunitionTotals.Where(row => row["scope"] == "lifetime").Sum(row => ReadLong(row, "ammunition_units_consumed")));
     }
 
     [Fact]
@@ -138,7 +160,7 @@ public sealed class ExportTests
 
         var result = ProfileExportWriter.Write(profile, profilePath, TestTime);
 
-        Assert.Equal(8, result.Files.Count);
+        Assert.Equal(11, result.Files.Count);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
         Assert.Equal(
             ExpectedExportFileNames,
@@ -155,6 +177,15 @@ public sealed class ExportTests
         CreatedUtc = TestTime,
         UpdatedUtc = TestTime,
         Identity = new SaveIdentitySnapshot { Slot = 1 },
+        Capabilities = WeaponCapabilityIds.All.Select(id => new CapabilityRecord
+        {
+            AdapterId = id,
+            State = id == WeaponCapabilityIds.TriggerAttempts
+                ? AdapterCapabilityState.DisabledIncompatible
+                : AdapterCapabilityState.Supported,
+            Version = ProductInfo.Version,
+            Detail = "test"
+        }).ToList(),
         Statistics = new ProfileStatistics
         {
             SaveGenerationId = "generation-a",
@@ -232,8 +263,45 @@ public sealed class ExportTests
             MovementCapability = AdapterCapabilityState.Supported,
             MovementAdapterVersion = ProductInfo.Version,
             MapCapability = AdapterCapabilityState.Supported,
-            MapAdapterVersion = ProductInfo.Version
+            MapAdapterVersion = ProductInfo.Version,
+            WeaponStatistics = CreateCombat(runId)
         };
+
+    private static WeaponStatisticsAggregate CreateCombat(string runId)
+    {
+        var statistics = new WeaponStatisticsAggregate();
+        WeaponStatisticsReducer.Apply(statistics, new ShotRecorded
+        {
+            EventId = $"shot-{runId}",
+            TimestampUtc = TestTime,
+            SaveGenerationId = "generation-a",
+            RunId = runId,
+            MapId = "duckov:map:warehouse",
+            GameplayContext = GameplayContext.Raid,
+            WeaponId = $"weapon-{runId}",
+            WeaponDisplayName = $"Weapon {runId}",
+            AmmunitionId = $"ammo-{runId}",
+            AmmunitionDisplayName = $"Ammo {runId}",
+            FiringActionCount = 1,
+            AmmunitionUnitsConsumed = 1,
+            ProjectileCount = runId == "run-one" ? 6 : 1,
+            Capabilities = new WeaponMetricCapabilities
+            {
+                FiringActions = Available(),
+                AmmunitionConsumption = Available(),
+                Projectiles = Available(),
+                WeaponIdentity = Available(),
+                AmmunitionIdentity = Available()
+            }
+        });
+        return statistics;
+    }
+
+    private static MetricAvailability Available() => new()
+    {
+        State = AdapterCapabilityState.Supported,
+        Provenance = "test"
+    };
 
     private static StatisticsExportDocument Deserialize(string json)
     {

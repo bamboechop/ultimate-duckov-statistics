@@ -28,6 +28,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly Func<RunSummary, bool> completionHandler;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
+    private readonly Func<WeaponMetricCapabilities> weaponCapabilitiesProvider;
     private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
     private readonly RunLifecycleTracker tracker;
     private readonly MonotonicCadenceGate sampleCadence = new(SampleIntervalSeconds);
@@ -45,7 +46,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         Action<ActiveRunCheckpoint> checkpointHandler,
         Func<RunSummary, bool> completionHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
-        Action<string> diagnosticHandler)
+        Action<string> diagnosticHandler,
+        Func<WeaponMetricCapabilities>? weaponCapabilitiesProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
@@ -53,6 +55,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         this.completionHandler = completionHandler ?? throw new ArgumentNullException(nameof(completionHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.weaponCapabilitiesProvider = weaponCapabilitiesProvider ?? (() => new WeaponMetricCapabilities());
         tracker = new RunLifecycleTracker(() => Guid.NewGuid().ToString("N"));
         SetAllCapabilities(
             AdapterCapabilityState.DisabledIncompatible,
@@ -64,6 +67,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public string? CurrentRunId => tracker.ActiveRunId;
 
     public string? CurrentMapId => tracker.ActiveMapId;
+
+    public bool RecordShot(ShotRecorded shot) =>
+        callbackLifetime.CanHandleCallbacks && tracker.RecordShot(shot);
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
@@ -238,7 +244,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 MovementCapability = MovementCapability.State,
                 MovementAdapterVersion = MovementAdapterVersion,
                 MapCapability = MapCapability.State,
-                MapAdapterVersion = MapAdapterVersion
+                MapAdapterVersion = MapAdapterVersion,
+                WeaponCapabilities = weaponCapabilitiesProvider()
             }
         });
         if (!transition.Started)

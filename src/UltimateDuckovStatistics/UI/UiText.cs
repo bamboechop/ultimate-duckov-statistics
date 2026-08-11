@@ -11,6 +11,7 @@ internal static class UiText
             ["ui.items"] = "Items",
             ["ui.runs"] = "Runs",
             ["ui.records"] = "Records",
+            ["ui.combat"] = "Combat",
             ["ui.diagnostics"] = "Diagnostics",
             ["ui.total_uses"] = "Successful raid uses",
             ["ui.actual_hp"] = "Actual HP restored",
@@ -23,6 +24,13 @@ internal static class UiText
             ["ui.interrupted_runs"] = "Interrupted",
             ["ui.physical_distance"] = "Physical distance",
             ["ui.teleport_distance"] = "Teleport/excluded distance",
+            ["ui.firing_actions"] = "Firing actions",
+            ["ui.ammunition_consumed"] = "Loaded ammunition units consumed",
+            ["ui.projectiles"] = "Projectiles created",
+            ["ui.weapon"] = "Weapon",
+            ["ui.ammunition"] = "Ammunition",
+            ["ui.no_combat"] = "No accepted firing actions recorded for this save generation.",
+            ["ui.metric_contract"] = "A firing action is one successful discharge. Dry-fire attempts are unavailable and not counted; shotgun projectiles are reported separately.",
             ["ui.integrity"] = "Integrity",
             ["ui.record_status"] = "Records",
             ["ui.record_eligible"] = "Eligible",
@@ -64,7 +72,7 @@ internal static class UiText
             ["ui.export_complete"] = "Export complete",
             ["ui.export_failed"] = "Export failed; see Diagnostics and Player.log.",
             ["ui.reset_complete"] = "UDS profile reset; prior generation archived read-only.",
-            ["ui.integrity_note"] = "Run time excludes pause/loading. Physical and teleport/excluded distance are separate. Integrity-flagged and interrupted runs remain visible but do not enter default duration records.",
+            ["ui.integrity_note"] = "Run time and weapon tracking exclude pause/loading and non-raid contexts. Integrity-flagged and interrupted runs remain visible; only eligible runs enter default duration records.",
             ["ui.open_hint"] = "Press the configured hotkey outside raids to show or hide this panel."
         };
 

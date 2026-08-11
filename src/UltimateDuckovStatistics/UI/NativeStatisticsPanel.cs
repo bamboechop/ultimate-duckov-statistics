@@ -18,6 +18,7 @@ internal sealed class NativeStatisticsPanel
     private Vector2 diagnosticScroll;
     private Vector2 runScroll;
     private Vector2 recordScroll;
+    private Vector2 combatScroll;
     private PanelTab tab;
     private bool visible;
     private bool confirmReset;
@@ -86,6 +87,7 @@ internal sealed class NativeStatisticsPanel
         DrawTabButton(PanelTab.Overview, "ui.overview");
         DrawTabButton(PanelTab.Runs, "ui.runs");
         DrawTabButton(PanelTab.Records, "ui.records");
+        DrawTabButton(PanelTab.Combat, "ui.combat");
         DrawTabButton(PanelTab.Items, "ui.items");
         DrawTabButton(PanelTab.Diagnostics, "ui.diagnostics");
         GUILayout.FlexibleSpace();
@@ -109,6 +111,9 @@ internal sealed class NativeStatisticsPanel
                 break;
             case PanelTab.Records:
                 DrawRecords();
+                break;
+            case PanelTab.Combat:
+                DrawCombat();
                 break;
             case PanelTab.Diagnostics:
                 DrawDiagnostics();
@@ -145,6 +150,10 @@ internal sealed class NativeStatisticsPanel
             $"{UiText.Get("ui.interrupted_runs")}: {runs.InterruptedRuns.ToString(CultureInfo.InvariantCulture)})");
         GUILayout.Label($"{UiText.Get("ui.physical_distance")}: {FormatDistance(runs.PhysicalDistance, runs.MovementSupported)}");
         GUILayout.Label($"{UiText.Get("ui.teleport_distance")}: {FormatDistance(runs.TeleportDistance, runs.MovementSupported)}");
+        var combat = WeaponStatisticsViewModelFactory.Create(profile);
+        GUILayout.Label(
+            $"{UiText.Get("ui.firing_actions")}: "
+            + FormatMetric(combat.Lifetime.Totals.FiringActions, combat.Capabilities.FiringActions.State));
         GUILayout.Space(12);
         GUILayout.Label(UiText.Get("ui.group_totals"));
         foreach (var group in profile.Statistics.Groups.OrderBy(entry => entry.Key, StringComparer.Ordinal))
@@ -292,6 +301,97 @@ internal sealed class NativeStatisticsPanel
         }
 
         GUILayout.EndScrollView();
+    }
+
+    private void DrawCombat()
+    {
+        var profile = coordinator.Current;
+        if (profile == null)
+        {
+            return;
+        }
+
+        var model = WeaponStatisticsViewModelFactory.Create(profile);
+        GUILayout.Space(8);
+        GUILayout.Label(UiText.Get("ui.metric_contract"));
+        GUILayout.Label(
+            $"{UiText.Get("ui.firing_actions")}: "
+            + FormatMetric(model.Lifetime.Totals.FiringActions, model.Capabilities.FiringActions.State));
+        GUILayout.Label(
+            $"{UiText.Get("ui.ammunition_consumed")}: "
+            + FormatMetric(model.Lifetime.Totals.AmmunitionUnitsConsumed, model.Capabilities.AmmunitionConsumption.State));
+        GUILayout.Label(
+            $"{UiText.Get("ui.projectiles")}: "
+            + FormatMetric(model.Lifetime.Totals.Projectiles, model.Capabilities.Projectiles.State));
+
+        combatScroll = GUILayout.BeginScrollView(combatScroll);
+        if (model.Lifetime.Totals.FiringActions == 0)
+        {
+            GUILayout.Space(6);
+            GUILayout.Label(UiText.Get("ui.no_combat"));
+        }
+
+        if (model.Weapons.Count > 0)
+        {
+            GUILayout.Space(8);
+            GUILayout.Label(UiText.Get("ui.weapon"));
+            DrawCombatHeader(UiText.Get("ui.weapon"));
+            foreach (var weapon in model.Weapons)
+            {
+                DrawCombatRow(weapon.DisplayName, weapon.WeaponId, weapon.Totals, model.Capabilities);
+            }
+        }
+
+        if (model.AmmunitionTypes.Count > 0)
+        {
+            GUILayout.Space(8);
+            GUILayout.Label(UiText.Get("ui.ammunition"));
+            DrawCombatHeader(UiText.Get("ui.ammunition"));
+            foreach (var ammunition in model.AmmunitionTypes)
+            {
+                DrawCombatRow(ammunition.DisplayName, ammunition.AmmunitionId, ammunition.Totals, model.Capabilities);
+            }
+        }
+
+        if (model.Runs.Count > 0)
+        {
+            GUILayout.Space(8);
+            GUILayout.Label(UiText.Get("ui.runs"));
+            foreach (var run in model.Runs)
+            {
+                GUILayout.Label(
+                    $"{run.MapDisplayName} ({run.Outcome}, {run.RunId}): "
+                    + $"{FormatMetric(run.WeaponStatistics.Totals.FiringActions, run.WeaponStatistics.Capabilities.FiringActions.State)} actions, "
+                    + $"{FormatMetric(run.WeaponStatistics.Totals.AmmunitionUnitsConsumed, run.WeaponStatistics.Capabilities.AmmunitionConsumption.State)} ammo, "
+                    + $"{FormatMetric(run.WeaponStatistics.Totals.Projectiles, run.WeaponStatistics.Capabilities.Projectiles.State)} projectiles");
+            }
+        }
+
+        GUILayout.EndScrollView();
+    }
+
+    private static void DrawCombatHeader(string identityLabel)
+    {
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(identityLabel, GUILayout.Width(280));
+        GUILayout.Label(UiText.Get("ui.firing_actions"), GUILayout.Width(125));
+        GUILayout.Label(UiText.Get("ui.ammunition_consumed"), GUILayout.Width(190));
+        GUILayout.Label(UiText.Get("ui.projectiles"));
+        GUILayout.EndHorizontal();
+    }
+
+    private static void DrawCombatRow(
+        string displayName,
+        string stableId,
+        WeaponMetricTotals totals,
+        WeaponMetricCapabilities capabilities)
+    {
+        GUILayout.BeginHorizontal();
+        GUILayout.Label($"{displayName} [{stableId}]", GUILayout.Width(280));
+        GUILayout.Label(FormatMetric(totals.FiringActions, capabilities.FiringActions.State), GUILayout.Width(125));
+        GUILayout.Label(FormatMetric(totals.AmmunitionUnitsConsumed, capabilities.AmmunitionConsumption.State), GUILayout.Width(190));
+        GUILayout.Label(FormatMetric(totals.Projectiles, capabilities.Projectiles.State));
+        GUILayout.EndHorizontal();
     }
 
     private static void DrawRecordPair(string title, DurationRecordPair records)
@@ -472,6 +572,11 @@ internal sealed class NativeStatisticsPanel
         ? $"{meters.ToString("0.##", CultureInfo.InvariantCulture)} m"
         : UiText.Get("ui.unsupported");
 
+    private static string FormatMetric(long value, AdapterCapabilityState state) =>
+        state == AdapterCapabilityState.DisabledIncompatible
+            ? UiText.Get("ui.unsupported")
+            : value.ToString(CultureInfo.InvariantCulture);
+
     private static string FormatRecordEligibility(RunPresentationRow row) => row.RecordEligibilityReason switch
     {
         RunRecordEligibilityReason.Eligible => UiText.Get("ui.record_eligible"),
@@ -489,6 +594,7 @@ internal sealed class NativeStatisticsPanel
         Overview,
         Runs,
         Records,
+        Combat,
         Items,
         Diagnostics
     }

@@ -107,8 +107,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(3, repository.Current.SchemaVersion);
-        Assert.Equal(3, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(4, repository.Current.SchemaVersion);
+        Assert.Equal(4, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
@@ -187,6 +187,88 @@ public sealed class PersistenceTests
         Assert.Equal(0, repository.Current.Statistics.RunTotals.TotalRuns);
         Assert.Equal(archiveHash, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(archivePath))));
         Assert.True(File.GetAttributes(archivePath).HasFlag(FileAttributes.ReadOnly));
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Migration")]
+    [Trait("Category", "Weapon")]
+    public void RepositoryMigratesSchemaThreeWithoutChangingM1ToM3Data()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var legacy = CreateDocument("generation-v03", revision: 73);
+        legacy.SchemaVersion = 3;
+        legacy.Statistics.SchemaVersion = 3;
+        legacy.InterruptedSessionCount = 2;
+        legacy.Statistics.Overall.ActivationCount = 5;
+        legacy.Statistics.Overall.ActualHealthRestored = 24;
+        legacy.Statistics.RunTotals.TotalRuns = 1;
+        legacy.Statistics.RunTotals.PhysicalDistance = 120;
+        legacy.Statistics.RunTotals.TeleportDistance = 3;
+        legacy.Statistics.RunTotals.Outcomes[nameof(RunOutcome.Extracted)] = 1;
+        legacy.Statistics.RunTotals.WeaponStatistics = null!;
+        legacy.Statistics.RunTotals.Maps["duckov:map:test"] = new MapRunAggregate
+        {
+            MapId = "duckov:map:test",
+            DisplayName = "Test map",
+            IsKnown = true,
+            TotalRuns = 1,
+            PhysicalDistance = 120,
+            TeleportDistance = 3,
+            Outcomes = new() { [nameof(RunOutcome.Extracted)] = 1 },
+            WeaponStatistics = null!
+        };
+        legacy.Statistics.Runs.Add(new RunSummary
+        {
+            RunId = "run-v03",
+            SaveGenerationId = "generation-v03",
+            MapId = "duckov:map:test",
+            MapDisplayName = "Test map",
+            MapKnown = true,
+            StartedUtc = TestTime.AddMinutes(-2),
+            EndedUtc = TestTime,
+            ActiveDurationSeconds = 90,
+            WallClockDurationSeconds = 120,
+            Outcome = RunOutcome.Extracted,
+            PhysicalDistance = 120,
+            TeleportDistance = 3,
+            RecordEligible = true,
+            LifecycleCapability = AdapterCapabilityState.Supported,
+            MovementCapability = AdapterCapabilityState.Supported,
+            MapCapability = AdapterCapabilityState.Supported,
+            WeaponStatistics = null!
+        });
+        legacy.Capabilities.Add(new CapabilityRecord
+        {
+            AdapterId = RunStatisticsViewModelFactory.MovementAdapterId,
+            State = AdapterCapabilityState.Supported,
+            Version = "native-main-duck-movement/2.3.30"
+        });
+        new AtomicJsonStore<ProfileDocument>().Save(path, legacy);
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.MigratedSchema);
+        Assert.Equal(4, repository.Current.SchemaVersion);
+        Assert.Equal(4, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal("generation-v03", repository.Current.GenerationId);
+        Assert.Equal(73, repository.Current.Revision);
+        Assert.Equal(2, repository.Current.InterruptedSessionCount);
+        Assert.Equal(5, repository.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(24, repository.Current.Statistics.Overall.ActualHealthRestored);
+        Assert.Equal(1, repository.Current.Statistics.RunTotals.TotalRuns);
+        Assert.Equal(120, repository.Current.Statistics.RunTotals.PhysicalDistance);
+        Assert.Equal(3, repository.Current.Statistics.RunTotals.TeleportDistance);
+        Assert.Equal("run-v03", Assert.Single(repository.Current.Statistics.Runs).RunId);
+        Assert.Equal("native-main-duck-movement", Assert.Single(repository.Current.Capabilities).AdapterId);
+        Assert.Equal(0, repository.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
+        Assert.Empty(repository.Current.Statistics.RunTotals.WeaponStatistics.Weapons);
+        Assert.Empty(repository.Current.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes);
+        Assert.NotNull(repository.Current.Statistics.RunTotals.Maps["duckov:map:test"].WeaponStatistics);
+        Assert.NotNull(repository.Current.Statistics.Runs[0].WeaponStatistics);
         repository.CloseClean();
     }
 

@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics
 
-Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.3.0 records successful consumable uses, actual HP restored, run outcomes and active duration, map records, and main-duck physical versus teleport/excluded distance. Activation counts, amount consumed, healing, run time, and movement remain separate metrics.
+Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.4.0 records successful consumable uses, actual HP restored, run outcomes and active duration, map records, main-duck physical versus teleport/excluded distance, successful firing actions, loaded ammunition consumed, and projectiles/pellets. Every metric remains separate.
 
 The mod never modifies Duckov save files. Its data is stored under:
 
@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M2 are released. M3 run lifecycle and movement is implemented and its complete automated, deployment, and gameplay acceptance matrix has passed on `feat/run-lifecycle-movement`. The v0.3.0 release remains intentionally unpublished while delivery stops at a green unmerged draft PR. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
+M0-M3 are released. M4 weapons and ammunition is implemented on `feat/weapons-ammunition`; automated and native-contract acceptance passes, while deployment and user-driven gameplay acceptance remain pending. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
 
 ## Build prerequisites
 
@@ -28,7 +28,9 @@ UDS fingerprints saves read-only and never modifies them. While active, it recor
 
 Runs begin only when the native raid is initialized and the live main duck actually has player control. Active duration excludes pause and loading. Movement is sampled at approximately 5 Hz with the real monotonic sample interval and verified native walk/run/dash speeds; implausible, loading-boundary, explicit-position, and long-gap displacement is retained separately as teleport/excluded distance. Interrupted and integrity-flagged runs stay visible but do not enter default duration records; each Runs row shows its integrity tag and an explicit eligible/excluded Records status with the exclusion reason.
 
-The in-game panel enables Overview, Runs, Records, Items, and Diagnostics. One export action writes `statistics.json`, the existing item/overview CSVs, plus `runs.csv`, `run_totals.csv`, `map_totals.csv`, and `records.csv` under the current UDS generation.
+M4 uses the public `ItemAgent_Gun.OnMainCharacterShootEvent` from the verified Duckov build. One callback proves one successful discharge and one loaded ammunition unit consumed; native `ShotCount` supplies the separately reported projectile/pellet count. Reloads, magazine transfers, inventory movement, base activity, loading, pause, non-main-duck actors, and dry fire do not count. Trigger attempts and dry-fire counts are explicitly unavailable rather than displayed as zero.
+
+The in-game panel enables Overview, Runs, Records, Combat, Items, and Diagnostics. One export action writes `statistics.json` plus ten flattened CSV files, including `combat_totals.csv`, `weapon_totals.csv`, and `ammunition_totals.csv`, under the current UDS generation.
 
 ## Development commands
 
@@ -42,7 +44,7 @@ dotnet build .\src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj -c R
 Create the validated installable ZIP and SHA-256 sidecar with:
 
 ```powershell
-.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.3.0
+.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.4.0
 ```
 
 See [INSTALL.md](INSTALL.md) for installation and compatibility details.

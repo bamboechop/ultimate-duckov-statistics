@@ -157,6 +157,33 @@ public static class ProfileMigrator
                 map.Outcomes = new Dictionary<string, long>(StringComparer.Ordinal);
                 changed = true;
             }
+
+            if (map.WeaponStatistics == null)
+            {
+                map.WeaponStatistics = new WeaponStatisticsAggregate();
+                changed = true;
+            }
+
+            changed |= NormalizeWeaponStatistics(map.WeaponStatistics);
+        }
+
+        if (profile.Statistics.RunTotals.WeaponStatistics == null)
+        {
+            profile.Statistics.RunTotals.WeaponStatistics = new WeaponStatisticsAggregate();
+            changed = true;
+        }
+
+        changed |= NormalizeWeaponStatistics(profile.Statistics.RunTotals.WeaponStatistics);
+
+        foreach (var run in profile.Statistics.Runs)
+        {
+            if (run.WeaponStatistics == null)
+            {
+                run.WeaponStatistics = new WeaponStatisticsAggregate();
+                changed = true;
+            }
+
+            changed |= NormalizeWeaponStatistics(run.WeaponStatistics);
         }
 
         if (profile.Statistics.RunRecords == null)
@@ -222,6 +249,18 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 4)
+        {
+            profile.SchemaVersion = 4;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 4)
+        {
+            profile.Statistics.SchemaVersion = 4;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
@@ -231,6 +270,92 @@ public static class ProfileMigrator
         // Repair schema-2 pre-release profiles written before delayed healing
         // buffs were promoted to the canonical Healing group.
         changed |= ProfileGroupReconciler.PromoteProvenHealingItems(profile.Statistics);
+
+        return changed;
+    }
+
+    private static bool NormalizeWeaponStatistics(WeaponStatisticsAggregate statistics)
+    {
+        var changed = false;
+        if (statistics.Totals == null)
+        {
+            statistics.Totals = new WeaponMetricTotals();
+            changed = true;
+        }
+
+        if (statistics.Weapons == null)
+        {
+            statistics.Weapons = new Dictionary<string, WeaponAggregate>(StringComparer.Ordinal);
+            changed = true;
+        }
+
+        if (statistics.AmmunitionTypes == null)
+        {
+            statistics.AmmunitionTypes = new Dictionary<string, AmmunitionAggregate>(StringComparer.Ordinal);
+            changed = true;
+        }
+
+        if (statistics.Capabilities == null)
+        {
+            statistics.Capabilities = new Domain.WeaponMetricCapabilities();
+            changed = true;
+        }
+
+        changed |= NormalizeCapabilities(statistics.Capabilities);
+
+        foreach (var weapon in statistics.Weapons.Values)
+        {
+            if (weapon.Totals == null)
+            {
+                weapon.Totals = new WeaponMetricTotals();
+                changed = true;
+            }
+        }
+
+        foreach (var ammunition in statistics.AmmunitionTypes.Values)
+        {
+            if (ammunition.Totals == null)
+            {
+                ammunition.Totals = new WeaponMetricTotals();
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private static bool NormalizeCapabilities(Domain.WeaponMetricCapabilities capabilities)
+    {
+        var changed = false;
+        if (capabilities.FiringActions == null)
+        {
+            capabilities.FiringActions = new Domain.MetricAvailability();
+            changed = true;
+        }
+
+        if (capabilities.AmmunitionConsumption == null)
+        {
+            capabilities.AmmunitionConsumption = new Domain.MetricAvailability();
+            changed = true;
+        }
+
+        if (capabilities.Projectiles == null)
+        {
+            capabilities.Projectiles = new Domain.MetricAvailability();
+            changed = true;
+        }
+
+        if (capabilities.WeaponIdentity == null)
+        {
+            capabilities.WeaponIdentity = new Domain.MetricAvailability();
+            changed = true;
+        }
+
+        if (capabilities.AmmunitionIdentity == null)
+        {
+            capabilities.AmmunitionIdentity = new Domain.MetricAvailability();
+            changed = true;
+        }
 
         return changed;
     }

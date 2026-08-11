@@ -20,6 +20,9 @@ public sealed class RunAggregateTotals
 
     [DataMember(Order = 5)]
     public Dictionary<string, MapRunAggregate> Maps { get; set; } = new(StringComparer.Ordinal);
+
+    [DataMember(Order = 6)]
+    public WeaponStatisticsAggregate WeaponStatistics { get; set; } = new();
 }
 
 [DataContract]
@@ -45,6 +48,9 @@ public sealed class MapRunAggregate
 
     [DataMember(Order = 7)]
     public double TeleportDistance { get; set; }
+
+    [DataMember(Order = 8)]
+    public WeaponStatisticsAggregate WeaponStatistics { get; set; } = new();
 }
 
 [DataContract]
@@ -141,6 +147,7 @@ public static class RunReducer
         AddOutcome(totals.Outcomes, summary.Outcome);
         totals.PhysicalDistance += summary.PhysicalDistance;
         totals.TeleportDistance += summary.TeleportDistance;
+        WeaponStatisticsReducer.Merge(totals.WeaponStatistics, summary.WeaponStatistics);
 
         if (!totals.Maps.TryGetValue(summary.MapId, out var map))
         {
@@ -159,6 +166,7 @@ public static class RunReducer
         AddOutcome(map.Outcomes, summary.Outcome);
         map.PhysicalDistance += summary.PhysicalDistance;
         map.TeleportDistance += summary.TeleportDistance;
+        WeaponStatisticsReducer.Merge(map.WeaponStatistics, summary.WeaponStatistics);
     }
 
     private static void AddRecord(RunDurationRecords records, RunSummary summary)
