@@ -325,10 +325,22 @@ public static class WeaponStatisticsReducer
             throw new ArgumentNullException(nameof(recorded));
         }
 
+        return (AdapterCapabilityState)Math.Max((int)recorded.State, (int)current);
+    }
+
+    public static AdapterCapabilityState ResolveCurrentAvailability(
+        MetricAvailability recorded,
+        AdapterCapabilityState current)
+    {
+        if (recorded == null)
+        {
+            throw new ArgumentNullException(nameof(recorded));
+        }
+
         return recorded.State == AdapterCapabilityState.DisabledIncompatible
                && string.IsNullOrWhiteSpace(recorded.Provenance)
             ? current
-            : (AdapterCapabilityState)Math.Max((int)recorded.State, (int)current);
+            : RestrictAvailability(recorded, current);
     }
 
     private static WeaponAggregate GetOrCreateWeapon(WeaponStatisticsAggregate target, ShotRecorded shot)

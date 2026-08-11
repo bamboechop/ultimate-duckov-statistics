@@ -34,11 +34,11 @@ Reloads, magazine transfers, and inventory movement do not emit this event. Dry-
 ## Validation status
 
 - Focused M4 acceptance: passed.
-- Corrective local Release suite: 172 tests pass with the complete M0-M3 regression suite and new reload-equivalent identity, unavailable-outcome, crash-checkpoint, nested-normalization, negative-counter, and overflow regressions.
+- Corrective local Release suite: 177 tests pass with the complete M0-M3 regression suite and reload-equivalent identity, unavailable-outcome, crash-checkpoint, semantic backup fallback, immutable historical availability, bounded checkpoint retry, nested-normalization, negative-counter, and overflow regressions.
 - Native Duckov/Harmony contract probe: passed against Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, and HarmonyLib `2.4.1.0`. The corrected probe requires only the public firing event and stable identity properties; it no longer treats private firing loops or loaded-ammunition methods as proof of outcomes.
 - Native Release build: 0 warnings and 0 errors.
 - M4 change-set formatting and analyzer verification: passed. The repository-wide formatting command continues to report two pre-existing whitespace blocks in untouched legacy test files.
-- Corrected committed-head package construction, transactional deployment, and focused manual recovery acceptance passed. Two reload-equivalent TT-33 callbacks remained distinct, survived a forced `taskkill /F` as one interrupted run with exactly two firing actions, and kept ammunition/projectile outcomes unavailable across UI, profile, JSON, and CSV. Final remote CI remains pending; the PR stays draft.
+- The first corrected package, transactional deployment, and focused manual recovery acceptance passed: two reload-equivalent TT-33 callbacks remained distinct and survived a forced `taskkill /F` as one interrupted run with exactly two firing actions. A second review found semantic-backup, historical-availability, and failed-write retry defects. Those defects are fixed in source, but the earlier corrected package is superseded again. Replacement package/deployment evidence and final remote CI remain pending; the PR stays draft.
 
 ## Known limitations
 

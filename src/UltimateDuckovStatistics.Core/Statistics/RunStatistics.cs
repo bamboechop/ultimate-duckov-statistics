@@ -242,7 +242,7 @@ public static class RunReducer
         outcomes[key] = SaturatingAdd(current, 1);
     }
 
-    private static void Validate(RunSummary summary)
+    public static void Validate(RunSummary summary)
     {
         if (summary == null)
         {

@@ -457,7 +457,7 @@ public sealed class ProfileRepository
             return false;
         }
 
-        var loaded = activeRunStore.Load(path);
+        var loaded = activeRunStore.Load(path, ValidateActiveRunCheckpointForRecovery);
         var checkpoint = loaded.Value;
         if (checkpoint == null)
         {
@@ -466,39 +466,15 @@ public sealed class ProfileRepository
             return false;
         }
 
-        checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
-        var weaponNormalization = WeaponStatisticsReducer.NormalizePersisted(checkpoint.WeaponStatistics);
-        if (weaponNormalization.InvalidCounters)
+        if (loaded.Recovered)
         {
-            ArchiveActiveRunArtifacts("InvalidActiveRunCounters");
-            diagnostic("Active-run checkpoint contained negative weapon counters and was preserved for diagnostics.");
-            return false;
-        }
-
-        if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion
-            || string.IsNullOrWhiteSpace(checkpoint.RunId)
-            || !string.Equals(checkpoint.SaveGenerationId, Current.GenerationId, StringComparison.Ordinal))
-        {
-            ArchiveActiveRunArtifacts("IncompatibleActiveRun");
-            diagnostic("Active-run checkpoint did not match the current schema/generation and was preserved for diagnostics.");
-            return false;
-        }
-
-        RunSummary summary;
-        bool applied;
-        try
-        {
-            WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
-            summary = checkpoint.ToInterruptedSummary();
-            applied = RunReducer.Apply(Current.Statistics, summary);
-        }
-        catch (ArgumentException exception)
-        {
-            ArchiveActiveRunArtifacts("InvalidActiveRun");
             diagnostic(
-                $"Active-run checkpoint was structurally invalid and was preserved for diagnostics: {exception.Message}");
-            return false;
+                $"Rejected an earlier active-run candidate and recovered the semantically valid {loaded.Source} snapshot: "
+                + string.Join(" | ", loaded.Failures));
         }
+
+        var summary = checkpoint.ToInterruptedSummary();
+        var applied = RunReducer.Apply(Current.Statistics, summary);
 
         if (applied)
         {
@@ -513,6 +489,42 @@ public sealed class ProfileRepository
                 ? $"Recovered interrupted run {summary.RunId} for generation {summary.SaveGenerationId}."
                 : $"Cleared already-finalized active-run checkpoint {summary.RunId} without duplicating it.");
         return applied;
+    }
+
+    private string? ValidateActiveRunCheckpointForRecovery(ActiveRunCheckpoint checkpoint)
+    {
+        checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
+        var weaponNormalization = WeaponStatisticsReducer.NormalizePersisted(checkpoint.WeaponStatistics);
+        if (weaponNormalization.InvalidCounters)
+        {
+            return "Active-run checkpoint contains negative weapon counters.";
+        }
+
+        if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
+        {
+            return $"Active-run checkpoint schema {checkpoint.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion}.";
+        }
+
+        if (string.IsNullOrWhiteSpace(checkpoint.RunId))
+        {
+            return "Active-run checkpoint has no run identity.";
+        }
+
+        if (!string.Equals(checkpoint.SaveGenerationId, Current.GenerationId, StringComparison.Ordinal))
+        {
+            return "Active-run checkpoint does not match the current save generation.";
+        }
+
+        try
+        {
+            WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
+            RunReducer.Validate(checkpoint.ToInterruptedSummary());
+            return null;
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Active-run checkpoint is structurally invalid: {exception.Message}";
+        }
     }
 
     private void ArchiveActiveRunArtifacts(string reason)

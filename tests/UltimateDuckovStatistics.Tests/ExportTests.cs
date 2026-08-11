@@ -170,6 +170,33 @@ public sealed class ExportTests
 
     [Fact]
     [Trait("Category", "Export")]
+    [Trait("Category", "Weapon")]
+    public void CurrentSupportedCapabilityDoesNotUpgradeHistoricalUnavailableRun()
+    {
+        var profile = CreateProfile();
+        RunReducer.Apply(profile.Statistics, CreateRun("historical-run", RunOutcome.Extracted, 95, 123.5, 8));
+        var historical = Assert.Single(profile.Statistics.Runs);
+        historical.WeaponStatistics.Capabilities.FiringActions = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = string.Empty
+        };
+
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var json = Deserialize(bundle.Json);
+        var runJson = Assert.Single(json.Runs);
+        var runCsv = Assert.Single(
+            ParseCsv(bundle.CombatTotalsCsv),
+            row => row["scope"] == "run" && row["scope_id"] == "historical-run");
+
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            runJson.WeaponStatistics.Capabilities.FiringActions.State);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), runCsv["firing_actions_state"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
     public void ReclassifiedStableItemKeepsMatchingItemAndGroupExportRows()
     {
         var profile = CreateProfile();

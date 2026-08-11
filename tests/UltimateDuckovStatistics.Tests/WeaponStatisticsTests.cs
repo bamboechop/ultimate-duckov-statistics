@@ -244,6 +244,24 @@ public sealed class WeaponStatisticsTests
         WeaponStatisticsReducer.ValidateAggregate(statistics);
     }
 
+    [Fact]
+    [Trait("Category", "Weapon")]
+    [Trait("Category", "Compatibility")]
+    public void CurrentSupportedCapabilityCannotUpgradePersistedHistoricalUnavailability()
+    {
+        var historical = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = string.Empty
+        };
+
+        var visible = WeaponStatisticsReducer.RestrictAvailability(
+            historical,
+            AdapterCapabilityState.Supported);
+
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, visible);
+    }
+
     private static RunLifecycleTracker StartedTracker()
     {
         var tracker = new RunLifecycleTracker(() => "run-1");

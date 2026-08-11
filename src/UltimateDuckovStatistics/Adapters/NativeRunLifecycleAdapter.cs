@@ -23,6 +23,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const double SampleIntervalSeconds = 0.2;
+    private const double CheckpointRetryIntervalSeconds = 1;
     private readonly Func<string> saveGenerationIdProvider;
     private readonly Func<ActiveRunCheckpoint, bool> checkpointHandler;
     private readonly Func<RunSummary, bool> completionHandler;
@@ -32,6 +33,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
     private readonly RunLifecycleTracker tracker;
     private readonly MonotonicCadenceGate sampleCadence = new(SampleIntervalSeconds);
+    private readonly CheckpointRetryGate checkpointRetry = new(CheckpointRetryIntervalSeconds);
     private readonly ReferenceSubjectGate<CharacterMainControl> mainCharacterGate = new();
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly List<CapabilityRecord> capabilities = new();
@@ -79,7 +81,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         if (!SaveCheckpoint(DateTime.UtcNow, now))
         {
             diagnosticHandler(
-                $"Accepted firing action {shot.EventId}; crash-safe active-run checkpoint remains pending and will be retried.");
+                $"Accepted firing action {shot.EventId}; crash-safe active-run checkpoint remains pending "
+                + "and will be retried no more than once per second.");
         }
 
         return true;
@@ -144,14 +147,17 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             TryStartRun();
             var now = NowMonotonic();
             var utcNow = DateTime.UtcNow;
-            if (tracker.CombatCheckpointRequired)
-            {
-                SaveCheckpoint(utcNow, now);
-            }
-
-            if (tracker.IsActive && tracker.Tick(utcNow, now))
+            var periodicCheckpointDue = tracker.IsActive && tracker.Tick(utcNow, now);
+            if (periodicCheckpointDue)
             {
                 tracker.ObserveIntegrity(NativeIntegrityProbe.Read());
+            }
+
+            if (checkpointRetry.ShouldAttempt(
+                    tracker.CombatCheckpointRequired,
+                    periodicCheckpointDue,
+                    now))
+            {
                 SaveCheckpoint(utcNow, now);
             }
 
@@ -184,6 +190,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
         DetachMainCharacter();
         sampleCadence.Reset();
+        checkpointRetry.Reset();
         movementMapId = null;
         tracker.Apply(Event(RunLifecycleEventKind.RaidCleared));
     }
@@ -197,6 +204,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         sampleCadence.Reset();
+        checkpointRetry.Reset();
         movementMapId = null;
         var cleaned = callbackLifetime.TryCleanup(TryDetachMainCharacter, out var staticCleanupFailure);
         if (staticCleanupFailure != null)
@@ -273,6 +281,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         sampleCadence.Reset();
+        checkpointRetry.Reset();
         movementMapId = tracker.ActiveMapId;
         pendingBoundary = null;
         SampleMainDuck(utcNow, now);
@@ -310,6 +319,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         sampleCadence.Reset();
+        checkpointRetry.Reset();
         movementMapId = null;
 
         if (completionHandler(transition.Completed))
@@ -396,10 +406,12 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
         if (!checkpointHandler(checkpoint))
         {
+            checkpointRetry.RecordResult(succeeded: false, monotonicSeconds: monotonicSeconds);
             return false;
         }
 
         tracker.MarkCheckpointSaved(monotonicSeconds);
+        checkpointRetry.RecordResult(succeeded: true, monotonicSeconds: monotonicSeconds);
         return true;
     }
 

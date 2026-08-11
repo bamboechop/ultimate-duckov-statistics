@@ -154,12 +154,14 @@ public static class StatisticsExporter
         var runTotals = CloneRunTotals(profile.Statistics.RunTotals);
         runTotals.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
             runTotals.WeaponStatistics.Capabilities,
-            profile.Capabilities);
+            profile.Capabilities,
+            allowUninitializedFallback: true);
         foreach (var map in runTotals.Maps.Values)
         {
             map.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
                 map.WeaponStatistics.Capabilities,
-                profile.Capabilities);
+                profile.Capabilities,
+                allowUninitializedFallback: false);
         }
 
         var runs = profile.Statistics.Runs.Select(CloneRun).ToList();
@@ -167,7 +169,8 @@ public static class StatisticsExporter
         {
             run.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
                 run.WeaponStatistics.Capabilities,
-                profile.Capabilities);
+                profile.Capabilities,
+                allowUninitializedFallback: false);
         }
 
         var document = new StatisticsExportDocument
@@ -423,11 +426,11 @@ public static class StatisticsExporter
             .Append(statistics.Totals.AmmunitionUnitsConsumed.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(statistics.Totals.Projectiles.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(ReadCapabilityState(currentCapabilities, WeaponCapabilityIds.TriggerAttempts, AdapterCapabilityState.DisabledIncompatible)).Append(',')
-            .Append(ReadCapabilityState(currentCapabilities, WeaponCapabilityIds.FiringActions, capabilities.FiringActions.State)).Append(',')
-            .Append(ReadCapabilityState(currentCapabilities, WeaponCapabilityIds.AmmunitionConsumption, capabilities.AmmunitionConsumption.State)).Append(',')
-            .Append(ReadCapabilityState(currentCapabilities, WeaponCapabilityIds.Projectiles, capabilities.Projectiles.State)).Append(',')
-            .Append(ReadCapabilityState(currentCapabilities, WeaponCapabilityIds.WeaponIdentity, capabilities.WeaponIdentity.State)).Append(',')
-            .Append(ReadCapabilityState(currentCapabilities, WeaponCapabilityIds.AmmunitionIdentity, capabilities.AmmunitionIdentity.State)).AppendLine();
+            .Append(capabilities.FiringActions.State).Append(',')
+            .Append(capabilities.AmmunitionConsumption.State).Append(',')
+            .Append(capabilities.Projectiles.State).Append(',')
+            .Append(capabilities.WeaponIdentity.State).Append(',')
+            .Append(capabilities.AmmunitionIdentity.State).AppendLine();
     }
 
     private static void AppendWeaponTotals(
@@ -480,26 +483,39 @@ public static class StatisticsExporter
 
     private static WeaponMetricCapabilities ApplyCurrentWeaponCapabilityStates(
         WeaponMetricCapabilities aggregate,
-        IReadOnlyList<CapabilityRecord> current)
+        IReadOnlyList<CapabilityRecord> current,
+        bool allowUninitializedFallback)
     {
         var clone = WeaponStatisticsReducer.CloneCapabilities(aggregate);
-        clone.FiringActions.State = WeaponStatisticsReducer.RestrictAvailability(
+        clone.FiringActions.State = ResolveAvailability(
             clone.FiringActions,
-            ReadCapabilityState(current, WeaponCapabilityIds.FiringActions, clone.FiringActions.State));
-        clone.AmmunitionConsumption.State = WeaponStatisticsReducer.RestrictAvailability(
+            ReadCapabilityState(current, WeaponCapabilityIds.FiringActions, clone.FiringActions.State),
+            allowUninitializedFallback);
+        clone.AmmunitionConsumption.State = ResolveAvailability(
             clone.AmmunitionConsumption,
-            ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionConsumption, clone.AmmunitionConsumption.State));
-        clone.Projectiles.State = WeaponStatisticsReducer.RestrictAvailability(
+            ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionConsumption, clone.AmmunitionConsumption.State),
+            allowUninitializedFallback);
+        clone.Projectiles.State = ResolveAvailability(
             clone.Projectiles,
-            ReadCapabilityState(current, WeaponCapabilityIds.Projectiles, clone.Projectiles.State));
-        clone.WeaponIdentity.State = WeaponStatisticsReducer.RestrictAvailability(
+            ReadCapabilityState(current, WeaponCapabilityIds.Projectiles, clone.Projectiles.State),
+            allowUninitializedFallback);
+        clone.WeaponIdentity.State = ResolveAvailability(
             clone.WeaponIdentity,
-            ReadCapabilityState(current, WeaponCapabilityIds.WeaponIdentity, clone.WeaponIdentity.State));
-        clone.AmmunitionIdentity.State = WeaponStatisticsReducer.RestrictAvailability(
+            ReadCapabilityState(current, WeaponCapabilityIds.WeaponIdentity, clone.WeaponIdentity.State),
+            allowUninitializedFallback);
+        clone.AmmunitionIdentity.State = ResolveAvailability(
             clone.AmmunitionIdentity,
-            ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionIdentity, clone.AmmunitionIdentity.State));
+            ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionIdentity, clone.AmmunitionIdentity.State),
+            allowUninitializedFallback);
         return clone;
     }
+
+    private static AdapterCapabilityState ResolveAvailability(
+        MetricAvailability recorded,
+        AdapterCapabilityState current,
+        bool allowUninitializedFallback) => allowUninitializedFallback
+            ? WeaponStatisticsReducer.ResolveCurrentAvailability(recorded, current)
+            : WeaponStatisticsReducer.RestrictAvailability(recorded, current);
 
     private static void AppendRecordPair(
         StringBuilder builder,

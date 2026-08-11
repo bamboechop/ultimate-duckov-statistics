@@ -186,6 +186,45 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
+    public void ActiveRunRecoveryUsesValidBackupWhenPrimaryHasNegativeCombatCounter()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        repository.SaveActiveRun(Checkpoint(generation, 5));
+        repository.SaveActiveRun(Checkpoint(generation, 8));
+        repository.CloseClean();
+        var path = ActiveRunPath(directory.Path);
+        var primary = File.ReadAllText(path);
+        const string validCounter = "\"FiringActions\":1";
+        var counterIndex = primary.IndexOf(validCounter, StringComparison.Ordinal);
+        Assert.True(counterIndex >= 0);
+        File.WriteAllText(
+            path,
+            string.Concat(
+                primary.AsSpan(0, counterIndex),
+                "\"FiringActions\":-1",
+                primary.AsSpan(counterIndex + validCounter.Length)));
+
+        var recovery = Repository(directory.Path);
+        var result = recovery.Open(Identity());
+
+        Assert.True(result.InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Equal(1, run.WeaponStatistics.Totals.FiringActions);
+        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(path)));
+        var recoveryDirectory = Path.Combine(Path.GetDirectoryName(path)!, "checkpoint-recovery");
+        Assert.False(Directory.Exists(recoveryDirectory));
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
     public void ActiveRunRecoveryUsesOrphanedTemporarySnapshot()
     {
         using var directory = new TemporaryDirectory();

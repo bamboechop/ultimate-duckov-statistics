@@ -27,19 +27,19 @@ public static class WeaponStatisticsViewModelFactory
 
         var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
         var capabilities = WeaponStatisticsReducer.CloneCapabilities(lifetime.Capabilities);
-        capabilities.FiringActions.State = WeaponStatisticsReducer.RestrictAvailability(
+        capabilities.FiringActions.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
             capabilities.FiringActions,
             ReadState(profile, WeaponCapabilityIds.FiringActions, capabilities.FiringActions.State));
-        capabilities.AmmunitionConsumption.State = WeaponStatisticsReducer.RestrictAvailability(
+        capabilities.AmmunitionConsumption.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
             capabilities.AmmunitionConsumption,
             ReadState(profile, WeaponCapabilityIds.AmmunitionConsumption, capabilities.AmmunitionConsumption.State));
-        capabilities.Projectiles.State = WeaponStatisticsReducer.RestrictAvailability(
+        capabilities.Projectiles.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
             capabilities.Projectiles,
             ReadState(profile, WeaponCapabilityIds.Projectiles, capabilities.Projectiles.State));
-        capabilities.WeaponIdentity.State = WeaponStatisticsReducer.RestrictAvailability(
+        capabilities.WeaponIdentity.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
             capabilities.WeaponIdentity,
             ReadState(profile, WeaponCapabilityIds.WeaponIdentity, capabilities.WeaponIdentity.State));
-        capabilities.AmmunitionIdentity.State = WeaponStatisticsReducer.RestrictAvailability(
+        capabilities.AmmunitionIdentity.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
             capabilities.AmmunitionIdentity,
             ReadState(profile, WeaponCapabilityIds.AmmunitionIdentity, capabilities.AmmunitionIdentity.State));
         return new WeaponStatisticsViewModel
