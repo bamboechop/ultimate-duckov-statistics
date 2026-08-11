@@ -28,18 +28,23 @@ public static class WeaponStatisticsViewModelFactory
         var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
         var capabilities = WeaponStatisticsReducer.CloneCapabilities(lifetime.Capabilities);
         capabilities.FiringActions.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
+            lifetime,
             capabilities.FiringActions,
             ReadState(profile, WeaponCapabilityIds.FiringActions, capabilities.FiringActions.State));
         capabilities.AmmunitionConsumption.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
+            lifetime,
             capabilities.AmmunitionConsumption,
             ReadState(profile, WeaponCapabilityIds.AmmunitionConsumption, capabilities.AmmunitionConsumption.State));
         capabilities.Projectiles.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
+            lifetime,
             capabilities.Projectiles,
             ReadState(profile, WeaponCapabilityIds.Projectiles, capabilities.Projectiles.State));
         capabilities.WeaponIdentity.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
+            lifetime,
             capabilities.WeaponIdentity,
             ReadState(profile, WeaponCapabilityIds.WeaponIdentity, capabilities.WeaponIdentity.State));
         capabilities.AmmunitionIdentity.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
+            lifetime,
             capabilities.AmmunitionIdentity,
             ReadState(profile, WeaponCapabilityIds.AmmunitionIdentity, capabilities.AmmunitionIdentity.State));
         return new WeaponStatisticsViewModel

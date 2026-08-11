@@ -197,6 +197,34 @@ public sealed class ExportTests
 
     [Fact]
     [Trait("Category", "Export")]
+    [Trait("Category", "Weapon")]
+    public void NonemptyLifetimeAggregateWithMissingCapabilityMetadataRemainsUnavailable()
+    {
+        var profile = CreateProfile();
+        var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
+        lifetime.Totals.FiringActions = 7;
+        lifetime.Weapons["weapon:observed"] = new WeaponAggregate
+        {
+            WeaponId = "weapon:observed",
+            DisplayName = "Observed weapon",
+            Totals = new WeaponMetricTotals { FiringActions = 7 }
+        };
+
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var json = Deserialize(bundle.Json);
+        var lifetimeCsv = Assert.Single(
+            ParseCsv(bundle.CombatTotalsCsv),
+            row => row["scope"] == "lifetime");
+
+        Assert.Equal(7, json.RunTotals.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), lifetimeCsv["firing_actions_state"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
     public void ReclassifiedStableItemKeepsMatchingItemAndGroupExportRows()
     {
         var profile = CreateProfile();

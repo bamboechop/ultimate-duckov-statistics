@@ -329,9 +329,15 @@ public static class WeaponStatisticsReducer
     }
 
     public static AdapterCapabilityState ResolveCurrentAvailability(
+        WeaponStatisticsAggregate aggregate,
         MetricAvailability recorded,
         AdapterCapabilityState current)
     {
+        if (aggregate == null)
+        {
+            throw new ArgumentNullException(nameof(aggregate));
+        }
+
         if (recorded == null)
         {
             throw new ArgumentNullException(nameof(recorded));
@@ -339,8 +345,24 @@ public static class WeaponStatisticsReducer
 
         return recorded.State == AdapterCapabilityState.DisabledIncompatible
                && string.IsNullOrWhiteSpace(recorded.Provenance)
+               && IsEmpty(aggregate)
             ? current
             : RestrictAvailability(recorded, current);
+    }
+
+    public static bool IsEmpty(WeaponStatisticsAggregate aggregate)
+    {
+        if (aggregate == null)
+        {
+            throw new ArgumentNullException(nameof(aggregate));
+        }
+
+        ValidateAggregate(aggregate);
+        return aggregate.Totals.FiringActions == 0
+               && aggregate.Totals.AmmunitionUnitsConsumed == 0
+               && aggregate.Totals.Projectiles == 0
+               && aggregate.Weapons.Count == 0
+               && aggregate.AmmunitionTypes.Count == 0;
     }
 
     private static WeaponAggregate GetOrCreateWeapon(WeaponStatisticsAggregate target, ShotRecorded shot)

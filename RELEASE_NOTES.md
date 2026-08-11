@@ -34,11 +34,11 @@ Reloads, magazine transfers, and inventory movement do not emit this event. Dry-
 ## Validation status
 
 - Focused M4 acceptance: passed.
-- Corrective local Release suite: 177 tests pass with the complete M0-M3 regression suite and reload-equivalent identity, unavailable-outcome, crash-checkpoint, semantic backup fallback, immutable historical availability, bounded checkpoint retry, nested-normalization, negative-counter, and overflow regressions.
+- Corrective local Release suite: 180 tests pass with the complete M0-M3 regression suite and reload-equivalent identity, unavailable-outcome, crash-checkpoint, semantic backup fallback, immutable historical availability, genuinely-empty lifetime fallback, bounded checkpoint retry, nested-normalization, negative-counter, and overflow regressions.
 - Native Duckov/Harmony contract probe: passed against Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, and HarmonyLib `2.4.1.0`. The corrected probe requires only the public firing event and stable identity properties; it no longer treats private firing loops or loaded-ammunition methods as proof of outcomes.
 - Native Release build: 0 warnings and 0 errors.
 - M4 change-set formatting and analyzer verification: passed. The repository-wide formatting command continues to report two pre-existing whitespace blocks in untouched legacy test files.
-- The replacement committed-head package, transactional deployment, and focused manual acceptance passed. Two reload-equivalent TT-33 callbacks remain one recovered interrupted run with exactly two firing actions; three pre-M4 runs remain explicitly unavailable in UI, JSON, and CSV instead of being upgraded by current support. Semantic backup fallback and one-second failed-checkpoint retry/coalescing are covered by deterministic regressions. Final remote CI remains pending; the PR stays draft.
+- The second replacement package, transactional deployment, focused manual acceptance, and CI passed. A later review found that missing lifetime capability metadata could still be upgraded when the lifetime aggregate contained persisted data. The fallback now additionally requires a genuinely empty aggregate; production exporter/view-model regressions pass. A new committed-head package, deployment readback, and final remote CI remain pending; the PR stays draft.
 
 ## Known limitations
 

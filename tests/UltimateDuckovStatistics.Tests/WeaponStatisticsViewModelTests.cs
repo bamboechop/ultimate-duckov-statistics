@@ -17,6 +17,16 @@ public sealed class WeaponStatisticsViewModelTests
         profile.Statistics.RunTotals.WeaponStatistics.Totals.Projectiles = 9;
         profile.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:b"] = Weapon("weapon:b", "Beta", 1);
         profile.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:a"] = Weapon("weapon:a", "Alpha", 3);
+        profile.Statistics.RunTotals.WeaponStatistics.Capabilities.FiringActions = new MetricAvailability
+        {
+            State = AdapterCapabilityState.Supported,
+            Provenance = "recorded firing actions"
+        };
+        profile.Statistics.RunTotals.WeaponStatistics.Capabilities.Projectiles = new MetricAvailability
+        {
+            State = AdapterCapabilityState.Supported,
+            Provenance = "recorded projectiles"
+        };
         profile.Capabilities.Add(new CapabilityRecord
         {
             AdapterId = WeaponCapabilityIds.FiringActions,
@@ -38,6 +48,29 @@ public sealed class WeaponStatisticsViewModelTests
             value => Assert.Equal("weapon:b", value.WeaponId));
         Assert.Equal(AdapterCapabilityState.Supported, model.Capabilities.FiringActions.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, model.Capabilities.Projectiles.State);
+    }
+
+    [Fact]
+    [Trait("Category", "Weapon")]
+    [Trait("Category", "UI")]
+    public void NonemptyLifetimeAggregateWithMissingCapabilityMetadataRemainsUnavailable()
+    {
+        var profile = new ProfileDocument();
+        profile.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions = 7;
+        profile.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:observed"] =
+            Weapon("weapon:observed", "Observed weapon", 7);
+        profile.Capabilities.Add(new CapabilityRecord
+        {
+            AdapterId = WeaponCapabilityIds.FiringActions,
+            State = AdapterCapabilityState.Supported
+        });
+
+        var model = WeaponStatisticsViewModelFactory.Create(profile);
+
+        Assert.Equal(7, model.Lifetime.Totals.FiringActions);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            model.Capabilities.FiringActions.State);
     }
 
     [Fact]

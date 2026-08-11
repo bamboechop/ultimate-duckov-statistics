@@ -262,6 +262,26 @@ public sealed class WeaponStatisticsTests
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, visible);
     }
 
+    [Fact]
+    [Trait("Category", "Weapon")]
+    [Trait("Category", "Persistence")]
+    public void LifetimeAggregateIsEmptyOnlyWhenItHasNoTotalsOrIdentityRows()
+    {
+        var aggregate = new WeaponStatisticsAggregate();
+        Assert.True(WeaponStatisticsReducer.IsEmpty(aggregate));
+
+        aggregate.Weapons["weapon:observed"] = new WeaponAggregate
+        {
+            WeaponId = "weapon:observed",
+            DisplayName = "Observed weapon"
+        };
+        Assert.False(WeaponStatisticsReducer.IsEmpty(aggregate));
+
+        aggregate.Weapons.Clear();
+        aggregate.Totals.FiringActions = 1;
+        Assert.False(WeaponStatisticsReducer.IsEmpty(aggregate));
+    }
+
     private static RunLifecycleTracker StartedTracker()
     {
         var tracker = new RunLifecycleTracker(() => "run-1");
