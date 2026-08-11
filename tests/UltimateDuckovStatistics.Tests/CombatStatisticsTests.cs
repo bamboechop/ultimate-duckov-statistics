@@ -30,9 +30,11 @@ public sealed class CombatStatisticsTests
         Assert.True(CombatObservationPolicy.CountHeadshot(
             headTargetedProjectile: true, nativeCritical: false, rangedHit: true, alreadyCounted: false));
         Assert.False(CombatObservationPolicy.CountHeadshotFinalBlow(
-            headTargetedProjectile: true, enemyTarget: true, fatalTransition: false));
+            headTargetedProjectile: true, enemyTarget: true, fatalTransition: false, alreadyCounted: false));
         Assert.True(CombatObservationPolicy.CountHeadshotFinalBlow(
-            headTargetedProjectile: true, enemyTarget: true, fatalTransition: true));
+            headTargetedProjectile: true, enemyTarget: true, fatalTransition: true, alreadyCounted: false));
+        Assert.False(CombatObservationPolicy.CountHeadshotFinalBlow(
+            headTargetedProjectile: true, enemyTarget: true, fatalTransition: true, alreadyCounted: true));
     }
 
     [Fact]
@@ -43,6 +45,29 @@ public sealed class CombatStatisticsTests
         Assert.False(CombatObservationPolicy.CountRangedHit(true, true, true, alreadyCounted: true));
         Assert.True(CombatObservationPolicy.CountMeleeHit(true, true, true, alreadyCounted: false));
         Assert.False(CombatObservationPolicy.CountMeleeHit(true, true, true, alreadyCounted: true));
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    public void StableFallbackIdentityTokensRemainReadableOrDeterministicallyNonEmpty()
+    {
+        Assert.Equal("modded-bandit", CombatObservationPolicy.CreateStableIdentityToken("Modded Bandit"));
+        Assert.Equal("utf8-2a2a2a", CombatObservationPolicy.CreateStableIdentityToken("***"));
+        Assert.Equal("unknown", CombatObservationPolicy.CreateStableIdentityToken("  "));
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "Run")]
+    public void DeathEvidenceIsAcceptedOncePerRunAndResetsForTheNextRun()
+    {
+        var gate = new DeathObservationGate();
+
+        Assert.False(gate.TryObserve(runActive: false));
+        Assert.True(gate.TryObserve(runActive: true));
+        Assert.False(gate.TryObserve(runActive: true));
+        gate.Reset();
+        Assert.True(gate.TryObserve(runActive: true));
     }
 
     [Fact]
@@ -132,6 +157,25 @@ public sealed class CombatStatisticsTests
         Assert.Equal(10, aggregate.Totals.DamageDealt);
         Assert.All(Enum.GetNames<CombatOwnership>(), name =>
             Assert.Equal(10, aggregate.Ownership[name].Totals.DamageCaused));
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    public void FriendlyTargetDamageRemainsInTotalsButNotEnemyOrFamilyBreakdowns()
+    {
+        var aggregate = new CombatStatisticsAggregate();
+        CombatStatisticsReducer.Apply(aggregate, Event("friendly") with
+        {
+            TargetIsEnemy = false,
+            Ownership = CombatOwnership.Player,
+            ActualDamageToTarget = 6,
+            ActualDamageDealt = 6
+        });
+
+        Assert.Equal(6, aggregate.Totals.DamageDealt);
+        Assert.Empty(aggregate.Enemies);
+        Assert.Empty(aggregate.Families);
+        Assert.Equal(6, aggregate.Ownership[nameof(CombatOwnership.Player)].Totals.DamageCaused);
     }
 
     [Fact]
@@ -478,6 +522,7 @@ public sealed class CombatStatisticsTests
         AdapterVersion = "test",
         TargetId = "duckov:target:preset:enemy",
         TargetDisplayName = "Enemy",
+        TargetIsEnemy = true,
         TargetFamilyId = "duckov:family:unknown",
         TargetFamilyDisplayName = "Unknown family",
         Capabilities = CombatNativeContractPolicy.CreateSupportedCapabilities()

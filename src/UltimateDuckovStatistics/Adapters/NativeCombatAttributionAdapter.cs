@@ -270,6 +270,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var headshot = CombatObservationPolicy.CountHeadshot(
             scope?.HeadTargeted == true, state.DamageInfo.crit > 0, rangedHit, scope?.HeadshotCounted == true);
         if (headshot) scope!.HeadshotCounted = true;
+        var headshotFinalBlow = CombatObservationPolicy.CountHeadshotFinalBlow(
+            scope?.HeadTargeted == true, enemyTarget, fatal, scope?.HeadshotFinalBlowCounted == true);
+        if (headshotFinalBlow) scope!.HeadshotFinalBlowCounted = true;
         var targetIdentity = ReadCharacterIdentity(target, "target");
         var attackerIdentity = ReadCharacterIdentity(source, "attacker");
         var family = ReadFamily(health);
@@ -295,6 +298,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             AttackerDisplayName = attackerIdentity.Name,
             TargetId = targetIdentity.Id,
             TargetDisplayName = targetIdentity.Name,
+            TargetIsEnemy = enemyTarget,
             TargetFamilyId = family.Id,
             TargetFamilyDisplayName = family.Name,
             WeaponId = weaponTypeId <= 0 ? "duckov:weapon:unknown" : $"duckov:weapon:{weaponTypeId.ToString(CultureInfo.InvariantCulture)}",
@@ -311,8 +315,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             MeleeHits = meleeHit ? 1 : 0,
             EnemiesKilled = fatal && enemyTarget ? 1 : 0,
             Headshots = headshot ? 1 : 0,
-            HeadshotFinalBlows = CombatObservationPolicy.CountHeadshotFinalBlow(
-                scope?.HeadTargeted == true, enemyTarget, fatal) ? 1 : 0,
+            HeadshotFinalBlows = headshotFinalBlow ? 1 : 0,
             IsFinalBlow = fatal,
             IsDamageOverTime = scope?.IsDamageOverTime == true
         }, allowTerminalPause: targetIsMain && fatal);
@@ -442,10 +445,11 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         {
             var stable = NonEmpty(preset.nameKey, preset.name);
             var name = NonEmpty(preset.DisplayName, NonEmpty(preset.name, stable));
-            if (!string.IsNullOrWhiteSpace(stable)) return ($"duckov:{role}:preset:{StableToken(stable)}", name);
+            if (!string.IsNullOrWhiteSpace(stable))
+                return ($"duckov:{role}:preset:{CombatObservationPolicy.CreateStableIdentityToken(stable)}", name);
         }
         var fallback = NonEmpty(character.name, "Unknown character");
-        return ($"duckov:{role}:fallback:{StableToken(fallback)}", fallback);
+        return ($"duckov:{role}:fallback:{CombatObservationPolicy.CreateStableIdentityToken(fallback)}", fallback);
     }
 
     private static (string Id, string Name) ReadFamily(Health health) => health.isZombie
@@ -472,12 +476,6 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             return NonEmpty(metadata.DisplayName, $"Unknown {kind} {typeId.ToString(CultureInfo.InvariantCulture)}");
         }
         catch { return $"Unknown {kind} {typeId.ToString(CultureInfo.InvariantCulture)}"; }
-    }
-
-    private static string StableToken(string value)
-    {
-        var chars = value.Trim().ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray();
-        return new string(chars).Trim('-');
     }
 
     private static string NonEmpty(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value;

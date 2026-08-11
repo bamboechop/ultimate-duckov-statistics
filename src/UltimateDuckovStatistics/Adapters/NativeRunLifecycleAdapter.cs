@@ -39,6 +39,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly MonotonicCadenceGate combatCheckpointCadence = new(CombatCheckpointIntervalSeconds);
     private readonly ReferenceSubjectGate<CharacterMainControl> mainCharacterGate = new();
     private readonly NativeCallbackLifetime callbackLifetime = new();
+    private readonly DeathObservationGate deathObservationGate = new();
     private readonly List<CapabilityRecord> capabilities = new();
     private CharacterMainControl? mainCharacter;
     private bool paused;
@@ -220,6 +221,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         combatCheckpointCadence.Reset();
         movementMapId = null;
         pendingDeathTerminal = false;
+        deathObservationGate.Reset();
         tracker.Apply(Event(RunLifecycleEventKind.RaidCleared));
     }
 
@@ -236,6 +238,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         combatCheckpointCadence.Reset();
         movementMapId = null;
         pendingDeathTerminal = false;
+        deathObservationGate.Reset();
         var cleaned = callbackLifetime.TryCleanup(TryDetachMainCharacter, out var staticCleanupFailure);
         if (staticCleanupFailure != null)
         {
@@ -316,6 +319,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         combatCheckpointCadence.Reset();
         movementMapId = tracker.ActiveMapId;
         pendingBoundary = null;
+        deathObservationGate.Reset();
         SampleMainDuck(utcNow, now);
         sampleCadence.MarkCompleted(now);
         SaveCheckpoint(utcNow, now);
@@ -355,6 +359,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         combatCheckpointCadence.Reset();
         movementMapId = null;
         pendingDeathTerminal = false;
+        deathObservationGate.Reset();
 
         if (completionHandler(transition.Completed))
         {
@@ -775,7 +780,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnMainCharacterDead(DamageInfo info)
     {
-        if (!tracker.IsActive)
+        if (!deathObservationGate.TryObserve(tracker.IsActive))
         {
             return;
         }

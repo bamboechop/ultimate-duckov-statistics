@@ -78,7 +78,7 @@ public static class CombatStatisticsReducer
         target.Capabilities = MergeCapabilities(target.Capabilities, value.Capabilities);
         Add(target.Totals, value);
 
-        if (value.ActualDamageToTarget > 0 || value.EnemiesKilled > 0)
+        if (value.TargetIsEnemy && (value.ActualDamageToTarget > 0 || value.EnemiesKilled > 0))
         {
             Add(GetOrCreate(target.Enemies, value.TargetId, value.TargetDisplayName).Totals, value);
             Add(GetOrCreate(target.Families, value.TargetFamilyId, value.TargetFamilyDisplayName).Totals, value);

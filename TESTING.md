@@ -845,7 +845,7 @@ Corrected package, deployment, reload-equivalent identity, forced-interruption r
 | Hook | Proves | Does not prove | Callback/order behavior | Ownership/failure behavior | Capability |
 |---|---|---|---|---|---|
 | `Health.Hurt(DamageInfo)` prefix/postfix | Actual positive HP loss from `CurrentHealth` before/after and a fatal transition | Requested/raw damage, `finalDamage` accuracy, overkill, headshot | Death callbacks occur inside `Hurt` before its postfix; UDS defers raid terminal completion until the next `Update` so the postfix is aggregated | `DamageInfo.fromCharacter`, refined by an active projectile's physical source; missing/unsafe patch disables combat attribution | Supported on verified build |
-| `LevelManager.OnMainCharacterDead(DamageInfo)` | Main-player death, killer/cause context | Actual HP delta by itself | Runs before `Health.Hurt` returns; records death evidence and requests deferred terminal completion | Null source is environmental; otherwise exact player/pet/unknown rules | Supported public event |
+| `LevelManager.OnMainCharacterDead(DamageInfo)` | Main-player death, killer/cause context | Actual HP delta by itself | Runs before `Health.Hurt` returns; a one-shot per-run gate records death evidence once and requests deferred terminal completion | Null source is environmental; otherwise exact player/pet/unknown rules | Supported public event |
 | `Projectile.Init(ProjectileContext)` postfix | Unique projectile instance; event-time physical source, weapon, ammunition, and native head-target flag | Completed projectile, hit, ammo consumption, geometric impact point | Pool reuse replaces the runtime-ID snapshot with a new unique projectile ID | Exact player requires `realFromCharacter ?? fromCharacter` to be the native main duck | Supported on verified build |
 | `Projectile.Update()` prefix/finalizer | Direct/penetrating/explosion `Health.Hurt` calls caused during that projectile update | Future/delayed effect ticks | A thread-local nested scope covers all synchronous damage and is always popped by finalizer | Per-projectile hit marker prevents repeated/multi-target inflation | Supported on verified build |
 | `Projectile.Release()` prefix | One completed projectile and, if marked, one compatible ranged hit | M4 firing action, trigger attempt, loaded-ammo decrement | Numerator and denominator commit together; only release while the run is active counts | Only exact-player projectile snapshots enter accuracy | Supported on verified build |
@@ -858,11 +858,11 @@ The combat Harmony owner is `at.bamboechop.ultimate-duckov-statistics.combat`, s
 
 ### Normalized and aggregate semantics
 
-- `CombatRecorded` carries the common generation/run/map/gameplay/integrity/version context plus ownership, attack kind, cause, attacker, target, family, weapon, ammunition, projectile ID, actual target HP loss, main-duck damage dealt/received, completed projectiles, ranged/melee outcomes, kills/deaths, headshots, and final blows.
+- `CombatRecorded` carries the common generation/run/map/gameplay/integrity/version context plus ownership, attack kind, cause, attacker, target, explicit enemy-target state, family, weapon, ammunition, projectile ID, actual target HP loss, main-duck damage dealt/received, completed projectiles, ranged/melee outcomes, kills/deaths, headshots, and final blows. Friendly/non-enemy damage can remain in exact totals and ownership rows but never enters enemy/family breakdowns.
 - Every native callback gets a unique event ID. Each active run retains the latest 2,048 combat IDs; projectile correlations are independently bounded to 2,048. Distinct rapid, pellet, penetration, multi-hit, and DoT callbacks are not content-hash deduplicated.
 - Only exact generation/run/map `Raid` events enter totals. Native loading, pause, base, no-run, and mismatched activity are rejected before aggregation.
 - `DamageCaused` retains non-main target HP loss for ownership breakdowns. The user-facing `DamageDealt` total is the exact main duck only. Damage received is main duck only. Enemy kills include fatal non-player targets and remain split by ownership.
-- Accuracy commits one numerator/denominator event at projectile completion. A projectile can damage multiple targets but contributes at most one ranged hit.
+- Accuracy commits one numerator/denominator event at projectile completion. A projectile can damage multiple targets but contributes at most one ranged hit, one headshot, and one headshot final blow; penetration or multi-target explosions cannot make the fatal subset exceed the headshot count.
 - Lifetime, map, and run totals merge deterministically with saturating non-negative arithmetic. Breakdowns are enemy, killer, family, cause, weapon, ammunition, and ownership.
 
 ### Persistence and historical boundary
@@ -875,7 +875,7 @@ The combat Harmony owner is `at.bamboechop.ultimate-duckov-statistics.combat`, s
 
 ### Automated evidence before gameplay
 
-- Complete Release suite: 208/208 passed after M5 implementation, including all 188 M0-M4 tests.
+- Complete Release suite: 211/211 passed after M5 implementation, including all 188 M0-M4 tests.
 - Native Release solution build: 0 warnings and 0 errors.
 - Expanded native contract probe passed against the exact versions and hashes above. It now checks `Health.Hurt`, static hurt/death events, projectile Init/Update/Release, melee scope, effect source, main/pet ownership members, stable preset key, damage fields, and head-target property.
 - Changed-file formatter verification, `git diff --check`, and the tracked-tree forbidden-binary/source-safety audit passed.

@@ -111,6 +111,7 @@ internal sealed class CombatNativeScope
     public string AmmunitionDisplayName { get; set; } = string.Empty;
     public bool HitCounted { get; set; }
     public bool HeadshotCounted { get; set; }
+    public bool HeadshotFinalBlowCounted { get; set; }
 }
 
 internal sealed class CombatHealthPatchState

@@ -33,7 +33,7 @@ Each method is checked for an exact safe patch set at activation and periodicall
 
 ## Exact metric semantics and limitations
 
-- Ranged accuracy = unique completed exact-main-duck projectiles that caused positive actual enemy HP loss / completed exact-main-duck projectiles. Penetration, pellets, explosions, and repeated callbacks cannot count a projectile more than once. It is deliberately not based on M4 firing actions.
+- Ranged accuracy = unique completed exact-main-duck projectiles that caused positive actual enemy HP loss / completed exact-main-duck projectiles. Penetration, pellets, explosions, and repeated callbacks cannot count a projectile, headshot, or headshot final blow more than once. It is deliberately not based on M4 firing actions.
 - A projectile that has not reached `Projectile.Release` before run termination enters neither numerator nor denominator for that run.
 - Headshot = positive enemy HP loss from an exact-player projectile whose native `AimingEnemyHead` flag was independently true at projectile initialization. This is a native head-target claim, not a reconstructed geometric impact point. Unsupported input paths remain uncounted.
 - `DamageInfo.crit` is retained only as native context and is never headshot proof.
@@ -44,7 +44,7 @@ Each method is checked for an exact safe patch set at activation and periodicall
 ## Validation status
 
 - Starting baseline: `origin/main` at `261a1e1668536aa1aa77868753add3269a90bd30`.
-- Release suite: 208 tests pass, including the complete M1-M4 regression suite and new actual/overkill, filtering, ownership, DoT, identity, ranged/melee, deduplication, multi-damage headshot, owner-isolated Harmony cleanup, migration, active-checkpoint recovery, nested-root repair, normalization, overflow, pristine-profile/historical capability boundaries, UI/export, and capability-monotonicity coverage.
+- Release suite: 211 tests pass, including the complete M1-M4 regression suite and new actual/overkill, filtering, friendly/enemy separation, ownership, DoT, stable fallback identity, ranged/melee, event/death-callback deduplication, multi-damage headshot, owner-isolated Harmony cleanup, migration, active-checkpoint recovery, nested-root repair, normalization, overflow, pristine-profile/historical capability boundaries, UI/export, and capability-monotonicity coverage.
 - Native Release solution build: 0 warnings and 0 errors.
 - Expanded native contract probe: passes against the versions and assembly hashes documented in `TESTING.md`.
 - `git diff --check`: passes.
