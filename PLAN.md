@@ -261,7 +261,7 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Actual HP restored, delayed effects, overheal exclusion, item attribution.
 4. **M3 — Run lifecycle and movement (`v0.3.0`, implementation and complete manual acceptance passed)**
     - Run summaries, active timers, extraction/death/interruption, records, maps, physical/teleport distance.
-5. **M4 — Weapons and ammunition (`v0.4.0`, corrective review follow-up in validation; draft PR remains open)**
+5. **M4 — Weapons and ammunition (`v0.4.0`, implementation, complete manual acceptance, and corrective review validation passed; draft PR remains open)**
     - Proven accepted firing actions and event-time weapon/ammunition breakdowns. Trigger attempts, actual loaded-ammunition consumption, and completed projectile creation remain explicitly unavailable because the public firing callback does not prove those side effects.
 6. **M5 — Damage, kills, deaths, melee, and headshots**
     - Combat attribution and reliable related metrics from the same hooks.
