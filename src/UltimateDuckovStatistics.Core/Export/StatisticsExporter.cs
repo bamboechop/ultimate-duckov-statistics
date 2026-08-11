@@ -43,6 +43,9 @@ public sealed class StatisticsExportDocument
 
     [DataMember(Order = 11)]
     public RunDurationRecords RunRecords { get; set; } = new();
+
+    [DataMember(Order = 12)]
+    public List<CapabilityRecord> Capabilities { get; set; } = new();
 }
 
 [DataContract]
@@ -85,7 +88,10 @@ public sealed class StatisticsExportBundle
         string runsCsv,
         string runTotalsCsv,
         string mapTotalsCsv,
-        string recordsCsv)
+        string recordsCsv,
+        string combatTotalsCsv,
+        string weaponTotalsCsv,
+        string ammunitionTotalsCsv)
     {
         Document = document;
         Json = json;
@@ -96,6 +102,9 @@ public sealed class StatisticsExportBundle
         RunTotalsCsv = runTotalsCsv;
         MapTotalsCsv = mapTotalsCsv;
         RecordsCsv = recordsCsv;
+        CombatTotalsCsv = combatTotalsCsv;
+        WeaponTotalsCsv = weaponTotalsCsv;
+        AmmunitionTotalsCsv = ammunitionTotalsCsv;
     }
 
     public StatisticsExportDocument Document { get; }
@@ -115,6 +124,12 @@ public sealed class StatisticsExportBundle
     public string MapTotalsCsv { get; }
 
     public string RecordsCsv { get; }
+
+    public string CombatTotalsCsv { get; }
+
+    public string WeaponTotalsCsv { get; }
+
+    public string AmmunitionTotalsCsv { get; }
 }
 
 public static class StatisticsExporter
@@ -136,6 +151,28 @@ public static class StatisticsExporter
         }
 
         exportedUtc = EnsureUtc(exportedUtc);
+        var runTotals = CloneRunTotals(profile.Statistics.RunTotals);
+        runTotals.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
+            runTotals.WeaponStatistics,
+            profile.Capabilities,
+            allowUninitializedFallback: true);
+        foreach (var map in runTotals.Maps.Values)
+        {
+            map.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
+                map.WeaponStatistics,
+                profile.Capabilities,
+                allowUninitializedFallback: false);
+        }
+
+        var runs = profile.Statistics.Runs.Select(CloneRun).ToList();
+        foreach (var run in runs)
+        {
+            run.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
+                run.WeaponStatistics,
+                profile.Capabilities,
+                allowUninitializedFallback: false);
+        }
+
         var document = new StatisticsExportDocument
         {
             ExportedUtc = exportedUtc,
@@ -162,9 +199,10 @@ public static class StatisticsExporter
                     Totals = CloneTotals(item.Totals)
                 })
                 .ToList(),
-            RunTotals = CloneRunTotals(profile.Statistics.RunTotals),
-            Runs = profile.Statistics.Runs.Select(CloneRun).ToList(),
-            RunRecords = CloneRunRecords(profile.Statistics.RunRecords)
+            RunTotals = runTotals,
+            Runs = runs,
+            RunRecords = CloneRunRecords(profile.Statistics.RunRecords),
+            Capabilities = profile.Capabilities.Select(CloneCapability).ToList()
         };
 
         return new StatisticsExportBundle(
@@ -176,7 +214,10 @@ public static class StatisticsExporter
             CreateRunsCsv(document),
             CreateRunTotalsCsv(document),
             CreateMapTotalsCsv(document),
-            CreateRecordsCsv(document));
+            CreateRecordsCsv(document),
+            CreateCombatTotalsCsv(document),
+            CreateWeaponTotalsCsv(document),
+            CreateAmmunitionTotalsCsv(document));
     }
 
     private static string SerializeJson(StatisticsExportDocument document)
@@ -315,6 +356,173 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
+    private static string CreateCombatTotalsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,scope_display_name,firing_actions,ammunition_units_consumed,projectiles,trigger_attempts_state,firing_actions_state,ammunition_consumption_state,projectiles_state,weapon_identity_state,ammunition_identity_state");
+        AppendCombatTotals(builder, "lifetime", document.GenerationId, "Lifetime", document.RunTotals.WeaponStatistics, document.Capabilities);
+        foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+        {
+            AppendCombatTotals(builder, "map", map.MapId, map.DisplayName, map.WeaponStatistics, document.Capabilities);
+        }
+
+        foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
+        {
+            AppendCombatTotals(builder, "run", run.RunId, run.MapDisplayName, run.WeaponStatistics, document.Capabilities);
+        }
+
+        return builder.ToString();
+    }
+
+    private static string CreateWeaponTotalsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,weapon_id,display_name,firing_actions,ammunition_units_consumed,projectiles,firing_actions_state,ammunition_consumption_state,projectiles_state");
+        AppendWeaponTotals(builder, "lifetime", document.GenerationId, document.RunTotals.WeaponStatistics);
+        foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+        {
+            AppendWeaponTotals(builder, "map", map.MapId, map.WeaponStatistics);
+        }
+
+        foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
+        {
+            AppendWeaponTotals(builder, "run", run.RunId, run.WeaponStatistics);
+        }
+
+        return builder.ToString();
+    }
+
+    private static string CreateAmmunitionTotalsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,ammunition_id,display_name,firing_actions,ammunition_units_consumed,projectiles,firing_actions_state,ammunition_consumption_state,projectiles_state");
+        AppendAmmunitionTotals(builder, "lifetime", document.GenerationId, document.RunTotals.WeaponStatistics);
+        foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+        {
+            AppendAmmunitionTotals(builder, "map", map.MapId, map.WeaponStatistics);
+        }
+
+        foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
+        {
+            AppendAmmunitionTotals(builder, "run", run.RunId, run.WeaponStatistics);
+        }
+
+        return builder.ToString();
+    }
+
+    private static void AppendCombatTotals(
+        StringBuilder builder,
+        string scope,
+        string scopeId,
+        string scopeDisplayName,
+        WeaponStatisticsAggregate statistics,
+        IReadOnlyList<CapabilityRecord>? currentCapabilities = null)
+    {
+        var capabilities = statistics.Capabilities;
+        builder.Append(scope).Append(',')
+            .Append(Csv(scopeId)).Append(',')
+            .Append(Csv(scopeDisplayName)).Append(',')
+            .Append(statistics.Totals.FiringActions.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(statistics.Totals.AmmunitionUnitsConsumed.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(statistics.Totals.Projectiles.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(ReadCapabilityState(currentCapabilities, WeaponCapabilityIds.TriggerAttempts, AdapterCapabilityState.DisabledIncompatible)).Append(',')
+            .Append(capabilities.FiringActions.State).Append(',')
+            .Append(capabilities.AmmunitionConsumption.State).Append(',')
+            .Append(capabilities.Projectiles.State).Append(',')
+            .Append(capabilities.WeaponIdentity.State).Append(',')
+            .Append(capabilities.AmmunitionIdentity.State).AppendLine();
+    }
+
+    private static void AppendWeaponTotals(
+        StringBuilder builder,
+        string scope,
+        string scopeId,
+        WeaponStatisticsAggregate statistics)
+    {
+        foreach (var weapon in statistics.Weapons.Values.OrderBy(value => value.WeaponId, StringComparer.Ordinal))
+        {
+            builder.Append(scope).Append(',').Append(Csv(scopeId)).Append(',')
+                .Append(Csv(weapon.WeaponId)).Append(',').Append(Csv(weapon.DisplayName)).Append(',');
+            AppendWeaponMetricTotals(builder, weapon.Totals, statistics.Capabilities);
+        }
+    }
+
+    private static void AppendAmmunitionTotals(
+        StringBuilder builder,
+        string scope,
+        string scopeId,
+        WeaponStatisticsAggregate statistics)
+    {
+        foreach (var ammunition in statistics.AmmunitionTypes.Values.OrderBy(value => value.AmmunitionId, StringComparer.Ordinal))
+        {
+            builder.Append(scope).Append(',').Append(Csv(scopeId)).Append(',')
+                .Append(Csv(ammunition.AmmunitionId)).Append(',').Append(Csv(ammunition.DisplayName)).Append(',');
+            AppendWeaponMetricTotals(builder, ammunition.Totals, statistics.Capabilities);
+        }
+    }
+
+    private static void AppendWeaponMetricTotals(
+        StringBuilder builder,
+        WeaponMetricTotals totals,
+        WeaponMetricCapabilities capabilities)
+    {
+        builder.Append(totals.FiringActions.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(totals.AmmunitionUnitsConsumed.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(totals.Projectiles.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(capabilities.FiringActions.State).Append(',')
+            .Append(capabilities.AmmunitionConsumption.State).Append(',')
+            .Append(capabilities.Projectiles.State).AppendLine();
+    }
+
+    private static AdapterCapabilityState ReadCapabilityState(
+        IReadOnlyList<CapabilityRecord>? capabilities,
+        string adapterId,
+        AdapterCapabilityState fallback) => capabilities?
+            .FirstOrDefault(capability => string.Equals(capability.AdapterId, adapterId, StringComparison.Ordinal))
+            ?.State ?? fallback;
+
+    private static WeaponMetricCapabilities ApplyCurrentWeaponCapabilityStates(
+        WeaponStatisticsAggregate aggregate,
+        IReadOnlyList<CapabilityRecord> current,
+        bool allowUninitializedFallback)
+    {
+        var clone = WeaponStatisticsReducer.CloneCapabilities(aggregate.Capabilities);
+        clone.FiringActions.State = ResolveAvailability(
+            aggregate,
+            clone.FiringActions,
+            ReadCapabilityState(current, WeaponCapabilityIds.FiringActions, clone.FiringActions.State),
+            allowUninitializedFallback);
+        clone.AmmunitionConsumption.State = ResolveAvailability(
+            aggregate,
+            clone.AmmunitionConsumption,
+            ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionConsumption, clone.AmmunitionConsumption.State),
+            allowUninitializedFallback);
+        clone.Projectiles.State = ResolveAvailability(
+            aggregate,
+            clone.Projectiles,
+            ReadCapabilityState(current, WeaponCapabilityIds.Projectiles, clone.Projectiles.State),
+            allowUninitializedFallback);
+        clone.WeaponIdentity.State = ResolveAvailability(
+            aggregate,
+            clone.WeaponIdentity,
+            ReadCapabilityState(current, WeaponCapabilityIds.WeaponIdentity, clone.WeaponIdentity.State),
+            allowUninitializedFallback);
+        clone.AmmunitionIdentity.State = ResolveAvailability(
+            aggregate,
+            clone.AmmunitionIdentity,
+            ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionIdentity, clone.AmmunitionIdentity.State),
+            allowUninitializedFallback);
+        return clone;
+    }
+
+    private static AdapterCapabilityState ResolveAvailability(
+        WeaponStatisticsAggregate aggregate,
+        MetricAvailability recorded,
+        AdapterCapabilityState current,
+        bool allowUninitializedFallback) => allowUninitializedFallback
+            ? WeaponStatisticsReducer.ResolveCurrentAvailability(aggregate, recorded, current)
+            : WeaponStatisticsReducer.RestrictAvailability(recorded, current);
+
     private static void AppendRecordPair(
         StringBuilder builder,
         string scope,
@@ -394,6 +602,7 @@ public static class StatisticsExporter
         Outcomes = source.Outcomes.ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal),
         PhysicalDistance = source.PhysicalDistance,
         TeleportDistance = source.TeleportDistance,
+        WeaponStatistics = WeaponStatisticsReducer.Clone(source.WeaponStatistics),
         Maps = source.Maps.ToDictionary(
             entry => entry.Key,
             entry => new MapRunAggregate
@@ -404,7 +613,8 @@ public static class StatisticsExporter
                 TotalRuns = entry.Value.TotalRuns,
                 Outcomes = entry.Value.Outcomes.ToDictionary(outcome => outcome.Key, outcome => outcome.Value, StringComparer.Ordinal),
                 PhysicalDistance = entry.Value.PhysicalDistance,
-                TeleportDistance = entry.Value.TeleportDistance
+                TeleportDistance = entry.Value.TeleportDistance,
+                WeaponStatistics = WeaponStatisticsReducer.Clone(entry.Value.WeaponStatistics)
             },
             StringComparer.Ordinal)
     };
@@ -434,7 +644,16 @@ public static class StatisticsExporter
         MovementCapability = source.MovementCapability,
         MovementAdapterVersion = source.MovementAdapterVersion,
         MapCapability = source.MapCapability,
-        MapAdapterVersion = source.MapAdapterVersion
+        MapAdapterVersion = source.MapAdapterVersion,
+        WeaponStatistics = WeaponStatisticsReducer.Clone(source.WeaponStatistics)
+    };
+
+    private static CapabilityRecord CloneCapability(CapabilityRecord source) => new()
+    {
+        AdapterId = source.AdapterId,
+        State = source.State,
+        Version = source.Version,
+        Detail = source.Detail
     };
 
     private static RunDurationRecords CloneRunRecords(RunDurationRecords source) => new()

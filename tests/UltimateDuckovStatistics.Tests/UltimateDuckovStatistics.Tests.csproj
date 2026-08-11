@@ -29,5 +29,7 @@
              Link="ProductionAdapters\RetryableHarmonyPatcherLease.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCallbackLifetime.cs"
              Link="ProductionAdapters\NativeCallbackLifetime.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\UiText.cs"
+             Link="ProductionUI\UiText.cs" />
   </ItemGroup>
 </Project>

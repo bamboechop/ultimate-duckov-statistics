@@ -85,7 +85,9 @@ public sealed class AtomicJsonStore<T>
         File.Replace(temporaryPath, fullPath, AtomicJsonPaths.GetBackupPath(fullPath), ignoreMetadataErrors: true);
     }
 
-    public AtomicJsonLoadResult<T> Load(string path)
+    public AtomicJsonLoadResult<T> Load(string path) => Load(path, semanticValidator: null);
+
+    public AtomicJsonLoadResult<T> Load(string path, Func<T, string?>? semanticValidator)
     {
         var fullPath = Path.GetFullPath(path);
         var failures = new List<string>();
@@ -114,6 +116,13 @@ public sealed class AtomicJsonStore<T>
                 if (value == null)
                 {
                     throw new SerializationException("The JSON document contained no object.");
+                }
+
+                var semanticFailure = semanticValidator?.Invoke(value);
+                if (!string.IsNullOrWhiteSpace(semanticFailure))
+                {
+                    failures.Add($"{candidate.Source}: SemanticValidation: {semanticFailure}");
+                    continue;
                 }
 
                 var repaired = candidate.Source != AtomicJsonLoadSource.Primary

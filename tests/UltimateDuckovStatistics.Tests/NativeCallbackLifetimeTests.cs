@@ -7,6 +7,7 @@ public sealed class NativeCallbackLifetimeTests
 {
     [Fact]
     [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
     [Trait("Category", "Lifecycle")]
     public void FailedLevelCallbackRemovalCannotReacquireAnInstanceHandlerAfterDisposal()
     {

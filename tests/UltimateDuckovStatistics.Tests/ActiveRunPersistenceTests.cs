@@ -1,11 +1,129 @@
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Statistics;
+using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.Tests;
 
 public sealed class ActiveRunPersistenceTests
 {
     private static readonly DateTime TestTime = new(2026, 8, 10, 12, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
+    public void AcceptedShotIsRecoveredFromTheCheckpointCreatedAfterTheProductionMutationSequence()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var tracker = new UltimateDuckovStatistics.Core.Tracking.RunLifecycleTracker(() => "run-live-shot");
+        tracker.Apply(LifecycleEvent(RunLifecycleEventKind.RaidInitialized, generation, 0));
+        tracker.Apply(LifecycleEvent(RunLifecycleEventKind.ControlReady, generation, 0));
+        Assert.True(tracker.RecordShot(LiveShot(generation)));
+        Assert.True(tracker.CombatCheckpointRequired);
+        repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(1), 1)!);
+        tracker.MarkCheckpointSaved(1);
+        Assert.False(tracker.CombatCheckpointRequired);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal("run-live-shot", run.RunId);
+        Assert.Equal(1, run.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
+    public void PartiallyPopulatedWeaponCheckpointIsNormalizedBeforeInterruptedRecovery()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var checkpoint = Checkpoint(repository.CurrentGenerationId, 3);
+        checkpoint.WeaponStatistics.Totals = null!;
+        checkpoint.WeaponStatistics.Weapons = null!;
+        checkpoint.WeaponStatistics.AmmunitionTypes = null!;
+        checkpoint.WeaponStatistics.Capabilities = null!;
+        repository.CloseClean();
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+
+        var recovered = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.NotNull(recovered.WeaponStatistics.Totals);
+        Assert.NotNull(recovered.WeaponStatistics.Capabilities.FiringActions);
+        Assert.Empty(recovered.WeaponStatistics.Weapons);
+        Assert.Empty(recovered.WeaponStatistics.AmmunitionTypes);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
+    public void NullCheckpointAvailabilityMembersAreNormalizedBeforeInterruptedRecovery()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var checkpoint = Checkpoint(repository.CurrentGenerationId, 3);
+        checkpoint.WeaponStatistics.Capabilities = new WeaponMetricCapabilities
+        {
+            FiringActions = null!,
+            AmmunitionConsumption = null!,
+            Projectiles = null!,
+            WeaponIdentity = null!,
+            AmmunitionIdentity = null!
+        };
+        repository.CloseClean();
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+
+        var recovered = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.NotNull(recovered.WeaponStatistics.Capabilities.FiringActions);
+        Assert.NotNull(recovered.WeaponStatistics.Capabilities.AmmunitionConsumption);
+        Assert.NotNull(recovered.WeaponStatistics.Capabilities.Projectiles);
+        Assert.NotNull(recovered.WeaponStatistics.Capabilities.WeaponIdentity);
+        Assert.NotNull(recovered.WeaponStatistics.Capabilities.AmmunitionIdentity);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
+    public void NegativeWeaponCheckpointIsArchivedReadOnlyWithoutAbortingProfileOpen()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var checkpoint = Checkpoint(repository.CurrentGenerationId, 3);
+        checkpoint.WeaponStatistics.Totals.FiringActions = -1;
+        repository.CloseClean();
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
+
+        var recovery = Repository(directory.Path);
+        var result = recovery.Open(Identity());
+
+        Assert.False(result.InterruptedRunRecovered);
+        Assert.Empty(recovery.Current.Statistics.Runs);
+        var preserved = Directory.GetFiles(
+            Path.Combine(Path.GetDirectoryName(ActiveRunPath(directory.Path))!, "checkpoint-recovery"));
+        Assert.NotEmpty(preserved);
+        Assert.All(preserved, file => Assert.True(File.GetAttributes(file).HasFlag(FileAttributes.ReadOnly)));
+        recovery.CloseClean();
+    }
 
     [Fact]
     [Trait("Category", "Persistence")]
@@ -28,6 +146,10 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(12, run.ActiveDurationSeconds);
         Assert.Equal(4, run.PhysicalDistance);
         Assert.Equal(9, run.TeleportDistance);
+        Assert.Equal(1, run.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(1, run.WeaponStatistics.Totals.AmmunitionUnitsConsumed);
+        Assert.Equal(6, run.WeaponStatistics.Totals.Projectiles);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         Assert.Null(recovery.Current.Statistics.RunRecords.Extraction.Shortest);
         recovery.CloseClean();
 
@@ -35,6 +157,7 @@ public sealed class ActiveRunPersistenceTests
         var repeatedResult = repeated.Open(Identity());
         Assert.False(repeatedResult.InterruptedRunRecovered);
         Assert.Single(repeated.Current.Statistics.Runs);
+        Assert.Equal(1, repeated.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         repeated.CloseClean();
     }
 
@@ -57,6 +180,45 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(5, Assert.Single(recovery.Current.Statistics.Runs).ActiveDurationSeconds);
         Assert.False(File.Exists(ActiveRunPath(directory.Path)));
         Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(ActiveRunPath(directory.Path))));
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
+    [Trait("Category", "Weapon")]
+    public void ActiveRunRecoveryUsesValidBackupWhenPrimaryHasNegativeCombatCounter()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        repository.SaveActiveRun(Checkpoint(generation, 5));
+        repository.SaveActiveRun(Checkpoint(generation, 8));
+        repository.CloseClean();
+        var path = ActiveRunPath(directory.Path);
+        var primary = File.ReadAllText(path);
+        const string validCounter = "\"FiringActions\":1";
+        var counterIndex = primary.IndexOf(validCounter, StringComparison.Ordinal);
+        Assert.True(counterIndex >= 0);
+        File.WriteAllText(
+            path,
+            string.Concat(
+                primary.AsSpan(0, counterIndex),
+                "\"FiringActions\":-1",
+                primary.AsSpan(counterIndex + validCounter.Length)));
+
+        var recovery = Repository(directory.Path);
+        var result = recovery.Open(Identity());
+
+        Assert.True(result.InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Equal(1, run.WeaponStatistics.Totals.FiringActions);
+        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(path)));
+        var recoveryDirectory = Path.Combine(Path.GetDirectoryName(path)!, "checkpoint-recovery");
+        Assert.False(Directory.Exists(recoveryDirectory));
         recovery.CloseClean();
     }
 
@@ -94,11 +256,13 @@ public sealed class ActiveRunPersistenceTests
         repository.Open(Identity(slot: 2));
         Assert.Equal(2, repository.Current.Slot);
         Assert.Empty(repository.Current.Statistics.Runs);
+        Assert.Equal(0, repository.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         repository.CloseClean();
 
         var recovery = Repository(directory.Path);
         Assert.True(recovery.Open(Identity(slot: 1)).InterruptedRunRecovered);
         Assert.Equal(slotOneGeneration, Assert.Single(recovery.Current.Statistics.Runs).SaveGenerationId);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         recovery.CloseClean();
     }
 
@@ -197,7 +361,94 @@ public sealed class ActiveRunPersistenceTests
         MovementCapability = AdapterCapabilityState.Supported,
         MovementAdapterVersion = "native-main-duck-movement/2.3.30",
         MapCapability = AdapterCapabilityState.Supported,
-        MapAdapterVersion = "native-map-identity/2.3.30"
+        MapAdapterVersion = "native-map-identity/2.3.30",
+        WeaponStatistics = CombatStatistics()
+    };
+
+    private static WeaponStatisticsAggregate CombatStatistics()
+    {
+        var statistics = new WeaponStatisticsAggregate();
+        WeaponStatisticsReducer.Apply(statistics, new ShotRecorded
+        {
+            EventId = "shot-checkpoint",
+            TimestampUtc = TestTime,
+            SaveGenerationId = "unused-after-aggregation",
+            RunId = "run-checkpoint",
+            MapId = "duckov:map:warehouse",
+            GameplayContext = GameplayContext.Raid,
+            WeaponId = "duckov:weapon:1",
+            WeaponDisplayName = "Test shotgun",
+            AmmunitionId = "duckov:ammo:2",
+            AmmunitionDisplayName = "Test shell",
+            FiringActionCount = 1,
+            AmmunitionUnitsConsumed = 1,
+            ProjectileCount = 6,
+            Capabilities = SupportedCapabilities()
+        });
+        return statistics;
+    }
+
+    private static WeaponMetricCapabilities SupportedCapabilities() => new()
+    {
+        FiringActions = Supported(),
+        AmmunitionConsumption = Supported(),
+        Projectiles = Supported(),
+        WeaponIdentity = Supported(),
+        AmmunitionIdentity = Supported()
+    };
+
+    private static MetricAvailability Supported() => new()
+    {
+        State = AdapterCapabilityState.Supported,
+        Provenance = "test"
+    };
+
+    private static RunLifecycleEvent LifecycleEvent(
+        RunLifecycleEventKind kind,
+        string generation,
+        double seconds) => new()
+        {
+            Kind = kind,
+            TimestampUtc = TestTime.AddSeconds(seconds),
+            MonotonicSeconds = seconds,
+            NativeRaidId = "42",
+            StartContext = kind == RunLifecycleEventKind.ControlReady
+                ? new RunStartContext
+                {
+                    SaveGenerationId = generation,
+                    NativeRaidId = "42",
+                    Map = new MapIdentity
+                    {
+                        MapId = "duckov:map:warehouse",
+                        DisplayName = "Warehouse",
+                        IsKnown = true
+                    },
+                    IntegrityTags = IntegrityTags.Normal,
+                    LifecycleCapability = AdapterCapabilityState.Supported,
+                    MovementCapability = AdapterCapabilityState.Supported,
+                    MapCapability = AdapterCapabilityState.Supported,
+                    WeaponCapabilities = SupportedCapabilities()
+                }
+                : null
+        };
+
+    private static ShotRecorded LiveShot(string generation) => new()
+    {
+        EventId = "live-shot",
+        TimestampUtc = TestTime,
+        SaveGenerationId = generation,
+        RunId = "run-live-shot",
+        MapId = "duckov:map:warehouse",
+        GameplayContext = GameplayContext.Raid,
+        IntegrityTags = IntegrityTags.Normal,
+        WeaponId = "duckov:weapon:1",
+        WeaponDisplayName = "Test rifle",
+        AmmunitionId = "duckov:ammo:2",
+        AmmunitionDisplayName = "Test round",
+        FiringActionCount = 1,
+        AmmunitionUnitsConsumed = 1,
+        ProjectileCount = 1,
+        Capabilities = SupportedCapabilities()
     };
 
     private static SaveIdentitySnapshot Identity(

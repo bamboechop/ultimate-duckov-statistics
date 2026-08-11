@@ -107,8 +107,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(3, repository.Current.SchemaVersion);
-        Assert.Equal(3, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(4, repository.Current.SchemaVersion);
+        Assert.Equal(4, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
@@ -188,6 +188,215 @@ public sealed class PersistenceTests
         Assert.Equal(archiveHash, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(archivePath))));
         Assert.True(File.GetAttributes(archivePath).HasFlag(FileAttributes.ReadOnly));
         repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Migration")]
+    [Trait("Category", "Weapon")]
+    public void RepositoryMigratesSchemaThreeWithoutChangingM1ToM3Data()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var legacy = CreateDocument("generation-v03", revision: 73);
+        legacy.SchemaVersion = 3;
+        legacy.Statistics.SchemaVersion = 3;
+        legacy.InterruptedSessionCount = 2;
+        legacy.Statistics.Overall.ActivationCount = 5;
+        legacy.Statistics.Overall.ActualHealthRestored = 24;
+        legacy.Statistics.RunTotals.TotalRuns = 1;
+        legacy.Statistics.RunTotals.PhysicalDistance = 120;
+        legacy.Statistics.RunTotals.TeleportDistance = 3;
+        legacy.Statistics.RunTotals.Outcomes[nameof(RunOutcome.Extracted)] = 1;
+        legacy.Statistics.RunTotals.WeaponStatistics = null!;
+        legacy.Statistics.RunTotals.Maps["duckov:map:test"] = new MapRunAggregate
+        {
+            MapId = "duckov:map:test",
+            DisplayName = "Test map",
+            IsKnown = true,
+            TotalRuns = 1,
+            PhysicalDistance = 120,
+            TeleportDistance = 3,
+            Outcomes = new() { [nameof(RunOutcome.Extracted)] = 1 },
+            WeaponStatistics = null!
+        };
+        legacy.Statistics.Runs.Add(new RunSummary
+        {
+            RunId = "run-v03",
+            SaveGenerationId = "generation-v03",
+            MapId = "duckov:map:test",
+            MapDisplayName = "Test map",
+            MapKnown = true,
+            StartedUtc = TestTime.AddMinutes(-2),
+            EndedUtc = TestTime,
+            ActiveDurationSeconds = 90,
+            WallClockDurationSeconds = 120,
+            Outcome = RunOutcome.Extracted,
+            PhysicalDistance = 120,
+            TeleportDistance = 3,
+            RecordEligible = true,
+            LifecycleCapability = AdapterCapabilityState.Supported,
+            MovementCapability = AdapterCapabilityState.Supported,
+            MapCapability = AdapterCapabilityState.Supported,
+            WeaponStatistics = null!
+        });
+        legacy.Capabilities.Add(new CapabilityRecord
+        {
+            AdapterId = RunStatisticsViewModelFactory.MovementAdapterId,
+            State = AdapterCapabilityState.Supported,
+            Version = "native-main-duck-movement/2.3.30"
+        });
+        new AtomicJsonStore<ProfileDocument>().Save(path, legacy);
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.MigratedSchema);
+        Assert.Equal(4, repository.Current.SchemaVersion);
+        Assert.Equal(4, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal("generation-v03", repository.Current.GenerationId);
+        Assert.Equal(73, repository.Current.Revision);
+        Assert.Equal(2, repository.Current.InterruptedSessionCount);
+        Assert.Equal(5, repository.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(24, repository.Current.Statistics.Overall.ActualHealthRestored);
+        Assert.Equal(1, repository.Current.Statistics.RunTotals.TotalRuns);
+        Assert.Equal(120, repository.Current.Statistics.RunTotals.PhysicalDistance);
+        Assert.Equal(3, repository.Current.Statistics.RunTotals.TeleportDistance);
+        Assert.Equal("run-v03", Assert.Single(repository.Current.Statistics.Runs).RunId);
+        Assert.Equal("native-main-duck-movement", Assert.Single(repository.Current.Capabilities).AdapterId);
+        Assert.Equal(0, repository.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
+        Assert.Empty(repository.Current.Statistics.RunTotals.WeaponStatistics.Weapons);
+        Assert.Empty(repository.Current.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes);
+        Assert.NotNull(repository.Current.Statistics.RunTotals.Maps["duckov:map:test"].WeaponStatistics);
+        Assert.NotNull(repository.Current.Statistics.Runs[0].WeaponStatistics);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Migration")]
+    [Trait("Category", "Weapon")]
+    public void RepositoryPersistsInvalidLifetimeRepairMarkerAcrossReopen()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(
+            temporaryDirectory.Path,
+            "profiles",
+            "slot-01",
+            "current",
+            "profile.json");
+        var profile = CreateDocument("generation-repaired", revision: 9);
+        profile.Capabilities.Add(new CapabilityRecord
+        {
+            AdapterId = WeaponCapabilityIds.FiringActions,
+            State = AdapterCapabilityState.Supported,
+            Version = ProductInfo.Version
+        });
+        profile.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions = -7;
+        new AtomicJsonStore<ProfileDocument>().Save(path, profile);
+
+        var first = CreateRepository(temporaryDirectory.Path, "session-first");
+        var firstResult = first.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(firstResult.MigratedSchema);
+        Assert.Equal(0, first.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
+        Assert.True(first.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            WeaponStatisticsViewModelFactory.Create(first.Current).Capabilities.FiringActions.State);
+        first.CloseClean();
+
+        var second = CreateRepository(temporaryDirectory.Path, "session-second");
+        var secondResult = second.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.False(secondResult.MigratedSchema);
+        Assert.True(second.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        Assert.False(WeaponStatisticsReducer.IsEmpty(
+            second.Current.Statistics.RunTotals.WeaponStatistics));
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            WeaponStatisticsViewModelFactory.Create(second.Current).Capabilities.FiringActions.State);
+        second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Migration")]
+    [Trait("Category", "Weapon")]
+    public void SerializerRepositoryBackupAndRotationPreserveIdentityEntryRepair()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(
+            temporaryDirectory.Path,
+            "profiles",
+            "slot-01",
+            "current",
+            "profile.json");
+        var profile = CreateDocument("generation-corrupt-identities", revision: 10);
+        profile.Capabilities.Add(new CapabilityRecord
+        {
+            AdapterId = WeaponCapabilityIds.FiringActions,
+            State = AdapterCapabilityState.Supported,
+            Version = ProductInfo.Version
+        });
+        var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
+        lifetime.Weapons["weapon:null"] = null!;
+        lifetime.Weapons[string.Empty] = new WeaponAggregate { WeaponId = "weapon:empty" };
+        lifetime.Weapons[" \t"] = new WeaponAggregate { WeaponId = "weapon:whitespace" };
+        lifetime.AmmunitionTypes["ammo:null"] = null!;
+        lifetime.AmmunitionTypes[string.Empty] = new AmmunitionAggregate { AmmunitionId = "ammo:empty" };
+        lifetime.AmmunitionTypes[" \t"] = new AmmunitionAggregate { AmmunitionId = "ammo:whitespace" };
+        var store = new AtomicJsonStore<ProfileDocument>();
+        store.Save(path, profile);
+
+        var roundTripped = store.Load(path).Value!;
+        Assert.Null(roundTripped.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:null"]);
+        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.Weapons.ContainsKey(string.Empty));
+        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.Weapons.ContainsKey(" \t"));
+        Assert.Null(roundTripped.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes["ammo:null"]);
+        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes.ContainsKey(string.Empty));
+        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes.ContainsKey(" \t"));
+
+        var first = CreateRepository(temporaryDirectory.Path, "session-first");
+        var firstResult = first.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(firstResult.MigratedSchema);
+        Assert.Empty(first.Current.Statistics.RunTotals.WeaponStatistics.Weapons);
+        Assert.Empty(first.Current.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes);
+        Assert.True(first.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        Assert.False(WeaponStatisticsReducer.IsEmpty(
+            first.Current.Statistics.RunTotals.WeaponStatistics));
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            WeaponStatisticsViewModelFactory.Create(first.Current).Capabilities.FiringActions.State);
+        first.CloseClean();
+
+        var repaired = store.Load(path).Value!;
+        store.Save(path, repaired);
+        File.WriteAllText(path, "{ corrupt-primary");
+        var second = CreateRepository(temporaryDirectory.Path, "session-second");
+        var secondResult = second.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(secondResult.RecoveredSnapshot);
+        Assert.True(second.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            WeaponStatisticsViewModelFactory.Create(second.Current).Capabilities.FiringActions.State);
+        second.CloseClean();
+
+        var ids = new Queue<string>();
+        ids.Enqueue("generation-after-rotation");
+        ids.Enqueue("session-after-rotation");
+        var third = CreateRepository(temporaryDirectory.Path, ids);
+        var thirdResult = third.Open(CreateIdentity(slot: 1, creationTicks: 999));
+
+        Assert.True(thirdResult.RotatedGeneration);
+        Assert.False(third.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        var archive = Assert.Single(Directory.EnumerateDirectories(
+            System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "archives")));
+        var archived = store.Load(System.IO.Path.Combine(archive, "profile.json")).Value!;
+        Assert.True(archived.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        third.CloseClean();
     }
 
     [Fact]

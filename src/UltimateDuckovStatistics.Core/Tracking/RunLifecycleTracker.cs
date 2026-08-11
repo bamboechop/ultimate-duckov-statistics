@@ -42,6 +42,8 @@ public sealed class RunStartContext
     public AdapterCapabilityState MapCapability { get; set; }
 
     public string MapAdapterVersion { get; set; } = string.Empty;
+
+    public WeaponMetricCapabilities WeaponCapabilities { get; set; } = new();
 }
 
 public sealed class RunLifecycleEvent
@@ -79,6 +81,7 @@ public sealed class RunLifecycleTracker
     private bool raidInitialized;
     private string? nativeRaidId;
     private double lastCheckpointMonotonicSeconds;
+    private bool combatCheckpointRequired;
 
     public RunLifecycleTracker(
         Func<string> runIdFactory,
@@ -104,6 +107,8 @@ public sealed class RunLifecycleTracker
     public string? ActiveRunId => active?.RunId;
 
     public string? ActiveMapId => active?.Context.Map.MapId;
+
+    public bool CombatCheckpointRequired => active != null && combatCheckpointRequired;
 
     public RunLifecycleTransition Apply(RunLifecycleEvent lifecycleEvent)
     {
@@ -217,6 +222,49 @@ public sealed class RunLifecycleTracker
         return true;
     }
 
+    public bool RecordShot(ShotRecorded shot)
+    {
+        if (active == null || shot == null)
+        {
+            return false;
+        }
+
+        if (!string.Equals(active.Context.SaveGenerationId, shot.SaveGenerationId, StringComparison.Ordinal)
+            || !string.Equals(active.RunId, shot.RunId, StringComparison.Ordinal)
+            || !string.Equals(active.Context.Map.MapId, shot.MapId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(shot.EventId)
+            || !active.RecentShotEventIds.Add(shot.EventId))
+        {
+            return false;
+        }
+
+        try
+        {
+            WeaponStatisticsReducer.Apply(active.WeaponStatistics, shot);
+            active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(
+                active.Context.IntegrityTags,
+                shot.IntegrityTags);
+        }
+        catch
+        {
+            active.RecentShotEventIds.Remove(shot.EventId);
+            throw;
+        }
+
+        active.RecentShotEventIdOrder.Enqueue(shot.EventId);
+        while (active.RecentShotEventIdOrder.Count > 512)
+        {
+            active.RecentShotEventIds.Remove(active.RecentShotEventIdOrder.Dequeue());
+        }
+
+        combatCheckpointRequired = true;
+        return true;
+    }
+
     public ActiveRunCheckpoint? CreateCheckpoint(DateTime timestampUtc, double monotonicSeconds)
     {
         if (active == null)
@@ -246,7 +294,8 @@ public sealed class RunLifecycleTracker
             MovementCapability = active.Context.MovementCapability,
             MovementAdapterVersion = active.Context.MovementAdapterVersion,
             MapCapability = active.Context.MapCapability,
-            MapAdapterVersion = active.Context.MapAdapterVersion
+            MapAdapterVersion = active.Context.MapAdapterVersion,
+            WeaponStatistics = WeaponStatisticsReducer.Clone(active.WeaponStatistics)
         };
     }
 
@@ -255,6 +304,7 @@ public sealed class RunLifecycleTracker
         if (!double.IsNaN(monotonicSeconds) && !double.IsInfinity(monotonicSeconds))
         {
             lastCheckpointMonotonicSeconds = monotonicSeconds;
+            combatCheckpointRequired = false;
         }
     }
 
@@ -281,6 +331,7 @@ public sealed class RunLifecycleTracker
         suspensions.Clear();
         movement.Reset();
         lastCheckpointMonotonicSeconds = monotonicSeconds;
+        combatCheckpointRequired = false;
     }
 
     private void SetSuspension(
@@ -349,10 +400,12 @@ public sealed class RunLifecycleTracker
             MovementCapability = state.Context.MovementCapability,
             MovementAdapterVersion = state.Context.MovementAdapterVersion,
             MapCapability = state.Context.MapCapability,
-            MapAdapterVersion = state.Context.MapAdapterVersion
+            MapAdapterVersion = state.Context.MapAdapterVersion,
+            WeaponStatistics = WeaponStatisticsReducer.Clone(state.WeaponStatistics)
         };
 
         active = null;
+        combatCheckpointRequired = false;
         movement.Reset();
         raidInitialized = false;
         nativeRaidId = null;
@@ -420,6 +473,7 @@ public sealed class RunLifecycleTracker
             StartedUtc = startedUtc;
             LastObservedUtc = startedUtc;
             LastMonotonicSeconds = startedMonotonicSeconds;
+            WeaponStatistics.Capabilities = WeaponStatisticsReducer.CloneCapabilities(context.WeaponCapabilities);
         }
 
         public string RunId { get; }
@@ -433,5 +487,11 @@ public sealed class RunLifecycleTracker
         public double LastMonotonicSeconds { get; set; }
 
         public double ActiveDurationSeconds { get; set; }
+
+        public WeaponStatisticsAggregate WeaponStatistics { get; } = new();
+
+        public HashSet<string> RecentShotEventIds { get; } = new(StringComparer.Ordinal);
+
+        public Queue<string> RecentShotEventIdOrder { get; } = new();
     }
 }

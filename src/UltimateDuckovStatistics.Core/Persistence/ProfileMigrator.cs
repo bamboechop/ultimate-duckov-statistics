@@ -157,6 +157,33 @@ public static class ProfileMigrator
                 map.Outcomes = new Dictionary<string, long>(StringComparer.Ordinal);
                 changed = true;
             }
+
+            if (map.WeaponStatistics == null)
+            {
+                map.WeaponStatistics = new WeaponStatisticsAggregate();
+                changed = true;
+            }
+
+            changed |= NormalizeWeaponStatistics(map.WeaponStatistics);
+        }
+
+        if (profile.Statistics.RunTotals.WeaponStatistics == null)
+        {
+            profile.Statistics.RunTotals.WeaponStatistics = new WeaponStatisticsAggregate();
+            changed = true;
+        }
+
+        changed |= NormalizeWeaponStatistics(profile.Statistics.RunTotals.WeaponStatistics);
+
+        foreach (var run in profile.Statistics.Runs)
+        {
+            if (run.WeaponStatistics == null)
+            {
+                run.WeaponStatistics = new WeaponStatisticsAggregate();
+                changed = true;
+            }
+
+            changed |= NormalizeWeaponStatistics(run.WeaponStatistics);
         }
 
         if (profile.Statistics.RunRecords == null)
@@ -222,6 +249,18 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 4)
+        {
+            profile.SchemaVersion = 4;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 4)
+        {
+            profile.Statistics.SchemaVersion = 4;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
@@ -234,4 +273,7 @@ public static class ProfileMigrator
 
         return changed;
     }
+
+    private static bool NormalizeWeaponStatistics(WeaponStatisticsAggregate statistics)
+        => WeaponStatisticsReducer.NormalizePersisted(statistics).Changed;
 }

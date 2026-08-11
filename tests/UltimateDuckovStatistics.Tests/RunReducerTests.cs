@@ -27,6 +27,8 @@ public sealed class RunReducerTests
         Assert.Equal(12, profile.RunTotals.TeleportDistance);
         Assert.Equal(2, profile.RunTotals.Maps.Count);
         Assert.False(profile.RunTotals.Maps[MapIdentity.UnknownId].IsKnown);
+        Assert.Equal(3, profile.RunTotals.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(2, profile.RunTotals.Maps["known"].WeaponStatistics.Totals.FiringActions);
     }
 
     [Fact]
@@ -106,6 +108,42 @@ public sealed class RunReducerTests
             RecordEligible = outcome != RunOutcome.Interrupted,
             LifecycleCapability = AdapterCapabilityState.Supported,
             MovementCapability = AdapterCapabilityState.Supported,
-            MapCapability = AdapterCapabilityState.Supported
+            MapCapability = AdapterCapabilityState.Supported,
+            WeaponStatistics = CombatStatistics(runId)
         };
+
+    private static WeaponStatisticsAggregate CombatStatistics(string runId)
+    {
+        var statistics = new WeaponStatisticsAggregate();
+        WeaponStatisticsReducer.Apply(statistics, new ShotRecorded
+        {
+            EventId = $"shot-{runId}",
+            SaveGenerationId = "generation-1",
+            RunId = runId,
+            MapId = "map",
+            GameplayContext = GameplayContext.Raid,
+            WeaponId = "weapon",
+            WeaponDisplayName = "Weapon",
+            AmmunitionId = "ammo",
+            AmmunitionDisplayName = "Ammo",
+            FiringActionCount = 1,
+            AmmunitionUnitsConsumed = 1,
+            ProjectileCount = 1,
+            Capabilities = new WeaponMetricCapabilities
+            {
+                FiringActions = Supported(),
+                AmmunitionConsumption = Supported(),
+                Projectiles = Supported(),
+                WeaponIdentity = Supported(),
+                AmmunitionIdentity = Supported()
+            }
+        });
+        return statistics;
+    }
+
+    private static MetricAvailability Supported() => new()
+    {
+        State = AdapterCapabilityState.Supported,
+        Provenance = "test"
+    };
 }

@@ -198,6 +198,14 @@ public sealed class ProfileRepository
             throw new ArgumentException("Active-run checkpoint does not match the current generation.", nameof(checkpoint));
         }
 
+        checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
+        var normalization = WeaponStatisticsReducer.NormalizePersisted(checkpoint.WeaponStatistics);
+        if (normalization.InvalidCounters)
+        {
+            throw new ArgumentException("Active-run checkpoint contains invalid weapon counters.", nameof(checkpoint));
+        }
+
+        WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
     }
@@ -449,7 +457,7 @@ public sealed class ProfileRepository
             return false;
         }
 
-        var loaded = activeRunStore.Load(path);
+        var loaded = activeRunStore.Load(path, ValidateActiveRunCheckpointForRecovery);
         var checkpoint = loaded.Value;
         if (checkpoint == null)
         {
@@ -458,17 +466,16 @@ public sealed class ProfileRepository
             return false;
         }
 
-        if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion
-            || string.IsNullOrWhiteSpace(checkpoint.RunId)
-            || !string.Equals(checkpoint.SaveGenerationId, Current.GenerationId, StringComparison.Ordinal))
+        if (loaded.Recovered)
         {
-            ArchiveActiveRunArtifacts("IncompatibleActiveRun");
-            diagnostic("Active-run checkpoint did not match the current schema/generation and was preserved for diagnostics.");
-            return false;
+            diagnostic(
+                $"Rejected an earlier active-run candidate and recovered the semantically valid {loaded.Source} snapshot: "
+                + string.Join(" | ", loaded.Failures));
         }
 
         var summary = checkpoint.ToInterruptedSummary();
         var applied = RunReducer.Apply(Current.Statistics, summary);
+
         if (applied)
         {
             Current.Revision++;
@@ -482,6 +489,42 @@ public sealed class ProfileRepository
                 ? $"Recovered interrupted run {summary.RunId} for generation {summary.SaveGenerationId}."
                 : $"Cleared already-finalized active-run checkpoint {summary.RunId} without duplicating it.");
         return applied;
+    }
+
+    private string? ValidateActiveRunCheckpointForRecovery(ActiveRunCheckpoint checkpoint)
+    {
+        checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
+        var weaponNormalization = WeaponStatisticsReducer.NormalizePersisted(checkpoint.WeaponStatistics);
+        if (weaponNormalization.InvalidCounters)
+        {
+            return "Active-run checkpoint contains negative weapon counters.";
+        }
+
+        if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
+        {
+            return $"Active-run checkpoint schema {checkpoint.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion}.";
+        }
+
+        if (string.IsNullOrWhiteSpace(checkpoint.RunId))
+        {
+            return "Active-run checkpoint has no run identity.";
+        }
+
+        if (!string.Equals(checkpoint.SaveGenerationId, Current.GenerationId, StringComparison.Ordinal))
+        {
+            return "Active-run checkpoint does not match the current save generation.";
+        }
+
+        try
+        {
+            WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
+            RunReducer.Validate(checkpoint.ToInterruptedSummary());
+            return null;
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Active-run checkpoint is structurally invalid: {exception.Message}";
+        }
     }
 
     private void ArchiveActiveRunArtifacts(string reason)
@@ -638,6 +681,9 @@ public sealed class ProfileRepository
         statistics.Overall.ActivationCount == 0
         && statistics.Overall.ActualHealthRestored == 0
         && statistics.RunTotals.TotalRuns == 0
+        && statistics.RunTotals.WeaponStatistics.Totals.FiringActions == 0
+        && statistics.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed == 0
+        && statistics.RunTotals.WeaponStatistics.Totals.Projectiles == 0
         && statistics.Runs.Count == 0;
 
     private static bool IdentitiesEqual(SaveIdentitySnapshot left, SaveIdentitySnapshot right) =>

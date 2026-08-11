@@ -6,6 +6,7 @@ using UltimateDuckovStatistics.Core.Diagnostics;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
 using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
 using UnityEngine;
 
@@ -35,6 +36,15 @@ internal sealed class NativeProfileCoordinator : IDisposable
         DisabledRunCapability(NativeRunLifecycleAdapter.MovementAdapterId, NativeRunLifecycleAdapter.MovementAdapterVersion),
         DisabledRunCapability(NativeRunLifecycleAdapter.MapAdapterId, NativeRunLifecycleAdapter.MapAdapterVersion)
     };
+    private List<CapabilityRecord> weaponCapabilities = WeaponCapabilityIds.All
+        .Select(id => new CapabilityRecord
+        {
+            AdapterId = id,
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Version = NativeWeaponFireAdapter.AdapterVersion,
+            Detail = "Weapon capability has not been initialized."
+        })
+        .ToList();
 
     public NativeProfileCoordinator()
     {
@@ -161,16 +171,34 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
-    public void HandleRunCheckpoint(ActiveRunCheckpoint checkpoint)
+    public void SetWeaponCapabilities(IReadOnlyList<CapabilityRecord> capabilities)
+    {
+        if (capabilities == null)
+        {
+            throw new ArgumentNullException(nameof(capabilities));
+        }
+
+        weaponCapabilities = capabilities.Select(CloneCapability).ToList();
+        UpdateCapabilities();
+    }
+
+    public bool HandleRunCheckpoint(ActiveRunCheckpoint checkpoint)
     {
         try
         {
-            repository?.SaveActiveRun(checkpoint);
+            if (repository == null)
+            {
+                return false;
+            }
+
+            repository.SaveActiveRun(checkpoint);
+            return true;
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
             WriteDiagnostic($"Failed to persist active-run checkpoint: {exception.GetType().Name}.", "Error");
+            return false;
         }
     }
 
@@ -476,7 +504,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(runCapabilities));
+        }.Concat(runCapabilities).Concat(weaponCapabilities));
     }
 
     private static CapabilityRecord DisabledRunCapability(string adapterId, string version) => new()

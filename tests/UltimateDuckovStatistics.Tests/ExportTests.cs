@@ -14,6 +14,8 @@ public sealed class ExportTests
     private static readonly DateTime TestTime = new(2026, 8, 9, 13, 0, 0, DateTimeKind.Utc);
     private static readonly string[] ExpectedExportFileNames =
     {
+        "ammunition_totals.csv",
+        "combat_totals.csv",
         "groups.csv",
         "items.csv",
         "map_totals.csv",
@@ -21,7 +23,8 @@ public sealed class ExportTests
         "records.csv",
         "run_totals.csv",
         "runs.csv",
-        "statistics.json"
+        "statistics.json",
+        "weapon_totals.csv"
     };
 
     [Fact]
@@ -37,6 +40,7 @@ public sealed class ExportTests
 
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
+        var uiModel = WeaponStatisticsViewModelFactory.Create(profile);
         var overview = ParseCsv(bundle.OverviewCsv);
         var groups = ParseCsv(bundle.GroupsCsv);
         var items = ParseCsv(bundle.ItemsCsv);
@@ -44,6 +48,9 @@ public sealed class ExportTests
         var runTotals = Assert.Single(ParseCsv(bundle.RunTotalsCsv));
         var mapTotals = Assert.Single(ParseCsv(bundle.MapTotalsCsv));
         var records = ParseCsv(bundle.RecordsCsv);
+        var combatTotals = ParseCsv(bundle.CombatTotalsCsv);
+        var weaponTotals = ParseCsv(bundle.WeaponTotalsCsv);
+        var ammunitionTotals = ParseCsv(bundle.AmmunitionTotalsCsv);
 
         Assert.Equal(2, json.Overall.ActivationCount);
         Assert.Equal(json.Overall.ActivationCount, ReadLong(Assert.Single(overview), "activation_count"));
@@ -90,6 +97,21 @@ public sealed class ExportTests
             Assert.Single(records, row => row["scope"] == "overall"
                 && row["outcome"] == nameof(RunOutcome.Died)
                 && row["record"] == "shortest")["run_id"]);
+        var lifetimeCombat = Assert.Single(combatTotals, row => row["scope"] == "lifetime");
+        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.FiringActions, ReadLong(lifetimeCombat, "firing_actions"));
+        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.FiringActions, uiModel.Lifetime.Totals.FiringActions);
+        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed, ReadLong(lifetimeCombat, "ammunition_units_consumed"));
+        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.Projectiles, ReadLong(lifetimeCombat, "projectiles"));
+        Assert.Equal(nameof(AdapterCapabilityState.Supported), lifetimeCombat["firing_actions_state"]);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), lifetimeCombat["trigger_attempts_state"]);
+        Assert.Equal(uiModel.Capabilities.FiringActions.State, json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
+        Assert.Equal(4, combatTotals.Count);
+        Assert.Equal(
+            json.RunTotals.WeaponStatistics.Weapons.Values.Sum(value => value.Totals.FiringActions),
+            weaponTotals.Where(row => row["scope"] == "lifetime").Sum(row => ReadLong(row, "firing_actions")));
+        Assert.Equal(
+            json.RunTotals.WeaponStatistics.AmmunitionTypes.Values.Sum(value => value.Totals.AmmunitionUnitsConsumed),
+            ammunitionTotals.Where(row => row["scope"] == "lifetime").Sum(row => ReadLong(row, "ammunition_units_consumed")));
     }
 
     [Fact]
@@ -103,6 +125,276 @@ public sealed class ExportTests
         var row = Assert.Single(ParseCsv(StatisticsExporter.Create(profile, TestTime).ItemsCsv));
 
         Assert.Equal(name, row["display_name"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "Weapon")]
+    public void CurrentUnavailableOutcomeMetricsRestrictEveryJsonAndCsvScope()
+    {
+        var profile = CreateProfile();
+        RunReducer.Apply(profile.Statistics, CreateRun("run-one", RunOutcome.Extracted, 95, 123.5, 8));
+        profile.Capabilities.Single(
+            capability => capability.AdapterId == WeaponCapabilityIds.AmmunitionConsumption).State =
+            AdapterCapabilityState.DisabledIncompatible;
+        profile.Capabilities.Single(
+            capability => capability.AdapterId == WeaponCapabilityIds.Projectiles).State =
+            AdapterCapabilityState.DisabledIncompatible;
+
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var json = Deserialize(bundle.Json);
+        var combatRows = ParseCsv(bundle.CombatTotalsCsv);
+        var weaponRows = ParseCsv(bundle.WeaponTotalsCsv);
+        var ammunitionRows = ParseCsv(bundle.AmmunitionTotalsCsv);
+
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            json.RunTotals.WeaponStatistics.Capabilities.AmmunitionConsumption.State);
+        Assert.All(json.RunTotals.Maps.Values, map => Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            map.WeaponStatistics.Capabilities.Projectiles.State));
+        Assert.All(json.Runs, run => Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            run.WeaponStatistics.Capabilities.AmmunitionConsumption.State));
+        Assert.All(combatRows, row =>
+        {
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["ammunition_consumption_state"]);
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["projectiles_state"]);
+        });
+        Assert.All(weaponRows.Concat(ammunitionRows), row =>
+        {
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["ammunition_consumption_state"]);
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["projectiles_state"]);
+        });
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "Weapon")]
+    public void CurrentSupportedCapabilityDoesNotUpgradeHistoricalUnavailableRun()
+    {
+        var profile = CreateProfile();
+        RunReducer.Apply(profile.Statistics, CreateRun("historical-run", RunOutcome.Extracted, 95, 123.5, 8));
+        var historical = Assert.Single(profile.Statistics.Runs);
+        historical.WeaponStatistics.Capabilities.FiringActions = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = string.Empty
+        };
+
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var json = Deserialize(bundle.Json);
+        var runJson = Assert.Single(json.Runs);
+        var runCsv = Assert.Single(
+            ParseCsv(bundle.CombatTotalsCsv),
+            row => row["scope"] == "run" && row["scope_id"] == "historical-run");
+
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            runJson.WeaponStatistics.Capabilities.FiringActions.State);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), runCsv["firing_actions_state"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "Weapon")]
+    public void NonemptyLifetimeAggregateWithMissingCapabilityMetadataRemainsUnavailable()
+    {
+        var profile = CreateProfile();
+        var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
+        lifetime.Totals.FiringActions = 7;
+        lifetime.Weapons["weapon:observed"] = new WeaponAggregate
+        {
+            WeaponId = "weapon:observed",
+            DisplayName = "Observed weapon",
+            Totals = new WeaponMetricTotals { FiringActions = 7 }
+        };
+
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var json = Deserialize(bundle.Json);
+        var lifetimeCsv = Assert.Single(
+            ParseCsv(bundle.CombatTotalsCsv),
+            row => row["scope"] == "lifetime");
+
+        Assert.Equal(7, json.RunTotals.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), lifetimeCsv["firing_actions_state"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Weapon")]
+    public void RepairedInvalidLifetimeCounterCannotBecomeSupportedZero()
+    {
+        var profile = CreateProfile();
+        var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
+        lifetime.Totals.FiringActions = -7;
+
+        Assert.True(ProfileMigrator.Migrate(profile));
+
+        var model = WeaponStatisticsViewModelFactory.Create(profile);
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var json = Deserialize(bundle.Json);
+        var lifetimeCsv = Assert.Single(
+            ParseCsv(bundle.CombatTotalsCsv),
+            row => row["scope"] == "lifetime");
+
+        Assert.Equal(0, lifetime.Totals.FiringActions);
+        Assert.True(lifetime.WasRepairedFromInvalidState);
+        Assert.False(WeaponStatisticsReducer.IsEmpty(lifetime));
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            lifetime.Capabilities.FiringActions.State);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            model.Capabilities.FiringActions.State);
+        Assert.True(json.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), lifetimeCsv["firing_actions_state"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Weapon")]
+    public void RepairedInvalidLifetimeCapabilityCannotBecomeSupported()
+    {
+        var profile = CreateProfile();
+        var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
+        lifetime.Capabilities.FiringActions.State = (AdapterCapabilityState)int.MaxValue;
+
+        Assert.True(ProfileMigrator.Migrate(profile));
+
+        var model = WeaponStatisticsViewModelFactory.Create(profile);
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var json = Deserialize(bundle.Json);
+        var lifetimeCsv = Assert.Single(
+            ParseCsv(bundle.CombatTotalsCsv),
+            row => row["scope"] == "lifetime");
+
+        Assert.True(lifetime.WasRepairedFromInvalidState);
+        Assert.False(WeaponStatisticsReducer.IsEmpty(lifetime));
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            model.Capabilities.FiringActions.State);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), lifetimeCsv["firing_actions_state"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Weapon")]
+    [Trait("Category", "UI")]
+    public void RepairedInvalidIdentityEntriesRemainUnavailableAndPresentationIsDeterministic()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(
+            temporaryDirectory.Path,
+            "profiles",
+            "slot-01",
+            "current",
+            "profile.json");
+        var profile = CreateProfile();
+        var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
+        lifetime.Weapons["weapon:corrupt"] = null!;
+        lifetime.AmmunitionTypes["ammo:corrupt"] = null!;
+        new AtomicJsonStore<ProfileDocument>().Save(path, profile);
+        var repository = new ProfileRepository(
+            temporaryDirectory.Path,
+            () => TestTime,
+            () => "session-corrupt-identities");
+
+        Assert.True(repository.Open(new SaveIdentitySnapshot { Slot = 1 }).MigratedSchema);
+
+        lifetime = repository.Current.Statistics.RunTotals.WeaponStatistics;
+        Assert.Empty(lifetime.Weapons);
+        Assert.Empty(lifetime.AmmunitionTypes);
+        Assert.True(lifetime.WasRepairedFromInvalidState);
+        Assert.False(WeaponStatisticsReducer.IsEmpty(lifetime));
+        var initialModel = WeaponStatisticsViewModelFactory.Create(repository.Current);
+        var initialBundle = StatisticsExporter.Create(repository.Current, TestTime);
+        var initialJson = Deserialize(initialBundle.Json);
+        var initialCombat = Assert.Single(
+            ParseCsv(initialBundle.CombatTotalsCsv),
+            row => row["scope"] == "lifetime");
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            initialModel.Capabilities.FiringActions.State);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            initialJson.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), initialCombat["firing_actions_state"]);
+        Assert.Empty(ParseCsv(initialBundle.WeaponTotalsCsv));
+        Assert.Empty(ParseCsv(initialBundle.AmmunitionTotalsCsv));
+
+        lifetime.Weapons["weapon:valid"] = new WeaponAggregate
+        {
+            WeaponId = "weapon:valid",
+            DisplayName = "Valid weapon"
+        };
+        lifetime.AmmunitionTypes["ammo:valid"] = new AmmunitionAggregate
+        {
+            AmmunitionId = "ammo:valid",
+            DisplayName = "Valid ammunition"
+        };
+        var before = Serialize(repository.Current);
+        var firstModel = WeaponStatisticsViewModelFactory.Create(repository.Current);
+        var firstBundle = StatisticsExporter.Create(repository.Current, TestTime);
+        var secondModel = WeaponStatisticsViewModelFactory.Create(repository.Current);
+        var secondBundle = StatisticsExporter.Create(repository.Current, TestTime);
+        var after = Serialize(repository.Current);
+        var weapon = Assert.Single(ParseCsv(firstBundle.WeaponTotalsCsv));
+        var ammunition = Assert.Single(ParseCsv(firstBundle.AmmunitionTotalsCsv));
+
+        Assert.Equal(before, after);
+        Assert.Equal(firstBundle.Json, secondBundle.Json);
+        Assert.Equal(firstBundle.CombatTotalsCsv, secondBundle.CombatTotalsCsv);
+        Assert.Equal(firstBundle.WeaponTotalsCsv, secondBundle.WeaponTotalsCsv);
+        Assert.Equal(firstBundle.AmmunitionTotalsCsv, secondBundle.AmmunitionTotalsCsv);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            firstModel.Capabilities.FiringActions.State);
+        Assert.Equal(firstModel.Capabilities.FiringActions.State, secondModel.Capabilities.FiringActions.State);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), weapon["firing_actions_state"]);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), ammunition["firing_actions_state"]);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), weapon["ammunition_consumption_state"]);
+        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), ammunition["projectiles_state"]);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "Weapon")]
+    [Trait("Category", "UI")]
+    public void PristineEmptyLifetimeFallbackIsDeterministicAndDoesNotMutateProfile()
+    {
+        var profile = CreateProfile();
+        var before = Serialize(profile);
+
+        var firstModel = WeaponStatisticsViewModelFactory.Create(profile);
+        var firstBundle = StatisticsExporter.Create(profile, TestTime);
+        var secondModel = WeaponStatisticsViewModelFactory.Create(profile);
+        var secondBundle = StatisticsExporter.Create(profile, TestTime);
+        var after = Serialize(profile);
+        var lifetimeCsv = Assert.Single(
+            ParseCsv(firstBundle.CombatTotalsCsv),
+            row => row["scope"] == "lifetime");
+
+        Assert.True(WeaponStatisticsReducer.IsEmpty(profile.Statistics.RunTotals.WeaponStatistics));
+        Assert.Equal(AdapterCapabilityState.Supported, firstModel.Capabilities.FiringActions.State);
+        Assert.Equal(firstModel.Capabilities.FiringActions.State, secondModel.Capabilities.FiringActions.State);
+        Assert.Equal(nameof(AdapterCapabilityState.Supported), lifetimeCsv["firing_actions_state"]);
+        Assert.Equal(before, after);
+        Assert.Equal(firstBundle.Json, secondBundle.Json);
+        Assert.Equal(firstBundle.CombatTotalsCsv, secondBundle.CombatTotalsCsv);
     }
 
     [Fact]
@@ -138,7 +430,7 @@ public sealed class ExportTests
 
         var result = ProfileExportWriter.Write(profile, profilePath, TestTime);
 
-        Assert.Equal(8, result.Files.Count);
+        Assert.Equal(11, result.Files.Count);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
         Assert.Equal(
             ExpectedExportFileNames,
@@ -155,6 +447,15 @@ public sealed class ExportTests
         CreatedUtc = TestTime,
         UpdatedUtc = TestTime,
         Identity = new SaveIdentitySnapshot { Slot = 1 },
+        Capabilities = WeaponCapabilityIds.All.Select(id => new CapabilityRecord
+        {
+            AdapterId = id,
+            State = id == WeaponCapabilityIds.TriggerAttempts
+                ? AdapterCapabilityState.DisabledIncompatible
+                : AdapterCapabilityState.Supported,
+            Version = ProductInfo.Version,
+            Detail = "test"
+        }).ToList(),
         Statistics = new ProfileStatistics
         {
             SaveGenerationId = "generation-a",
@@ -232,8 +533,45 @@ public sealed class ExportTests
             MovementCapability = AdapterCapabilityState.Supported,
             MovementAdapterVersion = ProductInfo.Version,
             MapCapability = AdapterCapabilityState.Supported,
-            MapAdapterVersion = ProductInfo.Version
+            MapAdapterVersion = ProductInfo.Version,
+            WeaponStatistics = CreateCombat(runId)
         };
+
+    private static WeaponStatisticsAggregate CreateCombat(string runId)
+    {
+        var statistics = new WeaponStatisticsAggregate();
+        WeaponStatisticsReducer.Apply(statistics, new ShotRecorded
+        {
+            EventId = $"shot-{runId}",
+            TimestampUtc = TestTime,
+            SaveGenerationId = "generation-a",
+            RunId = runId,
+            MapId = "duckov:map:warehouse",
+            GameplayContext = GameplayContext.Raid,
+            WeaponId = $"weapon-{runId}",
+            WeaponDisplayName = $"Weapon {runId}",
+            AmmunitionId = $"ammo-{runId}",
+            AmmunitionDisplayName = $"Ammo {runId}",
+            FiringActionCount = 1,
+            AmmunitionUnitsConsumed = 1,
+            ProjectileCount = runId == "run-one" ? 6 : 1,
+            Capabilities = new WeaponMetricCapabilities
+            {
+                FiringActions = Available(),
+                AmmunitionConsumption = Available(),
+                Projectiles = Available(),
+                WeaponIdentity = Available(),
+                AmmunitionIdentity = Available()
+            }
+        });
+        return statistics;
+    }
+
+    private static MetricAvailability Available() => new()
+    {
+        State = AdapterCapabilityState.Supported,
+        Provenance = "test"
+    };
 
     private static StatisticsExportDocument Deserialize(string json)
     {
@@ -242,6 +580,16 @@ public sealed class ExportTests
             new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
         return Assert.IsType<StatisticsExportDocument>(serializer.ReadObject(stream));
+    }
+
+    private static string Serialize(ProfileDocument profile)
+    {
+        var serializer = new DataContractJsonSerializer(
+            typeof(ProfileDocument),
+            new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
+        using var stream = new MemoryStream();
+        serializer.WriteObject(stream, profile);
+        return Encoding.UTF8.GetString(stream.ToArray());
     }
 
     private static List<IReadOnlyDictionary<string, string>> ParseCsv(string csv)

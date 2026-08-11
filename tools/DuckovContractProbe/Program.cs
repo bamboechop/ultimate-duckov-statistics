@@ -99,6 +99,7 @@ try
         core.RequireEvent("Duckov", "CheatMode", "OnCheatModeStatusChanged", "System.Action", "System.Boolean");
         core.RequireEvent("Duckov.Rules", "GameRulesManager", "OnRuleChanged", "System.Action");
         core.RequireEvent(string.Empty, "CharacterMainControl", "OnSetPositionEvent", "System.Action", "CharacterMainControl", "UnityEngine.Vector3");
+        core.RequirePublicStaticEvent(string.Empty, "ItemAgent_Gun", "OnMainCharacterShootEvent", "System.Action", "ItemAgent_Gun");
         core.RequireEvent(string.Empty, "LevelManager", "OnNewGameReport", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnSetFile", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnSaveDeleted", "System.Action");
@@ -121,6 +122,10 @@ try
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterWalkSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterRunSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "DashSpeed", "System.Single", mustBePublic: true);
+        core.RequireProperty(string.Empty, "DuckovItemAgent", "Holder", "CharacterMainControl", mustBePublic: true);
+        core.RequireProperty(string.Empty, "ItemAgent_Gun", "GunItemSetting", "ItemSetting_Gun", mustBePublic: true);
+        core.RequireProperty(string.Empty, "ItemSetting_Gun", "TargetBulletID", "System.Int32", mustBePublic: true);
+        core.RequireProperty(string.Empty, "ItemSetting_Gun", "CurrentBulletName", "System.String", mustBePublic: true);
         core.RequireProperty(string.Empty, "Health", "IsDead", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "SceneInfoEntry", "ID", "System.String", mustBePublic: true);
         core.RequireProperty(string.Empty, "SceneInfoEntry", "DisplayName", "System.String", mustBePublic: true);
@@ -161,6 +166,7 @@ try
     {
         itemStats.RequireEvent("ItemStatsSystem", "UsageUtilities", "OnItemUsedStaticEvent", "System.Action", "ItemStatsSystem.Item");
         itemStats.RequireEvent("ItemStatsSystem", "Item", "onUseStatic", "System.Action", "ItemStatsSystem.Item", "System.Object");
+        itemStats.RequireProperty("ItemStatsSystem", "ItemAgent", "Item", "ItemStatsSystem.Item", mustBePublic: true);
         itemStats.RequireField("ItemStatsSystem", "UsageUtilities", "behaviors");
         itemStats.RequireMethod(
             "ItemStatsSystem",
@@ -186,7 +192,8 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, item/healing, run lifecycle, pause/loading, map, runtime-integrity, main-duck position, and movement-speed contracts are present.");
+    Console.WriteLine("  Native loader, item/healing, run lifecycle, pause/loading, map, runtime-integrity, main-duck movement, public firing-action, and weapon/ammunition identity contracts are present.");
+    Console.WriteLine("  Loaded-ammunition consumption and projectile creation remain unavailable because the public firing callback does not prove their outcomes.");
     return 0;
 }
 catch (ContractException exception)
@@ -347,6 +354,7 @@ internal sealed class AssemblyMetadata : IDisposable
         bool mustBeFamily = false,
         bool mustBeVirtual = false,
         bool mustBePublic = false,
+        bool mustBePrivate = false,
         bool mustBeAssembly = false,
         bool mustBeStatic = false,
         string? returnTypeFragment = null,
@@ -390,6 +398,11 @@ internal sealed class AssemblyMetadata : IDisposable
             }
 
             if (mustBePublic && (method.Attributes & MethodAttributes.MemberAccessMask) != MethodAttributes.Public)
+            {
+                continue;
+            }
+
+            if (mustBePrivate && (method.Attributes & MethodAttributes.MemberAccessMask) != MethodAttributes.Private)
             {
                 continue;
             }
@@ -514,6 +527,47 @@ internal sealed class AssemblyMetadata : IDisposable
         }
 
         throw new ContractException($"Required event not found: {@namespace}.{typeName}.{eventName}.");
+    }
+
+    public void RequirePublicStaticEvent(
+        string @namespace,
+        string typeName,
+        string eventName,
+        params string[] parameterTypeFragments)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var handle in type.GetEvents())
+        {
+            var eventDefinition = reader.GetEventDefinition(handle);
+            if (!string.Equals(reader.GetString(eventDefinition.Name), eventName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var accessors = eventDefinition.GetAccessors();
+            if (accessors.Adder.IsNil || accessors.Remover.IsNil)
+            {
+                break;
+            }
+
+            var adder = reader.GetMethodDefinition(accessors.Adder);
+            var remover = reader.GetMethodDefinition(accessors.Remover);
+            var signature = adder.DecodeSignature(typeProvider, reader);
+            var access = MethodAttributes.MemberAccessMask;
+            if ((adder.Attributes & access) == MethodAttributes.Public
+                && (remover.Attributes & access) == MethodAttributes.Public
+                && (adder.Attributes & MethodAttributes.Static) != 0
+                && (remover.Attributes & MethodAttributes.Static) != 0
+                && signature.ParameterTypes.Length == 1
+                && parameterTypeFragments.All(fragment => signature.ParameterTypes[0].Contains(fragment, StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            break;
+        }
+
+        throw new ContractException($"Required public static event not found: {@namespace}.{typeName}.{eventName}.");
     }
 
     private TypeDefinitionHandle FindType(string @namespace, string name)

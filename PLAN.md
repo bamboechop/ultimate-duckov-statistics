@@ -41,6 +41,7 @@ A version change triggers compatibility checks, not an automatic global shutdown
 - `v0.1.0` is a GitHub pre-release containing the consumable-usage MVP.
 - `v0.2.0` is a GitHub pre-release containing M2 healing attribution after its manual acceptance matrix passes.
 - `v0.3.0` is the planned GitHub pre-release containing M3 run lifecycle, duration records, map aggregation, and movement after its complete manual acceptance matrix passes.
+- `v0.4.0` is the planned GitHub pre-release containing M4 firing-action, loaded-ammunition-consumption, projectile/pellet, weapon, and ammunition aggregates after its complete manual acceptance matrix passes.
 - No Steam Workshop upload in v0.1.
 - Release artifact includes the installable ZIP, SHA-256 checksum, installation instructions, compatibility information, and known limitations.
 - No Duckov assemblies or bundled Harmony assembly may appear in the package.
@@ -260,8 +261,8 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Actual HP restored, delayed effects, overheal exclusion, item attribution.
 4. **M3 — Run lifecycle and movement (`v0.3.0`, implementation and complete manual acceptance passed)**
     - Run summaries, active timers, extraction/death/interruption, records, maps, physical/teleport distance.
-5. **M4 — Weapons and ammunition**
-    - Trigger pulls, ammo consumption, projectiles/pellets, weapon/ammo breakdowns.
+5. **M4 — Weapons and ammunition (`v0.4.0`, implementation, complete manual acceptance, and corrective review validation passed; draft PR remains open)**
+    - Proven accepted firing actions and event-time weapon/ammunition breakdowns. Trigger attempts, actual loaded-ammunition consumption, and completed projectile creation remain explicitly unavailable because the public firing callback does not prove those side effects.
 6. **M5 — Damage, kills, deaths, melee, and headshots**
     - Combat attribution and reliable related metrics from the same hooks.
 7. **M6 — Equipment and totems**

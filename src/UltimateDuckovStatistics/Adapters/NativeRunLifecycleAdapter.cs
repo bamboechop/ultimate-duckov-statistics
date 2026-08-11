@@ -23,14 +23,17 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const double SampleIntervalSeconds = 0.2;
+    private const double CheckpointRetryIntervalSeconds = 1;
     private readonly Func<string> saveGenerationIdProvider;
-    private readonly Action<ActiveRunCheckpoint> checkpointHandler;
+    private readonly Func<ActiveRunCheckpoint, bool> checkpointHandler;
     private readonly Func<RunSummary, bool> completionHandler;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
+    private readonly Func<WeaponMetricCapabilities> weaponCapabilitiesProvider;
     private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
     private readonly RunLifecycleTracker tracker;
     private readonly MonotonicCadenceGate sampleCadence = new(SampleIntervalSeconds);
+    private readonly CheckpointRetryGate checkpointRetry = new(CheckpointRetryIntervalSeconds);
     private readonly ReferenceSubjectGate<CharacterMainControl> mainCharacterGate = new();
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly List<CapabilityRecord> capabilities = new();
@@ -42,10 +45,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public NativeRunLifecycleAdapter(
         Func<string> saveGenerationIdProvider,
-        Action<ActiveRunCheckpoint> checkpointHandler,
+        Func<ActiveRunCheckpoint, bool> checkpointHandler,
         Func<RunSummary, bool> completionHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
-        Action<string> diagnosticHandler)
+        Action<string> diagnosticHandler,
+        Func<WeaponMetricCapabilities>? weaponCapabilitiesProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
@@ -53,6 +57,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         this.completionHandler = completionHandler ?? throw new ArgumentNullException(nameof(completionHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.weaponCapabilitiesProvider = weaponCapabilitiesProvider ?? (() => new WeaponMetricCapabilities());
         tracker = new RunLifecycleTracker(() => Guid.NewGuid().ToString("N"));
         SetAllCapabilities(
             AdapterCapabilityState.DisabledIncompatible,
@@ -64,6 +69,24 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public string? CurrentRunId => tracker.ActiveRunId;
 
     public string? CurrentMapId => tracker.ActiveMapId;
+
+    public bool RecordShot(ShotRecorded shot)
+    {
+        if (!callbackLifetime.CanHandleCallbacks || !tracker.RecordShot(shot))
+        {
+            return false;
+        }
+
+        var now = NowMonotonic();
+        if (!SaveCheckpoint(DateTime.UtcNow, now))
+        {
+            diagnosticHandler(
+                $"Accepted firing action {shot.EventId}; crash-safe active-run checkpoint remains pending "
+                + "and will be retried no more than once per second.");
+        }
+
+        return true;
+    }
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
@@ -124,9 +147,17 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             TryStartRun();
             var now = NowMonotonic();
             var utcNow = DateTime.UtcNow;
-            if (tracker.IsActive && tracker.Tick(utcNow, now))
+            var periodicCheckpointDue = tracker.IsActive && tracker.Tick(utcNow, now);
+            if (periodicCheckpointDue)
             {
                 tracker.ObserveIntegrity(NativeIntegrityProbe.Read());
+            }
+
+            if (checkpointRetry.ShouldAttempt(
+                    tracker.CombatCheckpointRequired,
+                    periodicCheckpointDue,
+                    now))
+            {
                 SaveCheckpoint(utcNow, now);
             }
 
@@ -159,6 +190,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
         DetachMainCharacter();
         sampleCadence.Reset();
+        checkpointRetry.Reset();
         movementMapId = null;
         tracker.Apply(Event(RunLifecycleEventKind.RaidCleared));
     }
@@ -172,6 +204,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         sampleCadence.Reset();
+        checkpointRetry.Reset();
         movementMapId = null;
         var cleaned = callbackLifetime.TryCleanup(TryDetachMainCharacter, out var staticCleanupFailure);
         if (staticCleanupFailure != null)
@@ -238,7 +271,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 MovementCapability = MovementCapability.State,
                 MovementAdapterVersion = MovementAdapterVersion,
                 MapCapability = MapCapability.State,
-                MapAdapterVersion = MapAdapterVersion
+                MapAdapterVersion = MapAdapterVersion,
+                WeaponCapabilities = weaponCapabilitiesProvider()
             }
         });
         if (!transition.Started)
@@ -247,6 +281,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         sampleCadence.Reset();
+        checkpointRetry.Reset();
         movementMapId = tracker.ActiveMapId;
         pendingBoundary = null;
         SampleMainDuck(utcNow, now);
@@ -284,6 +319,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         sampleCadence.Reset();
+        checkpointRetry.Reset();
         movementMapId = null;
 
         if (completionHandler(transition.Completed))
@@ -360,16 +396,23 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    private void SaveCheckpoint(DateTime utcNow, double monotonicSeconds)
+    private bool SaveCheckpoint(DateTime utcNow, double monotonicSeconds)
     {
         var checkpoint = tracker.CreateCheckpoint(utcNow, monotonicSeconds);
         if (checkpoint == null)
         {
-            return;
+            return false;
         }
 
-        checkpointHandler(checkpoint);
+        if (!checkpointHandler(checkpoint))
+        {
+            checkpointRetry.RecordResult(succeeded: false, monotonicSeconds: monotonicSeconds);
+            return false;
+        }
+
         tracker.MarkCheckpointSaved(monotonicSeconds);
+        checkpointRetry.RecordResult(succeeded: true, monotonicSeconds: monotonicSeconds);
+        return true;
     }
 
     private void SynchronizeMainCharacter()
