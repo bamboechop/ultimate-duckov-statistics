@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M3 are released. M4 weapons and ammunition is implemented on `feat/weapons-ammunition`; automated and native-contract acceptance passes, while deployment and user-driven gameplay acceptance remain pending. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
+M0-M3 are released. M4 weapons and ammunition is implemented on `feat/weapons-ammunition`; complete automated, native-contract, package, deployment, and user-driven gameplay acceptance passes, and draft PR #4 is ready for independent review. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
 
 ## Build prerequisites
 
