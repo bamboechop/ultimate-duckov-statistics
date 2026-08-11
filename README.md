@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M4 are merged and published through v0.4.0. M5 is implemented on `feat/combat-attribution` as a v0.5.0 pre-release candidate. Automated validation, the implementation-commit package audit, branch push, draft PR, and CI are complete; approved deployment/readback and user-controlled gameplay remain pending. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
+M0-M4 are merged and published through v0.4.0. M5 is implemented and fully accepted on `feat/combat-attribution` as a v0.5.0 pre-release candidate. Automated validation, immutable-save backup, approved deployment/readback, user-controlled gameplay, package audit, branch push, draft PR, and CI are complete. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
 
 ## Build prerequisites
 
