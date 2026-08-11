@@ -48,4 +48,5 @@ Each method is checked for an exact safe patch set at activation and periodicall
 - Native Release solution build: 0 warnings and 0 errors.
 - Expanded native contract probe: passes against the versions and assembly hashes documented in `TESTING.md`.
 - `git diff --check`: passes.
-- User-controlled gameplay, approved game-directory deployment/readback, committed-head package verification, push, draft PR, and remote CI remain pending. This draft does not claim those gates.
+- Implementation commit `ce2d8eb1c3418f4c9fb8997c0039341b7b8e4b9f` produced a 139,295-byte ZIP at SHA-256 `ba9b290ae4fadb36b2e75477209c1decd126fab108b2387dd96bd00e066c5db9`. Its sidecar, five-file inventory, independent extraction, forbidden-dependency audit, byte comparison, and both `0.5.0+ce2d8eb1c3418f4c9fb8997c0039341b7b8e4b9f` DLL product versions pass.
+- Draft PR [#5](https://github.com/bamboechop/ultimate-duckov-statistics/pull/5) is open, draft, and unmerged; both `core` and `source-safety` CI checks pass. User-controlled gameplay and approved game-directory deployment/readback remain pending. This draft does not claim those gates.

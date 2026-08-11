@@ -878,7 +878,10 @@ The combat Harmony owner is `at.bamboechop.ultimate-duckov-statistics.combat`, s
 - Complete Release suite: 208/208 passed after M5 implementation, including all 188 M0-M4 tests.
 - Native Release solution build: 0 warnings and 0 errors.
 - Expanded native contract probe passed against the exact versions and hashes above. It now checks `Health.Hurt`, static hurt/death events, projectile Init/Update/Release, melee scope, effect source, main/pet ownership members, stable preset key, damage fields, and head-target property.
-- `git diff --check` passed. Package/source-safety/committed-head identity gates are rerun after the implementation commit.
+- Changed-file formatter verification, `git diff --check`, and the tracked-tree forbidden-binary/source-safety audit passed.
+- Implementation commit `ce2d8eb1c3418f4c9fb8997c0039341b7b8e4b9f` produced `artifacts/release/UltimateDuckovStatistics-v0.5.0.zip`, 139,295 bytes at SHA-256 `ba9b290ae4fadb36b2e75477209c1decd126fab108b2387dd96bd00e066c5db9`; its lowercase sidecar is exact. Independent extraction under `artifacts/audit-v050-ce2d8eb-20260811T2052271181268Z` contains exactly folder-rooted `info.ini`, `INSTALL.md`, `LICENSE`, `UltimateDuckovStatistics.Core.dll`, and `UltimateDuckovStatistics.dll`, passes package validation, and is byte-identical to the package root. Both DLLs have file version `0.5.0.0` and product version `0.5.0+ce2d8eb1c3418f4c9fb8997c0039341b7b8e4b9f`.
+- Package file SHA-256 values are `6a52a97cd830b7bca0e82f9c6137cf75fd19effe2b830bf12dec057d2c416572` (`info.ini`), `20be24cfd85eebcffa507c618da2b16257bff5025179961939dc6c0c62d0b4ab` (`INSTALL.md`), `0f7558f2469ad0901074f6c380ada1ed91861d55adf905267bc70b26cd2e3ccc` (`LICENSE`), `1060de900befd0bfbebb2fa0765e86a3029856d5e800777a98e2566b6865a6c3` (Core DLL), and `0b80dd6e8b18df0bd10e881c449cd5685dda7782758cda0bc0033332b3c8fc34` (native DLL).
+- Draft PR [#5](https://github.com/bamboechop/ultimate-duckov-statistics/pull/5) targets `main`, is open, draft, and unmerged. Its `core` and `source-safety` GitHub Actions checks passed at implementation head `ce2d8eb1c3418f4c9fb8997c0039341b7b8e4b9f`. No `v0.5.0` tag exists.
 
 ### Smallest supported manual gameplay matrix (pending)
 
