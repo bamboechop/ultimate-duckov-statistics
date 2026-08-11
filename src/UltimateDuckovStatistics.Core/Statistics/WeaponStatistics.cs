@@ -76,6 +76,9 @@ public sealed class WeaponStatisticsAggregate
 
     [DataMember(Order = 4)]
     public WeaponMetricCapabilities Capabilities { get; set; } = new();
+
+    [DataMember(Order = 5)]
+    public bool WasRepairedFromInvalidState { get; set; }
 }
 
 public sealed class WeaponStatisticsNormalizationResult
@@ -83,6 +86,8 @@ public sealed class WeaponStatisticsNormalizationResult
     public bool Changed { get; internal set; }
 
     public bool InvalidCounters { get; internal set; }
+
+    public bool InvalidCapabilities { get; internal set; }
 }
 
 public static class WeaponStatisticsReducer
@@ -126,6 +131,7 @@ public static class WeaponStatisticsReducer
 
         ValidateAggregate(target);
         ValidateAggregate(source);
+        target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
         target.Capabilities = MergeCapabilities(target.Capabilities, source.Capabilities);
         Add(target.Totals, source.Totals);
         foreach (var sourceWeapon in source.Weapons.Values)
@@ -199,6 +205,7 @@ public static class WeaponStatisticsReducer
         {
             statistics.Capabilities = new WeaponMetricCapabilities();
             result.Changed = true;
+            result.InvalidCapabilities = true;
         }
 
         NormalizeCapabilities(statistics.Capabilities, result);
@@ -262,6 +269,13 @@ public static class WeaponStatisticsReducer
             }
 
             NormalizeTotals(ammunition.Totals, result);
+        }
+
+        if ((result.InvalidCounters || result.InvalidCapabilities)
+            && !statistics.WasRepairedFromInvalidState)
+        {
+            statistics.WasRepairedFromInvalidState = true;
+            result.Changed = true;
         }
 
         return result;
@@ -358,7 +372,8 @@ public static class WeaponStatisticsReducer
         }
 
         ValidateAggregate(aggregate);
-        return aggregate.Totals.FiringActions == 0
+        return !aggregate.WasRepairedFromInvalidState
+               && aggregate.Totals.FiringActions == 0
                && aggregate.Totals.AmmunitionUnitsConsumed == 0
                && aggregate.Totals.Projectiles == 0
                && aggregate.Weapons.Count == 0
@@ -471,30 +486,35 @@ public static class WeaponStatisticsReducer
         {
             capabilities.FiringActions = new MetricAvailability();
             result.Changed = true;
+            result.InvalidCapabilities = true;
         }
 
         if (capabilities.AmmunitionConsumption == null)
         {
             capabilities.AmmunitionConsumption = new MetricAvailability();
             result.Changed = true;
+            result.InvalidCapabilities = true;
         }
 
         if (capabilities.Projectiles == null)
         {
             capabilities.Projectiles = new MetricAvailability();
             result.Changed = true;
+            result.InvalidCapabilities = true;
         }
 
         if (capabilities.WeaponIdentity == null)
         {
             capabilities.WeaponIdentity = new MetricAvailability();
             result.Changed = true;
+            result.InvalidCapabilities = true;
         }
 
         if (capabilities.AmmunitionIdentity == null)
         {
             capabilities.AmmunitionIdentity = new MetricAvailability();
             result.Changed = true;
+            result.InvalidCapabilities = true;
         }
 
         foreach (var availability in new[]
@@ -510,12 +530,14 @@ public static class WeaponStatisticsReducer
             {
                 availability.State = AdapterCapabilityState.DisabledIncompatible;
                 result.Changed = true;
+                result.InvalidCapabilities = true;
             }
 
             if (availability.Provenance == null)
             {
                 availability.Provenance = string.Empty;
                 result.Changed = true;
+                result.InvalidCapabilities = true;
             }
         }
     }

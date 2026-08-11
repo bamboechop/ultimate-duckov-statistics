@@ -274,6 +274,53 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "Migration")]
+    [Trait("Category", "Weapon")]
+    public void RepositoryPersistsInvalidLifetimeRepairMarkerAcrossReopen()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(
+            temporaryDirectory.Path,
+            "profiles",
+            "slot-01",
+            "current",
+            "profile.json");
+        var profile = CreateDocument("generation-repaired", revision: 9);
+        profile.Capabilities.Add(new CapabilityRecord
+        {
+            AdapterId = WeaponCapabilityIds.FiringActions,
+            State = AdapterCapabilityState.Supported,
+            Version = ProductInfo.Version
+        });
+        profile.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions = -7;
+        new AtomicJsonStore<ProfileDocument>().Save(path, profile);
+
+        var first = CreateRepository(temporaryDirectory.Path, "session-first");
+        var firstResult = first.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(firstResult.MigratedSchema);
+        Assert.Equal(0, first.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
+        Assert.True(first.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            WeaponStatisticsViewModelFactory.Create(first.Current).Capabilities.FiringActions.State);
+        first.CloseClean();
+
+        var second = CreateRepository(temporaryDirectory.Path, "session-second");
+        var secondResult = second.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.False(secondResult.MigratedSchema);
+        Assert.True(second.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
+        Assert.False(WeaponStatisticsReducer.IsEmpty(
+            second.Current.Statistics.RunTotals.WeaponStatistics));
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            WeaponStatisticsViewModelFactory.Create(second.Current).Capabilities.FiringActions.State);
+        second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     [Trait("Category", "Healing")]
     public void RepositoryRepairsPreReleaseDelayedHealingGroupWithoutChangingGenerationOrTotals()
     {

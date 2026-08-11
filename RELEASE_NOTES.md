@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics v0.4.0 — pre-release draft
 
-This draft describes M4 weapons and ammunition. Earlier v0.4.0 artifacts completed automated, package, deployment, gameplay, and draft-PR CI gates, but later reviews found merge-blocking native-contract, event-identity, crash-recovery, persisted-data, and documentation defects. Those artifacts are superseded. The latest committed-head replacement has passed local, package, and deployment validation; final remote CI remains required before independent review. Do not publish, tag, merge, mark ready, or upload to Steam Workshop without an explicit later request.
+This draft describes M4 weapons and ammunition. Earlier v0.4.0 artifacts completed automated, package, deployment, gameplay, and draft-PR CI gates, but later reviews found merge-blocking native-contract, event-identity, crash-recovery, persisted-data, and documentation defects. Those artifacts are superseded. The fourth corrective source passes local validation; its committed-head package, deployment readback, source push, and final remote CI remain required before independent review. Do not publish, tag, merge, mark ready, or upload to Steam Workshop without an explicit later request.
 
 ## Included in v0.4.0
 
@@ -11,7 +11,7 @@ This draft describes M4 weapons and ammunition. Earlier v0.4.0 artifacts complet
 - Exact-main-duck filtering: base, loading, pause, no-active-run, pets, companions, NPCs, and unrelated projectile sources do not enter player weapon totals.
 - A unique per-callback event-ID source and bounded run-level event-ID deduplication; reload-equivalent post-shot ammunition values and infinite-ammunition weapons cannot collapse legitimate callbacks.
 - Every accepted firing action immediately flushes the aggregate active-run checkpoint, while a failed flush remains dirty for retry. No write occurs per projectile or pellet.
-- Nested persisted combat state is normalized before cloning; negative counters are rejected or repaired at persistence boundaries, and non-negative additions saturate at `long.MaxValue` instead of wrapping.
+- Nested persisted combat state is normalized before cloning; negative counters are rejected or repaired at persistence boundaries, repair provenance prevents malformed history from becoming an apparently new aggregate, and non-negative additions saturate at `long.MaxValue` instead of wrapping.
 - A process-lifetime weapon subscription owner that blocks replacement activation until failed cleanup succeeds and makes retained post-disposal callbacks inert.
 - Schema-4 migration that preserves M1-M3 data and initializes M4 history empty without reconstruction. Interrupted active-run checkpoints retain already-recorded M4 aggregates exactly once.
 - Combat UI with explicit metric semantics, capability states, lifetime totals, weapon/ammunition tables, and per-run context. Overview includes the lifetime firing-action total.
@@ -34,11 +34,11 @@ Reloads, magazine transfers, and inventory movement do not emit this event. Dry-
 ## Validation status
 
 - Focused M4 acceptance: passed.
-- Corrective local Release suite: 180 tests pass with the complete M0-M3 regression suite and reload-equivalent identity, unavailable-outcome, crash-checkpoint, semantic backup fallback, immutable historical availability, genuinely-empty lifetime fallback, bounded checkpoint retry, nested-normalization, negative-counter, and overflow regressions.
+- Corrective local Release suite: 184 tests pass with the complete M0-M3 regression suite and reload-equivalent identity, unavailable-outcome, crash-checkpoint, semantic backup fallback, immutable historical availability, genuinely-empty lifetime fallback, persisted repair-provenance, bounded checkpoint retry, nested-normalization, negative-counter, and overflow regressions.
 - Native Duckov/Harmony contract probe: passed against Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, and HarmonyLib `2.4.1.0`. The corrected probe requires only the public firing event and stable identity properties; it no longer treats private firing loops or loaded-ammunition methods as proof of outcomes.
 - Native Release build: 0 warnings and 0 errors.
 - M4 change-set formatting and analyzer verification: passed. The repository-wide formatting command continues to report two pre-existing whitespace blocks in untouched legacy test files.
-- The third corrective implementation is commit `4397057c194f300b0bd49225bb968511132e847a`. Its committed-head ZIP is 110,705 bytes at SHA-256 `f2bdb3c98786d7a8ba6d56746242c0aa16611391058305388f27881dcf1507a1`; independent extraction and the approved transactional deployment contain exactly the five permitted files and match byte-for-byte. Both DLLs have file version `0.4.0.0` and product version `0.4.0+4397057c194f300b0bd49225bb968511132e847a`. Source push, draft-PR synchronization, and both remote CI jobs passed at evidence head `41b4edc5e2f03b979f46b11050f36d75acc5ea06`; the PR stays draft.
+- The third corrective implementation and its `f2bdb3c98786d7a8ba6d56746242c0aa16611391058305388f27881dcf1507a1` ZIP passed package, deployment, and CI gates, but a later review found that normalization could repair malformed lifetime data into an empty-looking shape and wrongly enable current-capability fallback. The fourth correction persists invalid-repair provenance and passes exact migration/reopen/UI/export regressions. Its committed-head package, deployment readback, source push, draft-PR synchronization, and remote CI remain pending; the PR stays draft.
 
 ## Known limitations
 

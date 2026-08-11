@@ -238,10 +238,30 @@ public sealed class WeaponStatisticsTests
 
         Assert.True(result.Changed);
         Assert.True(result.InvalidCounters);
+        Assert.True(statistics.WasRepairedFromInvalidState);
         Assert.Equal(0, statistics.Totals.FiringActions);
         Assert.Equal(0, statistics.Totals.AmmunitionUnitsConsumed);
         Assert.Equal(0, statistics.Totals.Projectiles);
         WeaponStatisticsReducer.ValidateAggregate(statistics);
+    }
+
+    [Fact]
+    [Trait("Category", "Weapon")]
+    [Trait("Category", "Persistence")]
+    public void InvalidPersistedCapabilityMetadataMarksAggregateAsRepaired()
+    {
+        var statistics = new WeaponStatisticsAggregate();
+        statistics.Capabilities.FiringActions.State = (AdapterCapabilityState)int.MaxValue;
+
+        var result = WeaponStatisticsReducer.NormalizePersisted(statistics);
+
+        Assert.True(result.Changed);
+        Assert.True(result.InvalidCapabilities);
+        Assert.True(statistics.WasRepairedFromInvalidState);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            statistics.Capabilities.FiringActions.State);
+        Assert.False(WeaponStatisticsReducer.IsEmpty(statistics));
     }
 
     [Fact]
@@ -269,6 +289,10 @@ public sealed class WeaponStatisticsTests
     {
         var aggregate = new WeaponStatisticsAggregate();
         Assert.True(WeaponStatisticsReducer.IsEmpty(aggregate));
+
+        aggregate.WasRepairedFromInvalidState = true;
+        Assert.False(WeaponStatisticsReducer.IsEmpty(aggregate));
+        aggregate.WasRepairedFromInvalidState = false;
 
         aggregate.Weapons["weapon:observed"] = new WeaponAggregate
         {
