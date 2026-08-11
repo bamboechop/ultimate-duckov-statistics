@@ -113,12 +113,42 @@ namespace UltimateDuckovStatistics.Adapters
             replacement.Dispose();
         }
 
+        [Fact]
+        [Trait("Category", "Combat")]
+        public void DistinctOwnersKeepCleanupAndReactivationIsolated()
+        {
+            HarmonyLib.Harmony.ClearAll();
+            const string firstOwner = "uds.test.first";
+            const string secondOwner = "uds.test.second";
+            Assert.True(ReflectiveHarmonyPatcher.TryCreate(firstOwner, out var first, out var firstDetail), firstDetail);
+            Assert.NotNull(first);
+            first.Patch(Method(nameof(Target)), Method(nameof(Prefix)));
+            HarmonyLib.Harmony.FailNextUnpatches(1);
+
+            Assert.False(first.TryDispose(out var failedDetail));
+            Assert.Contains("Injected UnpatchAll failure", failedDetail, StringComparison.Ordinal);
+            Assert.True(ReflectiveHarmonyPatcher.TryCreate(secondOwner, out var second, out var secondDetail), secondDetail);
+            Assert.NotNull(second);
+            second.Patch(Method(nameof(TargetTwo)), Method(nameof(Postfix)));
+            second.Dispose();
+
+            Assert.True(ReflectiveHarmonyPatcher.TryCreate(firstOwner, out var replacement, out var retryDetail), retryDetail);
+            Assert.NotNull(replacement);
+            Assert.Empty(Assert.IsType<HarmonyLib.Patches>(HarmonyLib.Harmony.GetPatchInfo(Method(nameof(Target)))).Prefixes);
+            replacement.Dispose();
+            Assert.False(ReflectiveHarmonyPatcher.HasPendingCleanup);
+        }
+
         private static MethodInfo Method(string name) => typeof(ReflectiveHarmonyPatcherTests).GetMethod(
             name,
             BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new MissingMethodException(typeof(ReflectiveHarmonyPatcherTests).FullName, name);
 
         private static void Target()
+        {
+        }
+
+        private static void TargetTwo()
         {
         }
 

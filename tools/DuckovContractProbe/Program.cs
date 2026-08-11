@@ -100,6 +100,8 @@ try
         core.RequireEvent("Duckov.Rules", "GameRulesManager", "OnRuleChanged", "System.Action");
         core.RequireEvent(string.Empty, "CharacterMainControl", "OnSetPositionEvent", "System.Action", "CharacterMainControl", "UnityEngine.Vector3");
         core.RequirePublicStaticEvent(string.Empty, "ItemAgent_Gun", "OnMainCharacterShootEvent", "System.Action", "ItemAgent_Gun");
+        core.RequirePublicStaticEvent(string.Empty, "Health", "OnHurt", "System.Action", "Health", "DamageInfo");
+        core.RequirePublicStaticEvent(string.Empty, "Health", "OnDead", "System.Action", "Health", "DamageInfo");
         core.RequireEvent(string.Empty, "LevelManager", "OnNewGameReport", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnSetFile", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnSaveDeleted", "System.Action");
@@ -109,7 +111,9 @@ try
         core.RequireProperty(string.Empty, "LevelManager", "IsBaseLevel");
         core.RequireProperty(string.Empty, "LevelManager", "LevelInited", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "LevelManager", "MainCharacter", "CharacterMainControl", mustBePublic: true);
+        core.RequireProperty(string.Empty, "LevelManager", "PetCharacter", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty(string.Empty, "InputManager", "InputActived", "System.Boolean", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "InputManager", "AimingEnemyHead", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "GameManager", "Paused", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "SceneLoader", "IsSceneLoading", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty("Duckov.Scenes", "MultiSceneCore", "IsLoading", "System.Boolean", mustBePublic: true);
@@ -144,6 +148,26 @@ try
         core.RequireProperty(string.Empty, "Health", "CurrentHealth", "System.Single");
         core.RequireProperty(string.Empty, "Health", "MaxHealth", "System.Single");
         core.RequireProperty(string.Empty, "Health", "IsMainCharacterHealth", "System.Boolean");
+        core.RequireField(string.Empty, "Health", "team", mustBePublic: true);
+        core.RequireField(string.Empty, "Health", "isZombie", mustBePublic: true);
+        core.RequireMethod(string.Empty, "Health", "Hurt", 1, mustBePublic: true, returnTypeFragment: "System.Boolean", parameterTypeFragments: ["DamageInfo"]);
+        core.RequireMethod(string.Empty, "Health", "TryGetCharacter", 0, mustBePublic: true, returnTypeFragment: "CharacterMainControl");
+        core.RequireMethod(string.Empty, "Projectile", "Init", 1, mustBePublic: true, returnTypeFragment: "System.Void", parameterTypeFragments: ["ProjectileContext"]);
+        core.RequireMethod(string.Empty, "Projectile", "Update", 0, mustBePrivate: true, returnTypeFragment: "System.Void");
+        core.RequireMethod(string.Empty, "Projectile", "Release", 0, mustBePrivate: true, returnTypeFragment: "System.Void");
+        core.RequireMethod(string.Empty, "ItemAgent_MeleeWeapon", "CheckCollidersInRange", 1, mustBePrivate: true, returnTypeFragment: "System.Int32", parameterTypeFragments: ["System.Boolean"]);
+        core.RequireField(string.Empty, "CharacterMainControl", "attackAction", mustBePublic: true);
+        core.RequireField(string.Empty, "CharacterMainControl", "characterPreset", mustBePublic: true);
+        core.RequireField(string.Empty, "CharacterRandomPreset", "nameKey", mustBePublic: true);
+        core.RequireField(string.Empty, "PetAI", "master", mustBePublic: true);
+        foreach (var field in new[] { "damageType", "isFromBuffOrEffect", "damageValue", "finalDamage", "fromCharacter", "toDamageReceiver", "crit", "fromWeaponItemID", "isExplosion", "buff" })
+        {
+            core.RequireField(string.Empty, "DamageInfo", field, mustBePublic: true);
+        }
+        foreach (var field in new[] { "traceTarget", "fromCharacter", "realFromCharacter", "fromGunItemSetting", "fromWeaponItemID" })
+        {
+            core.RequireField(string.Empty, "ProjectileContext", field, mustBePublic: true);
+        }
         core.RequireMethod(
             "Duckov.Buffs",
             "CharacterBuffManager",
@@ -176,6 +200,12 @@ try
             mustBeAssembly: true,
             returnTypeFragment: "System.Void",
             parameterTypeFragments: effectTriggerParameters);
+        itemStats.RequireMethod(
+            "ItemStatsSystem", "Effect", "Trigger", 1, mustBeAssembly: true,
+            returnTypeFragment: "System.Void", parameterTypeFragments: effectTriggerParameters);
+        itemStats.RequireType("ItemStatsSystem", "TickTrigger");
+        itemStats.RequireType("ItemStatsSystem", "UpdateTrigger");
+        itemStats.RequireField("ItemStatsSystem", "EffectTriggerEventContext", "source", mustBePublic: true);
 
         foreach (var property in new[]
                  {
@@ -192,8 +222,8 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, item/healing, run lifecycle, pause/loading, map, runtime-integrity, main-duck movement, public firing-action, and weapon/ammunition identity contracts are present.");
-    Console.WriteLine("  Loaded-ammunition consumption and projectile creation remain unavailable because the public firing callback does not prove their outcomes.");
+    Console.WriteLine("  Native loader, item/healing, run lifecycle, movement, weapon, exact Health.Hurt, projectile, melee, effect-trigger, ownership, identity, death, and head-target contracts are present.");
+    Console.WriteLine("  M4 loaded-ammunition consumption remains unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
 catch (ContractException exception)

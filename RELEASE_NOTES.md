@@ -1,49 +1,51 @@
-# Ultimate Duckov Statistics v0.4.0 — pre-release draft
+# Ultimate Duckov Statistics v0.5.0 — pre-release draft
 
-This draft describes M4 weapons and ammunition. Earlier v0.4.0 artifacts completed automated, package, deployment, gameplay, and draft-PR CI gates, but later reviews found merge-blocking native-contract, event-identity, crash-recovery, persisted-data, and documentation defects. Those artifacts are superseded. The fifth corrective source, committed-head package, independent audit, approved deployment readback, source push, draft-PR synchronization, and remote CI pass. The PR intentionally remains draft for independent review. Do not publish, tag, merge, mark ready, or upload to Steam Workshop without an explicit later request.
+This draft describes M5 combat attribution. M0-M4 are already merged and published through v0.4.0. The v0.5.0 branch and PR must remain draft and unmerged until the documented user-controlled gameplay and approved deployment gates pass. Do not publish, tag, merge, mark ready, or upload to Steam Workshop without a later explicit request.
 
-## Included in v0.4.0
+## Included in v0.5.0
 
-- Everything released in v0.1.0 through v0.3.0: consumables, healing attribution, run lifecycle, records, maps, movement, persistence, and integrity handling.
-- A normalized `ShotRecorded` contract with save-generation, run, map, gameplay, integrity, version, stable weapon, and stable ammunition context captured at event time.
-- Three deliberately separate capability-gated metrics: accepted firing actions, loaded ammunition units consumed by firing, and native projectiles/pellets created. Duckov 2.3.30 currently proves only firing actions through its public event; the other two remain unavailable.
-- Lifetime, per-map, per-run, per-weapon, and per-ammunition aggregates with stable IDs and fallback display names for unknown or modded content.
-- Exact-main-duck filtering: base, loading, pause, no-active-run, pets, companions, NPCs, and unrelated projectile sources do not enter player weapon totals.
-- A unique per-callback event-ID source and bounded run-level event-ID deduplication; reload-equivalent post-shot ammunition values and infinite-ammunition weapons cannot collapse legitimate callbacks.
-- Every accepted firing action immediately flushes the aggregate active-run checkpoint, while a failed flush remains dirty for retry. No write occurs per projectile or pellet.
-- Nested persisted combat state is normalized before cloning; negative counters and malformed capability or identity rows are rejected or repaired at persistence boundaries, repair provenance prevents malformed history from becoming an apparently new aggregate, and non-negative additions saturate at `long.MaxValue` instead of wrapping.
-- A process-lifetime weapon subscription owner that blocks replacement activation until failed cleanup succeeds and makes retained post-disposal callbacks inert.
-- Schema-4 migration that preserves M1-M3 data and initializes M4 history empty without reconstruction. Interrupted active-run checkpoints retain already-recorded M4 aggregates exactly once.
-- Combat UI with explicit metric semantics, capability states, lifetime totals, weapon/ammunition tables, and per-run context. Overview includes the lifetime firing-action total.
-- JSON plus ten CSV files. New flattened files are `combat_totals.csv`, `weapon_totals.csv`, and `ammunition_totals.csv`.
+- Everything released through v0.4.0: consumables, exact attributed healing, run lifecycle and records, map/movement aggregation, accepted firing actions, and event-time weapon/ammunition identity.
+- Actual HP loss measured around `Health.Hurt`. Requested damage, rejected callbacks, `finalDamage`, and overkill are not reported as applied damage.
+- Main-duck damage dealt and received; compatible completed-projectile ranged hits/accuracy; accepted melee swings and one hit per melee damage scope; enemy kills; and player deaths.
+- Exact ownership categories for the main duck, the native built-in pet/master chain, environmental damage, and unknown/unproven actors. Arbitrary player-team actors are not promoted to pets or player ownership.
+- Stable target/killer identities from `CharacterRandomPreset.nameKey`, with preset-name and character-name fallback IDs for unknown or modded content. The verified Zombie flag supplies the available broader family; all others remain explicitly unknown.
+- Direct, player-applied tick/update damage-over-time, generic effect, explosion, real-damage, and environmental cause categories. Generic effect damage is not mislabeled as DoT.
+- Event-time projectile weapon and ammunition snapshots. Delayed/unrelated damage that lacks an ammunition chain retains an unknown ammunition identity.
+- Independently proven native head-targeted projectile hits and their fatal subset. Critical hits alone never count as headshots.
+- Schema 5 lifetime, per-map, and per-run aggregates plus enemy, killer, family, cause, weapon, ammunition, and ownership breakdowns. M1-M4 data is preserved exactly; historical M5 starts unavailable and empty.
+- Bounded event IDs and projectile correlations, saturating non-negative arithmetic, nested repair provenance, exact-once interrupted-run recovery, and one-second coalesced high-frequency combat checkpoints.
+- Combat and Runs UI extensions, JSON state, and a new `combat_attribution.csv`; all expose capability state instead of presenting unsupported history as zero.
 
 ## Native compatibility boundary
 
-M4 uses the verified public static `ItemAgent_Gun.OnMainCharacterShootEvent` on Duckov `2.3.30`. The event proves one accepted main-character firing callback and supplies the firing gun for event-time identity. It does not prove ammunition or projectile outcomes: `ItemSetting_Gun.UseABullet` can return without decrementing when no valid loaded item exists, and `ShootOneBullet` can return before projectile acquisition while the later firing event still occurs.
+The verified baseline is Escape From Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, and separately installed HarmonyLib `2.4.1.0`.
 
-Reloads, magazine transfers, and inventory movement do not emit this event. Dry-fire trigger attempts also do not emit it. Trigger attempts, actual ammunition consumption, and completed projectile creation are unavailable rather than fabricated from post-shot ammunition or configured `ShotCount`. M4 adds no Harmony patches and never modifies weapon, ammunition, projectile, timing, argument, return, or game state.
+M5 uses the public main-character death and accepted melee-action callbacks where they are sufficient. Minimal version-checked Harmony scopes are used only where the public callbacks cannot prove the requested semantics:
 
-## Compatibility
+- `Health.Hurt(DamageInfo)` prefix/postfix: before/after HP and fatal transition.
+- `Projectile.Init(ProjectileContext)` postfix: unique projectile, physical source, head-target flag, weapon, and ammunition snapshot.
+- `Projectile.Update()` prefix/finalizer: direct and explosion damage correlation.
+- `Projectile.Release()` prefix: compatible completed-projectile denominator and one-hit numerator commit.
+- `ItemAgent_MeleeWeapon.CheckCollidersInRange(bool)` prefix/finalizer: one melee damage scope across multi-target callbacks.
+- `ItemStatsSystem.Effect.Trigger(EffectTriggerEventContext)` prefix/finalizer: exact TickTrigger/UpdateTrigger damage-over-time proof.
 
-- Escape From Duckov `2.3.30`
-- Steam build `24013657`
-- Unity `2022.3.62f2`
-- HarmonyLib `2.4.1.0` only for the existing M2 healing attribution
-- Windows, single-player only
+Each method is checked for an exact safe patch set at activation and periodically. Combat uses a separate Harmony owner from healing. Callbacks become inert before cleanup, failed unpatch retains the exact owner for retry, and same-process replacement is blocked until cleanup succeeds. No Harmony or Duckov DLL is bundled.
+
+## Exact metric semantics and limitations
+
+- Ranged accuracy = unique completed exact-main-duck projectiles that caused positive actual enemy HP loss / completed exact-main-duck projectiles. Penetration, pellets, explosions, and repeated callbacks cannot count a projectile more than once. It is deliberately not based on M4 firing actions.
+- A projectile that has not reached `Projectile.Release` before run termination enters neither numerator nor denominator for that run.
+- Headshot = positive enemy HP loss from an exact-player projectile whose native `AimingEnemyHead` flag was independently true at projectile initialization. This is a native head-target claim, not a reconstructed geometric impact point. Unsupported input paths remain uncounted.
+- `DamageInfo.crit` is retained only as native context and is never headshot proof.
+- Loaded-ammunition units consumed remain unavailable under the M4 public firing contract. M5 can prove event-time ammunition identity for projectile-correlated damage, not consumption.
+- Enemy family is exact only for Zombie versus unknown on this verified contract.
+- Combat writes are coalesced to approximately one second. An abrupt process or OS failure can lose up to that interval; orderly terminal and shutdown paths flush the current in-memory aggregate.
 
 ## Validation status
 
-- Focused M4 acceptance: passed.
-- Corrective local Release suite: 188 tests pass with the complete M0-M3 regression suite and reload-equivalent identity, unavailable-outcome, crash-checkpoint, semantic backup fallback, immutable historical availability, genuinely-empty lifetime fallback, destructive identity-row repair provenance, bounded checkpoint retry, nested-normalization, negative-counter, and overflow regressions.
-- Native Duckov/Harmony contract probe: passed against Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, and HarmonyLib `2.4.1.0`. The corrected probe requires only the public firing event and stable identity properties; it no longer treats private firing loops or loaded-ammunition methods as proof of outcomes.
-- Native Release build: 0 warnings and 0 errors.
-- M4 change-set formatting and analyzer verification: passed. The repository-wide formatting command continues to report two pre-existing whitespace blocks in untouched legacy test files.
-- Fourth corrective implementation `d2836feb27706373c3d4a618974cc6f112fb1163` and its `147ecde3342a0a78109a59c65ce7bc6c73680f4bdadddd515c327f07151eea33` ZIP passed package, deployment, and CI gates, but a later review found that destructive removal of null or blank-key weapon/ammunition rows did not set the repair marker. Fifth corrective implementation `7dc5e3a9bfcaeea673c535e82d1643f98c939532` marks both collections and all serializer-representable invalid forms, with exact normalization, repository, backup, rotation, UI, JSON, CSV, pristine-fallback, idempotence, and non-mutation regressions. Its committed-head ZIP is 110,998 bytes at SHA-256 `f20878656c18843a1306ab68a4dd748cca1f8bdeeb502a2993c9d0cc8d67e5db`; the sidecar matches, independent extraction contains exactly the five permitted files, and both DLLs have file version `0.4.0.0` and product version `0.4.0+7dc5e3a9bfcaeea673c535e82d1643f98c939532`. The approved transactional deployment contains those exact five files, matches the package root byte-for-byte, has zero deployment residue, and left Duckov closed. Source push, draft-PR synchronization, and both remote CI jobs passed at evidence head `efeab3d29498c6a7e098b041749423154629729a` (`core`, 1 minute 1 second; `source-safety`, 6 seconds); the PR stays draft.
-
-## Known limitations
-
-- M4 records accepted native firing callbacks, not trigger attempts. Dry fire is unavailable and not counted.
-- Actual loaded-ammunition consumption and completed projectile creation are unavailable on the public Duckov `2.3.30` contract. The normalized schema retains those independent fields so a future proven native outcome hook can enable them without redefining firing actions.
-- Weapon/ammunition statistics begin with v0.4.0; schema-3 migration does not reconstruct historical firing.
-- F8 remains unavailable during raids; inspect Combat after leaving the raid.
-- Damage, accuracy, hits, kills, deaths, melee, critical/headshot attribution, equipment duration/loadouts, and later-milestone systems remain intentionally out of scope.
+- Starting baseline: `origin/main` at `261a1e1668536aa1aa77868753add3269a90bd30`.
+- Release suite: 208 tests pass, including the complete M1-M4 regression suite and new actual/overkill, filtering, ownership, DoT, identity, ranged/melee, deduplication, multi-damage headshot, owner-isolated Harmony cleanup, migration, active-checkpoint recovery, nested-root repair, normalization, overflow, pristine-profile/historical capability boundaries, UI/export, and capability-monotonicity coverage.
+- Native Release solution build: 0 warnings and 0 errors.
+- Expanded native contract probe: passes against the versions and assembly hashes documented in `TESTING.md`.
+- `git diff --check`: passes.
+- User-controlled gameplay, approved game-directory deployment/readback, committed-head package verification, push, draft PR, and remote CI remain pending. This draft does not claim those gates.

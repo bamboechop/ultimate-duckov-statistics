@@ -8,7 +8,8 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.healing";
     private static readonly Version MinimumHarmonyVersion = new(2, 4, 1, 0);
     private static readonly object PendingCleanupLock = new();
-    private static ReflectiveHarmonyPatcher? pendingCleanup;
+    private static readonly Dictionary<string, ReflectiveHarmonyPatcher> PendingCleanup = new(StringComparer.Ordinal);
+    private readonly string harmonyId;
     private readonly object harmony;
     private readonly ConstructorInfo harmonyMethodConstructor;
     private readonly FieldInfo harmonyPriorityField;
@@ -18,6 +19,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
     private bool disposed;
 
     private ReflectiveHarmonyPatcher(
+        string harmonyId,
         object harmony,
         ConstructorInfo harmonyMethodConstructor,
         FieldInfo harmonyPriorityField,
@@ -26,6 +28,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
         MethodInfo getPatchInfoMethod,
         Version version)
     {
+        this.harmonyId = harmonyId;
         this.harmony = harmony;
         this.harmonyMethodConstructor = harmonyMethodConstructor;
         this.harmonyPriorityField = harmonyPriorityField;
@@ -45,15 +48,23 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
         {
             lock (PendingCleanupLock)
             {
-                return pendingCleanup != null;
+                return PendingCleanup.Count > 0;
             }
         }
     }
 
     public static bool TryCreate(out ReflectiveHarmonyPatcher? patcher, out string detail)
+        => TryCreate(HarmonyId, out patcher, out detail);
+
+    public static bool TryCreate(string harmonyId, out ReflectiveHarmonyPatcher? patcher, out string detail)
     {
         patcher = null;
-        if (!TryCompletePendingCleanup(out var cleanupDetail))
+        if (string.IsNullOrWhiteSpace(harmonyId))
+        {
+            detail = "Harmony owner ID is required.";
+            return false;
+        }
+        if (!TryCompletePendingCleanup(harmonyId, out var cleanupDetail))
         {
             detail = $"Harmony cleanup from a previous UDS activation is still pending: {cleanupDetail}";
             return false;
@@ -110,7 +121,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
                 throw new MissingMemberException("HarmonyLib.Patch.PatchMethod property was not found.");
             }
 
-            var harmony = harmonyConstructor.Invoke(new object[] { HarmonyId })
+            var harmony = harmonyConstructor.Invoke(new object[] { harmonyId })
                 ?? throw new InvalidOperationException("Harmony constructor returned null.");
             var patchMethod = harmonyType.GetMethod(
                 "Patch",
@@ -141,6 +152,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
                 modifiers: null)
                 ?? throw new MissingMethodException("Harmony.GetPatchInfo API was not found.");
             patcher = new ReflectiveHarmonyPatcher(
+                harmonyId,
                 harmony,
                 harmonyMethodConstructor,
                 harmonyPriorityField,
@@ -174,7 +186,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
             var patchInfo = getPatchInfoMethod.Invoke(null, new object[] { original });
             return HarmonyPatchSetInspector.TryValidate(
                 patchInfo,
-                HarmonyId,
+                harmonyId,
                 expectedOwnedPatches,
                 out detail);
         }
@@ -228,7 +240,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
 
         try
         {
-            unpatchAllMethod.Invoke(harmony, new object?[] { HarmonyId });
+            unpatchAllMethod.Invoke(harmony, new object?[] { harmonyId });
             disposed = true;
             ClearPendingCleanup(this);
             detail = "Harmony patches removed.";
@@ -259,12 +271,12 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
     private static Assembly? FindHarmonyAssembly() => AppDomain.CurrentDomain.GetAssemblies()
         .FirstOrDefault(candidate => candidate.GetType("HarmonyLib.Harmony", throwOnError: false) != null);
 
-    private static bool TryCompletePendingCleanup(out string detail)
+    private static bool TryCompletePendingCleanup(string harmonyId, out string detail)
     {
         ReflectiveHarmonyPatcher? pending;
         lock (PendingCleanupLock)
         {
-            pending = pendingCleanup;
+            PendingCleanup.TryGetValue(harmonyId, out pending);
         }
 
         if (pending == null)
@@ -280,7 +292,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
     {
         lock (PendingCleanupLock)
         {
-            pendingCleanup = patcher;
+            PendingCleanup[patcher.harmonyId] = patcher;
         }
     }
 
@@ -288,9 +300,10 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
     {
         lock (PendingCleanupLock)
         {
-            if (ReferenceEquals(pendingCleanup, patcher))
+            if (PendingCleanup.TryGetValue(patcher.harmonyId, out var pending)
+                && ReferenceEquals(pending, patcher))
             {
-                pendingCleanup = null;
+                PendingCleanup.Remove(patcher.harmonyId);
             }
         }
     }

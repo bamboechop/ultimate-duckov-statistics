@@ -15,6 +15,7 @@ public sealed class ExportTests
     private static readonly string[] ExpectedExportFileNames =
     {
         "ammunition_totals.csv",
+        "combat_attribution.csv",
         "combat_totals.csv",
         "groups.csv",
         "items.csv",
@@ -430,7 +431,7 @@ public sealed class ExportTests
 
         var result = ProfileExportWriter.Write(profile, profilePath, TestTime);
 
-        Assert.Equal(11, result.Files.Count);
+        Assert.Equal(12, result.Files.Count);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
         Assert.Equal(
             ExpectedExportFileNames,

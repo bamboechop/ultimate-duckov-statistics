@@ -1,4 +1,5 @@
 using System.Globalization;
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Statistics;
 
@@ -206,6 +207,9 @@ public sealed class ProfileRepository
         }
 
         WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
+        checkpoint.CombatStatistics ??= new CombatStatisticsAggregate();
+        CombatStatisticsReducer.NormalizePersisted(checkpoint.CombatStatistics);
+        CombatStatisticsReducer.ValidateAggregate(checkpoint.CombatStatistics);
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
     }
@@ -500,6 +504,14 @@ public sealed class ProfileRepository
             return "Active-run checkpoint contains negative weapon counters.";
         }
 
+        checkpoint.CombatStatistics ??= new CombatStatisticsAggregate();
+        CombatStatisticsReducer.NormalizePersisted(checkpoint.CombatStatistics);
+        if (checkpoint.SchemaVersion < 5)
+        {
+            checkpoint.CombatStatistics.Capabilities = CombatNativeContractPolicy.CreateUnavailableCapabilities(
+                "Historical active-run checkpoint predates M5; combat attribution was not recorded.");
+        }
+
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
         {
             return $"Active-run checkpoint schema {checkpoint.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion}.";
@@ -518,6 +530,7 @@ public sealed class ProfileRepository
         try
         {
             WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
+            CombatStatisticsReducer.ValidateAggregate(checkpoint.CombatStatistics);
             RunReducer.Validate(checkpoint.ToInterruptedSummary());
             return null;
         }
@@ -684,6 +697,13 @@ public sealed class ProfileRepository
         && statistics.RunTotals.WeaponStatistics.Totals.FiringActions == 0
         && statistics.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed == 0
         && statistics.RunTotals.WeaponStatistics.Totals.Projectiles == 0
+        && statistics.RunTotals.CombatStatistics.Totals.DamageCaused == 0
+        && statistics.RunTotals.CombatStatistics.Totals.DamageDealt == 0
+        && statistics.RunTotals.CombatStatistics.Totals.DamageReceived == 0
+        && statistics.RunTotals.CombatStatistics.Totals.CompletedPlayerProjectiles == 0
+        && statistics.RunTotals.CombatStatistics.Totals.MeleeSwings == 0
+        && statistics.RunTotals.CombatStatistics.Totals.EnemiesKilled == 0
+        && statistics.RunTotals.CombatStatistics.Totals.PlayerDeaths == 0
         && statistics.Runs.Count == 0;
 
     private static bool IdentitiesEqual(SaveIdentitySnapshot left, SaveIdentitySnapshot right) =>

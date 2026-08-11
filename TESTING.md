@@ -830,3 +830,69 @@ Corrected package, deployment, reload-equivalent identity, forced-interruption r
 - Production view/export coverage proves current runtime support cannot upgrade the repaired lifetime aggregate in the native view model, `statistics.json`, or lifetime `combat_totals.csv`; weapon/ammunition CSV rows remain unavailable after valid zero-total identities are subsequently present. Repeated view/export construction is deterministic and leaves the serialized profile byte-equivalent. A pristine empty lifetime aggregate still adopts current support without mutation.
 - Focused weapon/persistence/export/UI coverage passes 49/49 and the complete Release suite passes 188/188. The Duckov `2.3.30` / Steam `24013657` / Unity `2022.3.62f2` contract probe passes; the native Release build succeeds with zero warnings/errors; formatter verification for all four changed C# files, `git diff --check`, and tracked-source safety pass.
 - This persisted-profile correction does not change native or live-only behavior, so no additional gameplay is required. Implementation commit `7dc5e3a9bfcaeea673c535e82d1643f98c939532` produced a 110,998-byte `UltimateDuckovStatistics-v0.4.0.zip` at SHA-256 `f20878656c18843a1306ab68a4dd748cca1f8bdeeb502a2993c9d0cc8d67e5db`; its sidecar matches. Independent extraction `artifacts/audit-v040-identity-repair-20260811T1432134105890Z` contains exactly the five permitted files, passes `verify-package.ps1`, and is byte-identical to the package root. Package hashes are `dcadf0eb406499aabfe44e84c01316705449b0df9d95c1b42248807e566cc42d` (`info.ini`), `bc80666a04347d53f1149cf3ac14dd7a7349c37b9c058975f3f9cbb540fc8724` (`INSTALL.md`), `0f7558f2469ad0901074f6c380ada1ed91861d55adf905267bc70b26cd2e3ccc` (`LICENSE`), `b27c7e137bd6f811331fefdcee9c9160abe3862f86950cc5af8c462e205ce179` (Core DLL), and `5049a0879c19b4669270b21d1e0d19790b33bd492e64de43ca108925a5d5c0ab` (native DLL). Both DLLs have file version `0.4.0.0` and product version `0.4.0+7dc5e3a9bfcaeea673c535e82d1643f98c939532`. The user approved replacement of only `E:\SteamLibrary\steamapps\common\Escape from Duckov\Duckov_Data\Mods\UltimateDuckovStatistics`; transactional validation passed before and after promotion, all five deployed hashes match, both DLL versions match, Duckov remained closed, and deployment residue is zero. Source push, draft-PR synchronization, and both GitHub Actions jobs (`core`, 1 minute 1 second; `source-safety`, 6 seconds) passed at evidence head `efeab3d29498c6a7e098b041749423154629729a`. The PR remains open, draft, and unmerged. The prior `147ecde3342a0a78109a59c65ce7bc6c73680f4bdadddd515c327f07151eea33` ZIP and deployment are superseded.
+
+## M5 — damage, kills, deaths, melee, and headshots (v0.5.0 candidate)
+
+### Proven baseline and starting point — 2026-08-11
+
+- Work began from clean `origin/main` at `261a1e1668536aa1aa77868753add3269a90bd30` on `feat/combat-attribution`.
+- Installed compatibility evidence: Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, HarmonyLib `2.4.1.0`.
+- Assembly SHA-256: `298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f` (`TeamSoda.Duckov.Core.dll`), `a276e15c022f71b2214bd05e1b9b0f2e620c16561df576fed0b79c2fe4402e60` (`ItemStatsSystem.dll`), and `353daafec180bb8e7bbe4da78f2a7cdc78067392e3a4e79dc8e7af295f2371e6` (`0Harmony.dll`).
+- Baseline M0-M4 Release suite passed 188/188 before M5 edits.
+
+### Hook truth table
+
+| Hook | Proves | Does not prove | Callback/order behavior | Ownership/failure behavior | Capability |
+|---|---|---|---|---|---|
+| `Health.Hurt(DamageInfo)` prefix/postfix | Actual positive HP loss from `CurrentHealth` before/after and a fatal transition | Requested/raw damage, `finalDamage` accuracy, overkill, headshot | Death callbacks occur inside `Hurt` before its postfix; UDS defers raid terminal completion until the next `Update` so the postfix is aggregated | `DamageInfo.fromCharacter`, refined by an active projectile's physical source; missing/unsafe patch disables combat attribution | Supported on verified build |
+| `LevelManager.OnMainCharacterDead(DamageInfo)` | Main-player death, killer/cause context | Actual HP delta by itself | Runs before `Health.Hurt` returns; records death evidence and requests deferred terminal completion | Null source is environmental; otherwise exact player/pet/unknown rules | Supported public event |
+| `Projectile.Init(ProjectileContext)` postfix | Unique projectile instance; event-time physical source, weapon, ammunition, and native head-target flag | Completed projectile, hit, ammo consumption, geometric impact point | Pool reuse replaces the runtime-ID snapshot with a new unique projectile ID | Exact player requires `realFromCharacter ?? fromCharacter` to be the native main duck | Supported on verified build |
+| `Projectile.Update()` prefix/finalizer | Direct/penetrating/explosion `Health.Hurt` calls caused during that projectile update | Future/delayed effect ticks | A thread-local nested scope covers all synchronous damage and is always popped by finalizer | Per-projectile hit marker prevents repeated/multi-target inflation | Supported on verified build |
+| `Projectile.Release()` prefix | One completed projectile and, if marked, one compatible ranged hit | M4 firing action, trigger attempt, loaded-ammo decrement | Numerator and denominator commit together; only release while the run is active counts | Only exact-player projectile snapshots enter accuracy | Supported on verified build |
+| `CA_Attack.OnAttack` public event | One accepted main-duck melee swing | Input attempt rejected before action start, a hit | Subscribed to the current main character and replaced idempotently | Only exact main-character action is accepted | Supported public event |
+| `ItemAgent_MeleeWeapon.CheckCollidersInRange(true)` prefix/finalizer | One melee damage scope; positive enemy HP loss means a hit | A hit from collision alone | One shared scope covers legitimate multi-target callbacks and counts at most one hit | Exact player requires the weapon holder to be the native main duck | Supported on verified build |
+| `ItemStatsSystem.Effect.Trigger(EffectTriggerEventContext)` prefix/finalizer | Tick/update source independently proves repeated damage-over-time; other source proves generic effect context | That every effect is DoT; ammunition not preserved by delayed buff damage | Nested thread-local scope surrounds synchronous effect actions | Final `DamageInfo` source still controls ownership; missing source stays unknown/environmental | Supported on verified build |
+| `InputManager.AimingEnemyHead` at projectile init | Native head-targeted exact-player projectile | `DamageInfo.crit`, random crit, trace-only crit, reconstructed impact geometry | Captured once at event time; first positive enemy damage counts a headshot, fatal subset counts separately | Unsupported/unexposed input paths remain uncounted | Supported with documented narrow semantics |
+
+The combat Harmony owner is `at.bamboechop.ultimate-duckov-statistics.combat`, separate from healing. All six patch points must have an empty safe pre-existing set and then exactly the expected UDS callbacks. Patch sets are rechecked every two seconds. Disposal makes bridge callbacks inert before detach; failed unpatch keeps the exact patcher in its owner-specific pending-cleanup registry and blocks replacement activation.
+
+### Normalized and aggregate semantics
+
+- `CombatRecorded` carries the common generation/run/map/gameplay/integrity/version context plus ownership, attack kind, cause, attacker, target, family, weapon, ammunition, projectile ID, actual target HP loss, main-duck damage dealt/received, completed projectiles, ranged/melee outcomes, kills/deaths, headshots, and final blows.
+- Every native callback gets a unique event ID. Each active run retains the latest 2,048 combat IDs; projectile correlations are independently bounded to 2,048. Distinct rapid, pellet, penetration, multi-hit, and DoT callbacks are not content-hash deduplicated.
+- Only exact generation/run/map `Raid` events enter totals. Native loading, pause, base, no-run, and mismatched activity are rejected before aggregation.
+- `DamageCaused` retains non-main target HP loss for ownership breakdowns. The user-facing `DamageDealt` total is the exact main duck only. Damage received is main duck only. Enemy kills include fatal non-player targets and remain split by ownership.
+- Accuracy commits one numerator/denominator event at projectile completion. A projectile can damage multiple targets but contributes at most one ranged hit.
+- Lifetime, map, and run totals merge deterministically with saturating non-negative arithmetic. Breakdowns are enemy, killer, family, cause, weapon, ammunition, and ownership.
+
+### Persistence and historical boundary
+
+- Schema 5 preserves M1-M4 state and initializes historical M5 totals at zero with every M5 capability `DisabledIncompatible`; no earlier combat is reconstructed.
+- Migrated lifetime/map/run M5 scopes receive explicit historical-unavailability provenance. A genuinely pristine schema-5 lifetime scope may display current runtime support before its first run; repaired, migrated, or populated scopes cannot use that fallback, and view/export construction never mutates persisted capability state.
+- M5 state is included in active-run checkpoints and terminal summaries. Replayed recovered run IDs are rejected, so checkpointed M5 aggregates finalize exactly once. A recovered schema-4 checkpoint receives explicit historical M5 unavailability before it becomes an Interrupted summary.
+- High-frequency combat callbacks mark the checkpoint dirty. The first safe tick flushes and subsequent writes coalesce to at most once per second; the existing five-second periodic checkpoint remains a fallback and failed writes retry no faster than once per second. An abrupt process/OS failure may lose approximately one second of M5 callbacks. Terminal completion, profile transition, cleanup, and orderly application quit flush in-memory state.
+- Nested null collections, null rows, blank identities, duplicate entity IDs, invalid capabilities, non-finite/negative values, impossible accuracy/headshot relations, and overflow are normalized before persisted use, clone, render, or export. Duplicate IDs are re-keyed and saturating-merged deterministically. Repairs set monotonic `WasRepairedFromInvalidState`; clones repair without mutating their source.
+
+### Automated evidence before gameplay
+
+- Complete Release suite: 208/208 passed after M5 implementation, including all 188 M0-M4 tests.
+- Native Release solution build: 0 warnings and 0 errors.
+- Expanded native contract probe passed against the exact versions and hashes above. It now checks `Health.Hurt`, static hurt/death events, projectile Init/Update/Release, melee scope, effect source, main/pet ownership members, stable preset key, damage fields, and head-target property.
+- `git diff --check` passed. Package/source-safety/committed-head identity gates are rerun after the implementation commit.
+
+### Smallest supported manual gameplay matrix (pending)
+
+Use a user-selected disposable/progressed save. Do not modify, delete, replace, or restore any Duckov save. Deployment into the UDS mod directory and any read-only save backup require explicit approval before this checklist begins.
+
+1. Cold launch: confirm Harmony and UDS active; Diagnostics shows all M5 capabilities Supported with one combat activation and no cleanup error.
+2. Base exclusion: perform no raid and confirm M5 totals remain unchanged.
+3. Ranged: in one raid, fire a known weapon/ammunition pair; record shots/projectiles, damage one enemy more than once if practical, and kill it. Include a miss so completed-projectile accuracy is not trivially 100%.
+4. Received/death: take known enemy damage; if the save is disposable, allow one death and record the killer/cause. Otherwise stop at nonfatal received damage and use a separate disposable run for death.
+5. Melee: complete one accepted swing that misses and one that causes damage; kill by melee if practical.
+6. DoT: apply a known player-owned recurring damage effect and, if practical, let its tick deliver the final blow. Do not substitute a generic one-shot effect.
+7. Head targeting: cause one independently head-targeted nonfatal hit and, if practical, one head-targeted final blow; a critical-only body shot must not be counted as a headshot.
+8. Ownership: observe built-in pet damage if available and environmental/unknown damage if safely reproducible. Do not require unavailable scenarios; absence remains visible as zero under a supported categorical contract, not reassigned to player.
+9. Forced interruption: after additional M5 activity and at least one second for the coalesced checkpoint, force-close Duckov as directed by the user, relaunch, and verify one Interrupted run with no duplicate totals.
+10. Finish/restart/export: complete a clean run and shutdown, restart, then compare Combat/Runs UI, profile, active-run absence, `statistics.json`, and all `combat_attribution.csv` lifetime/map/run/breakdown rows. Re-select another save to verify generation isolation.
+
+Expected evidence is the exact user action log, `Player.log`/`Player-prev.log`, bounded UDS diagnostics, primary/backup profile and checkpoint files, export set, file hashes, and clean-shutdown subscription/unsubscription counts. The M5 Goal remains active until this matrix and the post-game package/delivery gates pass.

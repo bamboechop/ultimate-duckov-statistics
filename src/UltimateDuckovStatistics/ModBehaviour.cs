@@ -21,6 +21,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private NativeItemUseAdapter? itemUseAdapter;
     private readonly ProcessLifetimeCleanupOwner<NativeRunLifecycleAdapter> runLifecycleAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeWeaponFireAdapter> weaponFireAdapter = new();
+    private readonly ProcessLifetimeCleanupOwner<NativeCombatAttributionAdapter> combatAttributionAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
 
     protected override void OnAfterSetup()
@@ -51,6 +52,15 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 return;
             }
 
+            if (combatAttributionAdapter.HasValue
+                && (!combatAttributionAdapter.HasPendingCleanup || !combatAttributionAdapter.TryCleanupPending()))
+            {
+                Debug.LogError(
+                    $"{LogPrefix} activation blocked while another combat-attribution owner is active "
+                    + "or prior patches await cleanup.");
+                return;
+            }
+
             profileCoordinator = new NativeProfileCoordinator();
             profileCoordinator.Initialize();
             healingAttributionAdapter = new NativeHealingAttributionAdapter(
@@ -64,10 +74,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 profileCoordinator.HandleRunCompleted,
                 profileCoordinator.SetRunCapabilities,
                 message => Debug.Log($"{LogPrefix} {message}"),
-                () => weaponFireAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.WeaponMetricCapabilities());
+                () => weaponFireAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.WeaponMetricCapabilities(),
+                () => combatAttributionAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.CombatMetricCapabilities());
             runLifecycleAdapter.Assign(newRunLifecycleAdapter);
-            newRunLifecycleAdapter.Initialize();
-            profileCoordinator.ProfileChanging += newRunLifecycleAdapter.InterruptForProfileTransition;
             var newWeaponFireAdapter = new NativeWeaponFireAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
@@ -77,6 +86,27 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 message => Debug.Log($"{LogPrefix} {message}"));
             weaponFireAdapter.Assign(newWeaponFireAdapter);
             newWeaponFireAdapter.Initialize();
+            NativeCombatAttributionAdapter? newCombatAttributionAdapter = null;
+            newCombatAttributionAdapter = new NativeCombatAttributionAdapter(
+                () => profileCoordinator.CurrentGenerationId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentMapId,
+                value => runLifecycleAdapter.OwnedValue?.RecordCombat(value) == true,
+                capabilities =>
+                {
+                    profileCoordinator.SetCombatCapabilities(capabilities);
+                    if (newCombatAttributionAdapter != null)
+                    {
+                        runLifecycleAdapter.OwnedValue?.UpdateCombatCapabilities(
+                            newCombatAttributionAdapter.MetricCapabilities);
+                    }
+                },
+                message => Debug.Log($"{LogPrefix} {message}"));
+            combatAttributionAdapter.Assign(newCombatAttributionAdapter);
+            newCombatAttributionAdapter.Initialize();
+            newRunLifecycleAdapter.SetPlayerDeathObserver(newCombatAttributionAdapter.RecordPlayerDeath);
+            newRunLifecycleAdapter.Initialize();
+            profileCoordinator.ProfileChanging += newRunLifecycleAdapter.InterruptForProfileTransition;
             itemUseAdapter = new NativeItemUseAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 profileCoordinator.HandleItemUse,
@@ -105,7 +135,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     {
         if (!initialized
             && runLifecycleAdapter.OwnedValue == null
-            && weaponFireAdapter.OwnedValue == null)
+            && weaponFireAdapter.OwnedValue == null
+            && combatAttributionAdapter.OwnedValue == null)
         {
             return;
         }
@@ -119,6 +150,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         runLifecycleAdapter.OwnedValue?.Tick();
         itemUseAdapter?.Tick(DateTime.UtcNow);
         healingAttributionAdapter?.Tick();
+        combatAttributionAdapter.OwnedValue?.Tick();
         statisticsPanel?.Tick();
     }
 
@@ -129,6 +161,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void OnApplicationQuit()
     {
+        runLifecycleAdapter.OwnedValue?.FlushCheckpoint();
         profileCoordinator?.Flush();
         Debug.Log(
             $"{LogPrefix} application-quitting utc={DateTime.UtcNow:O} " +
@@ -155,6 +188,11 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         if (!weaponFireAdapter.TryCleanupOwned())
         {
             Debug.LogWarning($"{LogPrefix} weapon-fire adapter retained for a later cleanup retry.");
+        }
+
+        if (!combatAttributionAdapter.TryCleanupOwned())
+        {
+            Debug.LogWarning($"{LogPrefix} combat-attribution adapter retained for a later cleanup retry.");
         }
 
         if (!runLifecycleAdapter.TryCleanupOwned())

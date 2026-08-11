@@ -40,8 +40,9 @@ A version change triggers compatibility checks, not an automatic global shutdown
 - The repository is public from the beginning.
 - `v0.1.0` is a GitHub pre-release containing the consumable-usage MVP.
 - `v0.2.0` is a GitHub pre-release containing M2 healing attribution after its manual acceptance matrix passes.
-- `v0.3.0` is the planned GitHub pre-release containing M3 run lifecycle, duration records, map aggregation, and movement after its complete manual acceptance matrix passes.
-- `v0.4.0` is the planned GitHub pre-release containing M4 firing-action, loaded-ammunition-consumption, projectile/pellet, weapon, and ammunition aggregates after its complete manual acceptance matrix passes.
+- `v0.3.0` is the published GitHub pre-release containing M3 run lifecycle, duration records, map aggregation, and movement.
+- `v0.4.0` is the published GitHub pre-release containing M4 accepted firing actions and event-time weapon/ammunition identity; unsupported outcome metrics remain unavailable.
+- `v0.5.0` is a GitHub pre-release candidate containing M5 actual damage, reliable projectile accuracy, melee, kills/deaths, ownership, identities, causes, damage-over-time, and independently proven head-target attribution after its complete manual acceptance matrix passes.
 - No Steam Workshop upload in v0.1.
 - Release artifact includes the installable ZIP, SHA-256 checksum, installation instructions, compatibility information, and known limitations.
 - No Duckov assemblies or bundled Harmony assembly may appear in the package.
@@ -261,10 +262,18 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Actual HP restored, delayed effects, overheal exclusion, item attribution.
 4. **M3 — Run lifecycle and movement (`v0.3.0`, implementation and complete manual acceptance passed)**
     - Run summaries, active timers, extraction/death/interruption, records, maps, physical/teleport distance.
-5. **M4 — Weapons and ammunition (`v0.4.0`, implementation, complete manual acceptance, and corrective review validation passed; draft PR remains open)**
+5. **M4 — Weapons and ammunition (`v0.4.0`, released)**
     - Proven accepted firing actions and event-time weapon/ammunition breakdowns. Trigger attempts, actual loaded-ammunition consumption, and completed projectile creation remain explicitly unavailable because the public firing callback does not prove those side effects.
-6. **M5 — Damage, kills, deaths, melee, and headshots**
-    - Combat attribution and reliable related metrics from the same hooks.
+6. **M5 — Damage, kills, deaths, melee, and headshots (`v0.5.0`, automated implementation complete; manual acceptance pending)**
+    - Actual HP loss from version-checked `Health.Hurt` pre/post state, never requested damage or `DamageInfo.finalDamage`.
+    - Compatible ranged accuracy: unique exact-main-duck projectiles that cause positive enemy HP loss divided by exact-main-duck projectiles that reach verified `Projectile.Release` while the run is active.
+    - Accepted melee swings from `CA_Attack.OnAttack`; one melee hit per damage scope even for repeated collider callbacks.
+    - Enemy kills and player deaths from actual fatal health transitions, with raid death deferred until the richer main-character death evidence and `Health.Hurt` postfix are recorded.
+    - Exact player, built-in pet/master-chain, environmental, and unknown ownership; stable preset-key identities with visible unknown/modded fallbacks.
+    - Direct, repeated tick/update damage-over-time, generic effect, explosion, real-damage, and environmental causes.
+    - Event-time weapon identity for damage and projectile-init ammunition identity where exposed; uncorrelated ammunition remains unknown rather than inferred.
+    - Headshots only for independently observed native head-targeted exact-player projectiles. `DamageInfo.crit` is ignored as headshot evidence; headshot final blows are a separate fatal subset.
+    - Schema 5, bounded 2,048-event/run deduplication and 2,048-projectile correlation, one-second combat-checkpoint coalescing, lifetime/map/run aggregation and breakdowns, UI, JSON, and `combat_attribution.csv`.
 7. **M6 — Equipment and totems**
     - Slot duration, selected weapons, loadouts, combat associations, experimental tote activation.
 8. **M7 — Containers**

@@ -164,6 +164,33 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
+    [Trait("Category", "Combat")]
+    public void SchemaFourCheckpointRecoveryRetainsHistoricalCombatUnavailability()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var checkpoint = Checkpoint(repository.CurrentGenerationId, 4);
+        checkpoint.SchemaVersion = 4;
+        checkpoint.CombatStatistics = null!;
+        repository.CloseClean();
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            run.CombatStatistics.Capabilities.DamageDealt.State);
+        Assert.Contains("predates M5", run.CombatStatistics.Capabilities.DamageDealt.Provenance);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            recovery.Current.Statistics.RunTotals.CombatStatistics.Capabilities.DamageDealt.State);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
     public void ActiveRunRecoveryUsesBackupWhenPrimaryIsCorrupt()
     {
         using var directory = new TemporaryDirectory();
