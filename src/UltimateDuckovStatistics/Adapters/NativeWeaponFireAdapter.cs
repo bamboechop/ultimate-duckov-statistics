@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-weapon-fire/2.3.30";
+    internal const string AdapterVersion = "native-weapon-fire/2.3.30+public-event-v2";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private readonly Func<string> saveGenerationIdProvider;
@@ -21,10 +21,9 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly NativeCallbackLifetime callbackLifetime = new();
-    private readonly WeaponFireSequenceTracker sequenceTracker = new(() => Guid.NewGuid().ToString("N"));
+    private readonly WeaponFireEventIdSource eventIds = new(() => Guid.NewGuid().ToString("N"));
     private IReadOnlyList<CapabilityRecord> capabilities = DisabledCapabilities("Weapon tracking has not been initialized.");
     private WeaponMetricCapabilities metricCapabilities = new();
-    private string? observedRunId;
 
     public NativeWeaponFireAdapter(
         Func<string> saveGenerationIdProvider,
@@ -75,11 +74,12 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
                     () => ItemAgent_Gun.OnMainCharacterShootEvent += guardedShot,
                     () => ItemAgent_Gun.OnMainCharacterShootEvent -= guardedShot)
             });
-            metricCapabilities = SupportedMetricCapabilities();
+            metricCapabilities = WeaponNativeContractPolicy.CreateMetricCapabilities();
             capabilities = CapabilityRecords(AdapterCapabilityState.Supported);
             capabilityHandler(capabilities);
             diagnosticHandler(
-                "Native weapon hook subscribed: successful firing actions, loaded ammunition units, and native projectile count are distinct; dry-fire trigger attempts are unavailable and are not counted.");
+                "Native weapon hook subscribed: each public firing callback receives a unique event ID. "
+                + "Loaded-ammunition consumption, projectile creation, and dry-fire trigger attempts are unavailable because the public callback does not prove those side effects.");
         }
         catch (Exception exception)
         {
@@ -90,15 +90,8 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
         return capabilities;
     }
 
-    public void ResetSequence()
-    {
-        sequenceTracker.Clear();
-        observedRunId = null;
-    }
-
     public bool TryCleanup()
     {
-        sequenceTracker.Clear();
         var cleaned = callbackLifetime.TryCleanup(() => true, out var cleanupFailure);
         if (cleanupFailure != null)
         {
@@ -109,7 +102,7 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
 
         if (cleaned)
         {
-            diagnosticHandler("Native weapon hook unsubscribed and bounded firing-correlation state cleared.");
+            diagnosticHandler("Native weapon hook unsubscribed.");
         }
 
         return cleaned;
@@ -152,29 +145,25 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
             var gun = agent.GunItemSetting;
             if (string.IsNullOrWhiteSpace(generationId)
                 || string.IsNullOrWhiteSpace(mapId)
-                || weapon == null
-                || gun == null
-                || gun.TargetBulletID < 0)
+                || weapon == null)
             {
-                diagnosticHandler("Firing callback lacked proven generation, run, map, weapon, or ammunition identity; event ignored.");
+                diagnosticHandler("Firing callback lacked proven generation, run, map, or weapon identity; event ignored.");
                 return;
             }
 
             var weaponTypeId = weapon.TypeID;
-            var ammunitionTypeId = gun.TargetBulletID;
-            if (!string.Equals(observedRunId, runId, StringComparison.Ordinal))
+            var ammunitionTypeId = gun?.TargetBulletID ?? -1;
+            var eventCapabilities = MetricCapabilities;
+            if (gun == null || ammunitionTypeId < 0)
             {
-                sequenceTracker.Clear();
-                observedRunId = runId;
+                eventCapabilities.AmmunitionIdentity = Availability(
+                    AdapterCapabilityState.DisabledIncompatible,
+                    "The firing callback did not expose a stable ammunition type for this action.");
             }
 
-            var eventId = sequenceTracker.GetEventId(
-                agent.GetInstanceID(),
-                ammunitionTypeId,
-                agent.BulletCount);
             var shot = new ShotRecorded
             {
-                EventId = eventId,
+                EventId = eventIds.NextEventId(),
                 TimestampUtc = DateTime.UtcNow,
                 SaveGenerationId = generationId,
                 RunId = runId!,
@@ -186,12 +175,16 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
                 AdapterVersion = AdapterVersion,
                 WeaponId = $"duckov:weapon:{weaponTypeId.ToString(CultureInfo.InvariantCulture)}",
                 WeaponDisplayName = ReadWeaponDisplayName(weapon, weaponTypeId),
-                AmmunitionId = $"duckov:ammo:{ammunitionTypeId.ToString(CultureInfo.InvariantCulture)}",
-                AmmunitionDisplayName = ReadAmmunitionDisplayName(gun, ammunitionTypeId),
+                AmmunitionId = ammunitionTypeId < 0
+                    ? string.Empty
+                    : $"duckov:ammo:{ammunitionTypeId.ToString(CultureInfo.InvariantCulture)}",
+                AmmunitionDisplayName = gun == null || ammunitionTypeId < 0
+                    ? string.Empty
+                    : ReadAmmunitionDisplayName(gun, ammunitionTypeId),
                 FiringActionCount = 1,
-                AmmunitionUnitsConsumed = 1,
-                ProjectileCount = Math.Max(0, agent.ShotCount),
-                Capabilities = MetricCapabilities
+                AmmunitionUnitsConsumed = null,
+                ProjectileCount = null,
+                Capabilities = eventCapabilities
             };
             shotHandler(shot);
         }
@@ -209,29 +202,47 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
         diagnosticHandler(detail);
     }
 
-    private static CapabilityRecord[] DisabledCapabilities(string detail) =>
-        CapabilityRecords(AdapterCapabilityState.DisabledIncompatible, detail);
+    private static CapabilityRecord[] DisabledCapabilities(string detail) => new[]
+    {
+        Capability(WeaponCapabilityIds.TriggerAttempts, AdapterCapabilityState.DisabledIncompatible, detail),
+        Capability(WeaponCapabilityIds.FiringActions, AdapterCapabilityState.DisabledIncompatible, detail),
+        Capability(WeaponCapabilityIds.AmmunitionConsumption, AdapterCapabilityState.DisabledIncompatible, detail),
+        Capability(WeaponCapabilityIds.Projectiles, AdapterCapabilityState.DisabledIncompatible, detail),
+        Capability(WeaponCapabilityIds.WeaponIdentity, AdapterCapabilityState.DisabledIncompatible, detail),
+        Capability(WeaponCapabilityIds.AmmunitionIdentity, AdapterCapabilityState.DisabledIncompatible, detail)
+    };
 
     private static CapabilityRecord[] CapabilityRecords(
         AdapterCapabilityState state,
-        string? failureDetail = null) => new[]
+        string? failureDetail = null) => state == AdapterCapabilityState.Supported
+        ? new[]
         {
             Capability(
                 WeaponCapabilityIds.TriggerAttempts,
                 AdapterCapabilityState.DisabledIncompatible,
-                failureDetail
-                    ?? "The verified public firing event does not emit for rejected trigger attempts or dry fire; trigger-attempt counts are unavailable."),
-            Capability(WeaponCapabilityIds.FiringActions, state, failureDetail
-                ?? "Public ItemAgent_Gun.OnMainCharacterShootEvent proves one accepted firing action per discharged round; it does not emit for reload or dry fire."),
-            Capability(WeaponCapabilityIds.AmmunitionConsumption, state, failureDetail
-                ?? "ItemSetting_Gun.UseABullet consumes exactly one loaded ammunition item before the firing callback."),
-            Capability(WeaponCapabilityIds.Projectiles, state, failureDetail
-                ?? "ItemAgent_Gun.TransToFire creates one projectile per native ShotCount before the firing callback."),
-            Capability(WeaponCapabilityIds.WeaponIdentity, state, failureDetail
-                ?? "The callback supplies the firing ItemAgent_Gun and its stable Item.TypeID."),
-            Capability(WeaponCapabilityIds.AmmunitionIdentity, state, failureDetail
-                ?? "The firing gun retains its loaded ItemSetting_Gun.TargetBulletID and localized fallback name after consumption.")
-        };
+                "The verified public firing event does not emit for rejected trigger attempts or dry fire; trigger-attempt counts are unavailable."),
+            Capability(
+                WeaponCapabilityIds.FiringActions,
+                AdapterCapabilityState.Supported,
+                "Public ItemAgent_Gun.OnMainCharacterShootEvent proves one accepted firing action callback; each callback receives a unique UDS event ID."),
+            Capability(
+                WeaponCapabilityIds.AmmunitionConsumption,
+                AdapterCapabilityState.DisabledIncompatible,
+                "ItemSetting_Gun.UseABullet can return without consuming a loaded item, and the public firing callback exposes no proven pre/post result."),
+            Capability(
+                WeaponCapabilityIds.Projectiles,
+                AdapterCapabilityState.DisabledIncompatible,
+                "ItemAgent_Gun.ShootOneBullet can return before projectile acquisition, and ShotCount alone does not prove created projectiles."),
+            Capability(
+                WeaponCapabilityIds.WeaponIdentity,
+                AdapterCapabilityState.Supported,
+                "The callback supplies the firing ItemAgent_Gun and its stable Item.TypeID."),
+            Capability(
+                WeaponCapabilityIds.AmmunitionIdentity,
+                AdapterCapabilityState.Supported,
+                "The firing gun exposes ItemSetting_Gun.TargetBulletID and its localized fallback name at callback time.")
+        }
+        : DisabledCapabilities(failureDetail ?? "Weapon tracking is unavailable.");
 
     private static CapabilityRecord Capability(string id, AdapterCapabilityState state, string detail) => new()
     {
@@ -239,15 +250,6 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
         State = state,
         Version = AdapterVersion,
         Detail = detail
-    };
-
-    private static WeaponMetricCapabilities SupportedMetricCapabilities() => new()
-    {
-        FiringActions = Availability(AdapterCapabilityState.Supported, "ItemAgent_Gun.OnMainCharacterShootEvent"),
-        AmmunitionConsumption = Availability(AdapterCapabilityState.Supported, "ItemSetting_Gun.UseABullet: one loaded item"),
-        Projectiles = Availability(AdapterCapabilityState.Supported, "ItemAgent_Gun.TransToFire: ShotCount projectile loop"),
-        WeaponIdentity = Availability(AdapterCapabilityState.Supported, "ItemAgent_Gun.Item.TypeID at firing time"),
-        AmmunitionIdentity = Availability(AdapterCapabilityState.Supported, "ItemSetting_Gun.TargetBulletID at firing time")
     };
 
     private static WeaponMetricCapabilities DisabledMetricCapabilities(string detail) => new()

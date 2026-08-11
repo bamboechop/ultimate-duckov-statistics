@@ -123,12 +123,9 @@ try
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterRunSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "DashSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "DuckovItemAgent", "Holder", "CharacterMainControl", mustBePublic: true);
-        core.RequireProperty(string.Empty, "ItemAgent_Gun", "ShotCount", "System.Int32", mustBePublic: true);
-        core.RequireProperty(string.Empty, "ItemAgent_Gun", "BulletCount", "System.Int32", mustBePublic: true);
         core.RequireProperty(string.Empty, "ItemAgent_Gun", "GunItemSetting", "ItemSetting_Gun", mustBePublic: true);
         core.RequireProperty(string.Empty, "ItemSetting_Gun", "TargetBulletID", "System.Int32", mustBePublic: true);
         core.RequireProperty(string.Empty, "ItemSetting_Gun", "CurrentBulletName", "System.String", mustBePublic: true);
-        core.RequireProperty(string.Empty, "ItemSetting_Gun", "BulletCount", "System.Int32", mustBePublic: true);
         core.RequireProperty(string.Empty, "Health", "IsDead", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "SceneInfoEntry", "ID", "System.String", mustBePublic: true);
         core.RequireProperty(string.Empty, "SceneInfoEntry", "DisplayName", "System.String", mustBePublic: true);
@@ -136,9 +133,6 @@ try
         core.RequireMethod(string.Empty, "CharacterMainControl", "SetPosition", parameterCount: 1, mustBePublic: true, returnTypeFragment: "System.Void", parameterTypeFragments: ["UnityEngine.Vector3"]);
         core.RequireMethod(string.Empty, "SceneInfoCollection", "GetSceneID", parameterCount: 1, mustBePublic: true, returnTypeFragment: "System.String", parameterTypeFragments: ["System.Int32"]);
         core.RequireMethod(string.Empty, "SceneInfoCollection", "GetSceneInfo", parameterCount: 1, mustBePublic: true, returnTypeFragment: "SceneInfoEntry", parameterTypeFragments: ["System.String"]);
-        core.RequireMethod(string.Empty, "ItemSetting_Gun", "UseABullet", parameterCount: 0, mustBePublic: true, returnTypeFragment: "System.Void");
-        core.RequireMethod(string.Empty, "ItemAgent_Gun", "TransToFire", parameterCount: 1, mustBePrivate: true, returnTypeFragment: "System.Void", parameterTypeFragments: ["System.Boolean"]);
-        core.RequireMethod(string.Empty, "ItemAgent_Gun", "ShootOneBullet", parameterCount: 3, mustBePrivate: true, returnTypeFragment: "System.Void", parameterTypeFragments: ["UnityEngine.Vector3", "UnityEngine.Vector3", "UnityEngine.Vector3"]);
         core.RequireMethod(
             string.Empty,
             "Health",
@@ -198,7 +192,8 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, item/healing, run lifecycle, pause/loading, map, runtime-integrity, main-duck movement, firing, loaded-ammunition, projectile-count, and weapon/ammunition identity contracts are present.");
+    Console.WriteLine("  Native loader, item/healing, run lifecycle, pause/loading, map, runtime-integrity, main-duck movement, public firing-action, and weapon/ammunition identity contracts are present.");
+    Console.WriteLine("  Loaded-ammunition consumption and projectile creation remain unavailable because the public firing callback does not prove their outcomes.");
     return 0;
 }
 catch (ContractException exception)

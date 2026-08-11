@@ -78,6 +78,13 @@ public sealed class WeaponStatisticsAggregate
     public WeaponMetricCapabilities Capabilities { get; set; } = new();
 }
 
+public sealed class WeaponStatisticsNormalizationResult
+{
+    public bool Changed { get; internal set; }
+
+    public bool InvalidCounters { get; internal set; }
+}
+
 public static class WeaponStatisticsReducer
 {
     public static void Apply(WeaponStatisticsAggregate target, ShotRecorded shot)
@@ -87,6 +94,7 @@ public static class WeaponStatisticsReducer
             throw new ArgumentNullException(nameof(target));
         }
 
+        ValidateAggregate(target);
         Validate(shot);
         target.Capabilities = MergeCapabilities(target.Capabilities, shot.Capabilities);
         Add(target.Totals, shot);
@@ -116,6 +124,8 @@ public static class WeaponStatisticsReducer
             throw new ArgumentNullException(nameof(source));
         }
 
+        ValidateAggregate(target);
+        ValidateAggregate(source);
         target.Capabilities = MergeCapabilities(target.Capabilities, source.Capabilities);
         Add(target.Totals, source.Totals);
         foreach (var sourceWeapon in source.Weapons.Values)
@@ -158,6 +168,145 @@ public static class WeaponStatisticsReducer
         return clone;
     }
 
+    public static WeaponStatisticsNormalizationResult NormalizePersisted(WeaponStatisticsAggregate statistics)
+    {
+        if (statistics == null)
+        {
+            throw new ArgumentNullException(nameof(statistics));
+        }
+
+        var result = new WeaponStatisticsNormalizationResult();
+        if (statistics.Totals == null)
+        {
+            statistics.Totals = new WeaponMetricTotals();
+            result.Changed = true;
+        }
+
+        NormalizeTotals(statistics.Totals, result);
+        if (statistics.Weapons == null)
+        {
+            statistics.Weapons = new Dictionary<string, WeaponAggregate>(StringComparer.Ordinal);
+            result.Changed = true;
+        }
+
+        if (statistics.AmmunitionTypes == null)
+        {
+            statistics.AmmunitionTypes = new Dictionary<string, AmmunitionAggregate>(StringComparer.Ordinal);
+            result.Changed = true;
+        }
+
+        if (statistics.Capabilities == null)
+        {
+            statistics.Capabilities = new WeaponMetricCapabilities();
+            result.Changed = true;
+        }
+
+        NormalizeCapabilities(statistics.Capabilities, result);
+        foreach (var entry in statistics.Weapons.ToArray())
+        {
+            var weapon = entry.Value;
+            if (weapon == null || string.IsNullOrWhiteSpace(entry.Key))
+            {
+                statistics.Weapons.Remove(entry.Key);
+                result.Changed = true;
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(weapon.WeaponId))
+            {
+                weapon.WeaponId = entry.Key;
+                result.Changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(weapon.DisplayName))
+            {
+                weapon.DisplayName = weapon.WeaponId;
+                result.Changed = true;
+            }
+
+            if (weapon.Totals == null)
+            {
+                weapon.Totals = new WeaponMetricTotals();
+                result.Changed = true;
+            }
+
+            NormalizeTotals(weapon.Totals, result);
+        }
+
+        foreach (var entry in statistics.AmmunitionTypes.ToArray())
+        {
+            var ammunition = entry.Value;
+            if (ammunition == null || string.IsNullOrWhiteSpace(entry.Key))
+            {
+                statistics.AmmunitionTypes.Remove(entry.Key);
+                result.Changed = true;
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(ammunition.AmmunitionId))
+            {
+                ammunition.AmmunitionId = entry.Key;
+                result.Changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(ammunition.DisplayName))
+            {
+                ammunition.DisplayName = ammunition.AmmunitionId;
+                result.Changed = true;
+            }
+
+            if (ammunition.Totals == null)
+            {
+                ammunition.Totals = new WeaponMetricTotals();
+                result.Changed = true;
+            }
+
+            NormalizeTotals(ammunition.Totals, result);
+        }
+
+        return result;
+    }
+
+    public static void ValidateAggregate(WeaponStatisticsAggregate statistics)
+    {
+        if (statistics == null
+            || statistics.Totals == null
+            || statistics.Weapons == null
+            || statistics.AmmunitionTypes == null
+            || statistics.Capabilities == null)
+        {
+            throw new ArgumentException("Weapon statistics are incomplete.", nameof(statistics));
+        }
+
+        ValidateTotals(statistics.Totals);
+        ValidateCapabilities(statistics.Capabilities);
+        foreach (var entry in statistics.Weapons)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Key)
+                || entry.Value == null
+                || string.IsNullOrWhiteSpace(entry.Value.WeaponId)
+                || entry.Value.Totals == null)
+            {
+                throw new ArgumentException("A persisted weapon aggregate is incomplete.", nameof(statistics));
+            }
+
+            ValidateTotals(entry.Value.Totals);
+        }
+
+        foreach (var entry in statistics.AmmunitionTypes)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Key)
+                || entry.Value == null
+                || string.IsNullOrWhiteSpace(entry.Value.AmmunitionId)
+                || entry.Value.Totals == null)
+            {
+                throw new ArgumentException("A persisted ammunition aggregate is incomplete.", nameof(statistics));
+            }
+
+            ValidateTotals(entry.Value.Totals);
+        }
+    }
+
     public static WeaponMetricCapabilities CloneCapabilities(WeaponMetricCapabilities source) => new()
     {
         FiringActions = CloneAvailability(source.FiringActions),
@@ -166,6 +315,21 @@ public static class WeaponStatisticsReducer
         WeaponIdentity = CloneAvailability(source.WeaponIdentity),
         AmmunitionIdentity = CloneAvailability(source.AmmunitionIdentity)
     };
+
+    public static AdapterCapabilityState RestrictAvailability(
+        MetricAvailability recorded,
+        AdapterCapabilityState current)
+    {
+        if (recorded == null)
+        {
+            throw new ArgumentNullException(nameof(recorded));
+        }
+
+        return recorded.State == AdapterCapabilityState.DisabledIncompatible
+               && string.IsNullOrWhiteSpace(recorded.Provenance)
+            ? current
+            : (AdapterCapabilityState)Math.Max((int)recorded.State, (int)current);
+    }
 
     private static WeaponAggregate GetOrCreateWeapon(WeaponStatisticsAggregate target, ShotRecorded shot)
     {
@@ -203,25 +367,29 @@ public static class WeaponStatisticsReducer
     {
         if (shot.FiringActionCount.HasValue)
         {
-            target.FiringActions += shot.FiringActionCount.Value;
+            target.FiringActions = SaturatingAdd(target.FiringActions, shot.FiringActionCount.Value);
         }
 
         if (shot.AmmunitionUnitsConsumed.HasValue)
         {
-            target.AmmunitionUnitsConsumed += shot.AmmunitionUnitsConsumed.Value;
+            target.AmmunitionUnitsConsumed = SaturatingAdd(
+                target.AmmunitionUnitsConsumed,
+                shot.AmmunitionUnitsConsumed.Value);
         }
 
         if (shot.ProjectileCount.HasValue)
         {
-            target.Projectiles += shot.ProjectileCount.Value;
+            target.Projectiles = SaturatingAdd(target.Projectiles, shot.ProjectileCount.Value);
         }
     }
 
     private static void Add(WeaponMetricTotals target, WeaponMetricTotals source)
     {
-        target.FiringActions += source.FiringActions;
-        target.AmmunitionUnitsConsumed += source.AmmunitionUnitsConsumed;
-        target.Projectiles += source.Projectiles;
+        target.FiringActions = SaturatingAdd(target.FiringActions, source.FiringActions);
+        target.AmmunitionUnitsConsumed = SaturatingAdd(
+            target.AmmunitionUnitsConsumed,
+            source.AmmunitionUnitsConsumed);
+        target.Projectiles = SaturatingAdd(target.Projectiles, source.Projectiles);
     }
 
     private static WeaponMetricCapabilities MergeCapabilities(
@@ -260,6 +428,121 @@ public static class WeaponStatisticsReducer
         State = source.State,
         Provenance = source.Provenance
     };
+
+    private static void NormalizeCapabilities(
+        WeaponMetricCapabilities capabilities,
+        WeaponStatisticsNormalizationResult result)
+    {
+        if (capabilities.FiringActions == null)
+        {
+            capabilities.FiringActions = new MetricAvailability();
+            result.Changed = true;
+        }
+
+        if (capabilities.AmmunitionConsumption == null)
+        {
+            capabilities.AmmunitionConsumption = new MetricAvailability();
+            result.Changed = true;
+        }
+
+        if (capabilities.Projectiles == null)
+        {
+            capabilities.Projectiles = new MetricAvailability();
+            result.Changed = true;
+        }
+
+        if (capabilities.WeaponIdentity == null)
+        {
+            capabilities.WeaponIdentity = new MetricAvailability();
+            result.Changed = true;
+        }
+
+        if (capabilities.AmmunitionIdentity == null)
+        {
+            capabilities.AmmunitionIdentity = new MetricAvailability();
+            result.Changed = true;
+        }
+
+        foreach (var availability in new[]
+                 {
+                     capabilities.FiringActions,
+                     capabilities.AmmunitionConsumption,
+                     capabilities.Projectiles,
+                     capabilities.WeaponIdentity,
+                     capabilities.AmmunitionIdentity
+                 })
+        {
+            if (!Enum.IsDefined(typeof(AdapterCapabilityState), availability.State))
+            {
+                availability.State = AdapterCapabilityState.DisabledIncompatible;
+                result.Changed = true;
+            }
+
+            if (availability.Provenance == null)
+            {
+                availability.Provenance = string.Empty;
+                result.Changed = true;
+            }
+        }
+    }
+
+    private static void NormalizeTotals(
+        WeaponMetricTotals totals,
+        WeaponStatisticsNormalizationResult result)
+    {
+        if (totals.FiringActions < 0)
+        {
+            totals.FiringActions = 0;
+            result.Changed = true;
+            result.InvalidCounters = true;
+        }
+
+        if (totals.AmmunitionUnitsConsumed < 0)
+        {
+            totals.AmmunitionUnitsConsumed = 0;
+            result.Changed = true;
+            result.InvalidCounters = true;
+        }
+
+        if (totals.Projectiles < 0)
+        {
+            totals.Projectiles = 0;
+            result.Changed = true;
+            result.InvalidCounters = true;
+        }
+    }
+
+    private static void ValidateCapabilities(WeaponMetricCapabilities capabilities)
+    {
+        if (capabilities.FiringActions == null
+            || capabilities.AmmunitionConsumption == null
+            || capabilities.Projectiles == null
+            || capabilities.WeaponIdentity == null
+            || capabilities.AmmunitionIdentity == null)
+        {
+            throw new ArgumentException("Weapon metric availability is incomplete.", nameof(capabilities));
+        }
+    }
+
+    private static void ValidateTotals(WeaponMetricTotals totals)
+    {
+        if (totals.FiringActions < 0
+            || totals.AmmunitionUnitsConsumed < 0
+            || totals.Projectiles < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(totals), "Weapon counters cannot be negative.");
+        }
+    }
+
+    private static long SaturatingAdd(long current, long addition)
+    {
+        if (current < 0 || addition < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(addition), "Weapon counters cannot be negative.");
+        }
+
+        return current > long.MaxValue - addition ? long.MaxValue : current + addition;
+    }
 
     private static void Validate(ShotRecorded shot)
     {

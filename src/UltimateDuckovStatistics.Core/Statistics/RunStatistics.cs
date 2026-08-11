@@ -130,6 +130,12 @@ public static class RunReducer
             return false;
         }
 
+        WeaponStatisticsReducer.ValidateAggregate(profile.RunTotals.WeaponStatistics);
+        foreach (var map in profile.RunTotals.Maps.Values)
+        {
+            WeaponStatisticsReducer.ValidateAggregate(map.WeaponStatistics);
+        }
+
         profile.Runs.Add(summary);
         AddTotals(profile.RunTotals, summary);
         if (summary.RecordEligible && summary.Outcome is RunOutcome.Extracted or RunOutcome.Died)
@@ -143,7 +149,7 @@ public static class RunReducer
 
     private static void AddTotals(RunAggregateTotals totals, RunSummary summary)
     {
-        totals.TotalRuns++;
+        totals.TotalRuns = SaturatingAdd(totals.TotalRuns, 1);
         AddOutcome(totals.Outcomes, summary.Outcome);
         totals.PhysicalDistance += summary.PhysicalDistance;
         totals.TeleportDistance += summary.TeleportDistance;
@@ -162,7 +168,7 @@ public static class RunReducer
 
         map.DisplayName = summary.MapDisplayName;
         map.IsKnown |= summary.MapKnown;
-        map.TotalRuns++;
+        map.TotalRuns = SaturatingAdd(map.TotalRuns, 1);
         AddOutcome(map.Outcomes, summary.Outcome);
         map.PhysicalDistance += summary.PhysicalDistance;
         map.TeleportDistance += summary.TeleportDistance;
@@ -233,7 +239,7 @@ public static class RunReducer
     {
         var key = outcome.ToString();
         outcomes.TryGetValue(key, out var current);
-        outcomes[key] = current + 1;
+        outcomes[key] = SaturatingAdd(current, 1);
     }
 
     private static void Validate(RunSummary summary)
@@ -255,6 +261,8 @@ public static class RunReducer
             throw new ArgumentException("Run summary is invalid.", nameof(summary));
         }
 
+        WeaponStatisticsReducer.ValidateAggregate(summary.WeaponStatistics);
+
         if (summary.Outcome == RunOutcome.Interrupted && summary.RecordEligible)
         {
             throw new ArgumentException("Interrupted runs cannot be record eligible.", nameof(summary));
@@ -263,4 +271,14 @@ public static class RunReducer
 
     private static bool IsFiniteNonNegative(double value) =>
         value >= 0 && !double.IsNaN(value) && !double.IsInfinity(value);
+
+    private static long SaturatingAdd(long current, long addition)
+    {
+        if (current < 0 || addition < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(current), "Persisted run counters cannot be negative.");
+        }
+
+        return current > long.MaxValue - addition ? long.MaxValue : current + addition;
+    }
 }

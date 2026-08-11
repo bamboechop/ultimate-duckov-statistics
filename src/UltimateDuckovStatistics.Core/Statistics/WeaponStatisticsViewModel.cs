@@ -27,11 +27,21 @@ public static class WeaponStatisticsViewModelFactory
 
         var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
         var capabilities = WeaponStatisticsReducer.CloneCapabilities(lifetime.Capabilities);
-        capabilities.FiringActions.State = ReadState(profile, WeaponCapabilityIds.FiringActions, capabilities.FiringActions.State);
-        capabilities.AmmunitionConsumption.State = ReadState(profile, WeaponCapabilityIds.AmmunitionConsumption, capabilities.AmmunitionConsumption.State);
-        capabilities.Projectiles.State = ReadState(profile, WeaponCapabilityIds.Projectiles, capabilities.Projectiles.State);
-        capabilities.WeaponIdentity.State = ReadState(profile, WeaponCapabilityIds.WeaponIdentity, capabilities.WeaponIdentity.State);
-        capabilities.AmmunitionIdentity.State = ReadState(profile, WeaponCapabilityIds.AmmunitionIdentity, capabilities.AmmunitionIdentity.State);
+        capabilities.FiringActions.State = WeaponStatisticsReducer.RestrictAvailability(
+            capabilities.FiringActions,
+            ReadState(profile, WeaponCapabilityIds.FiringActions, capabilities.FiringActions.State));
+        capabilities.AmmunitionConsumption.State = WeaponStatisticsReducer.RestrictAvailability(
+            capabilities.AmmunitionConsumption,
+            ReadState(profile, WeaponCapabilityIds.AmmunitionConsumption, capabilities.AmmunitionConsumption.State));
+        capabilities.Projectiles.State = WeaponStatisticsReducer.RestrictAvailability(
+            capabilities.Projectiles,
+            ReadState(profile, WeaponCapabilityIds.Projectiles, capabilities.Projectiles.State));
+        capabilities.WeaponIdentity.State = WeaponStatisticsReducer.RestrictAvailability(
+            capabilities.WeaponIdentity,
+            ReadState(profile, WeaponCapabilityIds.WeaponIdentity, capabilities.WeaponIdentity.State));
+        capabilities.AmmunitionIdentity.State = WeaponStatisticsReducer.RestrictAvailability(
+            capabilities.AmmunitionIdentity,
+            ReadState(profile, WeaponCapabilityIds.AmmunitionIdentity, capabilities.AmmunitionIdentity.State));
         return new WeaponStatisticsViewModel
         {
             Lifetime = lifetime,
@@ -59,4 +69,5 @@ public static class WeaponStatisticsViewModelFactory
         AdapterCapabilityState fallback) => profile.Capabilities
             .FirstOrDefault(capability => string.Equals(capability.AdapterId, adapterId, StringComparison.Ordinal))
             ?.State ?? fallback;
+
 }

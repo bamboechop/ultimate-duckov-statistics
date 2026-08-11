@@ -182,16 +182,23 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
-    public void HandleRunCheckpoint(ActiveRunCheckpoint checkpoint)
+    public bool HandleRunCheckpoint(ActiveRunCheckpoint checkpoint)
     {
         try
         {
-            repository?.SaveActiveRun(checkpoint);
+            if (repository == null)
+            {
+                return false;
+            }
+
+            repository.SaveActiveRun(checkpoint);
+            return true;
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
             WriteDiagnostic($"Failed to persist active-run checkpoint: {exception.GetType().Name}.", "Error");
+            return false;
         }
     }
 

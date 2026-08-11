@@ -72,7 +72,8 @@ public sealed class WeaponStatisticsViewModelTests
         Assert.Equal("Firing actions", UI.UiText.Get("ui.firing_actions"));
         Assert.Equal("Loaded ammunition units consumed", UI.UiText.Get("ui.ammunition_consumed"));
         Assert.Equal("Projectiles created", UI.UiText.Get("ui.projectiles"));
-        Assert.Contains("Dry-fire attempts are unavailable and not counted", UI.UiText.Get("ui.metric_contract"), StringComparison.Ordinal);
+        Assert.Contains("actual loaded-ammunition consumption", UI.UiText.Get("ui.metric_contract"), StringComparison.Ordinal);
+        Assert.Contains("completed projectile creation", UI.UiText.Get("ui.metric_contract"), StringComparison.Ordinal);
         Assert.Equal("Unsupported", UI.UiText.Get("ui.unsupported"));
     }
 

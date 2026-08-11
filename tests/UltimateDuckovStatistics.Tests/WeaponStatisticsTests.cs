@@ -1,4 +1,5 @@
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
 
@@ -136,6 +137,27 @@ public sealed class WeaponStatisticsTests
 
     [Fact]
     [Trait("Category", "Weapon")]
+    [Trait("Category", "Compatibility")]
+    public void PublicNativeFiringContractDoesNotInventAmmunitionOrProjectileOutcomes()
+    {
+        var capabilities = WeaponNativeContractPolicy.CreateMetricCapabilities();
+        var shot = Shot("native", "weapon", "Weapon", "ammo", "Ammo", 1, 1, 5);
+        shot.AmmunitionUnitsConsumed = null;
+        shot.ProjectileCount = null;
+        shot.Capabilities = capabilities;
+        var statistics = new WeaponStatisticsAggregate();
+
+        WeaponStatisticsReducer.Apply(statistics, shot);
+
+        Assert.Equal(1, statistics.Totals.FiringActions);
+        Assert.Equal(0, statistics.Totals.AmmunitionUnitsConsumed);
+        Assert.Equal(0, statistics.Totals.Projectiles);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, statistics.Capabilities.AmmunitionConsumption.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, statistics.Capabilities.Projectiles.State);
+    }
+
+    [Fact]
+    [Trait("Category", "Weapon")]
     [Trait("Category", "Integrity")]
     public void FiringEventIntegrityIsAccumulatedIntoTheRunSummary()
     {
@@ -162,6 +184,64 @@ public sealed class WeaponStatisticsTests
         Assert.True(tracker.RecordShot(Shot("recoverable-id", "weapon", "Weapon", "ammo", "Ammo", 1, 1, 1)));
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
         Assert.Equal(1, summary.WeaponStatistics.Totals.FiringActions);
+    }
+
+    [Fact]
+    [Trait("Category", "Weapon")]
+    [Trait("Category", "Persistence")]
+    public void NegativePersistedWeaponCountersAreRejectedBeforeAggregateMutation()
+    {
+        var summary = StartedTracker().Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
+        summary.WeaponStatistics.Totals.FiringActions = -1;
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1" };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => RunReducer.Apply(profile, summary));
+        Assert.Empty(profile.Runs);
+        Assert.Equal(0, profile.RunTotals.WeaponStatistics.Totals.FiringActions);
+    }
+
+    [Fact]
+    [Trait("Category", "Weapon")]
+    [Trait("Category", "Persistence")]
+    public void PersistedCounterOverflowSaturatesInsteadOfWrappingNegative()
+    {
+        var tracker = StartedTracker();
+        tracker.RecordShot(Shot("one", "weapon", "Weapon", "ammo", "Ammo", 1, 1, 1));
+        var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1" };
+        profile.RunTotals.WeaponStatistics.Totals.FiringActions = long.MaxValue;
+        profile.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed = long.MaxValue;
+        profile.RunTotals.WeaponStatistics.Totals.Projectiles = long.MaxValue;
+
+        Assert.True(RunReducer.Apply(profile, summary));
+        Assert.Equal(long.MaxValue, profile.RunTotals.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(long.MaxValue, profile.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed);
+        Assert.Equal(long.MaxValue, profile.RunTotals.WeaponStatistics.Totals.Projectiles);
+    }
+
+    [Fact]
+    [Trait("Category", "Weapon")]
+    [Trait("Category", "Persistence")]
+    public void PersistedNegativeCountersNormalizeToZeroAndAreFlagged()
+    {
+        var statistics = new WeaponStatisticsAggregate
+        {
+            Totals = new WeaponMetricTotals
+            {
+                FiringActions = -1,
+                AmmunitionUnitsConsumed = -2,
+                Projectiles = -3
+            }
+        };
+
+        var result = WeaponStatisticsReducer.NormalizePersisted(statistics);
+
+        Assert.True(result.Changed);
+        Assert.True(result.InvalidCounters);
+        Assert.Equal(0, statistics.Totals.FiringActions);
+        Assert.Equal(0, statistics.Totals.AmmunitionUnitsConsumed);
+        Assert.Equal(0, statistics.Totals.Projectiles);
+        WeaponStatisticsReducer.ValidateAggregate(statistics);
     }
 
     private static RunLifecycleTracker StartedTracker()

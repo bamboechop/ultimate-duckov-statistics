@@ -46,7 +46,7 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 
 - A run starts only after native raid initialization when the alive main duck has player control; base and loading activity do not start runs.
 - Run outcomes are Extracted, Died, or Interrupted. Active duration excludes pause/loading; wall-clock duration is diagnostic.
-- Overview, Runs, Records, Combat, Items, and Diagnostics are enabled. Combat separates successful firing actions, loaded ammunition units consumed, and projectiles/pellets, with per-weapon, per-ammunition, per-run, and per-map aggregates. Unsupported submetrics display as unavailable.
+- Overview, Runs, Records, Combat, Items, and Diagnostics are enabled. Combat separates firing actions, loaded ammunition units consumed, and projectiles/pellets, with per-weapon, per-ammunition, per-run, and per-map aggregates. On Duckov 2.3.30 the public event proves firing actions and event-time identities; actual ammunition consumption and projectile creation display as unavailable.
 - Each Runs entry shows integrity and whether it is eligible for Records, including the exclusion reason. Records show shortest/longest extraction and death active times overall and per map.
 - Physical movement and teleport/excluded displacement are stored separately. If movement or map compatibility is unavailable, the panel and Diagnostics show that state explicitly.
 - Exports contain `statistics.json`, `overview.csv`, `groups.csv`, `items.csv`, `runs.csv`, `run_totals.csv`, `map_totals.csv`, `records.csv`, `combat_totals.csv`, `weapon_totals.csv`, and `ammunition_totals.csv`.
@@ -56,7 +56,7 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 - Statistics begin at installation; no history is reconstructed.
 - Only successful main-duck item uses in raids count.
 - Healing totals start with v0.2.0; v0.1.0 usage history migrates with zero historical healing because past HP restoration cannot be reconstructed reliably. Run and movement history starts with v0.3.0. Weapon and ammunition history starts with v0.4.0 and is not reconstructed during schema-4 migration.
-- The verified public firing event proves successful discharges, not trigger attempts. Reloads and dry-fire attempts are not counted. One native discharge consumes one loaded ammunition unit on Duckov 2.3.30; projectile/pellet count is reported separately from `ShotCount`.
+- The verified public firing event proves accepted firing callbacks, not trigger attempts. Reloads and dry-fire attempts are not counted. `UseABullet` can skip consumption and `ShootOneBullet` can return before projectile initialization, so the public callback cannot prove actual ammunition units consumed or projectiles created; both submetrics remain unavailable instead of being inferred from cached ammunition or configured `ShotCount`.
 - Only healing applied through the verified item/effect paths is attributed. Unrelated regeneration, pets/companions, base use, cancelled uses, failed uses, and overheal are excluded.
 - Duration records exclude Interrupted runs and runs tagged for cheats/custom difficulty or gameplay-altering mods. The required `HarmonyLoadMod` infrastructure by itself does not disqualify a run.
 - UDS itself remains a local GitHub package; only the HarmonyLib dependency is installed through Steam Workshop.

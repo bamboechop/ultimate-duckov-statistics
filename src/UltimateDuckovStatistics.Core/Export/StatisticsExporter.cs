@@ -155,6 +155,21 @@ public static class StatisticsExporter
         runTotals.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
             runTotals.WeaponStatistics.Capabilities,
             profile.Capabilities);
+        foreach (var map in runTotals.Maps.Values)
+        {
+            map.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
+                map.WeaponStatistics.Capabilities,
+                profile.Capabilities);
+        }
+
+        var runs = profile.Statistics.Runs.Select(CloneRun).ToList();
+        foreach (var run in runs)
+        {
+            run.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
+                run.WeaponStatistics.Capabilities,
+                profile.Capabilities);
+        }
+
         var document = new StatisticsExportDocument
         {
             ExportedUtc = exportedUtc,
@@ -182,7 +197,7 @@ public static class StatisticsExporter
                 })
                 .ToList(),
             RunTotals = runTotals,
-            Runs = profile.Statistics.Runs.Select(CloneRun).ToList(),
+            Runs = runs,
             RunRecords = CloneRunRecords(profile.Statistics.RunRecords),
             Capabilities = profile.Capabilities.Select(CloneCapability).ToList()
         };
@@ -345,12 +360,12 @@ public static class StatisticsExporter
         AppendCombatTotals(builder, "lifetime", document.GenerationId, "Lifetime", document.RunTotals.WeaponStatistics, document.Capabilities);
         foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
         {
-            AppendCombatTotals(builder, "map", map.MapId, map.DisplayName, map.WeaponStatistics);
+            AppendCombatTotals(builder, "map", map.MapId, map.DisplayName, map.WeaponStatistics, document.Capabilities);
         }
 
         foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
         {
-            AppendCombatTotals(builder, "run", run.RunId, run.MapDisplayName, run.WeaponStatistics);
+            AppendCombatTotals(builder, "run", run.RunId, run.MapDisplayName, run.WeaponStatistics, document.Capabilities);
         }
 
         return builder.ToString();
@@ -359,7 +374,7 @@ public static class StatisticsExporter
     private static string CreateWeaponTotalsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,weapon_id,display_name,firing_actions,ammunition_units_consumed,projectiles");
+        builder.AppendLine("scope,scope_id,weapon_id,display_name,firing_actions,ammunition_units_consumed,projectiles,firing_actions_state,ammunition_consumption_state,projectiles_state");
         AppendWeaponTotals(builder, "lifetime", document.GenerationId, document.RunTotals.WeaponStatistics);
         foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
         {
@@ -377,7 +392,7 @@ public static class StatisticsExporter
     private static string CreateAmmunitionTotalsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,ammunition_id,display_name,firing_actions,ammunition_units_consumed,projectiles");
+        builder.AppendLine("scope,scope_id,ammunition_id,display_name,firing_actions,ammunition_units_consumed,projectiles,firing_actions_state,ammunition_consumption_state,projectiles_state");
         AppendAmmunitionTotals(builder, "lifetime", document.GenerationId, document.RunTotals.WeaponStatistics);
         foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
         {
@@ -425,7 +440,7 @@ public static class StatisticsExporter
         {
             builder.Append(scope).Append(',').Append(Csv(scopeId)).Append(',')
                 .Append(Csv(weapon.WeaponId)).Append(',').Append(Csv(weapon.DisplayName)).Append(',');
-            AppendWeaponMetricTotals(builder, weapon.Totals);
+            AppendWeaponMetricTotals(builder, weapon.Totals, statistics.Capabilities);
         }
     }
 
@@ -439,15 +454,21 @@ public static class StatisticsExporter
         {
             builder.Append(scope).Append(',').Append(Csv(scopeId)).Append(',')
                 .Append(Csv(ammunition.AmmunitionId)).Append(',').Append(Csv(ammunition.DisplayName)).Append(',');
-            AppendWeaponMetricTotals(builder, ammunition.Totals);
+            AppendWeaponMetricTotals(builder, ammunition.Totals, statistics.Capabilities);
         }
     }
 
-    private static void AppendWeaponMetricTotals(StringBuilder builder, WeaponMetricTotals totals)
+    private static void AppendWeaponMetricTotals(
+        StringBuilder builder,
+        WeaponMetricTotals totals,
+        WeaponMetricCapabilities capabilities)
     {
         builder.Append(totals.FiringActions.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(totals.AmmunitionUnitsConsumed.ToString(CultureInfo.InvariantCulture)).Append(',')
-            .Append(totals.Projectiles.ToString(CultureInfo.InvariantCulture)).AppendLine();
+            .Append(totals.Projectiles.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(capabilities.FiringActions.State).Append(',')
+            .Append(capabilities.AmmunitionConsumption.State).Append(',')
+            .Append(capabilities.Projectiles.State).AppendLine();
     }
 
     private static AdapterCapabilityState ReadCapabilityState(
@@ -462,11 +483,21 @@ public static class StatisticsExporter
         IReadOnlyList<CapabilityRecord> current)
     {
         var clone = WeaponStatisticsReducer.CloneCapabilities(aggregate);
-        clone.FiringActions.State = ReadCapabilityState(current, WeaponCapabilityIds.FiringActions, clone.FiringActions.State);
-        clone.AmmunitionConsumption.State = ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionConsumption, clone.AmmunitionConsumption.State);
-        clone.Projectiles.State = ReadCapabilityState(current, WeaponCapabilityIds.Projectiles, clone.Projectiles.State);
-        clone.WeaponIdentity.State = ReadCapabilityState(current, WeaponCapabilityIds.WeaponIdentity, clone.WeaponIdentity.State);
-        clone.AmmunitionIdentity.State = ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionIdentity, clone.AmmunitionIdentity.State);
+        clone.FiringActions.State = WeaponStatisticsReducer.RestrictAvailability(
+            clone.FiringActions,
+            ReadCapabilityState(current, WeaponCapabilityIds.FiringActions, clone.FiringActions.State));
+        clone.AmmunitionConsumption.State = WeaponStatisticsReducer.RestrictAvailability(
+            clone.AmmunitionConsumption,
+            ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionConsumption, clone.AmmunitionConsumption.State));
+        clone.Projectiles.State = WeaponStatisticsReducer.RestrictAvailability(
+            clone.Projectiles,
+            ReadCapabilityState(current, WeaponCapabilityIds.Projectiles, clone.Projectiles.State));
+        clone.WeaponIdentity.State = WeaponStatisticsReducer.RestrictAvailability(
+            clone.WeaponIdentity,
+            ReadCapabilityState(current, WeaponCapabilityIds.WeaponIdentity, clone.WeaponIdentity.State));
+        clone.AmmunitionIdentity.State = WeaponStatisticsReducer.RestrictAvailability(
+            clone.AmmunitionIdentity,
+            ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionIdentity, clone.AmmunitionIdentity.State));
         return clone;
     }
 

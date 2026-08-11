@@ -81,6 +81,7 @@ public sealed class RunLifecycleTracker
     private bool raidInitialized;
     private string? nativeRaidId;
     private double lastCheckpointMonotonicSeconds;
+    private bool combatCheckpointRequired;
 
     public RunLifecycleTracker(
         Func<string> runIdFactory,
@@ -106,6 +107,8 @@ public sealed class RunLifecycleTracker
     public string? ActiveRunId => active?.RunId;
 
     public string? ActiveMapId => active?.Context.Map.MapId;
+
+    public bool CombatCheckpointRequired => active != null && combatCheckpointRequired;
 
     public RunLifecycleTransition Apply(RunLifecycleEvent lifecycleEvent)
     {
@@ -258,6 +261,7 @@ public sealed class RunLifecycleTracker
             active.RecentShotEventIds.Remove(active.RecentShotEventIdOrder.Dequeue());
         }
 
+        combatCheckpointRequired = true;
         return true;
     }
 
@@ -300,6 +304,7 @@ public sealed class RunLifecycleTracker
         if (!double.IsNaN(monotonicSeconds) && !double.IsInfinity(monotonicSeconds))
         {
             lastCheckpointMonotonicSeconds = monotonicSeconds;
+            combatCheckpointRequired = false;
         }
     }
 
@@ -326,6 +331,7 @@ public sealed class RunLifecycleTracker
         suspensions.Clear();
         movement.Reset();
         lastCheckpointMonotonicSeconds = monotonicSeconds;
+        combatCheckpointRequired = false;
     }
 
     private void SetSuspension(
@@ -399,6 +405,7 @@ public sealed class RunLifecycleTracker
         };
 
         active = null;
+        combatCheckpointRequired = false;
         movement.Reset();
         raidInitialized = false;
         nativeRaidId = null;

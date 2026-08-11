@@ -693,15 +693,14 @@ Both DLLs report informational version `0.3.0+aa14d9258113e97ce466633f5d44c68a5c
 
 Verified 2026-08-11 against Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, and HarmonyLib `2.4.1.0`.
 
-- Public static `ItemAgent_Gun.OnMainCharacterShootEvent : Action<ItemAgent_Gun>` emits after a successful main-character discharge.
-- `ItemAgent_Gun.TransToFire(bool)` returns before the event when ammunition is empty or durability prevents firing.
-- One accepted discharge loops `ShotCount` times through `ShootOneBullet(Vector3, Vector3, Vector3)` and then calls public `ItemSetting_Gun.UseABullet()` once before the firing event.
+- Public static `ItemAgent_Gun.OnMainCharacterShootEvent : Action<ItemAgent_Gun>` emits once after each accepted main-character `TransToFire` path and proves one firing action callback.
+- The event does not prove ammunition or projectile outcomes. `ItemSetting_Gun.UseABullet()` can return without decrementing when it finds no valid loaded item, and `ShootOneBullet(...)` can return before projectile acquisition while the later firing event still occurs.
 - `ItemAgent_Gun.Item.TypeID` and `ItemSetting_Gun.TargetBulletID` provide event-time stable weapon and ammunition IDs. Display names retain explicit fallback text if unavailable.
-- Semi-automatic, repeated automatic, and burst modes therefore count one firing action and one loaded ammunition unit per discharged round. Multi-projectile weapons retain one firing action and one ammunition unit while reporting `ShotCount` projectiles separately.
-- Reloads, magazine transfers, inventory movement, and dry fire do not emit the event. Trigger attempts and dry-fire counts are unsupported and never fabricated as zero.
+- Each observed callback receives a fresh UDS event identity independent of runtime object ID, ammunition type, or post-shot ammunition count. Reloading to the same post-shot value, unchanged/infinite ammunition, and runtime object-ID reuse cannot collapse later callbacks.
+- Reloads, magazine transfers, inventory movement, and dry fire do not emit the event. Trigger attempts, actual loaded-ammunition consumption, and completed projectile creation are unsupported and never fabricated as zero.
 - The adapter additionally requires an active run, Raid context, `ReferenceEquals(agent.Holder, CharacterMainControl.Main)`, `IsMainCharacter`, no loading, and no pause.
 
-The production hook is observation-only and uses no new Harmony patch. Its correlation cache is bounded to 32 runtime weapons; run event-ID deduplication is bounded to 512 entries; compact aggregates are checkpointed through the existing run cadence without raw shot persistence or per-projectile writes.
+The production hook is observation-only and uses no new Harmony patch. Run event-ID deduplication remains bounded to 512 entries. Every accepted firing action marks the active run combat-dirty and immediately writes one aggregate checkpoint; a failed write remains dirty and is retried from the normal update path. This is per firing action, never per projectile/pellet, and no raw shot journal is persisted.
 
 ### Automated protocol
 
@@ -720,15 +719,14 @@ dotnet format .\UltimateDuckovStatistics.sln --verify-no-changes --no-restore --
 git -c safe.directory=C:/Users/micro/projects/ultimate-duckov-statistics diff --check
 ```
 
-Current automated and committed-package evidence on 2026-08-11:
+Corrective review-follow-up evidence on 2026-08-11:
 
-- Complete Release suite: 163 passed, 0 failed, 0 skipped.
+- Complete local Release suite: 172 passed, 0 failed, 0 skipped.
 - Contract probe: passed with TeamSoda core SHA-256 `298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f`, ItemStats SHA-256 `a276e15c022f71b2214bd05e1b9b0f2e620c16561df576fed0b79c2fe4402e60`, and Harmony SHA-256 `353daafec180bb8e7bbe4da78f2a7cdc78067392e3a4e79dc8e7af295f2371e6`.
 - Native Release build: 0 warnings and 0 errors.
-- M4 change-set formatter verification and `git diff --check`: passed. A repository-wide formatter invocation reports pre-existing whitespace in untouched `ItemUseReducerTests.cs` and `RunStatisticsViewModelTests.cs`; those unrelated lines were preserved.
-- Clean committed implementation head `85d7e415017154d5197f53d4a2407bf27b39b1a0` produced `artifacts/release/UltimateDuckovStatistics-v0.4.0.zip`, 108,465 bytes, SHA-256 `66dd1eb776bd51740e481a296e281c3f2f332d848e227aaa29e1af9d5fb632d1`; its lowercase checksum sidecar matches exactly.
-- Independent extraction contains exactly the five folder-rooted package files and passes exact validation. Both DLLs report file version `0.4.0.0` and product version `0.4.0+85d7e415017154d5197f53d4a2407bf27b39b1a0`.
-- Draft PR [#4](https://github.com/bamboechop/ultimate-duckov-statistics/pull/4) is open, draft, and unmerged. Implementation head `85d7e415017154d5197f53d4a2407bf27b39b1a0` passed `core` and `source-safety`; the final evidence-only head and CI are verified externally through GitHub after the documentation push because a commit cannot record its own final SHA.
+- New regressions cover reload-equivalent and unchanged-ammunition identities, outcome metrics unavailable under the public contract, immediate combat-dirty checkpoint persistence, partially populated checkpoint normalization, invalid checkpoint archiving, negative persisted counters, saturating overflow, and current capability restrictions across UI/JSON/CSV scopes.
+- The previously committed 108,465-byte package and its gameplay/deployment evidence are superseded by these source corrections. Replacement package, deployment, focused manual follow-up, final commit, and final CI evidence are recorded only after those gates pass.
+- Draft PR [#4](https://github.com/bamboechop/ultimate-duckov-statistics/pull/4) remains open, draft, and unmerged.
 
 ### User-driven manual acceptance protocol
 
@@ -737,10 +735,10 @@ The user alone launches and controls Duckov. Before deployment, identify the sel
 1. From v0.3.0, open the panel outside a raid and confirm Combat is empty, M1-M3 totals remain intact, and all six M4 capabilities are visible in Diagnostics, including disabled `native-trigger-attempts`.
 2. Record the selected weapon names, stable ammunition types where visible, and exact loaded/reserve ammunition before entering the raid.
 3. Confirm base actions and any reload/inventory movement before the active raid do not count.
-4. In an active raid, perform a user-confirmed number of semi-automatic discharges. Record the exact count.
-5. If available, perform a short automatic or burst sequence and record ammunition before/after. If unavailable, retain the automated evidence instead of inventing a scenario.
-6. If available, fire one multi-projectile weapon once. Verify one firing action, one ammunition unit, and the separately reported native projectile count. If unavailable, record that limitation.
-7. If available, switch weapon and/or ammunition type, fire known counts, and verify event-time attribution. Reload without firing and verify no increment.
+4. In an active raid, fire once, reload to the same full-magazine state, and fire once again so both callbacks have the same post-shot ammunition count. Verify two distinct firing actions.
+5. If available, perform a short automatic or burst sequence. Verify every accepted callback increments firing actions while loaded-ammunition consumption and projectile creation remain visibly `Unsupported`.
+6. If available, fire one multi-projectile weapon once. Verify one firing action while configured pellets are not misreported as proven created projectiles.
+7. If available, switch weapon and/or ammunition type, fire known counts, and verify event-time attribution. Reload without firing and verify no firing-action increment.
 8. Dry fire only if safe and convenient. The expected result is no increment because trigger attempts are explicitly unsupported.
 9. Pause and cross a genuine loading boundary; firing statistics must not change during excluded states.
 10. Extract or die, then inspect Overview, Combat, Runs, Diagnostics, profile JSON, `statistics.json`, `combat_totals.csv`, `weapon_totals.csv`, and `ammunition_totals.csv` for exact agreement.
@@ -749,7 +747,9 @@ The user alone launches and controls Duckov. Before deployment, identify the sel
 
 After each user report, inspect `Player.log`, bounded UDS diagnostics, current profile, active checkpoint state, export files, and deployed hashes. Record exact observed counts and unavailable scenarios here before declaring manual acceptance complete.
 
-### M4 manual/package evidence — passed 2026-08-11
+### Initial M4 manual/package evidence — completed 2026-08-11, superseded by review
+
+The following evidence accurately records what the first package displayed and persisted. It remains useful for migration, firing-action, ownership, lifecycle, UI/export, and save-isolation observations. It is not accepted as proof of actual ammunition consumption or projectile creation: review later established that the public callback could not prove those outcomes. The 108,465-byte artifact and deployment described below must not be released or reused as the corrected package.
 
 Passed on progressed slot 1 and isolated slot 6:
 
@@ -776,4 +776,6 @@ Passed on progressed slot 1 and isolated slot 6:
 - Final local revalidation after gameplay passed: 163 Release tests with zero failures/skips, the full Duckov `2.3.30` native contract probe, native Release build with zero warnings/errors, formatter verification for all 31 M4-changed C# files, `git diff --check`, and the tracked-source forbidden-binary audit.
 - Final package/deployment revalidation passed without regenerating or redeploying the gameplay-tested artifact. `UltimateDuckovStatistics-v0.4.0.zip` remains 108,465 bytes at SHA-256 `66dd1eb776bd51740e481a296e281c3f2f332d848e227aaa29e1af9d5fb632d1`; its sidecar remains exact lowercase hash, two spaces, filename, LF termination, and no BOM. Fresh extraction at `artifacts/audit-v040-final-20260811T0942083394781` contains exactly the five permitted files, passes `verify-package.ps1`, and is byte-identical to both the package root and deployed directory. Both DLLs remain file version `0.4.0.0`, product version `0.4.0+85d7e415017154d5197f53d4a2407bf27b39b1a0`; deployment residue is zero.
 
-The complete automated and user-driven M4 acceptance matrix, committed implementation package, independent extraction, and deployed integrity gates pass. The final evidence-only documentation commit changes no package input or binary; its exact draft-PR head and CI status are verified through GitHub after push.
+### Review remediation status
+
+All six supplied findings have corresponding source changes and regressions: event IDs no longer depend on post-shot ammunition state; ammunition/projectile outcomes are unavailable under the public contract; accepted firing actions immediately flush an aggregate active-run checkpoint with dirty retry; nested checkpoint combat state is normalized before cloning; negative persisted counters are rejected or repaired and additions saturate instead of wrapping; and release documentation distinguishes completed initial gates from the now-superseded artifact. Replacement package, deployment/manual follow-up, final commit, push, and CI remain required before the draft PR can return to independent review.

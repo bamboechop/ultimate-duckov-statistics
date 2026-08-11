@@ -129,6 +129,47 @@ public sealed class ExportTests
 
     [Fact]
     [Trait("Category", "Export")]
+    [Trait("Category", "Weapon")]
+    public void CurrentUnavailableOutcomeMetricsRestrictEveryJsonAndCsvScope()
+    {
+        var profile = CreateProfile();
+        RunReducer.Apply(profile.Statistics, CreateRun("run-one", RunOutcome.Extracted, 95, 123.5, 8));
+        profile.Capabilities.Single(
+            capability => capability.AdapterId == WeaponCapabilityIds.AmmunitionConsumption).State =
+            AdapterCapabilityState.DisabledIncompatible;
+        profile.Capabilities.Single(
+            capability => capability.AdapterId == WeaponCapabilityIds.Projectiles).State =
+            AdapterCapabilityState.DisabledIncompatible;
+
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var json = Deserialize(bundle.Json);
+        var combatRows = ParseCsv(bundle.CombatTotalsCsv);
+        var weaponRows = ParseCsv(bundle.WeaponTotalsCsv);
+        var ammunitionRows = ParseCsv(bundle.AmmunitionTotalsCsv);
+
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            json.RunTotals.WeaponStatistics.Capabilities.AmmunitionConsumption.State);
+        Assert.All(json.RunTotals.Maps.Values, map => Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            map.WeaponStatistics.Capabilities.Projectiles.State));
+        Assert.All(json.Runs, run => Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            run.WeaponStatistics.Capabilities.AmmunitionConsumption.State));
+        Assert.All(combatRows, row =>
+        {
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["ammunition_consumption_state"]);
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["projectiles_state"]);
+        });
+        Assert.All(weaponRows.Concat(ammunitionRows), row =>
+        {
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["ammunition_consumption_state"]);
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["projectiles_state"]);
+        });
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
     public void ReclassifiedStableItemKeepsMatchingItemAndGroupExportRows()
     {
         var profile = CreateProfile();

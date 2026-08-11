@@ -361,9 +361,9 @@ internal sealed class NativeStatisticsPanel
             {
                 GUILayout.Label(
                     $"{run.MapDisplayName} ({run.Outcome}, {run.RunId}): "
-                    + $"{FormatMetric(run.WeaponStatistics.Totals.FiringActions, run.WeaponStatistics.Capabilities.FiringActions.State)} actions, "
-                    + $"{FormatMetric(run.WeaponStatistics.Totals.AmmunitionUnitsConsumed, run.WeaponStatistics.Capabilities.AmmunitionConsumption.State)} ammo, "
-                    + $"{FormatMetric(run.WeaponStatistics.Totals.Projectiles, run.WeaponStatistics.Capabilities.Projectiles.State)} projectiles");
+                    + $"{FormatMetric(run.WeaponStatistics.Totals.FiringActions, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.FiringActions, model.Capabilities.FiringActions.State))} actions, "
+                    + $"{FormatMetric(run.WeaponStatistics.Totals.AmmunitionUnitsConsumed, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.AmmunitionConsumption, model.Capabilities.AmmunitionConsumption.State))} ammo, "
+                    + $"{FormatMetric(run.WeaponStatistics.Totals.Projectiles, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.Projectiles, model.Capabilities.Projectiles.State))} projectiles");
             }
         }
 

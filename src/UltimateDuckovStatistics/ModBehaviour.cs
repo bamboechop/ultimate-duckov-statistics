@@ -77,7 +77,6 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 message => Debug.Log($"{LogPrefix} {message}"));
             weaponFireAdapter.Assign(newWeaponFireAdapter);
             newWeaponFireAdapter.Initialize();
-            profileCoordinator.ProfileChanging += newWeaponFireAdapter.ResetSequence;
             itemUseAdapter = new NativeItemUseAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 profileCoordinator.HandleItemUse,
@@ -151,11 +150,6 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         if (profileCoordinator != null && ownedRunLifecycleAdapter != null)
         {
             profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
-        }
-
-        if (profileCoordinator != null && ownedWeaponFireAdapter != null)
-        {
-            profileCoordinator.ProfileChanging -= ownedWeaponFireAdapter.ResetSequence;
         }
 
         if (!weaponFireAdapter.TryCleanupOwned())

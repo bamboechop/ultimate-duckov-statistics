@@ -30,7 +30,7 @@ internal static class UiText
             ["ui.weapon"] = "Weapon",
             ["ui.ammunition"] = "Ammunition",
             ["ui.no_combat"] = "No accepted firing actions recorded for this save generation.",
-            ["ui.metric_contract"] = "A firing action is one successful discharge. Dry-fire attempts are unavailable and not counted; shotgun projectiles are reported separately.",
+            ["ui.metric_contract"] = "A firing action is one accepted native firing callback. Dry-fire attempts, actual loaded-ammunition consumption, and completed projectile creation are unavailable on this game contract.",
             ["ui.integrity"] = "Integrity",
             ["ui.record_status"] = "Records",
             ["ui.record_eligible"] = "Eligible",

@@ -198,6 +198,14 @@ public sealed class ProfileRepository
             throw new ArgumentException("Active-run checkpoint does not match the current generation.", nameof(checkpoint));
         }
 
+        checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
+        var normalization = WeaponStatisticsReducer.NormalizePersisted(checkpoint.WeaponStatistics);
+        if (normalization.InvalidCounters)
+        {
+            throw new ArgumentException("Active-run checkpoint contains invalid weapon counters.", nameof(checkpoint));
+        }
+
+        WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
     }
@@ -459,6 +467,13 @@ public sealed class ProfileRepository
         }
 
         checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
+        var weaponNormalization = WeaponStatisticsReducer.NormalizePersisted(checkpoint.WeaponStatistics);
+        if (weaponNormalization.InvalidCounters)
+        {
+            ArchiveActiveRunArtifacts("InvalidActiveRunCounters");
+            diagnostic("Active-run checkpoint contained negative weapon counters and was preserved for diagnostics.");
+            return false;
+        }
 
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion
             || string.IsNullOrWhiteSpace(checkpoint.RunId)
@@ -469,8 +484,22 @@ public sealed class ProfileRepository
             return false;
         }
 
-        var summary = checkpoint.ToInterruptedSummary();
-        var applied = RunReducer.Apply(Current.Statistics, summary);
+        RunSummary summary;
+        bool applied;
+        try
+        {
+            WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
+            summary = checkpoint.ToInterruptedSummary();
+            applied = RunReducer.Apply(Current.Statistics, summary);
+        }
+        catch (ArgumentException exception)
+        {
+            ArchiveActiveRunArtifacts("InvalidActiveRun");
+            diagnostic(
+                $"Active-run checkpoint was structurally invalid and was preserved for diagnostics: {exception.Message}");
+            return false;
+        }
+
         if (applied)
         {
             Current.Revision++;

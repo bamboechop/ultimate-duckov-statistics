@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics
 
-Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.4.0 records successful consumable uses, actual HP restored, run outcomes and active duration, map records, main-duck physical versus teleport/excluded distance, successful firing actions, loaded ammunition consumed, and projectiles/pellets. Every metric remains separate.
+Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.4.0 records successful consumable uses, actual HP restored, run outcomes and active duration, map records, main-duck physical versus teleport/excluded distance, and accepted native firing actions with event-time weapon and ammunition identity. Loaded-ammunition consumption and completed projectile creation remain separate capability-gated metrics and are unavailable on the verified public Duckov 2.3.30 firing contract.
 
 The mod never modifies Duckov save files. Its data is stored under:
 
@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M3 are released. M4 weapons and ammunition is implemented on `feat/weapons-ammunition`; complete automated, native-contract, package, deployment, and user-driven gameplay acceptance passes, and draft PR #4 is ready for independent review. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
+M0-M3 are released. M4 weapons and ammunition is implemented on `feat/weapons-ammunition` and remains in draft PR #4. The first v0.4.0 package completed automated, package, deployment, gameplay, and CI gates, but subsequent review found merge-blocking contract, persistence, and recovery defects. The corrective implementation is being revalidated; the earlier package is superseded and must not be released. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
 
 ## Build prerequisites
 
@@ -28,7 +28,7 @@ UDS fingerprints saves read-only and never modifies them. While active, it recor
 
 Runs begin only when the native raid is initialized and the live main duck actually has player control. Active duration excludes pause and loading. Movement is sampled at approximately 5 Hz with the real monotonic sample interval and verified native walk/run/dash speeds; implausible, loading-boundary, explicit-position, and long-gap displacement is retained separately as teleport/excluded distance. Interrupted and integrity-flagged runs stay visible but do not enter default duration records; each Runs row shows its integrity tag and an explicit eligible/excluded Records status with the exclusion reason.
 
-M4 uses the public `ItemAgent_Gun.OnMainCharacterShootEvent` from the verified Duckov build. One callback proves one successful discharge and one loaded ammunition unit consumed; native `ShotCount` supplies the separately reported projectile/pellet count. Reloads, magazine transfers, inventory movement, base activity, loading, pause, non-main-duck actors, and dry fire do not count. Trigger attempts and dry-fire counts are explicitly unavailable rather than displayed as zero.
+M4 uses the public `ItemAgent_Gun.OnMainCharacterShootEvent` from the verified Duckov build. Each accepted callback receives a unique UDS event ID and proves one firing action plus event-time weapon/ammunition identity. The event occurs after calls that may conditionally skip ammunition consumption or projectile initialization, so loaded-ammunition and projectile counts are explicitly unavailable rather than inferred from cached ammunition or configured `ShotCount`. Reloads, magazine transfers, inventory movement, base activity, loading, pause, non-main-duck actors, and dry fire do not create firing-action records.
 
 The in-game panel enables Overview, Runs, Records, Combat, Items, and Diagnostics. One export action writes `statistics.json` plus ten flattened CSV files, including `combat_totals.csv`, `weapon_totals.csv`, and `ammunition_totals.csv`, under the current UDS generation.
 

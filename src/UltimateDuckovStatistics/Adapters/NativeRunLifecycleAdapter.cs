@@ -24,7 +24,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private const string SupportedGameBuild = "24013657";
     private const double SampleIntervalSeconds = 0.2;
     private readonly Func<string> saveGenerationIdProvider;
-    private readonly Action<ActiveRunCheckpoint> checkpointHandler;
+    private readonly Func<ActiveRunCheckpoint, bool> checkpointHandler;
     private readonly Func<RunSummary, bool> completionHandler;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
@@ -43,7 +43,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public NativeRunLifecycleAdapter(
         Func<string> saveGenerationIdProvider,
-        Action<ActiveRunCheckpoint> checkpointHandler,
+        Func<ActiveRunCheckpoint, bool> checkpointHandler,
         Func<RunSummary, bool> completionHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
         Action<string> diagnosticHandler,
@@ -68,8 +68,22 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public string? CurrentMapId => tracker.ActiveMapId;
 
-    public bool RecordShot(ShotRecorded shot) =>
-        callbackLifetime.CanHandleCallbacks && tracker.RecordShot(shot);
+    public bool RecordShot(ShotRecorded shot)
+    {
+        if (!callbackLifetime.CanHandleCallbacks || !tracker.RecordShot(shot))
+        {
+            return false;
+        }
+
+        var now = NowMonotonic();
+        if (!SaveCheckpoint(DateTime.UtcNow, now))
+        {
+            diagnosticHandler(
+                $"Accepted firing action {shot.EventId}; crash-safe active-run checkpoint remains pending and will be retried.");
+        }
+
+        return true;
+    }
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
@@ -130,6 +144,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             TryStartRun();
             var now = NowMonotonic();
             var utcNow = DateTime.UtcNow;
+            if (tracker.CombatCheckpointRequired)
+            {
+                SaveCheckpoint(utcNow, now);
+            }
+
             if (tracker.IsActive && tracker.Tick(utcNow, now))
             {
                 tracker.ObserveIntegrity(NativeIntegrityProbe.Read());
@@ -367,16 +386,21 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    private void SaveCheckpoint(DateTime utcNow, double monotonicSeconds)
+    private bool SaveCheckpoint(DateTime utcNow, double monotonicSeconds)
     {
         var checkpoint = tracker.CreateCheckpoint(utcNow, monotonicSeconds);
         if (checkpoint == null)
         {
-            return;
+            return false;
         }
 
-        checkpointHandler(checkpoint);
+        if (!checkpointHandler(checkpoint))
+        {
+            return false;
+        }
+
         tracker.MarkCheckpointSaved(monotonicSeconds);
+        return true;
     }
 
     private void SynchronizeMainCharacter()
