@@ -38,7 +38,7 @@ Reloads, magazine transfers, and inventory movement do not emit this event. Dry-
 - Native Duckov/Harmony contract probe: passed against Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`, and HarmonyLib `2.4.1.0`. The corrected probe requires only the public firing event and stable identity properties; it no longer treats private firing loops or loaded-ammunition methods as proof of outcomes.
 - Native Release build: 0 warnings and 0 errors.
 - M4 change-set formatting and analyzer verification: passed. The repository-wide formatting command continues to report two pre-existing whitespace blocks in untouched legacy test files.
-- The first corrected package, transactional deployment, and focused manual recovery acceptance passed: two reload-equivalent TT-33 callbacks remained distinct and survived a forced `taskkill /F` as one interrupted run with exactly two firing actions. A second review found semantic-backup, historical-availability, and failed-write retry defects. Those defects are fixed in source, but the earlier corrected package is superseded again. Replacement package/deployment evidence and final remote CI remain pending; the PR stays draft.
+- The replacement committed-head package, transactional deployment, and focused manual acceptance passed. Two reload-equivalent TT-33 callbacks remain one recovered interrupted run with exactly two firing actions; three pre-M4 runs remain explicitly unavailable in UI, JSON, and CSV instead of being upgraded by current support. Semantic backup fallback and one-second failed-checkpoint retry/coalescing are covered by deterministic regressions. Final remote CI remains pending; the PR stays draft.
 
 ## Known limitations
 
