@@ -429,8 +429,16 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label($"Transitions: {equipment.TransitionCount.ToString(CultureInfo.InvariantCulture)}{(equipment.TransitionsTruncated ? " (bounded history truncated)" : string.Empty)}");
         equipmentScroll = GUILayout.BeginScrollView(equipmentScroll);
         GUILayout.Space(6);
+        GUILayout.Label("Equipment slot occupied time");
+        foreach (var row in equipment.Slots.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(30))
+            GUILayout.Label($"{row.DisplayName} [{row.Id}]: {FormatDuration(row.ActiveDurationSeconds)}");
+        GUILayout.Space(6);
         GUILayout.Label("Equipped item time");
         foreach (var row in equipment.Items.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(30))
+            GUILayout.Label($"{row.DisplayName} [{row.Id}]: {FormatDuration(row.ActiveDurationSeconds)}");
+        GUILayout.Space(6);
+        GUILayout.Label("Slotted weapon time");
+        foreach (var row in equipment.SlottedWeapons.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(20))
             GUILayout.Label($"{row.DisplayName} [{row.Id}]: {FormatDuration(row.ActiveDurationSeconds)}");
         GUILayout.Space(6);
         GUILayout.Label("Selected weapon time");
@@ -462,6 +470,8 @@ internal sealed class NativeStatisticsPanel
             foreach (var row in run.EquipmentStatistics.Loadouts.Values
                          .OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(10))
                 GUILayout.Label($"  {row.DisplayName}: {FormatDuration(row.ActiveDurationSeconds)}");
+            foreach (var transition in run.EquipmentStatistics.Transitions.OrderBy(x => x.ActiveTimeSeconds).TakeLast(10))
+                GUILayout.Label($"  t={FormatDuration(transition.ActiveTimeSeconds)}: {transition.FromLoadoutId} -> {transition.ToLoadoutId}; selected={transition.SelectedWeaponSlotId}|{transition.SelectedWeaponId}; totems={transition.TotemSetId}");
         }
         GUILayout.EndScrollView();
     }

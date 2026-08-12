@@ -18,6 +18,11 @@ public sealed class EquipmentTransition
     [DataMember(Order = 1)] public double ActiveTimeSeconds { get; set; }
     [DataMember(Order = 2)] public string FromSnapshotId { get; set; } = string.Empty;
     [DataMember(Order = 3)] public string ToSnapshotId { get; set; } = string.Empty;
+    [DataMember(Order = 4)] public string FromLoadoutId { get; set; } = EquipmentEventAssociation.UnavailableId;
+    [DataMember(Order = 5)] public string ToLoadoutId { get; set; } = EquipmentEventAssociation.UnavailableId;
+    [DataMember(Order = 6)] public string SelectedWeaponSlotId { get; set; } = string.Empty;
+    [DataMember(Order = 7)] public string SelectedWeaponId { get; set; } = string.Empty;
+    [DataMember(Order = 8)] public string TotemSetId { get; set; } = EquipmentEventAssociation.UnavailableId;
 }
 
 [DataContract]
@@ -58,6 +63,8 @@ public sealed class EquipmentStatisticsAggregate
     [DataMember(Order = 12)] public bool HistoricalUnavailable { get; set; }
     [DataMember(Order = 13)] public bool WasRepairedFromInvalidState { get; set; }
     [DataMember(Order = 14)] public Dictionary<string, EquipmentDurationAggregate> TotemStates { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 15)] public Dictionary<string, EquipmentDurationAggregate> Slots { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 16)] public Dictionary<string, EquipmentDurationAggregate> SlottedWeapons { get; set; } = new(StringComparer.Ordinal);
 }
 
 public static class EquipmentStatisticsReducer
@@ -73,20 +80,9 @@ public static class EquipmentStatisticsReducer
             return false;
         }
 
-        var from = target.CurrentSnapshot?.SnapshotId ?? string.Empty;
+        var from = target.CurrentSnapshot;
         target.CurrentSnapshot = Clone(snapshot);
-        target.TransitionCount = SaturatingAdd(target.TransitionCount, 1);
-        target.Transitions.Add(new EquipmentTransition
-        {
-            ActiveTimeSeconds = activeSeconds,
-            FromSnapshotId = from,
-            ToSnapshotId = snapshot.SnapshotId
-        });
-        if (target.Transitions.Count > EquipmentStatisticsAggregate.TransitionCapacity)
-        {
-            target.Transitions.RemoveAt(0);
-            target.TransitionsTruncated = true;
-        }
+        RecordTransition(target, activeSeconds, from, snapshot);
 
         return true;
     }
@@ -98,7 +94,7 @@ public static class EquipmentStatisticsReducer
         var current = target.CurrentSnapshot;
         if (current == null) return false;
         target.CurrentSnapshot = null;
-        RecordTransition(target, activeSeconds, current.SnapshotId, EquipmentStatisticsAggregate.ObservationUnavailableSnapshotId);
+        RecordTransition(target, activeSeconds, current, null);
         return true;
     }
 
@@ -117,7 +113,12 @@ public static class EquipmentStatisticsReducer
         if (snapshot.Totems.Any(value => value.ActivationState == TotemActivationState.ProvenActive))
             AddDuration(target.TotemSets, snapshot.TotemSetId, DescribeActiveTotemSet(snapshot), delta);
         foreach (var item in snapshot.Items)
+        {
+            AddDuration(target.Slots, item.SlotId, item.SlotDisplayName, delta);
             AddDuration(target.Items, item.SlotId + "|" + item.ItemId + "|" + item.AttachmentSignature, item.ItemDisplayName, delta);
+            if (item.Kind == EquipmentItemKind.Weapon)
+                AddDuration(target.SlottedWeapons, item.SlotId + "|" + item.ItemId, item.ItemDisplayName, delta);
+        }
         foreach (var group in snapshot.Totems
                      .GroupBy(TotemStateKey, StringComparer.Ordinal)
                      .OrderBy(value => value.Key, StringComparer.Ordinal))
@@ -174,6 +175,8 @@ public static class EquipmentStatisticsReducer
         MergeDurations(target.Loadouts, source.Loadouts, countRun: countRunOccurrence);
         MergeDurations(target.TotemSets, source.TotemSets, countRun: countRunOccurrence);
         MergeDurations(target.TotemStates, source.TotemStates);
+        MergeDurations(target.Slots, source.Slots);
+        MergeDurations(target.SlottedWeapons, source.SlottedWeapons);
         foreach (var pair in source.CombatAssociations)
         {
             var row = Association(target, new EquipmentEventAssociation
@@ -217,11 +220,18 @@ public static class EquipmentStatisticsReducer
         MergeDurations(clone.Loadouts, source.Loadouts);
         MergeDurations(clone.TotemSets, source.TotemSets);
         MergeDurations(clone.TotemStates, source.TotemStates);
+        MergeDurations(clone.Slots, source.Slots);
+        MergeDurations(clone.SlottedWeapons, source.SlottedWeapons);
         clone.Transitions = source.Transitions.Select(x => new EquipmentTransition
         {
             ActiveTimeSeconds = x.ActiveTimeSeconds,
             FromSnapshotId = x.FromSnapshotId,
-            ToSnapshotId = x.ToSnapshotId
+            ToSnapshotId = x.ToSnapshotId,
+            FromLoadoutId = x.FromLoadoutId,
+            ToLoadoutId = x.ToLoadoutId,
+            SelectedWeaponSlotId = x.SelectedWeaponSlotId,
+            SelectedWeaponId = x.SelectedWeaponId,
+            TotemSetId = x.TotemSetId
         }).ToList();
         foreach (var pair in source.CombatAssociations)
         {
@@ -271,6 +281,8 @@ public static class EquipmentStatisticsReducer
         target.Loadouts ??= Repair(new Dictionary<string, EquipmentDurationAggregate>(StringComparer.Ordinal), ref repaired);
         target.TotemSets ??= Repair(new Dictionary<string, EquipmentDurationAggregate>(StringComparer.Ordinal), ref repaired);
         target.TotemStates ??= Repair(new Dictionary<string, EquipmentDurationAggregate>(StringComparer.Ordinal), ref repaired);
+        target.Slots ??= Repair(new Dictionary<string, EquipmentDurationAggregate>(StringComparer.Ordinal), ref repaired);
+        target.SlottedWeapons ??= Repair(new Dictionary<string, EquipmentDurationAggregate>(StringComparer.Ordinal), ref repaired);
         target.CombatAssociations ??= Repair(new Dictionary<string, EquipmentCombatAssociationAggregate>(StringComparer.Ordinal), ref repaired);
         target.Transitions ??= Repair(new List<EquipmentTransition>(), ref repaired);
         if (!IsFinite(target.ObservedActiveDurationSeconds) || target.ObservedActiveDurationSeconds < 0)
@@ -281,6 +293,8 @@ public static class EquipmentStatisticsReducer
         target.Loadouts = NormalizeDurations(target.Loadouts, ref repaired);
         target.TotemSets = NormalizeDurations(target.TotemSets, ref repaired);
         target.TotemStates = NormalizeDurations(target.TotemStates, ref repaired);
+        target.Slots = NormalizeDurations(target.Slots, ref repaired);
+        target.SlottedWeapons = NormalizeDurations(target.SlottedWeapons, ref repaired);
         target.CombatAssociations = NormalizeCombatAssociations(target.CombatAssociations, ref repaired);
         var previousTransitionTime = 0d;
         var validTransitions = new List<EquipmentTransition>();
@@ -296,10 +310,31 @@ public static class EquipmentStatisticsReducer
             }
             var from = row.FromSnapshotId?.Trim() ?? string.Empty;
             var to = row.ToSnapshotId.Trim();
+            var fromLoadout = EmptyToUnavailable(row.FromLoadoutId?.Trim());
+            var toLoadout = EmptyToUnavailable(row.ToLoadoutId?.Trim());
+            var selectedSlot = row.SelectedWeaponSlotId?.Trim() ?? string.Empty;
+            var selected = row.SelectedWeaponId?.Trim() ?? string.Empty;
+            var totems = EmptyToUnavailable(row.TotemSetId?.Trim());
+            if (string.IsNullOrWhiteSpace(selected) != string.IsNullOrWhiteSpace(selectedSlot))
+            {
+                selected = string.Empty;
+                selectedSlot = string.Empty;
+                repaired = true;
+            }
             if (!string.Equals(from, row.FromSnapshotId, StringComparison.Ordinal)
-                || !string.Equals(to, row.ToSnapshotId, StringComparison.Ordinal)) repaired = true;
+                || !string.Equals(to, row.ToSnapshotId, StringComparison.Ordinal)
+                || !string.Equals(fromLoadout, row.FromLoadoutId, StringComparison.Ordinal)
+                || !string.Equals(toLoadout, row.ToLoadoutId, StringComparison.Ordinal)
+                || !string.Equals(selectedSlot, row.SelectedWeaponSlotId, StringComparison.Ordinal)
+                || !string.Equals(selected, row.SelectedWeaponId, StringComparison.Ordinal)
+                || !string.Equals(totems, row.TotemSetId, StringComparison.Ordinal)) repaired = true;
             row.FromSnapshotId = from;
             row.ToSnapshotId = to;
+            row.FromLoadoutId = fromLoadout;
+            row.ToLoadoutId = toLoadout;
+            row.SelectedWeaponSlotId = selectedSlot;
+            row.SelectedWeaponId = selected;
+            row.TotemSetId = totems;
             previousTransitionTime = row.ActiveTimeSeconds;
             validTransitions.Add(row);
         }
@@ -341,12 +376,13 @@ public static class EquipmentStatisticsReducer
         if (target == null) throw new ArgumentNullException(nameof(target));
         if (target.Capabilities == null || target.Items == null || target.SelectedWeapons == null
             || target.Loadouts == null || target.TotemSets == null || target.CombatAssociations == null
-            || target.TotemStates == null
+            || target.TotemStates == null || target.Slots == null || target.SlottedWeapons == null
             || target.Transitions == null || !IsFinite(target.ObservedActiveDurationSeconds)
             || target.ObservedActiveDurationSeconds < 0 || target.Transitions.Count > EquipmentStatisticsAggregate.TransitionCapacity
             || target.Items.Values.Any(row => row == null) || target.SelectedWeapons.Values.Any(row => row == null)
             || target.Loadouts.Values.Any(row => row == null) || target.TotemSets.Values.Any(row => row == null)
             || target.TotemStates.Values.Any(row => row == null)
+            || target.Slots.Values.Any(row => row == null) || target.SlottedWeapons.Values.Any(row => row == null)
             || target.CombatAssociations.Values.Any(row => row == null))
             throw new ArgumentException("Equipment statistics are invalid.", nameof(target));
     }
@@ -362,7 +398,7 @@ public static class EquipmentStatisticsReducer
                 || row.ActiveTimeSeconds < 0 || row.ActiveTimeSeconds > target.ObservedActiveDurationSeconds
                 || string.IsNullOrWhiteSpace(row.ToSnapshotId)) == true)
             throw new ArgumentException("Equipment checkpoint contains invalid transitions.", nameof(target));
-        foreach (var values in new[] { target.Items, target.SelectedWeapons, target.Loadouts, target.TotemSets, target.TotemStates })
+        foreach (var values in new[] { target.Items, target.SelectedWeapons, target.Loadouts, target.TotemSets, target.TotemStates, target.Slots, target.SlottedWeapons })
         {
             if (values == null) continue;
             if (values.Values.Any(row => row == null || !IsFinite(row.ActiveDurationSeconds)
@@ -380,6 +416,7 @@ public static class EquipmentStatisticsReducer
     public static bool IsEmpty(EquipmentStatisticsAggregate value) => value != null
         && value.Items.Count == 0 && value.SelectedWeapons.Count == 0 && value.Loadouts.Count == 0
         && value.TotemSets.Count == 0 && value.TotemStates.Count == 0
+        && value.Slots.Count == 0 && value.SlottedWeapons.Count == 0
         && value.CombatAssociations.Count == 0 && value.TransitionCount == 0
         && value.CurrentSnapshot == null;
 
@@ -500,7 +537,7 @@ public static class EquipmentStatisticsReducer
 
     private static bool HasObservations(EquipmentStatisticsAggregate value) => value.Items?.Count > 0
         || value.SelectedWeapons?.Count > 0 || value.Loadouts?.Count > 0 || value.TotemSets?.Count > 0
-        || value.TotemStates?.Count > 0
+        || value.TotemStates?.Count > 0 || value.Slots?.Count > 0 || value.SlottedWeapons?.Count > 0
         || value.CombatAssociations?.Count > 0 || value.TransitionCount > 0;
 
     private static MetricAvailability Restrict(MetricAvailability a, MetricAvailability b) =>
@@ -682,24 +719,29 @@ public static class EquipmentStatisticsReducer
     private static void RecordTransition(
         EquipmentStatisticsAggregate target,
         double activeSeconds,
-        string fromSnapshotId,
-        string toSnapshotId)
+        EquipmentSnapshot? from,
+        EquipmentSnapshot? to)
     {
         target.TransitionCount = SaturatingAdd(target.TransitionCount, 1);
         target.Transitions.Add(new EquipmentTransition
         {
             ActiveTimeSeconds = activeSeconds,
-            FromSnapshotId = fromSnapshotId,
-            ToSnapshotId = toSnapshotId
+            FromSnapshotId = from?.SnapshotId ?? string.Empty,
+            ToSnapshotId = to?.SnapshotId ?? EquipmentStatisticsAggregate.ObservationUnavailableSnapshotId,
+            FromLoadoutId = from?.LoadoutId ?? EquipmentEventAssociation.UnavailableId,
+            ToLoadoutId = to?.LoadoutId ?? EquipmentEventAssociation.UnavailableId,
+            SelectedWeaponSlotId = to?.SelectedWeaponSlotId ?? string.Empty,
+            SelectedWeaponId = to?.SelectedWeaponId ?? string.Empty,
+            TotemSetId = to?.TotemSetId ?? EquipmentEventAssociation.UnavailableId
         });
         if (target.Transitions.Count <= EquipmentStatisticsAggregate.TransitionCapacity) return;
         target.Transitions.RemoveAt(0);
         target.TransitionsTruncated = true;
     }
 
-    private static string DescribeLoadout(EquipmentSnapshot snapshot) => string.Join(
-        "; ",
-        snapshot.Items.OrderBy(value => value.SlotId, StringComparer.Ordinal).Select(value =>
+    private static string DescribeLoadout(EquipmentSnapshot snapshot) => snapshot.Items.Count == 0
+        ? "Empty loadout"
+        : string.Join("; ", snapshot.Items.OrderBy(value => value.SlotId, StringComparer.Ordinal).Select(value =>
             $"{(string.IsNullOrWhiteSpace(value.SlotDisplayName) ? value.SlotId : value.SlotDisplayName)}: "
             + $"{(string.IsNullOrWhiteSpace(value.ItemDisplayName) ? value.ItemId : value.ItemDisplayName)} "
             + $"[{value.ItemId}; attachments={value.AttachmentSignature}]"));

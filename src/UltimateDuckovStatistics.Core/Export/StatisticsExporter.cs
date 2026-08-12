@@ -267,7 +267,9 @@ public static class StatisticsExporter
 
     private static void AppendEquipmentDurations(StringBuilder builder, string scope, string scopeId, EquipmentStatisticsAggregate statistics)
     {
+        Append("slot", statistics.Slots);
         Append("item", statistics.Items);
+        Append("slotted_weapon", statistics.SlottedWeapons);
         Append("selected_weapon", statistics.SelectedWeapons);
         Append("loadout", statistics.Loadouts);
         Append("totem_state", statistics.TotemStates);

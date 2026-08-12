@@ -32,6 +32,8 @@ public sealed class EquipmentStatisticsTests
 
         Assert.Equal(1, aggregate.TransitionCount);
         Assert.Equal(8, aggregate.Loadouts["loadout:one"].ActiveDurationSeconds);
+        Assert.Equal(8, aggregate.Slots["slot:primary"].ActiveDurationSeconds);
+        Assert.Equal(8, aggregate.SlottedWeapons["slot:primary|weapon:a"].ActiveDurationSeconds);
         Assert.Equal(8, aggregate.SelectedWeapons["slot:primary|weapon:a"].ActiveDurationSeconds);
         Assert.Equal(8, aggregate.TotemSets["totems:a"].ActiveDurationSeconds);
     }
@@ -79,6 +81,8 @@ public sealed class EquipmentStatisticsTests
 
         Assert.Equal(2.5, summary.EquipmentStatistics.Loadouts["loadout:before"].ActiveDurationSeconds);
         Assert.Equal(2.5, summary.EquipmentStatistics.Loadouts["loadout:after"].ActiveDurationSeconds);
+        Assert.Equal("loadout:before", summary.EquipmentStatistics.Transitions[1].FromLoadoutId);
+        Assert.Equal("loadout:after", summary.EquipmentStatistics.Transitions[1].ToLoadoutId);
     }
 
     [Fact]
@@ -238,6 +242,9 @@ public sealed class EquipmentStatisticsTests
         var profile = Profile(6);
         var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
         equipment.Items["slot|item"] = new EquipmentDurationAggregate { Id = "slot|item", DisplayName = "Vest", ActiveDurationSeconds = 12 };
+        equipment.Slots["slot"] = new EquipmentDurationAggregate { Id = "slot", DisplayName = "Armor", ActiveDurationSeconds = 12 };
+        equipment.SlottedWeapons["slot:primary|weapon:a"] = new EquipmentDurationAggregate
+        { Id = "slot:primary|weapon:a", DisplayName = "Rifle", ActiveDurationSeconds = 9 };
         equipment.TotemStates["tote|totem|unknown|copy:1"] = new EquipmentDurationAggregate
         { Id = "tote|totem|unknown|copy:1", DisplayName = "Totem [Unknown]", ActiveDurationSeconds = 7 };
         equipment.Loadouts["single"] = new EquipmentDurationAggregate { Id = "single", ActiveDurationSeconds = 5, RunOccurrences = 1 };
@@ -251,6 +258,8 @@ public sealed class EquipmentStatisticsTests
 
         Assert.Equal(12, jsonEquipment.GetProperty("Items").GetProperty("slot|item").GetProperty("ActiveDurationSeconds").GetDouble());
         Assert.Contains("lifetime,generation,item,slot|item,Vest,12,0", bundle.EquipmentTotalsCsv);
+        Assert.Contains("lifetime,generation,slot,slot,Armor,12,0", bundle.EquipmentTotalsCsv);
+        Assert.Contains("lifetime,generation,slotted_weapon,slot:primary|weapon:a,Rifle,9,0", bundle.EquipmentTotalsCsv);
         Assert.Contains("lifetime,generation,totem_state,tote|totem|unknown|copy:1,Totem [Unknown],7,0", bundle.EquipmentTotalsCsv);
         Assert.Contains("recurring", bundle.RecurringLoadoutsCsv);
         Assert.DoesNotContain("single", bundle.RecurringLoadoutsCsv);
@@ -433,6 +442,79 @@ public sealed class EquipmentStatisticsTests
     }
 
     [Fact]
+    public void CanonicalSignaturesAreOrderStableIgnoreNamesAndPreserveTotemMultiplicityAndPresenceState()
+    {
+        var weapon = Item("slot:primary", "weapon:a", EquipmentItemKind.Weapon);
+        var armor = Item("slot:armor", "armor:a", EquipmentItemKind.Armor);
+        var renamedWeapon = Item("slot:primary", "weapon:a", EquipmentItemKind.Weapon);
+        renamedWeapon.ItemDisplayName = "A different localization";
+
+        Assert.Equal(
+            EquipmentIdentity.LoadoutId(new[] { weapon, armor }),
+            EquipmentIdentity.LoadoutId(new[] { armor, renamedWeapon }));
+
+        var active = new TotemSnapshot
+        {
+            ItemId = "totem:a",
+            DisplayName = "Localized A",
+            CarryKind = TotemCarryKind.DirectSlot,
+            ContainerId = "character",
+            ActivationState = TotemActivationState.ProvenActive
+        };
+        var activeRenamed = new TotemSnapshot
+        {
+            ItemId = active.ItemId,
+            DisplayName = "Localized B",
+            CarryKind = active.CarryKind,
+            ContainerId = active.ContainerId,
+            ActivationState = active.ActivationState
+        };
+        var unknown = Tote("totem:b");
+
+        Assert.Equal(
+            EquipmentIdentity.ActiveTotemSetId(new[] { active, unknown }),
+            EquipmentIdentity.ActiveTotemSetId(new[] { unknown, activeRenamed }));
+        Assert.NotEqual(
+            EquipmentIdentity.ActiveTotemSetId(new[] { active }),
+            EquipmentIdentity.ActiveTotemSetId(new[] { active, activeRenamed }));
+        Assert.NotEqual(
+            EquipmentIdentity.TotemPresenceSignature(new[] { active }),
+            EquipmentIdentity.TotemPresenceSignature(new[]
+            {
+                new TotemSnapshot
+                {
+                    ItemId = active.ItemId,
+                    CarryKind = active.CarryKind,
+                    ContainerId = active.ContainerId,
+                    ActivationState = TotemActivationState.ProvenInactive
+                }
+            }));
+    }
+
+    [Fact]
+    public void InactiveDirectTotemAccruesPresenceButNotActiveSetTime()
+    {
+        var aggregate = Aggregate();
+        var snapshot = Snapshot("inactive-direct", string.Empty, "totems:none");
+        snapshot.Totems.Add(new TotemSnapshot
+        {
+            ItemId = "totem:depleted",
+            DisplayName = "Depleted Totem",
+            CarryKind = TotemCarryKind.DirectSlot,
+            ContainerId = "character",
+            ActivationState = TotemActivationState.ProvenInactive
+        });
+
+        EquipmentStatisticsReducer.Observe(aggregate, snapshot, 0);
+        EquipmentStatisticsReducer.Advance(aggregate, 6);
+
+        Assert.Empty(aggregate.TotemSets);
+        var state = Assert.Single(aggregate.TotemStates).Value;
+        Assert.Equal(6, state.ActiveDurationSeconds);
+        Assert.Contains("ProvenInactive", state.DisplayName);
+    }
+
+    [Fact]
     public void EquipReplaceMoveUnequipAndClearPreserveSlotAndStableItemIdentity()
     {
         var aggregate = Aggregate();
@@ -481,6 +563,9 @@ public sealed class EquipmentStatisticsTests
         Assert.Equal(3, Duration("slot:face", "modded:face"));
         Assert.Equal(3, aggregate.SelectedWeapons["slot:primary|weapon:gun"].ActiveDurationSeconds);
         Assert.Equal(1, aggregate.SelectedWeapons["slot:secondary|weapon:gun"].ActiveDurationSeconds);
+        Assert.Equal(3, aggregate.SlottedWeapons["slot:primary|weapon:gun"].ActiveDurationSeconds);
+        Assert.Equal(1, aggregate.SlottedWeapons["slot:secondary|weapon:gun"].ActiveDurationSeconds);
+        Assert.Equal(4, aggregate.Slots["slot:melee"].ActiveDurationSeconds);
 
         double Duration(string slot, string item) => aggregate.Items.Single(pair =>
             pair.Key.StartsWith(slot + "|" + item + "|", StringComparison.Ordinal)).Value.ActiveDurationSeconds;

@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 using ItemStatsSystem;
 using ItemStatsSystem.Items;
 using UltimateDuckovStatistics.Core.Compatibility;
@@ -211,12 +209,6 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 
         equipped = equipped.OrderBy(value => value.SlotId, StringComparer.Ordinal).ToList();
         totems = totems.OrderBy(value => value.CarryKind).ThenBy(value => value.ContainerId, StringComparer.Ordinal).ThenBy(value => value.ItemId, StringComparer.Ordinal).ToList();
-        var loadoutCanonical = string.Join(";", equipped.Select(value => value.SlotId + "=" + value.ItemId + "@" + value.AttachmentSignature));
-        var totemCanonical = string.Join(";", totems.Where(value => value.ActivationState == TotemActivationState.ProvenActive)
-            .Select(value => ((int)value.CarryKind).ToString(CultureInfo.InvariantCulture) + "=" + value.ContainerId + "=" + value.ItemId));
-        var totemPresenceCanonical = string.Join(";", totems.Select(value =>
-            ((int)value.CarryKind).ToString(CultureInfo.InvariantCulture) + "=" + value.ContainerId + "=" + value.ItemId
-            + "=" + ((int)value.ActivationState).ToString(CultureInfo.InvariantCulture)));
         var selected = main.CurrentHoldItemAgent?.Item;
         var selectedSlotId = selected == null ? string.Empty : characterItem.Slots
             .Where(value => ReferenceEquals(value.Content, selected))
@@ -227,8 +219,8 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
             && value.Kind == EquipmentItemKind.Weapon);
         var selectedId = selectedEntry?.ItemId ?? string.Empty;
         if (selectedEntry == null) selectedSlotId = string.Empty;
-        var loadoutId = "duckov:loadout:" + Hash(loadoutCanonical);
-        var totemSetId = "duckov:totem-set:" + Hash(totemCanonical);
+        var loadoutId = EquipmentIdentity.LoadoutId(equipped);
+        var totemSetId = EquipmentIdentity.ActiveTotemSetId(totems);
         return new EquipmentSnapshot
         {
             Items = equipped,
@@ -237,8 +229,12 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
             SelectedWeaponSlotId = selectedSlotId,
             LoadoutId = loadoutId,
             TotemSetId = totemSetId,
-            SnapshotId = "duckov:equipment-snapshot:" + Hash(
-                loadoutId + "|" + selectedSlotId + "|" + selectedId + "|" + totemSetId + "|" + Hash(totemPresenceCanonical))
+            SnapshotId = EquipmentIdentity.SnapshotId(
+                loadoutId,
+                selectedSlotId,
+                selectedId,
+                totemSetId,
+                EquipmentIdentity.TotemPresenceSignature(totems))
         };
     }
 
@@ -252,7 +248,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     {
         var parts = new List<string>();
         AddAttachments(item, parts, 0);
-        return Hash(string.Join(";", parts.OrderBy(value => value, StringComparer.Ordinal)));
+        return EquipmentIdentity.StableHash(string.Join(";", parts.OrderBy(value => value, StringComparer.Ordinal)));
     }
 
     private static void AddAttachments(Item parent, List<string> parts, int depth)
@@ -283,13 +279,6 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 
     private static string ItemId(Item item, string kind) => "duckov:" + kind + ":" + item.TypeID.ToString(CultureInfo.InvariantCulture);
     private static string DisplayName(Item item) => string.IsNullOrWhiteSpace(item.DisplayName) ? "Unknown item " + item.TypeID.ToString(CultureInfo.InvariantCulture) : item.DisplayName;
-    private static string Hash(string value)
-    {
-        using var sha = SHA256.Create();
-        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(value));
-        return BitConverter.ToString(bytes).Replace("-", string.Empty).ToLowerInvariant().Substring(0, 24);
-    }
-
     private void SetDisabled(string detail)
     {
         metricCapabilities = EquipmentNativeContractPolicy.CreateUnavailableCapabilities(detail);
