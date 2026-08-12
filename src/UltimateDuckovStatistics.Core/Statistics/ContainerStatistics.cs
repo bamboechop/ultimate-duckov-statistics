@@ -195,6 +195,18 @@ public static class ContainerStatisticsReducer
         return repaired;
     }
 
+    public static void ValidateRecoveryCandidate(ContainerRunCheckpointState? value, int schemaVersion)
+    {
+        if (schemaVersion >= 7 && (value == null
+            || value.Statistics == null
+            || value.Statistics.Capabilities == null
+            || value.Statistics.Capabilities.UniqueContainersLooted == null
+            || value.LootedContainerKeys == null))
+        {
+            throw new ArgumentException("Current-schema container checkpoint is incomplete.", nameof(value));
+        }
+    }
+
     public static void ValidateAggregate(ContainerStatisticsAggregate value)
     {
         if (value == null || value.Capabilities?.UniqueContainersLooted == null || value.UniqueContainersLooted < 0)

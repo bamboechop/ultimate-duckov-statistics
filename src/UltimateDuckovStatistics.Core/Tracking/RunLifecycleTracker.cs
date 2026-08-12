@@ -323,12 +323,14 @@ public sealed class RunLifecycleTracker
             return false;
         }
 
+        var wasSaturated = active.ContainerState.DeduplicationSaturated;
         var accepted = ContainerStatisticsReducer.Record(active.ContainerState, value);
+        var saturationChanged = active.ContainerState.DeduplicationSaturated != wasSaturated;
         if (accepted)
         {
             active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(active.Context.IntegrityTags, value.IntegrityTags);
-            combatCheckpointRequired = true;
         }
+        if (accepted || saturationChanged) combatCheckpointRequired = true;
         return accepted;
     }
 

@@ -236,10 +236,20 @@ public sealed class ProfileRepository
         checkpoint.EquipmentStatistics ??= new EquipmentStatisticsAggregate();
         EquipmentStatisticsReducer.NormalizePersisted(checkpoint.EquipmentStatistics);
         EquipmentStatisticsReducer.ValidateAggregate(checkpoint.EquipmentStatistics);
-        if (checkpoint.ContainerState == null)
+        try
         {
-            throw new ArgumentException("Active-run checkpoint is missing container state.", nameof(checkpoint));
+            ContainerStatisticsReducer.ValidateRecoveryCandidate(
+                checkpoint.ContainerState,
+                ProductInfo.SchemaVersion);
         }
+        catch (ArgumentException exception)
+        {
+            throw new ArgumentException(
+                $"Active-run checkpoint contains invalid container state: {exception.Message}",
+                nameof(checkpoint),
+                exception);
+        }
+        checkpoint.ContainerState ??= new ContainerRunCheckpointState();
         ContainerStatisticsReducer.NormalizeCheckpoint(checkpoint.ContainerState);
         ContainerStatisticsReducer.ValidateAggregate(checkpoint.ContainerState.Statistics);
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
@@ -570,10 +580,18 @@ public sealed class ProfileRepository
             checkpoint.EquipmentStatistics.HistoricalUnavailable = true;
         }
 
+        try
+        {
+            ContainerStatisticsReducer.ValidateRecoveryCandidate(
+                checkpoint.ContainerState,
+                checkpoint.SchemaVersion);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Active-run checkpoint contains invalid container state: {exception.Message}";
+        }
         if (checkpoint.ContainerState == null)
         {
-            if (checkpoint.SchemaVersion >= 7)
-                return "Current-schema active-run checkpoint is missing container state.";
             checkpoint.ContainerState = new ContainerRunCheckpointState
             {
                 Statistics = new ContainerStatisticsAggregate

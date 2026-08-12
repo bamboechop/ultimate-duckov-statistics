@@ -181,6 +181,30 @@ public sealed class ContainerStatisticsTests
 
     [Fact]
     [Trait("Category", "Container")]
+    public void SaturationTransitionDirtiesCheckpointWithoutIncrementingTheCount()
+    {
+        var tracker = StartedTracker();
+        for (var key = 0; key < ContainerRunCheckpointState.DeduplicationCapacity; key++)
+            Assert.True(tracker.RecordContainer(Event(tracker, key, key.ToString(CultureInfo.InvariantCulture))));
+
+        tracker.MarkCheckpointSaved(ContainerRunCheckpointState.DeduplicationCapacity);
+        Assert.False(tracker.CombatCheckpointRequired);
+
+        Assert.False(tracker.RecordContainer(Event(tracker, int.MaxValue, "saturating-key")));
+
+        Assert.True(tracker.CombatCheckpointRequired);
+        var checkpoint = tracker.CreateCheckpoint(
+            Origin.AddSeconds(ContainerRunCheckpointState.DeduplicationCapacity + 1),
+            ContainerRunCheckpointState.DeduplicationCapacity + 1)!;
+        Assert.Equal(ContainerRunCheckpointState.DeduplicationCapacity,
+            checkpoint.ContainerState.Statistics.UniqueContainersLooted);
+        Assert.True(checkpoint.ContainerState.DeduplicationSaturated);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            checkpoint.ContainerState.Statistics.Capabilities.UniqueContainersLooted.State);
+    }
+
+    [Fact]
+    [Trait("Category", "Container")]
     public void PersistedSaturationRequiresCompleteKeysAndUnavailableCapability()
     {
         var incomplete = new ContainerRunCheckpointState

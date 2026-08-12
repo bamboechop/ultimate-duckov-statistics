@@ -83,6 +83,52 @@ public sealed class ActiveRunPersistenceTests
         recovery.CloseClean();
     }
 
+    [Theory]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(true, true, false, false)]
+    [InlineData(false, false, true, false)]
+    [InlineData(false, false, false, true)]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Container")]
+    public void CurrentSchemaContainerNestedRootsMissingFromPrimaryRecoversValidBackup(
+        bool missingStatistics,
+        bool missingStableKeys,
+        bool missingCapabilities,
+        bool missingAvailability)
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var backup = Checkpoint(generation, 5);
+        backup.ContainerState = ContainerCheckpoint(11, 22);
+        repository.SaveActiveRun(backup);
+        repository.CloseClean();
+
+        var primary = Checkpoint(generation, 8);
+        var primaryStatistics = ContainerCheckpoint().Statistics;
+        if (missingCapabilities)
+            primaryStatistics.Capabilities = null!;
+        else if (missingAvailability)
+            primaryStatistics.Capabilities.UniqueContainersLooted = null!;
+        primary.ContainerState = new ContainerRunCheckpointState
+        {
+            Statistics = missingStatistics ? null! : primaryStatistics,
+            LootedContainerKeys = missingStableKeys ? null! : new List<int>()
+        };
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), primary);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Equal(2, run.ContainerStatistics.UniqueContainersLooted);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            run.ContainerStatistics.Capabilities.UniqueContainersLooted.State);
+        recovery.CloseClean();
+    }
+
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "Equipment")]
