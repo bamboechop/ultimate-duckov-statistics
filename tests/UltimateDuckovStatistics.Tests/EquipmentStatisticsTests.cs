@@ -266,6 +266,41 @@ public sealed class EquipmentStatisticsTests
             .GetProperty("WasRepairedFromInvalidState").GetBoolean());
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Equipment")]
+    [Trait("Category", "UI")]
+    [Trait("Category", "Export")]
+    public void MissingCurrentSchemaParentRootRemainsUnavailableInViewAndExport(bool missingStatistics)
+    {
+        var profile = Profile(6);
+        profile.Capabilities = EquipmentNativeContractPolicy.ToRecords(
+            EquipmentNativeContractPolicy.CreateSupportedCapabilities(), "current").ToList();
+        if (missingStatistics)
+            profile.Statistics = null!;
+        else
+            profile.Statistics.RunTotals = null!;
+
+        Assert.True(ProfileMigrator.Migrate(profile));
+
+        var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
+        var model = EquipmentStatisticsViewModelFactory.Create(profile);
+        var bundle = StatisticsExporter.Create(profile, Now);
+        using var json = JsonDocument.Parse(bundle.Json);
+        var exported = json.RootElement.GetProperty("RunTotals").GetProperty("EquipmentStatistics");
+
+        Assert.True(equipment.WasRepairedFromInvalidState);
+        Assert.False(EquipmentStatisticsReducer.IsEmpty(equipment));
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, model.Capabilities.EquipmentSlots.State);
+        Assert.Contains("repaired", model.Capabilities.EquipmentSlots.Provenance, StringComparison.OrdinalIgnoreCase);
+        Assert.True(exported.GetProperty("WasRepairedFromInvalidState").GetBoolean());
+        Assert.Equal(
+            (int)AdapterCapabilityState.DisabledIncompatible,
+            exported.GetProperty("Capabilities").GetProperty("EquipmentSlots").GetProperty("State").GetInt32());
+    }
+
     [Fact]
     public void UnknownTotePresenceDoesNotAccumulateActiveTotemSetTime()
     {
@@ -302,7 +337,7 @@ public sealed class EquipmentStatisticsTests
         var aggregate = Aggregate();
         aggregate.Items["bad"] = new EquipmentDurationAggregate { Id = "bad", ActiveDurationSeconds = -1 };
 
-        Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(aggregate));
+        Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(aggregate, 6));
     }
 
     [Fact]
@@ -317,7 +352,7 @@ public sealed class EquipmentStatisticsTests
             new() { ActiveTimeSeconds = 4, ToSnapshotId = "snapshot:b" }
         };
 
-        Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(aggregate));
+        Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(aggregate, 6));
     }
 
     [Fact]

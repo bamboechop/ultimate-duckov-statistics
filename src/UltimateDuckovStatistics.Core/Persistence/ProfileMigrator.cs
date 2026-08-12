@@ -31,6 +31,8 @@ public static class ProfileMigrator
                                  || (profile.Statistics != null && profile.Statistics.SchemaVersion < 6);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
+        var missingCurrentEquipmentRoot = !migratingEquipment
+                                          && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         if (profile.SchemaVersion < 1)
         {
             profile.SchemaVersion = 1;
@@ -225,6 +227,11 @@ public static class ProfileMigrator
             changed = true;
         }
         changed |= EquipmentStatisticsReducer.NormalizePersisted(profile.Statistics.RunTotals.EquipmentStatistics);
+        if (missingCurrentEquipmentRoot)
+        {
+            profile.Statistics.RunTotals.EquipmentStatistics.WasRepairedFromInvalidState = true;
+            changed = true;
+        }
         if (migratingEquipment) changed |= MarkHistoricalEquipmentUnavailable(profile.Statistics.RunTotals.EquipmentStatistics);
 
         foreach (var run in profile.Statistics.Runs)

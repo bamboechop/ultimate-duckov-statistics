@@ -400,6 +400,39 @@ public sealed class ActiveRunPersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "Equipment")]
+    public void ActiveRunRecoveryUsesValidBackupWhenCurrentSchemaPrimaryIsMissingEquipmentRoot()
+    {
+        AssertCurrentSchemaEquipmentPrimaryRejected(checkpoint => checkpoint.EquipmentStatistics = null!);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Equipment")]
+    public void ActiveRunRecoveryUsesValidBackupWhenCurrentSchemaPrimaryIsMissingRetainedTransitions()
+    {
+        AssertCurrentSchemaEquipmentPrimaryRejected(checkpoint =>
+        {
+            checkpoint.EquipmentStatistics.TransitionCount = 1;
+            checkpoint.EquipmentStatistics.Transitions = null!;
+        });
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Equipment")]
+    public void ActiveRunRecoveryUsesValidBackupWhenCurrentSchemaPrimaryHasOneSidedTransitionSelection()
+    {
+        AssertCurrentSchemaEquipmentPrimaryRejected(checkpoint =>
+        {
+            var transition = Assert.Single(checkpoint.EquipmentStatistics.Transitions);
+            transition.SelectedWeaponSlotId = "slot:primary";
+            transition.SelectedWeaponId = string.Empty;
+        });
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     [Trait("Category", "Combat")]
     public void ActiveRunRecoveryUsesValidBackupWhenPrimaryHasImpossibleNestedCombatOutcomes()
@@ -597,6 +630,37 @@ public sealed class ActiveRunPersistenceTests
         path,
         () => TestTime.AddMinutes(1),
         () => Guid.NewGuid().ToString("N"));
+
+    private static void AssertCurrentSchemaEquipmentPrimaryRejected(Action<ActiveRunCheckpoint> corrupt)
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var backup = Checkpoint(generation, 5);
+        backup.EquipmentStatistics = EquipmentCheckpointStatistics(5);
+        repository.SaveActiveRun(backup);
+        repository.CloseClean();
+
+        var path = ActiveRunPath(directory.Path);
+        var primary = Checkpoint(generation, 8);
+        primary.EquipmentStatistics = EquipmentCheckpointStatistics(8);
+        corrupt(primary);
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(path, primary);
+
+        var recovery = Repository(directory.Path);
+        var result = recovery.Open(Identity());
+
+        Assert.True(result.InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Single(run.EquipmentStatistics.Transitions);
+        Assert.Equal(0, run.EquipmentStatistics.Transitions[0].ActiveTimeSeconds);
+        Assert.False(run.EquipmentStatistics.WasRepairedFromInvalidState);
+        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(path)));
+        recovery.CloseClean();
+    }
 
     private static ActiveRunCheckpoint Checkpoint(string generation, double activeSeconds) => new()
     {

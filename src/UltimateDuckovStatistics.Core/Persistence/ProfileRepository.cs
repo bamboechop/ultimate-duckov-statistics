@@ -224,7 +224,7 @@ public sealed class ProfileRepository
         CombatStatisticsReducer.ValidateAggregate(checkpoint.CombatStatistics);
         try
         {
-            EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics);
+            EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics, checkpoint.SchemaVersion);
         }
         catch (ArgumentException exception)
         {
@@ -549,7 +549,7 @@ public sealed class ProfileRepository
 
         try
         {
-            EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics);
+            EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics, checkpoint.SchemaVersion);
         }
         catch (ArgumentException exception)
         {

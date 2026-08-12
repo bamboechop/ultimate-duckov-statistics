@@ -387,8 +387,16 @@ public static class EquipmentStatisticsReducer
             throw new ArgumentException("Equipment statistics are invalid.", nameof(target));
     }
 
-    public static void ValidateRecoveryCandidate(EquipmentStatisticsAggregate? target)
+    public static void ValidateRecoveryCandidate(EquipmentStatisticsAggregate? target, int schemaVersion)
     {
+        if (schemaVersion >= 6 && (target == null || target.Capabilities == null
+            || target.Capabilities.EquipmentSlots == null || target.Capabilities.SelectedWeapon == null
+            || target.Capabilities.AttachmentMetadata == null || target.Capabilities.DirectTotems == null
+            || target.Capabilities.ToteContents == null || target.Capabilities.ToteActivation == null
+            || target.Items == null || target.SelectedWeapons == null || target.Loadouts == null
+            || target.TotemSets == null || target.TotemStates == null || target.Slots == null
+            || target.SlottedWeapons == null || target.CombatAssociations == null || target.Transitions == null))
+            throw new ArgumentException("Current-schema equipment checkpoint is incomplete.", nameof(target));
         if (target == null) return;
         if (!IsFinite(target.ObservedActiveDurationSeconds) || target.ObservedActiveDurationSeconds < 0
             || target.TransitionCount < 0 || target.Transitions?.Count > EquipmentStatisticsAggregate.TransitionCapacity
@@ -401,7 +409,13 @@ public static class EquipmentStatisticsReducer
             if (row == null || !IsFinite(row.ActiveTimeSeconds)
                 || row.ActiveTimeSeconds < previousTransitionTime
                 || row.ActiveTimeSeconds > target.ObservedActiveDurationSeconds
-                || string.IsNullOrWhiteSpace(row.ToSnapshotId))
+                || string.IsNullOrWhiteSpace(row.ToSnapshotId)
+                || schemaVersion >= 6 && (row.FromSnapshotId == null
+                    || string.IsNullOrWhiteSpace(row.FromLoadoutId)
+                    || string.IsNullOrWhiteSpace(row.ToLoadoutId)
+                    || string.IsNullOrWhiteSpace(row.TotemSetId)
+                    || string.IsNullOrWhiteSpace(row.SelectedWeaponId)
+                       != string.IsNullOrWhiteSpace(row.SelectedWeaponSlotId)))
                 throw new ArgumentException("Equipment checkpoint contains invalid transitions.", nameof(target));
             previousTransitionTime = row.ActiveTimeSeconds;
         }
