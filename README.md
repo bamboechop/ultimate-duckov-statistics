@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M6 are merged through v0.6.0. M7 is the v0.7.0 pre-release candidate on `feat/containers`; automated and manual evidence is tracked in [TESTING.md](TESTING.md). No M7 release, tag, merge, ready-for-review transition, or Workshop upload is implied by this branch.
+M0-M7 are merged and published through the [v0.7.0 pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.7.0); automated and manual evidence is tracked in [TESTING.md](TESTING.md). The next planned milestone is M8 multi-map run routes and segment attribution, followed by M9 economy and M10 full UI/release hardening. UDS has not been uploaded to Steam Workshop.
 
 ## Build prerequisites
 
@@ -27,6 +27,8 @@ Game assemblies are referenced locally with copy-local disabled. They are never 
 UDS fingerprints saves read-only and never modifies them. While active, it records a short-lived pre-save intent in its own external profile from Duckov's public save-collection event, so a normal save completed immediately before a crash or same-process re-selection of the current slot can retain the same UDS generation. If a save changes while UDS is inactive, that proof is unavailable and UDS conservatively archives the prior statistics generation rather than risk merging a reused slot.
 
 Runs begin only when the native raid is initialized and the live main duck actually has player control. Active duration excludes pause and loading. Movement is sampled at approximately 5 Hz with the real monotonic sample interval and verified native walk/run/dash speeds; implausible, loading-boundary, explicit-position, and long-gap displacement is retained separately as teleport/excluded distance. Interrupted and integrity-flagged runs stay visible but do not enter default duration records; each Runs row shows its integrity tag and an explicit eligible/excluded Records status with the exclusion reason.
+
+Version 0.7.0 retains one stable root/starting-map identity for each run. An expedition that moves through multiple maps is not yet represented as an ordered route, and its complete run totals remain grouped under that stored map. Planned M8 will add starting/ending maps, ordered map segments, route-aware event attribution, and separate map-transition displacement without reconstructing historical routes.
 
 M4 uses the public `ItemAgent_Gun.OnMainCharacterShootEvent` from the verified Duckov build. Each accepted callback receives a unique UDS event ID and proves one firing action plus event-time weapon/ammunition identity. The event occurs after calls that may conditionally skip ammunition consumption or projectile initialization, so loaded-ammunition and projectile counts are explicitly unavailable rather than inferred from cached ammunition or configured `ShotCount`. Reloads, magazine transfers, inventory movement, base activity, loading, pause, non-main-duck actors, and dry fire do not create firing-action records.
 

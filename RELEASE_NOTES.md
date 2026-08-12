@@ -1,6 +1,6 @@
-# Ultimate Duckov Statistics v0.7.0 — pre-release candidate
+# Ultimate Duckov Statistics v0.7.0 — pre-release
 
-This draft describes M7 unique-container statistics. M0-M6 are merged through v0.6.0. M7 remains an unmerged draft pre-release candidate: do not publish, tag, merge, mark ready, or upload it to Steam Workshop without a later explicit request.
+M7 unique-container statistics were merged and published as the GitHub `v0.7.0` pre-release on 2026-08-12. M0-M7 are therefore published through v0.7.0. No Steam Workshop upload has occurred.
 
 ## Included in v0.7.0
 
@@ -39,8 +39,9 @@ M7 is verified against Duckov 2.3.30:
 - The native stable key is position-derived. Unknown or modded non-corpse lootboxes work when they use the verified class and stable-key contract; incompatible implementations remain uncounted and disable the capability if they reach the successful-access event without usable identity.
 - Native corpse classification covers installed Duckov enemy death paths, persisted dead bodies, and player tombs. Third-party corpse systems that bypass all verified native death/create contracts are outside the proven capability.
 - A sudden process or OS failure can lose up to approximately one second of newly accepted container/combat/equipment state because mutation checkpoints are intentionally coalesced. Orderly shutdown and run completion flush state.
+- Version 0.7.0 stores one stable root/starting map per run. Multi-map expeditions are not yet represented as ordered routes, and complete run totals remain grouped under that stored map. Planned M8 adds route segments and event-time per-map attribution without reconstructing historical routes.
 - UDS remains a local GitHub package. Only HarmonyLib is supplied through Steam Workshop.
 
 ## Acceptance state
 
-Focused M7 regressions, the complete Release suite, native contract probe, warning-free native build, formatting, source safety, package/extraction audit, deployment readback, and the user-controlled gameplay matrix are recorded in `TESTING.md`. This candidate must remain draft until every gate is current and the draft PR points at the exact validated head.
+Focused M7 regressions, the complete Release suite, native contract probe, warning-free native build, formatting, source safety, package/extraction audit, deployment readback, and the user-controlled gameplay matrix are recorded in `TESTING.md`. PR #7 merged as commit `172125abd59d2398d18b00e8512dc69acbab8f63`; the published pre-release tag points to that merge commit. The validated ZIP and SHA-256 sidecar are attached to the GitHub release.

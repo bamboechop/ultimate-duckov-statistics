@@ -57,6 +57,7 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 ## Known v0.7.0 limitations
 
 - Statistics begin at installation; no history is reconstructed.
+- Version 0.7.0 stores one stable root/starting map per run. Multi-map expeditions are not yet represented as ordered routes, and complete run totals remain grouped under that stored map. Planned M8 adds route segments and event-time per-map attribution; historical routes will remain unavailable rather than being reconstructed.
 - Only successful main-duck item uses in raids count.
 - Healing totals start with v0.2.0; run/movement with v0.3.0; weapon identity/firing actions with v0.4.0; M5 combat with v0.5.0; equipment/totem data with v0.6.0; and container data with v0.7.0. Schema-7 migration preserves M1-M6 and marks historical M7 data unavailable without reconstruction.
 - “Container looted” means the loot interface began successfully, not that any item was transferred. Counts and values of removed items are outside M7.

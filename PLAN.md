@@ -44,7 +44,8 @@ A version change triggers compatibility checks, not an automatic global shutdown
 - `v0.4.0` is the published GitHub pre-release containing M4 accepted firing actions and event-time weapon/ammunition identity; unsupported outcome metrics remain unavailable.
 - M5 is merged into `main`; its complete manual acceptance matrix passed, and GitHub pre-release `v0.5.0` was published on 2026-08-12.
 - `v0.6.0` is the merged M6 equipment-and-totems release baseline.
-- `v0.7.0` is the manually accepted M7 pre-release candidate for unique successful non-corpse container access. It remains draft and unmerged for user review.
+- `v0.7.0` is the published GitHub pre-release containing M7 unique successful non-corpse container access.
+- `v0.8.0` is planned for M8 multi-map run routes and segment attribution. Economy and full UI/release hardening follow as M9 and M10.
 - No Steam Workshop upload in v0.1.
 - Release artifact includes the installable ZIP, SHA-256 checksum, installation instructions, compatibility information, and known limitations.
 - No Duckov assemblies or bundled Harmony assembly may appear in the package.
@@ -190,12 +191,26 @@ Actual healing records only HP restored to the main duck, including delayed item
 - Store wall-clock duration only diagnostically.
 - End states: `Extracted`, `Died`, or `Interrupted`.
 - Interrupted runs do not qualify for extraction/death duration records.
-- Maintain shortest and longest extraction and death times overall and per map.
+- Maintain shortest and longest extraction and death times overall and by starting map.
 - Record all compact run summaries indefinitely.
 - Track main-duck physical movement at approximately 5 Hz.
 - Exclude loading and implausible locomotion deltas from traveled distance.
-- Classify excluded deltas as teleport distance.
+- Keep proven teleport distance separate from displacement excluded solely because of loading or a map transition.
 - Derive the plausibility threshold from known movement speed, elapsed sample time, and a conservative tolerance rather than a fixed universal distance.
+
+### Multi-map routes and segment attribution
+
+- Treat one continuous expedition from initial player control through final extraction, death, or genuine interruption as one run even when it visits multiple maps.
+- Store the starting map, ending map, ordered route, and ordered map segments. A repeated visit to the same map creates a new segment instead of collapsing the route.
+- Distinguish the stable raid/root-map identity from the active map or subscene identity. Validate Duckov's full-scene, multi-scene, raid-ID, and control-ready ordering before changing run boundaries.
+- Close the current segment when a proven map transition begins. Start the next segment only after the destination is initialized and the exact main duck regains control; loading time belongs to neither segment.
+- Each segment records map identity, entry/exit time, active duration, physical distance, proven teleport distance, transition/loading-excluded displacement, and exit reason.
+- Attribute M1-M7 actions and outcomes to the segment active when they occur. Where a delayed result can outlive its source action, retain both source-segment and outcome-segment identity rather than rewriting the source.
+- Calculate route-aware per-map totals from segments and event-time attribution, never by assigning the complete run to every visited map or only its starting map.
+- Preserve complete-run extraction/death records overall and by starting map. Retain a stable route signature for filtering/export, but do not create ranked exact-route records until recurring-route presentation has a proven use.
+- Show a compact ordered route in Runs, with expandable per-segment details. Export the complete route in JSON and flattened route/segment CSV data.
+- Schema-8 migration preserves all M1-M7 data and overall run records. Legacy `MapId` remains the historical root/starting-map observation; ending maps, routes, segments, and route-aware per-map attribution remain explicitly unavailable rather than being reconstructed as a fake single-map route.
+- If an active-map identity or transition boundary cannot be proven safely, disable only route/segment attribution while preserving the established overall run lifecycle and totals.
 
 ### Combat
 
@@ -282,19 +297,36 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Stable identities use slot keys and `Item.TypeID`; runtime objects and localized/display names never determine persisted identity.
     - Tote content presence uses the public `AnyThing` slot of built-in Tote Bag `Item.TypeID` 1255 instances carried in the exact main duck's version-checked ordinary `CharacterItem.Inventory`. Tote activation remains unavailable and disabled until concrete buff/effect evidence and manual validation prove it.
     - Schema 6, lifetime/map/run aggregation, recurring loadout rankings only after two completed run occurrences, Equipment UI, JSON, and three equipment CSVs.
-8. **M7 — Containers (`v0.7.0`, implementation plus automated and manual acceptance passed; draft delivery)**
+8. **M7 — Containers (`v0.7.0`, merged and released after complete automated and manual acceptance)**
     - Count one successful loot-interface access per stable `InteractableLootbox.GetKey()` in each run.
     - Use public `InteractableLootbox.OnStartLoot`, which occurs only after the interaction timer and inventory checks succeed; proximity, attempts, locks, cancellation, and failed access do not reach the event.
     - Require the event-time `InteractableBase.interactCharacter` to be the exact `CharacterMainControl.Main`.
     - Exclude native enemy corpses and persisted/player tombs through narrowly owned, version-checked death-path provenance patches. The success boundary itself remains the public event.
     - Persist a bounded 4,096-key active-run deduplication set. If that bound or stable-key evidence fails, disable the metric rather than evicting identities or fabricating counts.
     - Schema 7, lifetime/map/run aggregation, Overview/Runs presentation, JSON, and `containers.csv`; historical pre-M7 data remains explicitly unavailable.
-9. **M8 — Economy**
+9. **M8 — Multi-map runs and route attribution (`v0.8.0`, planned)**
+    - Keep a continuous expedition as one run across proven full-scene or subscene map transitions, with starting map, ending map, ordered route, and repeated-map-aware segments.
+    - Attribute active time, physical distance, proven teleport distance, transition/loading exclusions, and M1-M7 statistics to the segment in which each action or outcome occurs.
+    - Preserve both source and outcome segment identity for delayed effects where they differ; never rewrite event origin from the current map at completion time.
+    - Replace ambiguous whole-run per-map totals with route-aware segment aggregation while retaining complete-run records overall and by starting map.
+    - Add route/segment capability reporting, crash-safe active-segment checkpoints, schema-8 migration with explicit historical unavailability, Runs route presentation, JSON, and flattened route/segment CSVs.
+10. **M9 — Economy (`v0.9.0`, planned)**
     - Money/cash flows, sources, and raid cash outcomes.
-10. **M9 — Full UI and release hardening**
+11. **M10 — Full UI and release hardening (`v0.10.0`, planned)**
     - Remaining tabs, filters, compatibility matrix, performance verification, migration tests, documentation, and Workshop-readiness assessment.
 
 Each milestone updates the capability matrix and is manually tested before the next begins.
+
+#### Planned M8 acceptance boundary
+
+- Prove a single-map run remains behaviorally identical except for its explicit one-segment route.
+- Complete a two-map extraction and, where practical, a three-map expedition; verify ordered route, start/end map, segment boundaries, active time, distance, and M1-M7 attribution.
+- Die after a map transition and verify the final segment receives the death while the complete run retains its original start and route.
+- Re-enter a previously visited map when the game permits it and verify a new ordered segment is retained instead of merging non-contiguous visits.
+- Interrupt and recover a run after at least one completed transition; verify completed/current segments and all aggregates recover exactly once.
+- Verify pause/loading time and cross-map position jumps do not inflate active time or physical/proven-teleport distance.
+- Perform representative item, healing, firing/combat, equipment, and container actions on different maps and compare profile, Runs UI, JSON, and CSV segment attribution.
+- Retain the user-controlled gameplay model: Codex prepares, deploys, and inspects evidence; only the user launches and controls Duckov.
 
 ## 4. First Goal: consumable-usage MVP
 
