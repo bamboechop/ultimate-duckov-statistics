@@ -90,4 +90,7 @@ public sealed class ShotRecorded
 
     [DataMember(Order = 19)]
     public WeaponMetricCapabilities Capabilities { get; set; } = new();
+
+    [DataMember(Order = 20)]
+    public EquipmentEventAssociation EquipmentAssociation { get; set; } = new();
 }

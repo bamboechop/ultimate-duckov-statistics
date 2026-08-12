@@ -7,7 +7,7 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
-    <VersionPrefix>0.5.0</VersionPrefix>
+    <VersionPrefix>0.6.0</VersionPrefix>
     <Authors>Ultimate Duckov Statistics contributors</Authors>
     <Copyright>Copyright (c) 2026 Ultimate Duckov Statistics contributors</Copyright>
   </PropertyGroup>

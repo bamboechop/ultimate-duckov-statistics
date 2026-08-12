@@ -12,6 +12,40 @@ public sealed class ActiveRunPersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "Equipment")]
+    public void EquipmentStateAndActiveTimeAreRecoveredFromCrashCheckpoint()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var tracker = new RunLifecycleTracker(() => "run-equipment-recovery");
+        tracker.Apply(LifecycleEvent(RunLifecycleEventKind.RaidInitialized, generation, 0));
+        tracker.Apply(LifecycleEvent(RunLifecycleEventKind.ControlReady, generation, 0));
+        Assert.True(tracker.ObserveEquipment(new EquipmentSnapshot
+        {
+            SnapshotId = "snapshot:a",
+            LoadoutId = "loadout:a",
+            SelectedWeaponId = "weapon:a",
+            SelectedWeaponSlotId = "slot:primary",
+            TotemSetId = "totems:a",
+            Items = new List<EquippedItemSnapshot>
+            { new() { SlotId = "slot:primary", ItemId = "weapon:a", ItemDisplayName = "Rifle", AttachmentSignature = "attachments:a" } }
+        }));
+        repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(4), 4)!);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(4, run.EquipmentStatistics.Loadouts["loadout:a"].ActiveDurationSeconds);
+        Assert.Equal("weapon:a", run.EquipmentStatistics.CurrentSnapshot!.SelectedWeaponId);
+        Assert.Equal(4, recovery.Current.Statistics.RunTotals.EquipmentStatistics.Loadouts["loadout:a"].ActiveDurationSeconds);
+        Assert.Equal(0, recovery.Current.Statistics.RunTotals.EquipmentStatistics.Loadouts["loadout:a"].RunOccurrences);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     [Trait("Category", "Weapon")]
     public void AcceptedShotIsRecoveredFromTheCheckpointCreatedAfterTheProductionMutationSequence()
@@ -296,6 +330,39 @@ public sealed class ActiveRunPersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "Equipment")]
+    public void ActiveRunRecoveryUsesValidBackupWhenPrimaryHasInvalidEquipmentDuration()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var backup = Checkpoint(generation, 5);
+        backup.EquipmentStatistics = EquipmentCheckpointStatistics(5);
+        repository.SaveActiveRun(backup);
+        repository.CloseClean();
+
+        var path = ActiveRunPath(directory.Path);
+        var invalidPrimary = Checkpoint(generation, 8);
+        invalidPrimary.EquipmentStatistics = EquipmentCheckpointStatistics(8);
+        invalidPrimary.EquipmentStatistics.Loadouts["loadout:a"].ActiveDurationSeconds = -1;
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(path, invalidPrimary);
+
+        var recovery = Repository(directory.Path);
+        var result = recovery.Open(Identity());
+
+        Assert.True(result.InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Equal(5, run.EquipmentStatistics.Loadouts["loadout:a"].ActiveDurationSeconds);
+        Assert.False(run.EquipmentStatistics.WasRepairedFromInvalidState);
+        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(path)));
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     [Trait("Category", "Combat")]
     public void ActiveRunRecoveryUsesValidBackupWhenPrimaryHasImpossibleNestedCombatOutcomes()
@@ -562,6 +629,26 @@ public sealed class ActiveRunPersistenceTests
                 RangedHits = nestedRangedHits
             }
         };
+        return statistics;
+    }
+
+    private static EquipmentStatisticsAggregate EquipmentCheckpointStatistics(double activeSeconds)
+    {
+        var statistics = new EquipmentStatisticsAggregate
+        {
+            Capabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities()
+        };
+        EquipmentStatisticsReducer.Observe(statistics, new EquipmentSnapshot
+        {
+            SnapshotId = "snapshot:a",
+            LoadoutId = "loadout:a",
+            TotemSetId = "totems:none",
+            Items = new List<EquippedItemSnapshot>
+            {
+                new() { SlotId = "slot:primary", ItemId = "weapon:a", ItemDisplayName = "Rifle" }
+            }
+        }, 0);
+        EquipmentStatisticsReducer.Advance(statistics, activeSeconds);
         return statistics;
     }
 

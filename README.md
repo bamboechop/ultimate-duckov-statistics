@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics
 
-Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.5.0 retains the released consumable, healing, run, movement, and firing-action statistics and adds actual main-duck damage dealt/received, compatible projectile accuracy, melee swings/hits, kills/deaths, combat ownership, stable enemy/killer identity, broader family/cause breakdowns, player-applied damage-over-time, event-time weapon/ammunition attribution, and independently proven head-targeted hits/final blows.
+Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.6.0 retains the M1-M5 consumable, healing, run, movement, firing, and combat statistics and adds equipment-slot time, selected-weapon time, deterministic attachment-aware loadouts, direct/tote totem presence, active direct-totem sets, and event-time equipment associations for weapon and combat outcomes.
 
 The mod never modifies Duckov save files. Its data is stored under:
 
@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M4 are merged and published through v0.4.0. M5 remains an open draft v0.5.0 pre-release candidate on `feat/combat-attribution`. Its complete user-controlled gameplay matrix passed. Corrective review follow-ups now cover outcome identity, semantic checkpoint recovery with aggregate-versus-breakdown outcome relationships, projectile lifecycle isolation, hook-specific capability degradation, and combat relevance filtering. The latest source and replacement package pass automated validation, and the approved replacement deployment/readback passed byte-for-byte. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
+M0-M4 are merged and published through v0.4.0. M5 is merged into `main` and its complete user-controlled gameplay matrix passed, but no v0.5.0 tag or GitHub release has been published. M6 is the active v0.6.0 pre-release-candidate work on `feat/equipment-totems`; automated and manual evidence is tracked in [TESTING.md](TESTING.md). No M6 release, tag, merge, or Workshop upload is implied by this branch.
 
 ## Build prerequisites
 
@@ -30,9 +30,11 @@ Runs begin only when the native raid is initialized and the live main duck actua
 
 M4 uses the public `ItemAgent_Gun.OnMainCharacterShootEvent` from the verified Duckov build. Each accepted callback receives a unique UDS event ID and proves one firing action plus event-time weapon/ammunition identity. The event occurs after calls that may conditionally skip ammunition consumption or projectile initialization, so loaded-ammunition and projectile counts are explicitly unavailable rather than inferred from cached ammunition or configured `ShotCount`. Reloads, magazine transfers, inventory movement, base activity, loading, pause, non-main-duck actors, and dry fire do not create firing-action records.
 
-M5 measures `Health.Hurt` before/after HP and therefore excludes rejected damage and overkill. A reliable ranged hit is one completed exact-main-duck projectile that caused positive actual enemy HP loss; penetration or repeated damage from that projectile cannot inflate the numerator. Accuracy uses those hits over completed player projectiles, not M4 firing actions. Melee swings come from the accepted native attack action and melee hits are deduplicated per damage scope. Ownership is exact main duck, the built-in pet/master chain, environmental (`fromCharacter == null`), or unknown. Tick/update effect scopes independently prove damage-over-time. Generic effect damage is not mislabeled as DoT. Critical hits never imply headshots: M5 records only native head-targeted projectiles observed independently at projectile initialization, and tracks their fatal subset separately.
+M5 measures `Health.Hurt` before/after HP and therefore excludes rejected damage and overkill. A reliable ranged hit is one completed exact-main-duck projectile that caused positive actual enemy HP loss; penetration or repeated damage from that projectile cannot inflate the numerator. Accuracy uses those hits over completed player projectiles, not M4 firing actions. Critical hits never imply headshots.
 
-The in-game panel enables Overview, Runs, Records, Combat, Items, and Diagnostics. One export action writes `statistics.json` plus eleven flattened CSV files under the current UDS generation. `combat_attribution.csv` contains lifetime/map/run totals and enemy, killer, family, cause, weapon, ammunition, and ownership breakdowns with capability states.
+M6 observes the exact main duck's public character-slot tree and held-item callback. Persisted identities use stable `Item.TypeID`, slot keys, and deterministic attachment signatures; runtime object IDs and localized names never determine identity. Durations use the same monotonic active-raid clock as M3 and therefore exclude pause/loading. Direct slotted totems with usable durability are proven active by the verified item-effect control flow. Totems found inside the version-checked `Item_ToteBag` inventory are recorded as present with activation `Unknown`: tote activation is not inferred and the capability remains `DisabledIncompatible`. Equipment/combat rows are event-time temporal associations, not proof that an item or totem caused an outcome. Only loadouts observed in at least two completed runs enter lifetime recurring-loadout rankings; every run retains its own summary.
+
+The in-game panel enables Overview, Runs, Records, Combat, Equipment, Items, and Diagnostics. One export action writes `statistics.json` plus fourteen flattened CSV files under the current UDS generation. M6 adds `equipment_totals.csv`, `recurring_loadouts.csv`, and `equipment_combat.csv`.
 
 ## Development commands
 
@@ -46,7 +48,7 @@ dotnet build .\src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj -c R
 Create the validated installable ZIP and SHA-256 sidecar with:
 
 ```powershell
-.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.5.0
+.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.6.0
 ```
 
 See [INSTALL.md](INSTALL.md) for installation and compatibility details.

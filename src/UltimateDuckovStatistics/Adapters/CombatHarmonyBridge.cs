@@ -1,5 +1,6 @@
 using System.Reflection;
 using ItemStatsSystem;
+using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.Adapters;
@@ -46,7 +47,12 @@ internal static class CombatHarmonyBridge
 
         try
         {
-            return new CombatHealthPatchState(health.CurrentHealth, health.IsDead, damageInfo, CurrentScope);
+            return new CombatHealthPatchState(
+                health.CurrentHealth,
+                health.IsDead,
+                damageInfo,
+                CurrentScope,
+                current.CaptureEquipmentAssociation());
         }
         catch
         {
@@ -112,23 +118,26 @@ internal sealed class CombatNativeScope
     public bool HitCounted { get; set; }
     public bool HeadshotCounted { get; set; }
     public bool HeadshotFinalBlowCounted { get; set; }
+    public EquipmentEventAssociation EquipmentAssociation { get; set; } = new();
 }
 
 internal sealed class CombatHealthPatchState
 {
-    public static readonly CombatHealthPatchState Empty = new(0, true, default, null, false);
+    public static readonly CombatHealthPatchState Empty = new(0, true, default, null, new EquipmentEventAssociation(), false);
 
     public CombatHealthPatchState(
         double healthBefore,
         bool wasDead,
         DamageInfo damageInfo,
         CombatNativeScope? scope,
+        EquipmentEventAssociation equipmentAssociation,
         bool shouldMeasure = true)
     {
         HealthBefore = healthBefore;
         WasDead = wasDead;
         DamageInfo = damageInfo;
         Scope = scope;
+        EquipmentAssociation = equipmentAssociation ?? new EquipmentEventAssociation();
         ShouldMeasure = shouldMeasure;
     }
 
@@ -136,6 +145,7 @@ internal sealed class CombatHealthPatchState
     public bool WasDead { get; }
     public DamageInfo DamageInfo { get; }
     public CombatNativeScope? Scope { get; }
+    public EquipmentEventAssociation EquipmentAssociation { get; }
     public bool ShouldMeasure { get; }
 }
 

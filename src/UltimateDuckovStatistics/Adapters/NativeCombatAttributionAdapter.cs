@@ -22,6 +22,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly Func<string?> runIdProvider;
     private readonly Func<string?> mapIdProvider;
     private readonly Func<CombatRecorded, bool> combatHandler;
+    private readonly Func<EquipmentEventAssociation> equipmentAssociationProvider;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
@@ -48,7 +49,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         Func<string?> mapIdProvider,
         Func<CombatRecorded, bool> combatHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
-        Action<string> diagnosticHandler)
+        Action<string> diagnosticHandler,
+        Func<EquipmentEventAssociation>? equipmentAssociationProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.runIdProvider = runIdProvider ?? throw new ArgumentNullException(nameof(runIdProvider));
@@ -56,12 +58,15 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         this.combatHandler = combatHandler ?? throw new ArgumentNullException(nameof(combatHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.equipmentAssociationProvider = equipmentAssociationProvider ?? (() => new EquipmentEventAssociation());
         SetUnavailable("Combat attribution has not been initialized.");
     }
 
     public CombatMetricCapabilities MetricCapabilities => CombatStatisticsReducer.CloneCapabilities(metricCapabilities);
 
     public bool CanObserveHealth => IsActive && hookSupport.HealthHurt;
+
+    public EquipmentEventAssociation CaptureEquipmentAssociation() => equipmentAssociationProvider();
 
     private bool IsActive => !disposed && !cleanupPending && initialized;
 
@@ -205,7 +210,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             AmmunitionTypeId = ammunitionId,
             AmmunitionDisplayName = context.fromGunItemSetting == null
                 ? string.Empty
-                : NonEmpty(context.fromGunItemSetting.CurrentBulletName, $"Unknown ammunition {ammunitionId}")
+                : NonEmpty(context.fromGunItemSetting.CurrentBulletName, $"Unknown ammunition {ammunitionId}"),
+            EquipmentAssociation = equipmentAssociationProvider()
         };
         var runtimeId = projectile.GetInstanceID();
         projectiles[runtimeId] = snapshot;
@@ -264,7 +270,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             IsMelee = true,
             PhysicalSource = weapon.Holder,
             WeaponTypeId = item == null ? -1 : item.TypeID,
-            WeaponDisplayName = item == null ? string.Empty : NonEmpty(item.DisplayName, $"Unknown weapon {item.TypeID}")
+            WeaponDisplayName = item == null ? string.Empty : NonEmpty(item.DisplayName, $"Unknown weapon {item.TypeID}"),
+            EquipmentAssociation = equipmentAssociationProvider()
         };
     }
 
@@ -274,7 +281,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         return new CombatNativeScope
         {
             IsEffect = true,
-            IsDamageOverTime = context.source is TickTrigger || context.source is UpdateTrigger
+            IsDamageOverTime = context.source is TickTrigger || context.source is UpdateTrigger,
+            EquipmentAssociation = equipmentAssociationProvider()
         };
     }
 
@@ -309,7 +317,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             ? scope!.WeaponDisplayName
             : ReadItemDisplayName(weaponTypeId, "weapon");
         var ammunitionId = scope?.AmmunitionTypeId ?? -1;
-        Emit(NewEvent(scope, ownership) with
+        Emit(NewEvent(scope, ownership, state.EquipmentAssociation) with
         {
             AttackKind = targetIsMain
                 ? CombatAttackKind.Unknown
@@ -449,7 +457,10 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         });
     }
 
-    private CombatRecorded NewEvent(CombatNativeScope? scope, CombatOwnership ownership)
+    private CombatRecorded NewEvent(
+        CombatNativeScope? scope,
+        CombatOwnership ownership,
+        EquipmentEventAssociation? equipmentAssociation = null)
     {
         var runId = runIdProvider();
         var mapId = mapIdProvider();
@@ -466,7 +477,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             GameBuild = SupportedGameBuild,
             AdapterVersion = AdapterVersion,
             Ownership = ownership,
-            Capabilities = MetricCapabilities
+            Capabilities = MetricCapabilities,
+            EquipmentAssociation = equipmentAssociation ?? scope?.EquipmentAssociation ?? equipmentAssociationProvider()
         };
         CombatObservationPolicy.ApplyOutcomeIdentity(
             value,
@@ -680,6 +692,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         public string WeaponDisplayName { get; set; } = string.Empty;
         public int AmmunitionTypeId { get; set; }
         public string AmmunitionDisplayName { get; set; } = string.Empty;
+        public EquipmentEventAssociation EquipmentAssociation { get; set; } = new();
         public bool Completed { get; set; }
         public CombatNativeScope Scope => scope ??= new CombatNativeScope
         {
@@ -690,7 +703,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             WeaponTypeId = WeaponTypeId,
             WeaponDisplayName = WeaponDisplayName,
             AmmunitionTypeId = AmmunitionTypeId,
-            AmmunitionDisplayName = AmmunitionDisplayName
+            AmmunitionDisplayName = AmmunitionDisplayName,
+            EquipmentAssociation = EquipmentAssociation
         };
         private CombatNativeScope? scope;
     }

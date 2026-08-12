@@ -115,8 +115,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(5, repository.Current.SchemaVersion);
-        Assert.Equal(5, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(6, repository.Current.SchemaVersion);
+        Assert.Equal(6, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
@@ -260,8 +260,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(5, repository.Current.SchemaVersion);
-        Assert.Equal(5, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(6, repository.Current.SchemaVersion);
+        Assert.Equal(6, repository.Current.Statistics.SchemaVersion);
         Assert.Equal("generation-v03", repository.Current.GenerationId);
         Assert.Equal(73, repository.Current.Revision);
         Assert.Equal(2, repository.Current.InterruptedSessionCount);

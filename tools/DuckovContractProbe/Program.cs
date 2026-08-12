@@ -100,6 +100,8 @@ try
         core.RequireEvent("Duckov.Rules", "GameRulesManager", "OnRuleChanged", "System.Action");
         core.RequireEvent(string.Empty, "CharacterMainControl", "OnSetPositionEvent", "System.Action", "CharacterMainControl", "UnityEngine.Vector3");
         core.RequirePublicStaticEvent(string.Empty, "ItemAgent_Gun", "OnMainCharacterShootEvent", "System.Action", "ItemAgent_Gun");
+        core.RequireField(string.Empty, "CharacterMainControl", "OnMainCharacterSlotContentChangedEvent", mustBePublic: true);
+        core.RequireField(string.Empty, "CharacterMainControl", "OnMainCharacterChangeHoldItemAgentEvent", mustBePublic: true);
         core.RequirePublicStaticEvent(string.Empty, "Health", "OnHurt", "System.Action", "Health", "DamageInfo");
         core.RequirePublicStaticEvent(string.Empty, "Health", "OnDead", "System.Action", "Health", "DamageInfo");
         core.RequireEvent(string.Empty, "LevelManager", "OnNewGameReport", "System.Action");
@@ -123,6 +125,8 @@ try
         core.RequireProperty(string.Empty, "CharacterMainControl", "Main", "CharacterMainControl", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "IsMainCharacter", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "Health", "Health", mustBePublic: true);
+        core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterItem", "ItemStatsSystem.Item", mustBePublic: true);
+        core.RequireProperty(string.Empty, "CharacterMainControl", "CurrentHoldItemAgent", "DuckovItemAgent", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterWalkSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterRunSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "DashSpeed", "System.Single", mustBePublic: true);
@@ -190,6 +194,7 @@ try
     {
         itemStats.RequireEvent("ItemStatsSystem", "UsageUtilities", "OnItemUsedStaticEvent", "System.Action", "ItemStatsSystem.Item");
         itemStats.RequireEvent("ItemStatsSystem", "Item", "onUseStatic", "System.Action", "ItemStatsSystem.Item", "System.Object");
+        itemStats.RequireEvent("ItemStatsSystem", "Item", "onItemTreeChanged", "System.Action", "ItemStatsSystem.Item");
         itemStats.RequireProperty("ItemStatsSystem", "ItemAgent", "Item", "ItemStatsSystem.Item", mustBePublic: true);
         itemStats.RequireField("ItemStatsSystem", "UsageUtilities", "behaviors");
         itemStats.RequireMethod(
@@ -209,11 +214,16 @@ try
 
         foreach (var property in new[]
                  {
-                     "TypeID", "DisplayName", "Stackable", "StackCount", "UseDurability", "MaxDurability", "Durability", "UsageUtilities"
+                     "TypeID", "DisplayName", "DisplayNameRaw", "Slots", "Inventory", "Tags", "Stackable", "StackCount", "UseDurability", "MaxDurability", "Durability", "UsageUtilities"
                  })
         {
             itemStats.RequireProperty("ItemStatsSystem", "Item", property);
         }
+        itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "Key", "System.String", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "DisplayName", "System.String", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "Content", "ItemStatsSystem.Item", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem", "Inventory", "Content", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem", "Inventory", "AttachedToItem", "ItemStatsSystem.Item", mustBePublic: true);
     }
 
     Console.WriteLine("Duckov compatibility contract passed.");
@@ -222,8 +232,8 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, item/healing, run lifecycle, movement, weapon, exact Health.Hurt, projectile, melee, effect-trigger, ownership, identity, death, and head-target contracts are present.");
-    Console.WriteLine("  M4 loaded-ammunition consumption remains unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
+    Console.WriteLine("  Native loader, item/healing, run lifecycle, movement, weapon, combat, equipment-slot, selected-weapon, attachment-tree, direct-totem, and tote-content contracts are present.");
+    Console.WriteLine("  M4 loaded-ammunition consumption and M6 tote activation remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
 catch (ContractException exception)

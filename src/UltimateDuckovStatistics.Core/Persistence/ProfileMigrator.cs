@@ -27,6 +27,8 @@ public static class ProfileMigrator
         var changed = false;
         var migratingCombat = profile.SchemaVersion < 5
                               || (profile.Statistics != null && profile.Statistics.SchemaVersion < 5);
+        var migratingEquipment = profile.SchemaVersion < 6
+                                 || (profile.Statistics != null && profile.Statistics.SchemaVersion < 6);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         if (profile.SchemaVersion < 1)
@@ -182,6 +184,14 @@ public static class ProfileMigrator
 
             changed |= NormalizeCombatStatistics(map.CombatStatistics);
             if (migratingCombat) changed |= MarkHistoricalCombatUnavailable(map.CombatStatistics);
+
+            if (map.EquipmentStatistics == null)
+            {
+                map.EquipmentStatistics = new EquipmentStatisticsAggregate { WasRepairedFromInvalidState = !migratingEquipment };
+                changed = true;
+            }
+            changed |= EquipmentStatisticsReducer.NormalizePersisted(map.EquipmentStatistics);
+            if (migratingEquipment) changed |= MarkHistoricalEquipmentUnavailable(map.EquipmentStatistics);
         }
 
         if (profile.Statistics.RunTotals.WeaponStatistics == null)
@@ -209,6 +219,14 @@ public static class ProfileMigrator
         }
         if (migratingCombat) changed |= MarkHistoricalCombatUnavailable(profile.Statistics.RunTotals.CombatStatistics);
 
+        if (profile.Statistics.RunTotals.EquipmentStatistics == null)
+        {
+            profile.Statistics.RunTotals.EquipmentStatistics = new EquipmentStatisticsAggregate { WasRepairedFromInvalidState = !migratingEquipment };
+            changed = true;
+        }
+        changed |= EquipmentStatisticsReducer.NormalizePersisted(profile.Statistics.RunTotals.EquipmentStatistics);
+        if (migratingEquipment) changed |= MarkHistoricalEquipmentUnavailable(profile.Statistics.RunTotals.EquipmentStatistics);
+
         foreach (var run in profile.Statistics.Runs)
         {
             if (run.WeaponStatistics == null)
@@ -230,6 +248,14 @@ public static class ProfileMigrator
 
             changed |= NormalizeCombatStatistics(run.CombatStatistics);
             if (migratingCombat) changed |= MarkHistoricalCombatUnavailable(run.CombatStatistics);
+
+            if (run.EquipmentStatistics == null)
+            {
+                run.EquipmentStatistics = new EquipmentStatisticsAggregate { WasRepairedFromInvalidState = !migratingEquipment };
+                changed = true;
+            }
+            changed |= EquipmentStatisticsReducer.NormalizePersisted(run.EquipmentStatistics);
+            if (migratingEquipment) changed |= MarkHistoricalEquipmentUnavailable(run.EquipmentStatistics);
         }
 
         if (profile.Statistics.RunRecords == null)
@@ -319,6 +345,18 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 6)
+        {
+            profile.SchemaVersion = 6;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 6)
+        {
+            profile.Statistics.SchemaVersion = 6;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
@@ -342,6 +380,14 @@ public static class ProfileMigrator
     {
         const string provenance = "Historical schema predates M5; combat attribution was not recorded.";
         statistics.Capabilities = CombatNativeContractPolicy.CreateUnavailableCapabilities(provenance);
+        return true;
+    }
+
+    private static bool MarkHistoricalEquipmentUnavailable(EquipmentStatisticsAggregate statistics)
+    {
+        const string provenance = "Historical schema predates M6; equipment and totem state was not recorded.";
+        statistics.Capabilities = EquipmentNativeContractPolicy.CreateUnavailableCapabilities(provenance);
+        statistics.HistoricalUnavailable = true;
         return true;
     }
 }

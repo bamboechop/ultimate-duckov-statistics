@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Domain;
@@ -92,7 +93,10 @@ public sealed class StatisticsExportBundle
         string combatTotalsCsv,
         string combatAttributionCsv,
         string weaponTotalsCsv,
-        string ammunitionTotalsCsv)
+        string ammunitionTotalsCsv,
+        string equipmentTotalsCsv,
+        string recurringLoadoutsCsv,
+        string equipmentCombatCsv)
     {
         Document = document;
         Json = json;
@@ -107,6 +111,9 @@ public sealed class StatisticsExportBundle
         CombatAttributionCsv = combatAttributionCsv;
         WeaponTotalsCsv = weaponTotalsCsv;
         AmmunitionTotalsCsv = ammunitionTotalsCsv;
+        EquipmentTotalsCsv = equipmentTotalsCsv;
+        RecurringLoadoutsCsv = recurringLoadoutsCsv;
+        EquipmentCombatCsv = equipmentCombatCsv;
     }
 
     public StatisticsExportDocument Document { get; }
@@ -134,6 +141,12 @@ public sealed class StatisticsExportBundle
     public string WeaponTotalsCsv { get; }
 
     public string AmmunitionTotalsCsv { get; }
+
+    public string EquipmentTotalsCsv { get; }
+
+    public string RecurringLoadoutsCsv { get; }
+
+    public string EquipmentCombatCsv { get; }
 }
 
 public static class StatisticsExporter
@@ -162,6 +175,8 @@ public static class StatisticsExporter
             allowUninitializedFallback: true);
         runTotals.CombatStatistics.Capabilities = ApplyCurrentCombatCapabilityStates(
             runTotals.CombatStatistics, profile.Capabilities, allowUninitializedFallback: true);
+        runTotals.EquipmentStatistics.Capabilities = ApplyCurrentEquipmentCapabilityStates(
+            runTotals.EquipmentStatistics, profile.Capabilities, allowUninitializedFallback: true);
         foreach (var map in runTotals.Maps.Values)
         {
             map.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
@@ -170,6 +185,8 @@ public static class StatisticsExporter
                 allowUninitializedFallback: false);
             map.CombatStatistics.Capabilities = ApplyCurrentCombatCapabilityStates(
                 map.CombatStatistics, profile.Capabilities, allowUninitializedFallback: false);
+            map.EquipmentStatistics.Capabilities = ApplyCurrentEquipmentCapabilityStates(
+                map.EquipmentStatistics, profile.Capabilities, allowUninitializedFallback: false);
         }
 
         var runs = profile.Statistics.Runs.Select(CloneRun).ToList();
@@ -181,6 +198,8 @@ public static class StatisticsExporter
                 allowUninitializedFallback: false);
             run.CombatStatistics.Capabilities = ApplyCurrentCombatCapabilityStates(
                 run.CombatStatistics, profile.Capabilities, allowUninitializedFallback: false);
+            run.EquipmentStatistics.Capabilities = ApplyCurrentEquipmentCapabilityStates(
+                run.EquipmentStatistics, profile.Capabilities, allowUninitializedFallback: false);
         }
 
         var document = new StatisticsExportDocument
@@ -228,7 +247,80 @@ public static class StatisticsExporter
             CreateCombatTotalsCsv(document),
             CreateCombatAttributionCsv(document),
             CreateWeaponTotalsCsv(document),
-            CreateAmmunitionTotalsCsv(document));
+            CreateAmmunitionTotalsCsv(document),
+            CreateEquipmentTotalsCsv(document),
+            CreateRecurringLoadoutsCsv(document),
+            CreateEquipmentCombatCsv(document));
+    }
+
+    private static string CreateEquipmentTotalsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,breakdown,entity_id,display_name,active_duration_seconds,run_occurrences");
+        AppendEquipmentDurations(builder, "lifetime", document.GenerationId, document.RunTotals.EquipmentStatistics);
+        foreach (var map in document.RunTotals.Maps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
+            AppendEquipmentDurations(builder, "map", map.MapId, map.EquipmentStatistics);
+        foreach (var run in document.Runs.OrderBy(x => x.StartedUtc).ThenBy(x => x.RunId, StringComparer.Ordinal))
+            AppendEquipmentDurations(builder, "run", run.RunId, run.EquipmentStatistics);
+        return builder.ToString();
+    }
+
+    private static void AppendEquipmentDurations(StringBuilder builder, string scope, string scopeId, EquipmentStatisticsAggregate statistics)
+    {
+        Append("item", statistics.Items);
+        Append("selected_weapon", statistics.SelectedWeapons);
+        Append("totem_set", statistics.TotemSets);
+        return;
+        void Append(string kind, Dictionary<string, EquipmentDurationAggregate> values)
+        {
+            foreach (var row in values.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal))
+                builder.Append(scope).Append(',').Append(Csv(scopeId)).Append(',').Append(kind).Append(',')
+                    .Append(Csv(row.Id)).Append(',').Append(Csv(row.DisplayName)).Append(',')
+                    .Append(row.ActiveDurationSeconds.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append(row.RunOccurrences.ToString(CultureInfo.InvariantCulture)).AppendLine();
+        }
+    }
+
+    private static string CreateRecurringLoadoutsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("loadout_id,active_duration_seconds,run_occurrences");
+        foreach (var row in document.RunTotals.EquipmentStatistics.Loadouts.Values
+                     .Where(x => x.RunOccurrences >= 2)
+                     .OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal))
+            builder.Append(Csv(row.Id)).Append(',')
+                .Append(row.ActiveDurationSeconds.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.RunOccurrences.ToString(CultureInfo.InvariantCulture)).AppendLine();
+        return builder.ToString();
+    }
+
+    private static string CreateEquipmentCombatCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,loadout_id,selected_weapon_slot_id,selected_weapon_id,totem_set_id,firing_actions,ammunition_units_consumed,projectiles,damage_dealt,damage_received,ranged_hits,melee_hits,enemies_killed,player_deaths");
+        AppendEquipmentCombat(builder, "lifetime", document.GenerationId, document.RunTotals.EquipmentStatistics);
+        foreach (var map in document.RunTotals.Maps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
+            AppendEquipmentCombat(builder, "map", map.MapId, map.EquipmentStatistics);
+        foreach (var run in document.Runs.OrderBy(x => x.StartedUtc).ThenBy(x => x.RunId, StringComparer.Ordinal))
+            AppendEquipmentCombat(builder, "run", run.RunId, run.EquipmentStatistics);
+        return builder.ToString();
+    }
+
+    private static void AppendEquipmentCombat(StringBuilder builder, string scope, string scopeId, EquipmentStatisticsAggregate statistics)
+    {
+        foreach (var row in statistics.CombatAssociations.Values.OrderBy(x => x.LoadoutId, StringComparer.Ordinal)
+                     .ThenBy(x => x.SelectedWeaponId, StringComparer.Ordinal).ThenBy(x => x.TotemSetId, StringComparer.Ordinal))
+            builder.Append(scope).Append(',').Append(Csv(scopeId)).Append(',').Append(Csv(row.LoadoutId)).Append(',')
+                .Append(Csv(row.SelectedWeaponSlotId)).Append(',').Append(Csv(row.SelectedWeaponId)).Append(',').Append(Csv(row.TotemSetId)).Append(',')
+                .Append(row.FiringActions.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.AmmunitionUnitsConsumed.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.Projectiles.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.DamageDealt.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.DamageReceived.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.RangedHits.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.MeleeHits.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.EnemiesKilled.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.PlayerDeaths.ToString(CultureInfo.InvariantCulture)).AppendLine();
     }
 
     private static string SerializeJson(StatisticsExportDocument document)
@@ -624,6 +716,27 @@ public static class StatisticsExporter
         }
     }
 
+    private static EquipmentMetricCapabilities ApplyCurrentEquipmentCapabilityStates(
+        EquipmentStatisticsAggregate aggregate,
+        IReadOnlyList<CapabilityRecord> current,
+        bool allowUninitializedFallback)
+    {
+        var result = EquipmentStatisticsReducer.CloneCapabilities(aggregate.Capabilities);
+        Apply(result.EquipmentSlots, EquipmentCapabilityIds.EquipmentSlots);
+        Apply(result.SelectedWeapon, EquipmentCapabilityIds.SelectedWeapon);
+        Apply(result.AttachmentMetadata, EquipmentCapabilityIds.AttachmentMetadata);
+        Apply(result.DirectTotems, EquipmentCapabilityIds.DirectTotems);
+        Apply(result.ToteContents, EquipmentCapabilityIds.ToteContents);
+        Apply(result.ToteActivation, EquipmentCapabilityIds.ToteActivation);
+        return result;
+        void Apply(MetricAvailability value, string id)
+        {
+            var state = ReadCapabilityState(current, id, AdapterCapabilityState.DisabledIncompatible);
+            value.State = EquipmentStatisticsReducer.ResolveCurrentAvailability(
+                aggregate, value, state, allowUninitializedFallback);
+        }
+    }
+
     private static AdapterCapabilityState ResolveAvailability(
         WeaponStatisticsAggregate aggregate,
         MetricAvailability recorded,
@@ -713,6 +826,7 @@ public static class StatisticsExporter
         TeleportDistance = source.TeleportDistance,
         WeaponStatistics = WeaponStatisticsReducer.Clone(source.WeaponStatistics),
         CombatStatistics = CombatStatisticsReducer.Clone(source.CombatStatistics),
+        EquipmentStatistics = EquipmentStatisticsReducer.Clone(source.EquipmentStatistics),
         Maps = source.Maps.ToDictionary(
             entry => entry.Key,
             entry => new MapRunAggregate
@@ -725,7 +839,8 @@ public static class StatisticsExporter
                 PhysicalDistance = entry.Value.PhysicalDistance,
                 TeleportDistance = entry.Value.TeleportDistance,
                 WeaponStatistics = WeaponStatisticsReducer.Clone(entry.Value.WeaponStatistics),
-                CombatStatistics = CombatStatisticsReducer.Clone(entry.Value.CombatStatistics)
+                CombatStatistics = CombatStatisticsReducer.Clone(entry.Value.CombatStatistics),
+                EquipmentStatistics = EquipmentStatisticsReducer.Clone(entry.Value.EquipmentStatistics)
             },
             StringComparer.Ordinal)
     };
@@ -757,7 +872,8 @@ public static class StatisticsExporter
         MapCapability = source.MapCapability,
         MapAdapterVersion = source.MapAdapterVersion,
         WeaponStatistics = WeaponStatisticsReducer.Clone(source.WeaponStatistics),
-        CombatStatistics = CombatStatisticsReducer.Clone(source.CombatStatistics)
+        CombatStatistics = CombatStatisticsReducer.Clone(source.CombatStatistics),
+        EquipmentStatistics = EquipmentStatisticsReducer.Clone(source.EquipmentStatistics)
     };
 
     private static CapabilityRecord CloneCapability(CapabilityRecord source) => new()

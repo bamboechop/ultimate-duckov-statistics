@@ -958,3 +958,59 @@ The direct recovery-candidate regression accepts separate enemy-A headshot and e
 The committed replacement `UltimateDuckovStatistics-v0.5.0.zip` is 144,081 bytes at SHA-256 `17cf6205da94db91af88850b8115292ee040ec8684728834081b0d591050bcac`. Independent extraction at `artifacts/audit-v050-headshot-final-20260812T0923465996862Z` is byte-identical to the package root. Package hashes are `6a52a97cd830b7bca0e82f9c6137cf75fd19effe2b830bf12dec057d2c416572` (`info.ini`), `20be24cfd85eebcffa507c618da2b16257bff5025179961939dc6c0c62d0b4ab` (`INSTALL.md`), `0f7558f2469ad0901074f6c380ada1ed91861d55adf905267bc70b26cd2e3ccc` (`LICENSE`), `9ad292d617499b80d312d55d1b320ac22cb34cfcbddf397d90407ce79ffd06b7` (Core DLL), and `aa748562bef46585482f62cb5f1f0ddbbd59c2c8d842c3b3742f5e9353d0ca25` (native DLL). Both DLLs report file version `0.5.0.0` and product version `0.5.0+01117e0613abe4c4aa472fe349bc1ce5c35a12ea`. This persistence-only correction requires no additional gameplay. The previously deployed `dd46173` binaries are superseded.
 
 The user approved this replacement and standing transactional UDS-directory deployments for the remainder of this chat, subject to Duckov being closed and the candidate package already having passed validation. With Duckov closed, deployment replaced only `E:\SteamLibrary\steamapps\common\Escape from Duckov\Duckov_Data\Mods\UltimateDuckovStatistics`; validation passed before staging, in staging, and after promotion. Independent readback found exactly the five expected files and matched every SHA-256 above; both deployed DLL versions identify `01117e0613abe4c4aa472fe349bc1ce5c35a12ea`. No staging or previous-directory residue remains, Duckov stayed closed, and no Duckov save or UDS profile was read or written.
+
+## M6 equipment and totems — v0.6.0 candidate protocol
+
+### Immutable baseline — 2026-08-12
+
+- Feature branch: `feat/equipment-totems`, created cleanly from immutable `origin/main` `a238c3e1d10d4205aa08778213bcfda846d6887f` (merge of PR #5).
+- GitHub state at implementation start: releases/tags exist only through v0.4.0; M5 is merged, but no v0.5.0 tag or release exists.
+- Installed game baseline reconfirmed: Duckov `2.3.30`, Steam build `24013657`, Unity `2022.3.62f2`; TeamSoda core SHA-256 `298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f`; ItemStatsSystem SHA-256 `a276e15c022f71b2214bd05e1b9b0f2e620c16561df576fed0b79c2fe4402e60`; Harmony `2.4.1.0` SHA-256 `353daafec180bb8e7bbe4da78f2a7cdc78067392e3a4e79dc8e7af295f2371e6`.
+- The unmodified baseline passed 219/219 Release tests, the installed-game contract probe, native Release build with zero warnings/errors, and package verification.
+
+### Native truth contract
+
+- Direct equipment comes only from the exact main character's public `CharacterItem.Slots`; stable slot keys and `Item.TypeID` values determine identity.
+- Selection comes from `CurrentHoldItemAgent` plus the public main-character hold-item event. A selected item must be the same object as a current direct character-slot content; otherwise selection is cleared. Slot identity is persisted so identical weapon types in different slots remain distinguishable.
+- Attachment metadata is a bounded recursive read of each equipped item's public slot tree. The canonical signature uses slot keys and child `TypeID` values, not runtime instance IDs or localized names.
+- The exact `Totem` tag proves totem identity. A direct slotted totem with usable durability is proven active by the verified public item-effect control flow; depleted durability proves inactive.
+- `Item_ToteBag` and its attached public inventory prove tote content presence. They do not prove individual effects or modifiers opted into inventory activation. Tote-carried activation is therefore `Unknown`, the tote-activation capability is `DisabledIncompatible`, and tote contents are excluded from active-totem-set duration.
+- Durations use M3 monotonic active raid time. Pause/loading intervals contribute no equipment duration. A 0.2-second bounded reconciliation supplements native change callbacks without using frame count as time.
+- Per-run transition history retains at most 256 latest transitions while duration aggregates remain complete. Lifetime recurring-loadout rankings include only loadouts seen in at least two completed runs.
+- Firing and combat events carry immutable event-time equipment associations. These are temporal associations, not causal item/totem attribution. Health damage captures association in the `Health.Hurt` prefix state; projectile completion retains the association captured at projectile initialization so a later equipment change cannot rewrite it.
+
+### Automated acceptance
+
+The M6 implementation must pass all of the following before deployment:
+
+1. Repeated identical snapshots are idempotent; real slot, selection, attachment, and active-totem changes produce one state transition.
+2. Active duration advances only through monotonic active time and survives checkpoint, interrupted recovery, normal completion, merge, JSON round-trip, and export.
+3. Transition history truncates at 256 without losing aggregate duration.
+4. Selected identity includes the exact slot and clears when the held item is no longer directly slotted.
+5. Event-time associations remain attached to firing/damage/projectile outcomes even if later equipment differs.
+6. Tote presence never upgrades activation. The native capability matrix keeps tote activation `DisabledIncompatible`.
+7. Schema-5 and older profiles preserve all M1-M5 values and initialize historical M6 data unavailable. Invalid equipment checkpoint counters/durations are rejected before backup selection; missing fields normalize with repair provenance.
+8. Lifetime loadout occurrence counts increase once per completed run; ranking/export requires at least two occurrences.
+9. UI/JSON/CSV expose the same canonical duration and association totals. The export contains exactly 15 files, adding `equipment_totals.csv`, `recurring_loadouts.csv`, and `equipment_combat.csv`.
+10. Installed-game contract probe covers character-slot/hold events, `CharacterItem`, `CurrentHoldItemAgent`, item-tree events, slot content, tags, and attached inventory.
+11. Native Release build has zero warnings/errors; formatting, `git diff --check`, source-safety checks, package validation, checksum verification, independent extraction, and forbidden-DLL audit pass.
+
+Initial implementation checkpoint: 234/234 Release tests, the installed-game contract probe, warning-free native Release build, and package-root validation pass. This is not final delivery evidence; the exact committed head/package must be revalidated after documentation and review.
+
+### User-controlled manual gameplay matrix
+
+Codex may deploy only after explicit approval and only while Duckov is closed. The user launches and controls the game. Before gameplay, capture the selected UDS generation/profile and deployment hashes; do not read or modify a Duckov save unless the user selects and authorizes it.
+
+1. Cold-launch with Harmony and UDS active. Outside a raid, confirm all M6 presence/selection capabilities are `Supported` and tote activation is explicitly `DisabledIncompatible`.
+2. Enter a raid with at least one primary/secondary/melee weapon and ordinary armor/equipment. Wait long enough for measurable active time, pause for a measured interval, resume, and later verify the pause added no equipment duration.
+3. Switch between at least two weapon slots. If two identical weapon types are available, use both to prove slot-qualified selection; otherwise verify distinct weapon/slot associations.
+4. Equip/unequip or replace an ordinary equipment item. Change one weapon attachment if safely available. Record the action order and approximate active intervals.
+5. Equip a direct `Totem`, wait, then remove it. If a depleted-durability totem is safely available, also prove it is inactive; otherwise leave that optional case unclaimed.
+6. Put a `Totem` in a Tote Bag, remove it, and if practical compare a visible buff/effect. Regardless of observed gameplay, the candidate must persist tote presence as activation `Unknown` and must not add it to active-totem-set time. Concrete repeatable effect evidence is recorded for future work only; it does not enable the default-disabled capability in this candidate.
+7. Fire and deal/receive damage before and after an equipment or selection change. Extract or die normally. Verify per-run associations reflect the equipment state at each event and no later change rewrote earlier rows.
+8. Complete a second run using one repeated loadout and one different loadout. Verify only the repeated loadout enters lifetime recurring-loadout ranking.
+9. Reopen the panel outside raids and compare item/selection/totem-set durations, transitions, and capabilities with the action log. Interrupted/integrity semantics must remain unchanged.
+10. Export once. Read back all 15 files and verify JSON/CSV agreement, canonical IDs, exact capability states, absence of runtime IDs, and tote activation truth boundaries.
+11. Restart Duckov and verify persistence, generation continuity, no duplicate transitions/runs, and clean adapter reacquisition. Finish with a normal shutdown and confirm no active-run/session/temp/deployment residue.
+
+Manual acceptance is pending. No merge, tag, GitHub release, ready-for-review transition, or Workshop upload is authorized by this protocol.

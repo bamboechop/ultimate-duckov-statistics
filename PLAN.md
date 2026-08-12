@@ -42,7 +42,8 @@ A version change triggers compatibility checks, not an automatic global shutdown
 - `v0.2.0` is a GitHub pre-release containing M2 healing attribution after its manual acceptance matrix passes.
 - `v0.3.0` is the published GitHub pre-release containing M3 run lifecycle, duration records, map aggregation, and movement.
 - `v0.4.0` is the published GitHub pre-release containing M4 accepted firing actions and event-time weapon/ammunition identity; unsupported outcome metrics remain unavailable.
-- `v0.5.0` is a GitHub pre-release candidate containing M5 actual damage, reliable projectile accuracy, melee, kills/deaths, ownership, identities, causes, damage-over-time, and independently proven head-target attribution after its complete manual acceptance matrix passes.
+- M5 is merged into `main` and its complete manual acceptance matrix passed, but no `v0.5.0` tag or GitHub release has been published.
+- `v0.6.0` is the M6 GitHub pre-release candidate for equipment and totems. It remains draft/unmerged until its complete manual acceptance matrix passes.
 - No Steam Workshop upload in v0.1.
 - Release artifact includes the installable ZIP, SHA-256 checksum, installation instructions, compatibility information, and known limitations.
 - No Duckov assemblies or bundled Harmony assembly may appear in the package.
@@ -274,8 +275,12 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Event-time weapon identity for damage and projectile-init ammunition identity where exposed; uncorrelated ammunition remains unknown rather than inferred.
     - Headshots only for independently observed native head-targeted exact-player projectiles. `DamageInfo.crit` is ignored as headshot evidence; headshot final blows are a separate fatal subset.
     - Schema 5, bounded 2,048-event/run deduplication and 2,048-projectile correlation, one-second combat-checkpoint coalescing, lifetime/map/run aggregation and breakdowns, UI, JSON, and `combat_attribution.csv`.
-7. **M6 — Equipment and totems**
-    - Slot duration, selected weapons, loadouts, combat associations, experimental tote activation.
+7. **M6 — Equipment and totems (`v0.6.0`, implementation and automated validation in progress; manual acceptance pending)**
+    - Monotonic active-time duration for canonical character-slot items, selected weapon plus exact slot, attachment-aware deterministic loadouts, and active direct-totem sets.
+    - Event-time loadout/selection/totem-set association for firing and combat outcomes; bounded 256-transition per-run history and crash-safe checkpoints.
+    - Stable identities use slot keys and `Item.TypeID`; runtime objects and localized/display names never determine persisted identity.
+    - Tote content presence uses the version-checked `Item_ToteBag` inventory contract. Tote activation remains unavailable and disabled until concrete buff/effect evidence and manual validation prove it.
+    - Schema 6, lifetime/map/run aggregation, recurring loadout rankings only after two completed run occurrences, Equipment UI, JSON, and three equipment CSVs.
 8. **M7 — Containers**
     - Unique non-corpse container looting.
 9. **M8 — Economy**

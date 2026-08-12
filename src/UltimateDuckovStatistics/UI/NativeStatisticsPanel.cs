@@ -19,6 +19,7 @@ internal sealed class NativeStatisticsPanel
     private Vector2 runScroll;
     private Vector2 recordScroll;
     private Vector2 combatScroll;
+    private Vector2 equipmentScroll;
     private PanelTab tab;
     private bool visible;
     private bool confirmReset;
@@ -88,6 +89,7 @@ internal sealed class NativeStatisticsPanel
         DrawTabButton(PanelTab.Runs, "ui.runs");
         DrawTabButton(PanelTab.Records, "ui.records");
         DrawTabButton(PanelTab.Combat, "ui.combat");
+        DrawTabButton(PanelTab.Equipment, "ui.equipment");
         DrawTabButton(PanelTab.Items, "ui.items");
         DrawTabButton(PanelTab.Diagnostics, "ui.diagnostics");
         GUILayout.FlexibleSpace();
@@ -114,6 +116,9 @@ internal sealed class NativeStatisticsPanel
                 break;
             case PanelTab.Combat:
                 DrawCombat();
+                break;
+            case PanelTab.Equipment:
+                DrawEquipment();
                 break;
             case PanelTab.Diagnostics:
                 DrawDiagnostics();
@@ -411,6 +416,34 @@ internal sealed class NativeStatisticsPanel
         GUILayout.EndHorizontal();
     }
 
+    private void DrawEquipment()
+    {
+        var profile = coordinator.Current;
+        if (profile == null) return;
+        var model = EquipmentStatisticsViewModelFactory.Create(profile);
+        var equipment = model.Lifetime;
+        GUILayout.Space(8);
+        GUILayout.Label(UiText.Get("ui.equipment_contract"));
+        GUILayout.Label($"Slots: {model.Capabilities.EquipmentSlots.State}; selected weapon: {model.Capabilities.SelectedWeapon.State}; attachments: {model.Capabilities.AttachmentMetadata.State}");
+        GUILayout.Label($"Direct totems: {model.Capabilities.DirectTotems.State}; tote contents: {model.Capabilities.ToteContents.State}; tote activation: {model.Capabilities.ToteActivation.State}");
+        GUILayout.Label($"Transitions: {equipment.TransitionCount.ToString(CultureInfo.InvariantCulture)}{(equipment.TransitionsTruncated ? " (bounded history truncated)" : string.Empty)}");
+        equipmentScroll = GUILayout.BeginScrollView(equipmentScroll);
+        GUILayout.Space(6);
+        GUILayout.Label("Equipped item time");
+        foreach (var row in equipment.Items.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(30))
+            GUILayout.Label($"{row.DisplayName} [{row.Id}]: {FormatDuration(row.ActiveDurationSeconds)}");
+        GUILayout.Space(6);
+        GUILayout.Label("Selected weapon time");
+        foreach (var row in equipment.SelectedWeapons.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(20))
+            GUILayout.Label($"{row.Id}: {FormatDuration(row.ActiveDurationSeconds)}");
+        GUILayout.Space(6);
+        GUILayout.Label("Recurring loadouts (at least two completed runs)");
+        foreach (var row in equipment.Loadouts.Values.Where(x => x.RunOccurrences >= 2)
+                     .OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(20))
+            GUILayout.Label($"{row.Id}: {FormatDuration(row.ActiveDurationSeconds)}, {row.RunOccurrences.ToString(CultureInfo.InvariantCulture)} runs");
+        GUILayout.EndScrollView();
+    }
+
     private static void DrawCombatRow(
         string displayName,
         string stableId,
@@ -638,6 +671,7 @@ internal sealed class NativeStatisticsPanel
         Runs,
         Records,
         Combat,
+        Equipment,
         Items,
         Diagnostics
     }

@@ -26,6 +26,9 @@ public sealed class RunAggregateTotals
 
     [DataMember(Order = 7)]
     public CombatStatisticsAggregate CombatStatistics { get; set; } = new();
+
+    [DataMember(Order = 8)]
+    public EquipmentStatisticsAggregate EquipmentStatistics { get; set; } = new();
 }
 
 [DataContract]
@@ -57,6 +60,9 @@ public sealed class MapRunAggregate
 
     [DataMember(Order = 9)]
     public CombatStatisticsAggregate CombatStatistics { get; set; } = new();
+
+    [DataMember(Order = 10)]
+    public EquipmentStatisticsAggregate EquipmentStatistics { get; set; } = new();
 }
 
 [DataContract]
@@ -138,10 +144,12 @@ public static class RunReducer
 
         WeaponStatisticsReducer.ValidateAggregate(profile.RunTotals.WeaponStatistics);
         CombatStatisticsReducer.ValidateAggregate(profile.RunTotals.CombatStatistics);
+        EquipmentStatisticsReducer.ValidateAggregate(profile.RunTotals.EquipmentStatistics);
         foreach (var map in profile.RunTotals.Maps.Values)
         {
             WeaponStatisticsReducer.ValidateAggregate(map.WeaponStatistics);
             CombatStatisticsReducer.ValidateAggregate(map.CombatStatistics);
+            EquipmentStatisticsReducer.ValidateAggregate(map.EquipmentStatistics);
         }
 
         profile.Runs.Add(summary);
@@ -163,6 +171,10 @@ public static class RunReducer
         totals.TeleportDistance += summary.TeleportDistance;
         WeaponStatisticsReducer.Merge(totals.WeaponStatistics, summary.WeaponStatistics);
         CombatStatisticsReducer.Merge(totals.CombatStatistics, summary.CombatStatistics);
+        EquipmentStatisticsReducer.Merge(
+            totals.EquipmentStatistics,
+            summary.EquipmentStatistics,
+            countRunOccurrence: summary.Outcome != RunOutcome.Interrupted);
 
         if (!totals.Maps.TryGetValue(summary.MapId, out var map))
         {
@@ -183,6 +195,10 @@ public static class RunReducer
         map.TeleportDistance += summary.TeleportDistance;
         WeaponStatisticsReducer.Merge(map.WeaponStatistics, summary.WeaponStatistics);
         CombatStatisticsReducer.Merge(map.CombatStatistics, summary.CombatStatistics);
+        EquipmentStatisticsReducer.Merge(
+            map.EquipmentStatistics,
+            summary.EquipmentStatistics,
+            countRunOccurrence: summary.Outcome != RunOutcome.Interrupted);
     }
 
     private static void AddRecord(RunDurationRecords records, RunSummary summary)
@@ -273,6 +289,7 @@ public static class RunReducer
 
         WeaponStatisticsReducer.ValidateAggregate(summary.WeaponStatistics);
         CombatStatisticsReducer.ValidateAggregate(summary.CombatStatistics);
+        EquipmentStatisticsReducer.ValidateAggregate(summary.EquipmentStatistics);
 
         if (summary.Outcome == RunOutcome.Interrupted && summary.RecordEligible)
         {
