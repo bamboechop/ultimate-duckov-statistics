@@ -207,6 +207,18 @@ public sealed class ProfileRepository
         }
 
         WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
+        try
+        {
+            CombatStatisticsReducer.ValidateRecoveryCandidate(checkpoint.CombatStatistics);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new ArgumentException(
+                $"Active-run checkpoint contains invalid combat state: {exception.Message}",
+                nameof(checkpoint),
+                exception);
+        }
+
         checkpoint.CombatStatistics ??= new CombatStatisticsAggregate();
         CombatStatisticsReducer.NormalizePersisted(checkpoint.CombatStatistics);
         CombatStatisticsReducer.ValidateAggregate(checkpoint.CombatStatistics);
@@ -502,6 +514,15 @@ public sealed class ProfileRepository
         if (weaponNormalization.InvalidCounters)
         {
             return "Active-run checkpoint contains negative weapon counters.";
+        }
+
+        try
+        {
+            CombatStatisticsReducer.ValidateRecoveryCandidate(checkpoint.CombatStatistics);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Active-run checkpoint contains invalid combat state: {exception.Message}";
         }
 
         checkpoint.CombatStatistics ??= new CombatStatisticsAggregate();

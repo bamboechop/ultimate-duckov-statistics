@@ -179,6 +179,35 @@ public static class CombatStatisticsReducer
         }
     }
 
+    public static void ValidateRecoveryCandidate(CombatStatisticsAggregate? statistics)
+    {
+        if (statistics == null) return;
+        if (statistics.Totals != null) ValidateTotals(statistics.Totals, enforceRelationships: true);
+        if (statistics.Capabilities != null)
+        {
+            foreach (var property in typeof(CombatMetricCapabilities).GetProperties())
+            {
+                if (property.GetValue(statistics.Capabilities) is MetricAvailability availability
+                    && !Enum.IsDefined(typeof(AdapterCapabilityState), availability.State))
+                {
+                    throw new ArgumentException("Combat capabilities contain an invalid state.", nameof(statistics));
+                }
+            }
+        }
+        foreach (var rows in new[]
+                 {
+                     statistics.Enemies, statistics.Killers, statistics.Families, statistics.Causes,
+                     statistics.Weapons, statistics.Ammunition, statistics.Ownership
+                 })
+        {
+            if (rows == null) continue;
+            foreach (var row in rows.Values)
+            {
+                if (row?.Totals != null) ValidateTotals(row.Totals);
+            }
+        }
+    }
+
     public static CombatMetricCapabilities CloneCapabilities(CombatMetricCapabilities source) => new()
     {
         DamageDealt = Clone(source.DamageDealt),

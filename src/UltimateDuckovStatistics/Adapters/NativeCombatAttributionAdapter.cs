@@ -28,6 +28,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly Dictionary<int, ProjectileSnapshot> projectiles = new();
     private readonly Queue<(int RuntimeId, string ProjectileId)> projectileOrder = new();
     private PatchRegistration[] patchRegistrations = Array.Empty<PatchRegistration>();
+    private CombatHookSupport hookSupport = new();
     private CombatMetricCapabilities metricCapabilities = new();
     private CharacterMainControl? subscribedMainCharacter;
     private bool cleanupPending;
@@ -35,6 +36,10 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private DateTime nextConflictCheckUtc;
     private bool retryInitialization;
     private DateTime nextInitializationAttemptUtc;
+    private bool initialized;
+    private string projectileGenerationId = string.Empty;
+    private string projectileRunId = string.Empty;
+    private string projectileMapId = string.Empty;
     private bool disposed;
 
     public NativeCombatAttributionAdapter(
@@ -56,56 +61,52 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public CombatMetricCapabilities MetricCapabilities => CombatStatisticsReducer.CloneCapabilities(metricCapabilities);
 
-    public bool CanObserveHealth => !disposed
-                                    && !cleanupPending
-                                    && metricCapabilities.DamageDealt.State == AdapterCapabilityState.Supported;
+    public bool CanObserveHealth => IsActive && hookSupport.HealthHurt;
+
+    private bool IsActive => !disposed && !cleanupPending && initialized;
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
         if (disposed) throw new ObjectDisposedException(nameof(NativeCombatAttributionAdapter));
-        if (CanObserveHealth) return CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion);
+        if (initialized && !retryInitialization)
+            return CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion);
         if (!string.Equals(Application.version, SupportedGameVersion, StringComparison.Ordinal))
         {
+            initialized = true;
             SetUnavailable($"Installed Duckov version '{Application.version}' does not match verified combat contract '{SupportedGameVersion}'.");
             return CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion);
         }
 
-        if (!TryResolveContracts(out var methods, out var failure))
-        {
-            retryInitialization = false;
-            SetUnavailable(failure);
-            return CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion);
-        }
+        var methods = ResolveContracts();
+        var support = methods.CreateHookSupport();
 
         if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var created, out var harmonyDetail) || created == null)
         {
             retryInitialization = ReflectiveHarmonyPatcher.HasPendingCleanup
                                   || !ReflectiveHarmonyPatcher.IsHarmonyLoaded;
             nextInitializationAttemptUtc = DateTime.UtcNow.AddSeconds(1);
-            SetUnavailable(harmonyDetail);
+            support.DisableHarmonyHooks();
+            ActivateCapabilities(support, harmonyDetail);
             return CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion);
         }
 
         patcherLease.Attach(created);
         try
         {
-            foreach (var method in methods.All)
+            var registrations = CreateRegistrations(methods);
+            foreach (var registration in registrations)
             {
-                if (!created.IsPatchSetTrusted(method, Array.Empty<HarmonyPatchExpectation>(), out var detail))
+                if (!created.IsPatchSetTrusted(registration.Original, Array.Empty<HarmonyPatchExpectation>(), out var detail))
                 {
-                    throw new InvalidOperationException(
-                        $"{method.DeclaringType?.Name}.{method.Name} has an unsafe pre-existing Harmony patch set: {detail}");
+                    support.Disable(registration.Hook);
+                    diagnosticHandler(
+                        $"{registration.Original.DeclaringType?.Name}.{registration.Original.Name} is unavailable for its dependent combat capabilities because its Harmony patch set is unsafe: {detail}");
                 }
             }
 
-            patchRegistrations = CreateRegistrations(methods);
-            CombatHarmonyBridge.Attach(this);
-            created.Patch(methods.HealthHurt, CombatHarmonyCallbacks.HealthPrefixMethod, CombatHarmonyCallbacks.HealthPostfixMethod);
-            created.Patch(methods.ProjectileInit, postfix: CombatHarmonyCallbacks.ProjectileInitPostfixMethod);
-            created.Patch(methods.ProjectileUpdate, CombatHarmonyCallbacks.ProjectileUpdatePrefixMethod, finalizer: CombatHarmonyCallbacks.ProjectileUpdateFinalizerMethod);
-            created.Patch(methods.ProjectileRelease, CombatHarmonyCallbacks.ProjectileReleasePrefixMethod);
-            created.Patch(methods.MeleeCheck, CombatHarmonyCallbacks.MeleePrefixMethod, finalizer: CombatHarmonyCallbacks.MeleeFinalizerMethod);
-            created.Patch(methods.EffectTrigger, CombatHarmonyCallbacks.EffectPrefixMethod, finalizer: CombatHarmonyCallbacks.EffectFinalizerMethod);
+            patchRegistrations = registrations.Where(x => support.IsEnabled(x.Hook)).ToArray();
+            if (patchRegistrations.Length > 0) CombatHarmonyBridge.Attach(this);
+            foreach (var registration in patchRegistrations) ApplyPatch(created, registration);
             foreach (var registration in patchRegistrations)
             {
                 if (!created.IsPatchSetTrusted(registration.Original, registration.Expected, out var detail))
@@ -114,17 +115,21 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
                 }
             }
 
-            metricCapabilities = CombatNativeContractPolicy.CreateSupportedCapabilities();
+            hookSupport = support;
+            metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
+            initialized = true;
             retryInitialization = false;
             PublishCapabilities();
             nextConflictCheckUtc = DateTime.UtcNow.AddSeconds(2);
             SynchronizeMainCharacter();
+            SynchronizeProjectileContext();
             diagnosticHandler(
-                $"Combat attribution active with HarmonyLib {created.Version}; exact HP deltas, projectile/melee/effect scopes, and public melee action callbacks verified.");
+                $"Combat attribution active with HarmonyLib {created.Version}; {patchRegistrations.Length}/6 Harmony hooks and independent public melee/death callbacks are available.");
         }
         catch (Exception exception)
         {
             DetachRuntimeHooks();
+            initialized = true;
             retryInitialization = false;
             SetUnavailable($"Combat patch activation failed: {Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}");
             QueueCleanup();
@@ -148,29 +153,38 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             return;
         }
 
-        if (!CanObserveHealth) return;
+        if (!IsActive) return;
         SynchronizeMainCharacter();
+        SynchronizeProjectileContext();
         if (DateTime.UtcNow < nextConflictCheckUtc) return;
         nextConflictCheckUtc = DateTime.UtcNow.AddSeconds(2);
         var patcher = patcherLease.Value;
-        foreach (var registration in patchRegistrations)
+        foreach (var registration in patchRegistrations.Where(x => !x.Disabled))
         {
             var detail = patcher == null ? "The combat Harmony patcher is unavailable." : string.Empty;
             if (patcher == null || !patcher.IsPatchSetTrusted(registration.Original, registration.Expected, out detail))
             {
-                DetachRuntimeHooks();
-                retryInitialization = false;
-                SetUnavailable($"Combat attribution disabled after patch-set drift: {detail}");
-                QueueCleanup();
-                TryCompleteCleanup();
-                return;
+                registration.Disabled = true;
+                hookSupport.Disable(registration.Hook);
+                metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
+                if (registration.Hook is CombatHook.ProjectileInit or CombatHook.ProjectileUpdate or CombatHook.ProjectileRelease)
+                    ClearProjectileCorrelations();
+                PublishCapabilities();
+                diagnosticHandler(
+                    $"Disabled only the combat capabilities dependent on {registration.Original.DeclaringType?.Name}.{registration.Original.Name} after patch-set drift: {detail}");
             }
         }
     }
 
     public void CaptureProjectile(Projectile projectile, ProjectileContext context)
     {
-        if (!CanObserveHealth || projectile == null) return;
+        if (!IsActive || !hookSupport.ProjectileInit || projectile == null) return;
+        SynchronizeProjectileContext();
+        var generationId = saveGenerationIdProvider();
+        var runId = runIdProvider() ?? string.Empty;
+        var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
+        if (string.IsNullOrWhiteSpace(generationId) || string.IsNullOrWhiteSpace(runId)
+            || NativeRaidContext.GetGameplayContext() != GameplayContext.Raid) return;
         var physicalSource = context.realFromCharacter != null ? context.realFromCharacter : context.fromCharacter;
         var isExactPlayer = physicalSource != null && physicalSource.IsMainCharacter
                             && ReferenceEquals(physicalSource, CharacterMainControl.Main);
@@ -178,6 +192,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var snapshot = new ProjectileSnapshot
         {
             ProjectileId = Guid.NewGuid().ToString("N"),
+            SaveGenerationId = generationId,
+            RunId = runId,
+            MapId = mapId,
             PhysicalSource = physicalSource,
             IsExactPlayer = isExactPlayer,
             HeadTargeted = isExactPlayer && LevelManager.Instance != null
@@ -206,18 +223,27 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public CombatNativeScope? CreateProjectileScope(Projectile projectile)
     {
-        if (!CanObserveHealth || projectile == null
-            || !projectiles.TryGetValue(projectile.GetInstanceID(), out var value)) return null;
+        if (!IsActive || !hookSupport.ProjectileUpdate || projectile == null) return null;
+        SynchronizeProjectileContext();
+        if (!projectiles.TryGetValue(projectile.GetInstanceID(), out var value)
+            || !MatchesCurrentContext(value)) return null;
         return value.Scope;
     }
 
     public void CompleteProjectile(Projectile projectile)
     {
-        if (!CanObserveHealth || projectile == null
+        if (!IsActive || !hookSupport.ProjectileRelease || projectile == null
             || !projectiles.TryGetValue(projectile.GetInstanceID(), out var value)
             || value.Completed) return;
+        SynchronizeProjectileContext();
+        if (!MatchesCurrentContext(value))
+        {
+            projectiles.Remove(projectile.GetInstanceID());
+            return;
+        }
         value.Completed = true;
-        if (value.IsExactPlayer)
+        if (value.IsExactPlayer
+            && metricCapabilities.Accuracy.State == AdapterCapabilityState.Supported)
         {
             Emit(NewEvent(value.Scope, ownership: CombatOwnership.Player) with
             {
@@ -230,7 +256,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public CombatNativeScope? CreateMeleeScope(ItemAgent_MeleeWeapon weapon)
     {
-        if (!CanObserveHealth || weapon == null || weapon.Holder == null
+        if (!CanObserveHealth || !hookSupport.MeleeCheck || weapon == null || weapon.Holder == null
             || !weapon.Holder.IsMainCharacter || !ReferenceEquals(weapon.Holder, CharacterMainControl.Main)) return null;
         var item = weapon.Item;
         return new CombatNativeScope
@@ -244,7 +270,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public CombatNativeScope? CreateEffectScope(EffectTriggerEventContext context)
     {
-        if (!CanObserveHealth || context.source == null) return null;
+        if (!IsActive || !hookSupport.EffectTrigger || context.source == null) return null;
         return new CombatNativeScope
         {
             IsEffect = true,
@@ -261,7 +287,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var source = scope?.PhysicalSource != null ? scope.PhysicalSource : state.DamageInfo.fromCharacter;
         var ownership = ResolveOwnership(source);
         var enemyTarget = !targetIsMain && health.team != Teams.player;
-        var playerDamage = ownership == CombatOwnership.Player && !targetIsMain;
+        if (!CombatObservationPolicy.ShouldRecordHealthTransition(targetIsMain, enemyTarget, ownership)) return;
+        var playerDamage = ownership == CombatOwnership.Player && enemyTarget;
         var rangedHit = CombatObservationPolicy.CountRangedHit(
             enemyTarget, ownership == CombatOwnership.Player, scope?.IsRanged == true, scope?.HitCounted == true);
         var meleeHit = CombatObservationPolicy.CountMeleeHit(
@@ -305,7 +332,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             WeaponDisplayName = weaponName,
             AmmunitionId = ammunitionId < 0 ? "duckov:ammo:unknown" : $"duckov:ammo:{ammunitionId.ToString(CultureInfo.InvariantCulture)}",
             AmmunitionDisplayName = ammunitionId < 0 ? "Unknown ammunition" : scope!.AmmunitionDisplayName,
-            ActualDamageToTarget = targetIsMain ? 0 : actualDamage,
+            ActualDamageToTarget = enemyTarget ? actualDamage : 0,
             ActualDamageDealt = playerDamage ? actualDamage : 0,
             ActualDamageReceived = targetIsMain ? actualDamage : 0,
             // Compatible accuracy is committed only when this projectile
@@ -323,13 +350,13 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public void RecordPlayerDeath(DamageInfo info)
     {
-        if (!CanObserveHealth) return;
+        if (!IsActive || metricCapabilities.PlayerDeaths.State != AdapterCapabilityState.Supported) return;
         var scope = CombatHarmonyBridge.CurrentScope;
         var source = scope?.PhysicalSource != null ? scope.PhysicalSource : info.fromCharacter;
         var ownership = ResolveOwnership(source);
         var attacker = ReadCharacterIdentity(source, "attacker");
         var cause = ResolveCause(info, scope, ownership);
-        Emit(NewEvent(scope, ownership) with
+        var value = NewEvent(scope, ownership) with
         {
             CauseKind = cause.Kind,
             CauseId = cause.Id,
@@ -339,7 +366,18 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             PlayerDeaths = 1,
             IsFinalBlow = true,
             IsDamageOverTime = scope?.IsDamageOverTime == true
-        }, allowTerminalPause: true);
+        };
+        if (scope?.WeaponTypeId is not > 0 && info.fromWeaponItemID > 0)
+        {
+            CombatObservationPolicy.ApplyOutcomeIdentity(
+                value,
+                value.ProjectileId,
+                info.fromWeaponItemID,
+                ReadItemDisplayName(info.fromWeaponItemID, "weapon"),
+                scope?.AmmunitionTypeId ?? -1,
+                scope?.AmmunitionDisplayName);
+        }
+        Emit(value, allowTerminalPause: true);
     }
 
     public bool TryCleanup()
@@ -365,8 +403,39 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         if (subscribedMainCharacter?.attackAction != null) subscribedMainCharacter.attackAction.OnAttack += OnMeleeAttack;
     }
 
+    private void SynchronizeProjectileContext()
+    {
+        var generationId = saveGenerationIdProvider();
+        var runId = runIdProvider() ?? string.Empty;
+        var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
+        if (string.Equals(projectileGenerationId, generationId, StringComparison.Ordinal)
+            && string.Equals(projectileRunId, runId, StringComparison.Ordinal)
+            && string.Equals(projectileMapId, mapId, StringComparison.Ordinal)) return;
+        ClearProjectileCorrelations();
+        projectileGenerationId = generationId;
+        projectileRunId = runId;
+        projectileMapId = mapId;
+    }
+
+    private bool MatchesCurrentContext(ProjectileSnapshot value) =>
+        CombatObservationPolicy.MatchesOriginatingContext(
+            value.SaveGenerationId,
+            value.RunId,
+            value.MapId,
+            saveGenerationIdProvider(),
+            runIdProvider() ?? string.Empty,
+            mapIdProvider() ?? MapIdentity.UnknownId);
+
+    private void ClearProjectileCorrelations()
+    {
+        projectiles.Clear();
+        projectileOrder.Clear();
+        CombatHarmonyBridge.ClearScopes();
+    }
+
     private void OnMeleeAttack()
     {
+        if (!IsActive || metricCapabilities.MeleeSwings.State != AdapterCapabilityState.Supported) return;
         var character = subscribedMainCharacter;
         var weapon = character?.GetMeleeWeapon();
         if (character == null || weapon == null || !character.IsMainCharacter) return;
@@ -384,7 +453,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         var runId = runIdProvider();
         var mapId = mapIdProvider();
-        return new CombatRecorded
+        var value = new CombatRecorded
         {
             EventId = Guid.NewGuid().ToString("N"),
             TimestampUtc = DateTime.UtcNow,
@@ -397,9 +466,16 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             GameBuild = SupportedGameBuild,
             AdapterVersion = AdapterVersion,
             Ownership = ownership,
-            ProjectileId = scope?.ProjectileId,
             Capabilities = MetricCapabilities
         };
+        CombatObservationPolicy.ApplyOutcomeIdentity(
+            value,
+            scope?.ProjectileId,
+            scope?.WeaponTypeId ?? -1,
+            scope?.WeaponDisplayName,
+            scope?.AmmunitionTypeId ?? -1,
+            scope?.AmmunitionDisplayName);
+        return value;
     }
 
     private bool Emit(CombatRecorded value, bool allowTerminalPause = false)
@@ -413,7 +489,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             // this terminal observation belongs to raid gameplay.
             value.GameplayContext = GameplayContext.Raid;
         }
-        if (!CanObserveHealth || string.IsNullOrWhiteSpace(value.RunId)
+        if (!IsActive || string.IsNullOrWhiteSpace(value.RunId)
             || string.IsNullOrWhiteSpace(value.SaveGenerationId)
             || value.GameplayContext != GameplayContext.Raid
             || SceneLoader.IsSceneLoading || LevelManager.LevelInitializing
@@ -487,6 +563,16 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         diagnosticHandler(detail);
     }
 
+    private void ActivateCapabilities(CombatHookSupport support, string detail)
+    {
+        hookSupport = support;
+        metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
+        initialized = true;
+        PublishCapabilities();
+        SynchronizeMainCharacter();
+        diagnosticHandler(detail);
+    }
+
     private void PublishCapabilities() =>
         capabilityHandler(CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
 
@@ -494,9 +580,10 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         if (subscribedMainCharacter?.attackAction != null) subscribedMainCharacter.attackAction.OnAttack -= OnMeleeAttack;
         subscribedMainCharacter = null;
-        projectiles.Clear();
-        projectileOrder.Clear();
-        CombatHarmonyBridge.ClearScopes();
+        ClearProjectileCorrelations();
+        projectileGenerationId = string.Empty;
+        projectileRunId = string.Empty;
+        projectileMapId = string.Empty;
         CombatHarmonyBridge.Detach(this);
     }
 
@@ -521,9 +608,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         return true;
     }
 
-    private static bool TryResolveContracts(out ResolvedMethods methods, out string failure)
+    private static ResolvedMethods ResolveContracts()
     {
-        methods = new ResolvedMethods
+        return new ResolvedMethods
         {
             HealthHurt = Exact(typeof(Health), "Hurt", BindingFlags.Instance | BindingFlags.Public, typeof(bool), typeof(DamageInfo)),
             ProjectileInit = Exact(typeof(Projectile), "Init", BindingFlags.Instance | BindingFlags.Public, typeof(void), typeof(ProjectileContext)),
@@ -532,28 +619,50 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             MeleeCheck = Exact(typeof(ItemAgent_MeleeWeapon), "CheckCollidersInRange", BindingFlags.Instance | BindingFlags.NonPublic, typeof(int), typeof(bool)),
             EffectTrigger = Exact(typeof(Effect), "Trigger", BindingFlags.Instance | BindingFlags.NonPublic, typeof(void), typeof(EffectTriggerEventContext))
         };
-        if (methods.All.Any(x => x == null))
-        {
-            failure = "Exact Health.Hurt, Projectile Init/Update/Release, melee collision, or effect trigger contract is missing or changed.";
-            return false;
-        }
-        failure = string.Empty;
-        return true;
     }
 
-    private static MethodInfo Exact(Type type, string name, BindingFlags flags, Type returnType, params Type[] parameters) =>
+    private static MethodInfo? Exact(Type type, string name, BindingFlags flags, Type returnType, params Type[] parameters) =>
         type.GetMethods(flags).SingleOrDefault(x => x.Name == name && x.ReturnType == returnType
-            && x.GetParameters().Select(p => p.ParameterType).SequenceEqual(parameters))!;
+            && x.GetParameters().Select(p => p.ParameterType).SequenceEqual(parameters));
 
     private static PatchRegistration[] CreateRegistrations(ResolvedMethods m) =>
-    [
-        new(m.HealthHurt, [new("Prefixes", CombatHarmonyCallbacks.HealthPrefixMethod), new("Postfixes", CombatHarmonyCallbacks.HealthPostfixMethod)]),
-        new(m.ProjectileInit, [new("Postfixes", CombatHarmonyCallbacks.ProjectileInitPostfixMethod)]),
-        new(m.ProjectileUpdate, [new("Prefixes", CombatHarmonyCallbacks.ProjectileUpdatePrefixMethod), new("Finalizers", CombatHarmonyCallbacks.ProjectileUpdateFinalizerMethod)]),
-        new(m.ProjectileRelease, [new("Prefixes", CombatHarmonyCallbacks.ProjectileReleasePrefixMethod)]),
-        new(m.MeleeCheck, [new("Prefixes", CombatHarmonyCallbacks.MeleePrefixMethod), new("Finalizers", CombatHarmonyCallbacks.MeleeFinalizerMethod)]),
-        new(m.EffectTrigger, [new("Prefixes", CombatHarmonyCallbacks.EffectPrefixMethod), new("Finalizers", CombatHarmonyCallbacks.EffectFinalizerMethod)])
-    ];
+        new (CombatHook Hook, MethodInfo? Method, HarmonyPatchExpectation[] Expected)[]
+        {
+            (CombatHook.HealthHurt, m.HealthHurt, [new("Prefixes", CombatHarmonyCallbacks.HealthPrefixMethod), new("Postfixes", CombatHarmonyCallbacks.HealthPostfixMethod)]),
+            (CombatHook.ProjectileInit, m.ProjectileInit, [new("Postfixes", CombatHarmonyCallbacks.ProjectileInitPostfixMethod)]),
+            (CombatHook.ProjectileUpdate, m.ProjectileUpdate, [new("Prefixes", CombatHarmonyCallbacks.ProjectileUpdatePrefixMethod), new("Finalizers", CombatHarmonyCallbacks.ProjectileUpdateFinalizerMethod)]),
+            (CombatHook.ProjectileRelease, m.ProjectileRelease, [new("Prefixes", CombatHarmonyCallbacks.ProjectileReleasePrefixMethod)]),
+            (CombatHook.MeleeCheck, m.MeleeCheck, [new("Prefixes", CombatHarmonyCallbacks.MeleePrefixMethod), new("Finalizers", CombatHarmonyCallbacks.MeleeFinalizerMethod)]),
+            (CombatHook.EffectTrigger, m.EffectTrigger, [new("Prefixes", CombatHarmonyCallbacks.EffectPrefixMethod), new("Finalizers", CombatHarmonyCallbacks.EffectFinalizerMethod)])
+        }
+        .Where(x => x.Method != null)
+        .Select(x => new PatchRegistration(x.Hook, x.Method!, x.Expected))
+        .ToArray();
+
+    private static void ApplyPatch(ReflectiveHarmonyPatcher patcher, PatchRegistration registration)
+    {
+        switch (registration.Hook)
+        {
+            case CombatHook.HealthHurt:
+                patcher.Patch(registration.Original, CombatHarmonyCallbacks.HealthPrefixMethod, CombatHarmonyCallbacks.HealthPostfixMethod);
+                break;
+            case CombatHook.ProjectileInit:
+                patcher.Patch(registration.Original, postfix: CombatHarmonyCallbacks.ProjectileInitPostfixMethod);
+                break;
+            case CombatHook.ProjectileUpdate:
+                patcher.Patch(registration.Original, CombatHarmonyCallbacks.ProjectileUpdatePrefixMethod, finalizer: CombatHarmonyCallbacks.ProjectileUpdateFinalizerMethod);
+                break;
+            case CombatHook.ProjectileRelease:
+                patcher.Patch(registration.Original, CombatHarmonyCallbacks.ProjectileReleasePrefixMethod);
+                break;
+            case CombatHook.MeleeCheck:
+                patcher.Patch(registration.Original, CombatHarmonyCallbacks.MeleePrefixMethod, finalizer: CombatHarmonyCallbacks.MeleeFinalizerMethod);
+                break;
+            case CombatHook.EffectTrigger:
+                patcher.Patch(registration.Original, CombatHarmonyCallbacks.EffectPrefixMethod, finalizer: CombatHarmonyCallbacks.EffectFinalizerMethod);
+                break;
+        }
+    }
 
     private static Exception Unwrap(Exception exception) =>
         exception is TargetInvocationException { InnerException: not null } invocation ? invocation.InnerException : exception;
@@ -561,6 +670,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private sealed class ProjectileSnapshot
     {
         public string ProjectileId { get; set; } = string.Empty;
+        public string SaveGenerationId { get; set; } = string.Empty;
+        public string RunId { get; set; } = string.Empty;
+        public string MapId { get; set; } = string.Empty;
         public CharacterMainControl? PhysicalSource { get; set; }
         public bool IsExactPlayer { get; set; }
         public bool HeadTargeted { get; set; }
@@ -585,20 +697,80 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     private sealed class ResolvedMethods
     {
-        public MethodInfo HealthHurt { get; set; } = null!;
-        public MethodInfo ProjectileInit { get; set; } = null!;
-        public MethodInfo ProjectileUpdate { get; set; } = null!;
-        public MethodInfo ProjectileRelease { get; set; } = null!;
-        public MethodInfo MeleeCheck { get; set; } = null!;
-        public MethodInfo EffectTrigger { get; set; } = null!;
-        public MethodInfo[] All => [HealthHurt, ProjectileInit, ProjectileUpdate, ProjectileRelease, MeleeCheck, EffectTrigger];
+        public MethodInfo? HealthHurt { get; set; }
+        public MethodInfo? ProjectileInit { get; set; }
+        public MethodInfo? ProjectileUpdate { get; set; }
+        public MethodInfo? ProjectileRelease { get; set; }
+        public MethodInfo? MeleeCheck { get; set; }
+        public MethodInfo? EffectTrigger { get; set; }
+
+        public CombatHookSupport CreateHookSupport() => new()
+        {
+            HealthHurt = HealthHurt != null,
+            ProjectileInit = ProjectileInit != null,
+            ProjectileUpdate = ProjectileUpdate != null,
+            ProjectileRelease = ProjectileRelease != null,
+            MeleeCheck = MeleeCheck != null,
+            EffectTrigger = EffectTrigger != null,
+            PublicMeleeSwing = true,
+            PublicPlayerDeath = true
+        };
     }
 
     private sealed class PatchRegistration
     {
-        public PatchRegistration(MethodInfo original, HarmonyPatchExpectation[] expected)
-        { Original = original; Expected = expected; }
+        public PatchRegistration(CombatHook hook, MethodInfo original, HarmonyPatchExpectation[] expected)
+        { Hook = hook; Original = original; Expected = expected; }
+        public CombatHook Hook { get; }
         public MethodInfo Original { get; }
         public HarmonyPatchExpectation[] Expected { get; }
+        public bool Disabled { get; set; }
+    }
+
+    internal enum CombatHook
+    {
+        HealthHurt,
+        ProjectileInit,
+        ProjectileUpdate,
+        ProjectileRelease,
+        MeleeCheck,
+        EffectTrigger
+    }
+}
+
+internal static class CombatHookSupportExtensions
+{
+    public static bool IsEnabled(this CombatHookSupport support, NativeCombatAttributionAdapter.CombatHook hook) => hook switch
+    {
+        NativeCombatAttributionAdapter.CombatHook.HealthHurt => support.HealthHurt,
+        NativeCombatAttributionAdapter.CombatHook.ProjectileInit => support.ProjectileInit,
+        NativeCombatAttributionAdapter.CombatHook.ProjectileUpdate => support.ProjectileUpdate,
+        NativeCombatAttributionAdapter.CombatHook.ProjectileRelease => support.ProjectileRelease,
+        NativeCombatAttributionAdapter.CombatHook.MeleeCheck => support.MeleeCheck,
+        NativeCombatAttributionAdapter.CombatHook.EffectTrigger => support.EffectTrigger,
+        _ => false
+    };
+
+    public static void Disable(this CombatHookSupport support, NativeCombatAttributionAdapter.CombatHook hook)
+    {
+        switch (hook)
+        {
+            case NativeCombatAttributionAdapter.CombatHook.HealthHurt: support.HealthHurt = false; break;
+            case NativeCombatAttributionAdapter.CombatHook.ProjectileInit: support.ProjectileInit = false; break;
+            case NativeCombatAttributionAdapter.CombatHook.ProjectileUpdate: support.ProjectileUpdate = false; break;
+            case NativeCombatAttributionAdapter.CombatHook.ProjectileRelease: support.ProjectileRelease = false; break;
+            case NativeCombatAttributionAdapter.CombatHook.MeleeCheck: support.MeleeCheck = false; break;
+            case NativeCombatAttributionAdapter.CombatHook.EffectTrigger: support.EffectTrigger = false; break;
+        }
+    }
+
+    public static void DisableHarmonyHooks(this CombatHookSupport support)
+    {
+        support.HealthHurt = false;
+        support.ProjectileInit = false;
+        support.ProjectileUpdate = false;
+        support.ProjectileRelease = false;
+        support.MeleeCheck = false;
+        support.EffectTrigger = false;
     }
 }

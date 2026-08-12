@@ -252,6 +252,50 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
+    [Trait("Category", "Combat")]
+    public void ActiveRunRecoveryUsesValidBackupWhenPrimaryHasSemanticallyInvalidCombatState()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var backup = Checkpoint(generation, 5);
+        backup.CombatStatistics.Totals.DamageCaused = 5;
+        backup.CombatStatistics.Totals.DamageDealt = 5;
+        var primary = Checkpoint(generation, 8);
+        primary.CombatStatistics.Totals.DamageCaused = 8;
+        primary.CombatStatistics.Totals.DamageDealt = 8;
+        repository.SaveActiveRun(backup);
+        repository.SaveActiveRun(primary);
+        repository.CloseClean();
+        var path = ActiveRunPath(directory.Path);
+        var json = File.ReadAllText(path);
+        const string validCounter = "\"DamageDealt\":8";
+        var counterIndex = json.IndexOf(validCounter, StringComparison.Ordinal);
+        Assert.True(counterIndex >= 0);
+        File.WriteAllText(
+            path,
+            string.Concat(
+                json.AsSpan(0, counterIndex),
+                "\"DamageDealt\":-1",
+                json.AsSpan(counterIndex + validCounter.Length)));
+
+        var recovery = Repository(directory.Path);
+        var result = recovery.Open(Identity());
+
+        Assert.True(result.InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Equal(5, run.CombatStatistics.Totals.DamageDealt);
+        Assert.False(run.CombatStatistics.WasRepairedFromInvalidState);
+        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(path)));
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
     public void ActiveRunRecoveryUsesOrphanedTemporarySnapshot()
     {
         using var directory = new TemporaryDirectory();

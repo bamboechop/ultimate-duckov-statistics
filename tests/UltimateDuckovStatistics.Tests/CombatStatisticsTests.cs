@@ -161,21 +161,113 @@ public sealed class CombatStatisticsTests
 
     [Fact]
     [Trait("Category", "Combat")]
-    public void FriendlyTargetDamageRemainsInTotalsButNotEnemyOrFamilyBreakdowns()
+    public void FriendlyTargetAndUnrelatedNpcDamageAreRejectedBeforeAggregation()
     {
         var aggregate = new CombatStatisticsAggregate();
-        CombatStatisticsReducer.Apply(aggregate, Event("friendly") with
-        {
-            TargetIsEnemy = false,
-            Ownership = CombatOwnership.Player,
-            ActualDamageToTarget = 6,
-            ActualDamageDealt = 6
-        });
+        Assert.False(CombatObservationPolicy.ShouldRecordHealthTransition(
+            targetIsMain: false, targetIsEnemy: false, CombatOwnership.Player));
+        Assert.False(CombatObservationPolicy.ShouldRecordHealthTransition(
+            targetIsMain: false, targetIsEnemy: true, CombatOwnership.Unknown));
+        Assert.True(CombatObservationPolicy.ShouldRecordHealthTransition(
+            targetIsMain: false, targetIsEnemy: true, CombatOwnership.Player));
+        Assert.True(CombatObservationPolicy.ShouldRecordHealthTransition(
+            targetIsMain: false, targetIsEnemy: true, CombatOwnership.PetCompanion));
+        Assert.True(CombatObservationPolicy.ShouldRecordHealthTransition(
+            targetIsMain: false, targetIsEnemy: true, CombatOwnership.Environmental));
+        Assert.True(CombatObservationPolicy.ShouldRecordHealthTransition(
+            targetIsMain: true, targetIsEnemy: false, CombatOwnership.Unknown));
 
-        Assert.Equal(6, aggregate.Totals.DamageDealt);
+        Assert.Equal(0, aggregate.Totals.DamageCaused);
+        Assert.Equal(0, aggregate.Totals.DamageDealt);
         Assert.Empty(aggregate.Enemies);
         Assert.Empty(aggregate.Families);
-        Assert.Equal(6, aggregate.Ownership[nameof(CombatOwnership.Player)].Totals.DamageCaused);
+        Assert.Empty(aggregate.Ownership);
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    public void ProjectileCompletionAndDeathOutcomesRetainCapturedWeaponAndAmmunitionIdentity()
+    {
+        var completion = Event("completion");
+        var death = Event("death");
+
+        foreach (var value in new[] { completion, death })
+        {
+            CombatObservationPolicy.ApplyOutcomeIdentity(
+                value,
+                "projectile-1",
+                100,
+                "TT-33",
+                200,
+                "Rost-Muni");
+            Assert.Equal("projectile-1", value.ProjectileId);
+            Assert.Equal("duckov:weapon:100", value.WeaponId);
+            Assert.Equal("TT-33", value.WeaponDisplayName);
+            Assert.Equal("duckov:ammo:200", value.AmmunitionId);
+            Assert.Equal("Rost-Muni", value.AmmunitionDisplayName);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    public void ProjectileCorrelationMatchesOnlyItsOriginatingGenerationRunAndMap()
+    {
+        Assert.True(CombatObservationPolicy.MatchesOriginatingContext(
+            "generation-1", "run-1", "map-1", "generation-1", "run-1", "map-1"));
+        Assert.False(CombatObservationPolicy.MatchesOriginatingContext(
+            "generation-1", "run-1", "map-1", "generation-2", "run-1", "map-1"));
+        Assert.False(CombatObservationPolicy.MatchesOriginatingContext(
+            "generation-1", "run-1", "map-1", "generation-1", "run-2", "map-1"));
+        Assert.False(CombatObservationPolicy.MatchesOriginatingContext(
+            "generation-1", "run-1", "map-1", "generation-1", "run-1", "map-2"));
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    public void MissingHookDisablesOnlyItsDependentCapabilities()
+    {
+        var withoutEffect = CombatNativeContractPolicy.CreateCapabilities(AllHooks() with { EffectTrigger = false });
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.DamageOverTime.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.DamageDealt.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.Accuracy.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.MeleeHits.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.PlayerDeaths.State);
+
+        var withoutRelease = CombatNativeContractPolicy.CreateCapabilities(AllHooks() with { ProjectileRelease = false });
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutRelease.RangedHits.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutRelease.Accuracy.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutRelease.AmmunitionIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutRelease.Headshots.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutRelease.DamageDealt.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutRelease.MeleeSwings.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutRelease.PlayerDeaths.State);
+
+        var withoutHealth = CombatNativeContractPolicy.CreateCapabilities(AllHooks() with { HealthHurt = false });
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.DamageDealt.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.DamageReceived.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.EnemiesKilled.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.MeleeHits.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutHealth.MeleeSwings.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutHealth.PlayerDeaths.State);
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "Persistence")]
+    public void RecoveryCandidateValidationRejectsNegativeNonFiniteAndImpossibleCombatState()
+    {
+        var negative = new CombatStatisticsAggregate();
+        negative.Totals.DamageDealt = -1;
+        Assert.Throws<ArgumentOutOfRangeException>(() => CombatStatisticsReducer.ValidateRecoveryCandidate(negative));
+
+        var nonFinite = new CombatStatisticsAggregate();
+        nonFinite.Totals.DamageReceived = double.NaN;
+        Assert.Throws<ArgumentOutOfRangeException>(() => CombatStatisticsReducer.ValidateRecoveryCandidate(nonFinite));
+
+        var impossible = new CombatStatisticsAggregate();
+        impossible.Totals.CompletedPlayerProjectiles = 1;
+        impossible.Totals.RangedHits = 2;
+        Assert.Throws<ArgumentException>(() => CombatStatisticsReducer.ValidateRecoveryCandidate(impossible));
     }
 
     [Fact]
@@ -541,5 +633,17 @@ public sealed class CombatStatisticsTests
             CreatedUtc = Now,
             UpdatedUtc = Now
         }
+    };
+
+    private static CombatHookSupport AllHooks() => new()
+    {
+        HealthHurt = true,
+        ProjectileInit = true,
+        ProjectileUpdate = true,
+        ProjectileRelease = true,
+        MeleeCheck = true,
+        EffectTrigger = true,
+        PublicMeleeSwing = true,
+        PublicPlayerDeath = true
     };
 }
