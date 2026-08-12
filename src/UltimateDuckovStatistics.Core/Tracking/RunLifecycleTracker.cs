@@ -48,6 +48,8 @@ public sealed class RunStartContext
     public CombatMetricCapabilities CombatCapabilities { get; set; } = new();
 
     public EquipmentMetricCapabilities EquipmentCapabilities { get; set; } = new();
+
+    public ContainerMetricCapabilities ContainerCapabilities { get; set; } = new();
 }
 
 public sealed class RunLifecycleEvent
@@ -309,10 +311,41 @@ public sealed class RunLifecycleTracker
         return true;
     }
 
+    public bool RecordContainer(ContainerLooted value)
+    {
+        if (active == null
+            || value == null
+            || !string.Equals(value.SaveGenerationId, active.Context.SaveGenerationId, StringComparison.Ordinal)
+            || !string.Equals(value.RunId, active.RunId, StringComparison.Ordinal)
+            || !string.Equals(value.MapId, active.Context.Map.MapId, StringComparison.Ordinal)
+            || value.GameplayContext != GameplayContext.Raid)
+        {
+            return false;
+        }
+
+        var wasSaturated = active.ContainerState.DeduplicationSaturated;
+        var accepted = ContainerStatisticsReducer.Record(active.ContainerState, value);
+        var saturationChanged = active.ContainerState.DeduplicationSaturated != wasSaturated;
+        if (accepted)
+        {
+            active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(active.Context.IntegrityTags, value.IntegrityTags);
+        }
+        if (accepted || saturationChanged) combatCheckpointRequired = true;
+        return accepted;
+    }
+
     public bool UpdateCombatCapabilities(CombatMetricCapabilities capabilities)
     {
         if (active == null || capabilities == null) return false;
         CombatStatisticsReducer.RestrictCapabilities(active.CombatStatistics, capabilities);
+        combatCheckpointRequired = true;
+        return true;
+    }
+
+    public bool UpdateContainerCapabilities(ContainerMetricCapabilities capabilities)
+    {
+        if (active == null || capabilities == null) return false;
+        ContainerStatisticsReducer.RestrictCapabilities(active.ContainerState.Statistics, capabilities);
         combatCheckpointRequired = true;
         return true;
     }
@@ -380,7 +413,8 @@ public sealed class RunLifecycleTracker
             MapAdapterVersion = active.Context.MapAdapterVersion,
             WeaponStatistics = WeaponStatisticsReducer.Clone(active.WeaponStatistics),
             CombatStatistics = CombatStatisticsReducer.Clone(active.CombatStatistics),
-            EquipmentStatistics = EquipmentStatisticsReducer.Clone(active.EquipmentStatistics)
+            EquipmentStatistics = EquipmentStatisticsReducer.Clone(active.EquipmentStatistics),
+            ContainerState = ContainerStatisticsReducer.Clone(active.ContainerState)
         };
     }
 
@@ -489,7 +523,8 @@ public sealed class RunLifecycleTracker
             MapAdapterVersion = state.Context.MapAdapterVersion,
             WeaponStatistics = WeaponStatisticsReducer.Clone(state.WeaponStatistics),
             CombatStatistics = CombatStatisticsReducer.Clone(state.CombatStatistics),
-            EquipmentStatistics = EquipmentStatisticsReducer.Clone(state.EquipmentStatistics)
+            EquipmentStatistics = EquipmentStatisticsReducer.Clone(state.EquipmentStatistics),
+            ContainerStatistics = ContainerStatisticsReducer.Clone(state.ContainerState.Statistics)
         };
 
         active = null;
@@ -566,6 +601,7 @@ public sealed class RunLifecycleTracker
             WeaponStatistics.Capabilities = WeaponStatisticsReducer.CloneCapabilities(context.WeaponCapabilities);
             CombatStatistics.Capabilities = CombatStatisticsReducer.CloneCapabilities(context.CombatCapabilities);
             EquipmentStatistics.Capabilities = EquipmentStatisticsReducer.CloneCapabilities(context.EquipmentCapabilities);
+            ContainerState.Statistics.Capabilities = ContainerStatisticsReducer.CloneCapabilities(context.ContainerCapabilities);
         }
 
         public string RunId { get; }
@@ -585,6 +621,8 @@ public sealed class RunLifecycleTracker
         public CombatStatisticsAggregate CombatStatistics { get; } = new();
 
         public EquipmentStatisticsAggregate EquipmentStatistics { get; } = new();
+
+        public ContainerRunCheckpointState ContainerState { get; } = new();
 
         public HashSet<string> RecentShotEventIds { get; } = new(StringComparer.Ordinal);
 

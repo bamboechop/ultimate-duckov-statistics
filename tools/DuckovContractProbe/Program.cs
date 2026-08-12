@@ -100,6 +100,7 @@ try
         core.RequireEvent("Duckov", "CheatMode", "OnCheatModeStatusChanged", "System.Action", "System.Boolean");
         core.RequireEvent("Duckov.Rules", "GameRulesManager", "OnRuleChanged", "System.Action");
         core.RequireEvent(string.Empty, "CharacterMainControl", "OnSetPositionEvent", "System.Action", "CharacterMainControl", "UnityEngine.Vector3");
+        core.RequirePublicStaticEvent(string.Empty, "InteractableLootbox", "OnStartLoot", "System.Action", "InteractableLootbox");
         core.RequirePublicStaticEvent(string.Empty, "ItemAgent_Gun", "OnMainCharacterShootEvent", "System.Action", "ItemAgent_Gun");
         core.RequireField(string.Empty, "CharacterMainControl", "OnMainCharacterSlotContentChangedEvent", mustBePublic: true);
         core.RequireField(string.Empty, "CharacterMainControl", "OnMainCharacterChangeHoldItemAgentEvent", mustBePublic: true);
@@ -132,6 +133,8 @@ try
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterWalkSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterRunSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "DashSpeed", "System.Single", mustBePublic: true);
+        core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "Prefabs", "PrefabsData", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "PrefabsData", "LootBoxPrefab_Tomb", "InteractableLootbox", mustBePublic: true);
         core.RequireProperty(string.Empty, "DuckovItemAgent", "Holder", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty(string.Empty, "ItemAgent_Gun", "GunItemSetting", "ItemSetting_Gun", mustBePublic: true);
         core.RequireProperty(string.Empty, "ItemSetting_Gun", "TargetBulletID", "System.Int32", mustBePublic: true);
@@ -141,6 +144,12 @@ try
         core.RequireProperty(string.Empty, "SceneInfoEntry", "DisplayName", "System.String", mustBePublic: true);
         core.RequireMethod(string.Empty, "LevelManager", "GetCurrentLevelInfo", parameterCount: 0);
         core.RequireMethod(string.Empty, "CharacterMainControl", "SetPosition", parameterCount: 1, mustBePublic: true, returnTypeFragment: "System.Void", parameterTypeFragments: ["UnityEngine.Vector3"]);
+        core.RequireMethod(string.Empty, "InteractableLootbox", "GetKey", 0, mustBePrivate: true, returnTypeFragment: "System.Int32");
+        core.RequireMethod(string.Empty, "CharacterMainControl", "OnDead", 1, mustBePrivate: true, returnTypeFragment: "System.Void", parameterTypeFragments: ["DamageInfo"]);
+        core.RequireMethod(string.Empty, "InteractableLootbox", "CreateFromItem", 6, mustBePublic: true, mustBeStatic: true,
+            returnTypeFragment: "InteractableLootbox",
+            parameterTypeFragments: ["ItemStatsSystem.Item", "UnityEngine.Vector3", "UnityEngine.Quaternion", "System.Boolean", "InteractableLootbox", "System.Boolean"]);
+        core.RequireField(string.Empty, "InteractableBase", "interactCharacter", mustBeFamily: true, fieldTypeFragment: "CharacterMainControl");
         core.RequireMethod(string.Empty, "SceneInfoCollection", "GetSceneID", parameterCount: 1, mustBePublic: true, returnTypeFragment: "System.String", parameterTypeFragments: ["System.Int32"]);
         core.RequireMethod(string.Empty, "SceneInfoCollection", "GetSceneInfo", parameterCount: 1, mustBePublic: true, returnTypeFragment: "SceneInfoEntry", parameterTypeFragments: ["System.String"]);
         core.RequireMethod(
@@ -236,7 +245,7 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, item/healing, run lifecycle, movement, weapon, combat, equipment-slot, selected-weapon, attachment-tree, direct-totem, and tote-content contracts are present.");
+    Console.WriteLine("  Native loader, item/healing, run lifecycle, movement, weapon, combat, equipment, and successful unique-container access/corpse-provenance contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption and M6 tote activation remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
@@ -519,15 +528,25 @@ internal sealed class AssemblyMetadata : IDisposable
         throw new ContractException($"Required property not found: {@namespace}.{typeName}.{propertyName}.");
     }
 
-    public void RequireField(string @namespace, string typeName, string fieldName, bool mustBePublic = false)
+    public void RequireField(
+        string @namespace,
+        string typeName,
+        string fieldName,
+        bool mustBePublic = false,
+        bool mustBeFamily = false,
+        string? fieldTypeFragment = null)
     {
         var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
         foreach (var handle in type.GetFields())
         {
             var field = reader.GetFieldDefinition(handle);
             if (string.Equals(reader.GetString(field.Name), fieldName, StringComparison.Ordinal)
+                && (fieldTypeFragment == null
+                    || field.DecodeSignature(typeProvider, reader).Contains(fieldTypeFragment, StringComparison.Ordinal))
                 && (!mustBePublic
-                    || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Public))
+                    || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Public)
+                && (!mustBeFamily
+                    || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Family))
             {
                 return;
             }

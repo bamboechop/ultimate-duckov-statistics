@@ -23,6 +23,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private readonly ProcessLifetimeCleanupOwner<NativeWeaponFireAdapter> weaponFireAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeCombatAttributionAdapter> combatAttributionAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeEquipmentAdapter> equipmentAdapter = new();
+    private readonly ProcessLifetimeCleanupOwner<NativeContainerAdapter> containerAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
 
     protected override void OnAfterSetup()
@@ -71,6 +72,15 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 return;
             }
 
+            if (containerAdapter.HasValue
+                && (!containerAdapter.HasPendingCleanup || !containerAdapter.TryCleanupPending()))
+            {
+                Debug.LogError(
+                    $"{LogPrefix} activation blocked while another container owner is active "
+                    + "or prior subscriptions/patches await cleanup.");
+                return;
+            }
+
             profileCoordinator = new NativeProfileCoordinator();
             profileCoordinator.Initialize();
             healingAttributionAdapter = new NativeHealingAttributionAdapter(
@@ -86,8 +96,20 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 message => Debug.Log($"{LogPrefix} {message}"),
                 () => weaponFireAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.WeaponMetricCapabilities(),
                 () => combatAttributionAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.CombatMetricCapabilities(),
-                () => equipmentAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.EquipmentMetricCapabilities());
+                () => equipmentAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.EquipmentMetricCapabilities(),
+                () => containerAdapter.OwnedValue?.MetricCapabilities ?? new Core.Statistics.ContainerMetricCapabilities());
             runLifecycleAdapter.Assign(newRunLifecycleAdapter);
+            var newContainerAdapter = new NativeContainerAdapter(
+                () => profileCoordinator.CurrentGenerationId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentMapId,
+                () => runLifecycleAdapter.OwnedValue?.IsActive == true,
+                value => runLifecycleAdapter.OwnedValue?.RecordContainer(value) == true,
+                profileCoordinator.SetContainerCapabilities,
+                capabilities => runLifecycleAdapter.OwnedValue?.UpdateContainerCapabilities(capabilities),
+                message => Debug.Log($"{LogPrefix} {message}"));
+            containerAdapter.Assign(newContainerAdapter);
+            newContainerAdapter.Initialize();
             var newEquipmentAdapter = new NativeEquipmentAdapter(
                 () => runLifecycleAdapter.OwnedValue?.IsActive == true,
                 snapshot => runLifecycleAdapter.OwnedValue?.ObserveEquipment(snapshot) == true,
@@ -158,7 +180,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             && runLifecycleAdapter.OwnedValue == null
             && weaponFireAdapter.OwnedValue == null
             && combatAttributionAdapter.OwnedValue == null
-            && equipmentAdapter.OwnedValue == null)
+            && equipmentAdapter.OwnedValue == null
+            && containerAdapter.OwnedValue == null)
         {
             return;
         }
@@ -174,6 +197,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         itemUseAdapter?.Tick(DateTime.UtcNow);
         healingAttributionAdapter?.Tick();
         combatAttributionAdapter.OwnedValue?.Tick();
+        containerAdapter.OwnedValue?.Tick();
         statisticsPanel?.Tick();
     }
 
@@ -221,6 +245,11 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         if (!equipmentAdapter.TryCleanupOwned())
         {
             Debug.LogWarning($"{LogPrefix} equipment adapter retained for a later cleanup retry.");
+        }
+
+        if (!containerAdapter.TryCleanupOwned())
+        {
+            Debug.LogWarning($"{LogPrefix} container adapter retained for a later cleanup retry.");
         }
 
         if (!runLifecycleAdapter.TryCleanupOwned())

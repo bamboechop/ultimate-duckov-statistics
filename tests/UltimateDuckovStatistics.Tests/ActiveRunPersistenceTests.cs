@@ -12,6 +12,125 @@ public sealed class ActiveRunPersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "Container")]
+    public void ContainerStableKeysAndTotalAreRecoveredFromCrashCheckpoint()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var checkpoint = Checkpoint(repository.CurrentGenerationId, 4);
+        checkpoint.ContainerState = ContainerCheckpoint(11, 22);
+        repository.SaveActiveRun(checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(2, run.ContainerStatistics.UniqueContainersLooted);
+        Assert.Equal(2, recovery.Current.Statistics.RunTotals.ContainerStatistics.UniqueContainersLooted);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Container")]
+    public void ContainerCheckpointMismatchRejectsPrimaryAndRecoversValidBackup()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var backup = Checkpoint(generation, 5);
+        backup.ContainerState = ContainerCheckpoint(11);
+        repository.SaveActiveRun(backup);
+        repository.CloseClean();
+
+        var primary = Checkpoint(generation, 8);
+        primary.ContainerState = ContainerCheckpoint(11, 22);
+        primary.ContainerState.Statistics.UniqueContainersLooted = 1;
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), primary);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Equal(1, run.ContainerStatistics.UniqueContainersLooted);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Container")]
+    public void CurrentSchemaContainerRootMissingFromPrimaryRecoversValidBackup()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var backup = Checkpoint(generation, 5);
+        backup.ContainerState = ContainerCheckpoint(11);
+        repository.SaveActiveRun(backup);
+        repository.CloseClean();
+
+        var primary = Checkpoint(generation, 8);
+        primary.ContainerState = null!;
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), primary);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Equal(1, run.ContainerStatistics.UniqueContainersLooted);
+        recovery.CloseClean();
+    }
+
+    [Theory]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(true, true, false, false)]
+    [InlineData(false, false, true, false)]
+    [InlineData(false, false, false, true)]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Container")]
+    public void CurrentSchemaContainerNestedRootsMissingFromPrimaryRecoversValidBackup(
+        bool missingStatistics,
+        bool missingStableKeys,
+        bool missingCapabilities,
+        bool missingAvailability)
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var backup = Checkpoint(generation, 5);
+        backup.ContainerState = ContainerCheckpoint(11, 22);
+        repository.SaveActiveRun(backup);
+        repository.CloseClean();
+
+        var primary = Checkpoint(generation, 8);
+        var primaryStatistics = ContainerCheckpoint().Statistics;
+        if (missingCapabilities)
+            primaryStatistics.Capabilities = null!;
+        else if (missingAvailability)
+            primaryStatistics.Capabilities.UniqueContainersLooted = null!;
+        primary.ContainerState = new ContainerRunCheckpointState
+        {
+            Statistics = missingStatistics ? null! : primaryStatistics,
+            LootedContainerKeys = missingStableKeys ? null! : new List<int>()
+        };
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), primary);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Equal(2, run.ContainerStatistics.UniqueContainersLooted);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            run.ContainerStatistics.Capabilities.UniqueContainersLooted.State);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     [Trait("Category", "Equipment")]
     public void EquipmentStateAndActiveTimeAreRecoveredFromCrashCheckpoint()
     {
@@ -752,6 +871,16 @@ public sealed class ActiveRunPersistenceTests
         EquipmentStatisticsReducer.Advance(statistics, activeSeconds);
         return statistics;
     }
+
+    private static ContainerRunCheckpointState ContainerCheckpoint(params int[] keys) => new()
+    {
+        Statistics = new ContainerStatisticsAggregate
+        {
+            Capabilities = ContainerNativeContractPolicy.Supported(),
+            UniqueContainersLooted = keys.Length
+        },
+        LootedContainerKeys = keys.OrderBy(value => value).ToList()
+    };
 
     private static CombatRecorded CombatEvent(
         string generation,

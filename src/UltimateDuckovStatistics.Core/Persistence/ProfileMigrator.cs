@@ -29,9 +29,13 @@ public static class ProfileMigrator
                               || (profile.Statistics != null && profile.Statistics.SchemaVersion < 5);
         var migratingEquipment = profile.SchemaVersion < 6
                                  || (profile.Statistics != null && profile.Statistics.SchemaVersion < 6);
+        var migratingContainers = profile.SchemaVersion < 7
+                                  || (profile.Statistics != null && profile.Statistics.SchemaVersion < 7);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         var missingCurrentEquipmentRoot = !migratingEquipment
+                                          && (profile.Statistics == null || profile.Statistics.RunTotals == null);
+        var missingCurrentContainerRoot = !migratingContainers
                                           && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         if (profile.SchemaVersion < 1)
         {
@@ -194,6 +198,17 @@ public static class ProfileMigrator
             }
             changed |= EquipmentStatisticsReducer.NormalizePersisted(map.EquipmentStatistics);
             if (migratingEquipment) changed |= MarkHistoricalEquipmentUnavailable(map.EquipmentStatistics);
+
+            if (map.ContainerStatistics == null)
+            {
+                map.ContainerStatistics = new ContainerStatisticsAggregate
+                {
+                    WasRepairedFromInvalidState = !migratingContainers
+                };
+                changed = true;
+            }
+            changed |= ContainerStatisticsReducer.NormalizePersisted(map.ContainerStatistics);
+            if (migratingContainers) changed |= MarkHistoricalContainersUnavailable(map.ContainerStatistics);
         }
 
         if (profile.Statistics.RunTotals.WeaponStatistics == null)
@@ -234,6 +249,22 @@ public static class ProfileMigrator
         }
         if (migratingEquipment) changed |= MarkHistoricalEquipmentUnavailable(profile.Statistics.RunTotals.EquipmentStatistics);
 
+        if (profile.Statistics.RunTotals.ContainerStatistics == null)
+        {
+            profile.Statistics.RunTotals.ContainerStatistics = new ContainerStatisticsAggregate
+            {
+                WasRepairedFromInvalidState = !migratingContainers
+            };
+            changed = true;
+        }
+        changed |= ContainerStatisticsReducer.NormalizePersisted(profile.Statistics.RunTotals.ContainerStatistics);
+        if (missingCurrentContainerRoot)
+        {
+            profile.Statistics.RunTotals.ContainerStatistics.WasRepairedFromInvalidState = true;
+            changed = true;
+        }
+        if (migratingContainers) changed |= MarkHistoricalContainersUnavailable(profile.Statistics.RunTotals.ContainerStatistics);
+
         foreach (var run in profile.Statistics.Runs)
         {
             if (run.WeaponStatistics == null)
@@ -263,6 +294,17 @@ public static class ProfileMigrator
             }
             changed |= EquipmentStatisticsReducer.NormalizePersisted(run.EquipmentStatistics);
             if (migratingEquipment) changed |= MarkHistoricalEquipmentUnavailable(run.EquipmentStatistics);
+
+            if (run.ContainerStatistics == null)
+            {
+                run.ContainerStatistics = new ContainerStatisticsAggregate
+                {
+                    WasRepairedFromInvalidState = !migratingContainers
+                };
+                changed = true;
+            }
+            changed |= ContainerStatisticsReducer.NormalizePersisted(run.ContainerStatistics);
+            if (migratingContainers) changed |= MarkHistoricalContainersUnavailable(run.ContainerStatistics);
         }
 
         if (profile.Statistics.RunRecords == null)
@@ -364,6 +406,18 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 7)
+        {
+            profile.SchemaVersion = 7;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 7)
+        {
+            profile.Statistics.SchemaVersion = 7;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
@@ -394,6 +448,14 @@ public static class ProfileMigrator
     {
         const string provenance = "Historical schema predates M6; equipment and totem state was not recorded.";
         statistics.Capabilities = EquipmentNativeContractPolicy.CreateUnavailableCapabilities(provenance);
+        statistics.HistoricalUnavailable = true;
+        return true;
+    }
+
+    private static bool MarkHistoricalContainersUnavailable(ContainerStatisticsAggregate statistics)
+    {
+        const string provenance = "Historical schema predates M7; successful unique-container access was not recorded.";
+        statistics.Capabilities = ContainerNativeContractPolicy.Unavailable(provenance);
         statistics.HistoricalUnavailable = true;
         return true;
     }

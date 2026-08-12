@@ -96,7 +96,8 @@ public sealed class StatisticsExportBundle
         string ammunitionTotalsCsv,
         string equipmentTotalsCsv,
         string recurringLoadoutsCsv,
-        string equipmentCombatCsv)
+        string equipmentCombatCsv,
+        string containersCsv)
     {
         Document = document;
         Json = json;
@@ -114,6 +115,7 @@ public sealed class StatisticsExportBundle
         EquipmentTotalsCsv = equipmentTotalsCsv;
         RecurringLoadoutsCsv = recurringLoadoutsCsv;
         EquipmentCombatCsv = equipmentCombatCsv;
+        ContainersCsv = containersCsv;
     }
 
     public StatisticsExportDocument Document { get; }
@@ -147,6 +149,8 @@ public sealed class StatisticsExportBundle
     public string RecurringLoadoutsCsv { get; }
 
     public string EquipmentCombatCsv { get; }
+
+    public string ContainersCsv { get; }
 }
 
 public static class StatisticsExporter
@@ -177,6 +181,7 @@ public static class StatisticsExporter
             runTotals.CombatStatistics, profile.Capabilities, allowUninitializedFallback: true);
         runTotals.EquipmentStatistics.Capabilities = ApplyCurrentEquipmentCapabilityStates(
             runTotals.EquipmentStatistics, profile.Capabilities, allowUninitializedFallback: true);
+        ApplyCurrentContainerCapability(runTotals.ContainerStatistics, profile.Capabilities, allowUninitializedFallback: true);
         foreach (var map in runTotals.Maps.Values)
         {
             map.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
@@ -187,6 +192,7 @@ public static class StatisticsExporter
                 map.CombatStatistics, profile.Capabilities, allowUninitializedFallback: false);
             map.EquipmentStatistics.Capabilities = ApplyCurrentEquipmentCapabilityStates(
                 map.EquipmentStatistics, profile.Capabilities, allowUninitializedFallback: false);
+            ApplyCurrentContainerCapability(map.ContainerStatistics, profile.Capabilities, allowUninitializedFallback: false);
         }
 
         var runs = profile.Statistics.Runs.Select(CloneRun).ToList();
@@ -200,6 +206,7 @@ public static class StatisticsExporter
                 run.CombatStatistics, profile.Capabilities, allowUninitializedFallback: false);
             run.EquipmentStatistics.Capabilities = ApplyCurrentEquipmentCapabilityStates(
                 run.EquipmentStatistics, profile.Capabilities, allowUninitializedFallback: false);
+            ApplyCurrentContainerCapability(run.ContainerStatistics, profile.Capabilities, allowUninitializedFallback: false);
         }
 
         var document = new StatisticsExportDocument
@@ -250,7 +257,29 @@ public static class StatisticsExporter
             CreateAmmunitionTotalsCsv(document),
             CreateEquipmentTotalsCsv(document),
             CreateRecurringLoadoutsCsv(document),
-            CreateEquipmentCombatCsv(document));
+            CreateEquipmentCombatCsv(document),
+            CreateContainersCsv(document));
+    }
+
+    private static string CreateContainersCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,map_display_name,unique_containers_looted,capability,historical_unavailable,repaired_invalid_state");
+        Append("lifetime", document.GenerationId, string.Empty, document.RunTotals.ContainerStatistics);
+        foreach (var map in document.RunTotals.Maps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+            Append("map", map.MapId, map.DisplayName, map.ContainerStatistics);
+        foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
+            Append("run", run.RunId, run.MapDisplayName, run.ContainerStatistics);
+        return builder.ToString();
+
+        void Append(string scope, string scopeId, string mapName, ContainerStatisticsAggregate statistics)
+        {
+            builder.Append(Csv(scope)).Append(',').Append(Csv(scopeId)).Append(',').Append(Csv(mapName)).Append(',')
+                .Append(statistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(statistics.Capabilities.UniqueContainersLooted.State).Append(',')
+                .Append(statistics.HistoricalUnavailable ? "true" : "false").Append(',')
+                .Append(statistics.WasRepairedFromInvalidState ? "true" : "false").AppendLine();
+        }
     }
 
     private static string CreateEquipmentTotalsCsv(StatisticsExportDocument document)
@@ -382,7 +411,7 @@ public static class StatisticsExporter
     {
         var builder = new StringBuilder();
         builder.AppendLine(
-            "run_id,save_generation_id,native_raid_id,map_id,map_display_name,map_known,started_utc,ended_utc,active_duration_seconds,wall_clock_duration_seconds,outcome,physical_distance,teleport_distance,integrity_tags,record_eligible,game_version,game_build,lifecycle_capability,lifecycle_adapter_version,movement_capability,movement_adapter_version,map_capability,map_adapter_version");
+            "run_id,save_generation_id,native_raid_id,map_id,map_display_name,map_known,started_utc,ended_utc,active_duration_seconds,wall_clock_duration_seconds,outcome,physical_distance,teleport_distance,unique_containers_looted,container_capability,integrity_tags,record_eligible,game_version,game_build,lifecycle_capability,lifecycle_adapter_version,movement_capability,movement_adapter_version,map_capability,map_adapter_version");
         foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
         {
             builder.Append(Csv(run.RunId)).Append(',')
@@ -398,6 +427,8 @@ public static class StatisticsExporter
                 .Append(run.Outcome).Append(',')
                 .Append(run.PhysicalDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
                 .Append(run.TeleportDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(run.ContainerStatistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(run.ContainerStatistics.Capabilities.UniqueContainersLooted.State).Append(',')
                 .Append(Csv(run.IntegrityTags.ToString())).Append(',')
                 .Append(run.RecordEligible ? "true" : "false").Append(',')
                 .Append(Csv(run.GameVersion)).Append(',')
@@ -417,21 +448,23 @@ public static class StatisticsExporter
     {
         var totals = document.RunTotals;
         var builder = new StringBuilder();
-        builder.AppendLine("generation_id,total_runs,extracted,died,interrupted,physical_distance,teleport_distance");
+        builder.AppendLine("generation_id,total_runs,extracted,died,interrupted,physical_distance,teleport_distance,unique_containers_looted,container_capability");
         builder.Append(Csv(document.GenerationId)).Append(',')
             .Append(totals.TotalRuns.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(ReadOutcome(totals.Outcomes, RunOutcome.Extracted)).Append(',')
             .Append(ReadOutcome(totals.Outcomes, RunOutcome.Died)).Append(',')
             .Append(ReadOutcome(totals.Outcomes, RunOutcome.Interrupted)).Append(',')
             .Append(totals.PhysicalDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
-            .Append(totals.TeleportDistance.ToString("R", CultureInfo.InvariantCulture)).AppendLine();
+            .Append(totals.TeleportDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+            .Append(totals.ContainerStatistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(totals.ContainerStatistics.Capabilities.UniqueContainersLooted.State).AppendLine();
         return builder.ToString();
     }
 
     private static string CreateMapTotalsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("map_id,map_display_name,map_known,total_runs,extracted,died,interrupted,physical_distance,teleport_distance");
+        builder.AppendLine("map_id,map_display_name,map_known,total_runs,extracted,died,interrupted,physical_distance,teleport_distance,unique_containers_looted,container_capability");
         foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
         {
             builder.Append(Csv(map.MapId)).Append(',')
@@ -442,7 +475,9 @@ public static class StatisticsExporter
                 .Append(ReadOutcome(map.Outcomes, RunOutcome.Died)).Append(',')
                 .Append(ReadOutcome(map.Outcomes, RunOutcome.Interrupted)).Append(',')
                 .Append(map.PhysicalDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
-                .Append(map.TeleportDistance.ToString("R", CultureInfo.InvariantCulture)).AppendLine();
+                .Append(map.TeleportDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(map.ContainerStatistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(map.ContainerStatistics.Capabilities.UniqueContainersLooted.State).AppendLine();
         }
 
         return builder.ToString();
@@ -746,6 +781,22 @@ public static class StatisticsExporter
         }
     }
 
+    private static void ApplyCurrentContainerCapability(
+        ContainerStatisticsAggregate aggregate,
+        IReadOnlyList<CapabilityRecord> current,
+        bool allowUninitializedFallback)
+    {
+        if (!allowUninitializedFallback) return;
+        var capability = current.FirstOrDefault(candidate => string.Equals(
+            candidate.AdapterId,
+            ContainerCapabilityIds.UniqueContainersLooted,
+            StringComparison.Ordinal));
+        ContainerStatisticsReducer.ApplyCurrentAvailability(
+            aggregate,
+            capability?.State ?? AdapterCapabilityState.DisabledIncompatible,
+            capability?.Detail);
+    }
+
     private static AdapterCapabilityState ResolveAvailability(
         WeaponStatisticsAggregate aggregate,
         MetricAvailability recorded,
@@ -836,6 +887,7 @@ public static class StatisticsExporter
         WeaponStatistics = WeaponStatisticsReducer.Clone(source.WeaponStatistics),
         CombatStatistics = CombatStatisticsReducer.Clone(source.CombatStatistics),
         EquipmentStatistics = EquipmentStatisticsReducer.Clone(source.EquipmentStatistics),
+        ContainerStatistics = ContainerStatisticsReducer.Clone(source.ContainerStatistics),
         Maps = source.Maps.ToDictionary(
             entry => entry.Key,
             entry => new MapRunAggregate
@@ -849,7 +901,8 @@ public static class StatisticsExporter
                 TeleportDistance = entry.Value.TeleportDistance,
                 WeaponStatistics = WeaponStatisticsReducer.Clone(entry.Value.WeaponStatistics),
                 CombatStatistics = CombatStatisticsReducer.Clone(entry.Value.CombatStatistics),
-                EquipmentStatistics = EquipmentStatisticsReducer.Clone(entry.Value.EquipmentStatistics)
+                EquipmentStatistics = EquipmentStatisticsReducer.Clone(entry.Value.EquipmentStatistics),
+                ContainerStatistics = ContainerStatisticsReducer.Clone(entry.Value.ContainerStatistics)
             },
             StringComparer.Ordinal)
     };
@@ -882,7 +935,8 @@ public static class StatisticsExporter
         MapAdapterVersion = source.MapAdapterVersion,
         WeaponStatistics = WeaponStatisticsReducer.Clone(source.WeaponStatistics),
         CombatStatistics = CombatStatisticsReducer.Clone(source.CombatStatistics),
-        EquipmentStatistics = EquipmentStatisticsReducer.Clone(source.EquipmentStatistics)
+        EquipmentStatistics = EquipmentStatisticsReducer.Clone(source.EquipmentStatistics),
+        ContainerStatistics = ContainerStatisticsReducer.Clone(source.ContainerStatistics)
     };
 
     private static CapabilityRecord CloneCapability(CapabilityRecord source) => new()

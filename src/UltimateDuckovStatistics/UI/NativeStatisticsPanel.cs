@@ -155,6 +155,9 @@ internal sealed class NativeStatisticsPanel
             $"{UiText.Get("ui.interrupted_runs")}: {runs.InterruptedRuns.ToString(CultureInfo.InvariantCulture)})");
         GUILayout.Label($"{UiText.Get("ui.physical_distance")}: {FormatDistance(runs.PhysicalDistance, runs.MovementSupported)}");
         GUILayout.Label($"{UiText.Get("ui.teleport_distance")}: {FormatDistance(runs.TeleportDistance, runs.MovementSupported)}");
+        var containers = ContainerStatisticsViewModelFactory.Create(profile);
+        GUILayout.Label(
+            $"{UiText.Get("ui.containers_looted")}: {FormatContainers(containers.Lifetime, containers.CurrentCapability)}");
         var combat = WeaponStatisticsViewModelFactory.Create(profile);
         GUILayout.Label(
             $"{UiText.Get("ui.firing_actions")}: "
@@ -254,6 +257,9 @@ internal sealed class NativeStatisticsPanel
                 + $"{UiText.Get("ui.damage_received")}: {FormatMetric(combat.Totals.DamageReceived, combat.Capabilities.DamageReceived.State)}; "
                 + $"{UiText.Get("ui.kills")}: {FormatMetric(combat.Totals.EnemiesKilled, combat.Capabilities.EnemiesKilled.State)}; "
                 + $"{UiText.Get("ui.deaths")}: {FormatMetric(combat.Totals.PlayerDeaths, combat.Capabilities.PlayerDeaths.State)}");
+            GUILayout.Label(
+                $"  {UiText.Get("ui.containers_looted")}: "
+                + FormatContainers(run.ContainerStatistics, run.ContainerStatistics.Capabilities.UniqueContainersLooted.State));
             GUILayout.Space(4);
         }
 
@@ -684,6 +690,20 @@ internal sealed class NativeStatisticsPanel
             : model.Accuracy.HasValue
                 ? model.Accuracy.Value.ToString("P1", CultureInfo.InvariantCulture)
                 : "—";
+
+    private static string FormatContainers(
+        ContainerStatisticsAggregate statistics,
+        AdapterCapabilityState currentCapability)
+    {
+        var value = statistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture);
+        if (statistics.WasRepairedFromInvalidState)
+            return $"{value} ({UiText.Get("ui.repaired_unavailable")})";
+        if (statistics.HistoricalUnavailable)
+            return $"{value} since M7 ({UiText.Get("ui.container_history_unavailable")})";
+        return currentCapability == AdapterCapabilityState.Supported
+            ? value
+            : $"{value} ({UiText.Get("ui.unsupported")})";
+    }
 
     private static string FormatRecordEligibility(RunPresentationRow row) => row.RecordEligibilityReason switch
     {
