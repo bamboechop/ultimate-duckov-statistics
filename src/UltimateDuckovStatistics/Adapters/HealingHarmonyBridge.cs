@@ -145,6 +145,7 @@ internal static class HealingHarmonyBridge
             return;
         }
 
+        CombatHarmonyBridge.CaptureBuffApplication(manager, buffPrefab);
         currentAdapter.ReconcileAppliedBuff(manager, buffPrefab, CurrentCorrelationId);
     }
 

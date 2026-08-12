@@ -14,7 +14,7 @@ public static class CombatNativeContractPolicy
         ProjectileRelease = true,
         MeleeCheck = true,
         EffectTrigger = true,
-        BuffApplication = true,
+        EffectApplication = true,
         PublicMeleeSwing = true,
         PublicPlayerDeath = true
     });
@@ -114,7 +114,7 @@ public sealed record class CombatHookSupport
     public bool ProjectileRelease { get; set; }
     public bool MeleeCheck { get; set; }
     public bool EffectTrigger { get; set; }
-    public bool BuffApplication { get; set; }
+    public bool EffectApplication { get; set; }
     public bool PublicMeleeSwing { get; set; }
     public bool PublicPlayerDeath { get; set; }
 }

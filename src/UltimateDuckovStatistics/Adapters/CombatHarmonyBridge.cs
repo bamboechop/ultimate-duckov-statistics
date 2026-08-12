@@ -41,6 +41,9 @@ internal static class CombatHarmonyBridge
     public static void CaptureBuffApplication(CharacterBuffManager manager, Buff buffPrefab) =>
         adapter?.CaptureBuffApplication(manager, buffPrefab);
 
+    public static void CaptureEffectApplication(Effect effect) =>
+        adapter?.CaptureEffectApplication(effect);
+
     public static CombatHealthPatchState BeginHealth(Health health, DamageInfo damageInfo)
     {
         var current = adapter;
@@ -194,8 +197,8 @@ internal static class CombatHarmonyCallbacks
         return __exception;
     }
 
-    private static void BuffApplicationPostfix(CharacterBuffManager __instance, Buff buffPrefab) =>
-        CombatHarmonyBridge.CaptureBuffApplication(__instance, buffPrefab);
+    private static void EffectApplicationPostfix(Effect __instance) =>
+        CombatHarmonyBridge.CaptureEffectApplication(__instance);
 
     public static MethodInfo HealthPrefixMethod => Get(nameof(HealthPrefix));
     public static MethodInfo HealthPostfixMethod => Get(nameof(HealthPostfix));
@@ -207,7 +210,7 @@ internal static class CombatHarmonyCallbacks
     public static MethodInfo MeleeFinalizerMethod => Get(nameof(MeleeFinalizer));
     public static MethodInfo EffectPrefixMethod => Get(nameof(EffectPrefix));
     public static MethodInfo EffectFinalizerMethod => Get(nameof(EffectFinalizer));
-    public static MethodInfo BuffApplicationPostfixMethod => Get(nameof(BuffApplicationPostfix));
+    public static MethodInfo EffectApplicationPostfixMethod => Get(nameof(EffectApplicationPostfix));
 
     private static MethodInfo Get(string name) => typeof(CombatHarmonyCallbacks).GetMethod(
         name, BindingFlags.Static | BindingFlags.NonPublic)

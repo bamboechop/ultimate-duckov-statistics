@@ -13,6 +13,7 @@ var minimumHarmonyVersion = new Version(2, 4, 1, 0);
 string[] healthAddParameters = ["System.Single"];
 string[] buffAddParameters = ["Duckov.Buffs.Buff", "CharacterMainControl", "System.Int32"];
 string[] effectTriggerParameters = ["ItemStatsSystem.EffectTriggerEventContext"];
+string[] itemParameters = ["ItemStatsSystem.Item"];
 
 if (args.Length != 1 || string.IsNullOrWhiteSpace(args[0]))
 {
@@ -209,6 +210,9 @@ try
         itemStats.RequireMethod(
             "ItemStatsSystem", "Effect", "Trigger", 1, mustBeAssembly: true,
             returnTypeFragment: "System.Void", parameterTypeFragments: effectTriggerParameters);
+        itemStats.RequireMethod(
+            "ItemStatsSystem", "Effect", "SetItem", 1, mustBePublic: true,
+            returnTypeFragment: "System.Void", parameterTypeFragments: itemParameters);
         itemStats.RequireType("ItemStatsSystem", "TickTrigger");
         itemStats.RequireType("ItemStatsSystem", "UpdateTrigger");
         itemStats.RequireField("ItemStatsSystem", "EffectTriggerEventContext", "source", mustBePublic: true);

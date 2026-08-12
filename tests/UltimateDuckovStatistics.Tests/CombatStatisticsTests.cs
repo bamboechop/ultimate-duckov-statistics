@@ -707,7 +707,7 @@ public sealed class CombatStatisticsTests
         ProjectileRelease = true,
         MeleeCheck = true,
         EffectTrigger = true,
-        BuffApplication = true,
+        EffectApplication = true,
         PublicMeleeSwing = true,
         PublicPlayerDeath = true
     };
