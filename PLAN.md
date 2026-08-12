@@ -264,7 +264,7 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Run summaries, active timers, extraction/death/interruption, records, maps, physical/teleport distance.
 5. **M4 — Weapons and ammunition (`v0.4.0`, released)**
     - Proven accepted firing actions and event-time weapon/ammunition breakdowns. Trigger attempts, actual loaded-ammunition consumption, and completed projectile creation remain explicitly unavailable because the public firing callback does not prove those side effects.
-6. **M5 — Damage, kills, deaths, melee, and headshots (`v0.5.0`, implementation, manual acceptance, and final nested-checkpoint deployment passed)**
+6. **M5 — Damage, kills, deaths, melee, and headshots (`v0.5.0`, implementation and manual acceptance passed; independent-final-blow follow-up pending redeployment)**
     - Actual HP loss from version-checked `Health.Hurt` pre/post state, never requested damage or `DamageInfo.finalDamage`.
     - Compatible ranged accuracy: unique exact-main-duck projectiles that cause positive enemy HP loss divided by exact-main-duck projectiles that reach verified `Projectile.Release` while the run is active.
     - Accepted melee swings from `CA_Attack.OnAttack`; one melee hit per damage scope even for repeated collider callbacks.
