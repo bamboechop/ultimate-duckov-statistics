@@ -28,10 +28,13 @@ public static class EquipmentStatisticsViewModelFactory
         void Apply(MetricAvailability recorded, string id)
         {
             var current = profile.Capabilities.FirstOrDefault(value =>
-                string.Equals(value.AdapterId, id, StringComparison.Ordinal))?.State
-                ?? AdapterCapabilityState.DisabledIncompatible;
-            recorded.State = EquipmentStatisticsReducer.ResolveCurrentAvailability(
-                aggregate, recorded, current, allowUninitializedFallback: true);
+                string.Equals(value.AdapterId, id, StringComparison.Ordinal));
+            EquipmentStatisticsReducer.ApplyCurrentAvailability(
+                aggregate,
+                recorded,
+                current?.State ?? AdapterCapabilityState.DisabledIncompatible,
+                current?.Detail,
+                allowUninitializedFallback: true);
         }
     }
 }

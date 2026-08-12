@@ -134,6 +134,29 @@ public sealed class EquipmentStatisticsTests
     }
 
     [Fact]
+    public void EqualCapabilityMergeUsesNewestProvenanceButPreservesHistoricalUnavailability()
+    {
+        var lifetime = Aggregate();
+        EquipmentStatisticsReducer.Observe(lifetime, Snapshot("old", string.Empty, "totems:none"), 0);
+        lifetime.Capabilities.ToteContents.Provenance = "superseded attached inventory contract";
+        var current = Aggregate();
+        current.Capabilities.ToteContents.Provenance = "current type 1255 AnyThing slot contract";
+
+        EquipmentStatisticsReducer.Merge(lifetime, current);
+
+        Assert.Equal("current type 1255 AnyThing slot contract", lifetime.Capabilities.ToteContents.Provenance);
+
+        var historical = Aggregate();
+        historical.HistoricalUnavailable = true;
+        historical.Capabilities.ToteContents.State = AdapterCapabilityState.DisabledIncompatible;
+        historical.Capabilities.ToteContents.Provenance = "profile predates M6";
+        current.Capabilities.ToteContents.State = AdapterCapabilityState.DisabledIncompatible;
+        EquipmentStatisticsReducer.Merge(historical, current);
+
+        Assert.Equal("profile predates M6", historical.Capabilities.ToteContents.Provenance);
+    }
+
+    [Fact]
     public void ProvenActiveTotemSetBecomesRecurringOnlyAfterTwoCompletedRunMerges()
     {
         var lifetime = new EquipmentStatisticsAggregate();
@@ -195,6 +218,29 @@ public sealed class EquipmentStatisticsTests
         historical.Capabilities = current.Capabilities;
         var historicalModel = EquipmentStatisticsViewModelFactory.Create(historical);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, historicalModel.Capabilities.EquipmentSlots.State);
+        Assert.Contains("predates M6", historicalModel.Capabilities.EquipmentSlots.Provenance);
+    }
+
+    [Fact]
+    public void CurrentViewAndExportReplaceSupersededEqualStateProvenance()
+    {
+        var profile = Profile(6);
+        var current = EquipmentNativeContractPolicy.CreateSupportedCapabilities();
+        profile.Capabilities = EquipmentNativeContractPolicy.ToRecords(current, "current").ToList();
+        var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
+        equipment.Items["slot|item"] = new EquipmentDurationAggregate
+        { Id = "slot|item", ActiveDurationSeconds = 1 };
+        equipment.Capabilities.ToteContents.State = AdapterCapabilityState.Supported;
+        equipment.Capabilities.ToteContents.Provenance = "superseded attached inventory contract";
+
+        var model = EquipmentStatisticsViewModelFactory.Create(profile);
+        var bundle = StatisticsExporter.Create(profile, Now);
+        using var json = JsonDocument.Parse(bundle.Json);
+        var exported = json.RootElement.GetProperty("RunTotals").GetProperty("EquipmentStatistics")
+            .GetProperty("Capabilities").GetProperty("ToteContents");
+
+        Assert.Equal(current.ToteContents.Provenance, model.Capabilities.ToteContents.Provenance);
+        Assert.Equal(current.ToteContents.Provenance, exported.GetProperty("Provenance").GetString());
     }
 
     [Fact]

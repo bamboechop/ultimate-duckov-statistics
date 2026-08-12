@@ -735,9 +735,14 @@ public static class StatisticsExporter
         return result;
         void Apply(MetricAvailability value, string id)
         {
-            var state = ReadCapabilityState(current, id, AdapterCapabilityState.DisabledIncompatible);
-            value.State = EquipmentStatisticsReducer.ResolveCurrentAvailability(
-                aggregate, value, state, allowUninitializedFallback);
+            var capability = current.FirstOrDefault(candidate =>
+                string.Equals(candidate.AdapterId, id, StringComparison.Ordinal));
+            EquipmentStatisticsReducer.ApplyCurrentAvailability(
+                aggregate,
+                value,
+                capability?.State ?? AdapterCapabilityState.DisabledIncompatible,
+                capability?.Detail,
+                allowUninitializedFallback);
         }
     }
 

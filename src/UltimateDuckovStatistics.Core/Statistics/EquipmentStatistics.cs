@@ -168,7 +168,7 @@ public static class EquipmentStatisticsReducer
         NormalizePersisted(target);
         NormalizePersisted(source);
         target.Capabilities = preserveUnavailable
-            ? RestrictCapabilities(target.Capabilities, source.Capabilities)
+            ? RestrictCapabilities(target.Capabilities, source.Capabilities, preferSourceOnTie: !target.HistoricalUnavailable)
             : CloneCapabilities(source.Capabilities);
         MergeDurations(target.Items, source.Items);
         MergeDurations(target.SelectedWeapons, source.SelectedWeapons);
@@ -431,6 +431,21 @@ public static class EquipmentStatisticsReducer
         return (int)recorded.State >= (int)current ? recorded.State : current;
     }
 
+    public static void ApplyCurrentAvailability(
+        EquipmentStatisticsAggregate aggregate,
+        MetricAvailability recorded,
+        AdapterCapabilityState current,
+        string? currentProvenance,
+        bool allowUninitializedFallback)
+    {
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        if (recorded == null) throw new ArgumentNullException(nameof(recorded));
+        var resolved = ResolveCurrentAvailability(aggregate, recorded, current, allowUninitializedFallback);
+        if (!aggregate.HistoricalUnavailable && resolved == current && !string.IsNullOrWhiteSpace(currentProvenance))
+            recorded.Provenance = currentProvenance;
+        recorded.State = resolved;
+    }
+
     private static void ValidateSnapshot(EquipmentSnapshot snapshot)
     {
         if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
@@ -525,14 +540,15 @@ public static class EquipmentStatisticsReducer
 
     private static EquipmentMetricCapabilities RestrictCapabilities(
         EquipmentMetricCapabilities target,
-        EquipmentMetricCapabilities source) => new()
+        EquipmentMetricCapabilities source,
+        bool preferSourceOnTie) => new()
         {
-            EquipmentSlots = Restrict(target.EquipmentSlots, source.EquipmentSlots),
-            SelectedWeapon = Restrict(target.SelectedWeapon, source.SelectedWeapon),
-            AttachmentMetadata = Restrict(target.AttachmentMetadata, source.AttachmentMetadata),
-            DirectTotems = Restrict(target.DirectTotems, source.DirectTotems),
-            ToteContents = Restrict(target.ToteContents, source.ToteContents),
-            ToteActivation = Restrict(target.ToteActivation, source.ToteActivation)
+            EquipmentSlots = Restrict(target.EquipmentSlots, source.EquipmentSlots, preferSourceOnTie),
+            SelectedWeapon = Restrict(target.SelectedWeapon, source.SelectedWeapon, preferSourceOnTie),
+            AttachmentMetadata = Restrict(target.AttachmentMetadata, source.AttachmentMetadata, preferSourceOnTie),
+            DirectTotems = Restrict(target.DirectTotems, source.DirectTotems, preferSourceOnTie),
+            ToteContents = Restrict(target.ToteContents, source.ToteContents, preferSourceOnTie),
+            ToteActivation = Restrict(target.ToteActivation, source.ToteActivation, preferSourceOnTie)
         };
 
     private static bool HasObservations(EquipmentStatisticsAggregate value) => value.Items?.Count > 0
@@ -540,8 +556,8 @@ public static class EquipmentStatisticsReducer
         || value.TotemStates?.Count > 0 || value.Slots?.Count > 0 || value.SlottedWeapons?.Count > 0
         || value.CombatAssociations?.Count > 0 || value.TransitionCount > 0;
 
-    private static MetricAvailability Restrict(MetricAvailability a, MetricAvailability b) =>
-        (int)a.State >= (int)b.State ? Clone(a) : Clone(b);
+    private static MetricAvailability Restrict(MetricAvailability a, MetricAvailability b, bool preferSourceOnTie) =>
+        (int)a.State > (int)b.State || (!preferSourceOnTie && a.State == b.State) ? Clone(a) : Clone(b);
 
     private static MetricAvailability Clone(MetricAvailability? value) => new()
     {
