@@ -236,6 +236,12 @@ public sealed class ProfileRepository
         checkpoint.EquipmentStatistics ??= new EquipmentStatisticsAggregate();
         EquipmentStatisticsReducer.NormalizePersisted(checkpoint.EquipmentStatistics);
         EquipmentStatisticsReducer.ValidateAggregate(checkpoint.EquipmentStatistics);
+        if (checkpoint.ContainerState == null)
+        {
+            throw new ArgumentException("Active-run checkpoint is missing container state.", nameof(checkpoint));
+        }
+        ContainerStatisticsReducer.NormalizeCheckpoint(checkpoint.ContainerState);
+        ContainerStatisticsReducer.ValidateAggregate(checkpoint.ContainerState.Statistics);
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
     }
@@ -564,6 +570,35 @@ public sealed class ProfileRepository
             checkpoint.EquipmentStatistics.HistoricalUnavailable = true;
         }
 
+        if (checkpoint.ContainerState == null)
+        {
+            if (checkpoint.SchemaVersion >= 7)
+                return "Current-schema active-run checkpoint is missing container state.";
+            checkpoint.ContainerState = new ContainerRunCheckpointState
+            {
+                Statistics = new ContainerStatisticsAggregate
+                {
+                    Capabilities = ContainerNativeContractPolicy.Unavailable(
+                        "Historical active-run checkpoint predates M7; successful unique-container access was not recorded."),
+                    HistoricalUnavailable = true
+                }
+            };
+        }
+        try
+        {
+            ContainerStatisticsReducer.NormalizeCheckpoint(checkpoint.ContainerState);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Active-run checkpoint contains invalid container state: {exception.Message}";
+        }
+        if (checkpoint.SchemaVersion < 7)
+        {
+            checkpoint.ContainerState.Statistics.Capabilities = ContainerNativeContractPolicy.Unavailable(
+                "Historical active-run checkpoint predates M7; successful unique-container access was not recorded.");
+            checkpoint.ContainerState.Statistics.HistoricalUnavailable = true;
+        }
+
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
         {
             return $"Active-run checkpoint schema {checkpoint.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion}.";
@@ -584,6 +619,7 @@ public sealed class ProfileRepository
             WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
             CombatStatisticsReducer.ValidateAggregate(checkpoint.CombatStatistics);
             EquipmentStatisticsReducer.ValidateAggregate(checkpoint.EquipmentStatistics);
+            ContainerStatisticsReducer.ValidateAggregate(checkpoint.ContainerState.Statistics);
             RunReducer.Validate(checkpoint.ToInterruptedSummary());
             return null;
         }
@@ -758,6 +794,7 @@ public sealed class ProfileRepository
         && statistics.RunTotals.CombatStatistics.Totals.EnemiesKilled == 0
         && statistics.RunTotals.CombatStatistics.Totals.PlayerDeaths == 0
         && EquipmentStatisticsReducer.IsEmpty(statistics.RunTotals.EquipmentStatistics)
+        && ContainerStatisticsReducer.IsEmpty(statistics.RunTotals.ContainerStatistics)
         && statistics.Runs.Count == 0;
 
     private static bool IdentitiesEqual(SaveIdentitySnapshot left, SaveIdentitySnapshot right) =>

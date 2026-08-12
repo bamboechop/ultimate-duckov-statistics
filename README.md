@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics
 
-Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.6.0 retains the M1-M5 consumable, healing, run, movement, firing, and combat statistics and adds equipment-slot time, selected-weapon time, deterministic attachment-aware loadouts, direct/tote totem presence, active direct-totem sets, and event-time equipment associations for weapon and combat outcomes.
+Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.7.0 retains the M1-M6 consumable, healing, run, movement, firing, combat, equipment, loadout, and totem statistics and adds unique successful non-corpse container access per run, map, and lifetime.
 
 The mod never modifies Duckov save files. Its data is stored under:
 
@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M5 are merged and published through the v0.5.0 GitHub pre-release. M6 is the fully validated v0.6.0 pre-release candidate on the open draft `feat/equipment-totems` PR; complete automated and manual evidence is tracked in [TESTING.md](TESTING.md). No M6 release, tag, merge, ready-for-review transition, or Workshop upload is implied by this branch.
+M0-M6 are merged through v0.6.0. M7 is the v0.7.0 pre-release candidate on `feat/containers`; automated and manual evidence is tracked in [TESTING.md](TESTING.md). No M7 release, tag, merge, ready-for-review transition, or Workshop upload is implied by this branch.
 
 ## Build prerequisites
 
@@ -20,7 +20,7 @@ M0-M5 are merged and published through the v0.5.0 GitHub pre-release. M6 is the 
 - Steam Workshop item [HarmonyLib (2.4.1.0)](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839), installed and enabled
 - `DUCKOV_PATH` set to the game root, for example `E:\SteamLibrary\steamapps\common\Escape from Duckov`
 
-Game assemblies are referenced locally with copy-local disabled. They are never committed, downloaded by CI, or included in release packages. UDS discovers the separately installed HarmonyLib at runtime. Healing and M5 combat attribution each use distinct, minimal, version-checked patch owners; a missing/incompatible contract or unsafe foreign patch disables the affected metrics. Failed UDS unpatch cleanup retains the exact owner, is retried, and blocks unsafe same-process replacement. UDS never bundles `0Harmony.dll`.
+Game assemblies are referenced locally with copy-local disabled. They are never committed, downloaded by CI, or included in release packages. UDS discovers the separately installed HarmonyLib at runtime. Healing, M5 combat attribution, and M7 corpse provenance each use distinct, minimal, version-checked patch owners; a missing/incompatible contract or unsafe foreign patch disables the affected metrics. Failed UDS unpatch cleanup retains the exact owner, is retried, and blocks unsafe same-process replacement. UDS never bundles `0Harmony.dll`.
 
 > **Activation check:** Open **Mods** after a cold launch and confirm both HarmonyLib and UDS are active before selecting a save. See [INSTALL.md](INSTALL.md#required-harmonylib-workshop-item).
 
@@ -34,7 +34,9 @@ M5 measures `Health.Hurt` before/after HP and therefore excludes rejected damage
 
 M6 observes the exact main duck's public character-slot tree, ordinary inventory, and native slot/hold/inventory callbacks. Persisted identities use stable `Item.TypeID`, slot keys, and deterministic attachment signatures; runtime object IDs and localized names never determine identity. Durations use the same monotonic active-raid clock as M3 and therefore exclude pause/loading. Direct slotted totems with usable durability are proven active by the verified item-effect control flow. A totem plugged into the public `AnyThing` slot of a built-in Tote Bag (`Item.TypeID` 1255) carried in top-level ordinary character inventory is recorded as present with activation `Unknown`: tote activation is not inferred and the capability remains `DisabledIncompatible`. Equipment/combat rows are event-time temporal associations, not proof that an item or totem caused an outcome. Only loadouts observed in at least two completed runs enter lifetime recurring-loadout rankings; every run retains its own summary.
 
-The in-game panel enables Overview, Runs, Records, Combat, Equipment, Items, and Diagnostics. One export action writes `statistics.json` plus fourteen flattened CSV files under the current UDS generation. M6 adds `equipment_totals.csv`, `recurring_loadouts.csv`, and `equipment_combat.csv`.
+M7 observes public `InteractableLootbox.OnStartLoot`, after the interaction timer and inventory checks have succeeded. It requires the event-time interaction owner to be the exact main duck, reads the native private `GetKey()` contract reflectively for per-run deduplication, and excludes native enemy corpses plus persisted/player tombs using a separate version-checked corpse-provenance patch. Reopening a container in the same run does not increment; the same stable key may count again in another run. Proximity, attempts, locked/cancelled/failed interactions, corpses, base activity, item transfers, and loot value do not count.
+
+The in-game panel enables Overview, Runs, Records, Combat, Equipment, Items, and Diagnostics. One export action writes `statistics.json` plus fifteen flattened CSV files under the current UDS generation. M7 adds `containers.csv` and container columns to run/map total CSVs.
 
 ## Development commands
 
@@ -48,7 +50,7 @@ dotnet build .\src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj -c R
 Create the validated installable ZIP and SHA-256 sidecar with:
 
 ```powershell
-.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.6.0
+.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.7.0
 ```
 
 See [INSTALL.md](INSTALL.md) for installation and compatibility details.

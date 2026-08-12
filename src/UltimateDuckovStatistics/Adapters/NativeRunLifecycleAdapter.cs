@@ -6,6 +6,7 @@ using Duckov.Scenes;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -33,6 +34,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly Func<WeaponMetricCapabilities> weaponCapabilitiesProvider;
     private readonly Func<CombatMetricCapabilities> combatCapabilitiesProvider;
     private readonly Func<EquipmentMetricCapabilities> equipmentCapabilitiesProvider;
+    private readonly Func<ContainerMetricCapabilities> containerCapabilitiesProvider;
     private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
     private readonly RunLifecycleTracker tracker;
     private readonly MonotonicCadenceGate sampleCadence = new(SampleIntervalSeconds);
@@ -58,7 +60,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         Action<string> diagnosticHandler,
         Func<WeaponMetricCapabilities>? weaponCapabilitiesProvider = null,
         Func<CombatMetricCapabilities>? combatCapabilitiesProvider = null,
-        Func<EquipmentMetricCapabilities>? equipmentCapabilitiesProvider = null)
+        Func<EquipmentMetricCapabilities>? equipmentCapabilitiesProvider = null,
+        Func<ContainerMetricCapabilities>? containerCapabilitiesProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
@@ -69,6 +72,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         this.weaponCapabilitiesProvider = weaponCapabilitiesProvider ?? (() => new WeaponMetricCapabilities());
         this.combatCapabilitiesProvider = combatCapabilitiesProvider ?? (() => new CombatMetricCapabilities());
         this.equipmentCapabilitiesProvider = equipmentCapabilitiesProvider ?? (() => new EquipmentMetricCapabilities());
+        this.containerCapabilitiesProvider = containerCapabilitiesProvider ?? (() => new ContainerMetricCapabilities());
         tracker = new RunLifecycleTracker(() => Guid.NewGuid().ToString("N"));
         SetAllCapabilities(
             AdapterCapabilityState.DisabledIncompatible,
@@ -102,8 +106,14 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public bool RecordCombat(CombatRecorded value) =>
         callbackLifetime.CanHandleCallbacks && tracker.RecordCombat(value);
 
+    public bool RecordContainer(ContainerLooted value) =>
+        callbackLifetime.CanHandleCallbacks && tracker.RecordContainer(value);
+
     public bool UpdateCombatCapabilities(CombatMetricCapabilities capabilities) =>
         callbackLifetime.CanHandleCallbacks && tracker.UpdateCombatCapabilities(capabilities);
+
+    public bool UpdateContainerCapabilities(ContainerMetricCapabilities capabilities) =>
+        callbackLifetime.CanHandleCallbacks && tracker.UpdateContainerCapabilities(capabilities);
 
     public bool ObserveEquipment(EquipmentSnapshot snapshot) =>
         callbackLifetime.CanHandleCallbacks
@@ -318,7 +328,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 MapAdapterVersion = MapAdapterVersion,
                 WeaponCapabilities = weaponCapabilitiesProvider(),
                 CombatCapabilities = combatCapabilitiesProvider(),
-                EquipmentCapabilities = equipmentCapabilitiesProvider()
+                EquipmentCapabilities = equipmentCapabilitiesProvider(),
+                ContainerCapabilities = containerCapabilitiesProvider()
             }
         });
         if (!transition.Started)

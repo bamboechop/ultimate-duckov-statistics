@@ -52,6 +52,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private List<CapabilityRecord> equipmentCapabilities = EquipmentNativeContractPolicy.ToRecords(
         EquipmentNativeContractPolicy.CreateUnavailableCapabilities("Equipment capability has not been initialized."),
         NativeEquipmentAdapter.AdapterVersion).ToList();
+    private List<CapabilityRecord> containerCapabilities = new()
+    {
+        ContainerNativeContractPolicy.ToRecord(
+            ContainerNativeContractPolicy.Unavailable("Container capability has not been initialized."),
+            NativeContainerAdapter.AdapterVersion)
+    };
 
     public NativeProfileCoordinator()
     {
@@ -200,6 +206,13 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
         equipmentCapabilities = capabilities.Select(CloneCapability).ToList();
+        UpdateCapabilities();
+    }
+
+    public void SetContainerCapabilities(IReadOnlyList<CapabilityRecord> capabilities)
+    {
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        containerCapabilities = capabilities.Select(CloneCapability).ToList();
         UpdateCapabilities();
     }
 
@@ -525,7 +538,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities));
+        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities));
     }
 
     private static CapabilityRecord DisabledRunCapability(string adapterId, string version) => new()
