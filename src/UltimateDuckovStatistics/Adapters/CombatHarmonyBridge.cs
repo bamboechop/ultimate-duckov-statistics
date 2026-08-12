@@ -1,4 +1,5 @@
 using System.Reflection;
+using Duckov.Buffs;
 using ItemStatsSystem;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Tracking;
@@ -36,6 +37,9 @@ internal static class CombatHarmonyBridge
 
     public static string? PushEffect(EffectTriggerEventContext context) =>
         Push(adapter?.CreateEffectScope(context));
+
+    public static void CaptureBuffApplication(CharacterBuffManager manager, Buff buffPrefab) =>
+        adapter?.CaptureBuffApplication(manager, buffPrefab);
 
     public static CombatHealthPatchState BeginHealth(Health health, DamageInfo damageInfo)
     {
@@ -190,6 +194,9 @@ internal static class CombatHarmonyCallbacks
         return __exception;
     }
 
+    private static void BuffApplicationPostfix(CharacterBuffManager __instance, Buff buffPrefab) =>
+        CombatHarmonyBridge.CaptureBuffApplication(__instance, buffPrefab);
+
     public static MethodInfo HealthPrefixMethod => Get(nameof(HealthPrefix));
     public static MethodInfo HealthPostfixMethod => Get(nameof(HealthPostfix));
     public static MethodInfo ProjectileInitPostfixMethod => Get(nameof(ProjectileInitPostfix));
@@ -200,6 +207,7 @@ internal static class CombatHarmonyCallbacks
     public static MethodInfo MeleeFinalizerMethod => Get(nameof(MeleeFinalizer));
     public static MethodInfo EffectPrefixMethod => Get(nameof(EffectPrefix));
     public static MethodInfo EffectFinalizerMethod => Get(nameof(EffectFinalizer));
+    public static MethodInfo BuffApplicationPostfixMethod => Get(nameof(BuffApplicationPostfix));
 
     private static MethodInfo Get(string name) => typeof(CombatHarmonyCallbacks).GetMethod(
         name, BindingFlags.Static | BindingFlags.NonPublic)

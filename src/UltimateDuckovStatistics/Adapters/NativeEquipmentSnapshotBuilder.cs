@@ -117,18 +117,21 @@ internal static class NativeEquipmentSnapshotBuilder
     private static string AttachmentSignature(Item item)
     {
         var parts = new List<string>();
-        AddAttachments(item, parts, 0);
+        AddAttachments(item, parts, 0, string.Empty);
         return EquipmentIdentity.StableHash(string.Join(";", parts.OrderBy(value => value, StringComparer.Ordinal)));
     }
 
-    private static void AddAttachments(Item parent, List<string> parts, int depth)
+    private static void AddAttachments(Item parent, List<string> parts, int depth, string ancestorPath)
     {
         if (depth >= 8 || parts.Count >= 64 || parent.Slots == null) return;
         foreach (var slot in parent.Slots.OrderBy(value => value.Key, StringComparer.Ordinal))
         {
             if (slot.Content == null) continue;
-            parts.Add(depth.ToString(CultureInfo.InvariantCulture) + ":" + (slot.Key ?? string.Empty) + "=" + slot.Content.TypeID.ToString(CultureInfo.InvariantCulture));
-            AddAttachments(slot.Content, parts, depth + 1);
+            var slotKey = slot.Key ?? string.Empty;
+            var path = ancestorPath
+                + slotKey.Length.ToString(CultureInfo.InvariantCulture) + ":" + slotKey + "/";
+            parts.Add(path + "=" + slot.Content.TypeID.ToString(CultureInfo.InvariantCulture));
+            AddAttachments(slot.Content, parts, depth + 1, path);
         }
     }
 

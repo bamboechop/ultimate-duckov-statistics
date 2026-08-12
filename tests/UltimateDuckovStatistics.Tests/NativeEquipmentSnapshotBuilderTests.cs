@@ -91,6 +91,31 @@ public sealed class NativeEquipmentSnapshotBuilderTests
         Assert.Equal("duckov:tote:1255", tote.ContainerId);
     }
 
+    [Fact]
+    [Trait("Category", "Equipment")]
+    public void NestedAttachmentIdentityIncludesTheFullAncestorSlotPath()
+    {
+        var firstCharacter = Character();
+        firstCharacter.Slots.Add(new Slot
+        {
+            Key = "PrimaryWeapon",
+            Content = WeaponWithNestedAttachments(leftChildTypeId: 301, rightChildTypeId: 302)
+        });
+        var secondCharacter = Character();
+        secondCharacter.Slots.Add(new Slot
+        {
+            Key = "PrimaryWeapon",
+            Content = WeaponWithNestedAttachments(leftChildTypeId: 302, rightChildTypeId: 301)
+        });
+
+        var first = NativeEquipmentSnapshotBuilder.Build(new CharacterMainControl(), firstCharacter);
+        var second = NativeEquipmentSnapshotBuilder.Build(new CharacterMainControl(), secondCharacter);
+
+        Assert.NotEqual(first.Items.Single().AttachmentSignature, second.Items.Single().AttachmentSignature);
+        Assert.NotEqual(first.LoadoutId, second.LoadoutId);
+        Assert.NotEqual(first.SnapshotId, second.SnapshotId);
+    }
+
     private static Item Character() => new() { Inventory = new Inventory() };
 
     private static Item Tote(Item? content = null)
@@ -113,5 +138,17 @@ public sealed class NativeEquipmentSnapshotBuilderTests
         var item = new Item { TypeID = typeId, DisplayName = name };
         item.Tags.Add("Totem");
         return item;
+    }
+
+    private static Item WeaponWithNestedAttachments(int leftChildTypeId, int rightChildTypeId)
+    {
+        var weapon = new Item { TypeID = 242, DisplayName = "MF" };
+        var left = new Item { TypeID = 401, DisplayName = "Left root" };
+        left.Slots.Add(new Slot { Key = "Nested", Content = new Item { TypeID = leftChildTypeId } });
+        var right = new Item { TypeID = 402, DisplayName = "Right root" };
+        right.Slots.Add(new Slot { Key = "Nested", Content = new Item { TypeID = rightChildTypeId } });
+        weapon.Slots.Add(new Slot { Key = "Left", Content = left });
+        weapon.Slots.Add(new Slot { Key = "Right", Content = right });
+        return weapon;
     }
 }

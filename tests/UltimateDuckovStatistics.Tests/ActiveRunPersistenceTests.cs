@@ -363,6 +363,43 @@ public sealed class ActiveRunPersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "Equipment")]
+    public void ActiveRunRecoveryUsesValidBackupWhenPrimaryEquipmentTransitionsAreNonMonotonic()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var backup = Checkpoint(generation, 5);
+        backup.EquipmentStatistics = EquipmentCheckpointStatistics(5);
+        repository.SaveActiveRun(backup);
+        repository.CloseClean();
+
+        var path = ActiveRunPath(directory.Path);
+        var invalidPrimary = Checkpoint(generation, 10);
+        invalidPrimary.EquipmentStatistics = EquipmentCheckpointStatistics(10);
+        invalidPrimary.EquipmentStatistics.Transitions = new List<EquipmentTransition>
+        {
+            new() { ActiveTimeSeconds = 8, ToSnapshotId = "snapshot:a", ToLoadoutId = "loadout:a" },
+            new() { ActiveTimeSeconds = 4, ToSnapshotId = "snapshot:b", ToLoadoutId = "loadout:b" }
+        };
+        invalidPrimary.EquipmentStatistics.TransitionCount = 2;
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(path, invalidPrimary);
+
+        var recovery = Repository(directory.Path);
+        var result = recovery.Open(Identity());
+
+        Assert.True(result.InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Single(run.EquipmentStatistics.Transitions);
+        Assert.Equal(0, run.EquipmentStatistics.Transitions[0].ActiveTimeSeconds);
+        Assert.False(run.EquipmentStatistics.WasRepairedFromInvalidState);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     [Trait("Category", "Combat")]
     public void ActiveRunRecoveryUsesValidBackupWhenPrimaryHasImpossibleNestedCombatOutcomes()

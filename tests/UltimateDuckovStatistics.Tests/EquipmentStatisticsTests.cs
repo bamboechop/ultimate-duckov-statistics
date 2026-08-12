@@ -244,6 +244,29 @@ public sealed class EquipmentStatisticsTests
     }
 
     [Fact]
+    public void RepairedEmptyCurrentDataRemainsUnavailableInViewAndExport()
+    {
+        var profile = Profile(6);
+        profile.Capabilities = EquipmentNativeContractPolicy.ToRecords(
+            EquipmentNativeContractPolicy.CreateSupportedCapabilities(), "current").ToList();
+        var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
+        equipment.WasRepairedFromInvalidState = true;
+
+        var model = EquipmentStatisticsViewModelFactory.Create(profile);
+        var bundle = StatisticsExporter.Create(profile, Now);
+        using var json = JsonDocument.Parse(bundle.Json);
+        var exported = json.RootElement.GetProperty("RunTotals").GetProperty("EquipmentStatistics")
+            .GetProperty("Capabilities").GetProperty("EquipmentSlots");
+
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, model.Capabilities.EquipmentSlots.State);
+        Assert.Contains("repaired", model.Capabilities.EquipmentSlots.Provenance, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal((int)AdapterCapabilityState.DisabledIncompatible, exported.GetProperty("State").GetInt32());
+        Assert.Contains("repaired", exported.GetProperty("Provenance").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.True(json.RootElement.GetProperty("RunTotals").GetProperty("EquipmentStatistics")
+            .GetProperty("WasRepairedFromInvalidState").GetBoolean());
+    }
+
+    [Fact]
     public void UnknownTotePresenceDoesNotAccumulateActiveTotemSetTime()
     {
         var aggregate = Aggregate();
@@ -278,6 +301,21 @@ public sealed class EquipmentStatisticsTests
     {
         var aggregate = Aggregate();
         aggregate.Items["bad"] = new EquipmentDurationAggregate { Id = "bad", ActiveDurationSeconds = -1 };
+
+        Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(aggregate));
+    }
+
+    [Fact]
+    public void RecoveryValidationRejectsNonMonotonicEquipmentTransitions()
+    {
+        var aggregate = Aggregate();
+        aggregate.ObservedActiveDurationSeconds = 10;
+        aggregate.TransitionCount = 2;
+        aggregate.Transitions = new List<EquipmentTransition>
+        {
+            new() { ActiveTimeSeconds = 8, ToSnapshotId = "snapshot:a" },
+            new() { ActiveTimeSeconds = 4, ToSnapshotId = "snapshot:b" }
+        };
 
         Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(aggregate));
     }

@@ -391,13 +391,20 @@ public static class EquipmentStatisticsReducer
     {
         if (target == null) return;
         if (!IsFinite(target.ObservedActiveDurationSeconds) || target.ObservedActiveDurationSeconds < 0
-            || target.TransitionCount < 0 || target.Transitions?.Count > EquipmentStatisticsAggregate.TransitionCapacity)
+            || target.TransitionCount < 0 || target.Transitions?.Count > EquipmentStatisticsAggregate.TransitionCapacity
+            || target.Transitions != null && target.TransitionCount < target.Transitions.Count)
             throw new ArgumentException("Equipment checkpoint contains invalid duration or transition counters.", nameof(target));
         if (target.CurrentSnapshot != null) ValidateSnapshot(target.CurrentSnapshot);
-        if (target.Transitions?.Any(row => row == null || !IsFinite(row.ActiveTimeSeconds)
-                || row.ActiveTimeSeconds < 0 || row.ActiveTimeSeconds > target.ObservedActiveDurationSeconds
-                || string.IsNullOrWhiteSpace(row.ToSnapshotId)) == true)
-            throw new ArgumentException("Equipment checkpoint contains invalid transitions.", nameof(target));
+        var previousTransitionTime = 0d;
+        foreach (var row in target.Transitions ?? Enumerable.Empty<EquipmentTransition>())
+        {
+            if (row == null || !IsFinite(row.ActiveTimeSeconds)
+                || row.ActiveTimeSeconds < previousTransitionTime
+                || row.ActiveTimeSeconds > target.ObservedActiveDurationSeconds
+                || string.IsNullOrWhiteSpace(row.ToSnapshotId))
+                throw new ArgumentException("Equipment checkpoint contains invalid transitions.", nameof(target));
+            previousTransitionTime = row.ActiveTimeSeconds;
+        }
         foreach (var values in new[] { target.Items, target.SelectedWeapons, target.Loadouts, target.TotemSets, target.TotemStates, target.Slots, target.SlottedWeapons })
         {
             if (values == null) continue;
@@ -414,6 +421,7 @@ public static class EquipmentStatisticsReducer
     }
 
     public static bool IsEmpty(EquipmentStatisticsAggregate value) => value != null
+        && !value.WasRepairedFromInvalidState
         && value.Items.Count == 0 && value.SelectedWeapons.Count == 0 && value.Loadouts.Count == 0
         && value.TotemSets.Count == 0 && value.TotemStates.Count == 0
         && value.Slots.Count == 0 && value.SlottedWeapons.Count == 0
@@ -441,6 +449,10 @@ public static class EquipmentStatisticsReducer
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
         if (recorded == null) throw new ArgumentNullException(nameof(recorded));
         var resolved = ResolveCurrentAvailability(aggregate, recorded, current, allowUninitializedFallback);
+        if (aggregate.WasRepairedFromInvalidState
+            && resolved == AdapterCapabilityState.DisabledIncompatible
+            && string.IsNullOrWhiteSpace(recorded.Provenance))
+            recorded.Provenance = "Persisted equipment data was repaired; capability remains unavailable.";
         if (!aggregate.HistoricalUnavailable && resolved == current && !string.IsNullOrWhiteSpace(currentProvenance))
             recorded.Provenance = currentProvenance;
         recorded.State = resolved;
