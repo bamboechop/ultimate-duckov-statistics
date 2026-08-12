@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics v0.5.0 — pre-release draft
 
-This draft describes M5 combat attribution. M0-M4 are already merged and published through v0.4.0. The initial v0.5.0 user-controlled gameplay and approved deployment gates passed, and a subsequent review follow-up corrected seven release-blocking findings. The branch and PR must remain draft and unmerged until the corrected package, deployment/readback, and focused native verification gates pass. Do not publish, tag, merge, mark ready, or upload to Steam Workshop without a later explicit request.
+This draft describes M5 combat attribution. M0-M4 are already merged and published through v0.4.0. The complete v0.5.0 user-controlled gameplay and approved deployment gates passed, and a subsequent review follow-up corrected seven release-blocking findings. The corrected package, deployment/readback, focused native verification, and clean-shutdown gates also pass. The branch and PR intentionally remain draft and unmerged; do not publish, tag, merge, mark ready, or upload to Steam Workshop without a later explicit request.
 
 ## Included in v0.5.0
 
@@ -49,4 +49,4 @@ Each method is checked for an exact safe patch set at activation and periodicall
 - Expanded native contract probe: passes against the versions and assembly hashes documented in `TESTING.md`.
 - `git diff --check`: passes.
 - Hardened implementation commit `8029a44357f49d63e96c8ada79f16a9c423e834d` produced a 139,860-byte ZIP at SHA-256 `a31c3915b6c5fd5a95253a4894294c81009a2771bbb7800ea885f9e9a107b911`. Its sidecar, five-file inventory, independent extraction, forbidden-dependency audit, byte comparison, and both `0.5.0+8029a44357f49d63e96c8ada79f16a9c423e834d` DLL product versions pass.
-- Draft PR [#5](https://github.com/bamboechop/ultimate-duckov-statistics/pull/5) is open, draft, and unmerged. The initial user-controlled gameplay and approved game-directory deployment/readback passed, but that artifact is superseded by the corrective review. The corrected package is independently verified; redeployment/readback, focused native verification, and current-head CI remain pending. This draft does not claim those gates.
+- Draft PR [#5](https://github.com/bamboechop/ultimate-duckov-statistics/pull/5) is open, draft, and unmerged. The initial gameplay-tested artifact is superseded. The independently verified corrected package, approved game-directory redeployment/readback, focused native outcome-identity and relevance verification, clean shutdown, and corrective-head CI pass. No tag or GitHub release exists.

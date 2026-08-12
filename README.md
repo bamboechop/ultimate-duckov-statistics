@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M4 are merged and published through v0.4.0. M5 remains an open draft v0.5.0 pre-release candidate on `feat/combat-attribution`. Its initial deployment and user-controlled gameplay matrix passed; a subsequent review follow-up corrects outcome identity, semantic checkpoint recovery, projectile lifecycle isolation, hook-specific capability degradation, and combat relevance filtering. The corrected source and replacement package pass automated validation, while approved redeployment/readback and focused native verification remain release gates. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
+M0-M4 are merged and published through v0.4.0. M5 remains an open draft v0.5.0 pre-release candidate on `feat/combat-attribution`. Its complete user-controlled gameplay matrix and subsequent corrective review follow-up passed, including outcome identity, semantic checkpoint recovery, projectile lifecycle isolation, hook-specific capability degradation, combat relevance filtering, corrected-package redeployment/readback, focused native verification, and clean shutdown. See [PLAN.md](PLAN.md) for the product contract and [TESTING.md](TESTING.md) for exact evidence.
 
 ## Build prerequisites
 
