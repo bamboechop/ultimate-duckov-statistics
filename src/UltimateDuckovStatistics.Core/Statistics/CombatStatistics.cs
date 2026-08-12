@@ -163,7 +163,7 @@ public static class CombatStatisticsReducer
         {
             throw new ArgumentException("Combat statistics are incomplete.", nameof(statistics));
         }
-        ValidateTotals(statistics.Totals, enforceRelationships: true);
+        ValidateTotals(statistics.Totals, CombatRelationshipScope.Aggregate);
         ValidateCapabilities(statistics.Capabilities);
         foreach (var rows in AllRows(statistics))
         {
@@ -174,7 +174,7 @@ public static class CombatStatisticsReducer
                 {
                     throw new ArgumentException("A combat breakdown row is incomplete.", nameof(statistics));
                 }
-                ValidateTotals(row.Value.Totals, enforceRelationships: false);
+                ValidateTotals(row.Value.Totals);
             }
         }
     }
@@ -182,7 +182,7 @@ public static class CombatStatisticsReducer
     public static void ValidateRecoveryCandidate(CombatStatisticsAggregate? statistics)
     {
         if (statistics == null) return;
-        if (statistics.Totals != null) ValidateTotals(statistics.Totals, enforceRelationships: true);
+        if (statistics.Totals != null) ValidateTotals(statistics.Totals, CombatRelationshipScope.Aggregate);
         if (statistics.Capabilities != null)
         {
             foreach (var property in typeof(CombatMetricCapabilities).GetProperties())
@@ -203,7 +203,7 @@ public static class CombatStatisticsReducer
             if (rows == null) continue;
             foreach (var row in rows.Values)
             {
-                if (row?.Totals != null) ValidateTotals(row.Totals, enforceRelationships: true);
+                if (row?.Totals != null) ValidateTotals(row.Totals, CombatRelationshipScope.Breakdown);
             }
         }
     }
@@ -524,7 +524,9 @@ public static class CombatStatisticsReducer
         }
     }
 
-    private static void ValidateTotals(CombatMetricTotals totals, bool enforceRelationships = false)
+    private static void ValidateTotals(
+        CombatMetricTotals totals,
+        CombatRelationshipScope relationshipScope = CombatRelationshipScope.None)
     {
         if (!Finite(totals.DamageCaused) || !Finite(totals.DamageDealt) || !Finite(totals.DamageReceived)
             || totals.CompletedPlayerProjectiles < 0 || totals.RangedHits < 0 || totals.MeleeSwings < 0
@@ -533,13 +535,21 @@ public static class CombatStatisticsReducer
         {
             throw new ArgumentOutOfRangeException(nameof(totals), "Persisted combat values must be finite and non-negative.");
         }
-        if (enforceRelationships
+        if (relationshipScope != CombatRelationshipScope.None
             && (totals.RangedHits > totals.CompletedPlayerProjectiles
-                || totals.HeadshotFinalBlows > totals.Headshots
-                || totals.HeadshotFinalBlows > totals.EnemiesKilled))
+                || totals.HeadshotFinalBlows > totals.EnemiesKilled
+                || (relationshipScope == CombatRelationshipScope.Aggregate
+                    && totals.HeadshotFinalBlows > totals.Headshots)))
         {
             throw new ArgumentException("Persisted combat outcome relationships are impossible.", nameof(totals));
         }
+    }
+
+    private enum CombatRelationshipScope
+    {
+        None,
+        Aggregate,
+        Breakdown
     }
 
     private static T Changed<T>(T value, CombatStatisticsNormalizationResult result, bool repaired = false)

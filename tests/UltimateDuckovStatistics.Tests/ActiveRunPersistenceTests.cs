@@ -1,3 +1,4 @@
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
@@ -333,6 +334,51 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
+    [Trait("Category", "Combat")]
+    public void ActiveRunCheckpointWritesAndRecoversIndependentMultiTargetHeadshotFinalBlow()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var checkpoint = Checkpoint(generation, 5);
+        var combat = new CombatStatisticsAggregate();
+        CombatStatisticsReducer.Apply(combat, CombatEvent(generation, "headshot", "duckov:target:a", "First target") with
+        {
+            ActualDamageToTarget = 10,
+            ActualDamageDealt = 10,
+            Headshots = 1
+        });
+        CombatStatisticsReducer.Apply(combat, CombatEvent(generation, "final-blow", "duckov:target:b", "Fatal target") with
+        {
+            ActualDamageToTarget = 5,
+            ActualDamageDealt = 5,
+            EnemiesKilled = 1,
+            HeadshotFinalBlows = 1,
+            IsFinalBlow = true
+        });
+        checkpoint.CombatStatistics = combat;
+
+        repository.SaveActiveRun(checkpoint);
+
+        Assert.True(File.Exists(ActiveRunPath(directory.Path)));
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(1, run.CombatStatistics.Totals.Headshots);
+        Assert.Equal(1, run.CombatStatistics.Totals.HeadshotFinalBlows);
+        Assert.Equal(1, run.CombatStatistics.Totals.EnemiesKilled);
+        Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:a"].Totals.Headshots);
+        Assert.Equal(0, run.CombatStatistics.Enemies["duckov:target:a"].Totals.HeadshotFinalBlows);
+        Assert.Equal(0, run.CombatStatistics.Enemies["duckov:target:b"].Totals.Headshots);
+        Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:b"].Totals.HeadshotFinalBlows);
+        Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:b"].Totals.EnemiesKilled);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
     public void ActiveRunRecoveryUsesOrphanedTemporarySnapshot()
     {
         using var directory = new TemporaryDirectory();
@@ -518,6 +564,36 @@ public sealed class ActiveRunPersistenceTests
         };
         return statistics;
     }
+
+    private static CombatRecorded CombatEvent(
+        string generation,
+        string eventId,
+        string targetId,
+        string targetDisplayName) => new()
+        {
+            EventId = eventId,
+            TimestampUtc = TestTime,
+            SaveGenerationId = generation,
+            RunId = "run-checkpoint",
+            MapId = "duckov:map:warehouse",
+            GameplayContext = GameplayContext.Raid,
+            IntegrityTags = IntegrityTags.Normal,
+            GameVersion = "2.3.30",
+            GameBuild = "24013657",
+            AdapterVersion = "test",
+            Ownership = CombatOwnership.Player,
+            AttackKind = CombatAttackKind.Ranged,
+            TargetId = targetId,
+            TargetDisplayName = targetDisplayName,
+            TargetIsEnemy = true,
+            TargetFamilyId = "duckov:family:unknown",
+            TargetFamilyDisplayName = "Unknown family",
+            WeaponId = "duckov:weapon:1",
+            WeaponDisplayName = "Test rifle",
+            AmmunitionId = "duckov:ammo:2",
+            AmmunitionDisplayName = "Test round",
+            Capabilities = CombatNativeContractPolicy.CreateSupportedCapabilities()
+        };
 
     private static WeaponMetricCapabilities SupportedCapabilities() => new()
     {

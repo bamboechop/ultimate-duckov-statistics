@@ -269,6 +269,13 @@ public sealed class CombatStatisticsTests
         impossible.Totals.RangedHits = 2;
         Assert.Throws<ArgumentException>(() => CombatStatisticsReducer.ValidateRecoveryCandidate(impossible));
 
+        var impossibleHeadshotFinalBlow = new CombatStatisticsAggregate
+        {
+            Totals = new CombatMetricTotals { EnemiesKilled = 1, HeadshotFinalBlows = 1 }
+        };
+        Assert.Throws<ArgumentException>(() =>
+            CombatStatisticsReducer.ValidateRecoveryCandidate(impossibleHeadshotFinalBlow));
+
         var nestedImpossible = new CombatStatisticsAggregate();
         nestedImpossible.Weapons["duckov:weapon:1"] = new CombatBreakdownAggregate
         {
@@ -282,6 +289,49 @@ public sealed class CombatStatisticsTests
         };
         Assert.Throws<ArgumentException>(() =>
             CombatStatisticsReducer.ValidateRecoveryCandidate(nestedImpossible));
+
+        var nestedImpossibleFinalBlow = new CombatStatisticsAggregate
+        {
+            Totals = new CombatMetricTotals { EnemiesKilled = 1, Headshots = 1, HeadshotFinalBlows = 1 }
+        };
+        nestedImpossibleFinalBlow.Weapons["duckov:weapon:1"] = new CombatBreakdownAggregate
+        {
+            Id = "duckov:weapon:1",
+            DisplayName = "Test weapon",
+            Totals = new CombatMetricTotals { HeadshotFinalBlows = 1 }
+        };
+        Assert.Throws<ArgumentException>(() =>
+            CombatStatisticsReducer.ValidateRecoveryCandidate(nestedImpossibleFinalBlow));
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "Persistence")]
+    public void RecoveryCandidateValidationAllowsIndependentHeadshotAndFinalBlowTargets()
+    {
+        var statistics = new CombatStatisticsAggregate
+        {
+            Totals = new CombatMetricTotals
+            {
+                EnemiesKilled = 1,
+                Headshots = 1,
+                HeadshotFinalBlows = 1
+            }
+        };
+        statistics.Enemies["duckov:target:a"] = new CombatBreakdownAggregate
+        {
+            Id = "duckov:target:a",
+            DisplayName = "First target",
+            Totals = new CombatMetricTotals { Headshots = 1 }
+        };
+        statistics.Enemies["duckov:target:b"] = new CombatBreakdownAggregate
+        {
+            Id = "duckov:target:b",
+            DisplayName = "Fatal target",
+            Totals = new CombatMetricTotals { EnemiesKilled = 1, HeadshotFinalBlows = 1 }
+        };
+
+        CombatStatisticsReducer.ValidateRecoveryCandidate(statistics);
     }
 
     [Fact]
