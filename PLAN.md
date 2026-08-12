@@ -279,7 +279,7 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Monotonic active-time duration for canonical character-slot items, selected weapon plus exact slot, attachment-aware deterministic loadouts, and active direct-totem sets.
     - Event-time loadout/selection/totem-set association for firing and combat outcomes; bounded 256-transition per-run history and crash-safe checkpoints.
     - Stable identities use slot keys and `Item.TypeID`; runtime objects and localized/display names never determine persisted identity.
-    - Tote content presence uses the version-checked `Item_ToteBag` inventory contract. Tote activation remains unavailable and disabled until concrete buff/effect evidence and manual validation prove it.
+    - Tote content presence uses top-level `Item_ToteBag` containers from the exact main duck's version-checked ordinary `CharacterItem.Inventory`. Tote activation remains unavailable and disabled until concrete buff/effect evidence and manual validation prove it.
     - Schema 6, lifetime/map/run aggregation, recurring loadout rankings only after two completed run occurrences, Equipment UI, JSON, and three equipment CSVs.
 8. **M7 — Containers**
     - Unique non-corpse container looting.

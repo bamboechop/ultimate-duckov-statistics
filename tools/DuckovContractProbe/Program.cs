@@ -102,6 +102,7 @@ try
         core.RequirePublicStaticEvent(string.Empty, "ItemAgent_Gun", "OnMainCharacterShootEvent", "System.Action", "ItemAgent_Gun");
         core.RequireField(string.Empty, "CharacterMainControl", "OnMainCharacterSlotContentChangedEvent", mustBePublic: true);
         core.RequireField(string.Empty, "CharacterMainControl", "OnMainCharacterChangeHoldItemAgentEvent", mustBePublic: true);
+        core.RequireField(string.Empty, "CharacterMainControl", "OnMainCharacterInventoryChangedEvent", mustBePublic: true);
         core.RequirePublicStaticEvent(string.Empty, "Health", "OnHurt", "System.Action", "Health", "DamageInfo");
         core.RequirePublicStaticEvent(string.Empty, "Health", "OnDead", "System.Action", "Health", "DamageInfo");
         core.RequireEvent(string.Empty, "LevelManager", "OnNewGameReport", "System.Action");

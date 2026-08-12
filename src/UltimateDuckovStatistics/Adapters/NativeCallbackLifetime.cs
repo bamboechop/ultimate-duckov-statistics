@@ -104,4 +104,20 @@ internal sealed class NativeCallbackLifetime
             }
         };
     }
+
+    public Action<T1, T2, T3> Guard<T1, T2, T3>(Action<T1, T2, T3> callback)
+    {
+        if (callback == null)
+        {
+            throw new ArgumentNullException(nameof(callback));
+        }
+
+        return (first, second, third) =>
+        {
+            if (CanHandleCallbacks)
+            {
+                callback(first, second, third);
+            }
+        };
+    }
 }

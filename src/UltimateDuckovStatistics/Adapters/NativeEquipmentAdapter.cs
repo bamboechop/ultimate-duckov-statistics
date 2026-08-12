@@ -1,4 +1,3 @@
-using System.Globalization;
 using ItemStatsSystem;
 using ItemStatsSystem.Items;
 using UltimateDuckovStatistics.Core.Compatibility;
@@ -12,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v1";
+    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v2";
     private const string SupportedGameVersion = "2.3.30";
     private const double ReconciliationIntervalSeconds = 0.2;
     private readonly Func<bool> runActiveProvider;
@@ -59,6 +58,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         {
             var slotChanged = callbackLifetime.Guard<CharacterMainControl, Slot>((_, _) => ObserveNow());
             var holdChanged = callbackLifetime.Guard<CharacterMainControl, DuckovItemAgent>((_, _) => ObserveNow());
+            var inventoryChanged = callbackLifetime.Guard<CharacterMainControl, Inventory, int>((_, _, _) => ObserveNow());
             callbackLifetime.Activate(new[]
             {
                 new SubscriptionBinding(
@@ -66,7 +66,10 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
                     () => CharacterMainControl.OnMainCharacterSlotContentChangedEvent -= slotChanged),
                 new SubscriptionBinding(
                     () => CharacterMainControl.OnMainCharacterChangeHoldItemAgentEvent += holdChanged,
-                    () => CharacterMainControl.OnMainCharacterChangeHoldItemAgentEvent -= holdChanged)
+                    () => CharacterMainControl.OnMainCharacterChangeHoldItemAgentEvent -= holdChanged),
+                new SubscriptionBinding(
+                    () => CharacterMainControl.OnMainCharacterInventoryChangedEvent += inventoryChanged,
+                    () => CharacterMainControl.OnMainCharacterInventoryChangedEvent -= inventoryChanged)
             });
             metricCapabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities();
             capabilityHandler(EquipmentNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
@@ -148,7 +151,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         { InvalidateObservation(); return; }
         try
         {
-            var snapshot = BuildSnapshot(observedMain, observedCharacterItem);
+            var snapshot = NativeEquipmentSnapshotBuilder.Build(observedMain, observedCharacterItem);
             latestSnapshot = snapshot;
             snapshotHandler(snapshot);
         }
@@ -159,126 +162,12 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    private static EquipmentSnapshot BuildSnapshot(CharacterMainControl main, Item characterItem)
-    {
-        var equipped = new List<EquippedItemSnapshot>();
-        var totems = new List<TotemSnapshot>();
-        foreach (var slot in characterItem.Slots.OrderBy(value => value.Key, StringComparer.Ordinal))
-        {
-            var item = slot.Content;
-            if (item == null) continue;
-            var kind = Classify(slot.Key, item);
-            var itemId = ItemId(item, kind switch
-            {
-                EquipmentItemKind.Weapon => "weapon",
-                EquipmentItemKind.Totem => "totem",
-                _ => "item"
-            });
-            equipped.Add(new EquippedItemSnapshot
-            {
-                SlotId = "duckov:slot:" + (slot.Key ?? string.Empty),
-                SlotDisplayName = string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.Key ?? string.Empty : slot.DisplayName,
-                ItemId = itemId,
-                ItemDisplayName = DisplayName(item),
-                Kind = kind,
-                AttachmentSignature = AttachmentSignature(item)
-            });
-            if (item.Tags != null && item.Tags.Contains("Totem"))
-                totems.Add(new TotemSnapshot
-                {
-                    ItemId = ItemId(item, "totem"),
-                    DisplayName = DisplayName(item),
-                    CarryKind = TotemCarryKind.DirectSlot,
-                    ContainerId = "duckov:character",
-                    ActivationState = item.UseDurability && item.Durability <= 0
-                        ? TotemActivationState.ProvenInactive : TotemActivationState.ProvenActive
-                });
-            if (string.Equals(item.DisplayNameRaw, "Item_ToteBag", StringComparison.Ordinal) && item.Inventory != null)
-            {
-                foreach (var toteItem in item.Inventory.Content.Where(value => value != null && value.Tags != null && value.Tags.Contains("Totem")))
-                    totems.Add(new TotemSnapshot
-                    {
-                        ItemId = ItemId(toteItem, "totem"),
-                        DisplayName = DisplayName(toteItem),
-                        CarryKind = TotemCarryKind.ToteInventory,
-                        ContainerId = ItemId(item, "tote"),
-                        ActivationState = TotemActivationState.Unknown
-                    });
-            }
-        }
-
-        equipped = equipped.OrderBy(value => value.SlotId, StringComparer.Ordinal).ToList();
-        totems = totems.OrderBy(value => value.CarryKind).ThenBy(value => value.ContainerId, StringComparer.Ordinal).ThenBy(value => value.ItemId, StringComparer.Ordinal).ToList();
-        var selected = main.CurrentHoldItemAgent?.Item;
-        var selectedSlotId = selected == null ? string.Empty : characterItem.Slots
-            .Where(value => ReferenceEquals(value.Content, selected))
-            .Select(value => "duckov:slot:" + (value.Key ?? string.Empty))
-            .FirstOrDefault() ?? string.Empty;
-        var selectedEntry = equipped.FirstOrDefault(value =>
-            string.Equals(value.SlotId, selectedSlotId, StringComparison.Ordinal)
-            && value.Kind == EquipmentItemKind.Weapon);
-        var selectedId = selectedEntry?.ItemId ?? string.Empty;
-        if (selectedEntry == null) selectedSlotId = string.Empty;
-        var loadoutId = EquipmentIdentity.LoadoutId(equipped);
-        var totemSetId = EquipmentIdentity.ActiveTotemSetId(totems);
-        return new EquipmentSnapshot
-        {
-            Items = equipped,
-            Totems = totems,
-            SelectedWeaponId = selectedId,
-            SelectedWeaponSlotId = selectedSlotId,
-            LoadoutId = loadoutId,
-            TotemSetId = totemSetId,
-            SnapshotId = EquipmentIdentity.SnapshotId(
-                loadoutId,
-                selectedSlotId,
-                selectedId,
-                totemSetId,
-                EquipmentIdentity.TotemPresenceSignature(totems))
-        };
-    }
-
     private void InvalidateObservation()
     {
         latestSnapshot = null;
         invalidationHandler();
     }
 
-    private static string AttachmentSignature(Item item)
-    {
-        var parts = new List<string>();
-        AddAttachments(item, parts, 0);
-        return EquipmentIdentity.StableHash(string.Join(";", parts.OrderBy(value => value, StringComparer.Ordinal)));
-    }
-
-    private static void AddAttachments(Item parent, List<string> parts, int depth)
-    {
-        if (depth >= 8 || parts.Count >= 64 || parent.Slots == null) return;
-        foreach (var slot in parent.Slots.OrderBy(value => value.Key, StringComparer.Ordinal))
-        {
-            if (slot.Content == null) continue;
-            parts.Add(depth.ToString(CultureInfo.InvariantCulture) + ":" + (slot.Key ?? string.Empty) + "=" + slot.Content.TypeID.ToString(CultureInfo.InvariantCulture));
-            AddAttachments(slot.Content, parts, depth + 1);
-        }
-    }
-
-    private static EquipmentItemKind Classify(string? slotKey, Item item)
-    {
-        if (item.Tags != null && item.Tags.Contains("Totem")) return EquipmentItemKind.Totem;
-        return slotKey switch
-        {
-            "PrimaryWeapon" or "SecondaryWeapon" or "MeleeWeapon" => EquipmentItemKind.Weapon,
-            "Armor" => EquipmentItemKind.Armor,
-            "Helmat" => EquipmentItemKind.Helmet,
-            "Backpack" => EquipmentItemKind.Backpack,
-            "FaceMask" => EquipmentItemKind.Face,
-            "Headset" => EquipmentItemKind.Headset,
-            _ => EquipmentItemKind.Other
-        };
-    }
-
-    private static string ItemId(Item item, string kind) => "duckov:" + kind + ":" + item.TypeID.ToString(CultureInfo.InvariantCulture);
-    private static string DisplayName(Item item) => string.IsNullOrWhiteSpace(item.DisplayName) ? "Unknown item " + item.TypeID.ToString(CultureInfo.InvariantCulture) : item.DisplayName;
     private void SetDisabled(string detail)
     {
         metricCapabilities = EquipmentNativeContractPolicy.CreateUnavailableCapabilities(detail);

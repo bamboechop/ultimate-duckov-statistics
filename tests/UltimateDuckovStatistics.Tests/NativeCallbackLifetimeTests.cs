@@ -6,6 +6,24 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class NativeCallbackLifetimeTests
 {
     [Fact]
+    [Trait("Category", "Equipment")]
+    public void ThreeArgumentGuardStopsInventoryCallbacksAfterDisposalStarts()
+    {
+        var lifetime = new NativeCallbackLifetime();
+        var calls = 0;
+        var guarded = lifetime.Guard<int, string, bool>((_, _, _) => calls++);
+        Assert.True(lifetime.Activate(Array.Empty<SubscriptionBinding>()));
+
+        guarded(1, "inventory", true);
+        Assert.Equal(1, calls);
+
+        Assert.True(lifetime.TryCleanup(() => true, out var failure));
+        Assert.Null(failure);
+        guarded(2, "inventory", false);
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
     [Trait("Category", "Run")]
     [Trait("Category", "Weapon")]
     [Trait("Category", "Lifecycle")]
