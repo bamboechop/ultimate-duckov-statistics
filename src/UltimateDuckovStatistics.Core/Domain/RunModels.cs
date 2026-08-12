@@ -100,6 +100,9 @@ public sealed class RunSummary
 
     [DataMember(Order = 26)]
     public CombatStatisticsAggregate CombatStatistics { get; set; } = new();
+
+    [DataMember(Order = 27)]
+    public EquipmentStatisticsAggregate EquipmentStatistics { get; set; } = new();
 }
 
 [DataContract]
@@ -174,6 +177,9 @@ public sealed class ActiveRunCheckpoint
     [DataMember(Order = 23)]
     public CombatStatisticsAggregate CombatStatistics { get; set; } = new();
 
+    [DataMember(Order = 24)]
+    public EquipmentStatisticsAggregate EquipmentStatistics { get; set; } = new();
+
     public RunSummary ToInterruptedSummary()
     {
         var endedUtc = EnsureUtc(LastObservedUtc == default ? StartedUtc : LastObservedUtc);
@@ -204,7 +210,8 @@ public sealed class ActiveRunCheckpoint
             MapCapability = MapCapability,
             MapAdapterVersion = MapAdapterVersion,
             WeaponStatistics = WeaponStatisticsReducer.Clone(WeaponStatistics),
-            CombatStatistics = CombatStatisticsReducer.Clone(CombatStatistics)
+            CombatStatistics = CombatStatisticsReducer.Clone(CombatStatistics),
+            EquipmentStatistics = EquipmentStatisticsReducer.Clone(EquipmentStatistics)
         };
     }
 

@@ -1,6 +1,6 @@
 # Installation and compatibility
 
-## Supported baseline for v0.5.0
+## Supported baseline for v0.6.0
 
 - Escape From Duckov `2.3.30`
 - Steam build `24013657`
@@ -12,7 +12,7 @@ The UDS package must not contain Duckov assemblies or `0Harmony.dll`. HarmonyLib
 
 ## Required HarmonyLib Workshop item
 
-Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.5.0 requires HarmonyLib for M2 healing attribution and the minimal M5 `Health.Hurt`, projectile, melee-collision, and effect-trigger scopes. M1 consumables, M3 lifecycle/movement, and M4 firing actions continue to use public native APIs. Healing and combat have distinct reflective Harmony owners and exact patch-set checks. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, the affected capabilities display `DisabledIncompatible`; proven public-event statistics continue. Failed cleanup retains and retries the exact owner and blocks unsafe same-process replacement.
+Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.6.0 requires HarmonyLib for M2 healing attribution and the minimal M5 `Health.Hurt`, projectile, melee-collision, and effect-trigger scopes. M6 equipment/totem observation uses public native slot, held-item, ordinary-inventory, and item-tree events and adds no Harmony patch. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven public-event statistics continue.
 
 After every cold launch and before selecting a save:
 
@@ -42,26 +42,28 @@ UDS data and exports are written outside the game saves under `%USERPROFILE%\App
 
 Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics\`. Existing UDS statistics remain outside the game directory unless the user removes them separately.
 
-## M3-M5 data and exports
+## M3-M6 data and exports
 
 - A run starts only after native raid initialization when the alive main duck has player control; base and loading activity do not start runs.
 - Run outcomes are Extracted, Died, or Interrupted. Active duration excludes pause/loading; wall-clock duration is diagnostic.
-- Overview, Runs, Records, Combat, Items, and Diagnostics are enabled. M4 separates firing actions, loaded ammunition units consumed, and configured projectile outcomes; the public event proves firing actions and event-time identities, while actual loaded-ammunition consumption remains unavailable.
+- Overview, Runs, Records, Combat, Equipment, Items, and Diagnostics are enabled. M4 separates firing actions, loaded ammunition units consumed, and configured projectile outcomes; the public event proves firing actions and event-time identities, while actual loaded-ammunition consumption remains unavailable.
 - M5 records actual HP loss, compatible completed-projectile accuracy, melee swings/hits, enemy kills, player deaths, ownership, stable enemy/killer identity, Zombie/unknown family, cause, event-time weapon/ammunition identity, independently proven head-targeted hits, and headshot final blows. Unsupported or inapplicable identities remain visible as unknown.
 - Each Runs entry shows integrity and whether it is eligible for Records, including the exclusion reason. Records show shortest/longest extraction and death active times overall and per map.
 - Physical movement and teleport/excluded displacement are stored separately. If movement or map compatibility is unavailable, the panel and Diagnostics show that state explicitly.
-- Exports contain `statistics.json`, `overview.csv`, `groups.csv`, `items.csv`, `runs.csv`, `run_totals.csv`, `map_totals.csv`, `records.csv`, `combat_totals.csv`, `combat_attribution.csv`, `weapon_totals.csv`, and `ammunition_totals.csv`.
+- M6 records character-slot and selected-weapon durations, attachment-aware loadouts, direct and tote-carried totem presence, proven-active direct-totem sets, and event-time equipment associations. Tote-carried activation remains unknown and disabled rather than inferred.
+- Exports contain `statistics.json`, `overview.csv`, `groups.csv`, `items.csv`, `runs.csv`, `run_totals.csv`, `map_totals.csv`, `records.csv`, `combat_totals.csv`, `combat_attribution.csv`, `weapon_totals.csv`, `ammunition_totals.csv`, `equipment_totals.csv`, `recurring_loadouts.csv`, and `equipment_combat.csv`.
 
-## Known v0.5.0 limitations
+## Known v0.6.0 limitations
 
 - Statistics begin at installation; no history is reconstructed.
 - Only successful main-duck item uses in raids count.
-- Healing totals start with v0.2.0; run/movement with v0.3.0; weapon identity/firing actions with v0.4.0; and M5 combat with v0.5.0. Schema-5 migration preserves M1-M4 and initializes historical M5 capabilities unavailable without reconstruction.
+- Healing totals start with v0.2.0; run/movement with v0.3.0; weapon identity/firing actions with v0.4.0; M5 combat with v0.5.0; and equipment/totem data with v0.6.0. Schema-6 migration preserves M1-M5 and initializes historical M6 capabilities unavailable without reconstruction.
+- Tote contents are identified only from the public `AnyThing` slot of built-in Tote Bag `Item.TypeID` 1255 instances carried in the exact main duck's top-level ordinary inventory. Their presence does not prove modifiers or effects are active. Tote activation remains disabled; tote-carried totems are persisted with activation `Unknown` and excluded from active-totem-set duration.
 - The verified public firing event proves accepted firing callbacks, not trigger attempts. Reloads and dry-fire attempts are not counted. `UseABullet` can skip consumption and `ShootOneBullet` can return before projectile initialization, so the public callback cannot prove actual ammunition units consumed or projectiles created; both submetrics remain unavailable instead of being inferred from cached ammunition or configured `ShotCount`.
 - Only healing applied through the verified item/effect paths is attributed. Unrelated regeneration, pets/companions, base use, cancelled uses, failed uses, and overheal are excluded.
 - M5 accuracy is not firing-action accuracy. Its numerator and denominator are completed exact-main-duck projectile instances observed by the verified projectile lifecycle while a run remains active. A projectile still alive when the run terminates enters neither side of that run's ratio.
 - Headshot means an independently observed native head-targeted exact-player projectile that causes actual enemy HP loss. It is not a geometric impact-point claim, and mouse/controller paths that do not expose that native flag remain uncounted rather than inferred. `DamageInfo.crit` is never used as headshot evidence.
 - Enemy family is currently exact only for the native Zombie flag; other families remain `Unknown family`. Ammunition is exact for projectile-correlated damage and otherwise remains unknown, including delayed effects that preserve only weapon provenance.
-- M5 high-frequency combat checkpoint writes are coalesced to at most once per second, with a five-second periodic fallback and one-second failed-write retry. A sudden process/OS failure can therefore lose up to approximately one second of accepted M5 callbacks; orderly shutdown and terminal completion flush in-memory totals.
+- M5 combat and M6 equipment mutations share checkpoint writes coalesced to at most once per second, with a five-second periodic fallback and one-second failed-write retry. A sudden process/OS failure can therefore lose up to approximately one second of accepted callbacks/state time; orderly shutdown and terminal completion flush in-memory totals.
 - Duration records exclude Interrupted runs and runs tagged for cheats/custom difficulty or gameplay-altering mods. The required `HarmonyLoadMod` infrastructure by itself does not disqualify a run.
 - UDS itself remains a local GitHub package; only the HarmonyLib dependency is installed through Steam Workshop.

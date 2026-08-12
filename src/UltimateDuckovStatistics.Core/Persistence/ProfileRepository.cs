@@ -222,6 +222,20 @@ public sealed class ProfileRepository
         checkpoint.CombatStatistics ??= new CombatStatisticsAggregate();
         CombatStatisticsReducer.NormalizePersisted(checkpoint.CombatStatistics);
         CombatStatisticsReducer.ValidateAggregate(checkpoint.CombatStatistics);
+        try
+        {
+            EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics, checkpoint.SchemaVersion);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new ArgumentException(
+                $"Active-run checkpoint contains invalid equipment state: {exception.Message}",
+                nameof(checkpoint),
+                exception);
+        }
+        checkpoint.EquipmentStatistics ??= new EquipmentStatisticsAggregate();
+        EquipmentStatisticsReducer.NormalizePersisted(checkpoint.EquipmentStatistics);
+        EquipmentStatisticsReducer.ValidateAggregate(checkpoint.EquipmentStatistics);
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
     }
@@ -533,6 +547,23 @@ public sealed class ProfileRepository
                 "Historical active-run checkpoint predates M5; combat attribution was not recorded.");
         }
 
+        try
+        {
+            EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics, checkpoint.SchemaVersion);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Active-run checkpoint contains invalid equipment state: {exception.Message}";
+        }
+        checkpoint.EquipmentStatistics ??= new EquipmentStatisticsAggregate();
+        EquipmentStatisticsReducer.NormalizePersisted(checkpoint.EquipmentStatistics);
+        if (checkpoint.SchemaVersion < 6)
+        {
+            checkpoint.EquipmentStatistics.Capabilities = EquipmentNativeContractPolicy.CreateUnavailableCapabilities(
+                "Historical active-run checkpoint predates M6; equipment and totem state was not recorded.");
+            checkpoint.EquipmentStatistics.HistoricalUnavailable = true;
+        }
+
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
         {
             return $"Active-run checkpoint schema {checkpoint.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion}.";
@@ -552,6 +583,7 @@ public sealed class ProfileRepository
         {
             WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
             CombatStatisticsReducer.ValidateAggregate(checkpoint.CombatStatistics);
+            EquipmentStatisticsReducer.ValidateAggregate(checkpoint.EquipmentStatistics);
             RunReducer.Validate(checkpoint.ToInterruptedSummary());
             return null;
         }
@@ -725,6 +757,7 @@ public sealed class ProfileRepository
         && statistics.RunTotals.CombatStatistics.Totals.MeleeSwings == 0
         && statistics.RunTotals.CombatStatistics.Totals.EnemiesKilled == 0
         && statistics.RunTotals.CombatStatistics.Totals.PlayerDeaths == 0
+        && EquipmentStatisticsReducer.IsEmpty(statistics.RunTotals.EquipmentStatistics)
         && statistics.Runs.Count == 0;
 
     private static bool IdentitiesEqual(SaveIdentitySnapshot left, SaveIdentitySnapshot right) =>

@@ -32,6 +32,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly Action<string> diagnosticHandler;
     private readonly Func<WeaponMetricCapabilities> weaponCapabilitiesProvider;
     private readonly Func<CombatMetricCapabilities> combatCapabilitiesProvider;
+    private readonly Func<EquipmentMetricCapabilities> equipmentCapabilitiesProvider;
     private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
     private readonly RunLifecycleTracker tracker;
     private readonly MonotonicCadenceGate sampleCadence = new(SampleIntervalSeconds);
@@ -56,7 +57,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
         Action<string> diagnosticHandler,
         Func<WeaponMetricCapabilities>? weaponCapabilitiesProvider = null,
-        Func<CombatMetricCapabilities>? combatCapabilitiesProvider = null)
+        Func<CombatMetricCapabilities>? combatCapabilitiesProvider = null,
+        Func<EquipmentMetricCapabilities>? equipmentCapabilitiesProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
@@ -66,6 +68,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
         this.weaponCapabilitiesProvider = weaponCapabilitiesProvider ?? (() => new WeaponMetricCapabilities());
         this.combatCapabilitiesProvider = combatCapabilitiesProvider ?? (() => new CombatMetricCapabilities());
+        this.equipmentCapabilitiesProvider = equipmentCapabilitiesProvider ?? (() => new EquipmentMetricCapabilities());
         tracker = new RunLifecycleTracker(() => Guid.NewGuid().ToString("N"));
         SetAllCapabilities(
             AdapterCapabilityState.DisabledIncompatible,
@@ -101,6 +104,14 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public bool UpdateCombatCapabilities(CombatMetricCapabilities capabilities) =>
         callbackLifetime.CanHandleCallbacks && tracker.UpdateCombatCapabilities(capabilities);
+
+    public bool ObserveEquipment(EquipmentSnapshot snapshot) =>
+        callbackLifetime.CanHandleCallbacks
+        && tracker.ObserveEquipment(snapshot, DateTime.UtcNow, NowMonotonic());
+
+    public bool InvalidateEquipmentObservation() =>
+        callbackLifetime.CanHandleCallbacks
+        && tracker.SuspendEquipment(DateTime.UtcNow, NowMonotonic());
 
     public bool FlushCheckpoint() => !tracker.IsActive
         || SaveCheckpoint(DateTime.UtcNow, NowMonotonic());
@@ -306,7 +317,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 MapCapability = MapCapability.State,
                 MapAdapterVersion = MapAdapterVersion,
                 WeaponCapabilities = weaponCapabilitiesProvider(),
-                CombatCapabilities = combatCapabilitiesProvider()
+                CombatCapabilities = combatCapabilitiesProvider(),
+                EquipmentCapabilities = equipmentCapabilitiesProvider()
             }
         });
         if (!transition.Started)

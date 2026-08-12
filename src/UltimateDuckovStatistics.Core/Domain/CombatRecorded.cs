@@ -69,4 +69,5 @@ public sealed record class CombatRecorded
     [DataMember(Order = 40)] public bool IsDamageOverTime { get; set; }
     [DataMember(Order = 41)] public CombatMetricCapabilities Capabilities { get; set; } = new();
     [DataMember(Order = 42)] public bool TargetIsEnemy { get; set; }
+    [DataMember(Order = 43)] public EquipmentEventAssociation EquipmentAssociation { get; set; } = new();
 }

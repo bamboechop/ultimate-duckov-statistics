@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using Duckov.Buffs;
 using Duckov.Scenes;
 using ItemStatsSystem;
 using UltimateDuckovStatistics.Core.Compatibility;
@@ -14,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCleanup
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.combat";
-    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1";
+    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+equipment-origin-v3";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int MaximumProjectileCorrelations = 2048;
@@ -22,9 +23,11 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly Func<string?> runIdProvider;
     private readonly Func<string?> mapIdProvider;
     private readonly Func<CombatRecorded, bool> combatHandler;
+    private readonly Func<EquipmentEventAssociation> equipmentAssociationProvider;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
+    private readonly NativeCombatEquipmentAssociationResolver equipmentAssociationResolver = new();
     private readonly Dictionary<int, ProjectileSnapshot> projectiles = new();
     private readonly Queue<(int RuntimeId, string ProjectileId)> projectileOrder = new();
     private PatchRegistration[] patchRegistrations = Array.Empty<PatchRegistration>();
@@ -48,7 +51,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         Func<string?> mapIdProvider,
         Func<CombatRecorded, bool> combatHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
-        Action<string> diagnosticHandler)
+        Action<string> diagnosticHandler,
+        Func<EquipmentEventAssociation>? equipmentAssociationProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.runIdProvider = runIdProvider ?? throw new ArgumentNullException(nameof(runIdProvider));
@@ -56,12 +60,15 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         this.combatHandler = combatHandler ?? throw new ArgumentNullException(nameof(combatHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.equipmentAssociationProvider = equipmentAssociationProvider ?? (() => new EquipmentEventAssociation());
         SetUnavailable("Combat attribution has not been initialized.");
     }
 
     public CombatMetricCapabilities MetricCapabilities => CombatStatisticsReducer.CloneCapabilities(metricCapabilities);
 
     public bool CanObserveHealth => IsActive && hookSupport.HealthHurt;
+
+    public EquipmentEventAssociation CaptureEquipmentAssociation() => equipmentAssociationProvider();
 
     private bool IsActive => !disposed && !cleanupPending && initialized;
 
@@ -124,7 +131,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             SynchronizeMainCharacter();
             SynchronizeProjectileContext();
             diagnosticHandler(
-                $"Combat attribution active with HarmonyLib {created.Version}; {patchRegistrations.Length}/6 Harmony hooks and independent public melee/death callbacks are available.");
+                $"Combat attribution active with HarmonyLib {created.Version}; {patchRegistrations.Length}/7 Harmony hooks and independent public melee/death callbacks are available.");
         }
         catch (Exception exception)
         {
@@ -167,7 +174,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
                 registration.Disabled = true;
                 hookSupport.Disable(registration.Hook);
                 metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
-                if (registration.Hook is CombatHook.ProjectileInit or CombatHook.ProjectileUpdate or CombatHook.ProjectileRelease)
+                if (registration.Hook is CombatHook.ProjectileInit or CombatHook.ProjectileUpdate
+                    or CombatHook.ProjectileRelease or CombatHook.EffectApplication)
                     ClearProjectileCorrelations();
                 PublishCapabilities();
                 diagnosticHandler(
@@ -205,7 +213,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             AmmunitionTypeId = ammunitionId,
             AmmunitionDisplayName = context.fromGunItemSetting == null
                 ? string.Empty
-                : NonEmpty(context.fromGunItemSetting.CurrentBulletName, $"Unknown ammunition {ammunitionId}")
+                : NonEmpty(context.fromGunItemSetting.CurrentBulletName, $"Unknown ammunition {ammunitionId}"),
+            EquipmentAssociation = equipmentAssociationProvider()
         };
         var runtimeId = projectile.GetInstanceID();
         projectiles[runtimeId] = snapshot;
@@ -264,18 +273,81 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             IsMelee = true,
             PhysicalSource = weapon.Holder,
             WeaponTypeId = item == null ? -1 : item.TypeID,
-            WeaponDisplayName = item == null ? string.Empty : NonEmpty(item.DisplayName, $"Unknown weapon {item.TypeID}")
+            WeaponDisplayName = item == null ? string.Empty : NonEmpty(item.DisplayName, $"Unknown weapon {item.TypeID}"),
+            EquipmentAssociation = equipmentAssociationProvider()
         };
     }
 
     public CombatNativeScope? CreateEffectScope(EffectTriggerEventContext context)
     {
         if (!IsActive || !hookSupport.EffectTrigger || context.source == null) return null;
+        var delayed = context.source is TickTrigger || context.source is UpdateTrigger;
+        object associationSource = context.source;
+        if (delayed)
+        {
+            try { associationSource = (object?)context.source.GetComponentInParent<Buff>() ?? context.source; }
+            catch { }
+        }
         return new CombatNativeScope
         {
             IsEffect = true,
-            IsDamageOverTime = context.source is TickTrigger || context.source is UpdateTrigger
+            IsDamageOverTime = delayed,
+            EquipmentAssociation = equipmentAssociationResolver.ResolveEffect(
+                associationSource,
+                delayed,
+                CombatHarmonyBridge.CurrentScope?.EquipmentAssociation,
+                equipmentAssociationProvider,
+                saveGenerationIdProvider(),
+                runIdProvider() ?? string.Empty,
+                mapIdProvider() ?? MapIdentity.UnknownId)
         };
+    }
+
+    public void CaptureBuffApplication(CharacterBuffManager manager, Buff buffPrefab)
+    {
+        if (!IsActive || manager == null || buffPrefab == null) return;
+        var applied = manager.Buffs.LastOrDefault(value => value != null && value.ID == buffPrefab.ID);
+        if (applied == null) return;
+        var association = CombatHarmonyBridge.CurrentScope?.EquipmentAssociation
+                          ?? equipmentAssociationProvider();
+        var generationId = saveGenerationIdProvider();
+        var runId = runIdProvider() ?? string.Empty;
+        var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
+        equipmentAssociationResolver.CaptureDelayedEffectOrigin(
+            applied, association, generationId, runId, mapId);
+        foreach (var effect in applied.GetComponentsInChildren<Effect>(includeInactive: true))
+        {
+            foreach (var trigger in effect.Triggers.Where(value => value is TickTrigger or UpdateTrigger))
+            {
+                equipmentAssociationResolver.CaptureDelayedEffectOrigin(
+                    trigger, association, generationId, runId, mapId);
+            }
+        }
+    }
+
+    public void CaptureEffectApplication(Effect effect)
+    {
+        if (!IsActive || !hookSupport.EffectApplication || effect == null) return;
+        var association = CombatHarmonyBridge.CurrentScope?.EquipmentAssociation
+                          ?? equipmentAssociationProvider();
+        var generationId = saveGenerationIdProvider();
+        var runId = runIdProvider() ?? string.Empty;
+        var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
+        foreach (var trigger in effect.Triggers.Where(value => value is TickTrigger or UpdateTrigger))
+        {
+            equipmentAssociationResolver.CaptureDelayedEffectOrigin(
+                trigger, association, generationId, runId, mapId);
+        }
+        try
+        {
+            var buff = effect.GetComponentInParent<Buff>();
+            if (buff != null)
+            {
+                equipmentAssociationResolver.CaptureDelayedEffectOrigin(
+                    buff, association, generationId, runId, mapId);
+            }
+        }
+        catch { }
     }
 
     public void RecordHealthTransition(Health health, CombatHealthPatchState state, double actualDamage, bool fatal)
@@ -309,7 +381,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             ? scope!.WeaponDisplayName
             : ReadItemDisplayName(weaponTypeId, "weapon");
         var ammunitionId = scope?.AmmunitionTypeId ?? -1;
-        Emit(NewEvent(scope, ownership) with
+        Emit(NewEvent(scope, ownership, NativeCombatEquipmentAssociationResolver.ResolveHealthTransition(
+            scope?.EquipmentAssociation, state.EquipmentAssociation)) with
         {
             AttackKind = targetIsMain
                 ? CombatAttackKind.Unknown
@@ -430,6 +503,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         projectiles.Clear();
         projectileOrder.Clear();
+        equipmentAssociationResolver.Clear();
         CombatHarmonyBridge.ClearScopes();
     }
 
@@ -449,7 +523,10 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         });
     }
 
-    private CombatRecorded NewEvent(CombatNativeScope? scope, CombatOwnership ownership)
+    private CombatRecorded NewEvent(
+        CombatNativeScope? scope,
+        CombatOwnership ownership,
+        EquipmentEventAssociation? equipmentAssociation = null)
     {
         var runId = runIdProvider();
         var mapId = mapIdProvider();
@@ -466,7 +543,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             GameBuild = SupportedGameBuild,
             AdapterVersion = AdapterVersion,
             Ownership = ownership,
-            Capabilities = MetricCapabilities
+            Capabilities = MetricCapabilities,
+            EquipmentAssociation = equipmentAssociation ?? scope?.EquipmentAssociation ?? equipmentAssociationProvider()
         };
         CombatObservationPolicy.ApplyOutcomeIdentity(
             value,
@@ -617,7 +695,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             ProjectileUpdate = Exact(typeof(Projectile), "Update", BindingFlags.Instance | BindingFlags.NonPublic, typeof(void)),
             ProjectileRelease = Exact(typeof(Projectile), "Release", BindingFlags.Instance | BindingFlags.NonPublic, typeof(void)),
             MeleeCheck = Exact(typeof(ItemAgent_MeleeWeapon), "CheckCollidersInRange", BindingFlags.Instance | BindingFlags.NonPublic, typeof(int), typeof(bool)),
-            EffectTrigger = Exact(typeof(Effect), "Trigger", BindingFlags.Instance | BindingFlags.NonPublic, typeof(void), typeof(EffectTriggerEventContext))
+            EffectTrigger = Exact(typeof(Effect), "Trigger", BindingFlags.Instance | BindingFlags.NonPublic, typeof(void), typeof(EffectTriggerEventContext)),
+            EffectApplication = Exact(typeof(Effect), "SetItem", BindingFlags.Instance | BindingFlags.Public,
+                typeof(void), typeof(Item))
         };
     }
 
@@ -633,7 +713,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             (CombatHook.ProjectileUpdate, m.ProjectileUpdate, [new("Prefixes", CombatHarmonyCallbacks.ProjectileUpdatePrefixMethod), new("Finalizers", CombatHarmonyCallbacks.ProjectileUpdateFinalizerMethod)]),
             (CombatHook.ProjectileRelease, m.ProjectileRelease, [new("Prefixes", CombatHarmonyCallbacks.ProjectileReleasePrefixMethod)]),
             (CombatHook.MeleeCheck, m.MeleeCheck, [new("Prefixes", CombatHarmonyCallbacks.MeleePrefixMethod), new("Finalizers", CombatHarmonyCallbacks.MeleeFinalizerMethod)]),
-            (CombatHook.EffectTrigger, m.EffectTrigger, [new("Prefixes", CombatHarmonyCallbacks.EffectPrefixMethod), new("Finalizers", CombatHarmonyCallbacks.EffectFinalizerMethod)])
+            (CombatHook.EffectTrigger, m.EffectTrigger, [new("Prefixes", CombatHarmonyCallbacks.EffectPrefixMethod), new("Finalizers", CombatHarmonyCallbacks.EffectFinalizerMethod)]),
+            (CombatHook.EffectApplication, m.EffectApplication, [new("Postfixes", CombatHarmonyCallbacks.EffectApplicationPostfixMethod)])
         }
         .Where(x => x.Method != null)
         .Select(x => new PatchRegistration(x.Hook, x.Method!, x.Expected))
@@ -661,6 +742,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             case CombatHook.EffectTrigger:
                 patcher.Patch(registration.Original, CombatHarmonyCallbacks.EffectPrefixMethod, finalizer: CombatHarmonyCallbacks.EffectFinalizerMethod);
                 break;
+            case CombatHook.EffectApplication:
+                patcher.Patch(registration.Original, postfix: CombatHarmonyCallbacks.EffectApplicationPostfixMethod);
+                break;
         }
     }
 
@@ -680,6 +764,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         public string WeaponDisplayName { get; set; } = string.Empty;
         public int AmmunitionTypeId { get; set; }
         public string AmmunitionDisplayName { get; set; } = string.Empty;
+        public EquipmentEventAssociation EquipmentAssociation { get; set; } = new();
         public bool Completed { get; set; }
         public CombatNativeScope Scope => scope ??= new CombatNativeScope
         {
@@ -690,7 +775,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             WeaponTypeId = WeaponTypeId,
             WeaponDisplayName = WeaponDisplayName,
             AmmunitionTypeId = AmmunitionTypeId,
-            AmmunitionDisplayName = AmmunitionDisplayName
+            AmmunitionDisplayName = AmmunitionDisplayName,
+            EquipmentAssociation = EquipmentAssociation
         };
         private CombatNativeScope? scope;
     }
@@ -703,6 +789,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         public MethodInfo? ProjectileRelease { get; set; }
         public MethodInfo? MeleeCheck { get; set; }
         public MethodInfo? EffectTrigger { get; set; }
+        public MethodInfo? EffectApplication { get; set; }
 
         public CombatHookSupport CreateHookSupport() => new()
         {
@@ -712,6 +799,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             ProjectileRelease = ProjectileRelease != null,
             MeleeCheck = MeleeCheck != null,
             EffectTrigger = EffectTrigger != null,
+            EffectApplication = EffectApplication != null,
             PublicMeleeSwing = true,
             PublicPlayerDeath = true
         };
@@ -734,7 +822,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         ProjectileUpdate,
         ProjectileRelease,
         MeleeCheck,
-        EffectTrigger
+        EffectTrigger,
+        EffectApplication
     }
 }
 
@@ -748,6 +837,7 @@ internal static class CombatHookSupportExtensions
         NativeCombatAttributionAdapter.CombatHook.ProjectileRelease => support.ProjectileRelease,
         NativeCombatAttributionAdapter.CombatHook.MeleeCheck => support.MeleeCheck,
         NativeCombatAttributionAdapter.CombatHook.EffectTrigger => support.EffectTrigger,
+        NativeCombatAttributionAdapter.CombatHook.EffectApplication => support.EffectApplication,
         _ => false
     };
 
@@ -761,6 +851,7 @@ internal static class CombatHookSupportExtensions
             case NativeCombatAttributionAdapter.CombatHook.ProjectileRelease: support.ProjectileRelease = false; break;
             case NativeCombatAttributionAdapter.CombatHook.MeleeCheck: support.MeleeCheck = false; break;
             case NativeCombatAttributionAdapter.CombatHook.EffectTrigger: support.EffectTrigger = false; break;
+            case NativeCombatAttributionAdapter.CombatHook.EffectApplication: support.EffectApplication = false; break;
         }
     }
 
@@ -772,5 +863,6 @@ internal static class CombatHookSupportExtensions
         support.ProjectileRelease = false;
         support.MeleeCheck = false;
         support.EffectTrigger = false;
+        support.EffectApplication = false;
     }
 }

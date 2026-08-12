@@ -12,6 +12,8 @@
     <ProjectReference Include="..\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />
     <Reference Include="TeamSoda.Duckov.Core" HintPath="$(DuckovManagedPath)\TeamSoda.Duckov.Core.dll" Private="false" />
     <Reference Include="ItemStatsSystem" HintPath="$(DuckovManagedPath)\ItemStatsSystem.dll" Private="false" />
+    <Reference Include="TeamSoda.Duckov.Utilities" HintPath="$(DuckovManagedPath)\TeamSoda.Duckov.Utilities.dll" Private="false" />
+    <Reference Include="Sirenix.OdinInspector.Attributes" HintPath="$(DuckovManagedPath)\Sirenix.OdinInspector.Attributes.dll" Private="false" />
     <Reference Include="Eflatun.SceneReference" HintPath="$(DuckovManagedPath)\Eflatun.SceneReference.dll" Private="false" />
     <Reference Include="UnityEngine" HintPath="$(DuckovManagedPath)\UnityEngine.dll" Private="false" />
     <Reference Include="UnityEngine.CoreModule" HintPath="$(DuckovManagedPath)\UnityEngine.CoreModule.dll" Private="false" />

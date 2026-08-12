@@ -14,6 +14,7 @@ public static class CombatNativeContractPolicy
         ProjectileRelease = true,
         MeleeCheck = true,
         EffectTrigger = true,
+        EffectApplication = true,
         PublicMeleeSwing = true,
         PublicPlayerDeath = true
     });
@@ -42,7 +43,7 @@ public static class CombatNativeContractPolicy
             Cause = Availability(deathOrHealth, "Effect, explosion, real-damage, environmental, or direct context attached to proven health/death evidence.", "Damage cause requires Health.Hurt or the public player-death callback."),
             WeaponIdentity = Availability(deathOrHealth, "DamageInfo.fromWeaponItemID or projectile initialization snapshot at event time.", "Weapon identity requires Health.Hurt or the public player-death callback."),
             AmmunitionIdentity = Availability(projectileDamage || (support.PublicPlayerDeath && support.ProjectileInit && support.ProjectileUpdate), "ProjectileContext ammunition snapshot retained on damage, completion, and death outcomes.", "Ammunition identity requires Projectile.Init/Update plus proven health or death evidence."),
-            DamageOverTime = Availability(effectDamage, "ItemStatsSystem TickTrigger/UpdateTrigger scope independently proves repeated effect damage.", "Damage over time requires an effect scope plus proven health or death evidence."),
+            DamageOverTime = Availability(effectDamage, "ItemStatsSystem TickTrigger/UpdateTrigger scope proves repeated effect damage; buff application preserves a proven originating equipment association.", "Damage over time requires an effect scope plus proven health or death evidence."),
             Headshots = Availability(projectileDamage, "InputManager.AimingEnemyHead sampled for an exact player projectile; DamageInfo.crit alone is never used.", "Headshots require Health.Hurt and Projectile.Init/Update."),
             HeadshotFinalBlows = Availability(projectileDamage, "A proven head-targeted projectile that performs the fatal Health.Hurt transition.", "Headshot final blows require Health.Hurt and Projectile.Init/Update.")
         };
@@ -113,6 +114,7 @@ public sealed record class CombatHookSupport
     public bool ProjectileRelease { get; set; }
     public bool MeleeCheck { get; set; }
     public bool EffectTrigger { get; set; }
+    public bool EffectApplication { get; set; }
     public bool PublicMeleeSwing { get; set; }
     public bool PublicPlayerDeath { get; set; }
 }

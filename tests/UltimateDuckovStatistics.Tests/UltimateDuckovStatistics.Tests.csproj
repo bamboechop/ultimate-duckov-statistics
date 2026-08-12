@@ -29,6 +29,10 @@
              Link="ProductionAdapters\RetryableHarmonyPatcherLease.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCallbackLifetime.cs"
              Link="ProductionAdapters\NativeCallbackLifetime.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEquipmentSnapshotBuilder.cs"
+             Link="ProductionAdapters\NativeEquipmentSnapshotBuilder.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCombatEquipmentAssociationResolver.cs"
+             Link="ProductionAdapters\NativeCombatEquipmentAssociationResolver.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\UiText.cs"
              Link="ProductionUI\UiText.cs" />
   </ItemGroup>

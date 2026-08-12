@@ -46,6 +46,8 @@ public sealed class RunStartContext
     public WeaponMetricCapabilities WeaponCapabilities { get; set; } = new();
 
     public CombatMetricCapabilities CombatCapabilities { get; set; } = new();
+
+    public EquipmentMetricCapabilities EquipmentCapabilities { get; set; } = new();
 }
 
 public sealed class RunLifecycleEvent
@@ -247,6 +249,7 @@ public sealed class RunLifecycleTracker
         try
         {
             WeaponStatisticsReducer.Apply(active.WeaponStatistics, shot);
+            EquipmentStatisticsReducer.RecordShot(active.EquipmentStatistics, shot);
             active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(
                 active.Context.IntegrityTags,
                 shot.IntegrityTags);
@@ -285,6 +288,7 @@ public sealed class RunLifecycleTracker
         try
         {
             CombatStatisticsReducer.Apply(active.CombatStatistics, value);
+            EquipmentStatisticsReducer.RecordCombat(active.EquipmentStatistics, value);
             active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(
                 active.Context.IntegrityTags,
                 value.IntegrityTags);
@@ -311,6 +315,37 @@ public sealed class RunLifecycleTracker
         CombatStatisticsReducer.RestrictCapabilities(active.CombatStatistics, capabilities);
         combatCheckpointRequired = true;
         return true;
+    }
+
+    public bool ObserveEquipment(EquipmentSnapshot snapshot)
+    {
+        if (active == null || snapshot == null) return false;
+        var changed = EquipmentStatisticsReducer.Observe(active.EquipmentStatistics, snapshot, active.ActiveDurationSeconds);
+        if (changed) combatCheckpointRequired = true;
+        return changed;
+    }
+
+    public bool ObserveEquipment(
+        EquipmentSnapshot snapshot,
+        DateTime timestampUtc,
+        double monotonicSeconds)
+    {
+        if (active == null || snapshot == null) return false;
+        if (double.IsNaN(monotonicSeconds) || double.IsInfinity(monotonicSeconds) || monotonicSeconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(monotonicSeconds));
+        Advance(timestampUtc, monotonicSeconds);
+        return ObserveEquipment(snapshot);
+    }
+
+    public bool SuspendEquipment(DateTime timestampUtc, double monotonicSeconds)
+    {
+        if (active == null) return false;
+        if (double.IsNaN(monotonicSeconds) || double.IsInfinity(monotonicSeconds) || monotonicSeconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(monotonicSeconds));
+        Advance(timestampUtc, monotonicSeconds);
+        var changed = EquipmentStatisticsReducer.Suspend(active.EquipmentStatistics, active.ActiveDurationSeconds);
+        if (changed) combatCheckpointRequired = true;
+        return changed;
     }
 
     public ActiveRunCheckpoint? CreateCheckpoint(DateTime timestampUtc, double monotonicSeconds)
@@ -344,7 +379,8 @@ public sealed class RunLifecycleTracker
             MapCapability = active.Context.MapCapability,
             MapAdapterVersion = active.Context.MapAdapterVersion,
             WeaponStatistics = WeaponStatisticsReducer.Clone(active.WeaponStatistics),
-            CombatStatistics = CombatStatisticsReducer.Clone(active.CombatStatistics)
+            CombatStatistics = CombatStatisticsReducer.Clone(active.CombatStatistics),
+            EquipmentStatistics = EquipmentStatisticsReducer.Clone(active.EquipmentStatistics)
         };
     }
 
@@ -421,6 +457,7 @@ public sealed class RunLifecycleTracker
 
         Advance(lifecycleEvent.TimestampUtc, lifecycleEvent.MonotonicSeconds);
         var state = active;
+        EquipmentStatisticsReducer.Suspend(state.EquipmentStatistics, state.ActiveDurationSeconds);
         var endedUtc = EnsureUtc(lifecycleEvent.TimestampUtc);
         var recordEligible = outcome != RunOutcome.Interrupted
                              && state.Context.IntegrityTags == IntegrityTags.Normal
@@ -451,7 +488,8 @@ public sealed class RunLifecycleTracker
             MapCapability = state.Context.MapCapability,
             MapAdapterVersion = state.Context.MapAdapterVersion,
             WeaponStatistics = WeaponStatisticsReducer.Clone(state.WeaponStatistics),
-            CombatStatistics = CombatStatisticsReducer.Clone(state.CombatStatistics)
+            CombatStatistics = CombatStatisticsReducer.Clone(state.CombatStatistics),
+            EquipmentStatistics = EquipmentStatisticsReducer.Clone(state.EquipmentStatistics)
         };
 
         active = null;
@@ -473,6 +511,8 @@ public sealed class RunLifecycleTracker
         {
             active.ActiveDurationSeconds += monotonicSeconds - active.LastMonotonicSeconds;
         }
+
+        EquipmentStatisticsReducer.Advance(active.EquipmentStatistics, active.ActiveDurationSeconds);
 
         active.LastMonotonicSeconds = monotonicSeconds;
         active.LastObservedUtc = EnsureUtc(timestampUtc);
@@ -525,6 +565,7 @@ public sealed class RunLifecycleTracker
             LastMonotonicSeconds = startedMonotonicSeconds;
             WeaponStatistics.Capabilities = WeaponStatisticsReducer.CloneCapabilities(context.WeaponCapabilities);
             CombatStatistics.Capabilities = CombatStatisticsReducer.CloneCapabilities(context.CombatCapabilities);
+            EquipmentStatistics.Capabilities = EquipmentStatisticsReducer.CloneCapabilities(context.EquipmentCapabilities);
         }
 
         public string RunId { get; }
@@ -542,6 +583,8 @@ public sealed class RunLifecycleTracker
         public WeaponStatisticsAggregate WeaponStatistics { get; } = new();
 
         public CombatStatisticsAggregate CombatStatistics { get; } = new();
+
+        public EquipmentStatisticsAggregate EquipmentStatistics { get; } = new();
 
         public HashSet<string> RecentShotEventIds { get; } = new(StringComparer.Ordinal);
 

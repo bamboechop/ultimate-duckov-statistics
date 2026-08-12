@@ -18,6 +18,7 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
     private readonly Func<string?> runIdProvider;
     private readonly Func<string?> mapIdProvider;
     private readonly Func<ShotRecorded, bool> shotHandler;
+    private readonly Func<EquipmentEventAssociation> equipmentAssociationProvider;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly NativeCallbackLifetime callbackLifetime = new();
@@ -31,7 +32,8 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
         Func<string?> mapIdProvider,
         Func<ShotRecorded, bool> shotHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
-        Action<string> diagnosticHandler)
+        Action<string> diagnosticHandler,
+        Func<EquipmentEventAssociation>? equipmentAssociationProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
@@ -40,6 +42,7 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
         this.shotHandler = shotHandler ?? throw new ArgumentNullException(nameof(shotHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.equipmentAssociationProvider = equipmentAssociationProvider ?? (() => new EquipmentEventAssociation());
     }
 
     public WeaponMetricCapabilities MetricCapabilities =>
@@ -184,7 +187,8 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
                 FiringActionCount = 1,
                 AmmunitionUnitsConsumed = null,
                 ProjectileCount = null,
-                Capabilities = eventCapabilities
+                Capabilities = eventCapabilities,
+                EquipmentAssociation = equipmentAssociationProvider()
             };
             shotHandler(shot);
         }

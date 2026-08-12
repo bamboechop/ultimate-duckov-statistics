@@ -12,6 +12,7 @@ internal static class UiText
             ["ui.runs"] = "Runs",
             ["ui.records"] = "Records",
             ["ui.combat"] = "Combat",
+            ["ui.equipment"] = "Equipment",
             ["ui.diagnostics"] = "Diagnostics",
             ["ui.total_uses"] = "Successful raid uses",
             ["ui.actual_hp"] = "Actual HP restored",
@@ -83,6 +84,7 @@ internal static class UiText
             ["ui.export_failed"] = "Export failed; see Diagnostics and Player.log.",
             ["ui.reset_complete"] = "UDS profile reset; prior generation archived read-only.",
             ["ui.integrity_note"] = "Run time, weapon, and combat tracking exclude pause/loading and non-raid contexts. Integrity-flagged and interrupted runs remain visible; only eligible runs enter default duration records.",
+            ["ui.equipment_contract"] = "Equipment time uses monotonic active raid time. Direct totem and tote presence are tracked separately; tote activation remains unavailable until gameplay proves it.",
             ["ui.open_hint"] = "Press the configured hotkey outside raids to show or hide this panel."
         };
 
