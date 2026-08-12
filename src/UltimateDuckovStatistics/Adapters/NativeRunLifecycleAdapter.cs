@@ -109,6 +109,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         callbackLifetime.CanHandleCallbacks
         && tracker.ObserveEquipment(snapshot, DateTime.UtcNow, NowMonotonic());
 
+    public bool InvalidateEquipmentObservation() =>
+        callbackLifetime.CanHandleCallbacks
+        && tracker.SuspendEquipment(DateTime.UtcNow, NowMonotonic());
+
     public bool FlushCheckpoint() => !tracker.IsActive
         || SaveCheckpoint(DateTime.UtcNow, NowMonotonic());
 

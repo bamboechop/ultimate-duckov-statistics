@@ -437,10 +437,32 @@ internal sealed class NativeStatisticsPanel
         foreach (var row in equipment.SelectedWeapons.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(20))
             GUILayout.Label($"{row.Id}: {FormatDuration(row.ActiveDurationSeconds)}");
         GUILayout.Space(6);
+        GUILayout.Label("Observed totem state time (presence; Unknown is not active effect time)");
+        foreach (var row in equipment.TotemStates.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(30))
+            GUILayout.Label($"{row.DisplayName}: {FormatDuration(row.ActiveDurationSeconds)}");
+        GUILayout.Space(6);
+        GUILayout.Label("Proven-active totem-set time");
+        foreach (var row in equipment.TotemSets.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(20))
+            GUILayout.Label($"{row.DisplayName}: {FormatDuration(row.ActiveDurationSeconds)}");
+        GUILayout.Space(6);
         GUILayout.Label("Recurring loadouts (at least two completed runs)");
         foreach (var row in equipment.Loadouts.Values.Where(x => x.RunOccurrences >= 2)
                      .OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(20))
-            GUILayout.Label($"{row.Id}: {FormatDuration(row.ActiveDurationSeconds)}, {row.RunOccurrences.ToString(CultureInfo.InvariantCulture)} runs");
+            GUILayout.Label($"{row.DisplayName}: {FormatDuration(row.ActiveDurationSeconds)}, {row.RunOccurrences.ToString(CultureInfo.InvariantCulture)} runs");
+        GUILayout.Space(6);
+        GUILayout.Label("Recurring proven-active totem sets (at least two completed runs)");
+        foreach (var row in equipment.TotemSets.Values.Where(x => x.RunOccurrences >= 2)
+                     .OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(20))
+            GUILayout.Label($"{row.DisplayName}: {FormatDuration(row.ActiveDurationSeconds)}, {row.RunOccurrences.ToString(CultureInfo.InvariantCulture)} runs");
+        GUILayout.Space(6);
+        GUILayout.Label("Recent run loadouts");
+        foreach (var run in profile.Statistics.Runs.OrderByDescending(x => x.EndedUtc).ThenBy(x => x.RunId, StringComparer.Ordinal).Take(5))
+        {
+            GUILayout.Label($"{run.MapDisplayName} / {run.RunId}");
+            foreach (var row in run.EquipmentStatistics.Loadouts.Values
+                         .OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(10))
+                GUILayout.Label($"  {row.DisplayName}: {FormatDuration(row.ActiveDurationSeconds)}");
+        }
         GUILayout.EndScrollView();
     }
 

@@ -91,6 +91,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             var newEquipmentAdapter = new NativeEquipmentAdapter(
                 () => runLifecycleAdapter.OwnedValue?.IsActive == true,
                 snapshot => runLifecycleAdapter.OwnedValue?.ObserveEquipment(snapshot) == true,
+                () => runLifecycleAdapter.OwnedValue?.InvalidateEquipmentObservation() == true,
                 profileCoordinator.SetEquipmentCapabilities,
                 message => Debug.Log($"{LogPrefix} {message}"));
             equipmentAdapter.Assign(newEquipmentAdapter);

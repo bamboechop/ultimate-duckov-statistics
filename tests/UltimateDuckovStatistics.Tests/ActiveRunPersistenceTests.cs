@@ -30,7 +30,7 @@ public sealed class ActiveRunPersistenceTests
             SelectedWeaponSlotId = "slot:primary",
             TotemSetId = "totems:a",
             Items = new List<EquippedItemSnapshot>
-            { new() { SlotId = "slot:primary", ItemId = "weapon:a", ItemDisplayName = "Rifle", AttachmentSignature = "attachments:a" } }
+            { new() { SlotId = "slot:primary", ItemId = "weapon:a", ItemDisplayName = "Rifle", Kind = EquipmentItemKind.Weapon, AttachmentSignature = "attachments:a" } }
         }));
         repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(4), 4)!);
 

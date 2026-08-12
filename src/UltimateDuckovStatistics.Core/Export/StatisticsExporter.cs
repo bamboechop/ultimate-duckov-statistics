@@ -269,6 +269,8 @@ public static class StatisticsExporter
     {
         Append("item", statistics.Items);
         Append("selected_weapon", statistics.SelectedWeapons);
+        Append("loadout", statistics.Loadouts);
+        Append("totem_state", statistics.TotemStates);
         Append("totem_set", statistics.TotemSets);
         return;
         void Append(string kind, Dictionary<string, EquipmentDurationAggregate> values)

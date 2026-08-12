@@ -19,6 +19,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     private const double ReconciliationIntervalSeconds = 0.2;
     private readonly Func<bool> runActiveProvider;
     private readonly Func<EquipmentSnapshot, bool> snapshotHandler;
+    private readonly Func<bool> invalidationHandler;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
@@ -33,11 +34,13 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     public NativeEquipmentAdapter(
         Func<bool> runActiveProvider,
         Func<EquipmentSnapshot, bool> snapshotHandler,
+        Func<bool> invalidationHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
         Action<string> diagnosticHandler)
     {
         this.runActiveProvider = runActiveProvider ?? throw new ArgumentNullException(nameof(runActiveProvider));
         this.snapshotHandler = snapshotHandler ?? throw new ArgumentNullException(nameof(snapshotHandler));
+        this.invalidationHandler = invalidationHandler ?? throw new ArgumentNullException(nameof(invalidationHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
     }
@@ -119,6 +122,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     private void SynchronizeMain()
     {
         var current = CharacterMainControl.Main;
+        if (current != null && !current.IsMainCharacter) current = null;
         var characterItem = current?.CharacterItem;
         if (ReferenceEquals(current, observedMain) && ReferenceEquals(characterItem, observedCharacterItem)) return;
         UnsubscribeCharacterTree();
@@ -140,8 +144,10 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     {
         if (!callbackLifetime.CanHandleCallbacks) return;
         SynchronizeMain();
-        if (!runActiveProvider() || observedMain == null || observedCharacterItem == null)
+        if (!runActiveProvider())
         { latestSnapshot = null; return; }
+        if (observedMain == null || observedCharacterItem == null || !observedMain.IsMainCharacter)
+        { InvalidateObservation(); return; }
         try
         {
             var snapshot = BuildSnapshot(observedMain, observedCharacterItem);
@@ -150,7 +156,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         }
         catch (Exception exception)
         {
-            latestSnapshot = null;
+            InvalidateObservation();
             diagnosticHandler($"Equipment observation failed safely: {exception.GetType().Name}: {exception.Message}");
         }
     }
@@ -208,12 +214,19 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         var loadoutCanonical = string.Join(";", equipped.Select(value => value.SlotId + "=" + value.ItemId + "@" + value.AttachmentSignature));
         var totemCanonical = string.Join(";", totems.Where(value => value.ActivationState == TotemActivationState.ProvenActive)
             .Select(value => ((int)value.CarryKind).ToString(CultureInfo.InvariantCulture) + "=" + value.ContainerId + "=" + value.ItemId));
+        var totemPresenceCanonical = string.Join(";", totems.Select(value =>
+            ((int)value.CarryKind).ToString(CultureInfo.InvariantCulture) + "=" + value.ContainerId + "=" + value.ItemId
+            + "=" + ((int)value.ActivationState).ToString(CultureInfo.InvariantCulture)));
         var selected = main.CurrentHoldItemAgent?.Item;
         var selectedSlotId = selected == null ? string.Empty : characterItem.Slots
             .Where(value => ReferenceEquals(value.Content, selected))
             .Select(value => "duckov:slot:" + (value.Key ?? string.Empty))
             .FirstOrDefault() ?? string.Empty;
-        var selectedId = string.IsNullOrWhiteSpace(selectedSlotId) ? string.Empty : ItemId(selected!, "weapon");
+        var selectedEntry = equipped.FirstOrDefault(value =>
+            string.Equals(value.SlotId, selectedSlotId, StringComparison.Ordinal)
+            && value.Kind == EquipmentItemKind.Weapon);
+        var selectedId = selectedEntry?.ItemId ?? string.Empty;
+        if (selectedEntry == null) selectedSlotId = string.Empty;
         var loadoutId = "duckov:loadout:" + Hash(loadoutCanonical);
         var totemSetId = "duckov:totem-set:" + Hash(totemCanonical);
         return new EquipmentSnapshot
@@ -224,8 +237,15 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
             SelectedWeaponSlotId = selectedSlotId,
             LoadoutId = loadoutId,
             TotemSetId = totemSetId,
-            SnapshotId = "duckov:equipment-snapshot:" + Hash(loadoutId + "|" + selectedSlotId + "|" + selectedId + "|" + totemSetId)
+            SnapshotId = "duckov:equipment-snapshot:" + Hash(
+                loadoutId + "|" + selectedSlotId + "|" + selectedId + "|" + totemSetId + "|" + Hash(totemPresenceCanonical))
         };
+    }
+
+    private void InvalidateObservation()
+    {
+        latestSnapshot = null;
+        invalidationHandler();
     }
 
     private static string AttachmentSignature(Item item)

@@ -337,6 +337,17 @@ public sealed class RunLifecycleTracker
         return ObserveEquipment(snapshot);
     }
 
+    public bool SuspendEquipment(DateTime timestampUtc, double monotonicSeconds)
+    {
+        if (active == null) return false;
+        if (double.IsNaN(monotonicSeconds) || double.IsInfinity(monotonicSeconds) || monotonicSeconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(monotonicSeconds));
+        Advance(timestampUtc, monotonicSeconds);
+        var changed = EquipmentStatisticsReducer.Suspend(active.EquipmentStatistics, active.ActiveDurationSeconds);
+        if (changed) combatCheckpointRequired = true;
+        return changed;
+    }
+
     public ActiveRunCheckpoint? CreateCheckpoint(DateTime timestampUtc, double monotonicSeconds)
     {
         if (active == null)
@@ -446,6 +457,7 @@ public sealed class RunLifecycleTracker
 
         Advance(lifecycleEvent.TimestampUtc, lifecycleEvent.MonotonicSeconds);
         var state = active;
+        EquipmentStatisticsReducer.Suspend(state.EquipmentStatistics, state.ActiveDurationSeconds);
         var endedUtc = EnsureUtc(lifecycleEvent.TimestampUtc);
         var recordEligible = outcome != RunOutcome.Interrupted
                              && state.Context.IntegrityTags == IntegrityTags.Normal
