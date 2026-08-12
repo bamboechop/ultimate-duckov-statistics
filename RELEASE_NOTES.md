@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics v0.6.0 — pre-release draft
 
-This draft describes M6 equipment and totem statistics. M0-M4 are published through v0.4.0. M5 is merged into `main` and manually accepted, but no v0.5.0 tag or GitHub release exists. M6 remains an unmerged draft pre-release candidate: do not publish, tag, merge, mark ready, or upload it to Steam Workshop without a later explicit request.
+This draft describes M6 equipment and totem statistics. M0-M5 are published through the v0.5.0 GitHub pre-release. M6 remains an unmerged draft pre-release candidate: do not publish, tag, merge, mark ready, or upload it to Steam Workshop without a later explicit request.
 
 ## Included in v0.6.0
 

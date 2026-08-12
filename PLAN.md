@@ -42,7 +42,7 @@ A version change triggers compatibility checks, not an automatic global shutdown
 - `v0.2.0` is a GitHub pre-release containing M2 healing attribution after its manual acceptance matrix passes.
 - `v0.3.0` is the published GitHub pre-release containing M3 run lifecycle, duration records, map aggregation, and movement.
 - `v0.4.0` is the published GitHub pre-release containing M4 accepted firing actions and event-time weapon/ammunition identity; unsupported outcome metrics remain unavailable.
-- M5 is merged into `main` and its complete manual acceptance matrix passed, but no `v0.5.0` tag or GitHub release has been published.
+- M5 is merged into `main`; its complete manual acceptance matrix passed, and GitHub pre-release `v0.5.0` was published on 2026-08-12.
 - `v0.6.0` is the M6 GitHub pre-release candidate for equipment and totems. It remains draft/unmerged until its complete manual acceptance matrix passes.
 - No Steam Workshop upload in v0.1.
 - Release artifact includes the installable ZIP, SHA-256 checksum, installation instructions, compatibility information, and known limitations.
