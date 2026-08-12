@@ -24,24 +24,30 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private const string SupportedGameBuild = "24013657";
     private const double SampleIntervalSeconds = 0.2;
     private const double CheckpointRetryIntervalSeconds = 1;
+    private const double CombatCheckpointIntervalSeconds = 1;
     private readonly Func<string> saveGenerationIdProvider;
     private readonly Func<ActiveRunCheckpoint, bool> checkpointHandler;
     private readonly Func<RunSummary, bool> completionHandler;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly Func<WeaponMetricCapabilities> weaponCapabilitiesProvider;
+    private readonly Func<CombatMetricCapabilities> combatCapabilitiesProvider;
     private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
     private readonly RunLifecycleTracker tracker;
     private readonly MonotonicCadenceGate sampleCadence = new(SampleIntervalSeconds);
     private readonly CheckpointRetryGate checkpointRetry = new(CheckpointRetryIntervalSeconds);
+    private readonly MonotonicCadenceGate combatCheckpointCadence = new(CombatCheckpointIntervalSeconds);
     private readonly ReferenceSubjectGate<CharacterMainControl> mainCharacterGate = new();
     private readonly NativeCallbackLifetime callbackLifetime = new();
+    private readonly DeathObservationGate deathObservationGate = new();
     private readonly List<CapabilityRecord> capabilities = new();
     private CharacterMainControl? mainCharacter;
     private bool paused;
     private bool loading;
     private MovementObservationKind? pendingBoundary;
     private string? movementMapId;
+    private Action<DamageInfo>? playerDeathObserver;
+    private bool pendingDeathTerminal;
 
     public NativeRunLifecycleAdapter(
         Func<string> saveGenerationIdProvider,
@@ -49,7 +55,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         Func<RunSummary, bool> completionHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
         Action<string> diagnosticHandler,
-        Func<WeaponMetricCapabilities>? weaponCapabilitiesProvider = null)
+        Func<WeaponMetricCapabilities>? weaponCapabilitiesProvider = null,
+        Func<CombatMetricCapabilities>? combatCapabilitiesProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
@@ -58,6 +65,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
         this.weaponCapabilitiesProvider = weaponCapabilitiesProvider ?? (() => new WeaponMetricCapabilities());
+        this.combatCapabilitiesProvider = combatCapabilitiesProvider ?? (() => new CombatMetricCapabilities());
         tracker = new RunLifecycleTracker(() => Guid.NewGuid().ToString("N"));
         SetAllCapabilities(
             AdapterCapabilityState.DisabledIncompatible,
@@ -87,6 +95,17 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
         return true;
     }
+
+    public bool RecordCombat(CombatRecorded value) =>
+        callbackLifetime.CanHandleCallbacks && tracker.RecordCombat(value);
+
+    public bool UpdateCombatCapabilities(CombatMetricCapabilities capabilities) =>
+        callbackLifetime.CanHandleCallbacks && tracker.UpdateCombatCapabilities(capabilities);
+
+    public bool FlushCheckpoint() => !tracker.IsActive
+        || SaveCheckpoint(DateTime.UtcNow, NowMonotonic());
+
+    public void SetPlayerDeathObserver(Action<DamageInfo>? observer) => playerDeathObserver = observer;
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
@@ -144,6 +163,12 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             SynchronizeMainCharacter();
             SynchronizeNativeStates();
             SynchronizeRaidInitialization();
+            if (pendingDeathTerminal && tracker.IsActive)
+            {
+                pendingDeathTerminal = false;
+                ApplyTerminal(RunLifecycleEventKind.Died);
+                return;
+            }
             TryStartRun();
             var now = NowMonotonic();
             var utcNow = DateTime.UtcNow;
@@ -153,8 +178,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 tracker.ObserveIntegrity(NativeIntegrityProbe.Read());
             }
 
+            var coalescedCombatCheckpointDue = tracker.CombatCheckpointRequired
+                                                && combatCheckpointCadence.IsDue(now);
             if (checkpointRetry.ShouldAttempt(
-                    tracker.CombatCheckpointRequired,
+                    coalescedCombatCheckpointDue,
                     periodicCheckpointDue,
                     now))
             {
@@ -191,7 +218,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         DetachMainCharacter();
         sampleCadence.Reset();
         checkpointRetry.Reset();
+        combatCheckpointCadence.Reset();
         movementMapId = null;
+        pendingDeathTerminal = false;
+        deathObservationGate.Reset();
         tracker.Apply(Event(RunLifecycleEventKind.RaidCleared));
     }
 
@@ -205,7 +235,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
         sampleCadence.Reset();
         checkpointRetry.Reset();
+        combatCheckpointCadence.Reset();
         movementMapId = null;
+        pendingDeathTerminal = false;
+        deathObservationGate.Reset();
         var cleaned = callbackLifetime.TryCleanup(TryDetachMainCharacter, out var staticCleanupFailure);
         if (staticCleanupFailure != null)
         {
@@ -272,7 +305,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 MovementAdapterVersion = MovementAdapterVersion,
                 MapCapability = MapCapability.State,
                 MapAdapterVersion = MapAdapterVersion,
-                WeaponCapabilities = weaponCapabilitiesProvider()
+                WeaponCapabilities = weaponCapabilitiesProvider(),
+                CombatCapabilities = combatCapabilitiesProvider()
             }
         });
         if (!transition.Started)
@@ -282,8 +316,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
         sampleCadence.Reset();
         checkpointRetry.Reset();
+        combatCheckpointCadence.Reset();
         movementMapId = tracker.ActiveMapId;
         pendingBoundary = null;
+        deathObservationGate.Reset();
         SampleMainDuck(utcNow, now);
         sampleCadence.MarkCompleted(now);
         SaveCheckpoint(utcNow, now);
@@ -320,7 +356,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
         sampleCadence.Reset();
         checkpointRetry.Reset();
+        combatCheckpointCadence.Reset();
         movementMapId = null;
+        pendingDeathTerminal = false;
+        deathObservationGate.Reset();
 
         if (completionHandler(transition.Completed))
         {
@@ -411,6 +450,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         tracker.MarkCheckpointSaved(monotonicSeconds);
+        combatCheckpointCadence.MarkCompleted(monotonicSeconds);
         checkpointRetry.RecordResult(succeeded: true, monotonicSeconds: monotonicSeconds);
         return true;
     }
@@ -719,10 +759,18 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         });
     }
 
-    private void OnRaidEnd(RaidUtilities.RaidInfo raid) =>
-        ApplyTerminal(raid.dead ? RunLifecycleEventKind.Died : RunLifecycleEventKind.Interrupted);
+    private void OnRaidEnd(RaidUtilities.RaidInfo raid)
+    {
+        if (raid.dead)
+        {
+            pendingDeathTerminal = tracker.IsActive;
+            return;
+        }
 
-    private void OnRaidDead(RaidUtilities.RaidInfo raid) => ApplyTerminal(RunLifecycleEventKind.Died);
+        ApplyTerminal(RunLifecycleEventKind.Interrupted);
+    }
+
+    private void OnRaidDead(RaidUtilities.RaidInfo raid) => pendingDeathTerminal = tracker.IsActive;
 
     private void OnLevelInitialized() => SynchronizeMainCharacter();
 
@@ -730,7 +778,26 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnEvacuated(EvacuationInfo info) => ApplyTerminal(RunLifecycleEventKind.Extracted);
 
-    private void OnMainCharacterDead(DamageInfo info) => ApplyTerminal(RunLifecycleEventKind.Died);
+    private void OnMainCharacterDead(DamageInfo info)
+    {
+        if (!deathObservationGate.TryObserve(tracker.IsActive))
+        {
+            return;
+        }
+
+        try
+        {
+            playerDeathObserver?.Invoke(info);
+        }
+        catch (Exception exception)
+        {
+            diagnosticHandler($"Main-character death observer failed safely: {exception.GetType().Name}: {exception.Message}");
+        }
+
+        // Health.Hurt has not returned yet. Keep the run active until Update so
+        // the post-call HP delta can be recorded before terminal aggregation.
+        pendingDeathTerminal = true;
+    }
 
     private void OnPauseStarted()
     {

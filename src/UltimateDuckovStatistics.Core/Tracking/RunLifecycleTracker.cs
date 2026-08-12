@@ -44,6 +44,8 @@ public sealed class RunStartContext
     public string MapAdapterVersion { get; set; } = string.Empty;
 
     public WeaponMetricCapabilities WeaponCapabilities { get; set; } = new();
+
+    public CombatMetricCapabilities CombatCapabilities { get; set; } = new();
 }
 
 public sealed class RunLifecycleEvent
@@ -265,6 +267,52 @@ public sealed class RunLifecycleTracker
         return true;
     }
 
+    public bool RecordCombat(CombatRecorded value)
+    {
+        if (active == null
+            || value == null
+            || !string.Equals(value.SaveGenerationId, active.Context.SaveGenerationId, StringComparison.Ordinal)
+            || !string.Equals(value.RunId, active.RunId, StringComparison.Ordinal)
+            || !string.Equals(value.MapId, active.Context.Map.MapId, StringComparison.Ordinal)
+            || value.GameplayContext != GameplayContext.Raid
+            || string.IsNullOrWhiteSpace(value.EventId)
+            || active.RecentCombatEventIds.Contains(value.EventId))
+        {
+            return false;
+        }
+
+        active.RecentCombatEventIds.Add(value.EventId);
+        try
+        {
+            CombatStatisticsReducer.Apply(active.CombatStatistics, value);
+            active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(
+                active.Context.IntegrityTags,
+                value.IntegrityTags);
+        }
+        catch
+        {
+            active.RecentCombatEventIds.Remove(value.EventId);
+            throw;
+        }
+
+        active.RecentCombatEventIdOrder.Enqueue(value.EventId);
+        while (active.RecentCombatEventIdOrder.Count > 2048)
+        {
+            active.RecentCombatEventIds.Remove(active.RecentCombatEventIdOrder.Dequeue());
+        }
+
+        combatCheckpointRequired = true;
+        return true;
+    }
+
+    public bool UpdateCombatCapabilities(CombatMetricCapabilities capabilities)
+    {
+        if (active == null || capabilities == null) return false;
+        CombatStatisticsReducer.RestrictCapabilities(active.CombatStatistics, capabilities);
+        combatCheckpointRequired = true;
+        return true;
+    }
+
     public ActiveRunCheckpoint? CreateCheckpoint(DateTime timestampUtc, double monotonicSeconds)
     {
         if (active == null)
@@ -295,7 +343,8 @@ public sealed class RunLifecycleTracker
             MovementAdapterVersion = active.Context.MovementAdapterVersion,
             MapCapability = active.Context.MapCapability,
             MapAdapterVersion = active.Context.MapAdapterVersion,
-            WeaponStatistics = WeaponStatisticsReducer.Clone(active.WeaponStatistics)
+            WeaponStatistics = WeaponStatisticsReducer.Clone(active.WeaponStatistics),
+            CombatStatistics = CombatStatisticsReducer.Clone(active.CombatStatistics)
         };
     }
 
@@ -401,7 +450,8 @@ public sealed class RunLifecycleTracker
             MovementAdapterVersion = state.Context.MovementAdapterVersion,
             MapCapability = state.Context.MapCapability,
             MapAdapterVersion = state.Context.MapAdapterVersion,
-            WeaponStatistics = WeaponStatisticsReducer.Clone(state.WeaponStatistics)
+            WeaponStatistics = WeaponStatisticsReducer.Clone(state.WeaponStatistics),
+            CombatStatistics = CombatStatisticsReducer.Clone(state.CombatStatistics)
         };
 
         active = null;
@@ -474,6 +524,7 @@ public sealed class RunLifecycleTracker
             LastObservedUtc = startedUtc;
             LastMonotonicSeconds = startedMonotonicSeconds;
             WeaponStatistics.Capabilities = WeaponStatisticsReducer.CloneCapabilities(context.WeaponCapabilities);
+            CombatStatistics.Capabilities = CombatStatisticsReducer.CloneCapabilities(context.CombatCapabilities);
         }
 
         public string RunId { get; }
@@ -490,8 +541,14 @@ public sealed class RunLifecycleTracker
 
         public WeaponStatisticsAggregate WeaponStatistics { get; } = new();
 
+        public CombatStatisticsAggregate CombatStatistics { get; } = new();
+
         public HashSet<string> RecentShotEventIds { get; } = new(StringComparer.Ordinal);
 
         public Queue<string> RecentShotEventIdOrder { get; } = new();
+
+        public HashSet<string> RecentCombatEventIds { get; } = new(StringComparer.Ordinal);
+
+        public Queue<string> RecentCombatEventIdOrder { get; } = new();
     }
 }

@@ -2,6 +2,7 @@ using Saves;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Diagnostics;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
@@ -45,6 +46,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
             Detail = "Weapon capability has not been initialized."
         })
         .ToList();
+    private List<CapabilityRecord> combatCapabilities = CombatNativeContractPolicy.ToRecords(
+        CombatNativeContractPolicy.CreateUnavailableCapabilities("Combat capability has not been initialized."),
+        NativeCombatAttributionAdapter.AdapterVersion).ToList();
 
     public NativeProfileCoordinator()
     {
@@ -179,6 +183,13 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
 
         weaponCapabilities = capabilities.Select(CloneCapability).ToList();
+        UpdateCapabilities();
+    }
+
+    public void SetCombatCapabilities(IReadOnlyList<CapabilityRecord> capabilities)
+    {
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        combatCapabilities = capabilities.Select(CloneCapability).ToList();
         UpdateCapabilities();
     }
 
@@ -504,7 +515,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(runCapabilities).Concat(weaponCapabilities));
+        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities));
     }
 
     private static CapabilityRecord DisabledRunCapability(string adapterId, string version) => new()

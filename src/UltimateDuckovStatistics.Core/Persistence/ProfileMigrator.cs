@@ -1,3 +1,4 @@
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Statistics;
 
 namespace UltimateDuckovStatistics.Core.Persistence;
@@ -24,6 +25,10 @@ public static class ProfileMigrator
         }
 
         var changed = false;
+        var migratingCombat = profile.SchemaVersion < 5
+                              || (profile.Statistics != null && profile.Statistics.SchemaVersion < 5);
+        var missingCurrentCombatRoot = !migratingCombat
+                                       && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         if (profile.SchemaVersion < 1)
         {
             profile.SchemaVersion = 1;
@@ -165,6 +170,18 @@ public static class ProfileMigrator
             }
 
             changed |= NormalizeWeaponStatistics(map.WeaponStatistics);
+
+            if (map.CombatStatistics == null)
+            {
+                map.CombatStatistics = new CombatStatisticsAggregate
+                {
+                    WasRepairedFromInvalidState = !migratingCombat
+                };
+                changed = true;
+            }
+
+            changed |= NormalizeCombatStatistics(map.CombatStatistics);
+            if (migratingCombat) changed |= MarkHistoricalCombatUnavailable(map.CombatStatistics);
         }
 
         if (profile.Statistics.RunTotals.WeaponStatistics == null)
@@ -175,6 +192,23 @@ public static class ProfileMigrator
 
         changed |= NormalizeWeaponStatistics(profile.Statistics.RunTotals.WeaponStatistics);
 
+        if (profile.Statistics.RunTotals.CombatStatistics == null)
+        {
+            profile.Statistics.RunTotals.CombatStatistics = new CombatStatisticsAggregate
+            {
+                WasRepairedFromInvalidState = !migratingCombat
+            };
+            changed = true;
+        }
+
+        changed |= NormalizeCombatStatistics(profile.Statistics.RunTotals.CombatStatistics);
+        if (missingCurrentCombatRoot)
+        {
+            profile.Statistics.RunTotals.CombatStatistics.WasRepairedFromInvalidState = true;
+            changed = true;
+        }
+        if (migratingCombat) changed |= MarkHistoricalCombatUnavailable(profile.Statistics.RunTotals.CombatStatistics);
+
         foreach (var run in profile.Statistics.Runs)
         {
             if (run.WeaponStatistics == null)
@@ -184,6 +218,18 @@ public static class ProfileMigrator
             }
 
             changed |= NormalizeWeaponStatistics(run.WeaponStatistics);
+
+            if (run.CombatStatistics == null)
+            {
+                run.CombatStatistics = new CombatStatisticsAggregate
+                {
+                    WasRepairedFromInvalidState = !migratingCombat
+                };
+                changed = true;
+            }
+
+            changed |= NormalizeCombatStatistics(run.CombatStatistics);
+            if (migratingCombat) changed |= MarkHistoricalCombatUnavailable(run.CombatStatistics);
         }
 
         if (profile.Statistics.RunRecords == null)
@@ -261,6 +307,18 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 5)
+        {
+            profile.SchemaVersion = 5;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 5)
+        {
+            profile.Statistics.SchemaVersion = 5;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
@@ -276,4 +334,14 @@ public static class ProfileMigrator
 
     private static bool NormalizeWeaponStatistics(WeaponStatisticsAggregate statistics)
         => WeaponStatisticsReducer.NormalizePersisted(statistics).Changed;
+
+    private static bool NormalizeCombatStatistics(CombatStatisticsAggregate statistics)
+        => CombatStatisticsReducer.NormalizePersisted(statistics).Changed;
+
+    private static bool MarkHistoricalCombatUnavailable(CombatStatisticsAggregate statistics)
+    {
+        const string provenance = "Historical schema predates M5; combat attribution was not recorded.";
+        statistics.Capabilities = CombatNativeContractPolicy.CreateUnavailableCapabilities(provenance);
+        return true;
+    }
 }

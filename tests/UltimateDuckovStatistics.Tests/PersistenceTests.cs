@@ -19,8 +19,12 @@ public sealed class PersistenceTests
         using var temporaryDirectory = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporaryDirectory.Path, "profile.json");
         var store = new AtomicJsonStore<ProfileDocument>();
-        store.Save(path, CreateDocument("generation-a", revision: 1));
-        store.Save(path, CreateDocument("generation-a", revision: 2));
+        var first = CreateDocument("generation-a", revision: 1);
+        first.Statistics.RunTotals.CombatStatistics.Totals.DamageDealt = 5;
+        var second = CreateDocument("generation-a", revision: 2);
+        second.Statistics.RunTotals.CombatStatistics.Totals.DamageDealt = 8;
+        store.Save(path, first);
+        store.Save(path, second);
 
         File.WriteAllText(path, "{ definitely-not-json");
         var recovered = store.Load(path);
@@ -29,6 +33,7 @@ public sealed class PersistenceTests
         Assert.True(recovered.Recovered);
         Assert.True(recovered.PrimaryRepaired);
         Assert.Equal(1, recovered.Value!.Revision);
+        Assert.Equal(5, recovered.Value.Statistics.RunTotals.CombatStatistics.Totals.DamageDealt);
         Assert.NotEmpty(recovered.Failures);
         Assert.Equal(1, store.Load(path).Value!.Revision);
     }
@@ -41,7 +46,9 @@ public sealed class PersistenceTests
         var path = System.IO.Path.Combine(temporaryDirectory.Path, "profile.json");
         var temporaryPath = AtomicJsonPaths.GetTemporaryPath(path);
         var store = new AtomicJsonStore<ProfileDocument>();
-        store.Save(path, CreateDocument("generation-a", revision: 7));
+        var document = CreateDocument("generation-a", revision: 7);
+        document.Statistics.RunTotals.CombatStatistics.Totals.DamageDealt = 7;
+        store.Save(path, document);
         File.Move(path, temporaryPath);
 
         var recovered = store.Load(path);
@@ -49,6 +56,7 @@ public sealed class PersistenceTests
         Assert.Equal(AtomicJsonLoadSource.Temporary, recovered.Source);
         Assert.True(recovered.PrimaryRepaired);
         Assert.Equal(7, recovered.Value!.Revision);
+        Assert.Equal(7, recovered.Value.Statistics.RunTotals.CombatStatistics.Totals.DamageDealt);
         Assert.True(File.Exists(path));
     }
 
@@ -107,8 +115,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(4, repository.Current.SchemaVersion);
-        Assert.Equal(4, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(5, repository.Current.SchemaVersion);
+        Assert.Equal(5, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
@@ -252,8 +260,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(4, repository.Current.SchemaVersion);
-        Assert.Equal(4, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(5, repository.Current.SchemaVersion);
+        Assert.Equal(5, repository.Current.Statistics.SchemaVersion);
         Assert.Equal("generation-v03", repository.Current.GenerationId);
         Assert.Equal(73, repository.Current.Revision);
         Assert.Equal(2, repository.Current.InterruptedSessionCount);

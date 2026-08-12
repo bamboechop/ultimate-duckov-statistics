@@ -23,6 +23,9 @@ public sealed class RunAggregateTotals
 
     [DataMember(Order = 6)]
     public WeaponStatisticsAggregate WeaponStatistics { get; set; } = new();
+
+    [DataMember(Order = 7)]
+    public CombatStatisticsAggregate CombatStatistics { get; set; } = new();
 }
 
 [DataContract]
@@ -51,6 +54,9 @@ public sealed class MapRunAggregate
 
     [DataMember(Order = 8)]
     public WeaponStatisticsAggregate WeaponStatistics { get; set; } = new();
+
+    [DataMember(Order = 9)]
+    public CombatStatisticsAggregate CombatStatistics { get; set; } = new();
 }
 
 [DataContract]
@@ -131,9 +137,11 @@ public static class RunReducer
         }
 
         WeaponStatisticsReducer.ValidateAggregate(profile.RunTotals.WeaponStatistics);
+        CombatStatisticsReducer.ValidateAggregate(profile.RunTotals.CombatStatistics);
         foreach (var map in profile.RunTotals.Maps.Values)
         {
             WeaponStatisticsReducer.ValidateAggregate(map.WeaponStatistics);
+            CombatStatisticsReducer.ValidateAggregate(map.CombatStatistics);
         }
 
         profile.Runs.Add(summary);
@@ -154,6 +162,7 @@ public static class RunReducer
         totals.PhysicalDistance += summary.PhysicalDistance;
         totals.TeleportDistance += summary.TeleportDistance;
         WeaponStatisticsReducer.Merge(totals.WeaponStatistics, summary.WeaponStatistics);
+        CombatStatisticsReducer.Merge(totals.CombatStatistics, summary.CombatStatistics);
 
         if (!totals.Maps.TryGetValue(summary.MapId, out var map))
         {
@@ -173,6 +182,7 @@ public static class RunReducer
         map.PhysicalDistance += summary.PhysicalDistance;
         map.TeleportDistance += summary.TeleportDistance;
         WeaponStatisticsReducer.Merge(map.WeaponStatistics, summary.WeaponStatistics);
+        CombatStatisticsReducer.Merge(map.CombatStatistics, summary.CombatStatistics);
     }
 
     private static void AddRecord(RunDurationRecords records, RunSummary summary)
@@ -262,6 +272,7 @@ public static class RunReducer
         }
 
         WeaponStatisticsReducer.ValidateAggregate(summary.WeaponStatistics);
+        CombatStatisticsReducer.ValidateAggregate(summary.CombatStatistics);
 
         if (summary.Outcome == RunOutcome.Interrupted && summary.RecordEligible)
         {

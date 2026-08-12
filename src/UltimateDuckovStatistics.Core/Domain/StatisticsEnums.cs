@@ -68,3 +68,34 @@ public enum RunOutcome
     [EnumMember] Died = 1,
     [EnumMember] Interrupted = 2
 }
+
+[DataContract]
+public enum CombatOwnership
+{
+    [EnumMember] Unknown = 0,
+    [EnumMember] Player = 1,
+    [EnumMember] PetCompanion = 2,
+    [EnumMember] Environmental = 3
+}
+
+[DataContract]
+public enum CombatAttackKind
+{
+    [EnumMember] Unknown = 0,
+    [EnumMember] Ranged = 1,
+    [EnumMember] Melee = 2,
+    [EnumMember] Effect = 3,
+    [EnumMember] Environmental = 4
+}
+
+[DataContract]
+public enum CombatCauseKind
+{
+    [EnumMember] Unknown = 0,
+    [EnumMember] Direct = 1,
+    [EnumMember] DamageOverTime = 2,
+    [EnumMember] Effect = 3,
+    [EnumMember] Explosion = 4,
+    [EnumMember] RealDamage = 5,
+    [EnumMember] Environmental = 6
+}

@@ -243,6 +243,12 @@ internal sealed class NativeStatisticsPanel
             GUILayout.Label(
                 $"  {UiText.Get("ui.integrity")}: {row.IntegrityTags}; "
                 + $"{UiText.Get("ui.record_status")}: {FormatRecordEligibility(row)}");
+            var combat = run.CombatStatistics;
+            GUILayout.Label(
+                $"  {UiText.Get("ui.damage_dealt")}: {FormatMetric(combat.Totals.DamageDealt, combat.Capabilities.DamageDealt.State)}; "
+                + $"{UiText.Get("ui.damage_received")}: {FormatMetric(combat.Totals.DamageReceived, combat.Capabilities.DamageReceived.State)}; "
+                + $"{UiText.Get("ui.kills")}: {FormatMetric(combat.Totals.EnemiesKilled, combat.Capabilities.EnemiesKilled.State)}; "
+                + $"{UiText.Get("ui.deaths")}: {FormatMetric(combat.Totals.PlayerDeaths, combat.Capabilities.PlayerDeaths.State)}");
             GUILayout.Space(4);
         }
 
@@ -312,6 +318,15 @@ internal sealed class NativeStatisticsPanel
         }
 
         var model = WeaponStatisticsViewModelFactory.Create(profile);
+        var damage = CombatStatisticsViewModelFactory.Create(profile);
+        GUILayout.Space(8);
+        GUILayout.Label(UiText.Get("ui.damage_contract"));
+        GUILayout.Label($"{UiText.Get("ui.damage_dealt")}: {FormatMetric(damage.Lifetime.Totals.DamageDealt, damage.Capabilities.DamageDealt.State)}");
+        GUILayout.Label($"{UiText.Get("ui.damage_received")}: {FormatMetric(damage.Lifetime.Totals.DamageReceived, damage.Capabilities.DamageReceived.State)}");
+        GUILayout.Label($"{UiText.Get("ui.accuracy")}: {FormatAccuracy(damage)}");
+        GUILayout.Label($"{UiText.Get("ui.melee")}: {FormatMetric(damage.Lifetime.Totals.MeleeSwings, damage.Capabilities.MeleeSwings.State)} / {FormatMetric(damage.Lifetime.Totals.MeleeHits, damage.Capabilities.MeleeHits.State)}");
+        GUILayout.Label($"{UiText.Get("ui.kills")}: {FormatMetric(damage.Lifetime.Totals.EnemiesKilled, damage.Capabilities.EnemiesKilled.State)}; {UiText.Get("ui.deaths")}: {FormatMetric(damage.Lifetime.Totals.PlayerDeaths, damage.Capabilities.PlayerDeaths.State)}");
+        GUILayout.Label($"{UiText.Get("ui.headshots")}: {FormatMetric(damage.Lifetime.Totals.Headshots, damage.Capabilities.Headshots.State)} / {FormatMetric(damage.Lifetime.Totals.HeadshotFinalBlows, damage.Capabilities.HeadshotFinalBlows.State)}");
         GUILayout.Space(8);
         GUILayout.Label(UiText.Get("ui.metric_contract"));
         GUILayout.Label(
@@ -325,10 +340,26 @@ internal sealed class NativeStatisticsPanel
             + FormatMetric(model.Lifetime.Totals.Projectiles, model.Capabilities.Projectiles.State));
 
         combatScroll = GUILayout.BeginScrollView(combatScroll);
-        if (model.Lifetime.Totals.FiringActions == 0)
+        if (model.Lifetime.Totals.FiringActions == 0 && damage.Lifetime.Totals.DamageCaused == 0)
         {
             GUILayout.Space(6);
             GUILayout.Label(UiText.Get("ui.no_combat"));
+        }
+
+        if (damage.Enemies.Count > 0)
+        {
+            GUILayout.Space(8);
+            GUILayout.Label(UiText.Get("ui.enemies"));
+            foreach (var enemy in damage.Enemies.Take(20))
+                GUILayout.Label($"{enemy.DisplayName} [{enemy.Id}]: {enemy.Totals.DamageCaused.ToString("0.###", CultureInfo.InvariantCulture)} damage, {enemy.Totals.EnemiesKilled.ToString(CultureInfo.InvariantCulture)} kills");
+        }
+
+        if (damage.Killers.Count > 0)
+        {
+            GUILayout.Space(8);
+            GUILayout.Label(UiText.Get("ui.killers"));
+            foreach (var killer in damage.Killers.Take(20))
+                GUILayout.Label($"{killer.DisplayName} [{killer.Id}]: {killer.Totals.DamageReceived.ToString("0.###", CultureInfo.InvariantCulture)} damage, {killer.Totals.PlayerDeaths.ToString(CultureInfo.InvariantCulture)} deaths");
         }
 
         if (model.Weapons.Count > 0)
@@ -576,6 +607,18 @@ internal sealed class NativeStatisticsPanel
         state == AdapterCapabilityState.DisabledIncompatible
             ? UiText.Get("ui.unsupported")
             : value.ToString(CultureInfo.InvariantCulture);
+
+    private static string FormatMetric(double value, AdapterCapabilityState state) =>
+        state == AdapterCapabilityState.DisabledIncompatible
+            ? UiText.Get("ui.unsupported")
+            : value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static string FormatAccuracy(CombatStatisticsViewModel model) =>
+        model.Capabilities.Accuracy.State == AdapterCapabilityState.DisabledIncompatible
+            ? UiText.Get("ui.unsupported")
+            : model.Accuracy.HasValue
+                ? model.Accuracy.Value.ToString("P1", CultureInfo.InvariantCulture)
+                : "—";
 
     private static string FormatRecordEligibility(RunPresentationRow row) => row.RecordEligibilityReason switch
     {

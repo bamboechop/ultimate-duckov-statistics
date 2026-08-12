@@ -31,6 +31,16 @@ internal static class UiText
             ["ui.ammunition"] = "Ammunition",
             ["ui.no_combat"] = "No accepted firing actions recorded for this save generation.",
             ["ui.metric_contract"] = "A firing action is one accepted native firing callback. Dry-fire attempts, actual loaded-ammunition consumption, and completed projectile creation are unavailable on this game contract.",
+            ["ui.damage_contract"] = "Damage is measured from actual Health.Hurt HP loss. Accuracy is unique player projectiles that damaged an enemy divided by completed player projectiles; critical hits alone never prove headshots.",
+            ["ui.damage_dealt"] = "Main-duck damage dealt",
+            ["ui.damage_received"] = "Main-duck damage received",
+            ["ui.accuracy"] = "Ranged accuracy",
+            ["ui.melee"] = "Melee swings / hits",
+            ["ui.kills"] = "Enemy kills",
+            ["ui.deaths"] = "Player deaths",
+            ["ui.headshots"] = "Headshots / final blows",
+            ["ui.enemies"] = "Enemies",
+            ["ui.killers"] = "Killers",
             ["ui.integrity"] = "Integrity",
             ["ui.record_status"] = "Records",
             ["ui.record_eligible"] = "Eligible",
@@ -72,7 +82,7 @@ internal static class UiText
             ["ui.export_complete"] = "Export complete",
             ["ui.export_failed"] = "Export failed; see Diagnostics and Player.log.",
             ["ui.reset_complete"] = "UDS profile reset; prior generation archived read-only.",
-            ["ui.integrity_note"] = "Run time and weapon tracking exclude pause/loading and non-raid contexts. Integrity-flagged and interrupted runs remain visible; only eligible runs enter default duration records.",
+            ["ui.integrity_note"] = "Run time, weapon, and combat tracking exclude pause/loading and non-raid contexts. Integrity-flagged and interrupted runs remain visible; only eligible runs enter default duration records.",
             ["ui.open_hint"] = "Press the configured hotkey outside raids to show or hide this panel."
         };
 
