@@ -268,6 +268,20 @@ public sealed class CombatStatisticsTests
         impossible.Totals.CompletedPlayerProjectiles = 1;
         impossible.Totals.RangedHits = 2;
         Assert.Throws<ArgumentException>(() => CombatStatisticsReducer.ValidateRecoveryCandidate(impossible));
+
+        var nestedImpossible = new CombatStatisticsAggregate();
+        nestedImpossible.Weapons["duckov:weapon:1"] = new CombatBreakdownAggregate
+        {
+            Id = "duckov:weapon:1",
+            DisplayName = "Test weapon",
+            Totals = new CombatMetricTotals
+            {
+                CompletedPlayerProjectiles = 1,
+                RangedHits = 2
+            }
+        };
+        Assert.Throws<ArgumentException>(() =>
+            CombatStatisticsReducer.ValidateRecoveryCandidate(nestedImpossible));
     }
 
     [Fact]

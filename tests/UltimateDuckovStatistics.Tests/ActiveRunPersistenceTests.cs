@@ -296,6 +296,43 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
+    [Trait("Category", "Combat")]
+    public void ActiveRunRecoveryUsesValidBackupWhenPrimaryHasImpossibleNestedCombatOutcomes()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var backup = Checkpoint(generation, 5);
+        backup.CombatStatistics = CombatCheckpointStatistics(nestedRangedHits: 1);
+        repository.SaveActiveRun(backup);
+        repository.CloseClean();
+
+        var path = ActiveRunPath(directory.Path);
+        var invalidPrimary = Checkpoint(generation, 8);
+        invalidPrimary.CombatStatistics = CombatCheckpointStatistics(nestedRangedHits: 2);
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(path, invalidPrimary);
+
+        var recovery = Repository(directory.Path);
+        var result = recovery.Open(Identity());
+
+        Assert.True(result.InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Equal(1, run.CombatStatistics.Totals.CompletedPlayerProjectiles);
+        Assert.Equal(1, run.CombatStatistics.Totals.RangedHits);
+        var weapon = Assert.Single(run.CombatStatistics.Weapons).Value;
+        Assert.Equal(1, weapon.Totals.CompletedPlayerProjectiles);
+        Assert.Equal(1, weapon.Totals.RangedHits);
+        Assert.False(run.CombatStatistics.WasRepairedFromInvalidState);
+        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(path)));
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
     public void ActiveRunRecoveryUsesOrphanedTemporarySnapshot()
     {
         using var directory = new TemporaryDirectory();
@@ -456,6 +493,29 @@ public sealed class ActiveRunPersistenceTests
             ProjectileCount = 6,
             Capabilities = SupportedCapabilities()
         });
+        return statistics;
+    }
+
+    private static CombatStatisticsAggregate CombatCheckpointStatistics(long nestedRangedHits)
+    {
+        var statistics = new CombatStatisticsAggregate
+        {
+            Totals = new CombatMetricTotals
+            {
+                CompletedPlayerProjectiles = 1,
+                RangedHits = 1
+            }
+        };
+        statistics.Weapons["duckov:weapon:1"] = new CombatBreakdownAggregate
+        {
+            Id = "duckov:weapon:1",
+            DisplayName = "Test weapon",
+            Totals = new CombatMetricTotals
+            {
+                CompletedPlayerProjectiles = 1,
+                RangedHits = nestedRangedHits
+            }
+        };
         return statistics;
     }
 

@@ -203,7 +203,7 @@ public static class CombatStatisticsReducer
             if (rows == null) continue;
             foreach (var row in rows.Values)
             {
-                if (row?.Totals != null) ValidateTotals(row.Totals);
+                if (row?.Totals != null) ValidateTotals(row.Totals, enforceRelationships: true);
             }
         }
     }
