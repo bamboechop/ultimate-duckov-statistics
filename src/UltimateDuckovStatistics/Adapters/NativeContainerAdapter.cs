@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace UltimateDuckovStatistics.Adapters;
 
-internal sealed class NativeContainerAdapter : IDisposable, IRetryableCleanup
+internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion = "native-container-loot-access/2.3.30";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.containers";
@@ -272,8 +272,11 @@ internal sealed class NativeContainerAdapter : IDisposable, IRetryableCleanup
 
     private void Publish()
     {
-        capabilityHandler(Records());
-        runCapabilityHandler(ContainerStatisticsReducer.CloneCapabilities(capabilities));
+        var records = Records();
+        var runCapabilities = ContainerStatisticsReducer.CloneCapabilities(capabilities);
+        PublishIndependently(
+            () => capabilityHandler(records),
+            () => runCapabilityHandler(runCapabilities));
     }
 
     private void DiagnosticOnce(string key, string detail)

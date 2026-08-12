@@ -33,6 +33,8 @@
              Link="ProductionAdapters\NativeEquipmentSnapshotBuilder.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCombatEquipmentAssociationResolver.cs"
              Link="ProductionAdapters\NativeCombatEquipmentAssociationResolver.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeContainerAdapter.Publication.cs"
+             Link="ProductionAdapters\NativeContainerAdapter.Publication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\UiText.cs"
              Link="ProductionUI\UiText.cs" />
   </ItemGroup>
