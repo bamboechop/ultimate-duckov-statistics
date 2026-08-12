@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics v0.5.0 — pre-release draft
 
-This draft describes M5 combat attribution. M0-M4 are already merged and published through v0.4.0. The complete v0.5.0 user-controlled gameplay matrix passed. Subsequent review follow-ups corrected the release-blocking findings, including nested semantic checkpoint validation that preserves independently deduplicated headshots and final blows. The latest replacement package is verified; redeployment/readback remains approval-gated. The branch and PR intentionally remain draft and unmerged; do not publish, tag, merge, mark ready, or upload to Steam Workshop without a later explicit request.
+This draft describes M5 combat attribution. M0-M4 are already merged and published through v0.4.0. The complete v0.5.0 user-controlled gameplay matrix passed. Subsequent review follow-ups corrected the release-blocking findings, including nested semantic checkpoint validation that preserves independently deduplicated headshots and final blows. The latest replacement package was transactionally deployed and verified byte-for-byte. The branch and PR intentionally remain draft and unmerged; do not publish, tag, merge, mark ready, or upload to Steam Workshop without a later explicit request.
 
 ## Included in v0.5.0
 
@@ -48,5 +48,5 @@ Each method is checked for an exact safe patch set at activation and periodicall
 - Native Release solution build: 0 warnings and 0 errors.
 - Expanded native contract probe: passes against the versions and assembly hashes documented in `TESTING.md`.
 - `git diff --check`: passes.
-- Final corrective implementation commit `01117e0613abe4c4aa472fe349bc1ce5c35a12ea` produced a 144,081-byte ZIP at SHA-256 `17cf6205da94db91af88850b8115292ee040ec8684728834081b0d591050bcac`. Its sidecar, five-file inventory, independent extraction, forbidden-dependency audit, byte comparison, and both `0.5.0+01117e0613abe4c4aa472fe349bc1ce5c35a12ea` DLL product versions pass. The earlier deployed `dd46173` package is superseded; deploying this replacement requires fresh approval.
-- Draft PR [#5](https://github.com/bamboechop/ultimate-duckov-statistics/pull/5) is open, draft, and unmerged. Final pushed-head CI and approved replacement deployment/readback remain delivery gates. No tag or GitHub release exists.
+- Final corrective implementation commit `01117e0613abe4c4aa472fe349bc1ce5c35a12ea` produced a 144,081-byte ZIP at SHA-256 `17cf6205da94db91af88850b8115292ee040ec8684728834081b0d591050bcac`. Its sidecar, five-file inventory, independent extraction, forbidden-dependency audit, byte comparison, and both `0.5.0+01117e0613abe4c4aa472fe349bc1ce5c35a12ea` DLL product versions pass. The approved transactional replacement deployment has the same five hashes and versions, with no staging or previous-directory residue.
+- Draft PR [#5](https://github.com/bamboechop/ultimate-duckov-statistics/pull/5) is open, draft, and unmerged. Final pushed-head CI remains a delivery gate. No tag or GitHub release exists.
