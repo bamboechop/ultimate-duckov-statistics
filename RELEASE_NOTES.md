@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics v0.5.0 — pre-release draft
 
-This draft describes M5 combat attribution. M0-M4 are already merged and published through v0.4.0. The complete v0.5.0 user-controlled gameplay and approved deployment gates passed, and a subsequent review follow-up corrected seven release-blocking findings. The corrected package, deployment/readback, focused native verification, and clean-shutdown gates also pass. The branch and PR intentionally remain draft and unmerged; do not publish, tag, merge, mark ready, or upload to Steam Workshop without a later explicit request.
+This draft describes M5 combat attribution. M0-M4 are already merged and published through v0.4.0. The complete v0.5.0 user-controlled gameplay and approved deployment gates passed. Subsequent review follow-ups corrected the release-blocking findings, including nested semantic checkpoint validation before backup selection. The latest replacement package is verified; redeployment/readback remains approval-gated. The branch and PR intentionally remain draft and unmerged; do not publish, tag, merge, mark ready, or upload to Steam Workshop without a later explicit request.
 
 ## Included in v0.5.0
 
@@ -44,9 +44,9 @@ Each method is checked for an exact safe patch set at activation and periodicall
 ## Validation status
 
 - Starting baseline: `origin/main` at `261a1e1668536aa1aa77868753add3269a90bd30`.
-- Release suite: 216 tests pass, including the complete M1-M4 regression suite and new actual/overkill, relevant-combat filtering, friendly-fire exclusion, ownership, DoT, stable fallback identity, outcome identity retention, projectile lifecycle isolation, hook-specific capability degradation, ranged/melee, event/death-callback deduplication, multi-damage headshot, owner-isolated Harmony cleanup, semantic active-checkpoint backup recovery, migration, nested-root repair, normalization, overflow, pristine-profile/historical capability boundaries, UI/export, and capability-monotonicity coverage.
+- Release suite: 217 tests pass, including the complete M1-M4 regression suite and new actual/overkill, relevant-combat filtering, friendly-fire exclusion, ownership, DoT, stable fallback identity, outcome identity retention, projectile lifecycle isolation, hook-specific capability degradation, ranged/melee, event/death-callback deduplication, multi-damage headshot, owner-isolated Harmony cleanup, top-level and nested semantic active-checkpoint backup recovery, migration, nested-root repair, normalization, overflow, pristine-profile/historical capability boundaries, UI/export, and capability-monotonicity coverage.
 - Native Release solution build: 0 warnings and 0 errors.
 - Expanded native contract probe: passes against the versions and assembly hashes documented in `TESTING.md`.
 - `git diff --check`: passes.
 - Hardened implementation commit `8029a44357f49d63e96c8ada79f16a9c423e834d` produced a 139,860-byte ZIP at SHA-256 `a31c3915b6c5fd5a95253a4894294c81009a2771bbb7800ea885f9e9a107b911`. Its sidecar, five-file inventory, independent extraction, forbidden-dependency audit, byte comparison, and both `0.5.0+8029a44357f49d63e96c8ada79f16a9c423e834d` DLL product versions pass.
-- Draft PR [#5](https://github.com/bamboechop/ultimate-duckov-statistics/pull/5) is open, draft, and unmerged. The initial gameplay-tested artifact is superseded. The independently verified corrected package, approved game-directory redeployment/readback, focused native outcome-identity and relevance verification, clean shutdown, and corrective-head CI pass. No tag or GitHub release exists.
+- Draft PR [#5](https://github.com/bamboechop/ultimate-duckov-statistics/pull/5) is open, draft, and unmerged. Earlier gameplay-tested artifacts are superseded. The latest independently verified replacement package includes nested semantic checkpoint validation; its redeployment/readback remains pending, and CI must pass on the final pushed head. No tag or GitHub release exists.
