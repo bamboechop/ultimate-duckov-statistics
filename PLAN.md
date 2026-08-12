@@ -275,7 +275,7 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Event-time weapon identity for damage and projectile-init ammunition identity where exposed; uncorrelated ammunition remains unknown rather than inferred.
     - Headshots only for independently observed native head-targeted exact-player projectiles. `DamageInfo.crit` is ignored as headshot evidence; headshot final blows are a separate fatal subset.
     - Schema 5, bounded 2,048-event/run deduplication and 2,048-projectile correlation, one-second combat-checkpoint coalescing, lifetime/map/run aggregation and breakdowns, UI, JSON, and `combat_attribution.csv`.
-7. **M6 — Equipment and totems (`v0.6.0`, implementation and committed-head automated/package validation passed; manual acceptance pending)**
+7. **M6 — Equipment and totems (`v0.6.0`, implementation and complete manual acceptance passed; open draft pre-release candidate)**
     - Monotonic active-time duration for canonical character-slot items, selected weapon plus exact slot, attachment-aware deterministic loadouts, and active direct-totem sets.
     - Event-time loadout/selection/totem-set association for firing and combat outcomes; bounded 256-transition per-run history and crash-safe checkpoints.
     - Stable identities use slot keys and `Item.TypeID`; runtime objects and localized/display names never determine persisted identity.

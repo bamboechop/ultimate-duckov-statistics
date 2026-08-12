@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M5 are merged and published through the v0.5.0 GitHub pre-release. M6 is the active v0.6.0 pre-release-candidate work on `feat/equipment-totems`; automated and manual evidence is tracked in [TESTING.md](TESTING.md). No M6 release, tag, merge, or Workshop upload is implied by this branch.
+M0-M5 are merged and published through the v0.5.0 GitHub pre-release. M6 is the fully validated v0.6.0 pre-release candidate on the open draft `feat/equipment-totems` PR; complete automated and manual evidence is tracked in [TESTING.md](TESTING.md). No M6 release, tag, merge, ready-for-review transition, or Workshop upload is implied by this branch.
 
 ## Build prerequisites
 
