@@ -1010,6 +1010,13 @@ The committed final-automation implementation `6a851f23d8aa483f14140454de876d8ef
 
 Completion-audit corrective checkpoint (before commit `5fdc44a`): a fresh requirement-to-evidence audit reopened the first candidate because stale-main interval closure, finite saturation, duplicate tote-presence duration, per-run loadout presentation, and recurring active-totem-set presentation were not all proven end to end. The corrective implementation adds those semantics plus deterministic nested canonicalization. Focused equipment/persistence tests passed 40/40; that checkpoint prompted the committed full-pipeline and independent-package evidence recorded immediately above.
 
+### Approved backup and deployment — 2026-08-12
+
+- The user approved standing scoped M6 deployment and test-backup operations for this conversation and selected disposable slot 6. With Duckov closed, Codex copied the complete slot-6 save family, including all existing backups, plus the complete UDS slot-6 profile tree to a private timestamped backup. Every copy matched its source by size and SHA-256 and was marked read-only; no Duckov save or source UDS profile file was edited, replaced, restored, or deleted.
+- Slot 1 was not backed up or modified. Its save and UDS profile-tree hashes matched the private pre-operation isolation baseline after the slot-6 backup and mod deployment.
+- A private pre-launch snapshot recorded the slot-6 schema, generation, revision, completed-run count, interrupted-session count, and primary-profile hash for later migration and isolation comparison. Those save-specific identifiers are intentionally not published in the repository.
+- Transactional deployment replaced only `E:\SteamLibrary\steamapps\common\Escape from Duckov\Duckov_Data\Mods\UltimateDuckovStatistics`. Package, staging, and promoted-directory validation passed; independent readback found exactly the five candidate files and matched every SHA-256 recorded above. Both deployed DLLs report file version `0.6.0.0` and product version `0.6.0+6a851f23d8aa483f14140454de876d8efbf1b10f`. No deployment staging or previous-directory residue remains, and Duckov stayed closed throughout.
+
 ### User-controlled manual gameplay matrix
 
 Codex may deploy only after explicit approval and only while Duckov is closed. The user launches and controls the game. Before gameplay, capture the selected UDS generation/profile and deployment hashes; do not read or modify a Duckov save unless the user selects and authorizes it.
