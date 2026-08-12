@@ -997,6 +997,10 @@ The M6 implementation must pass all of the following before deployment:
 
 Initial implementation checkpoint: 234/234 Release tests, the installed-game contract probe, warning-free native Release build, and package-root validation pass. This is not final delivery evidence; the exact committed head/package must be revalidated after documentation and review.
 
+Committed implementation head `c5e65330e8cde24b64559bfc5cb0129fa138c6eb` passed the complete automated release pipeline: 234/234 Release tests, the exact installed-game contract probe, native Release build with zero warnings/errors, package-root validation, checksum creation, and independent extraction. The installable `UltimateDuckovStatistics-v0.6.0.zip` is 162,851 bytes at SHA-256 `407fc51f43b665bc5359e31d9030779a4479b46228cb688a48609c5f38e20743`; its lowercase/two-space/LF sidecar is exact. Independent extraction at `artifacts/audit-v060-c5e6533` contains exactly the five permitted files, passes package verification, contains no game/Harmony dependency, and is byte-identical to the package root.
+
+Candidate package hashes are `d47363e7ada07d08b48b35fa3dd0f7d6c2480bcd5068235ba05a520684dd2fed` (`info.ini`), `4eecd08254d43b5e69bc102f07f6c6db4e5418351196a06365e5d75876638e2f` (`INSTALL.md`), `0f7558f2469ad0901074f6c380ada1ed91861d55adf905267bc70b26cd2e3ccc` (`LICENSE`), `92cfeb5694405a0a8573515e5c65aa6ae673468d1e13f1d60513292b952247bf` (Core DLL), and `23b6739fa5d68364f971f5ac13ae81e127e925fd8d27dd94f7508a7b6a855e41` (native DLL). Both DLLs report file version `0.6.0.0` and product version `0.6.0+c5e65330e8cde24b64559bfc5cb0129fa138c6eb`. No game installation, Duckov save, or UDS profile was written during these automated/package gates.
+
 ### User-controlled manual gameplay matrix
 
 Codex may deploy only after explicit approval and only while Duckov is closed. The user launches and controls the game. Before gameplay, capture the selected UDS generation/profile and deployment hashes; do not read or modify a Duckov save unless the user selects and authorizes it.
