@@ -27,7 +27,7 @@ public static class EquipmentNativeContractPolicy
         DirectTotems = Availability(AdapterCapabilityState.Supported,
             "A direct character slot plus the exact Totem tag proves direct-equipped totem presence."),
         ToteContents = Availability(AdapterCapabilityState.Supported,
-            "CharacterItem.Inventory exposes top-level Item_ToteBag containers whose attached Inventory contents expose Totem tags."),
+            "CharacterItem.Inventory exposes top-level Item_ToteBag type 1255 containers whose AnyThing slot exposes a tagged Totem."),
         ToteActivation = Availability(AdapterCapabilityState.DisabledIncompatible,
             "Presence in a tote does not prove that modifiers or effects are active; activation tracking is disabled pending gameplay proof.")
     };

@@ -7,7 +7,9 @@ namespace UltimateDuckovStatistics.Adapters;
 internal static class NativeEquipmentSnapshotBuilder
 {
     private const int MaxOrdinaryInventoryItems = 256;
-    private const int MaxToteContents = 64;
+    private const int MaxToteSlots = 8;
+    private const int NativeToteBagTypeId = 1255;
+    private const string NativeToteSlotKey = "AnyThing";
 
     public static EquipmentSnapshot Build(CharacterMainControl main, Item characterItem)
     {
@@ -89,14 +91,16 @@ internal static class NativeEquipmentSnapshotBuilder
         foreach (var tote in ordinaryInventory.Content.Take(MaxOrdinaryInventoryItems))
         {
             if (tote == null
-                || !string.Equals(tote.DisplayNameRaw, "Item_ToteBag", StringComparison.Ordinal)
-                || tote.Inventory?.Content == null)
+                || tote.TypeID != NativeToteBagTypeId
+                || tote.Slots == null)
             {
                 continue;
             }
 
-            foreach (var toteItem in tote.Inventory.Content.Take(MaxToteContents))
+            foreach (var toteSlot in tote.Slots.Take(MaxToteSlots).Where(value =>
+                         string.Equals(value.Key, NativeToteSlotKey, StringComparison.Ordinal)))
             {
+                var toteItem = toteSlot.Content;
                 if (toteItem == null || !IsTotem(toteItem)) continue;
                 totems.Add(new TotemSnapshot
                 {

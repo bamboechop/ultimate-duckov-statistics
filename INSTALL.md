@@ -12,7 +12,7 @@ The UDS package must not contain Duckov assemblies or `0Harmony.dll`. HarmonyLib
 
 ## Required HarmonyLib Workshop item
 
-Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.6.0 requires HarmonyLib for M2 healing attribution and the minimal M5 `Health.Hurt`, projectile, melee-collision, and effect-trigger scopes. M6 equipment/totem observation uses public native slot, held-item, and item-tree events and adds no Harmony patch. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven public-event statistics continue.
+Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.6.0 requires HarmonyLib for M2 healing attribution and the minimal M5 `Health.Hurt`, projectile, melee-collision, and effect-trigger scopes. M6 equipment/totem observation uses public native slot, held-item, ordinary-inventory, and item-tree events and adds no Harmony patch. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven public-event statistics continue.
 
 After every cold launch and before selecting a save:
 
@@ -58,7 +58,7 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 - Statistics begin at installation; no history is reconstructed.
 - Only successful main-duck item uses in raids count.
 - Healing totals start with v0.2.0; run/movement with v0.3.0; weapon identity/firing actions with v0.4.0; M5 combat with v0.5.0; and equipment/totem data with v0.6.0. Schema-6 migration preserves M1-M5 and initializes historical M6 capabilities unavailable without reconstruction.
-- Tote contents are identified only for the version-checked `Item_ToteBag` contract. Their presence does not prove modifiers or effects are active. Tote activation remains disabled; tote-carried totems are persisted with activation `Unknown` and excluded from active-totem-set duration.
+- Tote contents are identified only from the public `AnyThing` slot of built-in Tote Bag `Item.TypeID` 1255 instances carried in the exact main duck's top-level ordinary inventory. Their presence does not prove modifiers or effects are active. Tote activation remains disabled; tote-carried totems are persisted with activation `Unknown` and excluded from active-totem-set duration.
 - The verified public firing event proves accepted firing callbacks, not trigger attempts. Reloads and dry-fire attempts are not counted. `UseABullet` can skip consumption and `ShootOneBullet` can return before projectile initialization, so the public callback cannot prove actual ammunition units consumed or projectiles created; both submetrics remain unavailable instead of being inferred from cached ammunition or configured `ShotCount`.
 - Only healing applied through the verified item/effect paths is attributed. Unrelated regeneration, pets/companions, base use, cancelled uses, failed uses, and overheal are excluded.
 - M5 accuracy is not firing-action accuracy. Its numerator and denominator are completed exact-main-duck projectile instances observed by the verified projectile lifecycle while a run remains active. A projectile still alive when the run terminates enters neither side of that run's ratio.

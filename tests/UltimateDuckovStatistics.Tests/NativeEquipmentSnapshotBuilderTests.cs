@@ -12,8 +12,8 @@ public sealed class NativeEquipmentSnapshotBuilderTests
     public void ToteTotemsComeFromOrdinaryInventoryAndRemainActivationUnknown()
     {
         var character = Character();
-        var tote = Tote(1200, Totem(966, "Phys. RES III"), Totem(966, "Phys. RES III"));
-        character.Inventory!.Content.Add(tote);
+        character.Inventory!.Content.Add(Tote(Totem(966, "Phys. RES III")));
+        character.Inventory.Content.Add(Tote(Totem(966, "Phys. RES III")));
 
         var snapshot = NativeEquipmentSnapshotBuilder.Build(new CharacterMainControl(), character);
 
@@ -22,7 +22,7 @@ public sealed class NativeEquipmentSnapshotBuilderTests
         {
             Assert.Equal("duckov:totem:966", value.ItemId);
             Assert.Equal(TotemCarryKind.ToteInventory, value.CarryKind);
-            Assert.Equal("duckov:tote:1200", value.ContainerId);
+            Assert.Equal("duckov:tote:1255", value.ContainerId);
             Assert.Equal(TotemActivationState.Unknown, value.ActivationState);
         });
         Assert.Equal(
@@ -35,7 +35,7 @@ public sealed class NativeEquipmentSnapshotBuilderTests
     public void SlottedToteAndLooseInventoryTotemDoNotMasqueradeAsToteContents()
     {
         var character = Character();
-        character.Slots.Add(new Slot { Key = "Backpack", Content = Tote(1200, Totem(966, "Nested")) });
+        character.Slots.Add(new Slot { Key = "Backpack", Content = Tote(Totem(966, "Nested")) });
         character.Inventory!.Content.Add(Totem(967, "Loose"));
 
         var snapshot = NativeEquipmentSnapshotBuilder.Build(new CharacterMainControl(), character);
@@ -50,7 +50,7 @@ public sealed class NativeEquipmentSnapshotBuilderTests
     {
         var character = Character();
         character.Slots.Add(new Slot { Key = "Totem2", Content = Totem(966, "Direct") });
-        character.Inventory!.Content.Add(Tote(1200, Totem(967, "Tote")));
+        character.Inventory!.Content.Add(Tote(Totem(967, "Tote")));
 
         var snapshot = NativeEquipmentSnapshotBuilder.Build(new CharacterMainControl(), character);
 
@@ -68,18 +68,43 @@ public sealed class NativeEquipmentSnapshotBuilderTests
             });
     }
 
+    [Fact]
+    [Trait("Category", "Equipment")]
+    public void ToteRequiresExactNativeTypeAndAnyThingSlotButIgnoresDisplayName()
+    {
+        var character = Character();
+        var wrongType = Tote(Totem(966, "Wrong type"));
+        wrongType.TypeID = 1200;
+        var wrongSlot = Tote();
+        wrongSlot.Slots.Add(new Slot { Key = "Attachment", Content = Totem(968, "Wrong slot") });
+        var renamed = Tote(Totem(969, "Renamed tote child"));
+        renamed.DisplayName = "Localized or modded name";
+        renamed.DisplayNameRaw = "Changed_Raw_Name";
+        character.Inventory!.Content.Add(wrongType);
+        character.Inventory.Content.Add(wrongSlot);
+        character.Inventory.Content.Add(renamed);
+
+        var snapshot = NativeEquipmentSnapshotBuilder.Build(new CharacterMainControl(), character);
+
+        var tote = Assert.Single(snapshot.Totems);
+        Assert.Equal("duckov:totem:969", tote.ItemId);
+        Assert.Equal("duckov:tote:1255", tote.ContainerId);
+    }
+
     private static Item Character() => new() { Inventory = new Inventory() };
 
-    private static Item Tote(int typeId, params Item[] contents)
+    private static Item Tote(Item? content = null)
     {
         var tote = new Item
         {
-            TypeID = typeId,
+            TypeID = 1255,
             DisplayName = "Tote Bag",
-            DisplayNameRaw = "Item_ToteBag",
-            Inventory = new Inventory()
+            DisplayNameRaw = "Item_ToteBag"
         };
-        tote.Inventory.Content.AddRange(contents);
+        if (content != null)
+        {
+            tote.Slots.Add(new Slot { Key = "AnyThing", Content = content });
+        }
         return tote;
     }
 

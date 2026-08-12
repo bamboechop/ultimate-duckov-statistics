@@ -224,7 +224,6 @@ try
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "DisplayName", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "Content", "ItemStatsSystem.Item", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem", "Inventory", "Content", mustBePublic: true);
-        itemStats.RequireProperty("ItemStatsSystem", "Inventory", "AttachedToItem", "ItemStatsSystem.Item", mustBePublic: true);
     }
 
     Console.WriteLine("Duckov compatibility contract passed.");

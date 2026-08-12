@@ -8,7 +8,7 @@ This draft describes M6 equipment and totem statistics. M0-M5 are published thro
 - Selected-weapon duration with both canonical weapon identity and exact character-slot identity, including correct distinction between identical weapon types in different slots.
 - Deterministic loadout identities built from stable slot keys, `Item.TypeID` values, and bounded recursive attachment metadata. Runtime object IDs and mutable/localized names are display-only.
 - Direct slotted totems recorded as proven active when their public durability contract permits activation, or proven inactive when depleted.
-- Totems inside the version-checked `Item_ToteBag` inventory recorded as present with activation `Unknown`.
+- Totems plugged into the public `AnyThing` slot of built-in Tote Bag `Item.TypeID` 1255 instances carried in the exact main duck's top-level ordinary inventory recorded as present with activation `Unknown`.
 - Active-totem-set duration excludes unknown tote activation. Tote activation remains `DisabledIncompatible` and cannot silently produce active statistics.
 - Event-time loadout, selected-weapon/slot, and active-totem-set temporal associations for firing actions and M5 combat outcomes. They do not claim equipment caused an outcome. Projectile completion retains the association captured at projectile initialization.
 - Per-run loadout state and bounded 256-transition history. Lifetime recurring-loadout rankings require observation in at least two completed runs.
@@ -22,10 +22,11 @@ M6 uses public Duckov 2.3.30 contracts only:
 
 - `CharacterMainControl.CharacterItem.Slots` for direct character-slot contents.
 - `CharacterMainControl.OnMainCharacterSlotContentChangedEvent` for equipment changes.
+- `CharacterMainControl.CharacterItem.Inventory` and `OnMainCharacterInventoryChangedEvent` for top-level ordinary-inventory Tote containers.
 - `CharacterMainControl.CurrentHoldItemAgent` and `OnMainCharacterChangeHoldItemAgentEvent` for selection.
 - `Item.onItemTreeChanged`, `Item.Slots`, and `Item.TypeID` for attachment-aware state.
 - the exact `Totem` tag for totem identity.
-- `Item_ToteBag` plus its attached public `Inventory.Content` for tote presence.
+- built-in Tote Bag `Item.TypeID` 1255 plus its public `AnyThing` slot for contained-totem presence.
 
 The public item-effect control flow proves direct slotted activation subject to durability. It does not prove tote-contained activation because individual modifiers/effects may opt into inventory activation independently. Therefore no tote buff/effect total is emitted in this candidate.
 
