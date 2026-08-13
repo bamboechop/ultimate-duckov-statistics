@@ -84,6 +84,252 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaIncompleteRouteTotalsPrimaryLosesToIntactBackupBeforeMigration()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateDocument("generation-a", revision: 7);
+        backup.Statistics.RunTotals.RouteMaps["duckov:map:A"] = new RouteAwareMapAggregate
+        {
+            MapId = "duckov:map:A",
+            DisplayName = "A",
+            IsKnown = true,
+            RunsVisited = 3,
+            SegmentVisits = 5,
+            HistoricalUnavailable = false,
+            WasRepairedFromInvalidState = false
+        };
+        var incompletePrimary = CreateDocument("generation-a", revision: 8);
+        incompletePrimary.Statistics.RunTotals.RouteMaps = null!;
+        store.Save(path, backup);
+        store.Save(path, incompletePrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.False(result.MigratedSchema);
+        Assert.Contains(result.LoadFailures, failure => failure.Contains("Current-schema profile roots are incomplete.", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        var routeMap = Assert.Single(repository.Current.Statistics.RunTotals.RouteMaps).Value;
+        Assert.Equal(3, routeMap.RunsVisited);
+        Assert.Equal(5, routeMap.SegmentVisits);
+        Assert.False(routeMap.HistoricalUnavailable);
+        Assert.False(routeMap.WasRepairedFromInvalidState);
+        repository.CloseClean();
+
+        var persisted = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!;
+        var persistedRouteMap = Assert.Single(persisted.Statistics.RunTotals.RouteMaps).Value;
+        Assert.Equal(3, persistedRouteMap.RunsVisited);
+        Assert.False(persistedRouteMap.HistoricalUnavailable);
+    }
+
+    public static TheoryData<string> CurrentSchemaRequiredRootCases => new()
+    {
+        "Profile.Identity",
+        "Profile.Capabilities",
+        "Statistics.Overall",
+        "Statistics.Items",
+        "Statistics.Groups",
+        "Statistics.RecentEventIds",
+        "Statistics.Runs",
+        "Statistics.RunTotals",
+        "Statistics.RunRecords",
+        "Statistics.Overall.AmountsByUnit",
+        "Statistics.Item.EffectTags",
+        "Statistics.Item.Totals",
+        "Statistics.Item.Totals.AmountsByUnit",
+        "Statistics.Group.AmountsByUnit",
+        "RunTotals.Outcomes",
+        "RunTotals.Maps",
+        "RunTotals.RouteMaps",
+        "RunTotals.ItemStatistics",
+        "RunTotals.WeaponStatistics",
+        "RunTotals.CombatStatistics",
+        "RunTotals.EquipmentStatistics",
+        "RunTotals.ContainerStatistics",
+        "RunTotals.ItemStatistics.Overall",
+        "RunTotals.ItemStatistics.Items",
+        "RunTotals.ItemStatistics.Groups",
+        "RunTotals.ItemStatistics.RecentEventIds",
+        "RunTotals.WeaponStatistics.Totals",
+        "RunTotals.WeaponStatistics.Weapons",
+        "RunTotals.WeaponStatistics.AmmunitionTypes",
+        "RunTotals.WeaponStatistics.Capabilities",
+        "RunTotals.WeaponStatistics.Weapon.Totals",
+        "RunTotals.WeaponStatistics.Ammunition.Totals",
+        "RunTotals.CombatStatistics.Totals",
+        "RunTotals.CombatStatistics.Enemies",
+        "RunTotals.CombatStatistics.Killers",
+        "RunTotals.CombatStatistics.Families",
+        "RunTotals.CombatStatistics.Causes",
+        "RunTotals.CombatStatistics.Weapons",
+        "RunTotals.CombatStatistics.Ammunition",
+        "RunTotals.CombatStatistics.Ownership",
+        "RunTotals.CombatStatistics.Capabilities",
+        "RunTotals.CombatStatistics.Enemy.Totals",
+        "RunTotals.EquipmentStatistics.Capabilities",
+        "RunTotals.EquipmentStatistics.Items",
+        "RunTotals.EquipmentStatistics.SelectedWeapons",
+        "RunTotals.EquipmentStatistics.Loadouts",
+        "RunTotals.EquipmentStatistics.TotemSets",
+        "RunTotals.EquipmentStatistics.CombatAssociations",
+        "RunTotals.EquipmentStatistics.Transitions",
+        "RunTotals.EquipmentStatistics.TotemStates",
+        "RunTotals.EquipmentStatistics.Slots",
+        "RunTotals.EquipmentStatistics.SlottedWeapons",
+        "RunTotals.ContainerStatistics.Capabilities",
+        "RunTotals.ContainerStatistics.Capabilities.UniqueContainersLooted",
+        "Map.Outcomes",
+        "Map.ItemStatistics",
+        "Map.WeaponStatistics",
+        "Map.CombatStatistics",
+        "Map.EquipmentStatistics",
+        "Map.ContainerStatistics",
+        "RouteMap.ItemStatistics",
+        "RouteMap.WeaponStatistics",
+        "RouteMap.CombatStatistics",
+        "RouteMap.EquipmentStatistics",
+        "RouteMap.ContainerStatistics",
+        "RunRecords.Extraction",
+        "RunRecords.Death",
+        "RunRecords.Maps",
+        "RunRecordMap.Extraction",
+        "RunRecordMap.Death",
+        "Run.WeaponStatistics",
+        "Run.CombatStatistics",
+        "Run.EquipmentStatistics",
+        "Run.ContainerStatistics",
+        "Run.Segments",
+        "Run.RouteCapabilities",
+        "Run.RouteCapabilities.OrderedRoute",
+        "Run.RouteCapabilities.Segments",
+        "Run.RouteCapabilities.EventAttribution",
+        "Run.RouteCapabilities.RouteAwareMapTotals",
+        "Run.SegmentEventAssociations",
+        "Run.ItemStatistics",
+        "Segment.ItemStatistics",
+        "Segment.WeaponStatistics",
+        "Segment.CombatStatistics",
+        "Segment.EquipmentStatistics",
+        "Segment.ContainerStatistics"
+    };
+
+    public static TheoryData<string> CurrentSchemaNonRepairableNullDictionaryRowCases => new()
+    {
+        "Statistics.Items",
+        "Statistics.Groups",
+        "RunTotals.Maps",
+        "RunTotals.RouteMaps",
+        "RunRecords.Maps",
+        "RunTotals.ItemStatistics.Items"
+    };
+
+    [Theory]
+    [MemberData(nameof(CurrentSchemaRequiredRootCases))]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaMissingRequiredRootLosesToIntactBackupBeforeMigration(string missingRoot)
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var incompletePrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        RemoveRequiredRoot(incompletePrimary, missingRoot);
+        store.Save(path, backup);
+        store.Save(path, incompletePrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("Current-schema profile roots are incomplete.", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        Assert.Equal(37, repository.Current.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
+        repository.CloseClean();
+
+        var persisted = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!;
+        Assert.Equal(7, persisted.Revision);
+        Assert.Equal(37, persisted.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
+    }
+
+    [Theory]
+    [MemberData(nameof(CurrentSchemaNonRepairableNullDictionaryRowCases))]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaNonRepairableNullDictionaryRowLosesToIntactBackupBeforeMigration(string dictionary)
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var incompletePrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        AddNullDictionaryRow(incompletePrimary, dictionary);
+        store.Save(path, backup);
+        store.Save(path, incompletePrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("Current-schema profile roots are incomplete.", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        Assert.Equal(37, repository.Current.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
+        repository.CloseClean();
+
+        var persisted = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!;
+        Assert.Equal(7, persisted.Revision);
+        Assert.Equal(37, persisted.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaExplicitlyRepairableNullDictionaryRowsRemainEligibleForNormalization()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var repairablePrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        repairablePrimary.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:null"] = null!;
+        repairablePrimary.Statistics.RunTotals.CombatStatistics.Enemies["enemy:null"] = null!;
+        repairablePrimary.Statistics.RunTotals.EquipmentStatistics.Items["equipment:null"] = null!;
+        repairablePrimary.Statistics.RunTotals.ItemStatistics.Groups["group:null"] = null!;
+        store.Save(path, backup);
+        store.Save(path, repairablePrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.False(result.RecoveredSnapshot);
+        Assert.True(result.MigratedSchema);
+        Assert.Equal(8, repository.Current.Revision);
+        Assert.DoesNotContain("weapon:null", repository.Current.Statistics.RunTotals.WeaponStatistics.Weapons.Keys);
+        Assert.DoesNotContain("enemy:null", repository.Current.Statistics.RunTotals.CombatStatistics.Enemies.Keys);
+        Assert.DoesNotContain("equipment:null", repository.Current.Statistics.RunTotals.EquipmentStatistics.Items.Keys);
+        Assert.DoesNotContain("group:null", repository.Current.Statistics.RunTotals.ItemStatistics.Groups.Keys);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentProfileSemanticSelectionAllowsHistoricalRunSchemaProvenance()
+    {
+        var profile = CreateDocument("generation-a", revision: 7);
+        profile.Statistics.Runs.Add(new RunSummary { SchemaVersion = 6 });
+
+        Assert.Null(ProfileMigrator.ValidateRecoveryCandidate(profile));
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     public void RepositoryMigratesEveryV01AggregateWithoutLosingUsageStatistics()
     {
         using var temporaryDirectory = new TemporaryDirectory();
@@ -115,8 +361,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(7, repository.Current.SchemaVersion);
-        Assert.Equal(7, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(8, repository.Current.SchemaVersion);
+        Assert.Equal(8, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
@@ -260,8 +506,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(7, repository.Current.SchemaVersion);
-        Assert.Equal(7, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(8, repository.Current.SchemaVersion);
+        Assert.Equal(8, repository.Current.Statistics.SchemaVersion);
         Assert.Equal("generation-v03", repository.Current.GenerationId);
         Assert.Equal(73, repository.Current.Revision);
         Assert.Equal(2, repository.Current.InterruptedSessionCount);
@@ -1060,6 +1306,204 @@ public sealed class PersistenceTests
             UpdatedUtc = TestTime
         }
     };
+
+    private static ProfileDocument CreateCompleteCurrentSchemaDocument(string generationId, long revision)
+    {
+        var document = CreateDocument(generationId, revision);
+        document.Statistics.Overall.AmountsByUnit["Item"] = 1;
+        document.Statistics.Items["duckov:item:test"] = new ItemAggregate
+        {
+            ItemId = "duckov:item:test",
+            DisplayName = "Test item",
+            Totals = new AggregateTotals { AmountsByUnit = new() { ["Item"] = 1 } }
+        };
+        document.Statistics.Groups[nameof(CanonicalItemGroup.OtherUnknown)] = new AggregateTotals
+        {
+            AmountsByUnit = new() { ["Item"] = 1 }
+        };
+
+        var totals = document.Statistics.RunTotals;
+        totals.Maps["duckov:map:A"] = new MapRunAggregate
+        {
+            MapId = "duckov:map:A",
+            DisplayName = "A",
+            IsKnown = true,
+            TotalRuns = 37
+        };
+        totals.RouteMaps["duckov:map:A"] = new RouteAwareMapAggregate
+        {
+            MapId = "duckov:map:A",
+            DisplayName = "A",
+            IsKnown = true,
+            RunsVisited = 37
+        };
+        totals.WeaponStatistics.Weapons["duckov:weapon:test"] = new WeaponAggregate
+        {
+            WeaponId = "duckov:weapon:test",
+            DisplayName = "Test weapon"
+        };
+        totals.WeaponStatistics.AmmunitionTypes["duckov:ammo:test"] = new AmmunitionAggregate
+        {
+            AmmunitionId = "duckov:ammo:test",
+            DisplayName = "Test ammunition"
+        };
+        totals.CombatStatistics.Enemies["duckov:enemy:test"] = new CombatBreakdownAggregate
+        {
+            Id = "duckov:enemy:test",
+            DisplayName = "Test enemy"
+        };
+
+        document.Statistics.RunRecords.Maps["duckov:map:A"] = new MapRunDurationRecords
+        {
+            MapId = "duckov:map:A",
+            DisplayName = "A"
+        };
+        document.Statistics.Runs.Add(new RunSummary
+        {
+            RunId = "run-test",
+            SaveGenerationId = generationId,
+            MapId = "duckov:map:A",
+            MapDisplayName = "A",
+            MapKnown = true,
+            StartedUtc = TestTime,
+            EndedUtc = TestTime.AddMinutes(1),
+            StartingMapId = "duckov:map:A",
+            StartingMapDisplayName = "A",
+            StartingMapKnown = true,
+            EndingMapId = "duckov:map:A",
+            EndingMapDisplayName = "A",
+            EndingMapKnown = true,
+            Segments =
+            [
+                new MapSegmentSummary
+                {
+                    SegmentId = "segment-test",
+                    MapId = "duckov:map:A",
+                    MapDisplayName = "A",
+                    MapKnown = true,
+                    EnteredUtc = TestTime,
+                    ExitedUtc = TestTime.AddMinutes(1)
+                }
+            ]
+        });
+        return document;
+    }
+
+    private static void RemoveRequiredRoot(ProfileDocument document, string root)
+    {
+        var statistics = document.Statistics;
+        var totals = statistics.RunTotals;
+        var map = totals.Maps["duckov:map:A"];
+        var routeMap = totals.RouteMaps["duckov:map:A"];
+        var run = statistics.Runs[0];
+        var segment = run.Segments[0];
+        var recordMap = statistics.RunRecords.Maps["duckov:map:A"];
+        switch (root)
+        {
+            case "Profile.Identity": document.Identity = null!; break;
+            case "Profile.Capabilities": document.Capabilities = null!; break;
+            case "Statistics.Overall": statistics.Overall = null!; break;
+            case "Statistics.Items": statistics.Items = null!; break;
+            case "Statistics.Groups": statistics.Groups = null!; break;
+            case "Statistics.RecentEventIds": statistics.RecentEventIds = null!; break;
+            case "Statistics.Runs": statistics.Runs = null!; break;
+            case "Statistics.RunTotals": statistics.RunTotals = null!; break;
+            case "Statistics.RunRecords": statistics.RunRecords = null!; break;
+            case "Statistics.Overall.AmountsByUnit": statistics.Overall.AmountsByUnit = null!; break;
+            case "Statistics.Item.EffectTags": statistics.Items["duckov:item:test"].EffectTags = null!; break;
+            case "Statistics.Item.Totals": statistics.Items["duckov:item:test"].Totals = null!; break;
+            case "Statistics.Item.Totals.AmountsByUnit": statistics.Items["duckov:item:test"].Totals.AmountsByUnit = null!; break;
+            case "Statistics.Group.AmountsByUnit": statistics.Groups[nameof(CanonicalItemGroup.OtherUnknown)].AmountsByUnit = null!; break;
+            case "RunTotals.Outcomes": totals.Outcomes = null!; break;
+            case "RunTotals.Maps": totals.Maps = null!; break;
+            case "RunTotals.RouteMaps": totals.RouteMaps = null!; break;
+            case "RunTotals.ItemStatistics": totals.ItemStatistics = null!; break;
+            case "RunTotals.WeaponStatistics": totals.WeaponStatistics = null!; break;
+            case "RunTotals.CombatStatistics": totals.CombatStatistics = null!; break;
+            case "RunTotals.EquipmentStatistics": totals.EquipmentStatistics = null!; break;
+            case "RunTotals.ContainerStatistics": totals.ContainerStatistics = null!; break;
+            case "RunTotals.ItemStatistics.Overall": totals.ItemStatistics.Overall = null!; break;
+            case "RunTotals.ItemStatistics.Items": totals.ItemStatistics.Items = null!; break;
+            case "RunTotals.ItemStatistics.Groups": totals.ItemStatistics.Groups = null!; break;
+            case "RunTotals.ItemStatistics.RecentEventIds": totals.ItemStatistics.RecentEventIds = null!; break;
+            case "RunTotals.WeaponStatistics.Totals": totals.WeaponStatistics.Totals = null!; break;
+            case "RunTotals.WeaponStatistics.Weapons": totals.WeaponStatistics.Weapons = null!; break;
+            case "RunTotals.WeaponStatistics.AmmunitionTypes": totals.WeaponStatistics.AmmunitionTypes = null!; break;
+            case "RunTotals.WeaponStatistics.Capabilities": totals.WeaponStatistics.Capabilities = null!; break;
+            case "RunTotals.WeaponStatistics.Weapon.Totals": totals.WeaponStatistics.Weapons["duckov:weapon:test"].Totals = null!; break;
+            case "RunTotals.WeaponStatistics.Ammunition.Totals": totals.WeaponStatistics.AmmunitionTypes["duckov:ammo:test"].Totals = null!; break;
+            case "RunTotals.CombatStatistics.Totals": totals.CombatStatistics.Totals = null!; break;
+            case "RunTotals.CombatStatistics.Enemies": totals.CombatStatistics.Enemies = null!; break;
+            case "RunTotals.CombatStatistics.Killers": totals.CombatStatistics.Killers = null!; break;
+            case "RunTotals.CombatStatistics.Families": totals.CombatStatistics.Families = null!; break;
+            case "RunTotals.CombatStatistics.Causes": totals.CombatStatistics.Causes = null!; break;
+            case "RunTotals.CombatStatistics.Weapons": totals.CombatStatistics.Weapons = null!; break;
+            case "RunTotals.CombatStatistics.Ammunition": totals.CombatStatistics.Ammunition = null!; break;
+            case "RunTotals.CombatStatistics.Ownership": totals.CombatStatistics.Ownership = null!; break;
+            case "RunTotals.CombatStatistics.Capabilities": totals.CombatStatistics.Capabilities = null!; break;
+            case "RunTotals.CombatStatistics.Enemy.Totals": totals.CombatStatistics.Enemies["duckov:enemy:test"].Totals = null!; break;
+            case "RunTotals.EquipmentStatistics.Capabilities": totals.EquipmentStatistics.Capabilities = null!; break;
+            case "RunTotals.EquipmentStatistics.Items": totals.EquipmentStatistics.Items = null!; break;
+            case "RunTotals.EquipmentStatistics.SelectedWeapons": totals.EquipmentStatistics.SelectedWeapons = null!; break;
+            case "RunTotals.EquipmentStatistics.Loadouts": totals.EquipmentStatistics.Loadouts = null!; break;
+            case "RunTotals.EquipmentStatistics.TotemSets": totals.EquipmentStatistics.TotemSets = null!; break;
+            case "RunTotals.EquipmentStatistics.CombatAssociations": totals.EquipmentStatistics.CombatAssociations = null!; break;
+            case "RunTotals.EquipmentStatistics.Transitions": totals.EquipmentStatistics.Transitions = null!; break;
+            case "RunTotals.EquipmentStatistics.TotemStates": totals.EquipmentStatistics.TotemStates = null!; break;
+            case "RunTotals.EquipmentStatistics.Slots": totals.EquipmentStatistics.Slots = null!; break;
+            case "RunTotals.EquipmentStatistics.SlottedWeapons": totals.EquipmentStatistics.SlottedWeapons = null!; break;
+            case "RunTotals.ContainerStatistics.Capabilities": totals.ContainerStatistics.Capabilities = null!; break;
+            case "RunTotals.ContainerStatistics.Capabilities.UniqueContainersLooted": totals.ContainerStatistics.Capabilities.UniqueContainersLooted = null!; break;
+            case "Map.Outcomes": map.Outcomes = null!; break;
+            case "Map.ItemStatistics": map.ItemStatistics = null!; break;
+            case "Map.WeaponStatistics": map.WeaponStatistics = null!; break;
+            case "Map.CombatStatistics": map.CombatStatistics = null!; break;
+            case "Map.EquipmentStatistics": map.EquipmentStatistics = null!; break;
+            case "Map.ContainerStatistics": map.ContainerStatistics = null!; break;
+            case "RouteMap.ItemStatistics": routeMap.ItemStatistics = null!; break;
+            case "RouteMap.WeaponStatistics": routeMap.WeaponStatistics = null!; break;
+            case "RouteMap.CombatStatistics": routeMap.CombatStatistics = null!; break;
+            case "RouteMap.EquipmentStatistics": routeMap.EquipmentStatistics = null!; break;
+            case "RouteMap.ContainerStatistics": routeMap.ContainerStatistics = null!; break;
+            case "RunRecords.Extraction": statistics.RunRecords.Extraction = null!; break;
+            case "RunRecords.Death": statistics.RunRecords.Death = null!; break;
+            case "RunRecords.Maps": statistics.RunRecords.Maps = null!; break;
+            case "RunRecordMap.Extraction": recordMap.Extraction = null!; break;
+            case "RunRecordMap.Death": recordMap.Death = null!; break;
+            case "Run.WeaponStatistics": run.WeaponStatistics = null!; break;
+            case "Run.CombatStatistics": run.CombatStatistics = null!; break;
+            case "Run.EquipmentStatistics": run.EquipmentStatistics = null!; break;
+            case "Run.ContainerStatistics": run.ContainerStatistics = null!; break;
+            case "Run.Segments": run.Segments = null!; break;
+            case "Run.RouteCapabilities": run.RouteCapabilities = null!; break;
+            case "Run.RouteCapabilities.OrderedRoute": run.RouteCapabilities.OrderedRoute = null!; break;
+            case "Run.RouteCapabilities.Segments": run.RouteCapabilities.Segments = null!; break;
+            case "Run.RouteCapabilities.EventAttribution": run.RouteCapabilities.EventAttribution = null!; break;
+            case "Run.RouteCapabilities.RouteAwareMapTotals": run.RouteCapabilities.RouteAwareMapTotals = null!; break;
+            case "Run.SegmentEventAssociations": run.SegmentEventAssociations = null!; break;
+            case "Run.ItemStatistics": run.ItemStatistics = null!; break;
+            case "Segment.ItemStatistics": segment.ItemStatistics = null!; break;
+            case "Segment.WeaponStatistics": segment.WeaponStatistics = null!; break;
+            case "Segment.CombatStatistics": segment.CombatStatistics = null!; break;
+            case "Segment.EquipmentStatistics": segment.EquipmentStatistics = null!; break;
+            case "Segment.ContainerStatistics": segment.ContainerStatistics = null!; break;
+            default: throw new ArgumentOutOfRangeException(nameof(root), root, "Unknown required root test case.");
+        }
+    }
+
+    private static void AddNullDictionaryRow(ProfileDocument document, string dictionary)
+    {
+        switch (dictionary)
+        {
+            case "Statistics.Items": document.Statistics.Items["null"] = null!; break;
+            case "Statistics.Groups": document.Statistics.Groups["null"] = null!; break;
+            case "RunTotals.Maps": document.Statistics.RunTotals.Maps["null"] = null!; break;
+            case "RunTotals.RouteMaps": document.Statistics.RunTotals.RouteMaps["null"] = null!; break;
+            case "RunRecords.Maps": document.Statistics.RunRecords.Maps["null"] = null!; break;
+            case "RunTotals.ItemStatistics.Items": document.Statistics.RunTotals.ItemStatistics.Items["null"] = null!; break;
+            default: throw new ArgumentOutOfRangeException(nameof(dictionary), dictionary, "Unknown null-row test case.");
+        }
+    }
 
     private static SaveIdentitySnapshot CreateIdentity(int slot, long creationTicks) => new()
     {

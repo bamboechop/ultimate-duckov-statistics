@@ -1,6 +1,6 @@
 # Installation and compatibility
 
-## Supported baseline for v0.7.0
+## Supported baseline for v0.8.0
 
 - Escape From Duckov `2.3.30`
 - Steam build `24013657`
@@ -12,7 +12,7 @@ The UDS package must not contain Duckov assemblies or `0Harmony.dll`. HarmonyLib
 
 ## Required HarmonyLib Workshop item
 
-Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.7.0 requires HarmonyLib for M2 healing attribution, the minimal M5 combat scopes, and M7's separate corpse-provenance owner. M7's successful-access boundary remains the public `InteractableLootbox.OnStartLoot` event; its patch only distinguishes native death-created lootboxes from ordinary containers. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven independent statistics continue.
+Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.8.0 requires HarmonyLib for M2 healing attribution, the minimal M5 combat scopes, and M7's separate corpse-provenance owner. M8 route boundaries use public native hooks and add no Harmony owner. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven independent statistics continue.
 
 After every cold launch and before selecting a save:
 
@@ -42,24 +42,26 @@ UDS data and exports are written outside the game saves under `%USERPROFILE%\App
 
 Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics\`. Existing UDS statistics remain outside the game directory unless the user removes them separately.
 
-## M3-M7 data and exports
+## M3-M8 data and exports
 
 - A run starts only after native raid initialization when the alive main duck has player control; base and loading activity do not start runs.
 - Run outcomes are Extracted, Died, or Interrupted. Active duration excludes pause/loading; wall-clock duration is diagnostic.
 - Overview, Runs, Records, Combat, Equipment, Items, and Diagnostics are enabled. M4 separates firing actions, loaded ammunition units consumed, and configured projectile outcomes; the public event proves firing actions and event-time identities, while actual loaded-ammunition consumption remains unavailable.
 - M5 records actual HP loss, compatible completed-projectile accuracy, melee swings/hits, enemy kills, player deaths, ownership, stable enemy/killer identity, Zombie/unknown family, cause, event-time weapon/ammunition identity, independently proven head-targeted hits, and headshot final blows. Unsupported or inapplicable identities remain visible as unknown.
-- Each Runs entry shows integrity and whether it is eligible for Records, including the exclusion reason. Records show shortest/longest extraction and death active times overall and per map.
-- Physical movement and teleport/excluded displacement are stored separately. If movement or map compatibility is unavailable, the panel and Diagnostics show that state explicitly.
+- Each Runs entry shows a compact route, expandable segment evidence, integrity, and Records eligibility. Records show complete-run shortest/longest extraction and death active times overall and by starting map.
+- Physical movement, proven teleport displacement, and transition/loading-excluded displacement are stored separately. If movement, active-map, or route compatibility is unavailable, only dependent metrics are disabled and Diagnostics show why.
 - M6 records character-slot and selected-weapon durations, attachment-aware loadouts, direct and tote-carried totem presence, proven-active direct-totem sets, and event-time equipment associations. Tote-carried activation remains unknown and disabled rather than inferred.
 - M7 records unique non-corpse containers whose loot access successfully begins for the exact main duck during an active raid. Reopening within one run is deduplicated by native `GetKey()`; the scope resets for the next run.
-- Exports contain `statistics.json`, `overview.csv`, `groups.csv`, `items.csv`, `runs.csv`, `run_totals.csv`, `map_totals.csv`, `records.csv`, `combat_totals.csv`, `combat_attribution.csv`, `weapon_totals.csv`, `ammunition_totals.csv`, `equipment_totals.csv`, `recurring_loadouts.csv`, `equipment_combat.csv`, and `containers.csv`.
+- Exports contain `statistics.json`, the existing fifteen CSVs, and M8's `routes.csv`, `segments.csv`, `segment_events.csv`, and `route_map_totals.csv`. `map_totals.csv` remains starting-map complete-run history; route-map totals are separate.
 
-## Known v0.7.0 limitations
+## Known v0.8.0 limitations
 
 - Statistics begin at installation; no history is reconstructed.
-- Version 0.7.0 stores one stable root/starting map per run. Multi-map expeditions are not yet represented as ordered routes, and complete run totals remain grouped under that stored map. Planned M8 adds route segments and event-time per-map attribution; historical routes will remain unavailable rather than being reconstructed.
+- Pre-M8 ending maps, ordered routes, segments, transition displacement, and route-aware per-map attribution are unavailable rather than reconstructed as fake one-segment routes.
 - Only successful main-duck item uses in raids count.
-- Healing totals start with v0.2.0; run/movement with v0.3.0; weapon identity/firing actions with v0.4.0; M5 combat with v0.5.0; equipment/totem data with v0.6.0; and container data with v0.7.0. Schema-7 migration preserves M1-M6 and marks historical M7 data unavailable without reconstruction.
+- Healing totals start with v0.2.0; run/movement with v0.3.0; weapon identity/firing actions with v0.4.0; M5 combat with v0.5.0; equipment/totem data with v0.6.0; container data with v0.7.0; and route attribution with v0.8.0. Schema-8 migration preserves M1-M7 and marks historical route data unavailable.
+- A route stores at most 64 visits and 2,048 event associations. Reaching a bound disables route-dependent attribution without evicting or merging earlier evidence; overall proven M1-M7 totals continue.
+- If a delayed healing or combat outcome occurs while loading and no destination segment is yet proven, the overall result remains counted but event attribution and route-aware map totals become unavailable for that run rather than guessing a map.
 - “Container looted” means the loot interface began successfully, not that any item was transferred. Counts and values of removed items are outside M7.
 - Stable identity is the verified native position-derived `InteractableLootbox.GetKey()` integer. A missing, changed, or throwing identity contract disables container statistics rather than falling back to Unity runtime object IDs.
 - The bounded active-run deduplication set stores at most 4,096 stable keys. Reaching that defensive bound disables the affected run metric rather than evicting old keys and risking double counts.

@@ -19,6 +19,7 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
     private readonly Func<string> saveGenerationIdProvider;
     private readonly Func<string?> runIdProvider;
     private readonly Func<string?> mapIdProvider;
+    private readonly Func<string?> segmentIdProvider;
     private readonly Func<bool> runActiveProvider;
     private readonly Func<ContainerLooted, bool> recordHandler;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
@@ -42,7 +43,8 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
         Func<ContainerLooted, bool> recordHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
         Action<ContainerMetricCapabilities> runCapabilityHandler,
-        Action<string> diagnosticHandler)
+        Action<string> diagnosticHandler,
+        Func<string?>? segmentIdProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.runIdProvider = runIdProvider ?? throw new ArgumentNullException(nameof(runIdProvider));
@@ -52,6 +54,7 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.runCapabilityHandler = runCapabilityHandler ?? throw new ArgumentNullException(nameof(runCapabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.segmentIdProvider = segmentIdProvider ?? (() => null);
     }
 
     public ContainerMetricCapabilities MetricCapabilities => ContainerStatisticsReducer.CloneCapabilities(capabilities);
@@ -214,6 +217,7 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
             SaveGenerationId = generationId,
             RunId = runId,
             MapId = mapId,
+            SegmentId = segmentIdProvider(),
             GameVersion = Application.version ?? string.Empty,
             GameBuild = SupportedGameBuild,
             GameplayContext = GameplayContext.Raid,

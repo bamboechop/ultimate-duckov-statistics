@@ -78,7 +78,7 @@ public sealed class ProfileRepository
         currentDirectory = Path.Combine(slotDirectory, "current");
         Directory.CreateDirectory(currentDirectory);
         var profilePath = GetProfilePath(currentDirectory);
-        var loaded = profileStore.Load(profilePath);
+        var loaded = profileStore.Load(profilePath, ProfileMigrator.ValidateRecoveryCandidate);
         result.LoadFailures = loaded.Failures;
 
         if (loaded.Value == null)
@@ -198,6 +198,8 @@ public sealed class ProfileRepository
         {
             throw new ArgumentException("Active-run checkpoint does not match the current generation.", nameof(checkpoint));
         }
+
+        ValidateAndNormalizeRouteCheckpoint(checkpoint, requireCurrentSchemaRoots: checkpoint.SchemaVersion >= 8);
 
         checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
         var normalization = WeaponStatisticsReducer.NormalizePersisted(checkpoint.WeaponStatistics);
@@ -539,6 +541,15 @@ public sealed class ProfileRepository
 
     private string? ValidateActiveRunCheckpointForRecovery(ActiveRunCheckpoint checkpoint)
     {
+        try
+        {
+            ValidateAndNormalizeRouteCheckpoint(checkpoint, requireCurrentSchemaRoots: checkpoint.SchemaVersion >= 8);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Active-run checkpoint contains invalid route state: {exception.Message}";
+        }
+
         checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
         var weaponNormalization = WeaponStatisticsReducer.NormalizePersisted(checkpoint.WeaponStatistics);
         if (weaponNormalization.InvalidCounters)
@@ -646,6 +657,102 @@ public sealed class ProfileRepository
             return $"Active-run checkpoint is structurally invalid: {exception.Message}";
         }
     }
+
+    private static void ValidateAndNormalizeRouteCheckpoint(
+        ActiveRunCheckpoint checkpoint,
+        bool requireCurrentSchemaRoots)
+    {
+        if (requireCurrentSchemaRoots
+            && (checkpoint.RouteCapabilities == null
+                || checkpoint.Segments == null
+                || checkpoint.SegmentEventAssociations == null
+                || checkpoint.ItemStatistics == null
+                || checkpoint.MovementBaseline == null
+                || checkpoint.RouteCapabilities.OrderedRoute == null
+                || checkpoint.RouteCapabilities.Segments == null
+                || checkpoint.RouteCapabilities.EventAttribution == null
+                || checkpoint.RouteCapabilities.RouteAwareMapTotals == null
+                || string.IsNullOrWhiteSpace(checkpoint.StartingMapId)))
+            throw new ArgumentException("Current-schema route roots are incomplete.", nameof(checkpoint));
+
+        if (checkpoint.SchemaVersion < 8)
+        {
+            checkpoint.StartingMapId = checkpoint.MapId;
+            checkpoint.StartingMapDisplayName = checkpoint.MapDisplayName;
+            checkpoint.StartingMapKnown = checkpoint.MapKnown;
+            checkpoint.Segments = new List<MapSegmentSummary>();
+            checkpoint.SegmentEventAssociations = new List<SegmentEventAssociation>();
+            checkpoint.RouteCapabilities = RouteStatisticsReducer.Unavailable(
+                "Historical active-run checkpoint predates M8; route recovery is unavailable.");
+            checkpoint.HistoricalRouteUnavailable = true;
+            checkpoint.ItemStatistics = new ItemStatisticsAggregate { HistoricalUnavailable = true };
+            checkpoint.TransitionExcludedDistance = 0;
+            checkpoint.TransitionPending = false;
+            checkpoint.CurrentSegmentId = null;
+            checkpoint.MovementBaseline ??= new MovementBaselineState();
+            return;
+        }
+
+        checkpoint.Segments ??= new List<MapSegmentSummary>();
+        checkpoint.SegmentEventAssociations ??= new List<SegmentEventAssociation>();
+        checkpoint.RouteCapabilities ??= RouteStatisticsReducer.Unavailable("Route capability record was missing.");
+        checkpoint.ItemStatistics ??= new ItemStatisticsAggregate();
+        checkpoint.MovementBaseline ??= new MovementBaselineState();
+        RouteStatisticsReducer.ValidateCapabilities(checkpoint.RouteCapabilities);
+        if (checkpoint.Segments.Count > RouteStatisticsReducer.MaximumSegmentsPerRun
+            || checkpoint.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumEventAssociationsPerRun)
+            throw new ArgumentException("Current-schema route state exceeds its defensive bound.", nameof(checkpoint));
+
+        var segmentsSupported = checkpoint.RouteCapabilities.Segments?.State == AdapterCapabilityState.Supported;
+        var hasRetainedSegments = checkpoint.Segments.Count > 0;
+        if (segmentsSupported && !hasRetainedSegments)
+            throw new ArgumentException("Supported route checkpoint has no segment.", nameof(checkpoint));
+        if (hasRetainedSegments)
+        {
+            RouteStatisticsReducer.Validate(checkpoint.Segments, allowOpenLast: true);
+            if (!checkpoint.HistoricalRouteUnavailable
+                && !string.Equals(checkpoint.StartingMapId, checkpoint.Segments[0].MapId, StringComparison.Ordinal))
+                throw new ArgumentException("Active route checkpoint starting map does not match its first segment.", nameof(checkpoint));
+        }
+        RouteStatisticsReducer.ValidateAssociations(checkpoint.Segments, checkpoint.SegmentEventAssociations);
+        if (segmentsSupported)
+        {
+            var lastSegment = checkpoint.Segments[^1];
+            if (checkpoint.TransitionPending)
+            {
+                if (!string.IsNullOrWhiteSpace(checkpoint.CurrentSegmentId)
+                    || lastSegment.ExitReason != MapSegmentExitReason.Transition
+                    || !lastSegment.ExitedUtc.HasValue)
+                    throw new ArgumentException("Pending transition checkpoint has inconsistent current-segment state.", nameof(checkpoint));
+            }
+            else if (lastSegment.ExitReason != MapSegmentExitReason.None
+                     || lastSegment.ExitedUtc.HasValue
+                     || !string.Equals(checkpoint.CurrentSegmentId, lastSegment.SegmentId, StringComparison.Ordinal))
+            {
+                throw new ArgumentException("Active route checkpoint does not identify its open final segment.", nameof(checkpoint));
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(checkpoint.CurrentSegmentId)
+                 || checkpoint.Segments.Any(segment => segment.ExitReason == MapSegmentExitReason.None || !segment.ExitedUtc.HasValue))
+        {
+            throw new ArgumentException("Unavailable route checkpoint retained an active segment pointer or open segment.", nameof(checkpoint));
+        }
+        RouteStatisticsReducer.NormalizePersisted(checkpoint.Segments);
+        ItemStatisticsAggregateReducer.NormalizePersisted(checkpoint.ItemStatistics);
+        ItemStatisticsAggregateReducer.Validate(checkpoint.ItemStatistics);
+        if (checkpoint.MovementBaseline.HasBaseline
+            && (!Finite(checkpoint.MovementBaseline.X)
+                || !Finite(checkpoint.MovementBaseline.Y)
+                || !Finite(checkpoint.MovementBaseline.Z)
+                || !Finite(checkpoint.MovementBaseline.MonotonicSeconds)
+                || checkpoint.MovementBaseline.MonotonicSeconds < 0))
+            throw new ArgumentException("Movement baseline is invalid.", nameof(checkpoint));
+        if (!string.IsNullOrWhiteSpace(checkpoint.CurrentSegmentId)
+            && !checkpoint.Segments.Any(segment => string.Equals(segment.SegmentId, checkpoint.CurrentSegmentId, StringComparison.Ordinal)))
+            throw new ArgumentException("Current segment identity is not present in the ordered route.", nameof(checkpoint));
+    }
+
+    private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
 
     private void ArchiveActiveRunArtifacts(string reason)
     {

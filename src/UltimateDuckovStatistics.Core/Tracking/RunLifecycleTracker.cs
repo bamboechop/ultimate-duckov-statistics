@@ -11,6 +11,8 @@ public enum RunLifecycleEventKind
     PauseEnded,
     LoadingStarted,
     LoadingEnded,
+    MapTransitionStarted,
+    DestinationControlReady,
     Extracted,
     Died,
     Interrupted,
@@ -50,6 +52,9 @@ public sealed class RunStartContext
     public EquipmentMetricCapabilities EquipmentCapabilities { get; set; } = new();
 
     public ContainerMetricCapabilities ContainerCapabilities { get; set; } = new();
+
+    public RouteMetricCapabilities RouteCapabilities { get; set; } =
+        RouteStatisticsReducer.Unavailable("Route capability was not supplied by the native adapter.");
 }
 
 public sealed class RunLifecycleEvent
@@ -63,6 +68,8 @@ public sealed class RunLifecycleEvent
     public string? NativeRaidId { get; set; }
 
     public RunStartContext? StartContext { get; set; }
+
+    public MapIdentity? Map { get; set; }
 }
 
 public sealed class RunLifecycleTransition
@@ -112,7 +119,17 @@ public sealed class RunLifecycleTracker
 
     public string? ActiveRunId => active?.RunId;
 
-    public string? ActiveMapId => active?.Context.Map.MapId;
+    public string? ActiveMapId => active?.CurrentMap.MapId;
+
+    public string? ActiveSegmentId => active?.CurrentSegment?.SegmentId;
+
+    public EventAttributionContext? ActiveEventContext => active == null ? null : new EventAttributionContext
+    {
+        RunId = active.RunId,
+        MapId = active.CurrentMap.MapId,
+        SegmentId = active.CurrentSegment?.SegmentId ?? string.Empty,
+        RouteSupported = active.AttributionSupported && active.CurrentSegment != null
+    };
 
     public bool CombatCheckpointRequired => active != null && combatCheckpointRequired;
 
@@ -128,6 +145,14 @@ public sealed class RunLifecycleTracker
         switch (lifecycleEvent.Kind)
         {
             case RunLifecycleEventKind.RaidInitialized:
+                if (active != null
+                    && !active.TransitionPending
+                    && !string.IsNullOrWhiteSpace(lifecycleEvent.NativeRaidId)
+                    && !string.Equals(active.LastNativeRaidId, lifecycleEvent.NativeRaidId, StringComparison.Ordinal))
+                {
+                    transition.Completed = Complete(RunOutcome.Interrupted, lifecycleEvent);
+                    transition.CheckpointRequired = transition.Completed != null;
+                }
                 raidInitialized = true;
                 nativeRaidId = lifecycleEvent.NativeRaidId;
                 transition.StateChanged = true;
@@ -154,7 +179,16 @@ public sealed class RunLifecycleTracker
                 SetSuspension(SuspensionReason.Loading, active: true, lifecycleEvent, transition);
                 break;
             case RunLifecycleEventKind.LoadingEnded:
-                SetSuspension(SuspensionReason.Loading, active: false, lifecycleEvent, transition);
+                if (active?.TransitionPending != true)
+                {
+                    SetSuspension(SuspensionReason.Loading, active: false, lifecycleEvent, transition);
+                }
+                break;
+            case RunLifecycleEventKind.MapTransitionStarted:
+                BeginMapTransition(lifecycleEvent, transition);
+                break;
+            case RunLifecycleEventKind.DestinationControlReady:
+                ResumeAtDestination(lifecycleEvent, transition);
                 break;
             case RunLifecycleEventKind.Extracted:
                 transition.Completed = Complete(RunOutcome.Extracted, lifecycleEvent);
@@ -208,7 +242,30 @@ public sealed class RunLifecycleTracker
             return new MovementObservationResult(MovementDisposition.InvalidIgnored, 0, 0);
         }
 
-        return movement.Observe(position, monotonicSeconds, maximumPlausibleSpeed, kind);
+        var result = movement.Observe(position, monotonicSeconds, maximumPlausibleSpeed, kind);
+        var segment = active.CurrentSegment ?? active.TransitionSourceSegment;
+        if (segment != null)
+        {
+            switch (result.Disposition)
+            {
+                case MovementDisposition.Physical:
+                    segment.PhysicalDistance = RouteStatisticsReducer.SaturatingAdd(
+                        segment.PhysicalDistance,
+                        result.Distance);
+                    break;
+                case MovementDisposition.Teleport:
+                    segment.TeleportDistance = RouteStatisticsReducer.SaturatingAdd(
+                        segment.TeleportDistance,
+                        result.Distance);
+                    break;
+                case MovementDisposition.TransitionExcluded:
+                    segment.TransitionExcludedDistance = RouteStatisticsReducer.SaturatingAdd(
+                        segment.TransitionExcludedDistance,
+                        result.Distance);
+                    break;
+            }
+        }
+        return result;
     }
 
     public bool ObserveIntegrity(IntegrityTags integrityTags)
@@ -225,6 +282,12 @@ public sealed class RunLifecycleTracker
         }
 
         active.Context.IntegrityTags = accumulated;
+        if (active.CurrentSegment != null)
+        {
+            active.CurrentSegment.IntegrityTags = RunIntegrityPolicy.Accumulate(
+                active.CurrentSegment.IntegrityTags,
+                integrityTags);
+        }
         return true;
     }
 
@@ -235,9 +298,7 @@ public sealed class RunLifecycleTracker
             return false;
         }
 
-        if (!string.Equals(active.Context.SaveGenerationId, shot.SaveGenerationId, StringComparison.Ordinal)
-            || !string.Equals(active.RunId, shot.RunId, StringComparison.Ordinal)
-            || !string.Equals(active.Context.Map.MapId, shot.MapId, StringComparison.Ordinal))
+        if (!MatchesCurrentContext(shot.SaveGenerationId, shot.RunId, shot.MapId, shot.SegmentId))
         {
             return false;
         }
@@ -252,6 +313,12 @@ public sealed class RunLifecycleTracker
         {
             WeaponStatisticsReducer.Apply(active.WeaponStatistics, shot);
             EquipmentStatisticsReducer.RecordShot(active.EquipmentStatistics, shot);
+            if (active.AttributionSupported && active.CurrentSegment != null)
+            {
+                WeaponStatisticsReducer.Apply(active.CurrentSegment.WeaponStatistics, shot);
+                EquipmentStatisticsReducer.RecordShot(active.CurrentSegment.EquipmentStatistics, shot);
+                RecordAssociation(shot.EventId, "shot", shot.TimestampUtc, shot.SegmentId, shot.MapId, shot.SegmentId, shot.MapId);
+            }
             active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(
                 active.Context.IntegrityTags,
                 shot.IntegrityTags);
@@ -278,7 +345,8 @@ public sealed class RunLifecycleTracker
             || value == null
             || !string.Equals(value.SaveGenerationId, active.Context.SaveGenerationId, StringComparison.Ordinal)
             || !string.Equals(value.RunId, active.RunId, StringComparison.Ordinal)
-            || !string.Equals(value.MapId, active.Context.Map.MapId, StringComparison.Ordinal)
+            || (string.IsNullOrWhiteSpace(value.OutcomeSegmentId)
+                && !string.Equals(value.MapId, active.CurrentMap.MapId, StringComparison.Ordinal))
             || value.GameplayContext != GameplayContext.Raid
             || string.IsNullOrWhiteSpace(value.EventId)
             || active.RecentCombatEventIds.Contains(value.EventId))
@@ -291,6 +359,29 @@ public sealed class RunLifecycleTracker
         {
             CombatStatisticsReducer.Apply(active.CombatStatistics, value);
             EquipmentStatisticsReducer.RecordCombat(active.EquipmentStatistics, value);
+            if (MatchesCurrentAttribution(value.OutcomeMapId ?? value.MapId, value.OutcomeSegmentId))
+            {
+                var segment = active.CurrentSegment!;
+                CombatStatisticsReducer.Apply(segment.CombatStatistics, value);
+                EquipmentStatisticsReducer.RecordCombat(segment.EquipmentStatistics, value);
+            }
+            else if (active.AttributionSupported)
+            {
+                RouteStatisticsReducer.DisableAttribution(
+                    active.RouteCapabilities,
+                    "A combat outcome occurred without a proven active destination segment; overall combat remains available.");
+            }
+            if (active.AttributionSupported)
+            {
+                RecordAssociation(
+                    value.EventId,
+                    "combat",
+                    value.TimestampUtc,
+                    value.SourceSegmentId,
+                    value.SourceMapId,
+                    value.OutcomeSegmentId,
+                    value.OutcomeMapId ?? value.MapId);
+            }
             active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(
                 active.Context.IntegrityTags,
                 value.IntegrityTags);
@@ -317,7 +408,7 @@ public sealed class RunLifecycleTracker
             || value == null
             || !string.Equals(value.SaveGenerationId, active.Context.SaveGenerationId, StringComparison.Ordinal)
             || !string.Equals(value.RunId, active.RunId, StringComparison.Ordinal)
-            || !string.Equals(value.MapId, active.Context.Map.MapId, StringComparison.Ordinal)
+            || !MatchesCurrentContext(value.SaveGenerationId, value.RunId, value.MapId, value.SegmentId)
             || value.GameplayContext != GameplayContext.Raid)
         {
             return false;
@@ -329,6 +420,13 @@ public sealed class RunLifecycleTracker
         if (accepted)
         {
             active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(active.Context.IntegrityTags, value.IntegrityTags);
+            if (active.AttributionSupported && active.CurrentSegment != null)
+            {
+                active.CurrentSegment.ContainerStatistics.UniqueContainersLooted = SaturatingAdd(
+                    active.CurrentSegment.ContainerStatistics.UniqueContainersLooted,
+                    1);
+                RecordAssociation(value.EventId, "container", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
+            }
         }
         if (accepted || saturationChanged) combatCheckpointRequired = true;
         return accepted;
@@ -338,6 +436,8 @@ public sealed class RunLifecycleTracker
     {
         if (active == null || capabilities == null) return false;
         CombatStatisticsReducer.RestrictCapabilities(active.CombatStatistics, capabilities);
+        if (active.CurrentSegment != null)
+            CombatStatisticsReducer.RestrictCapabilities(active.CurrentSegment.CombatStatistics, capabilities);
         combatCheckpointRequired = true;
         return true;
     }
@@ -346,6 +446,8 @@ public sealed class RunLifecycleTracker
     {
         if (active == null || capabilities == null) return false;
         ContainerStatisticsReducer.RestrictCapabilities(active.ContainerState.Statistics, capabilities);
+        if (active.CurrentSegment != null)
+            ContainerStatisticsReducer.RestrictCapabilities(active.CurrentSegment.ContainerStatistics, capabilities);
         combatCheckpointRequired = true;
         return true;
     }
@@ -354,6 +456,13 @@ public sealed class RunLifecycleTracker
     {
         if (active == null || snapshot == null) return false;
         var changed = EquipmentStatisticsReducer.Observe(active.EquipmentStatistics, snapshot, active.ActiveDurationSeconds);
+        if (active.AttributionSupported && active.CurrentSegment != null)
+        {
+            changed |= EquipmentStatisticsReducer.Observe(
+                active.CurrentSegment.EquipmentStatistics,
+                snapshot,
+                active.CurrentSegment.ActiveDurationSeconds);
+        }
         if (changed) combatCheckpointRequired = true;
         return changed;
     }
@@ -377,6 +486,56 @@ public sealed class RunLifecycleTracker
             throw new ArgumentOutOfRangeException(nameof(monotonicSeconds));
         Advance(timestampUtc, monotonicSeconds);
         var changed = EquipmentStatisticsReducer.Suspend(active.EquipmentStatistics, active.ActiveDurationSeconds);
+        if (active.CurrentSegment != null)
+        {
+            changed |= EquipmentStatisticsReducer.Suspend(
+                active.CurrentSegment.EquipmentStatistics,
+                active.CurrentSegment.ActiveDurationSeconds);
+        }
+        if (changed) combatCheckpointRequired = true;
+        return changed;
+    }
+
+    public bool RecordItemUse(ItemUseRecorded value)
+    {
+        if (active == null || value == null || value.GameplayContext != GameplayContext.Raid
+            || !MatchesCurrentContext(value.SaveGenerationId, value.RunId, value.MapId, value.SegmentId))
+            return false;
+        var changed = ItemStatisticsAggregateReducer.Record(active.ItemStatistics, active.Context.SaveGenerationId, value);
+        if (changed && active.AttributionSupported && active.CurrentSegment != null)
+        {
+            ItemStatisticsAggregateReducer.Record(active.CurrentSegment.ItemStatistics, active.Context.SaveGenerationId, value);
+            RecordAssociation(value.EventId, "item-use", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
+        }
+        if (changed) combatCheckpointRequired = true;
+        return changed;
+    }
+
+    public bool RecordHealing(HealingApplied value)
+    {
+        if (active == null || value == null || value.GameplayContext != GameplayContext.Raid
+            || !MatchesRunContext(value.SaveGenerationId, value.RunId))
+            return false;
+        var changed = ItemStatisticsAggregateReducer.Record(active.ItemStatistics, active.Context.SaveGenerationId, value);
+        if (changed && MatchesCurrentAttribution(value.OutcomeMapId ?? value.MapId, value.OutcomeSegmentId))
+        {
+            ItemStatisticsAggregateReducer.RecordOutcomeHealing(active.CurrentSegment!.ItemStatistics, active.Context.SaveGenerationId, value);
+        }
+        else if (changed && active.AttributionSupported)
+        {
+            RouteStatisticsReducer.DisableAttribution(
+                active.RouteCapabilities,
+                "A healing outcome occurred without a proven active destination segment; overall healing remains available.");
+        }
+        if (changed && active.AttributionSupported)
+            RecordAssociation(
+                value.EventId,
+                "healing",
+                value.TimestampUtc,
+                value.SourceSegmentId,
+                value.SourceMapId,
+                value.OutcomeSegmentId,
+                value.OutcomeMapId ?? value.MapId);
         if (changed) combatCheckpointRequired = true;
         return changed;
     }
@@ -414,7 +573,20 @@ public sealed class RunLifecycleTracker
             WeaponStatistics = WeaponStatisticsReducer.Clone(active.WeaponStatistics),
             CombatStatistics = CombatStatisticsReducer.Clone(active.CombatStatistics),
             EquipmentStatistics = EquipmentStatisticsReducer.Clone(active.EquipmentStatistics),
-            ContainerState = ContainerStatisticsReducer.Clone(active.ContainerState)
+            ContainerState = ContainerStatisticsReducer.Clone(active.ContainerState),
+            StartingMapId = active.Context.Map.MapId,
+            StartingMapDisplayName = active.Context.Map.DisplayName,
+            StartingMapKnown = active.Context.Map.IsKnown,
+            Segments = active.Segments.Select(RouteStatisticsReducer.CloneSegment).ToList(),
+            TransitionExcludedDistance = movement.TransitionExcludedDistance,
+            RouteCapabilities = RouteStatisticsReducer.CloneCapabilities(active.RouteCapabilities),
+            HistoricalRouteUnavailable = false,
+            RouteWasRepairedFromInvalidState = false,
+            SegmentEventAssociations = active.EventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+            ItemStatistics = ItemStatisticsAggregateReducer.Clone(active.ItemStatistics),
+            TransitionPending = active.TransitionPending,
+            CurrentSegmentId = active.CurrentSegment?.SegmentId,
+            MovementBaseline = movement.CaptureBaseline()
         };
     }
 
@@ -451,6 +623,92 @@ public sealed class RunLifecycleTracker
         movement.Reset();
         lastCheckpointMonotonicSeconds = monotonicSeconds;
         combatCheckpointRequired = false;
+    }
+
+    public void DisableRoute(string provenance)
+    {
+        if (active != null)
+        {
+            if (active.CurrentSegment != null)
+            {
+                CloseSegment(active.CurrentSegment, active.LastObservedUtc, MapSegmentExitReason.Interrupted);
+            }
+            RouteStatisticsReducer.DisableRoute(active.RouteCapabilities, provenance);
+            active.CurrentSegment = null;
+            active.TransitionSourceSegment = null;
+        }
+    }
+
+    private void BeginMapTransition(RunLifecycleEvent lifecycleEvent, RunLifecycleTransition transition)
+    {
+        if (active == null)
+        {
+            SetSuspension(SuspensionReason.Loading, active: true, lifecycleEvent, transition);
+            return;
+        }
+        if (active.TransitionPending)
+        {
+            return;
+        }
+
+        Advance(lifecycleEvent.TimestampUtc, lifecycleEvent.MonotonicSeconds);
+        suspensions.Add(SuspensionReason.Loading);
+        if (active.CurrentSegment != null)
+        {
+            EquipmentStatisticsReducer.Suspend(
+                active.CurrentSegment.EquipmentStatistics,
+                active.CurrentSegment.ActiveDurationSeconds);
+            CloseSegment(active.CurrentSegment, lifecycleEvent.TimestampUtc, MapSegmentExitReason.Transition);
+            active.TransitionSourceSegment = active.CurrentSegment;
+            active.CurrentSegment = null;
+        }
+        active.TransitionPending = true;
+        transition.StateChanged = true;
+        transition.CheckpointRequired = true;
+    }
+
+    private void ResumeAtDestination(RunLifecycleEvent lifecycleEvent, RunLifecycleTransition transition)
+    {
+        if (active == null || !active.TransitionPending || lifecycleEvent.Map == null)
+        {
+            return;
+        }
+        var map = lifecycleEvent.Map;
+        if (string.IsNullOrWhiteSpace(map.MapId) || string.IsNullOrWhiteSpace(map.DisplayName))
+        {
+            RouteStatisticsReducer.DisableRoute(active.RouteCapabilities, "Destination map identity was incomplete.");
+            map = new MapIdentity();
+        }
+
+        Advance(lifecycleEvent.TimestampUtc, lifecycleEvent.MonotonicSeconds);
+        active.CurrentMap = CloneMap(map);
+        if (active.RouteSupported)
+        {
+            var source = active.TransitionSourceSegment;
+            if (source != null && string.Equals(source.MapId, map.MapId, StringComparison.Ordinal))
+            {
+                source.ExitedUtc = null;
+                source.ExitReason = MapSegmentExitReason.None;
+                active.CurrentSegment = source;
+            }
+            else if (active.Segments.Count >= RouteStatisticsReducer.MaximumSegmentsPerRun)
+            {
+                RouteStatisticsReducer.DisableRoute(
+                    active.RouteCapabilities,
+                    $"The defensive {RouteStatisticsReducer.MaximumSegmentsPerRun}-segment route bound was reached.");
+                active.CurrentSegment = null;
+            }
+            else
+            {
+                active.CurrentSegment = active.CreateSegment(map, lifecycleEvent.TimestampUtc);
+            }
+        }
+        active.TransitionPending = false;
+        active.TransitionSourceSegment = null;
+        active.LastNativeRaidId = nativeRaidId;
+        suspensions.Remove(SuspensionReason.Loading);
+        transition.StateChanged = true;
+        transition.CheckpointRequired = true;
     }
 
     private void SetSuspension(
@@ -493,6 +751,28 @@ public sealed class RunLifecycleTracker
         var state = active;
         EquipmentStatisticsReducer.Suspend(state.EquipmentStatistics, state.ActiveDurationSeconds);
         var endedUtc = EnsureUtc(lifecycleEvent.TimestampUtc);
+        if (state.CurrentSegment != null)
+        {
+            EquipmentStatisticsReducer.Suspend(
+                state.CurrentSegment.EquipmentStatistics,
+                state.CurrentSegment.ActiveDurationSeconds);
+            CloseSegment(
+                state.CurrentSegment,
+                endedUtc,
+                outcome switch
+                {
+                    RunOutcome.Extracted => MapSegmentExitReason.Extracted,
+                    RunOutcome.Died => MapSegmentExitReason.Died,
+                    _ => MapSegmentExitReason.Interrupted
+                });
+        }
+        else if (state.TransitionSourceSegment != null && outcome == RunOutcome.Interrupted)
+        {
+            state.TransitionSourceSegment.ExitReason = MapSegmentExitReason.Interrupted;
+            state.TransitionSourceSegment.ExitedUtc = endedUtc < state.TransitionSourceSegment.EnteredUtc
+                ? state.TransitionSourceSegment.EnteredUtc
+                : endedUtc;
+        }
         var recordEligible = outcome != RunOutcome.Interrupted
                              && state.Context.IntegrityTags == IntegrityTags.Normal
                              && state.Context.LifecycleCapability == AdapterCapabilityState.Supported;
@@ -524,7 +804,23 @@ public sealed class RunLifecycleTracker
             WeaponStatistics = WeaponStatisticsReducer.Clone(state.WeaponStatistics),
             CombatStatistics = CombatStatisticsReducer.Clone(state.CombatStatistics),
             EquipmentStatistics = EquipmentStatisticsReducer.Clone(state.EquipmentStatistics),
-            ContainerStatistics = ContainerStatisticsReducer.Clone(state.ContainerState.Statistics)
+            ContainerStatistics = ContainerStatisticsReducer.Clone(state.ContainerState.Statistics),
+            StartingMapId = state.Context.Map.MapId,
+            StartingMapDisplayName = state.Context.Map.DisplayName,
+            StartingMapKnown = state.Context.Map.IsKnown,
+            EndingMapId = state.RouteSupported ? state.Segments.LastOrDefault()?.MapId ?? MapIdentity.UnknownId : MapIdentity.UnknownId,
+            EndingMapDisplayName = state.RouteSupported
+                ? state.Segments.LastOrDefault()?.MapDisplayName ?? MapIdentity.UnknownDisplayName
+                : MapIdentity.UnknownDisplayName,
+            EndingMapKnown = state.RouteSupported && state.Segments.LastOrDefault()?.MapKnown == true,
+            RouteSignature = state.RouteSupported ? RouteStatisticsReducer.BuildSignature(state.Segments) : string.Empty,
+            Segments = state.Segments.Select(RouteStatisticsReducer.CloneSegment).ToList(),
+            TransitionExcludedDistance = movement.TransitionExcludedDistance,
+            RouteCapabilities = RouteStatisticsReducer.CloneCapabilities(state.RouteCapabilities),
+            HistoricalRouteUnavailable = false,
+            RouteWasRepairedFromInvalidState = false,
+            SegmentEventAssociations = state.EventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+            ItemStatistics = ItemStatisticsAggregateReducer.Clone(state.ItemStatistics)
         };
 
         active = null;
@@ -544,10 +840,25 @@ public sealed class RunLifecycleTracker
 
         if (suspensions.Count == 0)
         {
-            active.ActiveDurationSeconds += monotonicSeconds - active.LastMonotonicSeconds;
+            var elapsed = monotonicSeconds - active.LastMonotonicSeconds;
+            active.ActiveDurationSeconds = RouteStatisticsReducer.SaturatingAdd(
+                active.ActiveDurationSeconds,
+                elapsed);
+            if (active.CurrentSegment != null)
+            {
+                active.CurrentSegment.ActiveDurationSeconds = RouteStatisticsReducer.SaturatingAdd(
+                    active.CurrentSegment.ActiveDurationSeconds,
+                    elapsed);
+            }
         }
 
         EquipmentStatisticsReducer.Advance(active.EquipmentStatistics, active.ActiveDurationSeconds);
+        if (active.CurrentSegment != null)
+        {
+            EquipmentStatisticsReducer.Advance(
+                active.CurrentSegment.EquipmentStatistics,
+                active.CurrentSegment.ActiveDurationSeconds);
+        }
 
         active.LastMonotonicSeconds = monotonicSeconds;
         active.LastObservedUtc = EnsureUtc(timestampUtc);
@@ -576,6 +887,93 @@ public sealed class RunLifecycleTracker
         }
     }
 
+    private bool MatchesCurrentContext(
+        string saveGenerationId,
+        string? runId,
+        string? mapId,
+        string? segmentId)
+    {
+        if (active == null
+            || !MatchesRunContext(saveGenerationId, runId)
+            || !string.Equals(active.CurrentMap.MapId, mapId, StringComparison.Ordinal))
+            return false;
+        if (!active.AttributionSupported) return true;
+        return active.CurrentSegment != null
+               && !string.IsNullOrWhiteSpace(segmentId)
+               && string.Equals(active.CurrentSegment.SegmentId, segmentId, StringComparison.Ordinal);
+    }
+
+    private bool MatchesRunContext(string saveGenerationId, string? runId) =>
+        active != null
+        && string.Equals(active.Context.SaveGenerationId, saveGenerationId, StringComparison.Ordinal)
+        && string.Equals(active.RunId, runId, StringComparison.Ordinal);
+
+    private bool MatchesCurrentAttribution(string? mapId, string? segmentId) =>
+        active?.AttributionSupported == true
+        && active.CurrentSegment != null
+        && string.Equals(active.CurrentMap.MapId, mapId, StringComparison.Ordinal)
+        && string.Equals(active.CurrentSegment.SegmentId, segmentId, StringComparison.Ordinal);
+
+    private void RecordAssociation(
+        string eventId,
+        string eventKind,
+        DateTime timestampUtc,
+        string? sourceSegmentId,
+        string? sourceMapId,
+        string? outcomeSegmentId,
+        string? outcomeMapId)
+    {
+        if (active == null || !active.AttributionSupported) return;
+        var source = active.Segments.FirstOrDefault(segment =>
+            string.Equals(segment.SegmentId, sourceSegmentId, StringComparison.Ordinal));
+        var outcome = active.Segments.FirstOrDefault(segment =>
+            string.Equals(segment.SegmentId, outcomeSegmentId, StringComparison.Ordinal));
+        if (source == null
+            || outcome == null
+            || !string.Equals(source.MapId, sourceMapId, StringComparison.Ordinal)
+            || !string.Equals(outcome.MapId, outcomeMapId, StringComparison.Ordinal))
+        {
+            RouteStatisticsReducer.DisableAttribution(
+                active.RouteCapabilities,
+                "An event association lacked a complete proven source/outcome segment join; overall statistics remain available.");
+            return;
+        }
+        if (active.EventAssociations.Count >= RouteStatisticsReducer.MaximumEventAssociationsPerRun)
+        {
+            RouteStatisticsReducer.DisableAttribution(
+                active.RouteCapabilities,
+                $"The defensive {RouteStatisticsReducer.MaximumEventAssociationsPerRun}-event association bound was reached.");
+            return;
+        }
+        active.EventAssociations.Add(new SegmentEventAssociation
+        {
+            EventId = eventId,
+            EventKind = eventKind,
+            TimestampUtc = EnsureUtc(timestampUtc),
+            SourceSegmentId = sourceSegmentId ?? string.Empty,
+            SourceMapId = sourceMapId ?? MapIdentity.UnknownId,
+            OutcomeSegmentId = outcomeSegmentId ?? string.Empty,
+            OutcomeMapId = outcomeMapId ?? MapIdentity.UnknownId
+        });
+    }
+
+    private static void CloseSegment(MapSegmentSummary segment, DateTime timestampUtc, MapSegmentExitReason reason)
+    {
+        var exitedUtc = EnsureUtc(timestampUtc);
+        segment.ExitedUtc = exitedUtc < segment.EnteredUtc ? segment.EnteredUtc : exitedUtc;
+        segment.ExitReason = reason;
+    }
+
+    private static MapIdentity CloneMap(MapIdentity map) => new()
+    {
+        MapId = map.MapId,
+        DisplayName = map.DisplayName,
+        IsKnown = map.IsKnown
+    };
+
+    private static long SaturatingAdd(long left, long right) =>
+        left > long.MaxValue - right ? long.MaxValue : left + right;
+
     private static DateTime EnsureUtc(DateTime value) => value.Kind switch
     {
         DateTimeKind.Utc => value,
@@ -602,6 +1000,13 @@ public sealed class RunLifecycleTracker
             CombatStatistics.Capabilities = CombatStatisticsReducer.CloneCapabilities(context.CombatCapabilities);
             EquipmentStatistics.Capabilities = EquipmentStatisticsReducer.CloneCapabilities(context.EquipmentCapabilities);
             ContainerState.Statistics.Capabilities = ContainerStatisticsReducer.CloneCapabilities(context.ContainerCapabilities);
+            RouteCapabilities = RouteStatisticsReducer.CloneCapabilities(context.RouteCapabilities);
+            CurrentMap = CloneMap(context.Map);
+            LastNativeRaidId = context.NativeRaidId;
+            if (RouteSupported)
+            {
+                CurrentSegment = CreateSegment(context.Map, startedUtc);
+            }
         }
 
         public string RunId { get; }
@@ -615,6 +1020,31 @@ public sealed class RunLifecycleTracker
         public double LastMonotonicSeconds { get; set; }
 
         public double ActiveDurationSeconds { get; set; }
+
+        public string? LastNativeRaidId { get; set; }
+
+        public MapIdentity CurrentMap { get; set; }
+
+        public RouteMetricCapabilities RouteCapabilities { get; }
+
+        public bool RouteSupported =>
+            RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
+            && RouteCapabilities.Segments.State == AdapterCapabilityState.Supported;
+
+        public bool AttributionSupported => RouteSupported
+            && RouteCapabilities.EventAttribution.State == AdapterCapabilityState.Supported;
+
+        public bool TransitionPending { get; set; }
+
+        public MapSegmentSummary? CurrentSegment { get; set; }
+
+        public MapSegmentSummary? TransitionSourceSegment { get; set; }
+
+        public List<MapSegmentSummary> Segments { get; } = new();
+
+        public List<SegmentEventAssociation> EventAssociations { get; } = new();
+
+        public ItemStatisticsAggregate ItemStatistics { get; } = new();
 
         public WeaponStatisticsAggregate WeaponStatistics { get; } = new();
 
@@ -631,5 +1061,25 @@ public sealed class RunLifecycleTracker
         public HashSet<string> RecentCombatEventIds { get; } = new(StringComparer.Ordinal);
 
         public Queue<string> RecentCombatEventIdOrder { get; } = new();
+
+        public MapSegmentSummary CreateSegment(MapIdentity map, DateTime enteredUtc)
+        {
+            var segment = new MapSegmentSummary
+            {
+                SegmentId = $"{RunId}:segment:{Segments.Count}",
+                SegmentIndex = Segments.Count,
+                MapId = map.MapId,
+                MapDisplayName = map.DisplayName,
+                MapKnown = map.IsKnown,
+                EnteredUtc = EnsureUtc(enteredUtc),
+                IntegrityTags = Context.IntegrityTags
+            };
+            segment.WeaponStatistics.Capabilities = WeaponStatisticsReducer.CloneCapabilities(Context.WeaponCapabilities);
+            segment.CombatStatistics.Capabilities = CombatStatisticsReducer.CloneCapabilities(Context.CombatCapabilities);
+            segment.EquipmentStatistics.Capabilities = EquipmentStatisticsReducer.CloneCapabilities(Context.EquipmentCapabilities);
+            segment.ContainerStatistics.Capabilities = ContainerStatisticsReducer.CloneCapabilities(Context.ContainerCapabilities);
+            Segments.Add(segment);
+            return segment;
+        }
     }
 }

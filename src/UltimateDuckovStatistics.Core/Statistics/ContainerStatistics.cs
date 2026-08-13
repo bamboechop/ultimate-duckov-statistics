@@ -27,6 +27,7 @@ public sealed class ContainerRunCheckpointState
     [DataMember(Order = 2)] public List<int> LootedContainerKeys { get; set; } = new();
     [DataMember(Order = 3)] public bool DeduplicationSaturated { get; set; }
     [DataMember(Order = 4)] public bool WasRepairedFromInvalidState { get; set; }
+    [DataMember(Order = 5)] public List<string> LootedContainerIdentities { get; set; } = new();
 }
 
 public static class ContainerStatisticsReducer
@@ -39,9 +40,10 @@ public static class ContainerStatisticsReducer
         if (state == null) throw new ArgumentNullException(nameof(state));
         ValidateEvent(value);
         NormalizeCheckpoint(state);
-        var keyIndex = state.LootedContainerKeys.BinarySearch(value.ContainerKey);
-        if (state.DeduplicationSaturated || keyIndex >= 0) return false;
-        if (state.LootedContainerKeys.Count >= ContainerRunCheckpointState.DeduplicationCapacity)
+        var identity = StableIdentity(value);
+        var identityIndex = state.LootedContainerIdentities.BinarySearch(identity, StringComparer.Ordinal);
+        if (state.DeduplicationSaturated || identityIndex >= 0) return false;
+        if (state.LootedContainerIdentities.Count >= ContainerRunCheckpointState.DeduplicationCapacity)
         {
             state.DeduplicationSaturated = true;
             state.Statistics.Capabilities.UniqueContainersLooted = new MetricAvailability
@@ -52,7 +54,9 @@ public static class ContainerStatisticsReducer
             return false;
         }
 
-        state.LootedContainerKeys.Insert(~keyIndex, value.ContainerKey);
+        state.LootedContainerIdentities.Insert(~identityIndex, identity);
+        var keyIndex = state.LootedContainerKeys.BinarySearch(value.ContainerKey);
+        if (keyIndex < 0) state.LootedContainerKeys.Insert(~keyIndex, value.ContainerKey);
         state.Statistics.UniqueContainersLooted = SaturatingAdd(state.Statistics.UniqueContainersLooted, 1);
         return true;
     }
@@ -102,7 +106,8 @@ public static class ContainerStatisticsReducer
             Statistics = Clone(source.Statistics),
             LootedContainerKeys = source.LootedContainerKeys.ToList(),
             DeduplicationSaturated = source.DeduplicationSaturated,
-            WasRepairedFromInvalidState = source.WasRepairedFromInvalidState
+            WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
+            LootedContainerIdentities = source.LootedContainerIdentities.ToList()
         };
     }
 
@@ -155,22 +160,40 @@ public static class ContainerStatisticsReducer
         value.Statistics ??= Repair(new ContainerStatisticsAggregate(), ref repaired);
         repaired |= NormalizePersisted(value.Statistics);
         value.LootedContainerKeys ??= Repair(new List<int>(), ref repaired);
+        value.LootedContainerIdentities ??= Repair(new List<string>(), ref repaired);
         var normalized = value.LootedContainerKeys.Distinct().OrderBy(key => key).ToList();
         if (!value.LootedContainerKeys.SequenceEqual(normalized))
         {
             value.LootedContainerKeys = normalized;
             repaired = true;
         }
-        if (value.LootedContainerKeys.Count > ContainerRunCheckpointState.DeduplicationCapacity)
+        if (value.LootedContainerIdentities.Count == 0 && value.LootedContainerKeys.Count > 0)
+        {
+            value.LootedContainerIdentities = value.LootedContainerKeys
+                .Select(key => $"legacy:{key}")
+                .OrderBy(identity => identity, StringComparer.Ordinal)
+                .ToList();
+        }
+        var identities = value.LootedContainerIdentities
+            .Where(identity => !string.IsNullOrWhiteSpace(identity))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(identity => identity, StringComparer.Ordinal)
+            .ToList();
+        if (!value.LootedContainerIdentities.SequenceEqual(identities, StringComparer.Ordinal))
+        {
+            value.LootedContainerIdentities = identities;
+            repaired = true;
+        }
+        if (value.LootedContainerIdentities.Count > ContainerRunCheckpointState.DeduplicationCapacity)
         {
             throw new ArgumentException("Container checkpoint exceeds the bounded deduplication capacity.", nameof(value));
         }
         if (value.DeduplicationSaturated
-            && value.LootedContainerKeys.Count != ContainerRunCheckpointState.DeduplicationCapacity)
+            && value.LootedContainerIdentities.Count != ContainerRunCheckpointState.DeduplicationCapacity)
         {
             throw new ArgumentException("Saturated container checkpoint does not retain the complete bounded key set.", nameof(value));
         }
-        if (value.Statistics.UniqueContainersLooted != value.LootedContainerKeys.Count)
+        if (value.Statistics.UniqueContainersLooted != value.LootedContainerIdentities.Count)
         {
             throw new ArgumentException("Container checkpoint total does not match its unique stable-key set.", nameof(value));
         }
@@ -201,7 +224,8 @@ public static class ContainerStatisticsReducer
             || value.Statistics == null
             || value.Statistics.Capabilities == null
             || value.Statistics.Capabilities.UniqueContainersLooted == null
-            || value.LootedContainerKeys == null))
+            || value.LootedContainerKeys == null
+            || (schemaVersion >= 8 && value.LootedContainerIdentities == null)))
         {
             throw new ArgumentException("Current-schema container checkpoint is incomplete.", nameof(value));
         }
@@ -262,6 +286,11 @@ public static class ContainerStatisticsReducer
             || value.GameplayContext != GameplayContext.Raid)
             throw new ArgumentException("Container-looted event is invalid.", nameof(value));
     }
+
+    private static string StableIdentity(ContainerLooted value) =>
+        string.IsNullOrWhiteSpace(value.SegmentId)
+            ? $"legacy:{value.ContainerKey}"
+            : $"{value.MapId}\u001f{value.ContainerKey}";
 
     private static MetricAvailability Restrict(MetricAvailability left, MetricAvailability right, bool preferSourceOnTie) =>
         (int)left.State > (int)right.State || (!preferSourceOnTie && left.State == right.State)

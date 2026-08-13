@@ -35,7 +35,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         DisabledRunCapability(NativeRunLifecycleAdapter.LifecycleAdapterId, NativeRunLifecycleAdapter.LifecycleAdapterVersion),
         DisabledRunCapability(NativeRunLifecycleAdapter.MovementAdapterId, NativeRunLifecycleAdapter.MovementAdapterVersion),
-        DisabledRunCapability(NativeRunLifecycleAdapter.MapAdapterId, NativeRunLifecycleAdapter.MapAdapterVersion)
+        DisabledRunCapability(NativeRunLifecycleAdapter.MapAdapterId, NativeRunLifecycleAdapter.MapAdapterVersion),
+        DisabledRunCapability(NativeRunLifecycleAdapter.RouteAdapterId, NativeRunLifecycleAdapter.RouteAdapterVersion)
     };
     private List<CapabilityRecord> weaponCapabilities = WeaponCapabilityIds.All
         .Select(id => new CapabilityRecord

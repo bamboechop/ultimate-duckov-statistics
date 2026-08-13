@@ -58,4 +58,16 @@ public sealed class HealingApplied
 
     [DataMember(Order = 18)]
     public double ActualHealthRestored { get; set; }
+
+    [DataMember(Order = 19, EmitDefaultValue = false)]
+    public string? SourceSegmentId { get; set; }
+
+    [DataMember(Order = 20, EmitDefaultValue = false)]
+    public string? SourceMapId { get; set; }
+
+    [DataMember(Order = 21, EmitDefaultValue = false)]
+    public string? OutcomeSegmentId { get; set; }
+
+    [DataMember(Order = 22, EmitDefaultValue = false)]
+    public string? OutcomeMapId { get; set; }
 }

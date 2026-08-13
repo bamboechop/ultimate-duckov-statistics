@@ -21,6 +21,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     internal const string MovementAdapterVersion = "native-main-duck-movement/2.3.30";
     internal const string MapAdapterId = "native-map-identity";
     internal const string MapAdapterVersion = "native-map-identity/2.3.30";
+    internal const string RouteAdapterId = "native-multi-map-route";
+    internal const string RouteAdapterVersion = "native-multi-map-route/2.3.30";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const double SampleIntervalSeconds = 0.2;
@@ -38,8 +40,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
     private readonly RunLifecycleTracker tracker;
     private readonly MonotonicCadenceGate sampleCadence = new(SampleIntervalSeconds);
-    private readonly CheckpointRetryGate checkpointRetry = new(CheckpointRetryIntervalSeconds);
-    private readonly MonotonicCadenceGate combatCheckpointCadence = new(CombatCheckpointIntervalSeconds);
+    private readonly ActiveRunCheckpointScheduler checkpointScheduler = new(
+        CombatCheckpointIntervalSeconds,
+        CheckpointRetryIntervalSeconds);
     private readonly ReferenceSubjectGate<CharacterMainControl> mainCharacterGate = new();
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly DeathObservationGate deathObservationGate = new();
@@ -51,6 +54,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private string? movementMapId;
     private Action<DamageInfo>? playerDeathObserver;
     private bool pendingDeathTerminal;
+    private bool routeTransitionPending;
+    private bool destinationPlacementObserved;
+    private Action? destinationReadyObserver;
 
     public NativeRunLifecycleAdapter(
         Func<string> saveGenerationIdProvider,
@@ -85,22 +91,13 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public string? CurrentMapId => tracker.ActiveMapId;
 
+    public string? CurrentSegmentId => tracker.ActiveSegmentId;
+
+    public EventAttributionContext? CurrentEventContext => tracker.ActiveEventContext;
+
     public bool RecordShot(ShotRecorded shot)
     {
-        if (!callbackLifetime.CanHandleCallbacks || !tracker.RecordShot(shot))
-        {
-            return false;
-        }
-
-        var now = NowMonotonic();
-        if (!SaveCheckpoint(DateTime.UtcNow, now))
-        {
-            diagnosticHandler(
-                $"Accepted firing action {shot.EventId}; crash-safe active-run checkpoint remains pending "
-                + "and will be retried no more than once per second.");
-        }
-
-        return true;
+        return callbackLifetime.CanHandleCallbacks && tracker.RecordShot(shot);
     }
 
     public bool RecordCombat(CombatRecorded value) =>
@@ -108,6 +105,12 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public bool RecordContainer(ContainerLooted value) =>
         callbackLifetime.CanHandleCallbacks && tracker.RecordContainer(value);
+
+    public bool RecordItemUse(ItemUseRecorded value) =>
+        callbackLifetime.CanHandleCallbacks && tracker.RecordItemUse(value);
+
+    public bool RecordHealing(HealingApplied value) =>
+        callbackLifetime.CanHandleCallbacks && tracker.RecordHealing(value);
 
     public bool UpdateCombatCapabilities(CombatMetricCapabilities capabilities) =>
         callbackLifetime.CanHandleCallbacks && tracker.UpdateCombatCapabilities(capabilities);
@@ -127,6 +130,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         || SaveCheckpoint(DateTime.UtcNow, NowMonotonic());
 
     public void SetPlayerDeathObserver(Action<DamageInfo>? observer) => playerDeathObserver = observer;
+
+    public void SetDestinationReadyObserver(Action? observer) => destinationReadyObserver = observer;
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
@@ -184,6 +189,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             SynchronizeMainCharacter();
             SynchronizeNativeStates();
             SynchronizeRaidInitialization();
+            TryResumeDestination();
             if (pendingDeathTerminal && tracker.IsActive)
             {
                 pendingDeathTerminal = false;
@@ -199,10 +205,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 tracker.ObserveIntegrity(NativeIntegrityProbe.Read());
             }
 
-            var coalescedCombatCheckpointDue = tracker.CombatCheckpointRequired
-                                                && combatCheckpointCadence.IsDue(now);
-            if (checkpointRetry.ShouldAttempt(
-                    coalescedCombatCheckpointDue,
+            if (checkpointScheduler.ShouldAttempt(
+                    tracker.CombatCheckpointRequired,
                     periodicCheckpointDue,
                     now))
             {
@@ -238,9 +242,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
         DetachMainCharacter();
         sampleCadence.Reset();
-        checkpointRetry.Reset();
-        combatCheckpointCadence.Reset();
+        checkpointScheduler.Reset();
         movementMapId = null;
+        routeTransitionPending = false;
+        destinationPlacementObserved = false;
         pendingDeathTerminal = false;
         deathObservationGate.Reset();
         tracker.Apply(Event(RunLifecycleEventKind.RaidCleared));
@@ -255,9 +260,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         sampleCadence.Reset();
-        checkpointRetry.Reset();
-        combatCheckpointCadence.Reset();
+        checkpointScheduler.Reset();
         movementMapId = null;
+        routeTransitionPending = false;
+        destinationPlacementObserved = false;
         pendingDeathTerminal = false;
         deathObservationGate.Reset();
         var cleaned = callbackLifetime.TryCleanup(TryDetachMainCharacter, out var staticCleanupFailure);
@@ -283,6 +289,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private CapabilityRecord MovementCapability => capabilities[1];
 
     private CapabilityRecord MapCapability => capabilities[2];
+
+    private CapabilityRecord RouteCapability => capabilities[3];
 
     private void TryStartRun()
     {
@@ -329,7 +337,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 WeaponCapabilities = weaponCapabilitiesProvider(),
                 CombatCapabilities = combatCapabilitiesProvider(),
                 EquipmentCapabilities = equipmentCapabilitiesProvider(),
-                ContainerCapabilities = containerCapabilitiesProvider()
+                ContainerCapabilities = containerCapabilitiesProvider(),
+                RouteCapabilities = RouteCapability.State == AdapterCapabilityState.Supported
+                    ? RouteStatisticsReducer.Supported(RouteCapability.Detail ?? RouteAdapterVersion)
+                    : RouteStatisticsReducer.Unavailable(RouteCapability.Detail ?? "Route adapter is unavailable.")
             }
         });
         if (!transition.Started)
@@ -338,10 +349,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         sampleCadence.Reset();
-        checkpointRetry.Reset();
-        combatCheckpointCadence.Reset();
+        checkpointScheduler.Reset();
         movementMapId = tracker.ActiveMapId;
         pendingBoundary = null;
+        routeTransitionPending = false;
+        destinationPlacementObserved = false;
         deathObservationGate.Reset();
         SampleMainDuck(utcNow, now);
         sampleCadence.MarkCompleted(now);
@@ -378,9 +390,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         sampleCadence.Reset();
-        checkpointRetry.Reset();
-        combatCheckpointCadence.Reset();
+        checkpointScheduler.Reset();
         movementMapId = null;
+        routeTransitionPending = false;
+        destinationPlacementObserved = false;
         pendingDeathTerminal = false;
         deathObservationGate.Reset();
 
@@ -468,13 +481,12 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
         if (!checkpointHandler(checkpoint))
         {
-            checkpointRetry.RecordResult(succeeded: false, monotonicSeconds: monotonicSeconds);
+            checkpointScheduler.RecordResult(succeeded: false, monotonicSeconds: monotonicSeconds);
             return false;
         }
 
         tracker.MarkCheckpointSaved(monotonicSeconds);
-        combatCheckpointCadence.MarkCompleted(monotonicSeconds);
-        checkpointRetry.RecordResult(succeeded: true, monotonicSeconds: monotonicSeconds);
+        checkpointScheduler.RecordResult(succeeded: true, monotonicSeconds: monotonicSeconds);
         return true;
     }
 
@@ -568,9 +580,68 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         if (observedLoading != loading)
         {
             loading = observedLoading;
-            ApplySuspension(
-                loading ? RunLifecycleEventKind.LoadingStarted : RunLifecycleEventKind.LoadingEnded,
-                MovementObservationKind.LoadingBoundary);
+            if (loading && tracker.IsActive)
+            {
+                BeginRouteTransition();
+            }
+            else
+            {
+                ApplySuspension(
+                    loading ? RunLifecycleEventKind.LoadingStarted : RunLifecycleEventKind.LoadingEnded,
+                    MovementObservationKind.LoadingBoundary);
+            }
+        }
+    }
+
+    private void BeginRouteTransition()
+    {
+        if (routeTransitionPending || !tracker.IsActive) return;
+        routeTransitionPending = true;
+        destinationPlacementObserved = false;
+        pendingBoundary = MovementObservationKind.LoadingBoundary;
+        var transition = tracker.Apply(Event(RunLifecycleEventKind.MapTransitionStarted));
+        if (transition.CheckpointRequired)
+        {
+            SaveCheckpoint(DateTime.UtcNow, NowMonotonic());
+        }
+    }
+
+    private void TryResumeDestination()
+    {
+        if (!routeTransitionPending
+            || loading
+            || paused
+            || !destinationPlacementObserved
+            || !LevelManager.LevelInited
+            || !InputManager.InputActived
+            || mainCharacter == null
+            || !mainCharacter.IsMainCharacter
+            || mainCharacter.Health == null
+            || mainCharacter.Health.IsDead)
+            return;
+
+        var map = ReadMapIdentity();
+        var transition = tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.DestinationControlReady,
+            TimestampUtc = DateTime.UtcNow,
+            MonotonicSeconds = NowMonotonic(),
+            Map = map
+        });
+        if (!transition.StateChanged) return;
+        routeTransitionPending = false;
+        destinationPlacementObserved = false;
+        movementMapId = map.MapId;
+        pendingBoundary = null;
+        SaveCheckpoint(DateTime.UtcNow, NowMonotonic());
+        diagnosticHandler($"Route destination ready run={tracker.ActiveRunId} segment={tracker.ActiveSegmentId ?? "unavailable"} map={map.MapId}.");
+        try
+        {
+            destinationReadyObserver?.Invoke();
+        }
+        catch (Exception exception)
+        {
+            diagnosticHandler($"Destination equipment re-observation failed safely: {exception.GetType().Name}: {exception.Message}");
         }
     }
 
@@ -606,34 +677,32 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
             var scene = level.gameObject.scene;
             var stableId = MultiSceneCore.Instance != null
-                ? MultiSceneCore.MainSceneID
+                ? (!string.IsNullOrWhiteSpace(MultiSceneCore.ActiveSubSceneID)
+                    ? MultiSceneCore.ActiveSubSceneID
+                    : MultiSceneCore.MainSceneID)
                 : SceneInfoCollection.GetSceneID(scene.buildIndex);
-            if (!string.IsNullOrWhiteSpace(stableId))
+            var entry = string.IsNullOrWhiteSpace(stableId)
+                ? null
+                : SceneInfoCollection.GetSceneInfo(stableId);
+            if (MapIdentity.TryFromNativeStableId(
+                    stableId,
+                    entry?.DisplayName,
+                    entry != null,
+                    out var identity))
             {
-                var entry = SceneInfoCollection.GetSceneInfo(stableId);
-                var displayName = entry?.DisplayName;
-                return new MapIdentity
-                {
-                    MapId = $"duckov:map:{stableId}",
-                    DisplayName = string.IsNullOrWhiteSpace(displayName) ? stableId : displayName,
-                    IsKnown = entry != null
-                };
+                return identity;
             }
 
-            var fallback = !string.IsNullOrWhiteSpace(scene.name)
-                ? scene.name
-                : $"build-{scene.buildIndex.ToString(CultureInfo.InvariantCulture)}";
-            return new MapIdentity
-            {
-                MapId = $"duckov:map:scene:{fallback}",
-                DisplayName = $"{MapIdentity.UnknownDisplayName} ({fallback})",
-                IsKnown = false
-            };
+            DisableMapIdentity(
+                "No verified ActiveSubSceneID, MainSceneID, or SceneInfoCollection scene ID was available; "
+                + "route identity is unavailable rather than inferred from a scene name or object identity.");
+            return identity;
         }
         catch (Exception exception)
         {
             DisableMapIdentity(
-                $"Map identity lookup failed; using the explicit unknown fallback: {exception.GetType().Name}: {exception.Message}");
+                $"Map identity lookup failed; route identity is unavailable and the overall run uses the explicit unknown fallback: "
+                + $"{exception.GetType().Name}: {exception.Message}");
             return new MapIdentity();
         }
     }
@@ -693,6 +762,12 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             MapAdapterVersion,
             AdapterCapabilityState.DisabledIncompatible,
             detail);
+        capabilities[3] = Capability(
+            RouteAdapterId,
+            RouteAdapterVersion,
+            AdapterCapabilityState.DisabledIncompatible,
+            detail);
+        tracker.DisableRoute(detail);
         capabilityHandler(capabilities);
         diagnosticHandler(detail);
     }
@@ -703,6 +778,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         capabilities.Add(Capability(LifecycleAdapterId, LifecycleAdapterVersion, state, detail));
         capabilities.Add(Capability(MovementAdapterId, MovementAdapterVersion, state, detail));
         capabilities.Add(Capability(MapAdapterId, MapAdapterVersion, state, detail));
+        capabilities.Add(Capability(RouteAdapterId, RouteAdapterVersion, state, detail));
         capabilityHandler(capabilities);
     }
 
@@ -768,18 +844,17 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnNewRaid(RaidUtilities.RaidInfo raid)
     {
-        if (tracker.IsActive)
-        {
-            ApplyTerminal(RunLifecycleEventKind.Interrupted);
-        }
-
-        tracker.Apply(new RunLifecycleEvent
+        var transition = tracker.Apply(new RunLifecycleEvent
         {
             Kind = RunLifecycleEventKind.RaidInitialized,
             TimestampUtc = DateTime.UtcNow,
             MonotonicSeconds = NowMonotonic(),
             NativeRaidId = raid.ID.ToString(CultureInfo.InvariantCulture)
         });
+        if (transition.Completed != null)
+        {
+            HandleCompleted(transition.Completed, "new native raid");
+        }
     }
 
     private void OnRaidEnd(RaidUtilities.RaidInfo raid)
@@ -837,7 +912,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private void OnSceneLoadingStarted(SceneLoadingContext context)
     {
         loading = true;
-        ApplySuspension(RunLifecycleEventKind.LoadingStarted, MovementObservationKind.LoadingBoundary);
+        if (tracker.IsActive) BeginRouteTransition();
+        else ApplySuspension(RunLifecycleEventKind.LoadingStarted, MovementObservationKind.LoadingBoundary);
     }
 
     private void OnSceneLoadingFinished(SceneLoadingContext context) => SynchronizeNativeStates();
@@ -847,7 +923,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private void OnSubSceneWillBeUnloaded(MultiSceneCore core, Scene scene)
     {
         loading = true;
-        ApplySuspension(RunLifecycleEventKind.LoadingStarted, MovementObservationKind.LoadingBoundary);
+        if (tracker.IsActive) BeginRouteTransition();
+        else ApplySuspension(RunLifecycleEventKind.LoadingStarted, MovementObservationKind.LoadingBoundary);
     }
 
     private void OnSubSceneLoaded(MultiSceneCore core, Scene scene) => SynchronizeNativeStates();
@@ -884,8 +961,17 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     {
         if (!callbackLifetime.CanHandleCallbacks
             || !mainCharacterGate.Accepts(character)
-            || !tracker.IsActive
-            || MovementCapability.State != AdapterCapabilityState.Supported)
+            || !tracker.IsActive)
+        {
+            return;
+        }
+
+        var transitionPlacement = routeTransitionPending;
+        if (transitionPlacement)
+        {
+            destinationPlacementObserved = true;
+        }
+        if (MovementCapability.State != AdapterCapabilityState.Supported)
         {
             return;
         }
@@ -897,8 +983,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 new Position3D(position.x, position.y, position.z),
                 now,
                 ReadMaximumPlausibleSpeed(character),
-                MovementObservationKind.ExplicitTeleport);
-            if (result.Disposition == MovementDisposition.Teleport)
+                transitionPlacement ? MovementObservationKind.LoadingBoundary : MovementObservationKind.ExplicitTeleport);
+            if (result.Disposition is MovementDisposition.Teleport or MovementDisposition.TransitionExcluded)
             {
                 pendingBoundary = null;
                 SaveCheckpoint(DateTime.UtcNow, now);
@@ -907,6 +993,21 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         catch (Exception exception)
         {
             DisableMovement($"Explicit main-duck position observation failed: {exception.GetType().Name}: {exception.Message}");
+        }
+    }
+
+    private void HandleCompleted(RunSummary summary, string reason)
+    {
+        sampleCadence.Reset();
+        checkpointScheduler.Reset();
+        movementMapId = null;
+        routeTransitionPending = false;
+        destinationPlacementObserved = false;
+        pendingDeathTerminal = false;
+        deathObservationGate.Reset();
+        if (completionHandler(summary))
+        {
+            diagnosticHandler($"Run finalized id={summary.RunId} outcome={summary.Outcome} reason={reason}.");
         }
     }
 }

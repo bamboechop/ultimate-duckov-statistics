@@ -112,6 +112,8 @@ internal sealed class CombatNativeScope
 {
     public string ScopeId { get; set; } = Guid.NewGuid().ToString("N");
     public string? ProjectileId { get; set; }
+    public string SourceMapId { get; set; } = MapIdentity.UnknownId;
+    public string SourceSegmentId { get; set; } = string.Empty;
     public CharacterMainControl? PhysicalSource { get; set; }
     public bool IsRanged { get; set; }
     public bool IsMelee { get; set; }

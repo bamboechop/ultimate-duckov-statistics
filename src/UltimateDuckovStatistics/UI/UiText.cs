@@ -1,3 +1,5 @@
+using UltimateDuckovStatistics.Core.Domain;
+
 namespace UltimateDuckovStatistics.UI;
 
 internal static class UiText
@@ -24,7 +26,9 @@ internal static class UiText
             ["ui.died_runs"] = "Died",
             ["ui.interrupted_runs"] = "Interrupted",
             ["ui.physical_distance"] = "Physical distance",
-            ["ui.teleport_distance"] = "Teleport/excluded distance",
+            ["ui.teleport_distance"] = "Teleport distance",
+            ["ui.route_movement"] = "Teleport / transition-excluded",
+            ["ui.segment_event_unavailable"] = "Segment M1-M7 attribution unavailable",
             ["ui.firing_actions"] = "Firing actions",
             ["ui.containers_looted"] = "Unique containers opened",
             ["ui.container_history_unavailable"] = "earlier history unavailable",
@@ -56,6 +60,9 @@ internal static class UiText
             ["ui.no_records"] = "No eligible extraction or death duration records recorded.",
             ["ui.outcome"] = "Outcome",
             ["ui.map"] = "Map",
+            ["ui.route"] = "Route",
+            ["ui.show_segments"] = "Show segments",
+            ["ui.hide_segments"] = "Hide segments",
             ["ui.active_time"] = "Active time",
             ["ui.wall_time"] = "Wall-clock diagnostic",
             ["ui.shortest"] = "Shortest",
@@ -63,6 +70,7 @@ internal static class UiText
             ["ui.extraction_records"] = "Extraction records",
             ["ui.death_records"] = "Death records",
             ["ui.per_map"] = "Per-map totals and records",
+            ["ui.per_starting_map"] = "Starting-map complete-run totals and records",
             ["ui.unsupported"] = "Unsupported",
             ["ui.group_totals"] = "Canonical groups",
             ["ui.no_items"] = "No successful raid item uses recorded for this save generation.",
@@ -92,4 +100,29 @@ internal static class UiText
         };
 
     public static string Get(string key) => English.TryGetValue(key, out var value) ? value : key;
+
+    public static string FormatRoute(RunSummary run)
+    {
+        if (run == null) throw new ArgumentNullException(nameof(run));
+        if (run.HistoricalRouteUnavailable) return "Route unavailable (pre-M8)";
+        if (!HasAvailableSegments(run))
+            return "Route unavailable";
+        return string.Join(" → ", run.Segments.OrderBy(value => value.SegmentIndex).Select(value => value.MapDisplayName));
+    }
+
+    public static bool HasAvailableSegments(RunSummary run)
+    {
+        if (run == null) throw new ArgumentNullException(nameof(run));
+        return !run.HistoricalRouteUnavailable
+               && run.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
+               && run.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported
+               && run.Segments.Count > 0;
+    }
+
+    public static bool HasAvailableEventAttribution(RunSummary run)
+    {
+        if (run == null) throw new ArgumentNullException(nameof(run));
+        return HasAvailableSegments(run)
+               && run.RouteCapabilities.EventAttribution.State == AdapterCapabilityState.Supported;
+    }
 }

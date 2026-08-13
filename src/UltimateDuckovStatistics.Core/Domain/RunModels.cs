@@ -18,6 +18,27 @@ public sealed class MapIdentity
 
     [DataMember(Order = 3)]
     public bool IsKnown { get; set; }
+
+    public static bool TryFromNativeStableId(
+        string? stableId,
+        string? displayName,
+        bool isKnown,
+        out MapIdentity identity)
+    {
+        if (string.IsNullOrWhiteSpace(stableId))
+        {
+            identity = new MapIdentity();
+            return false;
+        }
+
+        identity = new MapIdentity
+        {
+            MapId = $"duckov:map:{stableId}",
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? stableId : displayName,
+            IsKnown = isKnown
+        };
+        return true;
+    }
 }
 
 [DataContract]
@@ -106,6 +127,48 @@ public sealed class RunSummary
 
     [DataMember(Order = 28)]
     public ContainerStatisticsAggregate ContainerStatistics { get; set; } = new();
+
+    [DataMember(Order = 29)]
+    public string StartingMapId { get; set; } = MapIdentity.UnknownId;
+
+    [DataMember(Order = 30)]
+    public string StartingMapDisplayName { get; set; } = MapIdentity.UnknownDisplayName;
+
+    [DataMember(Order = 31)]
+    public bool StartingMapKnown { get; set; }
+
+    [DataMember(Order = 32)]
+    public string EndingMapId { get; set; } = MapIdentity.UnknownId;
+
+    [DataMember(Order = 33)]
+    public string EndingMapDisplayName { get; set; } = MapIdentity.UnknownDisplayName;
+
+    [DataMember(Order = 34)]
+    public bool EndingMapKnown { get; set; }
+
+    [DataMember(Order = 35)]
+    public string RouteSignature { get; set; } = string.Empty;
+
+    [DataMember(Order = 36)]
+    public List<MapSegmentSummary> Segments { get; set; } = new();
+
+    [DataMember(Order = 37)]
+    public double TransitionExcludedDistance { get; set; }
+
+    [DataMember(Order = 38)]
+    public RouteMetricCapabilities RouteCapabilities { get; set; } = new();
+
+    [DataMember(Order = 39)]
+    public bool HistoricalRouteUnavailable { get; set; }
+
+    [DataMember(Order = 40)]
+    public bool RouteWasRepairedFromInvalidState { get; set; }
+
+    [DataMember(Order = 41)]
+    public List<SegmentEventAssociation> SegmentEventAssociations { get; set; } = new();
+
+    [DataMember(Order = 42)]
+    public ItemStatisticsAggregate ItemStatistics { get; set; } = new();
 }
 
 [DataContract]
@@ -186,10 +249,65 @@ public sealed class ActiveRunCheckpoint
     [DataMember(Order = 25)]
     public ContainerRunCheckpointState ContainerState { get; set; } = new();
 
+    [DataMember(Order = 26)]
+    public string StartingMapId { get; set; } = MapIdentity.UnknownId;
+
+    [DataMember(Order = 27)]
+    public string StartingMapDisplayName { get; set; } = MapIdentity.UnknownDisplayName;
+
+    [DataMember(Order = 28)]
+    public bool StartingMapKnown { get; set; }
+
+    [DataMember(Order = 29)]
+    public List<MapSegmentSummary> Segments { get; set; } = new();
+
+    [DataMember(Order = 30)]
+    public double TransitionExcludedDistance { get; set; }
+
+    [DataMember(Order = 31)]
+    public RouteMetricCapabilities RouteCapabilities { get; set; } = new();
+
+    [DataMember(Order = 32)]
+    public bool HistoricalRouteUnavailable { get; set; }
+
+    [DataMember(Order = 33)]
+    public bool RouteWasRepairedFromInvalidState { get; set; }
+
+    [DataMember(Order = 34)]
+    public List<SegmentEventAssociation> SegmentEventAssociations { get; set; } = new();
+
+    [DataMember(Order = 35)]
+    public ItemStatisticsAggregate ItemStatistics { get; set; } = new();
+
+    [DataMember(Order = 36)]
+    public bool TransitionPending { get; set; }
+
+    [DataMember(Order = 37, EmitDefaultValue = false)]
+    public string? CurrentSegmentId { get; set; }
+
+    [DataMember(Order = 38)]
+    public MovementBaselineState MovementBaseline { get; set; } = new();
+
     public RunSummary ToInterruptedSummary()
     {
         var endedUtc = EnsureUtc(LastObservedUtc == default ? StartedUtc : LastObservedUtc);
         var startedUtc = EnsureUtc(StartedUtc);
+        if (endedUtc < startedUtc)
+        {
+            endedUtc = startedUtc;
+        }
+        var recoveredSegments = Segments
+            .Select(segment => RouteStatisticsReducer.CloneSegmentForInterruptedRecovery(segment, endedUtc))
+            .ToList();
+        if (TransitionPending && recoveredSegments.Count > 0)
+        {
+            recoveredSegments[^1].ExitReason = MapSegmentExitReason.Interrupted;
+        }
+        var routeCapabilities = RouteCapabilities
+                                ?? RouteStatisticsReducer.Unavailable("Route capability record was missing during interrupted recovery.");
+        var routeSupported = !HistoricalRouteUnavailable
+                             && routeCapabilities.OrderedRoute?.State == AdapterCapabilityState.Supported
+                             && routeCapabilities.Segments?.State == AdapterCapabilityState.Supported;
         return new RunSummary
         {
             RunId = RunId,
@@ -199,7 +317,7 @@ public sealed class ActiveRunCheckpoint
             MapDisplayName = MapDisplayName,
             MapKnown = MapKnown,
             StartedUtc = startedUtc,
-            EndedUtc = endedUtc < startedUtc ? startedUtc : endedUtc,
+            EndedUtc = endedUtc,
             ActiveDurationSeconds = FiniteNonNegative(ActiveDurationSeconds),
             WallClockDurationSeconds = Math.Max(0, (endedUtc - startedUtc).TotalSeconds),
             Outcome = RunOutcome.Interrupted,
@@ -218,7 +336,23 @@ public sealed class ActiveRunCheckpoint
             WeaponStatistics = WeaponStatisticsReducer.Clone(WeaponStatistics),
             CombatStatistics = CombatStatisticsReducer.Clone(CombatStatistics),
             EquipmentStatistics = EquipmentStatisticsReducer.Clone(EquipmentStatistics),
-            ContainerStatistics = ContainerStatisticsReducer.Clone(ContainerState.Statistics)
+            ContainerStatistics = ContainerStatisticsReducer.Clone(ContainerState.Statistics),
+            StartingMapId = StartingMapId,
+            StartingMapDisplayName = StartingMapDisplayName,
+            StartingMapKnown = StartingMapKnown,
+            EndingMapId = routeSupported ? recoveredSegments.LastOrDefault()?.MapId ?? MapIdentity.UnknownId : MapIdentity.UnknownId,
+            EndingMapDisplayName = routeSupported
+                ? recoveredSegments.LastOrDefault()?.MapDisplayName ?? MapIdentity.UnknownDisplayName
+                : MapIdentity.UnknownDisplayName,
+            EndingMapKnown = routeSupported && recoveredSegments.LastOrDefault()?.MapKnown == true,
+            RouteSignature = routeSupported ? RouteStatisticsReducer.BuildSignature(recoveredSegments) : string.Empty,
+            Segments = recoveredSegments,
+            TransitionExcludedDistance = FiniteNonNegative(TransitionExcludedDistance),
+            RouteCapabilities = RouteStatisticsReducer.CloneCapabilities(routeCapabilities),
+            HistoricalRouteUnavailable = HistoricalRouteUnavailable,
+            RouteWasRepairedFromInvalidState = RouteWasRepairedFromInvalidState,
+            SegmentEventAssociations = SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+            ItemStatistics = ItemStatisticsAggregateReducer.Clone(ItemStatistics)
         };
     }
 

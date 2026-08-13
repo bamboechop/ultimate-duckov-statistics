@@ -45,7 +45,7 @@ A version change triggers compatibility checks, not an automatic global shutdown
 - M5 is merged into `main`; its complete manual acceptance matrix passed, and GitHub pre-release `v0.5.0` was published on 2026-08-12.
 - `v0.6.0` is the merged M6 equipment-and-totems release baseline.
 - `v0.7.0` is the published GitHub pre-release containing M7 unique successful non-corpse container access.
-- `v0.8.0` is planned for M8 multi-map run routes and segment attribution. Economy and full UI/release hardening follow as M9 and M10.
+- `v0.8.0` is the active M8 multi-map run/segment-attribution pre-release candidate. Implementation, automated/package gates, single- and multi-map routes, repeated-map re-entry, later-map death, cross-map activity, and abrupt recovery pass; final committed-head delivery remains pending. Economy and full UI/release hardening follow as M9 and M10.
 - No Steam Workshop upload in v0.1.
 - Release artifact includes the installable ZIP, SHA-256 checksum, installation instructions, compatibility information, and known limitations.
 - No Duckov assemblies or bundled Harmony assembly may appear in the package.
@@ -304,12 +304,14 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Exclude native enemy corpses and persisted/player tombs through narrowly owned, version-checked death-path provenance patches. The success boundary itself remains the public event.
     - Persist a bounded 4,096-key active-run deduplication set. If that bound or stable-key evidence fails, disable the metric rather than evicting identities or fabricating counts.
     - Schema 7, lifetime/map/run aggregation, Overview/Runs presentation, JSON, and `containers.csv`; historical pre-M7 data remains explicitly unavailable.
-9. **M8 — Multi-map runs and route attribution (`v0.8.0`, planned)**
+9. **M8 — Multi-map runs and route attribution (`v0.8.0`, implementation and gameplay acceptance complete; final committed-head delivery pending)**
     - Keep a continuous expedition as one run across proven full-scene or subscene map transitions, with starting map, ending map, ordered route, and repeated-map-aware segments.
     - Attribute active time, physical distance, proven teleport distance, transition/loading exclusions, and M1-M7 statistics to the segment in which each action or outcome occurs.
     - Preserve both source and outcome segment identity for delayed effects where they differ; never rewrite event origin from the current map at completion time.
     - Replace ambiguous whole-run per-map totals with route-aware segment aggregation while retaining complete-run records overall and by starting map.
     - Add route/segment capability reporting, crash-safe active-segment checkpoints, schema-8 migration with explicit historical unavailability, Runs route presentation, JSON, and flattened route/segment CSVs.
+    - Proven native semantics: continuous full-scene/subscene transitions preserve the raid identity and do not call `OnNewRaid`; `ActiveSubSceneID` is the visited subscene identity; destination entry waits for initialization, exact main-duck `SetPosition`, and restored input control. A changed raid ID outside a pending transition interrupts the old expedition.
+    - Defensive bounds are 64 ordered segments and 2,048 source/outcome association rows. Bound exhaustion disables route-dependent capability without evicting prior evidence or disabling overall M1-M7 totals.
 10. **M9 — Economy (`v0.9.0`, planned)**
     - Money/cash flows, sources, and raid cash outcomes.
 11. **M10 — Full UI and release hardening (`v0.10.0`, planned)**

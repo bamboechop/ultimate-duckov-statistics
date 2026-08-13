@@ -26,8 +26,12 @@ public sealed class ExportTests
         "overview.csv",
         "records.csv",
         "recurring_loadouts.csv",
+        "route_map_totals.csv",
+        "routes.csv",
         "run_totals.csv",
         "runs.csv",
+        "segment_events.csv",
+        "segments.csv",
         "statistics.json",
         "weapon_totals.csv"
     };
@@ -435,7 +439,7 @@ public sealed class ExportTests
 
         var result = ProfileExportWriter.Write(profile, profilePath, TestTime);
 
-        Assert.Equal(16, result.Files.Count);
+        Assert.Equal(20, result.Files.Count);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
         Assert.Equal(
             ExpectedExportFileNames,

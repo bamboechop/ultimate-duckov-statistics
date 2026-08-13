@@ -106,6 +106,37 @@ public sealed class NativeCombatEquipmentAssociationResolverTests
         Assert.Equal(EquipmentEventAssociation.UnavailableId, differentRunTick.LoadoutId);
     }
 
+    [Fact]
+    [Trait("Category", "M8")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "Equipment")]
+    public void DelayedEffectOriginCrossesMapsWithinOneRunWithoutRewritingSourceSegment()
+    {
+        var resolver = new NativeCombatEquipmentAssociationResolver();
+        var trigger = new object();
+        resolver.CaptureDelayedEffectOrigin(
+            trigger,
+            Association("loadout:a", "weapon:a"),
+            "generation",
+            "run",
+            "duckov:map:A",
+            "run:segment:0");
+
+        var tick = resolver.ResolveEffect(
+            trigger,
+            true,
+            null,
+            () => Association("loadout:b", "weapon:b"),
+            "generation",
+            "run",
+            "duckov:map:B");
+
+        Assert.Equal("loadout:a", tick.LoadoutId);
+        Assert.True(resolver.TryGetOrigin(trigger, "generation", "run", out var mapId, out var segmentId));
+        Assert.Equal("duckov:map:A", mapId);
+        Assert.Equal("run:segment:0", segmentId);
+    }
+
     private static EquipmentEventAssociation Association(string loadoutId, string weaponId) => new()
     {
         LoadoutId = loadoutId,

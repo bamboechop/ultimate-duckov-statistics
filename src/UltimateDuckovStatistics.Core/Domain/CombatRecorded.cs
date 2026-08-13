@@ -70,4 +70,8 @@ public sealed record class CombatRecorded
     [DataMember(Order = 41)] public CombatMetricCapabilities Capabilities { get; set; } = new();
     [DataMember(Order = 42)] public bool TargetIsEnemy { get; set; }
     [DataMember(Order = 43)] public EquipmentEventAssociation EquipmentAssociation { get; set; } = new();
+    [DataMember(Order = 44, EmitDefaultValue = false)] public string? SourceSegmentId { get; set; }
+    [DataMember(Order = 45, EmitDefaultValue = false)] public string? SourceMapId { get; set; }
+    [DataMember(Order = 46, EmitDefaultValue = false)] public string? OutcomeSegmentId { get; set; }
+    [DataMember(Order = 47, EmitDefaultValue = false)] public string? OutcomeMapId { get; set; }
 }
