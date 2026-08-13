@@ -1,3 +1,6 @@
+using System.Collections;
+using System.Reflection;
+using System.Runtime.Serialization;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Statistics;
 
@@ -24,43 +27,101 @@ public static class ProfileMigrator
             return null;
         }
 
-        if (profile.Statistics == null
-            || profile.Statistics.SchemaVersion != ProductInfo.SchemaVersion
-            || profile.Statistics.Runs == null
-            || profile.Statistics.RunTotals == null
-            || profile.Statistics.RunRecords == null
-            || profile.Statistics.RunTotals.RouteMaps == null
-            || profile.Statistics.RunTotals.ItemStatistics == null)
+        if (profile.Statistics?.SchemaVersion != ProductInfo.SchemaVersion)
         {
             return "Current-schema profile roots are incomplete.";
         }
 
-        foreach (var run in profile.Statistics.Runs)
+        var missingPath = FindMissingRequiredDataMember(profile, "Profile");
+        if (missingPath != null)
         {
-            if (run == null)
+            return $"Current-schema profile roots are incomplete. Missing required data member: {missingPath}.";
+        }
+
+        return null;
+    }
+
+    private static string? FindMissingRequiredDataMember(object? value, string path)
+    {
+        if (value == null)
+        {
+            return path;
+        }
+
+        var type = value.GetType();
+        if (type.IsPrimitive || type.IsEnum || value is string or decimal or DateTime or Guid)
+        {
+            return null;
+        }
+
+        if (value is IDictionary dictionary)
+        {
+            foreach (DictionaryEntry entry in dictionary)
             {
-                return "Persisted run collection contains a missing run.";
+                if (entry.Key == null)
+                {
+                    return path + "[missing key]";
+                }
+
+                // Some aggregate normalizers deliberately discard null identity rows and mark
+                // the metric unavailable. The collection root is mandatory, but those repairable
+                // entries are not schema roots and must remain eligible for normalization.
+                if (entry.Value == null)
+                {
+                    continue;
+                }
+
+                var missing = FindMissingRequiredDataMember(entry.Value, $"{path}[{entry.Key}]");
+                if (missing != null)
+                {
+                    return missing;
+                }
             }
 
-            // Historical runs retain their original schema as provenance. Their M8 roots were
-            // created explicitly unavailable during migration and are not current-schema evidence.
-            if (run.SchemaVersion < ProductInfo.SchemaVersion)
+            return null;
+        }
+
+        if (value is IEnumerable sequence)
+        {
+            var index = 0;
+            foreach (var item in sequence)
+            {
+                var missing = FindMissingRequiredDataMember(item, $"{path}[{index}]");
+                if (missing != null)
+                {
+                    return missing;
+                }
+
+                index++;
+            }
+
+            return null;
+        }
+
+        if (type.GetCustomAttribute<DataContractAttribute>() == null)
+        {
+            return null;
+        }
+
+        foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+        {
+            var dataMember = property.GetCustomAttribute<DataMemberAttribute>();
+            if (dataMember == null)
             {
                 continue;
             }
 
-            if (run.SchemaVersion > ProductInfo.SchemaVersion
-                || string.IsNullOrWhiteSpace(run.StartingMapId)
-                || run.Segments == null
-                || run.SegmentEventAssociations == null
-                || run.RouteCapabilities == null
-                || run.RouteCapabilities.OrderedRoute == null
-                || run.RouteCapabilities.Segments == null
-                || run.RouteCapabilities.EventAttribution == null
-                || run.RouteCapabilities.RouteAwareMapTotals == null
-                || run.ItemStatistics == null)
+            var memberPath = path + "." + property.Name;
+            var memberValue = property.GetValue(value);
+            if (memberValue == null && !dataMember.EmitDefaultValue)
             {
-                return "Current-schema run route roots are incomplete.";
+                continue;
+            }
+
+            var missing = FindMissingRequiredDataMember(memberValue, memberPath);
+            if (missing != null)
+            {
+                return missing;
             }
         }
 
