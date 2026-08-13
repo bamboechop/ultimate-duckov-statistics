@@ -16,6 +16,8 @@ public sealed class HealingUseContext
 
     public string? MapId { get; set; }
 
+    public string? SegmentId { get; set; }
+
     public string GameVersion { get; set; } = string.Empty;
 
     public string GameBuild { get; set; } = string.Empty;
@@ -44,6 +46,10 @@ public sealed class HealingObservation
     public double ActualHealthRestored { get; set; }
 
     public bool IsMainPlayerTarget { get; set; }
+
+    public string? OutcomeMapId { get; set; }
+
+    public string? OutcomeSegmentId { get; set; }
 }
 
 public sealed class HealingAttributionTracker
@@ -278,7 +284,11 @@ public sealed class HealingAttributionTracker
         ItemId = source.Context.ItemId,
         DisplayName = source.Context.DisplayName,
         Group = source.Context.Group,
-        ActualHealthRestored = observation.ActualHealthRestored
+        ActualHealthRestored = observation.ActualHealthRestored,
+        SourceSegmentId = source.Context.SegmentId,
+        SourceMapId = source.Context.MapId,
+        OutcomeSegmentId = observation.OutcomeSegmentId,
+        OutcomeMapId = observation.OutcomeMapId
     };
 
     private bool RememberApplication(string applicationId)
@@ -350,6 +360,7 @@ public sealed class HealingAttributionTracker
         SaveGenerationId = source.SaveGenerationId,
         RunId = source.RunId,
         MapId = source.MapId,
+        SegmentId = source.SegmentId,
         GameVersion = source.GameVersion,
         GameBuild = source.GameBuild,
         GameplayContext = source.GameplayContext,
@@ -366,7 +377,9 @@ public sealed class HealingAttributionTracker
         ApplicationId = source.ApplicationId,
         TimestampUtc = source.TimestampUtc,
         ActualHealthRestored = source.ActualHealthRestored,
-        IsMainPlayerTarget = source.IsMainPlayerTarget
+        IsMainPlayerTarget = source.IsMainPlayerTarget,
+        OutcomeMapId = source.OutcomeMapId,
+        OutcomeSegmentId = source.OutcomeSegmentId
     };
 
     private static DateTime EnsureUtc(DateTime value) => value.Kind switch

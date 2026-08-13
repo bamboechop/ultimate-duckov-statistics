@@ -17,6 +17,7 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
     private readonly Func<string> saveGenerationIdProvider;
     private readonly Func<string?> runIdProvider;
     private readonly Func<string?> mapIdProvider;
+    private readonly Func<string?> segmentIdProvider;
     private readonly Func<ShotRecorded, bool> shotHandler;
     private readonly Func<EquipmentEventAssociation> equipmentAssociationProvider;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
@@ -33,7 +34,8 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
         Func<ShotRecorded, bool> shotHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
         Action<string> diagnosticHandler,
-        Func<EquipmentEventAssociation>? equipmentAssociationProvider = null)
+        Func<EquipmentEventAssociation>? equipmentAssociationProvider = null,
+        Func<string?>? segmentIdProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
@@ -43,6 +45,7 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
         this.equipmentAssociationProvider = equipmentAssociationProvider ?? (() => new EquipmentEventAssociation());
+        this.segmentIdProvider = segmentIdProvider ?? (() => null);
     }
 
     public WeaponMetricCapabilities MetricCapabilities =>
@@ -171,6 +174,7 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
                 SaveGenerationId = generationId,
                 RunId = runId!,
                 MapId = mapId!,
+                SegmentId = segmentIdProvider(),
                 GameplayContext = gameplayContext,
                 IntegrityTags = NativeIntegrityProbe.Read(),
                 GameVersion = Application.version ?? string.Empty,

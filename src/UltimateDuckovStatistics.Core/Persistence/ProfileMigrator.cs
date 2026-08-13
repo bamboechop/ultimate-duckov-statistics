@@ -31,6 +31,8 @@ public static class ProfileMigrator
                                  || (profile.Statistics != null && profile.Statistics.SchemaVersion < 6);
         var migratingContainers = profile.SchemaVersion < 7
                                   || (profile.Statistics != null && profile.Statistics.SchemaVersion < 7);
+        var migratingRoutes = profile.SchemaVersion < 8
+                              || (profile.Statistics != null && profile.Statistics.SchemaVersion < 8);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         var missingCurrentEquipmentRoot = !migratingEquipment
@@ -163,6 +165,33 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.Statistics.RunTotals.RouteMaps == null)
+        {
+            profile.Statistics.RunTotals.RouteMaps = new Dictionary<string, Domain.RouteAwareMapAggregate>(StringComparer.Ordinal);
+            profile.Statistics.RunTotals.RouteAwareHistoryUnavailable = true;
+            changed = true;
+        }
+        if (profile.Statistics.RunTotals.ItemStatistics == null)
+        {
+            profile.Statistics.RunTotals.ItemStatistics = new Domain.ItemStatisticsAggregate
+            {
+                HistoricalUnavailable = true,
+                WasRepairedFromInvalidState = !migratingRoutes
+            };
+            changed = true;
+        }
+        changed |= ItemStatisticsAggregateReducer.NormalizePersisted(profile.Statistics.RunTotals.ItemStatistics);
+        if (migratingRoutes)
+        {
+            profile.Statistics.RunTotals.RouteAwareHistoryUnavailable = true;
+            profile.Statistics.RunTotals.ItemStatistics.HistoricalUnavailable = true;
+            changed = true;
+        }
+        foreach (var routeMap in profile.Statistics.RunTotals.RouteMaps.Values)
+        {
+            changed |= NormalizeRouteMap(routeMap);
+        }
+
         foreach (var map in profile.Statistics.RunTotals.Maps.Values)
         {
             if (map.Outcomes == null)
@@ -209,6 +238,22 @@ public static class ProfileMigrator
             }
             changed |= ContainerStatisticsReducer.NormalizePersisted(map.ContainerStatistics);
             if (migratingContainers) changed |= MarkHistoricalContainersUnavailable(map.ContainerStatistics);
+
+            if (map.ItemStatistics == null)
+            {
+                map.ItemStatistics = new Domain.ItemStatisticsAggregate
+                {
+                    HistoricalUnavailable = true,
+                    WasRepairedFromInvalidState = !migratingRoutes
+                };
+                changed = true;
+            }
+            changed |= ItemStatisticsAggregateReducer.NormalizePersisted(map.ItemStatistics);
+            if (migratingRoutes)
+            {
+                map.ItemStatistics.HistoricalUnavailable = true;
+                changed = true;
+            }
         }
 
         if (profile.Statistics.RunTotals.WeaponStatistics == null)
@@ -305,6 +350,43 @@ public static class ProfileMigrator
             }
             changed |= ContainerStatisticsReducer.NormalizePersisted(run.ContainerStatistics);
             if (migratingContainers) changed |= MarkHistoricalContainersUnavailable(run.ContainerStatistics);
+
+            if (string.IsNullOrWhiteSpace(run.StartingMapId)
+                || (string.Equals(run.StartingMapId, Domain.MapIdentity.UnknownId, StringComparison.Ordinal)
+                    && !string.Equals(run.MapId, Domain.MapIdentity.UnknownId, StringComparison.Ordinal)))
+            {
+                run.StartingMapId = run.MapId;
+                run.StartingMapDisplayName = run.MapDisplayName;
+                run.StartingMapKnown = run.MapKnown;
+                changed = true;
+            }
+            run.Segments ??= new List<Domain.MapSegmentSummary>();
+            run.SegmentEventAssociations ??= new List<Domain.SegmentEventAssociation>();
+            run.RouteCapabilities ??= RouteStatisticsReducer.Unavailable("Route capability record was missing from persisted data.");
+            var routeCapabilityRepaired = RouteStatisticsReducer.NormalizeCapabilities(run.RouteCapabilities);
+            run.RouteWasRepairedFromInvalidState |= routeCapabilityRepaired;
+            changed |= routeCapabilityRepaired;
+            run.ItemStatistics ??= new Domain.ItemStatisticsAggregate();
+            changed |= ItemStatisticsAggregateReducer.NormalizePersisted(run.ItemStatistics);
+            if (migratingRoutes)
+            {
+                run.EndingMapId = Domain.MapIdentity.UnknownId;
+                run.EndingMapDisplayName = Domain.MapIdentity.UnknownDisplayName;
+                run.EndingMapKnown = false;
+                run.RouteSignature = string.Empty;
+                run.Segments.Clear();
+                run.SegmentEventAssociations.Clear();
+                run.TransitionExcludedDistance = 0;
+                run.RouteCapabilities = RouteStatisticsReducer.Unavailable(
+                    "Historical schema predates M8; ending map, ordered route, segments, transition displacement, and event attribution were not recorded.");
+                run.HistoricalRouteUnavailable = true;
+                run.ItemStatistics.HistoricalUnavailable = true;
+                changed = true;
+            }
+            else
+            {
+                changed |= NormalizeCurrentRunRoute(run);
+            }
         }
 
         if (profile.Statistics.RunRecords == null)
@@ -418,6 +500,18 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 8)
+        {
+            profile.SchemaVersion = 8;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 8)
+        {
+            profile.Statistics.SchemaVersion = 8;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
@@ -458,5 +552,149 @@ public static class ProfileMigrator
         statistics.Capabilities = ContainerNativeContractPolicy.Unavailable(provenance);
         statistics.HistoricalUnavailable = true;
         return true;
+    }
+
+    private static bool NormalizeRouteMap(Domain.RouteAwareMapAggregate map)
+    {
+        var changed = false;
+        if (string.IsNullOrWhiteSpace(map.MapId)) { map.MapId = Domain.MapIdentity.UnknownId; changed = true; }
+        if (string.IsNullOrWhiteSpace(map.DisplayName)) { map.DisplayName = Domain.MapIdentity.UnknownDisplayName; changed = true; }
+        map.ItemStatistics ??= Repair(new Domain.ItemStatisticsAggregate(), ref changed);
+        map.WeaponStatistics ??= Repair(new WeaponStatisticsAggregate(), ref changed);
+        map.CombatStatistics ??= Repair(new CombatStatisticsAggregate(), ref changed);
+        map.EquipmentStatistics ??= Repair(new EquipmentStatisticsAggregate(), ref changed);
+        map.ContainerStatistics ??= Repair(new ContainerStatisticsAggregate(), ref changed);
+        changed |= ItemStatisticsAggregateReducer.NormalizePersisted(map.ItemStatistics);
+        changed |= WeaponStatisticsReducer.NormalizePersisted(map.WeaponStatistics).Changed;
+        changed |= CombatStatisticsReducer.NormalizePersisted(map.CombatStatistics).Changed;
+        changed |= EquipmentStatisticsReducer.NormalizePersisted(map.EquipmentStatistics);
+        changed |= ContainerStatisticsReducer.NormalizePersisted(map.ContainerStatistics);
+        if (map.RunsVisited < 0) { map.RunsVisited = 0; changed = true; }
+        if (map.SegmentVisits < 0) { map.SegmentVisits = 0; changed = true; }
+        changed |= NormalizeDistance(map.ActiveDurationSeconds, value => map.ActiveDurationSeconds = value);
+        changed |= NormalizeDistance(map.PhysicalDistance, value => map.PhysicalDistance = value);
+        changed |= NormalizeDistance(map.TeleportDistance, value => map.TeleportDistance = value);
+        changed |= NormalizeDistance(map.TransitionExcludedDistance, value => map.TransitionExcludedDistance = value);
+        if (changed)
+        {
+            map.HistoricalUnavailable = true;
+            map.WasRepairedFromInvalidState = true;
+        }
+        return changed;
+    }
+
+    private static bool NormalizeCurrentRunRoute(Domain.RunSummary run)
+    {
+        var changed = false;
+        if (run.Segments.Count > RouteStatisticsReducer.MaximumSegmentsPerRun)
+        {
+            ClearInvalidRoute(run, "Persisted route exceeded the defensive segment bound.");
+            return true;
+        }
+
+        try
+        {
+            var routeRepaired = RouteStatisticsReducer.NormalizePersisted(run.Segments);
+            if (routeRepaired)
+            {
+                run.RouteWasRepairedFromInvalidState = true;
+                RouteStatisticsReducer.DisableRoute(
+                    run.RouteCapabilities,
+                    "Persisted route data required repair and is no longer treated as supported evidence.");
+                run.RouteSignature = string.Empty;
+                run.EndingMapId = Domain.MapIdentity.UnknownId;
+                run.EndingMapDisplayName = Domain.MapIdentity.UnknownDisplayName;
+                run.EndingMapKnown = false;
+                changed = true;
+            }
+            if (run.Segments.Count > 0)
+            {
+                RouteStatisticsReducer.Validate(run.Segments, allowOpenLast: false);
+                if (!run.HistoricalRouteUnavailable
+                    && !string.Equals(run.StartingMapId, run.Segments[0].MapId, StringComparison.Ordinal))
+                {
+                    ClearInvalidRoute(run, "Persisted starting map did not match the first retained segment.");
+                    return true;
+                }
+            }
+        }
+        catch (ArgumentException)
+        {
+            ClearInvalidRoute(run, "Persisted route structure was invalid and has been disabled.");
+            return true;
+        }
+
+        if (run.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumEventAssociationsPerRun)
+        {
+            ClearInvalidAttribution(run, "Persisted event attribution exceeded its defensive bound.");
+            changed = true;
+        }
+        else try
+            {
+                RouteStatisticsReducer.ValidateAssociations(run.Segments, run.SegmentEventAssociations);
+            }
+            catch (ArgumentException)
+            {
+                ClearInvalidAttribution(run, "Persisted event attribution contained an invalid segment join.");
+                changed = true;
+            }
+
+        if (run.RouteCapabilities.OrderedRoute.State == Domain.AdapterCapabilityState.Supported)
+        {
+            var expectedSignature = RouteStatisticsReducer.BuildSignature(run.Segments);
+            var first = run.Segments.FirstOrDefault();
+            var last = run.Segments.LastOrDefault();
+            if (first == null
+                || last == null
+                || !string.Equals(run.RouteSignature, expectedSignature, StringComparison.Ordinal)
+                || !string.Equals(run.StartingMapId, first.MapId, StringComparison.Ordinal)
+                || !string.Equals(run.EndingMapId, last.MapId, StringComparison.Ordinal)
+                || !NearlyEqual(run.ActiveDurationSeconds, RouteStatisticsReducer.SaturatingSum(run.Segments.Select(segment => segment.ActiveDurationSeconds)))
+                || !NearlyEqual(run.PhysicalDistance, RouteStatisticsReducer.SaturatingSum(run.Segments.Select(segment => segment.PhysicalDistance)))
+                || !NearlyEqual(run.TeleportDistance, RouteStatisticsReducer.SaturatingSum(run.Segments.Select(segment => segment.TeleportDistance)))
+                || !NearlyEqual(run.TransitionExcludedDistance, RouteStatisticsReducer.SaturatingSum(run.Segments.Select(segment => segment.TransitionExcludedDistance))))
+            {
+                ClearInvalidRoute(run, "Persisted route identity or totals were inconsistent with its segments.");
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private static void ClearInvalidRoute(Domain.RunSummary run, string provenance)
+    {
+        run.Segments.Clear();
+        run.SegmentEventAssociations.Clear();
+        run.RouteSignature = string.Empty;
+        run.EndingMapId = Domain.MapIdentity.UnknownId;
+        run.EndingMapDisplayName = Domain.MapIdentity.UnknownDisplayName;
+        run.EndingMapKnown = false;
+        run.RouteWasRepairedFromInvalidState = true;
+        RouteStatisticsReducer.DisableRoute(run.RouteCapabilities, provenance);
+    }
+
+    private static void ClearInvalidAttribution(Domain.RunSummary run, string provenance)
+    {
+        run.SegmentEventAssociations.Clear();
+        run.RouteWasRepairedFromInvalidState = true;
+        RouteStatisticsReducer.DisableAttribution(run.RouteCapabilities, provenance);
+    }
+
+    private static bool NormalizeDistance(double value, Action<double> replace)
+    {
+        if (value >= 0 && !double.IsNaN(value) && !double.IsInfinity(value)) return false;
+        replace(0);
+        return true;
+    }
+
+    private static bool NearlyEqual(double left, double right) =>
+        !double.IsNaN(left)
+        && !double.IsInfinity(left)
+        && Math.Abs(left - right) <= 0.000001;
+
+    private static T Repair<T>(T value, ref bool changed)
+    {
+        changed = true;
+        return value;
     }
 }

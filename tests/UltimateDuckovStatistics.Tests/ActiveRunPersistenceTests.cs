@@ -12,6 +12,247 @@ public sealed class ActiveRunPersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaIncompleteRoutePrimaryLosesToValidBackup()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var tracker = new RunLifecycleTracker(() => "route-run");
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.RaidInitialized,
+            TimestampUtc = TestTime,
+            MonotonicSeconds = 0,
+            NativeRaidId = "42"
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.ControlReady,
+            TimestampUtc = TestTime,
+            MonotonicSeconds = 0,
+            StartContext = new RunStartContext
+            {
+                SaveGenerationId = generation,
+                NativeRaidId = "42",
+                Map = new MapIdentity { MapId = "duckov:map:A", DisplayName = "A", IsKnown = true },
+                LifecycleCapability = AdapterCapabilityState.Supported,
+                MovementCapability = AdapterCapabilityState.Supported,
+                MapCapability = AdapterCapabilityState.Supported,
+                RouteCapabilities = RouteStatisticsReducer.Supported("test")
+            }
+        });
+        var validBackup = tracker.CreateCheckpoint(TestTime.AddSeconds(5), 5)!;
+        repository.SaveActiveRun(validBackup);
+        repository.CloseClean();
+
+        validBackup.ActiveDurationSeconds = 8;
+        validBackup.LastObservedUtc = TestTime.AddSeconds(8);
+        validBackup.Segments[0].ActiveDurationSeconds = 8;
+        validBackup.RouteCapabilities.Segments = null!;
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), validBackup);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var recovered = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, recovered.ActiveDurationSeconds);
+        Assert.Single(recovered.Segments);
+        Assert.Equal(MapSegmentExitReason.Interrupted, recovered.Segments[0].ExitReason);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void MultiSegmentCheckpointRecoversExactlyOnceWithCompletedAndCurrentSegments()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var tracker = new RunLifecycleTracker(() => "route-recovery-run");
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.RaidInitialized,
+            TimestampUtc = TestTime,
+            MonotonicSeconds = 0,
+            NativeRaidId = "42"
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.ControlReady,
+            TimestampUtc = TestTime,
+            MonotonicSeconds = 0,
+            StartContext = new RunStartContext
+            {
+                SaveGenerationId = generation,
+                NativeRaidId = "42",
+                Map = new MapIdentity { MapId = "duckov:map:A", DisplayName = "A", IsKnown = true },
+                LifecycleCapability = AdapterCapabilityState.Supported,
+                MovementCapability = AdapterCapabilityState.Supported,
+                MapCapability = AdapterCapabilityState.Supported,
+                RouteCapabilities = RouteStatisticsReducer.Supported("test")
+            }
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.MapTransitionStarted,
+            TimestampUtc = TestTime.AddSeconds(2),
+            MonotonicSeconds = 2
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.DestinationControlReady,
+            TimestampUtc = TestTime.AddSeconds(5),
+            MonotonicSeconds = 5,
+            Map = new MapIdentity { MapId = "duckov:map:B", DisplayName = "B", IsKnown = true }
+        });
+        Assert.True(tracker.RecordItemUse(new ItemUseRecorded
+        {
+            EventId = "item-b",
+            TimestampUtc = TestTime.AddSeconds(6),
+            SaveGenerationId = generation,
+            RunId = tracker.ActiveRunId,
+            MapId = tracker.ActiveMapId!,
+            SegmentId = tracker.ActiveSegmentId,
+            GameplayContext = GameplayContext.Raid,
+            ItemId = "duckov:item:test",
+            DisplayName = "Test item",
+            Group = CanonicalItemGroup.OtherUnknown,
+            ActivationCount = 1,
+            AmountConsumed = 1,
+            ConsumptionUnit = ConsumptionUnit.Item
+        }));
+        repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(8), 8)!);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal("duckov:map:A>duckov:map:B", run.RouteSignature);
+        Assert.Collection(
+            run.Segments,
+            segment => Assert.Equal(MapSegmentExitReason.Transition, segment.ExitReason),
+            segment => Assert.Equal(MapSegmentExitReason.Interrupted, segment.ExitReason));
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Equal(1, run.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(1, run.Segments[1].ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(2, recovery.Current.Statistics.RunTotals.RouteMaps["duckov:map:A"].ActiveDurationSeconds);
+        Assert.Equal(3, recovery.Current.Statistics.RunTotals.RouteMaps["duckov:map:B"].ActiveDurationSeconds);
+        recovery.CloseClean();
+
+        var repeated = Repository(directory.Path);
+        Assert.False(repeated.Open(Identity()).InterruptedRunRecovered);
+        Assert.Single(repeated.Current.Statistics.Runs);
+        Assert.Equal(1, repeated.Current.Statistics.RunTotals.ItemStatistics.Overall.ActivationCount);
+        repeated.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaInvalidNestedSegmentAggregateLosesToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+            checkpoint.Segments[0].ItemStatistics.Overall.ActivationCount = -1);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaUnavailableRouteStillValidatesRetainedSegmentsBeforeCandidateSelection()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+        {
+            checkpoint.RouteCapabilities = RouteStatisticsReducer.Unavailable("injected route failure");
+            checkpoint.CurrentSegmentId = null;
+            checkpoint.Segments[0].ExitReason = MapSegmentExitReason.Interrupted;
+            checkpoint.Segments[0].ExitedUtc = checkpoint.LastObservedUtc;
+            checkpoint.Segments[0].ItemStatistics.Overall.ActivationCount = -1;
+        });
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaUnavailableRouteCannotRetainAnActiveSegmentPointer()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+            checkpoint.RouteCapabilities = RouteStatisticsReducer.Unavailable("injected route failure"));
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaUnjoinableSegmentAssociationLosesToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+            checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
+            {
+                EventId = "invalid-association",
+                EventKind = "combat",
+                TimestampUtc = TestTime.AddSeconds(7),
+                SourceSegmentId = checkpoint.Segments[0].SegmentId,
+                SourceMapId = "duckov:map:not-A"
+            }));
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaOneSidedSegmentAssociationLosesToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+            checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
+            {
+                EventId = "one-sided-association",
+                EventKind = "combat",
+                TimestampUtc = TestTime.AddSeconds(7),
+                OutcomeSegmentId = checkpoint.Segments[0].SegmentId,
+                OutcomeMapId = checkpoint.Segments[0].MapId
+            }));
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaMissingCurrentSegmentIdentityLosesToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint => checkpoint.CurrentSegmentId = null);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaMismatchedStartingMapLosesToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint => checkpoint.StartingMapId = "duckov:map:not-A");
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaPendingTransitionWithCurrentSegmentLosesToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+        {
+            checkpoint.TransitionPending = true;
+            checkpoint.Segments[0].ExitReason = MapSegmentExitReason.Transition;
+            checkpoint.Segments[0].ExitedUtc = checkpoint.LastObservedUtc;
+        });
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaInconsistentRouteCapabilitiesLoseToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+            checkpoint.RouteCapabilities.EventAttribution.State = AdapterCapabilityState.DisabledIncompatible);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     [Trait("Category", "Container")]
     public void ContainerStableKeysAndTotalAreRecoveredFromCrashCheckpoint()
     {
@@ -779,6 +1020,57 @@ public sealed class ActiveRunPersistenceTests
         Assert.False(File.Exists(path));
         Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(path)));
         recovery.CloseClean();
+    }
+
+    private static void AssertCurrentSchemaRoutePrimaryRejected(Action<ActiveRunCheckpoint> corrupt)
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        repository.SaveActiveRun(RouteCheckpoint(generation, 5));
+        repository.CloseClean();
+
+        var primary = RouteCheckpoint(generation, 8);
+        corrupt(primary);
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), primary);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(5, run.ActiveDurationSeconds);
+        Assert.Single(run.Segments);
+        Assert.False(run.RouteWasRepairedFromInvalidState);
+        recovery.CloseClean();
+    }
+
+    private static ActiveRunCheckpoint RouteCheckpoint(string generation, double activeSeconds)
+    {
+        var tracker = new RunLifecycleTracker(() => "route-checkpoint");
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.RaidInitialized,
+            TimestampUtc = TestTime,
+            MonotonicSeconds = 0,
+            NativeRaidId = "42"
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.ControlReady,
+            TimestampUtc = TestTime,
+            MonotonicSeconds = 0,
+            StartContext = new RunStartContext
+            {
+                SaveGenerationId = generation,
+                NativeRaidId = "42",
+                Map = new MapIdentity { MapId = "duckov:map:A", DisplayName = "A", IsKnown = true },
+                LifecycleCapability = AdapterCapabilityState.Supported,
+                MovementCapability = AdapterCapabilityState.Supported,
+                MapCapability = AdapterCapabilityState.Supported,
+                RouteCapabilities = RouteStatisticsReducer.Supported("test")
+            }
+        });
+        return tracker.CreateCheckpoint(TestTime.AddSeconds(activeSeconds), activeSeconds)!;
     }
 
     private static ActiveRunCheckpoint Checkpoint(string generation, double activeSeconds) => new()

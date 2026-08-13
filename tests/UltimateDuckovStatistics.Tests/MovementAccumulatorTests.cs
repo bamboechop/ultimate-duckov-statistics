@@ -49,12 +49,13 @@ public sealed class MovementAccumulatorTests
         accumulator.Observe(Position(50), 2, 5, MovementObservationKind.ExplicitTeleport);
 
         Assert.Equal(0, accumulator.PhysicalDistance);
-        Assert.Equal(50, accumulator.TeleportDistance, 6);
+        Assert.Equal(30, accumulator.TeleportDistance, 6);
+        Assert.Equal(20, accumulator.TransitionExcludedDistance, 6);
     }
 
     [Fact]
     [Trait("Category", "Movement")]
-    public void MapBoundaryClassifiesCrossMapDisplacementAsTeleportExactlyOnce()
+    public void MapBoundaryClassifiesCrossMapDisplacementAsTransitionExcludedExactlyOnce()
     {
         var accumulator = new MovementAccumulator();
         accumulator.Observe(Position(0), 0, 5);
@@ -62,8 +63,9 @@ public sealed class MovementAccumulatorTests
         var boundary = accumulator.Observe(Position(50), 0.2, 5, MovementObservationKind.MapBoundary);
         var next = accumulator.Observe(Position(50.5), 0.4, 5);
 
-        Assert.Equal(MovementDisposition.Teleport, boundary.Disposition);
-        Assert.Equal(50, accumulator.TeleportDistance, 6);
+        Assert.Equal(MovementDisposition.TransitionExcluded, boundary.Disposition);
+        Assert.Equal(0, accumulator.TeleportDistance, 6);
+        Assert.Equal(50, accumulator.TransitionExcludedDistance, 6);
         Assert.Equal(MovementDisposition.Physical, next.Disposition);
         Assert.Equal(0.5, accumulator.PhysicalDistance, 6);
     }

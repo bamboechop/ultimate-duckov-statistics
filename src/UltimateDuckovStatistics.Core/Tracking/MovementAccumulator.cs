@@ -1,5 +1,8 @@
 namespace UltimateDuckovStatistics.Core.Tracking;
 
+using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Statistics;
+
 public readonly struct Position3D
 {
     public Position3D(double x, double y, double z)
@@ -43,6 +46,7 @@ public enum MovementDisposition
     BaselineEstablished,
     Physical,
     Teleport,
+    TransitionExcluded,
     JitterIgnored,
     DuplicateIgnored,
     InvalidIgnored,
@@ -115,7 +119,20 @@ public sealed class MovementAccumulator
 
     public double TeleportDistance { get; private set; }
 
+    public double TransitionExcludedDistance { get; private set; }
+
     public bool HasBaseline => baseline.HasValue;
+
+    public MovementBaselineState CaptureBaseline() => baseline.HasValue
+        ? new MovementBaselineState
+        {
+            HasBaseline = true,
+            X = baseline.Value.X,
+            Y = baseline.Value.Y,
+            Z = baseline.Value.Z,
+            MonotonicSeconds = baselineMonotonicSeconds
+        }
+        : new MovementBaselineState();
 
     public MovementObservationResult Observe(
         Position3D position,
@@ -160,19 +177,23 @@ public sealed class MovementAccumulator
             return new MovementObservationResult(MovementDisposition.JitterIgnored, distance, 0);
         }
 
-        if (kind is MovementObservationKind.ResumeBoundary
-            or MovementObservationKind.LoadingBoundary
-            or MovementObservationKind.MapBoundary
-            or MovementObservationKind.ExplicitTeleport)
+        if (kind is MovementObservationKind.LoadingBoundary or MovementObservationKind.MapBoundary)
         {
-            TeleportDistance += distance;
+            TransitionExcludedDistance = RouteStatisticsReducer.SaturatingAdd(TransitionExcludedDistance, distance);
+            SetBaseline(position, Math.Max(monotonicSeconds, baselineMonotonicSeconds));
+            return new MovementObservationResult(MovementDisposition.TransitionExcluded, distance, 0);
+        }
+
+        if (kind is MovementObservationKind.ResumeBoundary or MovementObservationKind.ExplicitTeleport)
+        {
+            TeleportDistance = RouteStatisticsReducer.SaturatingAdd(TeleportDistance, distance);
             SetBaseline(position, Math.Max(monotonicSeconds, baselineMonotonicSeconds));
             return new MovementObservationResult(MovementDisposition.Teleport, distance, 0);
         }
 
         if (elapsed > maximumSampleGapSeconds)
         {
-            TeleportDistance += distance;
+            TeleportDistance = RouteStatisticsReducer.SaturatingAdd(TeleportDistance, distance);
             SetBaseline(position, monotonicSeconds);
             return new MovementObservationResult(MovementDisposition.Teleport, distance, 0);
         }
@@ -186,12 +207,12 @@ public sealed class MovementAccumulator
         var allowedDistance = (maximumPlausibleSpeed * elapsed * speedToleranceMultiplier) + baseToleranceMeters;
         if (distance <= allowedDistance)
         {
-            PhysicalDistance += distance;
+            PhysicalDistance = RouteStatisticsReducer.SaturatingAdd(PhysicalDistance, distance);
             SetBaseline(position, monotonicSeconds);
             return new MovementObservationResult(MovementDisposition.Physical, distance, allowedDistance);
         }
 
-        TeleportDistance += distance;
+        TeleportDistance = RouteStatisticsReducer.SaturatingAdd(TeleportDistance, distance);
         SetBaseline(position, monotonicSeconds);
         return new MovementObservationResult(MovementDisposition.Teleport, distance, allowedDistance);
     }
@@ -202,6 +223,7 @@ public sealed class MovementAccumulator
         baselineMonotonicSeconds = 0;
         PhysicalDistance = 0;
         TeleportDistance = 0;
+        TransitionExcludedDistance = 0;
     }
 
     private void SetBaseline(Position3D position, double monotonicSeconds)

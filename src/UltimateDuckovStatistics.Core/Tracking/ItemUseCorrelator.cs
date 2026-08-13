@@ -29,6 +29,8 @@ public sealed class ItemUseSnapshot
 
     public string? MapId { get; set; }
 
+    public string? SegmentId { get; set; }
+
     public string GameVersion { get; set; } = string.Empty;
 
     public string GameBuild { get; set; } = string.Empty;
@@ -136,6 +138,7 @@ public sealed class ItemUseCorrelator
             SaveGenerationId = snapshot.SaveGenerationId,
             RunId = snapshot.RunId,
             MapId = snapshot.MapId,
+            SegmentId = snapshot.SegmentId,
             GameVersion = snapshot.GameVersion,
             GameBuild = snapshot.GameBuild,
             GameplayContext = snapshot.GameplayContext,

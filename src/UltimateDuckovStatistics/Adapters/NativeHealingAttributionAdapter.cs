@@ -16,6 +16,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     internal const string AdapterVersion = "native-healing-attribution/2.3.30+harmony-2.4.1";
     private readonly Action<HealingApplied> healingHandler;
     private readonly Action<string> diagnosticHandler;
+    private readonly Func<EventAttributionContext?> eventContextProvider;
     private readonly HealingAttributionTracker tracker;
     private readonly Dictionary<int, string?> itemApplicationScopes = new();
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
@@ -32,10 +33,12 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     public NativeHealingAttributionAdapter(
         Action<HealingApplied> healingHandler,
-        Action<string> diagnosticHandler)
+        Action<string> diagnosticHandler,
+        Func<EventAttributionContext?>? eventContextProvider = null)
     {
         this.healingHandler = healingHandler ?? throw new ArgumentNullException(nameof(healingHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.eventContextProvider = eventContextProvider ?? (() => null);
         tracker = new HealingAttributionTracker(() => Guid.NewGuid().ToString("N"));
         Capability = Disabled("Healing attribution has not been initialized.");
     }
@@ -252,6 +255,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             SaveGenerationId = snapshot.SaveGenerationId,
             RunId = snapshot.RunId,
             MapId = snapshot.MapId,
+            SegmentId = snapshot.SegmentId,
             GameVersion = snapshot.GameVersion,
             GameBuild = snapshot.GameBuild,
             GameplayContext = snapshot.GameplayContext,
@@ -403,6 +407,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     public void RecordHealthApplication(HealingHealthPatchState state, double actualHealthRestored)
     {
+        var outcomeContext = eventContextProvider();
         foreach (var healing in tracker.Observe(
                      state.CorrelationId,
                      new HealingObservation
@@ -410,7 +415,9 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                          ApplicationId = state.ApplicationId ?? string.Empty,
                          TimestampUtc = DateTime.UtcNow,
                          ActualHealthRestored = actualHealthRestored,
-                         IsMainPlayerTarget = state.IsMainPlayerTarget
+                         IsMainPlayerTarget = state.IsMainPlayerTarget,
+                         OutcomeMapId = outcomeContext?.MapId,
+                         OutcomeSegmentId = outcomeContext?.SegmentId
                      }))
         {
             healingHandler(healing);

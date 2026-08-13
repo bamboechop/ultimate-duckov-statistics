@@ -30,14 +30,14 @@ internal sealed class NativeCombatEquipmentAssociationResolver
         lock (sync)
         {
             delayedEffectOrigins.TryGetValue(source, out var existing);
-            if (existing != null && !existing.Matches(generationId, runId, mapId))
+            if (existing != null && !existing.Matches(generationId, runId))
             {
                 delayedEffectOrigins.Remove(source);
                 existing = null;
             }
 
             if (originatingScope != null)
-                existing = Capture(source, existing, originatingScope, generationId, runId, mapId);
+                existing = Capture(source, existing, originatingScope, generationId, runId, mapId, string.Empty);
 
             return existing is { Ambiguous: false }
                 ? Clone(existing.Association)
@@ -50,20 +50,44 @@ internal sealed class NativeCombatEquipmentAssociationResolver
         EquipmentEventAssociation association,
         string generationId,
         string runId,
-        string mapId)
+        string mapId,
+        string segmentId = "")
     {
         if (source == null) throw new ArgumentNullException(nameof(source));
         if (association == null) throw new ArgumentNullException(nameof(association));
         lock (sync)
         {
             delayedEffectOrigins.TryGetValue(source, out var existing);
-            if (existing != null && !existing.Matches(generationId, runId, mapId))
+            if (existing != null && !existing.Matches(generationId, runId))
             {
                 delayedEffectOrigins.Remove(source);
                 existing = null;
             }
-            Capture(source, existing, association, generationId, runId, mapId);
+            Capture(source, existing, association, generationId, runId, mapId, segmentId);
         }
+    }
+
+    public bool TryGetOrigin(
+        object source,
+        string generationId,
+        string runId,
+        out string mapId,
+        out string segmentId)
+    {
+        lock (sync)
+        {
+            if (delayedEffectOrigins.TryGetValue(source, out var origin)
+                && origin.Matches(generationId, runId)
+                && !origin.Ambiguous)
+            {
+                mapId = origin.MapId;
+                segmentId = origin.SegmentId;
+                return true;
+            }
+        }
+        mapId = MapIdentity.UnknownId;
+        segmentId = string.Empty;
+        return false;
     }
 
     public void Clear()
@@ -83,12 +107,13 @@ internal sealed class NativeCombatEquipmentAssociationResolver
         EquipmentEventAssociation association,
         string generationId,
         string runId,
-        string mapId)
+        string mapId,
+        string segmentId)
     {
         if (existing == null)
         {
             existing = new DelayedEffectOrigin(
-                generationId, runId, mapId, Clone(association), ambiguous: false);
+                generationId, runId, mapId, segmentId, Clone(association), ambiguous: false);
             delayedEffectOrigins.Add(source, existing);
         }
         else if (!Same(existing.Association, association))
@@ -113,25 +138,27 @@ internal sealed class NativeCombatEquipmentAssociationResolver
             string generationId,
             string runId,
             string mapId,
+            string segmentId,
             EquipmentEventAssociation association,
             bool ambiguous)
         {
             GenerationId = generationId ?? string.Empty;
             RunId = runId ?? string.Empty;
             MapId = mapId ?? string.Empty;
+            SegmentId = segmentId ?? string.Empty;
             Association = association;
             Ambiguous = ambiguous;
         }
 
         private string GenerationId { get; }
         private string RunId { get; }
-        private string MapId { get; }
+        public string MapId { get; }
+        public string SegmentId { get; }
         public EquipmentEventAssociation Association { get; set; }
         public bool Ambiguous { get; set; }
 
-        public bool Matches(string generationId, string runId, string mapId) =>
+        public bool Matches(string generationId, string runId) =>
             string.Equals(GenerationId, generationId, StringComparison.Ordinal)
-            && string.Equals(RunId, runId, StringComparison.Ordinal)
-            && string.Equals(MapId, mapId, StringComparison.Ordinal);
+            && string.Equals(RunId, runId, StringComparison.Ordinal);
     }
 }

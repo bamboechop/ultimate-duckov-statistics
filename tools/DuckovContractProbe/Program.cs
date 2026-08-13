@@ -123,6 +123,7 @@ try
         core.RequireProperty(string.Empty, "SceneLoader", "IsSceneLoading", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty("Duckov.Scenes", "MultiSceneCore", "IsLoading", "System.Boolean", mustBePublic: true);
         core.RequireProperty("Duckov.Scenes", "MultiSceneCore", "MainSceneID", "System.String", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.Scenes", "MultiSceneCore", "ActiveSubSceneID", "System.String", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty("Duckov", "CheatMode", "Active", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty("Duckov.Rules", "GameRulesManager", "SelectedRuleIndex", "Duckov.Rules.RuleIndex", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "Main", "CharacterMainControl", mustBePublic: true, mustBeStatic: true);
@@ -245,7 +246,7 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, item/healing, run lifecycle, movement, weapon, combat, equipment, and successful unique-container access/corpse-provenance contracts are present.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, equipment, and successful unique-container access/corpse-provenance contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption and M6 tote activation remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }

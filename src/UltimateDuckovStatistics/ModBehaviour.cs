@@ -84,8 +84,13 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             profileCoordinator = new NativeProfileCoordinator();
             profileCoordinator.Initialize();
             healingAttributionAdapter = new NativeHealingAttributionAdapter(
-                profileCoordinator.HandleHealing,
-                message => Debug.Log($"{LogPrefix} {message}"));
+                healing =>
+                {
+                    profileCoordinator.HandleHealing(healing);
+                    runLifecycleAdapter.OwnedValue?.RecordHealing(healing);
+                },
+                message => Debug.Log($"{LogPrefix} {message}"),
+                () => runLifecycleAdapter.OwnedValue?.CurrentEventContext);
             profileCoordinator.SetHealingCapability(healingAttributionAdapter.Initialize());
             healingAttributionAdapter.CapabilityChanged += profileCoordinator.SetHealingCapability;
             var newRunLifecycleAdapter = new NativeRunLifecycleAdapter(
@@ -107,7 +112,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 value => runLifecycleAdapter.OwnedValue?.RecordContainer(value) == true,
                 profileCoordinator.SetContainerCapabilities,
                 capabilities => runLifecycleAdapter.OwnedValue?.UpdateContainerCapabilities(capabilities),
-                message => Debug.Log($"{LogPrefix} {message}"));
+                message => Debug.Log($"{LogPrefix} {message}"),
+                () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId);
             containerAdapter.Assign(newContainerAdapter);
             newContainerAdapter.Initialize();
             var newEquipmentAdapter = new NativeEquipmentAdapter(
@@ -118,6 +124,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 message => Debug.Log($"{LogPrefix} {message}"));
             equipmentAdapter.Assign(newEquipmentAdapter);
             newEquipmentAdapter.Initialize();
+            newRunLifecycleAdapter.SetDestinationReadyObserver(() => newEquipmentAdapter.CaptureAssociation());
             var newWeaponFireAdapter = new NativeWeaponFireAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
@@ -125,7 +132,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 shot => runLifecycleAdapter.OwnedValue?.RecordShot(shot) == true,
                 profileCoordinator.SetWeaponCapabilities,
                 message => Debug.Log($"{LogPrefix} {message}"),
-                newEquipmentAdapter.CaptureAssociation);
+                newEquipmentAdapter.CaptureAssociation,
+                () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId);
             weaponFireAdapter.Assign(newWeaponFireAdapter);
             newWeaponFireAdapter.Initialize();
             NativeCombatAttributionAdapter? newCombatAttributionAdapter = null;
@@ -144,7 +152,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                     }
                 },
                 message => Debug.Log($"{LogPrefix} {message}"),
-                newEquipmentAdapter.CaptureAssociation);
+                newEquipmentAdapter.CaptureAssociation,
+                () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId);
             combatAttributionAdapter.Assign(newCombatAttributionAdapter);
             newCombatAttributionAdapter.Initialize();
             newRunLifecycleAdapter.SetPlayerDeathObserver(newCombatAttributionAdapter.RecordPlayerDeath);
@@ -152,11 +161,20 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             profileCoordinator.ProfileChanging += newRunLifecycleAdapter.InterruptForProfileTransition;
             itemUseAdapter = new NativeItemUseAdapter(
                 () => profileCoordinator.CurrentGenerationId,
-                profileCoordinator.HandleItemUse,
+                completion =>
+                {
+                    var persisted = profileCoordinator.HandleItemUse(completion);
+                    if (persisted && completion.NormalizedEvent != null)
+                    {
+                        runLifecycleAdapter.OwnedValue?.RecordItemUse(completion.NormalizedEvent);
+                    }
+                    return persisted;
+                },
                 message => Debug.Log($"{LogPrefix} {message}"),
                 healingAttributionAdapter,
                 () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
-                () => runLifecycleAdapter.OwnedValue?.CurrentMapId);
+                () => runLifecycleAdapter.OwnedValue?.CurrentMapId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId);
             profileCoordinator.ProfileChanged += itemUseAdapter.ResetPending;
             itemUseAdapter.Subscribe();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);

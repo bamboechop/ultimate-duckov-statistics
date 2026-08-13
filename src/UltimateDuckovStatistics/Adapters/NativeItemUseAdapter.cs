@@ -16,6 +16,7 @@ internal sealed class NativeItemUseAdapter : IDisposable
     private readonly IHealingAttributionObserver? healingObserver;
     private readonly Func<string?>? runIdProvider;
     private readonly Func<string?>? mapIdProvider;
+    private readonly Func<string?>? segmentIdProvider;
     private readonly ItemUseCorrelator correlator;
     private readonly SubscriptionGate subscriptionGate = new();
     private readonly NativeRaidContext raidContext = new();
@@ -27,7 +28,8 @@ internal sealed class NativeItemUseAdapter : IDisposable
         Action<string> diagnosticHandler,
         IHealingAttributionObserver? healingObserver = null,
         Func<string?>? runIdProvider = null,
-        Func<string?>? mapIdProvider = null)
+        Func<string?>? mapIdProvider = null,
+        Func<string?>? segmentIdProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
@@ -36,6 +38,7 @@ internal sealed class NativeItemUseAdapter : IDisposable
         this.healingObserver = healingObserver;
         this.runIdProvider = runIdProvider;
         this.mapIdProvider = mapIdProvider;
+        this.segmentIdProvider = segmentIdProvider;
         correlator = new ItemUseCorrelator(() => Guid.NewGuid().ToString("N"));
     }
 
@@ -232,6 +235,7 @@ internal sealed class NativeItemUseAdapter : IDisposable
             SaveGenerationId = generationId,
             RunId = runIdProvider?.Invoke() ?? raidContext.CurrentRunId,
             MapId = mapIdProvider?.Invoke() ?? NativeRaidContext.GetMapId(),
+            SegmentId = segmentIdProvider?.Invoke(),
             GameVersion = Application.version ?? string.Empty,
             GameBuild = "24013657",
             GameplayContext = NativeRaidContext.GetGameplayContext(),

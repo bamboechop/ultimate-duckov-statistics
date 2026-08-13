@@ -93,4 +93,7 @@ public sealed class ShotRecorded
 
     [DataMember(Order = 20)]
     public EquipmentEventAssociation EquipmentAssociation { get; set; } = new();
+
+    [DataMember(Order = 21, EmitDefaultValue = false)]
+    public string? SegmentId { get; set; }
 }

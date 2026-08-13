@@ -22,6 +22,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly Func<string> saveGenerationIdProvider;
     private readonly Func<string?> runIdProvider;
     private readonly Func<string?> mapIdProvider;
+    private readonly Func<string?> segmentIdProvider;
     private readonly Func<CombatRecorded, bool> combatHandler;
     private readonly Func<EquipmentEventAssociation> equipmentAssociationProvider;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
@@ -52,7 +53,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         Func<CombatRecorded, bool> combatHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
         Action<string> diagnosticHandler,
-        Func<EquipmentEventAssociation>? equipmentAssociationProvider = null)
+        Func<EquipmentEventAssociation>? equipmentAssociationProvider = null,
+        Func<string?>? segmentIdProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.runIdProvider = runIdProvider ?? throw new ArgumentNullException(nameof(runIdProvider));
@@ -61,6 +63,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
         this.equipmentAssociationProvider = equipmentAssociationProvider ?? (() => new EquipmentEventAssociation());
+        this.segmentIdProvider = segmentIdProvider ?? (() => null);
         SetUnavailable("Combat attribution has not been initialized.");
     }
 
@@ -191,6 +194,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var generationId = saveGenerationIdProvider();
         var runId = runIdProvider() ?? string.Empty;
         var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
+        var segmentId = segmentIdProvider() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(generationId) || string.IsNullOrWhiteSpace(runId)
             || NativeRaidContext.GetGameplayContext() != GameplayContext.Raid) return;
         var physicalSource = context.realFromCharacter != null ? context.realFromCharacter : context.fromCharacter;
@@ -203,6 +207,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             SaveGenerationId = generationId,
             RunId = runId,
             MapId = mapId,
+            SegmentId = segmentId,
             PhysicalSource = physicalSource,
             IsExactPlayer = isExactPlayer,
             HeadTargeted = isExactPlayer && LevelManager.Instance != null
@@ -271,6 +276,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         return new CombatNativeScope
         {
             IsMelee = true,
+            SourceMapId = mapIdProvider() ?? MapIdentity.UnknownId,
+            SourceSegmentId = segmentIdProvider() ?? string.Empty,
             PhysicalSource = weapon.Holder,
             WeaponTypeId = item == null ? -1 : item.TypeID,
             WeaponDisplayName = item == null ? string.Empty : NonEmpty(item.DisplayName, $"Unknown weapon {item.TypeID}"),
@@ -288,7 +295,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             try { associationSource = (object?)context.source.GetComponentInParent<Buff>() ?? context.source; }
             catch { }
         }
-        return new CombatNativeScope
+        var scope = new CombatNativeScope
         {
             IsEffect = true,
             IsDamageOverTime = delayed,
@@ -301,6 +308,22 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
                 runIdProvider() ?? string.Empty,
                 mapIdProvider() ?? MapIdentity.UnknownId)
         };
+        if (delayed && equipmentAssociationResolver.TryGetOrigin(
+                associationSource,
+                saveGenerationIdProvider(),
+                runIdProvider() ?? string.Empty,
+                out var sourceMapId,
+                out var sourceSegmentId))
+        {
+            scope.SourceMapId = sourceMapId;
+            scope.SourceSegmentId = sourceSegmentId;
+        }
+        else
+        {
+            scope.SourceMapId = mapIdProvider() ?? MapIdentity.UnknownId;
+            scope.SourceSegmentId = segmentIdProvider() ?? string.Empty;
+        }
+        return scope;
     }
 
     public void CaptureBuffApplication(CharacterBuffManager manager, Buff buffPrefab)
@@ -314,13 +337,13 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var runId = runIdProvider() ?? string.Empty;
         var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
         equipmentAssociationResolver.CaptureDelayedEffectOrigin(
-            applied, association, generationId, runId, mapId);
+            applied, association, generationId, runId, mapId, segmentIdProvider() ?? string.Empty);
         foreach (var effect in applied.GetComponentsInChildren<Effect>(includeInactive: true))
         {
             foreach (var trigger in effect.Triggers.Where(value => value is TickTrigger or UpdateTrigger))
             {
                 equipmentAssociationResolver.CaptureDelayedEffectOrigin(
-                    trigger, association, generationId, runId, mapId);
+                    trigger, association, generationId, runId, mapId, segmentIdProvider() ?? string.Empty);
             }
         }
     }
@@ -336,7 +359,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         foreach (var trigger in effect.Triggers.Where(value => value is TickTrigger or UpdateTrigger))
         {
             equipmentAssociationResolver.CaptureDelayedEffectOrigin(
-                trigger, association, generationId, runId, mapId);
+                trigger, association, generationId, runId, mapId, segmentIdProvider() ?? string.Empty);
         }
         try
         {
@@ -344,7 +367,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             if (buff != null)
             {
                 equipmentAssociationResolver.CaptureDelayedEffectOrigin(
-                    buff, association, generationId, runId, mapId);
+                    buff, association, generationId, runId, mapId, segmentIdProvider() ?? string.Empty);
             }
         }
         catch { }
@@ -482,8 +505,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var runId = runIdProvider() ?? string.Empty;
         var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
         if (string.Equals(projectileGenerationId, generationId, StringComparison.Ordinal)
-            && string.Equals(projectileRunId, runId, StringComparison.Ordinal)
-            && string.Equals(projectileMapId, mapId, StringComparison.Ordinal)) return;
+            && string.Equals(projectileRunId, runId, StringComparison.Ordinal)) return;
         ClearProjectileCorrelations();
         projectileGenerationId = generationId;
         projectileRunId = runId;
@@ -491,13 +513,10 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     }
 
     private bool MatchesCurrentContext(ProjectileSnapshot value) =>
-        CombatObservationPolicy.MatchesOriginatingContext(
-            value.SaveGenerationId,
-            value.RunId,
-            value.MapId,
-            saveGenerationIdProvider(),
-            runIdProvider() ?? string.Empty,
-            mapIdProvider() ?? MapIdentity.UnknownId);
+        !string.IsNullOrWhiteSpace(value.SaveGenerationId)
+        && !string.IsNullOrWhiteSpace(value.RunId)
+        && string.Equals(value.SaveGenerationId, saveGenerationIdProvider(), StringComparison.Ordinal)
+        && string.Equals(value.RunId, runIdProvider() ?? string.Empty, StringComparison.Ordinal);
 
     private void ClearProjectileCorrelations()
     {
@@ -537,6 +556,10 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             SaveGenerationId = saveGenerationIdProvider(),
             RunId = runId ?? string.Empty,
             MapId = mapId ?? MapIdentity.UnknownId,
+            SourceMapId = string.IsNullOrWhiteSpace(scope?.SourceMapId) ? mapId : scope.SourceMapId,
+            SourceSegmentId = string.IsNullOrWhiteSpace(scope?.SourceSegmentId) ? segmentIdProvider() : scope.SourceSegmentId,
+            OutcomeMapId = mapId ?? MapIdentity.UnknownId,
+            OutcomeSegmentId = segmentIdProvider(),
             GameplayContext = NativeRaidContext.GetGameplayContext(),
             IntegrityTags = NativeIntegrityProbe.Read(),
             GameVersion = Application.version ?? string.Empty,
@@ -757,6 +780,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         public string SaveGenerationId { get; set; } = string.Empty;
         public string RunId { get; set; } = string.Empty;
         public string MapId { get; set; } = string.Empty;
+        public string SegmentId { get; set; } = string.Empty;
         public CharacterMainControl? PhysicalSource { get; set; }
         public bool IsExactPlayer { get; set; }
         public bool HeadTargeted { get; set; }
@@ -769,6 +793,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         public CombatNativeScope Scope => scope ??= new CombatNativeScope
         {
             ProjectileId = ProjectileId,
+            SourceMapId = MapId,
+            SourceSegmentId = SegmentId,
             PhysicalSource = PhysicalSource,
             IsRanged = true,
             HeadTargeted = HeadTargeted,

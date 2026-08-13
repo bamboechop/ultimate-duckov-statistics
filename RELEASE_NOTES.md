@@ -1,4 +1,26 @@
-# Ultimate Duckov Statistics v0.7.0 — pre-release
+# Ultimate Duckov Statistics v0.8.0 — pre-release candidate
+
+M8 keeps a continuous expedition as one run across proven Duckov full-scene and subscene transitions. It adds explicit starting/ending maps, ordered repeated-map-aware segments, separate transition displacement, event-time M1-M7 segment attribution, schema 8, Runs route presentation, and four joinable route CSVs. Automated validation and the single-map, multi-map, repeated-map re-entry, later-map death, cross-map M1-M7, abrupt recovery, UI, export, and shutdown gameplay gates pass. Final committed-head delivery remains pending. No merge, tag, release publication, or Workshop upload has occurred.
+
+## Included in v0.8.0 candidate
+
+- Public-hook route lifecycle using `SceneLoader`, `MultiSceneCore`, `LevelManager`, exact main-duck `SetPosition`, and restored `InputManager.InputActived` evidence.
+- Stable visited-map identity from `MultiSceneCore.ActiveSubSceneID` when present, otherwise the proven full-scene ID; no localized-name identity, object ID, scene scan, or timing guess.
+- Segment-local M1-M7 aggregates plus preserved source/outcome association for delayed healing and combat.
+- Physical, proven teleport, and transition/loading-excluded movement as separate categories whose overall values compose from segment totals.
+- Separate historical starting-map complete-run totals/records and new segment-derived route-map totals.
+- Schema-8 migration that preserves prior data and marks route history unavailable without fabricating segments; current-schema incomplete checkpoints are rejected before atomic selection.
+- `routes.csv`, `segments.csv`, `segment_events.csv`, and `route_map_totals.csv`; existing map scopes are explicitly named `starting_map`.
+- Defensive bounds of 64 visits and 2,048 association rows with route-only capability degradation.
+- Delayed outcomes with no proven active destination segment preserve overall statistics and truthfully disable only event attribution and route-map totals.
+
+## Acceptance status
+
+The single-map, two-map extraction, seven-segment Nullpunkt → Lagerbereich → Keller → Lagerbereich → Keller → Lagerbereich → Farmstadt expedition, repeated-map re-entry, later-map death, representative cross-map M1-M7 activity, abrupt interruption/recovery, UI, persistence, export, clean shutdown, and deployment-readback gates pass and are recorded in `TESTING.md`. No safe reproducible delayed cross-segment healing/damage case was identified; the source/outcome implementation is covered by production-path regressions and remains truthfully capability-gated during loading.
+
+---
+
+## Published v0.7.0 history
 
 M7 unique-container statistics were merged and published as the GitHub `v0.7.0` pre-release on 2026-08-12. M0-M7 are therefore published through v0.7.0. No Steam Workshop upload has occurred.
 

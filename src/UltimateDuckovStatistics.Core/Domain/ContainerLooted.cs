@@ -17,4 +17,5 @@ public sealed class ContainerLooted
     [DataMember(Order = 10)] public IntegrityTags IntegrityTags { get; set; }
     [DataMember(Order = 11)] public int ContainerKey { get; set; }
     [DataMember(Order = 12)] public string AdapterVersion { get; set; } = string.Empty;
+    [DataMember(Order = 13, EmitDefaultValue = false)] public string? SegmentId { get; set; }
 }

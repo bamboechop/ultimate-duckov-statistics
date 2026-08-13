@@ -61,4 +61,7 @@ public sealed class ItemUseRecorded
 
     [DataMember(Order = 19)]
     public ConsumptionUnit ConsumptionUnit { get; set; }
+
+    [DataMember(Order = 20, EmitDefaultValue = false)]
+    public string? SegmentId { get; set; }
 }

@@ -27,6 +27,7 @@ internal sealed class NativeStatisticsPanel
     private DateTime statusExpiresUtc;
     private KeyCode hotkey = KeyCode.F8;
     private string hotkeyInput = "F8";
+    private readonly HashSet<string> expandedRunIds = new(StringComparer.Ordinal);
 
     public NativeStatisticsPanel(NativeProfileCoordinator coordinator)
     {
@@ -229,11 +230,11 @@ internal sealed class NativeStatisticsPanel
 
         GUILayout.BeginHorizontal();
         GUILayout.Label(UiText.Get("ui.outcome"), GUILayout.Width(95));
-        GUILayout.Label(UiText.Get("ui.map"), GUILayout.Width(180));
+        GUILayout.Label(UiText.Get("ui.route"), GUILayout.Width(260));
         GUILayout.Label(UiText.Get("ui.active_time"), GUILayout.Width(110));
         GUILayout.Label(UiText.Get("ui.wall_time"), GUILayout.Width(135));
         GUILayout.Label(UiText.Get("ui.physical_distance"), GUILayout.Width(125));
-        GUILayout.Label(UiText.Get("ui.teleport_distance"));
+        GUILayout.Label(UiText.Get("ui.route_movement"));
         GUILayout.EndHorizontal();
         runScroll = GUILayout.BeginScrollView(runScroll);
         foreach (var row in model.RunRows)
@@ -242,11 +243,13 @@ internal sealed class NativeStatisticsPanel
             var movementSupported = run.MovementCapability == AdapterCapabilityState.Supported;
             GUILayout.BeginHorizontal();
             GUILayout.Label(run.Outcome.ToString(), GUILayout.Width(95));
-            GUILayout.Label(run.MapDisplayName, GUILayout.Width(180));
+            GUILayout.Label(UiText.FormatRoute(run), GUILayout.Width(260));
             GUILayout.Label(FormatDuration(run.ActiveDurationSeconds), GUILayout.Width(110));
             GUILayout.Label(FormatDuration(run.WallClockDurationSeconds), GUILayout.Width(135));
             GUILayout.Label(FormatDistance(run.PhysicalDistance, movementSupported), GUILayout.Width(125));
-            GUILayout.Label(FormatDistance(run.TeleportDistance, movementSupported));
+            GUILayout.Label(
+                $"{FormatDistance(run.TeleportDistance, movementSupported)} / "
+                + FormatDistance(run.TransitionExcludedDistance, movementSupported));
             GUILayout.EndHorizontal();
             GUILayout.Label(
                 $"  {UiText.Get("ui.integrity")}: {row.IntegrityTags}; "
@@ -260,6 +263,38 @@ internal sealed class NativeStatisticsPanel
             GUILayout.Label(
                 $"  {UiText.Get("ui.containers_looted")}: "
                 + FormatContainers(run.ContainerStatistics, run.ContainerStatistics.Capabilities.UniqueContainersLooted.State));
+            if (UiText.HasAvailableSegments(run))
+            {
+                if (GUILayout.Button(
+                        expandedRunIds.Contains(run.RunId) ? UiText.Get("ui.hide_segments") : UiText.Get("ui.show_segments"),
+                        GUILayout.Width(125)))
+                {
+                    if (!expandedRunIds.Add(run.RunId)) expandedRunIds.Remove(run.RunId);
+                }
+                if (expandedRunIds.Contains(run.RunId))
+                {
+                    foreach (var segment in run.Segments.OrderBy(value => value.SegmentIndex))
+                    {
+                        GUILayout.Label(
+                            $"    {segment.SegmentIndex + 1}. {segment.MapDisplayName}: {FormatDuration(segment.ActiveDurationSeconds)}, "
+                            + $"physical {segment.PhysicalDistance:0.##} m, teleport {segment.TeleportDistance:0.##} m, "
+                            + $"transition-excluded {segment.TransitionExcludedDistance:0.##} m, {segment.ExitReason}");
+                        if (UiText.HasAvailableEventAttribution(run))
+                        {
+                            GUILayout.Label(
+                                $"       items {segment.ItemStatistics.Overall.ActivationCount}, healing {segment.ItemStatistics.Overall.ActualHealthRestored:0.##} HP, "
+                                + $"shots {segment.WeaponStatistics.Totals.FiringActions}, damage {segment.CombatStatistics.Totals.DamageDealt:0.##}, "
+                                + $"kills {segment.CombatStatistics.Totals.EnemiesKilled}, containers {segment.ContainerStatistics.UniqueContainersLooted}");
+                        }
+                        else
+                        {
+                            GUILayout.Label(
+                                $"       {UiText.Get("ui.segment_event_unavailable")}: "
+                                + run.RouteCapabilities.EventAttribution.Provenance);
+                        }
+                    }
+                }
+            }
             GUILayout.Space(4);
         }
 
@@ -301,7 +336,7 @@ internal sealed class NativeStatisticsPanel
         if (model.Maps.Count > 0)
         {
             GUILayout.Space(8);
-            GUILayout.Label(UiText.Get("ui.per_map"));
+            GUILayout.Label(UiText.Get("ui.per_starting_map"));
         }
 
         foreach (var map in model.Maps)
@@ -402,7 +437,7 @@ internal sealed class NativeStatisticsPanel
             foreach (var run in model.Runs)
             {
                 GUILayout.Label(
-                    $"{run.MapDisplayName} ({run.Outcome}, {run.RunId}): "
+                    $"{UiText.FormatRoute(run)} ({run.Outcome}, {run.RunId}): "
                     + $"{FormatMetric(run.WeaponStatistics.Totals.FiringActions, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.FiringActions, model.Capabilities.FiringActions.State))} actions, "
                     + $"{FormatMetric(run.WeaponStatistics.Totals.AmmunitionUnitsConsumed, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.AmmunitionConsumption, model.Capabilities.AmmunitionConsumption.State))} ammo, "
                     + $"{FormatMetric(run.WeaponStatistics.Totals.Projectiles, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.Projectiles, model.Capabilities.Projectiles.State))} projectiles");
@@ -472,7 +507,7 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label("Recent run loadouts");
         foreach (var run in profile.Statistics.Runs.OrderByDescending(x => x.EndedUtc).ThenBy(x => x.RunId, StringComparer.Ordinal).Take(5))
         {
-            GUILayout.Label($"{run.MapDisplayName} / {run.RunId}");
+            GUILayout.Label($"{UiText.FormatRoute(run)} / {run.RunId}");
             foreach (var row in run.EquipmentStatistics.Loadouts.Values
                          .OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(10))
                 GUILayout.Label($"  {row.DisplayName}: {FormatDuration(row.ActiveDurationSeconds)}");

@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics
 
-Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.7.0 retains the M1-M6 consumable, healing, run, movement, firing, combat, equipment, loadout, and totem statistics and adds unique successful non-corpse container access per run, map, and lifetime.
+Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.8.0 retains M1-M7 and adds continuous multi-map expeditions, ordered repeated-map-aware segments, and event-time route attribution.
 
 The mod never modifies Duckov save files. Its data is stored under:
 
@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M7 are merged and published through the [v0.7.0 pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.7.0); automated and manual evidence is tracked in [TESTING.md](TESTING.md). The next planned milestone is M8 multi-map run routes and segment attribution, followed by M9 economy and M10 full UI/release hardening. UDS has not been uploaded to Steam Workshop.
+M0-M7 are published through [v0.7.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.7.0). M8 is the current v0.8.0 pre-release candidate. Its single-map, multi-map extraction, later-map death, repeated-map re-entry, cross-map activity, abrupt recovery, UI/export, and shutdown gates pass; only final committed-head delivery remains tracked in [TESTING.md](TESTING.md). M9 economy and M10 full UI/release hardening remain future work. UDS has not been uploaded to Steam Workshop.
 
 ## Build prerequisites
 
@@ -26,9 +26,9 @@ Game assemblies are referenced locally with copy-local disabled. They are never 
 
 UDS fingerprints saves read-only and never modifies them. While active, it records a short-lived pre-save intent in its own external profile from Duckov's public save-collection event, so a normal save completed immediately before a crash or same-process re-selection of the current slot can retain the same UDS generation. If a save changes while UDS is inactive, that proof is unavailable and UDS conservatively archives the prior statistics generation rather than risk merging a reused slot.
 
-Runs begin only when the native raid is initialized and the live main duck actually has player control. Active duration excludes pause and loading. Movement is sampled at approximately 5 Hz with the real monotonic sample interval and verified native walk/run/dash speeds; implausible, loading-boundary, explicit-position, and long-gap displacement is retained separately as teleport/excluded distance. Interrupted and integrity-flagged runs stay visible but do not enter default duration records; each Runs row shows its integrity tag and an explicit eligible/excluded Records status with the exclusion reason.
+Runs begin only when the native raid is initialized and the live main duck actually has player control. Active duration excludes pause and loading. Movement is sampled at approximately 5 Hz with the real monotonic sample interval and verified native walk/run/dash speeds. Explicit-position, implausible, and long-gap displacement inside an active map is retained as teleport distance; displacement caused solely by loading or a map boundary is retained independently as transition-excluded distance and never inflates physical or teleport totals. Interrupted and integrity-flagged runs stay visible but do not enter default duration records; each Runs row shows its integrity tag and an explicit eligible/excluded Records status with the exclusion reason.
 
-Version 0.7.0 retains one stable root/starting-map identity for each run. An expedition that moves through multiple maps is not yet represented as an ordered route, and its complete run totals remain grouped under that stored map. Planned M8 will add starting/ending maps, ordered map segments, route-aware event attribution, and separate map-transition displacement without reconstructing historical routes.
+Version 0.8.0 keeps one expedition active across proven full-scene and subscene transitions. It stores starting/ending maps, an ordered stable-ID route, distinct repeated visits, segment duration and movement, and source/outcome segment associations for delayed healing/combat. Loading displacement is separate from physical and proven teleport distance. Complete-run records remain overall and by starting map; route-aware per-map totals are built only from segments. Pre-M8 route history remains explicitly unavailable.
 
 M4 uses the public `ItemAgent_Gun.OnMainCharacterShootEvent` from the verified Duckov build. Each accepted callback receives a unique UDS event ID and proves one firing action plus event-time weapon/ammunition identity. The event occurs after calls that may conditionally skip ammunition consumption or projectile initialization, so loaded-ammunition and projectile counts are explicitly unavailable rather than inferred from cached ammunition or configured `ShotCount`. Reloads, magazine transfers, inventory movement, base activity, loading, pause, non-main-duck actors, and dry fire do not create firing-action records.
 
@@ -38,7 +38,7 @@ M6 observes the exact main duck's public character-slot tree, ordinary inventory
 
 M7 observes public `InteractableLootbox.OnStartLoot`, after the interaction timer and inventory checks have succeeded. It requires the event-time interaction owner to be the exact main duck, reads the native private `GetKey()` contract reflectively for per-run deduplication, and excludes native enemy corpses plus persisted/player tombs using a separate version-checked corpse-provenance patch. Reopening a container in the same run does not increment; the same stable key may count again in another run. Proximity, attempts, locked/cancelled/failed interactions, corpses, base activity, item transfers, and loot value do not count.
 
-The in-game panel enables Overview, Runs, Records, Combat, Equipment, Items, and Diagnostics. One export action writes `statistics.json` plus fifteen flattened CSV files under the current UDS generation. M7 adds `containers.csv` and container columns to run/map total CSVs.
+The in-game panel enables Overview, Runs, Records, Combat, Equipment, Items, and Diagnostics. Runs shows a compact route with expandable segment evidence. One export action writes `statistics.json` plus nineteen flattened CSV files; M8 adds `routes.csv`, `segments.csv`, `segment_events.csv`, and `route_map_totals.csv` without changing the historical starting-map meaning of `map_totals.csv`.
 
 ## Development commands
 
@@ -52,7 +52,7 @@ dotnet build .\src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj -c R
 Create the validated installable ZIP and SHA-256 sidecar with:
 
 ```powershell
-.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.7.0
+.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.8.0
 ```
 
 See [INSTALL.md](INSTALL.md) for installation and compatibility details.

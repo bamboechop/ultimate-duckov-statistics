@@ -5,9 +5,9 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class ProductInfoTests
 {
     [Fact]
-    public void VersionAndSchemaArePinnedForContainers()
+    public void VersionAndSchemaArePinnedForMultiMapRoutes()
     {
-        Assert.Equal("0.7.0", ProductInfo.Version);
-        Assert.Equal(7, ProductInfo.SchemaVersion);
+        Assert.Equal("0.8.0", ProductInfo.Version);
+        Assert.Equal(8, ProductInfo.SchemaVersion);
     }
 }
