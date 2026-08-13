@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M7 are published through [v0.7.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.7.0). M8 is the current v0.8.0 pre-release candidate. Its single-map, multi-map extraction, later-map death, repeated-map re-entry, cross-map activity, abrupt recovery, UI/export, and shutdown gates pass; only final committed-head delivery remains tracked in [TESTING.md](TESTING.md). M9 economy and M10 full UI/release hardening remain future work. UDS has not been uploaded to Steam Workshop.
+M0-M7 are published through [v0.7.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.7.0). M8 is merged as the current v0.8.0 pre-release candidate after its single-map, multi-map extraction, later-map death, repeated-map re-entry, cross-map activity, abrupt recovery, UI/export, shutdown, and review-hardening gates passed. Post-review controls with multiple automatic weapons confirm that a severe firing-related frame-time problem remains; the Vektor was only the initial high-rate stress example. Active M8.1 first establishes the game-only versus UDS-enabled delta, then profiles and hardens the cumulative M1-M8 firing, projectile, combat, attribution, and persistence paths without assuming which weapon, subsystem, or milestone is responsible. M9 economy and M10 full UI/release hardening remain future work. UDS has not been uploaded to Steam Workshop.
 
 ## Build prerequisites
 

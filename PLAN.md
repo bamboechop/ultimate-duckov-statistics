@@ -45,7 +45,8 @@ A version change triggers compatibility checks, not an automatic global shutdown
 - M5 is merged into `main`; its complete manual acceptance matrix passed, and GitHub pre-release `v0.5.0` was published on 2026-08-12.
 - `v0.6.0` is the merged M6 equipment-and-totems release baseline.
 - `v0.7.0` is the published GitHub pre-release containing M7 unique successful non-corpse container access.
-- `v0.8.0` is the active M8 multi-map run/segment-attribution pre-release candidate. Implementation, automated/package gates, single- and multi-map routes, repeated-map re-entry, later-map death, cross-map activity, and abrupt recovery pass; final committed-head delivery remains pending. Economy and full UI/release hardening follow as M9 and M10.
+- `v0.8.0` is the merged M8 multi-map run/segment-attribution pre-release candidate. Implementation, automated/package gates, single- and multi-map routes, repeated-map re-entry, later-map death, cross-map activity, abrupt recovery, and review hardening pass; GitHub pre-release publication remains pending.
+- `v0.8.1` is the active M8.1 performance-investigation and hot-path-hardening target. The review-hardened M8 build still exhibits a broader firing-related frame-time problem across multiple automatic weapons; the Vektor was only the initial high-rate stress example. Its game-only baseline, UDS contribution, and introduction point are unknown and may predate M8, so M8.1 first proves the enabled-versus-disabled delta and then audits the cumulative M1-M8 firing, projectile, combat, attribution, and persistence paths rather than assigning the problem to one weapon or to route attribution without evidence. Economy and full UI/release hardening remain M9 and M10.
 - No Steam Workshop upload in v0.1.
 - Release artifact includes the installable ZIP, SHA-256 checksum, installation instructions, compatibility information, and known limitations.
 - No Duckov assemblies or bundled Harmony assembly may appear in the package.
@@ -304,7 +305,7 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Exclude native enemy corpses and persisted/player tombs through narrowly owned, version-checked death-path provenance patches. The success boundary itself remains the public event.
     - Persist a bounded 4,096-key active-run deduplication set. If that bound or stable-key evidence fails, disable the metric rather than evicting identities or fabricating counts.
     - Schema 7, lifetime/map/run aggregation, Overview/Runs presentation, JSON, and `containers.csv`; historical pre-M7 data remains explicitly unavailable.
-9. **M8 — Multi-map runs and route attribution (`v0.8.0`, implementation and gameplay acceptance complete; final committed-head delivery pending)**
+9. **M8 — Multi-map runs and route attribution (`v0.8.0`, merged after implementation, gameplay acceptance, and review hardening)**
     - Keep a continuous expedition as one run across proven full-scene or subscene map transitions, with starting map, ending map, ordered route, and repeated-map-aware segments.
     - Attribute active time, physical distance, proven teleport distance, transition/loading exclusions, and M1-M7 statistics to the segment in which each action or outcome occurs.
     - Preserve both source and outcome segment identity for delayed effects where they differ; never rewrite event origin from the current map at completion time.
@@ -312,9 +313,17 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
     - Add route/segment capability reporting, crash-safe active-segment checkpoints, schema-8 migration with explicit historical unavailability, Runs route presentation, JSON, and flattened route/segment CSVs.
     - Proven native semantics: continuous full-scene/subscene transitions preserve the raid identity and do not call `OnNewRaid`; `ActiveSubSceneID` is the visited subscene identity; destination entry waits for initialization, exact main-duck `SetPosition`, and restored input control. A changed raid ID outside a pending transition interrupts the old expedition.
     - Defensive bounds are 64 ordered segments and 2,048 source/outcome association rows. Bound exhaustion disables route-dependent capability without evicting prior evidence or disabling overall M1-M7 totals.
-10. **M9 — Economy (`v0.9.0`, planned)**
+10. **M8.1 — Performance investigation and hot-path hardening (`v0.8.1`, active)**
+    - Post-review controls with the Vektor SMG, Electrified MP7, and MF assault rifle show severe frame loss and frame-time spikes during firing. This is a firing-related hot-path investigation, not a Vektor-specific defect or a proven UDS regression, until a game-only baseline and profiling establish UDS's contribution, responsible subsystem, and introduction point; do not assume M8 is the sole cause.
+    - Establish comparable cold-launch, same-map UDS-disabled and UDS-enabled frame-time captures for idle, sustained empty-space firing, and sustained enemy-hit firing. Use a representative high-rate automatic weapon, a second automatic weapon with a different class or effect profile, and a slower-firing control; keep each paired enabled/disabled weapon and loadout configuration identical.
+    - Isolate the cumulative M1-M8 runtime by subsystem and, where useful, by historical release or profiling build: item/healing, run/movement, firing/projectiles, combat, equipment, containers, route fan-out, persistence/checkpointing, diagnostics, and UI. Optimize only evidence-backed hotspots; do not replace profiling with speculative rewrites.
+    - Keep accepted events in memory on their native callback path. Durable persistence, route cloning, export serialization, metadata discovery, reflection, and other potentially blocking work must not scale once per bullet, pellet, target hit, or health tick on the main thread.
+    - Preserve M1-M8 counting, source/outcome attribution, bounded caches, one-second crash-safety cadence, failed-write retry, transition/terminal flushes, interruption recovery, capability degradation, and cleanup semantics exactly.
+    - Add deterministic structural tests for callback cost drivers and write/clone frequency. Do not use wall-clock microbenchmarks as CI correctness assertions.
+    - Add only bounded, opt-in performance diagnostics if ordinary profiling cannot isolate the cost; diagnostics must be disabled by default and must not become the measured regression.
+11. **M9 — Economy (`v0.9.0`, planned)**
     - Money/cash flows, sources, and raid cash outcomes.
-11. **M10 — Full UI and release hardening (`v0.10.0`, planned)**
+12. **M10 — Full UI and release hardening (`v0.10.0`, planned)**
     - Remaining tabs, filters, compatibility matrix, performance verification, migration tests, documentation, and Workshop-readiness assessment.
 
 Each milestone updates the capability matrix and is manually tested before the next begins.
@@ -329,6 +338,18 @@ Each milestone updates the capability matrix and is manually tested before the n
 - Verify pause/loading time and cross-map position jumps do not inflate active time or physical/proven-teleport distance.
 - Perform representative item, healing, firing/combat, equipment, and container actions on different maps and compare profile, Runs UI, JSON, and CSV segment attribution.
 - Retain the user-controlled gameplay model: Codex prepares, deploys, and inspects evidence; only the user launches and controls Duckov.
+
+#### M8.1 investigation and acceptance boundary
+
+- The review-hardened M8 controls confirm that the performance problem is tied broadly to firing activity rather than uniquely to the Vektor. The initial Vektor stress case showed approximately 200+ FPS at baseline and 100-150 FPS while firing into empty space; the Electrified MP7 and MF assault rifle also reproduced material drops, and enemy hits worsened frame pacing. Averaged Steam-overlay FPS did not represent the perceived stalls.
+- Do not claim that UDS or M8 introduced the regression without comparative evidence. Earlier milestone validation did not include a UDS-disabled control or similarly intense sustained firing across multiple weapons, so the UDS contribution and introduction point are currently unknown.
+- Use a frame-time capture tool rather than the averaged FPS overlay. Perform at least three comparable cold-launch captures per configuration and scenario, report median, p95, p99, maximum frame time, and frames above 16.7 and 33.3 ms, and retain the raw capture artifacts outside the repository when they are large or machine-specific.
+- Establish the UDS-disabled baseline first, then isolate enabled subsystem combinations or historical builds without weakening the final production configuration. Record exactly which adapters, versions, save generation, route size, and diagnostics state each capture used.
+- Freeze the benchmark method and acceptance budget before optimizing. The default budget is that the median of three UDS-enabled captures is no more than 10% worse than disabled at median frame time, no more than 20% worse at p99, and introduces no repeatable new cluster of frames above 33.3 ms. Any different budget requires an explicit recorded product decision and rationale.
+- Instrument storage in automated tests and prove high-rate firing/hit bursts do not cause checkpoint serialization, flush, or atomic replacement per event. Exercise the full 2,048-association route bound, successful cadence, failed-write retry, transition, terminal completion, clean shutdown, and abrupt recovery.
+- Prove that optimization does not drop, merge, duplicate, defer past the wrong segment, or recapture any firing/combat event. Profile, active checkpoint, recovered run, UI, JSON, and CSV must agree exactly after the benchmark run.
+- Verify one setup and one cleanup sequence with no duplicate subscriptions or stale Harmony/native callbacks before accepting performance results.
+- Retain the user-controlled gameplay model: Codex prepares comparable builds, deployment, capture instructions, and evidence inspection; only the user launches and controls Duckov.
 
 ## 4. First Goal: consumable-usage MVP
 
