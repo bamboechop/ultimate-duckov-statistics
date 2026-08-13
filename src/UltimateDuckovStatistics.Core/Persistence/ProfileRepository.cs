@@ -78,7 +78,7 @@ public sealed class ProfileRepository
         currentDirectory = Path.Combine(slotDirectory, "current");
         Directory.CreateDirectory(currentDirectory);
         var profilePath = GetProfilePath(currentDirectory);
-        var loaded = profileStore.Load(profilePath);
+        var loaded = profileStore.Load(profilePath, ProfileMigrator.ValidateRecoveryCandidate);
         result.LoadFailures = loaded.Failures;
 
         if (loaded.Value == null)

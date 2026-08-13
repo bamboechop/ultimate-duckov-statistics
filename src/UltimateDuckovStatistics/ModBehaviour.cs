@@ -163,12 +163,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 () => profileCoordinator.CurrentGenerationId,
                 completion =>
                 {
-                    var persisted = profileCoordinator.HandleItemUse(completion);
-                    if (persisted && completion.NormalizedEvent != null)
-                    {
-                        runLifecycleAdapter.OwnedValue?.RecordItemUse(completion.NormalizedEvent);
-                    }
-                    return persisted;
+                    return ItemUsePublication.PublishIndependently(
+                        () => profileCoordinator.HandleItemUse(completion),
+                        () => completion.NormalizedEvent != null
+                              && runLifecycleAdapter.OwnedValue?.RecordItemUse(completion.NormalizedEvent) == true);
                 },
                 message => Debug.Log($"{LogPrefix} {message}"),
                 healingAttributionAdapter,

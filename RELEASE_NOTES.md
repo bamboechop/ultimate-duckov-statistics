@@ -9,7 +9,9 @@ M8 keeps a continuous expedition as one run across proven Duckov full-scene and 
 - Segment-local M1-M7 aggregates plus preserved source/outcome association for delayed healing and combat.
 - Physical, proven teleport, and transition/loading-excluded movement as separate categories whose overall values compose from segment totals.
 - Separate historical starting-map complete-run totals/records and new segment-derived route-map totals.
-- Schema-8 migration that preserves prior data and marks route history unavailable without fabricating segments; current-schema incomplete checkpoints are rejected before atomic selection.
+- Schema-8 migration that preserves prior data and marks route history unavailable without fabricating segments; incomplete current-schema profiles and checkpoints are rejected before atomic selection so an intact backup can win.
+- Successful high-rate firing mutations are checkpointed through a bounded one-second scheduler instead of synchronously cloning and durably writing the growing route from every firing callback.
+- Accepted item uses publish independently to lifetime and active-run destinations, so a failed lifetime save cannot silently omit the run, segment, association, or route-map contribution.
 - `routes.csv`, `segments.csv`, `segment_events.csv`, and `route_map_totals.csv`; existing map scopes are explicitly named `starting_map`.
 - Defensive bounds of 64 visits and 2,048 association rows with route-only capability degradation.
 - Delayed outcomes with no proven active destination segment preserve overall statistics and truthfully disable only event attribution and route-map totals.

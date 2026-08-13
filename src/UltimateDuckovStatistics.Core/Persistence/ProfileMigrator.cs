@@ -5,6 +5,68 @@ namespace UltimateDuckovStatistics.Core.Persistence;
 
 public static class ProfileMigrator
 {
+    public static string? ValidateRecoveryCandidate(ProfileDocument profile)
+    {
+        if (profile == null)
+        {
+            return "Profile document is missing.";
+        }
+
+        // Older schemas are intentionally incomplete and must remain eligible for migration.
+        // Future schemas are selected intact so Open can archive them as unsupported.
+        if (profile.SchemaVersion != ProductInfo.SchemaVersion)
+        {
+            return null;
+        }
+
+        if (profile.Statistics?.SchemaVersion > ProductInfo.SchemaVersion)
+        {
+            return null;
+        }
+
+        if (profile.Statistics == null
+            || profile.Statistics.SchemaVersion != ProductInfo.SchemaVersion
+            || profile.Statistics.Runs == null
+            || profile.Statistics.RunTotals == null
+            || profile.Statistics.RunRecords == null
+            || profile.Statistics.RunTotals.RouteMaps == null
+            || profile.Statistics.RunTotals.ItemStatistics == null)
+        {
+            return "Current-schema profile roots are incomplete.";
+        }
+
+        foreach (var run in profile.Statistics.Runs)
+        {
+            if (run == null)
+            {
+                return "Persisted run collection contains a missing run.";
+            }
+
+            // Historical runs retain their original schema as provenance. Their M8 roots were
+            // created explicitly unavailable during migration and are not current-schema evidence.
+            if (run.SchemaVersion < ProductInfo.SchemaVersion)
+            {
+                continue;
+            }
+
+            if (run.SchemaVersion > ProductInfo.SchemaVersion
+                || string.IsNullOrWhiteSpace(run.StartingMapId)
+                || run.Segments == null
+                || run.SegmentEventAssociations == null
+                || run.RouteCapabilities == null
+                || run.RouteCapabilities.OrderedRoute == null
+                || run.RouteCapabilities.Segments == null
+                || run.RouteCapabilities.EventAttribution == null
+                || run.RouteCapabilities.RouteAwareMapTotals == null
+                || run.ItemStatistics == null)
+            {
+                return "Current-schema run route roots are incomplete.";
+            }
+        }
+
+        return null;
+    }
+
     public static bool Migrate(ProfileDocument profile)
     {
         if (profile == null)

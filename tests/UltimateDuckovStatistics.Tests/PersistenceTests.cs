@@ -84,6 +84,61 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaIncompleteRouteTotalsPrimaryLosesToIntactBackupBeforeMigration()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateDocument("generation-a", revision: 7);
+        backup.Statistics.RunTotals.RouteMaps["duckov:map:A"] = new RouteAwareMapAggregate
+        {
+            MapId = "duckov:map:A",
+            DisplayName = "A",
+            IsKnown = true,
+            RunsVisited = 3,
+            SegmentVisits = 5,
+            HistoricalUnavailable = false,
+            WasRepairedFromInvalidState = false
+        };
+        var incompletePrimary = CreateDocument("generation-a", revision: 8);
+        incompletePrimary.Statistics.RunTotals.RouteMaps = null!;
+        store.Save(path, backup);
+        store.Save(path, incompletePrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.False(result.MigratedSchema);
+        Assert.Contains(result.LoadFailures, failure => failure.Contains("Current-schema profile roots are incomplete.", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        var routeMap = Assert.Single(repository.Current.Statistics.RunTotals.RouteMaps).Value;
+        Assert.Equal(3, routeMap.RunsVisited);
+        Assert.Equal(5, routeMap.SegmentVisits);
+        Assert.False(routeMap.HistoricalUnavailable);
+        Assert.False(routeMap.WasRepairedFromInvalidState);
+        repository.CloseClean();
+
+        var persisted = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!;
+        var persistedRouteMap = Assert.Single(persisted.Statistics.RunTotals.RouteMaps).Value;
+        Assert.Equal(3, persistedRouteMap.RunsVisited);
+        Assert.False(persistedRouteMap.HistoricalUnavailable);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentProfileSemanticSelectionAllowsHistoricalRunSchemaProvenance()
+    {
+        var profile = CreateDocument("generation-a", revision: 7);
+        profile.Statistics.Runs.Add(new RunSummary { SchemaVersion = 6 });
+
+        Assert.Null(ProfileMigrator.ValidateRecoveryCandidate(profile));
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     public void RepositoryMigratesEveryV01AggregateWithoutLosingUsageStatistics()
     {
         using var temporaryDirectory = new TemporaryDirectory();
