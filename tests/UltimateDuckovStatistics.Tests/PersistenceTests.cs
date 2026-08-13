@@ -217,6 +217,16 @@ public sealed class PersistenceTests
         "Segment.ContainerStatistics"
     };
 
+    public static TheoryData<string> CurrentSchemaNonRepairableNullDictionaryRowCases => new()
+    {
+        "Statistics.Items",
+        "Statistics.Groups",
+        "RunTotals.Maps",
+        "RunTotals.RouteMaps",
+        "RunRecords.Maps",
+        "RunTotals.ItemStatistics.Items"
+    };
+
     [Theory]
     [MemberData(nameof(CurrentSchemaRequiredRootCases))]
     [Trait("Category", "Persistence")]
@@ -245,6 +255,66 @@ public sealed class PersistenceTests
         var persisted = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!;
         Assert.Equal(7, persisted.Revision);
         Assert.Equal(37, persisted.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
+    }
+
+    [Theory]
+    [MemberData(nameof(CurrentSchemaNonRepairableNullDictionaryRowCases))]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaNonRepairableNullDictionaryRowLosesToIntactBackupBeforeMigration(string dictionary)
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var incompletePrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        AddNullDictionaryRow(incompletePrimary, dictionary);
+        store.Save(path, backup);
+        store.Save(path, incompletePrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("Current-schema profile roots are incomplete.", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        Assert.Equal(37, repository.Current.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
+        repository.CloseClean();
+
+        var persisted = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!;
+        Assert.Equal(7, persisted.Revision);
+        Assert.Equal(37, persisted.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaExplicitlyRepairableNullDictionaryRowsRemainEligibleForNormalization()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var repairablePrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        repairablePrimary.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:null"] = null!;
+        repairablePrimary.Statistics.RunTotals.CombatStatistics.Enemies["enemy:null"] = null!;
+        repairablePrimary.Statistics.RunTotals.EquipmentStatistics.Items["equipment:null"] = null!;
+        repairablePrimary.Statistics.RunTotals.ItemStatistics.Groups["group:null"] = null!;
+        store.Save(path, backup);
+        store.Save(path, repairablePrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.False(result.RecoveredSnapshot);
+        Assert.True(result.MigratedSchema);
+        Assert.Equal(8, repository.Current.Revision);
+        Assert.DoesNotContain("weapon:null", repository.Current.Statistics.RunTotals.WeaponStatistics.Weapons.Keys);
+        Assert.DoesNotContain("enemy:null", repository.Current.Statistics.RunTotals.CombatStatistics.Enemies.Keys);
+        Assert.DoesNotContain("equipment:null", repository.Current.Statistics.RunTotals.EquipmentStatistics.Items.Keys);
+        Assert.DoesNotContain("group:null", repository.Current.Statistics.RunTotals.ItemStatistics.Groups.Keys);
+        repository.CloseClean();
     }
 
     [Fact]
@@ -1418,6 +1488,20 @@ public sealed class PersistenceTests
             case "Segment.EquipmentStatistics": segment.EquipmentStatistics = null!; break;
             case "Segment.ContainerStatistics": segment.ContainerStatistics = null!; break;
             default: throw new ArgumentOutOfRangeException(nameof(root), root, "Unknown required root test case.");
+        }
+    }
+
+    private static void AddNullDictionaryRow(ProfileDocument document, string dictionary)
+    {
+        switch (dictionary)
+        {
+            case "Statistics.Items": document.Statistics.Items["null"] = null!; break;
+            case "Statistics.Groups": document.Statistics.Groups["null"] = null!; break;
+            case "RunTotals.Maps": document.Statistics.RunTotals.Maps["null"] = null!; break;
+            case "RunTotals.RouteMaps": document.Statistics.RunTotals.RouteMaps["null"] = null!; break;
+            case "RunRecords.Maps": document.Statistics.RunRecords.Maps["null"] = null!; break;
+            case "RunTotals.ItemStatistics.Items": document.Statistics.RunTotals.ItemStatistics.Items["null"] = null!; break;
+            default: throw new ArgumentOutOfRangeException(nameof(dictionary), dictionary, "Unknown null-row test case.");
         }
     }
 

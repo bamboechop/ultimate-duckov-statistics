@@ -41,7 +41,10 @@ public static class ProfileMigrator
         return null;
     }
 
-    private static string? FindMissingRequiredDataMember(object? value, string path)
+    private static string? FindMissingRequiredDataMember(
+        object? value,
+        string path,
+        bool nullDictionaryValuesAreRepairable = false)
     {
         if (value == null)
         {
@@ -63,12 +66,14 @@ public static class ProfileMigrator
                     return path + "[missing key]";
                 }
 
-                // Some aggregate normalizers deliberately discard null identity rows and mark
-                // the metric unavailable. The collection root is mandatory, but those repairable
-                // entries are not schema roots and must remain eligible for normalization.
                 if (entry.Value == null)
                 {
-                    continue;
+                    if (nullDictionaryValuesAreRepairable)
+                    {
+                        continue;
+                    }
+
+                    return $"{path}[{entry.Key}]";
                 }
 
                 var missing = FindMissingRequiredDataMember(entry.Value, $"{path}[{entry.Key}]");
@@ -118,7 +123,10 @@ public static class ProfileMigrator
                 continue;
             }
 
-            var missing = FindMissingRequiredDataMember(memberValue, memberPath);
+            var missing = FindMissingRequiredDataMember(
+                memberValue,
+                memberPath,
+                NullDictionaryValuesAreRepairable(value, property));
             if (missing != null)
             {
                 return missing;
@@ -126,6 +134,41 @@ public static class ProfileMigrator
         }
 
         return null;
+    }
+
+    private static bool NullDictionaryValuesAreRepairable(object owner, PropertyInfo property)
+    {
+        if (owner is WeaponStatisticsAggregate)
+        {
+            return property.Name is nameof(WeaponStatisticsAggregate.Weapons)
+                or nameof(WeaponStatisticsAggregate.AmmunitionTypes);
+        }
+
+        if (owner is CombatStatisticsAggregate)
+        {
+            return property.Name is nameof(CombatStatisticsAggregate.Enemies)
+                or nameof(CombatStatisticsAggregate.Killers)
+                or nameof(CombatStatisticsAggregate.Families)
+                or nameof(CombatStatisticsAggregate.Causes)
+                or nameof(CombatStatisticsAggregate.Weapons)
+                or nameof(CombatStatisticsAggregate.Ammunition)
+                or nameof(CombatStatisticsAggregate.Ownership);
+        }
+
+        if (owner is EquipmentStatisticsAggregate)
+        {
+            return property.Name is nameof(EquipmentStatisticsAggregate.Items)
+                or nameof(EquipmentStatisticsAggregate.SelectedWeapons)
+                or nameof(EquipmentStatisticsAggregate.Loadouts)
+                or nameof(EquipmentStatisticsAggregate.TotemSets)
+                or nameof(EquipmentStatisticsAggregate.CombatAssociations)
+                or nameof(EquipmentStatisticsAggregate.TotemStates)
+                or nameof(EquipmentStatisticsAggregate.Slots)
+                or nameof(EquipmentStatisticsAggregate.SlottedWeapons);
+        }
+
+        return owner is Domain.ItemStatisticsAggregate
+               && property.Name == nameof(Domain.ItemStatisticsAggregate.Groups);
     }
 
     public static bool Migrate(ProfileDocument profile)
