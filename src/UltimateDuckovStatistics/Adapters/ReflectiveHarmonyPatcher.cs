@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using UltimateDuckovStatistics.Core.Compatibility;
 
@@ -7,6 +8,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.healing";
     private static readonly Version MinimumHarmonyVersion = new(2, 4, 1, 0);
+    private static readonly object HarmonyAccessLock = new();
     private static readonly object PendingCleanupLock = new();
     private static readonly Dictionary<string, ReflectiveHarmonyPatcher> PendingCleanup = new(StringComparer.Ordinal);
     private readonly string harmonyId;
@@ -16,7 +18,8 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
     private readonly MethodInfo patchMethod;
     private readonly MethodInfo unpatchAllMethod;
     private readonly MethodInfo getPatchInfoMethod;
-    private bool disposed;
+    private readonly IDictionary patchState;
+    private volatile bool disposed;
 
     private ReflectiveHarmonyPatcher(
         string harmonyId,
@@ -26,6 +29,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
         MethodInfo patchMethod,
         MethodInfo unpatchAllMethod,
         MethodInfo getPatchInfoMethod,
+        IDictionary patchState,
         Version version)
     {
         this.harmonyId = harmonyId;
@@ -35,6 +39,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
         this.patchMethod = patchMethod;
         this.unpatchAllMethod = unpatchAllMethod;
         this.getPatchInfoMethod = getPatchInfoMethod;
+        this.patchState = patchState;
         Version = version;
     }
 
@@ -90,6 +95,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
             var harmonyMethodType = assembly.GetType("HarmonyLib.HarmonyMethod", throwOnError: true)!;
             var patchesType = assembly.GetType("HarmonyLib.Patches", throwOnError: true)!;
             var patchType = assembly.GetType("HarmonyLib.Patch", throwOnError: true)!;
+            var sharedStateType = assembly.GetType("HarmonyLib.HarmonySharedState", throwOnError: true)!;
             var harmonyConstructor = harmonyType.GetConstructor(new[] { typeof(string) })
                 ?? throw new MissingMethodException("Harmony(string) constructor was not found.");
             var harmonyMethodConstructor = harmonyMethodType.GetConstructor(new[] { typeof(MethodInfo) })
@@ -151,6 +157,14 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
                 new[] { typeof(MethodBase) },
                 modifiers: null)
                 ?? throw new MissingMethodException("Harmony.GetPatchInfo API was not found.");
+            var patchStateField = sharedStateType.GetField("state", BindingFlags.Static | BindingFlags.NonPublic)
+                ?? throw new MissingFieldException("HarmonySharedState.state field was not found.");
+            if (!IsPatchStateDictionary(patchStateField.FieldType)
+                || patchStateField.GetValue(null) is not IDictionary patchState)
+            {
+                throw new MissingFieldException(
+                    "HarmonySharedState.state is not Dictionary<MethodBase, byte[]>.");
+            }
             patcher = new ReflectiveHarmonyPatcher(
                 harmonyId,
                 harmony,
@@ -159,6 +173,7 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
                 patchMethod,
                 unpatchAllMethod,
                 getPatchInfoMethod,
+                patchState,
                 version);
             detail = $"HarmonyLib {version} loaded.";
             return true;
@@ -175,6 +190,40 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
         IReadOnlyList<HarmonyPatchExpectation> expectedOwnedPatches,
         out string detail)
     {
+        NativeHotPathDiagnostics.CountHarmonyPatchSetInspection();
+        lock (HarmonyAccessLock)
+        {
+            if (disposed)
+            {
+                detail = "The UDS Harmony patcher is disposed.";
+                return false;
+            }
+
+            try
+            {
+                var patchInfo = getPatchInfoMethod.Invoke(null, new object[] { original });
+                return HarmonyPatchSetInspector.TryValidate(
+                    patchInfo,
+                    harmonyId,
+                    expectedOwnedPatches,
+                    out detail);
+            }
+            catch (Exception exception)
+            {
+                var unwrapped = Unwrap(exception);
+                detail = $"Harmony patch inspection failed: {unwrapped.GetType().Name}: {unwrapped.Message}";
+                return false;
+            }
+        }
+    }
+
+    internal bool TryCapturePatchSetStamp(
+        MethodBase original,
+        out HarmonyPatchSetStamp? stamp,
+        out string detail)
+    {
+        if (original == null) throw new ArgumentNullException(nameof(original));
+        stamp = null;
         if (disposed)
         {
             detail = "The UDS Harmony patcher is disposed.";
@@ -183,17 +232,100 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
 
         try
         {
-            var patchInfo = getPatchInfoMethod.Invoke(null, new object[] { original });
-            return HarmonyPatchSetInspector.TryValidate(
-                patchInfo,
-                harmonyId,
-                expectedOwnedPatches,
-                out detail);
+            lock (patchState)
+            {
+                if (disposed)
+                {
+                    detail = "The UDS Harmony patcher is disposed.";
+                    return false;
+                }
+
+                if (!patchState.Contains(original) || patchState[original] is not object token)
+                {
+                    detail = "Harmony has no shared patch-state token for the original method.";
+                    return false;
+                }
+
+                stamp = new HarmonyPatchSetStamp(this, original, token);
+                detail = "Harmony patch-state stamp captured.";
+                return true;
+            }
         }
         catch (Exception exception)
         {
             var unwrapped = Unwrap(exception);
-            detail = $"Harmony patch inspection failed: {unwrapped.GetType().Name}: {unwrapped.Message}";
+            detail = $"Harmony patch-state stamp capture failed: {unwrapped.GetType().Name}: {unwrapped.Message}";
+            return false;
+        }
+    }
+
+    internal bool TryCaptureValidatedPatchSetStamp(
+        MethodBase original,
+        IReadOnlyList<HarmonyPatchExpectation> expectedOwnedPatches,
+        out HarmonyPatchSetStamp? stamp,
+        out string detail)
+    {
+        if (original == null) throw new ArgumentNullException(nameof(original));
+        if (expectedOwnedPatches == null) throw new ArgumentNullException(nameof(expectedOwnedPatches));
+        stamp = null;
+        if (!TryCapturePatchSetStamp(original, out var candidate, out detail) || candidate == null)
+        {
+            return false;
+        }
+
+        if (!IsPatchSetTrusted(original, expectedOwnedPatches, out detail))
+        {
+            return false;
+        }
+
+        if (!IsPatchSetStampCurrent(candidate, out detail))
+        {
+            return false;
+        }
+
+        stamp = candidate;
+        detail = "Harmony patch set validated and its shared-state stamp captured.";
+        return true;
+    }
+
+    internal bool IsPatchSetStampCurrent(HarmonyPatchSetStamp? stamp, out string detail)
+    {
+        if (stamp == null || !ReferenceEquals(stamp.Owner, this))
+        {
+            detail = "The Harmony patch-state stamp is missing or belongs to another patcher.";
+            return false;
+        }
+        if (disposed)
+        {
+            detail = "The UDS Harmony patcher is disposed.";
+            return false;
+        }
+
+        try
+        {
+            lock (patchState)
+            {
+                if (disposed)
+                {
+                    detail = "The UDS Harmony patcher is disposed.";
+                    return false;
+                }
+
+                if (patchState.Contains(stamp.Original)
+                    && ReferenceEquals(patchState[stamp.Original], stamp.Token))
+                {
+                    detail = "Harmony patch-state stamp is current.";
+                    return true;
+                }
+            }
+
+            detail = "Harmony patch state changed after UDS validated the installed patch set.";
+            return false;
+        }
+        catch (Exception exception)
+        {
+            var unwrapped = Unwrap(exception);
+            detail = $"Harmony patch-state stamp check failed: {unwrapped.GetType().Name}: {unwrapped.Message}";
             return false;
         }
     }
@@ -204,21 +336,24 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
         MethodInfo? postfix = null,
         MethodInfo? finalizer = null)
     {
-        if (disposed)
+        lock (HarmonyAccessLock)
         {
-            throw new ObjectDisposedException(nameof(ReflectiveHarmonyPatcher));
-        }
-
-        patchMethod.Invoke(
-            harmony,
-            new[]
+            if (disposed)
             {
-                original,
-                CreateHarmonyMethod(prefix, priority: 0),
-                CreateHarmonyMethod(postfix, priority: 800),
-                null,
-                CreateHarmonyMethod(finalizer, priority: 800)
-            });
+                throw new ObjectDisposedException(nameof(ReflectiveHarmonyPatcher));
+            }
+
+            patchMethod.Invoke(
+                harmony,
+                new[]
+                {
+                    original,
+                    CreateHarmonyMethod(prefix, priority: 0),
+                    CreateHarmonyMethod(postfix, priority: 800),
+                    null,
+                    CreateHarmonyMethod(finalizer, priority: 800)
+                });
+        }
     }
 
     public void Dispose()
@@ -231,27 +366,30 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
 
     internal bool TryDispose(out string detail)
     {
-        if (disposed)
+        lock (HarmonyAccessLock)
         {
-            ClearPendingCleanup(this);
-            detail = "Harmony patches are already removed.";
-            return true;
-        }
+            if (disposed)
+            {
+                ClearPendingCleanup(this);
+                detail = "Harmony patches are already removed.";
+                return true;
+            }
 
-        try
-        {
-            unpatchAllMethod.Invoke(harmony, new object?[] { harmonyId });
-            disposed = true;
-            ClearPendingCleanup(this);
-            detail = "Harmony patches removed.";
-            return true;
-        }
-        catch (Exception exception)
-        {
-            RegisterPendingCleanup(this);
-            var unwrapped = Unwrap(exception);
-            detail = $"Harmony patch cleanup failed: {unwrapped.GetType().Name}: {unwrapped.Message}";
-            return false;
+            try
+            {
+                unpatchAllMethod.Invoke(harmony, new object?[] { harmonyId });
+                disposed = true;
+                ClearPendingCleanup(this);
+                detail = "Harmony patches removed.";
+                return true;
+            }
+            catch (Exception exception)
+            {
+                RegisterPendingCleanup(this);
+                var unwrapped = Unwrap(exception);
+                detail = $"Harmony patch cleanup failed: {unwrapped.GetType().Name}: {unwrapped.Message}";
+                return false;
+            }
         }
     }
 
@@ -270,6 +408,13 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
 
     private static Assembly? FindHarmonyAssembly() => AppDomain.CurrentDomain.GetAssemblies()
         .FirstOrDefault(candidate => candidate.GetType("HarmonyLib.Harmony", throwOnError: false) != null);
+
+    private static bool IsPatchStateDictionary(Type type)
+    {
+        if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(Dictionary<,>)) return false;
+        var arguments = type.GetGenericArguments();
+        return arguments[0] == typeof(MethodBase) && arguments[1] == typeof(byte[]);
+    }
 
     private static bool TryCompletePendingCleanup(string harmonyId, out string detail)
     {
@@ -312,4 +457,18 @@ internal sealed class ReflectiveHarmonyPatcher : IDisposable
         exception is TargetInvocationException { InnerException: not null } invocation
             ? invocation.InnerException!
             : exception;
+}
+
+internal sealed class HarmonyPatchSetStamp
+{
+    public HarmonyPatchSetStamp(ReflectiveHarmonyPatcher owner, MethodBase original, object token)
+    {
+        Owner = owner;
+        Original = original;
+        Token = token;
+    }
+
+    internal ReflectiveHarmonyPatcher Owner { get; }
+    internal MethodBase Original { get; }
+    internal object Token { get; }
 }

@@ -8,7 +8,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal static class CombatHarmonyBridge
 {
-    [ThreadStatic] private static List<CombatNativeScope>? scopes;
+    [ThreadStatic] private static ReferenceScopeStack<CombatNativeScope>? scopes;
     private static NativeCombatAttributionAdapter? adapter;
 
     public static void Attach(NativeCombatAttributionAdapter value)
@@ -23,19 +23,19 @@ internal static class CombatHarmonyBridge
         scopes?.Clear();
     }
 
-    public static CombatNativeScope? CurrentScope => scopes is { Count: > 0 } ? scopes[^1] : null;
+    public static CombatNativeScope? CurrentScope => scopes?.Current;
 
     public static void CaptureProjectile(Projectile projectile, ProjectileContext context) =>
         adapter?.CaptureProjectile(projectile, context);
 
-    public static string? PushProjectile(Projectile projectile) => Push(adapter?.CreateProjectileScope(projectile));
+    public static CombatNativeScope? PushProjectile(Projectile projectile) => Push(adapter?.CreateProjectileScope(projectile));
 
     public static void CompleteProjectile(Projectile projectile) => adapter?.CompleteProjectile(projectile);
 
-    public static string? PushMelee(ItemAgent_MeleeWeapon weapon, bool dealDamage) =>
+    public static CombatNativeScope? PushMelee(ItemAgent_MeleeWeapon weapon, bool dealDamage) =>
         dealDamage ? Push(adapter?.CreateMeleeScope(weapon)) : null;
 
-    public static string? PushEffect(EffectTriggerEventContext context) =>
+    public static CombatNativeScope? PushEffect(EffectTriggerEventContext context) =>
         Push(adapter?.CreateEffectScope(context));
 
     public static void CaptureBuffApplication(CharacterBuffManager manager, Buff buffPrefab) =>
@@ -54,12 +54,14 @@ internal static class CombatHarmonyBridge
 
         try
         {
+            NativeHotPathDiagnostics.CountHealthPrefix();
+            var scope = CurrentScope;
             return new CombatHealthPatchState(
                 health.CurrentHealth,
                 health.IsDead,
                 damageInfo,
-                CurrentScope,
-                current.CaptureEquipmentAssociation());
+                scope,
+                scope?.EquipmentAssociation ?? current.CaptureEquipmentAssociation());
         }
         catch
         {
@@ -90,27 +92,23 @@ internal static class CombatHarmonyBridge
         }
     }
 
-    public static void Pop(string? scopeId)
+    public static void Pop(CombatNativeScope? scope)
     {
-        if (string.IsNullOrWhiteSpace(scopeId) || scopes == null) return;
-        var index = scopes.FindLastIndex(x => string.Equals(x.ScopeId, scopeId, StringComparison.Ordinal));
-        if (index >= 0) scopes.RemoveRange(index, scopes.Count - index);
+        scopes?.Pop(scope);
     }
 
     public static void ClearScopes() => scopes?.Clear();
 
-    private static string? Push(CombatNativeScope? scope)
+    private static CombatNativeScope? Push(CombatNativeScope? scope)
     {
         if (scope == null) return null;
-        scopes ??= new List<CombatNativeScope>();
-        scopes.Add(scope);
-        return scope.ScopeId;
+        scopes ??= new ReferenceScopeStack<CombatNativeScope>();
+        return scopes.Push(scope);
     }
 }
 
 internal sealed class CombatNativeScope
 {
-    public string ScopeId { get; set; } = Guid.NewGuid().ToString("N");
     public string? ProjectileId { get; set; }
     public string SourceMapId { get; set; } = MapIdentity.UnknownId;
     public string SourceSegmentId { get; set; } = string.Empty;
@@ -169,10 +167,10 @@ internal static class CombatHarmonyCallbacks
     private static void ProjectileInitPostfix(Projectile __instance, ProjectileContext _context) =>
         CombatHarmonyBridge.CaptureProjectile(__instance, _context);
 
-    private static void ProjectileUpdatePrefix(Projectile __instance, out string? __state) =>
+    private static void ProjectileUpdatePrefix(Projectile __instance, out CombatNativeScope? __state) =>
         __state = CombatHarmonyBridge.PushProjectile(__instance);
 
-    private static Exception? ProjectileUpdateFinalizer(Exception? __exception, string? __state)
+    private static Exception? ProjectileUpdateFinalizer(Exception? __exception, CombatNativeScope? __state)
     {
         CombatHarmonyBridge.Pop(__state);
         return __exception;
@@ -181,19 +179,19 @@ internal static class CombatHarmonyCallbacks
     private static void ProjectileReleasePrefix(Projectile __instance) =>
         CombatHarmonyBridge.CompleteProjectile(__instance);
 
-    private static void MeleePrefix(ItemAgent_MeleeWeapon __instance, bool dealDamage, out string? __state) =>
+    private static void MeleePrefix(ItemAgent_MeleeWeapon __instance, bool dealDamage, out CombatNativeScope? __state) =>
         __state = CombatHarmonyBridge.PushMelee(__instance, dealDamage);
 
-    private static Exception? MeleeFinalizer(Exception? __exception, string? __state)
+    private static Exception? MeleeFinalizer(Exception? __exception, CombatNativeScope? __state)
     {
         CombatHarmonyBridge.Pop(__state);
         return __exception;
     }
 
-    private static void EffectPrefix(EffectTriggerEventContext context, out string? __state) =>
+    private static void EffectPrefix(EffectTriggerEventContext context, out CombatNativeScope? __state) =>
         __state = CombatHarmonyBridge.PushEffect(context);
 
-    private static Exception? EffectFinalizer(Exception? __exception, string? __state)
+    private static Exception? EffectFinalizer(Exception? __exception, CombatNativeScope? __state)
     {
         CombatHarmonyBridge.Pop(__state);
         return __exception;

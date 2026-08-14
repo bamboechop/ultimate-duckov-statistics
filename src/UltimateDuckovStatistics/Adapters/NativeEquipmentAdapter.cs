@@ -11,15 +11,15 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v3";
+    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v4";
     private const string SupportedGameVersion = "2.3.30";
-    private const double ReconciliationIntervalSeconds = 0.2;
+    internal const double ReconciliationIntervalSeconds = 1;
     private readonly Func<bool> runActiveProvider;
     private readonly Func<EquipmentSnapshot, bool> snapshotHandler;
     private readonly Func<bool> invalidationHandler;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
-    private readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
+    private readonly Func<double> monotonicSecondsProvider;
     private readonly MonotonicCadenceGate cadence = new(ReconciliationIntervalSeconds);
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private CharacterMainControl? observedMain;
@@ -33,13 +33,23 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         Func<EquipmentSnapshot, bool> snapshotHandler,
         Func<bool> invalidationHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
-        Action<string> diagnosticHandler)
+        Action<string> diagnosticHandler,
+        Func<double>? monotonicSecondsProvider = null)
     {
         this.runActiveProvider = runActiveProvider ?? throw new ArgumentNullException(nameof(runActiveProvider));
         this.snapshotHandler = snapshotHandler ?? throw new ArgumentNullException(nameof(snapshotHandler));
         this.invalidationHandler = invalidationHandler ?? throw new ArgumentNullException(nameof(invalidationHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        if (monotonicSecondsProvider == null)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            this.monotonicSecondsProvider = () => clock.Elapsed.TotalSeconds;
+        }
+        else
+        {
+            this.monotonicSecondsProvider = monotonicSecondsProvider;
+        }
     }
 
     public EquipmentMetricCapabilities MetricCapabilities => EquipmentStatisticsReducer.CloneCapabilities(metricCapabilities);
@@ -75,6 +85,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
             capabilityHandler(EquipmentNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
             SynchronizeMain();
             ObserveNow();
+            cadence.MarkCompleted(monotonicSecondsProvider());
             diagnosticHandler("Native equipment hooks subscribed; tote activation remains deliberately unavailable.");
         }
         catch (Exception exception)
@@ -87,7 +98,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 
     public void Tick()
     {
-        var now = clock.Elapsed.TotalSeconds;
+        var now = monotonicSecondsProvider();
         if (!callbackLifetime.CanHandleCallbacks || !cadence.IsDue(now)) return;
         cadence.MarkCompleted(now);
         SynchronizeMain();
@@ -97,7 +108,9 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     public EquipmentEventAssociation CaptureAssociation()
     {
         if (!callbackLifetime.CanHandleCallbacks || !runActiveProvider()) return new EquipmentEventAssociation();
-        ObserveNow();
+        NativeHotPathDiagnostics.CountEquipmentAssociationRequest();
+        SynchronizeMain();
+        if (latestSnapshot == null) ObserveNow();
         var snapshot = latestSnapshot;
         return snapshot == null ? new EquipmentEventAssociation() : new EquipmentEventAssociation
         {
@@ -151,9 +164,17 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         { InvalidateObservation(); return; }
         try
         {
+            NativeHotPathDiagnostics.CountEquipmentSnapshotBuild();
             var snapshot = NativeEquipmentSnapshotBuilder.Build(observedMain, observedCharacterItem);
+            var unchanged = string.Equals(latestSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal);
             latestSnapshot = snapshot;
-            snapshotHandler(snapshot);
+            if (unchanged)
+            {
+                NativeHotPathDiagnostics.CountEquipmentUnchangedPublication();
+                return;
+            }
+            if (snapshotHandler(snapshot)) NativeHotPathDiagnostics.CountEquipmentChangedPublication();
+            else NativeHotPathDiagnostics.CountEquipmentUnchangedPublication();
         }
         catch (Exception exception)
         {

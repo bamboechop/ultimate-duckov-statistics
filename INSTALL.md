@@ -1,6 +1,6 @@
 # Installation and compatibility
 
-## Supported baseline for v0.8.0
+## Supported baseline for v0.8.1
 
 - Escape From Duckov `2.3.30`
 - Steam build `24013657`
@@ -12,7 +12,7 @@ The UDS package must not contain Duckov assemblies or `0Harmony.dll`. HarmonyLib
 
 ## Required HarmonyLib Workshop item
 
-Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.8.0 requires HarmonyLib for M2 healing attribution, the minimal M5 combat scopes, and M7's separate corpse-provenance owner. M8 route boundaries use public native hooks and add no Harmony owner. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven independent statistics continue.
+Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.8.1 requires HarmonyLib for M2 healing attribution, the minimal M5 combat scopes, and M7's separate corpse-provenance owner. M8 route boundaries use public native hooks and add no Harmony owner. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven independent statistics continue.
 
 After every cold launch and before selecting a save:
 
@@ -52,9 +52,10 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 - Physical movement, proven teleport displacement, and transition/loading-excluded displacement are stored separately. If movement, active-map, or route compatibility is unavailable, only dependent metrics are disabled and Diagnostics show why.
 - M6 records character-slot and selected-weapon durations, attachment-aware loadouts, direct and tote-carried totem presence, proven-active direct-totem sets, and event-time equipment associations. Tote-carried activation remains unknown and disabled rather than inferred.
 - M7 records unique non-corpse containers whose loot access successfully begins for the exact main duck during an active raid. Reopening within one run is deduplicated by native `GetKey()`; the scope resets for the next run.
+- M8.1 retains event-time equipment/combat attribution while reading associations from native-event-refreshed immutable snapshots, reconciles projectile context once per frame while still checking the exact run identity at capture and outcome time, checks Harmony integrity through allocation-free shared-state identity stamps after full activation validation, and performs durable active-run checkpoint plus lifetime item/healing profile storage as single-flight background writes. Same-frame item/healing mutations coalesce into one immutable profile snapshot only after the active-run checkpoint containing the same accepted mutations is durable; boundary, completion, export, and shutdown paths flush that checkpoint barrier and then wait for pending profile persistence before continuing.
 - Exports contain `statistics.json`, the existing fifteen CSVs, and M8's `routes.csv`, `segments.csv`, `segment_events.csv`, and `route_map_totals.csv`. `map_totals.csv` remains starting-map complete-run history; route-map totals are separate.
 
-## Known v0.8.0 limitations
+## Known v0.8.1 limitations
 
 - Statistics begin at installation; no history is reconstructed.
 - Pre-M8 ending maps, ordered routes, segments, transition displacement, and route-aware per-map attribution are unavailable rather than reconstructed as fake one-segment routes.
@@ -71,6 +72,6 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 - M5 accuracy is not firing-action accuracy. Its numerator and denominator are completed exact-main-duck projectile instances observed by the verified projectile lifecycle while a run remains active. A projectile still alive when the run terminates enters neither side of that run's ratio.
 - Headshot means an independently observed native head-targeted exact-player projectile that causes actual enemy HP loss. It is not a geometric impact-point claim, and mouse/controller paths that do not expose that native flag remain uncounted rather than inferred. `DamageInfo.crit` is never used as headshot evidence.
 - Enemy family is currently exact only for the native Zombie flag; other families remain `Unknown family`. Ammunition is exact for projectile-correlated damage and otherwise remains unknown, including delayed effects that preserve only weapon provenance.
-- M5 combat, M6 equipment, and M7 container mutations share checkpoint writes coalesced to at most once per second, with a five-second periodic fallback and one-second failed-write retry. A sudden process/OS failure can therefore lose up to approximately one second of accepted callbacks/state time; orderly shutdown and terminal completion flush in-memory totals.
+- M5 combat, M6 equipment, and M7 container mutations share checkpoint writes coalesced to at most once per second, with a five-second periodic fallback and one-second failed-write retry. Item-use and healing lifetime mutations persist through a separate frame-coalesced profile writer; a strictly validated per-run watermark lets interruption recovery apply any exact, compositionally consistent checkpoint delta absent from its last profile snapshot. The active-run checkpoint is ordered before the corresponding lifetime profile snapshot so an abrupt stop cannot leave the watermark ahead of recoverable run evidence. A sudden process/OS failure can still lose up to approximately one second of accepted callbacks/state time that never reached the active checkpoint; orderly shutdown and terminal completion flush in-memory totals.
 - Duration records exclude Interrupted runs and runs tagged for cheats/custom difficulty or gameplay-altering mods. The required `HarmonyLoadMod` infrastructure by itself does not disqualify a run.
 - UDS itself remains a local GitHub package; only the HarmonyLib dependency is installed through Steam Workshop.

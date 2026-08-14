@@ -95,6 +95,7 @@ public sealed class RunLifecycleTracker
     private string? nativeRaidId;
     private double lastCheckpointMonotonicSeconds;
     private bool combatCheckpointRequired;
+    private long checkpointMutationRevision;
 
     public RunLifecycleTracker(
         Func<string> runIdFactory,
@@ -335,7 +336,7 @@ public sealed class RunLifecycleTracker
             active.RecentShotEventIds.Remove(active.RecentShotEventIdOrder.Dequeue());
         }
 
-        combatCheckpointRequired = true;
+        RequireCombatCheckpoint();
         return true;
     }
 
@@ -398,7 +399,7 @@ public sealed class RunLifecycleTracker
             active.RecentCombatEventIds.Remove(active.RecentCombatEventIdOrder.Dequeue());
         }
 
-        combatCheckpointRequired = true;
+        RequireCombatCheckpoint();
         return true;
     }
 
@@ -428,7 +429,7 @@ public sealed class RunLifecycleTracker
                 RecordAssociation(value.EventId, "container", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
             }
         }
-        if (accepted || saturationChanged) combatCheckpointRequired = true;
+        if (accepted || saturationChanged) RequireCombatCheckpoint();
         return accepted;
     }
 
@@ -438,7 +439,7 @@ public sealed class RunLifecycleTracker
         CombatStatisticsReducer.RestrictCapabilities(active.CombatStatistics, capabilities);
         if (active.CurrentSegment != null)
             CombatStatisticsReducer.RestrictCapabilities(active.CurrentSegment.CombatStatistics, capabilities);
-        combatCheckpointRequired = true;
+        RequireCombatCheckpoint();
         return true;
     }
 
@@ -448,7 +449,7 @@ public sealed class RunLifecycleTracker
         ContainerStatisticsReducer.RestrictCapabilities(active.ContainerState.Statistics, capabilities);
         if (active.CurrentSegment != null)
             ContainerStatisticsReducer.RestrictCapabilities(active.CurrentSegment.ContainerStatistics, capabilities);
-        combatCheckpointRequired = true;
+        RequireCombatCheckpoint();
         return true;
     }
 
@@ -463,7 +464,7 @@ public sealed class RunLifecycleTracker
                 snapshot,
                 active.CurrentSegment.ActiveDurationSeconds);
         }
-        if (changed) combatCheckpointRequired = true;
+        if (changed) RequireCombatCheckpoint();
         return changed;
     }
 
@@ -492,7 +493,7 @@ public sealed class RunLifecycleTracker
                 active.CurrentSegment.EquipmentStatistics,
                 active.CurrentSegment.ActiveDurationSeconds);
         }
-        if (changed) combatCheckpointRequired = true;
+        if (changed) RequireCombatCheckpoint();
         return changed;
     }
 
@@ -507,7 +508,7 @@ public sealed class RunLifecycleTracker
             ItemStatisticsAggregateReducer.Record(active.CurrentSegment.ItemStatistics, active.Context.SaveGenerationId, value);
             RecordAssociation(value.EventId, "item-use", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
         }
-        if (changed) combatCheckpointRequired = true;
+        if (changed) RequireCombatCheckpoint();
         return changed;
     }
 
@@ -536,7 +537,7 @@ public sealed class RunLifecycleTracker
                 value.SourceMapId,
                 value.OutcomeSegmentId,
                 value.OutcomeMapId ?? value.MapId);
-        if (changed) combatCheckpointRequired = true;
+        if (changed) RequireCombatCheckpoint();
         return changed;
     }
 
@@ -592,12 +593,19 @@ public sealed class RunLifecycleTracker
 
     public void MarkCheckpointSaved(double monotonicSeconds)
     {
+        MarkCheckpointSaved(monotonicSeconds, checkpointMutationRevision);
+    }
+
+    public void MarkCheckpointSaved(double monotonicSeconds, long capturedMutationRevision)
+    {
         if (!double.IsNaN(monotonicSeconds) && !double.IsInfinity(monotonicSeconds))
         {
             lastCheckpointMonotonicSeconds = monotonicSeconds;
-            combatCheckpointRequired = false;
+            if (capturedMutationRevision == checkpointMutationRevision) combatCheckpointRequired = false;
         }
     }
+
+    public long CheckpointMutationRevision => checkpointMutationRevision;
 
     public void DisableMovement()
     {
@@ -623,6 +631,7 @@ public sealed class RunLifecycleTracker
         movement.Reset();
         lastCheckpointMonotonicSeconds = monotonicSeconds;
         combatCheckpointRequired = false;
+        checkpointMutationRevision = 0;
     }
 
     public void DisableRoute(string provenance)
@@ -825,6 +834,7 @@ public sealed class RunLifecycleTracker
 
         active = null;
         combatCheckpointRequired = false;
+        checkpointMutationRevision = 0;
         movement.Reset();
         raidInitialized = false;
         nativeRaidId = null;
@@ -862,6 +872,12 @@ public sealed class RunLifecycleTracker
 
         active.LastMonotonicSeconds = monotonicSeconds;
         active.LastObservedUtc = EnsureUtc(timestampUtc);
+    }
+
+    private void RequireCombatCheckpoint()
+    {
+        combatCheckpointRequired = true;
+        if (checkpointMutationRevision < long.MaxValue) checkpointMutationRevision++;
     }
 
     private static void ValidateClock(RunLifecycleEvent lifecycleEvent)

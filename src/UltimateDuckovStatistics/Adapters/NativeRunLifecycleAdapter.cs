@@ -37,6 +37,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly Func<CombatMetricCapabilities> combatCapabilitiesProvider;
     private readonly Func<EquipmentMetricCapabilities> equipmentCapabilitiesProvider;
     private readonly Func<ContainerMetricCapabilities> containerCapabilitiesProvider;
+    private readonly Func<DeferredWriteState>? checkpointCompletionPoller;
+    private readonly Func<DeferredWriteState>? checkpointCompletionFlusher;
     private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
     private readonly RunLifecycleTracker tracker;
     private readonly MonotonicCadenceGate sampleCadence = new(SampleIntervalSeconds);
@@ -57,6 +59,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private bool routeTransitionPending;
     private bool destinationPlacementObserved;
     private Action? destinationReadyObserver;
+    private bool checkpointWritePending;
+    private double pendingCheckpointMonotonicSeconds;
+    private long pendingCheckpointMutationRevision;
 
     public NativeRunLifecycleAdapter(
         Func<string> saveGenerationIdProvider,
@@ -67,7 +72,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         Func<WeaponMetricCapabilities>? weaponCapabilitiesProvider = null,
         Func<CombatMetricCapabilities>? combatCapabilitiesProvider = null,
         Func<EquipmentMetricCapabilities>? equipmentCapabilitiesProvider = null,
-        Func<ContainerMetricCapabilities>? containerCapabilitiesProvider = null)
+        Func<ContainerMetricCapabilities>? containerCapabilitiesProvider = null,
+        Func<DeferredWriteState>? checkpointCompletionPoller = null,
+        Func<DeferredWriteState>? checkpointCompletionFlusher = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
@@ -79,6 +86,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         this.combatCapabilitiesProvider = combatCapabilitiesProvider ?? (() => new CombatMetricCapabilities());
         this.equipmentCapabilitiesProvider = equipmentCapabilitiesProvider ?? (() => new EquipmentMetricCapabilities());
         this.containerCapabilitiesProvider = containerCapabilitiesProvider ?? (() => new ContainerMetricCapabilities());
+        this.checkpointCompletionPoller = checkpointCompletionPoller;
+        this.checkpointCompletionFlusher = checkpointCompletionFlusher;
+        if ((checkpointCompletionPoller == null) != (checkpointCompletionFlusher == null))
+            throw new ArgumentException("Deferred checkpoint polling and flushing must be configured together.");
         tracker = new RunLifecycleTracker(() => Guid.NewGuid().ToString("N"));
         SetAllCapabilities(
             AdapterCapabilityState.DisabledIncompatible,
@@ -95,13 +106,21 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public EventAttributionContext? CurrentEventContext => tracker.ActiveEventContext;
 
+    public bool HasUncheckpointedRunMutations => checkpointWritePending || tracker.CombatCheckpointRequired;
+
     public bool RecordShot(ShotRecorded shot)
     {
-        return callbackLifetime.CanHandleCallbacks && tracker.RecordShot(shot);
+        var recorded = callbackLifetime.CanHandleCallbacks && tracker.RecordShot(shot);
+        if (recorded) NativeHotPathDiagnostics.CountTrackerShotMutation();
+        return recorded;
     }
 
-    public bool RecordCombat(CombatRecorded value) =>
-        callbackLifetime.CanHandleCallbacks && tracker.RecordCombat(value);
+    public bool RecordCombat(CombatRecorded value)
+    {
+        var recorded = callbackLifetime.CanHandleCallbacks && tracker.RecordCombat(value);
+        if (recorded) NativeHotPathDiagnostics.CountTrackerCombatMutation();
+        return recorded;
+    }
 
     public bool RecordContainer(ContainerLooted value) =>
         callbackLifetime.CanHandleCallbacks && tracker.RecordContainer(value);
@@ -126,8 +145,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         callbackLifetime.CanHandleCallbacks
         && tracker.SuspendEquipment(DateTime.UtcNow, NowMonotonic());
 
-    public bool FlushCheckpoint() => !tracker.IsActive
-        || SaveCheckpoint(DateTime.UtcNow, NowMonotonic());
+    public bool FlushCheckpoint()
+    {
+        if (!tracker.IsActive) return DrainPendingCheckpoint();
+        return SaveCheckpoint(DateTime.UtcNow, NowMonotonic(), awaitPersistence: true);
+    }
 
     public void SetPlayerDeathObserver(Action<DamageInfo>? observer) => playerDeathObserver = observer;
 
@@ -179,6 +201,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public void Tick()
     {
+        PollPendingCheckpoint();
         if (!callbackLifetime.CanHandleCallbacks || LifecycleCapability.State != AdapterCapabilityState.Supported)
         {
             return;
@@ -210,7 +233,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                     periodicCheckpointDue,
                     now))
             {
-                SaveCheckpoint(utcNow, now);
+                SaveCheckpoint(utcNow, now, awaitPersistence: false);
             }
 
             if (tracker.IsActive
@@ -369,6 +392,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return;
         }
 
+        DrainPendingCheckpoint();
         var now = NowMonotonic();
         var utcNow = DateTime.UtcNow;
         if (!tracker.IsSuspended && MovementCapability.State == AdapterCapabilityState.Supported)
@@ -471,13 +495,20 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    private bool SaveCheckpoint(DateTime utcNow, double monotonicSeconds)
+    private bool SaveCheckpoint(DateTime utcNow, double monotonicSeconds, bool awaitPersistence = true)
     {
+        if (checkpointWritePending)
+        {
+            if (!awaitPersistence) return false;
+            DrainPendingCheckpoint();
+        }
         var checkpoint = tracker.CreateCheckpoint(utcNow, monotonicSeconds);
         if (checkpoint == null)
         {
             return false;
         }
+        NativeHotPathDiagnostics.CountCheckpointClone();
+        var mutationRevision = tracker.CheckpointMutationRevision;
 
         if (!checkpointHandler(checkpoint))
         {
@@ -485,9 +516,45 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return false;
         }
 
-        tracker.MarkCheckpointSaved(monotonicSeconds);
-        checkpointScheduler.RecordResult(succeeded: true, monotonicSeconds: monotonicSeconds);
-        return true;
+        if (checkpointCompletionPoller == null)
+        {
+            tracker.MarkCheckpointSaved(monotonicSeconds, mutationRevision);
+            checkpointScheduler.RecordResult(succeeded: true, monotonicSeconds: monotonicSeconds);
+            return true;
+        }
+
+        checkpointWritePending = true;
+        pendingCheckpointMonotonicSeconds = monotonicSeconds;
+        pendingCheckpointMutationRevision = mutationRevision;
+        return !awaitPersistence || DrainPendingCheckpoint();
+    }
+
+    private void PollPendingCheckpoint()
+    {
+        if (!checkpointWritePending || checkpointCompletionPoller == null) return;
+        ApplyCheckpointCompletion(checkpointCompletionPoller());
+    }
+
+    private bool DrainPendingCheckpoint()
+    {
+        if (!checkpointWritePending) return true;
+        if (checkpointCompletionFlusher == null) return false;
+        return ApplyCheckpointCompletion(checkpointCompletionFlusher());
+    }
+
+    private bool ApplyCheckpointCompletion(DeferredWriteState state)
+    {
+        if (!checkpointWritePending) return state is DeferredWriteState.None or DeferredWriteState.Succeeded;
+        if (state is DeferredWriteState.None or DeferredWriteState.Pending) return false;
+        var monotonicSeconds = pendingCheckpointMonotonicSeconds;
+        var mutationRevision = pendingCheckpointMutationRevision;
+        checkpointWritePending = false;
+        pendingCheckpointMonotonicSeconds = 0;
+        pendingCheckpointMutationRevision = 0;
+        var succeeded = state == DeferredWriteState.Succeeded;
+        if (succeeded) tracker.MarkCheckpointSaved(monotonicSeconds, mutationRevision);
+        checkpointScheduler.RecordResult(succeeded, monotonicSeconds);
+        return succeeded;
     }
 
     private void SynchronizeMainCharacter()
@@ -998,6 +1065,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void HandleCompleted(RunSummary summary, string reason)
     {
+        DrainPendingCheckpoint();
         sampleCadence.Reset();
         checkpointScheduler.Reset();
         movementMapId = null;

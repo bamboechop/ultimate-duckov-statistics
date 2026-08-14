@@ -22,6 +22,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private readonly string dataRoot;
     private DiagnosticStore? diagnostics;
     private ProfileRepository? repository;
+    private readonly DeferredCheckpointWriter<CheckpointWrite> checkpointWriter;
+    private readonly DeferredSnapshotWriter<ProfileWrite> profileWriter;
+    private Func<bool>? activeRunCheckpointFlusher;
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
     private CapabilityRecord healingCapability = new()
@@ -63,6 +66,18 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public NativeProfileCoordinator()
     {
         dataRoot = Path.Combine(Application.persistentDataPath, Core.ProductInfo.ModId);
+        checkpointWriter = new DeferredCheckpointWriter<CheckpointWrite>(write =>
+        {
+            NativeHotPathDiagnostics.CountCheckpointStoreAttempt();
+            write.Repository.SaveActiveRun(write.Checkpoint);
+            NativeHotPathDiagnostics.CountCheckpointStoreSuccess();
+        });
+        profileWriter = new DeferredSnapshotWriter<ProfileWrite>(CaptureProfileWrite, write =>
+        {
+            NativeHotPathDiagnostics.CountProfileStoreAttempt();
+            write.Repository.SaveSnapshot(write.Snapshot);
+            NativeHotPathDiagnostics.CountProfileStoreSuccess();
+        });
     }
 
     public event Action? ProfileChanged;
@@ -94,6 +109,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             message => WriteDiagnostic(message));
 
         var openResult = repository.Open(ReadIdentity());
+        repository.EnableDeferredItemPersistence();
         OpenDiagnosticsForCurrentGeneration();
         UpdateCapabilities();
 
@@ -130,15 +146,36 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
         try
         {
-            if (repository?.Record(completion.NormalizedEvent) == true)
+            var currentRepository = repository;
+            if (currentRepository == null)
             {
-                WriteDiagnostic(
-                    $"Counted raid item use; total={repository.Current.Statistics.Overall.ActivationCount}.");
+                return false;
+            }
+
+            var deferred = currentRepository.CanDeferItemPersistence(completion.NormalizedEvent.RunId);
+            if (!deferred)
+            {
+                DrainProfileWriter();
+            }
+
+            if (currentRepository.RecordDeferred(completion.NormalizedEvent))
+            {
+                if (deferred)
+                {
+                    profileWriter.MarkDirty();
+                }
                 return true;
             }
         }
         catch (Exception exception)
         {
+            if (repository != null)
+            {
+                // A reducer may have completed before its immediate durable save
+                // failed. Retain a bounded deferred retry instead of losing that
+                // already-applied in-memory mutation.
+                profileWriter.MarkDirty();
+            }
             Debug.LogException(exception);
             WriteDiagnostic($"Failed to persist item use: {exception.GetType().Name}.", "Error");
         }
@@ -155,14 +192,29 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
         try
         {
-            if (repository?.Record(healing) == true)
+            var currentRepository = repository;
+            if (currentRepository == null)
             {
-                WriteDiagnostic(
-                    $"Attributed {healing.ActualHealthRestored:0.###} actual HP to {healing.DisplayName}.");
+                return;
+            }
+
+            var deferred = currentRepository.CanDeferItemPersistence(healing.RunId);
+            if (!deferred)
+            {
+                DrainProfileWriter();
+            }
+
+            if (currentRepository.RecordDeferred(healing) && deferred)
+            {
+                profileWriter.MarkDirty();
             }
         }
         catch (Exception exception)
         {
+            if (repository != null)
+            {
+                profileWriter.MarkDirty();
+            }
             Debug.LogException(exception);
             WriteDiagnostic($"Failed to persist attributed healing: {exception.GetType().Name}.", "Error");
         }
@@ -217,17 +269,22 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
+    public void SetActiveRunCheckpointBarrier(Func<bool> flusher)
+    {
+        activeRunCheckpointFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
+    }
+
     public bool HandleRunCheckpoint(ActiveRunCheckpoint checkpoint)
     {
         try
         {
-            if (repository == null)
+            var currentRepository = repository;
+            if (currentRepository == null)
             {
                 return false;
             }
 
-            repository.SaveActiveRun(checkpoint);
-            return true;
+            return checkpointWriter.TrySubmit(new CheckpointWrite(currentRepository, checkpoint));
         }
         catch (Exception exception)
         {
@@ -237,10 +294,19 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
     }
 
+    public DeferredWriteState PollRunCheckpoint() => ObserveCheckpointResult(checkpointWriter.Poll());
+
+    public DeferredWriteState FlushRunCheckpoint() => ObserveCheckpointResult(checkpointWriter.Flush());
+
+    public DeferredWriteState TickProfilePersistence(bool activeRunCheckpointCurrent = true) =>
+        ObserveProfileResult(profileWriter.Tick(activeRunCheckpointCurrent));
+
     public bool HandleRunCompleted(RunSummary summary)
     {
         try
         {
+            WaitRunCheckpoint();
+            DrainProfileWriter();
             return repository?.CompleteRun(summary) == true;
         }
         catch (Exception exception)
@@ -255,6 +321,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            WaitRunCheckpoint();
+            DrainProfileWriter();
             if (repository != null)
             {
                 repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
@@ -275,6 +343,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
             throw new InvalidOperationException("No profile is open for export.");
         }
 
+        WaitRunCheckpoint();
+        DrainProfileWriter();
         repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
         repository.Flush();
         var result = ProfileExportWriter.Write(repository.Current, repository.CurrentProfilePath, DateTime.UtcNow);
@@ -290,6 +360,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
 
         ProfileChanging?.Invoke();
+        WaitRunCheckpoint();
+        DrainProfileWriter();
         repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
         repository.Rotate(ReadIdentity(), "UserReset");
         OpenDiagnosticsForCurrentGeneration();
@@ -310,6 +382,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
         try
         {
+            WaitRunCheckpoint();
+            DrainProfileWriter();
             if (repository != null)
             {
                 repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
@@ -329,6 +403,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
         try
         {
             ProfileChanging?.Invoke();
+            WaitRunCheckpoint();
+            DrainProfileWriter();
             saveResetAwaitingNewGameReport = false;
             var observed = ReadIdentity();
             if (repository!.Current.Slot != observed.Slot)
@@ -356,6 +432,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
         try
         {
             ProfileChanging?.Invoke();
+            WaitRunCheckpoint();
+            DrainProfileWriter();
             repository!.Rotate(ReadIdentity(), "DuckovSaveDeleted");
             OpenDiagnosticsForCurrentGeneration();
             saveResetAwaitingNewGameReport = true;
@@ -375,6 +453,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         {
             if (repository != null)
             {
+                DrainProfileWriter();
                 repository.PrepareForNativeSave(ReadIdentity(repository.Current.Slot));
             }
         }
@@ -390,6 +469,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
         try
         {
             ProfileChanging?.Invoke();
+            WaitRunCheckpoint();
+            DrainProfileWriter();
             var identity = ReadIdentity();
             if (saveResetAwaitingNewGameReport)
             {
@@ -522,6 +603,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     private void UpdateCapabilities()
     {
+        DrainProfileWriter();
         repository?.SetCapabilities(new[]
         {
             new CapabilityRecord
@@ -542,6 +624,48 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities));
     }
 
+    private DeferredWriteState ObserveCheckpointResult(DeferredWriteResult result)
+    {
+        if (result.State != DeferredWriteState.Failed) return result.State;
+        var exception = result.Exception ?? new IOException("Deferred active-run checkpoint failed without an exception.");
+        Debug.LogException(exception);
+        WriteDiagnostic($"Failed to persist active-run checkpoint: {exception.GetType().Name}.", "Error");
+        return DeferredWriteState.Failed;
+    }
+
+    private DeferredWriteState ObserveProfileResult(DeferredWriteResult result)
+    {
+        if (result.State != DeferredWriteState.Failed) return result.State;
+        var exception = result.Exception ?? new IOException("Deferred profile persistence failed without an exception.");
+        Debug.LogException(exception);
+        WriteDiagnostic($"Failed to persist deferred profile snapshot: {exception.GetType().Name}.", "Error");
+        return DeferredWriteState.Failed;
+    }
+
+    private void WaitRunCheckpoint() => ObserveCheckpointResult(checkpointWriter.Wait());
+
+    private void DrainProfileWriter()
+    {
+        if (activeRunCheckpointFlusher != null && !activeRunCheckpointFlusher())
+        {
+            throw new IOException(
+                "Deferred profile persistence was not flushed because the active-run checkpoint barrier failed.");
+        }
+
+        var result = profileWriter.Flush();
+        if (result.State != DeferredWriteState.Failed) return;
+        ObserveProfileResult(result);
+        throw result.Exception ?? new IOException("Deferred profile persistence failed without an exception.");
+    }
+
+    private ProfileWrite CaptureProfileWrite()
+    {
+        var currentRepository = repository
+            ?? throw new InvalidOperationException("No profile repository is available for deferred persistence.");
+        NativeHotPathDiagnostics.CountProfileSnapshotCapture();
+        return new ProfileWrite(currentRepository, currentRepository.CapturePersistenceSnapshot());
+    }
+
     private static CapabilityRecord DisabledRunCapability(string adapterId, string version) => new()
     {
         AdapterId = adapterId,
@@ -557,6 +681,30 @@ internal sealed class NativeProfileCoordinator : IDisposable
         Version = source.Version,
         Detail = source.Detail
     };
+
+    private sealed class CheckpointWrite
+    {
+        public CheckpointWrite(ProfileRepository repository, ActiveRunCheckpoint checkpoint)
+        {
+            Repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            Checkpoint = checkpoint ?? throw new ArgumentNullException(nameof(checkpoint));
+        }
+
+        public ProfileRepository Repository { get; }
+        public ActiveRunCheckpoint Checkpoint { get; }
+    }
+
+    private sealed class ProfileWrite
+    {
+        public ProfileWrite(ProfileRepository repository, ProfilePersistenceSnapshot snapshot)
+        {
+            Repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        public ProfileRepository Repository { get; }
+        public ProfilePersistenceSnapshot Snapshot { get; }
+    }
 
     private void WriteDiagnostic(string message, string severity = "Info")
     {

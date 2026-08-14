@@ -5,7 +5,8 @@
     <IsTestProject>true</IsTestProject>
     <AssemblyVersion>2.4.1.0</AssemblyVersion>
     <!-- Linked production adapters target netstandard2.1, where the newer throw helpers are unavailable. -->
-    <NoWarn>$(NoWarn);CA1510;CA1513</NoWarn>
+    <NoWarn>$(NoWarn);CA1510;CA1512;CA1513</NoWarn>
+    <DefineConstants>$(DefineConstants);UDS_PERFORMANCE_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,6 +32,8 @@
              Link="ProductionAdapters\NativeCallbackLifetime.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEquipmentSnapshotBuilder.cs"
              Link="ProductionAdapters\NativeEquipmentSnapshotBuilder.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEquipmentAdapter.cs"
+             Link="ProductionAdapters\NativeEquipmentAdapter.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCombatEquipmentAssociationResolver.cs"
              Link="ProductionAdapters\NativeCombatEquipmentAssociationResolver.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeContainerAdapter.Publication.cs"
@@ -39,5 +42,15 @@
              Link="ProductionAdapters\ItemUsePublication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\UiText.cs"
              Link="ProductionUI\UiText.cs" />
+    <Compile Include="..\..\tools\FrameTimeAnalyzer\FrameTimeAnalysis.cs"
+             Link="Performance\FrameTimeAnalysis.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHotPathDiagnostics.cs"
+             Link="Performance\NativeHotPathDiagnostics.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\IncrementalPatchInspectionScheduler.cs"
+             Link="Performance\IncrementalPatchInspectionScheduler.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ReferenceScopeStack.cs"
+             Link="Performance\ReferenceScopeStack.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\DeferredCheckpointWriter.cs"
+             Link="Performance\DeferredCheckpointWriter.cs" />
   </ItemGroup>
 </Project>

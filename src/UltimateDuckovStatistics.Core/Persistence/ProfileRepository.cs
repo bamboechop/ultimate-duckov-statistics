@@ -24,6 +24,23 @@ public sealed class ProfileOpenResult
     public IReadOnlyList<string> LoadFailures { get; internal set; } = Array.Empty<string>();
 }
 
+public sealed class ProfilePersistenceSnapshot
+{
+    internal ProfilePersistenceSnapshot(string path, ProfileDocument document)
+    {
+        Path = path ?? throw new ArgumentNullException(nameof(path));
+        Document = document ?? throw new ArgumentNullException(nameof(document));
+    }
+
+    internal string Path { get; }
+
+    internal ProfileDocument Document { get; }
+
+    public string GenerationId => Document.GenerationId;
+
+    public long Revision => Document.Revision;
+}
+
 public sealed class ProfileRepository
 {
     private static readonly TimeSpan NativeSaveIntentWindow = TimeSpan.FromSeconds(30);
@@ -38,6 +55,7 @@ public sealed class ProfileRepository
     private ProfileDocument? current;
     private string? currentDirectory;
     private bool capabilitiesConfigured;
+    private bool deferredItemPersistenceEnabled;
 
     public ProfileRepository(
         string dataRoot,
@@ -148,35 +166,144 @@ public sealed class ProfileRepository
         ApplyConfiguredCapabilities();
         result.InterruptedRunRecovered |= RecoverInterruptedRun();
         result.InterruptedSessionRecovered |= RecoverInterruptedSession();
+        if (deferredItemPersistenceEnabled)
+        {
+            EnsureDeferredItemPersistenceEnabled();
+        }
         StartSession();
         return result;
     }
 
     public bool Record(ItemUseRecorded itemUse)
     {
-        var profile = Current;
-        if (!ItemUseReducer.Apply(profile.Statistics, itemUse))
-        {
-            return false;
-        }
+        return Record(itemUse, persistImmediately: true);
+    }
 
-        profile.Revision++;
-        profile.UpdatedUtc = EnsureUtc(utcNow());
-        SaveCurrent();
-        return true;
+    public bool RecordDeferred(ItemUseRecorded itemUse)
+    {
+        return Record(itemUse, persistImmediately: false);
     }
 
     public bool Record(HealingApplied healing)
     {
+        return Record(healing, persistImmediately: true);
+    }
+
+    public bool RecordDeferred(HealingApplied healing)
+    {
+        return Record(healing, persistImmediately: false);
+    }
+
+    public bool CanDeferItemPersistence(string? runId)
+    {
+        return CanDefer(Current, runId);
+    }
+
+    public void EnableDeferredItemPersistence()
+    {
+        if (deferredItemPersistenceEnabled)
+        {
+            return;
+        }
+
+        deferredItemPersistenceEnabled = true;
+        EnsureDeferredItemPersistenceEnabled();
+    }
+
+    private void EnsureDeferredItemPersistenceEnabled()
+    {
         var profile = Current;
-        if (!HealingReducer.Apply(profile.Statistics, healing))
+        if (profile.DeferredItemPersistence != null
+            && string.IsNullOrWhiteSpace(profile.DeferredItemPersistence.RunId))
+        {
+            return;
+        }
+
+        profile.DeferredItemPersistence = new DeferredItemPersistenceState();
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        SaveCurrent();
+    }
+
+    public ProfilePersistenceSnapshot CapturePersistenceSnapshot()
+    {
+        if (current == null || currentDirectory == null)
+        {
+            throw new InvalidOperationException("No current profile can be captured.");
+        }
+
+        EnsureSchemaCanBeSaved(current);
+        var document = CloneForDeferredPersistence(current);
+        document.SchemaVersion = ProductInfo.SchemaVersion;
+        document.Statistics.SchemaVersion = ProductInfo.SchemaVersion;
+        document.Statistics.SaveGenerationId = document.GenerationId;
+        return new ProfilePersistenceSnapshot(GetProfilePath(currentDirectory), document);
+    }
+
+    public void SaveSnapshot(ProfilePersistenceSnapshot snapshot)
+    {
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        EnsureSchemaCanBeSaved(snapshot.Document);
+        var validationFailure = ProfileMigrator.ValidateRecoveryCandidate(snapshot.Document);
+        if (!string.IsNullOrWhiteSpace(validationFailure))
+        {
+            throw new InvalidOperationException(
+                $"Deferred profile snapshot failed semantic validation: {validationFailure}");
+        }
+        profileStore.Save(snapshot.Path, snapshot.Document);
+    }
+
+    private bool Record(ItemUseRecorded itemUse, bool persistImmediately)
+    {
+        var profile = Current;
+        var defer = !persistImmediately && CanDefer(profile, itemUse.RunId);
+        var deferredChanged = defer ? RecordDeferredWatermark(profile, itemUse) : (bool?)null;
+        var changed = ItemUseReducer.Apply(profile.Statistics, itemUse);
+        if (deferredChanged.HasValue && deferredChanged.Value != changed)
+        {
+            throw new InvalidOperationException("Deferred item-use watermark diverged from lifetime statistics.");
+        }
+        if (!changed)
         {
             return false;
         }
 
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
-        SaveCurrent();
+        if (!defer)
+        {
+            SaveCurrent();
+        }
+
+        return true;
+    }
+
+    private bool Record(HealingApplied healing, bool persistImmediately)
+    {
+        var profile = Current;
+        var defer = !persistImmediately && CanDefer(profile, healing.RunId);
+        var deferredChanged = defer ? RecordDeferredWatermark(profile, healing) : (bool?)null;
+        var changed = HealingReducer.Apply(profile.Statistics, healing);
+        if (deferredChanged.HasValue && deferredChanged.Value != changed)
+        {
+            throw new InvalidOperationException("Deferred healing watermark diverged from lifetime statistics.");
+        }
+        if (!changed)
+        {
+            return false;
+        }
+
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        if (!defer)
+        {
+            SaveCurrent();
+        }
+
         return true;
     }
 
@@ -262,7 +389,8 @@ public sealed class ProfileRepository
     {
         var profile = Current;
         var applied = RunReducer.Apply(profile.Statistics, summary);
-        if (applied)
+        var clearedDeferredWatermark = ClearDeferredWatermark(profile, summary.RunId);
+        if (applied || clearedDeferredWatermark)
         {
             profile.Revision++;
             profile.UpdatedUtc = EnsureUtc(summary.EndedUtc);
@@ -439,7 +567,10 @@ public sealed class ProfileRepository
             },
             Capabilities = capabilitiesConfigured
                 ? configuredCapabilities.Select(CloneCapability).ToList()
-                : new List<CapabilityRecord>()
+                : new List<CapabilityRecord>(),
+            DeferredItemPersistence = deferredItemPersistenceEnabled
+                ? new DeferredItemPersistenceState()
+                : null
         };
     }
 
@@ -522,9 +653,11 @@ public sealed class ProfileRepository
         }
 
         var summary = checkpoint.ToInterruptedSummary();
+        var recoveredLifetimeItems = RecoverDeferredLifetimeItems(checkpoint);
         var applied = RunReducer.Apply(Current.Statistics, summary);
+        var clearedDeferredWatermark = ClearDeferredWatermark(Current, summary.RunId);
 
-        if (applied)
+        if (applied || recoveredLifetimeItems || clearedDeferredWatermark)
         {
             Current.Revision++;
             Current.UpdatedUtc = summary.EndedUtc;
@@ -699,6 +832,16 @@ public sealed class ProfileRepository
         checkpoint.ItemStatistics ??= new ItemStatisticsAggregate();
         checkpoint.MovementBaseline ??= new MovementBaselineState();
         RouteStatisticsReducer.ValidateCapabilities(checkpoint.RouteCapabilities);
+        if (requireCurrentSchemaRoots)
+        {
+            ItemStatisticsAggregateReducer.Validate(checkpoint.ItemStatistics);
+            if (!ItemStatisticsAggregateReducer.IsCompositionConsistent(checkpoint.ItemStatistics))
+            {
+                throw new ArgumentException(
+                    "Current-schema run item statistics are compositionally inconsistent.",
+                    nameof(checkpoint));
+            }
+        }
         if (checkpoint.Segments.Count > RouteStatisticsReducer.MaximumSegmentsPerRun
             || checkpoint.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumEventAssociationsPerRun)
             throw new ArgumentException("Current-schema route state exceeds its defensive bound.", nameof(checkpoint));
@@ -813,6 +956,217 @@ public sealed class ProfileRepository
         current.Statistics.SaveGenerationId = current.GenerationId;
         profileStore.Save(GetProfilePath(currentDirectory), current);
     }
+
+    private static ProfileDocument CloneForDeferredPersistence(ProfileDocument source)
+    {
+        var statistics = source.Statistics;
+        return new ProfileDocument
+        {
+            SchemaVersion = source.SchemaVersion,
+            GenerationId = source.GenerationId,
+            Slot = source.Slot,
+            GenerationReason = source.GenerationReason,
+            CreatedUtc = source.CreatedUtc,
+            UpdatedUtc = source.UpdatedUtc,
+            Revision = source.Revision,
+            InterruptedSessionCount = source.InterruptedSessionCount,
+            Identity = CloneIdentity(source.Identity),
+            Statistics = new ProfileStatistics
+            {
+                SchemaVersion = statistics.SchemaVersion,
+                SaveGenerationId = statistics.SaveGenerationId,
+                CreatedUtc = statistics.CreatedUtc,
+                UpdatedUtc = statistics.UpdatedUtc,
+                Overall = CloneTotals(statistics.Overall),
+                Items = statistics.Items.ToDictionary(
+                    entry => entry.Key,
+                    entry => new ItemAggregate
+                    {
+                        ItemId = entry.Value.ItemId,
+                        DisplayName = entry.Value.DisplayName,
+                        Group = entry.Value.Group,
+                        EffectTags = new List<ItemEffectTag>(entry.Value.EffectTags),
+                        Totals = CloneTotals(entry.Value.Totals)
+                    },
+                    StringComparer.Ordinal),
+                Groups = statistics.Groups.ToDictionary(
+                    entry => entry.Key,
+                    entry => CloneTotals(entry.Value),
+                    StringComparer.Ordinal),
+                RecentEventIds = new List<string>(statistics.RecentEventIds),
+                // Completed summaries and their aggregates are immutable during an active run.
+                // Lifecycle boundaries drain the deferred writer before they can append or merge.
+                Runs = new List<RunSummary>(statistics.Runs),
+                RunTotals = statistics.RunTotals,
+                RunRecords = statistics.RunRecords
+            },
+            Capabilities = source.Capabilities.Select(CloneCapability).ToList(),
+            PendingSave = source.PendingSave == null
+                ? null
+                : new PendingSaveObservation
+                {
+                    ContentSha256BeforeSave = source.PendingSave.ContentSha256BeforeSave,
+                    SaveTimeBinaryBeforeSave = source.PendingSave.SaveTimeBinaryBeforeSave,
+                    CollectedUtc = source.PendingSave.CollectedUtc
+                },
+            DeferredItemPersistence = source.DeferredItemPersistence == null
+                ? null
+                : new DeferredItemPersistenceState
+                {
+                    RunId = source.DeferredItemPersistence.RunId,
+                    AppliedLifetimeStatistics = ItemStatisticsAggregateReducer.Clone(
+                        source.DeferredItemPersistence.AppliedLifetimeStatistics)
+                }
+        };
+    }
+
+    private static bool RecordDeferredWatermark(ProfileDocument profile, ItemUseRecorded itemUse)
+    {
+        var state = GetDeferredWatermark(profile, itemUse.RunId);
+        return ItemStatisticsAggregateReducer.Record(
+            state.AppliedLifetimeStatistics,
+            profile.GenerationId,
+            itemUse);
+    }
+
+    private static bool CanDefer(ProfileDocument profile, string? runId)
+    {
+        if (profile.DeferredItemPersistence == null)
+        {
+            throw new InvalidOperationException("Deferred item persistence must be enabled before recording events.");
+        }
+
+        if (string.IsNullOrWhiteSpace(runId))
+        {
+            return false;
+        }
+
+        if (string.Equals(profile.DeferredItemPersistence.RunId, runId, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return !profile.Statistics.Runs.Any(run => string.Equals(run.RunId, runId, StringComparison.Ordinal));
+    }
+
+    private static bool RecordDeferredWatermark(ProfileDocument profile, HealingApplied healing)
+    {
+        var state = GetDeferredWatermark(profile, healing.RunId);
+        return ItemStatisticsAggregateReducer.Record(
+            state.AppliedLifetimeStatistics,
+            profile.GenerationId,
+            healing);
+    }
+
+    private static DeferredItemPersistenceState GetDeferredWatermark(ProfileDocument profile, string? runId)
+    {
+        if (profile.DeferredItemPersistence == null)
+        {
+            throw new InvalidOperationException("Deferred item persistence must be enabled before recording events.");
+        }
+        if (string.IsNullOrWhiteSpace(runId))
+        {
+            throw new InvalidOperationException("An active run identity is required for deferred item persistence.");
+        }
+
+        var state = profile.DeferredItemPersistence;
+        if (string.IsNullOrWhiteSpace(state.RunId))
+        {
+            state.RunId = runId;
+            state.AppliedLifetimeStatistics = new ItemStatisticsAggregate();
+        }
+        else if (!string.Equals(state.RunId, runId, StringComparison.Ordinal))
+        {
+            if (!profile.Statistics.Runs.Any(run => string.Equals(run.RunId, state.RunId, StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException("Deferred item persistence cannot span two active runs.");
+            }
+
+            state.RunId = runId;
+            state.AppliedLifetimeStatistics = new ItemStatisticsAggregate();
+        }
+
+        return state;
+    }
+
+    private bool RecoverDeferredLifetimeItems(ActiveRunCheckpoint checkpoint)
+    {
+        var state = Current.DeferredItemPersistence;
+        if (state == null)
+        {
+            // Profiles written by builds with immediate item persistence have no
+            // watermark and must retain their historical recovery behavior.
+            return false;
+        }
+
+        ItemStatisticsAggregate baseline;
+        if (string.IsNullOrWhiteSpace(state.RunId))
+        {
+            baseline = new ItemStatisticsAggregate();
+        }
+        else if (string.Equals(state.RunId, checkpoint.RunId, StringComparison.Ordinal))
+        {
+            baseline = state.AppliedLifetimeStatistics;
+        }
+        else
+        {
+            diagnostic(
+                $"Deferred lifetime watermark for run {state.RunId} did not match active checkpoint {checkpoint.RunId}; "
+                + "lifetime recovery was left unchanged to avoid double counting.");
+            return false;
+        }
+
+        if (!ItemStatisticsAggregateReducer.TrySubtract(checkpoint.ItemStatistics, baseline, out var difference))
+        {
+            diagnostic(
+                $"Deferred lifetime watermark for run {checkpoint.RunId} was not a subset of the active checkpoint; "
+                + "lifetime recovery was left unchanged to avoid double counting.");
+            return false;
+        }
+
+        if (difference.Overall.ActivationCount == 0
+            && difference.Overall.ActualHealthRestored <= 0
+            && difference.Overall.AmountsByUnit.Values.All(amount => amount <= 0))
+        {
+            return false;
+        }
+
+        ItemStatisticsAggregateReducer.ApplyRecoveryDelta(Current.Statistics, difference);
+        diagnostic($"Recovered deferred lifetime item statistics from active run {checkpoint.RunId}.");
+        return true;
+    }
+
+    private static bool ClearDeferredWatermark(ProfileDocument profile, string runId)
+    {
+        var state = profile.DeferredItemPersistence;
+        if (state == null || !string.Equals(state.RunId, runId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        state.RunId = null;
+        state.AppliedLifetimeStatistics = new ItemStatisticsAggregate();
+        return true;
+    }
+
+    private static SaveIdentitySnapshot CloneIdentity(SaveIdentitySnapshot source) => new()
+    {
+        Slot = source.Slot,
+        SaveFilePresent = source.SaveFilePresent,
+        SaveFileCreationUtcTicks = source.SaveFileCreationUtcTicks,
+        ObservedWriteUtcTicks = source.ObservedWriteUtcTicks,
+        ObservedLength = source.ObservedLength,
+        GameVersion = source.GameVersion,
+        ContentSha256 = source.ContentSha256,
+        SaveTimeBinary = source.SaveTimeBinary
+    };
+
+    private static AggregateTotals CloneTotals(AggregateTotals source) => new()
+    {
+        ActivationCount = source.ActivationCount,
+        AmountsByUnit = new Dictionary<string, double>(source.AmountsByUnit, StringComparer.Ordinal),
+        ActualHealthRestored = source.ActualHealthRestored
+    };
 
     private void ArchiveCurrentDirectory(string slotDirectory, string reason, string? generationId = null)
     {

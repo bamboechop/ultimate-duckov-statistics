@@ -1,5 +1,7 @@
+using System.Text.Json;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Export;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
@@ -150,11 +152,138 @@ public sealed class ActiveRunPersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "Performance")]
+    public void DeferredLifetimeRecoveryAppliesTheCheckpointDeltaAfterAnEmptyPersistedWatermark()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        repository.EnableDeferredItemPersistence();
+        var tracker = ActiveTracker(repository.CurrentGenerationId);
+        var (itemUse, healing) = ConsumableEvents(tracker, repository.CurrentGenerationId, 1, 12.5);
+
+        Assert.True(repository.RecordDeferred(itemUse));
+        Assert.True(repository.RecordDeferred(healing));
+        Assert.True(tracker.RecordItemUse(itemUse));
+        Assert.True(tracker.RecordHealing(healing));
+        repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(5), 5)!);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.Equal(1, recovery.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(12.5, recovery.Current.Statistics.Overall.ActualHealthRestored, precision: 6);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(12.5, recovery.Current.Statistics.RunTotals.ItemStatistics.Overall.ActualHealthRestored, precision: 6);
+        Assert.Null(recovery.Current.DeferredItemPersistence!.RunId);
+        recovery.CloseClean();
+
+        var repeated = Repository(directory.Path);
+        Assert.False(repeated.Open(Identity()).InterruptedRunRecovered);
+        Assert.Equal(1, repeated.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(12.5, repeated.Current.Statistics.Overall.ActualHealthRestored, precision: 6);
+        repeated.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Performance")]
+    public void DeferredLifetimeRecoveryAddsOnlyEventsNewerThanThePersistedWatermark()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        repository.EnableDeferredItemPersistence();
+        var tracker = ActiveTracker(repository.CurrentGenerationId);
+        var (firstUse, firstHealing) = ConsumableEvents(tracker, repository.CurrentGenerationId, 1, 10);
+        Assert.True(repository.RecordDeferred(firstUse));
+        Assert.True(repository.RecordDeferred(firstHealing));
+        Assert.True(tracker.RecordItemUse(firstUse));
+        Assert.True(tracker.RecordHealing(firstHealing));
+        repository.SaveSnapshot(repository.CapturePersistenceSnapshot());
+
+        var (secondUse, secondHealing) = ConsumableEvents(tracker, repository.CurrentGenerationId, 2, 15);
+        Assert.True(repository.RecordDeferred(secondUse));
+        Assert.True(repository.RecordDeferred(secondHealing));
+        Assert.True(tracker.RecordItemUse(secondUse));
+        Assert.True(tracker.RecordHealing(secondHealing));
+        repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(8), 8)!);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.Equal(2, recovery.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(25, recovery.Current.Statistics.Overall.ActualHealthRestored, precision: 6);
+        var item = Assert.Single(recovery.Current.Statistics.Items).Value;
+        Assert.Equal(CanonicalItemGroup.Healing, item.Group);
+        Assert.Equal(2, item.Totals.ActivationCount);
+        Assert.Equal(25, item.Totals.ActualHealthRestored, precision: 6);
+        Assert.Null(recovery.Current.DeferredItemPersistence!.RunId);
+
+        var export = StatisticsExporter.Create(recovery.Current, TestTime.AddSeconds(9));
+        using (var json = JsonDocument.Parse(export.Json))
+        {
+            var overall = json.RootElement.GetProperty("Overall");
+            Assert.Equal(2, overall.GetProperty("ActivationCount").GetInt64());
+            Assert.Equal(25, overall.GetProperty("ActualHealthRestored").GetDouble(), precision: 6);
+        }
+        AssertItemTotals(SingleCsvRow(export.OverviewCsv), "activation_count", "actual_hp_restored");
+        AssertItemTotals(SingleCsvRow(export.GroupsCsv), "activation_count", "actual_hp_restored");
+        AssertItemTotals(SingleCsvRow(export.ItemsCsv), "activation_count", "actual_hp_restored");
+        AssertItemTotals(SingleCsvRow(export.MapTotalsCsv), "item_activations", "actual_health_restored");
+        AssertItemTotals(SingleCsvRow(export.RouteMapTotalsCsv), "item_activations", "actual_health_restored");
+        AssertItemTotals(SingleCsvRow(export.SegmentsCsv), "item_activations", "actual_health_restored");
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Performance")]
+    public void ImmediatePersistenceProfileWithoutWatermarkKeepsLegacyRecoverySemantics()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var tracker = ActiveTracker(repository.CurrentGenerationId);
+        var (itemUse, healing) = ConsumableEvents(tracker, repository.CurrentGenerationId, 1, 9);
+        Assert.True(repository.Record(itemUse));
+        Assert.True(repository.Record(healing));
+        Assert.True(tracker.RecordItemUse(itemUse));
+        Assert.True(tracker.RecordHealing(healing));
+        repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(5), 5)!);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.Equal(1, recovery.Current.Statistics.Overall.ActivationCount);
+        Assert.Equal(9, recovery.Current.Statistics.Overall.ActualHealthRestored, precision: 6);
+        Assert.Null(recovery.Current.DeferredItemPersistence);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     [Trait("Category", "M8")]
     public void CurrentSchemaInvalidNestedSegmentAggregateLosesToValidBackup()
     {
         AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
             checkpoint.Segments[0].ItemStatistics.Overall.ActivationCount = -1);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaInvalidTopLevelItemAggregateLosesToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+            checkpoint.ItemStatistics.Overall.ActivationCount = -1);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M8")]
+    public void CurrentSchemaInconsistentTopLevelItemGroupsLoseToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+            checkpoint.ItemStatistics.Groups[nameof(CanonicalItemGroup.Healing)] =
+                new AggregateTotals { ActivationCount = 1 });
     }
 
     [Fact]
@@ -1073,6 +1202,80 @@ public sealed class ActiveRunPersistenceTests
         return tracker.CreateCheckpoint(TestTime.AddSeconds(activeSeconds), activeSeconds)!;
     }
 
+    private static RunLifecycleTracker ActiveTracker(string generation)
+    {
+        var tracker = new RunLifecycleTracker(() => "run-deferred-items");
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.RaidInitialized,
+            TimestampUtc = TestTime,
+            MonotonicSeconds = 0,
+            NativeRaidId = "42"
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.ControlReady,
+            TimestampUtc = TestTime,
+            MonotonicSeconds = 0,
+            StartContext = new RunStartContext
+            {
+                SaveGenerationId = generation,
+                NativeRaidId = "42",
+                Map = new MapIdentity { MapId = "duckov:map:A", DisplayName = "A", IsKnown = true },
+                LifecycleCapability = AdapterCapabilityState.Supported,
+                MovementCapability = AdapterCapabilityState.Supported,
+                MapCapability = AdapterCapabilityState.Supported,
+                RouteCapabilities = RouteStatisticsReducer.Supported("test")
+            }
+        });
+        return tracker;
+    }
+
+    private static (ItemUseRecorded ItemUse, HealingApplied Healing) ConsumableEvents(
+        RunLifecycleTracker tracker,
+        string generation,
+        int sequence,
+        double healingAmount)
+    {
+        var itemEventId = $"item-{sequence}";
+        var itemUse = new ItemUseRecorded
+        {
+            EventId = itemEventId,
+            TimestampUtc = TestTime.AddSeconds(sequence),
+            SaveGenerationId = generation,
+            RunId = tracker.ActiveRunId,
+            MapId = tracker.ActiveMapId,
+            SegmentId = tracker.ActiveSegmentId,
+            GameplayContext = GameplayContext.Raid,
+            ItemId = "duckov:item:medkit",
+            DisplayName = "Med Kit",
+            Group = CanonicalItemGroup.OtherUnknown,
+            ActivationCount = 1,
+            AmountConsumed = 1,
+            ConsumptionUnit = ConsumptionUnit.Item
+        };
+        var healing = new HealingApplied
+        {
+            EventId = $"healing-{sequence}",
+            ApplicationId = $"application-{sequence}",
+            SourceItemUseEventId = itemEventId,
+            TimestampUtc = TestTime.AddSeconds(sequence).AddMilliseconds(1),
+            SaveGenerationId = generation,
+            RunId = tracker.ActiveRunId,
+            MapId = tracker.ActiveMapId,
+            SourceMapId = tracker.ActiveMapId,
+            OutcomeMapId = tracker.ActiveMapId,
+            SourceSegmentId = tracker.ActiveSegmentId,
+            OutcomeSegmentId = tracker.ActiveSegmentId,
+            GameplayContext = GameplayContext.Raid,
+            ItemId = "duckov:item:medkit",
+            DisplayName = "Med Kit",
+            Group = CanonicalItemGroup.Healing,
+            ActualHealthRestored = healingAmount
+        };
+        return (itemUse, healing);
+    }
+
     private static ActiveRunCheckpoint Checkpoint(string generation, double activeSeconds) => new()
     {
         RunId = "run-checkpoint",
@@ -1288,4 +1491,26 @@ public sealed class ActiveRunPersistenceTests
         "slot-01",
         "current",
         "active-run.json");
+
+    private static Dictionary<string, string> SingleCsvRow(string csv)
+    {
+        var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.TrimEnd('\r'))
+            .ToArray();
+        Assert.Equal(2, lines.Length);
+        var headers = lines[0].Split(',');
+        var values = lines[1].Split(',');
+        Assert.Equal(headers.Length, values.Length);
+        return headers.Select((header, index) => new KeyValuePair<string, string>(header, values[index]))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+    }
+
+    private static void AssertItemTotals(
+        Dictionary<string, string> row,
+        string activationColumn,
+        string healingColumn)
+    {
+        Assert.Equal("2", row[activationColumn]);
+        Assert.Equal("25", row[healingColumn]);
+    }
 }

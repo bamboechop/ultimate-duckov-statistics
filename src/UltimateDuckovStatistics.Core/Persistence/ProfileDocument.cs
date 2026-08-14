@@ -99,6 +99,19 @@ public sealed class ProfileDocument
 
     [DataMember(Order = 12, EmitDefaultValue = false)]
     public PendingSaveObservation? PendingSave { get; set; }
+
+    [DataMember(Order = 13, EmitDefaultValue = false)]
+    public DeferredItemPersistenceState? DeferredItemPersistence { get; set; }
+}
+
+[DataContract]
+public sealed class DeferredItemPersistenceState
+{
+    [DataMember(Order = 1, EmitDefaultValue = false)]
+    public string? RunId { get; set; }
+
+    [DataMember(Order = 2)]
+    public ItemStatisticsAggregate AppliedLifetimeStatistics { get; set; } = new();
 }
 
 [DataContract]

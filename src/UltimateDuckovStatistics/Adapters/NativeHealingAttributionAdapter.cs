@@ -13,7 +13,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObserver, IDisposable
 {
     internal const string AdapterId = "native-healing-attribution";
-    internal const string AdapterVersion = "native-healing-attribution/2.3.30+harmony-2.4.1";
+    internal const string AdapterVersion = "native-healing-attribution/2.3.30+harmony-2.4.1+patch-stamp-v1";
     private readonly Action<HealingApplied> healingHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly Func<EventAttributionContext?> eventContextProvider;
@@ -25,7 +25,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     private bool lifecycleSubscribed;
     private bool retryWhenHarmonyLoads;
     private DateTime nextInitializationAttemptUtc;
-    private DateTime nextConflictCheckUtc;
+    private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
     private bool patchCleanupPending;
     private DateTime nextPatchCleanupAttemptUtc;
     private string? lastPatchCleanupFailure;
@@ -122,23 +122,26 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             patchRegistrations = registrations;
             foreach (var registration in patchRegistrations)
             {
-                if (!patcher.IsPatchSetTrusted(
+                if (!patcher.TryCaptureValidatedPatchSetStamp(
                         registration.Original,
                         registration.ExpectedOwnedPatches,
-                        out var patchSetDetail))
+                        out var stamp,
+                        out var detail)
+                    || stamp == null)
                 {
                     throw new InvalidOperationException(
-                        $"Installed Harmony patch set validation failed for "
+                        $"Installed Harmony patch set/stamp validation failed for "
                         + $"{registration.Original.DeclaringType?.Name}.{registration.Original.Name}: "
-                        + patchSetDetail);
+                        + detail);
                 }
+                registration.Stamp = stamp;
             }
 
             RaidUtilities.OnNewRaid += OnRaidTransition;
             RaidUtilities.OnRaidEnd += OnRaidTransition;
             lifecycleSubscribed = true;
             retryWhenHarmonyLoads = false;
-            nextConflictCheckUtc = DateTime.UtcNow.AddSeconds(1);
+            patchInspectionScheduler.Reset(DateTime.UtcNow, patchRegistrations.Length);
             SetCapability(new CapabilityRecord
             {
                 AdapterId = AdapterId,
@@ -184,19 +187,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             return;
         }
 
-        if (nowUtc >= nextConflictCheckUtc)
-        {
-            nextConflictCheckUtc = nowUtc.AddSeconds(2);
-            foreach (var registration in patchRegistrations)
-            {
-                if (!IsRegistrationTrusted(registration, out var patchSetDetail))
-                {
-                    SchedulePatchSetConflict(registration.Original, patchSetDetail);
-                    CompletePatchCleanup();
-                    return;
-                }
-            }
-        }
+        if (!InspectNextPatchStamp(nowUtc)) return;
 
         CharacterBuffManager? manager = null;
         try
@@ -323,21 +314,17 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             return false;
         }
 
-        var registration = patchRegistrations.FirstOrDefault(candidate => candidate.Point == patchPoint);
-        if (registration == null)
+        foreach (var registration in patchRegistrations)
         {
-            SchedulePatchSetConflict(
-                method: null,
-                $"Required internal patch registration is missing for {patchPoint}.");
+            if (registration.Point != patchPoint) continue;
+            if (IsRegistrationStampCurrent(registration, out var detail)) return true;
+            SchedulePatchSetConflict(registration.Original, detail);
             return false;
         }
 
-        if (IsRegistrationTrusted(registration, out var patchSetDetail))
-        {
-            return true;
-        }
-
-        SchedulePatchSetConflict(registration.Original, patchSetDetail);
+        SchedulePatchSetConflict(
+            method: null,
+            $"Required internal patch registration is missing for {patchPoint}.");
         return false;
     }
 
@@ -383,21 +370,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 return;
             }
 
-            var runtimeBuffId = applied.GetInstanceID();
-            var changed = tracker.ReconcileBuff(runtimeBuffId, correlationId);
-            if (!changed)
-            {
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(correlationId))
-            {
-                diagnosticHandler($"Cleared healing provenance for unowned refresh of buff {applied.ID}.");
-            }
-            else
-            {
-                diagnosticHandler($"Bound healing buff {applied.ID} to a proven item-use context candidate.");
-            }
+            tracker.ReconcileBuff(applied.GetInstanceID(), correlationId);
         }
         catch (Exception exception)
         {
@@ -506,7 +479,25 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             ])
     ];
 
-    private bool IsRegistrationTrusted(PatchRegistration registration, out string detail)
+    private bool InspectNextPatchStamp(DateTime nowUtc)
+    {
+        if (!patchInspectionScheduler.TryTake(nowUtc, patchRegistrations.Length, out var registrationIndex))
+        {
+            return true;
+        }
+
+        var registration = patchRegistrations[registrationIndex];
+        if (IsRegistrationStampCurrent(registration, out var detail))
+        {
+            return true;
+        }
+
+        SchedulePatchSetConflict(registration.Original, detail);
+        CompletePatchCleanup();
+        return false;
+    }
+
+    private bool IsRegistrationStampCurrent(PatchRegistration registration, out string detail)
     {
         var patcher = patcherLease.Value;
         if (patcher == null)
@@ -515,10 +506,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             return false;
         }
 
-        return patcher.IsPatchSetTrusted(
-            registration.Original,
-            registration.ExpectedOwnedPatches,
-            out detail);
+        return patcher.IsPatchSetStampCurrent(registration.Stamp, out detail);
     }
 
     private void SchedulePatchSetConflict(MethodInfo? method, string detail)
@@ -637,5 +625,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         public MethodInfo Original { get; }
 
         public HarmonyPatchExpectation[] ExpectedOwnedPatches { get; }
+
+        public HarmonyPatchSetStamp? Stamp { get; set; }
     }
 }
