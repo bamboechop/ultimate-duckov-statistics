@@ -125,7 +125,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 snapshot => runLifecycleAdapter.OwnedValue?.ObserveEquipment(snapshot) == true,
                 () => runLifecycleAdapter.OwnedValue?.InvalidateEquipmentObservation() == true,
                 profileCoordinator.SetEquipmentCapabilities,
-                message => Debug.Log($"{LogPrefix} {message}"));
+                message => Debug.Log($"{LogPrefix} {message}"),
+                observationContextProvider: () => newRunLifecycleAdapter.CurrentSegmentId);
             equipmentAdapter.Assign(newEquipmentAdapter);
             newEquipmentAdapter.Initialize();
             newRunLifecycleAdapter.SetDestinationReadyObserver(() => newEquipmentAdapter.CaptureAssociation());

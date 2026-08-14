@@ -77,5 +77,44 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
         Assert.NotEqual(initial.LoadoutId, adapter.CaptureAssociation().LoadoutId);
     }
 
+    [Fact]
+    public void UnchangedLoadoutIsRepublishedWhenTheRunSegmentContextChanges()
+    {
+        var now = 0d;
+        var observationContext = "run-one\nsegment-one";
+        var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        var weapon = new Item { TypeID = 700, DisplayName = "Weapon" };
+        characterItem.Slots.Add(new Slot { Key = "PrimaryWeapon", DisplayName = "Primary", Content = weapon });
+        CharacterMainControl.Main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = characterItem,
+            CurrentHoldItemAgent = new DuckovItemAgent { Item = weapon }
+        };
+        var published = new List<EquipmentSnapshot>();
+        using var adapter = new NativeEquipmentAdapter(
+            () => true,
+            snapshot =>
+            {
+                published.Add(snapshot);
+                return true;
+            },
+            () => true,
+            _ => { },
+            _ => { },
+            () => now,
+            () => observationContext);
+
+        adapter.Initialize();
+        Assert.Single(published);
+
+        observationContext = "run-one\nsegment-two";
+        var association = adapter.CaptureAssociation();
+
+        Assert.Equal(2, published.Count);
+        Assert.Equal(published[0].SnapshotId, published[1].SnapshotId);
+        Assert.Equal(published[1].LoadoutId, association.LoadoutId);
+    }
+
     public void Dispose() => CharacterMainControl.ResetNativeState();
 }

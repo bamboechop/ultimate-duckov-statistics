@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v4";
+    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v5+segment-cache";
     private const string SupportedGameVersion = "2.3.30";
     internal const double ReconciliationIntervalSeconds = 1;
     private readonly Func<bool> runActiveProvider;
@@ -20,11 +20,13 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly Func<double> monotonicSecondsProvider;
+    private readonly Func<string?> observationContextProvider;
     private readonly MonotonicCadenceGate cadence = new(ReconciliationIntervalSeconds);
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private CharacterMainControl? observedMain;
     private Item? observedCharacterItem;
     private EquipmentSnapshot? latestSnapshot;
+    private string? latestObservationContextId;
     private EquipmentMetricCapabilities metricCapabilities =
         EquipmentNativeContractPolicy.CreateUnavailableCapabilities("Equipment tracking has not been initialized.");
 
@@ -34,7 +36,8 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         Func<bool> invalidationHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
         Action<string> diagnosticHandler,
-        Func<double>? monotonicSecondsProvider = null)
+        Func<double>? monotonicSecondsProvider = null,
+        Func<string?>? observationContextProvider = null)
     {
         this.runActiveProvider = runActiveProvider ?? throw new ArgumentNullException(nameof(runActiveProvider));
         this.snapshotHandler = snapshotHandler ?? throw new ArgumentNullException(nameof(snapshotHandler));
@@ -50,6 +53,8 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         {
             this.monotonicSecondsProvider = monotonicSecondsProvider;
         }
+        this.observationContextProvider = observationContextProvider
+            ?? (() => runActiveProvider() ? "active" : null);
     }
 
     public EquipmentMetricCapabilities MetricCapabilities => EquipmentStatisticsReducer.CloneCapabilities(metricCapabilities);
@@ -110,7 +115,12 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         if (!callbackLifetime.CanHandleCallbacks || !runActiveProvider()) return new EquipmentEventAssociation();
         NativeHotPathDiagnostics.CountEquipmentAssociationRequest();
         SynchronizeMain();
-        if (latestSnapshot == null) ObserveNow();
+        var observationContextId = observationContextProvider();
+        if (latestSnapshot == null
+            || !string.Equals(latestObservationContextId, observationContextId, StringComparison.Ordinal))
+        {
+            ObserveNow();
+        }
         var snapshot = latestSnapshot;
         return snapshot == null ? new EquipmentEventAssociation() : new EquipmentEventAssociation
         {
@@ -127,6 +137,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         var cleaned = callbackLifetime.TryCleanup(() => true, out var failure);
         if (failure != null) diagnosticHandler($"Equipment cleanup remains retryable: {failure.GetType().Name}: {failure.Message}");
         latestSnapshot = null;
+        latestObservationContextId = null;
         observedMain = null;
         return cleaned;
     }
@@ -144,6 +155,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         observedCharacterItem = characterItem;
         if (observedCharacterItem != null) observedCharacterItem.onItemTreeChanged += OnItemTreeChanged;
         latestSnapshot = null;
+        latestObservationContextId = null;
     }
 
     private void UnsubscribeCharacterTree()
@@ -159,15 +171,29 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         if (!callbackLifetime.CanHandleCallbacks) return;
         SynchronizeMain();
         if (!runActiveProvider())
-        { latestSnapshot = null; return; }
+        {
+            latestSnapshot = null;
+            latestObservationContextId = null;
+            return;
+        }
         if (observedMain == null || observedCharacterItem == null || !observedMain.IsMainCharacter)
         { InvalidateObservation(); return; }
         try
         {
+            var observationContextId = observationContextProvider();
+            if (string.IsNullOrWhiteSpace(observationContextId))
+            {
+                InvalidateObservation();
+                return;
+            }
             NativeHotPathDiagnostics.CountEquipmentSnapshotBuild();
             var snapshot = NativeEquipmentSnapshotBuilder.Build(observedMain, observedCharacterItem);
-            var unchanged = string.Equals(latestSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal);
+            // The same immutable loadout still has to be published once for every
+            // run segment so its duration and event associations have a local root.
+            var unchanged = string.Equals(latestObservationContextId, observationContextId, StringComparison.Ordinal)
+                            && string.Equals(latestSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal);
             latestSnapshot = snapshot;
+            latestObservationContextId = observationContextId;
             if (unchanged)
             {
                 NativeHotPathDiagnostics.CountEquipmentUnchangedPublication();
@@ -186,6 +212,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     private void InvalidateObservation()
     {
         latestSnapshot = null;
+        latestObservationContextId = null;
         invalidationHandler();
     }
 
