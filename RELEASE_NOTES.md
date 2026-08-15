@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics v0.9.0 — Economy candidate
 
-M9 adds exact, separately capability-gated Money and physical-Cash statistics without changing the accepted M1-M8.1 semantics. This remains an unpublished candidate. The earlier 2,048-event economy-identity implementation and all package/deployment claims tied to it are superseded; the scalable-idempotency correction must pass the complete delivery pipeline, fresh approved deployment, and a minimal cold persistence check before the final artifact and draft PR are frozen.
+M9 adds exact, separately capability-gated Money and physical-Cash statistics without changing the accepted M1-M8.1 semantics. This remains an unpublished draft candidate. The earlier 2,048-event economy-identity implementation and all package/deployment claims tied to it are superseded; the scalable-idempotency correction has passed the complete delivery pipeline, freshly approved deployment/readback, and minimal cold persistence check documented below.
 
 ## Included in v0.9.0
 
