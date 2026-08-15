@@ -86,15 +86,15 @@ public sealed class ItemStatisticsAggregateReducerTests
         CanonicalItemGroup group,
         long activations,
         double healing) => new()
-    {
-        ItemId = "item:medkit",
-        DisplayName = "Med-Kit (S)",
-        Group = group,
-        EffectTags = group == CanonicalItemGroup.Healing
+        {
+            ItemId = "item:medkit",
+            DisplayName = "Med-Kit (S)",
+            Group = group,
+            EffectTags = group == CanonicalItemGroup.Healing
             ? new List<ItemEffectTag> { ItemEffectTag.Healing }
             : new List<ItemEffectTag>(),
-        Totals = Totals(activations, healing)
-    };
+            Totals = Totals(activations, healing)
+        };
 
     private static AggregateTotals Totals(long activations, double healing) => new()
     {
