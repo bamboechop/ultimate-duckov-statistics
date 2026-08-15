@@ -37,6 +37,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly Func<CombatMetricCapabilities> combatCapabilitiesProvider;
     private readonly Func<EquipmentMetricCapabilities> equipmentCapabilitiesProvider;
     private readonly Func<ContainerMetricCapabilities> containerCapabilitiesProvider;
+    private readonly Func<EconomyMetricCapabilities> economyCapabilitiesProvider;
     private readonly Func<DeferredWriteState>? checkpointCompletionPoller;
     private readonly Func<DeferredWriteState>? checkpointCompletionFlusher;
     private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
@@ -59,6 +60,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private bool routeTransitionPending;
     private bool destinationPlacementObserved;
     private Action? destinationReadyObserver;
+    private Action? terminalObserver;
     private bool checkpointWritePending;
     private double pendingCheckpointMonotonicSeconds;
     private long pendingCheckpointMutationRevision;
@@ -73,6 +75,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         Func<CombatMetricCapabilities>? combatCapabilitiesProvider = null,
         Func<EquipmentMetricCapabilities>? equipmentCapabilitiesProvider = null,
         Func<ContainerMetricCapabilities>? containerCapabilitiesProvider = null,
+        Func<EconomyMetricCapabilities>? economyCapabilitiesProvider = null,
         Func<DeferredWriteState>? checkpointCompletionPoller = null,
         Func<DeferredWriteState>? checkpointCompletionFlusher = null)
     {
@@ -86,6 +89,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         this.combatCapabilitiesProvider = combatCapabilitiesProvider ?? (() => new CombatMetricCapabilities());
         this.equipmentCapabilitiesProvider = equipmentCapabilitiesProvider ?? (() => new EquipmentMetricCapabilities());
         this.containerCapabilitiesProvider = containerCapabilitiesProvider ?? (() => new ContainerMetricCapabilities());
+        this.economyCapabilitiesProvider = economyCapabilitiesProvider ?? (() => new EconomyMetricCapabilities());
         this.checkpointCompletionPoller = checkpointCompletionPoller;
         this.checkpointCompletionFlusher = checkpointCompletionFlusher;
         if ((checkpointCompletionPoller == null) != (checkpointCompletionFlusher == null))
@@ -131,11 +135,17 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public bool RecordHealing(HealingApplied value) =>
         callbackLifetime.CanHandleCallbacks && tracker.RecordHealing(value);
 
+    public bool RecordCurrencyFlow(CurrencyFlowRecorded value) =>
+        callbackLifetime.CanHandleCallbacks && tracker.RecordCurrencyFlow(value);
+
     public bool UpdateCombatCapabilities(CombatMetricCapabilities capabilities) =>
         callbackLifetime.CanHandleCallbacks && tracker.UpdateCombatCapabilities(capabilities);
 
     public bool UpdateContainerCapabilities(ContainerMetricCapabilities capabilities) =>
         callbackLifetime.CanHandleCallbacks && tracker.UpdateContainerCapabilities(capabilities);
+
+    public bool UpdateEconomyCapabilities(EconomyMetricCapabilities capabilities) =>
+        callbackLifetime.CanHandleCallbacks && tracker.UpdateEconomyCapabilities(capabilities);
 
     public bool ObserveEquipment(EquipmentSnapshot snapshot) =>
         callbackLifetime.CanHandleCallbacks
@@ -154,6 +164,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public void SetPlayerDeathObserver(Action<DamageInfo>? observer) => playerDeathObserver = observer;
 
     public void SetDestinationReadyObserver(Action? observer) => destinationReadyObserver = observer;
+
+    public void SetTerminalObserver(Action? observer) => terminalObserver = observer;
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
@@ -361,6 +373,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 CombatCapabilities = combatCapabilitiesProvider(),
                 EquipmentCapabilities = equipmentCapabilitiesProvider(),
                 ContainerCapabilities = containerCapabilitiesProvider(),
+                EconomyCapabilities = economyCapabilitiesProvider(),
                 RouteCapabilities = RouteCapability.State == AdapterCapabilityState.Supported
                     ? RouteStatisticsReducer.Supported(RouteCapability.Detail ?? RouteAdapterVersion)
                     : RouteStatisticsReducer.Unavailable(RouteCapability.Detail ?? "Route adapter is unavailable.")
@@ -390,6 +403,12 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         if (!tracker.IsActive)
         {
             return;
+        }
+
+        try { terminalObserver?.Invoke(); }
+        catch (Exception exception)
+        {
+            diagnosticHandler($"Pre-terminal observer failed safely: {exception.GetType().Name}: {exception.Message}");
         }
 
         DrainPendingCheckpoint();

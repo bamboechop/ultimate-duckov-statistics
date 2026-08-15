@@ -38,6 +38,18 @@ public static class ProfileMigrator
             return $"Current-schema profile roots are incomplete. Missing required data member: {missingPath}.";
         }
 
+        foreach (var scope in EconomyRecoveryScopes(profile))
+        {
+            try
+            {
+                EconomyStatisticsReducer.ValidateRecoveryCandidate(scope.Economy);
+            }
+            catch (ArgumentException exception)
+            {
+                return $"Current-schema {scope.Path} contains invalid economy state: {exception.Message}";
+            }
+        }
+
         if (profile.DeferredItemPersistence != null)
         {
             var deferred = profile.DeferredItemPersistence;
@@ -78,6 +90,14 @@ public static class ProfileMigrator
                 {
                     return "Deferred lifetime item persistence watermark is not a valid subset of lifetime statistics.";
                 }
+                EconomyStatisticsReducer.ValidateRecoveryCandidate(deferred.AppliedLifetimeEconomy);
+                if (deferred.RunId == null && !EconomyStatisticsReducer.IsEmpty(deferred.AppliedLifetimeEconomy))
+                    return "Deferred lifetime economy watermark has values without an active run identity.";
+                if (!EconomyStatisticsReducer.TrySubtract(
+                        profile.Statistics.Economy,
+                        deferred.AppliedLifetimeEconomy,
+                        out _))
+                    return "Deferred lifetime economy watermark is not a valid subset of lifetime statistics.";
             }
             catch (ArgumentException exception)
             {
@@ -86,6 +106,22 @@ public static class ProfileMigrator
         }
 
         return null;
+    }
+
+    private static IEnumerable<(string Path, EconomyStatisticsAggregate Economy)> EconomyRecoveryScopes(ProfileDocument profile)
+    {
+        yield return ("profile lifetime", profile.Statistics.Economy);
+        yield return ("completed-run totals", profile.Statistics.RunTotals.Economy);
+        foreach (var map in profile.Statistics.RunTotals.Maps)
+            yield return ($"starting-map totals '{map.Key}'", map.Value.Economy);
+        foreach (var map in profile.Statistics.RunTotals.RouteMaps)
+            yield return ($"route-map totals '{map.Key}'", map.Value.Economy);
+        foreach (var run in profile.Statistics.Runs)
+        {
+            yield return ($"run '{run.RunId}'", run.Economy);
+            foreach (var segment in run.Segments)
+                yield return ($"run '{run.RunId}' segment '{segment.SegmentId}'", segment.Economy);
+        }
     }
 
     private static string? FindMissingRequiredDataMember(
@@ -246,6 +282,8 @@ public static class ProfileMigrator
                                   || (profile.Statistics != null && profile.Statistics.SchemaVersion < 7);
         var migratingRoutes = profile.SchemaVersion < 8
                               || (profile.Statistics != null && profile.Statistics.SchemaVersion < 8);
+        var migratingEconomy = profile.SchemaVersion < 9
+                               || (profile.Statistics != null && profile.Statistics.SchemaVersion < 9);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         var missingCurrentEquipmentRoot = !migratingEquipment
@@ -394,6 +432,31 @@ public static class ProfileMigrator
             changed = true;
         }
         changed |= ItemStatisticsAggregateReducer.NormalizePersisted(profile.Statistics.RunTotals.ItemStatistics);
+        if (profile.Statistics.Economy == null)
+        {
+            profile.Statistics.Economy = new EconomyStatisticsAggregate();
+            changed = true;
+        }
+
+        if (profile.DeferredItemPersistence != null)
+        {
+            profile.DeferredItemPersistence.AppliedLifetimeStatistics ??= new Domain.ItemStatisticsAggregate();
+            if (profile.DeferredItemPersistence.AppliedLifetimeEconomy == null)
+            {
+                profile.DeferredItemPersistence.AppliedLifetimeEconomy = new EconomyStatisticsAggregate();
+                changed = true;
+            }
+            changed |= EconomyStatisticsReducer.NormalizePersisted(profile.DeferredItemPersistence.AppliedLifetimeEconomy);
+        }
+        changed |= EconomyStatisticsReducer.NormalizePersisted(profile.Statistics.Economy);
+        if (migratingEconomy) changed |= MarkHistoricalEconomyUnavailable(profile.Statistics.Economy);
+        if (profile.Statistics.RunTotals.Economy == null)
+        {
+            profile.Statistics.RunTotals.Economy = new EconomyStatisticsAggregate();
+            changed = true;
+        }
+        changed |= EconomyStatisticsReducer.NormalizePersisted(profile.Statistics.RunTotals.Economy);
+        if (migratingEconomy) changed |= MarkHistoricalEconomyUnavailable(profile.Statistics.RunTotals.Economy);
         if (migratingRoutes)
         {
             profile.Statistics.RunTotals.RouteAwareHistoryUnavailable = true;
@@ -403,6 +466,7 @@ public static class ProfileMigrator
         foreach (var routeMap in profile.Statistics.RunTotals.RouteMaps.Values)
         {
             changed |= NormalizeRouteMap(routeMap);
+            if (migratingEconomy) changed |= MarkHistoricalEconomyUnavailable(routeMap.Economy);
         }
 
         foreach (var map in profile.Statistics.RunTotals.Maps.Values)
@@ -467,6 +531,13 @@ public static class ProfileMigrator
                 map.ItemStatistics.HistoricalUnavailable = true;
                 changed = true;
             }
+            if (map.Economy == null)
+            {
+                map.Economy = new EconomyStatisticsAggregate();
+                changed = true;
+            }
+            changed |= EconomyStatisticsReducer.NormalizePersisted(map.Economy);
+            if (migratingEconomy) changed |= MarkHistoricalEconomyUnavailable(map.Economy);
         }
 
         if (profile.Statistics.RunTotals.WeaponStatistics == null)
@@ -600,6 +671,19 @@ public static class ProfileMigrator
             {
                 changed |= NormalizeCurrentRunRoute(run);
             }
+            if (run.Economy == null)
+            {
+                run.Economy = new EconomyStatisticsAggregate();
+                changed = true;
+            }
+            changed |= EconomyStatisticsReducer.NormalizePersisted(run.Economy);
+            if (migratingEconomy) changed |= MarkHistoricalEconomyUnavailable(run.Economy);
+            foreach (var segment in run.Segments)
+            {
+                segment.Economy ??= new EconomyStatisticsAggregate();
+                changed |= EconomyStatisticsReducer.NormalizePersisted(segment.Economy);
+                if (migratingEconomy) changed |= MarkHistoricalEconomyUnavailable(segment.Economy);
+            }
         }
 
         if (profile.Statistics.RunRecords == null)
@@ -725,6 +809,18 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 9)
+        {
+            profile.SchemaVersion = 9;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 9)
+        {
+            profile.Statistics.SchemaVersion = 9;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
@@ -767,6 +863,30 @@ public static class ProfileMigrator
         return true;
     }
 
+    private static bool MarkHistoricalEconomyUnavailable(EconomyStatisticsAggregate statistics)
+    {
+        const string provenance = "Historical schema predates M9; economy flows and physical-Cash raid outcomes were not recorded.";
+        statistics.HistoricalUnavailable = true;
+        statistics.Capabilities = new Domain.EconomyMetricCapabilities
+        {
+            MoneyAmountDirection = Unavailable(provenance),
+            MoneySourceAttribution = Unavailable(provenance),
+            MoneyContextAttribution = Unavailable(provenance),
+            CashAmountDirection = Unavailable(provenance),
+            CashExternalAcquisition = Unavailable(provenance),
+            CashContextAttribution = Unavailable(provenance),
+            CashTerminalOutcomes = Unavailable(provenance),
+            RouteAttribution = Unavailable(provenance)
+        };
+        return true;
+    }
+
+    private static Domain.MetricAvailability Unavailable(string provenance) => new()
+    {
+        State = Domain.AdapterCapabilityState.DisabledIncompatible,
+        Provenance = provenance
+    };
+
     private static bool NormalizeRouteMap(Domain.RouteAwareMapAggregate map)
     {
         var changed = false;
@@ -777,11 +897,13 @@ public static class ProfileMigrator
         map.CombatStatistics ??= Repair(new CombatStatisticsAggregate(), ref changed);
         map.EquipmentStatistics ??= Repair(new EquipmentStatisticsAggregate(), ref changed);
         map.ContainerStatistics ??= Repair(new ContainerStatisticsAggregate(), ref changed);
+        map.Economy ??= Repair(new EconomyStatisticsAggregate(), ref changed);
         changed |= ItemStatisticsAggregateReducer.NormalizePersisted(map.ItemStatistics);
         changed |= WeaponStatisticsReducer.NormalizePersisted(map.WeaponStatistics).Changed;
         changed |= CombatStatisticsReducer.NormalizePersisted(map.CombatStatistics).Changed;
         changed |= EquipmentStatisticsReducer.NormalizePersisted(map.EquipmentStatistics);
         changed |= ContainerStatisticsReducer.NormalizePersisted(map.ContainerStatistics);
+        changed |= EconomyStatisticsReducer.NormalizePersisted(map.Economy);
         if (map.RunsVisited < 0) { map.RunsVisited = 0; changed = true; }
         if (map.SegmentVisits < 0) { map.SegmentVisits = 0; changed = true; }
         changed |= NormalizeDistance(map.ActiveDurationSeconds, value => map.ActiveDurationSeconds = value);

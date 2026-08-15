@@ -1,0 +1,818 @@
+using System.Runtime.Serialization;
+using UltimateDuckovStatistics.Core.Domain;
+
+namespace UltimateDuckovStatistics.Core.Statistics;
+
+[DataContract]
+public sealed class CurrencyFlowTotals
+{
+    [DataMember(Order = 1)] public long GrossInflow { get; set; }
+    [DataMember(Order = 2)] public long GrossOutflow { get; set; }
+
+    public long NetFlow => EconomyStatisticsReducer.SaturatingDifference(GrossInflow, GrossOutflow);
+}
+
+[DataContract]
+public sealed class CurrencyEconomyAggregate
+{
+    [DataMember(Order = 1)] public CurrencyKind Currency { get; set; }
+    [DataMember(Order = 2)] public CurrencyFlowTotals Totals { get; set; } = new();
+    [DataMember(Order = 3)] public Dictionary<string, CurrencyFlowTotals> Sources { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 4)] public Dictionary<string, CurrencyFlowTotals> Contexts { get; set; } = new(StringComparer.Ordinal);
+}
+
+[DataContract]
+public sealed class CashRaidOutcomeAggregate
+{
+    [DataMember(Order = 1)] public long Acquired { get; set; }
+    [DataMember(Order = 2)] public long Secured { get; set; }
+    [DataMember(Order = 3)] public long Lost { get; set; }
+    [DataMember(Order = 4)] public long Unresolved { get; set; }
+}
+
+[DataContract]
+public sealed class EconomyStatisticsAggregate
+{
+    [DataMember(Order = 1)] public Dictionary<string, CurrencyEconomyAggregate> Currencies { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 2)] public CashRaidOutcomeAggregate CashRaidOutcomes { get; set; } = new();
+    [DataMember(Order = 3)] public EconomyMetricCapabilities Capabilities { get; set; } = new();
+    [DataMember(Order = 4)] public List<string> RecentEventIds { get; set; } = new();
+    [DataMember(Order = 5)] public bool HistoricalUnavailable { get; set; }
+    [DataMember(Order = 6)] public bool WasRepairedFromInvalidState { get; set; }
+    [DataMember(Order = 7)] public bool CashTerminalDispositionAmbiguous { get; set; }
+    [DataMember(Order = 8)] public bool CashTerminalDispositionRecorded { get; set; }
+    [DataMember(Order = 9)] public bool DeduplicationSaturated { get; set; }
+    [DataMember(Order = 10)] public bool MoneyArithmeticSaturated { get; set; }
+    [DataMember(Order = 11)] public bool CashArithmeticSaturated { get; set; }
+}
+
+public static class EconomyStatisticsReducer
+{
+    public const int MaximumRecentEventIds = 2048;
+
+    public static bool Record(EconomyStatisticsAggregate aggregate, string saveGenerationId, CurrencyFlowRecorded value)
+        => Record(aggregate, saveGenerationId, value, out _);
+
+    public static bool Record(
+        EconomyStatisticsAggregate aggregate,
+        string saveGenerationId,
+        CurrencyFlowRecorded value,
+        out bool capabilityChanged)
+    {
+        capabilityChanged = false;
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        if (value == null) throw new ArgumentNullException(nameof(value));
+        ValidateEvent(value, saveGenerationId);
+        NormalizePersisted(aggregate);
+        if (aggregate.RecentEventIds.Contains(value.EventId, StringComparer.Ordinal)) return false;
+        if (aggregate.DeduplicationSaturated) return false;
+        if (value.Currency == CurrencyKind.Money && aggregate.MoneyArithmeticSaturated) return false;
+        if (value.Currency == CurrencyKind.Cash && aggregate.CashArithmeticSaturated) return false;
+
+        var currency = GetCurrency(aggregate, value.Currency);
+        if (WouldOverflow(currency.Totals, value.Direction, value.Amount)
+            || (value.Currency == CurrencyKind.Cash
+                && value.ProvenExternalRaidAcquisition
+                && WouldOverflow(aggregate.CashRaidOutcomes.Acquired, value.Amount)))
+        {
+            ApplyArithmeticSaturation(aggregate, value.Currency);
+            capabilityChanged = true;
+            return false;
+        }
+        Apply(currency.Totals, value.Direction, value.Amount);
+        Apply(GetBreakdown(currency.Sources, value.Source.ToString()), value.Direction, value.Amount);
+        Apply(GetBreakdown(currency.Contexts, value.GameplayContext.ToString()), value.Direction, value.Amount);
+
+        if (value.Currency == CurrencyKind.Cash && !string.IsNullOrWhiteSpace(value.RunId))
+        {
+            if (value.ProvenExternalRaidAcquisition)
+            {
+                if (value.Direction != CurrencyFlowDirection.Inflow
+                    || value.Source != CurrencySourceCategory.LootOrPickup
+                    || value.GameplayContext != GameplayContext.Raid)
+                    throw new ArgumentException("A proven Cash raid acquisition must be a raid LootOrPickup inflow.", nameof(value));
+                aggregate.CashRaidOutcomes.Acquired = SaturatingAdd(aggregate.CashRaidOutcomes.Acquired, value.Amount);
+            }
+            else if (value.Direction == CurrencyFlowDirection.Outflow && aggregate.CashRaidOutcomes.Acquired > 0)
+            {
+                aggregate.CashTerminalDispositionAmbiguous = true;
+            }
+        }
+
+        aggregate.RecentEventIds.Add(value.EventId);
+        if (aggregate.RecentEventIds.Count == MaximumRecentEventIds)
+        {
+            aggregate.DeduplicationSaturated = true;
+            ApplyDeduplicationSaturation(aggregate);
+        }
+        return true;
+    }
+
+    public static void FinalizeCashRaidOutcome(EconomyStatisticsAggregate aggregate, RunOutcome outcome)
+    {
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        NormalizePersisted(aggregate);
+        if (aggregate.CashTerminalDispositionRecorded) return;
+        var acquired = aggregate.CashRaidOutcomes.Acquired;
+        if (acquired > 0)
+        {
+            if (outcome == RunOutcome.Interrupted || aggregate.CashTerminalDispositionAmbiguous
+                || aggregate.Capabilities.CashTerminalOutcomes.State != AdapterCapabilityState.Supported)
+                aggregate.CashRaidOutcomes.Unresolved = SaturatingAdd(aggregate.CashRaidOutcomes.Unresolved, acquired);
+            else if (outcome == RunOutcome.Extracted)
+                aggregate.CashRaidOutcomes.Secured = SaturatingAdd(aggregate.CashRaidOutcomes.Secured, acquired);
+            else if (outcome == RunOutcome.Died)
+                aggregate.CashRaidOutcomes.Lost = SaturatingAdd(aggregate.CashRaidOutcomes.Lost, acquired);
+        }
+        aggregate.CashTerminalDispositionRecorded = true;
+    }
+
+    public static void Merge(EconomyStatisticsAggregate target, EconomyStatisticsAggregate source, bool mergeEventIds = false)
+    {
+        if (target == null) throw new ArgumentNullException(nameof(target));
+        if (source == null) throw new ArgumentNullException(nameof(source));
+        var targetWasEmpty = IsEmpty(target);
+        NormalizePersisted(target);
+        NormalizePersisted(source);
+        if (target.DeduplicationSaturated) return;
+        var moneyOverflow = CurrencyMergeWouldOverflow(target, source, CurrencyKind.Money);
+        var cashOverflow = CurrencyMergeWouldOverflow(target, source, CurrencyKind.Cash)
+                           || CashOutcomeMergeWouldOverflow(target.CashRaidOutcomes, source.CashRaidOutcomes);
+        var mergeMoney = !target.MoneyArithmeticSaturated && !moneyOverflow;
+        var mergeCash = !target.CashArithmeticSaturated && !cashOverflow;
+        foreach (var row in source.Currencies.Values)
+        {
+            if (row.Currency == CurrencyKind.Money && !mergeMoney) continue;
+            if (row.Currency == CurrencyKind.Cash && !mergeCash) continue;
+            var destination = GetCurrency(target, row.Currency);
+            Merge(destination.Totals, row.Totals);
+            foreach (var entry in row.Sources) Merge(GetBreakdown(destination.Sources, entry.Key), entry.Value);
+            foreach (var entry in row.Contexts) Merge(GetBreakdown(destination.Contexts, entry.Key), entry.Value);
+        }
+        if (mergeCash)
+        {
+            target.CashRaidOutcomes.Acquired = SaturatingAdd(target.CashRaidOutcomes.Acquired, source.CashRaidOutcomes.Acquired);
+            target.CashRaidOutcomes.Secured = SaturatingAdd(target.CashRaidOutcomes.Secured, source.CashRaidOutcomes.Secured);
+            target.CashRaidOutcomes.Lost = SaturatingAdd(target.CashRaidOutcomes.Lost, source.CashRaidOutcomes.Lost);
+            target.CashRaidOutcomes.Unresolved = SaturatingAdd(target.CashRaidOutcomes.Unresolved, source.CashRaidOutcomes.Unresolved);
+        }
+        target.HistoricalUnavailable |= source.HistoricalUnavailable;
+        target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
+        target.CashTerminalDispositionAmbiguous |= source.CashTerminalDispositionAmbiguous;
+        target.CashTerminalDispositionRecorded |= source.CashTerminalDispositionRecorded;
+        target.DeduplicationSaturated |= source.DeduplicationSaturated;
+        target.MoneyArithmeticSaturated |= source.MoneyArithmeticSaturated;
+        target.CashArithmeticSaturated |= source.CashArithmeticSaturated;
+        target.Capabilities = targetWasEmpty && !target.HistoricalUnavailable
+            ? CloneCapabilities(source.Capabilities)
+            : MergeCapabilities(target.Capabilities, source.Capabilities);
+        if (moneyOverflow || source.MoneyArithmeticSaturated)
+            ApplyArithmeticSaturation(target, CurrencyKind.Money);
+        if (cashOverflow || source.CashArithmeticSaturated)
+            ApplyArithmeticSaturation(target, CurrencyKind.Cash);
+        if (mergeEventIds)
+        {
+            foreach (var id in source.RecentEventIds.Where(id => !target.RecentEventIds.Contains(id, StringComparer.Ordinal)))
+            {
+                if (target.RecentEventIds.Count == MaximumRecentEventIds)
+                {
+                    target.DeduplicationSaturated = true;
+                    break;
+                }
+                target.RecentEventIds.Add(id);
+            }
+        }
+        if (target.DeduplicationSaturated) ApplyDeduplicationSaturation(target);
+    }
+
+    public static EconomyStatisticsAggregate Clone(EconomyStatisticsAggregate? source)
+    {
+        source ??= new EconomyStatisticsAggregate();
+        NormalizePersisted(source);
+        var clone = new EconomyStatisticsAggregate
+        {
+            CashRaidOutcomes = new CashRaidOutcomeAggregate
+            {
+                Acquired = source.CashRaidOutcomes.Acquired,
+                Secured = source.CashRaidOutcomes.Secured,
+                Lost = source.CashRaidOutcomes.Lost,
+                Unresolved = source.CashRaidOutcomes.Unresolved
+            },
+            Capabilities = CloneCapabilities(source.Capabilities),
+            RecentEventIds = source.RecentEventIds.ToList(),
+            HistoricalUnavailable = source.HistoricalUnavailable,
+            WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
+            CashTerminalDispositionAmbiguous = source.CashTerminalDispositionAmbiguous,
+            CashTerminalDispositionRecorded = source.CashTerminalDispositionRecorded,
+            DeduplicationSaturated = source.DeduplicationSaturated,
+            MoneyArithmeticSaturated = source.MoneyArithmeticSaturated,
+            CashArithmeticSaturated = source.CashArithmeticSaturated
+        };
+        foreach (var entry in source.Currencies)
+        {
+            var row = new CurrencyEconomyAggregate { Currency = entry.Value.Currency };
+            Merge(row.Totals, entry.Value.Totals);
+            foreach (var sourceRow in entry.Value.Sources) Merge(GetBreakdown(row.Sources, sourceRow.Key), sourceRow.Value);
+            foreach (var contextRow in entry.Value.Contexts) Merge(GetBreakdown(row.Contexts, contextRow.Key), contextRow.Value);
+            clone.Currencies[entry.Key] = row;
+        }
+        return clone;
+    }
+
+    public static bool TrySubtract(
+        EconomyStatisticsAggregate total,
+        EconomyStatisticsAggregate baseline,
+        out EconomyStatisticsAggregate difference)
+    {
+        if (total == null) throw new ArgumentNullException(nameof(total));
+        if (baseline == null) throw new ArgumentNullException(nameof(baseline));
+        ValidateRecoveryCandidate(total);
+        ValidateRecoveryCandidate(baseline);
+        difference = new EconomyStatisticsAggregate
+        {
+            Capabilities = CloneCapabilities(total.Capabilities),
+            HistoricalUnavailable = total.HistoricalUnavailable,
+            WasRepairedFromInvalidState = total.WasRepairedFromInvalidState,
+            CashTerminalDispositionAmbiguous = total.CashTerminalDispositionAmbiguous,
+            CashTerminalDispositionRecorded = total.CashTerminalDispositionRecorded,
+            DeduplicationSaturated = total.DeduplicationSaturated,
+            MoneyArithmeticSaturated = total.MoneyArithmeticSaturated,
+            CashArithmeticSaturated = total.CashArithmeticSaturated
+        };
+        foreach (var totalEntry in total.Currencies)
+        {
+            baseline.Currencies.TryGetValue(totalEntry.Key, out var baselineCurrency);
+            var row = new CurrencyEconomyAggregate { Currency = totalEntry.Value.Currency };
+            if (!TrySubtract(totalEntry.Value.Totals, baselineCurrency?.Totals, row.Totals)) return false;
+            if (!TrySubtractRows(totalEntry.Value.Sources, baselineCurrency?.Sources, row.Sources)) return false;
+            if (!TrySubtractRows(totalEntry.Value.Contexts, baselineCurrency?.Contexts, row.Contexts)) return false;
+            if (row.Totals.GrossInflow > 0 || row.Totals.GrossOutflow > 0) difference.Currencies[totalEntry.Key] = row;
+        }
+        if (baseline.Currencies.Keys.Any(key => !total.Currencies.ContainsKey(key))) return false;
+        if (!TrySubtract(total.CashRaidOutcomes.Acquired, baseline.CashRaidOutcomes.Acquired, out var acquired)
+            || !TrySubtract(total.CashRaidOutcomes.Secured, baseline.CashRaidOutcomes.Secured, out var secured)
+            || !TrySubtract(total.CashRaidOutcomes.Lost, baseline.CashRaidOutcomes.Lost, out var lost)
+            || !TrySubtract(total.CashRaidOutcomes.Unresolved, baseline.CashRaidOutcomes.Unresolved, out var unresolved))
+            return false;
+        difference.CashRaidOutcomes = new CashRaidOutcomeAggregate
+        { Acquired = acquired, Secured = secured, Lost = lost, Unresolved = unresolved };
+        difference.RecentEventIds = total.RecentEventIds
+            .Where(id => !baseline.RecentEventIds.Contains(id, StringComparer.Ordinal)).ToList();
+        return true;
+    }
+
+    public static bool IsEmpty(EconomyStatisticsAggregate value)
+    {
+        if (value == null) return true;
+        if (value.Currencies == null || value.CashRaidOutcomes == null) return false;
+        return value.Currencies.Values.All(row => row.Totals.GrossInflow == 0 && row.Totals.GrossOutflow == 0)
+               && value.CashRaidOutcomes.Acquired == 0 && value.CashRaidOutcomes.Secured == 0
+               && value.CashRaidOutcomes.Lost == 0 && value.CashRaidOutcomes.Unresolved == 0;
+    }
+
+    public static void MergeTerminalOutcomes(EconomyStatisticsAggregate target, EconomyStatisticsAggregate run)
+    {
+        if (target == null) throw new ArgumentNullException(nameof(target));
+        if (run == null) throw new ArgumentNullException(nameof(run));
+        NormalizePersisted(target);
+        NormalizePersisted(run);
+        if (target.DeduplicationSaturated || target.CashArithmeticSaturated)
+        {
+            target.CashTerminalDispositionAmbiguous = true;
+            target.CashTerminalDispositionRecorded |= run.CashTerminalDispositionRecorded;
+            return;
+        }
+        var arithmeticSaturated = WouldOverflow(target.CashRaidOutcomes.Secured, run.CashRaidOutcomes.Secured)
+                                  || WouldOverflow(target.CashRaidOutcomes.Lost, run.CashRaidOutcomes.Lost)
+                                  || WouldOverflow(target.CashRaidOutcomes.Unresolved, run.CashRaidOutcomes.Unresolved);
+        if (arithmeticSaturated)
+        {
+            target.CashTerminalDispositionAmbiguous = true;
+            target.CashTerminalDispositionRecorded |= run.CashTerminalDispositionRecorded;
+            ApplyArithmeticSaturation(target, CurrencyKind.Cash);
+            return;
+        }
+        target.CashRaidOutcomes.Secured = SaturatingAdd(target.CashRaidOutcomes.Secured, run.CashRaidOutcomes.Secured);
+        target.CashRaidOutcomes.Lost = SaturatingAdd(target.CashRaidOutcomes.Lost, run.CashRaidOutcomes.Lost);
+        target.CashRaidOutcomes.Unresolved = SaturatingAdd(target.CashRaidOutcomes.Unresolved, run.CashRaidOutcomes.Unresolved);
+        target.CashTerminalDispositionAmbiguous |= run.CashTerminalDispositionAmbiguous;
+        target.CashTerminalDispositionRecorded |= run.CashTerminalDispositionRecorded;
+        if (run.CashArithmeticSaturated)
+            ApplyArithmeticSaturation(target, CurrencyKind.Cash);
+    }
+
+    public static bool NormalizePersisted(EconomyStatisticsAggregate aggregate)
+    {
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        var repaired = false;
+        aggregate.Currencies ??= Repair(new Dictionary<string, CurrencyEconomyAggregate>(StringComparer.Ordinal), ref repaired);
+        aggregate.CashRaidOutcomes ??= Repair(new CashRaidOutcomeAggregate(), ref repaired);
+        aggregate.Capabilities ??= Repair(new EconomyMetricCapabilities(), ref repaired);
+        aggregate.RecentEventIds ??= Repair(new List<string>(), ref repaired);
+        NormalizeCapabilities(aggregate.Capabilities, ref repaired);
+        var normalized = new Dictionary<string, CurrencyEconomyAggregate>(StringComparer.Ordinal);
+        foreach (var entry in aggregate.Currencies)
+        {
+            if (entry.Value == null || !Enum.IsDefined(typeof(CurrencyKind), entry.Value.Currency)) { repaired = true; continue; }
+            NormalizeCurrency(entry.Value, ref repaired);
+            var key = entry.Value.Currency.ToString();
+            if (normalized.TryGetValue(key, out var current)) { Merge(current, entry.Value); repaired = true; }
+            else normalized[key] = entry.Value;
+            if (!string.Equals(entry.Key, key, StringComparison.Ordinal)) repaired = true;
+        }
+        aggregate.Currencies = normalized;
+        var deduped = aggregate.RecentEventIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).Take(MaximumRecentEventIds).ToList();
+        if (deduped.Count != aggregate.RecentEventIds.Count) repaired = true;
+        aggregate.RecentEventIds = deduped;
+        if (aggregate.RecentEventIds.Count == MaximumRecentEventIds && !aggregate.DeduplicationSaturated)
+        {
+            aggregate.DeduplicationSaturated = true;
+            repaired = true;
+        }
+        if (aggregate.DeduplicationSaturated)
+        {
+            if (CaptureCapabilities(aggregate.Capabilities).Any(value => value.State != AdapterCapabilityState.DisabledIncompatible))
+                repaired = true;
+            ApplyDeduplicationSaturation(aggregate);
+        }
+        if (aggregate.MoneyArithmeticSaturated)
+        {
+            if (MoneyCapabilities(aggregate.Capabilities).Any(value => value.State != AdapterCapabilityState.DisabledIncompatible))
+                repaired = true;
+            ApplyArithmeticSaturation(aggregate, CurrencyKind.Money);
+        }
+        if (aggregate.CashArithmeticSaturated)
+        {
+            if (CashCapabilities(aggregate.Capabilities).Any(value => value.State != AdapterCapabilityState.DisabledIncompatible))
+                repaired = true;
+            ApplyArithmeticSaturation(aggregate, CurrencyKind.Cash);
+        }
+        aggregate.CashRaidOutcomes.Acquired = NonNegative(aggregate.CashRaidOutcomes.Acquired, ref repaired);
+        aggregate.CashRaidOutcomes.Secured = NonNegative(aggregate.CashRaidOutcomes.Secured, ref repaired);
+        aggregate.CashRaidOutcomes.Lost = NonNegative(aggregate.CashRaidOutcomes.Lost, ref repaired);
+        aggregate.CashRaidOutcomes.Unresolved = NonNegative(aggregate.CashRaidOutcomes.Unresolved, ref repaired);
+        if (!TrySumExactly(
+                new[]
+                {
+                    aggregate.CashRaidOutcomes.Secured,
+                    aggregate.CashRaidOutcomes.Lost,
+                    aggregate.CashRaidOutcomes.Unresolved
+                },
+                out var resolvedCash)
+            || resolvedCash > aggregate.CashRaidOutcomes.Acquired)
+        {
+            aggregate.CashRaidOutcomes.Secured = 0;
+            aggregate.CashRaidOutcomes.Lost = 0;
+            aggregate.CashRaidOutcomes.Unresolved = aggregate.CashRaidOutcomes.Acquired;
+            aggregate.CashTerminalDispositionAmbiguous = true;
+            repaired = true;
+        }
+        aggregate.WasRepairedFromInvalidState |= repaired;
+        return repaired;
+    }
+
+    public static void Validate(EconomyStatisticsAggregate aggregate)
+    {
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        if (aggregate.Currencies == null || aggregate.CashRaidOutcomes == null || aggregate.Capabilities == null || aggregate.RecentEventIds == null)
+            throw new ArgumentException("Economy roots are missing.", nameof(aggregate));
+        if (aggregate.RecentEventIds.Count > MaximumRecentEventIds || aggregate.RecentEventIds.Any(string.IsNullOrWhiteSpace)
+            || aggregate.RecentEventIds.Distinct(StringComparer.Ordinal).Count() != aggregate.RecentEventIds.Count)
+            throw new ArgumentException("Economy deduplication evidence is invalid.", nameof(aggregate));
+        if (aggregate.RecentEventIds.Count == MaximumRecentEventIds && !aggregate.DeduplicationSaturated)
+            throw new ArgumentException("Economy deduplication saturation state is invalid.", nameof(aggregate));
+        foreach (var entry in aggregate.Currencies)
+        {
+            if (entry.Value == null || !Enum.IsDefined(typeof(CurrencyKind), entry.Value.Currency) || entry.Key != entry.Value.Currency.ToString())
+                throw new ArgumentException("Economy currency identity is invalid.", nameof(aggregate));
+            ValidateCurrency(entry.Value);
+        }
+        ValidateOutcome(aggregate.CashRaidOutcomes);
+        ValidateCapabilities(aggregate.Capabilities);
+        if (aggregate.MoneyArithmeticSaturated
+            && MoneyCapabilities(aggregate.Capabilities).Any(value => value.State != AdapterCapabilityState.DisabledIncompatible))
+            throw new ArgumentException("Money arithmetic saturation state is inconsistent with its capabilities.", nameof(aggregate));
+        if (aggregate.CashArithmeticSaturated
+            && CashCapabilities(aggregate.Capabilities).Any(value => value.State != AdapterCapabilityState.DisabledIncompatible))
+            throw new ArgumentException("Cash arithmetic saturation state is inconsistent with its capabilities.", nameof(aggregate));
+    }
+
+    public static void ValidateRecoveryCandidate(EconomyStatisticsAggregate aggregate)
+    {
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        if (aggregate.Currencies == null || aggregate.CashRaidOutcomes == null
+            || aggregate.Capabilities == null || aggregate.RecentEventIds == null)
+            throw new ArgumentException("Economy roots are missing.", nameof(aggregate));
+        if (aggregate.RecentEventIds.Any(string.IsNullOrWhiteSpace)
+            || aggregate.RecentEventIds.Distinct(StringComparer.Ordinal).Count() != aggregate.RecentEventIds.Count)
+            throw new ArgumentException("Economy deduplication evidence is unsafe.", nameof(aggregate));
+        foreach (var entry in aggregate.Currencies)
+        {
+            var value = entry.Value;
+            if (value == null || !Enum.IsDefined(typeof(CurrencyKind), value.Currency)
+                || value.Totals == null || value.Sources == null || value.Contexts == null)
+                throw new ArgumentException("Economy currency evidence is incomplete.", nameof(aggregate));
+            if (value.Totals.GrossInflow < 0 || value.Totals.GrossOutflow < 0
+                || value.Sources.Values.Any(row => row == null || row.GrossInflow < 0 || row.GrossOutflow < 0)
+                || value.Contexts.Values.Any(row => row == null || row.GrossInflow < 0 || row.GrossOutflow < 0))
+                throw new ArgumentException("Economy counters cannot be negative.", nameof(aggregate));
+            if (!CanSumExactly(value.Sources.Values.Select(row => row.GrossInflow))
+                || !CanSumExactly(value.Sources.Values.Select(row => row.GrossOutflow))
+                || !CanSumExactly(value.Contexts.Values.Select(row => row.GrossInflow))
+                || !CanSumExactly(value.Contexts.Values.Select(row => row.GrossOutflow)))
+                throw new ArgumentException("Economy breakdown composition exceeds the exact arithmetic range.", nameof(aggregate));
+        }
+        foreach (var currency in Enum.GetValues(typeof(CurrencyKind)).Cast<CurrencyKind>())
+        {
+            var rows = aggregate.Currencies.Values.Where(value => value.Currency == currency).ToList();
+            if (!CanSumExactly(rows.Select(row => row.Totals.GrossInflow))
+                || !CanSumExactly(rows.Select(row => row.Totals.GrossOutflow)))
+                throw new ArgumentException("Duplicate economy currency evidence exceeds the exact arithmetic range.", nameof(aggregate));
+        }
+        ValidateOutcome(aggregate.CashRaidOutcomes);
+    }
+
+    public static EconomyMetricCapabilities CloneCapabilities(EconomyMetricCapabilities source) => new()
+    {
+        MoneyAmountDirection = Clone(source.MoneyAmountDirection),
+        MoneySourceAttribution = Clone(source.MoneySourceAttribution),
+        MoneyContextAttribution = Clone(source.MoneyContextAttribution),
+        CashAmountDirection = Clone(source.CashAmountDirection),
+        CashExternalAcquisition = Clone(source.CashExternalAcquisition),
+        CashContextAttribution = Clone(source.CashContextAttribution),
+        CashTerminalOutcomes = Clone(source.CashTerminalOutcomes),
+        RouteAttribution = Clone(source.RouteAttribution)
+    };
+
+    public static void SetCapabilities(
+        EconomyStatisticsAggregate aggregate,
+        EconomyMetricCapabilities capabilities)
+    {
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        aggregate.Capabilities = CloneCapabilities(capabilities);
+        if (aggregate.DeduplicationSaturated) ApplyDeduplicationSaturation(aggregate);
+        if (aggregate.MoneyArithmeticSaturated) ApplyArithmeticSaturation(aggregate, CurrencyKind.Money);
+        if (aggregate.CashArithmeticSaturated) ApplyArithmeticSaturation(aggregate, CurrencyKind.Cash);
+    }
+
+    public static void ApplyDeduplicationSaturation(EconomyStatisticsAggregate aggregate)
+    {
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        const string reason = "The bounded economy event-identity set is saturated; prior aggregates remain available, but further capture is disabled to prevent double counting.";
+        aggregate.DeduplicationSaturated = true;
+        aggregate.Capabilities.MoneyAmountDirection = RestrictForSaturation(aggregate.Capabilities.MoneyAmountDirection, reason);
+        aggregate.Capabilities.MoneySourceAttribution = RestrictForSaturation(aggregate.Capabilities.MoneySourceAttribution, reason);
+        aggregate.Capabilities.MoneyContextAttribution = RestrictForSaturation(aggregate.Capabilities.MoneyContextAttribution, reason);
+        aggregate.Capabilities.CashAmountDirection = RestrictForSaturation(aggregate.Capabilities.CashAmountDirection, reason);
+        aggregate.Capabilities.CashExternalAcquisition = RestrictForSaturation(aggregate.Capabilities.CashExternalAcquisition, reason);
+        aggregate.Capabilities.CashContextAttribution = RestrictForSaturation(aggregate.Capabilities.CashContextAttribution, reason);
+        aggregate.Capabilities.RouteAttribution = RestrictForSaturation(aggregate.Capabilities.RouteAttribution, reason);
+    }
+
+    public static void ApplyArithmeticSaturation(EconomyStatisticsAggregate aggregate, CurrencyKind currency)
+    {
+        const string reason = "The economy aggregate reached the Int64 arithmetic limit; prior exact totals remain available, but further capture for this currency is disabled instead of storing an approximate value.";
+        if (currency == CurrencyKind.Money)
+        {
+            aggregate.MoneyArithmeticSaturated = true;
+            aggregate.Capabilities.MoneyAmountDirection = RestrictForSaturation(aggregate.Capabilities.MoneyAmountDirection, reason);
+            aggregate.Capabilities.MoneySourceAttribution = RestrictForSaturation(aggregate.Capabilities.MoneySourceAttribution, reason);
+            aggregate.Capabilities.MoneyContextAttribution = RestrictForSaturation(aggregate.Capabilities.MoneyContextAttribution, reason);
+            return;
+        }
+        aggregate.CashArithmeticSaturated = true;
+        aggregate.Capabilities.CashAmountDirection = RestrictForSaturation(aggregate.Capabilities.CashAmountDirection, reason);
+        aggregate.Capabilities.CashExternalAcquisition = RestrictForSaturation(aggregate.Capabilities.CashExternalAcquisition, reason);
+        aggregate.Capabilities.CashContextAttribution = RestrictForSaturation(aggregate.Capabilities.CashContextAttribution, reason);
+        aggregate.Capabilities.CashTerminalOutcomes = RestrictForSaturation(aggregate.Capabilities.CashTerminalOutcomes, reason);
+    }
+
+    public static long SaturatingDifference(long inflow, long outflow)
+    {
+        if (inflow < 0 || outflow < 0) throw new ArgumentOutOfRangeException(nameof(inflow));
+        if (inflow >= outflow) return inflow - outflow;
+        var magnitude = outflow - inflow;
+        return magnitude == long.MinValue ? long.MinValue : -magnitude;
+    }
+
+    private static void ValidateEvent(CurrencyFlowRecorded value, string generation)
+    {
+        if (value.SchemaVersion > ProductInfo.SchemaVersion || string.IsNullOrWhiteSpace(value.EventId)
+            || string.IsNullOrWhiteSpace(value.SaveGenerationId) || !string.Equals(value.SaveGenerationId, generation, StringComparison.Ordinal)
+            || value.TimestampUtc == default || value.Amount <= 0 || !Enum.IsDefined(typeof(CurrencyKind), value.Currency)
+            || !Enum.IsDefined(typeof(CurrencyFlowDirection), value.Direction)
+            || !Enum.IsDefined(typeof(CurrencySourceCategory), value.Source)
+            || !Enum.IsDefined(typeof(GameplayContext), value.GameplayContext))
+            throw new ArgumentException("Currency flow is invalid.", nameof(value));
+        var hasRun = !string.IsNullOrWhiteSpace(value.RunId);
+        var hasSegment = !string.IsNullOrWhiteSpace(value.SegmentId);
+        if ((value.GameplayContext == GameplayContext.Raid) != hasRun)
+            throw new ArgumentException("Raid currency flow and run identity must agree.", nameof(value));
+        if (hasSegment && !hasRun)
+            throw new ArgumentException("A segment identity requires a run identity.", nameof(value));
+        if (hasRun && string.IsNullOrWhiteSpace(value.MapId))
+            throw new ArgumentException("A run currency flow requires an event-time map identity.", nameof(value));
+        if (value.ProvenExternalRaidAcquisition
+            && (value.Currency != CurrencyKind.Cash || !hasRun || value.GameplayContext != GameplayContext.Raid))
+            throw new ArgumentException("A proven external raid acquisition must be a Cash flow in an active raid.", nameof(value));
+    }
+
+    private static CurrencyEconomyAggregate GetCurrency(EconomyStatisticsAggregate aggregate, CurrencyKind kind)
+    {
+        var key = kind.ToString();
+        if (!aggregate.Currencies.TryGetValue(key, out var value))
+        {
+            value = new CurrencyEconomyAggregate { Currency = kind };
+            aggregate.Currencies[key] = value;
+        }
+        return value;
+    }
+
+    private static CurrencyFlowTotals GetBreakdown(Dictionary<string, CurrencyFlowTotals> rows, string key)
+    {
+        if (!rows.TryGetValue(key, out var row)) { row = new CurrencyFlowTotals(); rows[key] = row; }
+        return row;
+    }
+
+    private static bool TrySubtractRows(
+        Dictionary<string, CurrencyFlowTotals> total,
+        Dictionary<string, CurrencyFlowTotals>? baseline,
+        Dictionary<string, CurrencyFlowTotals> difference)
+    {
+        baseline ??= new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal);
+        foreach (var row in total)
+        {
+            baseline.TryGetValue(row.Key, out var baselineRow);
+            var result = new CurrencyFlowTotals();
+            if (!TrySubtract(row.Value, baselineRow, result)) return false;
+            if (result.GrossInflow > 0 || result.GrossOutflow > 0) difference[row.Key] = result;
+        }
+        return !baseline.Keys.Any(key => !total.ContainsKey(key));
+    }
+
+    private static bool TrySubtract(CurrencyFlowTotals total, CurrencyFlowTotals? baseline, CurrencyFlowTotals difference)
+    {
+        baseline ??= new CurrencyFlowTotals();
+        if (!TrySubtract(total.GrossInflow, baseline.GrossInflow, out var inflow)
+            || !TrySubtract(total.GrossOutflow, baseline.GrossOutflow, out var outflow)) return false;
+        difference.GrossInflow = inflow;
+        difference.GrossOutflow = outflow;
+        return true;
+    }
+
+    private static bool TrySubtract(long total, long baseline, out long difference)
+    {
+        difference = 0;
+        if (total < 0 || baseline < 0 || baseline > total) return false;
+        difference = total - baseline;
+        return true;
+    }
+
+    private static void Apply(CurrencyFlowTotals totals, CurrencyFlowDirection direction, long amount)
+    {
+        if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount));
+        if (direction == CurrencyFlowDirection.Inflow) totals.GrossInflow = SaturatingAdd(totals.GrossInflow, amount);
+        else totals.GrossOutflow = SaturatingAdd(totals.GrossOutflow, amount);
+    }
+
+    private static bool WouldOverflow(CurrencyFlowTotals totals, CurrencyFlowDirection direction, long amount) =>
+        WouldOverflow(
+            direction == CurrencyFlowDirection.Inflow ? totals.GrossInflow : totals.GrossOutflow,
+            amount);
+
+    private static bool WouldOverflow(CurrencyFlowTotals target, CurrencyFlowTotals source) =>
+        WouldOverflow(target.GrossInflow, source.GrossInflow)
+        || WouldOverflow(target.GrossOutflow, source.GrossOutflow);
+
+    private static bool CurrencyMergeWouldOverflow(
+        EconomyStatisticsAggregate target,
+        EconomyStatisticsAggregate source,
+        CurrencyKind currency)
+    {
+        if (!source.Currencies.TryGetValue(currency.ToString(), out var sourceValue)) return false;
+        return target.Currencies.TryGetValue(currency.ToString(), out var targetValue)
+               && WouldOverflow(targetValue.Totals, sourceValue.Totals);
+    }
+
+    private static bool CashOutcomeMergeWouldOverflow(CashRaidOutcomeAggregate target, CashRaidOutcomeAggregate source) =>
+        WouldOverflow(target.Acquired, source.Acquired)
+        || WouldOverflow(target.Secured, source.Secured)
+        || WouldOverflow(target.Lost, source.Lost)
+        || WouldOverflow(target.Unresolved, source.Unresolved);
+
+    private static bool WouldOverflow(long left, long right) => left > long.MaxValue - right;
+
+    private static void Merge(CurrencyFlowTotals target, CurrencyFlowTotals source)
+    {
+        if (WouldOverflow(target, source))
+            throw new InvalidOperationException("Economy aggregate merge would exceed the exact arithmetic range.");
+        target.GrossInflow += source.GrossInflow;
+        target.GrossOutflow += source.GrossOutflow;
+    }
+
+    private static void Merge(CurrencyEconomyAggregate target, CurrencyEconomyAggregate source)
+    {
+        Merge(target.Totals, source.Totals);
+        foreach (var row in source.Sources) Merge(GetBreakdown(target.Sources, row.Key), row.Value);
+        foreach (var row in source.Contexts) Merge(GetBreakdown(target.Contexts, row.Key), row.Value);
+    }
+
+    private static EconomyMetricCapabilities MergeCapabilities(EconomyMetricCapabilities a, EconomyMetricCapabilities b) => new()
+    {
+        MoneyAmountDirection = Restrict(a.MoneyAmountDirection, b.MoneyAmountDirection),
+        MoneySourceAttribution = Restrict(a.MoneySourceAttribution, b.MoneySourceAttribution),
+        MoneyContextAttribution = Restrict(a.MoneyContextAttribution, b.MoneyContextAttribution),
+        CashAmountDirection = Restrict(a.CashAmountDirection, b.CashAmountDirection),
+        CashExternalAcquisition = Restrict(a.CashExternalAcquisition, b.CashExternalAcquisition),
+        CashContextAttribution = Restrict(a.CashContextAttribution, b.CashContextAttribution),
+        CashTerminalOutcomes = Restrict(a.CashTerminalOutcomes, b.CashTerminalOutcomes),
+        RouteAttribution = Restrict(a.RouteAttribution, b.RouteAttribution)
+    };
+
+    private static MetricAvailability Restrict(MetricAvailability a, MetricAvailability b) =>
+        (int)a.State >= (int)b.State ? Clone(a) : Clone(b);
+    private static MetricAvailability Clone(MetricAvailability value) => new() { State = value.State, Provenance = value.Provenance ?? string.Empty };
+    private static MetricAvailability Unavailable(string provenance) => new()
+    { State = AdapterCapabilityState.DisabledIncompatible, Provenance = provenance };
+    private static MetricAvailability RestrictForSaturation(MetricAvailability current, string provenance) =>
+        current.State == AdapterCapabilityState.DisabledIncompatible ? Clone(current) : Unavailable(provenance);
+
+    private static void NormalizeCurrency(CurrencyEconomyAggregate value, ref bool repaired)
+    {
+        value.Totals ??= Repair(new CurrencyFlowTotals(), ref repaired);
+        value.Sources ??= Repair(new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal), ref repaired);
+        value.Contexts ??= Repair(new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal), ref repaired);
+        NormalizeTotals(value.Totals, ref repaired);
+        NormalizeRows(value.Sources, ref repaired);
+        NormalizeRows(value.Contexts, ref repaired);
+        value.Sources = NormalizeBreakdownKeys(
+            value.Sources,
+            Enum.GetNames(typeof(CurrencySourceCategory)),
+            CurrencySourceCategory.UnknownAdjustment.ToString(),
+            ref repaired);
+        value.Contexts = NormalizeBreakdownKeys(
+            value.Contexts,
+            Enum.GetNames(typeof(GameplayContext)),
+            GameplayContext.Unknown.ToString(),
+            ref repaired);
+        if (!Composes(value.Totals, value.Sources) || !Composes(value.Totals, value.Contexts))
+        {
+            value.Sources = new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal)
+            { [CurrencySourceCategory.UnknownAdjustment.ToString()] = CloneTotals(value.Totals) };
+            value.Contexts = new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal)
+            { [GameplayContext.Unknown.ToString()] = CloneTotals(value.Totals) };
+            repaired = true;
+        }
+    }
+
+    private static void NormalizeRows(Dictionary<string, CurrencyFlowTotals> rows, ref bool repaired)
+    {
+        foreach (var key in rows.Where(row => string.IsNullOrWhiteSpace(row.Key) || row.Value == null).Select(row => row.Key).ToList()) { rows.Remove(key); repaired = true; }
+        foreach (var row in rows.Values) NormalizeTotals(row, ref repaired);
+    }
+
+    private static Dictionary<string, CurrencyFlowTotals> NormalizeBreakdownKeys(
+        Dictionary<string, CurrencyFlowTotals> rows,
+        IReadOnlyCollection<string> validKeys,
+        string fallback,
+        ref bool repaired)
+    {
+        var normalized = new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal);
+        foreach (var row in rows.OrderBy(value => value.Key, StringComparer.Ordinal))
+        {
+            var key = validKeys.Contains(row.Key, StringComparer.Ordinal) ? row.Key : fallback;
+            if (!string.Equals(key, row.Key, StringComparison.Ordinal)) repaired = true;
+            if (normalized.TryGetValue(key, out var existing))
+            {
+                Merge(existing, row.Value);
+                repaired = true;
+            }
+            else
+            {
+                normalized[key] = row.Value;
+            }
+        }
+        return normalized;
+    }
+    private static void NormalizeTotals(CurrencyFlowTotals totals, ref bool repaired)
+    {
+        totals.GrossInflow = NonNegative(totals.GrossInflow, ref repaired);
+        totals.GrossOutflow = NonNegative(totals.GrossOutflow, ref repaired);
+    }
+    private static long NonNegative(long value, ref bool repaired)
+    {
+        if (value >= 0) return value;
+        repaired = true;
+        return 0;
+    }
+    private static void NormalizeCapabilities(EconomyMetricCapabilities value, ref bool repaired)
+    {
+        value.MoneyAmountDirection ??= Repair(new MetricAvailability(), ref repaired); value.MoneySourceAttribution ??= Repair(new MetricAvailability(), ref repaired);
+        value.MoneyContextAttribution ??= Repair(new MetricAvailability(), ref repaired); value.CashAmountDirection ??= Repair(new MetricAvailability(), ref repaired);
+        value.CashExternalAcquisition ??= Repair(new MetricAvailability(), ref repaired); value.CashContextAttribution ??= Repair(new MetricAvailability(), ref repaired);
+        value.CashTerminalOutcomes ??= Repair(new MetricAvailability(), ref repaired); value.RouteAttribution ??= Repair(new MetricAvailability(), ref repaired);
+        foreach (var availability in Capabilities(value))
+        {
+            if (!Enum.IsDefined(typeof(AdapterCapabilityState), availability.State))
+            {
+                availability.State = AdapterCapabilityState.DisabledIncompatible;
+                availability.Provenance = "Invalid persisted economy capability state was repaired.";
+                repaired = true;
+            }
+            else if (availability.Provenance == null)
+            {
+                availability.Provenance = string.Empty;
+                repaired = true;
+            }
+        }
+    }
+
+    private static bool Composes(CurrencyFlowTotals total, Dictionary<string, CurrencyFlowTotals> rows) =>
+        TrySumExactly(rows.Values.Select(row => row.GrossInflow), out var inflow)
+        && inflow == total.GrossInflow
+        && TrySumExactly(rows.Values.Select(row => row.GrossOutflow), out var outflow)
+        && outflow == total.GrossOutflow;
+    private static bool CanSumExactly(IEnumerable<long> values) => TrySumExactly(values, out _);
+    private static bool TrySumExactly(IEnumerable<long> values, out long result)
+    {
+        result = 0;
+        foreach (var value in values)
+        {
+            if (value < 0 || WouldOverflow(result, value)) return false;
+            result += value;
+        }
+        return true;
+    }
+    private static CurrencyFlowTotals CloneTotals(CurrencyFlowTotals source) => new() { GrossInflow = source.GrossInflow, GrossOutflow = source.GrossOutflow };
+    private static void ValidateCurrency(CurrencyEconomyAggregate value)
+    {
+        var validSources = Enum.GetNames(typeof(CurrencySourceCategory));
+        var validContexts = Enum.GetNames(typeof(GameplayContext));
+        if (value.Totals == null || value.Sources == null || value.Contexts == null || value.Totals.GrossInflow < 0 || value.Totals.GrossOutflow < 0
+            || value.Sources.Any(row => string.IsNullOrWhiteSpace(row.Key) || row.Value == null || row.Value.GrossInflow < 0 || row.Value.GrossOutflow < 0)
+            || value.Contexts.Any(row => string.IsNullOrWhiteSpace(row.Key) || row.Value == null || row.Value.GrossInflow < 0 || row.Value.GrossOutflow < 0)
+            || value.Sources.Keys.Any(key => !validSources.Contains(key, StringComparer.Ordinal))
+            || value.Contexts.Keys.Any(key => !validContexts.Contains(key, StringComparer.Ordinal))
+            || !Composes(value.Totals, value.Sources) || !Composes(value.Totals, value.Contexts))
+            throw new ArgumentException("Economy totals do not compose.", nameof(value));
+    }
+
+    private static IEnumerable<MetricAvailability> Capabilities(EconomyMetricCapabilities value)
+    {
+        yield return value.MoneyAmountDirection;
+        yield return value.MoneySourceAttribution;
+        yield return value.MoneyContextAttribution;
+        yield return value.CashAmountDirection;
+        yield return value.CashExternalAcquisition;
+        yield return value.CashContextAttribution;
+        yield return value.CashTerminalOutcomes;
+        yield return value.RouteAttribution;
+    }
+
+    private static IEnumerable<MetricAvailability> CaptureCapabilities(EconomyMetricCapabilities value)
+    {
+        yield return value.MoneyAmountDirection;
+        yield return value.MoneySourceAttribution;
+        yield return value.MoneyContextAttribution;
+        yield return value.CashAmountDirection;
+        yield return value.CashExternalAcquisition;
+        yield return value.CashContextAttribution;
+        yield return value.RouteAttribution;
+    }
+
+    private static IEnumerable<MetricAvailability> MoneyCapabilities(EconomyMetricCapabilities value)
+    {
+        yield return value.MoneyAmountDirection;
+        yield return value.MoneySourceAttribution;
+        yield return value.MoneyContextAttribution;
+    }
+
+    private static IEnumerable<MetricAvailability> CashCapabilities(EconomyMetricCapabilities value)
+    {
+        yield return value.CashAmountDirection;
+        yield return value.CashExternalAcquisition;
+        yield return value.CashContextAttribution;
+        yield return value.CashTerminalOutcomes;
+    }
+
+    private static void ValidateCapabilities(EconomyMetricCapabilities value)
+    {
+        if (Capabilities(value).Any(availability =>
+                availability == null || !Enum.IsDefined(typeof(AdapterCapabilityState), availability.State)))
+            throw new ArgumentException("Economy capabilities are incomplete.", nameof(value));
+    }
+    private static void ValidateOutcome(CashRaidOutcomeAggregate value)
+    {
+        if (value.Acquired < 0 || value.Secured < 0 || value.Lost < 0 || value.Unresolved < 0
+            || !TrySumExactly(new[] { value.Secured, value.Lost, value.Unresolved }, out var resolved)
+            || resolved > value.Acquired)
+            throw new ArgumentException("Cash raid outcomes are invalid.", nameof(value));
+    }
+    private static T Repair<T>(T value, ref bool repaired) { repaired = true; return value; }
+    private static long SaturatingAdd(long left, long right)
+    {
+        if (left < 0 || right < 0) throw new ArgumentOutOfRangeException(nameof(left));
+        return left > long.MaxValue - right ? long.MaxValue : left + right;
+    }
+}

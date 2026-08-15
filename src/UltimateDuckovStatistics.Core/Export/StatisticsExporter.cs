@@ -47,6 +47,9 @@ public sealed class StatisticsExportDocument
 
     [DataMember(Order = 12)]
     public List<CapabilityRecord> Capabilities { get; set; } = new();
+
+    [DataMember(Order = 13)]
+    public EconomyStatisticsAggregate Economy { get; set; } = new();
 }
 
 [DataContract]
@@ -101,7 +104,11 @@ public sealed class StatisticsExportBundle
         string routesCsv,
         string segmentsCsv,
         string segmentEventsCsv,
-        string routeMapTotalsCsv)
+        string routeMapTotalsCsv,
+        string economyTotalsCsv,
+        string economySourcesCsv,
+        string economyContextsCsv,
+        string cashRaidOutcomesCsv)
     {
         Document = document;
         Json = json;
@@ -124,6 +131,10 @@ public sealed class StatisticsExportBundle
         SegmentsCsv = segmentsCsv;
         SegmentEventsCsv = segmentEventsCsv;
         RouteMapTotalsCsv = routeMapTotalsCsv;
+        EconomyTotalsCsv = economyTotalsCsv;
+        EconomySourcesCsv = economySourcesCsv;
+        EconomyContextsCsv = economyContextsCsv;
+        CashRaidOutcomesCsv = cashRaidOutcomesCsv;
     }
 
     public StatisticsExportDocument Document { get; }
@@ -167,6 +178,14 @@ public sealed class StatisticsExportBundle
     public string SegmentEventsCsv { get; }
 
     public string RouteMapTotalsCsv { get; }
+
+    public string EconomyTotalsCsv { get; }
+
+    public string EconomySourcesCsv { get; }
+
+    public string EconomyContextsCsv { get; }
+
+    public string CashRaidOutcomesCsv { get; }
 }
 
 public static class StatisticsExporter
@@ -264,7 +283,8 @@ public static class StatisticsExporter
             RunTotals = runTotals,
             Runs = runs,
             RunRecords = CloneRunRecords(profile.Statistics.RunRecords),
-            Capabilities = profile.Capabilities.Select(CloneCapability).ToList()
+            Capabilities = profile.Capabilities.Select(CloneCapability).ToList(),
+            Economy = EconomyStatisticsReducer.Clone(profile.Statistics.Economy)
         };
 
         return new StatisticsExportBundle(
@@ -288,8 +308,141 @@ public static class StatisticsExporter
             CreateRoutesCsv(document),
             CreateSegmentsCsv(document),
             CreateSegmentEventsCsv(document),
-            CreateRouteMapTotalsCsv(document));
+            CreateRouteMapTotalsCsv(document),
+            CreateEconomyTotalsCsv(document),
+            CreateEconomySourcesCsv(document),
+            CreateEconomyContextsCsv(document),
+            CreateCashRaidOutcomesCsv(document));
     }
+
+    private static string CreateEconomyTotalsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,map_display_name,currency,gross_inflow,gross_outflow,net_flow,amount_capability,amount_capability_provenance,source_capability,source_capability_provenance,context_capability,context_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated,deduplication_saturated");
+        foreach (var scope in EconomyScopes(document))
+            foreach (var currency in Enum.GetValues(typeof(CurrencyKind)).Cast<CurrencyKind>())
+            {
+                scope.Economy.Currencies.TryGetValue(currency.ToString(), out var value);
+                var totals = value?.Totals ?? new CurrencyFlowTotals();
+                var capabilities = CurrencyCapabilities(scope.Economy, currency);
+                var unavailableHistoryWithoutM9Flow = scope.Economy.HistoricalUnavailable && value == null;
+                builder.Append(Csv(scope.Scope)).Append(',').Append(Csv(scope.ScopeId)).Append(',')
+                    .Append(Csv(scope.RunId)).Append(',').Append(Csv(scope.SegmentId)).Append(',')
+                    .Append(Csv(scope.MapId)).Append(',').Append(Csv(scope.MapDisplayName)).Append(',')
+                    .Append(currency).Append(',')
+                    .Append(unavailableHistoryWithoutM9Flow ? string.Empty : totals.GrossInflow.ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(unavailableHistoryWithoutM9Flow ? string.Empty : totals.GrossOutflow.ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(unavailableHistoryWithoutM9Flow ? string.Empty : totals.NetFlow.ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(capabilities.Amount.State).Append(',').Append(Csv(capabilities.Amount.Provenance)).Append(',')
+                    .Append(capabilities.Source.State).Append(',').Append(Csv(capabilities.Source.Provenance)).Append(',')
+                    .Append(capabilities.Context.State).Append(',').Append(Csv(capabilities.Context.Provenance)).Append(',')
+                    .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
+                    .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
+                    .Append(IsArithmeticSaturated(scope.Economy, currency) ? "true" : "false").Append(',')
+                    .Append(scope.Economy.DeduplicationSaturated ? "true" : "false").AppendLine();
+            }
+        return builder.ToString();
+    }
+
+    private static string CreateEconomySourcesCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,source,gross_inflow,gross_outflow,net_flow,source_capability,source_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated,deduplication_saturated");
+        foreach (var scope in EconomyScopes(document))
+            foreach (var currency in scope.Economy.Currencies.Values.OrderBy(value => value.Currency))
+                foreach (var row in currency.Sources.OrderBy(value => value.Key, StringComparer.Ordinal))
+                    builder.Append(Csv(scope.Scope)).Append(',').Append(Csv(scope.ScopeId)).Append(',')
+                        .Append(Csv(scope.RunId)).Append(',').Append(Csv(scope.SegmentId)).Append(',').Append(Csv(scope.MapId)).Append(',')
+                        .Append(currency.Currency).Append(',').Append(Csv(row.Key)).Append(',').Append(row.Value.GrossInflow).Append(',')
+                        .Append(row.Value.GrossOutflow).Append(',').Append(row.Value.NetFlow).Append(',')
+                        .Append(CurrencyCapabilities(scope.Economy, currency.Currency).Source.State).Append(',')
+                        .Append(Csv(CurrencyCapabilities(scope.Economy, currency.Currency).Source.Provenance)).Append(',')
+                        .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
+                        .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
+                        .Append(IsArithmeticSaturated(scope.Economy, currency.Currency) ? "true" : "false").Append(',')
+                        .Append(scope.Economy.DeduplicationSaturated ? "true" : "false").AppendLine();
+        return builder.ToString();
+    }
+
+    private static string CreateEconomyContextsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,gameplay_context,gross_inflow,gross_outflow,net_flow,context_capability,context_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated,deduplication_saturated");
+        foreach (var scope in EconomyScopes(document))
+            foreach (var currency in scope.Economy.Currencies.Values.OrderBy(value => value.Currency))
+                foreach (var row in currency.Contexts.OrderBy(value => value.Key, StringComparer.Ordinal))
+                    builder.Append(Csv(scope.Scope)).Append(',').Append(Csv(scope.ScopeId)).Append(',')
+                        .Append(Csv(scope.RunId)).Append(',').Append(Csv(scope.SegmentId)).Append(',').Append(Csv(scope.MapId)).Append(',')
+                        .Append(currency.Currency).Append(',').Append(Csv(row.Key)).Append(',').Append(row.Value.GrossInflow).Append(',')
+                        .Append(row.Value.GrossOutflow).Append(',').Append(row.Value.NetFlow).Append(',')
+                        .Append(CurrencyCapabilities(scope.Economy, currency.Currency).Context.State).Append(',')
+                        .Append(Csv(CurrencyCapabilities(scope.Economy, currency.Currency).Context.Provenance)).Append(',')
+                        .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
+                        .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
+                        .Append(IsArithmeticSaturated(scope.Economy, currency.Currency) ? "true" : "false").Append(',')
+                        .Append(scope.Economy.DeduplicationSaturated ? "true" : "false").AppendLine();
+        return builder.ToString();
+    }
+
+    private static string CreateCashRaidOutcomesCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,acquired,secured,lost,unresolved,acquisition_capability,acquisition_capability_provenance,terminal_capability,terminal_capability_provenance,terminal_ambiguous,terminal_recorded,historical_unavailable,repaired_invalid_state,cash_arithmetic_saturated,deduplication_saturated");
+        foreach (var scope in EconomyScopes(document))
+        {
+            var value = scope.Economy.CashRaidOutcomes;
+            var unavailableHistoryWithoutM9Outcome = scope.Economy.HistoricalUnavailable
+                                                     && value.Acquired == 0
+                                                     && value.Secured == 0
+                                                     && value.Lost == 0
+                                                     && value.Unresolved == 0;
+            string Outcome(long amount) => unavailableHistoryWithoutM9Outcome
+                ? string.Empty
+                : amount.ToString(CultureInfo.InvariantCulture);
+            builder.Append(Csv(scope.Scope)).Append(',').Append(Csv(scope.ScopeId)).Append(',')
+                .Append(Csv(scope.RunId)).Append(',').Append(Csv(scope.SegmentId)).Append(',').Append(Csv(scope.MapId)).Append(',')
+                .Append(Outcome(value.Acquired)).Append(',').Append(Outcome(value.Secured)).Append(',')
+                .Append(Outcome(value.Lost)).Append(',').Append(Outcome(value.Unresolved)).Append(',')
+                .Append(scope.Economy.Capabilities.CashExternalAcquisition.State).Append(',')
+                .Append(Csv(scope.Economy.Capabilities.CashExternalAcquisition.Provenance)).Append(',')
+                .Append(scope.Economy.Capabilities.CashTerminalOutcomes.State).Append(',')
+                .Append(Csv(scope.Economy.Capabilities.CashTerminalOutcomes.Provenance)).Append(',')
+                .Append(scope.Economy.CashTerminalDispositionAmbiguous ? "true" : "false").Append(',')
+                .Append(scope.Economy.CashTerminalDispositionRecorded ? "true" : "false").Append(',')
+                .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
+                .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
+                .Append(scope.Economy.CashArithmeticSaturated ? "true" : "false").Append(',')
+                .Append(scope.Economy.DeduplicationSaturated ? "true" : "false").AppendLine();
+        }
+        return builder.ToString();
+    }
+
+    private static IEnumerable<EconomyScope> EconomyScopes(StatisticsExportDocument document)
+    {
+        yield return new EconomyScope("lifetime", document.GenerationId, string.Empty, string.Empty, string.Empty, string.Empty, document.Economy);
+        yield return new EconomyScope("completed_runs", document.GenerationId, string.Empty, string.Empty, string.Empty, string.Empty, document.RunTotals.Economy);
+        foreach (var map in document.RunTotals.Maps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+            yield return new EconomyScope("starting_map", map.MapId, string.Empty, string.Empty, map.MapId, map.DisplayName, map.Economy);
+        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+            yield return new EconomyScope("route_map", map.MapId, string.Empty, string.Empty, map.MapId, map.DisplayName, map.Economy);
+        foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
+        {
+            yield return new EconomyScope("run", run.RunId, run.RunId, string.Empty, run.StartingMapId, run.StartingMapDisplayName, run.Economy);
+            foreach (var segment in run.Segments.OrderBy(value => value.SegmentIndex))
+                yield return new EconomyScope("segment", segment.SegmentId, run.RunId, segment.SegmentId, segment.MapId, segment.MapDisplayName, segment.Economy);
+        }
+    }
+
+    private static bool IsArithmeticSaturated(EconomyStatisticsAggregate economy, CurrencyKind currency) =>
+        currency == CurrencyKind.Money
+            ? economy.MoneyArithmeticSaturated
+            : economy.CashArithmeticSaturated;
+
+    private static (MetricAvailability Amount, MetricAvailability Source, MetricAvailability Context) CurrencyCapabilities(
+        EconomyStatisticsAggregate economy,
+        CurrencyKind currency) => currency == CurrencyKind.Money
+        ? (economy.Capabilities.MoneyAmountDirection, economy.Capabilities.MoneySourceAttribution, economy.Capabilities.MoneyContextAttribution)
+        : (economy.Capabilities.CashAmountDirection, economy.Capabilities.CashExternalAcquisition, economy.Capabilities.CashContextAttribution);
 
     private static string CreateRoutesCsv(StatisticsExportDocument document)
     {
@@ -1027,6 +1180,7 @@ public static class StatisticsExporter
         CombatStatistics = CombatStatisticsReducer.Clone(source.CombatStatistics),
         EquipmentStatistics = EquipmentStatisticsReducer.Clone(source.EquipmentStatistics),
         ContainerStatistics = ContainerStatisticsReducer.Clone(source.ContainerStatistics),
+        Economy = EconomyStatisticsReducer.Clone(source.Economy),
         Maps = source.Maps.ToDictionary(
             entry => entry.Key,
             entry => new MapRunAggregate
@@ -1042,7 +1196,8 @@ public static class StatisticsExporter
                 CombatStatistics = CombatStatisticsReducer.Clone(entry.Value.CombatStatistics),
                 EquipmentStatistics = EquipmentStatisticsReducer.Clone(entry.Value.EquipmentStatistics),
                 ContainerStatistics = ContainerStatisticsReducer.Clone(entry.Value.ContainerStatistics),
-                ItemStatistics = ItemStatisticsAggregateReducer.Clone(entry.Value.ItemStatistics)
+                ItemStatistics = ItemStatisticsAggregateReducer.Clone(entry.Value.ItemStatistics),
+                Economy = EconomyStatisticsReducer.Clone(entry.Value.Economy)
             },
             StringComparer.Ordinal),
         RouteMaps = source.RouteMaps.ToDictionary(
@@ -1094,7 +1249,8 @@ public static class StatisticsExporter
         HistoricalRouteUnavailable = source.HistoricalRouteUnavailable,
         RouteWasRepairedFromInvalidState = source.RouteWasRepairedFromInvalidState,
         SegmentEventAssociations = source.SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
-        ItemStatistics = ItemStatisticsAggregateReducer.Clone(source.ItemStatistics)
+        ItemStatistics = ItemStatisticsAggregateReducer.Clone(source.ItemStatistics),
+        Economy = EconomyStatisticsReducer.Clone(source.Economy)
     };
 
     private static RouteAwareMapAggregate CloneRouteMap(RouteAwareMapAggregate source) => new()
@@ -1113,6 +1269,7 @@ public static class StatisticsExporter
         CombatStatistics = CombatStatisticsReducer.Clone(source.CombatStatistics),
         EquipmentStatistics = EquipmentStatisticsReducer.Clone(source.EquipmentStatistics),
         ContainerStatistics = ContainerStatisticsReducer.Clone(source.ContainerStatistics),
+        Economy = EconomyStatisticsReducer.Clone(source.Economy),
         HistoricalUnavailable = source.HistoricalUnavailable,
         WasRepairedFromInvalidState = source.WasRepairedFromInvalidState
     };
@@ -1124,6 +1281,19 @@ public static class StatisticsExporter
         Version = source.Version,
         Detail = source.Detail
     };
+
+    private sealed class EconomyScope
+    {
+        public EconomyScope(string scope, string scopeId, string runId, string segmentId, string mapId, string mapDisplayName, EconomyStatisticsAggregate economy)
+        { Scope = scope; ScopeId = scopeId; RunId = runId; SegmentId = segmentId; MapId = mapId; MapDisplayName = mapDisplayName; Economy = economy; }
+        public string Scope { get; }
+        public string ScopeId { get; }
+        public string RunId { get; }
+        public string SegmentId { get; }
+        public string MapId { get; }
+        public string MapDisplayName { get; }
+        public EconomyStatisticsAggregate Economy { get; }
+    }
 
     private static RunDurationRecords CloneRunRecords(RunDurationRecords source) => new()
     {

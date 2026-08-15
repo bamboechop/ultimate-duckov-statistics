@@ -1,0 +1,641 @@
+using Duckov.Economy;
+using Duckov.Quests;
+using Duckov.Quests.Rewards;
+using ItemStatsSystem;
+using UltimateDuckovStatistics.Core.Compatibility;
+using UltimateDuckovStatistics.Core.Domain;
+using UnityEngine;
+
+namespace UltimateDuckovStatistics.Adapters;
+
+internal sealed class NativeEconomyAdapter : IDisposable
+{
+    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v2";
+    private const string SupportedGameVersion = "2.3.30";
+    private const string SupportedGameBuild = "24013657";
+    private const int CashItemTypeId = EconomyManager.CashItemID;
+    private const int MaximumTransientItemIds = 512;
+    private const int MaximumPendingMoneyFlows = 512;
+    private readonly Func<string> generationProvider;
+    private readonly Func<string?> runProvider;
+    private readonly Func<string?> mapProvider;
+    private readonly Func<string?> segmentProvider;
+    private readonly Func<bool> runActiveProvider;
+    private readonly Func<CurrencyFlowRecorded, bool> publisher;
+    private readonly Action<IReadOnlyList<Core.Persistence.CapabilityRecord>> capabilityPublisher;
+    private readonly Action<string> diagnostic;
+    private readonly string activationId = Guid.NewGuid().ToString("N");
+    private readonly List<PendingMoneyFlow> pendingMoney = new();
+    private readonly Queue<int> pendingPickupIds = new();
+    private readonly HashSet<int> playerOriginatedCashIds = new();
+    private HashSet<int> ownedCashIds = new();
+    private Inventory? subscribedPetInventory;
+    private long eventSequence;
+    private long lastMoneyBalance;
+    private long lastMoneyOldValue;
+    private long lastMoneyNewValue;
+    private long cashBaseline;
+    private long playerOriginatedCashOutsideOwned;
+    private int? pendingCashSaleAmount;
+    private bool cashBaselineReady;
+    private bool cashBaselineSuspended;
+    private bool cashDirty;
+    private bool cashOutflowWasCompletedCost;
+    private bool moneyDisabled;
+    private bool moneyBalanceObserved;
+    private bool moneySemanticCorrelationDisabled;
+    private bool cashDisabled;
+    private bool cashAcquisitionDisabled;
+    private ObservationContext? cashObservationContext;
+    private bool subscribed;
+    private bool disposed;
+
+    public NativeEconomyAdapter(
+        Func<string> generationProvider,
+        Func<string?> runProvider,
+        Func<string?> mapProvider,
+        Func<string?> segmentProvider,
+        Func<bool> runActiveProvider,
+        Func<CurrencyFlowRecorded, bool> publisher,
+        Action<IReadOnlyList<Core.Persistence.CapabilityRecord>> capabilityPublisher,
+        Action<string> diagnostic)
+    {
+        this.generationProvider = generationProvider ?? throw new ArgumentNullException(nameof(generationProvider));
+        this.runProvider = runProvider ?? throw new ArgumentNullException(nameof(runProvider));
+        this.mapProvider = mapProvider ?? throw new ArgumentNullException(nameof(mapProvider));
+        this.segmentProvider = segmentProvider ?? throw new ArgumentNullException(nameof(segmentProvider));
+        this.runActiveProvider = runActiveProvider ?? throw new ArgumentNullException(nameof(runActiveProvider));
+        this.publisher = publisher ?? throw new ArgumentNullException(nameof(publisher));
+        this.capabilityPublisher = capabilityPublisher ?? throw new ArgumentNullException(nameof(capabilityPublisher));
+        this.diagnostic = diagnostic ?? throw new ArgumentNullException(nameof(diagnostic));
+    }
+
+    public EconomyMetricCapabilities MetricCapabilities { get; private set; } =
+        EconomyNativeContractPolicy.Unavailable("Economy adapter has not been initialized.");
+
+    public void Initialize()
+    {
+        if (subscribed) { diagnostic("Duplicate economy adapter setup ignored."); return; }
+        var gameVersion = Application.version ?? string.Empty;
+        if (!string.Equals(gameVersion, SupportedGameVersion, StringComparison.Ordinal))
+        {
+            Disable($"Installed Duckov version {gameVersion} does not match verified economy contract {SupportedGameVersion} build {SupportedGameBuild}.");
+            return;
+        }
+
+        EconomyManager.OnMoneyChanged += OnMoneyChanged;
+        EconomyManager.OnEconomyManagerLoaded += OnEconomyManagerLoaded;
+        EconomyManager.OnCostPaid += OnCostPaid;
+        StockShop.OnItemSoldByPlayer += OnItemSoldByPlayer;
+        Reward.OnRewardClaimed += OnRewardClaimed;
+        InteractablePickup.OnPickupSuccess += OnPickupSuccess;
+        ItemUtilities.OnPlayerItemOperation += OnPlayerItemOperation;
+        CharacterMainControl.OnMainCharacterInventoryChangedEvent += OnMainInventoryChanged;
+        PlayerStorage.OnPlayerStorageChange += OnStorageChanged;
+        LevelManager.OnLevelBeginInitializing += OnLevelBeginInitializing;
+        LevelManager.OnAfterLevelInitialized += OnAfterLevelInitialized;
+        LevelManager.OnControllingCharacterChanged += OnControllingCharacterChanged;
+        subscribed = true;
+        ResetBaselines();
+        ReconcilePetInventorySubscription();
+        MetricCapabilities = CreateSupportedCapabilities();
+        PublishCapabilities();
+        diagnostic($"Economy adapter subscribed using public Duckov events; Cash item type={CashItemTypeId}.");
+    }
+
+    public void Tick()
+    {
+        if (disposed || !subscribed) return;
+        FlushPendingMoney();
+        FlushCash();
+    }
+
+    private void FlushPendingMoney()
+    {
+        if (pendingMoney.Count > 0)
+        {
+            var ready = pendingMoney.ToArray();
+            pendingMoney.Clear();
+            foreach (var flow in ready) Publish(flow.ToEvent(CreateEventId("money")));
+        }
+    }
+
+    private void FlushCash()
+    {
+        if (cashDisabled || cashBaselineSuspended) return;
+        if (!cashDirty && cashBaselineReady) return;
+        cashDirty = false;
+        var observationContext = cashObservationContext ?? CaptureContext();
+        cashObservationContext = null;
+        CashSnapshot snapshot;
+        try { snapshot = ReadCashSnapshot(); }
+        catch (Exception exception)
+        {
+            DisableCash($"Physical Cash ownership scan failed: {exception.GetType().Name}.");
+            return;
+        }
+        if (!cashBaselineReady)
+        {
+            cashBaseline = snapshot.Total;
+            ownedCashIds = snapshot.ItemIds;
+            cashBaselineReady = true;
+            pendingPickupIds.Clear();
+            pendingCashSaleAmount = null;
+            cashOutflowWasCompletedCost = false;
+            return;
+        }
+        ObserveRemovedCashIds(snapshot.ItemIds);
+        if (snapshot.Total != cashBaseline) PublishCashDelta(snapshot, observationContext);
+        cashBaseline = snapshot.Total;
+        ownedCashIds = snapshot.ItemIds;
+        pendingPickupIds.Clear();
+        pendingCashSaleAmount = null;
+        cashOutflowWasCompletedCost = false;
+    }
+
+    public void ResetBaselines()
+    {
+        pendingMoney.Clear();
+        moneyBalanceObserved = false;
+        lastMoneyBalance = 0;
+        lastMoneyOldValue = 0;
+        lastMoneyNewValue = 0;
+        ResetCashBaseline();
+    }
+
+    private void ResetCashBaseline()
+    {
+        pendingPickupIds.Clear();
+        pendingCashSaleAmount = null;
+        cashOutflowWasCompletedCost = false;
+        cashBaseline = 0;
+        cashBaselineReady = false;
+        cashDirty = true;
+        cashObservationContext = null;
+        ownedCashIds.Clear();
+        playerOriginatedCashIds.Clear();
+        playerOriginatedCashOutsideOwned = 0;
+    }
+
+    public void Dispose()
+    {
+        if (disposed) return;
+        try
+        {
+            Tick();
+        }
+        catch (Exception exception)
+        {
+            diagnostic($"Economy adapter could not publish all pending flows during cleanup: {exception.GetType().Name}.");
+        }
+        disposed = true;
+        if (subscribed)
+        {
+            EconomyManager.OnMoneyChanged -= OnMoneyChanged;
+            EconomyManager.OnEconomyManagerLoaded -= OnEconomyManagerLoaded;
+            EconomyManager.OnCostPaid -= OnCostPaid;
+            StockShop.OnItemSoldByPlayer -= OnItemSoldByPlayer;
+            Reward.OnRewardClaimed -= OnRewardClaimed;
+            InteractablePickup.OnPickupSuccess -= OnPickupSuccess;
+            ItemUtilities.OnPlayerItemOperation -= OnPlayerItemOperation;
+            CharacterMainControl.OnMainCharacterInventoryChangedEvent -= OnMainInventoryChanged;
+            PlayerStorage.OnPlayerStorageChange -= OnStorageChanged;
+            LevelManager.OnLevelBeginInitializing -= OnLevelBeginInitializing;
+            LevelManager.OnAfterLevelInitialized -= OnAfterLevelInitialized;
+            LevelManager.OnControllingCharacterChanged -= OnControllingCharacterChanged;
+            subscribed = false;
+        }
+        if (subscribedPetInventory != null) subscribedPetInventory.onContentChanged -= OnPetInventoryChanged;
+        subscribedPetInventory = null;
+        pendingMoney.Clear();
+    }
+
+    private void OnMoneyChanged(long oldValue, long newValue)
+    {
+        if (disposed || moneyDisabled || oldValue == newValue) return;
+        if (oldValue < 0 || newValue < 0)
+        {
+            DisableMoney("Duckov reported a negative Money balance; exact normalized direction is unavailable.");
+            return;
+        }
+        if (moneyBalanceObserved && oldValue != lastMoneyBalance)
+        {
+            if (oldValue == lastMoneyOldValue && newValue == lastMoneyNewValue)
+            {
+                diagnostic("Duplicate Money balance callback ignored without creating another flow.");
+                return;
+            }
+            DisableMoney("Duckov reported a discontinuous Money balance callback; later exact deltas cannot be proven.");
+            return;
+        }
+        moneyBalanceObserved = true;
+        lastMoneyBalance = newValue;
+        lastMoneyOldValue = oldValue;
+        lastMoneyNewValue = newValue;
+        var direction = newValue > oldValue ? CurrencyFlowDirection.Inflow : CurrencyFlowDirection.Outflow;
+        var amount = direction == CurrencyFlowDirection.Inflow ? newValue - oldValue : oldValue - newValue;
+        if (amount <= 0) { DisableMoney("Duckov Money delta overflowed or was not positive."); return; }
+        var context = CaptureContext();
+        if (pendingMoney.Count >= MaximumPendingMoneyFlows)
+        {
+            DisableMoneySemanticCorrelation(
+                $"The defensive {MaximumPendingMoneyFlows}-flow semantic correlation bound was reached; exact Money amount/direction remains available but source-specific attribution is disabled.");
+            var oldest = pendingMoney[0];
+            pendingMoney.RemoveAt(0);
+            Publish(oldest.ToEvent(CreateEventId("money-bounded")));
+        }
+        pendingMoney.Add(new PendingMoneyFlow(amount, direction, context));
+    }
+
+    private void OnRewardClaimed(Reward reward)
+    {
+        if (disposed || !subscribed) return;
+        if (moneySemanticCorrelationDisabled) return;
+        if (reward is not QuestReward_Money moneyReward || moneyReward.Amount <= 0) return;
+        var pending = FindPendingMoney(CurrencyFlowDirection.Inflow, moneyReward.Amount);
+        if (pending == null) return;
+        pending.Source = CurrencySourceCategory.Reward;
+        pending.Context = GameplayContext.Reward;
+        pending.NativeSourceId = $"duckov:quest-reward-money:{reward.ID}";
+        pending.SourceDisplayName = reward.Description;
+    }
+
+    private void OnItemSoldByPlayer(StockShop shop, Item item, int sellPrice)
+    {
+        if (disposed || !subscribed) return;
+        if (sellPrice <= 0) return;
+        if (moneySemanticCorrelationDisabled)
+        {
+            MarkCashDirty();
+            FlushCash();
+            return;
+        }
+        var money = FindPendingMoney(CurrencyFlowDirection.Inflow, sellPrice);
+        if (money != null)
+        {
+            money.Source = CurrencySourceCategory.Sale;
+            money.Context = GameplayContext.Shop;
+            money.NativeSourceId = $"duckov:merchant:{shop.MerchantID}";
+            money.SourceDisplayName = shop.DisplayName;
+            return;
+        }
+        pendingCashSaleAmount = sellPrice;
+        MarkCashDirty();
+        FlushCash();
+    }
+
+    private void OnCostPaid(Cost cost)
+    {
+        if (disposed || !subscribed) return;
+        cashOutflowWasCompletedCost = true;
+        MarkCashDirty();
+        FlushCash();
+    }
+
+    private void OnPickupSuccess(InteractablePickup pickup, CharacterMainControl character)
+    {
+        if (disposed || character == null || !character.IsMainCharacter
+            || !ReferenceEquals(character, CharacterMainControl.Main) || !runActiveProvider()) return;
+        var item = pickup?.ItemAgent?.Item;
+        if (ReferenceEquals(item, null) || item.TypeID != CashItemTypeId) return;
+        if (!cashAcquisitionDisabled)
+        {
+            if (pendingPickupIds.Count >= MaximumTransientItemIds)
+            {
+                DisableCashAcquisition(
+                    $"The defensive {MaximumTransientItemIds}-pickup correlation bound was reached; exact Cash amount/direction remains available but external acquisition attribution is disabled.");
+            }
+            else
+            {
+                pendingPickupIds.Enqueue(item.GetInstanceID());
+            }
+        }
+        MarkCashDirty();
+        FlushCash();
+    }
+
+    private void PublishCashDelta(CashSnapshot snapshot, ObservationContext observationContext)
+    {
+        var newTotal = snapshot.Total;
+        if (newTotal > cashBaseline)
+        {
+            var amount = newTotal - cashBaseline;
+            if (pendingCashSaleAmount.HasValue && pendingCashSaleAmount.Value == amount)
+            {
+                PublishCash(amount, CurrencyFlowDirection.Inflow, CurrencySourceCategory.Sale, GameplayContext.Shop, false, "duckov:stock-shop-sale", observationContext);
+                return;
+            }
+            var hadPickup = !cashAcquisitionDisabled
+                            && pendingPickupIds.Count > 0
+                            && !string.IsNullOrWhiteSpace(observationContext.RunId);
+            var repicked = hadPickup
+                ? Math.Min(
+                    amount,
+                    Math.Min(
+                        playerOriginatedCashOutsideOwned,
+                        SaturatingSum(pendingPickupIds
+                            .Distinct()
+                            .Where(playerOriginatedCashIds.Contains)
+                            .Select(id => snapshot.ItemAmounts.TryGetValue(id, out var stack) ? stack : 0))))
+                : 0;
+            if (repicked > 0)
+            {
+                playerOriginatedCashOutsideOwned -= repicked;
+                PublishCash(repicked, CurrencyFlowDirection.Inflow, CurrencySourceCategory.UnknownAdjustment, GameplayContext.Raid, false, "duckov:cash-repickup", observationContext);
+            }
+            var remainder = amount - repicked;
+            if (remainder > 0)
+                PublishCash(
+                    remainder,
+                    CurrencyFlowDirection.Inflow,
+                    hadPickup ? CurrencySourceCategory.LootOrPickup : CurrencySourceCategory.UnknownAdjustment,
+                    observationContext.GameplayContext,
+                    hadPickup,
+                    hadPickup ? "duckov:world-pickup" : null,
+                    observationContext);
+            return;
+        }
+        var outflow = cashBaseline - newTotal;
+        if (outflow <= 0) return;
+        if (!cashAcquisitionDisabled
+            && !cashOutflowWasCompletedCost
+            && !string.IsNullOrWhiteSpace(observationContext.RunId))
+            playerOriginatedCashOutsideOwned = SaturatingAdd(playerOriginatedCashOutsideOwned, outflow);
+        PublishCash(outflow, CurrencyFlowDirection.Outflow, CurrencySourceCategory.UnknownAdjustment, observationContext.GameplayContext, false, null, observationContext);
+    }
+
+    private void PublishCash(long amount, CurrencyFlowDirection direction, CurrencySourceCategory source, GameplayContext context, bool acquisition, string? sourceId, ObservationContext observationContext)
+    {
+        Publish(new CurrencyFlowRecorded
+        {
+            EventId = CreateEventId("cash"),
+            TimestampUtc = observationContext.TimestampUtc,
+            SaveGenerationId = observationContext.GenerationId,
+            RunId = observationContext.RunId,
+            SegmentId = observationContext.SegmentId,
+            MapId = observationContext.MapId,
+            Currency = CurrencyKind.Cash,
+            Direction = direction,
+            Amount = amount,
+            Source = source,
+            NativeSourceId = sourceId,
+            GameplayContext = context,
+            IntegrityTags = observationContext.IntegrityTags,
+            GameVersion = Application.version ?? string.Empty,
+            GameBuild = SupportedGameBuild,
+            AdapterVersion = AdapterVersion,
+            ProvenExternalRaidAcquisition = acquisition
+        });
+    }
+
+    private void Publish(CurrencyFlowRecorded value)
+    {
+        if (string.IsNullOrWhiteSpace(value.SaveGenerationId) || value.Amount <= 0) return;
+        publisher(value);
+    }
+
+    private PendingMoneyFlow? FindPendingMoney(CurrencyFlowDirection direction, long amount) =>
+        pendingMoney.LastOrDefault(flow => flow.Direction == direction && flow.Amount == amount && flow.Source == CurrencySourceCategory.UnknownAdjustment);
+
+    private static CashSnapshot ReadCashSnapshot()
+    {
+        var total = 0L;
+        var amounts = new Dictionary<int, long>();
+        foreach (var item in ItemUtilities.FindAllBelongsToPlayer(candidate => candidate != null && candidate.TypeID == CashItemTypeId))
+        {
+            if (item.StackCount < 0) throw new InvalidOperationException("Cash stack count was negative.");
+            var id = item.GetInstanceID();
+            if (amounts.TryGetValue(id, out var existing))
+            {
+                if (existing != item.StackCount)
+                    throw new InvalidOperationException("One Cash item identity reported conflicting stack counts during a single ownership scan.");
+                continue;
+            }
+
+            amounts.Add(id, item.StackCount);
+            total = SaturatingAdd(total, item.StackCount);
+        }
+        return new CashSnapshot(total, amounts);
+    }
+
+    private void ObserveRemovedCashIds(HashSet<int> current)
+    {
+        if (cashAcquisitionDisabled) return;
+        foreach (var id in ownedCashIds.Where(id => !current.Contains(id)))
+        {
+            if (playerOriginatedCashIds.Contains(id)) continue;
+            if (playerOriginatedCashIds.Count >= MaximumTransientItemIds)
+            {
+                DisableCashAcquisition(
+                    $"The defensive {MaximumTransientItemIds}-item drop/re-pickup correlation bound was reached; exact Cash amount/direction remains available but external acquisition attribution is disabled.");
+                return;
+            }
+            playerOriginatedCashIds.Add(id);
+        }
+    }
+
+    private void OnEconomyManagerLoaded()
+    {
+        if (disposed || !subscribed) return;
+        FlushPendingMoney();
+        ResetBaselines();
+        cashBaselineSuspended = true;
+    }
+    private void OnPlayerItemOperation() { if (!disposed && subscribed) MarkCashDirty(); }
+    private void OnMainInventoryChanged(CharacterMainControl character, Inventory inventory, int index) { if (!disposed && subscribed && character != null && character.IsMainCharacter && ReferenceEquals(character, CharacterMainControl.Main)) MarkCashDirty(); }
+    private void OnStorageChanged(PlayerStorage storage, Inventory inventory, int index) { if (!disposed && subscribed) MarkCashDirty(); }
+    private void OnPetInventoryChanged(Inventory inventory, int index) { if (!disposed && subscribed) MarkCashDirty(); }
+    private void OnLevelBeginInitializing()
+    {
+        if (disposed || !subscribed) return;
+        FlushPendingMoney();
+        ResetCashBaseline();
+        cashBaselineSuspended = true;
+    }
+
+    private void OnAfterLevelInitialized()
+    {
+        if (disposed || !subscribed) return;
+        FlushPendingMoney();
+        if (!cashBaselineSuspended && cashBaselineReady) FlushCash();
+        ReconcilePetInventorySubscription();
+        ResetBaselines();
+        cashBaselineSuspended = false;
+        FlushCash();
+    }
+    private void OnControllingCharacterChanged(CharacterMainControl character) { if (!disposed && subscribed) { ReconcilePetInventorySubscription(); MarkCashDirty(); } }
+
+    private void ReconcilePetInventorySubscription()
+    {
+        var current = PetProxy.PetInventory;
+        if (ReferenceEquals(current, subscribedPetInventory)) return;
+        if (subscribedPetInventory != null) subscribedPetInventory.onContentChanged -= OnPetInventoryChanged;
+        subscribedPetInventory = current;
+        if (subscribedPetInventory != null) subscribedPetInventory.onContentChanged += OnPetInventoryChanged;
+    }
+
+    private string? CurrentRun() => runActiveProvider() ? runProvider() : null;
+    private string? CurrentSegment() => runActiveProvider() ? segmentProvider() : null;
+    private string CurrentMap() => runActiveProvider() ? mapProvider() ?? MapIdentity.UnknownId : MapIdentity.UnknownId;
+    private GameplayContext CurrentGameplayContext() => runActiveProvider() ? GameplayContext.Raid : GameplayContext.Base;
+    private ObservationContext CaptureContext() => new(
+        generationProvider(), CurrentRun(), CurrentSegment(), CurrentMap(), CurrentGameplayContext(), DateTime.UtcNow, NativeIntegrityProbe.Read());
+    private void MarkCashDirty()
+    {
+        if (cashDisabled) return;
+        if (!cashDirty) cashObservationContext = CaptureContext();
+        cashDirty = true;
+    }
+    private string CreateEventId(string kind) => $"economy:{activationId}:{kind}:{++eventSequence}";
+
+    private static EconomyMetricCapabilities CreateSupportedCapabilities()
+    {
+        var publicEvents = $"Duckov {SupportedGameVersion} build {SupportedGameBuild} public economy and owned-inventory events ({AdapterVersion}).";
+        return new EconomyMetricCapabilities
+        {
+            MoneyAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " OnMoneyChanged emits exact old/new balances after mutation; load writes the field directly."),
+            MoneySourceAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " Completed StockShop sales and QuestReward_Money claims are semantic; purchases, fees, crafting, conversion, and other changes remain UnknownAdjustment."),
+            MoneyContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " Reward and sale contexts are semantic; other non-raid changes use Base and remain source-independent."),
+            CashAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " Cash is item type 451; event-coalesced totals span storage, main inventory, and pet inventory, while full-scene inventory hydration is baselined only after level initialization completes."),
+            CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " successful exact-main world pickup plus owned-total delta, with bounded player-originated drop/re-pickup item-identity exclusion; corpse/container transfers remain exact UnknownAdjustment flows."),
+            CashContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " context is captured at the accepted owned-total delta boundary."),
+            CashTerminalOutcomes = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, "Cash acquisition is supported, but installed-game public events do not prove terminal disposition across fungible main, pet, and storage ownership; acquired amounts remain unresolved."),
+            RouteAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " active run/map/segment identity is captured at event time; route loss degrades only segment attribution.")
+        };
+    }
+
+    private void Disable(string reason) { MetricCapabilities = EconomyNativeContractPolicy.Unavailable(reason); PublishCapabilities(); diagnostic(reason); }
+    private void DisableMoney(string reason)
+    {
+        moneyDisabled = true;
+        var accepted = pendingMoney.ToArray();
+        pendingMoney.Clear();
+        MetricCapabilities.MoneyAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
+        MetricCapabilities.MoneySourceAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
+        MetricCapabilities.MoneyContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
+        PublishCapabilities(); diagnostic(reason);
+        foreach (var flow in accepted) Publish(flow.ToEvent(CreateEventId("money-before-disable")));
+    }
+    private void DisableMoneySemanticCorrelation(string reason)
+    {
+        if (moneySemanticCorrelationDisabled) return;
+        moneySemanticCorrelationDisabled = true;
+        MetricCapabilities.MoneySourceAttribution = EconomyNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            reason);
+        MetricCapabilities.MoneyContextAttribution = EconomyNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            reason);
+        PublishCapabilities();
+        diagnostic(reason);
+    }
+    private void DisableCash(string reason)
+    {
+        cashDisabled = true;
+        cashDirty = false;
+        cashObservationContext = null;
+        pendingPickupIds.Clear();
+        pendingCashSaleAmount = null;
+        cashOutflowWasCompletedCost = false;
+        MetricCapabilities.CashAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
+        MetricCapabilities.CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
+        MetricCapabilities.CashContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
+        MetricCapabilities.CashTerminalOutcomes = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
+        PublishCapabilities(); diagnostic(reason);
+    }
+    private void DisableCashAcquisition(string reason)
+    {
+        if (cashAcquisitionDisabled) return;
+        cashAcquisitionDisabled = true;
+        pendingPickupIds.Clear();
+        playerOriginatedCashIds.Clear();
+        playerOriginatedCashOutsideOwned = 0;
+        MetricCapabilities.CashExternalAcquisition = EconomyNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            reason);
+        PublishCapabilities();
+        diagnostic(reason);
+    }
+    private void PublishCapabilities() => capabilityPublisher(EconomyNativeContractPolicy.ToRecords(MetricCapabilities, AdapterVersion));
+    private static long SaturatingAdd(long left, long right) => left > long.MaxValue - right ? long.MaxValue : left + right;
+    private static long SaturatingSum(IEnumerable<long> values)
+    {
+        var result = 0L;
+        foreach (var value in values) result = SaturatingAdd(result, value);
+        return result;
+    }
+
+    private sealed class PendingMoneyFlow
+    {
+        public PendingMoneyFlow(long amount, CurrencyFlowDirection direction, ObservationContext context)
+        { Amount = amount; Direction = direction; Context = context.GameplayContext; Observation = context; }
+        public long Amount { get; }
+        public CurrencyFlowDirection Direction { get; }
+        public CurrencySourceCategory Source { get; set; } = CurrencySourceCategory.UnknownAdjustment;
+        public GameplayContext Context { get; set; }
+        public string? NativeSourceId { get; set; }
+        public string? SourceDisplayName { get; set; }
+        private ObservationContext Observation { get; }
+        public CurrencyFlowRecorded ToEvent(string id) => new()
+        {
+            EventId = id,
+            TimestampUtc = Observation.TimestampUtc,
+            SaveGenerationId = Observation.GenerationId,
+            RunId = Observation.RunId,
+            SegmentId = Observation.SegmentId,
+            MapId = Observation.MapId,
+            Currency = CurrencyKind.Money,
+            Direction = Direction,
+            Amount = Amount,
+            Source = Source,
+            NativeSourceId = NativeSourceId,
+            SourceDisplayName = SourceDisplayName,
+            GameplayContext = Context,
+            IntegrityTags = Observation.IntegrityTags,
+            GameVersion = Application.version ?? string.Empty,
+            GameBuild = SupportedGameBuild,
+            AdapterVersion = AdapterVersion
+        };
+    }
+
+    private sealed class ObservationContext
+    {
+        public ObservationContext(
+            string generationId,
+            string? runId,
+            string? segmentId,
+            string mapId,
+            GameplayContext gameplayContext,
+            DateTime timestampUtc,
+            IntegrityTags integrityTags)
+        {
+            GenerationId = generationId;
+            RunId = runId;
+            SegmentId = segmentId;
+            MapId = mapId;
+            GameplayContext = gameplayContext;
+            TimestampUtc = timestampUtc;
+            IntegrityTags = integrityTags;
+        }
+        public string GenerationId { get; }
+        public string? RunId { get; }
+        public string? SegmentId { get; }
+        public string MapId { get; }
+        public GameplayContext GameplayContext { get; }
+        public DateTime TimestampUtc { get; }
+        public IntegrityTags IntegrityTags { get; }
+    }
+
+    private sealed class CashSnapshot
+    {
+        public CashSnapshot(long total, Dictionary<int, long> itemAmounts)
+        {
+            Total = total;
+            ItemAmounts = itemAmounts;
+            ItemIds = new HashSet<int>(itemAmounts.Keys);
+        }
+        public long Total { get; }
+        public Dictionary<int, long> ItemAmounts { get; }
+        public HashSet<int> ItemIds { get; }
+    }
+}

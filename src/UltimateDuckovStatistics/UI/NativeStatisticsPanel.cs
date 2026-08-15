@@ -20,6 +20,7 @@ internal sealed class NativeStatisticsPanel
     private Vector2 recordScroll;
     private Vector2 combatScroll;
     private Vector2 equipmentScroll;
+    private Vector2 economyScroll;
     private PanelTab tab;
     private bool visible;
     private bool confirmReset;
@@ -91,6 +92,7 @@ internal sealed class NativeStatisticsPanel
         DrawTabButton(PanelTab.Records, "ui.records");
         DrawTabButton(PanelTab.Combat, "ui.combat");
         DrawTabButton(PanelTab.Equipment, "ui.equipment");
+        DrawTabButton(PanelTab.Economy, "ui.economy");
         DrawTabButton(PanelTab.Items, "ui.items");
         DrawTabButton(PanelTab.Diagnostics, "ui.diagnostics");
         GUILayout.FlexibleSpace();
@@ -120,6 +122,9 @@ internal sealed class NativeStatisticsPanel
                 break;
             case PanelTab.Equipment:
                 DrawEquipment();
+                break;
+            case PanelTab.Economy:
+                DrawEconomy();
                 break;
             case PanelTab.Diagnostics:
                 DrawDiagnostics();
@@ -163,6 +168,7 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label(
             $"{UiText.Get("ui.firing_actions")}: "
             + FormatMetric(combat.Lifetime.Totals.FiringActions, combat.Capabilities.FiringActions.State));
+        GUILayout.Label($"{UiText.Get("ui.economy")}: {UiText.FormatEconomyCompact(profile.Statistics.Economy)}");
         GUILayout.Space(12);
         GUILayout.Label(UiText.Get("ui.group_totals"));
         foreach (var group in profile.Statistics.Groups.OrderBy(entry => entry.Key, StringComparer.Ordinal))
@@ -260,6 +266,7 @@ internal sealed class NativeStatisticsPanel
                 + $"{UiText.Get("ui.damage_received")}: {FormatMetric(combat.Totals.DamageReceived, combat.Capabilities.DamageReceived.State)}; "
                 + $"{UiText.Get("ui.kills")}: {FormatMetric(combat.Totals.EnemiesKilled, combat.Capabilities.EnemiesKilled.State)}; "
                 + $"{UiText.Get("ui.deaths")}: {FormatMetric(combat.Totals.PlayerDeaths, combat.Capabilities.PlayerDeaths.State)}");
+            GUILayout.Label($"  {UiText.Get("ui.economy")}: {UiText.FormatEconomyCompact(run.Economy)}; {UiText.FormatCashOutcome(run.Economy)}");
             GUILayout.Label(
                 $"  {UiText.Get("ui.containers_looted")}: "
                 + FormatContainers(run.ContainerStatistics, run.ContainerStatistics.Capabilities.UniqueContainersLooted.State));
@@ -553,11 +560,20 @@ internal sealed class NativeStatisticsPanel
     {
         var profile = coordinator.Current;
         GUILayout.Space(8);
+        diagnosticScroll = GUILayout.BeginScrollView(diagnosticScroll);
         GUILayout.Label($"{UiText.Get("ui.data_path")}: {coordinator.DataRoot}");
         GUILayout.Space(6);
         GUILayout.Label(UiText.Get("ui.capabilities"));
         if (profile != null)
         {
+            GUILayout.Label(
+                $"Schema: profile {profile.SchemaVersion.ToString(CultureInfo.InvariantCulture)}, "
+                + $"statistics {profile.Statistics.SchemaVersion.ToString(CultureInfo.InvariantCulture)}; "
+                + $"economy history {(profile.Statistics.Economy.HistoricalUnavailable ? "partially unavailable before M9" : "captured from generation start")}; "
+                + $"economy repair {(profile.Statistics.Economy.WasRepairedFromInvalidState ? "present" : "none")}; "
+                + $"economy identity bound {(profile.Statistics.Economy.DeduplicationSaturated ? "saturated" : "available")}; "
+                + $"Money arithmetic {(profile.Statistics.Economy.MoneyArithmeticSaturated ? "saturated" : "available")}; "
+                + $"Cash arithmetic {(profile.Statistics.Economy.CashArithmeticSaturated ? "saturated" : "available")}");
             foreach (var capability in profile.Capabilities)
             {
                 GUILayout.Label($"{capability.AdapterId}: {capability.State} ({capability.Version})");
@@ -570,7 +586,6 @@ internal sealed class NativeStatisticsPanel
 
         GUILayout.Space(6);
         GUILayout.Label(UiText.Get("ui.diagnostic_log"));
-        diagnosticScroll = GUILayout.BeginScrollView(diagnosticScroll);
         foreach (var entry in coordinator.DiagnosticEntries.Reverse().Take(50))
         {
             GUILayout.Label(
@@ -578,7 +593,6 @@ internal sealed class NativeStatisticsPanel
                 $"[{entry.Severity}] {entry.Message}");
         }
 
-        GUILayout.EndScrollView();
         GUILayout.BeginHorizontal();
         GUILayout.Label(UiText.Get("ui.hotkey"), GUILayout.Width(120));
         hotkeyInput = GUILayout.TextField(hotkeyInput, GUILayout.Width(120));
@@ -589,6 +603,80 @@ internal sealed class NativeStatisticsPanel
 
         GUILayout.EndHorizontal();
         GUILayout.Label(UiText.Get("ui.open_hint"));
+        GUILayout.EndScrollView();
+    }
+
+    private void DrawEconomy()
+    {
+        var profile = coordinator.Current;
+        if (profile == null) return;
+        var economy = profile.Statistics.Economy;
+        GUILayout.Space(8);
+        GUILayout.Label(UiText.Get("ui.economy_contract"));
+        if (economy.DeduplicationSaturated)
+            GUILayout.Label("Economy capture stopped at the defensive identity bound; retained totals remain available without evicting prior identities.");
+        economyScroll = GUILayout.BeginScrollView(economyScroll);
+        DrawCurrency(
+            economy,
+            CurrencyKind.Money,
+            economy.Capabilities.MoneyAmountDirection,
+            economy.Capabilities.MoneySourceAttribution,
+            economy.Capabilities.MoneyContextAttribution);
+        GUILayout.Space(12);
+        DrawCurrency(
+            economy,
+            CurrencyKind.Cash,
+            economy.Capabilities.CashAmountDirection,
+            economy.Capabilities.CashExternalAcquisition,
+            economy.Capabilities.CashContextAttribution);
+        GUILayout.Space(12);
+        GUILayout.Label(UiText.Get("ui.raid_cash"));
+        if (economy.HistoricalUnavailable)
+            GUILayout.Label($"  {UiText.Get("ui.pre_m9_unavailable")}");
+        GUILayout.Label($"  {UiText.Get("ui.acquired")}: {FormatLong(economy.CashRaidOutcomes.Acquired, economy.Capabilities.CashExternalAcquisition.State)}");
+        GUILayout.Label($"  {UiText.Get("ui.secured")}: {FormatLong(economy.CashRaidOutcomes.Secured, economy.Capabilities.CashTerminalOutcomes.State)}");
+        GUILayout.Label($"  {UiText.Get("ui.lost")}: {FormatLong(economy.CashRaidOutcomes.Lost, economy.Capabilities.CashTerminalOutcomes.State)}");
+        GUILayout.Label($"  {UiText.Get("ui.unresolved")}: {economy.CashRaidOutcomes.Unresolved.ToString(CultureInfo.InvariantCulture)}");
+        GUILayout.Space(12);
+        GUILayout.Label("Recent run economy");
+        foreach (var run in profile.Statistics.Runs.OrderByDescending(value => value.EndedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal).Take(8))
+            GUILayout.Label($"  {run.EndedUtc.ToString("u", CultureInfo.InvariantCulture)} {run.Outcome}: {UiText.FormatEconomyCompact(run.Economy)}; {UiText.FormatCashOutcome(run.Economy)}");
+        GUILayout.EndScrollView();
+    }
+
+    private static void DrawCurrency(
+        EconomyStatisticsAggregate economy,
+        CurrencyKind kind,
+        MetricAvailability amountAvailability,
+        MetricAvailability sourceAvailability,
+        MetricAvailability contextAvailability)
+    {
+        GUILayout.Label(kind.ToString());
+        if ((kind == CurrencyKind.Money && economy.MoneyArithmeticSaturated)
+            || (kind == CurrencyKind.Cash && economy.CashArithmeticSaturated))
+            GUILayout.Label("  Capture stopped before Int64 overflow; retained totals remain exact.");
+        if (economy.HistoricalUnavailable) GUILayout.Label($"  {UiText.Get("ui.pre_m9_unavailable")}");
+        if (!economy.Currencies.TryGetValue(kind.ToString(), out var currency))
+        {
+            if (economy.HistoricalUnavailable)
+            {
+                GUILayout.Label($"  {UiText.Get("ui.no_m9_flows")}");
+                GUILayout.Label($"  {UiText.Get("ui.sources")}: {sourceAvailability.State}");
+                GUILayout.Label($"  {UiText.Get("ui.contexts")}: {contextAvailability.State}");
+                return;
+            }
+            GUILayout.Label($"  {UiText.Get("ui.gross_inflow")}: {FormatLong(0, amountAvailability.State)}");
+            GUILayout.Label($"  {UiText.Get("ui.gross_outflow")}: {FormatLong(0, amountAvailability.State)}");
+            GUILayout.Label($"  {UiText.Get("ui.net_flow")}: {FormatLong(0, amountAvailability.State)}");
+            GUILayout.Label($"  {UiText.Get("ui.sources")}: {sourceAvailability.State}");
+            GUILayout.Label($"  {UiText.Get("ui.contexts")}: {contextAvailability.State}");
+            return;
+        }
+        GUILayout.Label($"  {UiText.Get("ui.gross_inflow")}: {FormatLong(currency.Totals.GrossInflow, amountAvailability.State)}");
+        GUILayout.Label($"  {UiText.Get("ui.gross_outflow")}: {FormatLong(currency.Totals.GrossOutflow, amountAvailability.State)}");
+        GUILayout.Label($"  {UiText.Get("ui.net_flow")}: {FormatLong(currency.Totals.NetFlow, amountAvailability.State)}");
+        GUILayout.Label($"  {UiText.Get("ui.sources")} ({sourceAvailability.State}): " + string.Join(", ", currency.Sources.OrderBy(row => row.Key, StringComparer.Ordinal).Select(row => $"{row.Key} +{row.Value.GrossInflow.ToString(CultureInfo.InvariantCulture)}/-{row.Value.GrossOutflow.ToString(CultureInfo.InvariantCulture)}")));
+        GUILayout.Label($"  {UiText.Get("ui.contexts")} ({contextAvailability.State}): " + string.Join(", ", currency.Contexts.OrderBy(row => row.Key, StringComparer.Ordinal).Select(row => $"{row.Key} +{row.Value.GrossInflow.ToString(CultureInfo.InvariantCulture)}/-{row.Value.GrossOutflow.ToString(CultureInfo.InvariantCulture)}")));
     }
 
     private void DrawActions()
@@ -637,7 +725,7 @@ internal sealed class NativeStatisticsPanel
     private void DrawTabButton(PanelTab target, string key)
     {
         var wasSelected = tab == target;
-        if (GUILayout.Toggle(wasSelected, UiText.Get(key), GUI.skin.button, GUILayout.Width(110)) && !wasSelected)
+        if (GUILayout.Toggle(wasSelected, UiText.Get(key), GUI.skin.button, GUILayout.Width(96)) && !wasSelected)
         {
             tab = target;
         }
@@ -719,6 +807,11 @@ internal sealed class NativeStatisticsPanel
             ? UiText.Get("ui.unsupported")
             : value.ToString("0.###", CultureInfo.InvariantCulture);
 
+    private static string FormatLong(long value, AdapterCapabilityState state) =>
+        state == AdapterCapabilityState.DisabledIncompatible
+            ? value == 0 ? UiText.Get("ui.unsupported") : $"{value.ToString(CultureInfo.InvariantCulture)} ({UiText.Get("ui.current_capture_unavailable")})"
+            : value.ToString(CultureInfo.InvariantCulture);
+
     private static string FormatAccuracy(CombatStatisticsViewModel model) =>
         model.Capabilities.Accuracy.State == AdapterCapabilityState.DisabledIncompatible
             ? UiText.Get("ui.unsupported")
@@ -759,6 +852,7 @@ internal sealed class NativeStatisticsPanel
         Records,
         Combat,
         Equipment,
+        Economy,
         Items,
         Diagnostics
     }

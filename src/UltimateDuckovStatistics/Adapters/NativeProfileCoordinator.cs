@@ -62,6 +62,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
             ContainerNativeContractPolicy.Unavailable("Container capability has not been initialized."),
             NativeContainerAdapter.AdapterVersion)
     };
+    private List<CapabilityRecord> economyCapabilities = EconomyNativeContractPolicy.ToRecords(
+        EconomyNativeContractPolicy.Unavailable("Economy capability has not been initialized."),
+        NativeEconomyAdapter.AdapterVersion).ToList();
+    private EconomyMetricCapabilities economyMetricCapabilities =
+        EconomyNativeContractPolicy.Unavailable("Economy capability has not been initialized.");
 
     public NativeProfileCoordinator()
     {
@@ -269,6 +274,37 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
+    public void SetEconomyCapabilities(
+        IReadOnlyList<CapabilityRecord> capabilities,
+        EconomyMetricCapabilities metricCapabilities)
+    {
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        if (metricCapabilities == null) throw new ArgumentNullException(nameof(metricCapabilities));
+        economyCapabilities = capabilities.Select(CloneCapability).ToList();
+        economyMetricCapabilities = EconomyStatisticsReducer.CloneCapabilities(metricCapabilities);
+        UpdateCapabilities();
+    }
+
+    public bool HandleCurrencyFlow(CurrencyFlowRecorded flow)
+    {
+        if (flow == null) throw new ArgumentNullException(nameof(flow));
+        try
+        {
+            var currentRepository = repository;
+            if (currentRepository == null) return false;
+            if (!currentRepository.RecordDeferred(flow)) return false;
+            profileWriter.MarkDirty();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (repository != null) profileWriter.MarkDirty();
+            Debug.LogException(exception);
+            WriteDiagnostic($"Failed to persist currency flow: {exception.GetType().Name}.", "Error");
+            return false;
+        }
+    }
+
     public void SetActiveRunCheckpointBarrier(Func<bool> flusher)
     {
         activeRunCheckpointFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
@@ -364,6 +400,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         DrainProfileWriter();
         repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
         repository.Rotate(ReadIdentity(), "UserReset");
+        repository.SetEconomyCapabilities(economyMetricCapabilities);
         OpenDiagnosticsForCurrentGeneration();
         WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only.");
         ProfileChanged?.Invoke();
@@ -413,6 +450,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             }
 
             var result = repository.Open(observed, "SaveSlotSelected");
+            repository.SetEconomyCapabilities(economyMetricCapabilities);
             OpenDiagnosticsForCurrentGeneration();
             WriteDiagnostic(
                 $"Save slot selected slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
@@ -435,6 +473,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             WaitRunCheckpoint();
             DrainProfileWriter();
             repository!.Rotate(ReadIdentity(), "DuckovSaveDeleted");
+            repository.SetEconomyCapabilities(economyMetricCapabilities);
             OpenDiagnosticsForCurrentGeneration();
             saveResetAwaitingNewGameReport = true;
             WriteDiagnostic($"Duckov save deletion rotated to generation {repository.CurrentGenerationId}.");
@@ -485,6 +524,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 WriteDiagnostic($"Duckov new game rotated to generation {repository.CurrentGenerationId}.");
             }
 
+            repository!.SetEconomyCapabilities(economyMetricCapabilities);
             ProfileChanged?.Invoke();
         }
         catch (Exception exception)
@@ -621,7 +661,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities));
+        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities));
+        repository?.SetEconomyCapabilities(economyMetricCapabilities);
     }
 
     private DeferredWriteState ObserveCheckpointResult(DeferredWriteResult result)

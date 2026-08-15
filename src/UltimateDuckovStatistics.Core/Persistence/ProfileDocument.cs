@@ -112,6 +112,9 @@ public sealed class DeferredItemPersistenceState
 
     [DataMember(Order = 2)]
     public ItemStatisticsAggregate AppliedLifetimeStatistics { get; set; } = new();
+
+    [DataMember(Order = 3)]
+    public EconomyStatisticsAggregate AppliedLifetimeEconomy { get; set; } = new();
 }
 
 [DataContract]

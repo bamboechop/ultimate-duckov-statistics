@@ -131,6 +131,7 @@ public sealed class PersistenceTests
         "Profile.Identity",
         "Profile.Capabilities",
         "DeferredItemPersistence.AppliedLifetimeStatistics",
+        "DeferredItemPersistence.AppliedLifetimeEconomy",
         "Statistics.Overall",
         "Statistics.Items",
         "Statistics.Groups",
@@ -138,6 +139,22 @@ public sealed class PersistenceTests
         "Statistics.Runs",
         "Statistics.RunTotals",
         "Statistics.RunRecords",
+        "Statistics.Economy",
+        "Statistics.Economy.Currencies",
+        "Statistics.Economy.CashRaidOutcomes",
+        "Statistics.Economy.Capabilities",
+        "Statistics.Economy.RecentEventIds",
+        "Statistics.Economy.Capabilities.MoneyAmountDirection",
+        "Statistics.Economy.Capabilities.MoneySourceAttribution",
+        "Statistics.Economy.Capabilities.MoneyContextAttribution",
+        "Statistics.Economy.Capabilities.CashAmountDirection",
+        "Statistics.Economy.Capabilities.CashExternalAcquisition",
+        "Statistics.Economy.Capabilities.CashContextAttribution",
+        "Statistics.Economy.Capabilities.CashTerminalOutcomes",
+        "Statistics.Economy.Capabilities.RouteAttribution",
+        "Statistics.Economy.Currency.Totals",
+        "Statistics.Economy.Currency.Sources",
+        "Statistics.Economy.Currency.Contexts",
         "Statistics.Overall.AmountsByUnit",
         "Statistics.Item.EffectTags",
         "Statistics.Item.Totals",
@@ -151,6 +168,7 @@ public sealed class PersistenceTests
         "RunTotals.CombatStatistics",
         "RunTotals.EquipmentStatistics",
         "RunTotals.ContainerStatistics",
+        "RunTotals.Economy",
         "RunTotals.ItemStatistics.Overall",
         "RunTotals.ItemStatistics.Items",
         "RunTotals.ItemStatistics.Groups",
@@ -189,11 +207,13 @@ public sealed class PersistenceTests
         "Map.CombatStatistics",
         "Map.EquipmentStatistics",
         "Map.ContainerStatistics",
+        "Map.Economy",
         "RouteMap.ItemStatistics",
         "RouteMap.WeaponStatistics",
         "RouteMap.CombatStatistics",
         "RouteMap.EquipmentStatistics",
         "RouteMap.ContainerStatistics",
+        "RouteMap.Economy",
         "RunRecords.Extraction",
         "RunRecords.Death",
         "RunRecords.Maps",
@@ -203,6 +223,7 @@ public sealed class PersistenceTests
         "Run.CombatStatistics",
         "Run.EquipmentStatistics",
         "Run.ContainerStatistics",
+        "Run.Economy",
         "Run.Segments",
         "Run.RouteCapabilities",
         "Run.RouteCapabilities.OrderedRoute",
@@ -215,8 +236,145 @@ public sealed class PersistenceTests
         "Segment.WeaponStatistics",
         "Segment.CombatStatistics",
         "Segment.EquipmentStatistics",
-        "Segment.ContainerStatistics"
+        "Segment.ContainerStatistics",
+        "Segment.Economy"
     };
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void SchemaEightMigrationPreservesPriorStatisticsAndMarksEveryEconomyScopeUnavailable()
+    {
+        var document = CreateCompleteCurrentSchemaDocument("generation-m8", revision: 81);
+        document.SchemaVersion = 8;
+        document.Statistics.SchemaVersion = 8;
+        document.Statistics.Overall.ActivationCount = 17;
+        document.Statistics.Economy = null!;
+        document.DeferredItemPersistence!.AppliedLifetimeEconomy = null!;
+        document.Statistics.RunTotals.Economy = null!;
+        foreach (var map in document.Statistics.RunTotals.Maps.Values) map.Economy = null!;
+        foreach (var map in document.Statistics.RunTotals.RouteMaps.Values) map.Economy = null!;
+        foreach (var run in document.Statistics.Runs)
+        {
+            run.SchemaVersion = 8;
+            run.ActiveDurationSeconds = 60;
+            run.RouteSignature = "duckov:map:A";
+            run.RouteCapabilities = RouteStatisticsReducer.Supported("test");
+            run.Economy = null!;
+            foreach (var segment in run.Segments)
+            {
+                segment.SegmentIndex = 0;
+                segment.ActiveDurationSeconds = 60;
+                segment.ExitReason = MapSegmentExitReason.Extracted;
+                segment.Economy = null!;
+            }
+        }
+
+        Assert.True(ProfileMigrator.Migrate(document));
+
+        Assert.Equal(9, document.SchemaVersion);
+        Assert.Equal(9, document.Statistics.SchemaVersion);
+        Assert.Equal("generation-m8", document.GenerationId);
+        Assert.Equal(17, document.Statistics.Overall.ActivationCount);
+        var migratedMap = Assert.Single(document.Statistics.RunTotals.Maps).Value;
+        var migratedRouteMap = Assert.Single(document.Statistics.RunTotals.RouteMaps).Value;
+        var migratedRun = Assert.Single(document.Statistics.Runs);
+        var migratedSegment = Assert.Single(migratedRun.Segments);
+        var scopes = new[]
+        {
+            document.Statistics.Economy,
+            document.Statistics.RunTotals.Economy,
+            migratedMap.Economy,
+            migratedRouteMap.Economy,
+            migratedRun.Economy,
+            migratedSegment.Economy
+        };
+        Assert.All(scopes, economy =>
+        {
+            Assert.True(economy.HistoricalUnavailable);
+            Assert.Equal(AdapterCapabilityState.DisabledIncompatible, economy.Capabilities.MoneyAmountDirection.State);
+            Assert.Equal(AdapterCapabilityState.DisabledIncompatible, economy.Capabilities.CashTerminalOutcomes.State);
+            Assert.Contains("predates M9", economy.Capabilities.MoneyAmountDirection.Provenance, StringComparison.Ordinal);
+            Assert.Empty(economy.Currencies);
+        });
+        Assert.False(ProfileMigrator.Migrate(document));
+    }
+
+    [Theory]
+    [InlineData("negative-counter")]
+    [InlineData("overlapping-raid-outcomes")]
+    [InlineData("duplicate-deduplication-identity")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void CurrentSchemaUnsafeEconomyStateLosesToIntactBackupBeforeNormalization(string corruption)
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var invalidPrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        if (corruption == "negative-counter")
+        {
+            invalidPrimary.Statistics.Economy.Currencies["Money"].Totals.GrossInflow = -1;
+            invalidPrimary.Statistics.Economy.Currencies["Money"].Sources["UnknownAdjustment"] =
+                new CurrencyFlowTotals { GrossInflow = -1 };
+            invalidPrimary.Statistics.Economy.Currencies["Money"].Contexts["Unknown"] =
+                new CurrencyFlowTotals { GrossInflow = -1 };
+        }
+        else if (corruption == "overlapping-raid-outcomes")
+        {
+            invalidPrimary.Statistics.Economy.CashRaidOutcomes = new CashRaidOutcomeAggregate
+            {
+                Acquired = 5,
+                Secured = 4,
+                Lost = 4
+            };
+        }
+        else
+        {
+            invalidPrimary.Statistics.Economy.RecentEventIds.Add("duplicate");
+            invalidPrimary.Statistics.Economy.RecentEventIds.Add("duplicate");
+        }
+        store.Save(path, backup);
+        store.Save(path, invalidPrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("contains invalid economy state", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        Assert.Equal(0, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void CurrentSchemaRepairableEconomyBreakdownKeysRemainEligibleForNormalization()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var repairablePrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        var money = repairablePrimary.Statistics.Economy.Currencies["Money"];
+        money.Totals.GrossInflow = 9;
+        money.Sources["NotASource"] = new CurrencyFlowTotals { GrossInflow = 9 };
+        money.Contexts["NotAContext"] = new CurrencyFlowTotals { GrossInflow = 9 };
+        store.Save(path, backup);
+        store.Save(path, repairablePrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        var normalized = repository.Current.Statistics.Economy;
+        Assert.Equal(9, normalized.Currencies["Money"].Sources["UnknownAdjustment"].GrossInflow);
+        Assert.Equal(9, normalized.Currencies["Money"].Contexts["Unknown"].GrossInflow);
+        Assert.True(normalized.WasRepairedFromInvalidState);
+        repository.CloseClean();
+    }
 
     public static TheoryData<string> CurrentSchemaNonRepairableNullDictionaryRowCases => new()
     {
@@ -225,6 +383,7 @@ public sealed class PersistenceTests
         "RunTotals.Maps",
         "RunTotals.RouteMaps",
         "RunRecords.Maps",
+        "Statistics.Economy.Currencies",
         "RunTotals.ItemStatistics.Items"
     };
 
@@ -433,8 +592,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(8, repository.Current.SchemaVersion);
-        Assert.Equal(8, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(9, repository.Current.SchemaVersion);
+        Assert.Equal(9, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
@@ -578,8 +737,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(8, repository.Current.SchemaVersion);
-        Assert.Equal(8, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(9, repository.Current.SchemaVersion);
+        Assert.Equal(9, repository.Current.Statistics.SchemaVersion);
         Assert.Equal("generation-v03", repository.Current.GenerationId);
         Assert.Equal(73, repository.Current.Revision);
         Assert.Equal(2, repository.Current.InterruptedSessionCount);
@@ -1498,6 +1657,12 @@ public sealed class PersistenceTests
         {
             AmountsByUnit = new() { ["Item"] = 1 }
         };
+        document.Statistics.Economy.Currencies["Money"] = new CurrencyEconomyAggregate
+        {
+            Currency = CurrencyKind.Money,
+            Sources = new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal),
+            Contexts = new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal)
+        };
 
         var totals = document.Statistics.RunTotals;
         totals.Maps["duckov:map:A"] = new MapRunAggregate
@@ -1580,6 +1745,7 @@ public sealed class PersistenceTests
             case "Profile.Identity": document.Identity = null!; break;
             case "Profile.Capabilities": document.Capabilities = null!; break;
             case "DeferredItemPersistence.AppliedLifetimeStatistics": document.DeferredItemPersistence!.AppliedLifetimeStatistics = null!; break;
+            case "DeferredItemPersistence.AppliedLifetimeEconomy": document.DeferredItemPersistence!.AppliedLifetimeEconomy = null!; break;
             case "Statistics.Overall": statistics.Overall = null!; break;
             case "Statistics.Items": statistics.Items = null!; break;
             case "Statistics.Groups": statistics.Groups = null!; break;
@@ -1587,6 +1753,22 @@ public sealed class PersistenceTests
             case "Statistics.Runs": statistics.Runs = null!; break;
             case "Statistics.RunTotals": statistics.RunTotals = null!; break;
             case "Statistics.RunRecords": statistics.RunRecords = null!; break;
+            case "Statistics.Economy": statistics.Economy = null!; break;
+            case "Statistics.Economy.Currencies": statistics.Economy.Currencies = null!; break;
+            case "Statistics.Economy.CashRaidOutcomes": statistics.Economy.CashRaidOutcomes = null!; break;
+            case "Statistics.Economy.Capabilities": statistics.Economy.Capabilities = null!; break;
+            case "Statistics.Economy.RecentEventIds": statistics.Economy.RecentEventIds = null!; break;
+            case "Statistics.Economy.Capabilities.MoneyAmountDirection": statistics.Economy.Capabilities.MoneyAmountDirection = null!; break;
+            case "Statistics.Economy.Capabilities.MoneySourceAttribution": statistics.Economy.Capabilities.MoneySourceAttribution = null!; break;
+            case "Statistics.Economy.Capabilities.MoneyContextAttribution": statistics.Economy.Capabilities.MoneyContextAttribution = null!; break;
+            case "Statistics.Economy.Capabilities.CashAmountDirection": statistics.Economy.Capabilities.CashAmountDirection = null!; break;
+            case "Statistics.Economy.Capabilities.CashExternalAcquisition": statistics.Economy.Capabilities.CashExternalAcquisition = null!; break;
+            case "Statistics.Economy.Capabilities.CashContextAttribution": statistics.Economy.Capabilities.CashContextAttribution = null!; break;
+            case "Statistics.Economy.Capabilities.CashTerminalOutcomes": statistics.Economy.Capabilities.CashTerminalOutcomes = null!; break;
+            case "Statistics.Economy.Capabilities.RouteAttribution": statistics.Economy.Capabilities.RouteAttribution = null!; break;
+            case "Statistics.Economy.Currency.Totals": statistics.Economy.Currencies["Money"].Totals = null!; break;
+            case "Statistics.Economy.Currency.Sources": statistics.Economy.Currencies["Money"].Sources = null!; break;
+            case "Statistics.Economy.Currency.Contexts": statistics.Economy.Currencies["Money"].Contexts = null!; break;
             case "Statistics.Overall.AmountsByUnit": statistics.Overall.AmountsByUnit = null!; break;
             case "Statistics.Item.EffectTags": statistics.Items["duckov:item:test"].EffectTags = null!; break;
             case "Statistics.Item.Totals": statistics.Items["duckov:item:test"].Totals = null!; break;
@@ -1600,6 +1782,7 @@ public sealed class PersistenceTests
             case "RunTotals.CombatStatistics": totals.CombatStatistics = null!; break;
             case "RunTotals.EquipmentStatistics": totals.EquipmentStatistics = null!; break;
             case "RunTotals.ContainerStatistics": totals.ContainerStatistics = null!; break;
+            case "RunTotals.Economy": totals.Economy = null!; break;
             case "RunTotals.ItemStatistics.Overall": totals.ItemStatistics.Overall = null!; break;
             case "RunTotals.ItemStatistics.Items": totals.ItemStatistics.Items = null!; break;
             case "RunTotals.ItemStatistics.Groups": totals.ItemStatistics.Groups = null!; break;
@@ -1638,11 +1821,13 @@ public sealed class PersistenceTests
             case "Map.CombatStatistics": map.CombatStatistics = null!; break;
             case "Map.EquipmentStatistics": map.EquipmentStatistics = null!; break;
             case "Map.ContainerStatistics": map.ContainerStatistics = null!; break;
+            case "Map.Economy": map.Economy = null!; break;
             case "RouteMap.ItemStatistics": routeMap.ItemStatistics = null!; break;
             case "RouteMap.WeaponStatistics": routeMap.WeaponStatistics = null!; break;
             case "RouteMap.CombatStatistics": routeMap.CombatStatistics = null!; break;
             case "RouteMap.EquipmentStatistics": routeMap.EquipmentStatistics = null!; break;
             case "RouteMap.ContainerStatistics": routeMap.ContainerStatistics = null!; break;
+            case "RouteMap.Economy": routeMap.Economy = null!; break;
             case "RunRecords.Extraction": statistics.RunRecords.Extraction = null!; break;
             case "RunRecords.Death": statistics.RunRecords.Death = null!; break;
             case "RunRecords.Maps": statistics.RunRecords.Maps = null!; break;
@@ -1652,6 +1837,7 @@ public sealed class PersistenceTests
             case "Run.CombatStatistics": run.CombatStatistics = null!; break;
             case "Run.EquipmentStatistics": run.EquipmentStatistics = null!; break;
             case "Run.ContainerStatistics": run.ContainerStatistics = null!; break;
+            case "Run.Economy": run.Economy = null!; break;
             case "Run.Segments": run.Segments = null!; break;
             case "Run.RouteCapabilities": run.RouteCapabilities = null!; break;
             case "Run.RouteCapabilities.OrderedRoute": run.RouteCapabilities.OrderedRoute = null!; break;
@@ -1665,6 +1851,7 @@ public sealed class PersistenceTests
             case "Segment.CombatStatistics": segment.CombatStatistics = null!; break;
             case "Segment.EquipmentStatistics": segment.EquipmentStatistics = null!; break;
             case "Segment.ContainerStatistics": segment.ContainerStatistics = null!; break;
+            case "Segment.Economy": segment.Economy = null!; break;
             default: throw new ArgumentOutOfRangeException(nameof(root), root, "Unknown required root test case.");
         }
     }
@@ -1678,6 +1865,7 @@ public sealed class PersistenceTests
             case "RunTotals.Maps": document.Statistics.RunTotals.Maps["null"] = null!; break;
             case "RunTotals.RouteMaps": document.Statistics.RunTotals.RouteMaps["null"] = null!; break;
             case "RunRecords.Maps": document.Statistics.RunRecords.Maps["null"] = null!; break;
+            case "Statistics.Economy.Currencies": document.Statistics.Economy.Currencies["null"] = null!; break;
             case "RunTotals.ItemStatistics.Items": document.Statistics.RunTotals.ItemStatistics.Items["null"] = null!; break;
             default: throw new ArgumentOutOfRangeException(nameof(dictionary), dictionary, "Unknown null-row test case.");
         }

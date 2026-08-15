@@ -44,6 +44,9 @@ public sealed class RunAggregateTotals
 
     [DataMember(Order = 13)]
     public ItemStatisticsAggregate ItemStatistics { get; set; } = new();
+
+    [DataMember(Order = 14)]
+    public EconomyStatisticsAggregate Economy { get; set; } = new();
 }
 
 [DataContract]
@@ -84,6 +87,9 @@ public sealed class MapRunAggregate
 
     [DataMember(Order = 12)]
     public ItemStatisticsAggregate ItemStatistics { get; set; } = new();
+
+    [DataMember(Order = 13)]
+    public EconomyStatisticsAggregate Economy { get; set; } = new();
 }
 
 [DataContract]
@@ -168,6 +174,7 @@ public static class RunReducer
         EquipmentStatisticsReducer.ValidateAggregate(profile.RunTotals.EquipmentStatistics);
         ContainerStatisticsReducer.ValidateAggregate(profile.RunTotals.ContainerStatistics);
         ItemStatisticsAggregateReducer.Validate(profile.RunTotals.ItemStatistics);
+        EconomyStatisticsReducer.Validate(profile.RunTotals.Economy);
         foreach (var map in profile.RunTotals.Maps.Values)
         {
             WeaponStatisticsReducer.ValidateAggregate(map.WeaponStatistics);
@@ -175,6 +182,7 @@ public static class RunReducer
             EquipmentStatisticsReducer.ValidateAggregate(map.EquipmentStatistics);
             ContainerStatisticsReducer.ValidateAggregate(map.ContainerStatistics);
             ItemStatisticsAggregateReducer.Validate(map.ItemStatistics);
+            EconomyStatisticsReducer.Validate(map.Economy);
         }
         foreach (var map in profile.RunTotals.RouteMaps.Values)
         {
@@ -183,6 +191,7 @@ public static class RunReducer
             EquipmentStatisticsReducer.ValidateAggregate(map.EquipmentStatistics);
             ContainerStatisticsReducer.ValidateAggregate(map.ContainerStatistics);
             ItemStatisticsAggregateReducer.Validate(map.ItemStatistics);
+            EconomyStatisticsReducer.Validate(map.Economy);
         }
 
         profile.Runs.Add(summary);
@@ -206,6 +215,7 @@ public static class RunReducer
             totals.TransitionExcludedDistance,
             summary.TransitionExcludedDistance);
         ItemStatisticsAggregateReducer.Merge(totals.ItemStatistics, summary.ItemStatistics);
+        EconomyStatisticsReducer.Merge(totals.Economy, summary.Economy);
         WeaponStatisticsReducer.Merge(totals.WeaponStatistics, summary.WeaponStatistics);
         CombatStatisticsReducer.Merge(totals.CombatStatistics, summary.CombatStatistics);
         EquipmentStatisticsReducer.Merge(
@@ -253,6 +263,7 @@ public static class RunReducer
             summary.ContainerStatistics,
             adoptSourceCapability: map.TotalRuns == 1);
         ItemStatisticsAggregateReducer.Merge(map.ItemStatistics, summary.ItemStatistics);
+        EconomyStatisticsReducer.Merge(map.Economy, summary.Economy);
 
         if (summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported
             && !summary.HistoricalRouteUnavailable)
@@ -290,6 +301,7 @@ public static class RunReducer
                     CombatStatisticsReducer.Merge(routeMap.CombatStatistics, segment.CombatStatistics);
                     EquipmentStatisticsReducer.Merge(routeRunEquipment, segment.EquipmentStatistics, countRunOccurrence: false);
                     ContainerStatisticsReducer.Merge(routeMap.ContainerStatistics, segment.ContainerStatistics);
+                    EconomyStatisticsReducer.Merge(routeMap.Economy, segment.Economy);
                 }
                 EquipmentStatisticsReducer.Merge(
                     routeMap.EquipmentStatistics,
@@ -398,6 +410,7 @@ public static class RunReducer
         EquipmentStatisticsReducer.ValidateAggregate(summary.EquipmentStatistics);
         ContainerStatisticsReducer.ValidateAggregate(summary.ContainerStatistics);
         ItemStatisticsAggregateReducer.Validate(summary.ItemStatistics);
+        EconomyStatisticsReducer.Validate(summary.Economy);
         RouteStatisticsReducer.ValidateCapabilities(summary.RouteCapabilities);
 
         if (summary.Segments.Count > 0)

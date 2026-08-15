@@ -1,4 +1,6 @@
+using System.Globalization;
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Statistics;
 
 namespace UltimateDuckovStatistics.UI;
 
@@ -15,6 +17,7 @@ internal static class UiText
             ["ui.records"] = "Records",
             ["ui.combat"] = "Combat",
             ["ui.equipment"] = "Equipment",
+            ["ui.economy"] = "Economy",
             ["ui.diagnostics"] = "Diagnostics",
             ["ui.total_uses"] = "Successful raid uses",
             ["ui.actual_hp"] = "Actual HP restored",
@@ -96,10 +99,57 @@ internal static class UiText
             ["ui.reset_complete"] = "UDS profile reset; prior generation archived read-only.",
             ["ui.integrity_note"] = "Run time, weapon, and combat tracking exclude pause/loading and non-raid contexts. Integrity-flagged and interrupted runs remain visible; only eligible runs enter default duration records.",
             ["ui.equipment_contract"] = "Equipment time uses monotonic active raid time. Direct totem and tote presence are tracked separately; tote activation remains unavailable until gameplay proves it.",
-            ["ui.open_hint"] = "Press the configured hotkey outside raids to show or hide this panel."
+            ["ui.open_hint"] = "Press the configured hotkey outside raids to show or hide this panel.",
+            ["ui.economy_contract"] = "Money and physical Cash are independent currencies. Gross inflow is not profit, current balance, or net worth. Unknown adjustments retain exact amount and direction without inventing a reason.",
+            ["ui.gross_inflow"] = "Gross inflow",
+            ["ui.gross_outflow"] = "Gross outflow",
+            ["ui.net_flow"] = "Net flow",
+            ["ui.sources"] = "Sources",
+            ["ui.contexts"] = "Contexts",
+            ["ui.raid_cash"] = "Raid Cash",
+            ["ui.acquired"] = "Acquired",
+            ["ui.secured"] = "Secured",
+            ["ui.lost"] = "Lost",
+            ["ui.unresolved"] = "Unresolved",
+            ["ui.pre_m9_unavailable"] = "earlier economy history unavailable",
+            ["ui.no_m9_flows"] = "no recorded M9 flow",
+            ["ui.current_capture_unavailable"] = "current capture unavailable"
         };
 
     public static string Get(string key) => English.TryGetValue(key, out var value) ? value : key;
+
+    public static string FormatEconomyCompact(EconomyStatisticsAggregate economy)
+    {
+        if (economy == null) return Get("ui.unsupported");
+        string Part(CurrencyKind kind, MetricAvailability availability)
+        {
+            if (!economy.Currencies.TryGetValue(kind.ToString(), out var row))
+            {
+                if (economy.HistoricalUnavailable)
+                    return $"{kind} {Get("ui.no_m9_flows")}";
+                return $"{kind} {FormatEconomyValue(0, availability.State)}";
+            }
+            var totals = $"{kind} +{row.Totals.GrossInflow.ToString(CultureInfo.InvariantCulture)}"
+                         + $"/-{row.Totals.GrossOutflow.ToString(CultureInfo.InvariantCulture)}"
+                         + $" net {row.Totals.NetFlow.ToString(CultureInfo.InvariantCulture)}";
+            return availability.State == AdapterCapabilityState.DisabledIncompatible
+                ? $"{totals} ({Get("ui.current_capture_unavailable")})"
+                : totals;
+        }
+        var result = $"{Part(CurrencyKind.Money, economy.Capabilities.MoneyAmountDirection)}; {Part(CurrencyKind.Cash, economy.Capabilities.CashAmountDirection)}";
+        return economy.HistoricalUnavailable ? $"{result} ({Get("ui.pre_m9_unavailable")})" : result;
+    }
+
+    public static string FormatCashOutcome(EconomyStatisticsAggregate economy) =>
+        $"{Get("ui.raid_cash")} {Get("ui.acquired").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Acquired, economy.Capabilities.CashExternalAcquisition.State)}, "
+        + $"{Get("ui.secured").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Secured, economy.Capabilities.CashTerminalOutcomes.State)}, "
+        + $"{Get("ui.lost").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Lost, economy.Capabilities.CashTerminalOutcomes.State)}, "
+        + $"{Get("ui.unresolved").ToLowerInvariant()} {economy.CashRaidOutcomes.Unresolved.ToString(CultureInfo.InvariantCulture)}";
+
+    private static string FormatEconomyValue(long value, AdapterCapabilityState state) =>
+        state == AdapterCapabilityState.DisabledIncompatible
+            ? value == 0 ? Get("ui.unsupported") : $"{value.ToString(CultureInfo.InvariantCulture)} ({Get("ui.current_capture_unavailable")})"
+            : value.ToString(CultureInfo.InvariantCulture);
 
     public static string FormatRoute(RunSummary run)
     {

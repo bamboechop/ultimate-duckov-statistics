@@ -19,6 +19,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private NativeProfileCoordinator? profileCoordinator;
     private NativeHealingAttributionAdapter? healingAttributionAdapter;
     private NativeItemUseAdapter? itemUseAdapter;
+    private NativeEconomyAdapter? economyAdapter;
     private readonly ProcessLifetimeCleanupOwner<NativeRunLifecycleAdapter> runLifecycleAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeWeaponFireAdapter> weaponFireAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeCombatAttributionAdapter> combatAttributionAdapter = new();
@@ -84,6 +85,26 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
             profileCoordinator = new NativeProfileCoordinator();
             profileCoordinator.Initialize();
+            NativeEconomyAdapter? newEconomyAdapter = null;
+            newEconomyAdapter = new NativeEconomyAdapter(
+                () => profileCoordinator.CurrentGenerationId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentMapId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId,
+                () => runLifecycleAdapter.OwnedValue?.IsActive == true,
+                flow => ItemUsePublication.PublishIndependently(
+                    () => profileCoordinator.HandleCurrencyFlow(flow),
+                    () => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true),
+                capabilities =>
+                {
+                    if (newEconomyAdapter == null) return;
+                    NativeContainerAdapter.PublishIndependently(
+                        () => profileCoordinator.SetEconomyCapabilities(capabilities, newEconomyAdapter.MetricCapabilities),
+                        () => runLifecycleAdapter.OwnedValue?.UpdateEconomyCapabilities(newEconomyAdapter.MetricCapabilities));
+                },
+                message => Debug.Log($"{LogPrefix} {message}"));
+            economyAdapter = newEconomyAdapter;
+            newEconomyAdapter.Initialize();
             healingAttributionAdapter = new NativeHealingAttributionAdapter(
                 healing =>
                 {
@@ -104,6 +125,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 () => combatAttributionAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.CombatMetricCapabilities(),
                 () => equipmentAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.EquipmentMetricCapabilities(),
                 () => containerAdapter.OwnedValue?.MetricCapabilities ?? new Core.Statistics.ContainerMetricCapabilities(),
+                () => economyAdapter?.MetricCapabilities ?? new Core.Domain.EconomyMetricCapabilities(),
                 profileCoordinator.PollRunCheckpoint,
                 profileCoordinator.FlushRunCheckpoint);
             runLifecycleAdapter.Assign(newRunLifecycleAdapter);
@@ -130,6 +152,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             equipmentAdapter.Assign(newEquipmentAdapter);
             newEquipmentAdapter.Initialize();
             newRunLifecycleAdapter.SetDestinationReadyObserver(() => newEquipmentAdapter.CaptureAssociation());
+            newRunLifecycleAdapter.SetTerminalObserver(newEconomyAdapter.Tick);
             var newWeaponFireAdapter = new NativeWeaponFireAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
@@ -167,6 +190,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             newCombatAttributionAdapter.Initialize();
             newRunLifecycleAdapter.SetPlayerDeathObserver(newCombatAttributionAdapter.RecordPlayerDeath);
             newRunLifecycleAdapter.Initialize();
+            profileCoordinator.ProfileChanging += FlushPendingEconomyForProfileChange;
             profileCoordinator.ProfileChanging += newRunLifecycleAdapter.InterruptForProfileTransition;
             itemUseAdapter = new NativeItemUseAdapter(
                 () => profileCoordinator.CurrentGenerationId,
@@ -183,6 +207,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 () => runLifecycleAdapter.OwnedValue?.CurrentMapId,
                 () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId);
             profileCoordinator.ProfileChanged += itemUseAdapter.ResetPending;
+            profileCoordinator.ProfileChanged += newEconomyAdapter.ResetBaselines;
             itemUseAdapter.Subscribe();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);
             initialized = true;
@@ -224,6 +249,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         runLifecycleAdapter.OwnedValue?.Tick();
         equipmentAdapter.OwnedValue?.Tick();
         itemUseAdapter?.Tick(DateTime.UtcNow);
+        economyAdapter?.Tick();
         healingAttributionAdapter?.Tick();
         combatAttributionAdapter.OwnedValue?.Tick();
         containerAdapter.OwnedValue?.Tick();
@@ -239,6 +265,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void OnApplicationQuit()
     {
+        FlushPendingEconomy("application quit");
         runLifecycleAdapter.OwnedValue?.FlushCheckpoint();
         profileCoordinator?.Flush();
         Debug.Log(
@@ -256,11 +283,14 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Cleanup()
     {
+        FlushPendingEconomy("deactivation");
         var ownedRunLifecycleAdapter = runLifecycleAdapter.OwnedValue;
         var ownedWeaponFireAdapter = weaponFireAdapter.OwnedValue;
-        if (profileCoordinator != null && ownedRunLifecycleAdapter != null)
+        if (profileCoordinator != null)
         {
-            profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
+            profileCoordinator.ProfileChanging -= FlushPendingEconomyForProfileChange;
+            if (ownedRunLifecycleAdapter != null)
+                profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
         }
 
         if (!weaponFireAdapter.TryCleanupOwned())
@@ -295,6 +325,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
         itemUseAdapter?.Dispose();
         itemUseAdapter = null;
+        if (profileCoordinator != null && economyAdapter != null)
+            profileCoordinator.ProfileChanged -= economyAdapter.ResetBaselines;
+        economyAdapter?.Dispose();
+        economyAdapter = null;
         if (healingAttributionAdapter != null && profileCoordinator != null)
         {
             healingAttributionAdapter.CapabilityChanged -= profileCoordinator.SetHealingCapability;
@@ -308,4 +342,19 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         NativeHotPathDiagnostics.WriteSummary(message => Debug.Log($"{LogPrefix} {message}"));
         initialized = false;
     }
+
+    private void FlushPendingEconomy(string boundary)
+    {
+        try
+        {
+            economyAdapter?.Tick();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            Debug.LogError($"{LogPrefix} economy boundary flush failed during {boundary}.");
+        }
+    }
+
+    private void FlushPendingEconomyForProfileChange() => FlushPendingEconomy("profile change");
 }

@@ -169,6 +169,9 @@ public sealed class RunSummary
 
     [DataMember(Order = 42)]
     public ItemStatisticsAggregate ItemStatistics { get; set; } = new();
+
+    [DataMember(Order = 43)]
+    public EconomyStatisticsAggregate Economy { get; set; } = new();
 }
 
 [DataContract]
@@ -288,6 +291,9 @@ public sealed class ActiveRunCheckpoint
     [DataMember(Order = 38)]
     public MovementBaselineState MovementBaseline { get; set; } = new();
 
+    [DataMember(Order = 39)]
+    public EconomyStatisticsAggregate Economy { get; set; } = new();
+
     public RunSummary ToInterruptedSummary()
     {
         var endedUtc = EnsureUtc(LastObservedUtc == default ? StartedUtc : LastObservedUtc);
@@ -308,7 +314,7 @@ public sealed class ActiveRunCheckpoint
         var routeSupported = !HistoricalRouteUnavailable
                              && routeCapabilities.OrderedRoute?.State == AdapterCapabilityState.Supported
                              && routeCapabilities.Segments?.State == AdapterCapabilityState.Supported;
-        return new RunSummary
+        var result = new RunSummary
         {
             RunId = RunId,
             SaveGenerationId = SaveGenerationId,
@@ -352,8 +358,12 @@ public sealed class ActiveRunCheckpoint
             HistoricalRouteUnavailable = HistoricalRouteUnavailable,
             RouteWasRepairedFromInvalidState = RouteWasRepairedFromInvalidState,
             SegmentEventAssociations = SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
-            ItemStatistics = ItemStatisticsAggregateReducer.Clone(ItemStatistics)
+            ItemStatistics = ItemStatisticsAggregateReducer.Clone(ItemStatistics),
+            Economy = EconomyStatisticsReducer.Clone(Economy)
         };
+
+        EconomyStatisticsReducer.FinalizeCashRaidOutcome(result.Economy, RunOutcome.Interrupted);
+        return result;
     }
 
     private static double FiniteNonNegative(double value) =>

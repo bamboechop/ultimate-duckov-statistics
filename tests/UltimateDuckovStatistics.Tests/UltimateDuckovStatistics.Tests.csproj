@@ -38,6 +38,8 @@
              Link="ProductionAdapters\NativeCombatEquipmentAssociationResolver.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeContainerAdapter.Publication.cs"
              Link="ProductionAdapters\NativeContainerAdapter.Publication.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEconomyAdapter.cs"
+             Link="ProductionAdapters\NativeEconomyAdapter.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ItemUsePublication.cs"
              Link="ProductionAdapters\ItemUsePublication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\UiText.cs"

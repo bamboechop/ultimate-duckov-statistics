@@ -7,7 +7,7 @@ public sealed class ProductInfoTests
     [Fact]
     public void VersionAndSchemaArePinnedForPerformanceHardening()
     {
-        Assert.Equal("0.8.1", ProductInfo.Version);
-        Assert.Equal(8, ProductInfo.SchemaVersion);
+        Assert.Equal("0.9.0", ProductInfo.Version);
+        Assert.Equal(9, ProductInfo.SchemaVersion);
     }
 }

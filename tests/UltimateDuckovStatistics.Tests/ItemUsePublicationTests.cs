@@ -28,4 +28,40 @@ public sealed class ItemUsePublicationTests
         Assert.Equal(1, profileAttempts);
         Assert.Equal(1, activeRunAttempts);
     }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Persistence")]
+    public void ThrowingProfileEconomyDestinationStillAttemptsActiveRunDestination()
+    {
+        var activeRunAttempts = 0;
+
+        Assert.Throws<IOException>(() => ItemUsePublication.PublishIndependently(
+            () => throw new IOException("profile write failed"),
+            () =>
+            {
+                activeRunAttempts++;
+                return true;
+            }));
+
+        Assert.Equal(1, activeRunAttempts);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Persistence")]
+    public void ThrowingActiveRunEconomyDestinationDoesNotUndoProfileDestination()
+    {
+        var profileAttempts = 0;
+
+        Assert.Throws<IOException>(() => ItemUsePublication.PublishIndependently(
+            () =>
+            {
+                profileAttempts++;
+                return true;
+            },
+            () => throw new IOException("active-run write failed")));
+
+        Assert.Equal(1, profileAttempts);
+    }
 }
