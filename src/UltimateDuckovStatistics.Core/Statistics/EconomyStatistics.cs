@@ -572,7 +572,7 @@ public static class EconomyStatisticsReducer
         if (empty) return;
         if (!string.IsNullOrWhiteSpace(cursor.ActivationId)
             && !cursor.ActivationId.Contains(':')
-            && cursor.ClosedThroughSequence > 0)
+            && cursor.ClosedThroughSequence >= 0)
             return;
         cursor.ActivationId = string.Empty;
         cursor.ClosedThroughSequence = 0;
@@ -585,7 +585,7 @@ public static class EconomyStatisticsReducer
         if (string.IsNullOrEmpty(cursor.ActivationId) && cursor.ClosedThroughSequence == 0) return;
         if (string.IsNullOrWhiteSpace(cursor.ActivationId)
             || cursor.ActivationId.Contains(':')
-            || cursor.ClosedThroughSequence <= 0)
+            || cursor.ClosedThroughSequence < 0)
             throw new ArgumentException("Economy replay watermark is invalid.", nameof(cursor));
     }
 

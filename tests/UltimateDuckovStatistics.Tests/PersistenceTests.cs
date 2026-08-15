@@ -496,6 +496,66 @@ public sealed class PersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
+    public void RegisteredActivationSurvivesDeferredSnapshotBeforeItsFirstEvent()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var first = CreateRepository(temporaryDirectory.Path, "session-first");
+        first.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        var generation = first.CurrentGenerationId;
+
+        Assert.True(first.BeginEconomyActivation("activation-before-event"));
+        var snapshot = first.CapturePersistenceSnapshot();
+        Assert.Equal(
+            "activation-before-event",
+            first.Current.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(0, first.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+        Assert.False(first.Current.Statistics.Economy.WasRepairedFromInvalidState);
+        first.SaveSnapshot(snapshot);
+        var persisted = new AtomicJsonStore<ProfileDocument>().Load(first.CurrentProfilePath!).Value!;
+        Assert.Equal(
+            "activation-before-event",
+            persisted.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(0, persisted.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+        Assert.False(persisted.Statistics.Economy.WasRepairedFromInvalidState);
+        EconomyStatisticsReducer.Validate(persisted.Statistics.Economy);
+        first.CloseClean();
+
+        var second = CreateRepository(temporaryDirectory.Path, "session-second");
+        second.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        Assert.Equal(
+            "activation-before-event",
+            second.Current.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(0, second.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+
+        Assert.True(second.BeginEconomyActivation("activation-after-restart"));
+        var restartedSnapshot = second.CapturePersistenceSnapshot();
+        Assert.Equal(
+            "activation-after-restart",
+            second.Current.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(0, second.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+        second.SaveSnapshot(restartedSnapshot);
+        var restartedPersisted = new AtomicJsonStore<ProfileDocument>().Load(second.CurrentProfilePath!).Value!;
+        Assert.Equal(
+            "activation-after-restart",
+            restartedPersisted.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(0, restartedPersisted.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+        Assert.True(second.Record(EconomyFlow(
+            generation,
+            "activation-after-restart",
+            1,
+            CurrencyKind.Money)));
+        Assert.False(second.Record(EconomyFlow(
+            generation,
+            "activation-before-event",
+            1,
+            CurrencyKind.Money)));
+        Assert.Equal(1, second.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
     public void SaveSlotRotationKeepsEachGenerationsReplayCursorAndTotalsIndependent()
     {
         using var temporaryDirectory = new TemporaryDirectory();
