@@ -116,5 +116,104 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
         Assert.Equal(published[1].LoadoutId, association.LoadoutId);
     }
 
+    [Fact]
+    public void PermanentlyMissingSegmentContextKeepsOverallEquipmentAssociationCached()
+    {
+        var now = 0d;
+        var invalidations = 0;
+        var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        var weapon = new Item { TypeID = 700, DisplayName = "Weapon" };
+        characterItem.Slots.Add(new Slot { Key = "PrimaryWeapon", DisplayName = "Primary", Content = weapon });
+        CharacterMainControl.Main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = characterItem,
+            CurrentHoldItemAgent = new DuckovItemAgent { Item = weapon }
+        };
+        var published = new List<EquipmentSnapshot>();
+        using var adapter = new NativeEquipmentAdapter(
+            () => true,
+            snapshot =>
+            {
+                published.Add(snapshot);
+                return true;
+            },
+            () =>
+            {
+                invalidations++;
+                return true;
+            },
+            _ => { },
+            _ => { },
+            () => now,
+            () => null);
+
+        adapter.Initialize();
+        var initial = Assert.Single(published);
+
+        for (var index = 0; index < 60; index++)
+        {
+            var association = adapter.CaptureAssociation();
+            Assert.Equal(initial.LoadoutId, association.LoadoutId);
+            Assert.Equal(initial.SelectedWeaponId, association.SelectedWeaponId);
+            Assert.Equal(initial.SelectedWeaponSlotId, association.SelectedWeaponSlotId);
+            Assert.Equal(initial.TotemSetId, association.TotemSetId);
+        }
+
+        now = 1;
+        adapter.Tick();
+
+        Assert.Single(published);
+        Assert.Equal(0, invalidations);
+    }
+
+    [Fact]
+    public void LosingSegmentContextRepublishesOverallOnceWithoutInvalidatingAssociation()
+    {
+        var now = 0d;
+        string? observationContext = "run-one\nsegment-one";
+        var invalidations = 0;
+        var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        var weapon = new Item { TypeID = 700, DisplayName = "Weapon" };
+        characterItem.Slots.Add(new Slot { Key = "PrimaryWeapon", DisplayName = "Primary", Content = weapon });
+        CharacterMainControl.Main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = characterItem,
+            CurrentHoldItemAgent = new DuckovItemAgent { Item = weapon }
+        };
+        var published = new List<EquipmentSnapshot>();
+        using var adapter = new NativeEquipmentAdapter(
+            () => true,
+            snapshot =>
+            {
+                published.Add(snapshot);
+                return true;
+            },
+            () =>
+            {
+                invalidations++;
+                return true;
+            },
+            _ => { },
+            _ => { },
+            () => now,
+            () => observationContext);
+
+        adapter.Initialize();
+        var initial = Assert.Single(published);
+        observationContext = null;
+
+        var association = adapter.CaptureAssociation();
+        var repeatedAssociation = adapter.CaptureAssociation();
+
+        Assert.Equal(2, published.Count);
+        Assert.Equal(initial.SnapshotId, published[1].SnapshotId);
+        Assert.Equal(initial.LoadoutId, association.LoadoutId);
+        Assert.Equal(initial.SelectedWeaponId, association.SelectedWeaponId);
+        Assert.Equal(association.LoadoutId, repeatedAssociation.LoadoutId);
+        Assert.Equal(0, invalidations);
+    }
+
     public void Dispose() => CharacterMainControl.ResetNativeState();
 }

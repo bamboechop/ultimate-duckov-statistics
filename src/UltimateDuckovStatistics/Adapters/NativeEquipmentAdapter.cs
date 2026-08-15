@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v5+segment-cache";
+    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v6+route-independent-cache";
     private const string SupportedGameVersion = "2.3.30";
     internal const double ReconciliationIntervalSeconds = 1;
     private readonly Func<bool> runActiveProvider;
@@ -27,6 +27,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     private Item? observedCharacterItem;
     private EquipmentSnapshot? latestSnapshot;
     private string? latestObservationContextId;
+    private bool hasLatestObservationContext;
     private EquipmentMetricCapabilities metricCapabilities =
         EquipmentNativeContractPolicy.CreateUnavailableCapabilities("Equipment tracking has not been initialized.");
 
@@ -117,6 +118,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         SynchronizeMain();
         var observationContextId = observationContextProvider();
         if (latestSnapshot == null
+            || !hasLatestObservationContext
             || !string.Equals(latestObservationContextId, observationContextId, StringComparison.Ordinal))
         {
             ObserveNow();
@@ -138,6 +140,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         if (failure != null) diagnosticHandler($"Equipment cleanup remains retryable: {failure.GetType().Name}: {failure.Message}");
         latestSnapshot = null;
         latestObservationContextId = null;
+        hasLatestObservationContext = false;
         observedMain = null;
         return cleaned;
     }
@@ -156,6 +159,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         if (observedCharacterItem != null) observedCharacterItem.onItemTreeChanged += OnItemTreeChanged;
         latestSnapshot = null;
         latestObservationContextId = null;
+        hasLatestObservationContext = false;
     }
 
     private void UnsubscribeCharacterTree()
@@ -174,26 +178,29 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         {
             latestSnapshot = null;
             latestObservationContextId = null;
+            hasLatestObservationContext = false;
             return;
         }
         if (observedMain == null || observedCharacterItem == null || !observedMain.IsMainCharacter)
         { InvalidateObservation(); return; }
         try
         {
+            // Segment identity is a deduplication scope, not proof that the
+            // overall equipment observation is valid. Route degradation leaves
+            // it empty while the main duck and loadout remain fully observable.
             var observationContextId = observationContextProvider();
-            if (string.IsNullOrWhiteSpace(observationContextId))
-            {
-                InvalidateObservation();
-                return;
-            }
             NativeHotPathDiagnostics.CountEquipmentSnapshotBuild();
             var snapshot = NativeEquipmentSnapshotBuilder.Build(observedMain, observedCharacterItem);
             // The same immutable loadout still has to be published once for every
             // run segment so its duration and event associations have a local root.
-            var unchanged = string.Equals(latestObservationContextId, observationContextId, StringComparison.Ordinal)
+            // A missing segment is also a stable overall-only context so route
+            // loss cannot suspend established run-level equipment tracking.
+            var unchanged = hasLatestObservationContext
+                            && string.Equals(latestObservationContextId, observationContextId, StringComparison.Ordinal)
                             && string.Equals(latestSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal);
             latestSnapshot = snapshot;
             latestObservationContextId = observationContextId;
+            hasLatestObservationContext = true;
             if (unchanged)
             {
                 NativeHotPathDiagnostics.CountEquipmentUnchangedPublication();
@@ -213,6 +220,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     {
         latestSnapshot = null;
         latestObservationContextId = null;
+        hasLatestObservationContext = false;
         invalidationHandler();
     }
 
