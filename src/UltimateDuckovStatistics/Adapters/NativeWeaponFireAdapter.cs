@@ -144,6 +144,7 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
             {
                 return;
             }
+            NativeHotPathDiagnostics.CountAcceptedFiringCallback();
 
             var generationId = saveGenerationIdProvider();
             var mapId = mapIdProvider();

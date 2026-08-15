@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics
 
-Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.8.0 retains M1-M7 and adds continuous multi-map expeditions, ordered repeated-map-aware segments, and event-time route attribution.
+Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.8.1 retains the complete M1-M8 statistics contract while hardening measured equipment, Harmony-integrity, projectile-context, and checkpoint-persistence hot paths.
 
 The mod never modifies Duckov save files. Its data is stored under:
 
@@ -10,7 +10,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
-M0-M7 are published through [v0.7.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.7.0). M8 is merged as the current v0.8.0 pre-release candidate after its single-map, multi-map extraction, later-map death, repeated-map re-entry, cross-map activity, abrupt recovery, UI/export, shutdown, and review-hardening gates passed. Post-review controls with multiple automatic weapons confirm that a severe firing-related frame-time problem remains; the Vektor was only the initial high-rate stress example. Active M8.1 first establishes the game-only versus UDS-enabled delta, then profiles and hardens the cumulative M1-M8 firing, projectile, combat, attribution, and persistence paths without assuming which weapon, subsystem, or milestone is responsible. M9 economy and M10 full UI/release hardening remain future work. UDS has not been uploaded to Steam Workshop.
+M0-M8 are published through the [v0.8.0 GitHub pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.8.0). M8.1 preserves every statistic and crash-safety contract while replacing measured equipment, patch-integrity, projectile, checkpoint, and lifetime-profile hot-path costs with bounded cached or deferred work. The final review correction also preserves overall equipment tracking if route context becomes unavailable. Exact product commit `90384352d323e6ea19dfa607c7da18162dbcefcb` passes 507/507 tests and the installed-game/native/package gates. Its final Harmony-only B versus production-D campaign contains three accepted captures in each of seven scenarios and meets the tighter 5% median/10% p99 engineering target everywhere; the largest positive overhead is +0.313% whole median, +3.721% whole p99, +1.355% action median, and +4.526% action p99, with no repeatable new action cluster. The supplementary three-map soak, exact event deltas, Runs/Items/Equipment UI, JSON plus nineteen CSVs, deployed-byte readback, and residue-free byte-identical shutdown also pass. The 221,763-byte exact-candidate ZIP is SHA-256 `2510317d1aca11a19ab658941b513fa630d6b70f2a6d8065c77b57a744cdeb62`. [Draft PR #9](https://github.com/bamboechop/ultimate-duckov-statistics/pull/9) remains open, draft, and unmerged. M9 economy and M10 full UI/release hardening remain future work; no v0.8.1 tag, GitHub release, merge, or Steam Workshop upload has occurred.
 
 ## Build prerequisites
 
@@ -28,7 +28,7 @@ UDS fingerprints saves read-only and never modifies them. While active, it recor
 
 Runs begin only when the native raid is initialized and the live main duck actually has player control. Active duration excludes pause and loading. Movement is sampled at approximately 5 Hz with the real monotonic sample interval and verified native walk/run/dash speeds. Explicit-position, implausible, and long-gap displacement inside an active map is retained as teleport distance; displacement caused solely by loading or a map boundary is retained independently as transition-excluded distance and never inflates physical or teleport totals. Interrupted and integrity-flagged runs stay visible but do not enter default duration records; each Runs row shows its integrity tag and an explicit eligible/excluded Records status with the exclusion reason.
 
-Version 0.8.0 keeps one expedition active across proven full-scene and subscene transitions. It stores starting/ending maps, an ordered stable-ID route, distinct repeated visits, segment duration and movement, and source/outcome segment associations for delayed healing/combat. Loading displacement is separate from physical and proven teleport distance. Complete-run records remain overall and by starting map; route-aware per-map totals are built only from segments. Pre-M8 route history remains explicitly unavailable.
+Version 0.8.1 keeps one expedition active across proven full-scene and subscene transitions. It stores starting/ending maps, an ordered stable-ID route, distinct repeated visits, segment duration and movement, and source/outcome segment associations for delayed healing/combat. Loading displacement is separate from physical and proven teleport distance. Complete-run records remain overall and by starting map; route-aware per-map totals are built only from segments. Pre-M8 route history remains explicitly unavailable.
 
 M4 uses the public `ItemAgent_Gun.OnMainCharacterShootEvent` from the verified Duckov build. Each accepted callback receives a unique UDS event ID and proves one firing action plus event-time weapon/ammunition identity. The event occurs after calls that may conditionally skip ammunition consumption or projectile initialization, so loaded-ammunition and projectile counts are explicitly unavailable rather than inferred from cached ammunition or configured `ShotCount`. Reloads, magazine transfers, inventory movement, base activity, loading, pause, non-main-duck actors, and dry fire do not create firing-action records.
 
@@ -52,7 +52,7 @@ dotnet build .\src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj -c R
 Create the validated installable ZIP and SHA-256 sidecar with:
 
 ```powershell
-.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.8.0
+.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.8.1
 ```
 
 See [INSTALL.md](INSTALL.md) for installation and compatibility details.

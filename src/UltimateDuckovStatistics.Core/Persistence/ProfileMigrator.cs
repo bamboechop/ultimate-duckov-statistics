@@ -38,6 +38,53 @@ public static class ProfileMigrator
             return $"Current-schema profile roots are incomplete. Missing required data member: {missingPath}.";
         }
 
+        if (profile.DeferredItemPersistence != null)
+        {
+            var deferred = profile.DeferredItemPersistence;
+            if (deferred.RunId != null && string.IsNullOrWhiteSpace(deferred.RunId))
+            {
+                return "Deferred lifetime item persistence watermark has an invalid run identity.";
+            }
+            try
+            {
+                ItemStatisticsAggregateReducer.Validate(
+                    deferred.AppliedLifetimeStatistics);
+                if (!ItemStatisticsAggregateReducer.IsCompositionConsistent(
+                        deferred.AppliedLifetimeStatistics))
+                {
+                    return "Deferred lifetime item persistence watermark is compositionally inconsistent.";
+                }
+                if (deferred.RunId == null
+                    && (deferred.AppliedLifetimeStatistics.Overall.ActivationCount != 0
+                        || deferred.AppliedLifetimeStatistics.Overall.ActualHealthRestored != 0
+                        || deferred.AppliedLifetimeStatistics.Overall.AmountsByUnit.Count != 0
+                        || deferred.AppliedLifetimeStatistics.Items.Count != 0
+                        || deferred.AppliedLifetimeStatistics.Groups.Count != 0
+                        || deferred.AppliedLifetimeStatistics.RecentEventIds.Count != 0))
+                {
+                    return "Deferred lifetime item persistence watermark has values without an active run identity.";
+                }
+                var lifetime = new Domain.ItemStatisticsAggregate
+                {
+                    Overall = profile.Statistics.Overall,
+                    Items = profile.Statistics.Items,
+                    Groups = profile.Statistics.Groups,
+                    RecentEventIds = profile.Statistics.RecentEventIds
+                };
+                if (!ItemStatisticsAggregateReducer.TrySubtract(
+                        lifetime,
+                        deferred.AppliedLifetimeStatistics,
+                        out _))
+                {
+                    return "Deferred lifetime item persistence watermark is not a valid subset of lifetime statistics.";
+                }
+            }
+            catch (ArgumentException exception)
+            {
+                return $"Deferred lifetime item persistence watermark is invalid: {exception.Message}";
+            }
+        }
+
         return null;
     }
 

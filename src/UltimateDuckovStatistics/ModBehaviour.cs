@@ -36,6 +36,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
         try
         {
+            NativeHotPathDiagnostics.Reset();
             if (runLifecycleAdapter.HasValue
                 && (!runLifecycleAdapter.HasPendingCleanup || !runLifecycleAdapter.TryCleanupPending()))
             {
@@ -102,8 +103,11 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 () => weaponFireAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.WeaponMetricCapabilities(),
                 () => combatAttributionAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.CombatMetricCapabilities(),
                 () => equipmentAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.EquipmentMetricCapabilities(),
-                () => containerAdapter.OwnedValue?.MetricCapabilities ?? new Core.Statistics.ContainerMetricCapabilities());
+                () => containerAdapter.OwnedValue?.MetricCapabilities ?? new Core.Statistics.ContainerMetricCapabilities(),
+                profileCoordinator.PollRunCheckpoint,
+                profileCoordinator.FlushRunCheckpoint);
             runLifecycleAdapter.Assign(newRunLifecycleAdapter);
+            profileCoordinator.SetActiveRunCheckpointBarrier(newRunLifecycleAdapter.FlushCheckpoint);
             var newContainerAdapter = new NativeContainerAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
@@ -121,7 +125,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 snapshot => runLifecycleAdapter.OwnedValue?.ObserveEquipment(snapshot) == true,
                 () => runLifecycleAdapter.OwnedValue?.InvalidateEquipmentObservation() == true,
                 profileCoordinator.SetEquipmentCapabilities,
-                message => Debug.Log($"{LogPrefix} {message}"));
+                message => Debug.Log($"{LogPrefix} {message}"),
+                observationContextProvider: () => newRunLifecycleAdapter.CurrentSegmentId);
             equipmentAdapter.Assign(newEquipmentAdapter);
             newEquipmentAdapter.Initialize();
             newRunLifecycleAdapter.SetDestinationReadyObserver(() => newEquipmentAdapter.CaptureAssociation());
@@ -144,12 +149,16 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 value => runLifecycleAdapter.OwnedValue?.RecordCombat(value) == true,
                 capabilities =>
                 {
-                    profileCoordinator.SetCombatCapabilities(capabilities);
-                    if (newCombatAttributionAdapter != null)
-                    {
-                        runLifecycleAdapter.OwnedValue?.UpdateCombatCapabilities(
-                            newCombatAttributionAdapter.MetricCapabilities);
-                    }
+                    NativeContainerAdapter.PublishIndependently(
+                        () => profileCoordinator.SetCombatCapabilities(capabilities),
+                        () =>
+                        {
+                            if (newCombatAttributionAdapter != null)
+                            {
+                                runLifecycleAdapter.OwnedValue?.UpdateCombatCapabilities(
+                                    newCombatAttributionAdapter.MetricCapabilities);
+                            }
+                        });
                 },
                 message => Debug.Log($"{LogPrefix} {message}"),
                 newEquipmentAdapter.CaptureAssociation,
@@ -208,12 +217,18 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Update()
     {
+        NativeHotPathDiagnostics.HandleControl(
+            Input.GetKeyDown(KeyCode.F9),
+            Input.GetKeyDown(KeyCode.F10),
+            message => Debug.Log($"{LogPrefix} {message}"));
         runLifecycleAdapter.OwnedValue?.Tick();
         equipmentAdapter.OwnedValue?.Tick();
         itemUseAdapter?.Tick(DateTime.UtcNow);
         healingAttributionAdapter?.Tick();
         combatAttributionAdapter.OwnedValue?.Tick();
         containerAdapter.OwnedValue?.Tick();
+        profileCoordinator?.TickProfilePersistence(
+            runLifecycleAdapter.OwnedValue?.HasUncheckpointedRunMutations != true);
         statisticsPanel?.Tick();
     }
 
@@ -290,6 +305,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         statisticsPanel = null;
         profileCoordinator?.Dispose();
         profileCoordinator = null;
+        NativeHotPathDiagnostics.WriteSummary(message => Debug.Log($"{LogPrefix} {message}"));
         initialized = false;
     }
 }

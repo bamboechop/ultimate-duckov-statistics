@@ -87,6 +87,24 @@ public sealed class RunLifecycleTrackerTests
 
     [Fact]
     [Trait("Category", "Run")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Performance")]
+    public void DeferredCheckpointCompletionCannotClearEventsRecordedAfterItsSnapshot()
+    {
+        var tracker = StartedTracker();
+        Assert.True(tracker.UpdateCombatCapabilities(new CombatMetricCapabilities()));
+        var capturedRevision = tracker.CheckpointMutationRevision;
+        Assert.True(tracker.UpdateCombatCapabilities(new CombatMetricCapabilities()));
+
+        tracker.MarkCheckpointSaved(1, capturedRevision);
+
+        Assert.True(tracker.CombatCheckpointRequired);
+        tracker.MarkCheckpointSaved(2, tracker.CheckpointMutationRevision);
+        Assert.False(tracker.CombatCheckpointRequired);
+    }
+
+    [Fact]
+    [Trait("Category", "Run")]
     public void InterruptedCheckpointNeverBecomesRecordEligible()
     {
         var tracker = StartedTracker();

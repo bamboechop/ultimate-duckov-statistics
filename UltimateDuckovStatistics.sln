@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UltimateDuckovStatistics.Te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DuckovContractProbe", "tools\DuckovContractProbe\DuckovContractProbe.csproj", "{64EFF6C0-167D-4D61-8158-3D5A0C72D8B9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FrameTimeAnalyzer", "tools\FrameTimeAnalyzer\FrameTimeAnalyzer.csproj", "{91FE6AAF-E704-48F5-A9E6-4576A8B9AE61}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,5 +34,9 @@ Global
 		{64EFF6C0-167D-4D61-8158-3D5A0C72D8B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{64EFF6C0-167D-4D61-8158-3D5A0C72D8B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{64EFF6C0-167D-4D61-8158-3D5A0C72D8B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{91FE6AAF-E704-48F5-A9E6-4576A8B9AE61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91FE6AAF-E704-48F5-A9E6-4576A8B9AE61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{91FE6AAF-E704-48F5-A9E6-4576A8B9AE61}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91FE6AAF-E704-48F5-A9E6-4576A8B9AE61}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

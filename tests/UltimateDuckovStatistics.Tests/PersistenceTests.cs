@@ -130,6 +130,7 @@ public sealed class PersistenceTests
     {
         "Profile.Identity",
         "Profile.Capabilities",
+        "DeferredItemPersistence.AppliedLifetimeStatistics",
         "Statistics.Overall",
         "Statistics.Items",
         "Statistics.Groups",
@@ -255,6 +256,77 @@ public sealed class PersistenceTests
         var persisted = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!;
         Assert.Equal(7, persisted.Revision);
         Assert.Equal(37, persisted.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Performance")]
+    public void DeferredLifetimeWatermarkThatExceedsLifetimeTotalsLosesToIntactBackup()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var invalidPrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        invalidPrimary.DeferredItemPersistence!.RunId = "run-active";
+        invalidPrimary.DeferredItemPersistence.AppliedLifetimeStatistics.Overall.ActivationCount = 1;
+        invalidPrimary.DeferredItemPersistence.AppliedLifetimeStatistics.Items["duckov:item:test"] = new ItemAggregate
+        {
+            ItemId = "duckov:item:test",
+            DisplayName = "Test item",
+            Totals = new AggregateTotals { ActivationCount = 1 }
+        };
+        invalidPrimary.DeferredItemPersistence.AppliedLifetimeStatistics.Groups[nameof(CanonicalItemGroup.Healing)] =
+            new AggregateTotals { ActivationCount = 1 };
+        store.Save(path, backup);
+        store.Save(path, invalidPrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("watermark is not a valid subset", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        repository.CloseClean();
+    }
+
+    [Theory]
+    [InlineData("group")]
+    [InlineData("item-identity")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Performance")]
+    public void CompositionallyInvalidDeferredLifetimeWatermarkLosesToIntactBackup(string corruption)
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var invalidPrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        var applied = invalidPrimary.DeferredItemPersistence!.AppliedLifetimeStatistics;
+        invalidPrimary.DeferredItemPersistence.RunId = "run-active";
+        applied.Overall.AmountsByUnit["Item"] = 1;
+        applied.Items["duckov:item:test"] = new ItemAggregate
+        {
+            ItemId = corruption == "item-identity" ? "duckov:item:wrong" : "duckov:item:test",
+            DisplayName = "Test item",
+            Totals = new AggregateTotals { AmountsByUnit = new() { ["Item"] = 1 } }
+        };
+        applied.Groups[nameof(CanonicalItemGroup.OtherUnknown)] = new AggregateTotals
+        {
+            AmountsByUnit = new() { ["Item"] = corruption == "group" ? 2 : 1 }
+        };
+        store.Save(path, backup);
+        store.Save(path, invalidPrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("watermark is compositionally inconsistent", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        repository.CloseClean();
     }
 
     [Theory]
@@ -905,6 +977,109 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "Performance")]
+    public void DeferredProfileSnapshotIsIsolatedFromLaterItemMutationsAndPersistsExactRevision()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var ids = new Queue<string>();
+        ids.Enqueue("generation-one");
+        ids.Enqueue("session-one");
+        var repository = CreateRepository(temporaryDirectory.Path, ids);
+        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        repository.EnableDeferredItemPersistence();
+        var profilePath = repository.CurrentProfilePath!;
+
+        Assert.True(repository.RecordDeferred(CreateUse("event-one", "generation-one", runId: "run-one")));
+        Assert.True(repository.RecordDeferred(CreateHealing(
+            "healing-one",
+            "event-one",
+            "generation-one",
+            12.5,
+            runId: "run-one")));
+
+        var beforeDeferredSave = new AtomicJsonStore<ProfileDocument>().Load(profilePath).Value!;
+        Assert.Equal(0, beforeDeferredSave.Statistics.Overall.ActivationCount);
+        Assert.Equal(0, beforeDeferredSave.Statistics.Overall.ActualHealthRestored);
+
+        var snapshot = repository.CapturePersistenceSnapshot();
+        Assert.True(repository.RecordDeferred(CreateUse("event-two", "generation-one", runId: "run-one")));
+        repository.SaveSnapshot(snapshot);
+
+        var persistedSnapshot = new AtomicJsonStore<ProfileDocument>().Load(profilePath).Value!;
+        Assert.Equal(snapshot.Revision, persistedSnapshot.Revision);
+        Assert.Equal(1, persistedSnapshot.Statistics.Overall.ActivationCount);
+        Assert.Equal(12.5, persistedSnapshot.Statistics.Overall.ActualHealthRestored, precision: 6);
+        Assert.DoesNotContain("event-two", persistedSnapshot.Statistics.RecentEventIds);
+        Assert.Equal(2, repository.Current.Statistics.Overall.ActivationCount);
+
+        repository.Flush();
+        var persistedCurrent = new AtomicJsonStore<ProfileDocument>().Load(profilePath).Value!;
+        Assert.Equal(2, persistedCurrent.Statistics.Overall.ActivationCount);
+        Assert.Contains("event-two", persistedCurrent.Statistics.RecentEventIds);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Performance")]
+    public void DeferredItemPersistenceModeFollowsSlotTransitionsAndGenerationRotations()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var ids = new Queue<string>();
+        ids.Enqueue("generation-two");
+        ids.Enqueue("session-two");
+        ids.Enqueue("generation-one");
+        ids.Enqueue("session-one");
+        ids.Enqueue("session-two-reopened");
+        ids.Enqueue("generation-three");
+        ids.Enqueue("session-three");
+        var repository = CreateRepository(temporaryDirectory.Path, ids);
+
+        repository.Open(CreateIdentity(slot: 2, creationTicks: 200));
+        Assert.Null(repository.Current.DeferredItemPersistence);
+        repository.CloseClean();
+
+        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        repository.EnableDeferredItemPersistence();
+        Assert.NotNull(repository.Current.DeferredItemPersistence);
+
+        repository.Open(CreateIdentity(slot: 2, creationTicks: 200), "SaveSlotSelected");
+        Assert.Equal("generation-two", repository.Current.GenerationId);
+        Assert.NotNull(repository.Current.DeferredItemPersistence);
+        Assert.False(repository.CanDeferItemPersistence(null));
+        Assert.True(repository.CanDeferItemPersistence("run-two"));
+        var completed = new RunSummary { RunId = "run-completed" };
+        repository.Current.Statistics.Runs.Add(completed);
+        Assert.False(repository.CanDeferItemPersistence(completed.RunId));
+        repository.Current.Statistics.Runs.Remove(completed);
+        Assert.True(repository.RecordDeferred(CreateUse(
+            "event-two",
+            "generation-two",
+            runId: "run-two")));
+        repository.EnableDeferredItemPersistence();
+        Assert.Equal("run-two", repository.Current.DeferredItemPersistence!.RunId);
+        Assert.Equal(
+            1,
+            repository.Current.DeferredItemPersistence.AppliedLifetimeStatistics.Overall.ActivationCount);
+
+        repository.Rotate(CreateIdentity(slot: 2, creationTicks: 200), "DuckovNewGame");
+        Assert.Equal("generation-three", repository.Current.GenerationId);
+        Assert.NotNull(repository.Current.DeferredItemPersistence);
+        Assert.True(repository.RecordDeferred(CreateUse(
+            "event-three",
+            "generation-three",
+            runId: "run-three")));
+        repository.SaveSnapshot(repository.CapturePersistenceSnapshot());
+
+        var persisted = new AtomicJsonStore<ProfileDocument>().Load(repository.CurrentProfilePath!).Value!;
+        Assert.Equal(1, persisted.Statistics.Overall.ActivationCount);
+        Assert.Equal("run-three", persisted.DeferredItemPersistence!.RunId);
+        Assert.Equal(1, persisted.DeferredItemPersistence.AppliedLifetimeStatistics.Overall.ActivationCount);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     public void RuntimeCapabilitiesFollowSlotTransitionsAndGenerationRotations()
     {
         using var temporaryDirectory = new TemporaryDirectory();
@@ -1310,11 +1485,13 @@ public sealed class PersistenceTests
     private static ProfileDocument CreateCompleteCurrentSchemaDocument(string generationId, long revision)
     {
         var document = CreateDocument(generationId, revision);
+        document.DeferredItemPersistence = new DeferredItemPersistenceState();
         document.Statistics.Overall.AmountsByUnit["Item"] = 1;
         document.Statistics.Items["duckov:item:test"] = new ItemAggregate
         {
             ItemId = "duckov:item:test",
             DisplayName = "Test item",
+            Group = CanonicalItemGroup.OtherUnknown,
             Totals = new AggregateTotals { AmountsByUnit = new() { ["Item"] = 1 } }
         };
         document.Statistics.Groups[nameof(CanonicalItemGroup.OtherUnknown)] = new AggregateTotals
@@ -1402,6 +1579,7 @@ public sealed class PersistenceTests
         {
             case "Profile.Identity": document.Identity = null!; break;
             case "Profile.Capabilities": document.Capabilities = null!; break;
+            case "DeferredItemPersistence.AppliedLifetimeStatistics": document.DeferredItemPersistence!.AppliedLifetimeStatistics = null!; break;
             case "Statistics.Overall": statistics.Overall = null!; break;
             case "Statistics.Items": statistics.Items = null!; break;
             case "Statistics.Groups": statistics.Groups = null!; break;
@@ -1517,11 +1695,12 @@ public sealed class PersistenceTests
         SaveTimeBinary = TestTime.AddTicks(creationTicks).ToBinary()
     };
 
-    private static ItemUseRecorded CreateUse(string eventId, string generationId) => new()
+    private static ItemUseRecorded CreateUse(string eventId, string generationId, string? runId = null) => new()
     {
         EventId = eventId,
         TimestampUtc = TestTime,
         SaveGenerationId = generationId,
+        RunId = runId,
         GameplayContext = GameplayContext.Raid,
         ItemId = "duckov:item:42",
         DisplayName = "Test item",
@@ -1535,13 +1714,15 @@ public sealed class PersistenceTests
         string eventId,
         string sourceItemUseEventId,
         string generationId,
-        double amount) => new()
+        double amount,
+        string? runId = null) => new()
         {
             EventId = eventId,
             ApplicationId = $"application-{eventId}",
             SourceItemUseEventId = sourceItemUseEventId,
             TimestampUtc = TestTime,
             SaveGenerationId = generationId,
+            RunId = runId,
             GameplayContext = GameplayContext.Raid,
             ItemId = "duckov:item:42",
             DisplayName = "Test item",

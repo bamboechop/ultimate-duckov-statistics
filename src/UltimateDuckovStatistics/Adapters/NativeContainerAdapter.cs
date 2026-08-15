@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-container-loot-access/2.3.30";
+    internal const string AdapterVersion = "native-container-loot-access/2.3.30+patch-stamp-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.containers";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
@@ -33,7 +33,7 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
     private MethodInfo? getKeyMethod;
     private FieldInfo? interactCharacterField;
     private PatchRegistration[] registrations = Array.Empty<PatchRegistration>();
-    private DateTime nextConflictCheckUtc;
+    private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
 
     public NativeContainerAdapter(
         Func<string> saveGenerationIdProvider,
@@ -94,8 +94,19 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
             patcher.Patch(createFromItem, postfix: ContainerHarmonyCallbacks.CreateFromItemPostfixMethod);
             foreach (var registration in registrations)
             {
-                if (!patcher.IsPatchSetTrusted(registration.Original, registration.Expected, out var detail))
-                    throw new InvalidOperationException($"Installed container patch validation failed: {detail}");
+                if (!patcher.TryCaptureValidatedPatchSetStamp(
+                        registration.Original,
+                        registration.Expected,
+                        out var stamp,
+                        out var detail)
+                    || stamp == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Installed container patch set/stamp validation failed for "
+                        + $"{registration.Original.DeclaringType?.Name}.{registration.Original.Name}: "
+                        + detail);
+                }
+                registration.Stamp = stamp;
             }
 
             var guarded = callbackLifetime.Guard<InteractableLootbox>(OnStartLoot);
@@ -107,7 +118,7 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
             ]);
             capabilities = ContainerNativeContractPolicy.Supported();
             Publish();
-            nextConflictCheckUtc = DateTime.UtcNow.AddSeconds(2);
+            patchInspectionScheduler.Reset(DateTime.UtcNow, registrations.Length);
             diagnosticHandler(
                 $"Container access hook subscribed; GetKey and exact-main-duck ownership verified; corpse provenance patches active with HarmonyLib {patcher.Version}.");
         }
@@ -122,21 +133,10 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
     public void Tick()
     {
         if (!callbackLifetime.CanHandleCallbacks
-            || capabilities.UniqueContainersLooted.State != AdapterCapabilityState.Supported
-            || DateTime.UtcNow < nextConflictCheckUtc) return;
+            || capabilities.UniqueContainersLooted.State != AdapterCapabilityState.Supported) return;
         try
         {
-            nextConflictCheckUtc = DateTime.UtcNow.AddSeconds(2);
-            var patcher = patcherLease.Value;
-            foreach (var registration in registrations)
-            {
-                var detail = patcher == null ? "The container Harmony owner is unavailable." : string.Empty;
-                if (patcher == null || !patcher.IsPatchSetTrusted(registration.Original, registration.Expected, out detail))
-                {
-                    DisableRuntime($"Container tracking disabled after corpse-provenance patch drift: {detail}");
-                    return;
-                }
-            }
+            InspectNextPatchStamp(DateTime.UtcNow);
         }
         catch (Exception exception)
         {
@@ -249,6 +249,27 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
         DiagnosticOnce("runtime-disabled:" + detail, detail);
     }
 
+    private void InspectNextPatchStamp(DateTime nowUtc)
+    {
+        if (!patchInspectionScheduler.TryTake(nowUtc, registrations.Length, out var registrationIndex))
+        {
+            return;
+        }
+
+        var patcher = patcherLease.Value;
+        var registration = registrations[registrationIndex];
+        if (patcher == null)
+        {
+            DisableRuntime("Container tracking disabled after corpse-provenance patch drift: The container Harmony owner is unavailable.");
+            return;
+        }
+
+        if (!patcher.IsPatchSetStampCurrent(registration.Stamp, out var detail))
+        {
+            DisableRuntime($"Container tracking disabled after corpse-provenance patch drift: {detail}");
+        }
+    }
+
     private void ResolveContracts(out MethodInfo characterDeath, out MethodInfo createFromItem)
     {
         getKeyMethod = Exact(typeof(InteractableLootbox), "GetKey", BindingFlags.Instance | BindingFlags.NonPublic, typeof(int));
@@ -311,5 +332,6 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
         { Original = original; Expected = expected; }
         public MethodInfo Original { get; }
         public HarmonyPatchExpectation[] Expected { get; }
+        public HarmonyPatchSetStamp? Stamp { get; set; }
     }
 }

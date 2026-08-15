@@ -28,6 +28,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "Duckov contract probe failed with exit code $LASTEXITCODE."
 }
 
+dotnet build (Join-Path $repoRoot 'tools\FrameTimeAnalyzer\FrameTimeAnalyzer.csproj') -c Release --no-restore
+if ($LASTEXITCODE -ne 0) {
+    throw "frame-time analyzer build failed with exit code $LASTEXITCODE."
+}
+
 dotnet build (Join-Path $repoRoot 'src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj') -c Release --no-restore
 if ($LASTEXITCODE -ne 0) {
     throw "native adapter build failed with exit code $LASTEXITCODE."

@@ -6,6 +6,7 @@
     <Description>Duckov adapter and native UI for Ultimate Duckov Statistics.</Description>
     <DuckovPath Condition="'$(DuckovPath)' == ''">$(DUCKOV_PATH)</DuckovPath>
     <DuckovManagedPath>$(DuckovPath)\Duckov_Data\Managed</DuckovManagedPath>
+    <DefineConstants Condition="'$(UDSPerformanceDiagnostics)' == 'true'">$(DefineConstants);UDS_PERFORMANCE_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

@@ -310,6 +310,8 @@ static void VerifyHarmonyReflectionContract(string harmonyPath)
     var harmonyMethodType = assembly.GetType("HarmonyLib.HarmonyMethod", throwOnError: true)!;
     var patchesType = assembly.GetType("HarmonyLib.Patches", throwOnError: true)!;
     var patchType = assembly.GetType("HarmonyLib.Patch", throwOnError: true)!;
+    var patchInfoType = assembly.GetType("HarmonyLib.PatchInfo", throwOnError: true)!;
+    var sharedStateType = assembly.GetType("HarmonyLib.HarmonySharedState", throwOnError: true)!;
     var patchMethod = harmonyType.GetMethod(
         "Patch",
         BindingFlags.Instance | BindingFlags.Public,
@@ -341,6 +343,17 @@ static void VerifyHarmonyReflectionContract(string harmonyPath)
     var priorityField = harmonyMethodType.GetField("priority", BindingFlags.Instance | BindingFlags.Public);
     var harmonyConstructor = harmonyType.GetConstructor([typeof(string)]);
     var harmonyMethodConstructor = harmonyMethodType.GetConstructor([typeof(MethodInfo)]);
+    var patchStateField = sharedStateType.GetField("state", BindingFlags.Static | BindingFlags.NonPublic);
+    var patchStateType = patchStateField?.FieldType;
+    var patchStateArguments = patchStateType is { IsGenericType: true }
+        ? patchStateType.GetGenericArguments()
+        : [];
+    var updatePatchInfoMethod = sharedStateType.GetMethod(
+        "UpdatePatchInfo",
+        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+        binder: null,
+        [typeof(MethodBase), typeof(MethodInfo), patchInfoType],
+        modifiers: null);
     if (harmonyConstructor == null
         || harmonyMethodConstructor == null
         || patchMethod == null
@@ -352,7 +365,16 @@ static void VerifyHarmonyReflectionContract(string harmonyPath)
         || finalizersMember == null
         || ownerMember == null
         || patchMethodProperty?.PropertyType != typeof(MethodInfo)
-        || priorityField?.FieldType != typeof(int))
+        || priorityField?.FieldType != typeof(int)
+        || patchStateType is not { IsGenericType: true }
+        || patchStateType.GetGenericTypeDefinition() != typeof(Dictionary<,>)
+        || patchStateArguments.Length != 2
+        || patchStateArguments[0] != typeof(MethodBase)
+        || patchStateArguments[1] != typeof(byte[])
+        || patchStateField!.IsPublic
+        || !patchStateField.IsStatic
+        || !patchStateField.IsInitOnly
+        || updatePatchInfoMethod?.ReturnType != typeof(void))
     {
         throw new ContractException("HarmonyLib reflection API required by UDS is missing or changed.");
     }

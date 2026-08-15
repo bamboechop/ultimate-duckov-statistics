@@ -24,6 +24,8 @@ jobs:
         run: dotnet test .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj -c Release --no-restore --collect:"XPlat Code Coverage"
       - name: Build contract probe
         run: dotnet build .\tools\DuckovContractProbe\DuckovContractProbe.csproj -c Release
+      - name: Build frame-time analyzer
+        run: dotnet build .\tools\FrameTimeAnalyzer\FrameTimeAnalyzer.csproj -c Release
 
   source-safety:
     runs-on: ubuntu-latest

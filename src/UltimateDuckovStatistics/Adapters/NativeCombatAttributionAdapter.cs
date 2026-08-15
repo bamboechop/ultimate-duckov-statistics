@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCleanup
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.combat";
-    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+equipment-origin-v3";
+    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+equipment-origin-v4+patch-stamp-v1";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int MaximumProjectileCorrelations = 2048;
@@ -37,13 +37,14 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private CharacterMainControl? subscribedMainCharacter;
     private bool cleanupPending;
     private DateTime nextCleanupAttemptUtc;
-    private DateTime nextConflictCheckUtc;
+    private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
     private bool retryInitialization;
     private DateTime nextInitializationAttemptUtc;
     private bool initialized;
     private string projectileGenerationId = string.Empty;
     private string projectileRunId = string.Empty;
     private string projectileMapId = string.Empty;
+    private int projectileContextFrame = -1;
     private bool disposed;
 
     public NativeCombatAttributionAdapter(
@@ -119,10 +120,19 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             foreach (var registration in patchRegistrations) ApplyPatch(created, registration);
             foreach (var registration in patchRegistrations)
             {
-                if (!created.IsPatchSetTrusted(registration.Original, registration.Expected, out var detail))
+                if (!created.TryCaptureValidatedPatchSetStamp(
+                        registration.Original,
+                        registration.Expected,
+                        out var stamp,
+                        out var detail)
+                    || stamp == null)
                 {
-                    throw new InvalidOperationException($"Installed combat patch set validation failed: {detail}");
+                    throw new InvalidOperationException(
+                        $"Installed combat patch set/stamp validation failed for "
+                        + $"{registration.Original.DeclaringType?.Name}.{registration.Original.Name}: "
+                        + detail);
                 }
+                registration.Stamp = stamp;
             }
 
             hookSupport = support;
@@ -130,7 +140,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             initialized = true;
             retryInitialization = false;
             PublishCapabilities();
-            nextConflictCheckUtc = DateTime.UtcNow.AddSeconds(2);
+            patchInspectionScheduler.Reset(DateTime.UtcNow, patchRegistrations.Length);
             SynchronizeMainCharacter();
             SynchronizeProjectileContext();
             diagnosticHandler(
@@ -165,35 +175,18 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
         if (!IsActive) return;
         SynchronizeMainCharacter();
-        SynchronizeProjectileContext();
-        if (DateTime.UtcNow < nextConflictCheckUtc) return;
-        nextConflictCheckUtc = DateTime.UtcNow.AddSeconds(2);
-        var patcher = patcherLease.Value;
-        foreach (var registration in patchRegistrations.Where(x => !x.Disabled))
-        {
-            var detail = patcher == null ? "The combat Harmony patcher is unavailable." : string.Empty;
-            if (patcher == null || !patcher.IsPatchSetTrusted(registration.Original, registration.Expected, out detail))
-            {
-                registration.Disabled = true;
-                hookSupport.Disable(registration.Hook);
-                metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
-                if (registration.Hook is CombatHook.ProjectileInit or CombatHook.ProjectileUpdate
-                    or CombatHook.ProjectileRelease or CombatHook.EffectApplication)
-                    ClearProjectileCorrelations();
-                PublishCapabilities();
-                diagnosticHandler(
-                    $"Disabled only the combat capabilities dependent on {registration.Original.DeclaringType?.Name}.{registration.Original.Name} after patch-set drift: {detail}");
-            }
-        }
+        if (projectiles.Count > 0) SynchronizeProjectileContextOncePerFrame();
+        InspectNextPatchStamp(DateTime.UtcNow);
     }
 
     public void CaptureProjectile(Projectile projectile, ProjectileContext context)
     {
         if (!IsActive || !hookSupport.ProjectileInit || projectile == null) return;
-        SynchronizeProjectileContext();
+        NativeHotPathDiagnostics.CountProjectileCapture();
         var generationId = saveGenerationIdProvider();
         var runId = runIdProvider() ?? string.Empty;
         var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
+        SynchronizeProjectileContext(generationId, runId, mapId);
         var segmentId = segmentIdProvider() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(generationId) || string.IsNullOrWhiteSpace(runId)
             || NativeRaidContext.GetGameplayContext() != GameplayContext.Raid) return;
@@ -238,9 +231,11 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     public CombatNativeScope? CreateProjectileScope(Projectile projectile)
     {
         if (!IsActive || !hookSupport.ProjectileUpdate || projectile == null) return null;
-        SynchronizeProjectileContext();
+        NativeHotPathDiagnostics.CountProjectileScopeAttempt();
+        SynchronizeProjectileContextOncePerFrame();
         if (!projectiles.TryGetValue(projectile.GetInstanceID(), out var value)
             || !MatchesCurrentContext(value)) return null;
+        NativeHotPathDiagnostics.CountProjectileScopePush();
         return value.Scope;
     }
 
@@ -249,7 +244,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         if (!IsActive || !hookSupport.ProjectileRelease || projectile == null
             || !projectiles.TryGetValue(projectile.GetInstanceID(), out var value)
             || value.Completed) return;
-        SynchronizeProjectileContext();
+        NativeHotPathDiagnostics.CountProjectileCompletion();
+        SynchronizeProjectileContextOncePerFrame();
         if (!MatchesCurrentContext(value))
         {
             projectiles.Remove(projectile.GetInstanceID());
@@ -376,6 +372,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     public void RecordHealthTransition(Health health, CombatHealthPatchState state, double actualDamage, bool fatal)
     {
         if (!CanObserveHealth || health == null || actualDamage <= 0) return;
+        NativeHotPathDiagnostics.CountHealthTransition();
         var target = health.TryGetCharacter();
         var targetIsMain = health.IsMainCharacterHealth;
         var scope = state.Scope;
@@ -504,12 +501,25 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var generationId = saveGenerationIdProvider();
         var runId = runIdProvider() ?? string.Empty;
         var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
+        SynchronizeProjectileContext(generationId, runId, mapId);
+    }
+
+    private void SynchronizeProjectileContext(string generationId, string runId, string mapId)
+    {
         if (string.Equals(projectileGenerationId, generationId, StringComparison.Ordinal)
             && string.Equals(projectileRunId, runId, StringComparison.Ordinal)) return;
         ClearProjectileCorrelations();
         projectileGenerationId = generationId;
         projectileRunId = runId;
         projectileMapId = mapId;
+    }
+
+    private void SynchronizeProjectileContextOncePerFrame()
+    {
+        var frame = Time.frameCount;
+        if (projectileContextFrame == frame) return;
+        projectileContextFrame = frame;
+        SynchronizeProjectileContext();
     }
 
     private bool MatchesCurrentContext(ProjectileSnapshot value) =>
@@ -524,6 +534,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         projectileOrder.Clear();
         equipmentAssociationResolver.Clear();
         CombatHarmonyBridge.ClearScopes();
+        projectileContextFrame = -1;
     }
 
     private void OnMeleeAttack()
@@ -676,6 +687,44 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     private void PublishCapabilities() =>
         capabilityHandler(CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
+
+    private void InspectNextPatchStamp(DateTime nowUtc)
+    {
+        if (!patchInspectionScheduler.TryTake(nowUtc, patchRegistrations.Length, out var registrationIndex))
+        {
+            return;
+        }
+
+        var registration = patchRegistrations[registrationIndex];
+        if (registration.Disabled) return;
+        var patcher = patcherLease.Value;
+        if (patcher == null)
+        {
+            DisableRegistration(registration, "The combat Harmony patcher is unavailable.");
+            return;
+        }
+
+        if (!patcher.IsPatchSetStampCurrent(registration.Stamp, out var detail))
+        {
+            DisableRegistration(registration, detail);
+        }
+    }
+
+    private void DisableRegistration(PatchRegistration registration, string detail)
+    {
+        if (registration.Disabled) return;
+        registration.Disabled = true;
+        hookSupport.Disable(registration.Hook);
+        metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
+        if (registration.Hook is CombatHook.ProjectileInit or CombatHook.ProjectileUpdate
+            or CombatHook.ProjectileRelease or CombatHook.EffectApplication)
+        {
+            ClearProjectileCorrelations();
+        }
+        PublishCapabilities();
+        diagnosticHandler(
+            $"Disabled only the combat capabilities dependent on {registration.Original.DeclaringType?.Name}.{registration.Original.Name} after patch-set drift: {detail}");
+    }
 
     private void DetachRuntimeHooks()
     {
@@ -838,6 +887,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         public CombatHook Hook { get; }
         public MethodInfo Original { get; }
         public HarmonyPatchExpectation[] Expected { get; }
+        public HarmonyPatchSetStamp? Stamp { get; set; }
         public bool Disabled { get; set; }
     }
 
