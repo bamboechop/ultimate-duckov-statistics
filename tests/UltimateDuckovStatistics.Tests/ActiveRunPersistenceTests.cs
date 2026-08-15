@@ -10,6 +10,7 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class ActiveRunPersistenceTests
 {
+    private static long economySequence;
     private static readonly DateTime TestTime = new(2026, 8, 10, 12, 0, 0, DateTimeKind.Utc);
 
     [Fact]
@@ -250,12 +251,22 @@ public sealed class ActiveRunPersistenceTests
         var first = EconomyFlow("economy:first", tracker, generation, CurrencyFlowDirection.Inflow, 11);
         Assert.True(repository.RecordDeferred(first));
         Assert.True(tracker.RecordCurrencyFlow(first));
+        Assert.False(repository.RecordDeferred(first));
+        Assert.False(tracker.RecordCurrencyFlow(first));
         repository.SaveSnapshot(repository.CapturePersistenceSnapshot());
+        var persistedProfile = new AtomicJsonStore<ProfileDocument>().Load(repository.CurrentProfilePath!).Value!;
+        Assert.Equal(first.ProducerActivationId, persistedProfile.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(first.ProducerSequence, persistedProfile.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
 
         var second = EconomyFlow("economy:second", tracker, generation, CurrencyFlowDirection.Outflow, 4);
         Assert.True(repository.RecordDeferred(second));
         Assert.True(tracker.RecordCurrencyFlow(second));
         repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(8), 8)!);
+        var persistedCheckpoint = new AtomicJsonStore<ActiveRunCheckpoint>().Load(ActiveRunPath(directory.Path)).Value!;
+        Assert.Equal(second.ProducerActivationId, persistedCheckpoint.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(second.ProducerSequence, persistedCheckpoint.Economy.ReplayCursor.ClosedThroughSequence);
+        Assert.False(repository.RecordDeferred(second));
+        Assert.False(tracker.RecordCurrencyFlow(second));
 
         var recovery = Repository(directory.Path);
         Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
@@ -273,6 +284,51 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(11, repeated.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(4, repeated.Current.Statistics.Economy.Currencies["Money"].Totals.GrossOutflow);
         repeated.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void LegacyIdentityEvidenceIsCompactedOnlyAfterItsCheckpointIsRecoveredAndDeleted()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        repository.EnableDeferredItemPersistence();
+        var generation = repository.CurrentGenerationId;
+        var profilePath = repository.CurrentProfilePath!;
+        repository.CloseClean();
+
+        var profileStore = new AtomicJsonStore<ProfileDocument>();
+        var legacyProfile = profileStore.Load(profilePath).Value!;
+        SetMoneyInflow(legacyProfile.Statistics.Economy, 5);
+        legacyProfile.Statistics.Economy.RecentEventIds.Add("legacy:persisted");
+        legacyProfile.Statistics.Economy.ReplayCursor = null;
+        legacyProfile.DeferredItemPersistence!.RunId = "run-checkpoint";
+        SetMoneyInflow(legacyProfile.DeferredItemPersistence.AppliedLifetimeEconomy, 5);
+        legacyProfile.DeferredItemPersistence.AppliedLifetimeEconomy.RecentEventIds.Add("legacy:persisted");
+        legacyProfile.DeferredItemPersistence.AppliedLifetimeEconomy.ReplayCursor = null;
+        profileStore.Save(profilePath, legacyProfile);
+
+        var checkpoint = Checkpoint(generation, 8);
+        SetMoneyInflow(checkpoint.Economy, 12);
+        checkpoint.Economy.RecentEventIds.AddRange(["legacy:persisted", "legacy:checkpoint-only"]);
+        checkpoint.Economy.ReplayCursor = null;
+        foreach (var segment in checkpoint.Segments)
+            segment.Economy.ReplayCursor = null;
+        var activeRunPath = ActiveRunPath(directory.Path);
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(activeRunPath, checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.Equal(12, recovery.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(12, Assert.Single(recovery.Current.Statistics.Runs).Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Empty(recovery.Current.Statistics.Economy.RecentEventIds);
+        Assert.Empty(recovery.Current.DeferredItemPersistence!.AppliedLifetimeEconomy.RecentEventIds);
+        Assert.False(File.Exists(activeRunPath));
+        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(activeRunPath)));
+        Assert.False(File.Exists(AtomicJsonPaths.GetTemporaryPath(activeRunPath)));
+        recovery.CloseClean();
     }
 
     [Fact]
@@ -299,7 +355,9 @@ public sealed class ActiveRunPersistenceTests
             Direction = CurrencyFlowDirection.Outflow,
             Amount = 1,
             Source = CurrencySourceCategory.UnknownAdjustment,
-            GameplayContext = GameplayContext.Base
+            GameplayContext = GameplayContext.Base,
+            ProducerActivationId = "test-active-run-persistence",
+            ProducerSequence = Interlocked.Increment(ref economySequence)
         }));
 
         Assert.Equal(1, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossOutflow);
@@ -318,7 +376,7 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
-    public void DeferredEconomyWatermarkDoesNotAdvanceAfterLifetimeDeduplicationSaturates()
+    public void DeferredEconomyWatermarkRemainsExactBeyondTheLegacyIdentityLimit()
     {
         using var directory = new TemporaryDirectory();
         var repository = Repository(directory.Path);
@@ -326,45 +384,30 @@ public sealed class ActiveRunPersistenceTests
         repository.EnableDeferredItemPersistence();
         var generation = repository.CurrentGenerationId;
         var tracker = ActiveTracker(generation);
-        for (var index = 0; index < EconomyStatisticsReducer.MaximumRecentEventIds - 1; index++)
+        CurrencyFlowRecorded? first = null;
+        CurrencyFlowRecorded? last = null;
+        for (var index = 0; index < 4096; index++)
         {
-            Assert.True(EconomyStatisticsReducer.Record(
-                repository.Current.Statistics.Economy,
+            last = EconomyFlow(
+                $"economy:deferred:{index}",
+                tracker,
                 generation,
-                new CurrencyFlowRecorded
-                {
-                    EventId = $"economy:prior:{index}",
-                    TimestampUtc = TestTime,
-                    SaveGenerationId = generation,
-                    MapId = "base",
-                    Currency = CurrencyKind.Money,
-                    Direction = CurrencyFlowDirection.Inflow,
-                    Amount = 1,
-                    Source = CurrencySourceCategory.UnknownAdjustment,
-                    GameplayContext = GameplayContext.Base
-                }));
+                CurrencyFlowDirection.Inflow,
+                1);
+            first ??= last;
+            Assert.True(repository.RecordDeferred(last));
         }
 
-        Assert.True(repository.RecordDeferred(EconomyFlow(
-            "economy:last-lifetime",
-            tracker,
-            generation,
-            CurrencyFlowDirection.Inflow,
-            1)));
-        Assert.False(repository.RecordDeferred(EconomyFlow(
-            "economy:after-saturation",
-            tracker,
-            generation,
-            CurrencyFlowDirection.Inflow,
-            1)));
-
-        Assert.True(repository.Current.Statistics.Economy.DeduplicationSaturated);
-        Assert.Equal(
-            EconomyStatisticsReducer.MaximumRecentEventIds,
-            repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.False(repository.RecordDeferred(first!));
+        Assert.Equal(4096, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Empty(repository.Current.Statistics.Economy.RecentEventIds);
+        Assert.False(repository.Current.Statistics.Economy.DeduplicationSaturated);
+        Assert.Equal(last!.ProducerActivationId, repository.Current.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(last.ProducerSequence, repository.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
         var watermark = repository.Current.DeferredItemPersistence!.AppliedLifetimeEconomy;
-        Assert.Equal("economy:last-lifetime", Assert.Single(watermark.RecentEventIds));
-        Assert.Equal(1, watermark.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(4096, watermark.Currencies["Money"].Totals.GrossInflow);
+        Assert.Empty(watermark.RecentEventIds);
+        Assert.Equal(last.ProducerSequence, watermark.ReplayCursor!.ClosedThroughSequence);
     }
 
     [Fact]
@@ -391,7 +434,9 @@ public sealed class ActiveRunPersistenceTests
                 Direction = CurrencyFlowDirection.Inflow,
                 Amount = long.MaxValue,
                 Source = CurrencySourceCategory.UnknownAdjustment,
-                GameplayContext = GameplayContext.Base
+                GameplayContext = GameplayContext.Base,
+                ProducerActivationId = "test-active-run-persistence",
+                ProducerSequence = Interlocked.Increment(ref economySequence)
             }));
 
         Assert.True(repository.RecordDeferred(EconomyFlow(
@@ -420,14 +465,14 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
-    public void RecoveryDoesNotMergeEconomyWithoutRetainableIdentityEvidence()
+    public void RecoveryMergesRunOnlyEconomyExactlyBeyondTheLegacyIdentityLimit()
     {
         using var directory = new TemporaryDirectory();
         var repository = Repository(directory.Path);
         repository.Open(Identity());
         repository.EnableDeferredItemPersistence();
         var generation = repository.CurrentGenerationId;
-        for (var index = 0; index < EconomyStatisticsReducer.MaximumRecentEventIds; index++)
+        for (var index = 0; index < 4096; index++)
         {
             Assert.True(EconomyStatisticsReducer.Record(
                 repository.Current.Statistics.Economy,
@@ -442,7 +487,9 @@ public sealed class ActiveRunPersistenceTests
                     Direction = CurrencyFlowDirection.Inflow,
                     Amount = 1,
                     Source = CurrencySourceCategory.UnknownAdjustment,
-                    GameplayContext = GameplayContext.Base
+                    GameplayContext = GameplayContext.Base,
+                    ProducerActivationId = "test-active-run-persistence",
+                    ProducerSequence = Interlocked.Increment(ref economySequence)
                 }));
         }
         repository.SaveSnapshot(repository.CapturePersistenceSnapshot());
@@ -459,17 +506,19 @@ public sealed class ActiveRunPersistenceTests
 
         var recovery = Repository(directory.Path);
         Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-        Assert.Equal(
-            EconomyStatisticsReducer.MaximumRecentEventIds,
-            recovery.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.DoesNotContain(
-            "economy:run-only",
-            recovery.Current.Statistics.Economy.RecentEventIds);
+        Assert.Equal(4103, recovery.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Empty(recovery.Current.Statistics.Economy.RecentEventIds);
         Assert.Equal(
             7,
             Assert.Single(recovery.Current.Statistics.Runs).Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.True(recovery.Current.Statistics.Economy.DeduplicationSaturated);
+        Assert.False(recovery.Current.Statistics.Economy.DeduplicationSaturated);
         recovery.CloseClean();
+
+        var repeated = Repository(directory.Path);
+        Assert.False(repeated.Open(Identity()).InterruptedRunRecovered);
+        Assert.Equal(4103, repeated.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Single(repeated.Current.Statistics.Runs);
+        repeated.CloseClean();
     }
 
     [Fact]
@@ -728,6 +777,35 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
+    public void ProfileNewerThanAStaleActiveCheckpointNeverReappliesLifetimeEconomy()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        repository.EnableDeferredItemPersistence();
+        var generation = repository.CurrentGenerationId;
+        var tracker = ActiveTracker(generation);
+        var checkpointed = EconomyFlow("economy:checkpointed", tracker, generation, CurrencyFlowDirection.Inflow, 5);
+        Assert.True(repository.RecordDeferred(checkpointed));
+        Assert.True(tracker.RecordCurrencyFlow(checkpointed));
+        repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(5), 5)!);
+
+        var profileOnly = EconomyFlow("economy:profile-newer", tracker, generation, CurrencyFlowDirection.Inflow, 7);
+        Assert.True(repository.RecordDeferred(profileOnly));
+        Assert.True(tracker.RecordCurrencyFlow(profileOnly));
+        repository.SaveSnapshot(repository.CapturePersistenceSnapshot());
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.Equal(12, recovery.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(5, Assert.Single(recovery.Current.Statistics.Runs).Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Null(recovery.Current.DeferredItemPersistence!.RunId);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
     public void CurrentSchemaMissingEconomyRootInPrimaryRecoversValidBackup()
     {
         using var directory = new TemporaryDirectory();
@@ -749,7 +827,9 @@ public sealed class ActiveRunPersistenceTests
                 Direction = CurrencyFlowDirection.Inflow,
                 Amount = 7,
                 Source = CurrencySourceCategory.UnknownAdjustment,
-                GameplayContext = GameplayContext.Raid
+                GameplayContext = GameplayContext.Raid,
+                ProducerActivationId = "test-active-run-persistence",
+                ProducerSequence = Interlocked.Increment(ref economySequence)
             });
         repository.SaveActiveRun(backup);
         repository.CloseClean();
@@ -763,6 +843,47 @@ public sealed class ActiveRunPersistenceTests
         var run = Assert.Single(recovery.Current.Statistics.Runs);
         Assert.Equal(5, run.ActiveDurationSeconds);
         Assert.Equal(7, run.Economy.Currencies["Money"].Totals.GrossInflow);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void ValidTemporaryCheckpointDefeatsMalformedReplayMetadataInPrimaryAndBackup()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        repository.CloseClean();
+        var path = ActiveRunPath(directory.Path);
+        var store = new AtomicJsonStore<ActiveRunCheckpoint>();
+        var malformedBackup = Checkpoint(generation, 5);
+        malformedBackup.Economy.ReplayCursor = new EconomyReplayCursor
+        {
+            ActivationId = "invalid:backup",
+            ClosedThroughSequence = 1
+        };
+        var malformedPrimary = Checkpoint(generation, 8);
+        malformedPrimary.Economy.ReplayCursor = new EconomyReplayCursor
+        {
+            ActivationId = "invalid-primary",
+            ClosedThroughSequence = -1
+        };
+        var validTemporary = Checkpoint(generation, 9);
+        SetMoneyInflow(validTemporary.Economy, 9);
+        store.Save(path, malformedBackup);
+        store.Save(path, malformedPrimary);
+        store.Save(AtomicJsonPaths.GetTemporaryPath(path), validTemporary);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(9, run.ActiveDurationSeconds);
+        Assert.Equal(9, run.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(path)));
+        Assert.False(File.Exists(AtomicJsonPaths.GetTemporaryPath(path)));
         recovery.CloseClean();
     }
 
@@ -1565,7 +1686,9 @@ public sealed class ActiveRunPersistenceTests
             Source = CurrencySourceCategory.UnknownAdjustment,
             GameplayContext = GameplayContext.Raid,
             IntegrityTags = IntegrityTags.Normal,
-            AdapterVersion = "test"
+            AdapterVersion = "test",
+            ProducerActivationId = "test-active-run-persistence",
+            ProducerSequence = Interlocked.Increment(ref economySequence)
         };
 
     private static EconomyMetricCapabilities SupportedEconomyCapabilities()
@@ -1837,6 +1960,23 @@ public sealed class ActiveRunPersistenceTests
             ContentSha256 = new string(slot == 1 ? hashCharacter : 'b', 64),
             SaveTimeBinary = TestTime.ToBinary()
         };
+
+    private static void SetMoneyInflow(EconomyStatisticsAggregate economy, long amount)
+    {
+        economy.Currencies[CurrencyKind.Money.ToString()] = new CurrencyEconomyAggregate
+        {
+            Currency = CurrencyKind.Money,
+            Totals = new CurrencyFlowTotals { GrossInflow = amount },
+            Sources = new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal)
+            {
+                [CurrencySourceCategory.UnknownAdjustment.ToString()] = new() { GrossInflow = amount }
+            },
+            Contexts = new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal)
+            {
+                [GameplayContext.Unknown.ToString()] = new() { GrossInflow = amount }
+            }
+        };
+    }
 
     private static string ActiveRunPath(string root) => Path.Combine(
         root,

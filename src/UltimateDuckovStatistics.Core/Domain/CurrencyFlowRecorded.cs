@@ -38,4 +38,6 @@ public sealed class CurrencyFlowRecorded
     [DataMember(Order = 18)] public string AdapterVersion { get; set; } = string.Empty;
     [DataMember(Order = 19, EmitDefaultValue = false)] public string? NativeTransactionId { get; set; }
     [DataMember(Order = 20)] public bool ProvenExternalRaidAcquisition { get; set; }
+    [DataMember(Order = 21)] public string ProducerActivationId { get; set; } = string.Empty;
+    [DataMember(Order = 22)] public long ProducerSequence { get; set; }
 }

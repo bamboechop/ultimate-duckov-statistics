@@ -318,7 +318,7 @@ public static class StatisticsExporter
     private static string CreateEconomyTotalsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,map_display_name,currency,gross_inflow,gross_outflow,net_flow,amount_capability,amount_capability_provenance,source_capability,source_capability_provenance,context_capability,context_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated,deduplication_saturated");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,map_display_name,currency,gross_inflow,gross_outflow,net_flow,amount_capability,amount_capability_provenance,source_capability,source_capability_provenance,context_capability,context_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated,legacy_identity_saturation_incomplete");
         foreach (var scope in EconomyScopes(document))
             foreach (var currency in Enum.GetValues(typeof(CurrencyKind)).Cast<CurrencyKind>())
             {
@@ -339,7 +339,7 @@ public static class StatisticsExporter
                     .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
                     .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
                     .Append(IsArithmeticSaturated(scope.Economy, currency) ? "true" : "false").Append(',')
-                    .Append(scope.Economy.DeduplicationSaturated ? "true" : "false").AppendLine();
+                    .Append(scope.Economy.LegacyIdentitySaturationIncomplete ? "true" : "false").AppendLine();
             }
         return builder.ToString();
     }
@@ -347,7 +347,7 @@ public static class StatisticsExporter
     private static string CreateEconomySourcesCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,source,gross_inflow,gross_outflow,net_flow,source_capability,source_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated,deduplication_saturated");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,source,gross_inflow,gross_outflow,net_flow,source_capability,source_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated,legacy_identity_saturation_incomplete");
         foreach (var scope in EconomyScopes(document))
             foreach (var currency in scope.Economy.Currencies.Values.OrderBy(value => value.Currency))
                 foreach (var row in currency.Sources.OrderBy(value => value.Key, StringComparer.Ordinal))
@@ -360,14 +360,14 @@ public static class StatisticsExporter
                         .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
                         .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
                         .Append(IsArithmeticSaturated(scope.Economy, currency.Currency) ? "true" : "false").Append(',')
-                        .Append(scope.Economy.DeduplicationSaturated ? "true" : "false").AppendLine();
+                        .Append(scope.Economy.LegacyIdentitySaturationIncomplete ? "true" : "false").AppendLine();
         return builder.ToString();
     }
 
     private static string CreateEconomyContextsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,gameplay_context,gross_inflow,gross_outflow,net_flow,context_capability,context_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated,deduplication_saturated");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,gameplay_context,gross_inflow,gross_outflow,net_flow,context_capability,context_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated,legacy_identity_saturation_incomplete");
         foreach (var scope in EconomyScopes(document))
             foreach (var currency in scope.Economy.Currencies.Values.OrderBy(value => value.Currency))
                 foreach (var row in currency.Contexts.OrderBy(value => value.Key, StringComparer.Ordinal))
@@ -380,14 +380,14 @@ public static class StatisticsExporter
                         .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
                         .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
                         .Append(IsArithmeticSaturated(scope.Economy, currency.Currency) ? "true" : "false").Append(',')
-                        .Append(scope.Economy.DeduplicationSaturated ? "true" : "false").AppendLine();
+                        .Append(scope.Economy.LegacyIdentitySaturationIncomplete ? "true" : "false").AppendLine();
         return builder.ToString();
     }
 
     private static string CreateCashRaidOutcomesCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,acquired,secured,lost,unresolved,acquisition_capability,acquisition_capability_provenance,terminal_capability,terminal_capability_provenance,terminal_ambiguous,terminal_recorded,historical_unavailable,repaired_invalid_state,cash_arithmetic_saturated,deduplication_saturated");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,acquired,secured,lost,unresolved,acquisition_capability,acquisition_capability_provenance,terminal_capability,terminal_capability_provenance,terminal_ambiguous,terminal_recorded,historical_unavailable,repaired_invalid_state,cash_arithmetic_saturated,legacy_identity_saturation_incomplete");
         foreach (var scope in EconomyScopes(document))
         {
             var value = scope.Economy.CashRaidOutcomes;
@@ -412,7 +412,7 @@ public static class StatisticsExporter
                 .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
                 .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
                 .Append(scope.Economy.CashArithmeticSaturated ? "true" : "false").Append(',')
-                .Append(scope.Economy.DeduplicationSaturated ? "true" : "false").AppendLine();
+                .Append(scope.Economy.LegacyIdentitySaturationIncomplete ? "true" : "false").AppendLine();
         }
         return builder.ToString();
     }

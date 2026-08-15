@@ -104,6 +104,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 },
                 message => Debug.Log($"{LogPrefix} {message}"));
             economyAdapter = newEconomyAdapter;
+            profileCoordinator.BeginEconomyActivation(newEconomyAdapter.ActivationId);
             newEconomyAdapter.Initialize();
             healingAttributionAdapter = new NativeHealingAttributionAdapter(
                 healing =>
@@ -207,6 +208,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 () => runLifecycleAdapter.OwnedValue?.CurrentMapId,
                 () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId);
             profileCoordinator.ProfileChanged += itemUseAdapter.ResetPending;
+            profileCoordinator.ProfileChanged += () =>
+                profileCoordinator.BeginEconomyActivation(newEconomyAdapter.ActivationId);
             profileCoordinator.ProfileChanged += newEconomyAdapter.ResetBaselines;
             itemUseAdapter.Subscribe();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);

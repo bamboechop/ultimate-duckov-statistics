@@ -10,6 +10,7 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class RouteLifecycleTests
 {
+    private static long economySequence;
     private static readonly DateTime Now = new(2026, 8, 13, 10, 0, 0, DateTimeKind.Utc);
     private static readonly string[] TwoMapIds = ["duckov:map:A", "duckov:map:B"];
     private static readonly string[] ThreeMapIds = ["duckov:map:A", "duckov:map:B", "duckov:map:C"];
@@ -603,29 +604,73 @@ public sealed class RouteLifecycleTests
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "Economy")]
-    public void RunIdentitySaturationDisablesAllSegmentsBeforeAnyIdentityCanBeEvicted()
+    public void RunSegmentAndStartingMapEconomyContinueAfterTheRouteAssociationBoundIsReached()
     {
         var tracker = Start("A");
-        for (var index = 0; index < EconomyStatisticsReducer.MaximumRecentEventIds - 1; index++)
+        for (var index = 0; index < 2500; index++)
             Assert.True(tracker.RecordCurrencyFlow(Currency(
                 $"economy-a:{index}", tracker, "A", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
         Transition(tracker, 2, 3, "B");
-        Assert.True(tracker.RecordCurrencyFlow(Currency(
-            "economy-b:last", tracker, "B", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
-        Assert.False(tracker.RecordCurrencyFlow(Currency(
-            "economy-b:rejected", tracker, "B", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
+        for (var index = 0; index < 2500; index++)
+            Assert.True(tracker.RecordCurrencyFlow(Currency(
+                $"economy-b:{index}", tracker, "B", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
         var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 5)).Completed!;
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
+        Assert.True(RunReducer.Apply(profile, run));
 
-        Assert.Equal(EconomyStatisticsReducer.MaximumRecentEventIds, run.Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.True(run.Economy.DeduplicationSaturated);
+        Assert.Equal(5000, run.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(AdapterCapabilityState.Supported, run.Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.Economy.Capabilities.RouteAttribution.State);
+        Assert.Empty(run.Economy.RecentEventIds);
+        Assert.False(run.Economy.DeduplicationSaturated);
         Assert.All(run.Segments, segment =>
         {
-            Assert.True(segment.Economy.DeduplicationSaturated);
-            Assert.Equal(AdapterCapabilityState.DisabledIncompatible, segment.Economy.Capabilities.MoneyAmountDirection.State);
+            Assert.Equal(2500, segment.Economy.Currencies["Money"].Totals.GrossInflow);
+            Assert.Equal(AdapterCapabilityState.Supported, segment.Economy.Capabilities.MoneyAmountDirection.State);
+            Assert.Empty(segment.Economy.RecentEventIds);
         });
-        Assert.Equal(EconomyStatisticsReducer.MaximumRecentEventIds - 1, run.Segments[0].Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Equal(1, run.Segments[1].Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.DoesNotContain(run.SegmentEventAssociations, value => value.EventId == "economy-b:rejected");
+        Assert.Equal(RouteStatisticsReducer.MaximumEventAssociationsPerRun, run.SegmentEventAssociations.Count);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(5000, profile.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(5000, profile.RunTotals.Maps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Empty(profile.RunTotals.RouteMaps);
+        Assert.Empty(profile.RunTotals.Economy.RecentEventIds);
+        Assert.Empty(profile.RunTotals.Maps["duckov:map:A"].Economy.RecentEventIds);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Economy")]
+    public void StartingAndRouteMapEconomyAggregatesContinueBeyondTheLegacyIdentityLimit()
+    {
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
+        for (var index = 0; index < 2500; index++)
+        {
+            var tracker = new RunLifecycleTracker(() => $"run-{index}");
+            tracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, index * 3, nativeRaidId: $"raid-{index}"));
+            tracker.Apply(Event(
+                RunLifecycleEventKind.ControlReady,
+                index * 3,
+                context: Context("A", $"raid-{index}")));
+            var flow = Currency(
+                $"route-map-economy:{index}",
+                tracker,
+                "A",
+                CurrencyKind.Money,
+                CurrencyFlowDirection.Inflow,
+                1);
+            flow.TimestampUtc = Now.AddSeconds(index * 3 + 0.5);
+            Assert.True(tracker.RecordCurrencyFlow(flow));
+            var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, index * 3 + 1)).Completed!;
+            Assert.True(RunReducer.Apply(profile, run));
+        }
+
+        Assert.Equal(2500, profile.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(2500, profile.RunTotals.Maps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(2500, profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.Empty(profile.RunTotals.RouteMaps["duckov:map:A"].Economy.RecentEventIds);
     }
 
     [Fact]
@@ -1116,7 +1161,9 @@ public sealed class RouteLifecycleTests
             Amount = amount,
             Source = acquisition ? CurrencySourceCategory.LootOrPickup : CurrencySourceCategory.UnknownAdjustment,
             ProvenExternalRaidAcquisition = acquisition,
-            AdapterVersion = "test"
+            AdapterVersion = "test",
+            ProducerActivationId = "test-route-lifecycle",
+            ProducerSequence = Interlocked.Increment(ref economySequence)
         };
 
     private static EconomyMetricCapabilities SupportedEconomyCapabilities()

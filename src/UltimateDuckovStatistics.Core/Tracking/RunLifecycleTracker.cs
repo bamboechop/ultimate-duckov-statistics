@@ -519,7 +519,6 @@ public sealed class RunLifecycleTracker
         if (active == null || value == null || value.GameplayContext != GameplayContext.Raid
             || !MatchesRunContext(value.SaveGenerationId, value.RunId))
             return false;
-        var deduplicationWasSaturated = active.Economy.DeduplicationSaturated;
         var changed = EconomyStatisticsReducer.Record(
             active.Economy,
             active.Context.SaveGenerationId,
@@ -554,11 +553,6 @@ public sealed class RunLifecycleTracker
             DisableEconomyRouteAttribution(
                 active,
                 "Ordered route segments were unavailable; overall economy remains available.");
-        }
-        if (!deduplicationWasSaturated && active.Economy.DeduplicationSaturated)
-        {
-            foreach (var segment in active.Segments)
-                EconomyStatisticsReducer.ApplyDeduplicationSaturation(segment.Economy);
         }
         if (changed)
         {

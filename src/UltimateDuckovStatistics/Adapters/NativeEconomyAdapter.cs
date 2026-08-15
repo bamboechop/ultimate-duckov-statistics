@@ -73,6 +73,8 @@ internal sealed class NativeEconomyAdapter : IDisposable
     public EconomyMetricCapabilities MetricCapabilities { get; private set; } =
         EconomyNativeContractPolicy.Unavailable("Economy adapter has not been initialized.");
 
+    internal string ActivationId => activationId;
+
     public void Initialize()
     {
         if (subscribed) { diagnostic("Duplicate economy adapter setup ignored."); return; }
@@ -116,7 +118,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         {
             var ready = pendingMoney.ToArray();
             pendingMoney.Clear();
-            foreach (var flow in ready) Publish(flow.ToEvent(CreateEventId("money")));
+            foreach (var flow in ready) Publish(CreateMoneyEvent(flow, "money"));
         }
     }
 
@@ -242,7 +244,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
                 $"The defensive {MaximumPendingMoneyFlows}-flow semantic correlation bound was reached; exact Money amount/direction remains available but source-specific attribution is disabled.");
             var oldest = pendingMoney[0];
             pendingMoney.RemoveAt(0);
-            Publish(oldest.ToEvent(CreateEventId("money-bounded")));
+            Publish(CreateMoneyEvent(oldest, "money-bounded"));
         }
         pendingMoney.Add(new PendingMoneyFlow(amount, direction, context));
     }
@@ -366,9 +368,10 @@ internal sealed class NativeEconomyAdapter : IDisposable
 
     private void PublishCash(long amount, CurrencyFlowDirection direction, CurrencySourceCategory source, GameplayContext context, bool acquisition, string? sourceId, ObservationContext observationContext)
     {
+        var identity = CreateEventIdentity("cash");
         Publish(new CurrencyFlowRecorded
         {
-            EventId = CreateEventId("cash"),
+            EventId = identity.EventId,
             TimestampUtc = observationContext.TimestampUtc,
             SaveGenerationId = observationContext.GenerationId,
             RunId = observationContext.RunId,
@@ -384,7 +387,9 @@ internal sealed class NativeEconomyAdapter : IDisposable
             GameVersion = Application.version ?? string.Empty,
             GameBuild = SupportedGameBuild,
             AdapterVersion = AdapterVersion,
-            ProvenExternalRaidAcquisition = acquisition
+            ProvenExternalRaidAcquisition = acquisition,
+            ProducerActivationId = activationId,
+            ProducerSequence = identity.Sequence
         });
     }
 
@@ -486,7 +491,19 @@ internal sealed class NativeEconomyAdapter : IDisposable
         if (!cashDirty) cashObservationContext = CaptureContext();
         cashDirty = true;
     }
-    private string CreateEventId(string kind) => $"economy:{activationId}:{kind}:{++eventSequence}";
+    private CurrencyFlowRecorded CreateMoneyEvent(PendingMoneyFlow flow, string kind)
+    {
+        var identity = CreateEventIdentity(kind);
+        return flow.ToEvent(identity.EventId, activationId, identity.Sequence);
+    }
+
+    private (string EventId, long Sequence) CreateEventIdentity(string kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind) || kind.Contains(':'))
+            throw new ArgumentException("An economy event kind must be non-empty and contain no separator.", nameof(kind));
+        eventSequence = checked(eventSequence + 1);
+        return ($"economy:{activationId}:{kind}:{eventSequence}", eventSequence);
+    }
 
     private static EconomyMetricCapabilities CreateSupportedCapabilities()
     {
@@ -514,7 +531,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         MetricCapabilities.MoneySourceAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.MoneyContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         PublishCapabilities(); diagnostic(reason);
-        foreach (var flow in accepted) Publish(flow.ToEvent(CreateEventId("money-before-disable")));
+        foreach (var flow in accepted) Publish(CreateMoneyEvent(flow, "money-before-disable"));
     }
     private void DisableMoneySemanticCorrelation(string reason)
     {
@@ -576,7 +593,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         public string? NativeSourceId { get; set; }
         public string? SourceDisplayName { get; set; }
         private ObservationContext Observation { get; }
-        public CurrencyFlowRecorded ToEvent(string id) => new()
+        public CurrencyFlowRecorded ToEvent(string id, string producerActivationId, long producerSequence) => new()
         {
             EventId = id,
             TimestampUtc = Observation.TimestampUtc,
@@ -594,7 +611,9 @@ internal sealed class NativeEconomyAdapter : IDisposable
             IntegrityTags = Observation.IntegrityTags,
             GameVersion = Application.version ?? string.Empty,
             GameBuild = SupportedGameBuild,
-            AdapterVersion = AdapterVersion
+            AdapterVersion = AdapterVersion,
+            ProducerActivationId = producerActivationId,
+            ProducerSequence = producerSequence
         };
     }
 

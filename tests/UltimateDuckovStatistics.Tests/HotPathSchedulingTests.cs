@@ -1,4 +1,7 @@
 using UltimateDuckovStatistics.Adapters;
+using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Statistics;
 
 namespace UltimateDuckovStatistics.Tests;
 
@@ -282,5 +285,63 @@ public sealed class HotPathSchedulingTests
         Assert.Equal(2, captures);
         Assert.Equal(["snapshot-2"], written);
         Assert.False(writer.IsDirty);
+    }
+
+    [Fact]
+    [Trait("Category", "Performance")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void EconomyProfileSnapshotFailureRetriesWithTheExactBoundedReplayCursor()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "profile.json");
+        var aggregate = new EconomyStatisticsAggregate();
+        Assert.True(EconomyStatisticsReducer.Record(aggregate, "generation", new CurrencyFlowRecorded
+        {
+            EventId = "economy:retry-activation:1",
+            TimestampUtc = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc),
+            SaveGenerationId = "generation",
+            MapId = MapIdentity.UnknownId,
+            Currency = CurrencyKind.Money,
+            Direction = CurrencyFlowDirection.Inflow,
+            Amount = 17,
+            Source = CurrencySourceCategory.UnknownAdjustment,
+            GameplayContext = GameplayContext.Base,
+            ProducerActivationId = "retry-activation",
+            ProducerSequence = 1
+        }));
+        var attempts = 0;
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var writer = new DeferredSnapshotWriter<ProfileDocument>(
+            () => new ProfileDocument
+            {
+                GenerationId = "generation",
+                Slot = 1,
+                CreatedUtc = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc),
+                UpdatedUtc = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc),
+                Identity = new SaveIdentitySnapshot { Slot = 1 },
+                Statistics = new ProfileStatistics
+                {
+                    SaveGenerationId = "generation",
+                    CreatedUtc = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc),
+                    UpdatedUtc = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc),
+                    Economy = EconomyStatisticsReducer.Clone(aggregate)
+                }
+            },
+            snapshot =>
+            {
+                attempts++;
+                if (attempts == 1) throw new IOException("injected profile failure");
+                store.Save(path, snapshot);
+            });
+
+        writer.MarkDirty();
+        Assert.Equal(DeferredWriteState.Succeeded, writer.Flush().State);
+        Assert.Equal(2, attempts);
+        var persisted = store.Load(path).Value!.Statistics.Economy;
+        Assert.Equal(17, persisted.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal("retry-activation", persisted.ReplayCursor!.ActivationId);
+        Assert.Equal(1, persisted.ReplayCursor.ClosedThroughSequence);
+        Assert.Empty(persisted.RecentEventIds);
     }
 }

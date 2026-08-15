@@ -304,6 +304,7 @@ public sealed class PersistenceTests
     [InlineData("negative-counter")]
     [InlineData("overlapping-raid-outcomes")]
     [InlineData("duplicate-deduplication-identity")]
+    [InlineData("malformed-replay-cursor")]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
     public void CurrentSchemaUnsafeEconomyStateLosesToIntactBackupBeforeNormalization(string corruption)
@@ -330,10 +331,18 @@ public sealed class PersistenceTests
                 Lost = 4
             };
         }
-        else
+        else if (corruption == "duplicate-deduplication-identity")
         {
             invalidPrimary.Statistics.Economy.RecentEventIds.Add("duplicate");
             invalidPrimary.Statistics.Economy.RecentEventIds.Add("duplicate");
+        }
+        else
+        {
+            invalidPrimary.Statistics.Economy.ReplayCursor = new EconomyReplayCursor
+            {
+                ActivationId = "malformed:activation",
+                ClosedThroughSequence = -1
+            };
         }
         store.Save(path, backup);
         store.Save(path, invalidPrimary);
@@ -347,6 +356,176 @@ public sealed class PersistenceTests
         Assert.Equal(7, repository.Current.Revision);
         Assert.Equal(0, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
         repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void ValidTemporaryProfileDefeatsMalformedReplayMetadataInPrimaryAndBackup()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var malformedBackup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        malformedBackup.Statistics.Economy.ReplayCursor = new EconomyReplayCursor
+        {
+            ActivationId = "invalid:backup",
+            ClosedThroughSequence = 1
+        };
+        var malformedPrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        malformedPrimary.Statistics.Economy.ReplayCursor = new EconomyReplayCursor
+        {
+            ActivationId = "invalid-primary",
+            ClosedThroughSequence = -1
+        };
+        var validTemporary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 9);
+        SetMoneyInflow(validTemporary.Statistics.Economy, 9);
+        store.Save(path, malformedBackup);
+        store.Save(path, malformedPrimary);
+        store.Save(AtomicJsonPaths.GetTemporaryPath(path), validTemporary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Equal(2, result.LoadFailures.Count(failure =>
+            failure.Contains("invalid economy state", StringComparison.Ordinal)));
+        Assert.Equal(9, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(9, repository.Current.Revision);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void UnsaturatedSchemaNineCandidateCompactsLegacyIdentitiesWithoutChangingTotals()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var candidate = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        SetMoneyInflow(candidate.Statistics.Economy, 3);
+        candidate.Statistics.Economy.RecentEventIds.AddRange(["legacy:1", "legacy:2", "legacy:3"]);
+        candidate.Statistics.Economy.ReplayCursor = null;
+        new AtomicJsonStore<ProfileDocument>().Save(path, candidate);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        var economy = repository.Current.Statistics.Economy;
+        Assert.Equal(3, economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Empty(economy.RecentEventIds);
+        Assert.False(economy.DeduplicationSaturated);
+        Assert.False(economy.LegacyIdentitySaturationIncomplete);
+        Assert.NotNull(economy.ReplayCursor);
+        Assert.Equal(string.Empty, economy.ReplayCursor!.ActivationId);
+        Assert.False(ProfileMigrator.CompactEconomyReplayEvidenceAfterRecovery(repository.Current));
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void SaturatedSchemaNineCandidatePreservesExactTotalsAndResumesUnderANewActivation()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var candidate = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        SetMoneyInflow(candidate.Statistics.Economy, 2048);
+        candidate.Statistics.Economy.RecentEventIds.AddRange(
+            Enumerable.Range(1, 2048).Select(value => $"legacy:{value}"));
+        candidate.Statistics.Economy.DeduplicationSaturated = true;
+        candidate.Statistics.Economy.ReplayCursor = null;
+        new AtomicJsonStore<ProfileDocument>().Save(path, candidate);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        var economy = repository.Current.Statistics.Economy;
+        Assert.Equal(2048, economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Empty(economy.RecentEventIds);
+        Assert.False(economy.DeduplicationSaturated);
+        Assert.True(economy.LegacyIdentitySaturationIncomplete);
+
+        repository.BeginEconomyActivation("corrected-activation");
+        Assert.True(repository.Record(new CurrencyFlowRecorded
+        {
+            EventId = "corrected:1",
+            TimestampUtc = TestTime,
+            SaveGenerationId = repository.CurrentGenerationId,
+            MapId = MapIdentity.UnknownId,
+            Currency = CurrencyKind.Money,
+            Direction = CurrencyFlowDirection.Inflow,
+            Amount = 1,
+            Source = CurrencySourceCategory.UnknownAdjustment,
+            GameplayContext = GameplayContext.Base,
+            ProducerActivationId = "corrected-activation",
+            ProducerSequence = 1
+        }));
+        Assert.Equal(2049, economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.True(economy.LegacyIdentitySaturationIncomplete);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void ProcessRestartUsesANewActivationWithoutReopeningThePriorReplayWindow()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var first = CreateRepository(temporaryDirectory.Path, "session-first");
+        first.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        var generation = first.CurrentGenerationId;
+        Assert.True(first.BeginEconomyActivation("activation-a"));
+        var firstFlow = EconomyFlow(generation, "activation-a", 1, CurrencyKind.Money);
+        Assert.True(first.Record(firstFlow));
+        Assert.False(first.Record(firstFlow));
+        first.CloseClean();
+
+        var second = CreateRepository(temporaryDirectory.Path, "session-second");
+        second.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        Assert.True(second.BeginEconomyActivation("activation-b"));
+        var secondFlow = EconomyFlow(generation, "activation-b", 1, CurrencyKind.Money);
+        Assert.True(second.Record(secondFlow));
+        Assert.False(second.Record(firstFlow));
+        Assert.False(second.Record(secondFlow));
+        Assert.Equal(2, second.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal("activation-b", second.Current.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(1, second.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+        second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void SaveSlotRotationKeepsEachGenerationsReplayCursorAndTotalsIndependent()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var ids = new Queue<string>(["generation-slot-1", "session-slot-1", "generation-slot-2", "session-slot-2", "session-slot-1-reopen"]);
+        var repository = CreateRepository(temporaryDirectory.Path, ids);
+        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        Assert.True(repository.BeginEconomyActivation("activation-slot-1"));
+        Assert.True(repository.Record(EconomyFlow(
+            repository.CurrentGenerationId,
+            "activation-slot-1",
+            1,
+            CurrencyKind.Money)));
+
+        repository.Rotate(CreateIdentity(slot: 2, creationTicks: 200), "DuckovNewGame");
+        Assert.True(repository.BeginEconomyActivation("activation-slot-2"));
+        Assert.True(repository.Record(EconomyFlow(
+            repository.CurrentGenerationId,
+            "activation-slot-2",
+            1,
+            CurrencyKind.Cash)));
+        Assert.False(repository.Current.Statistics.Economy.Currencies.ContainsKey("Money"));
+        Assert.Equal(1, repository.Current.Statistics.Economy.Currencies["Cash"].Totals.GrossInflow);
+        repository.CloseClean();
+
+        var reopened = CreateRepository(temporaryDirectory.Path, ids);
+        reopened.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        Assert.Equal(1, reopened.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.False(reopened.Current.Statistics.Economy.Currencies.ContainsKey("Cash"));
+        Assert.Equal("activation-slot-1", reopened.Current.Statistics.Economy.ReplayCursor!.ActivationId);
+        reopened.CloseClean();
     }
 
     [Fact]
@@ -1730,6 +1909,39 @@ public sealed class PersistenceTests
         });
         return document;
     }
+
+    private static void SetMoneyInflow(EconomyStatisticsAggregate economy, long amount)
+    {
+        var money = economy.Currencies[CurrencyKind.Money.ToString()];
+        money.Totals.GrossInflow = amount;
+        money.Sources[CurrencySourceCategory.UnknownAdjustment.ToString()] = new CurrencyFlowTotals
+        {
+            GrossInflow = amount
+        };
+        money.Contexts[GameplayContext.Unknown.ToString()] = new CurrencyFlowTotals
+        {
+            GrossInflow = amount
+        };
+    }
+
+    private static CurrencyFlowRecorded EconomyFlow(
+        string generation,
+        string activation,
+        long sequence,
+        CurrencyKind currency) => new()
+        {
+            EventId = $"economy:{activation}:{sequence}",
+            TimestampUtc = TestTime,
+            SaveGenerationId = generation,
+            MapId = MapIdentity.UnknownId,
+            Currency = currency,
+            Direction = CurrencyFlowDirection.Inflow,
+            Amount = 1,
+            Source = CurrencySourceCategory.UnknownAdjustment,
+            GameplayContext = GameplayContext.Base,
+            ProducerActivationId = activation,
+            ProducerSequence = sequence
+        };
 
     private static void RemoveRequiredRoot(ProfileDocument document, string root)
     {

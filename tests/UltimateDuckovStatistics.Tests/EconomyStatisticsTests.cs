@@ -1,5 +1,6 @@
 using UltimateDuckovStatistics.Core;
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.UI;
 
@@ -7,6 +8,7 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class EconomyStatisticsTests
 {
+    private static long economySequence;
     [Fact]
     public void MoneyAndCashRemainSeparateAndNetDerivesFromGrossFlows()
     {
@@ -57,6 +59,8 @@ public sealed class EconomyStatisticsTests
         invalidAcquisition.RunId = "run";
         invalidAcquisition.ProvenExternalRaidAcquisition = true;
         Assert.Throws<ArgumentException>(() => EconomyStatisticsReducer.Record(aggregate, "generation", invalidAcquisition));
+        Assert.Empty(aggregate.Currencies);
+        Assert.Equal(string.Empty, aggregate.ReplayCursor!.ActivationId);
 
         var raidWithoutRun = Flow("raid-without-run", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1, context: GameplayContext.Raid);
         Assert.Throws<ArgumentException>(() => EconomyStatisticsReducer.Record(aggregate, "generation", raidWithoutRun));
@@ -84,6 +88,30 @@ public sealed class EconomyStatisticsTests
         Assert.Equal(AdapterCapabilityState.Supported, aggregate.Capabilities.CashAmountDirection.State);
         Assert.True(EconomyStatisticsReducer.Record(aggregate, "generation", Flow("cash", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 1)));
         Assert.False(EconomyStatisticsReducer.NormalizePersisted(aggregate));
+        EconomyStatisticsReducer.Validate(aggregate);
+    }
+
+    [Fact]
+    public void CashArithmeticOverflowDisablesOnlyCashWithoutStoppingMoney()
+    {
+        var aggregate = Supported();
+        Assert.True(EconomyStatisticsReducer.Record(
+            aggregate,
+            "generation",
+            Flow("cash-max", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, long.MaxValue)));
+        Assert.False(EconomyStatisticsReducer.Record(
+            aggregate,
+            "generation",
+            Flow("cash-overflow", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 1)));
+        Assert.Equal(long.MaxValue, aggregate.Currencies["Cash"].Totals.GrossInflow);
+        Assert.True(aggregate.CashArithmeticSaturated);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.CashAmountDirection.State);
+        Assert.Equal(AdapterCapabilityState.Supported, aggregate.Capabilities.MoneyAmountDirection.State);
+        Assert.True(EconomyStatisticsReducer.Record(
+            aggregate,
+            "generation",
+            Flow("money-after-cash-overflow", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 3)));
+        Assert.Equal(3, aggregate.Currencies["Money"].Totals.GrossInflow);
         EconomyStatisticsReducer.Validate(aggregate);
     }
 
@@ -236,8 +264,8 @@ public sealed class EconomyStatisticsTests
         Assert.True(EconomyStatisticsReducer.TrySubtract(checkpoint, watermark, out var difference));
         Assert.Equal(0, difference.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(2, difference.Currencies["Money"].Totals.GrossOutflow);
-        Assert.Single(difference.RecentEventIds);
-        Assert.Equal("pending", difference.RecentEventIds[0]);
+        Assert.Empty(difference.RecentEventIds);
+        Assert.True(string.IsNullOrEmpty(difference.ReplayCursor!.ActivationId));
     }
 
     [Fact]
@@ -363,28 +391,23 @@ public sealed class EconomyStatisticsTests
     }
 
     [Fact]
-    public void RecentTransactionEvidenceSaturatesBeforeEvictionCouldPermitDoubleCounting()
+    public void ReplayWatermarkContinuesExactlyBeyondTheLegacyIdentityLimit()
     {
         var aggregate = Supported();
-        for (var index = 0; index < EconomyStatisticsReducer.MaximumRecentEventIds; index++)
-            Assert.True(EconomyStatisticsReducer.Record(
-                aggregate,
-                "generation",
-                Flow($"bounded:{index}", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
+        CurrencyFlowRecorded? first = null;
+        for (var index = 0; index < 4096; index++)
+        {
+            var flow = Flow($"beyond-legacy:{index}", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1);
+            first ??= flow;
+            Assert.True(EconomyStatisticsReducer.Record(aggregate, "generation", flow));
+        }
 
-        Assert.Equal(EconomyStatisticsReducer.MaximumRecentEventIds, aggregate.RecentEventIds.Count);
-        Assert.Contains("bounded:0", aggregate.RecentEventIds);
-        Assert.True(aggregate.DeduplicationSaturated);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.MoneyAmountDirection.State);
-        Assert.False(EconomyStatisticsReducer.Record(
-            aggregate,
-            "generation",
-            Flow("bounded:overflow", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
-        Assert.False(EconomyStatisticsReducer.Record(
-            aggregate,
-            "generation",
-            Flow("bounded:0", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
-        Assert.Equal(EconomyStatisticsReducer.MaximumRecentEventIds, aggregate.Currencies["Money"].Totals.GrossInflow);
+        Assert.Empty(aggregate.RecentEventIds);
+        Assert.False(aggregate.DeduplicationSaturated);
+        Assert.Equal(AdapterCapabilityState.Supported, aggregate.Capabilities.MoneyAmountDirection.State);
+        Assert.Equal(4096, aggregate.Currencies["Money"].Totals.GrossInflow);
+        Assert.False(EconomyStatisticsReducer.Record(aggregate, "generation", first!));
+        Assert.Equal(4096, aggregate.Currencies["Money"].Totals.GrossInflow);
 
         var later = Supported();
         Assert.True(EconomyStatisticsReducer.Record(
@@ -392,14 +415,113 @@ public sealed class EconomyStatisticsTests
             "generation",
             Flow("later-cash", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 3)));
         EconomyStatisticsReducer.Merge(aggregate, later);
-        Assert.False(aggregate.Currencies.ContainsKey("Cash"));
+        Assert.Equal(3, aggregate.Currencies["Cash"].Totals.GrossInflow);
 
         later.CashRaidOutcomes.Acquired = 3;
         later.CashRaidOutcomes.Unresolved = 3;
         later.CashTerminalDispositionRecorded = true;
         EconomyStatisticsReducer.MergeTerminalOutcomes(aggregate, later);
-        Assert.Equal(0, aggregate.CashRaidOutcomes.Unresolved);
-        Assert.True(aggregate.CashTerminalDispositionAmbiguous);
+        Assert.Equal(3, aggregate.CashRaidOutcomes.Unresolved);
+    }
+
+    [Fact]
+    public void CashReplayWatermarkContinuesExactlyBeyondTheLegacyIdentityLimit()
+    {
+        var aggregate = Supported();
+        for (var index = 0; index < 4096; index++)
+        {
+            Assert.True(EconomyStatisticsReducer.Record(
+                aggregate,
+                "generation",
+                Flow($"cash-beyond-legacy:{index}", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 1)));
+        }
+
+        Assert.Equal(4096, aggregate.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Equal(AdapterCapabilityState.Supported, aggregate.Capabilities.CashAmountDirection.State);
+        Assert.Empty(aggregate.RecentEventIds);
+        Assert.False(aggregate.DeduplicationSaturated);
+        EconomyStatisticsReducer.Validate(aggregate);
+    }
+
+    [Fact]
+    [Trait("Category", "Performance")]
+    public void OneHundredThousandLifetimeEventsKeepConstantReplayMetadata()
+    {
+        var aggregate = Supported();
+        for (var index = 0; index < 100_000; index++)
+        {
+            var currency = index % 2 == 0 ? CurrencyKind.Money : CurrencyKind.Cash;
+            Assert.True(EconomyStatisticsReducer.Record(
+                aggregate,
+                "generation",
+                Flow($"stress:{index}", currency, CurrencyFlowDirection.Inflow, 1)));
+        }
+
+        Assert.Equal(50_000, aggregate.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(50_000, aggregate.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Empty(aggregate.RecentEventIds);
+        Assert.False(aggregate.DeduplicationSaturated);
+        Assert.False(string.IsNullOrWhiteSpace(aggregate.ReplayCursor!.ActivationId));
+        Assert.True(aggregate.ReplayCursor.ClosedThroughSequence > 100_000);
+        EconomyStatisticsReducer.Validate(aggregate);
+    }
+
+    [Fact]
+    [Trait("Category", "Performance")]
+    [Trait("Category", "Persistence")]
+    public void SerializedProfileSizeDoesNotGrowWithHistoricalEconomyIdentities()
+    {
+        using var directory = new TemporaryDirectory();
+        var aggregate = Supported();
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var tenThousandPath = Path.Combine(directory.Path, "economy-10000.json");
+        var hundredThousandPath = Path.Combine(directory.Path, "economy-100000.json");
+
+        for (var sequence = 1; sequence <= 100_000; sequence++)
+        {
+            var flow = Flow(
+                $"stress-size:{sequence}",
+                sequence % 2 == 0 ? CurrencyKind.Money : CurrencyKind.Cash,
+                CurrencyFlowDirection.Inflow,
+                1);
+            flow.ProducerActivationId = "stress-size-activation";
+            flow.ProducerSequence = sequence;
+            Assert.True(EconomyStatisticsReducer.Record(aggregate, "generation", flow));
+            if (sequence == 10_000)
+                store.Save(tenThousandPath, ProfileWithEconomy(EconomyStatisticsReducer.Clone(aggregate)));
+        }
+        store.Save(hundredThousandPath, ProfileWithEconomy(aggregate));
+
+        var smaller = new FileInfo(tenThousandPath).Length;
+        var larger = new FileInfo(hundredThousandPath).Length;
+        Assert.InRange(larger - smaller, 0, 128);
+        var persisted = File.ReadAllText(hundredThousandPath);
+        Assert.DoesNotContain("stress-size:100000", persisted, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecentEventIds\":[\"", persisted, StringComparison.Ordinal);
+        Assert.Contains("stress-size-activation", persisted, StringComparison.Ordinal);
+        Assert.Equal(50_000, aggregate.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(50_000, aggregate.Currencies["Cash"].Totals.GrossInflow);
+    }
+
+    [Fact]
+    public void SequenceGapsCloseEarlierDeliveryAndRejectAStaleOutOfOrderInput()
+    {
+        var aggregate = Supported();
+        var ten = Flow("gap:10", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1);
+        ten.ProducerActivationId = "gap-activation";
+        ten.ProducerSequence = 10;
+        var twelve = Flow("gap:12", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1);
+        twelve.ProducerActivationId = "gap-activation";
+        twelve.ProducerSequence = 12;
+        var staleEleven = Flow("gap:11", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1);
+        staleEleven.ProducerActivationId = "gap-activation";
+        staleEleven.ProducerSequence = 11;
+
+        Assert.True(EconomyStatisticsReducer.Record(aggregate, "generation", ten));
+        Assert.True(EconomyStatisticsReducer.Record(aggregate, "generation", twelve));
+        Assert.False(EconomyStatisticsReducer.Record(aggregate, "generation", staleEleven));
+        Assert.Equal(2, aggregate.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(12, aggregate.ReplayCursor!.ClosedThroughSequence);
     }
 
     [Fact]
@@ -447,6 +569,22 @@ public sealed class EconomyStatisticsTests
         };
     }
 
+    private static ProfileDocument ProfileWithEconomy(EconomyStatisticsAggregate economy) => new()
+    {
+        GenerationId = "generation",
+        Slot = 1,
+        CreatedUtc = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc),
+        UpdatedUtc = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc),
+        Identity = new SaveIdentitySnapshot { Slot = 1 },
+        Statistics = new ProfileStatistics
+        {
+            SaveGenerationId = "generation",
+            CreatedUtc = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc),
+            UpdatedUtc = new DateTime(2026, 8, 15, 12, 0, 0, DateTimeKind.Utc),
+            Economy = economy
+        }
+    };
+
     private static CurrencyFlowRecorded Flow(
         string id,
         CurrencyKind currency,
@@ -465,6 +603,8 @@ public sealed class EconomyStatisticsTests
             Source = source,
             GameplayContext = context,
             IntegrityTags = IntegrityTags.Normal,
-            AdapterVersion = "test"
+            AdapterVersion = "test",
+            ProducerActivationId = "test-economy-statistics",
+            ProducerSequence = Interlocked.Increment(ref economySequence)
         };
 }

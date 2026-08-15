@@ -508,6 +508,8 @@ public sealed class NativeEconomyAdapterTests : IDisposable
         Assert.Equal(1_000, published.Count);
         Assert.All(published, flow => Assert.Equal(1, flow.Amount));
         Assert.Equal(1_000, published.Select(flow => flow.EventId).Distinct(StringComparer.Ordinal).Count());
+        Assert.All(published, flow => Assert.Equal(adapter.ActivationId, flow.ProducerActivationId));
+        Assert.Equal(Enumerable.Range(1, 1_000).Select(value => (long)value), published.Select(flow => flow.ProducerSequence));
         Assert.Equal(2, ItemUtilities.ScanCount);
         Assert.Equal(AdapterCapabilityState.Supported, adapter.MetricCapabilities.MoneyAmountDirection.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.MetricCapabilities.MoneySourceAttribution.State);

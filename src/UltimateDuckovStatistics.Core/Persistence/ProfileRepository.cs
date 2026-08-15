@@ -166,6 +166,12 @@ public sealed class ProfileRepository
         ApplyConfiguredCapabilities();
         result.InterruptedRunRecovered |= RecoverInterruptedRun();
         result.InterruptedSessionRecovered |= RecoverInterruptedSession();
+        if (ProfileMigrator.CompactEconomyReplayEvidenceAfterRecovery(Current))
+        {
+            Current.Revision++;
+            Current.UpdatedUtc = EnsureUtc(utcNow());
+            SaveCurrent();
+        }
         if (deferredItemPersistenceEnabled)
         {
             EnsureDeferredItemPersistenceEnabled();
@@ -197,6 +203,16 @@ public sealed class ProfileRepository
     public bool Record(CurrencyFlowRecorded flow) => Record(flow, persistImmediately: true);
 
     public bool RecordDeferred(CurrencyFlowRecorded flow) => Record(flow, persistImmediately: false);
+
+    public bool BeginEconomyActivation(string activationId)
+    {
+        var profile = Current;
+        if (!EconomyStatisticsReducer.BeginReplayActivation(profile.Statistics.Economy, activationId))
+            return false;
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        return true;
+    }
 
     public bool CanDeferItemPersistence(string? runId)
     {
@@ -418,6 +434,7 @@ public sealed class ProfileRepository
             HistoricalUnavailable = true,
             Capabilities = HistoricalEconomyCapabilities("Historical active-run checkpoint predates M9; economy was not recorded.")
         };
+        EconomyStatisticsReducer.ValidateRecoveryCandidate(checkpoint.Economy);
         EconomyStatisticsReducer.NormalizePersisted(checkpoint.Economy);
         EconomyStatisticsReducer.Validate(checkpoint.Economy);
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
@@ -823,6 +840,14 @@ public sealed class ProfileRepository
             HistoricalUnavailable = true,
             Capabilities = HistoricalEconomyCapabilities("Historical active-run checkpoint predates M9; economy was not recorded.")
         };
+        try
+        {
+            EconomyStatisticsReducer.ValidateRecoveryCandidate(checkpoint.Economy);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Active-run checkpoint contains invalid economy state: {exception.Message}";
+        }
         EconomyStatisticsReducer.NormalizePersisted(checkpoint.Economy);
 
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
@@ -1242,15 +1267,6 @@ public sealed class ProfileRepository
         }
         if (EconomyStatisticsReducer.IsEmpty(difference)) return false;
         var lifetime = Current.Statistics.Economy;
-        var additionalIdentities = difference.RecentEventIds.Count(id =>
-            !lifetime.RecentEventIds.Contains(id, StringComparer.Ordinal));
-        if (lifetime.DeduplicationSaturated
-            || additionalIdentities > EconomyStatisticsReducer.MaximumRecentEventIds - lifetime.RecentEventIds.Count)
-        {
-            EconomyStatisticsReducer.ApplyDeduplicationSaturation(lifetime);
-            diagnostic($"Deferred lifetime economy recovery for run {checkpoint.RunId} exceeded the bounded identity evidence; lifetime totals were left unchanged and further capture was disabled.");
-            return false;
-        }
         var skippedCurrencies = new List<string>();
         var recoverableCurrency = false;
         if (difference.Currencies.ContainsKey(CurrencyKind.Money.ToString()))
@@ -1272,7 +1288,7 @@ public sealed class ProfileRepository
             diagnostic($"Deferred lifetime economy recovery for run {checkpoint.RunId} contained only arithmetic-saturated currencies; lifetime totals were left unchanged.");
             return false;
         }
-        EconomyStatisticsReducer.Merge(lifetime, difference, mergeEventIds: true);
+        EconomyStatisticsReducer.Merge(lifetime, difference);
         diagnostic(skippedCurrencies.Count == 0
             ? $"Recovered deferred lifetime economy from active run {checkpoint.RunId}."
             : $"Recovered the representable deferred lifetime economy from active run {checkpoint.RunId}; arithmetic-saturated {string.Join(" and ", skippedCurrencies)} totals were left unchanged.");

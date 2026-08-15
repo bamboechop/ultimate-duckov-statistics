@@ -571,7 +571,8 @@ internal sealed class NativeStatisticsPanel
                 + $"statistics {profile.Statistics.SchemaVersion.ToString(CultureInfo.InvariantCulture)}; "
                 + $"economy history {(profile.Statistics.Economy.HistoricalUnavailable ? "partially unavailable before M9" : "captured from generation start")}; "
                 + $"economy repair {(profile.Statistics.Economy.WasRepairedFromInvalidState ? "present" : "none")}; "
-                + $"economy identity bound {(profile.Statistics.Economy.DeduplicationSaturated ? "saturated" : "available")}; "
+                + "economy replay identity exact/bounded; "
+                + $"legacy economy saturation evidence {(profile.Statistics.Economy.LegacyIdentitySaturationIncomplete ? "incomplete" : "none")}; "
                 + $"Money arithmetic {(profile.Statistics.Economy.MoneyArithmeticSaturated ? "saturated" : "available")}; "
                 + $"Cash arithmetic {(profile.Statistics.Economy.CashArithmeticSaturated ? "saturated" : "available")}");
             foreach (var capability in profile.Capabilities)
@@ -613,8 +614,8 @@ internal sealed class NativeStatisticsPanel
         var economy = profile.Statistics.Economy;
         GUILayout.Space(8);
         GUILayout.Label(UiText.Get("ui.economy_contract"));
-        if (economy.DeduplicationSaturated)
-            GUILayout.Label("Economy capture stopped at the defensive identity bound; retained totals remain available without evicting prior identities.");
+        if (economy.LegacyIdentitySaturationIncomplete)
+            GUILayout.Label("Economy totals captured by an earlier schema-9 build may be incomplete after its legacy identity limit; current capture continues with exact bounded replay protection.");
         economyScroll = GUILayout.BeginScrollView(economyScroll);
         DrawCurrency(
             economy,

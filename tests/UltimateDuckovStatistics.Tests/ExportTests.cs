@@ -11,6 +11,7 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class ExportTests
 {
+    private static long economySequence;
     private static readonly DateTime TestTime = new(2026, 8, 9, 13, 0, 0, DateTimeKind.Utc);
     private static readonly string[] ExpectedExportFileNames =
     {
@@ -463,13 +464,17 @@ public sealed class ExportTests
         Assert.Equal(100, json.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(30, json.Economy.Currencies["Money"].Totals.GrossOutflow);
         Assert.Equal(70, json.Economy.Currencies["Money"].Totals.NetFlow);
+        Assert.Equal(profile.Statistics.Economy.ReplayCursor!.ActivationId, json.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(profile.Statistics.Economy.ReplayCursor.ClosedThroughSequence, json.Economy.ReplayCursor.ClosedThroughSequence);
+        Assert.False(json.Economy.LegacyIdentitySaturationIncomplete);
         Assert.Equal(100, ReadLong(money, "gross_inflow"));
         Assert.Equal(30, ReadLong(money, "gross_outflow"));
         Assert.Equal(70, ReadLong(money, "net_flow"));
         Assert.Equal("Supported", money["amount_capability"]);
         Assert.Equal("test", money["amount_capability_provenance"]);
         Assert.Equal("false", money["arithmetic_saturated"]);
-        Assert.Equal("false", money["deduplication_saturated"]);
+        Assert.Equal("false", money["legacy_identity_saturation_incomplete"]);
+        Assert.False(money.ContainsKey("deduplication_saturated"));
         Assert.Equal(100, sources.Where(row => row["scope"] == "lifetime" && row["currency"] == "Money").Sum(row => ReadLong(row, "gross_inflow")));
         Assert.Equal(30, sources.Where(row => row["scope"] == "lifetime" && row["currency"] == "Money").Sum(row => ReadLong(row, "gross_outflow")));
         Assert.Contains(sources, row => row["scope"] == "lifetime" && row["source"] == "Reward" && row["gross_inflow"] == "100");
@@ -695,7 +700,9 @@ public sealed class ExportTests
             Source = source,
             GameplayContext = context,
             IntegrityTags = IntegrityTags.Normal,
-            AdapterVersion = "test"
+            AdapterVersion = "test",
+            ProducerActivationId = "test-export",
+            ProducerSequence = Interlocked.Increment(ref economySequence)
         };
 
     private static StatisticsExportDocument Deserialize(string json)

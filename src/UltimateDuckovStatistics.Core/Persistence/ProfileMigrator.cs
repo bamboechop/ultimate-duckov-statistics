@@ -124,6 +124,34 @@ public static class ProfileMigrator
         }
     }
 
+    public static bool CompactEconomyReplayEvidenceAfterRecovery(ProfileDocument profile)
+    {
+        if (profile == null) throw new ArgumentNullException(nameof(profile));
+        var changed = false;
+        var lifetime = profile.Statistics.Economy;
+        changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(
+            lifetime,
+            clearReplayCursor: false);
+        changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(
+            profile.Statistics.RunTotals.Economy,
+            clearReplayCursor: true);
+        foreach (var map in profile.Statistics.RunTotals.Maps.Values)
+            changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(map.Economy, clearReplayCursor: true);
+        foreach (var map in profile.Statistics.RunTotals.RouteMaps.Values)
+            changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(map.Economy, clearReplayCursor: true);
+        foreach (var run in profile.Statistics.Runs)
+        {
+            changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(run.Economy, clearReplayCursor: true);
+            foreach (var segment in run.Segments)
+                changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(segment.Economy, clearReplayCursor: true);
+        }
+        if (profile.DeferredItemPersistence?.AppliedLifetimeEconomy != null)
+            changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(
+                profile.DeferredItemPersistence.AppliedLifetimeEconomy,
+                clearReplayCursor: true);
+        return changed;
+    }
+
     private static string? FindMissingRequiredDataMember(
         object? value,
         string path,
