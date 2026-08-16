@@ -289,8 +289,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         if (string.IsNullOrWhiteSpace(activationId))
             throw new ArgumentException("An economy activation identity is required.", nameof(activationId));
-        if (repository?.BeginEconomyActivation(activationId) == true)
-            profileWriter.MarkDirty();
+        repository?.BeginEconomyActivation(activationId);
     }
 
     public bool HandleCurrencyFlow(CurrencyFlowRecorded flow)

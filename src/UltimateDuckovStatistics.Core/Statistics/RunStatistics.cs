@@ -430,6 +430,8 @@ public static class RunReducer
         }
         RouteStatisticsReducer.ValidateAssociations(summary.Segments, summary.SegmentEventAssociations);
 
+        ValidateRunEconomyComposition(summary);
+
         if (!summary.HistoricalRouteUnavailable
             && summary.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported)
         {
@@ -452,6 +454,94 @@ public static class RunReducer
             throw new ArgumentException("Interrupted runs cannot be record eligible.", nameof(summary));
         }
     }
+
+    public static void ValidateProfileEconomyComposition(ProfileStatistics profile)
+    {
+        if (profile == null) throw new ArgumentNullException(nameof(profile));
+        foreach (var run in profile.Runs) ValidateRunEconomyComposition(run);
+
+        ValidateEconomyFanOut("completed-run totals", profile.RunTotals.Economy, profile.Runs.Select(run => run.Economy));
+
+        var runsByStartingMap = profile.Runs.GroupBy(
+            run => ResolveStartingMapId(run),
+            StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
+        foreach (var entry in profile.RunTotals.Maps)
+        {
+            runsByStartingMap.TryGetValue(entry.Key, out var runs);
+            ValidateEconomyFanOut(
+                $"starting-map totals '{entry.Key}'",
+                entry.Value.Economy,
+                (runs ?? []).Select(run => run.Economy));
+        }
+        foreach (var entry in runsByStartingMap.Where(entry => !profile.RunTotals.Maps.ContainsKey(entry.Key)))
+            ValidateMissingEconomyFanOut($"starting-map totals '{entry.Key}'", entry.Value.Select(run => run.Economy));
+
+        var segmentsByMap = profile.Runs
+            .Where(run => !run.HistoricalRouteUnavailable
+                          && !run.Economy.HistoricalUnavailable
+                          && run.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported)
+            .SelectMany(run => run.Segments)
+            .GroupBy(segment => segment.MapId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Select(segment => segment.Economy).ToList(), StringComparer.Ordinal);
+        foreach (var entry in profile.RunTotals.RouteMaps)
+        {
+            segmentsByMap.TryGetValue(entry.Key, out var segments);
+            ValidateEconomyFanOut(
+                $"route-map totals '{entry.Key}'",
+                entry.Value.Economy,
+                segments ?? []);
+        }
+        foreach (var entry in segmentsByMap.Where(entry => !profile.RunTotals.RouteMaps.ContainsKey(entry.Key)))
+            ValidateMissingEconomyFanOut($"route-map totals '{entry.Key}'", entry.Value);
+    }
+
+    private static void ValidateRunEconomyComposition(RunSummary summary)
+    {
+        if (summary.HistoricalRouteUnavailable
+            || summary.Economy.HistoricalUnavailable
+            || summary.Economy.Capabilities.RouteAttribution.State != AdapterCapabilityState.Supported)
+            return;
+
+        ValidateEconomyFanOut(
+            $"run '{summary.RunId}' segment composition",
+            summary.Economy,
+            summary.Segments.Select(segment => segment.Economy));
+    }
+
+    private static void ValidateEconomyFanOut(
+        string scope,
+        EconomyStatisticsAggregate total,
+        IEnumerable<EconomyStatisticsAggregate> components)
+    {
+        var materialized = components.ToList();
+        foreach (CurrencyKind currency in Enum.GetValues(typeof(CurrencyKind)))
+        {
+            if (!EconomyStatisticsReducer.IsExactCurrencyComposition(total, materialized, currency))
+                throw new ArgumentException($"Current-schema {scope} does not equal its exact {currency} composition.");
+        }
+    }
+
+    private static void ValidateMissingEconomyFanOut(
+        string scope,
+        IEnumerable<EconomyStatisticsAggregate> components)
+    {
+        var materialized = components.ToList();
+        foreach (CurrencyKind currency in Enum.GetValues(typeof(CurrencyKind)))
+        {
+            if (materialized.Any(component =>
+                    EconomyStatisticsReducer.HasExactSupportedCurrency(component, currency)
+                    && component.Currencies.TryGetValue(currency.ToString(), out var row)
+                    && (row.Totals.GrossInflow != 0 || row.Totals.GrossOutflow != 0)))
+                throw new ArgumentException($"Current-schema {scope} is missing exact {currency} contributions.");
+        }
+    }
+
+    private static string ResolveStartingMapId(RunSummary summary) =>
+        string.IsNullOrWhiteSpace(summary.StartingMapId)
+        || (string.Equals(summary.StartingMapId, MapIdentity.UnknownId, StringComparison.Ordinal)
+            && !string.Equals(summary.MapId, MapIdentity.UnknownId, StringComparison.Ordinal))
+            ? summary.MapId
+            : summary.StartingMapId;
 
     private static bool IsFiniteNonNegative(double value) =>
         value >= 0 && !double.IsNaN(value) && !double.IsInfinity(value);

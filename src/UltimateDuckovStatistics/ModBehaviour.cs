@@ -20,6 +20,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private NativeHealingAttributionAdapter? healingAttributionAdapter;
     private NativeItemUseAdapter? itemUseAdapter;
     private NativeEconomyAdapter? economyAdapter;
+    private Action? economyActivationForProfileChange;
     private readonly ProcessLifetimeCleanupOwner<NativeRunLifecycleAdapter> runLifecycleAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeWeaponFireAdapter> weaponFireAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeCombatAttributionAdapter> combatAttributionAdapter = new();
@@ -208,8 +209,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 () => runLifecycleAdapter.OwnedValue?.CurrentMapId,
                 () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId);
             profileCoordinator.ProfileChanged += itemUseAdapter.ResetPending;
-            profileCoordinator.ProfileChanged += () =>
+            economyActivationForProfileChange = () =>
                 profileCoordinator.BeginEconomyActivation(newEconomyAdapter.ActivationId);
+            profileCoordinator.ProfileChanged += economyActivationForProfileChange;
             profileCoordinator.ProfileChanged += newEconomyAdapter.ResetBaselines;
             itemUseAdapter.Subscribe();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);
@@ -330,6 +332,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         itemUseAdapter = null;
         if (profileCoordinator != null && economyAdapter != null)
             profileCoordinator.ProfileChanged -= economyAdapter.ResetBaselines;
+        if (profileCoordinator != null && economyActivationForProfileChange != null)
+            profileCoordinator.ProfileChanged -= economyActivationForProfileChange;
+        economyActivationForProfileChange = null;
         economyAdapter?.Dispose();
         economyAdapter = null;
         if (healingAttributionAdapter != null && profileCoordinator != null)
@@ -350,7 +355,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     {
         try
         {
-            economyAdapter?.Tick();
+            economyAdapter?.FlushPendingForBoundary();
         }
         catch (Exception exception)
         {

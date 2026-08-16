@@ -89,7 +89,19 @@ namespace UnityEngine
 
 namespace Duckov.Economy
 {
-    public sealed class Cost { }
+#pragma warning disable CA1051 // Stub mirrors the installed public-field native contract.
+    public sealed class Cost
+    {
+        public long money;
+        public ItemEntry[] items = Array.Empty<ItemEntry>();
+
+        public sealed class ItemEntry
+        {
+            public int id;
+            public long amount;
+        }
+    }
+#pragma warning restore CA1051
 
     public static class EconomyManager
     {
@@ -100,7 +112,12 @@ namespace Duckov.Economy
 
         public static void RaiseMoneyChanged(long oldValue, long newValue) => OnMoneyChanged?.Invoke(oldValue, newValue);
         public static void RaiseLoaded() => OnEconomyManagerLoaded?.Invoke();
-        public static void RaiseCostPaid() => OnCostPaid?.Invoke(new Cost());
+        public static void RaiseCostPaid(long cashAmount = 0) => OnCostPaid?.Invoke(new Cost
+        {
+            items = cashAmount <= 0
+                ? Array.Empty<Cost.ItemEntry>()
+                : [new Cost.ItemEntry { id = CashItemID, amount = cashAmount }]
+        });
         public static Action<Cost>? CaptureCostPaidSubscribers() => OnCostPaid;
         public static void ResetNativeState()
         {

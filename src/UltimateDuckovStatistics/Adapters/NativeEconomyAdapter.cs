@@ -10,7 +10,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v3";
+    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v4";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int CashItemTypeId = EconomyManager.CashItemID;
@@ -36,11 +36,13 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private long lastMoneyNewValue;
     private long cashBaseline;
     private long playerOriginatedCashOutsideOwned;
+    private long pendingCompletedCashCostAmount;
     private int? pendingCashSaleAmount;
+    private bool pendingCashSaleMatched;
+    private bool pendingCashSaleObservedOwnershipMutation;
     private bool cashBaselineReady;
     private bool cashBaselineSuspended;
     private bool cashDirty;
-    private bool cashOutflowWasCompletedCost;
     private bool moneyDisabled;
     private bool moneyBalanceObserved;
     private bool moneySemanticCorrelationDisabled;
@@ -112,6 +114,13 @@ internal sealed class NativeEconomyAdapter : IDisposable
         FlushCash();
     }
 
+    public void FlushPendingForBoundary()
+    {
+        if (disposed || !subscribed) return;
+        FlushPendingMoney();
+        FlushCash();
+    }
+
     private void FlushPendingMoney()
     {
         if (pendingMoney.Count > 0)
@@ -122,10 +131,10 @@ internal sealed class NativeEconomyAdapter : IDisposable
         }
     }
 
-    private void FlushCash()
+    private bool FlushCash()
     {
-        if (cashDisabled || cashBaselineSuspended) return;
-        if (!cashDirty && cashBaselineReady) return;
+        if (cashDisabled || cashBaselineSuspended) return false;
+        if (!cashDirty && cashBaselineReady) return true;
         cashDirty = false;
         var observationContext = cashObservationContext ?? CaptureContext();
         cashObservationContext = null;
@@ -134,7 +143,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         catch (Exception exception)
         {
             DisableCash($"Physical Cash ownership scan failed: {exception.GetType().Name}.");
-            return;
+            return false;
         }
         if (!cashBaselineReady)
         {
@@ -142,17 +151,19 @@ internal sealed class NativeEconomyAdapter : IDisposable
             ownedCashAmounts = snapshot.ItemAmounts;
             cashBaselineReady = true;
             pendingPickupIds.Clear();
-            pendingCashSaleAmount = null;
-            cashOutflowWasCompletedCost = false;
-            return;
+            pendingCompletedCashCostAmount = 0;
+            return false;
         }
+        if (pendingCashSaleAmount.HasValue
+            && (snapshot.Total != cashBaseline || !CashOwnershipEqual(snapshot.ItemAmounts, ownedCashAmounts)))
+            pendingCashSaleObservedOwnershipMutation = true;
         ObserveRemovedCashIds(snapshot.ItemAmounts);
         if (snapshot.Total != cashBaseline) PublishCashDelta(snapshot, observationContext);
         cashBaseline = snapshot.Total;
         ownedCashAmounts = snapshot.ItemAmounts;
         pendingPickupIds.Clear();
-        pendingCashSaleAmount = null;
-        cashOutflowWasCompletedCost = false;
+        pendingCompletedCashCostAmount = 0;
+        return true;
     }
 
     public void ResetBaselines()
@@ -169,7 +180,9 @@ internal sealed class NativeEconomyAdapter : IDisposable
     {
         pendingPickupIds.Clear();
         pendingCashSaleAmount = null;
-        cashOutflowWasCompletedCost = false;
+        pendingCashSaleMatched = false;
+        pendingCashSaleObservedOwnershipMutation = false;
+        pendingCompletedCashCostAmount = 0;
         cashBaseline = 0;
         cashBaselineReady = false;
         cashDirty = true;
@@ -184,7 +197,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         if (disposed) return;
         try
         {
-            Tick();
+            FlushPendingForBoundary();
         }
         catch (Exception exception)
         {
@@ -266,30 +279,54 @@ internal sealed class NativeEconomyAdapter : IDisposable
     {
         if (disposed || !subscribed) return;
         if (sellPrice <= 0) return;
-        if (moneySemanticCorrelationDisabled)
-        {
-            MarkCashDirty();
-            FlushCash();
-            return;
-        }
-        var money = FindPendingMoney(CurrencyFlowDirection.Inflow, sellPrice);
-        if (money != null)
-        {
-            money.Source = CurrencySourceCategory.Sale;
-            money.Context = GameplayContext.Shop;
-            money.NativeSourceId = $"duckov:merchant:{shop.MerchantID}";
-            money.SourceDisplayName = shop.DisplayName;
-            return;
-        }
         pendingCashSaleAmount = sellPrice;
+        pendingCashSaleMatched = false;
+        pendingCashSaleObservedOwnershipMutation = false;
+        // StockShop.Sell awaits a physical-Cash return before publishing this
+        // callback. Observe Cash first so an unrelated same-amount Money delta
+        // cannot claim the sale correlation.
         MarkCashDirty();
-        FlushCash();
+        var cashObservationCompleted = FlushCash();
+        if (!pendingCashSaleMatched
+            && !pendingCashSaleObservedOwnershipMutation
+            && cashObservationCompleted
+            && !moneySemanticCorrelationDisabled)
+        {
+            var money = FindPendingMoney(CurrencyFlowDirection.Inflow, sellPrice);
+            if (money != null)
+            {
+                money.Source = CurrencySourceCategory.Sale;
+                money.Context = GameplayContext.Shop;
+                money.NativeSourceId = $"duckov:merchant:{shop.MerchantID}";
+                money.SourceDisplayName = shop.DisplayName;
+            }
+        }
+        ClearPendingCashSale();
     }
 
     private void OnCostPaid(Cost cost)
     {
         if (disposed || !subscribed) return;
-        cashOutflowWasCompletedCost = true;
+        if (!cashAcquisitionDisabled)
+        {
+            try
+            {
+                foreach (var entry in cost.items ?? Array.Empty<Cost.ItemEntry>())
+                {
+                    if (entry.id != CashItemTypeId) continue;
+                    if (entry.amount < 0 || pendingCompletedCashCostAmount > long.MaxValue - entry.amount)
+                    {
+                        DisableCashAcquisition("Duckov reported an invalid completed Cash cost; drop/re-pickup acquisition attribution is disabled.");
+                        break;
+                    }
+                    pendingCompletedCashCostAmount += entry.amount;
+                }
+            }
+            catch (Exception exception)
+            {
+                DisableCashAcquisition($"Duckov completed Cash cost inspection failed: {exception.GetType().Name}.");
+            }
+        }
         MarkCashDirty();
         FlushCash();
     }
@@ -324,6 +361,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
             var amount = newTotal - cashBaseline;
             if (pendingCashSaleAmount.HasValue && pendingCashSaleAmount.Value == amount)
             {
+                pendingCashSaleMatched = true;
                 PublishCash(amount, CurrencyFlowDirection.Inflow, CurrencySourceCategory.Sale, GameplayContext.Shop, false, "duckov:stock-shop-sale", observationContext);
                 return;
             }
@@ -360,10 +398,11 @@ internal sealed class NativeEconomyAdapter : IDisposable
         }
         var outflow = cashBaseline - newTotal;
         if (outflow <= 0) return;
-        if (!cashAcquisitionDisabled
-            && !cashOutflowWasCompletedCost
-            && !string.IsNullOrWhiteSpace(observationContext.RunId))
-            playerOriginatedCashOutsideOwned = SaturatingAdd(playerOriginatedCashOutsideOwned, outflow);
+        if (!cashAcquisitionDisabled && !string.IsNullOrWhiteSpace(observationContext.RunId))
+        {
+            var playerOriginatedOutflow = Math.Max(0, outflow - Math.Min(outflow, pendingCompletedCashCostAmount));
+            playerOriginatedCashOutsideOwned = SaturatingAdd(playerOriginatedCashOutsideOwned, playerOriginatedOutflow);
+        }
         PublishCash(outflow, CurrencyFlowDirection.Outflow, CurrencySourceCategory.UnknownAdjustment, observationContext.GameplayContext, false, null, observationContext);
     }
 
@@ -402,6 +441,19 @@ internal sealed class NativeEconomyAdapter : IDisposable
 
     private PendingMoneyFlow? FindPendingMoney(CurrencyFlowDirection direction, long amount) =>
         pendingMoney.LastOrDefault(flow => flow.Direction == direction && flow.Amount == amount && flow.Source == CurrencySourceCategory.UnknownAdjustment);
+
+    private void ClearPendingCashSale()
+    {
+        pendingCashSaleAmount = null;
+        pendingCashSaleMatched = false;
+        pendingCashSaleObservedOwnershipMutation = false;
+    }
+
+    private static bool CashOwnershipEqual(
+        Dictionary<int, long> left,
+        Dictionary<int, long> right) =>
+        left.Count == right.Count
+        && left.All(entry => right.TryGetValue(entry.Key, out var amount) && amount == entry.Value);
 
     private static CashSnapshot ReadCashSnapshot()
     {
@@ -447,6 +499,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private void OnEconomyManagerLoaded()
     {
         if (disposed || !subscribed) return;
+        ClearPendingCashSale();
         FlushPendingMoney();
         ResetBaselines();
         cashBaselineSuspended = true;
@@ -458,8 +511,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private void OnLevelBeginInitializing()
     {
         if (disposed || !subscribed) return;
-        FlushPendingMoney();
-        FlushCash();
+        FlushPendingForBoundary();
         ResetCashBaseline();
         cashBaselineSuspended = true;
     }
@@ -558,8 +610,8 @@ internal sealed class NativeEconomyAdapter : IDisposable
         cashDirty = false;
         cashObservationContext = null;
         pendingPickupIds.Clear();
-        pendingCashSaleAmount = null;
-        cashOutflowWasCompletedCost = false;
+        ClearPendingCashSale();
+        pendingCompletedCashCostAmount = 0;
         MetricCapabilities.CashAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.CashContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);

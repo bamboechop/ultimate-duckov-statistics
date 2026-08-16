@@ -377,6 +377,45 @@ public sealed class PersistenceTests
         repository.CloseClean();
     }
 
+    [Theory]
+    [InlineData("run-segment")]
+    [InlineData("completed-runs")]
+    [InlineData("starting-map")]
+    [InlineData("route-map")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void CurrentSchemaCrossScopeEconomyMismatchLosesToIntactBackup(string corruption)
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var invalidPrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        ConfigureExactMoneyFanOut(backup, runAmount: 10, segmentAmount: 10);
+        ConfigureExactMoneyFanOut(invalidPrimary, runAmount: 10, segmentAmount: 10);
+        var invalidRun = invalidPrimary.Statistics.Runs[0];
+        if (corruption == "run-segment")
+            SetMoneyInflow(invalidRun.Segments[0].Economy, 20);
+        else if (corruption == "completed-runs")
+            SetMoneyInflow(invalidPrimary.Statistics.RunTotals.Economy, 20);
+        else if (corruption == "starting-map")
+            SetMoneyInflow(invalidPrimary.Statistics.RunTotals.Maps[invalidRun.StartingMapId].Economy, 20);
+        else
+            SetMoneyInflow(invalidPrimary.Statistics.RunTotals.RouteMaps[invalidRun.Segments[0].MapId].Economy, 20);
+        store.Save(path, backup);
+        store.Save(path, invalidPrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("economy fan-out is inconsistent", StringComparison.Ordinal));
+        Assert.Equal(10, repository.Current.Statistics.Runs[0].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(10, repository.Current.Statistics.RunTotals.RouteMaps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        repository.CloseClean();
+    }
+
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
@@ -570,6 +609,31 @@ public sealed class PersistenceTests
             CurrencyKind.Money)));
         Assert.Equal(1, second.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
         second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void RegisteredActivationIsDurableBeforeTheFirstFlowWithoutADeferredWriterTick()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var first = CreateRepository(temporaryDirectory.Path, "session-first");
+        first.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(first.BeginEconomyActivation("activation-before-abrupt-restart"));
+        var persisted = new AtomicJsonStore<ProfileDocument>().Load(first.CurrentProfilePath!).Value!;
+        Assert.Equal(
+            "activation-before-abrupt-restart",
+            persisted.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(0, persisted.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+
+        var restarted = CreateRepository(temporaryDirectory.Path, "session-restarted");
+        restarted.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        Assert.Equal(
+            "activation-before-abrupt-restart",
+            restarted.Current.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(0, restarted.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+        restarted.CloseClean();
     }
 
     [Fact]
@@ -2019,7 +2083,11 @@ public sealed class PersistenceTests
 
     private static void SetMoneyInflow(EconomyStatisticsAggregate economy, long amount)
     {
-        var money = economy.Currencies[CurrencyKind.Money.ToString()];
+        if (!economy.Currencies.TryGetValue(CurrencyKind.Money.ToString(), out var money))
+        {
+            money = new CurrencyEconomyAggregate { Currency = CurrencyKind.Money };
+            economy.Currencies[CurrencyKind.Money.ToString()] = money;
+        }
         money.Totals.GrossInflow = amount;
         money.Sources[CurrencySourceCategory.UnknownAdjustment.ToString()] = new CurrencyFlowTotals
         {
@@ -2028,6 +2096,36 @@ public sealed class PersistenceTests
         money.Contexts[GameplayContext.Unknown.ToString()] = new CurrencyFlowTotals
         {
             GrossInflow = amount
+        };
+    }
+
+    private static void ConfigureExactMoneyFanOut(ProfileDocument document, long runAmount, long segmentAmount)
+    {
+        var run = document.Statistics.Runs[0];
+        var segment = run.Segments[0];
+        SetExactMoneySupported(run.Economy);
+        SetExactMoneySupported(segment.Economy);
+        SetExactMoneySupported(document.Statistics.RunTotals.Economy);
+        SetExactMoneySupported(document.Statistics.RunTotals.Maps[run.StartingMapId].Economy);
+        SetExactMoneySupported(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy);
+        SetMoneyInflow(run.Economy, runAmount);
+        SetMoneyInflow(segment.Economy, segmentAmount);
+        SetMoneyInflow(document.Statistics.RunTotals.Economy, runAmount);
+        SetMoneyInflow(document.Statistics.RunTotals.Maps[run.StartingMapId].Economy, runAmount);
+        SetMoneyInflow(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy, segmentAmount);
+    }
+
+    private static void SetExactMoneySupported(EconomyStatisticsAggregate economy)
+    {
+        economy.Capabilities.MoneyAmountDirection = new MetricAvailability
+        {
+            State = AdapterCapabilityState.Supported,
+            Provenance = "test exact Money contract"
+        };
+        economy.Capabilities.RouteAttribution = new MetricAvailability
+        {
+            State = AdapterCapabilityState.Supported,
+            Provenance = "test exact route contract"
         };
     }
 

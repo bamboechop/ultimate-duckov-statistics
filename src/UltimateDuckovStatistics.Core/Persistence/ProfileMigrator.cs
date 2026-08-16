@@ -50,6 +50,15 @@ public static class ProfileMigrator
             }
         }
 
+        try
+        {
+            RunReducer.ValidateProfileEconomyComposition(profile.Statistics);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Current-schema economy fan-out is inconsistent: {exception.Message}";
+        }
+
         if (profile.DeferredItemPersistence != null)
         {
             var deferred = profile.DeferredItemPersistence;

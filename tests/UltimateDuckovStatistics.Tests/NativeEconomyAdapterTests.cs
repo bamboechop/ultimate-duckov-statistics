@@ -289,6 +289,98 @@ public sealed class NativeEconomyAdapterTests : IDisposable
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "NativeAdapter")]
+    public void OverlappingCashDropAndCompletedCostRetainsOnlyTheDroppedAmountForRepickup()
+    {
+        runActive = true;
+        runId = "run:drop-cost";
+        segmentId = "segment:drop-cost";
+        mapId = "duckov:map:drop-cost";
+        var compatibleStack = Cash(20);
+        var droppedStack = Cash(8);
+        ItemUtilities.OwnedItems.Add(compatibleStack);
+        ItemUtilities.OwnedItems.Add(droppedStack);
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+
+        ItemUtilities.OwnedItems.Remove(droppedStack);
+        compatibleStack.StackCount -= 5;
+        ItemUtilities.RaisePlayerItemOperation();
+        EconomyManager.RaiseCostPaid(cashAmount: 5);
+
+        compatibleStack.StackCount += 8;
+        droppedStack.StackCount = 0;
+        ItemUtilities.RaisePlayerItemOperation();
+        InteractablePickup.RaisePickup(
+            new InteractablePickup { ItemAgent = new ItemAgent { Item = droppedStack } },
+            MainCharacter());
+
+        Assert.Collection(
+            published,
+            outflow =>
+            {
+                Assert.Equal(CurrencyFlowDirection.Outflow, outflow.Direction);
+                Assert.Equal(13, outflow.Amount);
+            },
+            repickup =>
+            {
+                Assert.Equal(CurrencyFlowDirection.Inflow, repickup.Direction);
+                Assert.Equal(8, repickup.Amount);
+                Assert.Equal(CurrencySourceCategory.UnknownAdjustment, repickup.Source);
+                Assert.False(repickup.ProvenExternalRaidAcquisition);
+            });
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "NativeAdapter")]
+    public void CashReturningSaleDoesNotClaimAnUnrelatedSameAmountMoneyInflow()
+    {
+        ItemUtilities.OwnedItems.Add(Cash(20));
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+
+        EconomyManager.RaiseMoneyChanged(100, 106);
+        ItemUtilities.OwnedItems.Add(Cash(6));
+        StockShop.RaiseSold(
+            new StockShop { MerchantID = "cash-merchant", DisplayName = "Cash Merchant" },
+            new Item { TypeID = 99 },
+            6);
+        adapter.Tick();
+
+        var money = Assert.Single(published, flow => flow.Currency == CurrencyKind.Money);
+        Assert.Equal(CurrencySourceCategory.UnknownAdjustment, money.Source);
+        Assert.Equal(GameplayContext.Base, money.GameplayContext);
+        var cash = Assert.Single(published, flow => flow.Currency == CurrencyKind.Cash);
+        Assert.Equal(CurrencySourceCategory.Sale, cash.Source);
+        Assert.Equal(GameplayContext.Shop, cash.GameplayContext);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "NativeAdapter")]
+    public void AmbiguousCoalescedCashSaleLeavesBothCurrenciesUnknown()
+    {
+        ItemUtilities.OwnedItems.Add(Cash(20));
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+
+        EconomyManager.RaiseMoneyChanged(100, 106);
+        // Six Cash came from the sale and one from another coalesced mutation.
+        ItemUtilities.OwnedItems.Add(Cash(7));
+        StockShop.RaiseSold(new StockShop(), new Item { TypeID = 99 }, 6);
+        adapter.Tick();
+
+        Assert.All(published, flow => Assert.Equal(CurrencySourceCategory.UnknownAdjustment, flow.Source));
+        Assert.Contains(published, flow => flow.Currency == CurrencyKind.Money && flow.Amount == 6);
+        Assert.Contains(published, flow => flow.Currency == CurrencyKind.Cash && flow.Amount == 7);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "NativeAdapter")]
     public void DuplicateSetupAndStaleCallbacksDoNotDuplicatePublication()
     {
         var adapter = CreateAdapter();

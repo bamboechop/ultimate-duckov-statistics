@@ -211,6 +211,7 @@ public sealed class ProfileRepository
             return false;
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
+        SaveCurrent();
         return true;
     }
 

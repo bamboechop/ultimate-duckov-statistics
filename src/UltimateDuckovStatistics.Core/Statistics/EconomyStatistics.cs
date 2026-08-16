@@ -265,6 +265,41 @@ public static class EconomyStatisticsReducer
                && value.CashRaidOutcomes.Lost == 0 && value.CashRaidOutcomes.Unresolved == 0;
     }
 
+    public static bool HasExactSupportedCurrency(EconomyStatisticsAggregate aggregate, CurrencyKind currency)
+    {
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        if (aggregate.HistoricalUnavailable) return false;
+        return currency switch
+        {
+            CurrencyKind.Money => !aggregate.MoneyArithmeticSaturated
+                                  && aggregate.Capabilities.MoneyAmountDirection.State == AdapterCapabilityState.Supported,
+            CurrencyKind.Cash => !aggregate.CashArithmeticSaturated
+                                 && aggregate.Capabilities.CashAmountDirection.State == AdapterCapabilityState.Supported,
+            _ => false
+        };
+    }
+
+    public static bool IsExactCurrencyComposition(
+        EconomyStatisticsAggregate total,
+        IEnumerable<EconomyStatisticsAggregate> components,
+        CurrencyKind currency)
+    {
+        if (total == null) throw new ArgumentNullException(nameof(total));
+        if (components == null) throw new ArgumentNullException(nameof(components));
+        if (!HasExactSupportedCurrency(total, currency)) return true;
+
+        var expected = new CurrencyEconomyAggregate { Currency = currency };
+        foreach (var component in components)
+        {
+            if (component == null || !HasExactSupportedCurrency(component, currency)) return false;
+            if (!component.Currencies.TryGetValue(currency.ToString(), out var row)) continue;
+            if (!TryMergeExact(expected, row)) return false;
+        }
+
+        total.Currencies.TryGetValue(currency.ToString(), out var actual);
+        return CurrencyRowsEqual(actual, expected);
+    }
+
     public static void MergeTerminalOutcomes(EconomyStatisticsAggregate target, EconomyStatisticsAggregate run)
     {
         if (target == null) throw new ArgumentNullException(nameof(target));
@@ -685,6 +720,43 @@ public static class EconomyStatisticsReducer
         foreach (var row in source.Sources) Merge(GetBreakdown(target.Sources, row.Key), row.Value);
         foreach (var row in source.Contexts) Merge(GetBreakdown(target.Contexts, row.Key), row.Value);
     }
+
+    private static bool TryMergeExact(CurrencyEconomyAggregate target, CurrencyEconomyAggregate source)
+    {
+        if (WouldOverflow(target.Totals, source.Totals)
+            || source.Sources.Any(row =>
+                target.Sources.TryGetValue(row.Key, out var current) && WouldOverflow(current, row.Value))
+            || source.Contexts.Any(row =>
+                target.Contexts.TryGetValue(row.Key, out var current) && WouldOverflow(current, row.Value)))
+            return false;
+
+        Merge(target, source);
+        return true;
+    }
+
+    private static bool CurrencyRowsEqual(CurrencyEconomyAggregate? actual, CurrencyEconomyAggregate expected)
+    {
+        actual ??= new CurrencyEconomyAggregate { Currency = expected.Currency };
+        return actual.Currency == expected.Currency
+               && TotalsEqual(actual.Totals, expected.Totals)
+               && BreakdownEqual(actual.Sources, expected.Sources)
+               && BreakdownEqual(actual.Contexts, expected.Contexts);
+    }
+
+    private static bool BreakdownEqual(
+        IReadOnlyDictionary<string, CurrencyFlowTotals> actual,
+        IReadOnlyDictionary<string, CurrencyFlowTotals> expected)
+    {
+        var actualRows = actual.Where(row => row.Value.GrossInflow != 0 || row.Value.GrossOutflow != 0)
+            .ToDictionary(row => row.Key, row => row.Value, StringComparer.Ordinal);
+        var expectedRows = expected.Where(row => row.Value.GrossInflow != 0 || row.Value.GrossOutflow != 0)
+            .ToDictionary(row => row.Key, row => row.Value, StringComparer.Ordinal);
+        return actualRows.Count == expectedRows.Count
+               && actualRows.All(row => expectedRows.TryGetValue(row.Key, out var value) && TotalsEqual(row.Value, value));
+    }
+
+    private static bool TotalsEqual(CurrencyFlowTotals left, CurrencyFlowTotals right) =>
+        left.GrossInflow == right.GrossInflow && left.GrossOutflow == right.GrossOutflow;
 
     private static EconomyMetricCapabilities MergeCapabilities(EconomyMetricCapabilities a, EconomyMetricCapabilities b) => new()
     {
