@@ -305,6 +305,9 @@ public sealed class PersistenceTests
     [InlineData("overlapping-raid-outcomes")]
     [InlineData("duplicate-deduplication-identity")]
     [InlineData("malformed-replay-cursor")]
+    [InlineData("noncomposing-source")]
+    [InlineData("noncomposing-context")]
+    [InlineData("duplicate-currency")]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
     public void CurrentSchemaUnsafeEconomyStateLosesToIntactBackupBeforeNormalization(string corruption)
@@ -336,12 +339,28 @@ public sealed class PersistenceTests
             invalidPrimary.Statistics.Economy.RecentEventIds.Add("duplicate");
             invalidPrimary.Statistics.Economy.RecentEventIds.Add("duplicate");
         }
-        else
+        else if (corruption == "malformed-replay-cursor")
         {
             invalidPrimary.Statistics.Economy.ReplayCursor = new EconomyReplayCursor
             {
                 ActivationId = "malformed:activation",
                 ClosedThroughSequence = -1
+            };
+        }
+        else if (corruption == "noncomposing-source" || corruption == "noncomposing-context")
+        {
+            SetMoneyInflow(invalidPrimary.Statistics.Economy, 9);
+            var money = invalidPrimary.Statistics.Economy.Currencies["Money"];
+            if (corruption == "noncomposing-source")
+                money.Sources[CurrencySourceCategory.UnknownAdjustment.ToString()].GrossInflow = 8;
+            else
+                money.Contexts[GameplayContext.Unknown.ToString()].GrossInflow = 8;
+        }
+        else
+        {
+            invalidPrimary.Statistics.Economy.Currencies["duplicate-money"] = new CurrencyEconomyAggregate
+            {
+                Currency = CurrencyKind.Money
             };
         }
         store.Save(path, backup);
@@ -686,6 +705,34 @@ public sealed class PersistenceTests
         Assert.Contains(result.LoadFailures, failure =>
             failure.Contains("watermark is not a valid subset", StringComparison.Ordinal));
         Assert.Equal(7, repository.Current.Revision);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void ReversedDeferredEconomySaturationLosesToIntactBackup()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var invalidPrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        invalidPrimary.DeferredItemPersistence!.RunId = "run-active";
+        EconomyStatisticsReducer.ApplyArithmeticSaturation(
+            invalidPrimary.DeferredItemPersistence.AppliedLifetimeEconomy,
+            CurrencyKind.Money);
+        store.Save(path, backup);
+        store.Save(path, invalidPrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("watermark is not a valid subset", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        Assert.False(repository.Current.Statistics.Economy.MoneyArithmeticSaturated);
         repository.CloseClean();
     }
 

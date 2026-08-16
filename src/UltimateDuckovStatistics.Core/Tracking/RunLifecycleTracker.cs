@@ -519,47 +519,47 @@ public sealed class RunLifecycleTracker
         if (active == null || value == null || value.GameplayContext != GameplayContext.Raid
             || !MatchesRunContext(value.SaveGenerationId, value.RunId))
             return false;
-        var changed = EconomyStatisticsReducer.Record(
+        var runChanged = EconomyStatisticsReducer.Record(
             active.Economy,
             active.Context.SaveGenerationId,
             value,
-            out var capabilityChanged);
-        if (capabilityChanged)
-        {
-            foreach (var segment in active.Segments)
-                EconomyStatisticsReducer.ApplyArithmeticSaturation(segment.Economy, value.Currency);
-            RequireCombatCheckpoint();
-        }
-        if (changed && active.RouteSupported)
+            out var runCapabilityChanged);
+        var segmentChanged = false;
+        var segmentCapabilityChanged = false;
+        if (active.RouteSupported)
         {
             var segment = active.Segments.FirstOrDefault(candidate =>
                 string.Equals(candidate.SegmentId, value.SegmentId, StringComparison.Ordinal)
                 && string.Equals(candidate.MapId, value.MapId, StringComparison.Ordinal));
             if (segment != null)
             {
-                EconomyStatisticsReducer.Record(segment.Economy, active.Context.SaveGenerationId, value);
-                if (active.AttributionSupported)
+                segmentChanged = EconomyStatisticsReducer.Record(
+                    segment.Economy,
+                    active.Context.SaveGenerationId,
+                    value,
+                    out segmentCapabilityChanged);
+                if (segmentChanged && active.AttributionSupported)
                     RecordAssociation(value.EventId, "currency-flow", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
             }
-            else
+            else if (runChanged || runCapabilityChanged)
             {
                 DisableEconomyRouteAttribution(
                     active,
                     "A currency flow lacked a complete proven segment join; overall economy remains available.");
             }
         }
-        else if (changed)
+        else if (runChanged || runCapabilityChanged)
         {
             DisableEconomyRouteAttribution(
                 active,
                 "Ordered route segments were unavailable; overall economy remains available.");
         }
-        if (changed)
+        if (runChanged || runCapabilityChanged || segmentChanged || segmentCapabilityChanged)
         {
             active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(active.Context.IntegrityTags, value.IntegrityTags);
             RequireCombatCheckpoint();
         }
-        return changed || capabilityChanged;
+        return runChanged || runCapabilityChanged || segmentChanged || segmentCapabilityChanged;
     }
 
     public bool UpdateEconomyCapabilities(EconomyMetricCapabilities capabilities)

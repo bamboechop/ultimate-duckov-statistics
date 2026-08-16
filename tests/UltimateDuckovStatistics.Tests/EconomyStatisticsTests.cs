@@ -268,6 +268,18 @@ public sealed class EconomyStatisticsTests
         Assert.True(string.IsNullOrEmpty(difference.ReplayCursor!.ActivationId));
     }
 
+    [Theory]
+    [InlineData(CurrencyKind.Money)]
+    [InlineData(CurrencyKind.Cash)]
+    public void DeferredDifferenceRejectsAReversedArithmeticSaturationState(CurrencyKind currency)
+    {
+        var total = Supported();
+        var saturatedBaseline = Supported();
+        EconomyStatisticsReducer.ApplyArithmeticSaturation(saturatedBaseline, currency);
+
+        Assert.False(EconomyStatisticsReducer.TrySubtract(total, saturatedBaseline, out _));
+    }
+
     [Fact]
     public void RepairIsIdempotentAndMakesBrokenCompositionExplicitlyUnknown()
     {
@@ -535,11 +547,24 @@ public sealed class EconomyStatisticsTests
         Assert.Contains("Cash +0/-3 net -3", compact, StringComparison.Ordinal);
 
         var historical = new EconomyStatisticsAggregate { HistoricalUnavailable = true };
+        historical.Capabilities.CashExternalAcquisition = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "pre-M9 history unavailable"
+        };
+        historical.Capabilities.CashTerminalOutcomes = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "pre-M9 history unavailable"
+        };
         var unavailable = UiText.FormatEconomyCompact(historical);
+        var unavailableOutcome = UiText.FormatCashOutcome(historical);
         Assert.Contains("Money no recorded M9 flow", unavailable, StringComparison.Ordinal);
         Assert.Contains("Cash no recorded M9 flow", unavailable, StringComparison.Ordinal);
         Assert.Contains("earlier economy history unavailable", unavailable, StringComparison.Ordinal);
         Assert.DoesNotContain("Money 0", unavailable, StringComparison.Ordinal);
+        Assert.Contains("unresolved Unsupported", unavailableOutcome, StringComparison.Ordinal);
+        Assert.DoesNotContain("unresolved 0", unavailableOutcome, StringComparison.Ordinal);
 
         aggregate.Capabilities.MoneyAmountDirection = new MetricAvailability
         {

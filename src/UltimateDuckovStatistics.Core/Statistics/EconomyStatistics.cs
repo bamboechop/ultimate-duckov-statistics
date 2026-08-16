@@ -219,6 +219,12 @@ public static class EconomyStatisticsReducer
         if (baseline == null) throw new ArgumentNullException(nameof(baseline));
         ValidateRecoveryCandidate(total);
         ValidateRecoveryCandidate(baseline);
+        if (baseline.MoneyArithmeticSaturated && !total.MoneyArithmeticSaturated
+            || baseline.CashArithmeticSaturated && !total.CashArithmeticSaturated)
+        {
+            difference = new EconomyStatisticsAggregate();
+            return false;
+        }
         difference = new EconomyStatisticsAggregate
         {
             Capabilities = CloneCapabilities(total.Capabilities),
@@ -406,24 +412,15 @@ public static class EconomyStatisticsReducer
         {
             var value = entry.Value;
             if (value == null || !Enum.IsDefined(typeof(CurrencyKind), value.Currency)
+                || !string.Equals(entry.Key, value.Currency.ToString(), StringComparison.Ordinal)
                 || value.Totals == null || value.Sources == null || value.Contexts == null)
                 throw new ArgumentException("Economy currency evidence is incomplete.", nameof(aggregate));
             if (value.Totals.GrossInflow < 0 || value.Totals.GrossOutflow < 0
                 || value.Sources.Values.Any(row => row == null || row.GrossInflow < 0 || row.GrossOutflow < 0)
                 || value.Contexts.Values.Any(row => row == null || row.GrossInflow < 0 || row.GrossOutflow < 0))
                 throw new ArgumentException("Economy counters cannot be negative.", nameof(aggregate));
-            if (!CanSumExactly(value.Sources.Values.Select(row => row.GrossInflow))
-                || !CanSumExactly(value.Sources.Values.Select(row => row.GrossOutflow))
-                || !CanSumExactly(value.Contexts.Values.Select(row => row.GrossInflow))
-                || !CanSumExactly(value.Contexts.Values.Select(row => row.GrossOutflow)))
-                throw new ArgumentException("Economy breakdown composition exceeds the exact arithmetic range.", nameof(aggregate));
-        }
-        foreach (var currency in Enum.GetValues(typeof(CurrencyKind)).Cast<CurrencyKind>())
-        {
-            var rows = aggregate.Currencies.Values.Where(value => value.Currency == currency).ToList();
-            if (!CanSumExactly(rows.Select(row => row.Totals.GrossInflow))
-                || !CanSumExactly(rows.Select(row => row.Totals.GrossOutflow)))
-                throw new ArgumentException("Duplicate economy currency evidence exceeds the exact arithmetic range.", nameof(aggregate));
+            if (!Composes(value.Totals, value.Sources) || !Composes(value.Totals, value.Contexts))
+                throw new ArgumentException("Economy breakdowns do not compose to their currency totals.", nameof(aggregate));
         }
         ValidateOutcome(aggregate.CashRaidOutcomes);
     }

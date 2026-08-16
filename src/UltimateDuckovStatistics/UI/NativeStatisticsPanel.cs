@@ -637,7 +637,7 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label($"  {UiText.Get("ui.acquired")}: {FormatLong(economy.CashRaidOutcomes.Acquired, economy.Capabilities.CashExternalAcquisition.State)}");
         GUILayout.Label($"  {UiText.Get("ui.secured")}: {FormatLong(economy.CashRaidOutcomes.Secured, economy.Capabilities.CashTerminalOutcomes.State)}");
         GUILayout.Label($"  {UiText.Get("ui.lost")}: {FormatLong(economy.CashRaidOutcomes.Lost, economy.Capabilities.CashTerminalOutcomes.State)}");
-        GUILayout.Label($"  {UiText.Get("ui.unresolved")}: {economy.CashRaidOutcomes.Unresolved.ToString(CultureInfo.InvariantCulture)}");
+        GUILayout.Label($"  {UiText.Get("ui.unresolved")}: {FormatLong(economy.CashRaidOutcomes.Unresolved, economy.Capabilities.CashTerminalOutcomes.State)}");
         GUILayout.Space(12);
         GUILayout.Label("Recent run economy");
         foreach (var run in profile.Statistics.Runs.OrderByDescending(value => value.EndedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal).Take(8))

@@ -265,8 +265,11 @@ public static class RunReducer
         ItemStatisticsAggregateReducer.Merge(map.ItemStatistics, summary.ItemStatistics);
         EconomyStatisticsReducer.Merge(map.Economy, summary.Economy);
 
-        if (summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported
-            && !summary.HistoricalRouteUnavailable)
+        var routeMapTotalsSupported = summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported
+                                      && !summary.HistoricalRouteUnavailable;
+        var economyRouteAttributionSupported = summary.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported
+                                               && !summary.Economy.HistoricalUnavailable;
+        if (routeMapTotalsSupported || economyRouteAttributionSupported)
         {
             foreach (var segmentGroup in summary.Segments.GroupBy(segment => segment.MapId, StringComparer.Ordinal))
             {
@@ -281,32 +284,37 @@ public static class RunReducer
                     };
                     totals.RouteMaps[segmentGroup.Key] = routeMap;
                 }
-                routeMap.RunsVisited = SaturatingAdd(routeMap.RunsVisited, 1);
                 var routeRunEquipment = new EquipmentStatisticsAggregate();
+                if (routeMapTotalsSupported) routeMap.RunsVisited = SaturatingAdd(routeMap.RunsVisited, 1);
                 foreach (var segment in segmentGroup)
                 {
                     routeMap.DisplayName = segment.MapDisplayName;
                     routeMap.IsKnown |= segment.MapKnown;
-                    routeMap.SegmentVisits = SaturatingAdd(routeMap.SegmentVisits, 1);
-                    routeMap.ActiveDurationSeconds = RouteStatisticsReducer.SaturatingAdd(
-                        routeMap.ActiveDurationSeconds,
-                        segment.ActiveDurationSeconds);
-                    routeMap.PhysicalDistance = RouteStatisticsReducer.SaturatingAdd(routeMap.PhysicalDistance, segment.PhysicalDistance);
-                    routeMap.TeleportDistance = RouteStatisticsReducer.SaturatingAdd(routeMap.TeleportDistance, segment.TeleportDistance);
-                    routeMap.TransitionExcludedDistance = RouteStatisticsReducer.SaturatingAdd(
-                        routeMap.TransitionExcludedDistance,
-                        segment.TransitionExcludedDistance);
-                    ItemStatisticsAggregateReducer.Merge(routeMap.ItemStatistics, segment.ItemStatistics);
-                    WeaponStatisticsReducer.Merge(routeMap.WeaponStatistics, segment.WeaponStatistics);
-                    CombatStatisticsReducer.Merge(routeMap.CombatStatistics, segment.CombatStatistics);
-                    EquipmentStatisticsReducer.Merge(routeRunEquipment, segment.EquipmentStatistics, countRunOccurrence: false);
-                    ContainerStatisticsReducer.Merge(routeMap.ContainerStatistics, segment.ContainerStatistics);
-                    EconomyStatisticsReducer.Merge(routeMap.Economy, segment.Economy);
+                    if (routeMapTotalsSupported)
+                    {
+                        routeMap.SegmentVisits = SaturatingAdd(routeMap.SegmentVisits, 1);
+                        routeMap.ActiveDurationSeconds = RouteStatisticsReducer.SaturatingAdd(
+                            routeMap.ActiveDurationSeconds,
+                            segment.ActiveDurationSeconds);
+                        routeMap.PhysicalDistance = RouteStatisticsReducer.SaturatingAdd(routeMap.PhysicalDistance, segment.PhysicalDistance);
+                        routeMap.TeleportDistance = RouteStatisticsReducer.SaturatingAdd(routeMap.TeleportDistance, segment.TeleportDistance);
+                        routeMap.TransitionExcludedDistance = RouteStatisticsReducer.SaturatingAdd(
+                            routeMap.TransitionExcludedDistance,
+                            segment.TransitionExcludedDistance);
+                        ItemStatisticsAggregateReducer.Merge(routeMap.ItemStatistics, segment.ItemStatistics);
+                        WeaponStatisticsReducer.Merge(routeMap.WeaponStatistics, segment.WeaponStatistics);
+                        CombatStatisticsReducer.Merge(routeMap.CombatStatistics, segment.CombatStatistics);
+                        EquipmentStatisticsReducer.Merge(routeRunEquipment, segment.EquipmentStatistics, countRunOccurrence: false);
+                        ContainerStatisticsReducer.Merge(routeMap.ContainerStatistics, segment.ContainerStatistics);
+                    }
+                    if (economyRouteAttributionSupported)
+                        EconomyStatisticsReducer.Merge(routeMap.Economy, segment.Economy);
                 }
-                EquipmentStatisticsReducer.Merge(
-                    routeMap.EquipmentStatistics,
-                    routeRunEquipment,
-                    countRunOccurrence: summary.Outcome != RunOutcome.Interrupted);
+                if (routeMapTotalsSupported)
+                    EquipmentStatisticsReducer.Merge(
+                        routeMap.EquipmentStatistics,
+                        routeRunEquipment,
+                        countRunOccurrence: summary.Outcome != RunOutcome.Interrupted);
             }
         }
     }

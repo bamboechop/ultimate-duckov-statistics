@@ -144,7 +144,7 @@ internal static class UiText
         $"{Get("ui.raid_cash")} {Get("ui.acquired").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Acquired, economy.Capabilities.CashExternalAcquisition.State)}, "
         + $"{Get("ui.secured").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Secured, economy.Capabilities.CashTerminalOutcomes.State)}, "
         + $"{Get("ui.lost").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Lost, economy.Capabilities.CashTerminalOutcomes.State)}, "
-        + $"{Get("ui.unresolved").ToLowerInvariant()} {economy.CashRaidOutcomes.Unresolved.ToString(CultureInfo.InvariantCulture)}";
+        + $"{Get("ui.unresolved").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Unresolved, economy.Capabilities.CashTerminalOutcomes.State)}";
 
     private static string FormatEconomyValue(long value, AdapterCapabilityState state) =>
         state == AdapterCapabilityState.DisabledIncompatible
