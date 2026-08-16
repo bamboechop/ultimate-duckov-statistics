@@ -1265,16 +1265,19 @@ public sealed class ProfileRepository
             diagnostic($"Deferred economy watermark for run {checkpoint.RunId} was not a subset of the active checkpoint; lifetime recovery was left unchanged.");
             return false;
         }
-        if (EconomyStatisticsReducer.IsEmpty(difference)) return false;
+        var moneySaturationDelta = difference.MoneyArithmeticSaturated && !baseline.MoneyArithmeticSaturated;
+        var cashSaturationDelta = difference.CashArithmeticSaturated && !baseline.CashArithmeticSaturated;
+        if (EconomyStatisticsReducer.IsEmpty(difference) && !moneySaturationDelta && !cashSaturationDelta) return false;
         var lifetime = Current.Statistics.Economy;
         var skippedCurrencies = new List<string>();
         var recoverableCurrency = false;
-        if (difference.Currencies.ContainsKey(CurrencyKind.Money.ToString()))
+        if (difference.Currencies.ContainsKey(CurrencyKind.Money.ToString()) || moneySaturationDelta)
         {
             if (lifetime.MoneyArithmeticSaturated) skippedCurrencies.Add(CurrencyKind.Money.ToString());
             else recoverableCurrency = true;
         }
         if (difference.Currencies.ContainsKey(CurrencyKind.Cash.ToString())
+            || cashSaturationDelta
             || difference.CashRaidOutcomes.Acquired > 0
             || difference.CashRaidOutcomes.Secured > 0
             || difference.CashRaidOutcomes.Lost > 0

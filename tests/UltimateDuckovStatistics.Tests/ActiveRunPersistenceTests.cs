@@ -465,6 +465,68 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
+    public void DeferredArithmeticSaturationRecoversFromCheckpointWhenProfileStillHasTheExactMaximum()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        repository.EnableDeferredItemPersistence();
+        var generation = repository.CurrentGenerationId;
+        var tracker = ActiveTracker(generation);
+        var maximum = EconomyFlow(
+            "economy:checkpoint-maximum",
+            tracker,
+            generation,
+            CurrencyFlowDirection.Inflow,
+            1);
+        maximum.Amount = long.MaxValue;
+        Assert.True(repository.RecordDeferred(maximum));
+        Assert.True(tracker.RecordCurrencyFlow(maximum));
+        repository.SaveSnapshot(repository.CapturePersistenceSnapshot());
+
+        var overflow = EconomyFlow(
+            "economy:checkpoint-overflow",
+            tracker,
+            generation,
+            CurrencyFlowDirection.Inflow,
+            1);
+        Assert.True(repository.RecordDeferred(overflow));
+        Assert.True(tracker.RecordCurrencyFlow(overflow));
+        repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(8), 8)!);
+
+        var persistedProfile = new AtomicJsonStore<ProfileDocument>().Load(repository.CurrentProfilePath!).Value!;
+        Assert.False(persistedProfile.Statistics.Economy.MoneyArithmeticSaturated);
+        Assert.Equal(
+            long.MaxValue,
+            persistedProfile.Statistics.Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);
+        var persistedCheckpoint = new AtomicJsonStore<ActiveRunCheckpoint>().Load(ActiveRunPath(directory.Path)).Value!;
+        Assert.True(persistedCheckpoint.Economy.MoneyArithmeticSaturated);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.True(recovery.Current.Statistics.Economy.MoneyArithmeticSaturated);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            recovery.Current.Statistics.Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.Equal(
+            long.MaxValue,
+            recovery.Current.Statistics.Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);
+        var recoveredRun = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.True(recoveredRun.Economy.MoneyArithmeticSaturated);
+        recovery.CloseClean();
+
+        var repeated = Repository(directory.Path);
+        Assert.False(repeated.Open(Identity()).InterruptedRunRecovered);
+        Assert.True(repeated.Current.Statistics.Economy.MoneyArithmeticSaturated);
+        Assert.Equal(
+            long.MaxValue,
+            repeated.Current.Statistics.Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);
+        repeated.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
     public void RecoveryMergesRunOnlyEconomyExactlyBeyondTheLegacyIdentityLimit()
     {
         using var directory = new TemporaryDirectory();

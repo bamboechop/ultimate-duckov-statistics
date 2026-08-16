@@ -10,7 +10,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v2";
+    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v3";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int CashItemTypeId = EconomyManager.CashItemID;
@@ -27,8 +27,8 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private readonly string activationId = Guid.NewGuid().ToString("N");
     private readonly List<PendingMoneyFlow> pendingMoney = new();
     private readonly Queue<int> pendingPickupIds = new();
-    private readonly HashSet<int> playerOriginatedCashIds = new();
-    private HashSet<int> ownedCashIds = new();
+    private readonly Dictionary<int, long> playerOriginatedCashAmounts = new();
+    private Dictionary<int, long> ownedCashAmounts = new();
     private Inventory? subscribedPetInventory;
     private long eventSequence;
     private long lastMoneyBalance;
@@ -139,17 +139,17 @@ internal sealed class NativeEconomyAdapter : IDisposable
         if (!cashBaselineReady)
         {
             cashBaseline = snapshot.Total;
-            ownedCashIds = snapshot.ItemIds;
+            ownedCashAmounts = snapshot.ItemAmounts;
             cashBaselineReady = true;
             pendingPickupIds.Clear();
             pendingCashSaleAmount = null;
             cashOutflowWasCompletedCost = false;
             return;
         }
-        ObserveRemovedCashIds(snapshot.ItemIds);
+        ObserveRemovedCashIds(snapshot.ItemAmounts);
         if (snapshot.Total != cashBaseline) PublishCashDelta(snapshot, observationContext);
         cashBaseline = snapshot.Total;
-        ownedCashIds = snapshot.ItemIds;
+        ownedCashAmounts = snapshot.ItemAmounts;
         pendingPickupIds.Clear();
         pendingCashSaleAmount = null;
         cashOutflowWasCompletedCost = false;
@@ -174,8 +174,8 @@ internal sealed class NativeEconomyAdapter : IDisposable
         cashBaselineReady = false;
         cashDirty = true;
         cashObservationContext = null;
-        ownedCashIds.Clear();
-        playerOriginatedCashIds.Clear();
+        ownedCashAmounts.Clear();
+        playerOriginatedCashAmounts.Clear();
         playerOriginatedCashOutsideOwned = 0;
     }
 
@@ -330,6 +330,8 @@ internal sealed class NativeEconomyAdapter : IDisposable
             var hadPickup = !cashAcquisitionDisabled
                             && pendingPickupIds.Count > 0
                             && !string.IsNullOrWhiteSpace(observationContext.RunId);
+            // AddAndMerge can consume the picked item before this snapshot, so its
+            // last exact owned amount is retained against the runtime identity.
             var repicked = hadPickup
                 ? Math.Min(
                     amount,
@@ -337,8 +339,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
                         playerOriginatedCashOutsideOwned,
                         SaturatingSum(pendingPickupIds
                             .Distinct()
-                            .Where(playerOriginatedCashIds.Contains)
-                            .Select(id => snapshot.ItemAmounts.TryGetValue(id, out var stack) ? stack : 0))))
+                            .Select(id => playerOriginatedCashAmounts.TryGetValue(id, out var stack) ? stack : 0))))
                 : 0;
             if (repicked > 0)
             {
@@ -423,19 +424,23 @@ internal sealed class NativeEconomyAdapter : IDisposable
         return new CashSnapshot(total, amounts);
     }
 
-    private void ObserveRemovedCashIds(HashSet<int> current)
+    private void ObserveRemovedCashIds(Dictionary<int, long> current)
     {
         if (cashAcquisitionDisabled) return;
-        foreach (var id in ownedCashIds.Where(id => !current.Contains(id)))
+        foreach (var entry in ownedCashAmounts.Where(entry => !current.ContainsKey(entry.Key)))
         {
-            if (playerOriginatedCashIds.Contains(id)) continue;
-            if (playerOriginatedCashIds.Count >= MaximumTransientItemIds)
+            if (playerOriginatedCashAmounts.ContainsKey(entry.Key))
+            {
+                playerOriginatedCashAmounts[entry.Key] = entry.Value;
+                continue;
+            }
+            if (playerOriginatedCashAmounts.Count >= MaximumTransientItemIds)
             {
                 DisableCashAcquisition(
                     $"The defensive {MaximumTransientItemIds}-item drop/re-pickup correlation bound was reached; exact Cash amount/direction remains available but external acquisition attribution is disabled.");
                 return;
             }
-            playerOriginatedCashIds.Add(id);
+            playerOriginatedCashAmounts.Add(entry.Key, entry.Value);
         }
     }
 
@@ -454,6 +459,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
     {
         if (disposed || !subscribed) return;
         FlushPendingMoney();
+        FlushCash();
         ResetCashBaseline();
         cashBaselineSuspended = true;
     }
@@ -514,7 +520,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
             MoneySourceAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " Completed StockShop sales and QuestReward_Money claims are semantic; purchases, fees, crafting, conversion, and other changes remain UnknownAdjustment."),
             MoneyContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " Reward and sale contexts are semantic; other non-raid changes use Base and remain source-independent."),
             CashAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " Cash is item type 451; event-coalesced totals span storage, main inventory, and pet inventory, while full-scene inventory hydration is baselined only after level initialization completes."),
-            CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " successful exact-main world pickup plus owned-total delta, with bounded player-originated drop/re-pickup item-identity exclusion; corpse/container transfers remain exact UnknownAdjustment flows."),
+            CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " successful exact-main world pickup plus owned-total delta, with bounded player-originated drop/re-pickup item-identity and last-owned-amount exclusion that remains exact when AddAndMerge consumes the picked item; corpse/container transfers remain exact UnknownAdjustment flows."),
             CashContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " context is captured at the accepted owned-total delta boundary."),
             CashTerminalOutcomes = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, "Cash acquisition is supported, but installed-game public events do not prove terminal disposition across fungible main, pet, and storage ownership; acquired amounts remain unresolved."),
             RouteAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " active run/map/segment identity is captured at event time; route loss degrades only segment attribution.")
@@ -565,7 +571,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         if (cashAcquisitionDisabled) return;
         cashAcquisitionDisabled = true;
         pendingPickupIds.Clear();
-        playerOriginatedCashIds.Clear();
+        playerOriginatedCashAmounts.Clear();
         playerOriginatedCashOutsideOwned = 0;
         MetricCapabilities.CashExternalAcquisition = EconomyNativeContractPolicy.Availability(
             AdapterCapabilityState.DisabledIncompatible,
@@ -651,10 +657,8 @@ internal sealed class NativeEconomyAdapter : IDisposable
         {
             Total = total;
             ItemAmounts = itemAmounts;
-            ItemIds = new HashSet<int>(itemAmounts.Keys);
         }
         public long Total { get; }
         public Dictionary<int, long> ItemAmounts { get; }
-        public HashSet<int> ItemIds { get; }
     }
 }

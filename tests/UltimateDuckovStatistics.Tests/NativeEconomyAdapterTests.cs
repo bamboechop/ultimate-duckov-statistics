@@ -150,6 +150,50 @@ public sealed class NativeEconomyAdapterTests : IDisposable
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "NativeAdapter")]
+    public void DropRepickupConsumedByAddAndMergeIsNotAcquiredAgain()
+    {
+        runActive = true;
+        runId = "run:merged-repickup";
+        segmentId = "segment:merged-repickup";
+        mapId = "duckov:map:merged-repickup";
+        var compatibleStack = Cash(20);
+        var droppedStack = Cash(8);
+        ItemUtilities.OwnedItems.Add(compatibleStack);
+        ItemUtilities.OwnedItems.Add(droppedStack);
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+
+        ItemUtilities.OwnedItems.Remove(droppedStack);
+        ItemUtilities.RaisePlayerItemOperation();
+        adapter.Tick();
+
+        compatibleStack.StackCount += 8;
+        droppedStack.StackCount = 0;
+        ItemUtilities.RaisePlayerItemOperation();
+        InteractablePickup.RaisePickup(
+            new InteractablePickup { ItemAgent = new ItemAgent { Item = droppedStack } },
+            MainCharacter());
+
+        Assert.Collection(
+            published,
+            flow =>
+            {
+                Assert.Equal(CurrencyFlowDirection.Outflow, flow.Direction);
+                Assert.Equal(8, flow.Amount);
+            },
+            flow =>
+            {
+                Assert.Equal(CurrencyFlowDirection.Inflow, flow.Direction);
+                Assert.Equal(8, flow.Amount);
+                Assert.Equal(CurrencySourceCategory.UnknownAdjustment, flow.Source);
+                Assert.False(flow.ProvenExternalRaidAcquisition);
+            });
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "NativeAdapter")]
     public void MainFlagWithoutExactMainCharacterIdentityCannotProveCashAcquisition()
     {
         runActive = true;
@@ -421,6 +465,35 @@ public sealed class NativeEconomyAdapterTests : IDisposable
         Assert.Equal("segment-source", cash.SegmentId);
         adapter.Tick();
         Assert.Equal(2, published.Count);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Lifecycle")]
+    public void SceneInitializationFlushesPendingCashBeforeSuspendingTheBaseline()
+    {
+        runActive = true;
+        runId = "run-before-transition";
+        segmentId = "segment-before-transition";
+        mapId = "map-before-transition";
+        ItemUtilities.OwnedItems.Add(Cash(10));
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+
+        ItemUtilities.OwnedItems.Add(Cash(4));
+        ItemUtilities.RaisePlayerItemOperation();
+        LevelManager.RaiseLevelBeginInitializing();
+
+        var flow = Assert.Single(published);
+        Assert.Equal(CurrencyKind.Cash, flow.Currency);
+        Assert.Equal(CurrencyFlowDirection.Inflow, flow.Direction);
+        Assert.Equal(4, flow.Amount);
+        Assert.Equal(CurrencySourceCategory.UnknownAdjustment, flow.Source);
+        Assert.Equal("run-before-transition", flow.RunId);
+        Assert.Equal("segment-before-transition", flow.SegmentId);
+        adapter.Tick();
+        Assert.Single(published);
     }
 
     [Fact]
