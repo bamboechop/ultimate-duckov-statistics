@@ -95,6 +95,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public ProfileDocument? Current => repository == null ? null : repository.Current;
 
+    public EconomyMetricCapabilities CurrentEconomyCapabilities =>
+        EconomyStatisticsReducer.CloneCapabilities(economyMetricCapabilities);
+
     public IReadOnlyList<DiagnosticEntry> DiagnosticEntries =>
         diagnostics?.Entries ?? Array.Empty<DiagnosticEntry>();
 

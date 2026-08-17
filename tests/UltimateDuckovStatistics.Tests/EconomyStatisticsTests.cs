@@ -631,8 +631,37 @@ public sealed class EconomyStatisticsTests
             State = AdapterCapabilityState.DisabledIncompatible,
             Provenance = "contract drift"
         };
-        var disabledAfterCapture = UiText.FormatEconomyCompact(aggregate);
-        Assert.Contains("Money +12/-0 net 12 (current capture unavailable)", disabledAfterCapture, StringComparison.Ordinal);
+        var currentlyDisabled = UiText.FormatEconomyCompact(aggregate, aggregate.Capabilities);
+        Assert.Contains("Money +12/-0 net 12 (current capture unavailable)", currentlyDisabled, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EconomyUiProjectionDistinguishesDegradedLifetimeFromCurrentCaptureFailure()
+    {
+        var degradedLifetime = Supported();
+        EconomyStatisticsReducer.Record(
+            degradedLifetime,
+            "generation",
+            Flow("ui-degraded-money", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 12));
+        degradedLifetime.CashRaidOutcomes.Acquired = 4;
+        degradedLifetime.Capabilities.MoneyAmountDirection = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "transient Money capture failure"
+        };
+        degradedLifetime.Capabilities.CashExternalAcquisition = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "transient Cash scan failure"
+        };
+
+        var supportedCurrent = Supported().Capabilities;
+        var degradedCompact = UiText.FormatEconomyCompact(degradedLifetime, supportedCurrent);
+        var degradedOutcome = UiText.FormatCashOutcome(degradedLifetime, supportedCurrent);
+        Assert.Contains("Money +12/-0 net 12 (capture unavailable for part of this scope)", degradedCompact, StringComparison.Ordinal);
+        Assert.Contains("acquired 4 (capture unavailable for part of this scope)", degradedOutcome, StringComparison.Ordinal);
+        Assert.DoesNotContain("current capture unavailable", degradedCompact, StringComparison.Ordinal);
+        Assert.DoesNotContain("current capture unavailable", degradedOutcome, StringComparison.Ordinal);
     }
 
     private static EconomyStatisticsAggregate Supported()

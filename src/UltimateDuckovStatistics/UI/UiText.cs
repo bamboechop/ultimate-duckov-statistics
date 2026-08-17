@@ -113,43 +113,60 @@ internal static class UiText
             ["ui.unresolved"] = "Unresolved",
             ["ui.pre_m9_unavailable"] = "earlier economy history unavailable",
             ["ui.no_m9_flows"] = "no recorded M9 flow",
+            ["ui.scope_capture_partly_unavailable"] = "capture unavailable for part of this scope",
+            ["ui.scope_capture_unavailable"] = "capture unavailable for this scope",
             ["ui.current_capture_unavailable"] = "current capture unavailable"
         };
 
     public static string Get(string key) => English.TryGetValue(key, out var value) ? value : key;
 
-    public static string FormatEconomyCompact(EconomyStatisticsAggregate economy)
+    public static string FormatEconomyCompact(
+        EconomyStatisticsAggregate economy,
+        EconomyMetricCapabilities? currentCapabilities = null)
     {
         if (economy == null) return Get("ui.unsupported");
-        string Part(CurrencyKind kind, MetricAvailability availability)
+        string Part(CurrencyKind kind, MetricAvailability availability, MetricAvailability? currentAvailability)
         {
             if (!economy.Currencies.TryGetValue(kind.ToString(), out var row))
             {
                 if (economy.HistoricalUnavailable)
                     return $"{kind} {Get("ui.no_m9_flows")}";
-                return $"{kind} {FormatEconomyValue(0, availability.State)}";
+                return $"{kind} {FormatEconomyValue(0, availability.State, currentAvailability)}";
             }
             var totals = $"{kind} +{row.Totals.GrossInflow.ToString(CultureInfo.InvariantCulture)}"
                          + $"/-{row.Totals.GrossOutflow.ToString(CultureInfo.InvariantCulture)}"
                          + $" net {row.Totals.NetFlow.ToString(CultureInfo.InvariantCulture)}";
             return availability.State == AdapterCapabilityState.DisabledIncompatible
-                ? $"{totals} ({Get("ui.current_capture_unavailable")})"
+                ? $"{totals} ({FormatUnavailableScope(currentAvailability)})"
                 : totals;
         }
-        var result = $"{Part(CurrencyKind.Money, economy.Capabilities.MoneyAmountDirection)}; {Part(CurrencyKind.Cash, economy.Capabilities.CashAmountDirection)}";
+        var result = $"{Part(CurrencyKind.Money, economy.Capabilities.MoneyAmountDirection, currentCapabilities?.MoneyAmountDirection)}; "
+                     + Part(CurrencyKind.Cash, economy.Capabilities.CashAmountDirection, currentCapabilities?.CashAmountDirection);
         return economy.HistoricalUnavailable ? $"{result} ({Get("ui.pre_m9_unavailable")})" : result;
     }
 
-    public static string FormatCashOutcome(EconomyStatisticsAggregate economy) =>
-        $"{Get("ui.raid_cash")} {Get("ui.acquired").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Acquired, economy.Capabilities.CashExternalAcquisition.State)}, "
-        + $"{Get("ui.secured").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Secured, economy.Capabilities.CashTerminalOutcomes.State)}, "
-        + $"{Get("ui.lost").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Lost, economy.Capabilities.CashTerminalOutcomes.State)}, "
-        + $"{Get("ui.unresolved").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Unresolved, economy.Capabilities.CashTerminalOutcomes.State)}";
+    public static string FormatCashOutcome(
+        EconomyStatisticsAggregate economy,
+        EconomyMetricCapabilities? currentCapabilities = null) =>
+        $"{Get("ui.raid_cash")} {Get("ui.acquired").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Acquired, economy.Capabilities.CashExternalAcquisition.State, currentCapabilities?.CashExternalAcquisition)}, "
+        + $"{Get("ui.secured").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Secured, economy.Capabilities.CashTerminalOutcomes.State, currentCapabilities?.CashTerminalOutcomes)}, "
+        + $"{Get("ui.lost").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Lost, economy.Capabilities.CashTerminalOutcomes.State, currentCapabilities?.CashTerminalOutcomes)}, "
+        + $"{Get("ui.unresolved").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Unresolved, economy.Capabilities.CashTerminalOutcomes.State, currentCapabilities?.CashTerminalOutcomes)}";
 
-    private static string FormatEconomyValue(long value, AdapterCapabilityState state) =>
+    private static string FormatEconomyValue(
+        long value,
+        AdapterCapabilityState state,
+        MetricAvailability? currentAvailability) =>
         state == AdapterCapabilityState.DisabledIncompatible
-            ? value == 0 ? Get("ui.unsupported") : $"{value.ToString(CultureInfo.InvariantCulture)} ({Get("ui.current_capture_unavailable")})"
+            ? value == 0 ? Get("ui.unsupported") : $"{value.ToString(CultureInfo.InvariantCulture)} ({FormatUnavailableScope(currentAvailability)})"
             : value.ToString(CultureInfo.InvariantCulture);
+
+    private static string FormatUnavailableScope(MetricAvailability? currentAvailability) =>
+        currentAvailability == null
+            ? Get("ui.scope_capture_unavailable")
+            : currentAvailability.State == AdapterCapabilityState.DisabledIncompatible
+                ? Get("ui.current_capture_unavailable")
+                : Get("ui.scope_capture_partly_unavailable");
 
     public static string FormatRoute(RunSummary run)
     {

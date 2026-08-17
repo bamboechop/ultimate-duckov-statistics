@@ -168,7 +168,7 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label(
             $"{UiText.Get("ui.firing_actions")}: "
             + FormatMetric(combat.Lifetime.Totals.FiringActions, combat.Capabilities.FiringActions.State));
-        GUILayout.Label($"{UiText.Get("ui.economy")}: {UiText.FormatEconomyCompact(profile.Statistics.Economy)}");
+        GUILayout.Label($"{UiText.Get("ui.economy")}: {UiText.FormatEconomyCompact(profile.Statistics.Economy, coordinator.CurrentEconomyCapabilities)}");
         GUILayout.Space(12);
         GUILayout.Label(UiText.Get("ui.group_totals"));
         foreach (var group in profile.Statistics.Groups.OrderBy(entry => entry.Key, StringComparer.Ordinal))
@@ -227,6 +227,7 @@ internal sealed class NativeStatisticsPanel
         }
 
         var model = RunStatisticsViewModelFactory.Create(profile);
+        var currentEconomyCapabilities = coordinator.CurrentEconomyCapabilities;
         GUILayout.Space(8);
         if (model.Runs.Count == 0)
         {
@@ -266,7 +267,10 @@ internal sealed class NativeStatisticsPanel
                 + $"{UiText.Get("ui.damage_received")}: {FormatMetric(combat.Totals.DamageReceived, combat.Capabilities.DamageReceived.State)}; "
                 + $"{UiText.Get("ui.kills")}: {FormatMetric(combat.Totals.EnemiesKilled, combat.Capabilities.EnemiesKilled.State)}; "
                 + $"{UiText.Get("ui.deaths")}: {FormatMetric(combat.Totals.PlayerDeaths, combat.Capabilities.PlayerDeaths.State)}");
-            GUILayout.Label($"  {UiText.Get("ui.economy")}: {UiText.FormatEconomyCompact(run.Economy)}; {UiText.FormatCashOutcome(run.Economy)}");
+            GUILayout.Label(
+                $"  {UiText.Get("ui.economy")}: "
+                + $"{UiText.FormatEconomyCompact(run.Economy, currentEconomyCapabilities)}; "
+                + UiText.FormatCashOutcome(run.Economy, currentEconomyCapabilities));
             GUILayout.Label(
                 $"  {UiText.Get("ui.containers_looted")}: "
                 + FormatContainers(run.ContainerStatistics, run.ContainerStatistics.Capabilities.UniqueContainersLooted.State));
@@ -612,6 +616,7 @@ internal sealed class NativeStatisticsPanel
         var profile = coordinator.Current;
         if (profile == null) return;
         var economy = profile.Statistics.Economy;
+        var currentEconomyCapabilities = coordinator.CurrentEconomyCapabilities;
         GUILayout.Space(8);
         GUILayout.Label(UiText.Get("ui.economy_contract"));
         if (economy.LegacyIdentitySaturationIncomplete)
@@ -641,7 +646,10 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Space(12);
         GUILayout.Label("Recent run economy");
         foreach (var run in profile.Statistics.Runs.OrderByDescending(value => value.EndedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal).Take(8))
-            GUILayout.Label($"  {run.EndedUtc.ToString("u", CultureInfo.InvariantCulture)} {run.Outcome}: {UiText.FormatEconomyCompact(run.Economy)}; {UiText.FormatCashOutcome(run.Economy)}");
+            GUILayout.Label(
+                $"  {run.EndedUtc.ToString("u", CultureInfo.InvariantCulture)} {run.Outcome}: "
+                + $"{UiText.FormatEconomyCompact(run.Economy, currentEconomyCapabilities)}; "
+                + UiText.FormatCashOutcome(run.Economy, currentEconomyCapabilities));
         GUILayout.EndScrollView();
     }
 
