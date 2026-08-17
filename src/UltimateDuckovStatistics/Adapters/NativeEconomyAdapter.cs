@@ -10,7 +10,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v8";
+    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v9";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int CashItemTypeId = EconomyManager.CashItemID;
@@ -190,6 +190,11 @@ internal sealed class NativeEconomyAdapter : IDisposable
     {
         pendingMoney.Clear();
         pendingCash.Clear();
+        ResetObservedBalances();
+    }
+
+    private void ResetObservedBalances()
+    {
         moneyBalanceObserved = false;
         lastMoneyBalance = 0;
         lastMoneyOldValue = 0;
@@ -564,7 +569,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         if (disposed || !subscribed) return;
         ClearPendingCashSale();
         FlushPendingMoney();
-        ResetBaselines();
+        ResetObservedBalances();
         cashBaselineSuspended = true;
     }
     private void OnPlayerItemOperation() { if (!disposed && subscribed) MarkCashDirty(); }
@@ -585,7 +590,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         FlushPendingMoney();
         if (!cashBaselineSuspended && cashBaselineReady) FlushCash();
         ReconcilePetInventorySubscription();
-        ResetBaselines();
+        ResetObservedBalances();
         cashBaselineSuspended = false;
         FlushCash();
     }

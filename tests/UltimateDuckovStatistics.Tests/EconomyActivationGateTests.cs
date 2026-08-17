@@ -85,6 +85,16 @@ public sealed class EconomyActivationGateTests : IDisposable
         Assert.Empty(published);
         Assert.Empty(repository.Current.Statistics.Economy.Currencies);
 
+        mapId = "map-after-transition";
+        segmentId = "segment-after-transition";
+        LevelManager.RaiseLevelBeginInitializing();
+        EconomyManager.RaiseLoaded();
+        LevelManager.RaiseAfterLevelInitialized();
+
+        Assert.False(gate.IsReady);
+        Assert.Empty(published);
+        Assert.Empty(repository.Current.Statistics.Economy.Currencies);
+
         Directory.Delete(blockedTemporaryPath);
         adapter.Tick();
 
