@@ -24,9 +24,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private ProfileRepository? repository;
     private readonly DeferredCheckpointWriter<CheckpointWrite> checkpointWriter;
     private readonly DeferredSnapshotWriter<ProfileWrite> profileWriter;
+    private readonly EconomyActivationGate economyActivationGate;
     private Func<bool>? activeRunCheckpointFlusher;
-    private string? pendingEconomyActivationId;
-    private bool economyActivationFailureReported;
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
     private CapabilityRecord healingCapability = new()
@@ -85,6 +84,14 @@ internal sealed class NativeProfileCoordinator : IDisposable
             write.Repository.SaveSnapshot(write.Snapshot);
             NativeHotPathDiagnostics.CountProfileStoreSuccess();
         });
+        economyActivationGate = new EconomyActivationGate(
+            activationId =>
+            {
+                var currentRepository = repository
+                    ?? throw new InvalidOperationException("No profile generation is open for economy activation.");
+                currentRepository.BeginEconomyActivation(activationId);
+            },
+            ReportEconomyActivationFailure);
     }
 
     public event Action? ProfileChanged;
@@ -292,18 +299,15 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public void BeginEconomyActivation(string activationId)
     {
-        if (string.IsNullOrWhiteSpace(activationId))
-            throw new ArgumentException("An economy activation identity is required.", nameof(activationId));
-        pendingEconomyActivationId = activationId;
-        economyActivationFailureReported = false;
-        TryPersistPendingEconomyActivation();
+        economyActivationGate.Begin(activationId);
     }
 
-    public void RetryPendingEconomyActivation() => TryPersistPendingEconomyActivation();
+    public bool RetryPendingEconomyActivation() => economyActivationGate.EnsureReady();
 
     public bool HandleCurrencyFlow(CurrencyFlowRecorded flow)
     {
         if (flow == null) throw new ArgumentNullException(nameof(flow));
+        if (!economyActivationGate.EnsureReady()) return false;
         try
         {
             var currentRepository = repository;
@@ -550,24 +554,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
     }
 
-    private void TryPersistPendingEconomyActivation()
+    private void ReportEconomyActivationFailure(Exception exception)
     {
-        if (pendingEconomyActivationId == null || repository == null) return;
-        try
-        {
-            repository.BeginEconomyActivation(pendingEconomyActivationId);
-            pendingEconomyActivationId = null;
-            economyActivationFailureReported = false;
-        }
-        catch (Exception exception)
-        {
-            if (economyActivationFailureReported) return;
-            economyActivationFailureReported = true;
-            Debug.LogException(exception);
-            WriteDiagnostic(
-                $"Economy activation persistence failed and remains queued for retry: {exception.GetType().Name}.",
-                "Error");
-        }
+        Debug.LogException(exception);
+        WriteDiagnostic(
+            $"Economy activation persistence failed and remains queued for retry: {exception.GetType().Name}.",
+            "Error");
     }
 
     private void PublishProfileEvent(Action? subscribers, string eventName) =>

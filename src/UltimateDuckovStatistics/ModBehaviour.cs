@@ -93,9 +93,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 () => runLifecycleAdapter.OwnedValue?.CurrentMapId,
                 () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId,
                 () => runLifecycleAdapter.OwnedValue?.IsActive == true,
-                flow => ItemUsePublication.PublishIndependently(
-                    () => profileCoordinator.HandleCurrencyFlow(flow),
-                    () => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true),
+                flow => profileCoordinator.RetryPendingEconomyActivation()
+                        && ItemUsePublication.PublishIndependently(
+                            () => profileCoordinator.HandleCurrencyFlow(flow),
+                            () => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true),
                 capabilities =>
                 {
                     if (newEconomyAdapter == null) return;
@@ -103,7 +104,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                         () => profileCoordinator.SetEconomyCapabilities(capabilities, newEconomyAdapter.MetricCapabilities),
                         () => runLifecycleAdapter.OwnedValue?.UpdateEconomyCapabilities(newEconomyAdapter.MetricCapabilities));
                 },
-                message => Debug.Log($"{LogPrefix} {message}"));
+                message => Debug.Log($"{LogPrefix} {message}"),
+                profileCoordinator.RetryPendingEconomyActivation);
             economyAdapter = newEconomyAdapter;
             profileCoordinator.BeginEconomyActivation(newEconomyAdapter.ActivationId);
             newEconomyAdapter.Initialize();
@@ -247,7 +249,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Update()
     {
-        profileCoordinator?.RetryPendingEconomyActivation();
+        var economyActivationReady = profileCoordinator?.RetryPendingEconomyActivation() != false;
         NativeHotPathDiagnostics.HandleControl(
             Input.GetKeyDown(KeyCode.F9),
             Input.GetKeyDown(KeyCode.F10),
@@ -255,7 +257,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         runLifecycleAdapter.OwnedValue?.Tick();
         equipmentAdapter.OwnedValue?.Tick();
         itemUseAdapter?.Tick(DateTime.UtcNow);
-        economyAdapter?.Tick();
+        if (economyActivationReady) economyAdapter?.Tick();
         healingAttributionAdapter?.Tick();
         combatAttributionAdapter.OwnedValue?.Tick();
         containerAdapter.OwnedValue?.Tick();

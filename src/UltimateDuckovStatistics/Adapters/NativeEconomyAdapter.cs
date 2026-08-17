@@ -10,7 +10,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v6";
+    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v7";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int CashItemTypeId = EconomyManager.CashItemID;
@@ -24,6 +24,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private readonly Func<CurrencyFlowRecorded, bool> publisher;
     private readonly Action<IReadOnlyList<Core.Persistence.CapabilityRecord>> capabilityPublisher;
     private readonly Action<string> diagnostic;
+    private readonly Func<bool> publicationGate;
     private readonly string activationId = Guid.NewGuid().ToString("N");
     private readonly List<PendingMoneyFlow> pendingMoney = new();
     private readonly Queue<int> pendingPickupIds = new();
@@ -61,7 +62,8 @@ internal sealed class NativeEconomyAdapter : IDisposable
         Func<bool> runActiveProvider,
         Func<CurrencyFlowRecorded, bool> publisher,
         Action<IReadOnlyList<Core.Persistence.CapabilityRecord>> capabilityPublisher,
-        Action<string> diagnostic)
+        Action<string> diagnostic,
+        Func<bool>? publicationGate = null)
     {
         this.generationProvider = generationProvider ?? throw new ArgumentNullException(nameof(generationProvider));
         this.runProvider = runProvider ?? throw new ArgumentNullException(nameof(runProvider));
@@ -71,6 +73,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         this.publisher = publisher ?? throw new ArgumentNullException(nameof(publisher));
         this.capabilityPublisher = capabilityPublisher ?? throw new ArgumentNullException(nameof(capabilityPublisher));
         this.diagnostic = diagnostic ?? throw new ArgumentNullException(nameof(diagnostic));
+        this.publicationGate = publicationGate ?? (() => true);
     }
 
     public EconomyMetricCapabilities MetricCapabilities { get; private set; } =
@@ -125,18 +128,17 @@ internal sealed class NativeEconomyAdapter : IDisposable
 
     private void FlushPendingMoney()
     {
-        if (pendingMoney.Count > 0)
-        {
-            var ready = pendingMoney.ToArray();
-            pendingMoney.Clear();
-            foreach (var flow in ready) Publish(CreateMoneyEvent(flow, "money"));
-        }
+        if (pendingMoney.Count == 0 || !PublicationReady()) return;
+        var ready = pendingMoney.ToArray();
+        pendingMoney.Clear();
+        foreach (var flow in ready) Publish(CreateMoneyEvent(flow, "money"));
     }
 
     private bool FlushCash()
     {
         if (cashDisabled || cashBaselineSuspended) return false;
         if (!cashDirty && cashBaselineReady) return true;
+        if (cashBaselineReady && !PublicationReady()) return false;
         cashDirty = false;
         var observationContext = cashObservationContext ?? CaptureContext();
         cashObservationContext = null;
@@ -266,6 +268,12 @@ internal sealed class NativeEconomyAdapter : IDisposable
         var context = CaptureContext();
         if (pendingMoney.Count >= MaximumPendingMoneyFlows)
         {
+            if (!PublicationReady())
+            {
+                DisableMoneyWhilePublicationBlocked(
+                    $"The defensive {MaximumPendingMoneyFlows}-flow pending bound was reached while economy activation persistence was unavailable; later Money capture is disabled instead of discarding an unpublished exact flow.");
+                return;
+            }
             DisableMoneySemanticCorrelation(
                 $"The defensive {MaximumPendingMoneyFlows}-flow semantic correlation bound was reached; exact Money amount/direction remains available but source-specific attribution is disabled.");
             var oldest = pendingMoney[0];
@@ -475,6 +483,16 @@ internal sealed class NativeEconomyAdapter : IDisposable
         publisher(value);
     }
 
+    private bool PublicationReady()
+    {
+        try { return publicationGate(); }
+        catch (Exception exception)
+        {
+            diagnostic($"Economy publication gate failed safely: {exception.GetType().Name}.");
+            return false;
+        }
+    }
+
     private PendingMoneyFlow? FindPendingMoney(CurrencyFlowDirection direction, long amount) =>
         pendingMoney.LastOrDefault(flow => flow.Direction == direction && flow.Amount == amount && flow.Source == CurrencySourceCategory.UnknownAdjustment);
 
@@ -630,13 +648,29 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private void DisableMoney(string reason)
     {
         moneyDisabled = true;
-        var accepted = pendingMoney.ToArray();
-        pendingMoney.Clear();
+        var canPublishPending = pendingMoney.Count == 0 || PublicationReady();
+        var accepted = canPublishPending ? pendingMoney.ToArray() : Array.Empty<PendingMoneyFlow>();
+        if (canPublishPending) pendingMoney.Clear();
         MetricCapabilities.MoneyAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.MoneySourceAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.MoneyContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         PublishCapabilities(); diagnostic(reason);
         foreach (var flow in accepted) Publish(CreateMoneyEvent(flow, "money-before-disable"));
+    }
+    private void DisableMoneyWhilePublicationBlocked(string reason)
+    {
+        moneyDisabled = true;
+        MetricCapabilities.MoneyAmountDirection = EconomyNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            reason);
+        MetricCapabilities.MoneySourceAttribution = EconomyNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            reason);
+        MetricCapabilities.MoneyContextAttribution = EconomyNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            reason);
+        PublishCapabilities();
+        diagnostic(reason);
     }
     private void DisableMoneySemanticCorrelation(string reason)
     {
