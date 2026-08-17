@@ -107,21 +107,26 @@ namespace Duckov.Economy
     {
         public const int CashItemID = 451;
         public static event Action<long, long>? OnMoneyChanged;
+        public static event Action<long>? OnMoneyPaid;
         public static event Action? OnEconomyManagerLoaded;
         public static event Action<Cost>? OnCostPaid;
 
         public static void RaiseMoneyChanged(long oldValue, long newValue) => OnMoneyChanged?.Invoke(oldValue, newValue);
+        public static void RaiseMoneyPaid(long amount) => OnMoneyPaid?.Invoke(amount);
         public static void RaiseLoaded() => OnEconomyManagerLoaded?.Invoke();
-        public static void RaiseCostPaid(long cashAmount = 0) => OnCostPaid?.Invoke(new Cost
+        public static void RaiseCostPaid(long cashAmount = 0, long moneyAmount = 0) => OnCostPaid?.Invoke(new Cost
         {
+            money = moneyAmount,
             items = cashAmount <= 0
                 ? Array.Empty<Cost.ItemEntry>()
                 : [new Cost.ItemEntry { id = CashItemID, amount = cashAmount }]
         });
+        public static Action<long>? CaptureMoneyPaidSubscribers() => OnMoneyPaid;
         public static Action<Cost>? CaptureCostPaidSubscribers() => OnCostPaid;
         public static void ResetNativeState()
         {
             OnMoneyChanged = null;
+            OnMoneyPaid = null;
             OnEconomyManagerLoaded = null;
             OnCostPaid = null;
         }

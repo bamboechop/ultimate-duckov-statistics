@@ -113,6 +113,7 @@ try
         core.RequireEvent("Saves", "SavesSystem", "OnSaveDeleted", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnCollectSaveData", "System.Action");
         core.RequireEvent("Duckov.Economy", "EconomyManager", "OnMoneyChanged", "System.Action", "System.Int64");
+        core.RequireEvent("Duckov.Economy", "EconomyManager", "OnMoneyPaid", "System.Action", "System.Int64");
         core.RequireEvent("Duckov.Economy", "EconomyManager", "OnEconomyManagerLoaded", "System.Action");
         core.RequireEvent("Duckov.Economy", "EconomyManager", "OnCostPaid", "System.Action", "Duckov.Economy.Cost");
         core.RequireEvent("Duckov.Economy", "StockShop", "OnItemSoldByPlayer", "System.Action", "Duckov.Economy.StockShop", "ItemStatsSystem.Item", "System.Int32");
@@ -147,6 +148,7 @@ try
         core.RequireProperty("Duckov.Economy", "EconomyManager", "Cash", "System.Int64", mustBePublic: true, mustBeStatic: true);
         core.RequireField("Duckov.Economy", "EconomyManager", "CashItemID", mustBePublic: true, fieldTypeFragment: "System.Int32");
         core.RequireField("Duckov.Economy", "Cost", "items", mustBePublic: true, fieldTypeFragment: "ItemEntry");
+        core.RequireField("Duckov.Economy", "Cost", "money", mustBePublic: true, fieldTypeFragment: "System.Int64");
         core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "Prefabs", "PrefabsData", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "PrefabsData", "LootBoxPrefab_Tomb", "InteractableLootbox", mustBePublic: true);
         core.RequireProperty(string.Empty, "DuckovItemAgent", "Holder", "CharacterMainControl", mustBePublic: true);

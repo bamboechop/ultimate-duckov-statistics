@@ -331,6 +331,105 @@ public sealed class NativeEconomyAdapterTests : IDisposable
             });
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Category", "M9")]
+    [Trait("Category", "NativeAdapter")]
+    [Trait("Category", "Capability")]
+    public void RepeatedCompletedCashSpendingDoesNotConsumeTheDropIdentityBound(bool useMoneyCost)
+    {
+        runActive = true;
+        runId = "run:cash-spending-bound";
+        segmentId = "segment:cash-spending-bound";
+        mapId = "duckov:map:cash-spending-bound";
+        var stacks = Enumerable.Range(0, 513).Select(_ => Cash(1)).ToArray();
+        ItemUtilities.OwnedItems.AddRange(stacks);
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+
+        foreach (var stack in stacks)
+        {
+            if (useMoneyCost) EconomyManager.RaiseMoneyChanged(0, 0);
+            ItemUtilities.OwnedItems.Remove(stack);
+            if (useMoneyCost)
+            {
+                EconomyManager.RaiseMoneyPaid(1);
+                EconomyManager.RaiseCostPaid(moneyAmount: 1);
+            }
+            else
+            {
+                ItemUtilities.RaisePlayerItemOperation();
+                EconomyManager.RaiseCostPaid(cashAmount: 1);
+            }
+        }
+
+        Assert.Equal(AdapterCapabilityState.Experimental, adapter.MetricCapabilities.CashExternalAcquisition.State);
+        var external = Cash(3);
+        ItemUtilities.OwnedItems.Add(external);
+        InteractablePickup.RaisePickup(
+            new InteractablePickup { ItemAgent = new ItemAgent { Item = external } },
+            MainCharacter());
+
+        var acquisition = published[^1];
+        Assert.Equal(3, acquisition.Amount);
+        Assert.Equal(CurrencySourceCategory.LootOrPickup, acquisition.Source);
+        Assert.True(acquisition.ProvenExternalRaidAcquisition);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "NativeAdapter")]
+    public void MoneyFundedCashCostFlushesAnEarlierDropBeforeConsumingCash()
+    {
+        runActive = true;
+        runId = "run:drop-money-cost";
+        segmentId = "segment:drop-money-cost";
+        mapId = "duckov:map:drop-money-cost";
+        var compatibleStack = Cash(20);
+        var droppedStack = Cash(8);
+        ItemUtilities.OwnedItems.Add(compatibleStack);
+        ItemUtilities.OwnedItems.Add(droppedStack);
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+
+        ItemUtilities.OwnedItems.Remove(droppedStack);
+        ItemUtilities.RaisePlayerItemOperation();
+        EconomyManager.RaiseMoneyChanged(0, 0);
+        compatibleStack.StackCount -= 5;
+        EconomyManager.RaiseMoneyPaid(5);
+        EconomyManager.RaiseCostPaid(moneyAmount: 5);
+
+        compatibleStack.StackCount += 8;
+        droppedStack.StackCount = 0;
+        ItemUtilities.RaisePlayerItemOperation();
+        InteractablePickup.RaisePickup(
+            new InteractablePickup { ItemAgent = new ItemAgent { Item = droppedStack } },
+            MainCharacter());
+
+        Assert.Collection(
+            published.Where(flow => flow.Currency == CurrencyKind.Cash),
+            drop =>
+            {
+                Assert.Equal(CurrencyFlowDirection.Outflow, drop.Direction);
+                Assert.Equal(8, drop.Amount);
+            },
+            cost =>
+            {
+                Assert.Equal(CurrencyFlowDirection.Outflow, cost.Direction);
+                Assert.Equal(5, cost.Amount);
+            },
+            repickup =>
+            {
+                Assert.Equal(CurrencyFlowDirection.Inflow, repickup.Direction);
+                Assert.Equal(8, repickup.Amount);
+                Assert.Equal(CurrencySourceCategory.UnknownAdjustment, repickup.Source);
+                Assert.False(repickup.ProvenExternalRaidAcquisition);
+            });
+    }
+
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "NativeAdapter")]
@@ -438,11 +537,13 @@ public sealed class NativeEconomyAdapterTests : IDisposable
         adapter.Initialize();
         adapter.Tick();
         var staleSale = StockShop.CaptureSoldSubscribers();
+        var staleMoneyPaid = EconomyManager.CaptureMoneyPaidSubscribers();
         var staleCost = EconomyManager.CaptureCostPaidSubscribers();
 
         adapter.Dispose();
         ItemUtilities.OwnedItems.Add(Cash(5));
         staleSale!(new StockShop(), new Item { TypeID = 99 }, 5);
+        staleMoneyPaid!(5);
         staleCost!(new Cost());
 
         Assert.Empty(published);
