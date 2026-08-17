@@ -312,8 +312,9 @@ public static class EconomyStatisticsReducer
             if (historicalCapturedComposition
                 && !HasExactCapturedCurrency(component, currency))
             {
-                if (component.HistoricalUnavailable
-                    && !component.Currencies.ContainsKey(currency.ToString()))
+                if (!component.Currencies.ContainsKey(currency.ToString())
+                    && (component.HistoricalUnavailable
+                        || HasExactSupportedCurrency(component, currency)))
                     continue;
                 return false;
             }

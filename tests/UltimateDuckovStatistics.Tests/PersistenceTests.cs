@@ -428,8 +428,16 @@ public sealed class PersistenceTests
         using var temporaryDirectory = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
         var store = new AtomicJsonStore<ProfileDocument>();
-        var backup = CreateMigratedProfileWithExactPostM9Run("generation-a", revision: 7, amount: 10);
-        var invalidPrimary = CreateMigratedProfileWithExactPostM9Run("generation-a", revision: 8, amount: 10);
+        var backup = CreateMigratedProfileWithExactPostM9Run(
+            "generation-a",
+            revision: 7,
+            amount: 10,
+            includeCurrentZeroFlowRun: true);
+        var invalidPrimary = CreateMigratedProfileWithExactPostM9Run(
+            "generation-a",
+            revision: 8,
+            amount: 10,
+            includeCurrentZeroFlowRun: true);
         var postM9Run = invalidPrimary.Statistics.Runs.Single(run => run.RunId == "run-post-m9");
         if (corruption == "completed-runs")
             SetMoneyInflow(invalidPrimary.Statistics.RunTotals.Economy, 20);
@@ -450,6 +458,44 @@ public sealed class PersistenceTests
         Assert.Equal(
             10,
             repository.Current.Statistics.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void MigratedProfileAcceptsCurrentExactZeroFlowBesidePostM9MoneyFlow()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        store.Save(path, CreateMigratedProfileWithExactPostM9Run(
+            "generation-a",
+            revision: 7,
+            amount: 10,
+            includeCurrentZeroFlowRun: true));
+        store.Save(path, CreateMigratedProfileWithExactPostM9Run(
+            "generation-a",
+            revision: 8,
+            amount: 10,
+            includeCurrentZeroFlowRun: true));
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.False(result.RecoveredSnapshot);
+        Assert.False(result.RotatedGeneration);
+        Assert.Empty(result.LoadFailures);
+        Assert.Equal(8, repository.Current.Revision);
+        Assert.Equal(3, repository.Current.Statistics.Runs.Count);
+        Assert.Equal(
+            10,
+            repository.Current.Statistics.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
+        var zeroFlowRun = repository.Current.Statistics.Runs.Single(run => run.RunId == "run-post-m9-zero");
+        Assert.False(zeroFlowRun.HistoricalRouteUnavailable);
+        Assert.False(zeroFlowRun.Economy.HistoricalUnavailable);
+        Assert.Equal(AdapterCapabilityState.Supported, zeroFlowRun.Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.False(zeroFlowRun.Economy.Currencies.ContainsKey("Money"));
         repository.CloseClean();
     }
 
@@ -2214,7 +2260,8 @@ public sealed class PersistenceTests
     private static ProfileDocument CreateMigratedProfileWithExactPostM9Run(
         string generationId,
         long revision,
-        long amount)
+        long amount,
+        bool includeCurrentZeroFlowRun = false)
     {
         var document = CreateCompleteCurrentSchemaDocument(generationId, revision);
         document.SchemaVersion = 8;
@@ -2249,6 +2296,17 @@ public sealed class PersistenceTests
         SetMoneyInflow(document.Statistics.RunTotals.Economy, amount);
         SetMoneyInflow(document.Statistics.RunTotals.Maps[postM9Run.StartingMapId].Economy, amount);
         SetMoneyInflow(document.Statistics.RunTotals.RouteMaps[postM9Run.Segments[0].MapId].Economy, amount);
+        if (includeCurrentZeroFlowRun)
+        {
+            var zeroFlowRun = CreateCompleteCurrentSchemaDocument(generationId, revision).Statistics.Runs[0];
+            zeroFlowRun.RunId = "run-post-m9-zero";
+            zeroFlowRun.Segments[0].SegmentId = "segment-post-m9-zero";
+            zeroFlowRun.RouteSignature = RouteStatisticsReducer.BuildSignature(zeroFlowRun.Segments);
+            zeroFlowRun.RouteCapabilities = RouteStatisticsReducer.Supported("test exact route contract");
+            SetExactMoneySupported(zeroFlowRun.Economy);
+            SetExactMoneySupported(zeroFlowRun.Segments[0].Economy);
+            document.Statistics.Runs.Add(zeroFlowRun);
+        }
         return document;
     }
 
