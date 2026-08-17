@@ -34,10 +34,25 @@ public sealed class EconomyStatisticsTests
             new[] { captured, degradedZero },
             CurrencyKind.Money));
 
+        var totalMoney = historicalTotal.Currencies[CurrencyKind.Money.ToString()];
+        Assert.True(historicalTotal.Currencies.Remove(CurrencyKind.Money.ToString()));
+        Assert.False(EconomyStatisticsReducer.IsExactCurrencyComposition(
+            historicalTotal,
+            new[] { captured, degradedZero },
+            CurrencyKind.Money));
+        historicalTotal.Currencies[CurrencyKind.Money.ToString()] = totalMoney;
+
         degradedZero.MoneyArithmeticSaturated = true;
         Assert.False(EconomyStatisticsReducer.IsExactCurrencyComposition(
             historicalTotal,
             new[] { captured, degradedZero },
+            CurrencyKind.Money));
+
+        degradedZero.MoneyArithmeticSaturated = false;
+        var historicalZero = new EconomyStatisticsAggregate { HistoricalUnavailable = true };
+        Assert.True(EconomyStatisticsReducer.IsExactCurrencyComposition(
+            historicalZero,
+            new[] { degradedZero },
             CurrencyKind.Money));
     }
 

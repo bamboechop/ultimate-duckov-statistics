@@ -296,7 +296,7 @@ public static class EconomyStatisticsReducer
         if (components == null) throw new ArgumentNullException(nameof(components));
         var supportedComposition = HasExactSupportedCurrency(total, currency);
         var historicalCapturedComposition = total.HistoricalUnavailable
-                                            && HasExactCapturedCurrency(total, currency);
+                                            && !IsCurrencyArithmeticSaturated(total, currency);
         if (!supportedComposition && !historicalCapturedComposition) return true;
 
         var expected = new CurrencyEconomyAggregate { Currency = currency };

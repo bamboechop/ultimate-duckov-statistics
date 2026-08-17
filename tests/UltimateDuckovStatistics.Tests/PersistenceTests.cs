@@ -419,8 +419,11 @@ public sealed class PersistenceTests
 
     [Theory]
     [InlineData("completed-runs")]
+    [InlineData("completed-runs-missing-row")]
     [InlineData("starting-map")]
+    [InlineData("starting-map-missing-row")]
     [InlineData("route-map")]
+    [InlineData("route-map-missing-row")]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
     public void MigratedProfileWithPostM9EconomyStillRejectsCrossScopeMismatch(string corruption)
@@ -441,12 +444,15 @@ public sealed class PersistenceTests
             includeCurrentZeroFlowRun: true,
             degradeCurrentZeroFlowRun: true);
         var postM9Run = invalidPrimary.Statistics.Runs.Single(run => run.RunId == "run-post-m9");
-        if (corruption == "completed-runs")
-            SetMoneyInflow(invalidPrimary.Statistics.RunTotals.Economy, 20);
-        else if (corruption == "starting-map")
-            SetMoneyInflow(invalidPrimary.Statistics.RunTotals.Maps[postM9Run.StartingMapId].Economy, 20);
+        var corruptedTotal = corruption.StartsWith("completed-runs", StringComparison.Ordinal)
+            ? invalidPrimary.Statistics.RunTotals.Economy
+            : corruption.StartsWith("starting-map", StringComparison.Ordinal)
+                ? invalidPrimary.Statistics.RunTotals.Maps[postM9Run.StartingMapId].Economy
+                : invalidPrimary.Statistics.RunTotals.RouteMaps[postM9Run.Segments[0].MapId].Economy;
+        if (corruption.EndsWith("missing-row", StringComparison.Ordinal))
+            Assert.True(corruptedTotal.Currencies.Remove(CurrencyKind.Money.ToString()));
         else
-            SetMoneyInflow(invalidPrimary.Statistics.RunTotals.RouteMaps[postM9Run.Segments[0].MapId].Economy, 20);
+            SetMoneyInflow(corruptedTotal, 20);
         store.Save(path, backup);
         store.Save(path, invalidPrimary);
 
