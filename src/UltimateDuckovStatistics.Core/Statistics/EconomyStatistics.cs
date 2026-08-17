@@ -133,7 +133,7 @@ public static class EconomyStatisticsReducer
     {
         if (target == null) throw new ArgumentNullException(nameof(target));
         if (source == null) throw new ArgumentNullException(nameof(source));
-        var targetWasEmpty = IsEmpty(target);
+        var targetWasUninitialized = IsUninitialized(target);
         NormalizePersisted(target);
         NormalizePersisted(source);
         var moneyOverflow = CurrencyMergeWouldOverflow(target, source, CurrencyKind.Money);
@@ -165,7 +165,7 @@ public static class EconomyStatisticsReducer
                                                      || source.DeduplicationSaturated;
         target.MoneyArithmeticSaturated |= source.MoneyArithmeticSaturated;
         target.CashArithmeticSaturated |= source.CashArithmeticSaturated;
-        target.Capabilities = targetWasEmpty && !target.HistoricalUnavailable
+        target.Capabilities = targetWasUninitialized && !target.HistoricalUnavailable
             ? CloneCapabilities(source.Capabilities)
             : MergeCapabilities(target.Capabilities, source.Capabilities);
         if (moneyOverflow || source.MoneyArithmeticSaturated)
@@ -483,6 +483,21 @@ public static class EconomyStatisticsReducer
         if (aggregate.CashArithmeticSaturated) ApplyArithmeticSaturation(aggregate, CurrencyKind.Cash);
     }
 
+    public static void InitializeOrRestrictCapabilities(
+        EconomyStatisticsAggregate aggregate,
+        EconomyMetricCapabilities capabilities)
+    {
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        var aggregateWasUninitialized = IsUninitialized(aggregate);
+        NormalizePersisted(aggregate);
+        aggregate.Capabilities = aggregateWasUninitialized && !aggregate.HistoricalUnavailable
+            ? CloneCapabilities(capabilities)
+            : MergeCapabilities(aggregate.Capabilities, capabilities);
+        if (aggregate.MoneyArithmeticSaturated) ApplyArithmeticSaturation(aggregate, CurrencyKind.Money);
+        if (aggregate.CashArithmeticSaturated) ApplyArithmeticSaturation(aggregate, CurrencyKind.Cash);
+    }
+
     public static bool BeginReplayActivation(EconomyStatisticsAggregate aggregate, string activationId)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
@@ -777,6 +792,28 @@ public static class EconomyStatisticsReducer
     { State = AdapterCapabilityState.DisabledIncompatible, Provenance = provenance };
     private static MetricAvailability RestrictForSaturation(MetricAvailability current, string provenance) =>
         current.State == AdapterCapabilityState.DisabledIncompatible ? Clone(current) : Unavailable(provenance);
+
+    private static bool IsUninitialized(EconomyStatisticsAggregate value)
+    {
+        if (!IsEmpty(value)
+            || value.HistoricalUnavailable
+            || value.WasRepairedFromInvalidState
+            || value.CashTerminalDispositionAmbiguous
+            || value.CashTerminalDispositionRecorded
+            || value.DeduplicationSaturated
+            || value.MoneyArithmeticSaturated
+            || value.CashArithmeticSaturated
+            || value.LegacyIdentitySaturationIncomplete
+            || value.RecentEventIds == null
+            || value.RecentEventIds.Count != 0
+            || value.Capabilities == null)
+            return false;
+
+        return Capabilities(value.Capabilities).All(capability =>
+            capability != null
+            && capability.State == AdapterCapabilityState.DisabledIncompatible
+            && string.IsNullOrWhiteSpace(capability.Provenance));
+    }
 
     private static void NormalizeCurrency(CurrencyEconomyAggregate value, ref bool repaired)
     {

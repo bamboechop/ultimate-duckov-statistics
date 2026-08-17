@@ -554,6 +554,42 @@ public sealed class PersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
+    public void RestartedSupportedAdapterCannotErasePersistedLifetimeCapabilityLoss()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var first = CreateRepository(temporaryDirectory.Path, "session-first");
+        first.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        first.SetEconomyCapabilities(SupportedEconomyCapabilities("initial native contract"));
+        var degraded = SupportedEconomyCapabilities("initial native contract");
+        degraded.CashAmountDirection = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "runtime Cash scan failed"
+        };
+        first.SetEconomyCapabilities(degraded);
+        first.CloseClean();
+
+        var second = CreateRepository(temporaryDirectory.Path, "session-second");
+        second.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        second.SetEconomyCapabilities(SupportedEconomyCapabilities("restarted native contract"));
+
+        var current = second.Current.Statistics.Economy.Capabilities;
+        Assert.Equal(AdapterCapabilityState.Supported, current.MoneyAmountDirection.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, current.CashAmountDirection.State);
+        Assert.Equal("runtime Cash scan failed", current.CashAmountDirection.Provenance);
+        var persisted = new AtomicJsonStore<ProfileDocument>().Load(second.CurrentProfilePath!).Value!;
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            persisted.Statistics.Economy.Capabilities.CashAmountDirection.State);
+        Assert.Equal(
+            "runtime Cash scan failed",
+            persisted.Statistics.Economy.Capabilities.CashAmountDirection.Provenance);
+        second.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
     public void RegisteredActivationSurvivesDeferredSnapshotBeforeItsFirstEvent()
     {
         using var temporaryDirectory = new TemporaryDirectory();
@@ -1990,6 +2026,27 @@ public sealed class PersistenceTests
             UpdatedUtc = TestTime
         }
     };
+
+    private static EconomyMetricCapabilities SupportedEconomyCapabilities(string provenance)
+    {
+        MetricAvailability Supported() => new()
+        {
+            State = AdapterCapabilityState.Supported,
+            Provenance = provenance
+        };
+
+        return new EconomyMetricCapabilities
+        {
+            MoneyAmountDirection = Supported(),
+            MoneySourceAttribution = Supported(),
+            MoneyContextAttribution = Supported(),
+            CashAmountDirection = Supported(),
+            CashExternalAcquisition = Supported(),
+            CashContextAttribution = Supported(),
+            CashTerminalOutcomes = Supported(),
+            RouteAttribution = Supported()
+        };
+    }
 
     private static ProfileDocument CreateCompleteCurrentSchemaDocument(string generationId, long revision)
     {

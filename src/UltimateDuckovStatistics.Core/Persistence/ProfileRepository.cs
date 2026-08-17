@@ -481,7 +481,7 @@ public sealed class ProfileRepository
         if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
         var profile = Current;
         profile.Statistics.Economy ??= new EconomyStatisticsAggregate();
-        EconomyStatisticsReducer.SetCapabilities(profile.Statistics.Economy, capabilities);
+        EconomyStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.Economy, capabilities);
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();

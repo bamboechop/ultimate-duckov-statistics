@@ -141,6 +141,37 @@ public sealed class EconomyStatisticsTests
     }
 
     [Fact]
+    [Trait("Category", "M9")]
+    public void ZeroFlowDegradedAggregateRemainsDegradedAfterSupportedFlowMerge()
+    {
+        var target = new EconomyStatisticsAggregate();
+        var zeroFlowDegraded = Supported();
+        zeroFlowDegraded.Capabilities.CashAmountDirection = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "runtime Cash scan failed"
+        };
+
+        EconomyStatisticsReducer.Merge(target, zeroFlowDegraded);
+
+        Assert.True(EconomyStatisticsReducer.IsEmpty(target));
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, target.Capabilities.CashAmountDirection.State);
+        Assert.Equal("runtime Cash scan failed", target.Capabilities.CashAmountDirection.Provenance);
+
+        var laterSupported = Supported();
+        Assert.True(EconomyStatisticsReducer.Record(
+            laterSupported,
+            "generation",
+            Flow("later-supported", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 4)));
+        EconomyStatisticsReducer.Merge(target, laterSupported);
+
+        Assert.Equal(4, target.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, target.Capabilities.CashAmountDirection.State);
+        Assert.Equal("runtime Cash scan failed", target.Capabilities.CashAmountDirection.Provenance);
+        EconomyStatisticsReducer.Validate(target);
+    }
+
+    [Fact]
     public void CashOutcomeMergeOverflowRetainsAllPriorCashValuesButStillMergesMoney()
     {
         var target = Supported();

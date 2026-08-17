@@ -528,6 +528,59 @@ public sealed class RouteLifecycleTests
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "Economy")]
+    public void ZeroFlowDegradedRunKeepsCompletedAndMapTotalsDegradedAfterLaterSupportedFlow()
+    {
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
+        var degradedTracker = new RunLifecycleTracker(() => "run-degraded-zero");
+        degradedTracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, 0, nativeRaidId: "raid-zero"));
+        degradedTracker.Apply(Event(
+            RunLifecycleEventKind.ControlReady,
+            0,
+            context: Context("A", "raid-zero")));
+        var degradedCapabilities = SupportedEconomyCapabilities();
+        degradedCapabilities.CashAmountDirection = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "runtime Cash scan failed"
+        };
+        Assert.True(degradedTracker.UpdateEconomyCapabilities(degradedCapabilities));
+        var degradedRun = degradedTracker.Apply(Event(RunLifecycleEventKind.Extracted, 1)).Completed!;
+        Assert.True(RunReducer.Apply(profile, degradedRun));
+
+        var supportedTracker = new RunLifecycleTracker(() => "run-supported-flow");
+        supportedTracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, 2, nativeRaidId: "raid-flow"));
+        supportedTracker.Apply(Event(
+            RunLifecycleEventKind.ControlReady,
+            2,
+            context: Context("A", "raid-flow")));
+        var flow = Currency(
+            "later-supported-flow",
+            supportedTracker,
+            "A",
+            CurrencyKind.Cash,
+            CurrencyFlowDirection.Inflow,
+            9);
+        flow.TimestampUtc = Now.AddSeconds(3);
+        Assert.True(supportedTracker.RecordCurrencyFlow(flow));
+        var supportedRun = supportedTracker.Apply(Event(RunLifecycleEventKind.Extracted, 4)).Completed!;
+        Assert.True(RunReducer.Apply(profile, supportedRun));
+
+        Assert.Equal(9, profile.RunTotals.Economy.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            profile.RunTotals.Economy.Capabilities.CashAmountDirection.State);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            profile.RunTotals.Maps["duckov:map:A"].Economy.Capabilities.CashAmountDirection.State);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Capabilities.CashAmountDirection.State);
+        RunReducer.ValidateProfileEconomyComposition(profile);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Economy")]
     public void DeferredCurrencyPublicationRetainsItsEventTimeSegmentAfterTransition()
     {
         var tracker = Start("A");

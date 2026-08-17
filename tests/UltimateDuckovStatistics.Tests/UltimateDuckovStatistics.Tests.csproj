@@ -30,6 +30,8 @@
              Link="ProductionAdapters\RetryableHarmonyPatcherLease.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCallbackLifetime.cs"
              Link="ProductionAdapters\NativeCallbackLifetime.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeRunTerminalBoundary.cs"
+             Link="ProductionAdapters\NativeRunTerminalBoundary.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEquipmentSnapshotBuilder.cs"
              Link="ProductionAdapters\NativeEquipmentSnapshotBuilder.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEquipmentAdapter.cs"

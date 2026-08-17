@@ -49,6 +49,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly ReferenceSubjectGate<CharacterMainControl> mainCharacterGate = new();
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly DeathObservationGate deathObservationGate = new();
+    private readonly NativeRunTerminalBoundary terminalBoundary = new();
     private readonly List<CapabilityRecord> capabilities = new();
     private CharacterMainControl? mainCharacter;
     private bool paused;
@@ -60,7 +61,6 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private bool routeTransitionPending;
     private bool destinationPlacementObserved;
     private Action? destinationReadyObserver;
-    private Action? terminalObserver;
     private bool checkpointWritePending;
     private double pendingCheckpointMonotonicSeconds;
     private long pendingCheckpointMutationRevision;
@@ -165,7 +165,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public void SetDestinationReadyObserver(Action? observer) => destinationReadyObserver = observer;
 
-    public void SetTerminalObserver(Action? observer) => terminalObserver = observer;
+    public void SetTerminalObserver(Action? observer) => terminalBoundary.SetTerminalObserver(observer);
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
@@ -405,12 +405,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return;
         }
 
-        try { terminalObserver?.Invoke(); }
-        catch (Exception exception)
-        {
-            diagnosticHandler($"Pre-terminal observer failed safely: {exception.GetType().Name}: {exception.Message}");
-        }
-
+        terminalBoundary.ObserveTerminalCandidate(tracker, kind, diagnosticHandler);
         DrainPendingCheckpoint();
         var now = NowMonotonic();
         var utcNow = DateTime.UtcNow;
@@ -930,13 +925,13 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnNewRaid(RaidUtilities.RaidInfo raid)
     {
-        var transition = tracker.Apply(new RunLifecycleEvent
+        var transition = terminalBoundary.Apply(tracker, new RunLifecycleEvent
         {
             Kind = RunLifecycleEventKind.RaidInitialized,
             TimestampUtc = DateTime.UtcNow,
             MonotonicSeconds = NowMonotonic(),
             NativeRaidId = raid.ID.ToString(CultureInfo.InvariantCulture)
-        });
+        }, diagnosticHandler);
         if (transition.Completed != null)
         {
             HandleCompleted(transition.Completed, "new native raid");
