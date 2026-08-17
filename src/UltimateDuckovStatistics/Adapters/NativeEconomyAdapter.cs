@@ -10,7 +10,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v5";
+    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v6";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int CashItemTypeId = EconomyManager.CashItemID;
@@ -29,6 +29,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private readonly Queue<int> pendingPickupIds = new();
     private readonly Dictionary<int, long> playerOriginatedCashAmounts = new();
     private Dictionary<int, long> ownedCashAmounts = new();
+    private Dictionary<int, Item> ownedCashItems = new();
     private Inventory? subscribedPetInventory;
     private long eventSequence;
     private long lastMoneyBalance;
@@ -150,6 +151,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         {
             cashBaseline = snapshot.Total;
             ownedCashAmounts = snapshot.ItemAmounts;
+            ownedCashItems = snapshot.Items;
             cashBaselineReady = true;
             pendingPickupIds.Clear();
             pendingCompletedCashCostAmount = 0;
@@ -164,6 +166,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         if (playerOriginatedRemovedAmount > 0) ObserveRemovedCashIds(snapshot.ItemAmounts);
         cashBaseline = snapshot.Total;
         ownedCashAmounts = snapshot.ItemAmounts;
+        ownedCashItems = snapshot.Items;
         pendingPickupIds.Clear();
         pendingCompletedCashCostAmount = 0;
         return true;
@@ -191,6 +194,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         cashDirty = true;
         cashObservationContext = null;
         ownedCashAmounts.Clear();
+        ownedCashItems.Clear();
         playerOriginatedCashAmounts.Clear();
         playerOriginatedCashOutsideOwned = 0;
     }
@@ -491,6 +495,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
     {
         var total = 0L;
         var amounts = new Dictionary<int, long>();
+        var items = new Dictionary<int, Item>();
         foreach (var item in ItemUtilities.FindAllBelongsToPlayer(candidate => candidate != null && candidate.TypeID == CashItemTypeId))
         {
             if (item.StackCount < 0) throw new InvalidOperationException("Cash stack count was negative.");
@@ -503,9 +508,10 @@ internal sealed class NativeEconomyAdapter : IDisposable
             }
 
             amounts.Add(id, item.StackCount);
+            items.Add(id, item);
             total = SaturatingAdd(total, item.StackCount);
         }
-        return new CashSnapshot(total, amounts);
+        return new CashSnapshot(total, amounts, items);
     }
 
     private void ObserveRemovedCashIds(Dictionary<int, long> current)
@@ -513,6 +519,15 @@ internal sealed class NativeEconomyAdapter : IDisposable
         if (cashAcquisitionDisabled) return;
         foreach (var entry in ownedCashAmounts.Where(entry => !current.ContainsKey(entry.Key)))
         {
+            if (ownedCashItems.TryGetValue(entry.Key, out var removedItem)
+                && (removedItem == null || removedItem.IsBeingDestroyed))
+            {
+                // ConsumeItems calls MarkDestroyed before OnCostPaid. A live
+                // vanished item can still be a player drop; a destroyed one
+                // cannot be re-picked and must not consume the identity bound.
+                playerOriginatedCashAmounts.Remove(entry.Key);
+                continue;
+            }
             if (playerOriginatedCashAmounts.ContainsKey(entry.Key))
             {
                 playerOriginatedCashAmounts[entry.Key] = entry.Value;
@@ -604,7 +619,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
             MoneySourceAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " Completed StockShop sales and QuestReward_Money claims are semantic; purchases, fees, crafting, conversion, and other changes remain UnknownAdjustment."),
             MoneyContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " Reward and sale contexts are semantic; other non-raid changes use Base and remain source-independent."),
             CashAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " Cash is item type 451; event-coalesced totals span storage, main inventory, and pet inventory, while full-scene inventory hydration is baselined only after level initialization completes."),
-            CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " successful exact-main world pickup plus owned-total delta, with bounded player-originated drop/re-pickup item-identity and last-owned-amount exclusion that remains exact when AddAndMerge consumes the picked item; verified OnMoneyPaid and OnCostPaid boundaries exclude completed Cost.money and Cost.items Cash spending; corpse/container transfers remain exact UnknownAdjustment flows."),
+            CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " successful exact-main world pickup plus owned-total delta, with bounded player-originated drop/re-pickup item-identity and last-owned-amount exclusion that remains exact when AddAndMerge consumes the picked item; verified OnMoneyPaid, OnCostPaid, and Item.IsBeingDestroyed boundaries exclude completed Cost.money and Cost.items Cash spending, including coalesced full-stack removal; corpse/container transfers remain exact UnknownAdjustment flows."),
             CashContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " context is captured at the accepted owned-total delta boundary."),
             CashTerminalOutcomes = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, "Cash acquisition is supported, but installed-game public events do not prove terminal disposition across fungible main, pet, and storage ownership; acquired amounts remain unresolved."),
             RouteAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " active run/map/segment identity is captured at event time; route loss degrades only segment attribution.")
@@ -737,12 +752,14 @@ internal sealed class NativeEconomyAdapter : IDisposable
 
     private sealed class CashSnapshot
     {
-        public CashSnapshot(long total, Dictionary<int, long> itemAmounts)
+        public CashSnapshot(long total, Dictionary<int, long> itemAmounts, Dictionary<int, Item> items)
         {
             Total = total;
             ItemAmounts = itemAmounts;
+            Items = items;
         }
         public long Total { get; }
         public Dictionary<int, long> ItemAmounts { get; }
+        public Dictionary<int, Item> Items { get; }
     }
 }

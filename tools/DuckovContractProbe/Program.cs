@@ -223,6 +223,7 @@ try
         itemStats.RequireEvent("ItemStatsSystem", "Item", "onUseStatic", "System.Action", "ItemStatsSystem.Item", "System.Object");
         itemStats.RequireEvent("ItemStatsSystem", "Item", "onItemTreeChanged", "System.Action", "ItemStatsSystem.Item");
         itemStats.RequireProperty("ItemStatsSystem", "ItemAgent", "Item", "ItemStatsSystem.Item", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem", "Item", "IsBeingDestroyed", "System.Boolean", mustBePublic: true);
         itemStats.RequireField("ItemStatsSystem", "UsageUtilities", "behaviors");
         itemStats.RequireMethod(
             "ItemStatsSystem",

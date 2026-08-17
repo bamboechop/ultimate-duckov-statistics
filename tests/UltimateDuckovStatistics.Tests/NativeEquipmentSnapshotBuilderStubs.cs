@@ -21,9 +21,11 @@ namespace ItemStatsSystem
         public HashSet<string> Tags { get; } = new(StringComparer.Ordinal);
         public bool UseDurability { get; set; }
         public float Durability { get; set; }
+        public bool IsBeingDestroyed { get; private set; }
         public event Action<Item>? onItemTreeChanged;
 
         public int GetInstanceID() => instanceId;
+        public void MarkDestroyed() => IsBeingDestroyed = true;
         public void RaiseItemTreeChanged() => onItemTreeChanged?.Invoke(this);
     }
 

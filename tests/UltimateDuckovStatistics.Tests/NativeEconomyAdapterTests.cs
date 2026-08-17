@@ -381,6 +381,58 @@ public sealed class NativeEconomyAdapterTests : IDisposable
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "NativeAdapter")]
+    [Trait("Category", "Capability")]
+    public void CoalescedFullStackCashCostRetainsOnlyTheLiveDroppedIdentity()
+    {
+        runActive = true;
+        runId = "run:coalesced-full-stack-cost";
+        segmentId = "segment:coalesced-full-stack-cost";
+        mapId = "duckov:map:coalesced-full-stack-cost";
+        var dropped = Cash(1);
+        var consumed = Enumerable.Range(0, 513).Select(_ => Cash(1)).ToArray();
+        ItemUtilities.OwnedItems.Add(dropped);
+        ItemUtilities.OwnedItems.AddRange(consumed);
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+
+        ItemUtilities.OwnedItems.Remove(dropped);
+        foreach (var stack in consumed)
+        {
+            stack.MarkDestroyed();
+            ItemUtilities.OwnedItems.Remove(stack);
+        }
+        ItemUtilities.RaisePlayerItemOperation();
+        EconomyManager.RaiseCostPaid(cashAmount: 513);
+
+        Assert.Equal(AdapterCapabilityState.Experimental, adapter.MetricCapabilities.CashExternalAcquisition.State);
+        var aggregateOutflow = Assert.Single(published);
+        Assert.Equal(514, aggregateOutflow.Amount);
+        Assert.Equal(CurrencyFlowDirection.Outflow, aggregateOutflow.Direction);
+
+        ItemUtilities.OwnedItems.Add(dropped);
+        InteractablePickup.RaisePickup(
+            new InteractablePickup { ItemAgent = new ItemAgent { Item = dropped } },
+            MainCharacter());
+        var repickup = published[^1];
+        Assert.Equal(1, repickup.Amount);
+        Assert.Equal(CurrencySourceCategory.UnknownAdjustment, repickup.Source);
+        Assert.False(repickup.ProvenExternalRaidAcquisition);
+
+        var external = Cash(3);
+        ItemUtilities.OwnedItems.Add(external);
+        InteractablePickup.RaisePickup(
+            new InteractablePickup { ItemAgent = new ItemAgent { Item = external } },
+            MainCharacter());
+        var acquisition = published[^1];
+        Assert.Equal(3, acquisition.Amount);
+        Assert.Equal(CurrencySourceCategory.LootOrPickup, acquisition.Source);
+        Assert.True(acquisition.ProvenExternalRaidAcquisition);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "NativeAdapter")]
     public void MoneyFundedCashCostFlushesAnEarlierDropBeforeConsumingCash()
     {
         runActive = true;
