@@ -114,12 +114,23 @@ public static class RouteStatisticsReducer
     };
 
     public static MapSegmentSummary CloneSegmentForInterruptedRecovery(MapSegmentSummary source, DateTime endedUtc)
+        => CloneSegmentForRecovery(source, endedUtc, RunOutcome.Interrupted);
+
+    public static MapSegmentSummary CloneSegmentForRecovery(
+        MapSegmentSummary source,
+        DateTime endedUtc,
+        RunOutcome outcome)
     {
         var clone = CloneSegment(source);
         if (clone.ExitReason == MapSegmentExitReason.None)
         {
             clone.ExitedUtc = endedUtc < clone.EnteredUtc ? clone.EnteredUtc : endedUtc;
-            clone.ExitReason = MapSegmentExitReason.Interrupted;
+            clone.ExitReason = outcome switch
+            {
+                RunOutcome.Extracted => MapSegmentExitReason.Extracted,
+                RunOutcome.Died => MapSegmentExitReason.Died,
+                _ => MapSegmentExitReason.Interrupted
+            };
         }
         return clone;
     }

@@ -417,6 +417,42 @@ public sealed class PersistenceTests
         repository.CloseClean();
     }
 
+    [Theory]
+    [InlineData("completed-runs")]
+    [InlineData("starting-map")]
+    [InlineData("route-map")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void MigratedProfileWithPostM9EconomyStillRejectsCrossScopeMismatch(string corruption)
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateMigratedProfileWithExactPostM9Run("generation-a", revision: 7, amount: 10);
+        var invalidPrimary = CreateMigratedProfileWithExactPostM9Run("generation-a", revision: 8, amount: 10);
+        var postM9Run = invalidPrimary.Statistics.Runs.Single(run => run.RunId == "run-post-m9");
+        if (corruption == "completed-runs")
+            SetMoneyInflow(invalidPrimary.Statistics.RunTotals.Economy, 20);
+        else if (corruption == "starting-map")
+            SetMoneyInflow(invalidPrimary.Statistics.RunTotals.Maps[postM9Run.StartingMapId].Economy, 20);
+        else
+            SetMoneyInflow(invalidPrimary.Statistics.RunTotals.RouteMaps[postM9Run.Segments[0].MapId].Economy, 20);
+        store.Save(path, backup);
+        store.Save(path, invalidPrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("economy fan-out is inconsistent", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        Assert.Equal(
+            10,
+            repository.Current.Statistics.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
+        repository.CloseClean();
+    }
+
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
@@ -2173,6 +2209,47 @@ public sealed class PersistenceTests
         SetMoneyInflow(document.Statistics.RunTotals.Economy, runAmount);
         SetMoneyInflow(document.Statistics.RunTotals.Maps[run.StartingMapId].Economy, runAmount);
         SetMoneyInflow(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy, segmentAmount);
+    }
+
+    private static ProfileDocument CreateMigratedProfileWithExactPostM9Run(
+        string generationId,
+        long revision,
+        long amount)
+    {
+        var document = CreateCompleteCurrentSchemaDocument(generationId, revision);
+        document.SchemaVersion = 8;
+        document.Statistics.SchemaVersion = 8;
+        document.Statistics.Economy = null!;
+        document.DeferredItemPersistence!.AppliedLifetimeEconomy = null!;
+        document.Statistics.RunTotals.Economy = null!;
+        foreach (var map in document.Statistics.RunTotals.Maps.Values) map.Economy = null!;
+        foreach (var map in document.Statistics.RunTotals.RouteMaps.Values) map.Economy = null!;
+        foreach (var run in document.Statistics.Runs)
+        {
+            run.SchemaVersion = 8;
+            run.Economy = null!;
+            foreach (var segment in run.Segments) segment.Economy = null!;
+        }
+        Assert.True(ProfileMigrator.Migrate(document));
+
+        var postM9Run = CreateCompleteCurrentSchemaDocument(generationId, revision).Statistics.Runs[0];
+        postM9Run.RunId = "run-post-m9";
+        postM9Run.Segments[0].SegmentId = "segment-post-m9";
+        postM9Run.RouteSignature = RouteStatisticsReducer.BuildSignature(postM9Run.Segments);
+        postM9Run.RouteCapabilities = RouteStatisticsReducer.Supported("test exact route contract");
+        SetExactMoneySupported(postM9Run.Economy);
+        SetExactMoneySupported(postM9Run.Segments[0].Economy);
+        SetMoneyInflow(postM9Run.Economy, amount);
+        SetMoneyInflow(postM9Run.Segments[0].Economy, amount);
+        document.Statistics.Runs.Add(postM9Run);
+
+        SetExactMoneySupported(document.Statistics.RunTotals.Economy);
+        SetExactMoneySupported(document.Statistics.RunTotals.Maps[postM9Run.StartingMapId].Economy);
+        SetExactMoneySupported(document.Statistics.RunTotals.RouteMaps[postM9Run.Segments[0].MapId].Economy);
+        SetMoneyInflow(document.Statistics.RunTotals.Economy, amount);
+        SetMoneyInflow(document.Statistics.RunTotals.Maps[postM9Run.StartingMapId].Economy, amount);
+        SetMoneyInflow(document.Statistics.RunTotals.RouteMaps[postM9Run.Segments[0].MapId].Economy, amount);
+        return document;
     }
 
     private static void SetExactMoneySupported(EconomyStatisticsAggregate economy)

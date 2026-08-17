@@ -703,6 +703,57 @@ public sealed class ActiveRunPersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void TerminalCheckpointRecoversExactOutcomeWhenCompletedRunSaveNeverLands()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        repository.EnableDeferredItemPersistence();
+        var generation = repository.CurrentGenerationId;
+        var tracker = ActiveTracker(generation);
+        var cash = new CurrencyFlowRecorded
+        {
+            EventId = "cash:terminal-recovery",
+            TimestampUtc = TestTime.AddSeconds(2),
+            SaveGenerationId = generation,
+            RunId = tracker.ActiveRunId,
+            SegmentId = tracker.ActiveSegmentId,
+            MapId = tracker.ActiveMapId!,
+            Currency = CurrencyKind.Cash,
+            Direction = CurrencyFlowDirection.Inflow,
+            Amount = 5,
+            Source = CurrencySourceCategory.LootOrPickup,
+            GameplayContext = GameplayContext.Raid,
+            IntegrityTags = IntegrityTags.Normal,
+            AdapterVersion = "test",
+            ProvenExternalRaidAcquisition = true,
+            ProducerActivationId = "test-terminal-recovery",
+            ProducerSequence = 1
+        };
+        Assert.True(repository.RecordDeferred(cash));
+        Assert.True(tracker.RecordCurrencyFlow(cash));
+        var checkpoint = tracker.CreateCheckpoint(TestTime.AddSeconds(3), 3)!;
+        checkpoint.PendingTerminalOutcome = RunOutcome.Extracted;
+        repository.SaveActiveRun(checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var recovered = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(RunOutcome.Extracted, recovered.Outcome);
+        Assert.Equal(IntegrityTags.Normal, recovered.IntegrityTags);
+        Assert.Equal(AdapterCapabilityState.Supported, recovered.LifecycleCapability);
+        Assert.True(recovered.RecordEligible);
+        Assert.Equal(MapSegmentExitReason.Extracted, Assert.Single(recovered.Segments).ExitReason);
+        Assert.Equal(5, recovered.Economy.CashRaidOutcomes.Acquired);
+        Assert.Equal(5, recovered.Economy.CashRaidOutcomes.Secured);
+        Assert.Equal(0, recovered.Economy.CashRaidOutcomes.Unresolved);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.Outcomes[nameof(RunOutcome.Extracted)]);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
     [Trait("Category", "Performance")]
     public void ImmediatePersistenceProfileWithoutWatermarkKeepsLegacyRecoverySemantics()
     {
@@ -1803,6 +1854,7 @@ public sealed class ActiveRunPersistenceTests
                 SaveGenerationId = generation,
                 NativeRaidId = "42",
                 Map = new MapIdentity { MapId = "duckov:map:A", DisplayName = "A", IsKnown = true },
+                IntegrityTags = IntegrityTags.Normal,
                 LifecycleCapability = AdapterCapabilityState.Supported,
                 MovementCapability = AdapterCapabilityState.Supported,
                 MapCapability = AdapterCapabilityState.Supported,

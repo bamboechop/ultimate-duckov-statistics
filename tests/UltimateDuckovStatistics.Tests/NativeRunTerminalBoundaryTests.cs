@@ -111,6 +111,80 @@ public sealed class NativeRunTerminalBoundaryTests
             message => Assert.Contains("terminalization deferred", message, StringComparison.Ordinal));
     }
 
+    [Fact]
+    [Trait("Category", "Run")]
+    [Trait("Category", "M9")]
+    public void FailedCompletedRunPersistenceRetainsTheExactSummaryForRetry()
+    {
+        var summary = new RunSummary
+        {
+            RunId = "run-completed",
+            SaveGenerationId = "generation-1",
+            Outcome = RunOutcome.Extracted
+        };
+        var attempts = 0;
+        var diagnostics = new List<string>();
+        var boundary = new NativeRunCompletionBoundary();
+        boundary.Begin(summary, "extraction", detailedDiagnostic: false);
+
+        Assert.False(boundary.Retry(
+            observed =>
+            {
+                attempts++;
+                Assert.Same(summary, observed);
+                return false;
+            },
+            diagnostics.Add));
+
+        Assert.True(boundary.HasPendingCompletion);
+        Assert.Same(summary, boundary.PendingSummary);
+
+        Assert.True(boundary.Retry(
+            observed =>
+            {
+                attempts++;
+                Assert.Same(summary, observed);
+                return true;
+            },
+            diagnostics.Add));
+
+        Assert.Equal(2, attempts);
+        Assert.False(boundary.HasPendingCompletion);
+        Assert.Null(boundary.PendingSummary);
+        Assert.Contains(diagnostics, message => message.Contains("retry retained", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, message => message.Contains("outcome=Extracted", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Category", "Run")]
+    [Trait("Category", "M9")]
+    public void RepeatedNativeRaidIdentityDoesNotCreateATerminalCheckpoint()
+    {
+        var tracker = new RunLifecycleTracker(() => "run-same");
+        tracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, 0, nativeRaidId: "41"));
+        tracker.Apply(Event(RunLifecycleEventKind.ControlReady, 1, Context(), nativeRaidId: "41"));
+        var observerCalls = 0;
+        var checkpointCalls = 0;
+        var boundary = new NativeRunTerminalBoundary();
+        boundary.SetTerminalObserver(() => observerCalls++);
+
+        var transition = boundary.Apply(
+            tracker,
+            Event(RunLifecycleEventKind.RaidInitialized, 2, nativeRaidId: "41"),
+            _ => { },
+            () =>
+            {
+                checkpointCalls++;
+                return true;
+            });
+
+        Assert.True(tracker.IsActive);
+        Assert.Null(transition.Completed);
+        Assert.Equal(0, observerCalls);
+        Assert.Equal(0, checkpointCalls);
+        Assert.False(boundary.HasPendingTerminal);
+    }
+
     private static RunLifecycleEvent Event(
         RunLifecycleEventKind kind,
         double seconds,

@@ -529,7 +529,9 @@ public static class RunReducer
         foreach (CurrencyKind currency in Enum.GetValues(typeof(CurrencyKind)))
         {
             if (materialized.Any(component =>
-                    EconomyStatisticsReducer.HasExactSupportedCurrency(component, currency)
+                    (EconomyStatisticsReducer.HasExactSupportedCurrency(component, currency)
+                     || component.HistoricalUnavailable
+                     && EconomyStatisticsReducer.HasExactCapturedCurrency(component, currency))
                     && component.Currencies.TryGetValue(currency.ToString(), out var row)
                     && (row.Totals.GrossInflow != 0 || row.Totals.GrossOutflow != 0)))
                 throw new ArgumentException($"Current-schema {scope} is missing exact {currency} contributions.");

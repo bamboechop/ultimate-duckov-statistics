@@ -280,6 +280,18 @@ public static class EconomyStatisticsReducer
         };
     }
 
+    public static bool HasExactCapturedCurrency(EconomyStatisticsAggregate aggregate, CurrencyKind currency)
+    {
+        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        var saturated = currency switch
+        {
+            CurrencyKind.Money => aggregate.MoneyArithmeticSaturated,
+            CurrencyKind.Cash => aggregate.CashArithmeticSaturated,
+            _ => true
+        };
+        return !saturated && aggregate.Currencies.ContainsKey(currency.ToString());
+    }
+
     public static bool IsExactCurrencyComposition(
         EconomyStatisticsAggregate total,
         IEnumerable<EconomyStatisticsAggregate> components,
@@ -287,12 +299,24 @@ public static class EconomyStatisticsReducer
     {
         if (total == null) throw new ArgumentNullException(nameof(total));
         if (components == null) throw new ArgumentNullException(nameof(components));
-        if (!HasExactSupportedCurrency(total, currency)) return true;
+        var supportedComposition = HasExactSupportedCurrency(total, currency);
+        var historicalCapturedComposition = total.HistoricalUnavailable
+                                            && HasExactCapturedCurrency(total, currency);
+        if (!supportedComposition && !historicalCapturedComposition) return true;
 
         var expected = new CurrencyEconomyAggregate { Currency = currency };
         foreach (var component in components)
         {
-            if (component == null || !HasExactSupportedCurrency(component, currency)) return false;
+            if (component == null) return false;
+            if (supportedComposition && !HasExactSupportedCurrency(component, currency)) return false;
+            if (historicalCapturedComposition
+                && !HasExactCapturedCurrency(component, currency))
+            {
+                if (component.HistoricalUnavailable
+                    && !component.Currencies.ContainsKey(currency.ToString()))
+                    continue;
+                return false;
+            }
             if (!component.Currencies.TryGetValue(currency.ToString(), out var row)) continue;
             if (!TryMergeExact(expected, row)) return false;
         }

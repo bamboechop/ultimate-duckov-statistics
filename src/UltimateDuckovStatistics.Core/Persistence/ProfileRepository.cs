@@ -54,6 +54,7 @@ public sealed class ProfileRepository
     private readonly List<CapabilityRecord> configuredCapabilities = new();
     private ProfileDocument? current;
     private string? currentDirectory;
+    private string? completionPersistencePendingRunId;
     private bool capabilitiesConfigured;
     private bool deferredItemPersistenceEnabled;
 
@@ -438,6 +439,10 @@ public sealed class ProfileRepository
         EconomyStatisticsReducer.ValidateRecoveryCandidate(checkpoint.Economy);
         EconomyStatisticsReducer.NormalizePersisted(checkpoint.Economy);
         EconomyStatisticsReducer.Validate(checkpoint.Economy);
+        if (checkpoint.PendingTerminalOutcome is { } terminalOutcome
+            && !Enum.IsDefined(typeof(RunOutcome), terminalOutcome))
+            throw new ArgumentException("Active-run checkpoint contains an invalid pending terminal outcome.", nameof(checkpoint));
+        RunReducer.Validate(checkpoint.ToRecoverySummary());
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
     }
@@ -445,22 +450,39 @@ public sealed class ProfileRepository
     public bool CompleteRun(RunSummary summary)
     {
         var profile = Current;
+        if (completionPersistencePendingRunId != null
+            && !string.Equals(completionPersistencePendingRunId, summary.RunId, StringComparison.Ordinal))
+            throw new InvalidOperationException("A different completed run is still awaiting durable profile persistence.");
+        var retryingFailedPersistence = string.Equals(
+            completionPersistencePendingRunId,
+            summary.RunId,
+            StringComparison.Ordinal);
         var applied = RunReducer.Apply(profile.Statistics, summary);
         if (applied) EconomyStatisticsReducer.MergeTerminalOutcomes(profile.Statistics.Economy, summary.Economy);
         var clearedDeferredWatermark = ClearDeferredWatermark(profile, summary.RunId);
-        if (applied || clearedDeferredWatermark)
+        if (applied || clearedDeferredWatermark || retryingFailedPersistence)
         {
             profile.Revision++;
             profile.UpdatedUtc = EnsureUtc(summary.EndedUtc);
+            completionPersistencePendingRunId = summary.RunId;
             SaveCurrent();
         }
 
-        if (currentDirectory != null)
+        try
         {
-            activeRunStore.Delete(GetActiveRunPath(currentDirectory));
+            if (currentDirectory != null)
+                activeRunStore.Delete(GetActiveRunPath(currentDirectory));
+        }
+        catch
+        {
+            if (applied || clearedDeferredWatermark || retryingFailedPersistence)
+                completionPersistencePendingRunId = summary.RunId;
+            throw;
         }
 
-        return applied;
+        if (applied || clearedDeferredWatermark || retryingFailedPersistence)
+            completionPersistencePendingRunId = null;
+        return applied || retryingFailedPersistence;
     }
 
     public void SetCapabilities(IEnumerable<CapabilityRecord> capabilities)
@@ -721,7 +743,7 @@ public sealed class ProfileRepository
                 + string.Join(" | ", loaded.Failures));
         }
 
-        var summary = checkpoint.ToInterruptedSummary();
+        var summary = checkpoint.ToRecoverySummary();
         var alreadyFinalized = Current.Statistics.Runs.Any(
             run => string.Equals(run.RunId, summary.RunId, StringComparison.Ordinal));
         var recoveredLifetimeItems = !alreadyFinalized && RecoverDeferredLifetimeItems(checkpoint);
@@ -740,7 +762,8 @@ public sealed class ProfileRepository
         activeRunStore.Delete(path);
         diagnostic(
             applied
-                ? $"Recovered interrupted run {summary.RunId} for generation {summary.SaveGenerationId}."
+                ? $"Recovered {summary.Outcome.ToString().ToLowerInvariant()} run {summary.RunId} "
+                  + $"for generation {summary.SaveGenerationId}."
                 : $"Cleared already-finalized active-run checkpoint {summary.RunId} without duplicating it.");
         return applied;
     }
@@ -873,7 +896,10 @@ public sealed class ProfileRepository
             EquipmentStatisticsReducer.ValidateAggregate(checkpoint.EquipmentStatistics);
             ContainerStatisticsReducer.ValidateAggregate(checkpoint.ContainerState.Statistics);
             EconomyStatisticsReducer.Validate(checkpoint.Economy);
-            RunReducer.Validate(checkpoint.ToInterruptedSummary());
+            if (checkpoint.PendingTerminalOutcome is { } terminalOutcome
+                && !Enum.IsDefined(typeof(RunOutcome), terminalOutcome))
+                return "Active-run checkpoint contains an invalid pending terminal outcome.";
+            RunReducer.Validate(checkpoint.ToRecoverySummary());
             return null;
         }
         catch (ArgumentException exception)

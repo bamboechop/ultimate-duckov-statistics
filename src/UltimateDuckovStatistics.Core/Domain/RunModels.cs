@@ -294,7 +294,14 @@ public sealed class ActiveRunCheckpoint
     [DataMember(Order = 39)]
     public EconomyStatisticsAggregate Economy { get; set; } = new();
 
-    public RunSummary ToInterruptedSummary()
+    [DataMember(Order = 40, EmitDefaultValue = false)]
+    public RunOutcome? PendingTerminalOutcome { get; set; }
+
+    public RunSummary ToInterruptedSummary() => ToSummary(RunOutcome.Interrupted);
+
+    public RunSummary ToRecoverySummary() => ToSummary(PendingTerminalOutcome ?? RunOutcome.Interrupted);
+
+    private RunSummary ToSummary(RunOutcome outcome)
     {
         var endedUtc = EnsureUtc(LastObservedUtc == default ? StartedUtc : LastObservedUtc);
         var startedUtc = EnsureUtc(StartedUtc);
@@ -303,9 +310,9 @@ public sealed class ActiveRunCheckpoint
             endedUtc = startedUtc;
         }
         var recoveredSegments = Segments
-            .Select(segment => RouteStatisticsReducer.CloneSegmentForInterruptedRecovery(segment, endedUtc))
+            .Select(segment => RouteStatisticsReducer.CloneSegmentForRecovery(segment, endedUtc, outcome))
             .ToList();
-        if (TransitionPending && recoveredSegments.Count > 0)
+        if (TransitionPending && outcome == RunOutcome.Interrupted && recoveredSegments.Count > 0)
         {
             recoveredSegments[^1].ExitReason = MapSegmentExitReason.Interrupted;
         }
@@ -326,11 +333,13 @@ public sealed class ActiveRunCheckpoint
             EndedUtc = endedUtc,
             ActiveDurationSeconds = FiniteNonNegative(ActiveDurationSeconds),
             WallClockDurationSeconds = Math.Max(0, (endedUtc - startedUtc).TotalSeconds),
-            Outcome = RunOutcome.Interrupted,
+            Outcome = outcome,
             PhysicalDistance = FiniteNonNegative(PhysicalDistance),
             TeleportDistance = FiniteNonNegative(TeleportDistance),
             IntegrityTags = IntegrityTags,
-            RecordEligible = false,
+            RecordEligible = outcome != RunOutcome.Interrupted
+                             && IntegrityTags == IntegrityTags.Normal
+                             && LifecycleCapability == AdapterCapabilityState.Supported,
             GameVersion = GameVersion,
             GameBuild = GameBuild,
             LifecycleCapability = LifecycleCapability,
@@ -362,7 +371,7 @@ public sealed class ActiveRunCheckpoint
             Economy = EconomyStatisticsReducer.Clone(Economy)
         };
 
-        EconomyStatisticsReducer.FinalizeCashRaidOutcome(result.Economy, RunOutcome.Interrupted);
+        EconomyStatisticsReducer.FinalizeCashRaidOutcome(result.Economy, outcome);
         return result;
     }
 

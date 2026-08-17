@@ -50,6 +50,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly DeathObservationGate deathObservationGate = new();
     private readonly NativeRunTerminalBoundary terminalBoundary = new();
+    private readonly NativeRunCompletionBoundary completionBoundary = new();
     private readonly List<CapabilityRecord> capabilities = new();
     private CharacterMainControl? mainCharacter;
     private bool paused;
@@ -113,7 +114,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public EventAttributionContext? CurrentEventContext => tracker.ActiveEventContext;
 
     public bool HasUncheckpointedRunMutations =>
-        terminalBoundary.HasPendingTerminal || checkpointWritePending || tracker.CombatCheckpointRequired;
+        terminalBoundary.HasPendingTerminal
+        || completionBoundary.HasPendingCompletion
+        || checkpointWritePending
+        || tracker.CombatCheckpointRequired;
 
     public bool RecordShot(ShotRecorded shot)
     {
@@ -165,7 +169,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return SaveCheckpoint(
                 pendingTerminalEvent.TimestampUtc,
                 pendingTerminalEvent.MonotonicSeconds,
-                awaitPersistence: true);
+                awaitPersistence: true,
+                pendingTerminalOutcome: TerminalOutcome(pendingTerminalEvent));
         return SaveCheckpoint(DateTime.UtcNow, NowMonotonic(), awaitPersistence: true);
     }
 
@@ -222,6 +227,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public void Tick()
     {
         PollPendingCheckpoint();
+        if (completionBoundary.HasPendingCompletion)
+        {
+            RetryPendingCompletion();
+            return;
+        }
         if (!callbackLifetime.CanHandleCallbacks || LifecycleCapability.State != AdapterCapabilityState.Supported)
         {
             return;
@@ -283,12 +293,17 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return;
         }
 
+        if (completionBoundary.HasPendingCompletion && !RetryPendingCompletion())
+            throw new IOException("Profile transition was blocked because the completed run was not durable.");
+
         if (tracker.IsActive)
         {
             if (terminalBoundary.HasPendingTerminal) RetryPendingTerminal();
             else ApplyTerminal(RunLifecycleEventKind.Interrupted);
             if (tracker.IsActive)
                 throw new IOException("Profile transition was blocked because the active run terminal checkpoint was not durable.");
+            if (completionBoundary.HasPendingCompletion)
+                throw new IOException("Profile transition was blocked because the completed run was not durable.");
         }
 
         DetachMainCharacter();
@@ -305,6 +320,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public bool TryCleanup()
     {
         callbackLifetime.BeginDisposal();
+        if (completionBoundary.HasPendingCompletion && !RetryPendingCompletion())
+        {
+            diagnosticHandler("Run-lifecycle cleanup remains pending until the completed run is durable.");
+            return false;
+        }
         if (tracker.IsActive)
         {
             if (terminalBoundary.HasPendingTerminal) RetryPendingTerminal();
@@ -312,6 +332,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             if (tracker.IsActive)
             {
                 diagnosticHandler("Run-lifecycle cleanup remains pending until the active-run terminal checkpoint is durable.");
+                return false;
+            }
+            if (completionBoundary.HasPendingCompletion)
+            {
+                diagnosticHandler("Run-lifecycle cleanup remains pending until the completed run is durable.");
                 return false;
             }
         }
@@ -450,15 +475,17 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 }
 
                 tracker.ObserveIntegrity(NativeIntegrityProbe.Read());
-                return SaveCheckpoint(utcNow, now);
+                return SaveCheckpoint(
+                    utcNow,
+                    now,
+                    pendingTerminalOutcome: TerminalOutcome(kind));
             });
         if (terminalBoundary.HasPendingTerminal)
         {
             return false;
         }
 
-        CompleteTerminalTransition(transition);
-        return true;
+        return CompleteTerminalTransition(transition);
     }
 
     private void ApplySuspension(RunLifecycleEventKind kind, MovementObservationKind boundaryOnResume)
@@ -526,7 +553,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    private bool SaveCheckpoint(DateTime utcNow, double monotonicSeconds, bool awaitPersistence = true)
+    private bool SaveCheckpoint(
+        DateTime utcNow,
+        double monotonicSeconds,
+        bool awaitPersistence = true,
+        RunOutcome? pendingTerminalOutcome = null)
     {
         if (checkpointWritePending)
         {
@@ -538,6 +569,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         {
             return false;
         }
+        checkpoint.PendingTerminalOutcome = pendingTerminalOutcome;
         NativeHotPathDiagnostics.CountCheckpointClone();
         var mutationRevision = tracker.CheckpointMutationRevision;
 
@@ -942,6 +974,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnNewRaid(RaidUtilities.RaidInfo raid)
     {
+        if (completionBoundary.HasPendingCompletion && !RetryPendingCompletion()) return;
         if (terminalBoundary.HasPendingTerminal && !RetryPendingTerminal()) return;
         var utcNow = DateTime.UtcNow;
         var now = NowMonotonic();
@@ -953,7 +986,10 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             TimestampUtc = utcNow,
             MonotonicSeconds = now,
             NativeRaidId = raid.ID.ToString(CultureInfo.InvariantCulture)
-        }, diagnosticHandler, () => SaveCheckpoint(utcNow, now));
+        }, diagnosticHandler, () => SaveCheckpoint(
+            utcNow,
+            now,
+            pendingTerminalOutcome: RunOutcome.Interrupted));
         if (!terminalBoundary.HasPendingTerminal)
         {
             CompleteTerminalTransition(transition);
@@ -1107,20 +1143,20 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             diagnosticHandler,
             lifecycleEvent => SaveCheckpoint(
                 lifecycleEvent.TimestampUtc,
-                lifecycleEvent.MonotonicSeconds));
+                lifecycleEvent.MonotonicSeconds,
+                pendingTerminalOutcome: TerminalOutcome(lifecycleEvent)));
         if (terminalBoundary.HasPendingTerminal) return false;
-        CompleteTerminalTransition(transition);
-        return true;
+        return CompleteTerminalTransition(transition);
     }
 
-    private void CompleteTerminalTransition(RunLifecycleTransition transition)
+    private bool CompleteTerminalTransition(RunLifecycleTransition transition)
     {
         var summary = transition.Completed;
         var reason = pendingTerminalReason;
         var detailedDiagnostic = pendingTerminalUsesDetailedDiagnostic;
         pendingTerminalReason = null;
         pendingTerminalUsesDetailedDiagnostic = false;
-        if (summary == null) return;
+        if (summary == null) return true;
 
         sampleCadence.Reset();
         checkpointScheduler.Reset();
@@ -1129,13 +1165,19 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         destinationPlacementObserved = false;
         pendingDeathTerminal = false;
         deathObservationGate.Reset();
-        if (completionHandler(summary))
-        {
-            diagnosticHandler(detailedDiagnostic
-                ? $"Run finalized id={summary.RunId} outcome={summary.Outcome} "
-                  + $"active={summary.ActiveDurationSeconds:0.###}s physical={summary.PhysicalDistance:0.###}m "
-                  + $"teleport={summary.TeleportDistance:0.###}m."
-                : $"Run finalized id={summary.RunId} outcome={summary.Outcome} reason={reason ?? "terminal boundary"}.");
-        }
+        completionBoundary.Begin(summary, reason, detailedDiagnostic);
+        return RetryPendingCompletion();
     }
+
+    private bool RetryPendingCompletion() => completionBoundary.Retry(completionHandler, diagnosticHandler);
+
+    private static RunOutcome TerminalOutcome(RunLifecycleEvent lifecycleEvent) =>
+        TerminalOutcome(lifecycleEvent.Kind);
+
+    private static RunOutcome TerminalOutcome(RunLifecycleEventKind kind) => kind switch
+    {
+        RunLifecycleEventKind.Extracted => RunOutcome.Extracted,
+        RunLifecycleEventKind.Died => RunOutcome.Died,
+        _ => RunOutcome.Interrupted
+    };
 }

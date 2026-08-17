@@ -136,6 +136,23 @@ public sealed class RunLifecycleTracker
 
     public bool CombatCheckpointRequired => active != null && combatCheckpointRequired;
 
+    public bool WillComplete(RunLifecycleEvent lifecycleEvent)
+    {
+        if (lifecycleEvent == null) throw new ArgumentNullException(nameof(lifecycleEvent));
+        if (active == null) return false;
+        return lifecycleEvent.Kind switch
+        {
+            RunLifecycleEventKind.Extracted or RunLifecycleEventKind.Died or RunLifecycleEventKind.Interrupted => true,
+            RunLifecycleEventKind.RaidInitialized => !active.TransitionPending
+                                                     && !string.IsNullOrWhiteSpace(lifecycleEvent.NativeRaidId)
+                                                     && !string.Equals(
+                                                         active.LastNativeRaidId,
+                                                         lifecycleEvent.NativeRaidId,
+                                                         StringComparison.Ordinal),
+            _ => false
+        };
+    }
+
     public RunLifecycleTransition Apply(RunLifecycleEvent lifecycleEvent)
     {
         if (lifecycleEvent == null)

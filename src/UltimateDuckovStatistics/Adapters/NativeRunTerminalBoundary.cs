@@ -26,8 +26,8 @@ internal sealed class NativeRunTerminalBoundary
         if (pendingTerminalEvent != null)
             throw new InvalidOperationException("A pending terminal event must be retried before applying another event.");
 
-        ObserveTerminalCandidate(tracker, lifecycleEvent.Kind, diagnosticHandler);
-        if (tracker.IsActive && IsTerminalCandidate(lifecycleEvent.Kind))
+        ObserveTerminalCandidate(tracker, lifecycleEvent, diagnosticHandler);
+        if (tracker.WillComplete(lifecycleEvent))
         {
             pendingTerminalEvent = lifecycleEvent;
             if (!checkpointObserver())
@@ -69,13 +69,14 @@ internal sealed class NativeRunTerminalBoundary
 
     public void ObserveTerminalCandidate(
         RunLifecycleTracker tracker,
-        RunLifecycleEventKind kind,
+        RunLifecycleEvent lifecycleEvent,
         Action<string> diagnosticHandler)
     {
         if (tracker == null) throw new ArgumentNullException(nameof(tracker));
+        if (lifecycleEvent == null) throw new ArgumentNullException(nameof(lifecycleEvent));
         if (diagnosticHandler == null) throw new ArgumentNullException(nameof(diagnosticHandler));
 
-        if (tracker.IsActive && IsTerminalCandidate(kind))
+        if (tracker.WillComplete(lifecycleEvent))
         {
             try { terminalObserver?.Invoke(); }
             catch (Exception exception)
@@ -85,9 +86,4 @@ internal sealed class NativeRunTerminalBoundary
         }
     }
 
-    private static bool IsTerminalCandidate(RunLifecycleEventKind kind) => kind is
-        RunLifecycleEventKind.RaidInitialized
-        or RunLifecycleEventKind.Extracted
-        or RunLifecycleEventKind.Died
-        or RunLifecycleEventKind.Interrupted;
 }
