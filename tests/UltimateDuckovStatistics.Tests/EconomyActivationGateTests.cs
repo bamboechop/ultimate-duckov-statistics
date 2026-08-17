@@ -6,6 +6,7 @@ using UltimateDuckovStatistics.Core.Persistence;
 
 namespace UltimateDuckovStatistics.Tests;
 
+[Collection(NativeEconomyAdapterTestGroup.CollectionName)]
 public sealed class EconomyActivationGateTests : IDisposable
 {
     private static readonly DateTime TestTime = new(2026, 8, 17, 20, 0, 0, DateTimeKind.Utc);
@@ -33,14 +34,16 @@ public sealed class EconomyActivationGateTests : IDisposable
         Directory.CreateDirectory(blockedTemporaryPath);
         var failures = new List<Exception>();
         var published = new List<CurrencyFlowRecorded>();
+        var mapId = "map-one";
+        var segmentId = "segment-one";
         var gate = new EconomyActivationGate(
             activationId => repository.BeginEconomyActivation(activationId),
             failures.Add);
         using var adapter = new NativeEconomyAdapter(
             () => repository.CurrentGenerationId,
             () => "run-one",
-            () => "map-one",
-            () => "segment-one",
+            () => mapId,
+            () => segmentId,
             () => true,
             flow =>
             {
@@ -72,6 +75,12 @@ public sealed class EconomyActivationGateTests : IDisposable
             character);
         adapter.Tick();
 
+        mapId = "map-two";
+        segmentId = "segment-two";
+        ItemUtilities.OwnedItems.Remove(cash);
+        ItemUtilities.RaisePlayerItemOperation();
+        adapter.Tick();
+
         Assert.False(gate.IsReady);
         Assert.Empty(published);
         Assert.Empty(repository.Current.Statistics.Economy.Currencies);
@@ -94,12 +103,25 @@ public sealed class EconomyActivationGateTests : IDisposable
                 Assert.Equal(7, observedCash.Amount);
                 Assert.Equal(2, observedCash.ProducerSequence);
                 Assert.True(observedCash.ProvenExternalRaidAcquisition);
+                Assert.Equal("map-one", observedCash.MapId);
+                Assert.Equal("segment-one", observedCash.SegmentId);
+            },
+            spentCash =>
+            {
+                Assert.Equal(CurrencyKind.Cash, spentCash.Currency);
+                Assert.Equal(CurrencyFlowDirection.Outflow, spentCash.Direction);
+                Assert.Equal(7, spentCash.Amount);
+                Assert.Equal(3, spentCash.ProducerSequence);
+                Assert.False(spentCash.ProvenExternalRaidAcquisition);
+                Assert.Equal("map-two", spentCash.MapId);
+                Assert.Equal("segment-two", spentCash.SegmentId);
             });
         Assert.All(published, flow => Assert.Equal(adapter.ActivationId, flow.ProducerActivationId));
         Assert.Equal(adapter.ActivationId, repository.Current.Statistics.Economy.ReplayCursor!.ActivationId);
-        Assert.Equal(2, repository.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+        Assert.Equal(3, repository.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
         Assert.Equal(5, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(7, repository.Current.Statistics.Economy.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Equal(7, repository.Current.Statistics.Economy.Currencies["Cash"].Totals.GrossOutflow);
         repository.CloseClean();
     }
 

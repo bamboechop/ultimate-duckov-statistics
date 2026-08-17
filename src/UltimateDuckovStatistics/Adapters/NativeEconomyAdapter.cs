@@ -10,12 +10,13 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v7";
+    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v8";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int CashItemTypeId = EconomyManager.CashItemID;
     private const int MaximumTransientItemIds = 512;
     private const int MaximumPendingMoneyFlows = 512;
+    private const int MaximumPendingCashFlows = 512;
     private readonly Func<string> generationProvider;
     private readonly Func<string?> runProvider;
     private readonly Func<string?> mapProvider;
@@ -27,6 +28,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private readonly Func<bool> publicationGate;
     private readonly string activationId = Guid.NewGuid().ToString("N");
     private readonly List<PendingMoneyFlow> pendingMoney = new();
+    private readonly List<PendingCashFlow> pendingCash = new();
     private readonly Queue<int> pendingPickupIds = new();
     private readonly Dictionary<int, long> playerOriginatedCashAmounts = new();
     private Dictionary<int, long> ownedCashAmounts = new();
@@ -136,9 +138,9 @@ internal sealed class NativeEconomyAdapter : IDisposable
 
     private bool FlushCash()
     {
+        var pendingPublished = FlushPendingCash();
         if (cashDisabled || cashBaselineSuspended) return false;
-        if (!cashDirty && cashBaselineReady) return true;
-        if (cashBaselineReady && !PublicationReady()) return false;
+        if (!cashDirty && cashBaselineReady) return pendingPublished;
         cashDirty = false;
         var observationContext = cashObservationContext ?? CaptureContext();
         cashObservationContext = null;
@@ -171,12 +173,23 @@ internal sealed class NativeEconomyAdapter : IDisposable
         ownedCashItems = snapshot.Items;
         pendingPickupIds.Clear();
         pendingCompletedCashCostAmount = 0;
+        return FlushPendingCash();
+    }
+
+    private bool FlushPendingCash()
+    {
+        if (pendingCash.Count == 0) return true;
+        if (!PublicationReady()) return false;
+        var ready = pendingCash.ToArray();
+        pendingCash.Clear();
+        foreach (var flow in ready) Publish(CreateCashEvent(flow));
         return true;
     }
 
     public void ResetBaselines()
     {
         pendingMoney.Clear();
+        pendingCash.Clear();
         moneyBalanceObserved = false;
         lastMoneyBalance = 0;
         lastMoneyOldValue = 0;
@@ -233,6 +246,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         if (subscribedPetInventory != null) subscribedPetInventory.onContentChanged -= OnPetInventoryChanged;
         subscribedPetInventory = null;
         pendingMoney.Clear();
+        pendingCash.Clear();
     }
 
     private void OnMoneyChanged(long oldValue, long newValue)
@@ -452,29 +466,13 @@ internal sealed class NativeEconomyAdapter : IDisposable
 
     private void PublishCash(long amount, CurrencyFlowDirection direction, CurrencySourceCategory source, GameplayContext context, bool acquisition, string? sourceId, ObservationContext observationContext)
     {
-        var identity = CreateEventIdentity("cash");
-        Publish(new CurrencyFlowRecorded
+        if (pendingCash.Count >= MaximumPendingCashFlows)
         {
-            EventId = identity.EventId,
-            TimestampUtc = observationContext.TimestampUtc,
-            SaveGenerationId = observationContext.GenerationId,
-            RunId = observationContext.RunId,
-            SegmentId = observationContext.SegmentId,
-            MapId = observationContext.MapId,
-            Currency = CurrencyKind.Cash,
-            Direction = direction,
-            Amount = amount,
-            Source = source,
-            NativeSourceId = sourceId,
-            GameplayContext = context,
-            IntegrityTags = observationContext.IntegrityTags,
-            GameVersion = Application.version ?? string.Empty,
-            GameBuild = SupportedGameBuild,
-            AdapterVersion = AdapterVersion,
-            ProvenExternalRaidAcquisition = acquisition,
-            ProducerActivationId = activationId,
-            ProducerSequence = identity.Sequence
-        });
+            DisableCash(
+                $"The defensive {MaximumPendingCashFlows}-flow pending bound was reached while economy activation persistence was unavailable; later Cash capture is disabled instead of discarding an already retained exact flow.");
+            return;
+        }
+        pendingCash.Add(new PendingCashFlow(amount, direction, source, context, acquisition, sourceId, observationContext));
     }
 
     private void Publish(CurrencyFlowRecorded value)
@@ -620,6 +618,12 @@ internal sealed class NativeEconomyAdapter : IDisposable
         return flow.ToEvent(identity.EventId, activationId, identity.Sequence);
     }
 
+    private CurrencyFlowRecorded CreateCashEvent(PendingCashFlow flow)
+    {
+        var identity = CreateEventIdentity("cash");
+        return flow.ToEvent(identity.EventId, activationId, identity.Sequence);
+    }
+
     private (string EventId, long Sequence) CreateEventIdentity(string kind)
     {
         if (string.IsNullOrWhiteSpace(kind) || kind.Contains(':'))
@@ -751,6 +755,58 @@ internal sealed class NativeEconomyAdapter : IDisposable
             GameVersion = Application.version ?? string.Empty,
             GameBuild = SupportedGameBuild,
             AdapterVersion = AdapterVersion,
+            ProducerActivationId = producerActivationId,
+            ProducerSequence = producerSequence
+        };
+    }
+
+    private sealed class PendingCashFlow
+    {
+        public PendingCashFlow(
+            long amount,
+            CurrencyFlowDirection direction,
+            CurrencySourceCategory source,
+            GameplayContext context,
+            bool acquisition,
+            string? sourceId,
+            ObservationContext observation)
+        {
+            Amount = amount;
+            Direction = direction;
+            Source = source;
+            Context = context;
+            Acquisition = acquisition;
+            SourceId = sourceId;
+            Observation = observation;
+        }
+
+        private long Amount { get; }
+        private CurrencyFlowDirection Direction { get; }
+        private CurrencySourceCategory Source { get; }
+        private GameplayContext Context { get; }
+        private bool Acquisition { get; }
+        private string? SourceId { get; }
+        private ObservationContext Observation { get; }
+
+        public CurrencyFlowRecorded ToEvent(string id, string producerActivationId, long producerSequence) => new()
+        {
+            EventId = id,
+            TimestampUtc = Observation.TimestampUtc,
+            SaveGenerationId = Observation.GenerationId,
+            RunId = Observation.RunId,
+            SegmentId = Observation.SegmentId,
+            MapId = Observation.MapId,
+            Currency = CurrencyKind.Cash,
+            Direction = Direction,
+            Amount = Amount,
+            Source = Source,
+            NativeSourceId = SourceId,
+            GameplayContext = Context,
+            IntegrityTags = Observation.IntegrityTags,
+            GameVersion = Application.version ?? string.Empty,
+            GameBuild = SupportedGameBuild,
+            AdapterVersion = AdapterVersion,
+            ProvenExternalRaidAcquisition = Acquisition,
             ProducerActivationId = producerActivationId,
             ProducerSequence = producerSequence
         };

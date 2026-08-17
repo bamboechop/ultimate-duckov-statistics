@@ -8,6 +8,7 @@ using UltimateDuckovStatistics.Core.Persistence;
 
 namespace UltimateDuckovStatistics.Tests;
 
+[Collection(NativeEconomyAdapterTestGroup.CollectionName)]
 public sealed class NativeEconomyAdapterTests : IDisposable
 {
     private readonly List<CurrencyFlowRecorded> published = new();
