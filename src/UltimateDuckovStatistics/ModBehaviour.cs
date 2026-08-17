@@ -318,9 +318,13 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             Debug.LogWarning($"{LogPrefix} container adapter retained for a later cleanup retry.");
         }
 
-        if (!runLifecycleAdapter.TryCleanupOwned())
+        var retainedProfileCoordinator = profileCoordinator;
+        var runLifecycleCleanupCompleted = runLifecycleAdapter.TryCleanupOwned(
+            () => retainedProfileCoordinator?.Dispose());
+        if (!runLifecycleCleanupCompleted)
         {
-            Debug.LogWarning($"{LogPrefix} run-lifecycle adapter retained for a later cleanup retry.");
+            Debug.LogWarning(
+                $"{LogPrefix} run-lifecycle adapter and profile coordinator retained for a later cleanup retry.");
         }
 
         if (profileCoordinator != null && itemUseAdapter != null)
@@ -345,7 +349,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         healingAttributionAdapter?.Dispose();
         healingAttributionAdapter = null;
         statisticsPanel = null;
-        profileCoordinator?.Dispose();
+        if (runLifecycleCleanupCompleted)
+        {
+            profileCoordinator?.Dispose();
+        }
         profileCoordinator = null;
         NativeHotPathDiagnostics.WriteSummary(message => Debug.Log($"{LogPrefix} {message}"));
         initialized = false;

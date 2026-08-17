@@ -49,6 +49,7 @@ public sealed class ProcessLifetimeCleanupOwner<T>
     private static readonly RetryableCleanupOwner<T> SharedOwner = new();
     private static object? ownerToken;
     private static bool cleanupPending;
+    private static Action? pendingCleanupCompletion;
     private readonly object token = new();
 
     public T? OwnedValue
@@ -91,10 +92,13 @@ public sealed class ProcessLifetimeCleanupOwner<T>
             SharedOwner.Assign(value);
             ownerToken = token;
             cleanupPending = false;
+            pendingCleanupCompletion = null;
         }
     }
 
-    public bool TryCleanupOwned()
+    public bool TryCleanupOwned() => TryCleanupOwned(null);
+
+    public bool TryCleanupOwned(Action? completeAfterRetriedCleanup)
     {
         lock (Sync)
         {
@@ -104,7 +108,14 @@ public sealed class ProcessLifetimeCleanupOwner<T>
             }
 
             cleanupPending = true;
-            return TryCleanupShared();
+            if (!SharedOwner.TryCleanup())
+            {
+                pendingCleanupCompletion ??= completeAfterRetriedCleanup;
+                return false;
+            }
+
+            CompleteSharedCleanup();
+            return true;
         }
     }
 
@@ -112,19 +123,22 @@ public sealed class ProcessLifetimeCleanupOwner<T>
     {
         lock (Sync)
         {
-            return cleanupPending && TryCleanupShared();
+            if (!cleanupPending || !SharedOwner.TryCleanup())
+            {
+                return false;
+            }
+
+            CompleteSharedCleanup();
+            return true;
         }
     }
 
-    private static bool TryCleanupShared()
+    private static void CompleteSharedCleanup()
     {
-        if (!SharedOwner.TryCleanup())
-        {
-            return false;
-        }
-
+        var completion = pendingCleanupCompletion;
+        pendingCleanupCompletion = null;
         ownerToken = null;
         cleanupPending = false;
-        return true;
+        completion?.Invoke();
     }
 }
