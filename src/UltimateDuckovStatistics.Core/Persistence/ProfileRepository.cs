@@ -208,12 +208,25 @@ public sealed class ProfileRepository
     public bool BeginEconomyActivation(string activationId)
     {
         var profile = Current;
+        var previousEconomy = EconomyStatisticsReducer.Clone(profile.Statistics.Economy);
+        var previousRevision = profile.Revision;
+        var previousUpdatedUtc = profile.UpdatedUtc;
         if (!EconomyStatisticsReducer.BeginReplayActivation(profile.Statistics.Economy, activationId))
             return false;
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
-        SaveCurrent();
-        return true;
+        try
+        {
+            SaveCurrent();
+            return true;
+        }
+        catch
+        {
+            profile.Statistics.Economy = previousEconomy;
+            profile.Revision = previousRevision;
+            profile.UpdatedUtc = previousUpdatedUtc;
+            throw;
+        }
     }
 
     public bool CanDeferItemPersistence(string? runId)

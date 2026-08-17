@@ -631,8 +631,11 @@ public sealed class ActiveRunPersistenceTests
         var tracker = ActiveTracker(generation);
         repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(1), 1)!);
         var boundary = new NativeRunTerminalBoundary();
+        var observerCalls = 0;
         boundary.SetTerminalObserver(() =>
         {
+            observerCalls++;
+            if (observerCalls != 1) return;
             var flow = EconomyFlow(
                 "economy:terminal-boundary",
                 tracker,
@@ -673,6 +676,7 @@ public sealed class ActiveRunPersistenceTests
 
         Assert.NotNull(transition.Completed);
         Assert.False(tracker.IsActive);
+        Assert.Equal(2, observerCalls);
         Assert.Equal(
             17,
             transition.Completed!.Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);

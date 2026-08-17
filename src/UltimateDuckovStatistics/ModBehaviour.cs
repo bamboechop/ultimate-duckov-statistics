@@ -247,6 +247,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Update()
     {
+        profileCoordinator?.RetryPendingEconomyActivation();
         NativeHotPathDiagnostics.HandleControl(
             Input.GetKeyDown(KeyCode.F9),
             Input.GetKeyDown(KeyCode.F10),

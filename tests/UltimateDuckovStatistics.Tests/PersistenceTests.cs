@@ -418,6 +418,51 @@ public sealed class PersistenceTests
     }
 
     [Theory]
+    [InlineData("run-segment")]
+    [InlineData("completed-runs")]
+    [InlineData("starting-map")]
+    [InlineData("route-map")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void CurrentSchemaCrossScopeCashOutcomeMismatchLosesToIntactBackup(string corruption)
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var invalidPrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        ConfigureExactCashOutcomeFanOut(backup, amount: 10);
+        ConfigureExactCashOutcomeFanOut(invalidPrimary, amount: 10);
+        var invalidRun = invalidPrimary.Statistics.Runs[0];
+        var corrupted = corruption switch
+        {
+            "run-segment" => invalidRun.Segments[0].Economy,
+            "completed-runs" => invalidPrimary.Statistics.RunTotals.Economy,
+            "starting-map" => invalidPrimary.Statistics.RunTotals.Maps[invalidRun.StartingMapId].Economy,
+            _ => invalidPrimary.Statistics.RunTotals.RouteMaps[invalidRun.Segments[0].MapId].Economy
+        };
+        corrupted.CashRaidOutcomes = new CashRaidOutcomeAggregate();
+        Assert.Null(ProfileMigrator.ValidateRecoveryCandidate(backup));
+        Assert.Contains(
+            "economy fan-out is inconsistent",
+            ProfileMigrator.ValidateRecoveryCandidate(invalidPrimary),
+            StringComparison.Ordinal);
+        store.Save(path, backup);
+        store.Save(path, invalidPrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("economy fan-out is inconsistent", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        Assert.Equal(10, repository.Current.Statistics.RunTotals.Economy.CashRaidOutcomes.Acquired);
+        Assert.Equal(10, repository.Current.Statistics.RunTotals.Economy.CashRaidOutcomes.Secured);
+        repository.CloseClean();
+    }
+
+    [Theory]
     [InlineData("completed-runs")]
     [InlineData("completed-runs-missing-row")]
     [InlineData("starting-map")]
@@ -769,6 +814,40 @@ public sealed class PersistenceTests
             restarted.Current.Statistics.Economy.ReplayCursor!.ActivationId);
         Assert.Equal(0, restarted.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
         restarted.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void FailedActivationPersistenceRollsBackTheCursorAndAllowsTheSameActivationToRetry()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var repository = CreateRepository(temporaryDirectory.Path, "session-first");
+        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        var profilePath = repository.CurrentProfilePath!;
+        var temporaryPath = AtomicJsonPaths.GetTemporaryPath(profilePath);
+        var revision = repository.Current.Revision;
+        var updatedUtc = repository.Current.UpdatedUtc;
+        Directory.CreateDirectory(temporaryPath);
+        try
+        {
+            var failure = Record.Exception(() => repository.BeginEconomyActivation("activation-retry"));
+            Assert.True(failure is IOException or UnauthorizedAccessException);
+            Assert.Equal(string.Empty, repository.Current.Statistics.Economy.ReplayCursor!.ActivationId);
+            Assert.Equal(0, repository.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+            Assert.Equal(revision, repository.Current.Revision);
+            Assert.Equal(updatedUtc, repository.Current.UpdatedUtc);
+        }
+        finally
+        {
+            Directory.Delete(temporaryPath);
+        }
+
+        Assert.True(repository.BeginEconomyActivation("activation-retry"));
+        var persisted = new AtomicJsonStore<ProfileDocument>().Load(profilePath).Value!;
+        Assert.Equal("activation-retry", persisted.Statistics.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(0, persisted.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
+        repository.CloseClean();
     }
 
     [Fact]
@@ -2269,6 +2348,45 @@ public sealed class PersistenceTests
         SetMoneyInflow(document.Statistics.RunTotals.Economy, runAmount);
         SetMoneyInflow(document.Statistics.RunTotals.Maps[run.StartingMapId].Economy, runAmount);
         SetMoneyInflow(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy, segmentAmount);
+    }
+
+    private static void ConfigureExactCashOutcomeFanOut(ProfileDocument document, long amount)
+    {
+        var run = document.Statistics.Runs[0];
+        var segment = run.Segments[0];
+        SetCashOutcome(run.Economy, amount, amount);
+        SetCashOutcome(segment.Economy, amount, secured: 0);
+        SetCashOutcome(document.Statistics.RunTotals.Economy, amount, amount);
+        SetCashOutcome(document.Statistics.RunTotals.Maps[run.StartingMapId].Economy, amount, amount);
+        SetCashOutcome(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy, amount, secured: 0);
+    }
+
+    private static void SetCashOutcome(EconomyStatisticsAggregate economy, long acquired, long secured)
+    {
+        economy.Capabilities.RouteAttribution = new MetricAvailability
+        {
+            State = AdapterCapabilityState.Supported,
+            Provenance = "test exact route contract"
+        };
+        economy.Currencies[CurrencyKind.Cash.ToString()] = new CurrencyEconomyAggregate
+        {
+            Currency = CurrencyKind.Cash,
+            Totals = new CurrencyFlowTotals { GrossInflow = acquired },
+            Sources = new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal)
+            {
+                [CurrencySourceCategory.LootOrPickup.ToString()] = new() { GrossInflow = acquired }
+            },
+            Contexts = new Dictionary<string, CurrencyFlowTotals>(StringComparer.Ordinal)
+            {
+                [GameplayContext.Raid.ToString()] = new() { GrossInflow = acquired }
+            }
+        };
+        economy.CashRaidOutcomes = new CashRaidOutcomeAggregate
+        {
+            Acquired = acquired,
+            Secured = secured
+        };
+        economy.CashTerminalDispositionRecorded = secured > 0;
     }
 
     private static ProfileDocument CreateMigratedProfileWithExactPostM9Run(

@@ -56,6 +56,7 @@ internal sealed class NativeRunTerminalBoundary
             return new RunLifecycleTransition();
         }
 
+        ObserveTerminalCandidate(tracker, pendingTerminalEvent, diagnosticHandler);
         if (!checkpointObserver(pendingTerminalEvent))
         {
             diagnosticHandler("Run terminalization remains deferred because the refreshed active-run checkpoint was not durable.");

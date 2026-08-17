@@ -25,6 +25,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private readonly DeferredCheckpointWriter<CheckpointWrite> checkpointWriter;
     private readonly DeferredSnapshotWriter<ProfileWrite> profileWriter;
     private Func<bool>? activeRunCheckpointFlusher;
+    private string? pendingEconomyActivationId;
+    private bool economyActivationFailureReported;
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
     private CapabilityRecord healingCapability = new()
@@ -292,8 +294,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         if (string.IsNullOrWhiteSpace(activationId))
             throw new ArgumentException("An economy activation identity is required.", nameof(activationId));
-        repository?.BeginEconomyActivation(activationId);
+        pendingEconomyActivationId = activationId;
+        economyActivationFailureReported = false;
+        TryPersistPendingEconomyActivation();
     }
+
+    public void RetryPendingEconomyActivation() => TryPersistPendingEconomyActivation();
 
     public bool HandleCurrencyFlow(CurrencyFlowRecorded flow)
     {
@@ -413,7 +419,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         repository.SetEconomyCapabilities(economyMetricCapabilities);
         OpenDiagnosticsForCurrentGeneration();
         WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only.");
-        ProfileChanged?.Invoke();
+        PublishProfileEvent(ProfileChanged, "profile-changed");
     }
 
     public void Dispose()
@@ -466,7 +472,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 $"Save slot selected slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
                 $"created={result.CreatedNew} rotated={result.RotatedGeneration} " +
                 $"unsupportedArchived={result.UnsupportedSchemaArchived}.");
-            ProfileChanged?.Invoke();
+            PublishProfileEvent(ProfileChanged, "profile-changed");
         }
         catch (Exception exception)
         {
@@ -487,7 +493,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             OpenDiagnosticsForCurrentGeneration();
             saveResetAwaitingNewGameReport = true;
             WriteDiagnostic($"Duckov save deletion rotated to generation {repository.CurrentGenerationId}.");
-            ProfileChanged?.Invoke();
+            PublishProfileEvent(ProfileChanged, "profile-changed");
         }
         catch (Exception exception)
         {
@@ -535,7 +541,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             }
 
             repository!.SetEconomyCapabilities(economyMetricCapabilities);
-            ProfileChanged?.Invoke();
+            PublishProfileEvent(ProfileChanged, "profile-changed");
         }
         catch (Exception exception)
         {
@@ -543,6 +549,37 @@ internal sealed class NativeProfileCoordinator : IDisposable
             WriteDiagnostic($"New-game rotation failed: {exception.GetType().Name}.", "Error");
         }
     }
+
+    private void TryPersistPendingEconomyActivation()
+    {
+        if (pendingEconomyActivationId == null || repository == null) return;
+        try
+        {
+            repository.BeginEconomyActivation(pendingEconomyActivationId);
+            pendingEconomyActivationId = null;
+            economyActivationFailureReported = false;
+        }
+        catch (Exception exception)
+        {
+            if (economyActivationFailureReported) return;
+            economyActivationFailureReported = true;
+            Debug.LogException(exception);
+            WriteDiagnostic(
+                $"Economy activation persistence failed and remains queued for retry: {exception.GetType().Name}.",
+                "Error");
+        }
+    }
+
+    private void PublishProfileEvent(Action? subscribers, string eventName) =>
+        ProfileChangePublication.PublishIndependently(
+            subscribers,
+            exception =>
+            {
+                Debug.LogException(exception);
+                WriteDiagnostic(
+                    $"A {eventName} subscriber failed without skipping the remaining subscribers: {exception.GetType().Name}.",
+                    "Error");
+            });
 
     private static SaveIdentitySnapshot ReadIdentity() => ReadIdentity(SavesSystem.CurrentSlot);
 

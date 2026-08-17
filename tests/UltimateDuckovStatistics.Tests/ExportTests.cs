@@ -491,6 +491,46 @@ public sealed class ExportTests
     [Fact]
     [Trait("Category", "Export")]
     [Trait("Category", "M9")]
+    public void EconomySourceAndContextCsvUseInvariantAsciiNegativeNumbers()
+    {
+        var profile = CreateProfile();
+        profile.Statistics.Economy.Capabilities = EconomyCapabilities();
+        EconomyStatisticsReducer.Record(
+            profile.Statistics.Economy,
+            profile.GenerationId,
+            EconomyFlow(
+                "culture-outflow",
+                CurrencyKind.Money,
+                CurrencyFlowDirection.Outflow,
+                3,
+                CurrencySourceCategory.Purchase,
+                GameplayContext.Shop));
+        var previousCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fa-IR");
+            var bundle = StatisticsExporter.Create(profile, TestTime);
+            var source = Assert.Single(
+                ParseCsv(bundle.EconomySourcesCsv),
+                row => row["scope"] == "lifetime" && row["source"] == "Purchase");
+            var context = Assert.Single(
+                ParseCsv(bundle.EconomyContextsCsv),
+                row => row["scope"] == "lifetime" && row["gameplay_context"] == "Shop");
+
+            Assert.Equal("-3", source["net_flow"]);
+            Assert.Equal("-3", context["net_flow"]);
+            Assert.Equal(-3, ReadLong(source, "net_flow"));
+            Assert.Equal(-3, ReadLong(context, "net_flow"));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "M9")]
     public void HistoricalEconomyCsvLeavesUnavailablePreM9ValuesBlank()
     {
         var profile = CreateProfile();

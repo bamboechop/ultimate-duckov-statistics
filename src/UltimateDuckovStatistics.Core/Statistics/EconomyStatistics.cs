@@ -320,6 +320,42 @@ public static class EconomyStatisticsReducer
         return CurrencyRowsEqual(actual, expected);
     }
 
+    public static bool IsExactCashAcquisitionComposition(
+        EconomyStatisticsAggregate total,
+        IEnumerable<EconomyStatisticsAggregate> components)
+    {
+        if (total == null) throw new ArgumentNullException(nameof(total));
+        if (components == null) throw new ArgumentNullException(nameof(components));
+        if (total.CashArithmeticSaturated) return true;
+
+        long expected = 0;
+        foreach (var component in components)
+        {
+            if (component == null || component.CashArithmeticSaturated
+                                  || !TryAddExact(expected, component.CashRaidOutcomes.Acquired, out expected))
+                return false;
+        }
+        return total.CashRaidOutcomes.Acquired == expected;
+    }
+
+    public static bool IsExactCashOutcomeComposition(
+        EconomyStatisticsAggregate total,
+        IEnumerable<EconomyStatisticsAggregate> components)
+    {
+        if (total == null) throw new ArgumentNullException(nameof(total));
+        if (components == null) throw new ArgumentNullException(nameof(components));
+        if (total.CashArithmeticSaturated) return true;
+
+        var expected = new CashRaidOutcomeAggregate();
+        foreach (var component in components)
+        {
+            if (component == null || component.CashArithmeticSaturated
+                                  || !TryAddCashOutcomes(expected, component.CashRaidOutcomes))
+                return false;
+        }
+        return CashOutcomesEqual(total.CashRaidOutcomes, expected);
+    }
+
     private static bool IsCurrencyArithmeticSaturated(EconomyStatisticsAggregate aggregate, CurrencyKind currency) =>
         currency switch
         {
@@ -746,6 +782,34 @@ public static class EconomyStatisticsReducer
         || WouldOverflow(target.Secured, source.Secured)
         || WouldOverflow(target.Lost, source.Lost)
         || WouldOverflow(target.Unresolved, source.Unresolved);
+
+    private static bool TryAddCashOutcomes(CashRaidOutcomeAggregate target, CashRaidOutcomeAggregate source)
+    {
+        if (!TryAddExact(target.Acquired, source.Acquired, out var acquired)
+            || !TryAddExact(target.Secured, source.Secured, out var secured)
+            || !TryAddExact(target.Lost, source.Lost, out var lost)
+            || !TryAddExact(target.Unresolved, source.Unresolved, out var unresolved))
+            return false;
+        target.Acquired = acquired;
+        target.Secured = secured;
+        target.Lost = lost;
+        target.Unresolved = unresolved;
+        return true;
+    }
+
+    private static bool TryAddExact(long left, long right, out long result)
+    {
+        result = 0;
+        if (left < 0 || right < 0 || WouldOverflow(left, right)) return false;
+        result = left + right;
+        return true;
+    }
+
+    private static bool CashOutcomesEqual(CashRaidOutcomeAggregate left, CashRaidOutcomeAggregate right) =>
+        left.Acquired == right.Acquired
+        && left.Secured == right.Secured
+        && left.Lost == right.Lost
+        && left.Unresolved == right.Unresolved;
 
     private static bool WouldOverflow(long left, long right) => left > long.MaxValue - right;
 

@@ -64,11 +64,34 @@ public sealed class NativeRunTerminalBoundaryTests
         var tracker = new RunLifecycleTracker(() => "run-old");
         tracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, 0, nativeRaidId: "41"));
         tracker.Apply(Event(RunLifecycleEventKind.ControlReady, 1, Context(), nativeRaidId: "41"));
+        var attribution = tracker.ActiveEventContext!;
         var observerCalls = 0;
         var checkpointAttempts = 0;
         var diagnostics = new List<string>();
         var boundary = new NativeRunTerminalBoundary();
-        boundary.SetTerminalObserver(() => observerCalls++);
+        boundary.SetTerminalObserver(() =>
+        {
+            observerCalls++;
+            if (observerCalls != 2) return;
+            Assert.True(tracker.RecordCurrencyFlow(new CurrencyFlowRecorded
+            {
+                EventId = "money-queued-after-failed-checkpoint",
+                TimestampUtc = Origin.AddSeconds(3),
+                SaveGenerationId = "generation-1",
+                RunId = attribution.RunId,
+                SegmentId = attribution.SegmentId,
+                MapId = attribution.MapId,
+                Currency = CurrencyKind.Money,
+                Direction = CurrencyFlowDirection.Inflow,
+                Amount = 19,
+                Source = CurrencySourceCategory.UnknownAdjustment,
+                GameplayContext = GameplayContext.Raid,
+                IntegrityTags = IntegrityTags.Normal,
+                AdapterVersion = "test",
+                ProducerActivationId = "test-activation",
+                ProducerSequence = 1
+            }));
+        });
 
         var terminalEvent = Event(RunLifecycleEventKind.Extracted, 3);
         var blocked = boundary.Apply(
@@ -104,8 +127,9 @@ public sealed class NativeRunTerminalBoundaryTests
         Assert.False(tracker.IsActive);
         Assert.False(boundary.HasPendingTerminal);
         Assert.Equal(RunOutcome.Extracted, completed.Completed!.Outcome);
-        Assert.Equal(1, observerCalls);
+        Assert.Equal(2, observerCalls);
         Assert.Equal(2, checkpointAttempts);
+        Assert.Equal(19, completed.Completed.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Collection(
             diagnostics,
             message => Assert.Contains("terminalization deferred", message, StringComparison.Ordinal));

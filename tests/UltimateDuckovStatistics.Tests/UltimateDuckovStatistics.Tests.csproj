@@ -34,6 +34,8 @@
              Link="ProductionAdapters\NativeRunTerminalBoundary.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeRunCompletionBoundary.cs"
              Link="ProductionAdapters\NativeRunCompletionBoundary.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ProfileChangePublication.cs"
+             Link="ProductionAdapters\ProfileChangePublication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEquipmentSnapshotBuilder.cs"
              Link="ProductionAdapters\NativeEquipmentSnapshotBuilder.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEquipmentAdapter.cs"
