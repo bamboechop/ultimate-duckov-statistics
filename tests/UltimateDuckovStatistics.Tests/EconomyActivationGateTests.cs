@@ -135,7 +135,79 @@ public sealed class EconomyActivationGateTests : IDisposable
         repository.CloseClean();
     }
 
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "NativeAdapter")]
+    public void ActiveRunRewardAndSaleCallbacksRetainValidConservativeRaidMoneyFlows()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => TestTime,
+            new Queue<string>(["generation-one", "session-one"]).Dequeue);
+        repository.Open(Identity());
+        repository.EnableDeferredItemPersistence();
+        var published = new List<CurrencyFlowRecorded>();
+        var gate = new EconomyActivationGate(
+            activationId => repository.BeginEconomyActivation(activationId),
+            exception => throw exception);
+        using var adapter = new NativeEconomyAdapter(
+            () => repository.CurrentGenerationId,
+            () => "run-one",
+            () => "map-one",
+            () => "segment-one",
+            () => true,
+            flow =>
+            {
+                if (!repository.RecordDeferred(flow)) return false;
+                published.Add(flow);
+                return true;
+            },
+            _ => { },
+            _ => { },
+            gate.EnsureReady);
+        gate.Begin(adapter.ActivationId);
+        adapter.Initialize();
+        adapter.Tick();
+
+        EconomyManager.RaiseMoneyChanged(0, 5);
+        Duckov.Quests.Reward.RaiseClaimed(new Duckov.Quests.Rewards.QuestReward_Money
+        {
+            ID = "reward-active-run",
+            Description = "Auto reward",
+            Amount = 5
+        });
+        adapter.Tick();
+
+        EconomyManager.RaiseMoneyChanged(5, 11);
+        StockShop.RaiseSold(
+            new StockShop { MerchantID = "merchant-active-run", DisplayName = "Raid merchant" },
+            new Item { TypeID = 99 },
+            6);
+        adapter.Tick();
+
+        Assert.Collection(
+            published,
+            reward => AssertConservativeRaidMoney(reward, 5),
+            sale => AssertConservativeRaidMoney(sale, 6));
+        Assert.Equal(11, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        repository.CloseClean();
+    }
+
     public void Dispose() => ResetNativeState();
+
+    private static void AssertConservativeRaidMoney(CurrencyFlowRecorded flow, long amount)
+    {
+        Assert.Equal(CurrencyKind.Money, flow.Currency);
+        Assert.Equal(amount, flow.Amount);
+        Assert.Equal(CurrencySourceCategory.UnknownAdjustment, flow.Source);
+        Assert.Equal(GameplayContext.Raid, flow.GameplayContext);
+        Assert.Equal("run-one", flow.RunId);
+        Assert.Equal("segment-one", flow.SegmentId);
+        Assert.Equal("map-one", flow.MapId);
+        Assert.Null(flow.NativeSourceId);
+    }
 
     private static SaveIdentitySnapshot Identity() => new()
     {

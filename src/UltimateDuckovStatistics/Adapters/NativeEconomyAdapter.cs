@@ -10,7 +10,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v9";
+    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v10";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int CashItemTypeId = EconomyManager.CashItemID;
@@ -329,7 +329,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         if (moneySemanticCorrelationDisabled) return;
         if (reward is not QuestReward_Money moneyReward || moneyReward.Amount <= 0) return;
         var pending = FindPendingMoney(CurrencyFlowDirection.Inflow, moneyReward.Amount);
-        if (pending == null) return;
+        if (pending == null || pending.HasRunIdentity) return;
         pending.Source = CurrencySourceCategory.Reward;
         pending.Context = GameplayContext.Reward;
         pending.NativeSourceId = $"duckov:quest-reward-money:{reward.ID}";
@@ -354,7 +354,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
             && !moneySemanticCorrelationDisabled)
         {
             var money = FindPendingMoney(CurrencyFlowDirection.Inflow, sellPrice);
-            if (money != null)
+            if (money != null && !money.HasRunIdentity)
             {
                 money.Source = CurrencySourceCategory.Sale;
                 money.Context = GameplayContext.Shop;
@@ -538,6 +538,14 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private void ObserveRemovedCashIds(Dictionary<int, long> current)
     {
         if (cashAcquisitionDisabled) return;
+        if (ownedCashAmounts.Any(entry =>
+                current.TryGetValue(entry.Key, out var retainedAmount)
+                && retainedAmount < entry.Value))
+        {
+            DisableCashAcquisition(
+                "A player-originated Cash outflow reduced a retained stack identity; Duckov split/drop creates a new outside-owned identity that public events cannot correlate, so later external acquisition attribution is disabled instead of fabricating loot.");
+            return;
+        }
         foreach (var entry in ownedCashAmounts.Where(entry => !current.ContainsKey(entry.Key)))
         {
             if (ownedCashItems.TryGetValue(entry.Key, out var removedItem)
@@ -646,7 +654,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
             MoneySourceAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " Completed StockShop sales and QuestReward_Money claims are semantic; purchases, fees, crafting, conversion, and other changes remain UnknownAdjustment."),
             MoneyContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " Reward and sale contexts are semantic; other non-raid changes use Base and remain source-independent."),
             CashAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " Cash is item type 451; event-coalesced totals span storage, main inventory, and pet inventory, while full-scene inventory hydration is baselined only after level initialization completes."),
-            CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " successful exact-main world pickup plus owned-total delta, with bounded player-originated drop/re-pickup item-identity and last-owned-amount exclusion that remains exact when AddAndMerge consumes the picked item; verified OnMoneyPaid, OnCostPaid, and Item.IsBeingDestroyed boundaries exclude completed Cost.money and Cost.items Cash spending, including coalesced full-stack removal; corpse/container transfers remain exact UnknownAdjustment flows."),
+            CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " successful exact-main world pickup plus owned-total delta, with bounded player-originated drop/re-pickup item-identity and last-owned-amount exclusion that remains exact when AddAndMerge consumes the picked item; a player-originated partial-stack decrease disables acquisition attribution because Duckov gives the dropped portion a new unobservable identity; verified OnMoneyPaid, OnCostPaid, and Item.IsBeingDestroyed boundaries exclude completed Cost.money and Cost.items Cash spending, including coalesced full-stack removal; corpse/container transfers remain exact UnknownAdjustment flows."),
             CashContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " context is captured at the accepted owned-total delta boundary."),
             CashTerminalOutcomes = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, "Cash acquisition is supported, but installed-game public events do not prove terminal disposition across fungible main, pet, and storage ownership; acquired amounts remain unresolved."),
             RouteAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " active run/map/segment identity is captured at event time; route loss degrades only segment attribution.")
@@ -740,6 +748,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         public GameplayContext Context { get; set; }
         public string? NativeSourceId { get; set; }
         public string? SourceDisplayName { get; set; }
+        public bool HasRunIdentity => !string.IsNullOrWhiteSpace(Observation.RunId);
         private ObservationContext Observation { get; }
         public CurrencyFlowRecorded ToEvent(string id, string producerActivationId, long producerSequence) => new()
         {

@@ -195,6 +195,51 @@ public sealed class NativeEconomyAdapterTests : IDisposable
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "NativeAdapter")]
+    public void PartialStackDropWithANewRuntimeIdentityCannotBecomeProvenAcquisition()
+    {
+        runActive = true;
+        runId = "run:partial-drop";
+        segmentId = "segment:partial-drop";
+        mapId = "duckov:map:partial-drop";
+        var original = Cash(20);
+        ItemUtilities.OwnedItems.Add(original);
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+
+        original.StackCount = 12;
+        var splitDrop = Cash(8);
+        ItemUtilities.RaisePlayerItemOperation();
+        adapter.Tick();
+
+        ItemUtilities.OwnedItems.Add(splitDrop);
+        InteractablePickup.RaisePickup(
+            new InteractablePickup { ItemAgent = new ItemAgent { Item = splitDrop } },
+            MainCharacter());
+
+        Assert.Collection(
+            published,
+            drop =>
+            {
+                Assert.Equal(CurrencyFlowDirection.Outflow, drop.Direction);
+                Assert.Equal(8, drop.Amount);
+                Assert.False(drop.ProvenExternalRaidAcquisition);
+            },
+            repickup =>
+            {
+                Assert.Equal(CurrencyFlowDirection.Inflow, repickup.Direction);
+                Assert.Equal(8, repickup.Amount);
+                Assert.Equal(CurrencySourceCategory.UnknownAdjustment, repickup.Source);
+                Assert.False(repickup.ProvenExternalRaidAcquisition);
+            });
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            adapter.MetricCapabilities.CashExternalAcquisition.State);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "NativeAdapter")]
     public void MainFlagWithoutExactMainCharacterIdentityCannotProveCashAcquisition()
     {
         runActive = true;
