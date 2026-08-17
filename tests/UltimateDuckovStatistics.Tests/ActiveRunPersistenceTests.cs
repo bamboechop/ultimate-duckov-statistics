@@ -643,17 +643,33 @@ public sealed class ActiveRunPersistenceTests
             Assert.True(tracker.RecordCurrencyFlow(flow));
         });
 
-        var transition = boundary.Apply(
-            tracker,
+        var lifecycleEvent =
             new RunLifecycleEvent
             {
                 Kind = RunLifecycleEventKind.RaidInitialized,
                 TimestampUtc = TestTime.AddSeconds(3),
                 MonotonicSeconds = 3,
                 NativeRaidId = "43"
-            },
+            };
+        var blocked = boundary.Apply(
+            tracker,
+            lifecycleEvent,
             _ => { },
-            () => repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(3), 3)!));
+            () => false);
+
+        Assert.Null(blocked.Completed);
+        Assert.True(tracker.IsActive);
+        Assert.True(boundary.HasPendingTerminal);
+
+        var transition = boundary.Retry(
+            tracker,
+            _ => { },
+            pendingEvent =>
+            {
+                Assert.Same(lifecycleEvent, pendingEvent);
+                repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(3), 3)!);
+                return true;
+            });
 
         Assert.NotNull(transition.Completed);
         Assert.False(tracker.IsActive);

@@ -46,13 +46,69 @@ public sealed class NativeRunTerminalBoundaryTests
         var transition = boundary.Apply(
             tracker,
             Event(RunLifecycleEventKind.RaidInitialized, 3, nativeRaidId: "42"),
-            diagnostics.Add);
+            diagnostics.Add,
+            () => true);
 
         Assert.Equal(1, observerCalls);
         Assert.Empty(diagnostics);
         Assert.NotNull(transition.Completed);
         Assert.Equal(RunOutcome.Interrupted, transition.Completed!.Outcome);
         Assert.Equal(17, transition.Completed.Economy.Currencies["Money"].Totals.GrossInflow);
+    }
+
+    [Fact]
+    [Trait("Category", "Run")]
+    [Trait("Category", "M9")]
+    public void FailedTerminalCheckpointKeepsTheRunActiveUntilDurableRetry()
+    {
+        var tracker = new RunLifecycleTracker(() => "run-old");
+        tracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, 0, nativeRaidId: "41"));
+        tracker.Apply(Event(RunLifecycleEventKind.ControlReady, 1, Context(), nativeRaidId: "41"));
+        var observerCalls = 0;
+        var checkpointAttempts = 0;
+        var diagnostics = new List<string>();
+        var boundary = new NativeRunTerminalBoundary();
+        boundary.SetTerminalObserver(() => observerCalls++);
+
+        var terminalEvent = Event(RunLifecycleEventKind.Extracted, 3);
+        var blocked = boundary.Apply(
+            tracker,
+            terminalEvent,
+            diagnostics.Add,
+            () =>
+            {
+                checkpointAttempts++;
+                return false;
+            });
+
+        Assert.Null(blocked.Completed);
+        Assert.True(tracker.IsActive);
+        Assert.True(boundary.HasPendingTerminal);
+        Assert.Same(terminalEvent, boundary.PendingTerminalEvent);
+        Assert.Equal(Origin.AddSeconds(3), boundary.PendingTerminalEvent!.TimestampUtc);
+        Assert.Equal(3, boundary.PendingTerminalEvent.MonotonicSeconds);
+        Assert.Equal(1, observerCalls);
+        Assert.Equal(1, checkpointAttempts);
+
+        var completed = boundary.Retry(
+            tracker,
+            diagnostics.Add,
+            lifecycleEvent =>
+            {
+                checkpointAttempts++;
+                Assert.Equal(Origin.AddSeconds(3), lifecycleEvent.TimestampUtc);
+                Assert.Equal(3, lifecycleEvent.MonotonicSeconds);
+                return true;
+            });
+
+        Assert.False(tracker.IsActive);
+        Assert.False(boundary.HasPendingTerminal);
+        Assert.Equal(RunOutcome.Extracted, completed.Completed!.Outcome);
+        Assert.Equal(1, observerCalls);
+        Assert.Equal(2, checkpointAttempts);
+        Assert.Collection(
+            diagnostics,
+            message => Assert.Contains("terminalization deferred", message, StringComparison.Ordinal));
     }
 
     private static RunLifecycleEvent Event(
