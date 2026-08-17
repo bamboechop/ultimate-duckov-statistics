@@ -626,6 +626,7 @@ internal sealed class NativeStatisticsPanel
             economy,
             CurrencyKind.Money,
             economy.Capabilities.MoneyAmountDirection,
+            currentEconomyCapabilities.MoneyAmountDirection,
             economy.Capabilities.MoneySourceAttribution,
             economy.Capabilities.MoneyContextAttribution);
         GUILayout.Space(12);
@@ -633,16 +634,17 @@ internal sealed class NativeStatisticsPanel
             economy,
             CurrencyKind.Cash,
             economy.Capabilities.CashAmountDirection,
+            currentEconomyCapabilities.CashAmountDirection,
             economy.Capabilities.CashExternalAcquisition,
             economy.Capabilities.CashContextAttribution);
         GUILayout.Space(12);
         GUILayout.Label(UiText.Get("ui.raid_cash"));
         if (economy.HistoricalUnavailable)
             GUILayout.Label($"  {UiText.Get("ui.pre_m9_unavailable")}");
-        GUILayout.Label($"  {UiText.Get("ui.acquired")}: {FormatLong(economy.CashRaidOutcomes.Acquired, economy.Capabilities.CashExternalAcquisition.State)}");
-        GUILayout.Label($"  {UiText.Get("ui.secured")}: {FormatLong(economy.CashRaidOutcomes.Secured, economy.Capabilities.CashTerminalOutcomes.State)}");
-        GUILayout.Label($"  {UiText.Get("ui.lost")}: {FormatLong(economy.CashRaidOutcomes.Lost, economy.Capabilities.CashTerminalOutcomes.State)}");
-        GUILayout.Label($"  {UiText.Get("ui.unresolved")}: {FormatLong(economy.CashRaidOutcomes.Unresolved, economy.Capabilities.CashTerminalOutcomes.State)}");
+        GUILayout.Label($"  {UiText.Get("ui.acquired")}: {UiText.FormatEconomyValue(economy.CashRaidOutcomes.Acquired, economy.Capabilities.CashExternalAcquisition, currentEconomyCapabilities.CashExternalAcquisition)}");
+        GUILayout.Label($"  {UiText.Get("ui.secured")}: {UiText.FormatEconomyValue(economy.CashRaidOutcomes.Secured, economy.Capabilities.CashTerminalOutcomes, currentEconomyCapabilities.CashTerminalOutcomes)}");
+        GUILayout.Label($"  {UiText.Get("ui.lost")}: {UiText.FormatEconomyValue(economy.CashRaidOutcomes.Lost, economy.Capabilities.CashTerminalOutcomes, currentEconomyCapabilities.CashTerminalOutcomes)}");
+        GUILayout.Label($"  {UiText.Get("ui.unresolved")}: {UiText.FormatEconomyValue(economy.CashRaidOutcomes.Unresolved, economy.Capabilities.CashTerminalOutcomes, currentEconomyCapabilities.CashTerminalOutcomes)}");
         GUILayout.Space(12);
         GUILayout.Label("Recent run economy");
         foreach (var run in profile.Statistics.Runs.OrderByDescending(value => value.EndedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal).Take(8))
@@ -657,6 +659,7 @@ internal sealed class NativeStatisticsPanel
         EconomyStatisticsAggregate economy,
         CurrencyKind kind,
         MetricAvailability amountAvailability,
+        MetricAvailability currentAmountAvailability,
         MetricAvailability sourceAvailability,
         MetricAvailability contextAvailability)
     {
@@ -674,16 +677,16 @@ internal sealed class NativeStatisticsPanel
                 GUILayout.Label($"  {UiText.Get("ui.contexts")}: {contextAvailability.State}");
                 return;
             }
-            GUILayout.Label($"  {UiText.Get("ui.gross_inflow")}: {FormatLong(0, amountAvailability.State)}");
-            GUILayout.Label($"  {UiText.Get("ui.gross_outflow")}: {FormatLong(0, amountAvailability.State)}");
-            GUILayout.Label($"  {UiText.Get("ui.net_flow")}: {FormatLong(0, amountAvailability.State)}");
+            GUILayout.Label($"  {UiText.Get("ui.gross_inflow")}: {UiText.FormatEconomyValue(0, amountAvailability, currentAmountAvailability)}");
+            GUILayout.Label($"  {UiText.Get("ui.gross_outflow")}: {UiText.FormatEconomyValue(0, amountAvailability, currentAmountAvailability)}");
+            GUILayout.Label($"  {UiText.Get("ui.net_flow")}: {UiText.FormatEconomyValue(0, amountAvailability, currentAmountAvailability)}");
             GUILayout.Label($"  {UiText.Get("ui.sources")}: {sourceAvailability.State}");
             GUILayout.Label($"  {UiText.Get("ui.contexts")}: {contextAvailability.State}");
             return;
         }
-        GUILayout.Label($"  {UiText.Get("ui.gross_inflow")}: {FormatLong(currency.Totals.GrossInflow, amountAvailability.State)}");
-        GUILayout.Label($"  {UiText.Get("ui.gross_outflow")}: {FormatLong(currency.Totals.GrossOutflow, amountAvailability.State)}");
-        GUILayout.Label($"  {UiText.Get("ui.net_flow")}: {FormatLong(currency.Totals.NetFlow, amountAvailability.State)}");
+        GUILayout.Label($"  {UiText.Get("ui.gross_inflow")}: {UiText.FormatEconomyValue(currency.Totals.GrossInflow, amountAvailability, currentAmountAvailability)}");
+        GUILayout.Label($"  {UiText.Get("ui.gross_outflow")}: {UiText.FormatEconomyValue(currency.Totals.GrossOutflow, amountAvailability, currentAmountAvailability)}");
+        GUILayout.Label($"  {UiText.Get("ui.net_flow")}: {UiText.FormatEconomyValue(currency.Totals.NetFlow, amountAvailability, currentAmountAvailability)}");
         GUILayout.Label($"  {UiText.Get("ui.sources")} ({sourceAvailability.State}): " + string.Join(", ", currency.Sources.OrderBy(row => row.Key, StringComparer.Ordinal).Select(row => $"{row.Key} +{row.Value.GrossInflow.ToString(CultureInfo.InvariantCulture)}/-{row.Value.GrossOutflow.ToString(CultureInfo.InvariantCulture)}")));
         GUILayout.Label($"  {UiText.Get("ui.contexts")} ({contextAvailability.State}): " + string.Join(", ", currency.Contexts.OrderBy(row => row.Key, StringComparer.Ordinal).Select(row => $"{row.Key} +{row.Value.GrossInflow.ToString(CultureInfo.InvariantCulture)}/-{row.Value.GrossOutflow.ToString(CultureInfo.InvariantCulture)}")));
     }
@@ -815,11 +818,6 @@ internal sealed class NativeStatisticsPanel
         state == AdapterCapabilityState.DisabledIncompatible
             ? UiText.Get("ui.unsupported")
             : value.ToString("0.###", CultureInfo.InvariantCulture);
-
-    private static string FormatLong(long value, AdapterCapabilityState state) =>
-        state == AdapterCapabilityState.DisabledIncompatible
-            ? value == 0 ? UiText.Get("ui.unsupported") : $"{value.ToString(CultureInfo.InvariantCulture)} ({UiText.Get("ui.current_capture_unavailable")})"
-            : value.ToString(CultureInfo.InvariantCulture);
 
     private static string FormatAccuracy(CombatStatisticsViewModel model) =>
         model.Capabilities.Accuracy.State == AdapterCapabilityState.DisabledIncompatible

@@ -597,6 +597,8 @@ public sealed class EconomyStatisticsTests
     }
 
     [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "UI")]
     public void EconomyUiProjectionKeepsCurrenciesDirectionsAndUnavailableHistoryDistinct()
     {
         var aggregate = Supported();
@@ -636,6 +638,8 @@ public sealed class EconomyStatisticsTests
     }
 
     [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "UI")]
     public void EconomyUiProjectionDistinguishesDegradedLifetimeFromCurrentCaptureFailure()
     {
         var degradedLifetime = Supported();
@@ -662,6 +666,79 @@ public sealed class EconomyStatisticsTests
         Assert.Contains("acquired 4 (capture unavailable for part of this scope)", degradedOutcome, StringComparison.Ordinal);
         Assert.DoesNotContain("current capture unavailable", degradedCompact, StringComparison.Ordinal);
         Assert.DoesNotContain("current capture unavailable", degradedOutcome, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "UI")]
+    public void DetailedEconomyValueFormatterDistinguishesScopeFromCurrentCaptureFailure()
+    {
+        var degradedLifetime = Supported().Capabilities;
+        degradedLifetime.MoneyAmountDirection = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "transient Money capture failure"
+        };
+        degradedLifetime.CashAmountDirection = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "transient Cash amount failure"
+        };
+        degradedLifetime.CashExternalAcquisition = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "transient Cash acquisition failure"
+        };
+        degradedLifetime.CashTerminalOutcomes = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "Cash terminal outcomes unavailable"
+        };
+
+        var current = Supported().Capabilities;
+        current.CashExternalAcquisition = new MetricAvailability
+        {
+            State = AdapterCapabilityState.Experimental,
+            Provenance = "current Cash acquisition is experimental"
+        };
+        current.CashTerminalOutcomes = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "current Cash terminal outcomes unavailable"
+        };
+
+        var moneyWithSupportedCurrent = UiText.FormatEconomyValue(
+            12,
+            degradedLifetime.MoneyAmountDirection,
+            current.MoneyAmountDirection);
+        var cashWithSupportedCurrent = UiText.FormatEconomyValue(
+            9,
+            degradedLifetime.CashAmountDirection,
+            current.CashAmountDirection);
+        var acquisitionWithExperimentalCurrent = UiText.FormatEconomyValue(
+            4,
+            degradedLifetime.CashExternalAcquisition,
+            current.CashExternalAcquisition);
+        var terminalWithDisabledCurrent = UiText.FormatEconomyValue(
+            3,
+            degradedLifetime.CashTerminalOutcomes,
+            current.CashTerminalOutcomes);
+
+        Assert.Equal("12 (capture unavailable for part of this scope)", moneyWithSupportedCurrent);
+        Assert.Equal("9 (capture unavailable for part of this scope)", cashWithSupportedCurrent);
+        Assert.Equal("4 (capture unavailable for part of this scope)", acquisitionWithExperimentalCurrent);
+        Assert.Equal("3 (current capture unavailable)", terminalWithDisabledCurrent);
+        Assert.DoesNotContain("current capture unavailable", moneyWithSupportedCurrent, StringComparison.Ordinal);
+        Assert.DoesNotContain("current capture unavailable", acquisitionWithExperimentalCurrent, StringComparison.Ordinal);
+        Assert.Equal(
+            "12 (capture unavailable for this scope)",
+            UiText.FormatEconomyValue(12, degradedLifetime.MoneyAmountDirection));
+        Assert.Equal(
+            "Unsupported",
+            UiText.FormatEconomyValue(0, degradedLifetime.CashExternalAcquisition, current.CashExternalAcquisition));
+        Assert.Equal(
+            "Unsupported",
+            UiText.FormatEconomyValue(0, degradedLifetime.CashTerminalOutcomes, current.CashTerminalOutcomes));
     }
 
     private static EconomyStatisticsAggregate Supported()
