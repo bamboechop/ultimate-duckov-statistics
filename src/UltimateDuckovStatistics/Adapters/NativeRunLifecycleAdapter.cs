@@ -405,23 +405,27 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return;
         }
 
-        terminalBoundary.ObserveTerminalCandidate(tracker, kind, diagnosticHandler);
-        DrainPendingCheckpoint();
         var now = NowMonotonic();
         var utcNow = DateTime.UtcNow;
-        if (!tracker.IsSuspended && MovementCapability.State == AdapterCapabilityState.Supported)
-        {
-            SampleMainDuck(utcNow, now);
-        }
+        var transition = terminalBoundary.Apply(
+            tracker,
+            new RunLifecycleEvent
+            {
+                Kind = kind,
+                TimestampUtc = utcNow,
+                MonotonicSeconds = now
+            },
+            diagnosticHandler,
+            () =>
+            {
+                if (!tracker.IsSuspended && MovementCapability.State == AdapterCapabilityState.Supported)
+                {
+                    SampleMainDuck(utcNow, now);
+                }
 
-        tracker.ObserveIntegrity(NativeIntegrityProbe.Read());
-
-        var transition = tracker.Apply(new RunLifecycleEvent
-        {
-            Kind = kind,
-            TimestampUtc = utcNow,
-            MonotonicSeconds = now
-        });
+                tracker.ObserveIntegrity(NativeIntegrityProbe.Read());
+                SaveCheckpoint(utcNow, now);
+            });
         if (transition.Completed == null)
         {
             return;
@@ -925,13 +929,15 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnNewRaid(RaidUtilities.RaidInfo raid)
     {
+        var utcNow = DateTime.UtcNow;
+        var now = NowMonotonic();
         var transition = terminalBoundary.Apply(tracker, new RunLifecycleEvent
         {
             Kind = RunLifecycleEventKind.RaidInitialized,
-            TimestampUtc = DateTime.UtcNow,
-            MonotonicSeconds = NowMonotonic(),
+            TimestampUtc = utcNow,
+            MonotonicSeconds = now,
             NativeRaidId = raid.ID.ToString(CultureInfo.InvariantCulture)
-        }, diagnosticHandler);
+        }, diagnosticHandler, () => SaveCheckpoint(utcNow, now));
         if (transition.Completed != null)
         {
             HandleCompleted(transition.Completed, "new native raid");

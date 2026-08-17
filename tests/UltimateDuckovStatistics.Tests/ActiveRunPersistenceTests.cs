@@ -1,4 +1,5 @@
 using System.Text.Json;
+using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
@@ -614,6 +615,73 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(9, recovery.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(9, recovery.Current.Statistics.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.False(File.Exists(ActiveRunPath(directory.Path)));
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M9")]
+    public void TerminalBoundaryCheckpointsQueuedEconomyBeforeTheRunBecomesInactive()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        repository.EnableDeferredItemPersistence();
+        var generation = repository.CurrentGenerationId;
+        var tracker = ActiveTracker(generation);
+        repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(1), 1)!);
+        var boundary = new NativeRunTerminalBoundary();
+        boundary.SetTerminalObserver(() =>
+        {
+            var flow = EconomyFlow(
+                "economy:terminal-boundary",
+                tracker,
+                generation,
+                CurrencyFlowDirection.Inflow,
+                17);
+            Assert.True(repository.RecordDeferred(flow));
+            Assert.True(tracker.RecordCurrencyFlow(flow));
+        });
+
+        var transition = boundary.Apply(
+            tracker,
+            new RunLifecycleEvent
+            {
+                Kind = RunLifecycleEventKind.RaidInitialized,
+                TimestampUtc = TestTime.AddSeconds(3),
+                MonotonicSeconds = 3,
+                NativeRaidId = "43"
+            },
+            _ => { },
+            () => repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(3), 3)!));
+
+        Assert.NotNull(transition.Completed);
+        Assert.False(tracker.IsActive);
+        Assert.Equal(
+            17,
+            transition.Completed!.Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.Equal(
+            17,
+            recovery.Current.Statistics.Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);
+        var recoveredRun = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(17, recoveredRun.Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);
+        Assert.Equal(
+            17,
+            Assert.Single(recoveredRun.Segments).Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);
+        Assert.Equal(
+            17,
+            recovery.Current.Statistics.RunTotals.Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);
+        Assert.Equal(
+            17,
+            recovery.Current.Statistics.RunTotals.Maps["duckov:map:A"].Economy
+                .Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);
+        Assert.Equal(
+            17,
+            recovery.Current.Statistics.RunTotals.RouteMaps["duckov:map:A"].Economy
+                .Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow);
         recovery.CloseClean();
     }
 

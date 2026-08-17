@@ -11,13 +11,18 @@ internal sealed class NativeRunTerminalBoundary
     public RunLifecycleTransition Apply(
         RunLifecycleTracker tracker,
         RunLifecycleEvent lifecycleEvent,
-        Action<string> diagnosticHandler)
+        Action<string> diagnosticHandler,
+        Action? checkpointObserver = null)
     {
         if (tracker == null) throw new ArgumentNullException(nameof(tracker));
         if (lifecycleEvent == null) throw new ArgumentNullException(nameof(lifecycleEvent));
         if (diagnosticHandler == null) throw new ArgumentNullException(nameof(diagnosticHandler));
 
         ObserveTerminalCandidate(tracker, lifecycleEvent.Kind, diagnosticHandler);
+        if (tracker.IsActive && IsTerminalCandidate(lifecycleEvent.Kind))
+        {
+            checkpointObserver?.Invoke();
+        }
         return tracker.Apply(lifecycleEvent);
     }
 
