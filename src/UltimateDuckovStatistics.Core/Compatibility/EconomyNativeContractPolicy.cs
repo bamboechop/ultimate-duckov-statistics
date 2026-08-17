@@ -17,6 +17,8 @@ public static class EconomyCapabilityIds
 
 public static class EconomyNativeContractPolicy
 {
+    public const string BootstrapProvenance = "Economy capability has not been initialized.";
+
     public static EconomyMetricCapabilities Unavailable(string provenance)
     {
         var unavailable = Availability(AdapterCapabilityState.DisabledIncompatible, provenance);

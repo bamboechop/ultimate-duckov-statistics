@@ -1,4 +1,5 @@
 using UltimateDuckovStatistics.Core;
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Diagnostics;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
@@ -571,6 +572,8 @@ public sealed class PersistenceTests
 
         var second = CreateRepository(temporaryDirectory.Path, "session-second");
         second.Open(CreateIdentity(slot: 1, creationTicks: 100));
+        second.SetEconomyCapabilities(EconomyNativeContractPolicy.Unavailable(
+            EconomyNativeContractPolicy.BootstrapProvenance));
         second.SetEconomyCapabilities(SupportedEconomyCapabilities("restarted native contract"));
 
         var current = second.Current.Statistics.Economy.Capabilities;

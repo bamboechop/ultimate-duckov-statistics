@@ -1,4 +1,5 @@
 using UltimateDuckovStatistics.Core;
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
@@ -169,6 +170,34 @@ public sealed class EconomyStatisticsTests
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, target.Capabilities.CashAmountDirection.State);
         Assert.Equal("runtime Cash scan failed", target.Capabilities.CashAmountDirection.Provenance);
         EconomyStatisticsReducer.Validate(target);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    public void LifetimeBootstrapPlaceholderIsIgnoredAndAnAlreadyPersistedPlaceholderIsRepaired()
+    {
+        var aggregate = Supported();
+        Assert.True(EconomyStatisticsReducer.Record(
+            aggregate,
+            "generation",
+            Flow("existing-money", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 5)));
+        var bootstrap = EconomyNativeContractPolicy.Unavailable(EconomyNativeContractPolicy.BootstrapProvenance);
+
+        EconomyStatisticsReducer.InitializeOrRestrictCapabilities(aggregate, bootstrap);
+        Assert.Equal(AdapterCapabilityState.Supported, aggregate.Capabilities.MoneyAmountDirection.State);
+        Assert.Equal("test", aggregate.Capabilities.MoneyAmountDirection.Provenance);
+
+        aggregate.Capabilities.MoneyAmountDirection = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = EconomyNativeContractPolicy.BootstrapProvenance
+        };
+        EconomyStatisticsReducer.InitializeOrRestrictCapabilities(aggregate, Supported().Capabilities);
+
+        Assert.Equal(AdapterCapabilityState.Supported, aggregate.Capabilities.MoneyAmountDirection.State);
+        Assert.Equal("test", aggregate.Capabilities.MoneyAmountDirection.Provenance);
+        Assert.Equal(5, aggregate.Currencies["Money"].Totals.GrossInflow);
+        EconomyStatisticsReducer.Validate(aggregate);
     }
 
     [Fact]

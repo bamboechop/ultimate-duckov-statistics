@@ -1,4 +1,5 @@
 using System.Runtime.Serialization;
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
 
 namespace UltimateDuckovStatistics.Core.Statistics;
@@ -493,7 +494,7 @@ public static class EconomyStatisticsReducer
         NormalizePersisted(aggregate);
         aggregate.Capabilities = aggregateWasUninitialized && !aggregate.HistoricalUnavailable
             ? CloneCapabilities(capabilities)
-            : MergeCapabilities(aggregate.Capabilities, capabilities);
+            : MergeLifetimeCapabilities(aggregate.Capabilities, capabilities);
         if (aggregate.MoneyArithmeticSaturated) ApplyArithmeticSaturation(aggregate, CurrencyKind.Money);
         if (aggregate.CashArithmeticSaturated) ApplyArithmeticSaturation(aggregate, CurrencyKind.Cash);
     }
@@ -785,8 +786,37 @@ public static class EconomyStatisticsReducer
         RouteAttribution = Restrict(a.RouteAttribution, b.RouteAttribution)
     };
 
+    private static EconomyMetricCapabilities MergeLifetimeCapabilities(
+        EconomyMetricCapabilities recorded,
+        EconomyMetricCapabilities current) => new()
+        {
+            MoneyAmountDirection = RestrictLifetime(recorded.MoneyAmountDirection, current.MoneyAmountDirection),
+            MoneySourceAttribution = RestrictLifetime(recorded.MoneySourceAttribution, current.MoneySourceAttribution),
+            MoneyContextAttribution = RestrictLifetime(recorded.MoneyContextAttribution, current.MoneyContextAttribution),
+            CashAmountDirection = RestrictLifetime(recorded.CashAmountDirection, current.CashAmountDirection),
+            CashExternalAcquisition = RestrictLifetime(recorded.CashExternalAcquisition, current.CashExternalAcquisition),
+            CashContextAttribution = RestrictLifetime(recorded.CashContextAttribution, current.CashContextAttribution),
+            CashTerminalOutcomes = RestrictLifetime(recorded.CashTerminalOutcomes, current.CashTerminalOutcomes),
+            RouteAttribution = RestrictLifetime(recorded.RouteAttribution, current.RouteAttribution)
+        };
+
     private static MetricAvailability Restrict(MetricAvailability a, MetricAvailability b) =>
         (int)a.State >= (int)b.State ? Clone(a) : Clone(b);
+    private static MetricAvailability RestrictLifetime(MetricAvailability recorded, MetricAvailability current)
+    {
+        if (IsBootstrapPlaceholder(current)) return Clone(recorded);
+        if (IsBlankDefault(recorded) || IsBootstrapPlaceholder(recorded)) return Clone(current);
+        return Restrict(recorded, current);
+    }
+    private static bool IsBlankDefault(MetricAvailability value) =>
+        value.State == AdapterCapabilityState.DisabledIncompatible
+        && string.IsNullOrWhiteSpace(value.Provenance);
+    private static bool IsBootstrapPlaceholder(MetricAvailability value) =>
+        value.State == AdapterCapabilityState.DisabledIncompatible
+        && string.Equals(
+            value.Provenance,
+            EconomyNativeContractPolicy.BootstrapProvenance,
+            StringComparison.Ordinal);
     private static MetricAvailability Clone(MetricAvailability value) => new() { State = value.State, Provenance = value.Provenance ?? string.Empty };
     private static MetricAvailability Unavailable(string provenance) => new()
     { State = AdapterCapabilityState.DisabledIncompatible, Provenance = provenance };

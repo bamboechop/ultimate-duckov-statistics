@@ -63,10 +63,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
             NativeContainerAdapter.AdapterVersion)
     };
     private List<CapabilityRecord> economyCapabilities = EconomyNativeContractPolicy.ToRecords(
-        EconomyNativeContractPolicy.Unavailable("Economy capability has not been initialized."),
+        EconomyNativeContractPolicy.Unavailable(EconomyNativeContractPolicy.BootstrapProvenance),
         NativeEconomyAdapter.AdapterVersion).ToList();
     private EconomyMetricCapabilities economyMetricCapabilities =
-        EconomyNativeContractPolicy.Unavailable("Economy capability has not been initialized.");
+        EconomyNativeContractPolicy.Unavailable(EconomyNativeContractPolicy.BootstrapProvenance);
 
     public NativeProfileCoordinator()
     {
