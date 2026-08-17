@@ -432,12 +432,14 @@ public sealed class PersistenceTests
             "generation-a",
             revision: 7,
             amount: 10,
-            includeCurrentZeroFlowRun: true);
+            includeCurrentZeroFlowRun: true,
+            degradeCurrentZeroFlowRun: true);
         var invalidPrimary = CreateMigratedProfileWithExactPostM9Run(
             "generation-a",
             revision: 8,
             amount: 10,
-            includeCurrentZeroFlowRun: true);
+            includeCurrentZeroFlowRun: true,
+            degradeCurrentZeroFlowRun: true);
         var postM9Run = invalidPrimary.Statistics.Runs.Single(run => run.RunId == "run-post-m9");
         if (corruption == "completed-runs")
             SetMoneyInflow(invalidPrimary.Statistics.RunTotals.Economy, 20);
@@ -461,10 +463,12 @@ public sealed class PersistenceTests
         repository.CloseClean();
     }
 
-    [Fact]
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
-    public void MigratedProfileAcceptsCurrentExactZeroFlowBesidePostM9MoneyFlow()
+    public void MigratedProfileAcceptsCurrentZeroFlowBesidePostM9MoneyFlow(bool degradedCapability)
     {
         using var temporaryDirectory = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
@@ -473,12 +477,14 @@ public sealed class PersistenceTests
             "generation-a",
             revision: 7,
             amount: 10,
-            includeCurrentZeroFlowRun: true));
+            includeCurrentZeroFlowRun: true,
+            degradeCurrentZeroFlowRun: degradedCapability));
         store.Save(path, CreateMigratedProfileWithExactPostM9Run(
             "generation-a",
             revision: 8,
             amount: 10,
-            includeCurrentZeroFlowRun: true));
+            includeCurrentZeroFlowRun: true,
+            degradeCurrentZeroFlowRun: degradedCapability));
 
         var repository = CreateRepository(temporaryDirectory.Path, "session-new");
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
@@ -494,7 +500,9 @@ public sealed class PersistenceTests
         var zeroFlowRun = repository.Current.Statistics.Runs.Single(run => run.RunId == "run-post-m9-zero");
         Assert.False(zeroFlowRun.HistoricalRouteUnavailable);
         Assert.False(zeroFlowRun.Economy.HistoricalUnavailable);
-        Assert.Equal(AdapterCapabilityState.Supported, zeroFlowRun.Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.Equal(
+            degradedCapability ? AdapterCapabilityState.DisabledIncompatible : AdapterCapabilityState.Supported,
+            zeroFlowRun.Economy.Capabilities.MoneyAmountDirection.State);
         Assert.False(zeroFlowRun.Economy.Currencies.ContainsKey("Money"));
         repository.CloseClean();
     }
@@ -2261,7 +2269,8 @@ public sealed class PersistenceTests
         string generationId,
         long revision,
         long amount,
-        bool includeCurrentZeroFlowRun = false)
+        bool includeCurrentZeroFlowRun = false,
+        bool degradeCurrentZeroFlowRun = false)
     {
         var document = CreateCompleteCurrentSchemaDocument(generationId, revision);
         document.SchemaVersion = 8;
@@ -2305,6 +2314,19 @@ public sealed class PersistenceTests
             zeroFlowRun.RouteCapabilities = RouteStatisticsReducer.Supported("test exact route contract");
             SetExactMoneySupported(zeroFlowRun.Economy);
             SetExactMoneySupported(zeroFlowRun.Segments[0].Economy);
+            if (degradeCurrentZeroFlowRun)
+            {
+                zeroFlowRun.Economy.Capabilities.MoneyAmountDirection = new MetricAvailability
+                {
+                    State = AdapterCapabilityState.DisabledIncompatible,
+                    Provenance = "test degraded zero-flow capture"
+                };
+                zeroFlowRun.Segments[0].Economy.Capabilities.MoneyAmountDirection = new MetricAvailability
+                {
+                    State = AdapterCapabilityState.DisabledIncompatible,
+                    Provenance = "test degraded zero-flow capture"
+                };
+            }
             document.Statistics.Runs.Add(zeroFlowRun);
         }
         return document;

@@ -10,6 +10,37 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class EconomyStatisticsTests
 {
     private static long economySequence;
+
+    [Fact]
+    [Trait("Category", "M9")]
+    public void HistoricalCapturedCompositionAcceptsDegradedZeroButRejectsSaturatedZero()
+    {
+        var historicalTotal = new EconomyStatisticsAggregate { HistoricalUnavailable = true };
+        Assert.True(EconomyStatisticsReducer.Record(
+            historicalTotal,
+            "generation",
+            Flow("historical-total", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 10)));
+        var captured = EconomyStatisticsReducer.Clone(historicalTotal);
+        captured.HistoricalUnavailable = false;
+        var degradedZero = new EconomyStatisticsAggregate();
+        degradedZero.Capabilities.MoneyAmountDirection = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "test degraded zero-flow capture"
+        };
+
+        Assert.True(EconomyStatisticsReducer.IsExactCurrencyComposition(
+            historicalTotal,
+            new[] { captured, degradedZero },
+            CurrencyKind.Money));
+
+        degradedZero.MoneyArithmeticSaturated = true;
+        Assert.False(EconomyStatisticsReducer.IsExactCurrencyComposition(
+            historicalTotal,
+            new[] { captured, degradedZero },
+            CurrencyKind.Money));
+    }
+
     [Fact]
     public void MoneyAndCashRemainSeparateAndNetDerivesFromGrossFlows()
     {

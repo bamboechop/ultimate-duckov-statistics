@@ -283,13 +283,8 @@ public static class EconomyStatisticsReducer
     public static bool HasExactCapturedCurrency(EconomyStatisticsAggregate aggregate, CurrencyKind currency)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        var saturated = currency switch
-        {
-            CurrencyKind.Money => aggregate.MoneyArithmeticSaturated,
-            CurrencyKind.Cash => aggregate.CashArithmeticSaturated,
-            _ => true
-        };
-        return !saturated && aggregate.Currencies.ContainsKey(currency.ToString());
+        return !IsCurrencyArithmeticSaturated(aggregate, currency)
+               && aggregate.Currencies.ContainsKey(currency.ToString());
     }
 
     public static bool IsExactCurrencyComposition(
@@ -313,8 +308,7 @@ public static class EconomyStatisticsReducer
                 && !HasExactCapturedCurrency(component, currency))
             {
                 if (!component.Currencies.ContainsKey(currency.ToString())
-                    && (component.HistoricalUnavailable
-                        || HasExactSupportedCurrency(component, currency)))
+                    && !IsCurrencyArithmeticSaturated(component, currency))
                     continue;
                 return false;
             }
@@ -325,6 +319,14 @@ public static class EconomyStatisticsReducer
         total.Currencies.TryGetValue(currency.ToString(), out var actual);
         return CurrencyRowsEqual(actual, expected);
     }
+
+    private static bool IsCurrencyArithmeticSaturated(EconomyStatisticsAggregate aggregate, CurrencyKind currency) =>
+        currency switch
+        {
+            CurrencyKind.Money => aggregate.MoneyArithmeticSaturated,
+            CurrencyKind.Cash => aggregate.CashArithmeticSaturated,
+            _ => true
+        };
 
     public static void MergeTerminalOutcomes(EconomyStatisticsAggregate target, EconomyStatisticsAggregate run)
     {
