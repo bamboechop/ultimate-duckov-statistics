@@ -557,6 +557,41 @@ public sealed class RouteLifecycleTests
 
     [Fact]
     [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Performance")]
+    public void HighVolumeAssociationCallbacksUseOneDirtyStateAndTheCoalescedCheckpointCadence()
+    {
+        var tracker = Start("A");
+        for (var index = 0; index < 10_000; index++)
+            Assert.True(tracker.RecordItemUse(Item($"coalesced:{index}", tracker, "A")));
+
+        Assert.True(tracker.CombatCheckpointRequired);
+        var scheduler = new ActiveRunCheckpointScheduler(dirtyIntervalSeconds: 1, retryIntervalSeconds: 1);
+        Assert.True(scheduler.ShouldAttempt(
+            tracker.CombatCheckpointRequired,
+            periodicCheckpointDue: false,
+            monotonicSeconds: 10));
+        var capturedRevision = tracker.CheckpointMutationRevision;
+        var checkpoint = tracker.CreateCheckpoint(Now.AddSeconds(10), 10)!;
+        Assert.Equal(10_000, Assert.Single(checkpoint.SegmentEventAssociations).Count);
+        scheduler.RecordResult(succeeded: true, monotonicSeconds: 10);
+        tracker.MarkCheckpointSaved(10, capturedRevision);
+        Assert.False(tracker.CombatCheckpointRequired);
+
+        Assert.True(tracker.RecordItemUse(Item("coalesced:late", tracker, "A")));
+        Assert.True(tracker.CombatCheckpointRequired);
+        Assert.False(scheduler.ShouldAttempt(
+            tracker.CombatCheckpointRequired,
+            periodicCheckpointDue: false,
+            monotonicSeconds: 10.999));
+        Assert.True(scheduler.ShouldAttempt(
+            tracker.CombatCheckpointRequired,
+            periodicCheckpointDue: false,
+            monotonicSeconds: 11));
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
     [Trait("Category", "Export")]
     public void EveryLateAssociationFamilyReachesRunSegmentStartingMapRouteMapUiJsonAndCsv()
     {
