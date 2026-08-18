@@ -10,7 +10,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v10";
+    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v11";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int CashItemTypeId = EconomyManager.CashItemID;
@@ -121,19 +121,28 @@ internal sealed class NativeEconomyAdapter : IDisposable
         FlushCash();
     }
 
-    public void FlushPendingForBoundary()
+    public bool FlushPendingForBoundary()
     {
-        if (disposed || !subscribed) return;
-        FlushPendingMoney();
+        if (disposed || !subscribed)
+            return pendingMoney.Count == 0 && pendingCash.Count == 0;
+        var moneyPublished = FlushPendingMoney();
         FlushCash();
+        return moneyPublished
+               && pendingCash.Count == 0
+               && (cashDisabled || (!cashBaselineSuspended && cashBaselineReady && !cashDirty));
     }
 
-    private void FlushPendingMoney()
+    private bool FlushPendingMoney()
     {
-        if (pendingMoney.Count == 0 || !PublicationReady()) return;
-        var ready = pendingMoney.ToArray();
-        pendingMoney.Clear();
-        foreach (var flow in ready) Publish(CreateMoneyEvent(flow, "money"));
+        if (pendingMoney.Count == 0) return true;
+        if (!PublicationReady()) return false;
+        while (pendingMoney.Count > 0)
+        {
+            var flow = pendingMoney[0];
+            if (!Publish(GetOrCreateMoneyEvent(flow, "money"))) return false;
+            pendingMoney.RemoveAt(0);
+        }
+        return true;
     }
 
     private bool FlushCash()
@@ -180,9 +189,12 @@ internal sealed class NativeEconomyAdapter : IDisposable
     {
         if (pendingCash.Count == 0) return true;
         if (!PublicationReady()) return false;
-        var ready = pendingCash.ToArray();
-        pendingCash.Clear();
-        foreach (var flow in ready) Publish(CreateCashEvent(flow));
+        while (pendingCash.Count > 0)
+        {
+            var flow = pendingCash[0];
+            if (!Publish(GetOrCreateCashEvent(flow))) return false;
+            pendingCash.RemoveAt(0);
+        }
         return true;
     }
 
@@ -297,7 +309,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
                 $"The defensive {MaximumPendingMoneyFlows}-flow semantic correlation bound was reached; exact Money amount/direction remains available but source-specific attribution is disabled.");
             var oldest = pendingMoney[0];
             pendingMoney.RemoveAt(0);
-            Publish(CreateMoneyEvent(oldest, "money-bounded"));
+            Publish(GetOrCreateMoneyEvent(oldest, "money-bounded"));
         }
         pendingMoney.Add(new PendingMoneyFlow(amount, direction, context));
     }
@@ -480,10 +492,10 @@ internal sealed class NativeEconomyAdapter : IDisposable
         pendingCash.Add(new PendingCashFlow(amount, direction, source, context, acquisition, sourceId, observationContext));
     }
 
-    private void Publish(CurrencyFlowRecorded value)
+    private bool Publish(CurrencyFlowRecorded value)
     {
-        if (string.IsNullOrWhiteSpace(value.SaveGenerationId) || value.Amount <= 0) return;
-        publisher(value);
+        if (string.IsNullOrWhiteSpace(value.SaveGenerationId) || value.Amount <= 0) return false;
+        return publisher(value);
     }
 
     private bool PublicationReady()
@@ -625,16 +637,18 @@ internal sealed class NativeEconomyAdapter : IDisposable
         if (!cashDirty) cashObservationContext = CaptureContext();
         cashDirty = true;
     }
-    private CurrencyFlowRecorded CreateMoneyEvent(PendingMoneyFlow flow, string kind)
+    private CurrencyFlowRecorded GetOrCreateMoneyEvent(PendingMoneyFlow flow, string kind)
     {
+        if (flow.Event != null) return flow.Event;
         var identity = CreateEventIdentity(kind);
-        return flow.ToEvent(identity.EventId, activationId, identity.Sequence);
+        return flow.Event = flow.ToEvent(identity.EventId, activationId, identity.Sequence);
     }
 
-    private CurrencyFlowRecorded CreateCashEvent(PendingCashFlow flow)
+    private CurrencyFlowRecorded GetOrCreateCashEvent(PendingCashFlow flow)
     {
+        if (flow.Event != null) return flow.Event;
         var identity = CreateEventIdentity("cash");
-        return flow.ToEvent(identity.EventId, activationId, identity.Sequence);
+        return flow.Event = flow.ToEvent(identity.EventId, activationId, identity.Sequence);
     }
 
     private (string EventId, long Sequence) CreateEventIdentity(string kind)
@@ -665,14 +679,11 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private void DisableMoney(string reason)
     {
         moneyDisabled = true;
-        var canPublishPending = pendingMoney.Count == 0 || PublicationReady();
-        var accepted = canPublishPending ? pendingMoney.ToArray() : Array.Empty<PendingMoneyFlow>();
-        if (canPublishPending) pendingMoney.Clear();
         MetricCapabilities.MoneyAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.MoneySourceAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.MoneyContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         PublishCapabilities(); diagnostic(reason);
-        foreach (var flow in accepted) Publish(CreateMoneyEvent(flow, "money-before-disable"));
+        FlushPendingMoney();
     }
     private void DisableMoneyWhilePublicationBlocked(string reason)
     {
@@ -748,6 +759,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         public GameplayContext Context { get; set; }
         public string? NativeSourceId { get; set; }
         public string? SourceDisplayName { get; set; }
+        public CurrencyFlowRecorded? Event { get; set; }
         public bool HasRunIdentity => !string.IsNullOrWhiteSpace(Observation.RunId);
         private ObservationContext Observation { get; }
         public CurrencyFlowRecorded ToEvent(string id, string producerActivationId, long producerSequence) => new()
@@ -801,6 +813,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         private bool Acquisition { get; }
         private string? SourceId { get; }
         private ObservationContext Observation { get; }
+        public CurrencyFlowRecorded? Event { get; set; }
 
         public CurrencyFlowRecorded ToEvent(string id, string producerActivationId, long producerSequence) => new()
         {

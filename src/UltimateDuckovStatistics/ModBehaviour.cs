@@ -86,6 +86,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
             profileCoordinator = new NativeProfileCoordinator();
             profileCoordinator.Initialize();
+            var economyFlowPublication = new EconomyFlowPublication(
+                profileCoordinator.HandleCurrencyFlow,
+                flow => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true,
+                message => Debug.LogError($"{LogPrefix} {message}"));
             NativeEconomyAdapter? newEconomyAdapter = null;
             newEconomyAdapter = new NativeEconomyAdapter(
                 () => profileCoordinator.CurrentGenerationId,
@@ -94,9 +98,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId,
                 () => runLifecycleAdapter.OwnedValue?.IsActive == true,
                 flow => profileCoordinator.RetryPendingEconomyActivation()
-                        && ItemUsePublication.PublishIndependently(
-                            () => profileCoordinator.HandleCurrencyFlow(flow),
-                            () => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true),
+                        && economyFlowPublication.Publish(flow),
                 capabilities =>
                 {
                     if (newEconomyAdapter == null) return;
@@ -109,6 +111,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             economyAdapter = newEconomyAdapter;
             profileCoordinator.BeginEconomyActivation(newEconomyAdapter.ActivationId);
             newEconomyAdapter.Initialize();
+            profileCoordinator.SetEconomyBoundaryBarrier(newEconomyAdapter.FlushPendingForBoundary);
             healingAttributionAdapter = new NativeHealingAttributionAdapter(
                 healing =>
                 {
@@ -156,7 +159,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             equipmentAdapter.Assign(newEquipmentAdapter);
             newEquipmentAdapter.Initialize();
             newRunLifecycleAdapter.SetDestinationReadyObserver(() => newEquipmentAdapter.CaptureAssociation());
-            newRunLifecycleAdapter.SetTerminalObserver(newEconomyAdapter.Tick);
+            newRunLifecycleAdapter.SetTerminalObserver(newEconomyAdapter.FlushPendingForBoundary);
             var newWeaponFireAdapter = new NativeWeaponFireAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
@@ -194,7 +197,6 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             newCombatAttributionAdapter.Initialize();
             newRunLifecycleAdapter.SetPlayerDeathObserver(newCombatAttributionAdapter.RecordPlayerDeath);
             newRunLifecycleAdapter.Initialize();
-            profileCoordinator.ProfileChanging += FlushPendingEconomyForProfileChange;
             profileCoordinator.ProfileChanging += newRunLifecycleAdapter.InterruptForProfileTransition;
             itemUseAdapter = new NativeItemUseAdapter(
                 () => profileCoordinator.CurrentGenerationId,
@@ -249,6 +251,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Update()
     {
+        profileCoordinator?.RetryPendingProfileTransition();
         var economyActivationReady = profileCoordinator?.RetryPendingEconomyActivation() != false;
         NativeHotPathDiagnostics.HandleControl(
             Input.GetKeyDown(KeyCode.F9),
@@ -296,7 +299,6 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         var ownedWeaponFireAdapter = weaponFireAdapter.OwnedValue;
         if (profileCoordinator != null)
         {
-            profileCoordinator.ProfileChanging -= FlushPendingEconomyForProfileChange;
             if (ownedRunLifecycleAdapter != null)
                 profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
         }
@@ -365,7 +367,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     {
         try
         {
-            economyAdapter?.FlushPendingForBoundary();
+            if (economyAdapter?.FlushPendingForBoundary() == false)
+                Debug.LogError($"{LogPrefix} economy boundary flush remains pending during {boundary}.");
         }
         catch (Exception exception)
         {
@@ -374,5 +377,4 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         }
     }
 
-    private void FlushPendingEconomyForProfileChange() => FlushPendingEconomy("profile change");
 }

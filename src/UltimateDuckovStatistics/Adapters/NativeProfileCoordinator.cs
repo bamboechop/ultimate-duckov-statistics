@@ -25,7 +25,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private readonly DeferredCheckpointWriter<CheckpointWrite> checkpointWriter;
     private readonly DeferredSnapshotWriter<ProfileWrite> profileWriter;
     private readonly EconomyActivationGate economyActivationGate;
+    private readonly NativeProfileTransitionBoundary profileTransitionBoundary = new();
     private Func<bool>? activeRunCheckpointFlusher;
+    private Func<bool>? economyBoundaryFlusher;
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
     private CapabilityRecord healingCapability = new()
@@ -304,6 +306,15 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public bool RetryPendingEconomyActivation() => economyActivationGate.EnsureReady();
 
+    public void SetEconomyBoundaryBarrier(Func<bool> flusher)
+    {
+        economyBoundaryFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
+    }
+
+    public bool RetryPendingProfileTransition() => profileTransitionBoundary.Retry(
+        economyBoundaryFlusher,
+        message => WriteDiagnostic(message, "Error"));
+
     public bool HandleCurrencyFlow(CurrencyFlowRecorded flow)
     {
         if (flow == null) throw new ArgumentNullException(nameof(flow));
@@ -415,15 +426,20 @@ internal sealed class NativeProfileCoordinator : IDisposable
             throw new InvalidOperationException("No profile is open for reset.");
         }
 
-        ProfileChanging?.Invoke();
-        WaitRunCheckpoint();
-        DrainProfileWriter();
-        repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
-        repository.Rotate(ReadIdentity(), "UserReset");
-        repository.SetEconomyCapabilities(economyMetricCapabilities);
-        OpenDiagnosticsForCurrentGeneration();
-        WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only.");
-        PublishProfileEvent(ProfileChanged, "profile-changed");
+        var currentIdentity = ReadIdentity(repository.Current.Slot);
+        var resetIdentity = ReadIdentity();
+        QueueProfileTransition("User profile reset", () =>
+        {
+            ProfileChanging?.Invoke();
+            WaitRunCheckpoint();
+            DrainProfileWriter();
+            repository.RefreshIdentity(currentIdentity);
+            repository.Rotate(resetIdentity, "UserReset");
+            repository.SetEconomyCapabilities(economyMetricCapabilities);
+            OpenDiagnosticsForCurrentGeneration();
+            WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only.");
+            PublishProfileEvent(ProfileChanged, "profile-changed");
+        });
     }
 
     public void Dispose()
@@ -459,24 +475,26 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
-            ProfileChanging?.Invoke();
-            WaitRunCheckpoint();
-            DrainProfileWriter();
-            saveResetAwaitingNewGameReport = false;
             var observed = ReadIdentity();
-            if (repository!.Current.Slot != observed.Slot)
+            var priorIdentity = repository!.Current.Slot != observed.Slot
+                ? ReadIdentity(repository.Current.Slot)
+                : null;
+            QueueProfileTransition("Save-slot transition", () =>
             {
-                repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
-            }
-
-            var result = repository.Open(observed, "SaveSlotSelected");
-            repository.SetEconomyCapabilities(economyMetricCapabilities);
-            OpenDiagnosticsForCurrentGeneration();
-            WriteDiagnostic(
-                $"Save slot selected slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
-                $"created={result.CreatedNew} rotated={result.RotatedGeneration} " +
-                $"unsupportedArchived={result.UnsupportedSchemaArchived}.");
-            PublishProfileEvent(ProfileChanged, "profile-changed");
+                ProfileChanging?.Invoke();
+                WaitRunCheckpoint();
+                DrainProfileWriter();
+                saveResetAwaitingNewGameReport = false;
+                if (priorIdentity != null) repository.RefreshIdentity(priorIdentity);
+                var result = repository.Open(observed, "SaveSlotSelected");
+                repository.SetEconomyCapabilities(economyMetricCapabilities);
+                OpenDiagnosticsForCurrentGeneration();
+                WriteDiagnostic(
+                    $"Save slot selected slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
+                    $"created={result.CreatedNew} rotated={result.RotatedGeneration} " +
+                    $"unsupportedArchived={result.UnsupportedSchemaArchived}.");
+                PublishProfileEvent(ProfileChanged, "profile-changed");
+            });
         }
         catch (Exception exception)
         {
@@ -489,15 +507,19 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
-            ProfileChanging?.Invoke();
-            WaitRunCheckpoint();
-            DrainProfileWriter();
-            repository!.Rotate(ReadIdentity(), "DuckovSaveDeleted");
-            repository.SetEconomyCapabilities(economyMetricCapabilities);
-            OpenDiagnosticsForCurrentGeneration();
-            saveResetAwaitingNewGameReport = true;
-            WriteDiagnostic($"Duckov save deletion rotated to generation {repository.CurrentGenerationId}.");
-            PublishProfileEvent(ProfileChanged, "profile-changed");
+            var identity = ReadIdentity();
+            QueueProfileTransition("Save-deletion rotation", () =>
+            {
+                ProfileChanging?.Invoke();
+                WaitRunCheckpoint();
+                DrainProfileWriter();
+                repository!.Rotate(identity, "DuckovSaveDeleted");
+                repository.SetEconomyCapabilities(economyMetricCapabilities);
+                OpenDiagnosticsForCurrentGeneration();
+                saveResetAwaitingNewGameReport = true;
+                WriteDiagnostic($"Duckov save deletion rotated to generation {repository.CurrentGenerationId}.");
+                PublishProfileEvent(ProfileChanged, "profile-changed");
+            });
         }
         catch (Exception exception)
         {
@@ -527,25 +549,28 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
-            ProfileChanging?.Invoke();
-            WaitRunCheckpoint();
-            DrainProfileWriter();
             var identity = ReadIdentity();
-            if (saveResetAwaitingNewGameReport)
+            QueueProfileTransition("New-game rotation", () =>
             {
-                repository!.RefreshIdentity(identity);
-                saveResetAwaitingNewGameReport = false;
-                WriteDiagnostic("New-game report matched the already-rotated deleted save generation.");
-            }
-            else
-            {
-                repository!.Rotate(identity, "DuckovNewGame");
-                OpenDiagnosticsForCurrentGeneration();
-                WriteDiagnostic($"Duckov new game rotated to generation {repository.CurrentGenerationId}.");
-            }
+                ProfileChanging?.Invoke();
+                WaitRunCheckpoint();
+                DrainProfileWriter();
+                if (saveResetAwaitingNewGameReport)
+                {
+                    repository!.RefreshIdentity(identity);
+                    saveResetAwaitingNewGameReport = false;
+                    WriteDiagnostic("New-game report matched the already-rotated deleted save generation.");
+                }
+                else
+                {
+                    repository!.Rotate(identity, "DuckovNewGame");
+                    OpenDiagnosticsForCurrentGeneration();
+                    WriteDiagnostic($"Duckov new game rotated to generation {repository.CurrentGenerationId}.");
+                }
 
-            repository!.SetEconomyCapabilities(economyMetricCapabilities);
-            PublishProfileEvent(ProfileChanged, "profile-changed");
+                repository!.SetEconomyCapabilities(economyMetricCapabilities);
+                PublishProfileEvent(ProfileChanged, "profile-changed");
+            });
         }
         catch (Exception exception)
         {
@@ -560,6 +585,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
         WriteDiagnostic(
             $"Economy activation persistence failed and remains queued for retry: {exception.GetType().Name}.",
             "Error");
+    }
+
+    private void QueueProfileTransition(string description, Action transition)
+    {
+        profileTransitionBoundary.Enqueue(description, transition);
+        RetryPendingProfileTransition();
     }
 
     private void PublishProfileEvent(Action? subscribers, string eventName) =>

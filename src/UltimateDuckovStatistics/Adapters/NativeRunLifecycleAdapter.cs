@@ -178,7 +178,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public void SetDestinationReadyObserver(Action? observer) => destinationReadyObserver = observer;
 
-    public void SetTerminalObserver(Action? observer) => terminalBoundary.SetTerminalObserver(observer);
+    public void SetTerminalObserver(Func<bool>? observer) => terminalBoundary.SetTerminalObserver(observer);
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {

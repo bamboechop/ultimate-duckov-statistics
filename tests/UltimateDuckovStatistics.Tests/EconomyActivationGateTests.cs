@@ -3,6 +3,7 @@ using ItemStatsSystem;
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.Tests;
 
@@ -195,6 +196,138 @@ public sealed class EconomyActivationGateTests : IDisposable
         repository.CloseClean();
     }
 
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Run")]
+    public void FailedActivationKeepsTerminalPendingUntilQueuedEconomyIsAccepted()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => TestTime,
+            new Queue<string>(["generation-one", "session-one"]).Dequeue);
+        repository.Open(Identity());
+        repository.EnableDeferredItemPersistence();
+        var blockedTemporaryPath = AtomicJsonPaths.GetTemporaryPath(repository.CurrentProfilePath!);
+        Directory.CreateDirectory(blockedTemporaryPath);
+        var gate = new EconomyActivationGate(
+            activationId => repository.BeginEconomyActivation(activationId),
+            _ => { });
+        var tracker = new RunLifecycleTracker(() => "run-one");
+        tracker.Apply(RunEvent(RunLifecycleEventKind.RaidInitialized, 0, nativeRaidId: "41"));
+        tracker.Apply(RunEvent(
+            RunLifecycleEventKind.ControlReady,
+            1,
+            RunContext(repository.CurrentGenerationId),
+            "41"));
+        using var adapter = new NativeEconomyAdapter(
+            () => repository.CurrentGenerationId,
+            () => tracker.ActiveRunId,
+            () => tracker.ActiveMapId,
+            () => tracker.ActiveSegmentId,
+            () => tracker.IsActive,
+            flow => ItemUsePublication.PublishIndependently(
+                () => repository.RecordDeferred(flow),
+                () => tracker.RecordCurrencyFlow(flow)),
+            _ => { },
+            _ => { },
+            gate.EnsureReady);
+        gate.Begin(adapter.ActivationId);
+        adapter.Initialize();
+        adapter.Tick();
+        EconomyManager.RaiseMoneyChanged(0, 5);
+        var boundary = new NativeRunTerminalBoundary();
+        boundary.SetTerminalObserver(adapter.FlushPendingForBoundary);
+        var checkpointCalls = 0;
+
+        var blocked = boundary.Apply(
+            tracker,
+            RunEvent(RunLifecycleEventKind.Extracted, 2),
+            _ => { },
+            () =>
+            {
+                checkpointCalls++;
+                return true;
+            });
+
+        Assert.Null(blocked.Completed);
+        Assert.True(tracker.IsActive);
+        Assert.True(boundary.HasPendingTerminal);
+        Assert.Equal(0, checkpointCalls);
+        Assert.Empty(repository.Current.Statistics.Economy.Currencies);
+
+        Directory.Delete(blockedTemporaryPath);
+        var completed = boundary.Retry(
+            tracker,
+            _ => { },
+            _ =>
+            {
+                checkpointCalls++;
+                return true;
+            });
+
+        Assert.False(tracker.IsActive);
+        Assert.False(boundary.HasPendingTerminal);
+        Assert.Equal(1, checkpointCalls);
+        Assert.Equal(5, completed.Completed!.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(5, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Persistence")]
+    public void FailedActivationKeepsProfileTransitionPendingUntilQueuedEconomyIsAccepted()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => TestTime,
+            new Queue<string>(["generation-one", "session-one"]).Dequeue);
+        repository.Open(Identity());
+        repository.EnableDeferredItemPersistence();
+        var blockedTemporaryPath = AtomicJsonPaths.GetTemporaryPath(repository.CurrentProfilePath!);
+        Directory.CreateDirectory(blockedTemporaryPath);
+        var gate = new EconomyActivationGate(
+            activationId => repository.BeginEconomyActivation(activationId),
+            _ => { });
+        using var adapter = new NativeEconomyAdapter(
+            () => repository.CurrentGenerationId,
+            () => null,
+            () => null,
+            () => null,
+            () => false,
+            repository.RecordDeferred,
+            _ => { },
+            _ => { },
+            gate.EnsureReady);
+        gate.Begin(adapter.ActivationId);
+        adapter.Initialize();
+        adapter.Tick();
+        EconomyManager.RaiseMoneyChanged(0, 7);
+        var transitionCalls = 0;
+        var boundary = new NativeProfileTransitionBoundary();
+        boundary.Enqueue("Test profile transition", () =>
+        {
+            transitionCalls++;
+            adapter.ResetBaselines();
+        });
+
+        Assert.False(boundary.Retry(adapter.FlushPendingForBoundary, _ => { }));
+        Assert.True(boundary.HasPendingTransition);
+        Assert.Equal(0, transitionCalls);
+        Assert.Empty(repository.Current.Statistics.Economy.Currencies);
+
+        Directory.Delete(blockedTemporaryPath);
+        Assert.True(boundary.Retry(adapter.FlushPendingForBoundary, _ => { }));
+
+        Assert.False(boundary.HasPendingTransition);
+        Assert.Equal(1, transitionCalls);
+        Assert.Equal(7, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
+        repository.CloseClean();
+    }
+
     public void Dispose() => ResetNativeState();
 
     private static void AssertConservativeRaidMoney(CurrencyFlowRecorded flow, long amount)
@@ -220,6 +353,56 @@ public sealed class EconomyActivationGateTests : IDisposable
         ContentSha256 = new string('a', 64),
         SaveTimeBinary = TestTime.ToBinary()
     };
+
+    private static RunLifecycleEvent RunEvent(
+        RunLifecycleEventKind kind,
+        double seconds,
+        RunStartContext? context = null,
+        string? nativeRaidId = null) => new()
+        {
+            Kind = kind,
+            TimestampUtc = TestTime.AddSeconds(seconds),
+            MonotonicSeconds = seconds,
+            StartContext = context,
+            NativeRaidId = nativeRaidId
+        };
+
+    private static RunStartContext RunContext(string generationId) => new()
+    {
+        SaveGenerationId = generationId,
+        NativeRaidId = "41",
+        Map = new MapIdentity { MapId = "map-one", DisplayName = "Map one", IsKnown = true },
+        IntegrityTags = IntegrityTags.Normal,
+        GameVersion = "2.3.30",
+        GameBuild = "24013657",
+        LifecycleCapability = AdapterCapabilityState.Supported,
+        LifecycleAdapterVersion = "test",
+        MovementCapability = AdapterCapabilityState.Supported,
+        MovementAdapterVersion = "test",
+        MapCapability = AdapterCapabilityState.Supported,
+        MapAdapterVersion = "test",
+        EconomyCapabilities = SupportedEconomyCapabilities()
+    };
+
+    private static EconomyMetricCapabilities SupportedEconomyCapabilities()
+    {
+        MetricAvailability Supported() => new()
+        {
+            State = AdapterCapabilityState.Supported,
+            Provenance = "test"
+        };
+        return new EconomyMetricCapabilities
+        {
+            MoneyAmountDirection = Supported(),
+            MoneySourceAttribution = Supported(),
+            MoneyContextAttribution = Supported(),
+            CashAmountDirection = Supported(),
+            CashExternalAcquisition = Supported(),
+            CashContextAttribution = Supported(),
+            CashTerminalOutcomes = Supported(),
+            RouteAttribution = Supported()
+        };
+    }
 
     private static void ResetNativeState()
     {

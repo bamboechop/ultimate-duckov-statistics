@@ -635,7 +635,7 @@ public sealed class ActiveRunPersistenceTests
         boundary.SetTerminalObserver(() =>
         {
             observerCalls++;
-            if (observerCalls != 1) return;
+            if (observerCalls != 1) return true;
             var flow = EconomyFlow(
                 "economy:terminal-boundary",
                 tracker,
@@ -644,6 +644,7 @@ public sealed class ActiveRunPersistenceTests
                 17);
             Assert.True(repository.RecordDeferred(flow));
             Assert.True(tracker.RecordCurrencyFlow(flow));
+            return true;
         });
 
         var lifecycleEvent =

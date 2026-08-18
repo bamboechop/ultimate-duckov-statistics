@@ -41,6 +41,7 @@ public sealed class NativeRunTerminalBoundaryTests
                 ProducerActivationId = "test-activation",
                 ProducerSequence = 1
             }));
+            return true;
         });
 
         var transition = boundary.Apply(
@@ -72,7 +73,7 @@ public sealed class NativeRunTerminalBoundaryTests
         boundary.SetTerminalObserver(() =>
         {
             observerCalls++;
-            if (observerCalls != 2) return;
+            if (observerCalls != 2) return true;
             Assert.True(tracker.RecordCurrencyFlow(new CurrencyFlowRecorded
             {
                 EventId = "money-queued-after-failed-checkpoint",
@@ -91,6 +92,7 @@ public sealed class NativeRunTerminalBoundaryTests
                 ProducerActivationId = "test-activation",
                 ProducerSequence = 1
             }));
+            return true;
         });
 
         var terminalEvent = Event(RunLifecycleEventKind.Extracted, 3);
@@ -190,7 +192,11 @@ public sealed class NativeRunTerminalBoundaryTests
         var observerCalls = 0;
         var checkpointCalls = 0;
         var boundary = new NativeRunTerminalBoundary();
-        boundary.SetTerminalObserver(() => observerCalls++);
+        boundary.SetTerminalObserver(() =>
+        {
+            observerCalls++;
+            return true;
+        });
 
         var transition = boundary.Apply(
             tracker,

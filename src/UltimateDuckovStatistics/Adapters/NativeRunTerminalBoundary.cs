@@ -4,14 +4,14 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeRunTerminalBoundary
 {
-    private Action? terminalObserver;
+    private Func<bool>? terminalObserver;
     private RunLifecycleEvent? pendingTerminalEvent;
 
     public bool HasPendingTerminal => pendingTerminalEvent != null;
 
     public RunLifecycleEvent? PendingTerminalEvent => pendingTerminalEvent;
 
-    public void SetTerminalObserver(Action? observer) => terminalObserver = observer;
+    public void SetTerminalObserver(Func<bool>? observer) => terminalObserver = observer;
 
     public RunLifecycleTransition Apply(
         RunLifecycleTracker tracker,
@@ -26,10 +26,14 @@ internal sealed class NativeRunTerminalBoundary
         if (pendingTerminalEvent != null)
             throw new InvalidOperationException("A pending terminal event must be retried before applying another event.");
 
-        ObserveTerminalCandidate(tracker, lifecycleEvent, diagnosticHandler);
         if (tracker.WillComplete(lifecycleEvent))
         {
             pendingTerminalEvent = lifecycleEvent;
+            if (!ObserveTerminalCandidate(tracker, lifecycleEvent, diagnosticHandler))
+            {
+                diagnosticHandler("Run terminalization deferred because queued economy was not accepted.");
+                return new RunLifecycleTransition();
+            }
             if (!checkpointObserver())
             {
                 diagnosticHandler("Run terminalization deferred because the refreshed active-run checkpoint was not durable.");
@@ -56,7 +60,11 @@ internal sealed class NativeRunTerminalBoundary
             return new RunLifecycleTransition();
         }
 
-        ObserveTerminalCandidate(tracker, pendingTerminalEvent, diagnosticHandler);
+        if (!ObserveTerminalCandidate(tracker, pendingTerminalEvent, diagnosticHandler))
+        {
+            diagnosticHandler("Run terminalization remains deferred because queued economy was not accepted.");
+            return new RunLifecycleTransition();
+        }
         if (!checkpointObserver(pendingTerminalEvent))
         {
             diagnosticHandler("Run terminalization remains deferred because the refreshed active-run checkpoint was not durable.");
@@ -68,7 +76,7 @@ internal sealed class NativeRunTerminalBoundary
         return tracker.Apply(lifecycleEvent);
     }
 
-    public void ObserveTerminalCandidate(
+    public bool ObserveTerminalCandidate(
         RunLifecycleTracker tracker,
         RunLifecycleEvent lifecycleEvent,
         Action<string> diagnosticHandler)
@@ -77,13 +85,15 @@ internal sealed class NativeRunTerminalBoundary
         if (lifecycleEvent == null) throw new ArgumentNullException(nameof(lifecycleEvent));
         if (diagnosticHandler == null) throw new ArgumentNullException(nameof(diagnosticHandler));
 
-        if (tracker.WillComplete(lifecycleEvent))
+        if (!tracker.WillComplete(lifecycleEvent)) return true;
+        try
         {
-            try { terminalObserver?.Invoke(); }
-            catch (Exception exception)
-            {
-                diagnosticHandler($"Pre-terminal observer failed safely: {exception.GetType().Name}: {exception.Message}");
-            }
+            return terminalObserver?.Invoke() != false;
+        }
+        catch (Exception exception)
+        {
+            diagnosticHandler($"Pre-terminal observer failed safely: {exception.GetType().Name}: {exception.Message}");
+            return false;
         }
     }
 
