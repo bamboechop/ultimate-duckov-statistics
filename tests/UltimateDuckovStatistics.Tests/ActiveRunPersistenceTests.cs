@@ -844,6 +844,9 @@ public sealed class ActiveRunPersistenceTests
                 EventId = "invalid-association",
                 EventKind = "combat",
                 TimestampUtc = TestTime.AddSeconds(7),
+                FirstTimestampUtc = TestTime.AddSeconds(7),
+                LastTimestampUtc = TestTime.AddSeconds(7),
+                Count = 1,
                 SourceSegmentId = checkpoint.Segments[0].SegmentId,
                 SourceMapId = "duckov:map:not-A"
             }));
@@ -860,6 +863,9 @@ public sealed class ActiveRunPersistenceTests
                 EventId = "one-sided-association",
                 EventKind = "combat",
                 TimestampUtc = TestTime.AddSeconds(7),
+                FirstTimestampUtc = TestTime.AddSeconds(7),
+                LastTimestampUtc = TestTime.AddSeconds(7),
+                Count = 1,
                 OutcomeSegmentId = checkpoint.Segments[0].SegmentId,
                 OutcomeMapId = checkpoint.Segments[0].MapId
             }));
@@ -892,6 +898,96 @@ public sealed class ActiveRunPersistenceTests
             checkpoint.Segments[0].ExitReason = MapSegmentExitReason.Transition;
             checkpoint.Segments[0].ExitedUtc = checkpoint.LastObservedUtc;
         });
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    public void CurrentSchemaInvalidAggregateAssociationLosesToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+        {
+            var segment = checkpoint.Segments[0];
+            checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
+            {
+                EventKind = "item-use",
+                TimestampUtc = TestTime.AddSeconds(7),
+                FirstTimestampUtc = TestTime.AddSeconds(7),
+                LastTimestampUtc = TestTime.AddSeconds(7),
+                SourceSegmentId = segment.SegmentId,
+                SourceMapId = segment.MapId,
+                OutcomeSegmentId = segment.SegmentId,
+                OutcomeMapId = segment.MapId,
+                Representation = SegmentEventAssociationRepresentation.ExactAggregate,
+                Count = 0
+            });
+        });
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    public void SchemaNineSaturatedActiveCheckpointRecoversExactRowsWithIncompleteProvenance()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        repository.CloseClean();
+        var checkpoint = RouteCheckpoint(generation, 5);
+        checkpoint.SchemaVersion = 9;
+        checkpoint.RouteCapabilities.CurrentEventAttributionCapture = null!;
+        RouteStatisticsReducer.DisableAttribution(
+            checkpoint.RouteCapabilities,
+            "The defensive 2048-event association bound was reached.");
+        var segment = checkpoint.Segments[0];
+        for (var index = 0; index < RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun; index++)
+            checkpoint.SegmentEventAssociations.Add(LegacyRouteAssociation($"legacy-checkpoint-{index}", segment));
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun, run.SegmentEventAssociations.Count);
+        Assert.All(run.SegmentEventAssociations, association =>
+        {
+            Assert.Equal(SegmentEventAssociationRepresentation.LegacyRaw, association.Representation);
+            Assert.Equal(1, association.Count);
+        });
+        Assert.True(run.HistoricalEventAttributionIncomplete);
+        Assert.Contains("2,048", run.HistoricalEventAttributionProvenance, StringComparison.Ordinal);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.CurrentEventAttributionCapture.State);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    public void SchemaTenAggregateCheckpointSurvivesDurableRestartWithoutRawGrowth()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var tracker = ActiveTracker(generation);
+        for (var index = 0; index < 2049; index++)
+        {
+            var events = ConsumableEvents(tracker, generation, index + 1, 1);
+            Assert.True(tracker.RecordItemUse(events.ItemUse));
+        }
+        repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(3000), 3000)!);
+        repository.CloseClean();
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        var association = Assert.Single(run.SegmentEventAssociations);
+        Assert.Equal(SegmentEventAssociationRepresentation.ExactAggregate, association.Representation);
+        Assert.Equal(2049, association.Count);
+        Assert.Equal(2049, run.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
+        recovery.CloseClean();
     }
 
     [Fact]
@@ -1838,6 +1934,20 @@ public sealed class ActiveRunPersistenceTests
         });
         return tracker.CreateCheckpoint(TestTime.AddSeconds(activeSeconds), activeSeconds)!;
     }
+
+    private static SegmentEventAssociation LegacyRouteAssociation(string eventId, MapSegmentSummary segment) => new()
+    {
+        EventId = eventId,
+        EventKind = "item-use",
+        TimestampUtc = TestTime.AddSeconds(1),
+        FirstTimestampUtc = TestTime.AddSeconds(1),
+        LastTimestampUtc = TestTime.AddSeconds(1),
+        Count = 1,
+        SourceSegmentId = segment.SegmentId,
+        SourceMapId = segment.MapId,
+        OutcomeSegmentId = segment.SegmentId,
+        OutcomeMapId = segment.MapId
+    };
 
     private static RunLifecycleTracker ActiveTracker(string generation)
     {

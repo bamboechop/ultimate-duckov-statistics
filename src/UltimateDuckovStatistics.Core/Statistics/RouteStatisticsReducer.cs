@@ -5,14 +5,29 @@ namespace UltimateDuckovStatistics.Core.Statistics;
 public static class RouteStatisticsReducer
 {
     public const int MaximumSegmentsPerRun = 64;
-    public const int MaximumEventAssociationsPerRun = 2048;
+    public const int LegacyMaximumRawEventAssociationsPerRun = 2048;
+    public const int EventAssociationFamilyCount = 5;
+    public const int MaximumAggregateEventAssociationsPerRun =
+        EventAssociationFamilyCount * MaximumSegmentsPerRun * MaximumSegmentsPerRun;
+    public const int MaximumPersistedEventAssociationsPerRun =
+        LegacyMaximumRawEventAssociationsPerRun + MaximumAggregateEventAssociationsPerRun;
+
+    private static readonly HashSet<string> AggregateEventKinds = new(StringComparer.Ordinal)
+    {
+        "shot",
+        "combat",
+        "container",
+        "item-use",
+        "healing"
+    };
 
     public static RouteMetricCapabilities Supported(string provenance) => new()
     {
         OrderedRoute = Availability(AdapterCapabilityState.Supported, provenance),
         Segments = Availability(AdapterCapabilityState.Supported, provenance),
         EventAttribution = Availability(AdapterCapabilityState.Supported, provenance),
-        RouteAwareMapTotals = Availability(AdapterCapabilityState.Supported, provenance)
+        RouteAwareMapTotals = Availability(AdapterCapabilityState.Supported, provenance),
+        CurrentEventAttributionCapture = Availability(AdapterCapabilityState.Supported, provenance)
     };
 
     public static RouteMetricCapabilities Unavailable(string provenance) => new()
@@ -20,7 +35,8 @@ public static class RouteStatisticsReducer
         OrderedRoute = Availability(AdapterCapabilityState.DisabledIncompatible, provenance),
         Segments = Availability(AdapterCapabilityState.DisabledIncompatible, provenance),
         EventAttribution = Availability(AdapterCapabilityState.DisabledIncompatible, provenance),
-        RouteAwareMapTotals = Availability(AdapterCapabilityState.DisabledIncompatible, provenance)
+        RouteAwareMapTotals = Availability(AdapterCapabilityState.DisabledIncompatible, provenance),
+        CurrentEventAttributionCapture = Availability(AdapterCapabilityState.DisabledIncompatible, provenance)
     };
 
     public static RouteMetricCapabilities CloneCapabilities(RouteMetricCapabilities source)
@@ -31,8 +47,21 @@ public static class RouteStatisticsReducer
             OrderedRoute = Clone(source.OrderedRoute),
             Segments = Clone(source.Segments),
             EventAttribution = Clone(source.EventAttribution),
-            RouteAwareMapTotals = Clone(source.RouteAwareMapTotals)
+            RouteAwareMapTotals = Clone(source.RouteAwareMapTotals),
+            CurrentEventAttributionCapture = Clone(source.CurrentEventAttributionCapture)
         };
+    }
+
+    public static void MigrateLegacyCaptureCapability(
+        RouteMetricCapabilities value,
+        bool resumeAfterLegacySaturation)
+    {
+        if (value == null) throw new ArgumentNullException(nameof(value));
+        value.CurrentEventAttributionCapture = resumeAfterLegacySaturation
+            ? Availability(
+                AdapterCapabilityState.Supported,
+                "Schema-10 exact aggregate capture is available; earlier schema-9 association history is incomplete.")
+            : Clone(value.EventAttribution);
     }
 
     public static bool NormalizeCapabilities(RouteMetricCapabilities value)
@@ -43,7 +72,15 @@ public static class RouteStatisticsReducer
         value.Segments ??= RepairAvailability(ref repaired);
         value.EventAttribution ??= RepairAvailability(ref repaired);
         value.RouteAwareMapTotals ??= RepairAvailability(ref repaired);
-        foreach (var availability in new[] { value.OrderedRoute, value.Segments, value.EventAttribution, value.RouteAwareMapTotals })
+        value.CurrentEventAttributionCapture ??= RepairAvailability(ref repaired);
+        foreach (var availability in new[]
+                 {
+                     value.OrderedRoute,
+                     value.Segments,
+                     value.EventAttribution,
+                     value.RouteAwareMapTotals,
+                     value.CurrentEventAttributionCapture
+                 })
         {
             if (!Enum.IsDefined(typeof(AdapterCapabilityState), availability.State))
             {
@@ -67,9 +104,17 @@ public static class RouteStatisticsReducer
 
     public static void ValidateCapabilities(RouteMetricCapabilities value)
     {
-        if (value?.OrderedRoute == null || value.Segments == null || value.EventAttribution == null || value.RouteAwareMapTotals == null)
+        if (value?.OrderedRoute == null || value.Segments == null || value.EventAttribution == null
+            || value.RouteAwareMapTotals == null || value.CurrentEventAttributionCapture == null)
             throw new ArgumentException("Route capability record is incomplete.", nameof(value));
-        foreach (var availability in new[] { value.OrderedRoute, value.Segments, value.EventAttribution, value.RouteAwareMapTotals })
+        foreach (var availability in new[]
+                 {
+                     value.OrderedRoute,
+                     value.Segments,
+                     value.EventAttribution,
+                     value.RouteAwareMapTotals,
+                     value.CurrentEventAttributionCapture
+                 })
             if (!Enum.IsDefined(typeof(AdapterCapabilityState), availability.State) || availability.Provenance == null)
                 throw new ArgumentException("Route capability record is invalid.", nameof(value));
         if (!CapabilitiesAreConsistent(value))
@@ -77,6 +122,12 @@ public static class RouteStatisticsReducer
     }
 
     public static void DisableAttribution(RouteMetricCapabilities target, string provenance)
+    {
+        MarkAttributionIncomplete(target, provenance);
+        target.CurrentEventAttributionCapture = Availability(AdapterCapabilityState.DisabledIncompatible, provenance);
+    }
+
+    public static void MarkAttributionIncomplete(RouteMetricCapabilities target, string provenance)
     {
         target.EventAttribution = Availability(AdapterCapabilityState.DisabledIncompatible, provenance);
         target.RouteAwareMapTotals = Availability(AdapterCapabilityState.DisabledIncompatible, provenance);
@@ -143,8 +194,35 @@ public static class RouteStatisticsReducer
         SourceSegmentId = source.SourceSegmentId,
         SourceMapId = source.SourceMapId,
         OutcomeSegmentId = source.OutcomeSegmentId,
-        OutcomeMapId = source.OutcomeMapId
+        OutcomeMapId = source.OutcomeMapId,
+        Representation = source.Representation,
+        Count = source.Count,
+        FirstTimestampUtc = source.FirstTimestampUtc,
+        LastTimestampUtc = source.LastTimestampUtc
     };
+
+    public static bool MigrateLegacyAssociations(IList<SegmentEventAssociation> associations)
+    {
+        if (associations == null) throw new ArgumentNullException(nameof(associations));
+        var changed = false;
+        foreach (var association in associations)
+        {
+            if (association == null) continue;
+            association.Representation = SegmentEventAssociationRepresentation.LegacyRaw;
+            if (association.Count != 1) { association.Count = 1; changed = true; }
+            if (association.FirstTimestampUtc != association.TimestampUtc)
+            {
+                association.FirstTimestampUtc = association.TimestampUtc;
+                changed = true;
+            }
+            if (association.LastTimestampUtc != association.TimestampUtc)
+            {
+                association.LastTimestampUtc = association.TimestampUtc;
+                changed = true;
+            }
+        }
+        return changed;
+    }
 
     public static string BuildSignature(IEnumerable<MapSegmentSummary> segments) =>
         string.Join(">", segments.Select(segment => segment.MapId));
@@ -267,24 +345,61 @@ public static class RouteStatisticsReducer
         IReadOnlyList<MapSegmentSummary> segments,
         IReadOnlyList<SegmentEventAssociation> associations)
     {
-        if (segments == null || associations == null || associations.Count > MaximumEventAssociationsPerRun)
+        if (segments == null || associations == null || associations.Count > MaximumPersistedEventAssociationsPerRun)
             throw new ArgumentException("Route event association state is invalid.", nameof(associations));
         var segmentMaps = segments.ToDictionary(segment => segment.SegmentId, segment => segment.MapId, StringComparer.Ordinal);
         var eventIds = new HashSet<string>(StringComparer.Ordinal);
+        var aggregateKeys = new HashSet<string>(StringComparer.Ordinal);
+        var legacyCount = 0;
+        var aggregateCount = 0;
         foreach (var association in associations)
         {
             if (association == null
-                || string.IsNullOrWhiteSpace(association.EventId)
-                || !eventIds.Add(association.EventId)
                 || string.IsNullOrWhiteSpace(association.EventKind)
                 || association.TimestampUtc.Kind != DateTimeKind.Utc
+                || association.FirstTimestampUtc.Kind != DateTimeKind.Utc
+                || association.LastTimestampUtc.Kind != DateTimeKind.Utc
+                || association.FirstTimestampUtc > association.LastTimestampUtc
+                || association.TimestampUtc != association.LastTimestampUtc
                 || string.IsNullOrWhiteSpace(association.SourceSegmentId)
                 || string.IsNullOrWhiteSpace(association.OutcomeSegmentId)
                 || !ValidEndpoint(segmentMaps, association.SourceSegmentId, association.SourceMapId)
                 || !ValidEndpoint(segmentMaps, association.OutcomeSegmentId, association.OutcomeMapId))
                 throw new ArgumentException("Route contains an invalid event association.", nameof(associations));
+            if (association.Representation == SegmentEventAssociationRepresentation.LegacyRaw)
+            {
+                legacyCount++;
+                if (association.Count != 1
+                    || string.IsNullOrWhiteSpace(association.EventId)
+                    || !eventIds.Add(association.EventId)
+                    || association.FirstTimestampUtc != association.TimestampUtc)
+                    throw new ArgumentException("Route contains an invalid legacy event association.", nameof(associations));
+            }
+            else if (association.Representation == SegmentEventAssociationRepresentation.ExactAggregate)
+            {
+                aggregateCount++;
+                var aggregateKey = AssociationKey(
+                    association.EventKind,
+                    association.SourceSegmentId,
+                    association.OutcomeSegmentId);
+                if (association.Count <= 0
+                    || !string.IsNullOrEmpty(association.EventId)
+                    || !AggregateEventKinds.Contains(association.EventKind)
+                    || !aggregateKeys.Add(aggregateKey))
+                    throw new ArgumentException("Route contains an invalid aggregate event association.", nameof(associations));
+            }
+            else
+            {
+                throw new ArgumentException("Route contains an unknown event association representation.", nameof(associations));
+            }
         }
+        var aggregateBound = EventAssociationFamilyCount * segments.Count * segments.Count;
+        if (legacyCount > LegacyMaximumRawEventAssociationsPerRun || aggregateCount > aggregateBound)
+            throw new ArgumentException("Route event association state exceeds its cardinality bound.", nameof(associations));
     }
+
+    public static string AssociationKey(string eventKind, string sourceSegmentId, string outcomeSegmentId) =>
+        eventKind + "\u001f" + sourceSegmentId + "\u001f" + outcomeSegmentId;
 
     private static MetricAvailability Availability(AdapterCapabilityState state, string provenance) => new()
     {
@@ -298,9 +413,11 @@ public static class RouteStatisticsReducer
         var segmentsSupported = value.Segments.State == AdapterCapabilityState.Supported;
         var attributionSupported = value.EventAttribution.State == AdapterCapabilityState.Supported;
         var routeMapTotalsSupported = value.RouteAwareMapTotals.State == AdapterCapabilityState.Supported;
+        var captureSupported = value.CurrentEventAttributionCapture.State == AdapterCapabilityState.Supported;
         return orderedRouteSupported == segmentsSupported
                && (!attributionSupported || segmentsSupported)
-               && (!routeMapTotalsSupported || attributionSupported);
+               && (!routeMapTotalsSupported || attributionSupported)
+               && (!captureSupported || segmentsSupported);
     }
 
     private static MetricAvailability Clone(MetricAvailability? source) => source == null

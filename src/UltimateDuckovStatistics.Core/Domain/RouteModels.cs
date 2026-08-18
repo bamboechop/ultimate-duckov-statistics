@@ -20,6 +20,7 @@ public sealed class RouteMetricCapabilities
     [DataMember(Order = 2)] public MetricAvailability Segments { get; set; } = new();
     [DataMember(Order = 3)] public MetricAvailability EventAttribution { get; set; } = new();
     [DataMember(Order = 4)] public MetricAvailability RouteAwareMapTotals { get; set; } = new();
+    [DataMember(Order = 5)] public MetricAvailability CurrentEventAttributionCapture { get; set; } = new();
 }
 
 [DataContract]
@@ -59,6 +60,13 @@ public sealed class MapSegmentSummary
 }
 
 [DataContract]
+public enum SegmentEventAssociationRepresentation
+{
+    [EnumMember] LegacyRaw = 0,
+    [EnumMember] ExactAggregate = 1
+}
+
+[DataContract]
 public sealed class SegmentEventAssociation
 {
     [DataMember(Order = 1)] public string EventId { get; set; } = string.Empty;
@@ -68,6 +76,10 @@ public sealed class SegmentEventAssociation
     [DataMember(Order = 5)] public string SourceMapId { get; set; } = MapIdentity.UnknownId;
     [DataMember(Order = 6)] public string OutcomeSegmentId { get; set; } = string.Empty;
     [DataMember(Order = 7)] public string OutcomeMapId { get; set; } = MapIdentity.UnknownId;
+    [DataMember(Order = 8)] public SegmentEventAssociationRepresentation Representation { get; set; }
+    [DataMember(Order = 9)] public long Count { get; set; }
+    [DataMember(Order = 10)] public DateTime FirstTimestampUtc { get; set; }
+    [DataMember(Order = 11)] public DateTime LastTimestampUtc { get; set; }
 }
 
 [DataContract]

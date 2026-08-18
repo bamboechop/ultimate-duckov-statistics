@@ -521,7 +521,7 @@ public sealed class CombatStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(9, profile.SchemaVersion);
+        Assert.Equal(10, profile.SchemaVersion);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
             profile.Statistics.RunTotals.CombatStatistics.Capabilities.DamageDealt.State);
         Assert.Contains("predates M5",

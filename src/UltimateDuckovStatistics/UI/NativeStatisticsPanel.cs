@@ -284,13 +284,20 @@ internal sealed class NativeStatisticsPanel
                 }
                 if (expandedRunIds.Contains(run.RunId))
                 {
+                    if (run.HistoricalEventAttributionIncomplete)
+                    {
+                        GUILayout.Label(
+                            $"    {UiText.Get("ui.segment_event_partial")}: {run.HistoricalEventAttributionProvenance}");
+                        if (run.RouteCapabilities.CurrentEventAttributionCapture.State == AdapterCapabilityState.Supported)
+                            GUILayout.Label($"    {UiText.Get("ui.segment_event_capture_supported")}.");
+                    }
                     foreach (var segment in run.Segments.OrderBy(value => value.SegmentIndex))
                     {
                         GUILayout.Label(
                             $"    {segment.SegmentIndex + 1}. {segment.MapDisplayName}: {FormatDuration(segment.ActiveDurationSeconds)}, "
                             + $"physical {segment.PhysicalDistance:0.##} m, teleport {segment.TeleportDistance:0.##} m, "
                             + $"transition-excluded {segment.TransitionExcludedDistance:0.##} m, {segment.ExitReason}");
-                        if (UiText.HasAvailableEventAttribution(run))
+                        if (UiText.HasKnownEventAttribution(run))
                         {
                             GUILayout.Label(
                                 $"       items {segment.ItemStatistics.Overall.ActivationCount}, healing {segment.ItemStatistics.Overall.ActualHealthRestored:0.##} HP, "

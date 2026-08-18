@@ -11,10 +11,10 @@ public sealed class RepositoryStatusDocumentationTests
         var readme = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "README.md"));
         var statusParagraph = Regex
             .Split(readme, "\\r?\\n\\r?\\n")
-            .Single(paragraph => paragraph.StartsWith("The active `feat/economy` branch", StringComparison.Ordinal));
+            .Single(paragraph => paragraph.StartsWith("M10 delivery status is tracked", StringComparison.Ordinal));
 
         Assert.Contains(
-            "PR #10](https://github.com/bamboechop/ultimate-duckov-statistics/pull/10)",
+            "GitHub pull requests](https://github.com/bamboechop/ultimate-duckov-statistics/pulls)",
             statusParagraph,
             StringComparison.Ordinal);
         Assert.Contains(

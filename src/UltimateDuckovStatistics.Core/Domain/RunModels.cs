@@ -172,6 +172,12 @@ public sealed class RunSummary
 
     [DataMember(Order = 43)]
     public EconomyStatisticsAggregate Economy { get; set; } = new();
+
+    [DataMember(Order = 44)]
+    public bool HistoricalEventAttributionIncomplete { get; set; }
+
+    [DataMember(Order = 45)]
+    public string HistoricalEventAttributionProvenance { get; set; } = string.Empty;
 }
 
 [DataContract]
@@ -297,6 +303,12 @@ public sealed class ActiveRunCheckpoint
     [DataMember(Order = 40, EmitDefaultValue = false)]
     public RunOutcome? PendingTerminalOutcome { get; set; }
 
+    [DataMember(Order = 41)]
+    public bool HistoricalEventAttributionIncomplete { get; set; }
+
+    [DataMember(Order = 42)]
+    public string HistoricalEventAttributionProvenance { get; set; } = string.Empty;
+
     public RunSummary ToInterruptedSummary() => ToSummary(RunOutcome.Interrupted);
 
     public RunSummary ToRecoverySummary() => ToSummary(PendingTerminalOutcome ?? RunOutcome.Interrupted);
@@ -368,7 +380,9 @@ public sealed class ActiveRunCheckpoint
             RouteWasRepairedFromInvalidState = RouteWasRepairedFromInvalidState,
             SegmentEventAssociations = SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
             ItemStatistics = ItemStatisticsAggregateReducer.Clone(ItemStatistics),
-            Economy = EconomyStatisticsReducer.Clone(Economy)
+            Economy = EconomyStatisticsReducer.Clone(Economy),
+            HistoricalEventAttributionIncomplete = HistoricalEventAttributionIncomplete,
+            HistoricalEventAttributionProvenance = HistoricalEventAttributionProvenance
         };
 
         EconomyStatisticsReducer.FinalizeCashRaidOutcome(result.Economy, outcome);

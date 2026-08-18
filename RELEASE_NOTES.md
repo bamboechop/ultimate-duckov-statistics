@@ -1,4 +1,12 @@
-# Ultimate Duckov Statistics v0.9.0 — published Economy pre-release
+# Ultimate Duckov Statistics v0.10.0 — M10 candidate
+
+M10 removes the 2,048-row loss boundary from shared firing, combat, item-use, healing, and container route attribution. New schema-10 evidence is reduced exactly into checked-count buckets keyed by event family plus source and outcome segment; repeated visits remain distinct because segment identity, not map name, is the key. Storage is bounded by legitimate route cardinality rather than completed event volume, while exact run, segment, starting-map, and route-map reducers continue to receive every accepted event.
+
+Schema-9 raw association rows migrate as finite `LegacyRaw` evidence. An unsaturated history migrates exactly. A previously saturated history retains its exact surviving rows and an explicit historical-incomplete marker because discarded rows cannot be reconstructed; the separate current-capture capability reports that new schema-10 evidence is supported. JSON and append-only columns in `routes.csv`, `segments.csv`, and `segment_events.csv` expose the representation, count, timestamp range, provenance, and current-capture state. Known exact route values remain visible when older history is incomplete. M9 economy remains independent and does not enter the shared association representation.
+
+The candidate includes current-schema semantic recovery validation before normalization, checked-counter overflow degradation that retains the previous exact value, focused schema-9 profile/checkpoint migration and primary/backup-selection regressions, more-than-2,048 and 100,000-event stress coverage, late-family projection coverage, duplicate rejection, and bounded serialized-state assertions. Automated, package, matched-control performance, deployment, user-controlled gameplay, shutdown/restart, GitHub CI, and draft-PR qualification are recorded chronologically in [TESTING.md](TESTING.md); this candidate is not yet a release.
+
+## v0.9.0 published baseline
 
 M9 adds exact, separately capability-gated Money and physical-Cash statistics without changing the accepted M1-M8.1 semantics. PR #10 merged as `ba2d01ca345f005de6bb88249592eb7f31c9254a`, and GitHub pre-release [`v0.9.0`](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.9.0) was published on 2026-08-18. The final Release suite passes 665/665 together with the installed-game compatibility contract, exact five-file package/readback, user-verified Economy UI, JSON/24-CSV export, and residue-free clean shutdown. The published 265,633-byte ZIP is SHA-256 `1b126c9d999343e4cb0c5544cff051ff90f454ab72bd6b0b50a3f1d1c0877803`; its 102-byte checksum sidecar is SHA-256 `f89be2dec4e6893b094b4eb0a25d6ec235190563ec168969a4dcc210d1733f3a`.
 

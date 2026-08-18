@@ -937,6 +937,10 @@ public sealed class ProfileRepository
                 || checkpoint.RouteCapabilities.RouteAwareMapTotals == null
                 || string.IsNullOrWhiteSpace(checkpoint.StartingMapId)))
             throw new ArgumentException("Current-schema route roots are incomplete.", nameof(checkpoint));
+        if (checkpoint.SchemaVersion >= 10
+            && (checkpoint.RouteCapabilities.CurrentEventAttributionCapture == null
+                || checkpoint.HistoricalEventAttributionProvenance == null))
+            throw new ArgumentException("Schema-10 route-association roots are incomplete.", nameof(checkpoint));
 
         if (checkpoint.SchemaVersion < 8)
         {
@@ -959,9 +963,34 @@ public sealed class ProfileRepository
         checkpoint.Segments ??= new List<MapSegmentSummary>();
         checkpoint.SegmentEventAssociations ??= new List<SegmentEventAssociation>();
         checkpoint.RouteCapabilities ??= RouteStatisticsReducer.Unavailable("Route capability record was missing.");
+        if (checkpoint.SchemaVersion < 10)
+        {
+            var legacySaturationIncomplete = checkpoint.SegmentEventAssociations.Count
+                                             == RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun
+                                             && checkpoint.RouteCapabilities.EventAttribution?.State
+                                             != AdapterCapabilityState.Supported;
+            RouteStatisticsReducer.MigrateLegacyAssociations(checkpoint.SegmentEventAssociations);
+            RouteStatisticsReducer.MigrateLegacyCaptureCapability(
+                checkpoint.RouteCapabilities,
+                legacySaturationIncomplete);
+            if (legacySaturationIncomplete)
+            {
+                checkpoint.HistoricalEventAttributionIncomplete = true;
+                checkpoint.HistoricalEventAttributionProvenance =
+                    "Schema-9 reached the 2,048-row association ceiling; retained rows are exact and later historical associations may be missing.";
+            }
+            else
+            {
+                checkpoint.HistoricalEventAttributionProvenance ??= string.Empty;
+            }
+        }
         checkpoint.ItemStatistics ??= new ItemStatisticsAggregate();
         checkpoint.MovementBaseline ??= new MovementBaselineState();
-        RouteStatisticsReducer.ValidateCapabilities(checkpoint.RouteCapabilities);
+        if (checkpoint.SchemaVersion >= 10)
+            RouteStatisticsReducer.ValidateCapabilities(checkpoint.RouteCapabilities);
+        else
+            RouteStatisticsReducer.NormalizeCapabilities(checkpoint.RouteCapabilities);
+        ValidateHistoricalEventAttribution(checkpoint);
         if (requireCurrentSchemaRoots)
         {
             ItemStatisticsAggregateReducer.Validate(checkpoint.ItemStatistics);
@@ -973,7 +1002,7 @@ public sealed class ProfileRepository
             }
         }
         if (checkpoint.Segments.Count > RouteStatisticsReducer.MaximumSegmentsPerRun
-            || checkpoint.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumEventAssociationsPerRun)
+            || checkpoint.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumPersistedEventAssociationsPerRun)
             throw new ArgumentException("Current-schema route state exceeds its defensive bound.", nameof(checkpoint));
 
         var segmentsSupported = checkpoint.RouteCapabilities.Segments?.State == AdapterCapabilityState.Supported;
@@ -1023,6 +1052,18 @@ public sealed class ProfileRepository
         if (!string.IsNullOrWhiteSpace(checkpoint.CurrentSegmentId)
             && !checkpoint.Segments.Any(segment => string.Equals(segment.SegmentId, checkpoint.CurrentSegmentId, StringComparison.Ordinal)))
             throw new ArgumentException("Current segment identity is not present in the ordered route.", nameof(checkpoint));
+    }
+
+    private static void ValidateHistoricalEventAttribution(ActiveRunCheckpoint checkpoint)
+    {
+        if (checkpoint.HistoricalEventAttributionProvenance == null)
+            throw new ArgumentException("Historical event-attribution provenance is missing.", nameof(checkpoint));
+        if (checkpoint.HistoricalEventAttributionIncomplete
+            && string.IsNullOrWhiteSpace(checkpoint.HistoricalEventAttributionProvenance))
+            throw new ArgumentException("Incomplete historical event attribution has no provenance.", nameof(checkpoint));
+        if (checkpoint.HistoricalEventAttributionIncomplete
+            && checkpoint.RouteCapabilities.EventAttribution.State == AdapterCapabilityState.Supported)
+            throw new ArgumentException("Incomplete historical event attribution cannot be marked exact.", nameof(checkpoint));
     }
 
     private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
