@@ -59,7 +59,11 @@ public static class ProfileExportWriter
             WriteAtomicText(exportDirectory, "routes.csv", bundle.RoutesCsv),
             WriteAtomicText(exportDirectory, "segments.csv", bundle.SegmentsCsv),
             WriteAtomicText(exportDirectory, "segment_events.csv", bundle.SegmentEventsCsv),
-            WriteAtomicText(exportDirectory, "route_map_totals.csv", bundle.RouteMapTotalsCsv)
+            WriteAtomicText(exportDirectory, "route_map_totals.csv", bundle.RouteMapTotalsCsv),
+            WriteAtomicText(exportDirectory, "economy_totals.csv", bundle.EconomyTotalsCsv),
+            WriteAtomicText(exportDirectory, "economy_sources.csv", bundle.EconomySourcesCsv),
+            WriteAtomicText(exportDirectory, "economy_contexts.csv", bundle.EconomyContextsCsv),
+            WriteAtomicText(exportDirectory, "cash_raid_outcomes.csv", bundle.CashRaidOutcomesCsv)
         };
         return new ProfileExportResult(exportDirectory, files);
     }

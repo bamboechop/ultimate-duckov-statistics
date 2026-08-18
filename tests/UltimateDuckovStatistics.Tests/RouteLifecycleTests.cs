@@ -10,6 +10,7 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class RouteLifecycleTests
 {
+    private static long economySequence;
     private static readonly DateTime Now = new(2026, 8, 13, 10, 0, 0, DateTimeKind.Utc);
     private static readonly string[] TwoMapIds = ["duckov:map:A", "duckov:map:B"];
     private static readonly string[] ThreeMapIds = ["duckov:map:A", "duckov:map:B", "duckov:map:C"];
@@ -493,6 +494,285 @@ public sealed class RouteLifecycleTests
     }
 
     [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Economy")]
+    public void EconomyFlowsComposeAcrossRunSegmentsStartingMapAndRouteMaps()
+    {
+        var tracker = Start("A");
+        Assert.True(tracker.RecordCurrencyFlow(Currency(
+            "money-a", tracker, "A", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 10)));
+        Transition(tracker, 2, 5, "B");
+        Assert.True(tracker.RecordCurrencyFlow(Currency(
+            "cash-b", tracker, "B", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 3, acquisition: true)));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 9)).Completed!;
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
+
+        Assert.True(RunReducer.Apply(profile, run));
+
+        Assert.Equal(10, run.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(3, run.Economy.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Equal(10, run.Segments[0].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.False(run.Segments[0].Economy.Currencies.ContainsKey("Cash"));
+        Assert.Equal(3, run.Segments[1].Economy.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Equal(3, run.Economy.CashRaidOutcomes.Secured);
+        Assert.True(run.Economy.CashTerminalDispositionRecorded);
+        Assert.Equal(10, profile.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(3, profile.RunTotals.Economy.Currencies["Cash"].Totals.GrossInflow);
+        Assert.True(profile.RunTotals.Economy.CashTerminalDispositionRecorded);
+        Assert.Equal(10, profile.RunTotals.Maps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(3, profile.RunTotals.Maps["duckov:map:A"].Economy.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Equal(10, profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(3, profile.RunTotals.RouteMaps["duckov:map:B"].Economy.Currencies["Cash"].Totals.GrossInflow);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Economy")]
+    public void ZeroFlowDegradedRunKeepsCompletedAndMapTotalsDegradedAfterLaterSupportedFlow()
+    {
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
+        var degradedTracker = new RunLifecycleTracker(() => "run-degraded-zero");
+        degradedTracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, 0, nativeRaidId: "raid-zero"));
+        degradedTracker.Apply(Event(
+            RunLifecycleEventKind.ControlReady,
+            0,
+            context: Context("A", "raid-zero")));
+        var degradedCapabilities = SupportedEconomyCapabilities();
+        degradedCapabilities.CashAmountDirection = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = "runtime Cash scan failed"
+        };
+        Assert.True(degradedTracker.UpdateEconomyCapabilities(degradedCapabilities));
+        var degradedRun = degradedTracker.Apply(Event(RunLifecycleEventKind.Extracted, 1)).Completed!;
+        Assert.True(RunReducer.Apply(profile, degradedRun));
+
+        var supportedTracker = new RunLifecycleTracker(() => "run-supported-flow");
+        supportedTracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, 2, nativeRaidId: "raid-flow"));
+        supportedTracker.Apply(Event(
+            RunLifecycleEventKind.ControlReady,
+            2,
+            context: Context("A", "raid-flow")));
+        var flow = Currency(
+            "later-supported-flow",
+            supportedTracker,
+            "A",
+            CurrencyKind.Cash,
+            CurrencyFlowDirection.Inflow,
+            9);
+        flow.TimestampUtc = Now.AddSeconds(3);
+        Assert.True(supportedTracker.RecordCurrencyFlow(flow));
+        var supportedRun = supportedTracker.Apply(Event(RunLifecycleEventKind.Extracted, 4)).Completed!;
+        Assert.True(RunReducer.Apply(profile, supportedRun));
+
+        Assert.Equal(9, profile.RunTotals.Economy.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            profile.RunTotals.Economy.Capabilities.CashAmountDirection.State);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            profile.RunTotals.Maps["duckov:map:A"].Economy.Capabilities.CashAmountDirection.State);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Capabilities.CashAmountDirection.State);
+        RunReducer.ValidateProfileEconomyComposition(profile);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Economy")]
+    public void DeferredCurrencyPublicationRetainsItsEventTimeSegmentAfterTransition()
+    {
+        var tracker = Start("A");
+        var capturedInA = Currency(
+            "money-delayed-a",
+            tracker,
+            "A",
+            CurrencyKind.Money,
+            CurrencyFlowDirection.Inflow,
+            5);
+        Transition(tracker, 2, 5, "B");
+
+        Assert.True(tracker.RecordCurrencyFlow(capturedInA));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 7)).Completed!;
+
+        Assert.Equal(5, run.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(5, run.Segments[0].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.False(run.Segments[1].Economy.Currencies.ContainsKey("Money"));
+        Assert.Equal(AdapterCapabilityState.Supported, run.Economy.Capabilities.RouteAttribution.State);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Economy")]
+    public void MissingRouteSegmentDegradesOnlyEconomyRouteAttribution()
+    {
+        var tracker = Start("A");
+        for (var index = 1; index < RouteStatisticsReducer.MaximumSegmentsPerRun; index++)
+            Transition(tracker, index * 2, (index * 2) + 1, index % 2 == 0 ? "A" : "B");
+        Transition(tracker, 130, 131, "C");
+
+        Assert.True(tracker.RecordCurrencyFlow(Currency(
+            "money-overall-only",
+            tracker,
+            "C",
+            CurrencyKind.Money,
+            CurrencyFlowDirection.Outflow,
+            4)));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 132)).Completed!;
+
+        Assert.Equal(4, run.Economy.Currencies["Money"].Totals.GrossOutflow);
+        Assert.Equal(0, run.Segments.Sum(segment =>
+            segment.Economy.Currencies.TryGetValue("Money", out var value) ? value.Totals.GrossOutflow : 0));
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.Economy.Capabilities.RouteAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.Economy.Capabilities.MoneyAmountDirection.State);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Economy")]
+    public void RunArithmeticSaturationPersistsWithoutLegacyEconomyAssociationsOrDisablingCash()
+    {
+        var tracker = Start("A");
+        Assert.True(tracker.RecordCurrencyFlow(Currency(
+            "money-max", tracker, "A", CurrencyKind.Money, CurrencyFlowDirection.Inflow, long.MaxValue)));
+        Assert.True(tracker.RecordCurrencyFlow(Currency(
+            "money-overflow", tracker, "A", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
+        Assert.True(tracker.RecordCurrencyFlow(Currency(
+            "cash-after-money-saturation", tracker, "A", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 2)));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 4)).Completed!;
+
+        Assert.Equal(long.MaxValue, run.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(long.MaxValue, run.Segments[0].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.True(run.Economy.MoneyArithmeticSaturated);
+        Assert.True(run.Segments[0].Economy.MoneyArithmeticSaturated);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.Economy.Capabilities.CashAmountDirection.State);
+        Assert.Equal(2, run.Economy.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Empty(run.SegmentEventAssociations);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Economy")]
+    public void RunArithmeticOverflowDoesNotDiscardRepresentableSegmentOrRouteMapEconomy()
+    {
+        var tracker = Start("A");
+        Assert.True(tracker.RecordCurrencyFlow(Currency(
+            "money-max-a", tracker, "A", CurrencyKind.Money, CurrencyFlowDirection.Inflow, long.MaxValue)));
+        Transition(tracker, 2, 3, "B");
+        Assert.True(tracker.RecordCurrencyFlow(Currency(
+            "money-out-b", tracker, "B", CurrencyKind.Money, CurrencyFlowDirection.Outflow, 1)));
+        Assert.True(tracker.RecordCurrencyFlow(Currency(
+            "money-in-b", tracker, "B", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 5)).Completed!;
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
+
+        Assert.True(RunReducer.Apply(profile, run));
+
+        Assert.Equal(long.MaxValue, run.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(1, run.Economy.Currencies["Money"].Totals.GrossOutflow);
+        Assert.True(run.Economy.MoneyArithmeticSaturated);
+        Assert.Equal(long.MaxValue, run.Segments[0].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.False(run.Segments[0].Economy.MoneyArithmeticSaturated);
+        Assert.Equal(AdapterCapabilityState.Supported, run.Segments[0].Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.Equal(1, run.Segments[1].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(1, run.Segments[1].Economy.Currencies["Money"].Totals.GrossOutflow);
+        Assert.False(run.Segments[1].Economy.MoneyArithmeticSaturated);
+        Assert.Equal(AdapterCapabilityState.Supported, run.Segments[1].Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.Empty(run.SegmentEventAssociations);
+        Assert.Equal(long.MaxValue, profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(1, profile.RunTotals.RouteMaps["duckov:map:B"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(1, profile.RunTotals.RouteMaps["duckov:map:B"].Economy.Currencies["Money"].Totals.GrossOutflow);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Economy")]
+    public void EconomyFlowsDoNotConsumeTheLegacyAssociationBudgetOrDisableLaterItemAttribution()
+    {
+        var tracker = Start("A");
+        for (var index = 0; index < 2500; index++)
+            Assert.True(tracker.RecordCurrencyFlow(Currency(
+                $"economy-a:{index}", tracker, "A", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
+        Transition(tracker, 2, 3, "B");
+        for (var index = 0; index < 2500; index++)
+            Assert.True(tracker.RecordCurrencyFlow(Currency(
+                $"economy-b:{index}", tracker, "B", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
+        Assert.True(tracker.RecordItemUse(Item("item-after-5000-economy-flows", tracker, "B")));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 5)).Completed!;
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
+        Assert.True(RunReducer.Apply(profile, run));
+
+        Assert.Equal(5000, run.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(AdapterCapabilityState.Supported, run.Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.Economy.Capabilities.RouteAttribution.State);
+        Assert.Empty(run.Economy.RecentEventIds);
+        Assert.False(run.Economy.DeduplicationSaturated);
+        Assert.All(run.Segments, segment =>
+        {
+            Assert.Equal(2500, segment.Economy.Currencies["Money"].Totals.GrossInflow);
+            Assert.Equal(AdapterCapabilityState.Supported, segment.Economy.Capabilities.MoneyAmountDirection.State);
+            Assert.Empty(segment.Economy.RecentEventIds);
+        });
+        var itemAssociation = Assert.Single(run.SegmentEventAssociations);
+        Assert.Equal("item-after-5000-economy-flows", itemAssociation.EventId);
+        Assert.Equal("item-use", itemAssociation.EventKind);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.Equal(1, run.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(1, run.Segments[1].ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(5000, profile.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(5000, profile.RunTotals.Maps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(2500, profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(2500, profile.RunTotals.RouteMaps["duckov:map:B"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(1, profile.RunTotals.RouteMaps["duckov:map:B"].ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Capabilities.RouteAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            profile.RunTotals.RouteMaps["duckov:map:B"].Economy.Capabilities.RouteAttribution.State);
+        Assert.Empty(profile.RunTotals.Economy.RecentEventIds);
+        Assert.Empty(profile.RunTotals.Maps["duckov:map:A"].Economy.RecentEventIds);
+        Assert.Empty(profile.RunTotals.RouteMaps["duckov:map:A"].Economy.RecentEventIds);
+        Assert.Empty(profile.RunTotals.RouteMaps["duckov:map:B"].Economy.RecentEventIds);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Economy")]
+    public void StartingAndRouteMapEconomyAggregatesContinueBeyondTheLegacyIdentityLimit()
+    {
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
+        for (var index = 0; index < 2500; index++)
+        {
+            var tracker = new RunLifecycleTracker(() => $"run-{index}");
+            tracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, index * 3, nativeRaidId: $"raid-{index}"));
+            tracker.Apply(Event(
+                RunLifecycleEventKind.ControlReady,
+                index * 3,
+                context: Context("A", $"raid-{index}")));
+            var flow = Currency(
+                $"route-map-economy:{index}",
+                tracker,
+                "A",
+                CurrencyKind.Money,
+                CurrencyFlowDirection.Inflow,
+                1);
+            flow.TimestampUtc = Now.AddSeconds(index * 3 + 0.5);
+            Assert.True(tracker.RecordCurrencyFlow(flow));
+            var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, index * 3 + 1)).Completed!;
+            Assert.True(RunReducer.Apply(profile, run));
+        }
+
+        Assert.Equal(2500, profile.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(2500, profile.RunTotals.Maps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(2500, profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.Empty(profile.RunTotals.RouteMaps["duckov:map:A"].Economy.RecentEventIds);
+    }
+
+    [Fact]
     [Trait("Category", "M8")]
     public void SameContainerKeyOnDifferentMapsCountsOncePerMapAndTwiceOverall()
     {
@@ -653,7 +933,7 @@ public sealed class RouteLifecycleTests
 
         Assert.True(ProfileMigrator.Migrate(document));
         var run = Assert.Single(document.Statistics.Runs);
-        Assert.Equal(8, document.SchemaVersion);
+        Assert.Equal(9, document.SchemaVersion);
         Assert.Equal("duckov:map:A", run.StartingMapId);
         Assert.Equal(MapIdentity.UnknownId, run.EndingMapId);
         Assert.Empty(run.Segments);
@@ -905,6 +1185,7 @@ public sealed class RouteLifecycleTests
         WeaponCapabilities = WeaponNativeContractPolicy.CreateMetricCapabilities(),
         EquipmentCapabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities(),
         ContainerCapabilities = ContainerNativeContractPolicy.Supported(),
+        EconomyCapabilities = SupportedEconomyCapabilities(),
         RouteCapabilities = RouteStatisticsReducer.Supported("test")
     };
 
@@ -956,6 +1237,49 @@ public sealed class RouteLifecycleTests
         AmountConsumed = 1,
         ConsumptionUnit = ConsumptionUnit.Item
     };
+
+    private static CurrencyFlowRecorded Currency(
+        string eventId,
+        RunLifecycleTracker tracker,
+        string map,
+        CurrencyKind currency,
+        CurrencyFlowDirection direction,
+        long amount,
+        bool acquisition = false) => new()
+        {
+            EventId = eventId,
+            TimestampUtc = Now.AddSeconds(1),
+            SaveGenerationId = "generation-1",
+            RunId = tracker.ActiveRunId,
+            MapId = $"duckov:map:{map}",
+            SegmentId = tracker.ActiveSegmentId,
+            GameplayContext = GameplayContext.Raid,
+            IntegrityTags = IntegrityTags.Normal,
+            Currency = currency,
+            Direction = direction,
+            Amount = amount,
+            Source = acquisition ? CurrencySourceCategory.LootOrPickup : CurrencySourceCategory.UnknownAdjustment,
+            ProvenExternalRaidAcquisition = acquisition,
+            AdapterVersion = "test",
+            ProducerActivationId = "test-route-lifecycle",
+            ProducerSequence = Interlocked.Increment(ref economySequence)
+        };
+
+    private static EconomyMetricCapabilities SupportedEconomyCapabilities()
+    {
+        static MetricAvailability Available() => new() { State = AdapterCapabilityState.Supported, Provenance = "test" };
+        return new EconomyMetricCapabilities
+        {
+            MoneyAmountDirection = Available(),
+            MoneySourceAttribution = Available(),
+            MoneyContextAttribution = Available(),
+            CashAmountDirection = Available(),
+            CashExternalAcquisition = Available(),
+            CashContextAttribution = Available(),
+            CashTerminalOutcomes = Available(),
+            RouteAttribution = Available()
+        };
+    }
 
     private static HealingApplied Healing(
         string eventId,

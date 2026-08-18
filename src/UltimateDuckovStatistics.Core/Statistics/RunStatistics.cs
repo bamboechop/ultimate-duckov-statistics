@@ -44,6 +44,9 @@ public sealed class RunAggregateTotals
 
     [DataMember(Order = 13)]
     public ItemStatisticsAggregate ItemStatistics { get; set; } = new();
+
+    [DataMember(Order = 14)]
+    public EconomyStatisticsAggregate Economy { get; set; } = new();
 }
 
 [DataContract]
@@ -84,6 +87,9 @@ public sealed class MapRunAggregate
 
     [DataMember(Order = 12)]
     public ItemStatisticsAggregate ItemStatistics { get; set; } = new();
+
+    [DataMember(Order = 13)]
+    public EconomyStatisticsAggregate Economy { get; set; } = new();
 }
 
 [DataContract]
@@ -168,6 +174,7 @@ public static class RunReducer
         EquipmentStatisticsReducer.ValidateAggregate(profile.RunTotals.EquipmentStatistics);
         ContainerStatisticsReducer.ValidateAggregate(profile.RunTotals.ContainerStatistics);
         ItemStatisticsAggregateReducer.Validate(profile.RunTotals.ItemStatistics);
+        EconomyStatisticsReducer.Validate(profile.RunTotals.Economy);
         foreach (var map in profile.RunTotals.Maps.Values)
         {
             WeaponStatisticsReducer.ValidateAggregate(map.WeaponStatistics);
@@ -175,6 +182,7 @@ public static class RunReducer
             EquipmentStatisticsReducer.ValidateAggregate(map.EquipmentStatistics);
             ContainerStatisticsReducer.ValidateAggregate(map.ContainerStatistics);
             ItemStatisticsAggregateReducer.Validate(map.ItemStatistics);
+            EconomyStatisticsReducer.Validate(map.Economy);
         }
         foreach (var map in profile.RunTotals.RouteMaps.Values)
         {
@@ -183,6 +191,7 @@ public static class RunReducer
             EquipmentStatisticsReducer.ValidateAggregate(map.EquipmentStatistics);
             ContainerStatisticsReducer.ValidateAggregate(map.ContainerStatistics);
             ItemStatisticsAggregateReducer.Validate(map.ItemStatistics);
+            EconomyStatisticsReducer.Validate(map.Economy);
         }
 
         profile.Runs.Add(summary);
@@ -206,6 +215,7 @@ public static class RunReducer
             totals.TransitionExcludedDistance,
             summary.TransitionExcludedDistance);
         ItemStatisticsAggregateReducer.Merge(totals.ItemStatistics, summary.ItemStatistics);
+        EconomyStatisticsReducer.Merge(totals.Economy, summary.Economy);
         WeaponStatisticsReducer.Merge(totals.WeaponStatistics, summary.WeaponStatistics);
         CombatStatisticsReducer.Merge(totals.CombatStatistics, summary.CombatStatistics);
         EquipmentStatisticsReducer.Merge(
@@ -253,9 +263,13 @@ public static class RunReducer
             summary.ContainerStatistics,
             adoptSourceCapability: map.TotalRuns == 1);
         ItemStatisticsAggregateReducer.Merge(map.ItemStatistics, summary.ItemStatistics);
+        EconomyStatisticsReducer.Merge(map.Economy, summary.Economy);
 
-        if (summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported
-            && !summary.HistoricalRouteUnavailable)
+        var routeMapTotalsSupported = summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported
+                                      && !summary.HistoricalRouteUnavailable;
+        var economyRouteAttributionSupported = summary.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported
+                                               && !summary.Economy.HistoricalUnavailable;
+        if (routeMapTotalsSupported || economyRouteAttributionSupported)
         {
             foreach (var segmentGroup in summary.Segments.GroupBy(segment => segment.MapId, StringComparer.Ordinal))
             {
@@ -270,31 +284,37 @@ public static class RunReducer
                     };
                     totals.RouteMaps[segmentGroup.Key] = routeMap;
                 }
-                routeMap.RunsVisited = SaturatingAdd(routeMap.RunsVisited, 1);
                 var routeRunEquipment = new EquipmentStatisticsAggregate();
+                if (routeMapTotalsSupported) routeMap.RunsVisited = SaturatingAdd(routeMap.RunsVisited, 1);
                 foreach (var segment in segmentGroup)
                 {
                     routeMap.DisplayName = segment.MapDisplayName;
                     routeMap.IsKnown |= segment.MapKnown;
-                    routeMap.SegmentVisits = SaturatingAdd(routeMap.SegmentVisits, 1);
-                    routeMap.ActiveDurationSeconds = RouteStatisticsReducer.SaturatingAdd(
-                        routeMap.ActiveDurationSeconds,
-                        segment.ActiveDurationSeconds);
-                    routeMap.PhysicalDistance = RouteStatisticsReducer.SaturatingAdd(routeMap.PhysicalDistance, segment.PhysicalDistance);
-                    routeMap.TeleportDistance = RouteStatisticsReducer.SaturatingAdd(routeMap.TeleportDistance, segment.TeleportDistance);
-                    routeMap.TransitionExcludedDistance = RouteStatisticsReducer.SaturatingAdd(
-                        routeMap.TransitionExcludedDistance,
-                        segment.TransitionExcludedDistance);
-                    ItemStatisticsAggregateReducer.Merge(routeMap.ItemStatistics, segment.ItemStatistics);
-                    WeaponStatisticsReducer.Merge(routeMap.WeaponStatistics, segment.WeaponStatistics);
-                    CombatStatisticsReducer.Merge(routeMap.CombatStatistics, segment.CombatStatistics);
-                    EquipmentStatisticsReducer.Merge(routeRunEquipment, segment.EquipmentStatistics, countRunOccurrence: false);
-                    ContainerStatisticsReducer.Merge(routeMap.ContainerStatistics, segment.ContainerStatistics);
+                    if (routeMapTotalsSupported)
+                    {
+                        routeMap.SegmentVisits = SaturatingAdd(routeMap.SegmentVisits, 1);
+                        routeMap.ActiveDurationSeconds = RouteStatisticsReducer.SaturatingAdd(
+                            routeMap.ActiveDurationSeconds,
+                            segment.ActiveDurationSeconds);
+                        routeMap.PhysicalDistance = RouteStatisticsReducer.SaturatingAdd(routeMap.PhysicalDistance, segment.PhysicalDistance);
+                        routeMap.TeleportDistance = RouteStatisticsReducer.SaturatingAdd(routeMap.TeleportDistance, segment.TeleportDistance);
+                        routeMap.TransitionExcludedDistance = RouteStatisticsReducer.SaturatingAdd(
+                            routeMap.TransitionExcludedDistance,
+                            segment.TransitionExcludedDistance);
+                        ItemStatisticsAggregateReducer.Merge(routeMap.ItemStatistics, segment.ItemStatistics);
+                        WeaponStatisticsReducer.Merge(routeMap.WeaponStatistics, segment.WeaponStatistics);
+                        CombatStatisticsReducer.Merge(routeMap.CombatStatistics, segment.CombatStatistics);
+                        EquipmentStatisticsReducer.Merge(routeRunEquipment, segment.EquipmentStatistics, countRunOccurrence: false);
+                        ContainerStatisticsReducer.Merge(routeMap.ContainerStatistics, segment.ContainerStatistics);
+                    }
+                    if (economyRouteAttributionSupported)
+                        EconomyStatisticsReducer.Merge(routeMap.Economy, segment.Economy);
                 }
-                EquipmentStatisticsReducer.Merge(
-                    routeMap.EquipmentStatistics,
-                    routeRunEquipment,
-                    countRunOccurrence: summary.Outcome != RunOutcome.Interrupted);
+                if (routeMapTotalsSupported)
+                    EquipmentStatisticsReducer.Merge(
+                        routeMap.EquipmentStatistics,
+                        routeRunEquipment,
+                        countRunOccurrence: summary.Outcome != RunOutcome.Interrupted);
             }
         }
     }
@@ -398,6 +418,7 @@ public static class RunReducer
         EquipmentStatisticsReducer.ValidateAggregate(summary.EquipmentStatistics);
         ContainerStatisticsReducer.ValidateAggregate(summary.ContainerStatistics);
         ItemStatisticsAggregateReducer.Validate(summary.ItemStatistics);
+        EconomyStatisticsReducer.Validate(summary.Economy);
         RouteStatisticsReducer.ValidateCapabilities(summary.RouteCapabilities);
 
         if (summary.Segments.Count > 0)
@@ -408,6 +429,8 @@ public static class RunReducer
                 throw new ArgumentException("Run starting map does not match its first retained segment.", nameof(summary));
         }
         RouteStatisticsReducer.ValidateAssociations(summary.Segments, summary.SegmentEventAssociations);
+
+        ValidateRunEconomyComposition(summary);
 
         if (!summary.HistoricalRouteUnavailable
             && summary.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported)
@@ -431,6 +454,110 @@ public static class RunReducer
             throw new ArgumentException("Interrupted runs cannot be record eligible.", nameof(summary));
         }
     }
+
+    public static void ValidateProfileEconomyComposition(ProfileStatistics profile)
+    {
+        if (profile == null) throw new ArgumentNullException(nameof(profile));
+        foreach (var run in profile.Runs) ValidateRunEconomyComposition(run);
+
+        ValidateEconomyFanOut("completed-run totals", profile.RunTotals.Economy, profile.Runs.Select(run => run.Economy));
+
+        var runsByStartingMap = profile.Runs.GroupBy(
+            run => ResolveStartingMapId(run),
+            StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
+        foreach (var entry in profile.RunTotals.Maps)
+        {
+            runsByStartingMap.TryGetValue(entry.Key, out var runs);
+            ValidateEconomyFanOut(
+                $"starting-map totals '{entry.Key}'",
+                entry.Value.Economy,
+                (runs ?? []).Select(run => run.Economy));
+        }
+        foreach (var entry in runsByStartingMap.Where(entry => !profile.RunTotals.Maps.ContainsKey(entry.Key)))
+            ValidateMissingEconomyFanOut($"starting-map totals '{entry.Key}'", entry.Value.Select(run => run.Economy));
+
+        var segmentsByMap = profile.Runs
+            .Where(run => !run.HistoricalRouteUnavailable
+                          && !run.Economy.HistoricalUnavailable
+                          && run.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported)
+            .SelectMany(run => run.Segments)
+            .GroupBy(segment => segment.MapId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Select(segment => segment.Economy).ToList(), StringComparer.Ordinal);
+        foreach (var entry in profile.RunTotals.RouteMaps)
+        {
+            segmentsByMap.TryGetValue(entry.Key, out var segments);
+            ValidateEconomyFanOut(
+                $"route-map totals '{entry.Key}'",
+                entry.Value.Economy,
+                segments ?? []);
+        }
+        foreach (var entry in segmentsByMap.Where(entry => !profile.RunTotals.RouteMaps.ContainsKey(entry.Key)))
+            ValidateMissingEconomyFanOut($"route-map totals '{entry.Key}'", entry.Value);
+    }
+
+    private static void ValidateRunEconomyComposition(RunSummary summary)
+    {
+        if (summary.HistoricalRouteUnavailable
+            || summary.Economy.HistoricalUnavailable
+            || summary.Economy.Capabilities.RouteAttribution.State != AdapterCapabilityState.Supported)
+            return;
+
+        ValidateEconomyFanOut(
+            $"run '{summary.RunId}' segment composition",
+            summary.Economy,
+            summary.Segments.Select(segment => segment.Economy),
+            validateTerminalOutcomes: false);
+    }
+
+    private static void ValidateEconomyFanOut(
+        string scope,
+        EconomyStatisticsAggregate total,
+        IEnumerable<EconomyStatisticsAggregate> components,
+        bool validateTerminalOutcomes = true)
+    {
+        var materialized = components.ToList();
+        foreach (CurrencyKind currency in Enum.GetValues(typeof(CurrencyKind)))
+        {
+            if (!EconomyStatisticsReducer.IsExactCurrencyComposition(total, materialized, currency))
+                throw new ArgumentException($"Current-schema {scope} does not equal its exact {currency} composition.");
+        }
+        var cashOutcomesCompose = validateTerminalOutcomes
+            ? EconomyStatisticsReducer.IsExactCashOutcomeComposition(total, materialized)
+            : EconomyStatisticsReducer.IsExactCashAcquisitionComposition(total, materialized);
+        if (!cashOutcomesCompose)
+            throw new ArgumentException($"Current-schema {scope} does not equal its exact Cash raid-outcome composition.");
+    }
+
+    private static void ValidateMissingEconomyFanOut(
+        string scope,
+        IEnumerable<EconomyStatisticsAggregate> components)
+    {
+        var materialized = components.ToList();
+        foreach (CurrencyKind currency in Enum.GetValues(typeof(CurrencyKind)))
+        {
+            if (materialized.Any(component =>
+                    (EconomyStatisticsReducer.HasExactSupportedCurrency(component, currency)
+                     || component.HistoricalUnavailable
+                     && EconomyStatisticsReducer.HasExactCapturedCurrency(component, currency))
+                    && component.Currencies.TryGetValue(currency.ToString(), out var row)
+                    && (row.Totals.GrossInflow != 0 || row.Totals.GrossOutflow != 0)))
+                throw new ArgumentException($"Current-schema {scope} is missing exact {currency} contributions.");
+        }
+        if (materialized.Any(component =>
+                !component.CashArithmeticSaturated
+                && (component.CashRaidOutcomes.Acquired != 0
+                    || component.CashRaidOutcomes.Secured != 0
+                    || component.CashRaidOutcomes.Lost != 0
+                    || component.CashRaidOutcomes.Unresolved != 0)))
+            throw new ArgumentException($"Current-schema {scope} is missing exact Cash raid-outcome contributions.");
+    }
+
+    private static string ResolveStartingMapId(RunSummary summary) =>
+        string.IsNullOrWhiteSpace(summary.StartingMapId)
+        || (string.Equals(summary.StartingMapId, MapIdentity.UnknownId, StringComparison.Ordinal)
+            && !string.Equals(summary.MapId, MapIdentity.UnknownId, StringComparison.Ordinal))
+            ? summary.MapId
+            : summary.StartingMapId;
 
     private static bool IsFiniteNonNegative(double value) =>
         value >= 0 && !double.IsNaN(value) && !double.IsInfinity(value);

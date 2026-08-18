@@ -72,6 +72,33 @@ public sealed class RetryableCleanupOwnerTests
         Assert.Equal(0, subscriptions.Active);
     }
 
+    [Fact]
+    [Trait("Category", "Run")]
+    [Trait("Category", "Lifecycle")]
+    [Trait("Category", "Persistence")]
+    public void FailedProcessLifetimeCleanupKeepsItsDependencyAliveUntilSameProcessRetry()
+    {
+        var dependency = new CleanupDependency();
+        var retained = new DependencyBoundCleanup(dependency);
+        var destroyedBehaviour = new ProcessLifetimeCleanupOwner<DependencyBoundCleanup>();
+        destroyedBehaviour.Assign(retained);
+
+        Assert.False(destroyedBehaviour.TryCleanupOwned(dependency.Dispose));
+        Assert.True(destroyedBehaviour.HasPendingCleanup);
+        Assert.False(dependency.IsDisposed);
+        Assert.Equal(1, retained.Attempts);
+
+        destroyedBehaviour = null!;
+        var replacementBehaviour = new ProcessLifetimeCleanupOwner<DependencyBoundCleanup>();
+        Assert.True(replacementBehaviour.TryCleanupPending());
+
+        Assert.Equal(2, retained.Attempts);
+        Assert.True(dependency.WasAvailableDuringRetry);
+        Assert.True(dependency.IsDisposed);
+        Assert.False(replacementBehaviour.HasValue);
+        Assert.False(replacementBehaviour.HasPendingCleanup);
+    }
+
     private sealed class TestResource : IRetryableCleanup
     {
         public bool FailCleanup { get; set; }
@@ -120,6 +147,35 @@ public sealed class RetryableCleanupOwnerTests
             }
 
             return true;
+        }
+    }
+
+    private sealed class CleanupDependency : IDisposable
+    {
+        public bool IsDisposed { get; private set; }
+
+        public bool WasAvailableDuringRetry { get; set; }
+
+        public void Dispose() => IsDisposed = true;
+    }
+
+    private sealed class DependencyBoundCleanup : IRetryableCleanup
+    {
+        private readonly CleanupDependency dependency;
+
+        public DependencyBoundCleanup(CleanupDependency dependency)
+        {
+            this.dependency = dependency;
+        }
+
+        public int Attempts { get; private set; }
+
+        public bool TryCleanup()
+        {
+            Attempts++;
+            if (Attempts == 1) return false;
+            dependency.WasAvailableDuringRetry = !dependency.IsDisposed;
+            return dependency.WasAvailableDuringRetry;
         }
     }
 }

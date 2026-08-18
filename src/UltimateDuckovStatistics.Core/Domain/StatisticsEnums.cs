@@ -8,7 +8,34 @@ public enum GameplayContext
     [EnumMember] Unknown = 0,
     [EnumMember] Base = 1,
     [EnumMember] Raid = 2,
-    [EnumMember] Paused = 3
+    [EnumMember] Paused = 3,
+    [EnumMember] Shop = 4,
+    [EnumMember] Reward = 5
+}
+
+[DataContract]
+public enum CurrencyKind
+{
+    [EnumMember] Money = 0,
+    [EnumMember] Cash = 1
+}
+
+[DataContract]
+public enum CurrencyFlowDirection
+{
+    [EnumMember] Inflow = 0,
+    [EnumMember] Outflow = 1
+}
+
+[DataContract]
+public enum CurrencySourceCategory
+{
+    [EnumMember] UnknownAdjustment = 0,
+    [EnumMember] Purchase = 1,
+    [EnumMember] Sale = 2,
+    [EnumMember] Reward = 3,
+    [EnumMember] LootOrPickup = 4,
+    [EnumMember] FeeOrCraftingCost = 5
 }
 
 [Flags]

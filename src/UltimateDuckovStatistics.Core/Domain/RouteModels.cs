@@ -55,6 +55,7 @@ public sealed class MapSegmentSummary
     [DataMember(Order = 17)] public EquipmentStatisticsAggregate EquipmentStatistics { get; set; } = new();
     [DataMember(Order = 18)] public ContainerStatisticsAggregate ContainerStatistics { get; set; } = new();
     [DataMember(Order = 19)] public bool WasRepairedFromInvalidState { get; set; }
+    [DataMember(Order = 20)] public EconomyStatisticsAggregate Economy { get; set; } = new();
 }
 
 [DataContract]
@@ -88,6 +89,7 @@ public sealed class RouteAwareMapAggregate
     [DataMember(Order = 14)] public ContainerStatisticsAggregate ContainerStatistics { get; set; } = new();
     [DataMember(Order = 15)] public bool HistoricalUnavailable { get; set; }
     [DataMember(Order = 16)] public bool WasRepairedFromInvalidState { get; set; }
+    [DataMember(Order = 17)] public EconomyStatisticsAggregate Economy { get; set; } = new();
 }
 
 public sealed class EventAttributionContext

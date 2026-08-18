@@ -36,7 +36,7 @@ internal static class ItemUsePublication
         if (profileFailure != null && activeRunFailure != null)
         {
             throw new AggregateException(
-                "Item-use publication failed for both profile and active-run destinations.",
+                "Independent event publication failed for both profile and active-run destinations.",
                 profileFailure,
                 activeRunFailure);
         }

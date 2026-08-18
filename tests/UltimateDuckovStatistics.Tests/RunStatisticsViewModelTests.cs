@@ -110,23 +110,23 @@ public sealed class RunStatisticsViewModelTests
         DateTime started,
         IntegrityTags integrityTags = IntegrityTags.Normal,
         bool recordEligible = true) => new()
-    {
-        RunId = id,
-        SaveGenerationId = "generation-a",
-        MapId = "duckov:map:warehouse",
-        MapDisplayName = "Warehouse",
-        MapKnown = true,
-        StartedUtc = started,
-        EndedUtc = started.AddSeconds(duration),
-        ActiveDurationSeconds = duration,
-        WallClockDurationSeconds = duration,
-        Outcome = outcome,
-        PhysicalDistance = duration / 2,
-        TeleportDistance = 3,
-        IntegrityTags = integrityTags,
-        RecordEligible = recordEligible,
-        LifecycleCapability = AdapterCapabilityState.Supported,
-        MovementCapability = AdapterCapabilityState.Supported,
-        MapCapability = AdapterCapabilityState.Supported
-    };
+        {
+            RunId = id,
+            SaveGenerationId = "generation-a",
+            MapId = "duckov:map:warehouse",
+            MapDisplayName = "Warehouse",
+            MapKnown = true,
+            StartedUtc = started,
+            EndedUtc = started.AddSeconds(duration),
+            ActiveDurationSeconds = duration,
+            WallClockDurationSeconds = duration,
+            Outcome = outcome,
+            PhysicalDistance = duration / 2,
+            TeleportDistance = 3,
+            IntegrityTags = integrityTags,
+            RecordEligible = recordEligible,
+            LifecycleCapability = AdapterCapabilityState.Supported,
+            MovementCapability = AdapterCapabilityState.Supported,
+            MapCapability = AdapterCapabilityState.Supported
+        };
 }

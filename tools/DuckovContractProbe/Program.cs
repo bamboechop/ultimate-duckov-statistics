@@ -87,6 +87,7 @@ try
             core.RequireField(string.Empty, "RaidInfo", field, mustBePublic: true);
         }
         core.RequireEvent(string.Empty, "LevelManager", "OnLevelInitialized", "System.Action");
+        core.RequireEvent(string.Empty, "LevelManager", "OnLevelBeginInitializing", "System.Action");
         core.RequireEvent(string.Empty, "LevelManager", "OnAfterLevelInitialized", "System.Action");
         core.RequireEvent(string.Empty, "LevelManager", "OnEvacuated", "System.Action", "EvacuationInfo");
         core.RequireEvent(string.Empty, "LevelManager", "OnMainCharacterDead", "System.Action", "DamageInfo");
@@ -111,6 +112,15 @@ try
         core.RequireEvent("Saves", "SavesSystem", "OnSetFile", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnSaveDeleted", "System.Action");
         core.RequireEvent("Saves", "SavesSystem", "OnCollectSaveData", "System.Action");
+        core.RequireEvent("Duckov.Economy", "EconomyManager", "OnMoneyChanged", "System.Action", "System.Int64");
+        core.RequireEvent("Duckov.Economy", "EconomyManager", "OnMoneyPaid", "System.Action", "System.Int64");
+        core.RequireEvent("Duckov.Economy", "EconomyManager", "OnEconomyManagerLoaded", "System.Action");
+        core.RequireEvent("Duckov.Economy", "EconomyManager", "OnCostPaid", "System.Action", "Duckov.Economy.Cost");
+        core.RequireEvent("Duckov.Economy", "StockShop", "OnItemSoldByPlayer", "System.Action", "Duckov.Economy.StockShop", "ItemStatsSystem.Item", "System.Int32");
+        core.RequireEvent("Duckov.Quests", "Reward", "OnRewardClaimed", "System.Action", "Duckov.Quests.Reward");
+        core.RequireEvent(string.Empty, "InteractablePickup", "OnPickupSuccess", "System.Action", "InteractablePickup", "CharacterMainControl");
+        core.RequireEvent(string.Empty, "ItemUtilities", "OnPlayerItemOperation", "System.Action");
+        core.RequireEvent(string.Empty, "PlayerStorage", "OnPlayerStorageChange", "System.Action", "PlayerStorage", "ItemStatsSystem.Inventory", "System.Int32");
 
         core.RequireProperty(string.Empty, "LevelManager", "IsRaidMap");
         core.RequireProperty(string.Empty, "LevelManager", "IsBaseLevel");
@@ -134,6 +144,11 @@ try
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterWalkSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterRunSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "DashSpeed", "System.Single", mustBePublic: true);
+        core.RequireProperty("Duckov.Economy", "EconomyManager", "Money", "System.Int64", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.Economy", "EconomyManager", "Cash", "System.Int64", mustBePublic: true, mustBeStatic: true);
+        core.RequireField("Duckov.Economy", "EconomyManager", "CashItemID", mustBePublic: true, fieldTypeFragment: "System.Int32");
+        core.RequireField("Duckov.Economy", "Cost", "items", mustBePublic: true, fieldTypeFragment: "ItemEntry");
+        core.RequireField("Duckov.Economy", "Cost", "money", mustBePublic: true, fieldTypeFragment: "System.Int64");
         core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "Prefabs", "PrefabsData", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "PrefabsData", "LootBoxPrefab_Tomb", "InteractableLootbox", mustBePublic: true);
         core.RequireProperty(string.Empty, "DuckovItemAgent", "Holder", "CharacterMainControl", mustBePublic: true);
@@ -208,6 +223,7 @@ try
         itemStats.RequireEvent("ItemStatsSystem", "Item", "onUseStatic", "System.Action", "ItemStatsSystem.Item", "System.Object");
         itemStats.RequireEvent("ItemStatsSystem", "Item", "onItemTreeChanged", "System.Action", "ItemStatsSystem.Item");
         itemStats.RequireProperty("ItemStatsSystem", "ItemAgent", "Item", "ItemStatsSystem.Item", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem", "Item", "IsBeingDestroyed", "System.Boolean", mustBePublic: true);
         itemStats.RequireField("ItemStatsSystem", "UsageUtilities", "behaviors");
         itemStats.RequireMethod(
             "ItemStatsSystem",
@@ -246,7 +262,7 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, equipment, and successful unique-container access/corpse-provenance contracts are present.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, equipment, containers, and economy public-event contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption and M6 tote activation remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }

@@ -53,6 +53,8 @@ public sealed class RunStartContext
 
     public ContainerMetricCapabilities ContainerCapabilities { get; set; } = new();
 
+    public EconomyMetricCapabilities EconomyCapabilities { get; set; } = new();
+
     public RouteMetricCapabilities RouteCapabilities { get; set; } =
         RouteStatisticsReducer.Unavailable("Route capability was not supplied by the native adapter.");
 }
@@ -133,6 +135,23 @@ public sealed class RunLifecycleTracker
     };
 
     public bool CombatCheckpointRequired => active != null && combatCheckpointRequired;
+
+    public bool WillComplete(RunLifecycleEvent lifecycleEvent)
+    {
+        if (lifecycleEvent == null) throw new ArgumentNullException(nameof(lifecycleEvent));
+        if (active == null) return false;
+        return lifecycleEvent.Kind switch
+        {
+            RunLifecycleEventKind.Extracted or RunLifecycleEventKind.Died or RunLifecycleEventKind.Interrupted => true,
+            RunLifecycleEventKind.RaidInitialized => !active.TransitionPending
+                                                     && !string.IsNullOrWhiteSpace(lifecycleEvent.NativeRaidId)
+                                                     && !string.Equals(
+                                                         active.LastNativeRaidId,
+                                                         lifecycleEvent.NativeRaidId,
+                                                         StringComparison.Ordinal),
+            _ => false
+        };
+    }
 
     public RunLifecycleTransition Apply(RunLifecycleEvent lifecycleEvent)
     {
@@ -512,6 +531,95 @@ public sealed class RunLifecycleTracker
         return changed;
     }
 
+    public bool RecordCurrencyFlow(CurrencyFlowRecorded value)
+    {
+        if (active == null || value == null || value.GameplayContext != GameplayContext.Raid
+            || !MatchesRunContext(value.SaveGenerationId, value.RunId))
+            return false;
+        var runChanged = EconomyStatisticsReducer.Record(
+            active.Economy,
+            active.Context.SaveGenerationId,
+            value,
+            out var runCapabilityChanged);
+        var segmentChanged = false;
+        var segmentCapabilityChanged = false;
+        if (active.RouteSupported)
+        {
+            var segment = active.Segments.FirstOrDefault(candidate =>
+                string.Equals(candidate.SegmentId, value.SegmentId, StringComparison.Ordinal)
+                && string.Equals(candidate.MapId, value.MapId, StringComparison.Ordinal));
+            if (segment != null)
+            {
+                // Economy has its own exact cursor-deduplicated run/segment
+                // fan-out. It must not consume the bounded legacy association
+                // list shared by item, combat, healing, weapon, and container
+                // attribution.
+                segmentChanged = EconomyStatisticsReducer.Record(
+                    segment.Economy,
+                    active.Context.SaveGenerationId,
+                    value,
+                    out segmentCapabilityChanged);
+            }
+            else if (runChanged || runCapabilityChanged)
+            {
+                DisableEconomyRouteAttribution(
+                    active,
+                    "A currency flow lacked a complete proven segment join; overall economy remains available.");
+            }
+        }
+        else if (runChanged || runCapabilityChanged)
+        {
+            DisableEconomyRouteAttribution(
+                active,
+                "Ordered route segments were unavailable; overall economy remains available.");
+        }
+        if (runChanged || runCapabilityChanged || segmentChanged || segmentCapabilityChanged)
+        {
+            active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(active.Context.IntegrityTags, value.IntegrityTags);
+            RequireCombatCheckpoint();
+        }
+        return runChanged || runCapabilityChanged || segmentChanged || segmentCapabilityChanged;
+    }
+
+    public bool UpdateEconomyCapabilities(EconomyMetricCapabilities capabilities)
+    {
+        if (active == null || capabilities == null) return false;
+        var updated = EconomyStatisticsReducer.CloneCapabilities(capabilities);
+        if (active.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.DisabledIncompatible)
+            updated.RouteAttribution = CloneAvailability(active.Economy.Capabilities.RouteAttribution);
+        EconomyStatisticsReducer.SetCapabilities(active.Economy, updated);
+        if (active.CurrentSegment != null)
+            EconomyStatisticsReducer.SetCapabilities(active.CurrentSegment.Economy, updated);
+        RequireCombatCheckpoint();
+        return true;
+    }
+
+    private static void DisableEconomyRouteAttribution(ActiveState state, string reason)
+    {
+        state.Economy.Capabilities.RouteAttribution = new MetricAvailability
+        {
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Provenance = reason
+        };
+        foreach (var segment in state.Segments)
+            segment.Economy.Capabilities.RouteAttribution = CloneAvailability(state.Economy.Capabilities.RouteAttribution);
+    }
+
+    private static void SynchronizeEconomyRouteCapability(ActiveState state)
+    {
+        if (!state.RouteSupported
+            && state.Economy.Capabilities.RouteAttribution.State != AdapterCapabilityState.DisabledIncompatible)
+            DisableEconomyRouteAttribution(
+                state,
+                "Ordered route segments became unavailable; overall economy remains available.");
+    }
+
+    private static MetricAvailability CloneAvailability(MetricAvailability value) => new()
+    {
+        State = value.State,
+        Provenance = value.Provenance
+    };
+
     public bool RecordHealing(HealingApplied value)
     {
         if (active == null || value == null || value.GameplayContext != GameplayContext.Raid
@@ -549,6 +657,7 @@ public sealed class RunLifecycleTracker
         }
 
         Advance(timestampUtc, monotonicSeconds);
+        SynchronizeEconomyRouteCapability(active);
         return new ActiveRunCheckpoint
         {
             RunId = active.RunId,
@@ -587,7 +696,8 @@ public sealed class RunLifecycleTracker
             ItemStatistics = ItemStatisticsAggregateReducer.Clone(active.ItemStatistics),
             TransitionPending = active.TransitionPending,
             CurrentSegmentId = active.CurrentSegment?.SegmentId,
-            MovementBaseline = movement.CaptureBaseline()
+            MovementBaseline = movement.CaptureBaseline(),
+            Economy = EconomyStatisticsReducer.Clone(active.Economy)
         };
     }
 
@@ -758,6 +868,7 @@ public sealed class RunLifecycleTracker
 
         Advance(lifecycleEvent.TimestampUtc, lifecycleEvent.MonotonicSeconds);
         var state = active;
+        SynchronizeEconomyRouteCapability(state);
         EquipmentStatisticsReducer.Suspend(state.EquipmentStatistics, state.ActiveDurationSeconds);
         var endedUtc = EnsureUtc(lifecycleEvent.TimestampUtc);
         if (state.CurrentSegment != null)
@@ -785,6 +896,7 @@ public sealed class RunLifecycleTracker
         var recordEligible = outcome != RunOutcome.Interrupted
                              && state.Context.IntegrityTags == IntegrityTags.Normal
                              && state.Context.LifecycleCapability == AdapterCapabilityState.Supported;
+        EconomyStatisticsReducer.FinalizeCashRaidOutcome(state.Economy, outcome);
         var summary = new RunSummary
         {
             RunId = state.RunId,
@@ -829,7 +941,8 @@ public sealed class RunLifecycleTracker
             HistoricalRouteUnavailable = false,
             RouteWasRepairedFromInvalidState = false,
             SegmentEventAssociations = state.EventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
-            ItemStatistics = ItemStatisticsAggregateReducer.Clone(state.ItemStatistics)
+            ItemStatistics = ItemStatisticsAggregateReducer.Clone(state.ItemStatistics),
+            Economy = EconomyStatisticsReducer.Clone(state.Economy)
         };
 
         active = null;
@@ -1016,12 +1129,19 @@ public sealed class RunLifecycleTracker
             CombatStatistics.Capabilities = CombatStatisticsReducer.CloneCapabilities(context.CombatCapabilities);
             EquipmentStatistics.Capabilities = EquipmentStatisticsReducer.CloneCapabilities(context.EquipmentCapabilities);
             ContainerState.Statistics.Capabilities = ContainerStatisticsReducer.CloneCapabilities(context.ContainerCapabilities);
+            Economy.Capabilities = EconomyStatisticsReducer.CloneCapabilities(context.EconomyCapabilities);
             RouteCapabilities = RouteStatisticsReducer.CloneCapabilities(context.RouteCapabilities);
             CurrentMap = CloneMap(context.Map);
             LastNativeRaidId = context.NativeRaidId;
             if (RouteSupported)
             {
                 CurrentSegment = CreateSegment(context.Map, startedUtc);
+            }
+            else
+            {
+                DisableEconomyRouteAttribution(
+                    this,
+                    "Ordered route segments were unavailable at run start; overall economy remains available.");
             }
         }
 
@@ -1070,6 +1190,8 @@ public sealed class RunLifecycleTracker
 
         public ContainerRunCheckpointState ContainerState { get; } = new();
 
+        public EconomyStatisticsAggregate Economy { get; } = new();
+
         public HashSet<string> RecentShotEventIds { get; } = new(StringComparer.Ordinal);
 
         public Queue<string> RecentShotEventIdOrder { get; } = new();
@@ -1094,6 +1216,7 @@ public sealed class RunLifecycleTracker
             segment.CombatStatistics.Capabilities = CombatStatisticsReducer.CloneCapabilities(Context.CombatCapabilities);
             segment.EquipmentStatistics.Capabilities = EquipmentStatisticsReducer.CloneCapabilities(Context.EquipmentCapabilities);
             segment.ContainerStatistics.Capabilities = ContainerStatisticsReducer.CloneCapabilities(Context.ContainerCapabilities);
+            segment.Economy.Capabilities = EconomyStatisticsReducer.CloneCapabilities(Economy.Capabilities);
             Segments.Add(segment);
             return segment;
         }

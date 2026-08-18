@@ -38,6 +38,9 @@ public sealed class ProfileStatistics
 
     [DataMember(Order = 11)]
     public RunDurationRecords RunRecords { get; set; } = new();
+
+    [DataMember(Order = 12)]
+    public EconomyStatisticsAggregate Economy { get; set; } = new();
 }
 
 [DataContract]

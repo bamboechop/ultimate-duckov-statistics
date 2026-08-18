@@ -122,22 +122,22 @@ public sealed class ItemUseReducerTests
         CanonicalItemGroup group,
         double amount,
         ConsumptionUnit unit) => new()
-    {
-        EventId = eventId,
-        TimestampUtc = new DateTime(2026, 8, 9, 12, 0, 5, DateTimeKind.Utc),
-        SaveGenerationId = "generation-a",
-        GameVersion = "2.3.30",
-        GameBuild = "24013657",
-        GameplayContext = GameplayContext.Raid,
-        IntegrityTags = IntegrityTags.Normal,
-        AdapterCapability = AdapterCapabilityState.Supported,
-        AdapterVersion = "native-2.3.30",
-        ItemId = itemId,
-        DisplayName = itemId,
-        Group = group,
-        EffectTags = new List<ItemEffectTag> { ItemEffectTag.Healing },
-        ActivationCount = 1,
-        AmountConsumed = amount,
-        ConsumptionUnit = unit
-    };
+        {
+            EventId = eventId,
+            TimestampUtc = new DateTime(2026, 8, 9, 12, 0, 5, DateTimeKind.Utc),
+            SaveGenerationId = "generation-a",
+            GameVersion = "2.3.30",
+            GameBuild = "24013657",
+            GameplayContext = GameplayContext.Raid,
+            IntegrityTags = IntegrityTags.Normal,
+            AdapterCapability = AdapterCapabilityState.Supported,
+            AdapterVersion = "native-2.3.30",
+            ItemId = itemId,
+            DisplayName = itemId,
+            Group = group,
+            EffectTags = new List<ItemEffectTag> { ItemEffectTag.Healing },
+            ActivationCount = 1,
+            AmountConsumed = amount,
+            ConsumptionUnit = unit
+        };
 }

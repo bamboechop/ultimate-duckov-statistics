@@ -30,6 +30,18 @@
              Link="ProductionAdapters\RetryableHarmonyPatcherLease.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCallbackLifetime.cs"
              Link="ProductionAdapters\NativeCallbackLifetime.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeRunTerminalBoundary.cs"
+             Link="ProductionAdapters\NativeRunTerminalBoundary.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeRunCompletionBoundary.cs"
+             Link="ProductionAdapters\NativeRunCompletionBoundary.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeProfileTransitionBoundary.cs"
+             Link="ProductionAdapters\NativeProfileTransitionBoundary.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ProfileChangePublication.cs"
+             Link="ProductionAdapters\ProfileChangePublication.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\EconomyActivationGate.cs"
+             Link="ProductionAdapters\EconomyActivationGate.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\EconomyFlowPublication.cs"
+             Link="ProductionAdapters\EconomyFlowPublication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEquipmentSnapshotBuilder.cs"
              Link="ProductionAdapters\NativeEquipmentSnapshotBuilder.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEquipmentAdapter.cs"
@@ -38,6 +50,8 @@
              Link="ProductionAdapters\NativeCombatEquipmentAssociationResolver.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeContainerAdapter.Publication.cs"
              Link="ProductionAdapters\NativeContainerAdapter.Publication.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEconomyAdapter.cs"
+             Link="ProductionAdapters\NativeEconomyAdapter.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ItemUsePublication.cs"
              Link="ProductionAdapters\ItemUsePublication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\UiText.cs"

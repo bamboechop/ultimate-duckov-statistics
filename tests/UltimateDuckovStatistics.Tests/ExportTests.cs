@@ -11,13 +11,18 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class ExportTests
 {
+    private static long economySequence;
     private static readonly DateTime TestTime = new(2026, 8, 9, 13, 0, 0, DateTimeKind.Utc);
     private static readonly string[] ExpectedExportFileNames =
     {
         "ammunition_totals.csv",
+        "cash_raid_outcomes.csv",
         "combat_attribution.csv",
         "combat_totals.csv",
         "containers.csv",
+        "economy_contexts.csv",
+        "economy_sources.csv",
+        "economy_totals.csv",
         "equipment_combat.csv",
         "equipment_totals.csv",
         "groups.csv",
@@ -429,6 +434,129 @@ public sealed class ExportTests
 
     [Fact]
     [Trait("Category", "Export")]
+    [Trait("Category", "M9")]
+    public void EconomyJsonAndFlattenedCsvAgreeWithStableDimensionsAndCapabilities()
+    {
+        var profile = CreateProfile();
+        profile.Statistics.Economy.Capabilities = EconomyCapabilities();
+        EconomyStatisticsReducer.Record(
+            profile.Statistics.Economy,
+            profile.GenerationId,
+            EconomyFlow("reward", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 100, CurrencySourceCategory.Reward, GameplayContext.Reward));
+        EconomyStatisticsReducer.Record(
+            profile.Statistics.Economy,
+            profile.GenerationId,
+            EconomyFlow("purchase", CurrencyKind.Money, CurrencyFlowDirection.Outflow, 30, CurrencySourceCategory.Purchase, GameplayContext.Shop));
+        var cash = EconomyFlow("cash", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 7, CurrencySourceCategory.LootOrPickup, GameplayContext.Raid);
+        cash.RunId = "run:cash";
+        cash.ProvenExternalRaidAcquisition = true;
+        EconomyStatisticsReducer.Record(profile.Statistics.Economy, profile.GenerationId, cash);
+        EconomyStatisticsReducer.FinalizeCashRaidOutcome(profile.Statistics.Economy, RunOutcome.Interrupted);
+
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var json = Deserialize(bundle.Json);
+        var totals = ParseCsv(bundle.EconomyTotalsCsv);
+        var sources = ParseCsv(bundle.EconomySourcesCsv);
+        var contexts = ParseCsv(bundle.EconomyContextsCsv);
+        var outcomes = ParseCsv(bundle.CashRaidOutcomesCsv);
+        var money = Assert.Single(totals, row => row["scope"] == "lifetime" && row["currency"] == "Money");
+
+        Assert.Equal(100, json.Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(30, json.Economy.Currencies["Money"].Totals.GrossOutflow);
+        Assert.Equal(70, json.Economy.Currencies["Money"].Totals.NetFlow);
+        Assert.Equal(profile.Statistics.Economy.ReplayCursor!.ActivationId, json.Economy.ReplayCursor!.ActivationId);
+        Assert.Equal(profile.Statistics.Economy.ReplayCursor.ClosedThroughSequence, json.Economy.ReplayCursor.ClosedThroughSequence);
+        Assert.False(json.Economy.LegacyIdentitySaturationIncomplete);
+        Assert.Equal(100, ReadLong(money, "gross_inflow"));
+        Assert.Equal(30, ReadLong(money, "gross_outflow"));
+        Assert.Equal(70, ReadLong(money, "net_flow"));
+        Assert.Equal("Supported", money["amount_capability"]);
+        Assert.Equal("test", money["amount_capability_provenance"]);
+        Assert.Equal("false", money["arithmetic_saturated"]);
+        Assert.Equal("false", money["legacy_identity_saturation_incomplete"]);
+        Assert.False(money.ContainsKey("deduplication_saturated"));
+        Assert.Equal(100, sources.Where(row => row["scope"] == "lifetime" && row["currency"] == "Money").Sum(row => ReadLong(row, "gross_inflow")));
+        Assert.Equal(30, sources.Where(row => row["scope"] == "lifetime" && row["currency"] == "Money").Sum(row => ReadLong(row, "gross_outflow")));
+        Assert.Contains(sources, row => row["scope"] == "lifetime" && row["source"] == "Reward" && row["gross_inflow"] == "100");
+        Assert.Contains(sources, row => row["scope"] == "lifetime" && row["source"] == "Purchase" && row["gross_outflow"] == "30");
+        Assert.Contains(contexts, row => row["scope"] == "lifetime" && row["gameplay_context"] == "Reward" && row["gross_inflow"] == "100");
+        Assert.Contains(contexts, row => row["scope"] == "lifetime" && row["gameplay_context"] == "Shop" && row["gross_outflow"] == "30");
+        var lifetimeOutcome = Assert.Single(outcomes, row => row["scope"] == "lifetime");
+        Assert.Equal("7", lifetimeOutcome["acquired"]);
+        Assert.Equal("7", lifetimeOutcome["unresolved"]);
+        Assert.Equal("true", lifetimeOutcome["terminal_recorded"]);
+        Assert.Equal(bundle.EconomyTotalsCsv, StatisticsExporter.Create(profile, TestTime).EconomyTotalsCsv);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "M9")]
+    public void EconomySourceAndContextCsvUseInvariantAsciiNegativeNumbers()
+    {
+        var profile = CreateProfile();
+        profile.Statistics.Economy.Capabilities = EconomyCapabilities();
+        EconomyStatisticsReducer.Record(
+            profile.Statistics.Economy,
+            profile.GenerationId,
+            EconomyFlow(
+                "culture-outflow",
+                CurrencyKind.Money,
+                CurrencyFlowDirection.Outflow,
+                3,
+                CurrencySourceCategory.Purchase,
+                GameplayContext.Shop));
+        var previousCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fa-IR");
+            var bundle = StatisticsExporter.Create(profile, TestTime);
+            var source = Assert.Single(
+                ParseCsv(bundle.EconomySourcesCsv),
+                row => row["scope"] == "lifetime" && row["source"] == "Purchase");
+            var context = Assert.Single(
+                ParseCsv(bundle.EconomyContextsCsv),
+                row => row["scope"] == "lifetime" && row["gameplay_context"] == "Shop");
+
+            Assert.Equal("-3", source["net_flow"]);
+            Assert.Equal("-3", context["net_flow"]);
+            Assert.Equal(-3, ReadLong(source, "net_flow"));
+            Assert.Equal(-3, ReadLong(context, "net_flow"));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "M9")]
+    public void HistoricalEconomyCsvLeavesUnavailablePreM9ValuesBlank()
+    {
+        var profile = CreateProfile();
+        profile.Statistics.Economy.HistoricalUnavailable = true;
+        profile.Statistics.Economy.Capabilities = EconomyCapabilities();
+
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var totals = ParseCsv(bundle.EconomyTotalsCsv);
+        var money = Assert.Single(totals, row => row["scope"] == "lifetime" && row["currency"] == "Money");
+        var cash = Assert.Single(totals, row => row["scope"] == "lifetime" && row["currency"] == "Cash");
+        var outcome = Assert.Single(ParseCsv(bundle.CashRaidOutcomesCsv), row => row["scope"] == "lifetime");
+
+        Assert.Equal(string.Empty, money["gross_inflow"]);
+        Assert.Equal(string.Empty, money["gross_outflow"]);
+        Assert.Equal(string.Empty, money["net_flow"]);
+        Assert.Equal(string.Empty, cash["gross_inflow"]);
+        Assert.Equal(string.Empty, outcome["acquired"]);
+        Assert.Equal(string.Empty, outcome["secured"]);
+        Assert.Equal(string.Empty, outcome["lost"]);
+        Assert.Equal(string.Empty, outcome["unresolved"]);
+        Assert.Equal("true", money["historical_unavailable"]);
+        Assert.Equal("true", outcome["historical_unavailable"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
     public void WriterCreatesOneCompleteGenerationScopedExportSet()
     {
         using var temporaryDirectory = new TemporaryDirectory();
@@ -439,7 +567,7 @@ public sealed class ExportTests
 
         var result = ProfileExportWriter.Write(profile, profilePath, TestTime);
 
-        Assert.Equal(20, result.Files.Count);
+        Assert.Equal(24, result.Files.Count);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
         Assert.Equal(
             ExpectedExportFileNames,
@@ -581,6 +709,41 @@ public sealed class ExportTests
         State = AdapterCapabilityState.Supported,
         Provenance = "test"
     };
+
+    private static EconomyMetricCapabilities EconomyCapabilities() => new()
+    {
+        MoneyAmountDirection = Available(),
+        MoneySourceAttribution = Available(),
+        MoneyContextAttribution = Available(),
+        CashAmountDirection = Available(),
+        CashExternalAcquisition = Available(),
+        CashContextAttribution = Available(),
+        CashTerminalOutcomes = Available(),
+        RouteAttribution = Available()
+    };
+
+    private static CurrencyFlowRecorded EconomyFlow(
+        string id,
+        CurrencyKind currency,
+        CurrencyFlowDirection direction,
+        long amount,
+        CurrencySourceCategory source,
+        GameplayContext context) => new()
+        {
+            EventId = id,
+            TimestampUtc = TestTime,
+            SaveGenerationId = "generation-a",
+            MapId = MapIdentity.UnknownId,
+            Currency = currency,
+            Direction = direction,
+            Amount = amount,
+            Source = source,
+            GameplayContext = context,
+            IntegrityTags = IntegrityTags.Normal,
+            AdapterVersion = "test",
+            ProducerActivationId = "test-export",
+            ProducerSequence = Interlocked.Increment(ref economySequence)
+        };
 
     private static StatisticsExportDocument Deserialize(string json)
     {

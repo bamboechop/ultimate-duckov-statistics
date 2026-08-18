@@ -109,16 +109,28 @@ public static class RouteStatisticsReducer
         CombatStatistics = CombatStatisticsReducer.Clone(source.CombatStatistics),
         EquipmentStatistics = EquipmentStatisticsReducer.Clone(source.EquipmentStatistics),
         ContainerStatistics = ContainerStatisticsReducer.Clone(source.ContainerStatistics),
-        WasRepairedFromInvalidState = source.WasRepairedFromInvalidState
+        WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
+        Economy = EconomyStatisticsReducer.Clone(source.Economy)
     };
 
     public static MapSegmentSummary CloneSegmentForInterruptedRecovery(MapSegmentSummary source, DateTime endedUtc)
+        => CloneSegmentForRecovery(source, endedUtc, RunOutcome.Interrupted);
+
+    public static MapSegmentSummary CloneSegmentForRecovery(
+        MapSegmentSummary source,
+        DateTime endedUtc,
+        RunOutcome outcome)
     {
         var clone = CloneSegment(source);
         if (clone.ExitReason == MapSegmentExitReason.None)
         {
             clone.ExitedUtc = endedUtc < clone.EnteredUtc ? clone.EnteredUtc : endedUtc;
-            clone.ExitReason = MapSegmentExitReason.Interrupted;
+            clone.ExitReason = outcome switch
+            {
+                RunOutcome.Extracted => MapSegmentExitReason.Extracted,
+                RunOutcome.Died => MapSegmentExitReason.Died,
+                _ => MapSegmentExitReason.Interrupted
+            };
         }
         return clone;
     }
@@ -205,11 +217,13 @@ public static class RouteStatisticsReducer
             segment.CombatStatistics ??= Repair(new CombatStatisticsAggregate(), ref segmentRepaired);
             segment.EquipmentStatistics ??= Repair(new EquipmentStatisticsAggregate(), ref segmentRepaired);
             segment.ContainerStatistics ??= Repair(new ContainerStatisticsAggregate(), ref segmentRepaired);
+            segment.Economy ??= Repair(new EconomyStatisticsAggregate(), ref segmentRepaired);
             segmentRepaired |= ItemStatisticsAggregateReducer.NormalizePersisted(segment.ItemStatistics);
             segmentRepaired |= WeaponStatisticsReducer.NormalizePersisted(segment.WeaponStatistics).Changed;
             segmentRepaired |= CombatStatisticsReducer.NormalizePersisted(segment.CombatStatistics).Changed;
             segmentRepaired |= EquipmentStatisticsReducer.NormalizePersisted(segment.EquipmentStatistics);
             segmentRepaired |= ContainerStatisticsReducer.NormalizePersisted(segment.ContainerStatistics);
+            segmentRepaired |= EconomyStatisticsReducer.NormalizePersisted(segment.Economy);
             segment.WasRepairedFromInvalidState |= segmentRepaired;
             repaired |= segmentRepaired;
         }
@@ -245,6 +259,7 @@ public static class RouteStatisticsReducer
             EquipmentStatisticsReducer.ValidateAggregate(segment.EquipmentStatistics);
             ValidateSegmentEquipmentOccurrences(segment.EquipmentStatistics);
             ContainerStatisticsReducer.ValidateAggregate(segment.ContainerStatistics);
+            EconomyStatisticsReducer.Validate(segment.Economy);
         }
     }
 

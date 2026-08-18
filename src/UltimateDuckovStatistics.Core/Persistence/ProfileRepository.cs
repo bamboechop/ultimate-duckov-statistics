@@ -54,6 +54,7 @@ public sealed class ProfileRepository
     private readonly List<CapabilityRecord> configuredCapabilities = new();
     private ProfileDocument? current;
     private string? currentDirectory;
+    private string? completionPersistencePendingRunId;
     private bool capabilitiesConfigured;
     private bool deferredItemPersistenceEnabled;
 
@@ -166,6 +167,12 @@ public sealed class ProfileRepository
         ApplyConfiguredCapabilities();
         result.InterruptedRunRecovered |= RecoverInterruptedRun();
         result.InterruptedSessionRecovered |= RecoverInterruptedSession();
+        if (ProfileMigrator.CompactEconomyReplayEvidenceAfterRecovery(Current))
+        {
+            Current.Revision++;
+            Current.UpdatedUtc = EnsureUtc(utcNow());
+            SaveCurrent();
+        }
         if (deferredItemPersistenceEnabled)
         {
             EnsureDeferredItemPersistenceEnabled();
@@ -192,6 +199,34 @@ public sealed class ProfileRepository
     public bool RecordDeferred(HealingApplied healing)
     {
         return Record(healing, persistImmediately: false);
+    }
+
+    public bool Record(CurrencyFlowRecorded flow) => Record(flow, persistImmediately: true);
+
+    public bool RecordDeferred(CurrencyFlowRecorded flow) => Record(flow, persistImmediately: false);
+
+    public bool BeginEconomyActivation(string activationId)
+    {
+        var profile = Current;
+        var previousEconomy = EconomyStatisticsReducer.Clone(profile.Statistics.Economy);
+        var previousRevision = profile.Revision;
+        var previousUpdatedUtc = profile.UpdatedUtc;
+        if (!EconomyStatisticsReducer.BeginReplayActivation(profile.Statistics.Economy, activationId))
+            return false;
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        try
+        {
+            SaveCurrent();
+            return true;
+        }
+        catch
+        {
+            profile.Statistics.Economy = previousEconomy;
+            profile.Revision = previousRevision;
+            profile.UpdatedUtc = previousUpdatedUtc;
+            throw;
+        }
     }
 
     public bool CanDeferItemPersistence(string? runId)
@@ -307,6 +342,32 @@ public sealed class ProfileRepository
         return true;
     }
 
+    private bool Record(CurrencyFlowRecorded flow, bool persistImmediately)
+    {
+        var profile = Current;
+        var deferPersistence = !persistImmediately;
+        var retainRunRecoveryWatermark = deferPersistence && CanDefer(profile, flow.RunId);
+        var changed = EconomyStatisticsReducer.Record(
+            profile.Statistics.Economy,
+            profile.GenerationId,
+            flow,
+            out var capabilityChanged);
+        if (!changed)
+        {
+            if (!capabilityChanged) return false;
+            profile.Revision++;
+            profile.UpdatedUtc = EnsureUtc(utcNow());
+            if (!deferPersistence) SaveCurrent();
+            return true;
+        }
+        if (retainRunRecoveryWatermark && !RecordDeferredWatermark(profile, flow))
+            throw new InvalidOperationException("Deferred economy watermark rejected a lifetime economy mutation.");
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        if (!deferPersistence) SaveCurrent();
+        return true;
+    }
+
     public void SaveActiveRun(ActiveRunCheckpoint checkpoint)
     {
         if (checkpoint == null)
@@ -381,6 +442,20 @@ public sealed class ProfileRepository
         checkpoint.ContainerState ??= new ContainerRunCheckpointState();
         ContainerStatisticsReducer.NormalizeCheckpoint(checkpoint.ContainerState);
         ContainerStatisticsReducer.ValidateAggregate(checkpoint.ContainerState.Statistics);
+        if (checkpoint.SchemaVersion >= 9 && checkpoint.Economy == null)
+            throw new ArgumentException("Current-schema active-run economy root is missing.", nameof(checkpoint));
+        checkpoint.Economy ??= new EconomyStatisticsAggregate
+        {
+            HistoricalUnavailable = true,
+            Capabilities = HistoricalEconomyCapabilities("Historical active-run checkpoint predates M9; economy was not recorded.")
+        };
+        EconomyStatisticsReducer.ValidateRecoveryCandidate(checkpoint.Economy);
+        EconomyStatisticsReducer.NormalizePersisted(checkpoint.Economy);
+        EconomyStatisticsReducer.Validate(checkpoint.Economy);
+        if (checkpoint.PendingTerminalOutcome is { } terminalOutcome
+            && !Enum.IsDefined(typeof(RunOutcome), terminalOutcome))
+            throw new ArgumentException("Active-run checkpoint contains an invalid pending terminal outcome.", nameof(checkpoint));
+        RunReducer.Validate(checkpoint.ToRecoverySummary());
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
     }
@@ -388,21 +463,39 @@ public sealed class ProfileRepository
     public bool CompleteRun(RunSummary summary)
     {
         var profile = Current;
+        if (completionPersistencePendingRunId != null
+            && !string.Equals(completionPersistencePendingRunId, summary.RunId, StringComparison.Ordinal))
+            throw new InvalidOperationException("A different completed run is still awaiting durable profile persistence.");
+        var retryingFailedPersistence = string.Equals(
+            completionPersistencePendingRunId,
+            summary.RunId,
+            StringComparison.Ordinal);
         var applied = RunReducer.Apply(profile.Statistics, summary);
+        if (applied) EconomyStatisticsReducer.MergeTerminalOutcomes(profile.Statistics.Economy, summary.Economy);
         var clearedDeferredWatermark = ClearDeferredWatermark(profile, summary.RunId);
-        if (applied || clearedDeferredWatermark)
+        if (applied || clearedDeferredWatermark || retryingFailedPersistence)
         {
             profile.Revision++;
             profile.UpdatedUtc = EnsureUtc(summary.EndedUtc);
+            completionPersistencePendingRunId = summary.RunId;
             SaveCurrent();
         }
 
-        if (currentDirectory != null)
+        try
         {
-            activeRunStore.Delete(GetActiveRunPath(currentDirectory));
+            if (currentDirectory != null)
+                activeRunStore.Delete(GetActiveRunPath(currentDirectory));
+        }
+        catch
+        {
+            if (applied || clearedDeferredWatermark || retryingFailedPersistence)
+                completionPersistencePendingRunId = summary.RunId;
+            throw;
         }
 
-        return applied;
+        if (applied || clearedDeferredWatermark || retryingFailedPersistence)
+            completionPersistencePendingRunId = null;
+        return applied || retryingFailedPersistence;
     }
 
     public void SetCapabilities(IEnumerable<CapabilityRecord> capabilities)
@@ -416,6 +509,17 @@ public sealed class ProfileRepository
         configuredCapabilities.AddRange(capabilities.Select(CloneCapability));
         capabilitiesConfigured = true;
         ApplyConfiguredCapabilities();
+    }
+
+    public void SetEconomyCapabilities(EconomyMetricCapabilities capabilities)
+    {
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        var profile = Current;
+        profile.Statistics.Economy ??= new EconomyStatisticsAggregate();
+        EconomyStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.Economy, capabilities);
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        SaveCurrent();
     }
 
     public void Rotate(SaveIdentitySnapshot identity, string reason)
@@ -652,12 +756,16 @@ public sealed class ProfileRepository
                 + string.Join(" | ", loaded.Failures));
         }
 
-        var summary = checkpoint.ToInterruptedSummary();
-        var recoveredLifetimeItems = RecoverDeferredLifetimeItems(checkpoint);
+        var summary = checkpoint.ToRecoverySummary();
+        var alreadyFinalized = Current.Statistics.Runs.Any(
+            run => string.Equals(run.RunId, summary.RunId, StringComparison.Ordinal));
+        var recoveredLifetimeItems = !alreadyFinalized && RecoverDeferredLifetimeItems(checkpoint);
+        var recoveredLifetimeEconomy = !alreadyFinalized && RecoverDeferredLifetimeEconomy(checkpoint);
         var applied = RunReducer.Apply(Current.Statistics, summary);
+        if (applied) EconomyStatisticsReducer.MergeTerminalOutcomes(Current.Statistics.Economy, summary.Economy);
         var clearedDeferredWatermark = ClearDeferredWatermark(Current, summary.RunId);
 
-        if (applied || recoveredLifetimeItems || clearedDeferredWatermark)
+        if (applied || recoveredLifetimeItems || recoveredLifetimeEconomy || clearedDeferredWatermark)
         {
             Current.Revision++;
             Current.UpdatedUtc = summary.EndedUtc;
@@ -667,7 +775,8 @@ public sealed class ProfileRepository
         activeRunStore.Delete(path);
         diagnostic(
             applied
-                ? $"Recovered interrupted run {summary.RunId} for generation {summary.SaveGenerationId}."
+                ? $"Recovered {summary.Outcome.ToString().ToLowerInvariant()} run {summary.RunId} "
+                  + $"for generation {summary.SaveGenerationId}."
                 : $"Cleared already-finalized active-run checkpoint {summary.RunId} without duplicating it.");
         return applied;
     }
@@ -761,6 +870,23 @@ public sealed class ProfileRepository
             checkpoint.ContainerState.Statistics.HistoricalUnavailable = true;
         }
 
+        if (checkpoint.SchemaVersion >= 9 && checkpoint.Economy == null)
+            return "Current-schema active-run economy root is missing.";
+        checkpoint.Economy ??= new EconomyStatisticsAggregate
+        {
+            HistoricalUnavailable = true,
+            Capabilities = HistoricalEconomyCapabilities("Historical active-run checkpoint predates M9; economy was not recorded.")
+        };
+        try
+        {
+            EconomyStatisticsReducer.ValidateRecoveryCandidate(checkpoint.Economy);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Active-run checkpoint contains invalid economy state: {exception.Message}";
+        }
+        EconomyStatisticsReducer.NormalizePersisted(checkpoint.Economy);
+
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
         {
             return $"Active-run checkpoint schema {checkpoint.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion}.";
@@ -782,7 +908,11 @@ public sealed class ProfileRepository
             CombatStatisticsReducer.ValidateAggregate(checkpoint.CombatStatistics);
             EquipmentStatisticsReducer.ValidateAggregate(checkpoint.EquipmentStatistics);
             ContainerStatisticsReducer.ValidateAggregate(checkpoint.ContainerState.Statistics);
-            RunReducer.Validate(checkpoint.ToInterruptedSummary());
+            EconomyStatisticsReducer.Validate(checkpoint.Economy);
+            if (checkpoint.PendingTerminalOutcome is { } terminalOutcome
+                && !Enum.IsDefined(typeof(RunOutcome), terminalOutcome))
+                return "Active-run checkpoint contains an invalid pending terminal outcome.";
+            RunReducer.Validate(checkpoint.ToRecoverySummary());
             return null;
         }
         catch (ArgumentException exception)
@@ -998,7 +1128,8 @@ public sealed class ProfileRepository
                 // Lifecycle boundaries drain the deferred writer before they can append or merge.
                 Runs = new List<RunSummary>(statistics.Runs),
                 RunTotals = statistics.RunTotals,
-                RunRecords = statistics.RunRecords
+                RunRecords = statistics.RunRecords,
+                Economy = EconomyStatisticsReducer.Clone(statistics.Economy)
             },
             Capabilities = source.Capabilities.Select(CloneCapability).ToList(),
             PendingSave = source.PendingSave == null
@@ -1015,7 +1146,9 @@ public sealed class ProfileRepository
                 {
                     RunId = source.DeferredItemPersistence.RunId,
                     AppliedLifetimeStatistics = ItemStatisticsAggregateReducer.Clone(
-                        source.DeferredItemPersistence.AppliedLifetimeStatistics)
+                        source.DeferredItemPersistence.AppliedLifetimeStatistics),
+                    AppliedLifetimeEconomy = EconomyStatisticsReducer.Clone(
+                        source.DeferredItemPersistence.AppliedLifetimeEconomy)
                 }
         };
     }
@@ -1058,6 +1191,12 @@ public sealed class ProfileRepository
             healing);
     }
 
+    private static bool RecordDeferredWatermark(ProfileDocument profile, CurrencyFlowRecorded flow)
+    {
+        var state = GetDeferredWatermark(profile, flow.RunId);
+        return EconomyStatisticsReducer.Record(state.AppliedLifetimeEconomy, profile.GenerationId, flow);
+    }
+
     private static DeferredItemPersistenceState GetDeferredWatermark(ProfileDocument profile, string? runId)
     {
         if (profile.DeferredItemPersistence == null)
@@ -1074,6 +1213,7 @@ public sealed class ProfileRepository
         {
             state.RunId = runId;
             state.AppliedLifetimeStatistics = new ItemStatisticsAggregate();
+            state.AppliedLifetimeEconomy = new EconomyStatisticsAggregate();
         }
         else if (!string.Equals(state.RunId, runId, StringComparison.Ordinal))
         {
@@ -1084,6 +1224,7 @@ public sealed class ProfileRepository
 
             state.RunId = runId;
             state.AppliedLifetimeStatistics = new ItemStatisticsAggregate();
+            state.AppliedLifetimeEconomy = new EconomyStatisticsAggregate();
         }
 
         return state;
@@ -1146,6 +1287,54 @@ public sealed class ProfileRepository
 
         state.RunId = null;
         state.AppliedLifetimeStatistics = new ItemStatisticsAggregate();
+        state.AppliedLifetimeEconomy = new EconomyStatisticsAggregate();
+        return true;
+    }
+
+    private bool RecoverDeferredLifetimeEconomy(ActiveRunCheckpoint checkpoint)
+    {
+        var state = Current.DeferredItemPersistence;
+        if (state == null) return false;
+        EconomyStatisticsAggregate baseline;
+        if (string.IsNullOrWhiteSpace(state.RunId)) baseline = new EconomyStatisticsAggregate();
+        else if (string.Equals(state.RunId, checkpoint.RunId, StringComparison.Ordinal))
+            baseline = state.AppliedLifetimeEconomy;
+        else return false;
+        if (!EconomyStatisticsReducer.TrySubtract(checkpoint.Economy, baseline, out var difference))
+        {
+            diagnostic($"Deferred economy watermark for run {checkpoint.RunId} was not a subset of the active checkpoint; lifetime recovery was left unchanged.");
+            return false;
+        }
+        var moneySaturationDelta = difference.MoneyArithmeticSaturated && !baseline.MoneyArithmeticSaturated;
+        var cashSaturationDelta = difference.CashArithmeticSaturated && !baseline.CashArithmeticSaturated;
+        if (EconomyStatisticsReducer.IsEmpty(difference) && !moneySaturationDelta && !cashSaturationDelta) return false;
+        var lifetime = Current.Statistics.Economy;
+        var skippedCurrencies = new List<string>();
+        var recoverableCurrency = false;
+        if (difference.Currencies.ContainsKey(CurrencyKind.Money.ToString()) || moneySaturationDelta)
+        {
+            if (lifetime.MoneyArithmeticSaturated) skippedCurrencies.Add(CurrencyKind.Money.ToString());
+            else recoverableCurrency = true;
+        }
+        if (difference.Currencies.ContainsKey(CurrencyKind.Cash.ToString())
+            || cashSaturationDelta
+            || difference.CashRaidOutcomes.Acquired > 0
+            || difference.CashRaidOutcomes.Secured > 0
+            || difference.CashRaidOutcomes.Lost > 0
+            || difference.CashRaidOutcomes.Unresolved > 0)
+        {
+            if (lifetime.CashArithmeticSaturated) skippedCurrencies.Add(CurrencyKind.Cash.ToString());
+            else recoverableCurrency = true;
+        }
+        if (!recoverableCurrency)
+        {
+            diagnostic($"Deferred lifetime economy recovery for run {checkpoint.RunId} contained only arithmetic-saturated currencies; lifetime totals were left unchanged.");
+            return false;
+        }
+        EconomyStatisticsReducer.Merge(lifetime, difference);
+        diagnostic(skippedCurrencies.Count == 0
+            ? $"Recovered deferred lifetime economy from active run {checkpoint.RunId}."
+            : $"Recovered the representable deferred lifetime economy from active run {checkpoint.RunId}; arithmetic-saturated {string.Join(" and ", skippedCurrencies)} totals were left unchanged.");
         return true;
     }
 
@@ -1274,7 +1463,24 @@ public sealed class ProfileRepository
         && statistics.RunTotals.CombatStatistics.Totals.PlayerDeaths == 0
         && EquipmentStatisticsReducer.IsEmpty(statistics.RunTotals.EquipmentStatistics)
         && ContainerStatisticsReducer.IsEmpty(statistics.RunTotals.ContainerStatistics)
+        && EconomyStatisticsReducer.IsEmpty(statistics.Economy)
+        && EconomyStatisticsReducer.IsEmpty(statistics.RunTotals.Economy)
         && statistics.Runs.Count == 0;
+
+    private static EconomyMetricCapabilities HistoricalEconomyCapabilities(string provenance) => new()
+    {
+        MoneyAmountDirection = Unavailable(provenance),
+        MoneySourceAttribution = Unavailable(provenance),
+        MoneyContextAttribution = Unavailable(provenance),
+        CashAmountDirection = Unavailable(provenance),
+        CashExternalAcquisition = Unavailable(provenance),
+        CashContextAttribution = Unavailable(provenance),
+        CashTerminalOutcomes = Unavailable(provenance),
+        RouteAttribution = Unavailable(provenance)
+    };
+
+    private static MetricAvailability Unavailable(string provenance) => new()
+    { State = AdapterCapabilityState.DisabledIncompatible, Provenance = provenance };
 
     private static bool IdentitiesEqual(SaveIdentitySnapshot left, SaveIdentitySnapshot right) =>
         left.Slot == right.Slot
