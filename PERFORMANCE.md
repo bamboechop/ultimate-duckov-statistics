@@ -157,4 +157,43 @@ The first accepted cell is the Electrified-MP7 empty-space burst. All three froz
 | Whole capture | 4.181 ms | 4.190 ms | +0.201% | 4.982 ms | 5.250 ms | +5.384% |
 | Action window | 4.244 ms | 4.328 ms | +1.994% | 5.067 ms | 5.432 ms | +7.204% |
 
-The cell passes the +5% median and +10% p99 budgets. No B or D capture contains an action-correlated spike cluster, and the analyzer reports no repeatable new cluster above 33.3 ms. Exact persisted action counts were checked after every attempt; the completed accepted run retains 120 firing actions and 120 combat/projectile completions in only two schema-10 aggregate rows, including the 30 actions from the truthfully retained but timing-invalid attempt. The user reported no perceived hitch for accepted runs 1 and 2; no separate perception statement was captured for replacement run 3. The single-enemy and Med-Kit cells and the representative three-map soak remain required before the overall M10 performance gate closes.
+The cell passes the +5% median and +10% p99 budgets. No B or D capture contains an action-correlated spike cluster, and the analyzer reports no repeatable new cluster above 33.3 ms. Exact persisted action counts were checked after every attempt; the completed accepted run retains 120 firing actions and 120 combat/projectile completions in only two schema-10 aggregate rows, including the 30 actions from the truthfully retained but timing-invalid attempt. The user reported no perceived hitch for accepted runs 1 and 2; no separate perception statement was captured for replacement run 3.
+
+The single-enemy cell also passes. Three accepted D runs contain 6,259, 6,945, and 7,033 frames, no >16.7 ms action frame, no cluster, and no perceived hitch. One first run-2 attempt remains preserved but excluded because a second duck entered the interaction; its legitimate events remain in the exact run totals. The accepted comparison is:
+
+| Scope | B median of run medians | D median of run medians | Median overhead | B median of run p99 | D median of run p99 | p99 overhead |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Whole capture | 4.290 ms | 4.247 ms | -0.998% | 5.641 ms | 5.493 ms | -2.614% |
+| Action window | 4.754 ms | 4.479 ms | -5.789% | 5.988 ms | 6.122 ms | +2.238% |
+
+Exact persisted state contains 120 firing actions and completed projectiles in `shot=120` plus the complete `combat=161` outcome aggregate; row cardinality stays two. The exact paired report is `artifacts/performance/analysis/m10-high-rate-single-enemy-final.json` at SHA-256 `3cbce2f4a8a269a5188318fd1b5d7cbf0f52aec76ec717b84a432e308c82eaef`.
+
+The first Med-Kit D triplet is valid and frozen but does not close its stricter action-p99 gate. All three uses were stationary with the healing totem removed, stable HP, no active enemy/effect/passive healing, exactly 12 HP restored, and no perceived hitch. Every action window has zero frames above 16.7 ms and no cluster. The comparison against the historical frozen B controls is:
+
+| Scope | B median of run medians | D median of run medians | Median overhead | B median of run p99 | D median of run p99 | p99 overhead |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Whole capture | 4.201 ms | 4.247 ms | +1.078% | 5.026 ms | 5.359 ms | +6.629% |
+| Action window | 4.216 ms | 4.271 ms | +1.308% | 5.100 ms | 5.895 ms | **+15.580%** |
+
+The action p99 exceeds the required +10% budget, so this is preserved as a non-passing comparison rather than rounded into acceptance. Its exact report is `artifacts/performance/analysis/m10-consumable-medkit-final.json` at SHA-256 `0502ba29687bb4ad77c09f9512458e0c7518b96fd75d08cc0d2a440fc08756dc`.
+
+The delta begins before the candidate publishes either new association: exact item-use completion occurs 8.026-8.274 seconds after capture start, while the candidate's 5-8-second pre-completion CPU-side tail is already elevated. Current D action p99 is also 11.966% above the previously accepted v0.8.1 production-D Med-Kit reference even though the M10 aggregate write has not occurred during the affected pre-completion slice. This makes temporal/system variance a live alternative to M10 causality, not grounds to waive the gate.
+
+The predeclared expansion is exactly three fresh contemporaneous Harmony-only B captures with the same Med-Kit, loadout, HP, action, collector, and display controls, stored separately under `artifacts/performance/captures/m10-b2fcf3b-fresh-control/B/consumable-medkit`. The valid candidate D triplet remains fixed. A contemporaneous D/B pass closes the ambiguity while retaining both comparisons; another action-p99 miss rejects this candidate and requires correction plus a new complete qualification set. The representative three-map soak remains required after this reconciliation.
+
+The fresh B expansion contains 7,057, 7,107, and 7,050 frames, with no perceived hitch, no >16.7 ms action frame, and no cluster. Its whole-capture median/p99 values are 4.203/5.196, 4.182/5.123, and 4.218/5.041 ms; action values are 4.210/5.181, 4.194/5.476, and 4.247/5.143 ms. All sidecars and raw hashes pass, only Harmony is loaded, and the disabled UDS profile remains byte-identical throughout.
+
+| Scope | Fresh B median of run medians | Fixed D median of run medians | Median overhead | Fresh B median of run p99 | Fixed D median of run p99 | p99 overhead |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Whole capture | 4.203 ms | 4.247 ms | +1.047% | 5.123 ms | 5.359 ms | +4.592% |
+| Action window | 4.210 ms | 4.271 ms | +1.451% | 5.181 ms | 5.895 ms | **+13.777%** |
+
+The contemporaneous control therefore confirms the narrow action-p99 miss. CPU-busy p99 carries the delta (+13.629%) while GPU-busy p99 improves by 0.642%; neither side has a material action frame or cluster. The exact report is `artifacts/performance/analysis/m10-consumable-medkit-fresh-control-final.json` at SHA-256 `8ad96b409db11dfc05afcacd5b49b10bc75ddb8723f0b7bb7b5720efa4534807`.
+
+After reviewing the result, the user explicitly accepted this deviation for M10 because no hitch was perceived and final broad performance testing is planned for the v1.0.0 release-candidate rounds. This is recorded as a product acceptance exception, not a technical pass of the +10% action-p99 target. No speculative code change is made from the unlocalized delta; the exact non-passing evidence remains part of the v0.10.0 qualification and limitation set.
+
+The supplementary candidate soak then completed the seven-segment route Nullpunkt → Lagerbereich → Keller → Lagerbereich → Keller → Lagerbereich → Farmstadt. The external 12,348,643-byte CapFrameX JSON is SHA-256 `fe6ab48acce6ea611f329b4726d8adc069b94912767860ddcbd809eb7ff5a97d`; it contains 116,843 frames over 531.579 seconds. The 116,003-frame captured raid window spans 527.498 seconds at 4.270 ms median and 10.118 ms p99. Equal early/middle/late p99 values are 9.740, 8.392, and 11.260 ms, so late p99 is 15.601% above early and remains within the predeclared 20% natural-soak stopping rule.
+
+The untrimmed capture contains ordinary lifecycle/loading clusters. Of twelve maximal rolling groups with at least two frames above 33.3 ms, ten occur before run start or within 8.9 seconds of a transition/destination-ready boundary. One additional two-frame Nullpunkt group at offsets 90.778-90.859 seconds peaks at 45.841 ms and was not perceived; the remaining severe frames are isolated. Seven retained item/healing aggregate-endpoint windows have maxima of 6.630, 8.365, 23.079, 9.029, 8.824, 12.606, and 6.494 ms, with no >33.3 ms frame or cluster. Because this is one natural D-only run, these general gameplay/loading groups do not establish a repeatable new action-correlated candidate cluster; the clean matched cells remain the causal comparison. The user reported no gameplay or healing hitch.
+
+At the stopped-capture live checkpoint, 19 exact schema-10 rows represented 402 accepted events while every run/segment scalar composed exactly: 120 shot, 262 combat, seven container, eight item-use, and five healing associations, plus independent Cash inflow across four segments. After normal extraction, continued gameplay raised those exact counts to 143, 307, seven, ten, and five—472 events total—without adding a twentieth row. Every segment retained non-empty equipment evidence, repeated map visits stayed distinct, all joins and timestamp ranges were valid, historical incompleteness remained false, and current capture remained Supported. The exact 71,555-byte detailed report is `artifacts/performance/analysis/m10-full-run-soak-detailed.json` at SHA-256 `65febd9546d79de3c58606230967e8f8e3bc95016a422ed0c2155a347c1494f5`. This closes the required representative-soak supplement; the explicit Med-Kit action-p99 product exception above remains the truthful M10 limitation.
