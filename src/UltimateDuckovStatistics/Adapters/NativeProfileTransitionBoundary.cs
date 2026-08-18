@@ -6,13 +6,16 @@ internal sealed class NativeProfileTransitionBoundary
 
     public bool HasPendingTransition => pending.Count > 0;
 
-    public void Enqueue(string description, Action transition)
+    public void Enqueue(string description, params Action[] steps)
     {
         if (string.IsNullOrWhiteSpace(description))
             throw new ArgumentException("A profile transition description is required.", nameof(description));
+        if (steps == null) throw new ArgumentNullException(nameof(steps));
+        if (steps.Length == 0 || steps.Any(step => step == null))
+            throw new ArgumentException("A profile transition requires at least one non-null step.", nameof(steps));
         pending.Enqueue(new PendingTransition(
             description,
-            transition ?? throw new ArgumentNullException(nameof(transition))));
+            steps));
     }
 
     public bool Retry(Func<bool>? boundaryObserver, Action<string> diagnosticHandler)
@@ -37,7 +40,11 @@ internal sealed class NativeProfileTransitionBoundary
 
         try
         {
-            current.Apply();
+            while (current.NextStep < current.Steps.Count)
+            {
+                current.Steps[current.NextStep]();
+                current.NextStep++;
+            }
             pending.Dequeue();
             return pending.Count == 0;
         }
@@ -50,14 +57,16 @@ internal sealed class NativeProfileTransitionBoundary
 
     private sealed class PendingTransition
     {
-        public PendingTransition(string description, Action apply)
+        public PendingTransition(string description, IReadOnlyList<Action> steps)
         {
             Description = description;
-            Apply = apply;
+            Steps = steps;
         }
 
         public string Description { get; }
 
-        public Action Apply { get; }
+        public IReadOnlyList<Action> Steps { get; }
+
+        public int NextStep { get; set; }
     }
 }

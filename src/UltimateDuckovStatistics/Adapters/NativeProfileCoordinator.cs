@@ -428,18 +428,17 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
         var currentIdentity = ReadIdentity(repository.Current.Slot);
         var resetIdentity = ReadIdentity();
-        QueueProfileTransition("User profile reset", () =>
-        {
-            ProfileChanging?.Invoke();
-            WaitRunCheckpoint();
-            DrainProfileWriter();
-            repository.RefreshIdentity(currentIdentity);
-            repository.Rotate(resetIdentity, "UserReset");
-            repository.SetEconomyCapabilities(economyMetricCapabilities);
-            OpenDiagnosticsForCurrentGeneration();
-            WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only.");
-            PublishProfileEvent(ProfileChanged, "profile-changed");
-        });
+        QueueProfileTransition(
+            "User profile reset",
+            () => ProfileChanging?.Invoke(),
+            WaitRunCheckpoint,
+            DrainProfileWriter,
+            () => repository.RefreshIdentity(currentIdentity),
+            () => repository.Rotate(resetIdentity, "UserReset"),
+            OpenDiagnosticsForCurrentGeneration,
+            () => PublishProfileEvent(ProfileChanged, "profile-changed"),
+            () => repository.SetEconomyCapabilities(economyMetricCapabilities),
+            () => WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only."));
     }
 
     public void Dispose()
@@ -479,22 +478,25 @@ internal sealed class NativeProfileCoordinator : IDisposable
             var priorIdentity = repository!.Current.Slot != observed.Slot
                 ? ReadIdentity(repository.Current.Slot)
                 : null;
-            QueueProfileTransition("Save-slot transition", () =>
-            {
-                ProfileChanging?.Invoke();
-                WaitRunCheckpoint();
-                DrainProfileWriter();
-                saveResetAwaitingNewGameReport = false;
-                if (priorIdentity != null) repository.RefreshIdentity(priorIdentity);
-                var result = repository.Open(observed, "SaveSlotSelected");
-                repository.SetEconomyCapabilities(economyMetricCapabilities);
-                OpenDiagnosticsForCurrentGeneration();
-                WriteDiagnostic(
+            ProfileOpenResult? result = null;
+            QueueProfileTransition(
+                "Save-slot transition",
+                () => ProfileChanging?.Invoke(),
+                WaitRunCheckpoint,
+                DrainProfileWriter,
+                () => saveResetAwaitingNewGameReport = false,
+                () =>
+                {
+                    if (priorIdentity != null) repository.RefreshIdentity(priorIdentity);
+                },
+                () => result = repository.Open(observed, "SaveSlotSelected"),
+                OpenDiagnosticsForCurrentGeneration,
+                () => PublishProfileEvent(ProfileChanged, "profile-changed"),
+                () => repository.SetEconomyCapabilities(economyMetricCapabilities),
+                () => WriteDiagnostic(
                     $"Save slot selected slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
-                    $"created={result.CreatedNew} rotated={result.RotatedGeneration} " +
-                    $"unsupportedArchived={result.UnsupportedSchemaArchived}.");
-                PublishProfileEvent(ProfileChanged, "profile-changed");
-            });
+                    $"created={result!.CreatedNew} rotated={result.RotatedGeneration} " +
+                    $"unsupportedArchived={result.UnsupportedSchemaArchived}."));
         }
         catch (Exception exception)
         {
@@ -508,18 +510,17 @@ internal sealed class NativeProfileCoordinator : IDisposable
         try
         {
             var identity = ReadIdentity();
-            QueueProfileTransition("Save-deletion rotation", () =>
-            {
-                ProfileChanging?.Invoke();
-                WaitRunCheckpoint();
-                DrainProfileWriter();
-                repository!.Rotate(identity, "DuckovSaveDeleted");
-                repository.SetEconomyCapabilities(economyMetricCapabilities);
-                OpenDiagnosticsForCurrentGeneration();
-                saveResetAwaitingNewGameReport = true;
-                WriteDiagnostic($"Duckov save deletion rotated to generation {repository.CurrentGenerationId}.");
-                PublishProfileEvent(ProfileChanged, "profile-changed");
-            });
+            QueueProfileTransition(
+                "Save-deletion rotation",
+                () => ProfileChanging?.Invoke(),
+                WaitRunCheckpoint,
+                DrainProfileWriter,
+                () => repository!.Rotate(identity, "DuckovSaveDeleted"),
+                () => saveResetAwaitingNewGameReport = true,
+                OpenDiagnosticsForCurrentGeneration,
+                () => PublishProfileEvent(ProfileChanged, "profile-changed"),
+                () => repository!.SetEconomyCapabilities(economyMetricCapabilities),
+                () => WriteDiagnostic($"Duckov save deletion rotated to generation {repository!.CurrentGenerationId}."));
         }
         catch (Exception exception)
         {
@@ -550,27 +551,34 @@ internal sealed class NativeProfileCoordinator : IDisposable
         try
         {
             var identity = ReadIdentity();
-            QueueProfileTransition("New-game rotation", () =>
-            {
-                ProfileChanging?.Invoke();
-                WaitRunCheckpoint();
-                DrainProfileWriter();
-                if (saveResetAwaitingNewGameReport)
+            var matchedDeletedGeneration = false;
+            QueueProfileTransition(
+                "New-game rotation",
+                () => ProfileChanging?.Invoke(),
+                WaitRunCheckpoint,
+                DrainProfileWriter,
+                () =>
                 {
-                    repository!.RefreshIdentity(identity);
-                    saveResetAwaitingNewGameReport = false;
-                    WriteDiagnostic("New-game report matched the already-rotated deleted save generation.");
-                }
-                else
+                    matchedDeletedGeneration = saveResetAwaitingNewGameReport;
+                    if (matchedDeletedGeneration)
+                    {
+                        repository!.RefreshIdentity(identity);
+                        saveResetAwaitingNewGameReport = false;
+                    }
+                    else
+                    {
+                        repository!.Rotate(identity, "DuckovNewGame");
+                    }
+                },
+                () =>
                 {
-                    repository!.Rotate(identity, "DuckovNewGame");
-                    OpenDiagnosticsForCurrentGeneration();
-                    WriteDiagnostic($"Duckov new game rotated to generation {repository.CurrentGenerationId}.");
-                }
-
-                repository!.SetEconomyCapabilities(economyMetricCapabilities);
-                PublishProfileEvent(ProfileChanged, "profile-changed");
-            });
+                    if (!matchedDeletedGeneration) OpenDiagnosticsForCurrentGeneration();
+                },
+                () => PublishProfileEvent(ProfileChanged, "profile-changed"),
+                () => repository!.SetEconomyCapabilities(economyMetricCapabilities),
+                () => WriteDiagnostic(matchedDeletedGeneration
+                    ? "New-game report matched the already-rotated deleted save generation."
+                    : $"Duckov new game rotated to generation {repository!.CurrentGenerationId}."));
         }
         catch (Exception exception)
         {
@@ -587,9 +595,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
             "Error");
     }
 
-    private void QueueProfileTransition(string description, Action transition)
+    private void QueueProfileTransition(string description, params Action[] steps)
     {
-        profileTransitionBoundary.Enqueue(description, transition);
+        profileTransitionBoundary.Enqueue(description, steps);
         RetryPendingProfileTransition();
     }
 
