@@ -631,7 +631,7 @@ public sealed class RouteLifecycleTests
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "Economy")]
-    public void RunArithmeticSaturationPersistsWithoutAssociatingTheRejectedFlowOrDisablingCash()
+    public void RunArithmeticSaturationPersistsWithoutLegacyEconomyAssociationsOrDisablingCash()
     {
         var tracker = Start("A");
         Assert.True(tracker.RecordCurrencyFlow(Currency(
@@ -649,9 +649,7 @@ public sealed class RouteLifecycleTests
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.Economy.Capabilities.MoneyAmountDirection.State);
         Assert.Equal(AdapterCapabilityState.Supported, run.Economy.Capabilities.CashAmountDirection.State);
         Assert.Equal(2, run.Economy.Currencies["Cash"].Totals.GrossInflow);
-        Assert.DoesNotContain(run.SegmentEventAssociations, value => value.EventId == "money-overflow");
-        Assert.Contains(run.SegmentEventAssociations, value => value.EventId == "money-max");
-        Assert.Contains(run.SegmentEventAssociations, value => value.EventId == "cash-after-money-saturation");
+        Assert.Empty(run.SegmentEventAssociations);
     }
 
     [Fact]
@@ -682,7 +680,7 @@ public sealed class RouteLifecycleTests
         Assert.Equal(1, run.Segments[1].Economy.Currencies["Money"].Totals.GrossOutflow);
         Assert.False(run.Segments[1].Economy.MoneyArithmeticSaturated);
         Assert.Equal(AdapterCapabilityState.Supported, run.Segments[1].Economy.Capabilities.MoneyAmountDirection.State);
-        Assert.Contains(run.SegmentEventAssociations, value => value.EventId == "money-in-b");
+        Assert.Empty(run.SegmentEventAssociations);
         Assert.Equal(long.MaxValue, profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(1, profile.RunTotals.RouteMaps["duckov:map:B"].Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(1, profile.RunTotals.RouteMaps["duckov:map:B"].Economy.Currencies["Money"].Totals.GrossOutflow);
@@ -691,7 +689,7 @@ public sealed class RouteLifecycleTests
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "Economy")]
-    public void RunSegmentStartingAndRouteMapEconomyContinueAfterTheRouteAssociationBoundIsReached()
+    public void EconomyFlowsDoNotConsumeTheLegacyAssociationBudgetOrDisableLaterItemAttribution()
     {
         var tracker = Start("A");
         for (var index = 0; index < 2500; index++)
@@ -701,6 +699,7 @@ public sealed class RouteLifecycleTests
         for (var index = 0; index < 2500; index++)
             Assert.True(tracker.RecordCurrencyFlow(Currency(
                 $"economy-b:{index}", tracker, "B", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 1)));
+        Assert.True(tracker.RecordItemUse(Item("item-after-5000-economy-flows", tracker, "B")));
         var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 5)).Completed!;
         var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
         Assert.True(RunReducer.Apply(profile, run));
@@ -716,12 +715,18 @@ public sealed class RouteLifecycleTests
             Assert.Equal(AdapterCapabilityState.Supported, segment.Economy.Capabilities.MoneyAmountDirection.State);
             Assert.Empty(segment.Economy.RecentEventIds);
         });
-        Assert.Equal(RouteStatisticsReducer.MaximumEventAssociationsPerRun, run.SegmentEventAssociations.Count);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
+        var itemAssociation = Assert.Single(run.SegmentEventAssociations);
+        Assert.Equal("item-after-5000-economy-flows", itemAssociation.EventId);
+        Assert.Equal("item-use", itemAssociation.EventKind);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.Equal(1, run.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(1, run.Segments[1].ItemStatistics.Overall.ActivationCount);
         Assert.Equal(5000, profile.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(5000, profile.RunTotals.Maps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(2500, profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(2500, profile.RunTotals.RouteMaps["duckov:map:B"].Economy.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(1, profile.RunTotals.RouteMaps["duckov:map:B"].ItemStatistics.Overall.ActivationCount);
         Assert.Equal(AdapterCapabilityState.Supported,
             profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Capabilities.RouteAttribution.State);
         Assert.Equal(AdapterCapabilityState.Supported,

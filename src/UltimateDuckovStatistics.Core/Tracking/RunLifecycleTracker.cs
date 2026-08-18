@@ -550,13 +550,15 @@ public sealed class RunLifecycleTracker
                 && string.Equals(candidate.MapId, value.MapId, StringComparison.Ordinal));
             if (segment != null)
             {
+                // Economy has its own exact cursor-deduplicated run/segment
+                // fan-out. It must not consume the bounded legacy association
+                // list shared by item, combat, healing, weapon, and container
+                // attribution.
                 segmentChanged = EconomyStatisticsReducer.Record(
                     segment.Economy,
                     active.Context.SaveGenerationId,
                     value,
                     out segmentCapabilityChanged);
-                if (segmentChanged && active.AttributionSupported)
-                    RecordAssociation(value.EventId, "currency-flow", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
             }
             else if (runChanged || runCapabilityChanged)
             {
