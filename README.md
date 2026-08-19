@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics
 
-Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.10.0 is the locally qualified M10 lossless-route-association candidate on an open draft PR. It retains the complete M1-M9 contract and removes the per-run event-count ceiling from exact segment attribution.
+Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.10.0 is the published M10 lossless-route-association GitHub pre-release. It retains the complete M1-M9 contract and removes the per-run event-count ceiling from exact segment attribution.
 
 The mod never modifies Duckov save files. Its data is stored under:
 
@@ -12,11 +12,9 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 > **Pre-1.0 support boundary:** Every UDS `0.x` build and GitHub pre-release is a development artifact for voluntary testing, not an officially distributed build or supported installation channel. Persisted-profile migration between `0.x` versions is best-effort development continuity rather than a supported upgrade guarantee; existing migration code and tests remain internal robustness evidence. Supported upgrade guarantees begin with the first version explicitly declared as officially distributed through a supported channel.
 
-M0-M9 are published through the [v0.9.0 GitHub pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.9.0). M8.1 product commit `90384352d323e6ea19dfa607c7da18162dbcefcb` completed its performance, gameplay, package, projection, and shutdown gates and merged before M9; it was not released separately, so its accepted changes ship in v0.9.0. PR #10 merged as `ba2d01ca345f005de6bb88249592eb7f31c9254a`, and the final 665-test, compatibility, package/readback, Economy UI, 24-file JSON-plus-23-CSV export, and clean-shutdown gates passed.
+M0-M10 are published through the [v0.10.0 GitHub pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.10.0). M8.1 product commit `90384352d323e6ea19dfa607c7da18162dbcefcb` completed its performance, gameplay, package, projection, and shutdown gates and merged before M9; it was not released separately, so its accepted changes ship in v0.9.0.
 
-M10 delivery status is tracked in [GitHub pull requests](https://github.com/bamboechop/ultimate-duckov-statistics/pulls), which is authoritative for the live remote head, review state, and CI results; immutable acceptance evidence belongs in [TESTING.md](TESTING.md).
-
-M10 has completed its local automated, package, performance-decision, deployment, gameplay, export, recovery, and clean-shutdown gates and remains unreleased on draft PR #11. The remaining path to v1.0 is split into M11 combat ownership (`v0.11.0`), M12 world-time and sleep statistics (`v0.12.0`), M13 native UI overhaul (`v0.13.0`), and M14 feature-frozen `v1.0.0-rc.1` qualification. See [PLAN.md](PLAN.md) for the contracts and acceptance boundaries; immutable completed-release evidence remains in [TESTING.md](TESTING.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
+M10 PR #11 merged as `cbabd3eb7760178c939f5ebea50709c42f183cb6`. The merged release passes 679/679 tests, the installed-game compatibility and package gates, seven-segment repeated-route gameplay, complete 24-file export agreement, recovery, and clean shutdown. The remaining path to v1.0 is split into M11 combat ownership (`v0.11.0`), M12 world-time, sleep, and crafted-item statistics (`v0.12.0`), M13 native UI overhaul (`v0.13.0`), and M14 feature-frozen `v1.0.0-rc.1` qualification. See [PLAN.md](PLAN.md) for the contracts and acceptance boundaries; immutable completed-release evidence remains in [TESTING.md](TESTING.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Build prerequisites
 
