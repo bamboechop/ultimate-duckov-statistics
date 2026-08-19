@@ -8,6 +8,14 @@
 - During implementation or review, do not report a defect as actionable when its only reachable path is carrying UDS-owned persisted data from one `0.x` build into another. It becomes actionable if the same root cause also affects a clean/current installation, same-version current-schema operation or recovery, a future officially supported migration baseline, or data safety independently of the unsupported predecessor.
 - Do not remove existing pre-1.0 migration code or tests merely because that path is unsupported; retain useful hardening unless the user explicitly changes its scope.
 
+## Repository documentation policy
+
+- Treat branch, pull-request, review, and CI status as mutable. Durable documentation should link to the authoritative GitHub surface instead of embedding a live status snapshot that will become stale.
+- Record immutable completed-delivery facts such as merged commit IDs, tags, publication dates, test totals, artifact sizes, and checksums only after they have been verified.
+- Do not add unit tests that enforce editorial prose, exact Markdown headings, milestone names, or the presence of a particular documentation paragraph.
+- Test documentation only when it is a machine-consumed contract, such as required package inventory, generated output, an executable example, or a formally parsed schema. Use normal review for narrative accuracy and status transitions.
+- Update milestone and release wording when its state changes; do not preserve obsolete candidate or draft-PR language merely to satisfy an automated check.
+
 ## GitHub authentication on Windows
 
 - GitHub CLI authentication for this checkout is stored in the Windows credential manager. A `gh auth status` command executed inside the Codex sandbox can incorrectly report that the stored token is invalid because the sandbox cannot access the keyring.
