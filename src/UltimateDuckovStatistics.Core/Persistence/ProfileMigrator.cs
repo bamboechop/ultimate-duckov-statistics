@@ -50,6 +50,20 @@ public static class ProfileMigrator
             }
         }
 
+        foreach (var run in profile.Statistics.Runs)
+        {
+            try
+            {
+                RouteStatisticsReducer.ValidateCapabilities(run.RouteCapabilities);
+                RouteStatisticsReducer.ValidateAssociations(run.Segments, run.SegmentEventAssociations);
+                ValidateHistoricalEventAttribution(run);
+            }
+            catch (ArgumentException exception)
+            {
+                return $"Current-schema run '{run.RunId}' contains invalid route-association state: {exception.Message}";
+            }
+        }
+
         try
         {
             RunReducer.ValidateProfileEconomyComposition(profile.Statistics);
@@ -321,6 +335,8 @@ public static class ProfileMigrator
                               || (profile.Statistics != null && profile.Statistics.SchemaVersion < 8);
         var migratingEconomy = profile.SchemaVersion < 9
                                || (profile.Statistics != null && profile.Statistics.SchemaVersion < 9);
+        var migratingLosslessRouteAssociation = profile.SchemaVersion < 10
+                                                || (profile.Statistics != null && profile.Statistics.SchemaVersion < 10);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         var missingCurrentEquipmentRoot = !migratingEquipment
@@ -684,6 +700,26 @@ public static class ProfileMigrator
             run.Segments ??= new List<Domain.MapSegmentSummary>();
             run.SegmentEventAssociations ??= new List<Domain.SegmentEventAssociation>();
             run.RouteCapabilities ??= RouteStatisticsReducer.Unavailable("Route capability record was missing from persisted data.");
+            if (migratingLosslessRouteAssociation)
+            {
+                var legacySaturationIncomplete = run.SegmentEventAssociations.Count
+                                                 == RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun
+                                                 && run.RouteCapabilities.EventAttribution?.State
+                                                 != Domain.AdapterCapabilityState.Supported;
+                changed |= RouteStatisticsReducer.MigrateLegacyAssociations(run.SegmentEventAssociations);
+                RouteStatisticsReducer.MigrateLegacyCaptureCapability(run.RouteCapabilities, legacySaturationIncomplete);
+                if (legacySaturationIncomplete)
+                {
+                    run.HistoricalEventAttributionIncomplete = true;
+                    run.HistoricalEventAttributionProvenance =
+                        "Schema-9 reached the 2,048-row association ceiling; retained rows are exact, later historical associations may be missing, and schema-10 current capture is available.";
+                }
+                else
+                {
+                    run.HistoricalEventAttributionProvenance ??= string.Empty;
+                }
+                changed = true;
+            }
             var routeCapabilityRepaired = RouteStatisticsReducer.NormalizeCapabilities(run.RouteCapabilities);
             run.RouteWasRepairedFromInvalidState |= routeCapabilityRepaired;
             changed |= routeCapabilityRepaired;
@@ -858,6 +894,18 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 10)
+        {
+            profile.SchemaVersion = 10;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 10)
+        {
+            profile.Statistics.SchemaVersion = 10;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
@@ -996,9 +1044,9 @@ public static class ProfileMigrator
             return true;
         }
 
-        if (run.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumEventAssociationsPerRun)
+        if (run.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumPersistedEventAssociationsPerRun)
         {
-            ClearInvalidAttribution(run, "Persisted event attribution exceeded its defensive bound.");
+            ClearInvalidAttribution(run, "Persisted event attribution exceeded its route-cardinality bound.");
             changed = true;
         }
         else try
@@ -1049,7 +1097,21 @@ public static class ProfileMigrator
     {
         run.SegmentEventAssociations.Clear();
         run.RouteWasRepairedFromInvalidState = true;
+        run.HistoricalEventAttributionIncomplete = true;
+        run.HistoricalEventAttributionProvenance = provenance;
         RouteStatisticsReducer.DisableAttribution(run.RouteCapabilities, provenance);
+    }
+
+    private static void ValidateHistoricalEventAttribution(Domain.RunSummary run)
+    {
+        if (run.HistoricalEventAttributionProvenance == null)
+            throw new ArgumentException("Historical event-attribution provenance is missing.", nameof(run));
+        if (run.HistoricalEventAttributionIncomplete
+            && string.IsNullOrWhiteSpace(run.HistoricalEventAttributionProvenance))
+            throw new ArgumentException("Incomplete historical event attribution has no provenance.", nameof(run));
+        if (run.HistoricalEventAttributionIncomplete
+            && run.RouteCapabilities.EventAttribution.State == Domain.AdapterCapabilityState.Supported)
+            throw new ArgumentException("Incomplete historical event attribution cannot be marked exact.", nameof(run));
     }
 
     private static bool NormalizeDistance(double value, Action<double> replace)

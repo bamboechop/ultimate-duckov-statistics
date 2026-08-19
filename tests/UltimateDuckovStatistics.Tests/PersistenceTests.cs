@@ -127,6 +127,55 @@ public sealed class PersistenceTests
         Assert.False(persistedRouteMap.HistoricalUnavailable);
     }
 
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    public void CurrentSchemaInvalidRouteAggregatePrimaryLosesToIntactBackupBeforeNormalization()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
+        var invalidPrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        MakeCurrentRouteValid(backup.Statistics.Runs[0]);
+        MakeCurrentRouteValid(invalidPrimary.Statistics.Runs[0]);
+        var run = invalidPrimary.Statistics.Runs[0];
+        var segment = run.Segments[0];
+        run.SegmentEventAssociations.Add(new SegmentEventAssociation
+        {
+            EventKind = "item-use",
+            TimestampUtc = TestTime,
+            FirstTimestampUtc = TestTime,
+            LastTimestampUtc = TestTime,
+            SourceSegmentId = segment.SegmentId,
+            SourceMapId = segment.MapId,
+            OutcomeSegmentId = segment.SegmentId,
+            OutcomeMapId = segment.MapId,
+            Representation = SegmentEventAssociationRepresentation.ExactAggregate,
+            Count = 0
+        });
+        store.Save(path, backup);
+        store.Save(path, invalidPrimary);
+
+        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
+        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
+
+        Assert.True(result.RecoveredSnapshot);
+        Assert.False(result.MigratedSchema);
+        Assert.Contains(result.LoadFailures, failure =>
+            failure.Contains("invalid route-association state", StringComparison.Ordinal));
+        Assert.Equal(7, repository.Current.Revision);
+        Assert.Empty(repository.Current.Statistics.Runs[0].SegmentEventAssociations);
+        repository.CloseClean();
+    }
+
+    private static void MakeCurrentRouteValid(RunSummary run)
+    {
+        run.RouteCapabilities = RouteStatisticsReducer.Supported("test exact route contract");
+        run.RouteSignature = RouteStatisticsReducer.BuildSignature(run.Segments);
+        run.Segments[0].ExitReason = MapSegmentExitReason.Extracted;
+    }
+
     public static TheoryData<string> CurrentSchemaRequiredRootCases => new()
     {
         "Profile.Identity",
@@ -273,8 +322,8 @@ public sealed class PersistenceTests
 
         Assert.True(ProfileMigrator.Migrate(document));
 
-        Assert.Equal(9, document.SchemaVersion);
-        Assert.Equal(9, document.Statistics.SchemaVersion);
+        Assert.Equal(10, document.SchemaVersion);
+        Assert.Equal(10, document.Statistics.SchemaVersion);
         Assert.Equal("generation-m8", document.GenerationId);
         Assert.Equal(17, document.Statistics.Overall.ActivationCount);
         var migratedMap = Assert.Single(document.Statistics.RunTotals.Maps).Value;
@@ -1156,8 +1205,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(9, repository.Current.SchemaVersion);
-        Assert.Equal(9, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(10, repository.Current.SchemaVersion);
+        Assert.Equal(10, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
@@ -1301,8 +1350,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(9, repository.Current.SchemaVersion);
-        Assert.Equal(9, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(10, repository.Current.SchemaVersion);
+        Assert.Equal(10, repository.Current.Statistics.SchemaVersion);
         Assert.Equal("generation-v03", repository.Current.GenerationId);
         Assert.Equal(73, repository.Current.Revision);
         Assert.Equal(2, repository.Current.InterruptedSessionCount);

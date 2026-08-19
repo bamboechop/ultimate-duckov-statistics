@@ -14,6 +14,8 @@ public sealed class RouteLifecycleTests
     private static readonly DateTime Now = new(2026, 8, 13, 10, 0, 0, DateTimeKind.Utc);
     private static readonly string[] TwoMapIds = ["duckov:map:A", "duckov:map:B"];
     private static readonly string[] ThreeMapIds = ["duckov:map:A", "duckov:map:B", "duckov:map:C"];
+    private static readonly string[] FourSegmentRepeatedMapIds =
+        ["duckov:map:A", "duckov:map:B", "duckov:map:A", "duckov:map:C"];
 
     [Fact]
     [Trait("Category", "M8")]
@@ -453,23 +455,262 @@ public sealed class RouteLifecycleTests
         Assert.Equal(AdapterCapabilityState.Supported, summary.LifecycleCapability);
     }
 
-    [Fact]
-    [Trait("Category", "M8")]
-    public void DefensiveAssociationBoundDisablesOnlyAttributionAndKeepsOverallTotals()
+    [Theory]
+    [Trait("Category", "M10")]
+    [InlineData(2048)]
+    [InlineData(2049)]
+    public void ExactAggregateAssociationHasNoEventCountCeiling(int eventCount)
     {
         var tracker = Start("A");
-        for (var index = 0; index <= RouteStatisticsReducer.MaximumEventAssociationsPerRun; index++)
+        for (var index = 0; index < eventCount; index++)
         {
             Assert.True(tracker.RecordItemUse(Item($"bounded-{index}", tracker, "A")));
         }
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 3)).Completed!;
 
-        Assert.Equal(RouteStatisticsReducer.MaximumEventAssociationsPerRun + 1, summary.ItemStatistics.Overall.ActivationCount);
-        Assert.Equal(RouteStatisticsReducer.MaximumEventAssociationsPerRun + 1, summary.Segments[0].ItemStatistics.Overall.ActivationCount);
-        Assert.Equal(RouteStatisticsReducer.MaximumEventAssociationsPerRun, summary.SegmentEventAssociations.Count);
+        Assert.Equal(eventCount, summary.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(eventCount, summary.Segments[0].ItemStatistics.Overall.ActivationCount);
+        var association = Assert.Single(summary.SegmentEventAssociations);
+        Assert.Equal(SegmentEventAssociationRepresentation.ExactAggregate, association.Representation);
+        Assert.Equal(eventCount, association.Count);
         Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.Segments.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, summary.RouteCapabilities.EventAttribution.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, summary.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.CurrentEventAttributionCapture.State);
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    public void OneHundredThousandMixedEventsRemainExactAcrossFourSegmentsAndRepeatedMaps()
+    {
+        const int eventCount = 100_000;
+        var tracker = Start("A");
+        for (var index = 0; index < eventCount; index++)
+        {
+            if (index == 25_000) Transition(tracker, 2, 3, "B");
+            if (index == 50_000) Transition(tracker, 4, 5, "A");
+            if (index == 75_000) Transition(tracker, 6, 7, "C");
+            var map = tracker.ActiveMapId!["duckov:map:".Length..];
+            var segment = tracker.ActiveSegmentId!;
+            var accepted = (index % 4) switch
+            {
+                0 => tracker.RecordItemUse(Item($"stress:item:{index}", tracker, map)),
+                1 => tracker.RecordShot(Shot($"stress:shot:{index}", tracker)),
+                2 => tracker.RecordCombat(Combat($"stress:combat:{index}", tracker, segment, map, segment, map)),
+                _ => tracker.RecordHealing(Healing($"stress:healing:{index}", tracker, segment, map, segment, map))
+            };
+            Assert.True(accepted);
+        }
+
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 9)).Completed!;
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
+        Assert.True(RunReducer.Apply(profile, run));
+
+        Assert.Equal(eventCount, run.SegmentEventAssociations.Sum(value => value.Count));
+        Assert.Equal(16, run.SegmentEventAssociations.Count);
+        Assert.All(run.SegmentEventAssociations, value =>
+            Assert.Equal(SegmentEventAssociationRepresentation.ExactAggregate, value.Representation));
+        Assert.Equal(4, run.Segments.Count);
+        Assert.Equal(FourSegmentRepeatedMapIds,
+            run.Segments.Select(value => value.MapId));
+        Assert.Equal(25_000, run.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(6250, run.Segments[3].ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(25_000, run.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(225_000, run.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(175_000, run.ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Equal(12_500, profile.RunTotals.RouteMaps["duckov:map:A"].WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(6250, profile.RunTotals.RouteMaps["duckov:map:B"].WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(6250, profile.RunTotals.RouteMaps["duckov:map:C"].WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
+        Assert.False(run.HistoricalEventAttributionIncomplete);
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    public void SerializedCheckpointSizeIsBoundedByBreakdownCardinalityNotEventCount()
+    {
+        static ActiveRunCheckpoint CheckpointAfter(int eventCount)
+        {
+            var tracker = Start("A");
+            for (var index = 0; index < eventCount; index++)
+                Assert.True(tracker.RecordItemUse(Item($"size:{index:D8}", tracker, "A")));
+            return tracker.CreateCheckpoint(Now.AddSeconds(3), 3)!;
+        }
+
+        var tenThousand = CheckpointAfter(10_000);
+        var oneHundredThousand = CheckpointAfter(100_000);
+        Assert.Equal(10_000, Assert.Single(tenThousand.SegmentEventAssociations).Count);
+        Assert.Equal(100_000, Assert.Single(oneHundredThousand.SegmentEventAssociations).Count);
+        using var directory = new TemporaryDirectory();
+        var smallerPath = Path.Combine(directory.Path, "ten-thousand.json");
+        var largerPath = Path.Combine(directory.Path, "one-hundred-thousand.json");
+        var store = new AtomicJsonStore<ActiveRunCheckpoint>();
+        store.Save(smallerPath, tenThousand);
+        store.Save(largerPath, oneHundredThousand);
+
+        var smallerBytes = new FileInfo(smallerPath).Length;
+        var largerBytes = new FileInfo(largerPath).Length;
+        Assert.InRange(largerBytes - smallerBytes, 0, 256);
+        Assert.True(largerBytes < 200_000, $"Aggregate checkpoint unexpectedly grew to {largerBytes} bytes.");
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Performance")]
+    public void HighVolumeAssociationCallbacksUseOneDirtyStateAndTheCoalescedCheckpointCadence()
+    {
+        var tracker = Start("A");
+        for (var index = 0; index < 10_000; index++)
+            Assert.True(tracker.RecordItemUse(Item($"coalesced:{index}", tracker, "A")));
+
+        Assert.True(tracker.CombatCheckpointRequired);
+        var scheduler = new ActiveRunCheckpointScheduler(dirtyIntervalSeconds: 1, retryIntervalSeconds: 1);
+        Assert.True(scheduler.ShouldAttempt(
+            tracker.CombatCheckpointRequired,
+            periodicCheckpointDue: false,
+            monotonicSeconds: 10));
+        var capturedRevision = tracker.CheckpointMutationRevision;
+        var checkpoint = tracker.CreateCheckpoint(Now.AddSeconds(10), 10)!;
+        Assert.Equal(10_000, Assert.Single(checkpoint.SegmentEventAssociations).Count);
+        scheduler.RecordResult(succeeded: true, monotonicSeconds: 10);
+        tracker.MarkCheckpointSaved(10, capturedRevision);
+        Assert.False(tracker.CombatCheckpointRequired);
+
+        Assert.True(tracker.RecordItemUse(Item("coalesced:late", tracker, "A")));
+        Assert.True(tracker.CombatCheckpointRequired);
+        Assert.False(scheduler.ShouldAttempt(
+            tracker.CombatCheckpointRequired,
+            periodicCheckpointDue: false,
+            monotonicSeconds: 10.999));
+        Assert.True(scheduler.ShouldAttempt(
+            tracker.CombatCheckpointRequired,
+            periodicCheckpointDue: false,
+            monotonicSeconds: 11));
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Export")]
+    public void EveryLateAssociationFamilyReachesRunSegmentStartingMapRouteMapUiJsonAndCsv()
+    {
+        var tracker = Start("A");
+        for (var index = 0; index < 2050; index++)
+            Assert.True(tracker.RecordItemUse(Item($"prime:{index}", tracker, "A")));
+        var sourceSegment = tracker.ActiveSegmentId!;
+        Transition(tracker, 2, 4, "B");
+        var outcomeSegment = tracker.ActiveSegmentId!;
+        Assert.True(tracker.ObserveEquipment(Snapshot(), Now.AddSeconds(4), 4));
+        Assert.True(tracker.RecordShot(Shot("late:shot", tracker)));
+        Assert.True(tracker.RecordCombat(Combat("late:combat", tracker, sourceSegment, "A", outcomeSegment, "B")));
+        Assert.True(tracker.RecordContainer(Container("late:container", tracker, 8128)));
+        Assert.True(tracker.RecordItemUse(Item("late:item", tracker, "B")));
+        Assert.True(tracker.RecordHealing(Healing("late:healing", tracker, sourceSegment, "A", outcomeSegment, "B")));
+        var activeCheckpoint = tracker.CreateCheckpoint(Now.AddSeconds(7), 7)!;
+        Assert.Equal(2055, activeCheckpoint.SegmentEventAssociations.Sum(value => value.Count));
+        Assert.Equal(1, activeCheckpoint.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(9, activeCheckpoint.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(1, activeCheckpoint.ContainerState.Statistics.UniqueContainersLooted);
+        Assert.Equal(2051, activeCheckpoint.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(7, activeCheckpoint.ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Contains("loadout-a", activeCheckpoint.EquipmentStatistics.Loadouts.Keys);
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 8)).Completed!;
+        var profile = new ProfileDocument
+        {
+            GenerationId = "generation-1",
+            CreatedUtc = Now,
+            UpdatedUtc = Now,
+            Statistics = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now }
+        };
+        Assert.True(RunReducer.Apply(profile.Statistics, run));
+        var export = StatisticsExporter.Create(profile, Now.AddMinutes(1));
+
+        Assert.Equal(2055, run.SegmentEventAssociations.Sum(value => value.Count));
+        Assert.Contains(run.SegmentEventAssociations, value => value.EventKind == "shot" && value.Count == 1);
+        Assert.Contains(run.SegmentEventAssociations, value => value.EventKind == "combat"
+            && value.SourceSegmentId == sourceSegment && value.OutcomeSegmentId == outcomeSegment && value.Count == 1);
+        Assert.Contains(run.SegmentEventAssociations, value => value.EventKind == "container" && value.Count == 1);
+        Assert.Contains(run.SegmentEventAssociations, value => value.EventKind == "item-use"
+            && value.OutcomeSegmentId == outcomeSegment && value.Count == 1);
+        Assert.Contains(run.SegmentEventAssociations, value => value.EventKind == "healing"
+            && value.SourceSegmentId == sourceSegment && value.OutcomeSegmentId == outcomeSegment && value.Count == 1);
+        Assert.Equal(1, run.Segments[1].WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(9, run.Segments[1].CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(1, run.Segments[1].ContainerStatistics.UniqueContainersLooted);
+        Assert.Equal(1, run.Segments[1].ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(7, run.Segments[1].ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Contains("loadout-a", run.Segments[1].EquipmentStatistics.Loadouts.Keys);
+        Assert.Equal(2051, profile.Statistics.RunTotals.Maps["duckov:map:A"].ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(1, profile.Statistics.RunTotals.Maps["duckov:map:A"].WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(9, profile.Statistics.RunTotals.Maps["duckov:map:A"].CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(1, profile.Statistics.RunTotals.Maps["duckov:map:A"].ContainerStatistics.UniqueContainersLooted);
+        Assert.Equal(7, profile.Statistics.RunTotals.Maps["duckov:map:A"].ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Contains("loadout-a", profile.Statistics.RunTotals.Maps["duckov:map:A"].EquipmentStatistics.Loadouts.Keys);
+        Assert.Equal(1, profile.Statistics.RunTotals.RouteMaps["duckov:map:B"].WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(9, profile.Statistics.RunTotals.RouteMaps["duckov:map:B"].CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(1, profile.Statistics.RunTotals.RouteMaps["duckov:map:B"].ContainerStatistics.UniqueContainersLooted);
+        Assert.Equal(1, profile.Statistics.RunTotals.RouteMaps["duckov:map:B"].ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(7, profile.Statistics.RunTotals.RouteMaps["duckov:map:B"].ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Contains("loadout-a", profile.Statistics.RunTotals.RouteMaps["duckov:map:B"].EquipmentStatistics.Loadouts.Keys);
+        Assert.True(UiText.HasAvailableEventAttribution(run));
+        Assert.Contains("\"Representation\":1", export.Json);
+        Assert.Contains("\"EventKind\":\"shot\"", export.Json);
+        Assert.Contains("\"EventKind\":\"combat\"", export.Json);
+        Assert.Contains("\"EventKind\":\"container\"", export.Json);
+        Assert.Contains("\"EventKind\":\"item-use\"", export.Json);
+        Assert.Contains("\"EventKind\":\"healing\"", export.Json);
+        Assert.Contains(",2050,ExactAggregate,", export.SegmentEventsCsv);
+        Assert.Contains(",combat,", export.SegmentEventsCsv);
+        Assert.Contains(",healing,", export.SegmentEventsCsv);
+        Assert.Contains(",2055,6", export.RoutesCsv);
+        Assert.Contains(",Supported,false", export.SegmentsCsv);
+        Assert.Contains("loadout-a", export.EquipmentTotalsCsv);
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    public void DuplicateDeliveryDoesNotIncreaseExactAssociationCount()
+    {
+        var tracker = Start("A");
+        var value = Item("duplicate-m10", tracker, "A");
+        Assert.True(tracker.RecordItemUse(value));
+        Assert.False(tracker.RecordItemUse(value));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 3)).Completed!;
+
+        var association = Assert.Single(run.SegmentEventAssociations);
+        Assert.Equal(1, association.Count);
+        Assert.Equal(1, run.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(1, run.Segments[0].ItemStatistics.Overall.ActivationCount);
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    public void MissingHistoricalJoinKeepsLaterExactCaptureAndPublishesKnownPartialRouteMapTotals()
+    {
+        var tracker = Start("A");
+        var sourceSegment = tracker.ActiveSegmentId!;
+        Assert.True(tracker.RecordItemUse(Item("use-a", tracker, "A")));
+        tracker.Apply(Event(RunLifecycleEventKind.MapTransitionStarted, 2));
+        Assert.True(tracker.RecordHealing(Healing("unresolved-loading", tracker, sourceSegment, "A", string.Empty, "A")));
+        tracker.Apply(Event(RunLifecycleEventKind.DestinationControlReady, 4, map: Map("B")));
+        Assert.True(tracker.RecordItemUse(Item("captured-after-gap", tracker, "B")));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 6)).Completed!;
+        var profile = new ProfileStatistics { SaveGenerationId = "generation-1", CreatedUtc = Now, UpdatedUtc = Now };
+        Assert.True(RunReducer.Apply(profile, run));
+
+        Assert.True(run.HistoricalEventAttributionIncomplete);
+        Assert.NotEmpty(run.HistoricalEventAttributionProvenance);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.CurrentEventAttributionCapture.State);
+        var association = Assert.Single(run.SegmentEventAssociations, value =>
+            value.OutcomeSegmentId == run.Segments[1].SegmentId);
+        Assert.Equal("item-use", association.EventKind);
+        Assert.Equal(1, run.Segments[1].ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(1, profile.RunTotals.RouteMaps["duckov:map:B"].ItemStatistics.Overall.ActivationCount);
+        Assert.True(profile.RunTotals.RouteMaps["duckov:map:B"].HistoricalUnavailable);
+        Assert.True(UiText.HasKnownEventAttribution(run));
+        Assert.False(UiText.HasAvailableEventAttribution(run));
     }
 
     [Fact]
@@ -716,8 +957,10 @@ public sealed class RouteLifecycleTests
             Assert.Empty(segment.Economy.RecentEventIds);
         });
         var itemAssociation = Assert.Single(run.SegmentEventAssociations);
-        Assert.Equal("item-after-5000-economy-flows", itemAssociation.EventId);
+        Assert.Empty(itemAssociation.EventId);
         Assert.Equal("item-use", itemAssociation.EventKind);
+        Assert.Equal(SegmentEventAssociationRepresentation.ExactAggregate, itemAssociation.Representation);
+        Assert.Equal(1, itemAssociation.Count);
         Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
         Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.RouteAwareMapTotals.State);
         Assert.Equal(1, run.ItemStatistics.Overall.ActivationCount);
@@ -933,7 +1176,7 @@ public sealed class RouteLifecycleTests
 
         Assert.True(ProfileMigrator.Migrate(document));
         var run = Assert.Single(document.Statistics.Runs);
-        Assert.Equal(9, document.SchemaVersion);
+        Assert.Equal(10, document.SchemaVersion);
         Assert.Equal("duckov:map:A", run.StartingMapId);
         Assert.Equal(MapIdentity.UnknownId, run.EndingMapId);
         Assert.Empty(run.Segments);
@@ -986,6 +1229,73 @@ public sealed class RouteLifecycleTests
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.RouteAwareMapTotals.State);
         Assert.Equal("A → B", UiText.FormatRoute(run));
+        Assert.False(ProfileMigrator.Migrate(document));
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    public void UnsaturatedSchemaNineRawAssociationsMigrateWithoutLoss()
+    {
+        var run = Start("A").Apply(Event(RunLifecycleEventKind.Extracted, 5)).Completed!;
+        run.SchemaVersion = 9;
+        run.SegmentEventAssociations.Add(LegacyAssociation("legacy-one", run.Segments[0], Now.AddSeconds(1)));
+        run.RouteCapabilities.CurrentEventAttributionCapture = null!;
+        var document = Document(run);
+        document.SchemaVersion = 9;
+        document.Statistics.SchemaVersion = 9;
+
+        Assert.True(ProfileMigrator.Migrate(document));
+        Assert.Equal(10, document.SchemaVersion);
+        var association = Assert.Single(run.SegmentEventAssociations);
+        Assert.Equal("legacy-one", association.EventId);
+        Assert.Equal(SegmentEventAssociationRepresentation.LegacyRaw, association.Representation);
+        Assert.Equal(1, association.Count);
+        Assert.Equal(association.TimestampUtc, association.FirstTimestampUtc);
+        Assert.Equal(association.TimestampUtc, association.LastTimestampUtc);
+        Assert.False(run.HistoricalEventAttributionIncomplete);
+        Assert.Empty(run.HistoricalEventAttributionProvenance);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.CurrentEventAttributionCapture.State);
+        RunReducer.Validate(run);
+        Assert.False(ProfileMigrator.Migrate(document));
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Export")]
+    public void SaturatedSchemaNineHistoryKeepsExactRowsAndExplicitIncompleteProvenance()
+    {
+        var run = Start("A").Apply(Event(RunLifecycleEventKind.Extracted, 5)).Completed!;
+        run.SchemaVersion = 9;
+        for (var index = 0; index < RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun; index++)
+            run.SegmentEventAssociations.Add(LegacyAssociation($"legacy-{index}", run.Segments[0], Now.AddSeconds(1)));
+        RouteStatisticsReducer.DisableAttribution(run.RouteCapabilities, "The defensive 2048-event association bound was reached.");
+        run.RouteCapabilities.CurrentEventAttributionCapture = null!;
+        var document = Document(run);
+        document.SchemaVersion = 9;
+        document.Statistics.SchemaVersion = 9;
+
+        Assert.True(ProfileMigrator.Migrate(document));
+        Assert.Equal(RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun, run.SegmentEventAssociations.Count);
+        Assert.All(run.SegmentEventAssociations, association =>
+        {
+            Assert.Equal(SegmentEventAssociationRepresentation.LegacyRaw, association.Representation);
+            Assert.Equal(1, association.Count);
+        });
+        Assert.True(run.HistoricalEventAttributionIncomplete);
+        Assert.Contains("2,048", run.HistoricalEventAttributionProvenance, StringComparison.Ordinal);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.CurrentEventAttributionCapture.State);
+        RunReducer.Validate(run);
+
+        var export = StatisticsExporter.Create(document, Now.AddMinutes(1));
+        Assert.Contains("\"HistoricalEventAttributionIncomplete\":true", export.Json);
+        Assert.Contains("LegacyRaw", export.SegmentEventsCsv);
+        Assert.Contains(",true,Supported", export.SegmentEventsCsv);
+        Assert.Contains(",Supported,", export.RoutesCsv);
         Assert.False(ProfileMigrator.Migrate(document));
     }
 
@@ -1361,4 +1671,18 @@ public sealed class RouteLifecycleTests
         GameplayContext = GameplayContext.Raid,
         ContainerKey = key
     };
+
+    private static SegmentEventAssociation LegacyAssociation(
+        string eventId,
+        MapSegmentSummary segment,
+        DateTime timestampUtc) => new()
+        {
+            EventId = eventId,
+            EventKind = "item-use",
+            TimestampUtc = timestampUtc,
+            SourceSegmentId = segment.SegmentId,
+            SourceMapId = segment.MapId,
+            OutcomeSegmentId = segment.SegmentId,
+            OutcomeMapId = segment.MapId
+        };
 }

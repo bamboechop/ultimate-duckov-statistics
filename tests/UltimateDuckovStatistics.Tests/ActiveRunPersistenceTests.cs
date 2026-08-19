@@ -844,6 +844,9 @@ public sealed class ActiveRunPersistenceTests
                 EventId = "invalid-association",
                 EventKind = "combat",
                 TimestampUtc = TestTime.AddSeconds(7),
+                FirstTimestampUtc = TestTime.AddSeconds(7),
+                LastTimestampUtc = TestTime.AddSeconds(7),
+                Count = 1,
                 SourceSegmentId = checkpoint.Segments[0].SegmentId,
                 SourceMapId = "duckov:map:not-A"
             }));
@@ -860,6 +863,9 @@ public sealed class ActiveRunPersistenceTests
                 EventId = "one-sided-association",
                 EventKind = "combat",
                 TimestampUtc = TestTime.AddSeconds(7),
+                FirstTimestampUtc = TestTime.AddSeconds(7),
+                LastTimestampUtc = TestTime.AddSeconds(7),
+                Count = 1,
                 OutcomeSegmentId = checkpoint.Segments[0].SegmentId,
                 OutcomeMapId = checkpoint.Segments[0].MapId
             }));
@@ -892,6 +898,228 @@ public sealed class ActiveRunPersistenceTests
             checkpoint.Segments[0].ExitReason = MapSegmentExitReason.Transition;
             checkpoint.Segments[0].ExitedUtc = checkpoint.LastObservedUtc;
         });
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    public void CurrentSchemaInvalidAggregateAssociationLosesToValidBackup()
+    {
+        AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
+        {
+            var segment = checkpoint.Segments[0];
+            checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
+            {
+                EventKind = "item-use",
+                TimestampUtc = TestTime.AddSeconds(7),
+                FirstTimestampUtc = TestTime.AddSeconds(7),
+                LastTimestampUtc = TestTime.AddSeconds(7),
+                SourceSegmentId = segment.SegmentId,
+                SourceMapId = segment.MapId,
+                OutcomeSegmentId = segment.SegmentId,
+                OutcomeMapId = segment.MapId,
+                Representation = SegmentEventAssociationRepresentation.ExactAggregate,
+                Count = 0
+            });
+        });
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    public void ValidTemporaryAggregateCheckpointDefeatsInvalidAggregatePrimaryAndBackup()
+    {
+        static void AddInvalidAssociation(ActiveRunCheckpoint checkpoint)
+        {
+            var segment = checkpoint.Segments[0];
+            checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
+            {
+                EventKind = "item-use",
+                TimestampUtc = TestTime.AddSeconds(7),
+                FirstTimestampUtc = TestTime.AddSeconds(7),
+                LastTimestampUtc = TestTime.AddSeconds(7),
+                SourceSegmentId = segment.SegmentId,
+                SourceMapId = segment.MapId,
+                OutcomeSegmentId = segment.SegmentId,
+                OutcomeMapId = segment.MapId,
+                Representation = SegmentEventAssociationRepresentation.ExactAggregate,
+                Count = 0
+            });
+        }
+
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        repository.CloseClean();
+        var path = ActiveRunPath(directory.Path);
+        var store = new AtomicJsonStore<ActiveRunCheckpoint>();
+        var invalidBackup = RouteCheckpoint(generation, 5);
+        AddInvalidAssociation(invalidBackup);
+        var invalidPrimary = RouteCheckpoint(generation, 8);
+        AddInvalidAssociation(invalidPrimary);
+        var tracker = ActiveTracker(generation);
+        for (var index = 0; index < 2049; index++)
+            Assert.True(tracker.RecordItemUse(ConsumableEvents(tracker, generation, index + 1, 1).ItemUse));
+        var validTemporary = tracker.CreateCheckpoint(TestTime.AddSeconds(3000), 3000)!;
+        store.Save(path, invalidBackup);
+        store.Save(path, invalidPrimary);
+        store.Save(AtomicJsonPaths.GetTemporaryPath(path), validTemporary);
+
+        var diagnostics = new List<string>();
+        var recovery = new ProfileRepository(
+            directory.Path,
+            () => TestTime.AddMinutes(1),
+            () => Guid.NewGuid().ToString("N"),
+            diagnostics.Add);
+        var result = recovery.Open(Identity());
+        Assert.True(result.InterruptedRunRecovered);
+        Assert.Contains(diagnostics, message =>
+            message.Contains("invalid aggregate event association", StringComparison.Ordinal));
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(2049, Assert.Single(run.SegmentEventAssociations).Count);
+        Assert.Equal(2049, run.ItemStatistics.Overall.ActivationCount);
+        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(path)));
+        Assert.False(File.Exists(AtomicJsonPaths.GetTemporaryPath(path)));
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    public void SchemaNineSaturatedActiveCheckpointRecoversExactRowsWithIncompleteProvenance()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        repository.CloseClean();
+        var checkpoint = RouteCheckpoint(generation, 5);
+        checkpoint.SchemaVersion = 9;
+        checkpoint.RouteCapabilities.CurrentEventAttributionCapture = null!;
+        RouteStatisticsReducer.DisableAttribution(
+            checkpoint.RouteCapabilities,
+            "The defensive 2048-event association bound was reached.");
+        var segment = checkpoint.Segments[0];
+        for (var index = 0; index < RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun; index++)
+            checkpoint.SegmentEventAssociations.Add(LegacyRouteAssociation($"legacy-checkpoint-{index}", segment));
+        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun, run.SegmentEventAssociations.Count);
+        Assert.All(run.SegmentEventAssociations, association =>
+        {
+            Assert.Equal(SegmentEventAssociationRepresentation.LegacyRaw, association.Representation);
+            Assert.Equal(1, association.Count);
+        });
+        Assert.True(run.HistoricalEventAttributionIncomplete);
+        Assert.Contains("2,048", run.HistoricalEventAttributionProvenance, StringComparison.Ordinal);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.CurrentEventAttributionCapture.State);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M10")]
+    [Trait("Category", "Persistence")]
+    public void SchemaTenAggregateCheckpointSurvivesFailedWriteRetryAndDurableRestartExactlyOnce()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var tracker = ActiveTracker(generation);
+        for (var index = 0; index < 2049; index++)
+        {
+            var events = ConsumableEvents(tracker, generation, index + 1, 1);
+            Assert.True(tracker.RecordItemUse(events.ItemUse));
+        }
+        var segmentId = tracker.ActiveSegmentId!;
+        var mapId = tracker.ActiveMapId!;
+        Assert.True(tracker.RecordShot(new ShotRecorded
+        {
+            EventId = "restart:late-shot",
+            TimestampUtc = TestTime.AddSeconds(2500),
+            SaveGenerationId = generation,
+            RunId = tracker.ActiveRunId!,
+            MapId = mapId,
+            SegmentId = segmentId,
+            GameplayContext = GameplayContext.Raid,
+            WeaponId = "duckov:weapon:test",
+            WeaponDisplayName = "Test weapon",
+            AmmunitionId = "duckov:ammo:test",
+            AmmunitionDisplayName = "Test ammunition",
+            FiringActionCount = 1,
+            AmmunitionUnitsConsumed = 1,
+            ProjectileCount = 1,
+            Capabilities = SupportedCapabilities()
+        }));
+        var combat = CombatEvent(generation, "restart:late-combat", "target:late", "Late target");
+        combat.RunId = tracker.ActiveRunId!;
+        combat.MapId = mapId;
+        combat.SourceSegmentId = segmentId;
+        combat.SourceMapId = mapId;
+        combat.OutcomeSegmentId = segmentId;
+        combat.OutcomeMapId = mapId;
+        combat.ActualDamageToTarget = 9;
+        combat.ActualDamageDealt = 9;
+        combat.CompletedPlayerProjectiles = 1;
+        combat.RangedHits = 1;
+        Assert.True(tracker.RecordCombat(combat));
+        Assert.True(tracker.RecordContainer(new ContainerLooted
+        {
+            EventId = "restart:late-container",
+            TimestampUtc = TestTime.AddSeconds(2502),
+            SaveGenerationId = generation,
+            RunId = tracker.ActiveRunId!,
+            MapId = mapId,
+            SegmentId = segmentId,
+            GameplayContext = GameplayContext.Raid,
+            ContainerKey = 90210
+        }));
+        var lateHealing = ConsumableEvents(tracker, generation, 3001, 7).Healing;
+        Assert.True(tracker.RecordHealing(lateHealing));
+        var checkpoint = tracker.CreateCheckpoint(TestTime.AddSeconds(3000), 3000)!;
+        var checkpointPath = ActiveRunPath(directory.Path);
+        var blockedTemporaryPath = AtomicJsonPaths.GetTemporaryPath(checkpointPath);
+        Directory.CreateDirectory(blockedTemporaryPath);
+        Assert.ThrowsAny<Exception>(() => repository.SaveActiveRun(checkpoint));
+        Directory.Delete(blockedTemporaryPath);
+        repository.SaveActiveRun(checkpoint);
+        repository.CloseClean();
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        var association = Assert.Single(run.SegmentEventAssociations, value => value.EventKind == "item-use");
+        Assert.Equal(SegmentEventAssociationRepresentation.ExactAggregate, association.Representation);
+        Assert.Equal(2049, association.Count);
+        Assert.Equal(2053, run.SegmentEventAssociations.Sum(value => value.Count));
+        Assert.Equal(5, run.SegmentEventAssociations.Count);
+        Assert.Equal(2049, run.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(7, run.ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Equal(1, run.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(9, run.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(1, run.ContainerStatistics.UniqueContainersLooted);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
+        recovery.CloseClean();
+
+        var repeated = Repository(directory.Path);
+        Assert.False(repeated.Open(Identity()).InterruptedRunRecovered);
+        var retained = Assert.Single(repeated.Current.Statistics.Runs);
+        Assert.Equal(2049, Assert.Single(
+            retained.SegmentEventAssociations,
+            value => value.EventKind == "item-use").Count);
+        Assert.Equal(2053, retained.SegmentEventAssociations.Sum(value => value.Count));
+        Assert.Equal(2049, repeated.Current.Statistics.RunTotals.ItemStatistics.Overall.ActivationCount);
+        Assert.Equal(7, repeated.Current.Statistics.RunTotals.ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Equal(1, repeated.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
+        Assert.Equal(9, repeated.Current.Statistics.RunTotals.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(1, repeated.Current.Statistics.RunTotals.ContainerStatistics.UniqueContainersLooted);
+        repeated.CloseClean();
     }
 
     [Fact]
@@ -1838,6 +2066,20 @@ public sealed class ActiveRunPersistenceTests
         });
         return tracker.CreateCheckpoint(TestTime.AddSeconds(activeSeconds), activeSeconds)!;
     }
+
+    private static SegmentEventAssociation LegacyRouteAssociation(string eventId, MapSegmentSummary segment) => new()
+    {
+        EventId = eventId,
+        EventKind = "item-use",
+        TimestampUtc = TestTime.AddSeconds(1),
+        FirstTimestampUtc = TestTime.AddSeconds(1),
+        LastTimestampUtc = TestTime.AddSeconds(1),
+        Count = 1,
+        SourceSegmentId = segment.SegmentId,
+        SourceMapId = segment.MapId,
+        OutcomeSegmentId = segment.SegmentId,
+        OutcomeMapId = segment.MapId
+    };
 
     private static RunLifecycleTracker ActiveTracker(string generation)
     {

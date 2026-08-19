@@ -131,7 +131,7 @@ public sealed class RunLifecycleTracker
         RunId = active.RunId,
         MapId = active.CurrentMap.MapId,
         SegmentId = active.CurrentSegment?.SegmentId ?? string.Empty,
-        RouteSupported = active.AttributionSupported && active.CurrentSegment != null
+        RouteSupported = active.CurrentEventCaptureSupported && active.CurrentSegment != null
     };
 
     public bool CombatCheckpointRequired => active != null && combatCheckpointRequired;
@@ -333,7 +333,7 @@ public sealed class RunLifecycleTracker
         {
             WeaponStatisticsReducer.Apply(active.WeaponStatistics, shot);
             EquipmentStatisticsReducer.RecordShot(active.EquipmentStatistics, shot);
-            if (active.AttributionSupported && active.CurrentSegment != null)
+            if (active.CurrentEventCaptureSupported && active.CurrentSegment != null)
             {
                 WeaponStatisticsReducer.Apply(active.CurrentSegment.WeaponStatistics, shot);
                 EquipmentStatisticsReducer.RecordShot(active.CurrentSegment.EquipmentStatistics, shot);
@@ -385,13 +385,13 @@ public sealed class RunLifecycleTracker
                 CombatStatisticsReducer.Apply(segment.CombatStatistics, value);
                 EquipmentStatisticsReducer.RecordCombat(segment.EquipmentStatistics, value);
             }
-            else if (active.AttributionSupported)
+            else if (active.CurrentEventCaptureSupported)
             {
-                RouteStatisticsReducer.DisableAttribution(
-                    active.RouteCapabilities,
+                MarkHistoricalEventAttributionIncomplete(
+                    active,
                     "A combat outcome occurred without a proven active destination segment; overall combat remains available.");
             }
-            if (active.AttributionSupported)
+            if (active.CurrentEventCaptureSupported)
             {
                 RecordAssociation(
                     value.EventId,
@@ -440,7 +440,7 @@ public sealed class RunLifecycleTracker
         if (accepted)
         {
             active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(active.Context.IntegrityTags, value.IntegrityTags);
-            if (active.AttributionSupported && active.CurrentSegment != null)
+            if (active.CurrentEventCaptureSupported && active.CurrentSegment != null)
             {
                 active.CurrentSegment.ContainerStatistics.UniqueContainersLooted = SaturatingAdd(
                     active.CurrentSegment.ContainerStatistics.UniqueContainersLooted,
@@ -476,7 +476,7 @@ public sealed class RunLifecycleTracker
     {
         if (active == null || snapshot == null) return false;
         var changed = EquipmentStatisticsReducer.Observe(active.EquipmentStatistics, snapshot, active.ActiveDurationSeconds);
-        if (active.AttributionSupported && active.CurrentSegment != null)
+        if (active.CurrentEventCaptureSupported && active.CurrentSegment != null)
         {
             changed |= EquipmentStatisticsReducer.Observe(
                 active.CurrentSegment.EquipmentStatistics,
@@ -522,7 +522,7 @@ public sealed class RunLifecycleTracker
             || !MatchesCurrentContext(value.SaveGenerationId, value.RunId, value.MapId, value.SegmentId))
             return false;
         var changed = ItemStatisticsAggregateReducer.Record(active.ItemStatistics, active.Context.SaveGenerationId, value);
-        if (changed && active.AttributionSupported && active.CurrentSegment != null)
+        if (changed && active.CurrentEventCaptureSupported && active.CurrentSegment != null)
         {
             ItemStatisticsAggregateReducer.Record(active.CurrentSegment.ItemStatistics, active.Context.SaveGenerationId, value);
             RecordAssociation(value.EventId, "item-use", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
@@ -630,13 +630,13 @@ public sealed class RunLifecycleTracker
         {
             ItemStatisticsAggregateReducer.RecordOutcomeHealing(active.CurrentSegment!.ItemStatistics, active.Context.SaveGenerationId, value);
         }
-        else if (changed && active.AttributionSupported)
+        else if (changed && active.CurrentEventCaptureSupported)
         {
-            RouteStatisticsReducer.DisableAttribution(
-                active.RouteCapabilities,
+            MarkHistoricalEventAttributionIncomplete(
+                active,
                 "A healing outcome occurred without a proven active destination segment; overall healing remains available.");
         }
-        if (changed && active.AttributionSupported)
+        if (changed && active.CurrentEventCaptureSupported)
             RecordAssociation(
                 value.EventId,
                 "healing",
@@ -697,7 +697,9 @@ public sealed class RunLifecycleTracker
             TransitionPending = active.TransitionPending,
             CurrentSegmentId = active.CurrentSegment?.SegmentId,
             MovementBaseline = movement.CaptureBaseline(),
-            Economy = EconomyStatisticsReducer.Clone(active.Economy)
+            Economy = EconomyStatisticsReducer.Clone(active.Economy),
+            HistoricalEventAttributionIncomplete = active.HistoricalEventAttributionIncomplete,
+            HistoricalEventAttributionProvenance = active.HistoricalEventAttributionProvenance
         };
     }
 
@@ -942,7 +944,9 @@ public sealed class RunLifecycleTracker
             RouteWasRepairedFromInvalidState = false,
             SegmentEventAssociations = state.EventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
             ItemStatistics = ItemStatisticsAggregateReducer.Clone(state.ItemStatistics),
-            Economy = EconomyStatisticsReducer.Clone(state.Economy)
+            Economy = EconomyStatisticsReducer.Clone(state.Economy),
+            HistoricalEventAttributionIncomplete = state.HistoricalEventAttributionIncomplete,
+            HistoricalEventAttributionProvenance = state.HistoricalEventAttributionProvenance
         };
 
         active = null;
@@ -1026,7 +1030,7 @@ public sealed class RunLifecycleTracker
             || !MatchesRunContext(saveGenerationId, runId)
             || !string.Equals(active.CurrentMap.MapId, mapId, StringComparison.Ordinal))
             return false;
-        if (!active.AttributionSupported) return true;
+        if (!active.CurrentEventCaptureSupported) return true;
         return active.CurrentSegment != null
                && !string.IsNullOrWhiteSpace(segmentId)
                && string.Equals(active.CurrentSegment.SegmentId, segmentId, StringComparison.Ordinal);
@@ -1038,7 +1042,7 @@ public sealed class RunLifecycleTracker
         && string.Equals(active.RunId, runId, StringComparison.Ordinal);
 
     private bool MatchesCurrentAttribution(string? mapId, string? segmentId) =>
-        active?.AttributionSupported == true
+        active?.CurrentEventCaptureSupported == true
         && active.CurrentSegment != null
         && string.Equals(active.CurrentMap.MapId, mapId, StringComparison.Ordinal)
         && string.Equals(active.CurrentSegment.SegmentId, segmentId, StringComparison.Ordinal);
@@ -1052,38 +1056,65 @@ public sealed class RunLifecycleTracker
         string? outcomeSegmentId,
         string? outcomeMapId)
     {
-        if (active == null || !active.AttributionSupported) return;
-        var source = active.Segments.FirstOrDefault(segment =>
-            string.Equals(segment.SegmentId, sourceSegmentId, StringComparison.Ordinal));
-        var outcome = active.Segments.FirstOrDefault(segment =>
-            string.Equals(segment.SegmentId, outcomeSegmentId, StringComparison.Ordinal));
+        if (active == null || !active.CurrentEventCaptureSupported) return;
+        active.SegmentsById.TryGetValue(sourceSegmentId ?? string.Empty, out var source);
+        active.SegmentsById.TryGetValue(outcomeSegmentId ?? string.Empty, out var outcome);
         if (source == null
             || outcome == null
             || !string.Equals(source.MapId, sourceMapId, StringComparison.Ordinal)
             || !string.Equals(outcome.MapId, outcomeMapId, StringComparison.Ordinal))
         {
-            RouteStatisticsReducer.DisableAttribution(
-                active.RouteCapabilities,
+            MarkHistoricalEventAttributionIncomplete(
+                active,
                 "An event association lacked a complete proven source/outcome segment join; overall statistics remain available.");
             return;
         }
-        if (active.EventAssociations.Count >= RouteStatisticsReducer.MaximumEventAssociationsPerRun)
+        var key = new EventAssociationKey(eventKind, source.SegmentId, outcome.SegmentId);
+        var eventTimestampUtc = EnsureUtc(timestampUtc);
+        if (active.EventAssociationsByKey.TryGetValue(key, out var aggregate))
         {
-            RouteStatisticsReducer.DisableAttribution(
-                active.RouteCapabilities,
-                $"The defensive {RouteStatisticsReducer.MaximumEventAssociationsPerRun}-event association bound was reached.");
+            if (aggregate.Count == long.MaxValue)
+            {
+                MarkHistoricalEventAttributionIncomplete(
+                    active,
+                    "An exact route event-association aggregate reached Int64.MaxValue; prior exact evidence was retained.");
+                active.RouteCapabilities.CurrentEventAttributionCapture = new MetricAvailability
+                {
+                    State = AdapterCapabilityState.DisabledIncompatible,
+                    Provenance = "Route event-association capture stopped before an unrepresentable count could be stored."
+                };
+                return;
+            }
+            aggregate.Count++;
+            if (eventTimestampUtc < aggregate.FirstTimestampUtc) aggregate.FirstTimestampUtc = eventTimestampUtc;
+            if (eventTimestampUtc > aggregate.LastTimestampUtc) aggregate.LastTimestampUtc = eventTimestampUtc;
+            aggregate.TimestampUtc = aggregate.LastTimestampUtc;
             return;
         }
-        active.EventAssociations.Add(new SegmentEventAssociation
+        var association = new SegmentEventAssociation
         {
-            EventId = eventId,
+            EventId = string.Empty,
             EventKind = eventKind,
-            TimestampUtc = EnsureUtc(timestampUtc),
-            SourceSegmentId = sourceSegmentId ?? string.Empty,
-            SourceMapId = sourceMapId ?? MapIdentity.UnknownId,
-            OutcomeSegmentId = outcomeSegmentId ?? string.Empty,
-            OutcomeMapId = outcomeMapId ?? MapIdentity.UnknownId
-        });
+            TimestampUtc = eventTimestampUtc,
+            SourceSegmentId = source.SegmentId,
+            SourceMapId = source.MapId,
+            OutcomeSegmentId = outcome.SegmentId,
+            OutcomeMapId = outcome.MapId,
+            Representation = SegmentEventAssociationRepresentation.ExactAggregate,
+            Count = 1,
+            FirstTimestampUtc = eventTimestampUtc,
+            LastTimestampUtc = eventTimestampUtc
+        };
+        active.EventAssociations.Add(association);
+        active.EventAssociationsByKey.Add(key, association);
+    }
+
+    private static void MarkHistoricalEventAttributionIncomplete(ActiveState state, string provenance)
+    {
+        state.HistoricalEventAttributionIncomplete = true;
+        if (string.IsNullOrWhiteSpace(state.HistoricalEventAttributionProvenance))
+            state.HistoricalEventAttributionProvenance = provenance;
+        RouteStatisticsReducer.MarkAttributionIncomplete(state.RouteCapabilities, provenance);
     }
 
     private static void CloseSegment(MapSegmentSummary segment, DateTime timestampUtc, MapSegmentExitReason reason)
@@ -1114,6 +1145,39 @@ public sealed class RunLifecycleTracker
     {
         Pause,
         Loading
+    }
+
+    private readonly struct EventAssociationKey : IEquatable<EventAssociationKey>
+    {
+        public EventAssociationKey(string eventKind, string sourceSegmentId, string outcomeSegmentId)
+        {
+            EventKind = eventKind;
+            SourceSegmentId = sourceSegmentId;
+            OutcomeSegmentId = outcomeSegmentId;
+        }
+
+        private string EventKind { get; }
+
+        private string SourceSegmentId { get; }
+
+        private string OutcomeSegmentId { get; }
+
+        public bool Equals(EventAssociationKey other) =>
+            string.Equals(EventKind, other.EventKind, StringComparison.Ordinal)
+            && string.Equals(SourceSegmentId, other.SourceSegmentId, StringComparison.Ordinal)
+            && string.Equals(OutcomeSegmentId, other.OutcomeSegmentId, StringComparison.Ordinal);
+
+        public override bool Equals(object? obj) => obj is EventAssociationKey other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = StringComparer.Ordinal.GetHashCode(EventKind);
+                hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(SourceSegmentId);
+                return (hash * 397) ^ StringComparer.Ordinal.GetHashCode(OutcomeSegmentId);
+            }
+        }
     }
 
     private sealed class ActiveState
@@ -1167,8 +1231,12 @@ public sealed class RunLifecycleTracker
             RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
             && RouteCapabilities.Segments.State == AdapterCapabilityState.Supported;
 
-        public bool AttributionSupported => RouteSupported
-            && RouteCapabilities.EventAttribution.State == AdapterCapabilityState.Supported;
+        public bool CurrentEventCaptureSupported => RouteSupported
+            && RouteCapabilities.CurrentEventAttributionCapture.State == AdapterCapabilityState.Supported;
+
+        public bool HistoricalEventAttributionIncomplete { get; set; }
+
+        public string HistoricalEventAttributionProvenance { get; set; } = string.Empty;
 
         public bool TransitionPending { get; set; }
 
@@ -1178,7 +1246,11 @@ public sealed class RunLifecycleTracker
 
         public List<MapSegmentSummary> Segments { get; } = new();
 
+        public Dictionary<string, MapSegmentSummary> SegmentsById { get; } = new(StringComparer.Ordinal);
+
         public List<SegmentEventAssociation> EventAssociations { get; } = new();
+
+        public Dictionary<EventAssociationKey, SegmentEventAssociation> EventAssociationsByKey { get; } = new();
 
         public ItemStatisticsAggregate ItemStatistics { get; } = new();
 
@@ -1218,6 +1290,7 @@ public sealed class RunLifecycleTracker
             segment.ContainerStatistics.Capabilities = ContainerStatisticsReducer.CloneCapabilities(Context.ContainerCapabilities);
             segment.Economy.Capabilities = EconomyStatisticsReducer.CloneCapabilities(Economy.Capabilities);
             Segments.Add(segment);
+            SegmentsById.Add(segment.SegmentId, segment);
             return segment;
         }
     }

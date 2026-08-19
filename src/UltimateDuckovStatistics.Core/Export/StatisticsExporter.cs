@@ -451,7 +451,7 @@ public static class StatisticsExporter
     private static string CreateRoutesCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("run_id,starting_map_id,starting_map_display_name,ending_map_id,ending_map_display_name,route_signature,segment_count,ordered_route_capability,ordered_route_provenance,segment_capability,segment_provenance,event_attribution_capability,event_attribution_provenance,route_map_totals_capability,route_map_totals_provenance,historical_route_unavailable,repaired_invalid_state");
+        builder.AppendLine("run_id,starting_map_id,starting_map_display_name,ending_map_id,ending_map_display_name,route_signature,segment_count,ordered_route_capability,ordered_route_provenance,segment_capability,segment_provenance,event_attribution_capability,event_attribution_provenance,route_map_totals_capability,route_map_totals_provenance,historical_route_unavailable,repaired_invalid_state,current_event_capture_capability,current_event_capture_provenance,historical_event_attribution_incomplete,historical_event_attribution_provenance,associated_event_count,association_row_count");
         foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
             builder.Append(Csv(run.RunId)).Append(',').Append(Csv(run.StartingMapId)).Append(',')
                 .Append(Csv(run.StartingMapDisplayName)).Append(',').Append(Csv(run.EndingMapId)).Append(',')
@@ -462,14 +462,22 @@ public static class StatisticsExporter
                 .Append(run.RouteCapabilities.EventAttribution.State).Append(',').Append(Csv(run.RouteCapabilities.EventAttribution.Provenance)).Append(',')
                 .Append(run.RouteCapabilities.RouteAwareMapTotals.State).Append(',').Append(Csv(run.RouteCapabilities.RouteAwareMapTotals.Provenance)).Append(',')
                 .Append(run.HistoricalRouteUnavailable ? "true" : "false").Append(',')
-                .Append(run.RouteWasRepairedFromInvalidState ? "true" : "false").AppendLine();
+                .Append(run.RouteWasRepairedFromInvalidState ? "true" : "false").Append(',')
+                .Append(run.RouteCapabilities.CurrentEventAttributionCapture.State).Append(',')
+                .Append(Csv(run.RouteCapabilities.CurrentEventAttributionCapture.Provenance)).Append(',')
+                .Append(run.HistoricalEventAttributionIncomplete ? "true" : "false").Append(',')
+                .Append(Csv(run.HistoricalEventAttributionProvenance)).Append(',')
+                .Append(run.SegmentEventAssociations
+                    .Aggregate(System.Numerics.BigInteger.Zero, (total, value) => total + value.Count)
+                    .ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(run.SegmentEventAssociations.Count.ToString(CultureInfo.InvariantCulture)).AppendLine();
         return builder.ToString();
     }
 
     private static string CreateSegmentsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("run_id,segment_id,segment_index,map_id,map_display_name,map_known,entered_utc,exited_utc,active_duration_seconds,physical_distance,teleport_distance,transition_excluded_distance,exit_reason,segment_capability,event_attribution_capability,item_activations,actual_health_restored,firing_actions,ammunition_units_consumed,projectiles,damage_dealt,damage_received,ranged_hits,melee_hits,enemies_killed,player_deaths,unique_containers_looted,integrity_tags,repaired_invalid_state");
+        builder.AppendLine("run_id,segment_id,segment_index,map_id,map_display_name,map_known,entered_utc,exited_utc,active_duration_seconds,physical_distance,teleport_distance,transition_excluded_distance,exit_reason,segment_capability,event_attribution_capability,item_activations,actual_health_restored,firing_actions,ammunition_units_consumed,projectiles,damage_dealt,damage_received,ranged_hits,melee_hits,enemies_killed,player_deaths,unique_containers_looted,integrity_tags,repaired_invalid_state,current_event_capture_capability,historical_event_attribution_incomplete");
         foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
             foreach (var segment in run.Segments.OrderBy(value => value.SegmentIndex))
                 builder.Append(Csv(run.RunId)).Append(',').Append(Csv(segment.SegmentId)).Append(',')
@@ -491,20 +499,27 @@ public static class StatisticsExporter
                     .Append(segment.CombatStatistics.Totals.RangedHits).Append(',').Append(segment.CombatStatistics.Totals.MeleeHits).Append(',')
                     .Append(segment.CombatStatistics.Totals.EnemiesKilled).Append(',').Append(segment.CombatStatistics.Totals.PlayerDeaths).Append(',')
                     .Append(segment.ContainerStatistics.UniqueContainersLooted).Append(',').Append(Csv(segment.IntegrityTags.ToString())).Append(',')
-                    .Append(segment.WasRepairedFromInvalidState ? "true" : "false").AppendLine();
+                    .Append(segment.WasRepairedFromInvalidState ? "true" : "false").Append(',')
+                    .Append(run.RouteCapabilities.CurrentEventAttributionCapture.State).Append(',')
+                    .Append(run.HistoricalEventAttributionIncomplete ? "true" : "false").AppendLine();
         return builder.ToString();
     }
 
     private static string CreateSegmentEventsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("run_id,event_id,event_kind,timestamp_utc,source_segment_id,source_map_id,outcome_segment_id,outcome_map_id");
+        builder.AppendLine("run_id,event_id,event_kind,timestamp_utc,source_segment_id,source_map_id,outcome_segment_id,outcome_map_id,association_count,representation,first_timestamp_utc,last_timestamp_utc,historical_event_attribution_incomplete,current_event_capture_capability");
         foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
             foreach (var value in run.SegmentEventAssociations.OrderBy(value => value.TimestampUtc).ThenBy(value => value.EventId, StringComparer.Ordinal))
                 builder.Append(Csv(run.RunId)).Append(',').Append(Csv(value.EventId)).Append(',').Append(Csv(value.EventKind)).Append(',')
                     .Append(Csv(value.TimestampUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',')
                     .Append(Csv(value.SourceSegmentId)).Append(',').Append(Csv(value.SourceMapId)).Append(',')
-                    .Append(Csv(value.OutcomeSegmentId)).Append(',').Append(Csv(value.OutcomeMapId)).AppendLine();
+                    .Append(Csv(value.OutcomeSegmentId)).Append(',').Append(Csv(value.OutcomeMapId)).Append(',')
+                    .Append(value.Count.ToString(CultureInfo.InvariantCulture)).Append(',').Append(value.Representation).Append(',')
+                    .Append(Csv(value.FirstTimestampUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',')
+                    .Append(Csv(value.LastTimestampUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',')
+                    .Append(run.HistoricalEventAttributionIncomplete ? "true" : "false").Append(',')
+                    .Append(run.RouteCapabilities.CurrentEventAttributionCapture.State).AppendLine();
         return builder.ToString();
     }
 
@@ -1254,7 +1269,9 @@ public static class StatisticsExporter
         RouteWasRepairedFromInvalidState = source.RouteWasRepairedFromInvalidState,
         SegmentEventAssociations = source.SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
         ItemStatistics = ItemStatisticsAggregateReducer.Clone(source.ItemStatistics),
-        Economy = EconomyStatisticsReducer.Clone(source.Economy)
+        Economy = EconomyStatisticsReducer.Clone(source.Economy),
+        HistoricalEventAttributionIncomplete = source.HistoricalEventAttributionIncomplete,
+        HistoricalEventAttributionProvenance = source.HistoricalEventAttributionProvenance
     };
 
     private static RouteAwareMapAggregate CloneRouteMap(RouteAwareMapAggregate source) => new()

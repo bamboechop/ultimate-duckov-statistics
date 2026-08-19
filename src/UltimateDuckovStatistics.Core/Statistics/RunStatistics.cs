@@ -267,9 +267,13 @@ public static class RunReducer
 
         var routeMapTotalsSupported = summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported
                                       && !summary.HistoricalRouteUnavailable;
+        var routeMapKnownPartialAvailable = summary.HistoricalEventAttributionIncomplete
+                                            && !summary.HistoricalRouteUnavailable
+                                            && summary.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported;
+        var routeMapTotalsAvailable = routeMapTotalsSupported || routeMapKnownPartialAvailable;
         var economyRouteAttributionSupported = summary.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported
                                                && !summary.Economy.HistoricalUnavailable;
-        if (routeMapTotalsSupported || economyRouteAttributionSupported)
+        if (routeMapTotalsAvailable || economyRouteAttributionSupported)
         {
             foreach (var segmentGroup in summary.Segments.GroupBy(segment => segment.MapId, StringComparer.Ordinal))
             {
@@ -285,12 +289,20 @@ public static class RunReducer
                     totals.RouteMaps[segmentGroup.Key] = routeMap;
                 }
                 var routeRunEquipment = new EquipmentStatisticsAggregate();
-                if (routeMapTotalsSupported) routeMap.RunsVisited = SaturatingAdd(routeMap.RunsVisited, 1);
+                if (routeMapTotalsAvailable)
+                {
+                    routeMap.RunsVisited = SaturatingAdd(routeMap.RunsVisited, 1);
+                    if (routeMapKnownPartialAvailable)
+                    {
+                        routeMap.HistoricalUnavailable = true;
+                        totals.RouteAwareHistoryUnavailable = true;
+                    }
+                }
                 foreach (var segment in segmentGroup)
                 {
                     routeMap.DisplayName = segment.MapDisplayName;
                     routeMap.IsKnown |= segment.MapKnown;
-                    if (routeMapTotalsSupported)
+                    if (routeMapTotalsAvailable)
                     {
                         routeMap.SegmentVisits = SaturatingAdd(routeMap.SegmentVisits, 1);
                         routeMap.ActiveDurationSeconds = RouteStatisticsReducer.SaturatingAdd(
@@ -310,7 +322,7 @@ public static class RunReducer
                     if (economyRouteAttributionSupported)
                         EconomyStatisticsReducer.Merge(routeMap.Economy, segment.Economy);
                 }
-                if (routeMapTotalsSupported)
+                if (routeMapTotalsAvailable)
                     EquipmentStatisticsReducer.Merge(
                         routeMap.EquipmentStatistics,
                         routeRunEquipment,
@@ -429,6 +441,12 @@ public static class RunReducer
                 throw new ArgumentException("Run starting map does not match its first retained segment.", nameof(summary));
         }
         RouteStatisticsReducer.ValidateAssociations(summary.Segments, summary.SegmentEventAssociations);
+        if (summary.HistoricalEventAttributionProvenance == null
+            || (summary.HistoricalEventAttributionIncomplete
+                && string.IsNullOrWhiteSpace(summary.HistoricalEventAttributionProvenance))
+            || (summary.HistoricalEventAttributionIncomplete
+                && summary.RouteCapabilities.EventAttribution.State == AdapterCapabilityState.Supported))
+            throw new ArgumentException("Run historical event-attribution state is inconsistent.", nameof(summary));
 
         ValidateRunEconomyComposition(summary);
 

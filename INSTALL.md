@@ -1,6 +1,10 @@
 # Installation and compatibility
 
-## Supported baseline for v0.9.0
+## Pre-1.0 development-build boundary
+
+All UDS `0.x` packages are development artifacts made available through GitHub for voluntary manual testing. GitHub downloads are not an officially supported installation channel, and continuity of UDS-owned profiles between `0.x` versions is best effort rather than a supported upgrade guarantee. Existing migration paths may preserve development data and are tested as internal hardening, but testers must not rely on them as a compatibility promise. The first version explicitly distributed through a supported channel will declare the starting baseline for supported upgrades and migrations.
+
+## Tested game baseline for v0.10.0
 
 - Escape From Duckov `2.3.30`
 - Steam build `24013657`
@@ -12,7 +16,7 @@ The UDS package must not contain Duckov assemblies or `0Harmony.dll`. HarmonyLib
 
 ## Required HarmonyLib Workshop item
 
-Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.9.0 requires HarmonyLib for M2 healing attribution, the minimal M5 combat scopes, and M7's separate corpse-provenance owner. M8 route boundaries and M9 economy tracking use public native hooks and add no Harmony owner. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven independent statistics continue.
+Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.10.0 requires HarmonyLib for M2 healing attribution, the minimal M5 combat scopes, and M7's separate corpse-provenance owner. M8 route boundaries, M9 economy tracking, and M10 association reduction add no Harmony owner. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven independent statistics continue.
 
 After every cold launch and before selecting a save:
 
@@ -54,19 +58,20 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 - M7 records unique non-corpse containers whose loot access successfully begins for the exact main duck during an active raid. Reopening within one run is deduplicated by native `GetKey()`; the scope resets for the next run.
 - M8.1 retains event-time equipment/combat attribution while reading associations from native-event-refreshed immutable snapshots, republishes an unchanged loadout once after every run-segment change, reconciles projectile context once per frame while still checking the exact run identity at capture and outcome time, checks Harmony integrity through allocation-free shared-state identity stamps after full activation validation, and performs durable active-run checkpoint plus lifetime item/healing profile storage as single-flight background writes. Same-frame item/healing mutations coalesce into one immutable profile snapshot only after the active-run checkpoint containing the same accepted mutations is durable; boundary, completion, export, and shutdown paths flush that checkpoint barrier and then wait for pending profile persistence before continuing.
 - M9 records Money and physical Cash separately as gross inflow, gross outflow, and derived net flow, with independent source/context capability states. Exact amounts remain visible as `UnknownAdjustment` when a semantic reason is not proven. Full-scene inventory hydration and carried-in Cash establish a non-economic baseline only after level initialization completes; internally rearranged Cash is likewise excluded. Raid Cash acquisition remains separate, while terminal secured/lost attribution is unavailable and acquired amounts become unresolved.
+- M10 keeps exact run/segment/start-map/route-map attribution beyond 2,048 events. New route evidence is stored as exact family plus source/outcome-segment aggregate counts; legacy schema-9 raw rows remain visible and finite.
 - Exports contain `statistics.json` plus twenty-three CSVs. M9 adds `economy_totals.csv`, `economy_sources.csv`, `economy_contexts.csv`, and `cash_raid_outcomes.csv`. `map_totals.csv` remains starting-map complete-run history; route-map totals are separate.
 
-## Known v0.9.0 limitations
+## Known v0.10.0 limitations
 
 - Statistics begin at installation; no history is reconstructed.
 - Pre-M8 ending maps, ordered routes, segments, transition displacement, and route-aware per-map attribution are unavailable rather than reconstructed as fake one-segment routes.
 - Only successful main-duck item uses in raids count.
-- Healing totals start with v0.2.0; run/movement with v0.3.0; weapon identity/firing actions with v0.4.0; M5 combat with v0.5.0; equipment/totem data with v0.6.0; container data with v0.7.0; route attribution with v0.8.0; and economy with v0.9.0. Schema-9 migration preserves M1-M8.1 and marks pre-M9 economy history unavailable rather than zero.
+- Healing totals start with v0.2.0; run/movement with v0.3.0; weapon identity/firing actions with v0.4.0; M5 combat with v0.5.0; equipment/totem data with v0.6.0; container data with v0.7.0; route attribution with v0.8.0; economy with v0.9.0; and lossless high-volume route association with v0.10.0. Schema-10 migration preserves unsaturated schema-9 raw route evidence exactly, marks irreconstructibly saturated route history incomplete, and retains pre-M9 economy unavailability rather than inventing zero.
 - Purchases, fees, crafting, conversion, and other wallet changes are `UnknownAdjustment` unless the same completed native path proves the exact semantic source and the exact balance delta. M9 does not estimate item value, profit, net worth, barter value, or historical economy.
 - Physical-Cash external acquisition is `Experimental`: only the successful exact-main-character world-pickup callback plus a matching positive owned-total delta proves it. The tested corpse/container loot path does not emit that callback, so its exact delta remains `UnknownAdjustment` and acquired stays unchanged. Cash secured/lost terminal attribution is `DisabledIncompatible` because public evidence cannot prove individual acquired units after fungible main/pet/storage mixing; any proven acquired totals remain and terminal disposition is `Unresolved`.
 - Economy transaction identity bookkeeping is constant-size: directly recording aggregates persist one activation ID and closed-through sequence, with a newly registered activation valid at sequence zero before its first positive-sequence event, while completed-run fan-out is guarded by run identity and exact totals. Economy capture has no fixed transaction-count stop and continues beyond 2,048 Money or Cash flows. Legacy schema-9 `RecentEventIds` and `DeduplicationSaturated` are recovery-only fields; after all surviving checkpoint candidates are consumed, deleted, or archived, they compact into `LegacyIdentitySaturationIncomplete` when an earlier candidate may already have stopped capture. JSON exposes the replay cursor and legacy marker; economy CSVs expose `legacy_identity_saturation_incomplete`.
 - If the next exact flow would exceed the signed 64-bit aggregate range, UDS retains the prior exact total, exposes currency-specific arithmetic saturation in JSON/CSV/UI diagnostics, and disables only that currency for the affected aggregate. It does not wrap or store a clamped event as exact.
-- A route stores at most 64 visits and 2,048 event associations. Reaching a bound disables route-dependent attribution without evicting or merging earlier evidence; overall proven M1-M7 totals continue.
+- A route retains at most 64 visits. Schema-10 association state is bounded by the five accepted event families and source/outcome segment cardinality, not by event count. If an exact aggregate count would exceed signed 64-bit range, the prior exact evidence is retained and current route-event capture degrades explicitly instead of wrapping.
 - If a delayed healing or combat outcome occurs while loading and no destination segment is yet proven, the overall result remains counted but event attribution and route-aware map totals become unavailable for that run rather than guessing a map.
 - “Container looted” means the loot interface began successfully, not that any item was transferred. Counts and values of removed items are outside M7.
 - Stable identity is the verified native position-derived `InteractableLootbox.GetKey()` integer. A missing, changed, or throwing identity contract disables container statistics rather than falling back to Unity runtime object IDs.

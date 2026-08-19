@@ -32,6 +32,8 @@ internal static class UiText
             ["ui.teleport_distance"] = "Teleport distance",
             ["ui.route_movement"] = "Teleport / transition-excluded",
             ["ui.segment_event_unavailable"] = "Segment M1-M7 attribution unavailable",
+            ["ui.segment_event_partial"] = "Earlier segment attribution is incomplete; shown values are exact known events",
+            ["ui.segment_event_capture_supported"] = "Schema-10 current capture remains supported",
             ["ui.firing_actions"] = "Firing actions",
             ["ui.containers_looted"] = "Unique containers opened",
             ["ui.container_history_unavailable"] = "earlier history unavailable",
@@ -191,5 +193,12 @@ internal static class UiText
         if (run == null) throw new ArgumentNullException(nameof(run));
         return HasAvailableSegments(run)
                && run.RouteCapabilities.EventAttribution.State == AdapterCapabilityState.Supported;
+    }
+
+    public static bool HasKnownEventAttribution(RunSummary run)
+    {
+        if (run == null) throw new ArgumentNullException(nameof(run));
+        return HasAvailableEventAttribution(run)
+               || (HasAvailableSegments(run) && run.HistoricalEventAttributionIncomplete);
     }
 }
