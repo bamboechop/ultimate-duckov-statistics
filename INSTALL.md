@@ -1,6 +1,10 @@
 # Installation and compatibility
 
-## Supported baseline for v0.10.0
+## Pre-1.0 development-build boundary
+
+All UDS `0.x` packages are development artifacts made available through GitHub for voluntary manual testing. GitHub downloads are not an officially supported installation channel, and continuity of UDS-owned profiles between `0.x` versions is best effort rather than a supported upgrade guarantee. Existing migration paths may preserve development data and are tested as internal hardening, but testers must not rely on them as a compatibility promise. The first version explicitly distributed through a supported channel will declare the starting baseline for supported upgrades and migrations.
+
+## Tested game baseline for v0.10.0
 
 - Escape From Duckov `2.3.30`
 - Steam build `24013657`

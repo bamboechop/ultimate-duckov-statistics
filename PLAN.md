@@ -38,6 +38,9 @@ A version change triggers compatibility checks, not an automatic global shutdown
 ### Release policy
 
 - The repository is public from the beginning.
+- Every `0.x` build and GitHub pre-release is a development artifact for voluntary testing, not an officially distributed build and not part of a supported installation channel. Manual GitHub downloads do not establish an end-user support obligation.
+- Compatibility and persisted-profile migration between `0.x` versions are best-effort development continuity, not supported upgrade guarantees. Existing pre-1.0 migration implementations and exact-migration acceptance tests remain valuable internal hardening, but their presence does not turn a `0.x` carry-forward path into a release blocker.
+- Supported upgrade and migration guarantees begin with the first version explicitly declared as officially distributed through a supported channel; that release will define its supported starting baseline. Until then, a finding reachable only by upgrading UDS-owned data from one `0.x` build to another is outside the supported release contract.
 - `v0.1.0` is a GitHub pre-release containing the consumable-usage MVP.
 - `v0.2.0` is a GitHub pre-release containing M2 healing attribution after its manual acceptance matrix passes.
 - `v0.3.0` is the published GitHub pre-release containing M3 run lifecycle, duration records, map aggregation, and movement.

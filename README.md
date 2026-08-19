@@ -10,6 +10,8 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 ## Status
 
+> **Pre-1.0 support boundary:** Every UDS `0.x` build and GitHub pre-release is a development artifact for voluntary testing, not an officially distributed build or supported installation channel. Persisted-profile migration between `0.x` versions is best-effort development continuity rather than a supported upgrade guarantee; existing migration code and tests remain internal robustness evidence. Supported upgrade guarantees begin with the first version explicitly declared as officially distributed through a supported channel.
+
 M0-M9 are published through the [v0.9.0 GitHub pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.9.0). M8.1 product commit `90384352d323e6ea19dfa607c7da18162dbcefcb` completed its performance, gameplay, package, projection, and shutdown gates and merged before M9; it was not released separately, so its accepted changes ship in v0.9.0. PR #10 merged as `ba2d01ca345f005de6bb88249592eb7f31c9254a`, and the final 665-test, compatibility, package/readback, Economy UI, 24-file JSON-plus-23-CSV export, and clean-shutdown gates passed.
 
 M10 delivery status is tracked in [GitHub pull requests](https://github.com/bamboechop/ultimate-duckov-statistics/pulls), which is authoritative for the live remote head, review state, and CI results; immutable acceptance evidence belongs in [TESTING.md](TESTING.md).

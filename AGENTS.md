@@ -1,5 +1,13 @@
 # Repository agent instructions
 
+## Pre-1.0 distribution and migration policy
+
+- Every UDS `0.x` build, tag, GitHub pre-release, and downloadable ZIP is a development artifact for voluntary testing. GitHub is not a supported installation channel for these builds.
+- Supported upgrade and persisted-profile migration guarantees begin only with the first version explicitly declared as officially distributed through a supported channel. No current `0.x` build establishes that baseline.
+- Existing pre-1.0 migration code, fixtures, and exact-migration tests are internal robustness work and best-effort development continuity. They do not create an end-user compatibility promise between `0.x` versions, even when a milestone document records an exact migration result.
+- During implementation or review, do not report a defect as actionable when its only reachable path is carrying UDS-owned persisted data from one `0.x` build into another. It becomes actionable if the same root cause also affects a clean/current installation, same-version current-schema operation or recovery, a future officially supported migration baseline, or data safety independently of the unsupported predecessor.
+- Do not remove existing pre-1.0 migration code or tests merely because that path is unsupported; retain useful hardening unless the user explicitly changes its scope.
+
 ## GitHub authentication on Windows
 
 - GitHub CLI authentication for this checkout is stored in the Windows credential manager. A `gh auth status` command executed inside the Codex sandbox can incorrectly report that the stored token is invalid because the sandbox cannot access the keyring.
