@@ -1,6 +1,14 @@
-# Ultimate Duckov Statistics v0.10.0 — published pre-release
+# Ultimate Duckov Statistics v0.11.0 — development candidate
 
-Support boundary: v0.10.0, like every UDS `0.x` build and GitHub pre-release, is a development artifact for voluntary testing rather than an officially distributed build. GitHub is not a supported installation channel, and migration of UDS-owned persisted data between `0.x` versions is best-effort development continuity rather than an end-user compatibility guarantee. The schema-9-to-10 implementation and tests below remain useful internal hardening; they do not make an issue reachable only through a `0.x` carry-forward a supported-release defect. Supported migration guarantees begin with the first version explicitly declared as officially distributed through a supported channel.
+Support boundary: v0.11.0, like every UDS `0.x` build and GitHub pre-release, is a development artifact for voluntary testing rather than an officially distributed build. GitHub is not a supported installation channel, and migration of UDS-owned persisted data between `0.x` versions is best-effort development continuity rather than an end-user compatibility guarantee. Schema-11 migration code and tests are internal hardening, not a supported end-user upgrade promise. Supported migration guarantees begin with the first version explicitly declared as officially distributed through a supported channel.
+
+M11 replaces the ambiguous primary enemy-kill total with **Kills by you**, which counts only fatal enemy transitions with proven player ownership. Deaths owned by a verified `Companion`, `Other NPC`, an explicitly actorless `Environmental` zone, or conflicting/missing `Unknown` evidence remain separately visible as **Observed world deaths**. Weapon and ammunition identity never prove actor ownership.
+
+The native adapter now retains credited, physical, and damage actors through direct projectiles, reflection, melee, explosion, buff, effect, and delayed damage-over-time paths. It recognizes the installed build's exact pet/master/leader relationships and controlling-character owner chain, refreshes mutable projectile actors at impact, and uses a dedicated `ZoneDamage.Damage` scope for the only proven actorless environmental path. Non-player world deaths do not receive player equipment-kill credit; headshot final blows require proven player ownership.
+
+Schema 11 migrates provable historical player and companion subsets from retained ownership evidence. Old rows that cannot be reclassified remain `LegacyUnclassifiedDeaths` with explicit historical provenance, including old equipment kill credit. UI, JSON, `runs.csv`, `run_totals.csv`, `map_totals.csv`, `route_map_totals.csv`, `segments.csv`, `combat_attribution.csv`, and `equipment_combat.csv` use the same unambiguous names and totals.
+
+## v0.10.0 published baseline
 
 M10 removes the 2,048-row loss boundary from shared firing, combat, item-use, healing, and container route attribution. New schema-10 evidence is reduced exactly into checked-count buckets keyed by event family plus source and outcome segment; repeated visits remain distinct because segment identity, not map name, is the key. Storage is bounded by legitimate route cardinality rather than completed event volume, while exact run, segment, starting-map, and route-map reducers continue to receive every accepted event.
 
@@ -14,7 +22,7 @@ PR #11 merged as `cbabd3eb7760178c939f5ebea50709c42f183cb6`, and GitHub pre-rele
 
 M9 adds exact, separately capability-gated Money and physical-Cash statistics without changing the accepted M1-M8.1 semantics. PR #10 merged as `ba2d01ca345f005de6bb88249592eb7f31c9254a`, and GitHub pre-release [`v0.9.0`](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.9.0) was published on 2026-08-18. The final Release suite passes 665/665 together with the installed-game compatibility contract, exact five-file package/readback, user-verified Economy UI, 24-file JSON-plus-23-CSV export, and residue-free clean shutdown. The published 265,633-byte ZIP is SHA-256 `1b126c9d999343e4cb0c5544cff051ff90f454ab72bd6b0b50a3f1d1c0877803`; its 102-byte checksum sidecar is SHA-256 `f89be2dec4e6893b094b4eb0a25d6ec235190563ec168969a4dcc210d1733f3a`.
 
-Post-M10 work is split into M11 combat ownership (`v0.11.0`), M12 world-time, sleep, and crafted-item statistics (`v0.12.0`), M13 the native UI overhaul (`v0.13.0`), and M14 feature-frozen `v1.0.0-rc.1` qualification. See [PLAN.md](PLAN.md); the remainder of this section preserves chronological evidence and is not current release status.
+After M11, planned work is split into M12 world-time, sleep, and crafted-item statistics (`v0.12.0`), M13 the native UI overhaul (`v0.13.0`), and M14 feature-frozen `v1.0.0-rc.1` qualification. See [PLAN.md](PLAN.md); the remainder of this section preserves chronological evidence and is not current release status.
 
 ## Included in v0.9.0
 

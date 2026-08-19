@@ -15,6 +15,7 @@ public static class CombatNativeContractPolicy
         MeleeCheck = true,
         EffectTrigger = true,
         EffectApplication = true,
+        EnvironmentalDamage = true,
         PublicMeleeSwing = true,
         PublicPlayerDeath = true
     });
@@ -35,9 +36,9 @@ public static class CombatNativeContractPolicy
             Accuracy = Availability(ranged, "Unique player projectiles causing positive enemy HP loss divided by completed player projectiles.", "Compatible accuracy requires Health.Hurt and Projectile.Init/Update/Release."),
             MeleeSwings = Availability(support.PublicMeleeSwing, "CharacterMainControl.attackAction.OnAttack proves an accepted main-duck melee attack action.", "The public melee action callback is unavailable."),
             MeleeHits = Availability(meleeHit, "One accepted melee damage scope causing positive enemy HP loss counts once.", "Melee hits require Health.Hurt and the melee collision scope."),
-            EnemiesKilled = Availability(support.HealthHurt, "The Health.Hurt transition from positive HP to dead proves the final blow.", "Enemy kills require exact Health.Hurt."),
+            EnemiesKilled = Unavailable("Schema-11 replaced the ambiguous enemies-killed metric."),
             PlayerDeaths = Availability(support.PublicPlayerDeath, "LevelManager.OnMainCharacterDead proves one main-duck death per run.", "The public main-character death callback is unavailable."),
-            Ownership = Availability(deathOrHealth, "Exact main character, built-in pet/master chain, null environmental source, otherwise unknown.", "Ownership requires Health.Hurt or the public player-death callback."),
+            Ownership = Availability(deathOrHealth, "Exact main character, credited/physical projectile actor, native pet/master/leader chain, proven actorless world scope, or explicit OtherNpc/Unknown.", "Ownership requires Health.Hurt or the public player-death callback."),
             EnemyIdentity = Availability(deathOrHealth, "CharacterRandomPreset.nameKey with stable preset/name fallback.", "Enemy/killer identity requires Health.Hurt or the public player-death callback."),
             EnemyFamily = Availability(support.HealthHurt, "Health.isZombie exposes the Zombie family; other families remain explicitly unknown.", "Enemy family requires exact Health.Hurt."),
             Cause = Availability(deathOrHealth, "Effect, explosion, real-damage, environmental, or direct context attached to proven health/death evidence.", "Damage cause requires Health.Hurt or the public player-death callback."),
@@ -45,7 +46,12 @@ public static class CombatNativeContractPolicy
             AmmunitionIdentity = Availability(projectileDamage || (support.PublicPlayerDeath && support.ProjectileInit && support.ProjectileUpdate), "ProjectileContext ammunition snapshot retained on damage, completion, and death outcomes.", "Ammunition identity requires Projectile.Init/Update plus proven health or death evidence."),
             DamageOverTime = Availability(effectDamage, "ItemStatsSystem TickTrigger/UpdateTrigger scope proves repeated effect damage; buff application preserves a proven originating equipment association.", "Damage over time requires an effect scope plus proven health or death evidence."),
             Headshots = Availability(projectileDamage, "InputManager.AimingEnemyHead sampled for an exact player projectile; DamageInfo.crit alone is never used.", "Headshots require Health.Hurt and Projectile.Init/Update."),
-            HeadshotFinalBlows = Availability(projectileDamage, "A proven head-targeted projectile that performs the fatal Health.Hurt transition.", "Headshot final blows require Health.Hurt and Projectile.Init/Update.")
+            HeadshotFinalBlows = Availability(projectileDamage, "A proven player-owned head-targeted projectile that performs the fatal Health.Hurt transition.", "Headshot final blows require Health.Hurt and Projectile.Init/Update."),
+            KillsByYou = Availability(support.HealthHurt, "Only a fatal enemy Health.Hurt transition with proven player ownership counts.", "Kills by you require exact Health.Hurt and proven player ownership."),
+            ObservedWorldDeaths = Availability(
+                support.HealthHurt,
+                "Every non-player or ambiguous fatal enemy transition remains separate from player kills; the exact ZoneDamage scope distinguishes proven actorless Environmental events from Unknown.",
+                "Observed-world deaths require exact Health.Hurt.")
         };
     }
 
@@ -67,7 +73,9 @@ public static class CombatNativeContractPolicy
         AmmunitionIdentity = Unavailable(detail),
         DamageOverTime = Unavailable(detail),
         Headshots = Unavailable(detail),
-        HeadshotFinalBlows = Unavailable(detail)
+        HeadshotFinalBlows = Unavailable(detail),
+        KillsByYou = Unavailable(detail),
+        ObservedWorldDeaths = Unavailable(detail)
     };
 
     public static IReadOnlyList<CapabilityRecord> ToRecords(
@@ -90,7 +98,9 @@ public static class CombatNativeContractPolicy
             Record(CombatCapabilityIds.AmmunitionIdentity, capabilities.AmmunitionIdentity, adapterVersion),
             Record(CombatCapabilityIds.DamageOverTime, capabilities.DamageOverTime, adapterVersion),
             Record(CombatCapabilityIds.Headshots, capabilities.Headshots, adapterVersion),
-            Record(CombatCapabilityIds.HeadshotFinalBlows, capabilities.HeadshotFinalBlows, adapterVersion)
+            Record(CombatCapabilityIds.HeadshotFinalBlows, capabilities.HeadshotFinalBlows, adapterVersion),
+            Record(CombatCapabilityIds.KillsByYou, capabilities.KillsByYou, adapterVersion),
+            Record(CombatCapabilityIds.ObservedWorldDeaths, capabilities.ObservedWorldDeaths, adapterVersion)
         };
 
     private static MetricAvailability Supported(string provenance) => new()
@@ -115,6 +125,7 @@ public sealed record class CombatHookSupport
     public bool MeleeCheck { get; set; }
     public bool EffectTrigger { get; set; }
     public bool EffectApplication { get; set; }
+    public bool EnvironmentalDamage { get; set; }
     public bool PublicMeleeSwing { get; set; }
     public bool PublicPlayerDeath { get; set; }
 }

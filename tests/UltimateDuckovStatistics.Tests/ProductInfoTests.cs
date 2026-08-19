@@ -5,9 +5,9 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class ProductInfoTests
 {
     [Fact]
-    public void VersionAndSchemaArePinnedForLosslessRouteAssociation()
+    public void VersionAndSchemaArePinnedForCombatOwnership()
     {
-        Assert.Equal("0.10.0", ProductInfo.Version);
-        Assert.Equal(10, ProductInfo.SchemaVersion);
+        Assert.Equal("0.11.0", ProductInfo.Version);
+        Assert.Equal(11, ProductInfo.SchemaVersion);
     }
 }

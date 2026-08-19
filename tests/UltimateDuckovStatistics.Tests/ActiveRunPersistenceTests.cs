@@ -1843,7 +1843,7 @@ public sealed class ActiveRunPersistenceTests
         {
             ActualDamageToTarget = 5,
             ActualDamageDealt = 5,
-            EnemiesKilled = 1,
+            KillsByYou = 1,
             HeadshotFinalBlows = 1,
             IsFinalBlow = true
         });
@@ -1857,12 +1857,62 @@ public sealed class ActiveRunPersistenceTests
         var run = Assert.Single(recovery.Current.Statistics.Runs);
         Assert.Equal(1, run.CombatStatistics.Totals.Headshots);
         Assert.Equal(1, run.CombatStatistics.Totals.HeadshotFinalBlows);
-        Assert.Equal(1, run.CombatStatistics.Totals.EnemiesKilled);
+        Assert.Equal(1, run.CombatStatistics.Totals.KillsByYou);
         Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:a"].Totals.Headshots);
         Assert.Equal(0, run.CombatStatistics.Enemies["duckov:target:a"].Totals.HeadshotFinalBlows);
         Assert.Equal(0, run.CombatStatistics.Enemies["duckov:target:b"].Totals.Headshots);
         Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:b"].Totals.HeadshotFinalBlows);
-        Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:b"].Totals.EnemiesKilled);
+        Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:b"].Totals.KillsByYou);
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Run")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M11")]
+    public void SchemaTenActiveRunRecoveryMigratesAmbiguousDeathsBeforeLifetimeAggregation()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var checkpoint = Checkpoint(repository.CurrentGenerationId, 5);
+        checkpoint.SchemaVersion = 10;
+        checkpoint.CombatStatistics = new CombatStatisticsAggregate
+        {
+            Totals = new CombatMetricTotals { EnemiesKilled = 2 }
+        };
+        checkpoint.CombatStatistics.Ownership["Player"] = new CombatBreakdownAggregate
+        {
+            Id = "Player",
+            DisplayName = "Player",
+            Totals = new CombatMetricTotals { EnemiesKilled = 1 }
+        };
+        checkpoint.CombatStatistics.Ownership["Environmental"] = new CombatBreakdownAggregate
+        {
+            Id = "Environmental",
+            DisplayName = "Environmental",
+            Totals = new CombatMetricTotals { EnemiesKilled = 1 }
+        };
+        checkpoint.EquipmentStatistics.CombatAssociations["legacy"] = new EquipmentCombatAssociationAggregate
+        {
+            LoadoutId = "legacy-loadout",
+            EnemiesKilled = 2
+        };
+        repository.SaveActiveRun(checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+
+        Assert.Equal(1, run.CombatStatistics.Totals.KillsByYou);
+        Assert.Equal(0, run.CombatStatistics.Totals.ObservedWorldDeaths);
+        Assert.Equal(1, run.CombatStatistics.Totals.LegacyUnclassifiedDeaths);
+        Assert.True(run.CombatStatistics.HistoricalOwnershipUnavailable);
+        Assert.Equal(2,
+            Assert.Single(run.EquipmentStatistics.CombatAssociations.Values).LegacyUnclassifiedDeathCredit);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.CombatStatistics.Totals.KillsByYou);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.CombatStatistics.Totals.LegacyUnclassifiedDeaths);
         recovery.CloseClean();
     }
 

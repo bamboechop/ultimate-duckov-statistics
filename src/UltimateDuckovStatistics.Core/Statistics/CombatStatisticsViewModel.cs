@@ -9,6 +9,7 @@ public sealed class CombatStatisticsViewModel
     public CombatMetricCapabilities Capabilities { get; set; } = new();
     public IReadOnlyList<CombatBreakdownAggregate> Enemies { get; set; } = Array.Empty<CombatBreakdownAggregate>();
     public IReadOnlyList<CombatBreakdownAggregate> Killers { get; set; } = Array.Empty<CombatBreakdownAggregate>();
+    public IReadOnlyList<CombatBreakdownAggregate> Ownership { get; set; } = Array.Empty<CombatBreakdownAggregate>();
     public IReadOnlyList<RunSummary> Runs { get; set; } = Array.Empty<RunSummary>();
     public double? Accuracy => Capabilities.Accuracy.State == AdapterCapabilityState.Supported
         && Lifetime.Totals.CompletedPlayerProjectiles > 0
@@ -31,6 +32,8 @@ public static class CombatStatisticsViewModelFactory
             Enemies = lifetime.Enemies.Values.OrderByDescending(x => x.Totals.DamageCaused)
                 .ThenBy(x => x.DisplayName, StringComparer.Ordinal).ToArray(),
             Killers = lifetime.Killers.Values.OrderByDescending(x => x.Totals.PlayerDeaths)
+                .ThenBy(x => x.DisplayName, StringComparer.Ordinal).ToArray(),
+            Ownership = lifetime.Ownership.Values.OrderByDescending(x => x.Totals.ObservedWorldDeaths)
                 .ThenBy(x => x.DisplayName, StringComparer.Ordinal).ToArray(),
             Runs = profile.Statistics.Runs.OrderByDescending(x => x.StartedUtc).ToArray()
         };
@@ -58,6 +61,8 @@ public static class CombatStatisticsViewModelFactory
         Set(values.DamageOverTime, CombatCapabilityIds.DamageOverTime, current);
         Set(values.Headshots, CombatCapabilityIds.Headshots, current);
         Set(values.HeadshotFinalBlows, CombatCapabilityIds.HeadshotFinalBlows, current);
+        Set(values.KillsByYou, CombatCapabilityIds.KillsByYou, current);
+        Set(values.ObservedWorldDeaths, CombatCapabilityIds.ObservedWorldDeaths, current);
 
         void Set(MetricAvailability value, string id, IReadOnlyList<CapabilityRecord> observed)
         {

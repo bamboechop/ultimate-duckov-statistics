@@ -22,6 +22,8 @@ public sealed class CombatMetricCapabilities
     [DataMember(Order = 15)] public MetricAvailability DamageOverTime { get; set; } = new();
     [DataMember(Order = 16)] public MetricAvailability Headshots { get; set; } = new();
     [DataMember(Order = 17)] public MetricAvailability HeadshotFinalBlows { get; set; } = new();
+    [DataMember(Order = 18)] public MetricAvailability KillsByYou { get; set; } = new();
+    [DataMember(Order = 19)] public MetricAvailability ObservedWorldDeaths { get; set; } = new();
 }
 
 [DataContract]
@@ -61,7 +63,9 @@ public sealed record class CombatRecorded
     [DataMember(Order = 32)] public long RangedHits { get; set; }
     [DataMember(Order = 33)] public long MeleeSwings { get; set; }
     [DataMember(Order = 34)] public long MeleeHits { get; set; }
-    [DataMember(Order = 35)] public long EnemiesKilled { get; set; }
+    // Schema 5-10 compatibility only. Schema 11 migrates this ambiguous total
+    // into proven player, observed-world, or explicitly legacy buckets.
+    [DataMember(Order = 35, EmitDefaultValue = false)] public long EnemiesKilled { get; set; }
     [DataMember(Order = 36)] public long PlayerDeaths { get; set; }
     [DataMember(Order = 37)] public long Headshots { get; set; }
     [DataMember(Order = 38)] public long HeadshotFinalBlows { get; set; }
@@ -74,4 +78,7 @@ public sealed record class CombatRecorded
     [DataMember(Order = 45, EmitDefaultValue = false)] public string? SourceMapId { get; set; }
     [DataMember(Order = 46, EmitDefaultValue = false)] public string? OutcomeSegmentId { get; set; }
     [DataMember(Order = 47, EmitDefaultValue = false)] public string? OutcomeMapId { get; set; }
+    [DataMember(Order = 48)] public long KillsByYou { get; set; }
+    [DataMember(Order = 49)] public long ObservedWorldDeaths { get; set; }
+    [DataMember(Order = 50)] public long LegacyUnclassifiedDeaths { get; set; }
 }

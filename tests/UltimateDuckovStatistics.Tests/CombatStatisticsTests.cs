@@ -30,11 +30,17 @@ public sealed class CombatStatisticsTests
         Assert.True(CombatObservationPolicy.CountHeadshot(
             headTargetedProjectile: true, nativeCritical: false, rangedHit: true, alreadyCounted: false));
         Assert.False(CombatObservationPolicy.CountHeadshotFinalBlow(
-            headTargetedProjectile: true, enemyTarget: true, fatalTransition: false, alreadyCounted: false));
+            headTargetedProjectile: true, exactPlayerOwnership: true,
+            enemyTarget: true, fatalTransition: false, alreadyCounted: false));
         Assert.True(CombatObservationPolicy.CountHeadshotFinalBlow(
-            headTargetedProjectile: true, enemyTarget: true, fatalTransition: true, alreadyCounted: false));
+            headTargetedProjectile: true, exactPlayerOwnership: true,
+            enemyTarget: true, fatalTransition: true, alreadyCounted: false));
         Assert.False(CombatObservationPolicy.CountHeadshotFinalBlow(
-            headTargetedProjectile: true, enemyTarget: true, fatalTransition: true, alreadyCounted: true));
+            headTargetedProjectile: true, exactPlayerOwnership: true,
+            enemyTarget: true, fatalTransition: true, alreadyCounted: true));
+        Assert.False(CombatObservationPolicy.CountHeadshotFinalBlow(
+            headTargetedProjectile: true, exactPlayerOwnership: false,
+            enemyTarget: true, fatalTransition: true, alreadyCounted: false));
     }
 
     [Fact]
@@ -54,6 +60,147 @@ public sealed class CombatStatisticsTests
         Assert.Equal("modded-bandit", CombatObservationPolicy.CreateStableIdentityToken("Modded Bandit"));
         Assert.Equal("utf8-2a2a2a", CombatObservationPolicy.CreateStableIdentityToken("***"));
         Assert.Equal("unknown", CombatObservationPolicy.CreateStableIdentityToken("  "));
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void ActorEvidenceSeparatesPlayerCompanionOtherNpcEnvironmentalAndUnknown()
+    {
+        var missing = CombatActorEvidence.Missing;
+        var player = new CombatActorEvidence(CombatActorEvidenceKind.Player, 1);
+        var companion = new CombatActorEvidence(CombatActorEvidenceKind.Companion, 2);
+        var npc = new CombatActorEvidence(CombatActorEvidenceKind.OtherNpc, 3);
+
+        Assert.Equal(CombatOwnership.Player,
+            CombatObservationPolicy.ResolveOwnership(player, player, player, false, false));
+        Assert.Equal(CombatOwnership.PetCompanion,
+            CombatObservationPolicy.ResolveOwnership(companion, companion, companion, false, false));
+        Assert.Equal(CombatOwnership.OtherNpc,
+            CombatObservationPolicy.ResolveOwnership(npc, npc, npc, false, false));
+        Assert.Equal(CombatOwnership.Environmental,
+            CombatObservationPolicy.ResolveOwnership(missing, missing, missing, false, true));
+        Assert.Equal(CombatOwnership.Unknown,
+            CombatObservationPolicy.ResolveOwnership(missing, missing, missing, false, false));
+        Assert.Equal(CombatOwnership.Unknown,
+            CombatObservationPolicy.ResolveOwnership(companion, player, player, false, false));
+        Assert.Equal(CombatOwnership.Unknown,
+            CombatObservationPolicy.ResolveOwnership(missing, npc, player, false, false));
+        Assert.Equal(CombatOwnership.Unknown,
+            CombatObservationPolicy.ResolveOwnership(npc, missing, missing, false, true));
+        Assert.Equal(CombatOwnership.Player,
+            CombatObservationPolicy.ResolveOwnership(npc, player, player, true, false));
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void FatalEnemyTransitionsSplitPlayerKillsFromEveryObservedWorldCategory()
+    {
+        Assert.Equal(1, CombatObservationPolicy.ClassifyEnemyDeath(true, true, CombatOwnership.Player).KillsByYou);
+        foreach (var ownership in new[]
+                 {
+                     CombatOwnership.PetCompanion, CombatOwnership.OtherNpc,
+                     CombatOwnership.Environmental, CombatOwnership.Unknown
+                 })
+        {
+            var value = CombatObservationPolicy.ClassifyEnemyDeath(true, true, ownership);
+            Assert.Equal(0, value.KillsByYou);
+            Assert.Equal(1, value.ObservedWorldDeaths);
+        }
+        Assert.Equal(0,
+            CombatObservationPolicy.ClassifyEnemyDeath(enemyTarget: false, fatalTransition: true, CombatOwnership.Player).KillsByYou);
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void WeaponIdentityCannotUpgradeUnknownOwnershipIntoAPlayerKill()
+    {
+        var aggregate = new CombatStatisticsAggregate();
+        var unknown = Event("unknown-with-player-weapon") with
+        {
+            Ownership = CombatOwnership.Unknown,
+            WeaponId = "duckov:weapon:784",
+            WeaponDisplayName = "Player-looking weapon",
+            ObservedWorldDeaths = 1,
+            IsFinalBlow = true
+        };
+
+        CombatStatisticsReducer.Apply(aggregate, unknown);
+
+        Assert.Equal(0, aggregate.Totals.KillsByYou);
+        Assert.Equal(1, aggregate.Totals.ObservedWorldDeaths);
+        Assert.Throws<ArgumentException>(() => CombatStatisticsReducer.Apply(
+            new CombatStatisticsAggregate(),
+            unknown with { EventId = "invalid-upgrade", ObservedWorldDeaths = 0, KillsByYou = 1 }));
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "Performance")]
+    [Trait("Category", "M11")]
+    public void OwnershipPolicyRemainsAllocationFreeAcrossOneHundredThousandTransitions()
+    {
+        var player = new CombatActorEvidence(CombatActorEvidenceKind.Player, 1);
+        var companion = new CombatActorEvidence(CombatActorEvidenceKind.Companion, 2);
+        _ = CombatObservationPolicy.ResolveOwnership(player, player, player, false, false);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var checksum = 0L;
+        for (var index = 0; index < 100_000; index++)
+        {
+            var ownership = CombatObservationPolicy.ResolveOwnership(
+                index % 2 == 0 ? player : companion,
+                index % 2 == 0 ? player : companion,
+                index % 2 == 0 ? player : companion,
+                nativePlayerOwnerChain: false,
+                explicitActorlessWorldDamage: false);
+            var death = CombatObservationPolicy.ClassifyEnemyDeath(true, true, ownership);
+            checksum += death.KillsByYou + death.ObservedWorldDeaths;
+        }
+        var after = GC.GetAllocatedBytesForCurrentThread();
+
+        Assert.Equal(100_000, checksum);
+        Assert.Equal(before, after);
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void PenetratingProjectileCanKillMultipleTargetsButCountsOneProjectileHit()
+    {
+        var aggregate = new CombatStatisticsAggregate();
+        foreach (var target in new[] { "a", "b" })
+        {
+            CombatStatisticsReducer.Apply(aggregate, Event($"fatal-{target}") with
+            {
+                ProjectileId = "penetrating-projectile",
+                Ownership = CombatOwnership.Player,
+                TargetId = $"duckov:target:{target}",
+                KillsByYou = 1,
+                Headshots = target == "a" ? 1 : 0,
+                HeadshotFinalBlows = target == "a" ? 1 : 0,
+                IsFinalBlow = true
+            });
+        }
+        CombatStatisticsReducer.Apply(aggregate, Event("completion") with
+        {
+            ProjectileId = "penetrating-projectile",
+            Ownership = CombatOwnership.Player,
+            CompletedPlayerProjectiles = 1,
+            RangedHits = 1,
+            TargetIsEnemy = false
+        });
+
+        Assert.Equal(2, aggregate.Totals.KillsByYou);
+        Assert.Equal(1, aggregate.Totals.CompletedPlayerProjectiles);
+        Assert.Equal(1, aggregate.Totals.RangedHits);
+        Assert.Equal(1, aggregate.Totals.Headshots);
+        Assert.Equal(1, aggregate.Totals.HeadshotFinalBlows);
+        Assert.Equal(1, aggregate.Enemies["duckov:target:a"].Totals.KillsByYou);
+        Assert.Equal(1, aggregate.Enemies["duckov:target:a"].Totals.HeadshotFinalBlows);
+        Assert.Equal(1, aggregate.Enemies["duckov:target:b"].Totals.KillsByYou);
+        Assert.Equal(0, aggregate.Enemies["duckov:target:b"].Totals.Headshots);
     }
 
     [Fact]
@@ -82,7 +229,7 @@ public sealed class CombatStatisticsTests
             ActualDamageToTarget = 37,
             ActualDamageDealt = 37,
             RangedHits = 0,
-            EnemiesKilled = 1,
+            KillsByYou = 1,
             Headshots = 1,
             HeadshotFinalBlows = 1,
             IsFinalBlow = true,
@@ -104,7 +251,7 @@ public sealed class CombatStatisticsTests
         Assert.Equal(37, aggregate.Totals.DamageDealt);
         Assert.Equal(1, aggregate.Totals.RangedHits);
         Assert.Equal(1, aggregate.Totals.CompletedPlayerProjectiles);
-        Assert.Equal(1, aggregate.Totals.EnemiesKilled);
+        Assert.Equal(1, aggregate.Totals.KillsByYou);
         Assert.Equal(1, aggregate.Totals.Headshots);
         Assert.Equal(1, aggregate.Totals.HeadshotFinalBlows);
         Assert.Equal(37, aggregate.Enemies["duckov:target:preset:bandit"].Totals.DamageCaused);
@@ -128,7 +275,7 @@ public sealed class CombatStatisticsTests
             Ownership = CombatOwnership.Player,
             ActualDamageToTarget = 5,
             ActualDamageDealt = 5,
-            EnemiesKilled = 1,
+            KillsByYou = 1,
             HeadshotFinalBlows = 1,
             IsFinalBlow = true
         });
@@ -153,20 +300,23 @@ public sealed class CombatStatisticsTests
             });
         }
 
-        Assert.Equal(40, aggregate.Totals.DamageCaused);
+        Assert.Equal(50, aggregate.Totals.DamageCaused);
         Assert.Equal(10, aggregate.Totals.DamageDealt);
-        Assert.All(Enum.GetNames<CombatOwnership>(), name =>
-            Assert.Equal(10, aggregate.Ownership[name].Totals.DamageCaused));
+        Assert.Equal(10, aggregate.Ownership["Player"].Totals.DamageCaused);
+        Assert.Equal(10, aggregate.Ownership["Companion"].Totals.DamageCaused);
+        Assert.Equal(10, aggregate.Ownership["Other NPC"].Totals.DamageCaused);
+        Assert.Equal(10, aggregate.Ownership["Environmental"].Totals.DamageCaused);
+        Assert.Equal(10, aggregate.Ownership["Unknown"].Totals.DamageCaused);
     }
 
     [Fact]
     [Trait("Category", "Combat")]
-    public void FriendlyTargetAndUnrelatedNpcDamageAreRejectedBeforeAggregation()
+    public void FriendlyTargetsAreRejectedButEveryEnemyOwnershipCategoryIsObserved()
     {
         var aggregate = new CombatStatisticsAggregate();
         Assert.False(CombatObservationPolicy.ShouldRecordHealthTransition(
             targetIsMain: false, targetIsEnemy: false, CombatOwnership.Player));
-        Assert.False(CombatObservationPolicy.ShouldRecordHealthTransition(
+        Assert.True(CombatObservationPolicy.ShouldRecordHealthTransition(
             targetIsMain: false, targetIsEnemy: true, CombatOwnership.Unknown));
         Assert.True(CombatObservationPolicy.ShouldRecordHealthTransition(
             targetIsMain: false, targetIsEnemy: true, CombatOwnership.Player));
@@ -245,7 +395,8 @@ public sealed class CombatStatisticsTests
         var withoutHealth = CombatNativeContractPolicy.CreateCapabilities(AllHooks() with { HealthHurt = false });
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.DamageDealt.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.DamageReceived.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.EnemiesKilled.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.KillsByYou.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.ObservedWorldDeaths.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.MeleeHits.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutHealth.MeleeSwings.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutHealth.PlayerDeaths.State);
@@ -313,7 +464,7 @@ public sealed class CombatStatisticsTests
         {
             Totals = new CombatMetricTotals
             {
-                EnemiesKilled = 1,
+                KillsByYou = 1,
                 Headshots = 1,
                 HeadshotFinalBlows = 1
             }
@@ -328,7 +479,7 @@ public sealed class CombatStatisticsTests
         {
             Id = "duckov:target:b",
             DisplayName = "Fatal target",
-            Totals = new CombatMetricTotals { EnemiesKilled = 1, HeadshotFinalBlows = 1 }
+            Totals = new CombatMetricTotals { KillsByYou = 1, HeadshotFinalBlows = 1 }
         };
 
         CombatStatisticsReducer.ValidateRecoveryCandidate(statistics);
@@ -348,7 +499,7 @@ public sealed class CombatStatisticsTests
             CauseDisplayName = "Damage over time",
             ActualDamageToTarget = 4,
             ActualDamageDealt = 4,
-            EnemiesKilled = 1,
+            KillsByYou = 1,
             IsDamageOverTime = true,
             IsFinalBlow = true
         });
@@ -361,7 +512,7 @@ public sealed class CombatStatisticsTests
             AttackerDisplayName = "Modded Killer"
         });
 
-        Assert.Equal(1, aggregate.Causes["duckov:cause:damage-over-time"].Totals.EnemiesKilled);
+        Assert.Equal(1, aggregate.Causes["duckov:cause:damage-over-time"].Totals.KillsByYou);
         Assert.Equal(12, aggregate.Killers["duckov:attacker:preset:modded-killer"].Totals.DamageReceived);
         Assert.Equal(1, aggregate.Killers["duckov:attacker:preset:modded-killer"].Totals.PlayerDeaths);
     }
@@ -407,20 +558,22 @@ public sealed class CombatStatisticsTests
         {
             ActualDamageToTarget = double.MaxValue,
             ActualDamageDealt = double.MaxValue,
-            EnemiesKilled = long.MaxValue
+            Ownership = CombatOwnership.Player,
+            KillsByYou = long.MaxValue
         }));
         Assert.True(summary.RecordCombat(Event("overflow") with
         {
             ActualDamageToTarget = double.MaxValue,
             ActualDamageDealt = double.MaxValue,
-            EnemiesKilled = 5
+            Ownership = CombatOwnership.Player,
+            KillsByYou = 5
         }));
         var run = summary.Apply(Lifecycle(RunLifecycleEventKind.Extracted, 2)).Completed!;
         var profile = new ProfileStatistics { SaveGenerationId = "generation-1" };
         Assert.True(RunReducer.Apply(profile, run));
 
         Assert.Equal(double.MaxValue, run.CombatStatistics.Totals.DamageDealt);
-        Assert.Equal(long.MaxValue, run.CombatStatistics.Totals.EnemiesKilled);
+        Assert.Equal(long.MaxValue, run.CombatStatistics.Totals.KillsByYou);
         Assert.Equal(run.CombatStatistics.Totals.DamageDealt, profile.RunTotals.CombatStatistics.Totals.DamageDealt);
         Assert.Equal(run.CombatStatistics.Totals.DamageDealt,
             profile.RunTotals.Maps["duckov:map:warehouse"].CombatStatistics.Totals.DamageDealt);
@@ -521,12 +674,213 @@ public sealed class CombatStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(10, profile.SchemaVersion);
+        Assert.Equal(11, profile.SchemaVersion);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
             profile.Statistics.RunTotals.CombatStatistics.Capabilities.DamageDealt.State);
         Assert.Contains("predates M5",
             profile.Statistics.RunTotals.CombatStatistics.Capabilities.DamageDealt.Provenance);
         Assert.Equal(0, profile.Statistics.RunTotals.CombatStatistics.Totals.DamageDealt);
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M11")]
+    public void SchemaTenOwnershipMigrationRetainsOnlyProvablePlayerKillsAndMarksAmbiguity()
+    {
+        var combat = new CombatStatisticsAggregate
+        {
+            Totals = new CombatMetricTotals
+            {
+                DamageCaused = 40,
+                EnemiesKilled = 4,
+                Headshots = 1,
+                HeadshotFinalBlows = 1
+            },
+            Capabilities = CombatNativeContractPolicy.CreateSupportedCapabilities()
+        };
+        combat.Enemies["duckov:target:wolf"] = new CombatBreakdownAggregate
+        {
+            Id = "duckov:target:wolf",
+            DisplayName = "Wolf",
+            Totals = new CombatMetricTotals { EnemiesKilled = 4, HeadshotFinalBlows = 1 }
+        };
+        combat.Capabilities.EnemiesKilled = new MetricAvailability
+        {
+            State = AdapterCapabilityState.Supported,
+            Provenance = "Schema-10 fatal enemy transition observation."
+        };
+        AddOwnership("Player", 2);
+        AddOwnership("PetCompanion", 1);
+        AddOwnership("Environmental", 1);
+        var equipment = new EquipmentStatisticsAggregate();
+        equipment.CombatAssociations["loadout"] = new EquipmentCombatAssociationAggregate
+        {
+            LoadoutId = "loadout",
+            EnemiesKilled = 4
+        };
+
+        const string migrationProvenance = "Historical schema predates M11 test.";
+        Assert.True(CombatStatisticsReducer.MigrateLegacyOwnershipSemantics(combat, migrationProvenance));
+        Assert.True(EquipmentStatisticsReducer.MigrateLegacyCombatOwnership(equipment, migrationProvenance));
+
+        Assert.Equal(0, combat.Totals.EnemiesKilled);
+        Assert.Equal(2, combat.Totals.KillsByYou);
+        Assert.Equal(1, combat.Totals.ObservedWorldDeaths);
+        Assert.Equal(1, combat.Totals.LegacyUnclassifiedDeaths);
+        Assert.Equal(1, combat.Enemies["duckov:target:wolf"].Totals.KillsByYou);
+        Assert.Equal(3, combat.Enemies["duckov:target:wolf"].Totals.LegacyUnclassifiedDeaths);
+        Assert.Equal(2, combat.Ownership["Player"].Totals.KillsByYou);
+        Assert.Equal(1, combat.Ownership["Companion"].Totals.ObservedWorldDeaths);
+        Assert.Equal(1, combat.Ownership["Environmental"].Totals.LegacyUnclassifiedDeaths);
+        Assert.True(combat.HistoricalOwnershipUnavailable);
+        Assert.Contains("predates M11", combat.HistoricalOwnershipProvenance);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            combat.Capabilities.ObservedWorldDeaths.State);
+        Assert.Equal(AdapterCapabilityState.Supported, combat.Capabilities.KillsByYou.State);
+        var equipmentRow = Assert.Single(equipment.CombatAssociations.Values);
+        Assert.Equal(0, equipmentRow.EnemiesKilled);
+        Assert.Equal(4, equipmentRow.LegacyUnclassifiedDeathCredit);
+        Assert.True(equipment.HistoricalCombatOwnershipUnavailable);
+
+        Assert.False(CombatStatisticsReducer.MigrateLegacyOwnershipSemantics(combat, migrationProvenance));
+        Assert.False(EquipmentStatisticsReducer.MigrateLegacyCombatOwnership(equipment, migrationProvenance));
+        Assert.Equal(2, combat.Totals.KillsByYou);
+        Assert.Equal(4, Assert.Single(equipment.CombatAssociations.Values).LegacyUnclassifiedDeathCredit);
+        return;
+
+        void AddOwnership(string name, long deaths)
+        {
+            combat.Ownership[name] = new CombatBreakdownAggregate
+            {
+                Id = name,
+                DisplayName = name,
+                Totals = new CombatMetricTotals { EnemiesKilled = deaths }
+            };
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M11")]
+    public void SchemaTenProfileMigratesLifetimeStartingMapRouteMapRunAndSegmentOwnership()
+    {
+        var profile = Profile();
+        profile.SchemaVersion = profile.Statistics.SchemaVersion = 10;
+        profile.Statistics.RunTotals.CombatStatistics = LegacyCombat();
+        profile.Statistics.RunTotals.EquipmentStatistics = LegacyEquipment();
+        profile.Statistics.RunTotals.Maps["duckov:map:a"] = new MapRunAggregate
+        {
+            MapId = "duckov:map:a",
+            DisplayName = "A",
+            CombatStatistics = LegacyCombat(),
+            EquipmentStatistics = LegacyEquipment()
+        };
+        profile.Statistics.RunTotals.RouteMaps["duckov:map:a"] = new RouteAwareMapAggregate
+        {
+            MapId = "duckov:map:a",
+            DisplayName = "A",
+            CombatStatistics = LegacyCombat(),
+            EquipmentStatistics = LegacyEquipment()
+        };
+        var run = new RunSummary
+        {
+            SchemaVersion = 10,
+            RunId = "legacy-run",
+            SaveGenerationId = profile.GenerationId,
+            StartedUtc = Now,
+            EndedUtc = Now.AddSeconds(1),
+            HistoricalRouteUnavailable = true,
+            CombatStatistics = LegacyCombat(),
+            EquipmentStatistics = LegacyEquipment(),
+            Segments =
+            [
+                new MapSegmentSummary
+                {
+                    SegmentId = "legacy-segment",
+                    MapId = "duckov:map:a",
+                    MapDisplayName = "A",
+                    EnteredUtc = Now,
+                    ExitedUtc = Now.AddSeconds(1),
+                    ExitReason = MapSegmentExitReason.Extracted,
+                    CombatStatistics = LegacyCombat(),
+                    EquipmentStatistics = LegacyEquipment()
+                }
+            ]
+        };
+        profile.Statistics.Runs.Add(run);
+
+        Assert.True(ProfileMigrator.Migrate(profile));
+
+        Assert.Equal(11, profile.SchemaVersion);
+        Assert.Equal(11, profile.Statistics.SchemaVersion);
+        Assert.Equal(11, run.SchemaVersion);
+        foreach (var combat in new[]
+                 {
+                     profile.Statistics.RunTotals.CombatStatistics,
+                     profile.Statistics.RunTotals.Maps["duckov:map:a"].CombatStatistics,
+                     profile.Statistics.RunTotals.RouteMaps["duckov:map:a"].CombatStatistics,
+                     run.CombatStatistics,
+                     run.Segments[0].CombatStatistics
+                 })
+        {
+            Assert.Equal(1, combat.Totals.KillsByYou);
+            Assert.Equal(0, combat.Totals.ObservedWorldDeaths);
+            Assert.Equal(1, combat.Totals.LegacyUnclassifiedDeaths);
+            Assert.True(combat.HistoricalOwnershipUnavailable);
+        }
+        foreach (var equipment in new[]
+                 {
+                     profile.Statistics.RunTotals.EquipmentStatistics,
+                     profile.Statistics.RunTotals.Maps["duckov:map:a"].EquipmentStatistics,
+                     profile.Statistics.RunTotals.RouteMaps["duckov:map:a"].EquipmentStatistics,
+                     run.EquipmentStatistics,
+                     run.Segments[0].EquipmentStatistics
+                 })
+        {
+            Assert.Equal(2, Assert.Single(equipment.CombatAssociations.Values).LegacyUnclassifiedDeathCredit);
+            Assert.True(equipment.HistoricalCombatOwnershipUnavailable);
+        }
+        return;
+
+        static CombatStatisticsAggregate LegacyCombat()
+        {
+            var result = new CombatStatisticsAggregate
+            {
+                Totals = new CombatMetricTotals { EnemiesKilled = 2 },
+                Capabilities = CombatNativeContractPolicy.CreateSupportedCapabilities()
+            };
+            result.Capabilities.EnemiesKilled = new MetricAvailability
+            {
+                State = AdapterCapabilityState.Supported,
+                Provenance = "Schema-10 fatal enemy transition observation."
+            };
+            result.Ownership["Player"] = new CombatBreakdownAggregate
+            {
+                Id = "Player",
+                DisplayName = "Player",
+                Totals = new CombatMetricTotals { EnemiesKilled = 1 }
+            };
+            result.Ownership["Environmental"] = new CombatBreakdownAggregate
+            {
+                Id = "Environmental",
+                DisplayName = "Environmental",
+                Totals = new CombatMetricTotals { EnemiesKilled = 1 }
+            };
+            return result;
+        }
+
+        static EquipmentStatisticsAggregate LegacyEquipment()
+        {
+            var result = new EquipmentStatisticsAggregate();
+            result.CombatAssociations["legacy"] = new EquipmentCombatAssociationAggregate
+            {
+                LoadoutId = "legacy-loadout",
+                EnemiesKilled = 2
+            };
+            return result;
+        }
     }
 
     [Fact]
@@ -708,6 +1062,7 @@ public sealed class CombatStatisticsTests
         MeleeCheck = true,
         EffectTrigger = true,
         EffectApplication = true,
+        EnvironmentalDamage = true,
         PublicMeleeSwing = true,
         PublicPlayerDeath = true
     };

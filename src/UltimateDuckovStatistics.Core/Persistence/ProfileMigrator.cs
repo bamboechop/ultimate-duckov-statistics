@@ -337,6 +337,8 @@ public static class ProfileMigrator
                                || (profile.Statistics != null && profile.Statistics.SchemaVersion < 9);
         var migratingLosslessRouteAssociation = profile.SchemaVersion < 10
                                                 || (profile.Statistics != null && profile.Statistics.SchemaVersion < 10);
+        var migratingCombatOwnership = profile.SchemaVersion < 11
+                                       || (profile.Statistics != null && profile.Statistics.SchemaVersion < 11);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         var missingCurrentEquipmentRoot = !migratingEquipment
@@ -519,6 +521,10 @@ public static class ProfileMigrator
         foreach (var routeMap in profile.Statistics.RunTotals.RouteMaps.Values)
         {
             changed |= NormalizeRouteMap(routeMap);
+            if (migratingCombatOwnership)
+            {
+                changed |= MigrateCombatOwnership(routeMap.CombatStatistics, routeMap.EquipmentStatistics);
+            }
             if (migratingEconomy) changed |= MarkHistoricalEconomyUnavailable(routeMap.Economy);
         }
 
@@ -557,6 +563,10 @@ public static class ProfileMigrator
             }
             changed |= EquipmentStatisticsReducer.NormalizePersisted(map.EquipmentStatistics);
             if (migratingEquipment) changed |= MarkHistoricalEquipmentUnavailable(map.EquipmentStatistics);
+            if (migratingCombatOwnership)
+            {
+                changed |= MigrateCombatOwnership(map.CombatStatistics, map.EquipmentStatistics);
+            }
 
             if (map.ContainerStatistics == null)
             {
@@ -630,6 +640,12 @@ public static class ProfileMigrator
             changed = true;
         }
         if (migratingEquipment) changed |= MarkHistoricalEquipmentUnavailable(profile.Statistics.RunTotals.EquipmentStatistics);
+        if (migratingCombatOwnership)
+        {
+            changed |= MigrateCombatOwnership(
+                profile.Statistics.RunTotals.CombatStatistics,
+                profile.Statistics.RunTotals.EquipmentStatistics);
+        }
 
         if (profile.Statistics.RunTotals.ContainerStatistics == null)
         {
@@ -649,6 +665,11 @@ public static class ProfileMigrator
 
         foreach (var run in profile.Statistics.Runs)
         {
+            if (run.SchemaVersion < 11)
+            {
+                run.SchemaVersion = 11;
+                changed = true;
+            }
             if (run.WeaponStatistics == null)
             {
                 run.WeaponStatistics = new WeaponStatisticsAggregate();
@@ -676,6 +697,10 @@ public static class ProfileMigrator
             }
             changed |= EquipmentStatisticsReducer.NormalizePersisted(run.EquipmentStatistics);
             if (migratingEquipment) changed |= MarkHistoricalEquipmentUnavailable(run.EquipmentStatistics);
+            if (migratingCombatOwnership)
+            {
+                changed |= MigrateCombatOwnership(run.CombatStatistics, run.EquipmentStatistics);
+            }
 
             if (run.ContainerStatistics == null)
             {
@@ -753,6 +778,10 @@ public static class ProfileMigrator
             if (migratingEconomy) changed |= MarkHistoricalEconomyUnavailable(run.Economy);
             foreach (var segment in run.Segments)
             {
+                if (migratingCombatOwnership)
+                {
+                    changed |= MigrateCombatOwnership(segment.CombatStatistics, segment.EquipmentStatistics);
+                }
                 segment.Economy ??= new EconomyStatisticsAggregate();
                 changed |= EconomyStatisticsReducer.NormalizePersisted(segment.Economy);
                 if (migratingEconomy) changed |= MarkHistoricalEconomyUnavailable(segment.Economy);
@@ -906,6 +935,18 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 11)
+        {
+            profile.SchemaVersion = 11;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 11)
+        {
+            profile.Statistics.SchemaVersion = 11;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
@@ -924,6 +965,16 @@ public static class ProfileMigrator
 
     private static bool NormalizeCombatStatistics(CombatStatisticsAggregate statistics)
         => CombatStatisticsReducer.NormalizePersisted(statistics).Changed;
+
+    internal static bool MigrateCombatOwnership(
+        CombatStatisticsAggregate combat,
+        EquipmentStatisticsAggregate equipment)
+    {
+        const string provenance = "Historical schema predates M11; proven player final blows were retained where ownership evidence permits, while ambiguous death classification and equipment kill credit remain explicitly legacy.";
+        var changed = CombatStatisticsReducer.MigrateLegacyOwnershipSemantics(combat, provenance);
+        changed |= EquipmentStatisticsReducer.MigrateLegacyCombatOwnership(equipment, provenance);
+        return changed;
+    }
 
     private static bool MarkHistoricalCombatUnavailable(CombatStatisticsAggregate statistics)
     {

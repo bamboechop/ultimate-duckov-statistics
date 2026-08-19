@@ -265,7 +265,8 @@ internal sealed class NativeStatisticsPanel
             GUILayout.Label(
                 $"  {UiText.Get("ui.damage_dealt")}: {FormatMetric(combat.Totals.DamageDealt, combat.Capabilities.DamageDealt.State)}; "
                 + $"{UiText.Get("ui.damage_received")}: {FormatMetric(combat.Totals.DamageReceived, combat.Capabilities.DamageReceived.State)}; "
-                + $"{UiText.Get("ui.kills")}: {FormatMetric(combat.Totals.EnemiesKilled, combat.Capabilities.EnemiesKilled.State)}; "
+                + $"{UiText.Get("ui.kills_by_you")}: {FormatMetric(combat.Totals.KillsByYou, combat.Capabilities.KillsByYou.State)}; "
+                + $"{UiText.Get("ui.observed_world_deaths")}: {FormatMetric(combat.Totals.ObservedWorldDeaths, combat.Capabilities.ObservedWorldDeaths.State)}; "
                 + $"{UiText.Get("ui.deaths")}: {FormatMetric(combat.Totals.PlayerDeaths, combat.Capabilities.PlayerDeaths.State)}");
             GUILayout.Label(
                 $"  {UiText.Get("ui.economy")}: "
@@ -302,7 +303,8 @@ internal sealed class NativeStatisticsPanel
                             GUILayout.Label(
                                 $"       items {segment.ItemStatistics.Overall.ActivationCount}, healing {segment.ItemStatistics.Overall.ActualHealthRestored:0.##} HP, "
                                 + $"shots {segment.WeaponStatistics.Totals.FiringActions}, damage {segment.CombatStatistics.Totals.DamageDealt:0.##}, "
-                                + $"kills {segment.CombatStatistics.Totals.EnemiesKilled}, containers {segment.ContainerStatistics.UniqueContainersLooted}");
+                                + $"kills by you {segment.CombatStatistics.Totals.KillsByYou}, observed deaths {segment.CombatStatistics.Totals.ObservedWorldDeaths}, "
+                                + $"containers {segment.ContainerStatistics.UniqueContainersLooted}");
                         }
                         else
                         {
@@ -389,7 +391,13 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label($"{UiText.Get("ui.damage_received")}: {FormatMetric(damage.Lifetime.Totals.DamageReceived, damage.Capabilities.DamageReceived.State)}");
         GUILayout.Label($"{UiText.Get("ui.accuracy")}: {FormatAccuracy(damage)}");
         GUILayout.Label($"{UiText.Get("ui.melee")}: {FormatMetric(damage.Lifetime.Totals.MeleeSwings, damage.Capabilities.MeleeSwings.State)} / {FormatMetric(damage.Lifetime.Totals.MeleeHits, damage.Capabilities.MeleeHits.State)}");
-        GUILayout.Label($"{UiText.Get("ui.kills")}: {FormatMetric(damage.Lifetime.Totals.EnemiesKilled, damage.Capabilities.EnemiesKilled.State)}; {UiText.Get("ui.deaths")}: {FormatMetric(damage.Lifetime.Totals.PlayerDeaths, damage.Capabilities.PlayerDeaths.State)}");
+        GUILayout.Label($"{UiText.Get("ui.kills_by_you")}: {FormatMetric(damage.Lifetime.Totals.KillsByYou, damage.Capabilities.KillsByYou.State)}; {UiText.Get("ui.deaths")}: {FormatMetric(damage.Lifetime.Totals.PlayerDeaths, damage.Capabilities.PlayerDeaths.State)}");
+        GUILayout.Label($"{UiText.Get("ui.observed_world_deaths")}: {FormatMetric(damage.Lifetime.Totals.ObservedWorldDeaths, damage.Capabilities.ObservedWorldDeaths.State)}");
+        if (damage.Lifetime.Totals.LegacyUnclassifiedDeaths > 0 || damage.Lifetime.HistoricalOwnershipUnavailable)
+        {
+            GUILayout.Label($"{UiText.Get("ui.legacy_unclassified_deaths")}: {damage.Lifetime.Totals.LegacyUnclassifiedDeaths.ToString(CultureInfo.InvariantCulture)}");
+            GUILayout.Label($"{UiText.Get("ui.historical_ownership_unavailable")}: {damage.Lifetime.HistoricalOwnershipProvenance}");
+        }
         GUILayout.Label($"{UiText.Get("ui.headshots")}: {FormatMetric(damage.Lifetime.Totals.Headshots, damage.Capabilities.Headshots.State)} / {FormatMetric(damage.Lifetime.Totals.HeadshotFinalBlows, damage.Capabilities.HeadshotFinalBlows.State)}");
         GUILayout.Space(8);
         GUILayout.Label(UiText.Get("ui.metric_contract"));
@@ -415,7 +423,15 @@ internal sealed class NativeStatisticsPanel
             GUILayout.Space(8);
             GUILayout.Label(UiText.Get("ui.enemies"));
             foreach (var enemy in damage.Enemies.Take(20))
-                GUILayout.Label($"{enemy.DisplayName} [{enemy.Id}]: {enemy.Totals.DamageCaused.ToString("0.###", CultureInfo.InvariantCulture)} damage, {enemy.Totals.EnemiesKilled.ToString(CultureInfo.InvariantCulture)} kills");
+                GUILayout.Label($"{enemy.DisplayName} [{enemy.Id}]: {enemy.Totals.DamageCaused.ToString("0.###", CultureInfo.InvariantCulture)} damage, {enemy.Totals.KillsByYou.ToString(CultureInfo.InvariantCulture)} kills by you, {enemy.Totals.ObservedWorldDeaths.ToString(CultureInfo.InvariantCulture)} observed deaths, {enemy.Totals.LegacyUnclassifiedDeaths.ToString(CultureInfo.InvariantCulture)} legacy unclassified");
+        }
+
+        if (damage.Ownership.Count > 0)
+        {
+            GUILayout.Space(8);
+            GUILayout.Label(UiText.Get("ui.ownership"));
+            foreach (var ownership in damage.Ownership)
+                GUILayout.Label($"{ownership.DisplayName}: {ownership.Totals.ObservedWorldDeaths.ToString(CultureInfo.InvariantCulture)} observed deaths, {ownership.Totals.DamageCaused.ToString("0.###", CultureInfo.InvariantCulture)} damage");
         }
 
         if (damage.Killers.Count > 0)

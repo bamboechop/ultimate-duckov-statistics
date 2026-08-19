@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using UltimateDuckovStatistics.Core;
+using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
 using UltimateDuckovStatistics.Core.Persistence;
@@ -126,6 +127,84 @@ public sealed class ExportTests
         Assert.Equal(
             json.RunTotals.WeaponStatistics.AmmunitionTypes.Values.Sum(value => value.Totals.AmmunitionUnitsConsumed),
             ammunitionTotals.Where(row => row["scope"] == "lifetime").Sum(row => ReadLong(row, "ammunition_units_consumed")));
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void JsonUiAndCsvAgreeOnPlayerKillsObservedDeathsOwnershipAndEquipmentCredit()
+    {
+        var profile = CreateProfile();
+        profile.Capabilities.AddRange(CombatNativeContractPolicy.ToRecords(
+            CombatNativeContractPolicy.CreateSupportedCapabilities(), "test"));
+        var run = CreateRun("ownership-run", RunOutcome.Extracted, 10, 2, 0);
+        var association = new EquipmentEventAssociation
+        {
+            LoadoutId = "loadout-a",
+            SelectedWeaponSlotId = "primary",
+            SelectedWeaponId = "duckov:weapon:1",
+            TotemSetId = "totems:none"
+        };
+        var player = CombatEvent("player", CombatOwnership.Player, "duckov:target:wolf") with
+        {
+            ActualDamageToTarget = 10,
+            ActualDamageDealt = 10,
+            KillsByYou = 1,
+            IsFinalBlow = true,
+            EquipmentAssociation = association
+        };
+        var companion = CombatEvent("companion", CombatOwnership.PetCompanion, "duckov:target:wolf") with
+        {
+            ActualDamageToTarget = 5,
+            ObservedWorldDeaths = 1,
+            IsFinalBlow = true,
+            EquipmentAssociation = association
+        };
+        var unknown = CombatEvent("unknown", CombatOwnership.Unknown, "duckov:target:fox") with
+        {
+            ActualDamageToTarget = 3,
+            ObservedWorldDeaths = 1,
+            IsFinalBlow = true,
+            EquipmentAssociation = association
+        };
+        foreach (var value in new[] { player, companion, unknown })
+        {
+            CombatStatisticsReducer.Apply(run.CombatStatistics, value);
+            EquipmentStatisticsReducer.RecordCombat(run.EquipmentStatistics, value);
+        }
+        Assert.True(RunReducer.Apply(profile.Statistics, run));
+
+        var view = CombatStatisticsViewModelFactory.Create(profile);
+        var bundle = StatisticsExporter.Create(profile, TestTime);
+        var json = Deserialize(bundle.Json);
+        var combatRows = ParseCsv(bundle.CombatAttributionCsv);
+        var total = Assert.Single(combatRows,
+            row => row["scope"] == "lifetime" && row["breakdown"] == "total");
+        var companionRow = Assert.Single(combatRows,
+            row => row["scope"] == "lifetime" && row["breakdown"] == "ownership"
+                   && row["entity_id"] == "Companion");
+        var equipment = Assert.Single(ParseCsv(bundle.EquipmentCombatCsv),
+            row => row["scope"] == "lifetime");
+        var runRow = Assert.Single(ParseCsv(bundle.RunsCsv));
+        var runTotals = Assert.Single(ParseCsv(bundle.RunTotalsCsv));
+        var mapTotals = Assert.Single(ParseCsv(bundle.MapTotalsCsv));
+
+        Assert.Equal(1, view.Lifetime.Totals.KillsByYou);
+        Assert.Equal(2, view.Lifetime.Totals.ObservedWorldDeaths);
+        Assert.Equal(1, json.RunTotals.CombatStatistics.Totals.KillsByYou);
+        Assert.Equal(2, json.RunTotals.CombatStatistics.Totals.ObservedWorldDeaths);
+        Assert.Equal("1", total["kills_by_you"]);
+        Assert.Equal("2", total["observed_world_deaths"]);
+        Assert.Equal("1", companionRow["observed_world_deaths"]);
+        Assert.Equal("1", equipment["kills_by_you"]);
+        Assert.Equal("0", equipment["legacy_unclassified_death_credit"]);
+        Assert.Equal("1", runRow["kills_by_you"]);
+        Assert.Equal("2", runRow["observed_world_deaths"]);
+        Assert.Equal("1", runTotals["kills_by_you"]);
+        Assert.Equal("2", mapTotals["observed_world_deaths"]);
+        Assert.DoesNotContain("enemies_killed", bundle.CombatAttributionCsv.Split('\n')[0], StringComparison.Ordinal);
+        Assert.DoesNotContain("enemies_killed", bundle.EquipmentCombatCsv.Split('\n')[0], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -639,6 +718,26 @@ public sealed class ExportTests
             DisplayName = itemId,
             Group = group,
             ActualHealthRestored = amount
+        };
+
+    private static CombatRecorded CombatEvent(
+        string eventId,
+        CombatOwnership ownership,
+        string targetId) => new()
+        {
+            EventId = eventId,
+            TimestampUtc = TestTime,
+            SaveGenerationId = "generation-a",
+            RunId = "ownership-run",
+            MapId = "duckov:map:warehouse",
+            GameplayContext = GameplayContext.Raid,
+            Ownership = ownership,
+            TargetId = targetId,
+            TargetDisplayName = targetId,
+            TargetIsEnemy = true,
+            TargetFamilyId = "duckov:family:unknown",
+            TargetFamilyDisplayName = "Unknown family",
+            Capabilities = CombatNativeContractPolicy.CreateSupportedCapabilities()
         };
 
     private static RunSummary CreateRun(

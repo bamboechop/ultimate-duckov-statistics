@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics
 
-Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.10.0 is the published M10 lossless-route-association GitHub pre-release. It retains the complete M1-M9 contract and removes the per-run event-count ceiling from exact segment attribution.
+Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. Version 0.11.0 is the M11 combat-ownership development candidate based on the published v0.10.0 baseline. It keeps M0-M10 intact while separating proven player kills from other deaths observed in the world.
 
 The mod never modifies Duckov save files. Its data is stored under:
 
@@ -14,7 +14,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 M0-M10 are published through the [v0.10.0 GitHub pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.10.0). M8.1 product commit `90384352d323e6ea19dfa607c7da18162dbcefcb` completed its performance, gameplay, package, projection, and shutdown gates and merged before M9; it was not released separately, so its accepted changes ship in v0.9.0.
 
-M10 PR #11 merged as `cbabd3eb7760178c939f5ebea50709c42f183cb6`. The merged release passes 679/679 tests, the installed-game compatibility and package gates, seven-segment repeated-route gameplay, complete 24-file export agreement, recovery, and clean shutdown. The remaining path to v1.0 is split into M11 combat ownership (`v0.11.0`), M12 world-time, sleep, and crafted-item statistics (`v0.12.0`), M13 native UI overhaul (`v0.13.0`), and M14 feature-frozen `v1.0.0-rc.1` qualification. See [PLAN.md](PLAN.md) for the contracts and acceptance boundaries; immutable completed-release evidence remains in [TESTING.md](TESTING.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
+M10 PR #11 merged as `cbabd3eb7760178c939f5ebea50709c42f183cb6`. The merged release passes 679/679 tests, the installed-game compatibility and package gates, seven-segment repeated-route gameplay, complete 24-file export agreement, recovery, and clean shutdown. M11 development adds schema 11 and the ownership semantics below; its delivery status remains authoritative on GitHub. The remaining planned path to v1.0 is M12 world-time, sleep, and crafted-item statistics (`v0.12.0`), M13 native UI overhaul (`v0.13.0`), and M14 feature-frozen `v1.0.0-rc.1` qualification. See [PLAN.md](PLAN.md) for the contracts and acceptance boundaries; immutable completed-release evidence remains in [TESTING.md](TESTING.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Build prerequisites
 
@@ -40,11 +40,13 @@ Economy idempotency uses constant-size activation/sequence replay cursors instea
 
 Schema 10 replaces the M8 raw association journal for new events with exact buckets keyed by event family plus source/outcome segment. Each accepted shot, combat outcome, item use, healing outcome, or unique-container access increments a checked 64-bit count and retains exact endpoint maps plus first/last UTC evidence; durable state is bounded by five event families and the legitimate 64-segment route cardinality rather than event volume. Schema-9 raw rows remain finite `LegacyRaw` evidence. Unsaturated history migrates exactly; a previously saturated run remains explicitly incomplete while the separate current-capture capability reports that schema-10 capture is available. JSON and the append-only `routes.csv`, `segments.csv`, and `segment_events.csv` columns distinguish exact aggregates, historical incompleteness, and current capture.
 
+Schema 11 makes the primary combat outcome **Kills by you**. It increments only for a fatal enemy transition whose credited, physical, and damage actors consistently prove the main duck, including the verified native controlling-character owner chain. Fatal transitions owned by `Companion`, `Other NPC`, an explicitly actorless `Environmental` zone, or conflicting/missing `Unknown` evidence remain separate **Observed world deaths**. Weapon identity never supplies actor identity. Projectile ownership is refreshed at impact so reflection is not frozen to launch-time attribution; melee, explosion, buff, and delayed damage scopes carry their native actor evidence. Non-player world deaths cannot create player equipment-kill credit. Schema-10 combat rows retain provable player/companion subsets and expose the rest as `LegacyUnclassifiedDeaths` with historical provenance rather than silently relabelling old ambiguity.
+
 If adding an exact flow would exceed the signed 64-bit aggregate range, M9 preserves the prior exact value, marks only that currency `arithmetic_saturated`, and disables further capture for that currency rather than clamping the event into an apparently exact total. Money saturation does not disable Cash, and vice versa.
 
 M4 uses the public `ItemAgent_Gun.OnMainCharacterShootEvent` from the verified Duckov build. Each accepted callback receives a unique UDS event ID and proves one firing action plus event-time weapon/ammunition identity. The event occurs after calls that may conditionally skip ammunition consumption or projectile initialization, so loaded-ammunition and projectile counts are explicitly unavailable rather than inferred from cached ammunition or configured `ShotCount`. Reloads, magazine transfers, inventory movement, base activity, loading, pause, non-main-duck actors, and dry fire do not create firing-action records.
 
-M5 measures `Health.Hurt` before/after HP and therefore excludes rejected damage and overkill. A reliable ranged hit is one completed exact-main-duck projectile that caused positive actual enemy HP loss; penetration or repeated damage from that projectile cannot inflate the numerator. Accuracy uses those hits over completed player projectiles, not M4 firing actions. Critical hits never imply headshots.
+M5/M11 measure `Health.Hurt` before/after HP and therefore exclude rejected damage and overkill. A reliable ranged hit is one completed proven-player projectile that caused positive actual enemy HP loss; penetration or repeated damage from that projectile cannot inflate the numerator, while each separately fatal target may still count as a kill by you. Accuracy uses those hits over completed player projectiles, not M4 firing actions. Critical hits never imply headshots.
 
 M6 observes the exact main duck's public character-slot tree, ordinary inventory, and native slot/hold/inventory callbacks. Persisted identities use stable `Item.TypeID`, slot keys, and deterministic attachment signatures; runtime object IDs and localized names never determine identity. Durations use the same monotonic active-raid clock as M3 and therefore exclude pause/loading. Direct slotted totems with usable durability are proven active by the verified item-effect control flow. A totem plugged into the public `AnyThing` slot of a built-in Tote Bag (`Item.TypeID` 1255) carried in top-level ordinary character inventory is recorded as present with activation `Unknown`: tote activation is not inferred and the capability remains `DisabledIncompatible`. Equipment/combat rows are event-time temporal associations, not proof that an item or totem caused an outcome. Only loadouts observed in at least two completed runs enter lifetime recurring-loadout rankings; every run retains its own summary.
 
@@ -64,7 +66,7 @@ dotnet build .\src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj -c R
 Create the validated installable ZIP and SHA-256 sidecar with:
 
 ```powershell
-.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.10.0
+.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.11.0
 ```
 
 See [INSTALL.md](INSTALL.md) for installation and compatibility details.
