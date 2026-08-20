@@ -1917,6 +1917,7 @@ public sealed class ActiveRunPersistenceTests
         => AssertAmbiguousBuffFatalTickPersists(
             playerAppliedFirst,
             applicationObservationTrusted: true,
+            effectTriggerTrusted: true,
             observeConflictingReapplication: true);
 
     [Theory]
@@ -1930,11 +1931,27 @@ public sealed class ActiveRunPersistenceTests
         => AssertAmbiguousBuffFatalTickPersists(
             retainedActorIsPlayer,
             applicationObservationTrusted: false,
+            effectTriggerTrusted: true,
             observeConflictingReapplication: false);
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void EffectTriggerLossAfterConflictingBuffPersistsUnknownWithoutPlayerOrEquipmentCredit(
+        bool retainedActorIsPlayer)
+        => AssertAmbiguousBuffFatalTickPersists(
+            retainedActorIsPlayer,
+            applicationObservationTrusted: true,
+            effectTriggerTrusted: false,
+            observeConflictingReapplication: true);
 
     private static void AssertAmbiguousBuffFatalTickPersists(
         bool retainedActorIsPlayer,
         bool applicationObservationTrusted,
+        bool effectTriggerTrusted,
         bool observeConflictingReapplication)
     {
         using var directory = new TemporaryDirectory();
@@ -1946,30 +1963,35 @@ public sealed class ActiveRunPersistenceTests
         var firstActor = retainedActorIsPlayer ? player : npc;
         var secondActor = retainedActorIsPlayer ? npc : player;
         var runtimeBuff = new object();
-        var ownershipTracker = new CombatBuffOwnershipTracker();
+        var observationBoundary = new NativeBuffApplicationObservationBoundary();
+        if (applicationObservationTrusted)
+        {
+            observationBoundary.MarkTrusted();
+        }
         if (observeConflictingReapplication)
         {
-            ownershipTracker.Observe(runtimeBuff, firstActor, firstActor);
-            ownershipTracker.Observe(runtimeBuff, firstActor, secondActor);
+            Assert.True(observationBoundary.Capture(runtimeBuff, firstActor, firstActor));
+            Assert.True(observationBoundary.Capture(runtimeBuff, firstActor, secondActor));
         }
-        var resolution = ownershipTracker.Resolve(
-            runtimeBuff,
-            firstActor,
-            applicationObservationTrusted);
-        var ownership = CombatObservationPolicy.ResolveOwnership(
-            firstActor,
-            firstActor,
+        var resolution = observationBoundary.Resolve(runtimeBuff, firstActor);
+        var ownership = CombatObservationPolicy.ResolveHealthTransitionOwnership(
+            effectTriggerTrusted ? firstActor : CombatActorEvidence.Missing,
+            effectTriggerTrusted ? firstActor : CombatActorEvidence.Missing,
             firstActor,
             nativePlayerOwnerChain: false,
             explicitActorlessWorldDamage: false,
-            conflictingActorEvidence: resolution.ConflictingEvidence);
+            conflictingActorEvidence: effectTriggerTrusted && resolution.ConflictingEvidence,
+            nativeBuffOrEffectDamage: true,
+            effectScopeObservationTrusted: effectTriggerTrusted);
         var death = CombatObservationPolicy.ClassifyEnemyDeath(
             enemyTarget: true, fatalTransition: true, ownership);
         var fatalTick = CombatEvent(
             generation,
-            applicationObservationTrusted
-                ? retainedActorIsPlayer ? "player-then-npc" : "npc-then-player"
-                : retainedActorIsPlayer ? "untrusted-retained-player" : "untrusted-retained-npc",
+            !effectTriggerTrusted
+                ? retainedActorIsPlayer ? "effect-hook-loss-retained-player" : "effect-hook-loss-retained-npc"
+                : applicationObservationTrusted
+                    ? retainedActorIsPlayer ? "player-then-npc" : "npc-then-player"
+                    : retainedActorIsPlayer ? "untrusted-retained-player" : "untrusted-retained-npc",
             "duckov:target:buff-victim",
             "Buff victim") with
         {
@@ -1978,19 +2000,20 @@ public sealed class ActiveRunPersistenceTests
             CauseKind = CombatCauseKind.DamageOverTime,
             CauseId = "duckov:cause:damage-over-time",
             CauseDisplayName = "Damage over time",
+            WeaponId = effectTriggerTrusted ? "duckov:weapon:1" : "duckov:weapon:unknown",
+            WeaponDisplayName = effectTriggerTrusted ? "Test rifle" : "Unknown weapon",
             ActualDamageToTarget = 5,
             ActualDamageDealt = 0,
             KillsByYou = death.KillsByYou,
             ObservedWorldDeaths = death.ObservedWorldDeaths,
             IsFinalBlow = true,
-            IsDamageOverTime = true,
+            IsDamageOverTime = effectTriggerTrusted,
             EquipmentAssociation = new EquipmentEventAssociation(),
-            Capabilities = applicationObservationTrusted
-                ? CombatNativeContractPolicy.CreateSupportedCapabilities()
-                : CombatNativeContractPolicy.CreateCapabilities(AllCombatHooks() with
-                {
-                    BuffApplication = false
-                })
+            Capabilities = CombatNativeContractPolicy.CreateCapabilities(AllCombatHooks() with
+            {
+                BuffApplication = applicationObservationTrusted,
+                EffectTrigger = effectTriggerTrusted
+            })
         };
         var checkpoint = Checkpoint(generation, 5);
         CombatStatisticsReducer.Apply(checkpoint.CombatStatistics, fatalTick);
@@ -2006,7 +2029,12 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(0, run.CombatStatistics.Totals.KillsByYou);
         Assert.Equal(1, run.CombatStatistics.Totals.ObservedWorldDeaths);
         Assert.Empty(run.EquipmentStatistics.CombatAssociations);
-        if (!applicationObservationTrusted)
+        if (!effectTriggerTrusted)
+        {
+            Assert.Contains("duckov:weapon:unknown", run.CombatStatistics.Weapons.Keys);
+            Assert.DoesNotContain("duckov:weapon:1", run.CombatStatistics.Weapons.Keys);
+        }
+        if (!applicationObservationTrusted || !effectTriggerTrusted)
         {
             Assert.Equal(
                 AdapterCapabilityState.DisabledIncompatible,
@@ -2038,7 +2066,7 @@ public sealed class ActiveRunPersistenceTests
             row => row["scope"] == "lifetime" && row["breakdown"] == "total");
         Assert.Equal("0", total["kills_by_you"]);
         Assert.Equal("1", total["observed_world_deaths"]);
-        if (!applicationObservationTrusted)
+        if (!applicationObservationTrusted || !effectTriggerTrusted)
         {
             Assert.Equal("DisabledIncompatible", total["kills_by_you_state"]);
             Assert.Equal("DisabledIncompatible", total["observed_world_deaths_state"]);

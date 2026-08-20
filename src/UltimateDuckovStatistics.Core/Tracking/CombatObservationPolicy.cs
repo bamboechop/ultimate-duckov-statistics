@@ -87,6 +87,44 @@ public static class CombatObservationPolicy
         };
     }
 
+    public static CombatOwnership ResolveHealthTransitionOwnership(
+        CombatActorEvidence physicalActor,
+        CombatActorEvidence creditedActor,
+        CombatActorEvidence damageActor,
+        bool nativePlayerOwnerChain,
+        bool explicitActorlessWorldDamage,
+        bool conflictingActorEvidence,
+        bool nativeBuffOrEffectDamage,
+        bool effectScopeObservationTrusted)
+    {
+        if (nativeBuffOrEffectDamage && !effectScopeObservationTrusted)
+        {
+            return CombatOwnership.Unknown;
+        }
+
+        return ResolveOwnership(
+            physicalActor,
+            creditedActor,
+            damageActor,
+            nativePlayerOwnerChain,
+            explicitActorlessWorldDamage,
+            conflictingActorEvidence);
+    }
+
+    public static int ResolveHealthTransitionWeaponTypeId(
+        int scopedWeaponTypeId,
+        int nativeWeaponTypeId,
+        bool nativeBuffOrEffectDamage,
+        bool effectScopeObservationTrusted)
+    {
+        if (nativeBuffOrEffectDamage && !effectScopeObservationTrusted)
+        {
+            return -1;
+        }
+
+        return scopedWeaponTypeId >= 0 ? scopedWeaponTypeId : nativeWeaponTypeId;
+    }
+
     public static CombatDeathClassification ClassifyEnemyDeath(
         bool enemyTarget,
         bool fatalTransition,

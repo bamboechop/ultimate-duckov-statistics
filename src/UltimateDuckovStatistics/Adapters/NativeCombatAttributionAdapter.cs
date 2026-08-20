@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCleanup
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.combat";
-    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v7+patch-stamp-v1";
+    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v8+patch-stamp-v1";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int MaximumProjectileCorrelations = 2048;
@@ -451,7 +451,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var target = health.TryGetCharacter();
         var targetIsMain = health.IsMainCharacterHealth;
         var scope = state.Scope;
-        var ownership = ResolveOwnership(scope, state.DamageInfo.fromCharacter);
+        var ownership = ResolveHealthTransitionOwnership(scope, state.DamageInfo);
         var source = ResolveAttributionActor(ownership, scope, state.DamageInfo.fromCharacter);
         var enemyTarget = !targetIsMain && health.team != Teams.player;
         if (!CombatObservationPolicy.ShouldRecordHealthTransition(targetIsMain, enemyTarget, ownership)) return;
@@ -478,8 +478,12 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var attackerIdentity = ReadAttackerIdentity(ownership, source);
         var family = ReadFamily(health);
         var cause = ResolveCause(state.DamageInfo, scope, ownership);
-        var weaponTypeId = scope?.WeaponTypeId >= 0 ? scope.WeaponTypeId : state.DamageInfo.fromWeaponItemID;
-        var weaponName = !string.IsNullOrWhiteSpace(scope?.WeaponDisplayName)
+        var weaponTypeId = CombatObservationPolicy.ResolveHealthTransitionWeaponTypeId(
+            scope?.WeaponTypeId ?? -1,
+            state.DamageInfo.fromWeaponItemID,
+            state.DamageInfo.isFromBuffOrEffect,
+            hookSupport.EffectTrigger);
+        var weaponName = weaponTypeId >= 0 && !string.IsNullOrWhiteSpace(scope?.WeaponDisplayName)
             ? scope!.WeaponDisplayName
             : ReadItemDisplayName(weaponTypeId, "weapon");
         var ammunitionId = scope?.AmmunitionTypeId ?? -1;
@@ -532,7 +536,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         if (!IsActive || metricCapabilities.PlayerDeaths.State != AdapterCapabilityState.Supported) return;
         var scope = CombatHarmonyBridge.CurrentScope;
-        var ownership = ResolveOwnership(scope, info.fromCharacter);
+        var ownership = ResolveHealthTransitionOwnership(scope, info);
         var source = ResolveAttributionActor(ownership, scope, info.fromCharacter);
         var attacker = ReadAttackerIdentity(ownership, source);
         var cause = ResolveCause(info, scope, ownership);
@@ -698,15 +702,17 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         return combatHandler(value);
     }
 
-    private static CombatOwnership ResolveOwnership(
+    private CombatOwnership ResolveHealthTransitionOwnership(
         CombatNativeScope? scope,
-        CharacterMainControl? damageSource) => CombatObservationPolicy.ResolveOwnership(
+        DamageInfo damageInfo) => CombatObservationPolicy.ResolveHealthTransitionOwnership(
             ToActorEvidence(scope?.PhysicalSource),
             ToActorEvidence(scope?.CreditedSource),
-            ToActorEvidence(damageSource),
+            ToActorEvidence(damageInfo.fromCharacter),
             scope?.NativePlayerOwnerChain == true,
             scope?.ExplicitActorlessWorldDamage == true,
-            scope?.ConflictingActorEvidence == true);
+            scope?.ConflictingActorEvidence == true,
+            damageInfo.isFromBuffOrEffect,
+            hookSupport.EffectTrigger);
 
     private static CharacterMainControl? ResolveAttributionActor(
         CombatOwnership ownership,

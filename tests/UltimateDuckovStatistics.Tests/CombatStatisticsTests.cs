@@ -202,6 +202,87 @@ public sealed class CombatStatisticsTests
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.DamageOverTime.State);
     }
 
+    [Theory]
+    [InlineData(CombatActorEvidenceKind.Player)]
+    [InlineData(CombatActorEvidenceKind.OtherNpc)]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void EffectTriggerLossCannotUseTheRetainedActorAfterAConflictingBuffReapplication(
+        CombatActorEvidenceKind retainedActorKind)
+    {
+        var retainedActor = new CombatActorEvidence(retainedActorKind, 1);
+        var incomingActor = new CombatActorEvidence(
+            retainedActorKind == CombatActorEvidenceKind.Player
+                ? CombatActorEvidenceKind.OtherNpc
+                : CombatActorEvidenceKind.Player,
+            2);
+        var runtimeBuff = new object();
+        var boundary = new NativeBuffApplicationObservationBoundary();
+        boundary.MarkTrusted();
+        Assert.True(boundary.Capture(runtimeBuff, retainedActor, retainedActor));
+        Assert.True(boundary.Capture(runtimeBuff, retainedActor, incomingActor));
+        Assert.True(boundary.Resolve(runtimeBuff, retainedActor).ConflictingEvidence);
+
+        var support = AllHooks() with { EffectTrigger = false };
+        var ownership = CombatObservationPolicy.ResolveHealthTransitionOwnership(
+            CombatActorEvidence.Missing,
+            CombatActorEvidence.Missing,
+            retainedActor,
+            nativePlayerOwnerChain: false,
+            explicitActorlessWorldDamage: false,
+            conflictingActorEvidence: false,
+            nativeBuffOrEffectDamage: true,
+            effectScopeObservationTrusted: support.EffectTrigger);
+        var death = CombatObservationPolicy.ClassifyEnemyDeath(
+            enemyTarget: true,
+            fatalTransition: true,
+            ownership);
+        var weaponTypeId = CombatObservationPolicy.ResolveHealthTransitionWeaponTypeId(
+            scopedWeaponTypeId: -1,
+            nativeWeaponTypeId: 777,
+            nativeBuffOrEffectDamage: true,
+            effectScopeObservationTrusted: support.EffectTrigger);
+        var aggregate = new CombatStatisticsAggregate();
+        var equipment = new EquipmentStatisticsAggregate();
+        var fatalTick = Event($"effect-hook-loss-{retainedActorKind}") with
+        {
+            Ownership = ownership,
+            AttackKind = CombatAttackKind.Effect,
+            CauseKind = CombatCauseKind.DamageOverTime,
+            WeaponId = weaponTypeId < 0 ? "duckov:weapon:unknown" : $"duckov:weapon:{weaponTypeId}",
+            WeaponDisplayName = weaponTypeId < 0 ? "Unknown weapon" : "Retained weapon",
+            ActualDamageToTarget = 5,
+            ActualDamageDealt = ownership == CombatOwnership.Player ? 5 : 0,
+            KillsByYou = death.KillsByYou,
+            ObservedWorldDeaths = death.ObservedWorldDeaths,
+            IsFinalBlow = true,
+            IsDamageOverTime = false,
+            EquipmentAssociation = new EquipmentEventAssociation
+            {
+                LoadoutId = "loadout:retained",
+                SelectedWeaponId = "weapon:retained",
+                TotemSetId = "totems:retained"
+            },
+            Capabilities = CombatNativeContractPolicy.CreateCapabilities(support)
+        };
+
+        CombatStatisticsReducer.Apply(aggregate, fatalTick);
+        EquipmentStatisticsReducer.RecordCombat(equipment, fatalTick);
+
+        Assert.Equal(CombatOwnership.Unknown, ownership);
+        Assert.Equal(-1, weaponTypeId);
+        Assert.Equal("duckov:weapon:unknown", fatalTick.WeaponId);
+        Assert.Equal(0, aggregate.Totals.DamageDealt);
+        Assert.Equal(0, aggregate.Totals.KillsByYou);
+        Assert.Equal(1, aggregate.Totals.ObservedWorldDeaths);
+        Assert.Empty(equipment.CombatAssociations);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.DamageDealt.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.Ownership.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.WeaponIdentity.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.KillsByYou.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, aggregate.Capabilities.ObservedWorldDeaths.State);
+    }
+
     [Fact]
     [Trait("Category", "Combat")]
     [Trait("Category", "M11")]
@@ -524,7 +605,12 @@ public sealed class CombatStatisticsTests
     {
         var withoutEffect = CombatNativeContractPolicy.CreateCapabilities(AllHooks() with { EffectTrigger = false });
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.DamageOverTime.State);
-        Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.DamageDealt.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.DamageDealt.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.Ownership.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.WeaponIdentity.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.KillsByYou.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutEffect.ObservedWorldDeaths.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.DamageReceived.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.Accuracy.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.MeleeHits.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutEffect.PlayerDeaths.State);
