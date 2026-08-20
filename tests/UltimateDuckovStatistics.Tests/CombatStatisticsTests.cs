@@ -1,3 +1,4 @@
+using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
@@ -152,6 +153,53 @@ public sealed class CombatStatisticsTests
             nativePlayerOwnerChain: false,
             explicitActorlessWorldDamage: false,
             conflictingActorEvidence: resolution.ConflictingEvidence));
+    }
+
+    [Theory]
+    [InlineData(CombatActorEvidenceKind.Player, false)]
+    [InlineData(CombatActorEvidenceKind.OtherNpc, false)]
+    [InlineData(CombatActorEvidenceKind.Player, true)]
+    [InlineData(CombatActorEvidenceKind.OtherNpc, true)]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void RejectedOrLostBuffApplicationTrustCannotTrustTheNativeRetainedActor(
+        CombatActorEvidenceKind retainedActorKind,
+        bool loseTrustAfterObservation)
+    {
+        var retainedActor = new CombatActorEvidence(retainedActorKind, 1);
+        var runtimeBuff = new object();
+        var boundary = new NativeBuffApplicationObservationBoundary();
+        if (loseTrustAfterObservation)
+        {
+            boundary.MarkTrusted();
+            Assert.True(boundary.Capture(runtimeBuff, retainedActor, retainedActor));
+            boundary.MarkUntrusted();
+        }
+        Assert.False(boundary.Capture(
+            runtimeBuff,
+            retainedActor,
+            new CombatActorEvidence(
+                retainedActorKind == CombatActorEvidenceKind.Player
+                    ? CombatActorEvidenceKind.OtherNpc
+                    : CombatActorEvidenceKind.Player,
+                2)));
+        var resolution = boundary.Resolve(runtimeBuff, retainedActor);
+        var ownership = CombatObservationPolicy.ResolveOwnership(
+            retainedActor,
+            retainedActor,
+            retainedActor,
+            nativePlayerOwnerChain: false,
+            explicitActorlessWorldDamage: false,
+            conflictingActorEvidence: resolution.ConflictingEvidence);
+
+        Assert.False(resolution.Actor.IsPresent);
+        Assert.True(resolution.ConflictingEvidence);
+        Assert.Equal(CombatOwnership.Unknown, ownership);
+        var capabilities = CombatNativeContractPolicy.CreateCapabilities(
+            AllHooks() with { BuffApplication = boundary.IsTrusted });
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.KillsByYou.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.ObservedWorldDeaths.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.DamageOverTime.State);
     }
 
     [Fact]
@@ -498,6 +546,22 @@ public sealed class CombatStatisticsTests
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutHealth.MeleeHits.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutHealth.MeleeSwings.State);
         Assert.Equal(AdapterCapabilityState.Supported, withoutHealth.PlayerDeaths.State);
+
+        var withoutBuffApplication = CombatNativeContractPolicy.CreateCapabilities(
+            AllHooks() with { BuffApplication = false });
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.DamageDealt.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.Ownership.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.WeaponIdentity.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.DamageOverTime.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.KillsByYou.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, withoutBuffApplication.ObservedWorldDeaths.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.DamageReceived.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.RangedHits.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.Accuracy.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.MeleeHits.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.PlayerDeaths.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.Headshots.State);
+        Assert.Equal(AdapterCapabilityState.Supported, withoutBuffApplication.HeadshotFinalBlows.State);
     }
 
     [Fact]
@@ -1160,6 +1224,7 @@ public sealed class CombatStatisticsTests
         MeleeCheck = true,
         EffectTrigger = true,
         EffectApplication = true,
+        BuffApplication = true,
         EnvironmentalDamage = true,
         PublicMeleeSwing = true,
         PublicPlayerDeath = true

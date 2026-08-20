@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCleanup
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.combat";
-    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v6+patch-stamp-v1";
+    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v7+patch-stamp-v1";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int MaximumProjectileCorrelations = 2048;
@@ -25,11 +25,11 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly Func<string?> segmentIdProvider;
     private readonly Func<CombatRecorded, bool> combatHandler;
     private readonly Func<EquipmentEventAssociation> equipmentAssociationProvider;
+    private readonly NativeBuffApplicationObservationBoundary buffApplicationObservationBoundary;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
     private readonly NativeCombatEquipmentAssociationResolver equipmentAssociationResolver = new();
-    private readonly CombatBuffOwnershipTracker buffOwnershipTracker = new();
     private readonly Dictionary<int, ProjectileSnapshot> projectiles = new();
     private readonly Queue<(int RuntimeId, string ProjectileId)> projectileOrder = new();
     private PatchRegistration[] patchRegistrations = Array.Empty<PatchRegistration>();
@@ -55,6 +55,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         Func<CombatRecorded, bool> combatHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
         Action<string> diagnosticHandler,
+        NativeBuffApplicationObservationBoundary buffApplicationObservationBoundary,
         Func<EquipmentEventAssociation>? equipmentAssociationProvider = null,
         Func<string?>? segmentIdProvider = null)
     {
@@ -64,6 +65,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         this.combatHandler = combatHandler ?? throw new ArgumentNullException(nameof(combatHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.buffApplicationObservationBoundary = buffApplicationObservationBoundary
+            ?? throw new ArgumentNullException(nameof(buffApplicationObservationBoundary));
         this.equipmentAssociationProvider = equipmentAssociationProvider ?? (() => new EquipmentEventAssociation());
         this.segmentIdProvider = segmentIdProvider ?? (() => null);
         SetUnavailable("Combat attribution has not been initialized.");
@@ -91,6 +94,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
         var methods = ResolveContracts();
         var support = methods.CreateHookSupport();
+        support.BuffApplication = ReadBuffApplicationObservationTrust();
 
         if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var created, out var harmonyDetail) || created == null)
         {
@@ -141,6 +145,11 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             initialized = true;
             retryInitialization = false;
             PublishCapabilities();
+            if (!hookSupport.BuffApplication)
+            {
+                diagnosticHandler(
+                    "Combat buff actor observation is unavailable because the healing-owned CharacterBuffManager.AddBuff callback is not trusted; dependent combat capabilities are disabled.");
+            }
             patchInspectionScheduler.Reset(DateTime.UtcNow, patchRegistrations.Length);
             SynchronizeMainCharacter();
             SynchronizeProjectileContext();
@@ -175,6 +184,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         }
 
         if (!IsActive) return;
+        SynchronizeBuffApplicationObservationTrust();
         SynchronizeMainCharacter();
         if (projectiles.Count > 0) SynchronizeProjectileContextOncePerFrame();
         InspectNextPatchStamp(DateTime.UtcNow);
@@ -302,6 +312,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     public CombatNativeScope? CreateEffectScope(EffectTriggerEventContext context)
     {
         if (!IsActive || !hookSupport.EffectTrigger || context.source == null) return null;
+        SynchronizeBuffApplicationObservationTrust();
         var delayed = context.source is TickTrigger || context.source is UpdateTrigger;
         object associationSource = context.source;
         Buff? parentBuff = null;
@@ -314,8 +325,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var actor = parentBuff?.fromWho ?? context.source.Master?.Item?.GetCharacterMainControl();
         var buffOwnership = parentBuff == null
             ? new CombatBuffOwnershipResolution(ToActorEvidence(actor), conflictingEvidence: false)
-            : buffOwnershipTracker.Resolve(parentBuff, ToActorEvidence(actor));
-        var playerOwned = ToActorEvidence(actor).Kind == CombatActorEvidenceKind.Player;
+            : buffApplicationObservationBoundary.Resolve(parentBuff, ToActorEvidence(actor));
+        var playerOwned = !buffOwnership.ConflictingEvidence
+                          && ToActorEvidence(actor).Kind == CombatActorEvidenceKind.Player;
         var fallbackAssociation = playerOwned
             ? CombatHarmonyBridge.CurrentScope?.EquipmentAssociation ?? equipmentAssociationProvider()
             : new EquipmentEventAssociation();
@@ -372,10 +384,12 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         int overrideWeaponID)
     {
         if (!IsActive || manager == null || buffPrefab == null) return;
+        SynchronizeBuffApplicationObservationTrust();
+        if (!hookSupport.BuffApplication) return;
         // Match CharacterBuffManager.AddBuff's first same-ID lookup exactly.
         var applied = manager.Buffs.FirstOrDefault(value => value != null && value.ID == buffPrefab.ID);
         if (applied == null) return;
-        buffOwnershipTracker.Observe(
+        buffApplicationObservationBoundary.Capture(
             applied,
             ToActorEvidence(applied.fromWho),
             ToActorEvidence(fromWho));
@@ -402,9 +416,11 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     public void CaptureEffectApplication(Effect effect)
     {
         if (!IsActive || !hookSupport.EffectApplication || effect == null) return;
+        SynchronizeBuffApplicationObservationTrust();
         Buff? parentBuff = null;
         try { parentBuff = effect.GetComponentInParent<Buff>(); }
         catch { }
+        if (parentBuff != null && !hookSupport.BuffApplication) return;
         var actor = parentBuff?.fromWho ?? effect.Item?.GetCharacterMainControl();
         if (ToActorEvidence(actor).Kind != CombatActorEvidenceKind.Player) return;
         var association = CombatHarmonyBridge.CurrentScope?.EquipmentAssociation
@@ -604,7 +620,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         projectiles.Clear();
         projectileOrder.Clear();
         equipmentAssociationResolver.Clear();
-        buffOwnershipTracker.Clear();
+        buffApplicationObservationBoundary.Clear();
         CombatHarmonyBridge.ClearScopes();
         projectileContextFrame = -1;
     }
@@ -822,6 +838,21 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     private void PublishCapabilities() =>
         capabilityHandler(CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
+
+    private bool ReadBuffApplicationObservationTrust()
+        => buffApplicationObservationBoundary.IsTrusted;
+
+    private void SynchronizeBuffApplicationObservationTrust()
+    {
+        if (!hookSupport.BuffApplication || ReadBuffApplicationObservationTrust()) return;
+        hookSupport.BuffApplication = false;
+        buffApplicationObservationBoundary.Clear();
+        equipmentAssociationResolver.Clear();
+        metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
+        PublishCapabilities();
+        diagnosticHandler(
+            "Disabled combat capabilities that require buff actor provenance because the CharacterBuffManager.AddBuff observation is no longer trusted.");
+    }
 
     private void InspectNextPatchStamp(DateTime nowUtc)
     {

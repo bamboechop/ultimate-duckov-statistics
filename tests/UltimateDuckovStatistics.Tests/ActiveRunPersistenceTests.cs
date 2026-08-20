@@ -1914,6 +1914,28 @@ public sealed class ActiveRunPersistenceTests
     [Trait("Category", "M11")]
     public void ConflictingBuffReapplicationPersistsAsObservedWorldDeathWithoutEquipmentCredit(
         bool playerAppliedFirst)
+        => AssertAmbiguousBuffFatalTickPersists(
+            playerAppliedFirst,
+            applicationObservationTrusted: true,
+            observeConflictingReapplication: true);
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void UntrustedBuffApplicationCallbackPersistsUnknownWithoutPlayerOrEquipmentCredit(
+        bool retainedActorIsPlayer)
+        => AssertAmbiguousBuffFatalTickPersists(
+            retainedActorIsPlayer,
+            applicationObservationTrusted: false,
+            observeConflictingReapplication: false);
+
+    private static void AssertAmbiguousBuffFatalTickPersists(
+        bool retainedActorIsPlayer,
+        bool applicationObservationTrusted,
+        bool observeConflictingReapplication)
     {
         using var directory = new TemporaryDirectory();
         var repository = Repository(directory.Path);
@@ -1921,13 +1943,19 @@ public sealed class ActiveRunPersistenceTests
         var generation = repository.CurrentGenerationId;
         var player = new CombatActorEvidence(CombatActorEvidenceKind.Player, 1);
         var npc = new CombatActorEvidence(CombatActorEvidenceKind.OtherNpc, 2);
-        var firstActor = playerAppliedFirst ? player : npc;
-        var secondActor = playerAppliedFirst ? npc : player;
+        var firstActor = retainedActorIsPlayer ? player : npc;
+        var secondActor = retainedActorIsPlayer ? npc : player;
         var runtimeBuff = new object();
         var ownershipTracker = new CombatBuffOwnershipTracker();
-        ownershipTracker.Observe(runtimeBuff, firstActor, firstActor);
-        ownershipTracker.Observe(runtimeBuff, firstActor, secondActor);
-        var resolution = ownershipTracker.Resolve(runtimeBuff, firstActor);
+        if (observeConflictingReapplication)
+        {
+            ownershipTracker.Observe(runtimeBuff, firstActor, firstActor);
+            ownershipTracker.Observe(runtimeBuff, firstActor, secondActor);
+        }
+        var resolution = ownershipTracker.Resolve(
+            runtimeBuff,
+            firstActor,
+            applicationObservationTrusted);
         var ownership = CombatObservationPolicy.ResolveOwnership(
             firstActor,
             firstActor,
@@ -1939,7 +1967,9 @@ public sealed class ActiveRunPersistenceTests
             enemyTarget: true, fatalTransition: true, ownership);
         var fatalTick = CombatEvent(
             generation,
-            playerAppliedFirst ? "player-then-npc" : "npc-then-player",
+            applicationObservationTrusted
+                ? retainedActorIsPlayer ? "player-then-npc" : "npc-then-player"
+                : retainedActorIsPlayer ? "untrusted-retained-player" : "untrusted-retained-npc",
             "duckov:target:buff-victim",
             "Buff victim") with
         {
@@ -1954,7 +1984,13 @@ public sealed class ActiveRunPersistenceTests
             ObservedWorldDeaths = death.ObservedWorldDeaths,
             IsFinalBlow = true,
             IsDamageOverTime = true,
-            EquipmentAssociation = new EquipmentEventAssociation()
+            EquipmentAssociation = new EquipmentEventAssociation(),
+            Capabilities = applicationObservationTrusted
+                ? CombatNativeContractPolicy.CreateSupportedCapabilities()
+                : CombatNativeContractPolicy.CreateCapabilities(AllCombatHooks() with
+                {
+                    BuffApplication = false
+                })
         };
         var checkpoint = Checkpoint(generation, 5);
         CombatStatisticsReducer.Apply(checkpoint.CombatStatistics, fatalTick);
@@ -1970,6 +2006,18 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(0, run.CombatStatistics.Totals.KillsByYou);
         Assert.Equal(1, run.CombatStatistics.Totals.ObservedWorldDeaths);
         Assert.Empty(run.EquipmentStatistics.CombatAssociations);
+        if (!applicationObservationTrusted)
+        {
+            Assert.Equal(
+                AdapterCapabilityState.DisabledIncompatible,
+                run.CombatStatistics.Capabilities.KillsByYou.State);
+            Assert.Equal(
+                AdapterCapabilityState.DisabledIncompatible,
+                run.CombatStatistics.Capabilities.ObservedWorldDeaths.State);
+            Assert.Equal(
+                AdapterCapabilityState.DisabledIncompatible,
+                run.CombatStatistics.Capabilities.DamageOverTime.State);
+        }
 
         var export = StatisticsExporter.Create(recovery.Current, TestTime.AddSeconds(10));
         Assert.Equal(0, export.Document.RunTotals.CombatStatistics.Totals.DamageDealt);
@@ -1990,6 +2038,11 @@ public sealed class ActiveRunPersistenceTests
             row => row["scope"] == "lifetime" && row["breakdown"] == "total");
         Assert.Equal("0", total["kills_by_you"]);
         Assert.Equal("1", total["observed_world_deaths"]);
+        if (!applicationObservationTrusted)
+        {
+            Assert.Equal("DisabledIncompatible", total["kills_by_you_state"]);
+            Assert.Equal("DisabledIncompatible", total["observed_world_deaths_state"]);
+        }
         Assert.Empty(ParseCsv(export.EquipmentCombatCsv));
         recovery.CloseClean();
     }
@@ -2513,6 +2566,21 @@ public sealed class ActiveRunPersistenceTests
         Projectiles = Supported(),
         WeaponIdentity = Supported(),
         AmmunitionIdentity = Supported()
+    };
+
+    private static CombatHookSupport AllCombatHooks() => new()
+    {
+        HealthHurt = true,
+        ProjectileInit = true,
+        ProjectileUpdate = true,
+        ProjectileRelease = true,
+        MeleeCheck = true,
+        EffectTrigger = true,
+        EffectApplication = true,
+        BuffApplication = true,
+        EnvironmentalDamage = true,
+        PublicMeleeSwing = true,
+        PublicPlayerDeath = true
     };
 
     private static MetricAvailability Supported() => new()

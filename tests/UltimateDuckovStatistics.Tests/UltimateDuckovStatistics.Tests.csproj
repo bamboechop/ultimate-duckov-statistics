@@ -48,6 +48,8 @@
              Link="ProductionAdapters\NativeEquipmentAdapter.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCombatEquipmentAssociationResolver.cs"
              Link="ProductionAdapters\NativeCombatEquipmentAssociationResolver.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeBuffApplicationObservationBoundary.cs"
+             Link="ProductionAdapters\NativeBuffApplicationObservationBoundary.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeContainerAdapter.Publication.cs"
              Link="ProductionAdapters\NativeContainerAdapter.Publication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEconomyAdapter.cs"

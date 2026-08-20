@@ -49,9 +49,16 @@ public sealed class CombatBuffOwnershipTracker
 
     public CombatBuffOwnershipResolution Resolve(
         object runtimeBuff,
-        CombatActorEvidence retainedActor)
+        CombatActorEvidence retainedActor,
+        bool applicationObservationTrusted = true)
     {
         if (runtimeBuff == null) throw new ArgumentNullException(nameof(runtimeBuff));
+        if (!applicationObservationTrusted)
+        {
+            return new CombatBuffOwnershipResolution(
+                CombatActorEvidence.Missing,
+                conflictingEvidence: true);
+        }
 
         lock (sync)
         {
