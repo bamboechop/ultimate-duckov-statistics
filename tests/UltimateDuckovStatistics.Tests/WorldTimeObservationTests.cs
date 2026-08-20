@@ -73,6 +73,41 @@ public sealed class WorldTimeObservationTests
     }
 
     [Fact]
+    [Trait("Category", "M12")]
+    public void LoadThenNewGameReportThenNewBootRetainsTheBootAdvanceInTheNewGeneration()
+    {
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var profileTransition = new NativeProfileTransitionBoundary();
+        var sequence = new List<string>();
+
+        sequence.Add("Load");
+        Assert.Equal(
+            WorldTimeObservationState.BaselineEstablished,
+            boundary.ObserveClock("pre-rotation", Read(2, 86_000)).State);
+        profileTransition.Enqueue(
+            "OnNewGameReport",
+            () =>
+            {
+                sequence.Add("OnNewGameReport");
+                Assert.Equal(
+                    WorldTimeObservationState.BaselineEstablished,
+                    boundary.ResetAndEstablishBaseline("new-game", Read(2, 86_000)).State);
+            });
+        Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
+
+        sequence.Add("OnNewBoot");
+        var boot = boundary.ObserveClock("new-game", Read(3, 100));
+        var mutation = boundary.TakePending();
+
+        Assert.Equal(["Load", "OnNewGameReport", "OnNewBoot"], sequence);
+        Assert.True(boot.Accepted);
+        Assert.Equal(1, mutation.CalendarDaysAdvanced);
+        Assert.Equal(400 * Second, mutation.ObservedGameTimeTicks);
+        Assert.Equal(0, mutation.CompletedSleepSessions);
+        Assert.Equal(0, mutation.SleepAdvancedTimeTicks);
+    }
+
+    [Fact]
     public void BackwardMovementIsRejectedThenRebaselined()
     {
         var tracker = new WorldTimeObservationTracker();

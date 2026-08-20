@@ -12,7 +12,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1";
+    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+newgame-baseline-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.world-time-sleep";
     private const string SupportedGameVersion = "2.3.30";
     private readonly Func<string> generationIdProvider;
@@ -164,6 +164,25 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         boundary.Reset();
         persistenceCadence.Start(NowMonotonic());
         DiagnosticOnce("profile-reset:" + generationIdProvider(), "World-time baseline reset for the active save generation without counting hydration.");
+    }
+
+    public void ResetForProfileChangeWithCurrentClock()
+    {
+        var generationId = generationIdProvider();
+        persistenceCadence.Start(NowMonotonic());
+        if (GameClock.Instance == null)
+        {
+            boundary.Reset();
+            DiagnosticOnce(
+                "profile-reset-awaiting-clock:" + generationId,
+                "World-time baseline reset for the active save generation; the next native clock observation will establish its baseline.");
+            return;
+        }
+
+        boundary.ResetAndEstablishBaseline(generationId, ReadClock());
+        DiagnosticOnce(
+            "profile-reset-current-clock:" + generationId,
+            "World-time baseline reset from the already-loaded native clock so subsequent new-game boot advancement remains observable.");
     }
 
     public bool TryCleanup()

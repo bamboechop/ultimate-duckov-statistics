@@ -105,7 +105,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             worldTimeAdapter.Assign(newWorldTimeAdapter);
             newWorldTimeAdapter.Initialize();
             profileCoordinator.SetWorldTimeBoundaryBarrier(newWorldTimeAdapter.FlushPending);
-            profileCoordinator.ProfileChanged += newWorldTimeAdapter.ResetForProfileChange;
+            profileCoordinator.WorldTimeProfileChangedAwaitingNativeLoad += newWorldTimeAdapter.ResetForProfileChange;
+            profileCoordinator.WorldTimeProfileChangedWithCurrentClock += newWorldTimeAdapter.ResetForProfileChangeWithCurrentClock;
             var economyFlowPublication = new EconomyFlowPublication(
                 profileCoordinator.HandleCurrencyFlow,
                 flow => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true,
@@ -329,7 +330,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             if (ownedRunLifecycleAdapter != null)
                 profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
             if (worldTimeAdapter.OwnedValue != null)
-                profileCoordinator.ProfileChanged -= worldTimeAdapter.OwnedValue.ResetForProfileChange;
+            {
+                profileCoordinator.WorldTimeProfileChangedAwaitingNativeLoad -= worldTimeAdapter.OwnedValue.ResetForProfileChange;
+                profileCoordinator.WorldTimeProfileChangedWithCurrentClock -= worldTimeAdapter.OwnedValue.ResetForProfileChangeWithCurrentClock;
+            }
         }
 
         if (!weaponFireAdapter.TryCleanupOwned())

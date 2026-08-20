@@ -106,6 +106,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public event Action? ProfileChanging;
 
+    public event Action? WorldTimeProfileChangedAwaitingNativeLoad;
+
+    public event Action? WorldTimeProfileChangedWithCurrentClock;
+
     public string DataRoot => dataRoot;
 
     public string CurrentGenerationId => repository?.CurrentGenerationId ?? string.Empty;
@@ -493,6 +497,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             () => repository.RefreshIdentity(currentIdentity),
             () => repository.Rotate(resetIdentity, "UserReset"),
             OpenDiagnosticsForCurrentGeneration,
+            () => PublishProfileEvent(WorldTimeProfileChangedWithCurrentClock, "world-time-profile-changed-current-clock"),
             () => PublishProfileEvent(ProfileChanged, "profile-changed"),
             ApplyCurrentMetricCapabilities,
             () => WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only."));
@@ -548,6 +553,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 },
                 () => result = repository.Open(observed, "SaveSlotSelected"),
                 OpenDiagnosticsForCurrentGeneration,
+                () => PublishProfileEvent(WorldTimeProfileChangedAwaitingNativeLoad, "world-time-profile-changed-awaiting-load"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
                 ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic(
@@ -575,6 +581,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 () => repository!.Rotate(identity, "DuckovSaveDeleted"),
                 () => saveResetAwaitingNewGameReport = true,
                 OpenDiagnosticsForCurrentGeneration,
+                () => PublishProfileEvent(WorldTimeProfileChangedAwaitingNativeLoad, "world-time-profile-changed-awaiting-load"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
                 ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic($"Duckov save deletion rotated to generation {repository!.CurrentGenerationId}."));
@@ -633,6 +640,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 {
                     if (!matchedDeletedGeneration) OpenDiagnosticsForCurrentGeneration();
                 },
+                () => PublishProfileEvent(WorldTimeProfileChangedWithCurrentClock, "world-time-profile-changed-current-clock"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
                 ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic(matchedDeletedGeneration

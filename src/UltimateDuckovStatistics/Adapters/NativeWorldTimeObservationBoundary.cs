@@ -87,5 +87,13 @@ internal sealed class NativeWorldTimeObservationBoundary
         sleepAdvancedTicks = 0;
     }
 
+    public WorldTimeObservationResult ResetAndEstablishBaseline(
+        string generationId,
+        WorldClockReading reading)
+    {
+        Reset();
+        return ObserveClock(generationId, reading);
+    }
+
     public void ClearPendingSleep() => sleepCompletion.Clear();
 }
