@@ -5,12 +5,24 @@ using UltimateDuckovStatistics.Core.Export;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
+using UltimateDuckovStatistics.UI;
 
 namespace UltimateDuckovStatistics.Tests;
 
 public sealed class CombatStatisticsTests
 {
     private static readonly DateTime Now = new(2026, 8, 11, 12, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void UiMetricFormatterNeverExposesDisabledCombatTotalsAsExactValues()
+    {
+        Assert.Equal("Unsupported", UiText.FormatMetric(7L, AdapterCapabilityState.DisabledIncompatible));
+        Assert.Equal("Unsupported", UiText.FormatMetric(12.5, AdapterCapabilityState.DisabledIncompatible));
+        Assert.Equal("7", UiText.FormatMetric(7L, AdapterCapabilityState.Supported));
+        Assert.Equal("12.5", UiText.FormatMetric(12.5, AdapterCapabilityState.Supported));
+    }
 
     [Fact]
     [Trait("Category", "Combat")]
@@ -207,7 +219,7 @@ public sealed class CombatStatisticsTests
     [InlineData(CombatActorEvidenceKind.OtherNpc)]
     [Trait("Category", "Combat")]
     [Trait("Category", "M11")]
-    public void EffectTriggerLossCannotUseTheRetainedActorAfterAConflictingBuffReapplication(
+    public void EffectTriggeredExplosionCannotUseTheRetainedActorAfterScopeLoss(
         CombatActorEvidenceKind retainedActorKind)
     {
         var retainedActor = new CombatActorEvidence(retainedActorKind, 1);
@@ -222,6 +234,10 @@ public sealed class CombatStatisticsTests
         Assert.True(boundary.Capture(runtimeBuff, retainedActor, retainedActor));
         Assert.True(boundary.Capture(runtimeBuff, retainedActor, incomingActor));
         Assert.True(boundary.Resolve(runtimeBuff, retainedActor).ConflictingEvidence);
+        const bool nativeExplosionDamage = true;
+        const bool nativeBuffOrEffectMarker = false;
+        Assert.True(nativeExplosionDamage);
+        Assert.False(nativeBuffOrEffectMarker);
 
         var support = AllHooks() with { EffectTrigger = false };
         var ownership = CombatObservationPolicy.ResolveHealthTransitionOwnership(
@@ -231,7 +247,7 @@ public sealed class CombatStatisticsTests
             nativePlayerOwnerChain: false,
             explicitActorlessWorldDamage: false,
             conflictingActorEvidence: false,
-            nativeBuffOrEffectDamage: true,
+            ownershipScopePresent: false,
             effectScopeObservationTrusted: support.EffectTrigger);
         var death = CombatObservationPolicy.ClassifyEnemyDeath(
             enemyTarget: true,
@@ -240,15 +256,15 @@ public sealed class CombatStatisticsTests
         var weaponTypeId = CombatObservationPolicy.ResolveHealthTransitionWeaponTypeId(
             scopedWeaponTypeId: -1,
             nativeWeaponTypeId: 777,
-            nativeBuffOrEffectDamage: true,
+            ownershipScopePresent: false,
             effectScopeObservationTrusted: support.EffectTrigger);
         var aggregate = new CombatStatisticsAggregate();
         var equipment = new EquipmentStatisticsAggregate();
         var fatalTick = Event($"effect-hook-loss-{retainedActorKind}") with
         {
             Ownership = ownership,
-            AttackKind = CombatAttackKind.Effect,
-            CauseKind = CombatCauseKind.DamageOverTime,
+            AttackKind = CombatAttackKind.Unknown,
+            CauseKind = CombatCauseKind.Explosion,
             WeaponId = weaponTypeId < 0 ? "duckov:weapon:unknown" : $"duckov:weapon:{weaponTypeId}",
             WeaponDisplayName = weaponTypeId < 0 ? "Unknown weapon" : "Retained weapon",
             ActualDamageToTarget = 5,

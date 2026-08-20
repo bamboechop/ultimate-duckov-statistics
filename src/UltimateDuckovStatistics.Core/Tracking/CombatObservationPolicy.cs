@@ -94,10 +94,10 @@ public static class CombatObservationPolicy
         bool nativePlayerOwnerChain,
         bool explicitActorlessWorldDamage,
         bool conflictingActorEvidence,
-        bool nativeBuffOrEffectDamage,
+        bool ownershipScopePresent,
         bool effectScopeObservationTrusted)
     {
-        if (nativeBuffOrEffectDamage && !effectScopeObservationTrusted)
+        if (!ownershipScopePresent && !effectScopeObservationTrusted)
         {
             return CombatOwnership.Unknown;
         }
@@ -114,10 +114,10 @@ public static class CombatObservationPolicy
     public static int ResolveHealthTransitionWeaponTypeId(
         int scopedWeaponTypeId,
         int nativeWeaponTypeId,
-        bool nativeBuffOrEffectDamage,
+        bool ownershipScopePresent,
         bool effectScopeObservationTrusted)
     {
-        if (nativeBuffOrEffectDamage && !effectScopeObservationTrusted)
+        if (!ownershipScopePresent && !effectScopeObservationTrusted)
         {
             return -1;
         }

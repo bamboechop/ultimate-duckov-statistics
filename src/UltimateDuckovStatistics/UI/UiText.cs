@@ -126,6 +126,16 @@ internal static class UiText
 
     public static string Get(string key) => English.TryGetValue(key, out var value) ? value : key;
 
+    public static string FormatMetric(long value, AdapterCapabilityState state) =>
+        state == AdapterCapabilityState.DisabledIncompatible
+            ? Get("ui.unsupported")
+            : value.ToString(CultureInfo.InvariantCulture);
+
+    public static string FormatMetric(double value, AdapterCapabilityState state) =>
+        state == AdapterCapabilityState.DisabledIncompatible
+            ? Get("ui.unsupported")
+            : value.ToString("0.###", CultureInfo.InvariantCulture);
+
     public static string FormatEconomyCompact(
         EconomyStatisticsAggregate economy,
         EconomyMetricCapabilities? currentCapabilities = null)

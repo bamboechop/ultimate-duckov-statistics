@@ -209,6 +209,62 @@ public sealed class ExportTests
 
     [Fact]
     [Trait("Category", "Export")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void EquipmentCombatCsvCarriesCurrentUnavailableCombatCapabilityStates()
+    {
+        var profile = CreateProfile();
+        profile.Capabilities.AddRange(CombatNativeContractPolicy.ToRecords(
+            CombatNativeContractPolicy.CreateSupportedCapabilities(), "test"));
+        var run = CreateRun("degraded-equipment-run", RunOutcome.Extracted, 10, 2, 0);
+        var player = CombatEvent("player-before-degradation", CombatOwnership.Player, "duckov:target:wolf") with
+        {
+            ActualDamageToTarget = 10,
+            ActualDamageDealt = 10,
+            KillsByYou = 1,
+            IsFinalBlow = true,
+            EquipmentAssociation = new EquipmentEventAssociation
+            {
+                LoadoutId = "loadout-a",
+                SelectedWeaponSlotId = "primary",
+                SelectedWeaponId = "duckov:weapon:1",
+                TotemSetId = "totems:none"
+            }
+        };
+        CombatStatisticsReducer.Apply(run.CombatStatistics, player);
+        EquipmentStatisticsReducer.RecordCombat(run.EquipmentStatistics, player);
+        Assert.True(RunReducer.Apply(profile.Statistics, run));
+
+        var disabledCapabilityIds = new HashSet<string>(StringComparer.Ordinal)
+        {
+            CombatCapabilityIds.DamageDealt,
+            CombatCapabilityIds.DamageReceived,
+            CombatCapabilityIds.RangedHits,
+            CombatCapabilityIds.MeleeHits,
+            CombatCapabilityIds.KillsByYou,
+            CombatCapabilityIds.PlayerDeaths,
+            CombatCapabilityIds.Ownership
+        };
+        foreach (var capability in profile.Capabilities.Where(value => disabledCapabilityIds.Contains(value.AdapterId)))
+            capability.State = AdapterCapabilityState.DisabledIncompatible;
+
+        var row = Assert.Single(
+            ParseCsv(StatisticsExporter.Create(profile, TestTime).EquipmentCombatCsv),
+            value => value["scope"] == "lifetime");
+
+        Assert.Equal("10", row["damage_dealt"]);
+        Assert.Equal("1", row["kills_by_you"]);
+        Assert.Equal("DisabledIncompatible", row["damage_dealt_state"]);
+        Assert.Equal("DisabledIncompatible", row["damage_received_state"]);
+        Assert.Equal("DisabledIncompatible", row["ranged_hits_state"]);
+        Assert.Equal("DisabledIncompatible", row["melee_hits_state"]);
+        Assert.Equal("DisabledIncompatible", row["kills_by_you_state"]);
+        Assert.Equal("DisabledIncompatible", row["player_deaths_state"]);
+        Assert.Equal("DisabledIncompatible", row["ownership_state"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
     public void CsvEscapesItemNamesWithoutChangingTheirValue()
     {
         var profile = CreateProfile();

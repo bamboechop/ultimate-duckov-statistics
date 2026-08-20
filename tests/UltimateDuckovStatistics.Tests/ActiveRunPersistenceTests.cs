@@ -1918,6 +1918,7 @@ public sealed class ActiveRunPersistenceTests
             playerAppliedFirst,
             applicationObservationTrusted: true,
             effectTriggerTrusted: true,
+            nativeExplosionWithoutEffectMarker: false,
             observeConflictingReapplication: true);
 
     [Theory]
@@ -1932,6 +1933,7 @@ public sealed class ActiveRunPersistenceTests
             retainedActorIsPlayer,
             applicationObservationTrusted: false,
             effectTriggerTrusted: true,
+            nativeExplosionWithoutEffectMarker: false,
             observeConflictingReapplication: false);
 
     [Theory]
@@ -1940,18 +1942,20 @@ public sealed class ActiveRunPersistenceTests
     [Trait("Category", "Persistence")]
     [Trait("Category", "Combat")]
     [Trait("Category", "M11")]
-    public void EffectTriggerLossAfterConflictingBuffPersistsUnknownWithoutPlayerOrEquipmentCredit(
+    public void EffectTriggeredExplosionAfterScopeLossPersistsUnknownWithoutPlayerOrEquipmentCredit(
         bool retainedActorIsPlayer)
         => AssertAmbiguousBuffFatalTickPersists(
             retainedActorIsPlayer,
             applicationObservationTrusted: true,
             effectTriggerTrusted: false,
+            nativeExplosionWithoutEffectMarker: true,
             observeConflictingReapplication: true);
 
     private static void AssertAmbiguousBuffFatalTickPersists(
         bool retainedActorIsPlayer,
         bool applicationObservationTrusted,
         bool effectTriggerTrusted,
+        bool nativeExplosionWithoutEffectMarker,
         bool observeConflictingReapplication)
     {
         using var directory = new TemporaryDirectory();
@@ -1981,7 +1985,7 @@ public sealed class ActiveRunPersistenceTests
             nativePlayerOwnerChain: false,
             explicitActorlessWorldDamage: false,
             conflictingActorEvidence: effectTriggerTrusted && resolution.ConflictingEvidence,
-            nativeBuffOrEffectDamage: true,
+            ownershipScopePresent: effectTriggerTrusted,
             effectScopeObservationTrusted: effectTriggerTrusted);
         var death = CombatObservationPolicy.ClassifyEnemyDeath(
             enemyTarget: true, fatalTransition: true, ownership);
@@ -1996,10 +2000,10 @@ public sealed class ActiveRunPersistenceTests
             "Buff victim") with
         {
             Ownership = ownership,
-            AttackKind = CombatAttackKind.Effect,
-            CauseKind = CombatCauseKind.DamageOverTime,
-            CauseId = "duckov:cause:damage-over-time",
-            CauseDisplayName = "Damage over time",
+            AttackKind = nativeExplosionWithoutEffectMarker ? CombatAttackKind.Unknown : CombatAttackKind.Effect,
+            CauseKind = nativeExplosionWithoutEffectMarker ? CombatCauseKind.Explosion : CombatCauseKind.DamageOverTime,
+            CauseId = nativeExplosionWithoutEffectMarker ? "duckov:cause:explosion" : "duckov:cause:damage-over-time",
+            CauseDisplayName = nativeExplosionWithoutEffectMarker ? "Explosion" : "Damage over time",
             WeaponId = effectTriggerTrusted ? "duckov:weapon:1" : "duckov:weapon:unknown",
             WeaponDisplayName = effectTriggerTrusted ? "Test rifle" : "Unknown weapon",
             ActualDamageToTarget = 5,
@@ -2007,7 +2011,7 @@ public sealed class ActiveRunPersistenceTests
             KillsByYou = death.KillsByYou,
             ObservedWorldDeaths = death.ObservedWorldDeaths,
             IsFinalBlow = true,
-            IsDamageOverTime = effectTriggerTrusted,
+            IsDamageOverTime = effectTriggerTrusted && !nativeExplosionWithoutEffectMarker,
             EquipmentAssociation = new EquipmentEventAssociation(),
             Capabilities = CombatNativeContractPolicy.CreateCapabilities(AllCombatHooks() with
             {
@@ -2015,9 +2019,10 @@ public sealed class ActiveRunPersistenceTests
                 EffectTrigger = effectTriggerTrusted
             })
         };
-        var checkpoint = Checkpoint(generation, 5);
+        var checkpoint = RouteCheckpoint(generation, 5);
         CombatStatisticsReducer.Apply(checkpoint.CombatStatistics, fatalTick);
         EquipmentStatisticsReducer.RecordCombat(checkpoint.EquipmentStatistics, fatalTick);
+        checkpoint.Segments[0].CombatStatistics = CombatStatisticsReducer.Clone(checkpoint.CombatStatistics);
         Assert.Empty(checkpoint.EquipmentStatistics.CombatAssociations);
 
         repository.SaveActiveRun(checkpoint);
@@ -2070,6 +2075,21 @@ public sealed class ActiveRunPersistenceTests
         {
             Assert.Equal("DisabledIncompatible", total["kills_by_you_state"]);
             Assert.Equal("DisabledIncompatible", total["observed_world_deaths_state"]);
+
+            var runRow = Assert.Single(ParseCsv(export.RunsCsv));
+            var runTotalsRow = Assert.Single(ParseCsv(export.RunTotalsCsv));
+            var mapTotalsRow = Assert.Single(ParseCsv(export.MapTotalsCsv));
+            var routeMapTotalsRow = Assert.Single(ParseCsv(export.RouteMapTotalsCsv));
+            var segmentRow = Assert.Single(ParseCsv(export.SegmentsCsv));
+            Assert.All(
+                new[] { runRow, runTotalsRow, mapTotalsRow, routeMapTotalsRow, segmentRow },
+                row =>
+                {
+                    Assert.Equal("DisabledIncompatible", row["kills_by_you_state"]);
+                    Assert.Equal("DisabledIncompatible", row["observed_world_deaths_state"]);
+                });
+            Assert.Equal("DisabledIncompatible", routeMapTotalsRow["damage_dealt_state"]);
+            Assert.Equal("DisabledIncompatible", segmentRow["damage_dealt_state"]);
         }
         Assert.Empty(ParseCsv(export.EquipmentCombatCsv));
         recovery.CloseClean();

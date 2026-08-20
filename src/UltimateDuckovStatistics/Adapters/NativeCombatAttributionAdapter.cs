@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCleanup
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.combat";
-    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v8+patch-stamp-v1";
+    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v9+patch-stamp-v1";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int MaximumProjectileCorrelations = 2048;
@@ -481,7 +481,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var weaponTypeId = CombatObservationPolicy.ResolveHealthTransitionWeaponTypeId(
             scope?.WeaponTypeId ?? -1,
             state.DamageInfo.fromWeaponItemID,
-            state.DamageInfo.isFromBuffOrEffect,
+            scope != null,
             hookSupport.EffectTrigger);
         var weaponName = weaponTypeId >= 0 && !string.IsNullOrWhiteSpace(scope?.WeaponDisplayName)
             ? scope!.WeaponDisplayName
@@ -711,7 +711,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             scope?.NativePlayerOwnerChain == true,
             scope?.ExplicitActorlessWorldDamage == true,
             scope?.ConflictingActorEvidence == true,
-            damageInfo.isFromBuffOrEffect,
+            scope != null,
             hookSupport.EffectTrigger);
 
     private static CharacterMainControl? ResolveAttributionActor(

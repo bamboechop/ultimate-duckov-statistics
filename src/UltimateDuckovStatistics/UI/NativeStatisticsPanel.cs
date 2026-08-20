@@ -167,7 +167,7 @@ internal sealed class NativeStatisticsPanel
         var combat = WeaponStatisticsViewModelFactory.Create(profile);
         GUILayout.Label(
             $"{UiText.Get("ui.firing_actions")}: "
-            + FormatMetric(combat.Lifetime.Totals.FiringActions, combat.Capabilities.FiringActions.State));
+            + UiText.FormatMetric(combat.Lifetime.Totals.FiringActions, combat.Capabilities.FiringActions.State));
         GUILayout.Label($"{UiText.Get("ui.economy")}: {UiText.FormatEconomyCompact(profile.Statistics.Economy, coordinator.CurrentEconomyCapabilities)}");
         GUILayout.Space(12);
         GUILayout.Label(UiText.Get("ui.group_totals"));
@@ -263,11 +263,11 @@ internal sealed class NativeStatisticsPanel
                 + $"{UiText.Get("ui.record_status")}: {FormatRecordEligibility(row)}");
             var combat = run.CombatStatistics;
             GUILayout.Label(
-                $"  {UiText.Get("ui.damage_dealt")}: {FormatMetric(combat.Totals.DamageDealt, combat.Capabilities.DamageDealt.State)}; "
-                + $"{UiText.Get("ui.damage_received")}: {FormatMetric(combat.Totals.DamageReceived, combat.Capabilities.DamageReceived.State)}; "
-                + $"{UiText.Get("ui.kills_by_you")}: {FormatMetric(combat.Totals.KillsByYou, combat.Capabilities.KillsByYou.State)}; "
-                + $"{UiText.Get("ui.observed_world_deaths")}: {FormatMetric(combat.Totals.ObservedWorldDeaths, combat.Capabilities.ObservedWorldDeaths.State)}; "
-                + $"{UiText.Get("ui.deaths")}: {FormatMetric(combat.Totals.PlayerDeaths, combat.Capabilities.PlayerDeaths.State)}");
+                $"  {UiText.Get("ui.damage_dealt")}: {UiText.FormatMetric(combat.Totals.DamageDealt, combat.Capabilities.DamageDealt.State)}; "
+                + $"{UiText.Get("ui.damage_received")}: {UiText.FormatMetric(combat.Totals.DamageReceived, combat.Capabilities.DamageReceived.State)}; "
+                + $"{UiText.Get("ui.kills_by_you")}: {UiText.FormatMetric(combat.Totals.KillsByYou, combat.Capabilities.KillsByYou.State)}; "
+                + $"{UiText.Get("ui.observed_world_deaths")}: {UiText.FormatMetric(combat.Totals.ObservedWorldDeaths, combat.Capabilities.ObservedWorldDeaths.State)}; "
+                + $"{UiText.Get("ui.deaths")}: {UiText.FormatMetric(combat.Totals.PlayerDeaths, combat.Capabilities.PlayerDeaths.State)}");
             GUILayout.Label(
                 $"  {UiText.Get("ui.economy")}: "
                 + $"{UiText.FormatEconomyCompact(run.Economy, currentEconomyCapabilities)}; "
@@ -302,8 +302,8 @@ internal sealed class NativeStatisticsPanel
                         {
                             GUILayout.Label(
                                 $"       items {segment.ItemStatistics.Overall.ActivationCount}, healing {segment.ItemStatistics.Overall.ActualHealthRestored:0.##} HP, "
-                                + $"shots {segment.WeaponStatistics.Totals.FiringActions}, damage {segment.CombatStatistics.Totals.DamageDealt:0.##}, "
-                                + $"kills by you {segment.CombatStatistics.Totals.KillsByYou}, observed deaths {segment.CombatStatistics.Totals.ObservedWorldDeaths}, "
+                                + $"shots {segment.WeaponStatistics.Totals.FiringActions}, damage {UiText.FormatMetric(segment.CombatStatistics.Totals.DamageDealt, segment.CombatStatistics.Capabilities.DamageDealt.State)}, "
+                                + $"kills by you {UiText.FormatMetric(segment.CombatStatistics.Totals.KillsByYou, segment.CombatStatistics.Capabilities.KillsByYou.State)}, observed deaths {UiText.FormatMetric(segment.CombatStatistics.Totals.ObservedWorldDeaths, segment.CombatStatistics.Capabilities.ObservedWorldDeaths.State)}, "
                                 + $"containers {segment.ContainerStatistics.UniqueContainersLooted}");
                         }
                         else
@@ -387,29 +387,29 @@ internal sealed class NativeStatisticsPanel
         var damage = CombatStatisticsViewModelFactory.Create(profile);
         GUILayout.Space(8);
         GUILayout.Label(UiText.Get("ui.damage_contract"));
-        GUILayout.Label($"{UiText.Get("ui.damage_dealt")}: {FormatMetric(damage.Lifetime.Totals.DamageDealt, damage.Capabilities.DamageDealt.State)}");
-        GUILayout.Label($"{UiText.Get("ui.damage_received")}: {FormatMetric(damage.Lifetime.Totals.DamageReceived, damage.Capabilities.DamageReceived.State)}");
+        GUILayout.Label($"{UiText.Get("ui.damage_dealt")}: {UiText.FormatMetric(damage.Lifetime.Totals.DamageDealt, damage.Capabilities.DamageDealt.State)}");
+        GUILayout.Label($"{UiText.Get("ui.damage_received")}: {UiText.FormatMetric(damage.Lifetime.Totals.DamageReceived, damage.Capabilities.DamageReceived.State)}");
         GUILayout.Label($"{UiText.Get("ui.accuracy")}: {FormatAccuracy(damage)}");
-        GUILayout.Label($"{UiText.Get("ui.melee")}: {FormatMetric(damage.Lifetime.Totals.MeleeSwings, damage.Capabilities.MeleeSwings.State)} / {FormatMetric(damage.Lifetime.Totals.MeleeHits, damage.Capabilities.MeleeHits.State)}");
-        GUILayout.Label($"{UiText.Get("ui.kills_by_you")}: {FormatMetric(damage.Lifetime.Totals.KillsByYou, damage.Capabilities.KillsByYou.State)}; {UiText.Get("ui.deaths")}: {FormatMetric(damage.Lifetime.Totals.PlayerDeaths, damage.Capabilities.PlayerDeaths.State)}");
-        GUILayout.Label($"{UiText.Get("ui.observed_world_deaths")}: {FormatMetric(damage.Lifetime.Totals.ObservedWorldDeaths, damage.Capabilities.ObservedWorldDeaths.State)}");
+        GUILayout.Label($"{UiText.Get("ui.melee")}: {UiText.FormatMetric(damage.Lifetime.Totals.MeleeSwings, damage.Capabilities.MeleeSwings.State)} / {UiText.FormatMetric(damage.Lifetime.Totals.MeleeHits, damage.Capabilities.MeleeHits.State)}");
+        GUILayout.Label($"{UiText.Get("ui.kills_by_you")}: {UiText.FormatMetric(damage.Lifetime.Totals.KillsByYou, damage.Capabilities.KillsByYou.State)}; {UiText.Get("ui.deaths")}: {UiText.FormatMetric(damage.Lifetime.Totals.PlayerDeaths, damage.Capabilities.PlayerDeaths.State)}");
+        GUILayout.Label($"{UiText.Get("ui.observed_world_deaths")}: {UiText.FormatMetric(damage.Lifetime.Totals.ObservedWorldDeaths, damage.Capabilities.ObservedWorldDeaths.State)}");
         if (damage.Lifetime.Totals.LegacyUnclassifiedDeaths > 0 || damage.Lifetime.HistoricalOwnershipUnavailable)
         {
             GUILayout.Label($"{UiText.Get("ui.legacy_unclassified_deaths")}: {damage.Lifetime.Totals.LegacyUnclassifiedDeaths.ToString(CultureInfo.InvariantCulture)}");
             GUILayout.Label($"{UiText.Get("ui.historical_ownership_unavailable")}: {damage.Lifetime.HistoricalOwnershipProvenance}");
         }
-        GUILayout.Label($"{UiText.Get("ui.headshots")}: {FormatMetric(damage.Lifetime.Totals.Headshots, damage.Capabilities.Headshots.State)} / {FormatMetric(damage.Lifetime.Totals.HeadshotFinalBlows, damage.Capabilities.HeadshotFinalBlows.State)}");
+        GUILayout.Label($"{UiText.Get("ui.headshots")}: {UiText.FormatMetric(damage.Lifetime.Totals.Headshots, damage.Capabilities.Headshots.State)} / {UiText.FormatMetric(damage.Lifetime.Totals.HeadshotFinalBlows, damage.Capabilities.HeadshotFinalBlows.State)}");
         GUILayout.Space(8);
         GUILayout.Label(UiText.Get("ui.metric_contract"));
         GUILayout.Label(
             $"{UiText.Get("ui.firing_actions")}: "
-            + FormatMetric(model.Lifetime.Totals.FiringActions, model.Capabilities.FiringActions.State));
+            + UiText.FormatMetric(model.Lifetime.Totals.FiringActions, model.Capabilities.FiringActions.State));
         GUILayout.Label(
             $"{UiText.Get("ui.ammunition_consumed")}: "
-            + FormatMetric(model.Lifetime.Totals.AmmunitionUnitsConsumed, model.Capabilities.AmmunitionConsumption.State));
+            + UiText.FormatMetric(model.Lifetime.Totals.AmmunitionUnitsConsumed, model.Capabilities.AmmunitionConsumption.State));
         GUILayout.Label(
             $"{UiText.Get("ui.projectiles")}: "
-            + FormatMetric(model.Lifetime.Totals.Projectiles, model.Capabilities.Projectiles.State));
+            + UiText.FormatMetric(model.Lifetime.Totals.Projectiles, model.Capabilities.Projectiles.State));
 
         combatScroll = GUILayout.BeginScrollView(combatScroll);
         if (model.Lifetime.Totals.FiringActions == 0 && damage.Lifetime.Totals.DamageCaused == 0)
@@ -423,7 +423,7 @@ internal sealed class NativeStatisticsPanel
             GUILayout.Space(8);
             GUILayout.Label(UiText.Get("ui.enemies"));
             foreach (var enemy in damage.Enemies.Take(20))
-                GUILayout.Label($"{enemy.DisplayName} [{enemy.Id}]: {enemy.Totals.DamageCaused.ToString("0.###", CultureInfo.InvariantCulture)} damage, {enemy.Totals.KillsByYou.ToString(CultureInfo.InvariantCulture)} kills by you, {enemy.Totals.ObservedWorldDeaths.ToString(CultureInfo.InvariantCulture)} observed deaths, {enemy.Totals.LegacyUnclassifiedDeaths.ToString(CultureInfo.InvariantCulture)} legacy unclassified");
+                GUILayout.Label($"{enemy.DisplayName} [{enemy.Id}]: {UiText.FormatMetric(enemy.Totals.DamageCaused, damage.Capabilities.EnemyIdentity.State)} damage, {UiText.FormatMetric(enemy.Totals.KillsByYou, damage.Capabilities.KillsByYou.State)} kills by you, {UiText.FormatMetric(enemy.Totals.ObservedWorldDeaths, damage.Capabilities.ObservedWorldDeaths.State)} observed deaths, {enemy.Totals.LegacyUnclassifiedDeaths.ToString(CultureInfo.InvariantCulture)} legacy unclassified");
         }
 
         if (damage.Ownership.Count > 0)
@@ -431,7 +431,7 @@ internal sealed class NativeStatisticsPanel
             GUILayout.Space(8);
             GUILayout.Label(UiText.Get("ui.ownership"));
             foreach (var ownership in damage.Ownership)
-                GUILayout.Label($"{ownership.DisplayName}: {ownership.Totals.ObservedWorldDeaths.ToString(CultureInfo.InvariantCulture)} observed deaths, {ownership.Totals.DamageCaused.ToString("0.###", CultureInfo.InvariantCulture)} damage");
+                GUILayout.Label($"{ownership.DisplayName}: {UiText.FormatMetric(ownership.Totals.ObservedWorldDeaths, damage.Capabilities.ObservedWorldDeaths.State)} observed deaths, {UiText.FormatMetric(ownership.Totals.DamageCaused, damage.Capabilities.Ownership.State)} damage");
         }
 
         if (damage.Killers.Count > 0)
@@ -472,9 +472,9 @@ internal sealed class NativeStatisticsPanel
             {
                 GUILayout.Label(
                     $"{UiText.FormatRoute(run)} ({run.Outcome}, {run.RunId}): "
-                    + $"{FormatMetric(run.WeaponStatistics.Totals.FiringActions, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.FiringActions, model.Capabilities.FiringActions.State))} actions, "
-                    + $"{FormatMetric(run.WeaponStatistics.Totals.AmmunitionUnitsConsumed, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.AmmunitionConsumption, model.Capabilities.AmmunitionConsumption.State))} ammo, "
-                    + $"{FormatMetric(run.WeaponStatistics.Totals.Projectiles, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.Projectiles, model.Capabilities.Projectiles.State))} projectiles");
+                    + $"{UiText.FormatMetric(run.WeaponStatistics.Totals.FiringActions, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.FiringActions, model.Capabilities.FiringActions.State))} actions, "
+                    + $"{UiText.FormatMetric(run.WeaponStatistics.Totals.AmmunitionUnitsConsumed, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.AmmunitionConsumption, model.Capabilities.AmmunitionConsumption.State))} ammo, "
+                    + $"{UiText.FormatMetric(run.WeaponStatistics.Totals.Projectiles, WeaponStatisticsReducer.RestrictAvailability(run.WeaponStatistics.Capabilities.Projectiles, model.Capabilities.Projectiles.State))} projectiles");
             }
         }
 
@@ -559,9 +559,9 @@ internal sealed class NativeStatisticsPanel
     {
         GUILayout.BeginHorizontal();
         GUILayout.Label($"{displayName} [{stableId}]", GUILayout.Width(280));
-        GUILayout.Label(FormatMetric(totals.FiringActions, capabilities.FiringActions.State), GUILayout.Width(125));
-        GUILayout.Label(FormatMetric(totals.AmmunitionUnitsConsumed, capabilities.AmmunitionConsumption.State), GUILayout.Width(190));
-        GUILayout.Label(FormatMetric(totals.Projectiles, capabilities.Projectiles.State));
+        GUILayout.Label(UiText.FormatMetric(totals.FiringActions, capabilities.FiringActions.State), GUILayout.Width(125));
+        GUILayout.Label(UiText.FormatMetric(totals.AmmunitionUnitsConsumed, capabilities.AmmunitionConsumption.State), GUILayout.Width(190));
+        GUILayout.Label(UiText.FormatMetric(totals.Projectiles, capabilities.Projectiles.State));
         GUILayout.EndHorizontal();
     }
 
@@ -831,16 +831,6 @@ internal sealed class NativeStatisticsPanel
     private static string FormatDistance(double meters, bool supported) => supported
         ? $"{meters.ToString("0.##", CultureInfo.InvariantCulture)} m"
         : UiText.Get("ui.unsupported");
-
-    private static string FormatMetric(long value, AdapterCapabilityState state) =>
-        state == AdapterCapabilityState.DisabledIncompatible
-            ? UiText.Get("ui.unsupported")
-            : value.ToString(CultureInfo.InvariantCulture);
-
-    private static string FormatMetric(double value, AdapterCapabilityState state) =>
-        state == AdapterCapabilityState.DisabledIncompatible
-            ? UiText.Get("ui.unsupported")
-            : value.ToString("0.###", CultureInfo.InvariantCulture);
 
     private static string FormatAccuracy(CombatStatisticsViewModel model) =>
         model.Capabilities.Accuracy.State == AdapterCapabilityState.DisabledIncompatible
