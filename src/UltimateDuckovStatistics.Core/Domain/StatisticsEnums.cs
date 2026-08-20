@@ -102,7 +102,16 @@ public enum CombatOwnership
     [EnumMember] Unknown = 0,
     [EnumMember] Player = 1,
     [EnumMember] PetCompanion = 2,
-    [EnumMember] Environmental = 3
+    [EnumMember] Environmental = 3,
+    [EnumMember] OtherNpc = 4
+}
+
+public enum CombatActorEvidenceKind
+{
+    Missing = 0,
+    Player = 1,
+    Companion = 2,
+    OtherNpc = 3
 }
 
 [DataContract]

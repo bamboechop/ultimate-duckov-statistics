@@ -112,6 +112,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             profileCoordinator.BeginEconomyActivation(newEconomyAdapter.ActivationId);
             newEconomyAdapter.Initialize();
             profileCoordinator.SetEconomyBoundaryBarrier(newEconomyAdapter.FlushPendingForBoundary);
+            var buffApplicationObservationBoundary = new NativeBuffApplicationObservationBoundary();
             healingAttributionAdapter = new NativeHealingAttributionAdapter(
                 healing =>
                 {
@@ -119,6 +120,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                     runLifecycleAdapter.OwnedValue?.RecordHealing(healing);
                 },
                 message => Debug.Log($"{LogPrefix} {message}"),
+                buffApplicationObservationBoundary,
                 () => runLifecycleAdapter.OwnedValue?.CurrentEventContext);
             profileCoordinator.SetHealingCapability(healingAttributionAdapter.Initialize());
             healingAttributionAdapter.CapabilityChanged += profileCoordinator.SetHealingCapability;
@@ -191,6 +193,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                         });
                 },
                 message => Debug.Log($"{LogPrefix} {message}"),
+                buffApplicationObservationBoundary,
                 newEquipmentAdapter.CaptureAssociation,
                 () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId);
             combatAttributionAdapter.Assign(newCombatAttributionAdapter);

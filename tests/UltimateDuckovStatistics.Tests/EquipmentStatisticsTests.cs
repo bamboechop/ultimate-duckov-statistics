@@ -108,14 +108,39 @@ public sealed class EquipmentStatisticsTests
         EquipmentStatisticsReducer.RecordShot(aggregate, new ShotRecorded
         { EquipmentAssociation = association, FiringActionCount = 1, AmmunitionUnitsConsumed = 2, ProjectileCount = 3 });
         EquipmentStatisticsReducer.RecordCombat(aggregate, new CombatRecorded
-        { EquipmentAssociation = association, ActualDamageDealt = 12.5, RangedHits = 1, EnemiesKilled = 1 });
+        { EquipmentAssociation = association, Ownership = CombatOwnership.Player, ActualDamageDealt = 12.5, RangedHits = 1, KillsByYou = 1 });
 
         var row = Assert.Single(aggregate.CombatAssociations).Value;
         Assert.Equal(1, row.FiringActions);
         Assert.Equal(2, row.AmmunitionUnitsConsumed);
         Assert.Equal(3, row.Projectiles);
         Assert.Equal(12.5, row.DamageDealt);
-        Assert.Equal(1, row.EnemiesKilled);
+        Assert.Equal(1, row.KillsByYou);
+    }
+
+    [Fact]
+    [Trait("Category", "M11")]
+    public void NonPlayerAndUnprovenFinalBlowsNeverCreateEquipmentKillCredit()
+    {
+        var aggregate = Aggregate();
+        var association = new EquipmentEventAssociation
+        { LoadoutId = "loadout:a", SelectedWeaponId = "weapon:a", TotemSetId = "totems:a" };
+        foreach (var ownership in new[]
+                 {
+                     CombatOwnership.PetCompanion, CombatOwnership.OtherNpc,
+                     CombatOwnership.Environmental, CombatOwnership.Unknown
+                 })
+        {
+            EquipmentStatisticsReducer.RecordCombat(aggregate, new CombatRecorded
+            {
+                EquipmentAssociation = association,
+                Ownership = ownership,
+                KillsByYou = 1,
+                ObservedWorldDeaths = 1
+            });
+        }
+
+        Assert.Empty(aggregate.CombatAssociations);
     }
 
     [Fact]
@@ -186,7 +211,7 @@ public sealed class EquipmentStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(10, profile.SchemaVersion);
+        Assert.Equal(11, profile.SchemaVersion);
         var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
         Assert.True(equipment.HistoricalUnavailable);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, equipment.Capabilities.EquipmentSlots.State);

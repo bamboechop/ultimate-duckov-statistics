@@ -38,8 +38,15 @@ internal static class CombatHarmonyBridge
     public static CombatNativeScope? PushEffect(EffectTriggerEventContext context) =>
         Push(adapter?.CreateEffectScope(context));
 
-    public static void CaptureBuffApplication(CharacterBuffManager manager, Buff buffPrefab) =>
-        adapter?.CaptureBuffApplication(manager, buffPrefab);
+    public static CombatNativeScope? PushEnvironmentalDamage() =>
+        Push(adapter?.CreateEnvironmentalScope());
+
+    public static void CaptureBuffApplication(
+        CharacterBuffManager manager,
+        Buff buffPrefab,
+        CharacterMainControl? fromWho,
+        int overrideWeaponID) =>
+        adapter?.CaptureBuffApplication(manager, buffPrefab, fromWho, overrideWeaponID);
 
     public static void CaptureEffectApplication(Effect effect) =>
         adapter?.CaptureEffectApplication(effect);
@@ -113,6 +120,10 @@ internal sealed class CombatNativeScope
     public string SourceMapId { get; set; } = MapIdentity.UnknownId;
     public string SourceSegmentId { get; set; } = string.Empty;
     public CharacterMainControl? PhysicalSource { get; set; }
+    public CharacterMainControl? CreditedSource { get; set; }
+    public bool NativePlayerOwnerChain { get; set; }
+    public bool ExplicitActorlessWorldDamage { get; set; }
+    public bool ConflictingActorEvidence { get; set; }
     public bool IsRanged { get; set; }
     public bool IsMelee { get; set; }
     public bool IsDamageOverTime { get; set; }
@@ -200,6 +211,15 @@ internal static class CombatHarmonyCallbacks
     private static void EffectApplicationPostfix(Effect __instance) =>
         CombatHarmonyBridge.CaptureEffectApplication(__instance);
 
+    private static void EnvironmentalDamagePrefix(out CombatNativeScope? __state) =>
+        __state = CombatHarmonyBridge.PushEnvironmentalDamage();
+
+    private static Exception? EnvironmentalDamageFinalizer(Exception? __exception, CombatNativeScope? __state)
+    {
+        CombatHarmonyBridge.Pop(__state);
+        return __exception;
+    }
+
     public static MethodInfo HealthPrefixMethod => Get(nameof(HealthPrefix));
     public static MethodInfo HealthPostfixMethod => Get(nameof(HealthPostfix));
     public static MethodInfo ProjectileInitPostfixMethod => Get(nameof(ProjectileInitPostfix));
@@ -211,6 +231,8 @@ internal static class CombatHarmonyCallbacks
     public static MethodInfo EffectPrefixMethod => Get(nameof(EffectPrefix));
     public static MethodInfo EffectFinalizerMethod => Get(nameof(EffectFinalizer));
     public static MethodInfo EffectApplicationPostfixMethod => Get(nameof(EffectApplicationPostfix));
+    public static MethodInfo EnvironmentalDamagePrefixMethod => Get(nameof(EnvironmentalDamagePrefix));
+    public static MethodInfo EnvironmentalDamageFinalizerMethod => Get(nameof(EnvironmentalDamageFinalizer));
 
     private static MethodInfo Get(string name) => typeof(CombatHarmonyCallbacks).GetMethod(
         name, BindingFlags.Static | BindingFlags.NonPublic)

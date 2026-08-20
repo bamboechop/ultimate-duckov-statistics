@@ -144,6 +144,8 @@ try
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterWalkSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "CharacterRunSpeed", "System.Single", mustBePublic: true);
         core.RequireProperty(string.Empty, "CharacterMainControl", "DashSpeed", "System.Single", mustBePublic: true);
+        core.RequireProperty(string.Empty, "LevelManager", "ControllingCharacter", "CharacterMainControl", mustBePublic: true);
+        core.RequireProperty(string.Empty, "LevelManager", "PetCharacter", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty("Duckov.Economy", "EconomyManager", "Money", "System.Int64", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty("Duckov.Economy", "EconomyManager", "Cash", "System.Int64", mustBePublic: true, mustBeStatic: true);
         core.RequireField("Duckov.Economy", "EconomyManager", "CashItemID", mustBePublic: true, fieldTypeFragment: "System.Int32");
@@ -191,6 +193,10 @@ try
         core.RequireField(string.Empty, "CharacterMainControl", "characterPreset", mustBePublic: true);
         core.RequireField(string.Empty, "CharacterRandomPreset", "nameKey", mustBePublic: true);
         core.RequireField(string.Empty, "PetAI", "master", mustBePublic: true);
+        core.RequireField(string.Empty, "AICharacterController", "leader", mustBePublic: true, fieldTypeFragment: "CharacterMainControl");
+        core.RequireField("Duckov.Buffs", "Buff", "fromWho", mustBePublic: true, fieldTypeFragment: "CharacterMainControl");
+        core.RequireField("Duckov.Buffs", "Buff", "fromWeaponID", mustBePublic: true, fieldTypeFragment: "System.Int32");
+        core.RequireMethod(string.Empty, "ZoneDamage", "Damage", 0, mustBePrivate: true, returnTypeFragment: "System.Void");
         foreach (var field in new[] { "damageType", "isFromBuffOrEffect", "damageValue", "finalDamage", "fromCharacter", "toDamageReceiver", "crit", "fromWeaponItemID", "isExplosion", "buff" })
         {
             core.RequireField(string.Empty, "DamageInfo", field, mustBePublic: true);

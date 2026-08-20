@@ -17,6 +17,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     private readonly Action<HealingApplied> healingHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly Func<EventAttributionContext?> eventContextProvider;
+    private readonly NativeBuffApplicationObservationBoundary buffApplicationObservationBoundary;
     private readonly HealingAttributionTracker tracker;
     private readonly Dictionary<int, string?> itemApplicationScopes = new();
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
@@ -34,10 +35,13 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     public NativeHealingAttributionAdapter(
         Action<HealingApplied> healingHandler,
         Action<string> diagnosticHandler,
+        NativeBuffApplicationObservationBoundary buffApplicationObservationBoundary,
         Func<EventAttributionContext?>? eventContextProvider = null)
     {
         this.healingHandler = healingHandler ?? throw new ArgumentNullException(nameof(healingHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.buffApplicationObservationBoundary = buffApplicationObservationBoundary
+            ?? throw new ArgumentNullException(nameof(buffApplicationObservationBoundary));
         this.eventContextProvider = eventContextProvider ?? (() => null);
         tracker = new HealingAttributionTracker(() => Guid.NewGuid().ToString("N"));
         Capability = Disabled("Healing attribution has not been initialized.");
@@ -136,6 +140,8 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 }
                 registration.Stamp = stamp;
             }
+
+            buffApplicationObservationBoundary.MarkTrusted();
 
             RaidUtilities.OnNewRaid += OnRaidTransition;
             RaidUtilities.OnRaidEnd += OnRaidTransition;
@@ -564,6 +570,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     private void DetachRuntimeHooks()
     {
+        buffApplicationObservationBoundary.MarkUntrusted();
         if (lifecycleSubscribed)
         {
             RaidUtilities.OnNewRaid -= OnRaidTransition;

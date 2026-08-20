@@ -49,7 +49,11 @@ internal static class UiText
             ["ui.damage_received"] = "Main-duck damage received",
             ["ui.accuracy"] = "Ranged accuracy",
             ["ui.melee"] = "Melee swings / hits",
-            ["ui.kills"] = "Enemy kills",
+            ["ui.kills_by_you"] = "Kills by you",
+            ["ui.observed_world_deaths"] = "Observed world deaths",
+            ["ui.legacy_unclassified_deaths"] = "Legacy unclassified deaths",
+            ["ui.ownership"] = "Observed-death ownership",
+            ["ui.historical_ownership_unavailable"] = "Earlier combat ownership is incomplete",
             ["ui.deaths"] = "Player deaths",
             ["ui.headshots"] = "Headshots / final blows",
             ["ui.enemies"] = "Enemies",
@@ -121,6 +125,16 @@ internal static class UiText
         };
 
     public static string Get(string key) => English.TryGetValue(key, out var value) ? value : key;
+
+    public static string FormatMetric(long value, AdapterCapabilityState state) =>
+        state == AdapterCapabilityState.DisabledIncompatible
+            ? Get("ui.unsupported")
+            : value.ToString(CultureInfo.InvariantCulture);
+
+    public static string FormatMetric(double value, AdapterCapabilityState state) =>
+        state == AdapterCapabilityState.DisabledIncompatible
+            ? Get("ui.unsupported")
+            : value.ToString("0.###", CultureInfo.InvariantCulture);
 
     public static string FormatEconomyCompact(
         EconomyStatisticsAggregate economy,

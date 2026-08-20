@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Compatibility;
@@ -1825,26 +1826,47 @@ public sealed class ActiveRunPersistenceTests
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     [Trait("Category", "Combat")]
-    public void ActiveRunCheckpointWritesAndRecoversIndependentMultiTargetHeadshotFinalBlow()
+    public void ActiveRunCheckpointKeepsPenetratingHeadshotFinalBlowWithItsProvenVictim()
     {
         using var directory = new TemporaryDirectory();
         var repository = Repository(directory.Path);
         repository.Open(Identity());
         var generation = repository.CurrentGenerationId;
         var checkpoint = Checkpoint(generation, 5);
+        var first = CombatObservationPolicy.ClassifyProjectileTransition(
+            headTargetedProjectile: true,
+            nativeCritical: true,
+            exactPlayerOwnership: true,
+            enemyTarget: true,
+            rangedScope: true,
+            fatalTransition: false,
+            hitAlreadyCounted: false,
+            headshotAlreadyCounted: false,
+            headshotFinalBlowAlreadyCounted: false);
+        var second = CombatObservationPolicy.ClassifyProjectileTransition(
+            headTargetedProjectile: true,
+            nativeCritical: true,
+            exactPlayerOwnership: true,
+            enemyTarget: true,
+            rangedScope: true,
+            fatalTransition: true,
+            hitAlreadyCounted: first.RangedHit,
+            headshotAlreadyCounted: first.Headshot,
+            headshotFinalBlowAlreadyCounted: first.HeadshotFinalBlow);
         var combat = new CombatStatisticsAggregate();
         CombatStatisticsReducer.Apply(combat, CombatEvent(generation, "headshot", "duckov:target:a", "First target") with
         {
             ActualDamageToTarget = 10,
             ActualDamageDealt = 10,
-            Headshots = 1
+            Headshots = first.Headshot ? 1 : 0
         });
         CombatStatisticsReducer.Apply(combat, CombatEvent(generation, "final-blow", "duckov:target:b", "Fatal target") with
         {
             ActualDamageToTarget = 5,
             ActualDamageDealt = 5,
-            EnemiesKilled = 1,
-            HeadshotFinalBlows = 1,
+            KillsByYou = 1,
+            Headshots = second.Headshot ? 1 : 0,
+            HeadshotFinalBlows = second.HeadshotFinalBlow ? 1 : 0,
             IsFinalBlow = true
         });
         checkpoint.CombatStatistics = combat;
@@ -1856,13 +1878,270 @@ public sealed class ActiveRunPersistenceTests
         Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
         var run = Assert.Single(recovery.Current.Statistics.Runs);
         Assert.Equal(1, run.CombatStatistics.Totals.Headshots);
-        Assert.Equal(1, run.CombatStatistics.Totals.HeadshotFinalBlows);
-        Assert.Equal(1, run.CombatStatistics.Totals.EnemiesKilled);
+        Assert.Equal(0, run.CombatStatistics.Totals.HeadshotFinalBlows);
+        Assert.Equal(1, run.CombatStatistics.Totals.KillsByYou);
         Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:a"].Totals.Headshots);
         Assert.Equal(0, run.CombatStatistics.Enemies["duckov:target:a"].Totals.HeadshotFinalBlows);
         Assert.Equal(0, run.CombatStatistics.Enemies["duckov:target:b"].Totals.Headshots);
-        Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:b"].Totals.HeadshotFinalBlows);
-        Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:b"].Totals.EnemiesKilled);
+        Assert.Equal(0, run.CombatStatistics.Enemies["duckov:target:b"].Totals.HeadshotFinalBlows);
+        Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:b"].Totals.KillsByYou);
+
+        var export = StatisticsExporter.Create(recovery.Current, TestTime.AddSeconds(10));
+        Assert.Equal(0, export.Document.RunTotals.CombatStatistics.Totals.HeadshotFinalBlows);
+        using (var json = JsonDocument.Parse(export.Json))
+        {
+            var totals = json.RootElement.GetProperty("RunTotals")
+                .GetProperty("CombatStatistics")
+                .GetProperty("Totals");
+            Assert.Equal(1, totals.GetProperty("Headshots").GetInt64());
+            Assert.Equal(0, totals.GetProperty("HeadshotFinalBlows").GetInt64());
+        }
+        var fatalTarget = Assert.Single(
+            ParseCsv(export.CombatAttributionCsv),
+            row => row["scope"] == "lifetime"
+                   && row["breakdown"] == "enemy"
+                   && row["entity_id"] == "duckov:target:b");
+        Assert.Equal("0", fatalTarget["headshots"]);
+        Assert.Equal("0", fatalTarget["headshot_final_blows"]);
+        recovery.CloseClean();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void ConflictingBuffReapplicationPersistsAsObservedWorldDeathWithoutEquipmentCredit(
+        bool playerAppliedFirst)
+        => AssertAmbiguousBuffFatalTickPersists(
+            playerAppliedFirst,
+            applicationObservationTrusted: true,
+            effectTriggerTrusted: true,
+            nativeExplosionWithoutEffectMarker: false,
+            observeConflictingReapplication: true);
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void UntrustedBuffApplicationCallbackPersistsUnknownWithoutPlayerOrEquipmentCredit(
+        bool retainedActorIsPlayer)
+        => AssertAmbiguousBuffFatalTickPersists(
+            retainedActorIsPlayer,
+            applicationObservationTrusted: false,
+            effectTriggerTrusted: true,
+            nativeExplosionWithoutEffectMarker: false,
+            observeConflictingReapplication: false);
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void EffectTriggeredExplosionAfterScopeLossPersistsUnknownWithoutPlayerOrEquipmentCredit(
+        bool retainedActorIsPlayer)
+        => AssertAmbiguousBuffFatalTickPersists(
+            retainedActorIsPlayer,
+            applicationObservationTrusted: true,
+            effectTriggerTrusted: false,
+            nativeExplosionWithoutEffectMarker: true,
+            observeConflictingReapplication: true);
+
+    private static void AssertAmbiguousBuffFatalTickPersists(
+        bool retainedActorIsPlayer,
+        bool applicationObservationTrusted,
+        bool effectTriggerTrusted,
+        bool nativeExplosionWithoutEffectMarker,
+        bool observeConflictingReapplication)
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var player = new CombatActorEvidence(CombatActorEvidenceKind.Player, 1);
+        var npc = new CombatActorEvidence(CombatActorEvidenceKind.OtherNpc, 2);
+        var firstActor = retainedActorIsPlayer ? player : npc;
+        var secondActor = retainedActorIsPlayer ? npc : player;
+        var runtimeBuff = new object();
+        var observationBoundary = new NativeBuffApplicationObservationBoundary();
+        if (applicationObservationTrusted)
+        {
+            observationBoundary.MarkTrusted();
+        }
+        if (observeConflictingReapplication)
+        {
+            Assert.True(observationBoundary.Capture(runtimeBuff, firstActor, firstActor));
+            Assert.True(observationBoundary.Capture(runtimeBuff, firstActor, secondActor));
+        }
+        var resolution = observationBoundary.Resolve(runtimeBuff, firstActor);
+        var ownership = CombatObservationPolicy.ResolveHealthTransitionOwnership(
+            effectTriggerTrusted ? firstActor : CombatActorEvidence.Missing,
+            effectTriggerTrusted ? firstActor : CombatActorEvidence.Missing,
+            firstActor,
+            nativePlayerOwnerChain: false,
+            explicitActorlessWorldDamage: false,
+            conflictingActorEvidence: effectTriggerTrusted && resolution.ConflictingEvidence,
+            ownershipScopePresent: effectTriggerTrusted,
+            effectScopeObservationTrusted: effectTriggerTrusted);
+        var death = CombatObservationPolicy.ClassifyEnemyDeath(
+            enemyTarget: true, fatalTransition: true, ownership);
+        var fatalTick = CombatEvent(
+            generation,
+            !effectTriggerTrusted
+                ? retainedActorIsPlayer ? "effect-hook-loss-retained-player" : "effect-hook-loss-retained-npc"
+                : applicationObservationTrusted
+                    ? retainedActorIsPlayer ? "player-then-npc" : "npc-then-player"
+                    : retainedActorIsPlayer ? "untrusted-retained-player" : "untrusted-retained-npc",
+            "duckov:target:buff-victim",
+            "Buff victim") with
+        {
+            Ownership = ownership,
+            AttackKind = nativeExplosionWithoutEffectMarker ? CombatAttackKind.Unknown : CombatAttackKind.Effect,
+            CauseKind = nativeExplosionWithoutEffectMarker ? CombatCauseKind.Explosion : CombatCauseKind.DamageOverTime,
+            CauseId = nativeExplosionWithoutEffectMarker ? "duckov:cause:explosion" : "duckov:cause:damage-over-time",
+            CauseDisplayName = nativeExplosionWithoutEffectMarker ? "Explosion" : "Damage over time",
+            WeaponId = effectTriggerTrusted ? "duckov:weapon:1" : "duckov:weapon:unknown",
+            WeaponDisplayName = effectTriggerTrusted ? "Test rifle" : "Unknown weapon",
+            ActualDamageToTarget = 5,
+            ActualDamageDealt = 0,
+            KillsByYou = death.KillsByYou,
+            ObservedWorldDeaths = death.ObservedWorldDeaths,
+            IsFinalBlow = true,
+            IsDamageOverTime = effectTriggerTrusted && !nativeExplosionWithoutEffectMarker,
+            EquipmentAssociation = new EquipmentEventAssociation(),
+            Capabilities = CombatNativeContractPolicy.CreateCapabilities(AllCombatHooks() with
+            {
+                BuffApplication = applicationObservationTrusted,
+                EffectTrigger = effectTriggerTrusted
+            })
+        };
+        var checkpoint = RouteCheckpoint(generation, 5);
+        CombatStatisticsReducer.Apply(checkpoint.CombatStatistics, fatalTick);
+        EquipmentStatisticsReducer.RecordCombat(checkpoint.EquipmentStatistics, fatalTick);
+        checkpoint.Segments[0].CombatStatistics = CombatStatisticsReducer.Clone(checkpoint.CombatStatistics);
+        Assert.Empty(checkpoint.EquipmentStatistics.CombatAssociations);
+
+        repository.SaveActiveRun(checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(0, run.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(0, run.CombatStatistics.Totals.KillsByYou);
+        Assert.Equal(1, run.CombatStatistics.Totals.ObservedWorldDeaths);
+        Assert.Empty(run.EquipmentStatistics.CombatAssociations);
+        if (!effectTriggerTrusted)
+        {
+            Assert.Contains("duckov:weapon:unknown", run.CombatStatistics.Weapons.Keys);
+            Assert.DoesNotContain("duckov:weapon:1", run.CombatStatistics.Weapons.Keys);
+        }
+        if (!applicationObservationTrusted || !effectTriggerTrusted)
+        {
+            Assert.Equal(
+                AdapterCapabilityState.DisabledIncompatible,
+                run.CombatStatistics.Capabilities.KillsByYou.State);
+            Assert.Equal(
+                AdapterCapabilityState.DisabledIncompatible,
+                run.CombatStatistics.Capabilities.ObservedWorldDeaths.State);
+            Assert.Equal(
+                AdapterCapabilityState.DisabledIncompatible,
+                run.CombatStatistics.Capabilities.DamageOverTime.State);
+        }
+
+        var export = StatisticsExporter.Create(recovery.Current, TestTime.AddSeconds(10));
+        Assert.Equal(0, export.Document.RunTotals.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(0, export.Document.RunTotals.CombatStatistics.Totals.KillsByYou);
+        Assert.Equal(1, export.Document.RunTotals.CombatStatistics.Totals.ObservedWorldDeaths);
+        Assert.Empty(export.Document.RunTotals.EquipmentStatistics.CombatAssociations);
+        using (var json = JsonDocument.Parse(export.Json))
+        {
+            var totals = json.RootElement.GetProperty("RunTotals")
+                .GetProperty("CombatStatistics")
+                .GetProperty("Totals");
+            Assert.Equal(0, totals.GetProperty("DamageDealt").GetDouble());
+            Assert.Equal(0, totals.GetProperty("KillsByYou").GetInt64());
+            Assert.Equal(1, totals.GetProperty("ObservedWorldDeaths").GetInt64());
+        }
+        var total = Assert.Single(
+            ParseCsv(export.CombatAttributionCsv),
+            row => row["scope"] == "lifetime" && row["breakdown"] == "total");
+        Assert.Equal("0", total["kills_by_you"]);
+        Assert.Equal("1", total["observed_world_deaths"]);
+        if (!applicationObservationTrusted || !effectTriggerTrusted)
+        {
+            Assert.Equal("DisabledIncompatible", total["kills_by_you_state"]);
+            Assert.Equal("DisabledIncompatible", total["observed_world_deaths_state"]);
+
+            var runRow = Assert.Single(ParseCsv(export.RunsCsv));
+            var runTotalsRow = Assert.Single(ParseCsv(export.RunTotalsCsv));
+            var mapTotalsRow = Assert.Single(ParseCsv(export.MapTotalsCsv));
+            var routeMapTotalsRow = Assert.Single(ParseCsv(export.RouteMapTotalsCsv));
+            var segmentRow = Assert.Single(ParseCsv(export.SegmentsCsv));
+            Assert.All(
+                new[] { runRow, runTotalsRow, mapTotalsRow, routeMapTotalsRow, segmentRow },
+                row =>
+                {
+                    Assert.Equal("DisabledIncompatible", row["kills_by_you_state"]);
+                    Assert.Equal("DisabledIncompatible", row["observed_world_deaths_state"]);
+                });
+            Assert.Equal("DisabledIncompatible", routeMapTotalsRow["damage_dealt_state"]);
+            Assert.Equal("DisabledIncompatible", segmentRow["damage_dealt_state"]);
+        }
+        Assert.Empty(ParseCsv(export.EquipmentCombatCsv));
+        recovery.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "Run")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M11")]
+    public void SchemaTenActiveRunRecoveryMigratesAmbiguousDeathsBeforeLifetimeAggregation()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var checkpoint = Checkpoint(repository.CurrentGenerationId, 5);
+        checkpoint.SchemaVersion = 10;
+        checkpoint.CombatStatistics = new CombatStatisticsAggregate
+        {
+            Totals = new CombatMetricTotals { EnemiesKilled = 2 }
+        };
+        checkpoint.CombatStatistics.Ownership["Player"] = new CombatBreakdownAggregate
+        {
+            Id = "Player",
+            DisplayName = "Player",
+            Totals = new CombatMetricTotals { EnemiesKilled = 1 }
+        };
+        checkpoint.CombatStatistics.Ownership["Environmental"] = new CombatBreakdownAggregate
+        {
+            Id = "Environmental",
+            DisplayName = "Environmental",
+            Totals = new CombatMetricTotals { EnemiesKilled = 1 }
+        };
+        checkpoint.EquipmentStatistics.CombatAssociations["legacy"] = new EquipmentCombatAssociationAggregate
+        {
+            LoadoutId = "legacy-loadout",
+            EnemiesKilled = 2
+        };
+        repository.SaveActiveRun(checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+
+        Assert.Equal(1, run.CombatStatistics.Totals.KillsByYou);
+        Assert.Equal(0, run.CombatStatistics.Totals.ObservedWorldDeaths);
+        Assert.Equal(1, run.CombatStatistics.Totals.LegacyUnclassifiedDeaths);
+        Assert.True(run.CombatStatistics.HistoricalOwnershipUnavailable);
+        Assert.Equal(2,
+            Assert.Single(run.EquipmentStatistics.CombatAssociations.Values).LegacyUnclassifiedDeathCredit);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.CombatStatistics.Totals.KillsByYou);
+        Assert.Equal(1, recovery.Current.Statistics.RunTotals.CombatStatistics.Totals.LegacyUnclassifiedDeaths);
         recovery.CloseClean();
     }
 
@@ -2337,6 +2616,21 @@ public sealed class ActiveRunPersistenceTests
         AmmunitionIdentity = Supported()
     };
 
+    private static CombatHookSupport AllCombatHooks() => new()
+    {
+        HealthHurt = true,
+        ProjectileInit = true,
+        ProjectileUpdate = true,
+        ProjectileRelease = true,
+        MeleeCheck = true,
+        EffectTrigger = true,
+        EffectApplication = true,
+        BuffApplication = true,
+        EnvironmentalDamage = true,
+        PublicMeleeSwing = true,
+        PublicPlayerDeath = true
+    };
+
     private static MetricAvailability Supported() => new()
     {
         State = AdapterCapabilityState.Supported,
@@ -2441,6 +2735,65 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(headers.Length, values.Length);
         return headers.Select((header, index) => new KeyValuePair<string, string>(header, values[index]))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+    }
+
+    private static List<IReadOnlyDictionary<string, string>> ParseCsv(string csv)
+    {
+        var rows = new List<List<string>>();
+        var row = new List<string>();
+        var field = new StringBuilder();
+        var quoted = false;
+        for (var index = 0; index < csv.Length; index++)
+        {
+            var character = csv[index];
+            if (quoted)
+            {
+                if (character == '"' && index + 1 < csv.Length && csv[index + 1] == '"')
+                {
+                    field.Append('"');
+                    index++;
+                }
+                else if (character == '"')
+                {
+                    quoted = false;
+                }
+                else
+                {
+                    field.Append(character);
+                }
+
+                continue;
+            }
+
+            if (character == '"')
+            {
+                quoted = true;
+            }
+            else if (character == ',')
+            {
+                row.Add(field.ToString());
+                field.Clear();
+            }
+            else if (character == '\n')
+            {
+                row.Add(field.ToString().TrimEnd('\r'));
+                field.Clear();
+                rows.Add(row);
+                row = new List<string>();
+            }
+            else
+            {
+                field.Append(character);
+            }
+        }
+
+        var headers = rows[0];
+        return rows.Skip(1)
+            .Where(values => values.Count > 1)
+            .Select(values => (IReadOnlyDictionary<string, string>)headers
+                .Select((header, index) => new KeyValuePair<string, string>(header, values[index]))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal))
+            .ToList();
     }
 
     private static void AssertItemTotals(

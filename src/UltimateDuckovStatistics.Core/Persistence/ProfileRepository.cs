@@ -452,6 +452,18 @@ public sealed class ProfileRepository
         EconomyStatisticsReducer.ValidateRecoveryCandidate(checkpoint.Economy);
         EconomyStatisticsReducer.NormalizePersisted(checkpoint.Economy);
         EconomyStatisticsReducer.Validate(checkpoint.Economy);
+        if (checkpoint.SchemaVersion < 11)
+        {
+            ProfileMigrator.MigrateCombatOwnership(
+                checkpoint.CombatStatistics,
+                checkpoint.EquipmentStatistics);
+            foreach (var segment in checkpoint.Segments)
+            {
+                ProfileMigrator.MigrateCombatOwnership(
+                    segment.CombatStatistics,
+                    segment.EquipmentStatistics);
+            }
+        }
         if (checkpoint.PendingTerminalOutcome is { } terminalOutcome
             && !Enum.IsDefined(typeof(RunOutcome), terminalOutcome))
             throw new ArgumentException("Active-run checkpoint contains an invalid pending terminal outcome.", nameof(checkpoint));
@@ -886,6 +898,20 @@ public sealed class ProfileRepository
             return $"Active-run checkpoint contains invalid economy state: {exception.Message}";
         }
         EconomyStatisticsReducer.NormalizePersisted(checkpoint.Economy);
+
+        if (checkpoint.SchemaVersion < 11)
+        {
+            ProfileMigrator.MigrateCombatOwnership(
+                checkpoint.CombatStatistics,
+                checkpoint.EquipmentStatistics);
+            foreach (var segment in checkpoint.Segments)
+            {
+                ProfileMigrator.MigrateCombatOwnership(
+                    segment.CombatStatistics,
+                    segment.EquipmentStatistics);
+            }
+            checkpoint.SchemaVersion = 11;
+        }
 
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
         {
@@ -1501,6 +1527,9 @@ public sealed class ProfileRepository
         && statistics.RunTotals.CombatStatistics.Totals.CompletedPlayerProjectiles == 0
         && statistics.RunTotals.CombatStatistics.Totals.MeleeSwings == 0
         && statistics.RunTotals.CombatStatistics.Totals.EnemiesKilled == 0
+        && statistics.RunTotals.CombatStatistics.Totals.KillsByYou == 0
+        && statistics.RunTotals.CombatStatistics.Totals.ObservedWorldDeaths == 0
+        && statistics.RunTotals.CombatStatistics.Totals.LegacyUnclassifiedDeaths == 0
         && statistics.RunTotals.CombatStatistics.Totals.PlayerDeaths == 0
         && EquipmentStatisticsReducer.IsEmpty(statistics.RunTotals.EquipmentStatistics)
         && ContainerStatisticsReducer.IsEmpty(statistics.RunTotals.ContainerStatistics)

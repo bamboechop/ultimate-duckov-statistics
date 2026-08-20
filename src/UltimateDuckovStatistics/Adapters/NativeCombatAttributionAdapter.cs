@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCleanup
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.combat";
-    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+equipment-origin-v4+patch-stamp-v1";
+    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v9+patch-stamp-v1";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int MaximumProjectileCorrelations = 2048;
@@ -25,6 +25,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly Func<string?> segmentIdProvider;
     private readonly Func<CombatRecorded, bool> combatHandler;
     private readonly Func<EquipmentEventAssociation> equipmentAssociationProvider;
+    private readonly NativeBuffApplicationObservationBoundary buffApplicationObservationBoundary;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
@@ -54,6 +55,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         Func<CombatRecorded, bool> combatHandler,
         Action<IReadOnlyList<CapabilityRecord>> capabilityHandler,
         Action<string> diagnosticHandler,
+        NativeBuffApplicationObservationBoundary buffApplicationObservationBoundary,
         Func<EquipmentEventAssociation>? equipmentAssociationProvider = null,
         Func<string?>? segmentIdProvider = null)
     {
@@ -63,6 +65,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         this.combatHandler = combatHandler ?? throw new ArgumentNullException(nameof(combatHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.buffApplicationObservationBoundary = buffApplicationObservationBoundary
+            ?? throw new ArgumentNullException(nameof(buffApplicationObservationBoundary));
         this.equipmentAssociationProvider = equipmentAssociationProvider ?? (() => new EquipmentEventAssociation());
         this.segmentIdProvider = segmentIdProvider ?? (() => null);
         SetUnavailable("Combat attribution has not been initialized.");
@@ -90,6 +94,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
         var methods = ResolveContracts();
         var support = methods.CreateHookSupport();
+        support.BuffApplication = ReadBuffApplicationObservationTrust();
 
         if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var created, out var harmonyDetail) || created == null)
         {
@@ -140,11 +145,16 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             initialized = true;
             retryInitialization = false;
             PublishCapabilities();
+            if (!hookSupport.BuffApplication)
+            {
+                diagnosticHandler(
+                    "Combat buff actor observation is unavailable because the healing-owned CharacterBuffManager.AddBuff callback is not trusted; dependent combat capabilities are disabled.");
+            }
             patchInspectionScheduler.Reset(DateTime.UtcNow, patchRegistrations.Length);
             SynchronizeMainCharacter();
             SynchronizeProjectileContext();
             diagnosticHandler(
-                $"Combat attribution active with HarmonyLib {created.Version}; {patchRegistrations.Length}/7 Harmony hooks and independent public melee/death callbacks are available.");
+                $"Combat attribution active with HarmonyLib {created.Version}; {patchRegistrations.Length}/8 Harmony hooks and independent public melee/death callbacks are available.");
         }
         catch (Exception exception)
         {
@@ -174,6 +184,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         }
 
         if (!IsActive) return;
+        SynchronizeBuffApplicationObservationTrust();
         SynchronizeMainCharacter();
         if (projectiles.Count > 0) SynchronizeProjectileContextOncePerFrame();
         InspectNextPatchStamp(DateTime.UtcNow);
@@ -190,9 +201,15 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var segmentId = segmentIdProvider() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(generationId) || string.IsNullOrWhiteSpace(runId)
             || NativeRaidContext.GetGameplayContext() != GameplayContext.Raid) return;
-        var physicalSource = context.realFromCharacter != null ? context.realFromCharacter : context.fromCharacter;
-        var isExactPlayer = physicalSource != null && physicalSource.IsMainCharacter
-                            && ReferenceEquals(physicalSource, CharacterMainControl.Main);
+        var physicalSource = context.realFromCharacter;
+        var creditedSource = context.fromCharacter;
+        var nativePlayerOwnerChain = IsNativePlayerOwnerChain(physicalSource, creditedSource);
+        var isExactPlayer = CombatObservationPolicy.ResolveOwnership(
+            ToActorEvidence(physicalSource),
+            ToActorEvidence(creditedSource),
+            CombatActorEvidence.Missing,
+            nativePlayerOwnerChain,
+            explicitActorlessWorldDamage: false) == CombatOwnership.Player;
         var ammunitionId = context.fromGunItemSetting == null ? -1 : context.fromGunItemSetting.TargetBulletID;
         var snapshot = new ProjectileSnapshot
         {
@@ -202,6 +219,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             MapId = mapId,
             SegmentId = segmentId,
             PhysicalSource = physicalSource,
+            CreditedSource = creditedSource,
+            NativePlayerOwnerChain = nativePlayerOwnerChain,
             IsExactPlayer = isExactPlayer,
             HeadTargeted = isExactPlayer && LevelManager.Instance != null
                            && LevelManager.Instance.InputManager != null
@@ -212,7 +231,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             AmmunitionDisplayName = context.fromGunItemSetting == null
                 ? string.Empty
                 : NonEmpty(context.fromGunItemSetting.CurrentBulletName, $"Unknown ammunition {ammunitionId}"),
-            EquipmentAssociation = equipmentAssociationProvider()
+            EquipmentAssociation = isExactPlayer
+                ? equipmentAssociationProvider()
+                : new EquipmentEventAssociation()
         };
         var runtimeId = projectile.GetInstanceID();
         projectiles[runtimeId] = snapshot;
@@ -235,6 +256,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         SynchronizeProjectileContextOncePerFrame();
         if (!projectiles.TryGetValue(projectile.GetInstanceID(), out var value)
             || !MatchesCurrentContext(value)) return null;
+        value.RefreshActors(projectile.context);
         NativeHotPathDiagnostics.CountProjectileScopePush();
         return value.Scope;
     }
@@ -266,40 +288,62 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public CombatNativeScope? CreateMeleeScope(ItemAgent_MeleeWeapon weapon)
     {
-        if (!CanObserveHealth || !hookSupport.MeleeCheck || weapon == null || weapon.Holder == null
-            || !weapon.Holder.IsMainCharacter || !ReferenceEquals(weapon.Holder, CharacterMainControl.Main)) return null;
+        if (!CanObserveHealth || !hookSupport.MeleeCheck || weapon == null || weapon.Holder == null) return null;
         var item = weapon.Item;
+        var creditedSource = ReferenceEquals(weapon.Holder, LevelManager.Instance?.ControllingCharacter)
+            ? CharacterMainControl.Main
+            : weapon.Holder;
+        var playerOwned = IsNativePlayerOwnerChain(weapon.Holder, creditedSource)
+                          || ToActorEvidence(creditedSource).Kind == CombatActorEvidenceKind.Player;
         return new CombatNativeScope
         {
             IsMelee = true,
             SourceMapId = mapIdProvider() ?? MapIdentity.UnknownId,
             SourceSegmentId = segmentIdProvider() ?? string.Empty,
             PhysicalSource = weapon.Holder,
+            CreditedSource = creditedSource,
+            NativePlayerOwnerChain = IsNativePlayerOwnerChain(weapon.Holder, creditedSource),
             WeaponTypeId = item == null ? -1 : item.TypeID,
             WeaponDisplayName = item == null ? string.Empty : NonEmpty(item.DisplayName, $"Unknown weapon {item.TypeID}"),
-            EquipmentAssociation = equipmentAssociationProvider()
+            EquipmentAssociation = playerOwned ? equipmentAssociationProvider() : new EquipmentEventAssociation()
         };
     }
 
     public CombatNativeScope? CreateEffectScope(EffectTriggerEventContext context)
     {
         if (!IsActive || !hookSupport.EffectTrigger || context.source == null) return null;
+        SynchronizeBuffApplicationObservationTrust();
         var delayed = context.source is TickTrigger || context.source is UpdateTrigger;
         object associationSource = context.source;
-        if (delayed)
+        Buff? parentBuff = null;
+        try { parentBuff = context.source.GetComponentInParent<Buff>(); }
+        catch { }
+        if (parentBuff != null)
         {
-            try { associationSource = (object?)context.source.GetComponentInParent<Buff>() ?? context.source; }
-            catch { }
+            associationSource = parentBuff;
         }
+        var actor = parentBuff?.fromWho ?? context.source.Master?.Item?.GetCharacterMainControl();
+        var buffOwnership = parentBuff == null
+            ? new CombatBuffOwnershipResolution(ToActorEvidence(actor), conflictingEvidence: false)
+            : buffApplicationObservationBoundary.Resolve(parentBuff, ToActorEvidence(actor));
+        var playerOwned = !buffOwnership.ConflictingEvidence
+                          && ToActorEvidence(actor).Kind == CombatActorEvidenceKind.Player;
+        var fallbackAssociation = playerOwned
+            ? CombatHarmonyBridge.CurrentScope?.EquipmentAssociation ?? equipmentAssociationProvider()
+            : new EquipmentEventAssociation();
         var scope = new CombatNativeScope
         {
             IsEffect = true,
             IsDamageOverTime = delayed,
+            PhysicalSource = actor,
+            CreditedSource = actor,
+            ConflictingActorEvidence = buffOwnership.ConflictingEvidence,
+            WeaponTypeId = parentBuff?.fromWeaponID ?? -1,
             EquipmentAssociation = equipmentAssociationResolver.ResolveEffect(
                 associationSource,
                 delayed,
-                CombatHarmonyBridge.CurrentScope?.EquipmentAssociation,
-                equipmentAssociationProvider,
+                fallbackAssociation,
+                () => fallbackAssociation,
                 saveGenerationIdProvider(),
                 runIdProvider() ?? string.Empty,
                 mapIdProvider() ?? MapIdentity.UnknownId)
@@ -322,13 +366,38 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         return scope;
     }
 
-    public void CaptureBuffApplication(CharacterBuffManager manager, Buff buffPrefab)
+    public CombatNativeScope? CreateEnvironmentalScope() =>
+        !IsActive || !hookSupport.EnvironmentalDamage
+            ? null
+            : new CombatNativeScope
+            {
+                SourceMapId = mapIdProvider() ?? MapIdentity.UnknownId,
+                SourceSegmentId = segmentIdProvider() ?? string.Empty,
+                ExplicitActorlessWorldDamage = true,
+                EquipmentAssociation = new EquipmentEventAssociation()
+            };
+
+    public void CaptureBuffApplication(
+        CharacterBuffManager manager,
+        Buff buffPrefab,
+        CharacterMainControl? fromWho,
+        int overrideWeaponID)
     {
         if (!IsActive || manager == null || buffPrefab == null) return;
-        var applied = manager.Buffs.LastOrDefault(value => value != null && value.ID == buffPrefab.ID);
+        SynchronizeBuffApplicationObservationTrust();
+        if (!hookSupport.BuffApplication) return;
+        // Match CharacterBuffManager.AddBuff's first same-ID lookup exactly.
+        var applied = manager.Buffs.FirstOrDefault(value => value != null && value.ID == buffPrefab.ID);
         if (applied == null) return;
-        var association = CombatHarmonyBridge.CurrentScope?.EquipmentAssociation
-                          ?? equipmentAssociationProvider();
+        buffApplicationObservationBoundary.Capture(
+            applied,
+            ToActorEvidence(applied.fromWho),
+            ToActorEvidence(fromWho));
+        var incomingPlayer = ToActorEvidence(fromWho).Kind == CombatActorEvidenceKind.Player;
+        var association = incomingPlayer
+            ? CombatHarmonyBridge.CurrentScope?.EquipmentAssociation ?? equipmentAssociationProvider()
+            : new EquipmentEventAssociation();
+        _ = overrideWeaponID; // Weapon identity never upgrades or resolves actor ownership.
         var generationId = saveGenerationIdProvider();
         var runId = runIdProvider() ?? string.Empty;
         var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
@@ -347,6 +416,13 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     public void CaptureEffectApplication(Effect effect)
     {
         if (!IsActive || !hookSupport.EffectApplication || effect == null) return;
+        SynchronizeBuffApplicationObservationTrust();
+        Buff? parentBuff = null;
+        try { parentBuff = effect.GetComponentInParent<Buff>(); }
+        catch { }
+        if (parentBuff != null && !hookSupport.BuffApplication) return;
+        var actor = parentBuff?.fromWho ?? effect.Item?.GetCharacterMainControl();
+        if (ToActorEvidence(actor).Kind != CombatActorEvidenceKind.Player) return;
         var association = CombatHarmonyBridge.CurrentScope?.EquipmentAssociation
                           ?? equipmentAssociationProvider();
         var generationId = saveGenerationIdProvider();
@@ -359,11 +435,10 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         }
         try
         {
-            var buff = effect.GetComponentInParent<Buff>();
-            if (buff != null)
+            if (parentBuff != null)
             {
                 equipmentAssociationResolver.CaptureDelayedEffectOrigin(
-                    buff, association, generationId, runId, mapId, segmentIdProvider() ?? string.Empty);
+                    parentBuff, association, generationId, runId, mapId, segmentIdProvider() ?? string.Empty);
             }
         }
         catch { }
@@ -371,38 +446,53 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public void RecordHealthTransition(Health health, CombatHealthPatchState state, double actualDamage, bool fatal)
     {
-        if (!CanObserveHealth || health == null || actualDamage <= 0) return;
+        if (!CanObserveHealth || health == null || (actualDamage <= 0 && !fatal)) return;
         NativeHotPathDiagnostics.CountHealthTransition();
         var target = health.TryGetCharacter();
         var targetIsMain = health.IsMainCharacterHealth;
         var scope = state.Scope;
-        var source = scope?.PhysicalSource != null ? scope.PhysicalSource : state.DamageInfo.fromCharacter;
-        var ownership = ResolveOwnership(source);
+        var ownership = ResolveHealthTransitionOwnership(scope, state.DamageInfo);
+        var source = ResolveAttributionActor(ownership, scope, state.DamageInfo.fromCharacter);
         var enemyTarget = !targetIsMain && health.team != Teams.player;
         if (!CombatObservationPolicy.ShouldRecordHealthTransition(targetIsMain, enemyTarget, ownership)) return;
         var playerDamage = ownership == CombatOwnership.Player && enemyTarget;
-        var rangedHit = CombatObservationPolicy.CountRangedHit(
-            enemyTarget, ownership == CombatOwnership.Player, scope?.IsRanged == true, scope?.HitCounted == true);
+        var projectileTransition = CombatObservationPolicy.ClassifyProjectileTransition(
+            scope?.HeadTargeted == true,
+            state.DamageInfo.crit > 0,
+            ownership == CombatOwnership.Player,
+            enemyTarget,
+            scope?.IsRanged == true,
+            fatal,
+            scope?.HitCounted == true,
+            scope?.HeadshotCounted == true,
+            scope?.HeadshotFinalBlowCounted == true);
+        var rangedHit = projectileTransition.RangedHit;
         var meleeHit = CombatObservationPolicy.CountMeleeHit(
             enemyTarget, ownership == CombatOwnership.Player, scope?.IsMelee == true, scope?.HitCounted == true);
         if (rangedHit || meleeHit) scope!.HitCounted = true;
-        var headshot = CombatObservationPolicy.CountHeadshot(
-            scope?.HeadTargeted == true, state.DamageInfo.crit > 0, rangedHit, scope?.HeadshotCounted == true);
+        var headshot = projectileTransition.Headshot;
         if (headshot) scope!.HeadshotCounted = true;
-        var headshotFinalBlow = CombatObservationPolicy.CountHeadshotFinalBlow(
-            scope?.HeadTargeted == true, enemyTarget, fatal, scope?.HeadshotFinalBlowCounted == true);
+        var headshotFinalBlow = projectileTransition.HeadshotFinalBlow;
         if (headshotFinalBlow) scope!.HeadshotFinalBlowCounted = true;
         var targetIdentity = ReadCharacterIdentity(target, "target");
-        var attackerIdentity = ReadCharacterIdentity(source, "attacker");
+        var attackerIdentity = ReadAttackerIdentity(ownership, source);
         var family = ReadFamily(health);
         var cause = ResolveCause(state.DamageInfo, scope, ownership);
-        var weaponTypeId = scope?.WeaponTypeId >= 0 ? scope.WeaponTypeId : state.DamageInfo.fromWeaponItemID;
-        var weaponName = !string.IsNullOrWhiteSpace(scope?.WeaponDisplayName)
+        var weaponTypeId = CombatObservationPolicy.ResolveHealthTransitionWeaponTypeId(
+            scope?.WeaponTypeId ?? -1,
+            state.DamageInfo.fromWeaponItemID,
+            scope != null,
+            hookSupport.EffectTrigger);
+        var weaponName = weaponTypeId >= 0 && !string.IsNullOrWhiteSpace(scope?.WeaponDisplayName)
             ? scope!.WeaponDisplayName
             : ReadItemDisplayName(weaponTypeId, "weapon");
         var ammunitionId = scope?.AmmunitionTypeId ?? -1;
-        Emit(NewEvent(scope, ownership, NativeCombatEquipmentAssociationResolver.ResolveHealthTransition(
-            scope?.EquipmentAssociation, state.EquipmentAssociation)) with
+        var equipmentAssociation = targetIsMain || ownership == CombatOwnership.Player
+            ? NativeCombatEquipmentAssociationResolver.ResolveHealthTransition(
+                scope?.EquipmentAssociation, state.EquipmentAssociation)
+            : new EquipmentEventAssociation();
+        var death = CombatObservationPolicy.ClassifyEnemyDeath(enemyTarget, fatal, ownership);
+        Emit(NewEvent(scope, ownership, equipmentAssociation) with
         {
             AttackKind = targetIsMain
                 ? CombatAttackKind.Unknown
@@ -433,7 +523,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             // suffered actual HP loss.
             RangedHits = 0,
             MeleeHits = meleeHit ? 1 : 0,
-            EnemiesKilled = fatal && enemyTarget ? 1 : 0,
+            KillsByYou = death.KillsByYou,
+            ObservedWorldDeaths = death.ObservedWorldDeaths,
             Headshots = headshot ? 1 : 0,
             HeadshotFinalBlows = headshotFinalBlow ? 1 : 0,
             IsFinalBlow = fatal,
@@ -445,11 +536,11 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         if (!IsActive || metricCapabilities.PlayerDeaths.State != AdapterCapabilityState.Supported) return;
         var scope = CombatHarmonyBridge.CurrentScope;
-        var source = scope?.PhysicalSource != null ? scope.PhysicalSource : info.fromCharacter;
-        var ownership = ResolveOwnership(source);
-        var attacker = ReadCharacterIdentity(source, "attacker");
+        var ownership = ResolveHealthTransitionOwnership(scope, info);
+        var source = ResolveAttributionActor(ownership, scope, info.fromCharacter);
+        var attacker = ReadAttackerIdentity(ownership, source);
         var cause = ResolveCause(info, scope, ownership);
-        var value = NewEvent(scope, ownership) with
+        var value = NewEvent(scope, ownership, equipmentAssociationProvider()) with
         {
             CauseKind = cause.Kind,
             CauseId = cause.Id,
@@ -533,6 +624,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         projectiles.Clear();
         projectileOrder.Clear();
         equipmentAssociationResolver.Clear();
+        buffApplicationObservationBoundary.Clear();
         CombatHarmonyBridge.ClearScopes();
         projectileContextFrame = -1;
     }
@@ -610,23 +702,88 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         return combatHandler(value);
     }
 
-    private static CombatOwnership ResolveOwnership(CharacterMainControl? source)
+    private CombatOwnership ResolveHealthTransitionOwnership(
+        CombatNativeScope? scope,
+        DamageInfo damageInfo) => CombatObservationPolicy.ResolveHealthTransitionOwnership(
+            ToActorEvidence(scope?.PhysicalSource),
+            ToActorEvidence(scope?.CreditedSource),
+            ToActorEvidence(damageInfo.fromCharacter),
+            scope?.NativePlayerOwnerChain == true,
+            scope?.ExplicitActorlessWorldDamage == true,
+            scope?.ConflictingActorEvidence == true,
+            scope != null,
+            hookSupport.EffectTrigger);
+
+    private static CharacterMainControl? ResolveAttributionActor(
+        CombatOwnership ownership,
+        CombatNativeScope? scope,
+        CharacterMainControl? damageSource)
     {
-        if (source == null) return CombatOwnership.Environmental;
+        if (ownership is CombatOwnership.Environmental or CombatOwnership.Unknown) return null;
+        var expected = ownership switch
+        {
+            CombatOwnership.Player => CombatActorEvidenceKind.Player,
+            CombatOwnership.PetCompanion => CombatActorEvidenceKind.Companion,
+            CombatOwnership.OtherNpc => CombatActorEvidenceKind.OtherNpc,
+            _ => CombatActorEvidenceKind.Missing
+        };
+        if (ToActorEvidence(scope?.CreditedSource).Kind == expected) return scope?.CreditedSource;
+        if (ToActorEvidence(damageSource).Kind == expected) return damageSource;
+        return ToActorEvidence(scope?.PhysicalSource).Kind == expected ? scope?.PhysicalSource : null;
+    }
+
+    private static CombatActorEvidence ToActorEvidence(CharacterMainControl? source)
+    {
+        if (source == null) return CombatActorEvidence.Missing;
         var main = CharacterMainControl.Main;
-        if (source.IsMainCharacter && ReferenceEquals(source, main)) return CombatOwnership.Player;
+        if (source.IsMainCharacter && ReferenceEquals(source, main))
+            return new CombatActorEvidence(CombatActorEvidenceKind.Player, source.GetInstanceID());
+        return new CombatActorEvidence(
+            IsCompanion(source, main) ? CombatActorEvidenceKind.Companion : CombatActorEvidenceKind.OtherNpc,
+            source.GetInstanceID());
+    }
+
+    private static bool IsCompanion(CharacterMainControl source, CharacterMainControl? main)
+    {
+        if (main == null) return false;
         try
         {
-            if (ReferenceEquals(source, LevelManager.Instance?.PetCharacter)
-                || ReferenceEquals(source.GetComponent<PetAI>()?.master, main)) return CombatOwnership.PetCompanion;
+            if (ReferenceEquals(source, LevelManager.Instance?.PetCharacter)) return true;
+            var current = source;
+            for (var depth = 0; depth < 4; depth++)
+            {
+                var petMaster = current.GetComponent<PetAI>()?.master;
+                if (ReferenceEquals(petMaster, main)) return true;
+                var leader = current.GetComponent<AICharacterController>()?.leader;
+                if (ReferenceEquals(leader, main)) return true;
+                var next = petMaster != null && !ReferenceEquals(petMaster, current) ? petMaster : leader;
+                if (next == null || ReferenceEquals(next, current)) break;
+                current = next;
+            }
         }
         catch { }
-        return CombatOwnership.Unknown;
+        return false;
     }
+
+    private static bool IsNativePlayerOwnerChain(
+        CharacterMainControl? physicalSource,
+        CharacterMainControl? creditedSource) =>
+        physicalSource != null
+        && ToActorEvidence(creditedSource).Kind == CombatActorEvidenceKind.Player
+        && ReferenceEquals(physicalSource, LevelManager.Instance?.ControllingCharacter);
+
+    private static (string Id, string Name) ReadAttackerIdentity(
+        CombatOwnership ownership,
+        CharacterMainControl? character) => ownership switch
+        {
+            CombatOwnership.Environmental => ("duckov:attacker:environment", "Environment"),
+            CombatOwnership.Unknown => ("duckov:attacker:unknown", "Unknown attacker"),
+            _ => ReadCharacterIdentity(character, "attacker")
+        };
 
     private static (string Id, string Name) ReadCharacterIdentity(CharacterMainControl? character, string role)
     {
-        if (character == null) return ($"duckov:{role}:environment", "Environment");
+        if (character == null) return ($"duckov:{role}:unknown", $"Unknown {role}");
         if (character.IsMainCharacter) return ($"duckov:{role}:main-duck", "Main duck");
         var preset = character.characterPreset;
         if (preset != null)
@@ -687,6 +844,21 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     private void PublishCapabilities() =>
         capabilityHandler(CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
+
+    private bool ReadBuffApplicationObservationTrust()
+        => buffApplicationObservationBoundary.IsTrusted;
+
+    private void SynchronizeBuffApplicationObservationTrust()
+    {
+        if (!hookSupport.BuffApplication || ReadBuffApplicationObservationTrust()) return;
+        hookSupport.BuffApplication = false;
+        buffApplicationObservationBoundary.Clear();
+        equipmentAssociationResolver.Clear();
+        metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
+        PublishCapabilities();
+        diagnosticHandler(
+            "Disabled combat capabilities that require buff actor provenance because the CharacterBuffManager.AddBuff observation is no longer trusted.");
+    }
 
     private void InspectNextPatchStamp(DateTime nowUtc)
     {
@@ -769,7 +941,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             MeleeCheck = Exact(typeof(ItemAgent_MeleeWeapon), "CheckCollidersInRange", BindingFlags.Instance | BindingFlags.NonPublic, typeof(int), typeof(bool)),
             EffectTrigger = Exact(typeof(Effect), "Trigger", BindingFlags.Instance | BindingFlags.NonPublic, typeof(void), typeof(EffectTriggerEventContext)),
             EffectApplication = Exact(typeof(Effect), "SetItem", BindingFlags.Instance | BindingFlags.Public,
-                typeof(void), typeof(Item))
+                typeof(void), typeof(Item)),
+            EnvironmentalDamage = Exact(typeof(ZoneDamage), "Damage", BindingFlags.Instance | BindingFlags.NonPublic, typeof(void))
         };
     }
 
@@ -786,7 +959,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             (CombatHook.ProjectileRelease, m.ProjectileRelease, [new("Prefixes", CombatHarmonyCallbacks.ProjectileReleasePrefixMethod)]),
             (CombatHook.MeleeCheck, m.MeleeCheck, [new("Prefixes", CombatHarmonyCallbacks.MeleePrefixMethod), new("Finalizers", CombatHarmonyCallbacks.MeleeFinalizerMethod)]),
             (CombatHook.EffectTrigger, m.EffectTrigger, [new("Prefixes", CombatHarmonyCallbacks.EffectPrefixMethod), new("Finalizers", CombatHarmonyCallbacks.EffectFinalizerMethod)]),
-            (CombatHook.EffectApplication, m.EffectApplication, [new("Postfixes", CombatHarmonyCallbacks.EffectApplicationPostfixMethod)])
+            (CombatHook.EffectApplication, m.EffectApplication, [new("Postfixes", CombatHarmonyCallbacks.EffectApplicationPostfixMethod)]),
+            (CombatHook.EnvironmentalDamage, m.EnvironmentalDamage, [new("Prefixes", CombatHarmonyCallbacks.EnvironmentalDamagePrefixMethod), new("Finalizers", CombatHarmonyCallbacks.EnvironmentalDamageFinalizerMethod)])
         }
         .Where(x => x.Method != null)
         .Select(x => new PatchRegistration(x.Hook, x.Method!, x.Expected))
@@ -817,6 +991,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             case CombatHook.EffectApplication:
                 patcher.Patch(registration.Original, postfix: CombatHarmonyCallbacks.EffectApplicationPostfixMethod);
                 break;
+            case CombatHook.EnvironmentalDamage:
+                patcher.Patch(registration.Original, CombatHarmonyCallbacks.EnvironmentalDamagePrefixMethod, finalizer: CombatHarmonyCallbacks.EnvironmentalDamageFinalizerMethod);
+                break;
         }
     }
 
@@ -831,6 +1008,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         public string MapId { get; set; } = string.Empty;
         public string SegmentId { get; set; } = string.Empty;
         public CharacterMainControl? PhysicalSource { get; set; }
+        public CharacterMainControl? CreditedSource { get; set; }
+        public bool NativePlayerOwnerChain { get; set; }
         public bool IsExactPlayer { get; set; }
         public bool HeadTargeted { get; set; }
         public int WeaponTypeId { get; set; }
@@ -845,6 +1024,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             SourceMapId = MapId,
             SourceSegmentId = SegmentId,
             PhysicalSource = PhysicalSource,
+            CreditedSource = CreditedSource,
+            NativePlayerOwnerChain = NativePlayerOwnerChain,
             IsRanged = true,
             HeadTargeted = HeadTargeted,
             WeaponTypeId = WeaponTypeId,
@@ -854,6 +1035,17 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             EquipmentAssociation = EquipmentAssociation
         };
         private CombatNativeScope? scope;
+
+        public void RefreshActors(ProjectileContext context)
+        {
+            PhysicalSource = context.realFromCharacter;
+            CreditedSource = context.fromCharacter;
+            NativePlayerOwnerChain = IsNativePlayerOwnerChain(PhysicalSource, CreditedSource);
+            if (scope == null) return;
+            scope.PhysicalSource = PhysicalSource;
+            scope.CreditedSource = CreditedSource;
+            scope.NativePlayerOwnerChain = NativePlayerOwnerChain;
+        }
     }
 
     private sealed class ResolvedMethods
@@ -865,6 +1057,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         public MethodInfo? MeleeCheck { get; set; }
         public MethodInfo? EffectTrigger { get; set; }
         public MethodInfo? EffectApplication { get; set; }
+        public MethodInfo? EnvironmentalDamage { get; set; }
 
         public CombatHookSupport CreateHookSupport() => new()
         {
@@ -875,6 +1068,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             MeleeCheck = MeleeCheck != null,
             EffectTrigger = EffectTrigger != null,
             EffectApplication = EffectApplication != null,
+            EnvironmentalDamage = EnvironmentalDamage != null,
             PublicMeleeSwing = true,
             PublicPlayerDeath = true
         };
@@ -899,7 +1093,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         ProjectileRelease,
         MeleeCheck,
         EffectTrigger,
-        EffectApplication
+        EffectApplication,
+        EnvironmentalDamage
     }
 }
 
@@ -914,6 +1109,7 @@ internal static class CombatHookSupportExtensions
         NativeCombatAttributionAdapter.CombatHook.MeleeCheck => support.MeleeCheck,
         NativeCombatAttributionAdapter.CombatHook.EffectTrigger => support.EffectTrigger,
         NativeCombatAttributionAdapter.CombatHook.EffectApplication => support.EffectApplication,
+        NativeCombatAttributionAdapter.CombatHook.EnvironmentalDamage => support.EnvironmentalDamage,
         _ => false
     };
 
@@ -928,6 +1124,7 @@ internal static class CombatHookSupportExtensions
             case NativeCombatAttributionAdapter.CombatHook.MeleeCheck: support.MeleeCheck = false; break;
             case NativeCombatAttributionAdapter.CombatHook.EffectTrigger: support.EffectTrigger = false; break;
             case NativeCombatAttributionAdapter.CombatHook.EffectApplication: support.EffectApplication = false; break;
+            case NativeCombatAttributionAdapter.CombatHook.EnvironmentalDamage: support.EnvironmentalDamage = false; break;
         }
     }
 
@@ -940,5 +1137,6 @@ internal static class CombatHookSupportExtensions
         support.MeleeCheck = false;
         support.EffectTrigger = false;
         support.EffectApplication = false;
+        support.EnvironmentalDamage = false;
     }
 }

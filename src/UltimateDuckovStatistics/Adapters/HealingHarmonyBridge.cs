@@ -137,7 +137,11 @@ internal static class HealingHarmonyBridge
         }
     }
 
-    public static void BindBuff(CharacterBuffManager manager, Buff buffPrefab)
+    public static void BindBuff(
+        CharacterBuffManager manager,
+        Buff buffPrefab,
+        CharacterMainControl? fromWho,
+        int overrideWeaponID)
     {
         var currentAdapter = adapter;
         if (currentAdapter == null || !currentAdapter.IsPatchPointTrusted(HealingPatchPoint.Buff))
@@ -145,7 +149,7 @@ internal static class HealingHarmonyBridge
             return;
         }
 
-        CombatHarmonyBridge.CaptureBuffApplication(manager, buffPrefab);
+        CombatHarmonyBridge.CaptureBuffApplication(manager, buffPrefab, fromWho, overrideWeaponID);
         currentAdapter.ReconcileAppliedBuff(manager, buffPrefab, CurrentCorrelationId);
     }
 
@@ -233,9 +237,13 @@ internal static class HealingHarmonyCallbacks
         return __exception;
     }
 
-    private static void BuffPostfix(CharacterBuffManager __instance, Buff buffPrefab)
+    private static void BuffPostfix(
+        CharacterBuffManager __instance,
+        Buff buffPrefab,
+        CharacterMainControl? fromWho,
+        int overrideWeaponID)
     {
-        HealingHarmonyBridge.BindBuff(__instance, buffPrefab);
+        HealingHarmonyBridge.BindBuff(__instance, buffPrefab, fromWho, overrideWeaponID);
     }
 
     public static MethodInfo HealthPrefixMethod => Get(nameof(HealthPrefix));
