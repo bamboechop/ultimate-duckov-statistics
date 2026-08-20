@@ -99,6 +99,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             var newWorldTimeAdapter = new NativeWorldTimeAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 profileCoordinator.HandleWorldTime,
+                profileCoordinator.RequestWorldTimePersistence,
                 profileCoordinator.SetWorldTimeCapabilities,
                 message => Debug.Log($"{LogPrefix} {message}"));
             worldTimeAdapter.Assign(newWorldTimeAdapter);

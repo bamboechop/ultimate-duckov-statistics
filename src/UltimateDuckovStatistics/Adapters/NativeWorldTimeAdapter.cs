@@ -1,4 +1,5 @@
 using System.Reflection;
+using Stopwatch = System.Diagnostics.Stopwatch;
 using Duckov.UI;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
@@ -11,33 +12,35 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1";
+    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.world-time-sleep";
     private const string SupportedGameVersion = "2.3.30";
-    private static readonly TimeSpan FlushCadence = TimeSpan.FromSeconds(1);
     private readonly Func<string> generationIdProvider;
     private readonly Func<WorldTimeMutation, bool> recordHandler;
+    private readonly Func<bool> persistenceHandler;
     private readonly Action<IReadOnlyList<CapabilityRecord>, WorldTimeMetricCapabilities> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
     private readonly NativeWorldTimeObservationBoundary boundary = new();
+    private readonly NativeWorldTimePersistenceCadence persistenceCadence = new();
+    private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
     private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
     private readonly HashSet<string> diagnosticKeys = new(StringComparer.Ordinal);
     private WorldTimeMetricCapabilities capabilities = WorldTimeNativeContractPolicy.Unavailable(
         WorldTimeNativeContractPolicy.BootstrapProvenance);
     private MethodInfo? sleepAdvanceMethod;
     private HarmonyPatchSetStamp? sleepPatchStamp;
-    private DateTime nextFlushUtc;
-
     public NativeWorldTimeAdapter(
         Func<string> generationIdProvider,
         Func<WorldTimeMutation, bool> recordHandler,
+        Func<bool> persistenceHandler,
         Action<IReadOnlyList<CapabilityRecord>, WorldTimeMetricCapabilities> capabilityHandler,
         Action<string> diagnosticHandler)
     {
         this.generationIdProvider = generationIdProvider ?? throw new ArgumentNullException(nameof(generationIdProvider));
         this.recordHandler = recordHandler ?? throw new ArgumentNullException(nameof(recordHandler));
+        this.persistenceHandler = persistenceHandler ?? throw new ArgumentNullException(nameof(persistenceHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
     }
@@ -73,11 +76,11 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
                 "Exact sleep advancement patch has not been established.");
             EstablishBaseline();
             TryInitializeSleepPatch(clockProvenance);
-            nextFlushUtc = DateTime.UtcNow + FlushCadence;
+            persistenceCadence.Start(NowMonotonic());
             Publish();
             DiagnosticOnce(
                 "initialized",
-                "World clock observation subscribed; load hydration is baseline-only, and sleep completion requires the exact GameClock.Step(float) patch plus SleepView.OnAfterSleep.");
+                "World clock observation subscribed with one-second monotonic publication and 30-second monotonic durability; load hydration is baseline-only, and sleep completion requires the exact GameClock.Step(float) patch plus SleepView.OnAfterSleep.");
         }
         catch (Exception exception)
         {
@@ -90,10 +93,14 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     public void Tick(DateTime nowUtc)
     {
         if (!callbackLifetime.CanHandleCallbacks) return;
-        if (nowUtc >= nextFlushUtc)
+        var monotonicSeconds = NowMonotonic();
+        if (persistenceCadence.ShouldPublish(monotonicSeconds))
         {
-            FlushPending();
-            nextFlushUtc = nowUtc + FlushCadence;
+            PublishPending(monotonicSeconds, requestDurability: false);
+        }
+        if (persistenceCadence.ShouldSchedulePersistence(monotonicSeconds))
+        {
+            RequestPersistence(monotonicSeconds);
         }
         if (capabilities.SleepAdvancedTime.State != AdapterCapabilityState.Supported || sleepAdvanceMethod == null) return;
         if (!patchInspectionScheduler.TryTake(nowUtc, 1, out _)) return;
@@ -107,15 +114,47 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
             DisableSleep($"Sleep tracking disabled after GameClock.Step patch drift: {detail}");
     }
 
-    public bool FlushPending()
+    public bool FlushPending() => PublishPending(NowMonotonic(), requestDurability: true);
+
+    private bool PublishPending(double monotonicSeconds, bool requestDurability)
     {
+        var changed = false;
         try
         {
-            return boundary.FlushPending(recordHandler);
+            var succeeded = boundary.FlushPending(mutation =>
+            {
+                if (!recordHandler(mutation)) return false;
+                changed = true;
+                return true;
+            });
+            persistenceCadence.RecordPublicationAttempt(succeeded, changed, monotonicSeconds);
+            if (!succeeded) return false;
+            return !requestDurability
+                || !persistenceCadence.ShouldSchedulePersistence(monotonicSeconds, force: true)
+                || RequestPersistence(monotonicSeconds);
         }
         catch (Exception exception)
         {
+            persistenceCadence.RecordPublicationAttempt(succeeded: false, changed: false, monotonicSeconds);
             DiagnosticOnce("flush-exception", $"World-time aggregate flush failed and remains pending: {Unwrap(exception).Message}");
+            return false;
+        }
+    }
+
+    private bool RequestPersistence(double monotonicSeconds)
+    {
+        try
+        {
+            var succeeded = persistenceHandler();
+            persistenceCadence.RecordPersistenceAttempt(succeeded, monotonicSeconds);
+            if (!succeeded)
+                DiagnosticOnce("persistence-request", "World-time profile persistence request failed and will be retried.");
+            return succeeded;
+        }
+        catch (Exception exception)
+        {
+            persistenceCadence.RecordPersistenceAttempt(succeeded: false, monotonicSeconds);
+            DiagnosticOnce("persistence-exception", $"World-time profile persistence request failed and will be retried: {Unwrap(exception).Message}");
             return false;
         }
     }
@@ -123,6 +162,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     public void ResetForProfileChange()
     {
         boundary.Reset();
+        persistenceCadence.Start(NowMonotonic());
         DiagnosticOnce("profile-reset:" + generationIdProvider(), "World-time baseline reset for the active save generation without counting hydration.");
     }
 
@@ -211,7 +251,12 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         {
             if (capabilities.CompletedSleepSessions.State != AdapterCapabilityState.Supported) return;
             if (!boundary.CompleteSleep(generationIdProvider()))
+            {
                 DiagnosticOnce("sleep-completion-without-candidate", "Sleep completion callback had no matching exact advancement candidate and was not counted.");
+                return;
+            }
+            if (!PublishPending(NowMonotonic(), requestDurability: true))
+                DiagnosticOnce("sleep-completion-persistence", "Completed sleep remains queued until its exact world-time mutation can be persisted.");
         }
         catch (Exception exception)
         {
@@ -317,6 +362,8 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     }
 
     private static WorldClockReading ReadClock() => new(GameClock.Day, GameClock.TimeOfDay.Ticks);
+
+    private double NowMonotonic() => monotonicClock.Elapsed.TotalSeconds;
 
     private static Exception Unwrap(Exception exception) =>
         exception is TargetInvocationException { InnerException: not null } invocation

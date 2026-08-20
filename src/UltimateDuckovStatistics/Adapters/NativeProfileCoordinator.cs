@@ -326,8 +326,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
         {
             var currentRepository = repository;
             if (currentRepository == null) return false;
-            if (currentRepository.RecordWorldTimeDeferred(mutation))
-                profileWriter.MarkDirty();
+            // Keep the current in-memory projection responsive without turning
+            // every aggregate publication into a full durable profile rewrite.
+            currentRepository.RecordWorldTimeDeferred(mutation);
             return true;
         }
         catch (Exception exception)
@@ -337,6 +338,13 @@ internal sealed class NativeProfileCoordinator : IDisposable
             WriteDiagnostic($"Failed to persist world-time statistics: {exception.GetType().Name}.", "Error");
             return false;
         }
+    }
+
+    public bool RequestWorldTimePersistence()
+    {
+        if (repository == null) return false;
+        profileWriter.MarkDirty();
+        return true;
     }
 
     public void BeginEconomyActivation(string activationId)

@@ -202,6 +202,114 @@ public sealed class WorldTimeObservationTests
     }
 
     [Fact]
+    [Trait("Category", "Performance")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M12")]
+    public void OneHourOfFrameRateObservationBoundsLongProfilePersistenceToThirtySecondCadence()
+    {
+        const int framesPerSecond = 60;
+        const int simulatedSeconds = 60 * 60;
+        const long representativeLongProfileBytes = 512 * 1024;
+        var cadence = new NativeWorldTimePersistenceCadence();
+        var representativeProfile = new string('p', (int)representativeLongProfileBytes);
+        long persistedBytes = 0;
+        var durableWriter = new DeferredSnapshotWriter<string>(
+            () => representativeProfile,
+            snapshot => persistedBytes += snapshot.Length);
+        cadence.Start(0);
+        var publications = 0;
+        var durableWrites = 0;
+
+        for (var frame = 1; frame <= simulatedSeconds * framesPerSecond; frame++)
+        {
+            var monotonicSeconds = frame / (double)framesPerSecond;
+            if (cadence.ShouldPublish(monotonicSeconds))
+            {
+                publications++;
+                cadence.RecordPublicationAttempt(succeeded: true, changed: true, monotonicSeconds);
+            }
+
+            if (cadence.ShouldSchedulePersistence(monotonicSeconds))
+            {
+                durableWrites++;
+                durableWriter.MarkDirty();
+                Assert.Equal(DeferredWriteState.Succeeded, durableWriter.Flush().State);
+                cadence.RecordPersistenceAttempt(succeeded: true, monotonicSeconds);
+            }
+        }
+
+        Assert.InRange(publications, simulatedSeconds - 1, simulatedSeconds);
+        Assert.InRange(durableWrites, 119, 120);
+        Assert.Equal(durableWrites * representativeLongProfileBytes, persistedBytes);
+        Assert.True(persistedBytes <= 60L * 1024 * 1024);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M12")]
+    public void WindowsClockRewindCannotDelayMonotonicPublicationOrPersistence()
+    {
+        var cadence = new NativeWorldTimePersistenceCadence();
+        var boundary = new NativeWorldTimeObservationBoundary();
+        cadence.Start(100);
+        var priorWallClockDeadline = new DateTime(2026, 8, 20, 12, 0, 1, DateTimeKind.Utc);
+        var correctedWallClock = priorWallClockDeadline.AddHours(-2);
+        boundary.ObserveClock("g", Read(1, 100));
+        boundary.ObserveClock("g", Read(1, 160));
+
+        Assert.True(correctedWallClock < priorWallClockDeadline);
+        Assert.True(cadence.ShouldPublish(101));
+        var published = new List<WorldTimeMutation>();
+        Assert.True(boundary.FlushPending(mutation =>
+        {
+            published.Add(mutation);
+            return true;
+        }));
+        cadence.RecordPublicationAttempt(succeeded: true, changed: published.Count != 0, monotonicSeconds: 101);
+        Assert.Equal(60 * Second, Assert.Single(published).ObservedGameTimeTicks);
+        Assert.False(cadence.ShouldSchedulePersistence(129.999));
+        Assert.True(cadence.ShouldSchedulePersistence(130));
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M12")]
+    public void CompletedSleepAndLifecycleBoundariesCanRequestDurabilityImmediately()
+    {
+        var cadence = new NativeWorldTimePersistenceCadence();
+        cadence.Start(0);
+        cadence.RecordPublicationAttempt(succeeded: true, changed: true, monotonicSeconds: 1);
+
+        Assert.False(cadence.ShouldSchedulePersistence(1));
+        Assert.True(cadence.ShouldSchedulePersistence(1, force: true));
+        cadence.RecordPersistenceAttempt(succeeded: true, monotonicSeconds: 1);
+        Assert.False(cadence.HasUnpersistedChanges);
+    }
+
+    [Fact]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "M12")]
+    public void FailedDurableRequestRetriesAtOneSecondInsteadOfEveryFrame()
+    {
+        var cadence = new NativeWorldTimePersistenceCadence();
+        cadence.Start(0);
+        cadence.RecordPublicationAttempt(succeeded: true, changed: true, monotonicSeconds: 1);
+
+        Assert.True(cadence.ShouldSchedulePersistence(30));
+        cadence.RecordPersistenceAttempt(succeeded: false, monotonicSeconds: 30);
+        Assert.False(cadence.ShouldSchedulePersistence(30.999));
+        Assert.True(cadence.ShouldSchedulePersistence(31));
+
+        cadence.Start(100);
+        cadence.RecordPublicationAttempt(succeeded: true, changed: true, monotonicSeconds: 101);
+        Assert.True(cadence.ShouldSchedulePersistence(101, force: true));
+        cadence.RecordPersistenceAttempt(succeeded: false, monotonicSeconds: 101);
+        Assert.False(cadence.ShouldSchedulePersistence(101.999));
+        Assert.True(cadence.ShouldSchedulePersistence(101.001, force: true));
+        Assert.True(cadence.ShouldSchedulePersistence(102));
+    }
+
+    [Fact]
     public void DeferredPublicationRetriesTheExactProductionBoundaryMutationWithoutDuplication()
     {
         var boundary = new NativeWorldTimeObservationBoundary();

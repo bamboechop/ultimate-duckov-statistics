@@ -38,6 +38,8 @@
              Link="ProductionAdapters\NativeProfileTransitionBoundary.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeWorldTimeObservationBoundary.cs"
              Link="ProductionAdapters\NativeWorldTimeObservationBoundary.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeWorldTimePersistenceCadence.cs"
+             Link="ProductionAdapters\NativeWorldTimePersistenceCadence.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ProfileChangePublication.cs"
              Link="ProductionAdapters\ProfileChangePublication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\EconomyActivationGate.cs"
