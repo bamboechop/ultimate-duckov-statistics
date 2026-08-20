@@ -63,7 +63,8 @@ public static class ProfileExportWriter
             WriteAtomicText(exportDirectory, "economy_totals.csv", bundle.EconomyTotalsCsv),
             WriteAtomicText(exportDirectory, "economy_sources.csv", bundle.EconomySourcesCsv),
             WriteAtomicText(exportDirectory, "economy_contexts.csv", bundle.EconomyContextsCsv),
-            WriteAtomicText(exportDirectory, "cash_raid_outcomes.csv", bundle.CashRaidOutcomesCsv)
+            WriteAtomicText(exportDirectory, "cash_raid_outcomes.csv", bundle.CashRaidOutcomesCsv),
+            WriteAtomicText(exportDirectory, "world_time.csv", bundle.WorldTimeCsv)
         };
         return new ProfileExportResult(exportDirectory, files);
     }

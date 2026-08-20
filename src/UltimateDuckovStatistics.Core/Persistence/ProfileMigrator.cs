@@ -73,6 +73,15 @@ public static class ProfileMigrator
             return $"Current-schema economy fan-out is inconsistent: {exception.Message}";
         }
 
+        try
+        {
+            WorldTimeStatisticsReducer.Validate(profile.Statistics.WorldTime);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Current-schema world-time state is invalid: {exception.Message}";
+        }
+
         if (profile.DeferredItemPersistence != null)
         {
             var deferred = profile.DeferredItemPersistence;
@@ -339,6 +348,8 @@ public static class ProfileMigrator
                                                 || (profile.Statistics != null && profile.Statistics.SchemaVersion < 10);
         var migratingCombatOwnership = profile.SchemaVersion < 11
                                        || (profile.Statistics != null && profile.Statistics.SchemaVersion < 11);
+        var migratingWorldTime = profile.SchemaVersion < 12
+                                 || (profile.Statistics != null && profile.Statistics.SchemaVersion < 12);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         var missingCurrentEquipmentRoot = !migratingEquipment
@@ -505,6 +516,19 @@ public static class ProfileMigrator
         }
         changed |= EconomyStatisticsReducer.NormalizePersisted(profile.Statistics.Economy);
         if (migratingEconomy) changed |= MarkHistoricalEconomyUnavailable(profile.Statistics.Economy);
+        if (profile.Statistics.WorldTime == null)
+        {
+            profile.Statistics.WorldTime = new WorldTimeStatisticsAggregate();
+            changed = true;
+        }
+        changed |= WorldTimeStatisticsReducer.NormalizePersisted(profile.Statistics.WorldTime);
+        if (migratingWorldTime)
+        {
+            profile.Statistics.WorldTime.HistoricalUnavailable = true;
+            profile.Statistics.WorldTime.HistoricalProvenance =
+                "Historical schema predates M12; prior calendar advancement, observed game time, completed sleep sessions, and sleep-advanced time were not recorded and were not reconstructed.";
+            changed = true;
+        }
         if (profile.Statistics.RunTotals.Economy == null)
         {
             profile.Statistics.RunTotals.Economy = new EconomyStatisticsAggregate();
@@ -944,6 +968,18 @@ public static class ProfileMigrator
         if (profile.Statistics.SchemaVersion < 11)
         {
             profile.Statistics.SchemaVersion = 11;
+            changed = true;
+        }
+
+        if (profile.SchemaVersion < 12)
+        {
+            profile.SchemaVersion = 12;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 12)
+        {
+            profile.Statistics.SchemaVersion = 12;
             changed = true;
         }
 

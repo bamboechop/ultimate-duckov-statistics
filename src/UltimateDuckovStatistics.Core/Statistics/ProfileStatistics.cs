@@ -41,6 +41,9 @@ public sealed class ProfileStatistics
 
     [DataMember(Order = 12)]
     public EconomyStatisticsAggregate Economy { get; set; } = new();
+
+    [DataMember(Order = 13)]
+    public WorldTimeStatisticsAggregate WorldTime { get; set; } = new();
 }
 
 [DataContract]

@@ -28,7 +28,7 @@ internal sealed class NativeProfileTransitionBoundary
         {
             if (boundaryObserver?.Invoke() == false)
             {
-                diagnosticHandler($"{current.Description} remains deferred because queued economy was not accepted.");
+                diagnosticHandler($"{current.Description} remains deferred because queued boundary observations were not accepted.");
                 return false;
             }
         }

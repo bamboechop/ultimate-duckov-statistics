@@ -205,6 +205,16 @@ public sealed class ProfileRepository
 
     public bool RecordDeferred(CurrencyFlowRecorded flow) => Record(flow, persistImmediately: false);
 
+    public bool RecordWorldTimeDeferred(WorldTimeMutation mutation)
+    {
+        var profile = Current;
+        var changed = WorldTimeStatisticsReducer.Apply(profile.Statistics.WorldTime, mutation);
+        if (!changed) return false;
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        return true;
+    }
+
     public bool BeginEconomyActivation(string activationId)
     {
         var profile = Current;
@@ -529,6 +539,17 @@ public sealed class ProfileRepository
         var profile = Current;
         profile.Statistics.Economy ??= new EconomyStatisticsAggregate();
         EconomyStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.Economy, capabilities);
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        SaveCurrent();
+    }
+
+    public void SetWorldTimeCapabilities(WorldTimeMetricCapabilities capabilities)
+    {
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        var profile = Current;
+        profile.Statistics.WorldTime ??= new WorldTimeStatisticsAggregate();
+        WorldTimeStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.WorldTime, capabilities);
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();
@@ -1196,7 +1217,8 @@ public sealed class ProfileRepository
                 Runs = new List<RunSummary>(statistics.Runs),
                 RunTotals = statistics.RunTotals,
                 RunRecords = statistics.RunRecords,
-                Economy = EconomyStatisticsReducer.Clone(statistics.Economy)
+                Economy = EconomyStatisticsReducer.Clone(statistics.Economy),
+                WorldTime = WorldTimeStatisticsReducer.Clone(statistics.WorldTime)
             },
             Capabilities = source.Capabilities.Select(CloneCapability).ToList(),
             PendingSave = source.PendingSave == null

@@ -1,4 +1,14 @@
-# Ultimate Duckov Statistics v0.11.0 — published pre-release
+# Ultimate Duckov Statistics v0.12.0 — M12 development candidate
+
+M12 adds four generation-local lifetime statistics: calendar days advanced, observed Duckov world-clock advancement, completed sleep sessions, and time advanced through completed sleep. Observed time follows Duckov's forward world clock—including ordinary progression, automatic boot/time-target jumps, exact sleep advancement, and other native fast-forward—and is deliberately distinct from wall-clock play time, loading time, and M3 active-raid duration.
+
+The installed Duckov 2.3.30 contract uses a nonstandard 86,300-second native day. UDS derives deltas from checked `GameClock.Day` plus `GameClock.TimeOfDay` coordinates and treats the first observation after load or generation replacement as baseline-only. Backward, invalid, or overflowing coordinates preserve prior exact values and disable only current clock-derived capture. A sleep counts only when the exact internal `GameClock.Step(float)` advancement matches its requested duration and the later public `SleepView.OnAfterSleep` callback consumes that candidate once. Opening then cancelling the sleep view, interruption before completion, duplicate callbacks, generation changes, mismatched advancement, or an unavailable/foreign/drifting sleep patch cannot fabricate sleep totals.
+
+Schema 12 persists the four totals with checked per-metric arithmetic, independent capability state and provenance, recovery validation, and one-second coalesced deferred writes that flush across save/profile and shutdown boundaries. Historical pre-M12 time and sleep remain explicitly unavailable. Overview and Diagnostics expose the same semantics; JSON plus the new `world_time.csv` carry exact ticks, derived seconds, capability provenance, historical availability, and repair state. No sleep statistic is assigned to a run, route, map, or segment because the verified native lifecycle proves only a base UI interaction.
+
+`v0.12.0` has not been published. Final candidate evidence is recorded only after automated, package, deployment, user-controlled gameplay, export, persistence, shutdown, review, and CI gates complete.
+
+## v0.11.0 published baseline
 
 Support boundary: v0.11.0, like every UDS `0.x` build and GitHub pre-release, is a development artifact for voluntary testing rather than an officially distributed build. GitHub is not a supported installation channel, and migration of UDS-owned persisted data between `0.x` versions is best-effort development continuity rather than an end-user compatibility guarantee. Schema-11 migration code and tests are internal hardening, not a supported end-user upgrade promise. Supported migration guarantees begin with the first version explicitly declared as officially distributed through a supported channel.
 
