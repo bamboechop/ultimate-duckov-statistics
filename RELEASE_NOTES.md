@@ -6,7 +6,7 @@ The installed Duckov 2.3.30 contract uses a nonstandard 86,300-second native day
 
 Schema 12 persists the four totals with checked per-metric arithmetic, independent capability state and provenance, recovery validation, and one-second coalesced deferred writes that flush across save/profile and shutdown boundaries. Historical pre-M12 time and sleep remain explicitly unavailable. Overview and Diagnostics expose the same semantics; JSON plus the new `world_time.csv` carry exact ticks, derived seconds, capability provenance, historical availability, and repair state. No sleep statistic is assigned to a run, route, map, or segment because the verified native lifecycle proves only a base UI interaction.
 
-`v0.12.0` has not been published. Final candidate evidence is recorded only after automated, package, deployment, user-controlled gameplay, export, persistence, shutdown, review, and CI gates complete.
+`v0.12.0` has not been published. Local automated, native-contract, package, deployment, user-controlled gameplay, export, persistence, and clean-shutdown qualification is recorded in [TESTING.md](TESTING.md). GitHub pull requests and Actions remain the authoritative surfaces for mutable review and CI state.
 
 ## v0.11.0 published baseline
 
