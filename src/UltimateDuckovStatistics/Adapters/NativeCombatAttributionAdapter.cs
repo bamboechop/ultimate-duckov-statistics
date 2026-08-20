@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCleanup
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.combat";
-    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v5+patch-stamp-v1";
+    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v6+patch-stamp-v1";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int MaximumProjectileCorrelations = 2048;
@@ -29,6 +29,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly Action<string> diagnosticHandler;
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
     private readonly NativeCombatEquipmentAssociationResolver equipmentAssociationResolver = new();
+    private readonly CombatBuffOwnershipTracker buffOwnershipTracker = new();
     private readonly Dictionary<int, ProjectileSnapshot> projectiles = new();
     private readonly Queue<(int RuntimeId, string ProjectileId)> projectileOrder = new();
     private PatchRegistration[] patchRegistrations = Array.Empty<PatchRegistration>();
@@ -311,6 +312,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             associationSource = parentBuff;
         }
         var actor = parentBuff?.fromWho ?? context.source.Master?.Item?.GetCharacterMainControl();
+        var buffOwnership = parentBuff == null
+            ? new CombatBuffOwnershipResolution(ToActorEvidence(actor), conflictingEvidence: false)
+            : buffOwnershipTracker.Resolve(parentBuff, ToActorEvidence(actor));
         var playerOwned = ToActorEvidence(actor).Kind == CombatActorEvidenceKind.Player;
         var fallbackAssociation = playerOwned
             ? CombatHarmonyBridge.CurrentScope?.EquipmentAssociation ?? equipmentAssociationProvider()
@@ -321,6 +325,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             IsDamageOverTime = delayed,
             PhysicalSource = actor,
             CreditedSource = actor,
+            ConflictingActorEvidence = buffOwnership.ConflictingEvidence,
             WeaponTypeId = parentBuff?.fromWeaponID ?? -1,
             EquipmentAssociation = equipmentAssociationResolver.ResolveEffect(
                 associationSource,
@@ -360,14 +365,25 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
                 EquipmentAssociation = new EquipmentEventAssociation()
             };
 
-    public void CaptureBuffApplication(CharacterBuffManager manager, Buff buffPrefab)
+    public void CaptureBuffApplication(
+        CharacterBuffManager manager,
+        Buff buffPrefab,
+        CharacterMainControl? fromWho,
+        int overrideWeaponID)
     {
         if (!IsActive || manager == null || buffPrefab == null) return;
-        var applied = manager.Buffs.LastOrDefault(value => value != null && value.ID == buffPrefab.ID);
+        // Match CharacterBuffManager.AddBuff's first same-ID lookup exactly.
+        var applied = manager.Buffs.FirstOrDefault(value => value != null && value.ID == buffPrefab.ID);
         if (applied == null) return;
-        if (ToActorEvidence(applied.fromWho).Kind != CombatActorEvidenceKind.Player) return;
-        var association = CombatHarmonyBridge.CurrentScope?.EquipmentAssociation
-                          ?? equipmentAssociationProvider();
+        buffOwnershipTracker.Observe(
+            applied,
+            ToActorEvidence(applied.fromWho),
+            ToActorEvidence(fromWho));
+        var incomingPlayer = ToActorEvidence(fromWho).Kind == CombatActorEvidenceKind.Player;
+        var association = incomingPlayer
+            ? CombatHarmonyBridge.CurrentScope?.EquipmentAssociation ?? equipmentAssociationProvider()
+            : new EquipmentEventAssociation();
+        _ = overrideWeaponID; // Weapon identity never upgrades or resolves actor ownership.
         var generationId = saveGenerationIdProvider();
         var runId = runIdProvider() ?? string.Empty;
         var mapId = mapIdProvider() ?? MapIdentity.UnknownId;
@@ -424,17 +440,23 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var enemyTarget = !targetIsMain && health.team != Teams.player;
         if (!CombatObservationPolicy.ShouldRecordHealthTransition(targetIsMain, enemyTarget, ownership)) return;
         var playerDamage = ownership == CombatOwnership.Player && enemyTarget;
-        var rangedHit = CombatObservationPolicy.CountRangedHit(
-            enemyTarget, ownership == CombatOwnership.Player, scope?.IsRanged == true, scope?.HitCounted == true);
+        var projectileTransition = CombatObservationPolicy.ClassifyProjectileTransition(
+            scope?.HeadTargeted == true,
+            state.DamageInfo.crit > 0,
+            ownership == CombatOwnership.Player,
+            enemyTarget,
+            scope?.IsRanged == true,
+            fatal,
+            scope?.HitCounted == true,
+            scope?.HeadshotCounted == true,
+            scope?.HeadshotFinalBlowCounted == true);
+        var rangedHit = projectileTransition.RangedHit;
         var meleeHit = CombatObservationPolicy.CountMeleeHit(
             enemyTarget, ownership == CombatOwnership.Player, scope?.IsMelee == true, scope?.HitCounted == true);
         if (rangedHit || meleeHit) scope!.HitCounted = true;
-        var headshot = CombatObservationPolicy.CountHeadshot(
-            scope?.HeadTargeted == true, state.DamageInfo.crit > 0, rangedHit, scope?.HeadshotCounted == true);
+        var headshot = projectileTransition.Headshot;
         if (headshot) scope!.HeadshotCounted = true;
-        var headshotFinalBlow = CombatObservationPolicy.CountHeadshotFinalBlow(
-            scope?.HeadTargeted == true, ownership == CombatOwnership.Player,
-            enemyTarget, fatal, scope?.HeadshotFinalBlowCounted == true);
+        var headshotFinalBlow = projectileTransition.HeadshotFinalBlow;
         if (headshotFinalBlow) scope!.HeadshotFinalBlowCounted = true;
         var targetIdentity = ReadCharacterIdentity(target, "target");
         var attackerIdentity = ReadAttackerIdentity(ownership, source);
@@ -582,6 +604,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         projectiles.Clear();
         projectileOrder.Clear();
         equipmentAssociationResolver.Clear();
+        buffOwnershipTracker.Clear();
         CombatHarmonyBridge.ClearScopes();
         projectileContextFrame = -1;
     }
@@ -666,7 +689,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             ToActorEvidence(scope?.CreditedSource),
             ToActorEvidence(damageSource),
             scope?.NativePlayerOwnerChain == true,
-            scope?.ExplicitActorlessWorldDamage == true);
+            scope?.ExplicitActorlessWorldDamage == true,
+            scope?.ConflictingActorEvidence == true);
 
     private static CharacterMainControl? ResolveAttributionActor(
         CombatOwnership ownership,

@@ -41,8 +41,12 @@ internal static class CombatHarmonyBridge
     public static CombatNativeScope? PushEnvironmentalDamage() =>
         Push(adapter?.CreateEnvironmentalScope());
 
-    public static void CaptureBuffApplication(CharacterBuffManager manager, Buff buffPrefab) =>
-        adapter?.CaptureBuffApplication(manager, buffPrefab);
+    public static void CaptureBuffApplication(
+        CharacterBuffManager manager,
+        Buff buffPrefab,
+        CharacterMainControl? fromWho,
+        int overrideWeaponID) =>
+        adapter?.CaptureBuffApplication(manager, buffPrefab, fromWho, overrideWeaponID);
 
     public static void CaptureEffectApplication(Effect effect) =>
         adapter?.CaptureEffectApplication(effect);
@@ -119,6 +123,7 @@ internal sealed class CombatNativeScope
     public CharacterMainControl? CreditedSource { get; set; }
     public bool NativePlayerOwnerChain { get; set; }
     public bool ExplicitActorlessWorldDamage { get; set; }
+    public bool ConflictingActorEvidence { get; set; }
     public bool IsRanged { get; set; }
     public bool IsMelee { get; set; }
     public bool IsDamageOverTime { get; set; }

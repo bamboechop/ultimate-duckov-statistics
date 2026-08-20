@@ -30,6 +30,20 @@ public readonly struct CombatDeathClassification
     public long ObservedWorldDeaths { get; }
 }
 
+public readonly struct CombatProjectileTransition
+{
+    public CombatProjectileTransition(bool rangedHit, bool headshot, bool headshotFinalBlow)
+    {
+        RangedHit = rangedHit;
+        Headshot = headshot;
+        HeadshotFinalBlow = headshotFinalBlow;
+    }
+
+    public bool RangedHit { get; }
+    public bool Headshot { get; }
+    public bool HeadshotFinalBlow { get; }
+}
+
 public static class CombatObservationPolicy
 {
     public static CombatOwnership ResolveOwnership(
@@ -37,8 +51,10 @@ public static class CombatObservationPolicy
         CombatActorEvidence creditedActor,
         CombatActorEvidence damageActor,
         bool nativePlayerOwnerChain,
-        bool explicitActorlessWorldDamage)
+        bool explicitActorlessWorldDamage,
+        bool conflictingActorEvidence = false)
     {
+        if (conflictingActorEvidence) return CombatOwnership.Unknown;
         if (explicitActorlessWorldDamage)
         {
             return physicalActor.IsPresent || creditedActor.IsPresent || damageActor.IsPresent
@@ -107,12 +123,32 @@ public static class CombatObservationPolicy
     }
 
     public static bool CountHeadshotFinalBlow(
-        bool headTargetedProjectile,
+        bool headshotOnCurrentTransition,
         bool exactPlayerOwnership,
         bool enemyTarget,
         bool fatalTransition,
         bool alreadyCounted) =>
-        headTargetedProjectile && exactPlayerOwnership && enemyTarget && fatalTransition && !alreadyCounted;
+        headshotOnCurrentTransition && exactPlayerOwnership && enemyTarget && fatalTransition && !alreadyCounted;
+
+    public static CombatProjectileTransition ClassifyProjectileTransition(
+        bool headTargetedProjectile,
+        bool nativeCritical,
+        bool exactPlayerOwnership,
+        bool enemyTarget,
+        bool rangedScope,
+        bool fatalTransition,
+        bool hitAlreadyCounted,
+        bool headshotAlreadyCounted,
+        bool headshotFinalBlowAlreadyCounted)
+    {
+        var rangedHit = CountRangedHit(
+            enemyTarget, exactPlayerOwnership, rangedScope, hitAlreadyCounted);
+        var headshot = CountHeadshot(
+            headTargetedProjectile, nativeCritical, rangedHit, headshotAlreadyCounted);
+        var headshotFinalBlow = CountHeadshotFinalBlow(
+            headshot, exactPlayerOwnership, enemyTarget, fatalTransition, headshotFinalBlowAlreadyCounted);
+        return new CombatProjectileTransition(rangedHit, headshot, headshotFinalBlow);
+    }
 
     public static bool ShouldRecordHealthTransition(
         bool targetIsMain, bool targetIsEnemy, CombatOwnership ownership)

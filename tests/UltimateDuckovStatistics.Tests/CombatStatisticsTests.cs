@@ -30,16 +30,16 @@ public sealed class CombatStatisticsTests
         Assert.True(CombatObservationPolicy.CountHeadshot(
             headTargetedProjectile: true, nativeCritical: false, rangedHit: true, alreadyCounted: false));
         Assert.False(CombatObservationPolicy.CountHeadshotFinalBlow(
-            headTargetedProjectile: true, exactPlayerOwnership: true,
+            headshotOnCurrentTransition: false, exactPlayerOwnership: true,
             enemyTarget: true, fatalTransition: false, alreadyCounted: false));
         Assert.True(CombatObservationPolicy.CountHeadshotFinalBlow(
-            headTargetedProjectile: true, exactPlayerOwnership: true,
+            headshotOnCurrentTransition: true, exactPlayerOwnership: true,
             enemyTarget: true, fatalTransition: true, alreadyCounted: false));
         Assert.False(CombatObservationPolicy.CountHeadshotFinalBlow(
-            headTargetedProjectile: true, exactPlayerOwnership: true,
+            headshotOnCurrentTransition: true, exactPlayerOwnership: true,
             enemyTarget: true, fatalTransition: true, alreadyCounted: true));
         Assert.False(CombatObservationPolicy.CountHeadshotFinalBlow(
-            headTargetedProjectile: true, exactPlayerOwnership: false,
+            headshotOnCurrentTransition: true, exactPlayerOwnership: false,
             enemyTarget: true, fatalTransition: true, alreadyCounted: false));
     }
 
@@ -90,6 +90,68 @@ public sealed class CombatStatisticsTests
             CombatObservationPolicy.ResolveOwnership(npc, missing, missing, false, true));
         Assert.Equal(CombatOwnership.Player,
             CombatObservationPolicy.ResolveOwnership(npc, player, player, true, false));
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void SameBuffReapplicationByDifferentActorsIsUnknownInEitherOrder()
+    {
+        var player = new CombatActorEvidence(CombatActorEvidenceKind.Player, 1);
+        var npc = new CombatActorEvidence(CombatActorEvidenceKind.OtherNpc, 2);
+
+        AssertUnknownAfterReapplication(player, npc);
+        AssertUnknownAfterReapplication(npc, player);
+
+        static void AssertUnknownAfterReapplication(
+            CombatActorEvidence firstActor,
+            CombatActorEvidence secondActor)
+        {
+            var tracker = new CombatBuffOwnershipTracker();
+            var runtimeBuff = new object();
+            tracker.Observe(runtimeBuff, firstActor, firstActor);
+            tracker.Observe(runtimeBuff, firstActor, secondActor);
+            var resolution = tracker.Resolve(runtimeBuff, firstActor);
+            var ownership = CombatObservationPolicy.ResolveOwnership(
+                firstActor,
+                firstActor,
+                firstActor,
+                nativePlayerOwnerChain: false,
+                explicitActorlessWorldDamage: false,
+                conflictingActorEvidence: resolution.ConflictingEvidence);
+            var death = CombatObservationPolicy.ClassifyEnemyDeath(
+                enemyTarget: true, fatalTransition: true, ownership);
+
+            Assert.True(resolution.ConflictingEvidence);
+            Assert.Equal(CombatOwnership.Unknown, ownership);
+            Assert.Equal(0, death.KillsByYou);
+            Assert.Equal(1, death.ObservedWorldDeaths);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void SameActorBuffRefreshRemainsOwnedButMissingReapplicationDegradesToUnknown()
+    {
+        var player = new CombatActorEvidence(CombatActorEvidenceKind.Player, 1);
+        var tracker = new CombatBuffOwnershipTracker();
+        var runtimeBuff = new object();
+        tracker.Observe(runtimeBuff, player, player);
+        tracker.Observe(runtimeBuff, player, player);
+        Assert.False(tracker.Resolve(runtimeBuff, player).ConflictingEvidence);
+
+        tracker.Observe(runtimeBuff, player, CombatActorEvidence.Missing);
+        var resolution = tracker.Resolve(runtimeBuff, player);
+
+        Assert.True(resolution.ConflictingEvidence);
+        Assert.Equal(CombatOwnership.Unknown, CombatObservationPolicy.ResolveOwnership(
+            player,
+            player,
+            player,
+            nativePlayerOwnerChain: false,
+            explicitActorlessWorldDamage: false,
+            conflictingActorEvidence: resolution.ConflictingEvidence));
     }
 
     [Fact]
@@ -167,22 +229,58 @@ public sealed class CombatStatisticsTests
     [Fact]
     [Trait("Category", "Combat")]
     [Trait("Category", "M11")]
-    public void PenetratingProjectileCanKillMultipleTargetsButCountsOneProjectileHit()
+    public void PenetratingProjectileDoesNotMoveHeadshotFinalBlowToLaterFatalVictim()
     {
+        var first = CombatObservationPolicy.ClassifyProjectileTransition(
+            headTargetedProjectile: true,
+            nativeCritical: true,
+            exactPlayerOwnership: true,
+            enemyTarget: true,
+            rangedScope: true,
+            fatalTransition: false,
+            hitAlreadyCounted: false,
+            headshotAlreadyCounted: false,
+            headshotFinalBlowAlreadyCounted: false);
+        var second = CombatObservationPolicy.ClassifyProjectileTransition(
+            headTargetedProjectile: true,
+            nativeCritical: true,
+            exactPlayerOwnership: true,
+            enemyTarget: true,
+            rangedScope: true,
+            fatalTransition: true,
+            hitAlreadyCounted: first.RangedHit,
+            headshotAlreadyCounted: first.Headshot,
+            headshotFinalBlowAlreadyCounted: first.HeadshotFinalBlow);
+
+        Assert.True(first.RangedHit);
+        Assert.True(first.Headshot);
+        Assert.False(first.HeadshotFinalBlow);
+        Assert.False(second.RangedHit);
+        Assert.False(second.Headshot);
+        Assert.False(second.HeadshotFinalBlow);
+
         var aggregate = new CombatStatisticsAggregate();
-        foreach (var target in new[] { "a", "b" })
+        CombatStatisticsReducer.Apply(aggregate, Event("headshot-a") with
         {
-            CombatStatisticsReducer.Apply(aggregate, Event($"fatal-{target}") with
-            {
-                ProjectileId = "penetrating-projectile",
-                Ownership = CombatOwnership.Player,
-                TargetId = $"duckov:target:{target}",
-                KillsByYou = 1,
-                Headshots = target == "a" ? 1 : 0,
-                HeadshotFinalBlows = target == "a" ? 1 : 0,
-                IsFinalBlow = true
-            });
-        }
+            ProjectileId = "penetrating-projectile",
+            Ownership = CombatOwnership.Player,
+            TargetId = "duckov:target:a",
+            ActualDamageToTarget = 10,
+            ActualDamageDealt = 10,
+            Headshots = first.Headshot ? 1 : 0
+        });
+        CombatStatisticsReducer.Apply(aggregate, Event("fatal-b") with
+        {
+            ProjectileId = "penetrating-projectile",
+            Ownership = CombatOwnership.Player,
+            TargetId = "duckov:target:b",
+            ActualDamageToTarget = 5,
+            ActualDamageDealt = 5,
+            KillsByYou = 1,
+            Headshots = second.Headshot ? 1 : 0,
+            HeadshotFinalBlows = second.HeadshotFinalBlow ? 1 : 0,
+            IsFinalBlow = true
+        });
         CombatStatisticsReducer.Apply(aggregate, Event("completion") with
         {
             ProjectileId = "penetrating-projectile",
@@ -192,15 +290,15 @@ public sealed class CombatStatisticsTests
             TargetIsEnemy = false
         });
 
-        Assert.Equal(2, aggregate.Totals.KillsByYou);
+        Assert.Equal(1, aggregate.Totals.KillsByYou);
         Assert.Equal(1, aggregate.Totals.CompletedPlayerProjectiles);
         Assert.Equal(1, aggregate.Totals.RangedHits);
         Assert.Equal(1, aggregate.Totals.Headshots);
-        Assert.Equal(1, aggregate.Totals.HeadshotFinalBlows);
-        Assert.Equal(1, aggregate.Enemies["duckov:target:a"].Totals.KillsByYou);
-        Assert.Equal(1, aggregate.Enemies["duckov:target:a"].Totals.HeadshotFinalBlows);
+        Assert.Equal(0, aggregate.Totals.HeadshotFinalBlows);
+        Assert.Equal(0, aggregate.Enemies["duckov:target:a"].Totals.HeadshotFinalBlows);
         Assert.Equal(1, aggregate.Enemies["duckov:target:b"].Totals.KillsByYou);
         Assert.Equal(0, aggregate.Enemies["duckov:target:b"].Totals.Headshots);
+        Assert.Equal(0, aggregate.Enemies["duckov:target:b"].Totals.HeadshotFinalBlows);
     }
 
     [Fact]

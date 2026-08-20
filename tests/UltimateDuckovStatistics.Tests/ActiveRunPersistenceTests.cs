@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Compatibility;
@@ -1825,26 +1826,47 @@ public sealed class ActiveRunPersistenceTests
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     [Trait("Category", "Combat")]
-    public void ActiveRunCheckpointWritesAndRecoversIndependentMultiTargetHeadshotFinalBlow()
+    public void ActiveRunCheckpointKeepsPenetratingHeadshotFinalBlowWithItsProvenVictim()
     {
         using var directory = new TemporaryDirectory();
         var repository = Repository(directory.Path);
         repository.Open(Identity());
         var generation = repository.CurrentGenerationId;
         var checkpoint = Checkpoint(generation, 5);
+        var first = CombatObservationPolicy.ClassifyProjectileTransition(
+            headTargetedProjectile: true,
+            nativeCritical: true,
+            exactPlayerOwnership: true,
+            enemyTarget: true,
+            rangedScope: true,
+            fatalTransition: false,
+            hitAlreadyCounted: false,
+            headshotAlreadyCounted: false,
+            headshotFinalBlowAlreadyCounted: false);
+        var second = CombatObservationPolicy.ClassifyProjectileTransition(
+            headTargetedProjectile: true,
+            nativeCritical: true,
+            exactPlayerOwnership: true,
+            enemyTarget: true,
+            rangedScope: true,
+            fatalTransition: true,
+            hitAlreadyCounted: first.RangedHit,
+            headshotAlreadyCounted: first.Headshot,
+            headshotFinalBlowAlreadyCounted: first.HeadshotFinalBlow);
         var combat = new CombatStatisticsAggregate();
         CombatStatisticsReducer.Apply(combat, CombatEvent(generation, "headshot", "duckov:target:a", "First target") with
         {
             ActualDamageToTarget = 10,
             ActualDamageDealt = 10,
-            Headshots = 1
+            Headshots = first.Headshot ? 1 : 0
         });
         CombatStatisticsReducer.Apply(combat, CombatEvent(generation, "final-blow", "duckov:target:b", "Fatal target") with
         {
             ActualDamageToTarget = 5,
             ActualDamageDealt = 5,
             KillsByYou = 1,
-            HeadshotFinalBlows = 1,
+            Headshots = second.Headshot ? 1 : 0,
+            HeadshotFinalBlows = second.HeadshotFinalBlow ? 1 : 0,
             IsFinalBlow = true
         });
         checkpoint.CombatStatistics = combat;
@@ -1856,13 +1878,119 @@ public sealed class ActiveRunPersistenceTests
         Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
         var run = Assert.Single(recovery.Current.Statistics.Runs);
         Assert.Equal(1, run.CombatStatistics.Totals.Headshots);
-        Assert.Equal(1, run.CombatStatistics.Totals.HeadshotFinalBlows);
+        Assert.Equal(0, run.CombatStatistics.Totals.HeadshotFinalBlows);
         Assert.Equal(1, run.CombatStatistics.Totals.KillsByYou);
         Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:a"].Totals.Headshots);
         Assert.Equal(0, run.CombatStatistics.Enemies["duckov:target:a"].Totals.HeadshotFinalBlows);
         Assert.Equal(0, run.CombatStatistics.Enemies["duckov:target:b"].Totals.Headshots);
-        Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:b"].Totals.HeadshotFinalBlows);
+        Assert.Equal(0, run.CombatStatistics.Enemies["duckov:target:b"].Totals.HeadshotFinalBlows);
         Assert.Equal(1, run.CombatStatistics.Enemies["duckov:target:b"].Totals.KillsByYou);
+
+        var export = StatisticsExporter.Create(recovery.Current, TestTime.AddSeconds(10));
+        Assert.Equal(0, export.Document.RunTotals.CombatStatistics.Totals.HeadshotFinalBlows);
+        using (var json = JsonDocument.Parse(export.Json))
+        {
+            var totals = json.RootElement.GetProperty("RunTotals")
+                .GetProperty("CombatStatistics")
+                .GetProperty("Totals");
+            Assert.Equal(1, totals.GetProperty("Headshots").GetInt64());
+            Assert.Equal(0, totals.GetProperty("HeadshotFinalBlows").GetInt64());
+        }
+        var fatalTarget = Assert.Single(
+            ParseCsv(export.CombatAttributionCsv),
+            row => row["scope"] == "lifetime"
+                   && row["breakdown"] == "enemy"
+                   && row["entity_id"] == "duckov:target:b");
+        Assert.Equal("0", fatalTarget["headshots"]);
+        Assert.Equal("0", fatalTarget["headshot_final_blows"]);
+        recovery.CloseClean();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "Combat")]
+    [Trait("Category", "M11")]
+    public void ConflictingBuffReapplicationPersistsAsObservedWorldDeathWithoutEquipmentCredit(
+        bool playerAppliedFirst)
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var generation = repository.CurrentGenerationId;
+        var player = new CombatActorEvidence(CombatActorEvidenceKind.Player, 1);
+        var npc = new CombatActorEvidence(CombatActorEvidenceKind.OtherNpc, 2);
+        var firstActor = playerAppliedFirst ? player : npc;
+        var secondActor = playerAppliedFirst ? npc : player;
+        var runtimeBuff = new object();
+        var ownershipTracker = new CombatBuffOwnershipTracker();
+        ownershipTracker.Observe(runtimeBuff, firstActor, firstActor);
+        ownershipTracker.Observe(runtimeBuff, firstActor, secondActor);
+        var resolution = ownershipTracker.Resolve(runtimeBuff, firstActor);
+        var ownership = CombatObservationPolicy.ResolveOwnership(
+            firstActor,
+            firstActor,
+            firstActor,
+            nativePlayerOwnerChain: false,
+            explicitActorlessWorldDamage: false,
+            conflictingActorEvidence: resolution.ConflictingEvidence);
+        var death = CombatObservationPolicy.ClassifyEnemyDeath(
+            enemyTarget: true, fatalTransition: true, ownership);
+        var fatalTick = CombatEvent(
+            generation,
+            playerAppliedFirst ? "player-then-npc" : "npc-then-player",
+            "duckov:target:buff-victim",
+            "Buff victim") with
+        {
+            Ownership = ownership,
+            AttackKind = CombatAttackKind.Effect,
+            CauseKind = CombatCauseKind.DamageOverTime,
+            CauseId = "duckov:cause:damage-over-time",
+            CauseDisplayName = "Damage over time",
+            ActualDamageToTarget = 5,
+            ActualDamageDealt = 0,
+            KillsByYou = death.KillsByYou,
+            ObservedWorldDeaths = death.ObservedWorldDeaths,
+            IsFinalBlow = true,
+            IsDamageOverTime = true,
+            EquipmentAssociation = new EquipmentEventAssociation()
+        };
+        var checkpoint = Checkpoint(generation, 5);
+        CombatStatisticsReducer.Apply(checkpoint.CombatStatistics, fatalTick);
+        EquipmentStatisticsReducer.RecordCombat(checkpoint.EquipmentStatistics, fatalTick);
+        Assert.Empty(checkpoint.EquipmentStatistics.CombatAssociations);
+
+        repository.SaveActiveRun(checkpoint);
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(0, run.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(0, run.CombatStatistics.Totals.KillsByYou);
+        Assert.Equal(1, run.CombatStatistics.Totals.ObservedWorldDeaths);
+        Assert.Empty(run.EquipmentStatistics.CombatAssociations);
+
+        var export = StatisticsExporter.Create(recovery.Current, TestTime.AddSeconds(10));
+        Assert.Equal(0, export.Document.RunTotals.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(0, export.Document.RunTotals.CombatStatistics.Totals.KillsByYou);
+        Assert.Equal(1, export.Document.RunTotals.CombatStatistics.Totals.ObservedWorldDeaths);
+        Assert.Empty(export.Document.RunTotals.EquipmentStatistics.CombatAssociations);
+        using (var json = JsonDocument.Parse(export.Json))
+        {
+            var totals = json.RootElement.GetProperty("RunTotals")
+                .GetProperty("CombatStatistics")
+                .GetProperty("Totals");
+            Assert.Equal(0, totals.GetProperty("DamageDealt").GetDouble());
+            Assert.Equal(0, totals.GetProperty("KillsByYou").GetInt64());
+            Assert.Equal(1, totals.GetProperty("ObservedWorldDeaths").GetInt64());
+        }
+        var total = Assert.Single(
+            ParseCsv(export.CombatAttributionCsv),
+            row => row["scope"] == "lifetime" && row["breakdown"] == "total");
+        Assert.Equal("0", total["kills_by_you"]);
+        Assert.Equal("1", total["observed_world_deaths"]);
+        Assert.Empty(ParseCsv(export.EquipmentCombatCsv));
         recovery.CloseClean();
     }
 
@@ -2491,6 +2619,65 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(headers.Length, values.Length);
         return headers.Select((header, index) => new KeyValuePair<string, string>(header, values[index]))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+    }
+
+    private static List<IReadOnlyDictionary<string, string>> ParseCsv(string csv)
+    {
+        var rows = new List<List<string>>();
+        var row = new List<string>();
+        var field = new StringBuilder();
+        var quoted = false;
+        for (var index = 0; index < csv.Length; index++)
+        {
+            var character = csv[index];
+            if (quoted)
+            {
+                if (character == '"' && index + 1 < csv.Length && csv[index + 1] == '"')
+                {
+                    field.Append('"');
+                    index++;
+                }
+                else if (character == '"')
+                {
+                    quoted = false;
+                }
+                else
+                {
+                    field.Append(character);
+                }
+
+                continue;
+            }
+
+            if (character == '"')
+            {
+                quoted = true;
+            }
+            else if (character == ',')
+            {
+                row.Add(field.ToString());
+                field.Clear();
+            }
+            else if (character == '\n')
+            {
+                row.Add(field.ToString().TrimEnd('\r'));
+                field.Clear();
+                rows.Add(row);
+                row = new List<string>();
+            }
+            else
+            {
+                field.Append(character);
+            }
+        }
+
+        var headers = rows[0];
+        return rows.Skip(1)
+            .Where(values => values.Count > 1)
+            .Select(values => (IReadOnlyDictionary<string, string>)headers
+                .Select((header, index) => new KeyValuePair<string, string>(header, values[index]))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal))
+            .ToList();
     }
 
     private static void AssertItemTotals(
