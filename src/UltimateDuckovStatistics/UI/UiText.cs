@@ -121,7 +121,14 @@ internal static class UiText
             ["ui.no_m9_flows"] = "no recorded M9 flow",
             ["ui.scope_capture_partly_unavailable"] = "capture unavailable for part of this scope",
             ["ui.scope_capture_unavailable"] = "capture unavailable for this scope",
-            ["ui.current_capture_unavailable"] = "current capture unavailable"
+            ["ui.current_capture_unavailable"] = "current capture unavailable",
+            ["ui.calendar_days_advanced"] = "Calendar days advanced",
+            ["ui.observed_world_time"] = "Observed Duckov world-clock advancement",
+            ["ui.completed_sleep_sessions"] = "Completed sleep sessions",
+            ["ui.sleep_advanced_time"] = "Time advanced through sleep",
+            ["ui.pre_m12_unavailable"] = "earlier world-time and sleep history unavailable",
+            ["ui.world_time_capture_incomplete"] = "capture incomplete",
+            ["ui.world_time_contract"] = "Counts proven forward Duckov world-clock movement, including automatic boot/time-target jumps, exact sleep, and other native fast-forward. It is not real-world play time, active raid time, loading time, or wall-clock time."
         };
 
     public static string Get(string key) => English.TryGetValue(key, out var value) ? value : key;
@@ -135,6 +142,28 @@ internal static class UiText
         state == AdapterCapabilityState.DisabledIncompatible
             ? Get("ui.unsupported")
             : value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    public static string FormatWorldTimeCount(long value, MetricAvailability availability)
+    {
+        if (availability.State != AdapterCapabilityState.DisabledIncompatible)
+            return value.ToString(CultureInfo.InvariantCulture);
+        return value == 0
+            ? Get("ui.unsupported")
+            : $"{value.ToString(CultureInfo.InvariantCulture)} ({Get("ui.world_time_capture_incomplete")})";
+    }
+
+    public static string FormatWorldTimeDuration(long ticks, MetricAvailability availability)
+    {
+        if (availability.State == AdapterCapabilityState.DisabledIncompatible && ticks == 0)
+            return Get("ui.unsupported");
+        var duration = TimeSpan.FromTicks(ticks);
+        var formatted = duration.TotalDays >= 1
+            ? $"{(long)duration.TotalDays}d {duration.Hours:00}:{duration.Minutes:00}:{duration.Seconds:00}"
+            : $"{(long)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
+        return availability.State == AdapterCapabilityState.DisabledIncompatible
+            ? $"{formatted} ({Get("ui.world_time_capture_incomplete")})"
+            : formatted;
+    }
 
     public static string FormatEconomyCompact(
         EconomyStatisticsAggregate economy,

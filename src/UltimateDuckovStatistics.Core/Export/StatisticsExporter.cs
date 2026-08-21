@@ -50,6 +50,9 @@ public sealed class StatisticsExportDocument
 
     [DataMember(Order = 13)]
     public EconomyStatisticsAggregate Economy { get; set; } = new();
+
+    [DataMember(Order = 14)]
+    public WorldTimeStatisticsAggregate WorldTime { get; set; } = new();
 }
 
 [DataContract]
@@ -108,7 +111,8 @@ public sealed class StatisticsExportBundle
         string economyTotalsCsv,
         string economySourcesCsv,
         string economyContextsCsv,
-        string cashRaidOutcomesCsv)
+        string cashRaidOutcomesCsv,
+        string worldTimeCsv)
     {
         Document = document;
         Json = json;
@@ -135,6 +139,7 @@ public sealed class StatisticsExportBundle
         EconomySourcesCsv = economySourcesCsv;
         EconomyContextsCsv = economyContextsCsv;
         CashRaidOutcomesCsv = cashRaidOutcomesCsv;
+        WorldTimeCsv = worldTimeCsv;
     }
 
     public StatisticsExportDocument Document { get; }
@@ -186,6 +191,8 @@ public sealed class StatisticsExportBundle
     public string EconomyContextsCsv { get; }
 
     public string CashRaidOutcomesCsv { get; }
+
+    public string WorldTimeCsv { get; }
 }
 
 public static class StatisticsExporter
@@ -284,7 +291,8 @@ public static class StatisticsExporter
             Runs = runs,
             RunRecords = CloneRunRecords(profile.Statistics.RunRecords),
             Capabilities = profile.Capabilities.Select(CloneCapability).ToList(),
-            Economy = EconomyStatisticsReducer.Clone(profile.Statistics.Economy)
+            Economy = EconomyStatisticsReducer.Clone(profile.Statistics.Economy),
+            WorldTime = WorldTimeStatisticsReducer.Clone(profile.Statistics.WorldTime)
         };
 
         return new StatisticsExportBundle(
@@ -312,7 +320,29 @@ public static class StatisticsExporter
             CreateEconomyTotalsCsv(document),
             CreateEconomySourcesCsv(document),
             CreateEconomyContextsCsv(document),
-            CreateCashRaidOutcomesCsv(document));
+            CreateCashRaidOutcomesCsv(document),
+            CreateWorldTimeCsv(document));
+    }
+
+    private static string CreateWorldTimeCsv(StatisticsExportDocument document)
+    {
+        var value = document.WorldTime;
+        var builder = new StringBuilder();
+        builder.AppendLine("calendar_days_advanced,observed_game_time_ticks,observed_game_time_seconds,completed_sleep_sessions,sleep_advanced_time_ticks,sleep_advanced_time_seconds,calendar_capability,calendar_provenance,observed_elapsed_capability,observed_elapsed_provenance,sleep_sessions_capability,sleep_sessions_provenance,sleep_time_capability,sleep_time_provenance,historical_unavailable,historical_provenance,repaired_invalid_state");
+        builder.Append(value.CalendarDaysAdvanced.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(value.ObservedGameTimeTicks.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append((value.ObservedGameTimeTicks / (double)TimeSpan.TicksPerSecond).ToString("R", CultureInfo.InvariantCulture)).Append(',')
+            .Append(value.CompletedSleepSessions.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(value.SleepAdvancedTimeTicks.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append((value.SleepAdvancedTimeTicks / (double)TimeSpan.TicksPerSecond).ToString("R", CultureInfo.InvariantCulture)).Append(',')
+            .Append(value.Capabilities.CalendarDays.State).Append(',').Append(Csv(value.Capabilities.CalendarDays.Provenance)).Append(',')
+            .Append(value.Capabilities.ObservedElapsed.State).Append(',').Append(Csv(value.Capabilities.ObservedElapsed.Provenance)).Append(',')
+            .Append(value.Capabilities.CompletedSleepSessions.State).Append(',').Append(Csv(value.Capabilities.CompletedSleepSessions.Provenance)).Append(',')
+            .Append(value.Capabilities.SleepAdvancedTime.State).Append(',').Append(Csv(value.Capabilities.SleepAdvancedTime.Provenance)).Append(',')
+            .Append(value.HistoricalUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(Csv(value.HistoricalProvenance)).Append(',')
+            .Append(value.WasRepairedFromInvalidState.ToString(CultureInfo.InvariantCulture)).AppendLine();
+        return builder.ToString();
     }
 
     private static string CreateEconomyTotalsCsv(StatisticsExportDocument document)

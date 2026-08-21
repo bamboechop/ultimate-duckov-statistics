@@ -117,6 +117,30 @@ try
         core.RequireEvent("Duckov.Economy", "EconomyManager", "OnEconomyManagerLoaded", "System.Action");
         core.RequireEvent("Duckov.Economy", "EconomyManager", "OnCostPaid", "System.Action", "Duckov.Economy.Cost");
         core.RequireEvent("Duckov.Economy", "StockShop", "OnItemSoldByPlayer", "System.Action", "Duckov.Economy.StockShop", "ItemStatsSystem.Item", "System.Int32");
+        core.RequireEvent(string.Empty, "GameClock", "OnGameClockStep", "System.Action");
+        core.RequireProperty(string.Empty, "GameClock", "Instance", "GameClock", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "GameClock", "Day", "System.Int64", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "GameClock", "TimeOfDay", "System.TimeSpan", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "GameClock", "Now", "System.TimeSpan", mustBePublic: true, mustBeStatic: true);
+        core.RequireDoubleConstant(string.Empty, "GameClock", "SecondsPerDay", 86300d);
+        core.RequireMethod(
+            string.Empty,
+            "GameClock",
+            "Step",
+            parameterCount: 1,
+            mustBeAssembly: true,
+            mustBeStatic: true,
+            returnTypeFragment: "System.Void",
+            parameterTypeFragments: ["System.Single"]);
+        core.RequireMethod(
+            string.Empty,
+            "GameClock",
+            "StepTimeTil",
+            parameterCount: 1,
+            mustBePublic: true,
+            returnTypeFragment: "System.Void",
+            parameterTypeFragments: ["System.TimeSpan"]);
+        core.RequireField("Duckov.UI", "SleepView", "OnAfterSleep", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Action");
         core.RequireEvent("Duckov.Quests", "Reward", "OnRewardClaimed", "System.Action", "Duckov.Quests.Reward");
         core.RequireEvent(string.Empty, "InteractablePickup", "OnPickupSuccess", "System.Action", "InteractablePickup", "CharacterMainControl");
         core.RequireEvent(string.Empty, "ItemUtilities", "OnPlayerItemOperation", "System.Action");
@@ -268,7 +292,7 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, equipment, containers, and economy public-event contracts are present.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, equipment, containers, economy, and M12 world-clock/sleep contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption and M6 tote activation remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
@@ -579,6 +603,7 @@ internal sealed class AssemblyMetadata : IDisposable
         string fieldName,
         bool mustBePublic = false,
         bool mustBeFamily = false,
+        bool mustBeStatic = false,
         string? fieldTypeFragment = null)
     {
         var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
@@ -591,13 +616,32 @@ internal sealed class AssemblyMetadata : IDisposable
                 && (!mustBePublic
                     || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Public)
                 && (!mustBeFamily
-                    || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Family))
+                    || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Family)
+                && (!mustBeStatic || (field.Attributes & FieldAttributes.Static) != 0))
             {
                 return;
             }
         }
 
         throw new ContractException($"Required field not found: {@namespace}.{typeName}.{fieldName}.");
+    }
+
+    public void RequireDoubleConstant(string @namespace, string typeName, string fieldName, double expected)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var handle in type.GetFields())
+        {
+            var field = reader.GetFieldDefinition(handle);
+            if (!string.Equals(reader.GetString(field.Name), fieldName, StringComparison.Ordinal)) continue;
+            var constantHandle = field.GetDefaultValue();
+            if (constantHandle.IsNil) break;
+            var constant = reader.GetConstant(constantHandle);
+            if (constant.TypeCode != ConstantTypeCode.Double) break;
+            var blob = reader.GetBlobReader(constant.Value);
+            if (blob.ReadDouble().Equals(expected)) return;
+            break;
+        }
+        throw new ContractException($"Required double constant mismatch: {@namespace}.{typeName}.{fieldName}={expected}.");
     }
 
     public void RequireEvent(string @namespace, string typeName, string eventName, params string[] parameterTypeFragments)

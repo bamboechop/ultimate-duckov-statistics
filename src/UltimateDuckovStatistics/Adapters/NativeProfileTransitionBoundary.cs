@@ -28,7 +28,7 @@ internal sealed class NativeProfileTransitionBoundary
         {
             if (boundaryObserver?.Invoke() == false)
             {
-                diagnosticHandler($"{current.Description} remains deferred because queued economy was not accepted.");
+                diagnosticHandler($"{current.Description} remains deferred because queued boundary observations were not accepted.");
                 return false;
             }
         }
@@ -53,6 +53,22 @@ internal sealed class NativeProfileTransitionBoundary
             diagnosticHandler($"{current.Description} failed and remains queued for retry: {exception.GetType().Name}: {exception.Message}");
             return false;
         }
+    }
+
+    public bool Drain(Func<bool>? boundaryObserver, Action<string> diagnosticHandler)
+    {
+        if (diagnosticHandler == null) throw new ArgumentNullException(nameof(diagnosticHandler));
+        while (pending.Count > 0)
+        {
+            var current = pending.Peek();
+            var pendingCount = pending.Count;
+            var nextStep = current.NextStep;
+            Retry(boundaryObserver, diagnosticHandler);
+            if (pending.Count == 0) return true;
+            if (pending.Count < pendingCount || current.NextStep > nextStep) continue;
+            return false;
+        }
+        return true;
     }
 
     private sealed class PendingTransition

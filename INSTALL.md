@@ -4,7 +4,7 @@
 
 All UDS `0.x` packages are development artifacts made available through GitHub for voluntary manual testing. GitHub downloads are not an officially supported installation channel, and continuity of UDS-owned profiles between `0.x` versions is best effort rather than a supported upgrade guarantee. Existing migration paths may preserve development data and are tested as internal hardening, but testers must not rely on them as a compatibility promise. The first version explicitly distributed through a supported channel will declare the starting baseline for supported upgrades and migrations.
 
-## Tested game baseline for v0.11.0
+## Tested game baseline for the v0.12.0 candidate
 
 - Escape From Duckov `2.3.30`
 - Steam build `24013657`
@@ -16,7 +16,7 @@ The UDS package must not contain Duckov assemblies or `0Harmony.dll`. HarmonyLib
 
 ## Required HarmonyLib Workshop item
 
-Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. UDS v0.11.0 requires HarmonyLib for M2 healing attribution, M5/M11 combat scopes, and M7's separate corpse-provenance owner. M11 adds one exact `ZoneDamage.Damage` scope solely to prove genuinely actorless world damage. M8 route boundaries, M9 economy tracking, and M10 association reduction add no Harmony owner. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven independent statistics continue.
+Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. The v0.12.0 candidate requires HarmonyLib for M2 healing attribution, M5/M11 combat scopes, M7's separate corpse-provenance owner, and M12's exact sleep-advancement boundary. M12 clock/day observation uses the public native event independently, so an unavailable sleep patch disables only the two sleep metrics. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven independent statistics continue.
 
 After every cold launch and before selecting a save:
 
@@ -46,7 +46,7 @@ UDS data and exports are written outside the game saves under `%USERPROFILE%\App
 
 Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics\`. Existing UDS statistics remain outside the game directory unless the user removes them separately.
 
-## M3-M11 data and exports
+## M3-M12 data and exports
 
 - A run starts only after native raid initialization when the alive main duck has player control; base and loading activity do not start runs.
 - Run outcomes are Extracted, Died, or Interrupted. Active duration excludes pause/loading; wall-clock duration is diagnostic.
@@ -60,14 +60,16 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 - M9 records Money and physical Cash separately as gross inflow, gross outflow, and derived net flow, with independent source/context capability states. Exact amounts remain visible as `UnknownAdjustment` when a semantic reason is not proven. Full-scene inventory hydration and carried-in Cash establish a non-economic baseline only after level initialization completes; internally rearranged Cash is likewise excluded. Raid Cash acquisition remains separate, while terminal secured/lost attribution is unavailable and acquired amounts become unresolved.
 - M10 keeps exact run/segment/start-map/route-map attribution beyond 2,048 events. New route evidence is stored as exact family plus source/outcome-segment aggregate counts; legacy schema-9 raw rows remain visible and finite.
 - M11 carries credited, physical, and damage actor evidence through projectiles, melee, explosions, buffs, and delayed effects. `Companion`, `Other NPC`, explicitly actorless `Environmental`, and `Unknown` deaths never inflate player kills or equipment kill credit. Schema-10 ambiguity remains explicitly legacy where retained evidence cannot reclassify it.
-- Exports contain `statistics.json` plus twenty-three CSVs. M9 adds `economy_totals.csv`, `economy_sources.csv`, `economy_contexts.csv`, and `cash_raid_outcomes.csv`. `map_totals.csv` remains starting-map complete-run history; route-map totals are separate.
+- M12 records generation-local calendar-day advancement and total observed forward Duckov world-clock time. Completed sleep sessions and exact sleep-advanced time require the matching native clock step plus the later sleep-complete callback; cancelled, interrupted, mismatched, or duplicate sleep lifecycles do not count. These lifetime totals are not wall-clock play time, active raid duration, loading duration, or per-run attribution.
+- Exports contain `statistics.json` plus twenty-four CSVs. M12 adds `world_time.csv`; its exact tick totals, derived seconds, four capability states/provenance fields, historical-unavailability marker, and repair state agree with JSON and the Overview UI. `map_totals.csv` remains starting-map complete-run history; route-map totals are separate.
 
-## Known v0.11.0 limitations
+## Known v0.12.0 candidate limitations
 
 - Statistics begin at installation; no history is reconstructed.
 - Pre-M8 ending maps, ordered routes, segments, transition displacement, and route-aware per-map attribution are unavailable rather than reconstructed as fake one-segment routes.
 - Only successful main-duck item uses in raids count.
-- Healing totals start with v0.2.0; run/movement with v0.3.0; weapon identity/firing actions with v0.4.0; M5 combat with v0.5.0; equipment/totem data with v0.6.0; container data with v0.7.0; route attribution with v0.8.0; economy with v0.9.0; lossless high-volume route association with v0.10.0; and corrected combat ownership with v0.11.0. Schema-10 migration preserves unsaturated schema-9 raw route evidence exactly, marks irreconstructibly saturated route history incomplete, and retains pre-M9 economy unavailability rather than inventing zero. Schema-11 migration retains only provable old player/companion subsets and labels the remaining old death counts as legacy-unclassified rather than guessing.
+- Healing totals start with v0.2.0; run/movement with v0.3.0; weapon identity/firing actions with v0.4.0; M5 combat with v0.5.0; equipment/totem data with v0.6.0; container data with v0.7.0; route attribution with v0.8.0; economy with v0.9.0; lossless high-volume route association with v0.10.0; corrected combat ownership with v0.11.0; and world-time/sleep totals with v0.12.0. Schema-12 migration explicitly marks earlier time and sleep history unavailable and does not derive it from Duckov's current day or clock.
+- Duckov 2.3.30 has no sleep-start or cancellation event. Closing the sleep view before confirmation produces no native clock step and therefore no candidate. If execution stops after the clock step but before `OnAfterSleep`, the forward clock time remains observed but UDS truthfully records no completed sleep session or sleep-advanced time.
 - Purchases, fees, crafting, conversion, and other wallet changes are `UnknownAdjustment` unless the same completed native path proves the exact semantic source and the exact balance delta. M9 does not estimate item value, profit, net worth, barter value, or historical economy.
 - Physical-Cash external acquisition is `Experimental`: only the successful exact-main-character world-pickup callback plus a matching positive owned-total delta proves it. The tested corpse/container loot path does not emit that callback, so its exact delta remains `UnknownAdjustment` and acquired stays unchanged. Cash secured/lost terminal attribution is `DisabledIncompatible` because public evidence cannot prove individual acquired units after fungible main/pet/storage mixing; any proven acquired totals remain and terminal disposition is `Unresolved`.
 - Economy transaction identity bookkeeping is constant-size: directly recording aggregates persist one activation ID and closed-through sequence, with a newly registered activation valid at sequence zero before its first positive-sequence event, while completed-run fan-out is guarded by run identity and exact totals. Economy capture has no fixed transaction-count stop and continues beyond 2,048 Money or Cash flows. Legacy schema-9 `RecentEventIds` and `DeduplicationSaturated` are recovery-only fields; after all surviving checkpoint candidates are consumed, deleted, or archived, they compact into `LegacyIdentitySaturationIncomplete` when an earlier candidate may already have stopped capture. JSON exposes the replay cursor and legacy marker; economy CSVs expose `legacy_identity_saturation_incomplete`.

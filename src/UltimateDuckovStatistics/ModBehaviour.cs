@@ -26,6 +26,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private readonly ProcessLifetimeCleanupOwner<NativeCombatAttributionAdapter> combatAttributionAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeEquipmentAdapter> equipmentAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeContainerAdapter> containerAdapter = new();
+    private readonly ProcessLifetimeCleanupOwner<NativeWorldTimeAdapter> worldTimeAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
 
     protected override void OnAfterSetup()
@@ -84,8 +85,36 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 return;
             }
 
-            profileCoordinator = new NativeProfileCoordinator();
-            profileCoordinator.Initialize();
+            if (worldTimeAdapter.HasValue
+                && (!worldTimeAdapter.HasPendingCleanup || !worldTimeAdapter.TryCleanupPending()))
+            {
+                Debug.LogError(
+                    $"{LogPrefix} activation blocked while another world-time owner is active "
+                    + "or prior subscriptions/patches await cleanup.");
+                return;
+            }
+
+            var newProfileCoordinator = new NativeProfileCoordinator();
+            profileCoordinator = newProfileCoordinator;
+            newProfileCoordinator.Initialize();
+            var worldTimeGenerationProvider = NativeWorldTimeProfileBinding.CaptureGenerationProvider(
+                newProfileCoordinator,
+                static coordinator => coordinator.CurrentGenerationId);
+            var newWorldTimeAdapter = new NativeWorldTimeAdapter(
+                worldTimeGenerationProvider,
+                newProfileCoordinator.HandleWorldTime,
+                newProfileCoordinator.RequestWorldTimePersistence,
+                newProfileCoordinator.SetWorldTimeCapabilities,
+                message => Debug.Log($"{LogPrefix} {message}"));
+            worldTimeAdapter.Assign(newWorldTimeAdapter);
+            newWorldTimeAdapter.Initialize();
+            newProfileCoordinator.SetWorldTimeBoundaryBarrier(newWorldTimeAdapter.FlushPending);
+            newProfileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted += newWorldTimeAdapter.BeginProfileChangeAwaitingNativeLoad;
+            newProfileCoordinator.WorldTimeNewGameProfileChangeStarted += newWorldTimeAdapter.BeginNewGameProfileChange;
+            newProfileCoordinator.WorldTimeProfileChangeCompleted += newWorldTimeAdapter.CompleteProfileChange;
+            newProfileCoordinator.WorldTimeSameProfileReopenCompleted += newWorldTimeAdapter.CompleteProfileChangeWithCurrentClock;
+            newProfileCoordinator.WorldTimeProfileChangedWithCurrentClock += newWorldTimeAdapter.ResetForProfileChangeWithCurrentClock;
+            newWorldTimeAdapter.SetProfileTransitionCleanupBarrier(newProfileCoordinator.DrainPendingProfileTransitions);
             var economyFlowPublication = new EconomyFlowPublication(
                 profileCoordinator.HandleCurrencyFlow,
                 flow => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true,
@@ -243,7 +272,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             && weaponFireAdapter.OwnedValue == null
             && combatAttributionAdapter.OwnedValue == null
             && equipmentAdapter.OwnedValue == null
-            && containerAdapter.OwnedValue == null)
+            && containerAdapter.OwnedValue == null
+            && worldTimeAdapter.OwnedValue == null)
         {
             return;
         }
@@ -267,6 +297,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         healingAttributionAdapter?.Tick();
         combatAttributionAdapter.OwnedValue?.Tick();
         containerAdapter.OwnedValue?.Tick();
+        worldTimeAdapter.OwnedValue?.Tick(DateTime.UtcNow);
         profileCoordinator?.TickProfilePersistence(
             runLifecycleAdapter.OwnedValue?.HasUncheckpointedRunMutations != true);
         statisticsPanel?.Tick();
@@ -279,7 +310,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void OnApplicationQuit()
     {
+        DrainPendingProfileTransitions("application quit");
         FlushPendingEconomy("application quit");
+        FlushPendingWorldTime("application quit");
         runLifecycleAdapter.OwnedValue?.FlushCheckpoint();
         profileCoordinator?.Flush();
         Debug.Log(
@@ -297,13 +330,23 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Cleanup()
     {
+        var profileTransitionsDrained = DrainPendingProfileTransitions("deactivation");
         FlushPendingEconomy("deactivation");
+        FlushPendingWorldTime("deactivation");
         var ownedRunLifecycleAdapter = runLifecycleAdapter.OwnedValue;
         var ownedWeaponFireAdapter = weaponFireAdapter.OwnedValue;
         if (profileCoordinator != null)
         {
             if (ownedRunLifecycleAdapter != null)
                 profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
+            if (profileTransitionsDrained && worldTimeAdapter.OwnedValue != null)
+            {
+                profileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted -= worldTimeAdapter.OwnedValue.BeginProfileChangeAwaitingNativeLoad;
+                profileCoordinator.WorldTimeNewGameProfileChangeStarted -= worldTimeAdapter.OwnedValue.BeginNewGameProfileChange;
+                profileCoordinator.WorldTimeProfileChangeCompleted -= worldTimeAdapter.OwnedValue.CompleteProfileChange;
+                profileCoordinator.WorldTimeSameProfileReopenCompleted -= worldTimeAdapter.OwnedValue.CompleteProfileChangeWithCurrentClock;
+                profileCoordinator.WorldTimeProfileChangedWithCurrentClock -= worldTimeAdapter.OwnedValue.ResetForProfileChangeWithCurrentClock;
+            }
         }
 
         if (!weaponFireAdapter.TryCleanupOwned())
@@ -324,15 +367,6 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         if (!containerAdapter.TryCleanupOwned())
         {
             Debug.LogWarning($"{LogPrefix} container adapter retained for a later cleanup retry.");
-        }
-
-        var retainedProfileCoordinator = profileCoordinator;
-        var runLifecycleCleanupCompleted = runLifecycleAdapter.TryCleanupOwned(
-            () => retainedProfileCoordinator?.Dispose());
-        if (!runLifecycleCleanupCompleted)
-        {
-            Debug.LogWarning(
-                $"{LogPrefix} run-lifecycle adapter and profile coordinator retained for a later cleanup retry.");
         }
 
         if (profileCoordinator != null && itemUseAdapter != null)
@@ -357,13 +391,49 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         healingAttributionAdapter?.Dispose();
         healingAttributionAdapter = null;
         statisticsPanel = null;
-        if (runLifecycleCleanupCompleted)
+
+        var retainedProfileCoordinator = profileCoordinator;
+        var coordinatorCleanupGate = new CleanupCompletionGate(
+            2,
+            () => retainedProfileCoordinator?.Dispose());
+        if (worldTimeAdapter.TryCleanupOwned(coordinatorCleanupGate.Signal))
         {
-            profileCoordinator?.Dispose();
+            coordinatorCleanupGate.Signal();
+        }
+        else
+        {
+            Debug.LogWarning(
+                $"{LogPrefix} world-time adapter and profile coordinator retained for a later cleanup retry.");
+        }
+        if (runLifecycleAdapter.TryCleanupOwned(coordinatorCleanupGate.Signal))
+        {
+            coordinatorCleanupGate.Signal();
+        }
+        else
+        {
+            Debug.LogWarning(
+                $"{LogPrefix} run-lifecycle adapter and profile coordinator retained for a later cleanup retry.");
         }
         profileCoordinator = null;
         NativeHotPathDiagnostics.WriteSummary(message => Debug.Log($"{LogPrefix} {message}"));
         initialized = false;
+    }
+
+    private bool DrainPendingProfileTransitions(string boundary)
+    {
+        try
+        {
+            if (profileCoordinator?.DrainPendingProfileTransitions() != false) return true;
+            Debug.LogWarning(
+                $"{LogPrefix} queued profile transitions remain pending during {boundary}; "
+                + "world-time cleanup will retain their staged data for retry.");
+            return false;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            return false;
+        }
     }
 
     private void FlushPendingEconomy(string boundary)
@@ -377,6 +447,20 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         {
             Debug.LogException(exception);
             Debug.LogError($"{LogPrefix} economy boundary flush failed during {boundary}.");
+        }
+    }
+
+    private void FlushPendingWorldTime(string boundary)
+    {
+        try
+        {
+            if (worldTimeAdapter.OwnedValue?.FlushPending() == false)
+                Debug.LogError($"{LogPrefix} world-time aggregate flush remains pending during {boundary}.");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            Debug.LogError($"{LogPrefix} world-time aggregate flush failed during {boundary}.");
         }
     }
 

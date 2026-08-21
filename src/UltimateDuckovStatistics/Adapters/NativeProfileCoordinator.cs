@@ -28,8 +28,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private readonly NativeProfileTransitionBoundary profileTransitionBoundary = new();
     private Func<bool>? activeRunCheckpointFlusher;
     private Func<bool>? economyBoundaryFlusher;
+    private Func<bool>? worldTimeBoundaryFlusher;
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
+    private long worldTimeTransitionSequence;
     private CapabilityRecord healingCapability = new()
     {
         AdapterId = NativeHealingAttributionAdapter.AdapterId,
@@ -70,6 +72,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
         NativeEconomyAdapter.AdapterVersion).ToList();
     private EconomyMetricCapabilities economyMetricCapabilities =
         EconomyNativeContractPolicy.Unavailable(EconomyNativeContractPolicy.BootstrapProvenance);
+    private List<CapabilityRecord> worldTimeCapabilities = WorldTimeNativeContractPolicy.ToRecords(
+        WorldTimeNativeContractPolicy.Unavailable(WorldTimeNativeContractPolicy.BootstrapProvenance),
+        NativeWorldTimeAdapter.AdapterVersion).ToList();
+    private WorldTimeMetricCapabilities worldTimeMetricCapabilities =
+        WorldTimeNativeContractPolicy.Unavailable(WorldTimeNativeContractPolicy.BootstrapProvenance);
 
     public NativeProfileCoordinator()
     {
@@ -100,6 +107,16 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public event Action? ProfileChanging;
 
+    public event Action<long>? WorldTimeProfileChangeAwaitingNativeLoadStarted;
+
+    public event Action<long>? WorldTimeNewGameProfileChangeStarted;
+
+    public event Action<long>? WorldTimeProfileChangeCompleted;
+
+    public event Action<long>? WorldTimeSameProfileReopenCompleted;
+
+    public event Action? WorldTimeProfileChangedWithCurrentClock;
+
     public string DataRoot => dataRoot;
 
     public string CurrentGenerationId => repository?.CurrentGenerationId ?? string.Empty;
@@ -108,6 +125,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public EconomyMetricCapabilities CurrentEconomyCapabilities =>
         EconomyStatisticsReducer.CloneCapabilities(economyMetricCapabilities);
+
+    public WorldTimeMetricCapabilities CurrentWorldTimeCapabilities =>
+        WorldTimeStatisticsReducer.CloneCapabilities(worldTimeMetricCapabilities);
 
     public IReadOnlyList<DiagnosticEntry> DiagnosticEntries =>
         diagnostics?.Entries ?? Array.Empty<DiagnosticEntry>();
@@ -299,6 +319,45 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
+    public void SetWorldTimeCapabilities(
+        IReadOnlyList<CapabilityRecord> capabilities,
+        WorldTimeMetricCapabilities metricCapabilities)
+    {
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        if (metricCapabilities == null) throw new ArgumentNullException(nameof(metricCapabilities));
+        worldTimeCapabilities = capabilities.Select(CloneCapability).ToList();
+        worldTimeMetricCapabilities = WorldTimeStatisticsReducer.CloneCapabilities(metricCapabilities);
+        UpdateCapabilities();
+    }
+
+    public bool HandleWorldTime(WorldTimeMutation mutation)
+    {
+        if (mutation.IsEmpty) return false;
+        try
+        {
+            var currentRepository = repository;
+            if (currentRepository == null) return false;
+            // Keep the current in-memory projection responsive without turning
+            // every aggregate publication into a full durable profile rewrite.
+            currentRepository.RecordWorldTimeDeferred(mutation);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (repository != null) profileWriter.MarkDirty();
+            Debug.LogException(exception);
+            WriteDiagnostic($"Failed to persist world-time statistics: {exception.GetType().Name}.", "Error");
+            return false;
+        }
+    }
+
+    public bool RequestWorldTimePersistence()
+    {
+        if (repository == null) return false;
+        profileWriter.MarkDirty();
+        return true;
+    }
+
     public void BeginEconomyActivation(string activationId)
     {
         economyActivationGate.Begin(activationId);
@@ -311,8 +370,17 @@ internal sealed class NativeProfileCoordinator : IDisposable
         economyBoundaryFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
     }
 
+    public void SetWorldTimeBoundaryBarrier(Func<bool> flusher)
+    {
+        worldTimeBoundaryFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
+    }
+
     public bool RetryPendingProfileTransition() => profileTransitionBoundary.Retry(
-        economyBoundaryFlusher,
+        FlushProfileTransitionBoundaries,
+        message => WriteDiagnostic(message, "Error"));
+
+    public bool DrainPendingProfileTransitions() => profileTransitionBoundary.Drain(
+        FlushProfileTransitionBoundaries,
         message => WriteDiagnostic(message, "Error"));
 
     public bool HandleCurrencyFlow(CurrencyFlowRecorded flow)
@@ -388,6 +456,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            if (worldTimeBoundaryFlusher?.Invoke() == false)
+                throw new IOException("World-time aggregate remains pending during profile flush.");
             WaitRunCheckpoint();
             DrainProfileWriter();
             if (repository != null)
@@ -410,6 +480,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
             throw new InvalidOperationException("No profile is open for export.");
         }
 
+        if (worldTimeBoundaryFlusher?.Invoke() == false)
+            throw new IOException("World-time aggregate remains pending before export.");
         WaitRunCheckpoint();
         DrainProfileWriter();
         repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
@@ -436,8 +508,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
             () => repository.RefreshIdentity(currentIdentity),
             () => repository.Rotate(resetIdentity, "UserReset"),
             OpenDiagnosticsForCurrentGeneration,
+            () => PublishProfileEvent(WorldTimeProfileChangedWithCurrentClock, "world-time-profile-changed-current-clock"),
             () => PublishProfileEvent(ProfileChanged, "profile-changed"),
-            () => repository.SetEconomyCapabilities(economyMetricCapabilities),
+            ApplyCurrentMetricCapabilities,
             () => WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only."));
     }
 
@@ -474,27 +547,48 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            var activeRepository = repository
+                ?? throw new InvalidOperationException("No profile repository is active.");
             var observed = ReadIdentity();
-            var priorIdentity = repository!.Current.Slot != observed.Slot
-                ? ReadIdentity(repository.Current.Slot)
-                : null;
+            NativeWorldTimeProfilePreOpenState? preOpenState = null;
             ProfileOpenResult? result = null;
+            var sameProfileReopened = false;
+            var worldTimeTransitionId = NextWorldTimeTransitionId();
+            PublishProfileEvent(
+                () => WorldTimeProfileChangeAwaitingNativeLoadStarted?.Invoke(worldTimeTransitionId),
+                "world-time-profile-change-awaiting-load-started");
             QueueProfileTransition(
                 "Save-slot transition",
                 () => ProfileChanging?.Invoke(),
                 WaitRunCheckpoint,
                 DrainProfileWriter,
                 () => saveResetAwaitingNewGameReport = false,
+                () => preOpenState = NativeWorldTimeProfileReopenPolicy.CapturePreOpenState(
+                    activeRepository,
+                    observed,
+                    ReadIdentity),
                 () =>
                 {
-                    if (priorIdentity != null) repository.RefreshIdentity(priorIdentity);
+                    result = NativeWorldTimeProfileReopenPolicy.OpenAndDetermineCurrentClockReuse(
+                        activeRepository,
+                        observed,
+                        preOpenState
+                            ?? throw new InvalidOperationException("Selected-profile pre-open state was not captured."),
+                        "SaveSlotSelected",
+                        out sameProfileReopened);
                 },
-                () => result = repository.Open(observed, "SaveSlotSelected"),
                 OpenDiagnosticsForCurrentGeneration,
+                () => PublishProfileEvent(
+                    sameProfileReopened
+                        ? () => WorldTimeSameProfileReopenCompleted?.Invoke(worldTimeTransitionId)
+                        : () => WorldTimeProfileChangeCompleted?.Invoke(worldTimeTransitionId),
+                    sameProfileReopened
+                        ? "world-time-same-profile-reopen-completed"
+                        : "world-time-profile-change-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
-                () => repository.SetEconomyCapabilities(economyMetricCapabilities),
+                ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic(
-                    $"Save slot selected slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
+                    $"Save slot selected slot={activeRepository.Current.Slot} generation={activeRepository.CurrentGenerationId} " +
                     $"created={result!.CreatedNew} rotated={result.RotatedGeneration} " +
                     $"unsupportedArchived={result.UnsupportedSchemaArchived}."));
         }
@@ -510,6 +604,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
         try
         {
             var identity = ReadIdentity();
+            var worldTimeTransitionId = NextWorldTimeTransitionId();
+            PublishProfileEvent(
+                () => WorldTimeProfileChangeAwaitingNativeLoadStarted?.Invoke(worldTimeTransitionId),
+                "world-time-profile-change-awaiting-load-started");
             QueueProfileTransition(
                 "Save-deletion rotation",
                 () => ProfileChanging?.Invoke(),
@@ -518,8 +616,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 () => repository!.Rotate(identity, "DuckovSaveDeleted"),
                 () => saveResetAwaitingNewGameReport = true,
                 OpenDiagnosticsForCurrentGeneration,
+                () => PublishProfileEvent(
+                    () => WorldTimeProfileChangeCompleted?.Invoke(worldTimeTransitionId),
+                    "world-time-profile-change-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
-                () => repository!.SetEconomyCapabilities(economyMetricCapabilities),
+                ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic($"Duckov save deletion rotated to generation {repository!.CurrentGenerationId}."));
         }
         catch (Exception exception)
@@ -533,6 +634,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            if (worldTimeBoundaryFlusher?.Invoke() == false)
+                throw new IOException("World-time aggregate remains pending before native save collection.");
             if (repository != null)
             {
                 DrainProfileWriter();
@@ -552,6 +655,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
         {
             var identity = ReadIdentity();
             var matchedDeletedGeneration = false;
+            var worldTimeTransitionId = NextWorldTimeTransitionId();
+            PublishProfileEvent(
+                () => WorldTimeNewGameProfileChangeStarted?.Invoke(worldTimeTransitionId),
+                "world-time-new-game-profile-change-started");
             QueueProfileTransition(
                 "New-game rotation",
                 () => ProfileChanging?.Invoke(),
@@ -574,8 +681,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 {
                     if (!matchedDeletedGeneration) OpenDiagnosticsForCurrentGeneration();
                 },
+                () => PublishProfileEvent(
+                    () => WorldTimeProfileChangeCompleted?.Invoke(worldTimeTransitionId),
+                    "world-time-profile-change-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
-                () => repository!.SetEconomyCapabilities(economyMetricCapabilities),
+                ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic(matchedDeletedGeneration
                     ? "New-game report matched the already-rotated deleted save generation."
                     : $"Duckov new game rotated to generation {repository!.CurrentGenerationId}."));
@@ -599,6 +709,14 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         profileTransitionBoundary.Enqueue(description, steps);
         RetryPendingProfileTransition();
+    }
+
+    private long NextWorldTimeTransitionId() => checked(++worldTimeTransitionSequence);
+
+    private bool FlushProfileTransitionBoundaries()
+    {
+        if (economyBoundaryFlusher?.Invoke() == false) return false;
+        return worldTimeBoundaryFlusher?.Invoke() != false;
     }
 
     private void PublishProfileEvent(Action? subscribers, string eventName) =>
@@ -739,8 +857,14 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities));
+        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities));
+        ApplyCurrentMetricCapabilities();
+    }
+
+    private void ApplyCurrentMetricCapabilities()
+    {
         repository?.SetEconomyCapabilities(economyMetricCapabilities);
+        repository?.SetWorldTimeCapabilities(worldTimeMetricCapabilities);
     }
 
     private DeferredWriteState ObserveCheckpointResult(DeferredWriteResult result)

@@ -3,6 +3,7 @@ using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
+using UltimateDuckovStatistics.Core.Tracking;
 using UnityEngine;
 
 namespace UltimateDuckovStatistics.UI;
@@ -169,6 +170,18 @@ internal sealed class NativeStatisticsPanel
             $"{UiText.Get("ui.firing_actions")}: "
             + UiText.FormatMetric(combat.Lifetime.Totals.FiringActions, combat.Capabilities.FiringActions.State));
         GUILayout.Label($"{UiText.Get("ui.economy")}: {UiText.FormatEconomyCompact(profile.Statistics.Economy, coordinator.CurrentEconomyCapabilities)}");
+        var worldTime = profile.Statistics.WorldTime;
+        var worldTimeCapabilities = WorldTimeStatisticsReducer.RestrictWithCurrent(
+            worldTime.Capabilities,
+            coordinator.CurrentWorldTimeCapabilities);
+        GUILayout.Space(8);
+        GUILayout.Label(UiText.Get("ui.world_time_contract"));
+        GUILayout.Label($"{UiText.Get("ui.calendar_days_advanced")}: {UiText.FormatWorldTimeCount(worldTime.CalendarDaysAdvanced, worldTimeCapabilities.CalendarDays)}");
+        GUILayout.Label($"{UiText.Get("ui.observed_world_time")}: {UiText.FormatWorldTimeDuration(worldTime.ObservedGameTimeTicks, worldTimeCapabilities.ObservedElapsed)}");
+        GUILayout.Label($"{UiText.Get("ui.completed_sleep_sessions")}: {UiText.FormatWorldTimeCount(worldTime.CompletedSleepSessions, worldTimeCapabilities.CompletedSleepSessions)}");
+        GUILayout.Label($"{UiText.Get("ui.sleep_advanced_time")}: {UiText.FormatWorldTimeDuration(worldTime.SleepAdvancedTimeTicks, worldTimeCapabilities.SleepAdvancedTime)}");
+        if (worldTime.HistoricalUnavailable)
+            GUILayout.Label($"  {UiText.Get("ui.pre_m12_unavailable")}");
         GUILayout.Space(12);
         GUILayout.Label(UiText.Get("ui.group_totals"));
         foreach (var group in profile.Statistics.Groups.OrderBy(entry => entry.Key, StringComparer.Ordinal))
@@ -602,6 +615,14 @@ internal sealed class NativeStatisticsPanel
                 + $"legacy economy saturation evidence {(profile.Statistics.Economy.LegacyIdentitySaturationIncomplete ? "incomplete" : "none")}; "
                 + $"Money arithmetic {(profile.Statistics.Economy.MoneyArithmeticSaturated ? "saturated" : "available")}; "
                 + $"Cash arithmetic {(profile.Statistics.Economy.CashArithmeticSaturated ? "saturated" : "available")}");
+            GUILayout.Label(
+                $"World-time history {(profile.Statistics.WorldTime.HistoricalUnavailable ? "partially unavailable before M12" : "captured from generation start")}; "
+                + $"repair {(profile.Statistics.WorldTime.WasRepairedFromInvalidState ? "present" : "none")}; "
+                + $"clock units {WorldTimeObservationTracker.NativeSecondsPerDay.ToString(CultureInfo.InvariantCulture)} seconds/native day; "
+                + $"arithmetic calendar={(profile.Statistics.WorldTime.CalendarArithmeticUnavailable ? "unavailable" : "available")}, "
+                + $"elapsed={(profile.Statistics.WorldTime.ObservedElapsedArithmeticUnavailable ? "unavailable" : "available")}, "
+                + $"sleep-sessions={(profile.Statistics.WorldTime.SleepSessionArithmeticUnavailable ? "unavailable" : "available")}, "
+                + $"sleep-time={(profile.Statistics.WorldTime.SleepElapsedArithmeticUnavailable ? "unavailable" : "available")}");
             foreach (var capability in profile.Capabilities)
             {
                 GUILayout.Label($"{capability.AdapterId}: {capability.State} ({capability.Version})");
