@@ -12,7 +12,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v4";
+    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v5";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.world-time-sleep";
     private const string SupportedGameVersion = "2.3.30";
     private readonly Func<string> generationIdProvider;
@@ -162,7 +162,9 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 
     public void BeginProfileChangeAwaitingNativeLoad(long transitionId)
     {
-        profileHandoff.BeginAwaitingNativeLoad(transitionId, GameClock.Instance);
+        var currentClockInstance = GameClock.Instance;
+        ObserveCurrentClockBeforeProfileHandoff(currentClockInstance);
+        profileHandoff.BeginAwaitingNativeLoad(transitionId, currentClockInstance);
         boundary.ClearPendingSleep();
         DiagnosticOnce(
             "profile-awaiting-load-start:" + transitionId,
@@ -171,8 +173,10 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 
     public void BeginNewGameProfileChange(long transitionId)
     {
+        var currentClockInstance = GameClock.Instance;
+        ObserveCurrentClockBeforeProfileHandoff(currentClockInstance);
         boundary.ClearPendingSleep();
-        if (GameClock.Instance == null)
+        if (currentClockInstance == null)
         {
             profileHandoff.BeginAwaitingNativeLoad(transitionId, currentClockInstance: null);
             DiagnosticOnce(
@@ -339,6 +343,26 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         catch (Exception exception)
         {
             DisableClock($"World clock observation failed safely: {Unwrap(exception).Message}");
+        }
+    }
+
+    private void ObserveCurrentClockBeforeProfileHandoff(object? currentClockInstance)
+    {
+        if (capabilities.ObservedElapsed.State != AdapterCapabilityState.Supported
+            || currentClockInstance == null)
+            return;
+        try
+        {
+            var result = profileHandoff.Observe(
+                generationIdProvider(),
+                currentClockInstance,
+                ReadClock(),
+                boundary);
+            if (result.HasValue) HandleObservationResult(result.Value);
+        }
+        catch (Exception exception)
+        {
+            DisableClock($"World clock handoff snapshot failed safely: {Unwrap(exception).Message}");
         }
     }
 

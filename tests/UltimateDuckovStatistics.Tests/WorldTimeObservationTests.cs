@@ -322,22 +322,79 @@ public sealed class WorldTimeObservationTests
 
     [Fact]
     [Trait("Category", "M12")]
-    public void SupersededProfileCompletionCannotConsumeANewerHandoff()
+    public void QueuedSlotTransitionsPreserveCompletedSleepForBothGenerations()
     {
         var boundary = new NativeWorldTimeObservationBoundary();
         var handoff = new NativeWorldTimeProfileHandoffBoundary();
-        var clock = new object();
+        var profileTransition = new NativeProfileTransitionBoundary();
+        var slotAClock = new object();
+        var slotBClock = new object();
+        var slotCClock = new object();
+        var failSlotB = true;
+        var committed = new List<(string Generation, WorldTimeMutation Mutation)>();
 
-        handoff.BeginAwaitingNativeLoad(10, clock);
-        handoff.BeginNewGame(11, Read(4, 86_000));
+        boundary.ObserveClock("slot-a", Read(2, 500));
+        handoff.BeginAwaitingNativeLoad(10, slotAClock);
+        handoff.Observe("slot-a", slotBClock, Read(20, 1_000), boundary);
+        handoff.Observe("slot-a", slotBClock, Read(20, 4_600), boundary);
+        Assert.True(handoff.BeginSleepCompletion(10, TimeSpan.FromHours(1).Ticks));
+        Assert.True(handoff.CompleteSleep());
+        profileTransition.Enqueue(
+            "slot B",
+            () =>
+            {
+                if (failSlotB)
+                {
+                    failSlotB = false;
+                    throw new IOException("slot B profile write");
+                }
+            },
+            () =>
+            {
+                Assert.True(handoff.CompleteProfileChange(
+                    10,
+                    "slot-b",
+                    boundary,
+                    null,
+                    out _,
+                    out var sleepTransferred));
+                Assert.True(sleepTransferred);
+                committed.Add(("slot-b", boundary.TakePending()));
+            });
+        Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
 
-        Assert.False(handoff.CompleteProfileChange(10, "deleted-save", boundary, null, out _, out _));
-        Assert.True(handoff.Observe("deleted-save", clock, Read(5, 100), boundary)!.Value.Accepted);
-        Assert.True(handoff.CompleteProfileChange(11, "new-game", boundary, Read(5, 100), out _, out _));
+        handoff.Observe("slot-a", slotBClock, Read(20, 4_600), boundary);
+        handoff.BeginAwaitingNativeLoad(11, slotBClock);
+        Assert.Null(handoff.Observe("slot-a", slotBClock, Read(20, 4_605), boundary));
+        handoff.Observe("slot-a", slotCClock, Read(30, 2_000), boundary);
+        handoff.Observe("slot-a", slotCClock, Read(30, 9_200), boundary);
+        Assert.True(handoff.BeginSleepCompletion(11, TimeSpan.FromHours(2).Ticks));
+        Assert.True(handoff.CompleteSleep());
+        profileTransition.Enqueue(
+            "slot C",
+            () =>
+            {
+                Assert.True(handoff.CompleteProfileChange(
+                    11,
+                    "slot-c",
+                    boundary,
+                    null,
+                    out _,
+                    out var sleepTransferred));
+                Assert.True(sleepTransferred);
+                committed.Add(("slot-c", boundary.TakePending()));
+            });
 
-        var mutation = boundary.TakePending();
-        Assert.Equal(1, mutation.CalendarDaysAdvanced);
-        Assert.Equal(400 * Second, mutation.ObservedGameTimeTicks);
+        Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
+        Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
+
+        Assert.Equal(["slot-b", "slot-c"], committed.Select(result => result.Generation));
+        Assert.Equal(TimeSpan.FromHours(1).Ticks, committed[0].Mutation.ObservedGameTimeTicks);
+        Assert.Equal(1, committed[0].Mutation.CompletedSleepSessions);
+        Assert.Equal(TimeSpan.FromHours(1).Ticks, committed[0].Mutation.SleepAdvancedTimeTicks);
+        Assert.Equal(TimeSpan.FromHours(2).Ticks, committed[1].Mutation.ObservedGameTimeTicks);
+        Assert.Equal(1, committed[1].Mutation.CompletedSleepSessions);
+        Assert.Equal(TimeSpan.FromHours(2).Ticks, committed[1].Mutation.SleepAdvancedTimeTicks);
     }
 
     [Fact]
