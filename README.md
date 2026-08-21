@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics
 
-Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. The source currently targets the M12 `v0.12.0` development candidate; `v0.11.0` remains the latest published GitHub pre-release.
+Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. M12 `v0.12.0` is the latest published GitHub pre-release; M13 crafted-item statistics are the next planned milestone.
 
 The mod never modifies Duckov save files. Its data is stored under:
 
@@ -12,9 +12,9 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 > **Pre-1.0 support boundary:** Every UDS `0.x` build and GitHub pre-release is a development artifact for voluntary testing, not an officially distributed build or supported installation channel. Persisted-profile migration between `0.x` versions is best-effort development continuity rather than a supported upgrade guarantee; existing migration code and tests remain internal robustness evidence only through pre-1.0 development. M15 removes those historical `0.x` migration paths before the first v1 release candidate, so no `0.x`-to-v1 upgrade path will ship. The v1 package will support clean installation and reinstallation against its own current-format data; supported upgrade guarantees begin with the first version explicitly declared as officially distributed through a supported channel.
 
-M0-M11 are published through the [v0.11.0 GitHub pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.11.0). M8.1 product commit `90384352d323e6ea19dfa607c7da18162dbcefcb` completed its performance, gameplay, package, projection, and shutdown gates and merged before M9; it was not released separately, so its accepted changes ship in v0.9.0.
+M0-M12 are published through the [v0.12.0 GitHub pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.12.0). M8.1 product commit `90384352d323e6ea19dfa607c7da18162dbcefcb` completed its performance, gameplay, package, projection, and shutdown gates and merged before M9; it was not released separately, so its accepted changes ship in v0.9.0.
 
-M11 PR #12 merged as `875f53792b7dab7ac35a27d8957966ecc9e5c2be`. The merged release passes 704/704 tests, the installed-game compatibility and exact five-file package gates, progressed schema migration, player-versus-world-death gameplay, complete 24-file export agreement, recovery, and clean shutdown. M12 adds generation-local calendar-day advancement, observed Duckov world-clock time, completed sleep sessions, and the exact time advanced by completed sleep. M13 crafted-item statistics (`v0.13.0`), M14 the native UI overhaul (`v0.14.0`), and M15 feature-frozen `v1.0.0-rc.1` qualification remain planned. See [PLAN.md](PLAN.md) for the contracts and acceptance boundaries; immutable completed-release evidence remains in [TESTING.md](TESTING.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
+M12 PR #13 merged as `6bd39dadf5cd1c49149b98b7d6b0898d62608f67`. The published release passes 754/754 tests, the installed-game compatibility and exact five-file package gates, user-controlled world-time and sleep gameplay, complete 25-file export agreement, recovery, and clean shutdown. M13 crafted-item statistics (`v0.13.0`), M14 the native UI overhaul (`v0.14.0`), and M15 feature-frozen `v1.0.0-rc.1` qualification remain planned. See [PLAN.md](PLAN.md) for the contracts and acceptance boundaries; immutable completed-release evidence remains in [TESTING.md](TESTING.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Build prerequisites
 

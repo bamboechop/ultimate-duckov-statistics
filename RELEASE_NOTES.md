@@ -1,4 +1,4 @@
-# Ultimate Duckov Statistics v0.12.0 — M12 development candidate
+# Ultimate Duckov Statistics v0.12.0 — M12 published pre-release
 
 M12 adds four generation-local lifetime statistics: calendar days advanced, observed Duckov world-clock advancement, completed sleep sessions, and time advanced through completed sleep. Observed time follows Duckov's forward world clock—including ordinary progression, automatic boot/time-target jumps, exact sleep advancement, and other native fast-forward—and is deliberately distinct from wall-clock play time, loading time, and M3 active-raid duration.
 
@@ -6,9 +6,9 @@ The installed Duckov 2.3.30 contract uses a nonstandard 86,300-second native day
 
 Schema 12 persists the four totals with checked per-metric arithmetic, independent capability state and provenance, recovery validation, one-second monotonic in-memory publication, and a separate 30-second monotonic durable-snapshot cadence. Slot/deletion transitions ignore continuing callbacks from the captured prior `GameClock.Instance` and accept hydration only after a replacement instance appears, staging that target clock if persistence delays the profile commit. Resetting UDS statistics before that replacement appears clears the new statistics generation but preserves the load gate, so the prior slot's clock cannot become its baseline. New-game rotation snapshots the already-loaded clock synchronously at `OnNewGameReport` and buffers the ensuing automatic 07:00 advancement until the matching new generation commits. Completed sleep requests durability immediately, while save/profile, export, and shutdown boundaries retain their synchronous flush barriers. Historical pre-M12 time and sleep remain explicitly unavailable. Overview and Diagnostics expose the same semantics; JSON plus the new `world_time.csv` carry exact ticks, derived seconds, capability provenance, historical availability, and repair state. No sleep statistic is assigned to a run, route, map, or segment because the verified native lifecycle proves only a base UI interaction.
 
-`v0.12.0` has not been published. Local automated, native-contract, package, deployment, user-controlled gameplay, export, persistence, and clean-shutdown qualification is recorded in [TESTING.md](TESTING.md). GitHub pull requests and Actions remain the authoritative surfaces for mutable review and CI state.
+PR #13 merged as `6bd39dadf5cd1c49149b98b7d6b0898d62608f67`, and GitHub pre-release [`v0.12.0`](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.12.0) was published on 2026-08-21. The merged release passes 754/754 tests together with the installed-game compatibility contract and exact five-file package validation. The published 296,036-byte ZIP is SHA-256 `8a929e09a27fdc872182eaa64ffa9bbe6776d5775fa100e0682b3e4915028c18`; its 103-byte checksum sidecar is SHA-256 `03d20b489b709af2d9b92339d296f081938be0d3b5ee1c424eacb50cb9fb694c`. Full qualification is recorded in [TESTING.md](TESTING.md).
 
-## v0.11.0 published baseline
+## v0.11.0 prior published baseline
 
 Support boundary: v0.11.0, like every UDS `0.x` build and GitHub pre-release, is a development artifact for voluntary testing rather than an officially distributed build. GitHub is not a supported installation channel, and migration of UDS-owned persisted data between `0.x` versions is best-effort development continuity rather than an end-user compatibility guarantee. Schema-11 migration code and tests are internal hardening, not a supported end-user upgrade promise. Supported migration guarantees begin with the first version explicitly declared as officially distributed through a supported channel.
 
@@ -34,7 +34,7 @@ PR #11 merged as `cbabd3eb7760178c939f5ebea50709c42f183cb6`, and GitHub pre-rele
 
 M9 adds exact, separately capability-gated Money and physical-Cash statistics without changing the accepted M1-M8.1 semantics. PR #10 merged as `ba2d01ca345f005de6bb88249592eb7f31c9254a`, and GitHub pre-release [`v0.9.0`](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.9.0) was published on 2026-08-18. The final Release suite passes 665/665 together with the installed-game compatibility contract, exact five-file package/readback, user-verified Economy UI, 24-file JSON-plus-23-CSV export, and residue-free clean shutdown. The published 265,633-byte ZIP is SHA-256 `1b126c9d999343e4cb0c5544cff051ff90f454ab72bd6b0b50a3f1d1c0877803`; its 102-byte checksum sidecar is SHA-256 `f89be2dec4e6893b094b4eb0a25d6ec235190563ec168969a4dcc210d1733f3a`.
 
-After M11, planned work is split into M12 world-time and sleep statistics (`v0.12.0`), M13 crafted-item statistics (`v0.13.0`), M14 the native UI overhaul (`v0.14.0`), and M15 feature-frozen `v1.0.0-rc.1` qualification. See [PLAN.md](PLAN.md); the remainder of this section preserves chronological evidence and is not current release status.
+After M12, planned work is split into M13 crafted-item statistics (`v0.13.0`), M14 the native UI overhaul (`v0.14.0`), and M15 feature-frozen `v1.0.0-rc.1` qualification. See [PLAN.md](PLAN.md); the remainder of this section preserves chronological evidence and is not current release status.
 
 ## Included in v0.9.0
 
