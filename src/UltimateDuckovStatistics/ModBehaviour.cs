@@ -105,7 +105,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             worldTimeAdapter.Assign(newWorldTimeAdapter);
             newWorldTimeAdapter.Initialize();
             profileCoordinator.SetWorldTimeBoundaryBarrier(newWorldTimeAdapter.FlushPending);
-            profileCoordinator.WorldTimeProfileChangedAwaitingNativeLoad += newWorldTimeAdapter.ResetForProfileChange;
+            profileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted += newWorldTimeAdapter.BeginProfileChangeAwaitingNativeLoad;
+            profileCoordinator.WorldTimeNewGameProfileChangeStarted += newWorldTimeAdapter.BeginNewGameProfileChange;
+            profileCoordinator.WorldTimeProfileChangeCompleted += newWorldTimeAdapter.CompleteProfileChange;
             profileCoordinator.WorldTimeProfileChangedWithCurrentClock += newWorldTimeAdapter.ResetForProfileChangeWithCurrentClock;
             var economyFlowPublication = new EconomyFlowPublication(
                 profileCoordinator.HandleCurrencyFlow,
@@ -331,7 +333,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
             if (worldTimeAdapter.OwnedValue != null)
             {
-                profileCoordinator.WorldTimeProfileChangedAwaitingNativeLoad -= worldTimeAdapter.OwnedValue.ResetForProfileChange;
+                profileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted -= worldTimeAdapter.OwnedValue.BeginProfileChangeAwaitingNativeLoad;
+                profileCoordinator.WorldTimeNewGameProfileChangeStarted -= worldTimeAdapter.OwnedValue.BeginNewGameProfileChange;
+                profileCoordinator.WorldTimeProfileChangeCompleted -= worldTimeAdapter.OwnedValue.CompleteProfileChange;
                 profileCoordinator.WorldTimeProfileChangedWithCurrentClock -= worldTimeAdapter.OwnedValue.ResetForProfileChangeWithCurrentClock;
             }
         }

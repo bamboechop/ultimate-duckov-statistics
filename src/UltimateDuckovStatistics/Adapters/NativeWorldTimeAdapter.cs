@@ -12,7 +12,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+newgame-baseline-v1";
+    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v2";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.world-time-sleep";
     private const string SupportedGameVersion = "2.3.30";
     private readonly Func<string> generationIdProvider;
@@ -23,6 +23,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
     private readonly NativeWorldTimeObservationBoundary boundary = new();
+    private readonly NativeWorldTimeProfileHandoffBoundary profileHandoff = new();
     private readonly NativeWorldTimePersistenceCadence persistenceCadence = new();
     private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
     private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
@@ -80,7 +81,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
             Publish();
             DiagnosticOnce(
                 "initialized",
-                "World clock observation subscribed with one-second monotonic publication and 30-second monotonic durability; load hydration is baseline-only, and sleep completion requires the exact GameClock.Step(float) patch plus SleepView.OnAfterSleep.");
+                "World clock observation subscribed with one-second monotonic publication and 30-second monotonic durability; profile load hydration requires a replacement GameClock instance and is baseline-only, while sleep completion requires the exact GameClock.Step(float) patch plus SleepView.OnAfterSleep.");
         }
         catch (Exception exception)
         {
@@ -159,11 +160,55 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    public void ResetForProfileChange()
+    public void BeginProfileChangeAwaitingNativeLoad(long transitionId)
     {
-        boundary.Reset();
+        profileHandoff.BeginAwaitingNativeLoad(transitionId, GameClock.Instance);
+        boundary.ClearPendingSleep();
+        DiagnosticOnce(
+            "profile-awaiting-load-start:" + transitionId,
+            "World-time capture is awaiting a replacement native GameClock instance; callbacks from the prior slot are ignored.");
+    }
+
+    public void BeginNewGameProfileChange(long transitionId)
+    {
+        boundary.ClearPendingSleep();
+        if (GameClock.Instance == null)
+        {
+            profileHandoff.BeginAwaitingNativeLoad(transitionId, currentClockInstance: null);
+            DiagnosticOnce(
+                "new-game-awaiting-clock-start:" + transitionId,
+                "New-game world-time capture is awaiting the native clock because no loaded instance was available at the report boundary.");
+            return;
+        }
+
+        HandleObservationResult(profileHandoff.BeginNewGame(transitionId, ReadClock()));
+        DiagnosticOnce(
+            "new-game-buffer-start:" + transitionId,
+            "New-game world-time capture buffered the already-loaded native clock before returning to Duckov boot processing.");
+    }
+
+    public void CompleteProfileChange(long transitionId)
+    {
+        var generationId = generationIdProvider();
         persistenceCadence.Start(NowMonotonic());
-        DiagnosticOnce("profile-reset:" + generationIdProvider(), "World-time baseline reset for the active save generation without counting hydration.");
+        var currentReading = GameClock.Instance == null ? (WorldClockReading?)null : ReadClock();
+        if (!profileHandoff.CompleteProfileChange(
+                transitionId,
+                generationId,
+                boundary,
+                currentReading,
+                out var completionObservation))
+        {
+            DiagnosticOnce(
+                "profile-handoff-superseded:" + transitionId,
+                "A superseded world-time profile handoff completion was ignored.");
+            return;
+        }
+
+        if (completionObservation.HasValue) HandleObservationResult(completionObservation.Value);
+        DiagnosticOnce(
+            "profile-handoff-complete:" + transitionId,
+            "World-time profile handoff completed without attributing stale prior-slot callbacks or losing buffered boot advancement.");
     }
 
     public void ResetForProfileChangeWithCurrentClock()
@@ -172,6 +217,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         persistenceCadence.Start(NowMonotonic());
         if (GameClock.Instance == null)
         {
+            profileHandoff.Reset();
             boundary.Reset();
             DiagnosticOnce(
                 "profile-reset-awaiting-clock:" + generationId,
@@ -179,7 +225,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
             return;
         }
 
-        boundary.ResetAndEstablishBaseline(generationId, ReadClock());
+        HandleObservationResult(profileHandoff.ResetAndEstablishCurrent(generationId, ReadClock(), boundary));
         DiagnosticOnce(
             "profile-reset-current-clock:" + generationId,
             "World-time baseline reset from the already-loaded native clock so subsequent new-game boot advancement remains observable.");
@@ -203,6 +249,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         {
             sleepAdvanceMethod = null;
             sleepPatchStamp = null;
+            profileHandoff.Reset();
             boundary.ClearPendingSleep();
         }
         return subscriptionsCleaned && patchesCleaned;
@@ -214,6 +261,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     {
         if (!callbackLifetime.CanHandleCallbacks
             || capabilities.SleepAdvancedTime.State != AdapterCapabilityState.Supported
+            || profileHandoff.IsActive
             || float.IsNaN(seconds) || float.IsInfinity(seconds) || seconds < 0f
             || GameClock.Instance == null)
             return default;
@@ -252,11 +300,13 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         if (capabilities.ObservedElapsed.State != AdapterCapabilityState.Supported || GameClock.Instance == null) return;
         try
         {
-            var result = boundary.ObserveClock(generationIdProvider(), ReadClock());
-            if (result.State is WorldTimeObservationState.Invalid
-                or WorldTimeObservationState.Backward
-                or WorldTimeObservationState.Overflow)
-                DisableClock(result.Detail);
+            var instance = GameClock.Instance;
+            var result = profileHandoff.Observe(
+                generationIdProvider(),
+                instance,
+                ReadClock(),
+                boundary);
+            if (result.HasValue) HandleObservationResult(result.Value);
         }
         catch (Exception exception)
         {
@@ -381,6 +431,14 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     }
 
     private static WorldClockReading ReadClock() => new(GameClock.Day, GameClock.TimeOfDay.Ticks);
+
+    private void HandleObservationResult(WorldTimeObservationResult result)
+    {
+        if (result.State is WorldTimeObservationState.Invalid
+            or WorldTimeObservationState.Backward
+            or WorldTimeObservationState.Overflow)
+            DisableClock(result.Detail);
+    }
 
     private double NowMonotonic() => monotonicClock.Elapsed.TotalSeconds;
 

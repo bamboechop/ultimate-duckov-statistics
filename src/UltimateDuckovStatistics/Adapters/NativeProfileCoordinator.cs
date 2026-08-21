@@ -31,6 +31,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private Func<bool>? worldTimeBoundaryFlusher;
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
+    private long worldTimeTransitionSequence;
     private CapabilityRecord healingCapability = new()
     {
         AdapterId = NativeHealingAttributionAdapter.AdapterId,
@@ -106,7 +107,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public event Action? ProfileChanging;
 
-    public event Action? WorldTimeProfileChangedAwaitingNativeLoad;
+    public event Action<long>? WorldTimeProfileChangeAwaitingNativeLoadStarted;
+
+    public event Action<long>? WorldTimeNewGameProfileChangeStarted;
+
+    public event Action<long>? WorldTimeProfileChangeCompleted;
 
     public event Action? WorldTimeProfileChangedWithCurrentClock;
 
@@ -541,6 +546,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 ? ReadIdentity(repository.Current.Slot)
                 : null;
             ProfileOpenResult? result = null;
+            var worldTimeTransitionId = NextWorldTimeTransitionId();
+            PublishProfileEvent(
+                () => WorldTimeProfileChangeAwaitingNativeLoadStarted?.Invoke(worldTimeTransitionId),
+                "world-time-profile-change-awaiting-load-started");
             QueueProfileTransition(
                 "Save-slot transition",
                 () => ProfileChanging?.Invoke(),
@@ -553,7 +562,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 },
                 () => result = repository.Open(observed, "SaveSlotSelected"),
                 OpenDiagnosticsForCurrentGeneration,
-                () => PublishProfileEvent(WorldTimeProfileChangedAwaitingNativeLoad, "world-time-profile-changed-awaiting-load"),
+                () => PublishProfileEvent(
+                    () => WorldTimeProfileChangeCompleted?.Invoke(worldTimeTransitionId),
+                    "world-time-profile-change-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
                 ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic(
@@ -573,6 +584,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
         try
         {
             var identity = ReadIdentity();
+            var worldTimeTransitionId = NextWorldTimeTransitionId();
+            PublishProfileEvent(
+                () => WorldTimeProfileChangeAwaitingNativeLoadStarted?.Invoke(worldTimeTransitionId),
+                "world-time-profile-change-awaiting-load-started");
             QueueProfileTransition(
                 "Save-deletion rotation",
                 () => ProfileChanging?.Invoke(),
@@ -581,7 +596,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 () => repository!.Rotate(identity, "DuckovSaveDeleted"),
                 () => saveResetAwaitingNewGameReport = true,
                 OpenDiagnosticsForCurrentGeneration,
-                () => PublishProfileEvent(WorldTimeProfileChangedAwaitingNativeLoad, "world-time-profile-changed-awaiting-load"),
+                () => PublishProfileEvent(
+                    () => WorldTimeProfileChangeCompleted?.Invoke(worldTimeTransitionId),
+                    "world-time-profile-change-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
                 ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic($"Duckov save deletion rotated to generation {repository!.CurrentGenerationId}."));
@@ -618,6 +635,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
         {
             var identity = ReadIdentity();
             var matchedDeletedGeneration = false;
+            var worldTimeTransitionId = NextWorldTimeTransitionId();
+            PublishProfileEvent(
+                () => WorldTimeNewGameProfileChangeStarted?.Invoke(worldTimeTransitionId),
+                "world-time-new-game-profile-change-started");
             QueueProfileTransition(
                 "New-game rotation",
                 () => ProfileChanging?.Invoke(),
@@ -640,7 +661,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 {
                     if (!matchedDeletedGeneration) OpenDiagnosticsForCurrentGeneration();
                 },
-                () => PublishProfileEvent(WorldTimeProfileChangedWithCurrentClock, "world-time-profile-changed-current-clock"),
+                () => PublishProfileEvent(
+                    () => WorldTimeProfileChangeCompleted?.Invoke(worldTimeTransitionId),
+                    "world-time-profile-change-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
                 ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic(matchedDeletedGeneration
@@ -667,6 +690,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
         profileTransitionBoundary.Enqueue(description, steps);
         RetryPendingProfileTransition();
     }
+
+    private long NextWorldTimeTransitionId() => checked(++worldTimeTransitionSequence);
 
     private bool FlushProfileTransitionBoundaries()
     {
