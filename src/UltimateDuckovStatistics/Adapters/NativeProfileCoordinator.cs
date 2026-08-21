@@ -543,12 +543,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            var activeRepository = repository
+                ?? throw new InvalidOperationException("No profile repository is active.");
             var observed = ReadIdentity();
-            var priorSlot = repository!.Current.Slot;
-            var priorGenerationId = repository.CurrentGenerationId;
-            var priorIdentity = repository!.Current.Slot != observed.Slot
-                ? ReadIdentity(repository.Current.Slot)
-                : null;
             ProfileOpenResult? result = null;
             var sameProfileReopened = false;
             var worldTimeTransitionId = NextWorldTimeTransitionId();
@@ -563,17 +560,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 () => saveResetAwaitingNewGameReport = false,
                 () =>
                 {
-                    if (priorIdentity != null) repository.RefreshIdentity(priorIdentity);
-                },
-                () =>
-                {
-                    result = repository.Open(observed, "SaveSlotSelected");
-                    sameProfileReopened = NativeWorldTimeProfileReopenPolicy.CanReuseCurrentClock(
-                        result,
-                        observed.Slot,
-                        priorSlot,
-                        repository.CurrentGenerationId,
-                        priorGenerationId);
+                    result = NativeWorldTimeProfileReopenPolicy.OpenAndDetermineCurrentClockReuse(
+                        activeRepository,
+                        observed,
+                        ReadIdentity,
+                        "SaveSlotSelected",
+                        out sameProfileReopened);
                 },
                 OpenDiagnosticsForCurrentGeneration,
                 () => PublishProfileEvent(
@@ -586,7 +578,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
                 ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic(
-                    $"Save slot selected slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
+                    $"Save slot selected slot={activeRepository.Current.Slot} generation={activeRepository.CurrentGenerationId} " +
                     $"created={result!.CreatedNew} rotated={result.RotatedGeneration} " +
                     $"unsupportedArchived={result.UnsupportedSchemaArchived}."));
         }

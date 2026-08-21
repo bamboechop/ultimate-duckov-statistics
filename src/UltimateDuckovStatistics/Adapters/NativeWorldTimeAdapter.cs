@@ -12,7 +12,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v6";
+    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v7";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.world-time-sleep";
     private const string SupportedGameVersion = "2.3.30";
     private readonly Func<string> generationIdProvider;
