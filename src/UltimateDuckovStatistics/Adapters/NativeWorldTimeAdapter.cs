@@ -12,7 +12,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v9";
+    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v10";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.world-time-sleep";
     private const string SupportedGameVersion = "2.3.30";
     private readonly Func<string> generationIdProvider;
@@ -162,8 +162,9 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 
     public void BeginProfileChangeAwaitingNativeLoad(long transitionId)
     {
-        var currentClockInstance = GameClock.Instance;
-        var currentReading = ObserveCurrentClockBeforeProfileHandoff(currentClockInstance);
+        var currentClock = GameClock.Instance;
+        object? currentClockInstance = currentClock == null ? null : currentClock;
+        var currentReading = ObserveCurrentClockBeforeProfileHandoff(currentClock, currentClockInstance);
         profileHandoff.BeginAwaitingNativeLoad(transitionId, currentClockInstance, currentReading);
         boundary.ClearPendingSleep();
         DiagnosticOnce(
@@ -173,8 +174,9 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 
     public void BeginNewGameProfileChange(long transitionId)
     {
-        var currentClockInstance = GameClock.Instance;
-        ObserveCurrentClockBeforeProfileHandoff(currentClockInstance);
+        var currentClock = GameClock.Instance;
+        object? currentClockInstance = currentClock == null ? null : currentClock;
+        ObserveCurrentClockBeforeProfileHandoff(currentClock, currentClockInstance);
         boundary.ClearPendingSleep();
         if (currentClockInstance == null)
         {
@@ -205,7 +207,8 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     {
         var generationId = generationIdProvider();
         persistenceCadence.Start(NowMonotonic());
-        var currentClockInstance = GameClock.Instance;
+        var currentClock = GameClock.Instance;
+        object? currentClockInstance = currentClock == null ? null : currentClock;
         var currentReading = currentClockInstance == null ? (WorldClockReading?)null : ReadClock();
         var completed = preserveCurrentClock
             ? profileHandoff.CompleteProfileChangeWithCurrentClock(
@@ -246,9 +249,12 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     {
         var generationId = generationIdProvider();
         persistenceCadence.Start(NowMonotonic());
-        var currentReading = GameClock.Instance == null ? (WorldClockReading?)null : ReadClock();
+        var currentClock = GameClock.Instance;
+        object? currentClockInstance = currentClock == null ? null : currentClock;
+        var currentReading = currentClockInstance == null ? (WorldClockReading?)null : ReadClock();
         var observation = profileHandoff.ResetCurrentProfile(
             generationId,
+            currentClockInstance,
             currentReading,
             boundary,
             out var awaitingNativeLoad);
@@ -350,10 +356,11 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 
     private void OnGameClockStep()
     {
-        if (capabilities.ObservedElapsed.State != AdapterCapabilityState.Supported || GameClock.Instance == null) return;
+        var currentClock = GameClock.Instance;
+        object? instance = currentClock == null ? null : currentClock;
+        if (capabilities.ObservedElapsed.State != AdapterCapabilityState.Supported || instance == null) return;
         try
         {
-            var instance = GameClock.Instance;
             var result = profileHandoff.Observe(
                 generationIdProvider(),
                 instance,
@@ -367,9 +374,12 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    private WorldClockReading? ObserveCurrentClockBeforeProfileHandoff(object? currentClockInstance)
+    private WorldClockReading? ObserveCurrentClockBeforeProfileHandoff(
+        GameClock? currentClock,
+        object? currentClockInstance)
     {
         if (capabilities.ObservedElapsed.State != AdapterCapabilityState.Supported
+            || currentClock == null
             || currentClockInstance == null)
             return null;
         try
@@ -412,8 +422,15 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 
     private void EstablishBaseline()
     {
-        if (GameClock.Instance == null) return;
-        boundary.ObserveClock(generationIdProvider(), ReadClock());
+        var currentClock = GameClock.Instance;
+        object? currentClockInstance = currentClock == null ? null : currentClock;
+        if (currentClockInstance == null) return;
+        var result = profileHandoff.Observe(
+            generationIdProvider(),
+            currentClockInstance,
+            ReadClock(),
+            boundary);
+        if (result.HasValue) HandleObservationResult(result.Value);
     }
 
     private void TryInitializeSleepPatch(string clockProvenance)

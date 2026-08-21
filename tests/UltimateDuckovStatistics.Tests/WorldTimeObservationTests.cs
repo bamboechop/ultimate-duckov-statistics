@@ -79,6 +79,50 @@ public sealed class WorldTimeObservationTests
 
     [Fact]
     [Trait("Category", "M12")]
+    public void SameGenerationReplacementClockLoadRebaselinesWithoutDisablingCapture()
+    {
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var handoff = new NativeWorldTimeProfileHandoffBoundary();
+        var oldSceneClock = new object();
+        var replacementClock = new object();
+
+        Assert.Equal(
+            WorldTimeObservationState.BaselineEstablished,
+            handoff.Observe("same-generation", oldSceneClock, Read(4, 100), boundary)!.Value.State);
+        Assert.True(handoff.Observe(
+            "same-generation",
+            oldSceneClock,
+            Read(4, 160),
+            boundary)!.Value.Accepted);
+
+        // The outgoing scene unpauses after its final save and advances before Unity destroys its clock.
+        Assert.True(handoff.Observe(
+            "same-generation",
+            oldSceneClock,
+            Read(4, 180),
+            boundary)!.Value.Accepted);
+
+        // Continue creates a new GameClock without SetFile; Load reports the earlier saved coordinate.
+        var replacementLoad = handoff.Observe(
+            "same-generation",
+            replacementClock,
+            Read(4, 160),
+            boundary)!.Value;
+        Assert.Equal(WorldTimeObservationState.BaselineEstablished, replacementLoad.State);
+        Assert.True(replacementLoad.Mutation.IsEmpty);
+        Assert.True(handoff.Observe(
+            "same-generation",
+            replacementClock,
+            Read(4, 165),
+            boundary)!.Value.Accepted);
+
+        var mutation = boundary.TakePending();
+        Assert.Equal(0, mutation.CalendarDaysAdvanced);
+        Assert.Equal(85 * Second, mutation.ObservedGameTimeTicks);
+    }
+
+    [Fact]
+    [Trait("Category", "M12")]
     public void SelectedSlotIgnoresStalePriorClockUntilAReplacementInstanceLoads()
     {
         var boundary = new NativeWorldTimeObservationBoundary();
@@ -642,6 +686,7 @@ public sealed class WorldTimeObservationTests
 
         Assert.Null(handoff.ResetCurrentProfile(
             "slot-b-reset",
+            priorClock,
             Read(2, 500),
             boundary,
             out var awaitingNativeLoad));

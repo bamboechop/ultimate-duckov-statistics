@@ -12,6 +12,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
     private readonly List<ArchivedHandoff> archivedHandoffs = [];
     private HandoffMode mode;
     private long transitionId;
+    private object? liveClockInstance;
     private object? priorClockInstance;
     private object? loadedClockInstance;
     private WorldClockReading latestPriorClockReading;
@@ -106,7 +107,14 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         if (mode == HandoffMode.NewGame)
             return Stage(reading);
         if (mode != HandoffMode.AwaitingNativeLoad)
+        {
+            if (!ReferenceEquals(clockInstance, liveClockInstance))
+            {
+                liveClockInstance = clockInstance;
+                return RebaselineClock(generationId, reading, currentBoundary);
+            }
             return currentBoundary.ObserveClock(generationId, reading);
+        }
 
         if (loadedClockInstance == null)
         {
@@ -118,8 +126,9 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
             loadedClockInstance = clockInstance;
             if (targetProfileReady)
             {
+                liveClockInstance = clockInstance;
                 ResetActiveState();
-                return currentBoundary.ObserveClock(generationId, reading);
+                return RebaselineClock(generationId, reading, currentBoundary);
             }
             return Stage(reading);
         }
@@ -200,6 +209,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
                 && currentClockInstance != null
                 && ReferenceEquals(currentClockInstance, loadedClockInstance))
             {
+                liveClockInstance = currentClockInstance;
                 var completed = CompleteActiveProfileChange(
                     generationId,
                     currentBoundary,
@@ -226,6 +236,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
                 && currentClockInstance != null
                 && ReferenceEquals(currentClockInstance, priorClockInstance))
                 StagePriorClock(currentReading.Value);
+            if (currentClockInstance != null) liveClockInstance = currentClockInstance;
             var priorMutation = priorClockBoundary.TakePending();
             var stagedMutation = stagedBoundary.TakePending();
             var combined = Add(priorMutation, stagedMutation);
@@ -298,6 +309,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
 
     public WorldTimeObservationResult? ResetCurrentProfile(
         string generationId,
+        object? currentClockInstance,
         WorldClockReading? currentReading,
         NativeWorldTimeObservationBoundary currentBoundary,
         out bool awaitingNativeLoad)
@@ -308,6 +320,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         if (awaitingNativeLoad) return null;
 
         Reset();
+        liveClockInstance = currentClockInstance;
         return currentReading.HasValue
             ? currentBoundary.ObserveClock(generationId, currentReading.Value)
             : null;
@@ -317,6 +330,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
     {
         archivedHandoffs.Clear();
         ResetActiveState();
+        liveClockInstance = null;
     }
 
     private bool CompleteActiveProfileChange(
@@ -351,6 +365,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
                 or WorldTimeObservationState.Backward
                 or WorldTimeObservationState.Overflow))
             completionObservation = baselineObservation;
+        if (loadedClockInstance != null) liveClockInstance = loadedClockInstance;
         ResetActiveState();
         return true;
     }
@@ -492,6 +507,17 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
 
         var observation = currentBoundary.ResetAndEstablishBaseline(generationId, latestReading);
         currentBoundary.RestorePending(Add(retained, mutation));
+        return observation;
+    }
+
+    private static WorldTimeObservationResult RebaselineClock(
+        string generationId,
+        WorldClockReading reading,
+        NativeWorldTimeObservationBoundary currentBoundary)
+    {
+        var retained = currentBoundary.TakePending();
+        var observation = currentBoundary.ResetAndEstablishBaseline(generationId, reading);
+        currentBoundary.RestorePending(retained);
         return observation;
     }
 
