@@ -6,12 +6,16 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeWorldTimeProfileHandoffBoundary
 {
     private const string StagedGenerationId = "world-time-profile-handoff";
+    private const string PriorClockGenerationId = "world-time-profile-handoff-prior-clock";
     private readonly NativeWorldTimeObservationBoundary stagedBoundary = new();
+    private readonly NativeWorldTimeObservationBoundary priorClockBoundary = new();
     private readonly List<ArchivedHandoff> archivedHandoffs = [];
     private HandoffMode mode;
     private long transitionId;
     private object? priorClockInstance;
     private object? loadedClockInstance;
+    private WorldClockReading latestPriorClockReading;
+    private bool hasPriorClockReading;
     private WorldClockReading latestStagedReading;
     private bool hasStagedReading;
     private bool targetProfileReady;
@@ -70,10 +74,14 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         return false;
     }
 
-    public void BeginAwaitingNativeLoad(long activeTransitionId, object? currentClockInstance)
+    public void BeginAwaitingNativeLoad(
+        long activeTransitionId,
+        object? currentClockInstance,
+        WorldClockReading? currentClockReading = null)
     {
         Begin(activeTransitionId, HandoffMode.AwaitingNativeLoad);
         priorClockInstance = currentClockInstance;
+        if (currentClockReading.HasValue) StagePriorClock(currentClockReading.Value);
     }
 
     public WorldTimeObservationResult BeginNewGame(
@@ -100,7 +108,11 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
 
         if (loadedClockInstance == null)
         {
-            if (ReferenceEquals(clockInstance, priorClockInstance)) return null;
+            if (ReferenceEquals(clockInstance, priorClockInstance))
+            {
+                StagePriorClock(reading);
+                return null;
+            }
             loadedClockInstance = clockInstance;
             if (targetProfileReady)
             {
@@ -149,6 +161,78 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
             archived.LatestStagedReading);
         currentBoundary.RestorePending(archived.Mutation);
         completedSleepTransferred = archived.Mutation.CompletedSleepSessions != 0;
+        TransferPendingSleep(
+            archived.HasPendingSleep,
+            archived.TransitionId,
+            completedTransitionId,
+            archived.PendingSleepAdvancedTicks,
+            generationId,
+            currentBoundary);
+        archivedHandoffs.RemoveAt(archivedIndex);
+        return true;
+    }
+
+    public bool CompleteProfileChangeWithCurrentClock(
+        long completedTransitionId,
+        string generationId,
+        NativeWorldTimeObservationBoundary currentBoundary,
+        object? currentClockInstance,
+        WorldClockReading? currentReading,
+        out WorldTimeObservationResult? completionObservation,
+        out bool completedSleepTransferred)
+    {
+        if (currentBoundary == null) throw new ArgumentNullException(nameof(currentBoundary));
+        completionObservation = null;
+        completedSleepTransferred = false;
+
+        if (mode != HandoffMode.None && completedTransitionId == transitionId)
+        {
+            if (loadedClockInstance != null
+                && currentClockInstance != null
+                && ReferenceEquals(currentClockInstance, loadedClockInstance))
+                return CompleteActiveProfileChange(
+                    generationId,
+                    currentBoundary,
+                    currentReading,
+                    out completionObservation,
+                    out completedSleepTransferred);
+
+            if (currentReading.HasValue
+                && currentClockInstance != null
+                && ReferenceEquals(currentClockInstance, priorClockInstance))
+                StagePriorClock(currentReading.Value);
+            var priorMutation = priorClockBoundary.TakePending();
+            var stagedMutation = stagedBoundary.TakePending();
+            var combined = Add(priorMutation, stagedMutation);
+            completionObservation = RestoreSameClockState(
+                generationId,
+                currentBoundary,
+                latestPriorClockReading,
+                hasPriorClockReading,
+                combined);
+            completedSleepTransferred = combined.CompletedSleepSessions != 0;
+            TransferPendingSleep(
+                hasPendingSleep,
+                pendingSleepTransitionId,
+                transitionId,
+                pendingSleepAdvancedTicks,
+                generationId,
+                currentBoundary);
+            ResetActiveState();
+            return true;
+        }
+
+        var archivedIndex = archivedHandoffs.FindIndex(handoff => handoff.TransitionId == completedTransitionId);
+        if (archivedIndex < 0) return false;
+        var archived = archivedHandoffs[archivedIndex];
+        var archivedCombined = Add(archived.PriorClockMutation, archived.Mutation);
+        completionObservation = RestoreSameClockState(
+            generationId,
+            currentBoundary,
+            archived.LatestPriorClockReading,
+            archived.HasPriorClockReading,
+            archivedCombined);
+        completedSleepTransferred = archivedCombined.CompletedSleepSessions != 0;
         TransferPendingSleep(
             archived.HasPendingSleep,
             archived.TransitionId,
@@ -239,8 +323,11 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         archivedHandoffs.Add(new ArchivedHandoff(
             transitionId,
             stagedBoundary.TakePending(),
+            priorClockBoundary.TakePending(),
             latestStagedReading,
             hasStagedReading,
+            latestPriorClockReading,
+            hasPriorClockReading,
             pendingSleepAdvancedTicks,
             hasPendingSleep));
     }
@@ -252,13 +339,23 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         return stagedBoundary.ObserveClock(StagedGenerationId, reading);
     }
 
+    private WorldTimeObservationResult StagePriorClock(WorldClockReading reading)
+    {
+        latestPriorClockReading = reading;
+        hasPriorClockReading = true;
+        return priorClockBoundary.ObserveClock(PriorClockGenerationId, reading);
+    }
+
     private void ResetActiveState()
     {
         stagedBoundary.Reset();
+        priorClockBoundary.Reset();
         mode = HandoffMode.None;
         transitionId = 0;
         priorClockInstance = null;
         loadedClockInstance = null;
+        latestPriorClockReading = default;
+        hasPriorClockReading = false;
         latestStagedReading = default;
         hasStagedReading = false;
         targetProfileReady = false;
@@ -287,6 +384,25 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
                 "The staged native sleep candidate could not be transferred to the committed profile generation.");
     }
 
+    private static WorldTimeObservationResult? RestoreSameClockState(
+        string generationId,
+        NativeWorldTimeObservationBoundary currentBoundary,
+        WorldClockReading latestReading,
+        bool hasReading,
+        WorldTimeMutation mutation)
+    {
+        var retained = currentBoundary.TakePending();
+        if (!hasReading)
+        {
+            currentBoundary.RestorePending(Add(retained, mutation));
+            return null;
+        }
+
+        var observation = currentBoundary.ResetAndEstablishBaseline(generationId, latestReading);
+        currentBoundary.RestorePending(Add(retained, mutation));
+        return observation;
+    }
+
     private static WorldTimeMutation Add(WorldTimeMutation left, WorldTimeMutation right) => new(
         checked(left.CalendarDaysAdvanced + right.CalendarDaysAdvanced),
         checked(left.ObservedGameTimeTicks + right.ObservedGameTimeTicks),
@@ -298,23 +414,32 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         public ArchivedHandoff(
             long transitionId,
             WorldTimeMutation mutation,
+            WorldTimeMutation priorClockMutation,
             WorldClockReading latestStagedReading,
             bool hasStagedReading,
+            WorldClockReading latestPriorClockReading,
+            bool hasPriorClockReading,
             long pendingSleepAdvancedTicks,
             bool hasPendingSleep)
         {
             TransitionId = transitionId;
             Mutation = mutation;
+            PriorClockMutation = priorClockMutation;
             LatestStagedReading = latestStagedReading;
             HasStagedReading = hasStagedReading;
+            LatestPriorClockReading = latestPriorClockReading;
+            HasPriorClockReading = hasPriorClockReading;
             PendingSleepAdvancedTicks = pendingSleepAdvancedTicks;
             HasPendingSleep = hasPendingSleep;
         }
 
         public long TransitionId { get; }
         public WorldTimeMutation Mutation { get; set; }
+        public WorldTimeMutation PriorClockMutation { get; }
         public WorldClockReading LatestStagedReading { get; }
         public bool HasStagedReading { get; }
+        public WorldClockReading LatestPriorClockReading { get; }
+        public bool HasPriorClockReading { get; }
         public long PendingSleepAdvancedTicks { get; }
         public bool HasPendingSleep { get; private set; }
 

@@ -108,6 +108,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             profileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted += newWorldTimeAdapter.BeginProfileChangeAwaitingNativeLoad;
             profileCoordinator.WorldTimeNewGameProfileChangeStarted += newWorldTimeAdapter.BeginNewGameProfileChange;
             profileCoordinator.WorldTimeProfileChangeCompleted += newWorldTimeAdapter.CompleteProfileChange;
+            profileCoordinator.WorldTimeSameProfileReopenCompleted += newWorldTimeAdapter.CompleteProfileChangeWithCurrentClock;
             profileCoordinator.WorldTimeProfileChangedWithCurrentClock += newWorldTimeAdapter.ResetForProfileChangeWithCurrentClock;
             var economyFlowPublication = new EconomyFlowPublication(
                 profileCoordinator.HandleCurrencyFlow,
@@ -336,6 +337,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 profileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted -= worldTimeAdapter.OwnedValue.BeginProfileChangeAwaitingNativeLoad;
                 profileCoordinator.WorldTimeNewGameProfileChangeStarted -= worldTimeAdapter.OwnedValue.BeginNewGameProfileChange;
                 profileCoordinator.WorldTimeProfileChangeCompleted -= worldTimeAdapter.OwnedValue.CompleteProfileChange;
+                profileCoordinator.WorldTimeSameProfileReopenCompleted -= worldTimeAdapter.OwnedValue.CompleteProfileChangeWithCurrentClock;
                 profileCoordinator.WorldTimeProfileChangedWithCurrentClock -= worldTimeAdapter.OwnedValue.ResetForProfileChangeWithCurrentClock;
             }
         }

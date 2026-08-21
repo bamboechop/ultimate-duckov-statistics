@@ -113,6 +113,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public event Action<long>? WorldTimeProfileChangeCompleted;
 
+    public event Action<long>? WorldTimeSameProfileReopenCompleted;
+
     public event Action? WorldTimeProfileChangedWithCurrentClock;
 
     public string DataRoot => dataRoot;
@@ -542,10 +544,13 @@ internal sealed class NativeProfileCoordinator : IDisposable
         try
         {
             var observed = ReadIdentity();
+            var priorSlot = repository!.Current.Slot;
+            var priorGenerationId = repository.CurrentGenerationId;
             var priorIdentity = repository!.Current.Slot != observed.Slot
                 ? ReadIdentity(repository.Current.Slot)
                 : null;
             ProfileOpenResult? result = null;
+            var sameProfileReopened = false;
             var worldTimeTransitionId = NextWorldTimeTransitionId();
             PublishProfileEvent(
                 () => WorldTimeProfileChangeAwaitingNativeLoadStarted?.Invoke(worldTimeTransitionId),
@@ -560,11 +565,24 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 {
                     if (priorIdentity != null) repository.RefreshIdentity(priorIdentity);
                 },
-                () => result = repository.Open(observed, "SaveSlotSelected"),
+                () =>
+                {
+                    result = repository.Open(observed, "SaveSlotSelected");
+                    sameProfileReopened = NativeWorldTimeProfileReopenPolicy.CanReuseCurrentClock(
+                        result,
+                        observed.Slot,
+                        priorSlot,
+                        repository.CurrentGenerationId,
+                        priorGenerationId);
+                },
                 OpenDiagnosticsForCurrentGeneration,
                 () => PublishProfileEvent(
-                    () => WorldTimeProfileChangeCompleted?.Invoke(worldTimeTransitionId),
-                    "world-time-profile-change-completed"),
+                    sameProfileReopened
+                        ? () => WorldTimeSameProfileReopenCompleted?.Invoke(worldTimeTransitionId)
+                        : () => WorldTimeProfileChangeCompleted?.Invoke(worldTimeTransitionId),
+                    sameProfileReopened
+                        ? "world-time-same-profile-reopen-completed"
+                        : "world-time-profile-change-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
                 ApplyCurrentMetricCapabilities,
                 () => WriteDiagnostic(

@@ -12,7 +12,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v5";
+    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v6";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.world-time-sleep";
     private const string SupportedGameVersion = "2.3.30";
     private readonly Func<string> generationIdProvider;
@@ -81,7 +81,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
             Publish();
             DiagnosticOnce(
                 "initialized",
-                "World clock observation subscribed with one-second monotonic publication and 30-second monotonic durability; profile load hydration requires a replacement GameClock instance and is baseline-only, while sleep completion requires the exact GameClock.Step(float) patch plus SleepView.OnAfterSleep.");
+                "World clock observation subscribed with one-second monotonic publication and 30-second monotonic durability; changed-profile load hydration requires a replacement GameClock instance and is baseline-only, while a proven same-profile reopen retains the captured clock and sleep completion requires the exact GameClock.Step(float) patch plus SleepView.OnAfterSleep.");
         }
         catch (Exception exception)
         {
@@ -163,12 +163,12 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     public void BeginProfileChangeAwaitingNativeLoad(long transitionId)
     {
         var currentClockInstance = GameClock.Instance;
-        ObserveCurrentClockBeforeProfileHandoff(currentClockInstance);
-        profileHandoff.BeginAwaitingNativeLoad(transitionId, currentClockInstance);
+        var currentReading = ObserveCurrentClockBeforeProfileHandoff(currentClockInstance);
+        profileHandoff.BeginAwaitingNativeLoad(transitionId, currentClockInstance, currentReading);
         boundary.ClearPendingSleep();
         DiagnosticOnce(
             "profile-awaiting-load-start:" + transitionId,
-            "World-time capture is awaiting a replacement native GameClock instance; callbacks from the prior slot are ignored.");
+            "World-time capture is awaiting the profile-open result: callbacks from the captured clock are buffered for a proven same-profile reopen, while only a replacement instance can hydrate a changed generation.");
     }
 
     public void BeginNewGameProfileChange(long transitionId)
@@ -193,16 +193,37 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 
     public void CompleteProfileChange(long transitionId)
     {
+        CompleteProfileChange(transitionId, preserveCurrentClock: false);
+    }
+
+    public void CompleteProfileChangeWithCurrentClock(long transitionId)
+    {
+        CompleteProfileChange(transitionId, preserveCurrentClock: true);
+    }
+
+    private void CompleteProfileChange(long transitionId, bool preserveCurrentClock)
+    {
         var generationId = generationIdProvider();
         persistenceCadence.Start(NowMonotonic());
-        var currentReading = GameClock.Instance == null ? (WorldClockReading?)null : ReadClock();
-        if (!profileHandoff.CompleteProfileChange(
+        var currentClockInstance = GameClock.Instance;
+        var currentReading = currentClockInstance == null ? (WorldClockReading?)null : ReadClock();
+        var completed = preserveCurrentClock
+            ? profileHandoff.CompleteProfileChangeWithCurrentClock(
+                transitionId,
+                generationId,
+                boundary,
+                currentClockInstance,
+                currentReading,
+                out var completionObservation,
+                out var completedSleepTransferred)
+            : profileHandoff.CompleteProfileChange(
                 transitionId,
                 generationId,
                 boundary,
                 currentReading,
-                out var completionObservation,
-                out var completedSleepTransferred))
+                out completionObservation,
+                out completedSleepTransferred);
+        if (!completed)
         {
             DiagnosticOnce(
                 "profile-handoff-superseded:" + transitionId,
@@ -346,23 +367,26 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    private void ObserveCurrentClockBeforeProfileHandoff(object? currentClockInstance)
+    private WorldClockReading? ObserveCurrentClockBeforeProfileHandoff(object? currentClockInstance)
     {
         if (capabilities.ObservedElapsed.State != AdapterCapabilityState.Supported
             || currentClockInstance == null)
-            return;
+            return null;
         try
         {
+            var reading = ReadClock();
             var result = profileHandoff.Observe(
                 generationIdProvider(),
                 currentClockInstance,
-                ReadClock(),
+                reading,
                 boundary);
             if (result.HasValue) HandleObservationResult(result.Value);
+            return reading;
         }
         catch (Exception exception)
         {
             DisableClock($"World clock handoff snapshot failed safely: {Unwrap(exception).Message}");
+            return null;
         }
     }
 

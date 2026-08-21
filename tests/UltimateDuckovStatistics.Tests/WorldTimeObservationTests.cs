@@ -129,6 +129,87 @@ public sealed class WorldTimeObservationTests
 
     [Fact]
     [Trait("Category", "M12")]
+    public void SameSlotReopenKeepsTheSameClockCapturingOrdinaryTimeAndSleep()
+    {
+        using var directory = new TemporaryDirectory();
+        var ids = new Queue<string>(["generation-a", "session-a", "session-b"]);
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc),
+            ids.Dequeue);
+        var identity = new SaveIdentitySnapshot { Slot = 1, SaveFilePresent = false };
+        repository.Open(identity);
+        repository.SetWorldTimeCapabilities(WorldTimeNativeContractPolicy.Supported("clock", "sleep"));
+        var generationId = repository.CurrentGenerationId;
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var handoff = new NativeWorldTimeProfileHandoffBoundary();
+        var clock = new object();
+
+        boundary.ObserveClock(generationId, Read(4, 100));
+        handoff.BeginAwaitingNativeLoad(6, clock, Read(4, 100));
+        Assert.Null(handoff.Observe(generationId, clock, Read(4, 110), boundary));
+        var open = repository.Open(identity, "SaveSlotSelected");
+        Assert.False(open.CreatedNew);
+        Assert.False(open.RotatedGeneration);
+        Assert.Equal(generationId, repository.CurrentGenerationId);
+        Assert.True(NativeWorldTimeProfileReopenPolicy.CanReuseCurrentClock(
+            open,
+            identity.Slot,
+            identity.Slot,
+            repository.CurrentGenerationId,
+            generationId));
+        Assert.False(NativeWorldTimeProfileReopenPolicy.CanReuseCurrentClock(
+            open,
+            observedSlot: 2,
+            priorSlot: identity.Slot,
+            openedGenerationId: repository.CurrentGenerationId,
+            priorGenerationId: generationId));
+        Assert.False(NativeWorldTimeProfileReopenPolicy.CanReuseCurrentClock(
+            open,
+            identity.Slot,
+            identity.Slot,
+            openedGenerationId: "rotated-generation",
+            priorGenerationId: generationId));
+        Assert.True(handoff.CompleteProfileChangeWithCurrentClock(
+            6,
+            generationId,
+            boundary,
+            clock,
+            Read(4, 110),
+            out _,
+            out var transitionSleepTransferred));
+        Assert.False(transitionSleepTransferred);
+        Assert.True(repository.RecordWorldTimeDeferred(boundary.TakePending()));
+
+        Assert.True(handoff.Observe(generationId, clock, Read(4, 160), boundary)!.Value.Accepted);
+        Assert.True(handoff.Observe(generationId, clock, Read(4, 3_760), boundary)!.Value.Accepted);
+        Assert.True(boundary.BeginSleepCompletion(generationId, TimeSpan.FromHours(1).Ticks));
+        Assert.True(boundary.CompleteSleep(generationId));
+        Assert.True(repository.RecordWorldTimeDeferred(boundary.TakePending()));
+
+        var worldTime = repository.Current.Statistics.WorldTime;
+        Assert.Equal(TimeSpan.FromMinutes(61).Ticks, worldTime.ObservedGameTimeTicks);
+        Assert.Equal(1, worldTime.CompletedSleepSessions);
+        Assert.Equal(TimeSpan.FromHours(1).Ticks, worldTime.SleepAdvancedTimeTicks);
+        var export = StatisticsExporter.Create(
+            repository.Current,
+            new DateTime(2026, 8, 21, 12, 1, 0, DateTimeKind.Utc));
+        Assert.Equal(TimeSpan.FromMinutes(61).Ticks, export.Document.WorldTime.ObservedGameTimeTicks);
+        Assert.Contains(
+            "0,36600000000,3660,1,36000000000,3600,",
+            export.WorldTimeCsv,
+            StringComparison.Ordinal);
+        Assert.Equal("01:01:00", UiText.FormatWorldTimeDuration(
+            export.Document.WorldTime.ObservedGameTimeTicks,
+            export.Document.WorldTime.Capabilities.ObservedElapsed));
+        Assert.Equal("1", UiText.FormatWorldTimeCount(
+            export.Document.WorldTime.CompletedSleepSessions,
+            export.Document.WorldTime.Capabilities.CompletedSleepSessions));
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M12")]
     public void ResetWhileSelectedSlotAwaitsLoadCannotBaselineFromThePriorSlotClock()
     {
         var boundary = new NativeWorldTimeObservationBoundary();
