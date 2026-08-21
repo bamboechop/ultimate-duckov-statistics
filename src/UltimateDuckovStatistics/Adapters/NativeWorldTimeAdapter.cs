@@ -12,7 +12,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v10";
+    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v11";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.world-time-sleep";
     private const string SupportedGameVersion = "2.3.30";
     private readonly Func<string> generationIdProvider;
@@ -32,6 +32,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         WorldTimeNativeContractPolicy.BootstrapProvenance);
     private MethodInfo? sleepAdvanceMethod;
     private HarmonyPatchSetStamp? sleepPatchStamp;
+    private Func<bool>? profileTransitionCleanupBarrier;
     public NativeWorldTimeAdapter(
         Func<string> generationIdProvider,
         Func<WorldTimeMutation, bool> recordHandler,
@@ -116,6 +117,11 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     }
 
     public bool FlushPending() => PublishPending(NowMonotonic(), requestDurability: true);
+
+    public void SetProfileTransitionCleanupBarrier(Func<bool> barrier)
+    {
+        profileTransitionCleanupBarrier = barrier ?? throw new ArgumentNullException(nameof(barrier));
+    }
 
     private bool PublishPending(double monotonicSeconds, bool requestDurability)
     {
@@ -282,6 +288,20 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 
     public bool TryCleanup()
     {
+        if (profileTransitionCleanupBarrier?.Invoke() == false)
+        {
+            DiagnosticOnce(
+                "cleanup-profile-transition",
+                "World-time cleanup remains pending until queued profile transitions can commit their staged clock and sleep mutations.");
+            return false;
+        }
+        if (profileHandoff.HasUncommittedData)
+        {
+            DiagnosticOnce(
+                "cleanup-active-handoff",
+                "World-time cleanup refused to discard uncommitted profile-handoff data.");
+            return false;
+        }
         if (!FlushPending())
         {
             DiagnosticOnce("cleanup-flush", "World-time aggregate cleanup remains pending until the retained mutation is accepted.");
@@ -298,6 +318,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         {
             sleepAdvanceMethod = null;
             sleepPatchStamp = null;
+            profileTransitionCleanupBarrier = null;
             profileHandoff.Reset();
             boundary.ClearPendingSleep();
         }

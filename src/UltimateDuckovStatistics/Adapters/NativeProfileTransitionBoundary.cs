@@ -55,6 +55,22 @@ internal sealed class NativeProfileTransitionBoundary
         }
     }
 
+    public bool Drain(Func<bool>? boundaryObserver, Action<string> diagnosticHandler)
+    {
+        if (diagnosticHandler == null) throw new ArgumentNullException(nameof(diagnosticHandler));
+        while (pending.Count > 0)
+        {
+            var current = pending.Peek();
+            var pendingCount = pending.Count;
+            var nextStep = current.NextStep;
+            Retry(boundaryObserver, diagnosticHandler);
+            if (pending.Count == 0) return true;
+            if (pending.Count < pendingCount || current.NextStep > nextStep) continue;
+            return false;
+        }
+        return true;
+    }
+
     private sealed class PendingTransition
     {
         public PendingTransition(string description, IReadOnlyList<Action> steps)

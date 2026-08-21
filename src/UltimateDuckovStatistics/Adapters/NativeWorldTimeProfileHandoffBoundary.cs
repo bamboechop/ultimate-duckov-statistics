@@ -28,6 +28,15 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
 
     public bool IsActive => mode != HandoffMode.None;
 
+    public bool HasUncommittedData =>
+        stagedBoundary.HasPendingMutation
+        || priorClockBoundary.HasPendingMutation
+        || hasPendingSleep
+        || archivedHandoffs.Any(handoff =>
+            !handoff.Mutation.IsEmpty
+            || !handoff.PriorClockMutation.IsEmpty
+            || handoff.HasPendingSleep);
+
     public bool TryGetActiveTransitionId(out long activeTransitionId)
     {
         activeTransitionId = transitionId;

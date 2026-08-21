@@ -518,6 +518,92 @@ public sealed class WorldTimeObservationTests
 
     [Fact]
     [Trait("Category", "M12")]
+    public void ShutdownDrainPersistsStagedClockAndSleepBeforeCleanup()
+    {
+        using var directory = new TemporaryDirectory();
+        var ids = new Queue<string>(
+            ["generation-a", "session-a", "generation-b", "session-b", "session-b-reopen"]);
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc),
+            ids.Dequeue);
+        var slotA = new SaveIdentitySnapshot { Slot = 1, SaveFilePresent = false };
+        var slotB = new SaveIdentitySnapshot { Slot = 2, SaveFilePresent = false };
+        repository.Open(slotA);
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var handoff = new NativeWorldTimeProfileHandoffBoundary();
+        var profileTransition = new NativeProfileTransitionBoundary();
+        var slotAClock = new object();
+        var slotBClock = new object();
+        var transitionFaulted = true;
+
+        handoff.Observe(repository.CurrentGenerationId, slotAClock, Read(2, 500), boundary);
+        handoff.BeginAwaitingNativeLoad(40, slotAClock, Read(2, 500));
+        Assert.Equal(
+            WorldTimeObservationState.BaselineEstablished,
+            handoff.Observe(repository.CurrentGenerationId, slotBClock, Read(20, 1_000), boundary)!.Value.State);
+        Assert.True(handoff.Observe(
+            repository.CurrentGenerationId,
+            slotBClock,
+            Read(20, 4_600),
+            boundary)!.Value.Accepted);
+        Assert.True(handoff.BeginSleepCompletion(40, TimeSpan.FromHours(1).Ticks));
+        Assert.True(handoff.CompleteSleep());
+
+        profileTransition.Enqueue(
+            "shutdown slot transition",
+            () =>
+            {
+                if (transitionFaulted) throw new IOException("temporary profile writer failure");
+            },
+            () => repository.Open(slotB, "SaveSlotSelected"),
+            () =>
+            {
+                Assert.True(handoff.CompleteProfileChange(
+                    40,
+                    repository.CurrentGenerationId,
+                    boundary,
+                    currentReading: null,
+                    out _,
+                    out var completedSleepTransferred));
+                Assert.True(completedSleepTransferred);
+                repository.SetWorldTimeCapabilities(WorldTimeNativeContractPolicy.Supported("clock", "sleep"));
+            });
+
+        Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
+        Assert.True(handoff.HasUncommittedData);
+        transitionFaulted = false;
+
+        // Cleanup performs the drain directly; no Update retry occurs after the fault clears.
+        Assert.True(profileTransition.Drain(
+            () => boundary.FlushPending(repository.RecordWorldTimeDeferred),
+            _ => { }));
+        Assert.False(handoff.HasUncommittedData);
+        Assert.True(boundary.FlushPending(repository.RecordWorldTimeDeferred));
+        repository.Flush();
+
+        // Idempotent cleanup cannot publish the transferred mutation twice.
+        Assert.True(profileTransition.Drain(
+            () => boundary.FlushPending(repository.RecordWorldTimeDeferred),
+            _ => { }));
+        Assert.True(boundary.FlushPending(repository.RecordWorldTimeDeferred));
+        repository.Flush();
+        repository.CloseClean();
+
+        var reopened = new ProfileRepository(
+            directory.Path,
+            () => new DateTime(2026, 8, 21, 12, 1, 0, DateTimeKind.Utc),
+            ids.Dequeue);
+        reopened.Open(slotB);
+        var worldTime = reopened.Current.Statistics.WorldTime;
+        Assert.Equal(TimeSpan.FromHours(1).Ticks, worldTime.ObservedGameTimeTicks);
+        Assert.Equal(1, worldTime.CompletedSleepSessions);
+        Assert.Equal(TimeSpan.FromHours(1).Ticks, worldTime.SleepAdvancedTimeTicks);
+        reopened.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M12")]
     public void DeferredAToBThenQueuedBSelectionReusesTheLoadedBClock()
     {
         using var directory = new TemporaryDirectory();

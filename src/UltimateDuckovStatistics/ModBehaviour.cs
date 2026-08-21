@@ -110,6 +110,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             profileCoordinator.WorldTimeProfileChangeCompleted += newWorldTimeAdapter.CompleteProfileChange;
             profileCoordinator.WorldTimeSameProfileReopenCompleted += newWorldTimeAdapter.CompleteProfileChangeWithCurrentClock;
             profileCoordinator.WorldTimeProfileChangedWithCurrentClock += newWorldTimeAdapter.ResetForProfileChangeWithCurrentClock;
+            newWorldTimeAdapter.SetProfileTransitionCleanupBarrier(profileCoordinator.DrainPendingProfileTransitions);
             var economyFlowPublication = new EconomyFlowPublication(
                 profileCoordinator.HandleCurrencyFlow,
                 flow => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true,
@@ -305,6 +306,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void OnApplicationQuit()
     {
+        DrainPendingProfileTransitions("application quit");
         FlushPendingEconomy("application quit");
         FlushPendingWorldTime("application quit");
         runLifecycleAdapter.OwnedValue?.FlushCheckpoint();
@@ -324,6 +326,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Cleanup()
     {
+        var profileTransitionsDrained = DrainPendingProfileTransitions("deactivation");
         FlushPendingEconomy("deactivation");
         FlushPendingWorldTime("deactivation");
         var ownedRunLifecycleAdapter = runLifecycleAdapter.OwnedValue;
@@ -332,7 +335,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         {
             if (ownedRunLifecycleAdapter != null)
                 profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
-            if (worldTimeAdapter.OwnedValue != null)
+            if (profileTransitionsDrained && worldTimeAdapter.OwnedValue != null)
             {
                 profileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted -= worldTimeAdapter.OwnedValue.BeginProfileChangeAwaitingNativeLoad;
                 profileCoordinator.WorldTimeNewGameProfileChangeStarted -= worldTimeAdapter.OwnedValue.BeginNewGameProfileChange;
@@ -410,6 +413,23 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         profileCoordinator = null;
         NativeHotPathDiagnostics.WriteSummary(message => Debug.Log($"{LogPrefix} {message}"));
         initialized = false;
+    }
+
+    private bool DrainPendingProfileTransitions(string boundary)
+    {
+        try
+        {
+            if (profileCoordinator?.DrainPendingProfileTransitions() != false) return true;
+            Debug.LogWarning(
+                $"{LogPrefix} queued profile transitions remain pending during {boundary}; "
+                + "world-time cleanup will retain their staged data for retry.");
+            return false;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            return false;
+        }
     }
 
     private void FlushPendingEconomy(string boundary)

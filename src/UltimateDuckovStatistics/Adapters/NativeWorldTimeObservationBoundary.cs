@@ -12,6 +12,12 @@ internal sealed class NativeWorldTimeObservationBoundary
     private long completedSleepSessions;
     private long sleepAdvancedTicks;
 
+    public bool HasPendingMutation =>
+        calendarDays != 0
+        || observedTicks != 0
+        || completedSleepSessions != 0
+        || sleepAdvancedTicks != 0;
+
     public WorldTimeObservationResult ObserveClock(string generationId, WorldClockReading reading)
     {
         var result = tracker.Observe(generationId, reading);

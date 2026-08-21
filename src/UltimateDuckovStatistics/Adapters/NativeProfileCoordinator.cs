@@ -379,6 +379,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
         FlushProfileTransitionBoundaries,
         message => WriteDiagnostic(message, "Error"));
 
+    public bool DrainPendingProfileTransitions() => profileTransitionBoundary.Drain(
+        FlushProfileTransitionBoundaries,
+        message => WriteDiagnostic(message, "Error"));
+
     public bool HandleCurrencyFlow(CurrencyFlowRecorded flow)
     {
         if (flow == null) throw new ArgumentNullException(nameof(flow));
