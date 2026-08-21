@@ -94,23 +94,27 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 return;
             }
 
-            profileCoordinator = new NativeProfileCoordinator();
-            profileCoordinator.Initialize();
+            var newProfileCoordinator = new NativeProfileCoordinator();
+            profileCoordinator = newProfileCoordinator;
+            newProfileCoordinator.Initialize();
+            var worldTimeGenerationProvider = NativeWorldTimeProfileBinding.CaptureGenerationProvider(
+                newProfileCoordinator,
+                static coordinator => coordinator.CurrentGenerationId);
             var newWorldTimeAdapter = new NativeWorldTimeAdapter(
-                () => profileCoordinator.CurrentGenerationId,
-                profileCoordinator.HandleWorldTime,
-                profileCoordinator.RequestWorldTimePersistence,
-                profileCoordinator.SetWorldTimeCapabilities,
+                worldTimeGenerationProvider,
+                newProfileCoordinator.HandleWorldTime,
+                newProfileCoordinator.RequestWorldTimePersistence,
+                newProfileCoordinator.SetWorldTimeCapabilities,
                 message => Debug.Log($"{LogPrefix} {message}"));
             worldTimeAdapter.Assign(newWorldTimeAdapter);
             newWorldTimeAdapter.Initialize();
-            profileCoordinator.SetWorldTimeBoundaryBarrier(newWorldTimeAdapter.FlushPending);
-            profileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted += newWorldTimeAdapter.BeginProfileChangeAwaitingNativeLoad;
-            profileCoordinator.WorldTimeNewGameProfileChangeStarted += newWorldTimeAdapter.BeginNewGameProfileChange;
-            profileCoordinator.WorldTimeProfileChangeCompleted += newWorldTimeAdapter.CompleteProfileChange;
-            profileCoordinator.WorldTimeSameProfileReopenCompleted += newWorldTimeAdapter.CompleteProfileChangeWithCurrentClock;
-            profileCoordinator.WorldTimeProfileChangedWithCurrentClock += newWorldTimeAdapter.ResetForProfileChangeWithCurrentClock;
-            newWorldTimeAdapter.SetProfileTransitionCleanupBarrier(profileCoordinator.DrainPendingProfileTransitions);
+            newProfileCoordinator.SetWorldTimeBoundaryBarrier(newWorldTimeAdapter.FlushPending);
+            newProfileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted += newWorldTimeAdapter.BeginProfileChangeAwaitingNativeLoad;
+            newProfileCoordinator.WorldTimeNewGameProfileChangeStarted += newWorldTimeAdapter.BeginNewGameProfileChange;
+            newProfileCoordinator.WorldTimeProfileChangeCompleted += newWorldTimeAdapter.CompleteProfileChange;
+            newProfileCoordinator.WorldTimeSameProfileReopenCompleted += newWorldTimeAdapter.CompleteProfileChangeWithCurrentClock;
+            newProfileCoordinator.WorldTimeProfileChangedWithCurrentClock += newWorldTimeAdapter.ResetForProfileChangeWithCurrentClock;
+            newWorldTimeAdapter.SetProfileTransitionCleanupBarrier(newProfileCoordinator.DrainPendingProfileTransitions);
             var economyFlowPublication = new EconomyFlowPublication(
                 profileCoordinator.HandleCurrencyFlow,
                 flow => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true,
