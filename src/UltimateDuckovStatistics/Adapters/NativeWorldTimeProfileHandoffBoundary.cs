@@ -19,6 +19,8 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
     private WorldClockReading latestStagedReading;
     private bool hasStagedReading;
     private bool targetProfileReady;
+    private long currentClockReuseDependencyTransitionId;
+    private bool currentClockReuseBlocked;
     private long pendingSleepTransitionId;
     private long pendingSleepAdvancedTicks;
     private bool hasPendingSleep;
@@ -139,12 +141,17 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         completedSleepTransferred = false;
 
         if (mode != HandoffMode.None && completedTransitionId == transitionId)
-            return CompleteActiveProfileChange(
+        {
+            var requiresReplacementClock = mode == HandoffMode.AwaitingNativeLoad && !hasStagedReading;
+            var completed = CompleteActiveProfileChange(
                 generationId,
                 currentBoundary,
                 currentReading,
                 out completionObservation,
                 out completedSleepTransferred);
+            ResolveCurrentClockReuseDependency(completedTransitionId, requiresReplacementClock);
+            return completed;
+        }
 
         var archivedIndex = archivedHandoffs.FindIndex(handoff => handoff.TransitionId == completedTransitionId);
         if (archivedIndex < 0) return false;
@@ -153,6 +160,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         if (!archived.HasStagedReading)
         {
             archivedHandoffs.RemoveAt(archivedIndex);
+            ResolveCurrentClockReuseDependency(completedTransitionId, requiresReplacementClock: true);
             return true;
         }
 
@@ -169,6 +177,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
             generationId,
             currentBoundary);
         archivedHandoffs.RemoveAt(archivedIndex);
+        ResolveCurrentClockReuseDependency(completedTransitionId, requiresReplacementClock: false);
         return true;
     }
 
@@ -190,12 +199,28 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
             if (loadedClockInstance != null
                 && currentClockInstance != null
                 && ReferenceEquals(currentClockInstance, loadedClockInstance))
-                return CompleteActiveProfileChange(
+            {
+                var completed = CompleteActiveProfileChange(
                     generationId,
                     currentBoundary,
                     currentReading,
                     out completionObservation,
                     out completedSleepTransferred);
+                ResolveCurrentClockReuseDependency(completedTransitionId, requiresReplacementClock: false);
+                return completed;
+            }
+
+            if (!CanReuseCapturedCurrentClock())
+            {
+                var completed = CompleteActiveProfileChange(
+                    generationId,
+                    currentBoundary,
+                    currentReading: null,
+                    out completionObservation,
+                    out completedSleepTransferred);
+                ResolveCurrentClockReuseDependency(completedTransitionId, requiresReplacementClock: true);
+                return completed;
+            }
 
             if (currentReading.HasValue
                 && currentClockInstance != null
@@ -218,6 +243,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
                 pendingSleepAdvancedTicks,
                 generationId,
                 currentBoundary);
+            ResolveCurrentClockReuseDependency(completedTransitionId, requiresReplacementClock: false);
             ResetActiveState();
             return true;
         }
@@ -225,6 +251,31 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         var archivedIndex = archivedHandoffs.FindIndex(handoff => handoff.TransitionId == completedTransitionId);
         if (archivedIndex < 0) return false;
         var archived = archivedHandoffs[archivedIndex];
+        if (!CanReuseCapturedCurrentClock(archived))
+        {
+            currentBoundary.Reset();
+            if (archived.HasStagedReading)
+            {
+                completionObservation = currentBoundary.ResetAndEstablishBaseline(
+                    generationId,
+                    archived.LatestStagedReading);
+                currentBoundary.RestorePending(archived.Mutation);
+                completedSleepTransferred = archived.Mutation.CompletedSleepSessions != 0;
+                TransferPendingSleep(
+                    archived.HasPendingSleep,
+                    archived.TransitionId,
+                    completedTransitionId,
+                    archived.PendingSleepAdvancedTicks,
+                    generationId,
+                    currentBoundary);
+            }
+            archivedHandoffs.RemoveAt(archivedIndex);
+            ResolveCurrentClockReuseDependency(
+                completedTransitionId,
+                requiresReplacementClock: !archived.HasStagedReading);
+            return true;
+        }
+
         var archivedCombined = Add(archived.PriorClockMutation, archived.Mutation);
         completionObservation = RestoreSameClockState(
             generationId,
@@ -241,6 +292,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
             generationId,
             currentBoundary);
         archivedHandoffs.RemoveAt(archivedIndex);
+        ResolveCurrentClockReuseDependency(completedTransitionId, requiresReplacementClock: false);
         return true;
     }
 
@@ -311,11 +363,25 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
             || archivedHandoffs.Any(handoff => handoff.TransitionId == activeTransitionId))
             throw new InvalidOperationException($"World-time profile transition {activeTransitionId} is already staged.");
 
+        var currentClockReuseDependency = 0L;
+        var blockCurrentClockReuse = false;
+        if (newMode == HandoffMode.AwaitingNativeLoad
+            && mode == HandoffMode.AwaitingNativeLoad
+            && loadedClockInstance == null)
+        {
+            if (targetProfileReady)
+                blockCurrentClockReuse = true;
+            else
+                currentClockReuseDependency = transitionId;
+        }
+
         if (mode != HandoffMode.None && !targetProfileReady)
             ArchiveActiveHandoff();
         ResetActiveState();
         transitionId = activeTransitionId;
         mode = newMode;
+        currentClockReuseDependencyTransitionId = currentClockReuseDependency;
+        currentClockReuseBlocked = blockCurrentClockReuse;
     }
 
     private void ArchiveActiveHandoff()
@@ -328,6 +394,8 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
             hasStagedReading,
             latestPriorClockReading,
             hasPriorClockReading,
+            currentClockReuseDependencyTransitionId,
+            currentClockReuseBlocked,
             pendingSleepAdvancedTicks,
             hasPendingSleep));
     }
@@ -359,7 +427,31 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         latestStagedReading = default;
         hasStagedReading = false;
         targetProfileReady = false;
+        currentClockReuseDependencyTransitionId = 0;
+        currentClockReuseBlocked = false;
         ClearPendingSleep();
+    }
+
+    private bool CanReuseCapturedCurrentClock() =>
+        currentClockReuseDependencyTransitionId == 0 && !currentClockReuseBlocked;
+
+    private static bool CanReuseCapturedCurrentClock(ArchivedHandoff handoff) =>
+        handoff.CurrentClockReuseDependencyTransitionId == 0 && !handoff.CurrentClockReuseBlocked;
+
+    private void ResolveCurrentClockReuseDependency(long completedTransitionId, bool requiresReplacementClock)
+    {
+        if (currentClockReuseDependencyTransitionId == completedTransitionId)
+        {
+            currentClockReuseDependencyTransitionId = 0;
+            currentClockReuseBlocked |= requiresReplacementClock;
+        }
+
+        foreach (var handoff in archivedHandoffs)
+        {
+            if (handoff.CurrentClockReuseDependencyTransitionId != completedTransitionId) continue;
+            handoff.CurrentClockReuseDependencyTransitionId = 0;
+            handoff.CurrentClockReuseBlocked |= requiresReplacementClock;
+        }
     }
 
     private void ClearPendingSleep()
@@ -419,6 +511,8 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
             bool hasStagedReading,
             WorldClockReading latestPriorClockReading,
             bool hasPriorClockReading,
+            long currentClockReuseDependencyTransitionId,
+            bool currentClockReuseBlocked,
             long pendingSleepAdvancedTicks,
             bool hasPendingSleep)
         {
@@ -429,6 +523,8 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
             HasStagedReading = hasStagedReading;
             LatestPriorClockReading = latestPriorClockReading;
             HasPriorClockReading = hasPriorClockReading;
+            CurrentClockReuseDependencyTransitionId = currentClockReuseDependencyTransitionId;
+            CurrentClockReuseBlocked = currentClockReuseBlocked;
             PendingSleepAdvancedTicks = pendingSleepAdvancedTicks;
             HasPendingSleep = hasPendingSleep;
         }
@@ -440,6 +536,8 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         public bool HasStagedReading { get; }
         public WorldClockReading LatestPriorClockReading { get; }
         public bool HasPriorClockReading { get; }
+        public long CurrentClockReuseDependencyTransitionId { get; set; }
+        public bool CurrentClockReuseBlocked { get; set; }
         public long PendingSleepAdvancedTicks { get; }
         public bool HasPendingSleep { get; private set; }
 

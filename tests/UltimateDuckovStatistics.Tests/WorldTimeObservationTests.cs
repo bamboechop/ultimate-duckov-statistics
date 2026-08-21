@@ -330,6 +330,150 @@ public sealed class WorldTimeObservationTests
 
     [Fact]
     [Trait("Category", "M12")]
+    public void NestedBackupRecoverySetFileCannotReuseThePriorSlotClock()
+    {
+        using var directory = new TemporaryDirectory();
+        var ids = new Queue<string>(
+            ["generation-a", "session-a", "generation-b", "session-b", "session-b-reopen"]);
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc),
+            ids.Dequeue);
+        var slotA = new SaveIdentitySnapshot { Slot = 1, SaveFilePresent = false };
+        var slotB = new SaveIdentitySnapshot { Slot = 2, SaveFilePresent = false };
+        repository.Open(slotA);
+        repository.SetWorldTimeCapabilities(WorldTimeNativeContractPolicy.Supported("clock", "sleep"));
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var handoff = new NativeWorldTimeProfileHandoffBoundary();
+        var profileTransition = new NativeProfileTransitionBoundary();
+        var slotAClock = new object();
+        var slotBClock = new object();
+        var reuseDecisions = new List<bool>();
+        NativeWorldTimeProfilePreOpenState? innerPreOpenState = null;
+        NativeWorldTimeProfilePreOpenState? outerPreOpenState = null;
+
+        boundary.ObserveClock(repository.CurrentGenerationId, Read(2, 500));
+
+        // RestoreIndexedBackup raises the inner callback while Duckov's outer SetFile(B) is still active.
+        handoff.BeginAwaitingNativeLoad(20, slotAClock, Read(2, 500));
+        profileTransition.Enqueue(
+            "backup recovery inner OnSetFile",
+            () => innerPreOpenState = NativeWorldTimeProfileReopenPolicy.CapturePreOpenState(
+                repository,
+                slotB,
+                _ => slotA),
+            () =>
+            {
+                NativeWorldTimeProfileReopenPolicy.OpenAndDetermineCurrentClockReuse(
+                    repository,
+                    slotB,
+                    innerPreOpenState!,
+                    "SaveSlotSelected",
+                    out var reuseCurrentClock);
+                reuseDecisions.Add(reuseCurrentClock);
+            },
+            () => Assert.True(handoff.CompleteProfileChange(
+                20,
+                repository.CurrentGenerationId,
+                boundary,
+                currentReading: null,
+                out _,
+                out _)));
+
+        // The outer callback arrives before B has replaced A's GameClock.Instance.
+        handoff.BeginAwaitingNativeLoad(21, slotAClock, Read(2, 500));
+        profileTransition.Enqueue(
+            "outer OnSetFile",
+            () => outerPreOpenState = NativeWorldTimeProfileReopenPolicy.CapturePreOpenState(
+                repository,
+                slotB,
+                _ => slotA),
+            () =>
+            {
+                NativeWorldTimeProfileReopenPolicy.OpenAndDetermineCurrentClockReuse(
+                    repository,
+                    slotB,
+                    outerPreOpenState!,
+                    "SaveSlotSelected",
+                    out var reuseCurrentClock);
+                reuseDecisions.Add(reuseCurrentClock);
+            },
+            () => Assert.True(handoff.CompleteProfileChangeWithCurrentClock(
+                21,
+                repository.CurrentGenerationId,
+                boundary,
+                slotAClock,
+                Read(2, 500),
+                out _,
+                out _)));
+
+        Assert.Null(handoff.Observe(repository.CurrentGenerationId, slotAClock, Read(2, 505), boundary));
+        Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
+        Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
+        Assert.Equal([false, true], reuseDecisions);
+        Assert.Equal(2, repository.Current.Slot);
+        Assert.True(handoff.IsActive);
+        Assert.Null(handoff.Observe(repository.CurrentGenerationId, slotAClock, Read(2, 510), boundary));
+
+        Assert.Equal(
+            WorldTimeObservationState.BaselineEstablished,
+            handoff.Observe(repository.CurrentGenerationId, slotBClock, Read(20, 1_000), boundary)!.Value.State);
+        Assert.False(handoff.IsActive);
+        Assert.True(handoff.Observe(
+            repository.CurrentGenerationId,
+            slotBClock,
+            Read(20, 1_005),
+            boundary)!.Value.Accepted);
+        var mutation = boundary.TakePending();
+        Assert.Equal(0, mutation.CalendarDaysAdvanced);
+        Assert.Equal(5 * Second, mutation.ObservedGameTimeTicks);
+        repository.SetWorldTimeCapabilities(WorldTimeNativeContractPolicy.Supported("clock", "sleep"));
+        Assert.True(repository.RecordWorldTimeDeferred(mutation));
+        Assert.Equal(5 * Second, repository.Current.Statistics.WorldTime.ObservedGameTimeTicks);
+        Assert.Equal(
+            AdapterCapabilityState.Supported,
+            repository.Current.Statistics.WorldTime.Capabilities.ObservedElapsed.State);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M12")]
+    public void NestedSameProfileCallbacksCanStillReuseTheHydratedClock()
+    {
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var handoff = new NativeWorldTimeProfileHandoffBoundary();
+        var clock = new object();
+
+        boundary.ObserveClock("slot-a", Read(2, 500));
+        handoff.BeginAwaitingNativeLoad(30, clock, Read(2, 500));
+        Assert.Null(handoff.Observe("slot-a", clock, Read(2, 510), boundary));
+        handoff.BeginAwaitingNativeLoad(31, clock, Read(2, 510));
+        Assert.Null(handoff.Observe("slot-a", clock, Read(2, 520), boundary));
+
+        Assert.True(handoff.CompleteProfileChangeWithCurrentClock(
+            30,
+            "slot-a",
+            boundary,
+            clock,
+            Read(2, 520),
+            out _,
+            out _));
+        Assert.True(handoff.CompleteProfileChangeWithCurrentClock(
+            31,
+            "slot-a",
+            boundary,
+            clock,
+            Read(2, 520),
+            out _,
+            out _));
+
+        Assert.False(handoff.IsActive);
+        Assert.True(handoff.Observe("slot-a", clock, Read(2, 530), boundary)!.Value.Accepted);
+        Assert.Equal(30 * Second, boundary.TakePending().ObservedGameTimeTicks);
+    }
+
+    [Fact]
+    [Trait("Category", "M12")]
     public void DeferredAToBThenQueuedBSelectionReusesTheLoadedBClock()
     {
         using var directory = new TemporaryDirectory();
