@@ -4,12 +4,10 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal static class NativeWorldTimeProfileReopenPolicy
 {
-    public static ProfileOpenResult OpenAndDetermineCurrentClockReuse(
+    public static NativeWorldTimeProfilePreOpenState CapturePreOpenState(
         ProfileRepository repository,
         SaveIdentitySnapshot observedIdentity,
-        Func<int, SaveIdentitySnapshot> readIdentity,
-        string creationReason,
-        out bool canReuseCurrentClock)
+        Func<int, SaveIdentitySnapshot> readIdentity)
     {
         if (repository == null) throw new ArgumentNullException(nameof(repository));
         if (observedIdentity == null) throw new ArgumentNullException(nameof(observedIdentity));
@@ -18,14 +16,27 @@ internal static class NativeWorldTimeProfileReopenPolicy
         var priorSlot = repository.Current.Slot;
         if (priorSlot != observedIdentity.Slot)
             repository.RefreshIdentity(readIdentity(priorSlot));
-        var priorGenerationId = repository.CurrentGenerationId;
+        return new NativeWorldTimeProfilePreOpenState(priorSlot, repository.CurrentGenerationId);
+    }
+
+    public static ProfileOpenResult OpenAndDetermineCurrentClockReuse(
+        ProfileRepository repository,
+        SaveIdentitySnapshot observedIdentity,
+        NativeWorldTimeProfilePreOpenState preOpenState,
+        string creationReason,
+        out bool canReuseCurrentClock)
+    {
+        if (repository == null) throw new ArgumentNullException(nameof(repository));
+        if (observedIdentity == null) throw new ArgumentNullException(nameof(observedIdentity));
+        if (preOpenState == null) throw new ArgumentNullException(nameof(preOpenState));
+
         var result = repository.Open(observedIdentity, creationReason);
         canReuseCurrentClock = CanReuseCurrentClock(
             result,
             observedIdentity.Slot,
-            priorSlot,
+            preOpenState.Slot,
             repository.CurrentGenerationId,
-            priorGenerationId);
+            preOpenState.GenerationId);
         return result;
     }
 
@@ -42,4 +53,17 @@ internal static class NativeWorldTimeProfileReopenPolicy
             && !result.CreatedNew
             && !result.RotatedGeneration;
     }
+}
+
+internal sealed class NativeWorldTimeProfilePreOpenState
+{
+    public NativeWorldTimeProfilePreOpenState(int slot, string generationId)
+    {
+        Slot = slot;
+        GenerationId = generationId;
+    }
+
+    public int Slot { get; }
+
+    public string GenerationId { get; }
 }

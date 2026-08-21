@@ -546,6 +546,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             var activeRepository = repository
                 ?? throw new InvalidOperationException("No profile repository is active.");
             var observed = ReadIdentity();
+            NativeWorldTimeProfilePreOpenState? preOpenState = null;
             ProfileOpenResult? result = null;
             var sameProfileReopened = false;
             var worldTimeTransitionId = NextWorldTimeTransitionId();
@@ -558,12 +559,17 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 WaitRunCheckpoint,
                 DrainProfileWriter,
                 () => saveResetAwaitingNewGameReport = false,
+                () => preOpenState = NativeWorldTimeProfileReopenPolicy.CapturePreOpenState(
+                    activeRepository,
+                    observed,
+                    ReadIdentity),
                 () =>
                 {
                     result = NativeWorldTimeProfileReopenPolicy.OpenAndDetermineCurrentClockReuse(
                         activeRepository,
                         observed,
-                        ReadIdentity,
+                        preOpenState
+                            ?? throw new InvalidOperationException("Selected-profile pre-open state was not captured."),
                         "SaveSlotSelected",
                         out sameProfileReopened);
                 },

@@ -210,6 +210,126 @@ public sealed class WorldTimeObservationTests
 
     [Fact]
     [Trait("Category", "M12")]
+    public void PartialOpenFailurePreservesTheFrozenChangedProfileDecisionUntilRetry()
+    {
+        using var directory = new TemporaryDirectory();
+        var ids = new Queue<string>(["generation-a", "session-a", "generation-b", "session-b-failed", "session-b-retry"]);
+        var sessionPath = Path.Combine(
+            directory.Path,
+            "profiles",
+            "slot-02",
+            "current",
+            "session.json");
+        var blockedSessionTemporaryPath = AtomicJsonPaths.GetTemporaryPath(sessionPath);
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc),
+            () =>
+            {
+                var id = ids.Dequeue();
+                if (id == "session-b-failed") Directory.CreateDirectory(blockedSessionTemporaryPath);
+                return id;
+            });
+        var slotA = new SaveIdentitySnapshot { Slot = 1, SaveFilePresent = false };
+        var slotB = new SaveIdentitySnapshot { Slot = 2, SaveFilePresent = false };
+        repository.Open(slotA);
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var handoff = new NativeWorldTimeProfileHandoffBoundary();
+        var profileTransition = new NativeProfileTransitionBoundary();
+        var slotAClock = new object();
+        var slotBClock = new object();
+        var identityReads = new List<int>();
+        NativeWorldTimeProfilePreOpenState? preOpenState = null;
+        ProfileOpenResult? openResult = null;
+        bool? reuseCurrentClock = null;
+
+        boundary.ObserveClock(repository.CurrentGenerationId, Read(2, 500));
+        handoff.BeginAwaitingNativeLoad(12, slotAClock, Read(2, 500));
+        profileTransition.Enqueue(
+            "A to B with partial open failure",
+            () => preOpenState = NativeWorldTimeProfileReopenPolicy.CapturePreOpenState(
+                repository,
+                slotB,
+                slot =>
+                {
+                    identityReads.Add(slot);
+                    return slotA;
+                }),
+            () =>
+            {
+                var result = NativeWorldTimeProfileReopenPolicy.OpenAndDetermineCurrentClockReuse(
+                    repository,
+                    slotB,
+                    preOpenState!,
+                    "SaveSlotSelected",
+                    out var reuse);
+                openResult = result;
+                reuseCurrentClock = reuse;
+            },
+            () =>
+            {
+                var completed = reuseCurrentClock == true
+                    ? handoff.CompleteProfileChangeWithCurrentClock(
+                        12,
+                        repository.CurrentGenerationId,
+                        boundary,
+                        slotAClock,
+                        Read(2, 500),
+                        out _,
+                        out _)
+                    : handoff.CompleteProfileChange(
+                        12,
+                        repository.CurrentGenerationId,
+                        boundary,
+                        Read(2, 500),
+                        out _,
+                        out _);
+                Assert.True(completed);
+            });
+
+        Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
+        Assert.Equal(1, preOpenState!.Slot);
+        Assert.Equal("generation-a", preOpenState.GenerationId);
+        Assert.Equal(2, repository.Current.Slot);
+        Assert.Equal("generation-b", repository.CurrentGenerationId);
+        Assert.Null(openResult);
+        Assert.Null(reuseCurrentClock);
+        Assert.True(handoff.IsActive);
+        Assert.True(Directory.Exists(blockedSessionTemporaryPath));
+
+        Directory.Delete(blockedSessionTemporaryPath);
+        Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
+        Assert.NotNull(openResult);
+        Assert.False(openResult.CreatedNew);
+        Assert.False(openResult.RotatedGeneration);
+        Assert.False(reuseCurrentClock);
+        Assert.Equal([1], identityReads);
+        Assert.True(handoff.IsActive);
+        Assert.Null(handoff.Observe(repository.CurrentGenerationId, slotAClock, Read(2, 505), boundary));
+
+        Assert.Equal(
+            WorldTimeObservationState.BaselineEstablished,
+            handoff.Observe(repository.CurrentGenerationId, slotBClock, Read(20, 1_000), boundary)!.Value.State);
+        Assert.False(handoff.IsActive);
+        Assert.True(handoff.Observe(
+            repository.CurrentGenerationId,
+            slotBClock,
+            Read(20, 1_005),
+            boundary)!.Value.Accepted);
+        var mutation = boundary.TakePending();
+        Assert.Equal(0, mutation.CalendarDaysAdvanced);
+        Assert.Equal(5 * Second, mutation.ObservedGameTimeTicks);
+        repository.SetWorldTimeCapabilities(WorldTimeNativeContractPolicy.Supported("clock", "sleep"));
+        Assert.True(repository.RecordWorldTimeDeferred(mutation));
+        Assert.Equal(5 * Second, repository.Current.Statistics.WorldTime.ObservedGameTimeTicks);
+        Assert.Equal(
+            AdapterCapabilityState.Supported,
+            repository.Current.Statistics.WorldTime.Capabilities.ObservedElapsed.State);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M12")]
     public void DeferredAToBThenQueuedBSelectionReusesTheLoadedBClock()
     {
         using var directory = new TemporaryDirectory();
@@ -231,6 +351,8 @@ public sealed class WorldTimeObservationTests
         var failBeforeFirstOpen = true;
         var identityReads = new List<int>();
         var reuseDecisions = new List<bool>();
+        NativeWorldTimeProfilePreOpenState? slotBPreOpenState = null;
+        NativeWorldTimeProfilePreOpenState? slotBAgainPreOpenState = null;
 
         SaveIdentitySnapshot ReadIdentityForSlot(int slot)
         {
@@ -255,12 +377,16 @@ public sealed class WorldTimeObservationTests
                     throw new IOException("locked profile snapshot");
                 }
             },
+            () => slotBPreOpenState = NativeWorldTimeProfileReopenPolicy.CapturePreOpenState(
+                repository,
+                slotB,
+                ReadIdentityForSlot),
             () =>
             {
                 NativeWorldTimeProfileReopenPolicy.OpenAndDetermineCurrentClockReuse(
                     repository,
                     slotB,
-                    ReadIdentityForSlot,
+                    slotBPreOpenState!,
                     "SaveSlotSelected",
                     out var reuseCurrentClock);
                 reuseDecisions.Add(reuseCurrentClock);
@@ -289,12 +415,16 @@ public sealed class WorldTimeObservationTests
         handoff.BeginAwaitingNativeLoad(11, slotBClock, Read(20, 1_000));
         profileTransition.Enqueue(
             "B again",
+            () => slotBAgainPreOpenState = NativeWorldTimeProfileReopenPolicy.CapturePreOpenState(
+                repository,
+                slotB,
+                ReadIdentityForSlot),
             () =>
             {
                 NativeWorldTimeProfileReopenPolicy.OpenAndDetermineCurrentClockReuse(
                     repository,
                     slotB,
-                    ReadIdentityForSlot,
+                    slotBAgainPreOpenState!,
                     "SaveSlotSelected",
                     out var reuseCurrentClock);
                 reuseDecisions.Add(reuseCurrentClock);
