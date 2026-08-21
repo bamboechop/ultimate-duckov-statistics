@@ -604,6 +604,94 @@ public sealed class WorldTimeObservationTests
 
     [Fact]
     [Trait("Category", "M12")]
+    public void ShutdownAfterChangedProfileCommitDiscardsPriorClockBufferAndClosesSessionCleanly()
+    {
+        using var directory = new TemporaryDirectory();
+        var ids = new Queue<string>(
+            ["generation-a", "session-a", "generation-b", "session-b", "session-b-reopen"]);
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc),
+            ids.Dequeue);
+        var slotA = new SaveIdentitySnapshot { Slot = 1, SaveFilePresent = false };
+        var slotB = new SaveIdentitySnapshot { Slot = 2, SaveFilePresent = false };
+        repository.Open(slotA);
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var handoff = new NativeWorldTimeProfileHandoffBoundary();
+        var profileTransition = new NativeProfileTransitionBoundary();
+        var slotAClock = new object();
+        var transitionFaulted = true;
+        var slotBSessionPath = Path.Combine(
+            directory.Path,
+            "profiles",
+            "slot-02",
+            "current",
+            "session.json");
+
+        handoff.Observe(repository.CurrentGenerationId, slotAClock, Read(2, 500), boundary);
+        handoff.BeginAwaitingNativeLoad(41, slotAClock, Read(2, 500));
+        Assert.Null(handoff.Observe(
+            repository.CurrentGenerationId,
+            slotAClock,
+            Read(2, 560),
+            boundary));
+
+        profileTransition.Enqueue(
+            "shutdown slot transition without replacement clock",
+            () =>
+            {
+                if (transitionFaulted) throw new IOException("temporary profile writer failure");
+            },
+            () => repository.Open(slotB, "SaveSlotSelected"),
+            () => Assert.True(handoff.CompleteProfileChange(
+                41,
+                repository.CurrentGenerationId,
+                boundary,
+                currentReading: null,
+                out _,
+                out _)));
+
+        Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
+        Assert.True(handoff.HasUncommittedData);
+        transitionFaulted = false;
+
+        // Cleanup drains the changed-profile commit before any B clock instance has loaded.
+        Assert.True(profileTransition.Drain(
+            () => boundary.FlushPending(repository.RecordWorldTimeDeferred),
+            _ => { }));
+        Assert.True(handoff.IsActive);
+        Assert.False(handoff.HasUncommittedData);
+        Assert.Null(handoff.Observe(
+            repository.CurrentGenerationId,
+            slotAClock,
+            Read(2, 620),
+            boundary));
+        Assert.False(handoff.HasUncommittedData);
+        Assert.True(File.Exists(slotBSessionPath));
+        Assert.True(boundary.FlushPending(repository.RecordWorldTimeDeferred));
+        repository.Flush();
+
+        // Successful adapter cleanup discards only A's now-ineligible buffer, then the
+        // coordinator closes B's UDS session checkpoint normally.
+        handoff.Reset();
+        repository.CloseClean();
+        Assert.False(File.Exists(slotBSessionPath));
+        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(slotBSessionPath)));
+        Assert.False(File.Exists(AtomicJsonPaths.GetTemporaryPath(slotBSessionPath)));
+
+        var reopened = new ProfileRepository(
+            directory.Path,
+            () => new DateTime(2026, 8, 21, 12, 1, 0, DateTimeKind.Utc),
+            ids.Dequeue);
+        var open = reopened.Open(slotB);
+        Assert.False(open.InterruptedSessionRecovered);
+        Assert.Equal(0, reopened.Current.InterruptedSessionCount);
+        Assert.Equal(0, reopened.Current.Statistics.WorldTime.ObservedGameTimeTicks);
+        reopened.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M12")]
     public void DeferredAToBThenQueuedBSelectionReusesTheLoadedBClock()
     {
         using var directory = new TemporaryDirectory();

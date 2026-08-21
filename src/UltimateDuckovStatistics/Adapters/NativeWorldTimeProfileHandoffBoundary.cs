@@ -129,7 +129,7 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         {
             if (ReferenceEquals(clockInstance, priorClockInstance))
             {
-                StagePriorClock(reading);
+                if (!targetProfileReady) StagePriorClock(reading);
                 return null;
             }
             loadedClockInstance = clockInstance;
@@ -356,7 +356,11 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
 
         currentBoundary.Reset();
         targetProfileReady = true;
-        if (!hasStagedReading) return true;
+        if (!hasStagedReading)
+        {
+            DiscardPriorClockBuffer();
+            return true;
+        }
 
         var mutation = stagedBoundary.TakePending();
         var baselineObservation = currentBoundary.ResetAndEstablishBaseline(generationId, latestStagedReading);
@@ -436,6 +440,13 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         latestPriorClockReading = reading;
         hasPriorClockReading = true;
         return priorClockBoundary.ObserveClock(PriorClockGenerationId, reading);
+    }
+
+    private void DiscardPriorClockBuffer()
+    {
+        priorClockBoundary.Reset();
+        latestPriorClockReading = default;
+        hasPriorClockReading = false;
     }
 
     private void ResetActiveState()
