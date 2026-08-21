@@ -90,14 +90,21 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         return true;
     }
 
-    public WorldTimeObservationResult ResetAndEstablishCurrent(
+    public WorldTimeObservationResult? ResetCurrentProfile(
         string generationId,
-        WorldClockReading reading,
-        NativeWorldTimeObservationBoundary currentBoundary)
+        WorldClockReading? currentReading,
+        NativeWorldTimeObservationBoundary currentBoundary,
+        out bool awaitingNativeLoad)
     {
         if (currentBoundary == null) throw new ArgumentNullException(nameof(currentBoundary));
+        awaitingNativeLoad = mode == HandoffMode.AwaitingNativeLoad;
+        currentBoundary.Reset();
+        if (awaitingNativeLoad) return null;
+
         ResetState();
-        return currentBoundary.ResetAndEstablishBaseline(generationId, reading);
+        return currentReading.HasValue
+            ? currentBoundary.ObserveClock(generationId, currentReading.Value)
+            : null;
     }
 
     public void Reset()

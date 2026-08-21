@@ -12,7 +12,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v2";
+    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v3";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.world-time-sleep";
     private const string SupportedGameVersion = "2.3.30";
     private readonly Func<string> generationIdProvider;
@@ -215,17 +215,29 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     {
         var generationId = generationIdProvider();
         persistenceCadence.Start(NowMonotonic());
-        if (GameClock.Instance == null)
+        var currentReading = GameClock.Instance == null ? (WorldClockReading?)null : ReadClock();
+        var observation = profileHandoff.ResetCurrentProfile(
+            generationId,
+            currentReading,
+            boundary,
+            out var awaitingNativeLoad);
+        if (awaitingNativeLoad)
         {
-            profileHandoff.Reset();
-            boundary.Reset();
+            DiagnosticOnce(
+                "profile-reset-preserved-awaiting-load:" + generationId,
+                "World-time statistics reset preserved the selected slot's native-load handoff; the prior slot clock remains ineligible as a baseline.");
+            return;
+        }
+
+        if (!observation.HasValue)
+        {
             DiagnosticOnce(
                 "profile-reset-awaiting-clock:" + generationId,
                 "World-time baseline reset for the active save generation; the next native clock observation will establish its baseline.");
             return;
         }
 
-        HandleObservationResult(profileHandoff.ResetAndEstablishCurrent(generationId, ReadClock(), boundary));
+        HandleObservationResult(observation.Value);
         DiagnosticOnce(
             "profile-reset-current-clock:" + generationId,
             "World-time baseline reset from the already-loaded native clock so subsequent new-game boot advancement remains observable.");

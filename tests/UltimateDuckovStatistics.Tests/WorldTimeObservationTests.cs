@@ -124,6 +124,36 @@ public sealed class WorldTimeObservationTests
 
     [Fact]
     [Trait("Category", "M12")]
+    public void ResetWhileSelectedSlotAwaitsLoadCannotBaselineFromThePriorSlotClock()
+    {
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var handoff = new NativeWorldTimeProfileHandoffBoundary();
+        var priorClock = new object();
+        var selectedClock = new object();
+
+        boundary.ObserveClock("slot-a", Read(2, 500));
+        handoff.BeginAwaitingNativeLoad(3, priorClock);
+        Assert.True(handoff.CompleteProfileChange(3, "slot-b", boundary, null, out _));
+
+        Assert.Null(handoff.ResetCurrentProfile(
+            "slot-b-reset",
+            Read(2, 500),
+            boundary,
+            out var awaitingNativeLoad));
+        Assert.True(awaitingNativeLoad);
+        Assert.Null(handoff.Observe("slot-b-reset", priorClock, Read(2, 560), boundary));
+        Assert.Equal(
+            WorldTimeObservationState.BaselineEstablished,
+            handoff.Observe("slot-b-reset", selectedClock, Read(20, 1_000), boundary)!.Value.State);
+
+        Assert.True(boundary.TakePending().IsEmpty);
+        Assert.Equal(
+            5 * Second,
+            handoff.Observe("slot-b-reset", selectedClock, Read(20, 1_005), boundary)!.Value.Mutation.ObservedGameTimeTicks);
+    }
+
+    [Fact]
+    [Trait("Category", "M12")]
     public void DeferredNewGameTransitionBuffersBootAdvanceUntilTheNewGenerationCommits()
     {
         var boundary = new NativeWorldTimeObservationBoundary();
