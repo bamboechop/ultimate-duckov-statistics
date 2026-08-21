@@ -5,18 +5,26 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal readonly struct NativeSleepPatchState
 {
-    public NativeSleepPatchState(bool valid, string generationId, long beforeCoordinate, long requestedTicks)
+    public NativeSleepPatchState(
+        bool valid,
+        string generationId,
+        long beforeCoordinate,
+        long requestedTicks,
+        long profileTransitionId = 0)
     {
         Valid = valid;
         GenerationId = generationId;
         BeforeCoordinate = beforeCoordinate;
         RequestedTicks = requestedTicks;
+        ProfileTransitionId = profileTransitionId;
     }
 
     public bool Valid { get; }
     public string GenerationId { get; }
     public long BeforeCoordinate { get; }
     public long RequestedTicks { get; }
+    public long ProfileTransitionId { get; }
+    public bool IsProfileHandoff => ProfileTransitionId > 0;
 }
 
 internal static class WorldTimeHarmonyBridge

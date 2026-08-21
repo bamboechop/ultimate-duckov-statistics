@@ -13,8 +13,46 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
     private WorldClockReading latestStagedReading;
     private bool hasStagedReading;
     private bool targetProfileReady;
+    private long pendingSleepTransitionId;
+    private long pendingSleepAdvancedTicks;
+    private bool hasPendingSleep;
 
     public bool IsActive => mode != HandoffMode.None;
+
+    public bool TryGetActiveTransitionId(out long activeTransitionId)
+    {
+        activeTransitionId = transitionId;
+        return mode != HandoffMode.None;
+    }
+
+    public bool BeginSleepCompletion(long activeTransitionId, long advancedTicks)
+    {
+        if (mode == HandoffMode.None
+            || activeTransitionId != transitionId
+            || advancedTicks < 0
+            || hasPendingSleep)
+            return false;
+
+        pendingSleepTransitionId = activeTransitionId;
+        pendingSleepAdvancedTicks = advancedTicks;
+        hasPendingSleep = true;
+        return true;
+    }
+
+    public bool CompleteSleep()
+    {
+        if (!hasPendingSleep
+            || mode == HandoffMode.None
+            || pendingSleepTransitionId != transitionId)
+            return false;
+
+        if (!stagedBoundary.BeginSleepCompletion(StagedGenerationId, pendingSleepAdvancedTicks)
+            || !stagedBoundary.CompleteSleep(StagedGenerationId))
+            return false;
+
+        ClearPendingSleep();
+        return true;
+    }
 
     public void BeginAwaitingNativeLoad(long activeTransitionId, object? currentClockInstance)
     {
@@ -65,10 +103,12 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         string generationId,
         NativeWorldTimeObservationBoundary currentBoundary,
         WorldClockReading? currentReading,
-        out WorldTimeObservationResult? completionObservation)
+        out WorldTimeObservationResult? completionObservation,
+        out bool completedSleepTransferred)
     {
         if (currentBoundary == null) throw new ArgumentNullException(nameof(currentBoundary));
         completionObservation = null;
+        completedSleepTransferred = false;
         if (mode == HandoffMode.None || completedTransitionId != transitionId) return false;
 
         if (mode == HandoffMode.NewGame && currentReading.HasValue)
@@ -81,6 +121,14 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         var mutation = stagedBoundary.TakePending();
         var baselineObservation = currentBoundary.ResetAndEstablishBaseline(generationId, latestStagedReading);
         currentBoundary.RestorePending(mutation);
+        completedSleepTransferred = mutation.CompletedSleepSessions != 0;
+        if (hasPendingSleep)
+        {
+            if (pendingSleepTransitionId != transitionId
+                || !currentBoundary.BeginSleepCompletion(generationId, pendingSleepAdvancedTicks))
+                throw new InvalidOperationException("The staged native sleep candidate could not be transferred to the committed profile generation.");
+            ClearPendingSleep();
+        }
         if (!completionObservation.HasValue
             || completionObservation.Value.State is not (WorldTimeObservationState.Invalid
                 or WorldTimeObservationState.Backward
@@ -138,6 +186,14 @@ internal sealed class NativeWorldTimeProfileHandoffBoundary
         latestStagedReading = default;
         hasStagedReading = false;
         targetProfileReady = false;
+        ClearPendingSleep();
+    }
+
+    private void ClearPendingSleep()
+    {
+        pendingSleepTransitionId = 0;
+        pendingSleepAdvancedTicks = 0;
+        hasPendingSleep = false;
     }
 
     private enum HandoffMode

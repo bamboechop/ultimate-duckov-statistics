@@ -12,7 +12,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v3";
+    internal const string AdapterVersion = "native-world-time-sleep/2.3.30+clock86300+patch-stamp-v1+durable30s-v1+profile-handoff-v4";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.world-time-sleep";
     private const string SupportedGameVersion = "2.3.30";
     private readonly Func<string> generationIdProvider;
@@ -197,7 +197,8 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
                 generationId,
                 boundary,
                 currentReading,
-                out var completionObservation))
+                out var completionObservation,
+                out var completedSleepTransferred))
         {
             DiagnosticOnce(
                 "profile-handoff-superseded:" + transitionId,
@@ -206,6 +207,11 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         }
 
         if (completionObservation.HasValue) HandleObservationResult(completionObservation.Value);
+        if (completedSleepTransferred
+            && !PublishPending(NowMonotonic(), requestDurability: true))
+            DiagnosticOnce(
+                "profile-handoff-sleep-persistence:" + transitionId,
+                "Completed sleep transferred from the profile handoff remains queued until its exact world-time mutation can be persisted.");
         DiagnosticOnce(
             "profile-handoff-complete:" + transitionId,
             "World-time profile handoff completed without attributing stale prior-slot callbacks or losing buffered boot advancement.");
@@ -273,14 +279,21 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
     {
         if (!callbackLifetime.CanHandleCallbacks
             || capabilities.SleepAdvancedTime.State != AdapterCapabilityState.Supported
-            || profileHandoff.IsActive
             || float.IsNaN(seconds) || float.IsInfinity(seconds) || seconds < 0f
             || GameClock.Instance == null)
             return default;
         var reading = ReadClock();
         if (!WorldTimeObservationTracker.TryCoordinate(reading, out var coordinate, out _)) return default;
         var ticks = TimeSpan.FromSeconds(seconds).Ticks;
-        return new NativeSleepPatchState(true, generationIdProvider(), coordinate, ticks);
+        var profileTransitionId = profileHandoff.TryGetActiveTransitionId(out var activeTransitionId)
+            ? activeTransitionId
+            : 0;
+        return new NativeSleepPatchState(
+            true,
+            generationIdProvider(),
+            coordinate,
+            ticks,
+            profileTransitionId);
     }
 
     internal void CompleteNativeSleepAdvance(NativeSleepPatchState state)
@@ -303,7 +316,10 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
             DisableSleep(validationDetail);
             return;
         }
-        if (!boundary.BeginSleepCompletion(state.GenerationId, actual))
+        var accepted = state.IsProfileHandoff
+            ? profileHandoff.BeginSleepCompletion(state.ProfileTransitionId, actual)
+            : boundary.BeginSleepCompletion(state.GenerationId, actual);
+        if (!accepted)
             DisableSleep("Overlapping or duplicate native sleep advancement was rejected.");
     }
 
@@ -331,6 +347,7 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
         try
         {
             if (capabilities.CompletedSleepSessions.State != AdapterCapabilityState.Supported) return;
+            if (profileHandoff.CompleteSleep()) return;
             if (!boundary.CompleteSleep(generationIdProvider()))
             {
                 DiagnosticOnce("sleep-completion-without-candidate", "Sleep completion callback had no matching exact advancement candidate and was not counted.");

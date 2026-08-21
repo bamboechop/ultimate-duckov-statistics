@@ -1,6 +1,11 @@
 using UltimateDuckovStatistics.Adapters;
+using UltimateDuckovStatistics.Core.Compatibility;
+using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Export;
+using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
+using UltimateDuckovStatistics.UI;
 
 namespace UltimateDuckovStatistics.Tests;
 
@@ -83,7 +88,7 @@ public sealed class WorldTimeObservationTests
 
         boundary.ObserveClock("prior-slot", Read(2, 500));
         handoff.BeginAwaitingNativeLoad(1, priorClock);
-        Assert.True(handoff.CompleteProfileChange(1, "selected-slot", boundary, null, out _));
+        Assert.True(handoff.CompleteProfileChange(1, "selected-slot", boundary, null, out _, out _));
 
         Assert.Null(handoff.Observe("selected-slot", priorClock, Read(2, 560), boundary));
         Assert.Equal(
@@ -115,7 +120,7 @@ public sealed class WorldTimeObservationTests
             handoff.Observe("prior-slot", selectedClock, Read(20, 1_000), boundary)!.Value.State);
         Assert.True(handoff.Observe("prior-slot", selectedClock, Read(20, 1_005), boundary)!.Value.Accepted);
 
-        Assert.True(handoff.CompleteProfileChange(2, "selected-slot", boundary, null, out _));
+        Assert.True(handoff.CompleteProfileChange(2, "selected-slot", boundary, null, out _, out _));
         var mutation = boundary.TakePending();
 
         Assert.Equal(0, mutation.CalendarDaysAdvanced);
@@ -133,7 +138,7 @@ public sealed class WorldTimeObservationTests
 
         boundary.ObserveClock("slot-a", Read(2, 500));
         handoff.BeginAwaitingNativeLoad(3, priorClock);
-        Assert.True(handoff.CompleteProfileChange(3, "slot-b", boundary, null, out _));
+        Assert.True(handoff.CompleteProfileChange(3, "slot-b", boundary, null, out _, out _));
 
         Assert.Null(handoff.ResetCurrentProfile(
             "slot-b-reset",
@@ -184,6 +189,7 @@ public sealed class WorldTimeObservationTests
                 "new-game",
                 boundary,
                 Read(3, 100),
+                out _,
                 out _)));
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
 
@@ -202,6 +208,120 @@ public sealed class WorldTimeObservationTests
 
     [Fact]
     [Trait("Category", "M12")]
+    public void DeferredSelectedSlotTransitionRetainsCompletedSleepThroughEveryProjection()
+    {
+        const long transitionId = 4;
+        const string selectedGeneration = "selected-slot";
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var handoff = new NativeWorldTimeProfileHandoffBoundary();
+        var profileTransition = new NativeProfileTransitionBoundary();
+        var priorClock = new object();
+        var selectedClock = new object();
+        var failBeforeCommit = true;
+
+        boundary.ObserveClock("prior-slot", Read(2, 500));
+        handoff.BeginAwaitingNativeLoad(transitionId, priorClock);
+        Assert.Equal(
+            WorldTimeObservationState.BaselineEstablished,
+            handoff.Observe("prior-slot", selectedClock, Read(20, 1_000), boundary)!.Value.State);
+        profileTransition.Enqueue(
+            "OnSetFile",
+            () =>
+            {
+                if (failBeforeCommit)
+                {
+                    failBeforeCommit = false;
+                    throw new IOException("deferred profile write");
+                }
+            },
+            () => Assert.True(handoff.CompleteProfileChange(
+                transitionId,
+                selectedGeneration,
+                boundary,
+                null,
+                out _,
+                out var completedSleepTransferred) && completedSleepTransferred));
+        Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
+
+        Assert.True(handoff.Observe(
+            "prior-slot",
+            selectedClock,
+            Read(20, 4_600),
+            boundary)!.Value.Accepted);
+        Assert.True(handoff.TryGetActiveTransitionId(out var activeTransitionId));
+        Assert.Equal(transitionId, activeTransitionId);
+        Assert.True(handoff.BeginSleepCompletion(activeTransitionId, TimeSpan.FromHours(1).Ticks));
+        Assert.True(handoff.CompleteSleep());
+        Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
+
+        var mutation = boundary.TakePending();
+        Assert.Equal(TimeSpan.FromHours(1).Ticks, mutation.ObservedGameTimeTicks);
+        Assert.Equal(1, mutation.CompletedSleepSessions);
+        Assert.Equal(TimeSpan.FromHours(1).Ticks, mutation.SleepAdvancedTimeTicks);
+
+        var aggregate = new WorldTimeStatisticsAggregate();
+        WorldTimeStatisticsReducer.InitializeOrRestrictCapabilities(
+            aggregate,
+            WorldTimeNativeContractPolicy.Supported("clock", "sleep"));
+        Assert.True(WorldTimeStatisticsReducer.Apply(aggregate, mutation));
+        var profile = new ProfileDocument
+        {
+            GenerationId = selectedGeneration,
+            Statistics = new ProfileStatistics
+            {
+                SaveGenerationId = selectedGeneration,
+                WorldTime = aggregate
+            }
+        };
+        var export = StatisticsExporter.Create(
+            profile,
+            new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal(1, export.Document.WorldTime.CompletedSleepSessions);
+        Assert.Equal(TimeSpan.FromHours(1).Ticks, export.Document.WorldTime.SleepAdvancedTimeTicks);
+        Assert.Contains(",1,36000000000,3600,", export.WorldTimeCsv, StringComparison.Ordinal);
+        Assert.Equal("1", UiText.FormatWorldTimeCount(
+            export.Document.WorldTime.CompletedSleepSessions,
+            export.Document.WorldTime.Capabilities.CompletedSleepSessions));
+        Assert.Equal("01:00:00", UiText.FormatWorldTimeDuration(
+            export.Document.WorldTime.SleepAdvancedTimeTicks,
+            export.Document.WorldTime.Capabilities.SleepAdvancedTime));
+    }
+
+    [Fact]
+    [Trait("Category", "M12")]
+    public void PendingHandoffSleepProofTransfersIfProfileCommitsBeforeCompletionCallback()
+    {
+        const long transitionId = 5;
+        var boundary = new NativeWorldTimeObservationBoundary();
+        var handoff = new NativeWorldTimeProfileHandoffBoundary();
+        var priorClock = new object();
+        var selectedClock = new object();
+
+        handoff.BeginAwaitingNativeLoad(transitionId, priorClock);
+        handoff.Observe("prior-slot", selectedClock, Read(20, 1_000), boundary);
+        handoff.Observe("prior-slot", selectedClock, Read(20, 4_600), boundary);
+        Assert.True(handoff.BeginSleepCompletion(transitionId, TimeSpan.FromHours(1).Ticks));
+
+        Assert.True(handoff.CompleteProfileChange(
+            transitionId,
+            "selected-slot",
+            boundary,
+            null,
+            out _,
+            out var completedSleepTransferred));
+        Assert.False(completedSleepTransferred);
+        Assert.False(handoff.CompleteSleep());
+        Assert.True(boundary.CompleteSleep("selected-slot"));
+
+        var mutation = boundary.TakePending();
+        Assert.Equal(TimeSpan.FromHours(1).Ticks, mutation.ObservedGameTimeTicks);
+        Assert.Equal(1, mutation.CompletedSleepSessions);
+        Assert.Equal(TimeSpan.FromHours(1).Ticks, mutation.SleepAdvancedTimeTicks);
+    }
+
+    [Fact]
+    [Trait("Category", "M12")]
     public void SupersededProfileCompletionCannotConsumeANewerHandoff()
     {
         var boundary = new NativeWorldTimeObservationBoundary();
@@ -211,9 +331,9 @@ public sealed class WorldTimeObservationTests
         handoff.BeginAwaitingNativeLoad(10, clock);
         handoff.BeginNewGame(11, Read(4, 86_000));
 
-        Assert.False(handoff.CompleteProfileChange(10, "deleted-save", boundary, null, out _));
+        Assert.False(handoff.CompleteProfileChange(10, "deleted-save", boundary, null, out _, out _));
         Assert.True(handoff.Observe("deleted-save", clock, Read(5, 100), boundary)!.Value.Accepted);
-        Assert.True(handoff.CompleteProfileChange(11, "new-game", boundary, Read(5, 100), out _));
+        Assert.True(handoff.CompleteProfileChange(11, "new-game", boundary, Read(5, 100), out _, out _));
 
         var mutation = boundary.TakePending();
         Assert.Equal(1, mutation.CalendarDaysAdvanced);
