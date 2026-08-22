@@ -126,21 +126,31 @@ public sealed class NativeProfileTransitionBoundaryTests
         const long transitionId = 42;
         var transition = new NativeProfileTransitionBoundary();
         var handoff = new CraftingProfileHandoffBoundary();
-        handoff.Begin(transitionId);
         var profileWriterAvailable = false;
-        transition.Enqueue(
-            "User profile reset",
-            () =>
+        NativeProfileResetTransition.Queue(
+            transitionId,
+            craftingProfileChangeStarted: handoff.Begin,
+            enqueueTransition: (description, steps) => transition.Enqueue(description, steps),
+            profileChanging: () => { },
+            waitRunCheckpoint: () => { },
+            drainProfileWriter: () =>
             {
                 if (!profileWriterAvailable)
                     throw new IOException("Deferred profile writer remains pending.");
             },
-            () => repository.RefreshIdentity(identity),
-            () => repository.Rotate(identity, "UserReset"),
-            () => repository.SetCraftingCapabilities(CraftingNativeContractPolicy.Supported("completion", "formula")),
-            () => Assert.True(handoff.Complete(transitionId, repository.CurrentGenerationId)),
-            () => Assert.True(handoff.TryFlushCompleted(repository.RecordCraftingDeferred)),
-            repository.Flush);
+            refreshIdentity: () => repository.RefreshIdentity(identity),
+            rotateRepository: () => repository.Rotate(identity, "UserReset"),
+            openDiagnostics: () => { },
+            worldTimeProfileChanged: () => { },
+            craftingProfileChangeCompleted: completedTransitionId =>
+            {
+                Assert.True(handoff.Complete(completedTransitionId, repository.CurrentGenerationId));
+                Assert.True(handoff.TryFlushCompleted(repository.RecordCraftingDeferred));
+            },
+            profileChanged: () => { },
+            applyCurrentMetricCapabilities: () => repository.SetCraftingCapabilities(
+                CraftingNativeContractPolicy.Supported("completion", "formula")),
+            writeDiagnostic: repository.Flush);
 
         Assert.False(transition.Retry(() => true, _ => { }));
         Assert.Equal(oldGeneration, repository.CurrentGenerationId);

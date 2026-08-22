@@ -566,24 +566,28 @@ internal sealed class NativeProfileCoordinator : IDisposable
         var currentIdentity = ReadIdentity(repository.Current.Slot);
         var resetIdentity = ReadIdentity();
         var profileTransitionId = NextProfileTransitionId();
-        PublishProfileEvent(
-            () => CraftingProfileChangeStarted?.Invoke(profileTransitionId),
-            "crafting-profile-reset-started");
-        QueueProfileTransition(
-            "User profile reset",
-            () => ProfileChanging?.Invoke(),
-            WaitRunCheckpoint,
-            DrainProfileWriter,
-            () => repository.RefreshIdentity(currentIdentity),
-            () => repository.Rotate(resetIdentity, "UserReset"),
-            OpenDiagnosticsForCurrentGeneration,
-            () => PublishProfileEvent(WorldTimeProfileChangedWithCurrentClock, "world-time-profile-changed-current-clock"),
-            () => PublishProfileEvent(
-                () => CraftingProfileChangeCompleted?.Invoke(profileTransitionId),
+        NativeProfileResetTransition.Queue(
+            profileTransitionId,
+            craftingProfileChangeStarted: transitionId => PublishProfileEvent(
+                () => CraftingProfileChangeStarted?.Invoke(transitionId),
+                "crafting-profile-reset-started"),
+            enqueueTransition: QueueProfileTransition,
+            profileChanging: () => ProfileChanging?.Invoke(),
+            waitRunCheckpoint: WaitRunCheckpoint,
+            drainProfileWriter: DrainProfileWriter,
+            refreshIdentity: () => repository.RefreshIdentity(currentIdentity),
+            rotateRepository: () => repository.Rotate(resetIdentity, "UserReset"),
+            openDiagnostics: OpenDiagnosticsForCurrentGeneration,
+            worldTimeProfileChanged: () => PublishProfileEvent(
+                WorldTimeProfileChangedWithCurrentClock,
+                "world-time-profile-changed-current-clock"),
+            craftingProfileChangeCompleted: transitionId => PublishProfileEvent(
+                () => CraftingProfileChangeCompleted?.Invoke(transitionId),
                 "crafting-profile-reset-completed"),
-            () => PublishProfileEvent(ProfileChanged, "profile-changed"),
-            ApplyCurrentMetricCapabilities,
-            () => WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only."));
+            profileChanged: () => PublishProfileEvent(ProfileChanged, "profile-changed"),
+            applyCurrentMetricCapabilities: ApplyCurrentMetricCapabilities,
+            writeDiagnostic: () => WriteDiagnostic(
+                $"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only."));
     }
 
     public void Dispose()
