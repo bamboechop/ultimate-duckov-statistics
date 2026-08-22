@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Reflection;
 using Cysharp.Threading.Tasks;
+using Duckov.Economy;
 using ItemStatsSystem;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
@@ -14,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion =
-        "native-crafting/2.3.30+private-task-completion-v1+declared-output-v1+patch-stamp-v1+deferred-profile-v1";
+        "native-crafting/2.3.30+correlated-cost-return-v2+declared-output-v1+patch-stamp-v1+deferred-profile-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.crafting";
     private const string SupportedGameVersion = "2.3.30";
     private const int DiagnosticKeyCapacity = 32;
@@ -27,6 +28,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     private readonly Func<bool> cleanupRetryHandler;
     private readonly CraftingCompletionBoundary boundary = new();
     private readonly CraftingPendingAccumulator pendingPublication = new();
+    private readonly CraftingCapabilityPublicationBoundary capabilityPublication = new();
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
     private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
     private readonly IncrementalPatchInspectionScheduler pendingRetryScheduler = new(TimeSpan.FromSeconds(1));
@@ -34,7 +36,9 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     private CraftingMetricCapabilities capabilities = CraftingNativeContractPolicy.Unavailable(
         CraftingNativeContractPolicy.BootstrapProvenance);
     private MethodInfo? craftMethod;
-    private HarmonyPatchSetStamp? patchStamp;
+    private MethodInfo? returnMethod;
+    private HarmonyPatchSetStamp? craftPatchStamp;
+    private HarmonyPatchSetStamp? returnPatchStamp;
     private bool accepting;
     private bool cleanupRequested;
     private bool terminalShutdownRequested;
@@ -78,37 +82,59 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
         try
         {
-            ResolveContracts(out var resolvedCraftMethod);
+            ResolveContracts(out var resolvedCraftMethod, out var resolvedReturnMethod);
             if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var patcher, out var harmonyDetail) || patcher == null)
                 return Disable($"Crafting completion is unavailable: {harmonyDetail}");
             patcherLease.Attach(patcher);
             if (!patcher.IsPatchSetTrusted(resolvedCraftMethod, Array.Empty<HarmonyPatchExpectation>(), out var prePatchDetail))
                 throw new InvalidOperationException($"Unsafe pre-existing patch set on CraftingManager.Craft(CraftingFormula): {prePatchDetail}");
+            if (!patcher.IsPatchSetTrusted(resolvedReturnMethod, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
+                throw new InvalidOperationException($"Unsafe pre-existing patch set on Cost.Return: {prePatchDetail}");
             CraftingHarmonyBridge.Attach(this);
-            patcher.Patch(resolvedCraftMethod, postfix: CraftingHarmonyCallbacks.CraftPostfixMethod);
-            var expected = new[]
+            patcher.Patch(
+                resolvedCraftMethod,
+                prefix: CraftingHarmonyCallbacks.CraftPrefixMethod,
+                postfix: CraftingHarmonyCallbacks.CraftPostfixMethod,
+                finalizer: CraftingHarmonyCallbacks.CraftFinalizerMethod);
+            patcher.Patch(resolvedReturnMethod, postfix: CraftingHarmonyCallbacks.ReturnPostfixMethod);
+            var expectedCraft = new[]
             {
-                new HarmonyPatchExpectation("Postfixes", CraftingHarmonyCallbacks.CraftPostfixMethod)
+                new HarmonyPatchExpectation("Prefixes", CraftingHarmonyCallbacks.CraftPrefixMethod),
+                new HarmonyPatchExpectation("Postfixes", CraftingHarmonyCallbacks.CraftPostfixMethod),
+                new HarmonyPatchExpectation("Finalizers", CraftingHarmonyCallbacks.CraftFinalizerMethod)
             };
             if (!patcher.TryCaptureValidatedPatchSetStamp(
                     resolvedCraftMethod,
-                    expected,
-                    out var stamp,
+                    expectedCraft,
+                    out var resolvedCraftStamp,
                     out var stampDetail)
-                || stamp == null)
+                || resolvedCraftStamp == null)
                 throw new InvalidOperationException($"Installed crafting patch set/stamp validation failed: {stampDetail}");
+            var expectedReturn = new[]
+            {
+                new HarmonyPatchExpectation("Postfixes", CraftingHarmonyCallbacks.ReturnPostfixMethod)
+            };
+            if (!patcher.TryCaptureValidatedPatchSetStamp(
+                    resolvedReturnMethod,
+                    expectedReturn,
+                    out var resolvedReturnStamp,
+                    out stampDetail)
+                || resolvedReturnStamp == null)
+                throw new InvalidOperationException($"Installed crafting delivery patch set/stamp validation failed: {stampDetail}");
             craftMethod = resolvedCraftMethod;
-            patchStamp = stamp;
+            returnMethod = resolvedReturnMethod;
+            craftPatchStamp = resolvedCraftStamp;
+            returnPatchStamp = resolvedReturnStamp;
             lock (lifecycleSync)
             {
                 capabilities = CraftingNativeContractPolicy.Supported(
-                    "CraftingManager.Craft(CraftingFormula) returned a non-null task result after native output delivery.",
+                    "The correlated Cost.Return task completed after native output delivery, before downstream crafting callbacks.",
                     "CraftingFormula.id and singular result.id/result.amount captured at the native request boundary.");
                 accepting = true;
             }
             patchInspectionScheduler.Reset(DateTime.UtcNow, 1);
             pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
-            PublishCapabilities();
+            StageAndPublishCapabilities();
             DiagnosticOnce(
                 "initialized",
                 $"Crafting completion patch active with HarmonyLib {patcher.Version}; completion actions and declared produced quantity are generation-lifetime totals. Workstation, run/map attribution, and multiple-output recipes are unavailable on the installed contract.");
@@ -125,13 +151,16 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     {
         bool active;
         lock (lifecycleSync) active = accepting;
-        if (!pendingPublication.IsEmpty && pendingRetryScheduler.TryTake(nowUtc, 1, out _))
+        if ((!pendingPublication.IsEmpty || capabilityPublication.IsPending)
+            && pendingRetryScheduler.TryTake(nowUtc, 1, out _))
             FlushPending();
         if (!active) return;
-        if (craftMethod == null || !patchInspectionScheduler.TryTake(nowUtc, 1, out _)) return;
+        if (craftMethod == null || returnMethod == null || !patchInspectionScheduler.TryTake(nowUtc, 1, out _)) return;
         var patcher = patcherLease.Value;
         var detail = "The crafting patch-state stamp is unavailable.";
-        if (patcher == null || !patcher.IsPatchSetStampCurrent(patchStamp, out detail))
+        if (patcher == null
+            || !patcher.IsPatchSetStampCurrent(craftPatchStamp, out detail)
+            || !patcher.IsPatchSetStampCurrent(returnPatchStamp, out detail))
         {
             DisableRuntime(
                 patcher == null
@@ -142,12 +171,13 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
     public bool FlushPending()
     {
+        var capabilitiesPublished = FlushPendingCapabilities();
         var hadPending = !pendingPublication.IsEmpty;
         try
         {
-            if (!pendingPublication.TryFlush(recordHandler)) return false;
-            if (!hadPending) return true;
-            return persistenceHandler();
+            var aggregatePublished = pendingPublication.TryFlush(recordHandler);
+            var aggregatePersisted = !hadPending || (aggregatePublished && persistenceHandler());
+            return capabilitiesPublished && aggregatePublished && aggregatePersisted;
         }
         catch (Exception exception)
         {
@@ -175,7 +205,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         }
         if (!FlushPending())
         {
-            DiagnosticOnce("cleanup-flush", "Crafting cleanup is retained until its pending aggregate is accepted.");
+            DiagnosticOnce("cleanup-flush", "Crafting cleanup is retained until its pending aggregate and capability publications are accepted.");
             return false;
         }
         CraftingHarmonyBridge.Detach(this);
@@ -188,7 +218,9 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         lock (lifecycleSync)
         {
             craftMethod = null;
-            patchStamp = null;
+            returnMethod = null;
+            craftPatchStamp = null;
+            returnPatchStamp = null;
             cleaned = true;
         }
         return true;
@@ -215,31 +247,80 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
     public void Dispose() => TryCleanup();
 
-    internal UniTask<List<Item>> WrapNativeCraft(CraftingFormula formula, UniTask<List<Item>> source)
+    internal CraftingNativeScope? BeginNativeCraft(CraftingFormula formula)
     {
-        CraftingCompletionToken token;
         lock (lifecycleSync)
         {
             if (!accepting
                 || capabilities.CompletionActions.State != AdapterCapabilityState.Supported
                 || formula.result.amount <= 0
                 || string.IsNullOrWhiteSpace(formula.id))
-                return source;
+                return null;
             var itemId = formula.result.id.ToString(CultureInfo.InvariantCulture);
-            token = boundary.Begin(new CraftingCompletionEvidence(
+            var token = boundary.Begin(new CraftingCompletionEvidence(
                 itemId,
                 ReadDisplayName(formula.result.id, itemId),
                 formula.id,
                 formula.result.amount));
+            return new CraftingNativeScope(this, new CraftingDeliveryCorrelation(token));
         }
-        return AwaitCompletion(source, token);
     }
 
-    private async UniTask<List<Item>> AwaitCompletion(
-        UniTask<List<Item>> source,
-        CraftingCompletionToken token)
+    internal UniTask<List<Item>> WrapNativeCraft(
+        CraftingNativeScope scope,
+        UniTask<List<Item>> source) => AwaitNativeCraft(source, scope);
+
+    internal UniTask WrapNativeDelivery(
+        CraftingNativeScope scope,
+        bool directToBuffer,
+        bool toPlayerInventory,
+        int amountFactor,
+        List<Item>? generatedItemsBuffer,
+        UniTask source)
     {
-        var publicationClaimed = false;
+        if (directToBuffer
+            || !toPlayerInventory
+            || amountFactor != 1
+            || generatedItemsBuffer == null)
+        {
+            DisableRuntime("Crafting tracking disabled because the correlated Cost.Return delivery arguments changed from the verified contract.");
+            return source;
+        }
+        if (!scope.Correlation.TryClaimDeliveryTask())
+        {
+            DisableRuntime("Crafting tracking disabled because one craft request invoked the correlated Cost.Return contract more than once.");
+            return source;
+        }
+        return AwaitNativeDelivery(source, scope);
+    }
+
+    internal void AbandonSynchronousNativeCraft(CraftingNativeScope scope)
+    {
+        if (!scope.Correlation.DeliveryProven) boundary.Abandon(scope.Correlation.Token);
+        RetryCleanupIfRequested();
+    }
+
+    internal void FailNativeCraftBegin(Exception exception) => DisableRuntime(
+        $"Crafting tracking disabled after native request correlation failed: {Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}");
+
+    internal void FailNativeCraftWrapping(CraftingNativeScope scope, Exception exception)
+    {
+        if (!scope.Correlation.DeliveryProven) boundary.Abandon(scope.Correlation.Token);
+        DisableRuntime(
+            $"Crafting tracking disabled after native task correlation failed: {Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}");
+        RetryCleanupIfRequested();
+    }
+
+    private async UniTask AwaitNativeDelivery(UniTask source, CraftingNativeScope scope)
+    {
+        await source;
+        CompleteDeliveredCraft(scope);
+    }
+
+    private async UniTask<List<Item>> AwaitNativeCraft(
+        UniTask<List<Item>> source,
+        CraftingNativeScope scope)
+    {
         try
         {
             List<Item> result;
@@ -249,74 +330,106 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             }
             catch
             {
-                boundary.Abandon(token);
+                if (!scope.Correlation.DeliveryProven)
+                    boundary.Abandon(scope.Correlation.Token);
                 throw;
             }
             if (result == null)
             {
-                boundary.Abandon(token);
+                if (!scope.Correlation.DeliveryProven)
+                    boundary.Abandon(scope.Correlation.Token);
+                else
+                    DisableRuntime("Crafting tracking disabled because the native craft task returned null after proven output delivery.");
                 return result!;
             }
-            try
+            if (!scope.Correlation.DeliveryProven)
             {
-                string generationId;
-                CraftingMutation mutation;
-                lock (lifecycleSync)
-                {
-                    if (terminalShutdownRequested) return result;
-                    generationId = generationIdProvider();
-                    if (!string.IsNullOrWhiteSpace(generationId)
-                        && boundary.TryComplete(token, generationId, DateTime.UtcNow, out var completedMutation))
-                    {
-                        mutation = completedMutation;
-                        publicationClaimed = true;
-                    }
-                    else
-                    {
-                        mutation = CraftingMutation.Empty;
-                    }
-                }
-                if (string.IsNullOrWhiteSpace(generationId))
-                {
-                    boundary.Abandon(token);
-                    DisableRuntime("Crafting tracking disabled after completion because the active save generation was unavailable.");
-                    return result;
-                }
-                if (!publicationClaimed) return result;
-                var wasEmpty = pendingPublication.Add(mutation);
-                if (wasEmpty && !FlushPending())
-                {
-                    pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
-                    DiagnosticOnce("completion-pending", "A proven crafting completion is retained for aggregate publication retry.");
-                }
-            }
-            catch (Exception exception)
-            {
-                if (!publicationClaimed) boundary.Abandon(token);
-                DisableRuntime(
-                    $"Crafting tracking disabled after a post-delivery instrumentation failure: {Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}");
+                boundary.Abandon(scope.Correlation.Token);
+                bool terminal;
+                lock (lifecycleSync) terminal = terminalShutdownRequested;
+                if (!terminal)
+                    DisableRuntime("Crafting tracking disabled because the native craft task completed without its correlated Cost.Return delivery proof.");
             }
             return result;
         }
-        finally
+        finally { RetryCleanupIfRequested(); }
+    }
+
+    private void CompleteDeliveredCraft(CraftingNativeScope scope)
+    {
+        var publicationClaimed = false;
+        try
         {
-            if (publicationClaimed) boundary.FinishPublication(token);
-            bool retryCleanup;
-            lock (lifecycleSync) retryCleanup = cleanupRequested;
-            if (retryCleanup)
+            string generationId;
+            CraftingMutation mutation;
+            lock (lifecycleSync)
             {
-                try { cleanupRetryHandler(); }
-                catch (Exception exception)
+                if (terminalShutdownRequested) return;
+                if (!scope.Correlation.TryMarkDeliveryProven()) return;
+                generationId = generationIdProvider();
+                if (!string.IsNullOrWhiteSpace(generationId)
+                    && boundary.TryComplete(
+                        scope.Correlation.Token,
+                        generationId,
+                        DateTime.UtcNow,
+                        out var completedMutation))
                 {
-                    DiagnosticOnce(
-                        "cleanup-retry:" + exception.GetType().Name,
-                        $"Crafting cleanup retry failed and remains pending: {Unwrap(exception).Message}");
+                    mutation = completedMutation;
+                    publicationClaimed = true;
+                }
+                else
+                {
+                    mutation = CraftingMutation.Empty;
                 }
             }
+            if (string.IsNullOrWhiteSpace(generationId))
+            {
+                boundary.Abandon(scope.Correlation.Token);
+                DisableRuntime("Crafting tracking disabled after delivery because the active save generation was unavailable.");
+                return;
+            }
+            if (!publicationClaimed)
+            {
+                DisableRuntime("Crafting tracking disabled because correlated delivery evidence could not be claimed exactly once.");
+                return;
+            }
+            var wasEmpty = pendingPublication.Add(mutation);
+            if (wasEmpty && !FlushPending())
+            {
+                pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
+                DiagnosticOnce("completion-pending", "A proven crafting completion is retained for aggregate publication retry.");
+            }
+        }
+        catch (Exception exception)
+        {
+            if (!publicationClaimed) boundary.Abandon(scope.Correlation.Token);
+            DisableRuntime(
+                $"Crafting tracking disabled after a post-delivery instrumentation failure: {Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}");
+        }
+        finally
+        {
+            if (publicationClaimed) boundary.FinishPublication(scope.Correlation.Token);
+            RetryCleanupIfRequested();
         }
     }
 
-    private static void ResolveContracts(out MethodInfo resolvedCraftMethod)
+    private void RetryCleanupIfRequested()
+    {
+        bool retryCleanup;
+        lock (lifecycleSync) retryCleanup = cleanupRequested;
+        if (!retryCleanup) return;
+        try { cleanupRetryHandler(); }
+        catch (Exception exception)
+        {
+            DiagnosticOnce(
+                "cleanup-retry:" + exception.GetType().Name,
+                $"Crafting cleanup retry failed and remains pending: {Unwrap(exception).Message}");
+        }
+    }
+
+    private static void ResolveContracts(
+        out MethodInfo resolvedCraftMethod,
+        out MethodInfo resolvedReturnMethod)
     {
         var itemEntryType = typeof(CraftingFormula.ItemEntry);
         var formulaResult = typeof(CraftingFormula).GetField("result", BindingFlags.Instance | BindingFlags.Public);
@@ -343,6 +456,15 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         var callback = typeof(CraftingManager).GetField("OnItemCrafted", BindingFlags.Static | BindingFlags.Public);
         if (callback?.FieldType != typeof(Action<CraftingFormula, Item>))
             throw new MissingFieldException("CraftingManager.OnItemCrafted");
+        resolvedReturnMethod = typeof(Cost).GetMethod(
+            "Return",
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            new[] { typeof(bool), typeof(bool), typeof(int), typeof(List<Item>) },
+            modifiers: null)
+            ?? throw new MissingMethodException("Duckov.Economy.Cost.Return(bool, bool, int, List<Item>)");
+        if (resolvedReturnMethod.ReturnType != typeof(UniTask))
+            throw new MissingMethodException("Duckov.Economy.Cost.Return UniTask result");
         var metadata = typeof(ItemAssetsCollection).GetMethod(
             "GetMetaData",
             BindingFlags.Static | BindingFlags.Public,
@@ -378,7 +500,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     {
         lock (lifecycleSync)
             capabilities = CraftingNativeContractPolicy.Unavailable(detail);
-        PublishCapabilities();
+        StageAndPublishCapabilities();
         DiagnosticOnce("disabled:" + detail, detail);
         return Records();
     }
@@ -391,20 +513,29 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             capabilities = CraftingNativeContractPolicy.Unavailable(detail);
         }
         CraftingHarmonyBridge.Detach(this);
-        try { PublishCapabilities(); }
-        catch (Exception exception)
-        {
-            DiagnosticOnce("runtime-disable-publish", $"Crafting capability publication failed safely: {Unwrap(exception).Message}");
-        }
+        StageAndPublishCapabilities();
         DiagnosticOnce("runtime-disabled:" + detail, detail);
     }
 
-    private void PublishCapabilities()
+    private void StageAndPublishCapabilities()
     {
-        try { capabilityHandler(Records(), MetricCapabilities); }
+        CraftingMetricCapabilities snapshot;
+        lock (lifecycleSync) snapshot = CraftingStatisticsReducer.CloneCapabilities(capabilities);
+        capabilityPublication.Stage(
+            CraftingNativeContractPolicy.ToRecords(snapshot, AdapterVersion),
+            snapshot);
+        if (!FlushPendingCapabilities()) pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
+    }
+
+    private bool FlushPendingCapabilities()
+    {
+        try { return capabilityPublication.TryPublish(capabilityHandler); }
         catch (Exception exception)
         {
-            DiagnosticOnce("capability-publish", $"Crafting capability publication failed safely: {Unwrap(exception).Message}");
+            DiagnosticOnce(
+                "capability-publish:" + Unwrap(exception).GetType().Name,
+                $"Crafting capability publication failed and remains retryable: {Unwrap(exception).Message}");
+            return false;
         }
     }
 

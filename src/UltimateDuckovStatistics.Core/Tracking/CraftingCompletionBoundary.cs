@@ -35,6 +35,28 @@ public readonly struct CraftingCompletionToken
     public long Sequence { get; }
 }
 
+public sealed class CraftingDeliveryCorrelation
+{
+    private int deliveryTaskClaimed;
+    private int deliveryProven;
+
+    public CraftingDeliveryCorrelation(CraftingCompletionToken token) => Token = token;
+
+    public CraftingCompletionToken Token { get; }
+
+    public bool DeliveryProven => Volatile.Read(ref deliveryProven) != 0;
+
+    public bool TryClaimDeliveryTask() =>
+        Interlocked.CompareExchange(ref deliveryTaskClaimed, 1, 0) == 0;
+
+    public bool TryMarkDeliveryProven()
+    {
+        if (Volatile.Read(ref deliveryTaskClaimed) == 0)
+            throw new InvalidOperationException("Crafting delivery cannot be proven before its native return task is correlated.");
+        return Interlocked.CompareExchange(ref deliveryProven, 1, 0) == 0;
+    }
+}
+
 public sealed class CraftingCompletionBoundary
 {
     private readonly object sync = new();

@@ -510,7 +510,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             if (worldTimeBoundaryFlusher?.Invoke() == false)
                 throw new IOException("World-time aggregate remains pending during profile flush.");
             if (craftingBoundaryFlusher?.Invoke() == false)
-                throw new IOException("Crafting aggregate remains pending during profile flush.");
+                throw new IOException("Crafting aggregate or capability publication remains pending during profile flush.");
             WaitRunCheckpoint();
             DrainProfileWriter();
             if (repository != null)
@@ -536,7 +536,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         if (worldTimeBoundaryFlusher?.Invoke() == false)
             throw new IOException("World-time aggregate remains pending before export.");
         if (craftingBoundaryFlusher?.Invoke() == false)
-            throw new IOException("Crafting aggregate remains pending before export.");
+            throw new IOException("Crafting aggregate or capability publication remains pending before export.");
         WaitRunCheckpoint();
         DrainProfileWriter();
         repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
@@ -692,7 +692,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             if (worldTimeBoundaryFlusher?.Invoke() == false)
                 throw new IOException("World-time aggregate remains pending before native save collection.");
             if (craftingBoundaryFlusher?.Invoke() == false)
-                throw new IOException("Crafting aggregate remains pending before native save collection.");
+                throw new IOException("Crafting aggregate or capability publication remains pending before native save collection.");
             if (repository != null)
             {
                 DrainProfileWriter();

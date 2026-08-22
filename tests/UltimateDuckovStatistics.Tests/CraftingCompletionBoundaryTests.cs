@@ -1,4 +1,8 @@
 using UltimateDuckovStatistics.Core.Tracking;
+using UltimateDuckovStatistics.Core.Compatibility;
+using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Statistics;
 
 namespace UltimateDuckovStatistics.Tests;
 
@@ -168,6 +172,90 @@ public sealed class CraftingCompletionBoundaryTests
         Assert.True(boundary.FinishPublication(proven));
         Assert.Equal(0, boundary.OutstandingCount);
         Assert.Equal(0, boundary.AbandonUnprovenForTerminalShutdown());
+    }
+
+    [Fact]
+    public void CorrelatedDeliveryIsProvenBeforeADownstreamCallbackException()
+    {
+        var boundary = new CraftingCompletionBoundary();
+        var token = boundary.Begin(Evidence("595", "Standard Ammo", "standard_ammo", 30));
+        var correlation = new CraftingDeliveryCorrelation(token);
+
+        Assert.True(correlation.TryClaimDeliveryTask());
+        Assert.True(correlation.TryMarkDeliveryProven());
+        Assert.True(boundary.TryComplete(token, "generation-1", Now, out var mutation));
+
+        Action downstreamCallback = () => throw new InvalidOperationException("downstream subscriber");
+        Assert.Throws<InvalidOperationException>(downstreamCallback);
+
+        Assert.True(correlation.DeliveryProven);
+        Assert.Equal(30, Assert.Single(mutation.Rows).ProducedQuantity);
+        Assert.False(boundary.Abandon(token));
+        Assert.True(boundary.FinishPublication(token));
+    }
+
+    [Fact]
+    public void DeliveryCorrelationRejectsMissingAndDuplicateNativeReturnProof()
+    {
+        var boundary = new CraftingCompletionBoundary();
+        var correlation = new CraftingDeliveryCorrelation(
+            boundary.Begin(Evidence("100", "Bandage", "bandage", 1)));
+
+        Assert.Throws<InvalidOperationException>(() => correlation.TryMarkDeliveryProven());
+        Assert.True(correlation.TryClaimDeliveryTask());
+        Assert.False(correlation.TryClaimDeliveryTask());
+        Assert.True(correlation.TryMarkDeliveryProven());
+        Assert.False(correlation.TryMarkDeliveryProven());
+        Assert.True(boundary.Abandon(correlation.Token));
+    }
+
+    [Fact]
+    public void FailedCapabilityPublicationRemainsPendingUntilBarrierRetrySucceeds()
+    {
+        var publication = new CraftingCapabilityPublicationBoundary();
+        var capabilities = CraftingNativeContractPolicy.Supported("delivery", "formula");
+        var records = CraftingNativeContractPolicy.ToRecords(capabilities, "adapter-v1");
+        publication.Stage(records, capabilities);
+        var attempts = 0;
+
+        Assert.Throws<IOException>(() => publication.TryPublish((_, _) =>
+        {
+            attempts++;
+            throw new IOException("transient profile write");
+        }));
+
+        Assert.True(publication.IsPending);
+        IReadOnlyList<CapabilityRecord>? publishedRecords = null;
+        CraftingMetricCapabilities? publishedCapabilities = null;
+        Assert.True(publication.TryPublish((values, metrics) =>
+        {
+            attempts++;
+            publishedRecords = values;
+            publishedCapabilities = metrics;
+        }));
+
+        Assert.Equal(2, attempts);
+        Assert.False(publication.IsPending);
+        Assert.Equal(AdapterCapabilityState.Supported, publishedCapabilities!.CompletionActions.State);
+        Assert.All(publishedRecords!, record => Assert.Equal("adapter-v1", record.Version));
+    }
+
+    [Fact]
+    public void SuccessfulOlderCapabilityWriteDoesNotClearANewerStagedState()
+    {
+        var publication = new CraftingCapabilityPublicationBoundary();
+        var supported = CraftingNativeContractPolicy.Supported("delivery", "formula");
+        publication.Stage(CraftingNativeContractPolicy.ToRecords(supported, "supported"), supported);
+        var unavailable = CraftingNativeContractPolicy.Unavailable("patch drift");
+
+        Assert.False(publication.TryPublish((_, _) =>
+            publication.Stage(CraftingNativeContractPolicy.ToRecords(unavailable, "unavailable"), unavailable)));
+        Assert.True(publication.IsPending);
+
+        CraftingMetricCapabilities? published = null;
+        Assert.True(publication.TryPublish((_, metrics) => published = metrics));
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, published!.CompletionActions.State);
+        Assert.False(publication.IsPending);
     }
 
     private static CraftingCompletionEvidence Evidence(
