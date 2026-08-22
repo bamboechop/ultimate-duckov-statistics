@@ -18,6 +18,7 @@ internal static class UiText
             ["ui.combat"] = "Combat",
             ["ui.equipment"] = "Equipment",
             ["ui.economy"] = "Economy",
+            ["ui.crafting"] = "Crafting",
             ["ui.diagnostics"] = "Diagnostics",
             ["ui.total_uses"] = "Successful raid uses",
             ["ui.actual_hp"] = "Actual HP restored",
@@ -128,7 +129,15 @@ internal static class UiText
             ["ui.sleep_advanced_time"] = "Time advanced through sleep",
             ["ui.pre_m12_unavailable"] = "earlier world-time and sleep history unavailable",
             ["ui.world_time_capture_incomplete"] = "capture incomplete",
-            ["ui.world_time_contract"] = "Counts proven forward Duckov world-clock movement, including automatic boot/time-target jumps, exact sleep, and other native fast-forward. It is not real-world play time, active raid time, loading time, or wall-clock time."
+            ["ui.world_time_contract"] = "Counts proven forward Duckov world-clock movement, including automatic boot/time-target jumps, exact sleep, and other native fast-forward. It is not real-world play time, active raid time, loading time, or wall-clock time.",
+            ["ui.crafting_capture_incomplete"] = "capture incomplete",
+            ["ui.crafting_actions"] = "Successful crafting actions",
+            ["ui.crafting_quantity"] = "Produced item quantity",
+            ["ui.crafting_recipe"] = "Recipe",
+            ["ui.crafting_batch"] = "Declared batch",
+            ["ui.no_crafting"] = "No proven crafting completions recorded for this save generation.",
+            ["ui.pre_m13_unavailable"] = "earlier crafted-item history unavailable",
+            ["ui.crafting_contract"] = "One action is one non-null completion of the native private crafting task after output delivery. Produced quantity is the formula's declared result amount. Attempts, failed payment, inventory movement, hydration, and inferred ingredient or currency changes are excluded. Totals are save-generation lifetime only; workstation and run/map attribution are unavailable."
         };
 
     public static string Get(string key) => English.TryGetValue(key, out var value) ? value : key;
@@ -164,6 +173,25 @@ internal static class UiText
             ? $"{formatted} ({Get("ui.world_time_capture_incomplete")})"
             : formatted;
     }
+
+    public static string FormatCraftingCount(long value, MetricAvailability availability)
+    {
+        if (availability.State != AdapterCapabilityState.DisabledIncompatible)
+            return value.ToString(CultureInfo.InvariantCulture);
+        return value == 0
+            ? Get("ui.unsupported")
+            : $"{value.ToString(CultureInfo.InvariantCulture)} ({Get("ui.crafting_capture_incomplete")})";
+    }
+
+    public static string FormatCraftingCount(
+        long value,
+        MetricAvailability metricAvailability,
+        MetricAvailability identityAvailability) =>
+        FormatCraftingCount(
+            value,
+            metricAvailability.State >= identityAvailability.State
+                ? metricAvailability
+                : identityAvailability);
 
     public static string FormatEconomyCompact(
         EconomyStatisticsAggregate economy,

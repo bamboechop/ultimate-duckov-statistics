@@ -175,6 +175,82 @@ try
         core.RequireField("Duckov.Economy", "EconomyManager", "CashItemID", mustBePublic: true, fieldTypeFragment: "System.Int32");
         core.RequireField("Duckov.Economy", "Cost", "items", mustBePublic: true, fieldTypeFragment: "ItemEntry");
         core.RequireField("Duckov.Economy", "Cost", "money", mustBePublic: true, fieldTypeFragment: "System.Int64");
+        core.RequireField(string.Empty, "CraftingFormula", "id", mustBePublic: true, fieldTypeFragment: "System.String");
+        core.RequireField(string.Empty, "CraftingFormula", "result", mustBePublic: true, fieldTypeFragment: "ItemEntry");
+        core.RequireNestedField(string.Empty, "CraftingFormula", "ItemEntry", "id", "System.Int32");
+        core.RequireNestedField(string.Empty, "CraftingFormula", "ItemEntry", "amount", "System.Int32");
+        core.RequireField(
+            string.Empty,
+            "CraftingManager",
+            "OnItemCrafted",
+            mustBePublic: true,
+            mustBeStatic: true,
+            fieldTypeFragment: "CraftingFormula");
+        core.RequireField(
+            string.Empty,
+            "CraftingManager",
+            "OnItemCrafted",
+            mustBePublic: true,
+            mustBeStatic: true,
+            fieldTypeFragment: "ItemStatsSystem.Item");
+        core.RequireMethod(
+            string.Empty,
+            "CraftingManager",
+            "Craft",
+            parameterCount: 1,
+            mustBePrivate: true,
+            returnTypeFragment: "Cysharp.Threading.Tasks.UniTask",
+            parameterTypeFragments: ["CraftingFormula"]);
+        core.RequireMethod(
+            string.Empty,
+            "CraftingManager",
+            "Craft",
+            parameterCount: 1,
+            mustBePrivate: true,
+            returnTypeFragment: "ItemStatsSystem.Item",
+            parameterTypeFragments: ["CraftingFormula"]);
+        core.RequireMethod(
+            string.Empty,
+            "CraftingManager",
+            "Craft",
+            parameterCount: 1,
+            mustBePublic: true,
+            returnTypeFragment: "Cysharp.Threading.Tasks.UniTask",
+            parameterTypeFragments: ["System.String"]);
+        core.RequireMethod(
+            string.Empty,
+            "CraftingManager",
+            "Craft",
+            parameterCount: 1,
+            mustBePublic: true,
+            returnTypeFragment: "ItemStatsSystem.Item",
+            parameterTypeFragments: ["System.String"]);
+        core.RequireMethod(
+            "Duckov.Economy",
+            "Cost",
+            "Return",
+            parameterCount: 4,
+            mustBeAssembly: true,
+            returnTypeFragment: "Cysharp.Threading.Tasks.UniTask",
+            parameterTypeFragments: ["System.Boolean", "System.Boolean", "System.Int32", "ItemStatsSystem.Item"]);
+        core.RequireMethod(
+            string.Empty,
+            "PlayerStorage",
+            "Push",
+            parameterCount: 2,
+            mustBePublic: true,
+            mustBeStatic: true,
+            returnTypeFragment: "System.Void",
+            parameterTypeFragments: ["ItemStatsSystem.Item", "System.Boolean"]);
+        core.RequireMethod(
+            string.Empty,
+            "ItemUtilities",
+            "SendToPlayerCharacterInventory",
+            parameterCount: 2,
+            mustBePublic: true,
+            mustBeStatic: true,
+            returnTypeFragment: "System.Boolean",
+            parameterTypeFragments: ["ItemStatsSystem.Item", "System.Boolean"]);
         core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "Prefabs", "PrefabsData", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "PrefabsData", "LootBoxPrefab_Tomb", "InteractableLootbox", mustBePublic: true);
         core.RequireProperty(string.Empty, "DuckovItemAgent", "Holder", "CharacterMainControl", mustBePublic: true);
@@ -284,6 +360,17 @@ try
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "DisplayName", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "Content", "ItemStatsSystem.Item", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem", "Inventory", "Content", mustBePublic: true);
+        itemStats.RequireMethod(
+            "ItemStatsSystem",
+            "ItemAssetsCollection",
+            "GetMetaData",
+            parameterCount: 1,
+            mustBePublic: true,
+            mustBeStatic: true,
+            returnTypeFragment: "ItemStatsSystem.ItemMetaData",
+            parameterTypeFragments: ["System.Int32"]);
+        itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "Name", "System.String", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "DisplayName", "System.String", mustBePublic: true);
     }
 
     Console.WriteLine("Duckov compatibility contract passed.");
@@ -292,8 +379,8 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, equipment, containers, economy, and M12 world-clock/sleep contracts are present.");
-    Console.WriteLine("  M4 loaded-ammunition consumption and M6 tote activation remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, equipment, containers, economy, M12 world-clock/sleep, and M13 crafting task/delivery contracts are present.");
+    Console.WriteLine("  M4 loaded-ammunition consumption, M6 tote activation, and M13 crafting workstation/run-map/multiple-output attribution remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
 catch (ContractException exception)
@@ -624,6 +711,31 @@ internal sealed class AssemblyMetadata : IDisposable
         }
 
         throw new ContractException($"Required field not found: {@namespace}.{typeName}.{fieldName}.");
+    }
+
+    public void RequireNestedField(
+        string @namespace,
+        string typeName,
+        string nestedTypeName,
+        string fieldName,
+        string fieldTypeFragment)
+    {
+        var declaringType = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var nestedHandle in declaringType.GetNestedTypes())
+        {
+            var nested = reader.GetTypeDefinition(nestedHandle);
+            if (!string.Equals(reader.GetString(nested.Name), nestedTypeName, StringComparison.Ordinal)) continue;
+            foreach (var fieldHandle in nested.GetFields())
+            {
+                var field = reader.GetFieldDefinition(fieldHandle);
+                if (string.Equals(reader.GetString(field.Name), fieldName, StringComparison.Ordinal)
+                    && (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Public
+                    && field.DecodeSignature(typeProvider, reader).Contains(fieldTypeFragment, StringComparison.Ordinal))
+                    return;
+            }
+        }
+        throw new ContractException(
+            $"Required nested field not found: {@namespace}.{typeName}.{nestedTypeName}.{fieldName}.");
     }
 
     public void RequireDoubleConstant(string @namespace, string typeName, string fieldName, double expected)

@@ -2429,3 +2429,55 @@ Correction commit `7b20d31aa06ed68f0995f49e1c6356ca8fc2507f` passes the installe
 PR #13 merged into `main` as `6bd39dadf5cd1c49149b98b7d6b0898d62608f67`, and the lightweight `v0.12.0` tag resolves exactly to that merge commit. GitHub pre-release [`v0.12.0`](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.12.0) was published on 2026-08-21. Release creation from the merged revision reran and passed all 754 tests, the installed Duckov 2.3.30 compatibility contract, warning-free Core/native/FrameTimeAnalyzer builds, and exact five-file package validation.
 
 The published release is non-draft and marked as a pre-release. Its remote assets match the locally validated artifacts: the 296,036-byte `UltimateDuckovStatistics-v0.12.0.zip` is SHA-256 `8a929e09a27fdc872182eaa64ffa9bbe6776d5775fa100e0682b3e4915028c18`, and the 103-byte checksum sidecar is SHA-256 `03d20b489b709af2d9b92339d296f081938be0d3b5ee1c424eacb50cb9fb694c`. The sidecar contains the same ZIP digest.
+
+## M13 crafted-item statistics
+
+The installed-native audit is [docs/M13_NATIVE_CONTRACTS.md](docs/M13_NATIVE_CONTRACTS.md). On Duckov 2.3.30, public `CraftingManager.Craft(string)` resolves a formula and awaits private `Craft(CraftingFormula)`. The private task returns `null` for insufficient cost or failed payment, otherwise awaits `Cost.Return` output delivery before returning its generated-item buffer. UDS wraps that private task and records one action only for a non-null completion. The singular declared `result.amount` is quantity; numeric result ID, formula ID, and declared batch size are retained independently. The per-chunk `OnItemCrafted` callback, inventory movement, ingredients, price, and currency are intentionally excluded.
+
+The installed build exposes no persisted craft queue, cancellation callback, delayed collection state, reliable workstation ID, run/map context, or multiple-output formula. Incomplete tasks at process exit record nothing. Null and exceptional completion abandon their in-flight token; overlapping tasks may finish out of order without sharing evidence; a token can publish only once; and a fresh process cannot consume a stale token. Workstation, context, and multiple-output capabilities remain explicitly `DisabledIncompatible`.
+
+### M13 pre-gameplay candidate checkpoint
+
+The candidate is based on authoritative `origin/main` commit `df46dbd5f345c976bbe01c84b776a60a708d4186`. Focused crafting coverage passes 38/38. Coverage includes request-versus-completion separation, null/failure/incomplete abandonment, out-of-order overlap, duplicate rejection, completion-time generation assignment, missing-generation rejection without stranded state, unknown/modded identity and fallback preservation, restart, exact action/quantity/recipe/batch aggregation, weighted batch-integrity recovery, missing supported recipe-composition and invalid capability-state fallback, independent arithmetic degradation, structured-key collision resistance, more than 2,048 distinct persisted and pending outputs, atomic pending-overflow rejection, capability degradation with truthful historical subsets, preservation of event-time proof across retry-time capability degradation and mixed proof scopes, schema-12 migration, current-schema recovery, restart and slot/generation isolation, JSON/CSV/UI agreement, the three-owner crafting/world-time/run cleanup gate, and the proof-to-publication outstanding state that prevents concurrent cleanup from disposing the profile dependency in between.
+
+The same checkpoint passes all 792 tests in both Debug and Release, whole-solution formatting, `git diff --check`, the installed Duckov 2.3.30 / Steam 24013657 / Unity 2022.3.62f2 / Harmony 2.4.1 compatibility probe, warning-free Core/native/FrameTimeAnalyzer builds, and exact five-file package validation. Both assemblies report file version `0.13.0.0` and pre-commit product version `0.13.0+df46dbd5f345c976bbe01c84b776a60a708d4186`.
+
+With Duckov closed, transactional deployment validated staging and destination. Independent readback is byte-identical to the package and leaves no deploying/previous residue:
+
+| File | Bytes | SHA-256 |
+|---|---:|---|
+| `info.ini` | 337 | `6f6e06e52540e000db8d915b59a02f0752d44e39d44df273ec1223325a2c2fc1` |
+| `INSTALL.md` | 18,232 | `383d50736fe8dbfb4ed9e997b2a516449e96349ef6d6c54bc69fdb38df29a9a1` |
+| `LICENSE` | 1,117 | `0f7558f2469ad0901074f6c380ada1ed91861d55adf905267bc70b26cd2e3ccc` |
+| `UltimateDuckovStatistics.Core.dll` | 538,112 | `da9b7c29f98593b796d4b521d30f62e2369e48434302dbf3d3775d75429ad73c` |
+| `UltimateDuckovStatistics.dll` | 343,552 | `55ef0e41887a18e5fea4e874431bd975385f8541e9d022a661ca45f30af3b1ac` |
+
+The pre-commit `UltimateDuckovStatistics-v0.13.0.zip` is 319,256 bytes at SHA-256 `91ba8cc903260cfbdc491b8c724362d9cedd358b6ffb0c9717de6ddcf1360180`. Its canonical 103-byte checksum sidecar is SHA-256 `858e1514d41c5ecbdb690142f443e0d6578a1f873465112ff3cafe908cbf1a87` and contains the same ZIP digest. Independent extraction under `artifacts/audit-m13-precommit-hardened-20260822T134800` contains only the expected five package files and is byte-identical to the package directory. This pre-commit artifact is a gameplay candidate, not a published release, and will be superseded by a committed build whose informational version names the implementation commit.
+
+The protected untracked `m8.1-performance-results.html` remains 53,825 bytes at SHA-256 `632bc80c1c62567be0d4221c854475566427cb2389d71cbadc3a743c176eb725`.
+
+### M13 user-controlled gameplay protocol
+
+Only the user controls Duckov and its saves. With the audited candidate deployed, qualification is:
+
+1. Cold-launch Duckov, confirm HarmonyLib and UDS `0.13.0` are active, select the intended save, and open the F8 panel outside a raid.
+2. In Diagnostics, confirm crafting completion actions, produced quantity, output identity, recipe identity, and batch metadata are `Supported`; confirm workstation identity, run/map context, and multiple-output recipes are `DisabledIncompatible`.
+3. Record the Overview and Crafting baselines. Opening and closing crafting without completing a request must leave both totals unchanged. An unaffordable or otherwise naturally failed request, if safely available, must also leave both totals unchanged.
+4. Complete one declared-quantity-one recipe. Actions must increase by exactly one and quantity by exactly one under the correct output and recipe.
+5. Complete one recipe whose declared output amount is greater than one, if naturally available. Actions must increase by exactly one, quantity by the declared amount, and the batch distribution by one action at that amount. Repeat one available recipe and confirm exactly one additional action per completion.
+6. Export once. `statistics.json`, `crafting_totals.csv`, and `crafting_recipes.csv` must agree with Overview and Crafting for totals, output identity, recipe identity, batch distribution, capability state/provenance, and pre-M13 historical unavailability.
+7. Close Duckov normally and report the crafted output names, recipe IDs if visible, declared amounts, any skipped optional case, UI behavior, and any perceived hitch. Post-gameplay inspection then verifies profile/export/log agreement, clean shutdown, deployed bytes, and absence of transactional residue without launching or controlling the game.
+
+### M13 user-controlled gameplay — passed 2026-08-22
+
+The user cold-launched the deployed candidate against slot 1. The baseline Crafting view showed zero current-generation actions and quantity, explicit pre-M13 historical unavailability, `Supported` action/quantity/output/recipe/batch capture, and `DisabledIncompatible` workstation/context/multiple-output dimensions. The user then crafted one Tierfalle, 30 Standard-Muni (S), and another Tierfalle, exported once, and closed Duckov normally. The resulting screenshot is 351,224 bytes at SHA-256 `d2c7a3c9e314a2f2489ff199000123110ac587ffdb11264038978f83e9ffc8c5` and shows the exact expected aggregate:
+
+- 3 successful crafting actions and 32 produced items overall;
+- Standard-Muni (S), output ID 595: 1 action, quantity 30, recipe 2301, declared batch 30 once; and
+- Tierfalle, output ID 100: 2 actions, quantity 2, recipe 1005, declared batch 1 twice.
+
+Post-gameplay readback independently matched those values across the primary schema-13 profile, its byte-identical backup, `statistics.json`, `crafting_totals.csv`, and `crafting_recipes.csv`, including every output, recipe, batch, capability state, provenance string, and historical-unavailability field. Export `20260822T1445481370090Z-1e455dc28a104b7781386afe28808c52` contains exactly 27 files. Its 489,497-byte `statistics.json` is SHA-256 `18ab5c96953ee54bc25e894ae872d58914cec4125ccf71567bb8f571552f8c0e`; 3,600-byte `crafting_totals.csv` is `148cc5fa6775ece295bf8d28173d0233cbc6e4f91e0fb90c90401a54ba97c4b7`; and 1,046-byte `crafting_recipes.csv` is `692b7047587f86c200a55b765f52b59ffadf26a46504a40c43bb97d20343b863`.
+
+The 23,904-byte `Player.log` is SHA-256 `82012b5d3ba573fbd498479d1ee75813803e1b6d835006063022cfad093910c0`. It records the schema migration, active Harmony 2.4.1 crafting patch, one export, normal application quit, adapter unsubscription, and clean generation close, with no UDS error, failure, disabled-capture, drift, or pending-publication message. The generic level-initialization `startIndex` message and post-shutdown Unity allocator dump have no UDS prefix or stack and are not attributed to M13. Duckov was closed for inspection; no profile session or deployment transaction residue remained; deployed files still matched the qualified package; and the protected untracked HTML retained its recorded size and digest.
+
+The optional naturally failed or unaffordable request was not manually exercised. Its null-return/no-count boundary, along with exception, incomplete-process, overlap, and duplicate handling, remains qualified by the installed-native contract and deterministic production-path tests. Duckov 2.3.30 exposes no separate queue, cancellation, delayed-collection, or multiple-output surface to exercise, so those unsupported dimensions remain explicit rather than inferred.

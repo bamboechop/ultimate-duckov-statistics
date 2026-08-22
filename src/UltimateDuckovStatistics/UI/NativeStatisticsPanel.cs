@@ -22,6 +22,7 @@ internal sealed class NativeStatisticsPanel
     private Vector2 combatScroll;
     private Vector2 equipmentScroll;
     private Vector2 economyScroll;
+    private Vector2 craftingScroll;
     private PanelTab tab;
     private bool visible;
     private bool confirmReset;
@@ -94,6 +95,7 @@ internal sealed class NativeStatisticsPanel
         DrawTabButton(PanelTab.Combat, "ui.combat");
         DrawTabButton(PanelTab.Equipment, "ui.equipment");
         DrawTabButton(PanelTab.Economy, "ui.economy");
+        DrawTabButton(PanelTab.Crafting, "ui.crafting");
         DrawTabButton(PanelTab.Items, "ui.items");
         DrawTabButton(PanelTab.Diagnostics, "ui.diagnostics");
         GUILayout.FlexibleSpace();
@@ -126,6 +128,9 @@ internal sealed class NativeStatisticsPanel
                 break;
             case PanelTab.Economy:
                 DrawEconomy();
+                break;
+            case PanelTab.Crafting:
+                DrawCrafting();
                 break;
             case PanelTab.Diagnostics:
                 DrawDiagnostics();
@@ -182,6 +187,19 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label($"{UiText.Get("ui.sleep_advanced_time")}: {UiText.FormatWorldTimeDuration(worldTime.SleepAdvancedTimeTicks, worldTimeCapabilities.SleepAdvancedTime)}");
         if (worldTime.HistoricalUnavailable)
             GUILayout.Label($"  {UiText.Get("ui.pre_m12_unavailable")}");
+        var crafting = profile.Statistics.Crafting;
+        var craftingCapabilities = CraftingStatisticsReducer.RestrictWithCurrent(
+            crafting.Capabilities,
+            coordinator.CurrentCraftingCapabilities);
+        GUILayout.Space(8);
+        GUILayout.Label(
+            $"{UiText.Get("ui.crafting_actions")}: "
+            + UiText.FormatCraftingCount(crafting.CompletionActions, craftingCapabilities.CompletionActions));
+        GUILayout.Label(
+            $"{UiText.Get("ui.crafting_quantity")}: "
+            + UiText.FormatCraftingCount(crafting.ProducedQuantity, craftingCapabilities.ProducedQuantity));
+        if (crafting.HistoricalUnavailable)
+            GUILayout.Label($"  {UiText.Get("ui.pre_m13_unavailable")}");
         GUILayout.Space(12);
         GUILayout.Label(UiText.Get("ui.group_totals"));
         foreach (var group in profile.Statistics.Groups.OrderBy(entry => entry.Key, StringComparer.Ordinal))
@@ -623,6 +641,11 @@ internal sealed class NativeStatisticsPanel
                 + $"elapsed={(profile.Statistics.WorldTime.ObservedElapsedArithmeticUnavailable ? "unavailable" : "available")}, "
                 + $"sleep-sessions={(profile.Statistics.WorldTime.SleepSessionArithmeticUnavailable ? "unavailable" : "available")}, "
                 + $"sleep-time={(profile.Statistics.WorldTime.SleepElapsedArithmeticUnavailable ? "unavailable" : "available")}");
+            GUILayout.Label(
+                $"Crafting history {(profile.Statistics.Crafting.HistoricalUnavailable ? "partially unavailable before M13" : "captured from generation start")}; "
+                + $"repair {(profile.Statistics.Crafting.WasRepairedFromInvalidState ? "present" : "none")}; "
+                + $"arithmetic actions={(profile.Statistics.Crafting.CompletionArithmeticUnavailable ? "unavailable" : "available")}, "
+                + $"quantity={(profile.Statistics.Crafting.QuantityArithmeticUnavailable ? "unavailable" : "available")}");
             foreach (var capability in profile.Capabilities)
             {
                 GUILayout.Label($"{capability.AdapterId}: {capability.State} ({capability.Version})");
@@ -698,6 +721,83 @@ internal sealed class NativeStatisticsPanel
                 + UiText.FormatCashOutcome(run.Economy, currentEconomyCapabilities));
         GUILayout.EndScrollView();
     }
+
+    private void DrawCrafting()
+    {
+        var profile = coordinator.Current;
+        if (profile == null) return;
+        var crafting = profile.Statistics.Crafting;
+        var capabilities = CraftingStatisticsReducer.RestrictWithCurrent(
+            crafting.Capabilities,
+            coordinator.CurrentCraftingCapabilities);
+        GUILayout.Space(8);
+        GUILayout.Label(UiText.Get("ui.crafting_contract"));
+        if (crafting.HistoricalUnavailable)
+            GUILayout.Label($"{UiText.Get("ui.pre_m13_unavailable")}: {crafting.HistoricalProvenance}");
+        GUILayout.Label(
+            $"{UiText.Get("ui.crafting_actions")}: "
+            + UiText.FormatCraftingCount(crafting.CompletionActions, capabilities.CompletionActions));
+        GUILayout.Label(
+            $"{UiText.Get("ui.crafting_quantity")}: "
+            + UiText.FormatCraftingCount(crafting.ProducedQuantity, capabilities.ProducedQuantity));
+        GUILayout.Label(
+            $"Capture: actions={capabilities.CompletionActions.State}; quantity={capabilities.ProducedQuantity.State}; "
+            + $"output={capabilities.OutputIdentity.State}; recipe={capabilities.RecipeIdentity.State}; "
+            + $"batch={capabilities.BatchMetadata.State}");
+        GUILayout.Label(
+            $"Unavailable dimensions: workstation={capabilities.WorkstationIdentity.State}; run/map context={capabilities.ContextAttribution.State}; "
+            + $"multiple-output recipes: {capabilities.MultipleOutputRecipes.State}");
+        if (crafting.Outputs.Count == 0)
+        {
+            GUILayout.Label(UiText.Get("ui.no_crafting"));
+            return;
+        }
+
+        craftingScroll = GUILayout.BeginScrollView(craftingScroll);
+        foreach (var output in crafting.Outputs.Values
+                     .OrderByDescending(value => value.ProducedQuantity)
+                     .ThenBy(value => value.OutputItemId, StringComparer.Ordinal))
+        {
+            GUILayout.Label(
+                $"{output.DisplayName} [{output.OutputItemId}]: "
+                + $"{UiText.Get("ui.crafting_actions").ToLowerInvariant()} "
+                + UiText.FormatCraftingCount(output.CompletionActions, capabilities.CompletionActions)
+                + $", {UiText.Get("ui.crafting_quantity").ToLowerInvariant()} "
+                + UiText.FormatCraftingCount(output.ProducedQuantity, capabilities.ProducedQuantity));
+            foreach (var recipe in output.Recipes.Values.OrderBy(value => value.RecipeId, StringComparer.Ordinal))
+            {
+                GUILayout.Label(
+                    $"  {UiText.Get("ui.crafting_recipe")} {recipe.RecipeId}: actions "
+                    + UiText.FormatCraftingCount(
+                        recipe.CompletionActions,
+                        capabilities.CompletionActions,
+                        capabilities.RecipeIdentity)
+                    + ", quantity "
+                    + UiText.FormatCraftingCount(
+                        recipe.ProducedQuantity,
+                        capabilities.ProducedQuantity,
+                        capabilities.RecipeIdentity));
+                if (recipe.BatchActions.Count != 0)
+                {
+                    GUILayout.Label(
+                        $"    {UiText.Get("ui.crafting_batch")}: "
+                        + string.Join(", ", recipe.BatchActions
+                            .OrderBy(value => ParseCraftingBatch(value.Key))
+                            .ThenBy(value => value.Key, StringComparer.Ordinal)
+                            .Select(value => $"{value.Key} x {value.Value.ToString(CultureInfo.InvariantCulture)} action(s)"))
+                        + (capabilities.BatchMetadata.State == AdapterCapabilityState.DisabledIncompatible
+                            ? $" ({UiText.Get("ui.crafting_capture_incomplete")})"
+                            : string.Empty));
+                }
+            }
+        }
+        GUILayout.EndScrollView();
+    }
+
+    private static long ParseCraftingBatch(string value) =>
+        long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var quantity)
+            ? quantity
+            : long.MaxValue;
 
     private static void DrawCurrency(
         EconomyStatisticsAggregate economy,
@@ -781,7 +881,7 @@ internal sealed class NativeStatisticsPanel
     private void DrawTabButton(PanelTab target, string key)
     {
         var wasSelected = tab == target;
-        if (GUILayout.Toggle(wasSelected, UiText.Get(key), GUI.skin.button, GUILayout.Width(96)) && !wasSelected)
+        if (GUILayout.Toggle(wasSelected, UiText.Get(key), GUI.skin.button, GUILayout.Width(84)) && !wasSelected)
         {
             tab = target;
         }
@@ -894,6 +994,7 @@ internal sealed class NativeStatisticsPanel
         Combat,
         Equipment,
         Economy,
+        Crafting,
         Items,
         Diagnostics
     }
