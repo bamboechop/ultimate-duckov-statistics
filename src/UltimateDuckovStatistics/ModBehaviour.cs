@@ -130,7 +130,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 newProfileCoordinator.HandleCrafting,
                 newProfileCoordinator.RequestCraftingPersistence,
                 newProfileCoordinator.SetCraftingCapabilities,
-                message => Debug.Log($"{LogPrefix} {message}"));
+                message => Debug.Log($"{LogPrefix} {message}"),
+                craftingAdapter.TryCleanupPending);
             craftingAdapter.Assign(newCraftingAdapter);
             newCraftingAdapter.Initialize();
             newProfileCoordinator.SetCraftingBoundaryBarrier(newCraftingAdapter.FlushPending);
@@ -334,7 +335,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         DrainPendingProfileTransitions("application quit");
         FlushPendingEconomy("application quit");
         FlushPendingWorldTime("application quit");
-        FlushPendingCrafting("application quit");
+        FinalizeCraftingForTerminalShutdown();
         runLifecycleAdapter.OwnedValue?.FlushCheckpoint();
         profileCoordinator?.Flush();
         Debug.Log(
@@ -507,6 +508,24 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         {
             Debug.LogException(exception);
             Debug.LogError($"{LogPrefix} crafting aggregate flush failed during {boundary}.");
+        }
+    }
+
+    private void FinalizeCraftingForTerminalShutdown()
+    {
+        try
+        {
+            if (craftingAdapter.OwnedValue?.TryCleanupForTerminalShutdown() == false)
+            {
+                Debug.LogError(
+                    $"{LogPrefix} terminal crafting cleanup remains pending during application quit; "
+                    + "a proven completion or aggregate publication has not finished.");
+            }
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            Debug.LogError($"{LogPrefix} terminal crafting cleanup failed during application quit.");
         }
     }
 

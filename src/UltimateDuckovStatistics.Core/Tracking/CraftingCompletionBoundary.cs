@@ -112,6 +112,16 @@ public sealed class CraftingCompletionBoundary
         lock (sync)
             return token.BoundaryId == boundaryId && pending.Remove(token.Sequence);
     }
+
+    public int AbandonUnprovenForTerminalShutdown()
+    {
+        lock (sync)
+        {
+            var abandoned = pending.Count;
+            pending.Clear();
+            return abandoned;
+        }
+    }
 }
 
 public sealed class CraftingPendingAccumulator

@@ -24,6 +24,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     private readonly Func<bool> persistenceHandler;
     private readonly Action<IReadOnlyList<CapabilityRecord>, CraftingMetricCapabilities> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
+    private readonly Func<bool> cleanupRetryHandler;
     private readonly CraftingCompletionBoundary boundary = new();
     private readonly CraftingPendingAccumulator pendingPublication = new();
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
@@ -36,6 +37,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     private HarmonyPatchSetStamp? patchStamp;
     private bool accepting;
     private bool cleanupRequested;
+    private bool terminalShutdownRequested;
     private bool cleaned;
 
     public NativeCraftingAdapter(
@@ -43,13 +45,15 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         Func<CraftingMutation, bool> recordHandler,
         Func<bool> persistenceHandler,
         Action<IReadOnlyList<CapabilityRecord>, CraftingMetricCapabilities> capabilityHandler,
-        Action<string> diagnosticHandler)
+        Action<string> diagnosticHandler,
+        Func<bool> cleanupRetryHandler)
     {
         this.generationIdProvider = generationIdProvider ?? throw new ArgumentNullException(nameof(generationIdProvider));
         this.recordHandler = recordHandler ?? throw new ArgumentNullException(nameof(recordHandler));
         this.persistenceHandler = persistenceHandler ?? throw new ArgumentNullException(nameof(persistenceHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
+        this.cleanupRetryHandler = cleanupRetryHandler ?? throw new ArgumentNullException(nameof(cleanupRetryHandler));
     }
 
     public CraftingMetricCapabilities MetricCapabilities
@@ -190,6 +194,25 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         return true;
     }
 
+    public bool TryCleanupForTerminalShutdown()
+    {
+        lock (lifecycleSync)
+        {
+            if (cleaned) return true;
+            accepting = false;
+            cleanupRequested = true;
+            terminalShutdownRequested = true;
+        }
+        var abandoned = boundary.AbandonUnprovenForTerminalShutdown();
+        if (abandoned != 0)
+        {
+            DiagnosticOnce(
+                "terminal-inflight",
+                $"Terminal shutdown abandoned {abandoned} incomplete native craft task(s); unproven output was not counted.");
+        }
+        return TryCleanup();
+    }
+
     public void Dispose() => TryCleanup();
 
     internal UniTask<List<Item>> WrapNativeCraft(CraftingFormula formula, UniTask<List<Item>> source)
@@ -236,16 +259,30 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             }
             try
             {
-                var generationId = generationIdProvider();
+                string generationId;
+                CraftingMutation mutation;
+                lock (lifecycleSync)
+                {
+                    if (terminalShutdownRequested) return result;
+                    generationId = generationIdProvider();
+                    if (!string.IsNullOrWhiteSpace(generationId)
+                        && boundary.TryComplete(token, generationId, DateTime.UtcNow, out var completedMutation))
+                    {
+                        mutation = completedMutation;
+                        publicationClaimed = true;
+                    }
+                    else
+                    {
+                        mutation = CraftingMutation.Empty;
+                    }
+                }
                 if (string.IsNullOrWhiteSpace(generationId))
                 {
                     boundary.Abandon(token);
                     DisableRuntime("Crafting tracking disabled after completion because the active save generation was unavailable.");
                     return result;
                 }
-                if (!boundary.TryComplete(token, generationId, DateTime.UtcNow, out var mutation))
-                    return result;
-                publicationClaimed = true;
+                if (!publicationClaimed) return result;
                 var wasEmpty = pendingPublication.Add(mutation);
                 if (wasEmpty && !FlushPending())
                 {
@@ -266,7 +303,16 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             if (publicationClaimed) boundary.FinishPublication(token);
             bool retryCleanup;
             lock (lifecycleSync) retryCleanup = cleanupRequested;
-            if (retryCleanup) TryCleanup();
+            if (retryCleanup)
+            {
+                try { cleanupRetryHandler(); }
+                catch (Exception exception)
+                {
+                    DiagnosticOnce(
+                        "cleanup-retry:" + exception.GetType().Name,
+                        $"Crafting cleanup retry failed and remains pending: {Unwrap(exception).Message}");
+                }
+            }
         }
     }
 

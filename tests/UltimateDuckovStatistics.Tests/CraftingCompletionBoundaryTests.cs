@@ -150,6 +150,26 @@ public sealed class CraftingCompletionBoundaryTests
         Assert.True(mutation.IsEmpty);
     }
 
+    [Fact]
+    public void TerminalShutdownAbandonsOnlyUnprovenTasks()
+    {
+        var boundary = new CraftingCompletionBoundary();
+        var unproven = boundary.Begin(Evidence("100", "Bandage", "bandage", 1));
+        var proven = boundary.Begin(Evidence("595", "Standard Ammo", "standard_ammo", 30));
+        Assert.True(boundary.TryComplete(proven, "generation-1", Now, out var mutation));
+
+        Assert.Equal(1, boundary.AbandonUnprovenForTerminalShutdown());
+
+        Assert.Equal(0, boundary.PendingCount);
+        Assert.Equal(1, boundary.OutstandingCount);
+        Assert.False(boundary.TryComplete(unproven, "generation-1", Now, out var abandonedMutation));
+        Assert.True(abandonedMutation.IsEmpty);
+        Assert.Equal(30, Assert.Single(mutation.Rows).ProducedQuantity);
+        Assert.True(boundary.FinishPublication(proven));
+        Assert.Equal(0, boundary.OutstandingCount);
+        Assert.Equal(0, boundary.AbandonUnprovenForTerminalShutdown());
+    }
+
     private static CraftingCompletionEvidence Evidence(
         string outputItemId,
         string displayName,
