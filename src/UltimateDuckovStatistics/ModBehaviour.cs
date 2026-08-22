@@ -135,6 +135,11 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             craftingAdapter.Assign(newCraftingAdapter);
             newCraftingAdapter.Initialize();
             newProfileCoordinator.SetCraftingBoundaryBarrier(newCraftingAdapter.FlushPending);
+            newProfileCoordinator.SetCraftingProfileTransitionBoundaryBarrier(
+                newCraftingAdapter.FlushPendingForProfileTransition);
+            newProfileCoordinator.CraftingProfileChangeStarted += newCraftingAdapter.BeginProfileChange;
+            newProfileCoordinator.CraftingProfileChangeCompleted += newCraftingAdapter.CompleteProfileChange;
+            newCraftingAdapter.SetProfileTransitionCleanupBarrier(newProfileCoordinator.DrainPendingProfileTransitions);
             var economyFlowPublication = new EconomyFlowPublication(
                 profileCoordinator.HandleCurrencyFlow,
                 flow => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true,
@@ -359,6 +364,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         FlushPendingCrafting("deactivation");
         var ownedRunLifecycleAdapter = runLifecycleAdapter.OwnedValue;
         var ownedWeaponFireAdapter = weaponFireAdapter.OwnedValue;
+        var ownedCraftingAdapter = craftingAdapter.OwnedValue;
         if (profileCoordinator != null)
         {
             if (ownedRunLifecycleAdapter != null)
@@ -422,6 +428,11 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             () => retainedProfileCoordinator?.Dispose());
         if (craftingAdapter.TryCleanupOwned(coordinatorCleanupGate.Signal))
         {
+            if (retainedProfileCoordinator != null && ownedCraftingAdapter != null)
+            {
+                retainedProfileCoordinator.CraftingProfileChangeStarted -= ownedCraftingAdapter.BeginProfileChange;
+                retainedProfileCoordinator.CraftingProfileChangeCompleted -= ownedCraftingAdapter.CompleteProfileChange;
+            }
             coordinatorCleanupGate.Signal();
         }
         else
@@ -459,7 +470,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             if (profileCoordinator?.DrainPendingProfileTransitions() != false) return true;
             Debug.LogWarning(
                 $"{LogPrefix} queued profile transitions remain pending during {boundary}; "
-                + "world-time cleanup will retain their staged data for retry.");
+                + "world-time and crafting cleanup will retain staged data for retry.");
             return false;
         }
         catch (Exception exception)
@@ -502,7 +513,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         try
         {
             if (craftingAdapter.OwnedValue?.FlushPending() == false)
-                Debug.LogError($"{LogPrefix} crafting aggregate flush remains pending during {boundary}.");
+                Debug.LogError($"{LogPrefix} crafting aggregate or profile-handoff flush remains pending during {boundary}.");
         }
         catch (Exception exception)
         {

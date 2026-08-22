@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics
 
-Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. M12 `v0.12.0` is the latest published GitHub pre-release. The M13 `v0.13.0` draft candidate adds crafted-item statistics without changing that published baseline.
+Ultimate Duckov Statistics (UDS) is a local, single-player statistics mod for Escape From Duckov. It records proven gameplay events in UDS-owned profiles without modifying Duckov save files.
 
 The mod never modifies Duckov save files. Its data is stored under:
 
@@ -14,7 +14,7 @@ The mod never modifies Duckov save files. Its data is stored under:
 
 M0-M12 are published through the [v0.12.0 GitHub pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v0.12.0). M8.1 product commit `90384352d323e6ea19dfa607c7da18162dbcefcb` completed its performance, gameplay, package, projection, and shutdown gates and merged before M9; it was not released separately, so its accepted changes ship in v0.9.0.
 
-M12 PR #13 merged as `6bd39dadf5cd1c49149b98b7d6b0898d62608f67`. The published release passes 754/754 tests, the installed-game compatibility and exact five-file package gates, user-controlled world-time and sleep gameplay, complete 25-file export agreement, recovery, and clean shutdown. The M13 crafted-item candidate is developed on the authoritative [main-to-feature comparison](https://github.com/bamboechop/ultimate-duckov-statistics/compare/main...feat/crafted-item-statistics); M14 the native UI overhaul (`v0.14.0`) and M15 feature-frozen `v1.0.0-rc.1` qualification remain planned. See [PLAN.md](PLAN.md) for the contracts and acceptance boundaries; immutable completed-release evidence remains in [TESTING.md](TESTING.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
+M12 PR #13 merged as `6bd39dadf5cd1c49149b98b7d6b0898d62608f67`. The published release passes 754/754 tests, the installed-game compatibility and exact five-file package gates, user-controlled world-time and sleep gameplay, complete 25-file export agreement, recovery, and clean shutdown. Current branch, review, tag, and release state is maintained on GitHub through [pull requests](https://github.com/bamboechop/ultimate-duckov-statistics/pulls), [tags](https://github.com/bamboechop/ultimate-duckov-statistics/tags), and [releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases). See [PLAN.md](PLAN.md) for milestone contracts and acceptance boundaries; immutable completed-delivery evidence remains in [TESTING.md](TESTING.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Build prerequisites
 

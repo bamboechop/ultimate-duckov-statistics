@@ -258,6 +258,83 @@ public sealed class CraftingCompletionBoundaryTests
         Assert.False(publication.IsPending);
     }
 
+    [Fact]
+    public void CompletionDuringQueuedProfileTransitionPublishesOnlyToCommittedGeneration()
+    {
+        var completion = new CraftingCompletionBoundary();
+        var handoff = new CraftingProfileHandoffBoundary();
+        handoff.Begin(17);
+        var token = completion.Begin(Evidence("595", "Standard Ammo", "standard_ammo", 30));
+        var correlation = new CraftingDeliveryCorrelation(token);
+        Assert.True(correlation.TryClaimDeliveryTask());
+        Assert.True(correlation.TryMarkDeliveryProven());
+        Assert.True(completion.TryComplete(
+            token,
+            CraftingProfileHandoffBoundary.StagedGenerationId,
+            Now,
+            out var staged));
+
+        Assert.True(handoff.Stage(17, staged));
+        Assert.True(completion.FinishPublication(token));
+        Assert.True(handoff.HasUncommittedData);
+        Assert.True(handoff.TryFlushCompleted(_ => throw new InvalidOperationException("must await commit")));
+
+        Assert.True(handoff.Complete(17, "generation-target"));
+        CraftingMutation? published = null;
+        Assert.True(handoff.TryFlushCompleted(mutation =>
+        {
+            published = mutation;
+            return true;
+        }));
+
+        Assert.Equal("generation-target", published!.SaveGenerationId);
+        Assert.Equal(30, Assert.Single(published.Rows).ProducedQuantity);
+        Assert.False(handoff.HasUncommittedData);
+    }
+
+    [Fact]
+    public void CommittedProfileHandoffRetainsMutationUntilPublisherRetrySucceeds()
+    {
+        var handoff = new CraftingProfileHandoffBoundary();
+        handoff.Begin(3);
+        Assert.True(handoff.Stage(3, Mutation("100", "Bandage", "bandage", 1)));
+        Assert.True(handoff.Complete(3, "generation-new"));
+
+        Assert.False(handoff.TryFlushCompleted(_ => false));
+        Assert.True(handoff.HasCompletedData);
+        Assert.True(handoff.HasUncommittedData);
+
+        Assert.True(handoff.TryFlushCompleted(mutation =>
+            mutation.SaveGenerationId == "generation-new"));
+        Assert.False(handoff.HasCompletedData);
+        Assert.False(handoff.HasUncommittedData);
+    }
+
+    [Fact]
+    public void OverlappingProfileSelectionsStageCraftForLatestNativeTransition()
+    {
+        var handoff = new CraftingProfileHandoffBoundary();
+        handoff.Begin(1);
+        handoff.Begin(2);
+        Assert.True(handoff.TryGetActiveTransitionId(out var activeTransitionId));
+        Assert.Equal(2, activeTransitionId);
+        Assert.True(handoff.Stage(activeTransitionId, Mutation("100", "Bandage", "bandage", 1)));
+
+        Assert.True(handoff.Complete(1, "generation-first"));
+        Assert.True(handoff.TryFlushCompleted(_ => throw new InvalidOperationException("first transition has no craft")));
+        Assert.True(handoff.TryGetActiveTransitionId(out activeTransitionId));
+        Assert.Equal(2, activeTransitionId);
+        Assert.True(handoff.Complete(2, "generation-second"));
+
+        CraftingMutation? published = null;
+        Assert.True(handoff.TryFlushCompleted(mutation =>
+        {
+            published = mutation;
+            return true;
+        }));
+        Assert.Equal("generation-second", published!.SaveGenerationId);
+    }
+
     private static CraftingCompletionEvidence Evidence(
         string outputItemId,
         string displayName,
@@ -267,4 +344,22 @@ public sealed class CraftingCompletionBoundaryTests
             displayName,
             recipeId,
             producedQuantity);
+
+    private static CraftingMutation Mutation(
+        string outputItemId,
+        string displayName,
+        string recipeId,
+        long producedQuantity) => new(
+            CraftingProfileHandoffBoundary.StagedGenerationId,
+            Now,
+            [new CraftingMutationRow(
+                outputItemId,
+                displayName,
+                recipeId,
+                1,
+                producedQuantity,
+                new Dictionary<string, long>(StringComparer.Ordinal)
+                {
+                    [producedQuantity.ToString(System.Globalization.CultureInfo.InvariantCulture)] = 1
+                })]);
 }

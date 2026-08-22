@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion =
-        "native-crafting/2.3.30+correlated-cost-return-v2+declared-output-v1+patch-stamp-v1+deferred-profile-v1";
+        "native-crafting/2.3.30+correlated-cost-return-v2+declared-output-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.crafting";
     private const string SupportedGameVersion = "2.3.30";
     private const int DiagnosticKeyCapacity = 32;
@@ -28,6 +28,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     private readonly Func<bool> cleanupRetryHandler;
     private readonly CraftingCompletionBoundary boundary = new();
     private readonly CraftingPendingAccumulator pendingPublication = new();
+    private readonly CraftingProfileHandoffBoundary profileHandoff = new();
     private readonly CraftingCapabilityPublicationBoundary capabilityPublication = new();
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
     private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
@@ -39,6 +40,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     private MethodInfo? returnMethod;
     private HarmonyPatchSetStamp? craftPatchStamp;
     private HarmonyPatchSetStamp? returnPatchStamp;
+    private Func<bool>? profileTransitionCleanupBarrier;
     private bool accepting;
     private bool cleanupRequested;
     private bool terminalShutdownRequested;
@@ -151,7 +153,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     {
         bool active;
         lock (lifecycleSync) active = accepting;
-        if ((!pendingPublication.IsEmpty || capabilityPublication.IsPending)
+        if ((!pendingPublication.IsEmpty || profileHandoff.HasCompletedData || capabilityPublication.IsPending)
             && pendingRetryScheduler.TryTake(nowUtc, 1, out _))
             FlushPending();
         if (!active) return;
@@ -170,6 +172,42 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     }
 
     public bool FlushPending()
+    {
+        var handoffPublished = FlushCompletedProfileHandoffs();
+        var currentPublished = FlushCurrentPending();
+        return handoffPublished && currentPublished && !profileHandoff.HasUncommittedData;
+    }
+
+    public bool FlushPendingForProfileTransition()
+    {
+        var handoffPublished = FlushCompletedProfileHandoffs();
+        var currentPublished = FlushCurrentPending();
+        return handoffPublished && currentPublished;
+    }
+
+    public void SetProfileTransitionCleanupBarrier(Func<bool> barrier) =>
+        profileTransitionCleanupBarrier = barrier ?? throw new ArgumentNullException(nameof(barrier));
+
+    private bool FlushCompletedProfileHandoffs()
+    {
+        try
+        {
+            return profileHandoff.TryFlushCompleted(mutation =>
+            {
+                pendingPublication.Add(mutation);
+                return true;
+            });
+        }
+        catch (Exception exception)
+        {
+            DiagnosticOnce(
+                "handoff-flush:" + Unwrap(exception).GetType().Name,
+                $"Crafting profile-handoff publication failed and remains retryable: {Unwrap(exception).Message}");
+            return false;
+        }
+    }
+
+    private bool FlushCurrentPending()
     {
         var capabilitiesPublished = FlushPendingCapabilities();
         var hadPending = !pendingPublication.IsEmpty;
@@ -196,11 +234,25 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             accepting = false;
             cleanupRequested = true;
         }
+        if (profileTransitionCleanupBarrier?.Invoke() == false)
+        {
+            DiagnosticOnce(
+                "cleanup-profile-transition",
+                "Crafting cleanup remains pending until queued profile transitions commit their staged completions.");
+            return false;
+        }
         if (boundary.OutstandingCount != 0)
         {
             DiagnosticOnce(
                 "cleanup-inflight",
                 "Crafting cleanup is retained until all already-started native craft tasks finish or fail and every proven completion finishes aggregate publication; no new craft tasks are accepted.");
+            return false;
+        }
+        if (profileHandoff.HasUncommittedData)
+        {
+            DiagnosticOnce(
+                "cleanup-active-handoff",
+                "Crafting cleanup refused to discard completed output that is awaiting its target profile generation.");
             return false;
         }
         if (!FlushPending())
@@ -221,6 +273,8 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             returnMethod = null;
             craftPatchStamp = null;
             returnPatchStamp = null;
+            profileTransitionCleanupBarrier = null;
+            profileHandoff.Reset();
             cleaned = true;
         }
         return true;
@@ -246,6 +300,54 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     }
 
     public void Dispose() => TryCleanup();
+
+    public void BeginProfileChange(long transitionId)
+    {
+        lock (lifecycleSync)
+        {
+            if (cleaned) return;
+            profileHandoff.Begin(transitionId);
+        }
+        DiagnosticOnce(
+            "profile-handoff-start:" + transitionId,
+            "Crafting completions are staged for the queued profile transition until its target generation commits.");
+    }
+
+    public void CompleteProfileChange(long transitionId)
+    {
+        try
+        {
+            string generationId;
+            bool completed;
+            lock (lifecycleSync)
+            {
+                generationId = generationIdProvider();
+                completed = profileHandoff.Complete(transitionId, generationId);
+            }
+            if (!completed)
+            {
+                DiagnosticOnce(
+                    "profile-handoff-superseded:" + transitionId,
+                    "A superseded crafting profile-handoff completion was ignored.");
+                return;
+            }
+            if (!FlushPendingForProfileTransition())
+            {
+                pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
+                DiagnosticOnce(
+                    "profile-handoff-pending:" + transitionId,
+                    "Crafting completions transferred to the committed profile remain queued for publication retry.");
+            }
+            DiagnosticOnce(
+                "profile-handoff-complete:" + transitionId,
+                "Crafting profile handoff committed completed output to the selected save generation.");
+        }
+        catch (Exception exception)
+        {
+            DisableRuntime(
+                $"Crafting tracking disabled after profile-handoff completion failed: {Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}");
+        }
+    }
 
     internal CraftingNativeScope? BeginNativeCraft(CraftingFormula formula)
     {
@@ -362,11 +464,14 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         {
             string generationId;
             CraftingMutation mutation;
+            long profileTransitionId;
             lock (lifecycleSync)
             {
                 if (terminalShutdownRequested) return;
                 if (!scope.Correlation.TryMarkDeliveryProven()) return;
-                generationId = generationIdProvider();
+                generationId = profileHandoff.TryGetActiveTransitionId(out profileTransitionId)
+                    ? CraftingProfileHandoffBoundary.StagedGenerationId
+                    : generationIdProvider();
                 if (!string.IsNullOrWhiteSpace(generationId)
                     && boundary.TryComplete(
                         scope.Correlation.Token,
@@ -391,6 +496,18 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             if (!publicationClaimed)
             {
                 DisableRuntime("Crafting tracking disabled because correlated delivery evidence could not be claimed exactly once.");
+                return;
+            }
+            if (profileTransitionId != 0)
+            {
+                if (!profileHandoff.Stage(profileTransitionId, mutation))
+                {
+                    DisableRuntime("Crafting tracking disabled because completed delivery could not be staged for its queued profile transition.");
+                    return;
+                }
+                DiagnosticOnce(
+                    "completion-handoff:" + profileTransitionId,
+                    "A proven crafting completion is staged until its queued profile transition commits the target save generation.");
                 return;
             }
             var wasEmpty = pendingPublication.Add(mutation);
