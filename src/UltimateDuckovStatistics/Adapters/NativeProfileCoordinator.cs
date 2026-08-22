@@ -565,6 +565,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
         var currentIdentity = ReadIdentity(repository.Current.Slot);
         var resetIdentity = ReadIdentity();
+        var profileTransitionId = NextProfileTransitionId();
+        PublishProfileEvent(
+            () => CraftingProfileChangeStarted?.Invoke(profileTransitionId),
+            "crafting-profile-reset-started");
         QueueProfileTransition(
             "User profile reset",
             () => ProfileChanging?.Invoke(),
@@ -574,6 +578,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
             () => repository.Rotate(resetIdentity, "UserReset"),
             OpenDiagnosticsForCurrentGeneration,
             () => PublishProfileEvent(WorldTimeProfileChangedWithCurrentClock, "world-time-profile-changed-current-clock"),
+            () => PublishProfileEvent(
+                () => CraftingProfileChangeCompleted?.Invoke(profileTransitionId),
+                "crafting-profile-reset-completed"),
             () => PublishProfileEvent(ProfileChanged, "profile-changed"),
             ApplyCurrentMetricCapabilities,
             () => WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only."));

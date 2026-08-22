@@ -109,6 +109,73 @@ public sealed class NativeProfileTransitionBoundaryTests
         repository.CloseClean();
     }
 
+    [Fact]
+    [Trait("Category", "M13")]
+    [Trait("Category", "Persistence")]
+    public void CraftCompletedWhileUserResetIsDeferredCommitsOnlyToResetGeneration()
+    {
+        using var directory = new TemporaryDirectory();
+        var identities = new Queue<string>(
+            ["generation-old", "session-old", "generation-reset", "session-reset"]);
+        var repository = new ProfileRepository(directory.Path, () => TestTime, identities.Dequeue);
+        var identity = Identity(100);
+        repository.Open(identity);
+        repository.SetCraftingCapabilities(CraftingNativeContractPolicy.Supported("completion", "formula"));
+        var oldGeneration = repository.CurrentGenerationId;
+
+        const long transitionId = 42;
+        var transition = new NativeProfileTransitionBoundary();
+        var handoff = new CraftingProfileHandoffBoundary();
+        handoff.Begin(transitionId);
+        var profileWriterAvailable = false;
+        transition.Enqueue(
+            "User profile reset",
+            () =>
+            {
+                if (!profileWriterAvailable)
+                    throw new IOException("Deferred profile writer remains pending.");
+            },
+            () => repository.RefreshIdentity(identity),
+            () => repository.Rotate(identity, "UserReset"),
+            () => repository.SetCraftingCapabilities(CraftingNativeContractPolicy.Supported("completion", "formula")),
+            () => Assert.True(handoff.Complete(transitionId, repository.CurrentGenerationId)),
+            () => Assert.True(handoff.TryFlushCompleted(repository.RecordCraftingDeferred)),
+            repository.Flush);
+
+        Assert.False(transition.Retry(() => true, _ => { }));
+        Assert.Equal(oldGeneration, repository.CurrentGenerationId);
+
+        var completion = new CraftingCompletionBoundary();
+        var token = completion.Begin(new CraftingCompletionEvidence("100", "Tierfalle", "1005", 1));
+        Assert.True(completion.TryComplete(
+            token,
+            CraftingProfileHandoffBoundary.StagedGenerationId,
+            TestTime.AddMinutes(1),
+            out var staged));
+        Assert.True(handoff.Stage(transitionId, staged));
+        Assert.True(completion.FinishPublication(token));
+        Assert.Equal(0, repository.Current.Statistics.Crafting.CompletionActions);
+
+        profileWriterAvailable = true;
+        Assert.True(transition.Retry(() => true, _ => { }));
+        Assert.NotEqual(oldGeneration, repository.CurrentGenerationId);
+        Assert.Equal(1, repository.Current.Statistics.Crafting.CompletionActions);
+        Assert.Equal(1, repository.Current.Statistics.Crafting.ProducedQuantity);
+        repository.CloseClean();
+
+        var archive = Assert.Single(Directory.EnumerateDirectories(Path.Combine(
+            directory.Path,
+            "profiles",
+            "slot-01",
+            "archives")));
+        var archivedProfilePath = Path.Combine(archive, "profile.json");
+        Assert.True((File.GetAttributes(archivedProfilePath) & FileAttributes.ReadOnly) != 0);
+        var archived = new AtomicJsonStore<ProfileDocument>().Load(archivedProfilePath).Value!;
+        Assert.Equal(oldGeneration, archived.GenerationId);
+        Assert.Equal(0, archived.Statistics.Crafting.CompletionActions);
+        Assert.Equal(0, archived.Statistics.Crafting.ProducedQuantity);
+    }
+
     private static SaveIdentitySnapshot Identity(long creationTicks, int slot = 1) => new()
     {
         Slot = slot,
