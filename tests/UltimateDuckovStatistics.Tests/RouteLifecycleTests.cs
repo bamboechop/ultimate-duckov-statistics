@@ -1176,7 +1176,7 @@ public sealed class RouteLifecycleTests
 
         Assert.True(ProfileMigrator.Migrate(document));
         var run = Assert.Single(document.Statistics.Runs);
-        Assert.Equal(12, document.SchemaVersion);
+        Assert.Equal(13, document.SchemaVersion);
         Assert.Equal("duckov:map:A", run.StartingMapId);
         Assert.Equal(MapIdentity.UnknownId, run.EndingMapId);
         Assert.Empty(run.Segments);
@@ -1246,7 +1246,7 @@ public sealed class RouteLifecycleTests
         document.Statistics.SchemaVersion = 9;
 
         Assert.True(ProfileMigrator.Migrate(document));
-        Assert.Equal(12, document.SchemaVersion);
+        Assert.Equal(13, document.SchemaVersion);
         var association = Assert.Single(run.SegmentEventAssociations);
         Assert.Equal("legacy-one", association.EventId);
         Assert.Equal(SegmentEventAssociationRepresentation.LegacyRaw, association.Representation);

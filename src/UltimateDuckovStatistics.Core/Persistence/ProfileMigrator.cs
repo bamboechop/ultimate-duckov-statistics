@@ -82,6 +82,19 @@ public static class ProfileMigrator
             return $"Current-schema world-time state is invalid: {exception.Message}";
         }
 
+        try
+        {
+            CraftingStatisticsReducer.Validate(profile.Statistics.Crafting);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Current-schema crafting state is invalid: {exception.Message}";
+        }
+        catch (OverflowException exception)
+        {
+            return $"Current-schema crafting state is invalid: {exception.Message}";
+        }
+
         if (profile.DeferredItemPersistence != null)
         {
             var deferred = profile.DeferredItemPersistence;
@@ -350,6 +363,8 @@ public static class ProfileMigrator
                                        || (profile.Statistics != null && profile.Statistics.SchemaVersion < 11);
         var migratingWorldTime = profile.SchemaVersion < 12
                                  || (profile.Statistics != null && profile.Statistics.SchemaVersion < 12);
+        var migratingCrafting = profile.SchemaVersion < 13
+                                || (profile.Statistics != null && profile.Statistics.SchemaVersion < 13);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         var missingCurrentEquipmentRoot = !migratingEquipment
@@ -527,6 +542,19 @@ public static class ProfileMigrator
             profile.Statistics.WorldTime.HistoricalUnavailable = true;
             profile.Statistics.WorldTime.HistoricalProvenance =
                 "Historical schema predates M12; prior calendar advancement, observed game time, completed sleep sessions, and sleep-advanced time were not recorded and were not reconstructed.";
+            changed = true;
+        }
+        if (profile.Statistics.Crafting == null)
+        {
+            profile.Statistics.Crafting = new CraftingStatisticsAggregate();
+            changed = true;
+        }
+        changed |= CraftingStatisticsReducer.NormalizePersisted(profile.Statistics.Crafting);
+        if (migratingCrafting)
+        {
+            profile.Statistics.Crafting.HistoricalUnavailable = true;
+            profile.Statistics.Crafting.HistoricalProvenance =
+                "Historical schema predates M13; crafted-item completion actions, produced quantities, recipe identity, and batch metadata were not recorded.";
             changed = true;
         }
         if (profile.Statistics.RunTotals.Economy == null)
@@ -980,6 +1008,18 @@ public static class ProfileMigrator
         if (profile.Statistics.SchemaVersion < 12)
         {
             profile.Statistics.SchemaVersion = 12;
+            changed = true;
+        }
+
+        if (profile.SchemaVersion < 13)
+        {
+            profile.SchemaVersion = 13;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 13)
+        {
+            profile.Statistics.SchemaVersion = 13;
             changed = true;
         }
 

@@ -29,6 +29,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private Func<bool>? activeRunCheckpointFlusher;
     private Func<bool>? economyBoundaryFlusher;
     private Func<bool>? worldTimeBoundaryFlusher;
+    private Func<bool>? craftingBoundaryFlusher;
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
     private long worldTimeTransitionSequence;
@@ -77,6 +78,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
         NativeWorldTimeAdapter.AdapterVersion).ToList();
     private WorldTimeMetricCapabilities worldTimeMetricCapabilities =
         WorldTimeNativeContractPolicy.Unavailable(WorldTimeNativeContractPolicy.BootstrapProvenance);
+    private List<CapabilityRecord> craftingCapabilities = CraftingNativeContractPolicy.ToRecords(
+        CraftingNativeContractPolicy.Unavailable(CraftingNativeContractPolicy.BootstrapProvenance),
+        NativeCraftingAdapter.AdapterVersion).ToList();
+    private CraftingMetricCapabilities craftingMetricCapabilities =
+        CraftingNativeContractPolicy.Unavailable(CraftingNativeContractPolicy.BootstrapProvenance);
 
     public NativeProfileCoordinator()
     {
@@ -128,6 +134,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public WorldTimeMetricCapabilities CurrentWorldTimeCapabilities =>
         WorldTimeStatisticsReducer.CloneCapabilities(worldTimeMetricCapabilities);
+
+    public CraftingMetricCapabilities CurrentCraftingCapabilities =>
+        CraftingStatisticsReducer.CloneCapabilities(craftingMetricCapabilities);
 
     public IReadOnlyList<DiagnosticEntry> DiagnosticEntries =>
         diagnostics?.Entries ?? Array.Empty<DiagnosticEntry>();
@@ -330,6 +339,17 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
+    public void SetCraftingCapabilities(
+        IReadOnlyList<CapabilityRecord> capabilities,
+        CraftingMetricCapabilities metricCapabilities)
+    {
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        if (metricCapabilities == null) throw new ArgumentNullException(nameof(metricCapabilities));
+        craftingCapabilities = capabilities.Select(CloneCapability).ToList();
+        craftingMetricCapabilities = CraftingStatisticsReducer.CloneCapabilities(metricCapabilities);
+        UpdateCapabilities();
+    }
+
     public bool HandleWorldTime(WorldTimeMutation mutation)
     {
         if (mutation.IsEmpty) return false;
@@ -358,6 +378,32 @@ internal sealed class NativeProfileCoordinator : IDisposable
         return true;
     }
 
+    public bool HandleCrafting(CraftingMutation mutation)
+    {
+        if (mutation == null || mutation.IsEmpty) return true;
+        try
+        {
+            var currentRepository = repository;
+            if (currentRepository == null) return false;
+            if (currentRepository.RecordCraftingDeferred(mutation)) profileWriter.MarkDirty();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (repository != null) profileWriter.MarkDirty();
+            Debug.LogException(exception);
+            WriteDiagnostic($"Failed to aggregate crafted-item completion: {exception.GetType().Name}.", "Error");
+            return false;
+        }
+    }
+
+    public bool RequestCraftingPersistence()
+    {
+        if (repository == null) return false;
+        profileWriter.MarkDirty();
+        return true;
+    }
+
     public void BeginEconomyActivation(string activationId)
     {
         economyActivationGate.Begin(activationId);
@@ -373,6 +419,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public void SetWorldTimeBoundaryBarrier(Func<bool> flusher)
     {
         worldTimeBoundaryFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
+    }
+
+    public void SetCraftingBoundaryBarrier(Func<bool> flusher)
+    {
+        craftingBoundaryFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
     }
 
     public bool RetryPendingProfileTransition() => profileTransitionBoundary.Retry(
@@ -458,6 +509,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
         {
             if (worldTimeBoundaryFlusher?.Invoke() == false)
                 throw new IOException("World-time aggregate remains pending during profile flush.");
+            if (craftingBoundaryFlusher?.Invoke() == false)
+                throw new IOException("Crafting aggregate or capability publication remains pending during profile flush.");
             WaitRunCheckpoint();
             DrainProfileWriter();
             if (repository != null)
@@ -482,6 +535,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
         if (worldTimeBoundaryFlusher?.Invoke() == false)
             throw new IOException("World-time aggregate remains pending before export.");
+        if (craftingBoundaryFlusher?.Invoke() == false)
+            throw new IOException("Crafting aggregate or capability publication remains pending before export.");
         WaitRunCheckpoint();
         DrainProfileWriter();
         repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
@@ -636,6 +691,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
         {
             if (worldTimeBoundaryFlusher?.Invoke() == false)
                 throw new IOException("World-time aggregate remains pending before native save collection.");
+            if (craftingBoundaryFlusher?.Invoke() == false)
+                throw new IOException("Crafting aggregate or capability publication remains pending before native save collection.");
             if (repository != null)
             {
                 DrainProfileWriter();
@@ -716,7 +773,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private bool FlushProfileTransitionBoundaries()
     {
         if (economyBoundaryFlusher?.Invoke() == false) return false;
-        return worldTimeBoundaryFlusher?.Invoke() != false;
+        if (worldTimeBoundaryFlusher?.Invoke() == false) return false;
+        return craftingBoundaryFlusher?.Invoke() != false;
     }
 
     private void PublishProfileEvent(Action? subscribers, string eventName) =>
@@ -857,7 +915,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities));
+        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities));
         ApplyCurrentMetricCapabilities();
     }
 
@@ -865,6 +923,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         repository?.SetEconomyCapabilities(economyMetricCapabilities);
         repository?.SetWorldTimeCapabilities(worldTimeMetricCapabilities);
+        repository?.SetCraftingCapabilities(craftingMetricCapabilities);
     }
 
     private DeferredWriteState ObserveCheckpointResult(DeferredWriteResult result)

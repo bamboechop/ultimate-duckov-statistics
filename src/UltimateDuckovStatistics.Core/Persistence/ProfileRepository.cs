@@ -215,6 +215,20 @@ public sealed class ProfileRepository
         return true;
     }
 
+    public bool RecordCraftingDeferred(CraftingMutation mutation)
+    {
+        if (mutation == null) throw new ArgumentNullException(nameof(mutation));
+        var profile = Current;
+        var changed = CraftingStatisticsReducer.Apply(
+            profile.Statistics.Crafting,
+            profile.GenerationId,
+            mutation);
+        if (!changed) return false;
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        return true;
+    }
+
     public bool BeginEconomyActivation(string activationId)
     {
         var profile = Current;
@@ -550,6 +564,17 @@ public sealed class ProfileRepository
         var profile = Current;
         profile.Statistics.WorldTime ??= new WorldTimeStatisticsAggregate();
         WorldTimeStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.WorldTime, capabilities);
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        SaveCurrent();
+    }
+
+    public void SetCraftingCapabilities(CraftingMetricCapabilities capabilities)
+    {
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        var profile = Current;
+        profile.Statistics.Crafting ??= new CraftingStatisticsAggregate();
+        CraftingStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.Crafting, capabilities);
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();
@@ -1218,7 +1243,8 @@ public sealed class ProfileRepository
                 RunTotals = statistics.RunTotals,
                 RunRecords = statistics.RunRecords,
                 Economy = EconomyStatisticsReducer.Clone(statistics.Economy),
-                WorldTime = WorldTimeStatisticsReducer.Clone(statistics.WorldTime)
+                WorldTime = WorldTimeStatisticsReducer.Clone(statistics.WorldTime),
+                Crafting = CraftingStatisticsReducer.Clone(statistics.Crafting)
             },
             Capabilities = source.Capabilities.Select(CloneCapability).ToList(),
             PendingSave = source.PendingSave == null

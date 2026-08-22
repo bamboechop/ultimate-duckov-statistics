@@ -27,6 +27,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private readonly ProcessLifetimeCleanupOwner<NativeEquipmentAdapter> equipmentAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeContainerAdapter> containerAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeWorldTimeAdapter> worldTimeAdapter = new();
+    private readonly ProcessLifetimeCleanupOwner<NativeCraftingAdapter> craftingAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
 
     protected override void OnAfterSetup()
@@ -94,6 +95,15 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 return;
             }
 
+            if (craftingAdapter.HasValue
+                && (!craftingAdapter.HasPendingCleanup || !craftingAdapter.TryCleanupPending()))
+            {
+                Debug.LogError(
+                    $"{LogPrefix} activation blocked while another crafting owner is active "
+                    + "or prior patches/completions await cleanup.");
+                return;
+            }
+
             var newProfileCoordinator = new NativeProfileCoordinator();
             profileCoordinator = newProfileCoordinator;
             newProfileCoordinator.Initialize();
@@ -115,6 +125,16 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             newProfileCoordinator.WorldTimeSameProfileReopenCompleted += newWorldTimeAdapter.CompleteProfileChangeWithCurrentClock;
             newProfileCoordinator.WorldTimeProfileChangedWithCurrentClock += newWorldTimeAdapter.ResetForProfileChangeWithCurrentClock;
             newWorldTimeAdapter.SetProfileTransitionCleanupBarrier(newProfileCoordinator.DrainPendingProfileTransitions);
+            var newCraftingAdapter = new NativeCraftingAdapter(
+                () => newProfileCoordinator.CurrentGenerationId,
+                newProfileCoordinator.HandleCrafting,
+                newProfileCoordinator.RequestCraftingPersistence,
+                newProfileCoordinator.SetCraftingCapabilities,
+                message => Debug.Log($"{LogPrefix} {message}"),
+                craftingAdapter.TryCleanupPending);
+            craftingAdapter.Assign(newCraftingAdapter);
+            newCraftingAdapter.Initialize();
+            newProfileCoordinator.SetCraftingBoundaryBarrier(newCraftingAdapter.FlushPending);
             var economyFlowPublication = new EconomyFlowPublication(
                 profileCoordinator.HandleCurrencyFlow,
                 flow => runLifecycleAdapter.OwnedValue?.RecordCurrencyFlow(flow) == true,
@@ -273,7 +293,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             && combatAttributionAdapter.OwnedValue == null
             && equipmentAdapter.OwnedValue == null
             && containerAdapter.OwnedValue == null
-            && worldTimeAdapter.OwnedValue == null)
+            && worldTimeAdapter.OwnedValue == null
+            && craftingAdapter.OwnedValue == null)
         {
             return;
         }
@@ -298,6 +319,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         combatAttributionAdapter.OwnedValue?.Tick();
         containerAdapter.OwnedValue?.Tick();
         worldTimeAdapter.OwnedValue?.Tick(DateTime.UtcNow);
+        craftingAdapter.OwnedValue?.Tick(DateTime.UtcNow);
         profileCoordinator?.TickProfilePersistence(
             runLifecycleAdapter.OwnedValue?.HasUncheckpointedRunMutations != true);
         statisticsPanel?.Tick();
@@ -313,6 +335,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         DrainPendingProfileTransitions("application quit");
         FlushPendingEconomy("application quit");
         FlushPendingWorldTime("application quit");
+        FinalizeCraftingForTerminalShutdown();
         runLifecycleAdapter.OwnedValue?.FlushCheckpoint();
         profileCoordinator?.Flush();
         Debug.Log(
@@ -333,6 +356,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         var profileTransitionsDrained = DrainPendingProfileTransitions("deactivation");
         FlushPendingEconomy("deactivation");
         FlushPendingWorldTime("deactivation");
+        FlushPendingCrafting("deactivation");
         var ownedRunLifecycleAdapter = runLifecycleAdapter.OwnedValue;
         var ownedWeaponFireAdapter = weaponFireAdapter.OwnedValue;
         if (profileCoordinator != null)
@@ -394,8 +418,17 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
         var retainedProfileCoordinator = profileCoordinator;
         var coordinatorCleanupGate = new CleanupCompletionGate(
-            2,
+            3,
             () => retainedProfileCoordinator?.Dispose());
+        if (craftingAdapter.TryCleanupOwned(coordinatorCleanupGate.Signal))
+        {
+            coordinatorCleanupGate.Signal();
+        }
+        else
+        {
+            Debug.LogWarning(
+                $"{LogPrefix} crafting adapter and profile coordinator retained for a later cleanup retry.");
+        }
         if (worldTimeAdapter.TryCleanupOwned(coordinatorCleanupGate.Signal))
         {
             coordinatorCleanupGate.Signal();
@@ -461,6 +494,38 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         {
             Debug.LogException(exception);
             Debug.LogError($"{LogPrefix} world-time aggregate flush failed during {boundary}.");
+        }
+    }
+
+    private void FlushPendingCrafting(string boundary)
+    {
+        try
+        {
+            if (craftingAdapter.OwnedValue?.FlushPending() == false)
+                Debug.LogError($"{LogPrefix} crafting aggregate flush remains pending during {boundary}.");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            Debug.LogError($"{LogPrefix} crafting aggregate flush failed during {boundary}.");
+        }
+    }
+
+    private void FinalizeCraftingForTerminalShutdown()
+    {
+        try
+        {
+            if (craftingAdapter.OwnedValue?.TryCleanupForTerminalShutdown() == false)
+            {
+                Debug.LogError(
+                    $"{LogPrefix} terminal crafting cleanup remains pending during application quit; "
+                    + "a proven completion or aggregate publication has not finished.");
+            }
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            Debug.LogError($"{LogPrefix} terminal crafting cleanup failed during application quit.");
         }
     }
 
