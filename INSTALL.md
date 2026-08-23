@@ -4,7 +4,7 @@
 
 All UDS `0.x` packages are development artifacts made available through GitHub for voluntary manual testing. GitHub downloads are not an officially supported installation channel, and continuity of UDS-owned profiles between `0.x` versions is best effort rather than a supported upgrade guarantee. Existing migration paths may preserve development data and are tested as internal hardening, but testers must not rely on them as a compatibility promise. The first version explicitly distributed through a supported channel will declare the starting baseline for supported upgrades and migrations.
 
-## Tested game baseline for the v0.13.0 candidate
+## Tested game baseline for v0.13.0
 
 - Escape From Duckov `2.3.30`
 - Steam build `24013657`
@@ -16,7 +16,7 @@ The UDS package must not contain Duckov assemblies or `0Harmony.dll`. HarmonyLib
 
 ## Required HarmonyLib Workshop item
 
-Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. The v0.13.0 candidate requires HarmonyLib for M2 healing attribution, M5/M11 combat scopes, M7's separate corpse-provenance owner, M12's exact sleep-advancement boundary, and M13's private crafting-task completion boundary. M12 clock/day observation uses the public native event independently. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven independent statistics continue.
+Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. The v0.13.0 build requires HarmonyLib for M2 healing attribution, M5/M11 combat scopes, M7's separate corpse-provenance owner, M12's exact sleep-advancement boundary, and M13's private crafting-task completion boundary. M12 clock/day observation uses the public native event independently. If Harmony is missing, too old, incompatible, or a required method has an unsafe foreign patch, only the affected Harmony-backed capabilities display `DisabledIncompatible`; proven independent statistics continue.
 
 After every cold launch and before selecting a save:
 
@@ -64,7 +64,7 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 - M13 records one completion action only when the installed private `CraftingManager.Craft(CraftingFormula)` task returns a non-null result after its native output-delivery path. Produced quantity is the formula's declared singular `result.amount`, kept separate from actions and grouped by stable output item type ID, recipe ID, and declared batch size. Attempts, failed payment, incomplete work, inventory movement, profile hydration, and inferred ingredient/currency changes do not count.
 - Exports contain `statistics.json` plus twenty-six CSVs. M13 adds `crafting_totals.csv` and `crafting_recipes.csv`; action/quantity totals, stable output and recipe identity, batch distribution, capability provenance, historical availability, and repair state agree with JSON and the Crafting/Overview UI. `map_totals.csv` remains starting-map complete-run history; route-map totals are separate.
 
-## Known v0.13.0 candidate limitations
+## Known v0.13.0 limitations
 
 - Statistics begin at installation; no history is reconstructed.
 - Pre-M8 ending maps, ordered routes, segments, transition displacement, and route-aware per-map attribution are unavailable rather than reconstructed as fake one-segment routes.
