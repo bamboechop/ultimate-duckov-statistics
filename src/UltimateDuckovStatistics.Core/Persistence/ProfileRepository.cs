@@ -534,17 +534,32 @@ public sealed class ProfileRepository
         return applied || retryingFailedPersistence;
     }
 
-    public void SetCapabilities(IEnumerable<CapabilityRecord> capabilities)
+    public void SetCapabilitySnapshot(
+        IEnumerable<CapabilityRecord> capabilities,
+        EconomyMetricCapabilities economyCapabilities,
+        WorldTimeMetricCapabilities worldTimeCapabilities,
+        CraftingMetricCapabilities craftingCapabilities)
     {
-        if (capabilities == null)
-        {
-            throw new ArgumentNullException(nameof(capabilities));
-        }
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        if (economyCapabilities == null) throw new ArgumentNullException(nameof(economyCapabilities));
+        if (worldTimeCapabilities == null) throw new ArgumentNullException(nameof(worldTimeCapabilities));
+        if (craftingCapabilities == null) throw new ArgumentNullException(nameof(craftingCapabilities));
 
+        var capabilitySnapshot = capabilities.Select(CloneCapability).ToList();
         configuredCapabilities.Clear();
-        configuredCapabilities.AddRange(capabilities.Select(CloneCapability));
+        configuredCapabilities.AddRange(capabilitySnapshot);
         capabilitiesConfigured = true;
-        ApplyConfiguredCapabilities();
+        var profile = Current;
+        profile.Capabilities = configuredCapabilities.Select(CloneCapability).ToList();
+        profile.Statistics.Economy ??= new EconomyStatisticsAggregate();
+        EconomyStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.Economy, economyCapabilities);
+        profile.Statistics.WorldTime ??= new WorldTimeStatisticsAggregate();
+        WorldTimeStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.WorldTime, worldTimeCapabilities);
+        profile.Statistics.Crafting ??= new CraftingStatisticsAggregate();
+        CraftingStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.Crafting, craftingCapabilities);
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        SaveCurrent();
     }
 
     public void SetEconomyCapabilities(EconomyMetricCapabilities capabilities)

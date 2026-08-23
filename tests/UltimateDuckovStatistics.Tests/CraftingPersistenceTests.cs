@@ -55,6 +55,53 @@ public sealed class CraftingPersistenceTests
     }
 
     [Fact]
+    [Trait("Category", "M13")]
+    [Trait("Category", "Persistence")]
+    public void CapabilitySnapshotPersistsGenericAndCraftingDegradationInOneRevisionAcrossReopen()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var identity = Identity(1, 100);
+        var first = Repository(temporaryDirectory.Path, "generation-1", "session-1");
+        first.Open(identity);
+        var supported = CraftingNativeContractPolicy.Supported("completion", "formula");
+        PublishCapabilities(first, supported);
+        var supportedRevision = first.Current.Revision;
+
+        const string degradation = "Runtime crafting contract drifted.";
+        var unavailable = CraftingNativeContractPolicy.Unavailable(degradation);
+        PublishCapabilities(first, unavailable);
+
+        Assert.Equal(supportedRevision + 1, first.Current.Revision);
+        var firstCraftingRecords = first.Current.Capabilities
+            .Where(capability => CraftingCapabilityIds.All.Contains(capability.AdapterId))
+            .ToList();
+        Assert.Equal(CraftingCapabilityIds.All.Count, firstCraftingRecords.Count);
+        Assert.All(
+            firstCraftingRecords,
+            capability => Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capability.State));
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            first.Current.Statistics.Crafting.Capabilities.CompletionActions.State);
+
+        var reopened = Repository(temporaryDirectory.Path, "session-2");
+        var open = reopened.Open(identity);
+
+        Assert.True(open.InterruptedSessionRecovered);
+        var reopenedCraftingRecords = reopened.Current.Capabilities
+            .Where(capability => CraftingCapabilityIds.All.Contains(capability.AdapterId))
+            .ToList();
+        Assert.Equal(CraftingCapabilityIds.All.Count, reopenedCraftingRecords.Count);
+        Assert.All(
+            reopenedCraftingRecords,
+            capability => Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capability.State));
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            reopened.Current.Statistics.Crafting.Capabilities.CompletionActions.State);
+        Assert.Equal(degradation, reopened.Current.Statistics.Crafting.Capabilities.CompletionActions.Provenance);
+        reopened.CloseClean();
+    }
+
+    [Fact]
     [Trait("Category", "Persistence")]
     public void SaveSlotAndGenerationReplacementKeepCraftingTotalsIndependent()
     {
@@ -178,6 +225,15 @@ public sealed class CraftingPersistenceTests
 
     private static ProfileRepository Repository(string root, Queue<string> ids) =>
         new(root, () => Now, () => ids.Dequeue());
+
+    private static void PublishCapabilities(ProfileRepository repository, CraftingMetricCapabilities craftingCapabilities)
+    {
+        repository.SetCapabilitySnapshot(
+            CraftingNativeContractPolicy.ToRecords(craftingCapabilities, "native-crafting/test"),
+            EconomyNativeContractPolicy.Unavailable("not under test"),
+            WorldTimeNativeContractPolicy.Unavailable("not under test"),
+            craftingCapabilities);
+    }
 
     private static SaveIdentitySnapshot Identity(int slot, long creationTicks) => new()
     {

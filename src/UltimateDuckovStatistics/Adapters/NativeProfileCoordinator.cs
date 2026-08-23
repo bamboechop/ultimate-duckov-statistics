@@ -585,7 +585,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 () => CraftingProfileChangeCompleted?.Invoke(transitionId),
                 "crafting-profile-reset-completed"),
             profileChanged: () => PublishProfileEvent(ProfileChanged, "profile-changed"),
-            applyCurrentMetricCapabilities: ApplyCurrentMetricCapabilities,
+            applyCurrentMetricCapabilities: ApplyCurrentCapabilities,
             writeDiagnostic: () => WriteDiagnostic(
                 $"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only."));
     }
@@ -668,7 +668,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                     () => CraftingProfileChangeCompleted?.Invoke(profileTransitionId),
                     "crafting-profile-change-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
-                ApplyCurrentMetricCapabilities,
+                ApplyCurrentCapabilities,
                 () => WriteDiagnostic(
                     $"Save slot selected slot={activeRepository.Current.Slot} generation={activeRepository.CurrentGenerationId} " +
                     $"created={result!.CreatedNew} rotated={result.RotatedGeneration} " +
@@ -708,7 +708,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                     () => CraftingProfileChangeCompleted?.Invoke(profileTransitionId),
                     "crafting-profile-change-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
-                ApplyCurrentMetricCapabilities,
+                ApplyCurrentCapabilities,
                 () => WriteDiagnostic($"Duckov save deletion rotated to generation {repository!.CurrentGenerationId}."));
         }
         catch (Exception exception)
@@ -781,7 +781,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                     () => CraftingProfileChangeCompleted?.Invoke(profileTransitionId),
                     "crafting-profile-change-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
-                ApplyCurrentMetricCapabilities,
+                ApplyCurrentCapabilities,
                 () => WriteDiagnostic(matchedDeletedGeneration
                     ? "New-game report matched the already-rotated deleted save generation."
                     : $"Duckov new game rotated to generation {repository!.CurrentGenerationId}."));
@@ -939,7 +939,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private void UpdateCapabilities()
     {
         DrainProfileWriter();
-        repository?.SetCapabilities(new[]
+        ApplyCurrentCapabilities();
+    }
+
+    private void ApplyCurrentCapabilities()
+    {
+        repository?.SetCapabilitySnapshot(new[]
         {
             new CapabilityRecord
             {
@@ -956,15 +961,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities));
-        ApplyCurrentMetricCapabilities();
-    }
-
-    private void ApplyCurrentMetricCapabilities()
-    {
-        repository?.SetEconomyCapabilities(economyMetricCapabilities);
-        repository?.SetWorldTimeCapabilities(worldTimeMetricCapabilities);
-        repository?.SetCraftingCapabilities(craftingMetricCapabilities);
+        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities),
+        economyMetricCapabilities,
+        worldTimeMetricCapabilities,
+        craftingMetricCapabilities);
     }
 
     private DeferredWriteState ObserveCheckpointResult(DeferredWriteResult result)

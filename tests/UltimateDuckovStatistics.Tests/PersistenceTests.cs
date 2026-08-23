@@ -1875,7 +1875,11 @@ public sealed class PersistenceTests
         };
 
         repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-        repository.SetCapabilities(capabilities);
+        repository.SetCapabilitySnapshot(
+            capabilities,
+            EconomyNativeContractPolicy.Unavailable("not under test"),
+            WorldTimeNativeContractPolicy.Unavailable("not under test"),
+            CraftingNativeContractPolicy.Unavailable("not under test"));
         Assert.Equal("native-item-use", Assert.Single(repository.Current.Capabilities).AdapterId);
 
         repository.Open(CreateIdentity(slot: 2, creationTicks: 200), "SaveSlotSelected");
