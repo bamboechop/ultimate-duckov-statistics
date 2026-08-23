@@ -5,9 +5,9 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class ProductInfoTests
 {
     [Fact]
-    public void VersionAndSchemaArePinnedForWorldTimeAndSleep()
+    public void VersionAndSchemaArePinnedForCraftedItemStatistics()
     {
-        Assert.Equal("0.12.0", ProductInfo.Version);
-        Assert.Equal(12, ProductInfo.SchemaVersion);
+        Assert.Equal("0.13.0", ProductInfo.Version);
+        Assert.Equal(13, ProductInfo.SchemaVersion);
     }
 }

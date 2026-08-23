@@ -53,6 +53,9 @@ public sealed class StatisticsExportDocument
 
     [DataMember(Order = 14)]
     public WorldTimeStatisticsAggregate WorldTime { get; set; } = new();
+
+    [DataMember(Order = 15)]
+    public CraftingStatisticsAggregate Crafting { get; set; } = new();
 }
 
 [DataContract]
@@ -112,7 +115,9 @@ public sealed class StatisticsExportBundle
         string economySourcesCsv,
         string economyContextsCsv,
         string cashRaidOutcomesCsv,
-        string worldTimeCsv)
+        string worldTimeCsv,
+        string craftingTotalsCsv,
+        string craftingRecipesCsv)
     {
         Document = document;
         Json = json;
@@ -140,6 +145,8 @@ public sealed class StatisticsExportBundle
         EconomyContextsCsv = economyContextsCsv;
         CashRaidOutcomesCsv = cashRaidOutcomesCsv;
         WorldTimeCsv = worldTimeCsv;
+        CraftingTotalsCsv = craftingTotalsCsv;
+        CraftingRecipesCsv = craftingRecipesCsv;
     }
 
     public StatisticsExportDocument Document { get; }
@@ -193,6 +200,10 @@ public sealed class StatisticsExportBundle
     public string CashRaidOutcomesCsv { get; }
 
     public string WorldTimeCsv { get; }
+
+    public string CraftingTotalsCsv { get; }
+
+    public string CraftingRecipesCsv { get; }
 }
 
 public static class StatisticsExporter
@@ -292,7 +303,8 @@ public static class StatisticsExporter
             RunRecords = CloneRunRecords(profile.Statistics.RunRecords),
             Capabilities = profile.Capabilities.Select(CloneCapability).ToList(),
             Economy = EconomyStatisticsReducer.Clone(profile.Statistics.Economy),
-            WorldTime = WorldTimeStatisticsReducer.Clone(profile.Statistics.WorldTime)
+            WorldTime = WorldTimeStatisticsReducer.Clone(profile.Statistics.WorldTime),
+            Crafting = CraftingStatisticsReducer.Clone(profile.Statistics.Crafting)
         };
 
         return new StatisticsExportBundle(
@@ -321,8 +333,76 @@ public static class StatisticsExporter
             CreateEconomySourcesCsv(document),
             CreateEconomyContextsCsv(document),
             CreateCashRaidOutcomesCsv(document),
-            CreateWorldTimeCsv(document));
+            CreateWorldTimeCsv(document),
+            CreateCraftingTotalsCsv(document),
+            CreateCraftingRecipesCsv(document));
     }
+
+    private static string CreateCraftingTotalsCsv(StatisticsExportDocument document)
+    {
+        var value = document.Crafting;
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,output_item_id,display_name,completion_actions,produced_quantity,completion_capability,completion_provenance,quantity_capability,quantity_provenance,output_identity_capability,output_identity_provenance,recipe_identity_capability,recipe_identity_provenance,batch_metadata_capability,batch_metadata_provenance,multiple_output_capability,multiple_output_provenance,workstation_capability,workstation_provenance,context_capability,context_provenance,historical_unavailable,historical_provenance,repaired_invalid_state");
+        Append("lifetime", string.Empty, string.Empty, value.CompletionActions, value.ProducedQuantity);
+        foreach (var output in value.Outputs.Values.OrderBy(output => output.OutputItemId, StringComparer.Ordinal))
+            Append("output", output.OutputItemId, output.DisplayName, output.CompletionActions, output.ProducedQuantity);
+        return builder.ToString();
+
+        void Append(string scope, string outputItemId, string displayName, long actions, long quantity)
+        {
+            builder.Append(scope).Append(',').Append(Csv(outputItemId)).Append(',').Append(Csv(displayName)).Append(',')
+                .Append(actions.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(quantity.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(value.Capabilities.CompletionActions.State).Append(',').Append(Csv(value.Capabilities.CompletionActions.Provenance)).Append(',')
+                .Append(value.Capabilities.ProducedQuantity.State).Append(',').Append(Csv(value.Capabilities.ProducedQuantity.Provenance)).Append(',')
+                .Append(value.Capabilities.OutputIdentity.State).Append(',').Append(Csv(value.Capabilities.OutputIdentity.Provenance)).Append(',')
+                .Append(value.Capabilities.RecipeIdentity.State).Append(',').Append(Csv(value.Capabilities.RecipeIdentity.Provenance)).Append(',')
+                .Append(value.Capabilities.BatchMetadata.State).Append(',').Append(Csv(value.Capabilities.BatchMetadata.Provenance)).Append(',')
+                .Append(value.Capabilities.MultipleOutputRecipes.State).Append(',').Append(Csv(value.Capabilities.MultipleOutputRecipes.Provenance)).Append(',')
+                .Append(value.Capabilities.WorkstationIdentity.State).Append(',').Append(Csv(value.Capabilities.WorkstationIdentity.Provenance)).Append(',')
+                .Append(value.Capabilities.ContextAttribution.State).Append(',').Append(Csv(value.Capabilities.ContextAttribution.Provenance)).Append(',')
+                .Append(value.HistoricalUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(Csv(value.HistoricalProvenance)).Append(',')
+                .Append(value.WasRepairedFromInvalidState.ToString(CultureInfo.InvariantCulture)).AppendLine();
+        }
+    }
+
+    private static string CreateCraftingRecipesCsv(StatisticsExportDocument document)
+    {
+        var value = document.Crafting;
+        var builder = new StringBuilder();
+        builder.AppendLine("output_item_id,display_name,recipe_id,completion_actions,produced_quantity,batch_quantity,batch_actions,recipe_identity_capability,recipe_identity_provenance,batch_metadata_capability,batch_metadata_provenance,historical_unavailable,historical_provenance");
+        foreach (var output in value.Outputs.Values.OrderBy(output => output.OutputItemId, StringComparer.Ordinal))
+        {
+            foreach (var recipe in output.Recipes.Values.OrderBy(recipe => recipe.RecipeId, StringComparer.Ordinal))
+            {
+                if (recipe.BatchActions.Count == 0)
+                {
+                    Append(output, recipe, string.Empty, string.Empty);
+                    continue;
+                }
+                foreach (var batch in recipe.BatchActions.OrderBy(batch => ParseBatchQuantity(batch.Key)).ThenBy(batch => batch.Key, StringComparer.Ordinal))
+                    Append(output, recipe, batch.Key, batch.Value.ToString(CultureInfo.InvariantCulture));
+            }
+        }
+        return builder.ToString();
+
+        void Append(CraftedOutputAggregate output, CraftingRecipeAggregate recipe, string batchQuantity, string batchActions)
+        {
+            builder.Append(Csv(output.OutputItemId)).Append(',').Append(Csv(output.DisplayName)).Append(',')
+                .Append(Csv(recipe.RecipeId)).Append(',')
+                .Append(recipe.CompletionActions.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(recipe.ProducedQuantity.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(batchQuantity).Append(',').Append(batchActions).Append(',')
+                .Append(value.Capabilities.RecipeIdentity.State).Append(',').Append(Csv(value.Capabilities.RecipeIdentity.Provenance)).Append(',')
+                .Append(value.Capabilities.BatchMetadata.State).Append(',').Append(Csv(value.Capabilities.BatchMetadata.Provenance)).Append(',')
+                .Append(value.HistoricalUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(Csv(value.HistoricalProvenance)).AppendLine();
+        }
+    }
+
+    private static long ParseBatchQuantity(string value) =>
+        long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var result) ? result : long.MaxValue;
 
     private static string CreateWorldTimeCsv(StatisticsExportDocument document)
     {

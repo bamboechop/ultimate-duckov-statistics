@@ -44,6 +44,9 @@ public sealed class ProfileStatistics
 
     [DataMember(Order = 13)]
     public WorldTimeStatisticsAggregate WorldTime { get; set; } = new();
+
+    [DataMember(Order = 14)]
+    public CraftingStatisticsAggregate Crafting { get; set; } = new();
 }
 
 [DataContract]

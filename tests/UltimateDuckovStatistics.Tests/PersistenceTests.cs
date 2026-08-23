@@ -322,8 +322,8 @@ public sealed class PersistenceTests
 
         Assert.True(ProfileMigrator.Migrate(document));
 
-        Assert.Equal(12, document.SchemaVersion);
-        Assert.Equal(12, document.Statistics.SchemaVersion);
+        Assert.Equal(13, document.SchemaVersion);
+        Assert.Equal(13, document.Statistics.SchemaVersion);
         Assert.Equal("generation-m8", document.GenerationId);
         Assert.Equal(17, document.Statistics.Overall.ActivationCount);
         var migratedMap = Assert.Single(document.Statistics.RunTotals.Maps).Value;
@@ -1205,8 +1205,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(12, repository.Current.SchemaVersion);
-        Assert.Equal(12, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(13, repository.Current.SchemaVersion);
+        Assert.Equal(13, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
@@ -1350,8 +1350,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(12, repository.Current.SchemaVersion);
-        Assert.Equal(12, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(13, repository.Current.SchemaVersion);
+        Assert.Equal(13, repository.Current.Statistics.SchemaVersion);
         Assert.Equal("generation-v03", repository.Current.GenerationId);
         Assert.Equal(73, repository.Current.Revision);
         Assert.Equal(2, repository.Current.InterruptedSessionCount);
@@ -1875,7 +1875,11 @@ public sealed class PersistenceTests
         };
 
         repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-        repository.SetCapabilities(capabilities);
+        repository.SetCapabilitySnapshot(
+            capabilities,
+            EconomyNativeContractPolicy.Unavailable("not under test"),
+            WorldTimeNativeContractPolicy.Unavailable("not under test"),
+            CraftingNativeContractPolicy.Unavailable("not under test"));
         Assert.Equal("native-item-use", Assert.Single(repository.Current.Capabilities).AdapterId);
 
         repository.Open(CreateIdentity(slot: 2, creationTicks: 200), "SaveSlotSelected");
