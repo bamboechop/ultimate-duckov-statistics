@@ -221,6 +221,113 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
 
     [Fact]
     [Trait("Category", "M14")]
+    [Trait("Category", "UI")]
+    public void NamespacedSlotEndingInBuiltInWeaponNameRemainsVisibleAsOtherGear()
+    {
+        var now = 0d;
+        var tracker = new RunLifecycleTracker(() => "run-modded-slot");
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.RaidInitialized,
+            TimestampUtc = DateTime.UnixEpoch,
+            MonotonicSeconds = 0,
+            NativeRaidId = "raid"
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.ControlReady,
+            TimestampUtc = DateTime.UnixEpoch,
+            MonotonicSeconds = 0,
+            NativeRaidId = "raid",
+            StartContext = new RunStartContext
+            {
+                SaveGenerationId = "generation",
+                NativeRaidId = "raid",
+                Map = new MapIdentity
+                {
+                    MapId = "duckov:map:test",
+                    DisplayName = "Test",
+                    IsKnown = true
+                },
+                IntegrityTags = IntegrityTags.Normal,
+                GameVersion = "2.3.30",
+                GameBuild = "test",
+                LifecycleCapability = AdapterCapabilityState.Supported,
+                MovementCapability = AdapterCapabilityState.Supported,
+                MapCapability = AdapterCapabilityState.Supported,
+                RouteCapabilities = RouteStatisticsReducer.Supported("test"),
+                EquipmentCapabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities()
+            }
+        });
+
+        var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        characterItem.Slots.Add(new Slot
+        {
+            Key = "mod:PrimaryWeapon",
+            DisplayName = "Mod Utility",
+            Content = new Item { TypeID = 900, DisplayName = "Modded utility" }
+        });
+        characterItem.Slots.Add(new Slot { Key = "PrimaryWeapon", DisplayName = "Primary" });
+        CharacterMainControl.Main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = characterItem
+        };
+        using var adapter = new NativeEquipmentAdapter(
+            () => true,
+            snapshot => tracker.ObserveEquipment(snapshot, DateTime.UnixEpoch.AddSeconds(now), now),
+            () => tracker.SuspendEquipment(DateTime.UnixEpoch.AddSeconds(now), now),
+            _ => { },
+            _ => { },
+            () => now,
+            () => tracker.ActiveSegmentId);
+
+        adapter.Initialize();
+        now = 5;
+        tracker.Tick(DateTime.UnixEpoch.AddSeconds(now), now);
+        var run = tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.Extracted,
+            TimestampUtc = DateTime.UnixEpoch.AddSeconds(now),
+            MonotonicSeconds = now,
+            NativeRaidId = "raid"
+        }).Completed!;
+        var profile = new ProfileDocument
+        {
+            GenerationId = "generation",
+            CreatedUtc = DateTime.UnixEpoch,
+            UpdatedUtc = DateTime.UnixEpoch.AddSeconds(now),
+            Statistics = new ProfileStatistics
+            {
+                SaveGenerationId = "generation",
+                CreatedUtc = DateTime.UnixEpoch,
+                UpdatedUtc = DateTime.UnixEpoch.AddSeconds(now)
+            },
+            Capabilities = EquipmentNativeContractPolicy.ToRecords(
+                adapter.MetricCapabilities,
+                NativeEquipmentAdapter.AdapterVersion).ToList()
+        };
+        Assert.True(RunReducer.Apply(profile.Statistics, run));
+
+        var nativeRow = Assert.Single(run.EquipmentStatistics.CharacterSlotStates.Values, value =>
+            value.SlotId == "duckov:slot:mod:PrimaryWeapon");
+        Assert.Equal(EquipmentItemKind.Other, nativeRow.ItemKind);
+        Assert.Equal(5, nativeRow.ActiveDurationSeconds);
+
+        var view = EquipmentStatisticsViewModelFactory.Create(profile);
+
+        var moddedSlot = Assert.Single(view.ArmorAndGearSlots, value =>
+            value.SlotId == "duckov:slot:mod:PrimaryWeapon");
+        var moddedRow = Assert.Single(moddedSlot.Rows);
+        Assert.Equal(EquipmentItemKind.Other, moddedRow.ItemKind);
+        Assert.Equal(5, moddedRow.ActiveDurationSeconds);
+        Assert.DoesNotContain(view.ArmorAndGearSlots, value =>
+            value.SlotId == "duckov:slot:PrimaryWeapon");
+        Assert.Empty(view.Weapons);
+    }
+
+    [Fact]
+    [Trait("Category", "M14")]
     public void PartialNestedSlotEvidenceDegradesOnlyNestedTrackingWhileRootDurationsContinue()
     {
         var now = 0d;
