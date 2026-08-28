@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v8+lossless-slot-state";
+    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v9+lossless-slot-state";
     private const string SupportedGameVersion = "2.3.30";
     internal const double ReconciliationIntervalSeconds = 1;
     private readonly Func<bool> runActiveProvider;
@@ -60,6 +60,16 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     }
 
     public EquipmentMetricCapabilities MetricCapabilities => EquipmentStatisticsReducer.CloneCapabilities(metricCapabilities);
+
+    public EquipmentMetricCapabilities CaptureCapabilitiesForRunStart()
+    {
+        if (callbackLifetime.CanHandleCallbacks)
+        {
+            SynchronizeMain();
+            RefreshSlotStateCapabilities();
+        }
+        return MetricCapabilities;
+    }
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
@@ -183,6 +193,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
             latestDisplayMetadataSignature = null;
             latestObservationContextId = null;
             hasLatestObservationContext = false;
+            RefreshSlotStateCapabilities();
             return;
         }
         if (observedMain == null || observedCharacterItem == null || !observedMain.IsMainCharacter)
@@ -231,6 +242,20 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         latestObservationContextId = null;
         hasLatestObservationContext = false;
         invalidationHandler();
+    }
+
+    private void RefreshSlotStateCapabilities()
+    {
+        if (observedMain == null || observedCharacterItem == null || !observedMain.IsMainCharacter) return;
+        try
+        {
+            NativeHotPathDiagnostics.CountEquipmentSnapshotBuild();
+            UpdateSlotStateCapabilities(NativeEquipmentSnapshotBuilder.Build(observedMain, observedCharacterItem));
+        }
+        catch (Exception exception)
+        {
+            diagnosticHandler($"Equipment capability refresh failed safely: {exception.GetType().Name}: {exception.Message}");
+        }
     }
 
     private void UpdateSlotStateCapabilities(EquipmentSnapshot snapshot)

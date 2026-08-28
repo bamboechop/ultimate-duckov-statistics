@@ -186,7 +186,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 message => Debug.Log($"{LogPrefix} {message}"),
                 () => weaponFireAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.WeaponMetricCapabilities(),
                 () => combatAttributionAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.CombatMetricCapabilities(),
-                () => equipmentAdapter.OwnedValue?.MetricCapabilities ?? new Core.Domain.EquipmentMetricCapabilities(),
+                () => equipmentAdapter.OwnedValue?.CaptureCapabilitiesForRunStart()
+                    ?? new Core.Domain.EquipmentMetricCapabilities(),
                 () => containerAdapter.OwnedValue?.MetricCapabilities ?? new Core.Statistics.ContainerMetricCapabilities(),
                 () => economyAdapter?.MetricCapabilities ?? new Core.Domain.EconomyMetricCapabilities(),
                 profileCoordinator.PollRunCheckpoint,

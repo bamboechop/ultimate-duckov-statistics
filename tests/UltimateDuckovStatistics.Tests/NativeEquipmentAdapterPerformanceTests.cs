@@ -970,7 +970,7 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
                 PublishCapabilities();
             },
             _ => { },
-            equipmentCapabilitiesProvider: () => equipmentAdapter?.MetricCapabilities
+            equipmentCapabilitiesProvider: () => equipmentAdapter?.CaptureCapabilitiesForRunStart()
                 ?? new EquipmentMetricCapabilities(),
             monotonicSecondsProvider: () => now);
         equipmentAdapter = new NativeEquipmentAdapter(
@@ -994,16 +994,24 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
             mainItem.RaiseItemTreeChanged();
 
             now = 5;
-            mainItem.Slots.RemoveAll(value => value == null);
-            backpack.Slots.RemoveAll(value => value == null);
-            mainItem.RaiseItemTreeChanged();
             LevelManager.RaiseEvacuated();
             Assert.False(lifecycleAdapter.IsActive);
+
+            mainItem.Slots.RemoveAll(value => value == null);
+            backpack.Slots.RemoveAll(value => value == null);
+            Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+                equipmentAdapter.MetricCapabilities.CharacterSlotState.State);
+            Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+                equipmentAdapter.MetricCapabilities.NestedSlotState.State);
 
             now = 6;
             RaidUtilities.RaiseNewRaid(new RaidUtilities.RaidInfo { ID = 2, valid = true });
             lifecycleAdapter.Tick();
             Assert.True(lifecycleAdapter.IsActive);
+            Assert.Equal(AdapterCapabilityState.Supported,
+                equipmentAdapter.MetricCapabilities.CharacterSlotState.State);
+            Assert.Equal(AdapterCapabilityState.Supported,
+                equipmentAdapter.MetricCapabilities.NestedSlotState.State);
             mainItem.RaiseItemTreeChanged();
 
             now = 11;
@@ -1048,6 +1056,57 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
         Assert.Equal("5", nestedRows[second.RunId]["active_duration_seconds"]);
         Assert.Equal("Supported", nestedRows[second.RunId]["capability_state"]);
         repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M14")]
+    public void InactiveTreeChangeRefreshesCapabilitiesWithoutPublishingRunState()
+    {
+        var mainItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        var backpack = new Item { TypeID = 900, DisplayName = "Backpack" };
+        backpack.Slots.Add(new Slot { Key = "Cube", DisplayName = "Cube slot" });
+        backpack.Slots.Add(null!);
+        mainItem.Slots.Add(new Slot { Key = "Backpack", DisplayName = "Backpack", Content = backpack });
+        mainItem.Slots.Add(null!);
+        CharacterMainControl.Main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = mainItem
+        };
+        var publications = 0;
+        var invalidations = 0;
+        using var adapter = new NativeEquipmentAdapter(
+            () => false,
+            _ =>
+            {
+                publications++;
+                return true;
+            },
+            () =>
+            {
+                invalidations++;
+                return true;
+            },
+            _ => { },
+            _ => { },
+            () => 0);
+
+        adapter.Initialize();
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            adapter.MetricCapabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            adapter.MetricCapabilities.NestedSlotState.State);
+
+        mainItem.Slots.RemoveAll(value => value == null);
+        backpack.Slots.RemoveAll(value => value == null);
+        mainItem.RaiseItemTreeChanged();
+
+        Assert.Equal(AdapterCapabilityState.Supported,
+            adapter.MetricCapabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            adapter.MetricCapabilities.NestedSlotState.State);
+        Assert.Equal(0, publications);
+        Assert.Equal(0, invalidations);
     }
 
     [Fact]
