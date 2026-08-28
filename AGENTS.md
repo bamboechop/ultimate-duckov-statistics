@@ -9,6 +9,11 @@
 - Through M17, do not remove existing pre-1.0 migration code or tests merely because that path is unsupported; they remain useful development hardening while the `0.x` schemas are still changing.
 - M18 explicitly ends that retention policy. Before the first v1 release candidate is packaged, remove schema-by-schema `0.x` migration branches, compatibility-only serialized members, fixtures, tests, and documentation whose sole purpose is carrying unsupported pre-v1 UDS data forward. The shipping v1 codebase must support a clean first install and reinstallation against its own current-format data, while retaining current-schema validation, backup/temporary recovery, and other data-safety behavior that remains reachable after v1. Do not ship speculative migration machinery for versions no supported user could have installed.
 
+## M18 baseline-impossible adapter cleanup
+
+- During M18, audit every native adapter and metric family against the final supported Duckov baseline. Remove an adapter and all code, persistence, capability, UI/export, test, and documentation artifacts that exist only for it when the required native functionality does not exist and the adapter therefore cannot ever become active on that baseline. A permanently `DisabledIncompatible` implementation must not ship merely to advertise an impossible metric; retain the limitation as documentation instead.
+- Do not remove a shared adapter that still produces supported metrics, or an adapter that can activate on the final baseline but may degrade because of runtime contract drift, missing Harmony, foreign patch conflicts, partial live evidence, or a later Duckov version. Preserve fail-closed capability reporting and independently supported sibling metrics for those reachable cases.
+
 ## Repository documentation policy
 
 - Treat branch, pull-request, review, and CI status as mutable. Durable documentation should link to the authoritative GitHub surface instead of embedding a live status snapshot that will become stale.
