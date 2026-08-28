@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v9+lossless-slot-state";
+    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v10+lossless-slot-state";
     private const string SupportedGameVersion = "2.3.30";
     internal const double ReconciliationIntervalSeconds = 1;
     private readonly Func<bool> runActiveProvider;

@@ -23,16 +23,21 @@ internal static class NativeEquipmentSnapshotBuilder
         var totems = new List<TotemSnapshot>();
         var characterSlotStateComplete = true;
         var nestedSlotStateComplete = true;
-        var seenCharacterSlots = new HashSet<string>(StringComparer.Ordinal);
         var selected = main.CurrentHoldItemAgent?.Item;
         var selectedSlotId = string.Empty;
-        foreach (var slot in characterItem.Slots.OrderBy(value => value?.Key, StringComparer.Ordinal))
+        var orderedCharacterSlots = characterItem.Slots
+            .OrderBy(value => value?.Key, StringComparer.Ordinal)
+            .ToList();
+        var duplicateCharacterSlotKeys = FindDuplicateSlotKeys(orderedCharacterSlots);
+        if (duplicateCharacterSlotKeys.Count > 0) characterSlotStateComplete = false;
+        foreach (var slot in orderedCharacterSlots)
         {
-            if (slot == null || string.IsNullOrWhiteSpace(slot.Key) || !seenCharacterSlots.Add(slot.Key))
+            if (slot == null || string.IsNullOrWhiteSpace(slot.Key))
             {
                 characterSlotStateComplete = false;
                 continue;
             }
+            if (duplicateCharacterSlotKeys.Contains(slot.Key)) continue;
             var slotId = "duckov:slot:" + slot.Key;
             var slotDisplayName = string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.Key : slot.DisplayName;
             var item = slot.Content;
@@ -189,19 +194,24 @@ internal static class NativeEquipmentSnapshotBuilder
             if (parent.Slots.Count > 0) complete = false;
             return;
         }
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var slot in parent.Slots.OrderBy(value => value?.Key, StringComparer.Ordinal))
+        var orderedSlots = parent.Slots
+            .OrderBy(value => value?.Key, StringComparer.Ordinal)
+            .ToList();
+        var duplicateSlotKeys = FindDuplicateSlotKeys(orderedSlots);
+        if (duplicateSlotKeys.Count > 0) complete = false;
+        foreach (var slot in orderedSlots)
         {
             if (result.Count >= MaxNestedSlotsPerRoot)
             {
                 complete = false;
                 return;
             }
-            if (slot == null || string.IsNullOrWhiteSpace(slot.Key) || !seen.Add(slot.Key))
+            if (slot == null || string.IsNullOrWhiteSpace(slot.Key))
             {
                 complete = false;
                 continue;
             }
+            if (duplicateSlotKeys.Contains(slot.Key)) continue;
             var path = ancestorPath
                 + slot.Key.Length.ToString(CultureInfo.InvariantCulture) + ":" + slot.Key + "/";
             var child = slot.Content;
@@ -216,6 +226,18 @@ internal static class NativeEquipmentSnapshotBuilder
             });
             if (child != null) AddNestedSlots(child, result, depth + 1, path, ref complete);
         }
+    }
+
+    private static HashSet<string> FindDuplicateSlotKeys(IEnumerable<ItemStatsSystem.Items.Slot> slots)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var duplicates = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var slot in slots)
+        {
+            if (slot == null || string.IsNullOrWhiteSpace(slot.Key)) continue;
+            if (!seen.Add(slot.Key)) duplicates.Add(slot.Key);
+        }
+        return duplicates;
     }
 
     private static string SlotStateSignature(

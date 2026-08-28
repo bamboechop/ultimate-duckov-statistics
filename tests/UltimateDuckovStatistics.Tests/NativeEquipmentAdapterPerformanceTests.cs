@@ -766,6 +766,188 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
 
     [Fact]
     [Trait("Category", "M14")]
+    [Trait("Category", "Export")]
+    public void DuplicateRootAndNestedKeysRemainUnavailableWhileUniqueSiblingsPersist()
+    {
+        using var directory = new TemporaryDirectory();
+        var identity = new SaveIdentitySnapshot
+        {
+            Slot = 1,
+            SaveFilePresent = true,
+            SaveFileCreationUtcTicks = 100,
+            ObservedWriteUtcTicks = 110,
+            ObservedLength = 4096,
+            GameVersion = "2.3.30",
+            ContentSha256 = new string('a', 64),
+            SaveTimeBinary = DateTime.UnixEpoch.ToBinary()
+        };
+        var ids = new Queue<string>(["generation", "session-one"]);
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => DateTime.UnixEpoch.AddMinutes(1),
+            () => ids.Dequeue());
+        repository.Open(identity);
+        var now = 0d;
+        var tracker = new RunLifecycleTracker(() => "run-duplicate-slot-keys");
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.RaidInitialized,
+            TimestampUtc = DateTime.UnixEpoch,
+            MonotonicSeconds = 0,
+            NativeRaidId = "raid"
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.ControlReady,
+            TimestampUtc = DateTime.UnixEpoch,
+            MonotonicSeconds = 0,
+            NativeRaidId = "raid",
+            StartContext = new RunStartContext
+            {
+                SaveGenerationId = "generation",
+                NativeRaidId = "raid",
+                Map = new MapIdentity
+                {
+                    MapId = "duckov:map:test",
+                    DisplayName = "Test",
+                    IsKnown = true
+                },
+                IntegrityTags = IntegrityTags.Normal,
+                GameVersion = "2.3.30",
+                GameBuild = "test",
+                LifecycleCapability = AdapterCapabilityState.Supported,
+                EquipmentCapabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities()
+            }
+        });
+
+        var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        characterItem.Slots.Add(new Slot
+        {
+            Key = "ModRoot",
+            DisplayName = "Ambiguous root A",
+            Content = new Item { TypeID = 700, DisplayName = "Ambiguous item A" }
+        });
+        characterItem.Slots.Add(new Slot
+        {
+            Key = "ModRoot",
+            DisplayName = "Ambiguous root B",
+            Content = new Item { TypeID = 701, DisplayName = "Ambiguous item B" }
+        });
+        characterItem.Slots.Add(new Slot
+        {
+            Key = "Armor",
+            DisplayName = "Armor",
+            Content = new Item { TypeID = 800, DisplayName = "Unique armor" }
+        });
+        var backpack = new Item { TypeID = 900, DisplayName = "Backpack" };
+        backpack.Slots.Add(new Slot
+        {
+            Key = "Cube",
+            DisplayName = "Ambiguous occupied cube",
+            Content = new Item { TypeID = 901, DisplayName = "Ambiguous cube" }
+        });
+        backpack.Slots.Add(new Slot { Key = "Cube", DisplayName = "Ambiguous empty cube" });
+        backpack.Slots.Add(new Slot
+        {
+            Key = "Pouch",
+            DisplayName = "Unique pouch",
+            Content = new Item { TypeID = 902, DisplayName = "Unique child" }
+        });
+        characterItem.Slots.Add(new Slot { Key = "Backpack", DisplayName = "Backpack", Content = backpack });
+        CharacterMainControl.Main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = characterItem
+        };
+        var invalidations = 0;
+        using var adapter = new NativeEquipmentAdapter(
+            () => true,
+            snapshot => tracker.ObserveEquipment(snapshot, DateTime.UnixEpoch.AddSeconds(now), now),
+            () =>
+            {
+                invalidations++;
+                return tracker.SuspendEquipment(DateTime.UnixEpoch.AddSeconds(now), now);
+            },
+            _ => { },
+            _ => { },
+            () => now,
+            () => tracker.ActiveSegmentId);
+
+        adapter.Initialize();
+        now = 5;
+        adapter.Tick();
+        tracker.Tick(DateTime.UnixEpoch.AddSeconds(now), now);
+        var equipment = tracker.CreateCheckpoint(DateTime.UnixEpoch.AddSeconds(now), now)!.EquipmentStatistics;
+
+        Assert.Equal(0, invalidations);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            adapter.MetricCapabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            adapter.MetricCapabilities.NestedSlotState.State);
+        Assert.Equal(5, Assert.Single(equipment.CharacterSlotStates.Values, value =>
+            value.SlotId == "duckov:slot:Armor").ActiveDurationSeconds);
+        Assert.Equal(5, Assert.Single(equipment.CharacterSlotStates.Values, value =>
+            value.SlotId == "duckov:slot:Backpack").ActiveDurationSeconds);
+        Assert.DoesNotContain(equipment.CharacterSlotStates.Values, value =>
+            value.SlotId == "duckov:slot:ModRoot");
+        var uniqueNested = Assert.Single(equipment.NestedSlotStates.Values, value =>
+            value.ParentSlotId == "duckov:slot:Backpack");
+        Assert.Equal("5:Pouch/", uniqueNested.Path);
+        Assert.Equal(EquipmentSlotState.Occupied, uniqueNested.State);
+        Assert.Equal("duckov:item:902", uniqueNested.ItemId);
+        Assert.Equal(5, uniqueNested.ActiveDurationSeconds);
+        Assert.DoesNotContain(equipment.NestedSlotStates.Values, value =>
+            value.ParentSlotId == "duckov:slot:Backpack"
+            && value.Path == "4:Cube/");
+
+        var run = tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.Extracted,
+            TimestampUtc = DateTime.UnixEpoch.AddSeconds(now),
+            MonotonicSeconds = now,
+            NativeRaidId = "raid"
+        }).Completed!;
+        Assert.True(repository.CompleteRun(run));
+        repository.CloseClean();
+
+        var reopened = new ProfileRepository(
+            directory.Path,
+            () => DateTime.UnixEpoch.AddMinutes(2),
+            () => "session-two");
+        reopened.Open(identity);
+        var persisted = reopened.Current.Statistics.RunTotals.EquipmentStatistics;
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            persisted.Capabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            persisted.Capabilities.NestedSlotState.State);
+        Assert.DoesNotContain(persisted.CharacterSlotStates.Values, value =>
+            value.SlotId == "duckov:slot:ModRoot");
+        Assert.DoesNotContain(persisted.NestedSlotStates.Values, value =>
+            value.ParentSlotId == "duckov:slot:Backpack"
+            && value.Path == "4:Cube/");
+        Assert.Equal(5, Assert.Single(persisted.NestedSlotStates.Values, value =>
+            value.ParentSlotId == "duckov:slot:Backpack"
+            && value.Path == "5:Pouch/").ActiveDurationSeconds);
+
+        var export = StatisticsExporter.Create(reopened.Current, DateTime.UnixEpoch.AddMinutes(3));
+        Assert.DoesNotContain(ParseCsv(export.CharacterEquipmentSlotsCsv), row =>
+            row["slot_id"] == "duckov:slot:ModRoot");
+        Assert.DoesNotContain(ParseCsv(export.EquippedItemNestedSlotsCsv), row =>
+            row["parent_slot_id"] == "duckov:slot:Backpack"
+            && row["nested_path"] == "4:Cube/");
+        var exportedUnique = Assert.Single(ParseCsv(export.EquippedItemNestedSlotsCsv), row =>
+            row["scope"] == "run"
+            && row["parent_slot_id"] == "duckov:slot:Backpack"
+            && row["nested_path"] == "5:Pouch/");
+        Assert.Equal("Occupied", exportedUnique["state"]);
+        Assert.Equal("duckov:item:902", exportedUnique["item_id"]);
+        Assert.Equal("5", exportedUnique["active_duration_seconds"]);
+        Assert.Equal("DisabledIncompatible", exportedUnique["capability_state"]);
+        reopened.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M14")]
     [Trait("Category", "Recovery")]
     public void NestedCompletenessChangeWithRetainedSlotIdentityReachesRunSegmentAndCheckpointRecovery()
     {
