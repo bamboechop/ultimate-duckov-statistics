@@ -25,6 +25,10 @@ internal sealed class NativeHotPathCounterSnapshot
     public long ProfileSnapshotCaptures { get; set; }
     public long ProfileStoreAttempts { get; set; }
     public long ProfileStoreSuccesses { get; set; }
+    public long EconomyHoldingsDirtySignals { get; set; }
+    public long EconomyHoldingsReadinessChecks { get; set; }
+    public long EconomyHoldingsCashScans { get; set; }
+    public long EconomyHoldingsPublications { get; set; }
 }
 
 internal static class NativeHotPathDiagnostics
@@ -49,6 +53,10 @@ internal static class NativeHotPathDiagnostics
     private static long profileSnapshotCaptures;
     private static long profileStoreAttempts;
     private static long profileStoreSuccesses;
+    private static long economyHoldingsDirtySignals;
+    private static long economyHoldingsReadinessChecks;
+    private static long economyHoldingsCashScans;
+    private static long economyHoldingsPublications;
     private static int summaryWritten;
 
     [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")]
@@ -74,6 +82,10 @@ internal static class NativeHotPathDiagnostics
         profileSnapshotCaptures = 0;
         profileStoreAttempts = 0;
         profileStoreSuccesses = 0;
+        economyHoldingsDirtySignals = 0;
+        economyHoldingsReadinessChecks = 0;
+        economyHoldingsCashScans = 0;
+        economyHoldingsPublications = 0;
         summaryWritten = 0;
     }
 
@@ -97,6 +109,10 @@ internal static class NativeHotPathDiagnostics
     [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")] public static void CountProfileSnapshotCapture() => Interlocked.Increment(ref profileSnapshotCaptures);
     [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")] public static void CountProfileStoreAttempt() => Interlocked.Increment(ref profileStoreAttempts);
     [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")] public static void CountProfileStoreSuccess() => Interlocked.Increment(ref profileStoreSuccesses);
+    [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")] public static void CountEconomyHoldingsDirtySignal() => Interlocked.Increment(ref economyHoldingsDirtySignals);
+    [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")] public static void CountEconomyHoldingsReadinessCheck() => Interlocked.Increment(ref economyHoldingsReadinessChecks);
+    [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")] public static void CountEconomyHoldingsCashScan() => Interlocked.Increment(ref economyHoldingsCashScans);
+    [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")] public static void CountEconomyHoldingsPublication() => Interlocked.Increment(ref economyHoldingsPublications);
 
     public static NativeHotPathCounterSnapshot Snapshot() => new()
     {
@@ -119,7 +135,11 @@ internal static class NativeHotPathDiagnostics
         CheckpointStoreSuccesses = Interlocked.Read(ref checkpointStoreSuccesses),
         ProfileSnapshotCaptures = Interlocked.Read(ref profileSnapshotCaptures),
         ProfileStoreAttempts = Interlocked.Read(ref profileStoreAttempts),
-        ProfileStoreSuccesses = Interlocked.Read(ref profileStoreSuccesses)
+        ProfileStoreSuccesses = Interlocked.Read(ref profileStoreSuccesses),
+        EconomyHoldingsDirtySignals = Interlocked.Read(ref economyHoldingsDirtySignals),
+        EconomyHoldingsReadinessChecks = Interlocked.Read(ref economyHoldingsReadinessChecks),
+        EconomyHoldingsCashScans = Interlocked.Read(ref economyHoldingsCashScans),
+        EconomyHoldingsPublications = Interlocked.Read(ref economyHoldingsPublications)
     };
 
     [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")]
@@ -139,7 +159,10 @@ internal static class NativeHotPathDiagnostics
             + $"checkpointClones={value.CheckpointClones} "
             + $"checkpointStoreAttempts={value.CheckpointStoreAttempts} checkpointStoreSuccesses={value.CheckpointStoreSuccesses} "
             + $"profileSnapshotCaptures={value.ProfileSnapshotCaptures} "
-            + $"profileStoreAttempts={value.ProfileStoreAttempts} profileStoreSuccesses={value.ProfileStoreSuccesses}.");
+            + $"profileStoreAttempts={value.ProfileStoreAttempts} profileStoreSuccesses={value.ProfileStoreSuccesses} "
+            + "M15Holdings "
+            + $"dirtySignals={value.EconomyHoldingsDirtySignals} readinessChecks={value.EconomyHoldingsReadinessChecks} "
+            + $"cashScans={value.EconomyHoldingsCashScans} publications={value.EconomyHoldingsPublications}.");
     }
 
     [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")]

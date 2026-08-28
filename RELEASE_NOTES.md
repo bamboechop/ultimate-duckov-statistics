@@ -1,4 +1,18 @@
-# Ultimate Duckov Statistics v0.14.0 — M14 lossless weapon and equipment-slot associations
+# Ultimate Duckov Statistics v0.15.0 — M15 current economy holdings (development candidate)
+
+M15 adds direct current-holdings observations that remain separate from M9 currency flows. Money comes from the hydrated `EconomyManager` `Int64` state. Cash is a checked, runtime-identity-deduplicated total of item type `451` across the exact top-level main-character, PlayerStorage, and PetProxy inventories after all three roots are authoritative. Neither value is reconstructed from inflow, outflow, net flow, prices, or prior snapshots.
+
+Each component has explicit `Current`, `LastObserved`, or `Unavailable` state, a matching save-generation ID, UTC observation evidence, independent capability state, and freshness provenance. A supported observation of zero remains zero. Scene and profile boundaries end current authority; a clean or interrupted restart retains only a matching-generation last observation until native reconfirmation. Schema-14 and older profiles receive explicit pre-M15 unavailability without deriving a balance from M9. Current-schema recovery requires the complete schema-15 root, exact generation ownership, valid state/value/timestamp combinations, and consistent current capabilities before primary, backup, or temporary selection.
+
+The installed ATM Save/Draw paths exchange one physical Cash unit for one Money unit in either direction, and native payment availability adds them directly. M15 therefore exposes liquid wealth only as the checked sum of simultaneously current Money and current Cash. It contains no other item, equipment, attachment, crafting, purchase, sale, barter, or profit value. If either component is not current or supported, or the sum overflows `Int64`, liquid wealth is unavailable.
+
+Native changes signal a one-tick coalescing gate. Ordinary frames perform no Money read or inventory scan; while an observation is pending they perform constant-time lifecycle/loading checks, and a Cash scan occurs only after a trustworthy signal and complete hydration. Duplicate callbacks coalesce, and an unchanged total from a stack split, merge, or internal transfer creates no profile mutation. Profile transition, native save collection, export, reset, deactivation, quit, and repository-close paths share the synchronous holdings barrier.
+
+Overview and Economy show the temporary holdings projection separately from M9 flows. Diagnostics exposes state, capability, timestamp, generation, freshness, arithmetic, historical, and repair evidence. `statistics.json` adds the schema-15 holdings object and `economy_holdings.csv` adds one flattened row with blank values for unavailable evidence; one export now contains JSON plus thirty CSVs. The exact Duckov 2.3.30 / Steam build 24013657 contracts are documented in [docs/M15_NATIVE_CONTRACTS.md](docs/M15_NATIVE_CONTRACTS.md), and the user-controlled qualification procedure is [docs/M15_MANUAL_VALIDATION.md](docs/M15_MANUAL_VALIDATION.md).
+
+Automated, package, deployment, CI, and manual candidate evidence is recorded in [TESTING.md](TESTING.md). M15 remains an unmerged development candidate: it is not tagged, published as a release, or uploaded to Workshop, and user-controlled gameplay/save qualification is still required.
+
+## Ultimate Duckov Statistics v0.14.0 — M14 lossless weapon and equipment-slot associations
 
 M14 adds exact accepted-firing-action counts by simultaneous weapon and ammunition identity, plus active-raid duration for every proven native character equipment-slot state and every readable nested slot path under an equipped root item. Pairing, root-slot state, and nested-slot state are independently capability-gated. Missing or degraded evidence remains unavailable and never becomes an inferred empty slot or pair.
 

@@ -145,12 +145,15 @@ try
         core.RequireEvent(string.Empty, "InteractablePickup", "OnPickupSuccess", "System.Action", "InteractablePickup", "CharacterMainControl");
         core.RequireEvent(string.Empty, "ItemUtilities", "OnPlayerItemOperation", "System.Action");
         core.RequireEvent(string.Empty, "PlayerStorage", "OnPlayerStorageChange", "System.Action", "PlayerStorage", "ItemStatsSystem.Inventory", "System.Int32");
+        core.RequireEvent(string.Empty, "PlayerStorage", "OnLoadingFinished", "System.Action");
 
         core.RequireProperty(string.Empty, "LevelManager", "IsRaidMap");
         core.RequireProperty(string.Empty, "LevelManager", "IsBaseLevel");
         core.RequireProperty(string.Empty, "LevelManager", "LevelInited", "System.Boolean", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "LevelManager", "LevelInitializing", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "LevelManager", "MainCharacter", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty(string.Empty, "LevelManager", "PetCharacter", "CharacterMainControl", mustBePublic: true);
+        core.RequireProperty(string.Empty, "LevelManager", "PetProxy", "PetProxy", mustBePublic: true);
         core.RequireProperty(string.Empty, "InputManager", "InputActived", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "InputManager", "AimingEnemyHead", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "GameManager", "Paused", "System.Boolean", mustBePublic: true, mustBeStatic: true);
@@ -172,7 +175,45 @@ try
         core.RequireProperty(string.Empty, "LevelManager", "PetCharacter", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty("Duckov.Economy", "EconomyManager", "Money", "System.Int64", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty("Duckov.Economy", "EconomyManager", "Cash", "System.Int64", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.Economy", "EconomyManager", "Instance", "Duckov.Economy.EconomyManager", mustBePublic: true, mustBeStatic: true);
         core.RequireField("Duckov.Economy", "EconomyManager", "CashItemID", mustBePublic: true, fieldTypeFragment: "System.Int32");
+        core.RequireField("Duckov.Economy", "EconomyManager", "money", mustBePrivate: true, fieldTypeFragment: "System.Int64");
+        core.RequireNestedField("Duckov.Economy", "EconomyManager", "SaveData", "money", "System.Int64");
+        core.RequireMethod(
+            "Duckov.Economy", "EconomyManager", "Load", 0,
+            mustBePrivate: true, returnTypeFragment: "System.Void");
+        core.RequireMethod(
+            "Duckov.Economy", "EconomyManager", "GenerateSaveData", 0,
+            mustBePublic: true, returnTypeFragment: "System.Object");
+        core.RequireMethod(
+            "Duckov.Economy", "EconomyManager", "SetupSaveData", 1,
+            mustBePublic: true, returnTypeFragment: "System.Void", parameterTypeFragments: ["System.Object"]);
+        core.RequireMethod(
+            "Saves", "SavesSystem", "KeyExisits", 1,
+            mustBePublic: true, mustBeStatic: true, returnTypeFragment: "System.Boolean",
+            parameterTypeFragments: ["System.String"]);
+        core.RequireMethod(
+            string.Empty, "ItemUtilities", "FindAllBelongsToPlayer", 1,
+            mustBePublic: true, mustBeStatic: true,
+            returnTypeFragment: "System.Collections.Generic.List",
+            parameterTypeFragments: ["System.Predicate"]);
+        core.RequireMethod(
+            string.Empty, "ItemUtilities", "GetItemCount", 1,
+            mustBePublic: true, mustBeStatic: true, returnTypeFragment: "System.Int32",
+            parameterTypeFragments: ["System.Int32"]);
+        core.RequireProperty(string.Empty, "PlayerStorage", "Inventory", "ItemStatsSystem.Inventory", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "PlayerStorage", "Loading", "System.Boolean", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "PetProxy", "Inventory", "ItemStatsSystem.Inventory", mustBePublic: true);
+        core.RequireProperty(string.Empty, "PetProxy", "PetInventory", "ItemStatsSystem.Inventory", mustBePublic: true, mustBeStatic: true);
+        core.RequireMethod(
+            string.Empty, "ATMPanel", "Save", 1,
+            mustBePublic: true, mustBeStatic: true, returnTypeFragment: "System.Boolean",
+            parameterTypeFragments: ["System.Int64"]);
+        core.RequireMethod(
+            string.Empty, "ATMPanel", "Draw", 1,
+            mustBePublic: true, mustBeStatic: true, returnTypeFragment: "Cysharp.Threading.Tasks.UniTask",
+            parameterTypeFragments: ["System.Int64"]);
+        core.RequireInt64Constant(string.Empty, "ATMPanel", "MaxDrawAmount", 10000000L);
         core.RequireField("Duckov.Economy", "Cost", "items", mustBePublic: true, fieldTypeFragment: "ItemEntry");
         core.RequireField("Duckov.Economy", "Cost", "money", mustBePublic: true, fieldTypeFragment: "System.Int64");
         core.RequireField(string.Empty, "CraftingFormula", "id", mustBePublic: true, fieldTypeFragment: "System.String");
@@ -370,6 +411,8 @@ try
             mustBePublic: true,
             returnTypeFragment: "System.Collections.Generic.IEnumerator");
         itemStats.RequireProperty("ItemStatsSystem", "Inventory", "Content", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem", "Inventory", "Loading", "System.Boolean", mustBePublic: true);
+        itemStats.RequireEvent("ItemStatsSystem", "Inventory", "onContentChanged", "System.Action", "ItemStatsSystem.Inventory", "System.Int32");
         itemStats.RequireMethod(
             "ItemStatsSystem",
             "ItemAssetsCollection",
@@ -389,7 +432,7 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, economy, M12 world-clock/sleep, and M13 crafting task/delivery contracts are present.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, and M15 authoritative Money/Cash holdings contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption, M6 tote activation, and M13 crafting workstation/run-map/multiple-output attribution remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
@@ -699,6 +742,7 @@ internal sealed class AssemblyMetadata : IDisposable
         string typeName,
         string fieldName,
         bool mustBePublic = false,
+        bool mustBePrivate = false,
         bool mustBeFamily = false,
         bool mustBeStatic = false,
         string? fieldTypeFragment = null)
@@ -712,6 +756,8 @@ internal sealed class AssemblyMetadata : IDisposable
                     || field.DecodeSignature(typeProvider, reader).Contains(fieldTypeFragment, StringComparison.Ordinal))
                 && (!mustBePublic
                     || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Public)
+                && (!mustBePrivate
+                    || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Private)
                 && (!mustBeFamily
                     || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Family)
                 && (!mustBeStatic || (field.Attributes & FieldAttributes.Static) != 0))
@@ -764,6 +810,24 @@ internal sealed class AssemblyMetadata : IDisposable
             break;
         }
         throw new ContractException($"Required double constant mismatch: {@namespace}.{typeName}.{fieldName}={expected}.");
+    }
+
+    public void RequireInt64Constant(string @namespace, string typeName, string fieldName, long expected)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var handle in type.GetFields())
+        {
+            var field = reader.GetFieldDefinition(handle);
+            if (!string.Equals(reader.GetString(field.Name), fieldName, StringComparison.Ordinal)) continue;
+            var constantHandle = field.GetDefaultValue();
+            if (constantHandle.IsNil) break;
+            var constant = reader.GetConstant(constantHandle);
+            if (constant.TypeCode != ConstantTypeCode.Int64) break;
+            var blob = reader.GetBlobReader(constant.Value);
+            if (blob.ReadInt64() == expected) return;
+            break;
+        }
+        throw new ContractException($"Required Int64 constant mismatch: {@namespace}.{typeName}.{fieldName}={expected}.");
     }
 
     public void RequireEvent(string @namespace, string typeName, string eventName, params string[] parameterTypeFragments)

@@ -70,6 +70,12 @@
              Link="ProductionAdapters\NativeContainerAdapter.Publication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEconomyAdapter.cs"
              Link="ProductionAdapters\NativeEconomyAdapter.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEconomyHoldingsSnapshotBuilder.cs"
+             Link="ProductionAdapters\NativeEconomyHoldingsSnapshotBuilder.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\EconomyHoldingsObservationGate.cs"
+             Link="ProductionAdapters\EconomyHoldingsObservationGate.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeEconomyHoldingsAdapter.cs"
+             Link="ProductionAdapters\NativeEconomyHoldingsAdapter.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ItemUsePublication.cs"
              Link="ProductionAdapters\ItemUsePublication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\UiText.cs"

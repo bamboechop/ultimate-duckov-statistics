@@ -108,6 +108,16 @@ internal static class UiText
             ["ui.equipment_contract"] = "Equipment time uses monotonic active raid time. Direct totem and tote presence are tracked separately; tote activation remains unavailable until gameplay proves it.",
             ["ui.open_hint"] = "Press the configured hotkey outside raids to show or hide this panel.",
             ["ui.economy_contract"] = "Money and physical Cash are independent currencies. Gross inflow is not profit, current balance, or net worth. Unknown adjustments retain exact amount and direction without inventing a reason.",
+            ["ui.holdings_contract"] = "Current holdings are direct observations of Duckov Money and top-level owned Cash. They are never reconstructed from currency flows. Liquid wealth is a checked Money + Cash sum only while both observations are current.",
+            ["ui.current_holdings"] = "Current economy holdings",
+            ["ui.money_holding"] = "Money",
+            ["ui.cash_holding"] = "Owned Cash",
+            ["ui.liquid_wealth"] = "Liquid wealth",
+            ["ui.currency_flows"] = "Currency flows since M9 tracking",
+            ["ui.last_observed"] = "Last observed",
+            ["ui.current"] = "Current",
+            ["ui.unavailable"] = "Unavailable",
+            ["ui.pre_m15_unavailable"] = "earlier holdings unavailable; not reconstructed",
             ["ui.gross_inflow"] = "Gross inflow",
             ["ui.gross_outflow"] = "Gross outflow",
             ["ui.net_flow"] = "Net flow",
@@ -198,6 +208,24 @@ internal static class UiText
             metricAvailability.State >= identityAvailability.State
                 ? metricAvailability
                 : identityAvailability);
+
+    public static string FormatHolding(
+        EconomyHoldingObservation observation,
+        MetricAvailability capability)
+    {
+        if (observation == null) return Get("ui.unavailable");
+        if (capability.State == AdapterCapabilityState.DisabledIncompatible)
+            return $"{Get("ui.unavailable")} ({Get("ui.unsupported").ToLowerInvariant()})";
+        if (observation.State == EconomyHoldingObservationState.Unavailable || !observation.Value.HasValue)
+            return Get("ui.unavailable");
+        var value = observation.Value.Value.ToString(CultureInfo.InvariantCulture);
+        if (observation.State == EconomyHoldingObservationState.Current)
+            return $"{value} ({Get("ui.current").ToLowerInvariant()})";
+        var timestamp = observation.ObservedUtc.HasValue
+            ? observation.ObservedUtc.Value.ToString("u", CultureInfo.InvariantCulture)
+            : Get("ui.unavailable");
+        return $"{value} ({Get("ui.last_observed").ToLowerInvariant()} {timestamp})";
+    }
 
     public static string FormatEconomyCompact(
         EconomyStatisticsAggregate economy,

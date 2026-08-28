@@ -229,6 +229,53 @@ public sealed class ProfileRepository
         return true;
     }
 
+    public bool RecordEconomyHoldingsDeferred(EconomyHoldingsMutation mutation)
+    {
+        if (mutation == null) throw new ArgumentNullException(nameof(mutation));
+        var profile = Current;
+        var changed = EconomyHoldingsReducer.Apply(profile.Statistics.Holdings, mutation);
+        if (!changed) return false;
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        return true;
+    }
+
+    public bool MarkEconomyHoldingsNotCurrentDeferred(
+        bool money,
+        bool cash,
+        string provenance)
+    {
+        var profile = Current;
+        var changed = EconomyHoldingsReducer.MarkNotCurrent(
+            profile.Statistics.Holdings,
+            profile.GenerationId,
+            money,
+            cash,
+            provenance);
+        if (!changed) return false;
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        return true;
+    }
+
+    public bool MarkEconomyHoldingsUnavailableDeferred(
+        bool money,
+        bool cash,
+        string provenance)
+    {
+        var profile = Current;
+        var changed = EconomyHoldingsReducer.MarkUnavailable(
+            profile.Statistics.Holdings,
+            profile.GenerationId,
+            money,
+            cash,
+            provenance);
+        if (!changed) return false;
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        return true;
+    }
+
     public bool BeginEconomyActivation(string activationId)
     {
         var profile = Current;
@@ -538,7 +585,8 @@ public sealed class ProfileRepository
         IEnumerable<CapabilityRecord> capabilities,
         EconomyMetricCapabilities economyCapabilities,
         WorldTimeMetricCapabilities worldTimeCapabilities,
-        CraftingMetricCapabilities craftingCapabilities)
+        CraftingMetricCapabilities craftingCapabilities,
+        EconomyHoldingsMetricCapabilities? holdingsCapabilities = null)
     {
         if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
         if (economyCapabilities == null) throw new ArgumentNullException(nameof(economyCapabilities));
@@ -557,6 +605,12 @@ public sealed class ProfileRepository
         WorldTimeStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.WorldTime, worldTimeCapabilities);
         profile.Statistics.Crafting ??= new CraftingStatisticsAggregate();
         CraftingStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.Crafting, craftingCapabilities);
+        profile.Statistics.Holdings ??= new EconomyHoldingsSnapshot
+        {
+            SaveGenerationId = profile.GenerationId
+        };
+        if (holdingsCapabilities != null)
+            EconomyHoldingsReducer.ApplyCapabilities(profile.Statistics.Holdings, holdingsCapabilities);
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();
@@ -590,6 +644,20 @@ public sealed class ProfileRepository
         var profile = Current;
         profile.Statistics.Crafting ??= new CraftingStatisticsAggregate();
         CraftingStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.Crafting, capabilities);
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+        SaveCurrent();
+    }
+
+    public void SetEconomyHoldingsCapabilities(EconomyHoldingsMetricCapabilities capabilities)
+    {
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        var profile = Current;
+        profile.Statistics.Holdings ??= new EconomyHoldingsSnapshot
+        {
+            SaveGenerationId = profile.GenerationId
+        };
+        EconomyHoldingsReducer.ApplyCapabilities(profile.Statistics.Holdings, capabilities);
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();
@@ -740,7 +808,8 @@ public sealed class ProfileRepository
             {
                 SaveGenerationId = generationId,
                 CreatedUtc = now,
-                UpdatedUtc = now
+                UpdatedUtc = now,
+                Holdings = new EconomyHoldingsSnapshot { SaveGenerationId = generationId }
             },
             Capabilities = capabilitiesConfigured
                 ? configuredCapabilities.Select(CloneCapability).ToList()
@@ -1248,6 +1317,7 @@ public sealed class ProfileRepository
         current.SchemaVersion = ProductInfo.SchemaVersion;
         current.Statistics.SchemaVersion = ProductInfo.SchemaVersion;
         current.Statistics.SaveGenerationId = current.GenerationId;
+        current.Statistics.Holdings.SaveGenerationId = current.GenerationId;
         profileStore.Save(GetProfilePath(currentDirectory), current);
     }
 
@@ -1295,7 +1365,8 @@ public sealed class ProfileRepository
                 RunRecords = statistics.RunRecords,
                 Economy = EconomyStatisticsReducer.Clone(statistics.Economy),
                 WorldTime = WorldTimeStatisticsReducer.Clone(statistics.WorldTime),
-                Crafting = CraftingStatisticsReducer.Clone(statistics.Crafting)
+                Crafting = CraftingStatisticsReducer.Clone(statistics.Crafting),
+                Holdings = EconomyHoldingsReducer.Clone(statistics.Holdings)
             },
             Capabilities = source.Capabilities.Select(CloneCapability).ToList(),
             PendingSave = source.PendingSave == null
@@ -1634,6 +1705,7 @@ public sealed class ProfileRepository
         && ContainerStatisticsReducer.IsEmpty(statistics.RunTotals.ContainerStatistics)
         && EconomyStatisticsReducer.IsEmpty(statistics.Economy)
         && EconomyStatisticsReducer.IsEmpty(statistics.RunTotals.Economy)
+        && !EconomyHoldingsReducer.HasObservedValue(statistics.Holdings)
         && statistics.Runs.Count == 0;
 
     private static EconomyMetricCapabilities HistoricalEconomyCapabilities(string provenance) => new()

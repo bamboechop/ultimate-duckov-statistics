@@ -4,9 +4,13 @@ namespace ItemStatsSystem
 {
     public sealed class Inventory
     {
+        private static int nextInstanceId;
+        private readonly int instanceId = Interlocked.Increment(ref nextInstanceId);
         public List<Item> Content { get; } = new();
+        public bool Loading { get; set; }
         public event Action<Inventory, int>? onContentChanged;
 
+        public int GetInstanceID() => instanceId;
         public void RaiseContentChanged(int index = 0) => onContentChanged?.Invoke(this, index);
     }
 
@@ -165,9 +169,11 @@ namespace Duckov.Economy
     }
 #pragma warning restore CA1051
 
-    public static class EconomyManager
+    public sealed class EconomyManager
     {
         public const int CashItemID = 451;
+        public static EconomyManager? Instance { get; set; }
+        public static long Money { get; set; }
         public static event Action<long, long>? OnMoneyChanged;
         public static event Action<long>? OnMoneyPaid;
         public static event Action? OnEconomyManagerLoaded;
@@ -187,6 +193,8 @@ namespace Duckov.Economy
         public static Action<Cost>? CaptureCostPaidSubscribers() => OnCostPaid;
         public static void ResetNativeState()
         {
+            Instance = null;
+            Money = 0;
             OnMoneyChanged = null;
             OnMoneyPaid = null;
             OnEconomyManagerLoaded = null;
@@ -266,10 +274,20 @@ public static class ItemUtilities
 
 public sealed class PlayerStorage
 {
+    public static ItemStatsSystem.Inventory? Inventory { get; set; }
+    public static bool Loading { get; set; }
     public static event Action<PlayerStorage, ItemStatsSystem.Inventory, int>? OnPlayerStorageChange;
+    public static event Action? OnLoadingFinished;
     public static void RaiseChanged(ItemStatsSystem.Inventory inventory, int index = 0) =>
         OnPlayerStorageChange?.Invoke(new PlayerStorage(), inventory, index);
-    public static void ResetNativeState() => OnPlayerStorageChange = null;
+    public static void RaiseLoadingFinished() => OnLoadingFinished?.Invoke();
+    public static void ResetNativeState()
+    {
+        Inventory = null;
+        Loading = false;
+        OnPlayerStorageChange = null;
+        OnLoadingFinished = null;
+    }
 }
 
 public static class LevelManager
@@ -306,6 +324,7 @@ public static class LevelManager
 public sealed class LevelManagerInstance
 {
     public CharacterMainControl? MainCharacter { get; set; }
+    public PetProxy? PetProxy { get; set; }
     public UnityEngine.GameObject gameObject { get; } = new();
 }
 
@@ -413,9 +432,20 @@ public sealed class MultiSceneCore
     public bool IsLoading { get; set; }
 }
 
-public static class PetProxy
+public sealed class PetProxy
 {
     public static ItemStatsSystem.Inventory? PetInventory { get; set; }
+    public ItemStatsSystem.Inventory? Inventory { get; set; }
+}
+
+namespace Saves
+{
+    public static class SavesSystem
+    {
+        public static bool EconomyDataExists { get; set; }
+        public static bool KeyExisits(string key) => key == "EconomyData" && EconomyDataExists;
+        public static void ResetNativeState() => EconomyDataExists = false;
+    }
 }
 #pragma warning restore CA1050
 
@@ -451,6 +481,16 @@ namespace Duckov.Scenes
         public static event Action<SceneLoadingContext>? onStartedLoadingScene;
         public static event Action<SceneLoadingContext>? onFinishedLoadingScene;
         public static event Action<SceneLoadingContext>? onAfterSceneInitialize;
+        public static void RaiseStarted() => onStartedLoadingScene?.Invoke(new SceneLoadingContext());
+        public static void RaiseFinished() => onFinishedLoadingScene?.Invoke(new SceneLoadingContext());
+        public static void RaiseAfterInitialize() => onAfterSceneInitialize?.Invoke(new SceneLoadingContext());
+        public static void ResetNativeState()
+        {
+            IsSceneLoading = false;
+            onStartedLoadingScene = null;
+            onFinishedLoadingScene = null;
+            onAfterSceneInitialize = null;
+        }
     }
 }
 

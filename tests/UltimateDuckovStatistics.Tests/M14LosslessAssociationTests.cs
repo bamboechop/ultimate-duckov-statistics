@@ -595,8 +595,8 @@ public sealed class M14LosslessAssociationTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(14, profile.SchemaVersion);
-        Assert.Equal(14, profile.Statistics.SchemaVersion);
+        Assert.Equal(15, profile.SchemaVersion);
+        Assert.Equal(15, profile.Statistics.SchemaVersion);
         Assert.Equal(14, Assert.Single(profile.Statistics.Runs).SchemaVersion);
         foreach (var scope in M14Scopes(profile))
         {
@@ -1001,7 +1001,8 @@ public sealed class M14LosslessAssociationTests
             {
                 SaveGenerationId = "generation",
                 CreatedUtc = Now,
-                UpdatedUtc = Now
+                UpdatedUtc = Now,
+                Holdings = new EconomyHoldingsSnapshot { SaveGenerationId = "generation" }
             },
             Capabilities = WeaponNativeContractPolicy.CreateMetricCapabilities()
                 .Let(value => new List<CapabilityRecord>

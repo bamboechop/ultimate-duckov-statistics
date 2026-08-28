@@ -5,9 +5,9 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class ProductInfoTests
 {
     [Fact]
-    public void VersionAndSchemaArePinnedForLosslessWeaponAndEquipmentSlotAssociations()
+    public void VersionAndSchemaArePinnedForCurrentEconomyHoldings()
     {
-        Assert.Equal("0.14.0", ProductInfo.Version);
-        Assert.Equal(14, ProductInfo.SchemaVersion);
+        Assert.Equal("0.15.0", ProductInfo.Version);
+        Assert.Equal(15, ProductInfo.SchemaVersion);
     }
 }

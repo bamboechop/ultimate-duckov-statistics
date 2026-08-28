@@ -20,6 +20,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private NativeHealingAttributionAdapter? healingAttributionAdapter;
     private NativeItemUseAdapter? itemUseAdapter;
     private NativeEconomyAdapter? economyAdapter;
+    private NativeEconomyHoldingsAdapter? economyHoldingsAdapter;
     private Action? economyActivationForProfileChange;
     private readonly ProcessLifetimeCleanupOwner<NativeRunLifecycleAdapter> runLifecycleAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeWeaponFireAdapter> weaponFireAdapter = new();
@@ -107,6 +108,18 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             var newProfileCoordinator = new NativeProfileCoordinator();
             profileCoordinator = newProfileCoordinator;
             newProfileCoordinator.Initialize();
+            var newEconomyHoldingsAdapter = new NativeEconomyHoldingsAdapter(
+                () => newProfileCoordinator.CurrentGenerationId,
+                newProfileCoordinator.HandleEconomyHoldings,
+                newProfileCoordinator.MarkEconomyHoldingsNotCurrent,
+                newProfileCoordinator.MarkEconomyHoldingsUnavailable,
+                newProfileCoordinator.SetEconomyHoldingsCapabilities,
+                message => Debug.Log($"{LogPrefix} {message}"));
+            economyHoldingsAdapter = newEconomyHoldingsAdapter;
+            newEconomyHoldingsAdapter.Initialize();
+            newProfileCoordinator.SetEconomyHoldingsBoundaryBarrier(newEconomyHoldingsAdapter.FlushPending);
+            newProfileCoordinator.ProfileChanging += newEconomyHoldingsAdapter.BeginProfileChange;
+            newProfileCoordinator.ProfileChanged += newEconomyHoldingsAdapter.CompleteProfileChange;
             var worldTimeGenerationProvider = NativeWorldTimeProfileBinding.CaptureGenerationProvider(
                 newProfileCoordinator,
                 static coordinator => coordinator.CurrentGenerationId);
@@ -300,7 +313,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             && equipmentAdapter.OwnedValue == null
             && containerAdapter.OwnedValue == null
             && worldTimeAdapter.OwnedValue == null
-            && craftingAdapter.OwnedValue == null)
+            && craftingAdapter.OwnedValue == null
+            && economyHoldingsAdapter == null)
         {
             return;
         }
@@ -321,6 +335,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         equipmentAdapter.OwnedValue?.Tick();
         itemUseAdapter?.Tick(DateTime.UtcNow);
         if (economyActivationReady) economyAdapter?.Tick();
+        economyHoldingsAdapter?.Tick();
         healingAttributionAdapter?.Tick();
         combatAttributionAdapter.OwnedValue?.Tick();
         containerAdapter.OwnedValue?.Tick();
@@ -339,6 +354,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private void OnApplicationQuit()
     {
         DrainPendingProfileTransitions("application quit");
+        FlushPendingEconomyHoldings("application quit");
         FlushPendingEconomy("application quit");
         FlushPendingWorldTime("application quit");
         FinalizeCraftingForTerminalShutdown();
@@ -360,6 +376,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private void Cleanup()
     {
         var profileTransitionsDrained = DrainPendingProfileTransitions("deactivation");
+        FlushPendingEconomyHoldings("deactivation");
         FlushPendingEconomy("deactivation");
         FlushPendingWorldTime("deactivation");
         FlushPendingCrafting("deactivation");
@@ -409,6 +426,13 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         itemUseAdapter = null;
         if (profileCoordinator != null && economyAdapter != null)
             profileCoordinator.ProfileChanged -= economyAdapter.ResetBaselines;
+        if (profileCoordinator != null && economyHoldingsAdapter != null)
+        {
+            profileCoordinator.ProfileChanging -= economyHoldingsAdapter.BeginProfileChange;
+            profileCoordinator.ProfileChanged -= economyHoldingsAdapter.CompleteProfileChange;
+        }
+        economyHoldingsAdapter?.Dispose();
+        economyHoldingsAdapter = null;
         if (profileCoordinator != null && economyActivationForProfileChange != null)
             profileCoordinator.ProfileChanged -= economyActivationForProfileChange;
         economyActivationForProfileChange = null;
@@ -492,6 +516,20 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         {
             Debug.LogException(exception);
             Debug.LogError($"{LogPrefix} economy boundary flush failed during {boundary}.");
+        }
+    }
+
+    private void FlushPendingEconomyHoldings(string boundary)
+    {
+        try
+        {
+            if (economyHoldingsAdapter?.FlushPending() == false)
+                Debug.LogError($"{LogPrefix} economy holdings flush remains pending during {boundary}.");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            Debug.LogError($"{LogPrefix} economy holdings flush failed during {boundary}.");
         }
     }
 

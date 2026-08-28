@@ -28,6 +28,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private readonly NativeProfileTransitionBoundary profileTransitionBoundary = new();
     private Func<bool>? activeRunCheckpointFlusher;
     private Func<bool>? economyBoundaryFlusher;
+    private Func<bool>? economyHoldingsBoundaryFlusher;
     private Func<bool>? worldTimeBoundaryFlusher;
     private Func<bool>? craftingBoundaryFlusher;
     private Func<bool>? craftingProfileTransitionBoundaryFlusher;
@@ -84,6 +85,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
         NativeCraftingAdapter.AdapterVersion).ToList();
     private CraftingMetricCapabilities craftingMetricCapabilities =
         CraftingNativeContractPolicy.Unavailable(CraftingNativeContractPolicy.BootstrapProvenance);
+    private List<CapabilityRecord> economyHoldingsCapabilities = EconomyHoldingsNativeContractPolicy.ToRecords(
+        EconomyHoldingsNativeContractPolicy.Unavailable(EconomyHoldingsNativeContractPolicy.BootstrapProvenance),
+        NativeEconomyHoldingsAdapter.AdapterVersion).ToList();
+    private EconomyHoldingsMetricCapabilities economyHoldingsMetricCapabilities =
+        EconomyHoldingsNativeContractPolicy.Unavailable(EconomyHoldingsNativeContractPolicy.BootstrapProvenance);
 
     public NativeProfileCoordinator()
     {
@@ -142,6 +148,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public CraftingMetricCapabilities CurrentCraftingCapabilities =>
         CraftingStatisticsReducer.CloneCapabilities(craftingMetricCapabilities);
+
+    public EconomyHoldingsMetricCapabilities CurrentEconomyHoldingsCapabilities =>
+        EconomyHoldingsReducer.Clone(economyHoldingsMetricCapabilities);
 
     public IReadOnlyList<DiagnosticEntry> DiagnosticEntries =>
         diagnostics?.Entries ?? Array.Empty<DiagnosticEntry>();
@@ -355,6 +364,74 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
+    public void SetEconomyHoldingsCapabilities(
+        IReadOnlyList<CapabilityRecord> capabilities,
+        EconomyHoldingsMetricCapabilities metricCapabilities)
+    {
+        if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
+        if (metricCapabilities == null) throw new ArgumentNullException(nameof(metricCapabilities));
+        economyHoldingsCapabilities = capabilities.Select(CloneCapability).ToList();
+        economyHoldingsMetricCapabilities = EconomyHoldingsReducer.Clone(metricCapabilities);
+        UpdateCapabilities();
+    }
+
+    public bool HandleEconomyHoldings(EconomyHoldingsMutation mutation)
+    {
+        if (mutation == null || mutation.IsEmpty) return true;
+        try
+        {
+            var currentRepository = repository;
+            if (currentRepository == null) return false;
+            if (currentRepository.RecordEconomyHoldingsDeferred(mutation)) profileWriter.MarkDirty();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (repository != null) profileWriter.MarkDirty();
+            Debug.LogException(exception);
+            WriteDiagnostic($"Failed to record economy holdings: {exception.GetType().Name}.", "Error");
+            return false;
+        }
+    }
+
+    public bool MarkEconomyHoldingsNotCurrent(bool money, bool cash, string provenance)
+    {
+        try
+        {
+            var currentRepository = repository;
+            if (currentRepository == null) return false;
+            if (currentRepository.MarkEconomyHoldingsNotCurrentDeferred(money, cash, provenance))
+                profileWriter.MarkDirty();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (repository != null) profileWriter.MarkDirty();
+            Debug.LogException(exception);
+            WriteDiagnostic($"Failed to mark economy holdings stale: {exception.GetType().Name}.", "Error");
+            return false;
+        }
+    }
+
+    public bool MarkEconomyHoldingsUnavailable(bool money, bool cash, string provenance)
+    {
+        try
+        {
+            var currentRepository = repository;
+            if (currentRepository == null) return false;
+            if (currentRepository.MarkEconomyHoldingsUnavailableDeferred(money, cash, provenance))
+                profileWriter.MarkDirty();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (repository != null) profileWriter.MarkDirty();
+            Debug.LogException(exception);
+            WriteDiagnostic($"Failed to make economy holdings unavailable: {exception.GetType().Name}.", "Error");
+            return false;
+        }
+    }
+
     public bool HandleWorldTime(WorldTimeMutation mutation)
     {
         if (mutation.IsEmpty) return false;
@@ -419,6 +496,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public void SetEconomyBoundaryBarrier(Func<bool> flusher)
     {
         economyBoundaryFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
+    }
+
+    public void SetEconomyHoldingsBoundaryBarrier(Func<bool> flusher)
+    {
+        economyHoldingsBoundaryFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
     }
 
     public void SetWorldTimeBoundaryBarrier(Func<bool> flusher)
@@ -517,6 +599,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            if (economyHoldingsBoundaryFlusher?.Invoke() == false)
+                throw new IOException("Economy holdings remain pending during profile flush.");
             if (worldTimeBoundaryFlusher?.Invoke() == false)
                 throw new IOException("World-time aggregate remains pending during profile flush.");
             if (craftingBoundaryFlusher?.Invoke() == false)
@@ -543,6 +627,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
             throw new InvalidOperationException("No profile is open for export.");
         }
 
+        if (economyHoldingsBoundaryFlusher?.Invoke() == false)
+            throw new IOException("Economy holdings remain pending before export.");
         if (worldTimeBoundaryFlusher?.Invoke() == false)
             throw new IOException("World-time aggregate remains pending before export.");
         if (craftingBoundaryFlusher?.Invoke() == false)
@@ -722,6 +808,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            if (economyHoldingsBoundaryFlusher?.Invoke() == false)
+                throw new IOException("Economy holdings remain pending before native save collection.");
             if (worldTimeBoundaryFlusher?.Invoke() == false)
                 throw new IOException("World-time aggregate remains pending before native save collection.");
             if (craftingBoundaryFlusher?.Invoke() == false)
@@ -811,6 +899,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     private bool FlushProfileTransitionBoundaries()
     {
+        if (economyHoldingsBoundaryFlusher?.Invoke() == false) return false;
         if (economyBoundaryFlusher?.Invoke() == false) return false;
         if (worldTimeBoundaryFlusher?.Invoke() == false) return false;
         return craftingProfileTransitionBoundaryFlusher?.Invoke()
@@ -961,10 +1050,11 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities),
+        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities).Concat(economyHoldingsCapabilities),
         economyMetricCapabilities,
         worldTimeMetricCapabilities,
-        craftingMetricCapabilities);
+        craftingMetricCapabilities,
+        economyHoldingsMetricCapabilities);
     }
 
     private DeferredWriteState ObserveCheckpointResult(DeferredWriteResult result)

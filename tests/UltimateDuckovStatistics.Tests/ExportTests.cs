@@ -25,6 +25,7 @@ public sealed class ExportTests
         "crafting_recipes.csv",
         "crafting_totals.csv",
         "economy_contexts.csv",
+        "economy_holdings.csv",
         "economy_sources.csv",
         "economy_totals.csv",
         "equipment_combat.csv",
@@ -710,7 +711,7 @@ public sealed class ExportTests
 
         var result = ProfileExportWriter.Write(profile, profilePath, TestTime);
 
-        Assert.Equal(30, result.Files.Count);
+        Assert.Equal(31, result.Files.Count);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
         Assert.Equal(
             ExpectedExportFileNames,
