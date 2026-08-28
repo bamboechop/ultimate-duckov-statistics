@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v10+lossless-slot-state";
+    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v11+lossless-slot-state";
     private const string SupportedGameVersion = "2.3.30";
     internal const double ReconciliationIntervalSeconds = 1;
     private readonly Func<bool> runActiveProvider;
@@ -261,6 +261,20 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     private void UpdateSlotStateCapabilities(EquipmentSnapshot snapshot)
     {
         var supported = EquipmentNativeContractPolicy.CreateSupportedCapabilities();
+        var equipmentSlots = snapshot.CharacterSlotStateComplete
+            ? supported.EquipmentSlots
+            : new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The native character-slot collection was not completely enumerable; exact equipped-set and loadout identity is unavailable."
+            };
+        var directTotems = snapshot.CharacterSlotStateComplete
+            ? supported.DirectTotems
+            : new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The native character-slot collection was not completely enumerable; exact direct-totem and combined totem-set identity is unavailable."
+            };
         var characterSlotState = snapshot.CharacterSlotStateComplete
             ? supported.CharacterSlotState
             : new MetricAvailability
@@ -277,6 +291,16 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
                 Provenance = "At least one equipped-item nested-slot tree was not completely enumerable; missing paths remain unavailable rather than being reported as empty."
             };
         var changed = false;
+        if (!AvailabilityEquals(metricCapabilities.EquipmentSlots, equipmentSlots))
+        {
+            metricCapabilities.EquipmentSlots = equipmentSlots;
+            changed = true;
+        }
+        if (!AvailabilityEquals(metricCapabilities.DirectTotems, directTotems))
+        {
+            metricCapabilities.DirectTotems = directTotems;
+            changed = true;
+        }
         if (!AvailabilityEquals(metricCapabilities.CharacterSlotState, characterSlotState))
         {
             metricCapabilities.CharacterSlotState = characterSlotState;
@@ -290,10 +314,12 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         if (!changed) return;
         capabilityHandler(EquipmentNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
         diagnosticHandler(
-            characterSlotState.State == AdapterCapabilityState.Supported
+            equipmentSlots.State == AdapterCapabilityState.Supported
+            && directTotems.State == AdapterCapabilityState.Supported
+            && characterSlotState.State == AdapterCapabilityState.Supported
             && nestedSlotState.State == AdapterCapabilityState.Supported
-                ? "Equipment slot-state capabilities restored after a complete native enumeration; prior degraded run scopes remain unchanged."
-                : "Equipment slot-state capability degraded after incomplete native enumeration; independent readable dimensions continue.");
+                ? "Equipment root and slot-state capabilities restored after a complete native enumeration; prior degraded run scopes remain unchanged."
+                : "Equipment root or slot-state capability degraded after incomplete native enumeration; independent readable dimensions continue.");
     }
 
     private static bool AvailabilityEquals(MetricAvailability left, MetricAvailability right) =>

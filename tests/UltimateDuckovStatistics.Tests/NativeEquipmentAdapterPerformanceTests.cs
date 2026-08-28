@@ -948,6 +948,236 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
 
     [Fact]
     [Trait("Category", "M14")]
+    [Trait("Category", "Export")]
+    public void IncompleteRootsKeepExactSetIdentitiesUnavailableAcrossProductionRaidsAndFiring()
+    {
+        using var directory = new TemporaryDirectory();
+        var identity = new SaveIdentitySnapshot
+        {
+            Slot = 1,
+            SaveFilePresent = true,
+            SaveFileCreationUtcTicks = 100,
+            ObservedWriteUtcTicks = 110,
+            ObservedLength = 4096,
+            GameVersion = "2.3.30",
+            ContentSha256 = new string('a', 64),
+            SaveTimeBinary = DateTime.UnixEpoch.ToBinary()
+        };
+        var ids = new Queue<string>(["generation", "session-one"]);
+        var now = 0d;
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => DateTime.UnixEpoch.AddSeconds(now),
+            () => ids.Dequeue());
+        repository.Open(identity);
+
+        var weapon = new Item { TypeID = 700, DisplayName = "Readable weapon" };
+        weapon.Slots.Add(new Slot
+        {
+            Key = "Scope",
+            DisplayName = "Scope",
+            Content = new Item { TypeID = 701, DisplayName = "Readable scope" }
+        });
+        var omittedTotem = new Item { TypeID = 800, DisplayName = "Omitted totem" };
+        omittedTotem.Tags.Add("Totem");
+        var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        characterItem.Slots.Add(new Slot
+        {
+            Key = "PrimaryWeapon",
+            DisplayName = "Primary weapon",
+            Content = weapon
+        });
+        characterItem.Slots.Add(new Slot
+        {
+            Key = "ModRoot",
+            DisplayName = "Conflicting totem root",
+            Content = omittedTotem
+        });
+        characterItem.Slots.Add(new Slot
+        {
+            Key = "ModRoot",
+            DisplayName = "Conflicting item root",
+            Content = new Item { TypeID = 801, DisplayName = "Omitted item" }
+        });
+        var main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = characterItem,
+            CurrentHoldItemAgent = new DuckovItemAgent { Item = weapon }
+        };
+        CharacterMainControl.Main = main;
+        LevelManager.Instance = new LevelManagerInstance { MainCharacter = main };
+        RaidUtilities.CurrentRaid = new RaidUtilities.RaidInfo { ID = 1, valid = true };
+
+        IReadOnlyList<CapabilityRecord> runCapabilities = Array.Empty<CapabilityRecord>();
+        IReadOnlyList<CapabilityRecord> equipmentCapabilities = Array.Empty<CapabilityRecord>();
+        IReadOnlyList<CapabilityRecord> weaponCapabilities = Array.Empty<CapabilityRecord>();
+        void PublishCapabilities() => repository.SetCapabilitySnapshot(
+            runCapabilities.Concat(equipmentCapabilities).Concat(weaponCapabilities),
+            new EconomyMetricCapabilities(),
+            new WorldTimeMetricCapabilities(),
+            new CraftingMetricCapabilities());
+
+        NativeEquipmentAdapter? equipmentAdapter = null;
+        NativeWeaponFireAdapter? weaponFireAdapter = null;
+        using var lifecycleAdapter = new NativeRunLifecycleAdapter(
+            () => repository.CurrentGenerationId,
+            checkpoint =>
+            {
+                repository.SaveActiveRun(checkpoint);
+                return true;
+            },
+            repository.CompleteRun,
+            capabilities =>
+            {
+                runCapabilities = capabilities.ToArray();
+                PublishCapabilities();
+            },
+            _ => { },
+            weaponCapabilitiesProvider: () => weaponFireAdapter?.MetricCapabilities
+                ?? new WeaponMetricCapabilities(),
+            equipmentCapabilitiesProvider: () => equipmentAdapter?.CaptureCapabilitiesForRunStart()
+                ?? new EquipmentMetricCapabilities(),
+            monotonicSecondsProvider: () => now);
+        using var nativeEquipmentAdapter = new NativeEquipmentAdapter(
+            () => lifecycleAdapter.IsActive,
+            lifecycleAdapter.ObserveEquipment,
+            lifecycleAdapter.InvalidateEquipmentObservation,
+            capabilities =>
+            {
+                equipmentCapabilities = capabilities.ToArray();
+                PublishCapabilities();
+            },
+            _ => { },
+            () => now,
+            () => lifecycleAdapter.CurrentSegmentId);
+        equipmentAdapter = nativeEquipmentAdapter;
+        using var nativeWeaponFireAdapter = new NativeWeaponFireAdapter(
+            () => repository.CurrentGenerationId,
+            () => lifecycleAdapter.CurrentRunId,
+            () => lifecycleAdapter.CurrentMapId,
+            lifecycleAdapter.RecordShot,
+            capabilities =>
+            {
+                weaponCapabilities = capabilities.ToArray();
+                PublishCapabilities();
+            },
+            _ => { },
+            nativeEquipmentAdapter.CaptureAssociation,
+            () => lifecycleAdapter.CurrentSegmentId);
+        weaponFireAdapter = nativeWeaponFireAdapter;
+
+        nativeEquipmentAdapter.Initialize();
+        nativeWeaponFireAdapter.Initialize();
+        lifecycleAdapter.Initialize();
+        lifecycleAdapter.Tick();
+        Assert.True(lifecycleAdapter.IsActive);
+
+        void PublishEquipmentAndFire()
+        {
+            characterItem.RaiseItemTreeChanged();
+            ItemAgent_Gun.RaiseMainCharacterShoot(new ItemAgent_Gun
+            {
+                Holder = main,
+                Item = weapon,
+                GunItemSetting = new ItemSetting_Gun
+                {
+                    TargetBulletID = 702,
+                    CurrentBulletName = "Readable ammunition"
+                }
+            });
+        }
+
+        PublishEquipmentAndFire();
+        now = 5;
+        LevelManager.RaiseEvacuated();
+        Assert.False(lifecycleAdapter.IsActive);
+
+        now = 6;
+        RaidUtilities.RaiseNewRaid(new RaidUtilities.RaidInfo { ID = 2, valid = true });
+        lifecycleAdapter.Tick();
+        Assert.True(lifecycleAdapter.IsActive);
+        PublishEquipmentAndFire();
+        now = 11;
+        LevelManager.RaiseEvacuated();
+        Assert.False(lifecycleAdapter.IsActive);
+
+        repository.CloseClean();
+        var reopened = new ProfileRepository(
+            directory.Path,
+            () => DateTime.UnixEpoch.AddMinutes(1),
+            () => "session-two");
+        reopened.Open(identity);
+
+        var runs = reopened.Current.Statistics.Runs.OrderBy(value => value.StartedUtc).ToArray();
+        Assert.Equal(2, runs.Length);
+        foreach (var run in runs)
+        {
+            var equipment = run.EquipmentStatistics;
+            Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+                equipment.Capabilities.EquipmentSlots.State);
+            Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+                equipment.Capabilities.DirectTotems.State);
+            Assert.Empty(equipment.Loadouts);
+            Assert.Empty(equipment.TotemSets);
+            Assert.Equal(5, Assert.Single(equipment.CharacterSlotStates.Values, value =>
+                value.SlotId == "duckov:slot:PrimaryWeapon").ActiveDurationSeconds);
+            Assert.Equal(5, Assert.Single(equipment.NestedSlotStates.Values, value =>
+                value.ParentSlotId == "duckov:slot:PrimaryWeapon"
+                && value.Path == "5:Scope/").ActiveDurationSeconds);
+            Assert.DoesNotContain(equipment.CharacterSlotStates.Values, value =>
+                value.SlotId == "duckov:slot:ModRoot");
+            Assert.Empty(equipment.Transitions);
+            Assert.Equal(0, equipment.TransitionCount);
+            var association = Assert.Single(equipment.CombatAssociations.Values);
+            Assert.Equal(1, association.FiringActions);
+            Assert.Equal(EquipmentEventAssociation.UnavailableId, association.LoadoutId);
+            Assert.Equal(EquipmentEventAssociation.UnavailableId, association.TotemSetId);
+            Assert.Equal("duckov:weapon:700", association.SelectedWeaponId);
+            Assert.Equal("duckov:slot:PrimaryWeapon", association.SelectedWeaponSlotId);
+        }
+
+        var lifetime = reopened.Current.Statistics.RunTotals.EquipmentStatistics;
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            lifetime.Capabilities.EquipmentSlots.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            lifetime.Capabilities.DirectTotems.State);
+        Assert.Empty(lifetime.Loadouts);
+        Assert.Empty(lifetime.TotemSets);
+        Assert.Equal(10, Assert.Single(lifetime.CharacterSlotStates.Values, value =>
+            value.SlotId == "duckov:slot:PrimaryWeapon").ActiveDurationSeconds);
+        Assert.Equal(10, Assert.Single(lifetime.NestedSlotStates.Values, value =>
+            value.ParentSlotId == "duckov:slot:PrimaryWeapon"
+            && value.Path == "5:Scope/").ActiveDurationSeconds);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            Assert.Single(reopened.Current.Capabilities, value =>
+                value.AdapterId == EquipmentCapabilityIds.EquipmentSlots).State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            Assert.Single(reopened.Current.Capabilities, value =>
+                value.AdapterId == EquipmentCapabilityIds.DirectTotems).State);
+
+        var export = StatisticsExporter.Create(reopened.Current, DateTime.UnixEpoch.AddMinutes(2));
+        Assert.DoesNotContain("duckov:loadout:", export.Json, StringComparison.Ordinal);
+        Assert.DoesNotContain("duckov:totem-set:", export.Json, StringComparison.Ordinal);
+        Assert.Empty(ParseCsv(export.RecurringLoadoutsCsv));
+        Assert.DoesNotContain(ParseCsv(export.EquipmentTotalsCsv), row =>
+            row["breakdown"] is "loadout" or "totem_set");
+        var firingRows = ParseCsv(export.EquipmentCombatCsv)
+            .Where(row => row["firing_actions"] != "0")
+            .ToArray();
+        Assert.NotEmpty(firingRows);
+        Assert.All(firingRows, row =>
+        {
+            Assert.Equal(EquipmentEventAssociation.UnavailableId, row["loadout_id"]);
+            Assert.Equal(EquipmentEventAssociation.UnavailableId, row["totem_set_id"]);
+            Assert.Equal("duckov:weapon:700", row["selected_weapon_id"]);
+            Assert.Equal("duckov:slot:PrimaryWeapon", row["selected_weapon_slot_id"]);
+        });
+        reopened.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M14")]
     [Trait("Category", "Recovery")]
     public void NestedCompletenessChangeWithRetainedSlotIdentityReachesRunSegmentAndCheckpointRecovery()
     {
@@ -1377,6 +1607,7 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
 
     public void Dispose()
     {
+        ItemAgent_Gun.ResetNativeState();
         CharacterMainControl.ResetNativeState();
         LevelManager.ResetNativeState();
         RaidUtilities.ResetNativeState();

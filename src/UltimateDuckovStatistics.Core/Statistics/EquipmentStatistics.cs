@@ -154,10 +154,12 @@ public static class EquipmentStatisticsReducer
         PreflightSlotStateAdvance(target, snapshot, delta);
         target.ObservedActiveDurationSeconds = activeSeconds;
 
-        AddDuration(target.Loadouts, snapshot.LoadoutId, DescribeLoadout(snapshot), delta);
+        if (!string.Equals(snapshot.LoadoutId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal))
+            AddDuration(target.Loadouts, snapshot.LoadoutId, DescribeLoadout(snapshot), delta);
         if (!string.IsNullOrWhiteSpace(snapshot.SelectedWeaponId))
             AddDuration(target.SelectedWeapons, snapshot.SelectedWeaponSlotId + "|" + snapshot.SelectedWeaponId, snapshot.SelectedWeaponId, delta);
-        if (snapshot.Totems.Any(value => value.ActivationState == TotemActivationState.ProvenActive))
+        if (!string.Equals(snapshot.TotemSetId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal)
+            && snapshot.Totems.Any(value => value.ActivationState == TotemActivationState.ProvenActive))
             AddDuration(target.TotemSets, snapshot.TotemSetId, DescribeActiveTotemSet(snapshot), delta);
         foreach (var item in snapshot.Items)
         {
@@ -768,6 +770,22 @@ public static class EquipmentStatisticsReducer
 
     private static void ApplySnapshotCompleteness(EquipmentStatisticsAggregate target, EquipmentSnapshot snapshot)
     {
+        if (string.Equals(snapshot.LoadoutId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal))
+        {
+            target.Capabilities.EquipmentSlots = new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The current character-slot collection could not be enumerated completely; exact equipped-set and loadout identity is unavailable."
+            };
+        }
+        if (string.Equals(snapshot.TotemSetId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal))
+        {
+            target.Capabilities.DirectTotems = new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The current character-slot collection could not be enumerated completely; exact direct-totem and combined totem-set identity is unavailable."
+            };
+        }
         if (!snapshot.CharacterSlotStateComplete)
         {
             target.Capabilities.CharacterSlotState = new MetricAvailability
@@ -1486,6 +1504,12 @@ public static class EquipmentStatisticsReducer
         EquipmentSnapshot? from,
         EquipmentSnapshot? to)
     {
+        // A partial root collection is valid M14 sibling evidence, but not an
+        // exact M6 configuration state. Model it as unavailable at the exact-set
+        // transition boundary and suppress partial-to-partial pseudo-transitions.
+        if (!HasExactSetIdentity(from)) from = null;
+        if (!HasExactSetIdentity(to)) to = null;
+        if (from == null && to == null) return;
         target.TransitionCount = SaturatingAdd(target.TransitionCount, 1);
         target.Transitions.Add(new EquipmentTransition
         {
@@ -1502,6 +1526,10 @@ public static class EquipmentStatisticsReducer
         target.Transitions.RemoveAt(0);
         target.TransitionsTruncated = true;
     }
+
+    private static bool HasExactSetIdentity(EquipmentSnapshot? snapshot) => snapshot != null
+        && !string.Equals(snapshot.LoadoutId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal)
+        && !string.Equals(snapshot.TotemSetId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal);
 
     private static string DescribeLoadout(EquipmentSnapshot snapshot) => snapshot.Items.Count == 0
         ? "Empty loadout"

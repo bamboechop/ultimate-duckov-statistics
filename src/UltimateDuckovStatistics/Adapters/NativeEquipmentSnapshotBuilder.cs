@@ -110,8 +110,15 @@ internal static class NativeEquipmentSnapshotBuilder
             && value.Kind == EquipmentItemKind.Weapon);
         var selectedId = selectedEntry?.ItemId ?? string.Empty;
         if (selectedEntry == null) selectedSlotId = string.Empty;
-        var loadoutId = EquipmentIdentity.LoadoutId(equipped);
-        var totemSetId = EquipmentIdentity.ActiveTotemSetId(totems);
+        // Whole-set M6 identities are exact only when every character root was
+        // readable and uniquely keyed. Retained siblings remain valid M14
+        // evidence, but they must not be hashed into a plausible subset identity.
+        var loadoutId = characterSlotStateComplete
+            ? EquipmentIdentity.LoadoutId(equipped)
+            : EquipmentEventAssociation.UnavailableId;
+        var totemSetId = characterSlotStateComplete
+            ? EquipmentIdentity.ActiveTotemSetId(totems)
+            : EquipmentEventAssociation.UnavailableId;
         return new EquipmentSnapshot
         {
             Items = equipped,
