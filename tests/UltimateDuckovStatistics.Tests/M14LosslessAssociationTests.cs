@@ -437,6 +437,119 @@ public sealed class M14LosslessAssociationTests
 
     [Fact]
     [Trait("Category", "M14")]
+    [Trait("Category", "Export")]
+    public void ExportRestrictsCompletedRouteSegmentM14CapabilitiesWithoutChangingRecordedValues()
+    {
+        var tracker = Start("A");
+        Assert.True(tracker.RecordShot(Shot("segment-a", tracker, "weapon:a", "Weapon A", "ammo:x", "Ammo X")));
+        Assert.True(tracker.ObserveEquipment(EquipmentSnapshot("segment-a", false, true, string.Empty, includeArmor: true)));
+        Transition(tracker, 2, 4, "B");
+        Assert.True(tracker.RecordShot(Shot("segment-b", tracker, "weapon:b", "Weapon B", "ammo:y", "Ammo Y")));
+        Assert.True(tracker.ObserveEquipment(EquipmentSnapshot("segment-b", false, true, string.Empty, includeArmor: true)));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 6)).Completed!;
+        var profile = Profile(run);
+        profile.Capabilities =
+        [
+            Disabled(WeaponCapabilityIds.WeaponAmmunitionPairing),
+            Disabled(EquipmentCapabilityIds.CharacterSlotState),
+            Disabled(EquipmentCapabilityIds.NestedSlotState)
+        ];
+
+        var export = StatisticsExporter.Create(profile, Now.AddMinutes(1));
+        var serializer = new System.Runtime.Serialization.Json.DataContractJsonSerializer(
+            typeof(StatisticsExportDocument),
+            new System.Runtime.Serialization.Json.DataContractJsonSerializerSettings
+            {
+                UseSimpleDictionaryFormat = true
+            });
+        using var jsonStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(export.Json));
+        var exportedDocument = Assert.IsType<StatisticsExportDocument>(serializer.ReadObject(jsonStream));
+
+        var exportedSegments = Assert.Single(exportedDocument.Runs).Segments;
+        Assert.Equal(2, exportedSegments.Count);
+        foreach (var segment in exportedSegments)
+        {
+            Assert.Equal(
+                AdapterCapabilityState.DisabledIncompatible,
+                segment.WeaponStatistics.Capabilities.WeaponAmmunitionPairing.State);
+            Assert.Equal(
+                AdapterCapabilityState.DisabledIncompatible,
+                segment.EquipmentStatistics.Capabilities.CharacterSlotState.State);
+            Assert.Equal(
+                AdapterCapabilityState.DisabledIncompatible,
+                segment.EquipmentStatistics.Capabilities.NestedSlotState.State);
+            Assert.Equal(1, Assert.Single(segment.WeaponStatistics.WeaponAmmunitionPairs).Value.FiringActions);
+            Assert.Equal(2, RootState(
+                segment.EquipmentStatistics,
+                "slot:primary",
+                EquipmentSlotState.Empty).ActiveDurationSeconds);
+            Assert.Equal(2, NestedState(
+                segment.EquipmentStatistics,
+                "slot:secondary",
+                "weapon:secondary",
+                "5:scope",
+                EquipmentSlotState.Occupied).ActiveDurationSeconds);
+        }
+
+        var pairRows = RouteSegmentRows(export.WeaponAmmunitionPairsCsv);
+        Assert.Equal(4, pairRows.Count);
+        Assert.All(pairRows, row =>
+        {
+            Assert.Equal("1", row["accepted_firing_actions"]);
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["pairing_state"]);
+        });
+        var characterRows = RouteSegmentRows(export.CharacterEquipmentSlotsCsv);
+        Assert.Equal(6, characterRows.Count);
+        Assert.All(characterRows, row =>
+        {
+            Assert.Equal("2", row["active_duration_seconds"]);
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["capability_state"]);
+        });
+        var nestedRows = RouteSegmentRows(export.EquippedItemNestedSlotsCsv);
+        Assert.Equal(6, nestedRows.Count);
+        Assert.All(nestedRows, row =>
+        {
+            Assert.Equal("2", row["active_duration_seconds"]);
+            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["capability_state"]);
+        });
+
+        Assert.All(run.Segments, segment =>
+        {
+            Assert.Equal(
+                AdapterCapabilityState.Supported,
+                segment.WeaponStatistics.Capabilities.WeaponAmmunitionPairing.State);
+            Assert.Equal(
+                AdapterCapabilityState.Supported,
+                segment.EquipmentStatistics.Capabilities.CharacterSlotState.State);
+            Assert.Equal(
+                AdapterCapabilityState.Supported,
+                segment.EquipmentStatistics.Capabilities.NestedSlotState.State);
+        });
+
+        static CapabilityRecord Disabled(string adapterId) => new()
+        {
+            AdapterId = adapterId,
+            State = AdapterCapabilityState.DisabledIncompatible,
+            Detail = "Current native adapter is incompatible."
+        };
+
+        static IReadOnlyList<IReadOnlyDictionary<string, string>> RouteSegmentRows(string csv)
+        {
+            var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.TrimEnd('\r').Split(','))
+                .ToArray();
+            var headers = lines[0];
+            return lines.Skip(1)
+                .Where(row => row[0] == "route_segment")
+                .Select(row => (IReadOnlyDictionary<string, string>)headers
+                    .Select((header, index) => (header, value: row[index]))
+                    .ToDictionary(value => value.header, value => value.value, StringComparer.Ordinal))
+                .ToArray();
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "M14")]
     [Trait("Category", "Persistence")]
     public void SchemaThirteenMigrationPreservesExactSignaturesAndMarksEveryM14ScopeHistoricallyUnavailable()
     {

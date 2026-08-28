@@ -282,6 +282,17 @@ public static class StatisticsExporter
             run.EquipmentStatistics.Capabilities = ApplyCurrentEquipmentCapabilityStates(
                 run.EquipmentStatistics, profile.Capabilities, allowUninitializedFallback: false);
             ApplyCurrentContainerCapability(run.ContainerStatistics, profile.Capabilities, allowUninitializedFallback: false);
+            foreach (var segment in run.Segments)
+            {
+                segment.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
+                    segment.WeaponStatistics,
+                    profile.Capabilities,
+                    allowUninitializedFallback: false);
+                segment.EquipmentStatistics.Capabilities = ApplyCurrentEquipmentCapabilityStates(
+                    segment.EquipmentStatistics,
+                    profile.Capabilities,
+                    allowUninitializedFallback: false);
+            }
         }
 
         var document = new StatisticsExportDocument
