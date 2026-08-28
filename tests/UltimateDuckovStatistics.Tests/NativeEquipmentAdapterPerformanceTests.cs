@@ -3,6 +3,7 @@ using ItemStatsSystem.Items;
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Export;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
@@ -444,6 +445,144 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
             value.ParentSlotId == "duckov:slot:Backpack"
             && value.Path == "4:Cube/"
             && value.ItemId == "duckov:item:801").ActiveDurationSeconds);
+    }
+
+    [Fact]
+    [Trait("Category", "M14")]
+    [Trait("Category", "UI")]
+    [Trait("Category", "Export")]
+    public void DisplayMetadataChangePublishesThroughViewAndExportWithoutEquipmentTransition()
+    {
+        var now = 0d;
+        var tracker = new RunLifecycleTracker(() => "run-display-enrichment");
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.RaidInitialized,
+            TimestampUtc = DateTime.UnixEpoch,
+            MonotonicSeconds = 0,
+            NativeRaidId = "raid"
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.ControlReady,
+            TimestampUtc = DateTime.UnixEpoch,
+            MonotonicSeconds = 0,
+            NativeRaidId = "raid",
+            StartContext = new RunStartContext
+            {
+                SaveGenerationId = "generation",
+                NativeRaidId = "raid",
+                Map = new MapIdentity
+                {
+                    MapId = "duckov:map:test",
+                    DisplayName = "Test",
+                    IsKnown = true
+                },
+                IntegrityTags = IntegrityTags.Normal,
+                GameVersion = "2.3.30",
+                GameBuild = "test",
+                LifecycleCapability = AdapterCapabilityState.Supported,
+                MovementCapability = AdapterCapabilityState.Supported,
+                MapCapability = AdapterCapabilityState.Supported,
+                RouteCapabilities = RouteStatisticsReducer.Supported("test"),
+                EquipmentCapabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities()
+            }
+        });
+
+        var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        var child = new Item { TypeID = 971 };
+        var nestedSlot = new Slot { Key = "Scope", Content = child };
+        var weapon = new Item { TypeID = 970 };
+        weapon.Slots.Add(nestedSlot);
+        var rootSlot = new Slot { Key = "PrimaryWeapon", Content = weapon };
+        characterItem.Slots.Add(rootSlot);
+        CharacterMainControl.Main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = characterItem,
+            CurrentHoldItemAgent = new DuckovItemAgent { Item = weapon }
+        };
+        using var adapter = new NativeEquipmentAdapter(
+            () => true,
+            snapshot => tracker.ObserveEquipment(snapshot, DateTime.UnixEpoch.AddSeconds(now), now),
+            () => tracker.SuspendEquipment(DateTime.UnixEpoch.AddSeconds(now), now),
+            _ => { },
+            _ => { },
+            () => now,
+            () => tracker.ActiveSegmentId);
+
+        adapter.Initialize();
+        now = 5;
+        tracker.Tick(DateTime.UnixEpoch.AddSeconds(now), now);
+        var before = tracker.CreateCheckpoint(DateTime.UnixEpoch.AddSeconds(now), now)!;
+        var snapshotId = before.EquipmentStatistics.CurrentSnapshot!.SnapshotId;
+        var transitionCount = before.EquipmentStatistics.TransitionCount;
+        var mutationRevision = tracker.CheckpointMutationRevision;
+        Assert.Equal("Unknown item 970", Assert.Single(before.EquipmentStatistics.CharacterSlotStates).Value.ItemDisplayName);
+        Assert.Equal("Unknown item 971", Assert.Single(before.EquipmentStatistics.NestedSlotStates).Value.ItemDisplayName);
+
+        rootSlot.DisplayName = "Enriched primary slot";
+        weapon.DisplayNameRaw = "Enriched modded weapon";
+        weapon.DisplayName = "Enriched modded weapon";
+        nestedSlot.DisplayName = "Enriched scope slot";
+        child.DisplayNameRaw = "Enriched modded optic";
+        child.DisplayName = "Enriched modded optic";
+        characterItem.RaiseItemTreeChanged();
+        var after = tracker.CreateCheckpoint(DateTime.UnixEpoch.AddSeconds(now), now)!;
+
+        Assert.Equal(snapshotId, after.EquipmentStatistics.CurrentSnapshot!.SnapshotId);
+        Assert.Equal(transitionCount, after.EquipmentStatistics.TransitionCount);
+        Assert.True(tracker.CheckpointMutationRevision > mutationRevision);
+        var enrichedRoot = Assert.Single(after.EquipmentStatistics.CharacterSlotStates).Value;
+        Assert.Equal("Enriched primary slot", enrichedRoot.SlotDisplayName);
+        Assert.Equal("Enriched modded weapon", enrichedRoot.ItemDisplayName);
+        Assert.Equal(5, enrichedRoot.ActiveDurationSeconds);
+        var enrichedNested = Assert.Single(after.EquipmentStatistics.NestedSlotStates).Value;
+        Assert.Equal("Enriched modded weapon", enrichedNested.ParentItemDisplayName);
+        Assert.Equal("Enriched scope slot", enrichedNested.SlotDisplayName);
+        Assert.Equal("Enriched modded optic", enrichedNested.ItemDisplayName);
+        Assert.Equal(5, enrichedNested.ActiveDurationSeconds);
+
+        var run = tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.Extracted,
+            TimestampUtc = DateTime.UnixEpoch.AddSeconds(now),
+            MonotonicSeconds = now,
+            NativeRaidId = "raid"
+        }).Completed!;
+        var profile = new ProfileDocument
+        {
+            GenerationId = "generation",
+            CreatedUtc = DateTime.UnixEpoch,
+            UpdatedUtc = DateTime.UnixEpoch.AddSeconds(now),
+            Statistics = new ProfileStatistics
+            {
+                SaveGenerationId = "generation",
+                CreatedUtc = DateTime.UnixEpoch,
+                UpdatedUtc = DateTime.UnixEpoch.AddSeconds(now)
+            },
+            Capabilities = EquipmentNativeContractPolicy.ToRecords(
+                adapter.MetricCapabilities,
+                NativeEquipmentAdapter.AdapterVersion).ToList()
+        };
+        Assert.True(RunReducer.Apply(profile.Statistics, run));
+
+        var view = EquipmentStatisticsViewModelFactory.Create(profile);
+        var weaponView = Assert.Single(view.Weapons);
+        Assert.Equal("Enriched modded weapon", weaponView.DisplayName);
+        Assert.Equal("Enriched primary slot", Assert.Single(weaponView.CharacterSlots).SlotDisplayName);
+        var scope = Assert.Single(weaponView.NestedSlotGroups);
+        var scopeRow = Assert.Single(scope.Rows);
+        Assert.Equal("Enriched scope slot", scopeRow.SlotDisplayName);
+        Assert.Equal("Enriched modded optic", scopeRow.ItemDisplayName);
+
+        var export = StatisticsExporter.Create(profile, DateTime.UnixEpoch.AddMinutes(1));
+        Assert.Contains("\"ItemDisplayName\":\"Enriched modded weapon\"", export.Json);
+        Assert.Contains("\"ItemDisplayName\":\"Enriched modded optic\"", export.Json);
+        Assert.Contains("Enriched primary slot", export.CharacterEquipmentSlotsCsv);
+        Assert.Contains("Enriched modded weapon", export.CharacterEquipmentSlotsCsv);
+        Assert.Contains("Enriched scope slot", export.EquippedItemNestedSlotsCsv);
+        Assert.Contains("Enriched modded optic", export.EquippedItemNestedSlotsCsv);
     }
 
     [Fact]

@@ -243,6 +243,26 @@ internal static class NativeEquipmentSnapshotBuilder
             roots.Concat(nested).Concat(completeness).OrderBy(value => value, StringComparer.Ordinal)));
     }
 
+    internal static string DisplayMetadataSignature(EquipmentSnapshot snapshot)
+    {
+        if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+        var roots = snapshot.CharacterSlots.Select(value =>
+            Component("root-display") + Component(value.SlotId) + Component(value.SlotDisplayName)
+            + Component(value.ItemId) + Component(value.ItemDisplayName));
+        var equipped = snapshot.Items.Select(value =>
+            Component("item-display") + Component(value.SlotId) + Component(value.SlotDisplayName)
+            + Component(value.ItemId) + Component(value.ItemDisplayName));
+        var nested = snapshot.Items.SelectMany(parent => parent.NestedSlots.Select(value =>
+            Component("nested-display") + Component(parent.SlotId) + Component(parent.ItemId)
+            + Component(value.Path) + Component(value.SlotDisplayName) + Component(value.ItemId)
+            + Component(value.ItemDisplayName)));
+        var totems = snapshot.Totems.Select(value =>
+            Component("totem-display") + Component(((int)value.CarryKind).ToString(CultureInfo.InvariantCulture))
+            + Component(value.ContainerId) + Component(value.ItemId) + Component(value.DisplayName));
+        return EquipmentIdentity.StableHash(string.Concat(
+            roots.Concat(equipped).Concat(nested).Concat(totems).OrderBy(value => value, StringComparer.Ordinal)));
+    }
+
     private static string Component(string? value)
     {
         value ??= string.Empty;

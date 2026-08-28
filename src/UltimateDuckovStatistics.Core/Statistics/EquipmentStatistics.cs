@@ -117,8 +117,9 @@ public static class EquipmentStatisticsReducer
         ApplySnapshotCompleteness(target, snapshot);
         if (string.Equals(target.CurrentSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal))
         {
+            var enriched = EnrichDisplayMetadata(target, snapshot);
             target.CurrentSnapshot = Clone(snapshot);
-            return false;
+            return enriched;
         }
 
         var from = target.CurrentSnapshot;
@@ -882,6 +883,114 @@ public static class EquipmentStatisticsReducer
         if (!string.IsNullOrWhiteSpace(slot.SlotDisplayName)) row.SlotDisplayName = slot.SlotDisplayName;
         if (!string.IsNullOrWhiteSpace(slot.ItemDisplayName)) row.ItemDisplayName = slot.ItemDisplayName;
         row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, delta);
+    }
+
+    private static bool EnrichDisplayMetadata(EquipmentStatisticsAggregate target, EquipmentSnapshot snapshot)
+    {
+        var changed = EnrichDurationDisplayName(target.Loadouts, snapshot.LoadoutId, DescribeLoadout(snapshot));
+        if (snapshot.Totems.Any(value => value.ActivationState == TotemActivationState.ProvenActive))
+            changed |= EnrichDurationDisplayName(target.TotemSets, snapshot.TotemSetId, DescribeActiveTotemSet(snapshot));
+        foreach (var item in snapshot.Items)
+        {
+            changed |= EnrichDurationDisplayName(target.Slots, item.SlotId, item.SlotDisplayName);
+            changed |= EnrichDurationDisplayName(
+                target.Items,
+                item.SlotId + "|" + item.ItemId + "|" + item.AttachmentSignature,
+                item.ItemDisplayName);
+            if (item.Kind == EquipmentItemKind.Weapon)
+            {
+                changed |= EnrichDurationDisplayName(
+                    target.SlottedWeapons,
+                    item.SlotId + "|" + item.ItemId,
+                    item.ItemDisplayName);
+            }
+        }
+        foreach (var slot in snapshot.CharacterSlots)
+        {
+            changed |= EnrichDurationDisplayName(
+                target.CharacterSlotObservedDurations,
+                CharacterSlotObservationKey(slot.SlotId),
+                slot.SlotDisplayName);
+            if (!target.CharacterSlotStates.TryGetValue(CharacterSlotStateKey(slot), out var row)) continue;
+            row.SlotDisplayName = EnrichedDisplayName(
+                row.SlotDisplayName,
+                slot.SlotDisplayName,
+                out var slotChanged);
+            row.ItemDisplayName = EnrichedDisplayName(
+                row.ItemDisplayName,
+                slot.ItemDisplayName,
+                out var itemChanged);
+            changed |= slotChanged || itemChanged;
+        }
+        foreach (var parent in snapshot.Items.Where(value => value.NestedSlotStateComplete))
+        {
+            foreach (var slot in parent.NestedSlots)
+            {
+                changed |= EnrichDurationDisplayName(
+                    target.NestedSlotObservedDurations,
+                    NestedSlotObservationKey(parent.SlotId, parent.ItemId, slot.Path),
+                    slot.SlotDisplayName);
+                if (!target.NestedSlotStates.TryGetValue(
+                        NestedSlotStateKey(parent.SlotId, parent.ItemId, slot),
+                        out var row))
+                {
+                    continue;
+                }
+                row.ParentItemDisplayName = EnrichedDisplayName(
+                    row.ParentItemDisplayName,
+                    parent.ItemDisplayName,
+                    out var parentChanged);
+                row.SlotDisplayName = EnrichedDisplayName(
+                    row.SlotDisplayName,
+                    slot.SlotDisplayName,
+                    out var slotChanged);
+                row.ItemDisplayName = EnrichedDisplayName(
+                    row.ItemDisplayName,
+                    slot.ItemDisplayName,
+                    out var itemChanged);
+                changed |= parentChanged || slotChanged || itemChanged;
+            }
+        }
+        foreach (var group in snapshot.Totems
+                     .GroupBy(TotemStateKey, StringComparer.Ordinal)
+                     .OrderBy(value => value.Key, StringComparer.Ordinal))
+        {
+            var index = 0;
+            foreach (var totem in group)
+            {
+                index++;
+                changed |= EnrichDurationDisplayName(
+                    target.TotemStates,
+                    group.Key + "|copy:" + index.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    DescribeTotem(totem));
+            }
+        }
+        return changed;
+    }
+
+    private static bool EnrichDurationDisplayName(
+        Dictionary<string, EquipmentDurationAggregate> target,
+        string key,
+        string displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName)
+            || !target.TryGetValue(key, out var row)
+            || string.Equals(row.DisplayName, displayName, StringComparison.Ordinal))
+        {
+            return false;
+        }
+        row.DisplayName = displayName;
+        return true;
+    }
+
+    private static string EnrichedDisplayName(
+        string existing,
+        string candidate,
+        out bool changed)
+    {
+        changed = !string.IsNullOrWhiteSpace(candidate)
+                  && !string.Equals(existing, candidate, StringComparison.Ordinal);
+        return changed ? candidate : existing;
     }
 
     private static void MergeCharacterSlotStates(

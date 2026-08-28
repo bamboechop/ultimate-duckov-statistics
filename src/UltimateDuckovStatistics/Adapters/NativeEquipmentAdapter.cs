@@ -26,6 +26,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     private CharacterMainControl? observedMain;
     private Item? observedCharacterItem;
     private EquipmentSnapshot? latestSnapshot;
+    private string? latestDisplayMetadataSignature;
     private string? latestObservationContextId;
     private bool hasLatestObservationContext;
     private EquipmentMetricCapabilities metricCapabilities =
@@ -139,6 +140,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         var cleaned = callbackLifetime.TryCleanup(() => true, out var failure);
         if (failure != null) diagnosticHandler($"Equipment cleanup remains retryable: {failure.GetType().Name}: {failure.Message}");
         latestSnapshot = null;
+        latestDisplayMetadataSignature = null;
         latestObservationContextId = null;
         hasLatestObservationContext = false;
         observedMain = null;
@@ -158,6 +160,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         observedCharacterItem = characterItem;
         if (observedCharacterItem != null) observedCharacterItem.onItemTreeChanged += OnItemTreeChanged;
         latestSnapshot = null;
+        latestDisplayMetadataSignature = null;
         latestObservationContextId = null;
         hasLatestObservationContext = false;
     }
@@ -177,6 +180,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         if (!runActiveProvider())
         {
             latestSnapshot = null;
+            latestDisplayMetadataSignature = null;
             latestObservationContextId = null;
             hasLatestObservationContext = false;
             return;
@@ -191,6 +195,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
             var observationContextId = observationContextProvider();
             NativeHotPathDiagnostics.CountEquipmentSnapshotBuild();
             var snapshot = NativeEquipmentSnapshotBuilder.Build(observedMain, observedCharacterItem);
+            var displayMetadataSignature = NativeEquipmentSnapshotBuilder.DisplayMetadataSignature(snapshot);
             DegradeIncompleteCapabilities(snapshot);
             // The same immutable loadout still has to be published once for every
             // run segment so its duration and event associations have a local root.
@@ -198,8 +203,10 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
             // loss cannot suspend established run-level equipment tracking.
             var unchanged = hasLatestObservationContext
                             && string.Equals(latestObservationContextId, observationContextId, StringComparison.Ordinal)
-                            && string.Equals(latestSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal);
+                            && string.Equals(latestSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal)
+                            && string.Equals(latestDisplayMetadataSignature, displayMetadataSignature, StringComparison.Ordinal);
             latestSnapshot = snapshot;
+            latestDisplayMetadataSignature = displayMetadataSignature;
             latestObservationContextId = observationContextId;
             hasLatestObservationContext = true;
             if (unchanged)
@@ -220,6 +227,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     private void InvalidateObservation()
     {
         latestSnapshot = null;
+        latestDisplayMetadataSignature = null;
         latestObservationContextId = null;
         hasLatestObservationContext = false;
         invalidationHandler();
