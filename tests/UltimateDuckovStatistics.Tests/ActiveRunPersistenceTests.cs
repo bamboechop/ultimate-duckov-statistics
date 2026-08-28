@@ -1437,6 +1437,7 @@ public sealed class ActiveRunPersistenceTests
         var repository = Repository(directory.Path);
         repository.Open(Identity());
         var checkpoint = Checkpoint(repository.CurrentGenerationId, 3);
+        checkpoint.SchemaVersion = 13;
         checkpoint.WeaponStatistics.Totals = null!;
         checkpoint.WeaponStatistics.Weapons = null!;
         checkpoint.WeaponStatistics.AmmunitionTypes = null!;
@@ -1465,6 +1466,7 @@ public sealed class ActiveRunPersistenceTests
         var repository = Repository(directory.Path);
         repository.Open(Identity());
         var checkpoint = Checkpoint(repository.CurrentGenerationId, 3);
+        checkpoint.SchemaVersion = 13;
         checkpoint.WeaponStatistics.Capabilities = new WeaponMetricCapabilities
         {
             FiringActions = null!,

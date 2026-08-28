@@ -13,6 +13,34 @@ public sealed class EquipmentDurationAggregate
 }
 
 [DataContract]
+public sealed class CharacterSlotStateDurationAggregate
+{
+    [DataMember(Order = 1)] public string SlotId { get; set; } = string.Empty;
+    [DataMember(Order = 2)] public string SlotDisplayName { get; set; } = string.Empty;
+    [DataMember(Order = 3)] public EquipmentSlotState State { get; set; }
+    [DataMember(Order = 4)] public string ItemId { get; set; } = string.Empty;
+    [DataMember(Order = 5)] public string ItemDisplayName { get; set; } = string.Empty;
+    [DataMember(Order = 6)] public EquipmentItemKind ItemKind { get; set; }
+    [DataMember(Order = 7)] public double ActiveDurationSeconds { get; set; }
+}
+
+[DataContract]
+public sealed class NestedSlotStateDurationAggregate
+{
+    [DataMember(Order = 1)] public string ParentSlotId { get; set; } = string.Empty;
+    [DataMember(Order = 2)] public string ParentItemId { get; set; } = string.Empty;
+    [DataMember(Order = 3)] public string ParentItemDisplayName { get; set; } = string.Empty;
+    [DataMember(Order = 4)] public EquipmentItemKind ParentItemKind { get; set; }
+    [DataMember(Order = 5)] public string Path { get; set; } = string.Empty;
+    [DataMember(Order = 6)] public string SlotKey { get; set; } = string.Empty;
+    [DataMember(Order = 7)] public string SlotDisplayName { get; set; } = string.Empty;
+    [DataMember(Order = 8)] public EquipmentSlotState State { get; set; }
+    [DataMember(Order = 9)] public string ItemId { get; set; } = string.Empty;
+    [DataMember(Order = 10)] public string ItemDisplayName { get; set; } = string.Empty;
+    [DataMember(Order = 11)] public double ActiveDurationSeconds { get; set; }
+}
+
+[DataContract]
 public sealed class EquipmentTransition
 {
     [DataMember(Order = 1)] public double ActiveTimeSeconds { get; set; }
@@ -69,6 +97,14 @@ public sealed class EquipmentStatisticsAggregate
     [DataMember(Order = 16)] public Dictionary<string, EquipmentDurationAggregate> SlottedWeapons { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 17)] public bool HistoricalCombatOwnershipUnavailable { get; set; }
     [DataMember(Order = 18)] public string HistoricalCombatOwnershipProvenance { get; set; } = string.Empty;
+    [DataMember(Order = 19)] public Dictionary<string, EquipmentDurationAggregate> CharacterSlotObservedDurations { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 20)] public Dictionary<string, CharacterSlotStateDurationAggregate> CharacterSlotStates { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 21)] public Dictionary<string, EquipmentDurationAggregate> NestedSlotObservedDurations { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 22)] public Dictionary<string, NestedSlotStateDurationAggregate> NestedSlotStates { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 23)] public bool HistoricalCharacterSlotStateUnavailable { get; set; }
+    [DataMember(Order = 24)] public string HistoricalCharacterSlotStateProvenance { get; set; } = string.Empty;
+    [DataMember(Order = 25)] public bool HistoricalNestedSlotStateUnavailable { get; set; }
+    [DataMember(Order = 26)] public string HistoricalNestedSlotStateProvenance { get; set; } = string.Empty;
 }
 
 public static class EquipmentStatisticsReducer
@@ -78,10 +114,12 @@ public static class EquipmentStatisticsReducer
         if (target == null) throw new ArgumentNullException(nameof(target));
         ValidateSnapshot(snapshot);
         Advance(target, activeSeconds);
+        ApplySnapshotCompleteness(target, snapshot);
         if (string.Equals(target.CurrentSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal))
         {
+            var enriched = EnrichDisplayMetadata(target, snapshot);
             target.CurrentSnapshot = Clone(snapshot);
-            return false;
+            return enriched;
         }
 
         var from = target.CurrentSnapshot;
@@ -107,14 +145,21 @@ public static class EquipmentStatisticsReducer
         if (target == null) throw new ArgumentNullException(nameof(target));
         if (!IsFinite(activeSeconds) || activeSeconds < target.ObservedActiveDurationSeconds) return;
         var delta = activeSeconds - target.ObservedActiveDurationSeconds;
-        target.ObservedActiveDurationSeconds = activeSeconds;
         var snapshot = target.CurrentSnapshot;
-        if (delta <= 0 || snapshot == null) return;
+        if (delta <= 0 || snapshot == null)
+        {
+            target.ObservedActiveDurationSeconds = activeSeconds;
+            return;
+        }
+        PreflightSlotStateAdvance(target, snapshot, delta);
+        target.ObservedActiveDurationSeconds = activeSeconds;
 
-        AddDuration(target.Loadouts, snapshot.LoadoutId, DescribeLoadout(snapshot), delta);
+        if (!string.Equals(snapshot.LoadoutId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal))
+            AddDuration(target.Loadouts, snapshot.LoadoutId, DescribeLoadout(snapshot), delta);
         if (!string.IsNullOrWhiteSpace(snapshot.SelectedWeaponId))
             AddDuration(target.SelectedWeapons, snapshot.SelectedWeaponSlotId + "|" + snapshot.SelectedWeaponId, snapshot.SelectedWeaponId, delta);
-        if (snapshot.Totems.Any(value => value.ActivationState == TotemActivationState.ProvenActive))
+        if (!string.Equals(snapshot.TotemSetId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal)
+            && snapshot.Totems.Any(value => value.ActivationState == TotemActivationState.ProvenActive))
             AddDuration(target.TotemSets, snapshot.TotemSetId, DescribeActiveTotemSet(snapshot), delta);
         foreach (var item in snapshot.Items)
         {
@@ -122,6 +167,33 @@ public static class EquipmentStatisticsReducer
             AddDuration(target.Items, item.SlotId + "|" + item.ItemId + "|" + item.AttachmentSignature, item.ItemDisplayName, delta);
             if (item.Kind == EquipmentItemKind.Weapon)
                 AddDuration(target.SlottedWeapons, item.SlotId + "|" + item.ItemId, item.ItemDisplayName, delta);
+        }
+        // Completeness gates the family capability, not the truth of slots that
+        // were individually retained. A damaged sibling must not erase a slot
+        // whose key and current state were still proven by the native snapshot.
+        foreach (var slot in snapshot.CharacterSlots)
+        {
+            AddDuration(
+                target.CharacterSlotObservedDurations,
+                CharacterSlotObservationKey(slot.SlotId),
+                slot.SlotDisplayName,
+                delta);
+            AddCharacterSlotStateDuration(target.CharacterSlotStates, slot, delta);
+        }
+        // Completeness gates the family capability, not the readable paths that
+        // survived native enumeration. Missing siblings remain unavailable and
+        // are never reconstructed as empty rows.
+        foreach (var parent in snapshot.Items)
+        {
+            foreach (var slot in parent.NestedSlots)
+            {
+                AddDuration(
+                    target.NestedSlotObservedDurations,
+                    NestedSlotObservationKey(parent.SlotId, parent.ItemId, slot.Path),
+                    slot.SlotDisplayName,
+                    delta);
+                AddNestedSlotStateDuration(target.NestedSlotStates, parent, slot, delta);
+            }
         }
         foreach (var group in snapshot.Totems
                      .GroupBy(TotemStateKey, StringComparer.Ordinal)
@@ -175,6 +247,7 @@ public static class EquipmentStatisticsReducer
         var preserveUnavailable = target.HistoricalUnavailable || HasObservations(target);
         NormalizePersisted(target);
         NormalizePersisted(source);
+        PreflightSlotStateMerge(target, source);
         target.Capabilities = preserveUnavailable
             ? RestrictCapabilities(target.Capabilities, source.Capabilities, preferSourceOnTie: !target.HistoricalUnavailable)
             : CloneCapabilities(source.Capabilities);
@@ -185,6 +258,10 @@ public static class EquipmentStatisticsReducer
         MergeDurations(target.TotemStates, source.TotemStates);
         MergeDurations(target.Slots, source.Slots);
         MergeDurations(target.SlottedWeapons, source.SlottedWeapons);
+        MergeDurations(target.CharacterSlotObservedDurations, source.CharacterSlotObservedDurations);
+        MergeCharacterSlotStates(target.CharacterSlotStates, source.CharacterSlotStates);
+        MergeDurations(target.NestedSlotObservedDurations, source.NestedSlotObservedDurations);
+        MergeNestedSlotStates(target.NestedSlotStates, source.NestedSlotStates);
         foreach (var pair in source.CombatAssociations)
         {
             var row = Association(target, new EquipmentEventAssociation
@@ -214,6 +291,14 @@ public static class EquipmentStatisticsReducer
         target.HistoricalCombatOwnershipProvenance = MergeProvenance(
             target.HistoricalCombatOwnershipProvenance,
             source.HistoricalCombatOwnershipProvenance);
+        target.HistoricalCharacterSlotStateUnavailable |= source.HistoricalCharacterSlotStateUnavailable;
+        target.HistoricalCharacterSlotStateProvenance = MergeProvenance(
+            target.HistoricalCharacterSlotStateProvenance,
+            source.HistoricalCharacterSlotStateProvenance);
+        target.HistoricalNestedSlotStateUnavailable |= source.HistoricalNestedSlotStateUnavailable;
+        target.HistoricalNestedSlotStateProvenance = MergeProvenance(
+            target.HistoricalNestedSlotStateProvenance,
+            source.HistoricalNestedSlotStateProvenance);
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
     }
 
@@ -231,7 +316,11 @@ public static class EquipmentStatisticsReducer
             HistoricalUnavailable = source.HistoricalUnavailable,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
             HistoricalCombatOwnershipUnavailable = source.HistoricalCombatOwnershipUnavailable,
-            HistoricalCombatOwnershipProvenance = source.HistoricalCombatOwnershipProvenance
+            HistoricalCombatOwnershipProvenance = source.HistoricalCombatOwnershipProvenance,
+            HistoricalCharacterSlotStateUnavailable = source.HistoricalCharacterSlotStateUnavailable,
+            HistoricalCharacterSlotStateProvenance = source.HistoricalCharacterSlotStateProvenance,
+            HistoricalNestedSlotStateUnavailable = source.HistoricalNestedSlotStateUnavailable,
+            HistoricalNestedSlotStateProvenance = source.HistoricalNestedSlotStateProvenance
         };
         MergeDurations(clone.Items, source.Items);
         MergeDurations(clone.SelectedWeapons, source.SelectedWeapons);
@@ -240,6 +329,10 @@ public static class EquipmentStatisticsReducer
         MergeDurations(clone.TotemStates, source.TotemStates);
         MergeDurations(clone.Slots, source.Slots);
         MergeDurations(clone.SlottedWeapons, source.SlottedWeapons);
+        MergeDurations(clone.CharacterSlotObservedDurations, source.CharacterSlotObservedDurations);
+        MergeCharacterSlotStates(clone.CharacterSlotStates, source.CharacterSlotStates);
+        MergeDurations(clone.NestedSlotObservedDurations, source.NestedSlotObservedDurations);
+        MergeNestedSlotStates(clone.NestedSlotStates, source.NestedSlotStates);
         clone.Transitions = source.Transitions.Select(x => new EquipmentTransition
         {
             ActiveTimeSeconds = x.ActiveTimeSeconds,
@@ -309,7 +402,9 @@ public static class EquipmentStatisticsReducer
         AttachmentMetadata = Clone(value?.AttachmentMetadata),
         DirectTotems = Clone(value?.DirectTotems),
         ToteContents = Clone(value?.ToteContents),
-        ToteActivation = Clone(value?.ToteActivation)
+        ToteActivation = Clone(value?.ToteActivation),
+        CharacterSlotState = Clone(value?.CharacterSlotState),
+        NestedSlotState = Clone(value?.NestedSlotState)
     };
 
     public static bool NormalizePersisted(EquipmentStatisticsAggregate target)
@@ -320,6 +415,16 @@ public static class EquipmentStatisticsReducer
         if (target.HistoricalCombatOwnershipProvenance == null)
         {
             target.HistoricalCombatOwnershipProvenance = string.Empty;
+            changed = true;
+        }
+        if (target.HistoricalCharacterSlotStateProvenance == null)
+        {
+            target.HistoricalCharacterSlotStateProvenance = string.Empty;
+            changed = true;
+        }
+        if (target.HistoricalNestedSlotStateProvenance == null)
+        {
+            target.HistoricalNestedSlotStateProvenance = string.Empty;
             changed = true;
         }
         if (target.Capabilities == null)
@@ -335,6 +440,10 @@ public static class EquipmentStatisticsReducer
         target.TotemStates ??= Repair(new Dictionary<string, EquipmentDurationAggregate>(StringComparer.Ordinal), ref repaired);
         target.Slots ??= Repair(new Dictionary<string, EquipmentDurationAggregate>(StringComparer.Ordinal), ref repaired);
         target.SlottedWeapons ??= Repair(new Dictionary<string, EquipmentDurationAggregate>(StringComparer.Ordinal), ref repaired);
+        target.CharacterSlotObservedDurations ??= Repair(new Dictionary<string, EquipmentDurationAggregate>(StringComparer.Ordinal), ref repaired);
+        target.CharacterSlotStates ??= Repair(new Dictionary<string, CharacterSlotStateDurationAggregate>(StringComparer.Ordinal), ref repaired);
+        target.NestedSlotObservedDurations ??= Repair(new Dictionary<string, EquipmentDurationAggregate>(StringComparer.Ordinal), ref repaired);
+        target.NestedSlotStates ??= Repair(new Dictionary<string, NestedSlotStateDurationAggregate>(StringComparer.Ordinal), ref repaired);
         target.CombatAssociations ??= Repair(new Dictionary<string, EquipmentCombatAssociationAggregate>(StringComparer.Ordinal), ref repaired);
         target.Transitions ??= Repair(new List<EquipmentTransition>(), ref repaired);
         if (!IsFinite(target.ObservedActiveDurationSeconds) || target.ObservedActiveDurationSeconds < 0)
@@ -347,6 +456,10 @@ public static class EquipmentStatisticsReducer
         target.TotemStates = NormalizeDurations(target.TotemStates, ref repaired);
         target.Slots = NormalizeDurations(target.Slots, ref repaired);
         target.SlottedWeapons = NormalizeDurations(target.SlottedWeapons, ref repaired);
+        target.CharacterSlotObservedDurations = NormalizeDurations(target.CharacterSlotObservedDurations, ref repaired);
+        target.CharacterSlotStates = NormalizeCharacterSlotStates(target.CharacterSlotStates, ref repaired);
+        target.NestedSlotObservedDurations = NormalizeDurations(target.NestedSlotObservedDurations, ref repaired);
+        target.NestedSlotStates = NormalizeNestedSlotStates(target.NestedSlotStates, ref repaired);
         target.CombatAssociations = NormalizeCombatAssociations(target.CombatAssociations, ref repaired);
         var previousTransitionTime = 0d;
         var validTransitions = new List<EquipmentTransition>();
@@ -429,14 +542,21 @@ public static class EquipmentStatisticsReducer
         if (target.Capabilities == null || target.Items == null || target.SelectedWeapons == null
             || target.Loadouts == null || target.TotemSets == null || target.CombatAssociations == null
             || target.TotemStates == null || target.Slots == null || target.SlottedWeapons == null
+            || target.CharacterSlotObservedDurations == null || target.CharacterSlotStates == null
+            || target.NestedSlotObservedDurations == null || target.NestedSlotStates == null
             || target.Transitions == null || !IsFinite(target.ObservedActiveDurationSeconds)
             || target.ObservedActiveDurationSeconds < 0 || target.Transitions.Count > EquipmentStatisticsAggregate.TransitionCapacity
             || target.Items.Values.Any(row => row == null) || target.SelectedWeapons.Values.Any(row => row == null)
             || target.Loadouts.Values.Any(row => row == null) || target.TotemSets.Values.Any(row => row == null)
             || target.TotemStates.Values.Any(row => row == null)
             || target.Slots.Values.Any(row => row == null) || target.SlottedWeapons.Values.Any(row => row == null)
+            || target.CharacterSlotObservedDurations.Values.Any(row => row == null)
+            || target.CharacterSlotStates.Values.Any(row => row == null)
+            || target.NestedSlotObservedDurations.Values.Any(row => row == null)
+            || target.NestedSlotStates.Values.Any(row => row == null)
             || target.CombatAssociations.Values.Any(row => row == null))
             throw new ArgumentException("Equipment statistics are invalid.", nameof(target));
+        ValidateSlotStateReconciliation(target);
     }
 
     public static void ValidateRecoveryCandidate(EquipmentStatisticsAggregate? target, int schemaVersion)
@@ -449,6 +569,13 @@ public static class EquipmentStatisticsReducer
             || target.TotemSets == null || target.TotemStates == null || target.Slots == null
             || target.SlottedWeapons == null || target.CombatAssociations == null || target.Transitions == null))
             throw new ArgumentException("Current-schema equipment checkpoint is incomplete.", nameof(target));
+        if (schemaVersion >= 14 && (target == null || target.Capabilities.CharacterSlotState == null
+            || target.Capabilities.NestedSlotState == null
+            || target.CharacterSlotObservedDurations == null || target.CharacterSlotStates == null
+            || target.NestedSlotObservedDurations == null || target.NestedSlotStates == null
+            || target.HistoricalCharacterSlotStateProvenance == null
+            || target.HistoricalNestedSlotStateProvenance == null))
+            throw new ArgumentException("Schema-14 equipment-slot checkpoint is incomplete.", nameof(target));
         if (target == null) return;
         if (!IsFinite(target.ObservedActiveDurationSeconds) || target.ObservedActiveDurationSeconds < 0
             || target.TransitionCount < 0 || target.Transitions?.Count > EquipmentStatisticsAggregate.TransitionCapacity
@@ -478,6 +605,16 @@ public static class EquipmentStatisticsReducer
                                          || row.ActiveDurationSeconds < 0 || row.RunOccurrences < 0))
                 throw new ArgumentException("Equipment checkpoint contains invalid aggregate durations.", nameof(target));
         }
+        foreach (var values in new[] { target.CharacterSlotObservedDurations, target.NestedSlotObservedDurations })
+        {
+            if (values == null) continue;
+            if (values.Values.Any(row => row == null || !IsFinite(row.ActiveDurationSeconds)
+                                         || row.ActiveDurationSeconds < 0 || row.RunOccurrences < 0))
+                throw new ArgumentException("Equipment checkpoint contains invalid slot observation durations.", nameof(target));
+        }
+        if (target.CharacterSlotStates?.Values.Any(row => !ValidCharacterSlotState(row)) == true
+            || target.NestedSlotStates?.Values.Any(row => !ValidNestedSlotState(row)) == true)
+            throw new ArgumentException("Equipment checkpoint contains invalid slot-state durations.", nameof(target));
         if (target.CombatAssociations?.Values.Any(row => row == null || row.FiringActions < 0
                 || row.AmmunitionUnitsConsumed < 0 || row.Projectiles < 0 || row.RangedHits < 0
                 || row.MeleeHits < 0 || row.EnemiesKilled < 0 || row.KillsByYou < 0
@@ -485,6 +622,7 @@ public static class EquipmentStatisticsReducer
                 || !IsFinite(row.DamageDealt) || row.DamageDealt < 0
                 || !IsFinite(row.DamageReceived) || row.DamageReceived < 0) == true)
             throw new ArgumentException("Equipment checkpoint contains invalid combat-association counters.", nameof(target));
+        if (schemaVersion >= 14) ValidateSlotStateReconciliation(target);
     }
 
     public static bool IsEmpty(EquipmentStatisticsAggregate value) => value != null
@@ -492,6 +630,8 @@ public static class EquipmentStatisticsReducer
         && value.Items.Count == 0 && value.SelectedWeapons.Count == 0 && value.Loadouts.Count == 0
         && value.TotemSets.Count == 0 && value.TotemStates.Count == 0
         && value.Slots.Count == 0 && value.SlottedWeapons.Count == 0
+        && value.CharacterSlotObservedDurations.Count == 0 && value.CharacterSlotStates.Count == 0
+        && value.NestedSlotObservedDurations.Count == 0 && value.NestedSlotStates.Count == 0
         && value.CombatAssociations.Count == 0 && value.TransitionCount == 0
         && value.CurrentSnapshot == null;
 
@@ -529,7 +669,8 @@ public static class EquipmentStatisticsReducer
     {
         if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
         if (string.IsNullOrWhiteSpace(snapshot.SnapshotId) || string.IsNullOrWhiteSpace(snapshot.LoadoutId)
-            || string.IsNullOrWhiteSpace(snapshot.TotemSetId) || snapshot.Items == null || snapshot.Totems == null)
+            || string.IsNullOrWhiteSpace(snapshot.TotemSetId) || snapshot.Items == null || snapshot.Totems == null
+            || snapshot.CharacterSlots == null)
             throw new ArgumentException("Equipment snapshot is incomplete.", nameof(snapshot));
         if (snapshot.Items.Any(value => value == null || string.IsNullOrWhiteSpace(value.SlotId)
                 || string.IsNullOrWhiteSpace(value.ItemId))
@@ -541,6 +682,35 @@ public static class EquipmentStatisticsReducer
             || snapshot.Totems.Any(value => !Enum.IsDefined(typeof(TotemCarryKind), value.CarryKind)
                 || !Enum.IsDefined(typeof(TotemActivationState), value.ActivationState)))
             throw new ArgumentException("Equipment snapshot contains duplicate slots or invalid states.", nameof(snapshot));
+        if (snapshot.CharacterSlots.Any(value => value == null || string.IsNullOrWhiteSpace(value.SlotId)
+                || !Enum.IsDefined(typeof(EquipmentSlotState), value.State)
+                || !Enum.IsDefined(typeof(EquipmentItemKind), value.ItemKind)
+                || value.State == EquipmentSlotState.Occupied && string.IsNullOrWhiteSpace(value.ItemId)
+                || value.State == EquipmentSlotState.Empty && (!string.IsNullOrEmpty(value.ItemId)
+                    || !string.IsNullOrEmpty(value.ItemDisplayName)))
+            || snapshot.CharacterSlots.Select(value => value.SlotId).Distinct(StringComparer.Ordinal).Count()
+               != snapshot.CharacterSlots.Count)
+            throw new ArgumentException("Equipment snapshot contains invalid character-slot states.", nameof(snapshot));
+        if (snapshot.CharacterSlotStateComplete
+            && (snapshot.CharacterSlots.Count == 0 && snapshot.Items.Count > 0
+                || snapshot.Items.Any(item => !snapshot.CharacterSlots.Any(slot =>
+                    slot.State == EquipmentSlotState.Occupied
+                    && string.Equals(slot.SlotId, item.SlotId, StringComparison.Ordinal)
+                    && string.Equals(slot.ItemId, item.ItemId, StringComparison.Ordinal)))))
+            throw new ArgumentException("Equipment snapshot character-slot state is incomplete.", nameof(snapshot));
+        foreach (var parent in snapshot.Items)
+        {
+            if (parent.NestedSlots == null
+                || parent.NestedSlots.Any(value => value == null || string.IsNullOrWhiteSpace(value.Path)
+                    || string.IsNullOrWhiteSpace(value.SlotKey)
+                    || !Enum.IsDefined(typeof(EquipmentSlotState), value.State)
+                    || value.State == EquipmentSlotState.Occupied && string.IsNullOrWhiteSpace(value.ItemId)
+                    || value.State == EquipmentSlotState.Empty && (!string.IsNullOrEmpty(value.ItemId)
+                        || !string.IsNullOrEmpty(value.ItemDisplayName)))
+                || parent.NestedSlots.Select(value => value.Path).Distinct(StringComparer.Ordinal).Count()
+                   != parent.NestedSlots.Count)
+                throw new ArgumentException("Equipment snapshot contains invalid nested-slot states.", nameof(snapshot));
+        }
         var hasSelectedId = !string.IsNullOrWhiteSpace(snapshot.SelectedWeaponId);
         var hasSelectedSlot = !string.IsNullOrWhiteSpace(snapshot.SelectedWeaponSlotId);
         if (hasSelectedId != hasSelectedSlot
@@ -565,7 +735,17 @@ public static class EquipmentStatisticsReducer
             ItemId = x.ItemId,
             ItemDisplayName = x.ItemDisplayName,
             Kind = x.Kind,
-            AttachmentSignature = x.AttachmentSignature
+            AttachmentSignature = x.AttachmentSignature,
+            NestedSlotStateComplete = x.NestedSlotStateComplete,
+            NestedSlots = x.NestedSlots.Select(slot => new NestedEquipmentSlotSnapshot
+            {
+                Path = slot.Path,
+                SlotKey = slot.SlotKey,
+                SlotDisplayName = slot.SlotDisplayName,
+                State = slot.State,
+                ItemId = slot.ItemId,
+                ItemDisplayName = slot.ItemDisplayName
+            }).ToList()
         }).ToList(),
         Totems = source.Totems.Select(x => new TotemSnapshot
         {
@@ -574,8 +754,337 @@ public static class EquipmentStatisticsReducer
             CarryKind = x.CarryKind,
             ContainerId = x.ContainerId,
             ActivationState = x.ActivationState
+        }).ToList(),
+        CharacterSlotStateComplete = source.CharacterSlotStateComplete,
+        NestedSlotStateComplete = source.NestedSlotStateComplete,
+        CharacterSlots = source.CharacterSlots.Select(slot => new CharacterEquipmentSlotSnapshot
+        {
+            SlotId = slot.SlotId,
+            SlotDisplayName = slot.SlotDisplayName,
+            State = slot.State,
+            ItemId = slot.ItemId,
+            ItemDisplayName = slot.ItemDisplayName,
+            ItemKind = slot.ItemKind
         }).ToList()
     };
+
+    private static void ApplySnapshotCompleteness(EquipmentStatisticsAggregate target, EquipmentSnapshot snapshot)
+    {
+        if (string.Equals(snapshot.LoadoutId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal))
+        {
+            target.Capabilities.EquipmentSlots = new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The current character-slot collection could not be enumerated completely; exact equipped-set and loadout identity is unavailable."
+            };
+        }
+        if (string.Equals(snapshot.TotemSetId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal))
+        {
+            target.Capabilities.DirectTotems = new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The current character-slot collection could not be enumerated completely; exact direct-totem and combined totem-set identity is unavailable."
+            };
+        }
+        if (!snapshot.CharacterSlotStateComplete)
+        {
+            target.Capabilities.CharacterSlotState = new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The current character-slot collection could not be enumerated completely; missing evidence is unavailable, not empty."
+            };
+        }
+        if (!snapshot.NestedSlotStateComplete || snapshot.Items.Any(value => !value.NestedSlotStateComplete))
+        {
+            target.Capabilities.NestedSlotState = new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "At least one equipped-item nested-slot tree could not be enumerated completely; missing evidence is unavailable, not empty."
+            };
+        }
+    }
+
+    private static void PreflightSlotStateAdvance(
+        EquipmentStatisticsAggregate target,
+        EquipmentSnapshot snapshot,
+        double delta)
+    {
+        foreach (var slot in snapshot.CharacterSlots)
+        {
+            target.CharacterSlotStates.TryGetValue(CharacterSlotStateKey(slot), out var row);
+            _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
+        }
+        foreach (var parent in snapshot.Items)
+        {
+            foreach (var slot in parent.NestedSlots)
+            {
+                target.NestedSlotStates.TryGetValue(NestedSlotStateKey(parent.SlotId, parent.ItemId, slot), out var row);
+                _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
+            }
+        }
+    }
+
+    private static void PreflightSlotStateMerge(
+        EquipmentStatisticsAggregate target,
+        EquipmentStatisticsAggregate source)
+    {
+        foreach (var row in source.CharacterSlotStates.Values)
+        {
+            var key = CharacterSlotStateKey(new CharacterEquipmentSlotSnapshot
+            {
+                SlotId = row.SlotId,
+                State = row.State,
+                ItemId = row.ItemId
+            });
+            target.CharacterSlotStates.TryGetValue(key, out var existing);
+            _ = CheckedDurationAdd(existing?.ActiveDurationSeconds ?? 0, row.ActiveDurationSeconds);
+        }
+        foreach (var row in source.NestedSlotStates.Values)
+        {
+            var key = NestedSlotStateKey(row.ParentSlotId, row.ParentItemId, new NestedEquipmentSlotSnapshot
+            {
+                Path = row.Path,
+                State = row.State,
+                ItemId = row.ItemId
+            });
+            target.NestedSlotStates.TryGetValue(key, out var existing);
+            _ = CheckedDurationAdd(existing?.ActiveDurationSeconds ?? 0, row.ActiveDurationSeconds);
+        }
+    }
+
+    private static void AddCharacterSlotStateDuration(
+        Dictionary<string, CharacterSlotStateDurationAggregate> target,
+        CharacterEquipmentSlotSnapshot slot,
+        double delta)
+    {
+        var key = CharacterSlotStateKey(slot);
+        if (!target.TryGetValue(key, out var row))
+        {
+            row = new CharacterSlotStateDurationAggregate
+            {
+                SlotId = slot.SlotId,
+                SlotDisplayName = slot.SlotDisplayName,
+                State = slot.State,
+                ItemId = slot.ItemId,
+                ItemDisplayName = slot.ItemDisplayName,
+                ItemKind = slot.ItemKind
+            };
+            target[key] = row;
+        }
+        if (!string.IsNullOrWhiteSpace(slot.SlotDisplayName)) row.SlotDisplayName = slot.SlotDisplayName;
+        if (!string.IsNullOrWhiteSpace(slot.ItemDisplayName)) row.ItemDisplayName = slot.ItemDisplayName;
+        row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, delta);
+    }
+
+    private static void AddNestedSlotStateDuration(
+        Dictionary<string, NestedSlotStateDurationAggregate> target,
+        EquippedItemSnapshot parent,
+        NestedEquipmentSlotSnapshot slot,
+        double delta)
+    {
+        var key = NestedSlotStateKey(parent.SlotId, parent.ItemId, slot);
+        if (!target.TryGetValue(key, out var row))
+        {
+            row = new NestedSlotStateDurationAggregate
+            {
+                ParentSlotId = parent.SlotId,
+                ParentItemId = parent.ItemId,
+                ParentItemDisplayName = parent.ItemDisplayName,
+                ParentItemKind = parent.Kind,
+                Path = slot.Path,
+                SlotKey = slot.SlotKey,
+                SlotDisplayName = slot.SlotDisplayName,
+                State = slot.State,
+                ItemId = slot.ItemId,
+                ItemDisplayName = slot.ItemDisplayName
+            };
+            target[key] = row;
+        }
+        if (!string.IsNullOrWhiteSpace(parent.ItemDisplayName)) row.ParentItemDisplayName = parent.ItemDisplayName;
+        if (!string.IsNullOrWhiteSpace(slot.SlotDisplayName)) row.SlotDisplayName = slot.SlotDisplayName;
+        if (!string.IsNullOrWhiteSpace(slot.ItemDisplayName)) row.ItemDisplayName = slot.ItemDisplayName;
+        row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, delta);
+    }
+
+    private static bool EnrichDisplayMetadata(EquipmentStatisticsAggregate target, EquipmentSnapshot snapshot)
+    {
+        var changed = EnrichDurationDisplayName(target.Loadouts, snapshot.LoadoutId, DescribeLoadout(snapshot));
+        if (snapshot.Totems.Any(value => value.ActivationState == TotemActivationState.ProvenActive))
+            changed |= EnrichDurationDisplayName(target.TotemSets, snapshot.TotemSetId, DescribeActiveTotemSet(snapshot));
+        foreach (var item in snapshot.Items)
+        {
+            changed |= EnrichDurationDisplayName(target.Slots, item.SlotId, item.SlotDisplayName);
+            changed |= EnrichDurationDisplayName(
+                target.Items,
+                item.SlotId + "|" + item.ItemId + "|" + item.AttachmentSignature,
+                item.ItemDisplayName);
+            if (item.Kind == EquipmentItemKind.Weapon)
+            {
+                changed |= EnrichDurationDisplayName(
+                    target.SlottedWeapons,
+                    item.SlotId + "|" + item.ItemId,
+                    item.ItemDisplayName);
+            }
+        }
+        foreach (var slot in snapshot.CharacterSlots)
+        {
+            changed |= EnrichDurationDisplayName(
+                target.CharacterSlotObservedDurations,
+                CharacterSlotObservationKey(slot.SlotId),
+                slot.SlotDisplayName);
+            if (!target.CharacterSlotStates.TryGetValue(CharacterSlotStateKey(slot), out var row)) continue;
+            row.SlotDisplayName = EnrichedDisplayName(
+                row.SlotDisplayName,
+                slot.SlotDisplayName,
+                out var slotChanged);
+            row.ItemDisplayName = EnrichedDisplayName(
+                row.ItemDisplayName,
+                slot.ItemDisplayName,
+                out var itemChanged);
+            changed |= slotChanged || itemChanged;
+        }
+        foreach (var parent in snapshot.Items)
+        {
+            foreach (var slot in parent.NestedSlots)
+            {
+                changed |= EnrichDurationDisplayName(
+                    target.NestedSlotObservedDurations,
+                    NestedSlotObservationKey(parent.SlotId, parent.ItemId, slot.Path),
+                    slot.SlotDisplayName);
+                if (!target.NestedSlotStates.TryGetValue(
+                        NestedSlotStateKey(parent.SlotId, parent.ItemId, slot),
+                        out var row))
+                {
+                    continue;
+                }
+                row.ParentItemDisplayName = EnrichedDisplayName(
+                    row.ParentItemDisplayName,
+                    parent.ItemDisplayName,
+                    out var parentChanged);
+                row.SlotDisplayName = EnrichedDisplayName(
+                    row.SlotDisplayName,
+                    slot.SlotDisplayName,
+                    out var slotChanged);
+                row.ItemDisplayName = EnrichedDisplayName(
+                    row.ItemDisplayName,
+                    slot.ItemDisplayName,
+                    out var itemChanged);
+                changed |= parentChanged || slotChanged || itemChanged;
+            }
+        }
+        foreach (var group in snapshot.Totems
+                     .GroupBy(TotemStateKey, StringComparer.Ordinal)
+                     .OrderBy(value => value.Key, StringComparer.Ordinal))
+        {
+            var index = 0;
+            foreach (var totem in group)
+            {
+                index++;
+                changed |= EnrichDurationDisplayName(
+                    target.TotemStates,
+                    group.Key + "|copy:" + index.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    DescribeTotem(totem));
+            }
+        }
+        return changed;
+    }
+
+    private static bool EnrichDurationDisplayName(
+        Dictionary<string, EquipmentDurationAggregate> target,
+        string key,
+        string displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName)
+            || !target.TryGetValue(key, out var row)
+            || string.Equals(row.DisplayName, displayName, StringComparison.Ordinal))
+        {
+            return false;
+        }
+        row.DisplayName = displayName;
+        return true;
+    }
+
+    private static string EnrichedDisplayName(
+        string existing,
+        string candidate,
+        out bool changed)
+    {
+        changed = !string.IsNullOrWhiteSpace(candidate)
+                  && !string.Equals(existing, candidate, StringComparison.Ordinal);
+        return changed ? candidate : existing;
+    }
+
+    private static void MergeCharacterSlotStates(
+        Dictionary<string, CharacterSlotStateDurationAggregate> target,
+        Dictionary<string, CharacterSlotStateDurationAggregate> source)
+    {
+        foreach (var value in source.Values)
+        {
+            var snapshot = new CharacterEquipmentSlotSnapshot
+            {
+                SlotId = value.SlotId,
+                SlotDisplayName = value.SlotDisplayName,
+                State = value.State,
+                ItemId = value.ItemId,
+                ItemDisplayName = value.ItemDisplayName,
+                ItemKind = value.ItemKind
+            };
+            AddCharacterSlotStateDuration(target, snapshot, value.ActiveDurationSeconds);
+        }
+    }
+
+    private static void MergeNestedSlotStates(
+        Dictionary<string, NestedSlotStateDurationAggregate> target,
+        Dictionary<string, NestedSlotStateDurationAggregate> source)
+    {
+        foreach (var value in source.Values)
+        {
+            var parent = new EquippedItemSnapshot
+            {
+                SlotId = value.ParentSlotId,
+                ItemId = value.ParentItemId,
+                ItemDisplayName = value.ParentItemDisplayName,
+                Kind = value.ParentItemKind
+            };
+            var slot = new NestedEquipmentSlotSnapshot
+            {
+                Path = value.Path,
+                SlotKey = value.SlotKey,
+                SlotDisplayName = value.SlotDisplayName,
+                State = value.State,
+                ItemId = value.ItemId,
+                ItemDisplayName = value.ItemDisplayName
+            };
+            AddNestedSlotStateDuration(target, parent, slot, value.ActiveDurationSeconds);
+        }
+    }
+
+    private static string CharacterSlotObservationKey(string slotId) => Component(slotId);
+
+    private static string CharacterSlotStateKey(CharacterEquipmentSlotSnapshot slot) =>
+        CharacterSlotObservationKey(slot.SlotId) + "|" + ((int)slot.State).ToString(System.Globalization.CultureInfo.InvariantCulture)
+        + "|" + Component(slot.State == EquipmentSlotState.Occupied ? slot.ItemId : string.Empty);
+
+    private static string NestedSlotObservationKey(string parentSlotId, string parentItemId, string path) =>
+        Component(parentSlotId) + "|" + Component(parentItemId) + "|" + Component(path);
+
+    private static string NestedSlotStateKey(string parentSlotId, string parentItemId, NestedEquipmentSlotSnapshot slot) =>
+        NestedSlotObservationKey(parentSlotId, parentItemId, slot.Path) + "|"
+        + ((int)slot.State).ToString(System.Globalization.CultureInfo.InvariantCulture) + "|"
+        + Component(slot.State == EquipmentSlotState.Occupied ? slot.ItemId : string.Empty);
+
+    private static string Component(string? value)
+    {
+        value ??= string.Empty;
+        return value.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + value;
+    }
+
+    private static double CheckedDurationAdd(double left, double right)
+    {
+        if (!IsFinite(left) || left < 0 || !IsFinite(right) || right < 0 || left > double.MaxValue - right)
+            throw new OverflowException("Equipment slot-state duration overflowed.");
+        return left + right;
+    }
 
     private static EquipmentCombatAssociationAggregate Association(EquipmentStatisticsAggregate target, EquipmentEventAssociation? association)
     {
@@ -627,12 +1136,16 @@ public static class EquipmentStatisticsReducer
             AttachmentMetadata = Restrict(target.AttachmentMetadata, source.AttachmentMetadata, preferSourceOnTie),
             DirectTotems = Restrict(target.DirectTotems, source.DirectTotems, preferSourceOnTie),
             ToteContents = Restrict(target.ToteContents, source.ToteContents, preferSourceOnTie),
-            ToteActivation = Restrict(target.ToteActivation, source.ToteActivation, preferSourceOnTie)
+            ToteActivation = Restrict(target.ToteActivation, source.ToteActivation, preferSourceOnTie),
+            CharacterSlotState = Restrict(target.CharacterSlotState, source.CharacterSlotState, preferSourceOnTie),
+            NestedSlotState = Restrict(target.NestedSlotState, source.NestedSlotState, preferSourceOnTie)
         };
 
     private static bool HasObservations(EquipmentStatisticsAggregate value) => value.Items?.Count > 0
         || value.SelectedWeapons?.Count > 0 || value.Loadouts?.Count > 0 || value.TotemSets?.Count > 0
         || value.TotemStates?.Count > 0 || value.Slots?.Count > 0 || value.SlottedWeapons?.Count > 0
+        || value.CharacterSlotObservedDurations?.Count > 0 || value.CharacterSlotStates?.Count > 0
+        || value.NestedSlotObservedDurations?.Count > 0 || value.NestedSlotStates?.Count > 0
         || value.CombatAssociations?.Count > 0 || value.TransitionCount > 0;
 
     private static MetricAvailability Restrict(MetricAvailability a, MetricAvailability b, bool preferSourceOnTie) =>
@@ -652,12 +1165,16 @@ public static class EquipmentStatisticsReducer
         value.DirectTotems ??= Repair(new MetricAvailability(), ref repaired);
         value.ToteContents ??= Repair(new MetricAvailability(), ref repaired);
         value.ToteActivation ??= Repair(new MetricAvailability(), ref repaired);
+        value.CharacterSlotState ??= Repair(new MetricAvailability(), ref repaired);
+        value.NestedSlotState ??= Repair(new MetricAvailability(), ref repaired);
         NormalizeAvailability(value.EquipmentSlots, ref repaired);
         NormalizeAvailability(value.SelectedWeapon, ref repaired);
         NormalizeAvailability(value.AttachmentMetadata, ref repaired);
         NormalizeAvailability(value.DirectTotems, ref repaired);
         NormalizeAvailability(value.ToteContents, ref repaired);
         NormalizeAvailability(value.ToteActivation, ref repaired);
+        NormalizeAvailability(value.CharacterSlotState, ref repaired);
+        NormalizeAvailability(value.NestedSlotState, ref repaired);
     }
 
     private static Dictionary<string, EquipmentDurationAggregate> NormalizeDurations(
@@ -786,6 +1303,165 @@ public static class EquipmentStatisticsReducer
         return changed ? normalized : source;
     }
 
+    private static Dictionary<string, CharacterSlotStateDurationAggregate> NormalizeCharacterSlotStates(
+        Dictionary<string, CharacterSlotStateDurationAggregate> source,
+        ref bool repaired)
+    {
+        var normalized = new Dictionary<string, CharacterSlotStateDurationAggregate>(StringComparer.Ordinal);
+        foreach (var pair in source.OrderBy(value => value.Key, StringComparer.Ordinal))
+        {
+            var row = pair.Value;
+            if (!ValidCharacterSlotState(row))
+            {
+                repaired = true;
+                continue;
+            }
+            row.SlotId = row.SlotId.Trim();
+            row.SlotDisplayName = row.SlotDisplayName?.Trim() ?? string.Empty;
+            row.ItemId = row.State == EquipmentSlotState.Occupied ? row.ItemId.Trim() : string.Empty;
+            row.ItemDisplayName = row.State == EquipmentSlotState.Occupied
+                ? row.ItemDisplayName?.Trim() ?? string.Empty : string.Empty;
+            var key = CharacterSlotStateKey(new CharacterEquipmentSlotSnapshot
+            {
+                SlotId = row.SlotId,
+                State = row.State,
+                ItemId = row.ItemId
+            });
+            if (!string.Equals(pair.Key, key, StringComparison.Ordinal)) repaired = true;
+            if (!normalized.TryGetValue(key, out var existing))
+            {
+                normalized[key] = row;
+                continue;
+            }
+            existing.ActiveDurationSeconds = SaturatingAdd(existing.ActiveDurationSeconds, row.ActiveDurationSeconds);
+            if (string.IsNullOrWhiteSpace(existing.SlotDisplayName)) existing.SlotDisplayName = row.SlotDisplayName;
+            if (string.IsNullOrWhiteSpace(existing.ItemDisplayName)) existing.ItemDisplayName = row.ItemDisplayName;
+            repaired = true;
+        }
+        return normalized;
+    }
+
+    private static Dictionary<string, NestedSlotStateDurationAggregate> NormalizeNestedSlotStates(
+        Dictionary<string, NestedSlotStateDurationAggregate> source,
+        ref bool repaired)
+    {
+        var normalized = new Dictionary<string, NestedSlotStateDurationAggregate>(StringComparer.Ordinal);
+        foreach (var pair in source.OrderBy(value => value.Key, StringComparer.Ordinal))
+        {
+            var row = pair.Value;
+            if (!ValidNestedSlotState(row))
+            {
+                repaired = true;
+                continue;
+            }
+            row.ParentSlotId = row.ParentSlotId.Trim();
+            row.ParentItemId = row.ParentItemId.Trim();
+            row.ParentItemDisplayName = row.ParentItemDisplayName?.Trim() ?? string.Empty;
+            row.Path = row.Path.Trim();
+            row.SlotKey = row.SlotKey.Trim();
+            row.SlotDisplayName = row.SlotDisplayName?.Trim() ?? string.Empty;
+            row.ItemId = row.State == EquipmentSlotState.Occupied ? row.ItemId.Trim() : string.Empty;
+            row.ItemDisplayName = row.State == EquipmentSlotState.Occupied
+                ? row.ItemDisplayName?.Trim() ?? string.Empty : string.Empty;
+            var key = NestedSlotStateKey(row.ParentSlotId, row.ParentItemId, new NestedEquipmentSlotSnapshot
+            {
+                Path = row.Path,
+                State = row.State,
+                ItemId = row.ItemId
+            });
+            if (!string.Equals(pair.Key, key, StringComparison.Ordinal)) repaired = true;
+            if (!normalized.TryGetValue(key, out var existing))
+            {
+                normalized[key] = row;
+                continue;
+            }
+            existing.ActiveDurationSeconds = SaturatingAdd(existing.ActiveDurationSeconds, row.ActiveDurationSeconds);
+            if (string.IsNullOrWhiteSpace(existing.ParentItemDisplayName)) existing.ParentItemDisplayName = row.ParentItemDisplayName;
+            if (string.IsNullOrWhiteSpace(existing.SlotDisplayName)) existing.SlotDisplayName = row.SlotDisplayName;
+            if (string.IsNullOrWhiteSpace(existing.ItemDisplayName)) existing.ItemDisplayName = row.ItemDisplayName;
+            repaired = true;
+        }
+        return normalized;
+    }
+
+    private static bool ValidCharacterSlotState(CharacterSlotStateDurationAggregate? row) => row != null
+        && !string.IsNullOrWhiteSpace(row.SlotId)
+        && Enum.IsDefined(typeof(EquipmentSlotState), row.State)
+        && Enum.IsDefined(typeof(EquipmentItemKind), row.ItemKind)
+        && (row.State == EquipmentSlotState.Occupied
+            ? !string.IsNullOrWhiteSpace(row.ItemId)
+            : string.IsNullOrEmpty(row.ItemId) && string.IsNullOrEmpty(row.ItemDisplayName))
+        && IsFinite(row.ActiveDurationSeconds) && row.ActiveDurationSeconds >= 0;
+
+    private static bool ValidNestedSlotState(NestedSlotStateDurationAggregate? row) => row != null
+        && !string.IsNullOrWhiteSpace(row.ParentSlotId)
+        && !string.IsNullOrWhiteSpace(row.ParentItemId)
+        && Enum.IsDefined(typeof(EquipmentItemKind), row.ParentItemKind)
+        && !string.IsNullOrWhiteSpace(row.Path)
+        && !string.IsNullOrWhiteSpace(row.SlotKey)
+        && Enum.IsDefined(typeof(EquipmentSlotState), row.State)
+        && (row.State == EquipmentSlotState.Occupied
+            ? !string.IsNullOrWhiteSpace(row.ItemId)
+            : string.IsNullOrEmpty(row.ItemId) && string.IsNullOrEmpty(row.ItemDisplayName))
+        && IsFinite(row.ActiveDurationSeconds) && row.ActiveDurationSeconds >= 0;
+
+    private static void ValidateSlotStateReconciliation(EquipmentStatisticsAggregate target)
+    {
+        foreach (var row in target.CharacterSlotStates.Values)
+        {
+            if (!ValidCharacterSlotState(row))
+                throw new ArgumentException("Character-slot state is invalid.", nameof(target));
+            var observationKey = CharacterSlotObservationKey(row.SlotId);
+            if (!target.CharacterSlotObservedDurations.TryGetValue(observationKey, out var observed)
+                || row.ActiveDurationSeconds > observed.ActiveDurationSeconds)
+                throw new ArgumentException("Character-slot state exceeds observable slot duration.", nameof(target));
+        }
+        foreach (var observed in target.CharacterSlotObservedDurations)
+        {
+            var total = target.CharacterSlotStates.Values
+                .Where(row => string.Equals(CharacterSlotObservationKey(row.SlotId), observed.Key, StringComparison.Ordinal))
+                .Select(row => row.ActiveDurationSeconds)
+                .Aggregate(0d, CheckedDurationAdd);
+            if (!DurationsEqual(total, observed.Value.ActiveDurationSeconds))
+                throw new ArgumentException("Character-slot occupied and empty states do not reconcile.", nameof(target));
+        }
+
+        foreach (var row in target.NestedSlotStates.Values)
+        {
+            if (!ValidNestedSlotState(row))
+                throw new ArgumentException("Nested-slot state is invalid.", nameof(target));
+            var observationKey = NestedSlotObservationKey(row.ParentSlotId, row.ParentItemId, row.Path);
+            if (!target.NestedSlotObservedDurations.TryGetValue(observationKey, out var observed)
+                || row.ActiveDurationSeconds > observed.ActiveDurationSeconds)
+                throw new ArgumentException("Nested-slot state exceeds observable path duration.", nameof(target));
+            var parentPrefix = row.ParentSlotId + "|" + row.ParentItemId + "|";
+            var parentDuration = target.Items
+                .Where(pair => pair.Key.StartsWith(parentPrefix, StringComparison.Ordinal))
+                .Select(pair => pair.Value.ActiveDurationSeconds)
+                .Aggregate(0d, CheckedDurationAdd);
+            if (observed.ActiveDurationSeconds > parentDuration)
+                throw new ArgumentException("Nested-slot observation exceeds parent equipped duration.", nameof(target));
+        }
+        foreach (var observed in target.NestedSlotObservedDurations)
+        {
+            var total = target.NestedSlotStates.Values.Where(row => string.Equals(
+                    NestedSlotObservationKey(row.ParentSlotId, row.ParentItemId, row.Path),
+                    observed.Key,
+                    StringComparison.Ordinal))
+                .Select(row => row.ActiveDurationSeconds)
+                .Aggregate(0d, CheckedDurationAdd);
+            if (!DurationsEqual(total, observed.Value.ActiveDurationSeconds))
+                throw new ArgumentException("Nested-slot occupied and empty states do not reconcile.", nameof(target));
+        }
+    }
+
+    private static bool DurationsEqual(double left, double right)
+    {
+        if (left == right) return true;
+        var scale = Math.Max(1d, Math.Max(Math.Abs(left), Math.Abs(right)));
+        return Math.Abs(left - right) <= scale * 1e-12;
+    }
+
     private static void NormalizeAvailability(MetricAvailability value, ref bool repaired)
     {
         if (!Enum.IsDefined(typeof(AdapterCapabilityState), value.State))
@@ -828,6 +1504,12 @@ public static class EquipmentStatisticsReducer
         EquipmentSnapshot? from,
         EquipmentSnapshot? to)
     {
+        // A partial root collection is valid M14 sibling evidence, but not an
+        // exact M6 configuration state. Model it as unavailable at the exact-set
+        // transition boundary and suppress partial-to-partial pseudo-transitions.
+        if (!HasExactSetIdentity(from)) from = null;
+        if (!HasExactSetIdentity(to)) to = null;
+        if (from == null && to == null) return;
         target.TransitionCount = SaturatingAdd(target.TransitionCount, 1);
         target.Transitions.Add(new EquipmentTransition
         {
@@ -844,6 +1526,10 @@ public static class EquipmentStatisticsReducer
         target.Transitions.RemoveAt(0);
         target.TransitionsTruncated = true;
     }
+
+    private static bool HasExactSetIdentity(EquipmentSnapshot? snapshot) => snapshot != null
+        && !string.Equals(snapshot.LoadoutId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal)
+        && !string.Equals(snapshot.TotemSetId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal);
 
     private static string DescribeLoadout(EquipmentSnapshot snapshot) => snapshot.Items.Count == 0
         ? "Empty loadout"

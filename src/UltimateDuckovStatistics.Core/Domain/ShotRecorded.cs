@@ -29,6 +29,9 @@ public sealed class WeaponMetricCapabilities
 
     [DataMember(Order = 5)]
     public MetricAvailability AmmunitionIdentity { get; set; } = new();
+
+    [DataMember(Order = 6)]
+    public MetricAvailability WeaponAmmunitionPairing { get; set; } = new();
 }
 
 [DataContract]

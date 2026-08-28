@@ -40,7 +40,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly Func<EconomyMetricCapabilities> economyCapabilitiesProvider;
     private readonly Func<DeferredWriteState>? checkpointCompletionPoller;
     private readonly Func<DeferredWriteState>? checkpointCompletionFlusher;
-    private readonly Stopwatch monotonicClock = Stopwatch.StartNew();
+    private readonly Func<double> monotonicSecondsProvider;
     private readonly RunLifecycleTracker tracker;
     private readonly MonotonicCadenceGate sampleCadence = new(SampleIntervalSeconds);
     private readonly ActiveRunCheckpointScheduler checkpointScheduler = new(
@@ -80,7 +80,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         Func<ContainerMetricCapabilities>? containerCapabilitiesProvider = null,
         Func<EconomyMetricCapabilities>? economyCapabilitiesProvider = null,
         Func<DeferredWriteState>? checkpointCompletionPoller = null,
-        Func<DeferredWriteState>? checkpointCompletionFlusher = null)
+        Func<DeferredWriteState>? checkpointCompletionFlusher = null,
+        Func<double>? monotonicSecondsProvider = null)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
@@ -95,6 +96,15 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         this.economyCapabilitiesProvider = economyCapabilitiesProvider ?? (() => new EconomyMetricCapabilities());
         this.checkpointCompletionPoller = checkpointCompletionPoller;
         this.checkpointCompletionFlusher = checkpointCompletionFlusher;
+        if (monotonicSecondsProvider == null)
+        {
+            var clock = Stopwatch.StartNew();
+            this.monotonicSecondsProvider = () => clock.Elapsed.TotalSeconds;
+        }
+        else
+        {
+            this.monotonicSecondsProvider = monotonicSecondsProvider;
+        }
         if ((checkpointCompletionPoller == null) != (checkpointCompletionFlusher == null))
             throw new ArgumentException("Deferred checkpoint polling and flushing must be configured together.");
         tracker = new RunLifecycleTracker(() => Guid.NewGuid().ToString("N"));
@@ -970,7 +980,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         MonotonicSeconds = NowMonotonic()
     };
 
-    private double NowMonotonic() => monotonicClock.Elapsed.TotalSeconds;
+    private double NowMonotonic() => monotonicSecondsProvider();
 
     private void OnNewRaid(RaidUtilities.RaidInfo raid)
     {

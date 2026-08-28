@@ -211,7 +211,7 @@ public sealed class EquipmentStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(13, profile.SchemaVersion);
+        Assert.Equal(14, profile.SchemaVersion);
         var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
         Assert.True(equipment.HistoricalUnavailable);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, equipment.Capabilities.EquipmentSlots.State);
@@ -725,7 +725,9 @@ public sealed class EquipmentStatisticsTests
         renamed.Items[0].ItemDisplayName = "Localized name B";
 
         Assert.True(EquipmentStatisticsReducer.Observe(aggregate, first, 0));
-        Assert.False(EquipmentStatisticsReducer.Observe(aggregate, renamed, 2));
+        Assert.True(EquipmentStatisticsReducer.Observe(aggregate, renamed, 2));
+        Assert.Equal("Localized name B", Assert.Single(aggregate.Items).Value.DisplayName);
+        Assert.Equal(1, aggregate.TransitionCount);
         EquipmentStatisticsReducer.Advance(aggregate, 5);
 
         var row = Assert.Single(aggregate.Items).Value;

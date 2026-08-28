@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v6+route-independent-cache";
+    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v11+lossless-slot-state";
     private const string SupportedGameVersion = "2.3.30";
     internal const double ReconciliationIntervalSeconds = 1;
     private readonly Func<bool> runActiveProvider;
@@ -26,6 +26,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     private CharacterMainControl? observedMain;
     private Item? observedCharacterItem;
     private EquipmentSnapshot? latestSnapshot;
+    private string? latestDisplayMetadataSignature;
     private string? latestObservationContextId;
     private bool hasLatestObservationContext;
     private EquipmentMetricCapabilities metricCapabilities =
@@ -59,6 +60,16 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     }
 
     public EquipmentMetricCapabilities MetricCapabilities => EquipmentStatisticsReducer.CloneCapabilities(metricCapabilities);
+
+    public EquipmentMetricCapabilities CaptureCapabilitiesForRunStart()
+    {
+        if (callbackLifetime.CanHandleCallbacks)
+        {
+            SynchronizeMain();
+            RefreshSlotStateCapabilities();
+        }
+        return MetricCapabilities;
+    }
 
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
@@ -139,6 +150,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         var cleaned = callbackLifetime.TryCleanup(() => true, out var failure);
         if (failure != null) diagnosticHandler($"Equipment cleanup remains retryable: {failure.GetType().Name}: {failure.Message}");
         latestSnapshot = null;
+        latestDisplayMetadataSignature = null;
         latestObservationContextId = null;
         hasLatestObservationContext = false;
         observedMain = null;
@@ -158,6 +170,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         observedCharacterItem = characterItem;
         if (observedCharacterItem != null) observedCharacterItem.onItemTreeChanged += OnItemTreeChanged;
         latestSnapshot = null;
+        latestDisplayMetadataSignature = null;
         latestObservationContextId = null;
         hasLatestObservationContext = false;
     }
@@ -177,8 +190,10 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         if (!runActiveProvider())
         {
             latestSnapshot = null;
+            latestDisplayMetadataSignature = null;
             latestObservationContextId = null;
             hasLatestObservationContext = false;
+            RefreshSlotStateCapabilities();
             return;
         }
         if (observedMain == null || observedCharacterItem == null || !observedMain.IsMainCharacter)
@@ -191,14 +206,18 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
             var observationContextId = observationContextProvider();
             NativeHotPathDiagnostics.CountEquipmentSnapshotBuild();
             var snapshot = NativeEquipmentSnapshotBuilder.Build(observedMain, observedCharacterItem);
+            var displayMetadataSignature = NativeEquipmentSnapshotBuilder.DisplayMetadataSignature(snapshot);
+            UpdateSlotStateCapabilities(snapshot);
             // The same immutable loadout still has to be published once for every
             // run segment so its duration and event associations have a local root.
             // A missing segment is also a stable overall-only context so route
             // loss cannot suspend established run-level equipment tracking.
             var unchanged = hasLatestObservationContext
                             && string.Equals(latestObservationContextId, observationContextId, StringComparison.Ordinal)
-                            && string.Equals(latestSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal);
+                            && string.Equals(latestSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal)
+                            && string.Equals(latestDisplayMetadataSignature, displayMetadataSignature, StringComparison.Ordinal);
             latestSnapshot = snapshot;
+            latestDisplayMetadataSignature = displayMetadataSignature;
             latestObservationContextId = observationContextId;
             hasLatestObservationContext = true;
             if (unchanged)
@@ -219,10 +238,93 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
     private void InvalidateObservation()
     {
         latestSnapshot = null;
+        latestDisplayMetadataSignature = null;
         latestObservationContextId = null;
         hasLatestObservationContext = false;
         invalidationHandler();
     }
+
+    private void RefreshSlotStateCapabilities()
+    {
+        if (observedMain == null || observedCharacterItem == null || !observedMain.IsMainCharacter) return;
+        try
+        {
+            NativeHotPathDiagnostics.CountEquipmentSnapshotBuild();
+            UpdateSlotStateCapabilities(NativeEquipmentSnapshotBuilder.Build(observedMain, observedCharacterItem));
+        }
+        catch (Exception exception)
+        {
+            diagnosticHandler($"Equipment capability refresh failed safely: {exception.GetType().Name}: {exception.Message}");
+        }
+    }
+
+    private void UpdateSlotStateCapabilities(EquipmentSnapshot snapshot)
+    {
+        var supported = EquipmentNativeContractPolicy.CreateSupportedCapabilities();
+        var equipmentSlots = snapshot.CharacterSlotStateComplete
+            ? supported.EquipmentSlots
+            : new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The native character-slot collection was not completely enumerable; exact equipped-set and loadout identity is unavailable."
+            };
+        var directTotems = snapshot.CharacterSlotStateComplete
+            ? supported.DirectTotems
+            : new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The native character-slot collection was not completely enumerable; exact direct-totem and combined totem-set identity is unavailable."
+            };
+        var characterSlotState = snapshot.CharacterSlotStateComplete
+            ? supported.CharacterSlotState
+            : new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The native character-slot collection was not completely enumerable; missing evidence remains unavailable rather than being reported as empty."
+            };
+        var nestedSlotState = snapshot.NestedSlotStateComplete
+                              && snapshot.Items.All(value => value.NestedSlotStateComplete)
+            ? supported.NestedSlotState
+            : new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "At least one equipped-item nested-slot tree was not completely enumerable; missing paths remain unavailable rather than being reported as empty."
+            };
+        var changed = false;
+        if (!AvailabilityEquals(metricCapabilities.EquipmentSlots, equipmentSlots))
+        {
+            metricCapabilities.EquipmentSlots = equipmentSlots;
+            changed = true;
+        }
+        if (!AvailabilityEquals(metricCapabilities.DirectTotems, directTotems))
+        {
+            metricCapabilities.DirectTotems = directTotems;
+            changed = true;
+        }
+        if (!AvailabilityEquals(metricCapabilities.CharacterSlotState, characterSlotState))
+        {
+            metricCapabilities.CharacterSlotState = characterSlotState;
+            changed = true;
+        }
+        if (!AvailabilityEquals(metricCapabilities.NestedSlotState, nestedSlotState))
+        {
+            metricCapabilities.NestedSlotState = nestedSlotState;
+            changed = true;
+        }
+        if (!changed) return;
+        capabilityHandler(EquipmentNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
+        diagnosticHandler(
+            equipmentSlots.State == AdapterCapabilityState.Supported
+            && directTotems.State == AdapterCapabilityState.Supported
+            && characterSlotState.State == AdapterCapabilityState.Supported
+            && nestedSlotState.State == AdapterCapabilityState.Supported
+                ? "Equipment root and slot-state capabilities restored after a complete native enumeration; prior degraded run scopes remain unchanged."
+                : "Equipment root or slot-state capability degraded after incomplete native enumeration; independent readable dimensions continue.");
+    }
+
+    private static bool AvailabilityEquals(MetricAvailability left, MetricAvailability right) =>
+        left.State == right.State
+        && string.Equals(left.Provenance, right.Provenance, StringComparison.Ordinal);
 
     private void SetDisabled(string detail)
     {

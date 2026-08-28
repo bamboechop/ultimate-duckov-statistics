@@ -328,6 +328,7 @@ try
         itemStats.RequireEvent("ItemStatsSystem", "UsageUtilities", "OnItemUsedStaticEvent", "System.Action", "ItemStatsSystem.Item");
         itemStats.RequireEvent("ItemStatsSystem", "Item", "onUseStatic", "System.Action", "ItemStatsSystem.Item", "System.Object");
         itemStats.RequireEvent("ItemStatsSystem", "Item", "onItemTreeChanged", "System.Action", "ItemStatsSystem.Item");
+        itemStats.RequireEvent("ItemStatsSystem", "Item", "onSlotContentChanged", "System.Action", "ItemStatsSystem.Item", "ItemStatsSystem.Items.Slot");
         itemStats.RequireProperty("ItemStatsSystem", "ItemAgent", "Item", "ItemStatsSystem.Item", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem", "Item", "IsBeingDestroyed", "System.Boolean", mustBePublic: true);
         itemStats.RequireField("ItemStatsSystem", "UsageUtilities", "behaviors");
@@ -359,6 +360,15 @@ try
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "Key", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "DisplayName", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "Content", "ItemStatsSystem.Item", mustBePublic: true);
+        itemStats.RequireEvent("ItemStatsSystem.Items", "Slot", "onSlotContentChanged", "System.Action", "ItemStatsSystem.Items.Slot");
+        itemStats.RequireProperty("ItemStatsSystem.Items", "SlotCollection", "Count", "System.Int32", mustBePublic: true);
+        itemStats.RequireMethod(
+            "ItemStatsSystem.Items",
+            "SlotCollection",
+            "GetEnumerator",
+            parameterCount: 0,
+            mustBePublic: true,
+            returnTypeFragment: "System.Collections.Generic.IEnumerator");
         itemStats.RequireProperty("ItemStatsSystem", "Inventory", "Content", mustBePublic: true);
         itemStats.RequireMethod(
             "ItemStatsSystem",
@@ -379,7 +389,7 @@ try
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, equipment, containers, economy, M12 world-clock/sleep, and M13 crafting task/delivery contracts are present.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, economy, M12 world-clock/sleep, and M13 crafting task/delivery contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption, M6 tote activation, and M13 crafting workstation/run-map/multiple-output attribution remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }

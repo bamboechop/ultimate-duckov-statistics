@@ -322,8 +322,8 @@ public sealed class PersistenceTests
 
         Assert.True(ProfileMigrator.Migrate(document));
 
-        Assert.Equal(13, document.SchemaVersion);
-        Assert.Equal(13, document.Statistics.SchemaVersion);
+        Assert.Equal(14, document.SchemaVersion);
+        Assert.Equal(14, document.Statistics.SchemaVersion);
         Assert.Equal("generation-m8", document.GenerationId);
         Assert.Equal(17, document.Statistics.Overall.ActivationCount);
         var migratedMap = Assert.Single(document.Statistics.RunTotals.Maps).Value;
@@ -1134,13 +1134,15 @@ public sealed class PersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M8")]
-    public void CurrentSchemaExplicitlyRepairableNullDictionaryRowsRemainEligibleForNormalization()
+    public void SchemaThirteenRepairableNullDictionaryRowsRemainEligibleForM14Normalization()
     {
         using var temporaryDirectory = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
         var store = new AtomicJsonStore<ProfileDocument>();
         var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
         var repairablePrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
+        repairablePrimary.SchemaVersion = 13;
+        repairablePrimary.Statistics.SchemaVersion = 13;
         repairablePrimary.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:null"] = null!;
         repairablePrimary.Statistics.RunTotals.CombatStatistics.Enemies["enemy:null"] = null!;
         repairablePrimary.Statistics.RunTotals.EquipmentStatistics.Items["equipment:null"] = null!;
@@ -1205,8 +1207,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(13, repository.Current.SchemaVersion);
-        Assert.Equal(13, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(14, repository.Current.SchemaVersion);
+        Assert.Equal(14, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
@@ -1350,8 +1352,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(13, repository.Current.SchemaVersion);
-        Assert.Equal(13, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(14, repository.Current.SchemaVersion);
+        Assert.Equal(14, repository.Current.Statistics.SchemaVersion);
         Assert.Equal("generation-v03", repository.Current.GenerationId);
         Assert.Equal(73, repository.Current.Revision);
         Assert.Equal(2, repository.Current.InterruptedSessionCount);
@@ -1384,6 +1386,8 @@ public sealed class PersistenceTests
             "current",
             "profile.json");
         var profile = CreateDocument("generation-repaired", revision: 9);
+        profile.SchemaVersion = 13;
+        profile.Statistics.SchemaVersion = 13;
         profile.Capabilities.Add(new CapabilityRecord
         {
             AdapterId = WeaponCapabilityIds.FiringActions,
@@ -1431,6 +1435,8 @@ public sealed class PersistenceTests
             "current",
             "profile.json");
         var profile = CreateDocument("generation-corrupt-identities", revision: 10);
+        profile.SchemaVersion = 13;
+        profile.Statistics.SchemaVersion = 13;
         profile.Capabilities.Add(new CapabilityRecord
         {
             AdapterId = WeaponCapabilityIds.FiringActions,

@@ -336,7 +336,7 @@ public sealed class ContainerStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(13, profile.SchemaVersion);
+        Assert.Equal(14, profile.SchemaVersion);
         Assert.Equal(9, profile.Statistics.Overall.ActivationCount);
         Assert.Equal(17, profile.Statistics.Overall.ActualHealthRestored);
         Assert.Equal(3, profile.Statistics.RunTotals.TotalRuns);

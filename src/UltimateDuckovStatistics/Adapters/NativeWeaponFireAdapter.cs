@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-weapon-fire/2.3.30+public-event-v2";
+    internal const string AdapterVersion = "native-weapon-fire/2.3.30+public-event-v3-pairing";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private readonly Func<string> saveGenerationIdProvider;
@@ -85,6 +85,7 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
             capabilityHandler(capabilities);
             diagnosticHandler(
                 "Native weapon hook subscribed: each public firing callback receives a unique event ID. "
+                + "The callback preserves simultaneous event-time weapon and ammunition identity for M14 pairing. "
                 + "Loaded-ammunition consumption, projectile creation, and dry-fire trigger attempts are unavailable because the public callback does not prove those side effects.");
         }
         catch (Exception exception)
@@ -151,16 +152,21 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
             var weapon = agent.Item;
             var gun = agent.GunItemSetting;
             if (string.IsNullOrWhiteSpace(generationId)
-                || string.IsNullOrWhiteSpace(mapId)
-                || weapon == null)
+                || string.IsNullOrWhiteSpace(mapId))
             {
-                diagnosticHandler("Firing callback lacked proven generation, run, map, or weapon identity; event ignored.");
+                diagnosticHandler("Firing callback lacked proven generation, run, or map context; event ignored.");
                 return;
             }
 
-            var weaponTypeId = weapon.TypeID;
+            var weaponTypeId = weapon?.TypeID ?? -1;
             var ammunitionTypeId = gun?.TargetBulletID ?? -1;
             var eventCapabilities = MetricCapabilities;
+            if (weapon == null || weaponTypeId < 0)
+            {
+                eventCapabilities.WeaponIdentity = Availability(
+                    AdapterCapabilityState.DisabledIncompatible,
+                    "The firing callback did not expose a stable weapon type for this action.");
+            }
             if (gun == null || ammunitionTypeId < 0)
             {
                 eventCapabilities.AmmunitionIdentity = Availability(
@@ -181,8 +187,12 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
                 GameVersion = Application.version ?? string.Empty,
                 GameBuild = SupportedGameBuild,
                 AdapterVersion = AdapterVersion,
-                WeaponId = $"duckov:weapon:{weaponTypeId.ToString(CultureInfo.InvariantCulture)}",
-                WeaponDisplayName = ReadWeaponDisplayName(weapon, weaponTypeId),
+                WeaponId = weaponTypeId < 0
+                    ? string.Empty
+                    : $"duckov:weapon:{weaponTypeId.ToString(CultureInfo.InvariantCulture)}",
+                WeaponDisplayName = weapon == null || weaponTypeId < 0
+                    ? string.Empty
+                    : ReadWeaponDisplayName(weapon, weaponTypeId),
                 AmmunitionId = ammunitionTypeId < 0
                     ? string.Empty
                     : $"duckov:ammo:{ammunitionTypeId.ToString(CultureInfo.InvariantCulture)}",
@@ -218,7 +228,8 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
         Capability(WeaponCapabilityIds.AmmunitionConsumption, AdapterCapabilityState.DisabledIncompatible, detail),
         Capability(WeaponCapabilityIds.Projectiles, AdapterCapabilityState.DisabledIncompatible, detail),
         Capability(WeaponCapabilityIds.WeaponIdentity, AdapterCapabilityState.DisabledIncompatible, detail),
-        Capability(WeaponCapabilityIds.AmmunitionIdentity, AdapterCapabilityState.DisabledIncompatible, detail)
+        Capability(WeaponCapabilityIds.AmmunitionIdentity, AdapterCapabilityState.DisabledIncompatible, detail),
+        Capability(WeaponCapabilityIds.WeaponAmmunitionPairing, AdapterCapabilityState.DisabledIncompatible, detail)
     };
 
     private static CapabilityRecord[] CapabilityRecords(
@@ -249,7 +260,11 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
             Capability(
                 WeaponCapabilityIds.AmmunitionIdentity,
                 AdapterCapabilityState.Supported,
-                "The firing gun exposes ItemSetting_Gun.TargetBulletID and its localized fallback name at callback time.")
+                "The firing gun exposes ItemSetting_Gun.TargetBulletID and its localized fallback name at callback time."),
+            Capability(
+                WeaponCapabilityIds.WeaponAmmunitionPairing,
+                AdapterCapabilityState.Supported,
+                "One accepted ItemAgent_Gun callback simultaneously exposes the firing Item.TypeID and ItemSetting_Gun.TargetBulletID.")
         }
         : DisabledCapabilities(failureDetail ?? "Weapon tracking is unavailable.");
 
@@ -267,7 +282,8 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
         AmmunitionConsumption = Availability(AdapterCapabilityState.DisabledIncompatible, detail),
         Projectiles = Availability(AdapterCapabilityState.DisabledIncompatible, detail),
         WeaponIdentity = Availability(AdapterCapabilityState.DisabledIncompatible, detail),
-        AmmunitionIdentity = Availability(AdapterCapabilityState.DisabledIncompatible, detail)
+        AmmunitionIdentity = Availability(AdapterCapabilityState.DisabledIncompatible, detail),
+        WeaponAmmunitionPairing = Availability(AdapterCapabilityState.DisabledIncompatible, detail)
     };
 
     private static MetricAvailability Availability(AdapterCapabilityState state, string provenance) => new()

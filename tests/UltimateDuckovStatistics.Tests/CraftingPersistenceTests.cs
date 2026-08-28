@@ -21,8 +21,8 @@ public sealed class CraftingPersistenceTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(13, profile.SchemaVersion);
-        Assert.Equal(13, profile.Statistics.SchemaVersion);
+        Assert.Equal(14, profile.SchemaVersion);
+        Assert.Equal(14, profile.Statistics.SchemaVersion);
         Assert.Equal(42, profile.Statistics.Overall.ActivationCount);
         Assert.True(profile.Statistics.Crafting.HistoricalUnavailable);
         Assert.Contains("predates M13", profile.Statistics.Crafting.HistoricalProvenance, StringComparison.Ordinal);

@@ -484,6 +484,21 @@ internal sealed class NativeStatisticsPanel
             }
         }
 
+        GUILayout.Space(8);
+        GUILayout.Label($"Weapon-ammunition pairing: {model.Capabilities.WeaponAmmunitionPairing.State}");
+        if (model.Lifetime.HistoricalPairingUnavailable)
+            GUILayout.Label($"Historical pairing unavailable: {model.Lifetime.HistoricalPairingProvenance}");
+        foreach (var weaponGroup in model.WeaponAmmunitionPairs
+                     .GroupBy(value => value.Pair.WeaponId, StringComparer.Ordinal))
+        {
+            var weapon = weaponGroup.First().Pair;
+            GUILayout.Label($"{weapon.WeaponDisplayName} [{weapon.WeaponId}]");
+            foreach (var value in weaponGroup)
+                GUILayout.Label($"  {value.Pair.AmmunitionDisplayName} [{value.Pair.AmmunitionId}]: "
+                    + $"{value.Pair.FiringActions.ToString(CultureInfo.InvariantCulture)} accepted firing actions "
+                    + $"({value.PercentageWithinObservedWeaponPairs.ToString("0.##", CultureInfo.InvariantCulture)}% of observed pairs for this weapon)");
+        }
+
         if (model.AmmunitionTypes.Count > 0)
         {
             GUILayout.Space(8);
@@ -532,6 +547,7 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label(UiText.Get("ui.equipment_contract"));
         GUILayout.Label($"Slots: {model.Capabilities.EquipmentSlots.State}; selected weapon: {model.Capabilities.SelectedWeapon.State}; attachments: {model.Capabilities.AttachmentMetadata.State}");
         GUILayout.Label($"Direct totems: {model.Capabilities.DirectTotems.State}; tote contents: {model.Capabilities.ToteContents.State}; tote activation: {model.Capabilities.ToteActivation.State}");
+        GUILayout.Label($"Character slot state: {model.Capabilities.CharacterSlotState.State}; nested equipped-item slot state: {model.Capabilities.NestedSlotState.State}");
         GUILayout.Label($"Transitions: {equipment.TransitionCount.ToString(CultureInfo.InvariantCulture)}{(equipment.TransitionsTruncated ? " (bounded history truncated)" : string.Empty)}");
         equipmentScroll = GUILayout.BeginScrollView(equipmentScroll);
         GUILayout.Space(6);
@@ -542,6 +558,64 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label("Equipped item time");
         foreach (var row in equipment.Items.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(30))
             GUILayout.Label($"{row.DisplayName} [{row.Id}]: {FormatDuration(row.ActiveDurationSeconds)}");
+        GUILayout.Space(6);
+        GUILayout.Label(UiText.Get("ui.weapon_equipment"));
+        foreach (var weapon in model.Weapons)
+        {
+            GUILayout.Label($"{weapon.DisplayName} [{weapon.WeaponId}]: {FormatDuration(weapon.TotalEquippedDurationSeconds)} total equipped");
+            foreach (var slot in weapon.CharacterSlots)
+                GUILayout.Label($"  {slot.SlotDisplayName} [{slot.SlotId}]: {FormatDuration(slot.EquippedDurationSeconds)}");
+            foreach (var group in weapon.NestedSlotGroups)
+            {
+                GUILayout.Label($"  {group.DisplayName}");
+                foreach (var row in group.Rows)
+                    GUILayout.Label($"    {row.SlotDisplayName} [{row.ParentSlotId}; {row.Path}]: "
+                        + (row.State == EquipmentSlotState.Empty
+                            ? UiText.FormatProvenEmpty(row.SlotDisplayName)
+                            : $"{row.ItemDisplayName} [{row.ItemId}]")
+                        + $" — {FormatDuration(row.ActiveDurationSeconds)}");
+            }
+        }
+        GUILayout.Space(6);
+        GUILayout.Label(UiText.Get("ui.armor_and_gear"));
+        foreach (var slot in model.ArmorAndGearSlots)
+        {
+            GUILayout.Label($"{slot.SlotDisplayName} [{slot.SlotId}]");
+            foreach (var row in slot.Rows)
+                GUILayout.Label("  " + (row.State == EquipmentSlotState.Empty
+                    ? UiText.FormatProvenEmpty(row.SlotDisplayName)
+                    : $"{row.ItemDisplayName} [{row.ItemId}]")
+                    + $" — {FormatDuration(row.ActiveDurationSeconds)}");
+        }
+        GUILayout.Space(6);
+        GUILayout.Label("Character equipment slot state time (Empty requires proven native slot membership)");
+        if (equipment.HistoricalCharacterSlotStateUnavailable)
+            GUILayout.Label($"Historical character-slot state unavailable: {equipment.HistoricalCharacterSlotStateProvenance}");
+        foreach (var row in equipment.CharacterSlotStates.Values
+                     .OrderBy(value => value.SlotId, StringComparer.Ordinal)
+                     .ThenBy(value => value.State)
+                     .ThenBy(value => value.ItemId, StringComparer.Ordinal).Take(50))
+            GUILayout.Label($"{row.SlotDisplayName} [{row.SlotId}]: "
+                + (row.State == EquipmentSlotState.Empty
+                    ? "Empty"
+                    : $"{row.ItemDisplayName} [{row.ItemId}]")
+                + $" — {FormatDuration(row.ActiveDurationSeconds)}");
+        GUILayout.Space(6);
+        GUILayout.Label("Nested equipped-item slot state time (parent-equipped active-raid time)");
+        if (equipment.HistoricalNestedSlotStateUnavailable)
+            GUILayout.Label($"Historical nested-slot state unavailable: {equipment.HistoricalNestedSlotStateProvenance}");
+        foreach (var row in equipment.NestedSlotStates.Values
+                     .Where(value => value.ParentItemKind != EquipmentItemKind.Weapon)
+                     .OrderBy(value => value.ParentSlotId, StringComparer.Ordinal)
+                     .ThenBy(value => value.ParentItemId, StringComparer.Ordinal)
+                     .ThenBy(value => value.Path, StringComparer.Ordinal)
+                     .ThenBy(value => value.State).Take(80))
+            GUILayout.Label($"{row.ParentItemDisplayName} [{row.ParentSlotId}|{row.ParentItemId}] / "
+                + $"{row.SlotDisplayName} [{row.Path}]: "
+                + (row.State == EquipmentSlotState.Empty
+                    ? UiText.FormatProvenEmpty(row.SlotDisplayName)
+                    : $"{row.ItemDisplayName} [{row.ItemId}]")
+                + $" — {FormatDuration(row.ActiveDurationSeconds)}");
         GUILayout.Space(6);
         GUILayout.Label("Slotted weapon time");
         foreach (var row in equipment.SlottedWeapons.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal).Take(20))

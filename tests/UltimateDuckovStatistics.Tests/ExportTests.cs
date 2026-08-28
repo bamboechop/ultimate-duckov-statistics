@@ -18,6 +18,7 @@ public sealed class ExportTests
     {
         "ammunition_totals.csv",
         "cash_raid_outcomes.csv",
+        "character_equipment_slots.csv",
         "combat_attribution.csv",
         "combat_totals.csv",
         "containers.csv",
@@ -28,6 +29,7 @@ public sealed class ExportTests
         "economy_totals.csv",
         "equipment_combat.csv",
         "equipment_totals.csv",
+        "equipped_item_nested_slots.csv",
         "groups.csv",
         "items.csv",
         "map_totals.csv",
@@ -41,6 +43,7 @@ public sealed class ExportTests
         "segment_events.csv",
         "segments.csv",
         "statistics.json",
+        "weapon_ammunition_pairs.csv",
         "weapon_totals.csv",
         "world_time.csv"
     };
@@ -455,6 +458,8 @@ public sealed class ExportTests
             "current",
             "profile.json");
         var profile = CreateProfile();
+        profile.SchemaVersion = 13;
+        profile.Statistics.SchemaVersion = 13;
         var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
         lifetime.Weapons["weapon:corrupt"] = null!;
         lifetime.AmmunitionTypes["ammo:corrupt"] = null!;
@@ -705,7 +710,7 @@ public sealed class ExportTests
 
         var result = ProfileExportWriter.Write(profile, profilePath, TestTime);
 
-        Assert.Equal(27, result.Files.Count);
+        Assert.Equal(30, result.Files.Count);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
         Assert.Equal(
             ExpectedExportFileNames,
