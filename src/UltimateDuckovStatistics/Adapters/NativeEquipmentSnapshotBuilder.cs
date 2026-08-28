@@ -121,7 +121,11 @@ internal static class NativeEquipmentSnapshotBuilder
                 selectedId,
                 totemSetId,
                 EquipmentIdentity.TotemPresenceSignature(totems),
-                SlotStateSignature(characterSlots, equipped))
+                SlotStateSignature(
+                    characterSlots,
+                    equipped,
+                    characterSlotStateComplete,
+                    nestedSlotStateComplete))
         };
     }
 
@@ -213,7 +217,9 @@ internal static class NativeEquipmentSnapshotBuilder
 
     private static string SlotStateSignature(
         IEnumerable<CharacterEquipmentSlotSnapshot> characterSlots,
-        IEnumerable<EquippedItemSnapshot> equipped)
+        IEnumerable<EquippedItemSnapshot> equipped,
+        bool characterSlotStateComplete,
+        bool nestedSlotStateComplete)
     {
         var roots = characterSlots.Select(value =>
             Component("root") + Component(value.SlotId)
@@ -222,8 +228,16 @@ internal static class NativeEquipmentSnapshotBuilder
         var nested = equipped.SelectMany(item => item.NestedSlots.Select(slot =>
             Component("nested") + Component(item.SlotId) + Component(item.ItemId) + Component(slot.Path)
             + Component(((int)slot.State).ToString(CultureInfo.InvariantCulture)) + Component(slot.ItemId)));
+        var completeness = new[]
+            {
+                Component("character-complete") + Component(characterSlotStateComplete ? "1" : "0"),
+                Component("nested-complete") + Component(nestedSlotStateComplete ? "1" : "0")
+            }
+            .Concat(equipped.Select(item =>
+                Component("nested-parent-complete") + Component(item.SlotId) + Component(item.ItemId)
+                + Component(item.NestedSlotStateComplete ? "1" : "0")));
         return EquipmentIdentity.StableHash(string.Concat(
-            roots.Concat(nested).OrderBy(value => value, StringComparer.Ordinal)));
+            roots.Concat(nested).Concat(completeness).OrderBy(value => value, StringComparer.Ordinal)));
     }
 
     private static string Component(string? value)

@@ -3,6 +3,8 @@ using ItemStatsSystem.Items;
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.Tests;
@@ -314,6 +316,145 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
             && value.ItemId == "duckov:item:801").ActiveDurationSeconds);
         Assert.DoesNotContain(equipment.NestedSlotStates.Values, value =>
             value.ParentSlotId == "duckov:slot:Backpack");
+    }
+
+    [Fact]
+    [Trait("Category", "M14")]
+    [Trait("Category", "Recovery")]
+    public void NestedCompletenessChangeWithRetainedSlotIdentityReachesRunSegmentAndCheckpointRecovery()
+    {
+        using var directory = new TemporaryDirectory();
+        var identity = new SaveIdentitySnapshot
+        {
+            Slot = 1,
+            SaveFilePresent = true,
+            SaveFileCreationUtcTicks = 100,
+            ObservedWriteUtcTicks = 110,
+            ObservedLength = 4096,
+            GameVersion = "2.3.30",
+            ContentSha256 = new string('a', 64),
+            SaveTimeBinary = DateTime.UnixEpoch.ToBinary()
+        };
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => DateTime.UnixEpoch.AddMinutes(1),
+            () => "generation");
+        repository.Open(identity);
+        var now = 0d;
+        var tracker = new RunLifecycleTracker(() => "run-nested-completeness");
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.RaidInitialized,
+            TimestampUtc = DateTime.UnixEpoch,
+            MonotonicSeconds = 0,
+            NativeRaidId = "raid"
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.ControlReady,
+            TimestampUtc = DateTime.UnixEpoch,
+            MonotonicSeconds = 0,
+            NativeRaidId = "raid",
+            StartContext = new RunStartContext
+            {
+                SaveGenerationId = repository.CurrentGenerationId,
+                NativeRaidId = "raid",
+                Map = new MapIdentity
+                {
+                    MapId = "duckov:map:test",
+                    DisplayName = "Test",
+                    IsKnown = true
+                },
+                IntegrityTags = IntegrityTags.Normal,
+                GameVersion = "2.3.30",
+                GameBuild = "test",
+                LifecycleCapability = AdapterCapabilityState.Supported,
+                MovementCapability = AdapterCapabilityState.Supported,
+                MapCapability = AdapterCapabilityState.Supported,
+                RouteCapabilities = RouteStatisticsReducer.Supported("test"),
+                EquipmentCapabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities()
+            }
+        });
+
+        var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        var backpack = new Item { TypeID = 900, DisplayName = "Backpack" };
+        for (var index = 0; index < 256; index++)
+        {
+            backpack.Slots.Add(new Slot
+            {
+                Key = "Slot" + index.ToString("D3", System.Globalization.CultureInfo.InvariantCulture),
+                DisplayName = "Slot " + index.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            });
+        }
+        characterItem.Slots.Add(new Slot { Key = "Backpack", DisplayName = "Backpack", Content = backpack });
+        CharacterMainControl.Main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = characterItem
+        };
+        using var adapter = new NativeEquipmentAdapter(
+            () => true,
+            snapshot => tracker.ObserveEquipment(snapshot, DateTime.UnixEpoch.AddSeconds(now), now),
+            () => tracker.SuspendEquipment(DateTime.UnixEpoch.AddSeconds(now), now),
+            _ => { },
+            _ => { },
+            () => now,
+            () => tracker.ActiveSegmentId);
+
+        adapter.Initialize();
+        var complete = tracker.CreateCheckpoint(DateTime.UnixEpoch, 0)!;
+        var completeSnapshotId = complete.EquipmentStatistics.CurrentSnapshot!.SnapshotId;
+        var completeLoadoutId = complete.EquipmentStatistics.CurrentSnapshot.LoadoutId;
+        Assert.True(complete.EquipmentStatistics.CurrentSnapshot.NestedSlotStateComplete);
+        Assert.True(Assert.Single(complete.EquipmentStatistics.CurrentSnapshot.Items).NestedSlotStateComplete);
+        Assert.Equal(256, complete.EquipmentStatistics.CurrentSnapshot.Items[0].NestedSlots.Count);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            complete.EquipmentStatistics.Capabilities.NestedSlotState.State);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            Assert.Single(complete.Segments).EquipmentStatistics.Capabilities.NestedSlotState.State);
+        var completeMutationRevision = tracker.CheckpointMutationRevision;
+
+        now = 5;
+        backpack.Slots.Add(new Slot { Key = "Slot256", DisplayName = "Slot 256" });
+        characterItem.RaiseItemTreeChanged();
+        var checkpoint = tracker.CreateCheckpoint(DateTime.UnixEpoch.AddSeconds(now), now)!;
+        var current = checkpoint.EquipmentStatistics.CurrentSnapshot!;
+
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            adapter.MetricCapabilities.NestedSlotState.State);
+        Assert.False(current.NestedSlotStateComplete);
+        Assert.False(Assert.Single(current.Items).NestedSlotStateComplete);
+        Assert.Equal(256, current.Items[0].NestedSlots.Count);
+        Assert.Equal(completeLoadoutId, current.LoadoutId);
+        Assert.NotEqual(completeSnapshotId, current.SnapshotId);
+        Assert.True(tracker.CheckpointMutationRevision > completeMutationRevision);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            checkpoint.EquipmentStatistics.Capabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            checkpoint.EquipmentStatistics.Capabilities.NestedSlotState.State);
+        var checkpointSegment = Assert.Single(checkpoint.Segments);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            checkpointSegment.EquipmentStatistics.Capabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            checkpointSegment.EquipmentStatistics.Capabilities.NestedSlotState.State);
+
+        repository.SaveActiveRun(checkpoint);
+        var recovery = new ProfileRepository(
+            directory.Path,
+            () => DateTime.UnixEpoch.AddMinutes(2),
+            () => "unused");
+        Assert.True(recovery.Open(identity).InterruptedRunRecovered);
+        var recovered = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            recovered.EquipmentStatistics.Capabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            recovered.EquipmentStatistics.Capabilities.NestedSlotState.State);
+        var recoveredSegment = Assert.Single(recovered.Segments);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            recoveredSegment.EquipmentStatistics.Capabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            recoveredSegment.EquipmentStatistics.Capabilities.NestedSlotState.State);
+        recovery.CloseClean();
     }
 
     [Fact]
