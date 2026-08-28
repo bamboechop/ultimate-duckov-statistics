@@ -24,6 +24,8 @@ internal static class NativeEquipmentSnapshotBuilder
         var characterSlotStateComplete = true;
         var nestedSlotStateComplete = true;
         var seenCharacterSlots = new HashSet<string>(StringComparer.Ordinal);
+        var selected = main.CurrentHoldItemAgent?.Item;
+        var selectedSlotId = string.Empty;
         foreach (var slot in characterItem.Slots.OrderBy(value => value?.Key, StringComparer.Ordinal))
         {
             if (slot == null || string.IsNullOrWhiteSpace(slot.Key) || !seenCharacterSlots.Add(slot.Key))
@@ -53,6 +55,12 @@ internal static class NativeEquipmentSnapshotBuilder
             });
             var nestedSlots = BuildNestedSlots(item, out var nestedComplete);
             nestedSlotStateComplete &= nestedComplete;
+            if (selectedSlotId.Length == 0
+                && kind == EquipmentItemKind.Weapon
+                && ReferenceEquals(item, selected))
+            {
+                selectedSlotId = slotId;
+            }
             equipped.Add(new EquippedItemSnapshot
             {
                 SlotId = slotId,
@@ -92,11 +100,6 @@ internal static class NativeEquipmentSnapshotBuilder
         equipped = equipped.OrderBy(value => value.SlotId, StringComparer.Ordinal).ToList();
         characterSlots = characterSlots.OrderBy(value => value.SlotId, StringComparer.Ordinal).ToList();
         totems = totems.OrderBy(value => value.CarryKind).ThenBy(value => value.ContainerId, StringComparer.Ordinal).ThenBy(value => value.ItemId, StringComparer.Ordinal).ToList();
-        var selected = main.CurrentHoldItemAgent?.Item;
-        var selectedSlotId = selected == null ? string.Empty : characterItem.Slots
-            .Where(value => ReferenceEquals(value.Content, selected))
-            .Select(value => "duckov:slot:" + (value.Key ?? string.Empty))
-            .FirstOrDefault() ?? string.Empty;
         var selectedEntry = equipped.FirstOrDefault(value =>
             string.Equals(value.SlotId, selectedSlotId, StringComparison.Ordinal)
             && value.Kind == EquipmentItemKind.Weapon);

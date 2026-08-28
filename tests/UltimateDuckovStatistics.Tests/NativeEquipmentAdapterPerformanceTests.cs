@@ -328,6 +328,126 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
 
     [Fact]
     [Trait("Category", "M14")]
+    public void NullCharacterRootDoesNotAbortHeldWeaponOrReadableSiblingDurations()
+    {
+        var now = 0d;
+        var tracker = new RunLifecycleTracker(() => "run-partial-character-roots");
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.RaidInitialized,
+            TimestampUtc = DateTime.UnixEpoch,
+            MonotonicSeconds = 0,
+            NativeRaidId = "raid"
+        });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.ControlReady,
+            TimestampUtc = DateTime.UnixEpoch,
+            MonotonicSeconds = 0,
+            NativeRaidId = "raid",
+            StartContext = new RunStartContext
+            {
+                SaveGenerationId = "generation",
+                NativeRaidId = "raid",
+                Map = new MapIdentity
+                {
+                    MapId = "duckov:map:test",
+                    DisplayName = "Test",
+                    IsKnown = true
+                },
+                IntegrityTags = IntegrityTags.Normal,
+                GameVersion = "2.3.30",
+                GameBuild = "test",
+                LifecycleCapability = AdapterCapabilityState.Supported,
+                MovementCapability = AdapterCapabilityState.Supported,
+                MapCapability = AdapterCapabilityState.Supported,
+                RouteCapabilities = RouteStatisticsReducer.Supported("test"),
+                EquipmentCapabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities()
+            }
+        });
+
+        var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        var weapon = new Item { TypeID = 700, DisplayName = "Held weapon" };
+        weapon.Slots.Add(new Slot
+        {
+            Key = "Scope",
+            DisplayName = "Scope",
+            Content = new Item { TypeID = 701, DisplayName = "Readable scope" }
+        });
+        var backpack = new Item { TypeID = 800, DisplayName = "Readable backpack" };
+        backpack.Slots.Add(new Slot
+        {
+            Key = "Cube",
+            DisplayName = "Cube",
+            Content = new Item { TypeID = 801, DisplayName = "Readable cube" }
+        });
+        characterItem.Slots.Add(null!);
+        characterItem.Slots.Add(new Slot
+        {
+            Key = "PrimaryWeapon",
+            DisplayName = "Primary",
+            Content = weapon
+        });
+        characterItem.Slots.Add(new Slot
+        {
+            Key = "Backpack",
+            DisplayName = "Backpack",
+            Content = backpack
+        });
+        CharacterMainControl.Main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = characterItem,
+            CurrentHoldItemAgent = new DuckovItemAgent { Item = weapon }
+        };
+        var invalidations = 0;
+        using var adapter = new NativeEquipmentAdapter(
+            () => true,
+            snapshot => tracker.ObserveEquipment(snapshot, DateTime.UnixEpoch.AddSeconds(now), now),
+            () =>
+            {
+                invalidations++;
+                return tracker.SuspendEquipment(DateTime.UnixEpoch.AddSeconds(now), now);
+            },
+            _ => { },
+            _ => { },
+            () => now,
+            () => tracker.ActiveSegmentId);
+
+        adapter.Initialize();
+        var association = adapter.CaptureAssociation();
+        now = 5;
+        tracker.Tick(DateTime.UnixEpoch.AddSeconds(now), now);
+        var equipment = tracker.CreateCheckpoint(DateTime.UnixEpoch.AddSeconds(now), now)!.EquipmentStatistics;
+
+        Assert.Equal(0, invalidations);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.MetricCapabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.Supported, adapter.MetricCapabilities.NestedSlotState.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, equipment.Capabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.Supported, equipment.Capabilities.NestedSlotState.State);
+        Assert.Equal("duckov:slot:PrimaryWeapon", association.SelectedWeaponSlotId);
+        Assert.Equal("duckov:weapon:700", association.SelectedWeaponId);
+        Assert.Equal("duckov:slot:PrimaryWeapon", equipment.CurrentSnapshot!.SelectedWeaponSlotId);
+        Assert.Equal("duckov:weapon:700", equipment.CurrentSnapshot.SelectedWeaponId);
+        Assert.Equal(5, Assert.Single(equipment.SelectedWeapons.Values).ActiveDurationSeconds);
+        Assert.Equal(5, Assert.Single(equipment.CharacterSlotStates.Values, value =>
+            value.SlotId == "duckov:slot:PrimaryWeapon"
+            && value.ItemId == "duckov:weapon:700").ActiveDurationSeconds);
+        Assert.Equal(5, Assert.Single(equipment.CharacterSlotStates.Values, value =>
+            value.SlotId == "duckov:slot:Backpack"
+            && value.ItemId == "duckov:item:800").ActiveDurationSeconds);
+        Assert.Equal(5, Assert.Single(equipment.NestedSlotStates.Values, value =>
+            value.ParentSlotId == "duckov:slot:PrimaryWeapon"
+            && value.Path == "5:Scope/"
+            && value.ItemId == "duckov:item:701").ActiveDurationSeconds);
+        Assert.Equal(5, Assert.Single(equipment.NestedSlotStates.Values, value =>
+            value.ParentSlotId == "duckov:slot:Backpack"
+            && value.Path == "4:Cube/"
+            && value.ItemId == "duckov:item:801").ActiveDurationSeconds);
+    }
+
+    [Fact]
+    [Trait("Category", "M14")]
     public void PartialNestedSlotEvidenceDegradesOnlyNestedTrackingWhileRootDurationsContinue()
     {
         var now = 0d;
