@@ -235,9 +235,9 @@ internal static class NativeEquipmentSnapshotBuilder
     private static void AddAttachments(Item parent, List<string> parts, int depth, string ancestorPath)
     {
         if (depth >= 8 || parts.Count >= 64 || parent.Slots == null) return;
-        foreach (var slot in parent.Slots.OrderBy(value => value.Key, StringComparer.Ordinal))
+        foreach (var slot in parent.Slots.OrderBy(value => value?.Key, StringComparer.Ordinal))
         {
-            if (slot.Content == null) continue;
+            if (slot == null || slot.Content == null) continue;
             var slotKey = slot.Key ?? string.Empty;
             var path = ancestorPath
                 + slotKey.Length.ToString(CultureInfo.InvariantCulture) + ":" + slotKey + "/";
