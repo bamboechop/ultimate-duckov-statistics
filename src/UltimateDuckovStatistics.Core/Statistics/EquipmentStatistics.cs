@@ -178,7 +178,10 @@ public static class EquipmentStatisticsReducer
                 delta);
             AddCharacterSlotStateDuration(target.CharacterSlotStates, slot, delta);
         }
-        foreach (var parent in snapshot.Items.Where(value => value.NestedSlotStateComplete))
+        // Completeness gates the family capability, not the readable paths that
+        // survived native enumeration. Missing siblings remain unavailable and
+        // are never reconstructed as empty rows.
+        foreach (var parent in snapshot.Items)
         {
             foreach (var slot in parent.NestedSlots)
             {
@@ -793,7 +796,7 @@ public static class EquipmentStatisticsReducer
             target.CharacterSlotStates.TryGetValue(CharacterSlotStateKey(slot), out var row);
             _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
         }
-        foreach (var parent in snapshot.Items.Where(value => value.NestedSlotStateComplete))
+        foreach (var parent in snapshot.Items)
         {
             foreach (var slot in parent.NestedSlots)
             {
@@ -922,7 +925,7 @@ public static class EquipmentStatisticsReducer
                 out var itemChanged);
             changed |= slotChanged || itemChanged;
         }
-        foreach (var parent in snapshot.Items.Where(value => value.NestedSlotStateComplete))
+        foreach (var parent in snapshot.Items)
         {
             foreach (var slot in parent.NestedSlots)
             {

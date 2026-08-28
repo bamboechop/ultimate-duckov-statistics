@@ -317,7 +317,19 @@ public sealed class M14LosslessAssociationTests
             "weapon:secondary",
             "5:scope",
             EquipmentSlotState.Empty).ActiveDurationSeconds);
-        Assert.DoesNotContain(statistics.NestedSlotStates.Values, value => value.ParentSlotId == "slot:armor");
+        Assert.Equal(3, NestedState(
+            statistics,
+            "slot:armor",
+            "armor:modded",
+            "5:pouch",
+            EquipmentSlotState.Occupied,
+            "child:known").ActiveDurationSeconds);
+        Assert.Equal(3, NestedState(
+            statistics,
+            "slot:armor",
+            "armor:modded",
+            "7:utility",
+            EquipmentSlotState.Empty).ActiveDurationSeconds);
         EquipmentStatisticsReducer.ValidateAggregate(statistics);
     }
 
@@ -350,7 +362,24 @@ public sealed class M14LosslessAssociationTests
         Assert.Equal(AdapterCapabilityState.Supported, equipment.Capabilities.CharacterSlotState.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, equipment.Capabilities.NestedSlotState.State);
         Assert.Equal(2, RootState(equipment, "slot:primary", EquipmentSlotState.Empty).ActiveDurationSeconds);
-        Assert.Empty(equipment.NestedSlotStates);
+        Assert.Equal(2, NestedState(
+            equipment,
+            "slot:secondary",
+            "weapon:secondary",
+            "5:scope",
+            EquipmentSlotState.Empty).ActiveDurationSeconds);
+        Assert.Equal(2, NestedState(
+            equipment,
+            "slot:armor",
+            "armor:modded",
+            "5:pouch",
+            EquipmentSlotState.Empty).ActiveDurationSeconds);
+        Assert.Equal(2, NestedState(
+            equipment,
+            "slot:armor",
+            "armor:modded",
+            "7:utility",
+            EquipmentSlotState.Empty).ActiveDurationSeconds);
         EquipmentStatisticsReducer.ValidateAggregate(equipment);
     }
 

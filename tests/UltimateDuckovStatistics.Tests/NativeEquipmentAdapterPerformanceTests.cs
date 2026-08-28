@@ -587,8 +587,26 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
 
     [Fact]
     [Trait("Category", "M14")]
-    public void PartialNestedSlotEvidenceDegradesOnlyNestedTrackingWhileRootDurationsContinue()
+    public void PartialNestedSlotEvidenceRetainsReadableSiblingsThroughPersistenceAndExport()
     {
+        using var directory = new TemporaryDirectory();
+        var identity = new SaveIdentitySnapshot
+        {
+            Slot = 1,
+            SaveFilePresent = true,
+            SaveFileCreationUtcTicks = 100,
+            ObservedWriteUtcTicks = 110,
+            ObservedLength = 4096,
+            GameVersion = "2.3.30",
+            ContentSha256 = new string('a', 64),
+            SaveTimeBinary = DateTime.UnixEpoch.ToBinary()
+        };
+        var ids = new Queue<string>(["generation", "session-one"]);
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => DateTime.UnixEpoch.AddMinutes(1),
+            () => ids.Dequeue());
+        repository.Open(identity);
         var now = 0d;
         var tracker = new RunLifecycleTracker(() => "run-partial-nested-evidence");
         tracker.Apply(new RunLifecycleEvent
@@ -680,8 +698,70 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
             value.ParentSlotId == "duckov:slot:Armor"
             && value.Path == "5:Pouch/"
             && value.ItemId == "duckov:item:801").ActiveDurationSeconds);
-        Assert.DoesNotContain(equipment.NestedSlotStates.Values, value =>
+        var readableSibling = Assert.Single(equipment.NestedSlotStates.Values, value =>
             value.ParentSlotId == "duckov:slot:Backpack");
+        Assert.Equal("4:Cube/", readableSibling.Path);
+        Assert.Equal(EquipmentSlotState.Occupied, readableSibling.State);
+        Assert.Equal("duckov:item:901", readableSibling.ItemId);
+        Assert.Equal(5, readableSibling.ActiveDurationSeconds);
+        Assert.DoesNotContain(equipment.NestedSlotStates.Values, value =>
+            value.ParentSlotId == "duckov:slot:Backpack"
+            && value.State == EquipmentSlotState.Empty);
+
+        var run = tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.Extracted,
+            TimestampUtc = DateTime.UnixEpoch.AddSeconds(now),
+            MonotonicSeconds = now,
+            NativeRaidId = "raid"
+        }).Completed!;
+        Assert.True(repository.CompleteRun(run));
+        repository.CloseClean();
+
+        var reopened = new ProfileRepository(
+            directory.Path,
+            () => DateTime.UnixEpoch.AddMinutes(2),
+            () => "session-two");
+        reopened.Open(identity);
+        var persisted = reopened.Current.Statistics.RunTotals.EquipmentStatistics;
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            persisted.Capabilities.NestedSlotState.State);
+        var persistedSibling = Assert.Single(persisted.NestedSlotStates.Values, value =>
+            value.ParentSlotId == "duckov:slot:Backpack");
+        Assert.Equal("4:Cube/", persistedSibling.Path);
+        Assert.Equal(EquipmentSlotState.Occupied, persistedSibling.State);
+        Assert.Equal("duckov:item:901", persistedSibling.ItemId);
+        Assert.Equal(5, persistedSibling.ActiveDurationSeconds);
+        Assert.DoesNotContain(persisted.NestedSlotStates.Values, value =>
+            value.ParentSlotId == "duckov:slot:Backpack"
+            && value.State == EquipmentSlotState.Empty);
+
+        var export = StatisticsExporter.Create(reopened.Current, DateTime.UnixEpoch.AddMinutes(3));
+        var csv = export.EquippedItemNestedSlotsCsv.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(value => value.TrimEnd('\r').Split(','))
+            .ToArray();
+        var headers = csv[0];
+        var parentSlotIndex = Array.IndexOf(headers, "parent_slot_id");
+        var pathIndex = Array.IndexOf(headers, "nested_path");
+        var stateIndex = Array.IndexOf(headers, "state");
+        var itemIndex = Array.IndexOf(headers, "item_id");
+        var durationIndex = Array.IndexOf(headers, "active_duration_seconds");
+        var capabilityIndex = Array.IndexOf(headers, "capability_state");
+        var backpackRows = csv.Skip(1)
+            .Where(row => row[parentSlotIndex] == "duckov:slot:Backpack")
+            .ToArray();
+        Assert.NotEmpty(backpackRows);
+        Assert.All(backpackRows, row =>
+        {
+            Assert.Equal("4:Cube/", row[pathIndex]);
+            Assert.Equal("Occupied", row[stateIndex]);
+            Assert.Equal("duckov:item:901", row[itemIndex]);
+            Assert.Equal("5", row[durationIndex]);
+            Assert.Equal("DisabledIncompatible", row[capabilityIndex]);
+        });
+        Assert.Contains("Readable sibling", export.Json);
+        reopened.CloseClean();
     }
 
     [Fact]
