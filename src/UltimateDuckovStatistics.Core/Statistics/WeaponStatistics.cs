@@ -477,6 +477,8 @@ public static class WeaponStatisticsReducer
                 || string.IsNullOrWhiteSpace(pair.AmmunitionId)
                 || string.IsNullOrWhiteSpace(pair.AmmunitionDisplayName)
                 || pair.FiringActions < 0
+                || !statistics.Weapons.ContainsKey(pair.WeaponId)
+                || !statistics.AmmunitionTypes.ContainsKey(pair.AmmunitionId)
                 || !string.Equals(entry.Key, PairKey(pair.WeaponId, pair.AmmunitionId), StringComparison.Ordinal))
                 throw new ArgumentException("A persisted weapon-ammunition pair is incomplete.", nameof(statistics));
         }

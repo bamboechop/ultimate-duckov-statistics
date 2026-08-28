@@ -217,6 +217,7 @@ public static class LevelManager
     public static event Action? OnLevelBeginInitializing;
     public static event Action? OnAfterLevelInitialized;
     public static event Action<CharacterMainControl>? OnControllingCharacterChanged;
+    public static bool LevelInitializing { get; set; }
     public static void RaiseLevelBeginInitializing() => OnLevelBeginInitializing?.Invoke();
     public static void RaiseAfterLevelInitialized() => OnAfterLevelInitialized?.Invoke();
     public static void RaiseControllingCharacterChanged(CharacterMainControl value) => OnControllingCharacterChanged?.Invoke(value);
@@ -225,7 +226,40 @@ public static class LevelManager
         OnLevelBeginInitializing = null;
         OnAfterLevelInitialized = null;
         OnControllingCharacterChanged = null;
+        LevelInitializing = false;
     }
+}
+
+#pragma warning disable CA1707 // Stubs mirror the installed Duckov native type names exactly.
+public sealed class ItemSetting_Gun
+{
+    public int TargetBulletID { get; set; }
+    public string CurrentBulletName { get; set; } = string.Empty;
+}
+
+public sealed class ItemAgent_Gun
+{
+    public static event Action<ItemAgent_Gun>? OnMainCharacterShootEvent;
+    public CharacterMainControl? Holder { get; set; }
+    public ItemStatsSystem.Item? Item { get; set; }
+    public ItemSetting_Gun? GunItemSetting { get; set; }
+
+    public static void RaiseMainCharacterShoot(ItemAgent_Gun agent) =>
+        OnMainCharacterShootEvent?.Invoke(agent);
+
+    public static void ResetNativeState() => OnMainCharacterShootEvent = null;
+}
+#pragma warning restore CA1707
+
+public static class GameManager
+{
+    public static bool Paused { get; set; }
+}
+
+public sealed class MultiSceneCore
+{
+    public static MultiSceneCore? Instance { get; set; }
+    public bool IsLoading { get; set; }
 }
 
 public static class PetProxy
@@ -240,5 +274,21 @@ namespace UltimateDuckovStatistics.Adapters
     {
         public static UltimateDuckovStatistics.Core.Domain.IntegrityTags Read() =>
             UltimateDuckovStatistics.Core.Domain.IntegrityTags.Normal;
+    }
+
+    internal static class NativeRaidContext
+    {
+        public static UltimateDuckovStatistics.Core.Domain.GameplayContext GameplayContext { get; set; } =
+            UltimateDuckovStatistics.Core.Domain.GameplayContext.Raid;
+
+        public static UltimateDuckovStatistics.Core.Domain.GameplayContext GetGameplayContext() => GameplayContext;
+    }
+}
+
+namespace Duckov.Scenes
+{
+    public static class SceneLoader
+    {
+        public static bool IsSceneLoading { get; set; }
     }
 }
