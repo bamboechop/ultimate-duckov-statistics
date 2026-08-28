@@ -13,11 +13,13 @@ public sealed class NativeWeaponFirePersistenceTests : IDisposable
     public NativeWeaponFirePersistenceTests() => ResetNativeState();
 
     [Theory]
-    [InlineData("weapon")]
-    [InlineData("ammunition")]
+    [InlineData("missing_weapon")]
+    [InlineData("missing_ammunition")]
+    [InlineData("mismatched_weapon")]
+    [InlineData("mismatched_ammunition")]
     [Trait("Category", "M14")]
     [Trait("Category", "Recovery")]
-    public void CurrentSchemaOrphanPairPrimaryLosesToProductionGeneratedBackup(string missingMarginal)
+    public void CurrentSchemaOrphanPairPrimaryLosesToProductionGeneratedBackup(string corruption)
     {
         using var directory = new TemporaryDirectory();
         var now = DateTime.UtcNow;
@@ -73,8 +75,35 @@ public sealed class NativeWeaponFirePersistenceTests : IDisposable
         Assert.Single(validStatistics.Weapons);
         Assert.Single(validStatistics.AmmunitionTypes);
 
-        if (missingMarginal == "weapon") validStatistics.Weapons.Clear();
-        else validStatistics.AmmunitionTypes.Clear();
+        switch (corruption)
+        {
+            case "missing_weapon":
+                validStatistics.Weapons.Clear();
+                break;
+            case "missing_ammunition":
+                validStatistics.AmmunitionTypes.Clear();
+                break;
+            case "mismatched_weapon":
+                var weaponKey = Assert.Single(validStatistics.Weapons).Key;
+                validStatistics.Weapons[weaponKey] = new WeaponAggregate
+                {
+                    WeaponId = "duckov:weapon:different",
+                    DisplayName = "Different weapon",
+                    Totals = new WeaponMetricTotals()
+                };
+                break;
+            case "mismatched_ammunition":
+                var ammunitionKey = Assert.Single(validStatistics.AmmunitionTypes).Key;
+                validStatistics.AmmunitionTypes[ammunitionKey] = new AmmunitionAggregate
+                {
+                    AmmunitionId = "duckov:ammo:different",
+                    DisplayName = "Different ammunition",
+                    Totals = new WeaponMetricTotals()
+                };
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(corruption), corruption, "Unknown corruption.");
+        }
         store.Save(profilePath, validPrimary);
 
         var diagnostics = new List<string>();

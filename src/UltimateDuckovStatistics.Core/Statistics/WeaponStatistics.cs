@@ -444,6 +444,7 @@ public static class WeaponStatisticsReducer
             if (string.IsNullOrWhiteSpace(entry.Key)
                 || entry.Value == null
                 || string.IsNullOrWhiteSpace(entry.Value.WeaponId)
+                || !string.Equals(entry.Key, entry.Value.WeaponId, StringComparison.Ordinal)
                 || entry.Value.Totals == null)
             {
                 throw new ArgumentException("A persisted weapon aggregate is incomplete.", nameof(statistics));
@@ -457,6 +458,7 @@ public static class WeaponStatisticsReducer
             if (string.IsNullOrWhiteSpace(entry.Key)
                 || entry.Value == null
                 || string.IsNullOrWhiteSpace(entry.Value.AmmunitionId)
+                || !string.Equals(entry.Key, entry.Value.AmmunitionId, StringComparison.Ordinal)
                 || entry.Value.Totals == null)
             {
                 throw new ArgumentException("A persisted ammunition aggregate is incomplete.", nameof(statistics));
