@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v7+lossless-slot-state";
+    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v8+lossless-slot-state";
     private const string SupportedGameVersion = "2.3.30";
     internal const double ReconciliationIntervalSeconds = 1;
     private readonly Func<bool> runActiveProvider;
@@ -196,7 +196,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
             NativeHotPathDiagnostics.CountEquipmentSnapshotBuild();
             var snapshot = NativeEquipmentSnapshotBuilder.Build(observedMain, observedCharacterItem);
             var displayMetadataSignature = NativeEquipmentSnapshotBuilder.DisplayMetadataSignature(snapshot);
-            DegradeIncompleteCapabilities(snapshot);
+            UpdateSlotStateCapabilities(snapshot);
             // The same immutable loadout still has to be published once for every
             // run segment so its duration and event associations have a local root.
             // A missing segment is also a stable overall-only context so route
@@ -233,33 +233,47 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         invalidationHandler();
     }
 
-    private void DegradeIncompleteCapabilities(EquipmentSnapshot snapshot)
+    private void UpdateSlotStateCapabilities(EquipmentSnapshot snapshot)
     {
-        var changed = false;
-        if (!snapshot.CharacterSlotStateComplete
-            && metricCapabilities.CharacterSlotState.State != AdapterCapabilityState.DisabledIncompatible)
-        {
-            metricCapabilities.CharacterSlotState = new MetricAvailability
+        var supported = EquipmentNativeContractPolicy.CreateSupportedCapabilities();
+        var characterSlotState = snapshot.CharacterSlotStateComplete
+            ? supported.CharacterSlotState
+            : new MetricAvailability
             {
                 State = AdapterCapabilityState.DisabledIncompatible,
                 Provenance = "The native character-slot collection was not completely enumerable; missing evidence remains unavailable rather than being reported as empty."
             };
-            changed = true;
-        }
-        if ((!snapshot.NestedSlotStateComplete || snapshot.Items.Any(value => !value.NestedSlotStateComplete))
-            && metricCapabilities.NestedSlotState.State != AdapterCapabilityState.DisabledIncompatible)
-        {
-            metricCapabilities.NestedSlotState = new MetricAvailability
+        var nestedSlotState = snapshot.NestedSlotStateComplete
+                              && snapshot.Items.All(value => value.NestedSlotStateComplete)
+            ? supported.NestedSlotState
+            : new MetricAvailability
             {
                 State = AdapterCapabilityState.DisabledIncompatible,
                 Provenance = "At least one equipped-item nested-slot tree was not completely enumerable; missing paths remain unavailable rather than being reported as empty."
             };
+        var changed = false;
+        if (!AvailabilityEquals(metricCapabilities.CharacterSlotState, characterSlotState))
+        {
+            metricCapabilities.CharacterSlotState = characterSlotState;
+            changed = true;
+        }
+        if (!AvailabilityEquals(metricCapabilities.NestedSlotState, nestedSlotState))
+        {
+            metricCapabilities.NestedSlotState = nestedSlotState;
             changed = true;
         }
         if (!changed) return;
         capabilityHandler(EquipmentNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
-        diagnosticHandler("Equipment slot-state capability degraded after incomplete native enumeration; independent readable dimensions continue.");
+        diagnosticHandler(
+            characterSlotState.State == AdapterCapabilityState.Supported
+            && nestedSlotState.State == AdapterCapabilityState.Supported
+                ? "Equipment slot-state capabilities restored after a complete native enumeration; prior degraded run scopes remain unchanged."
+                : "Equipment slot-state capability degraded after incomplete native enumeration; independent readable dimensions continue.");
     }
+
+    private static bool AvailabilityEquals(MetricAvailability left, MetricAvailability right) =>
+        left.State == right.State
+        && string.Equals(left.Provenance, right.Provenance, StringComparison.Ordinal);
 
     private void SetDisabled(string detail)
     {

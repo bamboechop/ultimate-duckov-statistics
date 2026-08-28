@@ -1,3 +1,5 @@
+#pragma warning disable CS0067, CS0414, CA1051, CA1711 // Stubs mirror installed native names, public fields, and callback surfaces.
+
 namespace ItemStatsSystem
 {
     public sealed class Inventory
@@ -61,6 +63,12 @@ public sealed class CharacterMainControl
     public bool IsMainCharacter { get; set; }
     public ItemStatsSystem.Item? CharacterItem { get; set; }
     public DuckovItemAgent? CurrentHoldItemAgent { get; set; }
+    public Health Health { get; set; } = new();
+    public float CharacterWalkSpeed { get; set; } = 4;
+    public float CharacterRunSpeed { get; set; } = 8;
+    public float DashSpeed { get; set; } = 12;
+    public UnityEngine.Transform transform { get; } = new();
+    public event Action<CharacterMainControl, UnityEngine.Vector3>? OnSetPositionEvent;
 
     public static void RaiseSlotChanged(CharacterMainControl main, ItemStatsSystem.Items.Slot slot) =>
         OnMainCharacterSlotContentChangedEvent?.Invoke(main, slot);
@@ -71,6 +79,12 @@ public sealed class CharacterMainControl
     public static void RaiseInventoryChanged(CharacterMainControl main, ItemStatsSystem.Inventory inventory, int index) =>
         OnMainCharacterInventoryChangedEvent?.Invoke(main, inventory, index);
 
+    public void SetPosition(UnityEngine.Vector3 position)
+    {
+        transform.position = position;
+        OnSetPositionEvent?.Invoke(this, position);
+    }
+
     public static void ResetNativeState()
     {
         Main = null;
@@ -79,6 +93,19 @@ public sealed class CharacterMainControl
         OnMainCharacterInventoryChangedEvent = null;
     }
 }
+
+public sealed class Health
+{
+    public bool IsDead { get; set; }
+}
+
+public sealed class DamageInfo
+{
+}
+
+public sealed class EvacuationInfo
+{
+}
 #pragma warning restore CA1050
 
 namespace UnityEngine
@@ -86,6 +113,39 @@ namespace UnityEngine
     public static class Application
     {
         public static string version { get; set; } = "2.3.30";
+    }
+
+    public readonly struct Vector3
+    {
+        public Vector3(float x, float y, float z)
+        {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+
+        public readonly float x;
+        public readonly float y;
+        public readonly float z;
+    }
+
+    public sealed class Transform
+    {
+        public Vector3 position { get; set; }
+    }
+
+    public sealed class GameObject
+    {
+        public SceneManagement.Scene scene { get; set; } = new(1);
+    }
+}
+
+namespace UnityEngine.SceneManagement
+{
+    public readonly struct Scene
+    {
+        public Scene(int buildIndex) => this.buildIndex = buildIndex;
+        public readonly int buildIndex;
     }
 }
 
@@ -214,20 +274,107 @@ public sealed class PlayerStorage
 
 public static class LevelManager
 {
+    public static LevelManagerInstance? Instance { get; set; }
     public static event Action? OnLevelBeginInitializing;
+    public static event Action? OnLevelInitialized;
     public static event Action? OnAfterLevelInitialized;
     public static event Action<CharacterMainControl>? OnControllingCharacterChanged;
+    public static event Action<EvacuationInfo>? OnEvacuated;
+    public static event Action<DamageInfo>? OnMainCharacterDead;
     public static bool LevelInitializing { get; set; }
+    public static bool LevelInited { get; set; } = true;
     public static void RaiseLevelBeginInitializing() => OnLevelBeginInitializing?.Invoke();
+    public static void RaiseLevelInitialized() => OnLevelInitialized?.Invoke();
     public static void RaiseAfterLevelInitialized() => OnAfterLevelInitialized?.Invoke();
     public static void RaiseControllingCharacterChanged(CharacterMainControl value) => OnControllingCharacterChanged?.Invoke(value);
+    public static void RaiseEvacuated() => OnEvacuated?.Invoke(new EvacuationInfo());
+    public static void RaiseMainCharacterDead() => OnMainCharacterDead?.Invoke(new DamageInfo());
     public static void ResetNativeState()
     {
+        Instance = null;
         OnLevelBeginInitializing = null;
+        OnLevelInitialized = null;
         OnAfterLevelInitialized = null;
         OnControllingCharacterChanged = null;
+        OnEvacuated = null;
+        OnMainCharacterDead = null;
         LevelInitializing = false;
+        LevelInited = true;
     }
+}
+
+public sealed class LevelManagerInstance
+{
+    public CharacterMainControl? MainCharacter { get; set; }
+    public UnityEngine.GameObject gameObject { get; } = new();
+}
+
+public static class InputManager
+{
+    public static bool InputActived { get; set; } = true;
+}
+
+public static class RaidUtilities
+{
+#pragma warning disable CA1051 // Stub mirrors the installed public-field native contract.
+    public struct RaidInfo
+    {
+        public int ID;
+        public bool valid;
+        public bool ended;
+        public bool dead;
+    }
+#pragma warning restore CA1051
+
+    public static RaidInfo CurrentRaid { get; set; }
+    public static event Action<RaidInfo>? OnNewRaid;
+    public static event Action<RaidInfo>? OnRaidEnd;
+    public static event Action<RaidInfo>? OnRaidDead;
+
+    public static void RaiseNewRaid(RaidInfo raid)
+    {
+        CurrentRaid = raid;
+        OnNewRaid?.Invoke(raid);
+    }
+
+    public static void RaiseRaidEnd(bool dead = false)
+    {
+        var raid = CurrentRaid;
+        raid.ended = true;
+        raid.dead = dead;
+        CurrentRaid = raid;
+        OnRaidEnd?.Invoke(raid);
+    }
+
+    public static void ResetNativeState()
+    {
+        CurrentRaid = default;
+        OnNewRaid = null;
+        OnRaidEnd = null;
+        OnRaidDead = null;
+    }
+}
+
+public static class PauseMenu
+{
+    public static event Action? onPauseMenuOn;
+    public static event Action? onPauseMenuOff;
+}
+
+public static class CheatMode
+{
+    public static event Action<bool>? OnCheatModeStatusChanged;
+}
+
+public static class SceneInfoCollection
+{
+    public sealed class SceneInfo
+    {
+        public string DisplayName { get; set; } = "Test map";
+    }
+
+    public static string GetSceneID(int buildIndex) => "test-map";
+    public static SceneInfo? GetSceneInfo(string stableId) => new();
 }
 
 #pragma warning disable CA1707 // Stubs mirror the installed Duckov native type names exactly.
@@ -259,6 +406,10 @@ public static class GameManager
 public sealed class MultiSceneCore
 {
     public static MultiSceneCore? Instance { get; set; }
+    public static string ActiveSubSceneID { get; set; } = string.Empty;
+    public static string MainSceneID { get; set; } = "test-map";
+    public static event Action<MultiSceneCore, UnityEngine.SceneManagement.Scene>? OnSubSceneWillBeUnloaded;
+    public static event Action<MultiSceneCore, UnityEngine.SceneManagement.Scene>? OnSubSceneLoaded;
     public bool IsLoading { get; set; }
 }
 
@@ -282,13 +433,33 @@ namespace UltimateDuckovStatistics.Adapters
             UltimateDuckovStatistics.Core.Domain.GameplayContext.Raid;
 
         public static UltimateDuckovStatistics.Core.Domain.GameplayContext GetGameplayContext() => GameplayContext;
+
+        public static bool IsRaidMap() => GameplayContext ==
+            UltimateDuckovStatistics.Core.Domain.GameplayContext.Raid;
     }
 }
 
 namespace Duckov.Scenes
 {
+    public sealed class SceneLoadingContext
+    {
+    }
+
     public static class SceneLoader
     {
         public static bool IsSceneLoading { get; set; }
+        public static event Action<SceneLoadingContext>? onStartedLoadingScene;
+        public static event Action<SceneLoadingContext>? onFinishedLoadingScene;
+        public static event Action<SceneLoadingContext>? onAfterSceneInitialize;
     }
 }
+
+namespace Duckov.Rules
+{
+    public static class GameRulesManager
+    {
+        public static event Action? OnRuleChanged;
+    }
+}
+
+#pragma warning restore CS0067, CS0414, CA1051, CA1711

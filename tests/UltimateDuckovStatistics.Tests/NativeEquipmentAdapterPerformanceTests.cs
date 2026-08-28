@@ -905,6 +905,153 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
 
     [Fact]
     [Trait("Category", "M14")]
+    [Trait("Category", "Export")]
+    public void CompleteObservationRestoresCurrentCapabilitiesForTheNextProductionLifecycleRun()
+    {
+        using var directory = new TemporaryDirectory();
+        var identity = new SaveIdentitySnapshot
+        {
+            Slot = 1,
+            SaveFilePresent = true,
+            SaveFileCreationUtcTicks = 100,
+            ObservedWriteUtcTicks = 110,
+            ObservedLength = 4096,
+            GameVersion = "2.3.30",
+            ContentSha256 = new string('a', 64),
+            SaveTimeBinary = DateTime.UnixEpoch.ToBinary()
+        };
+        var now = 0d;
+        var repository = new ProfileRepository(
+            directory.Path,
+            () => DateTime.UnixEpoch.AddSeconds(now),
+            () => "generation");
+        repository.Open(identity);
+
+        var mainItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        var backpack = new Item { TypeID = 900, DisplayName = "Backpack" };
+        backpack.Slots.Add(new Slot
+        {
+            Key = "Cube",
+            DisplayName = "Cube slot",
+            Content = new Item { TypeID = 901, DisplayName = "Blue cube" }
+        });
+        backpack.Slots.Add(null!);
+        mainItem.Slots.Add(new Slot { Key = "Backpack", DisplayName = "Backpack", Content = backpack });
+        mainItem.Slots.Add(null!);
+        var main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = mainItem
+        };
+        CharacterMainControl.Main = main;
+        LevelManager.Instance = new LevelManagerInstance { MainCharacter = main };
+        RaidUtilities.CurrentRaid = new RaidUtilities.RaidInfo { ID = 1, valid = true };
+
+        IReadOnlyList<CapabilityRecord> runCapabilities = Array.Empty<CapabilityRecord>();
+        IReadOnlyList<CapabilityRecord> equipmentCapabilities = Array.Empty<CapabilityRecord>();
+        void PublishCapabilities() => repository.SetCapabilitySnapshot(
+            runCapabilities.Concat(equipmentCapabilities),
+            new EconomyMetricCapabilities(),
+            new WorldTimeMetricCapabilities(),
+            new CraftingMetricCapabilities());
+
+        NativeEquipmentAdapter? equipmentAdapter = null;
+        using var lifecycleAdapter = new NativeRunLifecycleAdapter(
+            () => repository.CurrentGenerationId,
+            checkpoint =>
+            {
+                repository.SaveActiveRun(checkpoint);
+                return true;
+            },
+            repository.CompleteRun,
+            capabilities =>
+            {
+                runCapabilities = capabilities.ToArray();
+                PublishCapabilities();
+            },
+            _ => { },
+            equipmentCapabilitiesProvider: () => equipmentAdapter?.MetricCapabilities
+                ?? new EquipmentMetricCapabilities(),
+            monotonicSecondsProvider: () => now);
+        equipmentAdapter = new NativeEquipmentAdapter(
+            () => lifecycleAdapter.IsActive,
+            lifecycleAdapter.ObserveEquipment,
+            lifecycleAdapter.InvalidateEquipmentObservation,
+            capabilities =>
+            {
+                equipmentCapabilities = capabilities.ToArray();
+                PublishCapabilities();
+            },
+            _ => { },
+            () => now,
+            () => lifecycleAdapter.CurrentSegmentId);
+        using (equipmentAdapter)
+        {
+            equipmentAdapter.Initialize();
+            lifecycleAdapter.Initialize();
+            lifecycleAdapter.Tick();
+            Assert.True(lifecycleAdapter.IsActive);
+            mainItem.RaiseItemTreeChanged();
+
+            now = 5;
+            mainItem.Slots.RemoveAll(value => value == null);
+            backpack.Slots.RemoveAll(value => value == null);
+            mainItem.RaiseItemTreeChanged();
+            LevelManager.RaiseEvacuated();
+            Assert.False(lifecycleAdapter.IsActive);
+
+            now = 6;
+            RaidUtilities.RaiseNewRaid(new RaidUtilities.RaidInfo { ID = 2, valid = true });
+            lifecycleAdapter.Tick();
+            Assert.True(lifecycleAdapter.IsActive);
+            mainItem.RaiseItemTreeChanged();
+
+            now = 11;
+            LevelManager.RaiseEvacuated();
+            Assert.False(lifecycleAdapter.IsActive);
+        }
+
+        var runs = repository.Current.Statistics.Runs.ToArray();
+        Assert.Equal(2, runs.Length);
+        var first = Assert.Single(runs, value => value.NativeRaidId == "1");
+        var second = Assert.Single(runs, value => value.NativeRaidId == "2");
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            first.EquipmentStatistics.Capabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            first.EquipmentStatistics.Capabilities.NestedSlotState.State);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            second.EquipmentStatistics.Capabilities.CharacterSlotState.State);
+        Assert.Equal(AdapterCapabilityState.Supported,
+            second.EquipmentStatistics.Capabilities.NestedSlotState.State);
+        Assert.Equal(5, Assert.Single(first.EquipmentStatistics.CharacterSlotStates.Values).ActiveDurationSeconds);
+        Assert.Equal(5, Assert.Single(second.EquipmentStatistics.CharacterSlotStates.Values).ActiveDurationSeconds);
+        Assert.Equal(5, Assert.Single(first.EquipmentStatistics.NestedSlotStates.Values).ActiveDurationSeconds);
+        Assert.Equal(5, Assert.Single(second.EquipmentStatistics.NestedSlotStates.Values).ActiveDurationSeconds);
+        Assert.Equal(AdapterCapabilityState.Supported, Assert.Single(repository.Current.Capabilities, value =>
+            value.AdapterId == EquipmentCapabilityIds.CharacterSlotState).State);
+        Assert.Equal(AdapterCapabilityState.Supported, Assert.Single(repository.Current.Capabilities, value =>
+            value.AdapterId == EquipmentCapabilityIds.NestedSlotState).State);
+
+        var export = StatisticsExporter.Create(repository.Current, DateTime.UnixEpoch.AddSeconds(now));
+        var characterRows = ParseCsv(export.CharacterEquipmentSlotsCsv)
+            .Where(row => row["scope"] == "run" && row["slot_id"] == "duckov:slot:Backpack")
+            .ToDictionary(row => row["run_id"], StringComparer.Ordinal);
+        Assert.Equal("5", characterRows[first.RunId]["active_duration_seconds"]);
+        Assert.Equal("DisabledIncompatible", characterRows[first.RunId]["capability_state"]);
+        Assert.Equal("5", characterRows[second.RunId]["active_duration_seconds"]);
+        Assert.Equal("Supported", characterRows[second.RunId]["capability_state"]);
+        var nestedRows = ParseCsv(export.EquippedItemNestedSlotsCsv)
+            .Where(row => row["scope"] == "run" && row["nested_path"] == "4:Cube/")
+            .ToDictionary(row => row["run_id"], StringComparer.Ordinal);
+        Assert.Equal("5", nestedRows[first.RunId]["active_duration_seconds"]);
+        Assert.Equal("DisabledIncompatible", nestedRows[first.RunId]["capability_state"]);
+        Assert.Equal("5", nestedRows[second.RunId]["active_duration_seconds"]);
+        Assert.Equal("Supported", nestedRows[second.RunId]["capability_state"]);
+        repository.CloseClean();
+    }
+
+    [Fact]
+    [Trait("Category", "M14")]
     public void CleanupDetachesGlobalAndItemTreeCallbacksAndRemainsIdempotent()
     {
         var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
@@ -941,5 +1088,58 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
         Assert.Equal(EquipmentEventAssociation.UnavailableId, adapter.CaptureAssociation().LoadoutId);
     }
 
-    public void Dispose() => CharacterMainControl.ResetNativeState();
+    private static List<IReadOnlyDictionary<string, string>> ParseCsv(string csv)
+    {
+        var rows = new List<List<string>>();
+        var row = new List<string>();
+        var field = new System.Text.StringBuilder();
+        var quoted = false;
+        for (var index = 0; index < csv.Length; index++)
+        {
+            var character = csv[index];
+            if (quoted)
+            {
+                if (character == '"' && index + 1 < csv.Length && csv[index + 1] == '"')
+                {
+                    field.Append('"');
+                    index++;
+                }
+                else if (character == '"') quoted = false;
+                else field.Append(character);
+                continue;
+            }
+
+            if (character == '"') quoted = true;
+            else if (character == ',')
+            {
+                row.Add(field.ToString());
+                field.Clear();
+            }
+            else if (character == '\n')
+            {
+                row.Add(field.ToString().TrimEnd('\r'));
+                field.Clear();
+                rows.Add(row);
+                row = new List<string>();
+            }
+            else field.Append(character);
+        }
+
+        var headers = rows[0];
+        return rows.Skip(1)
+            .Where(values => values.Count > 1)
+            .Select(values => (IReadOnlyDictionary<string, string>)headers
+                .Select((header, index) => new KeyValuePair<string, string>(header, values[index]))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal))
+            .ToList();
+    }
+
+    public void Dispose()
+    {
+        CharacterMainControl.ResetNativeState();
+        LevelManager.ResetNativeState();
+        RaidUtilities.ResetNativeState();
+        InputManager.InputActived = true;
+        NativeRaidContext.GameplayContext = GameplayContext.Raid;
+    }
 }
