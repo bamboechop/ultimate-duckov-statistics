@@ -70,3 +70,20 @@ Record these fields for each step:
 - clean-shutdown result and any UDS warning/error.
 
 Do not modify Duckov save files or UDS profile JSON by hand during this procedure.
+
+## 2026-08-29 qualification result
+
+Result: **PASS for M15 current economy holdings.** The player performed every launch, slot selection, ATM action, inventory transfer, menu transition, export, and shutdown. Codex performed only read-only inspection of screenshots, the external UDS profile/export files, and `Player.log`.
+
+- Candidate: `v0.15.0` feature head `02a99731f19955c50481c8e70ecf54574c13afa5`; Duckov slot `1`; UDS generation `d78609c23dd341ac9ca4265c7f19e337`.
+- Cold base hydration showed Money `98,959 (current)`, owned Cash `0 (current)`, liquid wealth `98,959 (current)`, and all three M15 capabilities `Supported`. Duckov's ATM independently showed account `98,959` and physical Cash `0`.
+- Withdrew one Money through the ATM. Duckov and UDS agreed on Money `98,958`, owned Cash `1`, and unchanged liquid wealth `98,959`; the M9 projection remained visibly separate.
+- Moved that Cash from main inventory to PlayerStorage and then to PetProxy. Money, Cash, liquid wealth, and the then-current M9 totals remained unchanged across both internal transfers.
+- Returning normally to the main menu changed Money and Cash to timestamped `LastObserved` evidence and made liquid wealth unavailable. Profile and backup were byte-identical after clean shutdown, no UDS temporary residue remained, and no UDS warning/error appeared in `Player.log`.
+- A clean restart showed Money `98,958` and Cash `1` as `LastObserved` before slot hydration. Loading the same slot restored both components and liquid wealth to `Current` without adding a startup M9 flow; the Cash retained in PetProxy was included.
+- Export `20260828T2232404074617Z-d78609c23dd341ac9ca4265c7f19e337` contained exactly 31 files. Schema-15 `statistics.json`, `economy_holdings.csv`, and the live profile agreed on generation, `Current` states, supported capabilities, Money `98,958`, Cash `1`, liquid wealth `98,959`, timestamps, provenance, historical unavailability, and no repair. The export JSON SHA-256 was `c5939fddda9155c9fa8c797fc28c12fb4e20fd4d9cfe52415b03d1a19c481d69`; the holdings CSV SHA-256 was `aadc2410849380b9a122f9dcf2754f3ef5ce25b3ca7c3b9cd8041d3603be4f97`.
+- Final shutdown again closed the generation cleanly. Primary and backup were byte-identical at SHA-256 `4284c397b3f51c72233b7b5985eabdb85cd874a1df2059b74142f1fe2d36b916`, with zero UDS temporary residue and no UDS error-like log line.
+
+The main-menu step also exposed a separate M9 defect: old PetProxy teardown occurred after `SceneLoader.onStartedLoadingScene` but before the next `LevelManager.OnLevelBeginInitializing`, so adapter `public-events-v11` observed owned Cash `1 -> 0` as a false Base outflow. M15 itself remained correct and retained Cash `1`. Adapter `public-events-v12` now flushes legitimate pending changes and suspends the M9 Cash baseline at the earlier verified scene-loading event; one production-adapter regression reproduces the exact base-to-menu pet teardown, and a companion proves a legitimate pre-transition Cash delta is still published. The already-completed M15 gameplay sequence does not need to be repeated for that bounded M9 lifecycle correction.
+
+At the test endpoint, the user-controlled save intentionally contained Money `98,958` and one physical Cash in PetProxy.
