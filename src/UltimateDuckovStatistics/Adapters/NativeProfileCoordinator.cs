@@ -120,6 +120,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public event Action? ProfileChanging;
 
+    public event Action<long>? EconomyHoldingsSaveSlotTransitionStarted;
+
+    public event Action<long>? EconomyHoldingsSaveSlotTransitionCompleted;
+
     public event Action<long>? WorldTimeProfileChangeAwaitingNativeLoadStarted;
 
     public event Action<long>? WorldTimeNewGameProfileChangeStarted;
@@ -722,7 +726,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
             PublishProfileEvent(
                 () => CraftingProfileChangeStarted?.Invoke(profileTransitionId),
                 "crafting-profile-change-started");
-            QueueProfileTransition(
+            QueueSaveSlotProfileTransition(
+                profileTransitionId,
                 "Save-slot transition",
                 () => ProfileChanging?.Invoke(),
                 WaitRunCheckpoint,
@@ -753,6 +758,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 () => PublishProfileEvent(
                     () => CraftingProfileChangeCompleted?.Invoke(profileTransitionId),
                     "crafting-profile-change-completed"),
+                () => PublishProfileEvent(
+                    () => EconomyHoldingsSaveSlotTransitionCompleted?.Invoke(profileTransitionId),
+                    "economy-holdings-save-slot-transition-completed"),
                 () => PublishProfileEvent(ProfileChanged, "profile-changed"),
                 ApplyCurrentCapabilities,
                 () => WriteDiagnostic(
@@ -892,6 +900,15 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private void QueueProfileTransition(string description, params Action[] steps)
     {
         profileTransitionBoundary.Enqueue(description, steps);
+        RetryPendingProfileTransition();
+    }
+
+    private void QueueSaveSlotProfileTransition(long transitionId, string description, params Action[] steps)
+    {
+        profileTransitionBoundary.Enqueue(description, steps);
+        PublishProfileEvent(
+            () => EconomyHoldingsSaveSlotTransitionStarted?.Invoke(transitionId),
+            "economy-holdings-save-slot-transition-started");
         RetryPendingProfileTransition();
     }
 

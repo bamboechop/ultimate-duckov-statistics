@@ -117,6 +117,14 @@ namespace UnityEngine
     public static class Application
     {
         public static string version { get; set; } = "2.3.30";
+        public static string persistentDataPath { get; set; } = string.Empty;
+    }
+
+    public static class Debug
+    {
+        public static void Log(object message) { }
+        public static void LogWarning(object message) { }
+        public static void LogException(Exception exception) { }
     }
 
     public readonly struct Vector3
@@ -299,6 +307,7 @@ public static class LevelManager
     public static event Action<CharacterMainControl>? OnControllingCharacterChanged;
     public static event Action<EvacuationInfo>? OnEvacuated;
     public static event Action<DamageInfo>? OnMainCharacterDead;
+    public static event Action? OnNewGameReport;
     public static bool LevelInitializing { get; set; }
     public static bool LevelInited { get; set; } = true;
     public static void RaiseLevelBeginInitializing() => OnLevelBeginInitializing?.Invoke();
@@ -307,6 +316,7 @@ public static class LevelManager
     public static void RaiseControllingCharacterChanged(CharacterMainControl value) => OnControllingCharacterChanged?.Invoke(value);
     public static void RaiseEvacuated() => OnEvacuated?.Invoke(new EvacuationInfo());
     public static void RaiseMainCharacterDead() => OnMainCharacterDead?.Invoke(new DamageInfo());
+    public static void RaiseNewGameReport() => OnNewGameReport?.Invoke();
     public static void ResetNativeState()
     {
         Instance = null;
@@ -316,6 +326,7 @@ public static class LevelManager
         OnControllingCharacterChanged = null;
         OnEvacuated = null;
         OnMainCharacterDead = null;
+        OnNewGameReport = null;
         LevelInitializing = false;
         LevelInited = true;
     }
@@ -443,8 +454,27 @@ namespace Saves
     public static class SavesSystem
     {
         public static bool EconomyDataExists { get; set; }
+        public static int CurrentSlot { get; set; } = 1;
+        public static event Action? OnSetFile;
+        public static event Action? OnSaveDeleted;
+        public static event Action? OnCollectSaveData;
         public static bool KeyExisits(string key) => key == "EconomyData" && EconomyDataExists;
-        public static void ResetNativeState() => EconomyDataExists = false;
+        public static string GetFilePath(int slot) => Path.Combine("Saves", $"slot-{slot:D2}.json");
+        public static void SetFile(int slot)
+        {
+            CurrentSlot = slot;
+            OnSetFile?.Invoke();
+        }
+        public static void RaiseSaveDeleted() => OnSaveDeleted?.Invoke();
+        public static void RaiseCollectSaveData() => OnCollectSaveData?.Invoke();
+        public static void ResetNativeState()
+        {
+            EconomyDataExists = false;
+            CurrentSlot = 1;
+            OnSetFile = null;
+            OnSaveDeleted = null;
+            OnCollectSaveData = null;
+        }
     }
 }
 #pragma warning restore CA1050

@@ -123,6 +123,42 @@ public sealed class NativeEconomyHoldingsAdapterTests : IDisposable
 
     [Fact]
     [Trait("Category", "M15")]
+    [Trait("Category", "Lifecycle")]
+    public void OverlappingSaveSlotHandoffsRemainSuspendedUntilEveryMatchingCompletion()
+    {
+        ConfigureReadyRoots();
+        EconomyManager.Instance = new EconomyManager();
+        EconomyManager.Money = 10;
+        Saves.SavesSystem.EconomyDataExists = true;
+        using var harness = new Harness("generation-1");
+        harness.Adapter.Initialize();
+        harness.Adapter.Tick();
+
+        harness.Adapter.BeginSaveSlotProfileChange(1);
+        harness.Adapter.BeginSaveSlotProfileChange(2);
+        EconomyManager.Money = 30;
+        EconomyManager.RaiseLoaded();
+        harness.Adapter.CompleteSaveSlotProfileChange(1);
+        harness.Adapter.Tick();
+
+        Assert.Equal(EconomyHoldingObservationState.LastObserved, harness.Snapshot.Money.State);
+        Assert.Equal(10, harness.Snapshot.Money.Value);
+
+        harness.Generation = "generation-3";
+        harness.Snapshot = new EconomyHoldingsSnapshot
+        {
+            SaveGenerationId = harness.Generation,
+            Capabilities = harness.Adapter.MetricCapabilities
+        };
+        harness.Adapter.CompleteSaveSlotProfileChange(2);
+        harness.Adapter.Tick();
+
+        Assert.Equal(EconomyHoldingObservationState.Current, harness.Snapshot.Money.State);
+        Assert.Equal(30, harness.Snapshot.Money.Value);
+    }
+
+    [Fact]
+    [Trait("Category", "M15")]
     public void SceneBoundaryMakesValuesLastObservedUntilRootsAreAuthoritativeAgain()
     {
         ConfigureReadyRoots();

@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyHoldingsAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy-holdings/2.3.30+authoritative-roots-v1";
+    internal const string AdapterVersion = "native-economy-holdings/2.3.30+authoritative-roots-v2";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const string MoneyProvenance =
@@ -28,6 +28,7 @@ internal sealed class NativeEconomyHoldingsAdapter : IDisposable
     private readonly Action<IReadOnlyList<CapabilityRecord>, EconomyHoldingsMetricCapabilities> capabilityPublisher;
     private readonly Action<string> diagnostic;
     private readonly EconomyHoldingsObservationGate observationGate = new();
+    private readonly HashSet<long> pendingSaveSlotTransitions = new();
     private Inventory? subscribedPetInventory;
     private EconomyManager? preTransitionEconomyInstance;
     private bool profileChanging;
@@ -119,7 +120,7 @@ internal sealed class NativeEconomyHoldingsAdapter : IDisposable
 
     public void BeginProfileChange()
     {
-        if (disposed || !subscribed) return;
+        if (disposed || !subscribed || profileChanging) return;
         stalePublisher(
             true,
             true,
@@ -131,9 +132,16 @@ internal sealed class NativeEconomyHoldingsAdapter : IDisposable
         UnsubscribePetInventory();
     }
 
-    public void CompleteProfileChange()
+    public void BeginSaveSlotProfileChange(long transitionId)
     {
         if (disposed || !subscribed) return;
+        pendingSaveSlotTransitions.Add(transitionId);
+        BeginProfileChange();
+    }
+
+    public void CompleteProfileChange()
+    {
+        if (disposed || !subscribed || !profileChanging || pendingSaveSlotTransitions.Count > 0) return;
         profileChanging = false;
         moneyHydrationTrusted = EconomyDataExists()
                                 || (EconomyManager.Instance != null
@@ -144,10 +152,18 @@ internal sealed class NativeEconomyHoldingsAdapter : IDisposable
         MarkCashDirty();
     }
 
+    public void CompleteSaveSlotProfileChange(long transitionId)
+    {
+        if (disposed || !subscribed) return;
+        pendingSaveSlotTransitions.Remove(transitionId);
+        CompleteProfileChange();
+    }
+
     public void Dispose()
     {
         if (disposed) return;
         disposed = true;
+        pendingSaveSlotTransitions.Clear();
         if (subscribed)
         {
             EconomyManager.OnMoneyChanged -= OnMoneyChanged;

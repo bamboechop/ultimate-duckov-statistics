@@ -36,6 +36,8 @@
              Link="ProductionAdapters\NativeRunCompletionBoundary.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeProfileTransitionBoundary.cs"
              Link="ProductionAdapters\NativeProfileTransitionBoundary.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeProfileCoordinator.cs"
+             Link="ProductionAdapters\NativeProfileCoordinator.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeProfileResetTransition.cs"
              Link="ProductionAdapters\NativeProfileResetTransition.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeWorldTimeObservationBoundary.cs"
