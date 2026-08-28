@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 {
-    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v6+route-independent-cache";
+    internal const string AdapterVersion = "native-equipment/2.3.30+public-item-tree-v7+lossless-slot-state";
     private const string SupportedGameVersion = "2.3.30";
     internal const double ReconciliationIntervalSeconds = 1;
     private readonly Func<bool> runActiveProvider;
@@ -191,6 +191,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
             var observationContextId = observationContextProvider();
             NativeHotPathDiagnostics.CountEquipmentSnapshotBuild();
             var snapshot = NativeEquipmentSnapshotBuilder.Build(observedMain, observedCharacterItem);
+            DegradeIncompleteCapabilities(snapshot);
             // The same immutable loadout still has to be published once for every
             // run segment so its duration and event associations have a local root.
             // A missing segment is also a stable overall-only context so route
@@ -222,6 +223,34 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         latestObservationContextId = null;
         hasLatestObservationContext = false;
         invalidationHandler();
+    }
+
+    private void DegradeIncompleteCapabilities(EquipmentSnapshot snapshot)
+    {
+        var changed = false;
+        if (!snapshot.CharacterSlotStateComplete
+            && metricCapabilities.CharacterSlotState.State != AdapterCapabilityState.DisabledIncompatible)
+        {
+            metricCapabilities.CharacterSlotState = new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "The native character-slot collection was not completely enumerable; missing evidence remains unavailable rather than being reported as empty."
+            };
+            changed = true;
+        }
+        if ((!snapshot.NestedSlotStateComplete || snapshot.Items.Any(value => !value.NestedSlotStateComplete))
+            && metricCapabilities.NestedSlotState.State != AdapterCapabilityState.DisabledIncompatible)
+        {
+            metricCapabilities.NestedSlotState = new MetricAvailability
+            {
+                State = AdapterCapabilityState.DisabledIncompatible,
+                Provenance = "At least one equipped-item nested-slot tree was not completely enumerable; missing paths remain unavailable rather than being reported as empty."
+            };
+            changed = true;
+        }
+        if (!changed) return;
+        capabilityHandler(EquipmentNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
+        diagnosticHandler("Equipment slot-state capability degraded after incomplete native enumeration; independent readable dimensions continue.");
     }
 
     private void SetDisabled(string detail)

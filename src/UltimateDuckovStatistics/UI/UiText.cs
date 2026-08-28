@@ -137,10 +137,16 @@ internal static class UiText
             ["ui.crafting_batch"] = "Declared batch",
             ["ui.no_crafting"] = "No proven crafting completions recorded for this save generation.",
             ["ui.pre_m13_unavailable"] = "earlier crafted-item history unavailable",
-            ["ui.crafting_contract"] = "One action is one correlated completion of native output delivery before downstream crafting callbacks. Produced quantity is the formula's declared result amount. Attempts, failed payment, inventory movement, hydration, and inferred ingredient or currency changes are excluded. Totals are save-generation lifetime only; workstation and run/map attribution are unavailable."
+            ["ui.crafting_contract"] = "One action is one correlated completion of native output delivery before downstream crafting callbacks. Produced quantity is the formula's declared result amount. Attempts, failed payment, inventory movement, hydration, and inferred ingredient or currency changes are excluded. Totals are save-generation lifetime only; workstation and run/map attribution are unavailable.",
+            ["ui.weapon_equipment"] = "Weapons by equipped character slot and nested slot",
+            ["ui.armor_and_gear"] = "Armor, gear & other native slots",
+            ["ui.proven_empty"] = "No"
         };
 
     public static string Get(string key) => English.TryGetValue(key, out var value) ? value : key;
+
+    public static string FormatProvenEmpty(string slotDisplayName) =>
+        $"{Get("ui.proven_empty")} {(string.IsNullOrWhiteSpace(slotDisplayName) ? "slot item" : slotDisplayName)}";
 
     public static string FormatMetric(long value, AdapterCapabilityState state) =>
         state == AdapterCapabilityState.DisabledIncompatible

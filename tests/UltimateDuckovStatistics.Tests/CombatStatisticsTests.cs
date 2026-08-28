@@ -938,7 +938,7 @@ public sealed class CombatStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(13, profile.SchemaVersion);
+        Assert.Equal(14, profile.SchemaVersion);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
             profile.Statistics.RunTotals.CombatStatistics.Capabilities.DamageDealt.State);
         Assert.Contains("predates M5",
@@ -1077,9 +1077,9 @@ public sealed class CombatStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(13, profile.SchemaVersion);
-        Assert.Equal(13, profile.Statistics.SchemaVersion);
-        Assert.Equal(11, run.SchemaVersion);
+        Assert.Equal(14, profile.SchemaVersion);
+        Assert.Equal(14, profile.Statistics.SchemaVersion);
+        Assert.Equal(14, run.SchemaVersion);
         foreach (var combat in new[]
                  {
                      profile.Statistics.RunTotals.CombatStatistics,

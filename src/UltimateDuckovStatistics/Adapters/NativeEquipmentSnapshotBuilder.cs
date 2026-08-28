@@ -8,6 +8,8 @@ internal static class NativeEquipmentSnapshotBuilder
 {
     private const int MaxOrdinaryInventoryItems = 256;
     private const int MaxToteSlots = 8;
+    private const int MaxNestedSlotsPerRoot = 256;
+    private const int MaxNestedDepth = 8;
     private const int NativeToteBagTypeId = 1255;
     private const string NativeToteSlotKey = "AnyThing";
 
@@ -17,11 +19,31 @@ internal static class NativeEquipmentSnapshotBuilder
         if (characterItem == null) throw new ArgumentNullException(nameof(characterItem));
 
         var equipped = new List<EquippedItemSnapshot>();
+        var characterSlots = new List<CharacterEquipmentSlotSnapshot>();
         var totems = new List<TotemSnapshot>();
-        foreach (var slot in characterItem.Slots.OrderBy(value => value.Key, StringComparer.Ordinal))
+        var characterSlotStateComplete = true;
+        var nestedSlotStateComplete = true;
+        var seenCharacterSlots = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var slot in characterItem.Slots.OrderBy(value => value?.Key, StringComparer.Ordinal))
         {
+            if (slot == null || string.IsNullOrWhiteSpace(slot.Key) || !seenCharacterSlots.Add(slot.Key))
+            {
+                characterSlotStateComplete = false;
+                continue;
+            }
+            var slotId = "duckov:slot:" + slot.Key;
+            var slotDisplayName = string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.Key : slot.DisplayName;
             var item = slot.Content;
-            if (item == null) continue;
+            if (item == null)
+            {
+                characterSlots.Add(new CharacterEquipmentSlotSnapshot
+                {
+                    SlotId = slotId,
+                    SlotDisplayName = slotDisplayName,
+                    State = EquipmentSlotState.Empty
+                });
+                continue;
+            }
             var kind = Classify(slot.Key, item);
             var itemId = ItemId(item, kind switch
             {
@@ -29,14 +51,27 @@ internal static class NativeEquipmentSnapshotBuilder
                 EquipmentItemKind.Totem => "totem",
                 _ => "item"
             });
+            var nestedSlots = BuildNestedSlots(item, out var nestedComplete);
+            nestedSlotStateComplete &= nestedComplete;
             equipped.Add(new EquippedItemSnapshot
             {
-                SlotId = "duckov:slot:" + (slot.Key ?? string.Empty),
-                SlotDisplayName = string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.Key ?? string.Empty : slot.DisplayName,
+                SlotId = slotId,
+                SlotDisplayName = slotDisplayName,
                 ItemId = itemId,
                 ItemDisplayName = DisplayName(item),
                 Kind = kind,
-                AttachmentSignature = AttachmentSignature(item)
+                AttachmentSignature = AttachmentSignature(item),
+                NestedSlots = nestedSlots,
+                NestedSlotStateComplete = nestedComplete
+            });
+            characterSlots.Add(new CharacterEquipmentSlotSnapshot
+            {
+                SlotId = slotId,
+                SlotDisplayName = slotDisplayName,
+                State = EquipmentSlotState.Occupied,
+                ItemId = itemId,
+                ItemDisplayName = DisplayName(item),
+                ItemKind = kind
             });
             if (IsTotem(item))
             {
@@ -55,6 +90,7 @@ internal static class NativeEquipmentSnapshotBuilder
         AddOrdinaryInventoryToteContents(characterItem.Inventory, totems);
 
         equipped = equipped.OrderBy(value => value.SlotId, StringComparer.Ordinal).ToList();
+        characterSlots = characterSlots.OrderBy(value => value.SlotId, StringComparer.Ordinal).ToList();
         totems = totems.OrderBy(value => value.CarryKind).ThenBy(value => value.ContainerId, StringComparer.Ordinal).ThenBy(value => value.ItemId, StringComparer.Ordinal).ToList();
         var selected = main.CurrentHoldItemAgent?.Item;
         var selectedSlotId = selected == null ? string.Empty : characterItem.Slots
@@ -71,6 +107,9 @@ internal static class NativeEquipmentSnapshotBuilder
         return new EquipmentSnapshot
         {
             Items = equipped,
+            CharacterSlots = characterSlots,
+            CharacterSlotStateComplete = characterSlotStateComplete,
+            NestedSlotStateComplete = nestedSlotStateComplete,
             Totems = totems,
             SelectedWeaponId = selectedId,
             SelectedWeaponSlotId = selectedSlotId,
@@ -81,7 +120,8 @@ internal static class NativeEquipmentSnapshotBuilder
                 selectedSlotId,
                 selectedId,
                 totemSetId,
-                EquipmentIdentity.TotemPresenceSignature(totems))
+                EquipmentIdentity.TotemPresenceSignature(totems),
+                SlotStateSignature(characterSlots, equipped))
         };
     }
 
@@ -119,6 +159,77 @@ internal static class NativeEquipmentSnapshotBuilder
         var parts = new List<string>();
         AddAttachments(item, parts, 0, string.Empty);
         return EquipmentIdentity.StableHash(string.Join(";", parts.OrderBy(value => value, StringComparer.Ordinal)));
+    }
+
+    private static List<NestedEquipmentSlotSnapshot> BuildNestedSlots(Item root, out bool complete)
+    {
+        var result = new List<NestedEquipmentSlotSnapshot>();
+        complete = true;
+        AddNestedSlots(root, result, 0, string.Empty, ref complete);
+        return result.OrderBy(value => value.Path, StringComparer.Ordinal).ToList();
+    }
+
+    private static void AddNestedSlots(
+        Item parent,
+        List<NestedEquipmentSlotSnapshot> result,
+        int depth,
+        string ancestorPath,
+        ref bool complete)
+    {
+        if (parent.Slots == null) return;
+        if (depth >= MaxNestedDepth)
+        {
+            if (parent.Slots.Count > 0) complete = false;
+            return;
+        }
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var slot in parent.Slots.OrderBy(value => value?.Key, StringComparer.Ordinal))
+        {
+            if (result.Count >= MaxNestedSlotsPerRoot)
+            {
+                complete = false;
+                return;
+            }
+            if (slot == null || string.IsNullOrWhiteSpace(slot.Key) || !seen.Add(slot.Key))
+            {
+                complete = false;
+                continue;
+            }
+            var path = ancestorPath
+                + slot.Key.Length.ToString(CultureInfo.InvariantCulture) + ":" + slot.Key + "/";
+            var child = slot.Content;
+            result.Add(new NestedEquipmentSlotSnapshot
+            {
+                Path = path,
+                SlotKey = slot.Key,
+                SlotDisplayName = string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.Key : slot.DisplayName,
+                State = child == null ? EquipmentSlotState.Empty : EquipmentSlotState.Occupied,
+                ItemId = child == null ? string.Empty : ItemId(child, "item"),
+                ItemDisplayName = child == null ? string.Empty : DisplayName(child)
+            });
+            if (child != null) AddNestedSlots(child, result, depth + 1, path, ref complete);
+        }
+    }
+
+    private static string SlotStateSignature(
+        IEnumerable<CharacterEquipmentSlotSnapshot> characterSlots,
+        IEnumerable<EquippedItemSnapshot> equipped)
+    {
+        var roots = characterSlots.Select(value =>
+            Component("root") + Component(value.SlotId)
+            + Component(((int)value.State).ToString(CultureInfo.InvariantCulture))
+            + Component(value.ItemId));
+        var nested = equipped.SelectMany(item => item.NestedSlots.Select(slot =>
+            Component("nested") + Component(item.SlotId) + Component(item.ItemId) + Component(slot.Path)
+            + Component(((int)slot.State).ToString(CultureInfo.InvariantCulture)) + Component(slot.ItemId)));
+        return EquipmentIdentity.StableHash(string.Concat(
+            roots.Concat(nested).OrderBy(value => value, StringComparer.Ordinal)));
+    }
+
+    private static string Component(string? value)
+    {
+        value ??= string.Empty;
+        return value.Length.ToString(CultureInfo.InvariantCulture) + ":" + value;
     }
 
     private static void AddAttachments(Item parent, List<string> parts, int depth, string ancestorPath)

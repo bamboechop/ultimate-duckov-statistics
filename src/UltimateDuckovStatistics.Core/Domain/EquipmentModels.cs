@@ -35,6 +35,13 @@ public enum TotemActivationState
 }
 
 [DataContract]
+public enum EquipmentSlotState
+{
+    [EnumMember] Occupied = 0,
+    [EnumMember] Empty = 1
+}
+
+[DataContract]
 public sealed class EquipmentMetricCapabilities
 {
     [DataMember(Order = 1)] public MetricAvailability EquipmentSlots { get; set; } = new();
@@ -43,6 +50,30 @@ public sealed class EquipmentMetricCapabilities
     [DataMember(Order = 4)] public MetricAvailability DirectTotems { get; set; } = new();
     [DataMember(Order = 5)] public MetricAvailability ToteContents { get; set; } = new();
     [DataMember(Order = 6)] public MetricAvailability ToteActivation { get; set; } = new();
+    [DataMember(Order = 7)] public MetricAvailability CharacterSlotState { get; set; } = new();
+    [DataMember(Order = 8)] public MetricAvailability NestedSlotState { get; set; } = new();
+}
+
+[DataContract]
+public sealed class CharacterEquipmentSlotSnapshot
+{
+    [DataMember(Order = 1)] public string SlotId { get; set; } = string.Empty;
+    [DataMember(Order = 2)] public string SlotDisplayName { get; set; } = string.Empty;
+    [DataMember(Order = 3)] public EquipmentSlotState State { get; set; }
+    [DataMember(Order = 4)] public string ItemId { get; set; } = string.Empty;
+    [DataMember(Order = 5)] public string ItemDisplayName { get; set; } = string.Empty;
+    [DataMember(Order = 6)] public EquipmentItemKind ItemKind { get; set; }
+}
+
+[DataContract]
+public sealed class NestedEquipmentSlotSnapshot
+{
+    [DataMember(Order = 1)] public string Path { get; set; } = string.Empty;
+    [DataMember(Order = 2)] public string SlotKey { get; set; } = string.Empty;
+    [DataMember(Order = 3)] public string SlotDisplayName { get; set; } = string.Empty;
+    [DataMember(Order = 4)] public EquipmentSlotState State { get; set; }
+    [DataMember(Order = 5)] public string ItemId { get; set; } = string.Empty;
+    [DataMember(Order = 6)] public string ItemDisplayName { get; set; } = string.Empty;
 }
 
 [DataContract]
@@ -54,6 +85,8 @@ public sealed class EquippedItemSnapshot
     [DataMember(Order = 4)] public string ItemDisplayName { get; set; } = string.Empty;
     [DataMember(Order = 5)] public EquipmentItemKind Kind { get; set; }
     [DataMember(Order = 6)] public string AttachmentSignature { get; set; } = string.Empty;
+    [DataMember(Order = 7)] public List<NestedEquipmentSlotSnapshot> NestedSlots { get; set; } = new();
+    [DataMember(Order = 8)] public bool NestedSlotStateComplete { get; set; }
 }
 
 [DataContract]
@@ -76,6 +109,9 @@ public sealed class EquipmentSnapshot
     [DataMember(Order = 5)] public string TotemSetId { get; set; } = string.Empty;
     [DataMember(Order = 6)] public List<TotemSnapshot> Totems { get; set; } = new();
     [DataMember(Order = 7)] public string SelectedWeaponSlotId { get; set; } = string.Empty;
+    [DataMember(Order = 8)] public List<CharacterEquipmentSlotSnapshot> CharacterSlots { get; set; } = new();
+    [DataMember(Order = 9)] public bool CharacterSlotStateComplete { get; set; }
+    [DataMember(Order = 10)] public bool NestedSlotStateComplete { get; set; }
 }
 
 [DataContract]
@@ -123,10 +159,11 @@ public static class EquipmentIdentity
         string selectedWeaponSlotId,
         string selectedWeaponId,
         string totemSetId,
-        string totemPresenceSignature) => "duckov:equipment-snapshot:" + StableHash(
+        string totemPresenceSignature,
+        string slotStateSignature = "") => "duckov:equipment-snapshot:" + StableHash(
             (loadoutId ?? string.Empty) + "|" + (selectedWeaponSlotId ?? string.Empty) + "|"
             + (selectedWeaponId ?? string.Empty) + "|" + (totemSetId ?? string.Empty) + "|"
-            + (totemPresenceSignature ?? string.Empty));
+            + (totemPresenceSignature ?? string.Empty) + "|" + (slotStateSignature ?? string.Empty));
 
     public static string StableHash(string value)
     {

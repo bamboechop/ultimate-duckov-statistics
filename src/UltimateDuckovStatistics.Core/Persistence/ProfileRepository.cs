@@ -865,6 +865,28 @@ public sealed class ProfileRepository
             return $"Active-run checkpoint contains invalid route state: {exception.Message}";
         }
 
+        if (checkpoint.SchemaVersion >= 14)
+        {
+            try
+            {
+                WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
+                EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics, checkpoint.SchemaVersion);
+                foreach (var segment in checkpoint.Segments)
+                {
+                    WeaponStatisticsReducer.ValidateAggregate(segment.WeaponStatistics);
+                    EquipmentStatisticsReducer.ValidateRecoveryCandidate(segment.EquipmentStatistics, checkpoint.SchemaVersion);
+                }
+            }
+            catch (ArgumentException exception)
+            {
+                return $"Current-schema active-run M14 association state is invalid: {exception.Message}";
+            }
+            catch (OverflowException exception)
+            {
+                return $"Current-schema active-run M14 association state is invalid: {exception.Message}";
+            }
+        }
+
         checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
         var weaponNormalization = WeaponStatisticsReducer.NormalizePersisted(checkpoint.WeaponStatistics);
         if (weaponNormalization.InvalidCounters)
@@ -972,6 +994,20 @@ public sealed class ProfileRepository
                     segment.EquipmentStatistics);
             }
             checkpoint.SchemaVersion = 11;
+        }
+
+        if (checkpoint.SchemaVersion < 14)
+        {
+            ProfileMigrator.MarkHistoricalM14Unavailable(
+                checkpoint.WeaponStatistics,
+                checkpoint.EquipmentStatistics);
+            foreach (var segment in checkpoint.Segments)
+            {
+                ProfileMigrator.MarkHistoricalM14Unavailable(
+                    segment.WeaponStatistics,
+                    segment.EquipmentStatistics);
+            }
+            checkpoint.SchemaVersion = 14;
         }
 
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)

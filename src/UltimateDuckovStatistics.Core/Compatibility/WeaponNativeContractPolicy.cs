@@ -11,6 +11,8 @@ public static class WeaponNativeContractPolicy
         "ShotCount is configured intent; the public firing callback does not prove completed projectile initialization.";
     public const string WeaponIdentityProvenance = "ItemAgent_Gun.Item.TypeID at firing time";
     public const string AmmunitionIdentityProvenance = "ItemSetting_Gun.TargetBulletID at firing time";
+    public const string PairingProvenance =
+        "One accepted ItemAgent_Gun.OnMainCharacterShootEvent callback simultaneously exposes the firing Item.TypeID and ItemSetting_Gun.TargetBulletID.";
 
     public static WeaponMetricCapabilities CreateMetricCapabilities() => new()
     {
@@ -22,7 +24,8 @@ public static class WeaponNativeContractPolicy
             AdapterCapabilityState.DisabledIncompatible,
             ProjectilesUnavailableDetail),
         WeaponIdentity = Availability(AdapterCapabilityState.Supported, WeaponIdentityProvenance),
-        AmmunitionIdentity = Availability(AdapterCapabilityState.Supported, AmmunitionIdentityProvenance)
+        AmmunitionIdentity = Availability(AdapterCapabilityState.Supported, AmmunitionIdentityProvenance),
+        WeaponAmmunitionPairing = Availability(AdapterCapabilityState.Supported, PairingProvenance)
     };
 
     private static MetricAvailability Availability(AdapterCapabilityState state, string provenance) => new()

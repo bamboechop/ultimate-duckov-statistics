@@ -103,7 +103,10 @@ public sealed class StatisticsExportBundle
         string combatAttributionCsv,
         string weaponTotalsCsv,
         string ammunitionTotalsCsv,
+        string weaponAmmunitionPairsCsv,
         string equipmentTotalsCsv,
+        string characterEquipmentSlotsCsv,
+        string equippedItemNestedSlotsCsv,
         string recurringLoadoutsCsv,
         string equipmentCombatCsv,
         string containersCsv,
@@ -132,7 +135,10 @@ public sealed class StatisticsExportBundle
         CombatAttributionCsv = combatAttributionCsv;
         WeaponTotalsCsv = weaponTotalsCsv;
         AmmunitionTotalsCsv = ammunitionTotalsCsv;
+        WeaponAmmunitionPairsCsv = weaponAmmunitionPairsCsv;
         EquipmentTotalsCsv = equipmentTotalsCsv;
+        CharacterEquipmentSlotsCsv = characterEquipmentSlotsCsv;
+        EquippedItemNestedSlotsCsv = equippedItemNestedSlotsCsv;
         RecurringLoadoutsCsv = recurringLoadoutsCsv;
         EquipmentCombatCsv = equipmentCombatCsv;
         ContainersCsv = containersCsv;
@@ -175,7 +181,13 @@ public sealed class StatisticsExportBundle
 
     public string AmmunitionTotalsCsv { get; }
 
+    public string WeaponAmmunitionPairsCsv { get; }
+
     public string EquipmentTotalsCsv { get; }
+
+    public string CharacterEquipmentSlotsCsv { get; }
+
+    public string EquippedItemNestedSlotsCsv { get; }
 
     public string RecurringLoadoutsCsv { get; }
 
@@ -321,7 +333,10 @@ public static class StatisticsExporter
             CreateCombatAttributionCsv(document),
             CreateWeaponTotalsCsv(document),
             CreateAmmunitionTotalsCsv(document),
+            CreateWeaponAmmunitionPairsCsv(document),
             CreateEquipmentTotalsCsv(document),
+            CreateCharacterEquipmentSlotsCsv(document),
+            CreateEquippedItemNestedSlotsCsv(document),
             CreateRecurringLoadoutsCsv(document),
             CreateEquipmentCombatCsv(document),
             CreateContainersCsv(document),
@@ -708,6 +723,160 @@ public static class StatisticsExporter
             AppendEquipmentDurations(builder, "run", run.RunId, run.EquipmentStatistics);
         return builder.ToString();
     }
+
+    private static string CreateWeaponAmmunitionPairsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,projection,weapon_id,weapon_display_name,ammunition_id,ammunition_display_name,accepted_firing_actions,percentage_within_observed_projection_pairs,pairing_state,pairing_provenance,uncorrelated_firing_actions,historical_unavailable,historical_provenance,repaired_invalid_state");
+        foreach (var scope in M14Scopes(document))
+        {
+            var statistics = scope.WeaponStatistics;
+            var weaponTotals = statistics.WeaponAmmunitionPairs.Values
+                .GroupBy(value => value.WeaponId, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Aggregate(0L, (total, pair) => checked(total + pair.FiringActions)),
+                    StringComparer.Ordinal);
+            var ammunitionTotals = statistics.WeaponAmmunitionPairs.Values
+                .GroupBy(value => value.AmmunitionId, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Aggregate(0L, (total, pair) => checked(total + pair.FiringActions)),
+                    StringComparer.Ordinal);
+            var pairs = statistics.WeaponAmmunitionPairs.Values
+                .OrderBy(value => value.WeaponId, StringComparer.Ordinal)
+                .ThenBy(value => value.AmmunitionId, StringComparer.Ordinal)
+                .ToArray();
+            if (pairs.Length == 0)
+            {
+                Append(string.Empty, string.Empty, string.Empty, string.Empty, 0, string.Empty);
+                continue;
+            }
+            foreach (var pair in pairs)
+            {
+                var weaponPercentage = weaponTotals[pair.WeaponId] == 0
+                    ? string.Empty
+                    : (pair.FiringActions * 100d / weaponTotals[pair.WeaponId]).ToString("R", CultureInfo.InvariantCulture);
+                var ammunitionPercentage = ammunitionTotals[pair.AmmunitionId] == 0
+                    ? string.Empty
+                    : (pair.FiringActions * 100d / ammunitionTotals[pair.AmmunitionId]).ToString("R", CultureInfo.InvariantCulture);
+                Append("weapon_to_ammunition", pair.WeaponId, pair.WeaponDisplayName, pair.AmmunitionId, pair.FiringActions, weaponPercentage, pair.AmmunitionDisplayName);
+                Append("ammunition_to_weapon", pair.WeaponId, pair.WeaponDisplayName, pair.AmmunitionId, pair.FiringActions, ammunitionPercentage, pair.AmmunitionDisplayName);
+            }
+
+            void Append(
+                string projection,
+                string weaponId,
+                string weaponName,
+                string ammunitionId,
+                long actions,
+                string percentage,
+                string ammunitionName = "")
+            {
+                builder.Append(Csv(scope.Scope)).Append(',').Append(Csv(scope.ScopeId)).Append(',')
+                    .Append(Csv(scope.RunId)).Append(',').Append(Csv(scope.SegmentId)).Append(',').Append(Csv(scope.MapId)).Append(',')
+                    .Append(Csv(projection)).Append(',').Append(Csv(weaponId)).Append(',').Append(Csv(weaponName)).Append(',')
+                    .Append(Csv(ammunitionId)).Append(',').Append(Csv(ammunitionName)).Append(',')
+                    .Append(actions.ToString(CultureInfo.InvariantCulture)).Append(',').Append(percentage).Append(',')
+                    .Append(statistics.Capabilities.WeaponAmmunitionPairing.State).Append(',')
+                    .Append(Csv(statistics.Capabilities.WeaponAmmunitionPairing.Provenance)).Append(',')
+                    .Append(statistics.UncorrelatedFiringActions.ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(statistics.HistoricalPairingUnavailable ? "true" : "false").Append(',')
+                    .Append(Csv(statistics.HistoricalPairingProvenance)).Append(',')
+                    .Append(statistics.WasRepairedFromInvalidState ? "true" : "false").AppendLine();
+            }
+        }
+        return builder.ToString();
+    }
+
+    private static string CreateCharacterEquipmentSlotsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,slot_id,slot_display_name,state,item_id,item_display_name,item_kind,active_duration_seconds,observed_slot_duration_seconds,capability_state,capability_provenance,historical_unavailable,historical_provenance,repaired_invalid_state");
+        foreach (var scope in M14Scopes(document))
+        {
+            var statistics = scope.EquipmentStatistics;
+            var rows = statistics.CharacterSlotStates.Values
+                .OrderBy(value => value.SlotId, StringComparer.Ordinal)
+                .ThenBy(value => value.State)
+                .ThenBy(value => value.ItemId, StringComparer.Ordinal)
+                .ToArray();
+            if (rows.Length == 0)
+            {
+                Append(null);
+                continue;
+            }
+            foreach (var row in rows) Append(row);
+
+            void Append(CharacterSlotStateDurationAggregate? row)
+            {
+                var observed = row != null && statistics.CharacterSlotObservedDurations.TryGetValue(
+                    ExportComponent(row.SlotId), out var value) ? value.ActiveDurationSeconds : 0;
+                builder.Append(Csv(scope.Scope)).Append(',').Append(Csv(scope.ScopeId)).Append(',')
+                    .Append(Csv(scope.RunId)).Append(',').Append(Csv(scope.SegmentId)).Append(',').Append(Csv(scope.MapId)).Append(',')
+                    .Append(Csv(row?.SlotId ?? string.Empty)).Append(',').Append(Csv(row?.SlotDisplayName ?? string.Empty)).Append(',')
+                    .Append(row?.State.ToString() ?? string.Empty).Append(',').Append(Csv(row?.ItemId ?? string.Empty)).Append(',')
+                    .Append(Csv(row?.ItemDisplayName ?? string.Empty)).Append(',').Append(row?.ItemKind.ToString() ?? string.Empty).Append(',')
+                    .Append((row?.ActiveDurationSeconds ?? 0).ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append(observed.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append(statistics.Capabilities.CharacterSlotState.State).Append(',')
+                    .Append(Csv(statistics.Capabilities.CharacterSlotState.Provenance)).Append(',')
+                    .Append(statistics.HistoricalCharacterSlotStateUnavailable ? "true" : "false").Append(',')
+                    .Append(Csv(statistics.HistoricalCharacterSlotStateProvenance)).Append(',')
+                    .Append(statistics.WasRepairedFromInvalidState ? "true" : "false").AppendLine();
+            }
+        }
+        return builder.ToString();
+    }
+
+    private static string CreateEquippedItemNestedSlotsCsv(StatisticsExportDocument document)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,parent_slot_id,parent_item_id,parent_item_display_name,parent_item_kind,nested_path,slot_key,slot_display_name,state,item_id,item_display_name,active_duration_seconds,observed_path_duration_seconds,capability_state,capability_provenance,historical_unavailable,historical_provenance,repaired_invalid_state");
+        foreach (var scope in M14Scopes(document))
+        {
+            var statistics = scope.EquipmentStatistics;
+            var rows = statistics.NestedSlotStates.Values
+                .OrderBy(value => value.ParentSlotId, StringComparer.Ordinal)
+                .ThenBy(value => value.ParentItemId, StringComparer.Ordinal)
+                .ThenBy(value => value.Path, StringComparer.Ordinal)
+                .ThenBy(value => value.State)
+                .ThenBy(value => value.ItemId, StringComparer.Ordinal)
+                .ToArray();
+            if (rows.Length == 0)
+            {
+                Append(null);
+                continue;
+            }
+            foreach (var row in rows) Append(row);
+
+            void Append(NestedSlotStateDurationAggregate? row)
+            {
+                var observationKey = row == null ? string.Empty : ExportComponent(row.ParentSlotId) + "|"
+                    + ExportComponent(row.ParentItemId) + "|" + ExportComponent(row.Path);
+                var observed = row != null && statistics.NestedSlotObservedDurations.TryGetValue(
+                    observationKey, out var value) ? value.ActiveDurationSeconds : 0;
+                builder.Append(Csv(scope.Scope)).Append(',').Append(Csv(scope.ScopeId)).Append(',')
+                    .Append(Csv(scope.RunId)).Append(',').Append(Csv(scope.SegmentId)).Append(',').Append(Csv(scope.MapId)).Append(',')
+                    .Append(Csv(row?.ParentSlotId ?? string.Empty)).Append(',').Append(Csv(row?.ParentItemId ?? string.Empty)).Append(',')
+                    .Append(Csv(row?.ParentItemDisplayName ?? string.Empty)).Append(',').Append(row?.ParentItemKind.ToString() ?? string.Empty).Append(',')
+                    .Append(Csv(row?.Path ?? string.Empty)).Append(',').Append(Csv(row?.SlotKey ?? string.Empty)).Append(',')
+                    .Append(Csv(row?.SlotDisplayName ?? string.Empty)).Append(',').Append(row?.State.ToString() ?? string.Empty).Append(',')
+                    .Append(Csv(row?.ItemId ?? string.Empty)).Append(',').Append(Csv(row?.ItemDisplayName ?? string.Empty)).Append(',')
+                    .Append((row?.ActiveDurationSeconds ?? 0).ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append(observed.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append(statistics.Capabilities.NestedSlotState.State).Append(',')
+                    .Append(Csv(statistics.Capabilities.NestedSlotState.Provenance)).Append(',')
+                    .Append(statistics.HistoricalNestedSlotStateUnavailable ? "true" : "false").Append(',')
+                    .Append(Csv(statistics.HistoricalNestedSlotStateProvenance)).Append(',')
+                    .Append(statistics.WasRepairedFromInvalidState ? "true" : "false").AppendLine();
+            }
+        }
+        return builder.ToString();
+    }
+
+    private static string ExportComponent(string value) =>
+        value.Length.ToString(CultureInfo.InvariantCulture) + ":" + value;
 
     private static void AppendEquipmentDurations(StringBuilder builder, string scope, string scopeId, EquipmentStatisticsAggregate statistics)
     {
@@ -1188,6 +1357,11 @@ public static class StatisticsExporter
             clone.AmmunitionIdentity,
             ReadCapabilityState(current, WeaponCapabilityIds.AmmunitionIdentity, clone.AmmunitionIdentity.State),
             allowUninitializedFallback);
+        clone.WeaponAmmunitionPairing.State = ResolveAvailability(
+            aggregate,
+            clone.WeaponAmmunitionPairing,
+            ReadCapabilityState(current, WeaponCapabilityIds.WeaponAmmunitionPairing, clone.WeaponAmmunitionPairing.State),
+            allowUninitializedFallback);
         return clone;
     }
 
@@ -1239,6 +1413,8 @@ public static class StatisticsExporter
         Apply(result.DirectTotems, EquipmentCapabilityIds.DirectTotems);
         Apply(result.ToteContents, EquipmentCapabilityIds.ToteContents);
         Apply(result.ToteActivation, EquipmentCapabilityIds.ToteActivation);
+        Apply(result.CharacterSlotState, EquipmentCapabilityIds.CharacterSlotState);
+        Apply(result.NestedSlotState, EquipmentCapabilityIds.NestedSlotState);
         return result;
         void Apply(MetricAvailability value, string id)
         {
@@ -1478,6 +1654,60 @@ public static class StatisticsExporter
         public string MapId { get; }
         public string MapDisplayName { get; }
         public EconomyStatisticsAggregate Economy { get; }
+    }
+
+    private static IEnumerable<M14AssociationScope> M14Scopes(StatisticsExportDocument document)
+    {
+        yield return new M14AssociationScope(
+            "lifetime", document.GenerationId, string.Empty, string.Empty, string.Empty,
+            document.RunTotals.WeaponStatistics, document.RunTotals.EquipmentStatistics);
+        foreach (var map in document.RunTotals.Maps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+            yield return new M14AssociationScope(
+                "starting_map", map.MapId, string.Empty, string.Empty, map.MapId,
+                map.WeaponStatistics, map.EquipmentStatistics);
+        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+            yield return new M14AssociationScope(
+                "route_map", map.MapId, string.Empty, string.Empty, map.MapId,
+                map.WeaponStatistics, map.EquipmentStatistics);
+        foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
+        {
+            yield return new M14AssociationScope(
+                "run", run.RunId, run.RunId, string.Empty, run.StartingMapId,
+                run.WeaponStatistics, run.EquipmentStatistics);
+            foreach (var segment in run.Segments.OrderBy(value => value.SegmentIndex))
+                yield return new M14AssociationScope(
+                    "route_segment", segment.SegmentId, run.RunId, segment.SegmentId, segment.MapId,
+                    segment.WeaponStatistics, segment.EquipmentStatistics);
+        }
+    }
+
+    private sealed class M14AssociationScope
+    {
+        public M14AssociationScope(
+            string scope,
+            string scopeId,
+            string runId,
+            string segmentId,
+            string mapId,
+            WeaponStatisticsAggregate weaponStatistics,
+            EquipmentStatisticsAggregate equipmentStatistics)
+        {
+            Scope = scope;
+            ScopeId = scopeId;
+            RunId = runId;
+            SegmentId = segmentId;
+            MapId = mapId;
+            WeaponStatistics = weaponStatistics;
+            EquipmentStatistics = equipmentStatistics;
+        }
+
+        public string Scope { get; }
+        public string ScopeId { get; }
+        public string RunId { get; }
+        public string SegmentId { get; }
+        public string MapId { get; }
+        public WeaponStatisticsAggregate WeaponStatistics { get; }
+        public EquipmentStatisticsAggregate EquipmentStatistics { get; }
     }
 
     private static RunDurationRecords CloneRunRecords(RunDurationRecords source) => new()

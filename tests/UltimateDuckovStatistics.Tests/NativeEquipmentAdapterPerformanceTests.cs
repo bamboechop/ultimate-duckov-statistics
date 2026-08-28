@@ -215,5 +215,43 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
         Assert.Equal(0, invalidations);
     }
 
+    [Fact]
+    [Trait("Category", "M14")]
+    public void CleanupDetachesGlobalAndItemTreeCallbacksAndRemainsIdempotent()
+    {
+        var characterItem = new Item { TypeID = 1, DisplayName = "Main duck", Inventory = new Inventory() };
+        var slot = new Slot { Key = "PrimaryWeapon", DisplayName = "Primary" };
+        characterItem.Slots.Add(slot);
+        var main = new CharacterMainControl
+        {
+            IsMainCharacter = true,
+            CharacterItem = characterItem
+        };
+        CharacterMainControl.Main = main;
+        var publications = 0;
+        var adapter = new NativeEquipmentAdapter(
+            () => true,
+            _ =>
+            {
+                publications++;
+                return true;
+            },
+            () => true,
+            _ => { },
+            _ => { },
+            () => 0);
+        adapter.Initialize();
+        Assert.Equal(1, publications);
+
+        Assert.True(adapter.TryCleanup());
+        Assert.True(adapter.TryCleanup());
+        slot.Content = new Item { TypeID = 700, DisplayName = "Weapon" };
+        CharacterMainControl.RaiseSlotChanged(main, slot);
+        characterItem.RaiseItemTreeChanged();
+
+        Assert.Equal(1, publications);
+        Assert.Equal(EquipmentEventAssociation.UnavailableId, adapter.CaptureAssociation().LoadoutId);
+    }
+
     public void Dispose() => CharacterMainControl.ResetNativeState();
 }

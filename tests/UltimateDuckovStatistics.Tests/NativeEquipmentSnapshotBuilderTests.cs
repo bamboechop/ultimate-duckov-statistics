@@ -116,6 +116,70 @@ public sealed class NativeEquipmentSnapshotBuilderTests
         Assert.NotEqual(first.SnapshotId, second.SnapshotId);
     }
 
+    [Fact]
+    [Trait("Category", "M14")]
+    public void NativeBuilderRetainsProvenEmptyRootsAndFullNestedPathsForWeaponAndNonWeaponItems()
+    {
+        var character = Character();
+        character.Slots.Add(new Slot { Key = "ModdedEmptyRoot", DisplayName = "Modded root" });
+        var weapon = new Item { TypeID = 700, DisplayName = "Weapon" };
+        weapon.Slots.Add(new Slot { Key = "Scope", DisplayName = "Scope" });
+        var muzzle = new Item { TypeID = 701, DisplayName = "Muzzle" };
+        muzzle.Slots.Add(new Slot { Key = "Nested;Utility=Path", DisplayName = "Utility" });
+        weapon.Slots.Add(new Slot { Key = "Muzzle", DisplayName = "Muzzle", Content = muzzle });
+        character.Slots.Add(new Slot
+        {
+            Key = "PrimaryWeapon",
+            DisplayName = "Primary",
+            Content = weapon
+        });
+        var armor = new Item { TypeID = 800, DisplayName = "Modded armor" };
+        armor.Slots.Add(new Slot
+        {
+            Key = "Pouch;One",
+            DisplayName = "Pouch",
+            Content = new Item { TypeID = 801, DisplayName = "Child" }
+        });
+        character.Slots.Add(new Slot { Key = "Armor", DisplayName = "Armor", Content = armor });
+
+        var snapshot = NativeEquipmentSnapshotBuilder.Build(new CharacterMainControl(), character);
+
+        Assert.True(snapshot.CharacterSlotStateComplete);
+        Assert.True(snapshot.NestedSlotStateComplete);
+        Assert.Contains(snapshot.CharacterSlots, value => value.SlotId == "duckov:slot:ModdedEmptyRoot"
+            && value.State == EquipmentSlotState.Empty);
+        Assert.Contains(snapshot.CharacterSlots, value => value.SlotId == "duckov:slot:Armor"
+            && value.ItemId == "duckov:item:800");
+        var weaponSnapshot = Assert.Single(snapshot.Items, value => value.ItemId == "duckov:weapon:700");
+        Assert.Contains(weaponSnapshot.NestedSlots, value => value.Path == "5:Scope/"
+            && value.State == EquipmentSlotState.Empty);
+        Assert.Contains(weaponSnapshot.NestedSlots, value => value.Path == "6:Muzzle/19:Nested;Utility=Path/"
+            && value.State == EquipmentSlotState.Empty);
+        var armorSnapshot = Assert.Single(snapshot.Items, value => value.ItemId == "duckov:item:800");
+        Assert.Contains(armorSnapshot.NestedSlots, value => value.Path == "9:Pouch;One/"
+            && value.ItemId == "duckov:item:801");
+    }
+
+    [Fact]
+    [Trait("Category", "M14")]
+    public void DelimiterRichModdedSlotKeysRemainDistinctInSnapshotIdentity()
+    {
+        var firstCharacter = Character();
+        firstCharacter.Slots.Add(new Slot { Key = "A;B=C", DisplayName = "First" });
+        firstCharacter.Slots.Add(new Slot { Key = "D", DisplayName = "Second" });
+        var secondCharacter = Character();
+        secondCharacter.Slots.Add(new Slot { Key = "A", DisplayName = "First" });
+        secondCharacter.Slots.Add(new Slot { Key = "B=C;D", DisplayName = "Second" });
+
+        var first = NativeEquipmentSnapshotBuilder.Build(new CharacterMainControl(), firstCharacter);
+        var second = NativeEquipmentSnapshotBuilder.Build(new CharacterMainControl(), secondCharacter);
+
+        Assert.NotEqual(first.SnapshotId, second.SnapshotId);
+        Assert.NotEqual(
+            first.CharacterSlots.Select(value => value.SlotId).OrderBy(value => value, StringComparer.Ordinal),
+            second.CharacterSlots.Select(value => value.SlotId).OrderBy(value => value, StringComparer.Ordinal));
+    }
+
     private static Item Character() => new() { Inventory = new Inventory() };
 
     private static Item Tote(Item? content = null)

@@ -14,6 +14,15 @@ public sealed class WeaponStatisticsViewModel
     public IReadOnlyList<RunSummary> Runs { get; set; } = Array.Empty<RunSummary>();
 
     public WeaponMetricCapabilities Capabilities { get; set; } = new();
+
+    public IReadOnlyList<WeaponAmmunitionPairView> WeaponAmmunitionPairs { get; set; } =
+        Array.Empty<WeaponAmmunitionPairView>();
+}
+
+public sealed class WeaponAmmunitionPairView
+{
+    public WeaponAmmunitionPairAggregate Pair { get; set; } = new();
+    public double PercentageWithinObservedWeaponPairs { get; set; }
 }
 
 public static class WeaponStatisticsViewModelFactory
@@ -47,6 +56,16 @@ public static class WeaponStatisticsViewModelFactory
             lifetime,
             capabilities.AmmunitionIdentity,
             ReadState(profile, WeaponCapabilityIds.AmmunitionIdentity, capabilities.AmmunitionIdentity.State));
+        capabilities.WeaponAmmunitionPairing.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
+            lifetime,
+            capabilities.WeaponAmmunitionPairing,
+            ReadState(profile, WeaponCapabilityIds.WeaponAmmunitionPairing, capabilities.WeaponAmmunitionPairing.State));
+        var pairedByWeapon = lifetime.WeaponAmmunitionPairs.Values
+            .GroupBy(value => value.WeaponId, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Aggregate(0L, (total, pair) => checked(total + pair.FiringActions)),
+                StringComparer.Ordinal);
         return new WeaponStatisticsViewModel
         {
             Lifetime = lifetime,
@@ -60,6 +79,20 @@ public static class WeaponStatisticsViewModelFactory
                 .OrderByDescending(value => value.Totals.AmmunitionUnitsConsumed)
                 .ThenBy(value => value.DisplayName, StringComparer.Ordinal)
                 .ThenBy(value => value.AmmunitionId, StringComparer.Ordinal)
+                .ToArray(),
+            WeaponAmmunitionPairs = lifetime.WeaponAmmunitionPairs.Values
+                .OrderBy(value => value.WeaponDisplayName, StringComparer.Ordinal)
+                .ThenBy(value => value.WeaponId, StringComparer.Ordinal)
+                .ThenByDescending(value => value.FiringActions)
+                .ThenBy(value => value.AmmunitionDisplayName, StringComparer.Ordinal)
+                .ThenBy(value => value.AmmunitionId, StringComparer.Ordinal)
+                .Select(value => new WeaponAmmunitionPairView
+                {
+                    Pair = value,
+                    PercentageWithinObservedWeaponPairs = pairedByWeapon[value.WeaponId] == 0
+                        ? 0
+                        : value.FiringActions * 100d / pairedByWeapon[value.WeaponId]
+                })
                 .ToArray(),
             Runs = profile.Statistics.Runs
                 .OrderByDescending(run => run.StartedUtc)

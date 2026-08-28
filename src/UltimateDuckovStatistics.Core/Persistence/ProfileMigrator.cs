@@ -50,6 +50,23 @@ public static class ProfileMigrator
             }
         }
 
+        foreach (var scope in M14RecoveryScopes(profile))
+        {
+            try
+            {
+                WeaponStatisticsReducer.ValidateAggregate(scope.WeaponStatistics);
+                EquipmentStatisticsReducer.ValidateRecoveryCandidate(scope.EquipmentStatistics, ProductInfo.SchemaVersion);
+            }
+            catch (ArgumentException exception)
+            {
+                return $"Current-schema {scope.Path} contains invalid M14 association state: {exception.Message}";
+            }
+            catch (OverflowException exception)
+            {
+                return $"Current-schema {scope.Path} contains invalid M14 association state: {exception.Message}";
+            }
+        }
+
         foreach (var run in profile.Statistics.Runs)
         {
             try
@@ -166,6 +183,21 @@ public static class ProfileMigrator
             yield return ($"run '{run.RunId}'", run.Economy);
             foreach (var segment in run.Segments)
                 yield return ($"run '{run.RunId}' segment '{segment.SegmentId}'", segment.Economy);
+        }
+    }
+
+    private static IEnumerable<(string Path, WeaponStatisticsAggregate WeaponStatistics, EquipmentStatisticsAggregate EquipmentStatistics)> M14RecoveryScopes(ProfileDocument profile)
+    {
+        yield return ("completed-run totals", profile.Statistics.RunTotals.WeaponStatistics, profile.Statistics.RunTotals.EquipmentStatistics);
+        foreach (var map in profile.Statistics.RunTotals.Maps)
+            yield return ($"starting-map totals '{map.Key}'", map.Value.WeaponStatistics, map.Value.EquipmentStatistics);
+        foreach (var map in profile.Statistics.RunTotals.RouteMaps)
+            yield return ($"route-map totals '{map.Key}'", map.Value.WeaponStatistics, map.Value.EquipmentStatistics);
+        foreach (var run in profile.Statistics.Runs)
+        {
+            yield return ($"run '{run.RunId}'", run.WeaponStatistics, run.EquipmentStatistics);
+            foreach (var segment in run.Segments)
+                yield return ($"run '{run.RunId}' segment '{segment.SegmentId}'", segment.WeaponStatistics, segment.EquipmentStatistics);
         }
     }
 
@@ -365,6 +397,8 @@ public static class ProfileMigrator
                                  || (profile.Statistics != null && profile.Statistics.SchemaVersion < 12);
         var migratingCrafting = profile.SchemaVersion < 13
                                 || (profile.Statistics != null && profile.Statistics.SchemaVersion < 13);
+        var migratingM14Associations = profile.SchemaVersion < 14
+                                       || (profile.Statistics != null && profile.Statistics.SchemaVersion < 14);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         var missingCurrentEquipmentRoot = !migratingEquipment
@@ -840,6 +874,22 @@ public static class ProfileMigrator
             }
         }
 
+        if (migratingM14Associations)
+        {
+            foreach (var scope in M14RecoveryScopes(profile))
+            {
+                changed |= MarkHistoricalM14Unavailable(scope.WeaponStatistics, scope.EquipmentStatistics);
+            }
+            foreach (var run in profile.Statistics.Runs)
+            {
+                if (run.SchemaVersion < 14)
+                {
+                    run.SchemaVersion = 14;
+                    changed = true;
+                }
+            }
+        }
+
         if (profile.Statistics.RunRecords == null)
         {
             profile.Statistics.RunRecords = new RunDurationRecords();
@@ -1023,6 +1073,18 @@ public static class ProfileMigrator
             changed = true;
         }
 
+        if (profile.SchemaVersion < 14)
+        {
+            profile.SchemaVersion = 14;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 14)
+        {
+            profile.Statistics.SchemaVersion = 14;
+            changed = true;
+        }
+
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
@@ -1050,6 +1112,27 @@ public static class ProfileMigrator
         var changed = CombatStatisticsReducer.MigrateLegacyOwnershipSemantics(combat, provenance);
         changed |= EquipmentStatisticsReducer.MigrateLegacyCombatOwnership(equipment, provenance);
         return changed;
+    }
+
+    internal static bool MarkHistoricalM14Unavailable(
+        WeaponStatisticsAggregate weapon,
+        EquipmentStatisticsAggregate equipment)
+    {
+        const string pairingProvenance = "Historical schema predates M14; event-time weapon-ammunition pairs were not recorded and cannot be reconstructed from marginal totals.";
+        const string characterSlotProvenance = "Historical schema predates M14; the character-slot member catalog and proven-empty root-slot durations were not recorded.";
+        const string nestedSlotProvenance = "Historical schema predates M14; named occupied-child and proven-empty nested-slot durations were not recorded; existing exact item-tree signatures remain intact.";
+        var supportedWeapon = WeaponNativeContractPolicy.CreateMetricCapabilities();
+        var supportedEquipment = EquipmentNativeContractPolicy.CreateSupportedCapabilities();
+        weapon.HistoricalPairingUnavailable = true;
+        weapon.HistoricalPairingProvenance = pairingProvenance;
+        weapon.Capabilities.WeaponAmmunitionPairing = supportedWeapon.WeaponAmmunitionPairing;
+        equipment.HistoricalCharacterSlotStateUnavailable = true;
+        equipment.HistoricalCharacterSlotStateProvenance = characterSlotProvenance;
+        equipment.HistoricalNestedSlotStateUnavailable = true;
+        equipment.HistoricalNestedSlotStateProvenance = nestedSlotProvenance;
+        equipment.Capabilities.CharacterSlotState = supportedEquipment.CharacterSlotState;
+        equipment.Capabilities.NestedSlotState = supportedEquipment.NestedSlotState;
+        return true;
     }
 
     private static bool MarkHistoricalCombatUnavailable(CombatStatisticsAggregate statistics)
