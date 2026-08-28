@@ -24,7 +24,7 @@ After every cold launch and before selecting a save:
 2. Confirm the HarmonyLib Workshop item is installed and active.
 3. If the left UDS indicator is unchecked, click it exactly once.
 4. Confirm the UDS check mark appears, then return to the main menu.
-5. Outside a raid, open UDS Diagnostics and confirm the intended healing, combat, container, `native-economy-*`, and `native-crafting-*` capability rows before relying on those totals. M13 completion actions, produced quantity, output identity, recipe identity, and batch metadata are expected `Supported`; workstation identity, run/map context, and multiple-output recipes are deliberately `DisabledIncompatible` on Duckov 2.3.30.
+5. Outside a raid, open UDS Diagnostics and confirm the intended healing, combat, container, `native-economy-*`, `native-crafting-*`, and M14 weapon/equipment association capability rows before relying on those totals. M13 completion actions, produced quantity, output identity, recipe identity, and batch metadata are expected `Supported`; workstation identity, run/map context, and multiple-output recipes are deliberately `DisabledIncompatible` on Duckov 2.3.30. M14 weapon-ammunition pairing, character equipment-slot state, and nested equipped-item slot state are expected `Supported` when their native collections are readable; missing or incomplete slot evidence remains unavailable rather than being treated as empty.
 
 UDS stores read-only SHA-256 and `SaveTime` observations of the selected Duckov save in UDS's own external profile; it never writes the save. While active, Duckov's public pre-save event lets UDS persist a short-lived expected-save marker in that external profile. This preserves continuity when Duckov completes a normal save and then crashes before UDS can observe the new file, or when the player selects that same slot again in the same Duckov process. Re-selection closes only the prior UDS session checkpoint before identity comparison; a later verified observation or clean application shutdown consumes or clears the marker. The expected Duckov save step itself must fall within 30 seconds of the pre-save event.
 
@@ -46,7 +46,7 @@ UDS data and exports are written outside the game saves under `%USERPROFILE%\App
 
 Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics\`. Existing UDS statistics remain outside the game directory unless the user removes them separately.
 
-## M3-M13 data and exports
+## M3-M14 data and exports
 
 - A run starts only after native raid initialization when the alive main duck has player control; base and loading activity do not start runs.
 - Run outcomes are Extracted, Died, or Interrupted. Active duration excludes pause/loading; wall-clock duration is diagnostic.
@@ -62,6 +62,7 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 - M11 carries credited, physical, and damage actor evidence through projectiles, melee, explosions, buffs, and delayed effects. `Companion`, `Other NPC`, explicitly actorless `Environmental`, and `Unknown` deaths never inflate player kills or equipment kill credit. Schema-10 ambiguity remains explicitly legacy where retained evidence cannot reclassify it.
 - M12 records generation-local calendar-day advancement and total observed forward Duckov world-clock time. Completed sleep sessions and exact sleep-advanced time require the matching native clock step plus the later sleep-complete callback; cancelled, interrupted, mismatched, or duplicate sleep lifecycles do not count. These lifetime totals are not wall-clock play time, active raid duration, loading duration, or per-run attribution.
 - M13 records one completion action only when the installed private `CraftingManager.Craft(CraftingFormula)` task returns a non-null result after its native output-delivery path. Produced quantity is the formula's declared singular `result.amount`, kept separate from actions and grouped by stable output item type ID, recipe ID, and declared batch size. Attempts, failed payment, incomplete work, inventory movement, profile hydration, and inferred ingredient/currency changes do not count.
+- M14 records accepted firing actions by simultaneous weapon-ammunition identity and active-raid duration for proven occupied or empty character and equipped-item nested slots. Missing or unreadable slot evidence remains unavailable rather than becoming an inferred empty interval.
 - Exports contain `statistics.json` plus twenty-nine CSVs. M14 adds `weapon_ammunition_pairs.csv`, `character_equipment_slots.csv`, and `equipped_item_nested_slots.csv`, including route-segment rows and both weapon-first and ammunition-first pair projections. Capability provenance, historical availability, and repair state agree with JSON and the temporary Combat/Equipment UI. `map_totals.csv` remains starting-map complete-run history; route-map totals are separate.
 
 ## Known v0.14.0 limitations
