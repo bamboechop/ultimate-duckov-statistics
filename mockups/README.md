@@ -110,6 +110,8 @@ The German menu text reflects the available native reference captures. Productio
 ### Reset and export
 
 - Reset confirmation states that the current UDS generation will be archived read-only and replaced with a new empty UDS profile. Duckov save data is unchanged, and the action cannot be undone from within UDS.
+- The reset modal keeps keyboard focus within the modal, gives Cancel the initial/default focus, lets Escape cancel, and blocks interaction with the obscured panel.
+- Reset and export each allow only one in-flight operation. Disable the initiating control until completion and reject duplicate activation without starting another archive or export.
 - Successful reset reports that the previous generation was archived. Failed reset reports that no statistics were removed and the existing profile remains active.
 - Successful export reports that the export location was copied to the clipboard.
 - Failed reset/export creates a Recent issue and directs deeper technical investigation to `Player.log`. It must not imply that unrelated tracking stopped.
