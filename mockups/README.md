@@ -100,7 +100,7 @@ The German menu text reflects the available native reference captures. Productio
 
 ### Diagnostics
 
-- The desktop composition uses equal-width, independently scrollable columns.
+- The desktop composition uses equal-width, independently scrollable columns. At a narrow viewport, the left column stacks above the right column so Data & settings remains the first content users encounter.
 - The left column contains Data & settings, Recent issues, and Technical details. Technical details contains versions, recovery/data integrity, known limitations, and the bounded diagnostic log.
 - The right column reports current tracking-system health. Each system accordion exposes user-facing sub-capabilities; native contract details remain nested inside the same system rather than moving into a separate global section.
 - `Working` means the supported metrics in that group are currently trustworthy. `Limited` means tracking remains usable but a documented sub-capability or access path is unavailable. `Error` means affected statistics may be incomplete.
@@ -120,8 +120,10 @@ The German menu text reflects the available native reference captures. Productio
 - During a raid, the pause-menu entry is hidden or disabled. F8 never opens the panel and shows the localized outside-raids response.
 - If native menu integration is unavailable, F8 remains active outside raids and Diagnostics reports the limited menu capability.
 - If the active UDS generation cannot be proven, access fails closed without displaying another generation or inventing an empty profile. A normal no-selected-slot screen is not assumed unless installed-native evidence proves that state reachable.
+- At narrower viewports, multi-column desktop layouts may collapse into one vertically scrolling column instead of compressing their contents. Stack regions in desktop reading order from left to right, with the leftmost/primary region first. Responsive placement must preserve every section, control, value, and availability state rather than omitting or merging information.
+- Keep the tab strip on one horizontally scrollable row when all nine tabs do not fit. The selected or keyboard-focused tab remains visible; labels remain readable and do not wrap into multiple navigation rows.
 - Expanded rows, filters, selected tabs, scroll position, focus restoration, and hover/pressed/disabled feedback must behave like native controls. The 2560×1440 compositions do not authorize a fixed-size implementation.
 
 ## M17 implementation checks
 
-Implementation must verify the mockup intent against representative resolutions and UI scales, keyboard and mouse navigation, localization and long-name overflow, independently bounded scrolling, large-history performance, missing/modded icons, repeated setup and open/close cycles, every access path, and exact UI/profile/JSON/CSV agreement. The supporting-state images define representative patterns; deterministic tests should cover additional valid combinations without requiring more static mockups.
+Implementation must verify the mockup intent against representative resolutions and UI scales, including a narrow viewport such as 1024×768; left-first stacked multi-column content; horizontally scrolled tab selection; keyboard and mouse navigation; localization and long-name overflow; independently bounded scrolling; large-history performance; missing/modded icons; repeated setup and open/close cycles; every access path; and exact UI/profile/JSON/CSV agreement. The supporting-state images define representative patterns; deterministic tests should cover additional valid combinations without requiring more static mockups.
