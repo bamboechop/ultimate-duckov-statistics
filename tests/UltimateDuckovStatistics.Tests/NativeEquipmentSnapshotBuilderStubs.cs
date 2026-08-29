@@ -175,6 +175,7 @@ namespace Duckov.Economy
             public long amount;
         }
 
+        public readonly bool IsFree => money <= 0 && (items == null || items.Length == 0);
         public readonly bool Enough => EconomyManager.IsEnough(this);
         public readonly bool Pay(bool accountAvaliable = true, bool cashAvaliable = true) =>
             EconomyManager.Pay(this, accountAvaliable, cashAvaliable);

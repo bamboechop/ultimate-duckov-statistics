@@ -220,6 +220,7 @@ try
         core.RequireField("Duckov.Economy", "Cost", "money", mustBePublic: true, fieldTypeFragment: "System.Int64");
         core.RequireNestedField("Duckov.Economy", "Cost", "ItemEntry", "id", "System.Int32");
         core.RequireNestedField("Duckov.Economy", "Cost", "ItemEntry", "amount", "System.Int64");
+        core.RequireProperty("Duckov.Economy", "Cost", "IsFree", "System.Boolean", mustBePublic: true);
         core.RequireProperty("Duckov.Economy", "Cost", "Enough", "System.Boolean", mustBePublic: true);
         core.RequireMethod(
             "Duckov.Economy", "Cost", "Pay", 2,

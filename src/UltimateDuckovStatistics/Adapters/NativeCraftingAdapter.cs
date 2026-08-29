@@ -490,8 +490,8 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         resources = Array.Empty<CraftingResourceCostEvidence>();
         if (cost.items == null)
         {
-            detail = "Crafting item-resource tracking is unavailable because the invocation did not expose a cost.items array.";
-            return false;
+            detail = string.Empty;
+            return true;
         }
         try
         {

@@ -125,7 +125,90 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(1, ReadResourceActions(profilePath));
     }
 
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "ProductionComposition")]
+    public void DefaultFreeCostRetainsResourceCapabilityAndLaterItemCostRemainsExact()
+    {
+        using var result = CreateComposition();
+        CompleteCraft(
+            result,
+            new CraftingFormula
+            {
+                id = "modded-default-free",
+                result = new CraftingFormula.ItemEntry { id = 8001, amount = 1 },
+                cost = default
+            },
+            ownedCount: 0);
+
+        var afterFree = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(1, afterFree.CompletionActions);
+        Assert.Equal(0, afterFree.CurrencyChargeActions);
+        Assert.Equal(0, afterFree.CurrencyCharged);
+        Assert.Empty(afterFree.Resources);
+        Assert.Empty(afterFree.Outputs["8001"].Recipes["modded-default-free"].Resources);
+        Assert.False(afterFree.ResourceHistoryUnavailable);
+        Assert.Equal(
+            AdapterCapabilityState.Supported,
+            result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
+        Assert.Equal(
+            AdapterCapabilityState.Supported,
+            result.Coordinator.CurrentCraftingCapabilities.OutputResourceAssociation.State);
+
+        CompleteCraft(
+            result,
+            new CraftingFormula
+            {
+                id = "modded-item-cost",
+                result = new CraftingFormula.ItemEntry { id = 8002, amount = 1 },
+                cost = new Cost
+                {
+                    items = [new Cost.ItemEntry { id = 9002, amount = 2 }]
+                }
+            },
+            ownedCount: 2);
+
+        var afterItemCost = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(2, afterItemCost.CompletionActions);
+        Assert.Equal(2, afterItemCost.ProducedQuantity);
+        Assert.False(afterItemCost.ResourceHistoryUnavailable);
+        Assert.Equal(2, afterItemCost.Resources["9002"].ConsumedQuantity);
+        var itemRecipe = afterItemCost.Outputs["8002"].Recipes["modded-item-cost"];
+        Assert.Equal(1, itemRecipe.Resources["9002"].ConsumptionActions);
+        Assert.Equal(2, itemRecipe.Resources["9002"].ConsumedQuantity);
+        Assert.Equal(
+            AdapterCapabilityState.Supported,
+            result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
+        Assert.Equal(
+            AdapterCapabilityState.Supported,
+            result.Coordinator.CurrentCraftingCapabilities.OutputResourceAssociation.State);
+        Assert.Equal(0, ItemUtilities.ScanCount);
+    }
+
     private static CompositionResult CompleteDuplicateCostCraft(int ownedCount)
+    {
+        var result = CreateComposition();
+        CompleteCraft(
+            result,
+            new CraftingFormula
+            {
+                id = "modded-duplicate",
+                result = new CraftingFormula.ItemEntry { id = 7001, amount = 1 },
+                cost = new Cost
+                {
+                    money = 150,
+                    items =
+                    [
+                        new Cost.ItemEntry { id = 9001, amount = 3 },
+                        new Cost.ItemEntry { id = 9001, amount = 3 }
+                    ]
+                }
+            },
+            ownedCount);
+        return result;
+    }
+
+    private static CompositionResult CreateComposition()
     {
         var directory = new TemporaryDirectory();
         Application.persistentDataPath = directory.Path;
@@ -143,30 +226,20 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             () => true);
         ActivateValidatedCallbacks(adapter, coordinator);
         coordinator.SetCraftingBoundaryBarrier(adapter.FlushPending);
+        return new CompositionResult(directory, coordinator, adapter, diagnostics);
+    }
 
-        var formula = new CraftingFormula
-        {
-            id = "modded-duplicate",
-            result = new CraftingFormula.ItemEntry { id = 7001, amount = 1 },
-            cost = new Cost
-            {
-                money = 150,
-                items =
-                [
-                    new Cost.ItemEntry { id = 9001, amount = 3 },
-                    new Cost.ItemEntry { id = 9001, amount = 3 }
-                ]
-            }
-        };
-
+    private static void CompleteCraft(CompositionResult result, CraftingFormula formula, int ownedCount)
+    {
+        var actionsBeforeDelivery = result.Coordinator.Current!.Statistics.Crafting.CompletionActions;
         var craftPrefixArguments = new object?[] { formula, null };
         CraftingHarmonyCallbacks.CraftPrefixMethod.Invoke(null, craftPrefixArguments);
         var craftScope = Assert.IsType<CraftingNativeScope>(craftPrefixArguments[1]);
 
         var payPrefixArguments = new object?[] { formula.cost, null };
         CraftingHarmonyCallbacks.PayPrefixMethod.Invoke(null, payPrefixArguments);
-        var paymentScope = Assert.IsType<CraftingNativeScope>(payPrefixArguments[1]);
-        foreach (var entry in formula.cost.items)
+        var paymentScope = payPrefixArguments[1] as CraftingNativeScope;
+        foreach (var entry in formula.cost.items ?? Array.Empty<Cost.ItemEntry>())
             CraftingHarmonyCallbacks.GetItemCountPostfixMethod.Invoke(null, [entry.id, ownedCount]);
         CraftingHarmonyCallbacks.PayPostfixMethod.Invoke(null, [paymentScope, true]);
         Assert.Null(CraftingHarmonyCallbacks.PayFinalizerMethod.Invoke(null, [null, paymentScope]));
@@ -192,14 +265,14 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         CraftingHarmonyCallbacks.CraftPostfixMethod.Invoke(null, craftPostfixArguments);
         var wrappedCraft = Assert.IsType<UniTask<List<Item>>>(craftPostfixArguments[1]);
         Assert.Null(CraftingHarmonyCallbacks.CraftFinalizerMethod.Invoke(null, [null, craftScope]));
-        Assert.Equal(0, coordinator.Current!.Statistics.Crafting.CompletionActions);
+        Assert.Equal(actionsBeforeDelivery, result.Coordinator.Current!.Statistics.Crafting.CompletionActions);
 
         deliveryCompletion.SetResult();
         wrappedDelivery.GetAwaiter().GetResult();
         craftCompletion.SetResult(new List<Item>());
         wrappedCraft.GetAwaiter().GetResult();
-        coordinator.Flush();
-        return new CompositionResult(directory, coordinator, adapter, diagnostics);
+        result.Coordinator.Flush();
+        Assert.Equal(actionsBeforeDelivery + 1, result.Coordinator.Current.Statistics.Crafting.CompletionActions);
     }
 
     private static void ActivateValidatedCallbacks(

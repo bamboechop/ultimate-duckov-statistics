@@ -29,7 +29,9 @@ M13 already correlates the exact `Cost.Return(false, true, 1, generatedBuffer)` 
 
 ## Item-resource semantics
 
-`CraftingFormula.cost.items` is an array of `Cost.ItemEntry { int id; long amount; }`. `EconomyManager.IsEnough(Cost)` compares each declared entry independently with `ItemUtilities.GetItemCount(id)`. `EconomyManager.Pay(Cost)` repeats that check, pays currency, then requires `ItemUtilities.ConsumeItems(cost)` to return true. `ConsumeItems` first builds one deferred removal action per entry and only afterwards executes those actions. Each action consumes as much of its captured item list as remains, but the method does not verify the action's residual requested amount before returning `true`.
+`CraftingFormula.cost.items` is a nullable array of `Cost.ItemEntry { int id; long amount; }`. Native `Cost.IsFree` treats `items == null` exactly like an empty array when `money` is not positive. `EconomyManager.IsEnough(Cost)` enters its item loop only when `items != null`, and `ItemUtilities.ConsumeItems(Cost)` likewise skips removal and succeeds when `items == null`. A default `Cost` is therefore exact evidence of no item-resource consumption, not missing or unreadable cost evidence; a successful free craft leaves item-resource capability and history complete and emits no resource mutation.
+
+For a non-null array, `EconomyManager.IsEnough(Cost)` compares each declared entry independently with `ItemUtilities.GetItemCount(id)`. `EconomyManager.Pay(Cost)` repeats that check, pays currency, then requires `ItemUtilities.ConsumeItems(cost)` to return true. `ConsumeItems` first builds one deferred removal action per entry and only afterwards executes those actions. Each action consumes as much of its captured item list as remains, but the method does not verify the action's residual requested amount before returning `true`.
 
 That behavior matters for modded formulas containing the same resource ID more than once. With `X x 3; X x 3` and four owned units, both independent checks see four, both deferred removal actions are admitted, the actions remove three and then one, and native payment can still report success and deliver the output. Canonicalizing the declaration to six after delivery would therefore overstate actual consumption.
 
@@ -40,6 +42,7 @@ UDS therefore records the event-time declared item cost of a successful craft as
 - stable identity is the invariant string form of the native integer item ID;
 - display metadata is enrichment only, so missing names retain `Unknown item <id>` and never erase the stable identity;
 - every resource in one successful craft receives one consumption action and its checked declared quantity;
+- null and zero-length item arrays both produce an exact empty resource set without a resource mutation or capability degradation;
 - repeated IDs in a formula are canonicalized by checked addition only after the matched native payment observations prove the combined quantity, even though the audited installed collection contains none;
 - lifetime resource totals and output/recipe/resource associations are checked `Int64` aggregates;
 - reverse resource rankings and breakdowns are derived from the canonical aggregate, not persisted as a duplicate inverse index.
