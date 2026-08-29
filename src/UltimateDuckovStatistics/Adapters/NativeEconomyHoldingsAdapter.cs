@@ -11,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyHoldingsAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy-holdings/2.3.30+authoritative-roots-v2";
+    internal const string AdapterVersion = "native-economy-holdings/2.3.30+authoritative-roots-v3";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const string MoneyProvenance =
@@ -29,6 +29,8 @@ internal sealed class NativeEconomyHoldingsAdapter : IDisposable
     private readonly Action<string> diagnostic;
     private readonly EconomyHoldingsObservationGate observationGate = new();
     private readonly HashSet<long> pendingSaveSlotTransitions = new();
+    private readonly HashSet<long> pendingProfileResetTransitions = new();
+    private readonly Dictionary<long, EconomyManager> trustedMoneyProfileResetInstances = new();
     private Inventory? subscribedPetInventory;
     private EconomyManager? preTransitionEconomyInstance;
     private bool profileChanging;
@@ -139,13 +141,38 @@ internal sealed class NativeEconomyHoldingsAdapter : IDisposable
         BeginProfileChange();
     }
 
+    public void BeginProfileReset(long transitionId)
+    {
+        if (disposed || !subscribed || !pendingProfileResetTransitions.Add(transitionId)) return;
+        var currentEconomyInstance = EconomyManager.Instance;
+        if (moneyHydrationTrusted && currentEconomyInstance != null)
+            trustedMoneyProfileResetInstances.Add(transitionId, currentEconomyInstance);
+    }
+
     public void CompleteProfileChange()
+        => CompleteProfileChangeCore(trustedResetEconomyInstance: null);
+
+    public void CompleteProfileReset(long transitionId)
+    {
+        if (!pendingProfileResetTransitions.Remove(transitionId)) return;
+        trustedMoneyProfileResetInstances.Remove(transitionId, out var trustedResetEconomyInstance);
+        if (disposed || !subscribed || !profileChanging || pendingSaveSlotTransitions.Count > 0) return;
+        CompleteProfileChangeCore(trustedResetEconomyInstance);
+    }
+
+    private void CompleteProfileChangeCore(EconomyManager? trustedResetEconomyInstance)
     {
         if (disposed || !subscribed || !profileChanging || pendingSaveSlotTransitions.Count > 0) return;
         profileChanging = false;
+        var currentEconomyInstance = EconomyManager.Instance;
+        var managerChanged = currentEconomyInstance != null
+                             && !ReferenceEquals(currentEconomyInstance, preTransitionEconomyInstance);
+        var trustedResetInstanceRetained = currentEconomyInstance != null
+                                           && ReferenceEquals(currentEconomyInstance, preTransitionEconomyInstance)
+                                           && ReferenceEquals(currentEconomyInstance, trustedResetEconomyInstance);
         moneyHydrationTrusted = EconomyDataExists()
-                                || (EconomyManager.Instance != null
-                                    && !ReferenceEquals(EconomyManager.Instance, preTransitionEconomyInstance));
+                                || managerChanged
+                                || trustedResetInstanceRetained;
         preTransitionEconomyInstance = null;
         ReconcilePetInventorySubscription();
         MarkMoneyDirty();
@@ -164,6 +191,8 @@ internal sealed class NativeEconomyHoldingsAdapter : IDisposable
         if (disposed) return;
         disposed = true;
         pendingSaveSlotTransitions.Clear();
+        pendingProfileResetTransitions.Clear();
+        trustedMoneyProfileResetInstances.Clear();
         if (subscribed)
         {
             EconomyManager.OnMoneyChanged -= OnMoneyChanged;

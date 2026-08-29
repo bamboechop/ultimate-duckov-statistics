@@ -122,6 +122,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 newEconomyHoldingsAdapter.BeginSaveSlotProfileChange;
             newProfileCoordinator.EconomyHoldingsSaveSlotTransitionCompleted +=
                 newEconomyHoldingsAdapter.CompleteSaveSlotProfileChange;
+            newProfileCoordinator.EconomyHoldingsProfileResetStarted +=
+                newEconomyHoldingsAdapter.BeginProfileReset;
+            newProfileCoordinator.EconomyHoldingsProfileResetCompleted +=
+                newEconomyHoldingsAdapter.CompleteProfileReset;
             newProfileCoordinator.ProfileChanging += newEconomyHoldingsAdapter.BeginProfileChange;
             newProfileCoordinator.ProfileChanged += newEconomyHoldingsAdapter.CompleteProfileChange;
             var worldTimeGenerationProvider = NativeWorldTimeProfileBinding.CaptureGenerationProvider(
@@ -436,6 +440,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 economyHoldingsAdapter.BeginSaveSlotProfileChange;
             profileCoordinator.EconomyHoldingsSaveSlotTransitionCompleted -=
                 economyHoldingsAdapter.CompleteSaveSlotProfileChange;
+            profileCoordinator.EconomyHoldingsProfileResetStarted -=
+                economyHoldingsAdapter.BeginProfileReset;
+            profileCoordinator.EconomyHoldingsProfileResetCompleted -=
+                economyHoldingsAdapter.CompleteProfileReset;
             profileCoordinator.ProfileChanging -= economyHoldingsAdapter.BeginProfileChange;
             profileCoordinator.ProfileChanged -= economyHoldingsAdapter.CompleteProfileChange;
         }

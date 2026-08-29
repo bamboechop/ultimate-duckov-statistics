@@ -63,6 +63,8 @@ public sealed class NativeEconomyHoldingsCoordinatorTests : IDisposable
         coordinator.SetEconomyHoldingsBoundaryBarrier(adapter.FlushPending);
         coordinator.EconomyHoldingsSaveSlotTransitionStarted += adapter.BeginSaveSlotProfileChange;
         coordinator.EconomyHoldingsSaveSlotTransitionCompleted += adapter.CompleteSaveSlotProfileChange;
+        coordinator.EconomyHoldingsProfileResetStarted += adapter.BeginProfileReset;
+        coordinator.EconomyHoldingsProfileResetCompleted += adapter.CompleteProfileReset;
         coordinator.ProfileChanging += adapter.BeginProfileChange;
         coordinator.ProfileChanged += adapter.CompleteProfileChange;
 
@@ -113,6 +115,73 @@ public sealed class NativeEconomyHoldingsCoordinatorTests : IDisposable
         Assert.Equal(EconomyHoldingObservationState.Current,
             slotBBackup.Statistics.Holdings.Money.State);
         Assert.Equal(222, slotBBackup.Statistics.Holdings.Money.Value);
+    }
+
+    [Fact]
+    [Trait("Category", "M15")]
+    [Trait("Category", "Lifecycle")]
+    public void UserResetRetainsAuthoritativeMoneyObservedBeforeFirstEconomySave()
+    {
+        using var directory = new TemporaryDirectory();
+        Application.persistentDataPath = directory.Path;
+        WriteNativeSave(directory.Path, slot: 1, saveTime: 1);
+        ConfigureReadyRoots();
+
+        Saves.SavesSystem.CurrentSlot = 1;
+        Saves.SavesSystem.EconomyDataExists = false;
+        var economyManager = new EconomyManager();
+        EconomyManager.Instance = economyManager;
+        EconomyManager.Money = 333;
+
+        using var coordinator = new NativeProfileCoordinator();
+        coordinator.Initialize();
+        using var adapter = new NativeEconomyHoldingsAdapter(
+            () => coordinator.CurrentGenerationId,
+            coordinator.HandleEconomyHoldings,
+            coordinator.MarkEconomyHoldingsNotCurrent,
+            coordinator.MarkEconomyHoldingsUnavailable,
+            coordinator.SetEconomyHoldingsCapabilities,
+            _ => { });
+        adapter.Initialize();
+        coordinator.SetEconomyHoldingsBoundaryBarrier(adapter.FlushPending);
+        coordinator.EconomyHoldingsSaveSlotTransitionStarted += adapter.BeginSaveSlotProfileChange;
+        coordinator.EconomyHoldingsSaveSlotTransitionCompleted += adapter.CompleteSaveSlotProfileChange;
+        coordinator.EconomyHoldingsProfileResetStarted += adapter.BeginProfileReset;
+        coordinator.EconomyHoldingsProfileResetCompleted += adapter.CompleteProfileReset;
+        coordinator.ProfileChanging += adapter.BeginProfileChange;
+        coordinator.ProfileChanged += adapter.CompleteProfileChange;
+
+        EconomyManager.RaiseMoneyChanged(0, 333);
+        adapter.Tick();
+        coordinator.Flush();
+        var priorGeneration = coordinator.CurrentGenerationId;
+        Assert.Equal(EconomyHoldingObservationState.Current,
+            coordinator.Current!.Statistics.Holdings.Money.State);
+        Assert.Equal(333, coordinator.Current.Statistics.Holdings.Money.Value);
+
+        coordinator.ResetCurrent();
+        var resetGeneration = coordinator.CurrentGenerationId;
+        Assert.NotEqual(priorGeneration, resetGeneration);
+        Assert.False(Saves.SavesSystem.EconomyDataExists);
+        Assert.Same(economyManager, EconomyManager.Instance);
+        adapter.Tick();
+        coordinator.Flush();
+
+        Assert.Equal(EconomyHoldingObservationState.Current,
+            coordinator.Current.Statistics.Holdings.Money.State);
+        Assert.Equal(333, coordinator.Current.Statistics.Holdings.Money.Value);
+
+        var path = ProfilePath(coordinator.DataRoot, slot: 1);
+        var primary = LoadExact(path);
+        var backup = LoadExact(AtomicJsonPaths.GetBackupPath(path));
+        Assert.Equal(resetGeneration, primary.GenerationId);
+        Assert.Equal(EconomyHoldingObservationState.Current,
+            primary.Statistics.Holdings.Money.State);
+        Assert.Equal(333, primary.Statistics.Holdings.Money.Value);
+        Assert.Equal(resetGeneration, backup.GenerationId);
+        Assert.Equal(EconomyHoldingObservationState.Current,
+            backup.Statistics.Holdings.Money.State);
+        Assert.Equal(333, backup.Statistics.Holdings.Money.Value);
     }
 
     private static ProfileDocument LoadExact(string path)

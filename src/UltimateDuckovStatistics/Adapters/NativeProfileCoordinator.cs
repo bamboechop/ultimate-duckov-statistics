@@ -124,6 +124,10 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public event Action<long>? EconomyHoldingsSaveSlotTransitionCompleted;
 
+    public event Action<long>? EconomyHoldingsProfileResetStarted;
+
+    public event Action<long>? EconomyHoldingsProfileResetCompleted;
+
     public event Action<long>? WorldTimeProfileChangeAwaitingNativeLoadStarted;
 
     public event Action<long>? WorldTimeNewGameProfileChangeStarted;
@@ -658,9 +662,15 @@ internal sealed class NativeProfileCoordinator : IDisposable
         var profileTransitionId = NextProfileTransitionId();
         NativeProfileResetTransition.Queue(
             profileTransitionId,
-            craftingProfileChangeStarted: transitionId => PublishProfileEvent(
-                () => CraftingProfileChangeStarted?.Invoke(transitionId),
-                "crafting-profile-reset-started"),
+            craftingProfileChangeStarted: transitionId =>
+            {
+                PublishProfileEvent(
+                    () => EconomyHoldingsProfileResetStarted?.Invoke(transitionId),
+                    "economy-holdings-profile-reset-started");
+                PublishProfileEvent(
+                    () => CraftingProfileChangeStarted?.Invoke(transitionId),
+                    "crafting-profile-reset-started");
+            },
             enqueueTransition: QueueProfileTransition,
             profileChanging: () => ProfileChanging?.Invoke(),
             waitRunCheckpoint: WaitRunCheckpoint,
@@ -671,9 +681,15 @@ internal sealed class NativeProfileCoordinator : IDisposable
             worldTimeProfileChanged: () => PublishProfileEvent(
                 WorldTimeProfileChangedWithCurrentClock,
                 "world-time-profile-changed-current-clock"),
-            craftingProfileChangeCompleted: transitionId => PublishProfileEvent(
-                () => CraftingProfileChangeCompleted?.Invoke(transitionId),
-                "crafting-profile-reset-completed"),
+            craftingProfileChangeCompleted: transitionId =>
+            {
+                PublishProfileEvent(
+                    () => CraftingProfileChangeCompleted?.Invoke(transitionId),
+                    "crafting-profile-reset-completed");
+                PublishProfileEvent(
+                    () => EconomyHoldingsProfileResetCompleted?.Invoke(transitionId),
+                    "economy-holdings-profile-reset-completed");
+            },
             profileChanged: () => PublishProfileEvent(ProfileChanged, "profile-changed"),
             applyCurrentMetricCapabilities: ApplyCurrentCapabilities,
             writeDiagnostic: () => WriteDiagnostic(
