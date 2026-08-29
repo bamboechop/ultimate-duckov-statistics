@@ -139,6 +139,162 @@ public sealed class M16CraftingResourceStatisticsTests
 
     [Fact]
     [Trait("Category", "M16")]
+    public void OverlappingBatchedCraftsAndDuplicateCompletionKeepEventTimeCostsIsolated()
+    {
+        var aggregate = SupportedAggregate();
+        var boundary = new CraftingCompletionBoundary();
+        var first = boundary.Begin(new CraftingCompletionEvidence(
+            "output-a",
+            "Output A",
+            "recipe-a",
+            2,
+            [
+                new CraftingResourceCostEvidence("shared", "Shared", 3),
+                new CraftingResourceCostEvidence("exclusive", "Exclusive", 4)
+            ],
+            10));
+        var second = boundary.Begin(new CraftingCompletionEvidence(
+            "output-b",
+            "Output B",
+            "recipe-b",
+            7,
+            [new CraftingResourceCostEvidence("shared", "Shared", 5)],
+            20));
+
+        Assert.True(boundary.TryComplete(second, "generation-1", Now, out var secondMutation));
+        Assert.True(boundary.TryComplete(first, "generation-1", Now.AddSeconds(1), out var firstMutation));
+        Assert.False(boundary.TryComplete(first, "generation-1", Now.AddSeconds(2), out var duplicate));
+        Assert.True(duplicate.IsEmpty);
+        Assert.True(CraftingStatisticsReducer.Apply(aggregate, secondMutation));
+        Assert.True(CraftingStatisticsReducer.Apply(aggregate, firstMutation));
+
+        Assert.Equal(2, aggregate.CompletionActions);
+        Assert.Equal(9, aggregate.ProducedQuantity);
+        Assert.Equal(8, aggregate.Resources["shared"].ConsumedQuantity);
+        Assert.Equal(4, aggregate.Resources["exclusive"].ConsumedQuantity);
+        Assert.Equal(30, aggregate.CurrencyCharged);
+        var firstRecipe = aggregate.Outputs["output-a"].Recipes["recipe-a"];
+        Assert.Equal(1, firstRecipe.BatchActions["2"]);
+        Assert.Equal(3, firstRecipe.Resources["shared"].ConsumedQuantity);
+        Assert.Equal(4, firstRecipe.Resources["exclusive"].ConsumedQuantity);
+        Assert.Equal(10, firstRecipe.CurrencyCharged);
+        var secondRecipe = aggregate.Outputs["output-b"].Recipes["recipe-b"];
+        Assert.Equal(1, secondRecipe.BatchActions["7"]);
+        Assert.Equal(5, secondRecipe.Resources["shared"].ConsumedQuantity);
+        Assert.Equal(20, secondRecipe.CurrencyCharged);
+        Assert.True(boundary.FinishPublication(second));
+        Assert.True(boundary.FinishPublication(first));
+        Assert.False(boundary.FinishPublication(first));
+        CraftingStatisticsReducer.Validate(aggregate);
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    public void ProfileHandoffRetainsCostPayloadAndRebindsOnlyItsGeneration()
+    {
+        var completion = new CraftingCompletionBoundary();
+        var handoff = new CraftingProfileHandoffBoundary();
+        handoff.Begin(17);
+        var token = completion.Begin(Evidence(6, 150));
+
+        Assert.True(completion.TryComplete(
+            token,
+            CraftingProfileHandoffBoundary.StagedGenerationId,
+            Now,
+            out var staged));
+        Assert.True(handoff.Stage(17, staged));
+        Assert.True(completion.FinishPublication(token));
+        Assert.True(handoff.Complete(17, "generation-target"));
+        CraftingMutation? published = null;
+        Assert.True(handoff.TryFlushCompleted(mutation =>
+        {
+            published = mutation;
+            return true;
+        }));
+
+        Assert.Equal("generation-target", published!.SaveGenerationId);
+        var row = Assert.Single(published.Rows);
+        var resource = Assert.Single(row.Resources);
+        Assert.Equal("764", resource.ResourceItemId);
+        Assert.Equal(1, resource.ConsumptionActions);
+        Assert.Equal(6, resource.ConsumedQuantity);
+        Assert.Equal(1, row.CurrencyChargeActions);
+        Assert.Equal(150, row.CurrencyCharged);
+        Assert.False(handoff.HasUncommittedData);
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    public void SlotNewGameAndResetKeepM16CostsInTheirExactSaveGeneration()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var repository = Repository(
+            temporaryDirectory.Path,
+            "generation-slot-1", "session-slot-1",
+            "generation-slot-2", "session-slot-2",
+            "session-slot-1-reopen",
+            "generation-slot-1-new", "session-slot-1-new",
+            "generation-slot-1-reset", "session-slot-1-reset");
+        var boundary = new CraftingCompletionBoundary();
+
+        repository.Open(Identity(1, 100));
+        repository.SetCraftingCapabilities(CraftingNativeContractPolicy.Supported("delivery", "formula", "event items", "event money"));
+        Complete("output-slot-1", "recipe-slot-1", "764", 4, 150);
+
+        repository.Open(Identity(2, 200));
+        repository.SetCraftingCapabilities(CraftingNativeContractPolicy.Supported("delivery", "formula", "event items", "event money"));
+        AssertEmpty(repository.Current.Statistics.Crafting);
+        Complete("output-slot-2", "recipe-slot-2", "662", 3, 0);
+
+        repository.Open(Identity(1, 100));
+        repository.SetCraftingCapabilities(CraftingNativeContractPolicy.Supported("delivery", "formula", "event items", "event money"));
+        Assert.Equal(4, repository.Current.Statistics.Crafting.Resources["764"].ConsumedQuantity);
+        Assert.DoesNotContain("662", repository.Current.Statistics.Crafting.Resources.Keys);
+        Assert.Equal(150, repository.Current.Statistics.Crafting.CurrencyCharged);
+
+        repository.Rotate(Identity(1, 300), "DuckovNewGame");
+        repository.SetCraftingCapabilities(CraftingNativeContractPolicy.Supported("delivery", "formula", "event items", "event money"));
+        AssertEmpty(repository.Current.Statistics.Crafting);
+        Complete("output-new-game", "recipe-new-game", "21", 2, 0);
+
+        repository.Rotate(Identity(1, 300), "UserReset");
+        repository.SetCraftingCapabilities(CraftingNativeContractPolicy.Supported("delivery", "formula", "event items", "event money"));
+        AssertEmpty(repository.Current.Statistics.Crafting);
+        repository.CloseClean();
+
+        void Complete(
+            string outputItemId,
+            string recipeId,
+            string resourceItemId,
+            long resourceQuantity,
+            long currencyCharged)
+        {
+            var token = boundary.Begin(new CraftingCompletionEvidence(
+                outputItemId,
+                outputItemId,
+                recipeId,
+                1,
+                [new CraftingResourceCostEvidence(resourceItemId, resourceItemId, resourceQuantity)],
+                currencyCharged));
+            Assert.True(boundary.TryComplete(token, repository.Current.GenerationId, Now, out var mutation));
+            Assert.True(repository.RecordCraftingDeferred(mutation));
+            Assert.True(boundary.FinishPublication(token));
+            repository.Flush();
+        }
+
+        static void AssertEmpty(CraftingStatisticsAggregate crafting)
+        {
+            Assert.Equal(0, crafting.CompletionActions);
+            Assert.Empty(crafting.Outputs);
+            Assert.Empty(crafting.Resources);
+            Assert.Equal(0, crafting.CurrencyChargeActions);
+            Assert.Equal(0, crafting.CurrencyCharged);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
     [Trait("Category", "Persistence")]
     public void SchemaFifteenCraftingTotalsRemainWhilePreM16CostHistoryIsUnavailableAndNotReconstructed()
     {
@@ -302,6 +458,42 @@ public sealed class M16CraftingResourceStatisticsTests
 
     [Fact]
     [Trait("Category", "M16")]
+    public void UnprovenCurrencyEvidenceMarksOnlyCurrencyHistoryIncomplete()
+    {
+        var aggregate = SupportedAggregate();
+        var current = CraftingNativeContractPolicy.Supported("delivery", "formula", "event items", "event money");
+        current.CurrencyCharge = CraftingNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            "currency snapshot failed");
+        CraftingStatisticsReducer.InitializeOrRestrictCapabilities(aggregate, current);
+
+        Assert.True(CraftingStatisticsReducer.Apply(
+            aggregate,
+            new CraftingMutation(
+                "generation-1",
+                Now,
+                [new CraftingMutationRow(
+                    "131",
+                    "Audited Output",
+                    "1026",
+                    1,
+                    1,
+                    new() { ["1"] = 1 },
+                    resources: [new CraftingResourceMutation("764", "Parts", 1, 2)],
+                    currencyEvidenceProven: false)])));
+
+        Assert.False(aggregate.ResourceHistoryUnavailable);
+        Assert.Equal(2, aggregate.Resources["764"].ConsumedQuantity);
+        Assert.True(aggregate.CurrencyHistoryUnavailable);
+        Assert.Equal("currency snapshot failed", aggregate.CurrencyHistoryProvenance);
+        Assert.Equal(0, aggregate.CurrencyChargeActions);
+        Assert.Equal(0, aggregate.CurrencyCharged);
+        Assert.Equal(1, aggregate.CompletionActions);
+        CraftingStatisticsReducer.Validate(aggregate);
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
     public void CompletionActionOverflowAlsoStopsDependentResourceAndCurrencyActionCounts()
     {
         var aggregate = SupportedAggregate();
@@ -418,14 +610,16 @@ public sealed class M16CraftingResourceStatisticsTests
         return new ProfileRepository(root, () => Now, () => queue.Dequeue());
     }
 
-    private static SaveIdentitySnapshot Identity() => new()
+    private static SaveIdentitySnapshot Identity() => Identity(1, 100);
+
+    private static SaveIdentitySnapshot Identity(int slot, long creationTicks) => new()
     {
-        Slot = 1,
+        Slot = slot,
         SaveFilePresent = true,
-        SaveFileCreationUtcTicks = 100,
-        ObservedWriteUtcTicks = 100,
+        SaveFileCreationUtcTicks = creationTicks,
+        ObservedWriteUtcTicks = creationTicks,
         ObservedLength = 10,
         GameVersion = "2.3.30",
-        ContentSha256 = 100.ToString("x", CultureInfo.InvariantCulture).PadLeft(64, '0')
+        ContentSha256 = creationTicks.ToString("x", CultureInfo.InvariantCulture).PadLeft(64, '0')
     };
 }
