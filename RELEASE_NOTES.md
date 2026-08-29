@@ -1,4 +1,14 @@
-# Ultimate Duckov Statistics v0.15.0 — M15 current economy holdings
+# Ultimate Duckov Statistics v0.16.0 — M16 crafting-resource consumption
+
+M16 extends the existing M13 success boundary without using inventory deltas. UDS snapshots each `CraftingFormula`'s declared `Cost.items` and `Cost.money` when the private craft begins, then publishes that immutable evidence only after the correlated native output-delivery task completes and thereby proves the preceding `Cost.Pay()` succeeded. Rejected, failed, incomplete, abandoned, or duplicate work records no action, output, resource, or currency cost.
+
+Schema 16 stores checked lifetime consumed quantity by stable resource item identity and checked output/recipe/resource associations with successful consumption-action count and quantity. Repeated resource entries in one formula are canonicalized before one action is applied. Unknown and modded output, recipe, and resource identities remain intact; display names are enrichment only. Reverse resource breakdowns are derived from the canonical associations, and pending writes coalesce by legitimate aggregate identity rather than retaining a raw action journal.
+
+The exact Duckov 2.3.30 asset audit parsed all 269 formulas and 681 item-cost entries. It found 14 nonzero-currency formulas, so M16 independently records exact declared total currency charged after successful payment and delivery. Money/Cash split remains `DisabledIncompatible`: the delivery boundary exposes no exact split, and UDS never derives one from current holdings or balance changes. Item-resource and currency history before schema 16 is independently unavailable and is not reconstructed from M13 action counts, M9 flows, M15 holdings, inventory deltas, or current recipe metadata.
+
+The temporary Crafting panel ranks outputs by successful actions and resources by consumed quantity, with recipe, batch, currency, and reciprocal output/resource details. Diagnostics exposes capability, partial-history, repair, and independent arithmetic boundaries. `statistics.json`, expanded `crafting_totals.csv` and `crafting_recipes.csv`, plus new `crafting_resources.csv` and `crafting_resource_associations.csv` share the same schema-16 aggregate; one export contains JSON plus thirty-two CSVs. The installed contract and user-controlled qualification matrix are [docs/M16_NATIVE_CONTRACTS.md](docs/M16_NATIVE_CONTRACTS.md) and [docs/M16_MANUAL_VALIDATION.md](docs/M16_MANUAL_VALIDATION.md).
+
+## Ultimate Duckov Statistics v0.15.0 — M15 current economy holdings
 
 M15 adds direct current-holdings observations that remain separate from M9 currency flows. Money comes from the hydrated `EconomyManager` `Int64` state. Cash is a checked, runtime-identity-deduplicated total of item type `451` across the exact top-level main-character, PlayerStorage, and PetProxy inventories after all three roots are authoritative. Neither value is reconstructed from inflow, outflow, net flow, prices, or prior snapshots.
 

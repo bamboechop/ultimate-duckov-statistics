@@ -27,9 +27,11 @@ try
     var managedRoot = Path.Combine(gameRoot, "Duckov_Data", "Managed");
     var corePath = Path.Combine(managedRoot, "TeamSoda.Duckov.Core.dll");
     var itemStatsPath = Path.Combine(managedRoot, "ItemStatsSystem.dll");
+    var resourcesPath = Path.Combine(gameRoot, "Duckov_Data", "resources.assets");
 
     RequireFile(corePath);
     RequireFile(itemStatsPath);
+    RequireFile(resourcesPath);
 
     var gameVersion = ReadIniValue(Path.Combine(gameRoot, "Info.ini"), "version");
     AssertEqual("Duckov version", expectedGameVersion, gameVersion);
@@ -216,6 +218,17 @@ try
         core.RequireInt64Constant(string.Empty, "ATMPanel", "MaxDrawAmount", 10000000L);
         core.RequireField("Duckov.Economy", "Cost", "items", mustBePublic: true, fieldTypeFragment: "ItemEntry");
         core.RequireField("Duckov.Economy", "Cost", "money", mustBePublic: true, fieldTypeFragment: "System.Int64");
+        core.RequireNestedField("Duckov.Economy", "Cost", "ItemEntry", "id", "System.Int32");
+        core.RequireNestedField("Duckov.Economy", "Cost", "ItemEntry", "amount", "System.Int64");
+        core.RequireProperty("Duckov.Economy", "Cost", "Enough", "System.Boolean", mustBePublic: true);
+        core.RequireMethod(
+            "Duckov.Economy", "Cost", "Pay", 2,
+            mustBePublic: true, returnTypeFragment: "System.Boolean",
+            parameterTypeFragments: ["System.Boolean", "System.Boolean"]);
+        core.RequireMethod(
+            "Duckov.Economy", "EconomyManager", "Pay", 3,
+            mustBePublic: true, mustBeStatic: true, returnTypeFragment: "System.Boolean",
+            parameterTypeFragments: ["Duckov.Economy.Cost", "System.Boolean", "System.Boolean"]);
         core.RequireField(string.Empty, "CraftingFormula", "id", mustBePublic: true, fieldTypeFragment: "System.String");
         core.RequireField(string.Empty, "CraftingFormula", "result", mustBePublic: true, fieldTypeFragment: "ItemEntry");
         core.RequireNestedField(string.Empty, "CraftingFormula", "ItemEntry", "id", "System.Int32");
@@ -426,14 +439,26 @@ try
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "DisplayName", "System.String", mustBePublic: true);
     }
 
+    var craftingFormulaAudit = AuditCraftingFormulas(resourcesPath);
+
     Console.WriteLine("Duckov compatibility contract passed.");
     Console.WriteLine($"  Game: {gameVersion} (Steam build {expectedSteamBuild})");
     Console.WriteLine($"  Unity: {unityMatch.Value}");
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
+    Console.WriteLine($"  resources.assets SHA-256: {HashFile(resourcesPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, and M15 authoritative Money/Cash holdings contracts are present.");
-    Console.WriteLine("  M4 loaded-ammunition consumption, M6 tote activation, and M13 crafting workstation/run-map/multiple-output attribution remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
+    Console.WriteLine($"  Crafting formulas: {craftingFormulaAudit.FormulaCount}; serialized bytes: {craftingFormulaAudit.SerializedBytes}; item-cost entries: {craftingFormulaAudit.ItemCostEntryCount}; empty item-cost arrays: {craftingFormulaAudit.EmptyItemCostCount}; repeated resource ids within one formula: {craftingFormulaAudit.RepeatedResourceIdCount}; maximum item-cost entries/formula: {craftingFormulaAudit.MaximumItemCostEntries}.");
+    if (craftingFormulaAudit.NonzeroCurrencyFormulas.Count == 0)
+        Console.WriteLine("  Crafting formulas with nonzero Cost.money: none.");
+    else
+    {
+        Console.WriteLine($"  Crafting formulas with nonzero Cost.money: {craftingFormulaAudit.NonzeroCurrencyFormulas.Count}.");
+        foreach (var formula in craftingFormulaAudit.NonzeroCurrencyFormulas)
+            Console.WriteLine($"    {formula.FormulaId} -> output {formula.OutputItemId}: money={formula.Money}; tags={formula.Tags}; items={formula.ItemCosts}");
+    }
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, and M16 CraftingFormula.cost item/currency contracts are present.");
+    Console.WriteLine("  M4 loaded-ammunition consumption, M6 tote activation, M13 crafting workstation/run-map/multiple-output attribution, and M16 Money/Cash charge splitting remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
 catch (ContractException exception)
@@ -487,6 +512,93 @@ static string HashFile(string path)
 {
     using var stream = File.OpenRead(path);
     return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+}
+
+static CraftingFormulaAudit AuditCraftingFormulas(string resourcesPath)
+{
+    var data = File.ReadAllBytes(resourcesPath);
+    var name = Encoding.UTF8.GetBytes("CraftingFormulas");
+    var pattern = new byte[sizeof(int) + name.Length];
+    BitConverter.GetBytes(name.Length).CopyTo(pattern, 0);
+    name.CopyTo(pattern, sizeof(int));
+    var offset = data.AsSpan().IndexOf(pattern);
+    if (offset < 0)
+        throw new ContractException("CraftingFormulaCollection serialized object was not found in resources.assets.");
+    if (data.AsSpan(offset + 1).IndexOf(pattern) >= 0)
+        throw new ContractException("CraftingFormulaCollection serialized object was not unique in resources.assets.");
+
+    var reader = new UnityAssetReader(data, offset);
+    if (!string.Equals(reader.ReadString(), "CraftingFormulas", StringComparison.Ordinal))
+        throw new ContractException("CraftingFormulaCollection serialized name was invalid.");
+    var formulaDataStart = reader.Position;
+    var formulaCount = reader.ReadBoundedCount("crafting formula", 100_000);
+    if (formulaCount == 0)
+        throw new ContractException("CraftingFormulaCollection contained no formulas.");
+
+    var formulaIds = new HashSet<string>(StringComparer.Ordinal);
+    var nonzeroCurrency = new List<NonzeroCraftingCurrencyFormula>();
+    var itemCostEntryCount = 0;
+    var emptyItemCostCount = 0;
+    var repeatedResourceIdCount = 0;
+    var maximumItemCostEntries = 0;
+    for (var formulaIndex = 0; formulaIndex < formulaCount; formulaIndex++)
+    {
+        var formulaId = reader.ReadString();
+        var outputItemId = reader.ReadInt32();
+        var outputAmount = reader.ReadInt32();
+        if (string.IsNullOrWhiteSpace(formulaId) || !formulaIds.Add(formulaId) || outputAmount <= 0)
+            throw new ContractException($"Crafting formula {formulaIndex} has invalid id/result evidence.");
+
+        var tagCount = reader.ReadBoundedCount("crafting tag", 1024);
+        var tags = new List<string>(tagCount);
+        for (var tagIndex = 0; tagIndex < tagCount; tagIndex++) tags.Add(reader.ReadString());
+
+        var money = reader.ReadInt64();
+        if (money < 0)
+            throw new ContractException($"Crafting formula '{formulaId}' has negative Cost.money {money}.");
+        var itemCount = reader.ReadBoundedCount("crafting item cost", 1024);
+        itemCostEntryCount = checked(itemCostEntryCount + itemCount);
+        if (itemCount == 0) emptyItemCostCount++;
+        maximumItemCostEntries = Math.Max(maximumItemCostEntries, itemCount);
+        var itemIds = new HashSet<int>();
+        var itemCosts = new List<string>(itemCount);
+        for (var itemIndex = 0; itemIndex < itemCount; itemIndex++)
+        {
+            var itemId = reader.ReadInt32();
+            var amount = reader.ReadInt64();
+            if (amount <= 0)
+                throw new ContractException($"Crafting formula '{formulaId}' item {itemId} has non-positive Cost.items amount {amount}.");
+            if (!itemIds.Add(itemId)) repeatedResourceIdCount++;
+            itemCosts.Add($"{itemId.ToString(System.Globalization.CultureInfo.InvariantCulture)} x {amount.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+
+        reader.ReadBoolean("unlockByDefault");
+        reader.Align4();
+        reader.ReadBoolean("lockInDemo");
+        reader.Align4();
+        _ = reader.ReadString();
+        reader.ReadBoolean("hideInIndex");
+        reader.Align4();
+
+        if (money != 0)
+        {
+            nonzeroCurrency.Add(new NonzeroCraftingCurrencyFormula(
+                formulaId,
+                outputItemId,
+                money,
+                tags.Count == 0 ? "none" : string.Join("; ", tags),
+                itemCosts.Count == 0 ? "none" : string.Join("; ", itemCosts)));
+        }
+    }
+
+    return new CraftingFormulaAudit(
+        formulaCount,
+        checked(reader.Position - formulaDataStart),
+        itemCostEntryCount,
+        emptyItemCostCount,
+        repeatedResourceIdCount,
+        maximumItemCostEntries,
+        nonzeroCurrency);
 }
 
 static void VerifyHarmonyReflectionContract(string harmonyPath)
@@ -569,6 +681,91 @@ static void VerifyHarmonyReflectionContract(string harmonyPath)
 static MemberInfo? FindPublicInstanceMember(Type type, string name) =>
     type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public)
     ?? type.GetField(name, BindingFlags.Instance | BindingFlags.Public) as MemberInfo;
+
+internal sealed record NonzeroCraftingCurrencyFormula(
+    string FormulaId,
+    int OutputItemId,
+    long Money,
+    string Tags,
+    string ItemCosts);
+
+internal sealed record CraftingFormulaAudit(
+    int FormulaCount,
+    int SerializedBytes,
+    int ItemCostEntryCount,
+    int EmptyItemCostCount,
+    int RepeatedResourceIdCount,
+    int MaximumItemCostEntries,
+    IReadOnlyList<NonzeroCraftingCurrencyFormula> NonzeroCurrencyFormulas);
+
+internal sealed class UnityAssetReader
+{
+    private readonly byte[] data;
+
+    public UnityAssetReader(byte[] data, int position)
+    {
+        this.data = data;
+        Position = position;
+    }
+
+    public int Position { get; private set; }
+
+    public int ReadInt32()
+    {
+        EnsureAvailable(sizeof(int));
+        var value = BitConverter.ToInt32(data, Position);
+        Position += sizeof(int);
+        return value;
+    }
+
+    public long ReadInt64()
+    {
+        EnsureAvailable(sizeof(long));
+        var value = BitConverter.ToInt64(data, Position);
+        Position += sizeof(long);
+        return value;
+    }
+
+    public string ReadString()
+    {
+        var length = ReadInt32();
+        if (length < 0 || length > 1_048_576)
+            throw new ContractException($"Serialized Unity string length {length} is invalid at offset {Position - sizeof(int)}.");
+        EnsureAvailable(length);
+        var value = Encoding.UTF8.GetString(data, Position, length);
+        Position += length;
+        Align4();
+        return value;
+    }
+
+    public int ReadBoundedCount(string label, int maximum)
+    {
+        var value = ReadInt32();
+        if (value < 0 || value > maximum)
+            throw new ContractException($"Serialized {label} count {value} is invalid at offset {Position - sizeof(int)}.");
+        return value;
+    }
+
+    public void ReadBoolean(string label)
+    {
+        EnsureAvailable(1);
+        var value = data[Position++];
+        if (value > 1)
+            throw new ContractException($"Serialized {label} boolean {value} is invalid at offset {Position - 1}.");
+    }
+
+    public void Align4()
+    {
+        Position = checked((Position + 3) & ~3);
+        EnsureAvailable(0);
+    }
+
+    private void EnsureAvailable(int count)
+    {
+        if (count < 0 || Position < 0 || Position > data.Length - count)
+            throw new ContractException($"Serialized Unity object exceeded resources.assets at offset {Position}.");
+    }
+}
 
 internal sealed class ContractException : Exception
 {

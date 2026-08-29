@@ -322,8 +322,8 @@ public sealed class PersistenceTests
 
         Assert.True(ProfileMigrator.Migrate(document));
 
-        Assert.Equal(15, document.SchemaVersion);
-        Assert.Equal(15, document.Statistics.SchemaVersion);
+        Assert.Equal(16, document.SchemaVersion);
+        Assert.Equal(16, document.Statistics.SchemaVersion);
         Assert.Equal("generation-m8", document.GenerationId);
         Assert.Equal(17, document.Statistics.Overall.ActivationCount);
         var migratedMap = Assert.Single(document.Statistics.RunTotals.Maps).Value;
@@ -1207,8 +1207,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(15, repository.Current.SchemaVersion);
-        Assert.Equal(15, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(16, repository.Current.SchemaVersion);
+        Assert.Equal(16, repository.Current.Statistics.SchemaVersion);
         Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
         Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
         Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
@@ -1352,8 +1352,8 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.MigratedSchema);
-        Assert.Equal(15, repository.Current.SchemaVersion);
-        Assert.Equal(15, repository.Current.Statistics.SchemaVersion);
+        Assert.Equal(16, repository.Current.SchemaVersion);
+        Assert.Equal(16, repository.Current.Statistics.SchemaVersion);
         Assert.Equal("generation-v03", repository.Current.GenerationId);
         Assert.Equal(73, repository.Current.Revision);
         Assert.Equal(2, repository.Current.InterruptedSessionCount);

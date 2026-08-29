@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion =
-        "native-crafting/2.3.30+correlated-cost-return-v2+declared-output-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
+        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.crafting";
     private const string SupportedGameVersion = "2.3.30";
     private const int DiagnosticKeyCapacity = 32;
@@ -131,7 +131,9 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             {
                 capabilities = CraftingNativeContractPolicy.Supported(
                     "The correlated Cost.Return task completed after native output delivery, before downstream crafting callbacks.",
-                    "CraftingFormula.id and singular result.id/result.amount captured at the native request boundary.");
+                    "CraftingFormula.id and singular result.id/result.amount captured at the native request boundary.",
+                    "CraftingFormula.cost.items stable identities and declared quantities captured at invocation; repeated resource ids are canonicalized before successful delivery publication.",
+                    "CraftingFormula.cost.money captured at invocation; a successful correlated delivery proves the preceding native Pay returned true for that declared total charge.");
                 accepting = true;
             }
             patchInspectionScheduler.Reset(DateTime.UtcNow, 1);
@@ -139,7 +141,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             StageAndPublishCapabilities();
             DiagnosticOnce(
                 "initialized",
-                $"Crafting completion patch active with HarmonyLib {patcher.Version}; completion actions and declared produced quantity are generation-lifetime totals. Workstation, run/map attribution, and multiple-output recipes are unavailable on the installed contract.");
+                $"Crafting completion patch active with HarmonyLib {patcher.Version}; completion actions, declared produced quantity, event-time item resource costs, and declared total currency charge are generation-lifetime totals. Money/Cash split, workstation, run/map attribution, and multiple-output recipes are unavailable on the installed contract.");
         }
         catch (Exception exception)
         {
@@ -358,14 +360,128 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 || formula.result.amount <= 0
                 || string.IsNullOrWhiteSpace(formula.id))
                 return null;
+        }
+
+        var resourcesProven = TrySnapshotResourceCosts(formula.cost, out var resources, out var resourceDetail);
+        var currencyProven = TrySnapshotCurrencyCost(formula.cost, out var currencyCharged, out var currencyDetail);
+        bool capabilitiesChanged;
+        CraftingNativeScope? scope;
+        lock (lifecycleSync)
+        {
+            if (!accepting
+                || capabilities.CompletionActions.State != AdapterCapabilityState.Supported
+                || formula.result.amount <= 0
+                || string.IsNullOrWhiteSpace(formula.id))
+                return null;
+            capabilitiesChanged = RestrictCostCapabilitiesLocked(
+                resourcesProven ? null : resourceDetail,
+                currencyProven ? null : currencyDetail);
             var itemId = formula.result.id.ToString(CultureInfo.InvariantCulture);
             var token = boundary.Begin(new CraftingCompletionEvidence(
                 itemId,
-                ReadDisplayName(formula.result.id, itemId),
+                ReadDisplayName(formula.result.id, itemId, "Crafted output"),
                 formula.id,
-                formula.result.amount));
-            return new CraftingNativeScope(this, new CraftingDeliveryCorrelation(token));
+                formula.result.amount,
+                resources,
+                currencyCharged,
+                resourcesProven,
+                currencyProven));
+            scope = new CraftingNativeScope(this, new CraftingDeliveryCorrelation(token));
         }
+        if (capabilitiesChanged) StageAndPublishCapabilities();
+        return scope;
+    }
+
+    private bool TrySnapshotResourceCosts(
+        Cost cost,
+        out CraftingResourceCostEvidence[] resources,
+        out string detail)
+    {
+        resources = Array.Empty<CraftingResourceCostEvidence>();
+        if (cost.items == null)
+        {
+            detail = "Crafting item-resource tracking is unavailable because the invocation did not expose a cost.items array.";
+            return false;
+        }
+        try
+        {
+            var canonical = new Dictionary<string, CraftingResourceCostEvidence>(StringComparer.Ordinal);
+            foreach (var entry in cost.items)
+            {
+                if (entry.amount <= 0)
+                {
+                    detail = $"Crafting item-resource tracking is unavailable because resource {entry.id.ToString(CultureInfo.InvariantCulture)} exposed non-positive declared quantity {entry.amount.ToString(CultureInfo.InvariantCulture)}.";
+                    return false;
+                }
+                var stableId = entry.id.ToString(CultureInfo.InvariantCulture);
+                var displayName = ReadDisplayName(entry.id, stableId, "Crafting resource");
+                if (canonical.TryGetValue(stableId, out var current))
+                {
+                    canonical[stableId] = new CraftingResourceCostEvidence(
+                        stableId,
+                        string.IsNullOrWhiteSpace(displayName) ? current.DisplayName : displayName,
+                        checked(current.ConsumedQuantity + entry.amount));
+                }
+                else
+                {
+                    canonical.Add(stableId, new CraftingResourceCostEvidence(stableId, displayName, entry.amount));
+                }
+            }
+            resources = canonical.Values.OrderBy(value => value.ResourceItemId, StringComparer.Ordinal).ToArray();
+            detail = string.Empty;
+            return true;
+        }
+        catch (OverflowException)
+        {
+            detail = "Crafting item-resource tracking is unavailable because repeated declared resource quantities exceeded Int64 canonicalization.";
+            return false;
+        }
+        catch (Exception exception)
+        {
+            detail = $"Crafting item-resource tracking is unavailable because invocation evidence could not be read: {Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}";
+            return false;
+        }
+    }
+
+    private static bool TrySnapshotCurrencyCost(Cost cost, out long currencyCharged, out string detail)
+    {
+        currencyCharged = 0;
+        if (cost.money < 0)
+        {
+            detail = $"Crafting currency tracking is unavailable because the invocation exposed negative declared charge {cost.money.ToString(CultureInfo.InvariantCulture)}.";
+            return false;
+        }
+        currencyCharged = cost.money;
+        detail = string.Empty;
+        return true;
+    }
+
+    private bool RestrictCostCapabilitiesLocked(string? resourceDetail, string? currencyDetail)
+    {
+        var changed = false;
+        if (!string.IsNullOrWhiteSpace(resourceDetail)
+            && (capabilities.ItemResourceIdentity.State != AdapterCapabilityState.DisabledIncompatible
+                || capabilities.OutputResourceAssociation.State != AdapterCapabilityState.DisabledIncompatible))
+        {
+            capabilities.ItemResourceIdentity = CraftingNativeContractPolicy.Availability(
+                AdapterCapabilityState.DisabledIncompatible,
+                resourceDetail);
+            capabilities.OutputResourceAssociation = CraftingNativeContractPolicy.Availability(
+                AdapterCapabilityState.DisabledIncompatible,
+                resourceDetail);
+            changed = true;
+            DiagnosticOnce("resource-evidence-unavailable", resourceDetail);
+        }
+        if (!string.IsNullOrWhiteSpace(currencyDetail)
+            && capabilities.CurrencyCharge.State != AdapterCapabilityState.DisabledIncompatible)
+        {
+            capabilities.CurrencyCharge = CraftingNativeContractPolicy.Availability(
+                AdapterCapabilityState.DisabledIncompatible,
+                currencyDetail);
+            changed = true;
+            DiagnosticOnce("currency-evidence-unavailable", currencyDetail);
+        }
+        return changed;
     }
 
     internal UniTask<List<Item>> WrapNativeCraft(
@@ -551,11 +667,39 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         var itemEntryType = typeof(CraftingFormula.ItemEntry);
         var formulaResult = typeof(CraftingFormula).GetField("result", BindingFlags.Instance | BindingFlags.Public);
         var formulaId = typeof(CraftingFormula).GetField("id", BindingFlags.Instance | BindingFlags.Public);
+        var formulaCost = typeof(CraftingFormula).GetField("cost", BindingFlags.Instance | BindingFlags.Public);
         var resultId = itemEntryType.GetField("id", BindingFlags.Instance | BindingFlags.Public);
         var resultAmount = itemEntryType.GetField("amount", BindingFlags.Instance | BindingFlags.Public);
         if (formulaResult?.FieldType != itemEntryType || formulaId?.FieldType != typeof(string)
+            || formulaCost?.FieldType != typeof(Cost)
             || resultId?.FieldType != typeof(int) || resultAmount?.FieldType != typeof(int))
-            throw new MissingFieldException("CraftingFormula id/result.id/result.amount contract");
+            throw new MissingFieldException("CraftingFormula id/result.id/result.amount/cost contract");
+        var costItemEntryType = typeof(Cost.ItemEntry);
+        var costMoney = typeof(Cost).GetField("money", BindingFlags.Instance | BindingFlags.Public);
+        var costItems = typeof(Cost).GetField("items", BindingFlags.Instance | BindingFlags.Public);
+        var costItemId = costItemEntryType.GetField("id", BindingFlags.Instance | BindingFlags.Public);
+        var costItemAmount = costItemEntryType.GetField("amount", BindingFlags.Instance | BindingFlags.Public);
+        var costEnough = typeof(Cost).GetProperty("Enough", BindingFlags.Instance | BindingFlags.Public);
+        var costPay = typeof(Cost).GetMethod(
+            "Pay",
+            BindingFlags.Instance | BindingFlags.Public,
+            binder: null,
+            new[] { typeof(bool), typeof(bool) },
+            modifiers: null);
+        var economyPay = typeof(EconomyManager).GetMethod(
+            "Pay",
+            BindingFlags.Static | BindingFlags.Public,
+            binder: null,
+            new[] { typeof(Cost), typeof(bool), typeof(bool) },
+            modifiers: null);
+        if (costMoney?.FieldType != typeof(long)
+            || costItems?.FieldType != typeof(Cost.ItemEntry[])
+            || costItemId?.FieldType != typeof(int)
+            || costItemAmount?.FieldType != typeof(long)
+            || costEnough?.PropertyType != typeof(bool)
+            || costPay?.ReturnType != typeof(bool)
+            || economyPay?.ReturnType != typeof(bool))
+            throw new MissingMemberException("Cost money/items/Enough/Pay and EconomyManager.Pay contracts");
         resolvedCraftMethod = typeof(CraftingManager).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
             .SingleOrDefault(method => method.Name == "Craft"
                 && method.ReturnType == typeof(UniTask<List<Item>>)
@@ -592,7 +736,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             throw new MissingMethodException("ItemAssetsCollection.GetMetaData(int)");
     }
 
-    private string ReadDisplayName(int itemTypeId, string stableId)
+    private string ReadDisplayName(int itemTypeId, string stableId, string role)
     {
         try
         {
@@ -605,11 +749,11 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         {
             DiagnosticOnce(
                 "metadata:" + stableId,
-                $"Crafted output {stableId} metadata was unavailable; stable identity was retained: {Unwrap(exception).Message}");
+                $"{role} {stableId} metadata was unavailable; stable identity was retained: {Unwrap(exception).Message}");
         }
         DiagnosticOnce(
             "metadata:" + stableId,
-            $"Crafted output {stableId} metadata did not expose a name; stable identity was retained.");
+            $"{role} {stableId} metadata did not expose a name; stable identity was retained.");
         return string.Empty;
     }
 
