@@ -444,7 +444,11 @@ public static class CraftingStatisticsReducer
             throw new ArgumentException("Crafting partial-history provenance is missing.", nameof(aggregate));
         if (aggregate.CompletionActions < 0 || aggregate.ProducedQuantity < 0
             || aggregate.CurrencyChargeActions < 0 || aggregate.CurrencyCharged < 0
-            || aggregate.CurrencyChargeActions > aggregate.CompletionActions)
+            || aggregate.CurrencyChargeActions > aggregate.CompletionActions
+            || HasImpossibleExactCurrencyPair(
+                aggregate,
+                aggregate.CurrencyChargeActions,
+                aggregate.CurrencyCharged))
             throw new ArgumentException("Crafting totals are invalid.", nameof(aggregate));
 
         var associationQuantityByResource = new Dictionary<string, long>(StringComparer.Ordinal);
@@ -458,7 +462,11 @@ public static class CraftingStatisticsReducer
             if (string.IsNullOrWhiteSpace(entry.Key) || !string.Equals(entry.Key, output.OutputItemId, StringComparison.Ordinal)
                 || output.CompletionActions < 0 || output.ProducedQuantity < 0 || output.Recipes == null
                 || output.CurrencyChargeActions < 0 || output.CurrencyCharged < 0
-                || output.CurrencyChargeActions > output.CompletionActions)
+                || output.CurrencyChargeActions > output.CompletionActions
+                || HasImpossibleExactCurrencyPair(
+                    aggregate,
+                    output.CurrencyChargeActions,
+                    output.CurrencyCharged))
                 throw new ArgumentException("Crafted output totals are invalid.", nameof(aggregate));
             outputActions = checked(outputActions + output.CompletionActions);
             outputQuantity = checked(outputQuantity + output.ProducedQuantity);
@@ -474,7 +482,11 @@ public static class CraftingStatisticsReducer
                 if (string.IsNullOrWhiteSpace(recipeEntry.Key) || !string.Equals(recipeEntry.Key, recipe.RecipeId, StringComparison.Ordinal)
                     || recipe.CompletionActions < 0 || recipe.ProducedQuantity < 0 || recipe.BatchActions == null
                     || recipe.Resources == null || recipe.CurrencyChargeActions < 0 || recipe.CurrencyCharged < 0
-                    || recipe.CurrencyChargeActions > recipe.CompletionActions)
+                    || recipe.CurrencyChargeActions > recipe.CompletionActions
+                    || HasImpossibleExactCurrencyPair(
+                        aggregate,
+                        recipe.CurrencyChargeActions,
+                        recipe.CurrencyCharged))
                     throw new ArgumentException("Crafting recipe totals are invalid.", nameof(aggregate));
                 recipeActions = checked(recipeActions + recipe.CompletionActions);
                 recipeQuantity = checked(recipeQuantity + recipe.ProducedQuantity);
@@ -488,6 +500,8 @@ public static class CraftingStatisticsReducer
                     if (string.IsNullOrWhiteSpace(resourceEntry.Key)
                         || !string.Equals(resourceEntry.Key, resource.ResourceItemId, StringComparison.Ordinal)
                         || resource.ConsumptionActions < 0 || resource.ConsumedQuantity < 0
+                        || (!aggregate.ResourceActionArithmeticUnavailable && resource.ConsumptionActions == 0)
+                        || (!aggregate.ResourceQuantityArithmeticUnavailable && resource.ConsumedQuantity == 0)
                         || resource.ConsumptionActions > recipe.CompletionActions)
                         throw new ArgumentException("Crafting resource association is invalid.", nameof(aggregate));
                     associationQuantityByResource.TryGetValue(resource.ResourceItemId, out var prior);
@@ -523,7 +537,8 @@ public static class CraftingStatisticsReducer
         {
             var resource = entry.Value ?? throw new ArgumentException("Crafting resource is missing.", nameof(aggregate));
             if (string.IsNullOrWhiteSpace(entry.Key) || !string.Equals(entry.Key, resource.ResourceItemId, StringComparison.Ordinal)
-                || resource.ConsumedQuantity < 0)
+                || resource.ConsumedQuantity < 0
+                || (!aggregate.ResourceQuantityArithmeticUnavailable && resource.ConsumedQuantity == 0))
                 throw new ArgumentException("Crafting resource total is invalid.", nameof(aggregate));
             associationQuantityByResource.TryGetValue(entry.Key, out var associated);
             if (aggregate.Capabilities.OutputResourceAssociation.State == AdapterCapabilityState.DisabledIncompatible
@@ -994,6 +1009,14 @@ public static class CraftingStatisticsReducer
         }
         else if (childActions != parentActions || childAmount != parentAmount) throw new ArgumentException(message);
     }
+
+    private static bool HasImpossibleExactCurrencyPair(
+        CraftingStatisticsAggregate aggregate,
+        long actions,
+        long amount) =>
+        !aggregate.CurrencyActionArithmeticUnavailable
+        && !aggregate.CurrencyAmountArithmeticUnavailable
+        && ((actions == 0) != (amount == 0));
 
     private static CraftedOutputAggregate CloneOutput(CraftedOutputAggregate source) => new()
     {

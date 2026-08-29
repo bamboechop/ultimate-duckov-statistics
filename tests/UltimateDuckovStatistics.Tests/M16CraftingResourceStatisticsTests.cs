@@ -426,6 +426,70 @@ public sealed class M16CraftingResourceStatisticsTests
 
     [Fact]
     [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    public void CurrentSchemaValidationRejectsExactZeroPairsAndAcceptsArithmeticUnavailablePairs()
+    {
+        var valid = SupportedAggregate();
+        Apply(valid, 2, 150);
+
+        var zeroResourceActions = CraftingStatisticsReducer.Clone(valid);
+        zeroResourceActions.Outputs["131"].Recipes["1026"].Resources["764"].ConsumptionActions = 0;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(zeroResourceActions));
+
+        var zeroResourceQuantity = CraftingStatisticsReducer.Clone(valid);
+        zeroResourceQuantity.Resources["764"].ConsumedQuantity = 0;
+        zeroResourceQuantity.Outputs["131"].Recipes["1026"].Resources["764"].ConsumedQuantity = 0;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(zeroResourceQuantity));
+
+        var zeroCurrencyActions = CraftingStatisticsReducer.Clone(valid);
+        zeroCurrencyActions.CurrencyChargeActions = 0;
+        zeroCurrencyActions.Outputs["131"].CurrencyChargeActions = 0;
+        zeroCurrencyActions.Outputs["131"].Recipes["1026"].CurrencyChargeActions = 0;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(zeroCurrencyActions));
+
+        var zeroCurrencyAmount = CraftingStatisticsReducer.Clone(valid);
+        zeroCurrencyAmount.CurrencyCharged = 0;
+        zeroCurrencyAmount.Outputs["131"].CurrencyCharged = 0;
+        zeroCurrencyAmount.Outputs["131"].Recipes["1026"].CurrencyCharged = 0;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(zeroCurrencyAmount));
+
+        var unavailableActions = SupportedAggregate();
+        Assert.True(CraftingStatisticsReducer.Apply(
+            unavailableActions,
+            new CraftingMutation(
+                "generation-1",
+                Now,
+                [new CraftingMutationRow(
+                    "limit",
+                    "limit",
+                    "limit-recipe",
+                    long.MaxValue,
+                    long.MaxValue,
+                    new() { ["1"] = long.MaxValue })])));
+        ApplyDifferentOutput(unavailableActions, "next", "next-recipe", 2, 10);
+        Assert.True(unavailableActions.CompletionArithmeticUnavailable);
+        Assert.True(unavailableActions.ResourceActionArithmeticUnavailable);
+        Assert.True(unavailableActions.CurrencyActionArithmeticUnavailable);
+        Assert.Equal(0, unavailableActions.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumptionActions);
+        Assert.Equal(2, unavailableActions.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumedQuantity);
+        Assert.Equal(0, unavailableActions.Outputs["next"].CurrencyChargeActions);
+        Assert.Equal(10, unavailableActions.Outputs["next"].CurrencyCharged);
+        CraftingStatisticsReducer.Validate(unavailableActions);
+
+        var unavailableAmounts = SupportedAggregate();
+        ApplyDifferentOutput(unavailableAmounts, "limit", "limit-recipe", long.MaxValue, long.MaxValue);
+        ApplyDifferentOutput(unavailableAmounts, "next", "next-recipe", 1, 1);
+        Assert.True(unavailableAmounts.ResourceQuantityArithmeticUnavailable);
+        Assert.True(unavailableAmounts.CurrencyAmountArithmeticUnavailable);
+        Assert.Equal(1, unavailableAmounts.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumptionActions);
+        Assert.Equal(0, unavailableAmounts.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumedQuantity);
+        Assert.Equal(1, unavailableAmounts.Outputs["next"].CurrencyChargeActions);
+        Assert.Equal(0, unavailableAmounts.Outputs["next"].CurrencyCharged);
+        CraftingStatisticsReducer.Validate(unavailableAmounts);
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
     public void UnprovenSuccessfulCostEvidenceMarksOnlyItsIndependentHistoryIncomplete()
     {
         var aggregate = SupportedAggregate();
@@ -579,6 +643,30 @@ public sealed class M16CraftingResourceStatisticsTests
                     "131",
                     "Audited Output",
                     "1026",
+                    1,
+                    1,
+                    new() { ["1"] = 1 },
+                    resources: [new CraftingResourceMutation("764", "High-tier Parts", 1, resourceQuantity)],
+                    currencyChargeActions: 1,
+                    currencyCharged: currencyCharged)])));
+    }
+
+    private static void ApplyDifferentOutput(
+        CraftingStatisticsAggregate aggregate,
+        string outputItemId,
+        string recipeId,
+        long resourceQuantity,
+        long currencyCharged)
+    {
+        Assert.True(CraftingStatisticsReducer.Apply(
+            aggregate,
+            new CraftingMutation(
+                "generation-1",
+                Now,
+                [new CraftingMutationRow(
+                    outputItemId,
+                    outputItemId,
+                    recipeId,
                     1,
                     1,
                     new() { ["1"] = 1 },

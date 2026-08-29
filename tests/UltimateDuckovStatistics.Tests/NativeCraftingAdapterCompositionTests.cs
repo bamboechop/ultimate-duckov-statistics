@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Cysharp.Threading.Tasks;
 using Duckov.Economy;
 using ItemStatsSystem;
@@ -7,6 +8,7 @@ using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
+using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UnityEngine;
 
@@ -76,6 +78,51 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Contains("9001,Item 9001,6", export.CraftingResourcesCsv, StringComparison.Ordinal);
         Assert.Contains("7001,Item 7001,modded-duplicate,9001,Item 9001,1,6", export.CraftingResourceAssociationsCsv, StringComparison.Ordinal);
         Assert.Equal(0, ItemUtilities.ScanCount);
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void CorruptExactResourceActionPrimaryRecoversProductionCraftFromBackup()
+    {
+        using var result = CompleteDuplicateCostCraft(ownedCount: 6);
+        var generationId = result.Coordinator.CurrentGenerationId;
+        var profilePath = Path.Combine(
+            result.Coordinator.DataRoot,
+            "profiles",
+            "slot-01",
+            "current",
+            "profile.json");
+        var backupPath = AtomicJsonPaths.GetBackupPath(profilePath);
+        result.StopRuntime();
+
+        Assert.True(File.Exists(profilePath));
+        Assert.True(File.Exists(backupPath));
+        Assert.Equal(1, ReadResourceActions(backupPath));
+        var backupBeforeCorruption = File.ReadAllText(backupPath);
+        var primary = JsonNode.Parse(File.ReadAllText(profilePath))!.AsObject();
+        primary["Statistics"]!["Crafting"]!["Outputs"]!["7001"]!["Recipes"]!["modded-duplicate"]!
+            ["Resources"]!["9001"]!["ConsumptionActions"] = 0;
+        File.WriteAllText(profilePath, primary.ToJsonString());
+        Assert.Equal(0, ReadResourceActions(profilePath));
+        Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
+
+        using var reopened = new NativeProfileCoordinator();
+        reopened.Initialize();
+
+        Assert.Equal(generationId, reopened.CurrentGenerationId);
+        var crafting = reopened.Current!.Statistics.Crafting;
+        Assert.Equal(1, crafting.CompletionActions);
+        Assert.Equal(1, crafting.CurrencyChargeActions);
+        Assert.Equal(150, crafting.CurrencyCharged);
+        Assert.Equal(6, crafting.Resources["9001"].ConsumedQuantity);
+        Assert.Equal(
+            1,
+            crafting.Outputs["7001"].Recipes["modded-duplicate"].Resources["9001"].ConsumptionActions);
+        Assert.Contains(reopened.DiagnosticEntries, entry =>
+            entry.Message.Contains("recovered=True", StringComparison.Ordinal));
+        Assert.Equal(1, ReadResourceActions(profilePath));
     }
 
     private static CompositionResult CompleteDuplicateCostCraft(int ownedCount)
@@ -181,6 +228,10 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         File.WriteAllText(path, "{\"SaveTime\":{\"value\":1}}");
     }
 
+    private static int ReadResourceActions(string profilePath) =>
+        JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["Outputs"]!["7001"]!
+            ["Recipes"]!["modded-duplicate"]!["Resources"]!["9001"]!["ConsumptionActions"]!.GetValue<int>();
+
     private static void ResetNative()
     {
         Application.version = "2.3.30";
@@ -191,6 +242,8 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     private sealed class CompositionResult : IDisposable
     {
+        private bool runtimeStopped;
+
         public CompositionResult(
             TemporaryDirectory directory,
             NativeProfileCoordinator coordinator,
@@ -208,10 +261,17 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         public NativeCraftingAdapter Adapter { get; }
         public IReadOnlyList<string> Diagnostics { get; }
 
-        public void Dispose()
+        public void StopRuntime()
         {
+            if (runtimeStopped) return;
+            runtimeStopped = true;
             Adapter.Dispose();
             Coordinator.Dispose();
+        }
+
+        public void Dispose()
+        {
+            StopRuntime();
             Directory.Dispose();
         }
     }
