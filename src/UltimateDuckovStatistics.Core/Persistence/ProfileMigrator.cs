@@ -107,6 +107,10 @@ public static class ProfileMigrator
         {
             return $"Current-schema crafting state is invalid: {exception.Message}";
         }
+        catch (OverflowException exception)
+        {
+            return $"Current-schema crafting state is invalid: {exception.Message}";
+        }
 
         try
         {
@@ -115,10 +119,6 @@ public static class ProfileMigrator
                 profile.GenerationId);
         }
         catch (ArgumentException exception)
-        {
-            return $"Current-schema economy holdings state is invalid: {exception.Message}";
-        }
-        catch (OverflowException exception)
         {
             return $"Current-schema economy holdings state is invalid: {exception.Message}";
         }

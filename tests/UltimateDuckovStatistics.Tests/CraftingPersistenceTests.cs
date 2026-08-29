@@ -175,6 +175,56 @@ public sealed class CraftingPersistenceTests
     }
 
     [Fact]
+    [Trait("Category", "M15")]
+    [Trait("Category", "Persistence")]
+    public void CurrentSchemaCraftingCompositionOverflowLosesPrimarySelectionToIntactBackup()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var path = Path.Combine(temporaryDirectory.Path, "profile.json");
+        var backup = Document("generation-1");
+        backup.Statistics.Crafting = Aggregate(1, 2);
+        var invalid = Document("generation-1");
+        invalid.Revision = 2;
+        invalid.Statistics.Crafting = Aggregate(1, 1);
+        invalid.Statistics.Crafting.CompletionActions = long.MaxValue;
+        invalid.Statistics.Crafting.ProducedQuantity = long.MaxValue;
+        var firstOutput = invalid.Statistics.Crafting.Outputs["100"];
+        firstOutput.CompletionActions = long.MaxValue;
+        firstOutput.ProducedQuantity = long.MaxValue;
+        var firstRecipe = firstOutput.Recipes["bandage"];
+        firstRecipe.CompletionActions = long.MaxValue;
+        firstRecipe.ProducedQuantity = long.MaxValue;
+        firstRecipe.BatchActions = new Dictionary<string, long>(StringComparer.Ordinal) { ["1"] = long.MaxValue };
+        invalid.Statistics.Crafting.Outputs.Add(
+            "200",
+            new CraftedOutputAggregate
+            {
+                OutputItemId = "200",
+                DisplayName = "Overflow",
+                CompletionActions = 1,
+                ProducedQuantity = 1,
+                Recipes = new Dictionary<string, CraftingRecipeAggregate>(StringComparer.Ordinal)
+                {
+                    ["overflow"] = new()
+                    {
+                        RecipeId = "overflow",
+                        CompletionActions = 1,
+                        ProducedQuantity = 1,
+                        BatchActions = new Dictionary<string, long>(StringComparer.Ordinal) { ["1"] = 1 }
+                    }
+                }
+            });
+        store.Save(path, backup);
+        store.Save(path, invalid);
+
+        var loaded = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+
+        Assert.Equal(AtomicJsonLoadSource.Backup, loaded.Source);
+        AssertCrafting(loaded.Value!.Statistics.Crafting, 1, 2);
+    }
+
+    [Fact]
     [Trait("Category", "Persistence")]
     public void CurrentSchemaMissingSupportedRecipeCompositionLosesPrimarySelectionToIntactBackup()
     {
