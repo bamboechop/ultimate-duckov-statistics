@@ -56,6 +56,22 @@ public sealed class StatisticsExportDocument
 
     [DataMember(Order = 15)]
     public CraftingStatisticsAggregate Crafting { get; set; } = new();
+
+    [DataMember(Order = 16)]
+    public EconomyHoldingsExport Holdings { get; set; } = new();
+}
+
+[DataContract]
+public sealed class EconomyHoldingsExport
+{
+    [DataMember(Order = 1)] public string SaveGenerationId { get; set; } = string.Empty;
+    [DataMember(Order = 2)] public EconomyHoldingObservation Money { get; set; } = new();
+    [DataMember(Order = 3)] public EconomyHoldingObservation Cash { get; set; } = new();
+    [DataMember(Order = 4)] public EconomyHoldingObservation LiquidWealth { get; set; } = new();
+    [DataMember(Order = 5)] public EconomyHoldingsMetricCapabilities Capabilities { get; set; } = new();
+    [DataMember(Order = 6)] public bool HistoricalUnavailable { get; set; }
+    [DataMember(Order = 7)] public string HistoricalProvenance { get; set; } = string.Empty;
+    [DataMember(Order = 8)] public bool WasRepairedFromInvalidState { get; set; }
 }
 
 [DataContract]
@@ -118,6 +134,7 @@ public sealed class StatisticsExportBundle
         string economySourcesCsv,
         string economyContextsCsv,
         string cashRaidOutcomesCsv,
+        string economyHoldingsCsv,
         string worldTimeCsv,
         string craftingTotalsCsv,
         string craftingRecipesCsv)
@@ -150,6 +167,7 @@ public sealed class StatisticsExportBundle
         EconomySourcesCsv = economySourcesCsv;
         EconomyContextsCsv = economyContextsCsv;
         CashRaidOutcomesCsv = cashRaidOutcomesCsv;
+        EconomyHoldingsCsv = economyHoldingsCsv;
         WorldTimeCsv = worldTimeCsv;
         CraftingTotalsCsv = craftingTotalsCsv;
         CraftingRecipesCsv = craftingRecipesCsv;
@@ -210,6 +228,8 @@ public sealed class StatisticsExportBundle
     public string EconomyContextsCsv { get; }
 
     public string CashRaidOutcomesCsv { get; }
+
+    public string EconomyHoldingsCsv { get; }
 
     public string WorldTimeCsv { get; }
 
@@ -295,6 +315,7 @@ public static class StatisticsExporter
             }
         }
 
+        var holdingsProjection = EconomyHoldingsReducer.Project(profile.Statistics.Holdings);
         var document = new StatisticsExportDocument
         {
             ExportedUtc = exportedUtc,
@@ -327,7 +348,18 @@ public static class StatisticsExporter
             Capabilities = profile.Capabilities.Select(CloneCapability).ToList(),
             Economy = EconomyStatisticsReducer.Clone(profile.Statistics.Economy),
             WorldTime = WorldTimeStatisticsReducer.Clone(profile.Statistics.WorldTime),
-            Crafting = CraftingStatisticsReducer.Clone(profile.Statistics.Crafting)
+            Crafting = CraftingStatisticsReducer.Clone(profile.Statistics.Crafting),
+            Holdings = new EconomyHoldingsExport
+            {
+                SaveGenerationId = profile.Statistics.Holdings.SaveGenerationId,
+                Money = holdingsProjection.Money,
+                Cash = holdingsProjection.Cash,
+                LiquidWealth = holdingsProjection.LiquidWealth,
+                Capabilities = holdingsProjection.Capabilities,
+                HistoricalUnavailable = profile.Statistics.Holdings.HistoricalUnavailable,
+                HistoricalProvenance = profile.Statistics.Holdings.HistoricalProvenance,
+                WasRepairedFromInvalidState = profile.Statistics.Holdings.WasRepairedFromInvalidState
+            }
         };
 
         return new StatisticsExportBundle(
@@ -359,9 +391,38 @@ public static class StatisticsExporter
             CreateEconomySourcesCsv(document),
             CreateEconomyContextsCsv(document),
             CreateCashRaidOutcomesCsv(document),
+            CreateEconomyHoldingsCsv(document),
             CreateWorldTimeCsv(document),
             CreateCraftingTotalsCsv(document),
             CreateCraftingRecipesCsv(document));
+    }
+
+    private static string CreateEconomyHoldingsCsv(StatisticsExportDocument document)
+    {
+        var value = document.Holdings;
+        var builder = new StringBuilder();
+        builder.AppendLine("save_generation_id,money_state,money_value,money_observed_utc,money_observation_provenance,money_freshness_provenance,money_capability,money_capability_provenance,cash_state,cash_value,cash_observed_utc,cash_observation_provenance,cash_freshness_provenance,cash_capability,cash_capability_provenance,liquid_wealth_state,liquid_wealth_value,liquid_wealth_observed_utc,liquid_wealth_observation_provenance,liquid_wealth_freshness_provenance,liquid_wealth_capability,liquid_wealth_capability_provenance,historical_unavailable,historical_provenance,repaired_invalid_state");
+        builder.Append(Csv(value.SaveGenerationId)).Append(',');
+        AppendObservation(value.Money, value.Capabilities.Money);
+        AppendObservation(value.Cash, value.Capabilities.Cash);
+        AppendObservation(value.LiquidWealth, value.Capabilities.LiquidWealth);
+        builder.Append(value.HistoricalUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
+            .Append(Csv(value.HistoricalProvenance)).Append(',')
+            .Append(value.WasRepairedFromInvalidState.ToString(CultureInfo.InvariantCulture)).AppendLine();
+        return builder.ToString();
+
+        void AppendObservation(EconomyHoldingObservation observation, MetricAvailability capability)
+        {
+            builder.Append(observation.State).Append(',')
+                .Append(observation.Value?.ToString(CultureInfo.InvariantCulture) ?? string.Empty).Append(',')
+                .Append(observation.ObservedUtc.HasValue
+                    ? Csv(observation.ObservedUtc.Value.ToString("O", CultureInfo.InvariantCulture))
+                    : string.Empty).Append(',')
+                .Append(Csv(observation.ObservationProvenance)).Append(',')
+                .Append(Csv(observation.FreshnessProvenance)).Append(',')
+                .Append(capability.State).Append(',')
+                .Append(Csv(capability.Provenance)).Append(',');
+        }
     }
 
     private static string CreateCraftingTotalsCsv(StatisticsExportDocument document)

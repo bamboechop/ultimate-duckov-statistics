@@ -4,9 +4,13 @@ namespace ItemStatsSystem
 {
     public sealed class Inventory
     {
+        private static int nextInstanceId;
+        private readonly int instanceId = Interlocked.Increment(ref nextInstanceId);
         public List<Item> Content { get; } = new();
+        public bool Loading { get; set; }
         public event Action<Inventory, int>? onContentChanged;
 
+        public int GetInstanceID() => instanceId;
         public void RaiseContentChanged(int index = 0) => onContentChanged?.Invoke(this, index);
     }
 
@@ -113,6 +117,14 @@ namespace UnityEngine
     public static class Application
     {
         public static string version { get; set; } = "2.3.30";
+        public static string persistentDataPath { get; set; } = string.Empty;
+    }
+
+    public static class Debug
+    {
+        public static void Log(object message) { }
+        public static void LogWarning(object message) { }
+        public static void LogException(Exception exception) { }
     }
 
     public readonly struct Vector3
@@ -165,9 +177,11 @@ namespace Duckov.Economy
     }
 #pragma warning restore CA1051
 
-    public static class EconomyManager
+    public sealed class EconomyManager
     {
         public const int CashItemID = 451;
+        public static EconomyManager? Instance { get; set; }
+        public static long Money { get; set; }
         public static event Action<long, long>? OnMoneyChanged;
         public static event Action<long>? OnMoneyPaid;
         public static event Action? OnEconomyManagerLoaded;
@@ -187,6 +201,8 @@ namespace Duckov.Economy
         public static Action<Cost>? CaptureCostPaidSubscribers() => OnCostPaid;
         public static void ResetNativeState()
         {
+            Instance = null;
+            Money = 0;
             OnMoneyChanged = null;
             OnMoneyPaid = null;
             OnEconomyManagerLoaded = null;
@@ -266,10 +282,20 @@ public static class ItemUtilities
 
 public sealed class PlayerStorage
 {
+    public static ItemStatsSystem.Inventory? Inventory { get; set; }
+    public static bool Loading { get; set; }
     public static event Action<PlayerStorage, ItemStatsSystem.Inventory, int>? OnPlayerStorageChange;
+    public static event Action? OnLoadingFinished;
     public static void RaiseChanged(ItemStatsSystem.Inventory inventory, int index = 0) =>
         OnPlayerStorageChange?.Invoke(new PlayerStorage(), inventory, index);
-    public static void ResetNativeState() => OnPlayerStorageChange = null;
+    public static void RaiseLoadingFinished() => OnLoadingFinished?.Invoke();
+    public static void ResetNativeState()
+    {
+        Inventory = null;
+        Loading = false;
+        OnPlayerStorageChange = null;
+        OnLoadingFinished = null;
+    }
 }
 
 public static class LevelManager
@@ -281,6 +307,7 @@ public static class LevelManager
     public static event Action<CharacterMainControl>? OnControllingCharacterChanged;
     public static event Action<EvacuationInfo>? OnEvacuated;
     public static event Action<DamageInfo>? OnMainCharacterDead;
+    public static event Action? OnNewGameReport;
     public static bool LevelInitializing { get; set; }
     public static bool LevelInited { get; set; } = true;
     public static void RaiseLevelBeginInitializing() => OnLevelBeginInitializing?.Invoke();
@@ -289,6 +316,7 @@ public static class LevelManager
     public static void RaiseControllingCharacterChanged(CharacterMainControl value) => OnControllingCharacterChanged?.Invoke(value);
     public static void RaiseEvacuated() => OnEvacuated?.Invoke(new EvacuationInfo());
     public static void RaiseMainCharacterDead() => OnMainCharacterDead?.Invoke(new DamageInfo());
+    public static void RaiseNewGameReport() => OnNewGameReport?.Invoke();
     public static void ResetNativeState()
     {
         Instance = null;
@@ -298,6 +326,7 @@ public static class LevelManager
         OnControllingCharacterChanged = null;
         OnEvacuated = null;
         OnMainCharacterDead = null;
+        OnNewGameReport = null;
         LevelInitializing = false;
         LevelInited = true;
     }
@@ -306,6 +335,7 @@ public static class LevelManager
 public sealed class LevelManagerInstance
 {
     public CharacterMainControl? MainCharacter { get; set; }
+    public PetProxy? PetProxy { get; set; }
     public UnityEngine.GameObject gameObject { get; } = new();
 }
 
@@ -413,9 +443,39 @@ public sealed class MultiSceneCore
     public bool IsLoading { get; set; }
 }
 
-public static class PetProxy
+public sealed class PetProxy
 {
     public static ItemStatsSystem.Inventory? PetInventory { get; set; }
+    public ItemStatsSystem.Inventory? Inventory { get; set; }
+}
+
+namespace Saves
+{
+    public static class SavesSystem
+    {
+        public static bool EconomyDataExists { get; set; }
+        public static int CurrentSlot { get; set; } = 1;
+        public static event Action? OnSetFile;
+        public static event Action? OnSaveDeleted;
+        public static event Action? OnCollectSaveData;
+        public static bool KeyExisits(string key) => key == "EconomyData" && EconomyDataExists;
+        public static string GetFilePath(int slot) => Path.Combine("Saves", $"slot-{slot:D2}.json");
+        public static void SetFile(int slot)
+        {
+            CurrentSlot = slot;
+            OnSetFile?.Invoke();
+        }
+        public static void RaiseSaveDeleted() => OnSaveDeleted?.Invoke();
+        public static void RaiseCollectSaveData() => OnCollectSaveData?.Invoke();
+        public static void ResetNativeState()
+        {
+            EconomyDataExists = false;
+            CurrentSlot = 1;
+            OnSetFile = null;
+            OnSaveDeleted = null;
+            OnCollectSaveData = null;
+        }
+    }
 }
 #pragma warning restore CA1050
 
@@ -451,6 +511,16 @@ namespace Duckov.Scenes
         public static event Action<SceneLoadingContext>? onStartedLoadingScene;
         public static event Action<SceneLoadingContext>? onFinishedLoadingScene;
         public static event Action<SceneLoadingContext>? onAfterSceneInitialize;
+        public static void RaiseStarted() => onStartedLoadingScene?.Invoke(new SceneLoadingContext());
+        public static void RaiseFinished() => onFinishedLoadingScene?.Invoke(new SceneLoadingContext());
+        public static void RaiseAfterInitialize() => onAfterSceneInitialize?.Invoke(new SceneLoadingContext());
+        public static void ResetNativeState()
+        {
+            IsSceneLoading = false;
+            onStartedLoadingScene = null;
+            onFinishedLoadingScene = null;
+            onAfterSceneInitialize = null;
+        }
     }
 }
 

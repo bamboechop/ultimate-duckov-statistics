@@ -4,6 +4,6 @@ public static class ProductInfo
 {
     public const string Name = "Ultimate Duckov Statistics";
     public const string ModId = "UltimateDuckovStatistics";
-    public const string Version = "0.14.0";
-    public const int SchemaVersion = 14;
+    public const string Version = "0.15.0";
+    public const int SchemaVersion = 15;
 }

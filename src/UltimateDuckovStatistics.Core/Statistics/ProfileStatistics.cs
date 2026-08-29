@@ -47,6 +47,15 @@ public sealed class ProfileStatistics
 
     [DataMember(Order = 14)]
     public CraftingStatisticsAggregate Crafting { get; set; } = new();
+
+    [DataMember(Order = 15)]
+    public EconomyHoldingsSnapshot Holdings { get; set; } = new();
+
+    [OnDeserializing]
+    private void OnDeserializing(StreamingContext _)
+    {
+        Holdings = null!;
+    }
 }
 
 [DataContract]

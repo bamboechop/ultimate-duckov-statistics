@@ -1,6 +1,7 @@
 using Duckov.Economy;
 using Duckov.Quests;
 using Duckov.Quests.Rewards;
+using Duckov.Scenes;
 using ItemStatsSystem;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
@@ -10,7 +11,7 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeEconomyAdapter : IDisposable
 {
-    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v11";
+    internal const string AdapterVersion = "native-economy/2.3.30+public-events-v12";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int CashItemTypeId = EconomyManager.CashItemID;
@@ -103,6 +104,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         ItemUtilities.OnPlayerItemOperation += OnPlayerItemOperation;
         CharacterMainControl.OnMainCharacterInventoryChangedEvent += OnMainInventoryChanged;
         PlayerStorage.OnPlayerStorageChange += OnStorageChanged;
+        SceneLoader.onStartedLoadingScene += OnSceneLoadingStarted;
         LevelManager.OnLevelBeginInitializing += OnLevelBeginInitializing;
         LevelManager.OnAfterLevelInitialized += OnAfterLevelInitialized;
         LevelManager.OnControllingCharacterChanged += OnControllingCharacterChanged;
@@ -255,6 +257,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
             ItemUtilities.OnPlayerItemOperation -= OnPlayerItemOperation;
             CharacterMainControl.OnMainCharacterInventoryChangedEvent -= OnMainInventoryChanged;
             PlayerStorage.OnPlayerStorageChange -= OnStorageChanged;
+            SceneLoader.onStartedLoadingScene -= OnSceneLoadingStarted;
             LevelManager.OnLevelBeginInitializing -= OnLevelBeginInitializing;
             LevelManager.OnAfterLevelInitialized -= OnAfterLevelInitialized;
             LevelManager.OnControllingCharacterChanged -= OnControllingCharacterChanged;
@@ -596,7 +599,10 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private void OnMainInventoryChanged(CharacterMainControl character, Inventory inventory, int index) { if (!disposed && subscribed && character != null && character.IsMainCharacter && ReferenceEquals(character, CharacterMainControl.Main)) MarkCashDirty(); }
     private void OnStorageChanged(PlayerStorage storage, Inventory inventory, int index) { if (!disposed && subscribed) MarkCashDirty(); }
     private void OnPetInventoryChanged(Inventory inventory, int index) { if (!disposed && subscribed) MarkCashDirty(); }
-    private void OnLevelBeginInitializing()
+    private void OnSceneLoadingStarted(SceneLoadingContext _) => SuspendCashForSceneTransition();
+    private void OnLevelBeginInitializing() => SuspendCashForSceneTransition();
+
+    private void SuspendCashForSceneTransition()
     {
         if (disposed || !subscribed) return;
         FlushPendingForBoundary();

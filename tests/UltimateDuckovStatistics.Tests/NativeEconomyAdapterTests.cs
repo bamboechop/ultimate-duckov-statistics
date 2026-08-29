@@ -1,6 +1,7 @@
 using Duckov.Economy;
 using Duckov.Quests;
 using Duckov.Quests.Rewards;
+using Duckov.Scenes;
 using ItemStatsSystem;
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Domain;
@@ -790,6 +791,68 @@ public sealed class NativeEconomyAdapterTests : IDisposable
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "Lifecycle")]
+    public void SceneLoadingStartSuspendsCashBeforePetInventoryTeardown()
+    {
+        var petInventory = new Inventory();
+        PetProxy.PetInventory = petInventory;
+        ItemUtilities.OwnedItems.Add(Cash(1));
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+        Assert.Empty(published);
+
+        // Real base-to-menu reachability: SceneLoader starts first, then the
+        // old PetProxy inventory is destroyed before the next LevelManager
+        // begins initialization. That teardown is not a currency outflow.
+        SceneLoader.RaiseStarted();
+        ItemUtilities.OwnedItems.Clear();
+        petInventory.RaiseContentChanged();
+        ItemUtilities.RaisePlayerItemOperation();
+        adapter.Tick();
+        LevelManager.RaiseLevelBeginInitializing();
+        adapter.Tick();
+
+        Assert.Empty(published);
+
+        EconomyManager.RaiseLoaded();
+        ItemUtilities.OwnedItems.Add(Cash(1));
+        petInventory.RaiseContentChanged();
+        LevelManager.RaiseAfterLevelInitialized();
+        adapter.Tick();
+
+        Assert.Empty(published);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Lifecycle")]
+    public void SceneLoadingStartFlushesLegitimateCashBeforeSuspension()
+    {
+        var petInventory = new Inventory();
+        PetProxy.PetInventory = petInventory;
+        ItemUtilities.OwnedItems.Add(Cash(10));
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+
+        ItemUtilities.OwnedItems.Add(Cash(4));
+        ItemUtilities.RaisePlayerItemOperation();
+        SceneLoader.RaiseStarted();
+
+        var legitimate = Assert.Single(published);
+        Assert.Equal(CurrencyFlowDirection.Inflow, legitimate.Direction);
+        Assert.Equal(4, legitimate.Amount);
+
+        ItemUtilities.OwnedItems.Clear();
+        petInventory.RaiseContentChanged();
+        adapter.Tick();
+
+        Assert.Single(published);
+    }
+
+    [Fact]
+    [Trait("Category", "M9")]
+    [Trait("Category", "Lifecycle")]
     public void FullSceneInventoryHydrationDoesNotBecomeBaseInflowOnRaidEntryOrExtraction()
     {
         ItemUtilities.OwnedItems.Add(Cash(37));
@@ -912,6 +975,7 @@ public sealed class NativeEconomyAdapterTests : IDisposable
         ItemUtilities.ResetNativeState();
         PlayerStorage.ResetNativeState();
         LevelManager.ResetNativeState();
+        SceneLoader.ResetNativeState();
         CharacterMainControl.ResetNativeState();
         PetProxy.PetInventory = null;
     }

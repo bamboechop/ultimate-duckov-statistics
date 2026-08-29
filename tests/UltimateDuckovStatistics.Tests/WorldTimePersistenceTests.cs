@@ -20,8 +20,8 @@ public sealed class WorldTimePersistenceTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(14, profile.SchemaVersion);
-        Assert.Equal(14, profile.Statistics.SchemaVersion);
+        Assert.Equal(15, profile.SchemaVersion);
+        Assert.Equal(15, profile.Statistics.SchemaVersion);
         Assert.Equal(42, profile.Statistics.Overall.ActivationCount);
         Assert.True(profile.Statistics.WorldTime.HistoricalUnavailable);
         Assert.Contains("predates M12", profile.Statistics.WorldTime.HistoricalProvenance, StringComparison.Ordinal);
@@ -137,7 +137,8 @@ public sealed class WorldTimePersistenceTests
         {
             SaveGenerationId = generationId,
             CreatedUtc = Now,
-            UpdatedUtc = Now
+            UpdatedUtc = Now,
+            Holdings = new EconomyHoldingsSnapshot { SaveGenerationId = generationId }
         }
     };
 

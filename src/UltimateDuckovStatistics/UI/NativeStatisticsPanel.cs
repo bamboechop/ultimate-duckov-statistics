@@ -174,6 +174,14 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label(
             $"{UiText.Get("ui.firing_actions")}: "
             + UiText.FormatMetric(combat.Lifetime.Totals.FiringActions, combat.Capabilities.FiringActions.State));
+        var holdings = EconomyHoldingsReducer.Project(profile.Statistics.Holdings);
+        GUILayout.Space(8);
+        GUILayout.Label(UiText.Get("ui.current_holdings"));
+        GUILayout.Label($"{UiText.Get("ui.money_holding")}: {UiText.FormatHolding(holdings.Money, holdings.Capabilities.Money)}");
+        GUILayout.Label($"{UiText.Get("ui.cash_holding")}: {UiText.FormatHolding(holdings.Cash, holdings.Capabilities.Cash)}");
+        GUILayout.Label($"{UiText.Get("ui.liquid_wealth")}: {UiText.FormatHolding(holdings.LiquidWealth, holdings.Capabilities.LiquidWealth)}");
+        if (profile.Statistics.Holdings.HistoricalUnavailable)
+            GUILayout.Label($"  {UiText.Get("ui.pre_m15_unavailable")}");
         GUILayout.Label($"{UiText.Get("ui.economy")}: {UiText.FormatEconomyCompact(profile.Statistics.Economy, coordinator.CurrentEconomyCapabilities)}");
         var worldTime = profile.Statistics.WorldTime;
         var worldTimeCapabilities = WorldTimeStatisticsReducer.RestrictWithCurrent(
@@ -720,6 +728,20 @@ internal sealed class NativeStatisticsPanel
                 + $"repair {(profile.Statistics.Crafting.WasRepairedFromInvalidState ? "present" : "none")}; "
                 + $"arithmetic actions={(profile.Statistics.Crafting.CompletionArithmeticUnavailable ? "unavailable" : "available")}, "
                 + $"quantity={(profile.Statistics.Crafting.QuantityArithmeticUnavailable ? "unavailable" : "available")}");
+            var holdings = EconomyHoldingsReducer.Project(profile.Statistics.Holdings);
+            GUILayout.Label(
+                $"Holdings generation={profile.Statistics.Holdings.SaveGenerationId}; "
+                + $"Money={holdings.Money.State}/{holdings.Capabilities.Money.State} observed={FormatHoldingTimestamp(holdings.Money)}; "
+                + $"Cash={holdings.Cash.State}/{holdings.Capabilities.Cash.State} observed={FormatHoldingTimestamp(holdings.Cash)}; "
+                + $"liquid={holdings.LiquidWealth.State}/{holdings.Capabilities.LiquidWealth.State}; "
+                + $"history={(profile.Statistics.Holdings.HistoricalUnavailable ? "unavailable before M15" : "M15")}; "
+                + $"repair={(profile.Statistics.Holdings.WasRepairedFromInvalidState ? "present" : "none")}");
+            if (!string.IsNullOrWhiteSpace(holdings.Money.FreshnessProvenance))
+                GUILayout.Label($"  Money freshness: {holdings.Money.FreshnessProvenance}");
+            if (!string.IsNullOrWhiteSpace(holdings.Cash.FreshnessProvenance))
+                GUILayout.Label($"  Cash freshness: {holdings.Cash.FreshnessProvenance}");
+            if (!string.IsNullOrWhiteSpace(holdings.LiquidWealth.FreshnessProvenance))
+                GUILayout.Label($"  Liquid freshness/arithmetic: {holdings.LiquidWealth.FreshnessProvenance}");
             foreach (var capability in profile.Capabilities)
             {
                 GUILayout.Label($"{capability.AdapterId}: {capability.State} ({capability.Version})");
@@ -759,6 +781,16 @@ internal sealed class NativeStatisticsPanel
         var economy = profile.Statistics.Economy;
         var currentEconomyCapabilities = coordinator.CurrentEconomyCapabilities;
         GUILayout.Space(8);
+        var holdings = EconomyHoldingsReducer.Project(profile.Statistics.Holdings);
+        GUILayout.Label(UiText.Get("ui.current_holdings"));
+        GUILayout.Label(UiText.Get("ui.holdings_contract"));
+        GUILayout.Label($"  {UiText.Get("ui.money_holding")}: {UiText.FormatHolding(holdings.Money, holdings.Capabilities.Money)}");
+        GUILayout.Label($"  {UiText.Get("ui.cash_holding")}: {UiText.FormatHolding(holdings.Cash, holdings.Capabilities.Cash)}");
+        GUILayout.Label($"  {UiText.Get("ui.liquid_wealth")}: {UiText.FormatHolding(holdings.LiquidWealth, holdings.Capabilities.LiquidWealth)}");
+        if (profile.Statistics.Holdings.HistoricalUnavailable)
+            GUILayout.Label($"  {UiText.Get("ui.pre_m15_unavailable")}: {profile.Statistics.Holdings.HistoricalProvenance}");
+        GUILayout.Space(12);
+        GUILayout.Label(UiText.Get("ui.currency_flows"));
         GUILayout.Label(UiText.Get("ui.economy_contract"));
         if (economy.LegacyIdentitySaturationIncomplete)
             GUILayout.Label("Economy totals captured by an earlier schema-9 build may be incomplete after its legacy identity limit; current capture continues with exact bounded replay protection.");
@@ -872,6 +904,11 @@ internal sealed class NativeStatisticsPanel
         long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var quantity)
             ? quantity
             : long.MaxValue;
+
+    private static string FormatHoldingTimestamp(EconomyHoldingObservation observation) =>
+        observation.ObservedUtc.HasValue
+            ? observation.ObservedUtc.Value.ToString("O", CultureInfo.InvariantCulture)
+            : "none";
 
     private static void DrawCurrency(
         EconomyStatisticsAggregate economy,

@@ -112,6 +112,17 @@ public static class ProfileMigrator
             return $"Current-schema crafting state is invalid: {exception.Message}";
         }
 
+        try
+        {
+            EconomyHoldingsReducer.ValidateRecoveryCandidate(
+                profile.Statistics.Holdings,
+                profile.GenerationId);
+        }
+        catch (ArgumentException exception)
+        {
+            return $"Current-schema economy holdings state is invalid: {exception.Message}";
+        }
+
         if (profile.DeferredItemPersistence != null)
         {
             var deferred = profile.DeferredItemPersistence;
@@ -399,6 +410,8 @@ public static class ProfileMigrator
                                 || (profile.Statistics != null && profile.Statistics.SchemaVersion < 13);
         var migratingM14Associations = profile.SchemaVersion < 14
                                        || (profile.Statistics != null && profile.Statistics.SchemaVersion < 14);
+        var migratingHoldings = profile.SchemaVersion < 15
+                                || (profile.Statistics != null && profile.Statistics.SchemaVersion < 15);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         var missingCurrentEquipmentRoot = !migratingEquipment
@@ -590,6 +603,23 @@ public static class ProfileMigrator
             profile.Statistics.Crafting.HistoricalProvenance =
                 "Historical schema predates M13; crafted-item completion actions, produced quantities, recipe identity, and batch metadata were not recorded.";
             changed = true;
+        }
+        const string historicalHoldingsProvenance =
+            "Historical schema predates M15; current Money and owned Cash were not observed and were not reconstructed from currency flows.";
+        if (migratingHoldings)
+        {
+            profile.Statistics.Holdings = EconomyHoldingsReducer.HistoricalUnavailable(
+                profile.GenerationId,
+                historicalHoldingsProvenance);
+            changed = true;
+        }
+        else
+        {
+            profile.Statistics.Holdings ??= new EconomyHoldingsSnapshot();
+            changed |= EconomyHoldingsReducer.NormalizePersisted(
+                profile.Statistics.Holdings,
+                profile.GenerationId,
+                downgradeCurrent: true);
         }
         if (profile.Statistics.RunTotals.Economy == null)
         {
@@ -1082,6 +1112,18 @@ public static class ProfileMigrator
         if (profile.Statistics.SchemaVersion < 14)
         {
             profile.Statistics.SchemaVersion = 14;
+            changed = true;
+        }
+
+        if (profile.SchemaVersion < 15)
+        {
+            profile.SchemaVersion = 15;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 15)
+        {
+            profile.Statistics.SchemaVersion = 15;
             changed = true;
         }
 

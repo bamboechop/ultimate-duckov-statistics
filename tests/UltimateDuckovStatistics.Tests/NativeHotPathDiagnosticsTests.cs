@@ -33,6 +33,10 @@ public sealed class NativeHotPathDiagnosticsTests
         NativeHotPathDiagnostics.CountProfileSnapshotCapture();
         NativeHotPathDiagnostics.CountProfileStoreAttempt();
         NativeHotPathDiagnostics.CountProfileStoreSuccess();
+        NativeHotPathDiagnostics.CountEconomyHoldingsDirtySignal();
+        NativeHotPathDiagnostics.CountEconomyHoldingsReadinessCheck();
+        NativeHotPathDiagnostics.CountEconomyHoldingsCashScan();
+        NativeHotPathDiagnostics.CountEconomyHoldingsPublication();
         for (var index = 0; index < 12; index++)
         {
             NativeHotPathDiagnostics.CountHarmonyPatchSetInspection();
@@ -51,6 +55,10 @@ public sealed class NativeHotPathDiagnosticsTests
         Assert.Equal(1, snapshot.ProfileSnapshotCaptures);
         Assert.Equal(1, snapshot.ProfileStoreAttempts);
         Assert.Equal(1, snapshot.ProfileStoreSuccesses);
+        Assert.Equal(1, snapshot.EconomyHoldingsDirtySignals);
+        Assert.Equal(1, snapshot.EconomyHoldingsReadinessChecks);
+        Assert.Equal(1, snapshot.EconomyHoldingsCashScans);
+        Assert.Equal(1, snapshot.EconomyHoldingsPublications);
     }
 
     [Fact]
@@ -74,6 +82,8 @@ public sealed class NativeHotPathDiagnosticsTests
         Assert.Contains("equipmentAssociationRequests=1 equipmentBuilds=1", message, StringComparison.Ordinal);
         Assert.Contains("equipmentUnchanged=1", message, StringComparison.Ordinal);
         Assert.Contains("harmonyPatchSetInspections=1", message, StringComparison.Ordinal);
+        Assert.Contains("M15Holdings", message, StringComparison.Ordinal);
+        Assert.Contains("cashScans=0 publications=0", message, StringComparison.Ordinal);
     }
 
     [Fact]
