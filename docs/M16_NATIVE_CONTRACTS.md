@@ -48,6 +48,8 @@ This is not inventory-delta accounting. UDS never reconstructs a cost from befor
 
 The installed asset audit found 14 formulas with nonzero currency cost:
 
+`CraftingFormula.id` belongs to the formula collection; it is not an item TypeID. Numeric formula IDs can therefore collide with unrelated item TypeIDs. For the three Advanced Workbench validation candidates, current item metadata and localization resolve formula `1026` to output item `131` (Cup / Tasse), formula `1028` to output item `21` (Bleach / Bleichmittel), and formula `1029` to output item `52` (Toilet Cleaner / Klo-Reiniger). Item `764` is Polyethylene Sheet / Polyethylen-Folie.
+
 | Formula | Output item | Tags | Money | Item costs |
 | --- | ---: | --- | ---: | --- |
 | `1026` | 131 | WorkBenchAdvanced | 150 | 764 x 4 |
