@@ -204,6 +204,25 @@ public sealed class CraftingCompletionBoundary
             return token.BoundaryId == boundaryId && publishing.Remove(token.Sequence);
     }
 
+    public bool TryInvalidateResourceEvidence(CraftingCompletionToken token)
+    {
+        lock (sync)
+        {
+            if (token.BoundaryId != boundaryId || !pending.TryGetValue(token.Sequence, out var evidence))
+                return false;
+            pending[token.Sequence] = new CraftingCompletionEvidence(
+                evidence.OutputItemId,
+                evidence.OutputDisplayName,
+                evidence.RecipeId,
+                evidence.ProducedQuantity,
+                resources: Array.Empty<CraftingResourceCostEvidence>(),
+                currencyCharged: evidence.CurrencyCharged,
+                resourceEvidenceProven: false,
+                currencyEvidenceProven: evidence.CurrencyEvidenceProven);
+            return true;
+        }
+    }
+
     public bool Abandon(CraftingCompletionToken token)
     {
         lock (sync)

@@ -2,6 +2,8 @@
 
 This matrix validates M16 against real Duckov 2.3.30 crafting while keeping gameplay and Duckov saves entirely user-controlled. Codex may deploy the candidate only after explicit approval and confirmation that Duckov is closed. Codex must not launch Duckov, select a save, craft, move inventory, save, or shut the game down.
 
+The installed base-game formula collection contains no repeated resource ID within one formula. Repeated-entry sufficiency therefore remains a deterministic production-composition case rather than a manual gameplay case; no user-created or save-modifying formula is required for acceptance.
+
 ## Preconditions
 
 1. Confirm Duckov is closed before deployment.

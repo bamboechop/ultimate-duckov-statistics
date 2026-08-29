@@ -38,6 +38,12 @@
              Link="ProductionAdapters\NativeProfileTransitionBoundary.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeProfileCoordinator.cs"
              Link="ProductionAdapters\NativeProfileCoordinator.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCraftingAdapter.cs"
+             Link="ProductionAdapters\NativeCraftingAdapter.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\CraftingHarmonyBridge.cs"
+             Link="ProductionAdapters\CraftingHarmonyBridge.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\CraftingResourcePaymentProof.cs"
+             Link="ProductionAdapters\CraftingResourcePaymentProof.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeProfileResetTransition.cs"
              Link="ProductionAdapters\NativeProfileResetTransition.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeWorldTimeObservationBoundary.cs"

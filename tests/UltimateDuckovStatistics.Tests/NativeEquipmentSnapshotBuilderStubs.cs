@@ -164,16 +164,29 @@ namespace UnityEngine.SceneManagement
 namespace Duckov.Economy
 {
 #pragma warning disable CA1051 // Stub mirrors the installed public-field native contract.
-    public sealed class Cost
+    public struct Cost
     {
         public long money;
-        public ItemEntry[] items = Array.Empty<ItemEntry>();
+        public ItemEntry[] items;
 
-        public sealed class ItemEntry
+        public struct ItemEntry
         {
             public int id;
             public long amount;
         }
+
+        public readonly bool Enough => EconomyManager.IsEnough(this);
+        public readonly bool Pay(bool accountAvaliable = true, bool cashAvaliable = true) =>
+            EconomyManager.Pay(this, accountAvaliable, cashAvaliable);
+
+#pragma warning disable CA1822 // Stub signature must mirror the installed instance method.
+        internal readonly Cysharp.Threading.Tasks.UniTask Return(
+            bool directToBuffer = false,
+            bool toPlayerInventory = false,
+            int amountFactor = 1,
+            List<ItemStatsSystem.Item>? generatedItemsBuffer = null) =>
+            Cysharp.Threading.Tasks.UniTask.CompletedTask;
+#pragma warning restore CA1822
     }
 #pragma warning restore CA1051
 
@@ -186,6 +199,20 @@ namespace Duckov.Economy
         public static event Action<long>? OnMoneyPaid;
         public static event Action? OnEconomyManagerLoaded;
         public static event Action<Cost>? OnCostPaid;
+
+        public static bool Pay(Cost cost, bool accountAvaliable = true, bool cashAvaliable = true)
+        {
+            if (!IsEnough(cost, accountAvaliable, cashAvaliable)) return false;
+            OnCostPaid?.Invoke(cost);
+            return true;
+        }
+
+        public static bool IsEnough(Cost cost, bool accountAvaliable = true, bool cashAvaliable = true)
+        {
+            foreach (var entry in cost.items ?? Array.Empty<Cost.ItemEntry>())
+                if (ItemUtilities.GetItemCount(entry.id) < entry.amount) return false;
+            return true;
+        }
 
         public static void RaiseMoneyChanged(long oldValue, long newValue) => OnMoneyChanged?.Invoke(oldValue, newValue);
         public static void RaiseMoneyPaid(long amount) => OnMoneyPaid?.Invoke(amount);
@@ -270,6 +297,9 @@ public static class ItemUtilities
         if (ScanException != null) throw ScanException;
         return OwnedItems.Where(predicate).ToArray();
     }
+    public static int GetItemCount(int typeID) => OwnedItems
+        .Where(item => item.TypeID == typeID)
+        .Sum(item => item.StackCount);
     public static void RaisePlayerItemOperation() => OnPlayerItemOperation?.Invoke();
     public static void ResetNativeState()
     {

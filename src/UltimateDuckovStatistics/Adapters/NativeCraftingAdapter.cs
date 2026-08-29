@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion =
-        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
+        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.crafting";
     private const string SupportedGameVersion = "2.3.30";
     private const int DiagnosticKeyCapacity = 32;
@@ -38,8 +38,12 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         CraftingNativeContractPolicy.BootstrapProvenance);
     private MethodInfo? craftMethod;
     private MethodInfo? returnMethod;
+    private MethodInfo? payMethod;
+    private MethodInfo? itemCountMethod;
     private HarmonyPatchSetStamp? craftPatchStamp;
     private HarmonyPatchSetStamp? returnPatchStamp;
+    private HarmonyPatchSetStamp? payPatchStamp;
+    private HarmonyPatchSetStamp? itemCountPatchStamp;
     private Func<bool>? profileTransitionCleanupBarrier;
     private bool accepting;
     private bool cleanupRequested;
@@ -84,7 +88,11 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
         try
         {
-            ResolveContracts(out var resolvedCraftMethod, out var resolvedReturnMethod);
+            ResolveContracts(
+                out var resolvedCraftMethod,
+                out var resolvedReturnMethod,
+                out var resolvedPayMethod,
+                out var resolvedItemCountMethod);
             if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var patcher, out var harmonyDetail) || patcher == null)
                 return Disable($"Crafting completion is unavailable: {harmonyDetail}");
             patcherLease.Attach(patcher);
@@ -92,6 +100,10 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 throw new InvalidOperationException($"Unsafe pre-existing patch set on CraftingManager.Craft(CraftingFormula): {prePatchDetail}");
             if (!patcher.IsPatchSetTrusted(resolvedReturnMethod, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
                 throw new InvalidOperationException($"Unsafe pre-existing patch set on Cost.Return: {prePatchDetail}");
+            if (!patcher.IsPatchSetTrusted(resolvedPayMethod, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
+                throw new InvalidOperationException($"Unsafe pre-existing patch set on EconomyManager.Pay(Cost): {prePatchDetail}");
+            if (!patcher.IsPatchSetTrusted(resolvedItemCountMethod, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
+                throw new InvalidOperationException($"Unsafe pre-existing patch set on ItemUtilities.GetItemCount(int): {prePatchDetail}");
             CraftingHarmonyBridge.Attach(this);
             patcher.Patch(
                 resolvedCraftMethod,
@@ -99,6 +111,12 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 postfix: CraftingHarmonyCallbacks.CraftPostfixMethod,
                 finalizer: CraftingHarmonyCallbacks.CraftFinalizerMethod);
             patcher.Patch(resolvedReturnMethod, postfix: CraftingHarmonyCallbacks.ReturnPostfixMethod);
+            patcher.Patch(
+                resolvedPayMethod,
+                prefix: CraftingHarmonyCallbacks.PayPrefixMethod,
+                postfix: CraftingHarmonyCallbacks.PayPostfixMethod,
+                finalizer: CraftingHarmonyCallbacks.PayFinalizerMethod);
+            patcher.Patch(resolvedItemCountMethod, postfix: CraftingHarmonyCallbacks.GetItemCountPostfixMethod);
             var expectedCraft = new[]
             {
                 new HarmonyPatchExpectation("Prefixes", CraftingHarmonyCallbacks.CraftPrefixMethod),
@@ -123,16 +141,44 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                     out stampDetail)
                 || resolvedReturnStamp == null)
                 throw new InvalidOperationException($"Installed crafting delivery patch set/stamp validation failed: {stampDetail}");
+            var expectedPay = new[]
+            {
+                new HarmonyPatchExpectation("Prefixes", CraftingHarmonyCallbacks.PayPrefixMethod),
+                new HarmonyPatchExpectation("Postfixes", CraftingHarmonyCallbacks.PayPostfixMethod),
+                new HarmonyPatchExpectation("Finalizers", CraftingHarmonyCallbacks.PayFinalizerMethod)
+            };
+            if (!patcher.TryCaptureValidatedPatchSetStamp(
+                    resolvedPayMethod,
+                    expectedPay,
+                    out var resolvedPayStamp,
+                    out stampDetail)
+                || resolvedPayStamp == null)
+                throw new InvalidOperationException($"Installed crafting payment patch set/stamp validation failed: {stampDetail}");
+            var expectedItemCount = new[]
+            {
+                new HarmonyPatchExpectation("Postfixes", CraftingHarmonyCallbacks.GetItemCountPostfixMethod)
+            };
+            if (!patcher.TryCaptureValidatedPatchSetStamp(
+                    resolvedItemCountMethod,
+                    expectedItemCount,
+                    out var resolvedItemCountStamp,
+                    out stampDetail)
+                || resolvedItemCountStamp == null)
+                throw new InvalidOperationException($"Installed crafting affordability patch set/stamp validation failed: {stampDetail}");
             craftMethod = resolvedCraftMethod;
             returnMethod = resolvedReturnMethod;
+            payMethod = resolvedPayMethod;
+            itemCountMethod = resolvedItemCountMethod;
             craftPatchStamp = resolvedCraftStamp;
             returnPatchStamp = resolvedReturnStamp;
+            payPatchStamp = resolvedPayStamp;
+            itemCountPatchStamp = resolvedItemCountStamp;
             lock (lifecycleSync)
             {
                 capabilities = CraftingNativeContractPolicy.Supported(
                     "The correlated Cost.Return task completed after native output delivery, before downstream crafting callbacks.",
                     "CraftingFormula.id and singular result.id/result.amount captured at the native request boundary.",
-                    "CraftingFormula.cost.items stable identities and declared quantities captured at invocation; repeated resource ids are canonicalized before successful delivery publication.",
+                    "CraftingFormula.cost.items stable identities and declared quantities captured at invocation; repeated resource ids require Duckov's own Pay-time affordability observations to prove their canonical combined quantity before successful delivery publication.",
                     "CraftingFormula.cost.money captured at invocation; a successful correlated delivery proves the preceding native Pay returned true for that declared total charge.");
                 accepting = true;
             }
@@ -159,12 +205,15 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             && pendingRetryScheduler.TryTake(nowUtc, 1, out _))
             FlushPending();
         if (!active) return;
-        if (craftMethod == null || returnMethod == null || !patchInspectionScheduler.TryTake(nowUtc, 1, out _)) return;
+        if (craftMethod == null || returnMethod == null || payMethod == null || itemCountMethod == null
+            || !patchInspectionScheduler.TryTake(nowUtc, 1, out _)) return;
         var patcher = patcherLease.Value;
         var detail = "The crafting patch-state stamp is unavailable.";
         if (patcher == null
             || !patcher.IsPatchSetStampCurrent(craftPatchStamp, out detail)
-            || !patcher.IsPatchSetStampCurrent(returnPatchStamp, out detail))
+            || !patcher.IsPatchSetStampCurrent(returnPatchStamp, out detail)
+            || !patcher.IsPatchSetStampCurrent(payPatchStamp, out detail)
+            || !patcher.IsPatchSetStampCurrent(itemCountPatchStamp, out detail))
         {
             DisableRuntime(
                 patcher == null
@@ -273,8 +322,12 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         {
             craftMethod = null;
             returnMethod = null;
+            payMethod = null;
+            itemCountMethod = null;
             craftPatchStamp = null;
             returnPatchStamp = null;
+            payPatchStamp = null;
+            itemCountPatchStamp = null;
             profileTransitionCleanupBarrier = null;
             profileHandoff.Reset();
             cleaned = true;
@@ -386,10 +439,47 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 currencyCharged,
                 resourcesProven,
                 currencyProven));
-            scope = new CraftingNativeScope(this, new CraftingDeliveryCorrelation(token));
+            scope = new CraftingNativeScope(
+                this,
+                new CraftingDeliveryCorrelation(token),
+                new CraftingResourcePaymentProof(formula.cost, resourcesProven));
         }
         if (capabilitiesChanged) StageAndPublishCapabilities();
         return scope;
+    }
+
+    internal static bool BeginNativePayment(CraftingNativeScope scope, Cost cost) =>
+        scope.ResourcePaymentProof.TryBegin(cost);
+
+    internal static void ObserveNativePaymentItemCount(CraftingNativeScope scope, int itemTypeId, int count) =>
+        scope.ResourcePaymentProof.ObserveItemCount(itemTypeId, count);
+
+    internal void CompleteNativePayment(CraftingNativeScope scope, bool result)
+    {
+        var detail = scope.ResourcePaymentProof.Complete(result);
+        if (!result || string.IsNullOrWhiteSpace(detail)) return;
+        InvalidateResourceEvidence(scope, detail);
+    }
+
+    internal static void AbandonNativePayment(CraftingNativeScope scope) =>
+        scope.ResourcePaymentProof.AbandonPayment();
+
+    private void InvalidateResourceEvidence(CraftingNativeScope scope, string detail)
+    {
+        bool invalidated;
+        bool capabilitiesChanged;
+        lock (lifecycleSync)
+        {
+            invalidated = boundary.TryInvalidateResourceEvidence(scope.Correlation.Token);
+            capabilitiesChanged = invalidated
+                && RestrictCostCapabilitiesLocked(detail, currencyDetail: null);
+        }
+        if (!invalidated)
+        {
+            DisableRuntime("Crafting tracking disabled because repeated-resource evidence could not be invalidated before delivery publication.");
+            return;
+        }
+        if (capabilitiesChanged) StageAndPublishCapabilities();
     }
 
     private bool TrySnapshotResourceCosts(
@@ -578,6 +668,8 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         var publicationClaimed = false;
         try
         {
+            if (scope.ResourcePaymentProof.RequiresPaymentProof && !scope.ResourcePaymentProof.IsExact)
+                InvalidateResourceEvidence(scope, scope.ResourcePaymentProof.DeliveryDetail());
             string generationId;
             CraftingMutation mutation;
             long profileTransitionId;
@@ -662,7 +754,9 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
     private static void ResolveContracts(
         out MethodInfo resolvedCraftMethod,
-        out MethodInfo resolvedReturnMethod)
+        out MethodInfo resolvedReturnMethod,
+        out MethodInfo resolvedPayMethod,
+        out MethodInfo resolvedItemCountMethod)
     {
         var itemEntryType = typeof(CraftingFormula.ItemEntry);
         var formulaResult = typeof(CraftingFormula).GetField("result", BindingFlags.Instance | BindingFlags.Public);
@@ -686,19 +780,20 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             binder: null,
             new[] { typeof(bool), typeof(bool) },
             modifiers: null);
-        var economyPay = typeof(EconomyManager).GetMethod(
+        resolvedPayMethod = typeof(EconomyManager).GetMethod(
             "Pay",
             BindingFlags.Static | BindingFlags.Public,
             binder: null,
             new[] { typeof(Cost), typeof(bool), typeof(bool) },
-            modifiers: null);
+            modifiers: null)
+            ?? throw new MissingMethodException("EconomyManager.Pay(Cost, bool, bool)");
         if (costMoney?.FieldType != typeof(long)
             || costItems?.FieldType != typeof(Cost.ItemEntry[])
             || costItemId?.FieldType != typeof(int)
             || costItemAmount?.FieldType != typeof(long)
             || costEnough?.PropertyType != typeof(bool)
             || costPay?.ReturnType != typeof(bool)
-            || economyPay?.ReturnType != typeof(bool))
+            || resolvedPayMethod.ReturnType != typeof(bool))
             throw new MissingMemberException("Cost money/items/Enough/Pay and EconomyManager.Pay contracts");
         resolvedCraftMethod = typeof(CraftingManager).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
             .SingleOrDefault(method => method.Name == "Craft"
@@ -726,6 +821,15 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             ?? throw new MissingMethodException("Duckov.Economy.Cost.Return(bool, bool, int, List<Item>)");
         if (resolvedReturnMethod.ReturnType != typeof(UniTask))
             throw new MissingMethodException("Duckov.Economy.Cost.Return UniTask result");
+        resolvedItemCountMethod = typeof(ItemUtilities).GetMethod(
+            "GetItemCount",
+            BindingFlags.Static | BindingFlags.Public,
+            binder: null,
+            new[] { typeof(int) },
+            modifiers: null)
+            ?? throw new MissingMethodException("ItemUtilities.GetItemCount(int)");
+        if (resolvedItemCountMethod.ReturnType != typeof(int))
+            throw new MissingMethodException("ItemUtilities.GetItemCount(int) result");
         var metadata = typeof(ItemAssetsCollection).GetMethod(
             "GetMetaData",
             BindingFlags.Static | BindingFlags.Public,
@@ -815,6 +919,6 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
     private static Exception Unwrap(Exception exception) =>
         exception is TargetInvocationException { InnerException: not null } invocation
-            ? invocation.InnerException
+            ? invocation.InnerException!
             : exception;
 }

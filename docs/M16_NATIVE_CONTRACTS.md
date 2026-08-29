@@ -29,18 +29,22 @@ M13 already correlates the exact `Cost.Return(false, true, 1, generatedBuffer)` 
 
 ## Item-resource semantics
 
-`CraftingFormula.cost.items` is an array of `Cost.ItemEntry { int id; long amount; }`. `EconomyManager.IsEnough(Cost)` compares each declared entry with `ItemUtilities.GetItemCount(id)`. `EconomyManager.Pay(Cost)` first passes `IsEnough`, pays currency, then requires `ItemUtilities.ConsumeItems(cost)` to return true. `ConsumeItems` locates player-owned items by exact `TypeID`, consumes the declared stack quantity for every entry, and returns detached nested contents to the player.
+`CraftingFormula.cost.items` is an array of `Cost.ItemEntry { int id; long amount; }`. `EconomyManager.IsEnough(Cost)` compares each declared entry independently with `ItemUtilities.GetItemCount(id)`. `EconomyManager.Pay(Cost)` repeats that check, pays currency, then requires `ItemUtilities.ConsumeItems(cost)` to return true. `ConsumeItems` first builds one deferred removal action per entry and only afterwards executes those actions. Each action consumes as much of its captured item list as remains, but the method does not verify the action's residual requested amount before returning `true`.
+
+That behavior matters for modded formulas containing the same resource ID more than once. With `X x 3; X x 3` and four owned units, both independent checks see four, both deferred removal actions are admitted, the actions remove three and then one, and native payment can still report success and deliver the output. Canonicalizing the declaration to six after delivery would therefore overstate actual consumption.
+
+UDS patches the already-required `EconomyManager.Pay(Cost, bool, bool)` and `ItemUtilities.GetItemCount(int)` contracts in addition to the M13 craft/delivery pair. For a matched craft with repeated resource IDs, a thread-local payment scope observes Duckov's own affordability results during the native `Pay` call. It adds no inventory query or before/after scan. Exact repeated-entry evidence requires every repeated entry's native observation and requires the minimum observed count to be at least the checked canonical combined quantity. A repeated physical-Cash item cost combined with `Cost.money > 0` also fails closed because the same Cash holding may fund both surfaces. Missing, insufficient, overlapping-Cash, exceptional, or drifted proof marks only that successful craft's item-resource evidence unavailable; completion, output, and independently proven total currency remain eligible.
 
 UDS therefore records the event-time declared item cost of a successful craft as resource consumption evidence:
 
 - stable identity is the invariant string form of the native integer item ID;
 - display metadata is enrichment only, so missing names retain `Unknown item <id>` and never erase the stable identity;
 - every resource in one successful craft receives one consumption action and its checked declared quantity;
-- repeated IDs in a formula are canonicalized by checked addition before publication, even though the audited installed collection contains none;
+- repeated IDs in a formula are canonicalized by checked addition only after the matched native payment observations prove the combined quantity, even though the audited installed collection contains none;
 - lifetime resource totals and output/recipe/resource associations are checked `Int64` aggregates;
 - reverse resource rankings and breakdowns are derived from the canonical aggregate, not persisted as a duplicate inverse index.
 
-This is not inventory-delta accounting. UDS never reconstructs a cost from before/after inventory, current holdings, historical craft counts, current recipe metadata, item value, or price. A schema-15 or older crafted total retains its M13 action/output evidence but has explicitly unavailable pre-M16 item-resource history.
+This is not inventory-delta or holdings accounting. UDS never reconstructs a quantity from before/after inventory, a new holdings scan, historical craft counts, current recipe metadata, item value, or price. The repeated-entry guard observes only counts Duckov itself requests inside the exact native payment call and uses them to reject an otherwise false declaration; it never persists those counts or substitutes them for the declared cost. A schema-15 or older crafted total retains its M13 action/output evidence but has explicitly unavailable pre-M16 item-resource history.
 
 ## Currency semantics
 
@@ -71,13 +75,13 @@ M16 consequently enables exact declared total currency charged and currency-char
 
 ## Capabilities and failure boundaries
 
-M16 adds independent capabilities for item-resource identity, output/resource association, total currency charge, and Money/Cash split. Invalid or unreadable resource evidence disables the first two without disabling M13 completion/output totals or exact currency. Invalid currency evidence disables only total currency. A later exact event may still be retained as partial history, but the degraded capability never silently returns to complete. Patch drift, version mismatch, or an invalid core delivery contract retains M13's existing fail-closed behavior.
+M16 adds independent capabilities for item-resource identity, output/resource association, total currency charge, and Money/Cash split. Invalid, unreadable, or insufficient repeated-entry payment evidence disables the first two without disabling M13 completion/output totals or exact currency. Invalid currency evidence disables only total currency. A later exact event may still be retained as partial history, but the degraded capability never silently returns to complete. Patch drift across the craft, delivery, payment, or affordability-observation methods, version mismatch, or an invalid core delivery contract retains M13's existing fail-closed behavior.
 
 All aggregates use checked arithmetic. On overflow, UDS preserves the prior exact value and disables only the affected resource-action, resource-quantity, currency-action, or currency-amount projection. Save-generation handoff, deferred publication, retry, atomic primary/backup/temporary recovery, and terminal-shutdown ownership remain the M13 production boundaries.
 
 ## Performance contract
 
-One craft snapshots and canonicalizes only its small `Cost.items` array. Pending publications coalesce by output, recipe, proof state, resource, and currency; no raw craft journal or inverse resource index is retained. Ordinary frames perform only the existing constant-time pending and patch-inspection checks. Persistence remains deferred/coalesced and never performs a synchronous write per craft. Cardinality is bounded by distinct output, recipe, and resource identities rather than action volume.
+One craft snapshots and canonicalizes only its small `Cost.items` array. The repeated-entry guard consumes the results of Duckov's existing `GetItemCount` calls and performs no additional inventory scan. Its hot-path state is bounded by distinct repeated IDs in that one formula and is released with the craft scope. Pending publications coalesce by output, recipe, proof state, resource, and currency; no raw craft journal or inverse resource index is retained. Ordinary frames perform only the existing constant-time pending and patch-inspection checks. Persistence remains deferred/coalesced and never performs a synchronous write per craft. Cardinality is bounded by distinct output, recipe, and resource identities rather than action volume.
 
 ## Reproduce the executable audit
 
