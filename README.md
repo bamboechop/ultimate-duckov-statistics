@@ -16,6 +16,8 @@ M0-M15 are published through the [v0.15.0 GitHub pre-release](https://github.com
 
 M12 PR #13 merged as `6bd39dadf5cd1c49149b98b7d6b0898d62608f67`. The published release passes 754/754 tests, the installed-game compatibility and exact five-file package gates, user-controlled world-time and sleep gameplay, complete 25-file export agreement, recovery, and clean shutdown. M13 crafted-item statistics are complete and merged through [PR #14](https://github.com/bamboechop/ultimate-duckov-statistics/pull/14) as `a59ed777ed0f316bd7b7fcbd2b61aeacf8752990`. Current branch, review, tag, and release state is maintained on GitHub through [pull requests](https://github.com/bamboechop/ultimate-duckov-statistics/pulls), [tags](https://github.com/bamboechop/ultimate-duckov-statistics/tags), and [releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases). See [PLAN.md](PLAN.md) for milestone contracts and acceptance boundaries; immutable completed-delivery evidence remains in [TESTING.md](TESTING.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
+The accepted design references for the planned M17 native UI overhaul are committed under [mockups/](mockups/README.md). They document the final navigation, major views, access paths, and representative empty, partial, degraded, error, reset, and export states. They describe planned `v0.17.0` presentation rather than the currently published v0.15 panel, and their example values are not schema fixtures or historical evidence.
+
 ## Build prerequisites
 
 - Windows
