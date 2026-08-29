@@ -122,6 +122,7 @@ The German menu text reflects the available native reference captures. Productio
 - If the active UDS generation cannot be proven, access fails closed without displaying another generation or inventing an empty profile. A normal no-selected-slot screen is not assumed unless installed-native evidence proves that state reachable.
 - At narrower viewports, multi-column desktop layouts may collapse into one vertically scrolling column instead of compressing their contents. Stack regions in desktop reading order from left to right, with the leftmost/primary region first. Responsive placement must preserve every section, control, value, and availability state rather than omitting or merging information.
 - Keep the tab strip on one horizontally scrollable row when all nine tabs do not fit. The selected or keyboard-focused tab remains visible; labels remain readable and do not wrap into multiple navigation rows.
+- Use Duckov's subtle white overflow-edge cue wherever the mockups show a bounded scrolling container. Show no edge when the content fits, a top edge when content exists above the current viewport, a bottom edge when content exists below it, and both edges when content exists in both directions. The cue is neither a permanent container border nor a selection highlight.
 - Expanded rows, filters, selected tabs, scroll position, focus restoration, and hover/pressed/disabled feedback must behave like native controls. The 2560×1440 compositions do not authorize a fixed-size implementation.
 
 ## M17 implementation checks
