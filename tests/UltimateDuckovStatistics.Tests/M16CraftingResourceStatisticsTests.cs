@@ -447,6 +447,13 @@ public sealed class M16CraftingResourceStatisticsTests
         zeroLifetimeResourceWithQuantityUnavailable.Outputs["131"].Recipes["1026"].Resources["764"].ConsumedQuantity = 0;
         Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(zeroLifetimeResourceWithQuantityUnavailable));
 
+        var actionsExceedExactResourceQuantity = SupportedAggregate();
+        Apply(actionsExceedExactResourceQuantity, 6, 150);
+        Apply(actionsExceedExactResourceQuantity, 6, 150);
+        actionsExceedExactResourceQuantity.Resources["764"].ConsumedQuantity = 1;
+        actionsExceedExactResourceQuantity.Outputs["131"].Recipes["1026"].Resources["764"].ConsumedQuantity = 1;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(actionsExceedExactResourceQuantity));
+
         var zeroCurrencyActions = CraftingStatisticsReducer.Clone(valid);
         zeroCurrencyActions.CurrencyChargeActions = 0;
         zeroCurrencyActions.Outputs["131"].CurrencyChargeActions = 0;
@@ -522,6 +529,9 @@ public sealed class M16CraftingResourceStatisticsTests
         Assert.Equal(0, unavailableAmounts.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumedQuantity);
         Assert.Equal(1, unavailableAmounts.Outputs["next"].CurrencyChargeActions);
         Assert.Equal(0, unavailableAmounts.Outputs["next"].CurrencyCharged);
+        Assert.True(
+            unavailableAmounts.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumptionActions
+            > unavailableAmounts.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumedQuantity);
         CraftingStatisticsReducer.Validate(unavailableAmounts);
 
         var bothUnavailable = CraftingStatisticsReducer.Clone(unavailableActions);

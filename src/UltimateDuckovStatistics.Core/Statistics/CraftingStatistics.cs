@@ -502,6 +502,8 @@ public static class CraftingStatisticsReducer
                         || resource.ConsumptionActions < 0 || resource.ConsumedQuantity < 0
                         || (!aggregate.ResourceActionArithmeticUnavailable && resource.ConsumptionActions == 0)
                         || (!aggregate.ResourceQuantityArithmeticUnavailable && resource.ConsumedQuantity == 0)
+                        || (!aggregate.ResourceQuantityArithmeticUnavailable
+                            && resource.ConsumptionActions > resource.ConsumedQuantity)
                         || resource.ConsumptionActions > recipe.CompletionActions)
                         throw new ArgumentException("Crafting resource association is invalid.", nameof(aggregate));
                     associationQuantityByResource.TryGetValue(resource.ResourceItemId, out var prior);

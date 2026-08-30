@@ -289,6 +289,60 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
     [Trait("Category", "M16")]
     [Trait("Category", "Persistence")]
     [Trait("Category", "ProductionComposition")]
+    public void ExactResourceActionsExceedingQuantityPrimaryRecoversProductionCraftFromBackup()
+    {
+        using var result = CreateComposition();
+        for (var action = 0; action < 2; action++)
+        {
+            ItemUtilities.OwnedItems.Add(Stack(9001, 6, durability: 1));
+            CompleteCraft(result, DuplicateCostFormula());
+        }
+        var generationId = result.Coordinator.CurrentGenerationId;
+        var profilePath = CurrentProfilePath(result);
+        var backupPath = AtomicJsonPaths.GetBackupPath(profilePath);
+        result.StopRuntime();
+
+        Assert.Equal(12, ReadResourceQuantity(backupPath));
+        Assert.Equal(12, ReadResourceAssociationQuantity(backupPath));
+        Assert.Equal(2, ReadResourceActions(backupPath));
+        Assert.Equal(300, ReadLifetimeCurrency(backupPath));
+        var backupBeforeCorruption = File.ReadAllText(backupPath);
+        var primary = JsonNode.Parse(File.ReadAllText(profilePath))!.AsObject();
+        var crafting = primary["Statistics"]!["Crafting"]!;
+        crafting["Resources"]!["9001"]!["ConsumedQuantity"] = 1;
+        crafting["Outputs"]!["7001"]!["Recipes"]!["modded-duplicate"]!["Resources"]!["9001"]!
+            ["ConsumedQuantity"] = 1;
+        File.WriteAllText(profilePath, primary.ToJsonString());
+        Assert.False(ReadCraftingBoolean(profilePath, "ResourceQuantityArithmeticUnavailable"));
+        Assert.Equal(1, ReadResourceQuantity(profilePath));
+        Assert.Equal(1, ReadResourceAssociationQuantity(profilePath));
+        Assert.Equal(2, ReadResourceActions(profilePath));
+        Assert.Equal(300, ReadLifetimeCurrency(profilePath));
+        Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
+
+        using var reopened = new NativeProfileCoordinator();
+        reopened.Initialize();
+
+        Assert.Equal(generationId, reopened.CurrentGenerationId);
+        var recovered = reopened.Current!.Statistics.Crafting;
+        Assert.Equal(12, recovered.Resources["9001"].ConsumedQuantity);
+        var association = recovered.Outputs["7001"].Recipes["modded-duplicate"].Resources["9001"];
+        Assert.Equal(12, association.ConsumedQuantity);
+        Assert.Equal(2, association.ConsumptionActions);
+        Assert.Equal(300, recovered.CurrencyCharged);
+        Assert.False(recovered.ResourceQuantityArithmeticUnavailable);
+        Assert.Contains(reopened.DiagnosticEntries, entry =>
+            entry.Message.Contains("recovered=True", StringComparison.Ordinal));
+        Assert.Equal(12, ReadResourceQuantity(profilePath));
+        Assert.Equal(12, ReadResourceAssociationQuantity(profilePath));
+        Assert.Equal(2, ReadResourceActions(profilePath));
+        Assert.Equal(300, ReadLifetimeCurrency(profilePath));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
     public void DegradedCurrencyFanOutSubsetPrimaryRecoversProductionCraftFromBackup()
     {
         using var result = CompleteDuplicateCostCraft(6);
