@@ -19,6 +19,7 @@ namespace ItemStatsSystem
         private static int nextInstanceId;
         private readonly int instanceId = Interlocked.Increment(ref nextInstanceId);
         public int TypeID { get; set; }
+        public bool Stackable { get; set; } = true;
         public int StackCount { get; set; } = 1;
         public string DisplayName { get; set; } = string.Empty;
         public string DisplayNameRaw { get; set; } = string.Empty;

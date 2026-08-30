@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion =
-        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
+        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v2+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.crafting";
     private const string SupportedGameVersion = "2.3.30";
     private const int DiagnosticKeyCapacity = 32;
@@ -40,10 +40,14 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     private MethodInfo? returnMethod;
     private MethodInfo? payMethod;
     private MethodInfo? itemCountMethod;
+    private MethodInfo? stackCountSetter;
+    private MethodInfo? markDestroyedMethod;
     private HarmonyPatchSetStamp? craftPatchStamp;
     private HarmonyPatchSetStamp? returnPatchStamp;
     private HarmonyPatchSetStamp? payPatchStamp;
     private HarmonyPatchSetStamp? itemCountPatchStamp;
+    private HarmonyPatchSetStamp? stackCountPatchStamp;
+    private HarmonyPatchSetStamp? markDestroyedPatchStamp;
     private Func<bool>? profileTransitionCleanupBarrier;
     private bool accepting;
     private bool cleanupRequested;
@@ -92,7 +96,9 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 out var resolvedCraftMethod,
                 out var resolvedReturnMethod,
                 out var resolvedPayMethod,
-                out var resolvedItemCountMethod);
+                out var resolvedItemCountMethod,
+                out var resolvedStackCountSetter,
+                out var resolvedMarkDestroyedMethod);
             if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var patcher, out var harmonyDetail) || patcher == null)
                 return Disable($"Crafting completion is unavailable: {harmonyDetail}");
             patcherLease.Attach(patcher);
@@ -104,6 +110,10 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 throw new InvalidOperationException($"Unsafe pre-existing patch set on EconomyManager.Pay(Cost): {prePatchDetail}");
             if (!patcher.IsPatchSetTrusted(resolvedItemCountMethod, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
                 throw new InvalidOperationException($"Unsafe pre-existing patch set on ItemUtilities.GetItemCount(int): {prePatchDetail}");
+            if (!patcher.IsPatchSetTrusted(resolvedStackCountSetter, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
+                throw new InvalidOperationException($"Unsafe pre-existing patch set on Item.StackCount setter: {prePatchDetail}");
+            if (!patcher.IsPatchSetTrusted(resolvedMarkDestroyedMethod, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
+                throw new InvalidOperationException($"Unsafe pre-existing patch set on Item.MarkDestroyed(): {prePatchDetail}");
             CraftingHarmonyBridge.Attach(this);
             patcher.Patch(
                 resolvedCraftMethod,
@@ -117,6 +127,11 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 postfix: CraftingHarmonyCallbacks.PayPostfixMethod,
                 finalizer: CraftingHarmonyCallbacks.PayFinalizerMethod);
             patcher.Patch(resolvedItemCountMethod, postfix: CraftingHarmonyCallbacks.GetItemCountPostfixMethod);
+            patcher.Patch(
+                resolvedStackCountSetter,
+                prefix: CraftingHarmonyCallbacks.StackCountPrefixMethod,
+                postfix: CraftingHarmonyCallbacks.StackCountPostfixMethod);
+            patcher.Patch(resolvedMarkDestroyedMethod, prefix: CraftingHarmonyCallbacks.MarkDestroyedPrefixMethod);
             var expectedCraft = new[]
             {
                 new HarmonyPatchExpectation("Prefixes", CraftingHarmonyCallbacks.CraftPrefixMethod),
@@ -165,20 +180,47 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                     out stampDetail)
                 || resolvedItemCountStamp == null)
                 throw new InvalidOperationException($"Installed crafting affordability patch set/stamp validation failed: {stampDetail}");
+            var expectedStackCount = new[]
+            {
+                new HarmonyPatchExpectation("Prefixes", CraftingHarmonyCallbacks.StackCountPrefixMethod),
+                new HarmonyPatchExpectation("Postfixes", CraftingHarmonyCallbacks.StackCountPostfixMethod)
+            };
+            if (!patcher.TryCaptureValidatedPatchSetStamp(
+                    resolvedStackCountSetter,
+                    expectedStackCount,
+                    out var resolvedStackCountStamp,
+                    out stampDetail)
+                || resolvedStackCountStamp == null)
+                throw new InvalidOperationException($"Installed crafting stack-mutation patch set/stamp validation failed: {stampDetail}");
+            var expectedMarkDestroyed = new[]
+            {
+                new HarmonyPatchExpectation("Prefixes", CraftingHarmonyCallbacks.MarkDestroyedPrefixMethod)
+            };
+            if (!patcher.TryCaptureValidatedPatchSetStamp(
+                    resolvedMarkDestroyedMethod,
+                    expectedMarkDestroyed,
+                    out var resolvedMarkDestroyedStamp,
+                    out stampDetail)
+                || resolvedMarkDestroyedStamp == null)
+                throw new InvalidOperationException($"Installed crafting stack-destruction patch set/stamp validation failed: {stampDetail}");
             craftMethod = resolvedCraftMethod;
             returnMethod = resolvedReturnMethod;
             payMethod = resolvedPayMethod;
             itemCountMethod = resolvedItemCountMethod;
+            stackCountSetter = resolvedStackCountSetter;
+            markDestroyedMethod = resolvedMarkDestroyedMethod;
             craftPatchStamp = resolvedCraftStamp;
             returnPatchStamp = resolvedReturnStamp;
             payPatchStamp = resolvedPayStamp;
             itemCountPatchStamp = resolvedItemCountStamp;
+            stackCountPatchStamp = resolvedStackCountStamp;
+            markDestroyedPatchStamp = resolvedMarkDestroyedStamp;
             lock (lifecycleSync)
             {
                 capabilities = CraftingNativeContractPolicy.Supported(
                     "The correlated Cost.Return task completed after native output delivery, before downstream crafting callbacks.",
                     "CraftingFormula.id and singular result.id/result.amount captured at the native request boundary.",
-                    "CraftingFormula.cost.items stable identities and declared quantities captured at invocation; repeated resource ids require Duckov's own Pay-time affordability observations to prove their canonical combined quantity before successful delivery publication.",
+                    "CraftingFormula.cost.items stable identities and declared quantities captured at invocation; repeated resource ids require Duckov's own matched Pay-time affordability and distinct stack-mutation observations to prove their canonical combined quantity before successful delivery publication.",
                     "CraftingFormula.cost.money captured at invocation; a successful correlated delivery proves the preceding native Pay returned true for that declared total charge.");
                 accepting = true;
             }
@@ -206,6 +248,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             FlushPending();
         if (!active) return;
         if (craftMethod == null || returnMethod == null || payMethod == null || itemCountMethod == null
+            || stackCountSetter == null || markDestroyedMethod == null
             || !patchInspectionScheduler.TryTake(nowUtc, 1, out _)) return;
         var patcher = patcherLease.Value;
         var detail = "The crafting patch-state stamp is unavailable.";
@@ -213,7 +256,9 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             || !patcher.IsPatchSetStampCurrent(craftPatchStamp, out detail)
             || !patcher.IsPatchSetStampCurrent(returnPatchStamp, out detail)
             || !patcher.IsPatchSetStampCurrent(payPatchStamp, out detail)
-            || !patcher.IsPatchSetStampCurrent(itemCountPatchStamp, out detail))
+            || !patcher.IsPatchSetStampCurrent(itemCountPatchStamp, out detail)
+            || !patcher.IsPatchSetStampCurrent(stackCountPatchStamp, out detail)
+            || !patcher.IsPatchSetStampCurrent(markDestroyedPatchStamp, out detail))
         {
             DisableRuntime(
                 patcher == null
@@ -324,10 +369,14 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             returnMethod = null;
             payMethod = null;
             itemCountMethod = null;
+            stackCountSetter = null;
+            markDestroyedMethod = null;
             craftPatchStamp = null;
             returnPatchStamp = null;
             payPatchStamp = null;
             itemCountPatchStamp = null;
+            stackCountPatchStamp = null;
+            markDestroyedPatchStamp = null;
             profileTransitionCleanupBarrier = null;
             profileHandoff.Reset();
             cleaned = true;
@@ -453,6 +502,21 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
     internal static void ObserveNativePaymentItemCount(CraftingNativeScope scope, int itemTypeId, int count) =>
         scope.ResourcePaymentProof.ObserveItemCount(itemTypeId, count);
+
+    internal static void ObserveNativePaymentStackCountReduction(
+        CraftingNativeScope scope,
+        Item item,
+        int beforeCount,
+        int afterCount,
+        bool wasBeingDestroyed) =>
+        scope.ResourcePaymentProof.ObserveStackCountReduction(
+            item,
+            beforeCount,
+            afterCount,
+            wasBeingDestroyed);
+
+    internal static void ObserveNativePaymentStackDestroyed(CraftingNativeScope scope, Item item) =>
+        scope.ResourcePaymentProof.ObserveStackDestroyed(item);
 
     internal void CompleteNativePayment(CraftingNativeScope scope, bool result)
     {
@@ -756,7 +820,9 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         out MethodInfo resolvedCraftMethod,
         out MethodInfo resolvedReturnMethod,
         out MethodInfo resolvedPayMethod,
-        out MethodInfo resolvedItemCountMethod)
+        out MethodInfo resolvedItemCountMethod,
+        out MethodInfo resolvedStackCountSetter,
+        out MethodInfo resolvedMarkDestroyedMethod)
     {
         var itemEntryType = typeof(CraftingFormula.ItemEntry);
         var formulaResult = typeof(CraftingFormula).GetField("result", BindingFlags.Instance | BindingFlags.Public);
@@ -830,6 +896,25 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             ?? throw new MissingMethodException("ItemUtilities.GetItemCount(int)");
         if (resolvedItemCountMethod.ReturnType != typeof(int))
             throw new MissingMethodException("ItemUtilities.GetItemCount(int) result");
+        var stackCountProperty = typeof(Item).GetProperty(
+            "StackCount",
+            BindingFlags.Instance | BindingFlags.Public);
+        resolvedStackCountSetter = stackCountProperty?.SetMethod
+            ?? throw new MissingMethodException("Item.StackCount setter");
+        if (stackCountProperty.PropertyType != typeof(int)
+            || stackCountProperty.GetMethod == null
+            || !stackCountProperty.GetMethod.IsPublic
+            || !resolvedStackCountSetter.IsPublic)
+            throw new MissingMemberException("Item.StackCount public Int32 getter/setter contract");
+        resolvedMarkDestroyedMethod = typeof(Item).GetMethod(
+            "MarkDestroyed",
+            BindingFlags.Instance | BindingFlags.Public,
+            binder: null,
+            Type.EmptyTypes,
+            modifiers: null)
+            ?? throw new MissingMethodException("Item.MarkDestroyed()");
+        if (resolvedMarkDestroyedMethod.ReturnType != typeof(void))
+            throw new MissingMethodException("Item.MarkDestroyed() void result");
         var metadata = typeof(ItemAssetsCollection).GetMethod(
             "GetMetaData",
             BindingFlags.Static | BindingFlags.Public,

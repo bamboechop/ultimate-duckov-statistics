@@ -1,4 +1,5 @@
 using Duckov.Economy;
+using ItemStatsSystem;
 
 namespace UltimateDuckovStatistics.Adapters;
 
@@ -8,9 +9,11 @@ internal sealed class CraftingResourcePaymentProof
     private readonly long declaredMoney;
     private readonly Cost.ItemEntry[] declaredItems;
     private readonly Dictionary<int, Observation> observations = new();
+    private readonly Dictionary<int, long> consumedQuantities = new();
     private bool paymentStarted;
     private bool paymentCompleted;
     private bool exact;
+    private string mutationFailure = string.Empty;
 
     public CraftingResourcePaymentProof(Cost cost, bool resourceEvidenceProven)
     {
@@ -58,6 +61,26 @@ internal sealed class CraftingResourcePaymentProof
         observations[itemTypeId] = observation;
     }
 
+    public void ObserveStackCountReduction(Item item, int beforeCount, int afterCount, bool wasBeingDestroyed)
+    {
+        if (!CanObserveMutation(item, wasBeingDestroyed)
+            || beforeCount <= afterCount
+            || afterCount < 0)
+            return;
+        AddConsumed(item.TypeID, checked((long)beforeCount - afterCount));
+    }
+
+    public void ObserveStackDestroyed(Item item)
+    {
+        if (!CanObserveMutation(item, item.IsBeingDestroyed)) return;
+        if (item.StackCount <= 0)
+        {
+            mutationFailure = $"Repeated crafting-resource consumption is unavailable because native Pay destroyed resource {item.TypeID} with non-positive stack quantity {item.StackCount}.";
+            return;
+        }
+        AddConsumed(item.TypeID, item.StackCount);
+    }
+
     public string Complete(bool paymentSucceeded)
     {
         if (!paymentStarted || paymentCompleted)
@@ -66,6 +89,7 @@ internal sealed class CraftingResourcePaymentProof
         if (!paymentSucceeded) return string.Empty;
         if (declaredMoney > 0 && repeatedRequirements.ContainsKey(EconomyManager.CashItemID))
             return "Repeated crafting-resource consumption is unavailable because physical Cash is both an item resource and a possible source for the same recipe's currency charge.";
+        if (!string.IsNullOrWhiteSpace(mutationFailure)) return mutationFailure;
         foreach (var entry in repeatedRequirements.OrderBy(value => value.Key))
         {
             if (!observations.TryGetValue(entry.Key, out var observation)
@@ -73,6 +97,9 @@ internal sealed class CraftingResourcePaymentProof
                 return $"Repeated crafting-resource consumption is unavailable because native Pay did not expose every affordability observation for resource {entry.Key}.";
             if (observation.MinimumCount < entry.Value.CombinedQuantity)
                 return $"Repeated crafting-resource consumption is unavailable because native Pay accepted resource {entry.Key} entries totaling {entry.Value.CombinedQuantity} while its minimum affordability observation proved only {observation.MinimumCount} available.";
+            consumedQuantities.TryGetValue(entry.Key, out var consumedQuantity);
+            if (consumedQuantity != entry.Value.CombinedQuantity)
+                return $"Repeated crafting-resource consumption is unavailable because native Pay accepted resource {entry.Key} entries totaling {entry.Value.CombinedQuantity} while its matched distinct stack mutations proved {consumedQuantity} actually removed.";
         }
         exact = true;
         return string.Empty;
@@ -100,6 +127,27 @@ internal sealed class CraftingResourcePaymentProof
                 return false;
         }
         return true;
+    }
+
+    private bool CanObserveMutation(Item item, bool wasBeingDestroyed) =>
+        paymentStarted
+        && !paymentCompleted
+        && !wasBeingDestroyed
+        && repeatedRequirements.ContainsKey(item.TypeID)
+        && string.IsNullOrWhiteSpace(mutationFailure);
+
+    private void AddConsumed(int itemTypeId, long quantity)
+    {
+        if (quantity <= 0) return;
+        try
+        {
+            consumedQuantities.TryGetValue(itemTypeId, out var current);
+            consumedQuantities[itemTypeId] = checked(current + quantity);
+        }
+        catch (OverflowException)
+        {
+            mutationFailure = $"Repeated crafting-resource consumption is unavailable because native Pay mutation evidence overflowed for resource {itemTypeId}.";
+        }
     }
 
     private struct RepeatedRequirement
