@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -141,6 +142,48 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Contains(result.Diagnostics, detail =>
             detail.Contains("entries totaling 6", StringComparison.Ordinal)
             && detail.Contains("net ownership-ending stack mutations proved 3 actually removed", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "ProductionComposition")]
+    public void ColdResourceOnlyHarmonyConflictPreservesCompletionOutputRecipeAndCurrency()
+    {
+        using var result = CreateInitializedComposition(() => PatchForeignResourceTarget(
+            typeof(Item).GetProperty(nameof(Item.StackCount))!.SetMethod!));
+
+        AssertIndependentCraftingCapabilitiesSupported(result);
+        AssertResourceCapabilitiesUnavailable(result);
+
+        ItemUtilities.OwnedItems.Add(Stack(9301, 2, durability: 1));
+        CompleteCraft(result, OrdinaryPaidFormula("cold-resource-conflict", 8301, 9301));
+
+        AssertOrdinaryCraftRecordedWithoutResourceEvidence(result, "cold-resource-conflict", 8301, 9301);
+        Assert.Contains(result.Diagnostics, detail =>
+            detail.Contains("Item.StackCount setter", StringComparison.Ordinal)
+            && detail.Contains("item-resource", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "ProductionComposition")]
+    public void RuntimeResourceOnlyHarmonyDriftPreservesCompletionOutputRecipeAndCurrency()
+    {
+        using var result = CreateInitializedComposition();
+        PatchForeignResourceTarget(typeof(Item).GetMethod(nameof(Item.MarkDestroyed))!);
+
+        result.Adapter.Tick(DateTime.UtcNow.AddSeconds(3));
+
+        AssertIndependentCraftingCapabilitiesSupported(result);
+        AssertResourceCapabilitiesUnavailable(result);
+
+        ItemUtilities.OwnedItems.Add(Stack(9302, 2, durability: 1));
+        CompleteCraft(result, OrdinaryPaidFormula("runtime-resource-drift", 8302, 9302));
+
+        AssertOrdinaryCraftRecordedWithoutResourceEvidence(result, "runtime-resource-drift", 8302, 9302);
+        Assert.Contains(result.Diagnostics, detail =>
+            detail.Contains("Item.MarkDestroyed", StringComparison.Ordinal)
+            && detail.Contains("item-resource", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -850,6 +893,104 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         return new CompositionResult(directory, coordinator, adapter, diagnostics);
     }
 
+    private static CompositionResult CreateInitializedComposition(Action? beforeInitialize = null)
+    {
+        var directory = new TemporaryDirectory();
+        Application.persistentDataPath = directory.Path;
+        WriteNativeSave(directory.Path);
+        Saves.SavesSystem.CurrentSlot = 1;
+        var coordinator = new NativeProfileCoordinator();
+        coordinator.Initialize();
+        var diagnostics = new List<string>();
+        var adapter = new NativeCraftingAdapter(
+            () => coordinator.CurrentGenerationId,
+            coordinator.HandleCrafting,
+            coordinator.RequestCraftingPersistence,
+            coordinator.SetCraftingCapabilities,
+            diagnostics.Add,
+            () => true);
+        beforeInitialize?.Invoke();
+        adapter.Initialize();
+        coordinator.SetCraftingBoundaryBarrier(adapter.FlushPending);
+        return new CompositionResult(directory, coordinator, adapter, diagnostics);
+    }
+
+    private static void PatchForeignResourceTarget(MethodBase target)
+    {
+        var foreign = new HarmonyLib.Harmony("foreign.resource-proof.mod");
+        foreign.Patch(
+            target,
+            new HarmonyLib.HarmonyMethod(typeof(NativeCraftingAdapterCompositionTests).GetMethod(
+                nameof(ForeignResourcePrefix),
+                BindingFlags.Static | BindingFlags.NonPublic)!),
+            postfix: null,
+            transpiler: null,
+            finalizer: null);
+    }
+
+    private static void ForeignResourcePrefix()
+    {
+    }
+
+    private static CraftingFormula OrdinaryPaidFormula(
+        string recipeId,
+        int outputItemId,
+        int resourceItemId) => new()
+        {
+            id = recipeId,
+            result = new CraftingFormula.ItemEntry { id = outputItemId, amount = 1 },
+            cost = new Cost
+            {
+                money = 150,
+                items = [new Cost.ItemEntry { id = resourceItemId, amount = 2 }]
+            }
+        };
+
+    private static void AssertIndependentCraftingCapabilitiesSupported(CompositionResult result)
+    {
+        var capabilities = result.Coordinator.CurrentCraftingCapabilities;
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.CompletionActions.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.ProducedQuantity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.OutputIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.RecipeIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.BatchMetadata.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.CurrencyCharge.State);
+    }
+
+    private static void AssertResourceCapabilitiesUnavailable(CompositionResult result)
+    {
+        var capabilities = result.Coordinator.CurrentCraftingCapabilities;
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.ItemResourceIdentity.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.OutputResourceAssociation.State);
+    }
+
+    private static void AssertOrdinaryCraftRecordedWithoutResourceEvidence(
+        CompositionResult result,
+        string recipeId,
+        int outputItemId,
+        int resourceItemId)
+    {
+        var crafting = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(1, crafting.CompletionActions);
+        Assert.Equal(1, crafting.ProducedQuantity);
+        Assert.Equal(1, crafting.CurrencyChargeActions);
+        Assert.Equal(150, crafting.CurrencyCharged);
+        Assert.True(crafting.ResourceHistoryUnavailable);
+        Assert.Empty(crafting.Resources);
+        var output = crafting.Outputs[outputItemId.ToString(CultureInfo.InvariantCulture)];
+        Assert.Equal(1, output.CompletionActions);
+        Assert.Equal(1, output.ProducedQuantity);
+        Assert.Equal(1, output.CurrencyChargeActions);
+        Assert.Equal(150, output.CurrencyCharged);
+        var recipe = output.Recipes[recipeId];
+        Assert.Equal(1, recipe.CompletionActions);
+        Assert.Equal(1, recipe.ProducedQuantity);
+        Assert.Equal(1, recipe.CurrencyChargeActions);
+        Assert.Equal(150, recipe.CurrencyCharged);
+        Assert.DoesNotContain(resourceItemId.ToString(CultureInfo.InvariantCulture), crafting.Resources.Keys);
+        Assert.Empty(recipe.Resources);
+    }
+
     private static void CompleteCraft(CompositionResult result, CraftingFormula formula)
         => CompleteCraft(result.Coordinator, formula, expectCompletionIncrease: true);
 
@@ -1049,6 +1190,8 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             .SetValue(adapter, CraftingStatisticsReducer.CloneCapabilities(capabilities));
         typeof(NativeCraftingAdapter).GetField("accepting", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(adapter, true);
+        typeof(NativeCraftingAdapter).GetField("resourceProofHooksActive", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(adapter, true);
         CraftingHarmonyBridge.Attach(adapter);
     }
 
@@ -1111,6 +1254,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     private static void ResetNative()
     {
+        HarmonyLib.Harmony.ClearAll();
         Application.version = "2.3.30";
         ItemUtilities.ResetNativeState();
         EconomyManager.ResetNativeState();

@@ -210,6 +210,34 @@ public sealed class CraftingCompletionBoundaryTests
     }
 
     [Fact]
+    [Trait("Category", "M16")]
+    public void ResourceHookTrustLossInvalidatesEveryInflightResourceWithoutTouchingCurrency()
+    {
+        var boundary = new CraftingCompletionBoundary();
+        var token = boundary.Begin(new CraftingCompletionEvidence(
+            "8302",
+            "Paid output",
+            "runtime-resource-drift",
+            1,
+            resources: [new CraftingResourceCostEvidence("9302", "Resource", 2)],
+            currencyCharged: 150,
+            resourceEvidenceProven: true,
+            currencyEvidenceProven: true));
+
+        Assert.Equal(1, boundary.InvalidateAllResourceEvidence());
+        Assert.Equal(0, boundary.InvalidateAllResourceEvidence());
+        Assert.True(boundary.TryComplete(token, "generation-1", Now, out var mutation));
+
+        var row = Assert.Single(mutation.Rows);
+        Assert.False(row.ResourceEvidenceProven);
+        Assert.Empty(row.Resources);
+        Assert.True(row.CurrencyEvidenceProven);
+        Assert.Equal(1, row.CurrencyChargeActions);
+        Assert.Equal(150, row.CurrencyCharged);
+        Assert.True(boundary.FinishPublication(token));
+    }
+
+    [Fact]
     public void FailedCapabilityPublicationRemainsPendingUntilBarrierRetrySucceeds()
     {
         var publication = new CraftingCapabilityPublicationBoundary();
