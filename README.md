@@ -18,7 +18,7 @@ M16 extends M13's proven successful-craft delivery boundary with immutable event
 
 M12 PR #13 merged as `6bd39dadf5cd1c49149b98b7d6b0898d62608f67`. The published release passes 754/754 tests, the installed-game compatibility and exact five-file package gates, user-controlled world-time and sleep gameplay, complete 25-file export agreement, recovery, and clean shutdown. M13 crafted-item statistics are complete and merged through [PR #14](https://github.com/bamboechop/ultimate-duckov-statistics/pull/14) as `a59ed777ed0f316bd7b7fcbd2b61aeacf8752990`. Current branch, review, tag, and release state is maintained on GitHub through [pull requests](https://github.com/bamboechop/ultimate-duckov-statistics/pulls), [tags](https://github.com/bamboechop/ultimate-duckov-statistics/tags), and [releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases). See [PLAN.md](PLAN.md) for milestone contracts and acceptance boundaries; immutable completed-delivery evidence remains in [TESTING.md](TESTING.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
-The accepted design references for the planned M17 native UI overhaul are committed under [mockups/](mockups/README.md). They document the final navigation, major views, access paths, and representative empty, partial, degraded, error, reset, and export states. They describe planned `v0.17.0` presentation rather than the currently published v0.16 panel, and their example values are not schema fixtures or historical evidence.
+The v0.17.0 candidate implements the M17 native UI overhaul against the stable M0-M16 data model without a schema bump. The accepted references remain under [mockups/](mockups/README.md); the installed menu/localization/icon/focus contract is documented in [docs/M17_NATIVE_CONTRACTS.md](docs/M17_NATIVE_CONTRACTS.md), and the runtime screenshot/interaction gate is [docs/M17_MANUAL_VALIDATION.md](docs/M17_MANUAL_VALIDATION.md). Example mockup values are not schema fixtures or historical evidence. The candidate is not presented as manually qualified, merged, tagged, or published until those separate states are verified.
 
 ## Build prerequisites
 
@@ -66,7 +66,7 @@ M6 observes the exact main duck's public character-slot tree, ordinary inventory
 
 M7 observes public `InteractableLootbox.OnStartLoot`, after the interaction timer and inventory checks have succeeded. It requires the event-time interaction owner to be the exact main duck, reads the native private `GetKey()` contract reflectively for per-run deduplication, and excludes native enemy corpses plus persisted/player tombs using a separate version-checked corpse-provenance patch. Reopening a container in the same run does not increment; the same stable key may count again in another run. Proximity, attempts, locked/cancelled/failed interactions, corpses, base activity, item transfers, and loot value do not count.
 
-The in-game panel enables Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Items, and Diagnostics. Runs shows a compact route with expandable segment evidence. One export action writes `statistics.json` plus thirty flattened CSV files. M15 adds `economy_holdings.csv`; M14's `weapon_ammunition_pairs.csv`, `character_equipment_slots.csv`, and `equipped_item_nested_slots.csv` remain unchanged.
+The v0.17.0 in-game panel uses Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, and Diagnostics in that exact order. Native main-menu and base pause-menu entries are primary; configurable F8 remains the outside-raids fallback. Content uses exact-generation projection, bounded pages, responsive stacking, a horizontally scrolling tab row, native item icons with a deterministic fallback, and explicit unavailable/partial states. Runs shows a compact route with expandable segment evidence. One export action writes `statistics.json` plus thirty-two flattened CSV files. M16's crafting-resource files, M15's `economy_holdings.csv`, and M14's three association CSVs remain unchanged.
 
 ## Development commands
 
@@ -80,7 +80,7 @@ dotnet build .\src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj -c R
 Create the validated installable ZIP and SHA-256 sidecar with:
 
 ```powershell
-.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.16.0
+.\scripts\create-release.ps1 -DuckovPath $env:DUCKOV_PATH -Version 0.17.0
 ```
 
 See [INSTALL.md](INSTALL.md) for installation and compatibility details.

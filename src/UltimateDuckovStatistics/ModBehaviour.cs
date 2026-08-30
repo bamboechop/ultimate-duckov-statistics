@@ -461,6 +461,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
         healingAttributionAdapter?.Dispose();
         healingAttributionAdapter = null;
+        statisticsPanel?.Dispose();
         statisticsPanel = null;
 
         var retainedProfileCoordinator = profileCoordinator;

@@ -4,7 +4,7 @@
 
 All UDS `0.x` packages are development artifacts made available through GitHub for voluntary manual testing. GitHub downloads are not an officially supported installation channel, and continuity of UDS-owned profiles between `0.x` versions is best effort rather than a supported upgrade guarantee. Existing migration paths may preserve development data and are tested as internal hardening, but testers must not rely on them as a compatibility promise. The first version explicitly distributed through a supported channel will declare the starting baseline for supported upgrades and migrations.
 
-## Tested game baseline for v0.16.0
+## Tested game baseline for the v0.17.0 candidate
 
 - Escape From Duckov `2.3.30`
 - Steam build `24013657`
@@ -16,7 +16,7 @@ The UDS package must not contain Duckov assemblies or `0Harmony.dll`. HarmonyLib
 
 ## Required HarmonyLib Workshop item
 
-Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. The v0.16.0 build requires HarmonyLib for M2 healing attribution, M5/M11 combat scopes, M7's separate corpse-provenance owner, M12's exact sleep-advancement boundary, and M13's private crafting-task completion boundary. M16 reuses M13's `CraftingManager.Craft(CraftingFormula)` and `Cost.Return(...)` targets and adds `EconomyManager.Pay(Cost, bool, bool)` plus three isolated repeated-resource proof targets: `ItemUtilities.GetItemCount(int)`, the `Item.StackCount` setter, and `Item.MarkDestroyed()`. M14 and M15 reuse verified public callbacks. During cold activation, UDS requires an unmodified pre-existing patch set on each target. A conflict on one of the three isolated resource-proof targets disables only item-resource identity and output/resource association; completion, output, recipe, batch, and independently proven total currency remain active. UDS applies the same narrow degradation if one of those three patch sets drifts later. A conflict or drift on `EconomyManager.Pay` disables item-resource and currency tracking, but the independently trusted M13 `CraftingManager.Craft`/`Cost.Return` delivery pair continues recording completion, produced quantity, output, recipe, and batch statistics. Only a conflict or drift on that shared craft/delivery pair disables the native crafting adapter. Missing, old, or incompatible Harmony likewise disables the dependent Harmony-backed capabilities, while proven independent statistics continue.
+Subscribe to [HarmonyLib for Duckov](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) before installing UDS. The v0.17.0 candidate retains the v0.16.0 Harmony requirements for M2 healing attribution, M5/M11 combat scopes, M7's separate corpse-provenance owner, M12's exact sleep-advancement boundary, and M13/M16 crafting boundaries. M17 adds no Harmony patch; its native menu, localization, icon, focus, and toast integration uses the public or narrowly version-checked installed UI contracts in [docs/M17_NATIVE_CONTRACTS.md](docs/M17_NATIVE_CONTRACTS.md). M16 reuses M13's `CraftingManager.Craft(CraftingFormula)` and `Cost.Return(...)` targets and adds `EconomyManager.Pay(Cost, bool, bool)` plus three isolated repeated-resource proof targets: `ItemUtilities.GetItemCount(int)`, the `Item.StackCount` setter, and `Item.MarkDestroyed()`. M14 and M15 reuse verified public callbacks. During cold activation, UDS requires an unmodified pre-existing patch set on each Harmony target. A conflict on one of the three isolated resource-proof targets disables only item-resource identity and output/resource association; completion, output, recipe, batch, and independently proven total currency remain active. UDS applies the same narrow degradation if one of those three patch sets drifts later. A conflict or drift on `EconomyManager.Pay` disables item-resource and currency tracking, but the independently trusted M13 `CraftingManager.Craft`/`Cost.Return` delivery pair continues recording completion, produced quantity, output, recipe, and batch statistics. Only a conflict or drift on that shared craft/delivery pair disables the native crafting adapter. Missing, old, or incompatible Harmony likewise disables the dependent Harmony-backed capabilities, while proven independent statistics continue.
 
 After every cold launch and before selecting a save:
 
@@ -38,7 +38,7 @@ If Duckov is played or a slot is reused while UDS is inactive, no expected-save 
 4. Extract the new `UltimateDuckovStatistics` folder into `<Duckov>\Duckov_Data\Mods\`.
 5. Start Duckov, accept its mod agreement if prompted, enable **Ultimate Duckov Statistics**, and restart if Duckov requests it.
 6. Follow the activation and Diagnostics checks above.
-7. From the main menu or base, press F8 to open the UDS panel.
+7. Outside raids, use the localized **Statistics** entry on the main menu or base pause menu. Configurable F8 opens the same panel and remains the compatibility fallback when native menu integration is unavailable.
 
 UDS data and exports are written outside the game saves under `%USERPROFILE%\AppData\LocalLow\TeamSoda\Duckov\UltimateDuckovStatistics\`.
 
@@ -46,11 +46,11 @@ UDS data and exports are written outside the game saves under `%USERPROFILE%\App
 
 Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics\`. Existing UDS statistics remain outside the game directory unless the user removes them separately.
 
-## M3-M16 data and exports
+## M3-M17 data, UI, and exports
 
 - A run starts only after native raid initialization when the alive main duck has player control; base and loading activity do not start runs.
 - Run outcomes are Extracted, Died, or Interrupted. Active duration excludes pause/loading; wall-clock duration is diagnostic.
-- Overview, Runs, Records, Combat, Equipment, Items, and Diagnostics are enabled. M4 separates firing actions, loaded ammunition units consumed, and configured projectile outcomes; the public event proves firing actions and event-time identities, while actual loaded-ammunition consumption remains unavailable.
+- Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, and Diagnostics are enabled in that exact order. All access paths use the same exact-generation panel and reject raids. M4 separates firing actions, loaded ammunition units consumed, and configured projectile outcomes; the public event proves firing actions and event-time identities, while actual loaded-ammunition consumption remains unavailable.
 - M5/M11 record actual HP loss, compatible completed-projectile accuracy, melee swings/hits, **Kills by you**, separately labelled observed-world deaths, player deaths, ownership, stable enemy/killer identity, Zombie/unknown family, cause, event-time weapon/ammunition identity, independently proven head-targeted hits, and player-owned headshot final blows. Unsupported, conflicting, or missing actor evidence remains visible as `Unknown`; a weapon ID never proves ownership.
 - Each Runs entry shows a compact route, expandable segment evidence, integrity, and Records eligibility. Records show complete-run shortest/longest extraction and death active times overall and by starting map.
 - Physical movement, proven teleport displacement, and transition/loading-excluded displacement are stored separately. If movement, active-map, or route compatibility is unavailable, only dependent metrics are disabled and Diagnostics show why.
@@ -65,9 +65,10 @@ Close Duckov and remove only `<Duckov>\Duckov_Data\Mods\UltimateDuckovStatistics
 - M14 records accepted firing actions by simultaneous weapon-ammunition identity and active-raid duration for proven occupied or empty character and equipped-item nested slots. Missing or unreadable slot evidence remains unavailable rather than becoming an inferred empty interval.
 - M15 records current Money and total currently owned physical Cash independently from M9 currency flows. A persisted same-generation value is `LastObserved` until reconfirmed; missing or mismatched evidence is `Unavailable`, and a proven zero is zero. Liquid wealth is available only as a checked sum while both components are current because the installed ATM contract proves their 1:1 unit relationship.
 - M16 snapshots each formula's declared item-resource and total currency costs at craft invocation and publishes them only after the existing M13 correlated successful delivery. It records checked lifetime resource quantity plus lossless output/recipe/resource action and quantity associations. Currency total is exact and independent; Money/Cash split remains unavailable. Pre-M16 resource and currency history is not reconstructed.
+- M17 changes presentation and access only; schema remains 16. Main-menu/base entries, localization fallbacks, native icons, focus restoration, responsive layout, bounded pages, single-flight reset/export, and Diagnostics grouping do not change M0-M16 statistics meaning or persistence.
 - Exports contain `statistics.json` plus thirty-two CSVs. M16 adds `crafting_resources.csv` and `crafting_resource_associations.csv`; `crafting_totals.csv` and `crafting_recipes.csv` add currency, capability, partial-history, and arithmetic evidence. M15's `economy_holdings.csv`, M14's three association CSVs, and all prior contracts remain. `map_totals.csv` remains starting-map complete-run history; route-map totals are separate.
 
-## Known v0.16.0 limitations
+## Known v0.17.0 candidate limitations
 
 - Statistics begin at installation; no history is reconstructed.
 - Pre-M8 ending maps, ordered routes, segments, transition displacement, and route-aware per-map attribution are unavailable rather than reconstructed as fake one-segment routes.

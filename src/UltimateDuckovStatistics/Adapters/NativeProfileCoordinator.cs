@@ -35,6 +35,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
     private long profileTransitionSequence;
+    private bool userResetPending;
+    private string lastOpenStatus = "Profile has not been opened.";
     private CapabilityRecord healingCapability = new()
     {
         AdapterId = NativeHealingAttributionAdapter.AdapterId,
@@ -144,6 +146,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public string DataRoot => dataRoot;
 
+    public string CurrentProfilePath => repository?.CurrentProfilePath ?? string.Empty;
+
+    public string LastOpenStatus => lastOpenStatus;
+
+    public bool HasPendingProfileTransition => profileTransitionBoundary.HasPendingTransition;
+
     public string CurrentGenerationId => repository?.CurrentGenerationId ?? string.Empty;
 
     public ProfileDocument? Current => repository == null ? null : repository.Current;
@@ -163,6 +171,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public IReadOnlyList<DiagnosticEntry> DiagnosticEntries =>
         diagnostics?.Entries ?? Array.Empty<DiagnosticEntry>();
 
+    public void ReportUiDiagnostic(string message, string severity = "Info")
+    {
+        if (string.IsNullOrWhiteSpace(message)) throw new ArgumentException("A UI diagnostic message is required.", nameof(message));
+        WriteDiagnostic(message, severity);
+    }
+
     public void Initialize()
     {
         if (subscribed)
@@ -179,6 +193,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             message => WriteDiagnostic(message));
 
         var openResult = repository.Open(ReadIdentity());
+        lastOpenStatus = FormatOpenResult(openResult);
         repository.EnableDeferredItemPersistence();
         OpenDiagnosticsForCurrentGeneration();
         UpdateCapabilities();
@@ -526,9 +541,18 @@ internal sealed class NativeProfileCoordinator : IDisposable
         craftingProfileTransitionBoundaryFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
     }
 
-    public bool RetryPendingProfileTransition() => profileTransitionBoundary.Retry(
-        FlushProfileTransitionBoundaries,
-        message => WriteDiagnostic(message, "Error"));
+    public bool RetryPendingProfileTransition()
+    {
+        var completed = profileTransitionBoundary.Retry(
+            FlushProfileTransitionBoundaries,
+            message => WriteDiagnostic(message, "Error"));
+        if (completed && userResetPending)
+        {
+            userResetPending = false;
+            lastOpenStatus = "User reset completed; the prior UDS generation was archived read-only.";
+        }
+        return completed;
+    }
 
     public bool DrainPendingProfileTransitions() => profileTransitionBoundary.Drain(
         FlushProfileTransitionBoundaries,
@@ -650,7 +674,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         return result;
     }
 
-    public void ResetCurrent()
+    public bool ResetCurrent()
     {
         if (repository == null)
         {
@@ -694,6 +718,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
             applyCurrentMetricCapabilities: ApplyCurrentCapabilities,
             writeDiagnostic: () => WriteDiagnostic(
                 $"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only."));
+        var completed = !profileTransitionBoundary.HasPendingTransition;
+        userResetPending = !completed;
+        lastOpenStatus = completed
+            ? "User reset completed; the prior UDS generation was archived read-only."
+            : "User reset remains queued; completion has not been reported and Diagnostics contains the blocking boundary.";
+        return completed;
     }
 
     public void Dispose()
@@ -1171,6 +1201,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
         public ProfileRepository Repository { get; }
         public ProfilePersistenceSnapshot Snapshot { get; }
     }
+
+    private static string FormatOpenResult(ProfileOpenResult result) =>
+        $"created={result.CreatedNew}; rotated={result.RotatedGeneration}; recoveredSnapshot={result.RecoveredSnapshot}; "
+        + $"migratedSchema={result.MigratedSchema}; unsupportedSchemaArchived={result.UnsupportedSchemaArchived}; "
+        + $"interruptedSessionRecovered={result.InterruptedSessionRecovered}; interruptedRunRecovered={result.InterruptedRunRecovered}; "
+        + $"loadFailures={result.LoadFailures.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
     private void WriteDiagnostic(string message, string severity = "Info")
     {
