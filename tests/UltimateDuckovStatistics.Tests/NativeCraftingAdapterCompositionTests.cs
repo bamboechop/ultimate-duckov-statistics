@@ -598,6 +598,115 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(1, ItemUtilities.ScanCount);
     }
 
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void CompletionSaturationBeforeFirstChargedOutputPersistsExactAmountAfterReopen()
+    {
+        using var seeded = CreateComposition();
+        var generationId = seeded.Coordinator.CurrentGenerationId;
+        Assert.True(seeded.Coordinator.HandleCrafting(
+            new CraftingMutation(
+                generationId,
+                DateTime.UtcNow,
+                [new CraftingMutationRow(
+                    "boundary",
+                    "Boundary",
+                    "boundary-recipe",
+                    long.MaxValue,
+                    long.MaxValue,
+                    new() { ["1"] = long.MaxValue })])));
+        seeded.Coordinator.Flush();
+        Assert.Equal(long.MaxValue, seeded.Coordinator.Current!.Statistics.Crafting.CompletionActions);
+        Assert.False(seeded.Coordinator.Current.Statistics.Crafting.CompletionArithmeticUnavailable);
+        CraftingStatisticsReducer.Validate(seeded.Coordinator.Current.Statistics.Crafting);
+        seeded.StopRuntime();
+
+        var profilePath = CurrentProfilePath(seeded);
+        Assert.Equal(long.MaxValue, ReadCompletionActions(profilePath));
+        using (var coordinator = new NativeProfileCoordinator())
+        {
+            coordinator.Initialize();
+            Assert.Equal(generationId, coordinator.CurrentGenerationId);
+            Assert.Equal(long.MaxValue, coordinator.Current!.Statistics.Crafting.CompletionActions);
+            var diagnostics = new List<string>();
+            using var adapter = new NativeCraftingAdapter(
+                () => coordinator.CurrentGenerationId,
+                coordinator.HandleCrafting,
+                coordinator.RequestCraftingPersistence,
+                coordinator.SetCraftingCapabilities,
+                diagnostics.Add,
+                () => true);
+            ActivateValidatedCallbacks(adapter, coordinator);
+            coordinator.SetCraftingBoundaryBarrier(adapter.FlushPending);
+
+            CompleteCraft(
+                coordinator,
+                new CraftingFormula
+                {
+                    id = "overflow-free",
+                    result = new CraftingFormula.ItemEntry { id = 8100, amount = 1 },
+                    cost = default
+                },
+                expectCompletionIncrease: false);
+            var afterOverflow = coordinator.Current.Statistics.Crafting;
+            Assert.True(afterOverflow.CompletionArithmeticUnavailable);
+            Assert.False(afterOverflow.CurrencyActionArithmeticUnavailable);
+            Assert.False(afterOverflow.CurrencyAmountArithmeticUnavailable);
+
+            CompleteCraft(
+                coordinator,
+                new CraftingFormula
+                {
+                    id = "charged-after-overflow",
+                    result = new CraftingFormula.ItemEntry { id = 8101, amount = 1 },
+                    cost = new Cost { money = 150 }
+                },
+                expectCompletionIncrease: false);
+            coordinator.Flush();
+
+            var saturated = coordinator.Current.Statistics.Crafting;
+            Assert.True(saturated.CompletionArithmeticUnavailable);
+            Assert.True(saturated.CurrencyActionArithmeticUnavailable);
+            Assert.False(saturated.CurrencyAmountArithmeticUnavailable);
+            Assert.True(saturated.CurrencyHistoryUnavailable);
+            Assert.Equal(0, saturated.CurrencyChargeActions);
+            Assert.Equal(150, saturated.CurrencyCharged);
+            var output = saturated.Outputs["8101"];
+            Assert.Equal(0, output.CompletionActions);
+            Assert.Equal(0, output.CurrencyChargeActions);
+            Assert.Equal(150, output.CurrencyCharged);
+            var recipe = output.Recipes["charged-after-overflow"];
+            Assert.Equal(0, recipe.CompletionActions);
+            Assert.Equal(0, recipe.CurrencyChargeActions);
+            Assert.Equal(150, recipe.CurrencyCharged);
+            CraftingStatisticsReducer.Validate(saturated);
+            Assert.DoesNotContain(diagnostics, detail =>
+                detail.Contains("failed", StringComparison.OrdinalIgnoreCase));
+        }
+
+        using var reopened = new NativeProfileCoordinator();
+        reopened.Initialize();
+
+        Assert.Equal(generationId, reopened.CurrentGenerationId);
+        var durable = reopened.Current!.Statistics.Crafting;
+        Assert.Equal(long.MaxValue, durable.CompletionActions);
+        Assert.True(durable.CompletionArithmeticUnavailable);
+        Assert.True(durable.CurrencyActionArithmeticUnavailable);
+        Assert.False(durable.CurrencyAmountArithmeticUnavailable);
+        Assert.Equal(0, durable.CurrencyChargeActions);
+        Assert.Equal(150, durable.CurrencyCharged);
+        Assert.Equal(0, durable.Outputs["8101"].CompletionActions);
+        Assert.Equal(0, durable.Outputs["8101"].CurrencyChargeActions);
+        Assert.Equal(150, durable.Outputs["8101"].CurrencyCharged);
+        Assert.Equal(0, durable.Outputs["8101"].Recipes["charged-after-overflow"].CompletionActions);
+        Assert.Equal(0, durable.Outputs["8101"].Recipes["charged-after-overflow"].CurrencyChargeActions);
+        Assert.Equal(150, durable.Outputs["8101"].Recipes["charged-after-overflow"].CurrencyCharged);
+        CraftingStatisticsReducer.Validate(durable);
+        Assert.Equal(150, ReadLifetimeCurrency(profilePath));
+    }
+
     private static CompositionResult CompleteDuplicateCostCraft(params int[] stackCounts)
     {
         var result = CreateComposition();
@@ -643,8 +752,14 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
     }
 
     private static void CompleteCraft(CompositionResult result, CraftingFormula formula)
+        => CompleteCraft(result.Coordinator, formula, expectCompletionIncrease: true);
+
+    private static void CompleteCraft(
+        NativeProfileCoordinator coordinator,
+        CraftingFormula formula,
+        bool expectCompletionIncrease)
     {
-        var actionsBeforeDelivery = result.Coordinator.Current!.Statistics.Crafting.CompletionActions;
+        var actionsBeforeDelivery = coordinator.Current!.Statistics.Crafting.CompletionActions;
         var craftPrefixArguments = new object?[] { formula, null };
         CraftingHarmonyCallbacks.CraftPrefixMethod.Invoke(null, craftPrefixArguments);
         var craftScope = Assert.IsType<CraftingNativeScope>(craftPrefixArguments[1]);
@@ -678,14 +793,16 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         CraftingHarmonyCallbacks.CraftPostfixMethod.Invoke(null, craftPostfixArguments);
         var wrappedCraft = Assert.IsType<UniTask<List<Item>>>(craftPostfixArguments[1]);
         Assert.Null(CraftingHarmonyCallbacks.CraftFinalizerMethod.Invoke(null, [null, craftScope]));
-        Assert.Equal(actionsBeforeDelivery, result.Coordinator.Current!.Statistics.Crafting.CompletionActions);
+        Assert.Equal(actionsBeforeDelivery, coordinator.Current!.Statistics.Crafting.CompletionActions);
 
         deliveryCompletion.SetResult();
         wrappedDelivery.GetAwaiter().GetResult();
         craftCompletion.SetResult(new List<Item>());
         wrappedCraft.GetAwaiter().GetResult();
-        result.Coordinator.Flush();
-        Assert.Equal(actionsBeforeDelivery + 1, result.Coordinator.Current.Statistics.Crafting.CompletionActions);
+        coordinator.Flush();
+        Assert.Equal(
+            expectCompletionIncrease ? checked(actionsBeforeDelivery + 1) : actionsBeforeDelivery,
+            coordinator.Current.Statistics.Crafting.CompletionActions);
     }
 
     private static bool ExecuteFaithfulNativePayment(Cost cost)
@@ -844,6 +961,9 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     private static long ReadLifetimeCurrencyActions(string profilePath) =>
         JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["CurrencyChargeActions"]!.GetValue<long>();
+
+    private static long ReadCompletionActions(string profilePath) =>
+        JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["CompletionActions"]!.GetValue<long>();
 
     private static bool ReadCraftingBoolean(string profilePath, string propertyName) =>
         JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]![propertyName]!.GetValue<bool>();

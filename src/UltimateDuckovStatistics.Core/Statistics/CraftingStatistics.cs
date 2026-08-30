@@ -212,13 +212,17 @@ public static class CraftingStatisticsReducer
         var quantityOverflow = quantityRows.Length != 0 && WouldOverflowQuantity(aggregate, quantityRows);
         var resourceActionOverflow = !aggregate.ResourceActionArithmeticUnavailable
                                      && resourceRows.Length != 0
-                                     && WouldOverflowResourceActions(aggregate, resourceRows);
+                                     && (aggregate.CompletionArithmeticUnavailable
+                                         || actionOverflow
+                                         || WouldOverflowResourceActions(aggregate, resourceRows));
         var resourceQuantityOverflow = !aggregate.ResourceQuantityArithmeticUnavailable
                                        && resourceRows.Length != 0
                                        && WouldOverflowResourceQuantity(aggregate, resourceRows);
         var currencyActionOverflow = !aggregate.CurrencyActionArithmeticUnavailable
                                      && currencyRows.Length != 0
-                                     && WouldOverflowCurrencyActions(aggregate, currencyRows);
+                                     && (aggregate.CompletionArithmeticUnavailable
+                                         || actionOverflow
+                                         || WouldOverflowCurrencyActions(aggregate, currencyRows));
         var currencyAmountOverflow = !aggregate.CurrencyAmountArithmeticUnavailable
                                      && currencyRows.Length != 0
                                      && WouldOverflowCurrencyAmount(aggregate, currencyRows);
@@ -237,18 +241,6 @@ public static class CraftingStatisticsReducer
             aggregate.CompletionArithmeticUnavailable = true;
             aggregate.Capabilities.CompletionActions = Unavailable(ArithmeticProvenance);
             aggregate.Capabilities.BatchMetadata = Unavailable(ArithmeticProvenance);
-            if (resourceRows.Length != 0)
-            {
-                aggregate.ResourceActionArithmeticUnavailable = true;
-                aggregate.Capabilities.OutputResourceAssociation = Unavailable(ArithmeticProvenance);
-                changed |= MarkResourceHistoryUnavailable(aggregate, ArithmeticProvenance);
-            }
-            if (currencyRows.Length != 0)
-            {
-                aggregate.CurrencyActionArithmeticUnavailable = true;
-                aggregate.Capabilities.CurrencyCharge = Unavailable(ArithmeticProvenance);
-                changed |= MarkCurrencyHistoryUnavailable(aggregate, ArithmeticProvenance);
-            }
             changed = true;
         }
         else

@@ -651,6 +651,23 @@ public sealed class M16CraftingResourceStatisticsTests
                 "generation-1",
                 Now,
                 [new CraftingMutationRow(
+                    "overflow",
+                    "Overflow",
+                    "overflow-recipe",
+                    1,
+                    1,
+                    new() { ["1"] = 1 })])));
+
+        Assert.True(aggregate.CompletionArithmeticUnavailable);
+        Assert.False(aggregate.ResourceActionArithmeticUnavailable);
+        Assert.False(aggregate.CurrencyActionArithmeticUnavailable);
+
+        Assert.True(CraftingStatisticsReducer.Apply(
+            aggregate,
+            new CraftingMutation(
+                "generation-1",
+                Now,
+                [new CraftingMutationRow(
                     "next",
                     "Next",
                     "next-recipe",
