@@ -515,8 +515,7 @@ public static class CraftingStatisticsReducer
                 recipeQuantity,
                 output.ProducedQuantity,
                 "Crafting recipe composition is inconsistent.");
-            ValidateSubsetOrEqual(
-                aggregate.Capabilities.CurrencyCharge,
+            ValidateEqual(
                 recipeCurrencyActions,
                 output.CurrencyChargeActions,
                 recipeCurrencyAmount,
@@ -525,8 +524,7 @@ public static class CraftingStatisticsReducer
         }
         if (outputActions != aggregate.CompletionActions || outputQuantity != aggregate.ProducedQuantity)
             throw new ArgumentException("Crafting output composition is inconsistent.", nameof(aggregate));
-        ValidateSubsetOrEqual(
-            aggregate.Capabilities.CurrencyCharge,
+        ValidateEqual(
             outputCurrencyActions,
             aggregate.CurrencyChargeActions,
             outputCurrencyAmount,
@@ -541,13 +539,7 @@ public static class CraftingStatisticsReducer
                 || (!aggregate.ResourceQuantityArithmeticUnavailable && resource.ConsumedQuantity == 0))
                 throw new ArgumentException("Crafting resource total is invalid.", nameof(aggregate));
             associationQuantityByResource.TryGetValue(entry.Key, out var associated);
-            if (aggregate.Capabilities.OutputResourceAssociation.State == AdapterCapabilityState.DisabledIncompatible
-                || aggregate.Capabilities.ItemResourceIdentity.State == AdapterCapabilityState.DisabledIncompatible)
-            {
-                if (associated > resource.ConsumedQuantity)
-                    throw new ArgumentException("Crafting resource association exceeds its lifetime total.", nameof(aggregate));
-            }
-            else if (associated != resource.ConsumedQuantity)
+            if (associated != resource.ConsumedQuantity)
                 throw new ArgumentException("Crafting resource association composition is inconsistent.", nameof(aggregate));
         }
         if (associationQuantityByResource.Keys.Except(aggregate.Resources.Keys, StringComparer.Ordinal).Any())
@@ -995,19 +987,14 @@ public static class CraftingStatisticsReducer
         else if (childActions != parentActions || childQuantity != parentQuantity) throw new ArgumentException(message);
     }
 
-    private static void ValidateSubsetOrEqual(
-        MetricAvailability capability,
+    private static void ValidateEqual(
         long childActions,
         long parentActions,
         long childAmount,
         long parentAmount,
         string message)
     {
-        if (capability.State == AdapterCapabilityState.DisabledIncompatible)
-        {
-            if (childActions > parentActions || childAmount > parentAmount) throw new ArgumentException(message);
-        }
-        else if (childActions != parentActions || childAmount != parentAmount) throw new ArgumentException(message);
+        if (childActions != parentActions || childAmount != parentAmount) throw new ArgumentException(message);
     }
 
     private static bool HasImpossibleExactCurrencyPair(

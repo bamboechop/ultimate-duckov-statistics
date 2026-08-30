@@ -187,6 +187,101 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     [Fact]
     [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void DegradedResourceFanOutSubsetPrimaryRecoversProductionCraftFromBackup()
+    {
+        using var result = CompleteDuplicateCostCraft(6);
+        var generationId = result.Coordinator.CurrentGenerationId;
+        var profilePath = CurrentProfilePath(result);
+        var backupPath = AtomicJsonPaths.GetBackupPath(profilePath);
+        DegradeCapabilities(result, capabilities =>
+        {
+            capabilities.ItemResourceIdentity = CraftingNativeContractPolicy.Availability(
+                AdapterCapabilityState.DisabledIncompatible,
+                "resource evidence degraded");
+            capabilities.OutputResourceAssociation = CraftingNativeContractPolicy.Availability(
+                AdapterCapabilityState.DisabledIncompatible,
+                "resource evidence degraded");
+        });
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            result.Coordinator.Current!.Statistics.Crafting.Capabilities.ItemResourceIdentity.State);
+        result.StopRuntime();
+
+        Assert.Equal(6, ReadResourceQuantity(backupPath));
+        var backupBeforeCorruption = File.ReadAllText(backupPath);
+        var primary = JsonNode.Parse(File.ReadAllText(profilePath))!.AsObject();
+        primary["Statistics"]!["Crafting"]!["Outputs"]!["7001"]!["Recipes"]!["modded-duplicate"]!
+            ["Resources"]!["9001"]!["ConsumedQuantity"] = 5;
+        File.WriteAllText(profilePath, primary.ToJsonString());
+        Assert.Equal(5, ReadResourceAssociationQuantity(profilePath));
+        Assert.Equal(6, ReadResourceQuantity(profilePath));
+        Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
+
+        using var reopened = new NativeProfileCoordinator();
+        reopened.Initialize();
+
+        Assert.Equal(generationId, reopened.CurrentGenerationId);
+        var crafting = reopened.Current!.Statistics.Crafting;
+        Assert.Equal(6, crafting.Resources["9001"].ConsumedQuantity);
+        Assert.Equal(
+            6,
+            crafting.Outputs["7001"].Recipes["modded-duplicate"].Resources["9001"].ConsumedQuantity);
+        Assert.Equal(150, crafting.CurrencyCharged);
+        Assert.Contains(reopened.DiagnosticEntries, entry =>
+            entry.Message.Contains("recovered=True", StringComparison.Ordinal));
+        Assert.Equal(6, ReadResourceAssociationQuantity(profilePath));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void DegradedCurrencyFanOutSubsetPrimaryRecoversProductionCraftFromBackup()
+    {
+        using var result = CompleteDuplicateCostCraft(6);
+        var generationId = result.Coordinator.CurrentGenerationId;
+        var profilePath = CurrentProfilePath(result);
+        var backupPath = AtomicJsonPaths.GetBackupPath(profilePath);
+        DegradeCapabilities(result, capabilities =>
+        {
+            capabilities.CurrencyCharge = CraftingNativeContractPolicy.Availability(
+                AdapterCapabilityState.DisabledIncompatible,
+                "currency evidence degraded");
+        });
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            result.Coordinator.Current!.Statistics.Crafting.Capabilities.CurrencyCharge.State);
+        result.StopRuntime();
+
+        Assert.Equal(150, ReadRecipeCurrency(backupPath));
+        var backupBeforeCorruption = File.ReadAllText(backupPath);
+        var primary = JsonNode.Parse(File.ReadAllText(profilePath))!.AsObject();
+        primary["Statistics"]!["Crafting"]!["Outputs"]!["7001"]!["Recipes"]!["modded-duplicate"]!
+            ["CurrencyCharged"] = 149;
+        File.WriteAllText(profilePath, primary.ToJsonString());
+        Assert.Equal(149, ReadRecipeCurrency(profilePath));
+        Assert.Equal(150, ReadOutputCurrency(profilePath));
+        Assert.Equal(150, ReadLifetimeCurrency(profilePath));
+        Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
+
+        using var reopened = new NativeProfileCoordinator();
+        reopened.Initialize();
+
+        Assert.Equal(generationId, reopened.CurrentGenerationId);
+        var crafting = reopened.Current!.Statistics.Crafting;
+        Assert.Equal(150, crafting.CurrencyCharged);
+        Assert.Equal(150, crafting.Outputs["7001"].CurrencyCharged);
+        Assert.Equal(150, crafting.Outputs["7001"].Recipes["modded-duplicate"].CurrencyCharged);
+        Assert.Equal(6, crafting.Resources["9001"].ConsumedQuantity);
+        Assert.Contains(reopened.DiagnosticEntries, entry =>
+            entry.Message.Contains("recovered=True", StringComparison.Ordinal));
+        Assert.Equal(150, ReadRecipeCurrency(profilePath));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
     [Trait("Category", "ProductionComposition")]
     public void DefaultFreeCostRetainsResourceCapabilityAndLaterItemCostRemainsExact()
     {
@@ -476,6 +571,43 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
     private static int ReadResourceActions(string profilePath) =>
         JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["Outputs"]!["7001"]!
             ["Recipes"]!["modded-duplicate"]!["Resources"]!["9001"]!["ConsumptionActions"]!.GetValue<int>();
+
+    private static long ReadResourceQuantity(string profilePath) =>
+        JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["Resources"]!["9001"]!
+            ["ConsumedQuantity"]!.GetValue<long>();
+
+    private static long ReadResourceAssociationQuantity(string profilePath) =>
+        JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["Outputs"]!["7001"]!
+            ["Recipes"]!["modded-duplicate"]!["Resources"]!["9001"]!["ConsumedQuantity"]!.GetValue<long>();
+
+    private static long ReadLifetimeCurrency(string profilePath) =>
+        JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["CurrencyCharged"]!.GetValue<long>();
+
+    private static long ReadOutputCurrency(string profilePath) =>
+        JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["Outputs"]!["7001"]!
+            ["CurrencyCharged"]!.GetValue<long>();
+
+    private static long ReadRecipeCurrency(string profilePath) =>
+        JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["Outputs"]!["7001"]!
+            ["Recipes"]!["modded-duplicate"]!["CurrencyCharged"]!.GetValue<long>();
+
+    private static string CurrentProfilePath(CompositionResult result) => Path.Combine(
+        result.Coordinator.DataRoot,
+        "profiles",
+        "slot-01",
+        "current",
+        "profile.json");
+
+    private static void DegradeCapabilities(
+        CompositionResult result,
+        Action<CraftingMetricCapabilities> degrade)
+    {
+        var capabilities = result.Coordinator.CurrentCraftingCapabilities;
+        degrade(capabilities);
+        result.Coordinator.SetCraftingCapabilities(
+            CraftingNativeContractPolicy.ToRecords(capabilities, NativeCraftingAdapter.AdapterVersion),
+            capabilities);
+    }
 
     private static void ResetNative()
     {

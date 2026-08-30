@@ -453,6 +453,23 @@ public sealed class M16CraftingResourceStatisticsTests
         zeroCurrencyAmount.Outputs["131"].Recipes["1026"].CurrencyCharged = 0;
         Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(zeroCurrencyAmount));
 
+        var degradedResourceSubset = CraftingStatisticsReducer.Clone(valid);
+        degradedResourceSubset.Capabilities.ItemResourceIdentity = CraftingNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            "resource evidence degraded");
+        degradedResourceSubset.Capabilities.OutputResourceAssociation = CraftingNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            "resource evidence degraded");
+        degradedResourceSubset.Outputs["131"].Recipes["1026"].Resources["764"].ConsumedQuantity--;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(degradedResourceSubset));
+
+        var degradedCurrencySubset = CraftingStatisticsReducer.Clone(valid);
+        degradedCurrencySubset.Capabilities.CurrencyCharge = CraftingNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            "currency evidence degraded");
+        degradedCurrencySubset.Outputs["131"].Recipes["1026"].CurrencyCharged--;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(degradedCurrencySubset));
+
         var unavailableActions = SupportedAggregate();
         Assert.True(CraftingStatisticsReducer.Apply(
             unavailableActions,
