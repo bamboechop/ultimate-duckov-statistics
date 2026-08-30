@@ -453,6 +453,20 @@ public sealed class M16CraftingResourceStatisticsTests
         zeroCurrencyAmount.Outputs["131"].Recipes["1026"].CurrencyCharged = 0;
         Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(zeroCurrencyAmount));
 
+        var inverseUnavailableActions = CraftingStatisticsReducer.Clone(valid);
+        inverseUnavailableActions.CurrencyActionArithmeticUnavailable = true;
+        inverseUnavailableActions.CurrencyCharged = 0;
+        inverseUnavailableActions.Outputs["131"].CurrencyCharged = 0;
+        inverseUnavailableActions.Outputs["131"].Recipes["1026"].CurrencyCharged = 0;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(inverseUnavailableActions));
+
+        var inverseUnavailableAmount = CraftingStatisticsReducer.Clone(valid);
+        inverseUnavailableAmount.CurrencyAmountArithmeticUnavailable = true;
+        inverseUnavailableAmount.CurrencyChargeActions = 0;
+        inverseUnavailableAmount.Outputs["131"].CurrencyChargeActions = 0;
+        inverseUnavailableAmount.Outputs["131"].Recipes["1026"].CurrencyChargeActions = 0;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(inverseUnavailableAmount));
+
         var degradedResourceSubset = CraftingStatisticsReducer.Clone(valid);
         degradedResourceSubset.Capabilities.ItemResourceIdentity = CraftingNativeContractPolicy.Availability(
             AdapterCapabilityState.DisabledIncompatible,
@@ -503,6 +517,10 @@ public sealed class M16CraftingResourceStatisticsTests
         Assert.Equal(1, unavailableAmounts.Outputs["next"].CurrencyChargeActions);
         Assert.Equal(0, unavailableAmounts.Outputs["next"].CurrencyCharged);
         CraftingStatisticsReducer.Validate(unavailableAmounts);
+
+        var bothUnavailable = CraftingStatisticsReducer.Clone(unavailableActions);
+        bothUnavailable.CurrencyAmountArithmeticUnavailable = true;
+        CraftingStatisticsReducer.Validate(bothUnavailable);
     }
 
     [Fact]

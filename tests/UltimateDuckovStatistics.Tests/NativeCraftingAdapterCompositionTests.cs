@@ -282,6 +282,102 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     [Fact]
     [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void InverseCurrencyActionArithmeticPrimaryRecoversProductionCraftFromBackup()
+    {
+        using var result = CompleteDuplicateCostCraft(6);
+        var generationId = result.Coordinator.CurrentGenerationId;
+        var profilePath = CurrentProfilePath(result);
+        var backupPath = AtomicJsonPaths.GetBackupPath(profilePath);
+        result.StopRuntime();
+
+        Assert.Equal(1, ReadLifetimeCurrencyActions(backupPath));
+        Assert.Equal(150, ReadLifetimeCurrency(backupPath));
+        var backupBeforeCorruption = File.ReadAllText(backupPath);
+        var primary = JsonNode.Parse(File.ReadAllText(profilePath))!.AsObject();
+        var crafting = primary["Statistics"]!["Crafting"]!;
+        var output = crafting["Outputs"]!["7001"]!;
+        var recipe = output["Recipes"]!["modded-duplicate"]!;
+        crafting["CurrencyActionArithmeticUnavailable"] = true;
+        crafting["CurrencyCharged"] = 0;
+        output["CurrencyCharged"] = 0;
+        recipe["CurrencyCharged"] = 0;
+        File.WriteAllText(profilePath, primary.ToJsonString());
+        Assert.True(ReadCurrencyArithmeticUnavailable(profilePath, "CurrencyActionArithmeticUnavailable"));
+        Assert.Equal(1, ReadLifetimeCurrencyActions(profilePath));
+        Assert.Equal(0, ReadLifetimeCurrency(profilePath));
+        Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
+
+        using var reopened = new NativeProfileCoordinator();
+        reopened.Initialize();
+
+        Assert.Equal(generationId, reopened.CurrentGenerationId);
+        var recovered = reopened.Current!.Statistics.Crafting;
+        Assert.Equal(1, recovered.CurrencyChargeActions);
+        Assert.Equal(150, recovered.CurrencyCharged);
+        Assert.Equal(1, recovered.Outputs["7001"].CurrencyChargeActions);
+        Assert.Equal(150, recovered.Outputs["7001"].CurrencyCharged);
+        Assert.Equal(1, recovered.Outputs["7001"].Recipes["modded-duplicate"].CurrencyChargeActions);
+        Assert.Equal(150, recovered.Outputs["7001"].Recipes["modded-duplicate"].CurrencyCharged);
+        Assert.False(recovered.CurrencyActionArithmeticUnavailable);
+        Assert.Equal(6, recovered.Resources["9001"].ConsumedQuantity);
+        Assert.Contains(reopened.DiagnosticEntries, entry =>
+            entry.Message.Contains("recovered=True", StringComparison.Ordinal));
+        Assert.False(ReadCurrencyArithmeticUnavailable(profilePath, "CurrencyActionArithmeticUnavailable"));
+        Assert.Equal(150, ReadLifetimeCurrency(profilePath));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void InverseCurrencyAmountArithmeticPrimaryRecoversProductionCraftFromBackup()
+    {
+        using var result = CompleteDuplicateCostCraft(6);
+        var generationId = result.Coordinator.CurrentGenerationId;
+        var profilePath = CurrentProfilePath(result);
+        var backupPath = AtomicJsonPaths.GetBackupPath(profilePath);
+        result.StopRuntime();
+
+        Assert.Equal(1, ReadLifetimeCurrencyActions(backupPath));
+        Assert.Equal(150, ReadLifetimeCurrency(backupPath));
+        var backupBeforeCorruption = File.ReadAllText(backupPath);
+        var primary = JsonNode.Parse(File.ReadAllText(profilePath))!.AsObject();
+        var crafting = primary["Statistics"]!["Crafting"]!;
+        var output = crafting["Outputs"]!["7001"]!;
+        var recipe = output["Recipes"]!["modded-duplicate"]!;
+        crafting["CurrencyAmountArithmeticUnavailable"] = true;
+        crafting["CurrencyChargeActions"] = 0;
+        output["CurrencyChargeActions"] = 0;
+        recipe["CurrencyChargeActions"] = 0;
+        File.WriteAllText(profilePath, primary.ToJsonString());
+        Assert.True(ReadCurrencyArithmeticUnavailable(profilePath, "CurrencyAmountArithmeticUnavailable"));
+        Assert.Equal(0, ReadLifetimeCurrencyActions(profilePath));
+        Assert.Equal(150, ReadLifetimeCurrency(profilePath));
+        Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
+
+        using var reopened = new NativeProfileCoordinator();
+        reopened.Initialize();
+
+        Assert.Equal(generationId, reopened.CurrentGenerationId);
+        var recovered = reopened.Current!.Statistics.Crafting;
+        Assert.Equal(1, recovered.CurrencyChargeActions);
+        Assert.Equal(150, recovered.CurrencyCharged);
+        Assert.Equal(1, recovered.Outputs["7001"].CurrencyChargeActions);
+        Assert.Equal(150, recovered.Outputs["7001"].CurrencyCharged);
+        Assert.Equal(1, recovered.Outputs["7001"].Recipes["modded-duplicate"].CurrencyChargeActions);
+        Assert.Equal(150, recovered.Outputs["7001"].Recipes["modded-duplicate"].CurrencyCharged);
+        Assert.False(recovered.CurrencyAmountArithmeticUnavailable);
+        Assert.Equal(6, recovered.Resources["9001"].ConsumedQuantity);
+        Assert.Contains(reopened.DiagnosticEntries, entry =>
+            entry.Message.Contains("recovered=True", StringComparison.Ordinal));
+        Assert.False(ReadCurrencyArithmeticUnavailable(profilePath, "CurrencyAmountArithmeticUnavailable"));
+        Assert.Equal(1, ReadLifetimeCurrencyActions(profilePath));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
     [Trait("Category", "ProductionComposition")]
     public void DefaultFreeCostRetainsResourceCapabilityAndLaterItemCostRemainsExact()
     {
@@ -582,6 +678,12 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     private static long ReadLifetimeCurrency(string profilePath) =>
         JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["CurrencyCharged"]!.GetValue<long>();
+
+    private static long ReadLifetimeCurrencyActions(string profilePath) =>
+        JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["CurrencyChargeActions"]!.GetValue<long>();
+
+    private static bool ReadCurrencyArithmeticUnavailable(string profilePath, string propertyName) =>
+        JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]![propertyName]!.GetValue<bool>();
 
     private static long ReadOutputCurrency(string profilePath) =>
         JsonNode.Parse(File.ReadAllText(profilePath))!["Statistics"]!["Crafting"]!["Outputs"]!["7001"]!

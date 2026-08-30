@@ -445,7 +445,7 @@ public static class CraftingStatisticsReducer
         if (aggregate.CompletionActions < 0 || aggregate.ProducedQuantity < 0
             || aggregate.CurrencyChargeActions < 0 || aggregate.CurrencyCharged < 0
             || aggregate.CurrencyChargeActions > aggregate.CompletionActions
-            || HasImpossibleExactCurrencyPair(
+            || HasImpossibleCurrencyPair(
                 aggregate,
                 aggregate.CurrencyChargeActions,
                 aggregate.CurrencyCharged))
@@ -463,7 +463,7 @@ public static class CraftingStatisticsReducer
                 || output.CompletionActions < 0 || output.ProducedQuantity < 0 || output.Recipes == null
                 || output.CurrencyChargeActions < 0 || output.CurrencyCharged < 0
                 || output.CurrencyChargeActions > output.CompletionActions
-                || HasImpossibleExactCurrencyPair(
+                || HasImpossibleCurrencyPair(
                     aggregate,
                     output.CurrencyChargeActions,
                     output.CurrencyCharged))
@@ -483,7 +483,7 @@ public static class CraftingStatisticsReducer
                     || recipe.CompletionActions < 0 || recipe.ProducedQuantity < 0 || recipe.BatchActions == null
                     || recipe.Resources == null || recipe.CurrencyChargeActions < 0 || recipe.CurrencyCharged < 0
                     || recipe.CurrencyChargeActions > recipe.CompletionActions
-                    || HasImpossibleExactCurrencyPair(
+                    || HasImpossibleCurrencyPair(
                         aggregate,
                         recipe.CurrencyChargeActions,
                         recipe.CurrencyCharged))
@@ -997,13 +997,20 @@ public static class CraftingStatisticsReducer
         if (childActions != parentActions || childAmount != parentAmount) throw new ArgumentException(message);
     }
 
-    private static bool HasImpossibleExactCurrencyPair(
+    private static bool HasImpossibleCurrencyPair(
         CraftingStatisticsAggregate aggregate,
         long actions,
-        long amount) =>
-        !aggregate.CurrencyActionArithmeticUnavailable
-        && !aggregate.CurrencyAmountArithmeticUnavailable
-        && ((actions == 0) != (amount == 0));
+        long amount)
+    {
+        if (aggregate.CurrencyActionArithmeticUnavailable
+            && aggregate.CurrencyAmountArithmeticUnavailable)
+            return false;
+        if (aggregate.CurrencyActionArithmeticUnavailable)
+            return actions > 0 && amount == 0;
+        if (aggregate.CurrencyAmountArithmeticUnavailable)
+            return actions == 0 && amount > 0;
+        return (actions == 0) != (amount == 0);
+    }
 
     private static CraftedOutputAggregate CloneOutput(CraftedOutputAggregate source) => new()
     {
