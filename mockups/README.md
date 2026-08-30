@@ -2,7 +2,7 @@
 
 This directory contains the accepted visual and interaction references for the planned M17 native UI overhaul. The images cover the major panel views plus representative scrolling, empty, partial-history, degraded-capability, failure, confirmation, and access states.
 
-The mockups are design references, not executable specifications or current v0.15 screenshots. Example names, dates, paths, values, statuses, and counts demonstrate hierarchy and wording only. `PLAN.md`, the installed-native contract documents, and the persisted profile/export contracts remain authoritative for metric meaning and availability. Native Duckov runtime behavior takes precedence over literal pixel copying when implementing focus, scaling, controls, or layout.
+The mockups are design references, not executable specifications or current v0.16 screenshots. Example names, dates, paths, values, statuses, and counts demonstrate hierarchy and wording only. `PLAN.md`, the installed-native contract documents, and the persisted profile/export contracts remain authoritative for metric meaning and availability. Native Duckov runtime behavior takes precedence over literal pixel copying when implementing focus, scaling, controls, or layout.
 
 The JPGs must not be included in the installable mod package or used as a source of redistributed runtime game assets. Duckov names and visuals remain the property of their respective owners.
 
