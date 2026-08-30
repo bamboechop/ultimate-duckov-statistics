@@ -404,6 +404,11 @@ public sealed class CraftingStatisticsTests
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.OutputIdentity.State);
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.RecipeIdentity.State);
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.BatchMetadata.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.ItemResourceIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.OutputResourceAssociation.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.CurrencyCharge.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.CurrencyMoneyCashSplit.State);
+        Assert.Contains("no exact Money/Cash split", capabilities.CurrencyMoneyCashSplit.Provenance, StringComparison.Ordinal);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.WorkstationIdentity.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.ContextAttribution.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.MultipleOutputRecipes.State);

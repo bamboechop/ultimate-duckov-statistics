@@ -204,7 +204,7 @@ public sealed class EconomyHoldingsTests : IDisposable
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(15, profile.SchemaVersion);
+        Assert.Equal(16, profile.SchemaVersion);
         Assert.True(profile.Statistics.Holdings.HistoricalUnavailable);
         Assert.Equal(EconomyHoldingObservationState.Unavailable, profile.Statistics.Holdings.Money.State);
         Assert.Equal(EconomyHoldingObservationState.Unavailable, profile.Statistics.Holdings.Cash.State);

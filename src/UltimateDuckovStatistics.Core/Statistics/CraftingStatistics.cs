@@ -16,6 +16,10 @@ public sealed class CraftingMetricCapabilities
     [DataMember(Order = 6)] public MetricAvailability WorkstationIdentity { get; set; } = Bootstrap();
     [DataMember(Order = 7)] public MetricAvailability ContextAttribution { get; set; } = Bootstrap();
     [DataMember(Order = 8)] public MetricAvailability MultipleOutputRecipes { get; set; } = Bootstrap();
+    [DataMember(Order = 9)] public MetricAvailability ItemResourceIdentity { get; set; } = Bootstrap();
+    [DataMember(Order = 10)] public MetricAvailability OutputResourceAssociation { get; set; } = Bootstrap();
+    [DataMember(Order = 11)] public MetricAvailability CurrencyCharge { get; set; } = Bootstrap();
+    [DataMember(Order = 12)] public MetricAvailability CurrencyMoneyCashSplit { get; set; } = Bootstrap();
 
     private static MetricAvailability Bootstrap() => new()
     {
@@ -25,12 +29,32 @@ public sealed class CraftingMetricCapabilities
 }
 
 [DataContract]
+public sealed class CraftingResourceAggregate
+{
+    [DataMember(Order = 1)] public string ResourceItemId { get; set; } = string.Empty;
+    [DataMember(Order = 2)] public string DisplayName { get; set; } = string.Empty;
+    [DataMember(Order = 3)] public long ConsumedQuantity { get; set; }
+}
+
+[DataContract]
+public sealed class CraftingResourceAssociationAggregate
+{
+    [DataMember(Order = 1)] public string ResourceItemId { get; set; } = string.Empty;
+    [DataMember(Order = 2)] public string DisplayName { get; set; } = string.Empty;
+    [DataMember(Order = 3)] public long ConsumptionActions { get; set; }
+    [DataMember(Order = 4)] public long ConsumedQuantity { get; set; }
+}
+
+[DataContract]
 public sealed class CraftingRecipeAggregate
 {
     [DataMember(Order = 1)] public string RecipeId { get; set; } = string.Empty;
     [DataMember(Order = 2)] public long CompletionActions { get; set; }
     [DataMember(Order = 3)] public long ProducedQuantity { get; set; }
     [DataMember(Order = 4)] public Dictionary<string, long> BatchActions { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 5)] public Dictionary<string, CraftingResourceAssociationAggregate> Resources { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 6)] public long CurrencyChargeActions { get; set; }
+    [DataMember(Order = 7)] public long CurrencyCharged { get; set; }
 }
 
 [DataContract]
@@ -41,6 +65,8 @@ public sealed class CraftedOutputAggregate
     [DataMember(Order = 3)] public long CompletionActions { get; set; }
     [DataMember(Order = 4)] public long ProducedQuantity { get; set; }
     [DataMember(Order = 5)] public Dictionary<string, CraftingRecipeAggregate> Recipes { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 6)] public long CurrencyChargeActions { get; set; }
+    [DataMember(Order = 7)] public long CurrencyCharged { get; set; }
 }
 
 [DataContract]
@@ -55,6 +81,33 @@ public sealed class CraftingStatisticsAggregate
     [DataMember(Order = 7)] public bool CompletionArithmeticUnavailable { get; set; }
     [DataMember(Order = 8)] public bool QuantityArithmeticUnavailable { get; set; }
     [DataMember(Order = 9)] public bool WasRepairedFromInvalidState { get; set; }
+    [DataMember(Order = 10)] public Dictionary<string, CraftingResourceAggregate> Resources { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 11)] public long CurrencyChargeActions { get; set; }
+    [DataMember(Order = 12)] public long CurrencyCharged { get; set; }
+    [DataMember(Order = 13)] public bool ResourceHistoryUnavailable { get; set; }
+    [DataMember(Order = 14)] public string ResourceHistoryProvenance { get; set; } = string.Empty;
+    [DataMember(Order = 15)] public bool ResourceActionArithmeticUnavailable { get; set; }
+    [DataMember(Order = 16)] public bool ResourceQuantityArithmeticUnavailable { get; set; }
+    [DataMember(Order = 17)] public bool CurrencyActionArithmeticUnavailable { get; set; }
+    [DataMember(Order = 18)] public bool CurrencyAmountArithmeticUnavailable { get; set; }
+    [DataMember(Order = 19)] public bool CurrencyHistoryUnavailable { get; set; }
+    [DataMember(Order = 20)] public string CurrencyHistoryProvenance { get; set; } = string.Empty;
+}
+
+public sealed class CraftingResourceMutation
+{
+    public CraftingResourceMutation(string resourceItemId, string displayName, long consumptionActions, long consumedQuantity)
+    {
+        ResourceItemId = resourceItemId ?? string.Empty;
+        DisplayName = displayName ?? string.Empty;
+        ConsumptionActions = consumptionActions;
+        ConsumedQuantity = consumedQuantity;
+    }
+
+    public string ResourceItemId { get; }
+    public string DisplayName { get; }
+    public long ConsumptionActions { get; }
+    public long ConsumedQuantity { get; }
 }
 
 public sealed class CraftingMutation
@@ -84,7 +137,12 @@ public sealed class CraftingMutationRow
         long producedQuantity,
         Dictionary<string, long> batchActions,
         bool recipeIdentityProven = true,
-        bool batchMetadataProven = true)
+        bool batchMetadataProven = true,
+        IReadOnlyList<CraftingResourceMutation>? resources = null,
+        long currencyChargeActions = 0,
+        long currencyCharged = 0,
+        bool resourceEvidenceProven = true,
+        bool currencyEvidenceProven = true)
     {
         OutputItemId = outputItemId ?? string.Empty;
         OutputDisplayName = outputDisplayName ?? string.Empty;
@@ -94,6 +152,11 @@ public sealed class CraftingMutationRow
         BatchActions = batchActions ?? throw new ArgumentNullException(nameof(batchActions));
         RecipeIdentityProven = recipeIdentityProven;
         BatchMetadataProven = batchMetadataProven;
+        Resources = resources ?? Array.Empty<CraftingResourceMutation>();
+        CurrencyChargeActions = currencyChargeActions;
+        CurrencyCharged = currencyCharged;
+        ResourceEvidenceProven = resourceEvidenceProven;
+        CurrencyEvidenceProven = currencyEvidenceProven;
     }
 
     public string OutputItemId { get; }
@@ -104,10 +167,19 @@ public sealed class CraftingMutationRow
     public IReadOnlyDictionary<string, long> BatchActions { get; }
     public bool RecipeIdentityProven { get; }
     public bool BatchMetadataProven { get; }
+    public IReadOnlyList<CraftingResourceMutation> Resources { get; }
+    public long CurrencyChargeActions { get; }
+    public long CurrencyCharged { get; }
+    public bool ResourceEvidenceProven { get; }
+    public bool CurrencyEvidenceProven { get; }
 }
 
 public static class CraftingStatisticsReducer
 {
+    public const string DeliveredResourceEvidenceUnavailableProvenance =
+        "Crafting item-resource history is incomplete because a successfully delivered craft did not have exact event-time resource-payment evidence.";
+    public const string DeliveredCurrencyEvidenceUnavailableProvenance =
+        "Crafting currency-cost history is incomplete because a successfully delivered craft did not have exact event-time currency-payment evidence.";
     private const string ArithmeticProvenance =
         "The metric reached the Int64 arithmetic limit; prior exact totals remain available, but further capture is disabled.";
 
@@ -125,16 +197,68 @@ public static class CraftingStatisticsReducer
             throw new ArgumentException("Crafting batch metadata degraded without a matching capability restriction.", nameof(mutation));
         if (mutation.IsEmpty) return false;
 
+        var hasUnprovenResourceEvidence = mutation.Rows.Any(row => !row.ResourceEvidenceProven);
+        var hasUnprovenCurrencyEvidence = mutation.Rows.Any(row => !row.CurrencyEvidenceProven);
+        var changed = false;
+        if (hasUnprovenResourceEvidence)
+        {
+            if (aggregate.Capabilities.ItemResourceIdentity.State != AdapterCapabilityState.DisabledIncompatible)
+            {
+                aggregate.Capabilities.ItemResourceIdentity =
+                    Unavailable(DeliveredResourceEvidenceUnavailableProvenance);
+                changed = true;
+            }
+            if (aggregate.Capabilities.OutputResourceAssociation.State != AdapterCapabilityState.DisabledIncompatible)
+            {
+                aggregate.Capabilities.OutputResourceAssociation =
+                    Unavailable(DeliveredResourceEvidenceUnavailableProvenance);
+                changed = true;
+            }
+        }
+        if (hasUnprovenCurrencyEvidence
+            && aggregate.Capabilities.CurrencyCharge.State != AdapterCapabilityState.DisabledIncompatible)
+        {
+            aggregate.Capabilities.CurrencyCharge =
+                Unavailable(DeliveredCurrencyEvidenceUnavailableProvenance);
+            changed = true;
+        }
+
         var actionRows = aggregate.CompletionArithmeticUnavailable
             ? Array.Empty<CraftingMutationRow>()
             : mutation.Rows.Where(row => row.CompletionActions != 0).ToArray();
         var quantityRows = aggregate.QuantityArithmeticUnavailable
             ? Array.Empty<CraftingMutationRow>()
             : mutation.Rows.Where(row => row.ProducedQuantity != 0).ToArray();
+        var resourceRows = mutation.Rows.Where(row => row.ResourceEvidenceProven && row.Resources.Count != 0).ToArray();
+        var currencyRows = mutation.Rows.Where(row => row.CurrencyEvidenceProven && row.CurrencyChargeActions != 0).ToArray();
 
         var actionOverflow = actionRows.Length != 0 && WouldOverflowActions(aggregate, actionRows);
         var quantityOverflow = quantityRows.Length != 0 && WouldOverflowQuantity(aggregate, quantityRows);
-        var changed = false;
+        var resourceActionOverflow = !aggregate.ResourceActionArithmeticUnavailable
+                                     && resourceRows.Length != 0
+                                     && (aggregate.CompletionArithmeticUnavailable
+                                         || actionOverflow
+                                         || WouldOverflowResourceActions(aggregate, resourceRows));
+        var resourceQuantityOverflow = !aggregate.ResourceQuantityArithmeticUnavailable
+                                       && resourceRows.Length != 0
+                                       && WouldOverflowResourceQuantity(aggregate, resourceRows);
+        var currencyActionOverflow = !aggregate.CurrencyActionArithmeticUnavailable
+                                     && currencyRows.Length != 0
+                                     && (aggregate.CompletionArithmeticUnavailable
+                                         || actionOverflow
+                                         || WouldOverflowCurrencyActions(aggregate, currencyRows));
+        var currencyAmountOverflow = !aggregate.CurrencyAmountArithmeticUnavailable
+                                     && currencyRows.Length != 0
+                                     && WouldOverflowCurrencyAmount(aggregate, currencyRows);
+        if (hasUnprovenResourceEvidence)
+            changed |= MarkResourceHistoryUnavailable(
+                aggregate,
+                aggregate.Capabilities.ItemResourceIdentity.Provenance);
+        if (hasUnprovenCurrencyEvidence)
+            changed |= MarkCurrencyHistoryUnavailable(
+                aggregate,
+                aggregate.Capabilities.CurrencyCharge.Provenance);
+
         if (actionOverflow)
         {
             aggregate.CompletionArithmeticUnavailable = true;
@@ -144,11 +268,8 @@ public static class CraftingStatisticsReducer
         }
         else
         {
-            foreach (var row in actionRows)
-            {
-                ApplyActions(aggregate, row);
-                changed = true;
-            }
+            foreach (var row in actionRows) ApplyActions(aggregate, row);
+            changed |= actionRows.Length != 0;
         }
 
         if (quantityOverflow)
@@ -159,11 +280,61 @@ public static class CraftingStatisticsReducer
         }
         else
         {
-            foreach (var row in quantityRows)
-            {
-                ApplyQuantity(aggregate, row);
-                changed = true;
-            }
+            foreach (var row in quantityRows) ApplyQuantity(aggregate, row);
+            changed |= quantityRows.Length != 0;
+        }
+
+        if (resourceActionOverflow)
+        {
+            aggregate.ResourceActionArithmeticUnavailable = true;
+            aggregate.Capabilities.OutputResourceAssociation = Unavailable(ArithmeticProvenance);
+            changed |= MarkResourceHistoryUnavailable(aggregate, ArithmeticProvenance);
+            changed = true;
+        }
+        else if (!aggregate.ResourceActionArithmeticUnavailable)
+        {
+            foreach (var row in resourceRows) ApplyResourceActions(aggregate, row);
+            changed |= resourceRows.Length != 0;
+        }
+
+        if (resourceQuantityOverflow)
+        {
+            aggregate.ResourceQuantityArithmeticUnavailable = true;
+            aggregate.Capabilities.ItemResourceIdentity = Unavailable(ArithmeticProvenance);
+            aggregate.Capabilities.OutputResourceAssociation = Unavailable(ArithmeticProvenance);
+            changed |= MarkResourceHistoryUnavailable(aggregate, ArithmeticProvenance);
+            changed = true;
+        }
+        else if (!aggregate.ResourceQuantityArithmeticUnavailable)
+        {
+            foreach (var row in resourceRows) ApplyResourceQuantity(aggregate, row);
+            changed |= resourceRows.Length != 0;
+        }
+
+        if (currencyActionOverflow)
+        {
+            aggregate.CurrencyActionArithmeticUnavailable = true;
+            aggregate.Capabilities.CurrencyCharge = Unavailable(ArithmeticProvenance);
+            changed |= MarkCurrencyHistoryUnavailable(aggregate, ArithmeticProvenance);
+            changed = true;
+        }
+        else if (!aggregate.CurrencyActionArithmeticUnavailable)
+        {
+            foreach (var row in currencyRows) ApplyCurrencyActions(aggregate, row);
+            changed |= currencyRows.Length != 0;
+        }
+
+        if (currencyAmountOverflow)
+        {
+            aggregate.CurrencyAmountArithmeticUnavailable = true;
+            aggregate.Capabilities.CurrencyCharge = Unavailable(ArithmeticProvenance);
+            changed |= MarkCurrencyHistoryUnavailable(aggregate, ArithmeticProvenance);
+            changed = true;
+        }
+        else if (!aggregate.CurrencyAmountArithmeticUnavailable)
+        {
+            foreach (var row in currencyRows) ApplyCurrencyAmount(aggregate, row);
+            changed |= currencyRows.Length != 0;
         }
         return changed;
     }
@@ -185,13 +356,45 @@ public static class CraftingStatisticsReducer
             aggregate.WasRepairedFromInvalidState = true;
             changed = true;
         }
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.CompletionActions, value => aggregate.Capabilities.CompletionActions = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.ProducedQuantity, value => aggregate.Capabilities.ProducedQuantity = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.OutputIdentity, value => aggregate.Capabilities.OutputIdentity = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.RecipeIdentity, value => aggregate.Capabilities.RecipeIdentity = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.BatchMetadata, value => aggregate.Capabilities.BatchMetadata = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.WorkstationIdentity, value => aggregate.Capabilities.WorkstationIdentity = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.ContextAttribution, value => aggregate.Capabilities.ContextAttribution = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.MultipleOutputRecipes, value => aggregate.Capabilities.MultipleOutputRecipes = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.ItemResourceIdentity, value => aggregate.Capabilities.ItemResourceIdentity = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.OutputResourceAssociation, value => aggregate.Capabilities.OutputResourceAssociation = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.CurrencyCharge, value => aggregate.Capabilities.CurrencyCharge = value);
+        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.CurrencyMoneyCashSplit, value => aggregate.Capabilities.CurrencyMoneyCashSplit = value);
         if (aggregate.Outputs == null)
         {
             aggregate.Outputs = new Dictionary<string, CraftedOutputAggregate>(StringComparer.Ordinal);
             aggregate.WasRepairedFromInvalidState = true;
             changed = true;
         }
+        if (aggregate.Resources == null)
+        {
+            aggregate.Resources = new Dictionary<string, CraftingResourceAggregate>(StringComparer.Ordinal);
+            aggregate.WasRepairedFromInvalidState = true;
+            changed = true;
+        }
         aggregate.HistoricalProvenance ??= string.Empty;
+        aggregate.ResourceHistoryProvenance ??= string.Empty;
+        aggregate.CurrencyHistoryProvenance ??= string.Empty;
+        foreach (var entry in aggregate.Resources.ToArray())
+        {
+            if (entry.Value == null)
+            {
+                aggregate.Resources.Remove(entry.Key);
+                aggregate.WasRepairedFromInvalidState = true;
+                changed = true;
+                continue;
+            }
+            entry.Value.ResourceItemId ??= entry.Key;
+            entry.Value.DisplayName ??= string.Empty;
+        }
         foreach (var entry in aggregate.Outputs.ToArray())
         {
             if (entry.Value == null)
@@ -219,8 +422,27 @@ public static class CraftingStatisticsReducer
                     changed = true;
                     continue;
                 }
-                recipeEntry.Value.RecipeId ??= recipeEntry.Key;
-                recipeEntry.Value.BatchActions ??= new Dictionary<string, long>(StringComparer.Ordinal);
+                var recipe = recipeEntry.Value;
+                recipe.RecipeId ??= recipeEntry.Key;
+                recipe.BatchActions ??= new Dictionary<string, long>(StringComparer.Ordinal);
+                if (recipe.Resources == null)
+                {
+                    recipe.Resources = new Dictionary<string, CraftingResourceAssociationAggregate>(StringComparer.Ordinal);
+                    aggregate.WasRepairedFromInvalidState = true;
+                    changed = true;
+                }
+                foreach (var resourceEntry in recipe.Resources.ToArray())
+                {
+                    if (resourceEntry.Value == null)
+                    {
+                        recipe.Resources.Remove(resourceEntry.Key);
+                        aggregate.WasRepairedFromInvalidState = true;
+                        changed = true;
+                        continue;
+                    }
+                    resourceEntry.Value.ResourceItemId ??= resourceEntry.Key;
+                    resourceEntry.Value.DisplayName ??= string.Empty;
+                }
             }
         }
         return changed;
@@ -228,78 +450,120 @@ public static class CraftingStatisticsReducer
 
     public static void Validate(CraftingStatisticsAggregate aggregate)
     {
-        if (aggregate == null || aggregate.Capabilities == null || aggregate.Outputs == null)
+        if (aggregate == null || aggregate.Capabilities == null || aggregate.Outputs == null || aggregate.Resources == null)
             throw new ArgumentException("Crafting roots are missing.", nameof(aggregate));
-        ValidateAvailability(aggregate.Capabilities.CompletionActions);
-        ValidateAvailability(aggregate.Capabilities.ProducedQuantity);
-        ValidateAvailability(aggregate.Capabilities.OutputIdentity);
-        ValidateAvailability(aggregate.Capabilities.RecipeIdentity);
-        ValidateAvailability(aggregate.Capabilities.BatchMetadata);
-        ValidateAvailability(aggregate.Capabilities.WorkstationIdentity);
-        ValidateAvailability(aggregate.Capabilities.ContextAttribution);
-        ValidateAvailability(aggregate.Capabilities.MultipleOutputRecipes);
-        if (aggregate.CompletionActions < 0 || aggregate.ProducedQuantity < 0)
-            throw new ArgumentException("Crafting totals cannot be negative.", nameof(aggregate));
+        foreach (var value in EnumerateCapabilities(aggregate.Capabilities)) ValidateAvailability(value);
+        if ((aggregate.HistoricalUnavailable && string.IsNullOrWhiteSpace(aggregate.HistoricalProvenance))
+            || (aggregate.ResourceHistoryUnavailable && string.IsNullOrWhiteSpace(aggregate.ResourceHistoryProvenance))
+            || (aggregate.CurrencyHistoryUnavailable && string.IsNullOrWhiteSpace(aggregate.CurrencyHistoryProvenance)))
+            throw new ArgumentException("Crafting partial-history provenance is missing.", nameof(aggregate));
+        if (aggregate.CompletionActions < 0 || aggregate.ProducedQuantity < 0
+            || aggregate.CurrencyChargeActions < 0 || aggregate.CurrencyCharged < 0
+            || aggregate.CurrencyChargeActions > aggregate.CompletionActions
+            || HasImpossibleCurrencyPair(
+                aggregate,
+                aggregate.CurrencyChargeActions,
+                aggregate.CurrencyCharged))
+            throw new ArgumentException("Crafting totals are invalid.", nameof(aggregate));
 
+        var associationQuantityByResource = new Dictionary<string, long>(StringComparer.Ordinal);
         long outputActions = 0;
         long outputQuantity = 0;
+        long outputCurrencyActions = 0;
+        long outputCurrencyAmount = 0;
         foreach (var entry in aggregate.Outputs)
         {
             var output = entry.Value ?? throw new ArgumentException("Crafted output is missing.", nameof(aggregate));
-            if (string.IsNullOrWhiteSpace(entry.Key) || !string.Equals(entry.Key, output.OutputItemId, StringComparison.Ordinal))
-                throw new ArgumentException("Crafted output identity is invalid.", nameof(aggregate));
-            if (output.CompletionActions < 0 || output.ProducedQuantity < 0 || output.Recipes == null)
+            if (string.IsNullOrWhiteSpace(entry.Key) || !string.Equals(entry.Key, output.OutputItemId, StringComparison.Ordinal)
+                || output.CompletionActions < 0 || output.ProducedQuantity < 0 || output.Recipes == null
+                || output.CurrencyChargeActions < 0 || output.CurrencyCharged < 0
+                || output.CurrencyChargeActions > output.CompletionActions
+                || HasImpossibleCurrencyPair(
+                    aggregate,
+                    output.CurrencyChargeActions,
+                    output.CurrencyCharged))
                 throw new ArgumentException("Crafted output totals are invalid.", nameof(aggregate));
             outputActions = checked(outputActions + output.CompletionActions);
             outputQuantity = checked(outputQuantity + output.ProducedQuantity);
+            outputCurrencyActions = checked(outputCurrencyActions + output.CurrencyChargeActions);
+            outputCurrencyAmount = checked(outputCurrencyAmount + output.CurrencyCharged);
             long recipeActions = 0;
             long recipeQuantity = 0;
+            long recipeCurrencyActions = 0;
+            long recipeCurrencyAmount = 0;
             foreach (var recipeEntry in output.Recipes)
             {
                 var recipe = recipeEntry.Value ?? throw new ArgumentException("Crafting recipe is missing.", nameof(aggregate));
                 if (string.IsNullOrWhiteSpace(recipeEntry.Key) || !string.Equals(recipeEntry.Key, recipe.RecipeId, StringComparison.Ordinal)
-                    || recipe.CompletionActions < 0 || recipe.ProducedQuantity < 0 || recipe.BatchActions == null)
+                    || recipe.CompletionActions < 0 || recipe.ProducedQuantity < 0 || recipe.BatchActions == null
+                    || recipe.Resources == null || recipe.CurrencyChargeActions < 0 || recipe.CurrencyCharged < 0
+                    || recipe.CurrencyChargeActions > recipe.CompletionActions
+                    || HasImpossibleCurrencyPair(
+                        aggregate,
+                        recipe.CurrencyChargeActions,
+                        recipe.CurrencyCharged))
                     throw new ArgumentException("Crafting recipe totals are invalid.", nameof(aggregate));
                 recipeActions = checked(recipeActions + recipe.CompletionActions);
                 recipeQuantity = checked(recipeQuantity + recipe.ProducedQuantity);
-                long batchActions = 0;
-                long batchQuantity = 0;
-                var quantityCompositionRequired = !aggregate.QuantityArithmeticUnavailable
-                                                  && aggregate.Capabilities.ProducedQuantity.State
-                                                  != AdapterCapabilityState.DisabledIncompatible;
-                foreach (var batch in recipe.BatchActions)
+                recipeCurrencyActions = checked(recipeCurrencyActions + recipe.CurrencyChargeActions);
+                recipeCurrencyAmount = checked(recipeCurrencyAmount + recipe.CurrencyCharged);
+                ValidateBatches(aggregate, recipe);
+                foreach (var resourceEntry in recipe.Resources)
                 {
-                    if (!long.TryParse(batch.Key, NumberStyles.None, CultureInfo.InvariantCulture, out var quantity)
-                        || quantity <= 0 || batch.Value < 0)
-                        throw new ArgumentException("Crafting batch metadata is invalid.", nameof(aggregate));
-                    batchActions = checked(batchActions + batch.Value);
-                    if (quantityCompositionRequired)
-                        batchQuantity = checked(batchQuantity + checked(quantity * batch.Value));
-                }
-                if (aggregate.Capabilities.BatchMetadata.State == AdapterCapabilityState.DisabledIncompatible)
-                {
-                    if (batchActions > recipe.CompletionActions
-                        || (quantityCompositionRequired && batchQuantity > recipe.ProducedQuantity))
-                        throw new ArgumentException("Crafting batch composition exceeds its recipe totals.", nameof(aggregate));
-                }
-                else if (batchActions != recipe.CompletionActions
-                         || (quantityCompositionRequired && batchQuantity != recipe.ProducedQuantity))
-                {
-                    throw new ArgumentException("Crafting batch composition is inconsistent.", nameof(aggregate));
+                    var resource = resourceEntry.Value
+                        ?? throw new ArgumentException("Crafting resource association is missing.", nameof(aggregate));
+                    if (string.IsNullOrWhiteSpace(resourceEntry.Key)
+                        || !string.Equals(resourceEntry.Key, resource.ResourceItemId, StringComparison.Ordinal)
+                        || resource.ConsumptionActions < 0 || resource.ConsumedQuantity < 0
+                        || (!aggregate.ResourceActionArithmeticUnavailable && resource.ConsumptionActions == 0)
+                        || (!aggregate.ResourceQuantityArithmeticUnavailable && resource.ConsumedQuantity == 0)
+                        || (!aggregate.ResourceQuantityArithmeticUnavailable
+                            && resource.ConsumptionActions > resource.ConsumedQuantity)
+                        || resource.ConsumptionActions > recipe.CompletionActions)
+                        throw new ArgumentException("Crafting resource association is invalid.", nameof(aggregate));
+                    associationQuantityByResource.TryGetValue(resource.ResourceItemId, out var prior);
+                    associationQuantityByResource[resource.ResourceItemId] = checked(prior + resource.ConsumedQuantity);
                 }
             }
-            if (aggregate.Capabilities.RecipeIdentity.State == AdapterCapabilityState.DisabledIncompatible)
-            {
-                if (recipeActions > output.CompletionActions || recipeQuantity > output.ProducedQuantity)
-                    throw new ArgumentException("Crafting recipe composition exceeds its output total.", nameof(aggregate));
-            }
-            else if (recipeActions != output.CompletionActions || recipeQuantity != output.ProducedQuantity)
-            {
-                throw new ArgumentException("Crafting recipe composition is inconsistent.", nameof(aggregate));
-            }
+            ValidateComposition(
+                aggregate.Capabilities.RecipeIdentity,
+                recipeActions,
+                output.CompletionActions,
+                recipeQuantity,
+                output.ProducedQuantity,
+                "Crafting recipe composition is inconsistent.");
+            ValidateEqual(
+                recipeCurrencyActions,
+                output.CurrencyChargeActions,
+                recipeCurrencyAmount,
+                output.CurrencyCharged,
+                "Crafting recipe currency composition is inconsistent.");
         }
         if (outputActions != aggregate.CompletionActions || outputQuantity != aggregate.ProducedQuantity)
             throw new ArgumentException("Crafting output composition is inconsistent.", nameof(aggregate));
+        ValidateEqual(
+            outputCurrencyActions,
+            aggregate.CurrencyChargeActions,
+            outputCurrencyAmount,
+            aggregate.CurrencyCharged,
+            "Crafting output currency composition is inconsistent.");
+
+        foreach (var entry in aggregate.Resources)
+        {
+            var resource = entry.Value ?? throw new ArgumentException("Crafting resource is missing.", nameof(aggregate));
+            if (string.IsNullOrWhiteSpace(entry.Key) || !string.Equals(entry.Key, resource.ResourceItemId, StringComparison.Ordinal)
+                || resource.ConsumedQuantity <= 0)
+                throw new ArgumentException("Crafting resource total is invalid.", nameof(aggregate));
+            associationQuantityByResource.TryGetValue(entry.Key, out var associated);
+            if (associated != resource.ConsumedQuantity)
+                throw new ArgumentException("Crafting resource association composition is inconsistent.", nameof(aggregate));
+        }
+        foreach (var association in associationQuantityByResource)
+        {
+            if (!aggregate.Resources.ContainsKey(association.Key)
+                && (!aggregate.ResourceQuantityArithmeticUnavailable || association.Value != 0))
+                throw new ArgumentException("Crafting resource association has no lifetime resource total.", nameof(aggregate));
+        }
     }
 
     public static CraftingStatisticsAggregate Clone(CraftingStatisticsAggregate? source)
@@ -310,16 +574,32 @@ public static class CraftingStatisticsReducer
         {
             CompletionActions = source.CompletionActions,
             ProducedQuantity = source.ProducedQuantity,
-            Outputs = source.Outputs.ToDictionary(
-                entry => entry.Key,
-                entry => CloneOutput(entry.Value),
-                StringComparer.Ordinal),
+            Outputs = source.Outputs.ToDictionary(entry => entry.Key, entry => CloneOutput(entry.Value), StringComparer.Ordinal),
             Capabilities = CloneCapabilities(source.Capabilities),
             HistoricalUnavailable = source.HistoricalUnavailable,
             HistoricalProvenance = source.HistoricalProvenance,
             CompletionArithmeticUnavailable = source.CompletionArithmeticUnavailable,
             QuantityArithmeticUnavailable = source.QuantityArithmeticUnavailable,
-            WasRepairedFromInvalidState = source.WasRepairedFromInvalidState
+            WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
+            Resources = source.Resources.ToDictionary(
+                entry => entry.Key,
+                entry => new CraftingResourceAggregate
+                {
+                    ResourceItemId = entry.Value.ResourceItemId,
+                    DisplayName = entry.Value.DisplayName,
+                    ConsumedQuantity = entry.Value.ConsumedQuantity
+                },
+                StringComparer.Ordinal),
+            CurrencyChargeActions = source.CurrencyChargeActions,
+            CurrencyCharged = source.CurrencyCharged,
+            ResourceHistoryUnavailable = source.ResourceHistoryUnavailable,
+            ResourceHistoryProvenance = source.ResourceHistoryProvenance,
+            ResourceActionArithmeticUnavailable = source.ResourceActionArithmeticUnavailable,
+            ResourceQuantityArithmeticUnavailable = source.ResourceQuantityArithmeticUnavailable,
+            CurrencyActionArithmeticUnavailable = source.CurrencyActionArithmeticUnavailable,
+            CurrencyAmountArithmeticUnavailable = source.CurrencyAmountArithmeticUnavailable,
+            CurrencyHistoryUnavailable = source.CurrencyHistoryUnavailable,
+            CurrencyHistoryProvenance = source.CurrencyHistoryProvenance
         };
     }
 
@@ -332,12 +612,14 @@ public static class CraftingStatisticsReducer
         BatchMetadata = Clone(source.BatchMetadata),
         WorkstationIdentity = Clone(source.WorkstationIdentity),
         ContextAttribution = Clone(source.ContextAttribution),
-        MultipleOutputRecipes = Clone(source.MultipleOutputRecipes)
+        MultipleOutputRecipes = Clone(source.MultipleOutputRecipes),
+        ItemResourceIdentity = Clone(source.ItemResourceIdentity),
+        OutputResourceAssociation = Clone(source.OutputResourceAssociation),
+        CurrencyCharge = Clone(source.CurrencyCharge),
+        CurrencyMoneyCashSplit = Clone(source.CurrencyMoneyCashSplit)
     };
 
-    public static void InitializeOrRestrictCapabilities(
-        CraftingStatisticsAggregate aggregate,
-        CraftingMetricCapabilities current)
+    public static void InitializeOrRestrictCapabilities(CraftingStatisticsAggregate aggregate, CraftingMetricCapabilities current)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
         if (current == null) throw new ArgumentNullException(nameof(current));
@@ -348,8 +630,16 @@ public static class CraftingStatisticsReducer
             aggregate.Capabilities.CompletionActions = Unavailable(ArithmeticProvenance);
             aggregate.Capabilities.BatchMetadata = Unavailable(ArithmeticProvenance);
         }
-        if (aggregate.QuantityArithmeticUnavailable)
-            aggregate.Capabilities.ProducedQuantity = Unavailable(ArithmeticProvenance);
+        if (aggregate.QuantityArithmeticUnavailable) aggregate.Capabilities.ProducedQuantity = Unavailable(ArithmeticProvenance);
+        if (aggregate.ResourceActionArithmeticUnavailable)
+            aggregate.Capabilities.OutputResourceAssociation = Unavailable(ArithmeticProvenance);
+        if (aggregate.ResourceQuantityArithmeticUnavailable)
+        {
+            aggregate.Capabilities.ItemResourceIdentity = Unavailable(ArithmeticProvenance);
+            aggregate.Capabilities.OutputResourceAssociation = Unavailable(ArithmeticProvenance);
+        }
+        if (aggregate.CurrencyActionArithmeticUnavailable || aggregate.CurrencyAmountArithmeticUnavailable)
+            aggregate.Capabilities.CurrencyCharge = Unavailable(ArithmeticProvenance);
     }
 
     public static CraftingMetricCapabilities RestrictWithCurrent(
@@ -368,7 +658,11 @@ public static class CraftingStatisticsReducer
             BatchMetadata = Restrict(recorded.BatchMetadata, current.BatchMetadata, initializeBootstrap),
             WorkstationIdentity = Restrict(recorded.WorkstationIdentity, current.WorkstationIdentity, initializeBootstrap),
             ContextAttribution = Restrict(recorded.ContextAttribution, current.ContextAttribution, initializeBootstrap),
-            MultipleOutputRecipes = Restrict(recorded.MultipleOutputRecipes, current.MultipleOutputRecipes, initializeBootstrap)
+            MultipleOutputRecipes = Restrict(recorded.MultipleOutputRecipes, current.MultipleOutputRecipes, initializeBootstrap),
+            ItemResourceIdentity = Restrict(recorded.ItemResourceIdentity, current.ItemResourceIdentity, initializeBootstrap),
+            OutputResourceAssociation = Restrict(recorded.OutputResourceAssociation, current.OutputResourceAssociation, initializeBootstrap),
+            CurrencyCharge = Restrict(recorded.CurrencyCharge, current.CurrencyCharge, initializeBootstrap),
+            CurrencyMoneyCashSplit = Restrict(recorded.CurrencyMoneyCashSplit, current.CurrencyMoneyCashSplit, initializeBootstrap)
         };
 
     private static void ApplyActions(CraftingStatisticsAggregate aggregate, CraftingMutationRow row)
@@ -392,83 +686,170 @@ public static class CraftingStatisticsReducer
         var output = GetOutput(aggregate, row);
         aggregate.ProducedQuantity += row.ProducedQuantity;
         output.ProducedQuantity += row.ProducedQuantity;
-        if (!row.RecipeIdentityProven) return;
-        GetRecipe(output, row).ProducedQuantity += row.ProducedQuantity;
+        if (row.RecipeIdentityProven) GetRecipe(output, row).ProducedQuantity += row.ProducedQuantity;
+    }
+
+    private static void ApplyResourceActions(CraftingStatisticsAggregate aggregate, CraftingMutationRow row)
+    {
+        var recipe = GetRecipe(GetOutput(aggregate, row), row);
+        foreach (var resource in row.Resources)
+            GetResourceAssociation(recipe, resource).ConsumptionActions += resource.ConsumptionActions;
+    }
+
+    private static void ApplyResourceQuantity(CraftingStatisticsAggregate aggregate, CraftingMutationRow row)
+    {
+        var recipe = GetRecipe(GetOutput(aggregate, row), row);
+        foreach (var resource in row.Resources)
+        {
+            GetResource(aggregate, resource).ConsumedQuantity += resource.ConsumedQuantity;
+            GetResourceAssociation(recipe, resource).ConsumedQuantity += resource.ConsumedQuantity;
+        }
+    }
+
+    private static void ApplyCurrencyActions(CraftingStatisticsAggregate aggregate, CraftingMutationRow row)
+    {
+        var output = GetOutput(aggregate, row);
+        var recipe = GetRecipe(output, row);
+        aggregate.CurrencyChargeActions += row.CurrencyChargeActions;
+        output.CurrencyChargeActions += row.CurrencyChargeActions;
+        recipe.CurrencyChargeActions += row.CurrencyChargeActions;
+    }
+
+    private static void ApplyCurrencyAmount(CraftingStatisticsAggregate aggregate, CraftingMutationRow row)
+    {
+        var output = GetOutput(aggregate, row);
+        var recipe = GetRecipe(output, row);
+        aggregate.CurrencyCharged += row.CurrencyCharged;
+        output.CurrencyCharged += row.CurrencyCharged;
+        recipe.CurrencyCharged += row.CurrencyCharged;
     }
 
     private static bool WouldOverflowActions(CraftingStatisticsAggregate aggregate, IReadOnlyList<CraftingMutationRow> rows)
     {
         long totalDelta = 0;
-        foreach (var row in rows)
-        {
-            if (WouldAddOverflow(totalDelta, row.CompletionActions)) return true;
-            totalDelta += row.CompletionActions;
-        }
-        if (WouldAddOverflow(aggregate.CompletionActions, totalDelta)) return true;
         var outputDeltas = new Dictionary<string, long>(StringComparer.Ordinal);
         var recipeDeltas = new Dictionary<(string Output, string Recipe), long>();
         var batchDeltas = new Dictionary<(string Output, string Recipe, string Batch), long>();
         foreach (var row in rows)
         {
+            if (!TryAdd(ref totalDelta, row.CompletionActions)) return true;
             var output = aggregate.Outputs.TryGetValue(row.OutputItemId, out var existing) ? existing : null;
-            outputDeltas.TryGetValue(row.OutputItemId, out var priorOutputDelta);
-            if (WouldAddOverflow(priorOutputDelta, row.CompletionActions)) return true;
-            var outputDelta = priorOutputDelta + row.CompletionActions;
-            if (WouldAddOverflow(output?.CompletionActions ?? 0, outputDelta)) return true;
-            outputDeltas[row.OutputItemId] = outputDelta;
+            if (!TryAccumulate(outputDeltas, row.OutputItemId, row.CompletionActions, output?.CompletionActions ?? 0)) return true;
             if (!row.RecipeIdentityProven) continue;
             var recipeKey = (row.OutputItemId, row.RecipeId);
-            recipeDeltas.TryGetValue(recipeKey, out var priorRecipeDelta);
             var recipe = output != null && output.Recipes.TryGetValue(row.RecipeId, out var existingRecipe) ? existingRecipe : null;
-            if (WouldAddOverflow(priorRecipeDelta, row.CompletionActions)) return true;
-            var recipeDelta = priorRecipeDelta + row.CompletionActions;
-            if (WouldAddOverflow(recipe?.CompletionActions ?? 0, recipeDelta)) return true;
-            recipeDeltas[recipeKey] = recipeDelta;
+            if (!TryAccumulate(recipeDeltas, recipeKey, row.CompletionActions, recipe?.CompletionActions ?? 0)) return true;
             if (!row.BatchMetadataProven) continue;
             foreach (var batch in row.BatchActions)
             {
                 var key = (row.OutputItemId, row.RecipeId, batch.Key);
-                batchDeltas.TryGetValue(key, out var priorBatchDelta);
-                if (WouldAddOverflow(priorBatchDelta, batch.Value)) return true;
-                var batchDelta = priorBatchDelta + batch.Value;
-                var currentBatch = 0L;
-                if (recipe != null) recipe.BatchActions.TryGetValue(batch.Key, out currentBatch);
-                if (WouldAddOverflow(currentBatch, batchDelta)) return true;
-                batchDeltas[key] = batchDelta;
+                var current = 0L;
+                if (recipe != null) recipe.BatchActions.TryGetValue(batch.Key, out current);
+                if (!TryAccumulate(batchDeltas, key, batch.Value, current)) return true;
             }
         }
-        return false;
+        return WouldAddOverflow(aggregate.CompletionActions, totalDelta);
     }
 
     private static bool WouldOverflowQuantity(CraftingStatisticsAggregate aggregate, IReadOnlyList<CraftingMutationRow> rows)
     {
         long totalDelta = 0;
-        foreach (var row in rows)
-        {
-            if (WouldAddOverflow(totalDelta, row.ProducedQuantity)) return true;
-            totalDelta += row.ProducedQuantity;
-        }
-        if (WouldAddOverflow(aggregate.ProducedQuantity, totalDelta)) return true;
         var outputDeltas = new Dictionary<string, long>(StringComparer.Ordinal);
         var recipeDeltas = new Dictionary<(string Output, string Recipe), long>();
         foreach (var row in rows)
         {
+            if (!TryAdd(ref totalDelta, row.ProducedQuantity)) return true;
             var output = aggregate.Outputs.TryGetValue(row.OutputItemId, out var existing) ? existing : null;
-            outputDeltas.TryGetValue(row.OutputItemId, out var priorOutputDelta);
-            if (WouldAddOverflow(priorOutputDelta, row.ProducedQuantity)) return true;
-            var outputDelta = priorOutputDelta + row.ProducedQuantity;
-            if (WouldAddOverflow(output?.ProducedQuantity ?? 0, outputDelta)) return true;
-            outputDeltas[row.OutputItemId] = outputDelta;
+            if (!TryAccumulate(outputDeltas, row.OutputItemId, row.ProducedQuantity, output?.ProducedQuantity ?? 0)) return true;
             if (!row.RecipeIdentityProven) continue;
             var recipeKey = (row.OutputItemId, row.RecipeId);
-            recipeDeltas.TryGetValue(recipeKey, out var priorRecipeDelta);
             var recipe = output != null && output.Recipes.TryGetValue(row.RecipeId, out var existingRecipe) ? existingRecipe : null;
-            if (WouldAddOverflow(priorRecipeDelta, row.ProducedQuantity)) return true;
-            var recipeDelta = priorRecipeDelta + row.ProducedQuantity;
-            if (WouldAddOverflow(recipe?.ProducedQuantity ?? 0, recipeDelta)) return true;
-            recipeDeltas[recipeKey] = recipeDelta;
+            if (!TryAccumulate(recipeDeltas, recipeKey, row.ProducedQuantity, recipe?.ProducedQuantity ?? 0)) return true;
+        }
+        return WouldAddOverflow(aggregate.ProducedQuantity, totalDelta);
+    }
+
+    private static bool WouldOverflowResourceActions(CraftingStatisticsAggregate aggregate, IReadOnlyList<CraftingMutationRow> rows)
+    {
+        var deltas = new Dictionary<(string Output, string Recipe, string Resource), long>();
+        foreach (var row in rows)
+        {
+            var recipe = TryGetRecipe(aggregate, row);
+            foreach (var resource in row.Resources)
+            {
+                var key = (row.OutputItemId, row.RecipeId, resource.ResourceItemId);
+                var current = 0L;
+                if (recipe != null && recipe.Resources.TryGetValue(resource.ResourceItemId, out var association))
+                    current = association.ConsumptionActions;
+                if (!TryAccumulate(deltas, key, resource.ConsumptionActions, current)) return true;
+            }
         }
         return false;
+    }
+
+    private static bool WouldOverflowResourceQuantity(CraftingStatisticsAggregate aggregate, IReadOnlyList<CraftingMutationRow> rows)
+    {
+        var lifetimeDeltas = new Dictionary<string, long>(StringComparer.Ordinal);
+        var associationDeltas = new Dictionary<(string Output, string Recipe, string Resource), long>();
+        foreach (var row in rows)
+        {
+            var recipe = TryGetRecipe(aggregate, row);
+            foreach (var resource in row.Resources)
+            {
+                aggregate.Resources.TryGetValue(resource.ResourceItemId, out var lifetime);
+                if (!TryAccumulate(lifetimeDeltas, resource.ResourceItemId, resource.ConsumedQuantity, lifetime?.ConsumedQuantity ?? 0))
+                    return true;
+                var key = (row.OutputItemId, row.RecipeId, resource.ResourceItemId);
+                var current = 0L;
+                if (recipe != null && recipe.Resources.TryGetValue(resource.ResourceItemId, out var association))
+                    current = association.ConsumedQuantity;
+                if (!TryAccumulate(associationDeltas, key, resource.ConsumedQuantity, current)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool WouldOverflowCurrencyActions(CraftingStatisticsAggregate aggregate, IReadOnlyList<CraftingMutationRow> rows) =>
+        WouldOverflowCurrency(
+            aggregate,
+            rows,
+            aggregate.CurrencyChargeActions,
+            row => row.CurrencyChargeActions,
+            output => output.CurrencyChargeActions,
+            recipe => recipe.CurrencyChargeActions);
+
+    private static bool WouldOverflowCurrencyAmount(CraftingStatisticsAggregate aggregate, IReadOnlyList<CraftingMutationRow> rows) =>
+        WouldOverflowCurrency(
+            aggregate,
+            rows,
+            aggregate.CurrencyCharged,
+            row => row.CurrencyCharged,
+            output => output.CurrencyCharged,
+            recipe => recipe.CurrencyCharged);
+
+    private static bool WouldOverflowCurrency(
+        CraftingStatisticsAggregate aggregate,
+        IReadOnlyList<CraftingMutationRow> rows,
+        long currentTotal,
+        Func<CraftingMutationRow, long> rowValue,
+        Func<CraftedOutputAggregate, long> outputValue,
+        Func<CraftingRecipeAggregate, long> recipeValue)
+    {
+        long totalDelta = 0;
+        var outputDeltas = new Dictionary<string, long>(StringComparer.Ordinal);
+        var recipeDeltas = new Dictionary<(string Output, string Recipe), long>();
+        foreach (var row in rows)
+        {
+            var delta = rowValue(row);
+            if (!TryAdd(ref totalDelta, delta)) return true;
+            aggregate.Outputs.TryGetValue(row.OutputItemId, out var output);
+            if (!TryAccumulate(outputDeltas, row.OutputItemId, delta, output == null ? 0 : outputValue(output))) return true;
+            CraftingRecipeAggregate? recipe = null;
+            if (output != null) output.Recipes.TryGetValue(row.RecipeId, out recipe);
+            if (!TryAccumulate(recipeDeltas, (row.OutputItemId, row.RecipeId), delta, recipe == null ? 0 : recipeValue(recipe)))
+                return true;
+        }
+        return WouldAddOverflow(currentTotal, totalDelta);
     }
 
     private static CraftedOutputAggregate GetOutput(CraftingStatisticsAggregate aggregate, CraftingMutationRow row)
@@ -478,20 +859,11 @@ public static class CraftingStatisticsReducer
             output = new CraftedOutputAggregate
             {
                 OutputItemId = row.OutputItemId,
-                DisplayName = string.IsNullOrWhiteSpace(row.OutputDisplayName)
-                    ? "Unknown item " + row.OutputItemId
-                    : row.OutputDisplayName
+                DisplayName = FallbackName(row.OutputDisplayName, row.OutputItemId)
             };
             aggregate.Outputs.Add(row.OutputItemId, output);
         }
-        else if (!string.IsNullOrWhiteSpace(row.OutputDisplayName))
-        {
-            output.DisplayName = row.OutputDisplayName;
-        }
-        else if (string.IsNullOrWhiteSpace(output.DisplayName))
-        {
-            output.DisplayName = "Unknown item " + row.OutputItemId;
-        }
+        else output.DisplayName = UpdatedName(output.DisplayName, row.OutputDisplayName, row.OutputItemId);
         return output;
     }
 
@@ -505,33 +877,159 @@ public static class CraftingStatisticsReducer
         return recipe;
     }
 
+    private static CraftingRecipeAggregate? TryGetRecipe(CraftingStatisticsAggregate aggregate, CraftingMutationRow row) =>
+        aggregate.Outputs.TryGetValue(row.OutputItemId, out var output)
+        && output.Recipes.TryGetValue(row.RecipeId, out var recipe)
+            ? recipe
+            : null;
+
+    private static CraftingResourceAggregate GetResource(CraftingStatisticsAggregate aggregate, CraftingResourceMutation row)
+    {
+        if (!aggregate.Resources.TryGetValue(row.ResourceItemId, out var resource))
+        {
+            resource = new CraftingResourceAggregate
+            {
+                ResourceItemId = row.ResourceItemId,
+                DisplayName = FallbackName(row.DisplayName, row.ResourceItemId)
+            };
+            aggregate.Resources.Add(row.ResourceItemId, resource);
+        }
+        else resource.DisplayName = UpdatedName(resource.DisplayName, row.DisplayName, row.ResourceItemId);
+        return resource;
+    }
+
+    private static CraftingResourceAssociationAggregate GetResourceAssociation(
+        CraftingRecipeAggregate recipe,
+        CraftingResourceMutation row)
+    {
+        if (!recipe.Resources.TryGetValue(row.ResourceItemId, out var resource))
+        {
+            resource = new CraftingResourceAssociationAggregate
+            {
+                ResourceItemId = row.ResourceItemId,
+                DisplayName = FallbackName(row.DisplayName, row.ResourceItemId)
+            };
+            recipe.Resources.Add(row.ResourceItemId, resource);
+        }
+        else resource.DisplayName = UpdatedName(resource.DisplayName, row.DisplayName, row.ResourceItemId);
+        return resource;
+    }
+
     private static void ValidateMutation(CraftingMutation mutation)
     {
         foreach (var row in mutation.Rows)
         {
             if (row == null || string.IsNullOrWhiteSpace(row.OutputItemId) || string.IsNullOrWhiteSpace(row.RecipeId)
-                || row.CompletionActions < 0 || row.ProducedQuantity < 0)
+                || row.CompletionActions < 0 || row.ProducedQuantity < 0
+                || row.CurrencyChargeActions < 0 || row.CurrencyCharged < 0)
                 throw new ArgumentOutOfRangeException(nameof(mutation), "Crafting mutation rows must have identities and non-negative totals.");
             if (row.BatchMetadataProven && !row.RecipeIdentityProven)
                 throw new ArgumentException("Crafting batch metadata requires proven recipe identity.", nameof(mutation));
             if (!row.BatchMetadataProven && row.BatchActions.Count != 0)
                 throw new ArgumentException("Unproven crafting batch metadata cannot be retained.", nameof(mutation));
-            long batches = 0;
-            long batchQuantity = 0;
-            foreach (var batch in row.BatchActions)
+            if (!row.ResourceEvidenceProven && row.Resources.Count != 0)
+                throw new ArgumentException("Unproven crafting resource evidence cannot be retained.", nameof(mutation));
+            if (row.ResourceEvidenceProven && !row.RecipeIdentityProven && row.Resources.Count != 0)
+                throw new ArgumentException("Crafting resource association requires proven recipe identity.", nameof(mutation));
+            if (!row.CurrencyEvidenceProven && (row.CurrencyChargeActions != 0 || row.CurrencyCharged != 0))
+                throw new ArgumentException("Unproven crafting currency evidence cannot be retained.", nameof(mutation));
+            if (row.CurrencyEvidenceProven && !row.RecipeIdentityProven && row.CurrencyChargeActions != 0)
+                throw new ArgumentException("Crafting currency association requires proven recipe identity.", nameof(mutation));
+            if ((row.CurrencyChargeActions == 0) != (row.CurrencyCharged == 0)
+                || row.CurrencyChargeActions > row.CompletionActions)
+                throw new ArgumentException("Crafting currency evidence is inconsistent.", nameof(mutation));
+
+            ValidateMutationBatches(row, mutation);
+            var resourceIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var resource in row.Resources)
             {
-                if (!long.TryParse(batch.Key, NumberStyles.None, CultureInfo.InvariantCulture, out var quantity)
-                    || quantity <= 0 || batch.Value < 0)
-                    throw new ArgumentOutOfRangeException(nameof(mutation), "Crafting batch metadata is invalid.");
-                batches = checked(batches + batch.Value);
-                batchQuantity = checked(batchQuantity + checked(quantity * batch.Value));
+                if (resource == null || string.IsNullOrWhiteSpace(resource.ResourceItemId)
+                    || resource.ConsumptionActions <= 0 || resource.ConsumedQuantity <= 0
+                    || resource.ConsumptionActions > row.CompletionActions
+                    || !resourceIds.Add(resource.ResourceItemId))
+                    throw new ArgumentException("Crafting resource mutation is invalid or not canonicalized.", nameof(mutation));
             }
-            if (row.BatchMetadataProven
-                && (row.BatchActions.Count == 0
-                    || batches != row.CompletionActions
-                    || batchQuantity != row.ProducedQuantity))
-                throw new ArgumentException("Crafting batch composition is inconsistent.", nameof(mutation));
         }
+    }
+
+    private static void ValidateMutationBatches(CraftingMutationRow row, CraftingMutation mutation)
+    {
+        long batches = 0;
+        long batchQuantity = 0;
+        foreach (var batch in row.BatchActions)
+        {
+            if (!long.TryParse(batch.Key, NumberStyles.None, CultureInfo.InvariantCulture, out var quantity)
+                || quantity <= 0 || batch.Value < 0)
+                throw new ArgumentOutOfRangeException(nameof(mutation), "Crafting batch metadata is invalid.");
+            batches = checked(batches + batch.Value);
+            batchQuantity = checked(batchQuantity + checked(quantity * batch.Value));
+        }
+        if (row.BatchMetadataProven
+            && (row.BatchActions.Count == 0 || batches != row.CompletionActions || batchQuantity != row.ProducedQuantity))
+            throw new ArgumentException("Crafting batch composition is inconsistent.", nameof(mutation));
+    }
+
+    private static void ValidateBatches(CraftingStatisticsAggregate aggregate, CraftingRecipeAggregate recipe)
+    {
+        long batchActions = 0;
+        long batchQuantity = 0;
+        var quantityCompositionRequired = !aggregate.QuantityArithmeticUnavailable
+                                          && aggregate.Capabilities.ProducedQuantity.State != AdapterCapabilityState.DisabledIncompatible;
+        foreach (var batch in recipe.BatchActions)
+        {
+            if (!long.TryParse(batch.Key, NumberStyles.None, CultureInfo.InvariantCulture, out var quantity)
+                || quantity <= 0 || batch.Value < 0)
+                throw new ArgumentException("Crafting batch metadata is invalid.", nameof(aggregate));
+            batchActions = checked(batchActions + batch.Value);
+            if (quantityCompositionRequired) batchQuantity = checked(batchQuantity + checked(quantity * batch.Value));
+        }
+        if (aggregate.Capabilities.BatchMetadata.State == AdapterCapabilityState.DisabledIncompatible)
+        {
+            if (batchActions > recipe.CompletionActions || (quantityCompositionRequired && batchQuantity > recipe.ProducedQuantity))
+                throw new ArgumentException("Crafting batch composition exceeds its recipe totals.", nameof(aggregate));
+        }
+        else if (batchActions != recipe.CompletionActions || (quantityCompositionRequired && batchQuantity != recipe.ProducedQuantity))
+            throw new ArgumentException("Crafting batch composition is inconsistent.", nameof(aggregate));
+    }
+
+    private static void ValidateComposition(
+        MetricAvailability capability,
+        long childActions,
+        long parentActions,
+        long childQuantity,
+        long parentQuantity,
+        string message)
+    {
+        if (capability.State == AdapterCapabilityState.DisabledIncompatible)
+        {
+            if (childActions > parentActions || childQuantity > parentQuantity) throw new ArgumentException(message);
+        }
+        else if (childActions != parentActions || childQuantity != parentQuantity) throw new ArgumentException(message);
+    }
+
+    private static void ValidateEqual(
+        long childActions,
+        long parentActions,
+        long childAmount,
+        long parentAmount,
+        string message)
+    {
+        if (childActions != parentActions || childAmount != parentAmount) throw new ArgumentException(message);
+    }
+
+    private static bool HasImpossibleCurrencyPair(
+        CraftingStatisticsAggregate aggregate,
+        long actions,
+        long amount)
+    {
+        if (aggregate.CurrencyActionArithmeticUnavailable
+            && aggregate.CurrencyAmountArithmeticUnavailable)
+            return false;
+        if (aggregate.CurrencyActionArithmeticUnavailable)
+            return amount < actions;
+        if (aggregate.CurrencyAmountArithmeticUnavailable)
+            return actions == 0 && amount > 0;
+        return (actions == 0) != (amount == 0) || amount < actions;
     }
 
     private static CraftedOutputAggregate CloneOutput(CraftedOutputAggregate source) => new()
@@ -540,6 +1038,8 @@ public static class CraftingStatisticsReducer
         DisplayName = source.DisplayName,
         CompletionActions = source.CompletionActions,
         ProducedQuantity = source.ProducedQuantity,
+        CurrencyChargeActions = source.CurrencyChargeActions,
+        CurrencyCharged = source.CurrencyCharged,
         Recipes = source.Recipes.ToDictionary(
             entry => entry.Key,
             entry => new CraftingRecipeAggregate
@@ -547,12 +1047,100 @@ public static class CraftingStatisticsReducer
                 RecipeId = entry.Value.RecipeId,
                 CompletionActions = entry.Value.CompletionActions,
                 ProducedQuantity = entry.Value.ProducedQuantity,
-                BatchActions = new Dictionary<string, long>(entry.Value.BatchActions, StringComparer.Ordinal)
+                BatchActions = new Dictionary<string, long>(entry.Value.BatchActions, StringComparer.Ordinal),
+                CurrencyChargeActions = entry.Value.CurrencyChargeActions,
+                CurrencyCharged = entry.Value.CurrencyCharged,
+                Resources = entry.Value.Resources.ToDictionary(
+                    resource => resource.Key,
+                    resource => new CraftingResourceAssociationAggregate
+                    {
+                        ResourceItemId = resource.Value.ResourceItemId,
+                        DisplayName = resource.Value.DisplayName,
+                        ConsumptionActions = resource.Value.ConsumptionActions,
+                        ConsumedQuantity = resource.Value.ConsumedQuantity
+                    },
+                    StringComparer.Ordinal)
             },
             StringComparer.Ordinal)
     };
 
+    private static IEnumerable<MetricAvailability> EnumerateCapabilities(CraftingMetricCapabilities value)
+    {
+        yield return value.CompletionActions;
+        yield return value.ProducedQuantity;
+        yield return value.OutputIdentity;
+        yield return value.RecipeIdentity;
+        yield return value.BatchMetadata;
+        yield return value.WorkstationIdentity;
+        yield return value.ContextAttribution;
+        yield return value.MultipleOutputRecipes;
+        yield return value.ItemResourceIdentity;
+        yield return value.OutputResourceAssociation;
+        yield return value.CurrencyCharge;
+        yield return value.CurrencyMoneyCashSplit;
+    }
+
+    private static bool TryAdd(ref long current, long delta)
+    {
+        if (WouldAddOverflow(current, delta)) return false;
+        current += delta;
+        return true;
+    }
+
+    private static bool TryAccumulate<TKey>(Dictionary<TKey, long> deltas, TKey key, long delta, long persisted)
+        where TKey : notnull
+    {
+        deltas.TryGetValue(key, out var prior);
+        if (WouldAddOverflow(prior, delta)) return false;
+        var combined = prior + delta;
+        if (WouldAddOverflow(persisted, combined)) return false;
+        deltas[key] = combined;
+        return true;
+    }
+
     private static bool WouldAddOverflow(long current, long delta) => delta > long.MaxValue - current;
+
+    private static string FallbackName(string value, string id) =>
+        string.IsNullOrWhiteSpace(value) ? "Unknown item " + id : value;
+
+    private static string UpdatedName(string current, string incoming, string id)
+    {
+        if (!string.IsNullOrWhiteSpace(incoming)) return incoming;
+        return string.IsNullOrWhiteSpace(current) ? "Unknown item " + id : current;
+    }
+
+    private static bool EnsureAvailability(
+        CraftingStatisticsAggregate aggregate,
+        MetricAvailability? availability,
+        Action<MetricAvailability> replace)
+    {
+        if (availability != null) return false;
+        replace(CraftingNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            CraftingNativeContractPolicy.BootstrapProvenance));
+        aggregate.WasRepairedFromInvalidState = true;
+        return true;
+    }
+
+    private static bool MarkResourceHistoryUnavailable(CraftingStatisticsAggregate aggregate, string provenance)
+    {
+        if (aggregate.ResourceHistoryUnavailable) return false;
+        aggregate.ResourceHistoryUnavailable = true;
+        aggregate.ResourceHistoryProvenance = string.IsNullOrWhiteSpace(provenance)
+            ? "Crafting resource history contains an event without exact resource evidence."
+            : provenance;
+        return true;
+    }
+
+    private static bool MarkCurrencyHistoryUnavailable(CraftingStatisticsAggregate aggregate, string provenance)
+    {
+        if (aggregate.CurrencyHistoryUnavailable) return false;
+        aggregate.CurrencyHistoryUnavailable = true;
+        aggregate.CurrencyHistoryProvenance = string.IsNullOrWhiteSpace(provenance)
+            ? "Crafting currency history contains an event without exact currency evidence."
+            : provenance;
+        return true;
+    }
 
     private static MetricAvailability Restrict(MetricAvailability recorded, MetricAvailability current, bool initializeBootstrap)
     {

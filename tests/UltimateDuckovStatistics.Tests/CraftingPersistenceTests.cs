@@ -21,11 +21,13 @@ public sealed class CraftingPersistenceTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(15, profile.SchemaVersion);
-        Assert.Equal(15, profile.Statistics.SchemaVersion);
+        Assert.Equal(16, profile.SchemaVersion);
+        Assert.Equal(16, profile.Statistics.SchemaVersion);
         Assert.Equal(42, profile.Statistics.Overall.ActivationCount);
         Assert.True(profile.Statistics.Crafting.HistoricalUnavailable);
         Assert.Contains("predates M13", profile.Statistics.Crafting.HistoricalProvenance, StringComparison.Ordinal);
+        Assert.True(profile.Statistics.Crafting.ResourceHistoryUnavailable);
+        Assert.True(profile.Statistics.Crafting.CurrencyHistoryUnavailable);
         Assert.Equal(0, profile.Statistics.Crafting.CompletionActions);
         Assert.Equal(0, profile.Statistics.Crafting.ProducedQuantity);
     }
@@ -245,6 +247,43 @@ public sealed class CraftingPersistenceTests
         Assert.Equal(AtomicJsonLoadSource.Backup, loaded.Source);
         AssertCrafting(loaded.Value!.Statistics.Crafting, 1, 2);
         Assert.Equal("bandage", Assert.Single(loaded.Value.Statistics.Crafting.Outputs["100"].Recipes).Key);
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    public void CurrentSchemaResourceCompositionMismatchLosesPrimarySelectionToIntactBackup()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var path = Path.Combine(temporaryDirectory.Path, "profile.json");
+        var backup = Document("generation-1");
+        backup.Statistics.Crafting = Aggregate(1, 2);
+        var invalid = Document("generation-1");
+        invalid.Revision = 2;
+        invalid.Statistics.Crafting = Aggregate(1, 2);
+        invalid.Statistics.Crafting.Resources["764"] = new CraftingResourceAggregate
+        {
+            ResourceItemId = "764",
+            DisplayName = "Parts",
+            ConsumedQuantity = 1
+        };
+        invalid.Statistics.Crafting.Outputs["100"].Recipes["bandage"].Resources["764"] =
+            new CraftingResourceAssociationAggregate
+            {
+                ResourceItemId = "764",
+                DisplayName = "Parts",
+                ConsumptionActions = 1,
+                ConsumedQuantity = 2
+            };
+        store.Save(path, backup);
+        store.Save(path, invalid);
+
+        var loaded = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+
+        Assert.Equal(AtomicJsonLoadSource.Backup, loaded.Source);
+        AssertCrafting(loaded.Value!.Statistics.Crafting, 1, 2);
+        Assert.Empty(loaded.Value.Statistics.Crafting.Resources);
     }
 
     [Fact]

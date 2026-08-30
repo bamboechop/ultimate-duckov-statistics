@@ -92,6 +92,8 @@ public sealed class CraftingExportTests
 
         Assert.Contains(result.Files, path => string.Equals(Path.GetFileName(path), "crafting_totals.csv", StringComparison.Ordinal));
         Assert.Contains(result.Files, path => string.Equals(Path.GetFileName(path), "crafting_recipes.csv", StringComparison.Ordinal));
+        Assert.Contains(result.Files, path => string.Equals(Path.GetFileName(path), "crafting_resources.csv", StringComparison.Ordinal));
+        Assert.Contains(result.Files, path => string.Equals(Path.GetFileName(path), "crafting_resource_associations.csv", StringComparison.Ordinal));
         Assert.Contains(result.Files, path => string.Equals(Path.GetExtension(path), ".json", StringComparison.Ordinal));
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
     }

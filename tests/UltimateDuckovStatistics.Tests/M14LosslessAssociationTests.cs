@@ -595,8 +595,8 @@ public sealed class M14LosslessAssociationTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(15, profile.SchemaVersion);
-        Assert.Equal(15, profile.Statistics.SchemaVersion);
+        Assert.Equal(16, profile.SchemaVersion);
+        Assert.Equal(16, profile.Statistics.SchemaVersion);
         Assert.Equal(14, Assert.Single(profile.Statistics.Runs).SchemaVersion);
         foreach (var scope in M14Scopes(profile))
         {

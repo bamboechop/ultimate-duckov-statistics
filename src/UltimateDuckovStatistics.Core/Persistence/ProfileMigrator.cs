@@ -412,6 +412,8 @@ public static class ProfileMigrator
                                        || (profile.Statistics != null && profile.Statistics.SchemaVersion < 14);
         var migratingHoldings = profile.SchemaVersion < 15
                                 || (profile.Statistics != null && profile.Statistics.SchemaVersion < 15);
+        var migratingCraftingConsumption = profile.SchemaVersion < 16
+                                           || (profile.Statistics != null && profile.Statistics.SchemaVersion < 16);
         var missingCurrentCombatRoot = !migratingCombat
                                        && (profile.Statistics == null || profile.Statistics.RunTotals == null);
         var missingCurrentEquipmentRoot = !migratingEquipment
@@ -596,12 +598,53 @@ public static class ProfileMigrator
             profile.Statistics.Crafting = new CraftingStatisticsAggregate();
             changed = true;
         }
+        if (migratingCraftingConsumption)
+        {
+            var crafting = profile.Statistics.Crafting;
+            if (crafting.Resources == null)
+            {
+                crafting.Resources = new Dictionary<string, CraftingResourceAggregate>(StringComparer.Ordinal);
+                changed = true;
+            }
+            crafting.ResourceHistoryProvenance ??= string.Empty;
+            crafting.CurrencyHistoryProvenance ??= string.Empty;
+            foreach (var output in (IEnumerable<CraftedOutputAggregate>?)crafting.Outputs?.Values
+                                   ?? Enumerable.Empty<CraftedOutputAggregate>())
+                foreach (var recipe in (IEnumerable<CraftingRecipeAggregate>?)output?.Recipes?.Values
+                                       ?? Enumerable.Empty<CraftingRecipeAggregate>())
+                {
+                    if (recipe.Resources != null) continue;
+                    recipe.Resources = new Dictionary<string, CraftingResourceAssociationAggregate>(StringComparer.Ordinal);
+                    changed = true;
+                }
+            var capabilities = crafting.Capabilities;
+            if (capabilities != null)
+            {
+                var bootstrap = () => CraftingNativeContractPolicy.Availability(
+                    Domain.AdapterCapabilityState.DisabledIncompatible,
+                    CraftingNativeContractPolicy.BootstrapProvenance);
+                capabilities.ItemResourceIdentity ??= bootstrap();
+                capabilities.OutputResourceAssociation ??= bootstrap();
+                capabilities.CurrencyCharge ??= bootstrap();
+                capabilities.CurrencyMoneyCashSplit ??= bootstrap();
+            }
+        }
         changed |= CraftingStatisticsReducer.NormalizePersisted(profile.Statistics.Crafting);
         if (migratingCrafting)
         {
             profile.Statistics.Crafting.HistoricalUnavailable = true;
             profile.Statistics.Crafting.HistoricalProvenance =
                 "Historical schema predates M13; crafted-item completion actions, produced quantities, recipe identity, and batch metadata were not recorded.";
+            changed = true;
+        }
+        if (migratingCraftingConsumption)
+        {
+            profile.Statistics.Crafting.ResourceHistoryUnavailable = true;
+            profile.Statistics.Crafting.ResourceHistoryProvenance =
+                "Historical schema predates M16; event-time declared item-resource costs for successful crafts were not recorded and were not reconstructed from inventory deltas, holdings, action counts, or current recipe metadata.";
+            profile.Statistics.Crafting.CurrencyHistoryUnavailable = true;
+            profile.Statistics.Crafting.CurrencyHistoryProvenance =
+                "Historical schema predates M16; event-time declared total currency charges for successful crafts were not recorded and were not reconstructed from balances, flows, action counts, or current recipe metadata.";
             changed = true;
         }
         const string historicalHoldingsProvenance =
@@ -1124,6 +1167,18 @@ public static class ProfileMigrator
         if (profile.Statistics.SchemaVersion < 15)
         {
             profile.Statistics.SchemaVersion = 15;
+            changed = true;
+        }
+
+        if (profile.SchemaVersion < 16)
+        {
+            profile.SchemaVersion = 16;
+            changed = true;
+        }
+
+        if (profile.Statistics.SchemaVersion < 16)
+        {
+            profile.Statistics.SchemaVersion = 16;
             changed = true;
         }
 

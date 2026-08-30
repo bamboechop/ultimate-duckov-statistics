@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion =
-        "native-crafting/2.3.30+correlated-cost-return-v2+declared-output-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
+        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v3+delivery-gated-capability-v3+resource-hook-isolation-v1+pay-hook-isolation-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.crafting";
     private const string SupportedGameVersion = "2.3.30";
     private const int DiagnosticKeyCapacity = 32;
@@ -38,10 +38,20 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         CraftingNativeContractPolicy.BootstrapProvenance);
     private MethodInfo? craftMethod;
     private MethodInfo? returnMethod;
+    private MethodInfo? payMethod;
+    private MethodInfo? itemCountMethod;
+    private MethodInfo? stackCountSetter;
+    private MethodInfo? markDestroyedMethod;
     private HarmonyPatchSetStamp? craftPatchStamp;
     private HarmonyPatchSetStamp? returnPatchStamp;
+    private HarmonyPatchSetStamp? payPatchStamp;
+    private HarmonyPatchSetStamp? itemCountPatchStamp;
+    private HarmonyPatchSetStamp? stackCountPatchStamp;
+    private HarmonyPatchSetStamp? markDestroyedPatchStamp;
     private Func<bool>? profileTransitionCleanupBarrier;
     private bool accepting;
+    private bool paymentHookActive;
+    private bool resourceProofHooksActive;
     private bool cleanupRequested;
     private bool terminalShutdownRequested;
     private bool cleaned;
@@ -84,7 +94,13 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
         try
         {
-            ResolveContracts(out var resolvedCraftMethod, out var resolvedReturnMethod);
+            ResolveContracts(
+                out var resolvedCraftMethod,
+                out var resolvedReturnMethod,
+                out var resolvedPayMethod,
+                out var resolvedItemCountMethod,
+                out var resolvedStackCountSetter,
+                out var resolvedMarkDestroyedMethod);
             if (!ReflectiveHarmonyPatcher.TryCreate(HarmonyId, out var patcher, out var harmonyDetail) || patcher == null)
                 return Disable($"Crafting completion is unavailable: {harmonyDetail}");
             patcherLease.Attach(patcher);
@@ -92,6 +108,29 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 throw new InvalidOperationException($"Unsafe pre-existing patch set on CraftingManager.Craft(CraftingFormula): {prePatchDetail}");
             if (!patcher.IsPatchSetTrusted(resolvedReturnMethod, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
                 throw new InvalidOperationException($"Unsafe pre-existing patch set on Cost.Return: {prePatchDetail}");
+            string? paymentHookDetail = null;
+            if (!patcher.IsPatchSetTrusted(resolvedPayMethod, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
+                paymentHookDetail = PaymentHookUnavailableDetail(
+                    "EconomyManager.Pay(Cost, bool, bool)",
+                    prePatchDetail);
+            var paymentHookValidated = string.IsNullOrWhiteSpace(paymentHookDetail);
+            string? resourceHookDetail = paymentHookDetail;
+            if (paymentHookValidated
+                && !patcher.IsPatchSetTrusted(resolvedItemCountMethod, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
+                resourceHookDetail = ResourceHookUnavailableDetail(
+                    "ItemUtilities.GetItemCount(int)",
+                    prePatchDetail);
+            else if (paymentHookValidated
+                     && !patcher.IsPatchSetTrusted(resolvedStackCountSetter, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
+                resourceHookDetail = ResourceHookUnavailableDetail(
+                    "Item.StackCount setter",
+                    prePatchDetail);
+            else if (paymentHookValidated
+                     && !patcher.IsPatchSetTrusted(resolvedMarkDestroyedMethod, Array.Empty<HarmonyPatchExpectation>(), out prePatchDetail))
+                resourceHookDetail = ResourceHookUnavailableDetail(
+                    "Item.MarkDestroyed()",
+                    prePatchDetail);
+            var resourceHooksValidated = paymentHookValidated && string.IsNullOrWhiteSpace(resourceHookDetail);
             CraftingHarmonyBridge.Attach(this);
             patcher.Patch(
                 resolvedCraftMethod,
@@ -99,6 +138,26 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 postfix: CraftingHarmonyCallbacks.CraftPostfixMethod,
                 finalizer: CraftingHarmonyCallbacks.CraftFinalizerMethod);
             patcher.Patch(resolvedReturnMethod, postfix: CraftingHarmonyCallbacks.ReturnPostfixMethod);
+            if (paymentHookValidated)
+            {
+                try
+                {
+                    patcher.Patch(
+                        resolvedPayMethod,
+                        prefix: CraftingHarmonyCallbacks.PayPrefixMethod,
+                        postfix: CraftingHarmonyCallbacks.PayPostfixMethod,
+                        finalizer: CraftingHarmonyCallbacks.PayFinalizerMethod);
+                }
+                catch (Exception exception)
+                {
+                    paymentHookValidated = false;
+                    resourceHooksValidated = false;
+                    paymentHookDetail = PaymentHookUnavailableDetail(
+                        "EconomyManager.Pay(Cost, bool, bool) patch installation",
+                        $"{Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}");
+                    resourceHookDetail = paymentHookDetail;
+                }
+            }
             var expectedCraft = new[]
             {
                 new HarmonyPatchExpectation("Prefixes", CraftingHarmonyCallbacks.CraftPrefixMethod),
@@ -123,23 +182,133 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                     out stampDetail)
                 || resolvedReturnStamp == null)
                 throw new InvalidOperationException($"Installed crafting delivery patch set/stamp validation failed: {stampDetail}");
+            HarmonyPatchSetStamp? resolvedPayStamp = null;
+            if (paymentHookValidated)
+            {
+                try
+                {
+                    var expectedPay = new[]
+                    {
+                        new HarmonyPatchExpectation("Prefixes", CraftingHarmonyCallbacks.PayPrefixMethod),
+                        new HarmonyPatchExpectation("Postfixes", CraftingHarmonyCallbacks.PayPostfixMethod),
+                        new HarmonyPatchExpectation("Finalizers", CraftingHarmonyCallbacks.PayFinalizerMethod)
+                    };
+                    if (!patcher.TryCaptureValidatedPatchSetStamp(
+                            resolvedPayMethod,
+                            expectedPay,
+                            out resolvedPayStamp,
+                            out stampDetail)
+                        || resolvedPayStamp == null)
+                        throw new InvalidOperationException($"payment patch set/stamp validation failed: {stampDetail}");
+                }
+                catch (Exception exception)
+                {
+                    paymentHookValidated = false;
+                    resourceHooksValidated = false;
+                    paymentHookDetail = PaymentHookUnavailableDetail(
+                        "EconomyManager.Pay(Cost, bool, bool) patch validation",
+                        $"{Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}");
+                    resourceHookDetail = paymentHookDetail;
+                }
+            }
+            HarmonyPatchSetStamp? resolvedItemCountStamp = null;
+            HarmonyPatchSetStamp? resolvedStackCountStamp = null;
+            HarmonyPatchSetStamp? resolvedMarkDestroyedStamp = null;
+            if (resourceHooksValidated)
+            {
+                try
+                {
+                    patcher.Patch(resolvedItemCountMethod, postfix: CraftingHarmonyCallbacks.GetItemCountPostfixMethod);
+                    patcher.Patch(
+                        resolvedStackCountSetter,
+                        prefix: CraftingHarmonyCallbacks.StackCountPrefixMethod,
+                        postfix: CraftingHarmonyCallbacks.StackCountPostfixMethod);
+                    patcher.Patch(resolvedMarkDestroyedMethod, prefix: CraftingHarmonyCallbacks.MarkDestroyedPrefixMethod);
+                    var expectedItemCount = new[]
+                    {
+                        new HarmonyPatchExpectation("Postfixes", CraftingHarmonyCallbacks.GetItemCountPostfixMethod)
+                    };
+                    if (!patcher.TryCaptureValidatedPatchSetStamp(
+                            resolvedItemCountMethod,
+                            expectedItemCount,
+                            out resolvedItemCountStamp,
+                            out stampDetail)
+                        || resolvedItemCountStamp == null)
+                        throw new InvalidOperationException($"affordability patch set/stamp validation failed: {stampDetail}");
+                    var expectedStackCount = new[]
+                    {
+                        new HarmonyPatchExpectation("Prefixes", CraftingHarmonyCallbacks.StackCountPrefixMethod),
+                        new HarmonyPatchExpectation("Postfixes", CraftingHarmonyCallbacks.StackCountPostfixMethod)
+                    };
+                    if (!patcher.TryCaptureValidatedPatchSetStamp(
+                            resolvedStackCountSetter,
+                            expectedStackCount,
+                            out resolvedStackCountStamp,
+                            out stampDetail)
+                        || resolvedStackCountStamp == null)
+                        throw new InvalidOperationException($"stack-mutation patch set/stamp validation failed: {stampDetail}");
+                    var expectedMarkDestroyed = new[]
+                    {
+                        new HarmonyPatchExpectation("Prefixes", CraftingHarmonyCallbacks.MarkDestroyedPrefixMethod)
+                    };
+                    if (!patcher.TryCaptureValidatedPatchSetStamp(
+                            resolvedMarkDestroyedMethod,
+                            expectedMarkDestroyed,
+                            out resolvedMarkDestroyedStamp,
+                            out stampDetail)
+                        || resolvedMarkDestroyedStamp == null)
+                        throw new InvalidOperationException($"stack-destruction patch set/stamp validation failed: {stampDetail}");
+                }
+                catch (Exception exception)
+                {
+                    resourceHooksValidated = false;
+                    resourceHookDetail = ResourceHookUnavailableDetail(
+                        "resource-proof patch validation",
+                        $"{Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}");
+                }
+            }
             craftMethod = resolvedCraftMethod;
             returnMethod = resolvedReturnMethod;
+            payMethod = paymentHookValidated ? resolvedPayMethod : null;
+            itemCountMethod = resourceHooksValidated ? resolvedItemCountMethod : null;
+            stackCountSetter = resourceHooksValidated ? resolvedStackCountSetter : null;
+            markDestroyedMethod = resourceHooksValidated ? resolvedMarkDestroyedMethod : null;
             craftPatchStamp = resolvedCraftStamp;
             returnPatchStamp = resolvedReturnStamp;
+            payPatchStamp = resolvedPayStamp;
+            itemCountPatchStamp = resolvedItemCountStamp;
+            stackCountPatchStamp = resolvedStackCountStamp;
+            markDestroyedPatchStamp = resolvedMarkDestroyedStamp;
             lock (lifecycleSync)
             {
-                capabilities = CraftingNativeContractPolicy.Supported(
+                var initializedCapabilities = CraftingNativeContractPolicy.Supported(
                     "The correlated Cost.Return task completed after native output delivery, before downstream crafting callbacks.",
-                    "CraftingFormula.id and singular result.id/result.amount captured at the native request boundary.");
+                    "CraftingFormula.id and singular result.id/result.amount captured at the native request boundary.",
+                    "CraftingFormula.cost.items stable identities and declared quantities captured at invocation; repeated resource ids require Duckov's own matched Pay-time affordability and net ownership-ending stack-mutation observations to prove their canonical combined quantity before successful delivery publication.",
+                    "CraftingFormula.cost.money captured at invocation; a successful correlated delivery proves the preceding native Pay returned true for that declared total charge.");
+                if (!resourceHooksValidated)
+                    RestrictResourceCapabilities(initializedCapabilities, resourceHookDetail!);
+                if (!paymentHookValidated)
+                    RestrictCurrencyCapabilities(initializedCapabilities, paymentHookDetail!);
+                capabilities = initializedCapabilities;
+                paymentHookActive = paymentHookValidated;
+                resourceProofHooksActive = resourceHooksValidated;
                 accepting = true;
             }
             patchInspectionScheduler.Reset(DateTime.UtcNow, 1);
             pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
             StageAndPublishCapabilities();
+            if (!paymentHookValidated)
+                DiagnosticOnce("payment-hook-unavailable", paymentHookDetail!);
+            else if (!resourceHooksValidated)
+                DiagnosticOnce("resource-hooks-unavailable", resourceHookDetail!);
             DiagnosticOnce(
                 "initialized",
-                $"Crafting completion patch active with HarmonyLib {patcher.Version}; completion actions and declared produced quantity are generation-lifetime totals. Workstation, run/map attribution, and multiple-output recipes are unavailable on the installed contract.");
+                !paymentHookValidated
+                    ? $"Crafting completion and delivery patches active with HarmonyLib {patcher.Version}; completion actions, declared produced quantity, output, recipe, and batch tracking remain available, while item-resource and currency tracking are unavailable because the isolated payment hook was not trusted. Money/Cash split, workstation, run/map attribution, and multiple-output recipes are unavailable on the installed contract."
+                    : resourceHooksValidated
+                    ? $"Crafting completion patch active with HarmonyLib {patcher.Version}; completion actions, declared produced quantity, event-time item resource costs, and declared total currency charge are generation-lifetime totals. Money/Cash split, workstation, run/map attribution, and multiple-output recipes are unavailable on the installed contract."
+                    : $"Crafting completion and payment patches active with HarmonyLib {patcher.Version}; completion actions, declared produced quantity, and declared total currency charge remain available, while item-resource tracking is unavailable because its isolated proof hooks were not trusted. Money/Cash split, workstation, run/map attribution, and multiple-output recipes are unavailable on the installed contract.");
         }
         catch (Exception exception)
         {
@@ -152,12 +321,20 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     public void Tick(DateTime nowUtc)
     {
         bool active;
-        lock (lifecycleSync) active = accepting;
+        bool inspectPaymentHook;
+        bool inspectResourceHooks;
+        lock (lifecycleSync)
+        {
+            active = accepting;
+            inspectPaymentHook = paymentHookActive;
+            inspectResourceHooks = resourceProofHooksActive;
+        }
         if ((!pendingPublication.IsEmpty || profileHandoff.HasCompletedData || capabilityPublication.IsPending)
             && pendingRetryScheduler.TryTake(nowUtc, 1, out _))
             FlushPending();
         if (!active) return;
-        if (craftMethod == null || returnMethod == null || !patchInspectionScheduler.TryTake(nowUtc, 1, out _)) return;
+        if (craftMethod == null || returnMethod == null
+            || !patchInspectionScheduler.TryTake(nowUtc, 1, out _)) return;
         var patcher = patcherLease.Value;
         var detail = "The crafting patch-state stamp is unavailable.";
         if (patcher == null
@@ -168,22 +345,59 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 patcher == null
                     ? "Crafting tracking disabled after patch drift: the Harmony owner is unavailable."
                     : $"Crafting tracking disabled after patch drift: {detail}");
+            return;
         }
+        if (inspectPaymentHook
+            && (payMethod == null
+                || payPatchStamp == null
+                || !patcher.IsPatchSetStampCurrent(payPatchStamp, out detail)))
+        {
+            DisablePaymentRuntime(PaymentHookUnavailableDetail(
+                "EconomyManager.Pay(Cost, bool, bool)",
+                payMethod == null || payPatchStamp == null
+                    ? "runtime inspection found incomplete UDS hook metadata"
+                    : $"runtime patch drift: {detail}"));
+            return;
+        }
+        if (!inspectResourceHooks) return;
+        if (itemCountMethod == null || stackCountSetter == null || markDestroyedMethod == null
+            || itemCountPatchStamp == null || stackCountPatchStamp == null || markDestroyedPatchStamp == null)
+        {
+            DisableResourceRuntime(ResourceHookUnavailableDetail(
+                "resource-proof patch state",
+                "runtime inspection found incomplete UDS hook metadata"));
+            return;
+        }
+        if (!patcher.IsPatchSetStampCurrent(itemCountPatchStamp, out detail))
+            DisableResourceRuntime(ResourceHookUnavailableDetail(
+                "ItemUtilities.GetItemCount(int)",
+                $"runtime patch drift: {detail}"));
+        else if (!patcher.IsPatchSetStampCurrent(stackCountPatchStamp, out detail))
+            DisableResourceRuntime(ResourceHookUnavailableDetail(
+                "Item.StackCount setter",
+                $"runtime patch drift: {detail}"));
+        else if (!patcher.IsPatchSetStampCurrent(markDestroyedPatchStamp, out detail))
+            DisableResourceRuntime(ResourceHookUnavailableDetail(
+                "Item.MarkDestroyed()",
+                $"runtime patch drift: {detail}"));
     }
 
     public bool FlushPending()
     {
         var handoffPublished = FlushCompletedProfileHandoffs();
-        var currentPublished = FlushCurrentPending();
+        var currentPublished = FlushCurrentPending(publishCapabilities: true);
         return handoffPublished && currentPublished && !profileHandoff.HasUncommittedData;
     }
 
     public bool FlushPendingForProfileTransition()
     {
         var handoffPublished = FlushCompletedProfileHandoffs();
-        var currentPublished = FlushCurrentPending();
+        var currentPublished = FlushCurrentPending(publishCapabilities: true);
         return handoffPublished && currentPublished;
     }
+
+    private bool FlushPendingFromNativeDelivery() =>
+        FlushCurrentPending(publishCapabilities: false);
 
     public void SetProfileTransitionCleanupBarrier(Func<bool> barrier) =>
         profileTransitionCleanupBarrier = barrier ?? throw new ArgumentNullException(nameof(barrier));
@@ -207,14 +421,23 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    private bool FlushCurrentPending()
+    private bool FlushCurrentPending(bool publishCapabilities)
     {
-        var capabilitiesPublished = FlushPendingCapabilities();
         var hadPending = !pendingPublication.IsEmpty;
         try
         {
-            var aggregatePublished = pendingPublication.TryFlush(recordHandler);
+            CraftingMutation? acceptedMutation = null;
+            var aggregatePublished = pendingPublication.TryFlush(mutation =>
+            {
+                if (!recordHandler(mutation)) return false;
+                acceptedMutation = mutation;
+                return true;
+            });
             var aggregatePersisted = !hadPending || (aggregatePublished && persistenceHandler());
+            var capabilitiesStaged = acceptedMutation != null
+                                     && StageDeliveredCostCapabilities(acceptedMutation);
+            if (capabilitiesStaged) pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
+            var capabilitiesPublished = !publishCapabilities || FlushPendingCapabilities();
             return capabilitiesPublished && aggregatePublished && aggregatePersisted;
         }
         catch (Exception exception)
@@ -271,8 +494,18 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         {
             craftMethod = null;
             returnMethod = null;
+            payMethod = null;
+            itemCountMethod = null;
+            stackCountSetter = null;
+            markDestroyedMethod = null;
             craftPatchStamp = null;
             returnPatchStamp = null;
+            payPatchStamp = null;
+            itemCountPatchStamp = null;
+            stackCountPatchStamp = null;
+            markDestroyedPatchStamp = null;
+            paymentHookActive = false;
+            resourceProofHooksActive = false;
             profileTransitionCleanupBarrier = null;
             profileHandoff.Reset();
             cleaned = true;
@@ -351,6 +584,10 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
     internal CraftingNativeScope? BeginNativeCraft(CraftingFormula formula)
     {
+        bool resourceCaptureEnabled;
+        bool currencyCaptureEnabled;
+        string resourceUnavailableDetail;
+        string currencyUnavailableDetail;
         lock (lifecycleSync)
         {
             if (!accepting
@@ -358,14 +595,220 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 || formula.result.amount <= 0
                 || string.IsNullOrWhiteSpace(formula.id))
                 return null;
+            resourceCaptureEnabled = paymentHookActive
+                                     && resourceProofHooksActive
+                                     && capabilities.ItemResourceIdentity.State == AdapterCapabilityState.Supported
+                                     && capabilities.OutputResourceAssociation.State == AdapterCapabilityState.Supported;
+            currencyCaptureEnabled = paymentHookActive
+                                     && capabilities.CurrencyCharge.State == AdapterCapabilityState.Supported;
+            resourceUnavailableDetail = capabilities.ItemResourceIdentity.Provenance;
+            currencyUnavailableDetail = capabilities.CurrencyCharge.Provenance;
+        }
+
+        var resources = Array.Empty<CraftingResourceCostEvidence>();
+        var resourceDetail = resourceCaptureEnabled ? string.Empty : resourceUnavailableDetail;
+        var resourcesProven = resourceCaptureEnabled
+                              && TrySnapshotResourceCosts(formula.cost, out resources, out resourceDetail);
+        var currencyCharged = 0L;
+        var currencyDetail = currencyCaptureEnabled ? string.Empty : currencyUnavailableDetail;
+        var currencyProven = currencyCaptureEnabled
+                             && TrySnapshotCurrencyCost(formula.cost, out currencyCharged, out currencyDetail);
+        CraftingNativeScope? scope;
+        lock (lifecycleSync)
+        {
+            if (!accepting
+                || capabilities.CompletionActions.State != AdapterCapabilityState.Supported
+                || formula.result.amount <= 0
+                || string.IsNullOrWhiteSpace(formula.id))
+                return null;
+            if (!paymentHookActive
+                || !resourceProofHooksActive
+                || capabilities.ItemResourceIdentity.State != AdapterCapabilityState.Supported
+                || capabilities.OutputResourceAssociation.State != AdapterCapabilityState.Supported)
+            {
+                resourcesProven = false;
+                resources = Array.Empty<CraftingResourceCostEvidence>();
+            }
+            if (!paymentHookActive
+                || capabilities.CurrencyCharge.State != AdapterCapabilityState.Supported)
+            {
+                currencyProven = false;
+                currencyCharged = 0;
+            }
             var itemId = formula.result.id.ToString(CultureInfo.InvariantCulture);
             var token = boundary.Begin(new CraftingCompletionEvidence(
                 itemId,
-                ReadDisplayName(formula.result.id, itemId),
+                ReadDisplayName(formula.result.id, itemId, "Crafted output"),
                 formula.id,
-                formula.result.amount));
-            return new CraftingNativeScope(this, new CraftingDeliveryCorrelation(token));
+                formula.result.amount,
+                resources,
+                currencyCharged,
+                resourcesProven,
+                currencyProven));
+            scope = new CraftingNativeScope(
+                this,
+                new CraftingDeliveryCorrelation(token),
+                new CraftingResourcePaymentProof(formula.cost, resourcesProven),
+                resourcesProven ? string.Empty : resourceDetail,
+                currencyProven ? string.Empty : currencyDetail);
         }
+        return scope;
+    }
+
+    internal static bool BeginNativePayment(CraftingNativeScope scope, Cost cost) =>
+        scope.ResourcePaymentProof.TryBegin(cost);
+
+    internal static void ObserveNativePaymentItemCount(CraftingNativeScope scope, int itemTypeId, int count) =>
+        scope.ResourcePaymentProof.ObserveItemCount(itemTypeId, count);
+
+    internal static void ObserveNativePaymentStackCountMutation(
+        CraftingNativeScope scope,
+        Item item,
+        int beforeCount,
+        int afterCount,
+        bool wasBeingDestroyed) =>
+        scope.ResourcePaymentProof.ObserveStackCountMutation(
+            item,
+            beforeCount,
+            afterCount,
+            wasBeingDestroyed);
+
+    internal static void ObserveNativePaymentStackDestroyed(CraftingNativeScope scope, Item item) =>
+        scope.ResourcePaymentProof.ObserveStackDestroyed(item);
+
+    internal void CompleteNativePayment(CraftingNativeScope scope, bool result)
+    {
+        var detail = scope.ResourcePaymentProof.Complete(result);
+        if (!result || string.IsNullOrWhiteSpace(detail)) return;
+        InvalidateResourceEvidence(scope, detail);
+    }
+
+    internal static void AbandonNativePayment(CraftingNativeScope scope) =>
+        scope.ResourcePaymentProof.AbandonPayment();
+
+    private void InvalidateResourceEvidence(CraftingNativeScope scope, string detail)
+    {
+        bool invalidated;
+        lock (lifecycleSync)
+        {
+            invalidated = boundary.TryInvalidateResourceEvidence(scope.Correlation.Token);
+            if (invalidated) scope.RecordResourceEvidenceFailure(detail);
+        }
+        if (!invalidated)
+        {
+            DisableRuntime("Crafting tracking disabled because repeated-resource evidence could not be invalidated before delivery publication.");
+            return;
+        }
+    }
+
+    private bool StageDeliveredCostCapabilities(CraftingMutation mutation)
+    {
+        var resourceUnavailable = mutation.Rows.Any(row => !row.ResourceEvidenceProven);
+        var currencyUnavailable = mutation.Rows.Any(row => !row.CurrencyEvidenceProven);
+        if (!resourceUnavailable && !currencyUnavailable) return false;
+
+        CraftingMetricCapabilities? snapshot = null;
+        lock (lifecycleSync)
+        {
+            var changed = RestrictCostCapabilitiesLocked(
+                resourceUnavailable
+                    ? CraftingStatisticsReducer.DeliveredResourceEvidenceUnavailableProvenance
+                    : null,
+                currencyUnavailable
+                    ? CraftingStatisticsReducer.DeliveredCurrencyEvidenceUnavailableProvenance
+                    : null);
+            if (changed) snapshot = CraftingStatisticsReducer.CloneCapabilities(capabilities);
+        }
+        if (snapshot == null) return false;
+        capabilityPublication.Stage(
+            CraftingNativeContractPolicy.ToRecords(snapshot, AdapterVersion),
+            snapshot);
+        return true;
+    }
+
+    private bool TrySnapshotResourceCosts(
+        Cost cost,
+        out CraftingResourceCostEvidence[] resources,
+        out string detail)
+    {
+        resources = Array.Empty<CraftingResourceCostEvidence>();
+        if (cost.items == null)
+        {
+            detail = string.Empty;
+            return true;
+        }
+        try
+        {
+            var canonical = new Dictionary<string, CraftingResourceCostEvidence>(StringComparer.Ordinal);
+            foreach (var entry in cost.items)
+            {
+                if (entry.amount <= 0)
+                {
+                    detail = $"Crafting item-resource tracking is unavailable because resource {entry.id.ToString(CultureInfo.InvariantCulture)} exposed non-positive declared quantity {entry.amount.ToString(CultureInfo.InvariantCulture)}.";
+                    return false;
+                }
+                var stableId = entry.id.ToString(CultureInfo.InvariantCulture);
+                var displayName = ReadDisplayName(entry.id, stableId, "Crafting resource");
+                if (canonical.TryGetValue(stableId, out var current))
+                {
+                    canonical[stableId] = new CraftingResourceCostEvidence(
+                        stableId,
+                        string.IsNullOrWhiteSpace(displayName) ? current.DisplayName : displayName,
+                        checked(current.ConsumedQuantity + entry.amount));
+                }
+                else
+                {
+                    canonical.Add(stableId, new CraftingResourceCostEvidence(stableId, displayName, entry.amount));
+                }
+            }
+            resources = canonical.Values.OrderBy(value => value.ResourceItemId, StringComparer.Ordinal).ToArray();
+            detail = string.Empty;
+            return true;
+        }
+        catch (OverflowException)
+        {
+            detail = "Crafting item-resource tracking is unavailable because repeated declared resource quantities exceeded Int64 canonicalization.";
+            return false;
+        }
+        catch (Exception exception)
+        {
+            detail = $"Crafting item-resource tracking is unavailable because invocation evidence could not be read: {Unwrap(exception).GetType().Name}: {Unwrap(exception).Message}";
+            return false;
+        }
+    }
+
+    private static bool TrySnapshotCurrencyCost(Cost cost, out long currencyCharged, out string detail)
+    {
+        currencyCharged = 0;
+        if (cost.money < 0)
+        {
+            detail = $"Crafting currency tracking is unavailable because the invocation exposed negative declared charge {cost.money.ToString(CultureInfo.InvariantCulture)}.";
+            return false;
+        }
+        currencyCharged = cost.money;
+        detail = string.Empty;
+        return true;
+    }
+
+    private bool RestrictCostCapabilitiesLocked(string? resourceDetail, string? currencyDetail)
+    {
+        var changed = false;
+        if (!string.IsNullOrWhiteSpace(resourceDetail)
+            && RestrictResourceCapabilities(capabilities, resourceDetail))
+        {
+            changed = true;
+            DiagnosticOnce("resource-evidence-unavailable", resourceDetail);
+        }
+        if (!string.IsNullOrWhiteSpace(currencyDetail)
+            && capabilities.CurrencyCharge.State != AdapterCapabilityState.DisabledIncompatible)
+        {
+            capabilities.CurrencyCharge = CraftingNativeContractPolicy.Availability(
+                AdapterCapabilityState.DisabledIncompatible,
+                currencyDetail);
+            changed = true;
+            DiagnosticOnce("currency-evidence-unavailable", currencyDetail);
+        }
+        return changed;
     }
 
     internal UniTask<List<Item>> WrapNativeCraft(
@@ -462,6 +905,8 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         var publicationClaimed = false;
         try
         {
+            if (scope.ResourcePaymentProof.RequiresPaymentProof && !scope.ResourcePaymentProof.IsExact)
+                InvalidateResourceEvidence(scope, scope.ResourcePaymentProof.DeliveryDetail());
             string generationId;
             CraftingMutation mutation;
             long profileTransitionId;
@@ -498,6 +943,10 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 DisableRuntime("Crafting tracking disabled because correlated delivery evidence could not be claimed exactly once.");
                 return;
             }
+            if (!string.IsNullOrWhiteSpace(scope.ResourceEvidenceFailureDetail))
+                DiagnosticOnce("resource-evidence-unavailable", scope.ResourceEvidenceFailureDetail);
+            if (!string.IsNullOrWhiteSpace(scope.CurrencyEvidenceFailureDetail))
+                DiagnosticOnce("currency-evidence-unavailable", scope.CurrencyEvidenceFailureDetail);
             if (profileTransitionId != 0)
             {
                 if (!profileHandoff.Stage(profileTransitionId, mutation))
@@ -511,7 +960,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 return;
             }
             var wasEmpty = pendingPublication.Add(mutation);
-            if (wasEmpty && !FlushPending())
+            if (wasEmpty && !FlushPendingFromNativeDelivery())
             {
                 pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
                 DiagnosticOnce("completion-pending", "A proven crafting completion is retained for aggregate publication retry.");
@@ -546,16 +995,49 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
     private static void ResolveContracts(
         out MethodInfo resolvedCraftMethod,
-        out MethodInfo resolvedReturnMethod)
+        out MethodInfo resolvedReturnMethod,
+        out MethodInfo resolvedPayMethod,
+        out MethodInfo resolvedItemCountMethod,
+        out MethodInfo resolvedStackCountSetter,
+        out MethodInfo resolvedMarkDestroyedMethod)
     {
         var itemEntryType = typeof(CraftingFormula.ItemEntry);
         var formulaResult = typeof(CraftingFormula).GetField("result", BindingFlags.Instance | BindingFlags.Public);
         var formulaId = typeof(CraftingFormula).GetField("id", BindingFlags.Instance | BindingFlags.Public);
+        var formulaCost = typeof(CraftingFormula).GetField("cost", BindingFlags.Instance | BindingFlags.Public);
         var resultId = itemEntryType.GetField("id", BindingFlags.Instance | BindingFlags.Public);
         var resultAmount = itemEntryType.GetField("amount", BindingFlags.Instance | BindingFlags.Public);
         if (formulaResult?.FieldType != itemEntryType || formulaId?.FieldType != typeof(string)
+            || formulaCost?.FieldType != typeof(Cost)
             || resultId?.FieldType != typeof(int) || resultAmount?.FieldType != typeof(int))
-            throw new MissingFieldException("CraftingFormula id/result.id/result.amount contract");
+            throw new MissingFieldException("CraftingFormula id/result.id/result.amount/cost contract");
+        var costItemEntryType = typeof(Cost.ItemEntry);
+        var costMoney = typeof(Cost).GetField("money", BindingFlags.Instance | BindingFlags.Public);
+        var costItems = typeof(Cost).GetField("items", BindingFlags.Instance | BindingFlags.Public);
+        var costItemId = costItemEntryType.GetField("id", BindingFlags.Instance | BindingFlags.Public);
+        var costItemAmount = costItemEntryType.GetField("amount", BindingFlags.Instance | BindingFlags.Public);
+        var costEnough = typeof(Cost).GetProperty("Enough", BindingFlags.Instance | BindingFlags.Public);
+        var costPay = typeof(Cost).GetMethod(
+            "Pay",
+            BindingFlags.Instance | BindingFlags.Public,
+            binder: null,
+            new[] { typeof(bool), typeof(bool) },
+            modifiers: null);
+        resolvedPayMethod = typeof(EconomyManager).GetMethod(
+            "Pay",
+            BindingFlags.Static | BindingFlags.Public,
+            binder: null,
+            new[] { typeof(Cost), typeof(bool), typeof(bool) },
+            modifiers: null)
+            ?? throw new MissingMethodException("EconomyManager.Pay(Cost, bool, bool)");
+        if (costMoney?.FieldType != typeof(long)
+            || costItems?.FieldType != typeof(Cost.ItemEntry[])
+            || costItemId?.FieldType != typeof(int)
+            || costItemAmount?.FieldType != typeof(long)
+            || costEnough?.PropertyType != typeof(bool)
+            || costPay?.ReturnType != typeof(bool)
+            || resolvedPayMethod.ReturnType != typeof(bool))
+            throw new MissingMemberException("Cost money/items/Enough/Pay and EconomyManager.Pay contracts");
         resolvedCraftMethod = typeof(CraftingManager).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
             .SingleOrDefault(method => method.Name == "Craft"
                 && method.ReturnType == typeof(UniTask<List<Item>>)
@@ -582,6 +1064,34 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             ?? throw new MissingMethodException("Duckov.Economy.Cost.Return(bool, bool, int, List<Item>)");
         if (resolvedReturnMethod.ReturnType != typeof(UniTask))
             throw new MissingMethodException("Duckov.Economy.Cost.Return UniTask result");
+        resolvedItemCountMethod = typeof(ItemUtilities).GetMethod(
+            "GetItemCount",
+            BindingFlags.Static | BindingFlags.Public,
+            binder: null,
+            new[] { typeof(int) },
+            modifiers: null)
+            ?? throw new MissingMethodException("ItemUtilities.GetItemCount(int)");
+        if (resolvedItemCountMethod.ReturnType != typeof(int))
+            throw new MissingMethodException("ItemUtilities.GetItemCount(int) result");
+        var stackCountProperty = typeof(Item).GetProperty(
+            "StackCount",
+            BindingFlags.Instance | BindingFlags.Public);
+        resolvedStackCountSetter = stackCountProperty?.SetMethod
+            ?? throw new MissingMethodException("Item.StackCount setter");
+        if (stackCountProperty.PropertyType != typeof(int)
+            || stackCountProperty.GetMethod == null
+            || !stackCountProperty.GetMethod.IsPublic
+            || !resolvedStackCountSetter.IsPublic)
+            throw new MissingMemberException("Item.StackCount public Int32 getter/setter contract");
+        resolvedMarkDestroyedMethod = typeof(Item).GetMethod(
+            "MarkDestroyed",
+            BindingFlags.Instance | BindingFlags.Public,
+            binder: null,
+            Type.EmptyTypes,
+            modifiers: null)
+            ?? throw new MissingMethodException("Item.MarkDestroyed()");
+        if (resolvedMarkDestroyedMethod.ReturnType != typeof(void))
+            throw new MissingMethodException("Item.MarkDestroyed() void result");
         var metadata = typeof(ItemAssetsCollection).GetMethod(
             "GetMetaData",
             BindingFlags.Static | BindingFlags.Public,
@@ -592,7 +1102,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             throw new MissingMethodException("ItemAssetsCollection.GetMetaData(int)");
     }
 
-    private string ReadDisplayName(int itemTypeId, string stableId)
+    private string ReadDisplayName(int itemTypeId, string stableId, string role)
     {
         try
         {
@@ -605,12 +1115,87 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         {
             DiagnosticOnce(
                 "metadata:" + stableId,
-                $"Crafted output {stableId} metadata was unavailable; stable identity was retained: {Unwrap(exception).Message}");
+                $"{role} {stableId} metadata was unavailable; stable identity was retained: {Unwrap(exception).Message}");
         }
         DiagnosticOnce(
             "metadata:" + stableId,
-            $"Crafted output {stableId} metadata did not expose a name; stable identity was retained.");
+            $"{role} {stableId} metadata did not expose a name; stable identity was retained.");
         return string.Empty;
+    }
+
+    private static string ResourceHookUnavailableDetail(string target, string detail) =>
+        $"Crafting item-resource tracking is unavailable because the resource-proof hook for {target} is not trusted: {detail}. Completion, output, recipe, batch, and independently proven currency tracking remain active.";
+
+    private static string PaymentHookUnavailableDetail(string target, string detail) =>
+        $"Crafting item-resource and currency tracking are unavailable because the payment hook for {target} is not trusted: {detail}. Completion, output, recipe, and batch tracking remain active through the independent CraftingManager.Craft/Cost.Return delivery boundary.";
+
+    private static bool RestrictResourceCapabilities(CraftingMetricCapabilities value, string detail)
+    {
+        if (value.ItemResourceIdentity.State == AdapterCapabilityState.DisabledIncompatible
+            && value.OutputResourceAssociation.State == AdapterCapabilityState.DisabledIncompatible)
+            return false;
+        value.ItemResourceIdentity = CraftingNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            detail);
+        value.OutputResourceAssociation = CraftingNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            detail);
+        return true;
+    }
+
+    private static bool RestrictCurrencyCapabilities(CraftingMetricCapabilities value, string detail)
+    {
+        if (value.CurrencyCharge.State == AdapterCapabilityState.DisabledIncompatible)
+            return false;
+        value.CurrencyCharge = CraftingNativeContractPolicy.Availability(
+            AdapterCapabilityState.DisabledIncompatible,
+            detail);
+        return true;
+    }
+
+    private void DisablePaymentRuntime(string detail)
+    {
+        bool changed;
+        lock (lifecycleSync)
+        {
+            if (!accepting || !paymentHookActive) return;
+            paymentHookActive = false;
+            resourceProofHooksActive = false;
+            payMethod = null;
+            itemCountMethod = null;
+            stackCountSetter = null;
+            markDestroyedMethod = null;
+            payPatchStamp = null;
+            itemCountPatchStamp = null;
+            stackCountPatchStamp = null;
+            markDestroyedPatchStamp = null;
+            changed = RestrictResourceCapabilities(capabilities, detail);
+            changed |= RestrictCurrencyCapabilities(capabilities, detail);
+            boundary.InvalidateAllResourceEvidence();
+            boundary.InvalidateAllCurrencyEvidence();
+        }
+        if (changed) StageAndPublishCapabilities();
+        DiagnosticOnce("payment-runtime-disabled", detail);
+    }
+
+    private void DisableResourceRuntime(string detail)
+    {
+        bool changed;
+        lock (lifecycleSync)
+        {
+            if (!accepting || !resourceProofHooksActive) return;
+            resourceProofHooksActive = false;
+            itemCountMethod = null;
+            stackCountSetter = null;
+            markDestroyedMethod = null;
+            itemCountPatchStamp = null;
+            stackCountPatchStamp = null;
+            markDestroyedPatchStamp = null;
+            changed = RestrictResourceCapabilities(capabilities, detail);
+            boundary.InvalidateAllResourceEvidence();
+        }
+        if (changed) StageAndPublishCapabilities();
+        DiagnosticOnce("resource-runtime-disabled", detail);
     }
 
     private IReadOnlyList<CapabilityRecord> Disable(string detail)
@@ -671,6 +1256,6 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
     private static Exception Unwrap(Exception exception) =>
         exception is TargetInvocationException { InnerException: not null } invocation
-            ? invocation.InnerException
+            ? invocation.InnerException!
             : exception;
 }

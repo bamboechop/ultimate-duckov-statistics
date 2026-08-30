@@ -70,7 +70,9 @@ public static class ProfileExportWriter
             WriteAtomicText(exportDirectory, "economy_holdings.csv", bundle.EconomyHoldingsCsv),
             WriteAtomicText(exportDirectory, "world_time.csv", bundle.WorldTimeCsv),
             WriteAtomicText(exportDirectory, "crafting_totals.csv", bundle.CraftingTotalsCsv),
-            WriteAtomicText(exportDirectory, "crafting_recipes.csv", bundle.CraftingRecipesCsv)
+            WriteAtomicText(exportDirectory, "crafting_recipes.csv", bundle.CraftingRecipesCsv),
+            WriteAtomicText(exportDirectory, "crafting_resources.csv", bundle.CraftingResourcesCsv),
+            WriteAtomicText(exportDirectory, "crafting_resource_associations.csv", bundle.CraftingResourceAssociationsCsv)
         };
         return new ProfileExportResult(exportDirectory, files);
     }

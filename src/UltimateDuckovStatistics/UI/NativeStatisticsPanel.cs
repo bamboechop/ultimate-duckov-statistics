@@ -206,8 +206,15 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label(
             $"{UiText.Get("ui.crafting_quantity")}: "
             + UiText.FormatCraftingCount(crafting.ProducedQuantity, craftingCapabilities.ProducedQuantity));
+        GUILayout.Label(
+            $"{UiText.Get("ui.crafting_currency")}: "
+            + UiText.FormatCraftingCount(crafting.CurrencyCharged, craftingCapabilities.CurrencyCharge));
         if (crafting.HistoricalUnavailable)
             GUILayout.Label($"  {UiText.Get("ui.pre_m13_unavailable")}");
+        if (crafting.ResourceHistoryUnavailable)
+            GUILayout.Label($"  {UiText.Get("ui.pre_m16_resources_unavailable")}");
+        if (crafting.CurrencyHistoryUnavailable)
+            GUILayout.Label($"  {UiText.Get("ui.pre_m16_currency_unavailable")}");
         GUILayout.Space(12);
         GUILayout.Label(UiText.Get("ui.group_totals"));
         foreach (var group in profile.Statistics.Groups.OrderBy(entry => entry.Key, StringComparer.Ordinal))
@@ -725,9 +732,15 @@ internal sealed class NativeStatisticsPanel
                 + $"sleep-time={(profile.Statistics.WorldTime.SleepElapsedArithmeticUnavailable ? "unavailable" : "available")}");
             GUILayout.Label(
                 $"Crafting history {(profile.Statistics.Crafting.HistoricalUnavailable ? "partially unavailable before M13" : "captured from generation start")}; "
+                + $"resource history={(profile.Statistics.Crafting.ResourceHistoryUnavailable ? "partially unavailable before M16" : "captured from generation start")}; "
+                + $"currency history={(profile.Statistics.Crafting.CurrencyHistoryUnavailable ? "partially unavailable before M16" : "captured from generation start")}; "
                 + $"repair {(profile.Statistics.Crafting.WasRepairedFromInvalidState ? "present" : "none")}; "
                 + $"arithmetic actions={(profile.Statistics.Crafting.CompletionArithmeticUnavailable ? "unavailable" : "available")}, "
-                + $"quantity={(profile.Statistics.Crafting.QuantityArithmeticUnavailable ? "unavailable" : "available")}");
+                + $"quantity={(profile.Statistics.Crafting.QuantityArithmeticUnavailable ? "unavailable" : "available")}, "
+                + $"resource-actions={(profile.Statistics.Crafting.ResourceActionArithmeticUnavailable ? "unavailable" : "available")}, "
+                + $"resource-quantity={(profile.Statistics.Crafting.ResourceQuantityArithmeticUnavailable ? "unavailable" : "available")}, "
+                + $"currency-actions={(profile.Statistics.Crafting.CurrencyActionArithmeticUnavailable ? "unavailable" : "available")}, "
+                + $"currency-amount={(profile.Statistics.Crafting.CurrencyAmountArithmeticUnavailable ? "unavailable" : "available")}");
             var holdings = EconomyHoldingsReducer.Project(profile.Statistics.Holdings);
             GUILayout.Label(
                 $"Holdings generation={profile.Statistics.Holdings.SaveGenerationId}; "
@@ -840,6 +853,10 @@ internal sealed class NativeStatisticsPanel
         GUILayout.Label(UiText.Get("ui.crafting_contract"));
         if (crafting.HistoricalUnavailable)
             GUILayout.Label($"{UiText.Get("ui.pre_m13_unavailable")}: {crafting.HistoricalProvenance}");
+        if (crafting.ResourceHistoryUnavailable)
+            GUILayout.Label($"{UiText.Get("ui.pre_m16_resources_unavailable")}: {crafting.ResourceHistoryProvenance}");
+        if (crafting.CurrencyHistoryUnavailable)
+            GUILayout.Label($"{UiText.Get("ui.pre_m16_currency_unavailable")}: {crafting.CurrencyHistoryProvenance}");
         GUILayout.Label(
             $"{UiText.Get("ui.crafting_actions")}: "
             + UiText.FormatCraftingCount(crafting.CompletionActions, capabilities.CompletionActions));
@@ -847,21 +864,25 @@ internal sealed class NativeStatisticsPanel
             $"{UiText.Get("ui.crafting_quantity")}: "
             + UiText.FormatCraftingCount(crafting.ProducedQuantity, capabilities.ProducedQuantity));
         GUILayout.Label(
+            $"{UiText.Get("ui.crafting_currency_actions")}: "
+            + UiText.FormatCraftingCount(crafting.CurrencyChargeActions, capabilities.CurrencyCharge));
+        GUILayout.Label(
+            $"{UiText.Get("ui.crafting_currency")}: "
+            + UiText.FormatCraftingCount(crafting.CurrencyCharged, capabilities.CurrencyCharge));
+        GUILayout.Label(
             $"Capture: actions={capabilities.CompletionActions.State}; quantity={capabilities.ProducedQuantity.State}; "
             + $"output={capabilities.OutputIdentity.State}; recipe={capabilities.RecipeIdentity.State}; "
-            + $"batch={capabilities.BatchMetadata.State}");
+            + $"batch={capabilities.BatchMetadata.State}; item resources={capabilities.ItemResourceIdentity.State}; "
+            + $"output/resource association={capabilities.OutputResourceAssociation.State}; currency={capabilities.CurrencyCharge.State}");
         GUILayout.Label(
             $"Unavailable dimensions: workstation={capabilities.WorkstationIdentity.State}; run/map context={capabilities.ContextAttribution.State}; "
-            + $"multiple-output recipes: {capabilities.MultipleOutputRecipes.State}");
-        if (crafting.Outputs.Count == 0)
-        {
-            GUILayout.Label(UiText.Get("ui.no_crafting"));
-            return;
-        }
+            + $"multiple-output recipes={capabilities.MultipleOutputRecipes.State}; Money/Cash split={capabilities.CurrencyMoneyCashSplit.State}");
 
         craftingScroll = GUILayout.BeginScrollView(craftingScroll);
+        GUILayout.Label(UiText.Get("ui.crafting_outputs"));
+        if (crafting.Outputs.Count == 0) GUILayout.Label(UiText.Get("ui.no_crafting"));
         foreach (var output in crafting.Outputs.Values
-                     .OrderByDescending(value => value.ProducedQuantity)
+                     .OrderByDescending(value => value.CompletionActions)
                      .ThenBy(value => value.OutputItemId, StringComparer.Ordinal))
         {
             GUILayout.Label(
@@ -883,6 +904,32 @@ internal sealed class NativeStatisticsPanel
                         recipe.ProducedQuantity,
                         capabilities.ProducedQuantity,
                         capabilities.RecipeIdentity));
+                if (recipe.CurrencyChargeActions != 0 || recipe.CurrencyCharged != 0)
+                {
+                    GUILayout.Label(
+                        $"    {UiText.Get("ui.crafting_currency")}: "
+                        + UiText.FormatCraftingCount(recipe.CurrencyCharged, capabilities.CurrencyCharge)
+                        + " across "
+                        + UiText.FormatCraftingCount(recipe.CurrencyChargeActions, capabilities.CurrencyCharge)
+                        + " action(s)");
+                }
+                foreach (var resource in recipe.Resources.Values
+                             .OrderByDescending(value => value.ConsumedQuantity)
+                             .ThenBy(value => value.ResourceItemId, StringComparer.Ordinal))
+                {
+                    GUILayout.Label(
+                        $"    {UiText.Get("ui.crafting_resource")}: {resource.DisplayName} [{resource.ResourceItemId}] "
+                        + UiText.FormatCraftingCount(
+                            resource.ConsumedQuantity,
+                            capabilities.ItemResourceIdentity,
+                            capabilities.OutputResourceAssociation)
+                        + " across "
+                        + UiText.FormatCraftingCount(
+                            resource.ConsumptionActions,
+                            capabilities.CompletionActions,
+                            capabilities.OutputResourceAssociation)
+                        + " action(s)");
+                }
                 if (recipe.BatchActions.Count != 0)
                 {
                     GUILayout.Label(
@@ -895,6 +942,44 @@ internal sealed class NativeStatisticsPanel
                             ? $" ({UiText.Get("ui.crafting_capture_incomplete")})"
                             : string.Empty));
                 }
+            }
+        }
+        GUILayout.Space(12);
+        GUILayout.Label(UiText.Get("ui.crafting_resources"));
+        if (crafting.Resources.Count == 0) GUILayout.Label(UiText.Get("ui.no_crafting_resources"));
+        foreach (var resource in crafting.Resources.Values
+                     .OrderByDescending(value => value.ConsumedQuantity)
+                     .ThenBy(value => value.ResourceItemId, StringComparer.Ordinal))
+        {
+            GUILayout.Label(
+                $"{resource.DisplayName} [{resource.ResourceItemId}]: "
+                + UiText.FormatCraftingCount(resource.ConsumedQuantity, capabilities.ItemResourceIdentity));
+            foreach (var association in crafting.Outputs.Values
+                         .SelectMany(output => output.Recipes.Values.Select(recipe => new { Output = output, Recipe = recipe }))
+                         .Where(value => value.Recipe.Resources.ContainsKey(resource.ResourceItemId))
+                         .Select(value => new
+                         {
+                             value.Output,
+                             value.Recipe,
+                             Resource = value.Recipe.Resources[resource.ResourceItemId]
+                         })
+                         .OrderByDescending(value => value.Resource.ConsumedQuantity)
+                         .ThenByDescending(value => value.Resource.ConsumptionActions)
+                         .ThenBy(value => value.Output.OutputItemId, StringComparer.Ordinal)
+                         .ThenBy(value => value.Recipe.RecipeId, StringComparer.Ordinal))
+            {
+                GUILayout.Label(
+                    $"  {association.Output.DisplayName} [{association.Output.OutputItemId}] / {association.Recipe.RecipeId}: "
+                    + UiText.FormatCraftingCount(
+                        association.Resource.ConsumedQuantity,
+                        capabilities.ItemResourceIdentity,
+                        capabilities.OutputResourceAssociation)
+                    + " across "
+                    + UiText.FormatCraftingCount(
+                        association.Resource.ConsumptionActions,
+                        capabilities.CompletionActions,
+                        capabilities.OutputResourceAssociation)
+                    + " action(s)");
             }
         }
         GUILayout.EndScrollView();

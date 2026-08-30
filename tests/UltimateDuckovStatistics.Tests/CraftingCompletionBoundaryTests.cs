@@ -210,6 +210,68 @@ public sealed class CraftingCompletionBoundaryTests
     }
 
     [Fact]
+    [Trait("Category", "M16")]
+    public void ResourceHookTrustLossInvalidatesEveryInflightResourceWithoutTouchingCurrency()
+    {
+        var boundary = new CraftingCompletionBoundary();
+        var token = boundary.Begin(new CraftingCompletionEvidence(
+            "8302",
+            "Paid output",
+            "runtime-resource-drift",
+            1,
+            resources: [new CraftingResourceCostEvidence("9302", "Resource", 2)],
+            currencyCharged: 150,
+            resourceEvidenceProven: true,
+            currencyEvidenceProven: true));
+
+        Assert.Equal(1, boundary.InvalidateAllResourceEvidence());
+        Assert.Equal(0, boundary.InvalidateAllResourceEvidence());
+        Assert.True(boundary.TryComplete(token, "generation-1", Now, out var mutation));
+
+        var row = Assert.Single(mutation.Rows);
+        Assert.False(row.ResourceEvidenceProven);
+        Assert.Empty(row.Resources);
+        Assert.True(row.CurrencyEvidenceProven);
+        Assert.Equal(1, row.CurrencyChargeActions);
+        Assert.Equal(150, row.CurrencyCharged);
+        Assert.True(boundary.FinishPublication(token));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    public void PaymentHookTrustLossInvalidatesEveryInflightCostWithoutTouchingOutput()
+    {
+        var boundary = new CraftingCompletionBoundary();
+        var token = boundary.Begin(new CraftingCompletionEvidence(
+            "8304",
+            "Paid output",
+            "runtime-payment-drift",
+            1,
+            resources: [new CraftingResourceCostEvidence("9304", "Resource", 2)],
+            currencyCharged: 150,
+            resourceEvidenceProven: true,
+            currencyEvidenceProven: true));
+
+        Assert.Equal(1, boundary.InvalidateAllResourceEvidence());
+        Assert.Equal(1, boundary.InvalidateAllCurrencyEvidence());
+        Assert.Equal(0, boundary.InvalidateAllResourceEvidence());
+        Assert.Equal(0, boundary.InvalidateAllCurrencyEvidence());
+        Assert.True(boundary.TryComplete(token, "generation-1", Now, out var mutation));
+
+        var row = Assert.Single(mutation.Rows);
+        Assert.Equal(1, row.CompletionActions);
+        Assert.Equal(1, row.ProducedQuantity);
+        Assert.Equal("8304", row.OutputItemId);
+        Assert.Equal("runtime-payment-drift", row.RecipeId);
+        Assert.False(row.ResourceEvidenceProven);
+        Assert.Empty(row.Resources);
+        Assert.False(row.CurrencyEvidenceProven);
+        Assert.Equal(0, row.CurrencyChargeActions);
+        Assert.Equal(0, row.CurrencyCharged);
+        Assert.True(boundary.FinishPublication(token));
+    }
+
+    [Fact]
     public void FailedCapabilityPublicationRemainsPendingUntilBarrierRetrySucceeds()
     {
         var publication = new CraftingCapabilityPublicationBoundary();
