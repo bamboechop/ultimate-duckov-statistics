@@ -707,6 +707,102 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(150, ReadLifetimeCurrency(profilePath));
     }
 
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void NewResourceAfterQuantitySaturationPersistsFrozenAssociationWithoutLifetimeRow()
+    {
+        using var seeded = CreateComposition();
+        var generationId = seeded.Coordinator.CurrentGenerationId;
+        Assert.True(seeded.Coordinator.HandleCrafting(
+            new CraftingMutation(
+                generationId,
+                DateTime.UtcNow,
+                [new CraftingMutationRow(
+                    "quantity-boundary",
+                    "Quantity Boundary",
+                    "quantity-boundary-recipe",
+                    1,
+                    1,
+                    new() { ["1"] = 1 },
+                    resources: [new CraftingResourceMutation("9201", "Boundary Resource", 1, long.MaxValue)])])));
+        seeded.Coordinator.Flush();
+        Assert.Equal(long.MaxValue, seeded.Coordinator.Current!.Statistics.Crafting.Resources["9201"].ConsumedQuantity);
+        Assert.False(seeded.Coordinator.Current.Statistics.Crafting.ResourceQuantityArithmeticUnavailable);
+        CraftingStatisticsReducer.Validate(seeded.Coordinator.Current.Statistics.Crafting);
+        seeded.StopRuntime();
+
+        using (var coordinator = new NativeProfileCoordinator())
+        {
+            coordinator.Initialize();
+            Assert.Equal(generationId, coordinator.CurrentGenerationId);
+            Assert.Equal(long.MaxValue, coordinator.Current!.Statistics.Crafting.Resources["9201"].ConsumedQuantity);
+            var diagnostics = new List<string>();
+            using var adapter = new NativeCraftingAdapter(
+                () => coordinator.CurrentGenerationId,
+                coordinator.HandleCrafting,
+                coordinator.RequestCraftingPersistence,
+                coordinator.SetCraftingCapabilities,
+                diagnostics.Add,
+                () => true);
+            ActivateValidatedCallbacks(adapter, coordinator);
+            coordinator.SetCraftingBoundaryBarrier(adapter.FlushPending);
+
+            ItemUtilities.OwnedItems.Add(Stack(9201, 1, durability: 1));
+            CompleteCraft(
+                coordinator,
+                new CraftingFormula
+                {
+                    id = "quantity-overflow",
+                    result = new CraftingFormula.ItemEntry { id = 8201, amount = 1 },
+                    cost = new Cost { items = [new Cost.ItemEntry { id = 9201, amount = 1 }] }
+                },
+                expectCompletionIncrease: true);
+            var afterOverflow = coordinator.Current.Statistics.Crafting;
+            Assert.True(afterOverflow.ResourceQuantityArithmeticUnavailable);
+            Assert.False(afterOverflow.ResourceActionArithmeticUnavailable);
+            Assert.Equal(long.MaxValue, afterOverflow.Resources["9201"].ConsumedQuantity);
+
+            ItemUtilities.OwnedItems.Add(Stack(9202, 2, durability: 1));
+            CompleteCraft(
+                coordinator,
+                new CraftingFormula
+                {
+                    id = "new-resource-after-overflow",
+                    result = new CraftingFormula.ItemEntry { id = 8202, amount = 1 },
+                    cost = new Cost { items = [new Cost.ItemEntry { id = 9202, amount = 2 }] }
+                },
+                expectCompletionIncrease: true);
+            coordinator.Flush();
+
+            var saturated = coordinator.Current.Statistics.Crafting;
+            Assert.True(saturated.ResourceQuantityArithmeticUnavailable);
+            Assert.False(saturated.ResourceActionArithmeticUnavailable);
+            Assert.DoesNotContain("9202", saturated.Resources.Keys);
+            var association = saturated.Outputs["8202"].Recipes["new-resource-after-overflow"].Resources["9202"];
+            Assert.Equal(1, association.ConsumptionActions);
+            Assert.Equal(0, association.ConsumedQuantity);
+            CraftingStatisticsReducer.Validate(saturated);
+            Assert.DoesNotContain(diagnostics, detail =>
+                detail.Contains("failed", StringComparison.OrdinalIgnoreCase));
+        }
+
+        using var reopened = new NativeProfileCoordinator();
+        reopened.Initialize();
+
+        Assert.Equal(generationId, reopened.CurrentGenerationId);
+        var durable = reopened.Current!.Statistics.Crafting;
+        Assert.True(durable.ResourceQuantityArithmeticUnavailable);
+        Assert.False(durable.ResourceActionArithmeticUnavailable);
+        Assert.Equal(long.MaxValue, durable.Resources["9201"].ConsumedQuantity);
+        Assert.DoesNotContain("9202", durable.Resources.Keys);
+        var durableAssociation = durable.Outputs["8202"].Recipes["new-resource-after-overflow"].Resources["9202"];
+        Assert.Equal(1, durableAssociation.ConsumptionActions);
+        Assert.Equal(0, durableAssociation.ConsumedQuantity);
+        CraftingStatisticsReducer.Validate(durable);
+    }
+
     private static CompositionResult CompleteDuplicateCostCraft(params int[] stackCounts)
     {
         var result = CreateComposition();

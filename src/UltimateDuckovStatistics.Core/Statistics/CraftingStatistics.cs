@@ -535,8 +535,12 @@ public static class CraftingStatisticsReducer
             if (associated != resource.ConsumedQuantity)
                 throw new ArgumentException("Crafting resource association composition is inconsistent.", nameof(aggregate));
         }
-        if (associationQuantityByResource.Keys.Except(aggregate.Resources.Keys, StringComparer.Ordinal).Any())
-            throw new ArgumentException("Crafting resource association has no lifetime resource total.", nameof(aggregate));
+        foreach (var association in associationQuantityByResource)
+        {
+            if (!aggregate.Resources.ContainsKey(association.Key)
+                && (!aggregate.ResourceQuantityArithmeticUnavailable || association.Value != 0))
+                throw new ArgumentException("Crafting resource association has no lifetime resource total.", nameof(aggregate));
+        }
     }
 
     public static CraftingStatisticsAggregate Clone(CraftingStatisticsAggregate? source)

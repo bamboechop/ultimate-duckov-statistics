@@ -554,6 +554,32 @@ public sealed class M16CraftingResourceStatisticsTests
             > unavailableAmounts.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumedQuantity);
         CraftingStatisticsReducer.Validate(unavailableAmounts);
 
+        Assert.True(CraftingStatisticsReducer.Apply(
+            unavailableAmounts,
+            new CraftingMutation(
+                "generation-1",
+                Now,
+                [new CraftingMutationRow(
+                    "new-resource",
+                    "New Resource Output",
+                    "new-resource-recipe",
+                    1,
+                    1,
+                    new() { ["1"] = 1 },
+                    resources: [new CraftingResourceMutation("765", "New Resource", 1, 2)])])));
+        Assert.DoesNotContain("765", unavailableAmounts.Resources.Keys);
+        var frozenNewResource =
+            unavailableAmounts.Outputs["new-resource"].Recipes["new-resource-recipe"].Resources["765"];
+        Assert.Equal(1, frozenNewResource.ConsumptionActions);
+        Assert.Equal(0, frozenNewResource.ConsumedQuantity);
+        CraftingStatisticsReducer.Validate(unavailableAmounts);
+
+        var missingPositiveLifetimeResource = CraftingStatisticsReducer.Clone(unavailableAmounts);
+        missingPositiveLifetimeResource.Outputs["new-resource"].Recipes["new-resource-recipe"].Resources["765"]
+            .ConsumedQuantity = 1;
+        Assert.Throws<ArgumentException>(() =>
+            CraftingStatisticsReducer.Validate(missingPositiveLifetimeResource));
+
         var bothUnavailable = CraftingStatisticsReducer.Clone(unavailableActions);
         bothUnavailable.CurrencyAmountArithmeticUnavailable = true;
         CraftingStatisticsReducer.Validate(bothUnavailable);
