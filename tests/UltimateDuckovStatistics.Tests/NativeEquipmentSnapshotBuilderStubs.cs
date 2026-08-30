@@ -292,6 +292,7 @@ public static class ItemUtilities
     public static event Action? OnPlayerItemOperation;
     public static List<ItemStatsSystem.Item> OwnedItems { get; } = new();
     public static int ScanCount { get; private set; }
+    public static int PlayerItemOperationCount { get; private set; }
     public static Exception? ScanException { get; set; }
 
     public static IEnumerable<ItemStatsSystem.Item> FindAllBelongsToPlayer(Func<ItemStatsSystem.Item, bool> predicate)
@@ -303,12 +304,17 @@ public static class ItemUtilities
     public static int GetItemCount(int typeID) => OwnedItems
         .Where(item => item.TypeID == typeID)
         .Sum(item => item.StackCount);
-    public static void RaisePlayerItemOperation() => OnPlayerItemOperation?.Invoke();
+    public static void RaisePlayerItemOperation()
+    {
+        PlayerItemOperationCount++;
+        OnPlayerItemOperation?.Invoke();
+    }
     public static void ResetNativeState()
     {
         OnPlayerItemOperation = null;
         OwnedItems.Clear();
         ScanCount = 0;
+        PlayerItemOperationCount = 0;
         ScanException = null;
     }
 }

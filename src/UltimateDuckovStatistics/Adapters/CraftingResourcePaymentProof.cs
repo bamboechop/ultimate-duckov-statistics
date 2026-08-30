@@ -53,9 +53,13 @@ internal sealed class CraftingResourcePaymentProof
 
     public void ObserveItemCount(int itemTypeId, int count)
     {
-        if (!paymentStarted || paymentCompleted || !repeatedRequirements.ContainsKey(itemTypeId)) return;
+        if (!paymentStarted
+            || paymentCompleted
+            || !repeatedRequirements.TryGetValue(itemTypeId, out var requirement)) return;
         if (!observations.TryGetValue(itemTypeId, out var observation))
             observation = new Observation { MinimumCount = count };
+        else if (observation.Count >= requirement.EntryCount)
+            return;
         observation.Count = checked(observation.Count + 1);
         observation.MinimumCount = Math.Min(observation.MinimumCount, count);
         observations[itemTypeId] = observation;

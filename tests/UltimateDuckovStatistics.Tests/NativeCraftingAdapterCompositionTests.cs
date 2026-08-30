@@ -49,6 +49,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.DoesNotContain("9001", export.CraftingResourceAssociationsCsv, StringComparison.Ordinal);
         using (var json = JsonDocument.Parse(export.Json))
             Assert.False(json.RootElement.GetProperty("Crafting").GetProperty("Resources").TryGetProperty("9001", out _));
+        Assert.Equal(1, ItemUtilities.PlayerItemOperationCount);
         Assert.Equal(2, ItemUtilities.ScanCount);
         Assert.Contains(result.Diagnostics, detail =>
             detail.Contains("entries totaling 6", StringComparison.Ordinal)
@@ -77,7 +78,9 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         var export = StatisticsExporter.Create(result.Coordinator.Current, DateTime.UtcNow);
         Assert.Contains("9001,Item 9001,6", export.CraftingResourcesCsv, StringComparison.Ordinal);
         Assert.Contains("7001,Item 7001,modded-duplicate,9001,Item 9001,1,6", export.CraftingResourceAssociationsCsv, StringComparison.Ordinal);
+        Assert.Equal(6, ReadResourceQuantity(CurrentProfilePath(result)));
         Assert.Empty(ItemUtilities.OwnedItems);
+        Assert.Equal(1, ItemUtilities.PlayerItemOperationCount);
         Assert.Equal(2, ItemUtilities.ScanCount);
     }
 
@@ -903,34 +906,50 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     private static bool ExecuteFaithfulNativePayment(Cost cost)
     {
+        void RefreshCraftViewAffordability() => ObserveFaithfulNativeAffordability(cost);
+        ItemUtilities.OnPlayerItemOperation += RefreshCraftViewAffordability;
+        try
+        {
+            if (!ObserveFaithfulNativeAffordability(cost)) return false;
+
+            var removals = new List<Action>();
+            var detachedItems = new List<Item>();
+            foreach (var entry in cost.items ?? Array.Empty<Cost.ItemEntry>())
+            {
+                var matching = ItemUtilities.FindAllBelongsToPlayer(item => item.TypeID == entry.id).ToList();
+                matching.Sort((left, right) =>
+                {
+                    var durability = left.Durability.CompareTo(right.Durability);
+                    return durability != 0 ? durability : left.GetInstanceID().CompareTo(right.GetInstanceID());
+                });
+                var available = matching.Aggregate(
+                    0L,
+                    (current, item) => checked(current + (item.Stackable ? item.StackCount : 1)));
+                if (available < entry.amount) return false;
+                var capturedItems = matching.ToArray();
+                var capturedAmount = entry.amount;
+                removals.Add(() => ExecuteDeferredRemoval(capturedItems, capturedAmount, detachedItems));
+            }
+
+            foreach (var removal in removals) removal();
+            foreach (var item in detachedItems) SendDetachedItemToPlayer(item);
+            ItemUtilities.RaisePlayerItemOperation();
+            return true;
+        }
+        finally
+        {
+            ItemUtilities.OnPlayerItemOperation -= RefreshCraftViewAffordability;
+        }
+    }
+
+    private static bool ObserveFaithfulNativeAffordability(Cost cost)
+    {
         foreach (var entry in cost.items ?? Array.Empty<Cost.ItemEntry>())
         {
             var count = ItemUtilities.GetItemCount(entry.id);
             CraftingHarmonyCallbacks.GetItemCountPostfixMethod.Invoke(null, [entry.id, count]);
             if (count < entry.amount) return false;
         }
-
-        var removals = new List<Action>();
-        var detachedItems = new List<Item>();
-        foreach (var entry in cost.items ?? Array.Empty<Cost.ItemEntry>())
-        {
-            var matching = ItemUtilities.FindAllBelongsToPlayer(item => item.TypeID == entry.id).ToList();
-            matching.Sort((left, right) =>
-            {
-                var durability = left.Durability.CompareTo(right.Durability);
-                return durability != 0 ? durability : left.GetInstanceID().CompareTo(right.GetInstanceID());
-            });
-            var available = matching.Aggregate(
-                0L,
-                (current, item) => checked(current + (item.Stackable ? item.StackCount : 1)));
-            if (available < entry.amount) return false;
-            var capturedItems = matching.ToArray();
-            var capturedAmount = entry.amount;
-            removals.Add(() => ExecuteDeferredRemoval(capturedItems, capturedAmount, detachedItems));
-        }
-
-        foreach (var removal in removals) removal();
-        foreach (var item in detachedItems) SendDetachedItemToPlayer(item);
         return true;
     }
 
