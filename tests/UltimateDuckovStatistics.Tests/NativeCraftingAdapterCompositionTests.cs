@@ -315,6 +315,61 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     [Fact]
     [Trait("Category", "M16")]
+    [Trait("Category", "ProductionComposition")]
+    public void ColdPaymentHarmonyConflictPreservesM13OutputAndDisablesOnlyCostDimensions()
+    {
+        var payMethod = typeof(EconomyManager).GetMethod(
+            nameof(EconomyManager.Pay),
+            [typeof(Cost), typeof(bool), typeof(bool)])!;
+        using var result = CreateInitializedComposition(() => PatchForeignPaymentTarget(payMethod));
+
+        AssertM13CraftingCapabilitiesSupported(result);
+        AssertCostCapabilitiesUnavailable(result);
+        var payPatches = Assert.IsType<HarmonyLib.Patches>(HarmonyLib.Harmony.GetPatchInfo(payMethod));
+        Assert.DoesNotContain(
+            payPatches.Prefixes.Concat(payPatches.Postfixes).Concat(payPatches.Finalizers),
+            patch => patch.owner == NativeCraftingAdapter.HarmonyId);
+
+        ItemUtilities.OwnedItems.Add(Stack(9303, 2, durability: 1));
+        CompleteCraft(
+            result.Coordinator,
+            OrdinaryPaidFormula("cold-payment-conflict", 8303, 9303),
+            expectCompletionIncrease: true,
+            invokePaymentCallbacks: false);
+
+        AssertOrdinaryCraftRecordedWithoutCostEvidence(result, "cold-payment-conflict", 8303, 9303);
+        Assert.Contains(result.Diagnostics, detail =>
+            detail.Contains("EconomyManager.Pay", StringComparison.Ordinal)
+            && detail.Contains("Completion, output, recipe, and batch", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "ProductionComposition")]
+    public void RuntimePaymentHarmonyDriftPreservesM13OutputAndDisablesOnlyCostDimensions()
+    {
+        using var result = CreateInitializedComposition();
+        var payMethod = typeof(EconomyManager).GetMethod(
+            nameof(EconomyManager.Pay),
+            [typeof(Cost), typeof(bool), typeof(bool)])!;
+        PatchForeignPaymentTarget(payMethod);
+
+        result.Adapter.Tick(DateTime.UtcNow.AddSeconds(3));
+
+        AssertM13CraftingCapabilitiesSupported(result);
+        AssertCostCapabilitiesUnavailable(result);
+
+        ItemUtilities.OwnedItems.Add(Stack(9304, 2, durability: 1));
+        CompleteCraft(result, OrdinaryPaidFormula("runtime-payment-drift", 8304, 9304));
+
+        AssertOrdinaryCraftRecordedWithoutCostEvidence(result, "runtime-payment-drift", 8304, 9304);
+        Assert.Contains(result.Diagnostics, detail =>
+            detail.Contains("EconomyManager.Pay", StringComparison.Ordinal)
+            && detail.Contains("runtime patch drift", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
     [Trait("Category", "Persistence")]
     [Trait("Category", "ProductionComposition")]
     public void CorruptExactResourceActionPrimaryRecoversProductionCraftFromBackup()
@@ -1071,6 +1126,19 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             finalizer: null);
     }
 
+    private static void PatchForeignPaymentTarget(MethodBase target)
+    {
+        var foreign = new HarmonyLib.Harmony("foreign.payment.mod");
+        foreign.Patch(
+            target,
+            new HarmonyLib.HarmonyMethod(typeof(NativeCraftingAdapterCompositionTests).GetMethod(
+                nameof(ForeignResourcePrefix),
+                BindingFlags.Static | BindingFlags.NonPublic)!),
+            postfix: null,
+            transpiler: null,
+            finalizer: null);
+    }
+
     private static void ForeignResourcePrefix()
     {
     }
@@ -1098,6 +1166,24 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.RecipeIdentity.State);
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.BatchMetadata.State);
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.CurrencyCharge.State);
+    }
+
+    private static void AssertM13CraftingCapabilitiesSupported(CompositionResult result)
+    {
+        var capabilities = result.Coordinator.CurrentCraftingCapabilities;
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.CompletionActions.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.ProducedQuantity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.OutputIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.RecipeIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, capabilities.BatchMetadata.State);
+    }
+
+    private static void AssertCostCapabilitiesUnavailable(CompositionResult result)
+    {
+        AssertResourceCapabilitiesUnavailable(result);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            result.Coordinator.CurrentCraftingCapabilities.CurrencyCharge.State);
     }
 
     private static void AssertResourceCapabilitiesUnavailable(CompositionResult result)
@@ -1134,6 +1220,39 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Empty(recipe.Resources);
     }
 
+    private static void AssertOrdinaryCraftRecordedWithoutCostEvidence(
+        CompositionResult result,
+        string recipeId,
+        int outputItemId,
+        int resourceItemId)
+    {
+        var crafting = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(1, crafting.CompletionActions);
+        Assert.Equal(1, crafting.ProducedQuantity);
+        Assert.Equal(0, crafting.CurrencyChargeActions);
+        Assert.Equal(0, crafting.CurrencyCharged);
+        Assert.True(crafting.ResourceHistoryUnavailable);
+        Assert.True(crafting.CurrencyHistoryUnavailable);
+        Assert.Empty(crafting.Resources);
+        var output = crafting.Outputs[outputItemId.ToString(CultureInfo.InvariantCulture)];
+        Assert.Equal(1, output.CompletionActions);
+        Assert.Equal(1, output.ProducedQuantity);
+        Assert.Equal(0, output.CurrencyChargeActions);
+        Assert.Equal(0, output.CurrencyCharged);
+        var recipe = output.Recipes[recipeId];
+        Assert.Equal(1, recipe.CompletionActions);
+        Assert.Equal(1, recipe.ProducedQuantity);
+        Assert.Equal(0, recipe.CurrencyChargeActions);
+        Assert.Equal(0, recipe.CurrencyCharged);
+        Assert.DoesNotContain(resourceItemId.ToString(CultureInfo.InvariantCulture), crafting.Resources.Keys);
+        Assert.Empty(recipe.Resources);
+        Assert.Equal(AdapterCapabilityState.Supported, crafting.Capabilities.CompletionActions.State);
+        Assert.Equal(AdapterCapabilityState.Supported, crafting.Capabilities.OutputIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, crafting.Capabilities.RecipeIdentity.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, crafting.Capabilities.ItemResourceIdentity.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, crafting.Capabilities.CurrencyCharge.State);
+    }
+
     private static void CompleteCraft(CompositionResult result, CraftingFormula formula)
         => CompleteCraft(result.Coordinator, formula, expectCompletionIncrease: true);
 
@@ -1141,20 +1260,28 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         NativeProfileCoordinator coordinator,
         CraftingFormula formula,
         bool expectCompletionIncrease,
-        bool flushCoordinator = true)
+        bool flushCoordinator = true,
+        bool invokePaymentCallbacks = true)
     {
         var actionsBeforeDelivery = coordinator.Current!.Statistics.Crafting.CompletionActions;
         var craftPrefixArguments = new object?[] { formula, null };
         CraftingHarmonyCallbacks.CraftPrefixMethod.Invoke(null, craftPrefixArguments);
         var craftScope = Assert.IsType<CraftingNativeScope>(craftPrefixArguments[1]);
 
-        var payPrefixArguments = new object?[] { formula.cost, null };
-        CraftingHarmonyCallbacks.PayPrefixMethod.Invoke(null, payPrefixArguments);
-        var paymentScope = payPrefixArguments[1] as CraftingNativeScope;
+        CraftingNativeScope? paymentScope = null;
+        if (invokePaymentCallbacks)
+        {
+            var payPrefixArguments = new object?[] { formula.cost, null };
+            CraftingHarmonyCallbacks.PayPrefixMethod.Invoke(null, payPrefixArguments);
+            paymentScope = payPrefixArguments[1] as CraftingNativeScope;
+        }
         var paymentSucceeded = ExecuteFaithfulNativePayment(formula.cost);
         Assert.True(paymentSucceeded);
-        CraftingHarmonyCallbacks.PayPostfixMethod.Invoke(null, [paymentScope, paymentSucceeded]);
-        Assert.Null(CraftingHarmonyCallbacks.PayFinalizerMethod.Invoke(null, [null, paymentScope]));
+        if (invokePaymentCallbacks)
+        {
+            CraftingHarmonyCallbacks.PayPostfixMethod.Invoke(null, [paymentScope, paymentSucceeded]);
+            Assert.Null(CraftingHarmonyCallbacks.PayFinalizerMethod.Invoke(null, [null, paymentScope]));
+        }
 
         var deliveryCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var deliveryArguments = new object?[]
@@ -1418,6 +1545,8 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         typeof(NativeCraftingAdapter).GetField("capabilities", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(adapter, CraftingStatisticsReducer.CloneCapabilities(capabilities));
         typeof(NativeCraftingAdapter).GetField("accepting", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(adapter, true);
+        typeof(NativeCraftingAdapter).GetField("paymentHookActive", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(adapter, true);
         typeof(NativeCraftingAdapter).GetField("resourceProofHooksActive", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(adapter, true);

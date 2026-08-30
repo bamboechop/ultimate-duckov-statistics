@@ -246,6 +246,29 @@ public sealed class CraftingCompletionBoundary
         }
     }
 
+    public int InvalidateAllCurrencyEvidence()
+    {
+        lock (sync)
+        {
+            var invalidated = 0;
+            foreach (var entry in pending.ToArray())
+            {
+                if (!entry.Value.CurrencyEvidenceProven) continue;
+                pending[entry.Key] = new CraftingCompletionEvidence(
+                    entry.Value.OutputItemId,
+                    entry.Value.OutputDisplayName,
+                    entry.Value.RecipeId,
+                    entry.Value.ProducedQuantity,
+                    entry.Value.Resources,
+                    currencyCharged: 0,
+                    resourceEvidenceProven: entry.Value.ResourceEvidenceProven,
+                    currencyEvidenceProven: false);
+                invalidated++;
+            }
+            return invalidated;
+        }
+    }
+
     public bool Abandon(CraftingCompletionToken token)
     {
         lock (sync)
