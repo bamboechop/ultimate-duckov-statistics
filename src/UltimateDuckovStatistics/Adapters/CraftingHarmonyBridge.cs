@@ -150,7 +150,7 @@ internal static class CraftingHarmonyBridge
         if (scope == null) return;
         try
         {
-            NativeCraftingAdapter.ObserveNativePaymentStackCountReduction(
+            NativeCraftingAdapter.ObserveNativePaymentStackCountMutation(
                 scope,
                 item,
                 state.BeforeCount,

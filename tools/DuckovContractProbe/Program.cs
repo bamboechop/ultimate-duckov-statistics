@@ -394,6 +394,10 @@ try
             "ItemStatsSystem", "Item", "set_StackCount", 1,
             mustBePublic: true, returnTypeFragment: "System.Void",
             parameterTypeFragments: ["System.Int32"]);
+        itemStats.RequireMethod(
+            "ItemStatsSystem", "Item", "Combine", 1,
+            mustBePublic: true, returnTypeFragment: "System.Void",
+            parameterTypeFragments: ["ItemStatsSystem.Item"]);
         itemStats.RequireField("ItemStatsSystem", "UsageUtilities", "behaviors");
         itemStats.RequireMethod(
             "ItemStatsSystem",
@@ -466,7 +470,7 @@ try
         foreach (var formula in craftingFormulaAudit.NonzeroCurrencyFormulas)
             Console.WriteLine($"    {formula.FormulaId} -> output {formula.OutputItemId}: money={formula.Money}; tags={formula.Tags}; items={formula.ItemCosts}");
     }
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, and M16 CraftingFormula.cost item/currency plus repeated-stack mutation contracts are present.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, and M16 CraftingFormula.cost item/currency plus repeated-stack mutation/transfer contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption, M6 tote activation, M13 crafting workstation/run-map/multiple-output attribution, and M16 Money/Cash charge splitting remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }

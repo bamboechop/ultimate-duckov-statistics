@@ -9,7 +9,7 @@ internal sealed class CraftingResourcePaymentProof
     private readonly long declaredMoney;
     private readonly Cost.ItemEntry[] declaredItems;
     private readonly Dictionary<int, Observation> observations = new();
-    private readonly Dictionary<int, long> consumedQuantities = new();
+    private readonly Dictionary<int, long> netRemovedQuantities = new();
     private bool paymentStarted;
     private bool paymentCompleted;
     private bool exact;
@@ -61,24 +61,27 @@ internal sealed class CraftingResourcePaymentProof
         observations[itemTypeId] = observation;
     }
 
-    public void ObserveStackCountReduction(Item item, int beforeCount, int afterCount, bool wasBeingDestroyed)
+    public void ObserveStackCountMutation(Item item, int beforeCount, int afterCount, bool wasBeingDestroyed)
     {
-        if (!CanObserveMutation(item, wasBeingDestroyed)
-            || beforeCount <= afterCount
-            || afterCount < 0)
+        if (!CanObserveMutation(item, wasBeingDestroyed)) return;
+        if (beforeCount < 0 || afterCount < 0)
+        {
+            mutationFailure = $"Repeated crafting-resource consumption is unavailable because native Pay changed resource {item.TypeID} between invalid stack quantities {beforeCount} and {afterCount}.";
             return;
-        AddConsumed(item.TypeID, checked((long)beforeCount - afterCount));
+        }
+        if (beforeCount == afterCount) return;
+        AddNetRemoved(item.TypeID, checked((long)beforeCount - afterCount));
     }
 
     public void ObserveStackDestroyed(Item item)
     {
         if (!CanObserveMutation(item, item.IsBeingDestroyed)) return;
-        if (item.StackCount <= 0)
+        if (item.StackCount < 0)
         {
-            mutationFailure = $"Repeated crafting-resource consumption is unavailable because native Pay destroyed resource {item.TypeID} with non-positive stack quantity {item.StackCount}.";
+            mutationFailure = $"Repeated crafting-resource consumption is unavailable because native Pay destroyed resource {item.TypeID} with negative stack quantity {item.StackCount}.";
             return;
         }
-        AddConsumed(item.TypeID, item.StackCount);
+        AddNetRemoved(item.TypeID, item.StackCount);
     }
 
     public string Complete(bool paymentSucceeded)
@@ -97,9 +100,9 @@ internal sealed class CraftingResourcePaymentProof
                 return $"Repeated crafting-resource consumption is unavailable because native Pay did not expose every affordability observation for resource {entry.Key}.";
             if (observation.MinimumCount < entry.Value.CombinedQuantity)
                 return $"Repeated crafting-resource consumption is unavailable because native Pay accepted resource {entry.Key} entries totaling {entry.Value.CombinedQuantity} while its minimum affordability observation proved only {observation.MinimumCount} available.";
-            consumedQuantities.TryGetValue(entry.Key, out var consumedQuantity);
-            if (consumedQuantity != entry.Value.CombinedQuantity)
-                return $"Repeated crafting-resource consumption is unavailable because native Pay accepted resource {entry.Key} entries totaling {entry.Value.CombinedQuantity} while its matched distinct stack mutations proved {consumedQuantity} actually removed.";
+            netRemovedQuantities.TryGetValue(entry.Key, out var netRemovedQuantity);
+            if (netRemovedQuantity != entry.Value.CombinedQuantity)
+                return $"Repeated crafting-resource consumption is unavailable because native Pay accepted resource {entry.Key} entries totaling {entry.Value.CombinedQuantity} while its matched net ownership-ending stack mutations proved {netRemovedQuantity} actually removed.";
         }
         exact = true;
         return string.Empty;
@@ -136,13 +139,13 @@ internal sealed class CraftingResourcePaymentProof
         && repeatedRequirements.ContainsKey(item.TypeID)
         && string.IsNullOrWhiteSpace(mutationFailure);
 
-    private void AddConsumed(int itemTypeId, long quantity)
+    private void AddNetRemoved(int itemTypeId, long quantity)
     {
-        if (quantity <= 0) return;
+        if (quantity == 0) return;
         try
         {
-            consumedQuantities.TryGetValue(itemTypeId, out var current);
-            consumedQuantities[itemTypeId] = checked(current + quantity);
+            netRemovedQuantities.TryGetValue(itemTypeId, out var current);
+            netRemovedQuantities[itemTypeId] = checked(current + quantity);
         }
         catch (OverflowException)
         {

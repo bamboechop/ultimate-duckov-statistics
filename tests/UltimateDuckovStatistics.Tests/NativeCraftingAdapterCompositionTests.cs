@@ -113,6 +113,35 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     [Fact]
     [Trait("Category", "M16")]
+    [Trait("Category", "ProductionComposition")]
+    public void DetachedSameIdChildTransferDoesNotCompleteRepeatedCostProof()
+    {
+        using var result = CompleteDuplicateCostCraftWithDetachedSameIdChild();
+
+        var crafting = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(1, crafting.CompletionActions);
+        Assert.Equal(1, crafting.ProducedQuantity);
+        Assert.Empty(crafting.Resources);
+        Assert.True(crafting.ResourceHistoryUnavailable);
+        Assert.Equal(1, crafting.CurrencyChargeActions);
+        Assert.Equal(150, crafting.CurrencyCharged);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
+        Assert.Equal([3, 6], ItemUtilities.OwnedItems.Select(item => item.StackCount).OrderBy(count => count).ToArray());
+        Assert.Equal(2, ItemUtilities.ScanCount);
+        var export = StatisticsExporter.Create(result.Coordinator.Current, DateTime.UtcNow);
+        Assert.DoesNotContain("9001", export.CraftingResourcesCsv, StringComparison.Ordinal);
+        Assert.DoesNotContain("9001", export.CraftingResourceAssociationsCsv, StringComparison.Ordinal);
+        using (var json = JsonDocument.Parse(export.Json))
+            Assert.False(json.RootElement.GetProperty("Crafting").GetProperty("Resources").TryGetProperty("9001", out _));
+        Assert.Contains(result.Diagnostics, detail =>
+            detail.Contains("entries totaling 6", StringComparison.Ordinal)
+            && detail.Contains("net ownership-ending stack mutations proved 3 actually removed", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
     [Trait("Category", "Persistence")]
     [Trait("Category", "ProductionComposition")]
     public void CorruptExactResourceActionPrimaryRecoversProductionCraftFromBackup()
@@ -220,22 +249,21 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         var result = CreateComposition();
         for (var index = 0; index < stackCounts.Length; index++)
             ItemUtilities.OwnedItems.Add(Stack(9001, stackCounts[index], durability: index + 1));
-        CompleteCraft(
-            result,
-            new CraftingFormula
-            {
-                id = "modded-duplicate",
-                result = new CraftingFormula.ItemEntry { id = 7001, amount = 1 },
-                cost = new Cost
-                {
-                    money = 150,
-                    items =
-                    [
-                        new Cost.ItemEntry { id = 9001, amount = 3 },
-                        new Cost.ItemEntry { id = 9001, amount = 3 }
-                    ]
-                }
-            });
+        CompleteCraft(result, DuplicateCostFormula());
+        return result;
+    }
+
+    private static CompositionResult CompleteDuplicateCostCraftWithDetachedSameIdChild()
+    {
+        var result = CreateComposition();
+        var first = Stack(9001, 3, durability: 1);
+        first.Slots.Add(new ItemStatsSystem.Items.Slot
+        {
+            Content = Stack(9001, 6, durability: 1)
+        });
+        ItemUtilities.OwnedItems.Add(first);
+        ItemUtilities.OwnedItems.Add(Stack(9001, 3, durability: 2));
+        CompleteCraft(result, DuplicateCostFormula());
         return result;
     }
 
@@ -316,6 +344,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         }
 
         var removals = new List<Action>();
+        var detachedItems = new List<Item>();
         foreach (var entry in cost.items ?? Array.Empty<Cost.ItemEntry>())
         {
             var matching = ItemUtilities.FindAllBelongsToPlayer(item => item.TypeID == entry.id).ToList();
@@ -330,18 +359,28 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             if (available < entry.amount) return false;
             var capturedItems = matching.ToArray();
             var capturedAmount = entry.amount;
-            removals.Add(() => ExecuteDeferredRemoval(capturedItems, capturedAmount));
+            removals.Add(() => ExecuteDeferredRemoval(capturedItems, capturedAmount, detachedItems));
         }
 
         foreach (var removal in removals) removal();
+        foreach (var item in detachedItems) SendDetachedItemToPlayer(item);
         return true;
     }
 
-    private static void ExecuteDeferredRemoval(IEnumerable<Item> capturedItems, long amount)
+    private static void ExecuteDeferredRemoval(
+        IEnumerable<Item> capturedItems,
+        long amount,
+        List<Item> detachedItems)
     {
         var remaining = amount;
         foreach (var item in capturedItems)
         {
+            foreach (var slot in item.Slots)
+            {
+                if (slot.Content == null) continue;
+                detachedItems.Add(slot.Content);
+                slot.Content = null;
+            }
             if (item.StackCount <= remaining)
             {
                 remaining -= item.StackCount;
@@ -351,14 +390,37 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             }
             else
             {
-                var prefixArguments = new object?[] { item, null };
-                CraftingHarmonyCallbacks.StackCountPrefixMethod.Invoke(null, prefixArguments);
-                item.StackCount -= checked((int)remaining);
-                CraftingHarmonyCallbacks.StackCountPostfixMethod.Invoke(null, [item, prefixArguments[1]]);
+                SetStackCount(item, item.StackCount - checked((int)remaining));
                 remaining = 0;
             }
             if (remaining <= 0) break;
         }
+    }
+
+    private static void SendDetachedItemToPlayer(Item incoming)
+    {
+        var destination = ItemUtilities.OwnedItems.FirstOrDefault(item =>
+            item.TypeID == incoming.TypeID
+            && item.Stackable
+            && !item.IsBeingDestroyed
+            && item.StackCount < item.MaxStackCount);
+        if (destination != null)
+        {
+            var transferred = Math.Min(
+                destination.MaxStackCount - destination.StackCount,
+                incoming.StackCount);
+            SetStackCount(destination, checked(destination.StackCount + transferred));
+            SetStackCount(incoming, checked(incoming.StackCount - transferred));
+        }
+        if (incoming.StackCount > 0) ItemUtilities.OwnedItems.Add(incoming);
+    }
+
+    private static void SetStackCount(Item item, int value)
+    {
+        var prefixArguments = new object?[] { item, null };
+        CraftingHarmonyCallbacks.StackCountPrefixMethod.Invoke(null, prefixArguments);
+        item.StackCount = value;
+        CraftingHarmonyCallbacks.StackCountPostfixMethod.Invoke(null, [item, prefixArguments[1]]);
     }
 
     private static Item Stack(int itemTypeId, int stackCount, float durability) => new()
@@ -368,6 +430,21 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Stackable = true,
         UseDurability = true,
         Durability = durability
+    };
+
+    private static CraftingFormula DuplicateCostFormula() => new()
+    {
+        id = "modded-duplicate",
+        result = new CraftingFormula.ItemEntry { id = 7001, amount = 1 },
+        cost = new Cost
+        {
+            money = 150,
+            items =
+            [
+                new Cost.ItemEntry { id = 9001, amount = 3 },
+                new Cost.ItemEntry { id = 9001, amount = 3 }
+            ]
+        }
     };
 
     private static void ActivateValidatedCallbacks(

@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion =
-        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v2+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
+        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v3+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.crafting";
     private const string SupportedGameVersion = "2.3.30";
     private const int DiagnosticKeyCapacity = 32;
@@ -220,7 +220,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 capabilities = CraftingNativeContractPolicy.Supported(
                     "The correlated Cost.Return task completed after native output delivery, before downstream crafting callbacks.",
                     "CraftingFormula.id and singular result.id/result.amount captured at the native request boundary.",
-                    "CraftingFormula.cost.items stable identities and declared quantities captured at invocation; repeated resource ids require Duckov's own matched Pay-time affordability and distinct stack-mutation observations to prove their canonical combined quantity before successful delivery publication.",
+                    "CraftingFormula.cost.items stable identities and declared quantities captured at invocation; repeated resource ids require Duckov's own matched Pay-time affordability and net ownership-ending stack-mutation observations to prove their canonical combined quantity before successful delivery publication.",
                     "CraftingFormula.cost.money captured at invocation; a successful correlated delivery proves the preceding native Pay returned true for that declared total charge.");
                 accepting = true;
             }
@@ -503,13 +503,13 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     internal static void ObserveNativePaymentItemCount(CraftingNativeScope scope, int itemTypeId, int count) =>
         scope.ResourcePaymentProof.ObserveItemCount(itemTypeId, count);
 
-    internal static void ObserveNativePaymentStackCountReduction(
+    internal static void ObserveNativePaymentStackCountMutation(
         CraftingNativeScope scope,
         Item item,
         int beforeCount,
         int afterCount,
         bool wasBeingDestroyed) =>
-        scope.ResourcePaymentProof.ObserveStackCountReduction(
+        scope.ResourcePaymentProof.ObserveStackCountMutation(
             item,
             beforeCount,
             afterCount,
