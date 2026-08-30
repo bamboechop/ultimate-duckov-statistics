@@ -441,6 +441,12 @@ public sealed class M16CraftingResourceStatisticsTests
         zeroResourceQuantity.Outputs["131"].Recipes["1026"].Resources["764"].ConsumedQuantity = 0;
         Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(zeroResourceQuantity));
 
+        var zeroLifetimeResourceWithQuantityUnavailable = CraftingStatisticsReducer.Clone(valid);
+        zeroLifetimeResourceWithQuantityUnavailable.ResourceQuantityArithmeticUnavailable = true;
+        zeroLifetimeResourceWithQuantityUnavailable.Resources["764"].ConsumedQuantity = 0;
+        zeroLifetimeResourceWithQuantityUnavailable.Outputs["131"].Recipes["1026"].Resources["764"].ConsumedQuantity = 0;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(zeroLifetimeResourceWithQuantityUnavailable));
+
         var zeroCurrencyActions = CraftingStatisticsReducer.Clone(valid);
         zeroCurrencyActions.CurrencyChargeActions = 0;
         zeroCurrencyActions.Outputs["131"].CurrencyChargeActions = 0;

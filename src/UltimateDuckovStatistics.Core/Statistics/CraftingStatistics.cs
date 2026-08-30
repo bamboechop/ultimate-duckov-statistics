@@ -535,8 +535,7 @@ public static class CraftingStatisticsReducer
         {
             var resource = entry.Value ?? throw new ArgumentException("Crafting resource is missing.", nameof(aggregate));
             if (string.IsNullOrWhiteSpace(entry.Key) || !string.Equals(entry.Key, resource.ResourceItemId, StringComparison.Ordinal)
-                || resource.ConsumedQuantity < 0
-                || (!aggregate.ResourceQuantityArithmeticUnavailable && resource.ConsumedQuantity == 0))
+                || resource.ConsumedQuantity <= 0)
                 throw new ArgumentException("Crafting resource total is invalid.", nameof(aggregate));
             associationQuantityByResource.TryGetValue(entry.Key, out var associated);
             if (associated != resource.ConsumedQuantity)
