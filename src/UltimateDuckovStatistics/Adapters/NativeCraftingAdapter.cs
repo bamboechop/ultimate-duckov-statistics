@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion =
-        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v3+resource-hook-isolation-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
+        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v3+delivery-gated-capability-v1+resource-hook-isolation-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.crafting";
     private const string SupportedGameVersion = "2.3.30";
     private const int DiagnosticKeyCapacity = 32;
@@ -374,12 +374,19 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 
     private bool FlushCurrentPending()
     {
-        var capabilitiesPublished = FlushPendingCapabilities();
         var hadPending = !pendingPublication.IsEmpty;
         try
         {
-            var aggregatePublished = pendingPublication.TryFlush(recordHandler);
+            CraftingMutation? acceptedMutation = null;
+            var aggregatePublished = pendingPublication.TryFlush(mutation =>
+            {
+                if (!recordHandler(mutation)) return false;
+                acceptedMutation = mutation;
+                return true;
+            });
             var aggregatePersisted = !hadPending || (aggregatePublished && persistenceHandler());
+            if (acceptedMutation != null) StageDeliveredCostCapabilities(acceptedMutation);
+            var capabilitiesPublished = FlushPendingCapabilities();
             return capabilitiesPublished && aggregatePublished && aggregatePersisted;
         }
         catch (Exception exception)
@@ -543,7 +550,6 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         var resourcesProven = resourceCaptureEnabled
                               && TrySnapshotResourceCosts(formula.cost, out resources, out resourceDetail);
         var currencyProven = TrySnapshotCurrencyCost(formula.cost, out var currencyCharged, out var currencyDetail);
-        bool capabilitiesChanged;
         CraftingNativeScope? scope;
         lock (lifecycleSync)
         {
@@ -559,9 +565,6 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 resourcesProven = false;
                 resources = Array.Empty<CraftingResourceCostEvidence>();
             }
-            capabilitiesChanged = RestrictCostCapabilitiesLocked(
-                resourcesProven ? null : resourceDetail,
-                currencyProven ? null : currencyDetail);
             var itemId = formula.result.id.ToString(CultureInfo.InvariantCulture);
             var token = boundary.Begin(new CraftingCompletionEvidence(
                 itemId,
@@ -575,9 +578,10 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
             scope = new CraftingNativeScope(
                 this,
                 new CraftingDeliveryCorrelation(token),
-                new CraftingResourcePaymentProof(formula.cost, resourcesProven));
+                new CraftingResourcePaymentProof(formula.cost, resourcesProven),
+                resourcesProven ? string.Empty : resourceDetail,
+                currencyProven ? string.Empty : currencyDetail);
         }
-        if (capabilitiesChanged) StageAndPublishCapabilities();
         return scope;
     }
 
@@ -615,19 +619,40 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     private void InvalidateResourceEvidence(CraftingNativeScope scope, string detail)
     {
         bool invalidated;
-        bool capabilitiesChanged;
         lock (lifecycleSync)
         {
             invalidated = boundary.TryInvalidateResourceEvidence(scope.Correlation.Token);
-            capabilitiesChanged = invalidated
-                && RestrictCostCapabilitiesLocked(detail, currencyDetail: null);
+            if (invalidated) scope.RecordResourceEvidenceFailure(detail);
         }
         if (!invalidated)
         {
             DisableRuntime("Crafting tracking disabled because repeated-resource evidence could not be invalidated before delivery publication.");
             return;
         }
-        if (capabilitiesChanged) StageAndPublishCapabilities();
+    }
+
+    private void StageDeliveredCostCapabilities(CraftingMutation mutation)
+    {
+        var resourceUnavailable = mutation.Rows.Any(row => !row.ResourceEvidenceProven);
+        var currencyUnavailable = mutation.Rows.Any(row => !row.CurrencyEvidenceProven);
+        if (!resourceUnavailable && !currencyUnavailable) return;
+
+        CraftingMetricCapabilities? snapshot = null;
+        lock (lifecycleSync)
+        {
+            var changed = RestrictCostCapabilitiesLocked(
+                resourceUnavailable
+                    ? CraftingStatisticsReducer.DeliveredResourceEvidenceUnavailableProvenance
+                    : null,
+                currencyUnavailable
+                    ? CraftingStatisticsReducer.DeliveredCurrencyEvidenceUnavailableProvenance
+                    : null);
+            if (changed) snapshot = CraftingStatisticsReducer.CloneCapabilities(capabilities);
+        }
+        if (snapshot == null) return;
+        capabilityPublication.Stage(
+            CraftingNativeContractPolicy.ToRecords(snapshot, AdapterVersion),
+            snapshot);
     }
 
     private bool TrySnapshotResourceCosts(
@@ -847,6 +872,10 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 DisableRuntime("Crafting tracking disabled because correlated delivery evidence could not be claimed exactly once.");
                 return;
             }
+            if (!string.IsNullOrWhiteSpace(scope.ResourceEvidenceFailureDetail))
+                DiagnosticOnce("resource-evidence-unavailable", scope.ResourceEvidenceFailureDetail);
+            if (!string.IsNullOrWhiteSpace(scope.CurrencyEvidenceFailureDetail))
+                DiagnosticOnce("currency-evidence-unavailable", scope.CurrencyEvidenceFailureDetail);
             if (profileTransitionId != 0)
             {
                 if (!profileHandoff.Stage(profileTransitionId, mutation))

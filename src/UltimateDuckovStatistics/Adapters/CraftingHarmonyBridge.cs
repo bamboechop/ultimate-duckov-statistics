@@ -11,16 +11,28 @@ internal sealed class CraftingNativeScope
     public CraftingNativeScope(
         NativeCraftingAdapter owner,
         CraftingDeliveryCorrelation correlation,
-        CraftingResourcePaymentProof resourcePaymentProof)
+        CraftingResourcePaymentProof resourcePaymentProof,
+        string resourceEvidenceFailureDetail,
+        string currencyEvidenceFailureDetail)
     {
         Owner = owner;
         Correlation = correlation;
         ResourcePaymentProof = resourcePaymentProof;
+        ResourceEvidenceFailureDetail = resourceEvidenceFailureDetail ?? string.Empty;
+        CurrencyEvidenceFailureDetail = currencyEvidenceFailureDetail ?? string.Empty;
     }
 
     public NativeCraftingAdapter Owner { get; }
     public CraftingDeliveryCorrelation Correlation { get; }
     public CraftingResourcePaymentProof ResourcePaymentProof { get; }
+    public string ResourceEvidenceFailureDetail { get; private set; }
+    public string CurrencyEvidenceFailureDetail { get; }
+
+    public void RecordResourceEvidenceFailure(string detail)
+    {
+        if (string.IsNullOrWhiteSpace(ResourceEvidenceFailureDetail))
+            ResourceEvidenceFailureDetail = detail ?? string.Empty;
+    }
 }
 
 internal readonly struct CraftingStackCountMutationState

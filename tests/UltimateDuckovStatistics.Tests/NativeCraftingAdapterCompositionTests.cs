@@ -146,6 +146,92 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     [Fact]
     [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void InexactPaymentAbandonedBeforeDeliveryDoesNotPersistCapabilityDegradation()
+    {
+        using var result = CreateInitializedComposition();
+        var generationId = result.Coordinator.CurrentGenerationId;
+        ItemUtilities.OwnedItems.Add(Stack(9001, 3, durability: 1));
+        ItemUtilities.OwnedItems.Add(Stack(9001, 3, durability: 2));
+
+        AbortCraftAfterInexactPayment(result.Coordinator, DuplicateCostFormula());
+
+        AssertCraftingHistoryAndCapabilitiesUntouched(result.Coordinator);
+        result.StopRuntime();
+
+        using var reopened = new NativeProfileCoordinator();
+        reopened.Initialize();
+        Assert.Equal(generationId, reopened.CurrentGenerationId);
+        var diagnostics = new List<string>();
+        using var adapter = InitializeAdapter(reopened, diagnostics);
+        AssertCraftingHistoryAndCapabilitiesUntouched(reopened);
+        ItemUtilities.OwnedItems.Clear();
+        ItemUtilities.OwnedItems.Add(Stack(9001, 6, durability: 1));
+        CompleteCraft(reopened, DuplicateCostFormula(), expectCompletionIncrease: true);
+
+        var crafting = reopened.Current!.Statistics.Crafting;
+        Assert.False(crafting.ResourceHistoryUnavailable);
+        Assert.Equal(6, crafting.Resources["9001"].ConsumedQuantity);
+        Assert.Equal(
+            6,
+            crafting.Outputs["7001"].Recipes["modded-duplicate"].Resources["9001"].ConsumedQuantity);
+        Assert.Equal(AdapterCapabilityState.Supported, crafting.Capabilities.ItemResourceIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, crafting.Capabilities.OutputResourceAssociation.State);
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void InvalidCostSnapshotRejectedBeforePaymentDoesNotPersistCapabilityDegradation()
+    {
+        using var result = CreateInitializedComposition();
+        var generationId = result.Coordinator.CurrentGenerationId;
+        var invalidFormula = new CraftingFormula
+        {
+            id = "invalid-pre-payment",
+            result = new CraftingFormula.ItemEntry { id = 7401, amount = 1 },
+            cost = new Cost
+            {
+                money = -1,
+                items =
+                [
+                    new Cost.ItemEntry { id = 9401, amount = 0 },
+                    new Cost.ItemEntry { id = 9402, amount = 1 }
+                ]
+            }
+        };
+
+        RejectCraftBeforePayment(result.Coordinator, invalidFormula);
+
+        AssertCraftingHistoryAndCapabilitiesUntouched(result.Coordinator);
+        result.StopRuntime();
+
+        using var reopened = new NativeProfileCoordinator();
+        reopened.Initialize();
+        Assert.Equal(generationId, reopened.CurrentGenerationId);
+        var diagnostics = new List<string>();
+        using var adapter = InitializeAdapter(reopened, diagnostics);
+        AssertCraftingHistoryAndCapabilitiesUntouched(reopened);
+        ItemUtilities.OwnedItems.Add(Stack(9403, 2, durability: 1));
+        CompleteCraft(
+            reopened,
+            OrdinaryPaidFormula("valid-after-rejection", 8401, 9403),
+            expectCompletionIncrease: true);
+
+        var crafting = reopened.Current!.Statistics.Crafting;
+        Assert.False(crafting.ResourceHistoryUnavailable);
+        Assert.False(crafting.CurrencyHistoryUnavailable);
+        Assert.Equal(2, crafting.Resources["9403"].ConsumedQuantity);
+        Assert.Equal(1, crafting.CurrencyChargeActions);
+        Assert.Equal(150, crafting.CurrencyCharged);
+        Assert.Equal(AdapterCapabilityState.Supported, crafting.Capabilities.ItemResourceIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, crafting.Capabilities.CurrencyCharge.State);
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
     [Trait("Category", "ProductionComposition")]
     public void ColdResourceOnlyHarmonyConflictPreservesCompletionOutputRecipeAndCurrency()
     {
@@ -915,6 +1001,22 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         return new CompositionResult(directory, coordinator, adapter, diagnostics);
     }
 
+    private static NativeCraftingAdapter InitializeAdapter(
+        NativeProfileCoordinator coordinator,
+        ICollection<string> diagnostics)
+    {
+        var adapter = new NativeCraftingAdapter(
+            () => coordinator.CurrentGenerationId,
+            coordinator.HandleCrafting,
+            coordinator.RequestCraftingPersistence,
+            coordinator.SetCraftingCapabilities,
+            diagnostics.Add,
+            () => true);
+        adapter.Initialize();
+        coordinator.SetCraftingBoundaryBarrier(adapter.FlushPending);
+        return adapter;
+    }
+
     private static void PatchForeignResourceTarget(MethodBase target)
     {
         var foreign = new HarmonyLib.Harmony("foreign.resource-proof.mod");
@@ -1043,6 +1145,91 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(
             expectCompletionIncrease ? checked(actionsBeforeDelivery + 1) : actionsBeforeDelivery,
             coordinator.Current.Statistics.Crafting.CompletionActions);
+    }
+
+    private static void AbortCraftAfterInexactPayment(
+        NativeProfileCoordinator coordinator,
+        CraftingFormula formula)
+    {
+        var actionsBefore = coordinator.Current!.Statistics.Crafting.CompletionActions;
+        var craftPrefixArguments = new object?[] { formula, null };
+        CraftingHarmonyCallbacks.CraftPrefixMethod.Invoke(null, craftPrefixArguments);
+        var craftScope = Assert.IsType<CraftingNativeScope>(craftPrefixArguments[1]);
+
+        var payPrefixArguments = new object?[] { formula.cost, null };
+        CraftingHarmonyCallbacks.PayPrefixMethod.Invoke(null, payPrefixArguments);
+        var paymentScope = Assert.IsType<CraftingNativeScope>(payPrefixArguments[1]);
+        Assert.True(ExecuteFaithfulNativePayment(formula.cost));
+        CraftingHarmonyCallbacks.PayPostfixMethod.Invoke(null, [paymentScope, true]);
+        Assert.Null(CraftingHarmonyCallbacks.PayFinalizerMethod.Invoke(null, [null, paymentScope]));
+
+        var deliveryCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var deliveryArguments = new object?[]
+        {
+            false,
+            true,
+            1,
+            new List<Item>(),
+            new UniTask(deliveryCompletion.Task)
+        };
+        CraftingHarmonyCallbacks.ReturnPostfixMethod.Invoke(null, deliveryArguments);
+        var wrappedDelivery = Assert.IsType<UniTask>(deliveryArguments[4]);
+
+        var craftCompletion = new TaskCompletionSource<List<Item>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var craftPostfixArguments = new object?[]
+        {
+            craftScope,
+            new UniTask<List<Item>>(craftCompletion.Task)
+        };
+        CraftingHarmonyCallbacks.CraftPostfixMethod.Invoke(null, craftPostfixArguments);
+        var wrappedCraft = Assert.IsType<UniTask<List<Item>>>(craftPostfixArguments[1]);
+        Assert.Null(CraftingHarmonyCallbacks.CraftFinalizerMethod.Invoke(null, [null, craftScope]));
+
+        var failure = new IOException("Simulated Cost.Return delivery failure.");
+        deliveryCompletion.SetException(failure);
+        Assert.Throws<IOException>(() => wrappedDelivery.GetAwaiter().GetResult());
+        craftCompletion.SetException(failure);
+        Assert.Throws<IOException>(() => wrappedCraft.GetAwaiter().GetResult());
+        coordinator.Flush();
+        Assert.Equal(actionsBefore, coordinator.Current.Statistics.Crafting.CompletionActions);
+    }
+
+    private static void RejectCraftBeforePayment(
+        NativeProfileCoordinator coordinator,
+        CraftingFormula formula)
+    {
+        var actionsBefore = coordinator.Current!.Statistics.Crafting.CompletionActions;
+        var craftPrefixArguments = new object?[] { formula, null };
+        CraftingHarmonyCallbacks.CraftPrefixMethod.Invoke(null, craftPrefixArguments);
+        var craftScope = Assert.IsType<CraftingNativeScope>(craftPrefixArguments[1]);
+        var craftPostfixArguments = new object?[]
+        {
+            craftScope,
+            new UniTask<List<Item>>(Task.FromResult<List<Item>>(null!))
+        };
+        CraftingHarmonyCallbacks.CraftPostfixMethod.Invoke(null, craftPostfixArguments);
+        var wrappedCraft = Assert.IsType<UniTask<List<Item>>>(craftPostfixArguments[1]);
+        Assert.Null(CraftingHarmonyCallbacks.CraftFinalizerMethod.Invoke(null, [null, craftScope]));
+        Assert.Null(wrappedCraft.GetAwaiter().GetResult());
+        coordinator.Flush();
+        Assert.Equal(actionsBefore, coordinator.Current.Statistics.Crafting.CompletionActions);
+    }
+
+    private static void AssertCraftingHistoryAndCapabilitiesUntouched(
+        NativeProfileCoordinator coordinator)
+    {
+        var crafting = coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(0, crafting.CompletionActions);
+        Assert.Equal(0, crafting.ProducedQuantity);
+        Assert.Empty(crafting.Outputs);
+        Assert.Empty(crafting.Resources);
+        Assert.Equal(0, crafting.CurrencyChargeActions);
+        Assert.Equal(0, crafting.CurrencyCharged);
+        Assert.False(crafting.ResourceHistoryUnavailable);
+        Assert.False(crafting.CurrencyHistoryUnavailable);
+        Assert.Equal(AdapterCapabilityState.Supported, crafting.Capabilities.ItemResourceIdentity.State);
+        Assert.Equal(AdapterCapabilityState.Supported, crafting.Capabilities.OutputResourceAssociation.State);
+        Assert.Equal(AdapterCapabilityState.Supported, crafting.Capabilities.CurrencyCharge.State);
     }
 
     private static bool ExecuteFaithfulNativePayment(Cost cost)

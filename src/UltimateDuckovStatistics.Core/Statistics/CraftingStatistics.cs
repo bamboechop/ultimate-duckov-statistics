@@ -176,6 +176,10 @@ public sealed class CraftingMutationRow
 
 public static class CraftingStatisticsReducer
 {
+    public const string DeliveredResourceEvidenceUnavailableProvenance =
+        "Crafting item-resource history is incomplete because a successfully delivered craft did not have exact event-time resource-payment evidence.";
+    public const string DeliveredCurrencyEvidenceUnavailableProvenance =
+        "Crafting currency-cost history is incomplete because a successfully delivered craft did not have exact event-time currency-payment evidence.";
     private const string ArithmeticProvenance =
         "The metric reached the Int64 arithmetic limit; prior exact totals remain available, but further capture is disabled.";
 
@@ -191,13 +195,33 @@ public static class CraftingStatisticsReducer
         if (aggregate.Capabilities.BatchMetadata.State != AdapterCapabilityState.DisabledIncompatible
             && mutation.Rows.Any(row => !row.BatchMetadataProven))
             throw new ArgumentException("Crafting batch metadata degraded without a matching capability restriction.", nameof(mutation));
-        if (aggregate.Capabilities.ItemResourceIdentity.State != AdapterCapabilityState.DisabledIncompatible
-            && mutation.Rows.Any(row => !row.ResourceEvidenceProven))
-            throw new ArgumentException("Crafting resource evidence degraded without a matching capability restriction.", nameof(mutation));
-        if (aggregate.Capabilities.CurrencyCharge.State != AdapterCapabilityState.DisabledIncompatible
-            && mutation.Rows.Any(row => !row.CurrencyEvidenceProven))
-            throw new ArgumentException("Crafting currency evidence degraded without a matching capability restriction.", nameof(mutation));
         if (mutation.IsEmpty) return false;
+
+        var hasUnprovenResourceEvidence = mutation.Rows.Any(row => !row.ResourceEvidenceProven);
+        var hasUnprovenCurrencyEvidence = mutation.Rows.Any(row => !row.CurrencyEvidenceProven);
+        var changed = false;
+        if (hasUnprovenResourceEvidence)
+        {
+            if (aggregate.Capabilities.ItemResourceIdentity.State != AdapterCapabilityState.DisabledIncompatible)
+            {
+                aggregate.Capabilities.ItemResourceIdentity =
+                    Unavailable(DeliveredResourceEvidenceUnavailableProvenance);
+                changed = true;
+            }
+            if (aggregate.Capabilities.OutputResourceAssociation.State != AdapterCapabilityState.DisabledIncompatible)
+            {
+                aggregate.Capabilities.OutputResourceAssociation =
+                    Unavailable(DeliveredResourceEvidenceUnavailableProvenance);
+                changed = true;
+            }
+        }
+        if (hasUnprovenCurrencyEvidence
+            && aggregate.Capabilities.CurrencyCharge.State != AdapterCapabilityState.DisabledIncompatible)
+        {
+            aggregate.Capabilities.CurrencyCharge =
+                Unavailable(DeliveredCurrencyEvidenceUnavailableProvenance);
+            changed = true;
+        }
 
         var actionRows = aggregate.CompletionArithmeticUnavailable
             ? Array.Empty<CraftingMutationRow>()
@@ -226,12 +250,11 @@ public static class CraftingStatisticsReducer
         var currencyAmountOverflow = !aggregate.CurrencyAmountArithmeticUnavailable
                                      && currencyRows.Length != 0
                                      && WouldOverflowCurrencyAmount(aggregate, currencyRows);
-        var changed = false;
-        if (mutation.Rows.Any(row => !row.ResourceEvidenceProven))
+        if (hasUnprovenResourceEvidence)
             changed |= MarkResourceHistoryUnavailable(
                 aggregate,
                 aggregate.Capabilities.ItemResourceIdentity.Provenance);
-        if (mutation.Rows.Any(row => !row.CurrencyEvidenceProven))
+        if (hasUnprovenCurrencyEvidence)
             changed |= MarkCurrencyHistoryUnavailable(
                 aggregate,
                 aggregate.Capabilities.CurrencyCharge.Provenance);

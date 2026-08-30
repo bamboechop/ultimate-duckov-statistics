@@ -590,10 +590,6 @@ public sealed class M16CraftingResourceStatisticsTests
     public void UnprovenSuccessfulCostEvidenceMarksOnlyItsIndependentHistoryIncomplete()
     {
         var aggregate = SupportedAggregate();
-        var current = CraftingNativeContractPolicy.Supported("delivery", "formula", "event items", "event money");
-        current.ItemResourceIdentity = CraftingNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, "resource snapshot failed");
-        current.OutputResourceAssociation = CraftingNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, "resource snapshot failed");
-        CraftingStatisticsReducer.InitializeOrRestrictCapabilities(aggregate, current);
 
         Assert.True(CraftingStatisticsReducer.Apply(
             aggregate,
@@ -610,7 +606,15 @@ public sealed class M16CraftingResourceStatisticsTests
                     resourceEvidenceProven: false)])));
 
         Assert.True(aggregate.ResourceHistoryUnavailable);
-        Assert.Equal("resource snapshot failed", aggregate.ResourceHistoryProvenance);
+        Assert.Equal(
+            CraftingStatisticsReducer.DeliveredResourceEvidenceUnavailableProvenance,
+            aggregate.ResourceHistoryProvenance);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            aggregate.Capabilities.ItemResourceIdentity.State);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            aggregate.Capabilities.OutputResourceAssociation.State);
         Assert.False(aggregate.CurrencyHistoryUnavailable);
         Assert.Equal(1, aggregate.CompletionActions);
         Assert.Empty(aggregate.Resources);
@@ -622,11 +626,6 @@ public sealed class M16CraftingResourceStatisticsTests
     public void UnprovenCurrencyEvidenceMarksOnlyCurrencyHistoryIncomplete()
     {
         var aggregate = SupportedAggregate();
-        var current = CraftingNativeContractPolicy.Supported("delivery", "formula", "event items", "event money");
-        current.CurrencyCharge = CraftingNativeContractPolicy.Availability(
-            AdapterCapabilityState.DisabledIncompatible,
-            "currency snapshot failed");
-        CraftingStatisticsReducer.InitializeOrRestrictCapabilities(aggregate, current);
 
         Assert.True(CraftingStatisticsReducer.Apply(
             aggregate,
@@ -646,7 +645,12 @@ public sealed class M16CraftingResourceStatisticsTests
         Assert.False(aggregate.ResourceHistoryUnavailable);
         Assert.Equal(2, aggregate.Resources["764"].ConsumedQuantity);
         Assert.True(aggregate.CurrencyHistoryUnavailable);
-        Assert.Equal("currency snapshot failed", aggregate.CurrencyHistoryProvenance);
+        Assert.Equal(
+            CraftingStatisticsReducer.DeliveredCurrencyEvidenceUnavailableProvenance,
+            aggregate.CurrencyHistoryProvenance);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            aggregate.Capabilities.CurrencyCharge.State);
         Assert.Equal(0, aggregate.CurrencyChargeActions);
         Assert.Equal(0, aggregate.CurrencyCharged);
         Assert.Equal(1, aggregate.CompletionActions);
