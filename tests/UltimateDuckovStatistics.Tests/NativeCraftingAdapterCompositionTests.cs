@@ -273,6 +273,55 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     [Fact]
     [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void SecondDeliveryCannotFlushEarlierPendingCapabilityPublication()
+    {
+        var capabilityPublications = 0;
+        using var result = CreateInitializedComposition(
+            onCapabilityPublication: () => capabilityPublications++);
+        var publicationsAfterInitialization = capabilityPublications;
+        var profilePath = CurrentProfilePath(result);
+        var durableBeforeCrafts = File.ReadAllText(profilePath);
+        ItemUtilities.OwnedItems.Add(Stack(9001, 3, durability: 1));
+        ItemUtilities.OwnedItems.Add(Stack(9001, 3, durability: 2));
+
+        CompleteCraft(
+            result.Coordinator,
+            DuplicateCostFormula(),
+            expectCompletionIncrease: true,
+            flushCoordinator: false);
+        CompleteCraft(
+            result.Coordinator,
+            new CraftingFormula
+            {
+                id = "fast-free-after-inexact",
+                result = new CraftingFormula.ItemEntry { id = 7002, amount = 1 },
+                cost = default
+            },
+            expectCompletionIncrease: true,
+            flushCoordinator: false);
+
+        Assert.Equal(2, result.Coordinator.Current!.Statistics.Crafting.CompletionActions);
+        Assert.True(result.Coordinator.Current.Statistics.Crafting.ResourceHistoryUnavailable);
+        Assert.Equal(publicationsAfterInitialization, capabilityPublications);
+        Assert.Equal(
+            AdapterCapabilityState.Supported,
+            result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
+        Assert.Equal(durableBeforeCrafts, File.ReadAllText(profilePath));
+
+        result.Adapter.Tick(DateTime.UtcNow.AddSeconds(2));
+
+        Assert.Equal(publicationsAfterInitialization + 1, capabilityPublications);
+        Assert.Equal(2, ReadCompletionActions(profilePath));
+        Assert.True(ReadCraftingBoolean(profilePath, "ResourceHistoryUnavailable"));
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
     [Trait("Category", "ProductionComposition")]
     public void ColdResourceOnlyHarmonyConflictPreservesCompletionOutputRecipeAndCurrency()
     {
@@ -1075,7 +1124,9 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         return new CompositionResult(directory, coordinator, adapter, diagnostics);
     }
 
-    private static CompositionResult CreateInitializedComposition(Action? beforeInitialize = null)
+    private static CompositionResult CreateInitializedComposition(
+        Action? beforeInitialize = null,
+        Action? onCapabilityPublication = null)
     {
         var directory = new TemporaryDirectory();
         Application.persistentDataPath = directory.Path;
@@ -1088,7 +1139,11 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             () => coordinator.CurrentGenerationId,
             coordinator.HandleCrafting,
             coordinator.RequestCraftingPersistence,
-            coordinator.SetCraftingCapabilities,
+            (records, metrics) =>
+            {
+                onCapabilityPublication?.Invoke();
+                coordinator.SetCraftingCapabilities(records, metrics);
+            },
             diagnostics.Add,
             () => true);
         beforeInitialize?.Invoke();

@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion =
-        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v3+delivery-gated-capability-v2+resource-hook-isolation-v1+pay-hook-isolation-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
+        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v3+delivery-gated-capability-v3+resource-hook-isolation-v1+pay-hook-isolation-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.crafting";
     private const string SupportedGameVersion = "2.3.30";
     private const int DiagnosticKeyCapacity = 32;
@@ -385,16 +385,19 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
     public bool FlushPending()
     {
         var handoffPublished = FlushCompletedProfileHandoffs();
-        var currentPublished = FlushCurrentPending();
+        var currentPublished = FlushCurrentPending(publishCapabilities: true);
         return handoffPublished && currentPublished && !profileHandoff.HasUncommittedData;
     }
 
     public bool FlushPendingForProfileTransition()
     {
         var handoffPublished = FlushCompletedProfileHandoffs();
-        var currentPublished = FlushCurrentPending();
+        var currentPublished = FlushCurrentPending(publishCapabilities: true);
         return handoffPublished && currentPublished;
     }
+
+    private bool FlushPendingFromNativeDelivery() =>
+        FlushCurrentPending(publishCapabilities: false);
 
     public void SetProfileTransitionCleanupBarrier(Func<bool> barrier) =>
         profileTransitionCleanupBarrier = barrier ?? throw new ArgumentNullException(nameof(barrier));
@@ -418,7 +421,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    private bool FlushCurrentPending()
+    private bool FlushCurrentPending(bool publishCapabilities)
     {
         var hadPending = !pendingPublication.IsEmpty;
         try
@@ -431,10 +434,10 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 return true;
             });
             var aggregatePersisted = !hadPending || (aggregatePublished && persistenceHandler());
-            var deferCapabilities = acceptedMutation != null
-                                    && StageDeliveredCostCapabilities(acceptedMutation);
-            if (deferCapabilities) pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
-            var capabilitiesPublished = deferCapabilities || FlushPendingCapabilities();
+            var capabilitiesStaged = acceptedMutation != null
+                                     && StageDeliveredCostCapabilities(acceptedMutation);
+            if (capabilitiesStaged) pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
+            var capabilitiesPublished = !publishCapabilities || FlushPendingCapabilities();
             return capabilitiesPublished && aggregatePublished && aggregatePersisted;
         }
         catch (Exception exception)
@@ -957,7 +960,7 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 return;
             }
             var wasEmpty = pendingPublication.Add(mutation);
-            if (wasEmpty && !FlushPending())
+            if (wasEmpty && !FlushPendingFromNativeDelivery())
             {
                 pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
                 DiagnosticOnce("completion-pending", "A proven crafting completion is retained for aggregate publication retry.");
