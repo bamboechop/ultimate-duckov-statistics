@@ -232,6 +232,47 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
     [Fact]
     [Trait("Category", "M16")]
+    [Trait("Category", "Persistence")]
+    [Trait("Category", "ProductionComposition")]
+    public void DeliveredInexactCostDefersCapabilityProfileWriteBeyondNativeCallback()
+    {
+        using var result = CreateInitializedComposition();
+        var profilePath = CurrentProfilePath(result);
+        var durableBeforeCraft = File.ReadAllText(profilePath);
+        ItemUtilities.OwnedItems.Add(Stack(9001, 3, durability: 1));
+        ItemUtilities.OwnedItems.Add(Stack(9001, 3, durability: 2));
+
+        CompleteCraft(
+            result.Coordinator,
+            DuplicateCostFormula(),
+            expectCompletionIncrease: true,
+            flushCoordinator: false);
+
+        var crafting = result.Coordinator.Current!.Statistics.Crafting;
+        Assert.Equal(1, crafting.CompletionActions);
+        Assert.True(crafting.ResourceHistoryUnavailable);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            crafting.Capabilities.ItemResourceIdentity.State);
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            result.Adapter.MetricCapabilities.ItemResourceIdentity.State);
+        Assert.Equal(
+            AdapterCapabilityState.Supported,
+            result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
+        Assert.Equal(durableBeforeCraft, File.ReadAllText(profilePath));
+
+        result.Adapter.Tick(DateTime.UtcNow.AddSeconds(2));
+
+        Assert.Equal(1, ReadCompletionActions(profilePath));
+        Assert.True(ReadCraftingBoolean(profilePath, "ResourceHistoryUnavailable"));
+        Assert.Equal(
+            AdapterCapabilityState.DisabledIncompatible,
+            result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
+    }
+
+    [Fact]
+    [Trait("Category", "M16")]
     [Trait("Category", "ProductionComposition")]
     public void ColdResourceOnlyHarmonyConflictPreservesCompletionOutputRecipeAndCurrency()
     {
@@ -1099,7 +1140,8 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
     private static void CompleteCraft(
         NativeProfileCoordinator coordinator,
         CraftingFormula formula,
-        bool expectCompletionIncrease)
+        bool expectCompletionIncrease,
+        bool flushCoordinator = true)
     {
         var actionsBeforeDelivery = coordinator.Current!.Statistics.Crafting.CompletionActions;
         var craftPrefixArguments = new object?[] { formula, null };
@@ -1141,7 +1183,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         wrappedDelivery.GetAwaiter().GetResult();
         craftCompletion.SetResult(new List<Item>());
         wrappedCraft.GetAwaiter().GetResult();
-        coordinator.Flush();
+        if (flushCoordinator) coordinator.Flush();
         Assert.Equal(
             expectCompletionIncrease ? checked(actionsBeforeDelivery + 1) : actionsBeforeDelivery,
             coordinator.Current.Statistics.Crafting.CompletionActions);

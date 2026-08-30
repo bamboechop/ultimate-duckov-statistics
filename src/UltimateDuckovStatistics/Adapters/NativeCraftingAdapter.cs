@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
 {
     internal const string AdapterVersion =
-        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v3+delivery-gated-capability-v1+resource-hook-isolation-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
+        "native-crafting/2.3.30+correlated-cost-return-v2+event-cost-v2+duplicate-pay-proof-v3+delivery-gated-capability-v2+resource-hook-isolation-v1+profile-handoff-v1+patch-stamp-v1+deferred-profile-v1";
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.crafting";
     private const string SupportedGameVersion = "2.3.30";
     private const int DiagnosticKeyCapacity = 32;
@@ -385,8 +385,10 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                 return true;
             });
             var aggregatePersisted = !hadPending || (aggregatePublished && persistenceHandler());
-            if (acceptedMutation != null) StageDeliveredCostCapabilities(acceptedMutation);
-            var capabilitiesPublished = FlushPendingCapabilities();
+            var deferCapabilities = acceptedMutation != null
+                                    && StageDeliveredCostCapabilities(acceptedMutation);
+            if (deferCapabilities) pendingRetryScheduler.Reset(DateTime.UtcNow, 1);
+            var capabilitiesPublished = deferCapabilities || FlushPendingCapabilities();
             return capabilitiesPublished && aggregatePublished && aggregatePersisted;
         }
         catch (Exception exception)
@@ -631,11 +633,11 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
         }
     }
 
-    private void StageDeliveredCostCapabilities(CraftingMutation mutation)
+    private bool StageDeliveredCostCapabilities(CraftingMutation mutation)
     {
         var resourceUnavailable = mutation.Rows.Any(row => !row.ResourceEvidenceProven);
         var currencyUnavailable = mutation.Rows.Any(row => !row.CurrencyEvidenceProven);
-        if (!resourceUnavailable && !currencyUnavailable) return;
+        if (!resourceUnavailable && !currencyUnavailable) return false;
 
         CraftingMetricCapabilities? snapshot = null;
         lock (lifecycleSync)
@@ -649,10 +651,11 @@ internal sealed class NativeCraftingAdapter : IDisposable, IRetryableCleanup
                     : null);
             if (changed) snapshot = CraftingStatisticsReducer.CloneCapabilities(capabilities);
         }
-        if (snapshot == null) return;
+        if (snapshot == null) return false;
         capabilityPublication.Stage(
             CraftingNativeContractPolicy.ToRecords(snapshot, AdapterVersion),
             snapshot);
+        return true;
     }
 
     private bool TrySnapshotResourceCosts(
