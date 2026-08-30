@@ -454,6 +454,20 @@ public sealed class M16CraftingResourceStatisticsTests
         actionsExceedExactResourceQuantity.Outputs["131"].Recipes["1026"].Resources["764"].ConsumedQuantity = 1;
         Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(actionsExceedExactResourceQuantity));
 
+        var actionsExceedExactCurrencyAmount = SupportedAggregate();
+        Apply(actionsExceedExactCurrencyAmount, 2, 150);
+        Apply(actionsExceedExactCurrencyAmount, 2, 150);
+        actionsExceedExactCurrencyAmount.CurrencyCharged = 1;
+        actionsExceedExactCurrencyAmount.Outputs["131"].CurrencyCharged = 1;
+        actionsExceedExactCurrencyAmount.Outputs["131"].Recipes["1026"].CurrencyCharged = 1;
+        Assert.Throws<ArgumentException>(() => CraftingStatisticsReducer.Validate(actionsExceedExactCurrencyAmount));
+
+        var saturatedActionsStillRequireExactCurrencyLowerBound =
+            CraftingStatisticsReducer.Clone(actionsExceedExactCurrencyAmount);
+        saturatedActionsStillRequireExactCurrencyLowerBound.CurrencyActionArithmeticUnavailable = true;
+        Assert.Throws<ArgumentException>(() =>
+            CraftingStatisticsReducer.Validate(saturatedActionsStillRequireExactCurrencyLowerBound));
+
         var zeroCurrencyActions = CraftingStatisticsReducer.Clone(valid);
         zeroCurrencyActions.CurrencyChargeActions = 0;
         zeroCurrencyActions.Outputs["131"].CurrencyChargeActions = 0;
@@ -518,6 +532,9 @@ public sealed class M16CraftingResourceStatisticsTests
         Assert.Equal(2, unavailableActions.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumedQuantity);
         Assert.Equal(0, unavailableActions.Outputs["next"].CurrencyChargeActions);
         Assert.Equal(10, unavailableActions.Outputs["next"].CurrencyCharged);
+        Assert.True(
+            unavailableActions.Outputs["next"].CurrencyCharged
+            > unavailableActions.Outputs["next"].CurrencyChargeActions);
         CraftingStatisticsReducer.Validate(unavailableActions);
 
         var unavailableAmounts = SupportedAggregate();
@@ -529,6 +546,9 @@ public sealed class M16CraftingResourceStatisticsTests
         Assert.Equal(0, unavailableAmounts.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumedQuantity);
         Assert.Equal(1, unavailableAmounts.Outputs["next"].CurrencyChargeActions);
         Assert.Equal(0, unavailableAmounts.Outputs["next"].CurrencyCharged);
+        Assert.True(
+            unavailableAmounts.Outputs["next"].CurrencyChargeActions
+            > unavailableAmounts.Outputs["next"].CurrencyCharged);
         Assert.True(
             unavailableAmounts.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumptionActions
             > unavailableAmounts.Outputs["next"].Recipes["next-recipe"].Resources["764"].ConsumedQuantity);

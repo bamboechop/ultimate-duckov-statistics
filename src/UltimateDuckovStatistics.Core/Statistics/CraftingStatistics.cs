@@ -1007,10 +1007,10 @@ public static class CraftingStatisticsReducer
             && aggregate.CurrencyAmountArithmeticUnavailable)
             return false;
         if (aggregate.CurrencyActionArithmeticUnavailable)
-            return actions > 0 && amount == 0;
+            return amount < actions;
         if (aggregate.CurrencyAmountArithmeticUnavailable)
             return actions == 0 && amount > 0;
-        return (actions == 0) != (amount == 0);
+        return (actions == 0) != (amount == 0) || amount < actions;
     }
 
     private static CraftedOutputAggregate CloneOutput(CraftedOutputAggregate source) => new()
