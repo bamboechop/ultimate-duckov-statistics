@@ -152,6 +152,61 @@ internal static class TabStripScrollPolicy
     }
 }
 
+internal sealed class RetainedShellLayout
+{
+    public float MarginPixels { get; set; }
+    public float InnerMarginPixels { get; set; }
+    public float HeaderHeightPixels { get; set; }
+    public float TabRowHeightPixels { get; set; }
+    public float TabWidthPixels { get; set; }
+    public float TabHeightPixels { get; set; }
+    public float TabSpacingPixels { get; set; }
+    public float TabPaddingPixels { get; set; }
+    public float TabViewportWidthPixels { get; set; }
+    public float TabContentWidthPixels { get; set; }
+    public bool TabStripRequiresScrolling { get; set; }
+}
+
+internal static class RetainedShellLayoutPolicy
+{
+    public static RetainedShellLayout Create(float screenWidth, float screenHeight)
+    {
+        if (screenWidth <= 0f) throw new ArgumentOutOfRangeException(nameof(screenWidth));
+        if (screenHeight <= 0f) throw new ArgumentOutOfRangeException(nameof(screenHeight));
+        var margin = screenWidth <= 1200f ? 18f : 34f;
+        const float innerMargin = 18f;
+        const float tabWidth = 176f;
+        const float tabHeight = 54f;
+        const float tabSpacing = 8f;
+        const float tabPadding = 8f;
+        var tabCount = PanelInteractionState.NavigationOrder.Count;
+        var contentWidth = tabPadding * 2f
+                           + tabCount * tabWidth
+                           + Math.Max(0, tabCount - 1) * tabSpacing;
+        var viewportWidth = Math.Max(1f, screenWidth - margin * 2f - innerMargin * 2f);
+        return new RetainedShellLayout
+        {
+            MarginPixels = margin,
+            InnerMarginPixels = innerMargin,
+            HeaderHeightPixels = 74f,
+            TabRowHeightPixels = 64f,
+            TabWidthPixels = tabWidth,
+            TabHeightPixels = tabHeight,
+            TabSpacingPixels = tabSpacing,
+            TabPaddingPixels = tabPadding,
+            TabViewportWidthPixels = viewportWidth,
+            TabContentWidthPixels = contentWidth,
+            TabStripRequiresScrolling = contentWidth > viewportWidth
+        };
+    }
+}
+
+internal static class PanelFocusRestorePolicy
+{
+    public static bool ShouldRestore(bool snapshotCaptured, bool priorObjectExists, bool priorObjectActive) =>
+        snapshotCaptured && priorObjectExists && priorObjectActive;
+}
+
 internal sealed class RetainedShellLifecycleState
 {
     public bool IsOpen { get; private set; }

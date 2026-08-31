@@ -82,6 +82,48 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void RetainedShellUsesNearFullViewportAndOnlyOverflowsAtNarrowWidth()
+    {
+        var desktop = RetainedShellLayoutPolicy.Create(2560f, 1440f);
+        var narrow = RetainedShellLayoutPolicy.Create(1024f, 768f);
+
+        Assert.False(desktop.TabStripRequiresScrolling);
+        Assert.True(narrow.TabStripRequiresScrolling);
+        Assert.InRange(desktop.MarginPixels, 24f, 40f);
+        Assert.InRange(narrow.MarginPixels, 12f, 24f);
+        Assert.True(desktop.TabViewportWidthPixels > desktop.TabContentWidthPixels);
+        Assert.True(narrow.TabViewportWidthPixels < narrow.TabContentWidthPixels);
+    }
+
+    [Fact]
+    public void TabSelectionMovesInExactOrderAndWraps()
+    {
+        var state = new PanelInteractionState();
+
+        Assert.Equal(StatisticsPanelTab.Overview, state.SelectedTab);
+        state.MoveTab(1);
+        Assert.Equal(StatisticsPanelTab.Runs, state.SelectedTab);
+        state.MoveTab(-2);
+        Assert.Equal(StatisticsPanelTab.Diagnostics, state.SelectedTab);
+        state.SelectTab(StatisticsPanelTab.Crafting);
+        Assert.Equal(StatisticsPanelTab.Crafting, state.SelectedTab);
+    }
+
+    [Theory]
+    [InlineData(false, true, true, false)]
+    [InlineData(true, false, true, false)]
+    [InlineData(true, true, false, false)]
+    [InlineData(true, true, true, true)]
+    public void FocusRestorationRequiresACapturedLiveActiveTarget(
+        bool captured,
+        bool exists,
+        bool active,
+        bool expected)
+    {
+        Assert.Equal(expected, PanelFocusRestorePolicy.ShouldRestore(captured, exists, active));
+    }
+
+    [Fact]
     public void RetainedShellLifecycleAllowsOneOpenRootAndCleansUpDeterministically()
     {
         var lifecycle = new RetainedShellLifecycleState();

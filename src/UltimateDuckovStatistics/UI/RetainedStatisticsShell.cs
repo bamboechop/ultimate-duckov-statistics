@@ -13,11 +13,6 @@ namespace UltimateDuckovStatistics.UI;
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
 {
-    private const float TabWidthPixels = 176f;
-    private const float TabHeightPixels = 54f;
-    private const float TabSpacingPixels = 8f;
-    private const float TabPaddingPixels = 8f;
-
     private readonly Dictionary<StatisticsPanelTab, Button> tabButtons = new();
     private readonly Dictionary<StatisticsPanelTab, TextMeshProUGUI> tabLabels = new();
     private readonly Dictionary<StatisticsPanelTab, LayoutElement> tabLayouts = new();
@@ -39,6 +34,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private int lastScreenWidth = -1;
     private int lastScreenHeight = -1;
     private float lastCanvasScale = -1f;
+    private RetainedShellLayout currentLayout = RetainedShellLayoutPolicy.Create(2560f, 1440f);
 
     public bool IsCreated => root != null;
 
@@ -215,12 +211,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
         lastScreenWidth = Screen.width;
         lastScreenHeight = Screen.height;
         lastCanvasScale = canvasScale;
+        currentLayout = RetainedShellLayoutPolicy.Create(Screen.width, Screen.height);
         var unit = 1f / canvasScale;
-        var marginPixels = Screen.width <= 1200 ? 18f : 34f;
-        var margin = marginPixels * unit;
-        var headerHeight = 74f * unit;
-        var tabHeight = 64f * unit;
-        var innerMargin = 18f * unit;
+        var margin = currentLayout.MarginPixels * unit;
+        var headerHeight = currentLayout.HeaderHeightPixels * unit;
+        var tabHeight = currentLayout.TabRowHeightPixels * unit;
+        var innerMargin = currentLayout.InnerMarginPixels * unit;
 
         Stretch(root.GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
         Stretch(frame, margin, margin, margin, margin);
@@ -248,18 +244,18 @@ internal sealed class RetainedStatisticsShell : IDisposable
             rect.sizeDelta = new Vector2(112f * unit, 50f * unit);
         }
 
-        tabLayout.spacing = TabSpacingPixels * unit;
+        tabLayout.spacing = currentLayout.TabSpacingPixels * unit;
         tabLayout.padding = new RectOffset(
-            Mathf.RoundToInt(TabPaddingPixels * unit),
-            Mathf.RoundToInt(TabPaddingPixels * unit),
+            Mathf.RoundToInt(currentLayout.TabPaddingPixels * unit),
+            Mathf.RoundToInt(currentLayout.TabPaddingPixels * unit),
             0,
             0);
         foreach (var layoutElement in tabLayouts.Values)
         {
-            layoutElement.minWidth = TabWidthPixels * unit;
-            layoutElement.preferredWidth = TabWidthPixels * unit;
-            layoutElement.minHeight = TabHeightPixels * unit;
-            layoutElement.preferredHeight = TabHeightPixels * unit;
+            layoutElement.minWidth = currentLayout.TabWidthPixels * unit;
+            layoutElement.preferredWidth = currentLayout.TabWidthPixels * unit;
+            layoutElement.minHeight = currentLayout.TabHeightPixels * unit;
+            layoutElement.preferredHeight = currentLayout.TabHeightPixels * unit;
         }
 
         tabContent.sizeDelta = new Vector2(tabContent.sizeDelta.x, 0f);
@@ -298,8 +294,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var unit = 1f / Math.Max(0.01f, lastCanvasScale);
         var viewportWidth = tabViewport.rect.width;
         var contentWidth = tabContent.rect.width;
-        var selectedLeft = (TabPaddingPixels + selectedIndex * (TabWidthPixels + TabSpacingPixels)) * unit;
-        var selectedWidth = TabWidthPixels * unit;
+        var selectedLeft = (currentLayout.TabPaddingPixels
+                            + selectedIndex * (currentLayout.TabWidthPixels + currentLayout.TabSpacingPixels)) * unit;
+        var selectedWidth = currentLayout.TabWidthPixels * unit;
         var currentOffset = tabScroll.horizontalNormalizedPosition * Math.Max(0f, contentWidth - viewportWidth);
         var targetOffset = TabStripScrollPolicy.EnsureVisible(
             viewportWidth,

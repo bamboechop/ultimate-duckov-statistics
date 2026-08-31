@@ -175,11 +175,16 @@ internal sealed class NativeStatisticsPanel : IDisposable
         Cursor.visible = priorCursorVisible;
         Cursor.lockState = priorCursorLockMode;
         var eventSystem = GameManager.EventSystem;
+        var selectedObject = priorSelectedGameObject;
+        var priorObjectExists = selectedObject != null;
+        var priorObjectActive = priorObjectExists && selectedObject!.activeInHierarchy;
         if (eventSystem != null
-            && priorSelectedGameObject != null
-            && priorSelectedGameObject.activeInHierarchy)
+            && PanelFocusRestorePolicy.ShouldRestore(
+                cursorStateCaptured,
+                priorObjectExists,
+                priorObjectActive))
         {
-            eventSystem.SetSelectedGameObject(priorSelectedGameObject);
+            eventSystem.SetSelectedGameObject(selectedObject!);
         }
         priorSelectedGameObject = null;
         cursorStateCaptured = false;
