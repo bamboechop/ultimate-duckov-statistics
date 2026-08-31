@@ -369,6 +369,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
     private void EnsureSelectedVisible()
     {
+        if (root == null || !root.activeInHierarchy) return;
         if (tabScroll == null || tabViewport == null || tabContent == null) return;
         if (!tabButtons.TryGetValue(selectedTab, out var selectedButton) || selectedButton == null) return;
         var viewportWidth = tabViewport.rect.width;
@@ -378,12 +379,16 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var selectedLeft = selectedBounds.min.x - tabContent.rect.xMin;
         var selectedWidth = selectedBounds.size.x;
         var currentOffset = tabScroll.horizontalNormalizedPosition * Math.Max(0f, contentWidth - viewportWidth);
-        var targetOffset = TabStripScrollPolicy.EnsureVisible(
-            viewportWidth,
-            contentWidth,
-            selectedLeft,
-            selectedWidth,
-            currentOffset);
+        if (!RuntimeTabStripScrollPolicy.TryEnsureVisible(
+                viewportWidth,
+                contentWidth,
+                selectedLeft,
+                selectedWidth,
+                currentOffset,
+                out var targetOffset))
+        {
+            return;
+        }
         var overflow = Math.Max(0f, contentWidth - viewportWidth);
         tabScroll.horizontalNormalizedPosition = overflow <= 0f ? 0f : targetOffset / overflow;
         UpdateTabOverflowCues();

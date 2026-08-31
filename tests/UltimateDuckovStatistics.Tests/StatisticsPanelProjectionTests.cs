@@ -119,6 +119,34 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void RuntimeTabScrollToleratesTransientUnityLayoutGeometry()
+    {
+        Assert.True(RuntimeTabStripScrollPolicy.TryEnsureVisible(
+            500f,
+            1400f,
+            -50f,
+            150f,
+            float.NaN,
+            out var targetOffset));
+        Assert.Equal(0f, targetOffset);
+
+        Assert.False(RuntimeTabStripScrollPolicy.TryEnsureVisible(
+            0f,
+            1400f,
+            0f,
+            150f,
+            0f,
+            out _));
+        Assert.False(RuntimeTabStripScrollPolicy.TryEnsureVisible(
+            500f,
+            1400f,
+            0f,
+            0f,
+            0f,
+            out _));
+    }
+
+    [Fact]
     public void RetainedShellUsesNearFullViewportAndOnlyOverflowsAtNarrowWidth()
     {
         var desktop = RetainedShellLayoutPolicy.Create(2560f, 1440f);

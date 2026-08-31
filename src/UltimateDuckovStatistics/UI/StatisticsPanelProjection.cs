@@ -191,6 +191,37 @@ internal static class TabStripScrollPolicy
     }
 }
 
+internal static class RuntimeTabStripScrollPolicy
+{
+    public static bool TryEnsureVisible(
+        float viewportWidth,
+        float contentWidth,
+        float selectedLeft,
+        float selectedWidth,
+        float currentOffset,
+        out float targetOffset)
+    {
+        targetOffset = 0f;
+        if (!IsFinite(viewportWidth) || viewportWidth <= 0f
+            || !IsFinite(contentWidth) || contentWidth < 0f
+            || !IsFinite(selectedLeft)
+            || !IsFinite(selectedWidth) || selectedWidth <= 0f)
+        {
+            return false;
+        }
+
+        targetOffset = TabStripScrollPolicy.EnsureVisible(
+            viewportWidth,
+            contentWidth,
+            Math.Max(0f, selectedLeft),
+            selectedWidth,
+            IsFinite(currentOffset) ? currentOffset : 0f);
+        return true;
+    }
+
+    private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+}
+
 internal sealed class RetainedShellLayout
 {
     public float MarginPixels { get; set; }
