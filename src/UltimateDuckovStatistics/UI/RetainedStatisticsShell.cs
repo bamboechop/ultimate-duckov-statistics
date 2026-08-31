@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using UnityEngine.UI.ProceduralImage;
 
 namespace UltimateDuckovStatistics.UI;
 
@@ -20,6 +21,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private GameObject? root;
     private Canvas? canvas;
     private RectTransform? frame;
+    private RectTransform? headerBackground;
+    private UniformModifier? headerBackgroundModifier;
     private RectTransform? header;
     private RectTransform? navigationRail;
     private RectTransform? tabViewport;
@@ -104,16 +107,16 @@ internal sealed class RetainedStatisticsShell : IDisposable
             canvas = targetCanvas;
             root = CreateRect("UltimateDuckovStatisticsRetainedShell", targetCanvas.transform).gameObject;
             root.SetActive(false);
-            root.AddComponent<CanvasGroup>().blocksRaycasts = true;
+            var rootGroup = root.AddComponent<CanvasGroup>();
+            rootGroup.alpha = RetainedShellSurfacePolicy.ParentCanvasGroupOpacity;
+            rootGroup.interactable = true;
+            rootGroup.blocksRaycasts = true;
             var blocker = root.AddComponent<Image>();
             blocker.color = new Color(0.005f, 0.015f, 0.035f, RetainedShellLayerPolicy.BlockerOpacity);
-            blocker.raycastTarget = true;
+            blocker.raycastTarget = RetainedShellSurfacePolicy.GlobalBlockerBlocksRaycasts;
 
-            frame = CreateSurface(
-                "Frame",
-                root.transform,
-                new Color(0.012f, 0.05f, 0.085f, RetainedShellLayerPolicy.FrameOpacity),
-                raycastTarget: true);
+            frame = CreateRect("LayoutRoot", root.transform);
+            (headerBackground, headerBackgroundModifier) = CreateRoundedHeaderSurface("HeaderBackground", frame);
 
             header = CreateRect("Header", frame);
             title = CreateText(
@@ -182,7 +185,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             contentHost = CreateSurface(
                 "ContentPlaceholder",
                 frame,
-                new Color(0.006f, 0.026f, 0.045f, RetainedShellLayerPolicy.ContentOpacity),
+                new Color(0f, 0f, 0f, RetainedShellSurfacePolicy.ContentBackgroundOpacity),
                 raycastTarget: false);
 
             contentViewport = CreateRect("ContentViewport", contentHost);
@@ -215,6 +218,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 new Color(0.78f, 0.84f, 0.88f, 1f));
             contentLeadingCue = CreateDirectionalCue("ContentLeadingCue", contentHost, "^");
             contentTrailingCue = CreateDirectionalCue("ContentTrailingCue", contentHost, "v");
+
+            ValidateSurfaceHierarchy(frame, headerBackground, contentHost);
 
             SetSelectedTab(initialTab, ensureVisible: false);
             RefreshLayout(force: true);
@@ -277,7 +282,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
     private void RefreshLayout(bool force)
     {
-        if (root == null || canvas == null || frame == null || header == null || navigationRail == null
+        if (root == null || canvas == null || frame == null || headerBackground == null
+            || headerBackgroundModifier == null || header == null || navigationRail == null
             || tabViewport == null
             || tabContent == null || contentHost == null || contentViewport == null || tabLayout == null)
         {
@@ -297,28 +303,18 @@ internal sealed class RetainedStatisticsShell : IDisposable
         lastScreenHeight = Screen.height;
         lastCanvasScale = canvasScale;
         currentLayout = RetainedShellLayoutPolicy.Create(Screen.width, Screen.height);
+        var surfaceLayout = RetainedShellSurfaceLayoutPolicy.Create(Screen.width, Screen.height, currentLayout);
+        var frozenChildren = RetainedShellFrozenChildLayoutPolicy.Create(Screen.width, currentLayout);
         var unit = 1f / canvasScale;
-        var margin = currentLayout.MarginPixels * unit;
-        var headerHeight = currentLayout.HeaderHeightPixels * unit;
-        var tabHeight = currentLayout.TabRowHeightPixels * unit;
-        var innerMargin = currentLayout.InnerMarginPixels * unit;
 
         Stretch(root.GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
-        Stretch(frame, margin, margin, margin, margin);
-        AnchorTop(header, innerMargin, innerMargin, innerMargin, headerHeight);
-        AnchorTop(tabViewport, innerMargin, innerMargin, innerMargin + headerHeight, tabHeight);
-        AnchorTop(
-            navigationRail,
-            innerMargin,
-            innerMargin,
-            innerMargin + headerHeight + tabHeight - currentLayout.NavigationRailPixels * unit,
-            currentLayout.NavigationRailPixels * unit);
-        Stretch(
-            contentHost,
-            innerMargin,
-            innerMargin,
-            innerMargin + headerHeight + tabHeight + 10f * unit,
-            innerMargin);
+        Stretch(frame, 0f, 0f, 0f, 0f);
+        AnchorPixelBounds(headerBackground, surfaceLayout.HeaderBounds, Screen.width, unit);
+        headerBackgroundModifier.Radius = surfaceLayout.HeaderCornerRadiusPixels * unit;
+        AnchorPixelBounds(header, frozenChildren.HeaderBounds, Screen.width, unit);
+        AnchorPixelBounds(tabViewport, frozenChildren.TabBounds, Screen.width, unit);
+        AnchorPixelBounds(navigationRail, frozenChildren.RailBounds, Screen.width, unit);
+        StretchPixelBounds(contentHost, surfaceLayout.ContentBounds, Screen.width, Screen.height, unit);
         Stretch(contentViewport, 1f * unit, 1f * unit, 1f * unit, 1f * unit);
 
         if (title != null)
@@ -737,6 +733,54 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return rect;
     }
 
+    private static (RectTransform Rect, UniformModifier Modifier) CreateRoundedHeaderSurface(
+        string name,
+        Transform parent)
+    {
+        var rect = CreateRect(name, parent);
+        var image = rect.gameObject.AddComponent<ProceduralImage>();
+        image.color = new Color32(
+            RetainedShellSurfacePolicy.HeaderRed,
+            RetainedShellSurfacePolicy.HeaderGreen,
+            RetainedShellSurfacePolicy.HeaderBlue,
+            RetainedShellSurfacePolicy.HeaderAlpha);
+        image.BorderWidth = 0f;
+        image.FalloffDistance = 1f;
+        image.raycastTarget = false;
+        var modifier = rect.gameObject.AddComponent<UniformModifier>();
+        modifier.Radius = 18f;
+        return (rect, modifier);
+    }
+
+    private static void ValidateSurfaceHierarchy(
+        RectTransform layoutRoot,
+        RectTransform headerSurface,
+        RectTransform lowerContentHost)
+    {
+        if (layoutRoot.GetComponents<Graphic>().Length
+            != RetainedShellSurfacePolicy.VisibleFullHeightFrameGraphicCount)
+            throw new InvalidOperationException("The Gate 1c-A layout root must not own a visible Graphic.");
+        var headerGraphics = headerSurface.GetComponentsInChildren<Graphic>(includeInactive: true);
+        if (headerGraphics.Length != RetainedShellSurfacePolicy.VisibleHeaderBackgroundGraphicCount
+            || headerGraphics[0] is not ProceduralImage)
+        {
+            throw new InvalidOperationException("The Gate 1c-A header must own exactly one ProceduralImage Graphic.");
+        }
+        if (headerSurface.GetComponents<UniformModifier>().Length != 1)
+            throw new InvalidOperationException("The Gate 1c-A header must own exactly one UniformModifier.");
+        if (headerSurface.GetComponentsInParent<CanvasGroup>(includeInactive: true)
+            .Any(group => Math.Abs(group.alpha - RetainedShellSurfacePolicy.ParentCanvasGroupOpacity) > 0.0001f))
+        {
+            throw new InvalidOperationException("A parent CanvasGroup would multiply the Gate 1c-A header alpha.");
+        }
+        var contentGraphic = lowerContentHost.GetComponent<Image>();
+        if (contentGraphic == null
+            || Math.Abs(contentGraphic.color.a - RetainedShellSurfacePolicy.ContentBackgroundOpacity) > 0.0001f)
+        {
+            throw new InvalidOperationException("The Gate 1c-A lower content host must remain fully transparent.");
+        }
+    }
+
     private static Image CreateGraphicPresentation(
         RectTransform target,
         Color color,
@@ -840,6 +884,35 @@ internal sealed class RetainedStatisticsShell : IDisposable
         rect.offsetMax = new Vector2(-right, -top);
     }
 
+    private static void AnchorPixelBounds(
+        RectTransform rect,
+        RetainedPixelBounds bounds,
+        float screenWidth,
+        float unit)
+    {
+        AnchorTop(
+            rect,
+            bounds.Left * unit,
+            (screenWidth - bounds.Right) * unit,
+            bounds.Top * unit,
+            bounds.Height * unit);
+    }
+
+    private static void StretchPixelBounds(
+        RectTransform rect,
+        RetainedPixelBounds bounds,
+        float screenWidth,
+        float screenHeight,
+        float unit)
+    {
+        Stretch(
+            rect,
+            bounds.Left * unit,
+            (screenWidth - bounds.Right) * unit,
+            bounds.Top * unit,
+            (screenHeight - bounds.Bottom) * unit);
+    }
+
     private static string TabLabel(StatisticsPanelTab tab) => tab switch
     {
         StatisticsPanelTab.Overview => UiText.Get("ui.overview"),
@@ -864,6 +937,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         root = null;
         canvas = null;
         frame = null;
+        headerBackground = null;
+        headerBackgroundModifier = null;
         header = null;
         navigationRail = null;
         tabViewport = null;

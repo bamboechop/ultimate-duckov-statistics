@@ -200,6 +200,92 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void Gate1cAUsesTheMeasuredDesktopHeaderAndTransparentContentBounds()
+    {
+        var frozen = RetainedShellLayoutPolicy.Create(2560f, 1440f);
+        var surfaces = RetainedShellSurfaceLayoutPolicy.Create(2560f, 1440f, frozen);
+
+        // The width policy resolves 3.32% to 84.992 px; these assertions retain
+        // that documented sub-pixel CanvasScaler tolerance around the 85 px design edge.
+        Assert.InRange(surfaces.HeaderBounds.Left, 84.99f, 85.01f);
+        Assert.InRange(surfaces.HeaderBounds.Top, 111.99f, 112.01f);
+        Assert.InRange(surfaces.HeaderBounds.Right, 2474.99f, 2475.01f);
+        Assert.InRange(surfaces.HeaderBounds.Bottom, 329.99f, 330.01f);
+        Assert.InRange(surfaces.HeaderBounds.Width, 2390f, 2390.02f);
+        Assert.InRange(surfaces.HeaderBounds.Height, 217.99f, 218.01f);
+        Assert.InRange(surfaces.ContentBounds.Left, 84.99f, 85.01f);
+        Assert.InRange(surfaces.ContentBounds.Top, 369.99f, 370.01f);
+        Assert.InRange(surfaces.ContentBounds.Right, 2474.99f, 2475.01f);
+        Assert.InRange(surfaces.ContentBounds.Bottom, 1409.99f, 1410.01f);
+        Assert.InRange(surfaces.ContentBounds.Width, 2390f, 2390.02f);
+        Assert.InRange(surfaces.ContentBounds.Height, 1039.99f, 1040.01f);
+        Assert.Equal(40f, surfaces.HeaderContentGapPixels);
+        Assert.Equal(18f, surfaces.HeaderCornerRadiusPixels);
+    }
+
+    [Fact]
+    public void Gate1cAOwnsOnlyOneVisibleHeaderSurfaceAndNoVisibleOuterFrame()
+    {
+        Assert.Equal(1, RetainedShellSurfacePolicy.VisibleHeaderBackgroundGraphicCount);
+        Assert.Equal(0, RetainedShellSurfacePolicy.VisibleFullHeightFrameGraphicCount);
+        Assert.Equal(0f, RetainedShellSurfacePolicy.ContentBackgroundOpacity);
+        Assert.Equal(1f, RetainedShellSurfacePolicy.ParentCanvasGroupOpacity);
+        Assert.True(RetainedShellSurfacePolicy.GlobalBlockerBlocksRaycasts);
+        Assert.Equal(
+            "UnityEngine.UI.ProceduralImage.ProceduralImage",
+            RetainedShellSurfacePolicy.HeaderGraphicTypeName);
+        Assert.Equal("UniformModifier", RetainedShellSurfacePolicy.HeaderModifierTypeName);
+        Assert.Equal((byte)0, RetainedShellSurfacePolicy.HeaderRed);
+        Assert.Equal((byte)8, RetainedShellSurfacePolicy.HeaderGreen);
+        Assert.Equal((byte)16, RetainedShellSurfacePolicy.HeaderBlue);
+        Assert.Equal((byte)140, RetainedShellSurfacePolicy.HeaderAlpha);
+    }
+
+    [Fact]
+    public void Gate1cAKeepsTheE874589DesktopChildPoliciesFrozen()
+    {
+        var layout = RetainedShellLayoutPolicy.Create(2560f, 1440f);
+        var children = RetainedShellFrozenChildLayoutPolicy.Create(2560f, layout);
+
+        Assert.Equal(28f, layout.InnerMarginPixels);
+        Assert.Equal(126f, layout.HeaderHeightPixels);
+        Assert.Equal(76f, layout.TabRowHeightPixels);
+        Assert.Equal(148f, layout.TabWidthPixels);
+        Assert.Equal(62f, layout.TabHeightPixels);
+        Assert.Equal(8f, layout.TabSpacingPixels);
+        Assert.Equal(0f, layout.TabPaddingPixels);
+        Assert.Equal(58f, layout.TitleFontPixels);
+        Assert.Equal(27f, layout.NavigationFontPixels);
+        Assert.Equal(64f, layout.BackControlPixels);
+        Assert.Equal(5f, layout.NavigationRailPixels);
+        Assert.InRange(children.HeaderBounds.Left, 112.99f, 113.01f);
+        Assert.InRange(children.HeaderBounds.Top, 112.99f, 113.01f);
+        Assert.InRange(children.HeaderBounds.Right, 2446.99f, 2447.01f);
+        Assert.InRange(children.HeaderBounds.Bottom, 238.99f, 239.01f);
+        Assert.InRange(children.TabBounds.Top, 238.99f, 239.01f);
+        Assert.InRange(children.TabBounds.Bottom, 314.99f, 315.01f);
+        Assert.InRange(children.RailBounds.Top, 309.99f, 310.01f);
+        Assert.InRange(children.RailBounds.Bottom, 314.99f, 315.01f);
+    }
+
+    [Fact]
+    public void Gate1cANarrowSurfaceContainsTheFrozenNavigationAndLeavesContentReachable()
+    {
+        var frozen = RetainedShellLayoutPolicy.Create(1024f, 768f);
+        var surfaces = RetainedShellSurfaceLayoutPolicy.Create(1024f, 768f, frozen);
+        var frozenNavigationTop = frozen.MarginPixels + frozen.InnerMarginPixels;
+        var frozenRailBottom = frozenNavigationTop + frozen.HeaderHeightPixels + frozen.TabRowHeightPixels;
+
+        Assert.True(surfaces.HeaderBounds.Top <= frozenNavigationTop);
+        Assert.True(surfaces.HeaderBounds.Bottom >= frozenRailBottom);
+        Assert.True(surfaces.ContentBounds.Top > surfaces.HeaderBounds.Bottom);
+        Assert.True(surfaces.ContentBounds.Bottom <= 768f);
+        Assert.True(surfaces.ContentBounds.Bottom > surfaces.ContentBounds.Top);
+        Assert.InRange(surfaces.HeaderCornerRadiusPixels, 8f, 18f);
+        Assert.InRange(surfaces.HeaderContentGapPixels, 20f, 40f);
+    }
+
+    [Fact]
     public void NativeFontMetricsCanWidenLongLocalizedNavigationWithoutShrinkingLabels()
     {
         Assert.Equal(202f, RetainedTabWidthPolicy.Resolve(202f, 120f, 38f));
@@ -277,23 +363,23 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void Gate1cLayersMakeTheShellDistinctFromTheDimmedScene()
+    public void Gate1cAPreservesTheDimmerAndComposesOnlyTheHeaderSurface()
     {
-        var outsideFrame = RetainedShellLayerPolicy.BackgroundTransmission(
+        var lowerLayout = RetainedShellLayerPolicy.BackgroundTransmission(
             RetainedShellLayerPolicy.BlockerOpacity);
-        var insideFrame = RetainedShellLayerPolicy.BackgroundTransmission(
+        var insideHeader = RetainedShellLayerPolicy.BackgroundTransmission(
             RetainedShellLayerPolicy.BlockerOpacity,
-            RetainedShellLayerPolicy.FrameOpacity);
-        var insideContent = RetainedShellLayerPolicy.BackgroundTransmission(
+            RetainedShellSurfacePolicy.HeaderOpacity);
+        var transparentContent = RetainedShellLayerPolicy.BackgroundTransmission(
             RetainedShellLayerPolicy.BlockerOpacity,
-            RetainedShellLayerPolicy.FrameOpacity,
-            RetainedShellLayerPolicy.ContentOpacity);
+            RetainedShellSurfacePolicy.ContentBackgroundOpacity);
 
-        Assert.InRange(outsideFrame, 0.319f, 0.321f);
-        Assert.InRange(insideFrame, 0.057f, 0.058f);
-        Assert.InRange(insideContent, 0.016f, 0.017f);
-        Assert.True(insideFrame < outsideFrame / 5f);
-        Assert.True(insideContent < insideFrame / 3f);
+        Assert.InRange(lowerLayout, 0.319f, 0.321f);
+        Assert.InRange(RetainedShellSurfacePolicy.HeaderOpacity, 0.549f, 0.55f);
+        Assert.InRange(insideHeader, 0.144f, 0.145f);
+        Assert.InRange(transparentContent, 0.319f, 0.321f);
+        Assert.Equal(lowerLayout, transparentContent);
+        Assert.True(insideHeader < lowerLayout / 2f);
     }
 
     [Theory]

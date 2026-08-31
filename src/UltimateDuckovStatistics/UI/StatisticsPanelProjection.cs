@@ -335,6 +335,134 @@ internal static class RetainedShellLayoutPolicy
     }
 }
 
+internal sealed class RetainedPixelBounds
+{
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Right { get; set; }
+    public float Bottom { get; set; }
+    public float Width => Right - Left;
+    public float Height => Bottom - Top;
+}
+
+internal sealed class RetainedShellSurfaceLayout
+{
+    public RetainedPixelBounds HeaderBounds { get; set; } = new();
+    public RetainedPixelBounds ContentBounds { get; set; } = new();
+    public float HeaderContentGapPixels { get; set; }
+    public float HeaderCornerRadiusPixels { get; set; }
+}
+
+internal static class RetainedShellSurfaceLayoutPolicy
+{
+    private const float BaselineWidthPixels = 2560f;
+    private const float BaselineHeightPixels = 1440f;
+
+    public static RetainedShellSurfaceLayout Create(
+        float screenWidth,
+        float screenHeight,
+        RetainedShellLayout frozenLayout)
+    {
+        if (screenWidth <= 0f) throw new ArgumentOutOfRangeException(nameof(screenWidth));
+        if (screenHeight <= 0f) throw new ArgumentOutOfRangeException(nameof(screenHeight));
+        if (frozenLayout == null) throw new ArgumentNullException(nameof(frozenLayout));
+
+        var narrow = screenWidth <= 1200f;
+        var responsiveScale = Math.Min(screenWidth / BaselineWidthPixels, screenHeight / BaselineHeightPixels);
+        var headerTopLift = narrow ? Math.Clamp(responsiveScale, 0.5f, 1f) : 1f;
+        var headerBottomPadding = narrow ? Math.Clamp(15f * responsiveScale, 8f, 15f) : 15f;
+        var headerContentGap = narrow ? Math.Clamp(40f * responsiveScale, 20f, 40f) : 40f;
+        var contentBottomMargin = narrow ? Math.Clamp(30f * responsiveScale, 16f, 30f) : 30f;
+        var cornerRadius = narrow ? Math.Clamp(18f * responsiveScale, 8f, 18f) : 18f;
+        var headerTop = frozenLayout.MarginPixels + frozenLayout.InnerMarginPixels - headerTopLift;
+        var headerBottom = frozenLayout.MarginPixels
+                           + frozenLayout.InnerMarginPixels
+                           + frozenLayout.HeaderHeightPixels
+                           + frozenLayout.TabRowHeightPixels
+                           + headerBottomPadding;
+
+        return new RetainedShellSurfaceLayout
+        {
+            HeaderBounds = new RetainedPixelBounds
+            {
+                Left = frozenLayout.MarginPixels,
+                Top = headerTop,
+                Right = screenWidth - frozenLayout.MarginPixels,
+                Bottom = headerBottom
+            },
+            ContentBounds = new RetainedPixelBounds
+            {
+                Left = frozenLayout.MarginPixels,
+                Top = headerBottom + headerContentGap,
+                Right = screenWidth - frozenLayout.MarginPixels,
+                Bottom = screenHeight - contentBottomMargin
+            },
+            HeaderContentGapPixels = headerContentGap,
+            HeaderCornerRadiusPixels = cornerRadius
+        };
+    }
+}
+
+internal sealed class RetainedShellFrozenChildLayout
+{
+    public RetainedPixelBounds HeaderBounds { get; set; } = new();
+    public RetainedPixelBounds TabBounds { get; set; } = new();
+    public RetainedPixelBounds RailBounds { get; set; } = new();
+}
+
+internal static class RetainedShellFrozenChildLayoutPolicy
+{
+    public static RetainedShellFrozenChildLayout Create(float screenWidth, RetainedShellLayout frozenLayout)
+    {
+        if (screenWidth <= 0f) throw new ArgumentOutOfRangeException(nameof(screenWidth));
+        if (frozenLayout == null) throw new ArgumentNullException(nameof(frozenLayout));
+        var inset = frozenLayout.MarginPixels + frozenLayout.InnerMarginPixels;
+        var headerBottom = inset + frozenLayout.HeaderHeightPixels;
+        var tabBottom = headerBottom + frozenLayout.TabRowHeightPixels;
+        return new RetainedShellFrozenChildLayout
+        {
+            HeaderBounds = new RetainedPixelBounds
+            {
+                Left = inset,
+                Top = inset,
+                Right = screenWidth - inset,
+                Bottom = headerBottom
+            },
+            TabBounds = new RetainedPixelBounds
+            {
+                Left = inset,
+                Top = headerBottom,
+                Right = screenWidth - inset,
+                Bottom = tabBottom
+            },
+            RailBounds = new RetainedPixelBounds
+            {
+                Left = inset,
+                Top = tabBottom - frozenLayout.NavigationRailPixels,
+                Right = screenWidth - inset,
+                Bottom = tabBottom
+            }
+        };
+    }
+}
+
+internal static class RetainedShellSurfacePolicy
+{
+    public const byte HeaderRed = 0;
+    public const byte HeaderGreen = 8;
+    public const byte HeaderBlue = 16;
+    public const byte HeaderAlpha = 140;
+    public const float ParentCanvasGroupOpacity = 1f;
+    public const float ContentBackgroundOpacity = 0f;
+    public const bool GlobalBlockerBlocksRaycasts = true;
+    public const int VisibleHeaderBackgroundGraphicCount = 1;
+    public const int VisibleFullHeightFrameGraphicCount = 0;
+    public const string HeaderGraphicTypeName = "UnityEngine.UI.ProceduralImage.ProceduralImage";
+    public const string HeaderModifierTypeName = "UniformModifier";
+
+    public static float HeaderOpacity => HeaderAlpha / 255f;
+}
+
 internal static class RetainedTabWidthPolicy
 {
     public static float Resolve(float minimumWidthPixels, float preferredTextWidthPixels, float horizontalPaddingPixels)
@@ -395,8 +523,6 @@ internal static class RetainedTabSelectionPolicy
 internal static class RetainedShellLayerPolicy
 {
     public const float BlockerOpacity = 0.68f;
-    public const float FrameOpacity = 0.82f;
-    public const float ContentOpacity = 0.72f;
 
     public static float BackgroundTransmission(params float[] opacities)
     {

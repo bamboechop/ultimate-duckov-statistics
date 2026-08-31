@@ -486,6 +486,11 @@ try
     {
         plugins.RequireType("UnityEngine.UI.ProceduralImage", "ProceduralImage");
         plugins.RequireType("UnityEngine.UI.ProceduralImage", "ProceduralImageModifier");
+        plugins.RequireProperty("UnityEngine.UI.ProceduralImage", "ProceduralImage", "BorderWidth", "System.Single", mustBePublic: true);
+        plugins.RequireProperty("UnityEngine.UI.ProceduralImage", "ProceduralImage", "FalloffDistance", "System.Single", mustBePublic: true);
+        plugins.RequireType(string.Empty, "UniformModifier");
+        plugins.RequireProperty(string.Empty, "UniformModifier", "Radius", "System.Single", mustBePublic: true);
+        plugins.RequireMethod(string.Empty, "UniformModifier", "set_Radius", 1, mustBePublic: true, parameterTypeFragments: ["System.Single"]);
     }
 
     using (var localization = new AssemblyMetadata(sodaLocalizationPath))

@@ -8,13 +8,19 @@ No row below is considered passed from source inspection or deterministic tests 
 
 Gate 1 qualifies only the reusable retained-mode shell. On its exact candidate, open Statistics through the existing main-menu entry and through the configured hotkey, then verify at both 2560x1440 and 1024x768 that:
 
-1. the dimmer, rounded translucent navy frame, distinct rounded content surface, substantially larger left-aligned title, and native rounded top-left back control form the accepted spaced hierarchy; no edge-hugging generic cyan square or top-right rectangular Close remains;
+1. the dimmer and one independent rounded translucent navy header/navigation panel form the accepted spaced hierarchy; no visible full-height outer frame, lower-layout fill/outline, edge-hugging generic cyan square, or top-right rectangular Close remains; the lower placeholder is visible over a transparent layout region pending Gate 2 cards;
 2. the exact nine unellipsized English labels fit as one left-packed readable row at 2560x1440 above an aligned five-pixel cyan rail; no icon, selection-indicator descendant, or other white graphic overlaps a label; exactly one tab has the bright-cyan selected surface while every inactive tab stays dark navy; and normal, hover, pressed, disabled, selected, and keyboard-focus states remain distinguishable;
 3. narrow overflow scrolls horizontally, its left/right cues appear only when more tabs exist in that direction, Ctrl+Tab and Ctrl+Shift+Tab keep the selected tab visible, and clicking a tab updates the retained placeholder without opening a second panel;
 4. Escape and the close/back control close only UDS, restore focus/cursor state, and a later F8 open creates exactly one clean shell; and
 5. Player.log names `OptionsPanel/Text (TMP)` for the title when loaded, the live menu-button template for navigation, and the inspected `OptionsPanel/Return`, tab, surface, and rail hierarchy objects; its shell description identifies UDS-owned tab and surface primitives; it contains no `ProceduralImage` graphic-rebuild-loop error from either the menu clone or retained shell and shows no legacy immediate-mode window, default `GUI.skin` chrome, content body, reset/export control, or new gameplay/save behavior.
 
 The main-view, supporting-state, reset/export, content scrolling, data-comparison, and stress rows below are Gate 2 work and are not Gate 1 acceptance criteria. They remain the final M17 qualification matrix rather than being silently marked passed by the shell correction.
+
+### Gate 1c-A backdrop and shared-surface checkpoint
+
+Qualify only the background composition on the exact Gate 1c-A candidate. At 2560x1440, compare against `mockups/uds-ui-overview.jpg` and verify one rounded header background spans approximately `(85,112)` through `(2475,330)` with an 18 px radius, the transparent lower layout spans `(85,370)` through `(2475,1410)`, and their gap is 40 px. The full-screen dimmer must match the preceding e874589 candidate; the header must read as translucent black/navy without an outline; the lower region must show no fill, border, or full-height frame.
+
+Confirm the title, back control, nine tabs, labels, selected/inactive/hover/pressed/focused/disabled treatments, five-pixel cyan rail, and placeholder typography match e874589. Also confirm Escape/back close, focus/cursor restoration, tab overflow, content scrolling infrastructure, one-shell reopening, and clean shutdown still work. `Player.log` must describe the UDS-owned `ProceduralImage`/`UniformModifier` header and transparent content image, with no procedural-image rebuild loop, missing shader/material/font reference, duplicate shell, or construction exception. Do not qualify Gate 1c-B, Gate 1c-C, or any Gate 2 body from this checkpoint.
 
 ## Preconditions
 

@@ -23,7 +23,7 @@ internal sealed class NativeShellTemplates
         $"navigation={NavigationTypography?.SourceDescription ?? "public text fallback"}; " +
         $"back={Describe(BackControl)}; inspected native tab={Describe(TabButton)}; " +
         "shell tab=UDS-owned Button/Image with native root presentation properties only; " +
-        $"inspected native surface={Describe(Surface)}; shell surfaces=UDS-owned Image; " +
+        $"inspected native surface={Describe(Surface)}; shell surface=UDS-owned ProceduralImage/UniformModifier header plus transparent content Image; " +
         $"inspected native rail={Describe(NavigationRail)}; shell rail=UDS-owned Image";
 
     private static string Describe(Component? component) =>
