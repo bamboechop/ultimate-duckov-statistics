@@ -124,6 +124,24 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void OverflowCuesDescribeBothDirectionsWithoutInventingOverflow()
+    {
+        var fits = OverflowCuePolicy.Resolve(900f, 860f, 0f);
+        var start = OverflowCuePolicy.Resolve(500f, 1400f, 0f);
+        var middle = OverflowCuePolicy.Resolve(500f, 1400f, 450f);
+        var end = OverflowCuePolicy.Resolve(500f, 1400f, 900f);
+
+        Assert.False(fits.ShowLeading);
+        Assert.False(fits.ShowTrailing);
+        Assert.False(start.ShowLeading);
+        Assert.True(start.ShowTrailing);
+        Assert.True(middle.ShowLeading);
+        Assert.True(middle.ShowTrailing);
+        Assert.True(end.ShowLeading);
+        Assert.False(end.ShowTrailing);
+    }
+
+    [Fact]
     public void RetainedShellLifecycleAllowsOneOpenRootAndCleansUpDeterministically()
     {
         var lifecycle = new RetainedShellLifecycleState();

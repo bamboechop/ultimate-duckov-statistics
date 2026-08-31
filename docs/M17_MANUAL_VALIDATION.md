@@ -10,7 +10,7 @@ Gate 1 qualifies only the reusable retained-mode shell. On its exact candidate, 
 
 1. one dark near-full-screen frame, one prominent title, and one close/back control appear on Duckov's native canvas;
 2. the exact nine tabs remain a single readable row, with selected cyan and visible normal, hover, pressed, and keyboard-focus states;
-3. narrow overflow scrolls horizontally, Ctrl+Tab and Ctrl+Shift+Tab keep the selected tab visible, and clicking a tab updates the retained placeholder without opening a second panel;
+3. narrow overflow scrolls horizontally, its left/right cues appear only when more tabs exist in that direction, Ctrl+Tab and Ctrl+Shift+Tab keep the selected tab visible, and clicking a tab updates the retained placeholder without opening a second panel;
 4. Escape and the close/back control close only UDS, restore focus/cursor state, and a later F8 open creates exactly one clean shell; and
 5. no legacy immediate-mode window, default `GUI.skin` chrome, background image, content body, reset/export control, or new gameplay/save behavior appears.
 

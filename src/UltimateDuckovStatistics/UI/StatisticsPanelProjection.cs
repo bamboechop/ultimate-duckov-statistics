@@ -207,6 +207,29 @@ internal static class PanelFocusRestorePolicy
         snapshotCaptured && priorObjectExists && priorObjectActive;
 }
 
+internal sealed class OverflowCueState
+{
+    public bool ShowLeading { get; set; }
+    public bool ShowTrailing { get; set; }
+}
+
+internal static class OverflowCuePolicy
+{
+    public static OverflowCueState Resolve(float viewportExtent, float contentExtent, float offsetFromStart)
+    {
+        if (viewportExtent <= 0f) throw new ArgumentOutOfRangeException(nameof(viewportExtent));
+        if (contentExtent < 0f) throw new ArgumentOutOfRangeException(nameof(contentExtent));
+        var maximumOffset = Math.Max(0f, contentExtent - viewportExtent);
+        if (maximumOffset <= 0.5f) return new OverflowCueState();
+        var offset = Math.Clamp(offsetFromStart, 0f, maximumOffset);
+        return new OverflowCueState
+        {
+            ShowLeading = offset > 0.5f,
+            ShowTrailing = offset < maximumOffset - 0.5f
+        };
+    }
+}
+
 internal sealed class RetainedShellLifecycleState
 {
     public bool IsOpen { get; private set; }

@@ -24,8 +24,15 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RectTransform? tabViewport;
     private RectTransform? tabContent;
     private RectTransform? contentHost;
+    private RectTransform? contentViewport;
+    private RectTransform? contentRoot;
     private ScrollRect? tabScroll;
+    private ScrollRect? contentScroll;
     private HorizontalLayoutGroup? tabLayout;
+    private CanvasGroup? tabLeadingCue;
+    private CanvasGroup? tabTrailingCue;
+    private CanvasGroup? contentLeadingCue;
+    private CanvasGroup? contentTrailingCue;
     private Button? closeButton;
     private TextMeshProUGUI? title;
     private TextMeshProUGUI? placeholderTitle;
@@ -37,6 +44,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RetainedShellLayout currentLayout = RetainedShellLayoutPolicy.Create(2560f, 1440f);
 
     public bool IsCreated => root != null;
+
+    public RectTransform? ContentRoot => contentRoot;
 
     public bool IsUsable => root != null
                             && root.activeInHierarchy
@@ -94,6 +103,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             tabViewport.gameObject.AddComponent<RectMask2D>();
             tabScroll = tabViewport.gameObject.AddComponent<ScrollRect>();
             ApplyNativeScrollSettings(tabScroll);
+            tabScroll.movementType = ScrollRect.MovementType.Clamped;
             tabScroll.horizontal = true;
             tabScroll.vertical = false;
 
@@ -113,6 +123,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
             fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
             tabScroll.viewport = tabViewport;
             tabScroll.content = tabContent;
+            tabScroll.onValueChanged.AddListener(_ => UpdateTabOverflowCues());
+            tabLeadingCue = CreateDirectionalCue("TabLeadingCue", tabViewport, nativeTextTemplate, "<");
+            tabTrailingCue = CreateDirectionalCue("TabTrailingCue", tabViewport, nativeTextTemplate, ">");
 
             foreach (var tab in PanelInteractionState.NavigationOrder)
             {
@@ -133,20 +146,36 @@ internal sealed class RetainedStatisticsShell : IDisposable
             var contentImage = contentHost.gameObject.AddComponent<Image>();
             contentImage.color = new Color(0.035f, 0.065f, 0.068f, 0.9f);
             contentImage.raycastTarget = false;
+
+            contentViewport = CreateRect("ContentViewport", contentHost);
+            contentViewport.gameObject.AddComponent<RectMask2D>();
+            contentScroll = contentViewport.gameObject.AddComponent<ScrollRect>();
+            ApplyNativeScrollSettings(contentScroll);
+            contentScroll.movementType = ScrollRect.MovementType.Clamped;
+            contentScroll.horizontal = false;
+            contentScroll.vertical = true;
+            contentRoot = CreateRect("ContentRoot", contentViewport);
+            Stretch(contentRoot, 0f, 0f, 0f, 0f);
+            contentScroll.viewport = contentViewport;
+            contentScroll.content = contentRoot;
+            contentScroll.verticalNormalizedPosition = 1f;
+            contentScroll.onValueChanged.AddListener(_ => UpdateContentOverflowCues());
             placeholderTitle = CreateText(
                 "PlaceholderTitle",
-                contentHost,
+                contentRoot,
                 TabLabel(initialTab),
                 nativeTextTemplate,
                 TextAlignmentOptions.Center,
                 new Color(0.15f, 0.82f, 0.9f, 1f));
             placeholderBody = CreateText(
                 "PlaceholderBody",
-                contentHost,
+                contentRoot,
                 UiText.Get("ui.shell_placeholder"),
                 nativeTextTemplate,
                 TextAlignmentOptions.Top,
                 new Color(0.74f, 0.78f, 0.74f, 1f));
+            contentLeadingCue = CreateDirectionalCue("ContentLeadingCue", contentHost, nativeTextTemplate, "^");
+            contentTrailingCue = CreateDirectionalCue("ContentTrailingCue", contentHost, nativeTextTemplate, "v");
 
             SetSelectedTab(initialTab, ensureVisible: false);
             RefreshLayout(force: true);
@@ -154,6 +183,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             root.SetActive(true);
             Canvas.ForceUpdateCanvases();
             EnsureSelectedVisible();
+            UpdateContentOverflowCues();
             FocusSelectedTab();
             return true;
         }
@@ -169,6 +199,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
     {
         if (root == null) return;
         RefreshLayout(force: false);
+        UpdateTabOverflowCues();
+        UpdateContentOverflowCues();
     }
 
     public void SetSelectedTab(StatisticsPanelTab tab, bool ensureVisible = true)
@@ -194,7 +226,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private void RefreshLayout(bool force)
     {
         if (root == null || canvas == null || frame == null || header == null || tabViewport == null
-            || tabContent == null || contentHost == null || tabLayout == null)
+            || tabContent == null || contentHost == null || contentViewport == null || tabLayout == null)
         {
             return;
         }
@@ -228,6 +260,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             innerMargin,
             innerMargin + headerHeight + tabHeight + 10f * unit,
             innerMargin);
+        Stretch(contentViewport, 1f * unit, 1f * unit, 1f * unit, 1f * unit);
 
         if (title != null)
         {
@@ -259,6 +292,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
         }
 
         tabContent.sizeDelta = new Vector2(tabContent.sizeDelta.x, 0f);
+        PositionHorizontalCue(tabLeadingCue, leading: true, 26f * unit);
+        PositionHorizontalCue(tabTrailingCue, leading: false, 26f * unit);
+        PositionVerticalCue(contentLeadingCue, leading: true, 24f * unit);
+        PositionVerticalCue(contentTrailingCue, leading: false, 24f * unit);
         if (placeholderTitle != null)
         {
             placeholderTitle.rectTransform.anchorMin = new Vector2(0.08f, 0.54f);
@@ -284,6 +321,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         Canvas.ForceUpdateCanvases();
         EnsureSelectedVisible();
+        UpdateContentOverflowCues();
     }
 
     private void EnsureSelectedVisible()
@@ -306,6 +344,31 @@ internal sealed class RetainedStatisticsShell : IDisposable
             currentOffset);
         var overflow = Math.Max(0f, contentWidth - viewportWidth);
         tabScroll.horizontalNormalizedPosition = overflow <= 0f ? 0f : targetOffset / overflow;
+        UpdateTabOverflowCues();
+    }
+
+    private void UpdateTabOverflowCues()
+    {
+        if (tabScroll == null || tabViewport == null || tabContent == null) return;
+        var overflow = Math.Max(0f, tabContent.rect.width - tabViewport.rect.width);
+        var state = OverflowCuePolicy.Resolve(
+            Math.Max(1f, tabViewport.rect.width),
+            Math.Max(0f, tabContent.rect.width),
+            tabScroll.horizontalNormalizedPosition * overflow);
+        SetCueVisible(tabLeadingCue, state.ShowLeading);
+        SetCueVisible(tabTrailingCue, state.ShowTrailing);
+    }
+
+    private void UpdateContentOverflowCues()
+    {
+        if (contentScroll == null || contentViewport == null || contentRoot == null) return;
+        var overflow = Math.Max(0f, contentRoot.rect.height - contentViewport.rect.height);
+        var state = OverflowCuePolicy.Resolve(
+            Math.Max(1f, contentViewport.rect.height),
+            Math.Max(0f, contentRoot.rect.height),
+            (1f - contentScroll.verticalNormalizedPosition) * overflow);
+        SetCueVisible(contentLeadingCue, state.ShowLeading);
+        SetCueVisible(contentTrailingCue, state.ShowTrailing);
     }
 
     private void FocusSelectedTab()
@@ -363,6 +426,61 @@ internal sealed class RetainedStatisticsShell : IDisposable
             Color.white);
         Stretch(text.rectTransform, 8f, 8f, 2f, 2f);
         return button;
+    }
+
+    private CanvasGroup CreateDirectionalCue(
+        string name,
+        Transform parent,
+        TextMeshProUGUI nativeTextTemplate,
+        string marker)
+    {
+        var rect = CreateRect(name, parent);
+        var image = rect.gameObject.AddComponent<Image>();
+        image.color = new Color(0.02f, 0.5f, 0.58f, 0.82f);
+        image.raycastTarget = false;
+        var group = rect.gameObject.AddComponent<CanvasGroup>();
+        group.alpha = 0f;
+        group.interactable = false;
+        group.blocksRaycasts = false;
+        var text = CreateText(
+            "Marker",
+            rect,
+            marker,
+            nativeTextTemplate,
+            TextAlignmentOptions.Center,
+            Color.white);
+        Stretch(text.rectTransform, 0f, 0f, 0f, 0f);
+        return group;
+    }
+
+    private static void PositionHorizontalCue(CanvasGroup? cue, bool leading, float width)
+    {
+        if (cue == null) return;
+        var rect = cue.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(leading ? 0f : 1f, 0f);
+        rect.anchorMax = new Vector2(leading ? 0f : 1f, 1f);
+        rect.pivot = new Vector2(leading ? 0f : 1f, 0.5f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = new Vector2(width, 0f);
+        rect.SetAsLastSibling();
+    }
+
+    private static void PositionVerticalCue(CanvasGroup? cue, bool leading, float height)
+    {
+        if (cue == null) return;
+        var rect = cue.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, leading ? 1f : 0f);
+        rect.anchorMax = new Vector2(1f, leading ? 1f : 0f);
+        rect.pivot = new Vector2(0.5f, leading ? 1f : 0f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = new Vector2(0f, height);
+        rect.SetAsLastSibling();
+    }
+
+    private static void SetCueVisible(CanvasGroup? cue, bool visible)
+    {
+        if (cue == null) return;
+        cue.alpha = visible ? 1f : 0f;
     }
 
     private static void ApplyNativeButtonPresentation(Button button, Image image)
@@ -470,8 +588,15 @@ internal sealed class RetainedStatisticsShell : IDisposable
         tabViewport = null;
         tabContent = null;
         contentHost = null;
+        contentViewport = null;
+        contentRoot = null;
         tabScroll = null;
+        contentScroll = null;
         tabLayout = null;
+        tabLeadingCue = null;
+        tabTrailingCue = null;
+        contentLeadingCue = null;
+        contentTrailingCue = null;
         closeButton = null;
         title = null;
         placeholderTitle = null;
