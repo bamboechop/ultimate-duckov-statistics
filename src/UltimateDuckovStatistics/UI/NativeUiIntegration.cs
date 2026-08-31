@@ -148,7 +148,13 @@ internal sealed class NativeUiIntegration : IDisposable
         if (injectedByRoot.TryGetValue(rootId, out var existing) && existing != null) return true;
         injectedByRoot.Remove(rootId);
 
-        var candidates = root.GetComponentsInChildren<Button>(includeInactive: true)
+        // The installed MainMenu component is a lifecycle marker, not a guaranteed
+        // ancestor of the native menu canvas. Keep discovery inside its loaded scene.
+        var searchRoots = surface == PanelAccessSurface.MainMenu && root.scene.IsValid()
+            ? root.scene.GetRootGameObjects()
+            : new[] { root };
+        var candidates = searchRoots
+            .SelectMany(searchRoot => searchRoot.GetComponentsInChildren<Button>(includeInactive: true))
             .Select(button => new { Button = button, Score = ScoreAnchor(button, surface) })
             .Where(value => value.Score > 0)
             .OrderByDescending(value => value.Score)
@@ -379,8 +385,16 @@ internal sealed class NativePanelTheme : IDisposable
             padding = new RectOffset(18, 18, 28, 16),
             fontSize = 15
         };
-        Window.normal.background = Texture(new Color(0.075f, 0.09f, 0.085f, 0.98f));
-        Window.normal.textColor = new Color(0.9f, 0.83f, 0.65f);
+        var windowBackground = Texture(new Color(0.075f, 0.09f, 0.085f, 0.98f));
+        var windowTextColor = new Color(0.9f, 0.83f, 0.65f);
+        ApplyState(Window.normal, windowBackground, windowTextColor);
+        ApplyState(Window.hover, windowBackground, windowTextColor);
+        ApplyState(Window.active, windowBackground, windowTextColor);
+        ApplyState(Window.focused, windowBackground, windowTextColor);
+        ApplyState(Window.onNormal, windowBackground, windowTextColor);
+        ApplyState(Window.onHover, windowBackground, windowTextColor);
+        ApplyState(Window.onActive, windowBackground, windowTextColor);
+        ApplyState(Window.onFocused, windowBackground, windowTextColor);
         Tab = new GUIStyle(GUI.skin.button)
         {
             alignment = TextAnchor.MiddleCenter,
@@ -406,6 +420,12 @@ internal sealed class NativePanelTheme : IDisposable
             normal = { textColor = new Color(0.65f, 0.68f, 0.62f) }
         };
         initialized = true;
+    }
+
+    private static void ApplyState(GUIStyleState state, Texture2D background, Color textColor)
+    {
+        state.background = background;
+        state.textColor = textColor;
     }
 
     private Texture2D Texture(Color color)
