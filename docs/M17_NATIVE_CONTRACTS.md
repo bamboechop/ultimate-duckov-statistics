@@ -25,9 +25,9 @@ The installed menus do not expose a stable public mod-entry registration API. UD
 1. Find a native `UnityEngine.UI.Button` carrying the exact installed localization key `MainMenu_Settings`, `MainMenu_MODs`, or `UI_Menu_Options`.
 2. Refuse an ambiguous pause-menu tie.
 3. If an exact key is absent, accept only a bounded Settings, Options, or Mods hierarchy-name score.
-4. Instantiate `Duckov.Utilities.GameplayDataSettings.UIPrefabs.Button`, remove any inherited child-panel action, replace its click event, and place it beside the proven anchor.
+4. Clone the proven live native button so its actual menu layout, raycast geometry, and interaction styling are retained; disable and remove the inherited child-panel action, replace its click event, replace its icon and label, and place it beside the anchor.
 
-The injected button does not copy an existing button with its persisted actions and does not redistribute any Duckov asset. Failure is fail-open for tracking and fail-closed for that access path: UDS records an actionable warning, leaves F8 available outside raids, and does not guess another insertion point.
+The injected button clears the cloned button's persisted click actions and removes the installed child-panel pointer action before activation. The clone remains a runtime instance of the user's installed asset; UDS does not redistribute it. The generated statistics icon is a private runtime texture. Attachment alone is reported as unverified/limited until the replacement click callback is actually observed. Failure is fail-open for tracking and fail-closed for that access path: UDS records an actionable warning, leaves F8 available outside raids, and does not guess another insertion point.
 
 ## Native controls, focus, and feedback
 

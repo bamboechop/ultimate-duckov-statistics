@@ -978,7 +978,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
     {
         const string groupName = "Menu access";
         var limited = nativeUi.MainMenuState == NativeMenuIntegrationState.Unavailable
-                      || nativeUi.BasePauseMenuState == NativeMenuIntegrationState.Unavailable;
+                      || nativeUi.MainMenuState == NativeMenuIntegrationState.AttachedUnverified
+                      || nativeUi.BasePauseMenuState == NativeMenuIntegrationState.Unavailable
+                      || nativeUi.BasePauseMenuState == NativeMenuIntegrationState.AttachedUnverified;
         var status = limited ? UiText.Get("ui.limited") : UiText.Get("ui.working");
         var expanded = expandedCapabilityGroups.Contains(groupName);
         if (GUILayout.Button($"{(expanded ? "−" : "+")} {UiText.Get("ui.menu_access")}: {status}"))
@@ -996,6 +998,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private static string FormatMenuIntegrationState(NativeMenuIntegrationState state) => state switch
     {
         NativeMenuIntegrationState.Available => UiText.Get("ui.working"),
+        NativeMenuIntegrationState.AttachedUnverified => UiText.Get("ui.attached_unverified"),
         NativeMenuIntegrationState.Unavailable => UiText.Get("ui.limited"),
         _ => UiText.Get("ui.not_observed")
     };

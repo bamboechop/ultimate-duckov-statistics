@@ -18,6 +18,8 @@ internal sealed class NativeUiIntegration : IDisposable
     private readonly Action<PanelAccessSurface> closePanel;
     private readonly Dictionary<int, GameObject> injectedByRoot = new();
     private readonly HashSet<string> registeredLocalizationKeys = new(StringComparer.Ordinal);
+    private Texture2D? menuIconTexture;
+    private Sprite? menuIconSprite;
     private bool initialized;
     private bool mainMenuAnchorWarningWritten;
     private bool pauseMenuAnchorWarningWritten;
@@ -83,6 +85,7 @@ internal sealed class NativeUiIntegration : IDisposable
     private void HandleMainMenuDestroy()
     {
         closePanel(PanelAccessSurface.MainMenu);
+        MainMenuState = NativeMenuIntegrationState.NotObserved;
         RemoveDestroyedEntries();
     }
 
@@ -101,7 +104,8 @@ internal sealed class NativeUiIntegration : IDisposable
         if (mainMenu == null) return;
         if (TryInjectButton(mainMenu.gameObject, PanelAccessSurface.MainMenu))
         {
-            MainMenuState = NativeMenuIntegrationState.Available;
+            if (MainMenuState != NativeMenuIntegrationState.Available)
+                MainMenuState = NativeMenuIntegrationState.AttachedUnverified;
             return;
         }
 
@@ -127,7 +131,8 @@ internal sealed class NativeUiIntegration : IDisposable
 
         if (TryInjectButton(pauseMenu.gameObject, PanelAccessSurface.BasePauseMenu))
         {
-            BasePauseMenuState = NativeMenuIntegrationState.Available;
+            if (BasePauseMenuState != NativeMenuIntegrationState.Available)
+                BasePauseMenuState = NativeMenuIntegrationState.AttachedUnverified;
             return;
         }
 
@@ -171,22 +176,30 @@ internal sealed class NativeUiIntegration : IDisposable
 
         try
         {
-            var buttonTemplate = Duckov.Utilities.GameplayDataSettings.UIPrefabs.Button;
-            if (buttonTemplate == null) return false;
             var button = UnityEngine.Object.Instantiate(
-                buttonTemplate,
+                anchor,
                 anchor.transform.parent,
                 worldPositionStays: false);
             var clone = button.gameObject;
+            clone.SetActive(false);
             clone.name = "UltimateDuckovStatisticsButton";
             clone.transform.SetSiblingIndex(Math.Min(anchor.transform.GetSiblingIndex() + 1, clone.transform.parent.childCount - 1));
             RemoveInheritedOpenChildActions(clone);
             button.onClick = new Button.ButtonClickedEvent();
-            button.onClick.AddListener(() => openPanel(surface));
+            button.onClick.AddListener(() => HandleInjectedButtonActivated(surface));
             ApplyLocalizedButtonText(clone);
+            ApplyStatisticsIcon(clone, button);
             clone.SetActive(true);
+            if (!HasUsableButtonStructure(button))
+            {
+                UnityEngine.Object.Destroy(clone);
+                coordinator.ReportUiDiagnostic(
+                    $"M17 native {surface} entry was rejected because its cloned native button had no usable raycast target or layout geometry.",
+                    "Warning");
+                return false;
+            }
             injectedByRoot[rootId] = clone;
-            coordinator.ReportUiDiagnostic($"M17 native {surface} statistics entry attached.");
+            coordinator.ReportUiDiagnostic($"M17 native {surface} statistics entry attached; activation has not yet been observed.");
             return true;
         }
         catch (Exception exception)
@@ -196,6 +209,26 @@ internal sealed class NativeUiIntegration : IDisposable
                 "Warning");
             return false;
         }
+    }
+
+    private void HandleInjectedButtonActivated(PanelAccessSurface surface)
+    {
+        openPanel(surface);
+        if (surface == PanelAccessSurface.MainMenu)
+            MainMenuState = NativeMenuIntegrationState.Available;
+        else if (surface == PanelAccessSurface.BasePauseMenu)
+            BasePauseMenuState = NativeMenuIntegrationState.Available;
+        coordinator.ReportUiDiagnostic($"M17 native {surface} statistics entry activation observed.");
+    }
+
+    private static bool HasUsableButtonStructure(Button button)
+    {
+        return button != null
+               && button.targetGraphic != null
+               && button.targetGraphic.raycastTarget
+               && button.transform is RectTransform rectTransform
+               && rectTransform.rect.width > 1f
+               && rectTransform.rect.height > 1f;
     }
 
     private static int ScoreAnchor(Button button, PanelAccessSurface surface)
@@ -233,12 +266,74 @@ internal sealed class NativeUiIntegration : IDisposable
 
     private static void RemoveInheritedOpenChildActions(GameObject clone)
     {
-        foreach (var component in clone.GetComponents<Component>())
+        foreach (var component in clone.GetComponentsInChildren<Component>(includeInactive: true))
         {
             if (component == null || component is Button) continue;
             if (string.Equals(component.GetType().Name, "UIPanelButton_OpenChildPanel", StringComparison.Ordinal))
+            {
+                if (component is Behaviour behaviour) behaviour.enabled = false;
                 UnityEngine.Object.Destroy(component);
+            }
         }
+    }
+
+    private void ApplyStatisticsIcon(GameObject clone, Button button)
+    {
+        var image = clone.GetComponentsInChildren<Image>(includeInactive: true)
+            .FirstOrDefault(candidate => candidate != button.targetGraphic && IsIconTransform(candidate.transform, clone.transform));
+        if (image == null) return;
+        var sprite = GetStatisticsIcon();
+        image.sprite = sprite;
+        image.overrideSprite = sprite;
+        image.preserveAspect = true;
+        image.color = Color.white;
+    }
+
+    private static bool IsIconTransform(Transform candidate, Transform root)
+    {
+        for (var current = candidate; current != null; current = current.parent)
+        {
+            if (current.gameObject.name.Contains("icon", StringComparison.OrdinalIgnoreCase)) return true;
+            if (current == root) break;
+        }
+        return false;
+    }
+
+    private Sprite GetStatisticsIcon()
+    {
+        if (menuIconSprite != null) return menuIconSprite;
+        const int size = 64;
+        var pixels = new Color32[size * size];
+        var white = new Color32(255, 255, 255, 255);
+        DrawRectangle(pixels, size, 8, 8, 48, 4, white);
+        DrawRectangle(pixels, size, 8, 8, 4, 48, white);
+        DrawRectangle(pixels, size, 17, 12, 8, 14, white);
+        DrawRectangle(pixels, size, 30, 12, 8, 26, white);
+        DrawRectangle(pixels, size, 43, 12, 8, 38, white);
+        menuIconTexture = new Texture2D(size, size, TextureFormat.RGBA32, mipChain: false)
+        {
+            name = "UltimateDuckovStatisticsMenuIcon",
+            hideFlags = HideFlags.HideAndDontSave,
+            wrapMode = TextureWrapMode.Clamp,
+            filterMode = FilterMode.Bilinear
+        };
+        menuIconTexture.SetPixels32(pixels);
+        menuIconTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+        menuIconSprite = Sprite.Create(
+            menuIconTexture,
+            new Rect(0, 0, size, size),
+            new Vector2(0.5f, 0.5f),
+            pixelsPerUnit: size);
+        menuIconSprite.name = "UltimateDuckovStatisticsMenuIcon";
+        menuIconSprite.hideFlags = HideFlags.HideAndDontSave;
+        return menuIconSprite;
+    }
+
+    private static void DrawRectangle(Color32[] pixels, int size, int x, int y, int width, int height, Color32 color)
+    {
+        for (var row = Math.Max(0, y); row < Math.Min(size, y + height); row++)
+        for (var column = Math.Max(0, x); column < Math.Min(size, x + width); column++)
+            pixels[row * size + column] = color;
     }
 
     private static void ApplyLocalizedButtonText(GameObject clone)
@@ -318,6 +413,10 @@ internal sealed class NativeUiIntegration : IDisposable
         foreach (var injected in injectedByRoot.Values.Where(value => value != null))
             UnityEngine.Object.Destroy(injected);
         injectedByRoot.Clear();
+        if (menuIconSprite != null) UnityEngine.Object.Destroy(menuIconSprite);
+        if (menuIconTexture != null) UnityEngine.Object.Destroy(menuIconTexture);
+        menuIconSprite = null;
+        menuIconTexture = null;
         foreach (var key in registeredLocalizationKeys) LocalizationManager.RemoveOverrideText(key);
         registeredLocalizationKeys.Clear();
         UiText.ConfigureNativeResolver(null);
@@ -328,6 +427,7 @@ internal sealed class NativeUiIntegration : IDisposable
 internal enum NativeMenuIntegrationState
 {
     NotObserved,
+    AttachedUnverified,
     Available,
     Unavailable
 }
