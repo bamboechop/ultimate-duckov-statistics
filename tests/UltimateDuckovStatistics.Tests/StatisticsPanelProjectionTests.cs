@@ -73,6 +73,32 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void TabScrollMovesOnlyEnoughToKeepTheSelectionVisible()
+    {
+        Assert.Equal(0f, TabStripScrollPolicy.EnsureVisible(900f, 860f, 700f, 150f, 0f));
+        Assert.Equal(150f, TabStripScrollPolicy.EnsureVisible(500f, 1400f, 500f, 150f, 0f));
+        Assert.Equal(100f, TabStripScrollPolicy.EnsureVisible(500f, 1400f, 100f, 150f, 420f));
+        Assert.Equal(900f, TabStripScrollPolicy.EnsureVisible(500f, 1400f, 1300f, 150f, 0f));
+    }
+
+    [Fact]
+    public void RetainedShellLifecycleAllowsOneOpenRootAndCleansUpDeterministically()
+    {
+        var lifecycle = new RetainedShellLifecycleState();
+
+        Assert.True(lifecycle.TryOpen());
+        Assert.False(lifecycle.TryOpen());
+        Assert.True(lifecycle.IsOpen);
+        Assert.True(lifecycle.Close());
+        Assert.False(lifecycle.Close());
+        Assert.True(lifecycle.TryOpen());
+        lifecycle.Dispose();
+        Assert.False(lifecycle.IsOpen);
+        Assert.True(lifecycle.IsDisposed);
+        Assert.False(lifecycle.TryOpen());
+    }
+
+    [Fact]
     public void BoundedPagesNeverRenderUnboundedHistory()
     {
         var source = Enumerable.Range(0, 1000).ToArray();

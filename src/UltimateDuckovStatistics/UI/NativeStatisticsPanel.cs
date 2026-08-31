@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace UltimateDuckovStatistics.UI;
 
-internal sealed class NativeStatisticsPanel : IDisposable
+internal sealed class LegacyImmediateStatisticsPanel : IDisposable
 {
     private const int WindowId = 9048127;
     private readonly NativeProfileCoordinator coordinator;
@@ -52,7 +52,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private CursorLockMode priorCursorLockMode;
     private GameObject? priorSelectedGameObject;
 
-    public NativeStatisticsPanel(NativeProfileCoordinator coordinator)
+    public LegacyImmediateStatisticsPanel(NativeProfileCoordinator coordinator)
     {
         this.coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
         settingsPath = Path.Combine(coordinator.DataRoot, "settings.json");

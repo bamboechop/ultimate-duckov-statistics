@@ -130,6 +130,54 @@ internal static class StatisticsPanelLayoutPolicy
     }
 }
 
+internal static class TabStripScrollPolicy
+{
+    public static float EnsureVisible(
+        float viewportWidth,
+        float contentWidth,
+        float selectedLeft,
+        float selectedWidth,
+        float currentOffset)
+    {
+        if (viewportWidth <= 0f) throw new ArgumentOutOfRangeException(nameof(viewportWidth));
+        if (contentWidth < 0f) throw new ArgumentOutOfRangeException(nameof(contentWidth));
+        if (selectedLeft < 0f) throw new ArgumentOutOfRangeException(nameof(selectedLeft));
+        if (selectedWidth <= 0f) throw new ArgumentOutOfRangeException(nameof(selectedWidth));
+        var maximumOffset = Math.Max(0f, contentWidth - viewportWidth);
+        var offset = Math.Clamp(currentOffset, 0f, maximumOffset);
+        if (selectedLeft < offset) offset = selectedLeft;
+        var selectedRight = selectedLeft + selectedWidth;
+        if (selectedRight > offset + viewportWidth) offset = selectedRight - viewportWidth;
+        return Math.Clamp(offset, 0f, maximumOffset);
+    }
+}
+
+internal sealed class RetainedShellLifecycleState
+{
+    public bool IsOpen { get; private set; }
+    public bool IsDisposed { get; private set; }
+
+    public bool TryOpen()
+    {
+        if (IsDisposed || IsOpen) return false;
+        IsOpen = true;
+        return true;
+    }
+
+    public bool Close()
+    {
+        if (!IsOpen) return false;
+        IsOpen = false;
+        return true;
+    }
+
+    public void Dispose()
+    {
+        IsOpen = false;
+        IsDisposed = true;
+    }
+}
+
 internal sealed class BoundedPage<T>
 {
     public IReadOnlyList<T> Items { get; set; } = Array.Empty<T>();

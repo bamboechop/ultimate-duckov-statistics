@@ -31,9 +31,11 @@ The injected button disables and removes every inherited non-presentation `MonoB
 
 ## Native controls, focus, and feedback
 
-`GameplayDataSettings.UIPrefabs.Button` and `.ScrollRect` are public native prefab references. `GameplayDataSettings.UIStyle.FallbackItemIcon` is the installed generic icon. `GameManager.EventSystem` exposes the active Unity event system. `Duckov.UI.NotificationText.Push(string)` is the installed transient-feedback path.
+`GameplayDataSettings.UIPrefabs.Button` and `.ScrollRect` are public native prefab references. `GameplayDataSettings.UIStyle.TemplateTextUGUI` exposes Duckov's installed TextMeshPro font and material through a public template, and `CanvasScalerController` proves that the installed screen-space UI responds to resolution changes through its `CanvasScaler`. `GameplayDataSettings.UIStyle.FallbackItemIcon` is the installed generic icon. `GameManager.EventSystem` exposes the active Unity event system. `Duckov.UI.NotificationText.Push(string)` is the installed transient-feedback path.
 
-The menu entry uses the native button prefab. The data panel uses bounded immediate-mode rendering so M0-M16 projections remain independent of menu hierarchy churn, with Duckov-aligned dark/ochre styling and native icons. Opening captures cursor visibility, cursor-lock state, and the event system's selected object. Closing restores those values if the objects still exist. Reset and export feedback use `NotificationText.Push`; a toast failure becomes a warning and cannot stop tracking or the completed operation.
+The menu entry uses the live native button presentation. Visual-correction Gate 1 replaces the visible immediate-mode panel with one retained Unity UI hierarchy attached to a proven active screen-space Duckov canvas. The shell copies presentation assets from the public native button reference, copies scroll motion settings from the public native scroll reference, and assigns the installed TextMeshPro font and material to mod-owned text components. It packages no font, sprite, background image, or other visual asset. A dark near-full-screen frame, prominent title, close/back control, exact nine-tab strip, selected/hover/pressed states, and a bounded placeholder content host are created once per opening and destroyed on close.
+
+The prior immediate-mode view remains source-only as a Gate 2 porting reference; `ModBehaviour` no longer has an `OnGUI` callback and that renderer cannot be presented. Opening captures cursor visibility, cursor-lock state, and the event system's selected object. Closing restores those values if the objects still exist. Reset and export implementations remain in the legacy source for the subsequent body port; Gate 1 deliberately exposes neither operation through its placeholder content host.
 
 ## Localization
 
@@ -51,13 +53,13 @@ The cache holds at most 512 stable identity results and clears as a unit at the 
 
 The UI projection is built only when the active profile generation, statistics generation, and coordinator generation agree exactly. It is cached by generation plus profile revision. A failure to prove that relationship shows the localized unavailable response and never substitutes another profile or an invented zero state.
 
-The panel has one exact navigation sequence: Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, Diagnostics. It caps its nominal desktop size at 1560 by 960 logical pixels, stacks multi-column content below 1180 logical pixels, horizontally scrolls the one-row tab strip when needed, and bounds rendered histories to pages of 12 through 48 rows. One page can never exceed 100 rows. Keyboard tab movement scrolls the selected tab back into view.
+The panel has one exact navigation sequence: Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, Diagnostics. Gate 1 stretches the retained shell within physical-pixel margins of the active native canvas. Control dimensions are normalized by that canvas's scale factor, so the tab strip remains readable rather than shrinking to the canvas reference resolution. The tabs stay on one row, horizontally scroll when their physical width exceeds the viewport, and keyboard movement scrolls the selected tab back into view. The retained content host already clips and bounds its region; Gate 2 will reconnect the existing multi-column and bounded-history projection policies when view bodies are ported.
 
 Projection preserves supported zero, proven empty, unavailable, unknown/modded, partial-history, and last-observed states. Economy holdings remain separate from flows; weapon-ammunition percentages use only the selected weapon's correlated actions; reciprocal crafting views derive from the canonical M16 output/recipe/resource associations. No reverse index, UI state, icon, or localized label is persisted.
 
 ## Failure and cleanup boundary
 
-Menu/localization/icon/toast failures are UI diagnostics. They do not disable unrelated adapters, rewrite a capability as zero, or block F8 outside raids. Diagnostics reports main-menu, base-pause, and hotkey access together under Menu access; an unavailable native entry is Limited while the overall tracking banner remains healthy. Repeated setup is idempotent. Disposal unsubscribes all four lifecycle signals, destroys only UDS-created buttons and theme textures, removes only UDS localization overrides, clears the native resolver, and restores panel focus/cursor state.
+Menu/localization/icon/toast/shell-attachment failures are UI diagnostics. They do not disable unrelated adapters, rewrite a capability as zero, or block F8 outside raids. A shell attachment fails closed when no supported active Duckov screen-space canvas or installed font template can be proven. Repeated open requests cannot create a second active shell. Closing first deactivates and then destroys the one UDS-owned hierarchy. Final disposal unsubscribes all four lifecycle signals, destroys only UDS-created buttons, shell objects, and menu-icon runtime objects, removes only UDS localization overrides, clears the native resolver, and restores panel focus/cursor state.
 
 ## Reproduce the executable audit
 
@@ -69,4 +71,4 @@ dotnet run --project .\tools\DuckovContractProbe\DuckovContractProbe.csproj -c R
 
 The probe reads managed metadata and installed asset/version fingerprints. It does not launch Duckov, select a save, change gameplay, deploy a mod, or modify a Duckov save.
 
-Runtime hierarchy placement, native input feel, long localized labels, menu recreation, and screenshot agreement remain user-controlled checks in [M17_MANUAL_VALIDATION.md](M17_MANUAL_VALIDATION.md).
+Runtime hierarchy placement, native input feel, long localized labels, menu recreation, 2560x1440 and 1024x768 layout, and screenshot agreement remain user-controlled checks in [M17_MANUAL_VALIDATION.md](M17_MANUAL_VALIDATION.md).

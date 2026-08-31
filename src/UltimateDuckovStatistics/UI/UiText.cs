@@ -13,6 +13,8 @@ internal static class UiText
         {
             ["ui.title"] = "Ultimate Duckov Statistics",
             ["ui.menu_entry"] = "Statistics",
+            ["ui.shell_placeholder"] = "The retained-mode shell is ready. Statistics view content is restored in visual correction Gate 2.",
+            ["ui.shell_unavailable"] = "The statistics panel could not attach to Duckov's current UI. Tracking remains active; use Player.log for details.",
             ["ui.close"] = "Close",
             ["ui.overview"] = "Overview",
             ["ui.items"] = "Items",

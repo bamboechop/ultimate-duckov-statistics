@@ -4,6 +4,18 @@ This matrix qualifies the v0.17.0 UI candidate against the thirty accepted image
 
 No row below is considered passed from source inspection or deterministic tests alone. Record `Pass`, `Fail`, or `Not exercised`, the exact candidate commit/package hash, resolution, UI scale, language, save generation, and screenshot/log/export evidence.
 
+## Visual-correction Gate 1 qualification
+
+Gate 1 qualifies only the reusable retained-mode shell. On its exact candidate, open Statistics through the existing main-menu entry and through the configured hotkey, then verify at both 2560x1440 and 1024x768 that:
+
+1. one dark near-full-screen frame, one prominent title, and one close/back control appear on Duckov's native canvas;
+2. the exact nine tabs remain a single readable row, with selected cyan and visible normal, hover, pressed, and keyboard-focus states;
+3. narrow overflow scrolls horizontally, Ctrl+Tab and Ctrl+Shift+Tab keep the selected tab visible, and clicking a tab updates the retained placeholder without opening a second panel;
+4. Escape and the close/back control close only UDS, restore focus/cursor state, and a later F8 open creates exactly one clean shell; and
+5. no legacy immediate-mode window, default `GUI.skin` chrome, background image, content body, reset/export control, or new gameplay/save behavior appears.
+
+The main-view, supporting-state, reset/export, content scrolling, data-comparison, and stress rows below are Gate 2 work and are not Gate 1 acceptance criteria. They remain the final M17 qualification matrix rather than being silently marked passed by the shell correction.
+
 ## Preconditions
 
 1. Freeze the candidate commit and verify the exact five-file package plus checksum.

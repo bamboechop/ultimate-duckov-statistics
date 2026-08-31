@@ -17,6 +17,7 @@ internal sealed class NativeUiIntegration : IDisposable
     private readonly Action<PanelAccessSurface> openPanel;
     private readonly Action<PanelAccessSurface> closePanel;
     private readonly Dictionary<int, GameObject> injectedByRoot = new();
+    private readonly Dictionary<PanelAccessSurface, Canvas> panelCanvases = new();
     private readonly HashSet<string> registeredLocalizationKeys = new(StringComparer.Ordinal);
     private Texture2D? menuIconTexture;
     private Sprite? menuIconSprite;
@@ -80,12 +81,71 @@ internal sealed class NativeUiIntegration : IDisposable
         }
     }
 
+    public bool TryResolvePanelCanvas(PanelAccessSurface surface, out Canvas? canvas)
+    {
+        try
+        {
+            if (panelCanvases.TryGetValue(surface, out var exact) && IsUsablePanelCanvas(exact))
+            {
+                canvas = exact;
+                return true;
+            }
+            panelCanvases.Remove(surface);
+
+            if (surface == PanelAccessSurface.Hotkey)
+            {
+                foreach (var knownSurface in new[] { PanelAccessSurface.MainMenu, PanelAccessSurface.BasePauseMenu })
+                {
+                    if (panelCanvases.TryGetValue(knownSurface, out var known) && IsUsablePanelCanvas(known))
+                    {
+                        canvas = known;
+                        return true;
+                    }
+                }
+            }
+
+            IEnumerable<Canvas> candidates = Array.Empty<Canvas>();
+            if (surface != PanelAccessSurface.BasePauseMenu)
+            {
+                var mainMenu = Resources.FindObjectsOfTypeAll<MainMenu>()
+                    .FirstOrDefault(value => value != null && value.gameObject.scene.IsValid());
+                if (mainMenu != null)
+                {
+                    candidates = mainMenu.gameObject.scene.GetRootGameObjects()
+                        .SelectMany(rootObject => rootObject.GetComponentsInChildren<Canvas>(includeInactive: false));
+                }
+            }
+
+            if (!candidates.Any() && surface != PanelAccessSurface.MainMenu && PauseMenu.Instance != null)
+                candidates = PauseMenu.Instance.GetComponentsInChildren<Canvas>(includeInactive: false);
+            if (!candidates.Any()) candidates = Resources.FindObjectsOfTypeAll<Canvas>();
+
+            canvas = candidates
+                .Where(IsUsablePanelCanvas)
+                .OrderByDescending(ScorePanelCanvas)
+                .ThenBy(value => value.gameObject.name, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (canvas == null) return false;
+            panelCanvases[surface] = canvas;
+            return true;
+        }
+        catch (Exception exception)
+        {
+            canvas = null;
+            coordinator.ReportUiDiagnostic(
+                $"M17 retained-mode canvas discovery failed for {surface}: {exception.GetType().Name}: {exception.Message}",
+                "Warning");
+            return false;
+        }
+    }
+
     private void HandleMainMenuAwake() => TryInjectExistingMainMenu();
 
     private void HandleMainMenuDestroy()
     {
         closePanel(PanelAccessSurface.MainMenu);
         MainMenuState = NativeMenuIntegrationState.NotObserved;
+        panelCanvases.Remove(PanelAccessSurface.MainMenu);
         RemoveDestroyedEntries();
     }
 
@@ -94,6 +154,7 @@ internal sealed class NativeUiIntegration : IDisposable
     private void HandlePauseMenuClosed()
     {
         closePanel(PanelAccessSurface.BasePauseMenu);
+        panelCanvases.Remove(PanelAccessSurface.BasePauseMenu);
         RemoveDestroyedEntries();
     }
 
@@ -188,6 +249,11 @@ internal sealed class NativeUiIntegration : IDisposable
             ApplyLocalizedButtonText(clone);
             var iconApplied = ApplyStatisticsIcon(clone);
             clone.SetActive(true);
+            var panelCanvas = clone.GetComponentsInParent<Canvas>(includeInactive: false)
+                .Where(IsUsablePanelCanvas)
+                .OrderByDescending(ScorePanelCanvas)
+                .FirstOrDefault();
+            if (IsUsablePanelCanvas(panelCanvas)) panelCanvases[surface] = panelCanvas;
             button.onClick = new Button.ButtonClickedEvent();
             button.onClick.AddListener(() => HandleInjectedButtonActivated(surface));
             if (!HasUsableButtonStructure(button))
@@ -231,6 +297,27 @@ internal sealed class NativeUiIntegration : IDisposable
                && button.transform is RectTransform rectTransform
                && rectTransform.rect.width > 1f
                && rectTransform.rect.height > 1f;
+    }
+
+    private static bool IsUsablePanelCanvas(Canvas? canvas)
+    {
+        return canvas != null
+               && canvas.enabled
+               && canvas.gameObject.activeInHierarchy
+               && canvas.gameObject.scene.IsValid()
+               && canvas.renderMode != RenderMode.WorldSpace
+               && canvas.GetComponent<GraphicRaycaster>() != null
+               && !canvas.gameObject.name.StartsWith("UltimateDuckovStatistics", StringComparison.Ordinal);
+    }
+
+    private static int ScorePanelCanvas(Canvas canvas)
+    {
+        var score = 0;
+        if (canvas.isRootCanvas) score += 400;
+        if (canvas.GetComponent<GraphicRaycaster>() != null) score += 300;
+        if (canvas.GetComponent<CanvasScaler>() != null) score += 200;
+        if (canvas.renderMode == RenderMode.ScreenSpaceOverlay) score += 100;
+        return score + Math.Clamp(canvas.sortingOrder, -50, 50);
     }
 
     private static int ScoreAnchor(Button button, PanelAccessSurface surface)
@@ -349,8 +436,8 @@ internal sealed class NativeUiIntegration : IDisposable
     private static void DrawRectangle(Color32[] pixels, int size, int x, int y, int width, int height, Color32 color)
     {
         for (var row = Math.Max(0, y); row < Math.Min(size, y + height); row++)
-        for (var column = Math.Max(0, x); column < Math.Min(size, x + width); column++)
-            pixels[row * size + column] = color;
+            for (var column = Math.Max(0, x); column < Math.Min(size, x + width); column++)
+                pixels[row * size + column] = color;
     }
 
     private static void ApplyLocalizedButtonText(GameObject clone)
@@ -430,6 +517,7 @@ internal sealed class NativeUiIntegration : IDisposable
         foreach (var injected in injectedByRoot.Values.Where(value => value != null))
             UnityEngine.Object.Destroy(injected);
         injectedByRoot.Clear();
+        panelCanvases.Clear();
         if (menuIconSprite != null) UnityEngine.Object.Destroy(menuIconSprite);
         if (menuIconTexture != null) UnityEngine.Object.Destroy(menuIconTexture);
         menuIconSprite = null;
