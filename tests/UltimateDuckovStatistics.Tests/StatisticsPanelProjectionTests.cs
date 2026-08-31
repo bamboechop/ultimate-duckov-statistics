@@ -264,6 +264,38 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(StatisticsPanelTab.Crafting, state.SelectedTab);
     }
 
+    [Fact]
+    public void ExactlyOneTabOwnsTheSelectedSurfaceAcrossEveryTransition()
+    {
+        foreach (var selected in PanelInteractionState.NavigationOrder)
+        {
+            var selectedCount = PanelInteractionState.NavigationOrder.Count(
+                candidate => RetainedTabSelectionPolicy.IsSelected(candidate, selected));
+
+            Assert.Equal(1, selectedCount);
+        }
+    }
+
+    [Fact]
+    public void Gate1cLayersMakeTheShellDistinctFromTheDimmedScene()
+    {
+        var outsideFrame = RetainedShellLayerPolicy.BackgroundTransmission(
+            RetainedShellLayerPolicy.BlockerOpacity);
+        var insideFrame = RetainedShellLayerPolicy.BackgroundTransmission(
+            RetainedShellLayerPolicy.BlockerOpacity,
+            RetainedShellLayerPolicy.FrameOpacity);
+        var insideContent = RetainedShellLayerPolicy.BackgroundTransmission(
+            RetainedShellLayerPolicy.BlockerOpacity,
+            RetainedShellLayerPolicy.FrameOpacity,
+            RetainedShellLayerPolicy.ContentOpacity);
+
+        Assert.InRange(outsideFrame, 0.319f, 0.321f);
+        Assert.InRange(insideFrame, 0.057f, 0.058f);
+        Assert.InRange(insideContent, 0.016f, 0.017f);
+        Assert.True(insideFrame < outsideFrame / 5f);
+        Assert.True(insideContent < insideFrame / 3f);
+    }
+
     [Theory]
     [InlineData(false, true, true, false)]
     [InlineData(true, false, true, false)]

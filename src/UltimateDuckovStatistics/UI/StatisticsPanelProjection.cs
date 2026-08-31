@@ -327,7 +327,7 @@ internal static class RetainedShellLayoutPolicy
             BodyFontPixels = narrow ? 20f : 22f,
             SecondaryFontPixels = narrow ? 18f : 20f,
             BackControlPixels = narrow ? 56f : 64f,
-            NavigationRailPixels = 4f,
+            NavigationRailPixels = 5f,
             TabViewportWidthPixels = viewportWidth,
             TabContentWidthPixels = contentWidth,
             TabStripRequiresScrolling = contentWidth > viewportWidth
@@ -377,6 +377,38 @@ internal static class RetainedTabGeometryPolicy
             ContentWidth = contentWidth,
             RequiresScrolling = contentWidth > viewportWidthPixels + 0.5f
         };
+    }
+}
+
+internal static class RetainedTabSelectionPolicy
+{
+    public static bool IsSelected(StatisticsPanelTab candidate, StatisticsPanelTab selected)
+    {
+        if (!PanelInteractionState.NavigationOrder.Contains(candidate))
+            throw new ArgumentOutOfRangeException(nameof(candidate));
+        if (!PanelInteractionState.NavigationOrder.Contains(selected))
+            throw new ArgumentOutOfRangeException(nameof(selected));
+        return candidate == selected;
+    }
+}
+
+internal static class RetainedShellLayerPolicy
+{
+    public const float BlockerOpacity = 0.68f;
+    public const float FrameOpacity = 0.82f;
+    public const float ContentOpacity = 0.72f;
+
+    public static float BackgroundTransmission(params float[] opacities)
+    {
+        if (opacities == null) throw new ArgumentNullException(nameof(opacities));
+        var transmission = 1f;
+        foreach (var opacity in opacities)
+        {
+            if (opacity < 0f || opacity > 1f) throw new ArgumentOutOfRangeException(nameof(opacities));
+            transmission *= 1f - opacity;
+        }
+
+        return transmission;
     }
 }
 

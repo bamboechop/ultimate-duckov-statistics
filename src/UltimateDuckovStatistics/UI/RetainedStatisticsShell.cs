@@ -106,14 +106,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
             root.SetActive(false);
             root.AddComponent<CanvasGroup>().blocksRaycasts = true;
             var blocker = root.AddComponent<Image>();
-            blocker.color = new Color(0.005f, 0.015f, 0.035f, 0.48f);
+            blocker.color = new Color(0.005f, 0.015f, 0.035f, RetainedShellLayerPolicy.BlockerOpacity);
             blocker.raycastTarget = true;
 
             frame = CreateSurface(
                 "Frame",
                 root.transform,
-                shellTemplates.Surface,
-                new Color(0.018f, 0.082f, 0.13f, 0.88f),
+                new Color(0.012f, 0.05f, 0.085f, RetainedShellLayerPolicy.FrameOpacity),
                 raycastTarget: true);
 
             header = CreateRect("Header", frame);
@@ -159,7 +158,6 @@ internal sealed class RetainedStatisticsShell : IDisposable
             navigationRail = CreateRect("NavigationRail", frame);
             CreateGraphicPresentation(
                 navigationRail,
-                shellTemplates.NavigationRail,
                 new Color(0.08f, 0.78f, 0.9f, 0.96f),
                 raycastTarget: false);
 
@@ -170,8 +168,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                     $"Tab{tab}",
                     tabContent,
                     TabLabel(tab),
-                    () => selectTab(capturedTab),
-                    shellTemplates.TabButton);
+                    () => selectTab(capturedTab));
                 var layoutElement = tabButton.GetComponent<LayoutElement>()
                                     ?? tabButton.gameObject.AddComponent<LayoutElement>();
                 layoutElement.enabled = true;
@@ -185,8 +182,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             contentHost = CreateSurface(
                 "ContentPlaceholder",
                 frame,
-                shellTemplates.Surface,
-                new Color(0.006f, 0.026f, 0.045f, 0.72f),
+                new Color(0.006f, 0.026f, 0.045f, RetainedShellLayerPolicy.ContentOpacity),
                 raycastTarget: false);
 
             contentViewport = CreateRect("ContentViewport", contentHost);
@@ -265,7 +261,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         if (placeholderTitle != null) placeholderTitle.text = TabLabel(tab);
         foreach (var entry in tabButtons)
         {
-            var selected = entry.Key == tab;
+            var selected = RetainedTabSelectionPolicy.IsSelected(entry.Key, tab);
             ApplyButtonColors(entry.Value, selected);
             if (tabLabels.TryGetValue(entry.Key, out var label) && label != null)
                 label.color = selected
@@ -544,61 +540,28 @@ internal sealed class RetainedStatisticsShell : IDisposable
         string name,
         Transform parent,
         string label,
-        Action clicked,
-        Button? nativeTemplate)
+        Action clicked)
     {
-        Button button;
-        RectTransform rect;
-        if (nativeTemplate != null)
-        {
-            button = UnityEngine.Object.Instantiate(nativeTemplate, parent, worldPositionStays: false);
-            rect = button.GetComponent<RectTransform>();
-            button.gameObject.SetActive(false);
-            button.gameObject.name = name;
-            button.gameObject.hideFlags = HideFlags.DontSave;
-            StripNativeActionAndLayoutBehaviours(button.gameObject, button);
-        }
-        else
-        {
-            rect = CreateRect(name, parent);
-            var image = rect.gameObject.AddComponent<Image>();
-            image.raycastTarget = true;
-            button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = image;
-            ApplyNativeButtonPresentation(button, image);
-        }
+        var rect = CreateRect(name, parent);
+        var image = rect.gameObject.AddComponent<Image>();
+        image.raycastTarget = true;
+        var button = rect.gameObject.AddComponent<Button>();
+        button.targetGraphic = image;
+        ApplyNativeButtonPresentation(button, image);
         button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
         ApplyButtonColors(button, selected: false);
         button.onClick = new Button.ButtonClickedEvent();
         button.onClick.AddListener(() => clicked());
-        var text = button.GetComponentsInChildren<TextMeshProUGUI>(includeInactive: true).FirstOrDefault();
-        if (text == null)
-        {
-            text = CreateText(
-                "Label",
-                rect,
-                label,
-                NativeTypographyRole.Navigation,
-                TextAlignmentOptions.Center,
-                Color.white);
-        }
-        else
-        {
-            text.gameObject.name = "Label";
-            typography!.Resolve(NativeTypographyRole.Navigation).Apply(text);
-            text.text = label;
-            text.alignment = TextAlignmentOptions.Center;
-            text.color = Color.white;
-            text.enableAutoSizing = false;
-            text.enableWordWrapping = false;
-            text.overflowMode = TextOverflowModes.Overflow;
-            text.raycastTarget = false;
-            textSizing.Add(text, (NativeTypographyRole.Navigation, 1f));
-        }
+        var text = CreateText(
+            "Label",
+            rect,
+            label,
+            NativeTypographyRole.Navigation,
+            TextAlignmentOptions.Center,
+            Color.white);
         text.enableWordWrapping = false;
         text.overflowMode = TextOverflowModes.Overflow;
         Stretch(text.rectTransform, 8f, 8f, 2f, 2f);
-        button.gameObject.SetActive(true);
         return button;
     }
 
@@ -764,36 +727,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private static RectTransform CreateSurface(
         string name,
         Transform parent,
-        Graphic? nativeTemplate,
         Color color,
         bool raycastTarget)
     {
-        if (nativeTemplate != null)
-        {
-            GameObject? clone = null;
-            try
-            {
-                clone = UnityEngine.Object.Instantiate(nativeTemplate.gameObject, parent, worldPositionStays: false);
-                clone.SetActive(false);
-                clone.name = name;
-                clone.hideFlags = HideFlags.DontSave;
-                for (var childIndex = 0; childIndex < clone.transform.childCount; childIndex++)
-                    clone.transform.GetChild(childIndex).gameObject.SetActive(false);
-                var graphic = clone.GetComponent(nativeTemplate.GetType()) as Graphic
-                              ?? clone.GetComponent<Graphic>();
-                if (graphic == null) throw new InvalidOperationException("Native surface clone lost its Graphic.");
-                StripNativeActionAndLayoutBehaviours(clone, primaryButton: null);
-                graphic.color = color;
-                graphic.raycastTarget = raycastTarget;
-                clone.SetActive(true);
-                return clone.GetComponent<RectTransform>();
-            }
-            catch
-            {
-                if (clone != null) UnityEngine.Object.Destroy(clone);
-            }
-        }
-
         var rect = CreateRect(name, parent);
         var image = rect.gameObject.AddComponent<Image>();
         image.color = color;
@@ -803,20 +739,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
     private static Image CreateGraphicPresentation(
         RectTransform target,
-        Graphic? nativeTemplate,
         Color color,
         bool raycastTarget)
     {
         var image = target.gameObject.AddComponent<Image>();
-        if (nativeTemplate is Image nativeImage)
-        {
-            image.sprite = nativeImage.sprite;
-            image.overrideSprite = nativeImage.overrideSprite;
-            image.material = nativeImage.material;
-            image.type = nativeImage.type;
-            image.fillCenter = nativeImage.fillCenter;
-            image.pixelsPerUnitMultiplier = nativeImage.pixelsPerUnitMultiplier;
-        }
         image.color = color;
         image.raycastTarget = raycastTarget;
         return image;

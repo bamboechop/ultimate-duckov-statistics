@@ -21,8 +21,10 @@ internal sealed class NativeShellTemplates
     public string Describe() =>
         $"heading={HeadingTypography?.SourceDescription ?? "public text fallback"}; " +
         $"navigation={NavigationTypography?.SourceDescription ?? "public text fallback"}; " +
-        $"back={Describe(BackControl)}; tab={Describe(TabButton)}; " +
-        $"surface={Describe(Surface)}; rail={Describe(NavigationRail)}";
+        $"back={Describe(BackControl)}; inspected native tab={Describe(TabButton)}; " +
+        "shell tab=UDS-owned Button/Image with native root presentation properties only; " +
+        $"inspected native surface={Describe(Surface)}; shell surfaces=UDS-owned Image; " +
+        $"inspected native rail={Describe(NavigationRail)}; shell rail=UDS-owned Image";
 
     private static string Describe(Component? component) =>
         component == null ? "restrained retained-mode fallback" : NativeShellTemplateResolver.HierarchyPath(component.transform);
