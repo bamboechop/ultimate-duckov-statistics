@@ -184,12 +184,12 @@ internal sealed class NativeUiIntegration : IDisposable
             clone.SetActive(false);
             clone.name = "UltimateDuckovStatisticsButton";
             clone.transform.SetSiblingIndex(Math.Min(anchor.transform.GetSiblingIndex() + 1, clone.transform.parent.childCount - 1));
-            RemoveInheritedOpenChildActions(clone);
+            var removedActionBehaviours = RemoveInheritedActionBehaviours(clone, button);
+            ApplyLocalizedButtonText(clone);
+            var iconApplied = ApplyStatisticsIcon(clone);
+            clone.SetActive(true);
             button.onClick = new Button.ButtonClickedEvent();
             button.onClick.AddListener(() => HandleInjectedButtonActivated(surface));
-            ApplyLocalizedButtonText(clone);
-            ApplyStatisticsIcon(clone, button);
-            clone.SetActive(true);
             if (!HasUsableButtonStructure(button))
             {
                 UnityEngine.Object.Destroy(clone);
@@ -199,7 +199,9 @@ internal sealed class NativeUiIntegration : IDisposable
                 return false;
             }
             injectedByRoot[rootId] = clone;
-            coordinator.ReportUiDiagnostic($"M17 native {surface} statistics entry attached; activation has not yet been observed.");
+            coordinator.ReportUiDiagnostic(
+                $"M17 native {surface} statistics entry attached; activation has not yet been observed. " +
+                $"Removed inherited action behaviours: {removedActionBehaviours}; generated icon applied: {iconApplied}.");
             return true;
         }
         catch (Exception exception)
@@ -264,29 +266,44 @@ internal sealed class NativeUiIntegration : IDisposable
         return field?.FieldType == typeof(string) ? (string?)field.GetValue(target) : null;
     }
 
-    private static void RemoveInheritedOpenChildActions(GameObject clone)
+    private static int RemoveInheritedActionBehaviours(GameObject clone, Button primaryButton)
     {
+        var removed = 0;
         foreach (var component in clone.GetComponentsInChildren<Component>(includeInactive: true))
         {
-            if (component == null || component is Button) continue;
-            if (string.Equals(component.GetType().Name, "UIPanelButton_OpenChildPanel", StringComparison.Ordinal))
-            {
-                if (component is Behaviour behaviour) behaviour.enabled = false;
-                UnityEngine.Object.Destroy(component);
-            }
+            if (component == null || ReferenceEquals(component, primaryButton)) continue;
+            if (component is not MonoBehaviour behaviour || IsPresentationBehaviour(component)) continue;
+            behaviour.enabled = false;
+            UnityEngine.Object.Destroy(component);
+            removed++;
         }
+        return removed;
     }
 
-    private void ApplyStatisticsIcon(GameObject clone, Button button)
+    private static bool IsPresentationBehaviour(Component component)
+    {
+        return component is Graphic
+               || component is LayoutGroup
+               || component is LayoutElement
+               || component is ContentSizeFitter
+               || component is AspectRatioFitter
+               || component is BaseMeshEffect
+               || component is Mask
+               || component is RectMask2D
+               || string.Equals(component.GetType().Name, "TextLocalizor", StringComparison.Ordinal);
+    }
+
+    private bool ApplyStatisticsIcon(GameObject clone)
     {
         var image = clone.GetComponentsInChildren<Image>(includeInactive: true)
-            .FirstOrDefault(candidate => candidate != button.targetGraphic && IsIconTransform(candidate.transform, clone.transform));
-        if (image == null) return;
+            .FirstOrDefault(candidate => IsIconTransform(candidate.transform, clone.transform));
+        if (image == null) return false;
         var sprite = GetStatisticsIcon();
         image.sprite = sprite;
         image.overrideSprite = sprite;
         image.preserveAspect = true;
         image.color = Color.white;
+        return true;
     }
 
     private static bool IsIconTransform(Transform candidate, Transform root)
