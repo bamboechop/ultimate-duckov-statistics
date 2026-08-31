@@ -100,6 +100,49 @@ internal static class NativeMenuPresentationPolicy
     }
 }
 
+internal static class NativeShellTemplatePolicy
+{
+    public static int ScoreHeading(string? path, float fontSize)
+    {
+        if (string.IsNullOrWhiteSpace(path) || fontSize < 56f) return 0;
+        if (path.EndsWith("/MainMenuContainer/Menu/OptionsPanel/Text (TMP)", StringComparison.Ordinal)) return 2000;
+        if (path.Contains("/OptionsPanel/", StringComparison.Ordinal) && fontSize >= 80f) return 1500;
+        if (path.Contains("/MainTitle/", StringComparison.Ordinal)) return 0;
+        return fontSize >= 80f ? 200 : 0;
+    }
+
+    public static int ScoreBack(string? path, bool hasIcon)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !hasIcon) return 0;
+        if (path.EndsWith("/MainMenuContainer/Menu/OptionsPanel/Return", StringComparison.Ordinal)) return 2000;
+        if (path.EndsWith("/Return", StringComparison.Ordinal)) return 800;
+        if (path.EndsWith("/Back", StringComparison.Ordinal)) return 700;
+        return 0;
+    }
+
+    public static int ScoreTab(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return 0;
+        if (path.EndsWith("/MainMenuContainer/Menu/OptionsPanel/Tabs/Common", StringComparison.Ordinal)) return 2000;
+        return path.Contains("/OptionsPanel/Tabs/", StringComparison.Ordinal) ? 800 : 0;
+    }
+
+    public static int ScoreSurface(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return 0;
+        if (path.EndsWith("/MainMenuContainer/Menu/OptionsPanel/ScrollView/Background", StringComparison.Ordinal))
+            return 2000;
+        return path.EndsWith("/ScrollView/Background", StringComparison.Ordinal) ? 800 : 0;
+    }
+
+    public static int ScoreRail(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return 0;
+        if (path.EndsWith("/MainMenuContainer/Menu/OptionsPanel/Tabs/Image", StringComparison.Ordinal)) return 2000;
+        return path.EndsWith("/Tabs/Image", StringComparison.Ordinal) ? 800 : 0;
+    }
+}
+
 internal enum NativeTypographyRole
 {
     Title,
@@ -111,19 +154,25 @@ internal enum NativeTypographyRole
 internal enum NativeTypographySource
 {
     PublicTextTemplate,
-    LiveMenuButton
+    LiveMenuButton,
+    NativeHeading
 }
 
 internal static class NativeTypographyRolePolicy
 {
-    public static NativeTypographySource Resolve(NativeTypographyRole role, bool hasLiveMenuButton) => role switch
-    {
-        NativeTypographyRole.Title or NativeTypographyRole.Navigation when hasLiveMenuButton =>
-            NativeTypographySource.LiveMenuButton,
-        NativeTypographyRole.Title or NativeTypographyRole.Navigation or NativeTypographyRole.Body
-            or NativeTypographyRole.Secondary => NativeTypographySource.PublicTextTemplate,
-        _ => throw new ArgumentOutOfRangeException(nameof(role))
-    };
+    public static NativeTypographySource Resolve(
+        NativeTypographyRole role,
+        bool hasLiveMenuButton,
+        bool hasNativeHeading = false) =>
+        role switch
+        {
+            NativeTypographyRole.Title when hasNativeHeading => NativeTypographySource.NativeHeading,
+            NativeTypographyRole.Title or NativeTypographyRole.Navigation when hasLiveMenuButton =>
+                NativeTypographySource.LiveMenuButton,
+            NativeTypographyRole.Title or NativeTypographyRole.Navigation or NativeTypographyRole.Body
+                or NativeTypographyRole.Secondary => NativeTypographySource.PublicTextTemplate,
+            _ => throw new ArgumentOutOfRangeException(nameof(role))
+        };
 }
 
 internal sealed class StatisticsPanelLayout
@@ -249,13 +298,15 @@ internal static class RetainedShellLayoutPolicy
     {
         if (screenWidth <= 0f) throw new ArgumentOutOfRangeException(nameof(screenWidth));
         if (screenHeight <= 0f) throw new ArgumentOutOfRangeException(nameof(screenHeight));
-        var margin = screenWidth <= 1200f ? 18f : 34f;
+        var margin = screenWidth <= 1200f
+            ? Math.Clamp(screenWidth * 0.024f, 18f, 30f)
+            : Math.Clamp(screenWidth * 0.0332f, 48f, 96f);
         var narrow = screenWidth <= 1200f;
-        const float innerMargin = 18f;
-        var tabWidth = narrow ? 180f : 202f;
-        var tabHeight = narrow ? 60f : 70f;
-        const float tabSpacing = 10f;
-        const float tabPadding = 10f;
+        var innerMargin = narrow ? 18f : 28f;
+        var tabWidth = narrow ? 168f : 148f;
+        var tabHeight = narrow ? 60f : 62f;
+        var tabSpacing = narrow ? 10f : 8f;
+        var tabPadding = narrow ? 10f : 0f;
         var tabCount = PanelInteractionState.NavigationOrder.Count;
         var contentWidth = tabPadding * 2f
                            + tabCount * tabWidth
@@ -265,17 +316,17 @@ internal static class RetainedShellLayoutPolicy
         {
             MarginPixels = margin,
             InnerMarginPixels = innerMargin,
-            HeaderHeightPixels = narrow ? 94f : 112f,
-            TabRowHeightPixels = narrow ? 72f : 84f,
+            HeaderHeightPixels = narrow ? 100f : 126f,
+            TabRowHeightPixels = narrow ? 72f : 76f,
             TabWidthPixels = tabWidth,
             TabHeightPixels = tabHeight,
             TabSpacingPixels = tabSpacing,
             TabPaddingPixels = tabPadding,
-            TitleFontPixels = narrow ? 50f : 64f,
-            NavigationFontPixels = narrow ? 25f : 30f,
+            TitleFontPixels = narrow ? 48f : 58f,
+            NavigationFontPixels = narrow ? 24f : 27f,
             BodyFontPixels = narrow ? 20f : 22f,
             SecondaryFontPixels = narrow ? 18f : 20f,
-            BackControlPixels = narrow ? 56f : 70f,
+            BackControlPixels = narrow ? 56f : 64f,
             NavigationRailPixels = 4f,
             TabViewportWidthPixels = viewportWidth,
             TabContentWidthPixels = contentWidth,
@@ -286,17 +337,46 @@ internal static class RetainedShellLayoutPolicy
 
 internal static class RetainedTabWidthPolicy
 {
-    private const float MaximumTabWidthPixels = 480f;
-
     public static float Resolve(float minimumWidthPixels, float preferredTextWidthPixels, float horizontalPaddingPixels)
     {
         if (minimumWidthPixels <= 0f) throw new ArgumentOutOfRangeException(nameof(minimumWidthPixels));
         if (preferredTextWidthPixels < 0f) throw new ArgumentOutOfRangeException(nameof(preferredTextWidthPixels));
         if (horizontalPaddingPixels < 0f) throw new ArgumentOutOfRangeException(nameof(horizontalPaddingPixels));
-        return Math.Clamp(
-            Math.Max(minimumWidthPixels, preferredTextWidthPixels + horizontalPaddingPixels),
-            minimumWidthPixels,
-            Math.Max(minimumWidthPixels, MaximumTabWidthPixels));
+        return Math.Max(minimumWidthPixels, preferredTextWidthPixels + horizontalPaddingPixels);
+    }
+}
+
+internal sealed class RetainedTabGeometry
+{
+    public IReadOnlyList<float> Widths { get; set; } = Array.Empty<float>();
+    public float ContentWidth { get; set; }
+    public bool RequiresScrolling { get; set; }
+}
+
+internal static class RetainedTabGeometryPolicy
+{
+    public static RetainedTabGeometry Create(
+        float viewportWidthPixels,
+        float minimumWidthPixels,
+        float spacingPixels,
+        float outerPaddingPixels,
+        float labelPaddingPixels,
+        IReadOnlyList<float> preferredTextWidthsPixels)
+    {
+        if (viewportWidthPixels <= 0f) throw new ArgumentOutOfRangeException(nameof(viewportWidthPixels));
+        if (preferredTextWidthsPixels == null) throw new ArgumentNullException(nameof(preferredTextWidthsPixels));
+        var widths = preferredTextWidthsPixels
+            .Select(width => RetainedTabWidthPolicy.Resolve(minimumWidthPixels, width, labelPaddingPixels))
+            .ToArray();
+        var contentWidth = outerPaddingPixels * 2f
+                           + widths.Sum()
+                           + Math.Max(0, widths.Length - 1) * spacingPixels;
+        return new RetainedTabGeometry
+        {
+            Widths = widths,
+            ContentWidth = contentWidth,
+            RequiresScrolling = contentWidth > viewportWidthPixels + 0.5f
+        };
     }
 }
 

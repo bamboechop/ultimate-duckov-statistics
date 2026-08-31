@@ -39,17 +39,22 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private TextMeshProUGUI? placeholderTitle;
     private TextMeshProUGUI? placeholderBody;
     private NativeTypographyRoles? typography;
+    private NativeShellTemplates? templates;
     private StatisticsPanelTab selectedTab;
     private int lastScreenWidth = -1;
     private int lastScreenHeight = -1;
     private float lastCanvasScale = -1f;
+    private int lastTabGeometrySignature;
+    private int geometryPollCountdown;
     private RetainedShellLayout currentLayout = RetainedShellLayoutPolicy.Create(2560f, 1440f);
 
     public bool IsCreated => root != null;
 
     public RectTransform? ContentRoot => contentRoot;
 
-    public string? TypographySummary => typography?.Describe();
+    public string? TypographySummary => typography == null
+        ? null
+        : $"{typography.Describe()}; shell templates: {templates?.Describe() ?? "unavailable"}";
 
     public bool IsUsable => root != null
                             && root.activeInHierarchy
@@ -62,12 +67,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
         StatisticsPanelTab initialTab,
         Action close,
         Action<StatisticsPanelTab> selectTab,
-        NativeTextTemplateSnapshot? preferredMenuTypography,
+        NativeShellTemplates shellTemplates,
         out string? error)
     {
         if (targetCanvas == null) throw new ArgumentNullException(nameof(targetCanvas));
         if (close == null) throw new ArgumentNullException(nameof(close));
         if (selectTab == null) throw new ArgumentNullException(nameof(selectTab));
+        if (shellTemplates == null) throw new ArgumentNullException(nameof(shellTemplates));
         error = null;
         if (root != null) return true;
 
@@ -89,7 +95,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 return false;
             }
 
-            typography = new NativeTypographyRoles(publicTypography, preferredMenuTypography);
+            templates = shellTemplates;
+            typography = new NativeTypographyRoles(
+                publicTypography,
+                shellTemplates.NavigationTypography,
+                shellTemplates.HeadingTypography);
 
             canvas = targetCanvas;
             root = CreateRect("UltimateDuckovStatisticsRetainedShell", targetCanvas.transform).gameObject;
@@ -99,10 +109,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
             blocker.color = new Color(0.005f, 0.015f, 0.035f, 0.48f);
             blocker.raycastTarget = true;
 
-            frame = CreateRect("Frame", root.transform);
-            var frameImage = frame.gameObject.AddComponent<Image>();
-            frameImage.color = new Color(0.012f, 0.055f, 0.095f, 0.9f);
-            frameImage.raycastTarget = true;
+            frame = CreateSurface(
+                "Frame",
+                root.transform,
+                shellTemplates.Surface,
+                new Color(0.018f, 0.082f, 0.13f, 0.88f),
+                raycastTarget: true);
 
             header = CreateRect("Header", frame);
             title = CreateText(
@@ -114,7 +126,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 new Color(0.98f, 0.96f, 0.86f, 1f));
             title.enableWordWrapping = false;
 
-            backButton = CreateBackButton(header, close);
+            backButton = CreateBackButton(header, close, shellTemplates.BackControl);
 
             tabViewport = CreateRect("TabViewport", frame);
             tabViewport.gameObject.AddComponent<RectMask2D>();
@@ -145,9 +157,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
             tabTrailingCue = CreateDirectionalCue("TabTrailingCue", tabViewport, ">");
 
             navigationRail = CreateRect("NavigationRail", frame);
-            var navigationRailImage = navigationRail.gameObject.AddComponent<Image>();
-            navigationRailImage.color = new Color(0.08f, 0.78f, 0.9f, 0.96f);
-            navigationRailImage.raycastTarget = false;
+            CreateGraphicPresentation(
+                navigationRail,
+                shellTemplates.NavigationRail,
+                new Color(0.08f, 0.78f, 0.9f, 0.96f),
+                raycastTarget: false);
 
             foreach (var tab in PanelInteractionState.NavigationOrder)
             {
@@ -156,8 +170,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
                     $"Tab{tab}",
                     tabContent,
                     TabLabel(tab),
-                    () => selectTab(capturedTab));
-                var layoutElement = tabButton.gameObject.AddComponent<LayoutElement>();
+                    () => selectTab(capturedTab),
+                    shellTemplates.TabButton);
+                var layoutElement = tabButton.GetComponent<LayoutElement>()
+                                    ?? tabButton.gameObject.AddComponent<LayoutElement>();
+                layoutElement.enabled = true;
                 tabButtons.Add(tab, tabButton);
                 tabLayouts.Add(tab, layoutElement);
                 var tabLabel = tabButton.GetComponentInChildren<TextMeshProUGUI>(includeInactive: true);
@@ -165,10 +182,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 tabLabels.Add(tab, tabLabel);
             }
 
-            contentHost = CreateRect("ContentPlaceholder", frame);
-            var contentImage = contentHost.gameObject.AddComponent<Image>();
-            contentImage.color = new Color(0.008f, 0.035f, 0.06f, 0.78f);
-            contentImage.raycastTarget = false;
+            contentHost = CreateSurface(
+                "ContentPlaceholder",
+                frame,
+                shellTemplates.Surface,
+                new Color(0.006f, 0.026f, 0.045f, 0.72f),
+                raycastTarget: false);
 
             contentViewport = CreateRect("ContentViewport", contentHost);
             contentViewport.gameObject.AddComponent<RectMask2D>();
@@ -206,6 +225,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
             root.transform.SetAsLastSibling();
             root.SetActive(true);
             Canvas.ForceUpdateCanvases();
+            InvalidateLayoutCache();
+            RefreshLayout(force: true);
             EnsureSelectedVisible();
             UpdateContentOverflowCues();
             FocusSelectedTab();
@@ -222,7 +243,16 @@ internal sealed class RetainedStatisticsShell : IDisposable
     public void Tick()
     {
         if (root == null) return;
-        RefreshLayout(force: false);
+        if (--geometryPollCountdown <= 0)
+        {
+            geometryPollCountdown = 30;
+            var labelsChanged = RefreshLocalizedLabels();
+            RefreshLayout(force: labelsChanged || TabGeometrySignature() != lastTabGeometrySignature);
+        }
+        else
+        {
+            RefreshLayout(force: false);
+        }
         UpdateTabOverflowCues();
         UpdateContentOverflowCues();
     }
@@ -327,19 +357,29 @@ internal sealed class RetainedStatisticsShell : IDisposable
             entry.Key.fontSize = ResolveFontPixels(entry.Value.Role) * entry.Value.Scale * unit;
         }
 
-        foreach (var entry in tabLayouts)
+        var preferredWidths = PanelInteractionState.NavigationOrder
+            .Select(tab => tabLabels.TryGetValue(tab, out var label) && label != null
+                ? Math.Max(0f, label.GetPreferredValues(label.text).x * canvasScale)
+                : 0f)
+            .ToArray();
+        var viewportWidthPixels = tabViewport.rect.width > 1f
+            ? tabViewport.rect.width * canvasScale
+            : currentLayout.TabViewportWidthPixels;
+        var tabGeometry = RetainedTabGeometryPolicy.Create(
+            viewportWidthPixels,
+            currentLayout.TabWidthPixels,
+            currentLayout.TabSpacingPixels,
+            currentLayout.TabPaddingPixels,
+            labelPaddingPixels: 38f,
+            preferredWidths);
+        for (var index = 0; index < PanelInteractionState.NavigationOrder.Count; index++)
         {
-            var preferredTextWidthPixels = tabLabels.TryGetValue(entry.Key, out var label) && label != null
-                ? label.GetPreferredValues(label.text).x * canvasScale
-                : 0f;
-            var tabWidthPixels = RetainedTabWidthPolicy.Resolve(
-                currentLayout.TabWidthPixels,
-                preferredTextWidthPixels,
-                horizontalPaddingPixels: 38f);
-            entry.Value.minWidth = tabWidthPixels * unit;
-            entry.Value.preferredWidth = tabWidthPixels * unit;
-            entry.Value.minHeight = currentLayout.TabHeightPixels * unit;
-            entry.Value.preferredHeight = currentLayout.TabHeightPixels * unit;
+            var tab = PanelInteractionState.NavigationOrder[index];
+            if (!tabLayouts.TryGetValue(tab, out var layout)) continue;
+            layout.minWidth = tabGeometry.Widths[index] * unit;
+            layout.preferredWidth = tabGeometry.Widths[index] * unit;
+            layout.minHeight = currentLayout.TabHeightPixels * unit;
+            layout.preferredHeight = currentLayout.TabHeightPixels * unit;
         }
 
         tabContent.sizeDelta = new Vector2(tabContent.sizeDelta.x, 0f);
@@ -363,6 +403,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         }
 
         Canvas.ForceUpdateCanvases();
+        lastTabGeometrySignature = TabGeometrySignature();
         EnsureSelectedVisible();
         UpdateContentOverflowCues();
     }
@@ -402,6 +443,47 @@ internal sealed class RetainedStatisticsShell : IDisposable
         NativeTypographyRole.Secondary => currentLayout.SecondaryFontPixels,
         _ => throw new ArgumentOutOfRangeException(nameof(role))
     };
+
+    private int TabGeometrySignature()
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var tab in PanelInteractionState.NavigationOrder)
+            {
+                if (!tabLabels.TryGetValue(tab, out var label) || label == null) continue;
+                hash = hash * 31 + StringComparer.Ordinal.GetHashCode(label.text ?? string.Empty);
+                hash = hash * 31 + (label.font == null ? 0 : label.font.GetInstanceID());
+                hash = hash * 31 + label.fontSize.GetHashCode();
+                hash = hash * 31 + label.characterSpacing.GetHashCode();
+                hash = hash * 31 + label.wordSpacing.GetHashCode();
+            }
+            return hash;
+        }
+    }
+
+    private bool RefreshLocalizedLabels()
+    {
+        var changed = false;
+        foreach (var tab in PanelInteractionState.NavigationOrder)
+        {
+            if (!tabLabels.TryGetValue(tab, out var label) || label == null) continue;
+            var localized = TabLabel(tab);
+            if (string.Equals(label.text, localized, StringComparison.Ordinal)) continue;
+            label.text = localized;
+            changed = true;
+        }
+        if (changed && placeholderTitle != null) placeholderTitle.text = TabLabel(selectedTab);
+        return changed;
+    }
+
+    private void InvalidateLayoutCache()
+    {
+        lastScreenWidth = -1;
+        lastScreenHeight = -1;
+        lastCanvasScale = -1f;
+        lastTabGeometrySignature = 0;
+    }
 
     private void UpdateTabOverflowCues()
     {
@@ -462,30 +544,80 @@ internal sealed class RetainedStatisticsShell : IDisposable
         string name,
         Transform parent,
         string label,
-        Action clicked)
+        Action clicked,
+        Button? nativeTemplate)
     {
-        var rect = CreateRect(name, parent);
-        var image = rect.gameObject.AddComponent<Image>();
-        image.raycastTarget = true;
-        var button = rect.gameObject.AddComponent<Button>();
-        button.targetGraphic = image;
+        Button button;
+        RectTransform rect;
+        if (nativeTemplate != null)
+        {
+            button = UnityEngine.Object.Instantiate(nativeTemplate, parent, worldPositionStays: false);
+            rect = button.GetComponent<RectTransform>();
+            button.gameObject.SetActive(false);
+            button.gameObject.name = name;
+            button.gameObject.hideFlags = HideFlags.DontSave;
+            StripNativeActionAndLayoutBehaviours(button.gameObject, button);
+        }
+        else
+        {
+            rect = CreateRect(name, parent);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.raycastTarget = true;
+            button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            ApplyNativeButtonPresentation(button, image);
+        }
         button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
-        ApplyNativeButtonPresentation(button, image);
         ApplyButtonColors(button, selected: false);
+        button.onClick = new Button.ButtonClickedEvent();
         button.onClick.AddListener(() => clicked());
-        var text = CreateText(
-            "Label",
-            rect,
-            label,
-            NativeTypographyRole.Navigation,
-            TextAlignmentOptions.Center,
-            Color.white);
+        var text = button.GetComponentsInChildren<TextMeshProUGUI>(includeInactive: true).FirstOrDefault();
+        if (text == null)
+        {
+            text = CreateText(
+                "Label",
+                rect,
+                label,
+                NativeTypographyRole.Navigation,
+                TextAlignmentOptions.Center,
+                Color.white);
+        }
+        else
+        {
+            text.gameObject.name = "Label";
+            typography!.Resolve(NativeTypographyRole.Navigation).Apply(text);
+            text.text = label;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = Color.white;
+            text.enableAutoSizing = false;
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.raycastTarget = false;
+            textSizing.Add(text, (NativeTypographyRole.Navigation, 1f));
+        }
+        text.enableWordWrapping = false;
+        text.overflowMode = TextOverflowModes.Overflow;
         Stretch(text.rectTransform, 8f, 8f, 2f, 2f);
+        button.gameObject.SetActive(true);
         return button;
     }
 
-    private static Button CreateBackButton(Transform parent, Action clicked)
+    private static Button CreateBackButton(Transform parent, Action clicked, Button? nativeTemplate)
     {
+        if (nativeTemplate != null)
+        {
+            var nativeButton = UnityEngine.Object.Instantiate(nativeTemplate, parent, worldPositionStays: false);
+            nativeButton.gameObject.SetActive(false);
+            nativeButton.gameObject.name = "Back";
+            nativeButton.gameObject.hideFlags = HideFlags.DontSave;
+            StripNativeActionAndLayoutBehaviours(nativeButton.gameObject, nativeButton);
+            nativeButton.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+            nativeButton.onClick = new Button.ButtonClickedEvent();
+            nativeButton.onClick.AddListener(() => clicked());
+            nativeButton.gameObject.SetActive(true);
+            return nativeButton;
+        }
+
         var rect = CreateRect("Back", parent);
         var image = rect.gameObject.AddComponent<Image>();
         image.raycastTarget = true;
@@ -494,10 +626,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
         button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
         button.colors = new ColorBlock
         {
-            normalColor = new Color(0.08f, 0.76f, 0.88f, 1f),
-            highlightedColor = new Color(0.23f, 0.9f, 0.98f, 1f),
-            pressedColor = new Color(0.05f, 0.55f, 0.68f, 1f),
-            selectedColor = new Color(0.16f, 0.84f, 0.94f, 1f),
+            normalColor = new Color(0.035f, 0.15f, 0.2f, 0.96f),
+            highlightedColor = new Color(0.08f, 0.38f, 0.46f, 1f),
+            pressedColor = new Color(0.03f, 0.24f, 0.3f, 1f),
+            selectedColor = new Color(0.07f, 0.3f, 0.36f, 1f),
             disabledColor = new Color(0.25f, 0.34f, 0.39f, 0.72f),
             colorMultiplier = 1f,
             fadeDuration = 0.08f
@@ -523,6 +655,23 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
     private static void LayoutBackArrow(Transform back, float controlSize)
     {
+        var nativeArrow = back.GetComponentsInChildren<Image>(includeInactive: true)
+            .FirstOrDefault(image => image != null
+                                     && image.transform != back
+                                     && image.sprite != null);
+        if (nativeArrow != null)
+        {
+            var nativeRect = nativeArrow.rectTransform;
+            nativeRect.anchorMin = new Vector2(0.5f, 0.5f);
+            nativeRect.anchorMax = new Vector2(0.5f, 0.5f);
+            nativeRect.pivot = new Vector2(0.5f, 0.5f);
+            nativeRect.anchoredPosition = Vector2.zero;
+            nativeRect.sizeDelta = Vector2.one * controlSize * 0.46f;
+            nativeArrow.preserveAspect = true;
+            nativeArrow.raycastTarget = false;
+            return;
+        }
+
         var thickness = Math.Max(3f, controlSize * 0.065f);
         var shaft = back.Find("Shaft") as RectTransform;
         var upper = back.Find("HeadUpper") as RectTransform;
@@ -610,6 +759,96 @@ internal sealed class RetainedStatisticsShell : IDisposable
         image.type = nativeImage.type;
         image.fillCenter = nativeImage.fillCenter;
         image.pixelsPerUnitMultiplier = nativeImage.pixelsPerUnitMultiplier;
+    }
+
+    private static RectTransform CreateSurface(
+        string name,
+        Transform parent,
+        Graphic? nativeTemplate,
+        Color color,
+        bool raycastTarget)
+    {
+        if (nativeTemplate != null)
+        {
+            GameObject? clone = null;
+            try
+            {
+                clone = UnityEngine.Object.Instantiate(nativeTemplate.gameObject, parent, worldPositionStays: false);
+                clone.SetActive(false);
+                clone.name = name;
+                clone.hideFlags = HideFlags.DontSave;
+                for (var childIndex = 0; childIndex < clone.transform.childCount; childIndex++)
+                    clone.transform.GetChild(childIndex).gameObject.SetActive(false);
+                var graphic = clone.GetComponent(nativeTemplate.GetType()) as Graphic
+                              ?? clone.GetComponent<Graphic>();
+                if (graphic == null) throw new InvalidOperationException("Native surface clone lost its Graphic.");
+                StripNativeActionAndLayoutBehaviours(clone, primaryButton: null);
+                graphic.color = color;
+                graphic.raycastTarget = raycastTarget;
+                clone.SetActive(true);
+                return clone.GetComponent<RectTransform>();
+            }
+            catch
+            {
+                if (clone != null) UnityEngine.Object.Destroy(clone);
+            }
+        }
+
+        var rect = CreateRect(name, parent);
+        var image = rect.gameObject.AddComponent<Image>();
+        image.color = color;
+        image.raycastTarget = raycastTarget;
+        return rect;
+    }
+
+    private static Image CreateGraphicPresentation(
+        RectTransform target,
+        Graphic? nativeTemplate,
+        Color color,
+        bool raycastTarget)
+    {
+        var image = target.gameObject.AddComponent<Image>();
+        if (nativeTemplate is Image nativeImage)
+        {
+            image.sprite = nativeImage.sprite;
+            image.overrideSprite = nativeImage.overrideSprite;
+            image.material = nativeImage.material;
+            image.type = nativeImage.type;
+            image.fillCenter = nativeImage.fillCenter;
+            image.pixelsPerUnitMultiplier = nativeImage.pixelsPerUnitMultiplier;
+        }
+        image.color = color;
+        image.raycastTarget = raycastTarget;
+        return image;
+    }
+
+    private static int StripNativeActionAndLayoutBehaviours(GameObject clone, Button? primaryButton)
+    {
+        var removed = 0;
+        foreach (var component in clone.GetComponentsInChildren<Component>(includeInactive: true))
+        {
+            if (component == null || ReferenceEquals(component, primaryButton)) continue;
+            if (component is not MonoBehaviour behaviour || IsRetainedPresentationBehaviour(component)) continue;
+            behaviour.enabled = false;
+            UnityEngine.Object.Destroy(component);
+            removed++;
+        }
+        return removed;
+    }
+
+    private static bool IsRetainedPresentationBehaviour(Component component)
+    {
+        return component is Graphic
+               || component is LayoutElement
+               || component is BaseMeshEffect
+               || component is Mask
+               || component is RectMask2D
+               || NativeMenuPresentationPolicy.PreservesProceduralImageState(TypeHierarchy(component.GetType()));
+    }
+
+    private static IEnumerable<string?> TypeHierarchy(Type type)
+    {
+        for (var current = type; current != null; current = current.BaseType) yield return current.FullName;
     }
 
     private static void ApplyNativeScrollSettings(ScrollRect target)
@@ -718,6 +957,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         placeholderTitle = null;
         placeholderBody = null;
         typography = null;
+        templates = null;
         tabButtons.Clear();
         tabLabels.Clear();
         tabLayouts.Clear();
@@ -725,6 +965,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         lastScreenWidth = -1;
         lastScreenHeight = -1;
         lastCanvasScale = -1f;
+        lastTabGeometrySignature = 0;
+        geometryPollCountdown = 0;
     }
 
     public void Dispose() => DestroyRoot();

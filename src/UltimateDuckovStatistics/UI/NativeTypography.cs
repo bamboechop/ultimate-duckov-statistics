@@ -113,19 +113,25 @@ internal sealed class NativeTypographyRoles
 {
     private readonly NativeTextTemplateSnapshot publicTemplate;
     private readonly NativeTextTemplateSnapshot? liveMenuButton;
+    private readonly NativeTextTemplateSnapshot? nativeHeading;
 
     public NativeTypographyRoles(
         NativeTextTemplateSnapshot publicTemplate,
-        NativeTextTemplateSnapshot? liveMenuButton)
+        NativeTextTemplateSnapshot? liveMenuButton,
+        NativeTextTemplateSnapshot? nativeHeading = null)
     {
         this.publicTemplate = publicTemplate ?? throw new ArgumentNullException(nameof(publicTemplate));
         this.liveMenuButton = liveMenuButton;
+        this.nativeHeading = nativeHeading;
     }
 
     public NativeTextTemplateSnapshot Resolve(NativeTypographyRole role) =>
-        NativeTypographyRolePolicy.Resolve(role, liveMenuButton != null) == NativeTypographySource.LiveMenuButton
-            ? liveMenuButton!
-            : publicTemplate;
+        NativeTypographyRolePolicy.Resolve(role, liveMenuButton != null, nativeHeading != null) switch
+        {
+            NativeTypographySource.NativeHeading => nativeHeading!,
+            NativeTypographySource.LiveMenuButton => liveMenuButton!,
+            _ => publicTemplate
+        };
 
     public string Describe() =>
         $"title={Resolve(NativeTypographyRole.Title).Describe()}; " +

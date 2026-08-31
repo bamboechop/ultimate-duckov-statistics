@@ -71,6 +71,31 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void VerifiedNativeHeadingIsDistinctFromNavigationTypography()
+    {
+        Assert.Equal(
+            NativeTypographySource.NativeHeading,
+            NativeTypographyRolePolicy.Resolve(NativeTypographyRole.Title, hasLiveMenuButton: true, hasNativeHeading: true));
+        Assert.Equal(
+            NativeTypographySource.LiveMenuButton,
+            NativeTypographyRolePolicy.Resolve(NativeTypographyRole.Navigation, hasLiveMenuButton: true, hasNativeHeading: true));
+    }
+
+    [Fact]
+    public void NativeShellDiscoveryPrefersInstalledOptionsPanelTreatments()
+    {
+        const string root = "Canvas/MainMenuContainer/Menu/OptionsPanel";
+        Assert.True(NativeShellTemplatePolicy.ScoreHeading($"{root}/Text (TMP)", 116.75f) >
+                    NativeShellTemplatePolicy.ScoreHeading("Canvas/MainTitle/Text (TMP)", 256f));
+        Assert.True(NativeShellTemplatePolicy.ScoreBack($"{root}/Return", hasIcon: true) >
+                    NativeShellTemplatePolicy.ScoreBack("Canvas/Credits/Return", hasIcon: true));
+        Assert.True(NativeShellTemplatePolicy.ScoreTab($"{root}/Tabs/Common") > 0);
+        Assert.True(NativeShellTemplatePolicy.ScoreSurface($"{root}/ScrollView/Background") > 0);
+        Assert.True(NativeShellTemplatePolicy.ScoreRail($"{root}/Tabs/Image") > 0);
+        Assert.Equal(0, NativeShellTemplatePolicy.ScoreBack($"{root}/Return", hasIcon: false));
+    }
+
+    [Fact]
     public void ClonedMenuButtonsRetainTheirProceduralImageModifierHierarchy()
     {
         Assert.True(NativeMenuPresentationPolicy.PreservesProceduralImageState(ProceduralModifierHierarchy));
@@ -154,8 +179,8 @@ public sealed class StatisticsPanelProjectionTests
 
         Assert.False(desktop.TabStripRequiresScrolling);
         Assert.True(narrow.TabStripRequiresScrolling);
-        Assert.InRange(desktop.MarginPixels, 24f, 40f);
-        Assert.InRange(narrow.MarginPixels, 12f, 24f);
+        Assert.InRange(desktop.MarginPixels, 80f, 90f);
+        Assert.InRange(narrow.MarginPixels, 18f, 30f);
         Assert.True(desktop.TabViewportWidthPixels > desktop.TabContentWidthPixels);
         Assert.True(narrow.TabViewportWidthPixels < narrow.TabContentWidthPixels);
     }
@@ -179,7 +204,50 @@ public sealed class StatisticsPanelProjectionTests
     {
         Assert.Equal(202f, RetainedTabWidthPolicy.Resolve(202f, 120f, 38f));
         Assert.Equal(358f, RetainedTabWidthPolicy.Resolve(202f, 320f, 38f));
-        Assert.Equal(480f, RetainedTabWidthPolicy.Resolve(202f, 900f, 38f));
+        Assert.Equal(938f, RetainedTabWidthPolicy.Resolve(202f, 900f, 38f));
+    }
+
+    [Fact]
+    public void InstalledNativeEnglishMetricsFitAllNineDesktopTabsWithoutEllipsis()
+    {
+        // Audited from installed Duckov 2.3.30 ResourceHanRoundedCN-Medium SDF
+        // glyph advances at the final retained navigation size of 27 px.
+        var installedEnglishWidths = new[]
+        {
+            121.439063f, 64.260937f, 104.521875f, 102.656250f, 142.935937f,
+            120.285938f, 104.217187f, 113.803125f, 149.498437f
+        };
+        var layout = RetainedShellLayoutPolicy.Create(2560f, 1440f);
+        var geometry = RetainedTabGeometryPolicy.Create(
+            layout.TabViewportWidthPixels,
+            layout.TabWidthPixels,
+            layout.TabSpacingPixels,
+            layout.TabPaddingPixels,
+            38f,
+            installedEnglishWidths);
+
+        Assert.Equal(9, geometry.Widths.Count);
+        Assert.False(geometry.RequiresScrolling);
+        Assert.True(geometry.ContentWidth < layout.TabViewportWidthPixels);
+        for (var index = 0; index < installedEnglishWidths.Length; index++)
+            Assert.True(geometry.Widths[index] >= installedEnglishWidths[index] + 38f);
+    }
+
+    [Fact]
+    public void LongLocalizedNavigationRemainsOneScrollableRow()
+    {
+        var layout = RetainedShellLayoutPolicy.Create(1024f, 768f);
+        var geometry = RetainedTabGeometryPolicy.Create(
+            layout.TabViewportWidthPixels,
+            layout.TabWidthPixels,
+            layout.TabSpacingPixels,
+            layout.TabPaddingPixels,
+            38f,
+            Enumerable.Repeat(420f, 9).ToArray());
+
+        Assert.True(geometry.RequiresScrolling);
+        Assert.All(geometry.Widths, width => Assert.Equal(458f, width));
+        Assert.Equal(9, geometry.Widths.Count);
     }
 
     [Fact]

@@ -152,6 +152,23 @@ internal sealed class NativeUiIntegration : IDisposable
         return null;
     }
 
+    public NativeShellTemplates ResolveShellTemplates(PanelAccessSurface surface, Canvas canvas)
+    {
+        var navigationTypography = ResolveTypographyTemplate(surface);
+        try
+        {
+            return NativeShellTemplateResolver.Resolve(canvas, navigationTypography);
+        }
+        catch (Exception exception)
+        {
+            coordinator.ReportUiDiagnostic(
+                $"M17 retained native shell-template discovery degraded to safe fallbacks for {surface}: " +
+                $"{exception.GetType().Name}: {exception.Message}",
+                "Warning");
+            return new NativeShellTemplates { NavigationTypography = navigationTypography };
+        }
+    }
+
     private void HandleMainMenuAwake() => TryInjectExistingMainMenu();
 
     private void HandleMainMenuDestroy()

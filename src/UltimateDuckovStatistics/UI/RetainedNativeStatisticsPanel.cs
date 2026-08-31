@@ -126,7 +126,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
                     interaction.SelectTab(tab);
                     shell.SetSelectedTab(tab);
                 },
-                nativeUi.ResolveTypographyTemplate(surface),
+                nativeUi.ResolveShellTemplates(surface, canvas),
                 out var error))
         {
             lifecycle.Close();
