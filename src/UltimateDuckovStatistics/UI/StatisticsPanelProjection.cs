@@ -87,6 +87,45 @@ internal static class NativeMenuAnchorPolicy
     }
 }
 
+internal static class NativeMenuPresentationPolicy
+{
+    internal const string ProceduralImageModifierTypeName =
+        "UnityEngine.UI.ProceduralImage.ProceduralImageModifier";
+
+    public static bool PreservesProceduralImageState(IEnumerable<string?> typeHierarchy)
+    {
+        if (typeHierarchy == null) throw new ArgumentNullException(nameof(typeHierarchy));
+        return typeHierarchy.Any(typeName =>
+            string.Equals(typeName, ProceduralImageModifierTypeName, StringComparison.Ordinal));
+    }
+}
+
+internal enum NativeTypographyRole
+{
+    Title,
+    Navigation,
+    Body,
+    Secondary
+}
+
+internal enum NativeTypographySource
+{
+    PublicTextTemplate,
+    LiveMenuButton
+}
+
+internal static class NativeTypographyRolePolicy
+{
+    public static NativeTypographySource Resolve(NativeTypographyRole role, bool hasLiveMenuButton) => role switch
+    {
+        NativeTypographyRole.Title or NativeTypographyRole.Navigation when hasLiveMenuButton =>
+            NativeTypographySource.LiveMenuButton,
+        NativeTypographyRole.Title or NativeTypographyRole.Navigation or NativeTypographyRole.Body
+            or NativeTypographyRole.Secondary => NativeTypographySource.PublicTextTemplate,
+        _ => throw new ArgumentOutOfRangeException(nameof(role))
+    };
+}
+
 internal sealed class StatisticsPanelLayout
 {
     public float Width { get; set; }
@@ -162,6 +201,12 @@ internal sealed class RetainedShellLayout
     public float TabHeightPixels { get; set; }
     public float TabSpacingPixels { get; set; }
     public float TabPaddingPixels { get; set; }
+    public float TitleFontPixels { get; set; }
+    public float NavigationFontPixels { get; set; }
+    public float BodyFontPixels { get; set; }
+    public float SecondaryFontPixels { get; set; }
+    public float BackControlPixels { get; set; }
+    public float NavigationRailPixels { get; set; }
     public float TabViewportWidthPixels { get; set; }
     public float TabContentWidthPixels { get; set; }
     public bool TabStripRequiresScrolling { get; set; }
@@ -174,11 +219,12 @@ internal static class RetainedShellLayoutPolicy
         if (screenWidth <= 0f) throw new ArgumentOutOfRangeException(nameof(screenWidth));
         if (screenHeight <= 0f) throw new ArgumentOutOfRangeException(nameof(screenHeight));
         var margin = screenWidth <= 1200f ? 18f : 34f;
+        var narrow = screenWidth <= 1200f;
         const float innerMargin = 18f;
-        const float tabWidth = 176f;
-        const float tabHeight = 54f;
-        const float tabSpacing = 8f;
-        const float tabPadding = 8f;
+        var tabWidth = narrow ? 180f : 202f;
+        var tabHeight = narrow ? 60f : 70f;
+        const float tabSpacing = 10f;
+        const float tabPadding = 10f;
         var tabCount = PanelInteractionState.NavigationOrder.Count;
         var contentWidth = tabPadding * 2f
                            + tabCount * tabWidth
@@ -188,16 +234,38 @@ internal static class RetainedShellLayoutPolicy
         {
             MarginPixels = margin,
             InnerMarginPixels = innerMargin,
-            HeaderHeightPixels = 74f,
-            TabRowHeightPixels = 64f,
+            HeaderHeightPixels = narrow ? 94f : 112f,
+            TabRowHeightPixels = narrow ? 72f : 84f,
             TabWidthPixels = tabWidth,
             TabHeightPixels = tabHeight,
             TabSpacingPixels = tabSpacing,
             TabPaddingPixels = tabPadding,
+            TitleFontPixels = narrow ? 50f : 64f,
+            NavigationFontPixels = narrow ? 25f : 30f,
+            BodyFontPixels = narrow ? 20f : 22f,
+            SecondaryFontPixels = narrow ? 18f : 20f,
+            BackControlPixels = narrow ? 56f : 70f,
+            NavigationRailPixels = 4f,
             TabViewportWidthPixels = viewportWidth,
             TabContentWidthPixels = contentWidth,
             TabStripRequiresScrolling = contentWidth > viewportWidth
         };
+    }
+}
+
+internal static class RetainedTabWidthPolicy
+{
+    private const float MaximumTabWidthPixels = 480f;
+
+    public static float Resolve(float minimumWidthPixels, float preferredTextWidthPixels, float horizontalPaddingPixels)
+    {
+        if (minimumWidthPixels <= 0f) throw new ArgumentOutOfRangeException(nameof(minimumWidthPixels));
+        if (preferredTextWidthPixels < 0f) throw new ArgumentOutOfRangeException(nameof(preferredTextWidthPixels));
+        if (horizontalPaddingPixels < 0f) throw new ArgumentOutOfRangeException(nameof(horizontalPaddingPixels));
+        return Math.Clamp(
+            Math.Max(minimumWidthPixels, preferredTextWidthPixels + horizontalPaddingPixels),
+            minimumWidthPixels,
+            Math.Max(minimumWidthPixels, MaximumTabWidthPixels));
     }
 }
 

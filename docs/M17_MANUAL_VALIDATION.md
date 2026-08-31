@@ -8,11 +8,11 @@ No row below is considered passed from source inspection or deterministic tests 
 
 Gate 1 qualifies only the reusable retained-mode shell. On its exact candidate, open Statistics through the existing main-menu entry and through the configured hotkey, then verify at both 2560x1440 and 1024x768 that:
 
-1. one dark near-full-screen frame, one prominent title, and one close/back control appear on Duckov's native canvas;
-2. the exact nine tabs remain a single readable row, with selected cyan and visible normal, hover, pressed, and keyboard-focus states;
+1. one translucent navy near-full-screen frame, one substantially larger left-aligned title, and one top-left back control appear on Duckov's native canvas; no generic top-right rectangular Close remains;
+2. the exact nine tabs remain a single taller readable row above a cyan rail, with light selected text on bright cyan, dark navy inactive tabs, and visible normal, hover, pressed, disabled, selected, and keyboard-focus states;
 3. narrow overflow scrolls horizontally, its left/right cues appear only when more tabs exist in that direction, Ctrl+Tab and Ctrl+Shift+Tab keep the selected tab visible, and clicking a tab updates the retained placeholder without opening a second panel;
 4. Escape and the close/back control close only UDS, restore focus/cursor state, and a later F8 open creates exactly one clean shell; and
-5. no legacy immediate-mode window, default `GUI.skin` chrome, background image, content body, reset/export control, or new gameplay/save behavior appears.
+5. Player.log names the live menu-button template used for title/navigation and the public `GameplayDataSettings.UIStyle.TemplateTextUGUI` used for body/secondary text, contains no `ProceduralImage` graphic-rebuild-loop error from the UDS menu clone, and shows no legacy immediate-mode window, default `GUI.skin` chrome, background image, content body, reset/export control, or new gameplay/save behavior.
 
 The main-view, supporting-state, reset/export, content scrolling, data-comparison, and stress rows below are Gate 2 work and are not Gate 1 acceptance criteria. They remain the final M17 qualification matrix rather than being silently marked passed by the shell correction.
 

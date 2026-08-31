@@ -24,6 +24,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private bool priorCursorVisible;
     private CursorLockMode priorCursorLockMode;
     private GameObject? priorSelectedGameObject;
+    private string? reportedTypographySummary;
 
     public NativeStatisticsPanel(NativeProfileCoordinator coordinator)
     {
@@ -125,6 +126,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
                     interaction.SelectTab(tab);
                     shell.SetSelectedTab(tab);
                 },
+                nativeUi.ResolveTypographyTemplate(surface),
                 out var error))
         {
             lifecycle.Close();
@@ -134,6 +136,12 @@ internal sealed class NativeStatisticsPanel : IDisposable
         }
 
         openSurface = surface;
+        if (!string.IsNullOrWhiteSpace(shell.TypographySummary)
+            && !string.Equals(reportedTypographySummary, shell.TypographySummary, StringComparison.Ordinal))
+        {
+            reportedTypographySummary = shell.TypographySummary;
+            coordinator.ReportUiDiagnostic($"M17 retained typography roles: {reportedTypographySummary}.");
+        }
     }
 
     private void ReportShellFailure(PanelAccessSurface surface, string detail)

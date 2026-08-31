@@ -3,6 +3,7 @@ using System.Reflection;
 using Duckov.UI;
 using ItemStatsSystem;
 using SodaCraft.Localizations;
+using TMPro;
 using UltimateDuckovStatistics.Adapters;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -18,6 +19,7 @@ internal sealed class NativeUiIntegration : IDisposable
     private readonly Action<PanelAccessSurface> closePanel;
     private readonly Dictionary<int, GameObject> injectedByRoot = new();
     private readonly Dictionary<PanelAccessSurface, Canvas> panelCanvases = new();
+    private readonly Dictionary<PanelAccessSurface, NativeTextTemplateSnapshot> typographyBySurface = new();
     private readonly HashSet<string> registeredLocalizationKeys = new(StringComparer.Ordinal);
     private Texture2D? menuIconTexture;
     private Sprite? menuIconSprite;
@@ -139,6 +141,17 @@ internal sealed class NativeUiIntegration : IDisposable
         }
     }
 
+    public NativeTextTemplateSnapshot? ResolveTypographyTemplate(PanelAccessSurface surface)
+    {
+        if (typographyBySurface.TryGetValue(surface, out var exact)) return exact;
+        if (surface != PanelAccessSurface.Hotkey) return null;
+        foreach (var knownSurface in new[] { PanelAccessSurface.MainMenu, PanelAccessSurface.BasePauseMenu })
+        {
+            if (typographyBySurface.TryGetValue(knownSurface, out var known)) return known;
+        }
+        return null;
+    }
+
     private void HandleMainMenuAwake() => TryInjectExistingMainMenu();
 
     private void HandleMainMenuDestroy()
@@ -146,6 +159,7 @@ internal sealed class NativeUiIntegration : IDisposable
         closePanel(PanelAccessSurface.MainMenu);
         MainMenuState = NativeMenuIntegrationState.NotObserved;
         panelCanvases.Remove(PanelAccessSurface.MainMenu);
+        typographyBySurface.Remove(PanelAccessSurface.MainMenu);
         RemoveDestroyedEntries();
     }
 
@@ -155,6 +169,7 @@ internal sealed class NativeUiIntegration : IDisposable
     {
         closePanel(PanelAccessSurface.BasePauseMenu);
         panelCanvases.Remove(PanelAccessSurface.BasePauseMenu);
+        typographyBySurface.Remove(PanelAccessSurface.BasePauseMenu);
         RemoveDestroyedEntries();
     }
 
@@ -235,6 +250,10 @@ internal sealed class NativeUiIntegration : IDisposable
         }
         if (anchor == null || anchor.transform.parent == null) return false;
 
+        var capturedTypography = CaptureNativeMenuTypography(anchor, surface);
+        if (capturedTypography != null) typographyBySurface[surface] = capturedTypography;
+        else typographyBySurface.Remove(surface);
+
         try
         {
             var button = UnityEngine.Object.Instantiate(
@@ -267,7 +286,8 @@ internal sealed class NativeUiIntegration : IDisposable
             injectedByRoot[rootId] = clone;
             coordinator.ReportUiDiagnostic(
                 $"M17 native {surface} statistics entry attached; activation has not yet been observed. " +
-                $"Removed inherited action behaviours: {removedActionBehaviours}; generated icon applied: {iconApplied}.");
+                $"Removed inherited action behaviours: {removedActionBehaviours}; generated icon applied: {iconApplied}; " +
+                $"typography template: {capturedTypography?.Describe() ?? "public TemplateTextUGUI fallback"}.");
             return true;
         }
         catch (Exception exception)
@@ -377,7 +397,37 @@ internal sealed class NativeUiIntegration : IDisposable
                || component is BaseMeshEffect
                || component is Mask
                || component is RectMask2D
+               || NativeMenuPresentationPolicy.PreservesProceduralImageState(TypeHierarchy(component.GetType()))
                || string.Equals(component.GetType().Name, "TextLocalizor", StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<string?> TypeHierarchy(Type type)
+    {
+        for (var current = type; current != null; current = current.BaseType) yield return current.FullName;
+    }
+
+    private static NativeTextTemplateSnapshot? CaptureNativeMenuTypography(Button anchor, PanelAccessSurface surface)
+    {
+        var source = anchor.GetComponentsInChildren<TextMeshProUGUI>(includeInactive: true)
+            .Where(value => value != null && value.font != null)
+            .OrderByDescending(value => value.gameObject.activeInHierarchy)
+            .ThenByDescending(value => value.fontSize)
+            .ThenBy(value => HierarchyPath(value.transform), StringComparer.Ordinal)
+            .FirstOrDefault();
+        return NativeTextTemplateSnapshot.TryCapture(
+            source,
+            $"live {surface} menu button {HierarchyPath(source?.transform)}",
+            out var snapshot)
+            ? snapshot
+            : null;
+    }
+
+    private static string HierarchyPath(Transform? transform)
+    {
+        if (transform == null) return "<unavailable>";
+        var names = new Stack<string>();
+        for (var current = transform; current != null; current = current.parent) names.Push(current.gameObject.name);
+        return string.Join("/", names);
     }
 
     private bool ApplyStatisticsIcon(GameObject clone)
@@ -518,6 +568,7 @@ internal sealed class NativeUiIntegration : IDisposable
             UnityEngine.Object.Destroy(injected);
         injectedByRoot.Clear();
         panelCanvases.Clear();
+        typographyBySurface.Clear();
         if (menuIconSprite != null) UnityEngine.Object.Destroy(menuIconSprite);
         if (menuIconTexture != null) UnityEngine.Object.Destroy(menuIconTexture);
         menuIconSprite = null;

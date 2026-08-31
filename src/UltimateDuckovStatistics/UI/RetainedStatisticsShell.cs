@@ -16,11 +16,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private readonly Dictionary<StatisticsPanelTab, Button> tabButtons = new();
     private readonly Dictionary<StatisticsPanelTab, TextMeshProUGUI> tabLabels = new();
     private readonly Dictionary<StatisticsPanelTab, LayoutElement> tabLayouts = new();
-    private readonly List<TextMeshProUGUI> allText = new();
+    private readonly Dictionary<TextMeshProUGUI, (NativeTypographyRole Role, float Scale)> textSizing = new();
     private GameObject? root;
     private Canvas? canvas;
     private RectTransform? frame;
     private RectTransform? header;
+    private RectTransform? navigationRail;
     private RectTransform? tabViewport;
     private RectTransform? tabContent;
     private RectTransform? contentHost;
@@ -33,10 +34,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private CanvasGroup? tabTrailingCue;
     private CanvasGroup? contentLeadingCue;
     private CanvasGroup? contentTrailingCue;
-    private Button? closeButton;
+    private Button? backButton;
     private TextMeshProUGUI? title;
     private TextMeshProUGUI? placeholderTitle;
     private TextMeshProUGUI? placeholderBody;
+    private NativeTypographyRoles? typography;
     private StatisticsPanelTab selectedTab;
     private int lastScreenWidth = -1;
     private int lastScreenHeight = -1;
@@ -46,6 +48,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
     public bool IsCreated => root != null;
 
     public RectTransform? ContentRoot => contentRoot;
+
+    public string? TypographySummary => typography?.Describe();
 
     public bool IsUsable => root != null
                             && root.activeInHierarchy
@@ -58,6 +62,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         StatisticsPanelTab initialTab,
         Action close,
         Action<StatisticsPanelTab> selectTab,
+        NativeTextTemplateSnapshot? preferredMenuTypography,
         out string? error)
     {
         if (targetCanvas == null) throw new ArgumentNullException(nameof(targetCanvas));
@@ -74,18 +79,29 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 error = "Duckov's public UI text template or font was unavailable.";
                 return false;
             }
+            if (!NativeTextTemplateSnapshot.TryCapture(
+                    nativeTextTemplate,
+                    "GameplayDataSettings.UIStyle.TemplateTextUGUI",
+                    out var publicTypography)
+                || publicTypography == null)
+            {
+                error = "Duckov's public UI text template could not be captured safely.";
+                return false;
+            }
+
+            typography = new NativeTypographyRoles(publicTypography, preferredMenuTypography);
 
             canvas = targetCanvas;
             root = CreateRect("UltimateDuckovStatisticsRetainedShell", targetCanvas.transform).gameObject;
             root.SetActive(false);
             root.AddComponent<CanvasGroup>().blocksRaycasts = true;
             var blocker = root.AddComponent<Image>();
-            blocker.color = new Color(0.01f, 0.02f, 0.025f, 0.42f);
+            blocker.color = new Color(0.005f, 0.015f, 0.035f, 0.48f);
             blocker.raycastTarget = true;
 
             frame = CreateRect("Frame", root.transform);
             var frameImage = frame.gameObject.AddComponent<Image>();
-            frameImage.color = new Color(0.025f, 0.045f, 0.047f, 0.96f);
+            frameImage.color = new Color(0.012f, 0.055f, 0.095f, 0.9f);
             frameImage.raycastTarget = true;
 
             header = CreateRect("Header", frame);
@@ -93,11 +109,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 "Title",
                 header,
                 UiText.Get("ui.title"),
-                nativeTextTemplate,
-                TextAlignmentOptions.Center,
-                new Color(0.96f, 0.93f, 0.74f, 1f));
+                NativeTypographyRole.Title,
+                TextAlignmentOptions.MidlineLeft,
+                new Color(0.98f, 0.96f, 0.86f, 1f));
+            title.enableWordWrapping = false;
 
-            closeButton = CreateButton("Close", header, nativeTextTemplate, UiText.Get("ui.close"), close);
+            backButton = CreateBackButton(header, close);
 
             tabViewport = CreateRect("TabViewport", frame);
             tabViewport.gameObject.AddComponent<RectMask2D>();
@@ -124,8 +141,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
             tabScroll.viewport = tabViewport;
             tabScroll.content = tabContent;
             tabScroll.onValueChanged.AddListener(_ => UpdateTabOverflowCues());
-            tabLeadingCue = CreateDirectionalCue("TabLeadingCue", tabViewport, nativeTextTemplate, "<");
-            tabTrailingCue = CreateDirectionalCue("TabTrailingCue", tabViewport, nativeTextTemplate, ">");
+            tabLeadingCue = CreateDirectionalCue("TabLeadingCue", tabViewport, "<");
+            tabTrailingCue = CreateDirectionalCue("TabTrailingCue", tabViewport, ">");
+
+            navigationRail = CreateRect("NavigationRail", frame);
+            var navigationRailImage = navigationRail.gameObject.AddComponent<Image>();
+            navigationRailImage.color = new Color(0.08f, 0.78f, 0.9f, 0.96f);
+            navigationRailImage.raycastTarget = false;
 
             foreach (var tab in PanelInteractionState.NavigationOrder)
             {
@@ -133,18 +155,19 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 var tabButton = CreateButton(
                     $"Tab{tab}",
                     tabContent,
-                    nativeTextTemplate,
                     TabLabel(tab),
                     () => selectTab(capturedTab));
                 var layoutElement = tabButton.gameObject.AddComponent<LayoutElement>();
                 tabButtons.Add(tab, tabButton);
                 tabLayouts.Add(tab, layoutElement);
-                tabLabels.Add(tab, tabButton.GetComponentInChildren<TextMeshProUGUI>(includeInactive: true));
+                var tabLabel = tabButton.GetComponentInChildren<TextMeshProUGUI>(includeInactive: true);
+                tabLabel.enableWordWrapping = false;
+                tabLabels.Add(tab, tabLabel);
             }
 
             contentHost = CreateRect("ContentPlaceholder", frame);
             var contentImage = contentHost.gameObject.AddComponent<Image>();
-            contentImage.color = new Color(0.035f, 0.065f, 0.068f, 0.9f);
+            contentImage.color = new Color(0.008f, 0.035f, 0.06f, 0.78f);
             contentImage.raycastTarget = false;
 
             contentViewport = CreateRect("ContentViewport", contentHost);
@@ -164,18 +187,19 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 "PlaceholderTitle",
                 contentRoot,
                 TabLabel(initialTab),
-                nativeTextTemplate,
+                NativeTypographyRole.Title,
                 TextAlignmentOptions.Center,
-                new Color(0.15f, 0.82f, 0.9f, 1f));
+                new Color(0.18f, 0.86f, 0.96f, 1f),
+                scale: 0.6f);
             placeholderBody = CreateText(
                 "PlaceholderBody",
                 contentRoot,
                 UiText.Get("ui.shell_placeholder"),
-                nativeTextTemplate,
+                NativeTypographyRole.Body,
                 TextAlignmentOptions.Top,
-                new Color(0.74f, 0.78f, 0.74f, 1f));
-            contentLeadingCue = CreateDirectionalCue("ContentLeadingCue", contentHost, nativeTextTemplate, "^");
-            contentTrailingCue = CreateDirectionalCue("ContentTrailingCue", contentHost, nativeTextTemplate, "v");
+                new Color(0.78f, 0.84f, 0.88f, 1f));
+            contentLeadingCue = CreateDirectionalCue("ContentLeadingCue", contentHost, "^");
+            contentTrailingCue = CreateDirectionalCue("ContentTrailingCue", contentHost, "v");
 
             SetSelectedTab(initialTab, ensureVisible: false);
             RefreshLayout(force: true);
@@ -214,7 +238,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
             var selected = entry.Key == tab;
             ApplyButtonColors(entry.Value, selected);
             if (tabLabels.TryGetValue(entry.Key, out var label) && label != null)
-                label.color = selected ? new Color(0.015f, 0.09f, 0.11f, 1f) : Color.white;
+                label.color = selected
+                    ? new Color(0.99f, 1f, 1f, 1f)
+                    : new Color(0.91f, 0.95f, 0.97f, 1f);
         }
 
         if (!ensureVisible || root == null) return;
@@ -225,7 +251,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
     private void RefreshLayout(bool force)
     {
-        if (root == null || canvas == null || frame == null || header == null || tabViewport == null
+        if (root == null || canvas == null || frame == null || header == null || navigationRail == null
+            || tabViewport == null
             || tabContent == null || contentHost == null || contentViewport == null || tabLayout == null)
         {
             return;
@@ -254,6 +281,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
         Stretch(frame, margin, margin, margin, margin);
         AnchorTop(header, innerMargin, innerMargin, innerMargin, headerHeight);
         AnchorTop(tabViewport, innerMargin, innerMargin, innerMargin + headerHeight, tabHeight);
+        AnchorTop(
+            navigationRail,
+            innerMargin,
+            innerMargin,
+            innerMargin + headerHeight + tabHeight - currentLayout.NavigationRailPixels * unit,
+            currentLayout.NavigationRailPixels * unit);
         Stretch(
             contentHost,
             innerMargin,
@@ -264,17 +297,22 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         if (title != null)
         {
-            Stretch(title.rectTransform, 130f * unit, 130f * unit, 0f, 0f);
-            title.fontSize = 34f * unit;
+            Stretch(
+                title.rectTransform,
+                (currentLayout.BackControlPixels + 24f) * unit,
+                16f * unit,
+                0f,
+                0f);
         }
-        if (closeButton != null)
+        if (backButton != null)
         {
-            var rect = closeButton.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(1f, 0.5f);
-            rect.anchorMax = new Vector2(1f, 0.5f);
-            rect.pivot = new Vector2(1f, 0.5f);
-            rect.anchoredPosition = new Vector2(-5f * unit, 0f);
-            rect.sizeDelta = new Vector2(112f * unit, 50f * unit);
+            var rect = backButton.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 0.5f);
+            rect.anchorMax = new Vector2(0f, 0.5f);
+            rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.one * (currentLayout.BackControlPixels * unit);
+            LayoutBackArrow(backButton.transform, currentLayout.BackControlPixels * unit);
         }
 
         tabLayout.spacing = currentLayout.TabSpacingPixels * unit;
@@ -283,12 +321,25 @@ internal sealed class RetainedStatisticsShell : IDisposable
             Mathf.RoundToInt(currentLayout.TabPaddingPixels * unit),
             0,
             0);
-        foreach (var layoutElement in tabLayouts.Values)
+        foreach (var entry in textSizing)
         {
-            layoutElement.minWidth = currentLayout.TabWidthPixels * unit;
-            layoutElement.preferredWidth = currentLayout.TabWidthPixels * unit;
-            layoutElement.minHeight = currentLayout.TabHeightPixels * unit;
-            layoutElement.preferredHeight = currentLayout.TabHeightPixels * unit;
+            if (entry.Key == null) continue;
+            entry.Key.fontSize = ResolveFontPixels(entry.Value.Role) * entry.Value.Scale * unit;
+        }
+
+        foreach (var entry in tabLayouts)
+        {
+            var preferredTextWidthPixels = tabLabels.TryGetValue(entry.Key, out var label) && label != null
+                ? label.GetPreferredValues(label.text).x * canvasScale
+                : 0f;
+            var tabWidthPixels = RetainedTabWidthPolicy.Resolve(
+                currentLayout.TabWidthPixels,
+                preferredTextWidthPixels,
+                horizontalPaddingPixels: 38f);
+            entry.Value.minWidth = tabWidthPixels * unit;
+            entry.Value.preferredWidth = tabWidthPixels * unit;
+            entry.Value.minHeight = currentLayout.TabHeightPixels * unit;
+            entry.Value.preferredHeight = currentLayout.TabHeightPixels * unit;
         }
 
         tabContent.sizeDelta = new Vector2(tabContent.sizeDelta.x, 0f);
@@ -302,7 +353,6 @@ internal sealed class RetainedStatisticsShell : IDisposable
             placeholderTitle.rectTransform.anchorMax = new Vector2(0.92f, 0.68f);
             placeholderTitle.rectTransform.offsetMin = Vector2.zero;
             placeholderTitle.rectTransform.offsetMax = Vector2.zero;
-            placeholderTitle.fontSize = 38f * unit;
         }
         if (placeholderBody != null)
         {
@@ -310,13 +360,6 @@ internal sealed class RetainedStatisticsShell : IDisposable
             placeholderBody.rectTransform.anchorMax = new Vector2(0.88f, 0.52f);
             placeholderBody.rectTransform.offsetMin = Vector2.zero;
             placeholderBody.rectTransform.offsetMax = Vector2.zero;
-            placeholderBody.fontSize = 21f * unit;
-        }
-
-        foreach (var text in allText.Where(value => value != null && value != title
-                                                       && value != placeholderTitle && value != placeholderBody))
-        {
-            text.fontSize = 20f * unit;
         }
 
         Canvas.ForceUpdateCanvases();
@@ -327,14 +370,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private void EnsureSelectedVisible()
     {
         if (tabScroll == null || tabViewport == null || tabContent == null) return;
-        var selectedIndex = Array.IndexOf(PanelInteractionState.NavigationOrder.ToArray(), selectedTab);
-        if (selectedIndex < 0) return;
-        var unit = 1f / Math.Max(0.01f, lastCanvasScale);
+        if (!tabButtons.TryGetValue(selectedTab, out var selectedButton) || selectedButton == null) return;
         var viewportWidth = tabViewport.rect.width;
         var contentWidth = tabContent.rect.width;
-        var selectedLeft = (currentLayout.TabPaddingPixels
-                            + selectedIndex * (currentLayout.TabWidthPixels + currentLayout.TabSpacingPixels)) * unit;
-        var selectedWidth = currentLayout.TabWidthPixels * unit;
+        var selectedRect = selectedButton.GetComponent<RectTransform>();
+        var selectedBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(tabContent, selectedRect);
+        var selectedLeft = selectedBounds.min.x - tabContent.rect.xMin;
+        var selectedWidth = selectedBounds.size.x;
         var currentOffset = tabScroll.horizontalNormalizedPosition * Math.Max(0f, contentWidth - viewportWidth);
         var targetOffset = TabStripScrollPolicy.EnsureVisible(
             viewportWidth,
@@ -346,6 +388,15 @@ internal sealed class RetainedStatisticsShell : IDisposable
         tabScroll.horizontalNormalizedPosition = overflow <= 0f ? 0f : targetOffset / overflow;
         UpdateTabOverflowCues();
     }
+
+    private float ResolveFontPixels(NativeTypographyRole role) => role switch
+    {
+        NativeTypographyRole.Title => currentLayout.TitleFontPixels,
+        NativeTypographyRole.Navigation => currentLayout.NavigationFontPixels,
+        NativeTypographyRole.Body => currentLayout.BodyFontPixels,
+        NativeTypographyRole.Secondary => currentLayout.SecondaryFontPixels,
+        _ => throw new ArgumentOutOfRangeException(nameof(role))
+    };
 
     private void UpdateTabOverflowCues()
     {
@@ -382,29 +433,29 @@ internal sealed class RetainedStatisticsShell : IDisposable
         string name,
         Transform parent,
         string value,
-        TextMeshProUGUI nativeTemplate,
+        NativeTypographyRole role,
         TextAlignmentOptions alignment,
-        Color color)
+        Color color,
+        float scale = 1f)
     {
+        if (typography == null) throw new InvalidOperationException("Native typography roles were not initialized.");
+        if (scale <= 0f) throw new ArgumentOutOfRangeException(nameof(scale));
         var rect = CreateRect(name, parent);
         var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
-        text.font = nativeTemplate.font;
-        text.fontSharedMaterial = nativeTemplate.fontSharedMaterial;
-        text.fontStyle = nativeTemplate.fontStyle;
+        typography.Resolve(role).Apply(text);
         text.enableWordWrapping = true;
         text.overflowMode = TextOverflowModes.Ellipsis;
         text.raycastTarget = false;
         text.alignment = alignment;
         text.color = color;
         text.text = value;
-        allText.Add(text);
+        textSizing.Add(text, (role, scale));
         return text;
     }
 
     private Button CreateButton(
         string name,
         Transform parent,
-        TextMeshProUGUI nativeTextTemplate,
         string label,
         Action clicked)
     {
@@ -421,17 +472,76 @@ internal sealed class RetainedStatisticsShell : IDisposable
             "Label",
             rect,
             label,
-            nativeTextTemplate,
+            NativeTypographyRole.Navigation,
             TextAlignmentOptions.Center,
             Color.white);
         Stretch(text.rectTransform, 8f, 8f, 2f, 2f);
         return button;
     }
 
+    private static Button CreateBackButton(Transform parent, Action clicked)
+    {
+        var rect = CreateRect("Back", parent);
+        var image = rect.gameObject.AddComponent<Image>();
+        image.raycastTarget = true;
+        var button = rect.gameObject.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+        button.colors = new ColorBlock
+        {
+            normalColor = new Color(0.08f, 0.76f, 0.88f, 1f),
+            highlightedColor = new Color(0.23f, 0.9f, 0.98f, 1f),
+            pressedColor = new Color(0.05f, 0.55f, 0.68f, 1f),
+            selectedColor = new Color(0.16f, 0.84f, 0.94f, 1f),
+            disabledColor = new Color(0.25f, 0.34f, 0.39f, 0.72f),
+            colorMultiplier = 1f,
+            fadeDuration = 0.08f
+        };
+        button.onClick.AddListener(() => clicked());
+        CreateArrowSegment("Shaft", rect, 0f);
+        CreateArrowSegment("HeadUpper", rect, 45f);
+        CreateArrowSegment("HeadLower", rect, -45f);
+        return button;
+    }
+
+    private static void CreateArrowSegment(string name, Transform parent, float rotation)
+    {
+        var rect = CreateRect(name, parent);
+        var image = rect.gameObject.AddComponent<Image>();
+        image.color = Color.white;
+        image.raycastTarget = false;
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.localRotation = Quaternion.Euler(0f, 0f, rotation);
+    }
+
+    private static void LayoutBackArrow(Transform back, float controlSize)
+    {
+        var thickness = Math.Max(3f, controlSize * 0.065f);
+        var shaft = back.Find("Shaft") as RectTransform;
+        var upper = back.Find("HeadUpper") as RectTransform;
+        var lower = back.Find("HeadLower") as RectTransform;
+        if (shaft != null)
+        {
+            shaft.anchoredPosition = new Vector2(controlSize * 0.07f, 0f);
+            shaft.sizeDelta = new Vector2(controlSize * 0.48f, thickness);
+        }
+        if (upper != null)
+        {
+            upper.anchoredPosition = new Vector2(-controlSize * 0.13f, controlSize * 0.12f);
+            upper.sizeDelta = new Vector2(controlSize * 0.3f, thickness);
+        }
+        if (lower != null)
+        {
+            lower.anchoredPosition = new Vector2(-controlSize * 0.13f, -controlSize * 0.12f);
+            lower.sizeDelta = new Vector2(controlSize * 0.3f, thickness);
+        }
+    }
+
     private CanvasGroup CreateDirectionalCue(
         string name,
         Transform parent,
-        TextMeshProUGUI nativeTextTemplate,
         string marker)
     {
         var rect = CreateRect(name, parent);
@@ -446,7 +556,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             "Marker",
             rect,
             marker,
-            nativeTextTemplate,
+            NativeTypographyRole.Secondary,
             TextAlignmentOptions.Center,
             Color.white);
         Stretch(text.rectTransform, 0f, 0f, 0f, 0f);
@@ -514,19 +624,19 @@ internal sealed class RetainedStatisticsShell : IDisposable
             ? new ColorBlock
             {
                 normalColor = new Color(0.12f, 0.78f, 0.86f, 1f),
-                highlightedColor = new Color(0.25f, 0.91f, 0.96f, 1f),
-                pressedColor = new Color(0.07f, 0.56f, 0.65f, 1f),
-                selectedColor = new Color(0.17f, 0.83f, 0.9f, 1f),
+                highlightedColor = new Color(0.28f, 0.92f, 0.98f, 1f),
+                pressedColor = new Color(0.06f, 0.58f, 0.7f, 1f),
+                selectedColor = new Color(0.2f, 0.86f, 0.94f, 1f),
                 disabledColor = new Color(0.28f, 0.34f, 0.35f, 0.78f),
                 colorMultiplier = 1f,
                 fadeDuration = 0.08f
             }
             : new ColorBlock
             {
-                normalColor = new Color(0.08f, 0.15f, 0.16f, 0.98f),
-                highlightedColor = new Color(0.12f, 0.42f, 0.46f, 1f),
-                pressedColor = new Color(0.06f, 0.3f, 0.34f, 1f),
-                selectedColor = new Color(0.1f, 0.36f, 0.4f, 1f),
+                normalColor = new Color(0.045f, 0.13f, 0.2f, 0.98f),
+                highlightedColor = new Color(0.08f, 0.34f, 0.45f, 1f),
+                pressedColor = new Color(0.035f, 0.24f, 0.34f, 1f),
+                selectedColor = new Color(0.07f, 0.29f, 0.39f, 1f),
                 disabledColor = new Color(0.22f, 0.25f, 0.25f, 0.72f),
                 colorMultiplier = 1f,
                 fadeDuration = 0.08f
@@ -585,6 +695,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         canvas = null;
         frame = null;
         header = null;
+        navigationRail = null;
         tabViewport = null;
         tabContent = null;
         contentHost = null;
@@ -597,14 +708,15 @@ internal sealed class RetainedStatisticsShell : IDisposable
         tabTrailingCue = null;
         contentLeadingCue = null;
         contentTrailingCue = null;
-        closeButton = null;
+        backButton = null;
         title = null;
         placeholderTitle = null;
         placeholderBody = null;
+        typography = null;
         tabButtons.Clear();
         tabLabels.Clear();
         tabLayouts.Clear();
-        allText.Clear();
+        textSizing.Clear();
         lastScreenWidth = -1;
         lastScreenHeight = -1;
         lastCanvasScale = -1f;

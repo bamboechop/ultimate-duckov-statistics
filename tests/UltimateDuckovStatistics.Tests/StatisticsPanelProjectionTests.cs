@@ -7,6 +7,19 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class StatisticsPanelProjectionTests
 {
+    private static readonly string?[] ProceduralModifierHierarchy =
+    {
+        "UniformModifier",
+        NativeMenuPresentationPolicy.ProceduralImageModifierTypeName,
+        "UnityEngine.MonoBehaviour"
+    };
+
+    private static readonly string?[] ActionBehaviourHierarchy =
+    {
+        "SomeActionBehaviour",
+        "UnityEngine.MonoBehaviour"
+    };
+
     [Fact]
     public void UiTextUsesNativeLocalizationAndFallsBackToEnglishSafely()
     {
@@ -38,6 +51,30 @@ public sealed class StatisticsPanelProjectionTests
         Assert.True(NativeMenuAnchorPolicy.Score("SettingsButton") > NativeMenuAnchorPolicy.Score("ModsButton"));
         Assert.Equal(0, NativeMenuAnchorPolicy.Score("ContinueButton"));
         Assert.Equal(0, NativeMenuAnchorPolicy.Score(null));
+    }
+
+    [Theory]
+    [InlineData((int)NativeTypographyRole.Title, true, (int)NativeTypographySource.LiveMenuButton)]
+    [InlineData((int)NativeTypographyRole.Navigation, true, (int)NativeTypographySource.LiveMenuButton)]
+    [InlineData((int)NativeTypographyRole.Body, true, (int)NativeTypographySource.PublicTextTemplate)]
+    [InlineData((int)NativeTypographyRole.Secondary, true, (int)NativeTypographySource.PublicTextTemplate)]
+    [InlineData((int)NativeTypographyRole.Title, false, (int)NativeTypographySource.PublicTextTemplate)]
+    [InlineData((int)NativeTypographyRole.Navigation, false, (int)NativeTypographySource.PublicTextTemplate)]
+    public void TypographyRolesPreferLiveMenuTreatmentAndFailBackToThePublicTemplate(
+        int roleValue,
+        bool hasLiveMenuButton,
+        int expectedValue)
+    {
+        var role = (NativeTypographyRole)roleValue;
+        var expected = (NativeTypographySource)expectedValue;
+        Assert.Equal(expected, NativeTypographyRolePolicy.Resolve(role, hasLiveMenuButton));
+    }
+
+    [Fact]
+    public void ClonedMenuButtonsRetainTheirProceduralImageModifierHierarchy()
+    {
+        Assert.True(NativeMenuPresentationPolicy.PreservesProceduralImageState(ProceduralModifierHierarchy));
+        Assert.False(NativeMenuPresentationPolicy.PreservesProceduralImageState(ActionBehaviourHierarchy));
     }
 
     [Fact]
@@ -93,6 +130,28 @@ public sealed class StatisticsPanelProjectionTests
         Assert.InRange(narrow.MarginPixels, 12f, 24f);
         Assert.True(desktop.TabViewportWidthPixels > desktop.TabContentWidthPixels);
         Assert.True(narrow.TabViewportWidthPixels < narrow.TabContentWidthPixels);
+    }
+
+    [Fact]
+    public void RetainedShellPreservesResponsiveTitleAndNavigationHierarchy()
+    {
+        var desktop = RetainedShellLayoutPolicy.Create(2560f, 1440f);
+        var narrow = RetainedShellLayoutPolicy.Create(1024f, 768f);
+
+        Assert.True(desktop.TitleFontPixels >= desktop.NavigationFontPixels * 2f);
+        Assert.True(narrow.TitleFontPixels >= narrow.NavigationFontPixels * 2f);
+        Assert.True(desktop.HeaderHeightPixels > desktop.TabRowHeightPixels);
+        Assert.True(narrow.HeaderHeightPixels > narrow.TabRowHeightPixels);
+        Assert.True(desktop.TabHeightPixels > 60f);
+        Assert.True(narrow.TabHeightPixels >= 60f);
+    }
+
+    [Fact]
+    public void NativeFontMetricsCanWidenLongLocalizedNavigationWithoutShrinkingLabels()
+    {
+        Assert.Equal(202f, RetainedTabWidthPolicy.Resolve(202f, 120f, 38f));
+        Assert.Equal(358f, RetainedTabWidthPolicy.Resolve(202f, 320f, 38f));
+        Assert.Equal(480f, RetainedTabWidthPolicy.Resolve(202f, 900f, 38f));
     }
 
     [Fact]

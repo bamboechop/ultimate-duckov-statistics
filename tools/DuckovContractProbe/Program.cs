@@ -30,6 +30,7 @@ try
     var sodaLocalizationPath = Path.Combine(managedRoot, "SodaLocalization.dll");
     var unityUiPath = Path.Combine(managedRoot, "UnityEngine.UI.dll");
     var textMeshProPath = Path.Combine(managedRoot, "Unity.TextMeshPro.dll");
+    var pluginsPath = Path.Combine(managedRoot, "Plugins.dll");
     var resourcesPath = Path.Combine(gameRoot, "Duckov_Data", "resources.assets");
 
     RequireFile(corePath);
@@ -37,6 +38,7 @@ try
     RequireFile(sodaLocalizationPath);
     RequireFile(unityUiPath);
     RequireFile(textMeshProPath);
+    RequireFile(pluginsPath);
     RequireFile(resourcesPath);
 
     var gameVersion = ReadIniValue(Path.Combine(gameRoot, "Info.ini"), "version");
@@ -480,6 +482,12 @@ try
         itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "icon", mustBePublic: true, fieldTypeFragment: "UnityEngine.Sprite");
     }
 
+    using (var plugins = new AssemblyMetadata(pluginsPath))
+    {
+        plugins.RequireType("UnityEngine.UI.ProceduralImage", "ProceduralImage");
+        plugins.RequireType("UnityEngine.UI.ProceduralImage", "ProceduralImageModifier");
+    }
+
     using (var localization = new AssemblyMetadata(sodaLocalizationPath))
     {
         localization.RequireField("SodaCraft.Localizations", "LocalizationManager", "overrideTexts", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Collections.Generic.Dictionary");
@@ -508,7 +516,7 @@ try
         foreach (var formula in craftingFormulaAudit.NonzeroCurrencyFormulas)
             Console.WriteLine($"    {formula.FormulaId} -> output {formula.OutputItemId}: money={formula.Money}; tags={formula.Tags}; items={formula.ItemCosts}");
     }
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, M16 CraftingFormula.cost item/currency plus repeated-stack mutation/transfer, and M17 retained UI/menu/localization/item-icon/toast/focus contracts are present.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, M16 CraftingFormula.cost item/currency plus repeated-stack mutation/transfer, and M17 retained UI/menu/localization/item-icon/toast/focus/procedural-image contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption, M6 tote activation, M13 crafting workstation/run-map/multiple-output attribution, and M16 Money/Cash charge splitting remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
