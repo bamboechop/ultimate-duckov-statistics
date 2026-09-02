@@ -316,7 +316,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(
             "ResourceHanRoundedCN-Medium Atlas Material Shadow",
             RetainedHeaderTitlePolicy.MaterialName);
-        Assert.Equal(116.75f, RetainedHeaderTitlePolicy.ReferenceFontSize);
+        Assert.Equal(96f, RetainedHeaderTitlePolicy.ReferenceFontSize);
         Assert.Equal(113f, RetainedHeaderTitlePolicy.LeftPixels);
         Assert.Equal(141f, RetainedHeaderTitlePolicy.TopPixels);
         Assert.Equal(921f, RetainedHeaderTitlePolicy.WidthPixels);
@@ -339,10 +339,11 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Theory]
-    [InlineData(1280f, 720f, 56.5f, 70.5f, 460.5f, 41.5f, 58.375f)]
-    [InlineData(1920f, 1080f, 84.75f, 105.75f, 690.75f, 62.25f, 87.5625f)]
-    [InlineData(1920f, 1200f, 84.75f, 165.75f, 690.75f, 62.25f, 87.5625f)]
-    [InlineData(2560f, 1440f, 113f, 141f, 921f, 83f, 116.75f)]
+    [InlineData(1280f, 720f, 56.5f, 70.5f, 460.5f, 41.5f, 48f)]
+    [InlineData(1680f, 1050f, 74.15625f, 145.03125f, 604.40625f, 54.46875f, 63f)]
+    [InlineData(1920f, 1080f, 84.75f, 105.75f, 690.75f, 62.25f, 72f)]
+    [InlineData(1920f, 1200f, 84.75f, 165.75f, 690.75f, 62.25f, 72f)]
+    [InlineData(2560f, 1440f, 113f, 141f, 921f, 83f, 96f)]
     public void StepThreeHeaderTitleUsesSharedReferenceTransformAtEveryRequiredViewport(
         float viewportWidth,
         float viewportHeight,
