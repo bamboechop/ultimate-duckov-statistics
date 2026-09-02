@@ -92,7 +92,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || graphics[0] != blocker)
         {
             throw new InvalidOperationException(
-                "The Step 0 shell must contain only one black 25% dimmer and no child hierarchy.");
+                "The Step 0 shell must contain only one black 50% dimmer and no child hierarchy.");
         }
 
         if (shellRoot.anchorMin != Vector2.zero
