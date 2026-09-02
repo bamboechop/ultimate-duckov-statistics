@@ -196,21 +196,30 @@ internal static class RuntimeTabStripScrollPolicy
     private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 }
 
-internal static class BlankRetainedShellPolicy
+internal static class RetainedDimmerPolicy
 {
     public const string RootName = "UltimateDuckovStatisticsRetainedShell";
     public const int RootChildCount = 0;
     public const int GraphicCount = 1;
-    public const float VisualAlpha = 0f;
+    public const float Red = 0f;
+    public const float Green = 0f;
+    public const float Blue = 0f;
+    public const float VisualAlpha = 0.25f;
     public const bool BlocksRaycasts = true;
 
     public static bool IsValidComposition(
         int rootChildCount,
         int graphicCount,
+        float blockerRed,
+        float blockerGreen,
+        float blockerBlue,
         float blockerAlpha,
         bool blockerRaycastTarget) =>
         rootChildCount == RootChildCount
         && graphicCount == GraphicCount
+        && blockerRed == Red
+        && blockerGreen == Green
+        && blockerBlue == Blue
         && blockerAlpha == VisualAlpha
         && blockerRaycastTarget == BlocksRaycasts;
 }

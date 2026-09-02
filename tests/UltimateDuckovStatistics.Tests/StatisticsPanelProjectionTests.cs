@@ -130,18 +130,24 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void StepMinusOneShellOwnsOnlyATransparentRaycastBlocker()
+    public void StepZeroShellOwnsOnlyTheExactFullScreenDimmer()
     {
-        Assert.Equal("UltimateDuckovStatisticsRetainedShell", BlankRetainedShellPolicy.RootName);
-        Assert.Equal(0, BlankRetainedShellPolicy.RootChildCount);
-        Assert.Equal(1, BlankRetainedShellPolicy.GraphicCount);
-        Assert.Equal(0f, BlankRetainedShellPolicy.VisualAlpha);
-        Assert.True(BlankRetainedShellPolicy.BlocksRaycasts);
-        Assert.True(BlankRetainedShellPolicy.IsValidComposition(0, 1, 0f, blockerRaycastTarget: true));
-        Assert.False(BlankRetainedShellPolicy.IsValidComposition(1, 1, 0f, blockerRaycastTarget: true));
-        Assert.False(BlankRetainedShellPolicy.IsValidComposition(0, 2, 0f, blockerRaycastTarget: true));
-        Assert.False(BlankRetainedShellPolicy.IsValidComposition(0, 1, 0.001f, blockerRaycastTarget: true));
-        Assert.False(BlankRetainedShellPolicy.IsValidComposition(0, 1, 0f, blockerRaycastTarget: false));
+        Assert.Equal("UltimateDuckovStatisticsRetainedShell", RetainedDimmerPolicy.RootName);
+        Assert.Equal(0, RetainedDimmerPolicy.RootChildCount);
+        Assert.Equal(1, RetainedDimmerPolicy.GraphicCount);
+        Assert.Equal(0f, RetainedDimmerPolicy.Red);
+        Assert.Equal(0f, RetainedDimmerPolicy.Green);
+        Assert.Equal(0f, RetainedDimmerPolicy.Blue);
+        Assert.Equal(0.25f, RetainedDimmerPolicy.VisualAlpha);
+        Assert.True(RetainedDimmerPolicy.BlocksRaycasts);
+        Assert.True(RetainedDimmerPolicy.IsValidComposition(0, 1, 0f, 0f, 0f, 0.25f, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidComposition(1, 1, 0f, 0f, 0f, 0.25f, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 2, 0f, 0f, 0f, 0.25f, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 1, 0.001f, 0f, 0f, 0.25f, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 1, 0f, 0.001f, 0f, 0.25f, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 1, 0f, 0f, 0.001f, 0.25f, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 1, 0f, 0f, 0f, 64f / 255f, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 1, 0f, 0f, 0f, 0.25f, blockerRaycastTarget: false));
     }
 
     [Fact]

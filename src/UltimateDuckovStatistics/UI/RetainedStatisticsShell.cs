@@ -4,9 +4,9 @@ using UnityEngine.UI;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the blank retained-mode baseline for M17 visual correction Step -1.
-/// The single transparent graphic provides modal pointer blocking without
-/// contributing visible pixels; later visual layers can be parented to this root.
+/// Owns the exact full-screen dimmer for M17 visual correction Step 0.
+/// The single black graphic provides the permitted visual layer and modal pointer
+/// blocking; later visual layers can be parented to this root.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
 {
@@ -41,7 +41,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             canvas = targetCanvas;
             selectedTab = initialTab;
             root = new GameObject(
-                BlankRetainedShellPolicy.RootName,
+                RetainedDimmerPolicy.RootName,
                 typeof(RectTransform));
             root.hideFlags = HideFlags.DontSave;
             root.SetActive(false);
@@ -51,10 +51,14 @@ internal sealed class RetainedStatisticsShell : IDisposable
             Stretch(rootRect);
 
             var blocker = root.AddComponent<Image>();
-            blocker.color = new Color(0f, 0f, 0f, BlankRetainedShellPolicy.VisualAlpha);
-            blocker.raycastTarget = BlankRetainedShellPolicy.BlocksRaycasts;
+            blocker.color = new Color(
+                RetainedDimmerPolicy.Red,
+                RetainedDimmerPolicy.Green,
+                RetainedDimmerPolicy.Blue,
+                RetainedDimmerPolicy.VisualAlpha);
+            blocker.raycastTarget = RetainedDimmerPolicy.BlocksRaycasts;
 
-            ValidateBlankComposition(root, blocker);
+            ValidateDimmerComposition(rootRect, blocker);
             rootRect.SetAsLastSibling();
             root.SetActive(true);
             return true;
@@ -74,18 +78,29 @@ internal sealed class RetainedStatisticsShell : IDisposable
         selectedTab = tab;
     }
 
-    private static void ValidateBlankComposition(GameObject shellRoot, Image blocker)
+    private static void ValidateDimmerComposition(RectTransform shellRoot, Image blocker)
     {
         var graphics = shellRoot.GetComponentsInChildren<Graphic>(includeInactive: true);
-        if (!BlankRetainedShellPolicy.IsValidComposition(
-                shellRoot.transform.childCount,
+        if (!RetainedDimmerPolicy.IsValidComposition(
+                shellRoot.childCount,
                 graphics.Length,
+                blocker.color.r,
+                blocker.color.g,
+                blocker.color.b,
                 blocker.color.a,
                 blocker.raycastTarget)
             || graphics[0] != blocker)
         {
             throw new InvalidOperationException(
-                "The Step -1 shell must contain only one transparent raycast blocker and no child hierarchy.");
+                "The Step 0 shell must contain only one black 25% dimmer and no child hierarchy.");
+        }
+
+        if (shellRoot.anchorMin != Vector2.zero
+            || shellRoot.anchorMax != Vector2.one
+            || shellRoot.offsetMin != Vector2.zero
+            || shellRoot.offsetMax != Vector2.zero)
+        {
+            throw new InvalidOperationException("The Step 0 dimmer must stretch edge to edge with zero offsets.");
         }
     }
 
