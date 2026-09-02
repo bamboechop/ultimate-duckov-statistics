@@ -5,8 +5,8 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Step 01.
-/// The root graphic remains the modal dimmer; the sole child is the rounded header backdrop.
+/// Owns the exact retained surfaces introduced through M17 visual correction Step 02.
+/// The root graphic remains the modal dimmer; its children are the frozen header and native-arrow back control.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
 {
@@ -15,7 +15,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RectTransform? shellRoot;
     private RectTransform? headerRect;
     private UniformModifier? headerModifier;
-    private RetainedHeaderCanvasLayout? lastAppliedHeaderLayout;
+    private RectTransform? backButtonRect;
+    private UniformModifier? backButtonModifier;
+    private RectTransform? backArrowRect;
+    private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
     private float lastViewportPixelWidth = float.NaN;
     private float lastViewportPixelHeight = float.NaN;
     private float lastCanvasScaleFactor = float.NaN;
@@ -34,9 +37,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
     public bool TryCreate(
         Canvas targetCanvas,
         StatisticsPanelTab initialTab,
+        Action close,
         out string? error)
     {
         if (targetCanvas == null) throw new ArgumentNullException(nameof(targetCanvas));
+        if (close == null) throw new ArgumentNullException(nameof(close));
         if (!PanelInteractionState.NavigationOrder.Contains(initialTab))
             throw new ArgumentOutOfRangeException(nameof(initialTab));
 
@@ -45,6 +50,17 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         try
         {
+            if (!NativeBackArrowResolver.TryResolve(
+                    targetCanvas,
+                    out var nativeBackArrow,
+                    out _,
+                    out var resolutionError)
+                || nativeBackArrow == null)
+            {
+                error = resolutionError ?? "Duckov's audited native back-arrow presentation was unavailable.";
+                return false;
+            }
+
             canvas = targetCanvas;
             selectedTab = initialTab;
             root = new GameObject(
@@ -72,7 +88,18 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var headerGraphic,
                 out var createdHeaderModifier);
             headerModifier = createdHeaderModifier;
-            var headerLayout = RefreshHeaderLayout(force: true);
+            backButtonRect = CreateBackControl(
+                rootRect,
+                nativeBackArrow,
+                close,
+                out var backButtonGraphic,
+                out var createdBackButtonModifier,
+                out var backButton,
+                out var createdBackArrowRect,
+                out var backArrowGraphic);
+            backButtonModifier = createdBackButtonModifier;
+            backArrowRect = createdBackArrowRect;
+            var visualLayout = RefreshVisualLayout(force: true);
 
             ValidateSurfaceComposition(
                 rootRect,
@@ -80,7 +107,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 headerRect,
                 headerGraphic,
                 createdHeaderModifier,
-                headerLayout,
+                backButtonRect,
+                backButtonGraphic,
+                createdBackButtonModifier,
+                backButton,
+                createdBackArrowRect,
+                backArrowGraphic,
+                visualLayout,
                 targetCanvas.scaleFactor);
             rootRect.SetAsLastSibling();
             root.SetActive(true);
@@ -106,7 +139,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         error = null;
         try
         {
-            RefreshHeaderLayout(force: false);
+            RefreshVisualLayout(force: false);
             return true;
         }
         catch (Exception exception)
@@ -145,10 +178,77 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return rect;
     }
 
-    private RetainedHeaderCanvasLayout RefreshHeaderLayout(bool force)
+    private static RectTransform CreateBackControl(
+        RectTransform parent,
+        Sprite nativeBackArrow,
+        Action close,
+        out ProceduralImage background,
+        out UniformModifier modifier,
+        out Button button,
+        out RectTransform arrowRect,
+        out Image arrowGraphic)
     {
-        if (canvas == null || shellRoot == null || headerRect == null || headerModifier == null)
-            throw new InvalidOperationException("The retained header layout is not fully initialized.");
+        var back = new GameObject(
+            RetainedBackControlPolicy.ButtonName,
+            typeof(RectTransform));
+        var rect = (RectTransform)back.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        background = back.AddComponent<ProceduralImage>();
+        background.color = new Color(
+            RetainedBackControlPolicy.BackgroundRed,
+            RetainedBackControlPolicy.BackgroundGreen,
+            RetainedBackControlPolicy.BackgroundBlue,
+            RetainedBackControlPolicy.BackgroundAlpha);
+        background.BorderWidth = 0f;
+        background.FalloffDistance = 1f;
+        background.sprite = null;
+        background.overrideSprite = null;
+        background.raycastTarget = RetainedBackControlPolicy.BackgroundBlocksRaycasts;
+        modifier = back.AddComponent<UniformModifier>();
+
+        button = back.AddComponent<Button>();
+        button.targetGraphic = background;
+        button.transition = Selectable.Transition.None;
+        button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+        button.onClick = new Button.ButtonClickedEvent();
+        var activation = new RetainedBackControlActivation(close);
+        button.onClick.AddListener(activation.Invoke);
+
+        var arrow = new GameObject(
+            RetainedBackControlPolicy.ArrowName,
+            typeof(RectTransform));
+        arrowRect = (RectTransform)arrow.transform;
+        arrowRect.SetParent(rect, worldPositionStays: false);
+        arrowRect.anchorMin = new Vector2(0f, 1f);
+        arrowRect.anchorMax = new Vector2(0f, 1f);
+        arrowRect.pivot = new Vector2(0f, 1f);
+        arrowRect.localScale = Vector3.one;
+        arrowGraphic = arrow.AddComponent<Image>();
+        arrowGraphic.sprite = nativeBackArrow;
+        arrowGraphic.overrideSprite = nativeBackArrow;
+        arrowGraphic.type = Image.Type.Simple;
+        arrowGraphic.preserveAspect = RetainedBackControlPolicy.PreserveArrowAspect;
+        arrowGraphic.color = new Color(
+            RetainedBackControlPolicy.ArrowRed,
+            RetainedBackControlPolicy.ArrowGreen,
+            RetainedBackControlPolicy.ArrowBlue,
+            RetainedBackControlPolicy.ArrowAlpha);
+        arrowGraphic.raycastTarget = RetainedBackControlPolicy.ArrowBlocksRaycasts;
+        return rect;
+    }
+
+    private RetainedVisualCanvasLayout RefreshVisualLayout(bool force)
+    {
+        if (canvas == null || shellRoot == null || headerRect == null || headerModifier == null
+            || backButtonRect == null || backButtonModifier == null || backArrowRect == null)
+        {
+            throw new InvalidOperationException("The retained visual layout is not fully initialized.");
+        }
 
         var canvasScaleFactor = canvas.scaleFactor;
         var viewportPixelWidth = shellRoot.rect.width * canvasScaleFactor;
@@ -157,22 +257,31 @@ internal sealed class RetainedStatisticsShell : IDisposable
             && viewportPixelWidth == lastViewportPixelWidth
             && viewportPixelHeight == lastViewportPixelHeight
             && canvasScaleFactor == lastCanvasScaleFactor
-            && lastAppliedHeaderLayout != null)
+            && lastAppliedVisualLayout != null)
         {
-            return lastAppliedHeaderLayout;
+            return lastAppliedVisualLayout;
         }
 
-        var layout = RetainedHeaderPolicy.CreateCanvasLayout(
+        var layout = RetainedVisualLayoutPolicy.Create(
             viewportPixelWidth,
             viewportPixelHeight,
             canvasScaleFactor);
-        headerRect.anchoredPosition = new Vector2(layout.Left, -layout.Top);
-        headerRect.sizeDelta = new Vector2(layout.Width, layout.Height);
-        headerModifier.Radius = layout.CornerRadius;
+        headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
+        headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
+        headerModifier.Radius = layout.Header.CornerRadius;
+        backButtonRect.anchoredPosition = new Vector2(layout.BackControl.Left, -layout.BackControl.Top);
+        backButtonRect.sizeDelta = new Vector2(layout.BackControl.Width, layout.BackControl.Height);
+        backButtonModifier.Radius = layout.BackControl.CornerRadius;
+        backArrowRect.anchoredPosition = new Vector2(
+            layout.BackControl.ArrowLeft - layout.BackControl.Left,
+            -(layout.BackControl.ArrowTop - layout.BackControl.Top));
+        backArrowRect.sizeDelta = new Vector2(
+            layout.BackControl.ArrowWidth,
+            layout.BackControl.ArrowHeight);
         lastViewportPixelWidth = viewportPixelWidth;
         lastViewportPixelHeight = viewportPixelHeight;
         lastCanvasScaleFactor = canvasScaleFactor;
-        lastAppliedHeaderLayout = layout;
+        lastAppliedVisualLayout = layout;
         return layout;
     }
 
@@ -182,10 +291,17 @@ internal sealed class RetainedStatisticsShell : IDisposable
         RectTransform headerRect,
         ProceduralImage headerGraphic,
         UniformModifier headerModifier,
-        RetainedHeaderCanvasLayout headerLayout,
+        RectTransform backButtonRect,
+        ProceduralImage backButtonGraphic,
+        UniformModifier backButtonModifier,
+        Button backButton,
+        RectTransform backArrowRect,
+        Image backArrowGraphic,
+        RetainedVisualCanvasLayout visualLayout,
         float canvasScaleFactor)
     {
         var graphics = shellRoot.GetComponentsInChildren<Graphic>(includeInactive: true);
+        var buttons = shellRoot.GetComponentsInChildren<Button>(includeInactive: true);
         if (!RetainedDimmerPolicy.IsValidGraphic(
                 blocker.color.r,
                 blocker.color.g,
@@ -198,15 +314,41 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 headerGraphic.color.b,
                 headerGraphic.color.a,
                 headerGraphic.raycastTarget)
-            || shellRoot.childCount != RetainedHeaderPolicy.RootChildCount
+            || !RetainedBackControlPolicy.IsValidBackgroundGraphic(
+                backButtonGraphic.color.r,
+                backButtonGraphic.color.g,
+                backButtonGraphic.color.b,
+                backButtonGraphic.color.a,
+                backButtonGraphic.raycastTarget)
+            || !RetainedBackControlPolicy.IsValidArrowGraphic(
+                backArrowGraphic.color.r,
+                backArrowGraphic.color.g,
+                backArrowGraphic.color.b,
+                backArrowGraphic.color.a,
+                backArrowGraphic.raycastTarget,
+                backArrowGraphic.preserveAspect)
+            || shellRoot.childCount != RetainedShellCompositionPolicy.RootChildCount
             || headerRect.parent != shellRoot
-            || headerRect.childCount != RetainedHeaderPolicy.HeaderChildCount
-            || graphics.Length != RetainedHeaderPolicy.GraphicCount
+            || headerRect.childCount != RetainedShellCompositionPolicy.HeaderChildCount
+            || backButtonRect.parent != shellRoot
+            || backButtonRect.childCount != RetainedShellCompositionPolicy.BackButtonChildCount
+            || backArrowRect.parent != backButtonRect
+            || backArrowRect.childCount != RetainedShellCompositionPolicy.BackArrowChildCount
+            || graphics.Length != RetainedShellCompositionPolicy.GraphicCount
+            || buttons.Length != 1
+            || buttons[0] != backButton
+            || backButton.targetGraphic != backButtonGraphic
+            || backButton.transition != Selectable.Transition.None
+            || backButton.onClick.GetPersistentEventCount() != 0
+            || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.Header.ReferenceTransform)
+            || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.BackControl.ReferenceTransform)
             || !graphics.Contains(blocker)
-            || !graphics.Contains(headerGraphic))
+            || !graphics.Contains(headerGraphic)
+            || !graphics.Contains(backButtonGraphic)
+            || !graphics.Contains(backArrowGraphic))
         {
             throw new InvalidOperationException(
-                "The Step 01 shell must contain only the frozen dimmer and one HeaderBackground graphic.");
+                "The Step 02 shell must contain only the frozen dimmer, HeaderBackground, BackButton, and BackArrow.");
         }
 
         if (shellRoot.anchorMin != Vector2.zero
@@ -222,17 +364,48 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || headerRect.anchorMax != new Vector2(0f, 1f)
             || headerRect.pivot != new Vector2(0f, 1f)
             || headerGraphic.BorderWidth != 0f
-            || !Approximately(headerRect.anchoredPosition.x, headerLayout.Left)
-            || !Approximately(headerRect.anchoredPosition.y, -headerLayout.Top)
-            || !Approximately(headerRect.sizeDelta.x, headerLayout.Width)
-            || !Approximately(headerRect.sizeDelta.y, headerLayout.Height)
-            || !Approximately(headerModifier.Radius, headerLayout.CornerRadius)
+            || !Approximately(headerRect.anchoredPosition.x, visualLayout.Header.Left)
+            || !Approximately(headerRect.anchoredPosition.y, -visualLayout.Header.Top)
+            || !Approximately(headerRect.sizeDelta.x, visualLayout.Header.Width)
+            || !Approximately(headerRect.sizeDelta.y, visualLayout.Header.Height)
+            || !Approximately(headerModifier.Radius, visualLayout.Header.CornerRadius)
             || !Approximately(
                 headerModifier.Radius * canvasScaleFactor,
-                RetainedHeaderPolicy.CornerRadiusPixels * headerLayout.ReferenceScale))
+                RetainedHeaderPolicy.CornerRadiusPixels * visualLayout.ReferenceTransform.ReferenceScale))
         {
             throw new InvalidOperationException(
                 "HeaderBackground did not retain its exact top-left pixel geometry or rounded-corner radius.");
+        }
+
+        if (backButtonRect.gameObject.name != RetainedBackControlPolicy.ButtonName
+            || backButtonRect.anchorMin != new Vector2(0f, 1f)
+            || backButtonRect.anchorMax != new Vector2(0f, 1f)
+            || backButtonRect.pivot != new Vector2(0f, 1f)
+            || backButtonGraphic.BorderWidth != 0f
+            || backButtonGraphic.sprite != null
+            || backButtonGraphic.overrideSprite != null
+            || !Approximately(backButtonRect.anchoredPosition.x, visualLayout.BackControl.Left)
+            || !Approximately(backButtonRect.anchoredPosition.y, -visualLayout.BackControl.Top)
+            || !Approximately(backButtonRect.sizeDelta.x, visualLayout.BackControl.Width)
+            || !Approximately(backButtonRect.sizeDelta.y, visualLayout.BackControl.Height)
+            || !Approximately(backButtonModifier.Radius, visualLayout.BackControl.CornerRadius)
+            || backArrowRect.gameObject.name != RetainedBackControlPolicy.ArrowName
+            || backArrowRect.anchorMin != new Vector2(0f, 1f)
+            || backArrowRect.anchorMax != new Vector2(0f, 1f)
+            || backArrowRect.pivot != new Vector2(0f, 1f)
+            || !Approximately(
+                backArrowRect.anchoredPosition.x,
+                visualLayout.BackControl.ArrowLeft - visualLayout.BackControl.Left)
+            || !Approximately(
+                backArrowRect.anchoredPosition.y,
+                -(visualLayout.BackControl.ArrowTop - visualLayout.BackControl.Top))
+            || !Approximately(backArrowRect.sizeDelta.x, visualLayout.BackControl.ArrowWidth)
+            || !Approximately(backArrowRect.sizeDelta.y, visualLayout.BackControl.ArrowHeight)
+            || backArrowGraphic.sprite == null
+            || !NativeBackArrowPolicy.IsExpectedSpriteName(backArrowGraphic.sprite.name))
+        {
+            throw new InvalidOperationException(
+                "BackButton did not retain its exact reference geometry, circular background, or native arrow.");
         }
     }
 
@@ -260,7 +433,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
         shellRoot = null;
         headerRect = null;
         headerModifier = null;
-        lastAppliedHeaderLayout = null;
+        backButtonRect = null;
+        backButtonModifier = null;
+        backArrowRect = null;
+        lastAppliedVisualLayout = null;
         lastViewportPixelWidth = float.NaN;
         lastViewportPixelHeight = float.NaN;
         lastCanvasScaleFactor = float.NaN;

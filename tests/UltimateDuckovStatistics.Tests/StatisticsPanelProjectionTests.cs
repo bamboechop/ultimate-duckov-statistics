@@ -161,9 +161,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0.50f, RetainedHeaderPolicy.VisualAlpha);
         Assert.Equal(20f, RetainedHeaderPolicy.CornerRadiusPixels);
         Assert.False(RetainedHeaderPolicy.BlocksRaycasts);
-        Assert.Equal(1, RetainedHeaderPolicy.RootChildCount);
-        Assert.Equal(0, RetainedHeaderPolicy.HeaderChildCount);
-        Assert.Equal(2, RetainedHeaderPolicy.GraphicCount);
         Assert.Equal(0.75f, RetainedHeaderPolicy.EffectiveOpacity);
         Assert.True(RetainedHeaderPolicy.IsValidGraphic(0f, 0f, 0f, 0.50f, raycastTarget: false));
     }
@@ -171,11 +168,13 @@ public sealed class StatisticsPanelProjectionTests
     [Fact]
     public void StepOneHeaderPreservesExactReferenceGeometryAtBaselineViewport()
     {
-        var layout = RetainedHeaderPolicy.CreateCanvasLayout(2560f, 1440f, 1f);
+        var transform = RetainedReferenceTransformPolicy.Create(2560f, 1440f, 1f);
+        var layout = RetainedHeaderPolicy.CreateCanvasLayout(transform);
 
-        Assert.Equal(1f, layout.ReferenceScale);
-        Assert.Equal(0f, layout.ReferenceOriginX);
-        Assert.Equal(0f, layout.ReferenceOriginY);
+        Assert.Same(transform, layout.ReferenceTransform);
+        Assert.Equal(1f, transform.ReferenceScale);
+        Assert.Equal(0f, transform.ReferenceOriginX);
+        Assert.Equal(0f, transform.ReferenceOriginY);
         Assert.Equal(85f, layout.Left);
         Assert.Equal(113f, layout.Top);
         Assert.Equal(2392f, layout.Width);
@@ -187,7 +186,8 @@ public sealed class StatisticsPanelProjectionTests
     public void StepOneHeaderConvertsScaledCanvasUnitsBackToBaselinePhysicalPixels()
     {
         const float canvasScale = 2f;
-        var layout = RetainedHeaderPolicy.CreateCanvasLayout(2560f, 1440f, canvasScale);
+        var transform = RetainedReferenceTransformPolicy.Create(2560f, 1440f, canvasScale);
+        var layout = RetainedHeaderPolicy.CreateCanvasLayout(transform);
 
         Assert.Equal(RetainedHeaderPolicy.LeftPixels, layout.Left * canvasScale);
         Assert.Equal(RetainedHeaderPolicy.TopPixels, layout.Top * canvasScale);
@@ -209,11 +209,12 @@ public sealed class StatisticsPanelProjectionTests
         float expectedHeight,
         float expectedRadius)
     {
-        var layout = RetainedHeaderPolicy.CreateCanvasLayout(viewportWidth, viewportHeight, 1f);
+        var transform = RetainedReferenceTransformPolicy.Create(viewportWidth, viewportHeight, 1f);
+        var layout = RetainedHeaderPolicy.CreateCanvasLayout(transform);
 
-        Assert.Equal(expectedScale, layout.ReferenceScale);
-        Assert.Equal(0f, layout.ReferenceOriginX);
-        Assert.Equal(0f, layout.ReferenceOriginY);
+        Assert.Equal(expectedScale, transform.ReferenceScale);
+        Assert.Equal(0f, transform.ReferenceOriginX);
+        Assert.Equal(0f, transform.ReferenceOriginY);
         Assert.Equal(expectedLeft, layout.Left);
         Assert.Equal(expectedTop, layout.Top);
         Assert.Equal(expectedWidth, layout.Width);
@@ -224,11 +225,12 @@ public sealed class StatisticsPanelProjectionTests
     [Fact]
     public void StepOneHeaderUsesSmallerScaleAxisAndCentresUnusedViewportAxis()
     {
-        var layout = RetainedHeaderPolicy.CreateCanvasLayout(1600f, 1200f, 1f);
+        var transform = RetainedReferenceTransformPolicy.Create(1600f, 1200f, 1f);
+        var layout = RetainedHeaderPolicy.CreateCanvasLayout(transform);
 
-        Assert.Equal(0.625f, layout.ReferenceScale);
-        Assert.Equal(0f, layout.ReferenceOriginX);
-        Assert.Equal(150f, layout.ReferenceOriginY);
+        Assert.Equal(0.625f, transform.ReferenceScale);
+        Assert.Equal(0f, transform.ReferenceOriginX);
+        Assert.Equal(150f, transform.ReferenceOriginY);
         Assert.Equal(53.125f, layout.Left);
         Assert.Equal(220.625f, layout.Top);
         Assert.Equal(1495f, layout.Width);
@@ -241,19 +243,149 @@ public sealed class StatisticsPanelProjectionTests
     public void StepOneHeaderRejectsInvalidViewportAndCanvasInputs()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RetainedHeaderPolicy.CreateCanvasLayout(0f, 1440f, 1f));
+            RetainedReferenceTransformPolicy.Create(0f, 1440f, 1f));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RetainedHeaderPolicy.CreateCanvasLayout(2560f, -1f, 1f));
+            RetainedReferenceTransformPolicy.Create(2560f, -1f, 1f));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RetainedHeaderPolicy.CreateCanvasLayout(float.NaN, 1440f, 1f));
+            RetainedReferenceTransformPolicy.Create(float.NaN, 1440f, 1f));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RetainedHeaderPolicy.CreateCanvasLayout(2560f, float.PositiveInfinity, 1f));
+            RetainedReferenceTransformPolicy.Create(2560f, float.PositiveInfinity, 1f));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RetainedHeaderPolicy.CreateCanvasLayout(2560f, 1440f, 0f));
+            RetainedReferenceTransformPolicy.Create(2560f, 1440f, 0f));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RetainedHeaderPolicy.CreateCanvasLayout(2560f, 1440f, float.NaN));
+            RetainedReferenceTransformPolicy.Create(2560f, 1440f, float.NaN));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RetainedHeaderPolicy.CreateCanvasLayout(2560f, 1440f, float.NegativeInfinity));
+            RetainedReferenceTransformPolicy.Create(2560f, 1440f, float.NegativeInfinity));
+    }
+
+    [Fact]
+    public void StepTwoBackControlUsesExactReferenceGeometryAndNativeSourceContract()
+    {
+        Assert.Equal("BackButton", RetainedBackControlPolicy.ButtonName);
+        Assert.Equal("BackArrow", RetainedBackControlPolicy.ArrowName);
+        Assert.Equal(80f, RetainedBackControlPolicy.LeftPixels);
+        Assert.Equal(41f, RetainedBackControlPolicy.TopPixels);
+        Assert.Equal(68f, RetainedBackControlPolicy.WidthPixels);
+        Assert.Equal(68f, RetainedBackControlPolicy.HeightPixels);
+        Assert.Equal(148f, RetainedBackControlPolicy.RightExclusivePixels);
+        Assert.Equal(109f, RetainedBackControlPolicy.BottomExclusivePixels);
+        Assert.Equal(114f, RetainedBackControlPolicy.CenterXPixels);
+        Assert.Equal(75f, RetainedBackControlPolicy.CenterYPixels);
+        Assert.Equal(34f, RetainedBackControlPolicy.CornerRadiusPixels);
+        Assert.Equal(97f, RetainedBackControlPolicy.ArrowLeftPixels);
+        Assert.Equal(58f, RetainedBackControlPolicy.ArrowTopPixels);
+        Assert.Equal(34f, RetainedBackControlPolicy.ArrowWidthPixels);
+        Assert.Equal(34f, RetainedBackControlPolicy.ArrowHeightPixels);
+        Assert.Equal(131f, RetainedBackControlPolicy.ArrowRightExclusivePixels);
+        Assert.Equal(92f, RetainedBackControlPolicy.ArrowBottomExclusivePixels);
+        Assert.Equal(4f, RetainedHeaderPolicy.TopPixels - RetainedBackControlPolicy.BottomExclusivePixels);
+        Assert.True(NativeBackArrowPolicy.IsAuditedControlPath(
+            "Canvas/MainMenuContainer/Menu/OptionsPanel/Return"));
+        Assert.False(NativeBackArrowPolicy.IsAuditedControlPath("Canvas/Credits/Return"));
+        Assert.True(NativeBackArrowPolicy.IsExpectedSpriteName("pictoicon_arrow_line_prev"));
+        Assert.False(NativeBackArrowPolicy.IsExpectedSpriteName("replacement_arrow"));
+    }
+
+    [Fact]
+    public void StepTwoBackCircleAndArrowShareExactCentreAndCircleRadius()
+    {
+        var layout = RetainedVisualLayoutPolicy.Create(2560f, 1440f, 1f).BackControl;
+
+        Assert.Equal(layout.Left + layout.Width / 2f, layout.ArrowLeft + layout.ArrowWidth / 2f);
+        Assert.Equal(layout.Top + layout.Height / 2f, layout.ArrowTop + layout.ArrowHeight / 2f);
+        Assert.Equal(layout.Width, layout.Height);
+        Assert.Equal(layout.Width / 2f, layout.CornerRadius);
+    }
+
+    [Fact]
+    public void StepTwoBackPresentationUsesExactColoursOpacityAndRaycasts()
+    {
+        Assert.Equal(0f, RetainedBackControlPolicy.BackgroundRed);
+        Assert.Equal(0f, RetainedBackControlPolicy.BackgroundGreen);
+        Assert.Equal(0f, RetainedBackControlPolicy.BackgroundBlue);
+        Assert.Equal(0.50f, RetainedBackControlPolicy.BackgroundAlpha);
+        Assert.True(RetainedBackControlPolicy.BackgroundBlocksRaycasts);
+        Assert.Equal(1f, RetainedBackControlPolicy.ArrowRed);
+        Assert.Equal(1f, RetainedBackControlPolicy.ArrowGreen);
+        Assert.Equal(1f, RetainedBackControlPolicy.ArrowBlue);
+        Assert.Equal(1f, RetainedBackControlPolicy.ArrowAlpha);
+        Assert.False(RetainedBackControlPolicy.ArrowBlocksRaycasts);
+        Assert.True(RetainedBackControlPolicy.PreserveArrowAspect);
+        Assert.True(RetainedBackControlPolicy.IsValidBackgroundGraphic(
+            0f, 0f, 0f, 0.50f, raycastTarget: true));
+        Assert.False(RetainedBackControlPolicy.IsValidBackgroundGraphic(
+            0f, 0f, 0f, 0.50f, raycastTarget: false));
+        Assert.True(RetainedBackControlPolicy.IsValidArrowGraphic(
+            1f, 1f, 1f, 1f, raycastTarget: false, preserveAspect: true));
+        Assert.False(RetainedBackControlPolicy.IsValidArrowGraphic(
+            1f, 1f, 1f, 1f, raycastTarget: true, preserveAspect: true));
+        Assert.Equal(0.75f, RetainedBackControlPolicy.EffectiveBackgroundOpacity);
+    }
+
+    [Fact]
+    public void StepTwoBackActivationInvokesSuppliedCloseExactlyOnce()
+    {
+        var closeCount = 0;
+        var activation = new RetainedBackControlActivation(() => closeCount++);
+
+        activation.Invoke();
+
+        Assert.Equal(1, closeCount);
+    }
+
+    [Theory]
+    [InlineData(2560f, 1440f, 1f, 0f, 80f, 41f, 68f, 34f, 97f, 58f, 34f)]
+    [InlineData(1920f, 1080f, 0.75f, 0f, 60f, 30.75f, 51f, 25.5f, 72.75f, 43.5f, 25.5f)]
+    [InlineData(1280f, 720f, 0.50f, 0f, 40f, 20.5f, 34f, 17f, 48.5f, 29f, 17f)]
+    [InlineData(1920f, 1200f, 0.75f, 60f, 60f, 90.75f, 51f, 25.5f, 72.75f, 103.5f, 25.5f)]
+    public void StepTwoBackControlUsesSharedReferenceTransformAtEveryRequiredViewport(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedScale,
+        float expectedOriginY,
+        float expectedLeft,
+        float expectedTop,
+        float expectedSize,
+        float expectedRadius,
+        float expectedArrowLeft,
+        float expectedArrowTop,
+        float expectedArrowSize)
+    {
+        var layout = RetainedVisualLayoutPolicy.Create(viewportWidth, viewportHeight, 1f);
+
+        Assert.Same(layout.ReferenceTransform, layout.Header.ReferenceTransform);
+        Assert.Same(layout.ReferenceTransform, layout.BackControl.ReferenceTransform);
+        Assert.Equal(expectedScale, layout.ReferenceTransform.ReferenceScale);
+        Assert.Equal(0f, layout.ReferenceTransform.ReferenceOriginX);
+        Assert.Equal(expectedOriginY, layout.ReferenceTransform.ReferenceOriginY);
+        Assert.Equal(expectedLeft, layout.BackControl.Left);
+        Assert.Equal(expectedTop, layout.BackControl.Top);
+        Assert.Equal(expectedSize, layout.BackControl.Width);
+        Assert.Equal(expectedSize, layout.BackControl.Height);
+        Assert.Equal(expectedRadius, layout.BackControl.CornerRadius);
+        Assert.Equal(layout.BackControl.Width / 2f, layout.BackControl.CornerRadius);
+        Assert.Equal(expectedArrowLeft, layout.BackControl.ArrowLeft);
+        Assert.Equal(expectedArrowTop, layout.BackControl.ArrowTop);
+        Assert.Equal(expectedArrowSize, layout.BackControl.ArrowWidth);
+        Assert.Equal(expectedArrowSize, layout.BackControl.ArrowHeight);
+    }
+
+    [Fact]
+    public void StepTwoViewportChangeRefreshesHeaderAndBackWithoutHierarchyDuplication()
+    {
+        var baseline = RetainedVisualLayoutPolicy.Create(2560f, 1440f, 1f);
+        var resized = RetainedVisualLayoutPolicy.Create(1280f, 720f, 1f);
+
+        Assert.NotSame(baseline.ReferenceTransform, resized.ReferenceTransform);
+        Assert.Same(resized.ReferenceTransform, resized.Header.ReferenceTransform);
+        Assert.Same(resized.ReferenceTransform, resized.BackControl.ReferenceTransform);
+        Assert.Equal(baseline.Header.Width / 2f, resized.Header.Width);
+        Assert.Equal(baseline.BackControl.Width / 2f, resized.BackControl.Width);
+        Assert.Equal(2, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.HeaderChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.BackButtonChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.BackArrowChildCount);
+        Assert.Equal(4, RetainedShellCompositionPolicy.GraphicCount);
     }
 
     [Fact]

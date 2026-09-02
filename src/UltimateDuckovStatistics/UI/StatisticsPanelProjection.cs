@@ -218,41 +218,29 @@ internal static class RetainedDimmerPolicy
         && blockerRaycastTarget == BlocksRaycasts;
 }
 
-internal sealed class RetainedHeaderCanvasLayout
+internal sealed class RetainedReferenceTransform
 {
     public float ReferenceScale { get; set; }
     public float ReferenceOriginX { get; set; }
     public float ReferenceOriginY { get; set; }
-    public float Left { get; set; }
-    public float Top { get; set; }
-    public float Width { get; set; }
-    public float Height { get; set; }
-    public float CornerRadius { get; set; }
+    public float CanvasScaleFactor { get; set; }
+
+    public float CanvasX(float referenceX) =>
+        (ReferenceOriginX + referenceX * ReferenceScale) / CanvasScaleFactor;
+
+    public float CanvasY(float referenceY) =>
+        (ReferenceOriginY + referenceY * ReferenceScale) / CanvasScaleFactor;
+
+    public float CanvasLength(float referenceLength) =>
+        referenceLength * ReferenceScale / CanvasScaleFactor;
 }
 
-internal static class RetainedHeaderPolicy
+internal static class RetainedReferenceTransformPolicy
 {
-    public const string Name = "HeaderBackground";
     public const float BaselineWidthPixels = 2560f;
     public const float BaselineHeightPixels = 1440f;
-    public const float LeftPixels = 85f;
-    public const float TopPixels = 113f;
-    public const float WidthPixels = 2392f;
-    public const float HeightPixels = 217f;
-    public const float RightExclusivePixels = 2477f;
-    public const float BottomExclusivePixels = 330f;
-    public const float Red = 0f;
-    public const float Green = 0f;
-    public const float Blue = 0f;
-    public const float VisualAlpha = 0.50f;
-    public const float CornerRadiusPixels = 20f;
-    public const bool BlocksRaycasts = false;
-    public const int RootChildCount = 1;
-    public const int HeaderChildCount = 0;
-    public const int GraphicCount = 2;
-    public const float EffectiveOpacity = 0.75f;
 
-    public static RetainedHeaderCanvasLayout CreateCanvasLayout(
+    public static RetainedReferenceTransform Create(
         float viewportPixelWidth,
         float viewportPixelHeight,
         float canvasScaleFactor)
@@ -269,34 +257,67 @@ internal static class RetainedHeaderPolicy
             viewportPixelHeight / BaselineHeightPixels);
         var referenceOriginX = (viewportPixelWidth - BaselineWidthPixels * referenceScale) / 2f;
         var referenceOriginY = (viewportPixelHeight - BaselineHeightPixels * referenceScale) / 2f;
-        var unit = 1f / canvasScaleFactor;
-        var left = (referenceOriginX + LeftPixels * referenceScale) * unit;
-        var top = (referenceOriginY + TopPixels * referenceScale) * unit;
-        var width = WidthPixels * referenceScale * unit;
-        var height = HeightPixels * referenceScale * unit;
-        var cornerRadius = CornerRadiusPixels * referenceScale * unit;
         if (!IsPositiveFinite(referenceScale)
             || !IsFinite(referenceOriginX)
-            || !IsFinite(referenceOriginY)
-            || !IsFinite(left)
-            || !IsFinite(top)
-            || !IsPositiveFinite(width)
-            || !IsPositiveFinite(height)
-            || !IsPositiveFinite(cornerRadius))
+            || !IsFinite(referenceOriginY))
         {
-            throw new InvalidOperationException("The reference-space header transform produced invalid geometry.");
+            throw new InvalidOperationException("The retained reference-space transform produced invalid geometry.");
         }
 
-        return new RetainedHeaderCanvasLayout
+        return new RetainedReferenceTransform
         {
             ReferenceScale = referenceScale,
             ReferenceOriginX = referenceOriginX,
             ReferenceOriginY = referenceOriginY,
-            Left = left,
-            Top = top,
-            Width = width,
-            Height = height,
-            CornerRadius = cornerRadius
+            CanvasScaleFactor = canvasScaleFactor
+        };
+    }
+
+    private static bool IsPositiveFinite(float value) => value > 0f && IsFinite(value);
+
+    private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+}
+
+internal sealed class RetainedHeaderCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float CornerRadius { get; set; }
+}
+
+internal static class RetainedHeaderPolicy
+{
+    public const string Name = "HeaderBackground";
+    public const float BaselineWidthPixels = RetainedReferenceTransformPolicy.BaselineWidthPixels;
+    public const float BaselineHeightPixels = RetainedReferenceTransformPolicy.BaselineHeightPixels;
+    public const float LeftPixels = 85f;
+    public const float TopPixels = 113f;
+    public const float WidthPixels = 2392f;
+    public const float HeightPixels = 217f;
+    public const float RightExclusivePixels = 2477f;
+    public const float BottomExclusivePixels = 330f;
+    public const float Red = 0f;
+    public const float Green = 0f;
+    public const float Blue = 0f;
+    public const float VisualAlpha = 0.50f;
+    public const float CornerRadiusPixels = 20f;
+    public const bool BlocksRaycasts = false;
+    public const float EffectiveOpacity = 0.75f;
+
+    public static RetainedHeaderCanvasLayout CreateCanvasLayout(RetainedReferenceTransform referenceTransform)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        return new RetainedHeaderCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = referenceTransform.CanvasX(LeftPixels),
+            Top = referenceTransform.CanvasY(TopPixels),
+            Width = referenceTransform.CanvasLength(WidthPixels),
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels)
         };
     }
 
@@ -311,10 +332,183 @@ internal static class RetainedHeaderPolicy
         && blue == Blue
         && alpha == VisualAlpha
         && raycastTarget == BlocksRaycasts;
+}
+
+internal sealed class RetainedBackControlCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float CornerRadius { get; set; }
+    public float ArrowLeft { get; set; }
+    public float ArrowTop { get; set; }
+    public float ArrowWidth { get; set; }
+    public float ArrowHeight { get; set; }
+}
+
+internal static class RetainedBackControlPolicy
+{
+    public const string ButtonName = "BackButton";
+    public const string ArrowName = "BackArrow";
+    public const float LeftPixels = 80f;
+    public const float TopPixels = 41f;
+    public const float WidthPixels = 68f;
+    public const float HeightPixels = 68f;
+    public const float RightExclusivePixels = 148f;
+    public const float BottomExclusivePixels = 109f;
+    public const float CenterXPixels = 114f;
+    public const float CenterYPixels = 75f;
+    public const float CornerRadiusPixels = 34f;
+    public const float ArrowLeftPixels = 97f;
+    public const float ArrowTopPixels = 58f;
+    public const float ArrowWidthPixels = 34f;
+    public const float ArrowHeightPixels = 34f;
+    public const float ArrowRightExclusivePixels = 131f;
+    public const float ArrowBottomExclusivePixels = 92f;
+    public const float BackgroundRed = 0f;
+    public const float BackgroundGreen = 0f;
+    public const float BackgroundBlue = 0f;
+    public const float BackgroundAlpha = 0.50f;
+    public const bool BackgroundBlocksRaycasts = true;
+    public const float ArrowRed = 1f;
+    public const float ArrowGreen = 1f;
+    public const float ArrowBlue = 1f;
+    public const float ArrowAlpha = 1f;
+    public const bool ArrowBlocksRaycasts = false;
+    public const bool PreserveArrowAspect = true;
+    public const float EffectiveBackgroundOpacity = 0.75f;
+
+    public static RetainedBackControlCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        return new RetainedBackControlCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = referenceTransform.CanvasX(LeftPixels),
+            Top = referenceTransform.CanvasY(TopPixels),
+            Width = referenceTransform.CanvasLength(WidthPixels),
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels),
+            ArrowLeft = referenceTransform.CanvasX(ArrowLeftPixels),
+            ArrowTop = referenceTransform.CanvasY(ArrowTopPixels),
+            ArrowWidth = referenceTransform.CanvasLength(ArrowWidthPixels),
+            ArrowHeight = referenceTransform.CanvasLength(ArrowHeightPixels)
+        };
+    }
+
+    public static bool IsValidBackgroundGraphic(
+        float red,
+        float green,
+        float blue,
+        float alpha,
+        bool raycastTarget) =>
+        red == BackgroundRed
+        && green == BackgroundGreen
+        && blue == BackgroundBlue
+        && alpha == BackgroundAlpha
+        && raycastTarget == BackgroundBlocksRaycasts;
+
+    public static bool IsValidArrowGraphic(
+        float red,
+        float green,
+        float blue,
+        float alpha,
+        bool raycastTarget,
+        bool preserveAspect) =>
+        red == ArrowRed
+        && green == ArrowGreen
+        && blue == ArrowBlue
+        && alpha == ArrowAlpha
+        && raycastTarget == ArrowBlocksRaycasts
+        && preserveAspect == PreserveArrowAspect;
+}
+
+internal sealed class RetainedVisualCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public RetainedHeaderCanvasLayout Header { get; set; } = null!;
+    public RetainedBackControlCanvasLayout BackControl { get; set; } = null!;
+}
+
+internal static class RetainedVisualLayoutPolicy
+{
+    public static RetainedVisualCanvasLayout Create(
+        float viewportPixelWidth,
+        float viewportPixelHeight,
+        float canvasScaleFactor)
+    {
+        var referenceTransform = RetainedReferenceTransformPolicy.Create(
+            viewportPixelWidth,
+            viewportPixelHeight,
+            canvasScaleFactor);
+        var header = RetainedHeaderPolicy.CreateCanvasLayout(referenceTransform);
+        var backControl = RetainedBackControlPolicy.CreateCanvasLayout(referenceTransform);
+        if (!IsFinite(header.Left)
+            || !IsFinite(header.Top)
+            || !IsPositiveFinite(header.Width)
+            || !IsPositiveFinite(header.Height)
+            || !IsPositiveFinite(header.CornerRadius)
+            || !IsFinite(backControl.Left)
+            || !IsFinite(backControl.Top)
+            || !IsPositiveFinite(backControl.Width)
+            || !IsPositiveFinite(backControl.Height)
+            || !IsPositiveFinite(backControl.CornerRadius)
+            || !IsFinite(backControl.ArrowLeft)
+            || !IsFinite(backControl.ArrowTop)
+            || !IsPositiveFinite(backControl.ArrowWidth)
+            || !IsPositiveFinite(backControl.ArrowHeight))
+        {
+            throw new InvalidOperationException("The retained visual transform produced invalid Canvas geometry.");
+        }
+
+        return new RetainedVisualCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Header = header,
+            BackControl = backControl
+        };
+    }
 
     private static bool IsPositiveFinite(float value) => value > 0f && IsFinite(value);
 
     private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+}
+
+internal static class RetainedShellCompositionPolicy
+{
+    public const int RootChildCount = 2;
+    public const int HeaderChildCount = 0;
+    public const int BackButtonChildCount = 1;
+    public const int BackArrowChildCount = 0;
+    public const int GraphicCount = 4;
+}
+
+internal sealed class RetainedBackControlActivation
+{
+    private readonly Action close;
+
+    public RetainedBackControlActivation(Action close)
+    {
+        this.close = close ?? throw new ArgumentNullException(nameof(close));
+    }
+
+    public void Invoke() => close();
+}
+
+internal static class NativeBackArrowPolicy
+{
+    public const string AuditedControlPathSuffix = "/MainMenuContainer/Menu/OptionsPanel/Return";
+    public const string SpriteName = "pictoicon_arrow_line_prev";
+
+    public static bool IsAuditedControlPath(string? path) =>
+        !string.IsNullOrWhiteSpace(path)
+        && path.EndsWith(AuditedControlPathSuffix, StringComparison.Ordinal);
+
+    public static bool IsExpectedSpriteName(string? name) =>
+        string.Equals(name, SpriteName, StringComparison.Ordinal);
 }
 
 internal static class RetainedTabWidthPolicy

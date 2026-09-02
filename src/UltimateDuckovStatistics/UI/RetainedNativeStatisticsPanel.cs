@@ -122,7 +122,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
 
-        if (!shell.TryCreate(canvas, interaction.SelectedTab, out var error))
+        if (!shell.TryCreate(canvas, interaction.SelectedTab, Close, out var error))
         {
             lifecycle.Close();
             RestoreFocusAndCursor();
