@@ -355,7 +355,7 @@ internal static class RetainedHeaderTitlePolicy
     public const string NativeSourcePath = "Canvas/MainMenuContainer/Menu/OptionsPanel/Text (TMP)";
     public const string FontAssetName = "ResourceHanRoundedCN-Medium SDF";
     public const string MaterialName = "ResourceHanRoundedCN-Medium Atlas Material Shadow";
-    public const float ReferenceFontSize = 96f;
+    public const float ReferenceFontSize = 85f;
     public const float LeftPixels = 113f;
     public const float TopPixels = 141f;
     public const float WidthPixels = 921f;
