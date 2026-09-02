@@ -12,6 +12,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
 {
     private GameObject? root;
     private Canvas? canvas;
+    private RectTransform? shellRoot;
+    private RectTransform? headerRect;
+    private UniformModifier? headerModifier;
+    private RetainedHeaderCanvasLayout? lastAppliedHeaderLayout;
+    private float lastViewportPixelWidth = float.NaN;
+    private float lastViewportPixelHeight = float.NaN;
+    private float lastCanvasScaleFactor = float.NaN;
     private StatisticsPanelTab selectedTab;
 
     public bool IsCreated => root != null;
@@ -49,6 +56,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
             var rootRect = (RectTransform)root.transform;
             rootRect.SetParent(targetCanvas.transform, worldPositionStays: false);
             Stretch(rootRect);
+            rootRect.ForceUpdateRectTransforms();
+            shellRoot = rootRect;
 
             var blocker = root.AddComponent<Image>();
             blocker.color = new Color(
@@ -58,17 +67,19 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 RetainedDimmerPolicy.VisualAlpha);
             blocker.raycastTarget = RetainedDimmerPolicy.BlocksRaycasts;
 
-            var headerLayout = RetainedHeaderPolicy.CreateCanvasLayout(targetCanvas.scaleFactor);
-            var headerRect = CreateHeaderBackground(rootRect, headerLayout);
-            var headerGraphic = headerRect.GetComponent<ProceduralImage>();
-            var headerModifier = headerRect.GetComponent<UniformModifier>();
+            headerRect = CreateHeaderBackground(
+                rootRect,
+                out var headerGraphic,
+                out var createdHeaderModifier);
+            headerModifier = createdHeaderModifier;
+            var headerLayout = RefreshHeaderLayout(force: true);
 
             ValidateSurfaceComposition(
                 rootRect,
                 blocker,
                 headerRect,
                 headerGraphic,
-                headerModifier,
+                createdHeaderModifier,
                 headerLayout,
                 targetCanvas.scaleFactor);
             rootRect.SetAsLastSibling();
@@ -90,9 +101,25 @@ internal sealed class RetainedStatisticsShell : IDisposable
         selectedTab = tab;
     }
 
+    public bool Tick(out string? error)
+    {
+        error = null;
+        try
+        {
+            RefreshHeaderLayout(force: false);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            error = $"{exception.GetType().Name}: {exception.Message}";
+            return false;
+        }
+    }
+
     private static RectTransform CreateHeaderBackground(
         RectTransform parent,
-        RetainedHeaderCanvasLayout layout)
+        out ProceduralImage image,
+        out UniformModifier modifier)
     {
         var header = new GameObject(
             RetainedHeaderPolicy.Name,
@@ -102,11 +129,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
-        rect.anchoredPosition = new Vector2(layout.Left, -layout.Top);
-        rect.sizeDelta = new Vector2(layout.Width, layout.Height);
         rect.localScale = Vector3.one;
 
-        var image = header.AddComponent<ProceduralImage>();
+        image = header.AddComponent<ProceduralImage>();
         image.color = new Color(
             RetainedHeaderPolicy.Red,
             RetainedHeaderPolicy.Green,
@@ -116,9 +141,39 @@ internal sealed class RetainedStatisticsShell : IDisposable
         image.FalloffDistance = 1f;
         image.raycastTarget = RetainedHeaderPolicy.BlocksRaycasts;
 
-        var modifier = header.AddComponent<UniformModifier>();
-        modifier.Radius = layout.CornerRadius;
+        modifier = header.AddComponent<UniformModifier>();
         return rect;
+    }
+
+    private RetainedHeaderCanvasLayout RefreshHeaderLayout(bool force)
+    {
+        if (canvas == null || shellRoot == null || headerRect == null || headerModifier == null)
+            throw new InvalidOperationException("The retained header layout is not fully initialized.");
+
+        var canvasScaleFactor = canvas.scaleFactor;
+        var viewportPixelWidth = shellRoot.rect.width * canvasScaleFactor;
+        var viewportPixelHeight = shellRoot.rect.height * canvasScaleFactor;
+        if (!force
+            && viewportPixelWidth == lastViewportPixelWidth
+            && viewportPixelHeight == lastViewportPixelHeight
+            && canvasScaleFactor == lastCanvasScaleFactor
+            && lastAppliedHeaderLayout != null)
+        {
+            return lastAppliedHeaderLayout;
+        }
+
+        var layout = RetainedHeaderPolicy.CreateCanvasLayout(
+            viewportPixelWidth,
+            viewportPixelHeight,
+            canvasScaleFactor);
+        headerRect.anchoredPosition = new Vector2(layout.Left, -layout.Top);
+        headerRect.sizeDelta = new Vector2(layout.Width, layout.Height);
+        headerModifier.Radius = layout.CornerRadius;
+        lastViewportPixelWidth = viewportPixelWidth;
+        lastViewportPixelHeight = viewportPixelHeight;
+        lastCanvasScaleFactor = canvasScaleFactor;
+        lastAppliedHeaderLayout = layout;
+        return layout;
     }
 
     private static void ValidateSurfaceComposition(
@@ -172,7 +227,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || !Approximately(headerRect.sizeDelta.x, headerLayout.Width)
             || !Approximately(headerRect.sizeDelta.y, headerLayout.Height)
             || !Approximately(headerModifier.Radius, headerLayout.CornerRadius)
-            || !Approximately(headerModifier.Radius * canvasScaleFactor, RetainedHeaderPolicy.CornerRadiusPixels))
+            || !Approximately(
+                headerModifier.Radius * canvasScaleFactor,
+                RetainedHeaderPolicy.CornerRadiusPixels * headerLayout.ReferenceScale))
         {
             throw new InvalidOperationException(
                 "HeaderBackground did not retain its exact top-left pixel geometry or rounded-corner radius.");
@@ -200,6 +257,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         root = null;
         canvas = null;
+        shellRoot = null;
+        headerRect = null;
+        headerModifier = null;
+        lastAppliedHeaderLayout = null;
+        lastViewportPixelWidth = float.NaN;
+        lastViewportPixelHeight = float.NaN;
+        lastCanvasScaleFactor = float.NaN;
     }
 
     public void Dispose() => DestroyRoot();

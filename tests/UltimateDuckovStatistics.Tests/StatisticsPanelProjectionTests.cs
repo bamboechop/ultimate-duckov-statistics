@@ -169,17 +169,91 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void StepOneHeaderConvertsEveryScreenPixelThroughCanvasScale()
+    public void StepOneHeaderPreservesExactReferenceGeometryAtBaselineViewport()
+    {
+        var layout = RetainedHeaderPolicy.CreateCanvasLayout(2560f, 1440f, 1f);
+
+        Assert.Equal(1f, layout.ReferenceScale);
+        Assert.Equal(0f, layout.ReferenceOriginX);
+        Assert.Equal(0f, layout.ReferenceOriginY);
+        Assert.Equal(85f, layout.Left);
+        Assert.Equal(113f, layout.Top);
+        Assert.Equal(2392f, layout.Width);
+        Assert.Equal(217f, layout.Height);
+        Assert.Equal(20f, layout.CornerRadius);
+    }
+
+    [Fact]
+    public void StepOneHeaderConvertsScaledCanvasUnitsBackToBaselinePhysicalPixels()
     {
         const float canvasScale = 2f;
-        var layout = RetainedHeaderPolicy.CreateCanvasLayout(canvasScale);
+        var layout = RetainedHeaderPolicy.CreateCanvasLayout(2560f, 1440f, canvasScale);
 
         Assert.Equal(RetainedHeaderPolicy.LeftPixels, layout.Left * canvasScale);
         Assert.Equal(RetainedHeaderPolicy.TopPixels, layout.Top * canvasScale);
         Assert.Equal(RetainedHeaderPolicy.WidthPixels, layout.Width * canvasScale);
         Assert.Equal(RetainedHeaderPolicy.HeightPixels, layout.Height * canvasScale);
         Assert.Equal(RetainedHeaderPolicy.CornerRadiusPixels, layout.CornerRadius * canvasScale);
-        Assert.Throws<ArgumentOutOfRangeException>(() => RetainedHeaderPolicy.CreateCanvasLayout(0f));
+    }
+
+    [Theory]
+    [InlineData(1920f, 1080f, 0.75f, 63.75f, 84.75f, 1794f, 162.75f, 15f)]
+    [InlineData(1280f, 720f, 0.50f, 42.5f, 56.5f, 1196f, 108.5f, 10f)]
+    public void StepOneHeaderScalesUniformlyWithinSixteenByNineViewports(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedScale,
+        float expectedLeft,
+        float expectedTop,
+        float expectedWidth,
+        float expectedHeight,
+        float expectedRadius)
+    {
+        var layout = RetainedHeaderPolicy.CreateCanvasLayout(viewportWidth, viewportHeight, 1f);
+
+        Assert.Equal(expectedScale, layout.ReferenceScale);
+        Assert.Equal(0f, layout.ReferenceOriginX);
+        Assert.Equal(0f, layout.ReferenceOriginY);
+        Assert.Equal(expectedLeft, layout.Left);
+        Assert.Equal(expectedTop, layout.Top);
+        Assert.Equal(expectedWidth, layout.Width);
+        Assert.Equal(expectedHeight, layout.Height);
+        Assert.Equal(expectedRadius, layout.CornerRadius);
+    }
+
+    [Fact]
+    public void StepOneHeaderUsesSmallerScaleAxisAndCentresUnusedViewportAxis()
+    {
+        var layout = RetainedHeaderPolicy.CreateCanvasLayout(1600f, 1200f, 1f);
+
+        Assert.Equal(0.625f, layout.ReferenceScale);
+        Assert.Equal(0f, layout.ReferenceOriginX);
+        Assert.Equal(150f, layout.ReferenceOriginY);
+        Assert.Equal(53.125f, layout.Left);
+        Assert.Equal(220.625f, layout.Top);
+        Assert.Equal(1495f, layout.Width);
+        Assert.Equal(135.625f, layout.Height);
+        Assert.Equal(12.5f, layout.CornerRadius);
+        Assert.Equal(2392f / 217f, layout.Width / layout.Height, precision: 5);
+    }
+
+    [Fact]
+    public void StepOneHeaderRejectsInvalidViewportAndCanvasInputs()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedHeaderPolicy.CreateCanvasLayout(0f, 1440f, 1f));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedHeaderPolicy.CreateCanvasLayout(2560f, -1f, 1f));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedHeaderPolicy.CreateCanvasLayout(float.NaN, 1440f, 1f));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedHeaderPolicy.CreateCanvasLayout(2560f, float.PositiveInfinity, 1f));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedHeaderPolicy.CreateCanvasLayout(2560f, 1440f, 0f));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedHeaderPolicy.CreateCanvasLayout(2560f, 1440f, float.NaN));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedHeaderPolicy.CreateCanvasLayout(2560f, 1440f, float.NegativeInfinity));
     }
 
     [Fact]

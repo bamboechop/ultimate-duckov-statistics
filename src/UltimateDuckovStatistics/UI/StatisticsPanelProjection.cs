@@ -220,6 +220,9 @@ internal static class RetainedDimmerPolicy
 
 internal sealed class RetainedHeaderCanvasLayout
 {
+    public float ReferenceScale { get; set; }
+    public float ReferenceOriginX { get; set; }
+    public float ReferenceOriginY { get; set; }
     public float Left { get; set; }
     public float Top { get; set; }
     public float Width { get; set; }
@@ -249,18 +252,51 @@ internal static class RetainedHeaderPolicy
     public const int GraphicCount = 2;
     public const float EffectiveOpacity = 0.75f;
 
-    public static RetainedHeaderCanvasLayout CreateCanvasLayout(float canvasScaleFactor)
+    public static RetainedHeaderCanvasLayout CreateCanvasLayout(
+        float viewportPixelWidth,
+        float viewportPixelHeight,
+        float canvasScaleFactor)
     {
-        if (canvasScaleFactor <= 0f || float.IsNaN(canvasScaleFactor) || float.IsInfinity(canvasScaleFactor))
+        if (!IsPositiveFinite(viewportPixelWidth))
+            throw new ArgumentOutOfRangeException(nameof(viewportPixelWidth));
+        if (!IsPositiveFinite(viewportPixelHeight))
+            throw new ArgumentOutOfRangeException(nameof(viewportPixelHeight));
+        if (!IsPositiveFinite(canvasScaleFactor))
             throw new ArgumentOutOfRangeException(nameof(canvasScaleFactor));
+
+        var referenceScale = Math.Min(
+            viewportPixelWidth / BaselineWidthPixels,
+            viewportPixelHeight / BaselineHeightPixels);
+        var referenceOriginX = (viewportPixelWidth - BaselineWidthPixels * referenceScale) / 2f;
+        var referenceOriginY = (viewportPixelHeight - BaselineHeightPixels * referenceScale) / 2f;
         var unit = 1f / canvasScaleFactor;
+        var left = (referenceOriginX + LeftPixels * referenceScale) * unit;
+        var top = (referenceOriginY + TopPixels * referenceScale) * unit;
+        var width = WidthPixels * referenceScale * unit;
+        var height = HeightPixels * referenceScale * unit;
+        var cornerRadius = CornerRadiusPixels * referenceScale * unit;
+        if (!IsPositiveFinite(referenceScale)
+            || !IsFinite(referenceOriginX)
+            || !IsFinite(referenceOriginY)
+            || !IsFinite(left)
+            || !IsFinite(top)
+            || !IsPositiveFinite(width)
+            || !IsPositiveFinite(height)
+            || !IsPositiveFinite(cornerRadius))
+        {
+            throw new InvalidOperationException("The reference-space header transform produced invalid geometry.");
+        }
+
         return new RetainedHeaderCanvasLayout
         {
-            Left = LeftPixels * unit,
-            Top = TopPixels * unit,
-            Width = WidthPixels * unit,
-            Height = HeightPixels * unit,
-            CornerRadius = CornerRadiusPixels * unit
+            ReferenceScale = referenceScale,
+            ReferenceOriginX = referenceOriginX,
+            ReferenceOriginY = referenceOriginY,
+            Left = left,
+            Top = top,
+            Width = width,
+            Height = height,
+            CornerRadius = cornerRadius
         };
     }
 
@@ -275,6 +311,10 @@ internal static class RetainedHeaderPolicy
         && blue == Blue
         && alpha == VisualAlpha
         && raycastTarget == BlocksRaycasts;
+
+    private static bool IsPositiveFinite(float value) => value > 0f && IsFinite(value);
+
+    private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 }
 
 internal static class RetainedTabWidthPolicy

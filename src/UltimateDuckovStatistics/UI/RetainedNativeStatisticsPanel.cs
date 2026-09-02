@@ -49,6 +49,14 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
 
+        if (lifecycle.IsOpen && !shell.Tick(out var layoutError))
+        {
+            var surface = openSurface ?? PanelAccessSurface.Hotkey;
+            Close();
+            ReportShellFailure(surface, layoutError ?? "unknown retained-mode layout failure");
+            return;
+        }
+
         if (lifecycle.IsOpen && Input.GetKeyDown(KeyCode.Escape))
         {
             Close();
