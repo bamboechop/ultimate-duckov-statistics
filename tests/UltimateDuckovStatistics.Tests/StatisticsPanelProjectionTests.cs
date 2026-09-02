@@ -130,24 +130,56 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void StepZeroShellOwnsOnlyTheExactFullScreenDimmer()
+    public void StepZeroDimmerRemainsTheSoleRaycastBlocker()
     {
         Assert.Equal("UltimateDuckovStatisticsRetainedShell", RetainedDimmerPolicy.RootName);
-        Assert.Equal(0, RetainedDimmerPolicy.RootChildCount);
-        Assert.Equal(1, RetainedDimmerPolicy.GraphicCount);
         Assert.Equal(0f, RetainedDimmerPolicy.Red);
         Assert.Equal(0f, RetainedDimmerPolicy.Green);
         Assert.Equal(0f, RetainedDimmerPolicy.Blue);
         Assert.Equal(0.50f, RetainedDimmerPolicy.VisualAlpha);
         Assert.True(RetainedDimmerPolicy.BlocksRaycasts);
-        Assert.True(RetainedDimmerPolicy.IsValidComposition(0, 1, 0f, 0f, 0f, 0.50f, blockerRaycastTarget: true));
-        Assert.False(RetainedDimmerPolicy.IsValidComposition(1, 1, 0f, 0f, 0f, 0.50f, blockerRaycastTarget: true));
-        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 2, 0f, 0f, 0f, 0.50f, blockerRaycastTarget: true));
-        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 1, 0.001f, 0f, 0f, 0.50f, blockerRaycastTarget: true));
-        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 1, 0f, 0.001f, 0f, 0.50f, blockerRaycastTarget: true));
-        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 1, 0f, 0f, 0.001f, 0.50f, blockerRaycastTarget: true));
-        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 1, 0f, 0f, 0f, 0.25f, blockerRaycastTarget: true));
-        Assert.False(RetainedDimmerPolicy.IsValidComposition(0, 1, 0f, 0f, 0f, 0.50f, blockerRaycastTarget: false));
+        Assert.True(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.50f, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.25f, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.50f, blockerRaycastTarget: false));
+    }
+
+    [Fact]
+    public void StepOneHeaderUsesExactPixelGeometryAndIndependentOpacity()
+    {
+        Assert.Equal("HeaderBackground", RetainedHeaderPolicy.Name);
+        Assert.Equal(2560f, RetainedHeaderPolicy.BaselineWidthPixels);
+        Assert.Equal(1440f, RetainedHeaderPolicy.BaselineHeightPixels);
+        Assert.Equal(85f, RetainedHeaderPolicy.LeftPixels);
+        Assert.Equal(113f, RetainedHeaderPolicy.TopPixels);
+        Assert.Equal(2392f, RetainedHeaderPolicy.WidthPixels);
+        Assert.Equal(217f, RetainedHeaderPolicy.HeightPixels);
+        Assert.Equal(2477f, RetainedHeaderPolicy.RightExclusivePixels);
+        Assert.Equal(330f, RetainedHeaderPolicy.BottomExclusivePixels);
+        Assert.Equal(0f, RetainedHeaderPolicy.Red);
+        Assert.Equal(0f, RetainedHeaderPolicy.Green);
+        Assert.Equal(0f, RetainedHeaderPolicy.Blue);
+        Assert.Equal(0.50f, RetainedHeaderPolicy.VisualAlpha);
+        Assert.Equal(20f, RetainedHeaderPolicy.CornerRadiusPixels);
+        Assert.False(RetainedHeaderPolicy.BlocksRaycasts);
+        Assert.Equal(1, RetainedHeaderPolicy.RootChildCount);
+        Assert.Equal(0, RetainedHeaderPolicy.HeaderChildCount);
+        Assert.Equal(2, RetainedHeaderPolicy.GraphicCount);
+        Assert.Equal(0.75f, RetainedHeaderPolicy.EffectiveOpacity);
+        Assert.True(RetainedHeaderPolicy.IsValidGraphic(0f, 0f, 0f, 0.50f, raycastTarget: false));
+    }
+
+    [Fact]
+    public void StepOneHeaderConvertsEveryScreenPixelThroughCanvasScale()
+    {
+        const float canvasScale = 2f;
+        var layout = RetainedHeaderPolicy.CreateCanvasLayout(canvasScale);
+
+        Assert.Equal(RetainedHeaderPolicy.LeftPixels, layout.Left * canvasScale);
+        Assert.Equal(RetainedHeaderPolicy.TopPixels, layout.Top * canvasScale);
+        Assert.Equal(RetainedHeaderPolicy.WidthPixels, layout.Width * canvasScale);
+        Assert.Equal(RetainedHeaderPolicy.HeightPixels, layout.Height * canvasScale);
+        Assert.Equal(RetainedHeaderPolicy.CornerRadiusPixels, layout.CornerRadius * canvasScale);
+        Assert.Throws<ArgumentOutOfRangeException>(() => RetainedHeaderPolicy.CreateCanvasLayout(0f));
     }
 
     [Fact]

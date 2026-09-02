@@ -199,29 +199,82 @@ internal static class RuntimeTabStripScrollPolicy
 internal static class RetainedDimmerPolicy
 {
     public const string RootName = "UltimateDuckovStatisticsRetainedShell";
-    public const int RootChildCount = 0;
-    public const int GraphicCount = 1;
     public const float Red = 0f;
     public const float Green = 0f;
     public const float Blue = 0f;
     public const float VisualAlpha = 0.50f;
     public const bool BlocksRaycasts = true;
 
-    public static bool IsValidComposition(
-        int rootChildCount,
-        int graphicCount,
+    public static bool IsValidGraphic(
         float blockerRed,
         float blockerGreen,
         float blockerBlue,
         float blockerAlpha,
         bool blockerRaycastTarget) =>
-        rootChildCount == RootChildCount
-        && graphicCount == GraphicCount
-        && blockerRed == Red
+        blockerRed == Red
         && blockerGreen == Green
         && blockerBlue == Blue
         && blockerAlpha == VisualAlpha
         && blockerRaycastTarget == BlocksRaycasts;
+}
+
+internal sealed class RetainedHeaderCanvasLayout
+{
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float CornerRadius { get; set; }
+}
+
+internal static class RetainedHeaderPolicy
+{
+    public const string Name = "HeaderBackground";
+    public const float BaselineWidthPixels = 2560f;
+    public const float BaselineHeightPixels = 1440f;
+    public const float LeftPixels = 85f;
+    public const float TopPixels = 113f;
+    public const float WidthPixels = 2392f;
+    public const float HeightPixels = 217f;
+    public const float RightExclusivePixels = 2477f;
+    public const float BottomExclusivePixels = 330f;
+    public const float Red = 0f;
+    public const float Green = 0f;
+    public const float Blue = 0f;
+    public const float VisualAlpha = 0.50f;
+    public const float CornerRadiusPixels = 20f;
+    public const bool BlocksRaycasts = false;
+    public const int RootChildCount = 1;
+    public const int HeaderChildCount = 0;
+    public const int GraphicCount = 2;
+    public const float EffectiveOpacity = 0.75f;
+
+    public static RetainedHeaderCanvasLayout CreateCanvasLayout(float canvasScaleFactor)
+    {
+        if (canvasScaleFactor <= 0f || float.IsNaN(canvasScaleFactor) || float.IsInfinity(canvasScaleFactor))
+            throw new ArgumentOutOfRangeException(nameof(canvasScaleFactor));
+        var unit = 1f / canvasScaleFactor;
+        return new RetainedHeaderCanvasLayout
+        {
+            Left = LeftPixels * unit,
+            Top = TopPixels * unit,
+            Width = WidthPixels * unit,
+            Height = HeightPixels * unit,
+            CornerRadius = CornerRadiusPixels * unit
+        };
+    }
+
+    public static bool IsValidGraphic(
+        float red,
+        float green,
+        float blue,
+        float alpha,
+        bool raycastTarget) =>
+        red == Red
+        && green == Green
+        && blue == Blue
+        && alpha == VisualAlpha
+        && raycastTarget == BlocksRaycasts;
 }
 
 internal static class RetainedTabWidthPolicy
