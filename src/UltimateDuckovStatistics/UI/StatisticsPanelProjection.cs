@@ -334,6 +334,68 @@ internal static class RetainedHeaderPolicy
         && raycastTarget == BlocksRaycasts;
 }
 
+internal sealed class RetainedHeaderTitleCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float FontSize { get; set; }
+    public float PrincipalLeft { get; set; }
+    public float PrincipalTop { get; set; }
+    public float PrincipalWidth { get; set; }
+    public float PrincipalHeight { get; set; }
+}
+
+internal static class RetainedHeaderTitlePolicy
+{
+    public const string Name = "HeaderTitle";
+    public const string Text = "Ultimate Duckov Statistics";
+    public const string NativeSourcePath = "Canvas/MainMenuContainer/Menu/OptionsPanel/Text (TMP)";
+    public const string FontAssetName = "ResourceHanRoundedCN-Medium SDF";
+    public const string MaterialName = "ResourceHanRoundedCN-Medium Atlas Material Shadow";
+    public const float ReferenceFontSize = 116.75f;
+    public const float LeftPixels = 113f;
+    public const float TopPixels = 141f;
+    public const float WidthPixels = 921f;
+    public const float HeightPixels = 83f;
+    public const float RightExclusivePixels = 1034f;
+    public const float BottomExclusivePixels = 224f;
+    public const float PrincipalLeftPixels = 114f;
+    public const float PrincipalTopPixels = 144f;
+    public const float PrincipalWidthPixels = 905f;
+    public const float PrincipalHeightPixels = 68f;
+    public const float PrincipalRightExclusivePixels = 1019f;
+    public const float PrincipalBottomExclusivePixels = 212f;
+    public const float Red = 1f;
+    public const float Green = 1f;
+    public const float Blue = 1f;
+    public const float Alpha = 1f;
+    public const bool BlocksRaycasts = false;
+    public const bool WordWrapping = false;
+    public const bool AutoSizing = false;
+
+    public static RetainedHeaderTitleCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        return new RetainedHeaderTitleCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = referenceTransform.CanvasX(LeftPixels),
+            Top = referenceTransform.CanvasY(TopPixels),
+            Width = referenceTransform.CanvasLength(WidthPixels),
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize),
+            PrincipalLeft = referenceTransform.CanvasX(PrincipalLeftPixels),
+            PrincipalTop = referenceTransform.CanvasY(PrincipalTopPixels),
+            PrincipalWidth = referenceTransform.CanvasLength(PrincipalWidthPixels),
+            PrincipalHeight = referenceTransform.CanvasLength(PrincipalHeightPixels)
+        };
+    }
+}
+
 internal sealed class RetainedBackControlCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
@@ -430,6 +492,7 @@ internal sealed class RetainedVisualCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
     public RetainedHeaderCanvasLayout Header { get; set; } = null!;
+    public RetainedHeaderTitleCanvasLayout HeaderTitle { get; set; } = null!;
     public RetainedBackControlCanvasLayout BackControl { get; set; } = null!;
 }
 
@@ -445,12 +508,22 @@ internal static class RetainedVisualLayoutPolicy
             viewportPixelHeight,
             canvasScaleFactor);
         var header = RetainedHeaderPolicy.CreateCanvasLayout(referenceTransform);
+        var headerTitle = RetainedHeaderTitlePolicy.CreateCanvasLayout(referenceTransform);
         var backControl = RetainedBackControlPolicy.CreateCanvasLayout(referenceTransform);
         if (!IsFinite(header.Left)
             || !IsFinite(header.Top)
             || !IsPositiveFinite(header.Width)
             || !IsPositiveFinite(header.Height)
             || !IsPositiveFinite(header.CornerRadius)
+            || !IsFinite(headerTitle.Left)
+            || !IsFinite(headerTitle.Top)
+            || !IsPositiveFinite(headerTitle.Width)
+            || !IsPositiveFinite(headerTitle.Height)
+            || !IsPositiveFinite(headerTitle.FontSize)
+            || !IsFinite(headerTitle.PrincipalLeft)
+            || !IsFinite(headerTitle.PrincipalTop)
+            || !IsPositiveFinite(headerTitle.PrincipalWidth)
+            || !IsPositiveFinite(headerTitle.PrincipalHeight)
             || !IsFinite(backControl.Left)
             || !IsFinite(backControl.Top)
             || !IsPositiveFinite(backControl.Width)
@@ -468,6 +541,7 @@ internal static class RetainedVisualLayoutPolicy
         {
             ReferenceTransform = referenceTransform,
             Header = header,
+            HeaderTitle = headerTitle,
             BackControl = backControl
         };
     }
@@ -479,11 +553,12 @@ internal static class RetainedVisualLayoutPolicy
 
 internal static class RetainedShellCompositionPolicy
 {
-    public const int RootChildCount = 2;
+    public const int RootChildCount = 3;
     public const int HeaderChildCount = 0;
+    public const int HeaderTitleChildCount = 0;
     public const int BackButtonChildCount = 1;
     public const int BackArrowChildCount = 0;
-    public const int GraphicCount = 4;
+    public const int GraphicCount = 5;
 }
 
 internal sealed class RetainedBackControlActivation

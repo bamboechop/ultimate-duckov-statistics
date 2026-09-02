@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.UI.ProceduralImage;
@@ -5,8 +6,8 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Step 02.
-/// The root graphic remains the modal dimmer; its children are the frozen header and back control.
+/// Owns the exact retained surfaces introduced through M17 visual correction Step 03.
+/// The root graphic remains the modal dimmer; its children are the frozen header/back control and title.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
 {
@@ -19,6 +20,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private UniformModifier? backButtonModifier;
     private RectTransform? backArrowRect;
     private RetainedBackArrowAsset? backArrowAsset;
+    private RectTransform? headerTitleRect;
+    private TextMeshProUGUI? headerTitleGraphic;
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
     private float lastViewportPixelWidth = float.NaN;
     private float lastViewportPixelHeight = float.NaN;
@@ -51,6 +54,16 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         try
         {
+            if (!NativeHeaderTitleTypographyResolver.TryResolve(
+                    targetCanvas,
+                    out var headerTitleTypography,
+                    out var typographyError)
+                || headerTitleTypography == null)
+            {
+                error = typographyError ?? "Duckov's exact native major-heading typography was unavailable.";
+                return false;
+            }
+
             canvas = targetCanvas;
             selectedTab = initialTab;
             backArrowAsset = RetainedBackArrowAsset.Create();
@@ -90,6 +103,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var backArrowGraphic);
             backButtonModifier = createdBackButtonModifier;
             backArrowRect = createdBackArrowRect;
+            headerTitleRect = CreateHeaderTitle(
+                rootRect,
+                headerTitleTypography,
+                out var createdHeaderTitleGraphic);
+            headerTitleGraphic = createdHeaderTitleGraphic;
             var visualLayout = RefreshVisualLayout(force: true);
 
             ValidateSurfaceComposition(
@@ -104,6 +122,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 backButton,
                 createdBackArrowRect,
                 backArrowGraphic,
+                headerTitleRect,
+                createdHeaderTitleGraphic,
                 visualLayout,
                 targetCanvas.scaleFactor);
             rootRect.SetAsLastSibling();
@@ -233,10 +253,49 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return rect;
     }
 
+    private static RectTransform CreateHeaderTitle(
+        RectTransform parent,
+        NativeHeaderTitleTypography typography,
+        out TextMeshProUGUI text)
+    {
+        var title = new GameObject(
+            RetainedHeaderTitlePolicy.Name,
+            typeof(RectTransform));
+        var rect = (RectTransform)title.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        text = title.AddComponent<TextMeshProUGUI>();
+        text.font = typography.Font;
+        text.fontSharedMaterial = typography.Material;
+        text.text = RetainedHeaderTitlePolicy.Text;
+        text.fontStyle = FontStyles.Normal;
+        text.fontWeight = FontWeight.Regular;
+        text.characterSpacing = 0f;
+        text.wordSpacing = 0f;
+        text.lineSpacing = 0f;
+        text.paragraphSpacing = 0f;
+        text.alignment = TextAlignmentOptions.Left;
+        text.enableWordWrapping = RetainedHeaderTitlePolicy.WordWrapping;
+        text.enableAutoSizing = RetainedHeaderTitlePolicy.AutoSizing;
+        text.overflowMode = TextOverflowModes.Overflow;
+        text.color = new Color(
+            RetainedHeaderTitlePolicy.Red,
+            RetainedHeaderTitlePolicy.Green,
+            RetainedHeaderTitlePolicy.Blue,
+            RetainedHeaderTitlePolicy.Alpha);
+        text.raycastTarget = RetainedHeaderTitlePolicy.BlocksRaycasts;
+        return rect;
+    }
+
     private RetainedVisualCanvasLayout RefreshVisualLayout(bool force)
     {
         if (canvas == null || shellRoot == null || headerRect == null || headerModifier == null
-            || backButtonRect == null || backButtonModifier == null || backArrowRect == null)
+            || backButtonRect == null || backButtonModifier == null || backArrowRect == null
+            || headerTitleRect == null || headerTitleGraphic == null)
         {
             throw new InvalidOperationException("The retained visual layout is not fully initialized.");
         }
@@ -269,6 +328,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
         backArrowRect.sizeDelta = new Vector2(
             layout.BackControl.ArrowWidth,
             layout.BackControl.ArrowHeight);
+        headerTitleRect.anchoredPosition = new Vector2(
+            layout.HeaderTitle.Left,
+            -layout.HeaderTitle.Top);
+        headerTitleRect.sizeDelta = new Vector2(
+            layout.HeaderTitle.Width,
+            layout.HeaderTitle.Height);
+        headerTitleGraphic.fontSize = layout.HeaderTitle.FontSize;
         lastViewportPixelWidth = viewportPixelWidth;
         lastViewportPixelHeight = viewportPixelHeight;
         lastCanvasScaleFactor = canvasScaleFactor;
@@ -288,6 +354,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         Button backButton,
         RectTransform backArrowRect,
         Image backArrowGraphic,
+        RectTransform headerTitleRect,
+        TextMeshProUGUI headerTitleGraphic,
         RetainedVisualCanvasLayout visualLayout,
         float canvasScaleFactor)
     {
@@ -325,6 +393,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || backButtonRect.childCount != RetainedShellCompositionPolicy.BackButtonChildCount
             || backArrowRect.parent != backButtonRect
             || backArrowRect.childCount != RetainedShellCompositionPolicy.BackArrowChildCount
+            || headerTitleRect.parent != shellRoot
+            || headerTitleRect.childCount != RetainedShellCompositionPolicy.HeaderTitleChildCount
             || graphics.Length != RetainedShellCompositionPolicy.GraphicCount
             || buttons.Length != 1
             || buttons[0] != backButton
@@ -332,14 +402,16 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || backButton.transition != Selectable.Transition.None
             || backButton.onClick.GetPersistentEventCount() != 0
             || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.Header.ReferenceTransform)
+            || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.HeaderTitle.ReferenceTransform)
             || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.BackControl.ReferenceTransform)
             || !graphics.Contains(blocker)
             || !graphics.Contains(headerGraphic)
             || !graphics.Contains(backButtonGraphic)
-            || !graphics.Contains(backArrowGraphic))
+            || !graphics.Contains(backArrowGraphic)
+            || !graphics.Contains(headerTitleGraphic))
         {
             throw new InvalidOperationException(
-                "The Step 02 shell must contain only the frozen dimmer, HeaderBackground, BackButton, and BackArrow.");
+                "The Step 03 shell must contain only the frozen Step 00-02-R visuals and HeaderTitle.");
         }
 
         if (shellRoot.anchorMin != Vector2.zero
@@ -405,6 +477,41 @@ internal sealed class RetainedStatisticsShell : IDisposable
             throw new InvalidOperationException(
                 "BackButton did not retain its exact reference geometry, circular background, or mock-matched arrow.");
         }
+
+        if (headerTitleRect.gameObject.name != RetainedHeaderTitlePolicy.Name
+            || headerTitleRect.anchorMin != new Vector2(0f, 1f)
+            || headerTitleRect.anchorMax != new Vector2(0f, 1f)
+            || headerTitleRect.pivot != new Vector2(0f, 1f)
+            || headerTitleRect.GetSiblingIndex() <= headerRect.GetSiblingIndex()
+            || !Approximately(headerTitleRect.anchoredPosition.x, visualLayout.HeaderTitle.Left)
+            || !Approximately(headerTitleRect.anchoredPosition.y, -visualLayout.HeaderTitle.Top)
+            || !Approximately(headerTitleRect.sizeDelta.x, visualLayout.HeaderTitle.Width)
+            || !Approximately(headerTitleRect.sizeDelta.y, visualLayout.HeaderTitle.Height)
+            || !Approximately(headerTitleGraphic.fontSize, visualLayout.HeaderTitle.FontSize)
+            || headerTitleGraphic.text != RetainedHeaderTitlePolicy.Text
+            || headerTitleGraphic.font == null
+            || headerTitleGraphic.font.name != RetainedHeaderTitlePolicy.FontAssetName
+            || headerTitleGraphic.fontSharedMaterial == null
+            || headerTitleGraphic.fontSharedMaterial.name != RetainedHeaderTitlePolicy.MaterialName
+            || headerTitleGraphic.fontStyle != FontStyles.Normal
+            || headerTitleGraphic.fontWeight != FontWeight.Regular
+            || !Approximately(headerTitleGraphic.characterSpacing, 0f)
+            || !Approximately(headerTitleGraphic.wordSpacing, 0f)
+            || !Approximately(headerTitleGraphic.lineSpacing, 0f)
+            || !Approximately(headerTitleGraphic.paragraphSpacing, 0f)
+            || headerTitleGraphic.alignment != TextAlignmentOptions.Left
+            || headerTitleGraphic.enableWordWrapping != RetainedHeaderTitlePolicy.WordWrapping
+            || headerTitleGraphic.enableAutoSizing != RetainedHeaderTitlePolicy.AutoSizing
+            || headerTitleGraphic.overflowMode != TextOverflowModes.Overflow
+            || !Approximately(headerTitleGraphic.color.r, RetainedHeaderTitlePolicy.Red)
+            || !Approximately(headerTitleGraphic.color.g, RetainedHeaderTitlePolicy.Green)
+            || !Approximately(headerTitleGraphic.color.b, RetainedHeaderTitlePolicy.Blue)
+            || !Approximately(headerTitleGraphic.color.a, RetainedHeaderTitlePolicy.Alpha)
+            || headerTitleGraphic.raycastTarget != RetainedHeaderTitlePolicy.BlocksRaycasts)
+        {
+            throw new InvalidOperationException(
+                "HeaderTitle did not retain its exact native typography, reference geometry, or non-interactive state.");
+        }
     }
 
     private static bool Approximately(float left, float right) => Math.Abs(left - right) <= 0.001f;
@@ -436,6 +543,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         backArrowRect = null;
         backArrowAsset?.Dispose();
         backArrowAsset = null;
+        headerTitleRect = null;
+        headerTitleGraphic = null;
         lastAppliedVisualLayout = null;
         lastViewportPixelWidth = float.NaN;
         lastViewportPixelHeight = float.NaN;

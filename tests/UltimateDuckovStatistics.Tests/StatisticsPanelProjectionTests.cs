@@ -305,6 +305,66 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void StepThreeHeaderTitleUsesExactNativeTypographyAndReferenceBoundsContract()
+    {
+        Assert.Equal("HeaderTitle", RetainedHeaderTitlePolicy.Name);
+        Assert.Equal("Ultimate Duckov Statistics", RetainedHeaderTitlePolicy.Text);
+        Assert.Equal(
+            "Canvas/MainMenuContainer/Menu/OptionsPanel/Text (TMP)",
+            RetainedHeaderTitlePolicy.NativeSourcePath);
+        Assert.Equal("ResourceHanRoundedCN-Medium SDF", RetainedHeaderTitlePolicy.FontAssetName);
+        Assert.Equal(
+            "ResourceHanRoundedCN-Medium Atlas Material Shadow",
+            RetainedHeaderTitlePolicy.MaterialName);
+        Assert.Equal(116.75f, RetainedHeaderTitlePolicy.ReferenceFontSize);
+        Assert.Equal(113f, RetainedHeaderTitlePolicy.LeftPixels);
+        Assert.Equal(141f, RetainedHeaderTitlePolicy.TopPixels);
+        Assert.Equal(921f, RetainedHeaderTitlePolicy.WidthPixels);
+        Assert.Equal(83f, RetainedHeaderTitlePolicy.HeightPixels);
+        Assert.Equal(1034f, RetainedHeaderTitlePolicy.RightExclusivePixels);
+        Assert.Equal(224f, RetainedHeaderTitlePolicy.BottomExclusivePixels);
+        Assert.Equal(114f, RetainedHeaderTitlePolicy.PrincipalLeftPixels);
+        Assert.Equal(144f, RetainedHeaderTitlePolicy.PrincipalTopPixels);
+        Assert.Equal(905f, RetainedHeaderTitlePolicy.PrincipalWidthPixels);
+        Assert.Equal(68f, RetainedHeaderTitlePolicy.PrincipalHeightPixels);
+        Assert.Equal(1019f, RetainedHeaderTitlePolicy.PrincipalRightExclusivePixels);
+        Assert.Equal(212f, RetainedHeaderTitlePolicy.PrincipalBottomExclusivePixels);
+        Assert.Equal(1f, RetainedHeaderTitlePolicy.Red);
+        Assert.Equal(1f, RetainedHeaderTitlePolicy.Green);
+        Assert.Equal(1f, RetainedHeaderTitlePolicy.Blue);
+        Assert.Equal(1f, RetainedHeaderTitlePolicy.Alpha);
+        Assert.False(RetainedHeaderTitlePolicy.BlocksRaycasts);
+        Assert.False(RetainedHeaderTitlePolicy.WordWrapping);
+        Assert.False(RetainedHeaderTitlePolicy.AutoSizing);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f, 56.5f, 70.5f, 460.5f, 41.5f, 58.375f)]
+    [InlineData(1920f, 1080f, 84.75f, 105.75f, 690.75f, 62.25f, 87.5625f)]
+    [InlineData(1920f, 1200f, 84.75f, 165.75f, 690.75f, 62.25f, 87.5625f)]
+    [InlineData(2560f, 1440f, 113f, 141f, 921f, 83f, 116.75f)]
+    public void StepThreeHeaderTitleUsesSharedReferenceTransformAtEveryRequiredViewport(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedLeft,
+        float expectedTop,
+        float expectedWidth,
+        float expectedHeight,
+        float expectedFontSize)
+    {
+        var layout = RetainedVisualLayoutPolicy.Create(viewportWidth, viewportHeight, 1f);
+
+        Assert.Same(layout.ReferenceTransform, layout.Header.ReferenceTransform);
+        Assert.Same(layout.ReferenceTransform, layout.BackControl.ReferenceTransform);
+        Assert.Same(layout.ReferenceTransform, layout.HeaderTitle.ReferenceTransform);
+        Assert.Equal(expectedLeft, layout.HeaderTitle.Left);
+        Assert.Equal(expectedTop, layout.HeaderTitle.Top);
+        Assert.Equal(expectedWidth, layout.HeaderTitle.Width);
+        Assert.Equal(expectedHeight, layout.HeaderTitle.Height);
+        Assert.Equal(expectedFontSize, layout.HeaderTitle.FontSize);
+    }
+
+    [Fact]
     public void StepTwoBackCircleAndArrowShareExactCentreAndCircleRadius()
     {
         var layout = RetainedVisualLayoutPolicy.Create(2560f, 1440f, 1f).BackControl;
@@ -389,7 +449,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void StepTwoViewportChangeRefreshesHeaderAndBackWithoutHierarchyDuplication()
+    public void StepThreeViewportChangeRefreshesAllRetainedVisualsWithoutHierarchyDuplication()
     {
         var baseline = RetainedVisualLayoutPolicy.Create(2560f, 1440f, 1f);
         var resized = RetainedVisualLayoutPolicy.Create(1280f, 720f, 1f);
@@ -397,13 +457,17 @@ public sealed class StatisticsPanelProjectionTests
         Assert.NotSame(baseline.ReferenceTransform, resized.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.Header.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.BackControl.ReferenceTransform);
+        Assert.Same(resized.ReferenceTransform, resized.HeaderTitle.ReferenceTransform);
         Assert.Equal(baseline.Header.Width / 2f, resized.Header.Width);
         Assert.Equal(baseline.BackControl.Width / 2f, resized.BackControl.Width);
-        Assert.Equal(2, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(baseline.HeaderTitle.Width / 2f, resized.HeaderTitle.Width);
+        Assert.Equal(baseline.HeaderTitle.FontSize / 2f, resized.HeaderTitle.FontSize);
+        Assert.Equal(3, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.HeaderTitleChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.BackButtonChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.BackArrowChildCount);
-        Assert.Equal(4, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(5, RetainedShellCompositionPolicy.GraphicCount);
     }
 
     [Fact]
