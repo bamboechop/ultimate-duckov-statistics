@@ -53,48 +53,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, NativeMenuAnchorPolicy.Score(null));
     }
 
-    [Theory]
-    [InlineData((int)NativeTypographyRole.Title, true, (int)NativeTypographySource.LiveMenuButton)]
-    [InlineData((int)NativeTypographyRole.Navigation, true, (int)NativeTypographySource.LiveMenuButton)]
-    [InlineData((int)NativeTypographyRole.Body, true, (int)NativeTypographySource.PublicTextTemplate)]
-    [InlineData((int)NativeTypographyRole.Secondary, true, (int)NativeTypographySource.PublicTextTemplate)]
-    [InlineData((int)NativeTypographyRole.Title, false, (int)NativeTypographySource.PublicTextTemplate)]
-    [InlineData((int)NativeTypographyRole.Navigation, false, (int)NativeTypographySource.PublicTextTemplate)]
-    public void TypographyRolesPreferLiveMenuTreatmentAndFailBackToThePublicTemplate(
-        int roleValue,
-        bool hasLiveMenuButton,
-        int expectedValue)
-    {
-        var role = (NativeTypographyRole)roleValue;
-        var expected = (NativeTypographySource)expectedValue;
-        Assert.Equal(expected, NativeTypographyRolePolicy.Resolve(role, hasLiveMenuButton));
-    }
-
-    [Fact]
-    public void VerifiedNativeHeadingIsDistinctFromNavigationTypography()
-    {
-        Assert.Equal(
-            NativeTypographySource.NativeHeading,
-            NativeTypographyRolePolicy.Resolve(NativeTypographyRole.Title, hasLiveMenuButton: true, hasNativeHeading: true));
-        Assert.Equal(
-            NativeTypographySource.LiveMenuButton,
-            NativeTypographyRolePolicy.Resolve(NativeTypographyRole.Navigation, hasLiveMenuButton: true, hasNativeHeading: true));
-    }
-
-    [Fact]
-    public void NativeShellDiscoveryPrefersInstalledOptionsPanelTreatments()
-    {
-        const string root = "Canvas/MainMenuContainer/Menu/OptionsPanel";
-        Assert.True(NativeShellTemplatePolicy.ScoreHeading($"{root}/Text (TMP)", 116.75f) >
-                    NativeShellTemplatePolicy.ScoreHeading("Canvas/MainTitle/Text (TMP)", 256f));
-        Assert.True(NativeShellTemplatePolicy.ScoreBack($"{root}/Return", hasIcon: true) >
-                    NativeShellTemplatePolicy.ScoreBack("Canvas/Credits/Return", hasIcon: true));
-        Assert.True(NativeShellTemplatePolicy.ScoreTab($"{root}/Tabs/Common") > 0);
-        Assert.True(NativeShellTemplatePolicy.ScoreSurface($"{root}/ScrollView/Background") > 0);
-        Assert.True(NativeShellTemplatePolicy.ScoreRail($"{root}/Tabs/Image") > 0);
-        Assert.Equal(0, NativeShellTemplatePolicy.ScoreBack($"{root}/Return", hasIcon: false));
-    }
-
     [Fact]
     public void ClonedMenuButtonsRetainTheirProceduralImageModifierHierarchy()
     {
@@ -172,117 +130,18 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void RetainedShellUsesNearFullViewportAndOnlyOverflowsAtNarrowWidth()
+    public void StepMinusOneShellOwnsOnlyATransparentRaycastBlocker()
     {
-        var desktop = RetainedShellLayoutPolicy.Create(2560f, 1440f);
-        var narrow = RetainedShellLayoutPolicy.Create(1024f, 768f);
-
-        Assert.False(desktop.TabStripRequiresScrolling);
-        Assert.True(narrow.TabStripRequiresScrolling);
-        Assert.InRange(desktop.MarginPixels, 80f, 90f);
-        Assert.InRange(narrow.MarginPixels, 18f, 30f);
-        Assert.True(desktop.TabViewportWidthPixels > desktop.TabContentWidthPixels);
-        Assert.True(narrow.TabViewportWidthPixels < narrow.TabContentWidthPixels);
-    }
-
-    [Fact]
-    public void RetainedShellPreservesResponsiveTitleAndNavigationHierarchy()
-    {
-        var desktop = RetainedShellLayoutPolicy.Create(2560f, 1440f);
-        var narrow = RetainedShellLayoutPolicy.Create(1024f, 768f);
-
-        Assert.True(desktop.TitleFontPixels >= desktop.NavigationFontPixels * 2f);
-        Assert.True(narrow.TitleFontPixels >= narrow.NavigationFontPixels * 2f);
-        Assert.True(desktop.HeaderHeightPixels > desktop.TabRowHeightPixels);
-        Assert.True(narrow.HeaderHeightPixels > narrow.TabRowHeightPixels);
-        Assert.True(desktop.TabHeightPixels > 60f);
-        Assert.True(narrow.TabHeightPixels >= 60f);
-    }
-
-    [Fact]
-    public void Gate1cAUsesTheMeasuredDesktopHeaderAndTransparentContentBounds()
-    {
-        var frozen = RetainedShellLayoutPolicy.Create(2560f, 1440f);
-        var surfaces = RetainedShellSurfaceLayoutPolicy.Create(2560f, 1440f, frozen);
-
-        // The width policy resolves 3.32% to 84.992 px; these assertions retain
-        // that documented sub-pixel CanvasScaler tolerance around the 85 px design edge.
-        Assert.InRange(surfaces.HeaderBounds.Left, 84.99f, 85.01f);
-        Assert.InRange(surfaces.HeaderBounds.Top, 111.99f, 112.01f);
-        Assert.InRange(surfaces.HeaderBounds.Right, 2474.99f, 2475.01f);
-        Assert.InRange(surfaces.HeaderBounds.Bottom, 329.99f, 330.01f);
-        Assert.InRange(surfaces.HeaderBounds.Width, 2390f, 2390.02f);
-        Assert.InRange(surfaces.HeaderBounds.Height, 217.99f, 218.01f);
-        Assert.InRange(surfaces.ContentBounds.Left, 84.99f, 85.01f);
-        Assert.InRange(surfaces.ContentBounds.Top, 369.99f, 370.01f);
-        Assert.InRange(surfaces.ContentBounds.Right, 2474.99f, 2475.01f);
-        Assert.InRange(surfaces.ContentBounds.Bottom, 1409.99f, 1410.01f);
-        Assert.InRange(surfaces.ContentBounds.Width, 2390f, 2390.02f);
-        Assert.InRange(surfaces.ContentBounds.Height, 1039.99f, 1040.01f);
-        Assert.Equal(40f, surfaces.HeaderContentGapPixels);
-        Assert.Equal(18f, surfaces.HeaderCornerRadiusPixels);
-    }
-
-    [Fact]
-    public void Gate1cAOwnsOnlyOneVisibleHeaderSurfaceAndNoVisibleOuterFrame()
-    {
-        Assert.Equal(1, RetainedShellSurfacePolicy.VisibleHeaderBackgroundGraphicCount);
-        Assert.Equal(0, RetainedShellSurfacePolicy.VisibleFullHeightFrameGraphicCount);
-        Assert.Equal(0f, RetainedShellSurfacePolicy.ContentBackgroundOpacity);
-        Assert.Equal(1f, RetainedShellSurfacePolicy.ParentCanvasGroupOpacity);
-        Assert.True(RetainedShellSurfacePolicy.GlobalBlockerBlocksRaycasts);
-        Assert.Equal(
-            "UnityEngine.UI.ProceduralImage.ProceduralImage",
-            RetainedShellSurfacePolicy.HeaderGraphicTypeName);
-        Assert.Equal("UniformModifier", RetainedShellSurfacePolicy.HeaderModifierTypeName);
-        Assert.Equal((byte)0, RetainedShellSurfacePolicy.HeaderRed);
-        Assert.Equal((byte)8, RetainedShellSurfacePolicy.HeaderGreen);
-        Assert.Equal((byte)16, RetainedShellSurfacePolicy.HeaderBlue);
-        Assert.Equal((byte)140, RetainedShellSurfacePolicy.HeaderAlpha);
-    }
-
-    [Fact]
-    public void Gate1cAKeepsTheE874589DesktopChildPoliciesFrozen()
-    {
-        var layout = RetainedShellLayoutPolicy.Create(2560f, 1440f);
-        var children = RetainedShellFrozenChildLayoutPolicy.Create(2560f, layout);
-
-        Assert.Equal(28f, layout.InnerMarginPixels);
-        Assert.Equal(126f, layout.HeaderHeightPixels);
-        Assert.Equal(76f, layout.TabRowHeightPixels);
-        Assert.Equal(148f, layout.TabWidthPixels);
-        Assert.Equal(62f, layout.TabHeightPixels);
-        Assert.Equal(8f, layout.TabSpacingPixels);
-        Assert.Equal(0f, layout.TabPaddingPixels);
-        Assert.Equal(58f, layout.TitleFontPixels);
-        Assert.Equal(27f, layout.NavigationFontPixels);
-        Assert.Equal(64f, layout.BackControlPixels);
-        Assert.Equal(5f, layout.NavigationRailPixels);
-        Assert.InRange(children.HeaderBounds.Left, 112.99f, 113.01f);
-        Assert.InRange(children.HeaderBounds.Top, 112.99f, 113.01f);
-        Assert.InRange(children.HeaderBounds.Right, 2446.99f, 2447.01f);
-        Assert.InRange(children.HeaderBounds.Bottom, 238.99f, 239.01f);
-        Assert.InRange(children.TabBounds.Top, 238.99f, 239.01f);
-        Assert.InRange(children.TabBounds.Bottom, 314.99f, 315.01f);
-        Assert.InRange(children.RailBounds.Top, 309.99f, 310.01f);
-        Assert.InRange(children.RailBounds.Bottom, 314.99f, 315.01f);
-    }
-
-    [Fact]
-    public void Gate1cANarrowSurfaceContainsTheFrozenNavigationAndLeavesContentReachable()
-    {
-        var frozen = RetainedShellLayoutPolicy.Create(1024f, 768f);
-        var surfaces = RetainedShellSurfaceLayoutPolicy.Create(1024f, 768f, frozen);
-        var frozenNavigationTop = frozen.MarginPixels + frozen.InnerMarginPixels;
-        var frozenRailBottom = frozenNavigationTop + frozen.HeaderHeightPixels + frozen.TabRowHeightPixels;
-
-        Assert.True(surfaces.HeaderBounds.Top <= frozenNavigationTop);
-        Assert.True(surfaces.HeaderBounds.Bottom >= frozenRailBottom);
-        Assert.True(surfaces.ContentBounds.Top > surfaces.HeaderBounds.Bottom);
-        Assert.True(surfaces.ContentBounds.Bottom <= 768f);
-        Assert.True(surfaces.ContentBounds.Bottom > surfaces.ContentBounds.Top);
-        Assert.InRange(surfaces.HeaderCornerRadiusPixels, 8f, 18f);
-        Assert.InRange(surfaces.HeaderContentGapPixels, 20f, 40f);
+        Assert.Equal("UltimateDuckovStatisticsRetainedShell", BlankRetainedShellPolicy.RootName);
+        Assert.Equal(0, BlankRetainedShellPolicy.RootChildCount);
+        Assert.Equal(1, BlankRetainedShellPolicy.GraphicCount);
+        Assert.Equal(0f, BlankRetainedShellPolicy.VisualAlpha);
+        Assert.True(BlankRetainedShellPolicy.BlocksRaycasts);
+        Assert.True(BlankRetainedShellPolicy.IsValidComposition(0, 1, 0f, blockerRaycastTarget: true));
+        Assert.False(BlankRetainedShellPolicy.IsValidComposition(1, 1, 0f, blockerRaycastTarget: true));
+        Assert.False(BlankRetainedShellPolicy.IsValidComposition(0, 2, 0f, blockerRaycastTarget: true));
+        Assert.False(BlankRetainedShellPolicy.IsValidComposition(0, 1, 0.001f, blockerRaycastTarget: true));
+        Assert.False(BlankRetainedShellPolicy.IsValidComposition(0, 1, 0f, blockerRaycastTarget: false));
     }
 
     [Fact]
@@ -303,18 +162,17 @@ public sealed class StatisticsPanelProjectionTests
             121.439063f, 64.260937f, 104.521875f, 102.656250f, 142.935937f,
             120.285938f, 104.217187f, 113.803125f, 149.498437f
         };
-        var layout = RetainedShellLayoutPolicy.Create(2560f, 1440f);
         var geometry = RetainedTabGeometryPolicy.Create(
-            layout.TabViewportWidthPixels,
-            layout.TabWidthPixels,
-            layout.TabSpacingPixels,
-            layout.TabPaddingPixels,
+            2334f,
+            148f,
+            8f,
+            0f,
             38f,
             installedEnglishWidths);
 
         Assert.Equal(9, geometry.Widths.Count);
         Assert.False(geometry.RequiresScrolling);
-        Assert.True(geometry.ContentWidth < layout.TabViewportWidthPixels);
+        Assert.True(geometry.ContentWidth < 2334f);
         for (var index = 0; index < installedEnglishWidths.Length; index++)
             Assert.True(geometry.Widths[index] >= installedEnglishWidths[index] + 38f);
     }
@@ -322,12 +180,11 @@ public sealed class StatisticsPanelProjectionTests
     [Fact]
     public void LongLocalizedNavigationRemainsOneScrollableRow()
     {
-        var layout = RetainedShellLayoutPolicy.Create(1024f, 768f);
         var geometry = RetainedTabGeometryPolicy.Create(
-            layout.TabViewportWidthPixels,
-            layout.TabWidthPixels,
-            layout.TabSpacingPixels,
-            layout.TabPaddingPixels,
+            939f,
+            168f,
+            10f,
+            10f,
             38f,
             Enumerable.Repeat(420f, 9).ToArray());
 
@@ -360,26 +217,6 @@ public sealed class StatisticsPanelProjectionTests
 
             Assert.Equal(1, selectedCount);
         }
-    }
-
-    [Fact]
-    public void Gate1cAPreservesTheDimmerAndComposesOnlyTheHeaderSurface()
-    {
-        var lowerLayout = RetainedShellLayerPolicy.BackgroundTransmission(
-            RetainedShellLayerPolicy.BlockerOpacity);
-        var insideHeader = RetainedShellLayerPolicy.BackgroundTransmission(
-            RetainedShellLayerPolicy.BlockerOpacity,
-            RetainedShellSurfacePolicy.HeaderOpacity);
-        var transparentContent = RetainedShellLayerPolicy.BackgroundTransmission(
-            RetainedShellLayerPolicy.BlockerOpacity,
-            RetainedShellSurfacePolicy.ContentBackgroundOpacity);
-
-        Assert.InRange(lowerLayout, 0.319f, 0.321f);
-        Assert.InRange(RetainedShellSurfacePolicy.HeaderOpacity, 0.549f, 0.55f);
-        Assert.InRange(insideHeader, 0.144f, 0.145f);
-        Assert.InRange(transparentContent, 0.319f, 0.321f);
-        Assert.Equal(lowerLayout, transparentContent);
-        Assert.True(insideHeader < lowerLayout / 2f);
     }
 
     [Theory]

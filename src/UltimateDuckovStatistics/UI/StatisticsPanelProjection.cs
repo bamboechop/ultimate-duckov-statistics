@@ -100,81 +100,6 @@ internal static class NativeMenuPresentationPolicy
     }
 }
 
-internal static class NativeShellTemplatePolicy
-{
-    public static int ScoreHeading(string? path, float fontSize)
-    {
-        if (string.IsNullOrWhiteSpace(path) || fontSize < 56f) return 0;
-        if (path.EndsWith("/MainMenuContainer/Menu/OptionsPanel/Text (TMP)", StringComparison.Ordinal)) return 2000;
-        if (path.Contains("/OptionsPanel/", StringComparison.Ordinal) && fontSize >= 80f) return 1500;
-        if (path.Contains("/MainTitle/", StringComparison.Ordinal)) return 0;
-        return fontSize >= 80f ? 200 : 0;
-    }
-
-    public static int ScoreBack(string? path, bool hasIcon)
-    {
-        if (string.IsNullOrWhiteSpace(path) || !hasIcon) return 0;
-        if (path.EndsWith("/MainMenuContainer/Menu/OptionsPanel/Return", StringComparison.Ordinal)) return 2000;
-        if (path.EndsWith("/Return", StringComparison.Ordinal)) return 800;
-        if (path.EndsWith("/Back", StringComparison.Ordinal)) return 700;
-        return 0;
-    }
-
-    public static int ScoreTab(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return 0;
-        if (path.EndsWith("/MainMenuContainer/Menu/OptionsPanel/Tabs/Common", StringComparison.Ordinal)) return 2000;
-        return path.Contains("/OptionsPanel/Tabs/", StringComparison.Ordinal) ? 800 : 0;
-    }
-
-    public static int ScoreSurface(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return 0;
-        if (path.EndsWith("/MainMenuContainer/Menu/OptionsPanel/ScrollView/Background", StringComparison.Ordinal))
-            return 2000;
-        return path.EndsWith("/ScrollView/Background", StringComparison.Ordinal) ? 800 : 0;
-    }
-
-    public static int ScoreRail(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return 0;
-        if (path.EndsWith("/MainMenuContainer/Menu/OptionsPanel/Tabs/Image", StringComparison.Ordinal)) return 2000;
-        return path.EndsWith("/Tabs/Image", StringComparison.Ordinal) ? 800 : 0;
-    }
-}
-
-internal enum NativeTypographyRole
-{
-    Title,
-    Navigation,
-    Body,
-    Secondary
-}
-
-internal enum NativeTypographySource
-{
-    PublicTextTemplate,
-    LiveMenuButton,
-    NativeHeading
-}
-
-internal static class NativeTypographyRolePolicy
-{
-    public static NativeTypographySource Resolve(
-        NativeTypographyRole role,
-        bool hasLiveMenuButton,
-        bool hasNativeHeading = false) =>
-        role switch
-        {
-            NativeTypographyRole.Title when hasNativeHeading => NativeTypographySource.NativeHeading,
-            NativeTypographyRole.Title or NativeTypographyRole.Navigation when hasLiveMenuButton =>
-                NativeTypographySource.LiveMenuButton,
-            NativeTypographyRole.Title or NativeTypographyRole.Navigation or NativeTypographyRole.Body
-                or NativeTypographyRole.Secondary => NativeTypographySource.PublicTextTemplate,
-            _ => throw new ArgumentOutOfRangeException(nameof(role))
-        };
-}
-
 internal sealed class StatisticsPanelLayout
 {
     public float Width { get; set; }
@@ -271,196 +196,23 @@ internal static class RuntimeTabStripScrollPolicy
     private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 }
 
-internal sealed class RetainedShellLayout
+internal static class BlankRetainedShellPolicy
 {
-    public float MarginPixels { get; set; }
-    public float InnerMarginPixels { get; set; }
-    public float HeaderHeightPixels { get; set; }
-    public float TabRowHeightPixels { get; set; }
-    public float TabWidthPixels { get; set; }
-    public float TabHeightPixels { get; set; }
-    public float TabSpacingPixels { get; set; }
-    public float TabPaddingPixels { get; set; }
-    public float TitleFontPixels { get; set; }
-    public float NavigationFontPixels { get; set; }
-    public float BodyFontPixels { get; set; }
-    public float SecondaryFontPixels { get; set; }
-    public float BackControlPixels { get; set; }
-    public float NavigationRailPixels { get; set; }
-    public float TabViewportWidthPixels { get; set; }
-    public float TabContentWidthPixels { get; set; }
-    public bool TabStripRequiresScrolling { get; set; }
-}
+    public const string RootName = "UltimateDuckovStatisticsRetainedShell";
+    public const int RootChildCount = 0;
+    public const int GraphicCount = 1;
+    public const float VisualAlpha = 0f;
+    public const bool BlocksRaycasts = true;
 
-internal static class RetainedShellLayoutPolicy
-{
-    public static RetainedShellLayout Create(float screenWidth, float screenHeight)
-    {
-        if (screenWidth <= 0f) throw new ArgumentOutOfRangeException(nameof(screenWidth));
-        if (screenHeight <= 0f) throw new ArgumentOutOfRangeException(nameof(screenHeight));
-        var margin = screenWidth <= 1200f
-            ? Math.Clamp(screenWidth * 0.024f, 18f, 30f)
-            : Math.Clamp(screenWidth * 0.0332f, 48f, 96f);
-        var narrow = screenWidth <= 1200f;
-        var innerMargin = narrow ? 18f : 28f;
-        var tabWidth = narrow ? 168f : 148f;
-        var tabHeight = narrow ? 60f : 62f;
-        var tabSpacing = narrow ? 10f : 8f;
-        var tabPadding = narrow ? 10f : 0f;
-        var tabCount = PanelInteractionState.NavigationOrder.Count;
-        var contentWidth = tabPadding * 2f
-                           + tabCount * tabWidth
-                           + Math.Max(0, tabCount - 1) * tabSpacing;
-        var viewportWidth = Math.Max(1f, screenWidth - margin * 2f - innerMargin * 2f);
-        return new RetainedShellLayout
-        {
-            MarginPixels = margin,
-            InnerMarginPixels = innerMargin,
-            HeaderHeightPixels = narrow ? 100f : 126f,
-            TabRowHeightPixels = narrow ? 72f : 76f,
-            TabWidthPixels = tabWidth,
-            TabHeightPixels = tabHeight,
-            TabSpacingPixels = tabSpacing,
-            TabPaddingPixels = tabPadding,
-            TitleFontPixels = narrow ? 48f : 58f,
-            NavigationFontPixels = narrow ? 24f : 27f,
-            BodyFontPixels = narrow ? 20f : 22f,
-            SecondaryFontPixels = narrow ? 18f : 20f,
-            BackControlPixels = narrow ? 56f : 64f,
-            NavigationRailPixels = 5f,
-            TabViewportWidthPixels = viewportWidth,
-            TabContentWidthPixels = contentWidth,
-            TabStripRequiresScrolling = contentWidth > viewportWidth
-        };
-    }
-}
-
-internal sealed class RetainedPixelBounds
-{
-    public float Left { get; set; }
-    public float Top { get; set; }
-    public float Right { get; set; }
-    public float Bottom { get; set; }
-    public float Width => Right - Left;
-    public float Height => Bottom - Top;
-}
-
-internal sealed class RetainedShellSurfaceLayout
-{
-    public RetainedPixelBounds HeaderBounds { get; set; } = new();
-    public RetainedPixelBounds ContentBounds { get; set; } = new();
-    public float HeaderContentGapPixels { get; set; }
-    public float HeaderCornerRadiusPixels { get; set; }
-}
-
-internal static class RetainedShellSurfaceLayoutPolicy
-{
-    private const float BaselineWidthPixels = 2560f;
-    private const float BaselineHeightPixels = 1440f;
-
-    public static RetainedShellSurfaceLayout Create(
-        float screenWidth,
-        float screenHeight,
-        RetainedShellLayout frozenLayout)
-    {
-        if (screenWidth <= 0f) throw new ArgumentOutOfRangeException(nameof(screenWidth));
-        if (screenHeight <= 0f) throw new ArgumentOutOfRangeException(nameof(screenHeight));
-        if (frozenLayout == null) throw new ArgumentNullException(nameof(frozenLayout));
-
-        var narrow = screenWidth <= 1200f;
-        var responsiveScale = Math.Min(screenWidth / BaselineWidthPixels, screenHeight / BaselineHeightPixels);
-        var headerTopLift = narrow ? Math.Clamp(responsiveScale, 0.5f, 1f) : 1f;
-        var headerBottomPadding = narrow ? Math.Clamp(15f * responsiveScale, 8f, 15f) : 15f;
-        var headerContentGap = narrow ? Math.Clamp(40f * responsiveScale, 20f, 40f) : 40f;
-        var contentBottomMargin = narrow ? Math.Clamp(30f * responsiveScale, 16f, 30f) : 30f;
-        var cornerRadius = narrow ? Math.Clamp(18f * responsiveScale, 8f, 18f) : 18f;
-        var headerTop = frozenLayout.MarginPixels + frozenLayout.InnerMarginPixels - headerTopLift;
-        var headerBottom = frozenLayout.MarginPixels
-                           + frozenLayout.InnerMarginPixels
-                           + frozenLayout.HeaderHeightPixels
-                           + frozenLayout.TabRowHeightPixels
-                           + headerBottomPadding;
-
-        return new RetainedShellSurfaceLayout
-        {
-            HeaderBounds = new RetainedPixelBounds
-            {
-                Left = frozenLayout.MarginPixels,
-                Top = headerTop,
-                Right = screenWidth - frozenLayout.MarginPixels,
-                Bottom = headerBottom
-            },
-            ContentBounds = new RetainedPixelBounds
-            {
-                Left = frozenLayout.MarginPixels,
-                Top = headerBottom + headerContentGap,
-                Right = screenWidth - frozenLayout.MarginPixels,
-                Bottom = screenHeight - contentBottomMargin
-            },
-            HeaderContentGapPixels = headerContentGap,
-            HeaderCornerRadiusPixels = cornerRadius
-        };
-    }
-}
-
-internal sealed class RetainedShellFrozenChildLayout
-{
-    public RetainedPixelBounds HeaderBounds { get; set; } = new();
-    public RetainedPixelBounds TabBounds { get; set; } = new();
-    public RetainedPixelBounds RailBounds { get; set; } = new();
-}
-
-internal static class RetainedShellFrozenChildLayoutPolicy
-{
-    public static RetainedShellFrozenChildLayout Create(float screenWidth, RetainedShellLayout frozenLayout)
-    {
-        if (screenWidth <= 0f) throw new ArgumentOutOfRangeException(nameof(screenWidth));
-        if (frozenLayout == null) throw new ArgumentNullException(nameof(frozenLayout));
-        var inset = frozenLayout.MarginPixels + frozenLayout.InnerMarginPixels;
-        var headerBottom = inset + frozenLayout.HeaderHeightPixels;
-        var tabBottom = headerBottom + frozenLayout.TabRowHeightPixels;
-        return new RetainedShellFrozenChildLayout
-        {
-            HeaderBounds = new RetainedPixelBounds
-            {
-                Left = inset,
-                Top = inset,
-                Right = screenWidth - inset,
-                Bottom = headerBottom
-            },
-            TabBounds = new RetainedPixelBounds
-            {
-                Left = inset,
-                Top = headerBottom,
-                Right = screenWidth - inset,
-                Bottom = tabBottom
-            },
-            RailBounds = new RetainedPixelBounds
-            {
-                Left = inset,
-                Top = tabBottom - frozenLayout.NavigationRailPixels,
-                Right = screenWidth - inset,
-                Bottom = tabBottom
-            }
-        };
-    }
-}
-
-internal static class RetainedShellSurfacePolicy
-{
-    public const byte HeaderRed = 0;
-    public const byte HeaderGreen = 8;
-    public const byte HeaderBlue = 16;
-    public const byte HeaderAlpha = 140;
-    public const float ParentCanvasGroupOpacity = 1f;
-    public const float ContentBackgroundOpacity = 0f;
-    public const bool GlobalBlockerBlocksRaycasts = true;
-    public const int VisibleHeaderBackgroundGraphicCount = 1;
-    public const int VisibleFullHeightFrameGraphicCount = 0;
-    public const string HeaderGraphicTypeName = "UnityEngine.UI.ProceduralImage.ProceduralImage";
-    public const string HeaderModifierTypeName = "UniformModifier";
-
-    public static float HeaderOpacity => HeaderAlpha / 255f;
+    public static bool IsValidComposition(
+        int rootChildCount,
+        int graphicCount,
+        float blockerAlpha,
+        bool blockerRaycastTarget) =>
+        rootChildCount == RootChildCount
+        && graphicCount == GraphicCount
+        && blockerAlpha == VisualAlpha
+        && blockerRaycastTarget == BlocksRaycasts;
 }
 
 internal static class RetainedTabWidthPolicy
@@ -517,24 +269,6 @@ internal static class RetainedTabSelectionPolicy
         if (!PanelInteractionState.NavigationOrder.Contains(selected))
             throw new ArgumentOutOfRangeException(nameof(selected));
         return candidate == selected;
-    }
-}
-
-internal static class RetainedShellLayerPolicy
-{
-    public const float BlockerOpacity = 0.68f;
-
-    public static float BackgroundTransmission(params float[] opacities)
-    {
-        if (opacities == null) throw new ArgumentNullException(nameof(opacities));
-        var transmission = 1f;
-        foreach (var opacity in opacities)
-        {
-            if (opacity < 0f || opacity > 1f) throw new ArgumentOutOfRangeException(nameof(opacities));
-            transmission *= 1f - opacity;
-        }
-
-        return transmission;
     }
 }
 

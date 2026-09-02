@@ -4,23 +4,17 @@ This matrix qualifies the v0.17.0 UI candidate against the thirty accepted image
 
 No row below is considered passed from source inspection or deterministic tests alone. Record `Pass`, `Fail`, or `Not exercised`, the exact candidate commit/package hash, resolution, UI scale, language, save generation, and screenshot/log/export evidence.
 
-## Visual-correction Gate 1 qualification
+## Visual-correction Step -1 blank-baseline qualification
 
-Gate 1 qualifies only the reusable retained-mode shell. On its exact candidate, open Statistics through the existing main-menu entry and through the configured hotkey, then verify at both 2560x1440 and 1024x768 that:
+Step -1 qualifies only the invisible retained lifecycle and input-blocking root. On its exact candidate, open Statistics through the existing main-menu entry and through the configured hotkey, then verify that:
 
-1. the dimmer and one independent rounded translucent navy header/navigation panel form the accepted spaced hierarchy; no visible full-height outer frame, lower-layout fill/outline, edge-hugging generic cyan square, or top-right rectangular Close remains; the lower placeholder is visible over a transparent layout region pending Gate 2 cards;
-2. the exact nine unellipsized English labels fit as one left-packed readable row at 2560x1440 above an aligned five-pixel cyan rail; no icon, selection-indicator descendant, or other white graphic overlaps a label; exactly one tab has the bright-cyan selected surface while every inactive tab stays dark navy; and normal, hover, pressed, disabled, selected, and keyboard-focus states remain distinguishable;
-3. narrow overflow scrolls horizontally, its left/right cues appear only when more tabs exist in that direction, Ctrl+Tab and Ctrl+Shift+Tab keep the selected tab visible, and clicking a tab updates the retained placeholder without opening a second panel;
-4. Escape and the close/back control close only UDS, restore focus/cursor state, and a later F8 open creates exactly one clean shell; and
-5. Player.log names `OptionsPanel/Text (TMP)` for the title when loaded, the live menu-button template for navigation, and the inspected `OptionsPanel/Return`, tab, surface, and rail hierarchy objects; its shell description identifies UDS-owned tab and surface primitives; it contains no `ProceduralImage` graphic-rebuild-loop error from either the menu clone or retained shell and shows no legacy immediate-mode window, default `GUI.skin` chrome, content body, reset/export control, or new gameplay/save behavior.
+1. the underlying Duckov screen is pixel-identical immediately before and after opening: UDS contributes no dimmer, header, back control, title, tab, rail, content, placeholder, cue, border, shadow, diagnostic, or other visible pixel;
+2. pointer clicks no longer reach the underlying menu while the invisible shell is open;
+3. Ctrl+Tab and Ctrl+Shift+Tab remain accepted without opening a second shell or creating a visible response;
+4. Escape and F8 close the shell, restore the prior cursor/focus state, and a later menu-entry or F8 open creates exactly one clean shell; and
+5. repeated open/close cycles, source-menu destruction, and shutdown produce no duplicate-root, missing-canvas, construction, or cleanup error in `Player.log`.
 
-The main-view, supporting-state, reset/export, content scrolling, data-comparison, and stress rows below are Gate 2 work and are not Gate 1 acceptance criteria. They remain the final M17 qualification matrix rather than being silently marked passed by the shell correction.
-
-### Gate 1c-A backdrop and shared-surface checkpoint
-
-Qualify only the background composition on the exact Gate 1c-A candidate. At 2560x1440, compare against `mockups/uds-ui-overview.jpg` and verify one rounded header background spans approximately `(85,112)` through `(2475,330)` with an 18 px radius, the transparent lower layout spans `(85,370)` through `(2475,1410)`, and their gap is 40 px. The full-screen dimmer must match the preceding e874589 candidate; the header must read as translucent black/navy without an outline; the lower region must show no fill, border, or full-height frame.
-
-Confirm the title, back control, nine tabs, labels, selected/inactive/hover/pressed/focused/disabled treatments, five-pixel cyan rail, and placeholder typography match e874589. Also confirm Escape/back close, focus/cursor restoration, tab overflow, content scrolling infrastructure, one-shell reopening, and clean shutdown still work. `Player.log` must describe the UDS-owned `ProceduralImage`/`UniformModifier` header and transparent content image, with no procedural-image rebuild loop, missing shader/material/font reference, duplicate shell, or construction exception. Do not qualify Gate 1c-B, Gate 1c-C, or any Gate 2 body from this checkpoint.
+Repeat the pixel comparison at 2560x1440 and 1024x768, including one menu-entry open and one F8 open. Because the transparent blocker intentionally changes input routing and focus ownership, compare a stable underlying-menu state rather than a transient hover/pressed animation. The main-view, supporting-state, reset/export, content scrolling, data-comparison, and stress rows below are later work and are not Step -1 acceptance criteria. Stop after this blank baseline; do not qualify Step 0 or any later mockup layer from this candidate.
 
 ## Preconditions
 

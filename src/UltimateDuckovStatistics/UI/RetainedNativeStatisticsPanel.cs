@@ -24,7 +24,6 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private bool priorCursorVisible;
     private CursorLockMode priorCursorLockMode;
     private GameObject? priorSelectedGameObject;
-    private string? reportedTypographySummary;
 
     public NativeStatisticsPanel(NativeProfileCoordinator coordinator)
     {
@@ -70,8 +69,6 @@ internal sealed class NativeStatisticsPanel : IDisposable
             if (lifecycle.IsOpen) Close();
             else RequestOpen(PanelAccessSurface.Hotkey);
         }
-
-        shell.Tick();
     }
 
     private void RequestOpen(PanelAccessSurface surface)
@@ -117,31 +114,14 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
 
-        if (!shell.TryCreate(
-                canvas,
-                interaction.SelectedTab,
-                Close,
-                tab =>
-                {
-                    interaction.SelectTab(tab);
-                    shell.SetSelectedTab(tab);
-                },
-                nativeUi.ResolveShellTemplates(surface, canvas),
-                out var error))
+        if (!shell.TryCreate(canvas, interaction.SelectedTab, out var error))
         {
             lifecycle.Close();
             RestoreFocusAndCursor();
             ReportShellFailure(surface, error ?? "unknown retained-mode construction failure");
             return;
         }
-
         openSurface = surface;
-        if (!string.IsNullOrWhiteSpace(shell.TypographySummary)
-            && !string.Equals(reportedTypographySummary, shell.TypographySummary, StringComparison.Ordinal))
-        {
-            reportedTypographySummary = shell.TypographySummary;
-            coordinator.ReportUiDiagnostic($"M17 retained typography roles: {reportedTypographySummary}.");
-        }
     }
 
     private void ReportShellFailure(PanelAccessSurface surface, string detail)
