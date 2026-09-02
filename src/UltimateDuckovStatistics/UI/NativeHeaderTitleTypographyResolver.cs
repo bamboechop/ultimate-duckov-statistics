@@ -47,28 +47,10 @@ internal static class NativeHeaderTitleTypographyResolver
         if (font == null
             || material == null
             || !string.Equals(font.name, RetainedHeaderTitlePolicy.FontAssetName, StringComparison.Ordinal)
-            || !string.Equals(material.name, RetainedHeaderTitlePolicy.MaterialName, StringComparison.Ordinal)
-            || source.fontStyle != FontStyles.Normal
-            || source.fontWeight != FontWeight.Regular
-            || !Approximately(source.fontSize, RetainedHeaderTitlePolicy.ReferenceFontSize)
-            || !Approximately(source.characterSpacing, 0f)
-            || !Approximately(source.wordSpacing, 0f)
-            || !Approximately(source.lineSpacing, 0f)
-            || !Approximately(source.paragraphSpacing, 0f)
-            || source.alignment != TextAlignmentOptions.Left
-            || source.enableWordWrapping != RetainedHeaderTitlePolicy.WordWrapping
-            || source.enableAutoSizing != RetainedHeaderTitlePolicy.AutoSizing
-            || !Approximately(source.color.r, RetainedHeaderTitlePolicy.Red)
-            || !Approximately(source.color.g, RetainedHeaderTitlePolicy.Green)
-            || !Approximately(source.color.b, RetainedHeaderTitlePolicy.Blue)
-            || !Approximately(source.color.a, RetainedHeaderTitlePolicy.Alpha)
-            || source.raycastTarget != RetainedHeaderTitlePolicy.BlocksRaycasts)
+            || !string.Equals(material.name, RetainedHeaderTitlePolicy.MaterialName, StringComparison.Ordinal))
         {
-            error = "Duckov's native OptionsPanel/Text (TMP) no longer matches the required major-heading typography contract. "
-                    + $"Observed font='{font?.name ?? "<null>"}', material='{material?.name ?? "<null>"}', "
-                    + $"size={source.fontSize}, style={source.fontStyle}, weight={source.fontWeight}, "
-                    + $"alignment={source.alignment}, wrapping={source.enableWordWrapping}, autoSize={source.enableAutoSizing}, "
-                    + $"raycastTarget={source.raycastTarget}.";
+            error = "Duckov's native OptionsPanel/Text (TMP) no longer exposes the required major-heading presentation references. "
+                    + $"Observed font='{font?.name ?? "<null>"}', material='{material?.name ?? "<null>"}'.";
             return false;
         }
 
@@ -95,6 +77,4 @@ internal static class NativeHeaderTitleTypographyResolver
             if (current.gameObject.name.StartsWith("UltimateDuckovStatistics", StringComparison.Ordinal)) return true;
         return false;
     }
-
-    private static bool Approximately(float left, float right) => Math.Abs(left - right) <= 0.001f;
 }
