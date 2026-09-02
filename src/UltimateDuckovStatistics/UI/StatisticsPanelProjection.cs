@@ -498,17 +498,71 @@ internal sealed class RetainedBackControlActivation
     public void Invoke() => close();
 }
 
-internal static class NativeBackArrowPolicy
+internal static class RetainedBackArrowAssetPolicy
 {
-    public const string AuditedControlPathSuffix = "/MainMenuContainer/Menu/OptionsPanel/Return";
-    public const string SpriteName = "pictoicon_arrow_line_prev";
+    public const string TextureName = "UltimateDuckovStatisticsBackArrowTexture";
+    public const string SpriteName = "UltimateDuckovStatisticsBackArrow";
+    public const int WidthPixels = 34;
+    public const int HeightPixels = 34;
+    public const int VisibleLeftPixels = 0;
+    public const int VisibleTopPixels = 0;
+    public const int VisibleWidthPixels = 34;
+    public const int VisibleHeightPixels = 34;
+    public const float PixelsPerUnit = 34f;
+    public const string TopDownAlphaSha256 = "37cc15ff97b8dadbcd65b0a5e0e39e1db91e97d8d5d492a1cd6e1b8c73181943";
 
-    public static bool IsAuditedControlPath(string? path) =>
-        !string.IsNullOrWhiteSpace(path)
-        && path.EndsWith(AuditedControlPathSuffix, StringComparison.Ordinal);
+    // This is only the mock-matched 34x34 white-arrow alpha plane, stored top row first.
+    // It is not a crop containing the circle, header, dimmer, or any other mockup pixels.
+    private const string TopDownAlphaBase64 =
+        "AAAAAAAAAAAAAAAAAAAAE3ZtEgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEtz//88AAAAAAAAAAAAAAAAAAAAAAAAA" +
+        "AAAAAAAAAAAAE83////+BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHc7/////xQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+        "AAAAHN3/////yxYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFuD/////yw4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFtX/" +
+        "////yw4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIdX/////2w4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAI+X/////3BYA" +
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGOX/////zRgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGNf/////zRAAAAAAAAAA" +
+        "AAAAAAAAAAAAAAAAAAAAAAAAGdv/////3BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAN+b/////zRAAAAAAAAAAAAAAAAAA" +
+        "AAAAAAAAAAAAAAAAJ+b/////zRgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAG+j/////2ykaGhoaGhoaGhoaGhoaGhoaGhoa" +
+        "GhoaGAIAH+v////////////////////////////////////////LE47/////////////////////////////////////////" +
+        "/3eG//////////////////////////////////////////9zKvP////////////////////////////////////////cGwAn" +
+        "7//////LMSYmJiYmJiYmJiYmJiYmJiYmJiYmJiYkAgAAADjv/////7cQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJdv/" +
+        "////3BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAl5v/////NCwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACPl////" +
+        "/7cLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAI+7/////tw4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAj5f/////b" +
+        "FgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADLi/////8sKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIeL/////tAoA" +
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAh6/////+0CgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB7d/////8kUAAAA" +
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALN//////vgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc3f////8FAAAAAAAA" +
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAABzm///bAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHaGbHQAAAAAAAAAAAAAA" +
+        "AAAAAA==";
 
-    public static bool IsExpectedSpriteName(string? name) =>
-        string.Equals(name, SpriteName, StringComparison.Ordinal);
+    public static byte[] DecodeTopDownAlpha()
+    {
+        var alpha = Convert.FromBase64String(TopDownAlphaBase64);
+        if (alpha.Length != WidthPixels * HeightPixels || !HasExactVisibleBounds(alpha))
+            throw new InvalidOperationException("The retained back-arrow alpha asset is invalid.");
+        return alpha;
+    }
+
+    public static bool HasExactVisibleBounds(IReadOnlyList<byte>? alpha)
+    {
+        if (alpha == null || alpha.Count != WidthPixels * HeightPixels) return false;
+
+        var left = WidthPixels;
+        var top = HeightPixels;
+        var rightExclusive = 0;
+        var bottomExclusive = 0;
+        for (var y = 0; y < HeightPixels; y++)
+        for (var x = 0; x < WidthPixels; x++)
+        {
+            if (alpha[y * WidthPixels + x] == 0) continue;
+            left = Math.Min(left, x);
+            top = Math.Min(top, y);
+            rightExclusive = Math.Max(rightExclusive, x + 1);
+            bottomExclusive = Math.Max(bottomExclusive, y + 1);
+        }
+
+        return left == VisibleLeftPixels
+               && top == VisibleTopPixels
+               && rightExclusive - left == VisibleWidthPixels
+               && bottomExclusive - top == VisibleHeightPixels;
+    }
 }
 
 internal static class RetainedTabWidthPolicy

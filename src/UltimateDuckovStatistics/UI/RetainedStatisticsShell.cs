@@ -6,7 +6,7 @@ namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
 /// Owns the exact retained surfaces introduced through M17 visual correction Step 02.
-/// The root graphic remains the modal dimmer; its children are the frozen header and native-arrow back control.
+/// The root graphic remains the modal dimmer; its children are the frozen header and back control.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
 {
@@ -18,6 +18,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RectTransform? backButtonRect;
     private UniformModifier? backButtonModifier;
     private RectTransform? backArrowRect;
+    private RetainedBackArrowAsset? backArrowAsset;
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
     private float lastViewportPixelWidth = float.NaN;
     private float lastViewportPixelHeight = float.NaN;
@@ -50,19 +51,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         try
         {
-            if (!NativeBackArrowResolver.TryResolve(
-                    targetCanvas,
-                    out var nativeBackArrow,
-                    out _,
-                    out var resolutionError)
-                || nativeBackArrow == null)
-            {
-                error = resolutionError ?? "Duckov's audited native back-arrow presentation was unavailable.";
-                return false;
-            }
-
             canvas = targetCanvas;
             selectedTab = initialTab;
+            backArrowAsset = RetainedBackArrowAsset.Create();
             root = new GameObject(
                 RetainedDimmerPolicy.RootName,
                 typeof(RectTransform));
@@ -90,7 +81,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             headerModifier = createdHeaderModifier;
             backButtonRect = CreateBackControl(
                 rootRect,
-                nativeBackArrow,
+                backArrowAsset.Sprite,
                 close,
                 out var backButtonGraphic,
                 out var createdBackButtonModifier,
@@ -180,7 +171,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
     private static RectTransform CreateBackControl(
         RectTransform parent,
-        Sprite nativeBackArrow,
+        Sprite backArrowSprite,
         Action close,
         out ProceduralImage background,
         out UniformModifier modifier,
@@ -229,8 +220,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         arrowRect.pivot = new Vector2(0f, 1f);
         arrowRect.localScale = Vector3.one;
         arrowGraphic = arrow.AddComponent<Image>();
-        arrowGraphic.sprite = nativeBackArrow;
-        arrowGraphic.overrideSprite = nativeBackArrow;
+        arrowGraphic.sprite = backArrowSprite;
+        arrowGraphic.overrideSprite = backArrowSprite;
         arrowGraphic.type = Image.Type.Simple;
         arrowGraphic.preserveAspect = RetainedBackControlPolicy.PreserveArrowAspect;
         arrowGraphic.color = new Color(
@@ -402,10 +393,17 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || !Approximately(backArrowRect.sizeDelta.x, visualLayout.BackControl.ArrowWidth)
             || !Approximately(backArrowRect.sizeDelta.y, visualLayout.BackControl.ArrowHeight)
             || backArrowGraphic.sprite == null
-            || !NativeBackArrowPolicy.IsExpectedSpriteName(backArrowGraphic.sprite.name))
+            || backArrowGraphic.overrideSprite != backArrowGraphic.sprite
+            || backArrowGraphic.sprite.name != RetainedBackArrowAssetPolicy.SpriteName
+            || backArrowGraphic.sprite.texture == null
+            || backArrowGraphic.sprite.texture.name != RetainedBackArrowAssetPolicy.TextureName
+            || backArrowGraphic.sprite.texture.width != RetainedBackArrowAssetPolicy.WidthPixels
+            || backArrowGraphic.sprite.texture.height != RetainedBackArrowAssetPolicy.HeightPixels
+            || !Approximately(backArrowGraphic.sprite.rect.width, RetainedBackArrowAssetPolicy.WidthPixels)
+            || !Approximately(backArrowGraphic.sprite.rect.height, RetainedBackArrowAssetPolicy.HeightPixels))
         {
             throw new InvalidOperationException(
-                "BackButton did not retain its exact reference geometry, circular background, or native arrow.");
+                "BackButton did not retain its exact reference geometry, circular background, or mock-matched arrow.");
         }
     }
 
@@ -436,6 +434,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         backButtonRect = null;
         backButtonModifier = null;
         backArrowRect = null;
+        backArrowAsset?.Dispose();
+        backArrowAsset = null;
         lastAppliedVisualLayout = null;
         lastViewportPixelWidth = float.NaN;
         lastViewportPixelHeight = float.NaN;

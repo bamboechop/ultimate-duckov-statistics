@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
@@ -259,7 +260,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void StepTwoBackControlUsesExactReferenceGeometryAndNativeSourceContract()
+    public void StepTwoRBackControlUsesExactReferenceGeometryAndOwnedArrowContract()
     {
         Assert.Equal("BackButton", RetainedBackControlPolicy.ButtonName);
         Assert.Equal("BackArrow", RetainedBackControlPolicy.ArrowName);
@@ -279,11 +280,28 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(131f, RetainedBackControlPolicy.ArrowRightExclusivePixels);
         Assert.Equal(92f, RetainedBackControlPolicy.ArrowBottomExclusivePixels);
         Assert.Equal(4f, RetainedHeaderPolicy.TopPixels - RetainedBackControlPolicy.BottomExclusivePixels);
-        Assert.True(NativeBackArrowPolicy.IsAuditedControlPath(
-            "Canvas/MainMenuContainer/Menu/OptionsPanel/Return"));
-        Assert.False(NativeBackArrowPolicy.IsAuditedControlPath("Canvas/Credits/Return"));
-        Assert.True(NativeBackArrowPolicy.IsExpectedSpriteName("pictoicon_arrow_line_prev"));
-        Assert.False(NativeBackArrowPolicy.IsExpectedSpriteName("replacement_arrow"));
+        Assert.Equal("UltimateDuckovStatisticsBackArrowTexture", RetainedBackArrowAssetPolicy.TextureName);
+        Assert.Equal("UltimateDuckovStatisticsBackArrow", RetainedBackArrowAssetPolicy.SpriteName);
+        Assert.Equal(34, RetainedBackArrowAssetPolicy.WidthPixels);
+        Assert.Equal(34, RetainedBackArrowAssetPolicy.HeightPixels);
+        Assert.Equal(34f, RetainedBackArrowAssetPolicy.PixelsPerUnit);
+    }
+
+    [Fact]
+    public void StepTwoROwnedArrowAlphaMatchesReferenceSilhouetteAndVisibleBounds()
+    {
+        var alpha = RetainedBackArrowAssetPolicy.DecodeTopDownAlpha();
+        var sha256 = Convert.ToHexString(SHA256.HashData(alpha)).ToLowerInvariant();
+
+        Assert.Equal(34 * 34, alpha.Length);
+        Assert.True(RetainedBackArrowAssetPolicy.HasExactVisibleBounds(alpha));
+        Assert.Equal(0, RetainedBackArrowAssetPolicy.VisibleLeftPixels);
+        Assert.Equal(0, RetainedBackArrowAssetPolicy.VisibleTopPixels);
+        Assert.Equal(34, RetainedBackArrowAssetPolicy.VisibleWidthPixels);
+        Assert.Equal(34, RetainedBackArrowAssetPolicy.VisibleHeightPixels);
+        Assert.Equal(406, alpha.Count(value => value > 0));
+        Assert.Equal(255, alpha.Max());
+        Assert.Equal(RetainedBackArrowAssetPolicy.TopDownAlphaSha256, sha256);
     }
 
     [Fact]
