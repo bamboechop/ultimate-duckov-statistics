@@ -928,10 +928,23 @@ public sealed class StatisticsPanelProjectionTests
     public void GateSevenMeasurementNormalizationUsesReferenceAndCanvasScales()
     {
         const float referenceWidth = 161.91875f;
+        Assert.Equal(
+            RetainedReferenceTransformPolicy.BaselineWidthPixels,
+            RetainedTabMeasurementPolicy.TemporaryLabelWidthPixels);
         foreach (var referenceScale in new[] { 0.5f, 0.65625f, 0.75f, 1f })
         foreach (var canvasScaleFactor in new[] { 1f, 2f, 3f })
         {
             var measuredCanvasWidth = referenceWidth * referenceScale / canvasScaleFactor;
+            var temporaryCanvasWidth = RetainedTabMeasurementPolicy.TemporaryLabelWidthPixels
+                                       * referenceScale
+                                       / canvasScaleFactor;
+            Assert.Equal(
+                RetainedReferenceTransformPolicy.BaselineWidthPixels,
+                RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
+                    temporaryCanvasWidth,
+                    canvasScaleFactor,
+                    referenceScale),
+                3);
             Assert.Equal(
                 referenceWidth,
                 RetainedTabMeasurementPolicy.NormalizeCanvasWidth(

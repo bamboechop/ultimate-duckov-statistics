@@ -625,7 +625,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
         {
             var control = tabControls[index];
             control.Label.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
-            var measuredCanvasWidth = control.Label.GetPreferredValues().x;
+            var measuredCanvasWidth = control.Label.GetPreferredValues(
+                temporaryLabelWidth,
+                labelHeight).x;
             var normalizedWidth = RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
                 measuredCanvasWidth,
                 canvasScaleFactor,
