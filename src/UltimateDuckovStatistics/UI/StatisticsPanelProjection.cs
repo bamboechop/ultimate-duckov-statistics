@@ -341,9 +341,11 @@ internal sealed class RetainedHeaderBottomBarCanvasLayout
     public float Top { get; set; }
     public float Width { get; set; }
     public float Height { get; set; }
-    public float ShapingTop { get; set; }
-    public float ShapingHeight { get; set; }
-    public float CornerRadius { get; set; }
+    public float SurfaceLeft { get; set; }
+    public float SurfaceTop { get; set; }
+    public float SurfaceWidth { get; set; }
+    public float SurfaceHeight { get; set; }
+    public float SurfaceCornerRadius { get; set; }
 }
 
 internal static class RetainedHeaderBottomBarPolicy
@@ -362,14 +364,20 @@ internal static class RetainedHeaderBottomBarPolicy
     public const float VisibleHeightPixels = 9f;
     public const float VisibleRightExclusivePixels = 2474f;
     public const float VisibleBottomExclusivePixels = 330f;
-    public const float ShapingTopPixels = 310f;
-    public const float ShapingHeightPixels = 20f;
-    public const float CornerRadiusPixels = RetainedHeaderPolicy.CornerRadiusPixels;
+    public const float SurfaceLeftPixels = RetainedHeaderPolicy.LeftPixels;
+    public const float SurfaceTopPixels = RetainedHeaderPolicy.TopPixels;
+    public const float SurfaceWidthPixels = RetainedHeaderPolicy.WidthPixels;
+    public const float SurfaceHeightPixels = RetainedHeaderPolicy.HeightPixels;
+    public const float SurfaceCornerRadiusPixels = RetainedHeaderPolicy.CornerRadiusPixels;
+    public const float MaskPaddingPixels = 0f;
+    public const int MaskSoftnessPixels = 0;
+    public const bool UsesRectMask2D = true;
+    public const bool UsesFilledImage = false;
+    public const bool UsesOnlyOneEdgeModifier = false;
     public const float Red = 78f / 255f;
     public const float Green = 189f / 255f;
     public const float Blue = 1f;
     public const float Alpha = 1f;
-    public const float VerticalFillAmount = HeightPixels / ShapingHeightPixels;
     public const bool BlocksRaycasts = false;
 
     public static RetainedHeaderBottomBarCanvasLayout CreateCanvasLayout(
@@ -383,9 +391,11 @@ internal static class RetainedHeaderBottomBarPolicy
             Top = referenceTransform.CanvasY(TopPixels),
             Width = referenceTransform.CanvasLength(WidthPixels),
             Height = referenceTransform.CanvasLength(HeightPixels),
-            ShapingTop = referenceTransform.CanvasY(ShapingTopPixels),
-            ShapingHeight = referenceTransform.CanvasLength(ShapingHeightPixels),
-            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels)
+            SurfaceLeft = referenceTransform.CanvasX(SurfaceLeftPixels),
+            SurfaceTop = referenceTransform.CanvasY(SurfaceTopPixels),
+            SurfaceWidth = referenceTransform.CanvasLength(SurfaceWidthPixels),
+            SurfaceHeight = referenceTransform.CanvasLength(SurfaceHeightPixels),
+            SurfaceCornerRadius = referenceTransform.CanvasLength(SurfaceCornerRadiusPixels)
         };
     }
 
@@ -589,9 +599,11 @@ internal static class RetainedVisualLayoutPolicy
             || !IsFinite(headerBottomBar.Top)
             || !IsPositiveFinite(headerBottomBar.Width)
             || !IsPositiveFinite(headerBottomBar.Height)
-            || !IsFinite(headerBottomBar.ShapingTop)
-            || !IsPositiveFinite(headerBottomBar.ShapingHeight)
-            || !IsPositiveFinite(headerBottomBar.CornerRadius)
+            || !IsFinite(headerBottomBar.SurfaceLeft)
+            || !IsFinite(headerBottomBar.SurfaceTop)
+            || !IsPositiveFinite(headerBottomBar.SurfaceWidth)
+            || !IsPositiveFinite(headerBottomBar.SurfaceHeight)
+            || !IsPositiveFinite(headerBottomBar.SurfaceCornerRadius)
             || !IsFinite(headerTitle.Left)
             || !IsFinite(headerTitle.Top)
             || !IsPositiveFinite(headerTitle.Width)
@@ -639,6 +651,8 @@ internal static class RetainedShellCompositionPolicy
     public const int BackButtonChildCount = 1;
     public const int BackArrowChildCount = 0;
     public const int GraphicCount = 6;
+    public const int RectMaskCount = 1;
+    public const int OnlyOneEdgeModifierCount = 0;
 }
 
 internal sealed class RetainedBackControlActivation

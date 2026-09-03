@@ -305,7 +305,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateFourHeaderBottomBarUsesExactLogicalStripAndRoundedSilhouetteContract()
+    public void GateFourAHeaderBottomBarUsesExactCropAndFullRoundedHeaderContract()
     {
         Assert.Equal("HeaderBottomBar", RetainedHeaderBottomBarPolicy.Name);
         Assert.Equal("HeaderBottomBarGraphic", RetainedHeaderBottomBarPolicy.GraphicName);
@@ -321,21 +321,31 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(9f, RetainedHeaderBottomBarPolicy.VisibleHeightPixels);
         Assert.Equal(2474f, RetainedHeaderBottomBarPolicy.VisibleRightExclusivePixels);
         Assert.Equal(330f, RetainedHeaderBottomBarPolicy.VisibleBottomExclusivePixels);
-        Assert.Equal(310f, RetainedHeaderBottomBarPolicy.ShapingTopPixels);
-        Assert.Equal(20f, RetainedHeaderBottomBarPolicy.ShapingHeightPixels);
-        Assert.Equal(20f, RetainedHeaderBottomBarPolicy.CornerRadiusPixels);
+        Assert.Equal(85f, RetainedHeaderBottomBarPolicy.SurfaceLeftPixels);
+        Assert.Equal(113f, RetainedHeaderBottomBarPolicy.SurfaceTopPixels);
+        Assert.Equal(2392f, RetainedHeaderBottomBarPolicy.SurfaceWidthPixels);
+        Assert.Equal(217f, RetainedHeaderBottomBarPolicy.SurfaceHeightPixels);
+        Assert.Equal(20f, RetainedHeaderBottomBarPolicy.SurfaceCornerRadiusPixels);
+        Assert.Equal(0f, RetainedHeaderBottomBarPolicy.MaskPaddingPixels);
+        Assert.Equal(0, RetainedHeaderBottomBarPolicy.MaskSoftnessPixels);
+        Assert.True(RetainedHeaderBottomBarPolicy.UsesRectMask2D);
+        Assert.False(RetainedHeaderBottomBarPolicy.UsesFilledImage);
+        Assert.False(RetainedHeaderBottomBarPolicy.UsesOnlyOneEdgeModifier);
         Assert.Equal(78f / 255f, RetainedHeaderBottomBarPolicy.Red);
         Assert.Equal(189f / 255f, RetainedHeaderBottomBarPolicy.Green);
         Assert.Equal(1f, RetainedHeaderBottomBarPolicy.Blue);
         Assert.Equal(1f, RetainedHeaderBottomBarPolicy.Alpha);
-        Assert.Equal(9f / 20f, RetainedHeaderBottomBarPolicy.VerticalFillAmount);
         Assert.False(RetainedHeaderBottomBarPolicy.BlocksRaycasts);
         Assert.Equal(
             RetainedHeaderPolicy.BottomExclusivePixels,
             RetainedHeaderBottomBarPolicy.BottomExclusivePixels);
         Assert.Equal(
             RetainedHeaderPolicy.CornerRadiusPixels,
-            RetainedHeaderBottomBarPolicy.CornerRadiusPixels);
+            RetainedHeaderBottomBarPolicy.SurfaceCornerRadiusPixels);
+        Assert.Equal(RetainedHeaderPolicy.LeftPixels, RetainedHeaderBottomBarPolicy.SurfaceLeftPixels);
+        Assert.Equal(RetainedHeaderPolicy.TopPixels, RetainedHeaderBottomBarPolicy.SurfaceTopPixels);
+        Assert.Equal(RetainedHeaderPolicy.WidthPixels, RetainedHeaderBottomBarPolicy.SurfaceWidthPixels);
+        Assert.Equal(RetainedHeaderPolicy.HeightPixels, RetainedHeaderBottomBarPolicy.SurfaceHeightPixels);
         Assert.True(RetainedHeaderBottomBarPolicy.IsValidGraphic(
             78f / 255f,
             189f / 255f,
@@ -351,20 +361,22 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Theory]
-    [InlineData(1280f, 720f, 42.5f, 160.5f, 1196f, 4.5f, 155f, 10f, 10f)]
-    [InlineData(1680f, 1050f, 55.78125f, 263.15625f, 1569.75f, 5.90625f, 255.9375f, 13.125f, 13.125f)]
-    [InlineData(1920f, 1080f, 63.75f, 240.75f, 1794f, 6.75f, 232.5f, 15f, 15f)]
-    [InlineData(1920f, 1200f, 63.75f, 300.75f, 1794f, 6.75f, 292.5f, 15f, 15f)]
-    [InlineData(2560f, 1440f, 85f, 321f, 2392f, 9f, 310f, 20f, 20f)]
-    public void GateFourHeaderBottomBarUsesSharedReferenceTransformAtEveryRequiredViewport(
+    [InlineData(1280f, 720f, 42.5f, 160.5f, 1196f, 4.5f, 42.5f, 56.5f, 1196f, 108.5f, 10f)]
+    [InlineData(1680f, 1050f, 55.78125f, 263.15625f, 1569.75f, 5.90625f, 55.78125f, 126.65625f, 1569.75f, 142.40625f, 13.125f)]
+    [InlineData(1920f, 1080f, 63.75f, 240.75f, 1794f, 6.75f, 63.75f, 84.75f, 1794f, 162.75f, 15f)]
+    [InlineData(1920f, 1200f, 63.75f, 300.75f, 1794f, 6.75f, 63.75f, 144.75f, 1794f, 162.75f, 15f)]
+    [InlineData(2560f, 1440f, 85f, 321f, 2392f, 9f, 85f, 113f, 2392f, 217f, 20f)]
+    public void GateFourAHeaderBottomBarUsesSharedReferenceTransformAtEveryRequiredViewport(
         float viewportWidth,
         float viewportHeight,
         float expectedLeft,
         float expectedTop,
         float expectedWidth,
         float expectedHeight,
-        float expectedShapingTop,
-        float expectedShapingHeight,
+        float expectedSurfaceLeft,
+        float expectedSurfaceTop,
+        float expectedSurfaceWidth,
+        float expectedSurfaceHeight,
         float expectedRadius)
     {
         var layout = RetainedVisualLayoutPolicy.Create(viewportWidth, viewportHeight, 1f);
@@ -375,11 +387,18 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(expectedTop, bar.Top);
         Assert.Equal(expectedWidth, bar.Width);
         Assert.Equal(expectedHeight, bar.Height);
-        Assert.Equal(expectedShapingTop, bar.ShapingTop);
-        Assert.Equal(expectedShapingHeight, bar.ShapingHeight);
-        Assert.Equal(expectedRadius, bar.CornerRadius);
+        Assert.Equal(expectedSurfaceLeft, bar.SurfaceLeft);
+        Assert.Equal(expectedSurfaceTop, bar.SurfaceTop);
+        Assert.Equal(expectedSurfaceWidth, bar.SurfaceWidth);
+        Assert.Equal(expectedSurfaceHeight, bar.SurfaceHeight);
+        Assert.Equal(expectedRadius, bar.SurfaceCornerRadius);
         Assert.Equal(layout.Header.Top + layout.Header.Height, bar.Top + bar.Height);
-        Assert.Equal(layout.Header.Top + layout.Header.Height, bar.ShapingTop + bar.ShapingHeight);
+        Assert.Equal(layout.Header.Left, bar.SurfaceLeft);
+        Assert.Equal(layout.Header.Top, bar.SurfaceTop);
+        Assert.Equal(layout.Header.Width, bar.SurfaceWidth);
+        Assert.Equal(layout.Header.Height, bar.SurfaceHeight);
+        Assert.Equal(layout.Header.CornerRadius, bar.SurfaceCornerRadius);
+        Assert.Equal(layout.Header.Top + layout.Header.Height, bar.SurfaceTop + bar.SurfaceHeight);
     }
 
     [Fact]
@@ -552,6 +571,8 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1, RetainedShellCompositionPolicy.BackButtonChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.BackArrowChildCount);
         Assert.Equal(6, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
     }
 
     [Fact]
