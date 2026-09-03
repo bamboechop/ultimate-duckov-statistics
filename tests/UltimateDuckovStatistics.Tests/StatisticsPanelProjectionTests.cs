@@ -521,6 +521,98 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void GateFiveAOverviewLayoutAcceptsOnlyTheSharedReferenceTransform()
+    {
+        var overviewLayoutMethod = Assert.Single(
+            typeof(RetainedOverviewTabPolicy)
+                .GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public),
+            method => method.Name == nameof(RetainedOverviewTabPolicy.CreateCanvasLayout));
+        var visualLayoutMethods = typeof(RetainedVisualLayoutPolicy)
+            .GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)
+            .Where(method => method.Name == nameof(RetainedVisualLayoutPolicy.Create))
+            .ToArray();
+
+        var overviewParameter = Assert.Single(overviewLayoutMethod.GetParameters());
+        Assert.Equal(typeof(RetainedReferenceTransform), overviewParameter.ParameterType);
+        Assert.Equal(2, visualLayoutMethods.Length);
+        Assert.DoesNotContain(
+            visualLayoutMethods.SelectMany(method => method.GetParameters()),
+            parameter => parameter.Name != null
+                && parameter.Name.Contains("preferred", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GateFiveAOverviewUsesExactAuthoritativeReferenceGeometry()
+    {
+        var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
+
+        Assert.Equal(115f, tab.Left);
+        Assert.Equal(251f, tab.Top);
+        Assert.Equal(221.91875f, tab.Width);
+        Assert.Equal(79f, tab.Height);
+        Assert.Equal(336.91875f, tab.Left + tab.Width);
+        Assert.Equal(330f, tab.Top + tab.Height);
+        Assert.Equal(145f, tab.LabelLeft);
+        Assert.Equal(276f, tab.LabelTop);
+        Assert.Equal(161.91875f, tab.LabelWidth);
+        Assert.Equal(29f, tab.LabelHeight);
+        Assert.Equal(306.91875f, tab.LabelLeft + tab.LabelWidth);
+        Assert.Equal(305f, tab.LabelTop + tab.LabelHeight);
+        Assert.Equal(30f, tab.LabelLeft - tab.Left);
+        Assert.Equal(30f, tab.Left + tab.Width - tab.LabelLeft - tab.LabelWidth, 4);
+        Assert.Equal(25f, tab.LabelTop - tab.Top);
+        Assert.Equal(25f, tab.Top + tab.Height - tab.LabelTop - tab.LabelHeight);
+        Assert.True(tab.Width > tab.Height);
+        Assert.True(tab.LabelWidth > tab.Height);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f, 57.5f, 125.5f, 110.959375f, 39.5f, 72.5f, 138f, 80.959375f, 14.5f, 15f, 12.5f, 10f, 18f)]
+    [InlineData(1680f, 1050f, 75.46875f, 217.21875f, 145.6341796875f, 51.84375f, 95.15625f, 233.625f, 106.2591796875f, 19.03125f, 19.6875f, 16.40625f, 13.125f, 23.625f)]
+    [InlineData(1920f, 1080f, 86.25f, 188.25f, 166.4390625f, 59.25f, 108.75f, 207f, 121.4390625f, 21.75f, 22.5f, 18.75f, 15f, 27f)]
+    [InlineData(1920f, 1200f, 86.25f, 248.25f, 166.4390625f, 59.25f, 108.75f, 267f, 121.4390625f, 21.75f, 22.5f, 18.75f, 15f, 27f)]
+    [InlineData(2560f, 1440f, 115f, 251f, 221.91875f, 79f, 145f, 276f, 161.91875f, 29f, 30f, 25f, 20f, 36f)]
+    public void GateFiveAOverviewPreservesPhysicalGeometryAcrossCanvasScaleFactors(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedTabLeft,
+        float expectedTabTop,
+        float expectedTabWidth,
+        float expectedTabHeight,
+        float expectedLabelLeft,
+        float expectedLabelTop,
+        float expectedLabelWidth,
+        float expectedLabelHeight,
+        float expectedHorizontalPadding,
+        float expectedVerticalPadding,
+        float expectedCornerRadius,
+        float expectedFontSize)
+    {
+        foreach (var canvasScaleFactor in new[] { 1f, 2f, 3f })
+        {
+            var tab = CreateRetainedVisualLayout(
+                viewportWidth,
+                viewportHeight,
+                canvasScaleFactor).OverviewTab;
+
+            Assert.Equal(expectedTabLeft, tab.Left * canvasScaleFactor, 4);
+            Assert.Equal(expectedTabTop, tab.Top * canvasScaleFactor, 4);
+            Assert.Equal(expectedTabWidth, tab.Width * canvasScaleFactor, 4);
+            Assert.Equal(expectedTabHeight, tab.Height * canvasScaleFactor, 4);
+            Assert.Equal(expectedLabelLeft, tab.LabelLeft * canvasScaleFactor, 4);
+            Assert.Equal(expectedLabelTop, tab.LabelTop * canvasScaleFactor, 4);
+            Assert.Equal(expectedLabelWidth, tab.LabelWidth * canvasScaleFactor, 4);
+            Assert.Equal(expectedLabelHeight, tab.LabelHeight * canvasScaleFactor, 4);
+            Assert.Equal(expectedHorizontalPadding, tab.LeftPadding * canvasScaleFactor, 4);
+            Assert.Equal(expectedHorizontalPadding, tab.RightPadding * canvasScaleFactor, 4);
+            Assert.Equal(expectedVerticalPadding, tab.TopPadding * canvasScaleFactor, 4);
+            Assert.Equal(expectedVerticalPadding, tab.BottomPadding * canvasScaleFactor, 4);
+            Assert.Equal(expectedCornerRadius, tab.CornerRadius * canvasScaleFactor, 4);
+            Assert.Equal(expectedFontSize, tab.FontSize * canvasScaleFactor, 4);
+        }
+    }
+
+    [Fact]
     public void GateFiveOverviewActivationUpdatesAuthoritativeSelectionAndSynchronizesIdempotently()
     {
         var instanceFields = typeof(RetainedOverviewTabActivation).GetFields(
@@ -740,9 +832,7 @@ public sealed class StatisticsPanelProjectionTests
             viewportWidth,
             viewportHeight,
             canvasScaleFactor);
-        return RetainedVisualLayoutPolicy.Create(
-            referenceTransform,
-            referenceTransform.CanvasLength(RetainedOverviewTabPolicy.AuditedNativePreferredWidthPixels));
+        return RetainedVisualLayoutPolicy.Create(referenceTransform);
     }
 
     [Fact]

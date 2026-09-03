@@ -492,14 +492,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             viewportPixelWidth,
             viewportPixelHeight,
             canvasScaleFactor);
-        overviewTabLabelGraphic.fontSize = referenceTransform.CanvasLength(
-            RetainedOverviewTabPolicy.ReferenceFontSize);
-        var preferredOverviewLabelWidth = overviewTabLabelGraphic
-            .GetPreferredValues(overviewTabLabelGraphic.text)
-            .x;
-        var layout = RetainedVisualLayoutPolicy.Create(
-            referenceTransform,
-            preferredOverviewLabelWidth);
+        var layout = RetainedVisualLayoutPolicy.Create(referenceTransform);
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
@@ -701,9 +694,6 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 "HeaderBackground did not retain its exact top-left pixel geometry or rounded-corner radius.");
         }
 
-        var measuredOverviewLabelWidth = overviewTabLabelGraphic
-            .GetPreferredValues(overviewTabLabelGraphic.text)
-            .x;
         if (overviewTabRect.gameObject.name != RetainedOverviewTabPolicy.BackgroundName
             || overviewTabRect.anchorMin != new Vector2(0f, 1f)
             || overviewTabRect.anchorMax != new Vector2(0f, 1f)
@@ -744,10 +734,18 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 -visualLayout.OverviewTab.TopPadding)
             || !Approximately(overviewTabLabelRect.sizeDelta.x, visualLayout.OverviewTab.LabelWidth)
             || !Approximately(overviewTabLabelRect.sizeDelta.y, visualLayout.OverviewTab.LabelHeight)
-            || !Approximately(measuredOverviewLabelWidth, visualLayout.OverviewTab.PreferredLabelWidth)
+            || !Approximately(
+                visualLayout.OverviewTab.PreferredLabelWidth,
+                visualLayout.ReferenceTransform.CanvasLength(
+                    RetainedOverviewTabPolicy.AuditedNativePreferredWidthPixels))
             || !Approximately(
                 visualLayout.OverviewTab.Width,
-                measuredOverviewLabelWidth
+                visualLayout.ReferenceTransform.CanvasLength(
+                    RetainedOverviewTabPolicy.AuditedReferenceTabWidthPixels))
+            || visualLayout.OverviewTab.Width <= visualLayout.OverviewTab.Height
+            || !Approximately(
+                visualLayout.OverviewTab.Width,
+                visualLayout.OverviewTab.PreferredLabelWidth
                 + visualLayout.OverviewTab.LeftPadding
                 + visualLayout.OverviewTab.RightPadding)
             || !Approximately(

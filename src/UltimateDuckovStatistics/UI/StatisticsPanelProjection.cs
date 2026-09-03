@@ -484,16 +484,14 @@ internal static class RetainedOverviewTabPolicy
     public const bool RequiresNativeUnderlay = true;
 
     public static RetainedOverviewTabCanvasLayout CreateCanvasLayout(
-        RetainedReferenceTransform referenceTransform,
-        float preferredLabelWidth)
+        RetainedReferenceTransform referenceTransform)
     {
         if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
-        if (preferredLabelWidth <= 0f || float.IsNaN(preferredLabelWidth) || float.IsInfinity(preferredLabelWidth))
-            throw new ArgumentOutOfRangeException(nameof(preferredLabelWidth));
 
         var left = referenceTransform.CanvasX(LeftPixels);
         var top = referenceTransform.CanvasY(TopPixels);
         var height = referenceTransform.CanvasLength(HeightPixels);
+        var preferredLabelWidth = referenceTransform.CanvasLength(AuditedNativePreferredWidthPixels);
         var leftPadding = referenceTransform.CanvasLength(LeftPaddingPixels);
         var rightPadding = referenceTransform.CanvasLength(RightPaddingPixels);
         var topPadding = referenceTransform.CanvasLength(TopPaddingPixels);
@@ -702,25 +700,21 @@ internal static class RetainedVisualLayoutPolicy
     public static RetainedVisualCanvasLayout Create(
         float viewportPixelWidth,
         float viewportPixelHeight,
-        float canvasScaleFactor,
-        float preferredOverviewLabelWidth)
+        float canvasScaleFactor)
     {
         var referenceTransform = RetainedReferenceTransformPolicy.Create(
             viewportPixelWidth,
             viewportPixelHeight,
             canvasScaleFactor);
-        return Create(referenceTransform, preferredOverviewLabelWidth);
+        return Create(referenceTransform);
     }
 
     public static RetainedVisualCanvasLayout Create(
-        RetainedReferenceTransform referenceTransform,
-        float preferredOverviewLabelWidth)
+        RetainedReferenceTransform referenceTransform)
     {
         if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
         var header = RetainedHeaderPolicy.CreateCanvasLayout(referenceTransform);
-        var overviewTab = RetainedOverviewTabPolicy.CreateCanvasLayout(
-            referenceTransform,
-            preferredOverviewLabelWidth);
+        var overviewTab = RetainedOverviewTabPolicy.CreateCanvasLayout(referenceTransform);
         var headerBottomBar = RetainedHeaderBottomBarPolicy.CreateCanvasLayout(referenceTransform);
         var headerTitle = RetainedHeaderTitlePolicy.CreateCanvasLayout(referenceTransform);
         var backControl = RetainedBackControlPolicy.CreateCanvasLayout(referenceTransform);
