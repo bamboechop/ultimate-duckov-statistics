@@ -761,6 +761,132 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void GateSixATabLabelShadowUsesExactReferenceAndTmpShaderContract()
+    {
+        Assert.Equal(
+            "UltimateDuckovStatistics Retained Tab Label Material",
+            RetainedTabLabelShadowPolicy.OwnedMaterialName);
+        Assert.Equal("UNDERLAY_ON", RetainedTabLabelShadowPolicy.UnderlayKeyword);
+        Assert.Equal("RATIOS_OFF", RetainedTabLabelShadowPolicy.RatiosOffKeyword);
+        Assert.Equal("_MainTex", RetainedTabLabelShadowPolicy.MainTextureProperty);
+        Assert.Equal("_UnderlayColor", RetainedTabLabelShadowPolicy.UnderlayColorProperty);
+        Assert.Equal("_UnderlayOffsetX", RetainedTabLabelShadowPolicy.UnderlayOffsetXProperty);
+        Assert.Equal("_UnderlayOffsetY", RetainedTabLabelShadowPolicy.UnderlayOffsetYProperty);
+        Assert.Equal("_UnderlayDilate", RetainedTabLabelShadowPolicy.UnderlayDilateProperty);
+        Assert.Equal("_UnderlaySoftness", RetainedTabLabelShadowPolicy.UnderlaySoftnessProperty);
+        Assert.Equal("_ScaleRatioC", RetainedTabLabelShadowPolicy.ScaleRatioCProperty);
+        Assert.Equal(150f, RetainedTabLabelShadowPolicy.ReferenceAngleDegrees);
+        Assert.Equal(8f, RetainedTabLabelShadowPolicy.ReferenceDistancePixels);
+        Assert.Equal(6.928203f, RetainedTabLabelShadowPolicy.ReferenceOffsetXPixels);
+        Assert.Equal(4f, RetainedTabLabelShadowPolicy.ReferenceOffsetYPixels);
+        Assert.Equal(10f, RetainedTabLabelShadowPolicy.ReferenceSoftnessPixels);
+        Assert.Equal(0f, RetainedTabLabelShadowPolicy.SpreadPercent);
+        Assert.Equal(0f, RetainedTabLabelShadowPolicy.NoisePercent);
+        Assert.Equal(0f, RetainedTabLabelShadowPolicy.Red);
+        Assert.Equal(0f, RetainedTabLabelShadowPolicy.Green);
+        Assert.Equal(0f, RetainedTabLabelShadowPolicy.Blue);
+        Assert.Equal(0.57f, RetainedTabLabelShadowPolicy.Alpha);
+        Assert.Equal(90f, RetainedTabLabelShadowPolicy.AuditedNativeFacePointSize);
+        Assert.Equal(10f, RetainedTabLabelShadowPolicy.AuditedNativeGradientScale);
+        Assert.Equal(0.4f, RetainedTabLabelShadowPolicy.ReferenceFontToAtlasScale);
+        Assert.Equal(1.7320508f, RetainedTabLabelShadowPolicy.UnderlayOffsetX, 6);
+        Assert.Equal(-1f, RetainedTabLabelShadowPolicy.UnderlayOffsetY);
+        Assert.Equal(0f, RetainedTabLabelShadowPolicy.UnderlayDilate);
+        Assert.Equal(2.5f, RetainedTabLabelShadowPolicy.UnderlaySoftness);
+        Assert.Equal(1f, RetainedTabLabelShadowPolicy.ScaleRatioC);
+        Assert.True(RetainedTabLabelShadowPolicy.UnderlayOffsetX > 0f);
+        Assert.True(RetainedTabLabelShadowPolicy.UnderlayOffsetY < 0f);
+        Assert.True(RetainedTabLabelShadowPolicy.UnderlaySoftness > 0f);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f, 3.4641015f, 2f, 5f)]
+    [InlineData(1680f, 1050f, 4.5466332f, 2.625f, 6.5625f)]
+    [InlineData(1920f, 1080f, 5.196152f, 3f, 7.5f)]
+    [InlineData(1920f, 1200f, 5.196152f, 3f, 7.5f)]
+    [InlineData(2560f, 1440f, 6.928203f, 4f, 10f)]
+    public void GateSixAShadowScalesThroughTheSharedReferenceTransform(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedPhysicalOffsetX,
+        float expectedPhysicalOffsetY,
+        float expectedPhysicalSoftness)
+    {
+        foreach (var canvasScaleFactor in new[] { 1f, 2f, 3f })
+        {
+            var transform = RetainedReferenceTransformPolicy.Create(
+                viewportWidth,
+                viewportHeight,
+                canvasScaleFactor);
+            var shadow = RetainedTabLabelShadowPolicy.CreateCanvasTarget(transform);
+
+            Assert.Same(transform, shadow.ReferenceTransform);
+            Assert.Equal(expectedPhysicalOffsetX, shadow.OffsetX * canvasScaleFactor, 4);
+            Assert.Equal(expectedPhysicalOffsetY, shadow.OffsetY * canvasScaleFactor, 4);
+            Assert.Equal(expectedPhysicalSoftness, shadow.Softness * canvasScaleFactor, 4);
+        }
+    }
+
+    [Fact]
+    public void GateSixAPrivateClonePreservesSourceAtlasAndDisposesExactlyOnce()
+    {
+        var atlas = new object();
+        var source = new RetainedMaterialProbe(atlas, 1f);
+        var destroyed = new List<RetainedMaterialProbe>();
+        var owned = RetainedOwnedResource<RetainedMaterialProbe>.CreatePrivateClone(
+            source,
+            original => new RetainedMaterialProbe(original.Atlas, original.UnderlayAlpha),
+            destroyed.Add);
+        var privateClone = owned.Resource;
+
+        privateClone.UnderlayAlpha = RetainedTabLabelShadowPolicy.Alpha;
+
+        Assert.NotSame(source, privateClone);
+        Assert.Same(atlas, source.Atlas);
+        Assert.Same(source.Atlas, privateClone.Atlas);
+        Assert.Equal(1f, source.UnderlayAlpha);
+        Assert.Equal(0.57f, privateClone.UnderlayAlpha);
+        Assert.False(owned.IsDisposed);
+
+        owned.Dispose();
+        owned.Dispose();
+
+        Assert.True(owned.IsDisposed);
+        Assert.Same(privateClone, Assert.Single(destroyed));
+        Assert.Throws<ObjectDisposedException>(() => _ = owned.Resource);
+    }
+
+    [Fact]
+    public void GateSixASelectionChangesRetainOnePrivateMaterialAndFrozenComposition()
+    {
+        var source = new RetainedMaterialProbe(new object(), 1f);
+        var destroyed = 0;
+        using var owned = RetainedOwnedResource<RetainedMaterialProbe>.CreatePrivateClone(
+            source,
+            original => new RetainedMaterialProbe(original.Atlas, 0.57f),
+            _ => destroyed++);
+        var material = owned.Resource;
+        var background = new object();
+        var visualState = new RetainedOverviewTabVisualState<object>(
+            background,
+            StatisticsPanelTab.Overview,
+            (_, _) => { });
+
+        visualState.Apply(StatisticsPanelTab.Overview);
+        visualState.Apply(StatisticsPanelTab.Runs);
+        visualState.Apply(StatisticsPanelTab.Overview);
+
+        Assert.Same(material, owned.Resource);
+        Assert.False(owned.IsDisposed);
+        Assert.Equal(0, destroyed);
+        Assert.Equal(5, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(8, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
+    }
+
+    [Fact]
     public void StepThreeHeaderTitleUsesExactNativeTypographyAndReferenceBoundsContract()
     {
         Assert.Equal("HeaderTitle", RetainedHeaderTitlePolicy.Name);
@@ -951,6 +1077,18 @@ public sealed class StatisticsPanelProjectionTests
             viewportHeight,
             canvasScaleFactor);
         return RetainedVisualLayoutPolicy.Create(referenceTransform);
+    }
+
+    private sealed class RetainedMaterialProbe
+    {
+        public RetainedMaterialProbe(object atlas, float underlayAlpha)
+        {
+            Atlas = atlas;
+            UnderlayAlpha = underlayAlpha;
+        }
+
+        public object Atlas { get; }
+        public float UnderlayAlpha { get; set; }
     }
 
     [Fact]

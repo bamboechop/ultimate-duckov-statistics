@@ -6,7 +6,7 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 06.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 06-A.
 /// The root graphic remains the modal dimmer; its children are the frozen header/back/title/bar and Overview tab.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
@@ -22,6 +22,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private OnlyOneEdgeModifier? overviewTabModifier;
     private RectTransform? overviewTabLabelRect;
     private TextMeshProUGUI? overviewTabLabelGraphic;
+    private RetainedTabLabelMaterial? overviewTabLabelMaterial;
     private RectTransform? headerBottomBarRect;
     private RectMask2D? headerBottomBarMask;
     private RectTransform? headerBottomBarSurfaceRect;
@@ -79,6 +80,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
             canvas = targetCanvas;
             selectedTab = initialTab;
+            overviewTabLabelMaterial = RetainedTabLabelMaterial.Create(headerTitleTypography.Material);
             backArrowAsset = RetainedBackArrowAsset.Create();
             root = new GameObject(
                 RetainedDimmerPolicy.RootName,
@@ -108,6 +110,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewTabRect = CreateOverviewTab(
                 rootRect,
                 headerTitleTypography,
+                overviewTabLabelMaterial.Instance,
                 selectTab,
                 out var createdOverviewTabGraphic,
                 out var createdOverviewTabModifier,
@@ -164,6 +167,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 overviewTabVisualState,
                 createdOverviewTabLabelRect,
                 createdOverviewTabLabelGraphic,
+                overviewTabLabelMaterial,
                 headerBottomBarRect,
                 createdHeaderBottomBarMask,
                 createdHeaderBottomBarSurfaceRect,
@@ -247,6 +251,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private static RectTransform CreateOverviewTab(
         RectTransform parent,
         NativeHeaderTitleTypography typography,
+        Material labelMaterial,
         Action<StatisticsPanelTab> selectTab,
         out ProceduralImage background,
         out OnlyOneEdgeModifier modifier,
@@ -296,7 +301,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         label = labelObject.AddComponent<TextMeshProUGUI>();
         label.font = typography.Font;
-        label.fontSharedMaterial = typography.Material;
+        label.fontSharedMaterial = labelMaterial;
         label.text = UiText.Get(RetainedOverviewTabPolicy.TextKey);
         label.fontStyle = FontStyles.Normal;
         label.fontWeight = FontWeight.Regular;
@@ -571,6 +576,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         RetainedOverviewTabVisualState<ProceduralImage> overviewTabVisualState,
         RectTransform overviewTabLabelRect,
         TextMeshProUGUI overviewTabLabelGraphic,
+        RetainedTabLabelMaterial overviewTabLabelMaterial,
         RectTransform headerBottomBarRect,
         RectMask2D headerBottomBarMask,
         RectTransform headerBottomBarSurfaceRect,
@@ -778,13 +784,20 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewTabLabelGraphic.font.name != RetainedOverviewTabPolicy.FontAssetName
             || !ReferenceEquals(overviewTabLabelGraphic.font, headerTitleGraphic.font)
             || overviewTabLabelGraphic.fontSharedMaterial == null
-            || overviewTabLabelGraphic.fontSharedMaterial.name != RetainedOverviewTabPolicy.MaterialName
+            || overviewTabLabelGraphic.fontSharedMaterial.name
+                != RetainedTabLabelShadowPolicy.OwnedMaterialName
+            || !ReferenceEquals(
+                overviewTabLabelGraphic.fontSharedMaterial,
+                overviewTabLabelMaterial.Instance)
             || overviewTabLabelGraphic.fontSharedMaterial.shaderKeywords == null
             || !overviewTabLabelGraphic.fontSharedMaterial.shaderKeywords.Contains(
                 RetainedOverviewTabPolicy.NativeUnderlayKeyword)
-            || !ReferenceEquals(
+            || ReferenceEquals(
                 overviewTabLabelGraphic.fontSharedMaterial,
                 headerTitleGraphic.fontSharedMaterial)
+            || !ReferenceEquals(overviewTabLabelMaterial.Source, headerTitleGraphic.fontSharedMaterial)
+            || !overviewTabLabelMaterial.IsConfigured()
+            || !overviewTabLabelMaterial.IsSourceUnchanged()
             || overviewTabLabelGraphic.fontStyle != FontStyles.Normal
             || overviewTabLabelGraphic.fontWeight != FontWeight.Regular
             || !Approximately(
@@ -963,6 +976,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         overviewTabModifier = null;
         overviewTabLabelRect = null;
         overviewTabLabelGraphic = null;
+        overviewTabLabelMaterial?.Dispose();
+        overviewTabLabelMaterial = null;
         headerBottomBarRect = null;
         headerBottomBarMask = null;
         headerBottomBarSurfaceRect = null;

@@ -449,6 +449,107 @@ internal readonly struct RetainedRgbaColor
     public float Alpha { get; }
 }
 
+internal sealed class RetainedOwnedResource<T> : IDisposable where T : class
+{
+    private T? resource;
+    private Action<T>? destroy;
+
+    private RetainedOwnedResource(T resource, Action<T> destroy)
+    {
+        this.resource = resource;
+        this.destroy = destroy;
+    }
+
+    public T Resource => resource ?? throw new ObjectDisposedException(nameof(RetainedOwnedResource<T>));
+
+    public bool IsDisposed => resource == null;
+
+    public static RetainedOwnedResource<T> CreatePrivateClone(
+        T source,
+        Func<T, T> clone,
+        Action<T> destroy)
+    {
+        if (source == null) throw new ArgumentNullException(nameof(source));
+        if (clone == null) throw new ArgumentNullException(nameof(clone));
+        if (destroy == null) throw new ArgumentNullException(nameof(destroy));
+
+        var privateClone = clone(source)
+            ?? throw new InvalidOperationException("The private retained resource clone was null.");
+        if (ReferenceEquals(privateClone, source))
+            throw new InvalidOperationException("The retained resource factory returned the shared source.");
+        return new RetainedOwnedResource<T>(privateClone, destroy);
+    }
+
+    public void Dispose()
+    {
+        var current = resource;
+        if (current == null) return;
+        resource = null;
+        var destroyCurrent = destroy;
+        destroy = null;
+        destroyCurrent!(current);
+    }
+}
+
+internal sealed class RetainedTabLabelShadowCanvasTarget
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float OffsetX { get; set; }
+    public float OffsetY { get; set; }
+    public float Softness { get; set; }
+}
+
+internal static class RetainedTabLabelShadowPolicy
+{
+    public const string OwnedMaterialName = "UltimateDuckovStatistics Retained Tab Label Material";
+    public const string UnderlayKeyword = "UNDERLAY_ON";
+    public const string RatiosOffKeyword = "RATIOS_OFF";
+    public const string MainTextureProperty = "_MainTex";
+    public const string UnderlayColorProperty = "_UnderlayColor";
+    public const string UnderlayOffsetXProperty = "_UnderlayOffsetX";
+    public const string UnderlayOffsetYProperty = "_UnderlayOffsetY";
+    public const string UnderlayDilateProperty = "_UnderlayDilate";
+    public const string UnderlaySoftnessProperty = "_UnderlaySoftness";
+    public const string ScaleRatioCProperty = "_ScaleRatioC";
+    public const string GradientScaleProperty = "_GradientScale";
+    public const float ReferenceAngleDegrees = 150f;
+    public const float ReferenceDistancePixels = 8f;
+    public const float ReferenceOffsetXPixels = 6.928203f;
+    public const float ReferenceOffsetYPixels = 4f;
+    public const float ReferenceSoftnessPixels = 10f;
+    public const float SpreadPercent = 0f;
+    public const float NoisePercent = 0f;
+    public const float Red = 0f;
+    public const float Green = 0f;
+    public const float Blue = 0f;
+    public const float Alpha = 0.57f;
+    public const float AuditedNativeFacePointSize = 90f;
+    public const float AuditedNativeGradientScale = 10f;
+    public const float ReferenceFontToAtlasScale =
+        RetainedOverviewTabPolicy.ReferenceFontSize / AuditedNativeFacePointSize;
+    public const float UnderlayOffsetX =
+        ReferenceOffsetXPixels / (AuditedNativeGradientScale * ReferenceFontToAtlasScale);
+    public const float UnderlayOffsetY =
+        -ReferenceOffsetYPixels / (AuditedNativeGradientScale * ReferenceFontToAtlasScale);
+    public const float UnderlayDilate = 0f;
+    public const float UnderlaySoftness =
+        ReferenceSoftnessPixels / (AuditedNativeGradientScale * ReferenceFontToAtlasScale);
+    public const float ScaleRatioC = 1f;
+
+    public static RetainedTabLabelShadowCanvasTarget CreateCanvasTarget(
+        RetainedReferenceTransform referenceTransform)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        return new RetainedTabLabelShadowCanvasTarget
+        {
+            ReferenceTransform = referenceTransform,
+            OffsetX = referenceTransform.CanvasLength(ReferenceOffsetXPixels),
+            OffsetY = referenceTransform.CanvasLength(ReferenceOffsetYPixels),
+            Softness = referenceTransform.CanvasLength(ReferenceSoftnessPixels)
+        };
+    }
+}
+
 internal static class RetainedOverviewTabPolicy
 {
     public const string BackgroundName = "OverviewTab";
