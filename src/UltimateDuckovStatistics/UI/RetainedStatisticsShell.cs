@@ -6,7 +6,7 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 06-A.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 06-B.
 /// The root graphic remains the modal dimmer; its children are the frozen header/back/title/bar and Overview tab.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable

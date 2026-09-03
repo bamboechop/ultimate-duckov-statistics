@@ -80,21 +80,23 @@ internal sealed class RetainedTabLabelMaterial : IDisposable
                    instance.GetTexture(RetainedTabLabelShadowPolicy.MainTextureProperty),
                    sourceAtlas)
                && instance.shaderKeywords.Contains(RetainedTabLabelShadowPolicy.UnderlayKeyword)
-               && instance.shaderKeywords.Contains(RetainedTabLabelShadowPolicy.RatiosOffKeyword)
+               && !instance.shaderKeywords.Contains(RetainedTabLabelShadowPolicy.RatioBypassKeyword)
                && color.r == RetainedTabLabelShadowPolicy.Red
                && color.g == RetainedTabLabelShadowPolicy.Green
                && color.b == RetainedTabLabelShadowPolicy.Blue
                && color.a == RetainedTabLabelShadowPolicy.Alpha
                && instance.GetFloat(RetainedTabLabelShadowPolicy.UnderlayOffsetXProperty)
-                   == RetainedTabLabelShadowPolicy.UnderlayOffsetX
+                   == RetainedTabLabelShadowPolicy.NativeUnderlayOffsetX
                && instance.GetFloat(RetainedTabLabelShadowPolicy.UnderlayOffsetYProperty)
-                   == RetainedTabLabelShadowPolicy.UnderlayOffsetY
+                   == RetainedTabLabelShadowPolicy.NativeUnderlayOffsetY
                && instance.GetFloat(RetainedTabLabelShadowPolicy.UnderlayDilateProperty)
-                   == RetainedTabLabelShadowPolicy.UnderlayDilate
+                   == RetainedTabLabelShadowPolicy.NativeUnderlayDilate
                && instance.GetFloat(RetainedTabLabelShadowPolicy.UnderlaySoftnessProperty)
-                   == RetainedTabLabelShadowPolicy.UnderlaySoftness
-               && instance.GetFloat(RetainedTabLabelShadowPolicy.ScaleRatioCProperty)
-                   == RetainedTabLabelShadowPolicy.ScaleRatioC;
+                   == RetainedTabLabelShadowPolicy.NativeUnderlaySoftness
+               && Approximately(
+                   instance.GetFloat(RetainedTabLabelShadowPolicy.ScaleRatioCProperty),
+                   RetainedTabLabelShadowPolicy.ExpectedNativeScaleRatioC,
+                   RetainedTabLabelShadowPolicy.ScaleRatioTolerance);
     }
 
     public bool IsSourceUnchanged()
@@ -118,7 +120,6 @@ internal sealed class RetainedTabLabelMaterial : IDisposable
     {
         var instance = Instance;
         instance.EnableKeyword(RetainedTabLabelShadowPolicy.UnderlayKeyword);
-        instance.EnableKeyword(RetainedTabLabelShadowPolicy.RatiosOffKeyword);
         instance.SetColor(
             RetainedTabLabelShadowPolicy.UnderlayColorProperty,
             new Color(
@@ -126,18 +127,6 @@ internal sealed class RetainedTabLabelMaterial : IDisposable
                 RetainedTabLabelShadowPolicy.Green,
                 RetainedTabLabelShadowPolicy.Blue,
                 RetainedTabLabelShadowPolicy.Alpha));
-        instance.SetFloat(
-            RetainedTabLabelShadowPolicy.UnderlayOffsetXProperty,
-            RetainedTabLabelShadowPolicy.UnderlayOffsetX);
-        instance.SetFloat(
-            RetainedTabLabelShadowPolicy.UnderlayOffsetYProperty,
-            RetainedTabLabelShadowPolicy.UnderlayOffsetY);
-        instance.SetFloat(
-            RetainedTabLabelShadowPolicy.UnderlayDilateProperty,
-            RetainedTabLabelShadowPolicy.UnderlayDilate);
-        instance.SetFloat(
-            RetainedTabLabelShadowPolicy.UnderlaySoftnessProperty,
-            RetainedTabLabelShadowPolicy.UnderlaySoftness);
         ShaderUtilities.UpdateShaderRatios(instance);
     }
 
@@ -151,8 +140,7 @@ internal sealed class RetainedTabLabelMaterial : IDisposable
                      RetainedTabLabelShadowPolicy.UnderlayOffsetYProperty,
                      RetainedTabLabelShadowPolicy.UnderlayDilateProperty,
                      RetainedTabLabelShadowPolicy.UnderlaySoftnessProperty,
-                     RetainedTabLabelShadowPolicy.ScaleRatioCProperty,
-                     RetainedTabLabelShadowPolicy.GradientScaleProperty
+                     RetainedTabLabelShadowPolicy.ScaleRatioCProperty
                  })
         {
             if (!material.HasProperty(property))
@@ -160,12 +148,29 @@ internal sealed class RetainedTabLabelMaterial : IDisposable
                     $"Duckov's native TMP material no longer exposes '{property}'.");
         }
 
-        if (material.GetFloat(RetainedTabLabelShadowPolicy.GradientScaleProperty)
-            != RetainedTabLabelShadowPolicy.AuditedNativeGradientScale)
+        if (!material.shaderKeywords.Contains(RetainedTabLabelShadowPolicy.UnderlayKeyword)
+            || material.shaderKeywords.Contains(RetainedTabLabelShadowPolicy.RatioBypassKeyword)
+            || material.GetFloat(RetainedTabLabelShadowPolicy.UnderlayOffsetXProperty)
+                != RetainedTabLabelShadowPolicy.NativeUnderlayOffsetX
+            || material.GetFloat(RetainedTabLabelShadowPolicy.UnderlayOffsetYProperty)
+                != RetainedTabLabelShadowPolicy.NativeUnderlayOffsetY
+            || material.GetFloat(RetainedTabLabelShadowPolicy.UnderlayDilateProperty)
+                != RetainedTabLabelShadowPolicy.NativeUnderlayDilate
+            || material.GetFloat(RetainedTabLabelShadowPolicy.UnderlaySoftnessProperty)
+                != RetainedTabLabelShadowPolicy.NativeUnderlaySoftness
+            || !Approximately(
+                material.GetFloat(RetainedTabLabelShadowPolicy.ScaleRatioCProperty),
+                RetainedTabLabelShadowPolicy.ExpectedNativeScaleRatioC,
+                RetainedTabLabelShadowPolicy.ScaleRatioTolerance))
         {
             throw new InvalidOperationException(
-                "Duckov's native TMP atlas gradient scale no longer matches the audited retained-label contract.");
+                "Duckov's native TMP underlay no longer matches the audited retained-label contract.");
         }
+    }
+
+    private static bool Approximately(float actual, float expected, float tolerance)
+    {
+        return Math.Abs(actual - expected) <= tolerance;
     }
 
     public void Dispose()

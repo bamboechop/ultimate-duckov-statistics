@@ -491,19 +491,11 @@ internal sealed class RetainedOwnedResource<T> : IDisposable where T : class
     }
 }
 
-internal sealed class RetainedTabLabelShadowCanvasTarget
-{
-    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
-    public float OffsetX { get; set; }
-    public float OffsetY { get; set; }
-    public float Softness { get; set; }
-}
-
 internal static class RetainedTabLabelShadowPolicy
 {
     public const string OwnedMaterialName = "UltimateDuckovStatistics Retained Tab Label Material";
     public const string UnderlayKeyword = "UNDERLAY_ON";
-    public const string RatiosOffKeyword = "RATIOS_OFF";
+    public const string RatioBypassKeyword = "RATIOS_OFF";
     public const string MainTextureProperty = "_MainTex";
     public const string UnderlayColorProperty = "_UnderlayColor";
     public const string UnderlayOffsetXProperty = "_UnderlayOffsetX";
@@ -511,43 +503,16 @@ internal static class RetainedTabLabelShadowPolicy
     public const string UnderlayDilateProperty = "_UnderlayDilate";
     public const string UnderlaySoftnessProperty = "_UnderlaySoftness";
     public const string ScaleRatioCProperty = "_ScaleRatioC";
-    public const string GradientScaleProperty = "_GradientScale";
-    public const float ReferenceAngleDegrees = 150f;
-    public const float ReferenceDistancePixels = 8f;
-    public const float ReferenceOffsetXPixels = 6.928203f;
-    public const float ReferenceOffsetYPixels = 4f;
-    public const float ReferenceSoftnessPixels = 10f;
-    public const float SpreadPercent = 0f;
-    public const float NoisePercent = 0f;
     public const float Red = 0f;
     public const float Green = 0f;
     public const float Blue = 0f;
     public const float Alpha = 0.57f;
-    public const float AuditedNativeFacePointSize = 90f;
-    public const float AuditedNativeGradientScale = 10f;
-    public const float ReferenceFontToAtlasScale =
-        RetainedOverviewTabPolicy.ReferenceFontSize / AuditedNativeFacePointSize;
-    public const float UnderlayOffsetX =
-        ReferenceOffsetXPixels / (AuditedNativeGradientScale * ReferenceFontToAtlasScale);
-    public const float UnderlayOffsetY =
-        -ReferenceOffsetYPixels / (AuditedNativeGradientScale * ReferenceFontToAtlasScale);
-    public const float UnderlayDilate = 0f;
-    public const float UnderlaySoftness =
-        ReferenceSoftnessPixels / (AuditedNativeGradientScale * ReferenceFontToAtlasScale);
-    public const float ScaleRatioC = 1f;
-
-    public static RetainedTabLabelShadowCanvasTarget CreateCanvasTarget(
-        RetainedReferenceTransform referenceTransform)
-    {
-        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
-        return new RetainedTabLabelShadowCanvasTarget
-        {
-            ReferenceTransform = referenceTransform,
-            OffsetX = referenceTransform.CanvasLength(ReferenceOffsetXPixels),
-            OffsetY = referenceTransform.CanvasLength(ReferenceOffsetYPixels),
-            Softness = referenceTransform.CanvasLength(ReferenceSoftnessPixels)
-        };
-    }
+    public const float NativeUnderlayOffsetX = 1f;
+    public const float NativeUnderlayOffsetY = -1f;
+    public const float NativeUnderlayDilate = -0.25f;
+    public const float NativeUnderlaySoftness = 1f;
+    public const float ExpectedNativeScaleRatioC = 0.41785714f;
+    public const float ScaleRatioTolerance = 0.000001f;
 }
 
 internal static class RetainedOverviewTabPolicy
