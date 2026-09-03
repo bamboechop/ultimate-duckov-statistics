@@ -6,7 +6,7 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 05.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 06.
 /// The root graphic remains the modal dimmer; its children are the frozen header/back/title/bar and Overview tab.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
@@ -18,6 +18,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private UniformModifier? headerModifier;
     private RectTransform? overviewTabRect;
     private ProceduralImage? overviewTabGraphic;
+    private RetainedOverviewTabVisualState<ProceduralImage>? overviewTabVisualState;
     private OnlyOneEdgeModifier? overviewTabModifier;
     private RectTransform? overviewTabLabelRect;
     private TextMeshProUGUI? overviewTabLabelGraphic;
@@ -114,6 +115,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var createdOverviewTabLabelRect,
                 out var createdOverviewTabLabelGraphic);
             overviewTabGraphic = createdOverviewTabGraphic;
+            overviewTabVisualState = new RetainedOverviewTabVisualState<ProceduralImage>(
+                createdOverviewTabGraphic,
+                StatisticsPanelTab.Overview,
+                ApplyOverviewTabColor);
+            overviewTabVisualState.Apply(selectedTab);
             overviewTabModifier = createdOverviewTabModifier;
             overviewTabLabelRect = createdOverviewTabLabelRect;
             overviewTabLabelGraphic = createdOverviewTabLabelGraphic;
@@ -155,6 +161,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 createdOverviewTabGraphic,
                 createdOverviewTabModifier,
                 overviewTabButton,
+                overviewTabVisualState,
                 createdOverviewTabLabelRect,
                 createdOverviewTabLabelGraphic,
                 headerBottomBarRect,
@@ -171,6 +178,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 headerTitleRect,
                 createdHeaderTitleGraphic,
                 visualLayout,
+                selectedTab,
                 targetCanvas.scaleFactor);
             rootRect.SetAsLastSibling();
             root.SetActive(true);
@@ -189,6 +197,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         if (!PanelInteractionState.NavigationOrder.Contains(tab))
             throw new ArgumentOutOfRangeException(nameof(tab));
         selectedTab = tab;
+        overviewTabVisualState?.Apply(selectedTab);
     }
 
     public bool Tick(out string? error)
@@ -256,11 +265,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         rect.localScale = Vector3.one;
 
         background = tab.AddComponent<ProceduralImage>();
-        background.color = new Color(
-            RetainedOverviewTabPolicy.Red,
-            RetainedOverviewTabPolicy.Green,
-            RetainedOverviewTabPolicy.Blue,
-            RetainedOverviewTabPolicy.Alpha);
+        background.color = Color.clear;
         background.BorderWidth = 0f;
         background.FalloffDistance = 1f;
         background.sprite = null;
@@ -311,6 +316,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
             RetainedOverviewTabPolicy.LabelAlpha);
         label.raycastTarget = RetainedOverviewTabPolicy.LabelBlocksRaycasts;
         return rect;
+    }
+
+    private static void ApplyOverviewTabColor(
+        ProceduralImage target,
+        RetainedRgbaColor color)
+    {
+        target.color = new Color(color.Red, color.Green, color.Blue, color.Alpha);
     }
 
     private static RectTransform CreateHeaderBottomBar(
@@ -556,6 +568,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         ProceduralImage overviewTabGraphic,
         OnlyOneEdgeModifier overviewTabModifier,
         Button overviewTabButton,
+        RetainedOverviewTabVisualState<ProceduralImage> overviewTabVisualState,
         RectTransform overviewTabLabelRect,
         TextMeshProUGUI overviewTabLabelGraphic,
         RectTransform headerBottomBarRect,
@@ -572,6 +585,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         RectTransform headerTitleRect,
         TextMeshProUGUI headerTitleGraphic,
         RetainedVisualCanvasLayout visualLayout,
+        StatisticsPanelTab selectedTab,
         float canvasScaleFactor)
     {
         var graphics = shellRoot.GetComponentsInChildren<Graphic>(includeInactive: true);
@@ -590,12 +604,16 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 headerGraphic.color.b,
                 headerGraphic.color.a,
                 headerGraphic.raycastTarget)
-            || !RetainedOverviewTabPolicy.IsValidBackgroundGraphic(
+            || !RetainedOverviewTabVisualStatePolicy.IsExactColor(
+                RetainedOverviewTabVisualStatePolicy.Resolve(
+                    selectedTab,
+                    StatisticsPanelTab.Overview),
                 overviewTabGraphic.color.r,
                 overviewTabGraphic.color.g,
                 overviewTabGraphic.color.b,
-                overviewTabGraphic.color.a,
-                overviewTabGraphic.raycastTarget)
+                overviewTabGraphic.color.a)
+            || overviewTabGraphic.raycastTarget
+                != RetainedOverviewTabPolicy.BackgroundBlocksRaycasts
             || !RetainedHeaderBottomBarPolicy.IsValidGraphic(
                 headerBottomBarGraphic.color.r,
                 headerBottomBarGraphic.color.g,
@@ -648,6 +666,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewTabButton.transition != Selectable.Transition.None
             || overviewTabButton.navigation.mode != Navigation.Mode.None
             || overviewTabButton.onClick.GetPersistentEventCount() != 0
+            || !ReferenceEquals(overviewTabVisualState.Target, overviewTabGraphic)
             || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.Header.ReferenceTransform)
             || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.OverviewTab.ReferenceTransform)
             || !ReferenceEquals(
@@ -940,6 +959,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         headerModifier = null;
         overviewTabRect = null;
         overviewTabGraphic = null;
+        overviewTabVisualState = null;
         overviewTabModifier = null;
         overviewTabLabelRect = null;
         overviewTabLabelGraphic = null;

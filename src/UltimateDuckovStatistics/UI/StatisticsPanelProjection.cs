@@ -433,6 +433,22 @@ internal sealed class RetainedOverviewTabCanvasLayout
     public float LabelHeight { get; set; }
 }
 
+internal readonly struct RetainedRgbaColor
+{
+    public RetainedRgbaColor(float red, float green, float blue, float alpha)
+    {
+        Red = red;
+        Green = green;
+        Blue = blue;
+        Alpha = alpha;
+    }
+
+    public float Red { get; }
+    public float Green { get; }
+    public float Blue { get; }
+    public float Alpha { get; }
+}
+
 internal static class RetainedOverviewTabPolicy
 {
     public const string BackgroundName = "OverviewTab";
@@ -461,10 +477,6 @@ internal static class RetainedOverviewTabPolicy
     public const float AuditedNativePreferredWidthPixels = 161.91875f;
     public const float AuditedReferenceTabWidthPixels =
         AuditedNativePreferredWidthPixels + LeftPaddingPixels + RightPaddingPixels;
-    public const float Red = 30f / 255f;
-    public const float Green = 66f / 255f;
-    public const float Blue = 94f / 255f;
-    public const float Alpha = 0.75f;
     public const float LabelRed = 1f;
     public const float LabelGreen = 1f;
     public const float LabelBlue = 1f;
@@ -477,7 +489,6 @@ internal static class RetainedOverviewTabPolicy
     public const float WordSpacing = 0f;
     public const float LineSpacing = 0f;
     public const float ParagraphSpacing = 0f;
-    public const bool AlwaysRendersUnselected = true;
     public const bool UsesTopEdgeModifier = true;
     public const bool UsesFilledImage = false;
     public const bool UsesHorizontalTypographyCompensation = false;
@@ -518,17 +529,70 @@ internal static class RetainedOverviewTabPolicy
         };
     }
 
-    public static bool IsValidBackgroundGraphic(
+}
+
+internal static class RetainedOverviewTabVisualStatePolicy
+{
+    public const float UnselectedRed = 30f / 255f;
+    public const float UnselectedGreen = 66f / 255f;
+    public const float UnselectedBlue = 94f / 255f;
+    public const float UnselectedAlpha = 0.75f;
+    public const float SelectedRed = RetainedHeaderBottomBarPolicy.Red;
+    public const float SelectedGreen = RetainedHeaderBottomBarPolicy.Green;
+    public const float SelectedBlue = RetainedHeaderBottomBarPolicy.Blue;
+    public const float SelectedAlpha = RetainedHeaderBottomBarPolicy.Alpha;
+
+    public static RetainedRgbaColor Resolve(
+        StatisticsPanelTab selectedTab,
+        StatisticsPanelTab candidateTab)
+    {
+        if (!PanelInteractionState.NavigationOrder.Contains(selectedTab))
+            throw new ArgumentOutOfRangeException(nameof(selectedTab));
+        if (!PanelInteractionState.NavigationOrder.Contains(candidateTab))
+            throw new ArgumentOutOfRangeException(nameof(candidateTab));
+
+        return selectedTab == candidateTab
+            ? new RetainedRgbaColor(SelectedRed, SelectedGreen, SelectedBlue, SelectedAlpha)
+            : new RetainedRgbaColor(UnselectedRed, UnselectedGreen, UnselectedBlue, UnselectedAlpha);
+    }
+
+    public static bool IsExactColor(
+        RetainedRgbaColor expected,
         float red,
         float green,
         float blue,
-        float alpha,
-        bool raycastTarget) =>
-        red == Red
-        && green == Green
-        && blue == Blue
-        && alpha == Alpha
-        && raycastTarget == BackgroundBlocksRaycasts;
+        float alpha) =>
+        red == expected.Red
+        && green == expected.Green
+        && blue == expected.Blue
+        && alpha == expected.Alpha;
+}
+
+internal sealed class RetainedOverviewTabVisualState<TTarget> where TTarget : class
+{
+    private readonly TTarget target;
+    private readonly StatisticsPanelTab candidateTab;
+    private readonly Action<TTarget, RetainedRgbaColor> applyColor;
+
+    public RetainedOverviewTabVisualState(
+        TTarget target,
+        StatisticsPanelTab candidateTab,
+        Action<TTarget, RetainedRgbaColor> applyColor)
+    {
+        this.target = target ?? throw new ArgumentNullException(nameof(target));
+        this.applyColor = applyColor ?? throw new ArgumentNullException(nameof(applyColor));
+        RetainedOverviewTabVisualStatePolicy.Resolve(candidateTab, candidateTab);
+        this.candidateTab = candidateTab;
+    }
+
+    public TTarget Target => target;
+
+    public void Apply(StatisticsPanelTab selectedTab)
+    {
+        applyColor(
+            target,
+            RetainedOverviewTabVisualStatePolicy.Resolve(selectedTab, candidateTab));
+    }
 }
 
 internal sealed class RetainedHeaderTitleCanvasLayout

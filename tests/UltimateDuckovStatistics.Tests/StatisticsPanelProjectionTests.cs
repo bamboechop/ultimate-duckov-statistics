@@ -431,10 +431,10 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(36f, RetainedOverviewTabPolicy.ReferenceFontSize);
         Assert.Equal(161.91875f, RetainedOverviewTabPolicy.AuditedNativePreferredWidthPixels);
         Assert.Equal(221.91875f, RetainedOverviewTabPolicy.AuditedReferenceTabWidthPixels);
-        Assert.Equal(30f / 255f, RetainedOverviewTabPolicy.Red);
-        Assert.Equal(66f / 255f, RetainedOverviewTabPolicy.Green);
-        Assert.Equal(94f / 255f, RetainedOverviewTabPolicy.Blue);
-        Assert.Equal(0.75f, RetainedOverviewTabPolicy.Alpha);
+        Assert.Equal(30f / 255f, RetainedOverviewTabVisualStatePolicy.UnselectedRed);
+        Assert.Equal(66f / 255f, RetainedOverviewTabVisualStatePolicy.UnselectedGreen);
+        Assert.Equal(94f / 255f, RetainedOverviewTabVisualStatePolicy.UnselectedBlue);
+        Assert.Equal(0.75f, RetainedOverviewTabVisualStatePolicy.UnselectedAlpha);
         Assert.True(RetainedOverviewTabPolicy.BackgroundBlocksRaycasts);
         Assert.False(RetainedOverviewTabPolicy.LabelBlocksRaycasts);
         Assert.False(RetainedOverviewTabPolicy.WordWrapping);
@@ -443,7 +443,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedOverviewTabPolicy.WordSpacing);
         Assert.Equal(0f, RetainedOverviewTabPolicy.LineSpacing);
         Assert.Equal(0f, RetainedOverviewTabPolicy.ParagraphSpacing);
-        Assert.True(RetainedOverviewTabPolicy.AlwaysRendersUnselected);
         Assert.True(RetainedOverviewTabPolicy.UsesTopEdgeModifier);
         Assert.False(RetainedOverviewTabPolicy.UsesFilledImage);
         Assert.False(RetainedOverviewTabPolicy.UsesHorizontalTypographyCompensation);
@@ -459,18 +458,21 @@ public sealed class StatisticsPanelProjectionTests
             RetainedOverviewTabPolicy.HeightPixels
             - RetainedOverviewTabPolicy.TopPaddingPixels
             - RetainedOverviewTabPolicy.BottomPaddingPixels);
-        Assert.True(RetainedOverviewTabPolicy.IsValidBackgroundGraphic(
+        var unselectedColor = RetainedOverviewTabVisualStatePolicy.Resolve(
+            StatisticsPanelTab.Runs,
+            StatisticsPanelTab.Overview);
+        Assert.True(RetainedOverviewTabVisualStatePolicy.IsExactColor(
+            unselectedColor,
             30f / 255f,
             66f / 255f,
             94f / 255f,
-            0.75f,
-            raycastTarget: true));
-        Assert.False(RetainedOverviewTabPolicy.IsValidBackgroundGraphic(
-            30f / 255f,
-            66f / 255f,
-            94f / 255f,
-            0.75f,
-            raycastTarget: false));
+            0.75f));
+        Assert.False(RetainedOverviewTabVisualStatePolicy.IsExactColor(
+            unselectedColor,
+            78f / 255f,
+            189f / 255f,
+            1f,
+            1f));
     }
 
     [Theory]
@@ -640,6 +642,122 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(
             new[] { StatisticsPanelTab.Overview, StatisticsPanelTab.Overview },
             synchronizedTabs);
+    }
+
+    [Fact]
+    public void GateSixResolvesExactSelectedAndUnselectedOverviewColors()
+    {
+        var selected = RetainedOverviewTabVisualStatePolicy.Resolve(
+            StatisticsPanelTab.Overview,
+            StatisticsPanelTab.Overview);
+        var unselected = RetainedOverviewTabVisualStatePolicy.Resolve(
+            StatisticsPanelTab.Runs,
+            StatisticsPanelTab.Overview);
+
+        Assert.Equal(78f / 255f, selected.Red);
+        Assert.Equal(189f / 255f, selected.Green);
+        Assert.Equal(1f, selected.Blue);
+        Assert.Equal(1f, selected.Alpha);
+        Assert.Equal(RetainedHeaderBottomBarPolicy.Red, selected.Red);
+        Assert.Equal(RetainedHeaderBottomBarPolicy.Green, selected.Green);
+        Assert.Equal(RetainedHeaderBottomBarPolicy.Blue, selected.Blue);
+        Assert.Equal(RetainedHeaderBottomBarPolicy.Alpha, selected.Alpha);
+        Assert.Equal(30f / 255f, unselected.Red);
+        Assert.Equal(66f / 255f, unselected.Green);
+        Assert.Equal(94f / 255f, unselected.Blue);
+        Assert.Equal(0.75f, unselected.Alpha);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedOverviewTabVisualStatePolicy.Resolve(
+                (StatisticsPanelTab)int.MaxValue,
+                StatisticsPanelTab.Overview));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedOverviewTabVisualStatePolicy.Resolve(
+                StatisticsPanelTab.Overview,
+                (StatisticsPanelTab)int.MaxValue));
+    }
+
+    [Fact]
+    public void GateSixProductionVisualStatePathAppliesInitialAndSubsequentStatesToOneTarget()
+    {
+        var background = new object();
+        var assignments = new List<(object Target, RetainedRgbaColor Color)>();
+        var visualState = new RetainedOverviewTabVisualState<object>(
+            background,
+            StatisticsPanelTab.Overview,
+            (target, color) => assignments.Add((target, color)));
+
+        visualState.Apply(StatisticsPanelTab.Overview);
+        visualState.Apply(StatisticsPanelTab.Runs);
+        visualState.Apply(StatisticsPanelTab.Overview);
+        visualState.Apply(StatisticsPanelTab.Overview);
+
+        Assert.Same(background, visualState.Target);
+        Assert.Equal(4, assignments.Count);
+        Assert.All(assignments, assignment => Assert.Same(background, assignment.Target));
+        Assert.Equal(1f, assignments[0].Color.Alpha);
+        Assert.Equal(30f / 255f, assignments[1].Color.Red);
+        Assert.Equal(0.75f, assignments[1].Color.Alpha);
+        Assert.Equal(78f / 255f, assignments[2].Color.Red);
+        Assert.Equal(1f, assignments[2].Color.Alpha);
+        Assert.Equal(assignments[2].Color.Red, assignments[3].Color.Red);
+        Assert.Equal(assignments[2].Color.Green, assignments[3].Color.Green);
+        Assert.Equal(assignments[2].Color.Blue, assignments[3].Color.Blue);
+        Assert.Equal(assignments[2].Color.Alpha, assignments[3].Color.Alpha);
+    }
+
+    [Fact]
+    public void GateSixOverviewClickUpdatesAuthoritativeStateThenAppliesSelectedColor()
+    {
+        var interaction = new PanelInteractionState();
+        interaction.SelectTab(StatisticsPanelTab.Crafting);
+        var background = new object();
+        var assignments = new List<RetainedRgbaColor>();
+        var visualState = new RetainedOverviewTabVisualState<object>(
+            background,
+            StatisticsPanelTab.Overview,
+            (_, color) => assignments.Add(color));
+        visualState.Apply(interaction.SelectedTab);
+        var activation = new RetainedOverviewTabActivation(selected =>
+            RetainedTabSelectionPolicy.SelectAndSynchronize(
+                interaction,
+                visualState.Apply,
+                selected));
+
+        activation.Invoke();
+
+        Assert.Equal(StatisticsPanelTab.Overview, interaction.SelectedTab);
+        Assert.Equal(2, assignments.Count);
+        Assert.Equal(0.75f, assignments[0].Alpha);
+        Assert.Equal(78f / 255f, assignments[1].Red);
+        Assert.Equal(189f / 255f, assignments[1].Green);
+        Assert.Equal(1f, assignments[1].Blue);
+        Assert.Equal(1f, assignments[1].Alpha);
+        Assert.Same(background, visualState.Target);
+    }
+
+    [Fact]
+    public void GateSixKeepsGateFiveCompositionGeometryAndTypographyFrozen()
+    {
+        var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
+
+        Assert.Equal(5, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(8, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
+        Assert.Equal(115f, tab.Left);
+        Assert.Equal(251f, tab.Top);
+        Assert.Equal(221.91875f, tab.Width);
+        Assert.Equal(79f, tab.Height);
+        Assert.Equal(145f, tab.LabelLeft);
+        Assert.Equal(276f, tab.LabelTop);
+        Assert.Equal(161.91875f, tab.LabelWidth);
+        Assert.Equal(29f, tab.LabelHeight);
+        Assert.Equal(36f, tab.FontSize);
+        Assert.Equal("ResourceHanRoundedCN-Medium SDF", RetainedOverviewTabPolicy.FontAssetName);
+        Assert.Equal(
+            "ResourceHanRoundedCN-Medium Atlas Material Shadow",
+            RetainedOverviewTabPolicy.MaterialName);
+        Assert.Equal("UNDERLAY_ON", RetainedOverviewTabPolicy.NativeUnderlayKeyword);
     }
 
     [Fact]
