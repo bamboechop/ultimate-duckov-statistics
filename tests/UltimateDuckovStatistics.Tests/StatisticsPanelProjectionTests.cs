@@ -431,10 +431,10 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(36f, RetainedOverviewTabPolicy.ReferenceFontSize);
         Assert.Equal(161.91875f, RetainedOverviewTabPolicy.AuditedNativePreferredWidthPixels);
         Assert.Equal(221.91875f, RetainedOverviewTabPolicy.AuditedReferenceTabWidthPixels);
-        Assert.Equal(30f / 255f, RetainedOverviewTabVisualStatePolicy.UnselectedRed);
-        Assert.Equal(66f / 255f, RetainedOverviewTabVisualStatePolicy.UnselectedGreen);
-        Assert.Equal(94f / 255f, RetainedOverviewTabVisualStatePolicy.UnselectedBlue);
-        Assert.Equal(0.75f, RetainedOverviewTabVisualStatePolicy.UnselectedAlpha);
+        Assert.Equal(30f / 255f, RetainedTabVisualStatePolicy.UnselectedRed);
+        Assert.Equal(66f / 255f, RetainedTabVisualStatePolicy.UnselectedGreen);
+        Assert.Equal(94f / 255f, RetainedTabVisualStatePolicy.UnselectedBlue);
+        Assert.Equal(0.75f, RetainedTabVisualStatePolicy.UnselectedAlpha);
         Assert.True(RetainedOverviewTabPolicy.BackgroundBlocksRaycasts);
         Assert.False(RetainedOverviewTabPolicy.LabelBlocksRaycasts);
         Assert.False(RetainedOverviewTabPolicy.WordWrapping);
@@ -458,16 +458,16 @@ public sealed class StatisticsPanelProjectionTests
             RetainedOverviewTabPolicy.HeightPixels
             - RetainedOverviewTabPolicy.TopPaddingPixels
             - RetainedOverviewTabPolicy.BottomPaddingPixels);
-        var unselectedColor = RetainedOverviewTabVisualStatePolicy.Resolve(
+        var unselectedColor = RetainedTabVisualStatePolicy.Resolve(
             StatisticsPanelTab.Runs,
             StatisticsPanelTab.Overview);
-        Assert.True(RetainedOverviewTabVisualStatePolicy.IsExactColor(
+        Assert.True(RetainedTabVisualStatePolicy.IsExactColor(
             unselectedColor,
             30f / 255f,
             66f / 255f,
             94f / 255f,
             0.75f));
-        Assert.False(RetainedOverviewTabVisualStatePolicy.IsExactColor(
+        Assert.False(RetainedTabVisualStatePolicy.IsExactColor(
             unselectedColor,
             78f / 255f,
             189f / 255f,
@@ -536,11 +536,12 @@ public sealed class StatisticsPanelProjectionTests
 
         var overviewParameter = Assert.Single(overviewLayoutMethod.GetParameters());
         Assert.Equal(typeof(RetainedReferenceTransform), overviewParameter.ParameterType);
-        Assert.Equal(2, visualLayoutMethods.Length);
-        Assert.DoesNotContain(
-            visualLayoutMethods.SelectMany(method => method.GetParameters()),
-            parameter => parameter.Name != null
-                && parameter.Name.Contains("preferred", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(3, visualLayoutMethods.Length);
+        var measuredStripOverload = Assert.Single(
+            visualLayoutMethods,
+            method => method.GetParameters().Length == 2
+                      && method.GetParameters()[0].ParameterType == typeof(RetainedReferenceTransform));
+        Assert.Equal(typeof(IReadOnlyList<float>), measuredStripOverload.GetParameters()[1].ParameterType);
     }
 
     [Fact]
@@ -617,26 +618,28 @@ public sealed class StatisticsPanelProjectionTests
     [Fact]
     public void GateFiveOverviewActivationUpdatesAuthoritativeSelectionAndSynchronizesIdempotently()
     {
-        var instanceFields = typeof(RetainedOverviewTabActivation).GetFields(
+        var instanceFields = typeof(RetainedTabActivation).GetFields(
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        var staticFields = typeof(RetainedOverviewTabActivation).GetFields(
+        var staticFields = typeof(RetainedTabActivation).GetFields(
             System.Reflection.BindingFlags.Static
             | System.Reflection.BindingFlags.Public
             | System.Reflection.BindingFlags.NonPublic);
         var interaction = new PanelInteractionState();
         interaction.SelectTab(StatisticsPanelTab.Crafting);
         var synchronizedTabs = new List<StatisticsPanelTab>();
-        var activation = new RetainedOverviewTabActivation(selected =>
+        var activation = new RetainedTabActivation(selected =>
             RetainedTabSelectionPolicy.SelectAndSynchronize(
                 interaction,
                 synchronizedTabs.Add,
-                selected));
+                selected),
+            StatisticsPanelTab.Overview);
 
         activation.Invoke();
         activation.Invoke();
 
-        Assert.Single(instanceFields);
-        Assert.Equal(typeof(Action<StatisticsPanelTab>), instanceFields[0].FieldType);
+        Assert.Equal(2, instanceFields.Length);
+        Assert.Contains(instanceFields, field => field.FieldType == typeof(Action<StatisticsPanelTab>));
+        Assert.Contains(instanceFields, field => field.FieldType == typeof(StatisticsPanelTab));
         Assert.Empty(staticFields);
         Assert.Equal(StatisticsPanelTab.Overview, interaction.SelectedTab);
         Assert.Equal(
@@ -647,10 +650,10 @@ public sealed class StatisticsPanelProjectionTests
     [Fact]
     public void GateSixResolvesExactSelectedAndUnselectedOverviewColors()
     {
-        var selected = RetainedOverviewTabVisualStatePolicy.Resolve(
+        var selected = RetainedTabVisualStatePolicy.Resolve(
             StatisticsPanelTab.Overview,
             StatisticsPanelTab.Overview);
-        var unselected = RetainedOverviewTabVisualStatePolicy.Resolve(
+        var unselected = RetainedTabVisualStatePolicy.Resolve(
             StatisticsPanelTab.Runs,
             StatisticsPanelTab.Overview);
 
@@ -667,11 +670,11 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(94f / 255f, unselected.Blue);
         Assert.Equal(0.75f, unselected.Alpha);
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RetainedOverviewTabVisualStatePolicy.Resolve(
+            RetainedTabVisualStatePolicy.Resolve(
                 (StatisticsPanelTab)int.MaxValue,
                 StatisticsPanelTab.Overview));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RetainedOverviewTabVisualStatePolicy.Resolve(
+            RetainedTabVisualStatePolicy.Resolve(
                 StatisticsPanelTab.Overview,
                 (StatisticsPanelTab)int.MaxValue));
     }
@@ -681,7 +684,7 @@ public sealed class StatisticsPanelProjectionTests
     {
         var background = new object();
         var assignments = new List<(object Target, RetainedRgbaColor Color)>();
-        var visualState = new RetainedOverviewTabVisualState<object>(
+        var visualState = new RetainedTabVisualState<object>(
             background,
             StatisticsPanelTab.Overview,
             (target, color) => assignments.Add((target, color)));
@@ -712,16 +715,17 @@ public sealed class StatisticsPanelProjectionTests
         interaction.SelectTab(StatisticsPanelTab.Crafting);
         var background = new object();
         var assignments = new List<RetainedRgbaColor>();
-        var visualState = new RetainedOverviewTabVisualState<object>(
+        var visualState = new RetainedTabVisualState<object>(
             background,
             StatisticsPanelTab.Overview,
             (_, color) => assignments.Add(color));
         visualState.Apply(interaction.SelectedTab);
-        var activation = new RetainedOverviewTabActivation(selected =>
+        var activation = new RetainedTabActivation(selected =>
             RetainedTabSelectionPolicy.SelectAndSynchronize(
                 interaction,
                 visualState.Apply,
-                selected));
+                selected),
+            StatisticsPanelTab.Overview);
 
         activation.Invoke();
 
@@ -740,9 +744,9 @@ public sealed class StatisticsPanelProjectionTests
     {
         var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
 
-        Assert.Equal(5, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(8, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(2, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(13, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(24, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(115f, tab.Left);
         Assert.Equal(251f, tab.Top);
@@ -839,7 +843,7 @@ public sealed class StatisticsPanelProjectionTests
             _ => destroyed++);
         var material = owned.Resource;
         var background = new object();
-        var visualState = new RetainedOverviewTabVisualState<object>(
+        var visualState = new RetainedTabVisualState<object>(
             background,
             StatisticsPanelTab.Overview,
             (_, _) => { });
@@ -851,11 +855,314 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Same(material, owned.Resource);
         Assert.False(owned.IsDisposed);
         Assert.Equal(0, destroyed);
-        Assert.Equal(5, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(8, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(2, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(13, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(24, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
+    }
+
+    [Fact]
+    public void GateSevenSpecificationMatchesNavigationOrderAndLocalizationExactly()
+    {
+        var specifications = RetainedTabStripPolicy.Specifications;
+        var expected = new[]
+        {
+            (StatisticsPanelTab.Overview, "ui.overview", "Overview"),
+            (StatisticsPanelTab.Runs, "ui.runs", "Runs"),
+            (StatisticsPanelTab.Records, "ui.records", "Records"),
+            (StatisticsPanelTab.Combat, "ui.combat", "Combat"),
+            (StatisticsPanelTab.Equipment, "ui.equipment", "Equipment"),
+            (StatisticsPanelTab.Economy, "ui.economy", "Economy"),
+            (StatisticsPanelTab.Crafting, "ui.crafting", "Crafting"),
+            (StatisticsPanelTab.ItemUse, "ui.item_use", "Item Use"),
+            (StatisticsPanelTab.Diagnostics, "ui.diagnostics", "Diagnostics")
+        };
+
+        Assert.Equal(PanelInteractionState.NavigationOrder, specifications.Select(item => item.Tab));
+        Assert.Equal(expected.Length, specifications.Count);
+        Assert.Equal(expected.Length, specifications.Select(item => item.Tab).Distinct().Count());
+        Assert.Equal(expected.Length, specifications.Select(item => item.BackgroundName).Distinct().Count());
+        Assert.Equal(expected.Length, specifications.Select(item => item.LabelName).Distinct().Count());
+        for (var index = 0; index < expected.Length; index++)
+        {
+            Assert.Equal(expected[index].Item1, specifications[index].Tab);
+            Assert.Equal(expected[index].Item2, specifications[index].TextKey);
+            Assert.Equal(expected[index].Item3, specifications[index].EnglishFallback);
+            Assert.Equal(expected[index].Item3, UiText.EnglishFallbacks[specifications[index].TextKey]);
+        }
+
+        Assert.Equal(
+            StatisticsPanelTab.Overview,
+            Assert.Single(specifications, item => item.IsAbsolutelyAnchored).Tab);
+    }
+
+    [Fact]
+    public void GateSevenRelationalLayoutUsesOnlyMeasuredWidthsPaddingAndGaps()
+    {
+        var suppliedWidths = new[] { 100f, 110f, 120f, 130f, 140f, 150f, 160f, 170f, 180f };
+        var transform = RetainedReferenceTransformPolicy.Create(2560f, 1440f, 1f);
+        var strip = RetainedTabStripPolicy.CreateCanvasLayout(transform, suppliedWidths);
+
+        Assert.Equal(115f, strip.Tabs[0].Left);
+        for (var index = 0; index < strip.Tabs.Count; index++)
+        {
+            var tab = strip.Tabs[index];
+            Assert.Equal(suppliedWidths[index], tab.ReferencePreferredLabelWidth);
+            Assert.Equal(suppliedWidths[index], tab.PreferredLabelWidth);
+            Assert.Equal(suppliedWidths[index] + 60f, tab.Width);
+            Assert.Equal(30f, tab.LeftPadding);
+            Assert.Equal(30f, tab.RightPadding);
+            Assert.Equal(25f, tab.TopPadding);
+            Assert.Equal(25f, tab.BottomPadding);
+            Assert.Equal(29f, tab.LabelHeight);
+            Assert.Equal(251f, tab.Top);
+            Assert.Equal(79f, tab.Height);
+            Assert.Equal(36f, tab.FontSize);
+            if (index > 0)
+                Assert.Equal(strip.Tabs[index - 1].Left + strip.Tabs[index - 1].Width + 10f, tab.Left);
+        }
+    }
+
+    [Fact]
+    public void GateSevenMeasurementNormalizationUsesReferenceAndCanvasScales()
+    {
+        const float referenceWidth = 161.91875f;
+        foreach (var referenceScale in new[] { 0.5f, 0.65625f, 0.75f, 1f })
+        foreach (var canvasScaleFactor in new[] { 1f, 2f, 3f })
+        {
+            var measuredCanvasWidth = referenceWidth * referenceScale / canvasScaleFactor;
+            Assert.Equal(
+                referenceWidth,
+                RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
+                    measuredCanvasWidth,
+                    canvasScaleFactor,
+                    referenceScale),
+                3);
+        }
+
+        RetainedTabMeasurementPolicy.RequirePlausibleEnglishWidth(
+            "Overview",
+            referenceWidth + 0.125f,
+            referenceWidth);
+        Assert.Throws<InvalidOperationException>(() =>
+            RetainedTabMeasurementPolicy.RequirePlausibleEnglishWidth(
+                "Overview",
+                referenceWidth * 2f,
+                referenceWidth));
+    }
+
+    [Fact]
+    public void GateSevenMeasurementRejectsInvalidProductionWidths()
+    {
+        foreach (var invalid in new[] { 0f, -1f, float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                RetainedTabMeasurementPolicy.NormalizeCanvasWidth(invalid, 1f, 1f));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                RetainedTabStripPolicy.CreateCanvasLayout(
+                    RetainedReferenceTransformPolicy.Create(2560f, 1440f, 1f),
+                    new[] { invalid, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f }));
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedTabMeasurementPolicy.NormalizeCanvasWidth(100f, 0f, 1f));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RetainedTabMeasurementPolicy.NormalizeCanvasWidth(100f, 1f, float.NaN));
+    }
+
+    [Fact]
+    public void GateSevenMeasuredWidthDifferencesPropagateRelationallyWithoutOverlap()
+    {
+        var originalWidths = RetainedTabStripPolicy.AuditedEnglishPreferredWidths.ToArray();
+        var changedWidths = originalWidths.ToArray();
+        changedWidths[1] += 0.125f;
+        var transform = RetainedReferenceTransformPolicy.Create(2560f, 1440f, 1f);
+        var original = RetainedTabStripPolicy.CreateCanvasLayout(transform, originalWidths);
+        var changed = RetainedTabStripPolicy.CreateCanvasLayout(transform, changedWidths);
+
+        Assert.Equal(original.Tabs[0].Left, changed.Tabs[0].Left);
+        Assert.Equal(original.Tabs[0].Width, changed.Tabs[0].Width);
+        Assert.Equal(original.Tabs[1].Left, changed.Tabs[1].Left);
+        Assert.Equal(original.Tabs[1].Width + 0.125f, changed.Tabs[1].Width, 3);
+        for (var index = 2; index < changed.Tabs.Count; index++)
+            Assert.Equal(original.Tabs[index].Left + 0.125f, changed.Tabs[index].Left, 3);
+        for (var index = 1; index < changed.Tabs.Count; index++)
+            Assert.Equal(changed.Tabs[index - 1].Left + changed.Tabs[index - 1].Width + 10f, changed.Tabs[index].Left, 3);
+    }
+
+    [Fact]
+    public void GateSevenGeometryUsesSharedTransformAtEveryRequiredViewportAndCanvasScale()
+    {
+        var viewports = new[]
+        {
+            (Width: 1280f, Height: 720f),
+            (Width: 1680f, Height: 1050f),
+            (Width: 1920f, Height: 1080f),
+            (Width: 1920f, Height: 1200f),
+            (Width: 2560f, Height: 1440f)
+        };
+        foreach (var viewport in viewports)
+        {
+            var baseline = RetainedVisualLayoutPolicy.Create(
+                RetainedReferenceTransformPolicy.Create(viewport.Width, viewport.Height, 1f),
+                RetainedTabStripPolicy.AuditedEnglishPreferredWidths);
+            foreach (var canvasScaleFactor in new[] { 1f, 2f, 3f })
+            {
+                var layout = RetainedVisualLayoutPolicy.Create(
+                    RetainedReferenceTransformPolicy.Create(
+                        viewport.Width,
+                        viewport.Height,
+                        canvasScaleFactor),
+                    RetainedTabStripPolicy.AuditedEnglishPreferredWidths);
+                Assert.Equal(9, layout.TabStrip.Tabs.Count);
+                for (var index = 0; index < layout.TabStrip.Tabs.Count; index++)
+                {
+                    var expected = baseline.TabStrip.Tabs[index];
+                    var actual = layout.TabStrip.Tabs[index];
+                    Assert.Equal(expected.Left, actual.Left * canvasScaleFactor, 2);
+                    Assert.Equal(expected.Top, actual.Top * canvasScaleFactor, 2);
+                    Assert.Equal(expected.Width, actual.Width * canvasScaleFactor, 2);
+                    Assert.Equal(expected.Height, actual.Height * canvasScaleFactor, 2);
+                    Assert.Equal(expected.LeftPadding, actual.LeftPadding * canvasScaleFactor, 2);
+                    Assert.Equal(expected.RightPadding, actual.RightPadding * canvasScaleFactor, 2);
+                    Assert.Equal(expected.FontSize, actual.FontSize * canvasScaleFactor, 2);
+                    if (index > 0)
+                    {
+                        Assert.Equal(
+                            10f * layout.ReferenceTransform.ReferenceScale,
+                            (actual.Left - layout.TabStrip.Tabs[index - 1].Left
+                             - layout.TabStrip.Tabs[index - 1].Width) * canvasScaleFactor,
+                            2);
+                    }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void GateSevenEveryActivationSelectsItsSpecifiedTab()
+    {
+        var interaction = new PanelInteractionState();
+        foreach (var specification in RetainedTabStripPolicy.Specifications)
+        {
+            interaction.SelectTab(StatisticsPanelTab.Overview);
+            var observed = new List<StatisticsPanelTab>();
+            var activation = new RetainedTabActivation(
+                tab => RetainedTabSelectionPolicy.SelectAndSynchronize(
+                    interaction,
+                    observed.Add,
+                    tab),
+                specification.Tab);
+
+            activation.Invoke();
+
+            Assert.Equal(specification.Tab, interaction.SelectedTab);
+            Assert.Equal(specification.Tab, Assert.Single(observed));
+        }
+    }
+
+    [Fact]
+    public void GateSevenKeyboardCyclingKeepsExactlyOneOfNineBackgroundsSelected()
+    {
+        var interaction = new PanelInteractionState();
+        var targets = RetainedTabStripPolicy.Specifications.Select(_ => new object()).ToArray();
+        var colors = new Dictionary<object, RetainedRgbaColor>();
+        var states = RetainedTabStripPolicy.Specifications
+            .Select((specification, index) => new RetainedTabVisualState<object>(
+                targets[index],
+                specification.Tab,
+                (target, color) => colors[target] = color))
+            .ToArray();
+
+        void AssertSynchronized()
+        {
+            foreach (var state in states) state.Apply(interaction.SelectedTab);
+            Assert.Equal(1, colors.Values.Count(color => color.Alpha == 1f));
+            for (var index = 0; index < states.Length; index++)
+            {
+                var expected = RetainedTabVisualStatePolicy.Resolve(
+                    interaction.SelectedTab,
+                    RetainedTabStripPolicy.Specifications[index].Tab);
+                var actual = colors[targets[index]];
+                Assert.True(RetainedTabVisualStatePolicy.IsExactColor(
+                    expected,
+                    actual.Red,
+                    actual.Green,
+                    actual.Blue,
+                    actual.Alpha));
+            }
+        }
+
+        AssertSynchronized();
+        for (var step = 0; step < 9; step++)
+        {
+            interaction.MoveTab(1);
+            AssertSynchronized();
+        }
+        Assert.Equal(StatisticsPanelTab.Overview, interaction.SelectedTab);
+        for (var step = 0; step < 9; step++)
+        {
+            interaction.MoveTab(-1);
+            AssertSynchronized();
+        }
+        Assert.Equal(StatisticsPanelTab.Overview, interaction.SelectedTab);
+    }
+
+    [Fact]
+    public void GateSevenSelectionReusesOneMaterialAndListenerLeaseDisposesOnce()
+    {
+        var createdMaterials = 0;
+        var destroyedMaterials = 0;
+        var source = new RetainedMaterialProbe(new object(), 1f);
+        var material = RetainedOwnedResource<RetainedMaterialProbe>.CreatePrivateClone(
+            source,
+            original =>
+            {
+                createdMaterials++;
+                return original.Clone(RetainedTabLabelShadowPolicy.Alpha);
+            },
+            _ => destroyedMaterials++);
+        var assignedMaterials = RetainedTabStripPolicy.Specifications
+            .Select(_ => material.Resource)
+            .ToArray();
+        var listenerRemovals = new int[RetainedShellCompositionPolicy.TabCount];
+        var listeners = new RetainedListenerLease();
+        for (var index = 0; index < listenerRemovals.Length; index++)
+        {
+            var capturedIndex = index;
+            listeners.Register(() => listenerRemovals[capturedIndex]++);
+        }
+
+        var interaction = new PanelInteractionState();
+        for (var step = 0; step < 50; step++) interaction.MoveTab(1);
+
+        Assert.Equal(1, createdMaterials);
+        Assert.All(assignedMaterials, assigned => Assert.Same(material.Resource, assigned));
+        Assert.Equal(9, listeners.Count);
+        Assert.Equal(0, destroyedMaterials);
+        listeners.Dispose();
+        listeners.Dispose();
+        material.Dispose();
+        material.Dispose();
+
+        Assert.True(listeners.IsDisposed);
+        Assert.Equal(0, listeners.Count);
+        Assert.All(listenerRemovals, removals => Assert.Equal(1, removals));
+        Assert.Equal(1, destroyedMaterials);
+    }
+
+    [Fact]
+    public void GateSevenCompositionAddsOnlyEightTabsToTheAcceptedShell()
+    {
+        Assert.Equal(9, RetainedShellCompositionPolicy.TabCount);
+        Assert.Equal(13, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
+        Assert.Equal(24, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
     }
 
     [Fact]
@@ -1024,7 +1331,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(baseline.BackControl.Width / 2f, resized.BackControl.Width);
         Assert.Equal(baseline.HeaderTitle.Width / 2f, resized.HeaderTitle.Width);
         Assert.Equal(baseline.HeaderTitle.FontSize / 2f, resized.HeaderTitle.FontSize);
-        Assert.Equal(5, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(13, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
@@ -1033,10 +1340,10 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderTitleChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.BackButtonChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.BackArrowChildCount);
-        Assert.Equal(8, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(2, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(24, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
-        Assert.Equal(1, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
     }
 
     private static RetainedVisualCanvasLayout CreateRetainedVisualLayout(

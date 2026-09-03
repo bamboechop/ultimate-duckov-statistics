@@ -6,23 +6,51 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 06-B.
-/// The root graphic remains the modal dimmer; its children are the frozen header/back/title/bar and Overview tab.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 07.
+/// The root graphic remains the modal dimmer; its children are the frozen header/back/title/bar and nine tabs.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
 {
+    private sealed class RetainedTabControl
+    {
+        public RetainedTabControl(
+            RetainedTabSpecification specification,
+            RectTransform rect,
+            ProceduralImage background,
+            RetainedTabVisualState<ProceduralImage> visualState,
+            OnlyOneEdgeModifier modifier,
+            Button button,
+            RectTransform labelRect,
+            TextMeshProUGUI label)
+        {
+            Specification = specification;
+            Rect = rect;
+            Background = background;
+            VisualState = visualState;
+            Modifier = modifier;
+            Button = button;
+            LabelRect = labelRect;
+            Label = label;
+        }
+
+        public RetainedTabSpecification Specification { get; }
+        public RectTransform Rect { get; }
+        public ProceduralImage Background { get; }
+        public RetainedTabVisualState<ProceduralImage> VisualState { get; }
+        public OnlyOneEdgeModifier Modifier { get; }
+        public Button Button { get; }
+        public RectTransform LabelRect { get; }
+        public TextMeshProUGUI Label { get; }
+    }
+
     private GameObject? root;
     private Canvas? canvas;
     private RectTransform? shellRoot;
     private RectTransform? headerRect;
     private UniformModifier? headerModifier;
-    private RectTransform? overviewTabRect;
-    private ProceduralImage? overviewTabGraphic;
-    private RetainedOverviewTabVisualState<ProceduralImage>? overviewTabVisualState;
-    private OnlyOneEdgeModifier? overviewTabModifier;
-    private RectTransform? overviewTabLabelRect;
-    private TextMeshProUGUI? overviewTabLabelGraphic;
-    private RetainedTabLabelMaterial? overviewTabLabelMaterial;
+    private readonly List<RetainedTabControl> tabControls = new();
+    private RetainedListenerLease? tabListenerLease;
+    private RetainedTabLabelMaterial? tabLabelMaterial;
     private RectTransform? headerBottomBarRect;
     private RectMask2D? headerBottomBarMask;
     private RectTransform? headerBottomBarSurfaceRect;
@@ -80,7 +108,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
             canvas = targetCanvas;
             selectedTab = initialTab;
-            overviewTabLabelMaterial = RetainedTabLabelMaterial.Create(headerTitleTypography.Material);
+            tabListenerLease = new RetainedListenerLease();
+            tabLabelMaterial = RetainedTabLabelMaterial.Create(headerTitleTypography.Material);
             backArrowAsset = RetainedBackArrowAsset.Create();
             root = new GameObject(
                 RetainedDimmerPolicy.RootName,
@@ -107,25 +136,35 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var headerGraphic,
                 out var createdHeaderModifier);
             headerModifier = createdHeaderModifier;
-            overviewTabRect = CreateOverviewTab(
-                rootRect,
-                headerTitleTypography,
-                overviewTabLabelMaterial.Instance,
-                selectTab,
-                out var createdOverviewTabGraphic,
-                out var createdOverviewTabModifier,
-                out var overviewTabButton,
-                out var createdOverviewTabLabelRect,
-                out var createdOverviewTabLabelGraphic);
-            overviewTabGraphic = createdOverviewTabGraphic;
-            overviewTabVisualState = new RetainedOverviewTabVisualState<ProceduralImage>(
-                createdOverviewTabGraphic,
-                StatisticsPanelTab.Overview,
-                ApplyOverviewTabColor);
-            overviewTabVisualState.Apply(selectedTab);
-            overviewTabModifier = createdOverviewTabModifier;
-            overviewTabLabelRect = createdOverviewTabLabelRect;
-            overviewTabLabelGraphic = createdOverviewTabLabelGraphic;
+            foreach (var specification in RetainedTabStripPolicy.Specifications)
+            {
+                var tabRect = CreateTab(
+                    rootRect,
+                    specification,
+                    headerTitleTypography,
+                    tabLabelMaterial.Instance,
+                    selectTab,
+                    tabListenerLease,
+                    out var tabBackground,
+                    out var tabModifier,
+                    out var tabButton,
+                    out var tabLabelRect,
+                    out var tabLabel);
+                var visualState = new RetainedTabVisualState<ProceduralImage>(
+                    tabBackground,
+                    specification.Tab,
+                    ApplyTabColor);
+                visualState.Apply(selectedTab);
+                tabControls.Add(new RetainedTabControl(
+                    specification,
+                    tabRect,
+                    tabBackground,
+                    visualState,
+                    tabModifier,
+                    tabButton,
+                    tabLabelRect,
+                    tabLabel));
+            }
             headerBottomBarRect = CreateHeaderBottomBar(
                 rootRect,
                 out var createdHeaderBottomBarMask,
@@ -160,14 +199,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 headerRect,
                 headerGraphic,
                 createdHeaderModifier,
-                overviewTabRect,
-                createdOverviewTabGraphic,
-                createdOverviewTabModifier,
-                overviewTabButton,
-                overviewTabVisualState,
-                createdOverviewTabLabelRect,
-                createdOverviewTabLabelGraphic,
-                overviewTabLabelMaterial,
+                tabControls,
+                tabLabelMaterial,
                 headerBottomBarRect,
                 createdHeaderBottomBarMask,
                 createdHeaderBottomBarSurfaceRect,
@@ -200,8 +233,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
     {
         if (!PanelInteractionState.NavigationOrder.Contains(tab))
             throw new ArgumentOutOfRangeException(nameof(tab));
+        if (selectedTab == tab) return;
         selectedTab = tab;
-        overviewTabVisualState?.Apply(selectedTab);
+        foreach (var control in tabControls) control.VisualState.Apply(selectedTab);
     }
 
     public bool Tick(out string? error)
@@ -248,19 +282,22 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return rect;
     }
 
-    private static RectTransform CreateOverviewTab(
+    private static RectTransform CreateTab(
         RectTransform parent,
+        RetainedTabSpecification specification,
         NativeHeaderTitleTypography typography,
         Material labelMaterial,
         Action<StatisticsPanelTab> selectTab,
+        RetainedListenerLease listenerLease,
         out ProceduralImage background,
         out OnlyOneEdgeModifier modifier,
         out Button button,
         out RectTransform labelRect,
         out TextMeshProUGUI label)
     {
+        if (specification == null) throw new ArgumentNullException(nameof(specification));
         var tab = new GameObject(
-            RetainedOverviewTabPolicy.BackgroundName,
+            specification.BackgroundName,
             typeof(RectTransform));
         var rect = (RectTransform)tab.transform;
         rect.SetParent(parent, worldPositionStays: false);
@@ -286,11 +323,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
         button.transition = Selectable.Transition.None;
         button.navigation = new Navigation { mode = Navigation.Mode.None };
         button.onClick = new Button.ButtonClickedEvent();
-        var activation = new RetainedOverviewTabActivation(selectTab);
+        var activation = new RetainedTabActivation(selectTab, specification.Tab);
         button.onClick.AddListener(activation.Invoke);
+        listenerLease.Register(button.onClick.RemoveAllListeners);
 
         var labelObject = new GameObject(
-            RetainedOverviewTabPolicy.LabelName,
+            specification.LabelName,
             typeof(RectTransform));
         labelRect = (RectTransform)labelObject.transform;
         labelRect.SetParent(rect, worldPositionStays: false);
@@ -302,7 +340,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         label = labelObject.AddComponent<TextMeshProUGUI>();
         label.font = typography.Font;
         label.fontSharedMaterial = labelMaterial;
-        label.text = UiText.Get(RetainedOverviewTabPolicy.TextKey);
+        label.text = UiText.Get(specification.TextKey);
         label.fontStyle = FontStyles.Normal;
         label.fontWeight = FontWeight.Regular;
         label.characterSpacing = RetainedOverviewTabPolicy.CharacterSpacing;
@@ -323,7 +361,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return rect;
     }
 
-    private static void ApplyOverviewTabColor(
+    private static void ApplyTabColor(
         ProceduralImage target,
         RetainedRgbaColor color)
     {
@@ -482,8 +520,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RetainedVisualCanvasLayout RefreshVisualLayout(bool force)
     {
         if (canvas == null || shellRoot == null || headerRect == null || headerModifier == null
-            || overviewTabRect == null || overviewTabGraphic == null || overviewTabModifier == null
-            || overviewTabLabelRect == null || overviewTabLabelGraphic == null
+            || tabControls.Count != RetainedTabStripPolicy.Specifications.Count
             || headerBottomBarRect == null || headerBottomBarMask == null
             || headerBottomBarSurfaceRect == null
             || headerBottomBarGraphic == null || headerBottomBarModifier == null
@@ -509,24 +546,26 @@ internal sealed class RetainedStatisticsShell : IDisposable
             viewportPixelWidth,
             viewportPixelHeight,
             canvasScaleFactor);
-        var layout = RetainedVisualLayoutPolicy.Create(referenceTransform);
+        var preferredReferenceWidths = MeasureTabReferenceWidths(
+            referenceTransform,
+            canvasScaleFactor);
+        var layout = RetainedVisualLayoutPolicy.Create(referenceTransform, preferredReferenceWidths);
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
-        overviewTabRect.anchoredPosition = new Vector2(
-            layout.OverviewTab.Left,
-            -layout.OverviewTab.Top);
-        overviewTabRect.sizeDelta = new Vector2(
-            layout.OverviewTab.Width,
-            layout.OverviewTab.Height);
-        overviewTabModifier.Radius = layout.OverviewTab.CornerRadius;
-        overviewTabLabelRect.anchoredPosition = new Vector2(
-            layout.OverviewTab.LabelLeft - layout.OverviewTab.Left,
-            -(layout.OverviewTab.LabelTop - layout.OverviewTab.Top));
-        overviewTabLabelRect.sizeDelta = new Vector2(
-            layout.OverviewTab.LabelWidth,
-            layout.OverviewTab.LabelHeight);
-        overviewTabLabelGraphic.fontSize = layout.OverviewTab.FontSize;
+        for (var index = 0; index < tabControls.Count; index++)
+        {
+            var control = tabControls[index];
+            var tab = layout.TabStrip.Tabs[index];
+            control.Rect.anchoredPosition = new Vector2(tab.Left, -tab.Top);
+            control.Rect.sizeDelta = new Vector2(tab.Width, tab.Height);
+            control.Modifier.Radius = tab.CornerRadius;
+            control.LabelRect.anchoredPosition = new Vector2(
+                tab.LabelLeft - tab.Left,
+                -(tab.LabelTop - tab.Top));
+            control.LabelRect.sizeDelta = new Vector2(tab.LabelWidth, tab.LabelHeight);
+            control.Label.fontSize = tab.FontSize;
+        }
         headerBottomBarRect.anchoredPosition = new Vector2(
             layout.HeaderBottomBar.Left,
             -layout.HeaderBottomBar.Top);
@@ -563,20 +602,59 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return layout;
     }
 
+    private float[] MeasureTabReferenceWidths(
+        RetainedReferenceTransform referenceTransform,
+        float canvasScaleFactor)
+    {
+        var temporaryLabelWidth = referenceTransform.CanvasLength(
+            RetainedTabMeasurementPolicy.TemporaryLabelWidthPixels);
+        var labelHeight = referenceTransform.CanvasLength(
+            RetainedOverviewTabPolicy.NominalLabelHeightPixels);
+        var tabHeight = referenceTransform.CanvasLength(RetainedOverviewTabPolicy.HeightPixels);
+        var fontSize = referenceTransform.CanvasLength(RetainedOverviewTabPolicy.ReferenceFontSize);
+        foreach (var control in tabControls)
+        {
+            control.Rect.sizeDelta = new Vector2(temporaryLabelWidth, tabHeight);
+            control.LabelRect.sizeDelta = new Vector2(temporaryLabelWidth, labelHeight);
+            control.Label.fontSize = fontSize;
+        }
+
+        Canvas.ForceUpdateCanvases();
+        var normalizedWidths = new float[tabControls.Count];
+        for (var index = 0; index < tabControls.Count; index++)
+        {
+            var control = tabControls[index];
+            control.Label.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+            var measuredCanvasWidth = control.Label.GetPreferredValues().x;
+            var normalizedWidth = RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
+                measuredCanvasWidth,
+                canvasScaleFactor,
+                referenceTransform.ReferenceScale);
+            if (string.Equals(
+                    control.Label.text,
+                    control.Specification.EnglishFallback,
+                    StringComparison.Ordinal))
+            {
+                RetainedTabMeasurementPolicy.RequirePlausibleEnglishWidth(
+                    control.Specification.EnglishFallback,
+                    normalizedWidth,
+                    control.Specification.AuditedEnglishPreferredWidthPixels);
+            }
+
+            normalizedWidths[index] = normalizedWidth;
+        }
+
+        return normalizedWidths;
+    }
+
     private static void ValidateSurfaceComposition(
         RectTransform shellRoot,
         Image blocker,
         RectTransform headerRect,
         ProceduralImage headerGraphic,
         UniformModifier headerModifier,
-        RectTransform overviewTabRect,
-        ProceduralImage overviewTabGraphic,
-        OnlyOneEdgeModifier overviewTabModifier,
-        Button overviewTabButton,
-        RetainedOverviewTabVisualState<ProceduralImage> overviewTabVisualState,
-        RectTransform overviewTabLabelRect,
-        TextMeshProUGUI overviewTabLabelGraphic,
-        RetainedTabLabelMaterial overviewTabLabelMaterial,
+        IReadOnlyList<RetainedTabControl> tabControls,
+        RetainedTabLabelMaterial tabLabelMaterial,
         RectTransform headerBottomBarRect,
         RectMask2D headerBottomBarMask,
         RectTransform headerBottomBarSurfaceRect,
@@ -594,10 +672,29 @@ internal sealed class RetainedStatisticsShell : IDisposable
         StatisticsPanelTab selectedTab,
         float canvasScaleFactor)
     {
+        if (tabControls.Count != RetainedTabStripPolicy.Specifications.Count)
+            throw new InvalidOperationException("The retained tab strip is incomplete.");
+        var overviewControl = tabControls[0];
+        var overviewTabRect = overviewControl.Rect;
+        var overviewTabGraphic = overviewControl.Background;
+        var overviewTabModifier = overviewControl.Modifier;
+        var overviewTabButton = overviewControl.Button;
+        var overviewTabVisualState = overviewControl.VisualState;
+        var overviewTabLabelRect = overviewControl.LabelRect;
+        var overviewTabLabelGraphic = overviewControl.Label;
         var graphics = shellRoot.GetComponentsInChildren<Graphic>(includeInactive: true);
         var buttons = shellRoot.GetComponentsInChildren<Button>(includeInactive: true);
         var rectangularMasks = shellRoot.GetComponentsInChildren<RectMask2D>(includeInactive: true);
         var oneEdgeModifiers = shellRoot.GetComponentsInChildren<OnlyOneEdgeModifier>(includeInactive: true);
+        ValidateTabStrip(
+            shellRoot,
+            tabControls,
+            tabLabelMaterial,
+            headerTitleGraphic,
+            headerBottomBarRect,
+            visualLayout,
+            selectedTab,
+            canvasScaleFactor);
         if (!RetainedDimmerPolicy.IsValidGraphic(
                 blocker.color.r,
                 blocker.color.g,
@@ -610,8 +707,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 headerGraphic.color.b,
                 headerGraphic.color.a,
                 headerGraphic.raycastTarget)
-            || !RetainedOverviewTabVisualStatePolicy.IsExactColor(
-                RetainedOverviewTabVisualStatePolicy.Resolve(
+            || !RetainedTabVisualStatePolicy.IsExactColor(
+                RetainedTabVisualStatePolicy.Resolve(
                     selectedTab,
                     StatisticsPanelTab.Overview),
                 overviewTabGraphic.color.r,
@@ -661,10 +758,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || rectangularMasks.Length != RetainedShellCompositionPolicy.RectMaskCount
             || rectangularMasks[0] != headerBottomBarMask
             || oneEdgeModifiers.Length != RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount
-            || oneEdgeModifiers[0] != overviewTabModifier
+            || tabControls.Any(control => !oneEdgeModifiers.Contains(control.Modifier))
             || buttons.Length != RetainedShellCompositionPolicy.ButtonCount
             || !buttons.Contains(backButton)
-            || !buttons.Contains(overviewTabButton)
+            || tabControls.Any(control => !buttons.Contains(control.Button))
             || backButton.targetGraphic != backButtonGraphic
             || backButton.transition != Selectable.Transition.None
             || backButton.onClick.GetPersistentEventCount() != 0
@@ -674,6 +771,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewTabButton.onClick.GetPersistentEventCount() != 0
             || !ReferenceEquals(overviewTabVisualState.Target, overviewTabGraphic)
             || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.Header.ReferenceTransform)
+            || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.TabStrip.ReferenceTransform)
             || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.OverviewTab.ReferenceTransform)
             || !ReferenceEquals(
                 visualLayout.ReferenceTransform,
@@ -682,15 +780,15 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.BackControl.ReferenceTransform)
             || !graphics.Contains(blocker)
             || !graphics.Contains(headerGraphic)
-            || !graphics.Contains(overviewTabGraphic)
-            || !graphics.Contains(overviewTabLabelGraphic)
+            || tabControls.Any(control =>
+                !graphics.Contains(control.Background) || !graphics.Contains(control.Label))
             || !graphics.Contains(headerBottomBarGraphic)
             || !graphics.Contains(backButtonGraphic)
             || !graphics.Contains(backArrowGraphic)
             || !graphics.Contains(headerTitleGraphic))
         {
             throw new InvalidOperationException(
-                "The Gate 05 shell must contain only the frozen Step 00-04-A visuals and one Overview tab.");
+                "The Gate 07 shell must contain only the frozen visuals and the complete nine-tab strip.");
         }
 
         if (shellRoot.anchorMin != Vector2.zero
@@ -759,14 +857,6 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 -visualLayout.OverviewTab.TopPadding)
             || !Approximately(overviewTabLabelRect.sizeDelta.x, visualLayout.OverviewTab.LabelWidth)
             || !Approximately(overviewTabLabelRect.sizeDelta.y, visualLayout.OverviewTab.LabelHeight)
-            || !Approximately(
-                visualLayout.OverviewTab.PreferredLabelWidth,
-                visualLayout.ReferenceTransform.CanvasLength(
-                    RetainedOverviewTabPolicy.AuditedNativePreferredWidthPixels))
-            || !Approximately(
-                visualLayout.OverviewTab.Width,
-                visualLayout.ReferenceTransform.CanvasLength(
-                    RetainedOverviewTabPolicy.AuditedReferenceTabWidthPixels))
             || visualLayout.OverviewTab.Width <= visualLayout.OverviewTab.Height
             || !Approximately(
                 visualLayout.OverviewTab.Width,
@@ -788,16 +878,16 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 != RetainedTabLabelShadowPolicy.OwnedMaterialName
             || !ReferenceEquals(
                 overviewTabLabelGraphic.fontSharedMaterial,
-                overviewTabLabelMaterial.Instance)
+                tabLabelMaterial.Instance)
             || overviewTabLabelGraphic.fontSharedMaterial.shaderKeywords == null
             || !overviewTabLabelGraphic.fontSharedMaterial.shaderKeywords.Contains(
                 RetainedOverviewTabPolicy.NativeUnderlayKeyword)
             || ReferenceEquals(
                 overviewTabLabelGraphic.fontSharedMaterial,
                 headerTitleGraphic.fontSharedMaterial)
-            || !ReferenceEquals(overviewTabLabelMaterial.Source, headerTitleGraphic.fontSharedMaterial)
-            || !overviewTabLabelMaterial.IsConfigured()
-            || !overviewTabLabelMaterial.IsSourceUnchanged()
+            || !ReferenceEquals(tabLabelMaterial.Source, headerTitleGraphic.fontSharedMaterial)
+            || !tabLabelMaterial.IsConfigured()
+            || !tabLabelMaterial.IsSourceUnchanged()
             || overviewTabLabelGraphic.fontStyle != FontStyles.Normal
             || overviewTabLabelGraphic.fontWeight != FontWeight.Regular
             || !Approximately(
@@ -946,6 +1036,125 @@ internal sealed class RetainedStatisticsShell : IDisposable
         }
     }
 
+    private static void ValidateTabStrip(
+        RectTransform shellRoot,
+        IReadOnlyList<RetainedTabControl> tabControls,
+        RetainedTabLabelMaterial tabLabelMaterial,
+        TextMeshProUGUI headerTitleGraphic,
+        RectTransform headerBottomBarRect,
+        RetainedVisualCanvasLayout visualLayout,
+        StatisticsPanelTab selectedTab,
+        float canvasScaleFactor)
+    {
+        if (tabControls.Count != RetainedShellCompositionPolicy.TabCount
+            || visualLayout.TabStrip.Tabs.Count != RetainedShellCompositionPolicy.TabCount
+            || tabControls.Count(control => control.Specification.Tab == selectedTab) != 1
+            || !tabLabelMaterial.IsConfigured()
+            || !tabLabelMaterial.IsSourceUnchanged())
+        {
+            throw new InvalidOperationException("The retained tab-strip ownership contract is invalid.");
+        }
+
+        var expectedGap = visualLayout.ReferenceTransform.CanvasLength(RetainedTabStripPolicy.GapPixels);
+        RetainedTabCanvasLayout? previousLayout = null;
+        for (var index = 0; index < tabControls.Count; index++)
+        {
+            var control = tabControls[index];
+            var specification = RetainedTabStripPolicy.Specifications[index];
+            var tab = visualLayout.TabStrip.Tabs[index];
+            var expectedColor = RetainedTabVisualStatePolicy.Resolve(selectedTab, specification.Tab);
+            if (!ReferenceEquals(control.Specification, specification)
+                || specification.Tab != PanelInteractionState.NavigationOrder[index]
+                || !ReferenceEquals(tab.Specification, specification)
+                || !ReferenceEquals(tab.ReferenceTransform, visualLayout.ReferenceTransform)
+                || control.Rect.parent != shellRoot
+                || control.Rect.childCount != RetainedShellCompositionPolicy.TabChildCount
+                || control.LabelRect.parent != control.Rect
+                || control.LabelRect.childCount != RetainedShellCompositionPolicy.TabLabelChildCount
+                || control.Rect.gameObject.name != specification.BackgroundName
+                || control.LabelRect.gameObject.name != specification.LabelName
+                || control.Rect.anchorMin != new Vector2(0f, 1f)
+                || control.Rect.anchorMax != new Vector2(0f, 1f)
+                || control.Rect.pivot != new Vector2(0f, 1f)
+                || control.Rect.localScale != Vector3.one
+                || !Approximately(control.Rect.anchoredPosition.x, tab.Left)
+                || !Approximately(control.Rect.anchoredPosition.y, -tab.Top)
+                || !Approximately(control.Rect.sizeDelta.x, tab.Width)
+                || !Approximately(control.Rect.sizeDelta.y, tab.Height)
+                || control.Background.BorderWidth != 0f
+                || control.Background.FalloffDistance != 1f
+                || control.Background.sprite != null
+                || control.Background.overrideSprite != null
+                || control.Background.type != Image.Type.Simple
+                || control.Background.raycastTarget != RetainedOverviewTabPolicy.BackgroundBlocksRaycasts
+                || !RetainedTabVisualStatePolicy.IsExactColor(
+                    expectedColor,
+                    control.Background.color.r,
+                    control.Background.color.g,
+                    control.Background.color.b,
+                    control.Background.color.a)
+                || !ReferenceEquals(control.VisualState.Target, control.Background)
+                || control.Modifier.Side != OnlyOneEdgeModifier.ProceduralImageEdge.Top
+                || !Approximately(control.Modifier.Radius, tab.CornerRadius)
+                || !Approximately(
+                    control.Modifier.Radius * canvasScaleFactor,
+                    RetainedOverviewTabPolicy.CornerRadiusPixels
+                    * visualLayout.ReferenceTransform.ReferenceScale)
+                || control.Button.targetGraphic != control.Background
+                || control.Button.transition != Selectable.Transition.None
+                || control.Button.navigation.mode != Navigation.Mode.None
+                || control.Button.onClick.GetPersistentEventCount() != 0
+                || control.LabelRect.anchorMin != new Vector2(0f, 1f)
+                || control.LabelRect.anchorMax != new Vector2(0f, 1f)
+                || control.LabelRect.pivot != new Vector2(0f, 1f)
+                || control.LabelRect.localScale != Vector3.one
+                || !Approximately(control.LabelRect.anchoredPosition.x, tab.LeftPadding)
+                || !Approximately(control.LabelRect.anchoredPosition.y, -tab.TopPadding)
+                || !Approximately(control.LabelRect.sizeDelta.x, tab.LabelWidth)
+                || !Approximately(control.LabelRect.sizeDelta.y, tab.LabelHeight)
+                || !Approximately(tab.Width, tab.PreferredLabelWidth + tab.LeftPadding + tab.RightPadding)
+                || !Approximately(tab.LabelHeight, tab.Height - tab.TopPadding - tab.BottomPadding)
+                || !Approximately(control.Label.fontSize, tab.FontSize)
+                || control.Label.text != UiText.Get(specification.TextKey)
+                || control.Label.font == null
+                || control.Label.font.name != RetainedOverviewTabPolicy.FontAssetName
+                || !ReferenceEquals(control.Label.font, headerTitleGraphic.font)
+                || !ReferenceEquals(control.Label.fontSharedMaterial, tabLabelMaterial.Instance)
+                || ReferenceEquals(control.Label.fontSharedMaterial, headerTitleGraphic.fontSharedMaterial)
+                || control.Label.fontStyle != FontStyles.Normal
+                || control.Label.fontWeight != FontWeight.Regular
+                || !Approximately(control.Label.characterSpacing, RetainedOverviewTabPolicy.CharacterSpacing)
+                || !Approximately(control.Label.wordSpacing, RetainedOverviewTabPolicy.WordSpacing)
+                || !Approximately(control.Label.lineSpacing, RetainedOverviewTabPolicy.LineSpacing)
+                || !Approximately(control.Label.paragraphSpacing, RetainedOverviewTabPolicy.ParagraphSpacing)
+                || control.Label.alignment != TextAlignmentOptions.Center
+                || control.Label.enableWordWrapping != RetainedOverviewTabPolicy.WordWrapping
+                || control.Label.enableAutoSizing != RetainedOverviewTabPolicy.AutoSizing
+                || control.Label.overflowMode != TextOverflowModes.Overflow
+                || control.Label.margin != Vector4.zero
+                || !Approximately(control.Label.color.r, RetainedOverviewTabPolicy.LabelRed)
+                || !Approximately(control.Label.color.g, RetainedOverviewTabPolicy.LabelGreen)
+                || !Approximately(control.Label.color.b, RetainedOverviewTabPolicy.LabelBlue)
+                || !Approximately(control.Label.color.a, RetainedOverviewTabPolicy.LabelAlpha)
+                || control.Label.raycastTarget != RetainedOverviewTabPolicy.LabelBlocksRaycasts
+                || control.Rect.GetSiblingIndex() >= headerBottomBarRect.GetSiblingIndex()
+                || (index > 0
+                    && control.Rect.GetSiblingIndex() <= tabControls[index - 1].Rect.GetSiblingIndex())
+                || (index == 0 && !Approximately(
+                    tab.Left,
+                    visualLayout.ReferenceTransform.CanvasX(RetainedTabStripPolicy.FirstTabLeftPixels)))
+                || (previousLayout != null && !Approximately(
+                    tab.Left,
+                    previousLayout.Left + previousLayout.Width + expectedGap)))
+            {
+                throw new InvalidOperationException(
+                    $"The retained {specification.Tab} tab did not preserve the Gate 07 contract.");
+            }
+
+            previousLayout = tab;
+        }
+    }
+
     private static bool Approximately(float left, float right) => Math.Abs(left - right) <= 0.001f;
 
     private static void Stretch(RectTransform rect)
@@ -970,14 +1179,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
         shellRoot = null;
         headerRect = null;
         headerModifier = null;
-        overviewTabRect = null;
-        overviewTabGraphic = null;
-        overviewTabVisualState = null;
-        overviewTabModifier = null;
-        overviewTabLabelRect = null;
-        overviewTabLabelGraphic = null;
-        overviewTabLabelMaterial?.Dispose();
-        overviewTabLabelMaterial = null;
+        tabListenerLease?.Dispose();
+        tabListenerLease = null;
+        tabControls.Clear();
+        tabLabelMaterial?.Dispose();
+        tabLabelMaterial = null;
         headerBottomBarRect = null;
         headerBottomBarMask = null;
         headerBottomBarSurfaceRect = null;

@@ -412,9 +412,42 @@ internal static class RetainedHeaderBottomBarPolicy
         && raycastTarget == BlocksRaycasts;
 }
 
-internal sealed class RetainedOverviewTabCanvasLayout
+internal sealed class RetainedTabSpecification
+{
+    public RetainedTabSpecification(
+        StatisticsPanelTab tab,
+        string backgroundName,
+        string labelName,
+        string textKey,
+        string englishFallback,
+        float auditedEnglishPreferredWidthPixels,
+        bool isAbsolutelyAnchored = false)
+    {
+        Tab = tab;
+        BackgroundName = backgroundName ?? throw new ArgumentNullException(nameof(backgroundName));
+        LabelName = labelName ?? throw new ArgumentNullException(nameof(labelName));
+        TextKey = textKey ?? throw new ArgumentNullException(nameof(textKey));
+        EnglishFallback = englishFallback ?? throw new ArgumentNullException(nameof(englishFallback));
+        if (!RetainedTabMeasurementPolicy.IsPositiveFinite(auditedEnglishPreferredWidthPixels))
+            throw new ArgumentOutOfRangeException(nameof(auditedEnglishPreferredWidthPixels));
+        AuditedEnglishPreferredWidthPixels = auditedEnglishPreferredWidthPixels;
+        IsAbsolutelyAnchored = isAbsolutelyAnchored;
+    }
+
+    public StatisticsPanelTab Tab { get; }
+    public string BackgroundName { get; }
+    public string LabelName { get; }
+    public string TextKey { get; }
+    public string EnglishFallback { get; }
+    public float AuditedEnglishPreferredWidthPixels { get; }
+    public bool IsAbsolutelyAnchored { get; }
+}
+
+internal sealed class RetainedTabCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public RetainedTabSpecification Specification { get; set; } = null!;
+    public float ReferencePreferredLabelWidth { get; set; }
     public float Left { get; set; }
     public float Top { get; set; }
     public float Width { get; set; }
@@ -431,6 +464,12 @@ internal sealed class RetainedOverviewTabCanvasLayout
     public float LabelTop { get; set; }
     public float LabelWidth { get; set; }
     public float LabelHeight { get; set; }
+}
+
+internal sealed class RetainedTabStripCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public IReadOnlyList<RetainedTabCanvasLayout> Tabs { get; set; } = Array.Empty<RetainedTabCanvasLayout>();
 }
 
 internal readonly struct RetainedRgbaColor
@@ -488,6 +527,30 @@ internal sealed class RetainedOwnedResource<T> : IDisposable where T : class
         var destroyCurrent = destroy;
         destroy = null;
         destroyCurrent!(current);
+    }
+}
+
+internal sealed class RetainedListenerLease : IDisposable
+{
+    private readonly List<Action> removers = new();
+    private bool disposed;
+
+    public int Count => removers.Count;
+    public bool IsDisposed => disposed;
+
+    public void Register(Action remove)
+    {
+        if (remove == null) throw new ArgumentNullException(nameof(remove));
+        if (disposed) throw new ObjectDisposedException(nameof(RetainedListenerLease));
+        removers.Add(remove);
+    }
+
+    public void Dispose()
+    {
+        if (disposed) return;
+        disposed = true;
+        for (var index = removers.Count - 1; index >= 0; index--) removers[index]();
+        removers.Clear();
     }
 }
 
@@ -560,44 +623,207 @@ internal static class RetainedOverviewTabPolicy
     public const bool UsesHorizontalTypographyCompensation = false;
     public const bool RequiresNativeUnderlay = true;
 
-    public static RetainedOverviewTabCanvasLayout CreateCanvasLayout(
+    public static RetainedTabCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform)
     {
         if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
-
-        var left = referenceTransform.CanvasX(LeftPixels);
-        var top = referenceTransform.CanvasY(TopPixels);
-        var height = referenceTransform.CanvasLength(HeightPixels);
-        var preferredLabelWidth = referenceTransform.CanvasLength(AuditedNativePreferredWidthPixels);
-        var leftPadding = referenceTransform.CanvasLength(LeftPaddingPixels);
-        var rightPadding = referenceTransform.CanvasLength(RightPaddingPixels);
-        var topPadding = referenceTransform.CanvasLength(TopPaddingPixels);
-        var bottomPadding = referenceTransform.CanvasLength(BottomPaddingPixels);
-        return new RetainedOverviewTabCanvasLayout
-        {
-            ReferenceTransform = referenceTransform,
-            Left = left,
-            Top = top,
-            Width = preferredLabelWidth + leftPadding + rightPadding,
-            Height = height,
-            ExposedHeight = referenceTransform.CanvasLength(ExposedHeightPixels),
-            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels),
-            LeftPadding = leftPadding,
-            RightPadding = rightPadding,
-            TopPadding = topPadding,
-            BottomPadding = bottomPadding,
-            FontSize = referenceTransform.CanvasLength(ReferenceFontSize),
-            PreferredLabelWidth = preferredLabelWidth,
-            LabelLeft = left + leftPadding,
-            LabelTop = top + topPadding,
-            LabelWidth = preferredLabelWidth,
-            LabelHeight = height - topPadding - bottomPadding
-        };
+        return RetainedTabStripPolicy.CreateCanvasLayout(
+            referenceTransform,
+            RetainedTabStripPolicy.AuditedEnglishPreferredWidths).Tabs[0];
     }
-
 }
 
-internal static class RetainedOverviewTabVisualStatePolicy
+internal static class RetainedTabMeasurementPolicy
+{
+    public const float TemporaryLabelWidthPixels = 1f;
+    public const float DiagnosticRelativeTolerance = 0.10f;
+
+    public static float NormalizeCanvasWidth(
+        float measuredCanvasWidth,
+        float canvasScaleFactor,
+        float referenceScale)
+    {
+        if (!IsPositiveFinite(measuredCanvasWidth))
+            throw new ArgumentOutOfRangeException(nameof(measuredCanvasWidth));
+        if (!IsPositiveFinite(canvasScaleFactor))
+            throw new ArgumentOutOfRangeException(nameof(canvasScaleFactor));
+        if (!IsPositiveFinite(referenceScale))
+            throw new ArgumentOutOfRangeException(nameof(referenceScale));
+
+        var normalized = measuredCanvasWidth * canvasScaleFactor / referenceScale;
+        if (!IsPositiveFinite(normalized))
+            throw new InvalidOperationException("The native tab-label width could not be normalized.");
+        return normalized;
+    }
+
+    public static void RequirePlausibleEnglishWidth(
+        string label,
+        float normalizedWidth,
+        float auditedWidth)
+    {
+        if (!IsPositiveFinite(normalizedWidth))
+            throw new ArgumentOutOfRangeException(nameof(normalizedWidth));
+        if (!IsPositiveFinite(auditedWidth))
+            throw new ArgumentOutOfRangeException(nameof(auditedWidth));
+        var minimum = auditedWidth * (1f - DiagnosticRelativeTolerance);
+        var maximum = auditedWidth * (1f + DiagnosticRelativeTolerance);
+        if (normalizedWidth < minimum || normalizedWidth > maximum)
+        {
+            throw new InvalidOperationException(
+                $"The native '{label}' tab width normalized to {normalizedWidth}, outside the audited range {minimum}-{maximum}.");
+        }
+    }
+
+    public static bool IsPositiveFinite(float value) =>
+        value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
+}
+
+internal static class RetainedTabStripPolicy
+{
+    private static readonly IReadOnlyList<RetainedTabSpecification> OrderedSpecifications =
+        Array.AsReadOnly(new[]
+        {
+            new RetainedTabSpecification(
+                StatisticsPanelTab.Overview,
+                "OverviewTab",
+                "OverviewTabLabel",
+                "ui.overview",
+                "Overview",
+                161.91875f,
+                isAbsolutelyAnchored: true),
+            new RetainedTabSpecification(
+                StatisticsPanelTab.Runs,
+                "RunsTab",
+                "RunsTabLabel",
+                "ui.runs",
+                "Runs",
+                85.68125f),
+            new RetainedTabSpecification(
+                StatisticsPanelTab.Records,
+                "RecordsTab",
+                "RecordsTabLabel",
+                "ui.records",
+                "Records",
+                139.3625f),
+            new RetainedTabSpecification(
+                StatisticsPanelTab.Combat,
+                "CombatTab",
+                "CombatTabLabel",
+                "ui.combat",
+                "Combat",
+                136.875f),
+            new RetainedTabSpecification(
+                StatisticsPanelTab.Equipment,
+                "EquipmentTab",
+                "EquipmentTabLabel",
+                "ui.equipment",
+                "Equipment",
+                190.58125f),
+            new RetainedTabSpecification(
+                StatisticsPanelTab.Economy,
+                "EconomyTab",
+                "EconomyTabLabel",
+                "ui.economy",
+                "Economy",
+                160.38125f),
+            new RetainedTabSpecification(
+                StatisticsPanelTab.Crafting,
+                "CraftingTab",
+                "CraftingTabLabel",
+                "ui.crafting",
+                "Crafting",
+                138.95625f),
+            new RetainedTabSpecification(
+                StatisticsPanelTab.ItemUse,
+                "ItemUseTab",
+                "ItemUseTabLabel",
+                "ui.item_use",
+                "Item Use",
+                151.7375f),
+            new RetainedTabSpecification(
+                StatisticsPanelTab.Diagnostics,
+                "DiagnosticsTab",
+                "DiagnosticsTabLabel",
+                "ui.diagnostics",
+                "Diagnostics",
+                199.33125f)
+        });
+
+    private static readonly IReadOnlyList<float> EnglishWidths =
+        Array.AsReadOnly(OrderedSpecifications
+            .Select(specification => specification.AuditedEnglishPreferredWidthPixels)
+            .ToArray());
+
+    public const float FirstTabLeftPixels = RetainedOverviewTabPolicy.LeftPixels;
+    public const float GapPixels = 10f;
+    public const float HorizontalPaddingPixels =
+        RetainedOverviewTabPolicy.LeftPaddingPixels + RetainedOverviewTabPolicy.RightPaddingPixels;
+
+    public static IReadOnlyList<RetainedTabSpecification> Specifications => OrderedSpecifications;
+    public static IReadOnlyList<float> AuditedEnglishPreferredWidths => EnglishWidths;
+
+    public static RetainedTabStripCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        IReadOnlyList<float> preferredReferenceWidths)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (preferredReferenceWidths == null) throw new ArgumentNullException(nameof(preferredReferenceWidths));
+        if (preferredReferenceWidths.Count != OrderedSpecifications.Count)
+            throw new ArgumentException("Exactly one preferred width is required for each retained tab.", nameof(preferredReferenceWidths));
+
+        var layouts = new RetainedTabCanvasLayout[OrderedSpecifications.Count];
+        var referenceLeft = FirstTabLeftPixels;
+        for (var index = 0; index < layouts.Length; index++)
+        {
+            var preferredReferenceWidth = preferredReferenceWidths[index];
+            if (!RetainedTabMeasurementPolicy.IsPositiveFinite(preferredReferenceWidth))
+                throw new ArgumentOutOfRangeException(nameof(preferredReferenceWidths));
+
+            var referenceWidth = preferredReferenceWidth + HorizontalPaddingPixels;
+            var left = referenceTransform.CanvasX(referenceLeft);
+            var top = referenceTransform.CanvasY(RetainedOverviewTabPolicy.TopPixels);
+            var height = referenceTransform.CanvasLength(RetainedOverviewTabPolicy.HeightPixels);
+            var preferredLabelWidth = referenceTransform.CanvasLength(preferredReferenceWidth);
+            var leftPadding = referenceTransform.CanvasLength(RetainedOverviewTabPolicy.LeftPaddingPixels);
+            var rightPadding = referenceTransform.CanvasLength(RetainedOverviewTabPolicy.RightPaddingPixels);
+            var topPadding = referenceTransform.CanvasLength(RetainedOverviewTabPolicy.TopPaddingPixels);
+            var bottomPadding = referenceTransform.CanvasLength(RetainedOverviewTabPolicy.BottomPaddingPixels);
+            layouts[index] = new RetainedTabCanvasLayout
+            {
+                ReferenceTransform = referenceTransform,
+                Specification = OrderedSpecifications[index],
+                ReferencePreferredLabelWidth = preferredReferenceWidth,
+                Left = left,
+                Top = top,
+                Width = preferredLabelWidth + leftPadding + rightPadding,
+                Height = height,
+                ExposedHeight = referenceTransform.CanvasLength(RetainedOverviewTabPolicy.ExposedHeightPixels),
+                CornerRadius = referenceTransform.CanvasLength(RetainedOverviewTabPolicy.CornerRadiusPixels),
+                LeftPadding = leftPadding,
+                RightPadding = rightPadding,
+                TopPadding = topPadding,
+                BottomPadding = bottomPadding,
+                FontSize = referenceTransform.CanvasLength(RetainedOverviewTabPolicy.ReferenceFontSize),
+                PreferredLabelWidth = preferredLabelWidth,
+                LabelLeft = referenceTransform.CanvasX(
+                    referenceLeft + RetainedOverviewTabPolicy.LeftPaddingPixels),
+                LabelTop = referenceTransform.CanvasY(
+                    RetainedOverviewTabPolicy.TopPixels + RetainedOverviewTabPolicy.TopPaddingPixels),
+                LabelWidth = preferredLabelWidth,
+                LabelHeight = height - topPadding - bottomPadding
+            };
+            referenceLeft += referenceWidth + GapPixels;
+        }
+
+        return new RetainedTabStripCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Tabs = Array.AsReadOnly(layouts)
+        };
+    }
+}
+
+internal static class RetainedTabVisualStatePolicy
 {
     public const float UnselectedRed = 30f / 255f;
     public const float UnselectedGreen = 66f / 255f;
@@ -634,20 +860,20 @@ internal static class RetainedOverviewTabVisualStatePolicy
         && alpha == expected.Alpha;
 }
 
-internal sealed class RetainedOverviewTabVisualState<TTarget> where TTarget : class
+internal sealed class RetainedTabVisualState<TTarget> where TTarget : class
 {
     private readonly TTarget target;
     private readonly StatisticsPanelTab candidateTab;
     private readonly Action<TTarget, RetainedRgbaColor> applyColor;
 
-    public RetainedOverviewTabVisualState(
+    public RetainedTabVisualState(
         TTarget target,
         StatisticsPanelTab candidateTab,
         Action<TTarget, RetainedRgbaColor> applyColor)
     {
         this.target = target ?? throw new ArgumentNullException(nameof(target));
         this.applyColor = applyColor ?? throw new ArgumentNullException(nameof(applyColor));
-        RetainedOverviewTabVisualStatePolicy.Resolve(candidateTab, candidateTab);
+        RetainedTabVisualStatePolicy.Resolve(candidateTab, candidateTab);
         this.candidateTab = candidateTab;
     }
 
@@ -657,7 +883,7 @@ internal sealed class RetainedOverviewTabVisualState<TTarget> where TTarget : cl
     {
         applyColor(
             target,
-            RetainedOverviewTabVisualStatePolicy.Resolve(selectedTab, candidateTab));
+            RetainedTabVisualStatePolicy.Resolve(selectedTab, candidateTab));
     }
 }
 
@@ -819,7 +1045,8 @@ internal sealed class RetainedVisualCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
     public RetainedHeaderCanvasLayout Header { get; set; } = null!;
-    public RetainedOverviewTabCanvasLayout OverviewTab { get; set; } = null!;
+    public RetainedTabStripCanvasLayout TabStrip { get; set; } = null!;
+    public RetainedTabCanvasLayout OverviewTab => TabStrip.Tabs[0];
     public RetainedHeaderBottomBarCanvasLayout HeaderBottomBar { get; set; } = null!;
     public RetainedHeaderTitleCanvasLayout HeaderTitle { get; set; } = null!;
     public RetainedBackControlCanvasLayout BackControl { get; set; } = null!;
@@ -842,9 +1069,16 @@ internal static class RetainedVisualLayoutPolicy
     public static RetainedVisualCanvasLayout Create(
         RetainedReferenceTransform referenceTransform)
     {
+        return Create(referenceTransform, RetainedTabStripPolicy.AuditedEnglishPreferredWidths);
+    }
+
+    public static RetainedVisualCanvasLayout Create(
+        RetainedReferenceTransform referenceTransform,
+        IReadOnlyList<float> preferredTabWidths)
+    {
         if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
         var header = RetainedHeaderPolicy.CreateCanvasLayout(referenceTransform);
-        var overviewTab = RetainedOverviewTabPolicy.CreateCanvasLayout(referenceTransform);
+        var tabStrip = RetainedTabStripPolicy.CreateCanvasLayout(referenceTransform, preferredTabWidths);
         var headerBottomBar = RetainedHeaderBottomBarPolicy.CreateCanvasLayout(referenceTransform);
         var headerTitle = RetainedHeaderTitlePolicy.CreateCanvasLayout(referenceTransform);
         var backControl = RetainedBackControlPolicy.CreateCanvasLayout(referenceTransform);
@@ -853,22 +1087,25 @@ internal static class RetainedVisualLayoutPolicy
             || !IsPositiveFinite(header.Width)
             || !IsPositiveFinite(header.Height)
             || !IsPositiveFinite(header.CornerRadius)
-            || !IsFinite(overviewTab.Left)
-            || !IsFinite(overviewTab.Top)
-            || !IsPositiveFinite(overviewTab.Width)
-            || !IsPositiveFinite(overviewTab.Height)
-            || !IsPositiveFinite(overviewTab.ExposedHeight)
-            || !IsPositiveFinite(overviewTab.CornerRadius)
-            || !IsPositiveFinite(overviewTab.LeftPadding)
-            || !IsPositiveFinite(overviewTab.RightPadding)
-            || !IsPositiveFinite(overviewTab.TopPadding)
-            || !IsPositiveFinite(overviewTab.BottomPadding)
-            || !IsPositiveFinite(overviewTab.FontSize)
-            || !IsPositiveFinite(overviewTab.PreferredLabelWidth)
-            || !IsFinite(overviewTab.LabelLeft)
-            || !IsFinite(overviewTab.LabelTop)
-            || !IsPositiveFinite(overviewTab.LabelWidth)
-            || !IsPositiveFinite(overviewTab.LabelHeight)
+            || tabStrip.Tabs.Count != RetainedTabStripPolicy.Specifications.Count
+            || tabStrip.Tabs.Any(tab =>
+                !IsFinite(tab.Left)
+                || !IsFinite(tab.Top)
+                || !IsPositiveFinite(tab.Width)
+                || !IsPositiveFinite(tab.Height)
+                || !IsPositiveFinite(tab.ExposedHeight)
+                || !IsPositiveFinite(tab.CornerRadius)
+                || !IsPositiveFinite(tab.LeftPadding)
+                || !IsPositiveFinite(tab.RightPadding)
+                || !IsPositiveFinite(tab.TopPadding)
+                || !IsPositiveFinite(tab.BottomPadding)
+                || !IsPositiveFinite(tab.FontSize)
+                || !IsPositiveFinite(tab.ReferencePreferredLabelWidth)
+                || !IsPositiveFinite(tab.PreferredLabelWidth)
+                || !IsFinite(tab.LabelLeft)
+                || !IsFinite(tab.LabelTop)
+                || !IsPositiveFinite(tab.LabelWidth)
+                || !IsPositiveFinite(tab.LabelHeight))
             || !IsFinite(headerBottomBar.Left)
             || !IsFinite(headerBottomBar.Top)
             || !IsPositiveFinite(headerBottomBar.Width)
@@ -904,7 +1141,7 @@ internal static class RetainedVisualLayoutPolicy
         {
             ReferenceTransform = referenceTransform,
             Header = header,
-            OverviewTab = overviewTab,
+            TabStrip = tabStrip,
             HeaderBottomBar = headerBottomBar,
             HeaderTitle = headerTitle,
             BackControl = backControl
@@ -918,19 +1155,22 @@ internal static class RetainedVisualLayoutPolicy
 
 internal static class RetainedShellCompositionPolicy
 {
-    public const int RootChildCount = 5;
+    public const int TabCount = 9;
+    public const int RootChildCount = 13;
     public const int HeaderChildCount = 0;
-    public const int OverviewTabChildCount = 1;
-    public const int OverviewTabLabelChildCount = 0;
+    public const int TabChildCount = 1;
+    public const int TabLabelChildCount = 0;
+    public const int OverviewTabChildCount = TabChildCount;
+    public const int OverviewTabLabelChildCount = TabLabelChildCount;
     public const int HeaderBottomBarChildCount = 1;
     public const int HeaderBottomBarGraphicChildCount = 0;
     public const int HeaderTitleChildCount = 0;
     public const int BackButtonChildCount = 1;
     public const int BackArrowChildCount = 0;
-    public const int GraphicCount = 8;
-    public const int ButtonCount = 2;
+    public const int GraphicCount = 24;
+    public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
-    public const int OnlyOneEdgeModifierCount = 1;
+    public const int OnlyOneEdgeModifierCount = 9;
 }
 
 internal sealed class RetainedBackControlActivation
@@ -945,16 +1185,22 @@ internal sealed class RetainedBackControlActivation
     public void Invoke() => close();
 }
 
-internal sealed class RetainedOverviewTabActivation
+internal sealed class RetainedTabActivation
 {
     private readonly Action<StatisticsPanelTab> selectTab;
+    private readonly StatisticsPanelTab tab;
 
-    public RetainedOverviewTabActivation(Action<StatisticsPanelTab> selectTab)
+    public RetainedTabActivation(
+        Action<StatisticsPanelTab> selectTab,
+        StatisticsPanelTab tab)
     {
         this.selectTab = selectTab ?? throw new ArgumentNullException(nameof(selectTab));
+        if (!PanelInteractionState.NavigationOrder.Contains(tab))
+            throw new ArgumentOutOfRangeException(nameof(tab));
+        this.tab = tab;
     }
 
-    public void Invoke() => selectTab(StatisticsPanelTab.Overview);
+    public void Invoke() => selectTab(tab);
 }
 
 internal static class RetainedBackArrowAssetPolicy
