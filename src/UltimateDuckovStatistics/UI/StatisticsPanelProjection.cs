@@ -412,6 +412,127 @@ internal static class RetainedHeaderBottomBarPolicy
         && raycastTarget == BlocksRaycasts;
 }
 
+internal sealed class RetainedOverviewTabCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float ExposedHeight { get; set; }
+    public float CornerRadius { get; set; }
+    public float LeftPadding { get; set; }
+    public float RightPadding { get; set; }
+    public float TopPadding { get; set; }
+    public float BottomPadding { get; set; }
+    public float FontSize { get; set; }
+    public float PreferredLabelWidth { get; set; }
+    public float LabelLeft { get; set; }
+    public float LabelTop { get; set; }
+    public float LabelWidth { get; set; }
+    public float LabelHeight { get; set; }
+}
+
+internal static class RetainedOverviewTabPolicy
+{
+    public const string BackgroundName = "OverviewTab";
+    public const string LabelName = "OverviewTabLabel";
+    public const string TextKey = "ui.overview";
+    public const string EnglishFallback = "Overview";
+    public const string FontAssetName = RetainedHeaderTitlePolicy.FontAssetName;
+    public const string MaterialName = RetainedHeaderTitlePolicy.MaterialName;
+    public const string NativeUnderlayKeyword = "UNDERLAY_ON";
+    public const float LeftPixels = 115f;
+    public const float TopPixels = 251f;
+    public const float HeightPixels = 79f;
+    public const float BottomExclusivePixels = 330f;
+    public const float ExposedHeightPixels = 70f;
+    public const float CornerRadiusPixels = 20f;
+    public const float TopLeftCornerRadiusPixels = CornerRadiusPixels;
+    public const float TopRightCornerRadiusPixels = CornerRadiusPixels;
+    public const float BottomLeftCornerRadiusPixels = 0f;
+    public const float BottomRightCornerRadiusPixels = 0f;
+    public const float LeftPaddingPixels = 30f;
+    public const float RightPaddingPixels = 30f;
+    public const float TopPaddingPixels = 25f;
+    public const float BottomPaddingPixels = 25f;
+    public const float NominalLabelHeightPixels = 29f;
+    public const float ReferenceFontSize = 36f;
+    public const float AuditedNativePreferredWidthPixels = 161.91875f;
+    public const float AuditedReferenceTabWidthPixels =
+        AuditedNativePreferredWidthPixels + LeftPaddingPixels + RightPaddingPixels;
+    public const float Red = 30f / 255f;
+    public const float Green = 66f / 255f;
+    public const float Blue = 94f / 255f;
+    public const float Alpha = 0.75f;
+    public const float LabelRed = 1f;
+    public const float LabelGreen = 1f;
+    public const float LabelBlue = 1f;
+    public const float LabelAlpha = 1f;
+    public const bool BackgroundBlocksRaycasts = true;
+    public const bool LabelBlocksRaycasts = false;
+    public const bool WordWrapping = false;
+    public const bool AutoSizing = false;
+    public const float CharacterSpacing = 0f;
+    public const float WordSpacing = 0f;
+    public const float LineSpacing = 0f;
+    public const float ParagraphSpacing = 0f;
+    public const bool AlwaysRendersUnselected = true;
+    public const bool UsesTopEdgeModifier = true;
+    public const bool UsesFilledImage = false;
+    public const bool UsesHorizontalTypographyCompensation = false;
+    public const bool RequiresNativeUnderlay = true;
+
+    public static RetainedOverviewTabCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        float preferredLabelWidth)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (preferredLabelWidth <= 0f || float.IsNaN(preferredLabelWidth) || float.IsInfinity(preferredLabelWidth))
+            throw new ArgumentOutOfRangeException(nameof(preferredLabelWidth));
+
+        var left = referenceTransform.CanvasX(LeftPixels);
+        var top = referenceTransform.CanvasY(TopPixels);
+        var height = referenceTransform.CanvasLength(HeightPixels);
+        var leftPadding = referenceTransform.CanvasLength(LeftPaddingPixels);
+        var rightPadding = referenceTransform.CanvasLength(RightPaddingPixels);
+        var topPadding = referenceTransform.CanvasLength(TopPaddingPixels);
+        var bottomPadding = referenceTransform.CanvasLength(BottomPaddingPixels);
+        return new RetainedOverviewTabCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = left,
+            Top = top,
+            Width = preferredLabelWidth + leftPadding + rightPadding,
+            Height = height,
+            ExposedHeight = referenceTransform.CanvasLength(ExposedHeightPixels),
+            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels),
+            LeftPadding = leftPadding,
+            RightPadding = rightPadding,
+            TopPadding = topPadding,
+            BottomPadding = bottomPadding,
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize),
+            PreferredLabelWidth = preferredLabelWidth,
+            LabelLeft = left + leftPadding,
+            LabelTop = top + topPadding,
+            LabelWidth = preferredLabelWidth,
+            LabelHeight = height - topPadding - bottomPadding
+        };
+    }
+
+    public static bool IsValidBackgroundGraphic(
+        float red,
+        float green,
+        float blue,
+        float alpha,
+        bool raycastTarget) =>
+        red == Red
+        && green == Green
+        && blue == Blue
+        && alpha == Alpha
+        && raycastTarget == BackgroundBlocksRaycasts;
+}
+
 internal sealed class RetainedHeaderTitleCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
@@ -570,6 +691,7 @@ internal sealed class RetainedVisualCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
     public RetainedHeaderCanvasLayout Header { get; set; } = null!;
+    public RetainedOverviewTabCanvasLayout OverviewTab { get; set; } = null!;
     public RetainedHeaderBottomBarCanvasLayout HeaderBottomBar { get; set; } = null!;
     public RetainedHeaderTitleCanvasLayout HeaderTitle { get; set; } = null!;
     public RetainedBackControlCanvasLayout BackControl { get; set; } = null!;
@@ -580,13 +702,25 @@ internal static class RetainedVisualLayoutPolicy
     public static RetainedVisualCanvasLayout Create(
         float viewportPixelWidth,
         float viewportPixelHeight,
-        float canvasScaleFactor)
+        float canvasScaleFactor,
+        float preferredOverviewLabelWidth)
     {
         var referenceTransform = RetainedReferenceTransformPolicy.Create(
             viewportPixelWidth,
             viewportPixelHeight,
             canvasScaleFactor);
+        return Create(referenceTransform, preferredOverviewLabelWidth);
+    }
+
+    public static RetainedVisualCanvasLayout Create(
+        RetainedReferenceTransform referenceTransform,
+        float preferredOverviewLabelWidth)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
         var header = RetainedHeaderPolicy.CreateCanvasLayout(referenceTransform);
+        var overviewTab = RetainedOverviewTabPolicy.CreateCanvasLayout(
+            referenceTransform,
+            preferredOverviewLabelWidth);
         var headerBottomBar = RetainedHeaderBottomBarPolicy.CreateCanvasLayout(referenceTransform);
         var headerTitle = RetainedHeaderTitlePolicy.CreateCanvasLayout(referenceTransform);
         var backControl = RetainedBackControlPolicy.CreateCanvasLayout(referenceTransform);
@@ -595,6 +729,22 @@ internal static class RetainedVisualLayoutPolicy
             || !IsPositiveFinite(header.Width)
             || !IsPositiveFinite(header.Height)
             || !IsPositiveFinite(header.CornerRadius)
+            || !IsFinite(overviewTab.Left)
+            || !IsFinite(overviewTab.Top)
+            || !IsPositiveFinite(overviewTab.Width)
+            || !IsPositiveFinite(overviewTab.Height)
+            || !IsPositiveFinite(overviewTab.ExposedHeight)
+            || !IsPositiveFinite(overviewTab.CornerRadius)
+            || !IsPositiveFinite(overviewTab.LeftPadding)
+            || !IsPositiveFinite(overviewTab.RightPadding)
+            || !IsPositiveFinite(overviewTab.TopPadding)
+            || !IsPositiveFinite(overviewTab.BottomPadding)
+            || !IsPositiveFinite(overviewTab.FontSize)
+            || !IsPositiveFinite(overviewTab.PreferredLabelWidth)
+            || !IsFinite(overviewTab.LabelLeft)
+            || !IsFinite(overviewTab.LabelTop)
+            || !IsPositiveFinite(overviewTab.LabelWidth)
+            || !IsPositiveFinite(overviewTab.LabelHeight)
             || !IsFinite(headerBottomBar.Left)
             || !IsFinite(headerBottomBar.Top)
             || !IsPositiveFinite(headerBottomBar.Width)
@@ -630,6 +780,7 @@ internal static class RetainedVisualLayoutPolicy
         {
             ReferenceTransform = referenceTransform,
             Header = header,
+            OverviewTab = overviewTab,
             HeaderBottomBar = headerBottomBar,
             HeaderTitle = headerTitle,
             BackControl = backControl
@@ -643,16 +794,19 @@ internal static class RetainedVisualLayoutPolicy
 
 internal static class RetainedShellCompositionPolicy
 {
-    public const int RootChildCount = 4;
+    public const int RootChildCount = 5;
     public const int HeaderChildCount = 0;
+    public const int OverviewTabChildCount = 1;
+    public const int OverviewTabLabelChildCount = 0;
     public const int HeaderBottomBarChildCount = 1;
     public const int HeaderBottomBarGraphicChildCount = 0;
     public const int HeaderTitleChildCount = 0;
     public const int BackButtonChildCount = 1;
     public const int BackArrowChildCount = 0;
-    public const int GraphicCount = 6;
+    public const int GraphicCount = 8;
+    public const int ButtonCount = 2;
     public const int RectMaskCount = 1;
-    public const int OnlyOneEdgeModifierCount = 0;
+    public const int OnlyOneEdgeModifierCount = 1;
 }
 
 internal sealed class RetainedBackControlActivation
@@ -665,6 +819,18 @@ internal sealed class RetainedBackControlActivation
     }
 
     public void Invoke() => close();
+}
+
+internal sealed class RetainedOverviewTabActivation
+{
+    private readonly Action<StatisticsPanelTab> selectTab;
+
+    public RetainedOverviewTabActivation(Action<StatisticsPanelTab> selectTab)
+    {
+        this.selectTab = selectTab ?? throw new ArgumentNullException(nameof(selectTab));
+    }
+
+    public void Invoke() => selectTab(StatisticsPanelTab.Overview);
 }
 
 internal static class RetainedBackArrowAssetPolicy
@@ -788,6 +954,17 @@ internal static class RetainedTabSelectionPolicy
         if (!PanelInteractionState.NavigationOrder.Contains(selected))
             throw new ArgumentOutOfRangeException(nameof(selected));
         return candidate == selected;
+    }
+
+    public static void SelectAndSynchronize(
+        PanelInteractionState interaction,
+        Action<StatisticsPanelTab> synchronize,
+        StatisticsPanelTab selected)
+    {
+        if (interaction == null) throw new ArgumentNullException(nameof(interaction));
+        if (synchronize == null) throw new ArgumentNullException(nameof(synchronize));
+        interaction.SelectTab(selected);
+        synchronize(interaction.SelectedTab);
     }
 }
 

@@ -379,7 +379,7 @@ public sealed class StatisticsPanelProjectionTests
         float expectedSurfaceHeight,
         float expectedRadius)
     {
-        var layout = RetainedVisualLayoutPolicy.Create(viewportWidth, viewportHeight, 1f);
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
         var bar = layout.HeaderBottomBar;
 
         Assert.Same(layout.ReferenceTransform, bar.ReferenceTransform);
@@ -399,6 +399,155 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(layout.Header.Height, bar.SurfaceHeight);
         Assert.Equal(layout.Header.CornerRadius, bar.SurfaceCornerRadius);
         Assert.Equal(layout.Header.Top + layout.Header.Height, bar.SurfaceTop + bar.SurfaceHeight);
+    }
+
+    [Fact]
+    public void GateFiveOverviewTabUsesExactUnselectedNativeContract()
+    {
+        Assert.Equal("OverviewTab", RetainedOverviewTabPolicy.BackgroundName);
+        Assert.Equal("OverviewTabLabel", RetainedOverviewTabPolicy.LabelName);
+        Assert.Equal("ui.overview", RetainedOverviewTabPolicy.TextKey);
+        Assert.Equal("Overview", RetainedOverviewTabPolicy.EnglishFallback);
+        Assert.Equal("Overview", UiText.EnglishFallbacks[RetainedOverviewTabPolicy.TextKey]);
+        Assert.Equal("ResourceHanRoundedCN-Medium SDF", RetainedOverviewTabPolicy.FontAssetName);
+        Assert.Equal(
+            "ResourceHanRoundedCN-Medium Atlas Material Shadow",
+            RetainedOverviewTabPolicy.MaterialName);
+        Assert.Equal("UNDERLAY_ON", RetainedOverviewTabPolicy.NativeUnderlayKeyword);
+        Assert.Equal(115f, RetainedOverviewTabPolicy.LeftPixels);
+        Assert.Equal(251f, RetainedOverviewTabPolicy.TopPixels);
+        Assert.Equal(79f, RetainedOverviewTabPolicy.HeightPixels);
+        Assert.Equal(330f, RetainedOverviewTabPolicy.BottomExclusivePixels);
+        Assert.Equal(70f, RetainedOverviewTabPolicy.ExposedHeightPixels);
+        Assert.Equal(20f, RetainedOverviewTabPolicy.TopLeftCornerRadiusPixels);
+        Assert.Equal(20f, RetainedOverviewTabPolicy.TopRightCornerRadiusPixels);
+        Assert.Equal(0f, RetainedOverviewTabPolicy.BottomLeftCornerRadiusPixels);
+        Assert.Equal(0f, RetainedOverviewTabPolicy.BottomRightCornerRadiusPixels);
+        Assert.Equal(30f, RetainedOverviewTabPolicy.LeftPaddingPixels);
+        Assert.Equal(30f, RetainedOverviewTabPolicy.RightPaddingPixels);
+        Assert.Equal(25f, RetainedOverviewTabPolicy.TopPaddingPixels);
+        Assert.Equal(25f, RetainedOverviewTabPolicy.BottomPaddingPixels);
+        Assert.Equal(29f, RetainedOverviewTabPolicy.NominalLabelHeightPixels);
+        Assert.Equal(36f, RetainedOverviewTabPolicy.ReferenceFontSize);
+        Assert.Equal(161.91875f, RetainedOverviewTabPolicy.AuditedNativePreferredWidthPixels);
+        Assert.Equal(221.91875f, RetainedOverviewTabPolicy.AuditedReferenceTabWidthPixels);
+        Assert.Equal(30f / 255f, RetainedOverviewTabPolicy.Red);
+        Assert.Equal(66f / 255f, RetainedOverviewTabPolicy.Green);
+        Assert.Equal(94f / 255f, RetainedOverviewTabPolicy.Blue);
+        Assert.Equal(0.75f, RetainedOverviewTabPolicy.Alpha);
+        Assert.True(RetainedOverviewTabPolicy.BackgroundBlocksRaycasts);
+        Assert.False(RetainedOverviewTabPolicy.LabelBlocksRaycasts);
+        Assert.False(RetainedOverviewTabPolicy.WordWrapping);
+        Assert.False(RetainedOverviewTabPolicy.AutoSizing);
+        Assert.Equal(0f, RetainedOverviewTabPolicy.CharacterSpacing);
+        Assert.Equal(0f, RetainedOverviewTabPolicy.WordSpacing);
+        Assert.Equal(0f, RetainedOverviewTabPolicy.LineSpacing);
+        Assert.Equal(0f, RetainedOverviewTabPolicy.ParagraphSpacing);
+        Assert.True(RetainedOverviewTabPolicy.AlwaysRendersUnselected);
+        Assert.True(RetainedOverviewTabPolicy.UsesTopEdgeModifier);
+        Assert.False(RetainedOverviewTabPolicy.UsesFilledImage);
+        Assert.False(RetainedOverviewTabPolicy.UsesHorizontalTypographyCompensation);
+        Assert.True(RetainedOverviewTabPolicy.RequiresNativeUnderlay);
+        Assert.Equal(
+            RetainedHeaderPolicy.BottomExclusivePixels,
+            RetainedOverviewTabPolicy.BottomExclusivePixels);
+        Assert.Equal(
+            RetainedHeaderBottomBarPolicy.TopPixels,
+            RetainedOverviewTabPolicy.TopPixels + RetainedOverviewTabPolicy.ExposedHeightPixels);
+        Assert.Equal(
+            RetainedOverviewTabPolicy.NominalLabelHeightPixels,
+            RetainedOverviewTabPolicy.HeightPixels
+            - RetainedOverviewTabPolicy.TopPaddingPixels
+            - RetainedOverviewTabPolicy.BottomPaddingPixels);
+        Assert.True(RetainedOverviewTabPolicy.IsValidBackgroundGraphic(
+            30f / 255f,
+            66f / 255f,
+            94f / 255f,
+            0.75f,
+            raycastTarget: true));
+        Assert.False(RetainedOverviewTabPolicy.IsValidBackgroundGraphic(
+            30f / 255f,
+            66f / 255f,
+            94f / 255f,
+            0.75f,
+            raycastTarget: false));
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f, 0.5f, 0f, 57.5f, 125.5f, 39.5f, 10f, 15f, 12.5f, 18f)]
+    [InlineData(1680f, 1050f, 0.65625f, 52.5f, 75.46875f, 217.21875f, 51.84375f, 13.125f, 19.6875f, 16.40625f, 23.625f)]
+    [InlineData(1920f, 1080f, 0.75f, 0f, 86.25f, 188.25f, 59.25f, 15f, 22.5f, 18.75f, 27f)]
+    [InlineData(1920f, 1200f, 0.75f, 60f, 86.25f, 248.25f, 59.25f, 15f, 22.5f, 18.75f, 27f)]
+    [InlineData(2560f, 1440f, 1f, 0f, 115f, 251f, 79f, 20f, 30f, 25f, 36f)]
+    public void GateFiveOverviewTabUsesSharedReferenceTransformAtEveryEstablishedViewport(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedScale,
+        float expectedOriginY,
+        float expectedLeft,
+        float expectedTop,
+        float expectedHeight,
+        float expectedRadius,
+        float expectedHorizontalPadding,
+        float expectedVerticalPadding,
+        float expectedFontSize)
+    {
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
+        var tab = layout.OverviewTab;
+        var expectedPreferredWidth =
+            RetainedOverviewTabPolicy.AuditedNativePreferredWidthPixels * expectedScale;
+
+        Assert.Same(layout.ReferenceTransform, tab.ReferenceTransform);
+        Assert.Equal(expectedScale, layout.ReferenceTransform.ReferenceScale);
+        Assert.Equal(expectedOriginY, layout.ReferenceTransform.ReferenceOriginY);
+        Assert.Equal(expectedLeft, tab.Left);
+        Assert.Equal(expectedTop, tab.Top);
+        Assert.Equal(expectedHeight, tab.Height);
+        Assert.Equal(RetainedOverviewTabPolicy.ExposedHeightPixels * expectedScale, tab.ExposedHeight);
+        Assert.Equal(expectedRadius, tab.CornerRadius);
+        Assert.Equal(expectedHorizontalPadding, tab.LeftPadding);
+        Assert.Equal(expectedHorizontalPadding, tab.RightPadding);
+        Assert.Equal(expectedVerticalPadding, tab.TopPadding);
+        Assert.Equal(expectedVerticalPadding, tab.BottomPadding);
+        Assert.Equal(expectedFontSize, tab.FontSize);
+        Assert.Equal(expectedPreferredWidth, tab.PreferredLabelWidth);
+        Assert.Equal(expectedPreferredWidth + expectedHorizontalPadding * 2f, tab.Width);
+        Assert.Equal(expectedPreferredWidth, tab.LabelWidth);
+        Assert.Equal(RetainedOverviewTabPolicy.NominalLabelHeightPixels * expectedScale, tab.LabelHeight);
+        Assert.Equal(tab.Left + tab.LeftPadding, tab.LabelLeft);
+        Assert.Equal(tab.Top + tab.TopPadding, tab.LabelTop);
+        Assert.Equal(layout.Header.Top + layout.Header.Height, tab.Top + tab.Height);
+        Assert.Equal(layout.HeaderBottomBar.Top, tab.Top + tab.ExposedHeight);
+    }
+
+    [Fact]
+    public void GateFiveOverviewActivationUpdatesAuthoritativeSelectionAndSynchronizesIdempotently()
+    {
+        var instanceFields = typeof(RetainedOverviewTabActivation).GetFields(
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var staticFields = typeof(RetainedOverviewTabActivation).GetFields(
+            System.Reflection.BindingFlags.Static
+            | System.Reflection.BindingFlags.Public
+            | System.Reflection.BindingFlags.NonPublic);
+        var interaction = new PanelInteractionState();
+        interaction.SelectTab(StatisticsPanelTab.Crafting);
+        var synchronizedTabs = new List<StatisticsPanelTab>();
+        var activation = new RetainedOverviewTabActivation(selected =>
+            RetainedTabSelectionPolicy.SelectAndSynchronize(
+                interaction,
+                synchronizedTabs.Add,
+                selected));
+
+        activation.Invoke();
+        activation.Invoke();
+
+        Assert.Single(instanceFields);
+        Assert.Equal(typeof(Action<StatisticsPanelTab>), instanceFields[0].FieldType);
+        Assert.Empty(staticFields);
+        Assert.Equal(StatisticsPanelTab.Overview, interaction.SelectedTab);
+        Assert.Equal(
+            new[] { StatisticsPanelTab.Overview, StatisticsPanelTab.Overview },
+            synchronizedTabs);
     }
 
     [Fact]
@@ -450,7 +599,7 @@ public sealed class StatisticsPanelProjectionTests
         float expectedHeight,
         float expectedFontSize)
     {
-        var layout = RetainedVisualLayoutPolicy.Create(viewportWidth, viewportHeight, 1f);
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
 
         Assert.Same(layout.ReferenceTransform, layout.Header.ReferenceTransform);
         Assert.Same(layout.ReferenceTransform, layout.BackControl.ReferenceTransform);
@@ -465,7 +614,7 @@ public sealed class StatisticsPanelProjectionTests
     [Fact]
     public void StepTwoBackCircleAndArrowShareExactCentreAndCircleRadius()
     {
-        var layout = RetainedVisualLayoutPolicy.Create(2560f, 1440f, 1f).BackControl;
+        var layout = CreateRetainedVisualLayout(2560f, 1440f).BackControl;
 
         Assert.Equal(layout.Left + layout.Width / 2f, layout.ArrowLeft + layout.ArrowWidth / 2f);
         Assert.Equal(layout.Top + layout.Height / 2f, layout.ArrowTop + layout.ArrowHeight / 2f);
@@ -527,7 +676,7 @@ public sealed class StatisticsPanelProjectionTests
         float expectedArrowTop,
         float expectedArrowSize)
     {
-        var layout = RetainedVisualLayoutPolicy.Create(viewportWidth, viewportHeight, 1f);
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
 
         Assert.Same(layout.ReferenceTransform, layout.Header.ReferenceTransform);
         Assert.Same(layout.ReferenceTransform, layout.BackControl.ReferenceTransform);
@@ -547,32 +696,53 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateFourViewportChangeRefreshesAllRetainedVisualsWithoutHierarchyDuplication()
+    public void GateFiveViewportChangeRefreshesAllRetainedVisualsWithoutHierarchyDuplication()
     {
-        var baseline = RetainedVisualLayoutPolicy.Create(2560f, 1440f, 1f);
-        var resized = RetainedVisualLayoutPolicy.Create(1280f, 720f, 1f);
+        var baseline = CreateRetainedVisualLayout(2560f, 1440f);
+        var resized = CreateRetainedVisualLayout(1280f, 720f);
 
         Assert.NotSame(baseline.ReferenceTransform, resized.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.Header.ReferenceTransform);
+        Assert.Same(resized.ReferenceTransform, resized.OverviewTab.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.HeaderBottomBar.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.BackControl.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.HeaderTitle.ReferenceTransform);
         Assert.Equal(baseline.Header.Width / 2f, resized.Header.Width);
+        Assert.Equal(baseline.OverviewTab.Width / 2f, resized.OverviewTab.Width);
+        Assert.Equal(baseline.OverviewTab.Height / 2f, resized.OverviewTab.Height);
+        Assert.Equal(baseline.OverviewTab.FontSize / 2f, resized.OverviewTab.FontSize);
         Assert.Equal(baseline.HeaderBottomBar.Width / 2f, resized.HeaderBottomBar.Width);
         Assert.Equal(baseline.HeaderBottomBar.Height / 2f, resized.HeaderBottomBar.Height);
         Assert.Equal(baseline.BackControl.Width / 2f, resized.BackControl.Width);
         Assert.Equal(baseline.HeaderTitle.Width / 2f, resized.HeaderTitle.Width);
         Assert.Equal(baseline.HeaderTitle.FontSize / 2f, resized.HeaderTitle.FontSize);
-        Assert.Equal(4, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(5, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.HeaderBottomBarChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderBottomBarGraphicChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderTitleChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.BackButtonChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.BackArrowChildCount);
-        Assert.Equal(6, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(8, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
-        Assert.Equal(0, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
+    }
+
+    private static RetainedVisualCanvasLayout CreateRetainedVisualLayout(
+        float viewportWidth,
+        float viewportHeight,
+        float canvasScaleFactor = 1f)
+    {
+        var referenceTransform = RetainedReferenceTransformPolicy.Create(
+            viewportWidth,
+            viewportHeight,
+            canvasScaleFactor);
+        return RetainedVisualLayoutPolicy.Create(
+            referenceTransform,
+            referenceTransform.CanvasLength(RetainedOverviewTabPolicy.AuditedNativePreferredWidthPixels));
     }
 
     [Fact]

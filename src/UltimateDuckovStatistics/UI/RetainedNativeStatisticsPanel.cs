@@ -122,7 +122,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
 
-        if (!shell.TryCreate(canvas, interaction.SelectedTab, Close, out var error))
+        if (!shell.TryCreate(canvas, interaction.SelectedTab, HandleTabSelected, Close, out var error))
         {
             lifecycle.Close();
             RestoreFocusAndCursor();
@@ -130,6 +130,11 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
         openSurface = surface;
+    }
+
+    private void HandleTabSelected(StatisticsPanelTab tab)
+    {
+        RetainedTabSelectionPolicy.SelectAndSynchronize(interaction, shell.SetSelectedTab, tab);
     }
 
     private void ReportShellFailure(PanelAccessSurface surface, string detail)
