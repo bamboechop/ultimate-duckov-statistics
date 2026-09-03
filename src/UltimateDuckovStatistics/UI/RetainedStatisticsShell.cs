@@ -6,8 +6,8 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Step 03.
-/// The root graphic remains the modal dimmer; its children are the frozen header/back control and title.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 04.
+/// The root graphic remains the modal dimmer; its children are the frozen header/back/title and bottom bar.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
 {
@@ -16,6 +16,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RectTransform? shellRoot;
     private RectTransform? headerRect;
     private UniformModifier? headerModifier;
+    private RectTransform? headerBottomBarRect;
+    private RectTransform? headerBottomBarShapingRect;
+    private ProceduralImage? headerBottomBarGraphic;
+    private OnlyOneEdgeModifier? headerBottomBarModifier;
     private RectTransform? backButtonRect;
     private UniformModifier? backButtonModifier;
     private RectTransform? backArrowRect;
@@ -92,6 +96,14 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var headerGraphic,
                 out var createdHeaderModifier);
             headerModifier = createdHeaderModifier;
+            headerBottomBarRect = CreateHeaderBottomBar(
+                rootRect,
+                out var createdHeaderBottomBarShapingRect,
+                out var createdHeaderBottomBarGraphic,
+                out var createdHeaderBottomBarModifier);
+            headerBottomBarShapingRect = createdHeaderBottomBarShapingRect;
+            headerBottomBarGraphic = createdHeaderBottomBarGraphic;
+            headerBottomBarModifier = createdHeaderBottomBarModifier;
             backButtonRect = CreateBackControl(
                 rootRect,
                 backArrowAsset.Sprite,
@@ -116,6 +128,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 headerRect,
                 headerGraphic,
                 createdHeaderModifier,
+                headerBottomBarRect,
+                createdHeaderBottomBarShapingRect,
+                createdHeaderBottomBarGraphic,
+                createdHeaderBottomBarModifier,
                 backButtonRect,
                 backButtonGraphic,
                 createdBackButtonModifier,
@@ -186,6 +202,51 @@ internal sealed class RetainedStatisticsShell : IDisposable
         image.raycastTarget = RetainedHeaderPolicy.BlocksRaycasts;
 
         modifier = header.AddComponent<UniformModifier>();
+        return rect;
+    }
+
+    private static RectTransform CreateHeaderBottomBar(
+        RectTransform parent,
+        out RectTransform shapingRect,
+        out ProceduralImage image,
+        out OnlyOneEdgeModifier modifier)
+    {
+        var bar = new GameObject(
+            RetainedHeaderBottomBarPolicy.Name,
+            typeof(RectTransform));
+        var rect = (RectTransform)bar.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        var shapingSurface = new GameObject(
+            RetainedHeaderBottomBarPolicy.GraphicName,
+            typeof(RectTransform));
+        shapingRect = (RectTransform)shapingSurface.transform;
+        shapingRect.SetParent(rect, worldPositionStays: false);
+        shapingRect.anchorMin = new Vector2(0f, 1f);
+        shapingRect.anchorMax = new Vector2(0f, 1f);
+        shapingRect.pivot = new Vector2(0f, 1f);
+        shapingRect.localScale = Vector3.one;
+
+        image = shapingSurface.AddComponent<ProceduralImage>();
+        image.color = new Color(
+            RetainedHeaderBottomBarPolicy.Red,
+            RetainedHeaderBottomBarPolicy.Green,
+            RetainedHeaderBottomBarPolicy.Blue,
+            RetainedHeaderBottomBarPolicy.Alpha);
+        image.BorderWidth = 0f;
+        image.FalloffDistance = 1f;
+        image.type = Image.Type.Filled;
+        image.fillMethod = Image.FillMethod.Vertical;
+        image.fillOrigin = (int)Image.OriginVertical.Bottom;
+        image.fillAmount = RetainedHeaderBottomBarPolicy.VerticalFillAmount;
+        image.raycastTarget = RetainedHeaderBottomBarPolicy.BlocksRaycasts;
+
+        modifier = shapingSurface.AddComponent<OnlyOneEdgeModifier>();
+        modifier.Side = OnlyOneEdgeModifier.ProceduralImageEdge.Bottom;
         return rect;
     }
 
@@ -294,6 +355,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RetainedVisualCanvasLayout RefreshVisualLayout(bool force)
     {
         if (canvas == null || shellRoot == null || headerRect == null || headerModifier == null
+            || headerBottomBarRect == null || headerBottomBarShapingRect == null
+            || headerBottomBarGraphic == null || headerBottomBarModifier == null
             || backButtonRect == null || backButtonModifier == null || backArrowRect == null
             || headerTitleRect == null || headerTitleGraphic == null)
         {
@@ -319,6 +382,19 @@ internal sealed class RetainedStatisticsShell : IDisposable
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
+        headerBottomBarRect.anchoredPosition = new Vector2(
+            layout.HeaderBottomBar.Left,
+            -layout.HeaderBottomBar.Top);
+        headerBottomBarRect.sizeDelta = new Vector2(
+            layout.HeaderBottomBar.Width,
+            layout.HeaderBottomBar.Height);
+        headerBottomBarShapingRect.anchoredPosition = new Vector2(
+            0f,
+            -(layout.HeaderBottomBar.ShapingTop - layout.HeaderBottomBar.Top));
+        headerBottomBarShapingRect.sizeDelta = new Vector2(
+            layout.HeaderBottomBar.Width,
+            layout.HeaderBottomBar.ShapingHeight);
+        headerBottomBarModifier.Radius = layout.HeaderBottomBar.CornerRadius;
         backButtonRect.anchoredPosition = new Vector2(layout.BackControl.Left, -layout.BackControl.Top);
         backButtonRect.sizeDelta = new Vector2(layout.BackControl.Width, layout.BackControl.Height);
         backButtonModifier.Radius = layout.BackControl.CornerRadius;
@@ -348,6 +424,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
         RectTransform headerRect,
         ProceduralImage headerGraphic,
         UniformModifier headerModifier,
+        RectTransform headerBottomBarRect,
+        RectTransform headerBottomBarShapingRect,
+        ProceduralImage headerBottomBarGraphic,
+        OnlyOneEdgeModifier headerBottomBarModifier,
         RectTransform backButtonRect,
         ProceduralImage backButtonGraphic,
         UniformModifier backButtonModifier,
@@ -373,6 +453,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 headerGraphic.color.b,
                 headerGraphic.color.a,
                 headerGraphic.raycastTarget)
+            || !RetainedHeaderBottomBarPolicy.IsValidGraphic(
+                headerBottomBarGraphic.color.r,
+                headerBottomBarGraphic.color.g,
+                headerBottomBarGraphic.color.b,
+                headerBottomBarGraphic.color.a,
+                headerBottomBarGraphic.raycastTarget)
             || !RetainedBackControlPolicy.IsValidBackgroundGraphic(
                 backButtonGraphic.color.r,
                 backButtonGraphic.color.g,
@@ -389,6 +475,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || shellRoot.childCount != RetainedShellCompositionPolicy.RootChildCount
             || headerRect.parent != shellRoot
             || headerRect.childCount != RetainedShellCompositionPolicy.HeaderChildCount
+            || headerBottomBarRect.parent != shellRoot
+            || headerBottomBarRect.childCount != RetainedShellCompositionPolicy.HeaderBottomBarChildCount
+            || headerBottomBarShapingRect.parent != headerBottomBarRect
+            || headerBottomBarShapingRect.childCount
+            != RetainedShellCompositionPolicy.HeaderBottomBarGraphicChildCount
             || backButtonRect.parent != shellRoot
             || backButtonRect.childCount != RetainedShellCompositionPolicy.BackButtonChildCount
             || backArrowRect.parent != backButtonRect
@@ -402,16 +493,20 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || backButton.transition != Selectable.Transition.None
             || backButton.onClick.GetPersistentEventCount() != 0
             || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.Header.ReferenceTransform)
+            || !ReferenceEquals(
+                visualLayout.ReferenceTransform,
+                visualLayout.HeaderBottomBar.ReferenceTransform)
             || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.HeaderTitle.ReferenceTransform)
             || !ReferenceEquals(visualLayout.ReferenceTransform, visualLayout.BackControl.ReferenceTransform)
             || !graphics.Contains(blocker)
             || !graphics.Contains(headerGraphic)
+            || !graphics.Contains(headerBottomBarGraphic)
             || !graphics.Contains(backButtonGraphic)
             || !graphics.Contains(backArrowGraphic)
             || !graphics.Contains(headerTitleGraphic))
         {
             throw new InvalidOperationException(
-                "The Step 03 shell must contain only the frozen Step 00-02-R visuals and HeaderTitle.");
+                "The Gate 04 shell must contain only the frozen Step 00-03-B visuals and HeaderBottomBar.");
         }
 
         if (shellRoot.anchorMin != Vector2.zero
@@ -438,6 +533,52 @@ internal sealed class RetainedStatisticsShell : IDisposable
         {
             throw new InvalidOperationException(
                 "HeaderBackground did not retain its exact top-left pixel geometry or rounded-corner radius.");
+        }
+
+        if (headerBottomBarRect.gameObject.name != RetainedHeaderBottomBarPolicy.Name
+            || headerBottomBarRect.anchorMin != new Vector2(0f, 1f)
+            || headerBottomBarRect.anchorMax != new Vector2(0f, 1f)
+            || headerBottomBarRect.pivot != new Vector2(0f, 1f)
+            || headerBottomBarRect.GetSiblingIndex() <= headerRect.GetSiblingIndex()
+            || !Approximately(headerBottomBarRect.anchoredPosition.x, visualLayout.HeaderBottomBar.Left)
+            || !Approximately(headerBottomBarRect.anchoredPosition.y, -visualLayout.HeaderBottomBar.Top)
+            || !Approximately(headerBottomBarRect.sizeDelta.x, visualLayout.HeaderBottomBar.Width)
+            || !Approximately(headerBottomBarRect.sizeDelta.y, visualLayout.HeaderBottomBar.Height)
+            || headerBottomBarShapingRect.gameObject.name != RetainedHeaderBottomBarPolicy.GraphicName
+            || headerBottomBarShapingRect.anchorMin != new Vector2(0f, 1f)
+            || headerBottomBarShapingRect.anchorMax != new Vector2(0f, 1f)
+            || headerBottomBarShapingRect.pivot != new Vector2(0f, 1f)
+            || !Approximately(headerBottomBarShapingRect.anchoredPosition.x, 0f)
+            || !Approximately(
+                headerBottomBarShapingRect.anchoredPosition.y,
+                -(visualLayout.HeaderBottomBar.ShapingTop - visualLayout.HeaderBottomBar.Top))
+            || !Approximately(headerBottomBarShapingRect.sizeDelta.x, visualLayout.HeaderBottomBar.Width)
+            || !Approximately(
+                headerBottomBarShapingRect.sizeDelta.y,
+                visualLayout.HeaderBottomBar.ShapingHeight)
+            || headerBottomBarGraphic.BorderWidth != 0f
+            || headerBottomBarGraphic.FalloffDistance != 1f
+            || headerBottomBarGraphic.type != Image.Type.Filled
+            || headerBottomBarGraphic.fillMethod != Image.FillMethod.Vertical
+            || headerBottomBarGraphic.fillOrigin != (int)Image.OriginVertical.Bottom
+            || !Approximately(
+                headerBottomBarGraphic.fillAmount,
+                RetainedHeaderBottomBarPolicy.VerticalFillAmount)
+            || headerBottomBarModifier.Side != OnlyOneEdgeModifier.ProceduralImageEdge.Bottom
+            || !Approximately(headerBottomBarModifier.Radius, visualLayout.HeaderBottomBar.CornerRadius)
+            || !Approximately(
+                headerBottomBarModifier.Radius * canvasScaleFactor,
+                RetainedHeaderBottomBarPolicy.CornerRadiusPixels
+                * visualLayout.ReferenceTransform.ReferenceScale)
+            || !Approximately(
+                visualLayout.HeaderBottomBar.Top + visualLayout.HeaderBottomBar.Height,
+                visualLayout.Header.Top + visualLayout.Header.Height)
+            || !Approximately(
+                visualLayout.HeaderBottomBar.ShapingTop + visualLayout.HeaderBottomBar.ShapingHeight,
+                visualLayout.Header.Top + visualLayout.Header.Height))
+        {
+            throw new InvalidOperationException(
+                "HeaderBottomBar did not retain its exact strip geometry, colour, or rounded-bottom silhouette.");
         }
 
         if (backButtonRect.gameObject.name != RetainedBackControlPolicy.ButtonName
@@ -538,6 +679,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
         shellRoot = null;
         headerRect = null;
         headerModifier = null;
+        headerBottomBarRect = null;
+        headerBottomBarShapingRect = null;
+        headerBottomBarGraphic = null;
+        headerBottomBarModifier = null;
         backButtonRect = null;
         backButtonModifier = null;
         backArrowRect = null;

@@ -305,6 +305,84 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void GateFourHeaderBottomBarUsesExactLogicalStripAndRoundedSilhouetteContract()
+    {
+        Assert.Equal("HeaderBottomBar", RetainedHeaderBottomBarPolicy.Name);
+        Assert.Equal("HeaderBottomBarGraphic", RetainedHeaderBottomBarPolicy.GraphicName);
+        Assert.Equal(85f, RetainedHeaderBottomBarPolicy.LeftPixels);
+        Assert.Equal(321f, RetainedHeaderBottomBarPolicy.TopPixels);
+        Assert.Equal(2392f, RetainedHeaderBottomBarPolicy.WidthPixels);
+        Assert.Equal(9f, RetainedHeaderBottomBarPolicy.HeightPixels);
+        Assert.Equal(2477f, RetainedHeaderBottomBarPolicy.RightExclusivePixels);
+        Assert.Equal(330f, RetainedHeaderBottomBarPolicy.BottomExclusivePixels);
+        Assert.Equal(88f, RetainedHeaderBottomBarPolicy.VisibleLeftPixels);
+        Assert.Equal(321f, RetainedHeaderBottomBarPolicy.VisibleTopPixels);
+        Assert.Equal(2386f, RetainedHeaderBottomBarPolicy.VisibleWidthPixels);
+        Assert.Equal(9f, RetainedHeaderBottomBarPolicy.VisibleHeightPixels);
+        Assert.Equal(2474f, RetainedHeaderBottomBarPolicy.VisibleRightExclusivePixels);
+        Assert.Equal(330f, RetainedHeaderBottomBarPolicy.VisibleBottomExclusivePixels);
+        Assert.Equal(310f, RetainedHeaderBottomBarPolicy.ShapingTopPixels);
+        Assert.Equal(20f, RetainedHeaderBottomBarPolicy.ShapingHeightPixels);
+        Assert.Equal(20f, RetainedHeaderBottomBarPolicy.CornerRadiusPixels);
+        Assert.Equal(78f / 255f, RetainedHeaderBottomBarPolicy.Red);
+        Assert.Equal(189f / 255f, RetainedHeaderBottomBarPolicy.Green);
+        Assert.Equal(1f, RetainedHeaderBottomBarPolicy.Blue);
+        Assert.Equal(1f, RetainedHeaderBottomBarPolicy.Alpha);
+        Assert.Equal(9f / 20f, RetainedHeaderBottomBarPolicy.VerticalFillAmount);
+        Assert.False(RetainedHeaderBottomBarPolicy.BlocksRaycasts);
+        Assert.Equal(
+            RetainedHeaderPolicy.BottomExclusivePixels,
+            RetainedHeaderBottomBarPolicy.BottomExclusivePixels);
+        Assert.Equal(
+            RetainedHeaderPolicy.CornerRadiusPixels,
+            RetainedHeaderBottomBarPolicy.CornerRadiusPixels);
+        Assert.True(RetainedHeaderBottomBarPolicy.IsValidGraphic(
+            78f / 255f,
+            189f / 255f,
+            1f,
+            1f,
+            raycastTarget: false));
+        Assert.False(RetainedHeaderBottomBarPolicy.IsValidGraphic(
+            78f / 255f,
+            189f / 255f,
+            1f,
+            1f,
+            raycastTarget: true));
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f, 42.5f, 160.5f, 1196f, 4.5f, 155f, 10f, 10f)]
+    [InlineData(1680f, 1050f, 55.78125f, 263.15625f, 1569.75f, 5.90625f, 255.9375f, 13.125f, 13.125f)]
+    [InlineData(1920f, 1080f, 63.75f, 240.75f, 1794f, 6.75f, 232.5f, 15f, 15f)]
+    [InlineData(1920f, 1200f, 63.75f, 300.75f, 1794f, 6.75f, 292.5f, 15f, 15f)]
+    [InlineData(2560f, 1440f, 85f, 321f, 2392f, 9f, 310f, 20f, 20f)]
+    public void GateFourHeaderBottomBarUsesSharedReferenceTransformAtEveryRequiredViewport(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedLeft,
+        float expectedTop,
+        float expectedWidth,
+        float expectedHeight,
+        float expectedShapingTop,
+        float expectedShapingHeight,
+        float expectedRadius)
+    {
+        var layout = RetainedVisualLayoutPolicy.Create(viewportWidth, viewportHeight, 1f);
+        var bar = layout.HeaderBottomBar;
+
+        Assert.Same(layout.ReferenceTransform, bar.ReferenceTransform);
+        Assert.Equal(expectedLeft, bar.Left);
+        Assert.Equal(expectedTop, bar.Top);
+        Assert.Equal(expectedWidth, bar.Width);
+        Assert.Equal(expectedHeight, bar.Height);
+        Assert.Equal(expectedShapingTop, bar.ShapingTop);
+        Assert.Equal(expectedShapingHeight, bar.ShapingHeight);
+        Assert.Equal(expectedRadius, bar.CornerRadius);
+        Assert.Equal(layout.Header.Top + layout.Header.Height, bar.Top + bar.Height);
+        Assert.Equal(layout.Header.Top + layout.Header.Height, bar.ShapingTop + bar.ShapingHeight);
+    }
+
+    [Fact]
     public void StepThreeHeaderTitleUsesExactNativeTypographyAndReferenceBoundsContract()
     {
         Assert.Equal("HeaderTitle", RetainedHeaderTitlePolicy.Name);
@@ -450,25 +528,30 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void StepThreeViewportChangeRefreshesAllRetainedVisualsWithoutHierarchyDuplication()
+    public void GateFourViewportChangeRefreshesAllRetainedVisualsWithoutHierarchyDuplication()
     {
         var baseline = RetainedVisualLayoutPolicy.Create(2560f, 1440f, 1f);
         var resized = RetainedVisualLayoutPolicy.Create(1280f, 720f, 1f);
 
         Assert.NotSame(baseline.ReferenceTransform, resized.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.Header.ReferenceTransform);
+        Assert.Same(resized.ReferenceTransform, resized.HeaderBottomBar.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.BackControl.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.HeaderTitle.ReferenceTransform);
         Assert.Equal(baseline.Header.Width / 2f, resized.Header.Width);
+        Assert.Equal(baseline.HeaderBottomBar.Width / 2f, resized.HeaderBottomBar.Width);
+        Assert.Equal(baseline.HeaderBottomBar.Height / 2f, resized.HeaderBottomBar.Height);
         Assert.Equal(baseline.BackControl.Width / 2f, resized.BackControl.Width);
         Assert.Equal(baseline.HeaderTitle.Width / 2f, resized.HeaderTitle.Width);
         Assert.Equal(baseline.HeaderTitle.FontSize / 2f, resized.HeaderTitle.FontSize);
-        Assert.Equal(3, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(4, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.HeaderBottomBarChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.HeaderBottomBarGraphicChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderTitleChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.BackButtonChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.BackArrowChildCount);
-        Assert.Equal(5, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(6, RetainedShellCompositionPolicy.GraphicCount);
     }
 
     [Fact]

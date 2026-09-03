@@ -334,6 +334,74 @@ internal static class RetainedHeaderPolicy
         && raycastTarget == BlocksRaycasts;
 }
 
+internal sealed class RetainedHeaderBottomBarCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float ShapingTop { get; set; }
+    public float ShapingHeight { get; set; }
+    public float CornerRadius { get; set; }
+}
+
+internal static class RetainedHeaderBottomBarPolicy
+{
+    public const string Name = "HeaderBottomBar";
+    public const string GraphicName = "HeaderBottomBarGraphic";
+    public const float LeftPixels = 85f;
+    public const float TopPixels = 321f;
+    public const float WidthPixels = 2392f;
+    public const float HeightPixels = 9f;
+    public const float RightExclusivePixels = 2477f;
+    public const float BottomExclusivePixels = 330f;
+    public const float VisibleLeftPixels = 88f;
+    public const float VisibleTopPixels = 321f;
+    public const float VisibleWidthPixels = 2386f;
+    public const float VisibleHeightPixels = 9f;
+    public const float VisibleRightExclusivePixels = 2474f;
+    public const float VisibleBottomExclusivePixels = 330f;
+    public const float ShapingTopPixels = 310f;
+    public const float ShapingHeightPixels = 20f;
+    public const float CornerRadiusPixels = RetainedHeaderPolicy.CornerRadiusPixels;
+    public const float Red = 78f / 255f;
+    public const float Green = 189f / 255f;
+    public const float Blue = 1f;
+    public const float Alpha = 1f;
+    public const float VerticalFillAmount = HeightPixels / ShapingHeightPixels;
+    public const bool BlocksRaycasts = false;
+
+    public static RetainedHeaderBottomBarCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        return new RetainedHeaderBottomBarCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = referenceTransform.CanvasX(LeftPixels),
+            Top = referenceTransform.CanvasY(TopPixels),
+            Width = referenceTransform.CanvasLength(WidthPixels),
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            ShapingTop = referenceTransform.CanvasY(ShapingTopPixels),
+            ShapingHeight = referenceTransform.CanvasLength(ShapingHeightPixels),
+            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels)
+        };
+    }
+
+    public static bool IsValidGraphic(
+        float red,
+        float green,
+        float blue,
+        float alpha,
+        bool raycastTarget) =>
+        red == Red
+        && green == Green
+        && blue == Blue
+        && alpha == Alpha
+        && raycastTarget == BlocksRaycasts;
+}
+
 internal sealed class RetainedHeaderTitleCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
@@ -492,6 +560,7 @@ internal sealed class RetainedVisualCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
     public RetainedHeaderCanvasLayout Header { get; set; } = null!;
+    public RetainedHeaderBottomBarCanvasLayout HeaderBottomBar { get; set; } = null!;
     public RetainedHeaderTitleCanvasLayout HeaderTitle { get; set; } = null!;
     public RetainedBackControlCanvasLayout BackControl { get; set; } = null!;
 }
@@ -508,6 +577,7 @@ internal static class RetainedVisualLayoutPolicy
             viewportPixelHeight,
             canvasScaleFactor);
         var header = RetainedHeaderPolicy.CreateCanvasLayout(referenceTransform);
+        var headerBottomBar = RetainedHeaderBottomBarPolicy.CreateCanvasLayout(referenceTransform);
         var headerTitle = RetainedHeaderTitlePolicy.CreateCanvasLayout(referenceTransform);
         var backControl = RetainedBackControlPolicy.CreateCanvasLayout(referenceTransform);
         if (!IsFinite(header.Left)
@@ -515,6 +585,13 @@ internal static class RetainedVisualLayoutPolicy
             || !IsPositiveFinite(header.Width)
             || !IsPositiveFinite(header.Height)
             || !IsPositiveFinite(header.CornerRadius)
+            || !IsFinite(headerBottomBar.Left)
+            || !IsFinite(headerBottomBar.Top)
+            || !IsPositiveFinite(headerBottomBar.Width)
+            || !IsPositiveFinite(headerBottomBar.Height)
+            || !IsFinite(headerBottomBar.ShapingTop)
+            || !IsPositiveFinite(headerBottomBar.ShapingHeight)
+            || !IsPositiveFinite(headerBottomBar.CornerRadius)
             || !IsFinite(headerTitle.Left)
             || !IsFinite(headerTitle.Top)
             || !IsPositiveFinite(headerTitle.Width)
@@ -541,6 +618,7 @@ internal static class RetainedVisualLayoutPolicy
         {
             ReferenceTransform = referenceTransform,
             Header = header,
+            HeaderBottomBar = headerBottomBar,
             HeaderTitle = headerTitle,
             BackControl = backControl
         };
@@ -553,12 +631,14 @@ internal static class RetainedVisualLayoutPolicy
 
 internal static class RetainedShellCompositionPolicy
 {
-    public const int RootChildCount = 3;
+    public const int RootChildCount = 4;
     public const int HeaderChildCount = 0;
+    public const int HeaderBottomBarChildCount = 1;
+    public const int HeaderBottomBarGraphicChildCount = 0;
     public const int HeaderTitleChildCount = 0;
     public const int BackButtonChildCount = 1;
     public const int BackArrowChildCount = 0;
-    public const int GraphicCount = 5;
+    public const int GraphicCount = 6;
 }
 
 internal sealed class RetainedBackControlActivation
