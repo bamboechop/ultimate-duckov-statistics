@@ -199,30 +199,33 @@ internal sealed class RetainedStatisticsShell : IDisposable
             }
             var visualLayout = RefreshVisualLayout(force: true);
 
-            ValidateSurfaceComposition(
-                rootRect,
-                blocker,
-                headerRect,
-                headerGraphic,
-                createdHeaderModifier,
-                tabControls,
-                tabLabelMaterial,
-                headerBottomBarRect,
-                createdHeaderBottomBarMask,
-                createdHeaderBottomBarSurfaceRect,
-                createdHeaderBottomBarGraphic,
-                createdHeaderBottomBarModifier,
-                backButtonRect,
-                backButtonGraphic,
-                createdBackButtonModifier,
-                backButton,
-                createdBackArrowRect,
-                backArrowGraphic,
-                headerTitleRect,
-                createdHeaderTitleGraphic,
-                visualLayout,
-                selectedTab,
-                targetCanvas.scaleFactor);
+            RetainedCompositionValidationPolicy.Inspect(
+                () => ValidateSurfaceComposition(
+                    rootRect,
+                    blocker,
+                    headerRect,
+                    headerGraphic,
+                    createdHeaderModifier,
+                    tabControls,
+                    tabLabelMaterial,
+                    headerBottomBarRect,
+                    createdHeaderBottomBarMask,
+                    createdHeaderBottomBarSurfaceRect,
+                    createdHeaderBottomBarGraphic,
+                    createdHeaderBottomBarModifier,
+                    backButtonRect,
+                    backButtonGraphic,
+                    createdBackButtonModifier,
+                    backButton,
+                    createdBackArrowRect,
+                    backArrowGraphic,
+                    headerTitleRect,
+                    createdHeaderTitleGraphic,
+                    visualLayout,
+                    selectedTab,
+                    targetCanvas.scaleFactor),
+                message => Debug.LogWarning(
+                    $"{RetainedCompositionValidationPolicy.WarningPrefix}: {message}"));
             rootRect.SetAsLastSibling();
             return true;
         }

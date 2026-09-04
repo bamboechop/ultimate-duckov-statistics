@@ -683,6 +683,28 @@ internal static class RetainedTabMeasurementPolicy
         value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
 }
 
+internal static class RetainedCompositionValidationPolicy
+{
+    public const string WarningPrefix = "[UDS] M17 retained visual composition advisory";
+
+    public static bool Inspect(Action validate, Action<string> report)
+    {
+        if (validate == null) throw new ArgumentNullException(nameof(validate));
+        if (report == null) throw new ArgumentNullException(nameof(report));
+
+        try
+        {
+            validate();
+            return true;
+        }
+        catch (InvalidOperationException exception)
+        {
+            report($"{exception.GetType().Name}: {exception.Message}");
+            return false;
+        }
+    }
+}
+
 internal static class RetainedTabStripPolicy
 {
     private static readonly IReadOnlyList<RetainedTabSpecification> OrderedSpecifications =

@@ -986,6 +986,37 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void GateSevenVisualCompositionMismatchIsReportedWithoutDisablingTheShell()
+    {
+        var reports = new List<string>();
+
+        var accepted = RetainedCompositionValidationPolicy.Inspect(
+            () => throw new InvalidOperationException("Unity normalized a presentation property."),
+            reports.Add);
+
+        Assert.False(accepted);
+        Assert.Equal(
+            "InvalidOperationException: Unity normalized a presentation property.",
+            Assert.Single(reports));
+        Assert.Equal(
+            "[UDS] M17 retained visual composition advisory",
+            RetainedCompositionValidationPolicy.WarningPrefix);
+    }
+
+    [Fact]
+    public void GateSevenVisualCompositionValidationStillPropagatesUnexpectedFailures()
+    {
+        var reports = new List<string>();
+
+        Assert.Throws<FormatException>(() =>
+            RetainedCompositionValidationPolicy.Inspect(
+                () => throw new FormatException("unexpected construction failure"),
+                reports.Add));
+
+        Assert.Empty(reports);
+    }
+
+    [Fact]
     public void GateSevenMeasuredWidthDifferencesPropagateRelationallyWithoutOverlap()
     {
         var originalWidths = RetainedTabStripPolicy.AuditedEnglishPreferredWidths.ToArray();
