@@ -1433,7 +1433,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(
             RetainedTabLabelShadowPolicy.OwnedMaterialName,
             RetainedOverviewProfileSummaryHeadingPolicy.MaterialName);
-        Assert.Equal(56f, RetainedOverviewProfileSummaryHeadingPolicy.ReferenceFontSize);
+        Assert.Equal(46.3f, RetainedOverviewProfileSummaryHeadingPolicy.ReferenceFontSize);
         Assert.Equal(60f, RetainedOverviewProfileSummaryHeadingPolicy.HeightPixels);
         Assert.Equal(1f, RetainedOverviewProfileSummaryHeadingPolicy.Red);
         Assert.Equal(1f, RetainedOverviewProfileSummaryHeadingPolicy.Green);
@@ -1446,14 +1446,17 @@ public sealed class StatisticsPanelProjectionTests
         Assert.True(RetainedOverviewProfileSummaryHeadingPolicy.UsesOwnedTabLabelMaterial);
         Assert.True(RetainedOverviewProfileSummaryHeadingPolicy.UsesZeroTextMargin);
         Assert.Equal(0f, RetainedOverviewProfileSummaryHeadingPolicy.AdditionalPaddingPixels);
-        Assert.False(RetainedOverviewProfileSummaryHeadingPolicy.UsesHorizontalTypographyCompensation);
+        Assert.True(RetainedOverviewProfileSummaryHeadingPolicy.UsesRenderedBearingCompensation);
+        Assert.False(RetainedOverviewProfileSummaryHeadingPolicy.UsesHorizontalScaleCompensation);
+        Assert.Equal(0f, RetainedOverviewProfileSummaryHeadingPolicy.FallbackOffsetX);
+        Assert.Equal(0f, RetainedOverviewProfileSummaryHeadingPolicy.FallbackOffsetY);
 
         Assert.Same(layout.ReferenceTransform, heading.ReferenceTransform);
         Assert.Equal(115f, heading.Left);
         Assert.Equal(400f, heading.Top);
         Assert.Equal(1115f, heading.Width);
         Assert.Equal(60f, heading.Height);
-        Assert.Equal(56f, heading.FontSize);
+        Assert.Equal(46.3f, heading.FontSize);
         Assert.Equal(panel.ContentLeft, heading.Left);
         Assert.Equal(panel.ContentTop, heading.Top);
         Assert.Equal(panel.ContentWidth, heading.Width);
@@ -1466,11 +1469,11 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Theory]
-    [InlineData(1280f, 720f, 57.5f, 200f, 557.5f, 30f, 28f)]
-    [InlineData(1680f, 1050f, 75.46875f, 315f, 731.71875f, 39.375f, 36.75f)]
-    [InlineData(1920f, 1080f, 86.25f, 300f, 836.25f, 45f, 42f)]
-    [InlineData(1920f, 1200f, 86.25f, 360f, 836.25f, 45f, 42f)]
-    [InlineData(2560f, 1440f, 115f, 400f, 1115f, 60f, 56f)]
+    [InlineData(1280f, 720f, 57.5f, 200f, 557.5f, 30f, 23.15f)]
+    [InlineData(1680f, 1050f, 75.46875f, 315f, 731.71875f, 39.375f, 30.384375f)]
+    [InlineData(1920f, 1080f, 86.25f, 300f, 836.25f, 45f, 34.725f)]
+    [InlineData(1920f, 1200f, 86.25f, 360f, 836.25f, 45f, 34.725f)]
+    [InlineData(2560f, 1440f, 115f, 400f, 1115f, 60f, 46.3f)]
     public void GateTenOverviewProfileSummaryHeadingUsesTheSharedReferenceTransform(
         float viewportWidth,
         float viewportHeight,
@@ -1493,6 +1496,70 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(panel.ContentLeft, heading.Left, 5);
         Assert.Equal(panel.ContentTop, heading.Top, 5);
         Assert.Equal(panel.ContentWidth, heading.Width, 5);
+    }
+
+    [Fact]
+    public void GateTenHeadingBearingCompensationInvertsFiniteRenderedOffsets()
+    {
+        var calculated = RetainedOverviewProfileSummaryHeadingPolicy.TryCalculateBearingCompensation(
+            boundsMinX: 6f,
+            boundsMaxY: -21f,
+            boundsWidth: 441f,
+            boundsHeight: 58f,
+            out var compensation);
+
+        Assert.True(calculated);
+        Assert.Equal(-6f, compensation.X);
+        Assert.Equal(21f, compensation.Y);
+    }
+
+    [Fact]
+    public void GateTenHeadingBearingCompensationFallsBackForEmptyGeometry()
+    {
+        var calculated = RetainedOverviewProfileSummaryHeadingPolicy.TryCalculateBearingCompensation(
+            boundsMinX: 0f,
+            boundsMaxY: 0f,
+            boundsWidth: 0f,
+            boundsHeight: 0f,
+            out var compensation);
+
+        Assert.False(calculated);
+        Assert.Equal(0f, compensation.X);
+        Assert.Equal(0f, compensation.Y);
+    }
+
+    [Fact]
+    public void GateTenHeadingBearingCompensationFallsBackForNonFiniteGeometryWithoutThrowing()
+    {
+        var invalidBounds = new[]
+        {
+            (float.NaN, -21f, 441f, 58f),
+            (6f, float.PositiveInfinity, 441f, 58f),
+            (6f, -21f, float.NegativeInfinity, 58f),
+            (6f, -21f, 441f, float.NaN)
+        };
+
+        foreach (var (minX, maxY, width, height) in invalidBounds)
+        {
+            var exception = Record.Exception(() =>
+                RetainedOverviewProfileSummaryHeadingPolicy.TryCalculateBearingCompensation(
+                    minX,
+                    maxY,
+                    width,
+                    height,
+                    out _));
+            Assert.Null(exception);
+
+            var calculated = RetainedOverviewProfileSummaryHeadingPolicy.TryCalculateBearingCompensation(
+                minX,
+                maxY,
+                width,
+                height,
+                out var compensation);
+            Assert.False(calculated);
+            Assert.Equal(0f, compensation.X);
+            Assert.Equal(0f, compensation.Y);
+        }
     }
 
     [Fact]
