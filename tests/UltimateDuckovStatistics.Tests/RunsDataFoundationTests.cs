@@ -74,6 +74,70 @@ public sealed class RunsDataFoundationTests
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void JsonExportPreservesDetachedTerminalEvidence(bool death, bool partial)
+    {
+        using var h = new NativeHarness();
+        h.Root.Content!.Slots.Add(new Slot { Key = "nested", Content = new Item { TypeID = 992, DisplayName = "Attachment" } });
+        h.Root.Content.Slots.Add(new Slot { Key = "empty" });
+        if (partial) h.Root.Content.Slots.Add(new Slot { Key = "unreadable", ThrowOnContentRead = true });
+        if (death)
+        {
+            RaidUtilities.RaiseRaidEnd(true);
+            RaidUtilities.RaiseRaidDead();
+            h.Root.Content = null;
+            LevelManager.RaiseMainCharacterDead();
+            h.Lifecycle.Tick();
+        }
+        else LevelManager.RaiseEvacuated();
+
+        var profile = new ProfileDocument { GenerationId = "generation", CreatedUtc = DateTime.UnixEpoch, UpdatedUtc = DateTime.UnixEpoch, Statistics = new ProfileStatistics { SaveGenerationId = "generation", CreatedUtc = DateTime.UnixEpoch, UpdatedUtc = DateTime.UnixEpoch } };
+        Assert.True(RunReducer.Apply(profile.Statistics, h.Completed!));
+        var retained = Assert.Single(profile.Statistics.Runs).TerminalLoadout;
+        Assert.Equal(partial ? TerminalLoadoutState.Partial : TerminalLoadoutState.Complete, retained.State);
+        Assert.Equal(death ? RunOutcome.Died : RunOutcome.Extracted, retained.CapturedOutcome);
+        Assert.NotEmpty(retained.Provenance);
+        Assert.True(retained.Snapshot!.CharacterSlotStateComplete);
+        Assert.Equal(!partial, retained.Snapshot.NestedSlotStateComplete);
+        var root = Assert.Single(retained.Snapshot.Items);
+        Assert.Equal(!partial, root.NestedSlotStateComplete);
+        Assert.Contains(root.NestedSlots, slot => slot.ItemId == "duckov:item:992");
+        Assert.Contains(root.NestedSlots, slot => slot.State == EquipmentSlotState.Empty);
+        Assert.Contains(retained.Snapshot.CharacterSlots, slot => slot.State == EquipmentSlotState.Empty);
+
+        var export = StatisticsExporter.Create(profile, DateTime.UnixEpoch);
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(export.Json));
+        var serializer = new System.Runtime.Serialization.Json.DataContractJsonSerializer(
+            typeof(StatisticsExportDocument),
+            new System.Runtime.Serialization.Json.DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
+        var decoded = Assert.IsType<StatisticsExportDocument>(serializer.ReadObject(stream));
+        var restored = Assert.Single(decoded.Runs).TerminalLoadout;
+        Assert.Equal(retained.State, restored.State);
+        Assert.Equal(retained.CapturedOutcome, restored.CapturedOutcome);
+        Assert.Equal(retained.Provenance, restored.Provenance);
+        // Compare every persisted snapshot field, including root/nested identities and completeness.
+        var expected = System.Text.Json.JsonSerializer.Serialize(retained);
+        Assert.Equal(expected, System.Text.Json.JsonSerializer.Serialize(restored));
+
+        var copied = Assert.Single(export.Document.Runs).TerminalLoadout;
+        Assert.NotSame(retained, copied);
+        Assert.NotSame(retained.Snapshot, copied.Snapshot);
+        Assert.NotSame(root, Assert.Single(copied.Snapshot!.Items));
+        for (var i = 0; i < retained.Snapshot.CharacterSlots.Count; i++)
+            Assert.NotSame(retained.Snapshot.CharacterSlots[i], copied.Snapshot.CharacterSlots[i]);
+        for (var i = 0; i < root.NestedSlots.Count; i++)
+            Assert.NotSame(root.NestedSlots[i], copied.Snapshot.Items[0].NestedSlots[i]);
+        copied.Provenance = "export mutation";
+        copied.Snapshot.CharacterSlots[0].ItemId = "changed root";
+        copied.Snapshot.Items[0].NestedSlots[0].ItemId = "changed nested";
+        copied.Snapshot.Items.Clear();
+        Assert.Equal(expected, System.Text.Json.JsonSerializer.Serialize(retained));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void EconomyAndCheckpointRetriesRetainFirstDetachedCandidate(bool death)

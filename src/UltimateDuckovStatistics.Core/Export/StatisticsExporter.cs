@@ -1784,6 +1784,7 @@ public static class StatisticsExporter
         WeaponStatistics = WeaponStatisticsReducer.Clone(source.WeaponStatistics),
         CombatStatistics = CombatStatisticsReducer.Clone(source.CombatStatistics),
         EquipmentStatistics = EquipmentStatisticsReducer.Clone(source.EquipmentStatistics),
+        TerminalLoadout = source.TerminalLoadout.Clone(),
         ContainerStatistics = ContainerStatisticsReducer.Clone(source.ContainerStatistics),
         StartingMapId = source.StartingMapId,
         StartingMapDisplayName = source.StartingMapDisplayName,
