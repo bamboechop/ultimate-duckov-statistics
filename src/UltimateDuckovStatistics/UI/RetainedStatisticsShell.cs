@@ -7,7 +7,7 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 12.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 13.
 /// The root graphic remains the modal dimmer; its children are the frozen header controls and tab-owned views.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
@@ -116,8 +116,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RectTransform? overviewRightPanelRect;
     private UniformModifier? overviewRightPanelModifier;
     private RectTransform? overviewLeftPanelContentRect;
+    private RectTransform? overviewRightPanelContentRect;
     private RectTransform? overviewProfileSummaryHeadingRect;
     private TextMeshProUGUI? overviewProfileSummaryHeadingGraphic;
+    private RectTransform? overviewHighlightsHeadingRect;
+    private TextMeshProUGUI? overviewHighlightsHeadingGraphic;
     private readonly List<RetainedStatisticsRowControl> overviewProfileSummaryRows = new();
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
     private float lastViewportPixelWidth = float.NaN;
@@ -199,8 +202,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var createdOverviewRightPanelRect,
                 out var createdOverviewRightPanelModifier,
                 out var createdOverviewLeftPanelContentRect,
+                out var createdOverviewRightPanelContentRect,
                 out var createdOverviewProfileSummaryHeadingRect,
                 out var createdOverviewProfileSummaryHeadingGraphic,
+                out var createdOverviewHighlightsHeadingRect,
+                out var createdOverviewHighlightsHeadingGraphic,
                 out var createdOverviewProfileSummaryRows,
                 projection);
             overviewLeftPanelRect = createdOverviewLeftPanelRect;
@@ -208,8 +214,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewRightPanelRect = createdOverviewRightPanelRect;
             overviewRightPanelModifier = createdOverviewRightPanelModifier;
             overviewLeftPanelContentRect = createdOverviewLeftPanelContentRect;
+            overviewRightPanelContentRect = createdOverviewRightPanelContentRect;
             overviewProfileSummaryHeadingRect = createdOverviewProfileSummaryHeadingRect;
             overviewProfileSummaryHeadingGraphic = createdOverviewProfileSummaryHeadingGraphic;
+            overviewHighlightsHeadingRect = createdOverviewHighlightsHeadingRect;
+            overviewHighlightsHeadingGraphic = createdOverviewHighlightsHeadingGraphic;
             overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
             overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
                 overviewContentView,
@@ -358,8 +367,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
         out RectTransform rightPanelRect,
         out UniformModifier rightPanelModifier,
         out RectTransform leftPanelContentRect,
+        out RectTransform rightPanelContentRect,
         out RectTransform profileSummaryHeadingRect,
         out TextMeshProUGUI profileSummaryHeadingGraphic,
+        out RectTransform highlightsHeadingRect,
+        out TextMeshProUGUI highlightsHeadingGraphic,
         out List<RetainedStatisticsRowControl> profileSummaryRows,
         StatisticsPanelProjection projection)
     {
@@ -379,11 +391,17 @@ internal sealed class RetainedStatisticsShell : IDisposable
             RetainedOverviewRightPanelPolicy.BackgroundName,
             out rightPanelModifier);
         leftPanelContentRect = CreateOverviewLeftPanelContent(leftPanelRect);
+        rightPanelContentRect = CreateOverviewRightPanelContent(rightPanelRect);
         profileSummaryHeadingRect = CreateOverviewProfileSummaryHeading(
             leftPanelContentRect,
             typography,
             headingMaterial,
             out profileSummaryHeadingGraphic);
+        highlightsHeadingRect = CreateOverviewHighlightsHeading(
+            rightPanelContentRect,
+            typography,
+            headingMaterial,
+            out highlightsHeadingGraphic);
         var presentations = ProfileSummaryPresentationFactory.Create(projection, UiText.Get);
         profileSummaryRows = new List<RetainedStatisticsRowControl>(presentations.Count);
         for (var index = 0; index < presentations.Count; index++)
@@ -443,6 +461,20 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return rect;
     }
 
+    private static RectTransform CreateOverviewRightPanelContent(RectTransform parent)
+    {
+        var content = new GameObject(
+            RetainedOverviewRightPanelPolicy.ContentName,
+            typeof(RectTransform));
+        var rect = (RectTransform)content.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+        return rect;
+    }
+
     private static RectTransform CreateOverviewProfileSummaryHeading(
         RectTransform parent,
         NativeHeaderTitleTypography typography,
@@ -480,6 +512,46 @@ internal sealed class RetainedStatisticsShell : IDisposable
             RetainedOverviewProfileSummaryHeadingPolicy.Blue,
             RetainedOverviewProfileSummaryHeadingPolicy.Alpha);
         text.raycastTarget = RetainedOverviewProfileSummaryHeadingPolicy.BlocksRaycasts;
+        return rect;
+    }
+
+    private static RectTransform CreateOverviewHighlightsHeading(
+        RectTransform parent,
+        NativeHeaderTitleTypography typography,
+        Material material,
+        out TextMeshProUGUI text)
+    {
+        var heading = new GameObject(
+            RetainedOverviewHighlightsHeadingPolicy.Name,
+            typeof(RectTransform));
+        var rect = (RectTransform)heading.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        text = heading.AddComponent<TextMeshProUGUI>();
+        text.font = typography.Font;
+        text.fontSharedMaterial = material;
+        text.text = UiText.Get(RetainedOverviewHighlightsHeadingPolicy.TextKey);
+        text.fontStyle = FontStyles.Normal;
+        text.fontWeight = FontWeight.Regular;
+        text.characterSpacing = 0f;
+        text.wordSpacing = 0f;
+        text.lineSpacing = 0f;
+        text.paragraphSpacing = 0f;
+        text.alignment = TextAlignmentOptions.TopLeft;
+        text.enableWordWrapping = RetainedOverviewHighlightsHeadingPolicy.WordWrapping;
+        text.enableAutoSizing = RetainedOverviewHighlightsHeadingPolicy.AutoSizing;
+        text.overflowMode = TextOverflowModes.Overflow;
+        text.margin = Vector4.zero;
+        text.color = new Color(
+            RetainedOverviewHighlightsHeadingPolicy.Red,
+            RetainedOverviewHighlightsHeadingPolicy.Green,
+            RetainedOverviewHighlightsHeadingPolicy.Blue,
+            RetainedOverviewHighlightsHeadingPolicy.Alpha);
+        text.raycastTarget = RetainedOverviewHighlightsHeadingPolicy.BlocksRaycasts;
         return rect;
     }
 
@@ -856,8 +928,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewLeftPanelRect == null || overviewLeftPanelModifier == null
             || overviewRightPanelRect == null || overviewRightPanelModifier == null
             || overviewLeftPanelContentRect == null
+            || overviewRightPanelContentRect == null
             || overviewProfileSummaryHeadingRect == null
             || overviewProfileSummaryHeadingGraphic == null
+            || overviewHighlightsHeadingRect == null
+            || overviewHighlightsHeadingGraphic == null
             || overviewProfileSummaryRows.Count != RetainedProfileSummaryRowsPolicy.RowCount)
         {
             throw new InvalidOperationException("The retained visual layout is not fully initialized.");
@@ -888,8 +963,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var rightPanelRect = overviewRightPanelRect!;
         var rightPanelModifier = overviewRightPanelModifier!;
         var leftPanelContentRect = overviewLeftPanelContentRect!;
+        var rightPanelContentRect = overviewRightPanelContentRect!;
         var profileSummaryHeadingRect = overviewProfileSummaryHeadingRect!;
         var profileSummaryHeadingGraphic = overviewProfileSummaryHeadingGraphic!;
+        var highlightsHeadingRect = overviewHighlightsHeadingRect!;
+        var highlightsHeadingGraphic = overviewHighlightsHeadingGraphic!;
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
@@ -955,6 +1033,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
         leftPanelContentRect.sizeDelta = new Vector2(
             layout.OverviewLeftPanel.ContentWidth,
             layout.OverviewLeftPanel.ContentHeight);
+        rightPanelContentRect.anchoredPosition = new Vector2(
+            layout.OverviewRightPanel.ContentLeft - layout.OverviewRightPanel.Left,
+            -(layout.OverviewRightPanel.ContentTop - layout.OverviewRightPanel.Top));
+        rightPanelContentRect.sizeDelta = new Vector2(
+            layout.OverviewRightPanel.ContentWidth,
+            layout.OverviewRightPanel.ContentHeight);
         profileSummaryHeadingRect.anchoredPosition = new Vector2(
             layout.OverviewProfileSummaryHeading.Left
             - layout.OverviewLeftPanel.ContentLeft
@@ -965,6 +1049,16 @@ internal sealed class RetainedStatisticsShell : IDisposable
             layout.OverviewProfileSummaryHeading.Width,
             layout.OverviewProfileSummaryHeading.Height);
         profileSummaryHeadingGraphic.fontSize = layout.OverviewProfileSummaryHeading.FontSize;
+        highlightsHeadingRect.anchoredPosition = new Vector2(
+            layout.OverviewHighlightsHeading.Left
+            - layout.OverviewRightPanel.ContentLeft
+            + layout.OverviewHighlightsHeading.OpticalOffsetX,
+            -(layout.OverviewHighlightsHeading.Top - layout.OverviewRightPanel.ContentTop)
+            + layout.OverviewHighlightsHeading.OpticalOffsetY);
+        highlightsHeadingRect.sizeDelta = new Vector2(
+            layout.OverviewHighlightsHeading.Width,
+            layout.OverviewHighlightsHeading.Height);
+        highlightsHeadingGraphic.fontSize = layout.OverviewHighlightsHeading.FontSize;
         for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
             ApplyStatisticsRowLayout(
                 overviewProfileSummaryRows[index],
@@ -1120,8 +1214,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
         overviewRightPanelRect = null;
         overviewRightPanelModifier = null;
         overviewLeftPanelContentRect = null;
+        overviewRightPanelContentRect = null;
         overviewProfileSummaryHeadingRect = null;
         overviewProfileSummaryHeadingGraphic = null;
+        overviewHighlightsHeadingRect = null;
+        overviewHighlightsHeadingGraphic = null;
         overviewProfileSummaryRows.Clear();
         lastAppliedVisualLayout = null;
         lastViewportPixelWidth = float.NaN;

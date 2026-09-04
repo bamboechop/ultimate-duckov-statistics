@@ -18,6 +18,7 @@ internal static class UiText
             ["ui.close"] = "Close",
             ["ui.overview"] = "Overview",
             ["ui.profile_summary"] = "Profile Summary",
+            ["ui.overview_highlights"] = "Highlights",
             ["ui.overview_total_runs"] = "Total runs",
             ["ui.overview_extraction_rate"] = "Extraction rate",
             ["ui.overview_total_active_raid_time"] = "Total active raid time",
