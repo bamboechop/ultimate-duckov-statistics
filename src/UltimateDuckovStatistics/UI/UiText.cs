@@ -19,6 +19,7 @@ internal static class UiText
             ["ui.overview"] = "Overview",
             ["ui.profile_summary"] = "Profile Summary",
             ["ui.overview_highlights"] = "Highlights",
+            ["ui.overview_latest_run"] = "Latest run",
             ["ui.overview_fastest_extraction"] = "Fastest extraction",
             ["ui.overview_longest_successful_raid"] = "Longest successful raid",
             ["ui.overview_most_used_weapon"] = "Most-used weapon",

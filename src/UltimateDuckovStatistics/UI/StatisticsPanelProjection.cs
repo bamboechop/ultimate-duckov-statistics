@@ -1967,6 +1967,13 @@ internal static class RetainedOverviewHighlightsHeadingPolicy
     public const bool UsesFixedOpticalOffset = RetainedOverviewProfileSummaryHeadingPolicy.UsesFixedOpticalOffset;
     public const bool UsesHorizontalScaleCompensation =
         RetainedOverviewProfileSummaryHeadingPolicy.UsesHorizontalScaleCompensation;
+    public const float CharacterSpacing = 0f;
+    public const float WordSpacing = 0f;
+    public const float LineSpacing = 0f;
+    public const float ParagraphSpacing = 0f;
+    public const bool UsesNormalStyle = true;
+    public const bool UsesRegularWeight = true;
+    public const bool UsesVisibleOverflow = true;
 
     public static RetainedOverviewHighlightsHeadingCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform,
@@ -2193,6 +2200,79 @@ internal static class RetainedOverviewFastestExtractionEntryPolicy
     }
 }
 
+internal sealed class RetainedOverviewLatestRunHeadingCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float FontSize { get; set; }
+    public float OpticalOffsetX { get; set; }
+    public float OpticalOffsetY { get; set; }
+}
+
+internal static class RetainedOverviewLatestRunHeadingPolicy
+{
+    public const string Name = "OverviewLatestRunHeading";
+    public const string ParentName = RetainedOverviewRightPanelPolicy.ContentName;
+    public const string TextKey = "ui.overview_latest_run";
+    public const string EnglishFallback = "Latest run";
+    public const StatisticsPanelTab OwnerTab = RetainedOverviewRightPanelPolicy.OwnerTab;
+    public const float TopMarginPixels = 40f;
+    public const string FontAssetName = RetainedOverviewHighlightsHeadingPolicy.FontAssetName;
+    public const string SourceMaterialName = RetainedOverviewHighlightsHeadingPolicy.SourceMaterialName;
+    public const string MaterialName = RetainedOverviewHighlightsHeadingPolicy.MaterialName;
+    public const float ReferenceFontSize = RetainedOverviewHighlightsHeadingPolicy.ReferenceFontSize;
+    public const float HeightPixels = RetainedOverviewHighlightsHeadingPolicy.HeightPixels;
+    public const float ReferenceOpticalOffsetX = RetainedOverviewHighlightsHeadingPolicy.ReferenceOpticalOffsetX;
+    public const float ReferenceOpticalOffsetY = RetainedOverviewHighlightsHeadingPolicy.ReferenceOpticalOffsetY;
+    public const float Red = RetainedOverviewHighlightsHeadingPolicy.Red;
+    public const float Green = RetainedOverviewHighlightsHeadingPolicy.Green;
+    public const float Blue = RetainedOverviewHighlightsHeadingPolicy.Blue;
+    public const float Alpha = RetainedOverviewHighlightsHeadingPolicy.Alpha;
+    public const float CharacterSpacing = RetainedOverviewHighlightsHeadingPolicy.CharacterSpacing;
+    public const float WordSpacing = RetainedOverviewHighlightsHeadingPolicy.WordSpacing;
+    public const float LineSpacing = RetainedOverviewHighlightsHeadingPolicy.LineSpacing;
+    public const float ParagraphSpacing = RetainedOverviewHighlightsHeadingPolicy.ParagraphSpacing;
+    public const bool BlocksRaycasts = RetainedOverviewHighlightsHeadingPolicy.BlocksRaycasts;
+    public const bool WordWrapping = RetainedOverviewHighlightsHeadingPolicy.WordWrapping;
+    public const bool AutoSizing = RetainedOverviewHighlightsHeadingPolicy.AutoSizing;
+    public const bool UsesTopLeftAlignment = RetainedOverviewHighlightsHeadingPolicy.UsesTopLeftAlignment;
+    public const bool UsesOwnedTabLabelMaterial = RetainedOverviewHighlightsHeadingPolicy.UsesOwnedTabLabelMaterial;
+    public const bool UsesZeroTextMargin = RetainedOverviewHighlightsHeadingPolicy.UsesZeroTextMargin;
+    public const float AdditionalPaddingPixels = RetainedOverviewHighlightsHeadingPolicy.AdditionalPaddingPixels;
+    public const bool UsesFixedOpticalOffset = RetainedOverviewHighlightsHeadingPolicy.UsesFixedOpticalOffset;
+    public const bool UsesHorizontalScaleCompensation =
+        RetainedOverviewHighlightsHeadingPolicy.UsesHorizontalScaleCompensation;
+    public const bool UsesNormalStyle = RetainedOverviewHighlightsHeadingPolicy.UsesNormalStyle;
+    public const bool UsesRegularWeight = RetainedOverviewHighlightsHeadingPolicy.UsesRegularWeight;
+    public const bool UsesVisibleOverflow = RetainedOverviewHighlightsHeadingPolicy.UsesVisibleOverflow;
+
+    public static RetainedOverviewLatestRunHeadingCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewPanelCanvasLayout rightPanel,
+        RetainedOverviewFastestExtractionRowCanvasLayout finalHighlightRow)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (rightPanel == null) throw new ArgumentNullException(nameof(rightPanel));
+        if (finalHighlightRow == null) throw new ArgumentNullException(nameof(finalHighlightRow));
+        return new RetainedOverviewLatestRunHeadingCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = rightPanel.ContentLeft,
+            Top = finalHighlightRow.Top
+                  + finalHighlightRow.Height
+                  + referenceTransform.CanvasLength(TopMarginPixels),
+            Width = rightPanel.ContentWidth,
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize),
+            OpticalOffsetX = referenceTransform.CanvasLength(ReferenceOpticalOffsetX),
+            OpticalOffsetY = referenceTransform.CanvasLength(ReferenceOpticalOffsetY)
+        };
+    }
+}
+
 internal sealed class RetainedHeaderTitleCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
@@ -2360,6 +2440,7 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedOverviewPanelCanvasLayout OverviewRightPanel { get; set; } = null!;
     public RetainedOverviewProfileSummaryHeadingCanvasLayout OverviewProfileSummaryHeading { get; set; } = null!;
     public RetainedOverviewHighlightsHeadingCanvasLayout OverviewHighlightsHeading { get; set; } = null!;
+    public RetainedOverviewLatestRunHeadingCanvasLayout OverviewLatestRunHeading { get; set; } = null!;
     public IReadOnlyList<RetainedOverviewFastestExtractionRowCanvasLayout> OverviewHighlightRows { get; set; } =
         Array.Empty<RetainedOverviewFastestExtractionRowCanvasLayout>();
     public IReadOnlyList<RetainedTwoColumnStatisticsRowCanvasLayout> OverviewHighlightEntries { get; set; } =
@@ -2416,6 +2497,10 @@ internal static class RetainedVisualLayoutPolicy
         var overviewHighlightEntries = RetainedOverviewHighlightsRowsPolicy.CreateEntryCanvasLayouts(
             referenceTransform,
             overviewHighlightRows);
+        var overviewLatestRunHeading = RetainedOverviewLatestRunHeadingPolicy.CreateCanvasLayout(
+            referenceTransform,
+            overviewRightPanel,
+            overviewHighlightRows[^1]);
         var overviewFastestExtractionRow = overviewHighlightRows[0];
         var overviewFastestExtractionEntry = overviewHighlightEntries[0];
         var overviewProfileSummaryRows = RetainedProfileSummaryRowsPolicy.CreateCanvasLayouts(
@@ -2490,6 +2575,7 @@ internal static class RetainedVisualLayoutPolicy
             OverviewRightPanel = overviewRightPanel,
             OverviewProfileSummaryHeading = overviewProfileSummaryHeading,
             OverviewHighlightsHeading = overviewHighlightsHeading,
+            OverviewLatestRunHeading = overviewLatestRunHeading,
             OverviewHighlightRows = overviewHighlightRows,
             OverviewHighlightEntries = overviewHighlightEntries,
             OverviewFastestExtractionRow = overviewFastestExtractionRow,
@@ -2531,8 +2617,9 @@ internal static class RetainedShellCompositionPolicy
     public const int ProfileSummaryStandardRowContentChildCount = 2;
     public const int ProfileSummaryEconomyRowContentChildCount = 3;
     public const int OverviewRightPanelChildCount = 1;
-    public const int OverviewRightPanelContentChildCount = 5;
+    public const int OverviewRightPanelContentChildCount = 6;
     public const int OverviewHighlightsHeadingChildCount = 0;
+    public const int OverviewLatestRunHeadingChildCount = 0;
     public const int OverviewHighlightRowCount = 4;
     public const int OverviewHighlightRowChildCount = 2;
     public const int OverviewHighlightRowGraphicCount = 1;
@@ -2540,7 +2627,7 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewFastestExtractionRowGraphicCount = OverviewHighlightRowGraphicCount;
     public const int OverviewFastestExtractionLabelChildCount = 0;
     public const int OverviewFastestExtractionValueChildCount = 0;
-    public const int GraphicCount = 74;
+    public const int GraphicCount = 75;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
