@@ -2327,6 +2327,120 @@ internal static class RetainedOverviewLatestRunCardPolicy
     }
 }
 
+internal sealed class RetainedRunBadgeCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float ReferencePreferredLabelWidth { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float CornerRadius { get; set; }
+    public float LeftPadding { get; set; }
+    public float IconLeft { get; set; }
+    public float IconTop { get; set; }
+    public float IconWidth { get; set; }
+    public float IconHeight { get; set; }
+    public float IconTextGap { get; set; }
+    public float LabelLeft { get; set; }
+    public float LabelTop { get; set; }
+    public float LabelWidth { get; set; }
+    public float LabelHeight { get; set; }
+    public float RightPadding { get; set; }
+    public float FontSize { get; set; }
+}
+
+internal static class RetainedExtractedRunBadgePolicy
+{
+    public const string TextKey = "ui.extracted_runs";
+    public const string EnglishFallback = "Extracted";
+    public const string PreferredIconGlyph = "\u2713";
+    public const string FontAssetName = RetainedHeaderTitlePolicy.FontAssetName;
+    public const string SourceMaterialName = RetainedHeaderTitlePolicy.MaterialName;
+    public const string MaterialName = RetainedTabLabelShadowPolicy.OwnedMaterialName;
+    public const float HeightPixels = 30f;
+    public const float CornerRadiusPixels = 5f;
+    public const float LeftPaddingPixels = 5f;
+    public const float IconWidthPixels = 19f;
+    public const float IconHeightPixels = 14f;
+    public const float IconTextGapPixels = 5f;
+    public const float RightPaddingPixels = 5f;
+    public const float ReferenceFontSize = 19.8f;
+    public const float MockEquivalentPreferredLabelWidthPixels = 98f;
+    public const float MockReferenceWidthPixels = 132f;
+    public const float BackgroundRed = 109f / 255f;
+    public const float BackgroundGreen = 197f / 255f;
+    public const float BackgroundBlue = 75f / 255f;
+    public const float BackgroundAlpha = 1f;
+    public const float TextRed = 1f;
+    public const float TextGreen = 1f;
+    public const float TextBlue = 1f;
+    public const float TextAlpha = 1f;
+    public const float IconRed = 1f;
+    public const float IconGreen = 1f;
+    public const float IconBlue = 1f;
+    public const float IconAlpha = 1f;
+    public const float CharacterSpacing = 0f;
+    public const float WordSpacing = 0f;
+    public const float LineSpacing = 0f;
+    public const float ParagraphSpacing = 0f;
+    public const bool BackgroundBlocksRaycasts = false;
+    public const bool IconBlocksRaycasts = false;
+    public const bool LabelBlocksRaycasts = false;
+    public const bool HasInteraction = false;
+    public const bool WordWrapping = false;
+    public const bool AutoSizing = false;
+    public const bool UsesVisibleOverflow = true;
+    public const bool UsesZeroTextMargins = true;
+    public const bool UsesLeftAlignment = true;
+    public const bool UsesVerticalCentering = true;
+    public const bool UsesNormalStyle = true;
+    public const bool UsesRegularWeight = true;
+    public const bool UsesOwnedSubtleShadowMaterial = true;
+    public const bool IconIsLogicallySeparate = true;
+    public const bool PrefersNativeTmpCheckGlyph = true;
+    public const bool HasProceduralCheckMarkFallback = true;
+    public const bool IconUsesOwnedSubtleShadowMaterialWhenSupported = true;
+
+    public static RetainedRunBadgeCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        float preferredLabelWidthPixels)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (!IsPositiveFinite(preferredLabelWidthPixels))
+            throw new ArgumentOutOfRangeException(nameof(preferredLabelWidthPixels));
+
+        var height = referenceTransform.CanvasLength(HeightPixels);
+        var leftPadding = referenceTransform.CanvasLength(LeftPaddingPixels);
+        var iconWidth = referenceTransform.CanvasLength(IconWidthPixels);
+        var iconHeight = referenceTransform.CanvasLength(IconHeightPixels);
+        var iconTextGap = referenceTransform.CanvasLength(IconTextGapPixels);
+        var labelWidth = referenceTransform.CanvasLength(preferredLabelWidthPixels);
+        var rightPadding = referenceTransform.CanvasLength(RightPaddingPixels);
+        return new RetainedRunBadgeCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            ReferencePreferredLabelWidth = preferredLabelWidthPixels,
+            Width = leftPadding + iconWidth + iconTextGap + labelWidth + rightPadding,
+            Height = height,
+            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels),
+            LeftPadding = leftPadding,
+            IconLeft = leftPadding,
+            IconTop = (height - iconHeight) / 2f,
+            IconWidth = iconWidth,
+            IconHeight = iconHeight,
+            IconTextGap = iconTextGap,
+            LabelLeft = leftPadding + iconWidth + iconTextGap,
+            LabelTop = 0f,
+            LabelWidth = labelWidth,
+            LabelHeight = height,
+            RightPadding = rightPadding,
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize)
+        };
+    }
+
+    private static bool IsPositiveFinite(float value) =>
+        value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
+}
+
 internal sealed class RetainedHeaderTitleCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
