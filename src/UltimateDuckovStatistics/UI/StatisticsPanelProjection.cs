@@ -987,7 +987,7 @@ internal sealed class RetainedTabViewVisibility<TTarget> where TTarget : class
         applyVisibility(target, selectedTab == ownerTab);
 }
 
-internal sealed class RetainedOverviewLeftPanelCanvasLayout
+internal sealed class RetainedOverviewPanelCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
     public float Left { get; set; }
@@ -1001,12 +1001,9 @@ internal sealed class RetainedOverviewLeftPanelCanvasLayout
     public float ContentHeight { get; set; }
 }
 
-internal static class RetainedOverviewLeftPanelPolicy
+internal static class RetainedOverviewPanelStylePolicy
 {
-    public const string ViewName = "OverviewContentView";
-    public const string BackgroundName = "OverviewLeftPanelBackground";
     public const StatisticsPanelTab OwnerTab = StatisticsPanelTab.Overview;
-    public const float LeftPixels = 85f;
     public const float TopPixels = 370f;
     public const float WidthPixels = 1175f;
     public const float HeightPixels = 1040f;
@@ -1022,24 +1019,64 @@ internal static class RetainedOverviewLeftPanelPolicy
     public const float ContentPaddingPixels = 30f;
     public const bool BlocksRaycasts = false;
 
-    public static RetainedOverviewLeftPanelCanvasLayout CreateCanvasLayout(
-        RetainedReferenceTransform referenceTransform)
+    public static RetainedOverviewPanelCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        float leftPixels)
     {
         if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
-        return new RetainedOverviewLeftPanelCanvasLayout
+        return new RetainedOverviewPanelCanvasLayout
         {
             ReferenceTransform = referenceTransform,
-            Left = referenceTransform.CanvasX(LeftPixels),
+            Left = referenceTransform.CanvasX(leftPixels),
             Top = referenceTransform.CanvasY(TopPixels),
             Width = referenceTransform.CanvasLength(WidthPixels),
             Height = referenceTransform.CanvasLength(HeightPixels),
             CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels),
-            ContentLeft = referenceTransform.CanvasX(LeftPixels + ContentPaddingPixels),
+            ContentLeft = referenceTransform.CanvasX(leftPixels + ContentPaddingPixels),
             ContentTop = referenceTransform.CanvasY(TopPixels + ContentPaddingPixels),
             ContentWidth = referenceTransform.CanvasLength(WidthPixels - ContentPaddingPixels * 2f),
             ContentHeight = referenceTransform.CanvasLength(HeightPixels - ContentPaddingPixels * 2f)
         };
     }
+}
+
+internal static class RetainedOverviewLeftPanelPolicy
+{
+    public const string ViewName = "OverviewContentView";
+    public const string BackgroundName = "OverviewLeftPanelBackground";
+    public const StatisticsPanelTab OwnerTab = RetainedOverviewPanelStylePolicy.OwnerTab;
+    public const float LeftPixels = 85f;
+    public const float TopPixels = RetainedOverviewPanelStylePolicy.TopPixels;
+    public const float WidthPixels = RetainedOverviewPanelStylePolicy.WidthPixels;
+    public const float HeightPixels = RetainedOverviewPanelStylePolicy.HeightPixels;
+    public const float RightExclusivePixels = 1260f;
+    public const float BottomExclusivePixels = RetainedOverviewPanelStylePolicy.BottomExclusivePixels;
+    public const float HeaderGapPixels = RetainedOverviewPanelStylePolicy.HeaderGapPixels;
+    public const float ScreenBottomMarginPixels = RetainedOverviewPanelStylePolicy.ScreenBottomMarginPixels;
+    public const float Red = RetainedOverviewPanelStylePolicy.Red;
+    public const float Green = RetainedOverviewPanelStylePolicy.Green;
+    public const float Blue = RetainedOverviewPanelStylePolicy.Blue;
+    public const float LayerAlpha = RetainedOverviewPanelStylePolicy.LayerAlpha;
+    public const float CornerRadiusPixels = RetainedOverviewPanelStylePolicy.CornerRadiusPixels;
+    public const float ContentPaddingPixels = RetainedOverviewPanelStylePolicy.ContentPaddingPixels;
+    public const bool BlocksRaycasts = RetainedOverviewPanelStylePolicy.BlocksRaycasts;
+
+    public static RetainedOverviewPanelCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform) =>
+        RetainedOverviewPanelStylePolicy.CreateCanvasLayout(referenceTransform, LeftPixels);
+}
+
+internal static class RetainedOverviewRightPanelPolicy
+{
+    public const string BackgroundName = "OverviewRightPanelBackground";
+    public const float LeftPixels = 1300f;
+    public const float RightExclusivePixels = 2475f;
+    public const float PanelGapPixels = 40f;
+    public const float ScreenRightMarginPixels = 85f;
+
+    public static RetainedOverviewPanelCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform) =>
+        RetainedOverviewPanelStylePolicy.CreateCanvasLayout(referenceTransform, LeftPixels);
 }
 
 internal sealed class RetainedHeaderTitleCanvasLayout
@@ -1205,7 +1242,8 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedHeaderBottomBarCanvasLayout HeaderBottomBar { get; set; } = null!;
     public RetainedHeaderTitleCanvasLayout HeaderTitle { get; set; } = null!;
     public RetainedBackControlCanvasLayout BackControl { get; set; } = null!;
-    public RetainedOverviewLeftPanelCanvasLayout OverviewLeftPanel { get; set; } = null!;
+    public RetainedOverviewPanelCanvasLayout OverviewLeftPanel { get; set; } = null!;
+    public RetainedOverviewPanelCanvasLayout OverviewRightPanel { get; set; } = null!;
 }
 
 internal static class RetainedVisualLayoutPolicy
@@ -1239,6 +1277,7 @@ internal static class RetainedVisualLayoutPolicy
         var headerTitle = RetainedHeaderTitlePolicy.CreateCanvasLayout(referenceTransform);
         var backControl = RetainedBackControlPolicy.CreateCanvasLayout(referenceTransform);
         var overviewLeftPanel = RetainedOverviewLeftPanelPolicy.CreateCanvasLayout(referenceTransform);
+        var overviewRightPanel = RetainedOverviewRightPanelPolicy.CreateCanvasLayout(referenceTransform);
         if (!IsFinite(header.Left)
             || !IsFinite(header.Top)
             || !IsPositiveFinite(header.Width)
@@ -1302,7 +1341,8 @@ internal static class RetainedVisualLayoutPolicy
             HeaderBottomBar = headerBottomBar,
             HeaderTitle = headerTitle,
             BackControl = backControl,
-            OverviewLeftPanel = overviewLeftPanel
+            OverviewLeftPanel = overviewLeftPanel,
+            OverviewRightPanel = overviewRightPanel
         };
     }
 
@@ -1325,9 +1365,10 @@ internal static class RetainedShellCompositionPolicy
     public const int HeaderTitleChildCount = 0;
     public const int BackButtonChildCount = 1;
     public const int BackArrowChildCount = 0;
-    public const int OverviewContentViewChildCount = 1;
+    public const int OverviewContentViewChildCount = 2;
     public const int OverviewLeftPanelChildCount = 0;
-    public const int GraphicCount = 25;
+    public const int OverviewRightPanelChildCount = 0;
+    public const int GraphicCount = 26;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
