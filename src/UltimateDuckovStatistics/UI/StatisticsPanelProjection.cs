@@ -1,3 +1,4 @@
+using System.Globalization;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
@@ -1161,7 +1162,6 @@ internal static class RetainedOverviewFirstStatisticsRowPolicy
     public const float Blue = 0f;
     public const float LayerAlpha = 0.50f;
     public const bool BlocksRaycasts = false;
-    public const bool ContainsVisibleContent = false;
 
     public static RetainedOverviewFirstStatisticsRowCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform,
@@ -1185,6 +1185,98 @@ internal static class RetainedOverviewFirstStatisticsRowPolicy
             ContentWidth = leftPanel.ContentWidth - padding * 2f,
             ContentHeight = referenceTransform.CanvasLength(HeightPixels - ContentPaddingPixels * 2f)
         };
+    }
+}
+
+internal sealed class RetainedTwoColumnStatisticsRowCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float LabelLeft { get; set; }
+    public float LabelTop { get; set; }
+    public float LabelWidth { get; set; }
+    public float LabelHeight { get; set; }
+    public float ValueLeft { get; set; }
+    public float ValueTop { get; set; }
+    public float ValueWidth { get; set; }
+    public float ValueHeight { get; set; }
+    public float FontSize { get; set; }
+}
+
+internal static class RetainedTwoColumnStatisticsRowLayoutPolicy
+{
+    public static RetainedTwoColumnStatisticsRowCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewFirstStatisticsRowCanvasLayout row,
+        float referenceLabelWidth,
+        float referenceFontSize)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (row == null) throw new ArgumentNullException(nameof(row));
+        var labelWidth = referenceTransform.CanvasLength(referenceLabelWidth);
+        return new RetainedTwoColumnStatisticsRowCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            LabelLeft = row.ContentLeft,
+            LabelTop = row.ContentTop,
+            LabelWidth = labelWidth,
+            LabelHeight = row.ContentHeight,
+            ValueLeft = row.ContentLeft + labelWidth,
+            ValueTop = row.ContentTop,
+            ValueWidth = row.ContentWidth - labelWidth,
+            ValueHeight = row.ContentHeight,
+            FontSize = referenceTransform.CanvasLength(referenceFontSize)
+        };
+    }
+}
+
+internal static class RetainedOverviewFirstStatisticsRowEntryPolicy
+{
+    public const string LabelName = "OverviewFirstStatisticsRowLabel";
+    public const string ValueName = "OverviewFirstStatisticsRowValue";
+    public const string ParentName = RetainedOverviewFirstStatisticsRowPolicy.ContentName;
+    public const StatisticsPanelTab OwnerTab = StatisticsPanelTab.Overview;
+    public const string LabelTextKey = "ui.overview_total_runs";
+    public const string LabelEnglishFallback = "Total runs";
+    public const string FontAssetName = RetainedHeaderTitlePolicy.FontAssetName;
+    public const string MaterialName = RetainedTabLabelShadowPolicy.OwnedMaterialName;
+    public const float ReferenceFontSize = 29.8f;
+    public const float LabelColumnLeftPixels = 135f;
+    public const float LabelColumnWidthPixels = 465f;
+    public const float ValueColumnLeftPixels = 600f;
+    public const float ValueColumnRightExclusivePixels = 1210f;
+    public const float Red = 1f;
+    public const float Green = 1f;
+    public const float Blue = 1f;
+    public const float Alpha = 1f;
+    public const float CharacterSpacing = 0f;
+    public const float WordSpacing = 0f;
+    public const float LineSpacing = 0f;
+    public const float ParagraphSpacing = 0f;
+    public const bool BlocksRaycasts = false;
+    public const bool WordWrapping = false;
+    public const bool AutoSizing = false;
+    public const bool UsesVisibleOverflow = true;
+    public const bool UsesLeftAlignment = true;
+    public const bool UsesVerticalCentering = true;
+    public const bool UsesZeroTextMargins = true;
+    public const bool UsesNormalStyle = true;
+    public const bool UsesRegularWeight = true;
+    public const bool UsesOwnedSubtleShadowMaterial = true;
+    public const bool UsesProjectionRunsTotalRuns = true;
+
+    public static RetainedTwoColumnStatisticsRowCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewFirstStatisticsRowCanvasLayout row) =>
+        RetainedTwoColumnStatisticsRowLayoutPolicy.CreateCanvasLayout(
+            referenceTransform,
+            row,
+            LabelColumnWidthPixels,
+            ReferenceFontSize);
+
+    public static string FormatProjectedValue(StatisticsPanelProjection projection)
+    {
+        if (projection == null) throw new ArgumentNullException(nameof(projection));
+        return projection.Runs.TotalRuns.ToString(CultureInfo.InvariantCulture);
     }
 }
 
@@ -1368,6 +1460,7 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedOverviewPanelCanvasLayout OverviewRightPanel { get; set; } = null!;
     public RetainedOverviewProfileSummaryHeadingCanvasLayout OverviewProfileSummaryHeading { get; set; } = null!;
     public RetainedOverviewFirstStatisticsRowCanvasLayout OverviewFirstStatisticsRow { get; set; } = null!;
+    public RetainedTwoColumnStatisticsRowCanvasLayout OverviewFirstStatisticsRowEntry { get; set; } = null!;
 }
 
 internal static class RetainedVisualLayoutPolicy
@@ -1408,6 +1501,9 @@ internal static class RetainedVisualLayoutPolicy
         var overviewFirstStatisticsRow = RetainedOverviewFirstStatisticsRowPolicy.CreateCanvasLayout(
             referenceTransform,
             overviewLeftPanel);
+        var overviewFirstStatisticsRowEntry = RetainedOverviewFirstStatisticsRowEntryPolicy.CreateCanvasLayout(
+            referenceTransform,
+            overviewFirstStatisticsRow);
         if (!IsFinite(header.Left)
             || !IsFinite(header.Top)
             || !IsPositiveFinite(header.Width)
@@ -1474,7 +1570,8 @@ internal static class RetainedVisualLayoutPolicy
             OverviewLeftPanel = overviewLeftPanel,
             OverviewRightPanel = overviewRightPanel,
             OverviewProfileSummaryHeading = overviewProfileSummaryHeading,
-            OverviewFirstStatisticsRow = overviewFirstStatisticsRow
+            OverviewFirstStatisticsRow = overviewFirstStatisticsRow,
+            OverviewFirstStatisticsRowEntry = overviewFirstStatisticsRowEntry
         };
     }
 
@@ -1502,9 +1599,11 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewLeftPanelContentChildCount = 2;
     public const int OverviewProfileSummaryHeadingChildCount = 0;
     public const int OverviewFirstStatisticsRowChildCount = 1;
-    public const int OverviewFirstStatisticsRowContentChildCount = 0;
+    public const int OverviewFirstStatisticsRowContentChildCount = 2;
+    public const int OverviewFirstStatisticsRowLabelChildCount = 0;
+    public const int OverviewFirstStatisticsRowValueChildCount = 0;
     public const int OverviewRightPanelChildCount = 0;
-    public const int GraphicCount = 28;
+    public const int GraphicCount = 30;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;

@@ -115,6 +115,20 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
 
+        StatisticsPanelProjection projection;
+        try
+        {
+            projection = StatisticsPanelProjectionFactory.Create(
+                profile!,
+                coordinator.CurrentEconomyCapabilities,
+                coordinator.CurrentCraftingCapabilities);
+        }
+        catch (Exception exception)
+        {
+            ReportShellFailure(surface, $"statistics projection failed: {exception.GetType().Name}: {exception.Message}");
+            return;
+        }
+
         CaptureFocusAndCursor();
         if (!lifecycle.TryOpen())
         {
@@ -122,7 +136,13 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
 
-        if (!shell.TryCreate(canvas, interaction.SelectedTab, HandleTabSelected, Close, out var error))
+        if (!shell.TryCreate(
+                canvas,
+                projection,
+                interaction.SelectedTab,
+                HandleTabSelected,
+                Close,
+                out var error))
         {
             lifecycle.Close();
             RestoreFocusAndCursor();

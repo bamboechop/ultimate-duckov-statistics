@@ -18,6 +18,7 @@ internal static class UiText
             ["ui.close"] = "Close",
             ["ui.overview"] = "Overview",
             ["ui.profile_summary"] = "Profile Summary",
+            ["ui.overview_total_runs"] = "Total runs",
             ["ui.items"] = "Items",
             ["ui.item_use"] = "Item Use",
             ["ui.runs"] = "Runs",
