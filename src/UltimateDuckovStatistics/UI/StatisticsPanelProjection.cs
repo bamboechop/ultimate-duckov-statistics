@@ -3192,6 +3192,255 @@ internal static class RetainedLatestRunViewRunMeasurementPolicy
             fallbackReferenceWidth);
 }
 
+internal sealed class RetainedOverviewWorldTimeCardCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float CornerRadius { get; set; }
+    public float ContentLeft { get; set; }
+    public float ContentTop { get; set; }
+    public float ContentWidth { get; set; }
+    public float ContentHeight { get; set; }
+}
+
+internal static class RetainedOverviewWorldTimeCardPolicy
+{
+    public const string Name = "OverviewWorldTimeCard";
+    public const string ParentName = RetainedOverviewRightPanelPolicy.ContentName;
+    public const StatisticsPanelTab OwnerTab = RetainedOverviewRightPanelPolicy.OwnerTab;
+    public const float HorizontalGapPixels = 30f;
+    public const float HeightPixels = 114f;
+    public const float ContentInsetPixels = 20f;
+    public const float Red = RetainedOverviewPanelStylePolicy.Red;
+    public const float Green = RetainedOverviewPanelStylePolicy.Green;
+    public const float Blue = RetainedOverviewPanelStylePolicy.Blue;
+    public const float LayerAlpha = RetainedOverviewPanelStylePolicy.LayerAlpha;
+    public const float CornerRadiusPixels = 10f;
+    public const float BorderWidth = 0f;
+    public const bool HasSprite = false;
+    public const bool UsesSimpleImageType = true;
+    public const bool BlocksRaycasts = false;
+    public const bool HasInteraction = false;
+    public const bool HasShadow = false;
+
+    public static RetainedOverviewWorldTimeCardCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewPanelCanvasLayout rightPanel,
+        RetainedOverviewLatestRunCardCanvasLayout latestRunCard)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (rightPanel == null) throw new ArgumentNullException(nameof(rightPanel));
+        if (latestRunCard == null) throw new ArgumentNullException(nameof(latestRunCard));
+
+        var gap = referenceTransform.CanvasLength(HorizontalGapPixels);
+        var inset = referenceTransform.CanvasLength(ContentInsetPixels);
+        var left = latestRunCard.Left + latestRunCard.Width + gap;
+        var right = rightPanel.ContentLeft + rightPanel.ContentWidth;
+        var width = Math.Max(0f, right - left);
+        var height = referenceTransform.CanvasLength(HeightPixels);
+        return new RetainedOverviewWorldTimeCardCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = left,
+            Top = latestRunCard.Top,
+            Width = width,
+            Height = height,
+            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels),
+            ContentLeft = left + inset,
+            ContentTop = latestRunCard.Top + inset,
+            ContentWidth = Math.Max(0f, width - inset * 2f),
+            ContentHeight = Math.Max(0f, height - inset * 2f)
+        };
+    }
+}
+
+internal sealed class RetainedOverviewWorldTimeHeadingCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float FontSize { get; set; }
+    public float OpticalOffsetX { get; set; }
+    public float OpticalOffsetY { get; set; }
+}
+
+internal static class RetainedOverviewWorldTimeHeadingPolicy
+{
+    public const string Name = "OverviewWorldTimeHeading";
+    public const string ParentName = RetainedOverviewRightPanelPolicy.ContentName;
+    public const string TextKey = "ui.overview_world_time";
+    public const string EnglishFallback = "World time";
+    public const StatisticsPanelTab OwnerTab = RetainedOverviewRightPanelPolicy.OwnerTab;
+    public const string FontAssetName = RetainedOverviewLatestRunHeadingPolicy.FontAssetName;
+    public const string SourceMaterialName = RetainedOverviewLatestRunHeadingPolicy.SourceMaterialName;
+    public const string MaterialName = RetainedOverviewLatestRunHeadingPolicy.MaterialName;
+    public const float ReferenceFontSize = RetainedOverviewLatestRunHeadingPolicy.ReferenceFontSize;
+    public const float HeightPixels = RetainedOverviewLatestRunHeadingPolicy.HeightPixels;
+    public const float ReferenceOpticalOffsetX = RetainedOverviewLatestRunHeadingPolicy.ReferenceOpticalOffsetX;
+    public const float ReferenceOpticalOffsetY = RetainedOverviewLatestRunHeadingPolicy.ReferenceOpticalOffsetY;
+    public const float Red = RetainedOverviewLatestRunHeadingPolicy.Red;
+    public const float Green = RetainedOverviewLatestRunHeadingPolicy.Green;
+    public const float Blue = RetainedOverviewLatestRunHeadingPolicy.Blue;
+    public const float Alpha = RetainedOverviewLatestRunHeadingPolicy.Alpha;
+    public const float CharacterSpacing = RetainedOverviewLatestRunHeadingPolicy.CharacterSpacing;
+    public const float WordSpacing = RetainedOverviewLatestRunHeadingPolicy.WordSpacing;
+    public const float LineSpacing = RetainedOverviewLatestRunHeadingPolicy.LineSpacing;
+    public const float ParagraphSpacing = RetainedOverviewLatestRunHeadingPolicy.ParagraphSpacing;
+    public const bool BlocksRaycasts = false;
+    public const bool WordWrapping = RetainedOverviewLatestRunHeadingPolicy.WordWrapping;
+    public const bool AutoSizing = RetainedOverviewLatestRunHeadingPolicy.AutoSizing;
+    public const bool UsesTopLeftAlignment = RetainedOverviewLatestRunHeadingPolicy.UsesTopLeftAlignment;
+    public const bool UsesOwnedTabLabelMaterial = RetainedOverviewLatestRunHeadingPolicy.UsesOwnedTabLabelMaterial;
+    public const bool UsesZeroTextMargin = RetainedOverviewLatestRunHeadingPolicy.UsesZeroTextMargin;
+    public const bool UsesFixedOpticalOffset = RetainedOverviewLatestRunHeadingPolicy.UsesFixedOpticalOffset;
+    public const bool UsesHorizontalScaleCompensation = false;
+    public const bool UsesNormalStyle = true;
+    public const bool UsesRegularWeight = true;
+    public const bool UsesVisibleOverflow = true;
+    public const bool HasInteraction = false;
+
+    public static RetainedOverviewWorldTimeHeadingCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewWorldTimeCardCanvasLayout card,
+        RetainedOverviewLatestRunHeadingCanvasLayout latestRunHeading)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (card == null) throw new ArgumentNullException(nameof(card));
+        if (latestRunHeading == null) throw new ArgumentNullException(nameof(latestRunHeading));
+        return new RetainedOverviewWorldTimeHeadingCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = card.ContentLeft,
+            Top = latestRunHeading.Top,
+            Width = card.ContentWidth,
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize),
+            OpticalOffsetX = referenceTransform.CanvasLength(ReferenceOpticalOffsetX),
+            OpticalOffsetY = referenceTransform.CanvasLength(ReferenceOpticalOffsetY)
+        };
+    }
+}
+
+internal sealed class RetainedWorldTimeStatisticsPresentation
+{
+    public bool IsVisible { get; set; } = true;
+    public WorldTimeStatisticsAggregate Statistics { get; set; } = new();
+    public WorldTimeMetricCapabilities Capabilities { get; set; } = new();
+    public IReadOnlyList<string> DisplayLines { get; set; } = Array.Empty<string>();
+    public string Text => string.Join("\n", DisplayLines);
+}
+
+internal static class RetainedWorldTimeStatisticsPresentationFactory
+{
+    public static RetainedWorldTimeStatisticsPresentation Create(
+        StatisticsPanelProjection projection,
+        Func<string, string> text)
+    {
+        if (projection == null) throw new ArgumentNullException(nameof(projection));
+        if (text == null) throw new ArgumentNullException(nameof(text));
+
+        var statistics = projection.WorldTime;
+        var capabilities = projection.WorldTimeCapabilities;
+        return new RetainedWorldTimeStatisticsPresentation
+        {
+            IsVisible = true,
+            Statistics = statistics,
+            Capabilities = capabilities,
+            DisplayLines = new[]
+            {
+                $"{text(RetainedOverviewWorldTimeStatisticsPolicy.CalendarDaysTextKey)}: "
+                    + UiText.FormatWorldTimeCount(
+                        statistics.CalendarDaysAdvanced,
+                        capabilities.CalendarDays),
+                $"{text(RetainedOverviewWorldTimeStatisticsPolicy.SleepSessionsTextKey)}: "
+                    + UiText.FormatWorldTimeCount(
+                        statistics.CompletedSleepSessions,
+                        capabilities.CompletedSleepSessions),
+                $"{text(RetainedOverviewWorldTimeStatisticsPolicy.SleepAdvancedTimeTextKey)}: "
+                    + UiText.FormatWorldTimeDuration(
+                        statistics.SleepAdvancedTimeTicks,
+                        capabilities.SleepAdvancedTime)
+            }
+        };
+    }
+}
+
+internal sealed class RetainedOverviewWorldTimeStatisticsCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float FontSize { get; set; }
+    public float LineStep { get; set; }
+}
+
+internal static class RetainedOverviewWorldTimeStatisticsPolicy
+{
+    public const string Name = "OverviewWorldTimeStatistics";
+    public const string ParentName = RetainedOverviewWorldTimeCardPolicy.Name;
+    public const string CalendarDaysTextKey = "ui.calendar_days_advanced";
+    public const string SleepSessionsTextKey = "ui.overview_sleep_sessions";
+    public const string SleepAdvancedTimeTextKey = "ui.overview_sleep_advanced_time";
+    public const string FontAssetName = RetainedOverviewLatestRunStatisticsPolicy.FontAssetName;
+    public const string MaterialName = RetainedOverviewLatestRunStatisticsPolicy.MaterialName;
+    public const int LineCount = 3;
+    public const float LineStepPixels = 29f;
+    public const float HeightPixels = LineCount * LineStepPixels;
+    public const float ReferenceFontSize = 19.8f;
+    public const float Red = 1f;
+    public const float Green = 1f;
+    public const float Blue = 1f;
+    public const float Alpha = 1f;
+    public const float CharacterSpacing = 0f;
+    public const float WordSpacing = 0f;
+    public const float LineSpacing = 0f;
+    public const float ParagraphSpacing = 0f;
+    public const float HorizontalScale = 1f;
+    public const bool BlocksRaycasts = false;
+    public const bool WordWrapping = false;
+    public const bool AutoSizing = false;
+    public const bool UsesVisibleOverflow = true;
+    public const bool UsesZeroTextMargins = true;
+    public const bool UsesTopLeftAlignment = true;
+    public const bool UsesNormalStyle = true;
+    public const bool UsesRegularWeight = true;
+    public const bool UsesNativeHorizontalMetrics = true;
+    public const bool UsesOwnedSubtleShadowMaterial = true;
+    public const bool HasInteraction = false;
+    public const bool HasButton = false;
+    public const bool UsesButtonAnimation = false;
+    public const bool RegistersListener = false;
+    public const bool HasActivation = false;
+    public const bool IncludesObservedWorldTime = false;
+    public const bool HasGateTwentyEightContent = false;
+    public const bool HasProductionVisualRejection = false;
+
+    public static RetainedOverviewWorldTimeStatisticsCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewWorldTimeCardCanvasLayout card)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (card == null) throw new ArgumentNullException(nameof(card));
+        return new RetainedOverviewWorldTimeStatisticsCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = card.ContentLeft,
+            Top = card.ContentTop,
+            Width = card.ContentWidth,
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize),
+            LineStep = referenceTransform.CanvasLength(LineStepPixels)
+        };
+    }
+}
+
 internal static class RetainedRunBadgeProceduralIconPolicy
 {
     public static int GetTextureWidth(RetainedRunBadgeIconKind iconKind) => iconKind switch
@@ -3483,6 +3732,9 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedOverviewLatestRunMapNameCanvasLayout? OverviewLatestRunMapName { get; set; }
     public RetainedOverviewLatestRunStatisticsCanvasLayout? OverviewLatestRunStatistics { get; set; }
     public RetainedOverviewLatestRunViewRunCanvasLayout? OverviewLatestRunViewRun { get; set; }
+    public RetainedOverviewWorldTimeHeadingCanvasLayout OverviewWorldTimeHeading { get; set; } = null!;
+    public RetainedOverviewWorldTimeCardCanvasLayout OverviewWorldTimeCard { get; set; } = null!;
+    public RetainedOverviewWorldTimeStatisticsCanvasLayout OverviewWorldTimeStatistics { get; set; } = null!;
     public IReadOnlyList<RetainedOverviewFastestExtractionRowCanvasLayout> OverviewHighlightRows { get; set; } =
         Array.Empty<RetainedOverviewFastestExtractionRowCanvasLayout>();
     public IReadOnlyList<RetainedTwoColumnStatisticsRowCanvasLayout> OverviewHighlightEntries { get; set; } =
@@ -3618,6 +3870,17 @@ internal static class RetainedVisualLayoutPolicy
                 referenceTransform,
                 overviewLatestRunCard,
                 preferredViewRunLabelWidth);
+        var overviewWorldTimeCard = RetainedOverviewWorldTimeCardPolicy.CreateCanvasLayout(
+            referenceTransform,
+            overviewRightPanel,
+            overviewLatestRunCard);
+        var overviewWorldTimeHeading = RetainedOverviewWorldTimeHeadingPolicy.CreateCanvasLayout(
+            referenceTransform,
+            overviewWorldTimeCard,
+            overviewLatestRunHeading);
+        var overviewWorldTimeStatistics = RetainedOverviewWorldTimeStatisticsPolicy.CreateCanvasLayout(
+            referenceTransform,
+            overviewWorldTimeCard);
         var overviewFastestExtractionRow = overviewHighlightRows[0];
         var overviewFastestExtractionEntry = overviewHighlightEntries[0];
         var overviewProfileSummaryRows = RetainedProfileSummaryRowsPolicy.CreateCanvasLayouts(
@@ -3698,6 +3961,9 @@ internal static class RetainedVisualLayoutPolicy
             OverviewLatestRunMapName = overviewLatestRunMapName,
             OverviewLatestRunStatistics = overviewLatestRunStatistics,
             OverviewLatestRunViewRun = overviewLatestRunViewRun,
+            OverviewWorldTimeHeading = overviewWorldTimeHeading,
+            OverviewWorldTimeCard = overviewWorldTimeCard,
+            OverviewWorldTimeStatistics = overviewWorldTimeStatistics,
             OverviewHighlightRows = overviewHighlightRows,
             OverviewHighlightEntries = overviewHighlightEntries,
             OverviewFastestExtractionRow = overviewFastestExtractionRow,
@@ -3739,7 +4005,7 @@ internal static class RetainedShellCompositionPolicy
     public const int ProfileSummaryStandardRowContentChildCount = 2;
     public const int ProfileSummaryEconomyRowContentChildCount = 3;
     public const int OverviewRightPanelChildCount = 1;
-    public const int OverviewRightPanelContentChildCount = 7;
+    public const int OverviewRightPanelContentChildCount = 9;
     public const int OverviewHighlightsHeadingChildCount = 0;
     public const int OverviewLatestRunHeadingChildCount = 0;
     public const int OverviewLatestRunCardChildCount = 4;
@@ -3754,6 +4020,10 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewLatestRunViewRunChildCount = 1;
     public const int OverviewLatestRunViewRunLabelChildCount = 0;
     public const int OverviewLatestRunViewRunGraphicCount = 2;
+    public const int OverviewWorldTimeHeadingChildCount = 0;
+    public const int OverviewWorldTimeCardChildCount = 1;
+    public const int OverviewWorldTimeStatisticsChildCount = 0;
+    public const int OverviewWorldTimeGraphicCount = 3;
     public const int OverviewHighlightRowCount = 4;
     public const int OverviewHighlightRowChildCount = 2;
     public const int OverviewHighlightRowGraphicCount = 1;
@@ -3761,7 +4031,7 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewFastestExtractionRowGraphicCount = OverviewHighlightRowGraphicCount;
     public const int OverviewFastestExtractionLabelChildCount = 0;
     public const int OverviewFastestExtractionValueChildCount = 0;
-    public const int GraphicCount = 83;
+    public const int GraphicCount = 86;
     public const int ButtonCount = 11;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
@@ -4104,6 +4374,8 @@ internal sealed class StatisticsPanelProjection
     public EconomyStatisticsAggregate Economy { get; set; } = new();
     public EconomyMetricCapabilities CurrentEconomyCapabilities { get; set; } = new();
     public IReadOnlyList<RunSummary> RecentEconomyRuns { get; set; } = Array.Empty<RunSummary>();
+    public WorldTimeStatisticsAggregate WorldTime { get; set; } = new();
+    public WorldTimeMetricCapabilities WorldTimeCapabilities { get; set; } = new();
     public CraftingStatisticsAggregate Crafting { get; set; } = new();
     public CraftingMetricCapabilities CraftingCapabilities { get; set; } = new();
     public ItemUsePanelProjection ItemUse { get; set; } = new();
@@ -4192,13 +4464,16 @@ internal static class StatisticsPanelProjectionFactory
     public static StatisticsPanelProjection Create(
         ProfileDocument profile,
         EconomyMetricCapabilities currentEconomyCapabilities,
-        CraftingMetricCapabilities currentCraftingCapabilities)
+        CraftingMetricCapabilities currentCraftingCapabilities,
+        WorldTimeMetricCapabilities currentWorldTimeCapabilities)
     {
         if (profile == null) throw new ArgumentNullException(nameof(profile));
         if (currentEconomyCapabilities == null)
             throw new ArgumentNullException(nameof(currentEconomyCapabilities));
         if (currentCraftingCapabilities == null)
             throw new ArgumentNullException(nameof(currentCraftingCapabilities));
+        if (currentWorldTimeCapabilities == null)
+            throw new ArgumentNullException(nameof(currentWorldTimeCapabilities));
         if (!HasProvableGeneration(profile, profile.GenerationId))
             throw new InvalidOperationException("The active UDS generation cannot be proven for UI projection.");
 
@@ -4238,6 +4513,10 @@ internal static class StatisticsPanelProjectionFactory
                 .ThenBy(value => value.RunId, StringComparer.Ordinal)
                 .Take(12)
                 .ToArray(),
+            WorldTime = profile.Statistics.WorldTime,
+            WorldTimeCapabilities = WorldTimeStatisticsReducer.RestrictWithCurrent(
+                profile.Statistics.WorldTime.Capabilities,
+                currentWorldTimeCapabilities),
             Crafting = profile.Statistics.Crafting,
             CraftingCapabilities = CraftingStatisticsReducer.RestrictWithCurrent(
                 profile.Statistics.Crafting.Capabilities,

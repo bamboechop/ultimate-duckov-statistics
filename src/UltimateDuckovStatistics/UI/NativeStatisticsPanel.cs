@@ -202,7 +202,8 @@ internal sealed class LegacyImmediateStatisticsPanel : IDisposable
         projection = StatisticsPanelProjectionFactory.Create(
             profile,
             coordinator.CurrentEconomyCapabilities,
-            coordinator.CurrentCraftingCapabilities);
+            coordinator.CurrentCraftingCapabilities,
+            coordinator.CurrentWorldTimeCapabilities);
         projectedGenerationId = profile.GenerationId;
         projectedRevision = profile.Revision;
         return projection;

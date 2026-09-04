@@ -121,7 +121,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
             projection = StatisticsPanelProjectionFactory.Create(
                 profile!,
                 coordinator.CurrentEconomyCapabilities,
-                coordinator.CurrentCraftingCapabilities);
+                coordinator.CurrentCraftingCapabilities,
+                coordinator.CurrentWorldTimeCapabilities);
         }
         catch (Exception exception)
         {

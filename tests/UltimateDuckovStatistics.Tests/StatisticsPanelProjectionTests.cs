@@ -766,7 +766,7 @@ public sealed class StatisticsPanelProjectionTests
         var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
 
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(115f, tab.Left);
@@ -877,7 +877,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(owned.IsDisposed);
         Assert.Equal(0, destroyed);
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
@@ -1321,9 +1321,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowValueChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -2084,7 +2084,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(12, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.ProfileSummaryStandardRowContentChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.ProfileSummaryEconomyRowContentChildCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.False(RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFirstStatisticsRowEntryPolicy.BlocksRaycasts);
@@ -3046,10 +3046,10 @@ public sealed class StatisticsPanelProjectionTests
             4,
             RetainedShellCompositionPolicy.OverviewHighlightRowCount
             * RetainedShellCompositionPolicy.OverviewHighlightRowGraphicCount);
-        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
-        Assert.Equal(5, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount - 2);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(13, RetainedShellCompositionPolicy.GraphicCount - 70);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount - 2);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(16, RetainedShellCompositionPolicy.GraphicCount - 70);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.False(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFastestExtractionEntryPolicy.BlocksRaycasts);
@@ -3314,9 +3314,9 @@ public sealed class StatisticsPanelProjectionTests
     public void GateSeventeenCompositionAddsOnlyOneEmptyNonInteractiveCardGraphic()
     {
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(4, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunHeadingChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
@@ -3761,13 +3761,13 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(RetainedRunBadgePolicy.IconBlocksRaycasts);
         Assert.False(RetainedRunBadgePolicy.LabelBlocksRaycasts);
         Assert.False(RetainedRunBadgePolicy.HasInteraction);
-        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(4, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunBadgeChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunBadgeIconChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunBadgeLabelChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.OverviewLatestRunBadgeGraphicCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
     }
 
@@ -4097,13 +4097,13 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(RetainedOverviewLatestRunMapNamePolicy.HasButton);
         Assert.False(RetainedOverviewLatestRunMapNamePolicy.UsesButtonAnimation);
         Assert.False(RetainedOverviewLatestRunMapNamePolicy.HasLaterGateContent);
-        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(4, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunBadgeChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.OverviewLatestRunBadgeGraphicCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunMapNameChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLatestRunMapNameGraphicCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
     }
 
@@ -4378,11 +4378,11 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(RetainedOverviewLatestRunStatisticsPolicy.HasButton);
         Assert.False(RetainedOverviewLatestRunStatisticsPolicy.UsesButtonAnimation);
         Assert.False(RetainedOverviewLatestRunStatisticsPolicy.HasGateTwentyFourContent);
-        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(4, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunStatisticsChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLatestRunStatisticsGraphicCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
     }
@@ -4657,7 +4657,7 @@ public sealed class StatisticsPanelProjectionTests
     [Fact]
     public void GateTwentyFourCompositionAddsOnlyTheVisualRootAndLabelGraphics()
     {
-        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(4, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunBadgeChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.OverviewLatestRunBadgeGraphicCount);
@@ -4668,13 +4668,13 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLatestRunViewRunChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunViewRunLabelChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunViewRunGraphicCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
     }
 
     [Fact]
-    public void GateTwentyFourDoesNotChangeGateTwentyThreeStatisticsOrAddGateTwentyFiveContent()
+    public void GateTwentyFourDoesNotChangeGateTwentyThreeStatisticsOrOwnWorldTimeContent()
     {
         var statistics = CreateGateTwentyThreePresentation(CreateGateTwentyThreeRun());
 
@@ -4687,6 +4687,295 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1195f, RetainedOverviewLatestRunCardPolicy.BottomExclusivePixels);
         Assert.False(RetainedOverviewLatestRunStatisticsPolicy.HasGateTwentyFourContent);
         Assert.False(RetainedOverviewLatestRunViewRunPolicy.HasGateTwentyFiveContent);
+    }
+
+    [Fact]
+    public void GatesTwentyFiveThroughTwentySevenAddTheRelationalWorldTimeLayoutAtReferenceSize()
+    {
+        var layout = CreateRetainedVisualLayout(2560f, 1440f);
+        var latestHeading = layout.OverviewLatestRunHeading;
+        var latestCard = layout.OverviewLatestRunCard;
+        var heading = layout.OverviewWorldTimeHeading;
+        var card = layout.OverviewWorldTimeCard;
+        var statistics = layout.OverviewWorldTimeStatistics;
+
+        Assert.Same(layout.ReferenceTransform, heading.ReferenceTransform);
+        Assert.Same(layout.ReferenceTransform, card.ReferenceTransform);
+        Assert.Same(layout.ReferenceTransform, statistics.ReferenceTransform);
+        Assert.Equal(1918f, card.Left);
+        Assert.Equal(846f, card.Top);
+        Assert.Equal(527f, card.Width);
+        Assert.Equal(114f, card.Height);
+        Assert.Equal(10f, card.CornerRadius);
+        Assert.Equal(2445f, card.Left + card.Width);
+        Assert.Equal(960f, card.Top + card.Height);
+        Assert.Equal(30f, card.Left - latestCard.Left - latestCard.Width);
+        Assert.Equal(layout.OverviewRightPanel.ContentLeft + layout.OverviewRightPanel.ContentWidth,
+            card.Left + card.Width);
+        Assert.Equal(latestCard.Top, card.Top);
+
+        Assert.Equal(1938f, card.ContentLeft);
+        Assert.Equal(866f, card.ContentTop);
+        Assert.Equal(487f, card.ContentWidth);
+        Assert.Equal(74f, card.ContentHeight);
+        Assert.Equal(card.ContentLeft, heading.Left);
+        Assert.Equal(latestHeading.Top, heading.Top);
+        Assert.Equal(card.ContentWidth, heading.Width);
+        Assert.Equal(60f, heading.Height);
+        Assert.Equal(46.3f, heading.FontSize);
+        Assert.Equal(-5f, heading.OpticalOffsetX);
+        Assert.Equal(19f, heading.OpticalOffsetY);
+        Assert.Equal(56f, card.Top - heading.Top);
+
+        Assert.Equal(card.ContentLeft, statistics.Left);
+        Assert.Equal(card.ContentTop, statistics.Top);
+        Assert.Equal(card.ContentWidth, statistics.Width);
+        Assert.Equal(87f, statistics.Height);
+        Assert.Equal(19.8f, statistics.FontSize);
+        Assert.Equal(29f, statistics.LineStep);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f)]
+    [InlineData(1680f, 1050f)]
+    [InlineData(1920f, 1200f)]
+    [InlineData(2560f, 1440f)]
+    public void GatesTwentyFiveThroughTwentySevenUseTheSharedReferenceTransform(
+        float viewportWidth,
+        float viewportHeight)
+    {
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
+        var transform = layout.ReferenceTransform;
+        var latestCard = layout.OverviewLatestRunCard;
+        var heading = layout.OverviewWorldTimeHeading;
+        var card = layout.OverviewWorldTimeCard;
+        var statistics = layout.OverviewWorldTimeStatistics;
+
+        Assert.Equal(transform.CanvasLength(30f), card.Left - latestCard.Left - latestCard.Width, 5);
+        Assert.Equal(
+            layout.OverviewRightPanel.ContentLeft + layout.OverviewRightPanel.ContentWidth,
+            card.Left + card.Width,
+            5);
+        Assert.Equal(latestCard.Top, card.Top, 5);
+        Assert.Equal(transform.CanvasLength(114f), card.Height, 5);
+        Assert.Equal(transform.CanvasLength(10f), card.CornerRadius, 5);
+        Assert.Equal(transform.CanvasLength(20f), card.ContentLeft - card.Left, 5);
+        Assert.Equal(transform.CanvasLength(20f), card.ContentTop - card.Top, 5);
+        Assert.Equal(layout.OverviewLatestRunHeading.Top, heading.Top, 5);
+        Assert.Equal(card.ContentLeft, heading.Left, 5);
+        Assert.Equal(card.ContentWidth, heading.Width, 5);
+        Assert.Equal(transform.CanvasLength(60f), heading.Height, 5);
+        Assert.Equal(transform.CanvasLength(46.3f), heading.FontSize, 5);
+        Assert.Equal(card.ContentLeft, statistics.Left, 5);
+        Assert.Equal(card.ContentTop, statistics.Top, 5);
+        Assert.Equal(card.ContentWidth, statistics.Width, 5);
+        Assert.Equal(transform.CanvasLength(87f), statistics.Height, 5);
+        Assert.Equal(transform.CanvasLength(19.8f), statistics.FontSize, 5);
+        Assert.Equal(transform.CanvasLength(29f), statistics.LineStep, 5);
+    }
+
+    [Fact]
+    public void GatesTwentyFiveThroughTwentySevenUseNativeNonInteractiveStylesAndLeanComposition()
+    {
+        Assert.Equal("OverviewWorldTimeHeading", RetainedOverviewWorldTimeHeadingPolicy.Name);
+        Assert.Equal(RetainedOverviewRightPanelPolicy.ContentName,
+            RetainedOverviewWorldTimeHeadingPolicy.ParentName);
+        Assert.Equal("ui.overview_world_time", RetainedOverviewWorldTimeHeadingPolicy.TextKey);
+        Assert.Equal("World time", RetainedOverviewWorldTimeHeadingPolicy.EnglishFallback);
+        Assert.Equal("World time",
+            UiText.EnglishFallbacks[RetainedOverviewWorldTimeHeadingPolicy.TextKey]);
+        Assert.Equal(RetainedOverviewLatestRunHeadingPolicy.FontAssetName,
+            RetainedOverviewWorldTimeHeadingPolicy.FontAssetName);
+        Assert.Equal(RetainedOverviewLatestRunHeadingPolicy.MaterialName,
+            RetainedOverviewWorldTimeHeadingPolicy.MaterialName);
+        Assert.Equal(RetainedOverviewLatestRunHeadingPolicy.ReferenceFontSize,
+            RetainedOverviewWorldTimeHeadingPolicy.ReferenceFontSize);
+        Assert.Equal(RetainedOverviewLatestRunHeadingPolicy.HeightPixels,
+            RetainedOverviewWorldTimeHeadingPolicy.HeightPixels);
+        Assert.Equal(RetainedOverviewLatestRunHeadingPolicy.ReferenceOpticalOffsetY,
+            RetainedOverviewWorldTimeHeadingPolicy.ReferenceOpticalOffsetY);
+        Assert.True(RetainedOverviewWorldTimeHeadingPolicy.UsesOwnedTabLabelMaterial);
+        Assert.True(RetainedOverviewWorldTimeHeadingPolicy.UsesVisibleOverflow);
+        Assert.True(RetainedOverviewWorldTimeHeadingPolicy.UsesNormalStyle);
+        Assert.True(RetainedOverviewWorldTimeHeadingPolicy.UsesRegularWeight);
+        Assert.False(RetainedOverviewWorldTimeHeadingPolicy.UsesHorizontalScaleCompensation);
+        Assert.False(RetainedOverviewWorldTimeHeadingPolicy.WordWrapping);
+        Assert.False(RetainedOverviewWorldTimeHeadingPolicy.AutoSizing);
+        Assert.False(RetainedOverviewWorldTimeHeadingPolicy.BlocksRaycasts);
+        Assert.False(RetainedOverviewWorldTimeHeadingPolicy.HasInteraction);
+
+        Assert.Equal("OverviewWorldTimeCard", RetainedOverviewWorldTimeCardPolicy.Name);
+        Assert.Equal(RetainedOverviewRightPanelPolicy.ContentName,
+            RetainedOverviewWorldTimeCardPolicy.ParentName);
+        Assert.Equal(30f, RetainedOverviewWorldTimeCardPolicy.HorizontalGapPixels);
+        Assert.Equal(114f, RetainedOverviewWorldTimeCardPolicy.HeightPixels);
+        Assert.Equal(20f, RetainedOverviewWorldTimeCardPolicy.ContentInsetPixels);
+        Assert.Equal(0f, RetainedOverviewWorldTimeCardPolicy.Red);
+        Assert.Equal(0f, RetainedOverviewWorldTimeCardPolicy.Green);
+        Assert.Equal(0f, RetainedOverviewWorldTimeCardPolicy.Blue);
+        Assert.Equal(0.50f, RetainedOverviewWorldTimeCardPolicy.LayerAlpha);
+        Assert.Equal(10f, RetainedOverviewWorldTimeCardPolicy.CornerRadiusPixels);
+        Assert.Equal(0f, RetainedOverviewWorldTimeCardPolicy.BorderWidth);
+        Assert.False(RetainedOverviewWorldTimeCardPolicy.HasSprite);
+        Assert.True(RetainedOverviewWorldTimeCardPolicy.UsesSimpleImageType);
+        Assert.False(RetainedOverviewWorldTimeCardPolicy.BlocksRaycasts);
+        Assert.False(RetainedOverviewWorldTimeCardPolicy.HasInteraction);
+        Assert.False(RetainedOverviewWorldTimeCardPolicy.HasShadow);
+
+        Assert.Equal("OverviewWorldTimeStatistics", RetainedOverviewWorldTimeStatisticsPolicy.Name);
+        Assert.Equal(RetainedOverviewWorldTimeCardPolicy.Name,
+            RetainedOverviewWorldTimeStatisticsPolicy.ParentName);
+        Assert.Equal("ui.calendar_days_advanced",
+            RetainedOverviewWorldTimeStatisticsPolicy.CalendarDaysTextKey);
+        Assert.Equal("ui.overview_sleep_sessions",
+            RetainedOverviewWorldTimeStatisticsPolicy.SleepSessionsTextKey);
+        Assert.Equal("Sleep sessions",
+            UiText.EnglishFallbacks[RetainedOverviewWorldTimeStatisticsPolicy.SleepSessionsTextKey]);
+        Assert.Equal("ui.overview_sleep_advanced_time",
+            RetainedOverviewWorldTimeStatisticsPolicy.SleepAdvancedTimeTextKey);
+        Assert.Equal("Time advanced through sleeping",
+            UiText.EnglishFallbacks[RetainedOverviewWorldTimeStatisticsPolicy.SleepAdvancedTimeTextKey]);
+        Assert.Equal(RetainedOverviewLatestRunStatisticsPolicy.FontAssetName,
+            RetainedOverviewWorldTimeStatisticsPolicy.FontAssetName);
+        Assert.Equal(RetainedOverviewLatestRunStatisticsPolicy.MaterialName,
+            RetainedOverviewWorldTimeStatisticsPolicy.MaterialName);
+        Assert.Equal(3, RetainedOverviewWorldTimeStatisticsPolicy.LineCount);
+        Assert.Equal(29f, RetainedOverviewWorldTimeStatisticsPolicy.LineStepPixels);
+        Assert.Equal(19.8f, RetainedOverviewWorldTimeStatisticsPolicy.ReferenceFontSize);
+        Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesVisibleOverflow);
+        Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesZeroTextMargins);
+        Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesTopLeftAlignment);
+        Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesNormalStyle);
+        Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesRegularWeight);
+        Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesNativeHorizontalMetrics);
+        Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesOwnedSubtleShadowMaterial);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.WordWrapping);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.AutoSizing);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.BlocksRaycasts);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.HasInteraction);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.HasButton);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.UsesButtonAnimation);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.RegistersListener);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.HasActivation);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.IncludesObservedWorldTime);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.HasGateTwentyEightContent);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.HasProductionVisualRejection);
+
+        Assert.Equal(9, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewWorldTimeHeadingChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewWorldTimeCardChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewWorldTimeStatisticsChildCount);
+        Assert.Equal(3, RetainedShellCompositionPolicy.OverviewWorldTimeGraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
+    }
+
+    [Fact]
+    public void GateTwentySevenFormatsSupportedMockValuesFromTheActiveProjection()
+    {
+        var profile = Profile("generation-world-time-supported");
+        profile.Statistics.WorldTime.CalendarDaysAdvanced = 2;
+        profile.Statistics.WorldTime.CompletedSleepSessions = 1;
+        profile.Statistics.WorldTime.SleepAdvancedTimeTicks = TimeSpan.FromHours(12).Ticks;
+        profile.Statistics.WorldTime.Capabilities = WorldTimeCapabilities(AdapterCapabilityState.Supported);
+        var projection = Create(
+            profile,
+            WorldTimeCapabilities(AdapterCapabilityState.Supported));
+
+        var presentation = RetainedWorldTimeStatisticsPresentationFactory.Create(projection, UiText.Get);
+
+        Assert.Same(profile.Statistics.WorldTime, projection.WorldTime);
+        Assert.Same(projection.WorldTime, presentation.Statistics);
+        Assert.Same(projection.WorldTimeCapabilities, presentation.Capabilities);
+        Assert.True(presentation.IsVisible);
+        Assert.Equal(3, presentation.DisplayLines.Count);
+        Assert.Equal("Calendar days advanced: 2", presentation.DisplayLines[0]);
+        Assert.Equal("Sleep sessions: 1", presentation.DisplayLines[1]);
+        Assert.Equal("Time advanced through sleeping: 12:00:00", presentation.DisplayLines[2]);
+        Assert.Equal(string.Join("\n", presentation.DisplayLines), presentation.Text);
+    }
+
+    [Fact]
+    public void GateTwentySevenRestrictsCurrentCapabilitiesAndFormatsDisabledAndPartialTruthfully()
+    {
+        var profile = Profile("generation-world-time-restricted");
+        profile.Statistics.WorldTime.CalendarDaysAdvanced = 17;
+        profile.Statistics.WorldTime.CompletedSleepSessions = 0;
+        profile.Statistics.WorldTime.SleepAdvancedTimeTicks = TimeSpan.FromMinutes(90).Ticks;
+        profile.Statistics.WorldTime.Capabilities = WorldTimeCapabilities(AdapterCapabilityState.Supported);
+        var current = new WorldTimeMetricCapabilities
+        {
+            CalendarDays = Availability(AdapterCapabilityState.Experimental, "partial calendar capture"),
+            ObservedElapsed = Availability(AdapterCapabilityState.DisabledIncompatible, "unavailable"),
+            CompletedSleepSessions = Availability(AdapterCapabilityState.DisabledIncompatible, "unavailable"),
+            SleepAdvancedTime = Availability(AdapterCapabilityState.DisabledIncompatible, "unavailable")
+        };
+
+        var projection = Create(profile, current);
+        var presentation = RetainedWorldTimeStatisticsPresentationFactory.Create(projection, UiText.Get);
+
+        Assert.Equal(AdapterCapabilityState.Experimental,
+            projection.WorldTimeCapabilities.CalendarDays.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            projection.WorldTimeCapabilities.CompletedSleepSessions.State);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
+            projection.WorldTimeCapabilities.SleepAdvancedTime.State);
+        Assert.Equal("Calendar days advanced: 17", presentation.DisplayLines[0]);
+        Assert.Equal("Sleep sessions: Unsupported", presentation.DisplayLines[1]);
+        Assert.Equal(
+            "Time advanced through sleeping: 01:30:00 (capture incomplete)",
+            presentation.DisplayLines[2]);
+        Assert.DoesNotContain(presentation.DisplayLines,
+            line => line.Contains("Observed Duckov world-clock advancement", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void GateTwentySevenKeepsTheSectionPresentWhenEveryMetricIsUnavailable()
+    {
+        var profile = Profile("generation-world-time-unavailable");
+        profile.Statistics.WorldTime.Capabilities = WorldTimeCapabilities(
+            AdapterCapabilityState.DisabledIncompatible);
+        var projection = Create(
+            profile,
+            WorldTimeCapabilities(AdapterCapabilityState.DisabledIncompatible));
+
+        var presentation = RetainedWorldTimeStatisticsPresentationFactory.Create(projection, UiText.Get);
+        var layout = RetainedVisualLayoutPolicy.Create(
+            RetainedReferenceTransformPolicy.Create(2560f, 1440f, 1f));
+
+        Assert.True(presentation.IsVisible);
+        Assert.Equal(3, presentation.DisplayLines.Count);
+        Assert.All(presentation.DisplayLines, line => Assert.EndsWith("Unsupported", line));
+        Assert.NotNull(layout.OverviewWorldTimeHeading);
+        Assert.NotNull(layout.OverviewWorldTimeCard);
+        Assert.NotNull(layout.OverviewWorldTimeStatistics);
+    }
+
+    [Fact]
+    public void GateTwentySevenLongLocalizationRemainsNonfatalWithoutChangingLayout()
+    {
+        var profile = Profile("generation-world-time-localized");
+        profile.Statistics.WorldTime.Capabilities = WorldTimeCapabilities(AdapterCapabilityState.Supported);
+        var projection = Create(
+            profile,
+            WorldTimeCapabilities(AdapterCapabilityState.Supported));
+        var localized = new string('L', 4096);
+        var baseline = RetainedVisualLayoutPolicy.Create(
+            RetainedReferenceTransformPolicy.Create(1280f, 720f, 1f));
+
+        var presentation = RetainedWorldTimeStatisticsPresentationFactory.Create(
+            projection,
+            _ => localized);
+        var afterLocalization = RetainedVisualLayoutPolicy.Create(
+            RetainedReferenceTransformPolicy.Create(1280f, 720f, 1f));
+
+        Assert.True(presentation.IsVisible);
+        Assert.All(presentation.DisplayLines, line => Assert.StartsWith(localized, line));
+        Assert.Equal(baseline.OverviewWorldTimeCard.Left, afterLocalization.OverviewWorldTimeCard.Left);
+        Assert.Equal(baseline.OverviewWorldTimeCard.Width, afterLocalization.OverviewWorldTimeCard.Width);
+        Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesVisibleOverflow);
+        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.HasProductionVisualRejection);
     }
 
     [Fact]
@@ -4915,7 +5204,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -5168,13 +5457,13 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowValueChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewFastestExtractionRowChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewFastestExtractionRowGraphicCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionValueChildCount);
-        Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
@@ -5627,7 +5916,8 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Throws<InvalidOperationException>(() => StatisticsPanelProjectionFactory.Create(
             profile,
             new EconomyMetricCapabilities(),
-            new CraftingMetricCapabilities()));
+            new CraftingMetricCapabilities(),
+            new WorldTimeMetricCapabilities()));
     }
 
     [Fact]
@@ -5798,10 +6088,32 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     private static StatisticsPanelProjection Create(ProfileDocument profile) =>
+        Create(profile, new WorldTimeMetricCapabilities());
+
+    private static StatisticsPanelProjection Create(
+        ProfileDocument profile,
+        WorldTimeMetricCapabilities currentWorldTimeCapabilities) =>
         StatisticsPanelProjectionFactory.Create(
             profile,
             new EconomyMetricCapabilities(),
-            new CraftingMetricCapabilities());
+            new CraftingMetricCapabilities(),
+            currentWorldTimeCapabilities);
+
+    private static WorldTimeMetricCapabilities WorldTimeCapabilities(AdapterCapabilityState state) => new()
+    {
+        CalendarDays = Availability(state),
+        ObservedElapsed = Availability(state),
+        CompletedSleepSessions = Availability(state),
+        SleepAdvancedTime = Availability(state)
+    };
+
+    private static MetricAvailability Availability(
+        AdapterCapabilityState state,
+        string provenance = "test") => new()
+        {
+            State = state,
+            Provenance = provenance
+        };
 
     private static ProfileDocument Profile(string generationId) => new()
     {

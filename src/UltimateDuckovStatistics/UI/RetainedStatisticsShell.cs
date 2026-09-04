@@ -7,7 +7,7 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 22.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 27.
 /// The root graphic remains the modal dimmer; its children are the frozen header controls and tab-owned views.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
@@ -223,6 +223,23 @@ internal sealed class RetainedStatisticsShell : IDisposable
         public RetainedLatestRunViewRunPresentation Presentation { get; }
     }
 
+    private sealed class RetainedWorldTimeStatisticsControl
+    {
+        public RetainedWorldTimeStatisticsControl(
+            RectTransform rect,
+            TextMeshProUGUI label,
+            RetainedWorldTimeStatisticsPresentation presentation)
+        {
+            Rect = rect;
+            Label = label;
+            Presentation = presentation;
+        }
+
+        public RectTransform Rect { get; }
+        public TextMeshProUGUI Label { get; }
+        public RetainedWorldTimeStatisticsPresentation Presentation { get; }
+    }
+
     private GameObject? root;
     private Canvas? canvas;
     private RectTransform? shellRoot;
@@ -262,6 +279,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RetainedLatestRunMapControl? overviewLatestRunMapName;
     private RetainedLatestRunStatisticsControl? overviewLatestRunStatistics;
     private RetainedLatestRunViewRunControl? overviewLatestRunViewRun;
+    private RectTransform? overviewWorldTimeHeadingRect;
+    private TextMeshProUGUI? overviewWorldTimeHeadingGraphic;
+    private RectTransform? overviewWorldTimeCardRect;
+    private UniformModifier? overviewWorldTimeCardModifier;
+    private RetainedWorldTimeStatisticsControl? overviewWorldTimeStatistics;
     private readonly List<RetainedOverviewHighlightRowControl> overviewHighlightRows = new();
     private readonly List<RetainedStatisticsRowControl> overviewProfileSummaryRows = new();
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
@@ -357,6 +379,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var createdOverviewLatestRunMapName,
                 out var createdOverviewLatestRunStatistics,
                 out var createdOverviewLatestRunViewRun,
+                out var createdOverviewWorldTimeHeadingRect,
+                out var createdOverviewWorldTimeHeadingGraphic,
+                out var createdOverviewWorldTimeCardRect,
+                out var createdOverviewWorldTimeCardModifier,
+                out var createdOverviewWorldTimeStatistics,
                 out var createdOverviewHighlightRows,
                 out var createdOverviewProfileSummaryRows,
                 projection);
@@ -378,6 +405,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewLatestRunMapName = createdOverviewLatestRunMapName;
             overviewLatestRunStatistics = createdOverviewLatestRunStatistics;
             overviewLatestRunViewRun = createdOverviewLatestRunViewRun;
+            overviewWorldTimeHeadingRect = createdOverviewWorldTimeHeadingRect;
+            overviewWorldTimeHeadingGraphic = createdOverviewWorldTimeHeadingGraphic;
+            overviewWorldTimeCardRect = createdOverviewWorldTimeCardRect;
+            overviewWorldTimeCardModifier = createdOverviewWorldTimeCardModifier;
+            overviewWorldTimeStatistics = createdOverviewWorldTimeStatistics;
             overviewHighlightRows.AddRange(createdOverviewHighlightRows);
             overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
             overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
@@ -540,6 +572,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
         out RetainedLatestRunMapControl latestRunMapName,
         out RetainedLatestRunStatisticsControl latestRunStatistics,
         out RetainedLatestRunViewRunControl latestRunViewRun,
+        out RectTransform worldTimeHeadingRect,
+        out TextMeshProUGUI worldTimeHeadingGraphic,
+        out RectTransform worldTimeCardRect,
+        out UniformModifier worldTimeCardModifier,
+        out RetainedWorldTimeStatisticsControl worldTimeStatistics,
         out List<RetainedOverviewHighlightRowControl> highlightRows,
         out List<RetainedStatisticsRowControl> profileSummaryRows,
         StatisticsPanelProjection projection)
@@ -630,6 +667,22 @@ internal sealed class RetainedStatisticsShell : IDisposable
         latestRunViewRun = CreateOverviewLatestRunViewRun(
             latestRunCardRect,
             latestRunViewRunPresentation,
+            typography,
+            headingMaterial);
+        worldTimeHeadingRect = CreateOverviewWorldTimeHeading(
+            rightPanelContentRect,
+            typography,
+            headingMaterial,
+            out worldTimeHeadingGraphic);
+        worldTimeCardRect = CreateOverviewWorldTimeCard(
+            rightPanelContentRect,
+            out worldTimeCardModifier);
+        var worldTimePresentation = RetainedWorldTimeStatisticsPresentationFactory.Create(
+            projection,
+            UiText.Get);
+        worldTimeStatistics = CreateOverviewWorldTimeStatistics(
+            worldTimeCardRect,
+            worldTimePresentation,
             typography,
             headingMaterial);
         return view;
@@ -848,6 +901,118 @@ internal sealed class RetainedStatisticsShell : IDisposable
             RetainedOverviewLatestRunHeadingPolicy.Alpha);
         text.raycastTarget = RetainedOverviewLatestRunHeadingPolicy.BlocksRaycasts;
         return rect;
+    }
+
+    private static RectTransform CreateOverviewWorldTimeHeading(
+        RectTransform parent,
+        NativeHeaderTitleTypography typography,
+        Material material,
+        out TextMeshProUGUI text)
+    {
+        var heading = new GameObject(
+            RetainedOverviewWorldTimeHeadingPolicy.Name,
+            typeof(RectTransform));
+        var rect = (RectTransform)heading.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        text = heading.AddComponent<TextMeshProUGUI>();
+        text.font = typography.Font;
+        text.fontSharedMaterial = material;
+        text.text = UiText.Get(RetainedOverviewWorldTimeHeadingPolicy.TextKey);
+        text.fontStyle = FontStyles.Normal;
+        text.fontWeight = FontWeight.Regular;
+        text.characterSpacing = RetainedOverviewWorldTimeHeadingPolicy.CharacterSpacing;
+        text.wordSpacing = RetainedOverviewWorldTimeHeadingPolicy.WordSpacing;
+        text.lineSpacing = RetainedOverviewWorldTimeHeadingPolicy.LineSpacing;
+        text.paragraphSpacing = RetainedOverviewWorldTimeHeadingPolicy.ParagraphSpacing;
+        text.alignment = TextAlignmentOptions.TopLeft;
+        text.enableWordWrapping = RetainedOverviewWorldTimeHeadingPolicy.WordWrapping;
+        text.enableAutoSizing = RetainedOverviewWorldTimeHeadingPolicy.AutoSizing;
+        text.overflowMode = TextOverflowModes.Overflow;
+        text.margin = Vector4.zero;
+        text.color = new Color(
+            RetainedOverviewWorldTimeHeadingPolicy.Red,
+            RetainedOverviewWorldTimeHeadingPolicy.Green,
+            RetainedOverviewWorldTimeHeadingPolicy.Blue,
+            RetainedOverviewWorldTimeHeadingPolicy.Alpha);
+        text.raycastTarget = RetainedOverviewWorldTimeHeadingPolicy.BlocksRaycasts;
+        return rect;
+    }
+
+    private static RectTransform CreateOverviewWorldTimeCard(
+        RectTransform parent,
+        out UniformModifier modifier)
+    {
+        var card = new GameObject(
+            RetainedOverviewWorldTimeCardPolicy.Name,
+            typeof(RectTransform));
+        var rect = (RectTransform)card.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        var background = card.AddComponent<ProceduralImage>();
+        background.color = new Color(
+            RetainedOverviewWorldTimeCardPolicy.Red,
+            RetainedOverviewWorldTimeCardPolicy.Green,
+            RetainedOverviewWorldTimeCardPolicy.Blue,
+            RetainedOverviewWorldTimeCardPolicy.LayerAlpha);
+        background.BorderWidth = RetainedOverviewWorldTimeCardPolicy.BorderWidth;
+        background.FalloffDistance = 1f;
+        background.sprite = null;
+        background.overrideSprite = null;
+        background.type = Image.Type.Simple;
+        background.raycastTarget = RetainedOverviewWorldTimeCardPolicy.BlocksRaycasts;
+        modifier = card.AddComponent<UniformModifier>();
+        return rect;
+    }
+
+    private static RetainedWorldTimeStatisticsControl CreateOverviewWorldTimeStatistics(
+        RectTransform parent,
+        RetainedWorldTimeStatisticsPresentation presentation,
+        NativeHeaderTitleTypography typography,
+        Material material)
+    {
+        var statisticsObject = new GameObject(
+            RetainedOverviewWorldTimeStatisticsPolicy.Name,
+            typeof(RectTransform));
+        var rect = (RectTransform)statisticsObject.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        var label = statisticsObject.AddComponent<TextMeshProUGUI>();
+        label.font = typography.Font;
+        label.fontSharedMaterial = material;
+        label.text = presentation.Text;
+        label.fontStyle = FontStyles.Normal;
+        label.fontWeight = FontWeight.Regular;
+        label.characterSpacing = RetainedOverviewWorldTimeStatisticsPolicy.CharacterSpacing;
+        label.wordSpacing = RetainedOverviewWorldTimeStatisticsPolicy.WordSpacing;
+        label.lineSpacing = RetainedOverviewWorldTimeStatisticsPolicy.LineSpacing;
+        label.paragraphSpacing = RetainedOverviewWorldTimeStatisticsPolicy.ParagraphSpacing;
+        label.alignment = TextAlignmentOptions.TopLeft;
+        label.enableWordWrapping = RetainedOverviewWorldTimeStatisticsPolicy.WordWrapping;
+        label.enableAutoSizing = RetainedOverviewWorldTimeStatisticsPolicy.AutoSizing;
+        label.overflowMode = TextOverflowModes.Overflow;
+        label.margin = Vector4.zero;
+        label.color = new Color(
+            RetainedOverviewWorldTimeStatisticsPolicy.Red,
+            RetainedOverviewWorldTimeStatisticsPolicy.Green,
+            RetainedOverviewWorldTimeStatisticsPolicy.Blue,
+            RetainedOverviewWorldTimeStatisticsPolicy.Alpha);
+        label.raycastTarget = RetainedOverviewWorldTimeStatisticsPolicy.BlocksRaycasts;
+
+        statisticsObject.SetActive(presentation.IsVisible);
+        return new RetainedWorldTimeStatisticsControl(rect, label, presentation);
     }
 
     private static RetainedRunBadgeControl CreateOverviewLatestRunBadge(
@@ -1570,6 +1735,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewLatestRunMapName == null
             || overviewLatestRunStatistics == null
             || overviewLatestRunViewRun == null
+            || overviewWorldTimeHeadingRect == null
+            || overviewWorldTimeHeadingGraphic == null
+            || overviewWorldTimeCardRect == null
+            || overviewWorldTimeCardModifier == null
+            || overviewWorldTimeStatistics == null
             || overviewHighlightRows.Count != RetainedOverviewHighlightsRowsPolicy.RowCount
             || overviewProfileSummaryRows.Count != RetainedProfileSummaryRowsPolicy.RowCount)
         {
@@ -1637,6 +1807,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var latestRunCardModifier = overviewLatestRunCardModifier!;
         var latestRunMapNameControl = overviewLatestRunMapName!;
         var latestRunStatisticsControl = overviewLatestRunStatistics!;
+        var worldTimeHeadingRect = overviewWorldTimeHeadingRect!;
+        var worldTimeHeadingGraphic = overviewWorldTimeHeadingGraphic!;
+        var worldTimeCardRect = overviewWorldTimeCardRect!;
+        var worldTimeCardModifier = overviewWorldTimeCardModifier!;
+        var worldTimeStatisticsControl = overviewWorldTimeStatistics!;
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
@@ -1846,6 +2021,32 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 latestRunViewRunLayout.LabelHeight);
             latestRunViewRunControl.Label.fontSize = latestRunViewRunLayout.FontSize;
         }
+        worldTimeHeadingRect.anchoredPosition = new Vector2(
+            layout.OverviewWorldTimeHeading.Left
+            - layout.OverviewRightPanel.ContentLeft
+            + layout.OverviewWorldTimeHeading.OpticalOffsetX,
+            -(layout.OverviewWorldTimeHeading.Top - layout.OverviewRightPanel.ContentTop)
+            + layout.OverviewWorldTimeHeading.OpticalOffsetY);
+        worldTimeHeadingRect.sizeDelta = new Vector2(
+            layout.OverviewWorldTimeHeading.Width,
+            layout.OverviewWorldTimeHeading.Height);
+        worldTimeHeadingGraphic.fontSize = layout.OverviewWorldTimeHeading.FontSize;
+        worldTimeCardRect.anchoredPosition = new Vector2(
+            layout.OverviewWorldTimeCard.Left - layout.OverviewRightPanel.ContentLeft,
+            -(layout.OverviewWorldTimeCard.Top - layout.OverviewRightPanel.ContentTop));
+        worldTimeCardRect.sizeDelta = new Vector2(
+            layout.OverviewWorldTimeCard.Width,
+            layout.OverviewWorldTimeCard.Height);
+        worldTimeCardModifier.Radius = layout.OverviewWorldTimeCard.CornerRadius;
+        worldTimeStatisticsControl.Rect.gameObject.SetActive(
+            worldTimeStatisticsControl.Presentation.IsVisible);
+        worldTimeStatisticsControl.Rect.anchoredPosition = new Vector2(
+            layout.OverviewWorldTimeStatistics.Left - layout.OverviewWorldTimeCard.Left,
+            -(layout.OverviewWorldTimeStatistics.Top - layout.OverviewWorldTimeCard.Top));
+        worldTimeStatisticsControl.Rect.sizeDelta = new Vector2(
+            layout.OverviewWorldTimeStatistics.Width,
+            layout.OverviewWorldTimeStatistics.Height);
+        worldTimeStatisticsControl.Label.fontSize = layout.OverviewWorldTimeStatistics.FontSize;
         for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
             ApplyStatisticsRowLayout(
                 overviewProfileSummaryRows[index],
@@ -2079,6 +2280,11 @@ internal sealed class RetainedStatisticsShell : IDisposable
         overviewLatestRunMapName = null;
         overviewLatestRunStatistics = null;
         overviewLatestRunViewRun = null;
+        overviewWorldTimeHeadingRect = null;
+        overviewWorldTimeHeadingGraphic = null;
+        overviewWorldTimeCardRect = null;
+        overviewWorldTimeCardModifier = null;
+        overviewWorldTimeStatistics = null;
         overviewHighlightRows.Clear();
         overviewProfileSummaryRows.Clear();
         lastAppliedVisualLayout = null;
