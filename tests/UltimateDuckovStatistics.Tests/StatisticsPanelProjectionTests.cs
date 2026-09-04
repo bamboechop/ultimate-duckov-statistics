@@ -955,15 +955,6 @@ public sealed class StatisticsPanelProjectionTests
                 3);
         }
 
-        RetainedTabMeasurementPolicy.RequirePlausibleEnglishWidth(
-            "Overview",
-            referenceWidth + 0.125f,
-            referenceWidth);
-        Assert.Throws<InvalidOperationException>(() =>
-            RetainedTabMeasurementPolicy.RequirePlausibleEnglishWidth(
-                "Overview",
-                referenceWidth * 2f,
-                referenceWidth));
     }
 
     [Fact]
@@ -983,37 +974,6 @@ public sealed class StatisticsPanelProjectionTests
             RetainedTabMeasurementPolicy.NormalizeCanvasWidth(100f, 0f, 1f));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             RetainedTabMeasurementPolicy.NormalizeCanvasWidth(100f, 1f, float.NaN));
-    }
-
-    [Fact]
-    public void GateSevenVisualCompositionMismatchIsReportedWithoutDisablingTheShell()
-    {
-        var reports = new List<string>();
-
-        var accepted = RetainedCompositionValidationPolicy.Inspect(
-            () => throw new InvalidOperationException("Unity normalized a presentation property."),
-            reports.Add);
-
-        Assert.False(accepted);
-        Assert.Equal(
-            "InvalidOperationException: Unity normalized a presentation property.",
-            Assert.Single(reports));
-        Assert.Equal(
-            "[UDS] M17 retained visual composition advisory",
-            RetainedCompositionValidationPolicy.WarningPrefix);
-    }
-
-    [Fact]
-    public void GateSevenVisualCompositionValidationStillPropagatesUnexpectedFailures()
-    {
-        var reports = new List<string>();
-
-        Assert.Throws<FormatException>(() =>
-            RetainedCompositionValidationPolicy.Inspect(
-                () => throw new FormatException("unexpected construction failure"),
-                reports.Add));
-
-        Assert.Empty(reports);
     }
 
     [Fact]

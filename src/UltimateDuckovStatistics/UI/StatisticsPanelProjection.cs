@@ -641,7 +641,6 @@ internal static class RetainedTabMeasurementPolicy
     // Give the measurement host one full reference width so the native label is
     // measured as a single unconstrained line before its relational tab bounds are applied.
     public const float TemporaryLabelWidthPixels = RetainedReferenceTransformPolicy.BaselineWidthPixels;
-    public const float DiagnosticRelativeTolerance = 0.10f;
 
     public static float NormalizeCanvasWidth(
         float measuredCanvasWidth,
@@ -661,48 +660,8 @@ internal static class RetainedTabMeasurementPolicy
         return normalized;
     }
 
-    public static void RequirePlausibleEnglishWidth(
-        string label,
-        float normalizedWidth,
-        float auditedWidth)
-    {
-        if (!IsPositiveFinite(normalizedWidth))
-            throw new ArgumentOutOfRangeException(nameof(normalizedWidth));
-        if (!IsPositiveFinite(auditedWidth))
-            throw new ArgumentOutOfRangeException(nameof(auditedWidth));
-        var minimum = auditedWidth * (1f - DiagnosticRelativeTolerance);
-        var maximum = auditedWidth * (1f + DiagnosticRelativeTolerance);
-        if (normalizedWidth < minimum || normalizedWidth > maximum)
-        {
-            throw new InvalidOperationException(
-                $"The native '{label}' tab width normalized to {normalizedWidth}, outside the audited range {minimum}-{maximum}.");
-        }
-    }
-
     public static bool IsPositiveFinite(float value) =>
         value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
-}
-
-internal static class RetainedCompositionValidationPolicy
-{
-    public const string WarningPrefix = "[UDS] M17 retained visual composition advisory";
-
-    public static bool Inspect(Action validate, Action<string> report)
-    {
-        if (validate == null) throw new ArgumentNullException(nameof(validate));
-        if (report == null) throw new ArgumentNullException(nameof(report));
-
-        try
-        {
-            validate();
-            return true;
-        }
-        catch (InvalidOperationException exception)
-        {
-            report($"{exception.GetType().Name}: {exception.Message}");
-            return false;
-        }
-    }
 }
 
 internal static class RetainedTabStripPolicy
