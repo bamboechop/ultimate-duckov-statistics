@@ -21,6 +21,12 @@
     <Reference Include="UnityEngine.CoreModule" HintPath="$(DuckovManagedPath)\UnityEngine.CoreModule.dll" Private="false" />
     <Reference Include="UnityEngine.IMGUIModule" HintPath="$(DuckovManagedPath)\UnityEngine.IMGUIModule.dll" Private="false" />
     <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(DuckovManagedPath)\UnityEngine.InputLegacyModule.dll" Private="false" />
+    <Reference Include="UnityEngine.UI" HintPath="$(DuckovManagedPath)\UnityEngine.UI.dll" Private="false" />
+    <Reference Include="UnityEngine.UIModule" HintPath="$(DuckovManagedPath)\UnityEngine.UIModule.dll" Private="false" />
+    <Reference Include="UnityEngine.TextRenderingModule" HintPath="$(DuckovManagedPath)\UnityEngine.TextRenderingModule.dll" Private="false" />
+    <Reference Include="Unity.TextMeshPro" HintPath="$(DuckovManagedPath)\Unity.TextMeshPro.dll" Private="false" />
+    <Reference Include="SodaLocalization" HintPath="$(DuckovManagedPath)\SodaLocalization.dll" Private="false" />
+    <Reference Include="Plugins" HintPath="$(DuckovManagedPath)\Plugins.dll" Private="false" />
   </ItemGroup>
 
   <Target Name="ValidateDuckovPath" BeforeTargets="ResolveReferences">

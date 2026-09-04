@@ -27,10 +27,18 @@ try
     var managedRoot = Path.Combine(gameRoot, "Duckov_Data", "Managed");
     var corePath = Path.Combine(managedRoot, "TeamSoda.Duckov.Core.dll");
     var itemStatsPath = Path.Combine(managedRoot, "ItemStatsSystem.dll");
+    var sodaLocalizationPath = Path.Combine(managedRoot, "SodaLocalization.dll");
+    var unityUiPath = Path.Combine(managedRoot, "UnityEngine.UI.dll");
+    var textMeshProPath = Path.Combine(managedRoot, "Unity.TextMeshPro.dll");
+    var pluginsPath = Path.Combine(managedRoot, "Plugins.dll");
     var resourcesPath = Path.Combine(gameRoot, "Duckov_Data", "resources.assets");
 
     RequireFile(corePath);
     RequireFile(itemStatsPath);
+    RequireFile(sodaLocalizationPath);
+    RequireFile(unityUiPath);
+    RequireFile(textMeshProPath);
+    RequireFile(pluginsPath);
     RequireFile(resourcesPath);
 
     var gameVersion = ReadIniValue(Path.Combine(gameRoot, "Info.ini"), "version");
@@ -95,6 +103,12 @@ try
         core.RequireEvent(string.Empty, "LevelManager", "OnMainCharacterDead", "System.Action", "DamageInfo");
         core.RequireEvent(string.Empty, "PauseMenu", "onPauseMenuOn", "System.Action");
         core.RequireEvent(string.Empty, "PauseMenu", "onPauseMenuOff", "System.Action");
+        core.RequireField(string.Empty, "MainMenu", "OnMainMenuAwake", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Action");
+        core.RequireField(string.Empty, "MainMenu", "OnMainMenuDestroy", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Action");
+        core.RequireProperty(string.Empty, "PauseMenu", "Instance", "PauseMenu", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "PauseMenu", "Shown", "System.Boolean", mustBePublic: true);
+        core.RequireProperty(string.Empty, "GameManager", "EventSystem", "UnityEngine.EventSystems.EventSystem", mustBePublic: true, mustBeStatic: true);
+        core.RequireMethod("Duckov.UI", "NotificationText", "Push", 1, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String"]);
         core.RequireEvent(string.Empty, "SceneLoader", "onStartedLoadingScene", "System.Action", "SceneLoadingContext");
         core.RequireEvent(string.Empty, "SceneLoader", "onFinishedLoadingScene", "System.Action", "SceneLoadingContext");
         core.RequireEvent(string.Empty, "SceneLoader", "onAfterSceneInitialize", "System.Action", "SceneLoadingContext");
@@ -151,6 +165,7 @@ try
 
         core.RequireProperty(string.Empty, "LevelManager", "IsRaidMap");
         core.RequireProperty(string.Empty, "LevelManager", "IsBaseLevel");
+        core.RequireProperty(string.Empty, "LevelManager", "Instance", "LevelManager", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "LevelManager", "LevelInited", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "LevelManager", "LevelInitializing", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "LevelManager", "MainCharacter", "CharacterMainControl", mustBePublic: true);
@@ -307,6 +322,20 @@ try
             returnTypeFragment: "System.Boolean",
             parameterTypeFragments: ["ItemStatsSystem.Item", "System.Boolean"]);
         core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "Prefabs", "PrefabsData", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "UIPrefabs", "Duckov.UI.UIPrefabsReference", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "UIStyle", "UIStyleData", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.UI", "UIPrefabsReference", "Button", "UnityEngine.UI.Button", mustBePublic: true);
+        core.RequireProperty("Duckov.UI", "UIPrefabsReference", "ScrollRect", "UnityEngine.UI.ScrollRect", mustBePublic: true);
+        core.RequireNestedProperty(
+            "Duckov.Utilities",
+            "GameplayDataSettings",
+            "UIStyleData",
+            "TemplateTextUGUI",
+            "TMPro.TextMeshProUGUI",
+            mustBePublic: true);
+        core.RequireType(string.Empty, "CanvasScalerController");
+        core.RequireProperty("Duckov", "GameMetaData", "Instance", "Duckov.GameMetaData", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov", "GameMetaData", "Version", "Duckov.VersionData", mustBePublic: true);
         core.RequireProperty(string.Empty, "PrefabsData", "LootBoxPrefab_Tomb", "InteractableLootbox", mustBePublic: true);
         core.RequireProperty(string.Empty, "DuckovItemAgent", "Holder", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty(string.Empty, "ItemAgent_Gun", "GunItemSetting", "ItemSetting_Gun", mustBePublic: true);
@@ -450,6 +479,27 @@ try
             parameterTypeFragments: ["System.Int32"]);
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "Name", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "DisplayName", "System.String", mustBePublic: true);
+        itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "icon", mustBePublic: true, fieldTypeFragment: "UnityEngine.Sprite");
+    }
+
+    using (var plugins = new AssemblyMetadata(pluginsPath))
+    {
+        plugins.RequireType("UnityEngine.UI.ProceduralImage", "ProceduralImage");
+        plugins.RequireType("UnityEngine.UI.ProceduralImage", "ProceduralImageModifier");
+        plugins.RequireProperty("UnityEngine.UI.ProceduralImage", "ProceduralImage", "BorderWidth", "System.Single", mustBePublic: true);
+        plugins.RequireProperty("UnityEngine.UI.ProceduralImage", "ProceduralImage", "FalloffDistance", "System.Single", mustBePublic: true);
+        plugins.RequireType(string.Empty, "UniformModifier");
+        plugins.RequireProperty(string.Empty, "UniformModifier", "Radius", "System.Single", mustBePublic: true);
+        plugins.RequireMethod(string.Empty, "UniformModifier", "set_Radius", 1, mustBePublic: true, parameterTypeFragments: ["System.Single"]);
+    }
+
+    using (var localization = new AssemblyMetadata(sodaLocalizationPath))
+    {
+        localization.RequireField("SodaCraft.Localizations", "LocalizationManager", "overrideTexts", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Collections.Generic.Dictionary");
+        localization.RequireMethod("SodaCraft.Localizations", "LocalizationManager", "SetOverrideText", 2, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String", "System.String"]);
+        localization.RequireMethod("SodaCraft.Localizations", "LocalizationManager", "RemoveOverrideText", 1, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String"]);
+        localization.RequireMethod("SodaCraft.Localizations", "LocalizationManager", "GetPlainText", 1, mustBePublic: true, mustBeStatic: true, returnTypeFragment: "System.String", parameterTypeFragments: ["System.String"]);
+        localization.RequireProperty("SodaCraft.Localizations", "TextLocalizor", "Key", "System.String", mustBePublic: true);
     }
 
     var craftingFormulaAudit = AuditCraftingFormulas(resourcesPath);
@@ -459,6 +509,7 @@ try
     Console.WriteLine($"  Unity: {unityMatch.Value}");
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
+    Console.WriteLine($"  SodaLocalization.dll SHA-256: {HashFile(sodaLocalizationPath)}");
     Console.WriteLine($"  resources.assets SHA-256: {HashFile(resourcesPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
     Console.WriteLine($"  Crafting formulas: {craftingFormulaAudit.FormulaCount}; serialized bytes: {craftingFormulaAudit.SerializedBytes}; item-cost entries: {craftingFormulaAudit.ItemCostEntryCount}; empty item-cost arrays: {craftingFormulaAudit.EmptyItemCostCount}; repeated resource ids within one formula: {craftingFormulaAudit.RepeatedResourceIdCount}; maximum item-cost entries/formula: {craftingFormulaAudit.MaximumItemCostEntries}.");
@@ -470,7 +521,7 @@ try
         foreach (var formula in craftingFormulaAudit.NonzeroCurrencyFormulas)
             Console.WriteLine($"    {formula.FormulaId} -> output {formula.OutputItemId}: money={formula.Money}; tags={formula.Tags}; items={formula.ItemCosts}");
     }
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, and M16 CraftingFormula.cost item/currency plus repeated-stack mutation/transfer contracts are present.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, M16 CraftingFormula.cost item/currency plus repeated-stack mutation/transfer, and M17 retained UI/menu/localization/item-icon/toast/focus/procedural-image contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption, M6 tote activation, M13 crafting workstation/run-map/multiple-output attribution, and M16 Money/Cash charge splitting remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
@@ -1002,6 +1053,46 @@ internal sealed class AssemblyMetadata : IDisposable
         }
         throw new ContractException(
             $"Required nested field not found: {@namespace}.{typeName}.{nestedTypeName}.{fieldName}.");
+    }
+
+    public void RequireNestedProperty(
+        string @namespace,
+        string typeName,
+        string nestedTypeName,
+        string propertyName,
+        string propertyTypeFragment,
+        bool mustBePublic = false)
+    {
+        var declaringType = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var nestedHandle in declaringType.GetNestedTypes())
+        {
+            var nested = reader.GetTypeDefinition(nestedHandle);
+            if (!string.Equals(reader.GetString(nested.Name), nestedTypeName, StringComparison.Ordinal)) continue;
+            foreach (var propertyHandle in nested.GetProperties())
+            {
+                var property = reader.GetPropertyDefinition(propertyHandle);
+                if (!string.Equals(reader.GetString(property.Name), propertyName, StringComparison.Ordinal)
+                    || !property.DecodeSignature(typeProvider, reader).ReturnType.Contains(
+                        propertyTypeFragment,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var accessors = property.GetAccessors();
+                var accessorHandle = !accessors.Getter.IsNil ? accessors.Getter : accessors.Setter;
+                if (accessorHandle.IsNil) continue;
+                var accessor = reader.GetMethodDefinition(accessorHandle);
+                if (mustBePublic
+                    && (accessor.Attributes & MethodAttributes.MemberAccessMask) != MethodAttributes.Public)
+                {
+                    continue;
+                }
+                return;
+            }
+        }
+        throw new ContractException(
+            $"Required nested property not found: {@namespace}.{typeName}.{nestedTypeName}.{propertyName}.");
     }
 
     public void RequireDoubleConstant(string @namespace, string typeName, string fieldName, double expected)

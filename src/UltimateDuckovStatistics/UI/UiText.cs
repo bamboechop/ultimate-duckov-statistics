@@ -6,13 +6,19 @@ namespace UltimateDuckovStatistics.UI;
 
 internal static class UiText
 {
+    private static Func<string, string?>? nativeResolver;
+
     private static readonly Dictionary<string, string> English =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["ui.title"] = "Ultimate Duckov Statistics",
+            ["ui.menu_entry"] = "Statistics",
+            ["ui.shell_placeholder"] = "The retained-mode shell is ready. Statistics view content is restored in visual correction Gate 2.",
+            ["ui.shell_unavailable"] = "The statistics panel could not attach to Duckov's current UI. Tracking remains active; use Player.log for details.",
             ["ui.close"] = "Close",
             ["ui.overview"] = "Overview",
             ["ui.items"] = "Items",
+            ["ui.item_use"] = "Item Use",
             ["ui.runs"] = "Runs",
             ["ui.records"] = "Records",
             ["ui.combat"] = "Combat",
@@ -58,6 +64,9 @@ internal static class UiText
             ["ui.deaths"] = "Player deaths",
             ["ui.headshots"] = "Headshots / final blows",
             ["ui.enemies"] = "Enemies",
+            ["ui.summary"] = "Summary",
+            ["ui.weapons_ammo"] = "Weapons & Ammo",
+            ["ui.incoming_damage"] = "Incoming Damage",
             ["ui.killers"] = "Killers",
             ["ui.integrity"] = "Integrity",
             ["ui.record_status"] = "Records",
@@ -85,25 +94,55 @@ internal static class UiText
             ["ui.group_totals"] = "Canonical groups",
             ["ui.no_items"] = "No successful raid item uses recorded for this save generation.",
             ["ui.item_name"] = "Item",
+            ["ui.effects"] = "Effects",
+            ["ui.recent_runs"] = "Recent runs",
             ["ui.group"] = "Group",
             ["ui.activations"] = "Activations",
             ["ui.amount"] = "Amount consumed",
             ["ui.capabilities"] = "Adapter capabilities",
             ["ui.diagnostic_log"] = "Recent bounded diagnostics",
+            ["ui.data_settings"] = "Data & settings",
+            ["ui.recent_issues"] = "Recent issues",
+            ["ui.no_recent_issues"] = "No recent warnings or errors.",
+            ["ui.technical_details"] = "Technical details",
+            ["ui.tracking_health"] = "Tracking-system health",
+            ["ui.working"] = "Working",
+            ["ui.limited"] = "Limited",
+            ["ui.error"] = "Error",
+            ["ui.health_legend"] = "Working: current supported capture is active. Limited: one or more dimensions are unavailable but supported siblings continue. Error: a current failure may prevent affected capture; inspect the issue and Player.log.",
+            ["ui.menu_access"] = "Menu access",
+            ["ui.main_menu_entry"] = "Main-menu entry",
+            ["ui.base_pause_entry"] = "Base pause-menu entry",
+            ["ui.hotkey_fallback"] = "Configured hotkey fallback",
+            ["ui.not_observed"] = "Not observed this lifecycle",
+            ["ui.attached_unverified"] = "Attached; activation not yet observed",
+            ["ui.menu_access_limited"] = "Statistics tracking remains healthy. Use the configured hotkey outside raids until every native entry is activated and inspect Recent issues for unavailable paths.",
+            ["ui.runtime_issues"] = "Runtime issues",
+            ["ui.issue_guidance"] = "If the issue persists, inspect Player.log. Unaffected tracking continues unless its health group reports an error.",
             ["ui.data_path"] = "Data path",
             ["ui.export"] = "Export JSON + CSV",
             ["ui.reset"] = "Reset this UDS profile",
-            ["ui.reset_warning"] = "Reset archives the current UDS generation read-only and starts at zero. Duckov saves are not changed.",
+            ["ui.reset_warning"] = "Reset archives the current UDS generation read-only and starts at zero. It cannot be undone from within UDS. Duckov saves are not changed.",
             ["ui.confirm_reset"] = "Confirm reset",
             ["ui.cancel"] = "Cancel",
             ["ui.hotkey"] = "Panel hotkey",
             ["ui.apply"] = "Apply",
+            ["ui.previous"] = "Previous",
+            ["ui.next"] = "Next",
+            ["ui.page"] = "Page",
+            ["ui.more_above"] = "More above",
+            ["ui.more_below"] = "More below",
             ["ui.hotkey_invalid"] = "Unknown Unity key name; hotkey was not changed.",
             ["ui.hotkey_saved"] = "Panel hotkey saved.",
             ["ui.raid_unavailable"] = "Statistics are available outside raids.",
+            ["ui.profile_unavailable"] = "Statistics are unavailable until the active UDS save generation is known exactly.",
+            ["ui.operation_busy"] = "Another statistics operation is already in progress.",
             ["ui.export_complete"] = "Export complete",
             ["ui.export_failed"] = "Export failed; see Diagnostics and Player.log.",
             ["ui.reset_complete"] = "UDS profile reset; prior generation archived read-only.",
+            ["ui.reset_pending"] = "Reset is still pending safely; completion has not been reported. See Diagnostics and Player.log.",
+            ["ui.reset_failed"] = "Reset failed before it was queued; the existing profile remains active and no statistics were removed. Duckov save data was not changed. See Diagnostics and Player.log.",
+            ["ui.export_path_copied"] = "Export complete; the folder path was copied to the clipboard.",
             ["ui.integrity_note"] = "Run time, weapon, and combat tracking exclude pause/loading and non-raid contexts. Integrity-flagged and interrupted runs remain visible; only eligible runs enter default duration records.",
             ["ui.equipment_contract"] = "Equipment time uses monotonic active raid time. Direct totem and tote presence are tracked separately; tote activation remains unavailable until gameplay proves it.",
             ["ui.open_hint"] = "Press the configured hotkey outside raids to show or hide this panel.",
@@ -158,10 +197,45 @@ internal static class UiText
             ["ui.crafting_contract"] = "One action is one correlated completion of native output delivery before downstream crafting callbacks. Produced quantity and item/currency costs are immutable formula declarations captured when Craft starts and published only after the preceding native Pay succeeds and delivery completes. Attempts, failed payment, inventory deltas, holdings, historical action counts, current recipe metadata, and Money/Cash split inference are excluded. Totals are save-generation lifetime only; workstation and run/map attribution are unavailable.",
             ["ui.weapon_equipment"] = "Weapons by equipped character slot and nested slot",
             ["ui.armor_and_gear"] = "Armor, gear & other native slots",
+            ["ui.loadouts"] = "Loadouts",
+            ["ui.weapons"] = "Weapons",
+            ["ui.totems"] = "Totems",
+            ["ui.recurring_loadouts"] = "Recurring loadouts (at least two completed runs)",
+            ["ui.recent_run_loadouts"] = "Recent run loadouts",
+            ["ui.observed_totem_time"] = "Observed totem state time (presence; Unknown is not active effect time)",
+            ["ui.proven_active_totem_time"] = "Proven-active totem-set time",
+            ["ui.recent_run_economy"] = "Recent run economy",
             ["ui.proven_empty"] = "No"
         };
 
-    public static string Get(string key) => English.TryGetValue(key, out var value) ? value : key;
+    public static void ConfigureNativeResolver(Func<string, string?>? resolver) => nativeResolver = resolver;
+
+    internal static IReadOnlyDictionary<string, string> EnglishFallbacks => English;
+
+    public static string Get(string key) => Resolve(key, nativeResolver);
+
+    internal static string Resolve(string key, Func<string, string?>? resolver)
+    {
+        if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("A UI localization key is required.", nameof(key));
+        if (resolver != null)
+        {
+            try
+            {
+                var localized = resolver(key);
+                if (!string.IsNullOrWhiteSpace(localized)
+                    && !string.Equals(localized, key, StringComparison.Ordinal))
+                {
+                    return localized;
+                }
+            }
+            catch
+            {
+                // A native localization failure must never make the statistics panel unusable.
+            }
+        }
+
+        return English.TryGetValue(key, out var fallback) ? fallback : key;
+    }
 
     public static string FormatProvenEmpty(string slotDisplayName) =>
         $"{Get("ui.proven_empty")} {(string.IsNullOrWhiteSpace(slotDisplayName) ? "slot item" : slotDisplayName)}";
@@ -230,7 +304,7 @@ internal static class UiText
         if (observation.State == EconomyHoldingObservationState.Current)
             return $"{value} ({Get("ui.current").ToLowerInvariant()})";
         var timestamp = observation.ObservedUtc.HasValue
-            ? observation.ObservedUtc.Value.ToString("u", CultureInfo.InvariantCulture)
+            ? observation.ObservedUtc.Value.ToUniversalTime().ToString("yyyy-MM-dd - HH:mm:ss", CultureInfo.InvariantCulture)
             : Get("ui.unavailable");
         return $"{value} ({Get("ui.last_observed").ToLowerInvariant()} {timestamp})";
     }

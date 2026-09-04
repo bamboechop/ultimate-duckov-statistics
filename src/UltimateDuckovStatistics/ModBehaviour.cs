@@ -354,11 +354,6 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         statisticsPanel?.Tick();
     }
 
-    private void OnGUI()
-    {
-        statisticsPanel?.Draw();
-    }
-
     private void OnApplicationQuit()
     {
         DrainPendingProfileTransitions("application quit");
@@ -461,6 +456,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
         healingAttributionAdapter?.Dispose();
         healingAttributionAdapter = null;
+        statisticsPanel?.Dispose();
         statisticsPanel = null;
 
         var retainedProfileCoordinator = profileCoordinator;
