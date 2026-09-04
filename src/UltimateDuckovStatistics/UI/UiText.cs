@@ -56,6 +56,7 @@ internal static class UiText
             ["ui.total_runs"] = "Runs",
             ["ui.extracted_runs"] = "Extracted",
             ["ui.died_runs"] = "Died",
+            ["ui.overview_run_badge_unknown"] = "Unknown",
             ["ui.interrupted_runs"] = "Interrupted",
             ["ui.physical_distance"] = "Physical distance",
             ["ui.teleport_distance"] = "Teleport distance",

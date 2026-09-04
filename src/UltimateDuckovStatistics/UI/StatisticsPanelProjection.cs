@@ -2327,14 +2327,76 @@ internal static class RetainedOverviewLatestRunCardPolicy
     }
 }
 
+internal enum RetainedRunBadgeState
+{
+    Extracted,
+    Died,
+    Unknown
+}
+
+internal enum RetainedRunBadgeIconKind
+{
+    Check,
+    Skull,
+    QuestionMark
+}
+
+internal sealed class RetainedRunBadgeVariantSpecification
+{
+    public RetainedRunBadgeVariantSpecification(
+        RetainedRunBadgeState state,
+        string textKey,
+        string englishFallback,
+        RetainedRunBadgeIconKind iconKind,
+        string preferredIconGlyph,
+        float backgroundRed,
+        float backgroundGreen,
+        float backgroundBlue,
+        float visibleIconWidthPixels,
+        float visibleIconHeightPixels,
+        float mockEquivalentPreferredLabelWidthPixels)
+    {
+        State = state;
+        TextKey = textKey ?? throw new ArgumentNullException(nameof(textKey));
+        EnglishFallback = englishFallback ?? throw new ArgumentNullException(nameof(englishFallback));
+        IconKind = iconKind;
+        PreferredIconGlyph = preferredIconGlyph ?? throw new ArgumentNullException(nameof(preferredIconGlyph));
+        BackgroundColor = new RetainedRgbaColor(
+            backgroundRed,
+            backgroundGreen,
+            backgroundBlue,
+            RetainedRunBadgePolicy.BackgroundAlpha);
+        VisibleIconWidthPixels = visibleIconWidthPixels;
+        VisibleIconHeightPixels = visibleIconHeightPixels;
+        MockEquivalentPreferredLabelWidthPixels = mockEquivalentPreferredLabelWidthPixels;
+        MockReferenceWidthPixels =
+            RetainedRunBadgePolicy.FixedHorizontalContentPixels
+            + mockEquivalentPreferredLabelWidthPixels;
+    }
+
+    public RetainedRunBadgeState State { get; }
+    public string TextKey { get; }
+    public string EnglishFallback { get; }
+    public RetainedRunBadgeIconKind IconKind { get; }
+    public string PreferredIconGlyph { get; }
+    public RetainedRgbaColor BackgroundColor { get; }
+    public float VisibleIconWidthPixels { get; }
+    public float VisibleIconHeightPixels { get; }
+    public float MockEquivalentPreferredLabelWidthPixels { get; }
+    public float MockReferenceWidthPixels { get; }
+}
+
 internal sealed class RetainedRunBadgeCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public RetainedRunBadgeVariantSpecification Specification { get; set; } = null!;
     public float ReferencePreferredLabelWidth { get; set; }
     public float Width { get; set; }
     public float Height { get; set; }
     public float CornerRadius { get; set; }
     public float LeftPadding { get; set; }
+    public float IconSlotLeft { get; set; }
+    public float IconSlotWidth { get; set; }
     public float IconLeft { get; set; }
     public float IconTop { get; set; }
     public float IconWidth { get; set; }
@@ -2348,27 +2410,70 @@ internal sealed class RetainedRunBadgeCanvasLayout
     public float FontSize { get; set; }
 }
 
-internal static class RetainedExtractedRunBadgePolicy
+internal static class RetainedRunBadgePolicy
 {
-    public const string TextKey = "ui.extracted_runs";
-    public const string EnglishFallback = "Extracted";
-    public const string PreferredIconGlyph = "\u2713";
+    private static readonly RetainedRunBadgeVariantSpecification ExtractedSpecification =
+        new RetainedRunBadgeVariantSpecification(
+            RetainedRunBadgeState.Extracted,
+            "ui.extracted_runs",
+            "Extracted",
+            RetainedRunBadgeIconKind.Check,
+            "\u2713",
+            109f / 255f,
+            197f / 255f,
+            75f / 255f,
+            19f,
+            14f,
+            98f);
+
+    private static readonly RetainedRunBadgeVariantSpecification DiedSpecification =
+        new RetainedRunBadgeVariantSpecification(
+            RetainedRunBadgeState.Died,
+            "ui.died_runs",
+            "Died",
+            RetainedRunBadgeIconKind.Skull,
+            "\u2620",
+            246f / 255f,
+            84f / 255f,
+            101f / 255f,
+            18f,
+            21f,
+            45f);
+
+    private static readonly RetainedRunBadgeVariantSpecification UnknownSpecification =
+        new RetainedRunBadgeVariantSpecification(
+            RetainedRunBadgeState.Unknown,
+            "ui.overview_run_badge_unknown",
+            "Unknown",
+            RetainedRunBadgeIconKind.QuestionMark,
+            "?",
+            133f / 255f,
+            133f / 255f,
+            133f / 255f,
+            10f,
+            16f,
+            98f);
+
+    private static readonly IReadOnlyList<RetainedRunBadgeVariantSpecification> OrderedSpecifications =
+        Array.AsReadOnly(new[]
+        {
+            ExtractedSpecification,
+            DiedSpecification,
+            UnknownSpecification
+        });
+
     public const string FontAssetName = RetainedHeaderTitlePolicy.FontAssetName;
     public const string SourceMaterialName = RetainedHeaderTitlePolicy.MaterialName;
     public const string MaterialName = RetainedTabLabelShadowPolicy.OwnedMaterialName;
     public const float HeightPixels = 30f;
     public const float CornerRadiusPixels = 5f;
     public const float LeftPaddingPixels = 5f;
-    public const float IconWidthPixels = 19f;
-    public const float IconHeightPixels = 14f;
+    public const float IconSlotWidthPixels = 19f;
     public const float IconTextGapPixels = 5f;
+    public const float LabelLeftPixels = LeftPaddingPixels + IconSlotWidthPixels + IconTextGapPixels;
     public const float RightPaddingPixels = 5f;
+    public const float FixedHorizontalContentPixels = LabelLeftPixels + RightPaddingPixels;
     public const float ReferenceFontSize = 19.8f;
-    public const float MockEquivalentPreferredLabelWidthPixels = 98f;
-    public const float MockReferenceWidthPixels = 132f;
-    public const float BackgroundRed = 109f / 255f;
-    public const float BackgroundGreen = 197f / 255f;
-    public const float BackgroundBlue = 75f / 255f;
     public const float BackgroundAlpha = 1f;
     public const float TextRed = 1f;
     public const float TextGreen = 1f;
@@ -2396,39 +2501,57 @@ internal static class RetainedExtractedRunBadgePolicy
     public const bool UsesRegularWeight = true;
     public const bool UsesOwnedSubtleShadowMaterial = true;
     public const bool IconIsLogicallySeparate = true;
-    public const bool PrefersNativeTmpCheckGlyph = true;
-    public const bool HasProceduralCheckMarkFallback = true;
+    public const bool PrefersNativeTmpIconGlyph = true;
+    public const bool HasProceduralIconFallback = true;
     public const bool IconUsesOwnedSubtleShadowMaterialWhenSupported = true;
+
+    public static IReadOnlyList<RetainedRunBadgeVariantSpecification> Specifications =>
+        OrderedSpecifications;
+
+    public static RetainedRunBadgeVariantSpecification ResolveSpecification(
+        RetainedRunBadgeState state) => state switch
+    {
+        RetainedRunBadgeState.Extracted => ExtractedSpecification,
+        RetainedRunBadgeState.Died => DiedSpecification,
+        RetainedRunBadgeState.Unknown => UnknownSpecification,
+        _ => throw new ArgumentOutOfRangeException(nameof(state))
+    };
 
     public static RetainedRunBadgeCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform,
+        RetainedRunBadgeState state,
         float preferredLabelWidthPixels)
     {
         if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        var specification = ResolveSpecification(state);
         if (!IsPositiveFinite(preferredLabelWidthPixels))
             throw new ArgumentOutOfRangeException(nameof(preferredLabelWidthPixels));
 
         var height = referenceTransform.CanvasLength(HeightPixels);
         var leftPadding = referenceTransform.CanvasLength(LeftPaddingPixels);
-        var iconWidth = referenceTransform.CanvasLength(IconWidthPixels);
-        var iconHeight = referenceTransform.CanvasLength(IconHeightPixels);
+        var iconSlotWidth = referenceTransform.CanvasLength(IconSlotWidthPixels);
+        var iconWidth = referenceTransform.CanvasLength(specification.VisibleIconWidthPixels);
+        var iconHeight = referenceTransform.CanvasLength(specification.VisibleIconHeightPixels);
         var iconTextGap = referenceTransform.CanvasLength(IconTextGapPixels);
         var labelWidth = referenceTransform.CanvasLength(preferredLabelWidthPixels);
         var rightPadding = referenceTransform.CanvasLength(RightPaddingPixels);
         return new RetainedRunBadgeCanvasLayout
         {
             ReferenceTransform = referenceTransform,
+            Specification = specification,
             ReferencePreferredLabelWidth = preferredLabelWidthPixels,
-            Width = leftPadding + iconWidth + iconTextGap + labelWidth + rightPadding,
+            Width = leftPadding + iconSlotWidth + iconTextGap + labelWidth + rightPadding,
             Height = height,
             CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels),
             LeftPadding = leftPadding,
-            IconLeft = leftPadding,
+            IconSlotLeft = leftPadding,
+            IconSlotWidth = iconSlotWidth,
+            IconLeft = leftPadding + (iconSlotWidth - iconWidth) / 2f,
             IconTop = (height - iconHeight) / 2f,
             IconWidth = iconWidth,
             IconHeight = iconHeight,
             IconTextGap = iconTextGap,
-            LabelLeft = leftPadding + iconWidth + iconTextGap,
+            LabelLeft = leftPadding + iconSlotWidth + iconTextGap,
             LabelTop = 0f,
             LabelWidth = labelWidth,
             LabelHeight = height,

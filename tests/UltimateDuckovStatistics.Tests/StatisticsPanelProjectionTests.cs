@@ -3327,85 +3327,150 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateEighteenExtractedBadgeMapsExistingTextAndExactVisualPolicy()
+    public void GateNineteenAndTwentyRunBadgeDefinesExactlyThreeStatesAndOneLayoutPolicy()
     {
-        Assert.Equal("ui.extracted_runs", RetainedExtractedRunBadgePolicy.TextKey);
-        Assert.Equal("Extracted", RetainedExtractedRunBadgePolicy.EnglishFallback);
         Assert.Equal(
-            "Extracted",
-            UiText.EnglishFallbacks[RetainedExtractedRunBadgePolicy.TextKey]);
-        Assert.Equal("Extracted", UiText.Resolve(RetainedExtractedRunBadgePolicy.TextKey, _ => null));
-        Assert.Equal(109f / 255f, RetainedExtractedRunBadgePolicy.BackgroundRed);
-        Assert.Equal(197f / 255f, RetainedExtractedRunBadgePolicy.BackgroundGreen);
-        Assert.Equal(75f / 255f, RetainedExtractedRunBadgePolicy.BackgroundBlue);
-        Assert.Equal(1f, RetainedExtractedRunBadgePolicy.BackgroundAlpha);
-        Assert.Equal(30f, RetainedExtractedRunBadgePolicy.HeightPixels);
-        Assert.Equal(5f, RetainedExtractedRunBadgePolicy.CornerRadiusPixels);
-        Assert.Equal(5f, RetainedExtractedRunBadgePolicy.LeftPaddingPixels);
-        Assert.Equal(19f, RetainedExtractedRunBadgePolicy.IconWidthPixels);
-        Assert.Equal(14f, RetainedExtractedRunBadgePolicy.IconHeightPixels);
-        Assert.Equal(5f, RetainedExtractedRunBadgePolicy.IconTextGapPixels);
-        Assert.Equal(5f, RetainedExtractedRunBadgePolicy.RightPaddingPixels);
-        Assert.Equal(98f, RetainedExtractedRunBadgePolicy.MockEquivalentPreferredLabelWidthPixels);
-        Assert.Equal(132f, RetainedExtractedRunBadgePolicy.MockReferenceWidthPixels);
+            new[]
+            {
+                RetainedRunBadgeState.Extracted,
+                RetainedRunBadgeState.Died,
+                RetainedRunBadgeState.Unknown
+            },
+            Enum.GetValues<RetainedRunBadgeState>());
+        Assert.Equal(
+            Enum.GetValues<RetainedRunBadgeState>(),
+            RetainedRunBadgePolicy.Specifications.Select(specification => specification.State));
+        Assert.All(
+            RetainedRunBadgePolicy.Specifications,
+            specification => Assert.Same(
+                specification,
+                RetainedRunBadgePolicy.ResolveSpecification(specification.State)));
+
+        var runBadgePolicyTypes = typeof(RetainedRunBadgePolicy).Assembly.GetTypes()
+            .Where(type => type.Name.EndsWith("RunBadgePolicy", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(new[] { typeof(RetainedRunBadgePolicy) }, runBadgePolicyTypes);
+        Assert.Single(
+            typeof(RetainedRunBadgePolicy).GetMethods(),
+            method => method.Name == nameof(RetainedRunBadgePolicy.CreateCanvasLayout));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => RetainedRunBadgePolicy.ResolveSpecification((RetainedRunBadgeState)int.MaxValue));
+    }
+
+    [Theory]
+    [InlineData(0, "ui.extracted_runs", "Extracted", 0, "\u2713",
+        109, 197, 75, 19f, 14f, 98f, 132f)]
+    [InlineData(1, "ui.died_runs", "Died", 1, "\u2620",
+        246, 84, 101, 18f, 21f, 45f, 79f)]
+    [InlineData(2, "ui.overview_run_badge_unknown", "Unknown", 2, "?",
+        133, 133, 133, 10f, 16f, 98f, 132f)]
+    public void GateNineteenAndTwentyRunBadgeResolvesExactStateSpecification(
+        int stateValue,
+        string textKey,
+        string englishFallback,
+        int iconKindValue,
+        string preferredIconGlyph,
+        int backgroundRed,
+        int backgroundGreen,
+        int backgroundBlue,
+        float visibleIconWidth,
+        float visibleIconHeight,
+        float mockEquivalentLabelWidth,
+        float mockReferenceWidth)
+    {
+        var state = (RetainedRunBadgeState)stateValue;
+        var iconKind = (RetainedRunBadgeIconKind)iconKindValue;
+        var specification = RetainedRunBadgePolicy.ResolveSpecification(state);
+
+        Assert.Equal(state, specification.State);
+        Assert.Equal(textKey, specification.TextKey);
+        Assert.Equal(englishFallback, specification.EnglishFallback);
+        Assert.Equal(englishFallback, UiText.EnglishFallbacks[textKey]);
+        Assert.Equal(englishFallback, UiText.Resolve(textKey, _ => null));
+        Assert.Equal(iconKind, specification.IconKind);
+        Assert.Equal(preferredIconGlyph, specification.PreferredIconGlyph);
+        Assert.False(englishFallback.Contains(preferredIconGlyph, StringComparison.Ordinal));
+        Assert.Equal(backgroundRed / 255f, specification.BackgroundColor.Red);
+        Assert.Equal(backgroundGreen / 255f, specification.BackgroundColor.Green);
+        Assert.Equal(backgroundBlue / 255f, specification.BackgroundColor.Blue);
+        Assert.Equal(1f, specification.BackgroundColor.Alpha);
+        Assert.Equal(visibleIconWidth, specification.VisibleIconWidthPixels);
+        Assert.Equal(visibleIconHeight, specification.VisibleIconHeightPixels);
+        Assert.Equal(mockEquivalentLabelWidth, specification.MockEquivalentPreferredLabelWidthPixels);
+        Assert.Equal(mockReferenceWidth, specification.MockReferenceWidthPixels);
     }
 
     [Fact]
-    public void GateEighteenExtractedBadgeUsesAcceptedNativeTypographyAndSeparateCheckIcon()
+    public void GateNineteenAndTwentyRunBadgeSharesTypographyGeometryAndInteractionPolicy()
     {
-        Assert.Equal(
-            RetainedHeaderTitlePolicy.FontAssetName,
-            RetainedExtractedRunBadgePolicy.FontAssetName);
-        Assert.Equal(
-            RetainedHeaderTitlePolicy.MaterialName,
-            RetainedExtractedRunBadgePolicy.SourceMaterialName);
-        Assert.Equal(
-            RetainedTabLabelShadowPolicy.OwnedMaterialName,
-            RetainedExtractedRunBadgePolicy.MaterialName);
-        Assert.Equal(19.8f, RetainedExtractedRunBadgePolicy.ReferenceFontSize);
-        Assert.Equal(0f, RetainedExtractedRunBadgePolicy.CharacterSpacing);
-        Assert.Equal(0f, RetainedExtractedRunBadgePolicy.WordSpacing);
-        Assert.Equal(0f, RetainedExtractedRunBadgePolicy.LineSpacing);
-        Assert.Equal(0f, RetainedExtractedRunBadgePolicy.ParagraphSpacing);
-        Assert.False(RetainedExtractedRunBadgePolicy.WordWrapping);
-        Assert.False(RetainedExtractedRunBadgePolicy.AutoSizing);
-        Assert.True(RetainedExtractedRunBadgePolicy.UsesVisibleOverflow);
-        Assert.True(RetainedExtractedRunBadgePolicy.UsesZeroTextMargins);
-        Assert.True(RetainedExtractedRunBadgePolicy.UsesLeftAlignment);
-        Assert.True(RetainedExtractedRunBadgePolicy.UsesVerticalCentering);
-        Assert.True(RetainedExtractedRunBadgePolicy.UsesNormalStyle);
-        Assert.True(RetainedExtractedRunBadgePolicy.UsesRegularWeight);
-        Assert.True(RetainedExtractedRunBadgePolicy.UsesOwnedSubtleShadowMaterial);
-        Assert.True(RetainedExtractedRunBadgePolicy.IconIsLogicallySeparate);
-        Assert.Equal("\u2713", RetainedExtractedRunBadgePolicy.PreferredIconGlyph);
-        Assert.True(RetainedExtractedRunBadgePolicy.PrefersNativeTmpCheckGlyph);
-        Assert.True(RetainedExtractedRunBadgePolicy.HasProceduralCheckMarkFallback);
-        Assert.True(RetainedExtractedRunBadgePolicy.IconUsesOwnedSubtleShadowMaterialWhenSupported);
-        Assert.Equal(1f, RetainedExtractedRunBadgePolicy.TextRed);
-        Assert.Equal(1f, RetainedExtractedRunBadgePolicy.TextGreen);
-        Assert.Equal(1f, RetainedExtractedRunBadgePolicy.TextBlue);
-        Assert.Equal(1f, RetainedExtractedRunBadgePolicy.TextAlpha);
-        Assert.Equal(1f, RetainedExtractedRunBadgePolicy.IconRed);
-        Assert.Equal(1f, RetainedExtractedRunBadgePolicy.IconGreen);
-        Assert.Equal(1f, RetainedExtractedRunBadgePolicy.IconBlue);
-        Assert.Equal(1f, RetainedExtractedRunBadgePolicy.IconAlpha);
+        Assert.Equal(RetainedHeaderTitlePolicy.FontAssetName, RetainedRunBadgePolicy.FontAssetName);
+        Assert.Equal(RetainedHeaderTitlePolicy.MaterialName, RetainedRunBadgePolicy.SourceMaterialName);
+        Assert.Equal(RetainedTabLabelShadowPolicy.OwnedMaterialName, RetainedRunBadgePolicy.MaterialName);
+        Assert.Equal(30f, RetainedRunBadgePolicy.HeightPixels);
+        Assert.Equal(5f, RetainedRunBadgePolicy.CornerRadiusPixels);
+        Assert.Equal(5f, RetainedRunBadgePolicy.LeftPaddingPixels);
+        Assert.Equal(19f, RetainedRunBadgePolicy.IconSlotWidthPixels);
+        Assert.Equal(5f, RetainedRunBadgePolicy.IconTextGapPixels);
+        Assert.Equal(29f, RetainedRunBadgePolicy.LabelLeftPixels);
+        Assert.Equal(5f, RetainedRunBadgePolicy.RightPaddingPixels);
+        Assert.Equal(34f, RetainedRunBadgePolicy.FixedHorizontalContentPixels);
+        Assert.Equal(19.8f, RetainedRunBadgePolicy.ReferenceFontSize);
+        Assert.Equal(0f, RetainedRunBadgePolicy.CharacterSpacing);
+        Assert.Equal(0f, RetainedRunBadgePolicy.WordSpacing);
+        Assert.Equal(0f, RetainedRunBadgePolicy.LineSpacing);
+        Assert.Equal(0f, RetainedRunBadgePolicy.ParagraphSpacing);
+        Assert.False(RetainedRunBadgePolicy.WordWrapping);
+        Assert.False(RetainedRunBadgePolicy.AutoSizing);
+        Assert.True(RetainedRunBadgePolicy.UsesVisibleOverflow);
+        Assert.True(RetainedRunBadgePolicy.UsesZeroTextMargins);
+        Assert.True(RetainedRunBadgePolicy.UsesLeftAlignment);
+        Assert.True(RetainedRunBadgePolicy.UsesVerticalCentering);
+        Assert.True(RetainedRunBadgePolicy.UsesNormalStyle);
+        Assert.True(RetainedRunBadgePolicy.UsesRegularWeight);
+        Assert.True(RetainedRunBadgePolicy.UsesOwnedSubtleShadowMaterial);
+        Assert.True(RetainedRunBadgePolicy.IconIsLogicallySeparate);
+        Assert.True(RetainedRunBadgePolicy.PrefersNativeTmpIconGlyph);
+        Assert.True(RetainedRunBadgePolicy.HasProceduralIconFallback);
+        Assert.True(RetainedRunBadgePolicy.IconUsesOwnedSubtleShadowMaterialWhenSupported);
+        Assert.Equal(1f, RetainedRunBadgePolicy.BackgroundAlpha);
+        Assert.Equal(1f, RetainedRunBadgePolicy.TextRed);
+        Assert.Equal(1f, RetainedRunBadgePolicy.TextGreen);
+        Assert.Equal(1f, RetainedRunBadgePolicy.TextBlue);
+        Assert.Equal(1f, RetainedRunBadgePolicy.TextAlpha);
+        Assert.Equal(1f, RetainedRunBadgePolicy.IconRed);
+        Assert.Equal(1f, RetainedRunBadgePolicy.IconGreen);
+        Assert.Equal(1f, RetainedRunBadgePolicy.IconBlue);
+        Assert.Equal(1f, RetainedRunBadgePolicy.IconAlpha);
+        Assert.False(RetainedRunBadgePolicy.BackgroundBlocksRaycasts);
+        Assert.False(RetainedRunBadgePolicy.IconBlocksRaycasts);
+        Assert.False(RetainedRunBadgePolicy.LabelBlocksRaycasts);
+        Assert.False(RetainedRunBadgePolicy.HasInteraction);
     }
 
-    [Fact]
-    public void GateEighteenExtractedBadgeWidthIsContentDrivenWithoutReferenceWidthRejection()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void GateNineteenAndTwentyRunBadgeWidthIsContentDrivenForEveryState(
+        int stateValue)
     {
+        var state = (RetainedRunBadgeState)stateValue;
         var transform = RetainedReferenceTransformPolicy.Create(2560f, 1440f, 1f);
-        var mockEquivalent = RetainedExtractedRunBadgePolicy.CreateCanvasLayout(
+        var specification = RetainedRunBadgePolicy.ResolveSpecification(state);
+        var mockEquivalent = RetainedRunBadgePolicy.CreateCanvasLayout(
             transform,
-            RetainedExtractedRunBadgePolicy.MockEquivalentPreferredLabelWidthPixels);
-        var shorter = RetainedExtractedRunBadgePolicy.CreateCanvasLayout(transform, 70f);
-        var longer = RetainedExtractedRunBadgePolicy.CreateCanvasLayout(transform, 170f);
+            state,
+            specification.MockEquivalentPreferredLabelWidthPixels);
+        var shorter = RetainedRunBadgePolicy.CreateCanvasLayout(transform, state, 20f);
+        var longer = RetainedRunBadgePolicy.CreateCanvasLayout(transform, state, 170f);
 
-        Assert.Equal(132f, mockEquivalent.Width, 5);
-        Assert.Equal(98f, mockEquivalent.ReferencePreferredLabelWidth);
-        Assert.Equal(104f, shorter.Width, 5);
+        Assert.Same(specification, mockEquivalent.Specification);
+        Assert.Equal(specification.MockReferenceWidthPixels, mockEquivalent.Width, 5);
+        Assert.Equal(specification.MockEquivalentPreferredLabelWidthPixels,
+            mockEquivalent.ReferencePreferredLabelWidth);
+        Assert.Equal(54f, shorter.Width, 5);
         Assert.Equal(204f, longer.Width, 5);
-        Assert.Equal(100f, longer.Width - shorter.Width, 5);
+        Assert.Equal(150f, longer.Width - shorter.Width, 5);
         Assert.Equal(shorter.LabelWidth + 34f, shorter.Width, 5);
         Assert.Equal(longer.LabelWidth + 34f, longer.Width, 5);
     }
@@ -3415,51 +3480,72 @@ public sealed class StatisticsPanelProjectionTests
     [InlineData(1680f, 1050f)]
     [InlineData(1920f, 1200f)]
     [InlineData(2560f, 1440f)]
-    public void GateEighteenExtractedBadgeGeometryUsesSharedReferenceTransform(
+    public void GateNineteenAndTwentyRunBadgeGeometryUsesSharedReferenceTransform(
         float viewportWidth,
         float viewportHeight)
     {
         var transform = RetainedReferenceTransformPolicy.Create(viewportWidth, viewportHeight, 1f);
-        var badge = RetainedExtractedRunBadgePolicy.CreateCanvasLayout(
-            transform,
-            RetainedExtractedRunBadgePolicy.MockEquivalentPreferredLabelWidthPixels);
 
-        Assert.Same(transform, badge.ReferenceTransform);
-        Assert.Equal(transform.CanvasLength(132f), badge.Width, 5);
-        Assert.Equal(transform.CanvasLength(30f), badge.Height, 5);
-        Assert.Equal(transform.CanvasLength(5f), badge.CornerRadius, 5);
-        Assert.Equal(transform.CanvasLength(5f), badge.LeftPadding, 5);
-        Assert.Equal(badge.LeftPadding, badge.IconLeft, 5);
-        Assert.Equal(transform.CanvasLength(8f), badge.IconTop, 5);
-        Assert.Equal(transform.CanvasLength(19f), badge.IconWidth, 5);
-        Assert.Equal(transform.CanvasLength(14f), badge.IconHeight, 5);
-        Assert.Equal(transform.CanvasLength(5f), badge.IconTextGap, 5);
-        Assert.Equal(transform.CanvasLength(29f), badge.LabelLeft, 5);
-        Assert.Equal(0f, badge.LabelTop, 5);
-        Assert.Equal(transform.CanvasLength(98f), badge.LabelWidth, 5);
-        Assert.Equal(badge.Height, badge.LabelHeight, 5);
-        Assert.Equal(transform.CanvasLength(5f), badge.RightPadding, 5);
-        Assert.Equal(transform.CanvasLength(19.8f), badge.FontSize, 5);
-        Assert.Equal(badge.Width, badge.LabelLeft + badge.LabelWidth + badge.RightPadding, 5);
+        foreach (var specification in RetainedRunBadgePolicy.Specifications)
+        {
+            var badge = RetainedRunBadgePolicy.CreateCanvasLayout(
+                transform,
+                specification.State,
+                specification.MockEquivalentPreferredLabelWidthPixels);
+
+            Assert.Same(transform, badge.ReferenceTransform);
+            Assert.Same(specification, badge.Specification);
+            Assert.Equal(transform.CanvasLength(specification.MockReferenceWidthPixels), badge.Width, 5);
+            Assert.Equal(transform.CanvasLength(30f), badge.Height, 5);
+            Assert.Equal(transform.CanvasLength(5f), badge.CornerRadius, 5);
+            Assert.Equal(transform.CanvasLength(5f), badge.LeftPadding, 5);
+            Assert.Equal(transform.CanvasLength(5f), badge.IconSlotLeft, 5);
+            Assert.Equal(transform.CanvasLength(19f), badge.IconSlotWidth, 5);
+            Assert.Equal(
+                transform.CanvasLength(5f + (19f - specification.VisibleIconWidthPixels) / 2f),
+                badge.IconLeft,
+                5);
+            Assert.Equal(
+                transform.CanvasLength((30f - specification.VisibleIconHeightPixels) / 2f),
+                badge.IconTop,
+                5);
+            Assert.Equal(transform.CanvasLength(specification.VisibleIconWidthPixels), badge.IconWidth, 5);
+            Assert.Equal(transform.CanvasLength(specification.VisibleIconHeightPixels), badge.IconHeight, 5);
+            Assert.Equal(transform.CanvasLength(5f), badge.IconTextGap, 5);
+            Assert.Equal(transform.CanvasLength(29f), badge.LabelLeft, 5);
+            Assert.Equal(0f, badge.LabelTop, 5);
+            Assert.Equal(
+                transform.CanvasLength(specification.MockEquivalentPreferredLabelWidthPixels),
+                badge.LabelWidth,
+                5);
+            Assert.Equal(badge.Height, badge.LabelHeight, 5);
+            Assert.Equal(transform.CanvasLength(5f), badge.RightPadding, 5);
+            Assert.Equal(transform.CanvasLength(19.8f), badge.FontSize, 5);
+            Assert.Equal(badge.Width, badge.LabelLeft + badge.LabelWidth + badge.RightPadding, 5);
+        }
     }
 
     [Fact]
-    public void GateEighteenExtractedBadgeIsNonInteractiveAndDoesNotChangeOverviewComposition()
+    public void GateNineteenAndTwentyRunBadgeHasNoOutcomeMappingOrOverviewPlacement()
     {
-        Assert.False(RetainedExtractedRunBadgePolicy.BackgroundBlocksRaycasts);
-        Assert.False(RetainedExtractedRunBadgePolicy.IconBlocksRaycasts);
-        Assert.False(RetainedExtractedRunBadgePolicy.LabelBlocksRaycasts);
-        Assert.False(RetainedExtractedRunBadgePolicy.HasInteraction);
+        var policyMethods = typeof(RetainedRunBadgePolicy).GetMethods();
+        Assert.DoesNotContain(
+            policyMethods,
+            method => method.ReturnType == typeof(RunOutcome)
+                      || method.GetParameters().Any(parameter => parameter.ParameterType == typeof(RunOutcome)));
+        Assert.DoesNotContain(
+            typeof(RetainedRunBadgeVariantSpecification).GetProperties(),
+            property => property.PropertyType == typeof(RunOutcome));
+        Assert.DoesNotContain(
+            typeof(RetainedRunBadgeCanvasLayout).GetProperties(),
+            property => property.PropertyType == typeof(RunOutcome));
+        Assert.DoesNotContain(
+            typeof(RetainedVisualCanvasLayout).GetProperties(),
+            property => property.Name.Contains("RunBadge", StringComparison.Ordinal));
         Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
         Assert.Equal(76, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
-        Assert.DoesNotContain(
-            typeof(RetainedVisualCanvasLayout).GetProperties(),
-            property => property.Name.Contains("RunBadge", StringComparison.Ordinal));
-        Assert.DoesNotContain(
-            typeof(RetainedExtractedRunBadgePolicy).Assembly.GetTypes(),
-            type => type.Name is "RetainedDiedRunBadgePolicy" or "RetainedUnknownRunBadgePolicy");
     }
 
     [Fact]
