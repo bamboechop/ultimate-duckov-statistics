@@ -765,7 +765,7 @@ public sealed class StatisticsPanelProjectionTests
         var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
 
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(62, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(115f, tab.Left);
@@ -876,7 +876,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(owned.IsDisposed);
         Assert.Equal(0, destroyed);
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(62, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
@@ -1319,9 +1319,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowValueChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
-        Assert.Equal(62, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -2082,7 +2082,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(12, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.ProfileSummaryStandardRowContentChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.ProfileSummaryEconomyRowContentChildCount);
-        Assert.Equal(62, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.False(RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFirstStatisticsRowEntryPolicy.BlocksRaycasts);
@@ -2248,7 +2248,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateThirteenHighlightsHeadingInheritsOverviewVisibilityAndAddsNoOtherContent()
+    public void GateThirteenHighlightsHeadingInheritsOverviewVisibility()
     {
         var overviewView = new object();
         var visibilityStates = new List<bool>();
@@ -2260,13 +2260,321 @@ public sealed class StatisticsPanelProjectionTests
         foreach (var tab in PanelInteractionState.NavigationOrder) visibility.Apply(tab);
         visibility.Apply(StatisticsPanelTab.Overview);
 
-        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
-        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
-        Assert.Equal(62, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(StatisticsPanelTab.Overview, visibility.OwnerTab);
         Assert.Equal(PanelInteractionState.NavigationOrder.Count + 1, visibilityStates.Count);
+        Assert.True(visibilityStates[0]);
+        Assert.All(
+            visibilityStates.Skip(1).Take(PanelInteractionState.NavigationOrder.Count - 1),
+            visible => Assert.False(visible));
+        Assert.True(visibilityStates[^1]);
+    }
+
+    [Fact]
+    public void GateFourteenFastestExtractionRowUsesExactReferenceGeometryAndAcceptedTypography()
+    {
+        var layout = CreateRetainedVisualLayout(2560f, 1440f);
+        var panel = layout.OverviewRightPanel;
+        var row = layout.OverviewFastestExtractionRow;
+        var entry = layout.OverviewFastestExtractionEntry;
+
+        Assert.Equal("OverviewFastestExtractionRow", RetainedOverviewFastestExtractionRowPolicy.Name);
+        Assert.Equal(
+            RetainedOverviewRightPanelPolicy.ContentName,
+            RetainedOverviewFastestExtractionRowPolicy.ParentName);
+        Assert.Equal(StatisticsPanelTab.Overview, RetainedOverviewFastestExtractionRowPolicy.OwnerTab);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowPolicy.ContentTopOffsetPixels,
+            RetainedOverviewFastestExtractionRowPolicy.TopOffsetPixels);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowPolicy.HeightPixels,
+            RetainedOverviewFastestExtractionRowPolicy.HeightPixels);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowPolicy.ContentPaddingPixels,
+            RetainedOverviewFastestExtractionRowPolicy.ContentPaddingPixels);
+        Assert.False(RetainedOverviewFastestExtractionRowPolicy.HasGraphic);
+        Assert.False(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
+
+        Assert.Equal("OverviewFastestExtractionLabel", RetainedOverviewFastestExtractionEntryPolicy.LabelName);
+        Assert.Equal("OverviewFastestExtractionValue", RetainedOverviewFastestExtractionEntryPolicy.ValueName);
+        Assert.Equal(
+            RetainedOverviewFastestExtractionRowPolicy.Name,
+            RetainedOverviewFastestExtractionEntryPolicy.ParentName);
+        Assert.Equal(StatisticsPanelTab.Overview, RetainedOverviewFastestExtractionEntryPolicy.OwnerTab);
+        Assert.Equal("ui.overview_fastest_extraction", RetainedOverviewFastestExtractionEntryPolicy.LabelTextKey);
+        Assert.Equal("Fastest extraction", RetainedOverviewFastestExtractionEntryPolicy.LabelEnglishFallback);
+        Assert.Equal(
+            RetainedOverviewFastestExtractionEntryPolicy.LabelEnglishFallback,
+            UiText.EnglishFallbacks[RetainedOverviewFastestExtractionEntryPolicy.LabelTextKey]);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.FontAssetName,
+            RetainedOverviewFastestExtractionEntryPolicy.FontAssetName);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.MaterialName,
+            RetainedOverviewFastestExtractionEntryPolicy.MaterialName);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.ReferenceFontSize,
+            RetainedOverviewFastestExtractionEntryPolicy.ReferenceFontSize);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.CharacterSpacing,
+            RetainedOverviewFastestExtractionEntryPolicy.CharacterSpacing);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.WordSpacing,
+            RetainedOverviewFastestExtractionEntryPolicy.WordSpacing);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.LineSpacing,
+            RetainedOverviewFastestExtractionEntryPolicy.LineSpacing);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.ParagraphSpacing,
+            RetainedOverviewFastestExtractionEntryPolicy.ParagraphSpacing);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.WordWrapping,
+            RetainedOverviewFastestExtractionEntryPolicy.WordWrapping);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.AutoSizing,
+            RetainedOverviewFastestExtractionEntryPolicy.AutoSizing);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.UsesVisibleOverflow,
+            RetainedOverviewFastestExtractionEntryPolicy.UsesVisibleOverflow);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.UsesLeftAlignment,
+            RetainedOverviewFastestExtractionEntryPolicy.UsesLeftAlignment);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.UsesVerticalCentering,
+            RetainedOverviewFastestExtractionEntryPolicy.UsesVerticalCentering);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.UsesZeroTextMargins,
+            RetainedOverviewFastestExtractionEntryPolicy.UsesZeroTextMargins);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.UsesNormalStyle,
+            RetainedOverviewFastestExtractionEntryPolicy.UsesNormalStyle);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.UsesRegularWeight,
+            RetainedOverviewFastestExtractionEntryPolicy.UsesRegularWeight);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.UsesOwnedSubtleShadowMaterial,
+            RetainedOverviewFastestExtractionEntryPolicy.UsesOwnedSubtleShadowMaterial);
+        Assert.True(RetainedOverviewFastestExtractionEntryPolicy.UsesProjectedShortestExtraction);
+        Assert.False(RetainedOverviewFastestExtractionEntryPolicy.BlocksRaycasts);
+
+        Assert.Same(layout.ReferenceTransform, row.ReferenceTransform);
+        Assert.Equal(1330f, row.Left);
+        Assert.Equal(456f, row.Top);
+        Assert.Equal(1115f, row.Width);
+        Assert.Equal(66f, row.Height);
+        Assert.Equal(1350f, row.ContentLeft);
+        Assert.Equal(476f, row.ContentTop);
+        Assert.Equal(1075f, row.ContentWidth);
+        Assert.Equal(26f, row.ContentHeight);
+        Assert.Equal(panel.ContentLeft, row.Left);
+        Assert.Equal(panel.ContentTop + 56f, row.Top);
+        Assert.Equal(panel.ContentWidth, row.Width);
+
+        Assert.Same(layout.ReferenceTransform, entry.ReferenceTransform);
+        Assert.Equal(1350f, entry.LabelLeft);
+        Assert.Equal(476f, entry.LabelTop);
+        Assert.Equal(440f, entry.LabelWidth);
+        Assert.Equal(26f, entry.LabelHeight);
+        Assert.Equal(1790f, entry.ValueLeft);
+        Assert.Equal(476f, entry.ValueTop);
+        Assert.Equal(635f, entry.ValueWidth);
+        Assert.Equal(26f, entry.ValueHeight);
+        Assert.Equal(29.8f, entry.FontSize);
+        Assert.False(entry.HasSecondaryValue);
+        Assert.Equal(row.ContentLeft, entry.LabelLeft);
+        Assert.Equal(entry.LabelLeft + entry.LabelWidth, entry.ValueLeft);
+        Assert.Equal(2425f, entry.ValueLeft + entry.ValueWidth);
+        Assert.Equal(row.ContentLeft + row.ContentWidth, entry.ValueLeft + entry.ValueWidth);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f, 665f, 228f, 557.5f, 33f, 675f, 895f, 317.5f, 14.9f)]
+    [InlineData(1680f, 1050f, 872.8125f, 351.75f, 731.71875f, 43.3125f, 885.9375f, 1174.6875f, 416.71875f, 19.55625f)]
+    [InlineData(1920f, 1200f, 997.5f, 402f, 836.25f, 49.5f, 1012.5f, 1342.5f, 476.25f, 22.35f)]
+    [InlineData(2560f, 1440f, 1330f, 456f, 1115f, 66f, 1350f, 1790f, 635f, 29.8f)]
+    public void GateFourteenFastestExtractionRowUsesTheSharedReferenceTransform(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedLeft,
+        float expectedTop,
+        float expectedWidth,
+        float expectedHeight,
+        float expectedLabelLeft,
+        float expectedValueLeft,
+        float expectedValueWidth,
+        float expectedFontSize)
+    {
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
+        var row = layout.OverviewFastestExtractionRow;
+        var entry = layout.OverviewFastestExtractionEntry;
+
+        Assert.Same(layout.ReferenceTransform, row.ReferenceTransform);
+        Assert.Same(layout.ReferenceTransform, entry.ReferenceTransform);
+        Assert.Equal(expectedLeft, row.Left, 5);
+        Assert.Equal(expectedTop, row.Top, 5);
+        Assert.Equal(expectedWidth, row.Width, 5);
+        Assert.Equal(expectedHeight, row.Height, 5);
+        Assert.Equal(expectedLabelLeft, entry.LabelLeft, 5);
+        Assert.Equal(expectedValueLeft, entry.ValueLeft, 5);
+        Assert.Equal(expectedValueWidth, entry.ValueWidth, 5);
+        Assert.Equal(expectedFontSize, entry.FontSize, 5);
+    }
+
+    [Fact]
+    public void GateFourteenPresentationUsesProjectedShortestExtractionWithoutHardcodedMockValues()
+    {
+        var projectedShortest = new DurationRecordReference
+        {
+            RunId = "projected-shortest",
+            ActiveDurationSeconds = 64.083,
+            MapDisplayName = "Ground Zero"
+        };
+        var projection = new StatisticsPanelProjection
+        {
+            Runs = new RunStatisticsViewModel
+            {
+                Records = new RunDurationRecords
+                {
+                    Extraction = new DurationRecordPair
+                    {
+                        Shortest = projectedShortest,
+                        Longest = new DurationRecordReference
+                        {
+                            RunId = "projected-longest",
+                            ActiveDurationSeconds = 900,
+                            MapDisplayName = "Long extraction"
+                        }
+                    },
+                    Death = new DurationRecordPair
+                    {
+                        Shortest = new DurationRecordReference
+                        {
+                            RunId = "death-shortest",
+                            ActiveDurationSeconds = 2,
+                            MapDisplayName = "Death record"
+                        }
+                    }
+                },
+                Runs = new[]
+                {
+                    new RunSummary
+                    {
+                        RunId = "unprojected-minimum",
+                        ActiveDurationSeconds = 1,
+                        MapDisplayName = "Run history minimum"
+                    }
+                }
+            }
+        };
+
+        var presentation = FastestExtractionHighlightPresentationFactory.Create(
+            projection,
+            key => UiText.EnglishFallbacks[key]);
+
+        Assert.Equal("Fastest extraction", presentation.Label);
+        Assert.Equal("01:04.083 - Ground Zero", presentation.Value);
+
+        projectedShortest.ActiveDurationSeconds = 75.25;
+        projectedShortest.MapDisplayName = "Harbor";
+        presentation = FastestExtractionHighlightPresentationFactory.Create(
+            projection,
+            key => UiText.EnglishFallbacks[key]);
+        Assert.Equal("01:15.250 - Harbor", presentation.Value);
+    }
+
+    [Theory]
+    [InlineData(0d, "00:00.000 - Test map")]
+    [InlineData(1.2345d, "00:01.235 - Test map")]
+    [InlineData(64.0834d, "01:04.083 - Test map")]
+    [InlineData(64.0836d, "01:04.084 - Test map")]
+    [InlineData(3600d, "1:00:00.000 - Test map")]
+    [InlineData(3661.234d, "1:01:01.234 - Test map")]
+    public void GateFourteenFormatsProjectedDurationWithInvariantMillisecondPrecision(
+        double durationSeconds,
+        string expected)
+    {
+        var projection = CreateFastestExtractionProjection(durationSeconds, "Test map");
+
+        var presentation = FastestExtractionHighlightPresentationFactory.Create(
+            projection,
+            key => UiText.EnglishFallbacks[key]);
+
+        Assert.Equal(expected, presentation.Value);
+    }
+
+    [Fact]
+    public void GateFourteenPresentationPreservesEmptyUnavailableAndUnknownMapStates()
+    {
+        string Resolve(string key) => "loc:" + key;
+        var projection = new StatisticsPanelProjection();
+
+        var presentation = FastestExtractionHighlightPresentationFactory.Create(projection, Resolve);
+
+        Assert.Equal("loc:ui.overview_fastest_extraction", presentation.Label);
+        Assert.Equal("loc:ui.em_dash", presentation.Value);
+
+        foreach (var invalidDuration in new[] { -1d, double.NaN, double.PositiveInfinity, double.MaxValue })
+        {
+            projection = CreateFastestExtractionProjection(invalidDuration, "Map");
+            presentation = FastestExtractionHighlightPresentationFactory.Create(projection, Resolve);
+            Assert.Equal("loc:ui.unavailable", presentation.Value);
+        }
+
+        foreach (var invalidMapName in new string?[] { null, string.Empty, "   " })
+        {
+            projection = CreateFastestExtractionProjection(1d, invalidMapName!);
+            presentation = FastestExtractionHighlightPresentationFactory.Create(projection, Resolve);
+            Assert.Equal("loc:ui.unavailable", presentation.Value);
+        }
+
+        projection = CreateFastestExtractionProjection(1d, MapIdentity.UnknownDisplayName);
+        presentation = FastestExtractionHighlightPresentationFactory.Create(projection, Resolve);
+        Assert.Equal($"00:01.000 - {MapIdentity.UnknownDisplayName}", presentation.Value);
+        Assert.Throws<ArgumentNullException>(
+            () => FastestExtractionHighlightPresentationFactory.Create(null!, Resolve));
+        Assert.Throws<ArgumentNullException>(
+            () => FastestExtractionHighlightPresentationFactory.Create(projection, null!));
+    }
+
+    [Fact]
+    public void GateFourteenLocalizedAndLongTextCannotRejectTheRow()
+    {
+        const string localizedLabel = "Schnellste erfolgreiche Extraktion dieses Spielstands";
+        const string longMapName = "An unexpectedly long localized map display name retained exactly";
+        var projection = CreateFastestExtractionProjection(64.083d, longMapName);
+        string Resolve(string key) => key == RetainedOverviewFastestExtractionEntryPolicy.LabelTextKey
+            ? localizedLabel
+            : "loc:" + key;
+
+        var presentation = FastestExtractionHighlightPresentationFactory.Create(projection, Resolve);
+
+        Assert.Equal(localizedLabel, presentation.Label);
+        Assert.Equal($"01:04.083 - {longMapName}", presentation.Value);
+        Assert.Equal(1115f, CreateRetainedVisualLayout(2560f, 1440f).OverviewFastestExtractionRow.Width);
+    }
+
+    [Fact]
+    public void GateFourteenCompositionAddsOnlyOneNonGraphicOverviewRowAndTwoTextGraphics()
+    {
+        var overviewView = new object();
+        var visibilityStates = new List<bool>();
+        var visibility = new RetainedTabViewVisibility<object>(
+            overviewView,
+            RetainedOverviewFastestExtractionRowPolicy.OwnerTab,
+            (_, visible) => visibilityStates.Add(visible));
+
+        foreach (var tab in PanelInteractionState.NavigationOrder) visibility.Apply(tab);
+        visibility.Apply(StatisticsPanelTab.Overview);
+
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewFastestExtractionRowChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionRowGraphicCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionLabelChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionValueChildCount);
+        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(StatisticsPanelTab.Overview, visibility.OwnerTab);
         Assert.True(visibilityStates[0]);
         Assert.All(
             visibilityStates.Skip(1).Take(PanelInteractionState.NavigationOrder.Count - 1),
@@ -2500,7 +2808,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
-        Assert.Equal(62, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -2667,6 +2975,8 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Same(resized.ReferenceTransform, resized.OverviewRightPanel.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.OverviewProfileSummaryHeading.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.OverviewHighlightsHeading.ReferenceTransform);
+        Assert.Same(resized.ReferenceTransform, resized.OverviewFastestExtractionRow.ReferenceTransform);
+        Assert.Same(resized.ReferenceTransform, resized.OverviewFastestExtractionEntry.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.OverviewFirstStatisticsRow.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.OverviewFirstStatisticsRowEntry.ReferenceTransform);
         Assert.Equal(baseline.Header.Width / 2f, resized.Header.Width);
@@ -2694,6 +3004,21 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(
             baseline.OverviewHighlightsHeading.FontSize / 2f,
             resized.OverviewHighlightsHeading.FontSize);
+        Assert.Equal(
+            baseline.OverviewFastestExtractionRow.Width / 2f,
+            resized.OverviewFastestExtractionRow.Width);
+        Assert.Equal(
+            baseline.OverviewFastestExtractionRow.Height / 2f,
+            resized.OverviewFastestExtractionRow.Height);
+        Assert.Equal(
+            baseline.OverviewFastestExtractionEntry.LabelWidth / 2f,
+            resized.OverviewFastestExtractionEntry.LabelWidth);
+        Assert.Equal(
+            baseline.OverviewFastestExtractionEntry.ValueWidth / 2f,
+            resized.OverviewFastestExtractionEntry.ValueWidth);
+        Assert.Equal(
+            baseline.OverviewFastestExtractionEntry.FontSize / 2f,
+            resized.OverviewFastestExtractionEntry.FontSize);
         Assert.Equal(
             baseline.OverviewFirstStatisticsRow.Width / 2f,
             resized.OverviewFirstStatisticsRow.Width);
@@ -2736,13 +3061,37 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowValueChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
-        Assert.Equal(62, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewFastestExtractionRowChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionRowGraphicCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionLabelChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionValueChildCount);
+        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
     }
+
+    private static StatisticsPanelProjection CreateFastestExtractionProjection(
+        double durationSeconds,
+        string mapDisplayName) => new()
+    {
+        Runs = new RunStatisticsViewModel
+        {
+            Records = new RunDurationRecords
+            {
+                Extraction = new DurationRecordPair
+                {
+                    Shortest = new DurationRecordReference
+                    {
+                        ActiveDurationSeconds = durationSeconds,
+                        MapDisplayName = mapDisplayName
+                    }
+                }
+            }
+        }
+    };
 
     private static RetainedVisualCanvasLayout CreateRetainedVisualLayout(
         float viewportWidth,

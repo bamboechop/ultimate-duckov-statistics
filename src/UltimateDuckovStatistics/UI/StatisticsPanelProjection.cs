@@ -1653,6 +1653,68 @@ internal static class ProfileSummaryPresentationFactory
         value >= 0d && !double.IsNaN(value) && !double.IsInfinity(value);
 }
 
+internal sealed class FastestExtractionHighlightPresentation
+{
+    public string Label { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+}
+
+internal static class FastestExtractionHighlightPresentationFactory
+{
+    public static FastestExtractionHighlightPresentation Create(
+        StatisticsPanelProjection projection,
+        Func<string, string> text)
+    {
+        if (projection == null) throw new ArgumentNullException(nameof(projection));
+        if (text == null) throw new ArgumentNullException(nameof(text));
+        return new FastestExtractionHighlightPresentation
+        {
+            Label = text(RetainedOverviewFastestExtractionEntryPolicy.LabelTextKey),
+            Value = FormatValue(projection.Runs.Records?.Extraction?.Shortest, text)
+        };
+    }
+
+    private static string FormatValue(DurationRecordReference? record, Func<string, string> text)
+    {
+        if (record == null) return text("ui.em_dash");
+        if (!IsFiniteNonNegative(record.ActiveDurationSeconds)
+            || string.IsNullOrWhiteSpace(record.MapDisplayName))
+        {
+            return text("ui.unavailable");
+        }
+
+        var totalMillisecondsValue = Math.Round(
+            record.ActiveDurationSeconds * 1000d,
+            MidpointRounding.AwayFromZero);
+        if (totalMillisecondsValue > long.MaxValue) return text("ui.unavailable");
+        var totalMilliseconds = (long)totalMillisecondsValue;
+        var milliseconds = totalMilliseconds % 1000;
+        var totalSeconds = totalMilliseconds / 1000;
+        var seconds = totalSeconds % 60;
+        var totalMinutes = totalSeconds / 60;
+        var minutes = totalMinutes % 60;
+        var hours = totalMinutes / 60;
+        var duration = hours > 0
+            ? string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}:{1:00}:{2:00}.{3:000}",
+                hours,
+                minutes,
+                seconds,
+                milliseconds)
+            : string.Format(
+                CultureInfo.InvariantCulture,
+                "{0:00}:{1:00}.{2:000}",
+                totalMinutes,
+                seconds,
+                milliseconds);
+        return $"{duration} - {record.MapDisplayName}";
+    }
+
+    private static bool IsFiniteNonNegative(double value) =>
+        value >= 0d && !double.IsNaN(value) && !double.IsInfinity(value);
+}
+
 internal static class RetainedOverviewRightPanelPolicy
 {
     public const string BackgroundName = "OverviewRightPanelBackground";
@@ -1725,6 +1787,110 @@ internal static class RetainedOverviewHighlightsHeadingPolicy
             FontSize = referenceTransform.CanvasLength(ReferenceFontSize),
             OpticalOffsetX = referenceTransform.CanvasLength(ReferenceOpticalOffsetX),
             OpticalOffsetY = referenceTransform.CanvasLength(ReferenceOpticalOffsetY)
+        };
+    }
+}
+
+internal sealed class RetainedOverviewFastestExtractionRowCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float ContentLeft { get; set; }
+    public float ContentTop { get; set; }
+    public float ContentWidth { get; set; }
+    public float ContentHeight { get; set; }
+}
+
+internal static class RetainedOverviewFastestExtractionRowPolicy
+{
+    public const string Name = "OverviewFastestExtractionRow";
+    public const string ParentName = RetainedOverviewRightPanelPolicy.ContentName;
+    public const StatisticsPanelTab OwnerTab = RetainedOverviewRightPanelPolicy.OwnerTab;
+    public const float TopOffsetPixels = RetainedOverviewFirstStatisticsRowPolicy.ContentTopOffsetPixels;
+    public const float HeightPixels = RetainedOverviewFirstStatisticsRowPolicy.HeightPixels;
+    public const float ContentPaddingPixels = RetainedOverviewFirstStatisticsRowPolicy.ContentPaddingPixels;
+    public const bool HasGraphic = false;
+    public const bool BlocksRaycasts = false;
+
+    public static RetainedOverviewFastestExtractionRowCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewPanelCanvasLayout rightPanel)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (rightPanel == null) throw new ArgumentNullException(nameof(rightPanel));
+        var padding = referenceTransform.CanvasLength(ContentPaddingPixels);
+        var left = rightPanel.ContentLeft;
+        var top = rightPanel.ContentTop + referenceTransform.CanvasLength(TopOffsetPixels);
+        return new RetainedOverviewFastestExtractionRowCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = left,
+            Top = top,
+            Width = rightPanel.ContentWidth,
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            ContentLeft = left + padding,
+            ContentTop = top + padding,
+            ContentWidth = rightPanel.ContentWidth - padding * 2f,
+            ContentHeight = referenceTransform.CanvasLength(HeightPixels - ContentPaddingPixels * 2f)
+        };
+    }
+}
+
+internal static class RetainedOverviewFastestExtractionEntryPolicy
+{
+    public const string LabelName = "OverviewFastestExtractionLabel";
+    public const string ValueName = "OverviewFastestExtractionValue";
+    public const string ParentName = RetainedOverviewFastestExtractionRowPolicy.Name;
+    public const StatisticsPanelTab OwnerTab = RetainedOverviewFastestExtractionRowPolicy.OwnerTab;
+    public const string LabelTextKey = "ui.overview_fastest_extraction";
+    public const string LabelEnglishFallback = "Fastest extraction";
+    public const string FontAssetName = RetainedOverviewFirstStatisticsRowEntryPolicy.FontAssetName;
+    public const string MaterialName = RetainedOverviewFirstStatisticsRowEntryPolicy.MaterialName;
+    public const float ReferenceFontSize = RetainedOverviewFirstStatisticsRowEntryPolicy.ReferenceFontSize;
+    public const float LabelColumnWidthPixels = 440f;
+    public const float CharacterSpacing = RetainedOverviewFirstStatisticsRowEntryPolicy.CharacterSpacing;
+    public const float WordSpacing = RetainedOverviewFirstStatisticsRowEntryPolicy.WordSpacing;
+    public const float LineSpacing = RetainedOverviewFirstStatisticsRowEntryPolicy.LineSpacing;
+    public const float ParagraphSpacing = RetainedOverviewFirstStatisticsRowEntryPolicy.ParagraphSpacing;
+    public const float Red = RetainedOverviewFirstStatisticsRowEntryPolicy.Red;
+    public const float Green = RetainedOverviewFirstStatisticsRowEntryPolicy.Green;
+    public const float Blue = RetainedOverviewFirstStatisticsRowEntryPolicy.Blue;
+    public const float Alpha = RetainedOverviewFirstStatisticsRowEntryPolicy.Alpha;
+    public const bool BlocksRaycasts = RetainedOverviewFirstStatisticsRowEntryPolicy.BlocksRaycasts;
+    public const bool WordWrapping = RetainedOverviewFirstStatisticsRowEntryPolicy.WordWrapping;
+    public const bool AutoSizing = RetainedOverviewFirstStatisticsRowEntryPolicy.AutoSizing;
+    public const bool UsesVisibleOverflow = RetainedOverviewFirstStatisticsRowEntryPolicy.UsesVisibleOverflow;
+    public const bool UsesLeftAlignment = RetainedOverviewFirstStatisticsRowEntryPolicy.UsesLeftAlignment;
+    public const bool UsesVerticalCentering = RetainedOverviewFirstStatisticsRowEntryPolicy.UsesVerticalCentering;
+    public const bool UsesZeroTextMargins = RetainedOverviewFirstStatisticsRowEntryPolicy.UsesZeroTextMargins;
+    public const bool UsesNormalStyle = RetainedOverviewFirstStatisticsRowEntryPolicy.UsesNormalStyle;
+    public const bool UsesRegularWeight = RetainedOverviewFirstStatisticsRowEntryPolicy.UsesRegularWeight;
+    public const bool UsesOwnedSubtleShadowMaterial =
+        RetainedOverviewFirstStatisticsRowEntryPolicy.UsesOwnedSubtleShadowMaterial;
+    public const bool UsesProjectedShortestExtraction = true;
+
+    public static RetainedTwoColumnStatisticsRowCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewFastestExtractionRowCanvasLayout row)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (row == null) throw new ArgumentNullException(nameof(row));
+        var labelWidth = referenceTransform.CanvasLength(LabelColumnWidthPixels);
+        return new RetainedTwoColumnStatisticsRowCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            LabelLeft = row.ContentLeft,
+            LabelTop = row.ContentTop,
+            LabelWidth = labelWidth,
+            LabelHeight = row.ContentHeight,
+            ValueLeft = row.ContentLeft + labelWidth,
+            ValueTop = row.ContentTop,
+            ValueWidth = row.ContentWidth - labelWidth,
+            ValueHeight = row.ContentHeight,
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize)
         };
     }
 }
@@ -1896,6 +2062,8 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedOverviewPanelCanvasLayout OverviewRightPanel { get; set; } = null!;
     public RetainedOverviewProfileSummaryHeadingCanvasLayout OverviewProfileSummaryHeading { get; set; } = null!;
     public RetainedOverviewHighlightsHeadingCanvasLayout OverviewHighlightsHeading { get; set; } = null!;
+    public RetainedOverviewFastestExtractionRowCanvasLayout OverviewFastestExtractionRow { get; set; } = null!;
+    public RetainedTwoColumnStatisticsRowCanvasLayout OverviewFastestExtractionEntry { get; set; } = null!;
     public RetainedOverviewFirstStatisticsRowCanvasLayout OverviewFirstStatisticsRow { get; set; } = null!;
     public RetainedTwoColumnStatisticsRowCanvasLayout OverviewFirstStatisticsRowEntry { get; set; } = null!;
     public IReadOnlyList<RetainedProfileSummaryRowCanvasLayout> OverviewProfileSummaryRows { get; set; } =
@@ -1940,6 +2108,12 @@ internal static class RetainedVisualLayoutPolicy
         var overviewHighlightsHeading = RetainedOverviewHighlightsHeadingPolicy.CreateCanvasLayout(
             referenceTransform,
             overviewRightPanel);
+        var overviewFastestExtractionRow = RetainedOverviewFastestExtractionRowPolicy.CreateCanvasLayout(
+            referenceTransform,
+            overviewRightPanel);
+        var overviewFastestExtractionEntry = RetainedOverviewFastestExtractionEntryPolicy.CreateCanvasLayout(
+            referenceTransform,
+            overviewFastestExtractionRow);
         var overviewProfileSummaryRows = RetainedProfileSummaryRowsPolicy.CreateCanvasLayouts(
             referenceTransform,
             overviewLeftPanel);
@@ -2012,6 +2186,8 @@ internal static class RetainedVisualLayoutPolicy
             OverviewRightPanel = overviewRightPanel,
             OverviewProfileSummaryHeading = overviewProfileSummaryHeading,
             OverviewHighlightsHeading = overviewHighlightsHeading,
+            OverviewFastestExtractionRow = overviewFastestExtractionRow,
+            OverviewFastestExtractionEntry = overviewFastestExtractionEntry,
             OverviewFirstStatisticsRow = overviewFirstStatisticsRow,
             OverviewFirstStatisticsRowEntry = overviewFirstStatisticsRowEntry,
             OverviewProfileSummaryRows = overviewProfileSummaryRows
@@ -2049,9 +2225,13 @@ internal static class RetainedShellCompositionPolicy
     public const int ProfileSummaryStandardRowContentChildCount = 2;
     public const int ProfileSummaryEconomyRowContentChildCount = 3;
     public const int OverviewRightPanelChildCount = 1;
-    public const int OverviewRightPanelContentChildCount = 1;
+    public const int OverviewRightPanelContentChildCount = 2;
     public const int OverviewHighlightsHeadingChildCount = 0;
-    public const int GraphicCount = 62;
+    public const int OverviewFastestExtractionRowChildCount = 2;
+    public const int OverviewFastestExtractionRowGraphicCount = 0;
+    public const int OverviewFastestExtractionLabelChildCount = 0;
+    public const int OverviewFastestExtractionValueChildCount = 0;
+    public const int GraphicCount = 64;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
