@@ -7,7 +7,7 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 15.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 21.
 /// The root graphic remains the modal dimmer; its children are the frozen header controls and tab-owned views.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
@@ -116,6 +116,50 @@ internal sealed class RetainedStatisticsShell : IDisposable
         public TextMeshProUGUI Value { get; }
     }
 
+    private sealed class RetainedRunBadgeControl : IDisposable
+    {
+        public RetainedRunBadgeControl(
+            RectTransform rect,
+            ProceduralImage background,
+            UniformModifier modifier,
+            RectTransform iconRect,
+            Graphic icon,
+            TextMeshProUGUI? iconText,
+            RectTransform labelRect,
+            TextMeshProUGUI label,
+            RetainedRunBadgePresentation presentation,
+            RetainedRunBadgeIconAsset? ownedIconAsset)
+        {
+            Rect = rect;
+            Background = background;
+            Modifier = modifier;
+            IconRect = iconRect;
+            Icon = icon;
+            IconText = iconText;
+            LabelRect = labelRect;
+            Label = label;
+            Presentation = presentation;
+            OwnedIconAsset = ownedIconAsset;
+        }
+
+        public RectTransform Rect { get; }
+        public ProceduralImage Background { get; }
+        public UniformModifier Modifier { get; }
+        public RectTransform IconRect { get; }
+        public Graphic Icon { get; }
+        public TextMeshProUGUI? IconText { get; }
+        public RectTransform LabelRect { get; }
+        public TextMeshProUGUI Label { get; }
+        public RetainedRunBadgePresentation Presentation { get; }
+        public RetainedRunBadgeIconAsset? OwnedIconAsset { get; private set; }
+
+        public void Dispose()
+        {
+            OwnedIconAsset?.Dispose();
+            OwnedIconAsset = null;
+        }
+    }
+
     private GameObject? root;
     private Canvas? canvas;
     private RectTransform? shellRoot;
@@ -151,6 +195,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private TextMeshProUGUI? overviewLatestRunHeadingGraphic;
     private RectTransform? overviewLatestRunCardRect;
     private UniformModifier? overviewLatestRunCardModifier;
+    private RetainedRunBadgeControl? overviewLatestRunBadge;
     private readonly List<RetainedOverviewHighlightRowControl> overviewHighlightRows = new();
     private readonly List<RetainedStatisticsRowControl> overviewProfileSummaryRows = new();
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
@@ -242,6 +287,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var createdOverviewLatestRunHeadingGraphic,
                 out var createdOverviewLatestRunCardRect,
                 out var createdOverviewLatestRunCardModifier,
+                out var createdOverviewLatestRunBadge,
                 out var createdOverviewHighlightRows,
                 out var createdOverviewProfileSummaryRows,
                 projection);
@@ -259,6 +305,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewLatestRunHeadingGraphic = createdOverviewLatestRunHeadingGraphic;
             overviewLatestRunCardRect = createdOverviewLatestRunCardRect;
             overviewLatestRunCardModifier = createdOverviewLatestRunCardModifier;
+            overviewLatestRunBadge = createdOverviewLatestRunBadge;
             overviewHighlightRows.AddRange(createdOverviewHighlightRows);
             overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
             overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
@@ -417,6 +464,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         out TextMeshProUGUI latestRunHeadingGraphic,
         out RectTransform latestRunCardRect,
         out UniformModifier latestRunCardModifier,
+        out RetainedRunBadgeControl latestRunBadge,
         out List<RetainedOverviewHighlightRowControl> highlightRows,
         out List<RetainedStatisticsRowControl> profileSummaryRows,
         StatisticsPanelProjection projection)
@@ -479,6 +527,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 typography,
                 headingMaterial));
         }
+        var runBadgePresentation = RetainedRunBadgePresentationFactory.Create(projection, UiText.Get);
+        latestRunBadge = CreateOverviewLatestRunBadge(
+            latestRunCardRect,
+            runBadgePresentation,
+            typography,
+            headingMaterial);
         return view;
     }
 
@@ -695,6 +749,165 @@ internal sealed class RetainedStatisticsShell : IDisposable
             RetainedOverviewLatestRunHeadingPolicy.Alpha);
         text.raycastTarget = RetainedOverviewLatestRunHeadingPolicy.BlocksRaycasts;
         return rect;
+    }
+
+    private static RetainedRunBadgeControl CreateOverviewLatestRunBadge(
+        RectTransform parent,
+        RetainedRunBadgePresentation presentation,
+        NativeHeaderTitleTypography typography,
+        Material material)
+    {
+        var badge = new GameObject(
+            RetainedOverviewLatestRunBadgePolicy.Name,
+            typeof(RectTransform));
+        var rect = (RectTransform)badge.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        RetainedRunBadgeIconAsset? ownedIconAsset = null;
+        try
+        {
+            var background = badge.AddComponent<ProceduralImage>();
+            var specification = presentation.Specification;
+            background.color = specification == null
+                ? Color.clear
+                : new Color(
+                    specification.BackgroundColor.Red,
+                    specification.BackgroundColor.Green,
+                    specification.BackgroundColor.Blue,
+                    specification.BackgroundColor.Alpha);
+            background.BorderWidth = RetainedOverviewLatestRunBadgePolicy.BorderWidth;
+            background.FalloffDistance = 1f;
+            background.sprite = null;
+            background.overrideSprite = null;
+            background.type = Image.Type.Simple;
+            background.raycastTarget = RetainedRunBadgePolicy.BackgroundBlocksRaycasts;
+            var modifier = badge.AddComponent<UniformModifier>();
+
+            var iconObject = new GameObject(
+                RetainedOverviewLatestRunBadgePolicy.IconName,
+                typeof(RectTransform));
+            var iconRect = (RectTransform)iconObject.transform;
+            iconRect.SetParent(rect, worldPositionStays: false);
+            iconRect.anchorMin = new Vector2(0f, 1f);
+            iconRect.anchorMax = new Vector2(0f, 1f);
+            iconRect.pivot = new Vector2(0f, 1f);
+            iconRect.localScale = Vector3.one;
+
+            Graphic icon;
+            TextMeshProUGUI? iconText = null;
+            if (specification != null
+                && CanUseNativeIconGlyph(typography.Font, specification.PreferredIconGlyph))
+            {
+                iconText = iconObject.AddComponent<TextMeshProUGUI>();
+                iconText.font = typography.Font;
+                iconText.fontSharedMaterial = material;
+                iconText.text = specification.PreferredIconGlyph;
+                iconText.fontStyle = FontStyles.Normal;
+                iconText.fontWeight = FontWeight.Regular;
+                iconText.characterSpacing = 0f;
+                iconText.wordSpacing = 0f;
+                iconText.lineSpacing = 0f;
+                iconText.paragraphSpacing = 0f;
+                iconText.alignment = TextAlignmentOptions.Center;
+                iconText.enableWordWrapping = false;
+                iconText.enableAutoSizing = false;
+                iconText.overflowMode = TextOverflowModes.Overflow;
+                iconText.margin = Vector4.zero;
+                iconText.color = new Color(
+                    RetainedRunBadgePolicy.IconRed,
+                    RetainedRunBadgePolicy.IconGreen,
+                    RetainedRunBadgePolicy.IconBlue,
+                    RetainedRunBadgePolicy.IconAlpha);
+                iconText.raycastTarget = RetainedRunBadgePolicy.IconBlocksRaycasts;
+                icon = iconText;
+            }
+            else
+            {
+                var iconImage = iconObject.AddComponent<Image>();
+                if (specification != null)
+                {
+                    ownedIconAsset = RetainedRunBadgeIconAsset.Create(specification.IconKind);
+                    iconImage.sprite = ownedIconAsset.Sprite;
+                    iconImage.overrideSprite = ownedIconAsset.Sprite;
+                }
+                iconImage.type = Image.Type.Simple;
+                iconImage.preserveAspect = true;
+                iconImage.color = new Color(
+                    RetainedRunBadgePolicy.IconRed,
+                    RetainedRunBadgePolicy.IconGreen,
+                    RetainedRunBadgePolicy.IconBlue,
+                    RetainedRunBadgePolicy.IconAlpha);
+                iconImage.raycastTarget = RetainedRunBadgePolicy.IconBlocksRaycasts;
+                icon = iconImage;
+            }
+
+            var labelObject = new GameObject(
+                RetainedOverviewLatestRunBadgePolicy.LabelName,
+                typeof(RectTransform));
+            var labelRect = (RectTransform)labelObject.transform;
+            labelRect.SetParent(rect, worldPositionStays: false);
+            labelRect.anchorMin = new Vector2(0f, 1f);
+            labelRect.anchorMax = new Vector2(0f, 1f);
+            labelRect.pivot = new Vector2(0f, 1f);
+            labelRect.localScale = Vector3.one;
+            var label = labelObject.AddComponent<TextMeshProUGUI>();
+            label.font = typography.Font;
+            label.fontSharedMaterial = material;
+            label.text = presentation.Label;
+            label.fontStyle = FontStyles.Normal;
+            label.fontWeight = FontWeight.Regular;
+            label.characterSpacing = RetainedRunBadgePolicy.CharacterSpacing;
+            label.wordSpacing = RetainedRunBadgePolicy.WordSpacing;
+            label.lineSpacing = RetainedRunBadgePolicy.LineSpacing;
+            label.paragraphSpacing = RetainedRunBadgePolicy.ParagraphSpacing;
+            label.alignment = TextAlignmentOptions.MidlineLeft;
+            label.enableWordWrapping = RetainedRunBadgePolicy.WordWrapping;
+            label.enableAutoSizing = RetainedRunBadgePolicy.AutoSizing;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.margin = Vector4.zero;
+            label.color = new Color(
+                RetainedRunBadgePolicy.TextRed,
+                RetainedRunBadgePolicy.TextGreen,
+                RetainedRunBadgePolicy.TextBlue,
+                RetainedRunBadgePolicy.TextAlpha);
+            label.raycastTarget = RetainedRunBadgePolicy.LabelBlocksRaycasts;
+
+            badge.SetActive(presentation.IsVisible);
+            return new RetainedRunBadgeControl(
+                rect,
+                background,
+                modifier,
+                iconRect,
+                icon,
+                iconText,
+                labelRect,
+                label,
+                presentation,
+                ownedIconAsset);
+        }
+        catch
+        {
+            ownedIconAsset?.Dispose();
+            UnityEngine.Object.Destroy(badge);
+            throw;
+        }
+    }
+
+    private static bool CanUseNativeIconGlyph(TMP_FontAsset font, string glyph)
+    {
+        if (glyph.Length != 1) return false;
+        try
+        {
+            return font.HasCharacter(glyph[0], searchFallbacks: true, tryAddCharacter: false);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static RetainedStatisticsRowControl CreateOverviewStatisticsRow(
@@ -1086,6 +1299,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewLatestRunHeadingGraphic == null
             || overviewLatestRunCardRect == null
             || overviewLatestRunCardModifier == null
+            || overviewLatestRunBadge == null
             || overviewHighlightRows.Count != RetainedOverviewHighlightsRowsPolicy.RowCount
             || overviewProfileSummaryRows.Count != RetainedProfileSummaryRowsPolicy.RowCount)
         {
@@ -1111,7 +1325,26 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var preferredReferenceWidths = MeasureTabReferenceWidths(
             referenceTransform,
             canvasScaleFactor);
-        var layout = RetainedVisualLayoutPolicy.Create(referenceTransform, preferredReferenceWidths);
+        var latestRunBadgeControl = overviewLatestRunBadge!;
+        RetainedVisualCanvasLayout layout;
+        if (latestRunBadgeControl.Presentation.IsVisible
+            && latestRunBadgeControl.Presentation.State.HasValue
+            && latestRunBadgeControl.Presentation.Specification != null)
+        {
+            var preferredBadgeLabelWidth = MeasureRunBadgeReferenceWidth(
+                latestRunBadgeControl,
+                referenceTransform,
+                canvasScaleFactor);
+            layout = RetainedVisualLayoutPolicy.Create(
+                referenceTransform,
+                preferredReferenceWidths,
+                latestRunBadgeControl.Presentation.State.Value,
+                preferredBadgeLabelWidth);
+        }
+        else
+        {
+            layout = RetainedVisualLayoutPolicy.Create(referenceTransform, preferredReferenceWidths);
+        }
         var leftPanelRect = overviewLeftPanelRect!;
         var leftPanelModifier = overviewLeftPanelModifier!;
         var rightPanelRect = overviewRightPanelRect!;
@@ -1261,6 +1494,34 @@ internal sealed class RetainedStatisticsShell : IDisposable
             layout.OverviewLatestRunCard.Width,
             layout.OverviewLatestRunCard.Height);
         latestRunCardModifier.Radius = layout.OverviewLatestRunCard.CornerRadius;
+        var latestRunBadgeLayout = layout.OverviewLatestRunBadge;
+        latestRunBadgeControl.Rect.gameObject.SetActive(
+            latestRunBadgeControl.Presentation.IsVisible && latestRunBadgeLayout != null);
+        if (latestRunBadgeLayout != null)
+        {
+            latestRunBadgeControl.Rect.anchoredPosition = new Vector2(
+                latestRunBadgeLayout.Left - layout.OverviewLatestRunCard.Left,
+                -(latestRunBadgeLayout.Top - layout.OverviewLatestRunCard.Top));
+            latestRunBadgeControl.Rect.sizeDelta = new Vector2(
+                latestRunBadgeLayout.Width,
+                latestRunBadgeLayout.Height);
+            latestRunBadgeControl.Modifier.Radius = latestRunBadgeLayout.CornerRadius;
+            latestRunBadgeControl.IconRect.anchoredPosition = new Vector2(
+                latestRunBadgeLayout.IconLeft,
+                -latestRunBadgeLayout.IconTop);
+            latestRunBadgeControl.IconRect.sizeDelta = new Vector2(
+                latestRunBadgeLayout.IconWidth,
+                latestRunBadgeLayout.IconHeight);
+            if (latestRunBadgeControl.IconText != null)
+                latestRunBadgeControl.IconText.fontSize = latestRunBadgeLayout.FontSize;
+            latestRunBadgeControl.LabelRect.anchoredPosition = new Vector2(
+                latestRunBadgeLayout.LabelLeft,
+                -latestRunBadgeLayout.LabelTop);
+            latestRunBadgeControl.LabelRect.sizeDelta = new Vector2(
+                latestRunBadgeLayout.LabelWidth,
+                latestRunBadgeLayout.LabelHeight);
+            latestRunBadgeControl.Label.fontSize = latestRunBadgeLayout.FontSize;
+        }
         for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
             ApplyStatisticsRowLayout(
                 overviewProfileSummaryRows[index],
@@ -1370,6 +1631,37 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return normalizedWidths;
     }
 
+    private static float MeasureRunBadgeReferenceWidth(
+        RetainedRunBadgeControl control,
+        RetainedReferenceTransform referenceTransform,
+        float canvasScaleFactor)
+    {
+        var specification = control.Presentation.Specification!;
+        var fallback = specification.MockEquivalentPreferredLabelWidthPixels;
+        try
+        {
+            var temporaryLabelWidth = referenceTransform.CanvasLength(
+                RetainedRunBadgeMeasurementPolicy.TemporaryLabelWidthPixels);
+            var labelHeight = referenceTransform.CanvasLength(RetainedRunBadgePolicy.HeightPixels);
+            control.LabelRect.sizeDelta = new Vector2(temporaryLabelWidth, labelHeight);
+            control.Label.fontSize = referenceTransform.CanvasLength(RetainedRunBadgePolicy.ReferenceFontSize);
+            Canvas.ForceUpdateCanvases();
+            control.Label.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+            var measuredCanvasWidth = control.Label.GetPreferredValues(
+                temporaryLabelWidth,
+                labelHeight).x;
+            return RetainedRunBadgeMeasurementPolicy.NormalizeOrFallback(
+                measuredCanvasWidth,
+                canvasScaleFactor,
+                referenceTransform.ReferenceScale,
+                fallback);
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+
     private static void Stretch(RectTransform rect)
     {
         rect.anchorMin = Vector2.zero;
@@ -1425,6 +1717,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         overviewLatestRunHeadingGraphic = null;
         overviewLatestRunCardRect = null;
         overviewLatestRunCardModifier = null;
+        overviewLatestRunBadge?.Dispose();
+        overviewLatestRunBadge = null;
         overviewHighlightRows.Clear();
         overviewProfileSummaryRows.Clear();
         lastAppliedVisualLayout = null;

@@ -2391,6 +2391,8 @@ internal sealed class RetainedRunBadgeCanvasLayout
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
     public RetainedRunBadgeVariantSpecification Specification { get; set; } = null!;
     public float ReferencePreferredLabelWidth { get; set; }
+    public float Left { get; set; }
+    public float Top { get; set; }
     public float Width { get; set; }
     public float Height { get; set; }
     public float CornerRadius { get; set; }
@@ -2564,6 +2566,229 @@ internal static class RetainedRunBadgePolicy
         value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
 }
 
+internal sealed class RetainedRunBadgePresentation
+{
+    public bool IsVisible { get; set; }
+    public RunSummary? LatestRun { get; set; }
+    public RetainedRunBadgeState? State { get; set; }
+    public RetainedRunBadgeVariantSpecification? Specification { get; set; }
+    public string Label { get; set; } = string.Empty;
+}
+
+internal static class RetainedRunBadgePresentationFactory
+{
+    public static RetainedRunBadgePresentation Create(
+        StatisticsPanelProjection projection,
+        Func<string, string> text)
+    {
+        if (projection == null) throw new ArgumentNullException(nameof(projection));
+        if (text == null) throw new ArgumentNullException(nameof(text));
+
+        var runs = projection.Runs.Runs;
+        if (runs.Count == 0)
+            return new RetainedRunBadgePresentation { IsVisible = false };
+
+        var latestRun = runs[0];
+        var state = MapOutcome(latestRun.Outcome);
+        var specification = RetainedRunBadgePolicy.ResolveSpecification(state);
+        return new RetainedRunBadgePresentation
+        {
+            IsVisible = true,
+            LatestRun = latestRun,
+            State = state,
+            Specification = specification,
+            Label = text(specification.TextKey)
+        };
+    }
+
+    public static RetainedRunBadgeState MapOutcome(RunOutcome outcome) => outcome switch
+    {
+        RunOutcome.Extracted => RetainedRunBadgeState.Extracted,
+        RunOutcome.Died => RetainedRunBadgeState.Died,
+        RunOutcome.Interrupted => RetainedRunBadgeState.Unknown,
+        _ => RetainedRunBadgeState.Unknown
+    };
+}
+
+internal static class RetainedRunBadgeMeasurementPolicy
+{
+    public const float TemporaryLabelWidthPixels = RetainedReferenceTransformPolicy.BaselineWidthPixels;
+
+    public static float NormalizeOrFallback(
+        float measuredCanvasWidth,
+        float canvasScaleFactor,
+        float referenceScale,
+        float fallbackReferenceWidth)
+    {
+        if (!IsPositiveFinite(fallbackReferenceWidth))
+            throw new ArgumentOutOfRangeException(nameof(fallbackReferenceWidth));
+        if (!IsPositiveFinite(measuredCanvasWidth)
+            || !IsPositiveFinite(canvasScaleFactor)
+            || !IsPositiveFinite(referenceScale))
+        {
+            return fallbackReferenceWidth;
+        }
+
+        var normalizedWidth = measuredCanvasWidth * canvasScaleFactor / referenceScale;
+        return IsPositiveFinite(normalizedWidth) ? normalizedWidth : fallbackReferenceWidth;
+    }
+
+    private static bool IsPositiveFinite(float value) =>
+        value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
+}
+
+internal static class RetainedOverviewLatestRunBadgePolicy
+{
+    public const string Name = "OverviewLatestRunBadge";
+    public const string ParentName = RetainedOverviewLatestRunCardPolicy.Name;
+    public const string IconName = "OverviewLatestRunBadgeIcon";
+    public const string LabelName = "OverviewLatestRunBadgeLabel";
+    public const float LeftMarginPixels = 20f;
+    public const float TopMarginPixels = 20f;
+    public const float BorderWidth = 0f;
+    public const bool HasSprite = false;
+    public const bool UsesSimpleImageType = true;
+    public const bool UsesSingleStateDrivenControl = true;
+    public const bool HasButton = false;
+    public const bool UsesButtonAnimation = false;
+    public const bool HasLaterGateContent = false;
+
+    public static RetainedRunBadgeCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewLatestRunCardCanvasLayout card,
+        RetainedRunBadgeState state,
+        float preferredLabelWidthPixels)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (card == null) throw new ArgumentNullException(nameof(card));
+        var layout = RetainedRunBadgePolicy.CreateCanvasLayout(
+            referenceTransform,
+            state,
+            preferredLabelWidthPixels);
+        layout.Left = card.Left + referenceTransform.CanvasLength(LeftMarginPixels);
+        layout.Top = card.Top + referenceTransform.CanvasLength(TopMarginPixels);
+        return layout;
+    }
+}
+
+internal static class RetainedRunBadgeProceduralIconPolicy
+{
+    public static int GetTextureWidth(RetainedRunBadgeIconKind iconKind) => iconKind switch
+    {
+        RetainedRunBadgeIconKind.Check => 38,
+        RetainedRunBadgeIconKind.Skull => 36,
+        RetainedRunBadgeIconKind.QuestionMark => 20,
+        _ => throw new ArgumentOutOfRangeException(nameof(iconKind))
+    };
+
+    public static int GetTextureHeight(RetainedRunBadgeIconKind iconKind) => iconKind switch
+    {
+        RetainedRunBadgeIconKind.Check => 28,
+        RetainedRunBadgeIconKind.Skull => 42,
+        RetainedRunBadgeIconKind.QuestionMark => 32,
+        _ => throw new ArgumentOutOfRangeException(nameof(iconKind))
+    };
+
+    public static byte[] CreateTopDownAlpha(RetainedRunBadgeIconKind iconKind)
+    {
+        var width = GetTextureWidth(iconKind);
+        var height = GetTextureHeight(iconKind);
+        var alpha = new byte[width * height];
+        switch (iconKind)
+        {
+            case RetainedRunBadgeIconKind.Check:
+                PaintLine(alpha, width, height, 3f, 15f, 13f, 25f, 2.6f);
+                PaintLine(alpha, width, height, 13f, 25f, 35f, 3f, 2.6f);
+                break;
+            case RetainedRunBadgeIconKind.Skull:
+                PaintEllipse(alpha, width, height, 17.5f, 15.5f, 14.5f, 14.5f, 255);
+                PaintRectangle(alpha, width, height, 8, 17, 27, 34, 255);
+                PaintEllipse(alpha, width, height, 11.5f, 16f, 4f, 5f, 0);
+                PaintEllipse(alpha, width, height, 23.5f, 16f, 4f, 5f, 0);
+                PaintEllipse(alpha, width, height, 17.5f, 24f, 2.5f, 3.5f, 0);
+                PaintRectangle(alpha, width, height, 11, 31, 13, 40, 0);
+                PaintRectangle(alpha, width, height, 17, 31, 19, 40, 0);
+                PaintRectangle(alpha, width, height, 23, 31, 25, 40, 0);
+                break;
+            case RetainedRunBadgeIconKind.QuestionMark:
+                PaintLine(alpha, width, height, 3f, 8f, 7f, 3f, 2.1f);
+                PaintLine(alpha, width, height, 7f, 3f, 14f, 3f, 2.1f);
+                PaintLine(alpha, width, height, 14f, 3f, 18f, 7f, 2.1f);
+                PaintLine(alpha, width, height, 18f, 7f, 18f, 12f, 2.1f);
+                PaintLine(alpha, width, height, 18f, 12f, 10f, 19f, 2.1f);
+                PaintLine(alpha, width, height, 10f, 19f, 10f, 22f, 2.1f);
+                PaintEllipse(alpha, width, height, 10f, 28f, 2.2f, 2.2f, 255);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(iconKind));
+        }
+
+        return alpha;
+    }
+
+    private static void PaintLine(
+        byte[] alpha,
+        int width,
+        int height,
+        float startX,
+        float startY,
+        float endX,
+        float endY,
+        float radius)
+    {
+        var deltaX = endX - startX;
+        var deltaY = endY - startY;
+        var squaredLength = deltaX * deltaX + deltaY * deltaY;
+        for (var y = 0; y < height; y++)
+        for (var x = 0; x < width; x++)
+        {
+            var projection = squaredLength == 0f
+                ? 0f
+                : Math.Max(0f, Math.Min(1f,
+                    ((x - startX) * deltaX + (y - startY) * deltaY) / squaredLength));
+            var distanceX = x - (startX + projection * deltaX);
+            var distanceY = y - (startY + projection * deltaY);
+            if (distanceX * distanceX + distanceY * distanceY <= radius * radius)
+                alpha[y * width + x] = 255;
+        }
+    }
+
+    private static void PaintEllipse(
+        byte[] alpha,
+        int width,
+        int height,
+        float centerX,
+        float centerY,
+        float radiusX,
+        float radiusY,
+        byte value)
+    {
+        for (var y = 0; y < height; y++)
+        for (var x = 0; x < width; x++)
+        {
+            var normalizedX = (x - centerX) / radiusX;
+            var normalizedY = (y - centerY) / radiusY;
+            if (normalizedX * normalizedX + normalizedY * normalizedY <= 1f)
+                alpha[y * width + x] = value;
+        }
+    }
+
+    private static void PaintRectangle(
+        byte[] alpha,
+        int width,
+        int height,
+        int left,
+        int top,
+        int right,
+        int bottom,
+        byte value)
+    {
+        for (var y = Math.Max(0, top); y <= Math.Min(height - 1, bottom); y++)
+        for (var x = Math.Max(0, left); x <= Math.Min(width - 1, right); x++)
+            alpha[y * width + x] = value;
+    }
+}
+
 internal sealed class RetainedHeaderTitleCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
@@ -2733,6 +2958,7 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedOverviewHighlightsHeadingCanvasLayout OverviewHighlightsHeading { get; set; } = null!;
     public RetainedOverviewLatestRunHeadingCanvasLayout OverviewLatestRunHeading { get; set; } = null!;
     public RetainedOverviewLatestRunCardCanvasLayout OverviewLatestRunCard { get; set; } = null!;
+    public RetainedRunBadgeCanvasLayout? OverviewLatestRunBadge { get; set; }
     public IReadOnlyList<RetainedOverviewFastestExtractionRowCanvasLayout> OverviewHighlightRows { get; set; } =
         Array.Empty<RetainedOverviewFastestExtractionRowCanvasLayout>();
     public IReadOnlyList<RetainedTwoColumnStatisticsRowCanvasLayout> OverviewHighlightEntries { get; set; } =
@@ -2769,6 +2995,32 @@ internal static class RetainedVisualLayoutPolicy
         RetainedReferenceTransform referenceTransform,
         IReadOnlyList<float> preferredTabWidths)
     {
+        return Create(
+            referenceTransform,
+            preferredTabWidths,
+            badgeState: null,
+            preferredBadgeLabelWidth: 0f);
+    }
+
+    public static RetainedVisualCanvasLayout Create(
+        RetainedReferenceTransform referenceTransform,
+        IReadOnlyList<float> preferredTabWidths,
+        RetainedRunBadgeState badgeState,
+        float preferredBadgeLabelWidth)
+    {
+        return Create(
+            referenceTransform,
+            preferredTabWidths,
+            (RetainedRunBadgeState?)badgeState,
+            preferredBadgeLabelWidth);
+    }
+
+    private static RetainedVisualCanvasLayout Create(
+        RetainedReferenceTransform referenceTransform,
+        IReadOnlyList<float> preferredTabWidths,
+        RetainedRunBadgeState? badgeState,
+        float preferredBadgeLabelWidth)
+    {
         if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
         var header = RetainedHeaderPolicy.CreateCanvasLayout(referenceTransform);
         var tabStrip = RetainedTabStripPolicy.CreateCanvasLayout(referenceTransform, preferredTabWidths);
@@ -2797,6 +3049,13 @@ internal static class RetainedVisualLayoutPolicy
             referenceTransform,
             overviewRightPanel,
             overviewLatestRunHeading);
+        var overviewLatestRunBadge = badgeState.HasValue
+            ? RetainedOverviewLatestRunBadgePolicy.CreateCanvasLayout(
+                referenceTransform,
+                overviewLatestRunCard,
+                badgeState.Value,
+                preferredBadgeLabelWidth)
+            : null;
         var overviewFastestExtractionRow = overviewHighlightRows[0];
         var overviewFastestExtractionEntry = overviewHighlightEntries[0];
         var overviewProfileSummaryRows = RetainedProfileSummaryRowsPolicy.CreateCanvasLayouts(
@@ -2873,6 +3132,7 @@ internal static class RetainedVisualLayoutPolicy
             OverviewHighlightsHeading = overviewHighlightsHeading,
             OverviewLatestRunHeading = overviewLatestRunHeading,
             OverviewLatestRunCard = overviewLatestRunCard,
+            OverviewLatestRunBadge = overviewLatestRunBadge,
             OverviewHighlightRows = overviewHighlightRows,
             OverviewHighlightEntries = overviewHighlightEntries,
             OverviewFastestExtractionRow = overviewFastestExtractionRow,
@@ -2917,7 +3177,11 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewRightPanelContentChildCount = 7;
     public const int OverviewHighlightsHeadingChildCount = 0;
     public const int OverviewLatestRunHeadingChildCount = 0;
-    public const int OverviewLatestRunCardChildCount = 0;
+    public const int OverviewLatestRunCardChildCount = 1;
+    public const int OverviewLatestRunBadgeChildCount = 2;
+    public const int OverviewLatestRunBadgeIconChildCount = 0;
+    public const int OverviewLatestRunBadgeLabelChildCount = 0;
+    public const int OverviewLatestRunBadgeGraphicCount = 3;
     public const int OverviewHighlightRowCount = 4;
     public const int OverviewHighlightRowChildCount = 2;
     public const int OverviewHighlightRowGraphicCount = 1;
@@ -2925,7 +3189,7 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewFastestExtractionRowGraphicCount = OverviewHighlightRowGraphicCount;
     public const int OverviewFastestExtractionLabelChildCount = 0;
     public const int OverviewFastestExtractionValueChildCount = 0;
-    public const int GraphicCount = 76;
+    public const int GraphicCount = 79;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
