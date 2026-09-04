@@ -200,6 +200,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             RectTransform rect,
             ProceduralImage background,
             UniformModifier modifier,
+            Button button,
             RectTransform labelRect,
             TextMeshProUGUI label,
             RetainedLatestRunViewRunPresentation presentation)
@@ -207,6 +208,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             Rect = rect;
             Background = background;
             Modifier = modifier;
+            Button = button;
             LabelRect = labelRect;
             Label = label;
             Presentation = presentation;
@@ -215,6 +217,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         public RectTransform Rect { get; }
         public ProceduralImage Background { get; }
         public UniformModifier Modifier { get; }
+        public Button Button { get; }
         public RectTransform LabelRect { get; }
         public TextMeshProUGUI Label { get; }
         public RetainedLatestRunViewRunPresentation Presentation { get; }
@@ -1120,6 +1123,17 @@ internal sealed class RetainedStatisticsShell : IDisposable
         background.raycastTarget = RetainedOverviewLatestRunViewRunPolicy.BackgroundBlocksRaycasts;
         var modifier = controlObject.AddComponent<UniformModifier>();
 
+        var button = controlObject.AddComponent<Button>();
+        button.targetGraphic = background;
+        button.interactable = RetainedOverviewLatestRunViewRunPolicy.IsInteractable;
+        button.transition = Selectable.Transition.None;
+        button.navigation = new Navigation { mode = Navigation.Mode.None };
+        button.onClick = new Button.ButtonClickedEvent();
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
+            controlObject,
+            static target => target.GetComponent<ButtonAnimation>() != null,
+            static target => _ = target.AddComponent<ButtonAnimation>());
+
         var labelObject = new GameObject(
             RetainedOverviewLatestRunViewRunPolicy.LabelName,
             typeof(RectTransform));
@@ -1157,6 +1171,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             rect,
             background,
             modifier,
+            button,
             labelRect,
             label,
             presentation);

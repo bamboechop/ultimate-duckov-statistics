@@ -767,7 +767,7 @@ public sealed class StatisticsPanelProjectionTests
 
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(115f, tab.Left);
         Assert.Equal(251f, tab.Top);
@@ -878,7 +878,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, destroyed);
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
     }
@@ -1057,7 +1057,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateSevenBNativeFeedbackScopeIncludesTabsBackAndMainMenuOnly()
+    public void NativeFeedbackScopeIncludesExistingControlsAndLatestRunViewRun()
     {
         Assert.Equal(
             "Duckov.UI.Animations.ButtonAnimation",
@@ -1069,6 +1069,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToRetainedTabs);
         Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToBackButton);
         Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToMainMenuButton);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToLatestRunViewRun);
         Assert.False(NativeButtonInteractionFeedbackPolicy.AppliesToBasePauseMenuButton);
         Assert.True(NativeButtonInteractionFeedbackPolicy.UsesDefaultConfigurationForCreatedComponents);
     }
@@ -1323,7 +1324,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
     }
@@ -2084,7 +2085,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(2, RetainedShellCompositionPolicy.ProfileSummaryStandardRowContentChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.ProfileSummaryEconomyRowContentChildCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.False(RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFirstStatisticsRowEntryPolicy.BlocksRaycasts);
         Assert.True(visibilityStates[0]);
@@ -3049,7 +3050,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(5, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount - 2);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(13, RetainedShellCompositionPolicy.GraphicCount - 70);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.False(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFastestExtractionEntryPolicy.BlocksRaycasts);
         Assert.Equal(StatisticsPanelTab.Overview, RetainedOverviewFastestExtractionRowPolicy.OwnerTab);
@@ -3226,7 +3227,7 @@ public sealed class StatisticsPanelProjectionTests
     {
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunHeadingChildCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(4, RetainedShellCompositionPolicy.OverviewHighlightRowCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewHighlightRowChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewHighlightRowGraphicCount);
@@ -3249,9 +3250,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1330f, RetainedOverviewLatestRunCardPolicy.LeftPixels);
         Assert.Equal(846f, RetainedOverviewLatestRunCardPolicy.TopPixels);
         Assert.Equal(1888f, RetainedOverviewLatestRunCardPolicy.RightExclusivePixels);
-        Assert.Equal(1185f, RetainedOverviewLatestRunCardPolicy.BottomExclusivePixels);
+        Assert.Equal(1195f, RetainedOverviewLatestRunCardPolicy.BottomExclusivePixels);
         Assert.Equal(558f, RetainedOverviewLatestRunCardPolicy.WidthPixels);
-        Assert.Equal(339f, RetainedOverviewLatestRunCardPolicy.HeightPixels);
+        Assert.Equal(349f, RetainedOverviewLatestRunCardPolicy.HeightPixels);
         Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.Red);
         Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.Green);
         Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.Blue);
@@ -3278,12 +3279,12 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1330f, card.Left);
         Assert.Equal(846f, card.Top);
         Assert.Equal(558f, card.Width);
-        Assert.Equal(339f, card.Height);
+        Assert.Equal(349f, card.Height);
         Assert.Equal(20f, card.CornerRadius);
         Assert.Equal(layout.OverviewRightPanel.ContentLeft, card.Left);
         Assert.Equal(heading.Top + 56f, card.Top);
         Assert.Equal(1888f, card.Left + card.Width);
-        Assert.Equal(1185f, card.Top + card.Height);
+        Assert.Equal(1195f, card.Top + card.Height);
     }
 
     [Theory]
@@ -3305,7 +3306,7 @@ public sealed class StatisticsPanelProjectionTests
             card.Top - layout.OverviewLatestRunHeading.Top,
             5);
         Assert.Equal(layout.ReferenceTransform.CanvasLength(558f), card.Width, 5);
-        Assert.Equal(layout.ReferenceTransform.CanvasLength(339f), card.Height, 5);
+        Assert.Equal(layout.ReferenceTransform.CanvasLength(349f), card.Height, 5);
         Assert.Equal(layout.ReferenceTransform.CanvasLength(20f), card.CornerRadius, 5);
     }
 
@@ -3316,7 +3317,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(4, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunHeadingChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
         Assert.Equal(4, RetainedShellCompositionPolicy.OverviewHighlightRowCount);
@@ -3767,7 +3768,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunBadgeLabelChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.OverviewLatestRunBadgeGraphicCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
     }
 
     [Fact]
@@ -4103,7 +4104,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunMapNameChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLatestRunMapNameGraphicCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
     }
 
     [Fact]
@@ -4325,7 +4326,7 @@ public sealed class StatisticsPanelProjectionTests
             {
                 Assert.Equal(1350f, statistics.Left, 5);
                 Assert.Equal(916f, statistics.Top, 5);
-                Assert.Equal(66f,
+                Assert.Equal(76f,
                     layout.OverviewLatestRunCard.Top + layout.OverviewLatestRunCard.Height
                     - statistics.Top - statistics.Height,
                     5);
@@ -4382,7 +4383,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunStatisticsChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLatestRunStatisticsGraphicCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
     }
 
@@ -4507,6 +4508,12 @@ public sealed class StatisticsPanelProjectionTests
                 layout.OverviewLatestRunCard.Top + layout.OverviewLatestRunCard.Height,
                 viewRun.Top + viewRun.Height + transform.CanvasLength(20f),
                 5);
+            var previousViewRunTop = layout.OverviewLatestRunCard.Top
+                + transform.CanvasLength(339f - 20f - 50f);
+            Assert.Equal(
+                previousViewRunTop + transform.CanvasLength(10f),
+                viewRun.Top,
+                4);
             Assert.Equal(transform.CanvasLength(135f), viewRun.Width, 5);
             Assert.Equal(transform.CanvasLength(50f), viewRun.Height, 5);
             Assert.Equal(transform.CanvasLength(25f), viewRun.CornerRadius, 5);
@@ -4518,9 +4525,12 @@ public sealed class StatisticsPanelProjectionTests
             if (viewportWidth == 2560f && viewportHeight == 1440f && canvasScaleFactor == 1f)
             {
                 Assert.Equal(1350f, viewRun.Left, 5);
-                Assert.Equal(1115f, viewRun.Top, 5);
+                Assert.Equal(1125f, viewRun.Top, 5);
                 Assert.Equal(135f, viewRun.Width, 5);
-                Assert.Equal(1165f, viewRun.Top + viewRun.Height, 5);
+                Assert.Equal(1175f, viewRun.Top + viewRun.Height, 5);
+                Assert.Equal(1195f,
+                    layout.OverviewLatestRunCard.Top + layout.OverviewLatestRunCard.Height,
+                    5);
             }
         }
     }
@@ -4587,7 +4597,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateTwentyFourIsOnePresentationalPillWithNoInteractionOrPlaceholderAction()
+    public void GateTwentyFourUsesOneEnabledNativeFeedbackButtonWithoutFunctionalActivation()
     {
         Assert.Equal("OverviewLatestRunViewRun", RetainedOverviewLatestRunViewRunPolicy.Name);
         Assert.Equal("OverviewLatestRunCard", RetainedOverviewLatestRunViewRunPolicy.ParentName);
@@ -4608,7 +4618,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(RetainedOverviewLatestRunViewRunPolicy.HasSprite);
         Assert.True(RetainedOverviewLatestRunViewRunPolicy.UsesSimpleImageType);
         Assert.False(RetainedOverviewLatestRunViewRunPolicy.HasBackgroundShadow);
-        Assert.False(RetainedOverviewLatestRunViewRunPolicy.BackgroundBlocksRaycasts);
+        Assert.True(RetainedOverviewLatestRunViewRunPolicy.BackgroundBlocksRaycasts);
         Assert.False(RetainedOverviewLatestRunViewRunPolicy.LabelBlocksRaycasts);
         Assert.Equal(0f, RetainedOverviewLatestRunViewRunPolicy.CharacterSpacing);
         Assert.Equal(0f, RetainedOverviewLatestRunViewRunPolicy.WordSpacing);
@@ -4620,11 +4630,25 @@ public sealed class StatisticsPanelProjectionTests
         Assert.True(RetainedOverviewLatestRunViewRunPolicy.UsesRegularWeight);
         Assert.True(RetainedOverviewLatestRunViewRunPolicy.UsesNativeHorizontalMetrics);
         Assert.True(RetainedOverviewLatestRunViewRunPolicy.UsesOwnedSubtleShadowMaterial);
-        Assert.False(RetainedOverviewLatestRunViewRunPolicy.HasInteraction);
-        Assert.False(RetainedOverviewLatestRunViewRunPolicy.HasButton);
-        Assert.False(RetainedOverviewLatestRunViewRunPolicy.UsesButtonAnimation);
+        Assert.True(RetainedOverviewLatestRunViewRunPolicy.HasInteraction);
+        Assert.True(RetainedOverviewLatestRunViewRunPolicy.HasButton);
+        Assert.True(RetainedOverviewLatestRunViewRunPolicy.UsesButtonAnimation);
+        Assert.True(RetainedOverviewLatestRunViewRunPolicy.IsInteractable);
+        Assert.True(RetainedOverviewLatestRunViewRunPolicy.TargetsExistingProceduralImage);
+        Assert.True(RetainedOverviewLatestRunViewRunPolicy.UsesTransitionNone);
+        Assert.True(RetainedOverviewLatestRunViewRunPolicy.NavigationIsDisabled);
+        Assert.True(RetainedOverviewLatestRunViewRunPolicy.UsesFreshButtonClickedEvent);
+        Assert.True(RetainedOverviewLatestRunViewRunPolicy.UsesSharedSafeNativeFeedbackPolicy);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToRetainedTabs);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToBackButton);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToMainMenuButton);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToLatestRunViewRun);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.UsesDefaultConfigurationForCreatedComponents);
+        Assert.False(NativeButtonInteractionFeedbackPolicy.SynthesizesAudio);
         Assert.False(RetainedOverviewLatestRunViewRunPolicy.RegistersListener);
+        Assert.Equal(0, RetainedOverviewLatestRunViewRunPolicy.RegisteredUdsCallbackCount);
         Assert.False(RetainedOverviewLatestRunViewRunPolicy.HasSelectableTransition);
+        Assert.False(RetainedOverviewLatestRunViewRunPolicy.HasFunctionalActivation);
         Assert.True(RetainedOverviewLatestRunViewRunPolicy.PreservesExactLatestRunReference);
         Assert.True(RetainedOverviewLatestRunViewRunPolicy.IntendedForLaterActivation);
         Assert.False(RetainedOverviewLatestRunViewRunPolicy.HasGateTwentyFiveContent);
@@ -4645,7 +4669,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunViewRunLabelChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunViewRunGraphicCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
     }
 
@@ -4659,6 +4683,8 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("Distance: 271.24m", statistics.DisplayLines[2]);
         Assert.Equal(203f, RetainedOverviewLatestRunStatisticsPolicy.HeightPixels);
         Assert.Equal(29f, RetainedOverviewLatestRunStatisticsPolicy.LineStepPixels);
+        Assert.Equal(349f, RetainedOverviewLatestRunCardPolicy.HeightPixels);
+        Assert.Equal(1195f, RetainedOverviewLatestRunCardPolicy.BottomExclusivePixels);
         Assert.False(RetainedOverviewLatestRunStatisticsPolicy.HasGateTwentyFourContent);
         Assert.False(RetainedOverviewLatestRunViewRunPolicy.HasGateTwentyFiveContent);
     }
@@ -4890,7 +4916,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
     }
@@ -5149,7 +5175,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionValueChildCount);
         Assert.Equal(83, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
     }

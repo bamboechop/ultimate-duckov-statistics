@@ -604,6 +604,7 @@ internal static class NativeButtonInteractionFeedbackPolicy
     public const bool AppliesToRetainedTabs = true;
     public const bool AppliesToBackButton = true;
     public const bool AppliesToMainMenuButton = true;
+    public const bool AppliesToLatestRunViewRun = true;
     public const bool AppliesToBasePauseMenuButton = false;
     public const bool UsesDefaultConfigurationForCreatedComponents = true;
 
@@ -2310,9 +2311,9 @@ internal static class RetainedOverviewLatestRunCardPolicy
     public const float LeftPixels = 1330f;
     public const float TopPixels = 846f;
     public const float RightExclusivePixels = 1888f;
-    public const float BottomExclusivePixels = 1185f;
+    public const float BottomExclusivePixels = 1195f;
     public const float WidthPixels = 558f;
-    public const float HeightPixels = 339f;
+    public const float HeightPixels = 349f;
     public const float Red = RetainedOverviewPanelStylePolicy.Red;
     public const float Green = RetainedOverviewPanelStylePolicy.Green;
     public const float Blue = RetainedOverviewPanelStylePolicy.Blue;
@@ -3106,7 +3107,7 @@ internal static class RetainedOverviewLatestRunViewRunPolicy
     public const bool HasSprite = false;
     public const bool UsesSimpleImageType = true;
     public const bool HasBackgroundShadow = false;
-    public const bool BackgroundBlocksRaycasts = false;
+    public const bool BackgroundBlocksRaycasts = true;
     public const bool LabelBlocksRaycasts = false;
     public const bool WordWrapping = false;
     public const bool AutoSizing = false;
@@ -3117,11 +3118,19 @@ internal static class RetainedOverviewLatestRunViewRunPolicy
     public const bool UsesRegularWeight = true;
     public const bool UsesNativeHorizontalMetrics = true;
     public const bool UsesOwnedSubtleShadowMaterial = true;
-    public const bool HasInteraction = false;
-    public const bool HasButton = false;
-    public const bool UsesButtonAnimation = false;
+    public const bool HasInteraction = true;
+    public const bool HasButton = true;
+    public const bool UsesButtonAnimation = true;
+    public const bool IsInteractable = true;
+    public const bool TargetsExistingProceduralImage = true;
+    public const bool UsesTransitionNone = true;
+    public const bool NavigationIsDisabled = true;
+    public const bool UsesFreshButtonClickedEvent = true;
+    public const bool UsesSharedSafeNativeFeedbackPolicy = true;
     public const bool RegistersListener = false;
+    public const int RegisteredUdsCallbackCount = 0;
     public const bool HasSelectableTransition = false;
+    public const bool HasFunctionalActivation = false;
     public const bool PreservesExactLatestRunReference = true;
     public const bool IntendedForLaterActivation = true;
     public const bool HasGateTwentyFiveContent = false;
@@ -3753,7 +3762,7 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewFastestExtractionLabelChildCount = 0;
     public const int OverviewFastestExtractionValueChildCount = 0;
     public const int GraphicCount = 83;
-    public const int ButtonCount = 10;
+    public const int ButtonCount = 11;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
 }
