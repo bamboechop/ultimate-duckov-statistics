@@ -7,7 +7,7 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 21.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 22.
 /// The root graphic remains the modal dimmer; its children are the frozen header controls and tab-owned views.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
@@ -160,6 +160,23 @@ internal sealed class RetainedStatisticsShell : IDisposable
         }
     }
 
+    private sealed class RetainedLatestRunMapControl
+    {
+        public RetainedLatestRunMapControl(
+            RectTransform rect,
+            TextMeshProUGUI label,
+            RetainedLatestRunMapPresentation presentation)
+        {
+            Rect = rect;
+            Label = label;
+            Presentation = presentation;
+        }
+
+        public RectTransform Rect { get; }
+        public TextMeshProUGUI Label { get; }
+        public RetainedLatestRunMapPresentation Presentation { get; }
+    }
+
     private GameObject? root;
     private Canvas? canvas;
     private RectTransform? shellRoot;
@@ -196,6 +213,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RectTransform? overviewLatestRunCardRect;
     private UniformModifier? overviewLatestRunCardModifier;
     private RetainedRunBadgeControl? overviewLatestRunBadge;
+    private RetainedLatestRunMapControl? overviewLatestRunMapName;
     private readonly List<RetainedOverviewHighlightRowControl> overviewHighlightRows = new();
     private readonly List<RetainedStatisticsRowControl> overviewProfileSummaryRows = new();
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
@@ -288,6 +306,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var createdOverviewLatestRunCardRect,
                 out var createdOverviewLatestRunCardModifier,
                 out var createdOverviewLatestRunBadge,
+                out var createdOverviewLatestRunMapName,
                 out var createdOverviewHighlightRows,
                 out var createdOverviewProfileSummaryRows,
                 projection);
@@ -306,6 +325,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewLatestRunCardRect = createdOverviewLatestRunCardRect;
             overviewLatestRunCardModifier = createdOverviewLatestRunCardModifier;
             overviewLatestRunBadge = createdOverviewLatestRunBadge;
+            overviewLatestRunMapName = createdOverviewLatestRunMapName;
             overviewHighlightRows.AddRange(createdOverviewHighlightRows);
             overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
             overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
@@ -465,6 +485,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         out RectTransform latestRunCardRect,
         out UniformModifier latestRunCardModifier,
         out RetainedRunBadgeControl latestRunBadge,
+        out RetainedLatestRunMapControl latestRunMapName,
         out List<RetainedOverviewHighlightRowControl> highlightRows,
         out List<RetainedStatisticsRowControl> profileSummaryRows,
         StatisticsPanelProjection projection)
@@ -531,6 +552,14 @@ internal sealed class RetainedStatisticsShell : IDisposable
         latestRunBadge = CreateOverviewLatestRunBadge(
             latestRunCardRect,
             runBadgePresentation,
+            typography,
+            headingMaterial);
+        var latestRunMapPresentation = RetainedLatestRunMapPresentationFactory.Create(
+            runBadgePresentation,
+            UiText.Get);
+        latestRunMapName = CreateOverviewLatestRunMapName(
+            latestRunCardRect,
+            latestRunMapPresentation,
             typography,
             headingMaterial);
         return view;
@@ -908,6 +937,48 @@ internal sealed class RetainedStatisticsShell : IDisposable
         {
             return false;
         }
+    }
+
+    private static RetainedLatestRunMapControl CreateOverviewLatestRunMapName(
+        RectTransform parent,
+        RetainedLatestRunMapPresentation presentation,
+        NativeHeaderTitleTypography typography,
+        Material material)
+    {
+        var mapNameObject = new GameObject(
+            RetainedOverviewLatestRunMapNamePolicy.Name,
+            typeof(RectTransform));
+        var rect = (RectTransform)mapNameObject.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        var label = mapNameObject.AddComponent<TextMeshProUGUI>();
+        label.font = typography.Font;
+        label.fontSharedMaterial = material;
+        label.text = presentation.MapName;
+        label.fontStyle = FontStyles.Normal;
+        label.fontWeight = FontWeight.Regular;
+        label.characterSpacing = RetainedOverviewLatestRunMapNamePolicy.CharacterSpacing;
+        label.wordSpacing = RetainedOverviewLatestRunMapNamePolicy.WordSpacing;
+        label.lineSpacing = RetainedOverviewLatestRunMapNamePolicy.LineSpacing;
+        label.paragraphSpacing = RetainedOverviewLatestRunMapNamePolicy.ParagraphSpacing;
+        label.alignment = TextAlignmentOptions.MidlineLeft;
+        label.enableWordWrapping = RetainedOverviewLatestRunMapNamePolicy.WordWrapping;
+        label.enableAutoSizing = RetainedOverviewLatestRunMapNamePolicy.AutoSizing;
+        label.overflowMode = TextOverflowModes.Ellipsis;
+        label.margin = Vector4.zero;
+        label.color = new Color(
+            RetainedOverviewLatestRunMapNamePolicy.Red,
+            RetainedOverviewLatestRunMapNamePolicy.Green,
+            RetainedOverviewLatestRunMapNamePolicy.Blue,
+            RetainedOverviewLatestRunMapNamePolicy.Alpha);
+        label.raycastTarget = RetainedOverviewLatestRunMapNamePolicy.BlocksRaycasts;
+
+        mapNameObject.SetActive(presentation.IsVisible);
+        return new RetainedLatestRunMapControl(rect, label, presentation);
     }
 
     private static RetainedStatisticsRowControl CreateOverviewStatisticsRow(
@@ -1300,6 +1371,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewLatestRunCardRect == null
             || overviewLatestRunCardModifier == null
             || overviewLatestRunBadge == null
+            || overviewLatestRunMapName == null
             || overviewHighlightRows.Count != RetainedOverviewHighlightsRowsPolicy.RowCount
             || overviewProfileSummaryRows.Count != RetainedProfileSummaryRowsPolicy.RowCount)
         {
@@ -1359,6 +1431,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var latestRunHeadingGraphic = overviewLatestRunHeadingGraphic!;
         var latestRunCardRect = overviewLatestRunCardRect!;
         var latestRunCardModifier = overviewLatestRunCardModifier!;
+        var latestRunMapNameControl = overviewLatestRunMapName!;
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
@@ -1521,6 +1594,19 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 latestRunBadgeLayout.LabelWidth,
                 latestRunBadgeLayout.LabelHeight);
             latestRunBadgeControl.Label.fontSize = latestRunBadgeLayout.FontSize;
+        }
+        var latestRunMapNameLayout = layout.OverviewLatestRunMapName;
+        latestRunMapNameControl.Rect.gameObject.SetActive(
+            latestRunMapNameControl.Presentation.IsVisible && latestRunMapNameLayout != null);
+        if (latestRunMapNameLayout != null)
+        {
+            latestRunMapNameControl.Rect.anchoredPosition = new Vector2(
+                latestRunMapNameLayout.Left - layout.OverviewLatestRunCard.Left,
+                -(latestRunMapNameLayout.Top - layout.OverviewLatestRunCard.Top));
+            latestRunMapNameControl.Rect.sizeDelta = new Vector2(
+                latestRunMapNameLayout.Width,
+                latestRunMapNameLayout.Height);
+            latestRunMapNameControl.Label.fontSize = latestRunMapNameLayout.FontSize;
         }
         for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
             ApplyStatisticsRowLayout(
@@ -1719,6 +1805,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         overviewLatestRunCardModifier = null;
         overviewLatestRunBadge?.Dispose();
         overviewLatestRunBadge = null;
+        overviewLatestRunMapName = null;
         overviewHighlightRows.Clear();
         overviewProfileSummaryRows.Clear();
         lastAppliedVisualLayout = null;

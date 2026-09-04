@@ -2671,6 +2671,121 @@ internal static class RetainedOverviewLatestRunBadgePolicy
     }
 }
 
+internal sealed class RetainedLatestRunMapPresentation
+{
+    public bool IsVisible { get; set; }
+    public RunSummary? LatestRun { get; set; }
+    public string MapName { get; set; } = string.Empty;
+}
+
+internal static class RetainedLatestRunMapPresentationFactory
+{
+    public static RetainedLatestRunMapPresentation Create(
+        RetainedRunBadgePresentation runBadgePresentation,
+        Func<string, string> text)
+    {
+        if (runBadgePresentation == null) throw new ArgumentNullException(nameof(runBadgePresentation));
+        if (text == null) throw new ArgumentNullException(nameof(text));
+        if (!runBadgePresentation.IsVisible || runBadgePresentation.LatestRun == null)
+            return new RetainedLatestRunMapPresentation { IsVisible = false };
+
+        var latestRun = runBadgePresentation.LatestRun;
+        return new RetainedLatestRunMapPresentation
+        {
+            IsVisible = true,
+            LatestRun = latestRun,
+            MapName = ResolveMapName(latestRun, text)
+        };
+    }
+
+    private static string ResolveMapName(RunSummary run, Func<string, string> text)
+    {
+        if (HasKnownDisplayName(run.StartingMapKnown, run.StartingMapDisplayName))
+            return run.StartingMapDisplayName;
+        if (HasKnownDisplayName(run.MapKnown, run.MapDisplayName))
+            return run.MapDisplayName;
+        return text(RetainedOverviewLatestRunMapNamePolicy.UnknownMapTextKey);
+    }
+
+    private static bool HasKnownDisplayName(bool isKnown, string? displayName) =>
+        isKnown
+        && !string.IsNullOrWhiteSpace(displayName)
+        && !string.Equals(
+            displayName.Trim(),
+            MapIdentity.UnknownDisplayName,
+            StringComparison.OrdinalIgnoreCase);
+}
+
+internal sealed class RetainedOverviewLatestRunMapNameCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float FontSize { get; set; }
+}
+
+internal static class RetainedOverviewLatestRunMapNamePolicy
+{
+    public const string Name = "OverviewLatestRunMapName";
+    public const string ParentName = RetainedOverviewLatestRunCardPolicy.Name;
+    public const string UnknownMapTextKey = "ui.overview_latest_run_unknown_map";
+    public const string UnknownMapEnglishFallback = MapIdentity.UnknownDisplayName;
+    public const string FontAssetName = RetainedOverviewFirstStatisticsRowEntryPolicy.FontAssetName;
+    public const string MaterialName = RetainedOverviewFirstStatisticsRowEntryPolicy.MaterialName;
+    public const float GapAfterBadgePixels = 20f;
+    public const float RightInsetPixels = 20f;
+    public const float HeightPixels = 30f;
+    public const float ReferenceFontSize = RetainedOverviewFirstStatisticsRowEntryPolicy.ReferenceFontSize;
+    public const float Red = RetainedOverviewFirstStatisticsRowEntryPolicy.Red;
+    public const float Green = RetainedOverviewFirstStatisticsRowEntryPolicy.Green;
+    public const float Blue = RetainedOverviewFirstStatisticsRowEntryPolicy.Blue;
+    public const float Alpha = RetainedOverviewFirstStatisticsRowEntryPolicy.Alpha;
+    public const float CharacterSpacing = RetainedOverviewFirstStatisticsRowEntryPolicy.CharacterSpacing;
+    public const float WordSpacing = RetainedOverviewFirstStatisticsRowEntryPolicy.WordSpacing;
+    public const float LineSpacing = RetainedOverviewFirstStatisticsRowEntryPolicy.LineSpacing;
+    public const float ParagraphSpacing = RetainedOverviewFirstStatisticsRowEntryPolicy.ParagraphSpacing;
+    public const float HorizontalScale = 1f;
+    public const bool BlocksRaycasts = false;
+    public const bool WordWrapping = false;
+    public const bool AutoSizing = false;
+    public const bool UsesEllipsisOverflow = true;
+    public const bool UsesZeroTextMargins = true;
+    public const bool UsesLeftAlignment = true;
+    public const bool UsesVerticalCentering = true;
+    public const bool UsesNormalStyle = true;
+    public const bool UsesRegularWeight = true;
+    public const bool UsesNativeHorizontalMetrics = true;
+    public const bool UsesOwnedSubtleShadowMaterial = true;
+    public const bool HasInteraction = false;
+    public const bool HasButton = false;
+    public const bool UsesButtonAnimation = false;
+    public const bool HasLaterGateContent = false;
+
+    public static RetainedOverviewLatestRunMapNameCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewLatestRunCardCanvasLayout card,
+        RetainedRunBadgeCanvasLayout badge)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (card == null) throw new ArgumentNullException(nameof(card));
+        if (badge == null) throw new ArgumentNullException(nameof(badge));
+
+        var left = badge.Left + badge.Width + referenceTransform.CanvasLength(GapAfterBadgePixels);
+        var right = card.Left + card.Width - referenceTransform.CanvasLength(RightInsetPixels);
+        return new RetainedOverviewLatestRunMapNameCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = left,
+            Top = badge.Top,
+            Width = Math.Max(0f, right - left),
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize)
+        };
+    }
+}
+
 internal static class RetainedRunBadgeProceduralIconPolicy
 {
     public static int GetTextureWidth(RetainedRunBadgeIconKind iconKind) => iconKind switch
@@ -2959,6 +3074,7 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedOverviewLatestRunHeadingCanvasLayout OverviewLatestRunHeading { get; set; } = null!;
     public RetainedOverviewLatestRunCardCanvasLayout OverviewLatestRunCard { get; set; } = null!;
     public RetainedRunBadgeCanvasLayout? OverviewLatestRunBadge { get; set; }
+    public RetainedOverviewLatestRunMapNameCanvasLayout? OverviewLatestRunMapName { get; set; }
     public IReadOnlyList<RetainedOverviewFastestExtractionRowCanvasLayout> OverviewHighlightRows { get; set; } =
         Array.Empty<RetainedOverviewFastestExtractionRowCanvasLayout>();
     public IReadOnlyList<RetainedTwoColumnStatisticsRowCanvasLayout> OverviewHighlightEntries { get; set; } =
@@ -3056,6 +3172,12 @@ internal static class RetainedVisualLayoutPolicy
                 badgeState.Value,
                 preferredBadgeLabelWidth)
             : null;
+        var overviewLatestRunMapName = overviewLatestRunBadge == null
+            ? null
+            : RetainedOverviewLatestRunMapNamePolicy.CreateCanvasLayout(
+                referenceTransform,
+                overviewLatestRunCard,
+                overviewLatestRunBadge);
         var overviewFastestExtractionRow = overviewHighlightRows[0];
         var overviewFastestExtractionEntry = overviewHighlightEntries[0];
         var overviewProfileSummaryRows = RetainedProfileSummaryRowsPolicy.CreateCanvasLayouts(
@@ -3133,6 +3255,7 @@ internal static class RetainedVisualLayoutPolicy
             OverviewLatestRunHeading = overviewLatestRunHeading,
             OverviewLatestRunCard = overviewLatestRunCard,
             OverviewLatestRunBadge = overviewLatestRunBadge,
+            OverviewLatestRunMapName = overviewLatestRunMapName,
             OverviewHighlightRows = overviewHighlightRows,
             OverviewHighlightEntries = overviewHighlightEntries,
             OverviewFastestExtractionRow = overviewFastestExtractionRow,
@@ -3177,11 +3300,13 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewRightPanelContentChildCount = 7;
     public const int OverviewHighlightsHeadingChildCount = 0;
     public const int OverviewLatestRunHeadingChildCount = 0;
-    public const int OverviewLatestRunCardChildCount = 1;
+    public const int OverviewLatestRunCardChildCount = 2;
     public const int OverviewLatestRunBadgeChildCount = 2;
     public const int OverviewLatestRunBadgeIconChildCount = 0;
     public const int OverviewLatestRunBadgeLabelChildCount = 0;
     public const int OverviewLatestRunBadgeGraphicCount = 3;
+    public const int OverviewLatestRunMapNameChildCount = 0;
+    public const int OverviewLatestRunMapNameGraphicCount = 1;
     public const int OverviewHighlightRowCount = 4;
     public const int OverviewHighlightRowChildCount = 2;
     public const int OverviewHighlightRowGraphicCount = 1;
@@ -3189,7 +3314,7 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewFastestExtractionRowGraphicCount = OverviewHighlightRowGraphicCount;
     public const int OverviewFastestExtractionLabelChildCount = 0;
     public const int OverviewFastestExtractionValueChildCount = 0;
-    public const int GraphicCount = 79;
+    public const int GraphicCount = 80;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;

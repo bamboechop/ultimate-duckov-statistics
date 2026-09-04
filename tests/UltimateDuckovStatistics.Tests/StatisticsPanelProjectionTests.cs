@@ -766,7 +766,7 @@ public sealed class StatisticsPanelProjectionTests
         var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
 
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(79, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(80, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(115f, tab.Left);
@@ -877,7 +877,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(owned.IsDisposed);
         Assert.Equal(0, destroyed);
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(79, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(80, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
@@ -1322,7 +1322,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
         Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
-        Assert.Equal(79, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(80, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -2083,7 +2083,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(12, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.ProfileSummaryStandardRowContentChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.ProfileSummaryEconomyRowContentChildCount);
-        Assert.Equal(79, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(80, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.False(RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFirstStatisticsRowEntryPolicy.BlocksRaycasts);
@@ -3047,8 +3047,8 @@ public sealed class StatisticsPanelProjectionTests
             * RetainedShellCompositionPolicy.OverviewHighlightRowGraphicCount);
         Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(5, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount - 2);
-        Assert.Equal(79, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(9, RetainedShellCompositionPolicy.GraphicCount - 70);
+        Assert.Equal(80, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.GraphicCount - 70);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.False(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFastestExtractionEntryPolicy.BlocksRaycasts);
@@ -3314,8 +3314,8 @@ public sealed class StatisticsPanelProjectionTests
     {
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
-        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
-        Assert.Equal(79, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
+        Assert.Equal(80, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunHeadingChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
@@ -3646,7 +3646,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Null(presentation.Specification);
         Assert.Empty(presentation.Label);
         Assert.Null(layout.OverviewLatestRunBadge);
-        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunBadgeChildCount);
     }
 
@@ -3761,12 +3761,341 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(RetainedRunBadgePolicy.LabelBlocksRaycasts);
         Assert.False(RetainedRunBadgePolicy.HasInteraction);
         Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
-        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunBadgeChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunBadgeIconChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunBadgeLabelChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.OverviewLatestRunBadgeGraphicCount);
-        Assert.Equal(79, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(80, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+    }
+
+    [Fact]
+    public void GateTwentyTwoUsesTheExactGateTwentyOneNewestProjectedRun()
+    {
+        var newestFirstRuns = new[]
+        {
+            new RunSummary
+            {
+                RunId = "projected-first",
+                Outcome = RunOutcome.Extracted,
+                StartingMapKnown = true,
+                StartingMapDisplayName = "Ground Zero"
+            },
+            new RunSummary
+            {
+                RunId = "projected-second",
+                Outcome = RunOutcome.Died,
+                StartingMapKnown = true,
+                StartingMapDisplayName = "Farm Town"
+            }
+        };
+        var projection = new StatisticsPanelProjection
+        {
+            Runs = new RunStatisticsViewModel { Runs = newestFirstRuns }
+        };
+
+        var badge = RetainedRunBadgePresentationFactory.Create(projection, UiText.Get);
+        var map = RetainedLatestRunMapPresentationFactory.Create(badge, UiText.Get);
+
+        Assert.Same(newestFirstRuns, projection.Runs.Runs);
+        Assert.Same(newestFirstRuns[0], badge.LatestRun);
+        Assert.Same(badge.LatestRun, map.LatestRun);
+        Assert.Equal("Ground Zero", map.MapName);
+    }
+
+    [Fact]
+    public void GateTwentyTwoStartingMapWinsOverLegacyEndingAndMultiMapRouteValues()
+    {
+        var run = new RunSummary
+        {
+            Outcome = RunOutcome.Extracted,
+            StartingMapKnown = true,
+            StartingMapDisplayName = "Ground Zero",
+            MapKnown = true,
+            MapDisplayName = "Legacy root map",
+            EndingMapKnown = true,
+            EndingMapDisplayName = "Farm Town",
+            Segments = new List<MapSegmentSummary>
+            {
+                new() { MapKnown = true, MapDisplayName = "Ground Zero" },
+                new() { MapKnown = true, MapDisplayName = "Farm Town" }
+            }
+        };
+        var projection = new StatisticsPanelProjection
+        {
+            Runs = new RunStatisticsViewModel { Runs = new[] { run } }
+        };
+
+        var badge = RetainedRunBadgePresentationFactory.Create(projection, UiText.Get);
+        var map = RetainedLatestRunMapPresentationFactory.Create(badge, UiText.Get);
+
+        Assert.Equal("Ground Zero", map.MapName);
+        Assert.Equal("Ground Zero", run.StartingMapDisplayName);
+        Assert.Equal("Farm Town", run.EndingMapDisplayName);
+        Assert.Collection(
+            run.Segments,
+            segment => Assert.Equal("Ground Zero", segment.MapDisplayName),
+            segment => Assert.Equal("Farm Town", segment.MapDisplayName));
+    }
+
+    [Theory]
+    [InlineData(false, "Unknown map")]
+    [InlineData(true, "")]
+    [InlineData(true, "   ")]
+    [InlineData(true, "UNKNOWN MAP")]
+    public void GateTwentyTwoUsesLegacyRootMapFallbackWhenStartingIdentityIsUnavailable(
+        bool startingMapKnown,
+        string startingMapDisplayName)
+    {
+        var run = new RunSummary
+        {
+            StartingMapKnown = startingMapKnown,
+            StartingMapDisplayName = startingMapDisplayName,
+            MapKnown = true,
+            MapDisplayName = "Legacy Ground Zero"
+        };
+        var projection = new StatisticsPanelProjection
+        {
+            Runs = new RunStatisticsViewModel { Runs = new[] { run } }
+        };
+
+        var badge = RetainedRunBadgePresentationFactory.Create(projection, UiText.Get);
+        var map = RetainedLatestRunMapPresentationFactory.Create(badge, UiText.Get);
+
+        Assert.True(map.IsVisible);
+        Assert.Same(run, map.LatestRun);
+        Assert.Equal("Legacy Ground Zero", map.MapName);
+    }
+
+    [Fact]
+    public void GateTwentyTwoUnknownOrBlankMapIdentityUsesLocalizedUnknownMapFallback()
+    {
+        var invalidIdentities = new[]
+        {
+            new RunSummary
+            {
+                StartingMapKnown = false,
+                StartingMapDisplayName = "Ground Zero",
+                MapKnown = false,
+                MapDisplayName = "Farm Town"
+            },
+            new RunSummary
+            {
+                StartingMapKnown = true,
+                StartingMapDisplayName = " ",
+                MapKnown = true,
+                MapDisplayName = ""
+            },
+            new RunSummary
+            {
+                StartingMapKnown = true,
+                StartingMapDisplayName = "Unknown map",
+                MapKnown = true,
+                MapDisplayName = "unknown MAP"
+            }
+        };
+
+        foreach (var run in invalidIdentities)
+        {
+            var requestedKeys = new List<string>();
+            var projection = new StatisticsPanelProjection
+            {
+                Runs = new RunStatisticsViewModel { Runs = new[] { run } }
+            };
+            var badge = RetainedRunBadgePresentationFactory.Create(projection, UiText.Get);
+            var map = RetainedLatestRunMapPresentationFactory.Create(
+                badge,
+                key =>
+                {
+                    requestedKeys.Add(key);
+                    return "Localized unknown map";
+                });
+
+            Assert.Equal("Localized unknown map", map.MapName);
+            Assert.Equal(
+                RetainedOverviewLatestRunMapNamePolicy.UnknownMapTextKey,
+                Assert.Single(requestedKeys));
+        }
+
+        Assert.Equal(
+            "Unknown map",
+            UiText.Resolve(RetainedOverviewLatestRunMapNamePolicy.UnknownMapTextKey, _ => null));
+    }
+
+    [Fact]
+    public void GateTwentyTwoInterruptedOutcomeCanStillDisplayAKnownStartingMap()
+    {
+        var run = new RunSummary
+        {
+            Outcome = RunOutcome.Interrupted,
+            StartingMapKnown = true,
+            StartingMapDisplayName = "Ground Zero"
+        };
+        var projection = new StatisticsPanelProjection
+        {
+            Runs = new RunStatisticsViewModel { Runs = new[] { run } }
+        };
+
+        var badge = RetainedRunBadgePresentationFactory.Create(projection, UiText.Get);
+        var map = RetainedLatestRunMapPresentationFactory.Create(badge, UiText.Get);
+
+        Assert.Equal(RetainedRunBadgeState.Unknown, badge.State);
+        Assert.Equal("Ground Zero", map.MapName);
+        Assert.Same(run, map.LatestRun);
+        Assert.Equal(RunOutcome.Interrupted, run.Outcome);
+    }
+
+    [Fact]
+    public void GateTwentyTwoNoRunsHideBadgeAndMapWithoutFabricatingData()
+    {
+        var projection = new StatisticsPanelProjection
+        {
+            Runs = new RunStatisticsViewModel { Runs = Array.Empty<RunSummary>() }
+        };
+
+        var badge = RetainedRunBadgePresentationFactory.Create(projection, UiText.Get);
+        var map = RetainedLatestRunMapPresentationFactory.Create(badge, UiText.Get);
+        var layout = RetainedVisualLayoutPolicy.Create(
+            RetainedReferenceTransformPolicy.Create(2560f, 1440f, 1f),
+            RetainedTabStripPolicy.AuditedEnglishPreferredWidths);
+
+        Assert.False(badge.IsVisible);
+        Assert.False(map.IsVisible);
+        Assert.Null(badge.LatestRun);
+        Assert.Null(map.LatestRun);
+        Assert.Empty(map.MapName);
+        Assert.Null(layout.OverviewLatestRunBadge);
+        Assert.Null(layout.OverviewLatestRunMapName);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f)]
+    [InlineData(1680f, 1050f)]
+    [InlineData(1920f, 1200f)]
+    [InlineData(2560f, 1440f)]
+    public void GateTwentyTwoFlowsMapNameFromActualBadgeWidthUsingSharedTransform(
+        float viewportWidth,
+        float viewportHeight)
+    {
+        var transform = RetainedReferenceTransformPolicy.Create(viewportWidth, viewportHeight, 1f);
+
+        foreach (var specification in RetainedRunBadgePolicy.Specifications)
+        {
+            var layout = RetainedVisualLayoutPolicy.Create(
+                transform,
+                RetainedTabStripPolicy.AuditedEnglishPreferredWidths,
+                specification.State,
+                specification.MockEquivalentPreferredLabelWidthPixels);
+            var badge = Assert.IsType<RetainedRunBadgeCanvasLayout>(layout.OverviewLatestRunBadge);
+            var map = Assert.IsType<RetainedOverviewLatestRunMapNameCanvasLayout>(
+                layout.OverviewLatestRunMapName);
+
+            Assert.Same(transform, map.ReferenceTransform);
+            Assert.Equal(
+                transform.CanvasLength(20f),
+                map.Left - badge.Left - badge.Width,
+                5);
+            Assert.Equal(badge.Top, map.Top, 5);
+            Assert.Equal(transform.CanvasLength(30f), map.Height, 5);
+            Assert.Equal(transform.CanvasLength(29.8f), map.FontSize, 5);
+            Assert.Equal(
+                layout.OverviewLatestRunCard.Left
+                + layout.OverviewLatestRunCard.Width
+                - transform.CanvasLength(20f),
+                map.Left + map.Width,
+                5);
+            Assert.True(map.Width >= 0f);
+
+            if (viewportWidth == 2560f && viewportHeight == 1440f)
+            {
+                var expectedLeft = specification.State == RetainedRunBadgeState.Died ? 1449f : 1502f;
+                Assert.Equal(expectedLeft, map.Left, 5);
+                Assert.Equal(866f, map.Top, 5);
+                Assert.Equal(30f, map.Height, 5);
+            }
+        }
+    }
+
+    [Fact]
+    public void GateTwentyTwoLongMapNamesRemainBoundedAndNonFatal()
+    {
+        var longMapName = new string('M', 4096);
+        var run = new RunSummary
+        {
+            StartingMapKnown = true,
+            StartingMapDisplayName = longMapName
+        };
+        var projection = new StatisticsPanelProjection
+        {
+            Runs = new RunStatisticsViewModel { Runs = new[] { run } }
+        };
+        var badgePresentation = RetainedRunBadgePresentationFactory.Create(projection, UiText.Get);
+        var mapPresentation = RetainedLatestRunMapPresentationFactory.Create(badgePresentation, UiText.Get);
+        var transform = RetainedReferenceTransformPolicy.Create(1280f, 720f, 1f);
+        var layout = RetainedVisualLayoutPolicy.Create(
+            transform,
+            RetainedTabStripPolicy.AuditedEnglishPreferredWidths,
+            RetainedRunBadgeState.Extracted,
+            RetainedRunBadgePolicy.ResolveSpecification(RetainedRunBadgeState.Extracted)
+                .MockEquivalentPreferredLabelWidthPixels);
+        var mapLayout = Assert.IsType<RetainedOverviewLatestRunMapNameCanvasLayout>(
+            layout.OverviewLatestRunMapName);
+
+        Assert.Equal(longMapName, mapPresentation.MapName);
+        Assert.True(mapLayout.Width >= 0f);
+        Assert.True(
+            mapLayout.Left + mapLayout.Width
+            <= layout.OverviewLatestRunCard.Left + layout.OverviewLatestRunCard.Width);
+        Assert.True(RetainedOverviewLatestRunMapNamePolicy.UsesEllipsisOverflow);
+        Assert.False(RetainedOverviewLatestRunMapNamePolicy.WordWrapping);
+        Assert.False(RetainedOverviewLatestRunMapNamePolicy.AutoSizing);
+    }
+
+    [Fact]
+    public void GateTwentyTwoAddsOnlyOneNativeNonInteractiveMapNameGraphic()
+    {
+        Assert.Equal("OverviewLatestRunMapName", RetainedOverviewLatestRunMapNamePolicy.Name);
+        Assert.Equal("OverviewLatestRunCard", RetainedOverviewLatestRunMapNamePolicy.ParentName);
+        Assert.Equal("ui.overview_latest_run_unknown_map", RetainedOverviewLatestRunMapNamePolicy.UnknownMapTextKey);
+        Assert.Equal("Unknown map", RetainedOverviewLatestRunMapNamePolicy.UnknownMapEnglishFallback);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.FontAssetName,
+            RetainedOverviewLatestRunMapNamePolicy.FontAssetName);
+        Assert.Equal(
+            RetainedOverviewFirstStatisticsRowEntryPolicy.MaterialName,
+            RetainedOverviewLatestRunMapNamePolicy.MaterialName);
+        Assert.Equal(29.8f, RetainedOverviewLatestRunMapNamePolicy.ReferenceFontSize);
+        Assert.Equal(20f, RetainedOverviewLatestRunMapNamePolicy.GapAfterBadgePixels);
+        Assert.Equal(20f, RetainedOverviewLatestRunMapNamePolicy.RightInsetPixels);
+        Assert.Equal(30f, RetainedOverviewLatestRunMapNamePolicy.HeightPixels);
+        Assert.Equal(1f, RetainedOverviewLatestRunMapNamePolicy.Red);
+        Assert.Equal(1f, RetainedOverviewLatestRunMapNamePolicy.Green);
+        Assert.Equal(1f, RetainedOverviewLatestRunMapNamePolicy.Blue);
+        Assert.Equal(1f, RetainedOverviewLatestRunMapNamePolicy.Alpha);
+        Assert.Equal(0f, RetainedOverviewLatestRunMapNamePolicy.CharacterSpacing);
+        Assert.Equal(0f, RetainedOverviewLatestRunMapNamePolicy.WordSpacing);
+        Assert.Equal(1f, RetainedOverviewLatestRunMapNamePolicy.HorizontalScale);
+        Assert.True(RetainedOverviewLatestRunMapNamePolicy.UsesNativeHorizontalMetrics);
+        Assert.True(RetainedOverviewLatestRunMapNamePolicy.UsesZeroTextMargins);
+        Assert.True(RetainedOverviewLatestRunMapNamePolicy.UsesLeftAlignment);
+        Assert.True(RetainedOverviewLatestRunMapNamePolicy.UsesVerticalCentering);
+        Assert.True(RetainedOverviewLatestRunMapNamePolicy.UsesNormalStyle);
+        Assert.True(RetainedOverviewLatestRunMapNamePolicy.UsesRegularWeight);
+        Assert.True(RetainedOverviewLatestRunMapNamePolicy.UsesOwnedSubtleShadowMaterial);
+        Assert.False(RetainedOverviewLatestRunMapNamePolicy.BlocksRaycasts);
+        Assert.False(RetainedOverviewLatestRunMapNamePolicy.HasInteraction);
+        Assert.False(RetainedOverviewLatestRunMapNamePolicy.HasButton);
+        Assert.False(RetainedOverviewLatestRunMapNamePolicy.UsesButtonAnimation);
+        Assert.False(RetainedOverviewLatestRunMapNamePolicy.HasLaterGateContent);
+        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLatestRunBadgeChildCount);
+        Assert.Equal(3, RetainedShellCompositionPolicy.OverviewLatestRunBadgeGraphicCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunMapNameChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLatestRunMapNameGraphicCount);
+        Assert.Equal(80, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
     }
 
@@ -3996,7 +4325,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
-        Assert.Equal(79, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(80, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -4255,7 +4584,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewFastestExtractionRowGraphicCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionValueChildCount);
-        Assert.Equal(79, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(80, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
