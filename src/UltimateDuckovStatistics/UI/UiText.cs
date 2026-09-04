@@ -61,6 +61,7 @@ internal static class UiText
             ["ui.overview_latest_run_active_time"] = "Active time",
             ["ui.overview_latest_run_distance"] = "Distance",
             ["ui.overview_latest_run_containers_opened"] = "Containers opened",
+            ["ui.overview_latest_run_view_run"] = "View run",
             ["ui.interrupted_runs"] = "Interrupted",
             ["ui.physical_distance"] = "Physical distance",
             ["ui.teleport_distance"] = "Teleport distance",

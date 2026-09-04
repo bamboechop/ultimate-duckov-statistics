@@ -194,6 +194,32 @@ internal sealed class RetainedStatisticsShell : IDisposable
         public RetainedLatestRunStatisticsPresentation Presentation { get; }
     }
 
+    private sealed class RetainedLatestRunViewRunControl
+    {
+        public RetainedLatestRunViewRunControl(
+            RectTransform rect,
+            ProceduralImage background,
+            UniformModifier modifier,
+            RectTransform labelRect,
+            TextMeshProUGUI label,
+            RetainedLatestRunViewRunPresentation presentation)
+        {
+            Rect = rect;
+            Background = background;
+            Modifier = modifier;
+            LabelRect = labelRect;
+            Label = label;
+            Presentation = presentation;
+        }
+
+        public RectTransform Rect { get; }
+        public ProceduralImage Background { get; }
+        public UniformModifier Modifier { get; }
+        public RectTransform LabelRect { get; }
+        public TextMeshProUGUI Label { get; }
+        public RetainedLatestRunViewRunPresentation Presentation { get; }
+    }
+
     private GameObject? root;
     private Canvas? canvas;
     private RectTransform? shellRoot;
@@ -232,6 +258,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RetainedRunBadgeControl? overviewLatestRunBadge;
     private RetainedLatestRunMapControl? overviewLatestRunMapName;
     private RetainedLatestRunStatisticsControl? overviewLatestRunStatistics;
+    private RetainedLatestRunViewRunControl? overviewLatestRunViewRun;
     private readonly List<RetainedOverviewHighlightRowControl> overviewHighlightRows = new();
     private readonly List<RetainedStatisticsRowControl> overviewProfileSummaryRows = new();
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
@@ -326,6 +353,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var createdOverviewLatestRunBadge,
                 out var createdOverviewLatestRunMapName,
                 out var createdOverviewLatestRunStatistics,
+                out var createdOverviewLatestRunViewRun,
                 out var createdOverviewHighlightRows,
                 out var createdOverviewProfileSummaryRows,
                 projection);
@@ -346,6 +374,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewLatestRunBadge = createdOverviewLatestRunBadge;
             overviewLatestRunMapName = createdOverviewLatestRunMapName;
             overviewLatestRunStatistics = createdOverviewLatestRunStatistics;
+            overviewLatestRunViewRun = createdOverviewLatestRunViewRun;
             overviewHighlightRows.AddRange(createdOverviewHighlightRows);
             overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
             overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
@@ -507,6 +536,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         out RetainedRunBadgeControl latestRunBadge,
         out RetainedLatestRunMapControl latestRunMapName,
         out RetainedLatestRunStatisticsControl latestRunStatistics,
+        out RetainedLatestRunViewRunControl latestRunViewRun,
         out List<RetainedOverviewHighlightRowControl> highlightRows,
         out List<RetainedStatisticsRowControl> profileSummaryRows,
         StatisticsPanelProjection projection)
@@ -589,6 +619,14 @@ internal sealed class RetainedStatisticsShell : IDisposable
         latestRunStatistics = CreateOverviewLatestRunStatistics(
             latestRunCardRect,
             latestRunStatisticsPresentation,
+            typography,
+            headingMaterial);
+        var latestRunViewRunPresentation = RetainedLatestRunViewRunPresentationFactory.Create(
+            runBadgePresentation,
+            UiText.Get);
+        latestRunViewRun = CreateOverviewLatestRunViewRun(
+            latestRunCardRect,
+            latestRunViewRunPresentation,
             typography,
             headingMaterial);
         return view;
@@ -1052,6 +1090,78 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return new RetainedLatestRunStatisticsControl(rect, label, presentation);
     }
 
+    private static RetainedLatestRunViewRunControl CreateOverviewLatestRunViewRun(
+        RectTransform parent,
+        RetainedLatestRunViewRunPresentation presentation,
+        NativeHeaderTitleTypography typography,
+        Material material)
+    {
+        var controlObject = new GameObject(
+            RetainedOverviewLatestRunViewRunPolicy.Name,
+            typeof(RectTransform));
+        var rect = (RectTransform)controlObject.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        var background = controlObject.AddComponent<ProceduralImage>();
+        background.color = new Color(
+            RetainedOverviewLatestRunViewRunPolicy.BackgroundRed,
+            RetainedOverviewLatestRunViewRunPolicy.BackgroundGreen,
+            RetainedOverviewLatestRunViewRunPolicy.BackgroundBlue,
+            RetainedOverviewLatestRunViewRunPolicy.BackgroundAlpha);
+        background.BorderWidth = RetainedOverviewLatestRunViewRunPolicy.BorderWidth;
+        background.FalloffDistance = 1f;
+        background.sprite = null;
+        background.overrideSprite = null;
+        background.type = Image.Type.Simple;
+        background.raycastTarget = RetainedOverviewLatestRunViewRunPolicy.BackgroundBlocksRaycasts;
+        var modifier = controlObject.AddComponent<UniformModifier>();
+
+        var labelObject = new GameObject(
+            RetainedOverviewLatestRunViewRunPolicy.LabelName,
+            typeof(RectTransform));
+        var labelRect = (RectTransform)labelObject.transform;
+        labelRect.SetParent(rect, worldPositionStays: false);
+        labelRect.anchorMin = new Vector2(0f, 1f);
+        labelRect.anchorMax = new Vector2(0f, 1f);
+        labelRect.pivot = new Vector2(0f, 1f);
+        labelRect.localScale = Vector3.one;
+
+        var label = labelObject.AddComponent<TextMeshProUGUI>();
+        label.font = typography.Font;
+        label.fontSharedMaterial = material;
+        label.text = presentation.Label;
+        label.fontStyle = FontStyles.Normal;
+        label.fontWeight = FontWeight.Regular;
+        label.characterSpacing = RetainedOverviewLatestRunViewRunPolicy.CharacterSpacing;
+        label.wordSpacing = RetainedOverviewLatestRunViewRunPolicy.WordSpacing;
+        label.lineSpacing = RetainedOverviewLatestRunViewRunPolicy.LineSpacing;
+        label.paragraphSpacing = RetainedOverviewLatestRunViewRunPolicy.ParagraphSpacing;
+        label.alignment = TextAlignmentOptions.Center;
+        label.enableWordWrapping = RetainedOverviewLatestRunViewRunPolicy.WordWrapping;
+        label.enableAutoSizing = RetainedOverviewLatestRunViewRunPolicy.AutoSizing;
+        label.overflowMode = TextOverflowModes.Overflow;
+        label.margin = Vector4.zero;
+        label.color = new Color(
+            RetainedOverviewLatestRunViewRunPolicy.TextRed,
+            RetainedOverviewLatestRunViewRunPolicy.TextGreen,
+            RetainedOverviewLatestRunViewRunPolicy.TextBlue,
+            RetainedOverviewLatestRunViewRunPolicy.TextAlpha);
+        label.raycastTarget = RetainedOverviewLatestRunViewRunPolicy.LabelBlocksRaycasts;
+
+        controlObject.SetActive(presentation.IsVisible);
+        return new RetainedLatestRunViewRunControl(
+            rect,
+            background,
+            modifier,
+            labelRect,
+            label,
+            presentation);
+    }
+
     private static RetainedStatisticsRowControl CreateOverviewStatisticsRow(
         RectTransform parent,
         RetainedProfileSummaryRowSpecification specification,
@@ -1444,6 +1554,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewLatestRunBadge == null
             || overviewLatestRunMapName == null
             || overviewLatestRunStatistics == null
+            || overviewLatestRunViewRun == null
             || overviewHighlightRows.Count != RetainedOverviewHighlightsRowsPolicy.RowCount
             || overviewProfileSummaryRows.Count != RetainedProfileSummaryRowsPolicy.RowCount)
         {
@@ -1470,6 +1581,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             referenceTransform,
             canvasScaleFactor);
         var latestRunBadgeControl = overviewLatestRunBadge!;
+        var latestRunViewRunControl = overviewLatestRunViewRun!;
         RetainedVisualCanvasLayout layout;
         if (latestRunBadgeControl.Presentation.IsVisible
             && latestRunBadgeControl.Presentation.State.HasValue
@@ -1479,11 +1591,16 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 latestRunBadgeControl,
                 referenceTransform,
                 canvasScaleFactor);
+            var preferredViewRunLabelWidth = MeasureLatestRunViewRunReferenceWidth(
+                latestRunViewRunControl,
+                referenceTransform,
+                canvasScaleFactor);
             layout = RetainedVisualLayoutPolicy.Create(
                 referenceTransform,
                 preferredReferenceWidths,
                 latestRunBadgeControl.Presentation.State.Value,
-                preferredBadgeLabelWidth);
+                preferredBadgeLabelWidth,
+                preferredViewRunLabelWidth);
         }
         else
         {
@@ -1694,6 +1811,26 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 latestRunStatisticsLayout.Height);
             latestRunStatisticsControl.Label.fontSize = latestRunStatisticsLayout.FontSize;
         }
+        var latestRunViewRunLayout = layout.OverviewLatestRunViewRun;
+        latestRunViewRunControl.Rect.gameObject.SetActive(
+            latestRunViewRunControl.Presentation.IsVisible && latestRunViewRunLayout != null);
+        if (latestRunViewRunLayout != null)
+        {
+            latestRunViewRunControl.Rect.anchoredPosition = new Vector2(
+                latestRunViewRunLayout.Left - layout.OverviewLatestRunCard.Left,
+                -(latestRunViewRunLayout.Top - layout.OverviewLatestRunCard.Top));
+            latestRunViewRunControl.Rect.sizeDelta = new Vector2(
+                latestRunViewRunLayout.Width,
+                latestRunViewRunLayout.Height);
+            latestRunViewRunControl.Modifier.Radius = latestRunViewRunLayout.CornerRadius;
+            latestRunViewRunControl.LabelRect.anchoredPosition = new Vector2(
+                latestRunViewRunLayout.LabelLeft,
+                -latestRunViewRunLayout.LabelTop);
+            latestRunViewRunControl.LabelRect.sizeDelta = new Vector2(
+                latestRunViewRunLayout.LabelWidth,
+                latestRunViewRunLayout.LabelHeight);
+            latestRunViewRunControl.Label.fontSize = latestRunViewRunLayout.FontSize;
+        }
         for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
             ApplyStatisticsRowLayout(
                 overviewProfileSummaryRows[index],
@@ -1834,6 +1971,39 @@ internal sealed class RetainedStatisticsShell : IDisposable
         }
     }
 
+    private static float MeasureLatestRunViewRunReferenceWidth(
+        RetainedLatestRunViewRunControl control,
+        RetainedReferenceTransform referenceTransform,
+        float canvasScaleFactor)
+    {
+        const float fallback =
+            RetainedOverviewLatestRunViewRunPolicy.AuditedEnglishPreferredLabelWidthPixels;
+        try
+        {
+            var temporaryLabelWidth = referenceTransform.CanvasLength(
+                RetainedLatestRunViewRunMeasurementPolicy.TemporaryLabelWidthPixels);
+            var labelHeight = referenceTransform.CanvasLength(
+                RetainedOverviewLatestRunViewRunPolicy.HeightPixels);
+            control.LabelRect.sizeDelta = new Vector2(temporaryLabelWidth, labelHeight);
+            control.Label.fontSize = referenceTransform.CanvasLength(
+                RetainedOverviewLatestRunViewRunPolicy.ReferenceFontSize);
+            Canvas.ForceUpdateCanvases();
+            control.Label.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+            var measuredCanvasWidth = control.Label.GetPreferredValues(
+                temporaryLabelWidth,
+                labelHeight).x;
+            return RetainedLatestRunViewRunMeasurementPolicy.NormalizeOrFallback(
+                measuredCanvasWidth,
+                canvasScaleFactor,
+                referenceTransform.ReferenceScale,
+                fallback);
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+
     private static void Stretch(RectTransform rect)
     {
         rect.anchorMin = Vector2.zero;
@@ -1893,6 +2063,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         overviewLatestRunBadge = null;
         overviewLatestRunMapName = null;
         overviewLatestRunStatistics = null;
+        overviewLatestRunViewRun = null;
         overviewHighlightRows.Clear();
         overviewProfileSummaryRows.Clear();
         lastAppliedVisualLayout = null;

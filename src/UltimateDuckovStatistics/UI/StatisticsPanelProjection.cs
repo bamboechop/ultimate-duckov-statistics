@@ -2882,6 +2882,33 @@ internal static class RetainedLatestRunStatisticsPresentationFactory
         value >= 0d && !double.IsNaN(value) && !double.IsInfinity(value);
 }
 
+internal sealed class RetainedLatestRunViewRunPresentation
+{
+    public bool IsVisible { get; set; }
+    public RunSummary? LatestRun { get; set; }
+    public string Label { get; set; } = string.Empty;
+}
+
+internal static class RetainedLatestRunViewRunPresentationFactory
+{
+    public static RetainedLatestRunViewRunPresentation Create(
+        RetainedRunBadgePresentation runBadgePresentation,
+        Func<string, string> text)
+    {
+        if (runBadgePresentation == null) throw new ArgumentNullException(nameof(runBadgePresentation));
+        if (text == null) throw new ArgumentNullException(nameof(text));
+        if (!runBadgePresentation.IsVisible || runBadgePresentation.LatestRun == null)
+            return new RetainedLatestRunViewRunPresentation { IsVisible = false };
+
+        return new RetainedLatestRunViewRunPresentation
+        {
+            IsVisible = true,
+            LatestRun = runBadgePresentation.LatestRun,
+            Label = text(RetainedOverviewLatestRunViewRunPolicy.TextKey)
+        };
+    }
+}
+
 internal sealed class RetainedOverviewLatestRunMapNameCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
@@ -3028,6 +3055,132 @@ internal static class RetainedOverviewLatestRunStatisticsPolicy
             LineStep = referenceTransform.CanvasLength(LineStepPixels)
         };
     }
+}
+
+internal sealed class RetainedOverviewLatestRunViewRunCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float ReferencePreferredLabelWidth { get; set; }
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float CornerRadius { get; set; }
+    public float LabelLeft { get; set; }
+    public float LabelTop { get; set; }
+    public float LabelWidth { get; set; }
+    public float LabelHeight { get; set; }
+    public float FontSize { get; set; }
+}
+
+internal static class RetainedOverviewLatestRunViewRunPolicy
+{
+    public const string Name = "OverviewLatestRunViewRun";
+    public const string ParentName = RetainedOverviewLatestRunCardPolicy.Name;
+    public const string LabelName = "OverviewLatestRunViewRunLabel";
+    public const string TextKey = "ui.overview_latest_run_view_run";
+    public const string EnglishFallback = "View run";
+    public const string FontAssetName = RetainedOverviewFirstStatisticsRowEntryPolicy.FontAssetName;
+    public const string MaterialName = RetainedOverviewFirstStatisticsRowEntryPolicy.MaterialName;
+    public const float LeftInsetPixels = 20f;
+    public const float BottomInsetPixels = 20f;
+    public const float HeightPixels = 50f;
+    public const float CornerRadiusPixels = 25f;
+    public const float HorizontalLabelPaddingPixels = 20f;
+    public const float AuditedEnglishPreferredLabelWidthPixels = 95f;
+    public const float ReferenceFontSize = 29.8f;
+    public const float BackgroundRed = 96f / 255f;
+    public const float BackgroundGreen = 203f / 255f;
+    public const float BackgroundBlue = 249f / 255f;
+    public const float BackgroundAlpha = 1f;
+    public const float BorderWidth = 0f;
+    public const float TextRed = 1f;
+    public const float TextGreen = 1f;
+    public const float TextBlue = 1f;
+    public const float TextAlpha = 1f;
+    public const float CharacterSpacing = 0f;
+    public const float WordSpacing = 0f;
+    public const float LineSpacing = 0f;
+    public const float ParagraphSpacing = 0f;
+    public const float HorizontalScale = 1f;
+    public const bool HasSprite = false;
+    public const bool UsesSimpleImageType = true;
+    public const bool HasBackgroundShadow = false;
+    public const bool BackgroundBlocksRaycasts = false;
+    public const bool LabelBlocksRaycasts = false;
+    public const bool WordWrapping = false;
+    public const bool AutoSizing = false;
+    public const bool UsesVisibleOverflow = true;
+    public const bool UsesZeroTextMargins = true;
+    public const bool UsesCenteredAlignment = true;
+    public const bool UsesNormalStyle = true;
+    public const bool UsesRegularWeight = true;
+    public const bool UsesNativeHorizontalMetrics = true;
+    public const bool UsesOwnedSubtleShadowMaterial = true;
+    public const bool HasInteraction = false;
+    public const bool HasButton = false;
+    public const bool UsesButtonAnimation = false;
+    public const bool RegistersListener = false;
+    public const bool HasSelectableTransition = false;
+    public const bool PreservesExactLatestRunReference = true;
+    public const bool IntendedForLaterActivation = true;
+    public const bool HasGateTwentyFiveContent = false;
+
+    public static RetainedOverviewLatestRunViewRunCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewLatestRunCardCanvasLayout card,
+        float preferredLabelWidthPixels)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (card == null) throw new ArgumentNullException(nameof(card));
+        if (preferredLabelWidthPixels <= 0f
+            || float.IsNaN(preferredLabelWidthPixels)
+            || float.IsInfinity(preferredLabelWidthPixels))
+        {
+            throw new ArgumentOutOfRangeException(nameof(preferredLabelWidthPixels));
+        }
+
+        var leftInset = referenceTransform.CanvasLength(LeftInsetPixels);
+        var bottomInset = referenceTransform.CanvasLength(BottomInsetPixels);
+        var height = referenceTransform.CanvasLength(HeightPixels);
+        var labelPadding = referenceTransform.CanvasLength(HorizontalLabelPaddingPixels);
+        var cardInnerWidth = Math.Max(0f, card.Width - leftInset * 2f);
+        var preferredWidth = referenceTransform.CanvasLength(
+            preferredLabelWidthPixels + HorizontalLabelPaddingPixels * 2f);
+        var width = Math.Min(cardInnerWidth, preferredWidth);
+        return new RetainedOverviewLatestRunViewRunCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            ReferencePreferredLabelWidth = preferredLabelWidthPixels,
+            Left = card.Left + leftInset,
+            Top = card.Top + card.Height - bottomInset - height,
+            Width = width,
+            Height = height,
+            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels),
+            LabelLeft = labelPadding,
+            LabelTop = 0f,
+            LabelWidth = Math.Max(0f, width - labelPadding * 2f),
+            LabelHeight = height,
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize)
+        };
+    }
+}
+
+internal static class RetainedLatestRunViewRunMeasurementPolicy
+{
+    public const float TemporaryLabelWidthPixels = RetainedReferenceTransformPolicy.BaselineWidthPixels;
+
+    public static float NormalizeOrFallback(
+        float measuredCanvasWidth,
+        float canvasScaleFactor,
+        float referenceScale,
+        float fallbackReferenceWidth =
+            RetainedOverviewLatestRunViewRunPolicy.AuditedEnglishPreferredLabelWidthPixels) =>
+        RetainedRunBadgeMeasurementPolicy.NormalizeOrFallback(
+            measuredCanvasWidth,
+            canvasScaleFactor,
+            referenceScale,
+            fallbackReferenceWidth);
 }
 
 internal static class RetainedRunBadgeProceduralIconPolicy
@@ -3320,6 +3473,7 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedRunBadgeCanvasLayout? OverviewLatestRunBadge { get; set; }
     public RetainedOverviewLatestRunMapNameCanvasLayout? OverviewLatestRunMapName { get; set; }
     public RetainedOverviewLatestRunStatisticsCanvasLayout? OverviewLatestRunStatistics { get; set; }
+    public RetainedOverviewLatestRunViewRunCanvasLayout? OverviewLatestRunViewRun { get; set; }
     public IReadOnlyList<RetainedOverviewFastestExtractionRowCanvasLayout> OverviewHighlightRows { get; set; } =
         Array.Empty<RetainedOverviewFastestExtractionRowCanvasLayout>();
     public IReadOnlyList<RetainedTwoColumnStatisticsRowCanvasLayout> OverviewHighlightEntries { get; set; } =
@@ -3360,7 +3514,9 @@ internal static class RetainedVisualLayoutPolicy
             referenceTransform,
             preferredTabWidths,
             badgeState: null,
-            preferredBadgeLabelWidth: 0f);
+            preferredBadgeLabelWidth: 0f,
+            preferredViewRunLabelWidth:
+                RetainedOverviewLatestRunViewRunPolicy.AuditedEnglishPreferredLabelWidthPixels);
     }
 
     public static RetainedVisualCanvasLayout Create(
@@ -3373,14 +3529,31 @@ internal static class RetainedVisualLayoutPolicy
             referenceTransform,
             preferredTabWidths,
             (RetainedRunBadgeState?)badgeState,
-            preferredBadgeLabelWidth);
+            preferredBadgeLabelWidth,
+            RetainedOverviewLatestRunViewRunPolicy.AuditedEnglishPreferredLabelWidthPixels);
+    }
+
+    internal static RetainedVisualCanvasLayout Create(
+        RetainedReferenceTransform referenceTransform,
+        IReadOnlyList<float> preferredTabWidths,
+        RetainedRunBadgeState badgeState,
+        float preferredBadgeLabelWidth,
+        float preferredViewRunLabelWidth)
+    {
+        return Create(
+            referenceTransform,
+            preferredTabWidths,
+            (RetainedRunBadgeState?)badgeState,
+            preferredBadgeLabelWidth,
+            preferredViewRunLabelWidth);
     }
 
     private static RetainedVisualCanvasLayout Create(
         RetainedReferenceTransform referenceTransform,
         IReadOnlyList<float> preferredTabWidths,
         RetainedRunBadgeState? badgeState,
-        float preferredBadgeLabelWidth)
+        float preferredBadgeLabelWidth,
+        float preferredViewRunLabelWidth)
     {
         if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
         var header = RetainedHeaderPolicy.CreateCanvasLayout(referenceTransform);
@@ -3430,6 +3603,12 @@ internal static class RetainedVisualLayoutPolicy
                 overviewLatestRunCard,
                 overviewLatestRunBadge,
                 overviewLatestRunMapName);
+        var overviewLatestRunViewRun = overviewLatestRunBadge == null
+            ? null
+            : RetainedOverviewLatestRunViewRunPolicy.CreateCanvasLayout(
+                referenceTransform,
+                overviewLatestRunCard,
+                preferredViewRunLabelWidth);
         var overviewFastestExtractionRow = overviewHighlightRows[0];
         var overviewFastestExtractionEntry = overviewHighlightEntries[0];
         var overviewProfileSummaryRows = RetainedProfileSummaryRowsPolicy.CreateCanvasLayouts(
@@ -3509,6 +3688,7 @@ internal static class RetainedVisualLayoutPolicy
             OverviewLatestRunBadge = overviewLatestRunBadge,
             OverviewLatestRunMapName = overviewLatestRunMapName,
             OverviewLatestRunStatistics = overviewLatestRunStatistics,
+            OverviewLatestRunViewRun = overviewLatestRunViewRun,
             OverviewHighlightRows = overviewHighlightRows,
             OverviewHighlightEntries = overviewHighlightEntries,
             OverviewFastestExtractionRow = overviewFastestExtractionRow,
@@ -3553,7 +3733,7 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewRightPanelContentChildCount = 7;
     public const int OverviewHighlightsHeadingChildCount = 0;
     public const int OverviewLatestRunHeadingChildCount = 0;
-    public const int OverviewLatestRunCardChildCount = 3;
+    public const int OverviewLatestRunCardChildCount = 4;
     public const int OverviewLatestRunBadgeChildCount = 2;
     public const int OverviewLatestRunBadgeIconChildCount = 0;
     public const int OverviewLatestRunBadgeLabelChildCount = 0;
@@ -3562,6 +3742,9 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewLatestRunMapNameGraphicCount = 1;
     public const int OverviewLatestRunStatisticsChildCount = 0;
     public const int OverviewLatestRunStatisticsGraphicCount = 1;
+    public const int OverviewLatestRunViewRunChildCount = 1;
+    public const int OverviewLatestRunViewRunLabelChildCount = 0;
+    public const int OverviewLatestRunViewRunGraphicCount = 2;
     public const int OverviewHighlightRowCount = 4;
     public const int OverviewHighlightRowChildCount = 2;
     public const int OverviewHighlightRowGraphicCount = 1;
@@ -3569,7 +3752,7 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewFastestExtractionRowGraphicCount = OverviewHighlightRowGraphicCount;
     public const int OverviewFastestExtractionLabelChildCount = 0;
     public const int OverviewFastestExtractionValueChildCount = 0;
-    public const int GraphicCount = 81;
+    public const int GraphicCount = 83;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
