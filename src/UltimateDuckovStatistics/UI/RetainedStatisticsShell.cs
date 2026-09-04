@@ -771,52 +771,21 @@ internal sealed class RetainedStatisticsShell : IDisposable
         leftPanelContentRect.sizeDelta = new Vector2(
             layout.OverviewLeftPanel.ContentWidth,
             layout.OverviewLeftPanel.ContentHeight);
-        var profileSummaryHeadingFallbackPosition = new Vector2(
-            layout.OverviewProfileSummaryHeading.Left - layout.OverviewLeftPanel.ContentLeft,
-            -(layout.OverviewProfileSummaryHeading.Top - layout.OverviewLeftPanel.ContentTop));
-        profileSummaryHeadingRect.anchoredPosition = profileSummaryHeadingFallbackPosition;
+        profileSummaryHeadingRect.anchoredPosition = new Vector2(
+            layout.OverviewProfileSummaryHeading.Left
+            - layout.OverviewLeftPanel.ContentLeft
+            + layout.OverviewProfileSummaryHeading.OpticalOffsetX,
+            -(layout.OverviewProfileSummaryHeading.Top - layout.OverviewLeftPanel.ContentTop)
+            + layout.OverviewProfileSummaryHeading.OpticalOffsetY);
         profileSummaryHeadingRect.sizeDelta = new Vector2(
             layout.OverviewProfileSummaryHeading.Width,
             layout.OverviewProfileSummaryHeading.Height);
         profileSummaryHeadingGraphic.fontSize = layout.OverviewProfileSummaryHeading.FontSize;
-        ApplyOverviewProfileSummaryHeadingBearing(
-            profileSummaryHeadingRect,
-            profileSummaryHeadingGraphic,
-            profileSummaryHeadingFallbackPosition);
         lastViewportPixelWidth = viewportPixelWidth;
         lastViewportPixelHeight = viewportPixelHeight;
         lastCanvasScaleFactor = canvasScaleFactor;
         lastAppliedVisualLayout = layout;
         return layout;
-    }
-
-    private static void ApplyOverviewProfileSummaryHeadingBearing(
-        RectTransform headingRect,
-        TextMeshProUGUI heading,
-        Vector2 fallbackPosition)
-    {
-        headingRect.anchoredPosition = fallbackPosition;
-        try
-        {
-            Canvas.ForceUpdateCanvases();
-            heading.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
-            var bounds = heading.textBounds;
-            if (!RetainedOverviewProfileSummaryHeadingPolicy.TryCalculateBearingCompensation(
-                    bounds.min.x,
-                    bounds.max.y,
-                    bounds.size.x,
-                    bounds.size.y,
-                    out var compensation))
-            {
-                return;
-            }
-
-            headingRect.anchoredPosition = fallbackPosition + new Vector2(compensation.X, compensation.Y);
-        }
-        catch (Exception)
-        {
-            headingRect.anchoredPosition = fallbackPosition;
-        }
     }
 
     private float[] MeasureTabReferenceWidths(

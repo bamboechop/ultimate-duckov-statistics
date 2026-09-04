@@ -1075,18 +1075,8 @@ internal sealed class RetainedOverviewProfileSummaryHeadingCanvasLayout
     public float Width { get; set; }
     public float Height { get; set; }
     public float FontSize { get; set; }
-}
-
-internal readonly struct RetainedTextBearingCompensation
-{
-    public RetainedTextBearingCompensation(float x, float y)
-    {
-        X = x;
-        Y = y;
-    }
-
-    public float X { get; }
-    public float Y { get; }
+    public float OpticalOffsetX { get; set; }
+    public float OpticalOffsetY { get; set; }
 }
 
 internal static class RetainedOverviewProfileSummaryHeadingPolicy
@@ -1100,6 +1090,8 @@ internal static class RetainedOverviewProfileSummaryHeadingPolicy
     public const string MaterialName = RetainedTabLabelShadowPolicy.OwnedMaterialName;
     public const float ReferenceFontSize = 46.3f;
     public const float HeightPixels = 60f;
+    public const float ReferenceOpticalOffsetX = -5f;
+    public const float ReferenceOpticalOffsetY = 19f;
     public const float Red = 1f;
     public const float Green = 1f;
     public const float Blue = 1f;
@@ -1111,10 +1103,8 @@ internal static class RetainedOverviewProfileSummaryHeadingPolicy
     public const bool UsesOwnedTabLabelMaterial = true;
     public const bool UsesZeroTextMargin = true;
     public const float AdditionalPaddingPixels = 0f;
-    public const bool UsesRenderedBearingCompensation = true;
+    public const bool UsesFixedOpticalOffset = true;
     public const bool UsesHorizontalScaleCompensation = false;
-    public const float FallbackOffsetX = 0f;
-    public const float FallbackOffsetY = 0f;
 
     public static RetainedOverviewProfileSummaryHeadingCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform,
@@ -1129,36 +1119,11 @@ internal static class RetainedOverviewProfileSummaryHeadingPolicy
             Top = leftPanel.ContentTop,
             Width = leftPanel.ContentWidth,
             Height = referenceTransform.CanvasLength(HeightPixels),
-            FontSize = referenceTransform.CanvasLength(ReferenceFontSize)
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize),
+            OpticalOffsetX = referenceTransform.CanvasLength(ReferenceOpticalOffsetX),
+            OpticalOffsetY = referenceTransform.CanvasLength(ReferenceOpticalOffsetY)
         };
     }
-
-    public static bool TryCalculateBearingCompensation(
-        float boundsMinX,
-        float boundsMaxY,
-        float boundsWidth,
-        float boundsHeight,
-        out RetainedTextBearingCompensation compensation)
-    {
-        compensation = new RetainedTextBearingCompensation(FallbackOffsetX, FallbackOffsetY);
-        if (!IsFinite(boundsMinX)
-            || !IsFinite(boundsMaxY)
-            || !IsPositiveFinite(boundsWidth)
-            || !IsPositiveFinite(boundsHeight))
-        {
-            return false;
-        }
-
-        var x = -boundsMinX;
-        var y = -boundsMaxY;
-        if (!IsFinite(x) || !IsFinite(y)) return false;
-        compensation = new RetainedTextBearingCompensation(x, y);
-        return true;
-    }
-
-    private static bool IsPositiveFinite(float value) => value > 0f && IsFinite(value);
-
-    private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 }
 
 internal static class RetainedOverviewRightPanelPolicy
