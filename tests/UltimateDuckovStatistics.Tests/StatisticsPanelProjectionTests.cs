@@ -954,7 +954,6 @@ public sealed class StatisticsPanelProjectionTests
                     referenceScale),
                 3);
         }
-
     }
 
     [Fact]
@@ -974,6 +973,78 @@ public sealed class StatisticsPanelProjectionTests
             RetainedTabMeasurementPolicy.NormalizeCanvasWidth(100f, 0f, 1f));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             RetainedTabMeasurementPolicy.NormalizeCanvasWidth(100f, 1f, float.NaN));
+    }
+
+    [Fact]
+    public void GateSevenANativeFeedbackTargetsExactlyTheNineTabBackgroundObjects()
+    {
+        var targets = RetainedTabStripPolicy.Specifications
+            .Select(specification => new RetainedFeedbackTarget(specification.BackgroundName))
+            .ToArray();
+
+        foreach (var target in targets)
+        {
+            RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+                target,
+                candidate => candidate.HasFeedback,
+                candidate => candidate.Attach());
+        }
+
+        Assert.Equal(9, targets.Length);
+        Assert.All(targets, target =>
+        {
+            Assert.True(target.HasFeedback);
+            Assert.Equal(1, target.AttachCount);
+        });
+        Assert.Equal(
+            RetainedTabStripPolicy.Specifications.Select(specification => specification.BackgroundName),
+            targets.Select(target => target.Name));
+        Assert.DoesNotContain(targets, target =>
+            RetainedTabStripPolicy.Specifications.Any(specification => specification.LabelName == target.Name));
+        Assert.DoesNotContain(targets, target => target.Name == RetainedBackControlPolicy.ButtonName);
+    }
+
+    [Fact]
+    public void GateSevenANativeFeedbackAttachmentIsIdempotentFailOpenAndStateless()
+    {
+        var retained = new RetainedFeedbackTarget("retained");
+        RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+            retained,
+            target => target.HasFeedback,
+            target => target.Attach());
+        RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+            retained,
+            target => target.HasFeedback,
+            target => target.Attach());
+        Assert.Equal(1, retained.AttachCount);
+
+        var unavailable = new RetainedFeedbackTarget("unavailable") { ThrowOnAttach = true };
+        RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+            unavailable,
+            target => target.HasFeedback,
+            target => target.Attach());
+        Assert.False(unavailable.HasFeedback);
+        Assert.Equal(1, unavailable.AttachCount);
+
+        var nextShellTarget = new RetainedFeedbackTarget("next-shell");
+        RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+            nextShellTarget,
+            target => target.HasFeedback,
+            target => target.Attach());
+        Assert.True(nextShellTarget.HasFeedback);
+        Assert.Equal(1, nextShellTarget.AttachCount);
+    }
+
+    [Fact]
+    public void GateSevenAUsesOnlyNativePointerFeedbackAndLeavesBackAndLabelsOutOfScope()
+    {
+        Assert.Equal(
+            "Duckov.UI.Animations.ButtonAnimation",
+            RetainedTabInteractionFeedbackPolicy.NativeComponentTypeName);
+        Assert.True(RetainedTabInteractionFeedbackPolicy.UsesNativePointerHandlers);
+        Assert.False(RetainedTabInteractionFeedbackPolicy.SynthesizesAudio);
+        Assert.False(RetainedTabInteractionFeedbackPolicy.AppliesToLabels);
+        Assert.False(RetainedTabInteractionFeedbackPolicy.AppliesToBackButton);
     }
 
     [Fact]
@@ -1737,6 +1808,23 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(3, row.Totals.ActualHealthRestored);
         Assert.Equal(CanonicalItemGroup.OtherUnknown, row.Group);
         Assert.Equal(new[] { ItemEffectTag.Buff }, row.EffectTags);
+    }
+
+    private sealed class RetainedFeedbackTarget
+    {
+        public RetainedFeedbackTarget(string name) => Name = name;
+
+        public string Name { get; }
+        public bool HasFeedback { get; private set; }
+        public bool ThrowOnAttach { get; set; }
+        public int AttachCount { get; private set; }
+
+        public void Attach()
+        {
+            AttachCount++;
+            if (ThrowOnAttach) throw new InvalidOperationException("native feedback unavailable");
+            HasFeedback = true;
+        }
     }
 
     private static StatisticsPanelProjection Create(ProfileDocument profile) =>

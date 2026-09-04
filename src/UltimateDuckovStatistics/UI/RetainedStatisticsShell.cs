@@ -1,3 +1,4 @@
+using Duckov.UI.Animations;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -306,6 +307,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var activation = new RetainedTabActivation(selectTab, specification.Tab);
         button.onClick.AddListener(activation.Invoke);
         listenerLease.Register(button.onClick.RemoveAllListeners);
+        RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+            tab,
+            static target => target.GetComponent<ButtonAnimation>() != null,
+            static target => _ = target.AddComponent<ButtonAnimation>());
 
         var labelObject = new GameObject(
             specification.LabelName,

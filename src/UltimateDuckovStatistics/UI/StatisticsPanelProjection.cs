@@ -554,6 +554,36 @@ internal sealed class RetainedListenerLease : IDisposable
     }
 }
 
+internal static class RetainedTabInteractionFeedbackPolicy
+{
+    public const string NativeComponentTypeName = "Duckov.UI.Animations.ButtonAnimation";
+    public const bool UsesNativePointerHandlers = true;
+    public const bool SynthesizesAudio = false;
+    public const bool AppliesToLabels = false;
+    public const bool AppliesToBackButton = false;
+
+    public static void AttachIfMissing<TTarget>(
+        TTarget target,
+        Func<TTarget, bool> hasFeedback,
+        Action<TTarget> attach)
+        where TTarget : class
+    {
+        if (target == null) throw new ArgumentNullException(nameof(target));
+        if (hasFeedback == null) throw new ArgumentNullException(nameof(hasFeedback));
+        if (attach == null) throw new ArgumentNullException(nameof(attach));
+
+        try
+        {
+            if (!hasFeedback(target)) attach(target);
+        }
+        catch (Exception)
+        {
+            // Native interaction feedback is optional polish. Its absence must
+            // never prevent the retained panel or its tab callbacks from working.
+        }
+    }
+}
+
 internal static class RetainedTabLabelShadowPolicy
 {
     public const string OwnedMaterialName = "UltimateDuckovStatistics Retained Tab Label Material";

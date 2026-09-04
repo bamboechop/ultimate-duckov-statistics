@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Text;
@@ -109,6 +110,46 @@ try
         core.RequireProperty(string.Empty, "PauseMenu", "Shown", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "GameManager", "EventSystem", "UnityEngine.EventSystems.EventSystem", mustBePublic: true, mustBeStatic: true);
         core.RequireMethod("Duckov.UI", "NotificationText", "Push", 1, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String"]);
+        core.RequireInterfaces(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "UnityEngine.EventSystems.IPointerEnterHandler",
+            "UnityEngine.EventSystems.IPointerExitHandler",
+            "UnityEngine.EventSystems.IPointerDownHandler",
+            "UnityEngine.EventSystems.IPointerUpHandler");
+        foreach (var pointerMethod in new[]
+                 {
+                     "OnPointerEnter",
+                     "OnPointerExit",
+                     "OnPointerDown",
+                     "OnPointerUp"
+                 })
+        {
+            core.RequireMethod(
+                "Duckov.UI.Animations",
+                "ButtonAnimation",
+                pointerMethod,
+                1,
+                mustBePublic: true,
+                parameterTypeFragments: ["UnityEngine.EventSystems.PointerEventData"]);
+        }
+        core.RequireMethodUserStrings(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "OnPointerEnter",
+            "UI/hover");
+        core.RequireMethodUserStrings(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "OnPointerDown",
+            "UI/click",
+            "Interact_UI");
+        core.RequireField(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "mute",
+            mustBePrivate: true,
+            fieldTypeFragment: "System.Boolean");
         core.RequireEvent(string.Empty, "SceneLoader", "onStartedLoadingScene", "System.Action", "SceneLoadingContext");
         core.RequireEvent(string.Empty, "SceneLoader", "onFinishedLoadingScene", "System.Action", "SceneLoadingContext");
         core.RequireEvent(string.Empty, "SceneLoader", "onAfterSceneInitialize", "System.Action", "SceneLoadingContext");
@@ -521,7 +562,7 @@ try
         foreach (var formula in craftingFormulaAudit.NonzeroCurrencyFormulas)
             Console.WriteLine($"    {formula.FormulaId} -> output {formula.OutputItemId}: money={formula.Money}; tags={formula.Tags}; items={formula.ItemCosts}");
     }
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, M16 CraftingFormula.cost item/currency plus repeated-stack mutation/transfer, and M17 retained UI/menu/localization/item-icon/toast/focus/procedural-image contracts are present.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, M16 CraftingFormula.cost item/currency plus repeated-stack mutation/transfer, and M17 retained UI/menu/localization/item-icon/toast/focus/procedural-image/ButtonAnimation contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption, M6 tote activation, M13 crafting workstation/run-map/multiple-output attribution, and M16 Money/Cash charge splitting remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
@@ -869,6 +910,26 @@ internal sealed class AssemblyMetadata : IDisposable
         _ = FindType(@namespace, name);
     }
 
+    public void RequireInterfaces(
+        string @namespace,
+        string typeName,
+        params string[] requiredInterfaceNames)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        var implementedInterfaceNames = type.GetInterfaceImplementations()
+            .Select(handle => reader.GetInterfaceImplementation(handle).Interface)
+            .Select(ResolveTypeName)
+            .ToHashSet(StringComparer.Ordinal);
+        var missing = requiredInterfaceNames
+            .Where(required => !implementedInterfaceNames.Contains(required))
+            .ToArray();
+        if (missing.Length != 0)
+        {
+            throw new ContractException(
+                $"Required interfaces missing from {@namespace}.{typeName}: {string.Join(", ", missing)}.");
+        }
+    }
+
     public void RequireMethod(
         string @namespace,
         string typeName,
@@ -949,6 +1010,55 @@ internal sealed class AssemblyMetadata : IDisposable
         }
 
         throw new ContractException($"Required method not found: {@namespace}.{typeName}.{methodName}({parameterCount} parameter(s)).");
+    }
+
+    public void RequireMethodUserStrings(
+        string @namespace,
+        string typeName,
+        string methodName,
+        params string[] requiredValues)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var handle in type.GetMethods())
+        {
+            var method = reader.GetMethodDefinition(handle);
+            if (!string.Equals(reader.GetString(method.Name), methodName, StringComparison.Ordinal)
+                || method.RelativeVirtualAddress == 0)
+            {
+                continue;
+            }
+
+            var il = peReader.GetMethodBody(method.RelativeVirtualAddress).GetILBytes()
+                     ?? throw new ContractException(
+                         $"Method body IL was unavailable: {@namespace}.{typeName}.{methodName}.");
+            var found = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index <= il.Length - 5; index++)
+            {
+                if (il[index] != 0x72) continue;
+                var token = il[index + 1]
+                            | (il[index + 2] << 8)
+                            | (il[index + 3] << 16)
+                            | (il[index + 4] << 24);
+                if ((token & unchecked((int)0xff000000)) != 0x70000000) continue;
+                try
+                {
+                    found.Add(reader.GetUserString(
+                        MetadataTokens.UserStringHandle(token & 0x00ffffff)));
+                }
+                catch (BadImageFormatException)
+                {
+                    // The byte can occur inside another operand; only valid user-string tokens count.
+                }
+            }
+
+            var missing = requiredValues.Where(required => !found.Contains(required)).ToArray();
+            if (missing.Length == 0) return;
+            throw new ContractException(
+                $"Required user strings missing from {@namespace}.{typeName}.{methodName}: {string.Join(", ", missing)}.");
+        }
+
+        throw new ContractException(
+            $"Required method body not found: {@namespace}.{typeName}.{methodName}.");
     }
 
     public void RequireProperty(
@@ -1223,6 +1333,29 @@ internal sealed class AssemblyMetadata : IDisposable
 
         var qualifiedName = string.IsNullOrEmpty(@namespace) ? name : $"{@namespace}.{name}";
         throw new ContractException($"Required type not found: {qualifiedName}.");
+    }
+
+    private string ResolveTypeName(EntityHandle handle) => handle.Kind switch
+    {
+        HandleKind.TypeDefinition => ResolveTypeName(reader.GetTypeDefinition((TypeDefinitionHandle)handle)),
+        HandleKind.TypeReference => ResolveTypeName(reader.GetTypeReference((TypeReferenceHandle)handle)),
+        HandleKind.TypeSpecification => reader.GetTypeSpecification((TypeSpecificationHandle)handle)
+            .DecodeSignature(typeProvider, reader),
+        _ => handle.Kind.ToString()
+    };
+
+    private string ResolveTypeName(TypeDefinition definition)
+    {
+        var @namespace = reader.GetString(definition.Namespace);
+        var name = reader.GetString(definition.Name);
+        return string.IsNullOrEmpty(@namespace) ? name : $"{@namespace}.{name}";
+    }
+
+    private string ResolveTypeName(TypeReference reference)
+    {
+        var @namespace = reader.GetString(reference.Namespace);
+        var name = reader.GetString(reference.Name);
+        return string.IsNullOrEmpty(@namespace) ? name : $"{@namespace}.{name}";
     }
 }
 
