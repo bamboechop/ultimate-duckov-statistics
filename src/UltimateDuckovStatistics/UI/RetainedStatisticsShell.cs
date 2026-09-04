@@ -191,6 +191,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 headerTitleTypography,
                 out var createdHeaderTitleGraphic);
             headerTitleGraphic = createdHeaderTitleGraphic;
+            root.SetActive(RetainedTabMeasurementPolicy.RequiresActiveHierarchy);
+            if (!root.activeInHierarchy)
+            {
+                throw new InvalidOperationException(
+                    "The retained tab labels could not enter the active hierarchy for native TMP measurement.");
+            }
             var visualLayout = RefreshVisualLayout(force: true);
 
             ValidateSurfaceComposition(
@@ -218,7 +224,6 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 selectedTab,
                 targetCanvas.scaleFactor);
             rootRect.SetAsLastSibling();
-            root.SetActive(true);
             return true;
         }
         catch (Exception exception)

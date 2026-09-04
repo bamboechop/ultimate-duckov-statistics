@@ -635,8 +635,10 @@ internal static class RetainedOverviewTabPolicy
 
 internal static class RetainedTabMeasurementPolicy
 {
+    public const bool RequiresActiveHierarchy = true;
+
     // TMP's preferred-size query can honor the supplied text-container width.
-    // Give the inactive measurement host one full reference width so the native label is
+    // Give the measurement host one full reference width so the native label is
     // measured as a single unconstrained line before its relational tab bounds are applied.
     public const float TemporaryLabelWidthPixels = RetainedReferenceTransformPolicy.BaselineWidthPixels;
     public const float DiagnosticRelativeTolerance = 0.10f;

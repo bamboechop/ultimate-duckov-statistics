@@ -928,6 +928,7 @@ public sealed class StatisticsPanelProjectionTests
     public void GateSevenMeasurementNormalizationUsesReferenceAndCanvasScales()
     {
         const float referenceWidth = 161.91875f;
+        Assert.True(RetainedTabMeasurementPolicy.RequiresActiveHierarchy);
         Assert.Equal(
             RetainedReferenceTransformPolicy.BaselineWidthPixels,
             RetainedTabMeasurementPolicy.TemporaryLabelWidthPixels);
