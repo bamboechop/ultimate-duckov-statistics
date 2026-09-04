@@ -4705,10 +4705,10 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1918f, card.Left);
         Assert.Equal(846f, card.Top);
         Assert.Equal(527f, card.Width);
-        Assert.Equal(114f, card.Height);
+        Assert.Equal(121f, card.Height);
         Assert.Equal(10f, card.CornerRadius);
         Assert.Equal(2445f, card.Left + card.Width);
-        Assert.Equal(960f, card.Top + card.Height);
+        Assert.Equal(967f, card.Top + card.Height);
         Assert.Equal(30f, card.Left - latestCard.Left - latestCard.Width);
         Assert.Equal(layout.OverviewRightPanel.ContentLeft + layout.OverviewRightPanel.ContentWidth,
             card.Left + card.Width);
@@ -4717,7 +4717,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1938f, card.ContentLeft);
         Assert.Equal(866f, card.ContentTop);
         Assert.Equal(487f, card.ContentWidth);
-        Assert.Equal(74f, card.ContentHeight);
+        Assert.Equal(81f, card.ContentHeight);
         Assert.Equal(card.ContentLeft, heading.Left);
         Assert.Equal(latestHeading.Top, heading.Top);
         Assert.Equal(card.ContentWidth, heading.Width);
@@ -4757,7 +4757,7 @@ public sealed class StatisticsPanelProjectionTests
             card.Left + card.Width,
             5);
         Assert.Equal(latestCard.Top, card.Top, 5);
-        Assert.Equal(transform.CanvasLength(114f), card.Height, 5);
+        Assert.Equal(transform.CanvasLength(121f), card.Height, 5);
         Assert.Equal(transform.CanvasLength(10f), card.CornerRadius, 5);
         Assert.Equal(transform.CanvasLength(20f), card.ContentLeft - card.Left, 5);
         Assert.Equal(transform.CanvasLength(20f), card.ContentTop - card.Top, 5);
@@ -4808,7 +4808,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(RetainedOverviewRightPanelPolicy.ContentName,
             RetainedOverviewWorldTimeCardPolicy.ParentName);
         Assert.Equal(30f, RetainedOverviewWorldTimeCardPolicy.HorizontalGapPixels);
-        Assert.Equal(114f, RetainedOverviewWorldTimeCardPolicy.HeightPixels);
+        Assert.Equal(121f, RetainedOverviewWorldTimeCardPolicy.HeightPixels);
         Assert.Equal(20f, RetainedOverviewWorldTimeCardPolicy.ContentInsetPixels);
         Assert.Equal(0f, RetainedOverviewWorldTimeCardPolicy.Red);
         Assert.Equal(0f, RetainedOverviewWorldTimeCardPolicy.Green);

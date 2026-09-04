@@ -3212,7 +3212,7 @@ internal static class RetainedOverviewWorldTimeCardPolicy
     public const string ParentName = RetainedOverviewRightPanelPolicy.ContentName;
     public const StatisticsPanelTab OwnerTab = RetainedOverviewRightPanelPolicy.OwnerTab;
     public const float HorizontalGapPixels = 30f;
-    public const float HeightPixels = 114f;
+    public const float HeightPixels = 121f;
     public const float ContentInsetPixels = 20f;
     public const float Red = RetainedOverviewPanelStylePolicy.Red;
     public const float Green = RetainedOverviewPanelStylePolicy.Green;
