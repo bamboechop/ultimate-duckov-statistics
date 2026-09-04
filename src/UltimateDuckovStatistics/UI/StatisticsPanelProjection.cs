@@ -1535,11 +1535,10 @@ internal static class ProfileSummaryPresentationFactory
     private static string FormatExtractionRate(RunStatisticsViewModel runs, Func<string, string> text)
     {
         var extracted = Math.Max(0L, runs.ExtractedRuns);
-        var died = Math.Max(0L, runs.DiedRuns);
-        var terminal = (decimal)extracted + died;
-        if (terminal == 0m) return $"{text("ui.em_dash")} - 0/0";
-        var percent = Math.Round(extracted * 100m / terminal, 0, MidpointRounding.AwayFromZero);
-        return $"{percent.ToString("0", CultureInfo.InvariantCulture)}% - {FormatInteger(extracted)}/{terminal.ToString("#,0", CultureInfo.InvariantCulture)}";
+        var totalRuns = Math.Max(0L, runs.TotalRuns);
+        if (totalRuns == 0L) return $"{text("ui.em_dash")} - 0/0";
+        var percent = Math.Round(extracted * 100m / totalRuns, 0, MidpointRounding.AwayFromZero);
+        return $"{percent.ToString("0", CultureInfo.InvariantCulture)}% - {FormatInteger(extracted)}/{FormatInteger(totalRuns)}";
     }
 
     private static string FormatActiveRaidTime(IReadOnlyList<RunSummary> runs, Func<string, string> text)

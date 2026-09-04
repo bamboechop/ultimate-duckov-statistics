@@ -1961,7 +1961,7 @@ public sealed class StatisticsPanelProjectionTests
         projection.Economy.Currencies[CurrencyKind.Cash.ToString()].Totals.GrossOutflow = 3;
         var changed = ProfileSummaryPresentationFactory.Create(projection, key => UiText.EnglishFallbacks[key]);
         Assert.Equal("3000", changed[0].Value);
-        Assert.Equal("50% - 1/2", changed[1].Value);
+        Assert.Equal("0% - 1/3,000", changed[1].Value);
         Assert.Equal("1:00.250", changed[2].Value);
         Assert.Equal("12.30 m", changed[3].Value);
         Assert.Equal("42", changed[4].Value);
@@ -1972,6 +1972,32 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("4", changed[9].Value);
         Assert.Equal("Money net: 0", changed[10].Value);
         Assert.Equal("Cash net: -3", changed[10].SecondaryValue);
+    }
+
+    [Theory]
+    [InlineData(3L, 2L, 0L, "67% - 2/3")]
+    [InlineData(2L, 2L, 0L, "100% - 2/2")]
+    [InlineData(2L, 1L, 1L, "50% - 1/2")]
+    [InlineData(0L, 0L, 0L, "loc:ui.em_dash - 0/0")]
+    public void GateTwelveExtractionRateUsesAllTrackedRuns(
+        long totalRuns,
+        long extractedRuns,
+        long diedRuns,
+        string expected)
+    {
+        var projection = new StatisticsPanelProjection
+        {
+            Runs = new RunStatisticsViewModel
+            {
+                TotalRuns = totalRuns,
+                ExtractedRuns = extractedRuns,
+                DiedRuns = diedRuns
+            }
+        };
+
+        var rows = ProfileSummaryPresentationFactory.Create(projection, key => "loc:" + key);
+
+        Assert.Equal(expected, rows[(int)ProfileSummaryMetric.ExtractionRate].Value);
     }
 
     [Fact]
