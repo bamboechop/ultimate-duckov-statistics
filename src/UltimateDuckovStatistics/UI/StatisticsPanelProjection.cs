@@ -2750,7 +2750,7 @@ internal static class RetainedOverviewLatestRunMapNamePolicy
     public const bool BlocksRaycasts = false;
     public const bool WordWrapping = false;
     public const bool AutoSizing = false;
-    public const bool UsesEllipsisOverflow = true;
+    public const bool UsesVisibleOverflow = true;
     public const bool UsesZeroTextMargins = true;
     public const bool UsesLeftAlignment = true;
     public const bool UsesVerticalCentering = true;

@@ -968,7 +968,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         label.alignment = TextAlignmentOptions.MidlineLeft;
         label.enableWordWrapping = RetainedOverviewLatestRunMapNamePolicy.WordWrapping;
         label.enableAutoSizing = RetainedOverviewLatestRunMapNamePolicy.AutoSizing;
-        label.overflowMode = TextOverflowModes.Ellipsis;
+        label.overflowMode = TextOverflowModes.Overflow;
         label.margin = Vector4.zero;
         label.color = new Color(
             RetainedOverviewLatestRunMapNamePolicy.Red,

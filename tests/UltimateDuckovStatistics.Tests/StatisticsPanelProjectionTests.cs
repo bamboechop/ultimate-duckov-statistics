@@ -4019,7 +4019,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateTwentyTwoLongMapNamesRemainBoundedAndNonFatal()
+    public void GateTwentyTwoLongMapNamesRemainNonFatalWithVisibleOverflow()
     {
         var longMapName = new string('M', 4096);
         var run = new RunSummary
@@ -4043,12 +4043,19 @@ public sealed class StatisticsPanelProjectionTests
         var mapLayout = Assert.IsType<RetainedOverviewLatestRunMapNameCanvasLayout>(
             layout.OverviewLatestRunMapName);
 
+        Assert.True(mapPresentation.IsVisible);
         Assert.Equal(longMapName, mapPresentation.MapName);
+        Assert.Equal(29.8f, RetainedOverviewLatestRunMapNamePolicy.ReferenceFontSize);
+        Assert.Equal(30f, RetainedOverviewLatestRunMapNamePolicy.HeightPixels);
+        Assert.Equal(transform.CanvasLength(30f), mapLayout.Height, 5);
         Assert.True(mapLayout.Width >= 0f);
         Assert.True(
             mapLayout.Left + mapLayout.Width
             <= layout.OverviewLatestRunCard.Left + layout.OverviewLatestRunCard.Width);
-        Assert.True(RetainedOverviewLatestRunMapNamePolicy.UsesEllipsisOverflow);
+        Assert.True(RetainedOverviewLatestRunMapNamePolicy.UsesVisibleOverflow);
+        Assert.DoesNotContain(
+            typeof(RetainedOverviewLatestRunMapNamePolicy).GetFields(),
+            field => field.Name.Contains("Ellipsis", StringComparison.Ordinal));
         Assert.False(RetainedOverviewLatestRunMapNamePolicy.WordWrapping);
         Assert.False(RetainedOverviewLatestRunMapNamePolicy.AutoSizing);
     }
