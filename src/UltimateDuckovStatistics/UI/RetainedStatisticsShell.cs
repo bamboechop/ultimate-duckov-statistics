@@ -7,7 +7,7 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 14.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 15.
 /// The root graphic remains the modal dimmer; its children are the frozen header controls and tab-owned views.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
@@ -90,9 +90,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
         public RetainedStatisticsRowTextElements Text { get; }
     }
 
-    private sealed class RetainedFastestExtractionHighlightControl
+    private sealed class RetainedOverviewHighlightRowControl
     {
-        public RetainedFastestExtractionHighlightControl(
+        public RetainedOverviewHighlightRowControl(
             RectTransform rect,
             RectTransform labelRect,
             TextMeshProUGUI label,
@@ -144,7 +144,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private TextMeshProUGUI? overviewProfileSummaryHeadingGraphic;
     private RectTransform? overviewHighlightsHeadingRect;
     private TextMeshProUGUI? overviewHighlightsHeadingGraphic;
-    private RetainedFastestExtractionHighlightControl? overviewFastestExtractionHighlight;
+    private readonly List<RetainedOverviewHighlightRowControl> overviewHighlightRows = new();
     private readonly List<RetainedStatisticsRowControl> overviewProfileSummaryRows = new();
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
     private float lastViewportPixelWidth = float.NaN;
@@ -231,7 +231,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var createdOverviewProfileSummaryHeadingGraphic,
                 out var createdOverviewHighlightsHeadingRect,
                 out var createdOverviewHighlightsHeadingGraphic,
-                out var createdOverviewFastestExtractionHighlight,
+                out var createdOverviewHighlightRows,
                 out var createdOverviewProfileSummaryRows,
                 projection);
             overviewLeftPanelRect = createdOverviewLeftPanelRect;
@@ -244,7 +244,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewProfileSummaryHeadingGraphic = createdOverviewProfileSummaryHeadingGraphic;
             overviewHighlightsHeadingRect = createdOverviewHighlightsHeadingRect;
             overviewHighlightsHeadingGraphic = createdOverviewHighlightsHeadingGraphic;
-            overviewFastestExtractionHighlight = createdOverviewFastestExtractionHighlight;
+            overviewHighlightRows.AddRange(createdOverviewHighlightRows);
             overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
             overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
                 overviewContentView,
@@ -398,7 +398,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         out TextMeshProUGUI profileSummaryHeadingGraphic,
         out RectTransform highlightsHeadingRect,
         out TextMeshProUGUI highlightsHeadingGraphic,
-        out RetainedFastestExtractionHighlightControl fastestExtractionHighlight,
+        out List<RetainedOverviewHighlightRowControl> highlightRows,
         out List<RetainedStatisticsRowControl> profileSummaryRows,
         StatisticsPanelProjection projection)
     {
@@ -429,12 +429,17 @@ internal sealed class RetainedStatisticsShell : IDisposable
             typography,
             headingMaterial,
             out highlightsHeadingGraphic);
-        var fastestExtractionPresentation = FastestExtractionHighlightPresentationFactory.Create(projection, UiText.Get);
-        fastestExtractionHighlight = CreateOverviewFastestExtractionHighlight(
-            rightPanelContentRect,
-            fastestExtractionPresentation,
-            typography,
-            headingMaterial);
+        var highlightPresentations = OverviewHighlightsPresentationFactory.Create(projection, UiText.Get);
+        highlightRows = new List<RetainedOverviewHighlightRowControl>(highlightPresentations.Count);
+        for (var index = 0; index < highlightPresentations.Count; index++)
+        {
+            highlightRows.Add(CreateOverviewHighlightRow(
+                rightPanelContentRect,
+                RetainedOverviewHighlightsRowsPolicy.Specifications[index],
+                highlightPresentations[index],
+                typography,
+                headingMaterial));
+        }
         var presentations = ProfileSummaryPresentationFactory.Create(projection, UiText.Get);
         profileSummaryRows = new List<RetainedStatisticsRowControl>(presentations.Count);
         for (var index = 0; index < presentations.Count; index++)
@@ -588,14 +593,15 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return rect;
     }
 
-    private static RetainedFastestExtractionHighlightControl CreateOverviewFastestExtractionHighlight(
+    private static RetainedOverviewHighlightRowControl CreateOverviewHighlightRow(
         RectTransform parent,
-        FastestExtractionHighlightPresentation presentation,
+        RetainedOverviewHighlightRowSpecification specification,
+        OverviewHighlightPresentation presentation,
         NativeHeaderTitleTypography typography,
         Material material)
     {
         var row = new GameObject(
-            RetainedOverviewFastestExtractionRowPolicy.Name,
+            specification.RowName,
             typeof(RectTransform));
         var rect = (RectTransform)row.transform;
         rect.SetParent(parent, worldPositionStays: false);
@@ -606,19 +612,19 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         var labelRect = CreateStatisticsRowText(
             rect,
-            RetainedOverviewFastestExtractionEntryPolicy.LabelName,
+            specification.LabelName,
             presentation.Label,
             typography,
             material,
             out var label);
         var valueRect = CreateStatisticsRowText(
             rect,
-            RetainedOverviewFastestExtractionEntryPolicy.ValueName,
+            specification.ValueName,
             presentation.Value,
             typography,
             material,
             out var value);
-        return new RetainedFastestExtractionHighlightControl(rect, labelRect, label, valueRect, value);
+        return new RetainedOverviewHighlightRowControl(rect, labelRect, label, valueRect, value);
     }
 
     private static RetainedStatisticsRowControl CreateOverviewStatisticsRow(
@@ -999,7 +1005,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewProfileSummaryHeadingGraphic == null
             || overviewHighlightsHeadingRect == null
             || overviewHighlightsHeadingGraphic == null
-            || overviewFastestExtractionHighlight == null
+            || overviewHighlightRows.Count != RetainedOverviewHighlightsRowsPolicy.RowCount
             || overviewProfileSummaryRows.Count != RetainedProfileSummaryRowsPolicy.RowCount)
         {
             throw new InvalidOperationException("The retained visual layout is not fully initialized.");
@@ -1035,7 +1041,6 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var profileSummaryHeadingGraphic = overviewProfileSummaryHeadingGraphic!;
         var highlightsHeadingRect = overviewHighlightsHeadingRect!;
         var highlightsHeadingGraphic = overviewHighlightsHeadingGraphic!;
-        var fastestExtractionHighlight = overviewFastestExtractionHighlight!;
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
@@ -1127,28 +1132,32 @@ internal sealed class RetainedStatisticsShell : IDisposable
             layout.OverviewHighlightsHeading.Width,
             layout.OverviewHighlightsHeading.Height);
         highlightsHeadingGraphic.fontSize = layout.OverviewHighlightsHeading.FontSize;
-        fastestExtractionHighlight.Rect.anchoredPosition = new Vector2(
-            layout.OverviewFastestExtractionRow.Left - layout.OverviewRightPanel.ContentLeft,
-            -(layout.OverviewFastestExtractionRow.Top - layout.OverviewRightPanel.ContentTop));
-        fastestExtractionHighlight.Rect.sizeDelta = new Vector2(
-            layout.OverviewFastestExtractionRow.Width,
-            layout.OverviewFastestExtractionRow.Height);
-        ApplyStatisticsRowTextLayout(
-            fastestExtractionHighlight.LabelRect,
-            fastestExtractionHighlight.Label,
-            layout.OverviewFastestExtractionEntry.LabelLeft - layout.OverviewFastestExtractionRow.Left,
-            layout.OverviewFastestExtractionEntry.LabelTop - layout.OverviewFastestExtractionRow.Top,
-            layout.OverviewFastestExtractionEntry.LabelWidth,
-            layout.OverviewFastestExtractionEntry.LabelHeight,
-            layout.OverviewFastestExtractionEntry.FontSize);
-        ApplyStatisticsRowTextLayout(
-            fastestExtractionHighlight.ValueRect,
-            fastestExtractionHighlight.Value,
-            layout.OverviewFastestExtractionEntry.ValueLeft - layout.OverviewFastestExtractionRow.Left,
-            layout.OverviewFastestExtractionEntry.ValueTop - layout.OverviewFastestExtractionRow.Top,
-            layout.OverviewFastestExtractionEntry.ValueWidth,
-            layout.OverviewFastestExtractionEntry.ValueHeight,
-            layout.OverviewFastestExtractionEntry.FontSize);
+        for (var index = 0; index < overviewHighlightRows.Count; index++)
+        {
+            var control = overviewHighlightRows[index];
+            var row = layout.OverviewHighlightRows[index];
+            var entry = layout.OverviewHighlightEntries[index];
+            control.Rect.anchoredPosition = new Vector2(
+                row.Left - layout.OverviewRightPanel.ContentLeft,
+                -(row.Top - layout.OverviewRightPanel.ContentTop));
+            control.Rect.sizeDelta = new Vector2(row.Width, row.Height);
+            ApplyStatisticsRowTextLayout(
+                control.LabelRect,
+                control.Label,
+                entry.LabelLeft - row.Left,
+                entry.LabelTop - row.Top,
+                entry.LabelWidth,
+                entry.LabelHeight,
+                entry.FontSize);
+            ApplyStatisticsRowTextLayout(
+                control.ValueRect,
+                control.Value,
+                entry.ValueLeft - row.Left,
+                entry.ValueTop - row.Top,
+                entry.ValueWidth,
+                entry.ValueHeight,
+                entry.FontSize);
+        }
         for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
             ApplyStatisticsRowLayout(
                 overviewProfileSummaryRows[index],
@@ -1309,7 +1318,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         overviewProfileSummaryHeadingGraphic = null;
         overviewHighlightsHeadingRect = null;
         overviewHighlightsHeadingGraphic = null;
-        overviewFastestExtractionHighlight = null;
+        overviewHighlightRows.Clear();
         overviewProfileSummaryRows.Clear();
         lastAppliedVisualLayout = null;
         lastViewportPixelWidth = float.NaN;

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Globalization;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
@@ -765,7 +766,7 @@ public sealed class StatisticsPanelProjectionTests
         var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
 
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(70, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(115f, tab.Left);
@@ -876,7 +877,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(owned.IsDisposed);
         Assert.Equal(0, destroyed);
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(70, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
@@ -1319,9 +1320,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowValueChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(5, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
-        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(70, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -2082,7 +2083,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(12, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.ProfileSummaryStandardRowContentChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.ProfileSummaryEconomyRowContentChildCount);
-        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(70, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.False(RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFirstStatisticsRowEntryPolicy.BlocksRaycasts);
@@ -2553,7 +2554,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateFourteenCompositionAddsOnlyOneNonGraphicOverviewRowAndTwoTextGraphics()
+    public void GateFourteenFastestExtractionStructureRemainsTwoTextGraphicsWithoutBackground()
     {
         var overviewView = new object();
         var visibilityStates = new List<bool>();
@@ -2566,20 +2567,501 @@ public sealed class StatisticsPanelProjectionTests
         visibility.Apply(StatisticsPanelTab.Overview);
 
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewFastestExtractionRowChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionRowGraphicCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionValueChildCount);
-        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(StatisticsPanelTab.Overview, visibility.OwnerTab);
         Assert.True(visibilityStates[0]);
         Assert.All(
             visibilityStates.Skip(1).Take(PanelInteractionState.NavigationOrder.Count - 1),
             visible => Assert.False(visible));
         Assert.True(visibilityStates[^1]);
+    }
+
+    [Fact]
+    public void GateFifteenHighlightsUseExactOrderedReferenceGeometryAndGateFourteenTypography()
+    {
+        var layout = CreateRetainedVisualLayout(2560f, 1440f);
+        var expected = new[]
+        {
+            (OverviewHighlightMetric.FastestExtraction, "OverviewFastestExtractionRow",
+                "ui.overview_fastest_extraction", "Fastest extraction", 456f, 476f),
+            (OverviewHighlightMetric.LongestSuccessfulRaid, "OverviewLongestSuccessfulRaidRow",
+                "ui.overview_longest_successful_raid", "Longest successful raid", 532f, 552f),
+            (OverviewHighlightMetric.MostUsedWeapon, "OverviewMostUsedWeaponRow",
+                "ui.overview_most_used_weapon", "Most-used weapon", 608f, 628f),
+            (OverviewHighlightMetric.MostUsedConsumable, "OverviewMostUsedConsumableRow",
+                "ui.overview_most_used_consumable", "Most-used consumable", 684f, 704f)
+        };
+
+        Assert.Equal(4, RetainedOverviewHighlightsRowsPolicy.RowCount);
+        Assert.Equal(76f, RetainedOverviewHighlightsRowsPolicy.RowStepPixels);
+        Assert.Equal(10f, RetainedOverviewHighlightsRowsPolicy.RowGapPixels);
+        Assert.Equal(expected.Length, RetainedOverviewHighlightsRowsPolicy.Specifications.Count);
+        Assert.Equal(expected.Length, layout.OverviewHighlightRows.Count);
+        Assert.Equal(expected.Length, layout.OverviewHighlightEntries.Count);
+        for (var index = 0; index < expected.Length; index++)
+        {
+            var specification = RetainedOverviewHighlightsRowsPolicy.Specifications[index];
+            var row = layout.OverviewHighlightRows[index];
+            var entry = layout.OverviewHighlightEntries[index];
+            Assert.Equal(expected[index].Item1, specification.Metric);
+            Assert.Equal(expected[index].Item2, specification.RowName);
+            Assert.Equal(expected[index].Item3, specification.LabelTextKey);
+            Assert.Equal(expected[index].Item4, specification.LabelEnglishFallback);
+            Assert.Equal(specification.LabelEnglishFallback, UiText.EnglishFallbacks[specification.LabelTextKey]);
+            Assert.Same(specification, row.Specification);
+            Assert.Same(layout.ReferenceTransform, row.ReferenceTransform);
+            Assert.Same(layout.ReferenceTransform, entry.ReferenceTransform);
+            Assert.Equal(1330f, row.Left);
+            Assert.Equal(expected[index].Item5, row.Top);
+            Assert.Equal(1115f, row.Width);
+            Assert.Equal(66f, row.Height);
+            Assert.Equal(1350f, row.ContentLeft);
+            Assert.Equal(expected[index].Item6, row.ContentTop);
+            Assert.Equal(1075f, row.ContentWidth);
+            Assert.Equal(26f, row.ContentHeight);
+            Assert.Equal(1350f, entry.LabelLeft);
+            Assert.Equal(expected[index].Item6, entry.LabelTop);
+            Assert.Equal(440f, entry.LabelWidth);
+            Assert.Equal(26f, entry.LabelHeight);
+            Assert.Equal(1790f, entry.ValueLeft);
+            Assert.Equal(expected[index].Item6, entry.ValueTop);
+            Assert.Equal(635f, entry.ValueWidth);
+            Assert.Equal(26f, entry.ValueHeight);
+            Assert.Equal(29.8f, entry.FontSize);
+            Assert.False(entry.HasSecondaryValue);
+            if (index > 0)
+                Assert.Equal(10f, row.Top - (layout.OverviewHighlightRows[index - 1].Top + 66f));
+        }
+
+        Assert.Same(layout.OverviewHighlightRows[0], layout.OverviewFastestExtractionRow);
+        Assert.Same(layout.OverviewHighlightEntries[0], layout.OverviewFastestExtractionEntry);
+        Assert.Equal(750f, layout.OverviewHighlightRows[^1].Top + layout.OverviewHighlightRows[^1].Height);
+        Assert.Equal(RetainedOverviewFirstStatisticsRowEntryPolicy.FontAssetName,
+            RetainedOverviewFastestExtractionEntryPolicy.FontAssetName);
+        Assert.Equal(RetainedOverviewFirstStatisticsRowEntryPolicy.MaterialName,
+            RetainedOverviewFastestExtractionEntryPolicy.MaterialName);
+        Assert.Equal(RetainedOverviewFirstStatisticsRowEntryPolicy.ReferenceFontSize,
+            RetainedOverviewFastestExtractionEntryPolicy.ReferenceFontSize);
+        Assert.Equal("firing actions", UiText.EnglishFallbacks["ui.overview_firing_actions_unit"]);
+        Assert.Equal("uses", UiText.EnglishFallbacks["ui.overview_uses_unit"]);
+        Assert.False(RetainedOverviewFastestExtractionRowPolicy.HasGraphic);
+        Assert.False(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
+        Assert.False(RetainedOverviewFastestExtractionEntryPolicy.BlocksRaycasts);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f)]
+    [InlineData(1680f, 1050f)]
+    [InlineData(1920f, 1200f)]
+    public void GateFifteenAllRowsUseTheSharedReferenceTransform(float viewportWidth, float viewportHeight)
+    {
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
+        var transform = layout.ReferenceTransform;
+        var referenceTops = new[] { 456f, 532f, 608f, 684f };
+        var referenceContentTops = new[] { 476f, 552f, 628f, 704f };
+
+        for (var index = 0; index < RetainedOverviewHighlightsRowsPolicy.RowCount; index++)
+        {
+            var row = layout.OverviewHighlightRows[index];
+            var entry = layout.OverviewHighlightEntries[index];
+            Assert.Equal(transform.CanvasX(1330f), row.Left, 5);
+            Assert.Equal(transform.CanvasY(referenceTops[index]), row.Top, 5);
+            Assert.Equal(transform.CanvasLength(1115f), row.Width, 5);
+            Assert.Equal(transform.CanvasLength(66f), row.Height, 5);
+            Assert.Equal(transform.CanvasX(1350f), entry.LabelLeft, 5);
+            Assert.Equal(transform.CanvasY(referenceContentTops[index]), entry.LabelTop, 5);
+            Assert.Equal(transform.CanvasLength(440f), entry.LabelWidth, 5);
+            Assert.Equal(transform.CanvasX(1790f), entry.ValueLeft, 5);
+            Assert.Equal(transform.CanvasLength(635f), entry.ValueWidth, 5);
+            Assert.Equal(transform.CanvasLength(29.8f), entry.FontSize, 5);
+        }
+    }
+
+    [Fact]
+    public void GateFifteenMockValuesComeFromAllFourAuthoritativeProjections()
+    {
+        var projection = CreateGateFifteenProjection();
+
+        var presentations = OverviewHighlightsPresentationFactory.Create(
+            projection,
+            key => UiText.EnglishFallbacks[key]);
+
+        Assert.Collection(
+            presentations,
+            value =>
+            {
+                Assert.Equal(OverviewHighlightMetric.FastestExtraction, value.Metric);
+                Assert.Equal("01:04.083 - Ground Zero", value.Value);
+            },
+            value =>
+            {
+                Assert.Equal(OverviewHighlightMetric.LongestSuccessfulRaid, value.Metric);
+                Assert.Equal("10:07.713 - Ground Zero - Farm Town", value.Value);
+            },
+            value =>
+            {
+                Assert.Equal(OverviewHighlightMetric.MostUsedWeapon, value.Metric);
+                Assert.Equal("Electrified MP7 - 143 firing actions", value.Value);
+            },
+            value =>
+            {
+                Assert.Equal(OverviewHighlightMetric.MostUsedConsumable, value.Metric);
+                Assert.Equal("Med-Kit (S) - 5 uses", value.Value);
+            });
+    }
+
+    [Fact]
+    public void GateFifteenLongestSuccessfulRaidUsesExtractionLongestAndExactOrderedRoute()
+    {
+        var projection = CreateGateFifteenProjection();
+        projection.Runs.Records.Extraction.Shortest!.ActiveDurationSeconds = 9999d;
+        projection.Runs.Records.Death = new DurationRecordPair
+        {
+            Longest = new DurationRecordReference
+            {
+                ActiveDurationSeconds = 99999d,
+                MapDisplayName = "Death record"
+            }
+        };
+        projection.Runs.Runs = new[]
+        {
+            projection.Runs.Runs[0],
+            new RunSummary
+            {
+                RunId = "unprojected-run-maximum",
+                ActiveDurationSeconds = 999999d,
+                MapDisplayName = "Run list maximum"
+            }
+        };
+        var matchingRun = projection.Runs.Runs[0];
+        matchingRun.Segments = new List<MapSegmentSummary>
+        {
+            new() { SegmentIndex = 2, MapDisplayName = "Ground Zero" },
+            new() { SegmentIndex = 0, MapDisplayName = "Farm Town" },
+            new() { SegmentIndex = 1, MapDisplayName = "Farm Town" }
+        };
+
+        var presentation = Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid);
+
+        Assert.Equal("10:07.713 - Farm Town - Farm Town - Ground Zero", presentation.Value);
+    }
+
+    [Fact]
+    public void GateFifteenLongestSuccessfulRaidFallsBackToRecordedMapWhenRouteIsUnproven()
+    {
+        var projection = CreateGateFifteenProjection();
+        projection.Runs.Runs = Array.Empty<RunSummary>();
+        Assert.Equal(
+            "10:07.713 - Recorded map",
+            Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid).Value);
+
+        projection = CreateGateFifteenProjection();
+        projection.Runs.Runs[0].HistoricalRouteUnavailable = true;
+        Assert.Equal(
+            "10:07.713 - Recorded map",
+            Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid).Value);
+    }
+
+    [Fact]
+    public void GateFifteenLongestSuccessfulRaidPreservesMissingInvalidZeroAndUnknownStates()
+    {
+        string Resolve(string key) => "loc:" + key;
+        var projection = CreateGateFifteenProjection();
+        projection.Runs.Records.Extraction.Longest = null;
+        Assert.Equal("loc:ui.em_dash",
+            Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid, Resolve).Value);
+
+        foreach (var duration in new[] { -1d, double.NaN, double.PositiveInfinity })
+        {
+            projection = CreateGateFifteenProjection();
+            projection.Runs.Records.Extraction.Longest!.ActiveDurationSeconds = duration;
+            Assert.Equal("loc:ui.unavailable",
+                Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid, Resolve).Value);
+        }
+
+        projection = CreateGateFifteenProjection();
+        projection.Runs.Records.Extraction.Longest!.MapDisplayName = " ";
+        Assert.Equal("loc:ui.unavailable",
+            Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid, Resolve).Value);
+
+        projection = CreateGateFifteenProjection();
+        projection.Runs.Runs = Array.Empty<RunSummary>();
+        projection.Runs.Records.Extraction.Longest = new DurationRecordReference
+        {
+            ActiveDurationSeconds = 0d,
+            MapDisplayName = MapIdentity.UnknownDisplayName
+        };
+        Assert.Equal($"00:00.000 - {MapIdentity.UnknownDisplayName}",
+            Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid, Resolve).Value);
+    }
+
+    [Fact]
+    public void GateFifteenMostUsedWeaponRanksAcceptedFiringActionsOnly()
+    {
+        var projection = CreateGateFifteenProjection();
+        projection.Weapons.Lifetime.Totals.FiringActions = 1240;
+        projection.WeaponAmmunitionGroups = new[]
+        {
+            new WeaponAmmunitionGroupProjection
+            {
+                WeaponId = "weapon:accepted",
+                DisplayName = "Accepted winner",
+                TotalFiringActions = 1234,
+                CorrelatedFiringActions = 1,
+                UncorrelatedFiringActions = 1233
+            },
+            new WeaponAmmunitionGroupProjection
+            {
+                WeaponId = "weapon:pairs",
+                DisplayName = "Pair-count decoy",
+                TotalFiringActions = 6,
+                CorrelatedFiringActions = 9999
+            }
+        };
+
+        var presentation = Highlight(projection, OverviewHighlightMetric.MostUsedWeapon);
+
+        Assert.Equal("Accepted winner - 1,234 firing actions", presentation.Value);
+    }
+
+    [Fact]
+    public void GateFifteenMostUsedWeaponTieBreakIsOrdinalAndIndependentOfInputOrder()
+    {
+        var first = CreateWeaponRankingProjection(
+            ("weapon:b", "Same name", 10),
+            ("weapon:z", "Zulu", 10),
+            ("weapon:a", "Same name", 10),
+            ("weapon:x", "Alpha", 10));
+        var second = CreateWeaponRankingProjection(
+            ("weapon:x", "Alpha", 10),
+            ("weapon:a", "Same name", 10),
+            ("weapon:z", "Zulu", 10),
+            ("weapon:b", "Same name", 10));
+
+        Assert.Equal("Alpha - 10 firing actions",
+            Highlight(first, OverviewHighlightMetric.MostUsedWeapon).Value);
+        Assert.Equal(
+            Highlight(first, OverviewHighlightMetric.MostUsedWeapon).Value,
+            Highlight(second, OverviewHighlightMetric.MostUsedWeapon).Value);
+
+        first.WeaponAmmunitionGroups = first.WeaponAmmunitionGroups
+            .Where(value => value.DisplayName == "Same name")
+            .Reverse()
+            .ToArray();
+        first.Weapons.Lifetime.Totals.FiringActions = 20;
+        Assert.Equal("Same name - 10 firing actions",
+            Highlight(first, OverviewHighlightMetric.MostUsedWeapon).Value);
+        Assert.Equal("weapon:a", first.WeaponAmmunitionGroups
+            .OrderBy(value => value.DisplayName, StringComparer.Ordinal)
+            .ThenBy(value => value.WeaponId, StringComparer.Ordinal)
+            .First().WeaponId);
+    }
+
+    [Fact]
+    public void GateFifteenMostUsedWeaponPreservesUnsupportedUnavailableAndProvenEmptyStates()
+    {
+        string Resolve(string key) => "loc:" + key;
+        var projection = CreateWeaponRankingProjection();
+        projection.Weapons.Capabilities.FiringActions.State = AdapterCapabilityState.DisabledIncompatible;
+        Assert.Equal("loc:ui.unsupported",
+            Highlight(projection, OverviewHighlightMetric.MostUsedWeapon, Resolve).Value);
+
+        projection = CreateWeaponRankingProjection(("weapon:a", "A", 5));
+        projection.Weapons.Capabilities.WeaponIdentity.State = AdapterCapabilityState.DisabledIncompatible;
+        Assert.Equal("loc:ui.unavailable",
+            Highlight(projection, OverviewHighlightMetric.MostUsedWeapon, Resolve).Value);
+
+        projection = CreateWeaponRankingProjection();
+        projection.Weapons.Capabilities.FiringActions.State = AdapterCapabilityState.Experimental;
+        Assert.Equal("loc:ui.unavailable",
+            Highlight(projection, OverviewHighlightMetric.MostUsedWeapon, Resolve).Value);
+
+        projection = CreateWeaponRankingProjection(("weapon:a", "A", 5), ("weapon:b", "B", 4));
+        projection.Weapons.Lifetime.Totals.FiringActions = 10;
+        Assert.Equal("loc:ui.unavailable",
+            Highlight(projection, OverviewHighlightMetric.MostUsedWeapon, Resolve).Value);
+
+        projection = CreateWeaponRankingProjection(("weapon:a", "A", 6), ("weapon:b", "B", 3));
+        projection.Weapons.Lifetime.Totals.FiringActions = 10;
+        Assert.Equal("A - 6 loc:ui.overview_firing_actions_unit",
+            Highlight(projection, OverviewHighlightMetric.MostUsedWeapon, Resolve).Value);
+
+        projection = CreateWeaponRankingProjection();
+        Assert.Equal("loc:ui.em_dash",
+            Highlight(projection, OverviewHighlightMetric.MostUsedWeapon, Resolve).Value);
+
+        projection = CreateWeaponRankingProjection(("weapon:a", "A", 1));
+        projection.Weapons.Lifetime.WasRepairedFromInvalidState = true;
+        Assert.Equal("loc:ui.unavailable",
+            Highlight(projection, OverviewHighlightMetric.MostUsedWeapon, Resolve).Value);
+    }
+
+    [Fact]
+    public void GateFifteenMostUsedConsumableRanksActivationCountAndUsesStableFallback()
+    {
+        var projection = CreateConsumableRankingProjection(
+            ("item:heal", "", 1234, 0d),
+            ("item:amount-decoy", "Amount decoy", 2, 99999d));
+
+        var presentation = Highlight(projection, OverviewHighlightMetric.MostUsedConsumable);
+
+        Assert.Equal("Unknown / modded item [item:heal] - 1,234 uses", presentation.Value);
+    }
+
+    [Fact]
+    public void GateFifteenMostUsedConsumableTieBreakIsOrdinalAndIndependentOfInputOrder()
+    {
+        var first = CreateConsumableRankingProjection(
+            ("item:z", "Zulu", 5, 0d),
+            ("item:b", "Same name", 5, 0d),
+            ("item:a", "Same name", 5, 0d),
+            ("item:x", "Alpha", 5, 0d));
+        var second = CreateConsumableRankingProjection(
+            ("item:x", "Alpha", 5, 0d),
+            ("item:a", "Same name", 5, 0d),
+            ("item:b", "Same name", 5, 0d),
+            ("item:z", "Zulu", 5, 0d));
+
+        Assert.Equal("Alpha - 5 uses",
+            Highlight(first, OverviewHighlightMetric.MostUsedConsumable).Value);
+        Assert.Equal(
+            Highlight(first, OverviewHighlightMetric.MostUsedConsumable).Value,
+            Highlight(second, OverviewHighlightMetric.MostUsedConsumable).Value);
+
+        first = CreateConsumableRankingProjection(
+            ("item:b", "Same name", 5, 0d),
+            ("item:a", "Same name", 5, 0d));
+        Assert.Equal("Same name - 5 uses",
+            Highlight(first, OverviewHighlightMetric.MostUsedConsumable).Value);
+    }
+
+    [Fact]
+    public void GateFifteenMostUsedConsumablePreservesIncompleteRepairedAndProvenEmptyStates()
+    {
+        string Resolve(string key) => "loc:" + key;
+        var projection = CreateConsumableRankingProjection(("item:a", "A", 5, 0d));
+        projection.ItemUse.HistoricalUnavailable = true;
+        Assert.Equal("loc:ui.unavailable",
+            Highlight(projection, OverviewHighlightMetric.MostUsedConsumable, Resolve).Value);
+
+        projection = CreateConsumableRankingProjection(("item:a", "A", 5, 0d));
+        projection.ItemUse.WasRepairedFromInvalidState = true;
+        Assert.Equal("loc:ui.unavailable",
+            Highlight(projection, OverviewHighlightMetric.MostUsedConsumable, Resolve).Value);
+
+        projection = CreateConsumableRankingProjection(("item:a", "A", 5, 0d));
+        projection.ItemUse.Overall.ActivationCount = 6;
+        Assert.Equal("loc:ui.unavailable",
+            Highlight(projection, OverviewHighlightMetric.MostUsedConsumable, Resolve).Value);
+
+        projection = CreateConsumableRankingProjection();
+        Assert.Equal("loc:ui.em_dash",
+            Highlight(projection, OverviewHighlightMetric.MostUsedConsumable, Resolve).Value);
+    }
+
+    [Fact]
+    public void GateFifteenCountsAndStableFallbacksRemainInvariantAcrossCurrentCulture()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            var weapon = CreateWeaponRankingProjection(("weapon:modded", "", 1234));
+            var consumable = CreateConsumableRankingProjection(("item:modded", "", 1234, 0d));
+
+            Assert.Equal("Unknown / modded item [weapon:modded] - 1,234 firing actions",
+                Highlight(weapon, OverviewHighlightMetric.MostUsedWeapon).Value);
+            Assert.Equal("Unknown / modded item [item:modded] - 1,234 uses",
+                Highlight(consumable, OverviewHighlightMetric.MostUsedConsumable).Value);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
+
+    [Fact]
+    public void GateFifteenItemUseProjectionCarriesHistoricalAndRepairTruthfulness()
+    {
+        var profile = Profile("generation-a");
+        profile.Statistics.RunTotals.ItemStatistics.HistoricalUnavailable = true;
+        profile.Statistics.RunTotals.ItemStatistics.WasRepairedFromInvalidState = true;
+
+        var projection = Create(profile);
+
+        Assert.True(projection.ItemUse.HistoricalUnavailable);
+        Assert.True(projection.ItemUse.WasRepairedFromInvalidState);
+        Assert.Equal("Unavailable",
+            Highlight(projection, OverviewHighlightMetric.MostUsedConsumable).Value);
+    }
+
+    [Fact]
+    public void GateFifteenLocalizedAndLongTextCannotRejectTheHighlights()
+    {
+        const string longName = "An unusually long localized display name that remains visible without gating";
+        var projection = CreateGateFifteenProjection();
+        projection.WeaponAmmunitionGroups[0].DisplayName = longName;
+        projection.ItemUse.Items[0].DisplayName = longName;
+        string Resolve(string key) => "localized:" + key;
+
+        var presentations = OverviewHighlightsPresentationFactory.Create(projection, Resolve);
+
+        Assert.Equal(4, presentations.Count);
+        Assert.All(presentations, value => Assert.StartsWith("localized:ui.overview_", value.Label));
+        Assert.Contains(longName, presentations[2].Value, StringComparison.Ordinal);
+        Assert.Contains(longName, presentations[3].Value, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GateFifteenCompositionAddsOnlyThreeNonGraphicRowsAndSixTextGraphics()
+    {
+        Assert.Equal(4, RetainedShellCompositionPolicy.OverviewHighlightRowCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewHighlightRowChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightRowGraphicCount);
+        Assert.Equal(5, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(3, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount - 2);
+        Assert.Equal(70, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(6, RetainedShellCompositionPolicy.GraphicCount - 64);
+        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(StatisticsPanelTab.Overview, RetainedOverviewFastestExtractionRowPolicy.OwnerTab);
+        Assert.Equal(RetainedOverviewRightPanelPolicy.ContentName,
+            RetainedOverviewFastestExtractionRowPolicy.ParentName);
+    }
+
+    [Fact]
+    public void GateFifteenKeepsGateFourteenAndOtherAcceptedTabBehaviorUnchanged()
+    {
+        var projection = CreateGateFifteenProjection();
+        var fastest = FastestExtractionHighlightPresentationFactory.Create(
+            projection,
+            key => UiText.EnglishFallbacks[key]);
+        var all = OverviewHighlightsPresentationFactory.Create(
+            projection,
+            key => UiText.EnglishFallbacks[key]);
+
+        Assert.Equal(OverviewHighlightMetric.FastestExtraction, fastest.Metric);
+        Assert.Equal("Fastest extraction", fastest.Label);
+        Assert.Equal("01:04.083 - Ground Zero", fastest.Value);
+        Assert.Equal(fastest.Label, all[0].Label);
+        Assert.Equal(fastest.Value, all[0].Value);
+        Assert.Equal(new[]
+        {
+            StatisticsPanelTab.Overview,
+            StatisticsPanelTab.Runs,
+            StatisticsPanelTab.Records,
+            StatisticsPanelTab.Combat,
+            StatisticsPanelTab.Equipment,
+            StatisticsPanelTab.Economy,
+            StatisticsPanelTab.Crafting,
+            StatisticsPanelTab.ItemUse,
+            StatisticsPanelTab.Diagnostics
+        }, PanelInteractionState.NavigationOrder);
+        Assert.Equal(9, RetainedTabStripPolicy.Specifications.Count);
+        Assert.Equal(StatisticsPanelTab.Overview, RetainedOverviewFastestExtractionRowPolicy.OwnerTab);
     }
 
     [Fact]
@@ -2808,7 +3290,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
-        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(70, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -3061,16 +3543,154 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowValueChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(5, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewFastestExtractionRowChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionRowGraphicCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionValueChildCount);
-        Assert.Equal(64, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(70, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
+    }
+
+    private static OverviewHighlightPresentation Highlight(
+        StatisticsPanelProjection projection,
+        OverviewHighlightMetric metric,
+        Func<string, string>? text = null) => OverviewHighlightsPresentationFactory.Create(
+            projection,
+            text ?? (key => UiText.EnglishFallbacks[key]))
+        .Single(value => value.Metric == metric);
+
+    private static StatisticsPanelProjection CreateGateFifteenProjection()
+    {
+        var projection = new StatisticsPanelProjection
+        {
+            Runs = new RunStatisticsViewModel
+            {
+                Records = new RunDurationRecords
+                {
+                    Extraction = new DurationRecordPair
+                    {
+                        Shortest = new DurationRecordReference
+                        {
+                            RunId = "shortest",
+                            ActiveDurationSeconds = 64.083d,
+                            MapDisplayName = "Ground Zero"
+                        },
+                        Longest = new DurationRecordReference
+                        {
+                            RunId = "longest",
+                            ActiveDurationSeconds = 607.713d,
+                            MapDisplayName = "Recorded map"
+                        }
+                    }
+                },
+                Runs = new[]
+                {
+                    new RunSummary
+                    {
+                        RunId = "longest",
+                        Segments = new List<MapSegmentSummary>
+                        {
+                            new() { SegmentIndex = 1, MapDisplayName = "Farm Town" },
+                            new() { SegmentIndex = 0, MapDisplayName = "Ground Zero" }
+                        },
+                        RouteCapabilities = new RouteMetricCapabilities
+                        {
+                            OrderedRoute = new MetricAvailability { State = AdapterCapabilityState.Supported },
+                            Segments = new MetricAvailability { State = AdapterCapabilityState.Supported }
+                        }
+                    }
+                }
+            },
+            Weapons = new WeaponStatisticsViewModel
+            {
+                Lifetime = new WeaponStatisticsAggregate
+                {
+                    Totals = new WeaponMetricTotals { FiringActions = 143 }
+                },
+                Capabilities = new WeaponMetricCapabilities
+                {
+                    FiringActions = new MetricAvailability { State = AdapterCapabilityState.Supported },
+                    WeaponIdentity = new MetricAvailability { State = AdapterCapabilityState.Supported }
+                }
+            },
+            WeaponAmmunitionGroups = new[]
+            {
+                new WeaponAmmunitionGroupProjection
+                {
+                    WeaponId = "weapon:mp7",
+                    DisplayName = "Electrified MP7",
+                    TotalFiringActions = 143
+                }
+            },
+            ItemUse = new ItemUsePanelProjection
+            {
+                Overall = new AggregateTotals { ActivationCount = 5 },
+                Items = new[]
+                {
+                    new ItemUseRowProjection
+                    {
+                        ItemId = "item:med-kit-s",
+                        DisplayName = "Med-Kit (S)",
+                        Totals = new AggregateTotals { ActivationCount = 5 }
+                    }
+                }
+            }
+        };
+        return projection;
+    }
+
+    private static StatisticsPanelProjection CreateWeaponRankingProjection(
+        params (string Id, string Name, long Count)[] weapons)
+    {
+        var total = weapons.Sum(value => value.Count);
+        return new StatisticsPanelProjection
+        {
+            Weapons = new WeaponStatisticsViewModel
+            {
+                Lifetime = new WeaponStatisticsAggregate
+                {
+                    Totals = new WeaponMetricTotals { FiringActions = total }
+                },
+                Capabilities = new WeaponMetricCapabilities
+                {
+                    FiringActions = new MetricAvailability { State = AdapterCapabilityState.Supported },
+                    WeaponIdentity = new MetricAvailability { State = AdapterCapabilityState.Supported }
+                }
+            },
+            WeaponAmmunitionGroups = weapons.Select(value => new WeaponAmmunitionGroupProjection
+            {
+                WeaponId = value.Id,
+                DisplayName = value.Name,
+                TotalFiringActions = value.Count
+            }).ToArray()
+        };
+    }
+
+    private static StatisticsPanelProjection CreateConsumableRankingProjection(
+        params (string Id, string Name, long Count, double Health)[] items)
+    {
+        var total = items.Sum(value => value.Count);
+        return new StatisticsPanelProjection
+        {
+            ItemUse = new ItemUsePanelProjection
+            {
+                Overall = new AggregateTotals { ActivationCount = total },
+                Items = items.Select(value => new ItemUseRowProjection
+                {
+                    ItemId = value.Id,
+                    DisplayName = value.Name,
+                    Totals = new AggregateTotals
+                    {
+                        ActivationCount = value.Count,
+                        ActualHealthRestored = value.Health
+                    }
+                }).ToArray()
+            }
+        };
     }
 
     private static StatisticsPanelProjection CreateFastestExtractionProjection(

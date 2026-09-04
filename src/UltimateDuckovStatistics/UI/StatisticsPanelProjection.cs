@@ -1653,28 +1653,86 @@ internal static class ProfileSummaryPresentationFactory
         value >= 0d && !double.IsNaN(value) && !double.IsInfinity(value);
 }
 
-internal sealed class FastestExtractionHighlightPresentation
+internal enum OverviewHighlightMetric
 {
+    FastestExtraction,
+    LongestSuccessfulRaid,
+    MostUsedWeapon,
+    MostUsedConsumable
+}
+
+internal sealed class OverviewHighlightPresentation
+{
+    public OverviewHighlightMetric Metric { get; set; }
     public string Label { get; set; } = string.Empty;
     public string Value { get; set; } = string.Empty;
 }
 
 internal static class FastestExtractionHighlightPresentationFactory
 {
-    public static FastestExtractionHighlightPresentation Create(
+    public static OverviewHighlightPresentation Create(
+        StatisticsPanelProjection projection,
+        Func<string, string> text) => OverviewHighlightsPresentationFactory.Create(projection, text)[0];
+}
+
+internal static class OverviewHighlightsPresentationFactory
+{
+    public static IReadOnlyList<OverviewHighlightPresentation> Create(
         StatisticsPanelProjection projection,
         Func<string, string> text)
     {
         if (projection == null) throw new ArgumentNullException(nameof(projection));
         if (text == null) throw new ArgumentNullException(nameof(text));
-        return new FastestExtractionHighlightPresentation
-        {
-            Label = text(RetainedOverviewFastestExtractionEntryPolicy.LabelTextKey),
-            Value = FormatValue(projection.Runs.Records?.Extraction?.Shortest, text)
-        };
+
+        return RetainedOverviewHighlightsRowsPolicy.Specifications.Select(specification =>
+            new OverviewHighlightPresentation
+            {
+                Metric = specification.Metric,
+                Label = text(specification.LabelTextKey),
+                Value = specification.Metric switch
+                {
+                    OverviewHighlightMetric.FastestExtraction => FormatDurationRecord(
+                        projection.Runs.Records?.Extraction?.Shortest,
+                        routeDisplayName: null,
+                        text),
+                    OverviewHighlightMetric.LongestSuccessfulRaid => FormatLongestSuccessfulRaid(projection, text),
+                    OverviewHighlightMetric.MostUsedWeapon => FormatMostUsedWeapon(projection, text),
+                    OverviewHighlightMetric.MostUsedConsumable => FormatMostUsedConsumable(projection, text),
+                    _ => text("ui.unavailable")
+                }
+            }).ToArray();
     }
 
-    private static string FormatValue(DurationRecordReference? record, Func<string, string> text)
+    private static string FormatLongestSuccessfulRaid(
+        StatisticsPanelProjection projection,
+        Func<string, string> text)
+    {
+        var record = projection.Runs.Records?.Extraction?.Longest;
+        if (record == null) return text("ui.em_dash");
+
+        string? routeDisplayName = null;
+        if (!string.IsNullOrWhiteSpace(record.RunId))
+        {
+            var run = projection.Runs.Runs.FirstOrDefault(candidate =>
+                string.Equals(candidate.RunId, record.RunId, StringComparison.Ordinal));
+            if (run != null && UiText.HasAvailableSegments(run))
+            {
+                var mapDisplayNames = run.Segments
+                    .OrderBy(segment => segment.SegmentIndex)
+                    .Select(segment => segment.MapDisplayName)
+                    .ToArray();
+                if (mapDisplayNames.All(value => !string.IsNullOrWhiteSpace(value)))
+                    routeDisplayName = string.Join(" - ", mapDisplayNames);
+            }
+        }
+
+        return FormatDurationRecord(record, routeDisplayName, text);
+    }
+
+    private static string FormatDurationRecord(
+        DurationRecordReference? record,
+        string? routeDisplayName,
+        Func<string, string> text)
     {
         if (record == null) return text("ui.em_dash");
         if (!IsFiniteNonNegative(record.ActiveDurationSeconds)
@@ -1708,8 +1766,147 @@ internal static class FastestExtractionHighlightPresentationFactory
                 totalMinutes,
                 seconds,
                 milliseconds);
-        return $"{duration} - {record.MapDisplayName}";
+        return $"{duration} - {routeDisplayName ?? record.MapDisplayName}";
     }
+
+    private static string FormatMostUsedWeapon(
+        StatisticsPanelProjection projection,
+        Func<string, string> text)
+    {
+        var lifetime = projection.Weapons.Lifetime;
+        var capabilities = projection.Weapons.Capabilities;
+        var groups = projection.WeaponAmmunitionGroups;
+        if (lifetime == null || capabilities == null || groups == null
+            || lifetime.Totals == null || capabilities.FiringActions == null
+            || capabilities.WeaponIdentity == null || lifetime.WasRepairedFromInvalidState)
+        {
+            return text("ui.unavailable");
+        }
+
+        var candidates = groups
+            .Where(value => value != null
+                && !string.IsNullOrWhiteSpace(value.WeaponId)
+                && value.TotalFiringActions > 0)
+            .OrderByDescending(value => value.TotalFiringActions)
+            .ThenBy(
+                value => StatisticsPanelProjectionFactory.StableDisplayName(value.DisplayName, value.WeaponId),
+                StringComparer.Ordinal)
+            .ThenBy(value => value.WeaponId, StringComparer.Ordinal)
+            .ToArray();
+        var firingActionsState = capabilities.FiringActions.State;
+        var weaponIdentityState = capabilities.WeaponIdentity.State;
+        var requiredFunctionalityUnsupported =
+            firingActionsState == AdapterCapabilityState.DisabledIncompatible
+            || weaponIdentityState == AdapterCapabilityState.DisabledIncompatible;
+        var completeSupportedCapture = firingActionsState == AdapterCapabilityState.Supported
+            && weaponIdentityState == AdapterCapabilityState.Supported;
+        if (!completeSupportedCapture)
+        {
+            return candidates.Length == 0 && requiredFunctionalityUnsupported
+                ? text("ui.unsupported")
+                : text("ui.unavailable");
+        }
+
+        if (lifetime.Totals.FiringActions < 0
+            || groups.Any(value => value == null || value.TotalFiringActions < 0))
+        {
+            return text("ui.unavailable");
+        }
+
+        long identifiedFiringActions;
+        try
+        {
+            var identifiedWeaponIds = new HashSet<string>(StringComparer.Ordinal);
+            identifiedFiringActions = 0;
+            foreach (var group in groups.Where(value => value != null && !string.IsNullOrWhiteSpace(value.WeaponId)))
+            {
+                if (!identifiedWeaponIds.Add(group.WeaponId)) return text("ui.unavailable");
+                identifiedFiringActions = checked(identifiedFiringActions + group.TotalFiringActions);
+            }
+        }
+        catch (OverflowException)
+        {
+            return text("ui.unavailable");
+        }
+
+        if (identifiedFiringActions > lifetime.Totals.FiringActions) return text("ui.unavailable");
+        var unattributedFiringActions = lifetime.Totals.FiringActions - identifiedFiringActions;
+        if (candidates.Length == 0)
+        {
+            return lifetime.Totals.FiringActions == 0
+                ? text("ui.em_dash")
+                : text("ui.unavailable");
+        }
+
+        if (unattributedFiringActions > 0)
+        {
+            try
+            {
+                var nextHighestPossibleTotal = checked(
+                    (candidates.Length > 1 ? candidates[1].TotalFiringActions : 0)
+                    + unattributedFiringActions);
+                if (candidates[0].TotalFiringActions <= nextHighestPossibleTotal)
+                    return text("ui.unavailable");
+            }
+            catch (OverflowException)
+            {
+                return text("ui.unavailable");
+            }
+        }
+
+        var winner = candidates[0];
+        return $"{StatisticsPanelProjectionFactory.StableDisplayName(winner.DisplayName, winner.WeaponId)}"
+            + $" - {FormatInteger(winner.TotalFiringActions)} {text("ui.overview_firing_actions_unit")}";
+    }
+
+    private static string FormatMostUsedConsumable(
+        StatisticsPanelProjection projection,
+        Func<string, string> text)
+    {
+        var itemUse = projection.ItemUse;
+        if (itemUse == null || itemUse.Overall == null || itemUse.Items == null
+            || itemUse.HistoricalUnavailable || itemUse.WasRepairedFromInvalidState
+            || itemUse.Overall.ActivationCount < 0
+            || itemUse.Items.Any(value => value == null
+                || value.Totals == null
+                || value.Totals.ActivationCount < 0))
+        {
+            return text("ui.unavailable");
+        }
+
+        long attributedActivationCount;
+        try
+        {
+            var identifiedItemIds = new HashSet<string>(StringComparer.Ordinal);
+            attributedActivationCount = 0;
+            foreach (var item in itemUse.Items)
+            {
+                if (string.IsNullOrWhiteSpace(item.ItemId) || !identifiedItemIds.Add(item.ItemId))
+                    return text("ui.unavailable");
+                attributedActivationCount = checked(attributedActivationCount + item.Totals.ActivationCount);
+            }
+        }
+        catch (OverflowException)
+        {
+            return text("ui.unavailable");
+        }
+
+        if (attributedActivationCount != itemUse.Overall.ActivationCount)
+            return text("ui.unavailable");
+        var winner = itemUse.Items
+            .Where(value => value.Totals.ActivationCount > 0)
+            .OrderByDescending(value => value.Totals.ActivationCount)
+            .ThenBy(
+                value => StatisticsPanelProjectionFactory.StableDisplayName(value.DisplayName, value.ItemId),
+                StringComparer.Ordinal)
+            .ThenBy(value => value.ItemId, StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (winner == null) return text("ui.em_dash");
+        return $"{StatisticsPanelProjectionFactory.StableDisplayName(winner.DisplayName, winner.ItemId)}"
+            + $" - {FormatInteger(winner.Totals.ActivationCount)} {text("ui.overview_uses_unit")}";
+    }
+
+    private static string FormatInteger(long value) => value.ToString("#,0", CultureInfo.InvariantCulture);
 
     private static bool IsFiniteNonNegative(double value) =>
         value >= 0d && !double.IsNaN(value) && !double.IsInfinity(value);
@@ -1793,6 +1990,7 @@ internal static class RetainedOverviewHighlightsHeadingPolicy
 
 internal sealed class RetainedOverviewFastestExtractionRowCanvasLayout
 {
+    public RetainedOverviewHighlightRowSpecification Specification { get; set; } = null!;
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
     public float Left { get; set; }
     public float Top { get; set; }
@@ -1802,6 +2000,89 @@ internal sealed class RetainedOverviewFastestExtractionRowCanvasLayout
     public float ContentTop { get; set; }
     public float ContentWidth { get; set; }
     public float ContentHeight { get; set; }
+}
+
+internal sealed class RetainedOverviewHighlightRowSpecification
+{
+    public OverviewHighlightMetric Metric { get; set; }
+    public string RowName { get; set; } = string.Empty;
+    public string LabelName { get; set; } = string.Empty;
+    public string ValueName { get; set; } = string.Empty;
+    public string LabelTextKey { get; set; } = string.Empty;
+    public string LabelEnglishFallback { get; set; } = string.Empty;
+    public float TopOffsetPixels { get; set; }
+}
+
+internal static class RetainedOverviewHighlightsRowsPolicy
+{
+    public const int RowCount = 4;
+    public const float RowStepPixels = 76f;
+    public const float RowGapPixels = RowStepPixels - RetainedOverviewFastestExtractionRowPolicy.HeightPixels;
+
+    public static IReadOnlyList<RetainedOverviewHighlightRowSpecification> Specifications { get; } =
+        new[]
+        {
+            new RetainedOverviewHighlightRowSpecification
+            {
+                Metric = OverviewHighlightMetric.FastestExtraction,
+                RowName = RetainedOverviewFastestExtractionRowPolicy.Name,
+                LabelName = RetainedOverviewFastestExtractionEntryPolicy.LabelName,
+                ValueName = RetainedOverviewFastestExtractionEntryPolicy.ValueName,
+                LabelTextKey = RetainedOverviewFastestExtractionEntryPolicy.LabelTextKey,
+                LabelEnglishFallback = RetainedOverviewFastestExtractionEntryPolicy.LabelEnglishFallback,
+                TopOffsetPixels = RetainedOverviewFastestExtractionRowPolicy.TopOffsetPixels
+            },
+            new RetainedOverviewHighlightRowSpecification
+            {
+                Metric = OverviewHighlightMetric.LongestSuccessfulRaid,
+                RowName = "OverviewLongestSuccessfulRaidRow",
+                LabelName = "OverviewLongestSuccessfulRaidLabel",
+                ValueName = "OverviewLongestSuccessfulRaidValue",
+                LabelTextKey = "ui.overview_longest_successful_raid",
+                LabelEnglishFallback = "Longest successful raid",
+                TopOffsetPixels = RetainedOverviewFastestExtractionRowPolicy.TopOffsetPixels + RowStepPixels
+            },
+            new RetainedOverviewHighlightRowSpecification
+            {
+                Metric = OverviewHighlightMetric.MostUsedWeapon,
+                RowName = "OverviewMostUsedWeaponRow",
+                LabelName = "OverviewMostUsedWeaponLabel",
+                ValueName = "OverviewMostUsedWeaponValue",
+                LabelTextKey = "ui.overview_most_used_weapon",
+                LabelEnglishFallback = "Most-used weapon",
+                TopOffsetPixels = RetainedOverviewFastestExtractionRowPolicy.TopOffsetPixels + RowStepPixels * 2f
+            },
+            new RetainedOverviewHighlightRowSpecification
+            {
+                Metric = OverviewHighlightMetric.MostUsedConsumable,
+                RowName = "OverviewMostUsedConsumableRow",
+                LabelName = "OverviewMostUsedConsumableLabel",
+                ValueName = "OverviewMostUsedConsumableValue",
+                LabelTextKey = "ui.overview_most_used_consumable",
+                LabelEnglishFallback = "Most-used consumable",
+                TopOffsetPixels = RetainedOverviewFastestExtractionRowPolicy.TopOffsetPixels + RowStepPixels * 3f
+            }
+        };
+
+    public static IReadOnlyList<RetainedOverviewFastestExtractionRowCanvasLayout> CreateRowCanvasLayouts(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewPanelCanvasLayout rightPanel) => Specifications
+        .Select(specification => RetainedOverviewFastestExtractionRowPolicy.CreateCanvasLayout(
+            referenceTransform,
+            rightPanel,
+            specification))
+        .ToArray();
+
+    public static IReadOnlyList<RetainedTwoColumnStatisticsRowCanvasLayout> CreateEntryCanvasLayouts(
+        RetainedReferenceTransform referenceTransform,
+        IReadOnlyList<RetainedOverviewFastestExtractionRowCanvasLayout> rows)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (rows == null) throw new ArgumentNullException(nameof(rows));
+        return rows.Select(row => RetainedOverviewFastestExtractionEntryPolicy.CreateCanvasLayout(
+            referenceTransform,
+            row)).ToArray();
+    }
 }
 
 internal static class RetainedOverviewFastestExtractionRowPolicy
@@ -1817,15 +2098,25 @@ internal static class RetainedOverviewFastestExtractionRowPolicy
 
     public static RetainedOverviewFastestExtractionRowCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform,
-        RetainedOverviewPanelCanvasLayout rightPanel)
+        RetainedOverviewPanelCanvasLayout rightPanel) => CreateCanvasLayout(
+            referenceTransform,
+            rightPanel,
+            RetainedOverviewHighlightsRowsPolicy.Specifications[0]);
+
+    internal static RetainedOverviewFastestExtractionRowCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewPanelCanvasLayout rightPanel,
+        RetainedOverviewHighlightRowSpecification specification)
     {
         if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
         if (rightPanel == null) throw new ArgumentNullException(nameof(rightPanel));
+        if (specification == null) throw new ArgumentNullException(nameof(specification));
         var padding = referenceTransform.CanvasLength(ContentPaddingPixels);
         var left = rightPanel.ContentLeft;
-        var top = rightPanel.ContentTop + referenceTransform.CanvasLength(TopOffsetPixels);
+        var top = rightPanel.ContentTop + referenceTransform.CanvasLength(specification.TopOffsetPixels);
         return new RetainedOverviewFastestExtractionRowCanvasLayout
         {
+            Specification = specification,
             ReferenceTransform = referenceTransform,
             Left = left,
             Top = top,
@@ -2062,6 +2353,10 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedOverviewPanelCanvasLayout OverviewRightPanel { get; set; } = null!;
     public RetainedOverviewProfileSummaryHeadingCanvasLayout OverviewProfileSummaryHeading { get; set; } = null!;
     public RetainedOverviewHighlightsHeadingCanvasLayout OverviewHighlightsHeading { get; set; } = null!;
+    public IReadOnlyList<RetainedOverviewFastestExtractionRowCanvasLayout> OverviewHighlightRows { get; set; } =
+        Array.Empty<RetainedOverviewFastestExtractionRowCanvasLayout>();
+    public IReadOnlyList<RetainedTwoColumnStatisticsRowCanvasLayout> OverviewHighlightEntries { get; set; } =
+        Array.Empty<RetainedTwoColumnStatisticsRowCanvasLayout>();
     public RetainedOverviewFastestExtractionRowCanvasLayout OverviewFastestExtractionRow { get; set; } = null!;
     public RetainedTwoColumnStatisticsRowCanvasLayout OverviewFastestExtractionEntry { get; set; } = null!;
     public RetainedOverviewFirstStatisticsRowCanvasLayout OverviewFirstStatisticsRow { get; set; } = null!;
@@ -2108,12 +2403,14 @@ internal static class RetainedVisualLayoutPolicy
         var overviewHighlightsHeading = RetainedOverviewHighlightsHeadingPolicy.CreateCanvasLayout(
             referenceTransform,
             overviewRightPanel);
-        var overviewFastestExtractionRow = RetainedOverviewFastestExtractionRowPolicy.CreateCanvasLayout(
+        var overviewHighlightRows = RetainedOverviewHighlightsRowsPolicy.CreateRowCanvasLayouts(
             referenceTransform,
             overviewRightPanel);
-        var overviewFastestExtractionEntry = RetainedOverviewFastestExtractionEntryPolicy.CreateCanvasLayout(
+        var overviewHighlightEntries = RetainedOverviewHighlightsRowsPolicy.CreateEntryCanvasLayouts(
             referenceTransform,
-            overviewFastestExtractionRow);
+            overviewHighlightRows);
+        var overviewFastestExtractionRow = overviewHighlightRows[0];
+        var overviewFastestExtractionEntry = overviewHighlightEntries[0];
         var overviewProfileSummaryRows = RetainedProfileSummaryRowsPolicy.CreateCanvasLayouts(
             referenceTransform,
             overviewLeftPanel);
@@ -2186,6 +2483,8 @@ internal static class RetainedVisualLayoutPolicy
             OverviewRightPanel = overviewRightPanel,
             OverviewProfileSummaryHeading = overviewProfileSummaryHeading,
             OverviewHighlightsHeading = overviewHighlightsHeading,
+            OverviewHighlightRows = overviewHighlightRows,
+            OverviewHighlightEntries = overviewHighlightEntries,
             OverviewFastestExtractionRow = overviewFastestExtractionRow,
             OverviewFastestExtractionEntry = overviewFastestExtractionEntry,
             OverviewFirstStatisticsRow = overviewFirstStatisticsRow,
@@ -2225,13 +2524,16 @@ internal static class RetainedShellCompositionPolicy
     public const int ProfileSummaryStandardRowContentChildCount = 2;
     public const int ProfileSummaryEconomyRowContentChildCount = 3;
     public const int OverviewRightPanelChildCount = 1;
-    public const int OverviewRightPanelContentChildCount = 2;
+    public const int OverviewRightPanelContentChildCount = 5;
     public const int OverviewHighlightsHeadingChildCount = 0;
+    public const int OverviewHighlightRowCount = 4;
+    public const int OverviewHighlightRowChildCount = 2;
+    public const int OverviewHighlightRowGraphicCount = 0;
     public const int OverviewFastestExtractionRowChildCount = 2;
     public const int OverviewFastestExtractionRowGraphicCount = 0;
     public const int OverviewFastestExtractionLabelChildCount = 0;
     public const int OverviewFastestExtractionValueChildCount = 0;
-    public const int GraphicCount = 64;
+    public const int GraphicCount = 70;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
@@ -2604,6 +2906,7 @@ internal sealed class ItemUsePanelProjection
     public IReadOnlyList<ItemUseGroupProjection> Groups { get; set; } = Array.Empty<ItemUseGroupProjection>();
     public IReadOnlyList<RunSummary> RecentRuns { get; set; } = Array.Empty<RunSummary>();
     public bool HistoricalUnavailable { get; set; }
+    public bool WasRepairedFromInvalidState { get; set; }
 }
 
 internal sealed class ItemUseRowProjection
@@ -2733,6 +3036,8 @@ internal static class StatisticsPanelProjectionFactory
         {
             Overall = profile.Statistics.Overall,
             HistoricalUnavailable = profile.Statistics.RunTotals.ItemStatistics.HistoricalUnavailable,
+            WasRepairedFromInvalidState =
+                profile.Statistics.RunTotals.ItemStatistics.WasRepairedFromInvalidState,
             Items = profile.Statistics.Items.Values
                 .OrderByDescending(value => value.Totals.ActivationCount)
                 .ThenBy(value => StableDisplayName(value.DisplayName, value.ItemId), StringComparer.Ordinal)
