@@ -150,6 +150,20 @@ try
             "mute",
             mustBePrivate: true,
             fieldTypeFragment: "System.Boolean");
+        core.RequireField(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "hoveringIndicator",
+            mustBePrivate: true,
+            fieldTypeFragment: "UnityEngine.GameObject");
+        core.RequireField(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "toggles",
+            mustBePrivate: true,
+            fieldTypeFragment: "Duckov.UI.Animations.ToggleAnimation");
+        core.RequireType("Duckov.UI.Animations", "ToggleAnimation");
+        core.RequireType("Duckov.UI.Animations", "ToggleComponent");
         core.RequireEvent(string.Empty, "SceneLoader", "onStartedLoadingScene", "System.Action", "SceneLoadingContext");
         core.RequireEvent(string.Empty, "SceneLoader", "onFinishedLoadingScene", "System.Action", "SceneLoadingContext");
         core.RequireEvent(string.Empty, "SceneLoader", "onAfterSceneInitialize", "System.Action", "SceneLoadingContext");

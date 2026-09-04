@@ -307,7 +307,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var activation = new RetainedTabActivation(selectTab, specification.Tab);
         button.onClick.AddListener(activation.Invoke);
         listenerLease.Register(button.onClick.RemoveAllListeners);
-        RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
             tab,
             static target => target.GetComponent<ButtonAnimation>() != null,
             static target => _ = target.AddComponent<ButtonAnimation>());
@@ -440,6 +440,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
         button.onClick = new Button.ButtonClickedEvent();
         var activation = new RetainedBackControlActivation(close);
         button.onClick.AddListener(activation.Invoke);
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
+            back,
+            static target => target.GetComponent<ButtonAnimation>() != null,
+            static target => _ = target.AddComponent<ButtonAnimation>());
 
         var arrow = new GameObject(
             RetainedBackControlPolicy.ArrowName,

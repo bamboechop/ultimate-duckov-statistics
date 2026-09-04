@@ -21,6 +21,26 @@ public sealed class StatisticsPanelProjectionTests
         "UnityEngine.MonoBehaviour"
     };
 
+    private static readonly string?[] ButtonAnimationHierarchy =
+    {
+        NativeMenuPresentationPolicy.ButtonAnimationTypeName,
+        "UnityEngine.MonoBehaviour"
+    };
+
+    private static readonly string?[] ToggleAnimationHierarchy =
+    {
+        "Duckov.UI.Animations.ScaleToggle",
+        NativeMenuPresentationPolicy.ToggleAnimationTypeName,
+        "UnityEngine.MonoBehaviour"
+    };
+
+    private static readonly string?[] ToggleComponentHierarchy =
+    {
+        "Duckov.UI.Animations.ChangeGraphicsColorToggle",
+        NativeMenuPresentationPolicy.ToggleComponentTypeName,
+        "UnityEngine.MonoBehaviour"
+    };
+
     [Fact]
     public void UiTextUsesNativeLocalizationAndFallsBackToEnglishSafely()
     {
@@ -984,7 +1004,7 @@ public sealed class StatisticsPanelProjectionTests
 
         foreach (var target in targets)
         {
-            RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+            NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
                 target,
                 candidate => candidate.HasFeedback,
                 candidate => candidate.Attach());
@@ -1008,18 +1028,18 @@ public sealed class StatisticsPanelProjectionTests
     public void GateSevenANativeFeedbackAttachmentIsIdempotentFailOpenAndStateless()
     {
         var retained = new RetainedFeedbackTarget("retained");
-        RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
             retained,
             target => target.HasFeedback,
             target => target.Attach());
-        RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
             retained,
             target => target.HasFeedback,
             target => target.Attach());
         Assert.Equal(1, retained.AttachCount);
 
         var unavailable = new RetainedFeedbackTarget("unavailable") { ThrowOnAttach = true };
-        RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
             unavailable,
             target => target.HasFeedback,
             target => target.Attach());
@@ -1027,7 +1047,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1, unavailable.AttachCount);
 
         var nextShellTarget = new RetainedFeedbackTarget("next-shell");
-        RetainedTabInteractionFeedbackPolicy.AttachIfMissing(
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
             nextShellTarget,
             target => target.HasFeedback,
             target => target.Attach());
@@ -1036,15 +1056,125 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateSevenAUsesOnlyNativePointerFeedbackAndLeavesBackAndLabelsOutOfScope()
+    public void GateSevenBNativeFeedbackScopeIncludesTabsBackAndMainMenuOnly()
     {
         Assert.Equal(
             "Duckov.UI.Animations.ButtonAnimation",
-            RetainedTabInteractionFeedbackPolicy.NativeComponentTypeName);
-        Assert.True(RetainedTabInteractionFeedbackPolicy.UsesNativePointerHandlers);
-        Assert.False(RetainedTabInteractionFeedbackPolicy.SynthesizesAudio);
-        Assert.False(RetainedTabInteractionFeedbackPolicy.AppliesToLabels);
-        Assert.False(RetainedTabInteractionFeedbackPolicy.AppliesToBackButton);
+            NativeButtonInteractionFeedbackPolicy.NativeComponentTypeName);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.UsesNativePointerHandlers);
+        Assert.False(NativeButtonInteractionFeedbackPolicy.SynthesizesAudio);
+        Assert.False(NativeButtonInteractionFeedbackPolicy.AppliesToLabels);
+        Assert.False(NativeButtonInteractionFeedbackPolicy.AppliesToBackArrow);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToRetainedTabs);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToBackButton);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToMainMenuButton);
+        Assert.False(NativeButtonInteractionFeedbackPolicy.AppliesToBasePauseMenuButton);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.UsesDefaultConfigurationForCreatedComponents);
+    }
+
+    [Fact]
+    public void GateSevenBBackFeedbackTargetsTheButtonRootOnlyAndRemainsIdempotent()
+    {
+        var backRoot = new RetainedFeedbackTarget(RetainedBackControlPolicy.ButtonName);
+        var arrow = new RetainedFeedbackTarget(RetainedBackControlPolicy.ArrowName);
+
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
+            backRoot,
+            target => target.HasFeedback,
+            target => target.Attach());
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
+            backRoot,
+            target => target.HasFeedback,
+            target => target.Attach());
+
+        Assert.True(backRoot.HasFeedback);
+        Assert.Equal(1, backRoot.AttachCount);
+        Assert.False(arrow.HasFeedback);
+        Assert.Equal(0, arrow.AttachCount);
+    }
+
+    [Fact]
+    public void GateSevenBMainMenuPreservesOneUsableRootFeedbackAndItsSafeDependencies()
+    {
+        Assert.True(NativeMenuPresentationPolicy.PreservesUsableRootButtonAnimation(
+            PanelAccessSurface.MainMenu,
+            ButtonAnimationHierarchy,
+            isPrimaryButtonRoot: true,
+            isEnabled: true,
+            alreadyPreserved: false));
+        Assert.False(NativeMenuPresentationPolicy.PreservesUsableRootButtonAnimation(
+            PanelAccessSurface.MainMenu,
+            ButtonAnimationHierarchy,
+            isPrimaryButtonRoot: true,
+            isEnabled: true,
+            alreadyPreserved: true));
+        Assert.False(NativeMenuPresentationPolicy.PreservesUsableRootButtonAnimation(
+            PanelAccessSurface.MainMenu,
+            ButtonAnimationHierarchy,
+            isPrimaryButtonRoot: false,
+            isEnabled: true,
+            alreadyPreserved: false));
+        Assert.False(NativeMenuPresentationPolicy.PreservesUsableRootButtonAnimation(
+            PanelAccessSurface.MainMenu,
+            ButtonAnimationHierarchy,
+            isPrimaryButtonRoot: true,
+            isEnabled: false,
+            alreadyPreserved: false));
+        Assert.False(NativeMenuPresentationPolicy.PreservesUsableRootButtonAnimation(
+            PanelAccessSurface.BasePauseMenu,
+            ButtonAnimationHierarchy,
+            isPrimaryButtonRoot: true,
+            isEnabled: true,
+            alreadyPreserved: false));
+
+        Assert.True(NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(
+            PanelAccessSurface.MainMenu,
+            ToggleAnimationHierarchy));
+        Assert.True(NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(
+            PanelAccessSurface.MainMenu,
+            ToggleComponentHierarchy));
+        Assert.False(NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(
+            PanelAccessSurface.MainMenu,
+            ActionBehaviourHierarchy));
+        Assert.False(NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(
+            PanelAccessSurface.BasePauseMenu,
+            ToggleAnimationHierarchy));
+        Assert.False(NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(
+            PanelAccessSurface.BasePauseMenu,
+            ToggleComponentHierarchy));
+    }
+
+    [Fact]
+    public void GateSevenBMainMenuAddsFeedbackOnlyWhenNoUsableInstanceSurvives()
+    {
+        var preserved = new RetainedFeedbackTarget("preserved");
+        preserved.Attach();
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
+            preserved,
+            target => target.HasFeedback,
+            target => target.Attach());
+        Assert.Equal(1, preserved.AttachCount);
+
+        var disabledScheduledForRemoval = new RetainedFeedbackTarget("disabled");
+        NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
+            disabledScheduledForRemoval,
+            target => target.HasFeedback,
+            target => target.Attach());
+        Assert.True(disabledScheduledForRemoval.HasFeedback);
+        Assert.Equal(1, disabledScheduledForRemoval.AttachCount);
+    }
+
+    [Fact]
+    public void GateSevenBMainMenuReplacementCallbackRemainsSingleFire()
+    {
+        var activationCount = 0;
+        var activation = new NativeMenuButtonActivation(() => activationCount++);
+
+        activation.Invoke();
+
+        Assert.True(NativeMenuButtonActivation.ReplacesInheritedCallbacks);
+        Assert.Equal(1, NativeMenuButtonActivation.RegisteredUdsCallbackCount);
+        Assert.Equal(1, activationCount);
     }
 
     [Fact]

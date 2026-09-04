@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Reflection;
 using Duckov.UI;
+using Duckov.UI.Animations;
 using ItemStatsSystem;
 using SodaCraft.Localizations;
 using UltimateDuckovStatistics.Adapters;
@@ -245,7 +246,18 @@ internal sealed class NativeUiIntegration : IDisposable
             clone.SetActive(false);
             clone.name = "UltimateDuckovStatisticsButton";
             clone.transform.SetSiblingIndex(Math.Min(anchor.transform.GetSiblingIndex() + 1, clone.transform.parent.childCount - 1));
-            var removedActionBehaviours = RemoveInheritedActionBehaviours(clone, button);
+            var removedActionBehaviours = RemoveInheritedActionBehaviours(clone, button, surface);
+            if (surface == PanelAccessSurface.MainMenu)
+            {
+                NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
+                    clone,
+                    static target => target.GetComponents<ButtonAnimation>()
+                        .Any(component => component != null && component.enabled),
+                    static target => _ = target.AddComponent<ButtonAnimation>());
+            }
+            button.onClick = new Button.ButtonClickedEvent();
+            var activation = new NativeMenuButtonActivation(() => HandleInjectedButtonActivated(surface));
+            button.onClick.AddListener(activation.Invoke);
             ApplyLocalizedButtonText(clone);
             var iconApplied = ApplyStatisticsIcon(clone);
             clone.SetActive(true);
@@ -254,8 +266,6 @@ internal sealed class NativeUiIntegration : IDisposable
                 .OrderByDescending(ScorePanelCanvas)
                 .FirstOrDefault();
             if (IsUsablePanelCanvas(panelCanvas)) panelCanvases[surface] = panelCanvas;
-            button.onClick = new Button.ButtonClickedEvent();
-            button.onClick.AddListener(() => HandleInjectedButtonActivated(surface));
             if (!HasUsableButtonStructure(button))
             {
                 UnityEngine.Object.Destroy(clone);
@@ -353,13 +363,29 @@ internal sealed class NativeUiIntegration : IDisposable
         return field?.FieldType == typeof(string) ? (string?)field.GetValue(target) : null;
     }
 
-    private static int RemoveInheritedActionBehaviours(GameObject clone, Button primaryButton)
+    private static int RemoveInheritedActionBehaviours(
+        GameObject clone,
+        Button primaryButton,
+        PanelAccessSurface surface)
     {
         var removed = 0;
+        var preservedUsableRootButtonAnimation = false;
         foreach (var component in clone.GetComponentsInChildren<Component>(includeInactive: true))
         {
             if (component == null || ReferenceEquals(component, primaryButton)) continue;
-            if (component is not MonoBehaviour behaviour || IsPresentationBehaviour(component)) continue;
+            if (component is not MonoBehaviour behaviour) continue;
+            var hierarchy = TypeHierarchy(component.GetType()).ToArray();
+            if (NativeMenuPresentationPolicy.PreservesUsableRootButtonAnimation(
+                    surface,
+                    hierarchy,
+                    ReferenceEquals(component.gameObject, primaryButton.gameObject),
+                    behaviour.enabled,
+                    preservedUsableRootButtonAnimation))
+            {
+                preservedUsableRootButtonAnimation = true;
+                continue;
+            }
+            if (IsPresentationBehaviour(component, surface, hierarchy)) continue;
             behaviour.enabled = false;
             UnityEngine.Object.Destroy(component);
             removed++;
@@ -367,7 +393,10 @@ internal sealed class NativeUiIntegration : IDisposable
         return removed;
     }
 
-    private static bool IsPresentationBehaviour(Component component)
+    private static bool IsPresentationBehaviour(
+        Component component,
+        PanelAccessSurface surface,
+        IEnumerable<string?> typeHierarchy)
     {
         return component is Graphic
                || component is LayoutGroup
@@ -377,7 +406,8 @@ internal sealed class NativeUiIntegration : IDisposable
                || component is BaseMeshEffect
                || component is Mask
                || component is RectMask2D
-               || NativeMenuPresentationPolicy.PreservesProceduralImageState(TypeHierarchy(component.GetType()))
+               || NativeMenuPresentationPolicy.PreservesProceduralImageState(typeHierarchy)
+               || NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(surface, typeHierarchy)
                || string.Equals(component.GetType().Name, "TextLocalizor", StringComparison.Ordinal);
     }
 

@@ -91,12 +91,51 @@ internal static class NativeMenuPresentationPolicy
 {
     internal const string ProceduralImageModifierTypeName =
         "UnityEngine.UI.ProceduralImage.ProceduralImageModifier";
+    internal const string ButtonAnimationTypeName =
+        "Duckov.UI.Animations.ButtonAnimation";
+    internal const string ToggleAnimationTypeName =
+        "Duckov.UI.Animations.ToggleAnimation";
+    internal const string ToggleComponentTypeName =
+        "Duckov.UI.Animations.ToggleComponent";
 
     public static bool PreservesProceduralImageState(IEnumerable<string?> typeHierarchy)
     {
         if (typeHierarchy == null) throw new ArgumentNullException(nameof(typeHierarchy));
         return typeHierarchy.Any(typeName =>
             string.Equals(typeName, ProceduralImageModifierTypeName, StringComparison.Ordinal));
+    }
+
+    public static bool IsButtonAnimation(IEnumerable<string?> typeHierarchy)
+    {
+        if (typeHierarchy == null) throw new ArgumentNullException(nameof(typeHierarchy));
+        return typeHierarchy.Any(typeName =>
+            string.Equals(typeName, ButtonAnimationTypeName, StringComparison.Ordinal));
+    }
+
+    public static bool PreservesNativeInteractionDependency(
+        PanelAccessSurface surface,
+        IEnumerable<string?> typeHierarchy)
+    {
+        if (typeHierarchy == null) throw new ArgumentNullException(nameof(typeHierarchy));
+        if (surface != PanelAccessSurface.MainMenu) return false;
+
+        return typeHierarchy.Any(typeName =>
+            string.Equals(typeName, ToggleAnimationTypeName, StringComparison.Ordinal)
+            || string.Equals(typeName, ToggleComponentTypeName, StringComparison.Ordinal));
+    }
+
+    public static bool PreservesUsableRootButtonAnimation(
+        PanelAccessSurface surface,
+        IEnumerable<string?> typeHierarchy,
+        bool isPrimaryButtonRoot,
+        bool isEnabled,
+        bool alreadyPreserved)
+    {
+        return surface == PanelAccessSurface.MainMenu
+               && isPrimaryButtonRoot
+               && isEnabled
+               && !alreadyPreserved
+               && IsButtonAnimation(typeHierarchy);
     }
 }
 
@@ -554,13 +593,18 @@ internal sealed class RetainedListenerLease : IDisposable
     }
 }
 
-internal static class RetainedTabInteractionFeedbackPolicy
+internal static class NativeButtonInteractionFeedbackPolicy
 {
     public const string NativeComponentTypeName = "Duckov.UI.Animations.ButtonAnimation";
     public const bool UsesNativePointerHandlers = true;
     public const bool SynthesizesAudio = false;
     public const bool AppliesToLabels = false;
-    public const bool AppliesToBackButton = false;
+    public const bool AppliesToBackArrow = false;
+    public const bool AppliesToRetainedTabs = true;
+    public const bool AppliesToBackButton = true;
+    public const bool AppliesToMainMenuButton = true;
+    public const bool AppliesToBasePauseMenuButton = false;
+    public const bool UsesDefaultConfigurationForCreatedComponents = true;
 
     public static void AttachIfMissing<TTarget>(
         TTarget target,
@@ -582,6 +626,21 @@ internal static class RetainedTabInteractionFeedbackPolicy
             // never prevent the retained panel or its tab callbacks from working.
         }
     }
+}
+
+internal sealed class NativeMenuButtonActivation
+{
+    public const bool ReplacesInheritedCallbacks = true;
+    public const int RegisteredUdsCallbackCount = 1;
+
+    private readonly Action activate;
+
+    public NativeMenuButtonActivation(Action activate)
+    {
+        this.activate = activate ?? throw new ArgumentNullException(nameof(activate));
+    }
+
+    public void Invoke() => activate();
 }
 
 internal static class RetainedTabLabelShadowPolicy
