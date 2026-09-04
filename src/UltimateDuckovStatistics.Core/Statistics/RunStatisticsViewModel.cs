@@ -16,6 +16,8 @@ public sealed class RunPresentationRow
 {
     public RunSummary Run { get; set; } = new();
 
+    public RunDataProjection Data => new(Run);
+
     public IntegrityTags IntegrityTags { get; set; }
 
     public bool RecordEligible { get; set; }

@@ -74,3 +74,7 @@ dotnet run --project .\tools\DuckovContractProbe\DuckovContractProbe.csproj -c R
 The probe reads managed metadata and installed asset/version fingerprints. It does not launch Duckov, select a save, change gameplay, deploy a mod, or modify a Duckov save.
 
 Runtime pixel transparency, pointer blocking, keyboard close/reopen behavior, focus/cursor restoration, and menu recreation remain user-controlled checks in [M17_MANUAL_VALIDATION.md](M17_MANUAL_VALIDATION.md).
+
+## Runs data foundation
+
+The [schema-17 terminal equipment and combat contract](M17_RUNS_DATA_FOUNDATION.md) records the installed death/extraction ordering, public item-tree evidence, and retained fatal-combat ordering. It reuses the existing lifecycle callbacks and equipment builder, with no new Harmony hook.

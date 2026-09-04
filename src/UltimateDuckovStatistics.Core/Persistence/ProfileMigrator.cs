@@ -38,6 +38,12 @@ public static class ProfileMigrator
             return $"Current-schema profile roots are incomplete. Missing required data member: {missingPath}.";
         }
 
+        try { RunDataSchema.Validate(profile.Statistics); }
+        catch (ArgumentException exception)
+        {
+            return $"Current-schema Runs data foundation is invalid: {exception.Message}";
+        }
+
         foreach (var scope in EconomyRecoveryScopes(profile))
         {
             try
@@ -390,6 +396,7 @@ public static class ProfileMigrator
         }
 
         var changed = false;
+        var migratingRunsData = profile.SchemaVersion < 17 || profile.Statistics?.SchemaVersion < 17;
         var migratingCombat = profile.SchemaVersion < 5
                               || (profile.Statistics != null && profile.Statistics.SchemaVersion < 5);
         var migratingEquipment = profile.SchemaVersion < 6
@@ -1185,6 +1192,16 @@ public static class ProfileMigrator
         if (!string.Equals(profile.Statistics.SaveGenerationId, profile.GenerationId, StringComparison.Ordinal))
         {
             profile.Statistics.SaveGenerationId = profile.GenerationId;
+            changed = true;
+        }
+
+        if (migratingRunsData)
+        {
+            foreach (var scope in RunDataSchema.Scopes(profile.Statistics))
+                RunDataSchema.Migrate(scope.Combat, scope.Equipment);
+            foreach (var run in profile.Statistics.Runs)
+                run.TerminalLoadout = Domain.TerminalLoadout.Historical();
+            profile.SchemaVersion = profile.Statistics.SchemaVersion = ProductInfo.SchemaVersion;
             changed = true;
         }
 

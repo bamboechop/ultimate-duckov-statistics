@@ -458,6 +458,7 @@ public sealed class ProfileRepository
             throw new ArgumentException("Active-run checkpoint does not match the current generation.", nameof(checkpoint));
         }
 
+        if (checkpoint.SchemaVersion == ProductInfo.SchemaVersion) RunDataSchema.Validate(checkpoint);
         ValidateAndNormalizeRouteCheckpoint(checkpoint, requireCurrentSchemaRoots: checkpoint.SchemaVersion >= 8);
 
         checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
@@ -538,6 +539,7 @@ public sealed class ProfileRepository
         if (checkpoint.PendingTerminalOutcome is { } terminalOutcome
             && !Enum.IsDefined(typeof(RunOutcome), terminalOutcome))
             throw new ArgumentException("Active-run checkpoint contains an invalid pending terminal outcome.", nameof(checkpoint));
+        if (checkpoint.SchemaVersion < 17) RunDataSchema.Migrate(checkpoint);
         RunReducer.Validate(checkpoint.ToRecoverySummary());
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
@@ -925,6 +927,11 @@ public sealed class ProfileRepository
 
     private string? ValidateActiveRunCheckpointForRecovery(ActiveRunCheckpoint checkpoint)
     {
+        if (checkpoint.SchemaVersion == ProductInfo.SchemaVersion)
+        {
+            try { RunDataSchema.Validate(checkpoint); }
+            catch (ArgumentException exception) { return $"Invalid schema-17 checkpoint: {exception.Message}"; }
+        }
         try
         {
             ValidateAndNormalizeRouteCheckpoint(checkpoint, requireCurrentSchemaRoots: checkpoint.SchemaVersion >= 8);
@@ -1078,6 +1085,8 @@ public sealed class ProfileRepository
             }
             checkpoint.SchemaVersion = 14;
         }
+
+        if (checkpoint.SchemaVersion < 17) RunDataSchema.Migrate(checkpoint);
 
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
         {

@@ -36,7 +36,7 @@ Repeat the pixel comparison at 2560x1440 and 1024x768, including one menu-entry 
 | `uds-ui-combat-weapons.jpg` | Select at least two weapons with different ammunition pairs | Each expansion shows only that weapon's ammunition, correlated firing-action counts, within-weapon percentages, and explicit uncorrelated actions. |
 | `uds-ui-combat-incoming-damage.jpg` | Review multiple killer/cause rows | Incoming damage/death evidence remains separate from player kill credit. |
 | `uds-ui-equipment-loadouts.jpg` | Expand recurring and one-off loadout evidence | Recurring ranking requires the existing two-run rule; signatures and duration are not relabelled as selected-weapon time. |
-| `uds-ui-equipment-weapons.jpg` | Expand weapons with occupied and proven-empty attachment slots | Total/per-character-slot duration and named nested slots agree with schema-16 profile/CSV; unavailable is never rendered empty. |
+| `uds-ui-equipment-weapons.jpg` | Expand weapons with occupied and proven-empty attachment slots | Total/per-character-slot duration and named nested slots agree with current-schema profile/CSV; unavailable is never rendered empty. |
 | `uds-ui-equipment-armor-and-gear.jpg` | Expand occupied and proven-empty native character slots | Occupied, empty, nested, unknown/modded, and unavailable states remain distinct. |
 | `uds-ui-equipment-totems.jpg` | Review direct and tote-carried totem evidence | Presence and proven-active direct sets remain distinct; tote activation is not invented. |
 | `uds-ui-economy.jpg` | Compare current holdings, flows, and recent runs with Duckov/profile/export | Money and Cash holdings are separate from Money/Cash flow; liquid wealth appears only when both holdings are current. |
@@ -89,3 +89,7 @@ Repeat representative views in English and one available non-English Duckov lang
 ## Acceptance
 
 M17 manual qualification passes only when every safely reachable row passes on the exact candidate, no duplicate panel or menu entry survives lifecycle repetition, raid and ambiguous-generation access fail closed, reset/export preserve their stated safety boundaries, projection/export agreement is exact, and any unexercised failure state is explicitly retained as deterministic evidence rather than silently called passed. A correction changes the candidate and repeats every affected row. Deployment, gameplay, save selection, reset confirmation, and release publication remain separately authorized user actions.
+
+## Runs data foundation qualification
+
+Before accepting the schema-17 foundation, perform the new extracted-run and died-run protocol in [M17_RUNS_DATA_FOUNDATION.md](M17_RUNS_DATA_FOUNDATION.md). The protocol verifies persisted/projection/export evidence; it does not qualify a retained Runs layout.

@@ -49,7 +49,13 @@ namespace ItemStatsSystem.Items
     {
         public string Key { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
-        public ItemStatsSystem.Item? Content { get; set; }
+        private ItemStatsSystem.Item? content;
+        public bool ThrowOnContentRead { get; set; }
+        public ItemStatsSystem.Item? Content
+        {
+            get => ThrowOnContentRead ? throw new InvalidOperationException("Simulated unreadable native slot.") : content;
+            set => content = value;
+        }
     }
 }
 
@@ -414,6 +420,8 @@ public static class RaidUtilities
         CurrentRaid = raid;
         OnRaidEnd?.Invoke(raid);
     }
+
+    public static void RaiseRaidDead() => OnRaidDead?.Invoke(CurrentRaid);
 
     public static void ResetNativeState()
     {

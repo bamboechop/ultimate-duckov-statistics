@@ -58,6 +58,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private MovementObservationKind? pendingBoundary;
     private string? movementMapId;
     private Action<DamageInfo>? playerDeathObserver;
+    private Func<RunOutcome, TerminalLoadout>? terminalLoadoutCapture;
     private bool pendingDeathTerminal;
     private bool routeTransitionPending;
     private bool destinationPlacementObserved;
@@ -183,6 +184,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 pendingTerminalOutcome: TerminalOutcome(pendingTerminalEvent));
         return SaveCheckpoint(DateTime.UtcNow, NowMonotonic(), awaitPersistence: true);
     }
+
+    public void SetTerminalLoadoutCapture(Func<RunOutcome, TerminalLoadout> capture) => terminalLoadoutCapture = capture;
+
+    private void CaptureTerminalLoadout(RunOutcome outcome) => tracker.CaptureTerminalLoadout(
+        outcome, () => terminalLoadoutCapture?.Invoke(outcome) ?? new TerminalLoadout(), diagnosticHandler);
 
     public void SetPlayerDeathObserver(Action<DamageInfo>? observer) => playerDeathObserver = observer;
 
@@ -1017,13 +1023,21 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         ApplyTerminal(RunLifecycleEventKind.Interrupted);
     }
 
-    private void OnRaidDead(RaidUtilities.RaidInfo raid) => pendingDeathTerminal = tracker.IsActive;
+    private void OnRaidDead(RaidUtilities.RaidInfo raid)
+    {
+        CaptureTerminalLoadout(RunOutcome.Died);
+        pendingDeathTerminal = tracker.IsActive;
+    }
 
     private void OnLevelInitialized() => SynchronizeMainCharacter();
 
     private void OnAfterLevelInitialized() => SynchronizeMainCharacter();
 
-    private void OnEvacuated(EvacuationInfo info) => ApplyTerminal(RunLifecycleEventKind.Extracted);
+    private void OnEvacuated(EvacuationInfo info)
+    {
+        CaptureTerminalLoadout(RunOutcome.Extracted);
+        ApplyTerminal(RunLifecycleEventKind.Extracted);
+    }
 
     private void OnMainCharacterDead(DamageInfo info)
     {

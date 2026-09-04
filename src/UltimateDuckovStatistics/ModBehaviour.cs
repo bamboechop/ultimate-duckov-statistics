@@ -237,6 +237,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             equipmentAdapter.Assign(newEquipmentAdapter);
             newEquipmentAdapter.Initialize();
             newRunLifecycleAdapter.SetDestinationReadyObserver(() => newEquipmentAdapter.CaptureAssociation());
+            newRunLifecycleAdapter.SetTerminalLoadoutCapture(newEquipmentAdapter.CaptureTerminalLoadout);
             newRunLifecycleAdapter.SetTerminalObserver(newEconomyAdapter.FlushPendingForBoundary);
             var newWeaponFireAdapter = new NativeWeaponFireAdapter(
                 () => profileCoordinator.CurrentGenerationId,

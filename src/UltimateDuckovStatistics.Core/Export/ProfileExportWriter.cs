@@ -45,6 +45,7 @@ public static class ProfileExportWriter
             WriteAtomicText(exportDirectory, "groups.csv", bundle.GroupsCsv),
             WriteAtomicText(exportDirectory, "items.csv", bundle.ItemsCsv),
             WriteAtomicText(exportDirectory, "runs.csv", bundle.RunsCsv),
+            WriteAtomicText(exportDirectory, "terminal_loadouts.csv", StatisticsExporter.CreateTerminalLoadoutsCsv(profile.Statistics.Runs)),
             WriteAtomicText(exportDirectory, "run_totals.csv", bundle.RunTotalsCsv),
             WriteAtomicText(exportDirectory, "map_totals.csv", bundle.MapTotalsCsv),
             WriteAtomicText(exportDirectory, "records.csv", bundle.RecordsCsv),

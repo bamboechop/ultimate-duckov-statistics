@@ -71,6 +71,7 @@ public sealed class EquipmentCombatAssociationAggregate
     [DataMember(Order = 13)] public string SelectedWeaponSlotId { get; set; } = string.Empty;
     [DataMember(Order = 14)] public long KillsByYou { get; set; }
     [DataMember(Order = 15)] public long LegacyUnclassifiedDeathCredit { get; set; }
+    [DataMember(Order = 16)] public PlayerKillPartition PlayerKills { get; set; } = new();
 }
 
 [DataContract]
@@ -226,6 +227,7 @@ public static class EquipmentStatisticsReducer
     {
         if (target == null) throw new ArgumentNullException(nameof(target));
         if (value == null) throw new ArgumentNullException(nameof(value));
+        PreflightPlayerKills(target, value);
         var playerKills = value.Ownership == CombatOwnership.Player ? value.KillsByYou : 0;
         if (value.ActualDamageDealt <= 0 && value.ActualDamageReceived <= 0
             && value.RangedHits == 0 && value.MeleeHits == 0 && playerKills == 0
@@ -235,7 +237,11 @@ public static class EquipmentStatisticsReducer
         row.DamageReceived = SaturatingAdd(row.DamageReceived, value.ActualDamageReceived);
         row.RangedHits = SaturatingAdd(row.RangedHits, value.RangedHits);
         row.MeleeHits = SaturatingAdd(row.MeleeHits, value.MeleeHits);
-        row.KillsByYou = SaturatingAdd(row.KillsByYou, playerKills);
+        if (playerKills > 0)
+        {
+            row.PlayerKills = PlayerKillPartition.Merge(row.PlayerKills, PlayerKillPartition.FromEvent(value));
+            row.KillsByYou = checked(row.KillsByYou + playerKills);
+        }
         row.PlayerDeaths = SaturatingAdd(row.PlayerDeaths, value.PlayerDeaths);
     }
 
@@ -247,6 +253,7 @@ public static class EquipmentStatisticsReducer
         var preserveUnavailable = target.HistoricalUnavailable || HasObservations(target);
         NormalizePersisted(target);
         NormalizePersisted(source);
+        PreflightPlayerKillMerge(target, source);
         PreflightSlotStateMerge(target, source);
         target.Capabilities = preserveUnavailable
             ? RestrictCapabilities(target.Capabilities, source.Capabilities, preferSourceOnTie: !target.HistoricalUnavailable)
@@ -280,7 +287,8 @@ public static class EquipmentStatisticsReducer
             row.RangedHits = SaturatingAdd(row.RangedHits, value.RangedHits);
             row.MeleeHits = SaturatingAdd(row.MeleeHits, value.MeleeHits);
             row.EnemiesKilled = SaturatingAdd(row.EnemiesKilled, value.EnemiesKilled);
-            row.KillsByYou = SaturatingAdd(row.KillsByYou, value.KillsByYou);
+            row.PlayerKills = PlayerKillPartition.Merge(row.PlayerKills, value.PlayerKills);
+            row.KillsByYou = checked(row.KillsByYou + value.KillsByYou);
             row.LegacyUnclassifiedDeathCredit = SaturatingAdd(
                 row.LegacyUnclassifiedDeathCredit,
                 value.LegacyUnclassifiedDeathCredit);
@@ -362,6 +370,7 @@ public static class EquipmentStatisticsReducer
                 MeleeHits = value.MeleeHits,
                 EnemiesKilled = value.EnemiesKilled,
                 KillsByYou = value.KillsByYou,
+                PlayerKills = value.PlayerKills?.Clone()!,
                 LegacyUnclassifiedDeathCredit = value.LegacyUnclassifiedDeathCredit,
                 PlayerDeaths = value.PlayerDeaths
             };
@@ -665,7 +674,7 @@ public static class EquipmentStatisticsReducer
         recorded.State = resolved;
     }
 
-    private static void ValidateSnapshot(EquipmentSnapshot snapshot)
+    public static void ValidateSnapshot(EquipmentSnapshot snapshot)
     {
         if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
         if (string.IsNullOrWhiteSpace(snapshot.SnapshotId) || string.IsNullOrWhiteSpace(snapshot.LoadoutId)
@@ -720,6 +729,8 @@ public static class EquipmentStatisticsReducer
                 && value.Kind == EquipmentItemKind.Weapon)))
             throw new ArgumentException("Selected weapon is not a current slotted item.", nameof(snapshot));
     }
+
+    public static EquipmentSnapshot CloneSnapshot(EquipmentSnapshot source) => Clone(source);
 
     private static EquipmentSnapshot Clone(EquipmentSnapshot source) => new()
     {
@@ -1086,6 +1097,30 @@ public static class EquipmentStatisticsReducer
         return left + right;
     }
 
+    public static void PreflightPlayerKills(EquipmentStatisticsAggregate target, CombatRecorded value)
+    {
+        if (value.KillsByYou < 0) throw new ArgumentException("Equipment kill event has invalid count.");
+        var playerKills = value.Ownership == CombatOwnership.Player ? value.KillsByYou : 0;
+        if (playerKills == 0) return;
+        var association = value.EquipmentAssociation ?? new EquipmentEventAssociation();
+        var key = EmptyToUnavailable(association.LoadoutId) + "|" + (association.SelectedWeaponSlotId ?? string.Empty)
+                  + "|" + (association.SelectedWeaponId ?? string.Empty) + "|" + EmptyToUnavailable(association.TotemSetId);
+        if (!target.CombatAssociations.TryGetValue(key, out var row)) return;
+        row.PlayerKills.Validate(row.KillsByYou);
+        _ = checked(row.KillsByYou + playerKills);
+    }
+
+    public static void PreflightPlayerKillMerge(EquipmentStatisticsAggregate target, EquipmentStatisticsAggregate source)
+    {
+        foreach (var row in target.CombatAssociations.Values) row.PlayerKills.Validate(row.KillsByYou);
+        foreach (var entry in source.CombatAssociations)
+        {
+            entry.Value.PlayerKills.Validate(entry.Value.KillsByYou);
+            if (target.CombatAssociations.TryGetValue(entry.Key, out var existing))
+                _ = checked(existing.KillsByYou + entry.Value.KillsByYou);
+        }
+    }
+
     private static EquipmentCombatAssociationAggregate Association(EquipmentStatisticsAggregate target, EquipmentEventAssociation? association)
     {
         association ??= new EquipmentEventAssociation();
@@ -1291,6 +1326,8 @@ public static class EquipmentStatisticsReducer
             existing.RangedHits = SaturatingAdd(existing.RangedHits, ranged);
             existing.MeleeHits = SaturatingAdd(existing.MeleeHits, melee);
             existing.EnemiesKilled = SaturatingAdd(existing.EnemiesKilled, kills);
+            existing.PlayerKills = existing.PlayerKills == null || row.PlayerKills == null
+                ? null! : PlayerKillPartition.Merge(existing.PlayerKills, row.PlayerKills);
             existing.KillsByYou = SaturatingAdd(existing.KillsByYou, playerKills);
             existing.LegacyUnclassifiedDeathCredit = SaturatingAdd(
                 existing.LegacyUnclassifiedDeathCredit,

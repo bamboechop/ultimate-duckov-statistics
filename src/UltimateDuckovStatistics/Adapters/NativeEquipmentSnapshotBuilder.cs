@@ -13,7 +13,7 @@ internal static class NativeEquipmentSnapshotBuilder
     private const int NativeToteBagTypeId = 1255;
     private const string NativeToteSlotKey = "AnyThing";
 
-    public static EquipmentSnapshot Build(CharacterMainControl main, Item characterItem)
+    public static EquipmentSnapshot Build(CharacterMainControl main, Item characterItem, Action<string>? partialDiagnostic = null)
     {
         if (main == null) throw new ArgumentNullException(nameof(main));
         if (characterItem == null) throw new ArgumentNullException(nameof(characterItem));
@@ -25,82 +25,102 @@ internal static class NativeEquipmentSnapshotBuilder
         var nestedSlotStateComplete = true;
         var selected = main.CurrentHoldItemAgent?.Item;
         var selectedSlotId = string.Empty;
-        var orderedCharacterSlots = characterItem.Slots
-            .OrderBy(value => value?.Key, StringComparer.Ordinal)
-            .ToList();
+        var orderedCharacterSlots = ReadSlots(characterItem.Slots, partialDiagnostic, ref characterSlotStateComplete);
         var duplicateCharacterSlotKeys = FindDuplicateSlotKeys(orderedCharacterSlots);
         if (duplicateCharacterSlotKeys.Count > 0) characterSlotStateComplete = false;
         foreach (var slot in orderedCharacterSlots)
         {
-            if (slot == null || string.IsNullOrWhiteSpace(slot.Key))
+            try
             {
-                characterSlotStateComplete = false;
-                continue;
-            }
-            if (duplicateCharacterSlotKeys.Contains(slot.Key)) continue;
-            var slotId = "duckov:slot:" + slot.Key;
-            var slotDisplayName = string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.Key : slot.DisplayName;
-            var item = slot.Content;
-            if (item == null)
-            {
+                if (slot == null || string.IsNullOrWhiteSpace(slot.Key))
+                {
+                    characterSlotStateComplete = false;
+                    continue;
+                }
+                if (duplicateCharacterSlotKeys.Contains(slot.Key)) continue;
+                var slotId = "duckov:slot:" + slot.Key;
+                var slotDisplayName = string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.Key : slot.DisplayName;
+                var item = slot.Content;
+                if (item == null)
+                {
+                    characterSlots.Add(new CharacterEquipmentSlotSnapshot
+                    {
+                        SlotId = slotId,
+                        SlotDisplayName = slotDisplayName,
+                        State = EquipmentSlotState.Empty
+                    });
+                    continue;
+                }
+                var kind = Classify(slot.Key, item);
+                var itemId = ItemId(item, kind switch
+                {
+                    EquipmentItemKind.Weapon => "weapon",
+                    EquipmentItemKind.Totem => "totem",
+                    _ => "item"
+                });
+                var nestedSlots = BuildNestedSlots(item, out var nestedComplete, partialDiagnostic);
+                string attachmentSignature;
+                try { attachmentSignature = AttachmentSignature(item); }
+                catch (Exception exception) when (partialDiagnostic != null)
+                {
+                    attachmentSignature = string.Empty;
+                    nestedComplete = false;
+                    partialDiagnostic($"Terminal attachment signature unavailable: {exception.GetType().Name}: {exception.Message}");
+                }
+                nestedSlotStateComplete &= nestedComplete;
+                if (selectedSlotId.Length == 0
+                    && kind == EquipmentItemKind.Weapon
+                    && ReferenceEquals(item, selected))
+                {
+                    selectedSlotId = slotId;
+                }
+                equipped.Add(new EquippedItemSnapshot
+                {
+                    SlotId = slotId,
+                    SlotDisplayName = slotDisplayName,
+                    ItemId = itemId,
+                    ItemDisplayName = DisplayName(item),
+                    Kind = kind,
+                    AttachmentSignature = attachmentSignature,
+                    NestedSlots = nestedSlots,
+                    NestedSlotStateComplete = nestedComplete
+                });
                 characterSlots.Add(new CharacterEquipmentSlotSnapshot
                 {
                     SlotId = slotId,
                     SlotDisplayName = slotDisplayName,
-                    State = EquipmentSlotState.Empty
+                    State = EquipmentSlotState.Occupied,
+                    ItemId = itemId,
+                    ItemDisplayName = DisplayName(item),
+                    ItemKind = kind
                 });
-                continue;
-            }
-            var kind = Classify(slot.Key, item);
-            var itemId = ItemId(item, kind switch
-            {
-                EquipmentItemKind.Weapon => "weapon",
-                EquipmentItemKind.Totem => "totem",
-                _ => "item"
-            });
-            var nestedSlots = BuildNestedSlots(item, out var nestedComplete);
-            nestedSlotStateComplete &= nestedComplete;
-            if (selectedSlotId.Length == 0
-                && kind == EquipmentItemKind.Weapon
-                && ReferenceEquals(item, selected))
-            {
-                selectedSlotId = slotId;
-            }
-            equipped.Add(new EquippedItemSnapshot
-            {
-                SlotId = slotId,
-                SlotDisplayName = slotDisplayName,
-                ItemId = itemId,
-                ItemDisplayName = DisplayName(item),
-                Kind = kind,
-                AttachmentSignature = AttachmentSignature(item),
-                NestedSlots = nestedSlots,
-                NestedSlotStateComplete = nestedComplete
-            });
-            characterSlots.Add(new CharacterEquipmentSlotSnapshot
-            {
-                SlotId = slotId,
-                SlotDisplayName = slotDisplayName,
-                State = EquipmentSlotState.Occupied,
-                ItemId = itemId,
-                ItemDisplayName = DisplayName(item),
-                ItemKind = kind
-            });
-            if (IsTotem(item))
-            {
-                totems.Add(new TotemSnapshot
+                if (IsTotem(item))
                 {
-                    ItemId = ItemId(item, "totem"),
-                    DisplayName = DisplayName(item),
-                    CarryKind = TotemCarryKind.DirectSlot,
-                    ContainerId = "duckov:character",
-                    ActivationState = item.UseDurability && item.Durability <= 0
-                        ? TotemActivationState.ProvenInactive : TotemActivationState.ProvenActive
-                });
+                    totems.Add(new TotemSnapshot
+                    {
+                        ItemId = ItemId(item, "totem"),
+                        DisplayName = DisplayName(item),
+                        CarryKind = TotemCarryKind.DirectSlot,
+                        ContainerId = "duckov:character",
+                        ActivationState = item.UseDurability && item.Durability <= 0
+                            ? TotemActivationState.ProvenInactive : TotemActivationState.ProvenActive
+                    });
+                }
+            }
+            catch (Exception exception) when (partialDiagnostic != null)
+            {
+                characterSlotStateComplete = false;
+                nestedSlotStateComplete = false;
+                partialDiagnostic($"Unreadable terminal root slot: {exception.GetType().Name}: {exception.Message}");
             }
         }
 
-        AddOrdinaryInventoryToteContents(characterItem.Inventory, totems);
+        try { AddOrdinaryInventoryToteContents(characterItem.Inventory, totems); }
+        catch (Exception exception) when (partialDiagnostic != null)
+        {
+            partialDiagnostic($"Unreadable carried totem evidence: {exception.GetType().Name}: {exception.Message}");
+            characterSlotStateComplete = false;
+        }
 
         equipped = equipped.OrderBy(value => value.SlotId, StringComparer.Ordinal).ToList();
         characterSlots = characterSlots.OrderBy(value => value.SlotId, StringComparer.Ordinal).ToList();
@@ -180,11 +200,11 @@ internal static class NativeEquipmentSnapshotBuilder
         return EquipmentIdentity.StableHash(string.Join(";", parts.OrderBy(value => value, StringComparer.Ordinal)));
     }
 
-    private static List<NestedEquipmentSlotSnapshot> BuildNestedSlots(Item root, out bool complete)
+    private static List<NestedEquipmentSlotSnapshot> BuildNestedSlots(Item root, out bool complete, Action<string>? partialDiagnostic)
     {
         var result = new List<NestedEquipmentSlotSnapshot>();
         complete = true;
-        AddNestedSlots(root, result, 0, string.Empty, ref complete);
+        AddNestedSlots(root, result, 0, string.Empty, ref complete, partialDiagnostic);
         return result.OrderBy(value => value.Path, StringComparer.Ordinal).ToList();
     }
 
@@ -193,7 +213,7 @@ internal static class NativeEquipmentSnapshotBuilder
         List<NestedEquipmentSlotSnapshot> result,
         int depth,
         string ancestorPath,
-        ref bool complete)
+        ref bool complete, Action<string>? partialDiagnostic)
     {
         if (parent.Slots == null) return;
         if (depth >= MaxNestedDepth)
@@ -201,38 +221,61 @@ internal static class NativeEquipmentSnapshotBuilder
             if (parent.Slots.Count > 0) complete = false;
             return;
         }
-        var orderedSlots = parent.Slots
-            .OrderBy(value => value?.Key, StringComparer.Ordinal)
-            .ToList();
+        var orderedSlots = ReadSlots(parent.Slots, partialDiagnostic, ref complete);
         var duplicateSlotKeys = FindDuplicateSlotKeys(orderedSlots);
         if (duplicateSlotKeys.Count > 0) complete = false;
         foreach (var slot in orderedSlots)
         {
-            if (result.Count >= MaxNestedSlotsPerRoot)
+            try
+            {
+                if (result.Count >= MaxNestedSlotsPerRoot)
+                {
+                    complete = false;
+                    return;
+                }
+                if (slot == null || string.IsNullOrWhiteSpace(slot.Key))
+                {
+                    complete = false;
+                    continue;
+                }
+                if (duplicateSlotKeys.Contains(slot.Key)) continue;
+                var path = ancestorPath
+                    + slot.Key.Length.ToString(CultureInfo.InvariantCulture) + ":" + slot.Key + "/";
+                var child = slot.Content;
+                result.Add(new NestedEquipmentSlotSnapshot
+                {
+                    Path = path,
+                    SlotKey = slot.Key,
+                    SlotDisplayName = string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.Key : slot.DisplayName,
+                    State = child == null ? EquipmentSlotState.Empty : EquipmentSlotState.Occupied,
+                    ItemId = child == null ? string.Empty : ItemId(child, "item"),
+                    ItemDisplayName = child == null ? string.Empty : DisplayName(child)
+                });
+                if (child != null) AddNestedSlots(child, result, depth + 1, path, ref complete, partialDiagnostic);
+            }
+            catch (Exception exception) when (partialDiagnostic != null)
             {
                 complete = false;
-                return;
+                partialDiagnostic($"Unreadable terminal nested slot: {exception.GetType().Name}: {exception.Message}");
             }
-            if (slot == null || string.IsNullOrWhiteSpace(slot.Key))
-            {
-                complete = false;
-                continue;
-            }
-            if (duplicateSlotKeys.Contains(slot.Key)) continue;
-            var path = ancestorPath
-                + slot.Key.Length.ToString(CultureInfo.InvariantCulture) + ":" + slot.Key + "/";
-            var child = slot.Content;
-            result.Add(new NestedEquipmentSlotSnapshot
-            {
-                Path = path,
-                SlotKey = slot.Key,
-                SlotDisplayName = string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.Key : slot.DisplayName,
-                State = child == null ? EquipmentSlotState.Empty : EquipmentSlotState.Occupied,
-                ItemId = child == null ? string.Empty : ItemId(child, "item"),
-                ItemDisplayName = child == null ? string.Empty : DisplayName(child)
-            });
-            if (child != null) AddNestedSlots(child, result, depth + 1, path, ref complete);
         }
+    }
+
+    private static List<ItemStatsSystem.Items.Slot> ReadSlots(
+        IEnumerable<ItemStatsSystem.Items.Slot> slots, Action<string>? partialDiagnostic, ref bool complete)
+    {
+        if (slots == null) throw new ArgumentException("Native slot collection is missing.", nameof(slots));
+        var retained = new List<ItemStatsSystem.Items.Slot>();
+        try
+        {
+            foreach (var slot in slots) retained.Add(slot);
+        }
+        catch (Exception exception) when (partialDiagnostic != null)
+        {
+            complete = false;
+            partialDiagnostic($"Native slot enumeration failed; retained readable prefix only: {exception.GetType().Name}: {exception.Message}");
+        }
+        return retained.OrderBy(value => value?.Key, StringComparer.Ordinal).ToList();
     }
 
     private static HashSet<string> FindDuplicateSlotKeys(IEnumerable<ItemStatsSystem.Items.Slot> slots)
