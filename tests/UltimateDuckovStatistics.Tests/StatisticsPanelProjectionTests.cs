@@ -1429,9 +1429,11 @@ public sealed class StatisticsPanelProjectionTests
             RetainedOverviewProfileSummaryHeadingPolicy.FontAssetName);
         Assert.Equal(
             RetainedHeaderTitlePolicy.MaterialName,
+            RetainedOverviewProfileSummaryHeadingPolicy.SourceMaterialName);
+        Assert.Equal(
+            RetainedTabLabelShadowPolicy.OwnedMaterialName,
             RetainedOverviewProfileSummaryHeadingPolicy.MaterialName);
-        Assert.Equal(61.25f, RetainedOverviewProfileSummaryHeadingPolicy.ReferenceFontSize);
-        Assert.Equal(49f, RetainedOverviewProfileSummaryHeadingPolicy.ReferencePrincipalGlyphHeightPixels);
+        Assert.Equal(56f, RetainedOverviewProfileSummaryHeadingPolicy.ReferenceFontSize);
         Assert.Equal(60f, RetainedOverviewProfileSummaryHeadingPolicy.HeightPixels);
         Assert.Equal(1f, RetainedOverviewProfileSummaryHeadingPolicy.Red);
         Assert.Equal(1f, RetainedOverviewProfileSummaryHeadingPolicy.Green);
@@ -1441,7 +1443,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(RetainedOverviewProfileSummaryHeadingPolicy.WordWrapping);
         Assert.False(RetainedOverviewProfileSummaryHeadingPolicy.AutoSizing);
         Assert.True(RetainedOverviewProfileSummaryHeadingPolicy.UsesTopLeftAlignment);
-        Assert.True(RetainedOverviewProfileSummaryHeadingPolicy.UsesSharedNativeMaterial);
+        Assert.True(RetainedOverviewProfileSummaryHeadingPolicy.UsesOwnedTabLabelMaterial);
+        Assert.True(RetainedOverviewProfileSummaryHeadingPolicy.UsesZeroTextMargin);
+        Assert.Equal(0f, RetainedOverviewProfileSummaryHeadingPolicy.AdditionalPaddingPixels);
         Assert.False(RetainedOverviewProfileSummaryHeadingPolicy.UsesHorizontalTypographyCompensation);
 
         Assert.Same(layout.ReferenceTransform, heading.ReferenceTransform);
@@ -1449,18 +1453,24 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(400f, heading.Top);
         Assert.Equal(1115f, heading.Width);
         Assert.Equal(60f, heading.Height);
-        Assert.Equal(61.25f, heading.FontSize);
+        Assert.Equal(56f, heading.FontSize);
         Assert.Equal(panel.ContentLeft, heading.Left);
         Assert.Equal(panel.ContentTop, heading.Top);
         Assert.Equal(panel.ContentWidth, heading.Width);
+        Assert.Equal(30f, panel.ContentLeft - panel.Left);
+        Assert.Equal(30f, panel.ContentTop - panel.Top);
+        Assert.Equal(30f, panel.Left + panel.Width - panel.ContentLeft - panel.ContentWidth);
+        Assert.Equal(30f, panel.Top + panel.Height - panel.ContentTop - panel.ContentHeight);
+        Assert.Equal(0f, heading.Left - panel.ContentLeft);
+        Assert.Equal(0f, heading.Top - panel.ContentTop);
     }
 
     [Theory]
-    [InlineData(1280f, 720f, 57.5f, 200f, 557.5f, 30f, 30.625f, 24.5f)]
-    [InlineData(1680f, 1050f, 75.46875f, 315f, 731.71875f, 39.375f, 40.1953125f, 32.15625f)]
-    [InlineData(1920f, 1080f, 86.25f, 300f, 836.25f, 45f, 45.9375f, 36.75f)]
-    [InlineData(1920f, 1200f, 86.25f, 360f, 836.25f, 45f, 45.9375f, 36.75f)]
-    [InlineData(2560f, 1440f, 115f, 400f, 1115f, 60f, 61.25f, 49f)]
+    [InlineData(1280f, 720f, 57.5f, 200f, 557.5f, 30f, 28f)]
+    [InlineData(1680f, 1050f, 75.46875f, 315f, 731.71875f, 39.375f, 36.75f)]
+    [InlineData(1920f, 1080f, 86.25f, 300f, 836.25f, 45f, 42f)]
+    [InlineData(1920f, 1200f, 86.25f, 360f, 836.25f, 45f, 42f)]
+    [InlineData(2560f, 1440f, 115f, 400f, 1115f, 60f, 56f)]
     public void GateTenOverviewProfileSummaryHeadingUsesTheSharedReferenceTransform(
         float viewportWidth,
         float viewportHeight,
@@ -1468,8 +1478,7 @@ public sealed class StatisticsPanelProjectionTests
         float expectedTop,
         float expectedWidth,
         float expectedHeight,
-        float expectedFontSize,
-        float expectedPrincipalGlyphHeight)
+        float expectedFontSize)
     {
         var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
         var panel = layout.OverviewLeftPanel;
@@ -1481,11 +1490,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(expectedWidth, heading.Width, 5);
         Assert.Equal(expectedHeight, heading.Height, 5);
         Assert.Equal(expectedFontSize, heading.FontSize, 5);
-        Assert.Equal(
-            expectedPrincipalGlyphHeight,
-            layout.ReferenceTransform.CanvasLength(
-                RetainedOverviewProfileSummaryHeadingPolicy.ReferencePrincipalGlyphHeightPixels),
-            5);
         Assert.Equal(panel.ContentLeft, heading.Left, 5);
         Assert.Equal(panel.ContentTop, heading.Top, 5);
         Assert.Equal(panel.ContentWidth, heading.Width, 5);

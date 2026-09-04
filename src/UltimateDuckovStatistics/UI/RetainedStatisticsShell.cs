@@ -144,6 +144,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewContentView = CreateOverviewContentView(
                 rootRect,
                 headerTitleTypography,
+                tabLabelMaterial.Instance,
                 out var createdOverviewLeftPanelRect,
                 out var createdOverviewLeftPanelModifier,
                 out var createdOverviewRightPanelRect,
@@ -299,6 +300,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private static GameObject CreateOverviewContentView(
         RectTransform parent,
         NativeHeaderTitleTypography typography,
+        Material headingMaterial,
         out RectTransform leftPanelRect,
         out UniformModifier leftPanelModifier,
         out RectTransform rightPanelRect,
@@ -326,6 +328,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         profileSummaryHeadingRect = CreateOverviewProfileSummaryHeading(
             leftPanelContentRect,
             typography,
+            headingMaterial,
             out profileSummaryHeadingGraphic);
         return view;
     }
@@ -378,6 +381,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private static RectTransform CreateOverviewProfileSummaryHeading(
         RectTransform parent,
         NativeHeaderTitleTypography typography,
+        Material material,
         out TextMeshProUGUI text)
     {
         var heading = new GameObject(
@@ -392,7 +396,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         text = heading.AddComponent<TextMeshProUGUI>();
         text.font = typography.Font;
-        text.fontSharedMaterial = typography.Material;
+        text.fontSharedMaterial = material;
         text.text = UiText.Get(RetainedOverviewProfileSummaryHeadingPolicy.TextKey);
         text.fontStyle = FontStyles.Normal;
         text.fontWeight = FontWeight.Regular;

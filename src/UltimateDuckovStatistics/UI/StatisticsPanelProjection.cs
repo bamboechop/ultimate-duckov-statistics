@@ -1084,12 +1084,9 @@ internal static class RetainedOverviewProfileSummaryHeadingPolicy
     public const string TextKey = "ui.profile_summary";
     public const string EnglishFallback = "Profile Summary";
     public const string FontAssetName = RetainedHeaderTitlePolicy.FontAssetName;
-    public const string MaterialName = RetainedHeaderTitlePolicy.MaterialName;
-    public const float ReferencePrincipalGlyphHeightPixels = 49f;
-    public const float ReferenceFontSize =
-        RetainedHeaderTitlePolicy.ReferenceFontSize
-        * ReferencePrincipalGlyphHeightPixels
-        / RetainedHeaderTitlePolicy.PrincipalHeightPixels;
+    public const string SourceMaterialName = RetainedHeaderTitlePolicy.MaterialName;
+    public const string MaterialName = RetainedTabLabelShadowPolicy.OwnedMaterialName;
+    public const float ReferenceFontSize = 56f;
     public const float HeightPixels = 60f;
     public const float Red = 1f;
     public const float Green = 1f;
@@ -1099,7 +1096,9 @@ internal static class RetainedOverviewProfileSummaryHeadingPolicy
     public const bool WordWrapping = false;
     public const bool AutoSizing = false;
     public const bool UsesTopLeftAlignment = true;
-    public const bool UsesSharedNativeMaterial = true;
+    public const bool UsesOwnedTabLabelMaterial = true;
+    public const bool UsesZeroTextMargin = true;
+    public const float AdditionalPaddingPixels = 0f;
     public const bool UsesHorizontalTypographyCompensation = false;
 
     public static RetainedOverviewProfileSummaryHeadingCanvasLayout CreateCanvasLayout(
