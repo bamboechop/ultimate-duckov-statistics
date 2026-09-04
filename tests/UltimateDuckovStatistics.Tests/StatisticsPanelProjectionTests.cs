@@ -760,12 +760,12 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateSixKeepsGateFiveCompositionGeometryAndTypographyFrozen()
+    public void GateEightPreservesGateFiveGeometryAndTypographyWhileAddingOnlyOverviewContent()
     {
         var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
 
-        Assert.Equal(13, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(24, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(25, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(115f, tab.Left);
@@ -853,7 +853,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateSixBSelectionChangesRetainOnePrivateMaterialAndFrozenComposition()
+    public void GateEightSelectionChangesRetainOnePrivateMaterialAndCurrentComposition()
     {
         var source = new RetainedMaterialProbe(new object(), 1f);
         var destroyed = 0;
@@ -875,8 +875,8 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Same(material, owned.Resource);
         Assert.False(owned.IsDisposed);
         Assert.Equal(0, destroyed);
-        Assert.Equal(13, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(24, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(25, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
@@ -1178,6 +1178,139 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void GateEightOverviewLeftPanelUsesExactReferenceGeometryStyleAndPadding()
+    {
+        var layout = CreateRetainedVisualLayout(2560f, 1440f).OverviewLeftPanel;
+
+        Assert.Equal("OverviewContentView", RetainedOverviewLeftPanelPolicy.ViewName);
+        Assert.Equal("OverviewLeftPanelBackground", RetainedOverviewLeftPanelPolicy.BackgroundName);
+        Assert.Equal(StatisticsPanelTab.Overview, RetainedOverviewLeftPanelPolicy.OwnerTab);
+        Assert.Equal(85f, RetainedOverviewLeftPanelPolicy.LeftPixels);
+        Assert.Equal(370f, RetainedOverviewLeftPanelPolicy.TopPixels);
+        Assert.Equal(1175f, RetainedOverviewLeftPanelPolicy.WidthPixels);
+        Assert.Equal(1040f, RetainedOverviewLeftPanelPolicy.HeightPixels);
+        Assert.Equal(1260f, RetainedOverviewLeftPanelPolicy.RightExclusivePixels);
+        Assert.Equal(1410f, RetainedOverviewLeftPanelPolicy.BottomExclusivePixels);
+        Assert.Equal(40f, RetainedOverviewLeftPanelPolicy.HeaderGapPixels);
+        Assert.Equal(30f, RetainedOverviewLeftPanelPolicy.ScreenBottomMarginPixels);
+        Assert.Equal(20f, RetainedOverviewLeftPanelPolicy.CornerRadiusPixels);
+        Assert.Equal(30f, RetainedOverviewLeftPanelPolicy.ContentPaddingPixels);
+        Assert.Equal(0f, RetainedOverviewLeftPanelPolicy.Red);
+        Assert.Equal(0f, RetainedOverviewLeftPanelPolicy.Green);
+        Assert.Equal(0f, RetainedOverviewLeftPanelPolicy.Blue);
+        Assert.Equal(0.50f, RetainedOverviewLeftPanelPolicy.LayerAlpha);
+        Assert.False(RetainedOverviewLeftPanelPolicy.BlocksRaycasts);
+        Assert.Equal(
+            RetainedHeaderPolicy.BottomExclusivePixels + RetainedOverviewLeftPanelPolicy.HeaderGapPixels,
+            RetainedOverviewLeftPanelPolicy.TopPixels);
+        Assert.Equal(
+            RetainedReferenceTransformPolicy.BaselineHeightPixels
+            - RetainedOverviewLeftPanelPolicy.ScreenBottomMarginPixels,
+            RetainedOverviewLeftPanelPolicy.BottomExclusivePixels);
+
+        Assert.Equal(85f, layout.Left);
+        Assert.Equal(370f, layout.Top);
+        Assert.Equal(1175f, layout.Width);
+        Assert.Equal(1040f, layout.Height);
+        Assert.Equal(20f, layout.CornerRadius);
+        Assert.Equal(115f, layout.ContentLeft);
+        Assert.Equal(400f, layout.ContentTop);
+        Assert.Equal(1115f, layout.ContentWidth);
+        Assert.Equal(980f, layout.ContentHeight);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f, 42.5f, 185f, 587.5f, 520f, 10f, 15f)]
+    [InlineData(1680f, 1050f, 55.78125f, 295.3125f, 771.09375f, 682.5f, 13.125f, 19.6875f)]
+    [InlineData(1920f, 1080f, 63.75f, 277.5f, 881.25f, 780f, 15f, 22.5f)]
+    [InlineData(1920f, 1200f, 63.75f, 337.5f, 881.25f, 780f, 15f, 22.5f)]
+    [InlineData(2560f, 1440f, 85f, 370f, 1175f, 1040f, 20f, 30f)]
+    public void GateEightOverviewLeftPanelUsesTheSharedReferenceTransform(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedLeft,
+        float expectedTop,
+        float expectedWidth,
+        float expectedHeight,
+        float expectedRadius,
+        float expectedPadding)
+    {
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
+        var panel = layout.OverviewLeftPanel;
+
+        Assert.Same(layout.ReferenceTransform, panel.ReferenceTransform);
+        Assert.Equal(expectedLeft, panel.Left, 5);
+        Assert.Equal(expectedTop, panel.Top, 5);
+        Assert.Equal(expectedWidth, panel.Width, 5);
+        Assert.Equal(expectedHeight, panel.Height, 5);
+        Assert.Equal(expectedRadius, panel.CornerRadius, 5);
+        Assert.Equal(expectedPadding, panel.ContentLeft - panel.Left, 5);
+        Assert.Equal(expectedPadding, panel.ContentTop - panel.Top, 5);
+        Assert.Equal(expectedPadding * 2f, panel.Width - panel.ContentWidth, 5);
+        Assert.Equal(expectedPadding * 2f, panel.Height - panel.ContentHeight, 5);
+    }
+
+    [Theory]
+    [InlineData(1f)]
+    [InlineData(2f)]
+    [InlineData(3f)]
+    public void GateEightOverviewLeftPanelPreservesPhysicalGeometryAcrossCanvasScaleFactors(
+        float canvasScaleFactor)
+    {
+        var referenceTransform = RetainedReferenceTransformPolicy.Create(
+            2560f,
+            1440f,
+            canvasScaleFactor);
+        var panel = RetainedOverviewLeftPanelPolicy.CreateCanvasLayout(referenceTransform);
+
+        Assert.Equal(85f, panel.Left * canvasScaleFactor, 3);
+        Assert.Equal(370f, panel.Top * canvasScaleFactor, 3);
+        Assert.Equal(1175f, panel.Width * canvasScaleFactor, 3);
+        Assert.Equal(1040f, panel.Height * canvasScaleFactor, 3);
+        Assert.Equal(20f, panel.CornerRadius * canvasScaleFactor, 3);
+        Assert.Equal(30f, (panel.ContentLeft - panel.Left) * canvasScaleFactor, 3);
+        Assert.Equal(30f, (panel.ContentTop - panel.Top) * canvasScaleFactor, 3);
+    }
+
+    [Fact]
+    public void GateEightOverviewContentVisibilityTracksOnlyTheOverviewSelection()
+    {
+        var view = new object();
+        var assignments = new List<(object Target, bool Visible)>();
+        var visibility = new RetainedTabViewVisibility<object>(
+            view,
+            StatisticsPanelTab.Overview,
+            (target, visible) => assignments.Add((target, visible)));
+
+        foreach (var tab in PanelInteractionState.NavigationOrder) visibility.Apply(tab);
+        visibility.Apply(StatisticsPanelTab.Overview);
+
+        Assert.Same(view, visibility.Target);
+        Assert.Equal(StatisticsPanelTab.Overview, visibility.OwnerTab);
+        Assert.Equal(PanelInteractionState.NavigationOrder.Count + 1, assignments.Count);
+        for (var index = 0; index < PanelInteractionState.NavigationOrder.Count; index++)
+        {
+            Assert.Equal(
+                PanelInteractionState.NavigationOrder[index] == StatisticsPanelTab.Overview,
+                assignments[index].Visible);
+        }
+        Assert.True(assignments[^1].Visible);
+        Assert.All(assignments, assignment => Assert.Same(view, assignment.Target));
+    }
+
+    [Fact]
+    public void GateEightCompositionAddsOnlyOneNoninteractiveOverviewPanelGraphic()
+    {
+        Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewContentViewChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLeftPanelChildCount);
+        Assert.Equal(25, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
+    }
+
+    [Fact]
     public void GateSevenMeasuredWidthDifferencesPropagateRelationallyWithoutOverlap()
     {
         var originalWidths = RetainedTabStripPolicy.AuditedEnglishPreferredWidths.ToArray();
@@ -1359,13 +1492,13 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateSevenCompositionAddsOnlyEightTabsToTheAcceptedShell()
+    public void GateEightCompositionRetainsTheAcceptedTabStripAndAddsOnlyOverviewContent()
     {
         Assert.Equal(9, RetainedShellCompositionPolicy.TabCount);
-        Assert.Equal(13, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
-        Assert.Equal(24, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(25, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -1517,7 +1650,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateFiveViewportChangeRefreshesAllRetainedVisualsWithoutHierarchyDuplication()
+    public void GateEightViewportChangeRefreshesAllRetainedVisualsWithoutHierarchyDuplication()
     {
         var baseline = CreateRetainedVisualLayout(2560f, 1440f);
         var resized = CreateRetainedVisualLayout(1280f, 720f);
@@ -1528,6 +1661,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Same(resized.ReferenceTransform, resized.HeaderBottomBar.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.BackControl.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.HeaderTitle.ReferenceTransform);
+        Assert.Same(resized.ReferenceTransform, resized.OverviewLeftPanel.ReferenceTransform);
         Assert.Equal(baseline.Header.Width / 2f, resized.Header.Width);
         Assert.Equal(baseline.OverviewTab.Width / 2f, resized.OverviewTab.Width);
         Assert.Equal(baseline.OverviewTab.Height / 2f, resized.OverviewTab.Height);
@@ -1537,7 +1671,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(baseline.BackControl.Width / 2f, resized.BackControl.Width);
         Assert.Equal(baseline.HeaderTitle.Width / 2f, resized.HeaderTitle.Width);
         Assert.Equal(baseline.HeaderTitle.FontSize / 2f, resized.HeaderTitle.FontSize);
-        Assert.Equal(13, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(baseline.OverviewLeftPanel.Width / 2f, resized.OverviewLeftPanel.Width);
+        Assert.Equal(baseline.OverviewLeftPanel.Height / 2f, resized.OverviewLeftPanel.Height);
+        Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
@@ -1546,7 +1682,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderTitleChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.BackButtonChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.BackArrowChildCount);
-        Assert.Equal(24, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewContentViewChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLeftPanelChildCount);
+        Assert.Equal(25, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);

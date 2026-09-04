@@ -7,8 +7,8 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 07.
-/// The root graphic remains the modal dimmer; its children are the frozen header/back/title/bar and nine tabs.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 08.
+/// The root graphic remains the modal dimmer; its children are the frozen header controls and tab-owned views.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
 {
@@ -63,6 +63,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RetainedBackArrowAsset? backArrowAsset;
     private RectTransform? headerTitleRect;
     private TextMeshProUGUI? headerTitleGraphic;
+    private GameObject? overviewContentView;
+    private RetainedTabViewVisibility<GameObject>? overviewContentVisibility;
+    private RectTransform? overviewLeftPanelRect;
+    private UniformModifier? overviewLeftPanelModifier;
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
     private float lastViewportPixelWidth = float.NaN;
     private float lastViewportPixelHeight = float.NaN;
@@ -131,6 +135,18 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 RetainedDimmerPolicy.Blue,
                 RetainedDimmerPolicy.VisualAlpha);
             blocker.raycastTarget = RetainedDimmerPolicy.BlocksRaycasts;
+
+            overviewContentView = CreateOverviewContentView(
+                rootRect,
+                out var createdOverviewLeftPanelRect,
+                out var createdOverviewLeftPanelModifier);
+            overviewLeftPanelRect = createdOverviewLeftPanelRect;
+            overviewLeftPanelModifier = createdOverviewLeftPanelModifier;
+            overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
+                overviewContentView,
+                RetainedOverviewLeftPanelPolicy.OwnerTab,
+                static (target, visible) => target.SetActive(visible));
+            overviewContentVisibility.Apply(selectedTab);
 
             headerRect = CreateHeaderBackground(
                 rootRect,
@@ -217,6 +233,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         if (selectedTab == tab) return;
         selectedTab = tab;
         foreach (var control in tabControls) control.VisualState.Apply(selectedTab);
+        overviewContentVisibility?.Apply(selectedTab);
     }
 
     public bool Tick(out string? error)
@@ -261,6 +278,44 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         modifier = header.AddComponent<UniformModifier>();
         return rect;
+    }
+
+    private static GameObject CreateOverviewContentView(
+        RectTransform parent,
+        out RectTransform panelRect,
+        out UniformModifier panelModifier)
+    {
+        var view = new GameObject(
+            RetainedOverviewLeftPanelPolicy.ViewName,
+            typeof(RectTransform));
+        var viewRect = (RectTransform)view.transform;
+        viewRect.SetParent(parent, worldPositionStays: false);
+        Stretch(viewRect);
+
+        var panel = new GameObject(
+            RetainedOverviewLeftPanelPolicy.BackgroundName,
+            typeof(RectTransform));
+        panelRect = (RectTransform)panel.transform;
+        panelRect.SetParent(viewRect, worldPositionStays: false);
+        panelRect.anchorMin = new Vector2(0f, 1f);
+        panelRect.anchorMax = new Vector2(0f, 1f);
+        panelRect.pivot = new Vector2(0f, 1f);
+        panelRect.localScale = Vector3.one;
+
+        var background = panel.AddComponent<ProceduralImage>();
+        background.color = new Color(
+            RetainedOverviewLeftPanelPolicy.Red,
+            RetainedOverviewLeftPanelPolicy.Green,
+            RetainedOverviewLeftPanelPolicy.Blue,
+            RetainedOverviewLeftPanelPolicy.LayerAlpha);
+        background.BorderWidth = 0f;
+        background.FalloffDistance = 1f;
+        background.sprite = null;
+        background.overrideSprite = null;
+        background.type = Image.Type.Simple;
+        background.raycastTarget = RetainedOverviewLeftPanelPolicy.BlocksRaycasts;
+        panelModifier = panel.AddComponent<UniformModifier>();
+        return view;
     }
 
     private static RectTransform CreateTab(
@@ -539,6 +594,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
             referenceTransform,
             canvasScaleFactor);
         var layout = RetainedVisualLayoutPolicy.Create(referenceTransform, preferredReferenceWidths);
+        var overviewPanelRect = overviewLeftPanelRect!;
+        var overviewPanelModifier = overviewLeftPanelModifier!;
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
@@ -584,6 +641,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
             layout.HeaderTitle.Width,
             layout.HeaderTitle.Height);
         headerTitleGraphic.fontSize = layout.HeaderTitle.FontSize;
+        overviewPanelRect.anchoredPosition = new Vector2(
+            layout.OverviewLeftPanel.Left,
+            -layout.OverviewLeftPanel.Top);
+        overviewPanelRect.sizeDelta = new Vector2(
+            layout.OverviewLeftPanel.Width,
+            layout.OverviewLeftPanel.Height);
+        overviewPanelModifier.Radius = layout.OverviewLeftPanel.CornerRadius;
         lastViewportPixelWidth = viewportPixelWidth;
         lastViewportPixelHeight = viewportPixelHeight;
         lastCanvasScaleFactor = canvasScaleFactor;
@@ -666,6 +730,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
         backArrowAsset = null;
         headerTitleRect = null;
         headerTitleGraphic = null;
+        overviewContentView = null;
+        overviewContentVisibility = null;
+        overviewLeftPanelRect = null;
+        overviewLeftPanelModifier = null;
         lastAppliedVisualLayout = null;
         lastViewportPixelWidth = float.NaN;
         lastViewportPixelHeight = float.NaN;
