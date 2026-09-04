@@ -17,6 +17,7 @@ internal static class UiText
             ["ui.shell_unavailable"] = "The statistics panel could not attach to Duckov's current UI. Tracking remains active; use Player.log for details.",
             ["ui.close"] = "Close",
             ["ui.overview"] = "Overview",
+            ["ui.profile_summary"] = "Profile Summary",
             ["ui.items"] = "Items",
             ["ui.item_use"] = "Item Use",
             ["ui.runs"] = "Runs",

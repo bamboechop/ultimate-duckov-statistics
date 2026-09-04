@@ -765,7 +765,7 @@ public sealed class StatisticsPanelProjectionTests
         var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
 
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(26, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(27, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(115f, tab.Left);
@@ -876,7 +876,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(owned.IsDisposed);
         Assert.Equal(0, destroyed);
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(26, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(27, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
@@ -1307,13 +1307,15 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateNineCompositionAddsOnlyTwoNoninteractiveOverviewPanelGraphics()
+    public void GateTenCompositionAddsOnlyTheOverviewHeadingInsideTheAcceptedPanels()
     {
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewContentViewChildCount);
-        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLeftPanelChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLeftPanelChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewProfileSummaryHeadingChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(26, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(27, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -1403,6 +1405,128 @@ public sealed class StatisticsPanelProjectionTests
             expectedOuterMargin,
             viewportWidth / layout.ReferenceTransform.CanvasScaleFactor - right.Left - right.Width,
             5);
+    }
+
+    [Fact]
+    public void GateTenOverviewProfileSummaryHeadingUsesPanelPaddingAndNativeTypography()
+    {
+        var layout = CreateRetainedVisualLayout(2560f, 1440f);
+        var panel = layout.OverviewLeftPanel;
+        var heading = layout.OverviewProfileSummaryHeading;
+
+        Assert.Equal("OverviewLeftPanelContent", RetainedOverviewLeftPanelPolicy.ContentName);
+        Assert.Equal("OverviewProfileSummaryHeading", RetainedOverviewProfileSummaryHeadingPolicy.Name);
+        Assert.Equal(
+            RetainedOverviewLeftPanelPolicy.ContentName,
+            RetainedOverviewProfileSummaryHeadingPolicy.ParentName);
+        Assert.Equal("ui.profile_summary", RetainedOverviewProfileSummaryHeadingPolicy.TextKey);
+        Assert.Equal("Profile Summary", RetainedOverviewProfileSummaryHeadingPolicy.EnglishFallback);
+        Assert.Equal(
+            "Profile Summary",
+            UiText.EnglishFallbacks[RetainedOverviewProfileSummaryHeadingPolicy.TextKey]);
+        Assert.Equal(
+            RetainedHeaderTitlePolicy.FontAssetName,
+            RetainedOverviewProfileSummaryHeadingPolicy.FontAssetName);
+        Assert.Equal(
+            RetainedHeaderTitlePolicy.MaterialName,
+            RetainedOverviewProfileSummaryHeadingPolicy.MaterialName);
+        Assert.Equal(61.25f, RetainedOverviewProfileSummaryHeadingPolicy.ReferenceFontSize);
+        Assert.Equal(49f, RetainedOverviewProfileSummaryHeadingPolicy.ReferencePrincipalGlyphHeightPixels);
+        Assert.Equal(60f, RetainedOverviewProfileSummaryHeadingPolicy.HeightPixels);
+        Assert.Equal(1f, RetainedOverviewProfileSummaryHeadingPolicy.Red);
+        Assert.Equal(1f, RetainedOverviewProfileSummaryHeadingPolicy.Green);
+        Assert.Equal(1f, RetainedOverviewProfileSummaryHeadingPolicy.Blue);
+        Assert.Equal(1f, RetainedOverviewProfileSummaryHeadingPolicy.Alpha);
+        Assert.False(RetainedOverviewProfileSummaryHeadingPolicy.BlocksRaycasts);
+        Assert.False(RetainedOverviewProfileSummaryHeadingPolicy.WordWrapping);
+        Assert.False(RetainedOverviewProfileSummaryHeadingPolicy.AutoSizing);
+        Assert.True(RetainedOverviewProfileSummaryHeadingPolicy.UsesTopLeftAlignment);
+        Assert.True(RetainedOverviewProfileSummaryHeadingPolicy.UsesSharedNativeMaterial);
+        Assert.False(RetainedOverviewProfileSummaryHeadingPolicy.UsesHorizontalTypographyCompensation);
+
+        Assert.Same(layout.ReferenceTransform, heading.ReferenceTransform);
+        Assert.Equal(115f, heading.Left);
+        Assert.Equal(400f, heading.Top);
+        Assert.Equal(1115f, heading.Width);
+        Assert.Equal(60f, heading.Height);
+        Assert.Equal(61.25f, heading.FontSize);
+        Assert.Equal(panel.ContentLeft, heading.Left);
+        Assert.Equal(panel.ContentTop, heading.Top);
+        Assert.Equal(panel.ContentWidth, heading.Width);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f, 57.5f, 200f, 557.5f, 30f, 30.625f, 24.5f)]
+    [InlineData(1680f, 1050f, 75.46875f, 315f, 731.71875f, 39.375f, 40.1953125f, 32.15625f)]
+    [InlineData(1920f, 1080f, 86.25f, 300f, 836.25f, 45f, 45.9375f, 36.75f)]
+    [InlineData(1920f, 1200f, 86.25f, 360f, 836.25f, 45f, 45.9375f, 36.75f)]
+    [InlineData(2560f, 1440f, 115f, 400f, 1115f, 60f, 61.25f, 49f)]
+    public void GateTenOverviewProfileSummaryHeadingUsesTheSharedReferenceTransform(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedLeft,
+        float expectedTop,
+        float expectedWidth,
+        float expectedHeight,
+        float expectedFontSize,
+        float expectedPrincipalGlyphHeight)
+    {
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
+        var panel = layout.OverviewLeftPanel;
+        var heading = layout.OverviewProfileSummaryHeading;
+
+        Assert.Same(layout.ReferenceTransform, heading.ReferenceTransform);
+        Assert.Equal(expectedLeft, heading.Left, 5);
+        Assert.Equal(expectedTop, heading.Top, 5);
+        Assert.Equal(expectedWidth, heading.Width, 5);
+        Assert.Equal(expectedHeight, heading.Height, 5);
+        Assert.Equal(expectedFontSize, heading.FontSize, 5);
+        Assert.Equal(
+            expectedPrincipalGlyphHeight,
+            layout.ReferenceTransform.CanvasLength(
+                RetainedOverviewProfileSummaryHeadingPolicy.ReferencePrincipalGlyphHeightPixels),
+            5);
+        Assert.Equal(panel.ContentLeft, heading.Left, 5);
+        Assert.Equal(panel.ContentTop, heading.Top, 5);
+        Assert.Equal(panel.ContentWidth, heading.Width, 5);
+    }
+
+    [Fact]
+    public void GateTenOverviewProfileSummaryLocalizationNeverDependsOnEnglishWidth()
+    {
+        const string localized = "Ausführliche Profilzusammenfassung für diesen Spielstand";
+
+        Assert.Equal(
+            localized,
+            UiText.Resolve(
+                RetainedOverviewProfileSummaryHeadingPolicy.TextKey,
+                key => key == RetainedOverviewProfileSummaryHeadingPolicy.TextKey ? localized : null));
+        Assert.Equal(
+            RetainedOverviewProfileSummaryHeadingPolicy.EnglishFallback,
+            UiText.Resolve(RetainedOverviewProfileSummaryHeadingPolicy.TextKey, _ => null));
+    }
+
+    [Fact]
+    public void GateTenOverviewHeadingInheritsTheOverviewOwnedViewVisibility()
+    {
+        var overviewView = new object();
+        var visibilityStates = new List<bool>();
+        var visibility = new RetainedTabViewVisibility<object>(
+            overviewView,
+            RetainedOverviewPanelStylePolicy.OwnerTab,
+            (_, visible) => visibilityStates.Add(visible));
+
+        foreach (var tab in PanelInteractionState.NavigationOrder) visibility.Apply(tab);
+        visibility.Apply(StatisticsPanelTab.Overview);
+
+        Assert.Equal(RetainedOverviewLeftPanelPolicy.ContentName, RetainedOverviewProfileSummaryHeadingPolicy.ParentName);
+        Assert.Equal(StatisticsPanelTab.Overview, visibility.OwnerTab);
+        Assert.Equal(PanelInteractionState.NavigationOrder.Count + 1, visibilityStates.Count);
+        Assert.True(visibilityStates[0]);
+        Assert.All(
+            visibilityStates.Skip(1).Take(PanelInteractionState.NavigationOrder.Count - 1),
+            visible => Assert.False(visible));
+        Assert.True(visibilityStates[^1]);
     }
 
     [Fact]
@@ -1593,7 +1717,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
-        Assert.Equal(26, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(27, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -1758,6 +1882,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Same(resized.ReferenceTransform, resized.HeaderTitle.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.OverviewLeftPanel.ReferenceTransform);
         Assert.Same(resized.ReferenceTransform, resized.OverviewRightPanel.ReferenceTransform);
+        Assert.Same(resized.ReferenceTransform, resized.OverviewProfileSummaryHeading.ReferenceTransform);
         Assert.Equal(baseline.Header.Width / 2f, resized.Header.Width);
         Assert.Equal(baseline.OverviewTab.Width / 2f, resized.OverviewTab.Width);
         Assert.Equal(baseline.OverviewTab.Height / 2f, resized.OverviewTab.Height);
@@ -1771,6 +1896,12 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(baseline.OverviewLeftPanel.Height / 2f, resized.OverviewLeftPanel.Height);
         Assert.Equal(baseline.OverviewRightPanel.Width / 2f, resized.OverviewRightPanel.Width);
         Assert.Equal(baseline.OverviewRightPanel.Height / 2f, resized.OverviewRightPanel.Height);
+        Assert.Equal(
+            baseline.OverviewProfileSummaryHeading.Width / 2f,
+            resized.OverviewProfileSummaryHeading.Width);
+        Assert.Equal(
+            baseline.OverviewProfileSummaryHeading.FontSize / 2f,
+            resized.OverviewProfileSummaryHeading.FontSize);
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.HeaderChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
@@ -1781,9 +1912,11 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(1, RetainedShellCompositionPolicy.BackButtonChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.BackArrowChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewContentViewChildCount);
-        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLeftPanelChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLeftPanelChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewProfileSummaryHeadingChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(26, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(27, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);

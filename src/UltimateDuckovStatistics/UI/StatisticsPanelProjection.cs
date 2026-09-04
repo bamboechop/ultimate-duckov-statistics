@@ -1044,6 +1044,7 @@ internal static class RetainedOverviewLeftPanelPolicy
 {
     public const string ViewName = "OverviewContentView";
     public const string BackgroundName = "OverviewLeftPanelBackground";
+    public const string ContentName = "OverviewLeftPanelContent";
     public const StatisticsPanelTab OwnerTab = RetainedOverviewPanelStylePolicy.OwnerTab;
     public const float LeftPixels = 85f;
     public const float TopPixels = RetainedOverviewPanelStylePolicy.TopPixels;
@@ -1064,6 +1065,59 @@ internal static class RetainedOverviewLeftPanelPolicy
     public static RetainedOverviewPanelCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform) =>
         RetainedOverviewPanelStylePolicy.CreateCanvasLayout(referenceTransform, LeftPixels);
+}
+
+internal sealed class RetainedOverviewProfileSummaryHeadingCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float FontSize { get; set; }
+}
+
+internal static class RetainedOverviewProfileSummaryHeadingPolicy
+{
+    public const string Name = "OverviewProfileSummaryHeading";
+    public const string ParentName = RetainedOverviewLeftPanelPolicy.ContentName;
+    public const string TextKey = "ui.profile_summary";
+    public const string EnglishFallback = "Profile Summary";
+    public const string FontAssetName = RetainedHeaderTitlePolicy.FontAssetName;
+    public const string MaterialName = RetainedHeaderTitlePolicy.MaterialName;
+    public const float ReferencePrincipalGlyphHeightPixels = 49f;
+    public const float ReferenceFontSize =
+        RetainedHeaderTitlePolicy.ReferenceFontSize
+        * ReferencePrincipalGlyphHeightPixels
+        / RetainedHeaderTitlePolicy.PrincipalHeightPixels;
+    public const float HeightPixels = 60f;
+    public const float Red = 1f;
+    public const float Green = 1f;
+    public const float Blue = 1f;
+    public const float Alpha = 1f;
+    public const bool BlocksRaycasts = false;
+    public const bool WordWrapping = false;
+    public const bool AutoSizing = false;
+    public const bool UsesTopLeftAlignment = true;
+    public const bool UsesSharedNativeMaterial = true;
+    public const bool UsesHorizontalTypographyCompensation = false;
+
+    public static RetainedOverviewProfileSummaryHeadingCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewPanelCanvasLayout leftPanel)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (leftPanel == null) throw new ArgumentNullException(nameof(leftPanel));
+        return new RetainedOverviewProfileSummaryHeadingCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = leftPanel.ContentLeft,
+            Top = leftPanel.ContentTop,
+            Width = leftPanel.ContentWidth,
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            FontSize = referenceTransform.CanvasLength(ReferenceFontSize)
+        };
+    }
 }
 
 internal static class RetainedOverviewRightPanelPolicy
@@ -1244,6 +1298,7 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedBackControlCanvasLayout BackControl { get; set; } = null!;
     public RetainedOverviewPanelCanvasLayout OverviewLeftPanel { get; set; } = null!;
     public RetainedOverviewPanelCanvasLayout OverviewRightPanel { get; set; } = null!;
+    public RetainedOverviewProfileSummaryHeadingCanvasLayout OverviewProfileSummaryHeading { get; set; } = null!;
 }
 
 internal static class RetainedVisualLayoutPolicy
@@ -1278,6 +1333,9 @@ internal static class RetainedVisualLayoutPolicy
         var backControl = RetainedBackControlPolicy.CreateCanvasLayout(referenceTransform);
         var overviewLeftPanel = RetainedOverviewLeftPanelPolicy.CreateCanvasLayout(referenceTransform);
         var overviewRightPanel = RetainedOverviewRightPanelPolicy.CreateCanvasLayout(referenceTransform);
+        var overviewProfileSummaryHeading = RetainedOverviewProfileSummaryHeadingPolicy.CreateCanvasLayout(
+            referenceTransform,
+            overviewLeftPanel);
         if (!IsFinite(header.Left)
             || !IsFinite(header.Top)
             || !IsPositiveFinite(header.Width)
@@ -1342,7 +1400,8 @@ internal static class RetainedVisualLayoutPolicy
             HeaderTitle = headerTitle,
             BackControl = backControl,
             OverviewLeftPanel = overviewLeftPanel,
-            OverviewRightPanel = overviewRightPanel
+            OverviewRightPanel = overviewRightPanel,
+            OverviewProfileSummaryHeading = overviewProfileSummaryHeading
         };
     }
 
@@ -1366,9 +1425,11 @@ internal static class RetainedShellCompositionPolicy
     public const int BackButtonChildCount = 1;
     public const int BackArrowChildCount = 0;
     public const int OverviewContentViewChildCount = 2;
-    public const int OverviewLeftPanelChildCount = 0;
+    public const int OverviewLeftPanelChildCount = 1;
+    public const int OverviewLeftPanelContentChildCount = 1;
+    public const int OverviewProfileSummaryHeadingChildCount = 0;
     public const int OverviewRightPanelChildCount = 0;
-    public const int GraphicCount = 26;
+    public const int GraphicCount = 27;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
