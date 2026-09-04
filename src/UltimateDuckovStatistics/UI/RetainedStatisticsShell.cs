@@ -94,12 +94,14 @@ internal sealed class RetainedStatisticsShell : IDisposable
     {
         public RetainedOverviewHighlightRowControl(
             RectTransform rect,
+            UniformModifier modifier,
             RectTransform labelRect,
             TextMeshProUGUI label,
             RectTransform valueRect,
             TextMeshProUGUI value)
         {
             Rect = rect;
+            Modifier = modifier;
             LabelRect = labelRect;
             Label = label;
             ValueRect = valueRect;
@@ -107,6 +109,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         }
 
         public RectTransform Rect { get; }
+        public UniformModifier Modifier { get; }
         public RectTransform LabelRect { get; }
         public TextMeshProUGUI Label { get; }
         public RectTransform ValueRect { get; }
@@ -610,6 +613,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         rect.pivot = new Vector2(0f, 1f);
         rect.localScale = Vector3.one;
 
+        AddOverviewStatisticsRowBackground(row, out var modifier);
+
         var labelRect = CreateStatisticsRowText(
             rect,
             specification.LabelName,
@@ -624,7 +629,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             typography,
             material,
             out var value);
-        return new RetainedOverviewHighlightRowControl(rect, labelRect, label, valueRect, value);
+        return new RetainedOverviewHighlightRowControl(rect, modifier, labelRect, label, valueRect, value);
     }
 
     private static RetainedStatisticsRowControl CreateOverviewStatisticsRow(
@@ -644,19 +649,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         rect.pivot = new Vector2(0f, 1f);
         rect.localScale = Vector3.one;
 
-        var background = row.AddComponent<ProceduralImage>();
-        background.color = new Color(
-            RetainedOverviewFirstStatisticsRowPolicy.Red,
-            RetainedOverviewFirstStatisticsRowPolicy.Green,
-            RetainedOverviewFirstStatisticsRowPolicy.Blue,
-            RetainedOverviewFirstStatisticsRowPolicy.LayerAlpha);
-        background.BorderWidth = 0f;
-        background.FalloffDistance = 1f;
-        background.sprite = null;
-        background.overrideSprite = null;
-        background.type = Image.Type.Simple;
-        background.raycastTarget = RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts;
-        var modifier = row.AddComponent<UniformModifier>();
+        AddOverviewStatisticsRowBackground(row, out var modifier);
 
         var content = new GameObject(
             specification.ContentName,
@@ -703,6 +696,25 @@ internal sealed class RetainedStatisticsShell : IDisposable
             secondaryValueRect,
             secondaryValue);
         return new RetainedStatisticsRowControl(rect, modifier, contentRect, textElements);
+    }
+
+    private static void AddOverviewStatisticsRowBackground(
+        GameObject row,
+        out UniformModifier modifier)
+    {
+        var background = row.AddComponent<ProceduralImage>();
+        background.color = new Color(
+            RetainedOverviewFirstStatisticsRowPolicy.Red,
+            RetainedOverviewFirstStatisticsRowPolicy.Green,
+            RetainedOverviewFirstStatisticsRowPolicy.Blue,
+            RetainedOverviewFirstStatisticsRowPolicy.LayerAlpha);
+        background.BorderWidth = 0f;
+        background.FalloffDistance = 1f;
+        background.sprite = null;
+        background.overrideSprite = null;
+        background.type = Image.Type.Simple;
+        background.raycastTarget = RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts;
+        modifier = row.AddComponent<UniformModifier>();
     }
 
     private static RectTransform CreateStatisticsRowText(
@@ -1141,6 +1153,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 row.Left - layout.OverviewRightPanel.ContentLeft,
                 -(row.Top - layout.OverviewRightPanel.ContentTop));
             control.Rect.sizeDelta = new Vector2(row.Width, row.Height);
+            control.Modifier.Radius = row.CornerRadius;
             ApplyStatisticsRowTextLayout(
                 control.LabelRect,
                 control.Label,

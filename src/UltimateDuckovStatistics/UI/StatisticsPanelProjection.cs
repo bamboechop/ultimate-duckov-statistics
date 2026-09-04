@@ -1996,6 +1996,7 @@ internal sealed class RetainedOverviewFastestExtractionRowCanvasLayout
     public float Top { get; set; }
     public float Width { get; set; }
     public float Height { get; set; }
+    public float CornerRadius { get; set; }
     public float ContentLeft { get; set; }
     public float ContentTop { get; set; }
     public float ContentWidth { get; set; }
@@ -2093,8 +2094,13 @@ internal static class RetainedOverviewFastestExtractionRowPolicy
     public const float TopOffsetPixels = RetainedOverviewFirstStatisticsRowPolicy.ContentTopOffsetPixels;
     public const float HeightPixels = RetainedOverviewFirstStatisticsRowPolicy.HeightPixels;
     public const float ContentPaddingPixels = RetainedOverviewFirstStatisticsRowPolicy.ContentPaddingPixels;
-    public const bool HasGraphic = false;
-    public const bool BlocksRaycasts = false;
+    public const float CornerRadiusPixels = RetainedOverviewFirstStatisticsRowPolicy.CornerRadiusPixels;
+    public const float Red = RetainedOverviewFirstStatisticsRowPolicy.Red;
+    public const float Green = RetainedOverviewFirstStatisticsRowPolicy.Green;
+    public const float Blue = RetainedOverviewFirstStatisticsRowPolicy.Blue;
+    public const float LayerAlpha = RetainedOverviewFirstStatisticsRowPolicy.LayerAlpha;
+    public const bool HasGraphic = true;
+    public const bool BlocksRaycasts = RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts;
 
     public static RetainedOverviewFastestExtractionRowCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform,
@@ -2122,6 +2128,7 @@ internal static class RetainedOverviewFastestExtractionRowPolicy
             Top = top,
             Width = rightPanel.ContentWidth,
             Height = referenceTransform.CanvasLength(HeightPixels),
+            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels),
             ContentLeft = left + padding,
             ContentTop = top + padding,
             ContentWidth = rightPanel.ContentWidth - padding * 2f,
@@ -2528,12 +2535,12 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewHighlightsHeadingChildCount = 0;
     public const int OverviewHighlightRowCount = 4;
     public const int OverviewHighlightRowChildCount = 2;
-    public const int OverviewHighlightRowGraphicCount = 0;
+    public const int OverviewHighlightRowGraphicCount = 1;
     public const int OverviewFastestExtractionRowChildCount = 2;
-    public const int OverviewFastestExtractionRowGraphicCount = 0;
+    public const int OverviewFastestExtractionRowGraphicCount = OverviewHighlightRowGraphicCount;
     public const int OverviewFastestExtractionLabelChildCount = 0;
     public const int OverviewFastestExtractionValueChildCount = 0;
-    public const int GraphicCount = 70;
+    public const int GraphicCount = 74;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
