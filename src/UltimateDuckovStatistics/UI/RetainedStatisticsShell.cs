@@ -149,6 +149,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private TextMeshProUGUI? overviewHighlightsHeadingGraphic;
     private RectTransform? overviewLatestRunHeadingRect;
     private TextMeshProUGUI? overviewLatestRunHeadingGraphic;
+    private RectTransform? overviewLatestRunCardRect;
+    private UniformModifier? overviewLatestRunCardModifier;
     private readonly List<RetainedOverviewHighlightRowControl> overviewHighlightRows = new();
     private readonly List<RetainedStatisticsRowControl> overviewProfileSummaryRows = new();
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
@@ -238,6 +240,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var createdOverviewHighlightsHeadingGraphic,
                 out var createdOverviewLatestRunHeadingRect,
                 out var createdOverviewLatestRunHeadingGraphic,
+                out var createdOverviewLatestRunCardRect,
+                out var createdOverviewLatestRunCardModifier,
                 out var createdOverviewHighlightRows,
                 out var createdOverviewProfileSummaryRows,
                 projection);
@@ -253,6 +257,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewHighlightsHeadingGraphic = createdOverviewHighlightsHeadingGraphic;
             overviewLatestRunHeadingRect = createdOverviewLatestRunHeadingRect;
             overviewLatestRunHeadingGraphic = createdOverviewLatestRunHeadingGraphic;
+            overviewLatestRunCardRect = createdOverviewLatestRunCardRect;
+            overviewLatestRunCardModifier = createdOverviewLatestRunCardModifier;
             overviewHighlightRows.AddRange(createdOverviewHighlightRows);
             overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
             overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
@@ -409,6 +415,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         out TextMeshProUGUI highlightsHeadingGraphic,
         out RectTransform latestRunHeadingRect,
         out TextMeshProUGUI latestRunHeadingGraphic,
+        out RectTransform latestRunCardRect,
+        out UniformModifier latestRunCardModifier,
         out List<RetainedOverviewHighlightRowControl> highlightRows,
         out List<RetainedStatisticsRowControl> profileSummaryRows,
         StatisticsPanelProjection projection)
@@ -456,6 +464,10 @@ internal sealed class RetainedStatisticsShell : IDisposable
             typography,
             headingMaterial,
             out latestRunHeadingGraphic);
+        latestRunCardRect = CreateOverviewPanel(
+            rightPanelContentRect,
+            RetainedOverviewLatestRunCardPolicy.Name,
+            out latestRunCardModifier);
         var presentations = ProfileSummaryPresentationFactory.Create(projection, UiText.Get);
         profileSummaryRows = new List<RetainedStatisticsRowControl>(presentations.Count);
         for (var index = 0; index < presentations.Count; index++)
@@ -1072,6 +1084,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewHighlightsHeadingGraphic == null
             || overviewLatestRunHeadingRect == null
             || overviewLatestRunHeadingGraphic == null
+            || overviewLatestRunCardRect == null
+            || overviewLatestRunCardModifier == null
             || overviewHighlightRows.Count != RetainedOverviewHighlightsRowsPolicy.RowCount
             || overviewProfileSummaryRows.Count != RetainedProfileSummaryRowsPolicy.RowCount)
         {
@@ -1110,6 +1124,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var highlightsHeadingGraphic = overviewHighlightsHeadingGraphic!;
         var latestRunHeadingRect = overviewLatestRunHeadingRect!;
         var latestRunHeadingGraphic = overviewLatestRunHeadingGraphic!;
+        var latestRunCardRect = overviewLatestRunCardRect!;
+        var latestRunCardModifier = overviewLatestRunCardModifier!;
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
@@ -1238,6 +1254,13 @@ internal sealed class RetainedStatisticsShell : IDisposable
             layout.OverviewLatestRunHeading.Width,
             layout.OverviewLatestRunHeading.Height);
         latestRunHeadingGraphic.fontSize = layout.OverviewLatestRunHeading.FontSize;
+        latestRunCardRect.anchoredPosition = new Vector2(
+            layout.OverviewLatestRunCard.Left - layout.OverviewRightPanel.ContentLeft,
+            -(layout.OverviewLatestRunCard.Top - layout.OverviewRightPanel.ContentTop));
+        latestRunCardRect.sizeDelta = new Vector2(
+            layout.OverviewLatestRunCard.Width,
+            layout.OverviewLatestRunCard.Height);
+        latestRunCardModifier.Radius = layout.OverviewLatestRunCard.CornerRadius;
         for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
             ApplyStatisticsRowLayout(
                 overviewProfileSummaryRows[index],
@@ -1400,6 +1423,8 @@ internal sealed class RetainedStatisticsShell : IDisposable
         overviewHighlightsHeadingGraphic = null;
         overviewLatestRunHeadingRect = null;
         overviewLatestRunHeadingGraphic = null;
+        overviewLatestRunCardRect = null;
+        overviewLatestRunCardModifier = null;
         overviewHighlightRows.Clear();
         overviewProfileSummaryRows.Clear();
         lastAppliedVisualLayout = null;

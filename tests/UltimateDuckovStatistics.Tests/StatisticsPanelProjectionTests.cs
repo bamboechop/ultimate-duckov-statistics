@@ -766,7 +766,7 @@ public sealed class StatisticsPanelProjectionTests
         var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
 
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(75, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(76, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(115f, tab.Left);
@@ -877,7 +877,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(owned.IsDisposed);
         Assert.Equal(0, destroyed);
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(75, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(76, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
@@ -1320,9 +1320,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowValueChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(6, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
-        Assert.Equal(75, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(76, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -2083,7 +2083,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(12, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.ProfileSummaryStandardRowContentChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.ProfileSummaryEconomyRowContentChildCount);
-        Assert.Equal(75, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(76, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.False(RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFirstStatisticsRowEntryPolicy.BlocksRaycasts);
@@ -3045,10 +3045,10 @@ public sealed class StatisticsPanelProjectionTests
             4,
             RetainedShellCompositionPolicy.OverviewHighlightRowCount
             * RetainedShellCompositionPolicy.OverviewHighlightRowGraphicCount);
-        Assert.Equal(6, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
-        Assert.Equal(4, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount - 2);
-        Assert.Equal(75, RetainedShellCompositionPolicy.GraphicCount);
-        Assert.Equal(5, RetainedShellCompositionPolicy.GraphicCount - 70);
+        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(5, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount - 2);
+        Assert.Equal(76, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(6, RetainedShellCompositionPolicy.GraphicCount - 70);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.False(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFastestExtractionEntryPolicy.BlocksRaycasts);
@@ -3222,17 +3222,108 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateSixteenCompositionAddsOnlyTheLatestRunTextGraphic()
+    public void GateSixteenLatestRunHeadingRemainsChildlessAndNonInteractive()
     {
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(6, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunHeadingChildCount);
-        Assert.Equal(75, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(4, RetainedShellCompositionPolicy.OverviewHighlightRowCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewHighlightRowChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewHighlightRowGraphicCount);
         Assert.False(RetainedOverviewLatestRunHeadingPolicy.BlocksRaycasts);
+    }
+
+    [Fact]
+    public void GateSeventeenLatestRunCardUsesExactStructuralGeometryAndRoundedPanelStyle()
+    {
+        var layout = CreateRetainedVisualLayout(2560f, 1440f);
+        var card = layout.OverviewLatestRunCard;
+        var heading = layout.OverviewLatestRunHeading;
+
+        Assert.Equal("OverviewLatestRunCard", RetainedOverviewLatestRunCardPolicy.Name);
+        Assert.Equal(
+            RetainedOverviewRightPanelPolicy.ContentName,
+            RetainedOverviewLatestRunCardPolicy.ParentName);
+        Assert.Equal(StatisticsPanelTab.Overview, RetainedOverviewLatestRunCardPolicy.OwnerTab);
+        Assert.Equal(56f, RetainedOverviewLatestRunCardPolicy.HeadingTopOffsetPixels);
+        Assert.Equal(1330f, RetainedOverviewLatestRunCardPolicy.LeftPixels);
+        Assert.Equal(846f, RetainedOverviewLatestRunCardPolicy.TopPixels);
+        Assert.Equal(1888f, RetainedOverviewLatestRunCardPolicy.RightExclusivePixels);
+        Assert.Equal(1185f, RetainedOverviewLatestRunCardPolicy.BottomExclusivePixels);
+        Assert.Equal(558f, RetainedOverviewLatestRunCardPolicy.WidthPixels);
+        Assert.Equal(339f, RetainedOverviewLatestRunCardPolicy.HeightPixels);
+        Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.Red);
+        Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.Green);
+        Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.Blue);
+        Assert.Equal(0.50f, RetainedOverviewLatestRunCardPolicy.LayerAlpha);
+        Assert.Equal(20f, RetainedOverviewLatestRunCardPolicy.CornerRadiusPixels);
+        Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.BorderWidth);
+        Assert.False(RetainedOverviewLatestRunCardPolicy.HasSprite);
+        Assert.True(RetainedOverviewLatestRunCardPolicy.UsesSimpleImageType);
+        Assert.False(RetainedOverviewLatestRunCardPolicy.BlocksRaycasts);
+        Assert.False(RetainedOverviewLatestRunCardPolicy.HasInteraction);
+        Assert.False(RetainedOverviewLatestRunCardPolicy.HasShadow);
+        Assert.Equal(RetainedOverviewPanelStylePolicy.Red, RetainedOverviewLatestRunCardPolicy.Red);
+        Assert.Equal(RetainedOverviewPanelStylePolicy.Green, RetainedOverviewLatestRunCardPolicy.Green);
+        Assert.Equal(RetainedOverviewPanelStylePolicy.Blue, RetainedOverviewLatestRunCardPolicy.Blue);
+        Assert.Equal(RetainedOverviewPanelStylePolicy.LayerAlpha, RetainedOverviewLatestRunCardPolicy.LayerAlpha);
+        Assert.Equal(
+            RetainedOverviewPanelStylePolicy.CornerRadiusPixels,
+            RetainedOverviewLatestRunCardPolicy.CornerRadiusPixels);
+        Assert.Equal(
+            RetainedOverviewPanelStylePolicy.BlocksRaycasts,
+            RetainedOverviewLatestRunCardPolicy.BlocksRaycasts);
+
+        Assert.Same(layout.ReferenceTransform, card.ReferenceTransform);
+        Assert.Equal(1330f, card.Left);
+        Assert.Equal(846f, card.Top);
+        Assert.Equal(558f, card.Width);
+        Assert.Equal(339f, card.Height);
+        Assert.Equal(20f, card.CornerRadius);
+        Assert.Equal(layout.OverviewRightPanel.ContentLeft, card.Left);
+        Assert.Equal(heading.Top + 56f, card.Top);
+        Assert.Equal(1888f, card.Left + card.Width);
+        Assert.Equal(1185f, card.Top + card.Height);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f)]
+    [InlineData(1680f, 1050f)]
+    [InlineData(1920f, 1200f)]
+    [InlineData(2560f, 1440f)]
+    public void GateSeventeenLatestRunCardUsesSharedReferenceTransform(
+        float viewportWidth,
+        float viewportHeight)
+    {
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
+        var card = layout.OverviewLatestRunCard;
+
+        Assert.Same(layout.ReferenceTransform, card.ReferenceTransform);
+        Assert.Equal(layout.OverviewRightPanel.ContentLeft, card.Left, 5);
+        Assert.Equal(
+            layout.ReferenceTransform.CanvasLength(56f),
+            card.Top - layout.OverviewLatestRunHeading.Top,
+            5);
+        Assert.Equal(layout.ReferenceTransform.CanvasLength(558f), card.Width, 5);
+        Assert.Equal(layout.ReferenceTransform.CanvasLength(339f), card.Height, 5);
+        Assert.Equal(layout.ReferenceTransform.CanvasLength(20f), card.CornerRadius, 5);
+    }
+
+    [Fact]
+    public void GateSeventeenCompositionAddsOnlyOneEmptyNonInteractiveCardGraphic()
+    {
+        Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
+        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunCardChildCount);
+        Assert.Equal(76, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewLatestRunHeadingChildCount);
+        Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
+        Assert.Equal(4, RetainedShellCompositionPolicy.OverviewHighlightRowCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewHighlightRowChildCount);
+        Assert.Equal(1, RetainedShellCompositionPolicy.OverviewHighlightRowGraphicCount);
+        Assert.False(RetainedOverviewLatestRunCardPolicy.HasInteraction);
+        Assert.False(RetainedOverviewLatestRunCardPolicy.BlocksRaycasts);
     }
 
     [Fact]
@@ -3461,7 +3552,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
-        Assert.Equal(75, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(76, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -3714,13 +3805,13 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowValueChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(6, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
+        Assert.Equal(7, RetainedShellCompositionPolicy.OverviewRightPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewHighlightsHeadingChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewFastestExtractionRowChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewFastestExtractionRowGraphicCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFastestExtractionValueChildCount);
-        Assert.Equal(75, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(76, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);

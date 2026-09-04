@@ -2273,6 +2273,60 @@ internal static class RetainedOverviewLatestRunHeadingPolicy
     }
 }
 
+internal sealed class RetainedOverviewLatestRunCardCanvasLayout
+{
+    public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
+    public float Left { get; set; }
+    public float Top { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
+    public float CornerRadius { get; set; }
+}
+
+internal static class RetainedOverviewLatestRunCardPolicy
+{
+    public const string Name = "OverviewLatestRunCard";
+    public const string ParentName = RetainedOverviewRightPanelPolicy.ContentName;
+    public const StatisticsPanelTab OwnerTab = RetainedOverviewRightPanelPolicy.OwnerTab;
+    public const float HeadingTopOffsetPixels = 56f;
+    public const float LeftPixels = 1330f;
+    public const float TopPixels = 846f;
+    public const float RightExclusivePixels = 1888f;
+    public const float BottomExclusivePixels = 1185f;
+    public const float WidthPixels = 558f;
+    public const float HeightPixels = 339f;
+    public const float Red = RetainedOverviewPanelStylePolicy.Red;
+    public const float Green = RetainedOverviewPanelStylePolicy.Green;
+    public const float Blue = RetainedOverviewPanelStylePolicy.Blue;
+    public const float LayerAlpha = RetainedOverviewPanelStylePolicy.LayerAlpha;
+    public const float CornerRadiusPixels = RetainedOverviewPanelStylePolicy.CornerRadiusPixels;
+    public const float BorderWidth = 0f;
+    public const bool HasSprite = false;
+    public const bool UsesSimpleImageType = true;
+    public const bool BlocksRaycasts = RetainedOverviewPanelStylePolicy.BlocksRaycasts;
+    public const bool HasInteraction = false;
+    public const bool HasShadow = false;
+
+    public static RetainedOverviewLatestRunCardCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewPanelCanvasLayout rightPanel,
+        RetainedOverviewLatestRunHeadingCanvasLayout latestRunHeading)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (rightPanel == null) throw new ArgumentNullException(nameof(rightPanel));
+        if (latestRunHeading == null) throw new ArgumentNullException(nameof(latestRunHeading));
+        return new RetainedOverviewLatestRunCardCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            Left = rightPanel.ContentLeft,
+            Top = latestRunHeading.Top + referenceTransform.CanvasLength(HeadingTopOffsetPixels),
+            Width = referenceTransform.CanvasLength(WidthPixels),
+            Height = referenceTransform.CanvasLength(HeightPixels),
+            CornerRadius = referenceTransform.CanvasLength(CornerRadiusPixels)
+        };
+    }
+}
+
 internal sealed class RetainedHeaderTitleCanvasLayout
 {
     public RetainedReferenceTransform ReferenceTransform { get; set; } = null!;
@@ -2441,6 +2495,7 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedOverviewProfileSummaryHeadingCanvasLayout OverviewProfileSummaryHeading { get; set; } = null!;
     public RetainedOverviewHighlightsHeadingCanvasLayout OverviewHighlightsHeading { get; set; } = null!;
     public RetainedOverviewLatestRunHeadingCanvasLayout OverviewLatestRunHeading { get; set; } = null!;
+    public RetainedOverviewLatestRunCardCanvasLayout OverviewLatestRunCard { get; set; } = null!;
     public IReadOnlyList<RetainedOverviewFastestExtractionRowCanvasLayout> OverviewHighlightRows { get; set; } =
         Array.Empty<RetainedOverviewFastestExtractionRowCanvasLayout>();
     public IReadOnlyList<RetainedTwoColumnStatisticsRowCanvasLayout> OverviewHighlightEntries { get; set; } =
@@ -2501,6 +2556,10 @@ internal static class RetainedVisualLayoutPolicy
             referenceTransform,
             overviewRightPanel,
             overviewHighlightRows[^1]);
+        var overviewLatestRunCard = RetainedOverviewLatestRunCardPolicy.CreateCanvasLayout(
+            referenceTransform,
+            overviewRightPanel,
+            overviewLatestRunHeading);
         var overviewFastestExtractionRow = overviewHighlightRows[0];
         var overviewFastestExtractionEntry = overviewHighlightEntries[0];
         var overviewProfileSummaryRows = RetainedProfileSummaryRowsPolicy.CreateCanvasLayouts(
@@ -2576,6 +2635,7 @@ internal static class RetainedVisualLayoutPolicy
             OverviewProfileSummaryHeading = overviewProfileSummaryHeading,
             OverviewHighlightsHeading = overviewHighlightsHeading,
             OverviewLatestRunHeading = overviewLatestRunHeading,
+            OverviewLatestRunCard = overviewLatestRunCard,
             OverviewHighlightRows = overviewHighlightRows,
             OverviewHighlightEntries = overviewHighlightEntries,
             OverviewFastestExtractionRow = overviewFastestExtractionRow,
@@ -2617,9 +2677,10 @@ internal static class RetainedShellCompositionPolicy
     public const int ProfileSummaryStandardRowContentChildCount = 2;
     public const int ProfileSummaryEconomyRowContentChildCount = 3;
     public const int OverviewRightPanelChildCount = 1;
-    public const int OverviewRightPanelContentChildCount = 6;
+    public const int OverviewRightPanelContentChildCount = 7;
     public const int OverviewHighlightsHeadingChildCount = 0;
     public const int OverviewLatestRunHeadingChildCount = 0;
+    public const int OverviewLatestRunCardChildCount = 0;
     public const int OverviewHighlightRowCount = 4;
     public const int OverviewHighlightRowChildCount = 2;
     public const int OverviewHighlightRowGraphicCount = 1;
@@ -2627,7 +2688,7 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewFastestExtractionRowGraphicCount = OverviewHighlightRowGraphicCount;
     public const int OverviewFastestExtractionLabelChildCount = 0;
     public const int OverviewFastestExtractionValueChildCount = 0;
-    public const int GraphicCount = 75;
+    public const int GraphicCount = 76;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;
