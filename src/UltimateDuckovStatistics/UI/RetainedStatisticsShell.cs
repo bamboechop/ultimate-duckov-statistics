@@ -177,6 +177,23 @@ internal sealed class RetainedStatisticsShell : IDisposable
         public RetainedLatestRunMapPresentation Presentation { get; }
     }
 
+    private sealed class RetainedLatestRunStatisticsControl
+    {
+        public RetainedLatestRunStatisticsControl(
+            RectTransform rect,
+            TextMeshProUGUI label,
+            RetainedLatestRunStatisticsPresentation presentation)
+        {
+            Rect = rect;
+            Label = label;
+            Presentation = presentation;
+        }
+
+        public RectTransform Rect { get; }
+        public TextMeshProUGUI Label { get; }
+        public RetainedLatestRunStatisticsPresentation Presentation { get; }
+    }
+
     private GameObject? root;
     private Canvas? canvas;
     private RectTransform? shellRoot;
@@ -214,6 +231,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private UniformModifier? overviewLatestRunCardModifier;
     private RetainedRunBadgeControl? overviewLatestRunBadge;
     private RetainedLatestRunMapControl? overviewLatestRunMapName;
+    private RetainedLatestRunStatisticsControl? overviewLatestRunStatistics;
     private readonly List<RetainedOverviewHighlightRowControl> overviewHighlightRows = new();
     private readonly List<RetainedStatisticsRowControl> overviewProfileSummaryRows = new();
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
@@ -307,6 +325,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var createdOverviewLatestRunCardModifier,
                 out var createdOverviewLatestRunBadge,
                 out var createdOverviewLatestRunMapName,
+                out var createdOverviewLatestRunStatistics,
                 out var createdOverviewHighlightRows,
                 out var createdOverviewProfileSummaryRows,
                 projection);
@@ -326,6 +345,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewLatestRunCardModifier = createdOverviewLatestRunCardModifier;
             overviewLatestRunBadge = createdOverviewLatestRunBadge;
             overviewLatestRunMapName = createdOverviewLatestRunMapName;
+            overviewLatestRunStatistics = createdOverviewLatestRunStatistics;
             overviewHighlightRows.AddRange(createdOverviewHighlightRows);
             overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
             overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
@@ -486,6 +506,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         out UniformModifier latestRunCardModifier,
         out RetainedRunBadgeControl latestRunBadge,
         out RetainedLatestRunMapControl latestRunMapName,
+        out RetainedLatestRunStatisticsControl latestRunStatistics,
         out List<RetainedOverviewHighlightRowControl> highlightRows,
         out List<RetainedStatisticsRowControl> profileSummaryRows,
         StatisticsPanelProjection projection)
@@ -560,6 +581,14 @@ internal sealed class RetainedStatisticsShell : IDisposable
         latestRunMapName = CreateOverviewLatestRunMapName(
             latestRunCardRect,
             latestRunMapPresentation,
+            typography,
+            headingMaterial);
+        var latestRunStatisticsPresentation = RetainedLatestRunStatisticsPresentationFactory.Create(
+            runBadgePresentation,
+            UiText.Get);
+        latestRunStatistics = CreateOverviewLatestRunStatistics(
+            latestRunCardRect,
+            latestRunStatisticsPresentation,
             typography,
             headingMaterial);
         return view;
@@ -981,6 +1010,48 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return new RetainedLatestRunMapControl(rect, label, presentation);
     }
 
+    private static RetainedLatestRunStatisticsControl CreateOverviewLatestRunStatistics(
+        RectTransform parent,
+        RetainedLatestRunStatisticsPresentation presentation,
+        NativeHeaderTitleTypography typography,
+        Material material)
+    {
+        var statisticsObject = new GameObject(
+            RetainedOverviewLatestRunStatisticsPolicy.Name,
+            typeof(RectTransform));
+        var rect = (RectTransform)statisticsObject.transform;
+        rect.SetParent(parent, worldPositionStays: false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.localScale = Vector3.one;
+
+        var label = statisticsObject.AddComponent<TextMeshProUGUI>();
+        label.font = typography.Font;
+        label.fontSharedMaterial = material;
+        label.text = presentation.Text;
+        label.fontStyle = FontStyles.Normal;
+        label.fontWeight = FontWeight.Regular;
+        label.characterSpacing = RetainedOverviewLatestRunStatisticsPolicy.CharacterSpacing;
+        label.wordSpacing = RetainedOverviewLatestRunStatisticsPolicy.WordSpacing;
+        label.lineSpacing = RetainedOverviewLatestRunStatisticsPolicy.LineSpacing;
+        label.paragraphSpacing = RetainedOverviewLatestRunStatisticsPolicy.ParagraphSpacing;
+        label.alignment = TextAlignmentOptions.TopLeft;
+        label.enableWordWrapping = RetainedOverviewLatestRunStatisticsPolicy.WordWrapping;
+        label.enableAutoSizing = RetainedOverviewLatestRunStatisticsPolicy.AutoSizing;
+        label.overflowMode = TextOverflowModes.Overflow;
+        label.margin = Vector4.zero;
+        label.color = new Color(
+            RetainedOverviewLatestRunStatisticsPolicy.Red,
+            RetainedOverviewLatestRunStatisticsPolicy.Green,
+            RetainedOverviewLatestRunStatisticsPolicy.Blue,
+            RetainedOverviewLatestRunStatisticsPolicy.Alpha);
+        label.raycastTarget = RetainedOverviewLatestRunStatisticsPolicy.BlocksRaycasts;
+
+        statisticsObject.SetActive(presentation.IsVisible);
+        return new RetainedLatestRunStatisticsControl(rect, label, presentation);
+    }
+
     private static RetainedStatisticsRowControl CreateOverviewStatisticsRow(
         RectTransform parent,
         RetainedProfileSummaryRowSpecification specification,
@@ -1372,6 +1443,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewLatestRunCardModifier == null
             || overviewLatestRunBadge == null
             || overviewLatestRunMapName == null
+            || overviewLatestRunStatistics == null
             || overviewHighlightRows.Count != RetainedOverviewHighlightsRowsPolicy.RowCount
             || overviewProfileSummaryRows.Count != RetainedProfileSummaryRowsPolicy.RowCount)
         {
@@ -1432,6 +1504,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var latestRunCardRect = overviewLatestRunCardRect!;
         var latestRunCardModifier = overviewLatestRunCardModifier!;
         var latestRunMapNameControl = overviewLatestRunMapName!;
+        var latestRunStatisticsControl = overviewLatestRunStatistics!;
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
@@ -1607,6 +1680,19 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 latestRunMapNameLayout.Width,
                 latestRunMapNameLayout.Height);
             latestRunMapNameControl.Label.fontSize = latestRunMapNameLayout.FontSize;
+        }
+        var latestRunStatisticsLayout = layout.OverviewLatestRunStatistics;
+        latestRunStatisticsControl.Rect.gameObject.SetActive(
+            latestRunStatisticsControl.Presentation.IsVisible && latestRunStatisticsLayout != null);
+        if (latestRunStatisticsLayout != null)
+        {
+            latestRunStatisticsControl.Rect.anchoredPosition = new Vector2(
+                latestRunStatisticsLayout.Left - layout.OverviewLatestRunCard.Left,
+                -(latestRunStatisticsLayout.Top - layout.OverviewLatestRunCard.Top));
+            latestRunStatisticsControl.Rect.sizeDelta = new Vector2(
+                latestRunStatisticsLayout.Width,
+                latestRunStatisticsLayout.Height);
+            latestRunStatisticsControl.Label.fontSize = latestRunStatisticsLayout.FontSize;
         }
         for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
             ApplyStatisticsRowLayout(
@@ -1806,6 +1892,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         overviewLatestRunBadge?.Dispose();
         overviewLatestRunBadge = null;
         overviewLatestRunMapName = null;
+        overviewLatestRunStatistics = null;
         overviewHighlightRows.Clear();
         overviewProfileSummaryRows.Clear();
         lastAppliedVisualLayout = null;
