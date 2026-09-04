@@ -1199,6 +1199,11 @@ internal sealed class RetainedTwoColumnStatisticsRowCanvasLayout
     public float ValueTop { get; set; }
     public float ValueWidth { get; set; }
     public float ValueHeight { get; set; }
+    public float SecondaryValueLeft { get; set; }
+    public float SecondaryValueTop { get; set; }
+    public float SecondaryValueWidth { get; set; }
+    public float SecondaryValueHeight { get; set; }
+    public bool HasSecondaryValue { get; set; }
     public float FontSize { get; set; }
 }
 
@@ -1224,6 +1229,40 @@ internal static class RetainedTwoColumnStatisticsRowLayoutPolicy
             ValueTop = row.ContentTop,
             ValueWidth = row.ContentWidth - labelWidth,
             ValueHeight = row.ContentHeight,
+            FontSize = referenceTransform.CanvasLength(referenceFontSize)
+        };
+    }
+}
+
+internal static class RetainedThreeColumnStatisticsRowLayoutPolicy
+{
+    public static RetainedTwoColumnStatisticsRowCanvasLayout CreateCanvasLayout(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewFirstStatisticsRowCanvasLayout row,
+        float referenceLabelWidth,
+        float referencePrimaryValueWidth,
+        float referenceFontSize)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (row == null) throw new ArgumentNullException(nameof(row));
+        var labelWidth = referenceTransform.CanvasLength(referenceLabelWidth);
+        var primaryValueWidth = referenceTransform.CanvasLength(referencePrimaryValueWidth);
+        return new RetainedTwoColumnStatisticsRowCanvasLayout
+        {
+            ReferenceTransform = referenceTransform,
+            LabelLeft = row.ContentLeft,
+            LabelTop = row.ContentTop,
+            LabelWidth = labelWidth,
+            LabelHeight = row.ContentHeight,
+            ValueLeft = row.ContentLeft + labelWidth,
+            ValueTop = row.ContentTop,
+            ValueWidth = primaryValueWidth,
+            ValueHeight = row.ContentHeight,
+            SecondaryValueLeft = row.ContentLeft + labelWidth + primaryValueWidth,
+            SecondaryValueTop = row.ContentTop,
+            SecondaryValueWidth = row.ContentWidth - labelWidth - primaryValueWidth,
+            SecondaryValueHeight = row.ContentHeight,
+            HasSecondaryValue = true,
             FontSize = referenceTransform.CanvasLength(referenceFontSize)
         };
     }
@@ -1278,6 +1317,341 @@ internal static class RetainedOverviewFirstStatisticsRowEntryPolicy
         if (projection == null) throw new ArgumentNullException(nameof(projection));
         return projection.Runs.TotalRuns.ToString(CultureInfo.InvariantCulture);
     }
+}
+
+internal enum ProfileSummaryMetric
+{
+    TotalRuns,
+    ExtractionRate,
+    TotalActiveRaidTime,
+    TotalDistanceTravelled,
+    KillsByYou,
+    Deaths,
+    DamageDealt,
+    DamageTaken,
+    HealthRestored,
+    UniqueContainersOpened,
+    Economy
+}
+
+internal sealed class RetainedProfileSummaryRowSpecification
+{
+    public RetainedProfileSummaryRowSpecification(
+        ProfileSummaryMetric metric,
+        string nameStem,
+        string labelTextKey,
+        string labelEnglishFallback,
+        bool hasSecondaryValue = false)
+    {
+        Metric = metric;
+        BackgroundName = nameStem + "RowBackground";
+        ContentName = nameStem + "RowContent";
+        LabelName = nameStem + "RowLabel";
+        ValueName = nameStem + "RowValue";
+        SecondaryValueName = hasSecondaryValue ? nameStem + "RowSecondaryValue" : null;
+        LabelTextKey = labelTextKey;
+        LabelEnglishFallback = labelEnglishFallback;
+        HasSecondaryValue = hasSecondaryValue;
+    }
+
+    public ProfileSummaryMetric Metric { get; }
+    public string BackgroundName { get; }
+    public string ContentName { get; }
+    public string LabelName { get; }
+    public string ValueName { get; }
+    public string? SecondaryValueName { get; }
+    public string LabelTextKey { get; }
+    public string LabelEnglishFallback { get; }
+    public bool HasSecondaryValue { get; }
+}
+
+internal sealed class RetainedProfileSummaryRowCanvasLayout
+{
+    public RetainedProfileSummaryRowSpecification Specification { get; set; } = null!;
+    public RetainedOverviewFirstStatisticsRowCanvasLayout Surface { get; set; } = null!;
+    public RetainedTwoColumnStatisticsRowCanvasLayout Entry { get; set; } = null!;
+}
+
+internal static class RetainedProfileSummaryRowsPolicy
+{
+    public const int RowCount = 11;
+    public const float RowGapPixels = 10f;
+    public const float RowStepPixels = 76f;
+    public const float LastRowTopPixels = 1216f;
+    public const float LastRowBottomExclusivePixels = 1282f;
+    public const float EconomyPrimaryValueWidthPixels = 310f;
+    public const float EconomySecondaryValueWidthPixels = 300f;
+
+    private static readonly RetainedProfileSummaryRowSpecification[] Rows =
+    {
+        new(ProfileSummaryMetric.TotalRuns, "OverviewFirstStatistics", "ui.overview_total_runs", "Total runs"),
+        new(ProfileSummaryMetric.ExtractionRate, "OverviewExtractionRate", "ui.overview_extraction_rate", "Extraction rate"),
+        new(ProfileSummaryMetric.TotalActiveRaidTime, "OverviewTotalActiveRaidTime", "ui.overview_total_active_raid_time", "Total active raid time"),
+        new(ProfileSummaryMetric.TotalDistanceTravelled, "OverviewTotalDistanceTravelled", "ui.overview_total_distance_travelled", "Total distance travelled"),
+        new(ProfileSummaryMetric.KillsByYou, "OverviewKillsByYou", "ui.overview_kills_by_you", "Kills by you"),
+        new(ProfileSummaryMetric.Deaths, "OverviewDeaths", "ui.overview_deaths", "Deaths"),
+        new(ProfileSummaryMetric.DamageDealt, "OverviewDamageDealt", "ui.overview_damage_dealt", "Damage dealt"),
+        new(ProfileSummaryMetric.DamageTaken, "OverviewDamageTaken", "ui.overview_damage_taken", "Damage taken"),
+        new(ProfileSummaryMetric.HealthRestored, "OverviewHealthRestored", "ui.overview_hp_restored", "HP restored"),
+        new(ProfileSummaryMetric.UniqueContainersOpened, "OverviewUniqueContainersOpened", "ui.overview_unique_containers_opened", "Unique containers opened"),
+        new(ProfileSummaryMetric.Economy, "OverviewEconomy", "ui.overview_economy", "Economy", hasSecondaryValue: true)
+    };
+
+    public static IReadOnlyList<RetainedProfileSummaryRowSpecification> Specifications => Rows;
+
+    public static IReadOnlyList<RetainedProfileSummaryRowCanvasLayout> CreateCanvasLayouts(
+        RetainedReferenceTransform referenceTransform,
+        RetainedOverviewPanelCanvasLayout leftPanel)
+    {
+        if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
+        if (leftPanel == null) throw new ArgumentNullException(nameof(leftPanel));
+        var result = new RetainedProfileSummaryRowCanvasLayout[Rows.Length];
+        var padding = referenceTransform.CanvasLength(RetainedOverviewFirstStatisticsRowPolicy.ContentPaddingPixels);
+        for (var index = 0; index < Rows.Length; index++)
+        {
+            var left = leftPanel.ContentLeft;
+            var top = leftPanel.ContentTop + referenceTransform.CanvasLength(
+                RetainedOverviewFirstStatisticsRowPolicy.ContentTopOffsetPixels + RowStepPixels * index);
+            var surface = index == 0
+                ? RetainedOverviewFirstStatisticsRowPolicy.CreateCanvasLayout(referenceTransform, leftPanel)
+                : new RetainedOverviewFirstStatisticsRowCanvasLayout
+                {
+                    ReferenceTransform = referenceTransform,
+                    Left = left,
+                    Top = top,
+                    Width = leftPanel.ContentWidth,
+                    Height = referenceTransform.CanvasLength(RetainedOverviewFirstStatisticsRowPolicy.HeightPixels),
+                    CornerRadius = referenceTransform.CanvasLength(RetainedOverviewFirstStatisticsRowPolicy.CornerRadiusPixels),
+                    ContentLeft = left + padding,
+                    ContentTop = top + padding,
+                    ContentWidth = leftPanel.ContentWidth - padding * 2f,
+                    ContentHeight = referenceTransform.CanvasLength(
+                        RetainedOverviewFirstStatisticsRowPolicy.HeightPixels
+                        - RetainedOverviewFirstStatisticsRowPolicy.ContentPaddingPixels * 2f)
+                };
+            var entry = Rows[index].HasSecondaryValue
+                ? RetainedThreeColumnStatisticsRowLayoutPolicy.CreateCanvasLayout(
+                    referenceTransform,
+                    surface,
+                    RetainedOverviewFirstStatisticsRowEntryPolicy.LabelColumnWidthPixels,
+                    EconomyPrimaryValueWidthPixels,
+                    RetainedOverviewFirstStatisticsRowEntryPolicy.ReferenceFontSize)
+                : RetainedTwoColumnStatisticsRowLayoutPolicy.CreateCanvasLayout(
+                    referenceTransform,
+                    surface,
+                    RetainedOverviewFirstStatisticsRowEntryPolicy.LabelColumnWidthPixels,
+                    RetainedOverviewFirstStatisticsRowEntryPolicy.ReferenceFontSize);
+            result[index] = new RetainedProfileSummaryRowCanvasLayout
+            {
+                Specification = Rows[index],
+                Surface = surface,
+                Entry = entry
+            };
+        }
+
+        return result;
+    }
+}
+
+internal sealed class ProfileSummaryRowPresentation
+{
+    public ProfileSummaryMetric Metric { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+    public string? SecondaryValue { get; set; }
+}
+
+internal static class ProfileSummaryPresentationFactory
+{
+    public static IReadOnlyList<ProfileSummaryRowPresentation> Create(
+        StatisticsPanelProjection projection,
+        Func<string, string> text)
+    {
+        if (projection == null) throw new ArgumentNullException(nameof(projection));
+        if (text == null) throw new ArgumentNullException(nameof(text));
+        return RetainedProfileSummaryRowsPolicy.Specifications.Select(specification =>
+        {
+            var values = FormatValues(specification.Metric, projection, text);
+            return new ProfileSummaryRowPresentation
+            {
+                Metric = specification.Metric,
+                Label = text(specification.LabelTextKey),
+                Value = values.Value,
+                SecondaryValue = values.SecondaryValue
+            };
+        }).ToArray();
+    }
+
+    private static (string Value, string? SecondaryValue) FormatValues(
+        ProfileSummaryMetric metric,
+        StatisticsPanelProjection projection,
+        Func<string, string> text) => metric switch
+    {
+        ProfileSummaryMetric.TotalRuns => (
+            RetainedOverviewFirstStatisticsRowEntryPolicy.FormatProjectedValue(projection), null),
+        ProfileSummaryMetric.ExtractionRate => (FormatExtractionRate(projection.Runs, text), null),
+        ProfileSummaryMetric.TotalActiveRaidTime => (FormatActiveRaidTime(projection.Runs.Runs, text), null),
+        ProfileSummaryMetric.TotalDistanceTravelled => (
+            FormatDistance(projection.Runs.PhysicalDistance, projection.Runs.MovementSupported, text), null),
+        ProfileSummaryMetric.KillsByYou => (
+            FormatCapabilityInteger(
+                projection.Combat.Lifetime.Totals.KillsByYou,
+                projection.Combat.Capabilities.KillsByYou,
+                text), null),
+        ProfileSummaryMetric.Deaths => (FormatInteger(projection.Runs.DiedRuns), null),
+        ProfileSummaryMetric.DamageDealt => (
+            FormatCapabilityDecimal(
+                projection.Combat.Lifetime.Totals.DamageDealt,
+                projection.Combat.Capabilities.DamageDealt,
+                text), null),
+        ProfileSummaryMetric.DamageTaken => (
+            FormatCapabilityDecimal(
+                projection.Combat.Lifetime.Totals.DamageReceived,
+                projection.Combat.Capabilities.DamageReceived,
+                text), null),
+        ProfileSummaryMetric.HealthRestored => (
+            FormatFiniteDecimal(projection.Profile.Statistics.Overall.ActualHealthRestored, text), null),
+        ProfileSummaryMetric.UniqueContainersOpened => (
+            UiText.FormatContainers(
+                projection.Containers.Lifetime,
+                projection.Containers.CurrentCapability,
+                text), null),
+        ProfileSummaryMetric.Economy => (
+            text("ui.overview_money_net") + " " + FormatEconomyNet(
+                projection.Economy,
+                CurrencyKind.Money,
+                projection.Economy.Capabilities.MoneyAmountDirection,
+                projection.CurrentEconomyCapabilities.MoneyAmountDirection,
+                text),
+            text("ui.overview_cash_net") + " " + FormatEconomyNet(
+                projection.Economy,
+                CurrencyKind.Cash,
+                projection.Economy.Capabilities.CashAmountDirection,
+                projection.CurrentEconomyCapabilities.CashAmountDirection,
+                text)),
+        _ => throw new ArgumentOutOfRangeException(nameof(metric))
+    };
+
+    private static string FormatExtractionRate(RunStatisticsViewModel runs, Func<string, string> text)
+    {
+        var extracted = Math.Max(0L, runs.ExtractedRuns);
+        var died = Math.Max(0L, runs.DiedRuns);
+        var terminal = (decimal)extracted + died;
+        if (terminal == 0m) return $"{text("ui.em_dash")} - 0/0";
+        var percent = Math.Round(extracted * 100m / terminal, 0, MidpointRounding.AwayFromZero);
+        return $"{percent.ToString("0", CultureInfo.InvariantCulture)}% - {FormatInteger(extracted)}/{terminal.ToString("#,0", CultureInfo.InvariantCulture)}";
+    }
+
+    private static string FormatActiveRaidTime(IReadOnlyList<RunSummary> runs, Func<string, string> text)
+    {
+        var totalSeconds = 0d;
+        foreach (var run in runs ?? Array.Empty<RunSummary>())
+        {
+            var seconds = run.ActiveDurationSeconds;
+            if (seconds < 0d || double.IsNaN(seconds) || double.IsInfinity(seconds)) continue;
+            totalSeconds += seconds;
+            if (double.IsInfinity(totalSeconds)) return text("ui.unavailable");
+        }
+
+        var totalMillisecondsValue = Math.Round(totalSeconds * 1000d, MidpointRounding.AwayFromZero);
+        if (totalMillisecondsValue > long.MaxValue) return text("ui.unavailable");
+        var totalMilliseconds = (long)totalMillisecondsValue;
+        var milliseconds = totalMilliseconds % 1000;
+        var totalSecondsWhole = totalMilliseconds / 1000;
+        var secondsPart = totalSecondsWhole % 60;
+        var totalMinutes = totalSecondsWhole / 60;
+        var minutesPart = totalMinutes % 60;
+        var hours = totalMinutes / 60;
+        return hours > 0
+            ? $"{hours.ToString(CultureInfo.InvariantCulture)}:{minutesPart:00}:{secondsPart:00}.{milliseconds:000}"
+            : $"{totalMinutes.ToString(CultureInfo.InvariantCulture)}:{secondsPart:00}.{milliseconds:000}";
+    }
+
+    private static string FormatDistance(double meters, bool supported, Func<string, string> text) =>
+        !supported
+            ? text("ui.unsupported")
+            : IsFiniteNonNegative(meters)
+                ? $"{meters.ToString("#,0.00", CultureInfo.InvariantCulture)} m"
+                : text("ui.unavailable");
+
+    private static string FormatCapabilityInteger(
+        long value,
+        MetricAvailability availability,
+        Func<string, string> text) => availability.State == AdapterCapabilityState.DisabledIncompatible
+        ? text("ui.unsupported")
+        : FormatInteger(value);
+
+    private static string FormatCapabilityDecimal(
+        double value,
+        MetricAvailability availability,
+        Func<string, string> text) => availability.State == AdapterCapabilityState.DisabledIncompatible
+        ? text("ui.unsupported")
+        : FormatFiniteDecimal(value, text);
+
+    private static string FormatFiniteDecimal(double value, Func<string, string> text) =>
+        IsFiniteNonNegative(value)
+            ? value.ToString("#,0.00", CultureInfo.InvariantCulture)
+            : text("ui.unavailable");
+
+    private static string FormatEconomyNet(
+        EconomyStatisticsAggregate economy,
+        CurrencyKind kind,
+        MetricAvailability scopeAvailability,
+        MetricAvailability currentAvailability,
+        Func<string, string> text)
+    {
+        var key = kind.ToString();
+        var hasCurrency = economy.Currencies.TryGetValue(key, out var currency);
+        string result;
+        if (!hasCurrency && economy.HistoricalUnavailable)
+        {
+            result = text("ui.unavailable");
+        }
+        else if (!hasCurrency)
+        {
+            result = scopeAvailability.State == AdapterCapabilityState.DisabledIncompatible
+                ? text("ui.unsupported")
+                : "0";
+        }
+        else
+        {
+            var netFlow = currency!.Totals.NetFlow;
+            result = FormatSignedInteger(netFlow);
+            if (scopeAvailability.State == AdapterCapabilityState.DisabledIncompatible)
+            {
+                if (netFlow == 0)
+                {
+                    result = text("ui.unsupported");
+                }
+                else
+                {
+                    var scope = currentAvailability.State == AdapterCapabilityState.DisabledIncompatible
+                        ? text("ui.current_capture_unavailable")
+                        : text("ui.scope_capture_partly_unavailable");
+                    result = $"{result} ({scope})";
+                }
+            }
+        }
+
+        if (economy.HistoricalUnavailable)
+            result = $"{result} ({text("ui.pre_m9_unavailable")})";
+        if (economy.WasRepairedFromInvalidState)
+            result = $"{result} ({text("ui.repaired_unavailable")})";
+        var saturated = kind == CurrencyKind.Money
+            ? economy.MoneyArithmeticSaturated
+            : economy.CashArithmeticSaturated;
+        return saturated ? $"{result} ({text("ui.capture_incomplete")})" : result;
+    }
+
+    private static string FormatInteger(long value) => value.ToString("#,0", CultureInfo.InvariantCulture);
+
+    private static string FormatSignedInteger(long value) =>
+        value > 0
+            ? "+" + FormatInteger(value)
+            : FormatInteger(value);
+
+    private static bool IsFiniteNonNegative(double value) =>
+        value >= 0d && !double.IsNaN(value) && !double.IsInfinity(value);
 }
 
 internal static class RetainedOverviewRightPanelPolicy
@@ -1461,6 +1835,8 @@ internal sealed class RetainedVisualCanvasLayout
     public RetainedOverviewProfileSummaryHeadingCanvasLayout OverviewProfileSummaryHeading { get; set; } = null!;
     public RetainedOverviewFirstStatisticsRowCanvasLayout OverviewFirstStatisticsRow { get; set; } = null!;
     public RetainedTwoColumnStatisticsRowCanvasLayout OverviewFirstStatisticsRowEntry { get; set; } = null!;
+    public IReadOnlyList<RetainedProfileSummaryRowCanvasLayout> OverviewProfileSummaryRows { get; set; } =
+        Array.Empty<RetainedProfileSummaryRowCanvasLayout>();
 }
 
 internal static class RetainedVisualLayoutPolicy
@@ -1498,12 +1874,11 @@ internal static class RetainedVisualLayoutPolicy
         var overviewProfileSummaryHeading = RetainedOverviewProfileSummaryHeadingPolicy.CreateCanvasLayout(
             referenceTransform,
             overviewLeftPanel);
-        var overviewFirstStatisticsRow = RetainedOverviewFirstStatisticsRowPolicy.CreateCanvasLayout(
+        var overviewProfileSummaryRows = RetainedProfileSummaryRowsPolicy.CreateCanvasLayouts(
             referenceTransform,
             overviewLeftPanel);
-        var overviewFirstStatisticsRowEntry = RetainedOverviewFirstStatisticsRowEntryPolicy.CreateCanvasLayout(
-            referenceTransform,
-            overviewFirstStatisticsRow);
+        var overviewFirstStatisticsRow = overviewProfileSummaryRows[0].Surface;
+        var overviewFirstStatisticsRowEntry = overviewProfileSummaryRows[0].Entry;
         if (!IsFinite(header.Left)
             || !IsFinite(header.Top)
             || !IsPositiveFinite(header.Width)
@@ -1571,7 +1946,8 @@ internal static class RetainedVisualLayoutPolicy
             OverviewRightPanel = overviewRightPanel,
             OverviewProfileSummaryHeading = overviewProfileSummaryHeading,
             OverviewFirstStatisticsRow = overviewFirstStatisticsRow,
-            OverviewFirstStatisticsRowEntry = overviewFirstStatisticsRowEntry
+            OverviewFirstStatisticsRowEntry = overviewFirstStatisticsRowEntry,
+            OverviewProfileSummaryRows = overviewProfileSummaryRows
         };
     }
 
@@ -1596,14 +1972,17 @@ internal static class RetainedShellCompositionPolicy
     public const int BackArrowChildCount = 0;
     public const int OverviewContentViewChildCount = 2;
     public const int OverviewLeftPanelChildCount = 1;
-    public const int OverviewLeftPanelContentChildCount = 2;
+    public const int OverviewLeftPanelContentChildCount = 12;
     public const int OverviewProfileSummaryHeadingChildCount = 0;
     public const int OverviewFirstStatisticsRowChildCount = 1;
     public const int OverviewFirstStatisticsRowContentChildCount = 2;
     public const int OverviewFirstStatisticsRowLabelChildCount = 0;
     public const int OverviewFirstStatisticsRowValueChildCount = 0;
+    public const int ProfileSummaryRowCount = 11;
+    public const int ProfileSummaryStandardRowContentChildCount = 2;
+    public const int ProfileSummaryEconomyRowContentChildCount = 3;
     public const int OverviewRightPanelChildCount = 0;
-    public const int GraphicCount = 30;
+    public const int GraphicCount = 61;
     public const int ButtonCount = 10;
     public const int RectMaskCount = 1;
     public const int OnlyOneEdgeModifierCount = 9;

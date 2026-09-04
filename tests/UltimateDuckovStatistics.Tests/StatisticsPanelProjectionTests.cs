@@ -765,7 +765,7 @@ public sealed class StatisticsPanelProjectionTests
         var tab = CreateRetainedVisualLayout(2560f, 1440f).OverviewTab;
 
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(30, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(61, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(115f, tab.Left);
@@ -876,7 +876,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(owned.IsDisposed);
         Assert.Equal(0, destroyed);
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
-        Assert.Equal(30, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(61, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewTabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewTabLabelChildCount);
@@ -1307,19 +1307,19 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateElevenTwoCompositionAddsOnlyTwoTextChildrenInsideTheAcceptedFirstRow()
+    public void GateTwelveCompositionRetainsTheAcceptedFirstRowAndAddsTenSiblingRows()
     {
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewContentViewChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLeftPanelChildCount);
-        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
+        Assert.Equal(12, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewProfileSummaryHeadingChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowValueChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(30, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(61, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -1745,6 +1745,327 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void GateTwelveDefinesExactlyElevenLocalizedRowsInTheRequiredOrder()
+    {
+        var specifications = RetainedProfileSummaryRowsPolicy.Specifications;
+
+        Assert.Equal(11, specifications.Count);
+        var expectedMetrics = new[]
+        {
+            ProfileSummaryMetric.TotalRuns,
+            ProfileSummaryMetric.ExtractionRate,
+            ProfileSummaryMetric.TotalActiveRaidTime,
+            ProfileSummaryMetric.TotalDistanceTravelled,
+            ProfileSummaryMetric.KillsByYou,
+            ProfileSummaryMetric.Deaths,
+            ProfileSummaryMetric.DamageDealt,
+            ProfileSummaryMetric.DamageTaken,
+            ProfileSummaryMetric.HealthRestored,
+            ProfileSummaryMetric.UniqueContainersOpened,
+            ProfileSummaryMetric.Economy
+        };
+        var expectedFallbacks = new[]
+        {
+            "Total runs",
+            "Extraction rate",
+            "Total active raid time",
+            "Total distance travelled",
+            "Kills by you",
+            "Deaths",
+            "Damage dealt",
+            "Damage taken",
+            "HP restored",
+            "Unique containers opened",
+            "Economy"
+        };
+        Assert.Equal(expectedMetrics, specifications.Select(value => value.Metric));
+        Assert.Equal(expectedFallbacks, specifications.Select(value => value.LabelEnglishFallback));
+        Assert.All(
+            specifications,
+            specification => Assert.Equal(
+                specification.LabelEnglishFallback,
+                UiText.EnglishFallbacks[specification.LabelTextKey]));
+        Assert.Equal("Money net:", UiText.EnglishFallbacks["ui.overview_money_net"]);
+        Assert.Equal("Cash net:", UiText.EnglishFallbacks["ui.overview_cash_net"]);
+        Assert.All(specifications.Take(10), specification => Assert.False(specification.HasSecondaryValue));
+        Assert.True(specifications[^1].HasSecondaryValue);
+    }
+
+    [Fact]
+    public void GateTwelveRowsUseTheAcceptedSharedStyleAndExactReferenceGeometry()
+    {
+        var layout = CreateRetainedVisualLayout(2560f, 1440f);
+        var rows = layout.OverviewProfileSummaryRows;
+
+        Assert.Equal(11, rows.Count);
+        Assert.Equal(10f, RetainedProfileSummaryRowsPolicy.RowGapPixels);
+        Assert.Equal(76f, RetainedProfileSummaryRowsPolicy.RowStepPixels);
+        Assert.Equal(1216f, RetainedProfileSummaryRowsPolicy.LastRowTopPixels);
+        Assert.Equal(1282f, RetainedProfileSummaryRowsPolicy.LastRowBottomExclusivePixels);
+        Assert.Equal(310f, RetainedProfileSummaryRowsPolicy.EconomyPrimaryValueWidthPixels);
+        Assert.Equal(300f, RetainedProfileSummaryRowsPolicy.EconomySecondaryValueWidthPixels);
+        for (var index = 0; index < rows.Count; index++)
+        {
+            var row = rows[index];
+            Assert.Same(layout.ReferenceTransform, row.Surface.ReferenceTransform);
+            Assert.Equal(115f, row.Surface.Left);
+            Assert.Equal(456f + 76f * index, row.Surface.Top);
+            Assert.Equal(1115f, row.Surface.Width);
+            Assert.Equal(66f, row.Surface.Height);
+            Assert.Equal(10f, row.Surface.CornerRadius);
+            Assert.Equal(135f, row.Entry.LabelLeft);
+            Assert.Equal(row.Surface.ContentTop, row.Entry.LabelTop);
+            Assert.Equal(465f, row.Entry.LabelWidth);
+            Assert.Equal(29.8f, row.Entry.FontSize);
+            Assert.False(RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts);
+            if (index > 0)
+                Assert.Equal(10f, row.Surface.Top - rows[index - 1].Surface.Top - rows[index - 1].Surface.Height);
+        }
+
+        var normal = rows[1].Entry;
+        Assert.False(normal.HasSecondaryValue);
+        Assert.Equal(600f, normal.ValueLeft);
+        Assert.Equal(610f, normal.ValueWidth);
+        var economy = rows[^1].Entry;
+        Assert.True(economy.HasSecondaryValue);
+        Assert.Equal(600f, economy.ValueLeft);
+        Assert.Equal(310f, economy.ValueWidth);
+        Assert.Equal(910f, economy.SecondaryValueLeft);
+        Assert.Equal(300f, economy.SecondaryValueWidth);
+        Assert.Equal(1210f, economy.SecondaryValueLeft + economy.SecondaryValueWidth);
+    }
+
+    [Theory]
+    [InlineData(1280f, 720f, 228f, 608f, 33f)]
+    [InlineData(1680f, 1050f, 351.75f, 850.5f, 43.3125f)]
+    [InlineData(1920f, 1080f, 342f, 912f, 49.5f)]
+    [InlineData(1920f, 1200f, 402f, 972f, 49.5f)]
+    [InlineData(2560f, 1440f, 456f, 1216f, 66f)]
+    public void GateTwelveRowStackUsesTheSharedReferenceTransform(
+        float viewportWidth,
+        float viewportHeight,
+        float expectedFirstTop,
+        float expectedLastTop,
+        float expectedHeight)
+    {
+        var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
+
+        Assert.Equal(expectedFirstTop, layout.OverviewProfileSummaryRows[0].Surface.Top, 5);
+        Assert.Equal(expectedLastTop, layout.OverviewProfileSummaryRows[^1].Surface.Top, 5);
+        Assert.All(
+            layout.OverviewProfileSummaryRows,
+            row => Assert.Equal(expectedHeight, row.Surface.Height, 5));
+    }
+
+    [Fact]
+    public void GateTwelvePresentationBindsEveryRequestedValueFromTheProjection()
+    {
+        var supported = new MetricAvailability { State = AdapterCapabilityState.Supported };
+        var projection = new StatisticsPanelProjection
+        {
+            Profile = new ProfileDocument
+            {
+                Statistics = new ProfileStatistics
+                {
+                    Overall = new AggregateTotals { ActualHealthRestored = 48.84 }
+                }
+            },
+            Runs = new RunStatisticsViewModel
+            {
+                TotalRuns = 2,
+                ExtractedRuns = 2,
+                DiedRuns = 0,
+                PhysicalDistance = 2325.94,
+                MovementSupported = true,
+                Runs = new[] { new RunSummary { ActiveDurationSeconds = 671.795 } }
+            },
+            Combat = new CombatStatisticsViewModel
+            {
+                Lifetime = new CombatStatisticsAggregate
+                {
+                    Totals = new CombatMetricTotals
+                    {
+                        KillsByYou = 19,
+                        DamageDealt = 1298.25,
+                        DamageReceived = 85.8
+                    }
+                },
+                Capabilities = new CombatMetricCapabilities
+                {
+                    KillsByYou = supported,
+                    DamageDealt = new MetricAvailability { State = AdapterCapabilityState.Supported },
+                    DamageReceived = new MetricAvailability { State = AdapterCapabilityState.Supported }
+                }
+            },
+            Containers = new ContainerStatisticsViewModel
+            {
+                Lifetime = new ContainerStatisticsAggregate { UniqueContainersLooted = 7 },
+                CurrentCapability = AdapterCapabilityState.Supported
+            },
+            Economy = new EconomyStatisticsAggregate
+            {
+                Currencies = new Dictionary<string, CurrencyEconomyAggregate>(StringComparer.Ordinal)
+                {
+                    [CurrencyKind.Money.ToString()] = new CurrencyEconomyAggregate
+                    {
+                        Currency = CurrencyKind.Money,
+                        Totals = new CurrencyFlowTotals { GrossInflow = 2500, GrossOutflow = 270 }
+                    },
+                    [CurrencyKind.Cash.ToString()] = new CurrencyEconomyAggregate
+                    {
+                        Currency = CurrencyKind.Cash,
+                        Totals = new CurrencyFlowTotals { GrossOutflow = 9744 }
+                    }
+                },
+                Capabilities = new EconomyMetricCapabilities
+                {
+                    MoneyAmountDirection = new MetricAvailability { State = AdapterCapabilityState.Supported },
+                    CashAmountDirection = new MetricAvailability { State = AdapterCapabilityState.Supported }
+                }
+            },
+            CurrentEconomyCapabilities = new EconomyMetricCapabilities
+            {
+                MoneyAmountDirection = new MetricAvailability { State = AdapterCapabilityState.Supported },
+                CashAmountDirection = new MetricAvailability { State = AdapterCapabilityState.Supported }
+            }
+        };
+
+        var rows = ProfileSummaryPresentationFactory.Create(projection, key => UiText.EnglishFallbacks[key]);
+
+        Assert.Equal(11, rows.Count);
+        Assert.Equal("2", rows[0].Value);
+        Assert.Equal("100% - 2/2", rows[1].Value);
+        Assert.Equal("11:11.795", rows[2].Value);
+        Assert.Equal("2,325.94 m", rows[3].Value);
+        Assert.Equal("19", rows[4].Value);
+        Assert.Equal("0", rows[5].Value);
+        Assert.Equal("1,298.25", rows[6].Value);
+        Assert.Equal("85.80", rows[7].Value);
+        Assert.Equal("48.84", rows[8].Value);
+        Assert.Equal("7", rows[9].Value);
+        Assert.Equal("Money net: +2,230", rows[10].Value);
+        Assert.Equal("Cash net: -9,744", rows[10].SecondaryValue);
+
+        projection.Runs.TotalRuns = 3000;
+        projection.Runs.ExtractedRuns = 1;
+        projection.Runs.DiedRuns = 1;
+        projection.Runs.Runs = new[] { new RunSummary { ActiveDurationSeconds = 60.25 } };
+        projection.Runs.PhysicalDistance = 12.3;
+        projection.Combat.Lifetime.Totals.KillsByYou = 42;
+        projection.Combat.Lifetime.Totals.DamageDealt = 7.5;
+        projection.Combat.Lifetime.Totals.DamageReceived = 6.25;
+        projection.Profile.Statistics.Overall.ActualHealthRestored = 5.5;
+        projection.Containers.Lifetime.UniqueContainersLooted = 4;
+        projection.Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossInflow = 8;
+        projection.Economy.Currencies[CurrencyKind.Money.ToString()].Totals.GrossOutflow = 8;
+        projection.Economy.Currencies[CurrencyKind.Cash.ToString()].Totals.GrossOutflow = 3;
+        var changed = ProfileSummaryPresentationFactory.Create(projection, key => UiText.EnglishFallbacks[key]);
+        Assert.Equal("3000", changed[0].Value);
+        Assert.Equal("50% - 1/2", changed[1].Value);
+        Assert.Equal("1:00.250", changed[2].Value);
+        Assert.Equal("12.30 m", changed[3].Value);
+        Assert.Equal("42", changed[4].Value);
+        Assert.Equal("1", changed[5].Value);
+        Assert.Equal("7.50", changed[6].Value);
+        Assert.Equal("6.25", changed[7].Value);
+        Assert.Equal("5.50", changed[8].Value);
+        Assert.Equal("4", changed[9].Value);
+        Assert.Equal("Money net: 0", changed[10].Value);
+        Assert.Equal("Cash net: -3", changed[10].SecondaryValue);
+    }
+
+    [Fact]
+    public void GateTwelveFormattingPreservesUnavailablePartialAndRepairedStates()
+    {
+        var projection = new StatisticsPanelProjection
+        {
+            Runs = new RunStatisticsViewModel
+            {
+                Runs = new[]
+                {
+                    new RunSummary { ActiveDurationSeconds = double.NaN },
+                    new RunSummary { ActiveDurationSeconds = -4 },
+                    new RunSummary { ActiveDurationSeconds = 3600.001 }
+                }
+            },
+            Containers = new ContainerStatisticsViewModel
+            {
+                Lifetime = new ContainerStatisticsAggregate
+                {
+                    UniqueContainersLooted = 1234,
+                    HistoricalUnavailable = true
+                },
+                CurrentCapability = AdapterCapabilityState.Supported
+            },
+            Economy = new EconomyStatisticsAggregate { HistoricalUnavailable = true }
+        };
+        string Resolve(string key) => "loc:" + key;
+
+        var rows = ProfileSummaryPresentationFactory.Create(projection, Resolve);
+
+        Assert.Equal("loc:ui.em_dash - 0/0", rows[1].Value);
+        Assert.Equal("1:00:00.001", rows[2].Value);
+        Assert.Equal("loc:ui.unsupported", rows[3].Value);
+        Assert.Equal("loc:ui.unsupported", rows[4].Value);
+        Assert.Equal("loc:ui.unsupported", rows[6].Value);
+        Assert.Equal("1234 since M7 (loc:ui.container_history_unavailable)", rows[9].Value);
+        Assert.Equal("loc:ui.overview_money_net loc:ui.unavailable (loc:ui.pre_m9_unavailable)", rows[10].Value);
+        Assert.Equal("loc:ui.overview_cash_net loc:ui.unavailable (loc:ui.pre_m9_unavailable)", rows[10].SecondaryValue);
+        Assert.All(rows, row => Assert.Equal("loc:" + RetainedProfileSummaryRowsPolicy.Specifications[(int)row.Metric].LabelTextKey, row.Label));
+
+        projection.Containers.Lifetime.WasRepairedFromInvalidState = true;
+        projection.Economy = new EconomyStatisticsAggregate
+        {
+            MoneyArithmeticSaturated = true,
+            Currencies = new Dictionary<string, CurrencyEconomyAggregate>(StringComparer.Ordinal)
+            {
+                [CurrencyKind.Money.ToString()] = new CurrencyEconomyAggregate
+                {
+                    Currency = CurrencyKind.Money,
+                    Totals = new CurrencyFlowTotals { GrossInflow = 5 }
+                }
+            },
+            Capabilities = new EconomyMetricCapabilities
+            {
+                MoneyAmountDirection = new MetricAvailability { State = AdapterCapabilityState.Supported }
+            }
+        };
+        rows = ProfileSummaryPresentationFactory.Create(projection, Resolve);
+        Assert.Equal("1234 (loc:ui.repaired_unavailable)", rows[9].Value);
+        Assert.Equal("loc:ui.overview_money_net +5 (loc:ui.capture_incomplete)", rows[10].Value);
+        Assert.Throws<ArgumentNullException>(() => ProfileSummaryPresentationFactory.Create(null!, Resolve));
+        Assert.Throws<ArgumentNullException>(() => ProfileSummaryPresentationFactory.Create(projection, null!));
+    }
+
+    [Fact]
+    public void GateTwelveCompositionAndVisibilityRemainOverviewOwnedAndNonInteractive()
+    {
+        var overviewView = new object();
+        var visibilityStates = new List<bool>();
+        var visibility = new RetainedTabViewVisibility<object>(
+            overviewView,
+            RetainedOverviewPanelStylePolicy.OwnerTab,
+            (_, visible) => visibilityStates.Add(visible));
+
+        foreach (var tab in PanelInteractionState.NavigationOrder) visibility.Apply(tab);
+        visibility.Apply(StatisticsPanelTab.Overview);
+
+        Assert.Equal(11, RetainedShellCompositionPolicy.ProfileSummaryRowCount);
+        Assert.Equal(12, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
+        Assert.Equal(2, RetainedShellCompositionPolicy.ProfileSummaryStandardRowContentChildCount);
+        Assert.Equal(3, RetainedShellCompositionPolicy.ProfileSummaryEconomyRowContentChildCount);
+        Assert.Equal(61, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
+        Assert.False(RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts);
+        Assert.False(RetainedOverviewFirstStatisticsRowEntryPolicy.BlocksRaycasts);
+        Assert.True(visibilityStates[0]);
+        Assert.All(
+            visibilityStates.Skip(1).Take(PanelInteractionState.NavigationOrder.Count - 1),
+            visible => Assert.False(visible));
+        Assert.True(visibilityStates[^1]);
+    }
+
+    [Fact]
     public void GateTenOverviewProfileSummaryLocalizationNeverDependsOnEnglishWidth()
     {
         const string localized = "Ausführliche Profilzusammenfassung für diesen Spielstand";
@@ -1970,7 +2291,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
-        Assert.Equal(30, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(61, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
@@ -2192,14 +2513,14 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0, RetainedShellCompositionPolicy.BackArrowChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewContentViewChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewLeftPanelChildCount);
-        Assert.Equal(2, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
+        Assert.Equal(12, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewProfileSummaryHeadingChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowContentChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowLabelChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewFirstStatisticsRowValueChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.OverviewRightPanelChildCount);
-        Assert.Equal(30, RetainedShellCompositionPolicy.GraphicCount);
+        Assert.Equal(61, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(10, RetainedShellCompositionPolicy.ButtonCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.RectMaskCount);
         Assert.Equal(9, RetainedShellCompositionPolicy.OnlyOneEdgeModifierCount);

@@ -336,7 +336,7 @@ internal sealed class LegacyImmediateStatisticsPanel : IDisposable
         GUILayout.Label($"{UiText.Get("ui.teleport_distance")}: {FormatDistance(runs.TeleportDistance, runs.MovementSupported)}");
         var containers = model.Containers;
         GUILayout.Label(
-            $"{UiText.Get("ui.containers_looted")}: {FormatContainers(containers.Lifetime, containers.CurrentCapability)}");
+            $"{UiText.Get("ui.containers_looted")}: {UiText.FormatContainers(containers.Lifetime, containers.CurrentCapability)}");
         var combat = model.Weapons;
         GUILayout.Label(
             $"{UiText.Get("ui.firing_actions")}: "
@@ -505,7 +505,7 @@ internal sealed class LegacyImmediateStatisticsPanel : IDisposable
                 + UiText.FormatCashOutcome(run.Economy, currentEconomyCapabilities));
             GUILayout.Label(
                 $"  {UiText.Get("ui.containers_looted")}: "
-                + FormatContainers(run.ContainerStatistics, run.ContainerStatistics.Capabilities.UniqueContainersLooted.State));
+                + UiText.FormatContainers(run.ContainerStatistics, run.ContainerStatistics.Capabilities.UniqueContainersLooted.State));
             if (UiText.HasAvailableSegments(run))
             {
                 if (GUILayout.Button(
@@ -1589,20 +1589,6 @@ internal sealed class LegacyImmediateStatisticsPanel : IDisposable
             : model.Accuracy.HasValue
                 ? model.Accuracy.Value.ToString("P1", CultureInfo.InvariantCulture)
                 : "—";
-
-    private static string FormatContainers(
-        ContainerStatisticsAggregate statistics,
-        AdapterCapabilityState currentCapability)
-    {
-        var value = statistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture);
-        if (statistics.WasRepairedFromInvalidState)
-            return $"{value} ({UiText.Get("ui.repaired_unavailable")})";
-        if (statistics.HistoricalUnavailable)
-            return $"{value} since M7 ({UiText.Get("ui.container_history_unavailable")})";
-        return currentCapability == AdapterCapabilityState.Supported
-            ? value
-            : $"{value} ({UiText.Get("ui.unsupported")})";
-    }
 
     private static string FormatRecordEligibility(RunPresentationRow row) => row.RecordEligibilityReason switch
     {

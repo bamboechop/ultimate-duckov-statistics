@@ -7,7 +7,7 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 11-2.
+/// Owns the exact retained surfaces introduced through M17 visual correction Gate 12.
 /// The root graphic remains the modal dimmer; its children are the frozen header controls and tab-owned views.
 /// </summary>
 internal sealed class RetainedStatisticsShell : IDisposable
@@ -50,18 +50,44 @@ internal sealed class RetainedStatisticsShell : IDisposable
             RectTransform labelRect,
             TextMeshProUGUI label,
             RectTransform valueRect,
-            TextMeshProUGUI value)
+            TextMeshProUGUI value,
+            RectTransform? secondaryValueRect,
+            TextMeshProUGUI? secondaryValue)
         {
             LabelRect = labelRect;
             Label = label;
             ValueRect = valueRect;
             Value = value;
+            SecondaryValueRect = secondaryValueRect;
+            SecondaryValue = secondaryValue;
         }
 
         public RectTransform LabelRect { get; }
         public TextMeshProUGUI Label { get; }
         public RectTransform ValueRect { get; }
         public TextMeshProUGUI Value { get; }
+        public RectTransform? SecondaryValueRect { get; }
+        public TextMeshProUGUI? SecondaryValue { get; }
+    }
+
+    private sealed class RetainedStatisticsRowControl
+    {
+        public RetainedStatisticsRowControl(
+            RectTransform rect,
+            UniformModifier modifier,
+            RectTransform contentRect,
+            RetainedStatisticsRowTextElements text)
+        {
+            Rect = rect;
+            Modifier = modifier;
+            ContentRect = contentRect;
+            Text = text;
+        }
+
+        public RectTransform Rect { get; }
+        public UniformModifier Modifier { get; }
+        public RectTransform ContentRect { get; }
+        public RetainedStatisticsRowTextElements Text { get; }
     }
 
     private GameObject? root;
@@ -92,10 +118,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
     private RectTransform? overviewLeftPanelContentRect;
     private RectTransform? overviewProfileSummaryHeadingRect;
     private TextMeshProUGUI? overviewProfileSummaryHeadingGraphic;
-    private RectTransform? overviewFirstStatisticsRowRect;
-    private UniformModifier? overviewFirstStatisticsRowModifier;
-    private RectTransform? overviewFirstStatisticsRowContentRect;
-    private RetainedStatisticsRowTextElements? overviewFirstStatisticsRowText;
+    private readonly List<RetainedStatisticsRowControl> overviewProfileSummaryRows = new();
     private RetainedVisualCanvasLayout? lastAppliedVisualLayout;
     private float lastViewportPixelWidth = float.NaN;
     private float lastViewportPixelHeight = float.NaN;
@@ -178,10 +201,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 out var createdOverviewLeftPanelContentRect,
                 out var createdOverviewProfileSummaryHeadingRect,
                 out var createdOverviewProfileSummaryHeadingGraphic,
-                out var createdOverviewFirstStatisticsRowRect,
-                out var createdOverviewFirstStatisticsRowModifier,
-                out var createdOverviewFirstStatisticsRowContentRect,
-                out var createdOverviewFirstStatisticsRowText,
+                out var createdOverviewProfileSummaryRows,
                 projection);
             overviewLeftPanelRect = createdOverviewLeftPanelRect;
             overviewLeftPanelModifier = createdOverviewLeftPanelModifier;
@@ -190,10 +210,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             overviewLeftPanelContentRect = createdOverviewLeftPanelContentRect;
             overviewProfileSummaryHeadingRect = createdOverviewProfileSummaryHeadingRect;
             overviewProfileSummaryHeadingGraphic = createdOverviewProfileSummaryHeadingGraphic;
-            overviewFirstStatisticsRowRect = createdOverviewFirstStatisticsRowRect;
-            overviewFirstStatisticsRowModifier = createdOverviewFirstStatisticsRowModifier;
-            overviewFirstStatisticsRowContentRect = createdOverviewFirstStatisticsRowContentRect;
-            overviewFirstStatisticsRowText = createdOverviewFirstStatisticsRowText;
+            overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
             overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
                 overviewContentView,
                 RetainedOverviewLeftPanelPolicy.OwnerTab,
@@ -343,10 +360,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         out RectTransform leftPanelContentRect,
         out RectTransform profileSummaryHeadingRect,
         out TextMeshProUGUI profileSummaryHeadingGraphic,
-        out RectTransform firstStatisticsRowRect,
-        out UniformModifier firstStatisticsRowModifier,
-        out RectTransform firstStatisticsRowContentRect,
-        out RetainedStatisticsRowTextElements firstStatisticsRowText,
+        out List<RetainedStatisticsRowControl> profileSummaryRows,
         StatisticsPanelProjection projection)
     {
         var view = new GameObject(
@@ -370,14 +384,17 @@ internal sealed class RetainedStatisticsShell : IDisposable
             typography,
             headingMaterial,
             out profileSummaryHeadingGraphic);
-        firstStatisticsRowRect = CreateOverviewFirstStatisticsRow(
-            leftPanelContentRect,
-            typography,
-            headingMaterial,
-            projection,
-            out firstStatisticsRowModifier,
-            out firstStatisticsRowContentRect,
-            out firstStatisticsRowText);
+        var presentations = ProfileSummaryPresentationFactory.Create(projection, UiText.Get);
+        profileSummaryRows = new List<RetainedStatisticsRowControl>(presentations.Count);
+        for (var index = 0; index < presentations.Count; index++)
+        {
+            profileSummaryRows.Add(CreateOverviewStatisticsRow(
+                leftPanelContentRect,
+                RetainedProfileSummaryRowsPolicy.Specifications[index],
+                presentations[index],
+                typography,
+                headingMaterial));
+        }
         return view;
     }
 
@@ -466,17 +483,15 @@ internal sealed class RetainedStatisticsShell : IDisposable
         return rect;
     }
 
-    private static RectTransform CreateOverviewFirstStatisticsRow(
+    private static RetainedStatisticsRowControl CreateOverviewStatisticsRow(
         RectTransform parent,
+        RetainedProfileSummaryRowSpecification specification,
+        ProfileSummaryRowPresentation presentation,
         NativeHeaderTitleTypography typography,
-        Material textMaterial,
-        StatisticsPanelProjection projection,
-        out UniformModifier modifier,
-        out RectTransform contentRect,
-        out RetainedStatisticsRowTextElements textElements)
+        Material textMaterial)
     {
         var row = new GameObject(
-            RetainedOverviewFirstStatisticsRowPolicy.BackgroundName,
+            specification.BackgroundName,
             typeof(RectTransform));
         var rect = (RectTransform)row.transform;
         rect.SetParent(parent, worldPositionStays: false);
@@ -497,12 +512,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
         background.overrideSprite = null;
         background.type = Image.Type.Simple;
         background.raycastTarget = RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts;
-        modifier = row.AddComponent<UniformModifier>();
+        var modifier = row.AddComponent<UniformModifier>();
 
         var content = new GameObject(
-            RetainedOverviewFirstStatisticsRowPolicy.ContentName,
+            specification.ContentName,
             typeof(RectTransform));
-        contentRect = (RectTransform)content.transform;
+        var contentRect = (RectTransform)content.transform;
         contentRect.SetParent(rect, worldPositionStays: false);
         contentRect.anchorMin = new Vector2(0f, 1f);
         contentRect.anchorMax = new Vector2(0f, 1f);
@@ -511,20 +526,39 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
         var labelRect = CreateStatisticsRowText(
             contentRect,
-            RetainedOverviewFirstStatisticsRowEntryPolicy.LabelName,
-            UiText.Get(RetainedOverviewFirstStatisticsRowEntryPolicy.LabelTextKey),
+            specification.LabelName,
+            presentation.Label,
             typography,
             textMaterial,
             out var label);
         var valueRect = CreateStatisticsRowText(
             contentRect,
-            RetainedOverviewFirstStatisticsRowEntryPolicy.ValueName,
-            RetainedOverviewFirstStatisticsRowEntryPolicy.FormatProjectedValue(projection),
+            specification.ValueName,
+            presentation.Value,
             typography,
             textMaterial,
             out var value);
-        textElements = new RetainedStatisticsRowTextElements(labelRect, label, valueRect, value);
-        return rect;
+        RectTransform? secondaryValueRect = null;
+        TextMeshProUGUI? secondaryValue = null;
+        if (specification.HasSecondaryValue)
+        {
+            secondaryValueRect = CreateStatisticsRowText(
+                contentRect,
+                specification.SecondaryValueName!,
+                presentation.SecondaryValue ?? string.Empty,
+                typography,
+                textMaterial,
+                out secondaryValue);
+        }
+
+        var textElements = new RetainedStatisticsRowTextElements(
+            labelRect,
+            label,
+            valueRect,
+            value,
+            secondaryValueRect,
+            secondaryValue);
+        return new RetainedStatisticsRowControl(rect, modifier, contentRect, textElements);
     }
 
     private static RectTransform CreateStatisticsRowText(
@@ -824,10 +858,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             || overviewLeftPanelContentRect == null
             || overviewProfileSummaryHeadingRect == null
             || overviewProfileSummaryHeadingGraphic == null
-            || overviewFirstStatisticsRowRect == null
-            || overviewFirstStatisticsRowModifier == null
-            || overviewFirstStatisticsRowContentRect == null
-            || overviewFirstStatisticsRowText == null)
+            || overviewProfileSummaryRows.Count != RetainedProfileSummaryRowsPolicy.RowCount)
         {
             throw new InvalidOperationException("The retained visual layout is not fully initialized.");
         }
@@ -859,10 +890,6 @@ internal sealed class RetainedStatisticsShell : IDisposable
         var leftPanelContentRect = overviewLeftPanelContentRect!;
         var profileSummaryHeadingRect = overviewProfileSummaryHeadingRect!;
         var profileSummaryHeadingGraphic = overviewProfileSummaryHeadingGraphic!;
-        var firstStatisticsRowRect = overviewFirstStatisticsRowRect!;
-        var firstStatisticsRowModifier = overviewFirstStatisticsRowModifier!;
-        var firstStatisticsRowContentRect = overviewFirstStatisticsRowContentRect!;
-        var firstStatisticsRowText = overviewFirstStatisticsRowText!;
         headerRect.anchoredPosition = new Vector2(layout.Header.Left, -layout.Header.Top);
         headerRect.sizeDelta = new Vector2(layout.Header.Width, layout.Header.Height);
         headerModifier.Radius = layout.Header.CornerRadius;
@@ -938,42 +965,77 @@ internal sealed class RetainedStatisticsShell : IDisposable
             layout.OverviewProfileSummaryHeading.Width,
             layout.OverviewProfileSummaryHeading.Height);
         profileSummaryHeadingGraphic.fontSize = layout.OverviewProfileSummaryHeading.FontSize;
-        firstStatisticsRowRect.anchoredPosition = new Vector2(
-            layout.OverviewFirstStatisticsRow.Left - layout.OverviewLeftPanel.ContentLeft,
-            -(layout.OverviewFirstStatisticsRow.Top - layout.OverviewLeftPanel.ContentTop));
-        firstStatisticsRowRect.sizeDelta = new Vector2(
-            layout.OverviewFirstStatisticsRow.Width,
-            layout.OverviewFirstStatisticsRow.Height);
-        firstStatisticsRowModifier.Radius = layout.OverviewFirstStatisticsRow.CornerRadius;
-        firstStatisticsRowContentRect.anchoredPosition = new Vector2(
-            layout.OverviewFirstStatisticsRow.ContentLeft - layout.OverviewFirstStatisticsRow.Left,
-            -(layout.OverviewFirstStatisticsRow.ContentTop - layout.OverviewFirstStatisticsRow.Top));
-        firstStatisticsRowContentRect.sizeDelta = new Vector2(
-            layout.OverviewFirstStatisticsRow.ContentWidth,
-            layout.OverviewFirstStatisticsRow.ContentHeight);
-        firstStatisticsRowText.LabelRect.anchoredPosition = new Vector2(
-            layout.OverviewFirstStatisticsRowEntry.LabelLeft
-            - layout.OverviewFirstStatisticsRow.ContentLeft,
-            -(layout.OverviewFirstStatisticsRowEntry.LabelTop
-              - layout.OverviewFirstStatisticsRow.ContentTop));
-        firstStatisticsRowText.LabelRect.sizeDelta = new Vector2(
-            layout.OverviewFirstStatisticsRowEntry.LabelWidth,
-            layout.OverviewFirstStatisticsRowEntry.LabelHeight);
-        firstStatisticsRowText.Label.fontSize = layout.OverviewFirstStatisticsRowEntry.FontSize;
-        firstStatisticsRowText.ValueRect.anchoredPosition = new Vector2(
-            layout.OverviewFirstStatisticsRowEntry.ValueLeft
-            - layout.OverviewFirstStatisticsRow.ContentLeft,
-            -(layout.OverviewFirstStatisticsRowEntry.ValueTop
-              - layout.OverviewFirstStatisticsRow.ContentTop));
-        firstStatisticsRowText.ValueRect.sizeDelta = new Vector2(
-            layout.OverviewFirstStatisticsRowEntry.ValueWidth,
-            layout.OverviewFirstStatisticsRowEntry.ValueHeight);
-        firstStatisticsRowText.Value.fontSize = layout.OverviewFirstStatisticsRowEntry.FontSize;
+        for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
+            ApplyStatisticsRowLayout(
+                overviewProfileSummaryRows[index],
+                layout.OverviewProfileSummaryRows[index],
+                layout.OverviewLeftPanel);
         lastViewportPixelWidth = viewportPixelWidth;
         lastViewportPixelHeight = viewportPixelHeight;
         lastCanvasScaleFactor = canvasScaleFactor;
         lastAppliedVisualLayout = layout;
         return layout;
+    }
+
+    private static void ApplyStatisticsRowLayout(
+        RetainedStatisticsRowControl control,
+        RetainedProfileSummaryRowCanvasLayout layout,
+        RetainedOverviewPanelCanvasLayout parentPanel)
+    {
+        var row = layout.Surface;
+        var entry = layout.Entry;
+        control.Rect.anchoredPosition = new Vector2(
+            row.Left - parentPanel.ContentLeft,
+            -(row.Top - parentPanel.ContentTop));
+        control.Rect.sizeDelta = new Vector2(row.Width, row.Height);
+        control.Modifier.Radius = row.CornerRadius;
+        control.ContentRect.anchoredPosition = new Vector2(
+            row.ContentLeft - row.Left,
+            -(row.ContentTop - row.Top));
+        control.ContentRect.sizeDelta = new Vector2(row.ContentWidth, row.ContentHeight);
+        ApplyStatisticsRowTextLayout(
+            control.Text.LabelRect,
+            control.Text.Label,
+            entry.LabelLeft - row.ContentLeft,
+            entry.LabelTop - row.ContentTop,
+            entry.LabelWidth,
+            entry.LabelHeight,
+            entry.FontSize);
+        ApplyStatisticsRowTextLayout(
+            control.Text.ValueRect,
+            control.Text.Value,
+            entry.ValueLeft - row.ContentLeft,
+            entry.ValueTop - row.ContentTop,
+            entry.ValueWidth,
+            entry.ValueHeight,
+            entry.FontSize);
+        if (entry.HasSecondaryValue
+            && control.Text.SecondaryValueRect != null
+            && control.Text.SecondaryValue != null)
+        {
+            ApplyStatisticsRowTextLayout(
+                control.Text.SecondaryValueRect,
+                control.Text.SecondaryValue,
+                entry.SecondaryValueLeft - row.ContentLeft,
+                entry.SecondaryValueTop - row.ContentTop,
+                entry.SecondaryValueWidth,
+                entry.SecondaryValueHeight,
+                entry.FontSize);
+        }
+    }
+
+    private static void ApplyStatisticsRowTextLayout(
+        RectTransform rect,
+        TextMeshProUGUI text,
+        float left,
+        float top,
+        float width,
+        float height,
+        float fontSize)
+    {
+        rect.anchoredPosition = new Vector2(left, -top);
+        rect.sizeDelta = new Vector2(width, height);
+        text.fontSize = fontSize;
     }
 
     private float[] MeasureTabReferenceWidths(
@@ -1060,10 +1122,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
         overviewLeftPanelContentRect = null;
         overviewProfileSummaryHeadingRect = null;
         overviewProfileSummaryHeadingGraphic = null;
-        overviewFirstStatisticsRowRect = null;
-        overviewFirstStatisticsRowModifier = null;
-        overviewFirstStatisticsRowContentRect = null;
-        overviewFirstStatisticsRowText = null;
+        overviewProfileSummaryRows.Clear();
         lastAppliedVisualLayout = null;
         lastViewportPixelWidth = float.NaN;
         lastViewportPixelHeight = float.NaN;

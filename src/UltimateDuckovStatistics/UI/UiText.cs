@@ -19,6 +19,18 @@ internal static class UiText
             ["ui.overview"] = "Overview",
             ["ui.profile_summary"] = "Profile Summary",
             ["ui.overview_total_runs"] = "Total runs",
+            ["ui.overview_extraction_rate"] = "Extraction rate",
+            ["ui.overview_total_active_raid_time"] = "Total active raid time",
+            ["ui.overview_total_distance_travelled"] = "Total distance travelled",
+            ["ui.overview_kills_by_you"] = "Kills by you",
+            ["ui.overview_deaths"] = "Deaths",
+            ["ui.overview_damage_dealt"] = "Damage dealt",
+            ["ui.overview_damage_taken"] = "Damage taken",
+            ["ui.overview_hp_restored"] = "HP restored",
+            ["ui.overview_unique_containers_opened"] = "Unique containers opened",
+            ["ui.overview_economy"] = "Economy",
+            ["ui.overview_money_net"] = "Money net:",
+            ["ui.overview_cash_net"] = "Cash net:",
             ["ui.items"] = "Items",
             ["ui.item_use"] = "Item Use",
             ["ui.runs"] = "Runs",
@@ -93,6 +105,8 @@ internal static class UiText
             ["ui.per_map"] = "Per-map totals and records",
             ["ui.per_starting_map"] = "Starting-map complete-run totals and records",
             ["ui.unsupported"] = "Unsupported",
+            ["ui.em_dash"] = "—",
+            ["ui.capture_incomplete"] = "capture incomplete",
             ["ui.group_totals"] = "Canonical groups",
             ["ui.no_items"] = "No successful raid item uses recorded for this save generation.",
             ["ui.item_name"] = "Item",
@@ -251,6 +265,23 @@ internal static class UiText
         state == AdapterCapabilityState.DisabledIncompatible
             ? Get("ui.unsupported")
             : value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    internal static string FormatContainers(
+        ContainerStatisticsAggregate statistics,
+        AdapterCapabilityState currentCapability,
+        Func<string, string>? text = null)
+    {
+        if (statistics == null) throw new ArgumentNullException(nameof(statistics));
+        var resolve = text ?? Get;
+        var value = statistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture);
+        if (statistics.WasRepairedFromInvalidState)
+            return $"{value} ({resolve("ui.repaired_unavailable")})";
+        if (statistics.HistoricalUnavailable)
+            return $"{value} since M7 ({resolve("ui.container_history_unavailable")})";
+        return currentCapability == AdapterCapabilityState.Supported
+            ? value
+            : $"{value} ({resolve("ui.unsupported")})";
+    }
 
     public static string FormatWorldTimeCount(long value, MetricAvailability availability)
     {
