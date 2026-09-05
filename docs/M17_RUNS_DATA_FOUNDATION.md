@@ -1,6 +1,6 @@
 # M17 Runs data foundation (schema 17)
 
-Product version remains 0.17.0. This prerequisite provides data for the later retained Runs UI. It does not change Overview, retained tab visuals, mockups, or native UI construction.
+Product version remains 0.17.0. This prerequisite provides data for the [retained Runs UI](M17_RETAINED_RUNS.md). It does not change Overview, retained tab visuals, mockups, or native UI construction.
 
 ## Installed native evidence
 

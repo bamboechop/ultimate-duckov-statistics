@@ -537,6 +537,20 @@ try
         itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "icon", mustBePublic: true, fieldTypeFragment: "UnityEngine.Sprite");
     }
 
+    using (var ui = new AssemblyMetadata(unityUiPath))
+    {
+        ui.RequireType("UnityEngine.UI", "RectMask2D");
+        ui.RequireProperty("UnityEngine.UI", "ScrollRect", "content", "UnityEngine.RectTransform", mustBePublic: true);
+        ui.RequireProperty("UnityEngine.UI", "ScrollRect", "viewport", "UnityEngine.RectTransform", mustBePublic: true);
+        ui.RequireMethod("UnityEngine.UI", "ScrollRect", "OnScroll", 1, mustBePublic: true, mustBeVirtual: true,
+            parameterTypeFragments: ["UnityEngine.EventSystems.PointerEventData"]);
+        ui.RequireMethod("UnityEngine.UI", "ScrollRect", "StopMovement", 0, mustBePublic: true);
+        ui.RequireMethod("UnityEngine.UI", "Button", "OnSubmit", 1, mustBePublic: true,
+            parameterTypeFragments: ["UnityEngine.EventSystems.BaseEventData"]);
+        ui.RequireMethod("UnityEngine.EventSystems", "EventSystem", "SetSelectedGameObject", 1, mustBePublic: true,
+            parameterTypeFragments: ["UnityEngine.GameObject"]);
+    }
+
     using (var plugins = new AssemblyMetadata(pluginsPath))
     {
         plugins.RequireType("UnityEngine.UI.ProceduralImage", "ProceduralImage");

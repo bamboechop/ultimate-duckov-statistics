@@ -7,10 +7,10 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the exact retained surfaces introduced through M17 visual correction Gate 27.
+/// Owns the shared retained shell and the independent Overview and Runs views.
 /// The root graphic remains the modal dimmer; its children are the frozen header controls and tab-owned views.
 /// </summary>
-internal sealed class RetainedStatisticsShell : IDisposable
+internal sealed partial class RetainedStatisticsShell : IDisposable
 {
     private sealed class RetainedTabControl
     {
@@ -357,66 +357,14 @@ internal sealed class RetainedStatisticsShell : IDisposable
                 RetainedDimmerPolicy.VisualAlpha);
             blocker.raycastTarget = RetainedDimmerPolicy.BlocksRaycasts;
 
-            overviewContentView = CreateOverviewContentView(
-                rootRect,
-                headerTitleTypography,
-                tabLabelMaterial.Instance,
-                out var createdOverviewLeftPanelRect,
-                out var createdOverviewLeftPanelModifier,
-                out var createdOverviewRightPanelRect,
-                out var createdOverviewRightPanelModifier,
-                out var createdOverviewLeftPanelContentRect,
-                out var createdOverviewRightPanelContentRect,
-                out var createdOverviewProfileSummaryHeadingRect,
-                out var createdOverviewProfileSummaryHeadingGraphic,
-                out var createdOverviewHighlightsHeadingRect,
-                out var createdOverviewHighlightsHeadingGraphic,
-                out var createdOverviewLatestRunHeadingRect,
-                out var createdOverviewLatestRunHeadingGraphic,
-                out var createdOverviewLatestRunCardRect,
-                out var createdOverviewLatestRunCardModifier,
-                out var createdOverviewLatestRunBadge,
-                out var createdOverviewLatestRunMapName,
-                out var createdOverviewLatestRunStatistics,
-                out var createdOverviewLatestRunViewRun,
-                out var createdOverviewWorldTimeHeadingRect,
-                out var createdOverviewWorldTimeHeadingGraphic,
-                out var createdOverviewWorldTimeCardRect,
-                out var createdOverviewWorldTimeCardModifier,
-                out var createdOverviewWorldTimeStatistics,
-                out var createdOverviewHighlightRows,
-                out var createdOverviewProfileSummaryRows,
-                projection);
-            overviewLeftPanelRect = createdOverviewLeftPanelRect;
-            overviewLeftPanelModifier = createdOverviewLeftPanelModifier;
-            overviewRightPanelRect = createdOverviewRightPanelRect;
-            overviewRightPanelModifier = createdOverviewRightPanelModifier;
-            overviewLeftPanelContentRect = createdOverviewLeftPanelContentRect;
-            overviewRightPanelContentRect = createdOverviewRightPanelContentRect;
-            overviewProfileSummaryHeadingRect = createdOverviewProfileSummaryHeadingRect;
-            overviewProfileSummaryHeadingGraphic = createdOverviewProfileSummaryHeadingGraphic;
-            overviewHighlightsHeadingRect = createdOverviewHighlightsHeadingRect;
-            overviewHighlightsHeadingGraphic = createdOverviewHighlightsHeadingGraphic;
-            overviewLatestRunHeadingRect = createdOverviewLatestRunHeadingRect;
-            overviewLatestRunHeadingGraphic = createdOverviewLatestRunHeadingGraphic;
-            overviewLatestRunCardRect = createdOverviewLatestRunCardRect;
-            overviewLatestRunCardModifier = createdOverviewLatestRunCardModifier;
-            overviewLatestRunBadge = createdOverviewLatestRunBadge;
-            overviewLatestRunMapName = createdOverviewLatestRunMapName;
-            overviewLatestRunStatistics = createdOverviewLatestRunStatistics;
-            overviewLatestRunViewRun = createdOverviewLatestRunViewRun;
-            overviewWorldTimeHeadingRect = createdOverviewWorldTimeHeadingRect;
-            overviewWorldTimeHeadingGraphic = createdOverviewWorldTimeHeadingGraphic;
-            overviewWorldTimeCardRect = createdOverviewWorldTimeCardRect;
-            overviewWorldTimeCardModifier = createdOverviewWorldTimeCardModifier;
-            overviewWorldTimeStatistics = createdOverviewWorldTimeStatistics;
-            overviewHighlightRows.AddRange(createdOverviewHighlightRows);
-            overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
-            overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
-                overviewContentView,
-                RetainedOverviewLeftPanelPolicy.OwnerTab,
-                static (target, visible) => target.SetActive(visible));
-            overviewContentVisibility.Apply(selectedTab);
+            overviewTypography = headerTitleTypography;
+            tabSelected = selectTab;
+            BuildOverview(rootRect, headerTitleTypography, projection);
+            runsView = new RunsView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
+                () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
+            runsView.Refresh(RunsPresentationFactory.Create(projection, projection.Profile.GenerationId), projection.Profile.GenerationId);
+            runsView.SetVisible(selectedTab == StatisticsPanelTab.Runs);
+            BindOverviewRun(projection.Profile.GenerationId);
 
             headerRect = CreateHeaderBackground(
                 rootRect,
@@ -452,6 +400,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                     tabLabelRect,
                     tabLabel));
             }
+            CreateScrollableTabs(rootRect);
             headerBottomBarRect = CreateHeaderBottomBar(
                 rootRect,
                 out var createdHeaderBottomBarMask,
@@ -485,6 +434,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
                     "The retained tab labels could not enter the active hierarchy for native TMP measurement.");
             }
             RefreshVisualLayout(force: true);
+            GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject);
             rootRect.SetAsLastSibling();
             return true;
         }
@@ -496,6 +446,113 @@ internal sealed class RetainedStatisticsShell : IDisposable
         }
     }
 
+    private NativeHeaderTitleTypography? overviewTypography;
+    private Action<StatisticsPanelTab>? tabSelected;
+    private bool projectionAvailable = true;
+
+    private void BuildOverview(RectTransform rootRect, NativeHeaderTitleTypography headerTitleTypography, StatisticsPanelProjection projection)
+    {
+        overviewContentView = CreateOverviewContentView(
+            rootRect,
+            headerTitleTypography,
+            tabLabelMaterial!.Instance,
+            out var createdOverviewLeftPanelRect,
+            out var createdOverviewLeftPanelModifier,
+            out var createdOverviewRightPanelRect,
+            out var createdOverviewRightPanelModifier,
+            out var createdOverviewLeftPanelContentRect,
+            out var createdOverviewRightPanelContentRect,
+            out var createdOverviewProfileSummaryHeadingRect,
+            out var createdOverviewProfileSummaryHeadingGraphic,
+            out var createdOverviewHighlightsHeadingRect,
+            out var createdOverviewHighlightsHeadingGraphic,
+            out var createdOverviewLatestRunHeadingRect,
+            out var createdOverviewLatestRunHeadingGraphic,
+            out var createdOverviewLatestRunCardRect,
+            out var createdOverviewLatestRunCardModifier,
+            out var createdOverviewLatestRunBadge,
+            out var createdOverviewLatestRunMapName,
+            out var createdOverviewLatestRunStatistics,
+            out var createdOverviewLatestRunViewRun,
+            out var createdOverviewWorldTimeHeadingRect,
+            out var createdOverviewWorldTimeHeadingGraphic,
+            out var createdOverviewWorldTimeCardRect,
+            out var createdOverviewWorldTimeCardModifier,
+            out var createdOverviewWorldTimeStatistics,
+            out var createdOverviewHighlightRows,
+            out var createdOverviewProfileSummaryRows,
+            projection);
+        overviewLeftPanelRect = createdOverviewLeftPanelRect;
+        overviewLeftPanelModifier = createdOverviewLeftPanelModifier;
+        overviewRightPanelRect = createdOverviewRightPanelRect;
+        overviewRightPanelModifier = createdOverviewRightPanelModifier;
+        overviewLeftPanelContentRect = createdOverviewLeftPanelContentRect;
+        overviewRightPanelContentRect = createdOverviewRightPanelContentRect;
+        overviewProfileSummaryHeadingRect = createdOverviewProfileSummaryHeadingRect;
+        overviewProfileSummaryHeadingGraphic = createdOverviewProfileSummaryHeadingGraphic;
+        overviewHighlightsHeadingRect = createdOverviewHighlightsHeadingRect;
+        overviewHighlightsHeadingGraphic = createdOverviewHighlightsHeadingGraphic;
+        overviewLatestRunHeadingRect = createdOverviewLatestRunHeadingRect;
+        overviewLatestRunHeadingGraphic = createdOverviewLatestRunHeadingGraphic;
+        overviewLatestRunCardRect = createdOverviewLatestRunCardRect;
+        overviewLatestRunCardModifier = createdOverviewLatestRunCardModifier;
+        overviewLatestRunBadge = createdOverviewLatestRunBadge;
+        overviewLatestRunMapName = createdOverviewLatestRunMapName;
+        overviewLatestRunStatistics = createdOverviewLatestRunStatistics;
+        overviewLatestRunViewRun = createdOverviewLatestRunViewRun;
+        overviewWorldTimeHeadingRect = createdOverviewWorldTimeHeadingRect;
+        overviewWorldTimeHeadingGraphic = createdOverviewWorldTimeHeadingGraphic;
+        overviewWorldTimeCardRect = createdOverviewWorldTimeCardRect;
+        overviewWorldTimeCardModifier = createdOverviewWorldTimeCardModifier;
+        overviewWorldTimeStatistics = createdOverviewWorldTimeStatistics;
+        overviewHighlightRows.AddRange(createdOverviewHighlightRows);
+        overviewProfileSummaryRows.AddRange(createdOverviewProfileSummaryRows);
+        overviewContentVisibility = new RetainedTabViewVisibility<GameObject>(
+            overviewContentView,
+            RetainedOverviewLeftPanelPolicy.OwnerTab,
+            static (target, visible) => target.SetActive(visible));
+        overviewContentVisibility.Apply(selectedTab);
+    }
+
+    private void BindOverviewRun(string generation)
+    {
+        var overviewRun = overviewLatestRunViewRun!.Presentation.LatestRun;
+        var overviewGeneration = generation;
+        overviewLatestRunViewRun.Button.interactable = overviewRun != null;
+        overviewLatestRunViewRun.Button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+        AddButtonFeedback(overviewLatestRunViewRun.Button);
+        if (overviewRun != null)
+        {
+            var runId = overviewRun.RunId;
+            overviewLatestRunViewRun.Button.onClick.AddListener(() =>
+            {
+                runsView?.Route(overviewGeneration, runId);
+                tabSelected?.Invoke(StatisticsPanelTab.Runs);
+            });
+        }
+
+    }
+
+    public void RefreshProjection(StatisticsPanelProjection projection, string generation)
+    {
+        if (shellRoot == null || overviewTypography == null) return;
+        projectionAvailable = true;
+        overviewLatestRunViewRun?.Button.onClick.RemoveAllListeners();
+        overviewLatestRunBadge?.Dispose();
+        if (overviewContentView != null)
+        {
+            overviewContentView.SetActive(false);
+            UnityEngine.Object.Destroy(overviewContentView);
+        }
+        overviewHighlightRows.Clear();
+        overviewProfileSummaryRows.Clear();
+        BuildOverview(shellRoot, overviewTypography, projection);
+        overviewContentView?.transform.SetAsFirstSibling();
+        BindOverviewRun(generation);
+        RefreshRuns(projection, generation);
+        RefreshVisualLayout(force: true);
+    }
+
     public void SetSelectedTab(StatisticsPanelTab tab)
     {
         if (!PanelInteractionState.NavigationOrder.Contains(tab))
@@ -504,6 +561,12 @@ internal sealed class RetainedStatisticsShell : IDisposable
         selectedTab = tab;
         foreach (var control in tabControls) control.VisualState.Apply(selectedTab);
         overviewContentVisibility?.Apply(selectedTab);
+        if (!projectionAvailable) overviewContentView?.SetActive(false);
+        runsView?.SetVisible(selectedTab == StatisticsPanelTab.Runs);
+        EnsureSelectedTabVisible();
+        var focused = GameManager.EventSystem?.currentSelectedGameObject;
+        if (focused == null || !focused.activeInHierarchy)
+            GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject);
     }
 
     public bool Tick(out string? error)
@@ -511,7 +574,9 @@ internal sealed class RetainedStatisticsShell : IDisposable
         error = null;
         try
         {
-            RefreshVisualLayout(force: false);
+            var layout = RefreshVisualLayout(force: false);
+            runsView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+            runsView?.Tick();
             return true;
         }
         catch (Exception exception)
@@ -1828,6 +1893,7 @@ internal sealed class RetainedStatisticsShell : IDisposable
             control.LabelRect.sizeDelta = new Vector2(tab.LabelWidth, tab.LabelHeight);
             control.Label.fontSize = tab.FontSize;
         }
+        LayoutScrollableTabs(layout);
         headerBottomBarRect.anchoredPosition = new Vector2(
             layout.HeaderBottomBar.Left,
             -layout.HeaderBottomBar.Top);
@@ -2231,6 +2297,15 @@ internal sealed class RetainedStatisticsShell : IDisposable
 
     private void DestroyRoot()
     {
+        overviewLatestRunViewRun?.Button.onClick.RemoveAllListeners();
+        runsView?.Dispose();
+        runsView = null;
+        tabScroll = null;
+        tabViewport = null;
+        tabContent = null;
+        overviewTypography = null;
+        tabSelected = null;
+        projectionAvailable = true;
         if (root != null)
         {
             root.SetActive(false);

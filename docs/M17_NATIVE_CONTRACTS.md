@@ -12,7 +12,7 @@ This document records the M17 UI contract audited from the installed Escape From
 - `SodaLocalization.dll` SHA-256 `f3af2174321f1193e8eea169b4d6050c5819efc927cf3ad42cde19aa54758c7c`
 - `resources.assets` SHA-256 `93c4ab6ad71fdb3bf4a331bbb2ac6bc2f7db7b0f12efe60dd43ea019ab2e543d`
 
-The executable contract probe also verifies the separately installed Harmony assembly and all earlier M0-M16 native contracts. M17 adds no Harmony target and no persisted statistics member; the profile remains schema 16.
+The executable contract probe also verifies the separately installed Harmony assembly and all earlier M0-M16 native contracts. The Runs UI adds no Harmony target or persisted member; it consumes the schema-17 data foundation.
 
 ## Menu lifecycle and access boundary
 
@@ -33,11 +33,9 @@ The injected button disables and removes every inherited non-presentation `MonoB
 
 `GameplayDataSettings.UIPrefabs.Button` remains the public native prefab reference used by the unchanged menu-entry integration. `GameplayDataSettings.UIStyle.FallbackItemIcon` is the installed generic icon. `GameManager.EventSystem` exposes the active Unity event system, and `Duckov.UI.NotificationText.Push(string)` is the installed transient-feedback path.
 
-Visual-correction Step -1 deliberately removes the previous Gate 1c visual composition rather than hiding it. The open panel owns exactly one `UltimateDuckovStatisticsRetainedShell` root attached to the resolved active screen-space Duckov canvas. That root stretches to all four canvas edges, has no children, and owns exactly one `UnityEngine.UI.Image`: its color alpha is exactly zero and its raycast target remains enabled. It contributes no dimmer, header, back control, title, tabs, rail, content surface, text, cue, border, shadow, diagnostic, native-template clone, or packaged visual asset. The transparent image exists only to block pointer interaction with the underlying menu and to provide retained lifecycle ownership for later layers.
+The panel owns one retained shell with the native header, back control, horizontal tabs and separate Overview/Runs content. Closing deactivates and destroys the root and releases its listeners and owned resources. Opening captures cursor and EventSystem focus; closing restores the prior live selection. The source-only legacy IMGUI renderer is not a runtime entry point. Reset/export UI remains later Diagnostics work.
 
-The one root is created inactive, validated before activation, moved to the top of its target canvas, and created at most once per opening. Closing first deactivates and then destroys it. No click or tab listeners are attached to the blank root, so repeated open/close cycles cannot accumulate shell listeners. The controller continues retaining the selected-tab state and applying Ctrl+Tab or Ctrl+Shift+Tab transitions even though no tab is rendered.
-
-The prior immediate-mode view remains source-only as a Gate 2 porting reference; `ModBehaviour` no longer has an `OnGUI` callback and that renderer cannot be presented. Opening captures cursor visibility, cursor-lock state, and the event system's selected object. Closing restores those values if the objects still exist. Reset and export implementations remain in the legacy source for the subsequent body port; Gate 1 deliberately exposes neither operation through its placeholder content host.
+The installed `Duckov.UI.Animations.ButtonAnimation` implements pointer enter/exit/down/up, posts `UI/hover` and `UI/click`, and calls `HardwareSyncingManager.SetEvent("Interact_UI")` on press. It does not implement selection or submit interfaces. Runs controls attach it once and forward keyboard/controller selection/submit through those same callbacks, with separate hover/press/focus tint over the persistent selected background. Full implementation and truth boundaries are in [M17_RETAINED_RUNS.md](M17_RETAINED_RUNS.md).
 
 ## Localization
 
@@ -53,15 +51,14 @@ The cache holds at most 512 stable identity results and clears as a unit at the 
 
 ## Projection, scaling, and performance boundary
 
-The UI projection is built only when the active profile generation, statistics generation, and coordinator generation agree exactly. It is cached by generation plus profile revision. A failure to prove that relationship shows the localized unavailable response and never substitutes another profile or an invented zero state.
+The UI projection is built only when the active profile generation, statistics generation, and coordinator generation agree exactly. Runs presentation is detached at open and refreshed after profile-change notifications or coordinator generation changes; invalidation clears old content before a new generation can be presented. A failure to prove that relationship shows the localized unavailable response and never substitutes another profile or an invented zero state.
 
-The panel has one exact navigation sequence: Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, Diagnostics. Step -1 retains that state machine and the independent tab-width, horizontal-scroll, overflow-cue, responsive-column, and bounded-history projection policies as non-rendering contracts for later work. It intentionally creates no navigation or content geometry. The full-screen root uses stretch anchors and zero offsets, so supported-canvas resolution changes require no visual layout refresh.
-
+The panel has one exact navigation sequence: Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, Diagnostics. Runs uses a tab-owned responsive layout, measured native text and bounded scrolling. The common tab strip stays horizontal and reveals the selected/focused control when its measured content overflows. The reference transform retains native TMP horizontal geometry and adapts to viewport and canvas scale changes.
 Projection preserves supported zero, proven empty, unavailable, unknown/modded, partial-history, and last-observed states. Economy holdings remain separate from flows; weapon-ammunition percentages use only the selected weapon's correlated actions; reciprocal crafting views derive from the canonical M16 output/recipe/resource associations. No reverse index, UI state, icon, or localized label is persisted.
 
 ## Failure and cleanup boundary
 
-Menu/localization/icon/toast/shell-attachment failures are UI diagnostics. They do not disable unrelated adapters, rewrite a capability as zero, or block F8 outside raids. A shell attachment fails closed when no supported active Duckov screen-space canvas can be proven or when the one-root blank composition cannot validate. Repeated open requests cannot create a second active shell. Closing first deactivates and then destroys the one UDS-owned root. Final disposal unsubscribes all four lifecycle signals, destroys only UDS-created buttons, the shell root, and menu-icon runtime objects, removes only UDS localization overrides, clears the native resolver, and restores panel focus/cursor state.
+Menu/localization/icon/toast/shell-attachment failures are UI diagnostics. They do not disable unrelated adapters, rewrite a capability as zero, or block F8 outside raids. A shell attachment fails closed when no supported active Duckov screen-space canvas can be proven or a required native construction contract is unavailable. Repeated open requests cannot create a second active shell. Closing first deactivates and then destroys the one UDS-owned root. Final disposal unsubscribes native menu lifecycle and profile-change signals, destroys only UDS-created buttons, the shell root, and menu-icon runtime objects, removes only UDS localization overrides, clears the native resolver, and restores panel focus/cursor state.
 
 ## Reproduce the executable audit
 
@@ -73,7 +70,7 @@ dotnet run --project .\tools\DuckovContractProbe\DuckovContractProbe.csproj -c R
 
 The probe reads managed metadata and installed asset/version fingerprints. It does not launch Duckov, select a save, change gameplay, deploy a mod, or modify a Duckov save.
 
-Runtime pixel transparency, pointer blocking, keyboard close/reopen behavior, focus/cursor restoration, and menu recreation remain user-controlled checks in [M17_MANUAL_VALIDATION.md](M17_MANUAL_VALIDATION.md).
+Runtime screenshot fidelity, pointer blocking, keyboard close/reopen behavior, focus/cursor restoration, and menu recreation remain user-controlled checks in [M17_MANUAL_VALIDATION.md](M17_MANUAL_VALIDATION.md).
 
 ## Runs data foundation
 

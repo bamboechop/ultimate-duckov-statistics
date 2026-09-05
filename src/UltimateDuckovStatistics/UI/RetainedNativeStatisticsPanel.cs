@@ -5,8 +5,7 @@ using UnityEngine;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Coordinates access, input, focus, and lifecycle for the Gate 1 retained-mode
-/// shell. Statistics bodies remain intentionally deferred to Gate 2.
+/// Coordinates access, exact-generation refresh, input, focus, and retained lifecycle.
 /// </summary>
 internal sealed class NativeStatisticsPanel : IDisposable
 {
@@ -24,6 +23,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private bool priorCursorVisible;
     private CursorLockMode priorCursorLockMode;
     private GameObject? priorSelectedGameObject;
+    private string presentedGeneration = string.Empty;
+    private bool projectionDirty;
 
     public NativeStatisticsPanel(NativeProfileCoordinator coordinator)
     {
@@ -32,6 +33,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
         LoadSettings();
         nativeUi = new NativeUiIntegration(coordinator, RequestOpen, HandleSurfaceClosed);
         nativeUi.Initialize();
+        coordinator.ProfileChanging += HandleProfileChanging;
+        coordinator.ProfileChanged += HandleProfileChanged;
     }
 
     public void Tick()
@@ -47,6 +50,34 @@ internal sealed class NativeStatisticsPanel : IDisposable
             Close();
             nativeUi.ShowToast(UiText.Get("ui.raid_unavailable"));
             return;
+        }
+
+        if (lifecycle.IsOpen && !coordinator.HasPendingProfileTransition
+            && (projectionDirty || presentedGeneration != coordinator.CurrentGenerationId))
+        {
+            var current = coordinator.Current;
+            var generation = coordinator.CurrentGenerationId;
+            if (!StatisticsPanelProjectionFactory.HasProvableGeneration(current, generation))
+            {
+                Close();
+                nativeUi.ShowToast(UiText.Get("ui.profile_unavailable"));
+                return;
+            }
+            try
+            {
+                var projection = StatisticsPanelProjectionFactory.Create(current!, coordinator.CurrentEconomyCapabilities,
+                    coordinator.CurrentCraftingCapabilities, coordinator.CurrentWorldTimeCapabilities);
+                shell.RefreshProjection(projection, generation);
+            }
+            catch (Exception exception)
+            {
+                var surface = openSurface ?? PanelAccessSurface.Hotkey;
+                Close();
+                ReportShellFailure(surface, $"projection refresh failed: {exception.GetType().Name}: {exception.Message}");
+                return;
+            }
+            presentedGeneration = generation;
+            projectionDirty = false;
         }
 
         if (lifecycle.IsOpen && !shell.Tick(out var layoutError))
@@ -97,7 +128,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         }
 
         var profile = coordinator.Current;
-        if (!StatisticsPanelProjectionFactory.HasProvableGeneration(profile, coordinator.CurrentGenerationId))
+        if (coordinator.HasPendingProfileTransition || !StatisticsPanelProjectionFactory.HasProvableGeneration(profile, coordinator.CurrentGenerationId))
         {
             nativeUi.ShowToast(UiText.Get("ui.profile_unavailable"));
             return;
@@ -151,7 +182,17 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
         openSurface = surface;
+        presentedGeneration = coordinator.CurrentGenerationId;
+        projectionDirty = false;
     }
+
+    private void HandleProfileChanging()
+    {
+        projectionDirty = true;
+        if (lifecycle.IsOpen) shell.InvalidateProjection();
+    }
+
+    private void HandleProfileChanged() => projectionDirty = true;
 
     private void HandleTabSelected(StatisticsPanelTab tab)
     {
@@ -176,6 +217,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         if (!lifecycle.Close()) return;
         shell.Dispose();
         openSurface = null;
+        presentedGeneration = string.Empty;
         RestoreFocusAndCursor();
     }
 
@@ -232,6 +274,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
     public void Dispose()
     {
         if (disposed) return;
+        coordinator.ProfileChanging -= HandleProfileChanging;
+        coordinator.ProfileChanged -= HandleProfileChanged;
         Close();
         lifecycle.Dispose();
         shell.Dispose();

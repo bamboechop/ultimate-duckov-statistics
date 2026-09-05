@@ -4,17 +4,20 @@ This matrix qualifies the v0.17.0 UI candidate against the thirty accepted image
 
 No row below is considered passed from source inspection or deterministic tests alone. Record `Pass`, `Fail`, or `Not exercised`, the exact candidate commit/package hash, resolution, UI scale, language, save generation, and screenshot/log/export evidence.
 
-## Visual-correction Step -1 blank-baseline qualification
+## Complete retained Runs qualification
 
-Step -1 qualifies only the invisible retained lifecycle and input-blocking root. On its exact candidate, open Statistics through the existing main-menu entry and through the configured hotkey, then verify that:
+Runs implementation and deterministic evidence are described in [M17_RETAINED_RUNS.md](M17_RETAINED_RUNS.md). This protocol qualifies the new view, using the already qualified foundation; it does not require repeating terminal-hook investigation or manipulating saves.
 
-1. the underlying Duckov screen is pixel-identical immediately before and after opening: UDS contributes no dimmer, header, back control, title, tab, rail, content, placeholder, cue, border, shadow, diagnostic, or other visible pixel;
-2. pointer clicks no longer reach the underlying menu while the invisible shell is open;
-3. Ctrl+Tab and Ctrl+Shift+Tab remain accepted without opening a second shell or creating a visible response;
-4. Escape and F8 close the shell, restore the prior cursor/focus state, and a later menu-entry or F8 open creates exactly one clean shell; and
-5. repeated open/close cycles, source-menu destruction, and shutdown produce no duplicate-root, missing-canvas, construction, or cleanup error in `Player.log`.
+1. Open through main menu, base pause menu and F8. Compare Overview, header, tabs and back control with their accepted appearance. Confirm one shell, native cursor/focus restoration and repeated close/reopen with no errors.
+2. Enter Runs with available history. Verify newest-first order, deterministic numbers, local full timestamps and initial newest selection. Select extracted, died, interrupted/unknown and historical runs. Compare all summary, route, equipment and combat values with the existing recorded evidence.
+3. Activate Overview's View run with mouse and keyboard/controller. Verify the exact card Run ID, including after returning from a different selected run. Where a normal profile switch is available, verify old-generation content is unavailable during the transition and a completed refresh displays only the new generation.
+4. Scroll a long history and route with mouse wheel and supported controller/keyboard input. At fit/top/middle/bottom verify the edge cues, clipping, true bottom reachability, focus reveal and continued parent scrolling at nested edges. Scrolling must not silently change a focused row's Run ID.
+5. Compare 1280×720, 1680×1050, 2560×1440 and 1024×768. Narrow layouts must retain history, details, Route, Equipment and Combat in that order. Verify horizontal tab scrolling, long/localized names, measured badge wrapping and all ten summary values without clipped inaccessible text.
+6. Verify captured items, proven-empty slots, whole-loadout unavailability, partial root/nested evidence and missing/modded icons. Confirm no current equipment or backpack content is substituted. Current exact and historical incomplete kill partitions must coexist without fabricated zeros or subtraction-derived melee kills.
+7. Check hover, press, click, controller submit, focus visibility and native sounds. Move away from a selected history row and verify its orange styling remains. Switch tabs and refresh repeatedly; selection and scroll should remain where practical.
+8. Repeat at least twenty open/close and tab-switch cycles; inspect Player.log and, if available through the normal development tools, object/material/listener counts. Verify no duplicate shell, retained inactive growth or cleanup errors. Native screenshot, audible feedback and live object-count acceptance cannot be inferred from deterministic tests.
 
-Repeat the pixel comparison at 2560x1440 and 1024x768, including one menu-entry open and one F8 open. Because the transparent blocker intentionally changes input routing and focus ownership, compare a stable underlying-menu state rather than a transient hover/pressed animation. The main-view, supporting-state, reset/export, content scrolling, data-comparison, and stress rows below are later work and are not Step -1 acceptance criteria. Stop after this blank baseline; do not qualify Step 0 or any later mockup layer from this candidate.
+The reset/export rows below remain later Diagnostics work and are not acceptance criteria for the Runs-only delivery.
 
 ## Preconditions
 

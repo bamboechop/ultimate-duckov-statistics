@@ -90,6 +90,8 @@
              Link="ProductionUI\UiText.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\StatisticsPanelProjection.cs"
              Link="ProductionUI\StatisticsPanelProjection.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsPresentation.cs"
+             Link="ProductionUI\RunsPresentation.cs" />
     <Compile Include="..\..\tools\FrameTimeAnalyzer\FrameTimeAnalysis.cs"
              Link="Performance\FrameTimeAnalysis.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHotPathDiagnostics.cs"
