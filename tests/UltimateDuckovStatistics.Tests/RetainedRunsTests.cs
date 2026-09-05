@@ -564,6 +564,41 @@ public sealed class RetainedRunsTests
     }
 
     [Fact]
+    public void EquipmentOverlayKeepsCapturedRootAndAttachmentIconsPairedWithTheirOwnEvidence()
+    {
+        var nested = new List<TerminalNestedSlot>
+        {
+            new("weapon/optic", "optic", "Optic", EquipmentSlotState.Occupied, "duckov:item:52", "Captured optic"),
+            new("weapon/optic/gem", "gem", "Gem", EquipmentSlotState.Empty, "", ""),
+            new("weapon/muzzle", "muzzle", "Muzzle", EquipmentSlotState.Occupied, "mod:missing", "Missing icon")
+        };
+        var result = RunsPresentationFactory.PresentSlot(new TerminalRootSlot("weapon", "Weapon", EquipmentSlotState.Occupied,
+            "duckov:weapon:141", "Captured weapon", EquipmentItemKind.Weapon, false, nested), UiText.Get);
+        nested.Clear();
+        Assert.Equal(4, result.Evidence.Count);
+        Assert.Equal("duckov:weapon:141", result.Evidence[0].ItemId);
+        Assert.Contains("Captured weapon", result.Evidence[0].Text);
+        Assert.Equal("duckov:item:52", result.Evidence[1].ItemId);
+        Assert.Contains("Captured optic", result.Evidence[1].Text);
+        Assert.Contains("weapon/optic", result.Evidence[1].Text);
+        Assert.Contains("weapon/optic/gem", result.Evidence[2].Text);
+        var lookups = new List<string>();
+        var rootIcon = new object(); var attachmentIcon = new object();
+        object? Resolve(string id) { lookups.Add(id); return id == "duckov:weapon:141" ? rootIcon : id == "duckov:item:52" ? attachmentIcon : null; }
+        Assert.Same(rootIcon, RunsItemIconPolicy.Resolve(result.Evidence[0], Resolve));
+        Assert.Same(attachmentIcon, RunsItemIconPolicy.Resolve(result.Evidence[1], Resolve));
+        Assert.Null(RunsItemIconPolicy.Resolve(result.Evidence[2], Resolve));
+        Assert.Null(RunsItemIconPolicy.Resolve(result.Evidence[3], Resolve));
+        Assert.Equal(["duckov:weapon:141", "duckov:item:52", "mod:missing"], lookups);
+        Assert.Contains("Missing icon", result.Evidence[3].Text);
+        Assert.False(result.NestedComplete);
+        Assert.Null(RunsItemIconPolicy.Resolve<object>(result.Evidence[1], _ => throw new IOException()));
+        var supplied = result.Evidence.ToList();
+        var copy = new RunSlotPresentation("weapon", result.State, result.ItemId, result.Text, evidence: supplied);
+        supplied.Clear(); Assert.Equal(4, copy.Evidence.Count);
+    }
+
+    [Fact]
     public void AttachmentDotsRetainNativeOrderAndNeverPadIncompleteEvidenceWithEmptyDots()
     {
         var nested = new List<TerminalNestedSlot>
@@ -693,6 +728,13 @@ public sealed class RetainedRunsTests
         Assert.Contains("RunsNativeScrollConfiguration.Apply(Scroll)", view);
         Assert.Contains("RunsOverflowEdge Edge", view);
         Assert.Contains("control.Button.onClick.AddListener(() => ShowEvidence(control))", view);
+        Assert.DoesNotContain("AttachTooltip(equipmentCard)", view);
+        Assert.DoesNotContain("equipmentCard.GetComponent<Button>()", view);
+        Assert.DoesNotContain("ShowEvidence(null)", view);
+        Assert.Contains("RunsItemIconPolicy.Resolve(captured, icons.ResolveAvailable)", view);
+        Assert.Contains("row.Text.text = captured.Text", view);
+        Assert.Contains("Put(summary[i].Value, (i - start) * (cellWidth + 20), y, cellWidth)", view);
+        Assert.Contains("Put(summary[i].Label, (i - start) * (cellWidth + 20), y + valueHeight + 4, cellWidth)", view);
         Assert.Contains("evidenceClose.onClick.AddListener(HideEvidence)", view);
         Assert.Contains("evidenceClose.onClick.RemoveAllListeners()", view);
         Assert.Contains("evidence.Dispose()", view);

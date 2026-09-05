@@ -191,6 +191,7 @@ internal sealed partial class RetainedStatisticsShell
         private readonly RectTransform evidencePanel;
         private readonly ScrollRegion evidence;
         private readonly TextMeshProUGUI evidenceText;
+        private readonly List<(RectTransform Root, Image Icon, TextMeshProUGUI Fallback, TextMeshProUGUI Text)> evidenceRows = new();
         private readonly Button evidenceClose;
         private Button? evidenceOwner;
         private readonly TextMeshProUGUI measure;
@@ -202,7 +203,6 @@ internal sealed partial class RetainedStatisticsShell
         private readonly TextMeshProUGUI routeSummary;
         private readonly List<(TextMeshProUGUI Title, TextMeshProUGUI Detail)> segments = new();
         private readonly TextMeshProUGUI equipmentHeading;
-        private readonly TooltipsProvider equipmentTooltip;
         private readonly RectTransform equipmentCard;
         private readonly TextMeshProUGUI combatHeading;
         private readonly RectTransform combatCard;
@@ -272,8 +272,6 @@ internal sealed partial class RetainedStatisticsShell
             routeSummary = Text(fixedDetail, "RouteSummary", 24); routeSummary.color = Muted;
             equipmentHeading = Text(equipmentCombat.Content, "EquipmentHeading", 38);
             equipmentCard = Panel(equipmentCombat.Content, "TerminalEquipment", 10);
-            equipmentTooltip = AttachTooltip(equipmentCard);
-            equipmentCard.GetComponent<Button>().onClick.AddListener(() => ShowEvidence(null));
             combatHeading = Text(equipmentCombat.Content, "CombatHeading", 38);
             combatCard = Panel(equipmentCombat.Content, "CombatCard", 10);
             ranged = Text(combatCard, "Ranged", 24); melee = Text(combatCard, "Melee", 24);
@@ -362,7 +360,6 @@ internal sealed partial class RetainedStatisticsShell
                 if (active) { segments[i].Title.text = run!.Segments[i].Key; segments[i].Detail.text = run.Segments[i].Value; }
             }
             equipmentHeading.text = run == null ? string.Empty : UiText.Get("ui.runs_equipment");
-            equipmentTooltip.text = SafeTooltip(run?.EquipmentState ?? string.Empty);
             combatHeading.text = run == null ? string.Empty : UiText.Get("ui.runs_combat");
             ranged.text = run == null ? string.Empty : RunsViewStyle.Uppercase(UiText.Get("ui.runs_ranged")) + "\n" + run.Ranged;
             melee.text = run == null ? string.Empty : RunsViewStyle.Uppercase(UiText.Get("ui.runs_melee")) + "\n" + run.Melee;
@@ -456,12 +453,12 @@ internal sealed partial class RetainedStatisticsShell
             var cellWidth = (detailWidth - (columns - 1) * 20) / columns;
             for (var start = 0; start < summary.Count; start += columns)
             {
-                var labelHeight = 0f;
-                for (var i = start; i < Math.Min(start + columns, summary.Count); i++)
-                    labelHeight = Math.Max(labelHeight, Put(summary[i].Label, (i - start) * (cellWidth + 20), y, cellWidth));
                 var valueHeight = 0f;
                 for (var i = start; i < Math.Min(start + columns, summary.Count); i++)
-                    valueHeight = Math.Max(valueHeight, Put(summary[i].Value, (i - start) * (cellWidth + 20), y + labelHeight + 4, cellWidth));
+                    valueHeight = Math.Max(valueHeight, Put(summary[i].Value, (i - start) * (cellWidth + 20), y, cellWidth));
+                var labelHeight = 0f;
+                for (var i = start; i < Math.Min(start + columns, summary.Count); i++)
+                    labelHeight = Math.Max(labelHeight, Put(summary[i].Label, (i - start) * (cellWidth + 20), y + valueHeight + 4, cellWidth));
                 y += labelHeight + 4 + valueHeight + 26;
             }
             // Extremely long localized/stored header content can exhaust a desktop column.
@@ -739,15 +736,36 @@ internal sealed partial class RetainedStatisticsShell
             return provider;
         }
 
-        private void ShowEvidence(SlotControl? slot)
+        private void ShowEvidence(SlotControl slot)
         {
-            evidenceOwner = slot?.Button ?? equipmentCard.GetComponent<Button>();
-            // The retained label has rich text disabled, so use the original captured identity here.
-            var index = slot == null ? -1 : slots.IndexOf(slot);
+            evidenceOwner = slot.Button;
+            var index = slots.IndexOf(slot);
             var run = selection.Selected;
-            evidenceText.text = run == null ? UiText.Get("ui.unavailable") : slot == null ? run.EquipmentState
-                : index >= 0 && index < run.Slots.Count ? run.Slots[index].Text + "\n" + run.EquipmentState
-                : UiText.Get("ui.unavailable") + "\n" + run.EquipmentState;
+            var item = run != null && index >= 0 && index < run.Slots.Count ? run.Slots[index] : null;
+            evidenceText.text = run?.EquipmentState ?? UiText.Get("ui.unavailable");
+            if (item == null && run != null) evidenceText.text = UiText.Get("ui.unavailable") + "\n" + run.EquipmentState;
+            if (item?.NestedComplete == false && item.State != EquipmentSlotState.Empty)
+                evidenceText.text += "\n" + UiText.Get("ui.runs_nested_partial");
+            var rows = item?.Evidence ?? Array.Empty<RunEquipmentEvidence>();
+            while (evidenceRows.Count < rows.Count)
+            {
+                var row = Node(evidence.Content, "CapturedItem" + evidenceRows.Count);
+                var icon = Node(row, "Icon").gameObject.AddComponent<Image>();
+                icon.raycastTarget = false; icon.preserveAspect = true;
+                var fallback = Text(row, "Fallback", 32); fallback.alignment = TextAlignmentOptions.Center;
+                evidenceRows.Add((row, icon, fallback, Text(row, "Identity", 24)));
+            }
+            for (var i = 0; i < evidenceRows.Count; i++)
+            {
+                var row = evidenceRows[i]; row.Root.gameObject.SetActive(i < rows.Count);
+                if (i >= rows.Count) continue;
+                var captured = rows[i];
+                var sprite = RunsItemIconPolicy.Resolve(captured, icons.ResolveAvailable);
+                row.Icon.sprite = sprite; row.Icon.enabled = sprite != null;
+                row.Fallback.text = sprite != null ? string.Empty : captured.State == EquipmentSlotState.Empty ? "—" : "?";
+                row.Fallback.color = captured.State == EquipmentSlotState.Empty ? Muted : Color.white;
+                row.Text.text = captured.Text;
+            }
             evidencePanel.gameObject.SetActive(true); evidencePanel.SetAsLastSibling();
             LayoutEvidence(); evidence.SetOffset(0);
             GameManager.EventSystem?.SetSelectedGameObject(evidenceClose.gameObject);
@@ -759,8 +777,19 @@ internal sealed partial class RetainedStatisticsShell
             var h = Math.Max(1, Math.Min(500, height - 40));
             Place(evidencePanel, (width - w) / 2, (height - h) / 2, w, h);
             Place((RectTransform)evidenceClose.transform, w - 60, 10, 50, 44);
-            var textHeight = Put(evidenceText, 16, 12, w - 64);
-            evidence.Size(16, 64, w - 32, h - 80, textHeight + 24);
+            var y = 12f;
+            foreach (var row in evidenceRows)
+            {
+                if (!row.Root.gameObject.activeSelf) continue;
+                var textHeight = Put(row.Text, 80, 0, w - 144);
+                var rowHeight = Math.Max(64, textHeight);
+                Place(row.Root, 16, y, w - 64, rowHeight);
+                Place(row.Icon.rectTransform, 0, 0, 64, 64);
+                Place(row.Fallback.rectTransform, 0, 0, 64, 64);
+                y += rowHeight + 16;
+            }
+            y += Put(evidenceText, 16, y, w - 64) + 12;
+            evidence.Size(16, 64, w - 32, h - 80, y);
         }
 
         private void HideEvidence() => HideEvidence(true);
@@ -807,7 +836,7 @@ internal sealed partial class RetainedStatisticsShell
             if (disposed) return; disposed = true;
             rowPool.Dispose();
             evidencePanel.gameObject.SetActive(false); evidenceOwner = null;
-            evidenceClose.onClick.RemoveAllListeners(); equipmentCard.GetComponent<Button>().onClick.RemoveAllListeners();
+            evidenceClose.onClick.RemoveAllListeners();
             foreach (var slot in slots) slot.Button.onClick.RemoveAllListeners();
             detailBadge?.Dispose(); routeBadge?.Dispose();
             history.Dispose(); equipmentCombat.Dispose(); route.Dispose(); outer.Dispose(); evidence.Dispose();

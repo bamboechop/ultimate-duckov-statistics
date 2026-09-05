@@ -44,6 +44,15 @@ internal sealed class RunDetailPresentation
     }
 }
 
+internal sealed class RunEquipmentEvidence
+{
+    public EquipmentSlotState State { get; }
+    public string ItemId { get; }
+    public string Text { get; }
+    public RunEquipmentEvidence(EquipmentSlotState state, string itemId, string text)
+    { State = state; ItemId = itemId; Text = text; }
+}
+
 internal sealed class RunSlotPresentation
 {
     public string SlotId { get; }
@@ -52,12 +61,15 @@ internal sealed class RunSlotPresentation
     public string Text { get; }
     public IReadOnlyList<EquipmentSlotState> Attachments { get; }
     public bool NestedComplete { get; }
+    public IReadOnlyList<RunEquipmentEvidence> Evidence { get; }
     public RunSlotPresentation(string slotId, EquipmentSlotState state, string itemId, string text,
-        IEnumerable<EquipmentSlotState>? attachments = null, bool nestedComplete = true)
+        IEnumerable<EquipmentSlotState>? attachments = null, bool nestedComplete = true,
+        IEnumerable<RunEquipmentEvidence>? evidence = null)
     {
         SlotId = slotId; State = state; ItemId = itemId; Text = text;
         Attachments = Array.AsReadOnly(attachments?.ToArray() ?? Array.Empty<EquipmentSlotState>());
         NestedComplete = nestedComplete;
+        Evidence = Array.AsReadOnly(evidence?.ToArray() ?? new[] { new RunEquipmentEvidence(state, itemId, text) });
     }
 }
 
@@ -222,12 +234,23 @@ internal static class RunsPresentationFactory
                 ? (string.IsNullOrWhiteSpace(row.ItemDisplayName) ? row.ItemId : row.ItemDisplayName) : t("ui.unavailable")));
         var detail = slot.DisplayName + ": " + value;
         if (slot.State == EquipmentSlotState.Occupied) detail += " [" + slot.ItemId + "]";
+        var evidence = new List<RunEquipmentEvidence> { new(slot.State, slot.ItemId, detail) };
+        foreach (var child in slot.NestedSlots)
+        {
+            var childValue = child.State == EquipmentSlotState.Empty ? t("ui.runs_empty_slot")
+                : child.State == EquipmentSlotState.Occupied
+                    ? (string.IsNullOrWhiteSpace(child.ItemDisplayName) ? child.ItemId : child.ItemDisplayName)
+                    : t("ui.unavailable");
+            var childText = child.DisplayName + ": " + childValue + "\n" + child.Path;
+            if (child.State == EquipmentSlotState.Occupied) childText += " [" + child.ItemId + "]";
+            evidence.Add(new RunEquipmentEvidence(child.State, child.ItemId, childText));
+        }
         if (slot.NestedSlots.Count > 0) detail += "\n" + string.Join("; ", nested);
         foreach (var child in slot.NestedSlots.Where(child => child.State == EquipmentSlotState.Occupied))
             detail += "\n" + child.Path + " [" + child.ItemId + "]";
         if (!slot.NestedComplete && slot.State != EquipmentSlotState.Empty) detail += "\n" + t("ui.runs_nested_partial");
         return new RunSlotPresentation(slot.SlotId, slot.State, slot.ItemId, detail,
-            slot.NestedSlots.Select(child => child.State), slot.NestedComplete);
+            slot.NestedSlots.Select(child => child.State), slot.NestedComplete, evidence);
     }
 
     private static string SegmentActivity(MapSegmentSummary segment, bool eventsExact, string kills,
@@ -312,9 +335,13 @@ internal static class RunsLayoutPolicy
 internal static class RunsItemIconPolicy
 {
     public static T? Resolve<T>(RunSlotPresentation slot, Func<string, T?> resolve) where T : class
+        => Resolve<T>(slot.State, slot.ItemId, resolve);
+    public static T? Resolve<T>(RunEquipmentEvidence item, Func<string, T?> resolve) where T : class
+        => Resolve<T>(item.State, item.ItemId, resolve);
+    private static T? Resolve<T>(EquipmentSlotState state, string itemId, Func<string, T?> resolve) where T : class
     {
-        if (slot.State != EquipmentSlotState.Occupied) return null;
-        try { return resolve(slot.ItemId); }
+        if (state != EquipmentSlotState.Occupied) return null;
+        try { return resolve(itemId); }
         catch { return null; } // The renderer retains identity and its deterministic question-mark fallback.
     }
 }
