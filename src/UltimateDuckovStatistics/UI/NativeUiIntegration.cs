@@ -575,21 +575,21 @@ internal enum NativeMenuIntegrationState
 
 internal sealed class NativeItemIconResolver
 {
-    private const string DuckovItemPrefix = "duckov:item:";
     private readonly Dictionary<string, Sprite?> cache = new(StringComparer.Ordinal);
 
-    public Sprite? Resolve(string stableItemId)
-    {
-        if (string.IsNullOrWhiteSpace(stableItemId)) return ResolveFallback();
-        if (cache.TryGetValue(stableItemId, out var cached)) return cached;
-        Sprite? icon = null;
-        if (stableItemId.StartsWith(DuckovItemPrefix, StringComparison.Ordinal)
-            && int.TryParse(stableItemId.AsSpan(DuckovItemPrefix.Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out var typeId))
-        {
-            icon = ItemAssetsCollection.GetMetaData(typeId).icon;
-        }
+    public Sprite? Resolve(string stableItemId) => ResolveAvailable(stableItemId) ?? ResolveFallback();
 
-        icon ??= ResolveFallback();
+    public Sprite? ResolveAvailable(string stableItemId)
+    {
+        if (string.IsNullOrWhiteSpace(stableItemId)) return null;
+        if (cache.TryGetValue(stableItemId, out var cached) && cached != null) return cached;
+        var icon = NativeItemTypeIdPolicy.Resolve(stableItemId, typeId =>
+        {
+            var metadata = ItemAssetsCollection.GetMetaData(typeId);
+            return (metadata.id, metadata.icon);
+        }, ResolveFallback());
+        // Do not cache missing metadata: dynamic item registrations may become available later.
+        if (icon == null) return null;
         if (cache.Count >= 512) cache.Clear();
         cache[stableItemId] = icon;
         return icon;

@@ -92,6 +92,10 @@
              Link="ProductionUI\StatisticsPanelProjection.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsPresentation.cs"
              Link="ProductionUI\RunsPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsViewPolicy.cs"
+             Link="ProductionUI\RunsViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsHistoryButton.cs"
+             Link="ProductionUI\RunsHistoryButton.cs" />
     <Compile Include="..\..\tools\FrameTimeAnalyzer\FrameTimeAnalysis.cs"
              Link="Performance\FrameTimeAnalysis.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHotPathDiagnostics.cs"

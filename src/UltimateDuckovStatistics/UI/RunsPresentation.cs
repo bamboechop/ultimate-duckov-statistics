@@ -50,8 +50,15 @@ internal sealed class RunSlotPresentation
     public EquipmentSlotState State { get; }
     public string ItemId { get; }
     public string Text { get; }
-    public RunSlotPresentation(string slotId, EquipmentSlotState state, string itemId, string text)
-    { SlotId = slotId; State = state; ItemId = itemId; Text = text; }
+    public IReadOnlyList<EquipmentSlotState> Attachments { get; }
+    public bool NestedComplete { get; }
+    public RunSlotPresentation(string slotId, EquipmentSlotState state, string itemId, string text,
+        IEnumerable<EquipmentSlotState>? attachments = null, bool nestedComplete = true)
+    {
+        SlotId = slotId; State = state; ItemId = itemId; Text = text;
+        Attachments = Array.AsReadOnly(attachments?.ToArray() ?? Array.Empty<EquipmentSlotState>());
+        NestedComplete = nestedComplete;
+    }
 }
 
 internal sealed class RunsSelection
@@ -179,7 +186,7 @@ internal static class RunsPresentationFactory
             var containers = Containers(segment.ContainerStatistics, !eventsExact, t);
             var facts = Duration(segment.ActiveDurationSeconds, exact && run.LifecycleCapability == AdapterCapabilityState.Supported, t)
                 + " · " + Distance(segment.PhysicalDistance, exact && run.MovementCapability == AdapterCapabilityState.Supported, t)
-                + " · " + Unit(kills, "kill", t) + " · " + Unit(firing, "firing_action", t) + " · " + Unit(containers, "container", t);
+                + " · " + SegmentActivity(segment, eventsExact, kills, firing, containers, t);
             return Pair($"{index + 1}  {Map(segment.MapKnown, segment.MapDisplayName, t)}", facts);
         });
         var rangedKills = Count(data.RangedKills, c.KillsByYou, !data.RangedMeleeExact);
@@ -214,9 +221,66 @@ internal static class RunsPresentationFactory
             ? t("ui.runs_empty_slot") : row.State == EquipmentSlotState.Occupied
                 ? (string.IsNullOrWhiteSpace(row.ItemDisplayName) ? row.ItemId : row.ItemDisplayName) : t("ui.unavailable")));
         var detail = slot.DisplayName + ": " + value;
+        if (slot.State == EquipmentSlotState.Occupied) detail += " [" + slot.ItemId + "]";
         if (slot.NestedSlots.Count > 0) detail += "\n" + string.Join("; ", nested);
+        foreach (var child in slot.NestedSlots.Where(child => child.State == EquipmentSlotState.Occupied))
+            detail += "\n" + child.Path + " [" + child.ItemId + "]";
         if (!slot.NestedComplete && slot.State != EquipmentSlotState.Empty) detail += "\n" + t("ui.runs_nested_partial");
-        return new RunSlotPresentation(slot.SlotId, slot.State, slot.ItemId, detail);
+        return new RunSlotPresentation(slot.SlotId, slot.State, slot.ItemId, detail,
+            slot.NestedSlots.Select(child => child.State), slot.NestedComplete);
+    }
+
+    private static string SegmentActivity(MapSegmentSummary segment, bool eventsExact, string kills,
+        string firing, string containers, Func<string, string> t)
+    {
+        var combat = segment.CombatStatistics;
+        var totals = combat.Totals;
+        var capabilities = combat.Capabilities;
+        var firingExact = !segment.WeaponStatistics.WasRepairedFromInvalidState
+            && segment.WeaponStatistics.Capabilities.FiringActions.State == AdapterCapabilityState.Supported;
+        var combatComplete = eventsExact && firingExact && !combat.WasRepairedFromInvalidState
+            && !combat.HistoricalOwnershipUnavailable
+            && new[] { capabilities.DamageDealt, capabilities.DamageReceived, capabilities.RangedHits,
+                capabilities.MeleeSwings, capabilities.MeleeHits, capabilities.KillsByYou,
+                capabilities.Headshots, capabilities.HeadshotFinalBlows, capabilities.PlayerDeaths,
+                capabilities.ObservedWorldDeaths, capabilities.Accuracy }.All(metric => metric.State == AdapterCapabilityState.Supported);
+        var containersComplete = eventsExact && !segment.ContainerStatistics.HistoricalUnavailable
+            && !segment.ContainerStatistics.WasRepairedFromInvalidState
+            && segment.ContainerStatistics.Capabilities.UniqueContainersLooted.State == AdapterCapabilityState.Supported;
+        var noCombat = combatComplete && containersComplete
+            && totals.DamageCaused == 0 && totals.DamageDealt == 0 && totals.DamageReceived == 0
+            && totals.RangedHits == 0 && totals.MeleeSwings == 0 && totals.MeleeHits == 0
+            && totals.KillsByYou == 0 && totals.Headshots == 0 && totals.HeadshotFinalBlows == 0
+            && totals.PlayerDeaths == 0 && totals.ObservedWorldDeaths == 0 && totals.LegacyUnclassifiedDeaths == 0
+            && totals.CompletedPlayerProjectiles == 0 && segment.WeaponStatistics.Totals.FiringActions == 0;
+        // A formatted exact zero is emitted only after the container evidence gates pass.
+        var noContainers = combatComplete && containersComplete && containers == "0";
+        if (noCombat && noContainers) return t("ui.runs_no_combat_or_containers");
+        var facts = new List<string>();
+        if (noCombat) facts.Add(t("ui.runs_no_combat"));
+        else
+        {
+            if (kills != "0") facts.Add(Unit(kills, "kill", t));
+            if (firing != "0") facts.Add(Unit(firing, "firing_action", t));
+            var combatExact = eventsExact && !combat.WasRepairedFromInvalidState;
+            var hasPrimaryActivity = totals.KillsByYou > 0 || segment.WeaponStatistics.Totals.FiringActions > 0;
+            if (!hasPrimaryActivity && totals.MeleeSwings > 0) facts.Add(Unit(FormatCount(totals.MeleeSwings,
+                combatExact && capabilities.MeleeSwings.State == AdapterCapabilityState.Supported, t), "swing", t));
+            if (!hasPrimaryActivity && totals.DamageDealt > 0) facts.Add(t("ui.overview_damage_dealt") + ": " + Format(totals.DamageDealt,
+                combatExact && capabilities.DamageDealt.State == AdapterCapabilityState.Supported, t));
+            if (!hasPrimaryActivity && totals.DamageReceived > 0) facts.Add(t("ui.overview_damage_taken") + ": " + Format(totals.DamageReceived,
+                combatExact && capabilities.DamageReceived.State == AdapterCapabilityState.Supported, t));
+            if (facts.Count == 0 && totals.RangedHits > 0) facts.Add(t("ui.runs_ranged") + ": " + Unit(FormatCount(totals.RangedHits,
+                combatExact && capabilities.RangedHits.State == AdapterCapabilityState.Supported, t), "hit", t));
+            if (facts.Count == 0 && totals.MeleeHits > 0) facts.Add(t("ui.runs_melee") + ": " + Unit(FormatCount(totals.MeleeHits,
+                combatExact && capabilities.MeleeHits.State == AdapterCapabilityState.Supported, t), "hit", t));
+            if (facts.Count == 0 && combatComplete && (totals.DamageCaused > 0 || totals.CompletedPlayerProjectiles > 0
+                || totals.Headshots > 0 || totals.HeadshotFinalBlows > 0 || totals.ObservedWorldDeaths > 0 || totals.PlayerDeaths > 0))
+                facts.Add(t("ui.runs_combat_activity"));
+            if (facts.Count == 0) facts.Add(t("ui.runs_combat") + ": " + t("ui.unavailable"));
+        }
+        facts.Add(noContainers ? t("ui.runs_no_containers") : Unit(containers, "container", t));
+        return string.Join(" · ", facts);
     }
 
     private static KeyValuePair<string, string> Pair(string label, string value) => new(label, value);

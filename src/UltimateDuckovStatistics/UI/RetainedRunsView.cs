@@ -1,3 +1,4 @@
+using Duckov.UI;
 using Duckov.UI.Animations;
 using TMPro;
 using UltimateDuckovStatistics.Core.Domain;
@@ -33,6 +34,7 @@ internal sealed class RunsScrollRect : ScrollRect
 {
     public override void OnScroll(PointerEventData data)
     {
+        foreach (var row in GetComponentsInChildren<RunsHistoryButton>()) row.Binding.CancelPointer();
         if (content != null && viewport != null && RunsScrollPolicy.Forward(viewport.rect.height,
                 content.rect.height, content.anchoredPosition.y, -data.scrollDelta.y))
         {
@@ -55,7 +57,7 @@ internal sealed class RunsScrollRect : ScrollRect
     }
 }
 
-internal sealed class RunsButtonFeedback : MonoBehaviour, ISelectHandler, ISubmitHandler, IPointerEnterHandler, IPointerExitHandler
+internal sealed class RunsButtonFeedback : MonoBehaviour, ISelectHandler, IDeselectHandler, ISubmitHandler, IPointerEnterHandler, IPointerExitHandler
 {
     private bool pointerInside;
     public void OnPointerEnter(PointerEventData eventData) => pointerInside = true;
@@ -64,10 +66,15 @@ internal sealed class RunsButtonFeedback : MonoBehaviour, ISelectHandler, ISubmi
     {
         if (!pointerInside) GetComponent<ButtonAnimation>()?.OnPointerEnter(new PointerEventData(GameManager.EventSystem));
     }
+    public void OnDeselect(BaseEventData eventData)
+    {
+        if (!pointerInside) GetComponent<ButtonAnimation>()?.OnPointerExit(new PointerEventData(GameManager.EventSystem));
+    }
+    private void OnDisable() => pointerInside = false;
     public void OnSubmit(BaseEventData eventData)
     {
         var button = GetComponent<Button>();
-        if (button == null || !button.IsInteractable()) return;
+        if (button == null || !button.IsActive() || !button.IsInteractable()) return;
         var animation = GetComponent<ButtonAnimation>();
         var pointer = new PointerEventData(GameManager.EventSystem);
         animation?.OnPointerDown(pointer); animation?.OnPointerUp(pointer);
@@ -93,14 +100,15 @@ internal sealed partial class RetainedStatisticsShell
             public RectTransform Rect { get; }
             public RectTransform Content { get; }
             public ScrollRect Scroll { get; }
-            private readonly Image top;
-            private readonly Image bottom;
+            private readonly RunsOverflowEdge top;
+            private readonly RunsOverflowEdge bottom;
             public float Offset => Math.Max(0, Content.anchoredPosition.y);
-            public ScrollRegion(RectTransform parent, string name)
+            public ScrollRegion(RectTransform parent, string name, RectTransform? contour = null, float radius = 10)
             {
                 Rect = Node(parent, name);
-                var hit = Rect.gameObject.AddComponent<Image>();
+                var hit = Rect.gameObject.AddComponent<ProceduralImage>();
                 hit.color = Color.clear;
+                Rect.gameObject.AddComponent<UniformModifier>().Radius = radius;
                 var viewport = Node(Rect, "Viewport");
                 Stretch(viewport);
                 viewport.gameObject.AddComponent<RectMask2D>();
@@ -108,10 +116,10 @@ internal sealed partial class RetainedStatisticsShell
                 Scroll = Rect.gameObject.AddComponent<RunsScrollRect>();
                 Scroll.viewport = viewport; Scroll.content = Content;
                 Scroll.horizontal = false; Scroll.vertical = true;
-                Scroll.movementType = ScrollRect.MovementType.Clamped;
-                Scroll.scrollSensitivity = 60;
+                RunsNativeScrollConfiguration.Apply(Scroll);
                 Scroll.onValueChanged.AddListener(_ => Cues());
-                top = Edge(Rect, "Above"); bottom = Edge(Rect, "Below");
+                top = Edge(contour ?? Rect, name + "Above", true); bottom = Edge(contour ?? Rect, name + "Below", false);
+                top.Radius = bottom.Radius = radius;
                 var selectable = Rect.gameObject.AddComponent<Selectable>();
                 selectable.targetGraphic = hit;
                 selectable.navigation = new Navigation { mode = Navigation.Mode.Automatic };
@@ -119,7 +127,7 @@ internal sealed partial class RetainedStatisticsShell
                 focus.Move = direction =>
                 {
                     if (direction == MoveDirection.Up || direction == MoveDirection.Down)
-                        ((RunsScrollRect)Scroll).MoveBy(direction == MoveDirection.Up ? -100 : 100);
+                        ((RunsScrollRect)Scroll).MoveBy((direction == MoveDirection.Up ? -1 : 1) * Scroll.scrollSensitivity);
                     else
                     {
                         var next = direction == MoveDirection.Left ? selectable.FindSelectableOnLeft() : selectable.FindSelectableOnRight();
@@ -131,8 +139,8 @@ internal sealed partial class RetainedStatisticsShell
             {
                 Place(Rect, x, y, width, Math.Max(1, height));
                 Content.sizeDelta = new Vector2(width, Math.Max(height, contentHeight));
-                Place(top.rectTransform, 6, 0, Math.Max(1, width - 12), 1);
-                Place(bottom.rectTransform, 6, Math.Max(0, height - 1), Math.Max(1, width - 12), 1);
+                Stretch(top.rectTransform); Stretch(bottom.rectTransform);
+                top.rectTransform.SetAsLastSibling(); bottom.rectTransform.SetAsLastSibling();
                 SetOffset(Offset);
             }
             public void SetOffset(float offset)
@@ -146,10 +154,10 @@ internal sealed partial class RetainedStatisticsShell
                 var state = OverflowCuePolicy.Resolve(Rect.rect.height, Content.rect.height, Offset);
                 top.enabled = state.ShowLeading; bottom.enabled = state.ShowTrailing;
             }
-            private static Image Edge(RectTransform parent, string name)
+            private static RunsOverflowEdge Edge(RectTransform parent, string name, bool top)
             {
-                var image = Node(parent, name).gameObject.AddComponent<Image>();
-                image.color = new Color(1, 1, 1, .3f); image.raycastTarget = false; return image;
+                var edge = Node(parent, name).gameObject.AddComponent<RunsOverflowEdge>();
+                edge.Top = top; edge.color = new Color(1, 1, 1, .3f); edge.raycastTarget = false; return edge;
             }
             public void Dispose() => Scroll.onValueChanged.RemoveAllListeners();
         }
@@ -157,7 +165,7 @@ internal sealed partial class RetainedStatisticsShell
         private sealed class HistoryControl : IDisposable
         {
             public RectTransform Rect = null!;
-            public Button Button = null!;
+            public RunsHistoryButton Button = null!;
             public ProceduralImage Background = null!;
             public TextMeshProUGUI Title = null!;
             public TextMeshProUGUI Metadata = null!;
@@ -177,26 +185,43 @@ internal sealed partial class RetainedStatisticsShell
         private readonly RectTransform historyPanel;
         private readonly RectTransform detailPanel;
         private readonly ScrollRegion history;
-        private readonly ScrollRegion detail;
+        private readonly RectTransform fixedDetail;
+        private readonly ScrollRegion equipmentCombat;
         private readonly ScrollRegion route;
+        private readonly RectTransform evidencePanel;
+        private readonly ScrollRegion evidence;
+        private readonly TextMeshProUGUI evidenceText;
+        private readonly Button evidenceClose;
+        private Button? evidenceOwner;
         private readonly TextMeshProUGUI measure;
         private readonly TextMeshProUGUI empty;
         private readonly TextMeshProUGUI title;
         private readonly TextMeshProUGUI metadata;
         private readonly TextMeshProUGUI integrity;
         private readonly TextMeshProUGUI routeHeading;
-        private readonly TextMeshProUGUI routeText;
+        private readonly TextMeshProUGUI routeSummary;
+        private readonly List<(TextMeshProUGUI Title, TextMeshProUGUI Detail)> segments = new();
         private readonly TextMeshProUGUI equipmentHeading;
-        private readonly TextMeshProUGUI equipmentState;
+        private readonly TooltipsProvider equipmentTooltip;
         private readonly RectTransform equipmentCard;
         private readonly TextMeshProUGUI combatHeading;
         private readonly RectTransform combatCard;
         private readonly TextMeshProUGUI ranged;
         private readonly TextMeshProUGUI melee;
-        private readonly List<TextMeshProUGUI> summary = new();
+        private readonly List<(TextMeshProUGUI Label, TextMeshProUGUI Value)> summary = new();
         private readonly RunsControlPool<HistoryControl> rowPool;
         private IReadOnlyList<HistoryControl> Pool => rowPool.Items;
-        private readonly List<(RectTransform Root, Image Icon, TextMeshProUGUI Fallback, TextMeshProUGUI Text)> slots = new();
+        private sealed class SlotControl
+        {
+            public RectTransform Root = null!;
+            public Image Icon = null!;
+            public TextMeshProUGUI Fallback = null!;
+            public TooltipsProvider Tooltip = null!;
+            public Button Button = null!;
+            public readonly List<ProceduralImage> Dots = new();
+            public TextMeshProUGUI Partial = null!;
+        }
+        private readonly List<SlotControl> slots = new();
         private RetainedRunBadgeControl? detailBadge;
         private RetainedRunBadgeControl? routeBadge;
         private float[] rowTops = Array.Empty<float>();
@@ -212,7 +237,7 @@ internal sealed partial class RetainedStatisticsShell
         private bool dirty = true;
         private bool revealSelected;
         private bool focusSelectedAfterLayout;
-        private (string Generation, float History, float Detail, float Route, float Page)? suspendedScroll;
+        private (string Generation, string? RunId, float History, float Detail, float Route, float Page)? suspendedScroll;
         private bool restoreSuspendedScroll;
         private bool disposed;
 
@@ -225,34 +250,63 @@ internal sealed partial class RetainedStatisticsShell
             outer = new ScrollRegion(root, "RunsPage");
             historyPanel = Panel(outer.Content, "RunHistory", 20);
             detailPanel = Panel(outer.Content, "SelectedRun", 20);
-            history = new ScrollRegion(historyPanel, "RunHistoryScroll");
-            detail = new ScrollRegion(detailPanel, "RunDetailsScroll");
+            history = new ScrollRegion(historyPanel, "RunHistoryScroll", historyPanel, 20);
+            fixedDetail = Node(detailPanel, "FixedRunHeaderAndSummary");
+            equipmentCombat = new ScrollRegion(fixedDetail, "EquipmentCombatScroll");
+            equipmentCombat.Rect.GetComponent<ProceduralImage>().color = new Color(0, 0, 0, .12f);
             measure = Text(root, "Measure", 28); measure.enabled = false;
             empty = Text(history.Content, "EmptyHistory", 28);
-            title = Text(detail.Content, "RunTitle", 48);
-            metadata = Text(detail.Content, "RunMetadata", 22);
-            integrity = Text(detail.Content, "RunIntegrity", 22);
-            for (var i = 0; i < 10; i++) summary.Add(Text(detail.Content, "Summary" + i, 24));
-            routeHeading = Text(detail.Content, "RouteHeading", 38);
-            var routeCard = Panel(detail.Content, "RouteCard", 10);
+            title = Text(fixedDetail, "RunTitle", 48);
+            metadata = Text(fixedDetail, "RunMetadata", 22);
+            integrity = Text(fixedDetail, "RunIntegrity", 22);
+            for (var i = 0; i < 10; i++)
+            {
+                var label = Text(fixedDetail, "SummaryLabel" + i, RunsViewStyle.SummaryLabelSize);
+                var value = Text(fixedDetail, "SummaryValue" + i, RunsViewStyle.SummaryValueSize);
+                label.color = Muted; label.alignment = value.alignment = TextAlignmentOptions.Top;
+                summary.Add((label, value));
+            }
+            routeHeading = Text(fixedDetail, "RouteHeading", 38);
+            var routeCard = Panel(fixedDetail, "RouteCard", 10);
             route = new ScrollRegion(routeCard, "RouteScroll");
-            routeText = Text(route.Content, "RecordedSegments", 26);
-            equipmentHeading = Text(detail.Content, "EquipmentHeading", 38);
-            equipmentCard = Panel(detail.Content, "TerminalEquipment", 10);
-            equipmentState = Text(equipmentCard, "TerminalState", 22);
-            combatHeading = Text(detail.Content, "CombatHeading", 38);
-            combatCard = Panel(detail.Content, "CombatCard", 10);
+            routeSummary = Text(fixedDetail, "RouteSummary", 24); routeSummary.color = Muted;
+            equipmentHeading = Text(equipmentCombat.Content, "EquipmentHeading", 38);
+            equipmentCard = Panel(equipmentCombat.Content, "TerminalEquipment", 10);
+            equipmentTooltip = AttachTooltip(equipmentCard);
+            equipmentCard.GetComponent<Button>().onClick.AddListener(() => ShowEvidence(null));
+            combatHeading = Text(equipmentCombat.Content, "CombatHeading", 38);
+            combatCard = Panel(equipmentCombat.Content, "CombatCard", 10);
             ranged = Text(combatCard, "Ranged", 24); melee = Text(combatCard, "Melee", 24);
+            // A bounded focus-detail surface reuses our retained controls. Native Tooltips live on
+            // GameplayUICanvas and may be absent or behind this modal on a menu access surface.
+            evidencePanel = Panel(root, "CapturedEquipmentDetails", 16);
+            evidencePanel.GetComponent<ProceduralImage>().color = new Color(.015f, .035f, .05f, .98f);
+            evidencePanel.GetComponent<ProceduralImage>().raycastTarget = true;
+            evidence = new ScrollRegion(evidencePanel, "CapturedEquipmentEvidence");
+            evidence.Rect.GetComponent<ProceduralImage>().color = new Color(0, 0, 0, .2f);
+            evidenceText = Text(evidence.Content, "CapturedEvidence", 24);
+            var close = Panel(evidencePanel, "CloseEvidence", 10);
+            close.GetComponent<ProceduralImage>().raycastTarget = true;
+            evidenceClose = close.gameObject.AddComponent<Button>(); evidenceClose.targetGraphic = close.GetComponent<ProceduralImage>();
+            close.gameObject.AddComponent<ButtonAnimation>(); AddButtonFeedback(evidenceClose);
+            var closeLabel = Text(close, "CloseLabel", 26); closeLabel.text = "×"; closeLabel.alignment = TextAlignmentOptions.Center;
+            Stretch(closeLabel.rectTransform);
+            evidenceClose.onClick.AddListener(HideEvidence);
+            evidencePanel.gameObject.SetActive(false);
         }
 
         public void Refresh(RunsPresentation? snapshot, string generation)
         {
+            var previousId = selection.SelectedId;
             if (snapshot == null && selection.Snapshot != null)
-                suspendedScroll = (selection.Snapshot.GenerationId, history.Offset, detail.Offset, route.Offset, outer.Offset);
+                suspendedScroll = (selection.Snapshot.GenerationId, selection.SelectedId, history.Offset, equipmentCombat.Offset, route.Offset, outer.Offset);
             restoreSuspendedScroll = snapshot != null && suspendedScroll?.Generation == generation;
             if (snapshot != null && selection.Snapshot?.GenerationId != generation && !restoreSuspendedScroll)
-            { history.SetOffset(0); detail.SetOffset(0); route.SetOffset(0); outer.SetOffset(0); suspendedScroll = null; }
+            { history.SetOffset(0); equipmentCombat.SetOffset(0); route.SetOffset(0); outer.SetOffset(0); suspendedScroll = null; }
             if (snapshot == null) selection.Invalidate(); else selection.Refresh(snapshot, generation);
+            restoreSuspendedScroll &= suspendedScroll?.RunId == selection.SelectedId;
+            if (snapshot != null && !restoreSuspendedScroll && previousId != selection.SelectedId)
+            { equipmentCombat.SetOffset(0); route.SetOffset(0); }
             if (snapshot == null)
                 foreach (var row in Pool) row.Rect.gameObject.SetActive(false);
             UpdateDetails(); dirty = true;
@@ -260,9 +314,9 @@ internal sealed partial class RetainedStatisticsShell
         public void Route(string generation, string id)
         {
             selection.Route(generation, id); UpdateDetails(); dirty = true; revealSelected = true; focusSelectedAfterLayout = true;
-            detail.SetOffset(0); route.SetOffset(0);
+            equipmentCombat.SetOffset(0); route.SetOffset(0);
         }
-        public void SetVisible(bool visible) { root.gameObject.SetActive(visible); if (visible) dirty = true; }
+        public void SetVisible(bool visible) { if (!visible) HideEvidence(false); root.gameObject.SetActive(visible); if (visible) dirty = true; }
         public void FocusHistory()
         {
             if (dirty && width > 0) Reflow();
@@ -275,45 +329,99 @@ internal sealed partial class RetainedStatisticsShell
 
         private void UpdateDetails()
         {
+            HideEvidence(false);
             var run = selection.Selected;
             title.text = run?.Title ?? UiText.Get(selection.Snapshot == null ? "ui.profile_unavailable"
                 : selection.RequestedRunUnavailable ? "ui.runs_requested_unavailable" : "ui.runs_empty");
-            foreach (var cell in summary) cell.gameObject.SetActive(run != null);
-            routeHeading.gameObject.SetActive(run != null);
+            foreach (var cell in summary) { cell.Label.gameObject.SetActive(run != null); cell.Value.gameObject.SetActive(run != null); }
+            routeHeading.gameObject.SetActive(run != null); routeSummary.gameObject.SetActive(run != null);
+            equipmentCombat.Rect.gameObject.SetActive(run != null);
             route.Rect.parent.gameObject.SetActive(run != null);
             equipmentHeading.gameObject.SetActive(run != null); equipmentCard.gameObject.SetActive(run != null);
             combatHeading.gameObject.SetActive(run != null); combatCard.gameObject.SetActive(run != null);
             equipmentCard.GetComponent<ProceduralImage>().color = run?.TerminalState == TerminalLoadoutState.Complete
                 ? new Color(0, 0, 0, .5f) : new Color(.15f, .15f, .15f, .5f);
             metadata.text = run?.Metadata ?? string.Empty; integrity.text = run?.Integrity ?? string.Empty;
-            for (var i = 0; i < summary.Count; i++) summary[i].text = run == null ? string.Empty : run.Summary[i].Key + "\n" + run.Summary[i].Value;
-            routeHeading.text = run == null ? string.Empty : UiText.Get("ui.runs_route") + " " + run.RouteSummary;
-            routeText.text = run == null ? string.Empty : string.Join("\n\n", run.Segments.Select(segment => segment.Key + "\n" + segment.Value));
-            equipmentHeading.text = run == null ? string.Empty : UiText.Get("ui.runs_equipment");
-            equipmentState.text = run?.EquipmentState ?? string.Empty;
-            combatHeading.text = run == null ? string.Empty : UiText.Get("ui.runs_combat");
-            ranged.text = run == null ? string.Empty : UiText.Get("ui.runs_ranged") + "\n" + run.Ranged;
-            melee.text = run == null ? string.Empty : UiText.Get("ui.runs_melee") + "\n" + run.Melee;
-            ReplaceBadge(ref detailBadge, detail.Content, run?.Outcome);
-            ReplaceBadge(ref routeBadge, route.Content, run?.Outcome);
-            // Root slot evidence is bounded by the native capture contract. Reuse controls across selections.
-            while (slots.Count < (run?.Slots.Count ?? 0))
+            for (var i = 0; i < summary.Count; i++)
             {
-                var slot = Panel(equipmentCard, "TerminalSlot" + slots.Count, 10);
-                var icon = Node(slot, "Icon").gameObject.AddComponent<Image>(); icon.raycastTarget = false; icon.preserveAspect = true;
-                slots.Add((slot, icon, Text(slot, "Fallback", 40), Text(slot, "Identity", 20)));
+                summary[i].Label.text = run == null ? string.Empty : RunsViewStyle.Uppercase(run.Summary[i].Key);
+                summary[i].Value.text = run == null ? string.Empty : run.Summary[i].Value;
+            }
+            routeHeading.text = run == null ? string.Empty : UiText.Get("ui.runs_route");
+            routeSummary.text = run?.RouteSummary ?? string.Empty;
+            while (segments.Count < (run?.Segments.Count ?? 0))
+            {
+                var primary = Text(route.Content, "SegmentMap" + segments.Count, RunsViewStyle.SegmentTitleSize);
+                var secondary = Text(route.Content, "SegmentFacts" + segments.Count, RunsViewStyle.SegmentDetailSize);
+                secondary.color = Muted; segments.Add((primary, secondary));
+            }
+            for (var i = 0; i < segments.Count; i++)
+            {
+                var active = run != null && i < run.Segments.Count;
+                segments[i].Title.gameObject.SetActive(active); segments[i].Detail.gameObject.SetActive(active);
+                if (active) { segments[i].Title.text = run!.Segments[i].Key; segments[i].Detail.text = run.Segments[i].Value; }
+            }
+            equipmentHeading.text = run == null ? string.Empty : UiText.Get("ui.runs_equipment");
+            equipmentTooltip.text = SafeTooltip(run?.EquipmentState ?? string.Empty);
+            combatHeading.text = run == null ? string.Empty : UiText.Get("ui.runs_combat");
+            ranged.text = run == null ? string.Empty : RunsViewStyle.Uppercase(UiText.Get("ui.runs_ranged")) + "\n" + run.Ranged;
+            melee.text = run == null ? string.Empty : RunsViewStyle.Uppercase(UiText.Get("ui.runs_melee")) + "\n" + run.Melee;
+            ReplaceBadge(ref detailBadge, fixedDetail, run?.Outcome);
+            ReplaceBadge(ref routeBadge, route.Content, run?.Outcome);
+            // Ten compact positions at baseline. An unreadable remainder is anonymous unavailable
+            // evidence, not invented slot IDs or empty slots. Additional modded captured roots survive.
+            var count = run == null ? 0 : Math.Max(10, run.Slots.Count);
+            while (slots.Count < count)
+            {
+                var rootSlot = Panel(equipmentCard, "TerminalSlot" + slots.Count, RunsViewStyle.SlotRadius);
+                var icon = Node(rootSlot, "Icon").gameObject.AddComponent<Image>(); icon.raycastTarget = false; icon.preserveAspect = true;
+                var borderRect = Node(rootSlot, "SlotBorder"); Stretch(borderRect);
+                var border = borderRect.gameObject.AddComponent<ProceduralImage>(); border.raycastTarget = false;
+                border.color = new Color32(RunsViewStyle.BorderRed, RunsViewStyle.BorderGreen, RunsViewStyle.BorderBlue, 255);
+                border.BorderWidth = RunsViewStyle.SlotBorder; border.FalloffDistance = 1;
+                borderRect.gameObject.AddComponent<UniformModifier>().Radius = RunsViewStyle.SlotRadius;
+                var fallback = Text(rootSlot, "Fallback", 32); fallback.alignment = TextAlignmentOptions.Center;
+                var partial = Text(rootSlot, "IncompleteAttachments", 18); partial.color = Muted;
+                var control = new SlotControl
+                {
+                    Root = rootSlot,
+                    Icon = icon,
+                    Fallback = fallback,
+                    Tooltip = AttachTooltip(rootSlot),
+                    Partial = partial
+                };
+                control.Button = rootSlot.GetComponent<Button>();
+                control.Button.onClick.AddListener(() => ShowEvidence(control));
+                slots.Add(control);
             }
             for (var i = 0; i < slots.Count; i++)
             {
                 var control = slots[i]; var item = run != null && i < run.Slots.Count ? run.Slots[i] : null;
-                control.Root.gameObject.SetActive(item != null);
-                if (item == null) continue;
-                control.Text.text = item.Text;
-                var sprite = RunsItemIconPolicy.Resolve(item, icons.Resolve);
+                control.Root.gameObject.SetActive(i < count);
+                control.Tooltip.OnPointerExit(null!);
+                if (i >= count) continue;
+                control.Tooltip.text = SafeTooltip(item == null ? UiText.Get("ui.unavailable") + "\n" + run!.EquipmentState : item.Text + "\n" + run!.EquipmentState);
+                var sprite = item == null ? null : RunsItemIconPolicy.Resolve(item, icons.ResolveAvailable);
                 control.Icon.sprite = sprite; control.Icon.enabled = sprite != null;
-                control.Fallback.text = sprite != null || item.State == EquipmentSlotState.Empty ? string.Empty : "?";
-                control.Root.GetComponent<ProceduralImage>().color = item.State != EquipmentSlotState.Occupied && item.State != EquipmentSlotState.Empty
+                control.Fallback.text = sprite != null ? string.Empty : item?.State == EquipmentSlotState.Empty ? "—" : "?";
+                control.Fallback.color = item?.State == EquipmentSlotState.Empty ? Muted : Color.white;
+                control.Root.GetComponent<ProceduralImage>().color = item == null || item.State is not (EquipmentSlotState.Occupied or EquipmentSlotState.Empty)
                     ? new Color(.28f, .28f, .28f, .5f) : new Color(0, 0, 0, .5f);
+                var attachments = item?.Attachments;
+                while (control.Dots.Count < (attachments?.Count ?? 0))
+                {
+                    var dot = Node(control.Root, "Attachment" + control.Dots.Count).gameObject.AddComponent<ProceduralImage>();
+                    dot.raycastTarget = false; dot.gameObject.AddComponent<UniformModifier>().Radius = 4;
+                    control.Dots.Add(dot);
+                }
+                for (var d = 0; d < control.Dots.Count; d++)
+                {
+                    var dot = control.Dots[d]; dot.gameObject.SetActive(d < (attachments?.Count ?? 0));
+                    if (d >= (attachments?.Count ?? 0)) continue;
+                    dot.BorderWidth = attachments![d] == EquipmentSlotState.Empty ? 1.5f : 0;
+                    dot.color = attachments[d] == EquipmentSlotState.Occupied ? Color.white : Muted;
+                }
+                control.Partial.text = item?.NestedComplete == false ? "…" : string.Empty;
             }
             dirty = true;
         }
@@ -332,72 +440,88 @@ internal sealed partial class RetainedStatisticsShell
             if (dirty && root.gameObject.activeInHierarchy) Reflow();
         }
 
-        private void Reflow()
+        private void Reflow(bool forceStacked = false)
         {
             dirty = false;
-            var hw = RunsLayoutPolicy.HistoryWidth(width, stacked);
-            var dw = stacked ? width : width - hw - 40;
-            var hh = stacked ? Math.Min(400, height * .45f) : height;
-            var dy = stacked ? hh + 40 : 0;
+            var useStacked = stacked || forceStacked;
+            var hw = RunsLayoutPolicy.HistoryWidth(width, useStacked);
+            var dw = useStacked ? width : width - hw - 40;
+            var hh = useStacked ? Math.Min(400, height * .45f) : height;
+            var dy = useStacked ? hh + 40 : 0;
             Place(historyPanel, 0, 0, hw, hh);
             var detailWidth = dw - 60;
-            var y = Put(title, 0, 0, detailWidth) + 10;
-            if (detailBadge != null) { BadgeLayout(detailBadge, 0, y, detailWidth); y += detailBadge.Rect.rect.height + 10; }
-            y += Put(metadata, 0, y, detailWidth) + 6;
-            y += Put(integrity, 0, y, detailWidth) + 25;
-            var columns = RunsLayoutPolicy.SummaryColumns(stacked);
+            var y = Put(title, 0, 0, detailWidth) + 6;
+            y += LayoutMetadata(y, detailWidth) + 24;
+            var columns = RunsLayoutPolicy.SummaryColumns(useStacked);
             var cellWidth = (detailWidth - (columns - 1) * 20) / columns;
             for (var start = 0; start < summary.Count; start += columns)
             {
-                var rowHeight = 0f;
+                var labelHeight = 0f;
                 for (var i = start; i < Math.Min(start + columns, summary.Count); i++)
-                    rowHeight = Math.Max(rowHeight, Put(summary[i], (i - start) * (cellWidth + 20), y, cellWidth));
-                y += rowHeight + 25;
+                    labelHeight = Math.Max(labelHeight, Put(summary[i].Label, (i - start) * (cellWidth + 20), y, cellWidth));
+                var valueHeight = 0f;
+                for (var i = start; i < Math.Min(start + columns, summary.Count); i++)
+                    valueHeight = Math.Max(valueHeight, Put(summary[i].Value, (i - start) * (cellWidth + 20), y + labelHeight + 4, cellWidth));
+                y += labelHeight + 4 + valueHeight + 26;
             }
+            // Extremely long localized/stored header content can exhaust a desktop column.
+            // Reuse the existing responsive page so every section stays reachable, never reject text.
+            if (!useStacked && y + 250 > height) { Reflow(forceStacked: true); return; }
             var lowerTop = y + 10;
-            var lowerWidth = stacked ? detailWidth : (detailWidth - 30) / 2;
-            var headingHeight = Put(routeHeading, 0, lowerTop, lowerWidth);
+            var lowerWidth = useStacked ? detailWidth : (detailWidth - 30) / 2;
+            var headingHeight = LayoutRouteHeading(lowerTop, lowerWidth);
             var routeTop = lowerTop + headingHeight + 10;
-            var routeHeight = stacked ? 440 : Math.Max(320, height - 60 - routeTop);
+            var routeHeight = RunsLowerLayout.RouteHeight(useStacked, height, routeTop);
             var routeCard = (RectTransform)route.Rect.parent;
             Place(routeCard, 0, routeTop, lowerWidth, routeHeight);
-            var routeTextHeight = Put(routeText, 20, 20, lowerWidth - 40);
-            if (routeBadge != null) BadgeLayout(routeBadge, 20, routeTextHeight + 35, lowerWidth - 40);
-            route.Size(0, 0, lowerWidth, routeHeight, routeTextHeight + 55 + (routeBadge?.Rect.rect.height ?? 0));
-            var rx = stacked ? 0 : lowerWidth + 30;
-            var ry = stacked ? routeTop + routeHeight + 30 : lowerTop;
-            ry += Put(equipmentHeading, rx, ry, lowerWidth) + 10;
-            var equipmentY = ry;
-            var inside = Put(equipmentState, 20, 20, lowerWidth - 40) + 35;
-            var slotColumns = Math.Max(1, Math.Min(5, (int)((lowerWidth - 40) / 128)));
-            var slotWidth = (lowerWidth - 40 - (slotColumns - 1) * 10) / slotColumns;
-            var activeSlots = selection.Selected?.Slots.Count ?? 0;
-            for (var start = 0; start < activeSlots; start += slotColumns)
+            var segmentY = 12f;
+            for (var i = 0; i < (selection.Selected?.Segments.Count ?? 0); i++)
             {
-                var rowHeight = 0f;
-                for (var i = start; i < Math.Min(start + slotColumns, activeSlots); i++)
-                {
-                    var slot = slots[i];
-                    Place(slot.Icon.rectTransform, (slotWidth - 80) / 2, 8, 80, 80);
-                    Place(slot.Fallback.rectTransform, (slotWidth - 80) / 2, 8, 80, 80);
-                    var textHeight = Put(slot.Text, 8, 96, slotWidth - 16);
-                    var sh = 104 + textHeight; rowHeight = Math.Max(rowHeight, sh);
-                    Place(slot.Root, 20 + (i - start) * (slotWidth + 10), inside, slotWidth, sh);
-                }
-                inside += rowHeight + 10;
+                segmentY += Put(segments[i].Title, 20, segmentY, lowerWidth - 40);
+                segmentY += Put(segments[i].Detail, 56, segmentY, lowerWidth - 76) + 16;
             }
-            Place(equipmentCard, rx, equipmentY, lowerWidth, inside + 10);
-            ry += inside + 30;
-            ry += Put(combatHeading, rx, ry, lowerWidth) + 10;
+            if (routeBadge != null) BadgeLayout(routeBadge, 20, segmentY, lowerWidth - 40);
+            route.Size(0, 0, lowerWidth, routeHeight, segmentY + 12 + (routeBadge?.Rect.rect.height ?? 0));
+            var rx = useStacked ? 0 : lowerWidth + 30;
+            var rightTop = RunsLowerLayout.EquipmentTop(useStacked, lowerTop, routeTop, routeHeight);
+            var ry = Put(equipmentHeading, 0, 0, lowerWidth) + 10;
+            var equipmentY = ry;
+            var slotSize = RunsViewStyle.SlotSize(lowerWidth);
+            var activeSlots = selection.Selected == null ? 0 : Math.Max(10, selection.Selected.Slots.Count);
+            var slotRows = (activeSlots + RunsViewStyle.SlotColumns - 1) / RunsViewStyle.SlotColumns;
+            for (var i = 0; i < activeSlots; i++)
+            {
+                var slot = slots[i];
+                Place(slot.Root, 10 + i % 5 * (slotSize + 10), 10 + i / 5 * (slotSize + 10), slotSize, slotSize);
+                Place(slot.Icon.rectTransform, 6, 6, slotSize - 12, slotSize - 12);
+                Place(slot.Fallback.rectTransform, 6, 6, slotSize - 12, slotSize - 12);
+                // Captured descendants remain ordered. Long nested evidence wraps dots inside the card.
+                var dotCount = selection.Selected != null && i < selection.Selected.Slots.Count ? selection.Selected.Slots[i].Attachments.Count : 0;
+                for (var d = 0; d < slot.Dots.Count; d++)
+                {
+                    var dot = RunsViewStyle.AttachmentDot(slotSize, dotCount, d);
+                    Place(slot.Dots[d].rectTransform, dot.X, dot.Y, dot.Size, dot.Size);
+                }
+                Put(slot.Partial, slotSize - 22, 0, 20);
+            }
+            var equipmentHeight = 10 + slotRows * (slotSize + 10);
+            Place(equipmentCard, 0, equipmentY, lowerWidth, equipmentHeight);
+            ry += equipmentHeight + 16;
+            ry += Put(combatHeading, 0, ry, lowerWidth) + 10;
             var cw = (lowerWidth - 60) / 2;
-            var combatHeight = Math.Max(Put(ranged, 20, 20, cw), Put(melee, 40 + cw, 20, cw)) + 40;
-            Place(combatCard, rx, ry, lowerWidth, combatHeight);
+            var combatHeight = Math.Max(Put(ranged, 20, 16, cw), Put(melee, 40 + cw, 16, cw)) + 32;
+            Place(combatCard, 0, ry, lowerWidth, combatHeight);
+            var rightContentHeight = ry + combatHeight;
+            var rightHeight = RunsLowerLayout.EquipmentHeight(useStacked, height, rightTop, rightContentHeight);
+            equipmentCombat.Size(rx, rightTop, lowerWidth, rightHeight, rightContentHeight);
             var contentHeight = selection.Selected == null ? title.rectTransform.rect.height + 30
-                : Math.Max(routeTop + routeHeight, ry + combatHeight) + 30;
-            var dh = stacked ? contentHeight + 60 : height;
-            Place(detailPanel, stacked ? 0 : hw + 40, dy, dw, dh);
-            detail.Size(30, 30, detailWidth, dh - 60, contentHeight);
-            outer.Size(0, 0, width, height, stacked ? dy + dh : height);
+                : Math.Max(routeTop + routeHeight, rightTop + rightHeight);
+            var dh = useStacked ? contentHeight + 60 : height;
+            Place(detailPanel, useStacked ? 0 : hw + 40, dy, dw, dh);
+            Place(fixedDetail, 30, 30, detailWidth, dh - 60);
+            outer.Size(0, 0, width, height, useStacked ? dy + dh : height);
+            outer.Scroll.vertical = useStacked;
+            LayoutEvidence();
             if (measuredHistory != selection.Snapshot || measuredHistoryWidth != hw - 60)
             {
                 MeasureHistory(hw - 60);
@@ -407,7 +531,7 @@ internal sealed partial class RetainedStatisticsShell
             if (restoreSuspendedScroll && suspendedScroll.HasValue)
             {
                 var offsets = suspendedScroll.Value;
-                history.SetOffset(offsets.History); detail.SetOffset(offsets.Detail);
+                history.SetOffset(offsets.History); equipmentCombat.SetOffset(offsets.Detail);
                 route.SetOffset(offsets.Route); outer.SetOffset(offsets.Page);
                 restoreSuspendedScroll = false; suspendedScroll = null;
             }
@@ -460,13 +584,14 @@ internal sealed partial class RetainedStatisticsShell
             var row = new HistoryControl { Rect = Panel(history.Content, "RunRow", 10) };
             row.Background = row.Rect.GetComponent<ProceduralImage>();
             row.Title = Text(row.Rect, "RouteTitle", 28); row.Metadata = Text(row.Rect, "RunMetadata", 22);
-            row.Button = row.Rect.gameObject.AddComponent<Button>(); row.Button.targetGraphic = row.Background;
-            row.Button.transition = Selectable.Transition.None;
-            row.Button.navigation = new Navigation { mode = Navigation.Mode.None };
+            row.Button = row.Rect.gameObject.AddComponent<RunsHistoryButton>();
+            row.Button.Configure(row.Background);
             row.Button.onClick.AddListener(() =>
             {
-                if (!selection.Select(row.Id)) return;
-                detail.SetOffset(0); route.SetOffset(0); UpdateDetails();
+                var changed = selection.SelectedId != row.Id;
+                if (!row.Button.Binding.Activate(selection)) return;
+                if (changed) { equipmentCombat.SetOffset(0); route.SetOffset(0); }
+                UpdateDetails();
             });
             NativeButtonInteractionFeedbackPolicy.AttachIfMissing(row.Rect.gameObject,
                 static target => target.GetComponent<ButtonAnimation>() != null,
@@ -476,7 +601,7 @@ internal sealed partial class RetainedStatisticsShell
             focus.Selected = () => RevealRow(row.Index);
             focus.Move = direction =>
             {
-                if (direction == MoveDirection.Right) { GameManager.EventSystem?.SetSelectedGameObject(detail.Rect.gameObject); return; }
+                if (direction == MoveDirection.Right) { GameManager.EventSystem?.SetSelectedGameObject(equipmentCombat.Rect.gameObject); return; }
                 if (direction != MoveDirection.Up && direction != MoveDirection.Down) return;
                 if (direction == MoveDirection.Up && row.Index == 0) { focusTabs(); return; }
                 var index = Math.Clamp(row.Index + (direction == MoveDirection.Up ? -1 : 1), 0, rowTops.Length - 1);
@@ -506,6 +631,7 @@ internal sealed partial class RetainedStatisticsShell
                 var control = Pool[p]; var index = first + p; var active = index < end;
                 control.Rect.gameObject.SetActive(active); if (!active) continue;
                 var run = runs![index]; control.Id = run.Id; control.Index = index;
+                control.Button.Binding.Bind(selection.Snapshot!.GenerationId, run.Id);
                 control.Title.text = run.Title; control.Metadata.text = run.Metadata;
                 ReplaceBadge(ref control.Badge, control.Rect, run.Outcome);
                 BadgeLayout(control.Badge!, 20, 10, history.Rect.rect.width - 40);
@@ -526,8 +652,13 @@ internal sealed partial class RetainedStatisticsShell
         public void Tick()
         {
             if (!root.gameObject.activeInHierarchy) return;
+            if (evidencePanel.gameObject.activeSelf)
+            {
+                var focused = GameManager.EventSystem?.currentSelectedGameObject;
+                if (focused == null || !focused.transform.IsChildOf(evidencePanel)) HideEvidence(false);
+            }
             if (history.Offset != lastHistoryOffset) RenderHistory();
-            history.Cues(); route.Cues(); detail.Cues(); outer.Cues();
+            history.Cues(); route.Cues(); equipmentCombat.Cues(); outer.Cues(); evidence.Cues();
         }
 
         private void ReplaceBadge(ref RetainedRunBadgeControl? badge, RectTransform parent, RetainedRunBadgeState? state)
@@ -556,6 +687,92 @@ internal sealed partial class RetainedStatisticsShell
             Place(badge.LabelRect, layout.LabelLeft, layout.LabelTop, layout.LabelWidth, layout.LabelHeight);
             if (badge.IconText != null) badge.IconText.fontSize = layout.FontSize;
         }
+
+        private static Color Muted => new Color32(RunsViewStyle.Muted, RunsViewStyle.Muted, RunsViewStyle.Muted, 255);
+
+        private float LayoutMetadata(float top, float availableWidth)
+        {
+            var controls = new List<RectTransform>();
+            var sizes = new List<(float Width, float Height)>();
+            if (detailBadge != null)
+            {
+                BadgeLayout(detailBadge, 0, top, availableWidth);
+                controls.Add(detailBadge.Rect); sizes.Add((detailBadge.Rect.rect.width, detailBadge.Rect.rect.height));
+            }
+            foreach (var label in new[] { metadata, integrity })
+            {
+                var w = Math.Min(availableWidth, label.GetPreferredValues(label.text, float.PositiveInfinity, float.PositiveInfinity).x);
+                var h = Put(label, 0, top, w); controls.Add(label.rectTransform); sizes.Add((w, h));
+            }
+            var layout = RunsFlowLayout.Arrange(availableWidth, sizes);
+            var height = 0f;
+            for (var i = 0; i < controls.Count; i++)
+            {
+                var box = layout[i]; Place(controls[i], box.X, top + box.Y, box.Width, box.Height);
+                height = Math.Max(height, box.Y + box.Height);
+            }
+            return height;
+        }
+
+        private float LayoutRouteHeading(float top, float availableWidth)
+        {
+            var headingWidth = Math.Min(availableWidth, routeHeading.GetPreferredValues(routeHeading.text, float.PositiveInfinity, float.PositiveInfinity).x);
+            var height = Put(routeHeading, 0, top, headingWidth);
+            var summaryWidth = routeSummary.GetPreferredValues(routeSummary.text, float.PositiveInfinity, float.PositiveInfinity).x;
+            // Both labels use the same native font. Align their first baseline using its ascent metrics.
+            var ascent = typography.Font.faceInfo.ascentLine / typography.Font.faceInfo.pointSize;
+            var baselineOffset = (routeHeading.fontSize - routeSummary.fontSize) * ascent;
+            if (headingWidth + 12 + summaryWidth <= availableWidth)
+                return Math.Max(height, baselineOffset + Put(routeSummary, headingWidth + 12, top + baselineOffset, summaryWidth));
+            return height + Put(routeSummary, 0, top + height, availableWidth);
+        }
+
+        private static TooltipsProvider AttachTooltip(RectTransform rect)
+        {
+            var hit = rect.GetComponent<Graphic>(); hit.raycastTarget = true;
+            var focusable = rect.gameObject.AddComponent<Button>(); focusable.targetGraphic = hit;
+            focusable.transition = Selectable.Transition.None;
+            rect.gameObject.AddComponent<ButtonAnimation>(); AddButtonFeedback(focusable);
+            var provider = rect.gameObject.AddComponent<TooltipsProvider>();
+            rect.gameObject.AddComponent<RunsTooltipFocus>();
+            rect.gameObject.AddComponent<RunsFocusHandler>();
+            return provider;
+        }
+
+        private void ShowEvidence(SlotControl? slot)
+        {
+            evidenceOwner = slot?.Button ?? equipmentCard.GetComponent<Button>();
+            // The retained label has rich text disabled, so use the original captured identity here.
+            var index = slot == null ? -1 : slots.IndexOf(slot);
+            var run = selection.Selected;
+            evidenceText.text = run == null ? UiText.Get("ui.unavailable") : slot == null ? run.EquipmentState
+                : index >= 0 && index < run.Slots.Count ? run.Slots[index].Text + "\n" + run.EquipmentState
+                : UiText.Get("ui.unavailable") + "\n" + run.EquipmentState;
+            evidencePanel.gameObject.SetActive(true); evidencePanel.SetAsLastSibling();
+            LayoutEvidence(); evidence.SetOffset(0);
+            GameManager.EventSystem?.SetSelectedGameObject(evidenceClose.gameObject);
+        }
+
+        private void LayoutEvidence()
+        {
+            var w = Math.Max(1, Math.Min(760, width - 40));
+            var h = Math.Max(1, Math.Min(500, height - 40));
+            Place(evidencePanel, (width - w) / 2, (height - h) / 2, w, h);
+            Place((RectTransform)evidenceClose.transform, w - 60, 10, 50, 44);
+            var textHeight = Put(evidenceText, 16, 12, w - 64);
+            evidence.Size(16, 64, w - 32, h - 80, textHeight + 24);
+        }
+
+        private void HideEvidence() => HideEvidence(true);
+        private void HideEvidence(bool restoreFocus)
+        {
+            if (!evidencePanel.gameObject.activeSelf) return;
+            evidencePanel.gameObject.SetActive(false);
+            if (restoreFocus && evidenceOwner != null && evidenceOwner.IsActive()) GameManager.EventSystem?.SetSelectedGameObject(evidenceOwner.gameObject);
+            evidenceOwner = null;
+        }
+        // The native tooltip uses rich TMP text. Prevent captured names from introducing markup.
+        private static string SafeTooltip(string text) => "<noparse>" + text.Replace("<", "＜").Replace(">", "＞") + "</noparse>";
 
         private TextMeshProUGUI Text(RectTransform parent, string name, float size)
         {
@@ -589,8 +806,11 @@ internal sealed partial class RetainedStatisticsShell
         {
             if (disposed) return; disposed = true;
             rowPool.Dispose();
+            evidencePanel.gameObject.SetActive(false); evidenceOwner = null;
+            evidenceClose.onClick.RemoveAllListeners(); equipmentCard.GetComponent<Button>().onClick.RemoveAllListeners();
+            foreach (var slot in slots) slot.Button.onClick.RemoveAllListeners();
             detailBadge?.Dispose(); routeBadge?.Dispose();
-            history.Dispose(); detail.Dispose(); route.Dispose(); outer.Dispose();
+            history.Dispose(); equipmentCombat.Dispose(); route.Dispose(); outer.Dispose(); evidence.Dispose();
         }
     }
 

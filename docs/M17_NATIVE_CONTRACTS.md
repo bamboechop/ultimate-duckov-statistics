@@ -45,7 +45,7 @@ The contract proves the localization mechanism and exact anchor keys; it does no
 
 ## Item metadata and icons
 
-`ItemAssetsCollection.GetMetaData(int)` returns metadata whose public `icon` member is a Unity `Sprite`. UDS resolves only numeric stable identities in the canonical `duckov:item:<id>` form. Unknown namespaces, missing metadata, absent sprites, and modded identities use `GameplayDataSettings.UIStyle.FallbackItemIcon`; if even that installed fallback is unavailable, the panel draws a deterministic `?` placeholder.
+`ItemAssetsCollection.GetMetaData(int)` returns metadata whose public `icon` member is a Unity `Sprite`. UDS resolves the numeric TypeID in captured `duckov:item:<id>`, `duckov:weapon:<id>` and `duckov:totem:<id>` forms. It checks the returned metadata `id` and distinguishes `GameplayDataSettings.UIStyle.FallbackItemIcon` from a resolved item icon. Other namespaces, missing metadata, absent sprites and unreadable icons retain their captured identity; Runs uses a deterministic `?`, while other existing consumers retain the native fallback. Dynamic native metadata remains supported. Runs reuses text-only `TooltipsProvider` for hover/focus evidence, and copies scrolling configuration from `GameplayDataSettings.UIPrefabs.ScrollRect`. Serialized baseline configuration and captured weapon-icon evidence are recorded in [M17_RETAINED_RUNS.md](M17_RETAINED_RUNS.md#installed-native-evidence-for-the-runs-correction).
 
 The cache holds at most 512 stable identity results and clears as a unit at the bound. Display names and sprites never become persisted identity and never alter statistics semantics.
 

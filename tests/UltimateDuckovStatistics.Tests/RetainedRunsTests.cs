@@ -444,6 +444,262 @@ public sealed class RetainedRunsTests
         Assert.Contains("Scope: Empty", result.Slots[0].Text);
         Assert.DoesNotContain("unavailable", result.Slots[0].Text);
     }
+    [Theory]
+    [InlineData(0, 0, "No combat or containers")]
+    [InlineData(1, 0, "1 firing action · No containers")]
+    [InlineData(0, 1, "No combat · 1 container opened")]
+    [InlineData(0, 2, "No combat · 2 containers opened")]
+    public void SegmentZeroWordingUsesCompleteCombatAndContainerEvidence(int firing, int containers, string expected)
+    {
+        var run = Run("r", 1);
+        run.Segments[0].WeaponStatistics.Totals.FiringActions = firing;
+        run.Segments[0].ContainerStatistics.UniqueContainersLooted = containers;
+        Assert.EndsWith(expected, Present(run).Runs[0].Segments[0].Value);
+    }
+
+    [Theory]
+    [InlineData("route")]
+    [InlineData("combat")]
+    [InlineData("firing")]
+    [InlineData("container")]
+    [InlineData("attribution")]
+    [InlineData("repair")]
+    public void IncompleteSegmentEvidenceNeverClaimsProvenEmpty(string boundary)
+    {
+        var run = Run("r", 1); var segment = run.Segments[0];
+        if (boundary == "route") run.RouteCapabilities.Segments.State = AdapterCapabilityState.Experimental;
+        if (boundary == "combat") segment.CombatStatistics.Capabilities.MeleeSwings.State = AdapterCapabilityState.Experimental;
+        if (boundary == "firing") segment.WeaponStatistics.Capabilities.FiringActions.State = AdapterCapabilityState.Experimental;
+        if (boundary == "container") segment.ContainerStatistics.HistoricalUnavailable = true;
+        if (boundary == "attribution") run.HistoricalEventAttributionIncomplete = true;
+        if (boundary == "repair") segment.WasRepairedFromInvalidState = true;
+        var text = Present(run).Runs[0].Segments[0].Value;
+        Assert.DoesNotContain("No combat", text); Assert.DoesNotContain("No containers", text);
+    }
+
+    [Theory]
+    [InlineData("swing")]
+    [InlineData("damage")]
+    [InlineData("received")]
+    [InlineData("hit")]
+    [InlineData("projectile")]
+    [InlineData("death")]
+    public void CombatWithoutKillsCannotBePresentedAsNoCombat(string evidence)
+    {
+        var run = Run("r", 1); var totals = run.Segments[0].CombatStatistics.Totals;
+        if (evidence == "swing") totals.MeleeSwings = 1;
+        if (evidence == "damage") totals.DamageDealt = 1;
+        if (evidence == "received") totals.DamageReceived = 1;
+        if (evidence == "hit") totals.MeleeHits = 1;
+        if (evidence == "projectile") totals.CompletedPlayerProjectiles = 1;
+        if (evidence == "death") totals.ObservedWorldDeaths = 1;
+        var text = Present(run).Runs[0].Segments[0].Value;
+        Assert.DoesNotContain("No combat", text); Assert.EndsWith("No containers", text);
+    }
+
+    [Fact]
+    public void NativeButtonBoundaryHasFullRowHitAndSelectsCurrentVisibleBindingOnce()
+    {
+        var state = new RunsSelection(); state.Refresh(Present(Run("a", 1), Run("b", 2)), "g");
+        var graphic = new UnityEngine.UI.Graphic { raycastTarget = false }; // Decorative parent factory default.
+        var button = new RunsHistoryButton(); button.Configure(graphic);
+        var activations = 0;
+        button.Clicked += () => { if (button.Binding.Activate(state)) activations++; };
+        Assert.True(graphic.raycastTarget); Assert.True(button.IsActive()); Assert.True(button.IsInteractable());
+        Assert.Same(graphic, button.targetGraphic);
+        var pointer = new UnityEngine.EventSystems.PointerEventData();
+        button.Binding.Bind("g", "a"); button.OnPointerDown(pointer); button.OnPointerClick(pointer);
+        Assert.Equal("a", state.Selected!.Id); Assert.Equal(1, activations);
+        button.Binding.Bind("g", "b"); button.OnPointerDown(pointer); button.OnPointerClick(pointer);
+        Assert.Equal("b", state.Selected!.Id); Assert.Equal(2, activations);
+        // The same single listener survives repeated recycling; release of a stale press is rejected.
+        button.OnPointerDown(pointer); button.Binding.Bind("g", "a"); button.OnPointerClick(pointer);
+        Assert.Equal("b", state.Selected!.Id); Assert.Equal(2, activations);
+        button.OnSubmit(new UnityEngine.EventSystems.BaseEventData());
+        Assert.Equal("a", state.Selected!.Id); Assert.Equal(3, activations);
+        button.Binding.Bind("other-generation", "b"); button.OnSubmit(new UnityEngine.EventSystems.BaseEventData());
+        Assert.Equal("a", state.Selected!.Id); Assert.Equal(3, activations);
+    }
+
+    [Theory]
+    [InlineData("wheel")]
+    [InlineData("drag")]
+    [InlineData("disable")]
+    [InlineData("right-button")]
+    public void ScrollDragDisableAndSecondaryButtonDoNotActivateHistory(string operation)
+    {
+        var button = new RunsHistoryButton(); button.Configure(new UnityEngine.UI.Graphic());
+        button.Binding.Bind("g", "r"); var clicks = 0; button.Clicked += () => clicks++;
+        var data = new UnityEngine.EventSystems.PointerEventData(); button.OnPointerDown(data);
+        if (operation == "wheel") button.Binding.CancelPointer();
+        if (operation == "drag") data.dragging = true;
+        if (operation == "disable") button.Disable();
+        if (operation == "right-button") data.button = UnityEngine.EventSystems.PointerEventData.InputButton.Right;
+        button.OnPointerClick(data); Assert.Equal(0, clicks);
+    }
+
+    [Theory]
+    [InlineData("duckov:item:1", true, 1)]
+    [InlineData("duckov:weapon:141", true, 141)]
+    [InlineData("duckov:totem:792", true, 792)]
+    [InlineData("mod:weapon:141", false, 0)]
+    [InlineData("duckov:weapon:unknown", false, 0)]
+    [InlineData("duckov:weapon:141:extra", false, 0)]
+    [InlineData("duckov:weapon:-1", false, 0)]
+    public void IconLookupAcceptsAllCapturedNativeIdentityKindsOnly(string id, bool expected, int typeId)
+    {
+        Assert.Equal(expected, NativeItemTypeIdPolicy.TryParse(id, out var parsed));
+        if (expected) Assert.Equal(typeId, parsed);
+    }
+
+    [Fact]
+    public void NativeMetadataMismatchFallbackAndFailureAreNotSuccessfulIcons()
+    {
+        var icon = new object(); var fallback = new object();
+        Assert.Same(icon, NativeItemTypeIdPolicy.Resolve("duckov:weapon:141", id => (id, icon), fallback));
+        Assert.Null(NativeItemTypeIdPolicy.Resolve("duckov:weapon:141", _ => (0, icon), fallback));
+        Assert.Null(NativeItemTypeIdPolicy.Resolve("duckov:weapon:141", id => (id, fallback), fallback));
+        Assert.Null(NativeItemTypeIdPolicy.Resolve<object>("duckov:weapon:141", _ => throw new IOException(), fallback));
+        Assert.Null(NativeItemTypeIdPolicy.Resolve<object>("mod:weapon", _ => throw new InvalidOperationException(), fallback));
+    }
+
+    [Fact]
+    public void AttachmentDotsRetainNativeOrderAndNeverPadIncompleteEvidenceWithEmptyDots()
+    {
+        var nested = new List<TerminalNestedSlot>
+        {
+            new("first", "first", "First", EquipmentSlotState.Occupied, "mod:optic", "Modded optic"),
+            new("second", "second", "Second", EquipmentSlotState.Empty, "", "")
+        };
+        var slot = new TerminalRootSlot("weapon", "Weapon", EquipmentSlotState.Occupied, "duckov:weapon:141", "Weapon", EquipmentItemKind.Weapon, false, nested);
+        var result = RunsPresentationFactory.PresentSlot(slot, UiText.Get); nested.Clear();
+        Assert.Equal(2, result.Attachments.Count); Assert.Equal(EquipmentSlotState.Occupied, result.Attachments[0]);
+        Assert.Equal(EquipmentSlotState.Empty, result.Attachments[1]); Assert.False(result.NestedComplete);
+        Assert.Contains("mod:optic", result.Text); Assert.Contains("duckov:weapon:141", result.Text);
+        Assert.Contains("Additional attachment evidence unavailable", result.Text);
+        var noSlots = new TerminalRootSlot("body", "Body", EquipmentSlotState.Occupied, "mod:body", "Body", EquipmentItemKind.Armor, true, []);
+        Assert.Empty(RunsPresentationFactory.PresentSlot(noSlots, UiText.Get).Attachments);
+    }
+
+    [Fact]
+    public void MeasuredDesktopMetadataSitsBesideBadgeAndWrapsInOrderOnlyWhenNecessary()
+    {
+        (float Width, float Height)[] controls = [(130, 34), (480, 28), (510, 28)];
+        var desktop = RunsFlowLayout.Arrange(1500, controls);
+        Assert.All(desktop, box => Assert.Equal(0, box.Y));
+        Assert.Equal(142, desktop[1].X); Assert.Equal(634, desktop[2].X);
+        var narrow = RunsFlowLayout.Arrange(540, controls);
+        Assert.True(narrow[1].Y > narrow[0].Y); Assert.True(narrow[2].Y > narrow[1].Y);
+        Assert.All(narrow, box => Assert.InRange(box.X + box.Width, 0, 540));
+    }
+
+    [Theory]
+    [InlineData(1280, 720)]
+    [InlineData(1680, 1050)]
+    [InlineData(2560, 1440)]
+    [InlineData(1024, 768)]
+    public void LowerViewportsFitReferenceLayoutAndHaveIndependentOverflow(float width, float height)
+    {
+        var transform = RetainedReferenceTransformPolicy.Create(width, height, 1);
+        var shell = RetainedVisualLayoutPolicy.Create(transform);
+        var scale = transform.CanvasLength(1);
+        var referenceHeight = (height - shell.Header.Top - shell.Header.Height) / scale - 70;
+        var stacked = RunsLayoutPolicy.Stack(width);
+        var routeHeight = RunsLowerLayout.RouteHeight(stacked, referenceHeight, 360);
+        var rightTop = RunsLowerLayout.EquipmentTop(stacked, 310, 360, routeHeight);
+        var rightHeight = RunsLowerLayout.EquipmentHeight(stacked, referenceHeight, rightTop, 480);
+        Assert.True(routeHeight > 0); Assert.True(rightHeight > 0);
+        if (stacked) Assert.True(rightTop > 360 + routeHeight);
+        else
+        {
+            Assert.Equal(310, rightTop);
+            Assert.Equal(referenceHeight - 60, 360 + routeHeight, 3);
+            Assert.Equal(referenceHeight - 60, rightTop + rightHeight, 3);
+        }
+        var routeAtBottom = OverflowCuePolicy.Resolve(routeHeight, 2000, 2000 - routeHeight);
+        Assert.True(routeAtBottom.ShowLeading); Assert.False(routeAtBottom.ShowTrailing);
+        var equipmentFits = OverflowCuePolicy.Resolve(rightHeight, Math.Min(480, rightHeight), 0);
+        Assert.False(equipmentFits.ShowLeading); Assert.False(equipmentFits.ShowTrailing);
+        // A route offset is not an input to equipment or fixed-header placement.
+        Assert.Equal(rightTop, RunsLowerLayout.EquipmentTop(stacked, 310, 360, routeHeight));
+    }
+
+    [Fact]
+    public void TenIconCardsStayCompactRegardlessOfIdentityLengthAndNestedEvidence()
+    {
+        Assert.Equal(5, RunsViewStyle.SlotColumns); Assert.Equal(90, RunsViewStyle.SlotSize(740));
+        Assert.Equal(2, RunsViewStyle.SlotBorder); Assert.Equal(16, RunsViewStyle.SlotRadius);
+        Assert.Equal((146, 152, 164), ((int)RunsViewStyle.BorderRed, (int)RunsViewStyle.BorderGreen, (int)RunsViewStyle.BorderBlue));
+        for (var index = 0; index < 256; index++)
+        {
+            var dot = RunsViewStyle.AttachmentDot(90, 256, index);
+            Assert.InRange(dot.X + dot.Size, 0, 90); Assert.InRange(dot.Y + dot.Size, 0, 90);
+        }
+        var slot = new RunSlotPresentation("long", EquipmentSlotState.Occupied, "mod:long", new string('界', 10000));
+        Assert.Equal(10000, slot.Text.Length); Assert.Empty(slot.Attachments);
+    }
+
+    [Fact]
+    public void NativeTypographyKeepsMutedLabelsSmallerAndUsesCultureAwareUppercase()
+    {
+        Assert.Equal(177, RunsViewStyle.Muted);
+        Assert.True(RunsViewStyle.SegmentDetailSize < RunsViewStyle.SegmentTitleSize);
+        Assert.True(RunsViewStyle.SummaryLabelSize < RunsViewStyle.SummaryValueSize);
+        Assert.Equal("RANGED", RunsViewStyle.Uppercase("Ranged")); Assert.Equal("MELEE", RunsViewStyle.Uppercase("Melee"));
+        Assert.Equal("界", RunsViewStyle.Uppercase("界"));
+        var before = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("tr-TR");
+            Assert.Equal("İ", RunsViewStyle.Uppercase("i"));
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = before; }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void OverflowContourReachesBothContainerSidesAndFollowsCornerRadius(bool top)
+    {
+        var points = RunsRoundedEdgePolicy.Points(700, 400, 20, top);
+        Assert.Equal(0, points[0].X, 3); Assert.Equal(700, points[^1].X, 3);
+        Assert.Equal(top ? 20 : 380, points[0].Y, 3); Assert.Equal(top ? 20 : 380, points[^1].Y, 3);
+        Assert.Equal(top ? 0 : 400, points[8].Y, 3); Assert.Equal(top ? 0 : 400, points[9].Y, 3);
+        Assert.All(points, point => Assert.InRange(point.Y, top ? 0 : 380, top ? 20 : 400));
+    }
+
+    [Fact]
+    public void RetainedCompositionWiresPolicyToNativeControlsWithoutVisualConstructionGates()
+    {
+        // Source composition assertions cover the Unity-only wiring which cannot execute in net8.
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "UltimateDuckovStatistics.sln"))) directory = directory.Parent;
+        Assert.NotNull(directory);
+        var ui = Path.Combine(directory.FullName, "src", "UltimateDuckovStatistics", "UI");
+        var view = File.ReadAllText(Path.Combine(ui, "RetainedRunsView.cs"));
+        Assert.Contains("row.Button.Configure(row.Background)", view);
+        Assert.Contains("row.Button.Binding.Activate(selection)", view);
+        Assert.Contains("control.Button.Binding.Bind(selection.Snapshot!.GenerationId, run.Id)", view);
+        Assert.Contains("target.AddComponent<ButtonAnimation>()", view);
+        Assert.Contains("graphic.raycastTarget = false", view); // Interaction tint cannot steal hits or replace orange base.
+        Assert.Contains("control.Background.color = run.Id == selection.SelectedId", view);
+        Assert.Contains("label.alignment = value.alignment = TextAlignmentOptions.Top", view);
+        Assert.Contains("summary[i].Label.text", view); Assert.Contains("summary[i].Value.text", view);
+        Assert.Contains("routeSummary.color = Muted", view); Assert.Contains("secondary.color = Muted", view);
+        Assert.Contains("new ScrollRegion(fixedDetail, \"EquipmentCombatScroll\")", view);
+        Assert.Contains("Text(fixedDetail, \"RunTitle\"", view);
+        Assert.Contains("Text(equipmentCombat.Content, \"EquipmentHeading\"", view);
+        Assert.DoesNotContain("RunDetailsScroll", view); Assert.DoesNotContain("Text(slot, \"Identity\"", view);
+        Assert.Contains("RunsNativeScrollConfiguration.Apply(Scroll)", view);
+        Assert.Contains("RunsOverflowEdge Edge", view);
+        Assert.Contains("control.Button.onClick.AddListener(() => ShowEvidence(control))", view);
+        Assert.Contains("evidenceClose.onClick.AddListener(HideEvidence)", view);
+        Assert.Contains("evidenceClose.onClick.RemoveAllListeners()", view);
+        Assert.Contains("evidence.Dispose()", view);
+        Assert.Contains("!focused.transform.IsChildOf(evidencePanel)", view);
+        Assert.DoesNotContain("ValidateSurface", view);
+    }
+
     private static StatisticsPanelProjection Projection(params RunSummary[] runs)
     {
         var profile = new ProfileDocument { GenerationId = "g", Statistics = new ProfileStatistics { SaveGenerationId = "g", Runs = runs.ToList() } };

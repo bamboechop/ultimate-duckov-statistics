@@ -381,6 +381,12 @@ try
         core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "UIStyle", "UIStyleData", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty("Duckov.UI", "UIPrefabsReference", "Button", "UnityEngine.UI.Button", mustBePublic: true);
         core.RequireProperty("Duckov.UI", "UIPrefabsReference", "ScrollRect", "UnityEngine.UI.ScrollRect", mustBePublic: true);
+        core.RequireField("Duckov.UI", "TooltipsProvider", "text", mustBePublic: true, fieldTypeFragment: "System.String");
+        core.RequireMethod("Duckov.UI", "TooltipsProvider", "OnPointerEnter", 1, mustBePublic: true,
+            parameterTypeFragments: ["UnityEngine.EventSystems.PointerEventData"]);
+        core.RequireMethod("Duckov.UI", "TooltipsProvider", "OnPointerExit", 1, mustBePublic: true,
+            parameterTypeFragments: ["UnityEngine.EventSystems.PointerEventData"]);
+        core.RequireMethod("Duckov.UI", "TooltipsProvider", "OnDisable", 0);
         core.RequireNestedProperty(
             "Duckov.Utilities",
             "GameplayDataSettings",
@@ -535,6 +541,7 @@ try
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "Name", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "DisplayName", "System.String", mustBePublic: true);
         itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "icon", mustBePublic: true, fieldTypeFragment: "UnityEngine.Sprite");
+        itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "id", mustBePublic: true, fieldTypeFragment: "System.Int32");
     }
 
     using (var ui = new AssemblyMetadata(unityUiPath))
@@ -545,6 +552,10 @@ try
         ui.RequireMethod("UnityEngine.UI", "ScrollRect", "OnScroll", 1, mustBePublic: true, mustBeVirtual: true,
             parameterTypeFragments: ["UnityEngine.EventSystems.PointerEventData"]);
         ui.RequireMethod("UnityEngine.UI", "ScrollRect", "StopMovement", 0, mustBePublic: true);
+        foreach (var property in new[] { "elasticity", "decelerationRate", "scrollSensitivity" })
+            ui.RequireProperty("UnityEngine.UI", "ScrollRect", property, "System.Single", mustBePublic: true);
+        ui.RequireProperty("UnityEngine.UI", "ScrollRect", "inertia", "System.Boolean", mustBePublic: true);
+        ui.RequireProperty("UnityEngine.UI", "ScrollRect", "movementType", mustBePublic: true);
         ui.RequireMethod("UnityEngine.UI", "Button", "OnSubmit", 1, mustBePublic: true,
             parameterTypeFragments: ["UnityEngine.EventSystems.BaseEventData"]);
         ui.RequireMethod("UnityEngine.EventSystems", "EventSystem", "SetSelectedGameObject", 1, mustBePublic: true,
