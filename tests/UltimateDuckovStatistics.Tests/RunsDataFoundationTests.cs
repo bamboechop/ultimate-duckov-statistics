@@ -540,11 +540,44 @@ public sealed class RunsDataFoundationTests
         return (T)serializer.ReadObject(stream)!;
     }
 
+    [Fact]
+    public void NativeExtractionCompletionRetriesAndCleanupRespectTheSameBudget()
+    {
+        using var h = new NativeHarness();
+        h.Now = 807.06;
+        h.CompletionDurable = false;
+        LevelManager.RaiseEvacuated();
+        var pending = Assert.IsType<RunSummary>(h.Completed);
+        var checkpoint = h.Checkpoints.Last();
+        Assert.Equal(RunOutcome.Extracted, checkpoint.PendingTerminalOutcome);
+        Assert.Equal(pending.RunId, checkpoint.RunId);
+        Assert.Equal(1, h.Completions);
+        Assert.Throws<IOException>(() => h.Lifecycle.InterruptForProfileTransition());
+        for (var frame = 0; frame < 10000; frame++)
+        {
+            h.Lifecycle.Tick();
+            Assert.False(h.Lifecycle.TryCleanup());
+        }
+        Assert.Equal(1, h.Completions);
+        Assert.Same(pending, h.Completed);
+        Assert.Same(checkpoint, h.Checkpoints.Last());
+        Assert.Single(h.Diagnostics, message => message.Contains("persistence remains pending", StringComparison.Ordinal));
+        Assert.DoesNotContain(h.Diagnostics, message => message.Contains("Run finalized", StringComparison.Ordinal));
+        h.CompletionDurable = true;
+        h.Now += 1;
+        h.Lifecycle.Tick();
+        Assert.Equal(2, h.Completions);
+        Assert.Same(pending, h.Completed);
+        Assert.True(h.Lifecycle.TryCleanup());
+        Assert.Single(h.Diagnostics, message => message.Contains("Run finalized", StringComparison.Ordinal));
+    }
+
     private sealed class NativeHarness : IDisposable
     {
         public double Now { get; set; }
         public bool EconomyDurable { get; set; } = true;
         public bool CheckpointDurable { get; set; } = true;
+        public bool CompletionDurable { get; set; } = true;
         public int EconomyCalls { get; private set; }
         public int Captures { get; private set; }
         public int Completions { get; private set; }
@@ -571,7 +604,7 @@ public sealed class RunsDataFoundationTests
             {
                 Checkpoints.Add(checkpoint);
                 return CheckpointDurable;
-            }, run => { Completed = run; Completions++; return true; }, _ => { }, Diagnostics.Add,
+            }, run => { Completed = run; Completions++; return CompletionDurable; }, _ => { }, Diagnostics.Add,
                 combatCapabilitiesProvider: CombatNativeContractPolicy.CreateSupportedCapabilities,
                 equipmentCapabilitiesProvider: EquipmentNativeContractPolicy.CreateSupportedCapabilities,
                 monotonicSecondsProvider: () => Now);

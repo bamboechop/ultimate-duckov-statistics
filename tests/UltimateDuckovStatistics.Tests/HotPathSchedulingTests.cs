@@ -231,6 +231,7 @@ public sealed class HotPathSchedulingTests
     [Trait("Category", "Persistence")]
     public void DeferredSnapshotWriterRetainsDirtyStateAfterTheBoundedRetryAlsoFails()
     {
+        var now = 0d;
         var captures = 0;
         var attempts = 0;
         var writer = new DeferredSnapshotWriter<string>(
@@ -239,7 +240,7 @@ public sealed class HotPathSchedulingTests
             {
                 attempts++;
                 if (attempts <= 2) throw new IOException($"injected-{attempts}");
-            });
+            }, () => now);
 
         writer.MarkDirty();
 
@@ -251,6 +252,7 @@ public sealed class HotPathSchedulingTests
         Assert.Equal(2, attempts);
         Assert.True(writer.IsDirty);
 
+        now = 1;
         Assert.Equal(DeferredWriteState.Succeeded, writer.Flush().State);
         Assert.Equal(3, captures);
         Assert.Equal(3, attempts);
@@ -262,6 +264,7 @@ public sealed class HotPathSchedulingTests
     [Trait("Category", "Persistence")]
     public void DeferredSnapshotWriterRetainsDirtyStateWhenSnapshotCaptureFails()
     {
+        var now = 0d;
         var captures = 0;
         var written = new List<string>();
         var writer = new DeferredSnapshotWriter<string>(
@@ -271,7 +274,7 @@ public sealed class HotPathSchedulingTests
                 if (captures == 1) throw new InvalidOperationException("injected");
                 return $"snapshot-{captures}";
             },
-            written.Add);
+            written.Add, () => now);
 
         writer.MarkDirty();
 
@@ -280,6 +283,7 @@ public sealed class HotPathSchedulingTests
         Assert.IsType<InvalidOperationException>(failed.Exception);
         Assert.True(writer.IsDirty);
 
+        now = 1;
         Assert.Equal(DeferredWriteState.Pending, writer.Tick().State);
         Assert.Equal(DeferredWriteState.Succeeded, writer.Flush().State);
         Assert.Equal(2, captures);

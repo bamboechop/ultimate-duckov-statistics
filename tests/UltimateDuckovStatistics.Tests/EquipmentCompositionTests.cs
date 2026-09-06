@@ -99,9 +99,9 @@ public sealed class EquipmentCompositionTests
     }
     [Fact] public void TypedDurationOverflowIsRejectedBeforeMutation()
     {
-        var a = Observed(); var row = a.Composition.TotemStates.Values.Single(); row.DurationSeconds = double.MaxValue;
-        Assert.Throws<OverflowException>(() => EquipmentCompositionReducer.Advance(a.Composition, Snapshot(), double.MaxValue));
-        Assert.Equal(double.MaxValue, row.DurationSeconds);
+        var a = Observed(); var row = a.Composition.TotemStates.Values.Single(); row.DurationSeconds = decimal.MaxValue;
+        Assert.Throws<OverflowException>(() => EquipmentCompositionReducer.Advance(a.Composition, Snapshot(), decimal.MaxValue));
+        Assert.Equal(decimal.MaxValue, row.DurationSeconds);
     }
     [Fact] public void CorruptDefinitionAndTypedIdentityAreRejected()
     {

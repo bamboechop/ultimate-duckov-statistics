@@ -1577,6 +1577,8 @@ internal sealed class LegacyImmediateStatisticsPanel : IDisposable
     private static string FormatHealing(AggregateTotals totals) =>
         totals.ActualHealthRestored.ToString("0.###", CultureInfo.InvariantCulture);
 
+    private static string FormatDuration(decimal seconds) => FormatDuration((double)seconds);
+
     private static string FormatDuration(double seconds) =>
         TimeSpan.FromSeconds(Math.Max(0, seconds)).ToString(@"hh\:mm\:ss\.fff", CultureInfo.InvariantCulture);
 

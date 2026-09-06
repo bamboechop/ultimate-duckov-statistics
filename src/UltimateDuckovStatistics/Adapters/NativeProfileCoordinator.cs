@@ -16,6 +16,8 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeProfileCoordinator : IDisposable
 {
     private const int DiagnosticCapacity = 200;
+    private readonly MonotonicCadenceGate persistenceDiagnosticCadence = new(60);
+    private readonly Func<double> monotonicClock;
     private static readonly Regex SaveTimePattern = new(
         "\\\"SaveTime\\\"\\s*:\\s*\\{[^{}]*?\\\"value\\\"\\s*:\\s*(-?\\d+)",
         RegexOptions.CultureInvariant);
@@ -93,8 +95,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private EconomyHoldingsMetricCapabilities economyHoldingsMetricCapabilities =
         EconomyHoldingsNativeContractPolicy.Unavailable(EconomyHoldingsNativeContractPolicy.BootstrapProvenance);
 
-    public NativeProfileCoordinator()
+    public NativeProfileCoordinator(Func<double>? monotonicClock = null)
     {
+        this.monotonicClock = monotonicClock ?? (() => (double)System.Diagnostics.Stopwatch.GetTimestamp() / System.Diagnostics.Stopwatch.Frequency);
         dataRoot = Path.Combine(Application.persistentDataPath, Core.ProductInfo.ModId);
         checkpointWriter = new DeferredCheckpointWriter<CheckpointWrite>(write =>
         {
@@ -107,7 +110,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             NativeHotPathDiagnostics.CountProfileStoreAttempt();
             write.Repository.SaveSnapshot(write.Snapshot);
             NativeHotPathDiagnostics.CountProfileStoreSuccess();
-        });
+        }, this.monotonicClock);
         economyActivationGate = new EconomyActivationGate(
             activationId =>
             {
@@ -598,8 +601,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
         catch (Exception exception)
         {
-            Debug.LogException(exception);
-            WriteDiagnostic($"Failed to persist active-run checkpoint: {exception.GetType().Name}.", "Error");
+            ReportPersistenceFailure(exception, "Failed to persist active-run checkpoint");
             return false;
         }
     }
@@ -621,8 +623,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
         catch (Exception exception)
         {
-            Debug.LogException(exception);
-            WriteDiagnostic($"Failed to persist completed run: {exception.GetType().Name}.", "Error");
+            ReportPersistenceFailure(exception, "Failed to persist completed run");
             return false;
         }
     }
@@ -876,8 +877,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
         catch (Exception exception)
         {
-            Debug.LogException(exception);
-            WriteDiagnostic($"Pre-save identity refresh failed: {exception.GetType().Name}.", "Error");
+            ReportPersistenceFailure(exception, "Pre-save identity refresh failed");
         }
     }
 
@@ -1120,12 +1120,21 @@ internal sealed class NativeProfileCoordinator : IDisposable
         economyHoldingsMetricCapabilities);
     }
 
+    private void ReportPersistenceFailure(Exception exception, string operation)
+    {
+        var now = monotonicClock();
+        if (!persistenceDiagnosticCadence.IsDue(now)) return;
+        persistenceDiagnosticCadence.MarkCompleted(now);
+        Debug.LogException(exception);
+        WriteDiagnostic($"{operation}: {exception.GetType().Name}: {exception.Message}. "
+            + "Pending data retained; repeated persistence diagnostics limited to once per 60s.", "Error");
+    }
+
     private DeferredWriteState ObserveCheckpointResult(DeferredWriteResult result)
     {
         if (result.State != DeferredWriteState.Failed) return result.State;
         var exception = result.Exception ?? new IOException("Deferred active-run checkpoint failed without an exception.");
-        Debug.LogException(exception);
-        WriteDiagnostic($"Failed to persist active-run checkpoint: {exception.GetType().Name}.", "Error");
+        ReportPersistenceFailure(exception, "Failed to persist active-run checkpoint");
         return DeferredWriteState.Failed;
     }
 
@@ -1133,8 +1142,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         if (result.State != DeferredWriteState.Failed) return result.State;
         var exception = result.Exception ?? new IOException("Deferred profile persistence failed without an exception.");
-        Debug.LogException(exception);
-        WriteDiagnostic($"Failed to persist deferred profile snapshot: {exception.GetType().Name}.", "Error");
+        ReportPersistenceFailure(exception, "Failed to persist deferred profile snapshot");
         return DeferredWriteState.Failed;
     }
 

@@ -128,7 +128,7 @@ internal static class EquipmentPresentationFactory
                     .Concat(a.Composition.Loadouts.Values.Where(d => !d.Conflicting).SelectMany(d => d.Items).Where(i => i.ItemId == g.Key).Select(i => i.ItemDisplayName));
                 var name = names.Where(n => !string.IsNullOrWhiteSpace(n) && n != g.Key).OrderBy(n => n, StringComparer.Ordinal).FirstOrDefault();
                 var slots = g.OrderBy(r => r.Row.Id, StringComparer.Ordinal).Select(r => new EquipmentEntry(r.Row.Id,
-                    SlotName(a.Slots.TryGetValue(r.Row.Id.Substring(0, r.Split), out var slot) ? slot.DisplayName : null), "", r.Row.ActiveDurationSeconds));
+                    SlotName(a.Slots.TryGetValue(r.Row.Id.Substring(0, r.Split), out var slot) ? slot.DisplayName : null), "", (double)r.Row.ActiveDurationSeconds));
                 return new EquipmentEntry("selected:" + g.Key, Name(name), g.Key, Sum(g.Select(r => r.Row.ActiveDurationSeconds)),
                     t("ui.equipment_selected_time"), groups: new[] { new EquipmentGroup(t("ui.equipment_selected_by_slot"), slots) });
             }).OrderByDescending(r => r.Duration).ThenBy(r => r.Name, StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal).ToArray();
@@ -154,16 +154,16 @@ internal static class EquipmentPresentationFactory
             .Select(g => new EquipmentGroup(SlotName(g.SlotDisplayName, g.SlotId), g.Rows.OrderBy(r => r.State).ThenByDescending(r => r.ActiveDurationSeconds)
                 .ThenBy(r => r.ItemDisplayName, StringComparer.Ordinal).ThenBy(r => r.ItemId, StringComparer.Ordinal).Select(r =>
                     new EquipmentEntry("gear:" + g.SlotId + "|" + r.ItemId, r.State == EquipmentSlotState.Empty ? t("ui.equipment_nothing") : Name(r.ItemDisplayName, r.ItemId),
-                        r.ItemId, r.ActiveDurationSeconds, groups: r.State == EquipmentSlotState.Empty ? null : Nested(r.ItemId, g.SlotId, onlyObserved: true))))).ToArray();
+                        r.ItemId, (double)r.ActiveDurationSeconds, groups: r.State == EquipmentSlotState.Empty ? null : Nested(r.ItemId, g.SlotId, onlyObserved: true))))).ToArray();
         var direct = Totems(TotemCarryKind.DirectSlot); var tote = Totems(TotemCarryKind.ToteInventory);
         var empty = a.Composition.EmptyDirectSlots.Values.OrderBy(r => r.Id, StringComparer.Ordinal)
-            .Select(r => new EquipmentEntry("empty:" + r.Id, DirectName(r.Id, r.DisplayName), "", r.ActiveDurationSeconds)).ToArray();
+            .Select(r => new EquipmentEntry("empty:" + r.Id, DirectName(r.Id, r.DisplayName), "", (double)r.ActiveDurationSeconds)).ToArray();
         var sets = a.TotemSets.Values.OrderByDescending(r => r.ActiveDurationSeconds).ThenBy(r => r.Id, StringComparer.Ordinal).Select(r =>
         {
             a.Composition.ActiveTotemSets.TryGetValue(r.Id, out var d);
             var available = d != null && !d.Conflicting;
             var members = available ? d!.Members.Select(m => new EquipmentEntry("member:" + m.ItemId, Name(m.DisplayName), m.ItemId, 0)).ToArray() : Array.Empty<EquipmentEntry>();
-            return new EquipmentEntry("set:" + r.Id, "", "", r.ActiveDurationSeconds, t("ui.equipment_active_together") + " · " + Used(r.RunOccurrences),
+            return new EquipmentEntry("set:" + r.Id, "", "", (double)r.ActiveDurationSeconds, t("ui.equipment_active_together") + " · " + Used(r.RunOccurrences),
                 d?.Conflicting == true ? t("ui.equipment_conflict") : available && members.Length == 1 ? t("ui.equipment_singleton") : "",
                 groups: new[] { new EquipmentGroup("", members) });
         }).ToArray();
@@ -180,7 +180,7 @@ internal static class EquipmentPresentationFactory
                     Array.AsReadOnly(item?.NestedSlots.Select(n => new TerminalNestedSlot(n.Path, n.SlotKey, n.SlotDisplayName, n.State, n.ItemId, n.ItemDisplayName)).ToArray()
                         ?? Array.Empty<TerminalNestedSlot>())), t);
             }).ToArray();
-            return new EquipmentEntry(id, name, "", row.ActiveDurationSeconds, caption,
+            return new EquipmentEntry(id, name, "", (double)row.ActiveDurationSeconds, caption,
                 definition == null ? t("ui.equipment_loadout_history") : definition.Conflicting ? t("ui.equipment_conflict") : definition.NestedComplete ? "" : t("ui.runs_nested_partial"), slots: slots, runId: runId);
         }
         IEnumerable<EquipmentGroup> Nested(string itemId, string? parentSlot, bool onlyObserved = false)
@@ -212,6 +212,7 @@ internal static class EquipmentPresentationFactory
                             t("ui.equipment_activation_" + s.Key.ActivationState.ToString().ToLowerInvariant())))) }))
                 .OrderByDescending(r => r.Duration).ThenBy(r => r.Name, StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal).ToArray();
     }
+    private static double Sum(IEnumerable<decimal> values) => (double)values.Sum();
     internal static double Sum(IEnumerable<double> values) => values.Aggregate(0d, EquipmentCompositionReducer.Add);
     // Native capture and Runs use ordinal known-slot order; additional roots follow in ordinal order.
     internal static bool IsKnownRoot(string id) => id is "duckov:slot:PrimaryWeapon" or "duckov:slot:SecondaryWeapon" or "duckov:slot:MeleeWeapon"

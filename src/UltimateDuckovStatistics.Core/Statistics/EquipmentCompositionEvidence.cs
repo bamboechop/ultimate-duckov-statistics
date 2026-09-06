@@ -38,12 +38,18 @@ public sealed class TotemStateDuration
 {
     [DataMember(Order = 1, IsRequired = true)] public TotemSnapshot Totem { get; set; } = new();
     [DataMember(Order = 2, IsRequired = true)] public int CopyOrdinal { get; set; }
-    [DataMember(Order = 3, IsRequired = true)] public double DurationSeconds { get; set; }
+    [DataMember(Order = 3, IsRequired = true)] public decimal DurationSeconds { get; set; }
 }
 
 /// <summary>One definition per exact identity, and one counter per typed presence/copy identity. No observation journal.</summary>
 public static class EquipmentCompositionReducer
 {
+    private static decimal Add(decimal left, decimal right)
+    {
+        if (left < 0 || right < 0) throw new OverflowException("Equipment duration is negative.");
+        return checked(left + right);
+    }
+
     public static bool Observe(EquipmentCompositionEvidence target, EquipmentSnapshot snapshot)
     {
         var changed = false;
@@ -66,11 +72,11 @@ public static class EquipmentCompositionReducer
         return changed;
     }
 
-    public static void Advance(EquipmentCompositionEvidence target, EquipmentSnapshot snapshot, double delta)
+    public static void Advance(EquipmentCompositionEvidence target, EquipmentSnapshot snapshot, decimal delta)
     {
         var empty = snapshot.CharacterSlots.Where(s => s.State == EquipmentSlotState.Empty && s.IsDirectTotemSlot).ToList();
         foreach (var slot in empty) _ = Add(target.EmptyDirectSlots.TryGetValue(slot.SlotId, out var old) ? old.ActiveDurationSeconds : 0, delta);
-        var pending = new List<(string Key, TotemStateDuration Row, double Total)>();
+        var pending = new List<(string Key, TotemStateDuration Row, decimal Total)>();
         foreach (var group in snapshot.Totems.GroupBy(StateKey, StringComparer.Ordinal))
         {
             var ordinal = 0;
@@ -137,7 +143,7 @@ public static class EquipmentCompositionReducer
             throw new ArgumentException("Structured equipment evidence is missing.");
         foreach (var pair in evidence.EmptyDirectSlots)
             if (pair.Value == null || string.IsNullOrWhiteSpace(pair.Key) || pair.Key != pair.Value.Id
-                || double.IsNaN(pair.Value.ActiveDurationSeconds) || double.IsInfinity(pair.Value.ActiveDurationSeconds) || pair.Value.ActiveDurationSeconds < 0)
+                || pair.Value.ActiveDurationSeconds < 0)
                 throw new ArgumentException("Invalid proven-empty direct totem slot duration.");
         foreach (var pair in evidence.Loadouts)
         {
@@ -166,7 +172,7 @@ public static class EquipmentCompositionReducer
         {
             var row = pair.Value;
             if (row == null || !ValidTotem(row.Totem) || row.CopyOrdinal < 1 || pair.Key != CopyKey(row.Totem, row.CopyOrdinal)
-                || double.IsNaN(row.DurationSeconds) || double.IsInfinity(row.DurationSeconds) || row.DurationSeconds < 0)
+                || row.DurationSeconds < 0)
                 throw new ArgumentException("Invalid typed totem duration evidence.");
         }
     }

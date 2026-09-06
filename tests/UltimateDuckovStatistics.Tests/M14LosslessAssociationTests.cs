@@ -257,7 +257,7 @@ public sealed class M14LosslessAssociationTests
             "weapon:secondary",
             "5:scope",
             EquipmentSlotState.Empty).ActiveDurationSeconds);
-        Assert.Equal([2d, 2d, 2d], run.Segments.Select(segment => RootState(
+        Assert.Equal([2m, 2m, 2m], run.Segments.Select(segment => RootState(
             segment.EquipmentStatistics,
             "slot:primary",
             EquipmentSlotState.Empty).ActiveDurationSeconds));
@@ -394,12 +394,12 @@ public sealed class M14LosslessAssociationTests
             0);
         EquipmentStatisticsReducer.Advance(statistics, 1);
         var root = RootState(statistics, "slot:primary", EquipmentSlotState.Empty);
-        root.ActiveDurationSeconds = double.MaxValue;
+        root.ActiveDurationSeconds = decimal.MaxValue;
 
         Assert.Throws<OverflowException>(() => EquipmentStatisticsReducer.Advance(statistics, double.MaxValue));
 
         Assert.Equal(1, statistics.ObservedActiveDurationSeconds);
-        Assert.Equal(double.MaxValue, root.ActiveDurationSeconds);
+        Assert.Equal(decimal.MaxValue, root.ActiveDurationSeconds);
     }
 
     [Fact]
@@ -739,9 +739,82 @@ public sealed class M14LosslessAssociationTests
         recovery.CloseClean();
     }
 
-    private static RunLifecycleTracker Start(string map, bool pairingSupported = true)
+    [Fact]
+    [Trait("Category", "M14")]
+    [Trait("Category", "Recovery")]
+    public void FractionalAttachmentIntervalsReconcileAcrossRunsMapsAndPersistence()
     {
-        var tracker = new RunLifecycleTracker(() => "run-m14");
+        using var directory = new TemporaryDirectory();
+        var repository = new ProfileRepository(directory.Path, () => Now, () => "generation");
+        repository.Open(Identity(1, 100));
+        var intervals = new[] { (42.71822, 117.18458), (20.33141, 115.02153), (46.74663, 147.08841) };
+        double legacyA = 0, legacyB = 0, legacyObserved = 0;
+        var index = 0;
+        foreach (var (change, end) in intervals)
+        {
+            legacyA += change;
+            legacyB += end - change;
+            legacyObserved += end;
+            var tracker = Start("Level_GroundZero_1", runId: $"fractional-{index++}");
+            var before = EquipmentSnapshot("fractional-before", false, false, string.Empty, false);
+            before.Items.Single().AttachmentSignature = "before";
+            var after = EquipmentSnapshot("fractional-after", false, true, string.Empty, false);
+            after.Items.Single().AttachmentSignature = "after";
+            tracker.ObserveEquipment(before, Now, 0);
+            tracker.ObserveEquipment(after, Now.AddSeconds(change), change);
+            var checkpoint = tracker.CreateCheckpoint(Now.AddSeconds(end), end)!;
+            checkpoint.PendingTerminalOutcome = RunOutcome.Extracted;
+            repository.SaveActiveRun(checkpoint);
+            var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, end)).Completed!;
+            Assert.True(repository.CompleteRun(summary));
+            repository.SaveSnapshot(repository.CapturePersistenceSnapshot());
+        }
+        // These are the same observations that broke the binary floating-point
+        // implementation when grouped by attachment variant instead of run.
+        Assert.True(legacyObserved > legacyA + legacyB);
+        repository.CloseClean();
+        var reopened = new ProfileRepository(directory.Path, () => Now, () => "unused");
+        reopened.Open(Identity(1, 100));
+        Assert.Equal(3, reopened.Current.Statistics.Runs.Count);
+        var totals = reopened.Current.Statistics.RunTotals;
+        foreach (var equipment in new[] { totals.EquipmentStatistics,
+                     totals.Maps["duckov:map:Level_GroundZero_1"].EquipmentStatistics,
+                     totals.RouteMaps["duckov:map:Level_GroundZero_1"].EquipmentStatistics })
+        {
+            EquipmentStatisticsReducer.ValidateAggregate(equipment);
+            Assert.Equal(379.29452m, equipment.Items.Values.Sum(row => row.ActiveDurationSeconds));
+            Assert.Equal(379.29452m, Assert.Single(equipment.NestedSlotObservedDurations).Value.ActiveDurationSeconds);
+            var corrupt = EquipmentStatisticsReducer.Clone(equipment);
+            corrupt.Items.Values.First().ActiveDurationSeconds -= 0.000000000000001m;
+            Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateAggregate(corrupt));
+        }
+        reopened.SaveSnapshot(reopened.CapturePersistenceSnapshot());
+        var pending = Start("Level_GroundZero_1", runId: "retained-terminal");
+        pending.ObserveEquipment(EquipmentSnapshot("retained", false, true, string.Empty, false), Now, 0);
+        var terminal = pending.CreateCheckpoint(Now.AddSeconds(807), 807)!;
+        terminal.PendingTerminalOutcome = RunOutcome.Extracted;
+        reopened.SaveActiveRun(terminal);
+        var profilePath = reopened.CurrentProfilePath!;
+        var checkpointPath = Path.Combine(Path.GetDirectoryName(profilePath)!, "active-run.json");
+        var durableProfile = File.ReadAllBytes(profilePath);
+        var durableBackup = File.ReadAllBytes(profilePath + ".bak");
+        var durableCheckpoint = File.ReadAllBytes(checkpointPath);
+        var map = totals.Maps["duckov:map:Level_GroundZero_1"];
+        var validEquipment = map.EquipmentStatistics;
+        map.EquipmentStatistics = EquipmentStatisticsReducer.Clone(validEquipment);
+        map.EquipmentStatistics.Items.Values.First().ActiveDurationSeconds -= 0.000000000000001m;
+        var failure = Assert.Throws<InvalidOperationException>(() => reopened.SaveSnapshot(reopened.CapturePersistenceSnapshot()));
+        Assert.Contains("Nested-slot observation exceeds parent equipped duration", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(durableProfile, File.ReadAllBytes(profilePath));
+        Assert.Equal(durableBackup, File.ReadAllBytes(profilePath + ".bak"));
+        Assert.Equal(durableCheckpoint, File.ReadAllBytes(checkpointPath));
+        map.EquipmentStatistics = validEquipment;
+        reopened.CloseClean();
+    }
+
+    private static RunLifecycleTracker Start(string map, bool pairingSupported = true, string runId = "run-m14")
+    {
+        var tracker = new RunLifecycleTracker(() => runId);
         tracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, 0));
         var weapon = WeaponNativeContractPolicy.CreateMetricCapabilities();
         if (!pairingSupported) weapon.WeaponAmmunitionPairing = Unavailable("pre-M14");

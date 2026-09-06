@@ -1,9 +1,20 @@
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeRunCompletionBoundary
 {
+    private readonly PersistenceRetryBackoff retry;
+    private readonly MonotonicCadenceGate diagnosticCadence = new(60);
+    private readonly Func<double> clock;
+
+    public NativeRunCompletionBoundary(Func<double>? clock = null)
+    {
+        this.clock = clock ?? (() => (double)System.Diagnostics.Stopwatch.GetTimestamp() / System.Diagnostics.Stopwatch.Frequency);
+        retry = new PersistenceRetryBackoff(this.clock);
+    }
+
     private RunSummary? pendingSummary;
     private string? pendingReason;
     private bool pendingDetailedDiagnostic;
@@ -17,6 +28,8 @@ internal sealed class NativeRunCompletionBoundary
         if (summary == null) throw new ArgumentNullException(nameof(summary));
         if (pendingSummary != null)
             throw new InvalidOperationException("A pending completed run must be persisted before accepting another summary.");
+        retry.Reset();
+        diagnosticCadence.Reset();
         pendingSummary = summary;
         pendingReason = reason;
         pendingDetailedDiagnostic = detailedDiagnostic;
@@ -28,11 +41,24 @@ internal sealed class NativeRunCompletionBoundary
         if (diagnosticHandler == null) throw new ArgumentNullException(nameof(diagnosticHandler));
         if (pendingSummary == null) return true;
 
+        if (!retry.IsDue) return false;
         var summary = pendingSummary;
-        if (!completionHandler(summary))
+        Exception? failure = null;
+        bool persisted;
+        try { persisted = completionHandler(summary); }
+        catch (Exception exception) { failure = exception; persisted = false; }
+        if (!persisted)
         {
-            diagnosticHandler(
-                $"Completed run persistence remains pending id={summary.RunId} outcome={summary.Outcome}; retry retained.");
+            retry.Failed();
+            var now = clock();
+            if (diagnosticCadence.IsDue(now))
+            {
+                diagnosticCadence.MarkCompleted(now);
+                diagnosticHandler(
+                    $"Completed run persistence remains pending id={summary.RunId} outcome={summary.Outcome}; "
+                    + $"retry retained with backoff up to 60s (next delay {retry.DelaySeconds:0}s)."
+                    + (failure == null ? string.Empty : $" {failure}"));
+            }
             return false;
         }
 
@@ -41,6 +67,7 @@ internal sealed class NativeRunCompletionBoundary
               + $"active={summary.ActiveDurationSeconds:0.###}s physical={summary.PhysicalDistance:0.###}m "
               + $"teleport={summary.TeleportDistance:0.###}m."
             : $"Run finalized id={summary.RunId} outcome={summary.Outcome} reason={pendingReason ?? "terminal boundary"}.");
+        retry.Reset();
         pendingSummary = null;
         pendingReason = null;
         pendingDetailedDiagnostic = false;

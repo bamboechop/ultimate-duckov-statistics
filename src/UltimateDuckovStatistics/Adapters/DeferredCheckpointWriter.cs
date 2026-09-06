@@ -1,3 +1,5 @@
+using UltimateDuckovStatistics.Core.Tracking;
+
 namespace UltimateDuckovStatistics.Adapters;
 
 internal enum DeferredWriteState
@@ -87,9 +89,12 @@ internal sealed class DeferredSnapshotWriter<T>
     private readonly Func<T> capture;
     private readonly DeferredCheckpointWriter<T> writer;
     private bool dirty;
+    private readonly PersistenceRetryBackoff retry;
+    private DeferredWriteResult? lastFailure;
 
-    public DeferredSnapshotWriter(Func<T> capture, Action<T> write)
+    public DeferredSnapshotWriter(Func<T> capture, Action<T> write, Func<double>? clock = null)
     {
+        retry = new PersistenceRetryBackoff(clock);
         this.capture = capture ?? throw new ArgumentNullException(nameof(capture));
         writer = new DeferredCheckpointWriter<T>(write);
     }
@@ -111,10 +116,12 @@ internal sealed class DeferredSnapshotWriter<T>
 
         if (observed.State == DeferredWriteState.Failed)
         {
-            dirty = true;
+            RememberFailure(observed);
             return observed;
         }
 
+        if (observed.State == DeferredWriteState.Succeeded) ClearFailure();
+        if (!retry.IsDue) return lastFailure ?? observed;
         if (!dirty || !allowSubmit)
         {
             return observed;
@@ -125,6 +132,9 @@ internal sealed class DeferredSnapshotWriter<T>
 
     public DeferredWriteResult Flush()
     {
+        // Explicit flushes share the same budget as frame-driven submissions.
+        // A delayed failure remains failure, never a successful durability barrier.
+        if (!retry.IsDue) return lastFailure ?? DeferredWriteResult.Pending;
         Exception? firstFailure = null;
         var retryUsed = false;
         while (true)
@@ -136,13 +146,15 @@ internal sealed class DeferredSnapshotWriter<T>
                 firstFailure ??= observed.Exception;
                 if (retryUsed)
                 {
-                    return DeferredWriteResult.Failed(
+                    var failed = DeferredWriteResult.Failed(
                         firstFailure == null
                             ? observed.Exception ?? new IOException("Deferred snapshot persistence failed.")
                             : new AggregateException(
                                 "Deferred snapshot persistence failed and its bounded retry also failed.",
                                 firstFailure,
                                 observed.Exception ?? new IOException("Deferred snapshot retry failed.")));
+                    RememberFailure(failed);
+                    return failed;
                 }
 
                 retryUsed = true;
@@ -150,6 +162,7 @@ internal sealed class DeferredSnapshotWriter<T>
 
             if (!dirty)
             {
+                ClearFailure();
                 return observed;
             }
 
@@ -159,6 +172,19 @@ internal sealed class DeferredSnapshotWriter<T>
                 return submitted;
             }
         }
+    }
+
+    private void RememberFailure(DeferredWriteResult failure)
+    {
+        dirty = true;
+        lastFailure = failure;
+        retry.Failed();
+    }
+
+    private void ClearFailure()
+    {
+        lastFailure = null;
+        retry.Reset();
     }
 
     private DeferredWriteResult TryCaptureAndSubmit()
@@ -176,8 +202,9 @@ internal sealed class DeferredSnapshotWriter<T>
         }
         catch (Exception exception)
         {
-            dirty = true;
-            return DeferredWriteResult.Failed(exception);
+            var failed = DeferredWriteResult.Failed(exception);
+            RememberFailure(failed);
+            return failed;
         }
     }
 }

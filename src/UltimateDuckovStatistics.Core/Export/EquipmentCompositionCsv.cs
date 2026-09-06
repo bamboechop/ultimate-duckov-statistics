@@ -69,7 +69,7 @@ public static class EquipmentCompositionCsv
             }
             void Row(string kind, string id, string proof, string slotId = "", string path = "", string slotKey = "", string slotName = "",
                 string state = "", string itemId = "", string itemName = "", string itemKind = "", bool? roots = null, bool? nested = null,
-                string carry = "", string container = "", string activation = "", int? copy = null, double? duration = null, long? runs = null)
+                string carry = "", string container = "", string activation = "", int? copy = null, decimal? duration = null, long? runs = null)
             {
                 output.AppendLine(string.Join(",", new object?[] { document.GenerationId, scope.Kind, scope.Id, scope.Run, kind, id, proof,
                     slotId, path, slotKey, slotName, state, itemId, itemName, itemKind, roots, nested, carry, container, activation, copy, duration, runs }.Select(Csv)));

@@ -225,8 +225,8 @@ public sealed class RetainedEquipmentTests
     [Fact] public void SelectedDurationOverflowIsRejectedRatherThanInvented()
     {
         var p = Profile(); var a = p.Statistics.RunTotals.EquipmentStatistics;
-        a.SelectedWeapons.Add("a|w", new EquipmentDurationAggregate { Id = "a|w", ActiveDurationSeconds = double.MaxValue });
-        a.SelectedWeapons.Add("b|w", new EquipmentDurationAggregate { Id = "b|w", ActiveDurationSeconds = double.MaxValue });
+        a.SelectedWeapons.Add("a|w", new EquipmentDurationAggregate { Id = "a|w", ActiveDurationSeconds = decimal.MaxValue });
+        a.SelectedWeapons.Add("b|w", new EquipmentDurationAggregate { Id = "b|w", ActiveDurationSeconds = decimal.MaxValue });
         Assert.Throws<OverflowException>(() => Present(p));
     }
     [Fact] public void NativeTotemSlotLabelsUseProvenStableKeysAndRetainExactAttribution()
@@ -278,7 +278,7 @@ public sealed class RetainedEquipmentTests
     {
         var p = Profile(); var a = p.Statistics.RunTotals.EquipmentStatistics;
         a.Composition.HistoricalUnavailable = true;
-        a.Loadouts.Add("old", new EquipmentDurationAggregate { Id = "old", ActiveDurationSeconds = 763.815, RunOccurrences = 3 });
+        a.Loadouts.Add("old", new EquipmentDurationAggregate { Id = "old", ActiveDurationSeconds = 763.815m, RunOccurrences = 3 });
         var doc = Document(Present(p), EquipmentPanelSection.Loadouts);
         var footer = Assert.Single(doc.Rows, r => r.Kind == EquipmentRowKind.Footer);
         Assert.Equal("12:43.815 active time", footer.Name); Assert.Equal("Used in 3 runs", footer.Value);

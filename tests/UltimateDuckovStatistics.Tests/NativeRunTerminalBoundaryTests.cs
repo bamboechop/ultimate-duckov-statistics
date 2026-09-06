@@ -150,7 +150,8 @@ public sealed class NativeRunTerminalBoundaryTests
         };
         var attempts = 0;
         var diagnostics = new List<string>();
-        var boundary = new NativeRunCompletionBoundary();
+        var now = 0d;
+        var boundary = new NativeRunCompletionBoundary(() => now);
         boundary.Begin(summary, "extraction", detailedDiagnostic: false);
 
         Assert.False(boundary.Retry(
@@ -165,6 +166,7 @@ public sealed class NativeRunTerminalBoundaryTests
         Assert.True(boundary.HasPendingCompletion);
         Assert.Same(summary, boundary.PendingSummary);
 
+        now = 1;
         Assert.True(boundary.Retry(
             observed =>
             {

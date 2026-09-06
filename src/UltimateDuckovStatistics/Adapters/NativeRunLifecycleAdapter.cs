@@ -50,7 +50,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly DeathObservationGate deathObservationGate = new();
     private readonly NativeRunTerminalBoundary terminalBoundary = new();
-    private readonly NativeRunCompletionBoundary completionBoundary = new();
+    private readonly NativeRunCompletionBoundary completionBoundary;
     private readonly List<CapabilityRecord> capabilities = new();
     private CharacterMainControl? mainCharacter;
     private bool paused;
@@ -84,6 +84,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         Func<DeferredWriteState>? checkpointCompletionFlusher = null,
         Func<double>? monotonicSecondsProvider = null)
     {
+        completionBoundary = new NativeRunCompletionBoundary(monotonicSecondsProvider);
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.checkpointHandler = checkpointHandler ?? throw new ArgumentNullException(nameof(checkpointHandler));
@@ -338,7 +339,6 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         callbackLifetime.BeginDisposal();
         if (completionBoundary.HasPendingCompletion && !RetryPendingCompletion())
         {
-            diagnosticHandler("Run-lifecycle cleanup remains pending until the completed run is durable.");
             return false;
         }
         if (tracker.IsActive)
@@ -352,7 +352,6 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             }
             if (completionBoundary.HasPendingCompletion)
             {
-                diagnosticHandler("Run-lifecycle cleanup remains pending until the completed run is durable.");
                 return false;
             }
         }

@@ -137,7 +137,8 @@ namespace UnityEngine
     {
         public static void Log(object message) { }
         public static void LogWarning(object message) { }
-        public static void LogException(Exception exception) { }
+        public static Action<Exception>? ExceptionLogged { get; set; }
+        public static void LogException(Exception exception) => ExceptionLogged?.Invoke(exception);
     }
 
     public readonly struct Vector3
