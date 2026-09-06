@@ -317,8 +317,11 @@ internal sealed class EquipmentDocument
                     Section("ui.equipment_sets", "sets");
                     foreach (var set in p.ActiveSets)
                     {
+                        var start = y;
                         foreach (var member in set.Groups.SelectMany(g => g.Rows)) y += Entry(member, x, y, w, value: false);
                         y += Notice(set.Notice, x, y, w); y += Notice(EquipmentLayoutPolicy.Duration(set.Duration) + " " + set.Caption, x, y, w);
+                        Surfaces.Add(new EquipmentSurface(x, start, w, y - start));
+                        y += 10;
                     }
                     if (p.ActiveSets.Count == 0) Empty();
                     Section("ui.equipment_tote", "tote"); y += Notice(text("ui.equipment_tote_unknown"), x, y, w);

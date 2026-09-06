@@ -73,6 +73,40 @@ public sealed class EquipmentEvidenceLayoutTests
     }
 
     [Theory]
+    [InlineData(900)]
+    [InlineData(400)]
+    public void EachTotemSetSurfaceEnclosesItsMembersAndSummaryWithSeparateGaps(float width)
+    {
+        var sets = new List<EquipmentEntry>();
+        foreach (var count in new[] { 2, 1, 0 })
+        {
+            var members = Enumerable.Range(0, count).Select(i => new EquipmentEntry("member:" + count + ":" + i,
+                new string('T', 40), "totem:" + i, 0));
+            sets.Add(new EquipmentEntry("set:" + count, "", "", count + 10, "active together · Used in 2 runs",
+                count == 1 ? "No other active totem" : "", groups: new List<EquipmentGroup> { new("", members) }));
+        }
+        var presentation = new EquipmentPresentation("g", null, Array.Empty<EquipmentEntry>(), Array.Empty<EquipmentEntry>(),
+            Array.Empty<EquipmentEntry>(), Array.Empty<EquipmentGroup>(), Array.Empty<EquipmentEntry>(), Array.Empty<EquipmentEntry>(),
+            sets, Array.Empty<EquipmentEntry>(), new Dictionary<string, string> { ["sets"] = "", ["tote"] = "" });
+        var selection = new EquipmentSelection(); selection.Refresh(presentation); selection.SelectPage(EquipmentPanelSection.Totems);
+        var doc = new EquipmentDocument(Measure); doc.Page(selection, true, width);
+        Assert.Equal(sets.Count, doc.Surfaces.Count);
+        for (var i = 0; i < sets.Count; i++)
+        {
+            var surface = doc.Surfaces[i];
+            var rows = doc.Rows.Where(r => r.Y >= surface.Y && r.Y < surface.Y + surface.Height).ToArray();
+            Assert.Equal(2 - i, rows.Count(r => r.Kind == EquipmentRowKind.Item));
+            Assert.Single(rows, r => r.Name == EquipmentLayoutPolicy.Duration(sets[i].Duration) + " " + sets[i].Caption);
+            Assert.All(rows, r => { Assert.True(r.Y + r.Height <= surface.Y + surface.Height); Assert.False(r.Actionable); });
+            Assert.Equal(30, surface.X); Assert.Equal(width - 60, surface.Width);
+            var next = doc.Rows.First(r => r.Y >= surface.Y + surface.Height);
+            Assert.True(next.Y >= surface.Y + surface.Height + 10);
+        }
+        var toteHeading = Assert.Single(doc.Rows, r => r.Name == UiText.Get("ui.equipment_tote"));
+        Assert.True(toteHeading.Y >= doc.Surfaces[^1].Y + doc.Surfaces[^1].Height + 10);
+    }
+
+    [Theory]
     [InlineData(true, false)]
     [InlineData(false, false)]
     [InlineData(true, true)]
