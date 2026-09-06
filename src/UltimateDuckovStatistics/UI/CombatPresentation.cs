@@ -239,7 +239,7 @@ internal static class CombatPresentationFactory
                 if (throwable)
                 {
                     actions = throwableItem == null ? Unavailable() : Metric(throwableItem.Totals.ActivationCount,
-                        throwableCapability, true, t);
+                        throwableCapability, false, t);
                     metrics.Add(M("ui.combat_throwable_uses", actions));
                 }
                 if (rangedWeapon)
@@ -284,7 +284,7 @@ internal static class CombatPresentationFactory
                     wc.WeaponAmmunitionPairing.State != AdapterCapabilityState.Supported ? Join(t("ui.unavailable"), wc.WeaponAmmunitionPairing.Provenance) : "",
                     ammo.Length == 0 ? t("ui.combat_no_pairs") : "");
                 if (!rangedWeapon) notice = t(meleeWeapon ? "ui.combat_melee_no_ammo" : "ui.combat_weapon_type_unavailable");
-                if (throwable) notice = Join(rangedWeapon ? notice : t("ui.combat_throwable_no_ammo"), t("ui.combat_throwable_coverage"));
+                if (throwable && !rangedWeapon) notice = t("ui.combat_throwable_no_ammo");
                 if (throwable && throwableCapability != AdapterCapabilityState.Supported)
                     notice = Join(notice, t("ui.combat_throwable_tracking_unavailable"));
                 if (!exact || stats == null) notice = Join(t("ui.combat_weapon_attribution_unavailable"), notice);

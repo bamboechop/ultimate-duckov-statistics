@@ -61,18 +61,19 @@ public sealed class CombatWeaponDetailsTests
     }
 
     [Fact]
-    public void ThrowableUseJoinsOnlyTheSameNativeIdAndKeepsRecordedCoverageVisible()
+    public void ThrowableUseJoinsOnlyTheSameNativeIdAndShowsPlainSupportedCount()
     {
         var p = Projection(); Throwable(p);
         p.Combat.Lifetime.Weapons["duckov:weapon:67"] = new CombatBreakdownAggregate { Id = "duckov:weapon:67", DisplayName = "Grenade",
             Totals = new() { DamageDealt = 77.86, KillsByYou = 1 } };
         var weapon = Assert.Single(Present(p).Weapons);
         Assert.Equal(new[] { "Throws / uses", "Kills by you", "Damage dealt" }, weapon.Metrics.Select(m => m.Label));
-        Assert.StartsWith("3", Value(weapon, "Throws / uses").Text, StringComparison.Ordinal);
-        Assert.Equal(CombatEvidence.Partial, Value(weapon, "Throws / uses").Evidence);
+        Assert.Equal("3", Value(weapon, "Throws / uses").Text);
+        Assert.Equal("3", weapon.Row.Actions.Text);
+        Assert.Equal(CombatEvidence.Supported, Value(weapon, "Throws / uses").Evidence);
         Assert.Equal("77.86", Value(weapon, "Damage dealt").Text); Assert.Equal("1", Value(weapon, "Kills by you").Text);
         Assert.Empty(weapon.Ammunition); Assert.False(weapon.HasRangedEvidence);
-        Assert.Contains("Not applicable to throwables", weapon.Notice, StringComparison.Ordinal);
+        Assert.Equal("Ammunition: Not applicable to throwables", weapon.Notice);
     }
     [Fact]
     public void ThrowThatHitsNothingStillEntersCombatWithoutInventingCombatEvidence()
