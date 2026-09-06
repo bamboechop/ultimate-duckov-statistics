@@ -215,7 +215,7 @@ internal sealed class CombatDocument
         if (incoming) y += Cards(p.IncomingCards, 30, y, w, stacked);
         y += Notice(notice, 30, y, w);
         var headers = incoming ? new[] { text("ui.combat_attacker"), text("ui.combat_damage_to_you") + " ↓", text("ui.combat_share"), text("ui.combat_deaths_caused") }
-            : new[] { text("ui.combat_enemy"), text("ui.damage_dealt"), text("ui.kills_by_you") + " ↓", text("ui.combat_world_deaths") };
+            : new[] { text("ui.combat_enemy"), text("ui.overview_damage_dealt"), text("ui.kills_by_you") + " ↓", text("ui.combat_world_deaths") };
         y += Add(new CombatRenderRow { Kind = CombatRowKind.Table, Cells = headers }, 30, y, w) + 10;
         foreach (var r in incoming ? new[] { p.IncomingTotal }.Concat(rows) : rows)
         {

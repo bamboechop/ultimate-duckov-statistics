@@ -123,11 +123,11 @@ internal static class CombatPresentationFactory
         var received = V(n.DamageReceived, cap.DamageReceived);
         var deaths = C(n.PlayerDeaths, cap.PlayerDeaths);
         var overall = new[] { M("ui.overview_damage_dealt", damage), M("ui.overview_damage_taken", received),
-            M("ui.kills_by_you", C(n.KillsByYou, cap.KillsByYou)), M("ui.deaths", deaths) };
+            M("ui.kills_by_you", C(n.KillsByYou, cap.KillsByYou)), M("ui.overview_deaths", deaths) };
         var ranged = new[] { M("ui.firing_actions", WV(w.Lifetime.Totals.FiringActions, wc.FiringActions)),
             M("ui.combat_hits", C(n.RangedHits, cap.RangedHits)), M("ui.combat_kills", C(kills.Ranged, cap.KillsByYou, !kills.ClassificationComplete)),
             M("ui.accuracy", c.Accuracy.HasValue && !a.WasRepairedFromInvalidState ? Percent(c.Accuracy.Value * 100, t) : Unavailable()),
-            M("ui.headshots", C(n.Headshots, cap.Headshots)), M("ui.combat_headshot_final_blows", C(n.HeadshotFinalBlows, cap.HeadshotFinalBlows)) };
+            M("ui.runs_headshots", C(n.Headshots, cap.Headshots)), M("ui.combat_headshot_final_blows", C(n.HeadshotFinalBlows, cap.HeadshotFinalBlows)) };
         var melee = new[] { M("ui.combat_swings", C(n.MeleeSwings, cap.MeleeSwings)), M("ui.combat_hits", C(n.MeleeHits, cap.MeleeHits)),
             M("ui.combat_kills", C(kills.Melee, cap.KillsByYou, !kills.ClassificationComplete)) };
         var other = new List<CombatMetric>();
@@ -204,7 +204,7 @@ internal static class CombatPresentationFactory
             new[] { Scoped(r.Totals.DamageReceived, cap.DamageReceived), identities ? Share(r.Totals.DamageReceived) : Unavailable(), ScopedCount(r.Totals.PlayerDeaths, cap.PlayerDeaths) })).ToArray();
         return new CombatPresentation(generation, overall, ranged, melee, other, killNotice, world, ownership, ownershipNotice,
             enemyRows, Join(enemyNotice, ownershipNotice), weaponRows, weaponNotice,
-            new[] { M("ui.overview_damage_taken", received), M("ui.deaths", deaths), M("ui.combat_attacker_types", attackerCount), M("ui.combat_deadliest", deadliest) },
+            new[] { M("ui.overview_damage_taken", received), M("ui.overview_deaths", deaths), M("ui.combat_attacker_types", attackerCount), M("ui.combat_deadliest", deadliest) },
             new CombatTableRow("total", t("ui.combat_total"), new[] { received, Share(n.DamageReceived), deaths }), incoming,
             Notice(incoming.Length, "ui.combat_no_attackers", a.WasRepairedFromInvalidState,
                 new[] { cap.DamageReceived, cap.PlayerDeaths, cap.EnemyIdentity }, t));

@@ -17,6 +17,8 @@ namespace UnityEngine.UI
     public sealed class Graphic
     {
         public bool raycastTarget { get; set; }
+        public bool enabled { get; set; } = true;
+        public float TintAlpha { get; set; } = 1;
     }
     public struct Navigation
     {
@@ -29,10 +31,16 @@ namespace UnityEngine.UI
         public Graphic? targetGraphic { get; set; }
         public bool interactable { get; set; }
         public bool Active { get; set; } = true;
+        private bool isEnabled = true;
+        public bool enabled
+        {
+            get => isEnabled;
+            set { if (isEnabled == value) return; isEnabled = value; if (!value) OnDisable(); }
+        }
         public Transition transition { get; set; }
         public Navigation navigation { get; set; }
         public event Action? Clicked;
-        public bool IsActive() => Active;
+        public bool IsActive() => Active && enabled;
         public bool IsInteractable() => interactable;
         public virtual void OnPointerDown(EventSystems.PointerEventData data) { }
         public virtual void OnPointerClick(EventSystems.PointerEventData data)
@@ -43,7 +51,18 @@ namespace UnityEngine.UI
         {
             if (IsActive() && IsInteractable()) Clicked?.Invoke();
         }
-        protected virtual void OnDisable() { }
+        // Installed UnityEngine.UI.Selectable.InstantClearState uses white on disable,
+        // even when disabledColor is transparent. Model that boundary, not rendering.
+        protected virtual void OnDisable()
+        { if (transition == Transition.ColorTint && targetGraphic != null) targetGraphic.TintAlpha = 1; }
+        protected enum SelectionState { Normal, Selected, Disabled }
+        public bool Selected { get; set; }
+        protected SelectionState currentSelectionState => !interactable ? SelectionState.Disabled : Selected ? SelectionState.Selected : SelectionState.Normal;
+        protected void DoStateTransition(SelectionState state, bool instant)
+        {
+            if (transition == Transition.ColorTint && targetGraphic != null && instant)
+                targetGraphic.TintAlpha = state == SelectionState.Selected ? .13f : 0;
+        }
         public void Disable() { Active = false; OnDisable(); }
     }
 }

@@ -16,7 +16,8 @@ internal sealed partial class RetainedStatisticsShell
         private readonly RectTransform root;
         private readonly ScrollRegion outer;
         private readonly CombatViewport selector, primary, ammunition;
-        private readonly TextMeshProUGUI unavailable, footer, measure;
+        private readonly TextMeshProUGUI unavailable, footer;
+        private readonly CombatNativeTextMeasurement measure;
         private readonly NativeHeaderTitleTypography typography;
         private readonly Material material;
         private readonly NativeItemIconResolver icons = new();
@@ -38,14 +39,14 @@ internal sealed partial class RetainedStatisticsShell
             ammunition = new CombatViewport(this, outer.Content, "Ammunition", "ammo");
             unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable");
             footer = Text(root, "FiringActionContract", 20); footer.text = UiText.Get("ui.combat_firing_footer");
-            measure = Text(root, "Measurement", 28); measure.gameObject.SetActive(false);
+            measure = new CombatNativeTextMeasurement(Text(root, "Measurement", 28));
             outer.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
             outer.Rect.GetComponent<RunsFocusHandler>().Move = d => { if (d == MoveDirection.Up || d == MoveDirection.Left) focusTabs(); else FocusSelector(); };
         }
         private float Measure(string value, float w, float size)
-        { measure.fontSize = size; return measure.GetPreferredValues(value, Math.Max(1, w), float.PositiveInfinity).y; }
+            => measure.Height(value, w, size);
         private float MeasureWidth(string value, float size)
-        { measure.fontSize = size; return measure.GetPreferredValues(value, float.PositiveInfinity, float.PositiveInfinity).x; }
+            => measure.Width(value, size);
         private CombatDocument Document() => new(Measure, MeasureWidth);
         public void Refresh(CombatPresentation? next)
         {
@@ -258,7 +259,7 @@ internal sealed partial class RetainedStatisticsShell
             private void BindControl(Control c, CombatRenderRow r)
             {
                 c.Row = r; c.Button.Binding.Bind(owner.selection.Snapshot!.GenerationId, r.Id);
-                c.Button.interactable = r.Actionable; c.Button.enabled = r.Actionable; c.Background.raycastTarget = r.Actionable;
+                c.Button.BindInteractionOverlay(c.Background, r.Actionable);
                 c.Background.color = r.Selected ? new Color32(255, 158, 44, 255)
                     : r.Kind is CombatRowKind.Heading or CombatRowKind.Notice ? Color.clear : new Color(0, 0, 0, .5f);
                 Place(c.Rect, r.X, r.Y, r.Width, r.Height);
