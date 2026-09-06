@@ -275,7 +275,7 @@ internal sealed partial class RetainedStatisticsShell
                 foreach (var label in c.Text) label.gameObject.SetActive(false);
                 c.Detail.gameObject.SetActive(false); c.Chevron.gameObject.SetActive(false);
                 var isSlot = r.Kind == EquipmentRowKind.Slot;
-                var showIcon = isSlot || r.IconId.Length > 0;
+                var showIcon = r.HasIcon;
                 c.Icon.gameObject.SetActive(showIcon); c.Fallback.gameObject.SetActive(showIcon);
                 c.Tooltip.enabled = isSlot;
                 c.Rect.GetComponent<RunsTooltipFocus>().enabled = isSlot && r.Actionable;
@@ -300,8 +300,8 @@ internal sealed partial class RetainedStatisticsShell
                     var icon = CombatItemIconPolicy.Resolve(r.IconId, owner.icons.ResolveAvailable);
                     c.Icon.sprite = icon; c.Icon.enabled = icon != null;
                     NativeTotemIconAppearance.Apply(c.Icon, r.IconId);
-                    c.Fallback.enabled = icon == null; c.Fallback.text = isSlot && r.Slot?.State == UltimateDuckovStatistics.Core.Domain.EquipmentSlotState.Empty ? "–" : "?";
-                    c.Fallback.color = isSlot && r.Slot?.State == UltimateDuckovStatistics.Core.Domain.EquipmentSlotState.Empty ? Muted : Color.white;
+                    c.Fallback.enabled = icon == null; c.Fallback.text = r.IconFallback;
+                    c.Fallback.color = r.EmptyIcon ? Muted : Color.white;
                     var size = isSlot ? r.Width - 12 : 60; var inset = isSlot ? 6 : r.Expandable ? 40 : 15;
                     Place(c.Icon.rectTransform, inset, isSlot ? 6 : 12, size, size); Place(c.Fallback.rectTransform, inset, isSlot ? 6 : 12, size, size);
                 }
@@ -328,10 +328,10 @@ internal sealed partial class RetainedStatisticsShell
                     return;
                 }
                 var sizeText = r.Kind == EquipmentRowKind.Heading ? 40 : r.Kind is EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? 22 : r.Kind == EquipmentRowKind.Selector ? 32 : 28;
-                float x = 15 + (r.IconId.Length > 0 ? 72 : 0) + (r.Expandable ? 28 : 0);
+                float x = r.TextLeft;
                 var name = c.Text[0]; name.gameObject.SetActive(true); name.text = r.Name; name.fontSize = sizeText;
                 name.color = r.Kind == EquipmentRowKind.Notice ? Muted : Color.white;
-                Place(name.rectTransform, x, r.Kind == EquipmentRowKind.SlotDuration ? 0 : 12, r.NameWidth, r.NameHeight);
+                Place(name.rectTransform, x, r.TextTop, r.NameWidth, r.NameHeight);
                 if (r.Value.Length > 0)
                 {
                     var value = c.Text[1]; value.gameObject.SetActive(true); value.text = r.Value; value.fontSize = r.Kind == EquipmentRowKind.Footer ? 22 : 28;

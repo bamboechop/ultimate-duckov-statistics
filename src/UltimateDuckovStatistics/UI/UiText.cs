@@ -18,7 +18,6 @@ internal static class UiText
             ["ui.equipment_used_runs"] = "Used in {0} runs",
             ["ui.equipment_used_one_run"] = "Used in 1 run",
             ["ui.equipment_current_unavailable"] = "Current tracking is unavailable or limited; recorded values are retained.",
-            ["ui.equipment_history_unavailable"] = "Earlier history is unavailable for this evidence.",
             ["ui.equipment_partial"] = "Partial equipment evidence",
             ["ui.equipment_active_time"] = "active time",
             ["ui.equipment_selected_time"] = "selected time",

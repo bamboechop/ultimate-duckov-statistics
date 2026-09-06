@@ -103,6 +103,8 @@ Capture screenshots/audio/input results and record any unexercised state explici
 
 For Most-used loadout, compare against the complete lifetime collection in profile/export JSON and matching structured definition CSV. `recurring_loadouts.csv` deliberately retains its two-completed-run filter, so a one-run UI winner may be absent there. Check unavailable composition independently of ranking: a winning historical identity must keep its duration/count and unavailable notice, not be replaced by a shorter identity with icons.
 
+Check that Equipment no longer shows the generic earlier-history banner. Specific missing-composition, partial-evidence and current tracking notices remain visible when applicable. In both most-used and recent cards, open a captured weapon with a proven-empty magazine: its muted em dash and text column must match the Runs overlay, while a missing occupied icon remains a question mark. At desktop and narrow sizes, Most-used loadout and Recent run loadouts headings must align to the panel's 30-pixel padding on the top and left, with long localized headings wrapping within the same right padding.
+
 ## Supporting-state matrix
 
 | Accepted reference | Runtime or safe deterministic exercise | Required evidence |

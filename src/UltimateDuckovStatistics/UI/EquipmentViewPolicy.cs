@@ -1,3 +1,5 @@
+using UltimateDuckovStatistics.Core.Domain;
+
 namespace UltimateDuckovStatistics.UI;
 
 internal sealed class EquipmentSelection
@@ -66,6 +68,13 @@ internal sealed class EquipmentRenderRow
     public bool Selected { get; set; }
     public bool Expandable { get; set; }
     public RunSlotPresentation? Slot { get; set; }
+    public EquipmentSlotState? EvidenceState { get; set; }
+    public bool SectionHeading { get; set; }
+    public bool HasIcon => Kind == EquipmentRowKind.Slot || IconId.Length > 0 || EvidenceState.HasValue;
+    public bool EmptyIcon => (Kind == EquipmentRowKind.Slot ? Slot?.State : EvidenceState) == EquipmentSlotState.Empty;
+    public string IconFallback => EmptyIcon ? Kind == EquipmentRowKind.Slot ? "–" : "—" : "?";
+    public float TextLeft => SectionHeading ? 0 : 15 + (HasIcon ? 72 : 0) + (Expandable ? 28 : 0);
+    public float TextTop => SectionHeading || Kind == EquipmentRowKind.SlotDuration ? 0 : 12;
     public float X { get; set; }
     public float Y { get; set; }
     public float Width { get; set; }
@@ -102,19 +111,20 @@ internal sealed class EquipmentDocument
     {
         r.X = x; r.Y = y; r.Width = Math.Max(1, width);
         var size = r.Kind == EquipmentRowKind.Heading ? 40 : r.Kind is EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? 22 : r.Kind == EquipmentRowKind.Selector ? 32 : 28;
-        var inset = r.Kind == EquipmentRowKind.Item ? 30 + (r.IconId.Length > 0 ? 72 : 0) + (r.Expandable ? 28 : 0) : 30;
+        var inset = r.TextLeft + (r.SectionHeading ? 0 : 15);
         var inner = Math.Max(1, width - inset);
         r.NameWidth = r.Value.Length > 0 ? Math.Max(1, inner * .64f - 10) : inner;
         r.NameHeight = measure(r.Name, r.NameWidth, size);
         r.ValueHeight = r.Value.Length == 0 ? 0 : measure(r.Value, Math.Max(1, inner * .36f), 28);
         r.CaptionTop = Math.Max(r.NameHeight, r.ValueHeight) + 16;
-        r.Height = r.Kind == EquipmentRowKind.Slot ? width : Math.Max(r.IconId.Length > 0 ? 80 : r.Kind == EquipmentRowKind.Selector ? 64 : 36,
+        r.Height = r.Kind == EquipmentRowKind.Slot ? width : Math.Max(r.HasIcon ? 80 : r.Kind == EquipmentRowKind.Selector ? 64 : 36,
             r.CaptionTop + (r.Caption.Length == 0 ? 0 : measure(r.Caption, inner, 22) + 6) + 12);
         if (r.Kind == EquipmentRowKind.Route)
             r.Height = Math.Max(RetainedOverviewLatestRunViewRunPolicy.HeightPixels,
                 measure(r.Name, Math.Max(1, width - 2 * RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels),
                     RetainedOverviewLatestRunViewRunPolicy.ReferenceFontSize) + 12);
         if (r.Kind == EquipmentRowKind.SlotDuration) r.Height = r.NameHeight + 4;
+        if (r.SectionHeading) r.Height = r.NameHeight;
         Rows.Add(r); Height = Math.Max(Height, y + r.Height + 30); return r.Height + (r.Kind == EquipmentRowKind.SlotDuration ? 0 : 10);
     }
     public void Seal()
@@ -143,9 +153,9 @@ internal sealed class EquipmentDocument
     }
     private float Notice(string message, float x, float y, float w) => message.Length == 0 ? 0
         : Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Notice, Name = message }, x, y, w);
-    private float Heading(string title, float x, float y, float w) => title.Length == 0 ? 0
-        : Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Heading, Name = title }, x, y, w);
-    private float Entry(EquipmentEntry entry, float x, float y, float w, EquipmentSelection? selection = null, bool value = true, bool compact = false)
+    private float Heading(string title, float x, float y, float w, bool section = false) => title.Length == 0 ? 0
+        : Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Heading, Name = title, SectionHeading = section }, x, y, w);
+    private float Entry(EquipmentEntry entry, float x, float y, float w, EquipmentSelection? selection = null, bool value = true, bool compact = false, EquipmentSlotState? evidenceState = null)
     {
         var start = y; var expanded = selection?.Expanded(entry.Id) == true;
         var weapon = selection?.Page == EquipmentPanelSection.Weapons;
@@ -153,7 +163,7 @@ internal sealed class EquipmentDocument
         var durationBelowName = weapon || directTotem;
         var caption = compact ? "" : durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) + " " + entry.Caption : entry.Caption;
         y += Add(new EquipmentRenderRow { Id = entry.Id, Kind = EquipmentRowKind.Item, Name = entry.Name,
-            IconId = entry.ItemId, Value = value && !durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) : "", Caption = caption,
+            IconId = entry.ItemId, EvidenceState = evidenceState, Value = value && !durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) : "", Caption = caption,
             Actionable = selection != null && entry.Expandable, Expandable = selection != null && entry.Expandable, Selected = expanded }, x, y, w);
         y += Notice(entry.Notice, x, y, w);
         if (expanded)
@@ -233,7 +243,7 @@ internal sealed class EquipmentDocument
         if (inspected != null)
         {
             foreach (var evidence in inspected.Evidence)
-                y += Entry(new EquipmentEntry("", evidence.ItemName, evidence.ItemId, 0, evidence.SlotName), x, y, width, value: false);
+                y += Entry(new EquipmentEntry("", evidence.ItemName, evidence.ItemId, 0, evidence.SlotName), x, y, width, value: false, evidenceState: evidence.State);
             if (!inspected.NestedComplete) y += Notice(text("ui.runs_nested_partial"), x, y, width);
         }
         y += Notice(entry.Notice, x, y, width);
@@ -247,7 +257,7 @@ internal sealed class EquipmentDocument
     {
         this.stacked = stacked;
         var p = selection.Snapshot!; float y = 30; var w = Math.Max(1, width - 60); const float x = 30;
-        void Section(string title, string key) { y += Heading(text(title), x, y, w); y += Notice(p.Notices[key], x, y, w); }
+        void Section(string title, string key) { y += Heading(text(title), x, y, w, section: true); y += Notice(p.Notices[key], x, y, w); }
         void Empty(string key = "ui.equipment_no_observation") { y += Notice(text(key), x, y, w); }
         switch (selection.Page)
         {
@@ -262,7 +272,7 @@ internal sealed class EquipmentDocument
                 }
                 else
                 {
-                    y += Heading(text("ui.equipment_recent"), x, y, w);
+                    y += Heading(text("ui.equipment_recent"), x, y, w, section: true);
                     foreach (var row in p.Recent) y += Loadout(row, x, y, w, selection);
                     if (p.Recent.Count == 0) Empty();
                 }

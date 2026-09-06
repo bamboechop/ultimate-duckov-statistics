@@ -109,24 +109,18 @@ internal static class EquipmentPresentationFactory
         string DirectName(string id, string? name) => id switch {
             "duckov:slot:Totem1" => t("ui.equipment_totem_slot_1"), "duckov:slot:Totem2" => t("ui.equipment_totem_slot_2"), _ => SlotName(name, id) };
         string Used(long count) => string.Format(CultureInfo.CurrentCulture, t("ui.equipment_used_runs"), count);
-        string Notice(MetricAvailability state, bool historical = false) => string.Join("\n", new[] {
-            state.State == AdapterCapabilityState.Supported ? "" : t("ui.equipment_current_unavailable"), historical ? t("ui.equipment_history_unavailable") : ""
-        }.Where(s => s.Length > 0));
+        string Notice(MetricAvailability state) => state.State == AdapterCapabilityState.Supported ? "" : t("ui.equipment_current_unavailable");
         var notices = new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["loadouts"] = Notice(c.EquipmentSlots, a.Composition.HistoricalUnavailable), ["selected"] = Notice(c.SelectedWeapon, a.HistoricalUnavailable),
-            ["weapons"] = Notice(c.CharacterSlotState, a.HistoricalCharacterSlotStateUnavailable),
-            ["armor"] = Notice(c.CharacterSlotState, a.HistoricalCharacterSlotStateUnavailable),
-            ["direct"] = Notice(c.DirectTotems, a.Composition.HistoricalUnavailable),
-            ["empty"] = Notice(c.CharacterSlotState, a.Composition.HistoricalUnavailable),
-            ["sets"] = Notice(c.DirectTotems, a.Composition.HistoricalUnavailable), ["tote"] = Notice(c.ToteContents, a.Composition.HistoricalUnavailable) };
+            ["loadouts"] = Notice(c.EquipmentSlots), ["selected"] = Notice(c.SelectedWeapon),
+            ["weapons"] = Notice(c.CharacterSlotState), ["armor"] = Notice(c.CharacterSlotState),
+            ["direct"] = Notice(c.DirectTotems), ["empty"] = Notice(c.CharacterSlotState),
+            ["sets"] = Notice(c.DirectTotems), ["tote"] = Notice(c.ToteContents) };
         if (a.WasRepairedFromInvalidState)
             foreach (var key in notices.Keys.ToArray()) notices[key] = t("ui.equipment_partial") + "\n" + notices[key];
-        var nestedNotice = Notice(c.NestedSlotState, a.HistoricalNestedSlotStateUnavailable);
+        var nestedNotice = Notice(c.NestedSlotState);
         var highestDuration = a.Loadouts.Values.OrderByDescending(r => r.ActiveDurationSeconds).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
         EquipmentEntry? most = highestDuration == null ? null : Loadout(a, highestDuration, "most", "", "",
             highestDuration.RunOccurrences == 1 ? t("ui.equipment_used_one_run") : Used(highestDuration.RunOccurrences));
-        // A missing definition already carries its specific historical notice on the card.
-        notices["loadouts"] = Notice(c.EquipmentSlots, a.Composition.HistoricalUnavailable && most?.Notice.Length == 0);
         var selected = a.SelectedWeapons.Values.Select(r => (Row: r, Split: r.Id.IndexOf('|'))).Where(r => r.Split > 0)
             .GroupBy(r => r.Row.Id.Substring(r.Split + 1), StringComparer.Ordinal).Select(g =>
             {

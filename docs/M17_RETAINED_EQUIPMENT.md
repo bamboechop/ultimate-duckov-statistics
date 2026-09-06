@@ -22,6 +22,8 @@ Loadout grids use the Runs renderer's ordinal known-slot order followed by addit
 
 ## Layout, input and lifetime
 
+Equipment omits the generic earlier-history banner. Specific missing composition, incomplete nested evidence and current tracking limitations remain qualified. Captured empty attachment details use the Runs overlay's muted em dash in the same icon column as occupied items. Section headings, including Most-used loadout and Recent run loadouts, start at the panel's 30-pixel padding without an additional row inset; headings inside run cards retain their card padding.
+
 The shared native TMP font/material and header remain unchanged. Equipment content starts 40 reference pixels below the header and finishes 30 above the edge. Desktop selector/content widths have a 1:2 relation and a 40-pixel gap. Panels use translucent 50% black, 20-pixel outer corners, 30-pixel padding, 10-pixel internal gaps and rounded cards; selection is `#ff9e2c`. No runtime blur, framebuffer capture or copied screenshot is used.
 
 Each page owns its layout. Loadouts and Totems have independent left/right documents. Armor groups split in reading order. Weapons use one accordion document and two nested-detail columns when wide enough. Below 1180 viewport pixels the selector comes first, then the full left document, then the right. Nested detail also stacks left first. Native measurement determines text heights, value room and the View run button width. Long names reflow without production visual validators.
