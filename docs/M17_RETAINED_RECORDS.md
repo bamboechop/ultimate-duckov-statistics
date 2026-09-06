@@ -29,6 +29,8 @@ Each card retains both extraction record values and the applicable death record 
 
 ## Retained controls and layout
 
+The shared scroll configuration explicitly clamps movement to the document bounds, while keeping native sensitivity, inertia and deceleration. Wheel, drag and inertial scrolling must not expose space beyond the first or last content edge.
+
 `RecordsView` reuses the Overview View run factory, native `ButtonAnimation`, keyboard/controller feedback forwarding and the shell's exact generation/Run-ID route into Runs. The Runs route resets detail positions and reveals/selects the requested history row. Unresolvable targets have a muted explanation and no actionable button.
 
 The formerly Runs-private `ScrollRegion` now belongs to the shared shell and remains the same implementation for both tabs. Records copies `RunsNativeScrollConfiguration`, uses `RunsScrollRect`, `OverflowCuePolicy`, `RunsOverflowEdge` and focus reveal. Its one rounded, clipped viewport shows no cue when fitting, bottom only at the top, both in the middle, and top only at the real bottom. TMP fallback submeshes are included in stencil clipping. Native wheel/drag inertia comes from the installed prefab configuration; no separate wheel animation is claimed.

@@ -80,6 +80,8 @@ Deployment, Duckov launch/control, saves, real-profile reset and export remain s
 
 For Combat → Weapons & ammunition, verify a ranged weapon's expanded Firing actions, Hits, Headshots, Headshot final blows, Kills by you and Damage dealt against the exact weapon ID in recorded combat/firing data. Verify a melee-only weapon appears with Swings, Hits, Kills by you and Damage dealt; its headshots are omitted and ammunition is Not applicable. Check that changing selection moves the expanded metrics and preserves the selected weapon's ammunition breakdown. Same display names must not merge distinct IDs, and unknown attribution must not appear under a named weapon. Use deterministic tests for unavailable capabilities, partial historical attribution and missing exact rows when those states are absent from legitimate history. Verify long labels at desktop/narrow widths and that Equipment → Weapons still contains only equipment evidence.
 
+For Combat and Records, wheel/drag/inertial scrolling must stop at the top and bottom content bounds. On desktop Combat, reaching an inner column's edge must not move the selector or the whole page; on narrow screens the stacked outer page must remain scrollable within its bounds. Verify that incoming/NPC-only weapon records are absent from Weapons & ammunition while genuine player firing, melee, damage-only and unknown-attribution evidence remains correctly represented.
+
 ## Complete retained Equipment qualification
 
 Use [M17_RETAINED_EQUIPMENT.md](M17_RETAINED_EQUIPMENT.md) and [M17_EQUIPMENT_DATA_FOUNDATION.md](M17_EQUIPMENT_DATA_FOUNDATION.md) for the exact data sources and baseline slot proof. Record results against one candidate; do not manufacture states by editing a Duckov save or a live UDS profile.

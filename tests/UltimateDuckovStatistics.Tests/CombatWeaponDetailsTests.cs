@@ -193,4 +193,46 @@ public sealed class CombatWeaponDetailsTests
         gun.RangedHits = 99;
         Assert.Equal("5", Value(result.Weapons[0], "Hits").Text);
     }
+
+    [Fact]
+    public void NpcAndIncomingOnlyWeaponRowsDoNotEnterPlayerWeaponList()
+    {
+        var p = Projection();
+        foreach (var id in new[] { "duckov:weapon:258", "duckov:weapon:356", "duckov:weapon:305", "duckov:weapon:unknown" })
+            p.Combat.Lifetime.Weapons[id] = new CombatBreakdownAggregate { Id = id, DisplayName = "Attacker weapon",
+                Totals = new CombatMetricTotals { DamageCaused = 205, DamageReceived = 121, PlayerDeaths = 2, ObservedWorldDeaths = 3,
+                    LegacyUnclassifiedDeaths = 1, PlayerKills = new PlayerKillPartition { HistoricalIncomplete = true } } };
+        Assert.Empty(Present(p).Weapons);
+        Combat(p, "player:axe", melee: true);
+        Assert.Equal("player:axe", Assert.Single(Present(p).Weapons).Row.Id);
+        Fire(p, "duckov:weapon:258");
+        Assert.Equal(2, Present(p).Weapons.Count); // Accepted player firing is independently sufficient.
+        Assert.Equal(4, p.Combat.Lifetime.Weapons.Count(row => row.Key.StartsWith("duckov:", StringComparison.Ordinal)));
+    }
+
+    [Theory]
+    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)]
+    [InlineData(4)] [InlineData(5)] [InlineData(6)] [InlineData(7)]
+    public void EachRecordedPlayerCounterCanIncludeACombatOnlyWeapon(int counter)
+    {
+        var p = Projection(); var totals = new CombatMetricTotals();
+        switch (counter)
+        {
+            case 0: totals.DamageDealt = 3; break;
+            case 1: totals.KillsByYou = 1; break;
+            case 2: totals.CompletedPlayerProjectiles = 1; break;
+            case 3: totals.RangedHits = 1; break;
+            case 4: totals.MeleeSwings = 1; break;
+            case 5: totals.MeleeHits = 1; break;
+            case 6: totals.Headshots = 1; break;
+            case 7: totals.HeadshotFinalBlows = 1; break;
+        }
+        p.Combat.Lifetime.Weapons["w"] = new CombatBreakdownAggregate { Id = "w", DisplayName = "Weapon", Totals = totals };
+        var result = Present(p); var weapon = Assert.Single(result.Weapons);
+        if (counter < 2)
+        {
+            Assert.Equal(counter == 0 ? "Damage dealt" : "Kills by you", weapon.ActionLabel);
+            Assert.Equal(counter == 0 ? "3" : "1", weapon.Row.Actions.Text);
+        }
+    }
 }

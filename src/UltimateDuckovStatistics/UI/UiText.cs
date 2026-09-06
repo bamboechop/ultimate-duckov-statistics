@@ -57,7 +57,6 @@ internal static class UiText
             ["ui.combat_partial"] = "Partial",
             ["ui.combat_ranged_hits"] = "Ranged hits",
             ["ui.combat_melee_hits"] = "Melee hits",
-            ["ui.combat_actions"] = "Actions",
             ["ui.combat_weapon_details"] = "Weapon details",
             ["ui.combat_melee_no_ammo"] = "Ammunition: Not applicable to melee",
             ["ui.combat_weapon_type_unavailable"] = "Weapon combat type: Unavailable",

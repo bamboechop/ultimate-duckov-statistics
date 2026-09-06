@@ -301,7 +301,7 @@ internal sealed class CombatDocument
                 Selected = !ammunition && item.Id == selection.WeaponId,
                 Cells = new[] { item.Name,
                     ammunition ? item.Actions.Text + " " + text("ui.overview_firing_actions_unit")
-                        : weaponLabels[item.Id] + ": " + item.Actions.Text,
+                        : weaponLabels[item.Id].Length == 0 ? "" : weaponLabels[item.Id] + ": " + item.Actions.Text,
                     item.PercentageBasis.Length == 0 ? "" : item.Percentage.Text + " " + item.PercentageBasis }
             }, 30, y, w) + 10;
             if (!ammunition && item.Id == selection.WeaponId) y += Metrics(selection.Weapon!.Metrics, 30, y, w);

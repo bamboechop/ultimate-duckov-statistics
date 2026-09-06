@@ -197,7 +197,8 @@ internal static class CombatPresentationFactory
             sources.Add((group, combat, ExactWeaponId(group.WeaponId) ? group.WeaponId : "unattributed-firing:" + group.WeaponId));
         }
         foreach (var pair in a.Weapons)
-            if (!ExactWeaponId(pair.Key) || pair.Key != pair.Value.Id || !firingIds.Contains(pair.Key))
+            if (HasPlayerWeaponEvidence(pair.Value.Totals)
+                && (!ExactWeaponId(pair.Key) || pair.Key != pair.Value.Id || !firingIds.Contains(pair.Key)))
                 sources.Add((null, pair.Value, ExactWeaponId(pair.Key) && pair.Key == pair.Value.Id
                     ? pair.Key : "unattributed-combat:" + pair.Key));
         var unattributed = a.Weapons.Where(pair => !ExactWeaponId(pair.Key) || pair.Key != pair.Value.Id).Select(pair => pair.Value.Totals).ToArray();
@@ -235,6 +236,13 @@ internal static class CombatPresentationFactory
                     a.HistoricalOwnershipUnavailable || stats?.PlayerKills.HistoricalIncomplete == true || stats?.LegacyUnclassifiedDeaths > 0)));
                 metrics.Add(M("ui.overview_damage_dealt", stats == null ? Unavailable() : Metric(stats.DamageDealt,
                     Both(cap.DamageDealt.State, cap.WeaponIdentity.State), a.WasRepairedFromInvalidState || unattributed.Any(row => row.DamageDealt > 0), t)));
+                var actionLabel = rangedWeapon ? t("ui.firing_actions") : meleeWeapon ? t("ui.combat_swings") : "";
+                if (!rangedWeapon && !meleeWeapon && stats != null)
+                {
+                    // Player-attributed damage/kills need not establish the weapon's attack type.
+                    var summary = stats.DamageDealt > 0 ? metrics[metrics.Count - 1] : metrics[metrics.Count - 2];
+                    actions = summary.Value; actionLabel = summary.Label;
+                }
                 var complete = !g.HistoricalPairingUnavailable && g.UncorrelatedFiringActions == 0 && g.CorrelatedFiringActions == g.TotalFiringActions;
                 var basis = t(complete ? "ui.combat_weapon_basis" : "ui.combat_pair_basis");
                 var row = new CombatItemRow(source.Id, exact ? Name(g.DisplayName, source.Id, t) : t("ui.combat_unknown"), actions,
@@ -255,7 +263,7 @@ internal static class CombatPresentationFactory
                     ammo.Length == 0 ? t("ui.combat_no_pairs") : "");
                 if (!rangedWeapon) notice = t(meleeWeapon ? "ui.combat_melee_no_ammo" : "ui.combat_weapon_type_unavailable");
                 if (!exact || stats == null) notice = Join(t("ui.combat_weapon_attribution_unavailable"), notice);
-                return new CombatWeapon(row, ammo, notice, metrics, t(rangedWeapon ? "ui.firing_actions" : meleeWeapon ? "ui.combat_swings" : "ui.combat_actions"), rangedWeapon);
+                return new CombatWeapon(row, ammo, notice, metrics, actionLabel, rangedWeapon);
             }).ToArray();
         var weaponNotice = Notice(weaponRows.Length, "ui.no_combat", w.Lifetime.WasRepairedFromInvalidState || a.WasRepairedFromInvalidState,
             p.WeaponAmmunitionGroups.Count > 0 ? new[] { wc.FiringActions, wc.WeaponIdentity } : new[] { cap.WeaponIdentity }, t);
@@ -288,6 +296,10 @@ internal static class CombatPresentationFactory
             Notice(incoming.Length, "ui.combat_no_attackers", a.WasRepairedFromInvalidState,
                 new[] { cap.DamageReceived, cap.PlayerDeaths, cap.EnemyIdentity }, t));
     }
+
+    private static bool HasPlayerWeaponEvidence(CombatMetricTotals totals) => totals.DamageDealt > 0 || totals.KillsByYou > 0
+        || totals.CompletedPlayerProjectiles > 0 || totals.RangedHits > 0 || totals.MeleeSwings > 0 || totals.MeleeHits > 0
+        || totals.Headshots > 0 || totals.HeadshotFinalBlows > 0;
 
     private static bool ExactWeaponId(string id) => !string.IsNullOrWhiteSpace(id)
         && id != "unknown" && id != "duckov:weapon:unknown" && id != EquipmentEventAssociation.UnavailableId;

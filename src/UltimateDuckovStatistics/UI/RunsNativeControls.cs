@@ -1,5 +1,4 @@
 using Duckov.UI;
-using Duckov.Utilities;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -11,21 +10,6 @@ internal sealed class RunsTooltipFocus : MonoBehaviour, ISelectHandler, IDeselec
 {
     public void OnSelect(BaseEventData data) => GetComponent<TooltipsProvider>()?.OnPointerEnter(null!);
     public void OnDeselect(BaseEventData data) => GetComponent<TooltipsProvider>()?.OnPointerExit(null!);
-}
-
-internal static class RunsNativeScrollConfiguration
-{
-    public static void Apply(ScrollRect target)
-    {
-        // Read the installed shared UI prefab, never instantiate its hierarchy or its listeners.
-        // The baseline probe verifies this metadata path. No guessed sensitivity is called native.
-        var source = GameplayDataSettings.UIPrefabs.ScrollRect;
-        target.movementType = source.movementType;
-        target.elasticity = source.elasticity;
-        target.inertia = source.inertia;
-        target.decelerationRate = source.decelerationRate;
-        target.scrollSensitivity = source.scrollSensitivity;
-    }
 }
 
 internal static class RunsHistoryClipping

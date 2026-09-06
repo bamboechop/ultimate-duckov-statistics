@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EquipmentPresentation.cs" Link="ProductionUI\EquipmentPresentation.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EquipmentViewPolicy.cs" Link="ProductionUI\EquipmentViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsNativeScrollConfiguration.cs" Link="ProductionUI\RunsNativeScrollConfiguration.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ReflectiveHarmonyPatcher.cs"
              Link="ProductionAdapters\ReflectiveHarmonyPatcher.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\RetryableHarmonyPatcherLease.cs"

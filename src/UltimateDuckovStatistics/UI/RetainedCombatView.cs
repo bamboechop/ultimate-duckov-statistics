@@ -147,7 +147,8 @@ internal sealed partial class RetainedStatisticsShell
             }
             var outerHeight = CombatLayoutPolicy.OuterViewport(stacked, height, footerHeight);
             outer.Size(0, 0, width, outerHeight, Math.Max(navHeight, bottom));
-            outer.SetOffset(selection.Offset("outer", outerHeight, outer.Content.rect.height));
+            outer.Scroll.vertical = stacked;
+            outer.SetOffset(stacked ? selection.Offset("outer", outerHeight, outer.Content.rect.height) : 0);
             selector.Render(); primary.Render(); if (weapons) ammunition.Render();
             if (restoreFocus != null)
             {
