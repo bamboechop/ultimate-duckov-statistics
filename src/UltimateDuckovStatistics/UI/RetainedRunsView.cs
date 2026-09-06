@@ -91,77 +91,87 @@ internal sealed partial class RetainedStatisticsShell
         projectionAvailable = false;
         overviewContentView?.SetActive(false);
         runsView?.Refresh(null, string.Empty);
+        recordsView?.Refresh(null);
+    }
+
+    private sealed class ScrollRegion : IDisposable
+    {
+        public RectTransform Rect { get; }
+        public RectTransform Content { get; }
+        public ScrollRect Scroll { get; }
+        private readonly RunsOverflowEdge top;
+        private readonly RunsOverflowEdge bottom;
+        public float Offset => Math.Max(0, Content.anchoredPosition.y);
+        public ScrollRegion(RectTransform parent, string name, RectTransform? contour = null, float radius = 10)
+        {
+            Rect = Node(parent, name);
+            var hit = Rect.gameObject.AddComponent<ProceduralImage>();
+            hit.color = Color.clear;
+            Rect.gameObject.AddComponent<UniformModifier>().Radius = radius;
+            var viewport = Node(Rect, "Viewport");
+            Stretch(viewport);
+            viewport.gameObject.AddComponent<RectMask2D>();
+            Content = Node(viewport, "Content");
+            Scroll = Rect.gameObject.AddComponent<RunsScrollRect>();
+            Scroll.viewport = viewport; Scroll.content = Content;
+            Scroll.horizontal = false; Scroll.vertical = true;
+            RunsNativeScrollConfiguration.Apply(Scroll);
+            Scroll.onValueChanged.AddListener(_ => Cues());
+            top = Edge(contour ?? Rect, name + "Above", true); bottom = Edge(contour ?? Rect, name + "Below", false);
+            top.Radius = bottom.Radius = radius;
+            var selectable = Rect.gameObject.AddComponent<Selectable>();
+            selectable.targetGraphic = hit;
+            selectable.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+            var focus = Rect.gameObject.AddComponent<RunsFocusHandler>();
+            focus.Move = direction =>
+            {
+                if (direction == MoveDirection.Up || direction == MoveDirection.Down)
+                    ((RunsScrollRect)Scroll).MoveBy((direction == MoveDirection.Up ? -1 : 1) * Scroll.scrollSensitivity);
+                else
+                {
+                    var next = direction == MoveDirection.Left ? selectable.FindSelectableOnLeft() : selectable.FindSelectableOnRight();
+                    if (next != null) GameManager.EventSystem?.SetSelectedGameObject(next.gameObject);
+                }
+            };
+        }
+        public void Size(float x, float y, float width, float height, float contentHeight)
+        {
+            Place(Rect, x, y, width, Math.Max(1, height));
+            Content.sizeDelta = new Vector2(width, Math.Max(height, contentHeight));
+            Stretch(top.rectTransform); Stretch(bottom.rectTransform);
+            top.rectTransform.SetAsLastSibling(); bottom.rectTransform.SetAsLastSibling();
+            SetOffset(Offset);
+        }
+        public void SetOffset(float offset)
+        {
+            Content.anchoredPosition = new Vector2(0, Math.Clamp(offset, 0, Math.Max(0, Content.rect.height - Rect.rect.height)));
+            Scroll.StopMovement(); Cues();
+        }
+        public void Cues()
+        {
+            if (Rect.rect.height <= 0) return;
+            var state = OverflowCuePolicy.Resolve(Rect.rect.height, Content.rect.height, Offset);
+            top.enabled = state.ShowLeading; bottom.enabled = state.ShowTrailing;
+        }
+        private static RunsOverflowEdge Edge(RectTransform parent, string name, bool top)
+        {
+            var edge = Node(parent, name).gameObject.AddComponent<RunsOverflowEdge>();
+            edge.Top = top; edge.color = new Color(1, 1, 1, .3f); edge.raycastTarget = false; return edge;
+        }
+        private static RectTransform Node(RectTransform parent, string name)
+        {
+            var rect = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
+            rect.SetParent(parent, false); rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1); return rect;
+        }
+        private static void Stretch(RectTransform rect)
+        { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero; }
+        private static void Place(RectTransform rect, float x, float y, float width, float height)
+        { rect.anchoredPosition = new Vector2(x, -y); rect.sizeDelta = new Vector2(width, height); }
+        public void Dispose() => Scroll.onValueChanged.RemoveAllListeners();
     }
 
     private sealed class RunsView : IDisposable
     {
-        private sealed class ScrollRegion : IDisposable
-        {
-            public RectTransform Rect { get; }
-            public RectTransform Content { get; }
-            public ScrollRect Scroll { get; }
-            private readonly RunsOverflowEdge top;
-            private readonly RunsOverflowEdge bottom;
-            public float Offset => Math.Max(0, Content.anchoredPosition.y);
-            public ScrollRegion(RectTransform parent, string name, RectTransform? contour = null, float radius = 10)
-            {
-                Rect = Node(parent, name);
-                var hit = Rect.gameObject.AddComponent<ProceduralImage>();
-                hit.color = Color.clear;
-                Rect.gameObject.AddComponent<UniformModifier>().Radius = radius;
-                var viewport = Node(Rect, "Viewport");
-                Stretch(viewport);
-                viewport.gameObject.AddComponent<RectMask2D>();
-                Content = Node(viewport, "Content");
-                Scroll = Rect.gameObject.AddComponent<RunsScrollRect>();
-                Scroll.viewport = viewport; Scroll.content = Content;
-                Scroll.horizontal = false; Scroll.vertical = true;
-                RunsNativeScrollConfiguration.Apply(Scroll);
-                Scroll.onValueChanged.AddListener(_ => Cues());
-                top = Edge(contour ?? Rect, name + "Above", true); bottom = Edge(contour ?? Rect, name + "Below", false);
-                top.Radius = bottom.Radius = radius;
-                var selectable = Rect.gameObject.AddComponent<Selectable>();
-                selectable.targetGraphic = hit;
-                selectable.navigation = new Navigation { mode = Navigation.Mode.Automatic };
-                var focus = Rect.gameObject.AddComponent<RunsFocusHandler>();
-                focus.Move = direction =>
-                {
-                    if (direction == MoveDirection.Up || direction == MoveDirection.Down)
-                        ((RunsScrollRect)Scroll).MoveBy((direction == MoveDirection.Up ? -1 : 1) * Scroll.scrollSensitivity);
-                    else
-                    {
-                        var next = direction == MoveDirection.Left ? selectable.FindSelectableOnLeft() : selectable.FindSelectableOnRight();
-                        if (next != null) GameManager.EventSystem?.SetSelectedGameObject(next.gameObject);
-                    }
-                };
-            }
-            public void Size(float x, float y, float width, float height, float contentHeight)
-            {
-                Place(Rect, x, y, width, Math.Max(1, height));
-                Content.sizeDelta = new Vector2(width, Math.Max(height, contentHeight));
-                Stretch(top.rectTransform); Stretch(bottom.rectTransform);
-                top.rectTransform.SetAsLastSibling(); bottom.rectTransform.SetAsLastSibling();
-                SetOffset(Offset);
-            }
-            public void SetOffset(float offset)
-            {
-                Content.anchoredPosition = new Vector2(0, Math.Clamp(offset, 0, Math.Max(0, Content.rect.height - Rect.rect.height)));
-                Scroll.StopMovement(); Cues();
-            }
-            public void Cues()
-            {
-                if (Rect.rect.height <= 0) return;
-                var state = OverflowCuePolicy.Resolve(Rect.rect.height, Content.rect.height, Offset);
-                top.enabled = state.ShowLeading; bottom.enabled = state.ShowTrailing;
-            }
-            private static RunsOverflowEdge Edge(RectTransform parent, string name, bool top)
-            {
-                var edge = Node(parent, name).gameObject.AddComponent<RunsOverflowEdge>();
-                edge.Top = top; edge.color = new Color(1, 1, 1, .3f); edge.raycastTarget = false; return edge;
-            }
-            public void Dispose() => Scroll.onValueChanged.RemoveAllListeners();
-        }
-
         private sealed class HistoryControl : IDisposable
         {
             public RectTransform Rect = null!;

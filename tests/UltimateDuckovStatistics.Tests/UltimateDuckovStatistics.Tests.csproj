@@ -90,6 +90,8 @@
              Link="ProductionUI\UiText.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\StatisticsPanelProjection.cs"
              Link="ProductionUI\StatisticsPanelProjection.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RecordsPresentation.cs" Link="ProductionUI\RecordsPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RecordsViewPolicy.cs" Link="ProductionUI\RecordsViewPolicy.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsPresentation.cs"
              Link="ProductionUI\RunsPresentation.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsViewPolicy.cs"

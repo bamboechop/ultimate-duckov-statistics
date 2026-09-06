@@ -365,6 +365,11 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
             runsView.Refresh(RunsPresentationFactory.Create(projection, projection.Profile.GenerationId), projection.Profile.GenerationId);
             runsView.SetVisible(selectedTab == StatisticsPanelTab.Runs);
+            recordsView = new RecordsView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
+                (generation, id) => { runsView?.Route(generation, id); tabSelected?.Invoke(StatisticsPanelTab.Runs); },
+                () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
+            recordsView.Refresh(RecordsPresentationFactory.Create(projection, projection.Profile.GenerationId));
+            recordsView.SetVisible(selectedTab == StatisticsPanelTab.Records);
             BindOverviewRun(projection.Profile.GenerationId);
 
             headerRect = CreateHeaderBackground(
@@ -551,6 +556,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         overviewContentView?.transform.SetAsFirstSibling();
         BindOverviewRun(generation);
         RefreshRuns(projection, generation);
+        recordsView?.Refresh(RecordsPresentationFactory.Create(projection, generation));
         RefreshVisualLayout(force: true);
     }
 
@@ -564,6 +570,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         overviewContentVisibility?.Apply(selectedTab);
         if (!projectionAvailable) overviewContentView?.SetActive(false);
         runsView?.SetVisible(selectedTab == StatisticsPanelTab.Runs);
+        recordsView?.SetVisible(selectedTab == StatisticsPanelTab.Records);
         EnsureSelectedTabVisible();
         var focused = GameManager.EventSystem?.currentSelectedGameObject;
         if (focused == null || !focused.activeInHierarchy)
@@ -578,6 +585,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             var layout = RefreshVisualLayout(force: false);
             runsView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
             runsView?.Tick();
+            recordsView?.Layout(layout, shellRoot!.rect.height);
+            recordsView?.Tick();
             return true;
         }
         catch (Exception exception)
@@ -2304,6 +2313,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
     private void DestroyRoot()
     {
         overviewLatestRunViewRun?.Button.onClick.RemoveAllListeners();
+        recordsView?.Dispose();
+        recordsView = null;
         runsView?.Dispose();
         runsView = null;
         tabScroll = null;
