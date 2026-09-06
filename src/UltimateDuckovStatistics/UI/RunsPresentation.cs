@@ -48,9 +48,10 @@ internal sealed class RunEquipmentEvidence
 {
     public EquipmentSlotState State { get; }
     public string ItemId { get; }
-    public string Text { get; }
-    public RunEquipmentEvidence(EquipmentSlotState state, string itemId, string text)
-    { State = state; ItemId = itemId; Text = text; }
+    public string ItemName { get; }
+    public string SlotName { get; }
+    public RunEquipmentEvidence(EquipmentSlotState state, string itemId, string itemName, string slotName)
+    { State = state; ItemId = itemId; ItemName = itemName; SlotName = slotName; }
 }
 
 internal sealed class RunSlotPresentation
@@ -62,6 +63,7 @@ internal sealed class RunSlotPresentation
     public IReadOnlyList<EquipmentSlotState> Attachments { get; }
     public bool NestedComplete { get; }
     public IReadOnlyList<RunEquipmentEvidence> Evidence { get; }
+    public bool CanOpenDetails => State == EquipmentSlotState.Occupied && (Attachments.Count > 0 || !NestedComplete);
     public RunSlotPresentation(string slotId, EquipmentSlotState state, string itemId, string text,
         IEnumerable<EquipmentSlotState>? attachments = null, bool nestedComplete = true,
         IEnumerable<RunEquipmentEvidence>? evidence = null)
@@ -69,7 +71,7 @@ internal sealed class RunSlotPresentation
         SlotId = slotId; State = state; ItemId = itemId; Text = text;
         Attachments = Array.AsReadOnly(attachments?.ToArray() ?? Array.Empty<EquipmentSlotState>());
         NestedComplete = nestedComplete;
-        Evidence = Array.AsReadOnly(evidence?.ToArray() ?? new[] { new RunEquipmentEvidence(state, itemId, text) });
+        Evidence = Array.AsReadOnly(evidence?.ToArray() ?? new[] { new RunEquipmentEvidence(state, itemId, text, string.Empty) });
     }
 }
 
@@ -226,28 +228,17 @@ internal static class RunsPresentationFactory
 
     internal static RunSlotPresentation PresentSlot(TerminalRootSlot slot, Func<string, string> t)
     {
-        var identity = string.IsNullOrWhiteSpace(slot.ItemDisplayName) ? slot.ItemId : slot.ItemDisplayName;
-        var value = slot.State == EquipmentSlotState.Empty ? t("ui.runs_empty_slot")
-            : slot.State == EquipmentSlotState.Occupied ? identity : t("ui.unavailable");
-        var nested = slot.NestedSlots.Select(row => row.DisplayName + ": " + (row.State == EquipmentSlotState.Empty
-            ? t("ui.runs_empty_slot") : row.State == EquipmentSlotState.Occupied
-                ? (string.IsNullOrWhiteSpace(row.ItemDisplayName) ? row.ItemId : row.ItemDisplayName) : t("ui.unavailable")));
-        var detail = slot.DisplayName + ": " + value;
-        if (slot.State == EquipmentSlotState.Occupied) detail += " [" + slot.ItemId + "]";
-        var evidence = new List<RunEquipmentEvidence> { new(slot.State, slot.ItemId, detail) };
+        string Name(EquipmentSlotState state, string displayName) => state == EquipmentSlotState.Empty
+            ? t("ui.runs_empty_slot") : state == EquipmentSlotState.Occupied && !string.IsNullOrWhiteSpace(displayName)
+                ? displayName : t("ui.unavailable");
+        var evidence = new List<RunEquipmentEvidence>
+        { new(slot.State, slot.ItemId, Name(slot.State, slot.ItemDisplayName), slot.DisplayName) };
         foreach (var child in slot.NestedSlots)
         {
-            var childValue = child.State == EquipmentSlotState.Empty ? t("ui.runs_empty_slot")
-                : child.State == EquipmentSlotState.Occupied
-                    ? (string.IsNullOrWhiteSpace(child.ItemDisplayName) ? child.ItemId : child.ItemDisplayName)
-                    : t("ui.unavailable");
-            var childText = child.DisplayName + ": " + childValue + "\n" + child.Path;
-            if (child.State == EquipmentSlotState.Occupied) childText += " [" + child.ItemId + "]";
-            evidence.Add(new RunEquipmentEvidence(child.State, child.ItemId, childText));
+            evidence.Add(new RunEquipmentEvidence(child.State, child.ItemId,
+                Name(child.State, child.ItemDisplayName), child.DisplayName));
         }
-        if (slot.NestedSlots.Count > 0) detail += "\n" + string.Join("; ", nested);
-        foreach (var child in slot.NestedSlots.Where(child => child.State == EquipmentSlotState.Occupied))
-            detail += "\n" + child.Path + " [" + child.ItemId + "]";
+        var detail = string.Join("\n", evidence.Select(row => row.SlotName + ": " + row.ItemName));
         if (!slot.NestedComplete && slot.State != EquipmentSlotState.Empty) detail += "\n" + t("ui.runs_nested_partial");
         return new RunSlotPresentation(slot.SlotId, slot.State, slot.ItemId, detail,
             slot.NestedSlots.Select(child => child.State), slot.NestedComplete, evidence);

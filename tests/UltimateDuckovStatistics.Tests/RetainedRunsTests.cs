@@ -564,6 +564,31 @@ public sealed class RetainedRunsTests
     }
 
     [Fact]
+    public void EquipmentDetailsOpenOnlyForOccupiedItemsWithCapturedOrIncompleteSlots()
+    {
+        Assert.False(new RunSlotPresentation("empty", EquipmentSlotState.Empty, "", "Empty").CanOpenDetails);
+        Assert.False(new RunSlotPresentation("body", EquipmentSlotState.Occupied, "duckov:item:1", "Armor").CanOpenDetails);
+        Assert.True(new RunSlotPresentation("weapon", EquipmentSlotState.Occupied, "duckov:weapon:2", "Weapon",
+            [EquipmentSlotState.Empty]).CanOpenDetails);
+        Assert.True(new RunSlotPresentation("partial", EquipmentSlotState.Occupied, "duckov:weapon:2", "Weapon",
+            nestedComplete: false).CanOpenDetails);
+        Assert.False(new RunSlotPresentation("empty", EquipmentSlotState.Empty, "", "Empty",
+            nestedComplete: false).CanOpenDetails);
+    }
+
+    [Fact]
+    public void MissingEquipmentNamesDoNotFallBackToInternalIdentifiers()
+    {
+        var result = RunsPresentationFactory.PresentSlot(new TerminalRootSlot("weapon", "Weapon", EquipmentSlotState.Occupied,
+            "duckov:weapon:141", "", EquipmentItemKind.Weapon, true,
+            [new("internal/path", "optic", "Optic", EquipmentSlotState.Occupied, "duckov:item:52", "")]), UiText.Get);
+        Assert.All(result.Evidence, row => Assert.Equal(UiText.Get("ui.unavailable"), row.ItemName));
+        Assert.DoesNotContain("duckov:", result.Text);
+        Assert.DoesNotContain("internal/path", result.Text);
+        Assert.Equal("duckov:item:52", result.Evidence[1].ItemId);
+    }
+
+    [Fact]
     public void EquipmentOverlayKeepsCapturedRootAndAttachmentIconsPairedWithTheirOwnEvidence()
     {
         var nested = new List<TerminalNestedSlot>
@@ -577,11 +602,14 @@ public sealed class RetainedRunsTests
         nested.Clear();
         Assert.Equal(4, result.Evidence.Count);
         Assert.Equal("duckov:weapon:141", result.Evidence[0].ItemId);
-        Assert.Contains("Captured weapon", result.Evidence[0].Text);
+        Assert.Contains("Captured weapon", result.Evidence[0].ItemName);
         Assert.Equal("duckov:item:52", result.Evidence[1].ItemId);
-        Assert.Contains("Captured optic", result.Evidence[1].Text);
-        Assert.Contains("weapon/optic", result.Evidence[1].Text);
-        Assert.Contains("weapon/optic/gem", result.Evidence[2].Text);
+        Assert.Contains("Captured optic", result.Evidence[1].ItemName);
+        Assert.Equal("Optic", result.Evidence[1].SlotName);
+        Assert.Equal("Gem", result.Evidence[2].SlotName);
+        Assert.Equal("Empty", result.Evidence[2].ItemName);
+        Assert.DoesNotContain("weapon/optic", result.Text);
+        Assert.DoesNotContain("duckov:", result.Text);
         var lookups = new List<string>();
         var rootIcon = new object(); var attachmentIcon = new object();
         object? Resolve(string id) { lookups.Add(id); return id == "duckov:weapon:141" ? rootIcon : id == "duckov:item:52" ? attachmentIcon : null; }
@@ -590,7 +618,7 @@ public sealed class RetainedRunsTests
         Assert.Null(RunsItemIconPolicy.Resolve(result.Evidence[2], Resolve));
         Assert.Null(RunsItemIconPolicy.Resolve(result.Evidence[3], Resolve));
         Assert.Equal(["duckov:weapon:141", "duckov:item:52", "mod:missing"], lookups);
-        Assert.Contains("Missing icon", result.Evidence[3].Text);
+        Assert.Contains("Missing icon", result.Evidence[3].ItemName);
         Assert.False(result.NestedComplete);
         Assert.Null(RunsItemIconPolicy.Resolve<object>(result.Evidence[1], _ => throw new IOException()));
         var supplied = result.Evidence.ToList();
@@ -610,7 +638,8 @@ public sealed class RetainedRunsTests
         var result = RunsPresentationFactory.PresentSlot(slot, UiText.Get); nested.Clear();
         Assert.Equal(2, result.Attachments.Count); Assert.Equal(EquipmentSlotState.Occupied, result.Attachments[0]);
         Assert.Equal(EquipmentSlotState.Empty, result.Attachments[1]); Assert.False(result.NestedComplete);
-        Assert.Contains("mod:optic", result.Text); Assert.Contains("duckov:weapon:141", result.Text);
+        Assert.Equal("mod:optic", result.Evidence[1].ItemId); Assert.Equal("duckov:weapon:141", result.ItemId);
+        Assert.DoesNotContain("mod:optic", result.Text); Assert.DoesNotContain("duckov:weapon:141", result.Text);
         Assert.Contains("Additional attachment evidence unavailable", result.Text);
         var noSlots = new TerminalRootSlot("body", "Body", EquipmentSlotState.Occupied, "mod:body", "Body", EquipmentItemKind.Armor, true, []);
         Assert.Empty(RunsPresentationFactory.PresentSlot(noSlots, UiText.Get).Attachments);
@@ -732,7 +761,13 @@ public sealed class RetainedRunsTests
         Assert.DoesNotContain("equipmentCard.GetComponent<Button>()", view);
         Assert.DoesNotContain("ShowEvidence(null)", view);
         Assert.Contains("RunsItemIconPolicy.Resolve(captured, icons.ResolveAvailable)", view);
-        Assert.Contains("row.Text.text = captured.Text", view);
+        Assert.Contains("row.Name.text = captured.ItemName", view);
+        Assert.Contains("row.Slot.text = RunsViewStyle.Uppercase(captured.SlotName)", view);
+        Assert.Contains("Text(row, \"SlotName\", 20); slotName.color = Muted", view);
+        Assert.Contains("Put(row.Slot, 80, nameHeight + 4, w - 144)", view);
+        Assert.Contains("control.Button.interactable = item?.CanOpenDetails == true", view);
+        Assert.Contains("if (item?.CanOpenDetails != true) return", view);
+        Assert.DoesNotContain("evidenceText", view);
         Assert.Contains("Put(summary[i].Value, (i - start) * (cellWidth + 20), y, cellWidth)", view);
         Assert.Contains("Put(summary[i].Label, (i - start) * (cellWidth + 20), y + valueHeight + 4, cellWidth)", view);
         Assert.Contains("evidenceClose.onClick.AddListener(HideEvidence)", view);

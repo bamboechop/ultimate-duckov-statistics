@@ -190,8 +190,8 @@ internal sealed partial class RetainedStatisticsShell
         private readonly ScrollRegion route;
         private readonly RectTransform evidencePanel;
         private readonly ScrollRegion evidence;
-        private readonly TextMeshProUGUI evidenceText;
-        private readonly List<(RectTransform Root, Image Icon, TextMeshProUGUI Fallback, TextMeshProUGUI Text)> evidenceRows = new();
+        private readonly TextMeshProUGUI evidenceNotice;
+        private readonly List<(RectTransform Root, Image Icon, TextMeshProUGUI Fallback, TextMeshProUGUI Name, TextMeshProUGUI Slot)> evidenceRows = new();
         private readonly Button evidenceClose;
         private Button? evidenceOwner;
         private readonly TextMeshProUGUI measure;
@@ -282,7 +282,7 @@ internal sealed partial class RetainedStatisticsShell
             evidencePanel.GetComponent<ProceduralImage>().raycastTarget = true;
             evidence = new ScrollRegion(evidencePanel, "CapturedEquipmentEvidence");
             evidence.Rect.GetComponent<ProceduralImage>().color = new Color(0, 0, 0, .2f);
-            evidenceText = Text(evidence.Content, "CapturedEvidence", 24);
+            evidenceNotice = Text(evidence.Content, "IncompleteEvidence", 20); evidenceNotice.color = Muted;
             var close = Panel(evidencePanel, "CloseEvidence", 10);
             close.GetComponent<ProceduralImage>().raycastTarget = true;
             evidenceClose = close.gameObject.AddComponent<Button>(); evidenceClose.targetGraphic = close.GetComponent<ProceduralImage>();
@@ -397,6 +397,7 @@ internal sealed partial class RetainedStatisticsShell
                 control.Root.gameObject.SetActive(i < count);
                 control.Tooltip.OnPointerExit(null!);
                 if (i >= count) continue;
+                control.Button.interactable = item?.CanOpenDetails == true;
                 control.Tooltip.text = SafeTooltip(item == null ? UiText.Get("ui.unavailable") + "\n" + run!.EquipmentState : item.Text + "\n" + run!.EquipmentState);
                 var sprite = item == null ? null : RunsItemIconPolicy.Resolve(item, icons.ResolveAvailable);
                 control.Icon.sprite = sprite; control.Icon.enabled = sprite != null;
@@ -738,22 +739,22 @@ internal sealed partial class RetainedStatisticsShell
 
         private void ShowEvidence(SlotControl slot)
         {
-            evidenceOwner = slot.Button;
             var index = slots.IndexOf(slot);
             var run = selection.Selected;
             var item = run != null && index >= 0 && index < run.Slots.Count ? run.Slots[index] : null;
-            evidenceText.text = run?.EquipmentState ?? UiText.Get("ui.unavailable");
-            if (item == null && run != null) evidenceText.text = UiText.Get("ui.unavailable") + "\n" + run.EquipmentState;
-            if (item?.NestedComplete == false && item.State != EquipmentSlotState.Empty)
-                evidenceText.text += "\n" + UiText.Get("ui.runs_nested_partial");
-            var rows = item?.Evidence ?? Array.Empty<RunEquipmentEvidence>();
+            if (item?.CanOpenDetails != true) return;
+            evidenceOwner = slot.Button;
+            evidenceNotice.text = item.NestedComplete ? string.Empty : UiText.Get("ui.runs_nested_partial");
+            evidenceNotice.gameObject.SetActive(!item.NestedComplete);
+            var rows = item.Evidence;
             while (evidenceRows.Count < rows.Count)
             {
                 var row = Node(evidence.Content, "CapturedItem" + evidenceRows.Count);
                 var icon = Node(row, "Icon").gameObject.AddComponent<Image>();
                 icon.raycastTarget = false; icon.preserveAspect = true;
                 var fallback = Text(row, "Fallback", 32); fallback.alignment = TextAlignmentOptions.Center;
-                evidenceRows.Add((row, icon, fallback, Text(row, "Identity", 24)));
+                var slotName = Text(row, "SlotName", 20); slotName.color = Muted;
+                evidenceRows.Add((row, icon, fallback, Text(row, "ItemName", 24), slotName));
             }
             for (var i = 0; i < evidenceRows.Count; i++)
             {
@@ -764,7 +765,8 @@ internal sealed partial class RetainedStatisticsShell
                 row.Icon.sprite = sprite; row.Icon.enabled = sprite != null;
                 row.Fallback.text = sprite != null ? string.Empty : captured.State == EquipmentSlotState.Empty ? "—" : "?";
                 row.Fallback.color = captured.State == EquipmentSlotState.Empty ? Muted : Color.white;
-                row.Text.text = captured.Text;
+                row.Name.text = captured.ItemName;
+                row.Slot.text = RunsViewStyle.Uppercase(captured.SlotName);
             }
             evidencePanel.gameObject.SetActive(true); evidencePanel.SetAsLastSibling();
             LayoutEvidence(); evidence.SetOffset(0);
@@ -781,14 +783,15 @@ internal sealed partial class RetainedStatisticsShell
             foreach (var row in evidenceRows)
             {
                 if (!row.Root.gameObject.activeSelf) continue;
-                var textHeight = Put(row.Text, 80, 0, w - 144);
-                var rowHeight = Math.Max(64, textHeight);
+                var nameHeight = Put(row.Name, 80, 0, w - 144);
+                var slotHeight = Put(row.Slot, 80, nameHeight + 4, w - 144);
+                var rowHeight = Math.Max(64, nameHeight + 4 + slotHeight);
                 Place(row.Root, 16, y, w - 64, rowHeight);
                 Place(row.Icon.rectTransform, 0, 0, 64, 64);
                 Place(row.Fallback.rectTransform, 0, 0, 64, 64);
                 y += rowHeight + 16;
             }
-            y += Put(evidenceText, 16, y, w - 64) + 12;
+            if (evidenceNotice.gameObject.activeSelf) y += Put(evidenceNotice, 16, y, w - 64) + 12;
             evidence.Size(16, 64, w - 32, h - 80, y);
         }
 
