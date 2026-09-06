@@ -255,7 +255,7 @@ internal sealed class EquipmentDocument
                 if (!right)
                 {
                     Section("ui.equipment_most_used", "loadouts");
-                    if (p.MostUsed == null) Empty("ui.equipment_no_recurring"); else y += Loadout(p.MostUsed, x, y, w, selection);
+                    if (p.MostUsed == null) Empty("ui.equipment_no_loadout"); else y += Loadout(p.MostUsed, x, y, w, selection);
                     Section("ui.equipment_selected", "selected");
                     foreach (var row in p.SelectedWeapons) y += Entry(row, x, y, w, compact: true);
                     if (p.SelectedWeapons.Count == 0) Empty();

@@ -10,7 +10,7 @@ internal sealed class EquipmentProjectionBinding
     private readonly ProfileDocument profile;
     private readonly EquipmentStatisticsViewModel equipment;
     private readonly EquipmentCompositionEvidence composition;
-    private readonly object definitions, typedStates, activeDefinitions, emptySlots, runRows;
+    private readonly object definitions, typedStates, activeDefinitions, emptySlots, runRows, lifetimeLoadouts;
     private readonly IReadOnlyList<EquipmentDurationAggregate> recurring, states, sets;
     private readonly IReadOnlyList<RunSummary> recent;
     private readonly RunStatisticsViewModel runs;
@@ -20,11 +20,12 @@ internal sealed class EquipmentProjectionBinding
         profile = p.Profile; equipment = p.Equipment; composition = equipment.Lifetime.Composition; recurring = p.RecurringLoadouts;
         states = p.TotemStates; sets = p.TotemSets; recent = p.RecentEquipmentRuns; runs = p.Runs; generation = profile.GenerationId;
         definitions = composition.Loadouts; typedStates = composition.TotemStates; activeDefinitions = composition.ActiveTotemSets;
-        emptySlots = composition.EmptyDirectSlots; runRows = runs.Runs;
+        emptySlots = composition.EmptyDirectSlots; runRows = runs.Runs; lifetimeLoadouts = equipment.Lifetime.Loadouts;
     }
     public bool Matches(StatisticsPanelProjection p, string current) => generation == current && profile.GenerationId == current
         && profile.Statistics.SaveGenerationId == current && ReferenceEquals(profile, p.Profile) && ReferenceEquals(equipment, p.Equipment)
         && ReferenceEquals(equipment.Lifetime, profile.Statistics.RunTotals.EquipmentStatistics) && ReferenceEquals(composition, equipment.Lifetime.Composition)
+        && ReferenceEquals(lifetimeLoadouts, equipment.Lifetime.Loadouts)
         && ReferenceEquals(recurring, p.RecurringLoadouts) && ReferenceEquals(states, p.TotemStates) && ReferenceEquals(sets, p.TotemSets)
         && ReferenceEquals(recent, p.RecentEquipmentRuns) && ReferenceEquals(runs, p.Runs) && ReferenceEquals(runRows, runs.Runs)
         && ReferenceEquals(definitions, composition.Loadouts) && ReferenceEquals(typedStates, composition.TotemStates)
@@ -121,8 +122,9 @@ internal static class EquipmentPresentationFactory
         if (a.WasRepairedFromInvalidState)
             foreach (var key in notices.Keys.ToArray()) notices[key] = t("ui.equipment_partial") + "\n" + notices[key];
         var nestedNotice = Notice(c.NestedSlotState, a.HistoricalNestedSlotStateUnavailable);
-        var recurring = p.RecurringLoadouts.Where(r => r.RunOccurrences >= 2).OrderByDescending(r => r.ActiveDurationSeconds).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
-        EquipmentEntry? most = recurring == null ? null : Loadout(a, recurring, "most", "", "", Used(recurring.RunOccurrences));
+        var highestDuration = a.Loadouts.Values.OrderByDescending(r => r.ActiveDurationSeconds).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
+        EquipmentEntry? most = highestDuration == null ? null : Loadout(a, highestDuration, "most", "", "",
+            highestDuration.RunOccurrences == 1 ? t("ui.equipment_used_one_run") : Used(highestDuration.RunOccurrences));
         // A missing definition already carries its specific historical notice on the card.
         notices["loadouts"] = Notice(c.EquipmentSlots, a.Composition.HistoricalUnavailable && most?.Notice.Length == 0);
         var selected = a.SelectedWeapons.Values.Select(r => (Row: r, Split: r.Id.IndexOf('|'))).Where(r => r.Split > 0)

@@ -52,14 +52,45 @@ public sealed class RetainedEquipmentTests
         }
         Assert.Null(EquipmentPresentationFactory.Create(p, "g"));
     }
-    [Fact] public void RecurringThresholdRejectsLongerOneOffAndDefinitionCopiesAreImmutable()
+    [Fact] public void LongerSingleRunLoadoutWinsAndDefinitionCopiesAreImmutable()
     {
-        var p = Profile(); var a = Observe(p); var id = a.Loadouts.Keys.Single(); a.Loadouts[id].RunOccurrences = 2;
-        a.Loadouts.Add("one-off", new EquipmentDurationAggregate { Id = "one-off", ActiveDurationSeconds = 999, RunOccurrences = 1 });
-        var presented = Present(p); Assert.Equal(10, presented.MostUsed!.Duration); Assert.Contains("2 runs", presented.MostUsed.Caption);
+        var p = Profile(); var a = Observe(p, duration: 999); var id = a.Loadouts.Keys.Single(); a.Loadouts[id].RunOccurrences = 1;
+        a.Loadouts.Add("recurring", new EquipmentDurationAggregate { Id = "recurring", ActiveDurationSeconds = 10, RunOccurrences = 3 });
+        var presented = Present(p); Assert.Equal(999, presented.MostUsed!.Duration); Assert.Equal("Used in 1 run", presented.MostUsed.Caption);
         Assert.Equal(2, presented.MostUsed.Slots.Count); Assert.False(presented.MostUsed.Slots[0].NestedComplete);
         a.Composition.Loadouts[id].Items[0].NestedSlots.Clear(); a.Composition.Loadouts[id].Roots.Clear();
         Assert.Equal(2, presented.MostUsed.Slots.Count); Assert.Single(presented.MostUsed.Slots[0].Attachments);
+    }
+    [Fact] public void MostUsedUsesOrdinalIdForEqualDurationAndKeepsActualCount()
+    {
+        var p = Profile(); var rows = p.Statistics.RunTotals.EquipmentStatistics.Loadouts;
+        rows.Add("a", new EquipmentDurationAggregate { Id = "a", ActiveDurationSeconds = 50, RunOccurrences = 7 });
+        rows.Add("Z", new EquipmentDurationAggregate { Id = "Z", ActiveDurationSeconds = 50, RunOccurrences = 1 });
+        Assert.Equal("Used in 1 run", Present(p).MostUsed!.Caption);
+        rows["Z"].RunOccurrences = 0;
+        Assert.Equal("Used in 0 runs", Present(p).MostUsed!.Caption);
+    }
+    [Fact] public void SingleRunHistoricalWinnerStaysUnavailableAndRecurringExportKeepsItsFilter()
+    {
+        var p = Profile(); var a = Observe(p); a.Loadouts.Values.Single().RunOccurrences = 3;
+        a.Loadouts.Add("long-single", new EquipmentDurationAggregate { Id = "long-single", ActiveDurationSeconds = 500, RunOccurrences = 1 });
+        var projection = Projection(p);
+        Assert.DoesNotContain(projection.RecurringLoadouts, r => r.Id == "long-single");
+        var card = EquipmentPresentationFactory.Create(projection, "g")!.MostUsed!;
+        Assert.Equal(500, card.Duration); Assert.Equal("Used in 1 run", card.Caption);
+        Assert.Empty(card.Slots); Assert.Contains("unavailable", card.Notice);
+        var csv = UltimateDuckovStatistics.Core.Export.StatisticsExporter.Create(p, DateTime.UnixEpoch).RecurringLoadoutsCsv;
+        Assert.DoesNotContain("long-single", csv); Assert.Contains(a.Loadouts.Keys.First(), csv);
+        Assert.Equal(500, a.Loadouts["long-single"].ActiveDurationSeconds);
+        Assert.Equal(1, a.Loadouts["long-single"].RunOccurrences);
+    }
+    [Fact] public void ReplacedLifetimeLoadoutPublicationFailsBindingAndEmptyStateHasNoRunThreshold()
+    {
+        var projection = Projection(); projection.Equipment.Lifetime.Loadouts = new();
+        Assert.Null(EquipmentPresentationFactory.Create(projection, "g"));
+        var doc = Document(Present(), EquipmentPanelSection.Loadouts);
+        Assert.Contains(doc.Rows, r => r.Name == "No loadout observations recorded");
+        Assert.DoesNotContain(doc.Rows, r => r.Name.Contains("recurring", StringComparison.OrdinalIgnoreCase));
     }
     [Fact] public void HistoricalLoadoutKeepsDurationAndNeverParsesDescription()
     {
@@ -183,7 +214,7 @@ public sealed class RetainedEquipmentTests
         var p = Profile(); Observe(p); var result = Present(p);
         var doc = Document(result, EquipmentPanelSection.Weapons, expand: true);
         Assert.Single(doc.Rows, r => r.Actionable); Assert.True(doc.Rows.Single(r => r.Actionable).Expandable);
-        Assert.All(Document(result, EquipmentPanelSection.Loadouts).Rows, r => Assert.False(r.Actionable));
+        Assert.All(Document(result, EquipmentPanelSection.Loadouts).Rows.Where(r => r.Kind != EquipmentRowKind.Slot), r => Assert.False(r.Actionable));
     }
     [Fact] public void ZeroDurationRowRemainsZeroWhileAbsentObservationHasItsOwnNotice()
     {
