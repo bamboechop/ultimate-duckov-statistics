@@ -47,6 +47,7 @@ internal static class NativeEquipmentSnapshotBuilder
                     {
                         SlotId = slotId,
                         SlotDisplayName = slotDisplayName,
+                        IsDirectTotemSlot = IsDirectTotemSlot(slot),
                         State = EquipmentSlotState.Empty
                     });
                     continue;
@@ -93,6 +94,7 @@ internal static class NativeEquipmentSnapshotBuilder
                     ItemId = itemId,
                     ItemDisplayName = DisplayName(item),
                     ItemKind = kind
+                    , IsDirectTotemSlot = IsDirectTotemSlot(slot)
                 });
                 if (IsTotem(item))
                 {
@@ -102,6 +104,7 @@ internal static class NativeEquipmentSnapshotBuilder
                         DisplayName = DisplayName(item),
                         CarryKind = TotemCarryKind.DirectSlot,
                         ContainerId = "duckov:character",
+                        DirectSlotId = slotId,
                         ActivationState = item.UseDurability && item.Durability <= 0
                             ? TotemActivationState.ProvenInactive : TotemActivationState.ProvenActive
                     });
@@ -299,7 +302,7 @@ internal static class NativeEquipmentSnapshotBuilder
         var roots = characterSlots.Select(value =>
             Component("root") + Component(value.SlotId)
             + Component(((int)value.State).ToString(CultureInfo.InvariantCulture))
-            + Component(value.ItemId));
+            + Component(value.ItemId) + Component(value.IsDirectTotemSlot ? "1" : "0"));
         var nested = equipped.SelectMany(item => item.NestedSlots.Select(slot =>
             Component("nested") + Component(item.SlotId) + Component(item.ItemId) + Component(slot.Path)
             + Component(((int)slot.State).ToString(CultureInfo.InvariantCulture)) + Component(slot.ItemId)));
@@ -371,6 +374,9 @@ internal static class NativeEquipmentSnapshotBuilder
     }
 
     private static bool IsTotem(Item item) => item.Tags != null && item.Tags.Contains("Totem");
+    private static bool IsDirectTotemSlot(ItemStatsSystem.Items.Slot slot) => slot.requireTags != null
+        && slot.requireTags.Count == 1 && slot.requireTags[0] != null
+        && string.Equals(slot.requireTags[0].name, "Totem", StringComparison.Ordinal);
     private static string ItemId(Item item, string kind) => "duckov:" + kind + ":" + item.TypeID.ToString(CultureInfo.InvariantCulture);
     private static string DisplayName(Item item) => string.IsNullOrWhiteSpace(item.DisplayName) ? "Unknown item " + item.TypeID.ToString(CultureInfo.InvariantCulture) : item.DisplayName;
 }

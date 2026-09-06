@@ -20,8 +20,8 @@ public sealed class WorldTimePersistenceTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(17, profile.SchemaVersion);
-        Assert.Equal(17, profile.Statistics.SchemaVersion);
+        Assert.Equal(18, profile.SchemaVersion);
+        Assert.Equal(18, profile.Statistics.SchemaVersion);
         Assert.Equal(42, profile.Statistics.Overall.ActivationCount);
         Assert.True(profile.Statistics.WorldTime.HistoricalUnavailable);
         Assert.Contains("predates M12", profile.Statistics.WorldTime.HistoricalProvenance, StringComparison.Ordinal);

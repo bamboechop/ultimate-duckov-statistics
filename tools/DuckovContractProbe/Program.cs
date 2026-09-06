@@ -515,6 +515,7 @@ try
             itemStats.RequireProperty("ItemStatsSystem", "Item", property);
         }
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "Key", "System.String", mustBePublic: true);
+        itemStats.RequireField("ItemStatsSystem.Items", "Slot", "requireTags", mustBePublic: true, fieldTypeFragment: "Duckov.Utilities.Tag");
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "DisplayName", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "Content", "ItemStatsSystem.Item", mustBePublic: true);
         itemStats.RequireEvent("ItemStatsSystem.Items", "Slot", "onSlotContentChanged", "System.Action", "ItemStatsSystem.Items.Slot");

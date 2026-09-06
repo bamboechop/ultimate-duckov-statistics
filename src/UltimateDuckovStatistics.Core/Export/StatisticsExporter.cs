@@ -206,6 +206,9 @@ public sealed class StatisticsExportBundle
     public string WeaponAmmunitionPairsCsv { get; }
 
     public string EquipmentTotalsCsv { get; }
+    public string LoadoutDefinitionsCsv => EquipmentCompositionCsv.Loadouts(Document);
+    public string ActiveTotemSetDefinitionsCsv => EquipmentCompositionCsv.ActiveSets(Document);
+    public string TotemStateDurationsCsv => EquipmentCompositionCsv.TotemStates(Document);
 
     public string CharacterEquipmentSlotsCsv { get; }
 

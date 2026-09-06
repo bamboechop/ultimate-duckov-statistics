@@ -15,6 +15,34 @@ public sealed class ActiveRunPersistenceTests
     private static long economySequence;
     private static readonly DateTime TestTime = new(2026, 8, 10, 12, 0, 0, DateTimeKind.Utc);
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EquipmentCompositionSurvivesInterruptedRecoveryAndRejectsCorruptPrimary(bool corrupt)
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var checkpoint = Checkpoint(repository.CurrentGenerationId, 5);
+        EquipmentStatisticsReducer.Observe(checkpoint.EquipmentStatistics, EquipmentCompositionTests.Snapshot(), 0);
+        EquipmentStatisticsReducer.Advance(checkpoint.EquipmentStatistics, 5);
+        repository.SaveActiveRun(checkpoint);
+        repository.CloseClean();
+        if (corrupt)
+        {
+            checkpoint.EquipmentStatistics.Composition.TotemStates.Values.Single().Totem.ItemId = "corrupt";
+            new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
+        }
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Single(run.EquipmentStatistics.Composition.Loadouts);
+        Assert.Equal(5, run.EquipmentStatistics.Composition.TotemStates.Values.Single().DurationSeconds);
+        Assert.Single(recovery.Current.Statistics.RunTotals.EquipmentStatistics.Composition.Loadouts);
+        Assert.Contains("duckov:slot:totem-a", StatisticsExporter.Create(recovery.Current, TestTime).TotemStateDurationsCsv);
+        recovery.CloseClean();
+    }
+
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M8")]

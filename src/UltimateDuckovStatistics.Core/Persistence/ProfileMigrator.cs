@@ -397,6 +397,7 @@ public static class ProfileMigrator
 
         var changed = false;
         var migratingRunsData = profile.SchemaVersion < 17 || profile.Statistics?.SchemaVersion < 17;
+        var migratingEquipmentComposition = profile.SchemaVersion < 18 || profile.Statistics?.SchemaVersion < 18;
         var migratingCombat = profile.SchemaVersion < 5
                               || (profile.Statistics != null && profile.Statistics.SchemaVersion < 5);
         var migratingEquipment = profile.SchemaVersion < 6
@@ -1201,6 +1202,17 @@ public static class ProfileMigrator
                 RunDataSchema.Migrate(scope.Combat, scope.Equipment);
             foreach (var run in profile.Statistics.Runs)
                 run.TerminalLoadout = Domain.TerminalLoadout.Historical();
+            profile.SchemaVersion = profile.Statistics.SchemaVersion = ProductInfo.SchemaVersion;
+            changed = true;
+        }
+
+        if (migratingEquipmentComposition)
+        {
+            foreach (var scope in RunDataSchema.Scopes(profile.Statistics))
+                scope.Equipment.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
+            foreach (var run in profile.Statistics.Runs)
+                if (run.TerminalLoadout?.Snapshot != null)
+                    foreach (var totem in run.TerminalLoadout.Snapshot.Totems) totem.DirectSlotId ??= string.Empty;
             profile.SchemaVersion = profile.Statistics.SchemaVersion = ProductInfo.SchemaVersion;
             changed = true;
         }

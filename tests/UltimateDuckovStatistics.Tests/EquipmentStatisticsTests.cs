@@ -211,7 +211,7 @@ public sealed class EquipmentStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(17, profile.SchemaVersion);
+        Assert.Equal(18, profile.SchemaVersion);
         var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
         Assert.True(equipment.HistoricalUnavailable);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, equipment.Capabilities.EquipmentSlots.State);

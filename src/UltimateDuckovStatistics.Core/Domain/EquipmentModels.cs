@@ -63,6 +63,7 @@ public sealed class CharacterEquipmentSlotSnapshot
     [DataMember(Order = 4)] public string ItemId { get; set; } = string.Empty;
     [DataMember(Order = 5)] public string ItemDisplayName { get; set; } = string.Empty;
     [DataMember(Order = 6)] public EquipmentItemKind ItemKind { get; set; }
+    [DataMember(Order = 7)] public bool IsDirectTotemSlot { get; set; }
 }
 
 [DataContract]
@@ -97,6 +98,7 @@ public sealed class TotemSnapshot
     [DataMember(Order = 3)] public TotemCarryKind CarryKind { get; set; }
     [DataMember(Order = 4)] public string ContainerId { get; set; } = string.Empty;
     [DataMember(Order = 5)] public TotemActivationState ActivationState { get; set; }
+    [DataMember(Order = 6)] public string DirectSlotId { get; set; } = string.Empty;
 }
 
 [DataContract]

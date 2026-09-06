@@ -8,6 +8,6 @@ public sealed class ProductInfoTests
     public void NativeUiVersionRetainsM17WithRunsDataSchema17()
     {
         Assert.Equal("0.17.0", ProductInfo.Version);
-        Assert.Equal(17, ProductInfo.SchemaVersion);
+        Assert.Equal(18, ProductInfo.SchemaVersion);
     }
 }

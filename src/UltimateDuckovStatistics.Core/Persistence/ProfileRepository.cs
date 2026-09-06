@@ -43,6 +43,14 @@ public sealed class ProfilePersistenceSnapshot
 
 public sealed class ProfileRepository
 {
+    private static void MigrateEquipmentComposition(ActiveRunCheckpoint checkpoint)
+    {
+        checkpoint.EquipmentStatistics.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
+        foreach (var segment in checkpoint.Segments)
+            segment.EquipmentStatistics.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
+        if (checkpoint.TerminalLoadout?.Snapshot != null)
+            foreach (var totem in checkpoint.TerminalLoadout.Snapshot.Totems) totem.DirectSlotId ??= string.Empty;
+    }
     private static readonly TimeSpan NativeSaveIntentWindow = TimeSpan.FromSeconds(30);
     private readonly string dataRoot;
     private readonly Func<DateTime> utcNow;
@@ -540,6 +548,7 @@ public sealed class ProfileRepository
             && !Enum.IsDefined(typeof(RunOutcome), terminalOutcome))
             throw new ArgumentException("Active-run checkpoint contains an invalid pending terminal outcome.", nameof(checkpoint));
         if (checkpoint.SchemaVersion < 17) RunDataSchema.Migrate(checkpoint);
+        if (checkpoint.SchemaVersion < 18) MigrateEquipmentComposition(checkpoint);
         RunReducer.Validate(checkpoint.ToRecoverySummary());
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
@@ -1087,6 +1096,7 @@ public sealed class ProfileRepository
         }
 
         if (checkpoint.SchemaVersion < 17) RunDataSchema.Migrate(checkpoint);
+        if (checkpoint.SchemaVersion < 18) MigrateEquipmentComposition(checkpoint);
 
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
         {

@@ -323,7 +323,7 @@ public sealed class M16CraftingResourceStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(17, profile.SchemaVersion);
+        Assert.Equal(18, profile.SchemaVersion);
         Assert.Equal(2, profile.Statistics.Crafting.CompletionActions);
         Assert.Equal(4, profile.Statistics.Crafting.ProducedQuantity);
         Assert.Empty(profile.Statistics.Crafting.Resources);
@@ -387,7 +387,7 @@ public sealed class M16CraftingResourceStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(loaded));
 
-        Assert.Equal(17, loaded.SchemaVersion);
+        Assert.Equal(18, loaded.SchemaVersion);
         Assert.False(loaded.Statistics.Crafting.WasRepairedFromInvalidState);
         Assert.Equal(1, loaded.Statistics.Crafting.CompletionActions);
         Assert.Equal(2, loaded.Statistics.Crafting.ProducedQuantity);

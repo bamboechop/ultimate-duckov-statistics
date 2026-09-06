@@ -320,7 +320,7 @@ public sealed class RunsDataFoundationTests
         Assert.True(ProfileMigrator.Migrate(RoundTrip(profile)));
         Assert.True(ProfileMigrator.Migrate(profile));
         Assert.False(ProfileMigrator.Migrate(profile));
-        Assert.Equal(17, profile.SchemaVersion);
+        Assert.Equal(18, profile.SchemaVersion);
         Assert.Equal(TerminalLoadoutState.HistoricalUnavailable, profile.Statistics.Runs[0].TerminalLoadout.State);
         foreach (var combat in CombatScopes(profile))
             foreach (var total in CombatStatisticsReducer.PlayerKillScopes(combat))

@@ -106,6 +106,7 @@ public sealed class EquipmentStatisticsAggregate
     [DataMember(Order = 24)] public string HistoricalCharacterSlotStateProvenance { get; set; } = string.Empty;
     [DataMember(Order = 25)] public bool HistoricalNestedSlotStateUnavailable { get; set; }
     [DataMember(Order = 26)] public string HistoricalNestedSlotStateProvenance { get; set; } = string.Empty;
+    [DataMember(Order = 27)] public EquipmentCompositionEvidence Composition { get; set; } = new();
 }
 
 public static class EquipmentStatisticsReducer
@@ -116,11 +117,12 @@ public static class EquipmentStatisticsReducer
         ValidateSnapshot(snapshot);
         Advance(target, activeSeconds);
         ApplySnapshotCompleteness(target, snapshot);
+        var compositionChanged = EquipmentCompositionReducer.Observe(target.Composition, snapshot);
         if (string.Equals(target.CurrentSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal))
         {
             var enriched = EnrichDisplayMetadata(target, snapshot);
             target.CurrentSnapshot = Clone(snapshot);
-            return enriched;
+            return enriched || compositionChanged;
         }
 
         var from = target.CurrentSnapshot;
@@ -153,6 +155,7 @@ public static class EquipmentStatisticsReducer
             return;
         }
         PreflightSlotStateAdvance(target, snapshot, delta);
+        EquipmentCompositionReducer.Advance(target.Composition, snapshot, delta);
         target.ObservedActiveDurationSeconds = activeSeconds;
 
         if (!string.Equals(snapshot.LoadoutId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal))
@@ -255,6 +258,7 @@ public static class EquipmentStatisticsReducer
         NormalizePersisted(source);
         PreflightPlayerKillMerge(target, source);
         PreflightSlotStateMerge(target, source);
+        EquipmentCompositionReducer.Merge(target.Composition, source.Composition);
         target.Capabilities = preserveUnavailable
             ? RestrictCapabilities(target.Capabilities, source.Capabilities, preferSourceOnTie: !target.HistoricalUnavailable)
             : CloneCapabilities(source.Capabilities);
@@ -330,6 +334,7 @@ public static class EquipmentStatisticsReducer
             HistoricalNestedSlotStateUnavailable = source.HistoricalNestedSlotStateUnavailable,
             HistoricalNestedSlotStateProvenance = source.HistoricalNestedSlotStateProvenance
         };
+        clone.Composition = EquipmentCompositionReducer.Clone(source.Composition);
         MergeDurations(clone.Items, source.Items);
         MergeDurations(clone.SelectedWeapons, source.SelectedWeapons);
         MergeDurations(clone.Loadouts, source.Loadouts);
@@ -421,6 +426,11 @@ public static class EquipmentStatisticsReducer
         if (target == null) return false;
         var changed = false;
         var repaired = false;
+        if (target.Composition == null)
+        {
+            target.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
+            changed = true;
+        }
         if (target.HistoricalCombatOwnershipProvenance == null)
         {
             target.HistoricalCombatOwnershipProvenance = string.Empty;
@@ -547,6 +557,7 @@ public static class EquipmentStatisticsReducer
 
     public static void ValidateAggregate(EquipmentStatisticsAggregate target)
     {
+        EquipmentCompositionReducer.Validate(target?.Composition);
         if (target == null) throw new ArgumentNullException(nameof(target));
         if (target.Capabilities == null || target.Items == null || target.SelectedWeapons == null
             || target.Loadouts == null || target.TotemSets == null || target.CombatAssociations == null
@@ -570,6 +581,7 @@ public static class EquipmentStatisticsReducer
 
     public static void ValidateRecoveryCandidate(EquipmentStatisticsAggregate? target, int schemaVersion)
     {
+        if (schemaVersion >= 18) EquipmentCompositionReducer.Validate(target?.Composition);
         if (schemaVersion >= 6 && (target == null || target.Capabilities == null
             || target.Capabilities.EquipmentSlots == null || target.Capabilities.SelectedWeapon == null
             || target.Capabilities.AttachmentMetadata == null || target.Capabilities.DirectTotems == null
@@ -764,6 +776,7 @@ public static class EquipmentStatisticsReducer
             DisplayName = x.DisplayName,
             CarryKind = x.CarryKind,
             ContainerId = x.ContainerId,
+            DirectSlotId = x.DirectSlotId ?? string.Empty,
             ActivationState = x.ActivationState
         }).ToList(),
         CharacterSlotStateComplete = source.CharacterSlotStateComplete,
@@ -776,6 +789,7 @@ public static class EquipmentStatisticsReducer
             ItemId = slot.ItemId,
             ItemDisplayName = slot.ItemDisplayName,
             ItemKind = slot.ItemKind
+            , IsDirectTotemSlot = slot.IsDirectTotemSlot
         }).ToList()
     };
 

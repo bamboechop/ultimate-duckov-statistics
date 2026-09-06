@@ -16,6 +16,7 @@ public sealed class ExportTests
     private static readonly DateTime TestTime = new(2026, 8, 9, 13, 0, 0, DateTimeKind.Utc);
     private static readonly string[] ExpectedExportFileNames =
     {
+        "active_totem_set_definitions.csv",
         "ammunition_totals.csv",
         "cash_raid_outcomes.csv",
         "character_equipment_slots.csv",
@@ -35,6 +36,7 @@ public sealed class ExportTests
         "equipped_item_nested_slots.csv",
         "groups.csv",
         "items.csv",
+        "loadout_definitions.csv",
         "map_totals.csv",
         "overview.csv",
         "records.csv",
@@ -47,6 +49,7 @@ public sealed class ExportTests
         "segments.csv",
         "statistics.json",
         "terminal_loadouts.csv",
+        "totem_state_durations.csv",
         "weapon_ammunition_pairs.csv",
         "weapon_totals.csv",
         "world_time.csv"
@@ -714,7 +717,7 @@ public sealed class ExportTests
 
         var result = ProfileExportWriter.Write(profile, profilePath, TestTime);
 
-        Assert.Equal(34, result.Files.Count);
+        Assert.Equal(37, result.Files.Count);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
         Assert.Equal(
             ExpectedExportFileNames,

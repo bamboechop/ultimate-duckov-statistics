@@ -47,6 +47,7 @@ namespace ItemStatsSystem.Items
 {
     public sealed class Slot
     {
+        public List<NativeSlotTag> requireTags { get; } = new();
         public string Key { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
         private ItemStatsSystem.Item? content;
@@ -56,6 +57,10 @@ namespace ItemStatsSystem.Items
             get => ThrowOnContentRead ? throw new InvalidOperationException("Simulated unreadable native slot.") : content;
             set => content = value;
         }
+    }
+    public sealed class NativeSlotTag
+    {
+        public string name { get; set; } = string.Empty;
     }
 }
 
