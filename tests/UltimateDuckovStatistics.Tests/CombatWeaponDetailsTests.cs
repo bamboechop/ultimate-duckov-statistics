@@ -42,6 +42,79 @@ public sealed class CombatWeaponDetailsTests
     { p.CombatBinding = new CombatProjectionBinding(p); return CombatPresentationFactory.Create(p, "g")!; }
     private static CombatValue Value(CombatWeapon w, string label) => Assert.Single(w.Metrics, m => m.Label == label).Value;
 
+    private static void Throwable(StatisticsPanelProjection p, string id = "duckov:item:67", long count = 3)
+    {
+        p.Profile.Statistics.Items[id] = new ItemAggregate { ItemId = id, DisplayName = "Grenade",
+            EffectTags = new() { ItemEffectTag.Throwable }, Totals = new() { ActivationCount = count } };
+        p.Profile.Capabilities.Add(new CapabilityRecord { AdapterId = "throwable-releases", State = AdapterCapabilityState.Supported });
+    }
+
+    [Fact]
+    public void IndependentFiringAndThrowableEvidenceNeverSubstituteEachOthersActionCounts()
+    {
+        var p = Projection(); Throwable(p); Fire(p, "duckov:weapon:67", 8); Combat(p, "duckov:weapon:67");
+        var weapon = Assert.Single(Present(p).Weapons);
+        Assert.StartsWith("3", Value(weapon, "Throws / uses").Text, StringComparison.Ordinal);
+        Assert.Equal("8", Value(weapon, "Firing actions").Text);
+        Assert.Equal("8", Assert.Single(weapon.Ammunition).Actions.Text);
+        Assert.DoesNotContain("Not applicable to throwables", weapon.Notice, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ThrowableUseJoinsOnlyTheSameNativeIdAndKeepsRecordedCoverageVisible()
+    {
+        var p = Projection(); Throwable(p);
+        p.Combat.Lifetime.Weapons["duckov:weapon:67"] = new CombatBreakdownAggregate { Id = "duckov:weapon:67", DisplayName = "Grenade",
+            Totals = new() { DamageDealt = 77.86, KillsByYou = 1 } };
+        var weapon = Assert.Single(Present(p).Weapons);
+        Assert.Equal(new[] { "Throws / uses", "Kills by you", "Damage dealt" }, weapon.Metrics.Select(m => m.Label));
+        Assert.StartsWith("3", Value(weapon, "Throws / uses").Text, StringComparison.Ordinal);
+        Assert.Equal(CombatEvidence.Partial, Value(weapon, "Throws / uses").Evidence);
+        Assert.Equal("77.86", Value(weapon, "Damage dealt").Text); Assert.Equal("1", Value(weapon, "Kills by you").Text);
+        Assert.Empty(weapon.Ammunition); Assert.False(weapon.HasRangedEvidence);
+        Assert.Contains("Not applicable to throwables", weapon.Notice, StringComparison.Ordinal);
+    }
+    [Fact]
+    public void ThrowThatHitsNothingStillEntersCombatWithoutInventingCombatEvidence()
+    {
+        var p = Projection(); Throwable(p);
+        var weapon = Assert.Single(Present(p).Weapons);
+        Assert.Equal("duckov:weapon:67", weapon.Row.Id); Assert.Equal("Grenade", weapon.Row.Name);
+        Assert.Equal("Throws / uses", weapon.ActionLabel);
+        Assert.Equal(CombatEvidence.Unavailable, Value(weapon, "Kills by you").Evidence);
+        Assert.Equal(CombatEvidence.Unavailable, Value(weapon, "Damage dealt").Evidence);
+    }
+    [Fact]
+    public void NativeHistoricalThrowableClassificationDoesNotInventPastThrows()
+    {
+        var p = Projection();
+        p.Combat.Lifetime.Weapons["duckov:weapon:67"] = new CombatBreakdownAggregate { Id = "duckov:weapon:67", DisplayName = "Grenade", Totals = new() { DamageDealt = 4 } };
+        p.CombatBinding = new CombatProjectionBinding(p);
+        var weapon = Assert.Single(CombatPresentationFactory.Create(p, "g", isThrowable: id => id == "duckov:weapon:67")!.Weapons);
+        Assert.Equal(CombatEvidence.Unavailable, Value(weapon, "Throws / uses").Evidence);
+        Assert.Contains("Not applicable to throwables", weapon.Notice, StringComparison.Ordinal);
+    }
+    [Theory]
+    [InlineData("duckov:item:unknown")]
+    [InlineData("mod:item:67")]
+    [InlineData("duckov:item:067")]
+    public void UnknownForeignAndNoncanonicalThrowableIdsCannotSupplyNativeCounts(string id)
+    {
+        var p = Projection(); Throwable(p, id);
+        p.Combat.Lifetime.Weapons["duckov:weapon:67"] = new CombatBreakdownAggregate { Id = "duckov:weapon:67", DisplayName = "Grenade", Totals = new() { DamageDealt = 4 } };
+        p.CombatBinding = new CombatProjectionBinding(p);
+        var weapon = Assert.Single(CombatPresentationFactory.Create(p, "g", isThrowable: key => key == "duckov:weapon:67")!.Weapons);
+        Assert.Equal(CombatEvidence.Unavailable, Value(weapon, "Throws / uses").Evidence);
+    }
+    [Fact]
+    public void DisabledThrowableCapabilityDoesNotTurnRecordedCountIntoSupportedZero()
+    {
+        var p = Projection(); Throwable(p);
+        p.Profile.Capabilities.Single(c => c.AdapterId == "throwable-releases").State = AdapterCapabilityState.DisabledIncompatible;
+        Assert.Equal(CombatEvidence.Partial, Value(Assert.Single(Present(p).Weapons), "Throws / uses").Evidence);
+        Assert.Equal(3, p.Profile.Statistics.Items["duckov:item:67"].Totals.ActivationCount);
+    }
+
     [Fact]
     public void ExactRangedJoinKeepsPlayerCountersAndExistingAmmoActions()
     {

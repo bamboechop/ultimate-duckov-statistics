@@ -84,6 +84,8 @@ For Combat and Records, wheel/drag/inertial scrolling must stop at the top and b
 
 Where native item ID 356 (Unarmed) is legitimately displayed, verify the muted empty-slot dash replaces its knife sprite in Combat, Equipment, Runs and the Runs item overlay. The name, stable identity, occupied evidence and recorded statistics remain unchanged; other IDs retain native icons or the normal unknown-icon fallback.
 
+For throwable release counts, consumption, cancellation, misses, native patch ownership and persistence, follow [M17_THROWABLES.md](M17_THROWABLES.md). Earlier throws must remain Unavailable and recorded counts Partial.
+
 ## Complete retained Equipment qualification
 
 Use [M17_RETAINED_EQUIPMENT.md](M17_RETAINED_EQUIPMENT.md) and [M17_EQUIPMENT_DATA_FOUNDATION.md](M17_EQUIPMENT_DATA_FOUNDATION.md) for the exact data sources and baseline slot proof. Record results against one candidate; do not manufacture states by editing a Duckov save or a live UDS profile.

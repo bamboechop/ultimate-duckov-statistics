@@ -192,6 +192,13 @@ try
         core.RequireProperty(string.Empty, "GameClock", "Instance", "GameClock", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "GameClock", "Day", "System.Int64", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "GameClock", "TimeOfDay", "System.TimeSpan", mustBePublic: true, mustBeStatic: true);
+        core.RequireMethod(string.Empty, "SkillBase", "ReleaseSkill", 2, mustBePublic: true,
+            returnTypeFragment: "System.Void", parameterTypeFragments: ["SkillReleaseContext", "CharacterMainControl"]);
+        core.RequireMethod(string.Empty, "Skill_Grenade", "OnRelease", 0, mustBePublic: true, mustBeVirtual: true);
+        core.RequireField(string.Empty, "SkillBase", "fromItem", mustBePublic: true, fieldTypeFragment: "ItemStatsSystem.Item");
+        core.RequireField(string.Empty, "SkillBase", "OnSkillReleasedEvent", mustBePublic: true, fieldTypeFragment: "System.Action");
+        core.RequireField(string.Empty, "ItemSetting_Skill", "Skill", mustBePublic: true, fieldTypeFragment: "SkillBase");
+        core.RequireMethod(string.Empty, "ItemSetting_Skill", "OnSkillReleased", 0);
         core.RequireProperty(string.Empty, "GameClock", "Now", "System.TimeSpan", mustBePublic: true, mustBeStatic: true);
         core.RequireDoubleConstant(string.Empty, "GameClock", "SecondsPerDay", 86300d);
         core.RequireMethod(
@@ -543,6 +550,8 @@ try
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "DisplayName", "System.String", mustBePublic: true);
         itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "icon", mustBePublic: true, fieldTypeFragment: "UnityEngine.Sprite");
         itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "id", mustBePublic: true, fieldTypeFragment: "System.Int32");
+        itemStats.RequireMethod("ItemStatsSystem", "ItemAssetsCollection", "GetPrefab", 1, mustBePublic: true,
+            mustBeStatic: true, returnTypeFragment: "ItemStatsSystem.Item", parameterTypeFragments: ["System.Int32"]);
     }
 
     using (var ui = new AssemblyMetadata(unityUiPath))

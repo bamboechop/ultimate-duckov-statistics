@@ -325,6 +325,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
+    private CapabilityRecord throwableCapability = new() { AdapterId = ThrowableUseObservation.CapabilityId,
+        State = AdapterCapabilityState.DisabledIncompatible, Detail = "Throwable tracking has not been initialized." };
+
+    public void SetThrowableCapability(CapabilityRecord value)
+    { throwableCapability = CloneCapability(value); UpdateCapabilities(); }
+
     public void SetWeaponCapabilities(IReadOnlyList<CapabilityRecord> capabilities)
     {
         if (capabilities == null)
@@ -1113,7 +1119,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities).Concat(economyHoldingsCapabilities),
+        }.Concat(new[] { throwableCapability }).Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities).Concat(economyHoldingsCapabilities),
         economyMetricCapabilities,
         worldTimeMetricCapabilities,
         craftingMetricCapabilities,

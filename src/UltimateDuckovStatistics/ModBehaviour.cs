@@ -24,6 +24,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private Action? economyActivationForProfileChange;
     private readonly ProcessLifetimeCleanupOwner<NativeRunLifecycleAdapter> runLifecycleAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeWeaponFireAdapter> weaponFireAdapter = new();
+    private readonly ProcessLifetimeCleanupOwner<NativeThrowableAdapter> throwableAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeCombatAttributionAdapter> combatAttributionAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeEquipmentAdapter> equipmentAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeContainerAdapter> containerAdapter = new();
@@ -106,6 +107,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             }
 
             var newProfileCoordinator = new NativeProfileCoordinator();
+            if (throwableAdapter.HasValue
+                && (!throwableAdapter.HasPendingCleanup || !throwableAdapter.TryCleanupPending()))
+                throw new InvalidOperationException("Previous throwable patches still await cleanup.");
             profileCoordinator = newProfileCoordinator;
             newProfileCoordinator.Initialize();
             var newEconomyHoldingsAdapter = new NativeEconomyHoldingsAdapter(
@@ -298,6 +302,18 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             profileCoordinator.ProfileChanged += economyActivationForProfileChange;
             profileCoordinator.ProfileChanged += newEconomyAdapter.ResetBaselines;
             itemUseAdapter.Subscribe();
+            var newThrowableAdapter = new NativeThrowableAdapter(
+                () => profileCoordinator.CurrentGenerationId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentMapId,
+                () => runLifecycleAdapter.OwnedValue?.CurrentSegmentId,
+                value => ItemUsePublication.PublishIndependently(
+                    () => profileCoordinator.HandleItemUse(new Core.Tracking.ItemUseCompletion(Core.Tracking.ItemUseCompletionDisposition.Counted, value)),
+                    () => runLifecycleAdapter.OwnedValue?.RecordItemUse(value) == true),
+                profileCoordinator.SetThrowableCapability,
+                message => Debug.Log($"{LogPrefix} {message}"));
+            throwableAdapter.Assign(newThrowableAdapter);
+            newThrowableAdapter.Initialize();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);
             initialized = true;
             Debug.Log(
@@ -401,6 +417,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             }
         }
 
+        if (!throwableAdapter.TryCleanupOwned())
+            Debug.LogWarning($"{LogPrefix} throwable patches await retryable cleanup.");
         if (!weaponFireAdapter.TryCleanupOwned())
         {
             Debug.LogWarning($"{LogPrefix} weapon-fire adapter retained for a later cleanup retry.");

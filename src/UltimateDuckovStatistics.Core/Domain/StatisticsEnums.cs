@@ -76,7 +76,8 @@ public enum ItemEffectTag
     [EnumMember] Drink = 2,
     [EnumMember] Buff = 3,
     [EnumMember] DebuffRemoval = 4,
-    [EnumMember] Special = 5
+    [EnumMember] Special = 5,
+    [EnumMember] Throwable = 6
 }
 
 [DataContract]

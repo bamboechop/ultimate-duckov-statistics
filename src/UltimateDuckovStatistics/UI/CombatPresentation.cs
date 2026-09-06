@@ -2,6 +2,7 @@ using System.Globalization;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
+using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.UI;
 
@@ -122,7 +123,8 @@ internal sealed class CombatPresentation
 
 internal static class CombatPresentationFactory
 {
-    public static CombatPresentation? Create(StatisticsPanelProjection p, string generation, Func<string, string>? text = null)
+    public static CombatPresentation? Create(StatisticsPanelProjection p, string generation, Func<string, string>? text = null,
+        Func<string, bool>? isThrowable = null)
     {
         if (!StatisticsPanelProjectionFactory.HasProvableGeneration(p.Profile, generation)
             || p.CombatBinding?.Matches(p, generation) != true) return null;
@@ -185,6 +187,13 @@ internal static class CombatPresentationFactory
         var enemyNotice = Notice(enemyRows.Length, "ui.combat_no_enemies", history || a.WasRepairedFromInvalidState,
             new[] { cap.EnemyIdentity, cap.KillsByYou, cap.ObservedWorldDeaths }, t);
         var sources = new List<(WeaponAmmunitionGroupProjection? Fire, CombatBreakdownAggregate? Combat, string Id)>();
+        var throwableItems = p.Profile.Statistics.Items.Where(pair => pair.Key == pair.Value.ItemId
+                && pair.Value.EffectTags.Contains(ItemEffectTag.Throwable)
+                && NativeItemTypeIdPolicy.TryParse(pair.Key, out var typeId) && typeId > 0
+                && pair.Key == "duckov:item:" + typeId.ToString(CultureInfo.InvariantCulture))
+            .ToDictionary(pair => pair.Key.Replace("duckov:item:", "duckov:weapon:"), pair => pair.Value, StringComparer.Ordinal);
+        var throwableCapability = p.Profile.Capabilities.FirstOrDefault(value => value.AdapterId == ThrowableUseObservation.CapabilityId)?.State
+            ?? AdapterCapabilityState.DisabledIncompatible;
         var firingIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var group in p.WeaponAmmunitionGroups)
         {
@@ -201,16 +210,22 @@ internal static class CombatPresentationFactory
                 && (!ExactWeaponId(pair.Key) || pair.Key != pair.Value.Id || !firingIds.Contains(pair.Key)))
                 sources.Add((null, pair.Value, ExactWeaponId(pair.Key) && pair.Key == pair.Value.Id
                     ? pair.Key : "unattributed-combat:" + pair.Key));
+        foreach (var pair in throwableItems)
+            if (pair.Value.Totals.ActivationCount > 0 && !sources.Any(value => value.Id == pair.Key))
+                sources.Add((null, null, pair.Key));
         var unattributed = a.Weapons.Where(pair => !ExactWeaponId(pair.Key) || pair.Key != pair.Value.Id).Select(pair => pair.Value.Totals).ToArray();
         var missingFiringAttribution = w.Lifetime.Totals.FiringActions > p.WeaponAmmunitionGroups.Where(g => ExactWeaponId(g.WeaponId)).Sum(g => (decimal)g.TotalFiringActions);
         var weaponRows = sources.OrderByDescending(s => s.Fire?.TotalFiringActions ?? 0)
-            .ThenBy(s => Name(s.Fire?.DisplayName ?? s.Combat?.DisplayName ?? "", s.Id, t), StringComparer.Ordinal).ThenBy(s => s.Id, StringComparer.Ordinal)
+            .ThenBy(s => Name(s.Fire?.DisplayName ?? s.Combat?.DisplayName
+                ?? (throwableItems.TryGetValue(s.Id, out var used) ? used.DisplayName : ""), s.Id, t), StringComparer.Ordinal).ThenBy(s => s.Id, StringComparer.Ordinal)
             .Select(source =>
             {
+                throwableItems.TryGetValue(source.Id, out var throwableItem);
                 var exact = source.Fire != null ? ExactWeaponId(source.Fire.WeaponId)
-                    : source.Combat != null && source.Id == source.Combat.Id && ExactWeaponId(source.Id);
+                    : source.Combat != null ? source.Id == source.Combat.Id && ExactWeaponId(source.Id) : throwableItem != null;
+                var throwable = exact && (throwableItem != null || isThrowable?.Invoke(source.Id) == true);
                 var stats = exact ? source.Combat?.Totals : null;
-                var g = source.Fire ?? new WeaponAmmunitionGroupProjection { WeaponId = source.Id, DisplayName = source.Combat?.DisplayName ?? "" };
+                var g = source.Fire ?? new WeaponAmmunitionGroupProjection { WeaponId = source.Id, DisplayName = source.Combat?.DisplayName ?? throwableItem?.DisplayName ?? "" };
                 var rangedWeapon = source.Fire != null || stats != null && (stats.RangedHits > 0 || stats.CompletedPlayerProjectiles > 0
                     || stats.Headshots > 0 || stats.HeadshotFinalBlows > 0 || stats.PlayerKills.Ranged > 0);
                 var meleeWeapon = stats != null && (stats.MeleeSwings > 0 || stats.MeleeHits > 0 || stats.PlayerKills.Melee > 0);
@@ -220,9 +235,16 @@ internal static class CombatPresentationFactory
                 var actions = source.Fire == null ? rangedWeapon || !meleeWeapon ? Unavailable() : Count(row => row.MeleeSwings, cap.MeleeSwings)
                     : Metric(g.TotalFiringActions, Both(wc.FiringActions.State, wc.WeaponIdentity.State), w.Lifetime.WasRepairedFromInvalidState || !exact || missingFiringAttribution, t);
                 var metrics = new List<CombatMetric>();
+                var firingActions = actions;
+                if (throwable)
+                {
+                    actions = throwableItem == null ? Unavailable() : Metric(throwableItem.Totals.ActivationCount,
+                        throwableCapability, true, t);
+                    metrics.Add(M("ui.combat_throwable_uses", actions));
+                }
                 if (rangedWeapon)
                 {
-                    metrics.Add(M("ui.firing_actions", source.Fire == null ? Unavailable() : actions));
+                    metrics.Add(M("ui.firing_actions", source.Fire == null ? Unavailable() : firingActions));
                     metrics.Add(M(meleeWeapon ? "ui.combat_ranged_hits" : "ui.combat_hits", Count(row => row.RangedHits, cap.RangedHits)));
                     metrics.Add(M("ui.runs_headshots", Count(row => row.Headshots, cap.Headshots)));
                     metrics.Add(M("ui.combat_headshot_final_blows", Count(row => row.HeadshotFinalBlows, cap.HeadshotFinalBlows)));
@@ -236,8 +258,8 @@ internal static class CombatPresentationFactory
                     a.HistoricalOwnershipUnavailable || stats?.PlayerKills.HistoricalIncomplete == true || stats?.LegacyUnclassifiedDeaths > 0)));
                 metrics.Add(M("ui.overview_damage_dealt", stats == null ? Unavailable() : Metric(stats.DamageDealt,
                     Both(cap.DamageDealt.State, cap.WeaponIdentity.State), a.WasRepairedFromInvalidState || unattributed.Any(row => row.DamageDealt > 0), t)));
-                var actionLabel = rangedWeapon ? t("ui.firing_actions") : meleeWeapon ? t("ui.combat_swings") : "";
-                if (!rangedWeapon && !meleeWeapon && stats != null)
+                var actionLabel = throwable ? t("ui.combat_throwable_uses") : rangedWeapon ? t("ui.firing_actions") : meleeWeapon ? t("ui.combat_swings") : "";
+                if (!throwable && !rangedWeapon && !meleeWeapon && stats != null)
                 {
                     // Player-attributed damage/kills need not establish the weapon's attack type.
                     var summary = stats.DamageDealt > 0 ? metrics[metrics.Count - 1] : metrics[metrics.Count - 2];
@@ -262,6 +284,9 @@ internal static class CombatPresentationFactory
                     wc.WeaponAmmunitionPairing.State != AdapterCapabilityState.Supported ? Join(t("ui.unavailable"), wc.WeaponAmmunitionPairing.Provenance) : "",
                     ammo.Length == 0 ? t("ui.combat_no_pairs") : "");
                 if (!rangedWeapon) notice = t(meleeWeapon ? "ui.combat_melee_no_ammo" : "ui.combat_weapon_type_unavailable");
+                if (throwable) notice = Join(rangedWeapon ? notice : t("ui.combat_throwable_no_ammo"), t("ui.combat_throwable_coverage"));
+                if (throwable && throwableCapability != AdapterCapabilityState.Supported)
+                    notice = Join(notice, t("ui.combat_throwable_tracking_unavailable"));
                 if (!exact || stats == null) notice = Join(t("ui.combat_weapon_attribution_unavailable"), notice);
                 return new CombatWeapon(row, ammo, notice, metrics, actionLabel, rangedWeapon);
             }).ToArray();

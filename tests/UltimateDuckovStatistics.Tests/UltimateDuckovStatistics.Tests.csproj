@@ -73,6 +73,8 @@
              Link="ProductionAdapters\NativeRunLifecycleAdapter.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeWeaponFireAdapter.cs"
              Link="ProductionAdapters\NativeWeaponFireAdapter.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeThrowableAdapter.cs"
+             Link="ProductionAdapters\NativeThrowableAdapter.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCombatEquipmentAssociationResolver.cs"
              Link="ProductionAdapters\NativeCombatEquipmentAssociationResolver.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeBuffApplicationObservationBoundary.cs"

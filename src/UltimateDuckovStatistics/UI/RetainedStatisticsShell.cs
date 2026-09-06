@@ -372,7 +372,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             recordsView.SetVisible(selectedTab == StatisticsPanelTab.Records);
             combatView = new CombatView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
                 () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
-            combatView.Refresh(CombatPresentationFactory.Create(projection, projection.Profile.GenerationId));
+            combatView.Refresh(CombatPresentationFactory.Create(projection, projection.Profile.GenerationId, isThrowable: NativeThrowableIdentity.IsThrowable));
             combatView.SetVisible(selectedTab == StatisticsPanelTab.Combat);
             equipmentView = new EquipmentView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
                 (generation, id) => { runsView?.Route(generation, id); tabSelected?.Invoke(StatisticsPanelTab.Runs); },
@@ -566,7 +566,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         BindOverviewRun(generation);
         RefreshRuns(projection, generation);
         recordsView?.Refresh(RecordsPresentationFactory.Create(projection, generation));
-        combatView?.Refresh(CombatPresentationFactory.Create(projection, generation));
+        combatView?.Refresh(CombatPresentationFactory.Create(projection, generation, isThrowable: NativeThrowableIdentity.IsThrowable));
         equipmentView?.Refresh(EquipmentPresentationFactory.Create(projection, generation));
         RefreshVisualLayout(force: true);
     }
