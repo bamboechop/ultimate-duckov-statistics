@@ -151,7 +151,7 @@ internal sealed partial class RetainedStatisticsShell
                 public RetainedLatestRunViewRunControl Route = null!;
                 public readonly List<ProceduralImage> Dots = new();
                 public void Dispose()
-                { Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; Icon.sprite = null; Tooltip.text = string.Empty; }
+                { Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; Icon.sprite = null; NativeTotemIconAppearance.Clear(Icon); Tooltip.text = string.Empty; }
             }
             public EquipmentViewport(EquipmentView owner, RectTransform parent, string name, string region)
             {
@@ -170,7 +170,7 @@ internal sealed partial class RetainedStatisticsShell
             public void Clear()
             {
                 document = null; focusedId = null;
-                foreach (var c in Pool) { c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; c.Icon.sprite = null; c.Tooltip.text = string.Empty; }
+                foreach (var c in Pool) { c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); c.Tooltip.text = string.Empty; }
                 foreach (var surface in surfaces) surface.gameObject.SetActive(false);
                 rebuild = true;
             }
@@ -250,7 +250,7 @@ internal sealed partial class RetainedStatisticsShell
                 for (var i = 0; i < pool.Count; i++)
                 {
                     var c = pool[i]; c.Rect.gameObject.SetActive(i < visible.Count);
-                    if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; c.Tooltip.text = string.Empty; continue; }
+                    if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); c.Tooltip.text = string.Empty; continue; }
                     BindControl(c, document.Rows[visible[i]]);
                     // Pools may swap focused controls. Restore document paint order above
                     // the separately pooled card surfaces.
@@ -292,18 +292,20 @@ internal sealed partial class RetainedStatisticsShell
                     var padding = RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels;
                     Place(c.Route.LabelRect, padding, 0, r.Width - 2 * padding, r.Height);
                     c.Icon.sprite = null;
+                    NativeTotemIconAppearance.Clear(c.Icon);
                     return;
                 }
                 if (showIcon)
                 {
                     var icon = CombatItemIconPolicy.Resolve(r.IconId, owner.icons.ResolveAvailable);
                     c.Icon.sprite = icon; c.Icon.enabled = icon != null;
+                    NativeTotemIconAppearance.Apply(c.Icon, r.IconId);
                     c.Fallback.enabled = icon == null; c.Fallback.text = isSlot && r.Slot?.State == UltimateDuckovStatistics.Core.Domain.EquipmentSlotState.Empty ? "–" : "?";
                     c.Fallback.color = isSlot && r.Slot?.State == UltimateDuckovStatistics.Core.Domain.EquipmentSlotState.Empty ? Muted : Color.white;
                     var size = isSlot ? r.Width - 12 : 60; var inset = isSlot ? 6 : r.Expandable ? 40 : 15;
                     Place(c.Icon.rectTransform, inset, isSlot ? 6 : 12, size, size); Place(c.Fallback.rectTransform, inset, isSlot ? 6 : 12, size, size);
                 }
-                else c.Icon.sprite = null;
+                else { c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); }
                 if (isSlot)
                 {
                     c.Background.raycastTarget = true;

@@ -28,6 +28,7 @@
     <Reference Include="Unity.TextMeshPro" HintPath="$(DuckovManagedPath)\Unity.TextMeshPro.dll" Private="false" />
     <Reference Include="SodaLocalization" HintPath="$(DuckovManagedPath)\SodaLocalization.dll" Private="false" />
     <Reference Include="Plugins" HintPath="$(DuckovManagedPath)\Plugins.dll" Private="false" />
+    <Reference Include="LeTai.TrueShadow" HintPath="$(DuckovManagedPath)\LeTai.TrueShadow.dll" Private="false" />
   </ItemGroup>
 
   <Target Name="ValidateDuckovPath" BeforeTargets="ResolveReferences">

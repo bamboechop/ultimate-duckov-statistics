@@ -422,6 +422,7 @@ internal sealed partial class RetainedStatisticsShell
                 control.Tooltip.text = SafeTooltip(item == null ? UiText.Get("ui.unavailable") + "\n" + run!.EquipmentState : item.Text + "\n" + run!.EquipmentState);
                 var sprite = item == null ? null : RunsItemIconPolicy.Resolve(item, icons.ResolveAvailable);
                 control.Icon.sprite = sprite; control.Icon.enabled = sprite != null;
+                NativeTotemIconAppearance.Apply(control.Icon, item?.ItemId);
                 control.Fallback.text = sprite != null ? string.Empty : item?.State == EquipmentSlotState.Empty ? "—" : "?";
                 control.Fallback.color = item?.State == EquipmentSlotState.Empty ? Muted : Color.white;
                 control.Root.GetComponent<ProceduralImage>().color = item == null || item.State is not (EquipmentSlotState.Occupied or EquipmentSlotState.Empty)
@@ -771,6 +772,7 @@ internal sealed partial class RetainedStatisticsShell
             var rootItem = rows[0];
             var rootSprite = RunsItemIconPolicy.Resolve(rootItem, icons.ResolveAvailable);
             evidenceItemIcon.sprite = rootSprite; evidenceItemIcon.enabled = rootSprite != null;
+            NativeTotemIconAppearance.Apply(evidenceItemIcon, rootItem.ItemId);
             evidenceItemFallback.text = rootSprite != null ? string.Empty : "?";
             evidenceItemName.text = rootItem.ItemName;
             var attachmentCount = rows.Count - 1;
@@ -790,6 +792,7 @@ internal sealed partial class RetainedStatisticsShell
                 var captured = rows[i + 1];
                 var sprite = RunsItemIconPolicy.Resolve(captured, icons.ResolveAvailable);
                 row.Icon.sprite = sprite; row.Icon.enabled = sprite != null;
+                NativeTotemIconAppearance.Apply(row.Icon, captured.ItemId);
                 row.Fallback.text = sprite != null ? string.Empty : captured.State == EquipmentSlotState.Empty ? "—" : "?";
                 row.Fallback.color = captured.State == EquipmentSlotState.Empty ? Muted : Color.white;
                 row.Name.text = captured.ItemName;

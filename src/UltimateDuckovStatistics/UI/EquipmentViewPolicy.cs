@@ -149,9 +149,11 @@ internal sealed class EquipmentDocument
     {
         var start = y; var expanded = selection?.Expanded(entry.Id) == true;
         var weapon = selection?.Page == EquipmentPanelSection.Weapons;
-        var caption = compact ? "" : weapon ? EquipmentLayoutPolicy.Duration(entry.Duration) + " " + entry.Caption : entry.Caption;
+        var directTotem = selection?.Page == EquipmentPanelSection.Totems && entry.Id.StartsWith("direct:", StringComparison.Ordinal);
+        var durationBelowName = weapon || directTotem;
+        var caption = compact ? "" : durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) + " " + entry.Caption : entry.Caption;
         y += Add(new EquipmentRenderRow { Id = entry.Id, Kind = EquipmentRowKind.Item, Name = entry.Name,
-            IconId = entry.ItemId, Value = value && !weapon ? EquipmentLayoutPolicy.Duration(entry.Duration) : "", Caption = caption,
+            IconId = entry.ItemId, Value = value && !durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) : "", Caption = caption,
             Actionable = selection != null && entry.Expandable, Expandable = selection != null && entry.Expandable, Selected = expanded }, x, y, w);
         y += Notice(entry.Notice, x, y, w);
         if (expanded)
@@ -171,6 +173,16 @@ internal sealed class EquipmentDocument
                             Name = string.Format(System.Globalization.CultureInfo.CurrentCulture, text("ui.equipment_equipped_in_slot"),
                                 EquipmentLayoutPolicy.Duration(slot.Duration), slotName) }, x + 10, y, w - 20);
                     }
+                else if (directTotem)
+                    foreach (var slot in groups[0].Rows)
+                    {
+                        // Keep separately observed activation states qualified without treating
+                        // presence as activity. The ordinary active case follows the compact mock.
+                        var qualification = slot.Caption == text("ui.equipment_activation_provenactive")
+                            && groups[0].Rows.Count(r => r.Name == slot.Name) == 1 ? "" : " · " + slot.Caption;
+                        y += Add(new EquipmentRenderRow { Kind = EquipmentRowKind.SlotDuration,
+                            Name = slot.Name + ": " + EquipmentLayoutPolicy.Duration(slot.Duration) + qualification }, x + 10, y, w - 20);
+                    }
                 else y += Group(groups[0], x + 10, y, w - 20);
             }
             if (groups.Count > 1)
@@ -184,7 +196,7 @@ internal sealed class EquipmentDocument
                 }
                 y = Math.Max(left, right);
             }
-            if (selection!.Page is EquipmentPanelSection.Weapons or EquipmentPanelSection.ArmorAndGear)
+            if (directTotem || selection!.Page is EquipmentPanelSection.Weapons or EquipmentPanelSection.ArmorAndGear)
                 Surfaces.Add(new EquipmentSurface(x, start, w, y - start));
         }
         return y - start;

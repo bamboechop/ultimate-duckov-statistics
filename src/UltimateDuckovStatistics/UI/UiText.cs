@@ -375,7 +375,7 @@ internal static class UiText
             ["ui.pre_m16_currency_unavailable"] = "earlier crafting currency-cost history unavailable",
             ["ui.crafting_contract"] = "One action is one correlated completion of native output delivery before downstream crafting callbacks. Produced quantity and item/currency costs are immutable formula declarations captured when Craft starts and published only after the preceding native Pay succeeds and delivery completes. Attempts, failed payment, inventory deltas, holdings, historical action counts, current recipe metadata, and Money/Cash split inference are excluded. Totals are save-generation lifetime only; workstation and run/map attribution are unavailable.",
             ["ui.weapon_equipment"] = "Weapons by equipped character slot and nested slot",
-            ["ui.armor_and_gear"] = "Armor, gear & other native slots",
+            ["ui.armor_and_gear"] = "Armor & gear",
             ["ui.loadouts"] = "Loadouts",
             ["ui.weapons"] = "Weapons",
             ["ui.totems"] = "Totems",
