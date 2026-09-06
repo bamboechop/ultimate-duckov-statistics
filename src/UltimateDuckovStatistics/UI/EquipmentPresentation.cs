@@ -122,7 +122,9 @@ internal static class EquipmentPresentationFactory
             foreach (var key in notices.Keys.ToArray()) notices[key] = t("ui.equipment_partial") + "\n" + notices[key];
         var nestedNotice = Notice(c.NestedSlotState, a.HistoricalNestedSlotStateUnavailable);
         var recurring = p.RecurringLoadouts.Where(r => r.RunOccurrences >= 2).OrderByDescending(r => r.ActiveDurationSeconds).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
-        EquipmentEntry? most = recurring == null ? null : Loadout(a, recurring, "most", "", "", t("ui.equipment_active_time") + " · " + Used(recurring.RunOccurrences));
+        EquipmentEntry? most = recurring == null ? null : Loadout(a, recurring, "most", "", "", Used(recurring.RunOccurrences));
+        // A missing definition already carries its specific historical notice on the card.
+        notices["loadouts"] = Notice(c.EquipmentSlots, a.Composition.HistoricalUnavailable && most?.Notice.Length == 0);
         var selected = a.SelectedWeapons.Values.Select(r => (Row: r, Split: r.Id.IndexOf('|'))).Where(r => r.Split > 0)
             .GroupBy(r => r.Row.Id.Substring(r.Split + 1), StringComparer.Ordinal).Select(g =>
             {
@@ -137,7 +139,9 @@ internal static class EquipmentPresentationFactory
         var recent = p.RecentEquipmentRuns.OrderByDescending(r => r.EndedUtc).ThenBy(r => r.RunId, StringComparer.Ordinal).Select(run =>
         {
             var row = run.EquipmentStatistics.Loadouts.Values.OrderByDescending(r => r.ActiveDurationSeconds).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
-            var route = run.Segments.Count > 0 ? string.Join(" - ", run.Segments.OrderBy(s => s.SegmentIndex).Select(s => Name(s.MapDisplayName))) : Name(run.MapDisplayName);
+            var segments = run.Segments.OrderBy(s => s.SegmentIndex).ToArray();
+            var route = segments.Length == 0 ? Name(run.MapDisplayName) : segments.Length == 1 ? Name(segments[0].MapDisplayName)
+                : Name(segments[0].MapDisplayName) + " - " + Name(segments[segments.Length - 1].MapDisplayName);
             var caption = run.EndedUtc.ToLocalTime().ToString("yyyy-MM-dd - HH:mm:ss", CultureInfo.InvariantCulture) + "\n" + t("ui.equipment_most_during_run");
             return row == null ? new EquipmentEntry("run:" + run.RunId, route, "", 0, caption, t("ui.unavailable"), runId: run.RunId)
                 : Loadout(run.EquipmentStatistics, row, "run:" + run.RunId, route, run.RunId, caption);

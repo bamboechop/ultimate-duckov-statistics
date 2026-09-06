@@ -1359,7 +1359,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         RectTransform parent,
         RetainedLatestRunViewRunPresentation presentation,
         NativeHeaderTitleTypography typography,
-        Material material)
+        Material material,
+        bool useIdentityBinding = false)
     {
         var controlObject = new GameObject(
             RetainedOverviewLatestRunViewRunPolicy.Name,
@@ -1385,7 +1386,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         background.raycastTarget = RetainedOverviewLatestRunViewRunPolicy.BackgroundBlocksRaycasts;
         var modifier = controlObject.AddComponent<UniformModifier>();
 
-        var button = controlObject.AddComponent<Button>();
+        Button button = useIdentityBinding ? controlObject.AddComponent<RunsHistoryButton>() : controlObject.AddComponent<Button>();
         button.targetGraphic = background;
         button.interactable = RetainedOverviewLatestRunViewRunPolicy.IsInteractable;
         button.transition = Selectable.Transition.None;

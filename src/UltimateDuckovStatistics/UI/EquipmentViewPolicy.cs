@@ -45,7 +45,15 @@ internal sealed class EquipmentSelection
     public void Focus(string region, string id) { if (Snapshot != null) focus[Key(region)] = id; }
     public string? FocusId(string region) => focus.TryGetValue(Key(region), out var id) ? id : null;
 }
-internal enum EquipmentRowKind { Heading, Notice, Item, Selector, Slot, Route }
+internal enum EquipmentRowKind { Heading, Notice, Item, Selector, Slot, Route, Footer, SlotDuration }
+internal readonly struct EquipmentSurface
+{
+    public float X { get; }
+    public float Y { get; }
+    public float Width { get; }
+    public float Height { get; }
+    public EquipmentSurface(float x, float y, float width, float height) { X = x; Y = y; Width = width; Height = height; }
+}
 internal sealed class EquipmentRenderRow
 {
     public string Id { get; set; } = "";
@@ -81,6 +89,7 @@ internal static class EquipmentLayoutPolicy
 internal sealed class EquipmentDocument
 {
     public List<EquipmentRenderRow> Rows { get; } = new();
+    public List<EquipmentSurface> Surfaces { get; } = new();
     public float Height { get; private set; } = 60;
     private float[] ends = Array.Empty<float>();
     private bool stacked;
@@ -92,7 +101,7 @@ internal sealed class EquipmentDocument
     public float Add(EquipmentRenderRow r, float x, float y, float width)
     {
         r.X = x; r.Y = y; r.Width = Math.Max(1, width);
-        var size = r.Kind == EquipmentRowKind.Heading ? 40 : r.Kind == EquipmentRowKind.Notice ? 22 : r.Kind == EquipmentRowKind.Selector ? 32 : 28;
+        var size = r.Kind == EquipmentRowKind.Heading ? 40 : r.Kind is EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? 22 : r.Kind == EquipmentRowKind.Selector ? 32 : 28;
         var inset = r.Kind == EquipmentRowKind.Item ? 30 + (r.IconId.Length > 0 ? 72 : 0) + (r.Expandable ? 28 : 0) : 30;
         var inner = Math.Max(1, width - inset);
         r.NameWidth = r.Value.Length > 0 ? Math.Max(1, inner * .64f - 10) : inner;
@@ -101,13 +110,27 @@ internal sealed class EquipmentDocument
         r.CaptionTop = Math.Max(r.NameHeight, r.ValueHeight) + 16;
         r.Height = r.Kind == EquipmentRowKind.Slot ? width : Math.Max(r.IconId.Length > 0 ? 80 : r.Kind == EquipmentRowKind.Selector ? 64 : 36,
             r.CaptionTop + (r.Caption.Length == 0 ? 0 : measure(r.Caption, inner, 22) + 6) + 12);
-        Rows.Add(r); Height = Math.Max(Height, y + r.Height + 30); return r.Height + 10;
+        if (r.Kind == EquipmentRowKind.Route)
+            r.Height = Math.Max(RetainedOverviewLatestRunViewRunPolicy.HeightPixels,
+                measure(r.Name, Math.Max(1, width - 2 * RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels),
+                    RetainedOverviewLatestRunViewRunPolicy.ReferenceFontSize) + 12);
+        if (r.Kind == EquipmentRowKind.SlotDuration) r.Height = r.NameHeight + 4;
+        Rows.Add(r); Height = Math.Max(Height, y + r.Height + 30); return r.Height + (r.Kind == EquipmentRowKind.SlotDuration ? 0 : 10);
     }
     public void Seal()
     {
+        Surfaces.Sort((a, b) => a.Y.CompareTo(b.Y));
         Rows.Sort((a, b) => { var y = a.Y.CompareTo(b.Y); return y == 0 ? a.X.CompareTo(b.X) : y; });
         ends = new float[Rows.Count]; float end = 0;
         for (var i = 0; i < Rows.Count; i++) ends[i] = end = Math.Max(end, Rows[i].Y + Rows[i].Height);
+    }
+    public IEnumerable<EquipmentSurface> VisibleSurfaces(float offset, float height)
+    {
+        // Card surfaces never overlap vertically within a document. Keep their lookup
+        // separate from rows so a tall open card cannot force a scan of its hidden rows.
+        var lo = 0; var hi = Surfaces.Count;
+        while (lo < hi) { var mid = lo + (hi - lo) / 2; if (Surfaces[mid].Y + Surfaces[mid].Height < offset - 100) lo = mid + 1; else hi = mid; }
+        for (var i = lo; i < Surfaces.Count && Surfaces[i].Y <= offset + height + 100; i++) yield return Surfaces[i];
     }
     public IReadOnlyList<int> Visible(float offset, float height)
     {
@@ -122,18 +145,34 @@ internal sealed class EquipmentDocument
         : Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Notice, Name = message }, x, y, w);
     private float Heading(string title, float x, float y, float w) => title.Length == 0 ? 0
         : Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Heading, Name = title }, x, y, w);
-    private float Entry(EquipmentEntry entry, float x, float y, float w, EquipmentSelection? selection = null, bool value = true)
+    private float Entry(EquipmentEntry entry, float x, float y, float w, EquipmentSelection? selection = null, bool value = true, bool compact = false)
     {
         var start = y; var expanded = selection?.Expanded(entry.Id) == true;
+        var weapon = selection?.Page == EquipmentPanelSection.Weapons;
+        var caption = compact ? "" : weapon ? EquipmentLayoutPolicy.Duration(entry.Duration) + " " + entry.Caption : entry.Caption;
         y += Add(new EquipmentRenderRow { Id = entry.Id, Kind = EquipmentRowKind.Item, Name = entry.Name,
-            IconId = entry.ItemId, Value = value ? EquipmentLayoutPolicy.Duration(entry.Duration) : "", Caption = entry.Caption,
+            IconId = entry.ItemId, Value = value && !weapon ? EquipmentLayoutPolicy.Duration(entry.Duration) : "", Caption = caption,
             Actionable = selection != null && entry.Expandable, Expandable = selection != null && entry.Expandable, Selected = expanded }, x, y, w);
         y += Notice(entry.Notice, x, y, w);
         if (expanded)
         {
             var groups = entry.Groups;
             // First group is the exact per-character-slot evidence. Remaining groups have independent two-column layout.
-            if (groups.Count > 0) y += Group(groups[0], x + 10, y, w - 20);
+            if (groups.Count > 0)
+            {
+                if (weapon)
+                    foreach (var slot in groups[0].Rows)
+                    {
+                        var slotName = slot.Id switch {
+                            "duckov:slot:PrimaryWeapon" => text("ui.equipment_primary_weapon_slot"),
+                            "duckov:slot:SecondaryWeapon" => text("ui.equipment_secondary_weapon_slot"),
+                            "duckov:slot:MeleeWeapon" => text("ui.equipment_melee_weapon_slot"), _ => slot.Name };
+                        y += Add(new EquipmentRenderRow { Kind = EquipmentRowKind.SlotDuration,
+                            Name = string.Format(System.Globalization.CultureInfo.CurrentCulture, text("ui.equipment_equipped_in_slot"),
+                                EquipmentLayoutPolicy.Duration(slot.Duration), slotName) }, x + 10, y, w - 20);
+                    }
+                else y += Group(groups[0], x + 10, y, w - 20);
+            }
             if (groups.Count > 1)
             {
                 var stack = stacked || w < 850; var split = EquipmentLayoutPolicy.Split(groups.Count - 1); var cw = stack ? w - 20 : (w - 40) / 2;
@@ -145,6 +184,8 @@ internal sealed class EquipmentDocument
                 }
                 y = Math.Max(left, right);
             }
+            if (selection!.Page is EquipmentPanelSection.Weapons or EquipmentPanelSection.ArmorAndGear)
+                Surfaces.Add(new EquipmentSurface(x, start, w, y - start));
         }
         return y - start;
     }
@@ -159,14 +200,16 @@ internal sealed class EquipmentDocument
         var start = y;
         if (entry.RunId.Length > 0)
         {
-            var label = text("ui.view_run"); var buttonWidth = Math.Min(width * .4f, measureWidth(label, 28) + 30);
+            var label = text(RetainedOverviewLatestRunViewRunPolicy.TextKey);
+            var buttonWidth = Math.Min(width * .4f, measureWidth(label, RetainedOverviewLatestRunViewRunPolicy.ReferenceFontSize)
+                + 2 * RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels);
             var titleHeight = Heading(entry.Name, x, y, width - buttonWidth - 10);
             var buttonHeight = Add(new EquipmentRenderRow { Id = "route:" + entry.RunId, Kind = EquipmentRowKind.Route,
                 Name = label, Actionable = true }, x + width - buttonWidth, y, buttonWidth);
             y += Math.Max(titleHeight, buttonHeight);
         }
         else y += Heading(entry.Name, x, y, width);
-        y += Notice(entry.Caption, x, y, width);
+        if (entry.RunId.Length > 0) y += Notice(entry.Caption, x, y, width);
         var size = RunsViewStyle.SlotSize(width);
         for (var i = 0; i < entry.Slots.Count; i++)
             Add(new EquipmentRenderRow { Id = EquipmentPresentation.InspectionId(entry, entry.Slots[i]), Kind = EquipmentRowKind.Slot,
@@ -182,7 +225,10 @@ internal sealed class EquipmentDocument
             if (!inspected.NestedComplete) y += Notice(text("ui.runs_nested_partial"), x, y, width);
         }
         y += Notice(entry.Notice, x, y, width);
-        y += Notice(entry.Notice == text("ui.unavailable") ? text("ui.unavailable") : EquipmentLayoutPolicy.Duration(entry.Duration) + " " + text("ui.equipment_active_time"), x, y, width);
+        y += Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Footer,
+            Name = entry.Notice == text("ui.unavailable") ? text("ui.unavailable") : EquipmentLayoutPolicy.Duration(entry.Duration) + " " + text("ui.equipment_active_time"),
+            Value = entry.RunId.Length == 0 ? entry.Caption : "" }, x, y, width);
+        Surfaces.Add(new EquipmentSurface(x, start, width, y - start));
         return y - start + 20;
     }
     public void Page(EquipmentSelection selection, bool right, float width, bool stacked = false)
@@ -199,7 +245,7 @@ internal sealed class EquipmentDocument
                     Section("ui.equipment_most_used", "loadouts");
                     if (p.MostUsed == null) Empty("ui.equipment_no_recurring"); else y += Loadout(p.MostUsed, x, y, w, selection);
                     Section("ui.equipment_selected", "selected");
-                    foreach (var row in p.SelectedWeapons) y += Entry(row, x, y, w);
+                    foreach (var row in p.SelectedWeapons) y += Entry(row, x, y, w, compact: true);
                     if (p.SelectedWeapons.Count == 0) Empty();
                 }
                 else

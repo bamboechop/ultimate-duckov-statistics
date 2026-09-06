@@ -243,6 +243,78 @@ public sealed class RetainedEquipmentTests
         state.Focus("primary", id); state.Refresh(Present());
         Assert.Null(state.InspectedId); Assert.Null(state.FocusId("primary"));
     }
+    [Fact] public void LoadoutFooterShowsOneDurationAndOneSpecificHistoricalNotice()
+    {
+        var p = Profile(); var a = p.Statistics.RunTotals.EquipmentStatistics;
+        a.Composition.HistoricalUnavailable = true;
+        a.Loadouts.Add("old", new EquipmentDurationAggregate { Id = "old", ActiveDurationSeconds = 763.815, RunOccurrences = 3 });
+        var doc = Document(Present(p), EquipmentPanelSection.Loadouts);
+        var footer = Assert.Single(doc.Rows, r => r.Kind == EquipmentRowKind.Footer);
+        Assert.Equal("12:43.815 active time", footer.Name); Assert.Equal("Used in 3 runs", footer.Value);
+        Assert.Single(doc.Surfaces);
+        Assert.Single(doc.Rows, r => r.Name == "Loadout composition unavailable for earlier history");
+        Assert.DoesNotContain(doc.Rows.TakeWhile(r => r.Kind != EquipmentRowKind.Footer), r => r.Name.Contains("Earlier history is unavailable", StringComparison.Ordinal));
+        Assert.Single(doc.Rows, r => r.Name.Contains("active time", StringComparison.Ordinal) || r.Caption.Contains("active time", StringComparison.Ordinal));
+    }
+    [Fact] public void SelectedRowsAreCompactAndWeaponTotalsAreOnTheSecondLine()
+    {
+        var p = Profile(); var s = EquipmentCompositionTests.Snapshot(); s.SelectedWeaponId = s.Items[0].ItemId; s.SelectedWeaponSlotId = s.Items[0].SlotId;
+        Observe(p, s); var result = Present(p);
+        var selected = Assert.Single(Document(result, EquipmentPanelSection.Loadouts).Rows, r => r.Id.StartsWith("selected:", StringComparison.Ordinal));
+        var weapon = Assert.Single(Document(result, EquipmentPanelSection.Weapons).Rows, r => r.Actionable);
+        Assert.Empty(selected.Caption); Assert.Equal("00:10.000", selected.Value);
+        Assert.Empty(weapon.Value); Assert.Equal("00:10.000 total time equipped", weapon.Caption);
+        Assert.True(selected.Height < weapon.Height);
+        var expanded = Document(result, EquipmentPanelSection.Weapons, expand: true);
+        Assert.DoesNotContain(expanded.Rows, r => r.Name == "Equipped time by slot");
+        var slot = Assert.Single(expanded.Rows, r => r.Kind == EquipmentRowKind.SlotDuration);
+        Assert.StartsWith("00:10.000 equipped in ", slot.Name); Assert.False(slot.Actionable);
+        Assert.Equal(slot.NameHeight + 4, slot.Height);
+    }
+    [Fact] public void RecentRouteUsesEndpointsAndSharedLocalizedButtonLabel()
+    {
+        var p = Profile(); var run = new RunSummary { RunId = "route", SaveGenerationId = "g", EndedUtc = DateTime.UnixEpoch };
+        run.Segments.Add(new() { SegmentIndex = 2, MapDisplayName = "End" });
+        run.Segments.Add(new() { SegmentIndex = 0, MapDisplayName = "Start" });
+        run.Segments.Add(new() { SegmentIndex = 1, MapDisplayName = "Intermediate" });
+        p.Statistics.Runs.Add(run); var result = Present(p);
+        Assert.Equal("Start - End", result.Recent.Single().Name);
+        var doc = Document(result, EquipmentPanelSection.Loadouts, right: true);
+        var button = Assert.Single(doc.Rows, r => r.Kind == EquipmentRowKind.Route);
+        Assert.Equal("View run", button.Name); Assert.Equal("route:route", button.Id); Assert.True(button.Actionable);
+        Assert.True(button.Height >= RetainedOverviewLatestRunViewRunPolicy.HeightPixels);
+        run.Segments.RemoveAll(s => s.SegmentIndex != 0);
+        Assert.Equal("Start", Present(p).Recent.Single().Name);
+    }
+    [Theory] [InlineData(false)] [InlineData(true)]
+    public void ExpandedSurfaceEnclosesHeaderAndDetailsButNotTheNextItem(bool gear)
+    {
+        var p = Profile(); var s = EquipmentCompositionTests.Snapshot();
+        if (gear)
+        {
+            s.Items[0].Kind = EquipmentItemKind.Backpack; s.CharacterSlots[0].ItemKind = EquipmentItemKind.Backpack;
+            s.Items[0].SlotId = s.CharacterSlots[0].SlotId = "duckov:slot:Backpack";
+            s.Items[0].SlotDisplayName = s.CharacterSlots[0].SlotDisplayName = "Backpack";
+            s.LoadoutId = EquipmentIdentity.LoadoutId(s.Items);
+        }
+        Observe(p, s); var result = Present(p);
+        var page = gear ? EquipmentPanelSection.ArmorAndGear : EquipmentPanelSection.Weapons;
+        var closed = Document(result, page); Assert.Empty(closed.Surfaces);
+        var open = Document(result, page, expand: true); var surface = Assert.Single(open.Surfaces);
+        var header = Assert.Single(open.Rows, r => r.Actionable); Assert.Equal(header.Y, surface.Y);
+        Assert.True(surface.Height > header.Height);
+        Assert.Contains(open.Rows, r => r.Y > header.Y && r.Y + r.Height <= surface.Y + surface.Height);
+        Assert.All(open.Rows.Where(r => r.Y >= surface.Y && r.Y < surface.Y + surface.Height),
+            r => Assert.True(r.Y + r.Height <= surface.Y + surface.Height));
+        Assert.Empty(open.VisibleSurfaces(surface.Y + surface.Height + 101, 100));
+    }
+    [Fact] public void TallExpandedSurfaceDoesNotExpandVisibleRowWork()
+    {
+        var d = new EquipmentDocument(Measure); float y = 30;
+        for (var i = 0; i < 10000; i++) y += d.Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Item, Name = "Attachment" }, 30, y, 800);
+        d.Surfaces.Add(new EquipmentSurface(30, 30, 800, y - 30)); d.Seal();
+        Assert.Single(d.VisibleSurfaces(d.Height - 500, 500)); Assert.True(d.Visible(d.Height - 500, 500).Count < 30);
+    }
     [Fact] public void ProductionCompositionWiresLifecycleNativeFeedbackRoundedClippingAndCleanup()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
@@ -257,6 +329,9 @@ public sealed class RetainedEquipmentTests
         Assert.Contains("equipmentView?.FocusSelector", File.ReadAllText(Path.Combine(ui, "RetainedTabScroll.cs")));
         Assert.Contains("new CombatNativeTextMeasurement", view); Assert.Contains("document.Visible(", view);
         Assert.Contains("new CombatControlPool<Control>(Create)", view); Assert.Contains("controls.Dispose()", view);
+        Assert.Contains("CreateOverviewLatestRunViewRun(scroll.Content", view);
+        Assert.Contains("RetainedOverviewLatestRunViewRunPolicy.CornerRadiusPixels", view);
+        Assert.Contains("document.VisibleSurfaces(", view); Assert.Contains("surfaceRoot.SetAsFirstSibling()", view);
         Assert.Contains("viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false", view);
         Assert.Contains("c.Rect.GetComponent<ButtonAnimation>().enabled = r.Actionable", view);
         Assert.Contains("Button.onClick.RemoveAllListeners()", view); Assert.Contains("Icon.sprite = null", view);

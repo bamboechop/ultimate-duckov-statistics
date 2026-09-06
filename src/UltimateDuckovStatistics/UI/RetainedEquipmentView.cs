@@ -129,6 +129,8 @@ internal sealed partial class RetainedStatisticsShell
             public RectTransform Panel { get; }
             private readonly ScrollRegion scroll;
             private readonly CombatControlPool<Control> controls;
+            private readonly RectTransform surfaceRoot;
+            private readonly List<RectTransform> surfaces = new();
             private List<Control> Pool => controls.Items;
             private EquipmentDocument? document;
             private float lastOffset = -1;
@@ -146,6 +148,7 @@ internal sealed partial class RetainedStatisticsShell
                 public EquipmentRenderRow? Row;
                 public Duckov.UI.TooltipsProvider Tooltip = null!;
                 public ProceduralImage Border = null!;
+                public RetainedLatestRunViewRunControl Route = null!;
                 public readonly List<ProceduralImage> Dots = new();
                 public void Dispose()
                 { Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; Icon.sprite = null; Tooltip.text = string.Empty; }
@@ -155,6 +158,8 @@ internal sealed partial class RetainedStatisticsShell
                 this.owner = owner; this.region = region;
                 Panel = CreateOverviewPanel(parent, "Equipment" + name, out var modifier); modifier.Radius = 20;
                 scroll = new ScrollRegion(Panel, name + "Scroll", radius: 20); RoundedMask(scroll);
+                surfaceRoot = Node(scroll.Content, "EquipmentCardSurfaces");
+                surfaceRoot.SetAsFirstSibling();
                 scroll.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
                 scroll.Rect.GetComponent<RunsFocusHandler>().Move = d => Move(null, d);
                 controls = new CombatControlPool<Control>(Create);
@@ -166,6 +171,7 @@ internal sealed partial class RetainedStatisticsShell
             {
                 document = null; focusedId = null;
                 foreach (var c in Pool) { c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; c.Icon.sprite = null; c.Tooltip.text = string.Empty; }
+                foreach (var surface in surfaces) surface.gameObject.SetActive(false);
                 rebuild = true;
             }
             public void Bind(EquipmentDocument next, float x, float y, float width, float height)
@@ -176,11 +182,14 @@ internal sealed partial class RetainedStatisticsShell
             }
             private Control Create()
             {
-                var c = new Control { Rect = CreateOverviewPanel(scroll.Content, "EquipmentRow", out _) };
+                var shared = CreateOverviewLatestRunViewRun(scroll.Content, new RetainedLatestRunViewRunPresentation
+                    { IsVisible = true, Label = UiText.Get(RetainedOverviewLatestRunViewRunPolicy.TextKey) }, owner.typography, owner.material, useIdentityBinding: true);
+                var c = new Control { Rect = shared.Rect, Route = shared };
+                c.Rect.gameObject.name = "EquipmentRow";
                 c.Rect.GetComponent<UniformModifier>().Radius = 10;
                 c.Background = c.Rect.GetComponent<ProceduralImage>();
-                c.Button = c.Rect.gameObject.AddComponent<RunsHistoryButton>(); c.Button.Configure(c.Background);
-                c.Rect.gameObject.AddComponent<ButtonAnimation>(); AddButtonFeedback(c.Button);
+                c.Button = (RunsHistoryButton)shared.Button; c.Button.Configure(c.Background);
+                AddButtonFeedback(c.Button);
                 c.Text = Enumerable.Range(0, 4).Select(i => owner.Text(c.Rect, "Cell" + i, 28)).ToArray();
                 c.Detail = owner.Text(c.Rect, "Detail", 22);
                 c.Chevron = owner.Text(c.Rect, "Chevron", 28); c.Chevron.text = "›"; c.Chevron.alignment = TextAlignmentOptions.Center;
@@ -212,6 +221,19 @@ internal sealed partial class RetainedStatisticsShell
                 if (document == null || !Panel.gameObject.activeInHierarchy || !rebuild && Math.Abs(lastOffset - scroll.Offset) < .1f) return;
                 rebuild = false; lastOffset = scroll.Offset;
                 var visible = document.Visible(scroll.Offset, scroll.Rect.rect.height);
+                var visibleSurfaces = document.VisibleSurfaces(scroll.Offset, scroll.Rect.rect.height).ToArray();
+                while (surfaces.Count < visibleSurfaces.Length)
+                {
+                    var surface = CreateOverviewPanel(surfaceRoot, "EquipmentCard", out var modifier);
+                    modifier.Radius = 10; surface.GetComponent<ProceduralImage>().raycastTarget = false;
+                    surfaces.Add(surface);
+                }
+                for (var i = 0; i < surfaces.Count; i++)
+                {
+                    surfaces[i].gameObject.SetActive(i < visibleSurfaces.Length);
+                    if (i >= visibleSurfaces.Length) continue;
+                    var box = visibleSurfaces[i]; Place(surfaces[i], box.X, box.Y, box.Width, box.Height);
+                }
                 controls.Ensure(visible.Count);
                 var pool = Pool;
                 var selected = GameManager.EventSystem?.currentSelectedGameObject;
@@ -230,8 +252,8 @@ internal sealed partial class RetainedStatisticsShell
                     var c = pool[i]; c.Rect.gameObject.SetActive(i < visible.Count);
                     if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; c.Tooltip.text = string.Empty; continue; }
                     BindControl(c, document.Rows[visible[i]]);
-                    // Pools may swap focused controls. Restore document paint order so the
-                    // single header band always stays behind its transparent header buttons.
+                    // Pools may swap focused controls. Restore document paint order above
+                    // the separately pooled card surfaces.
                     c.Rect.SetAsLastSibling();
                 }
                 scroll.Cues();
@@ -244,10 +266,12 @@ internal sealed partial class RetainedStatisticsShell
                 c.Rect.GetComponent<ButtonAnimation>().enabled = r.Actionable;
                 c.Rect.GetComponent<RunsButtonFeedback>().enabled = r.Actionable;
                 c.Background.color = r.Selected ? new Color32(255, 158, 44, 255)
-                    : r.Kind is EquipmentRowKind.Heading or EquipmentRowKind.Notice ? Color.clear : new Color(0, 0, 0, .5f);
+                    : r.Kind is EquipmentRowKind.Heading or EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? Color.clear : new Color(0, 0, 0, .5f);
                 Place(c.Rect, r.X, r.Y, r.Width, r.Height);
                 c.Border.gameObject.SetActive(r.Kind == EquipmentRowKind.Slot);
                 c.Rect.GetComponent<UniformModifier>().Radius = r.Kind == EquipmentRowKind.Slot ? RunsViewStyle.SlotRadius : 10;
+                c.Button.targetGraphic.GetComponent<UniformModifier>().Radius = c.Rect.GetComponent<UniformModifier>().Radius;
+                c.Route.Label.gameObject.SetActive(false);
                 foreach (var label in c.Text) label.gameObject.SetActive(false);
                 c.Detail.gameObject.SetActive(false); c.Chevron.gameObject.SetActive(false);
                 var isSlot = r.Kind == EquipmentRowKind.Slot;
@@ -256,6 +280,20 @@ internal sealed partial class RetainedStatisticsShell
                 c.Tooltip.enabled = isSlot;
                 c.Rect.GetComponent<RunsTooltipFocus>().enabled = isSlot && r.Actionable;
                 foreach (var dot in c.Dots) dot.gameObject.SetActive(false);
+                if (r.Kind == EquipmentRowKind.Route)
+                {
+                    c.Background.color = new Color(RetainedOverviewLatestRunViewRunPolicy.BackgroundRed, RetainedOverviewLatestRunViewRunPolicy.BackgroundGreen,
+                        RetainedOverviewLatestRunViewRunPolicy.BackgroundBlue, RetainedOverviewLatestRunViewRunPolicy.BackgroundAlpha);
+                    c.Route.Modifier.Radius = RetainedOverviewLatestRunViewRunPolicy.CornerRadiusPixels;
+                    c.Button.targetGraphic.GetComponent<UniformModifier>().Radius = c.Route.Modifier.Radius;
+                    c.Route.Label.gameObject.SetActive(true); c.Route.Label.text = r.Name;
+                    c.Route.Label.fontSize = RetainedOverviewLatestRunViewRunPolicy.ReferenceFontSize;
+                    c.Route.Label.enableWordWrapping = true;
+                    var padding = RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels;
+                    Place(c.Route.LabelRect, padding, 0, r.Width - 2 * padding, r.Height);
+                    c.Icon.sprite = null;
+                    return;
+                }
                 if (showIcon)
                 {
                     var icon = CombatItemIconPolicy.Resolve(r.IconId, owner.icons.ResolveAvailable);
@@ -287,14 +325,14 @@ internal sealed partial class RetainedStatisticsShell
                     { c.Detail.gameObject.SetActive(true); c.Detail.text = "…"; c.Detail.color = Muted; Place(c.Detail.rectTransform, r.Width - 24, 0, 24, 28); }
                     return;
                 }
-                var sizeText = r.Kind == EquipmentRowKind.Heading ? 40 : r.Kind == EquipmentRowKind.Notice ? 22 : r.Kind == EquipmentRowKind.Selector ? 32 : 28;
+                var sizeText = r.Kind == EquipmentRowKind.Heading ? 40 : r.Kind is EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? 22 : r.Kind == EquipmentRowKind.Selector ? 32 : 28;
                 float x = 15 + (r.IconId.Length > 0 ? 72 : 0) + (r.Expandable ? 28 : 0);
                 var name = c.Text[0]; name.gameObject.SetActive(true); name.text = r.Name; name.fontSize = sizeText;
                 name.color = r.Kind == EquipmentRowKind.Notice ? Muted : Color.white;
-                Place(name.rectTransform, x, 12, r.NameWidth, r.NameHeight);
+                Place(name.rectTransform, x, r.Kind == EquipmentRowKind.SlotDuration ? 0 : 12, r.NameWidth, r.NameHeight);
                 if (r.Value.Length > 0)
                 {
-                    var value = c.Text[1]; value.gameObject.SetActive(true); value.text = r.Value; value.fontSize = 28;
+                    var value = c.Text[1]; value.gameObject.SetActive(true); value.text = r.Value; value.fontSize = r.Kind == EquipmentRowKind.Footer ? 22 : 28;
                     value.color = Color.white; value.alignment = TextAlignmentOptions.TopRight;
                     Place(value.rectTransform, x + r.NameWidth + 10, 12, r.Width - x - r.NameWidth - 25, r.ValueHeight);
                 }
@@ -343,7 +381,7 @@ internal sealed partial class RetainedStatisticsShell
                 else if (region == "selector") owner.primary.Focus(owner.selection.FocusId("primary"));
                 else ((RunsScrollRect)scroll.Scroll).MoveBy(scroll.Scroll.scrollSensitivity);
             }
-            public void Dispose() { controls.Dispose(); document = null; scroll.Dispose(); }
+            public void Dispose() { controls.Dispose(); surfaces.Clear(); document = null; scroll.Dispose(); }
         }
         private static Color Muted => new Color32(177, 177, 177, 255);
         private TextMeshProUGUI Text(RectTransform parent, string name, float size)
