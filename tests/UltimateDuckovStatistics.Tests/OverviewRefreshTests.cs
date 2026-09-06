@@ -5,6 +5,28 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class OverviewRefreshTests
 {
     [Theory]
+    [InlineData(1280, 720)]
+    [InlineData(1680, 1050)]
+    [InlineData(2560, 1440)]
+    [InlineData(1024, 768)]
+    public void HighlightEllipsisHasRoomForNativeLineHeightAndPreservesCenter(float width, float height)
+    {
+        var layout = RetainedVisualLayoutPolicy.Create(width, height, 1);
+        for (var i = 0; i < layout.OverviewHighlightRows.Count; i++)
+        {
+            var row = layout.OverviewHighlightRows[i];
+            var entry = layout.OverviewHighlightEntries[i];
+            Assert.Equal(row.Height, entry.LabelHeight);
+            Assert.Equal(row.Height, entry.ValueHeight);
+            Assert.True(entry.LabelHeight > entry.FontSize * 1.5f);
+            Assert.Equal(row.ContentTop + row.ContentHeight / 2, entry.LabelTop + entry.LabelHeight / 2, 4);
+            Assert.Equal(row.ContentTop + row.ContentHeight / 2, entry.ValueTop + entry.ValueHeight / 2, 4);
+            Assert.Equal(row.ContentLeft, entry.LabelLeft);
+            Assert.Equal(row.ContentLeft + row.ContentWidth, entry.ValueLeft + entry.ValueWidth, 4);
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void RebuiltOverviewMeasuresCurrentLabelsInActiveHierarchyAndRestoresVisibility(bool initiallyActive)

@@ -2203,18 +2203,20 @@ internal static class RetainedOverviewFastestExtractionEntryPolicy
     {
         if (referenceTransform == null) throw new ArgumentNullException(nameof(referenceTransform));
         if (row == null) throw new ArgumentNullException(nameof(row));
+        // Ellipsis checks vertical fit too. Use the full row height, preserving its center
+        // and horizontal padding, so the native font does not truncate before its first glyph.
         var labelWidth = referenceTransform.CanvasLength(LabelColumnWidthPixels);
         return new RetainedTwoColumnStatisticsRowCanvasLayout
         {
             ReferenceTransform = referenceTransform,
             LabelLeft = row.ContentLeft,
-            LabelTop = row.ContentTop,
+            LabelTop = row.Top,
             LabelWidth = labelWidth,
-            LabelHeight = row.ContentHeight,
+            LabelHeight = row.Height,
             ValueLeft = row.ContentLeft + labelWidth,
-            ValueTop = row.ContentTop,
+            ValueTop = row.Top,
             ValueWidth = row.ContentWidth - labelWidth,
-            ValueHeight = row.ContentHeight,
+            ValueHeight = row.Height,
             FontSize = referenceTransform.CanvasLength(ReferenceFontSize)
         };
     }

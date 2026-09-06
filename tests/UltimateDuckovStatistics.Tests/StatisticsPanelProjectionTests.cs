@@ -2371,13 +2371,13 @@ public sealed class StatisticsPanelProjectionTests
 
         Assert.Same(layout.ReferenceTransform, entry.ReferenceTransform);
         Assert.Equal(1350f, entry.LabelLeft);
-        Assert.Equal(476f, entry.LabelTop);
+        Assert.Equal(456f, entry.LabelTop);
         Assert.Equal(440f, entry.LabelWidth);
-        Assert.Equal(26f, entry.LabelHeight);
+        Assert.Equal(66f, entry.LabelHeight);
         Assert.Equal(1790f, entry.ValueLeft);
-        Assert.Equal(476f, entry.ValueTop);
+        Assert.Equal(456f, entry.ValueTop);
         Assert.Equal(635f, entry.ValueWidth);
-        Assert.Equal(26f, entry.ValueHeight);
+        Assert.Equal(66f, entry.ValueHeight);
         Assert.Equal(29.8f, entry.FontSize);
         Assert.False(entry.HasSecondaryValue);
         Assert.Equal(row.ContentLeft, entry.LabelLeft);
@@ -2638,13 +2638,13 @@ public sealed class StatisticsPanelProjectionTests
             Assert.Equal(1075f, row.ContentWidth);
             Assert.Equal(26f, row.ContentHeight);
             Assert.Equal(1350f, entry.LabelLeft);
-            Assert.Equal(expected[index].Item6, entry.LabelTop);
+            Assert.Equal(row.Top, entry.LabelTop);
             Assert.Equal(440f, entry.LabelWidth);
-            Assert.Equal(26f, entry.LabelHeight);
+            Assert.Equal(66f, entry.LabelHeight);
             Assert.Equal(1790f, entry.ValueLeft);
-            Assert.Equal(expected[index].Item6, entry.ValueTop);
+            Assert.Equal(row.Top, entry.ValueTop);
             Assert.Equal(635f, entry.ValueWidth);
-            Assert.Equal(26f, entry.ValueHeight);
+            Assert.Equal(66f, entry.ValueHeight);
             Assert.Equal(29.8f, entry.FontSize);
             Assert.False(entry.HasSecondaryValue);
             if (index > 0)
@@ -2689,7 +2689,7 @@ public sealed class StatisticsPanelProjectionTests
             Assert.Equal(transform.CanvasLength(66f), row.Height, 5);
             Assert.Equal(transform.CanvasLength(10f), row.CornerRadius, 5);
             Assert.Equal(transform.CanvasX(1350f), entry.LabelLeft, 5);
-            Assert.Equal(transform.CanvasY(referenceContentTops[index]), entry.LabelTop, 5);
+            Assert.Equal(transform.CanvasY(referenceTops[index]), entry.LabelTop, 5);
             Assert.Equal(transform.CanvasLength(440f), entry.LabelWidth, 5);
             Assert.Equal(transform.CanvasX(1790f), entry.ValueLeft, 5);
             Assert.Equal(transform.CanvasLength(635f), entry.ValueWidth, 5);
