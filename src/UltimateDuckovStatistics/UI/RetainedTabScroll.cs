@@ -37,6 +37,7 @@ internal sealed partial class RetainedStatisticsShell
                 {
                     if (selectedTab == StatisticsPanelTab.Runs) runsView?.FocusHistory();
                     else if (selectedTab == StatisticsPanelTab.Records) recordsView?.FocusPage();
+                    else if (selectedTab == StatisticsPanelTab.Combat) combatView?.FocusSelector();
                     else if (selectedTab == StatisticsPanelTab.Overview && overviewLatestRunViewRun?.Button.interactable == true)
                         GameManager.EventSystem?.SetSelectedGameObject(overviewLatestRunViewRun.Button.gameObject);
                     return;

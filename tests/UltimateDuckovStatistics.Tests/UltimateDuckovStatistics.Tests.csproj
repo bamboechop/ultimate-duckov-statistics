@@ -91,6 +91,8 @@
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\StatisticsPanelProjection.cs"
              Link="ProductionUI\StatisticsPanelProjection.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RecordsPresentation.cs" Link="ProductionUI\RecordsPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\CombatPresentation.cs" Link="ProductionUI\CombatPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\CombatViewPolicy.cs" Link="ProductionUI\CombatViewPolicy.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RecordsViewPolicy.cs" Link="ProductionUI\RecordsViewPolicy.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsPresentation.cs"
              Link="ProductionUI\RunsPresentation.cs" />

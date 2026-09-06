@@ -1,0 +1,37 @@
+# M17 retained Combat
+
+Combat uses four native retained subpages: Summary, Enemies, Weapons & ammunition, and Incoming damage. `CombatPresentationFactory` copies UI values from one factory-bound `StatisticsPanelProjection`; `CombatView` owns Unity controls and consumes the immutable result. No tracking, persistence, schema, migration, or export contract changes are involved.
+
+## Data and evidence
+
+| Surface | Source and qualification |
+| --- | --- |
+| Overall | `Combat.Lifetime.Totals.DamageDealt`, `DamageReceived`, `KillsByYou`, and `PlayerDeaths`, each with its own current capability. Supported zero is zero. Retained positive values with incomplete evidence are labelled partial; unproven zero is unavailable. |
+| Ranged and melee | Firing actions come from `Weapons.Lifetime.Totals.FiringActions`. Hits, swings, headshots and headshot final blows come from their Combat totals. Accuracy uses `CombatStatisticsViewModel.Accuracy`: unique damaging player projectiles divided by completed player projectiles, never firing actions. Ranged/melee kills use `PlayerKillPartition` from the same final-blow event. Nonzero Effect, Environmental, Unknown and HistoricalUnclassified buckets remain separate and retain the partition provenance. |
+| Observed world deaths | `Combat.Lifetime.Ownership`, using only `ObservedWorldDeaths`. Other NPC, Environmental and Unknown remain visible, with Companion when nonzero. Player kill credit is excluded. `HistoricalOwnershipUnavailable`, its provenance, and `LegacyUnclassifiedDeaths` are displayed without allocating them to modern categories. |
+| Enemies | `Combat.Enemies`: identity/display fallback, `Totals.DamageCaused`, `KillsByYou`, and `ObservedWorldDeaths`. Default ordering is kills descending, damage descending, world deaths descending, ordinal name, stable ID. This is a fixed sort with a direction indicator, not an interactive sort control. |
+| Weapons | One row per `WeaponAmmunitionGroupProjection`, ordered by firing actions descending, ordinal name and ID. Overall share uses supported lifetime firing actions. Selection chooses the first deterministic row when its previous ID is absent. |
+| Ammunition | Only the selected weapon's exact pairs. Each percentage is the existing `WeaponAmmunitionPairView.PercentageWithinObservedWeaponPairs`. Uncorrelated firing actions have no invented ammunition identity. Historical pairing and uncorrelated actions qualify the basis as observed correlated pairs; a weapon without pairs explicitly shows no correlated ammunition data. The localized firing-action footer remains visible. |
+| Incoming damage | `Combat.Killers`, positive `DamageReceived` or `PlayerDeaths` rows only. The Total row uses lifetime damage received and player deaths. Shares divide by supported lifetime damage received; zero has no ratio. Sort is damage descending, deaths descending, ordinal name, stable ID. Attacker count and deadliest attacker require supported identity/death evidence. A zero-death complete history yields None; stable Unknown stays Unknown. Missing required evidence yields Unavailable. This is incoming harm, not player kill credit. |
+
+There is **no persisted per-enemy ownership breakdown**. Enemy expansion shows that enemy's exact world-death total and a muted “Ownership breakdown unavailable” state. `CombatTableRow.OwnershipBreakdown` explicitly represents the absent cross dimension. Global ownership marginals never enter an individual enemy expansion. Enemy family, cause, ownership, attacker and weapon identity are not conflated.
+
+## Layout and interaction
+
+The existing header, tabs, native font/material, reference transform and back control are reused. Combat starts 40 reference pixels below the header and ends 30 above the screen edge. Desktop selector and content widths have a 1:2 relation separated by 40 pixels. Outer surfaces are black at 50% opacity with 20-pixel corners and 30-pixel padding. Summary uses four equal cards and measured Ranged/Melee/world-death regions. Weapons and ammunition have independent columns. Native TMP measurement controls wrapping and row heights without altering horizontal font geometry. No blur or game image asset is shipped.
+
+Below 1180 viewport pixels, the selector stacks above the page, summary sections follow reading order, and weapon/ammunition columns stack. Tables become labelled stacked rows when their content width cannot support four readable columns. A bounded outer region contains the stacked document; long page/column content has its own bounded viewport. The footer remains outside weapon scroll content.
+
+Each actionable selector, enemy and weapon row uses the shared `RunsHistoryButton`, full-row raycast background, native `ButtonAnimation`, native audio forwarding for selection/submit, and a separate interaction tint over persistent orange selection. Down from the main Combat tab enters the selector; Right enters the page, Left returns, and Up at the first selector returns to the tabs. Read-only pages accept controller scrolling in both directions. Focus reveals ancestors and stays associated with identity as controls recycle; wheel movement cancels pending row clicks.
+
+All four subpages retain independent scroll/focus state. Weapon and ammunition scroll independently, with ammunition offsets retained per selected weapon. Valid same-generation refresh preserves selection, expansion and offsets, clamped to replacement extents. Missing or changed generation clears state and hides old content immediately. Visible-row pools materialize controls only for the viewport plus overscan, including large enemy, weapon, ammunition and attacker collections. Listeners are attached once per control and removed on disposal; runtime item icons are borrowed through `NativeItemIconResolver` with a deterministic question-mark fallback.
+
+`NativeWeaponFireAdapter` captures ammunition `Item.TypeID` as `duckov:ammo:{TypeID}`. Combat resolves that same TypeID through the resolver's `duckov:item:` namespace, preserving the captured ammunition identity. Metadata identity validation and missing/modded fallback remain in the existing resolver; there is no name-to-image lookup or packaged native asset.
+
+Rounded stencil masks supplement rectangular culling, covering TMP glyphs, fallback submeshes, shadows, icons, rows and selection backgrounds. The shared native ScrollRect configuration supplies sensitivity, inertia and nested edge propagation. Subtle white overflow cues follow the panel's rounded contour: no cues when fitted, bottom at the top endpoint, both in the middle, top at the bottom endpoint.
+
+## Qualification boundary
+
+`RetainedCombatTests` exercises production presentation, generation binding/state, relational measured document composition, deterministic sorting and percentages, truthful empty/partial/unavailable states, scroll and focus policies, the linked production row button, pooled resource lifetime, long names and large collections. These game-independent tests do not execute Unity's renderer or certify audible feedback, real EventSystem raycast order, stencil rendering, or live GameObject counts. The installed native build and contract probe establish compilation and baseline contract compatibility.
+
+Visual/audio/input/lifecycle acceptance remains user-controlled under [M17_MANUAL_VALIDATION.md](M17_MANUAL_VALIDATION.md). Text fit, pixel geometry and screenshot comparisons are never production construction or availability gates. This document does not claim deployment or gameplay qualification.

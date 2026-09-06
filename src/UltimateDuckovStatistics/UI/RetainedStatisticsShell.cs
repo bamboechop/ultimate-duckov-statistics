@@ -370,6 +370,10 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
             recordsView.Refresh(RecordsPresentationFactory.Create(projection, projection.Profile.GenerationId));
             recordsView.SetVisible(selectedTab == StatisticsPanelTab.Records);
+            combatView = new CombatView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
+                () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
+            combatView.Refresh(CombatPresentationFactory.Create(projection, projection.Profile.GenerationId));
+            combatView.SetVisible(selectedTab == StatisticsPanelTab.Combat);
             BindOverviewRun(projection.Profile.GenerationId);
 
             headerRect = CreateHeaderBackground(
@@ -557,6 +561,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         BindOverviewRun(generation);
         RefreshRuns(projection, generation);
         recordsView?.Refresh(RecordsPresentationFactory.Create(projection, generation));
+        combatView?.Refresh(CombatPresentationFactory.Create(projection, generation));
         RefreshVisualLayout(force: true);
     }
 
@@ -571,6 +576,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         if (!projectionAvailable) overviewContentView?.SetActive(false);
         runsView?.SetVisible(selectedTab == StatisticsPanelTab.Runs);
         recordsView?.SetVisible(selectedTab == StatisticsPanelTab.Records);
+        combatView?.SetVisible(selectedTab == StatisticsPanelTab.Combat);
         EnsureSelectedTabVisible();
         var focused = GameManager.EventSystem?.currentSelectedGameObject;
         if (focused == null || !focused.activeInHierarchy)
@@ -587,6 +593,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             runsView?.Tick();
             recordsView?.Layout(layout, shellRoot!.rect.height);
             recordsView?.Tick();
+            combatView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+            combatView?.Tick();
             return true;
         }
         catch (Exception exception)
@@ -2314,6 +2322,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
     {
         overviewLatestRunViewRun?.Button.onClick.RemoveAllListeners();
         recordsView?.Dispose();
+        combatView?.Dispose();
+        combatView = null;
         recordsView = null;
         runsView?.Dispose();
         runsView = null;

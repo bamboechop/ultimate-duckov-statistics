@@ -64,6 +64,20 @@ The reset/export rows below remain later Diagnostics work and are not acceptance
 | `uds-ui-item-use.jpg` | Review items with different group/effect/heal evidence | Item uses, amount used, HP restored, primary group, and effect tags remain independent facts; icons do not determine identity. |
 | `uds-ui-diagnostics.jpg`; `uds-ui-diagnostics-scrolled.jpg` | Scroll both desktop columns independently and expand health groups/technical details | Left contains settings, issues, and technical/log details; right contains grouped Working/Limited/Error health; narrow layout stacks left first. |
 
+## Complete retained Combat qualification
+
+Use [M17_RETAINED_COMBAT.md](M17_RETAINED_COMBAT.md) for exact sources and automated/manual boundaries. The following checks qualify all four subpages together on one candidate; they do not require modifying a real profile to manufacture unavailable states.
+
+1. Open Summary and compare all four cards, ranged/melee rows, projectile accuracy, other player-kill classifications and observed-world ownership against the user-selected UDS profile/export. Check that world deaths never add player credit and that historical/legacy evidence remains labelled. The world-death total should be muted beside its heading, wrapping when needed.
+2. Open Enemies. Confirm kills-descending order and tie-breakers; expand/collapse with pointer and submit. Expansion must show only the selected enemy's world-death total and unavailable ownership breakdown. Unknown/modded names must remain visible. Use deterministic coverage for empty/partial states absent from legitimate history.
+3. Open Weapons & ammunition. Change weapon selection and compare overall firing-action shares versus within-selected-weapon pair shares. Check uncorrelated actions, historical pairing, and the explicit no-correlated-data state where legitimately available. Verify native icons or question-mark fallbacks, long names, selected orange treatment, independent column scrolling, and the always-visible firing-action footer.
+4. Open Incoming damage. Compare lifetime Total, attacker rows, damage shares, count and deadliest attacker with `DamageReceived`/`PlayerDeaths`. Supported zero damage must have no percentage, zero complete deaths may show None, and Unknown must not turn into None. Unavailable evidence must remain explicit.
+5. On every actionable row verify hover/press/click sounds and visual feedback. From the main Combat tab, use Down, selector Up/Down, Right into the page, Left back, and Up from the first selector to the main tabs. Scroll read-only Summary/Incoming/Ammunition with controller in both directions. Focus must reveal the target without trapping navigation or jumping back to a recycled row after wheel scrolling.
+6. At 2560×1440, 1920×1080 and 1024×768, inspect reading order, every metric/notice/footer, long localized names, nested scrolling and exact bottom reachability. At fit/top/middle/bottom verify none/bottom/both/top cues following rounded corners. Cross clipping edges with TMP fallback glyphs, shadows, item icons and expanded orange rows; no content should escape rounded masks. Narrow layouts stack selector, page and ammunition in order.
+7. Switch subpages, select/expand entries, refresh valid same-generation data and repeat open/close/setup/disposal. Confirm independent scroll restoration/clamping, valid identity/focus preservation, no duplicate sound/listener activation and stable live control counts while repeatedly traversing large legitimate lists. Generation loss/replacement must hide old content immediately; exercise unavailable generation safely through deterministic tests if no legitimate runtime transition is available.
+
+Deployment, Duckov launch/control, saves, real-profile reset and export remain separately authorized user actions. Record screenshots/audio/input results and any unexercised condition; automated qualification alone does not mark these checks passed.
+
 ## Supporting-state matrix
 
 | Accepted reference | Runtime or safe deterministic exercise | Required evidence |

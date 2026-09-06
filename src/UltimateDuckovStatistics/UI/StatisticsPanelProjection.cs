@@ -4374,6 +4374,7 @@ internal sealed class PanelInteractionState
 
 internal sealed class StatisticsPanelProjection
 {
+    internal CombatProjectionBinding? CombatBinding { get; set; }
     public ProfileDocument Profile { get; set; } = new();
     public RunStatisticsViewModel Runs { get; set; } = new();
     public CombatStatisticsViewModel Combat { get; set; } = new();
@@ -4493,7 +4494,7 @@ internal static class StatisticsPanelProjectionFactory
 
         var weapons = WeaponStatisticsViewModelFactory.Create(profile);
         var equipment = EquipmentStatisticsViewModelFactory.Create(profile);
-        return new StatisticsPanelProjection
+        var projection = new StatisticsPanelProjection
         {
             Profile = profile,
             Runs = RunStatisticsViewModelFactory.Create(profile),
@@ -4540,6 +4541,8 @@ internal static class StatisticsPanelProjectionFactory
             CraftingOutputs = CreateCraftingOutputs(profile.Statistics.Crafting),
             CraftingResources = CreateCraftingResources(profile.Statistics.Crafting)
         };
+        projection.CombatBinding = new CombatProjectionBinding(projection);
+        return projection;
     }
 
     private static ItemUsePanelProjection CreateItemUse(ProfileDocument profile)
