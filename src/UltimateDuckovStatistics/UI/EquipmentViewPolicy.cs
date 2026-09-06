@@ -225,10 +225,17 @@ internal sealed class EquipmentDocument
             var label = text(RetainedOverviewLatestRunViewRunPolicy.TextKey);
             var buttonWidth = Math.Min(width * .4f, measureWidth(label, RetainedOverviewLatestRunViewRunPolicy.ReferenceFontSize)
                 + 2 * RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels);
-            var titleHeight = Heading(entry.Name, x, y, width - buttonWidth - 10);
-            var buttonHeight = Add(new EquipmentRenderRow { Id = "route:" + entry.RunId, Kind = EquipmentRowKind.Route,
-                Name = label, Actionable = true }, x + width - buttonWidth, y, buttonWidth);
-            y += Math.Max(titleHeight, buttonHeight);
+            const float rightMargin = 15;
+            var title = new EquipmentRenderRow { Kind = EquipmentRowKind.Heading, Name = entry.Name };
+            Add(title, x, y, width - buttonWidth - rightMargin - 10);
+            var button = new EquipmentRenderRow { Id = "route:" + entry.RunId, Kind = EquipmentRowKind.Route,
+                Name = label, Actionable = true };
+            Add(button, x + width - rightMargin - buttonWidth, y, buttonWidth);
+            // Center against the measured map text, allowing either label to wrap.
+            var headerHeight = Math.Max(title.NameHeight, button.Height);
+            title.Y += (headerHeight - title.NameHeight) / 2;
+            button.Y += title.TextTop + (headerHeight - button.Height) / 2;
+            y = Math.Max(title.Y + title.Height, button.Y + button.Height) + 10;
         }
         else y += Heading(entry.Name, x, y, width);
         if (entry.RunId.Length > 0) y += Notice(entry.Caption, x, y, width);

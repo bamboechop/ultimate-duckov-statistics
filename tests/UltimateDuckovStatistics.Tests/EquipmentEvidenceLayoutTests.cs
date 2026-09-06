@@ -73,6 +73,30 @@ public sealed class EquipmentEvidenceLayoutTests
     }
 
     [Theory]
+    [InlineData(900, 9, 8)]
+    [InlineData(400, 80, 8)]
+    [InlineData(400, 9, 40)]
+    public void RecentRunButtonHasCardMarginAndSharesMeasuredMapTextCenter(float width, int mapLength, int buttonLength)
+    {
+        var p = ObservedProfile();
+        p.Statistics.Runs.Add(new RunSummary { RunId = "run", SaveGenerationId = "g", EndedUtc = DateTime.UtcNow,
+            MapDisplayName = new string('M', mapLength), EquipmentStatistics = EquipmentStatisticsReducer.Clone(p.Statistics.RunTotals.EquipmentStatistics) });
+        var selection = new EquipmentSelection(); selection.Refresh(Present(p));
+        var doc = new EquipmentDocument(Measure, key => key == RetainedOverviewLatestRunViewRunPolicy.TextKey
+            ? new string('V', buttonLength) : UiText.Get(key));
+        doc.Page(selection, true, width);
+        var button = Assert.Single(doc.Rows, r => r.Kind == EquipmentRowKind.Route);
+        var title = Assert.Single(doc.Rows, r => r.Kind == EquipmentRowKind.Heading && !r.SectionHeading);
+        var card = Assert.Single(doc.Surfaces);
+        Assert.Equal(15f, card.X + card.Width - button.X - button.Width, .001f);
+        Assert.Equal(title.Y + title.TextTop + title.NameHeight / 2, button.Y + button.Height / 2, .001f);
+        Assert.True(button.Y >= card.Y + title.TextTop);
+        Assert.True(title.X + title.TextLeft + title.NameWidth + 10 <= button.X);
+        var caption = Assert.Single(doc.Rows, r => r.Kind == EquipmentRowKind.Notice && r.Name.Contains("Most used during this run", StringComparison.Ordinal));
+        Assert.True(caption.Y >= Math.Max(title.Y + title.Height, button.Y + button.Height) + 10);
+    }
+
+    [Theory]
     [InlineData(false, 900)]
     [InlineData(true, 900)]
     [InlineData(false, 400)]
