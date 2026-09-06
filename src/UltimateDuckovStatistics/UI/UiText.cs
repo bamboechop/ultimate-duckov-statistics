@@ -32,7 +32,6 @@ internal static class UiText
             ["ui.equipment_nothing"] = "Nothing equipped",
             ["ui.equipment_active_together"] = "active together",
             ["ui.equipment_conflict"] = "Composition unavailable: conflicting observations of this identity.",
-            ["ui.equipment_set_history"] = "Active-set composition unavailable for earlier history",
             ["ui.equipment_singleton"] = "No other active totem",
             ["ui.equipment_loadout_history"] = "Loadout composition unavailable for earlier history",
             ["ui.equipment_nested_slots"] = "Attachment slots",

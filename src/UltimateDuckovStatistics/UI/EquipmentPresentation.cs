@@ -164,7 +164,7 @@ internal static class EquipmentPresentationFactory
             var available = d != null && !d.Conflicting;
             var members = available ? d!.Members.Select(m => new EquipmentEntry("member:" + m.ItemId, Name(m.DisplayName), m.ItemId, 0)).ToArray() : Array.Empty<EquipmentEntry>();
             return new EquipmentEntry("set:" + r.Id, "", "", r.ActiveDurationSeconds, t("ui.equipment_active_together") + " · " + Used(r.RunOccurrences),
-                !available ? t(d?.Conflicting == true ? "ui.equipment_conflict" : "ui.equipment_set_history") : members.Length == 1 ? t("ui.equipment_singleton") : "",
+                d?.Conflicting == true ? t("ui.equipment_conflict") : available && members.Length == 1 ? t("ui.equipment_singleton") : "",
                 groups: new[] { new EquipmentGroup("", members) });
         }).ToArray();
         return new EquipmentPresentation(generation, most, selected, recent, weapons, armor, direct, empty, sets, tote, notices);
