@@ -2294,7 +2294,7 @@ public sealed class StatisticsPanelProjectionTests
             RetainedOverviewFirstStatisticsRowPolicy.ContentPaddingPixels,
             RetainedOverviewFastestExtractionRowPolicy.ContentPaddingPixels);
         Assert.True(RetainedOverviewFastestExtractionRowPolicy.HasGraphic);
-        Assert.False(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
+        Assert.True(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
 
         Assert.Equal("OverviewFastestExtractionLabel", RetainedOverviewFastestExtractionEntryPolicy.LabelName);
         Assert.Equal("OverviewFastestExtractionValue", RetainedOverviewFastestExtractionEntryPolicy.ValueName);
@@ -2334,9 +2334,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(
             RetainedOverviewFirstStatisticsRowEntryPolicy.AutoSizing,
             RetainedOverviewFastestExtractionEntryPolicy.AutoSizing);
-        Assert.Equal(
-            RetainedOverviewFirstStatisticsRowEntryPolicy.UsesVisibleOverflow,
-            RetainedOverviewFastestExtractionEntryPolicy.UsesVisibleOverflow);
+        Assert.False(RetainedOverviewFastestExtractionEntryPolicy.UsesVisibleOverflow);
         Assert.Equal(
             RetainedOverviewFirstStatisticsRowEntryPolicy.UsesLeftAlignment,
             RetainedOverviewFastestExtractionEntryPolicy.UsesLeftAlignment);
@@ -2579,16 +2577,14 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedOverviewFastestExtractionRowPolicy.Blue);
         Assert.Equal(0.50f, RetainedOverviewFastestExtractionRowPolicy.LayerAlpha);
         Assert.Equal(10f, RetainedOverviewFastestExtractionRowPolicy.CornerRadiusPixels);
-        Assert.False(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
+        Assert.True(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
         Assert.Equal(
             RetainedOverviewFirstStatisticsRowPolicy.CornerRadiusPixels,
             RetainedOverviewFastestExtractionRowPolicy.CornerRadiusPixels);
         Assert.Equal(
             RetainedOverviewFirstStatisticsRowPolicy.LayerAlpha,
             RetainedOverviewFastestExtractionRowPolicy.LayerAlpha);
-        Assert.Equal(
-            RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts,
-            RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
+        Assert.True(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
         Assert.Equal(StatisticsPanelTab.Overview, visibility.OwnerTab);
         Assert.True(visibilityStates[0]);
         Assert.All(
@@ -2667,7 +2663,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("firing actions", UiText.EnglishFallbacks["ui.overview_firing_actions_unit"]);
         Assert.Equal("uses", UiText.EnglishFallbacks["ui.overview_uses_unit"]);
         Assert.True(RetainedOverviewFastestExtractionRowPolicy.HasGraphic);
-        Assert.False(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
+        Assert.True(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFastestExtractionEntryPolicy.BlocksRaycasts);
     }
 
@@ -2720,7 +2716,7 @@ public sealed class StatisticsPanelProjectionTests
             value =>
             {
                 Assert.Equal(OverviewHighlightMetric.LongestSuccessfulRaid, value.Metric);
-                Assert.Equal("10:07.713 - Ground Zero - Farm Town", value.Value);
+                Assert.Equal("10:07.713 - Ground Zero → Farm Town", value.Value);
             },
             value =>
             {
@@ -2767,7 +2763,24 @@ public sealed class StatisticsPanelProjectionTests
 
         var presentation = Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid);
 
-        Assert.Equal("10:07.713 - Farm Town - Farm Town - Ground Zero", presentation.Value);
+        Assert.Equal("10:07.713 - Farm Town → Ground Zero", presentation.Value);
+    }
+
+    [Fact]
+    public void LongestSuccessfulRaidOmitsIntermediateMapsButRetainsBothEndsOfRoundTrip()
+    {
+        var projection = CreateGateFifteenProjection();
+        projection.Runs.Runs[0].Segments = new List<MapSegmentSummary>
+        {
+            new() { SegmentIndex = 2, MapDisplayName = "Ground Zero" },
+            new() { SegmentIndex = 0, MapDisplayName = "Ground Zero" },
+            new() { SegmentIndex = 1, MapDisplayName = "Warehouse" }
+        };
+        Assert.Equal("10:07.713 - Ground Zero → Ground Zero",
+            Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid).Value);
+        projection.Runs.Runs[0].Segments.RemoveAll(segment => segment.SegmentIndex != 0);
+        Assert.Equal("10:07.713 - Ground Zero",
+            Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid).Value);
     }
 
     [Fact]
@@ -3051,7 +3064,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(86, RetainedShellCompositionPolicy.GraphicCount);
         Assert.Equal(16, RetainedShellCompositionPolicy.GraphicCount - 70);
         Assert.Equal(11, RetainedShellCompositionPolicy.ButtonCount);
-        Assert.False(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
+        Assert.True(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewFastestExtractionEntryPolicy.BlocksRaycasts);
         Assert.Equal(StatisticsPanelTab.Overview, RetainedOverviewFastestExtractionRowPolicy.OwnerTab);
         Assert.Equal(RetainedOverviewRightPanelPolicy.ContentName,

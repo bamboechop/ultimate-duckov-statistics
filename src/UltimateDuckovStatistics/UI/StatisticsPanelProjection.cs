@@ -1722,8 +1722,9 @@ internal static class OverviewHighlightsPresentationFactory
                     .OrderBy(segment => segment.SegmentIndex)
                     .Select(segment => segment.MapDisplayName)
                     .ToArray();
-                if (mapDisplayNames.All(value => !string.IsNullOrWhiteSpace(value)))
-                    routeDisplayName = string.Join(" - ", mapDisplayNames);
+                if (!string.IsNullOrWhiteSpace(mapDisplayNames[0]) && !string.IsNullOrWhiteSpace(mapDisplayNames[mapDisplayNames.Length - 1]))
+                    routeDisplayName = mapDisplayNames.Length == 1 ? mapDisplayNames[0]
+                        : mapDisplayNames[0] + " → " + mapDisplayNames[mapDisplayNames.Length - 1];
             }
         }
 
@@ -2126,7 +2127,7 @@ internal static class RetainedOverviewFastestExtractionRowPolicy
     public const float Blue = RetainedOverviewFirstStatisticsRowPolicy.Blue;
     public const float LayerAlpha = RetainedOverviewFirstStatisticsRowPolicy.LayerAlpha;
     public const bool HasGraphic = true;
-    public const bool BlocksRaycasts = RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts;
+    public const bool BlocksRaycasts = true;
 
     public static RetainedOverviewFastestExtractionRowCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform,
@@ -2186,7 +2187,7 @@ internal static class RetainedOverviewFastestExtractionEntryPolicy
     public const bool BlocksRaycasts = RetainedOverviewFirstStatisticsRowEntryPolicy.BlocksRaycasts;
     public const bool WordWrapping = RetainedOverviewFirstStatisticsRowEntryPolicy.WordWrapping;
     public const bool AutoSizing = RetainedOverviewFirstStatisticsRowEntryPolicy.AutoSizing;
-    public const bool UsesVisibleOverflow = RetainedOverviewFirstStatisticsRowEntryPolicy.UsesVisibleOverflow;
+    public const bool UsesVisibleOverflow = false;
     public const bool UsesLeftAlignment = RetainedOverviewFirstStatisticsRowEntryPolicy.UsesLeftAlignment;
     public const bool UsesVerticalCentering = RetainedOverviewFirstStatisticsRowEntryPolicy.UsesVerticalCentering;
     public const bool UsesZeroTextMargins = RetainedOverviewFirstStatisticsRowEntryPolicy.UsesZeroTextMargins;
@@ -2627,6 +2628,17 @@ internal static class RetainedRunBadgePresentationFactory
         RunOutcome.Interrupted => RetainedRunBadgeState.Unknown,
         _ => RetainedRunBadgeState.Unknown
     };
+}
+
+internal static class RetainedActiveMeasurementPolicy
+{
+    public static T Measure<T>(bool wasActive, Action<bool> setActive, Func<T> measure)
+    {
+        // TMP's Awake establishes screen-space font metrics; ignoreActiveState does not bypass Awake.
+        if (!wasActive) setActive(true);
+        try { return measure(); }
+        finally { if (!wasActive) setActive(false); }
+    }
 }
 
 internal static class RetainedRunBadgeMeasurementPolicy

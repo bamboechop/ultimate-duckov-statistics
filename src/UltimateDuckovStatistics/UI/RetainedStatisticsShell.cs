@@ -1,3 +1,4 @@
+using Duckov.UI;
 using Duckov.UI.Animations;
 using TMPro;
 using UnityEngine;
@@ -925,6 +926,11 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             typography,
             material,
             out var value);
+        label.overflowMode = value.overflowMode = TextOverflowModes.Ellipsis;
+        var tooltip = row.AddComponent<TooltipsProvider>();
+        tooltip.text = "<noparse>" + (presentation.Label + ": " + presentation.Value)
+            .Replace("<", "＜").Replace(">", "＞") + "</noparse>";
+        row.GetComponent<Graphic>().raycastTarget = RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts;
         return new RetainedOverviewHighlightRowControl(rect, modifier, labelRect, label, valueRect, value);
     }
 
@@ -1832,30 +1838,30 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             canvasScaleFactor);
         var latestRunBadgeControl = overviewLatestRunBadge!;
         var latestRunViewRunControl = overviewLatestRunViewRun!;
-        RetainedVisualCanvasLayout layout;
-        if (latestRunBadgeControl.Presentation.IsVisible
-            && latestRunBadgeControl.Presentation.State.HasValue
-            && latestRunBadgeControl.Presentation.Specification != null)
+        var layout = RetainedActiveMeasurementPolicy.Measure(
+            overviewContentView!.activeSelf, overviewContentView.SetActive, () =>
         {
-            var preferredBadgeLabelWidth = MeasureRunBadgeReferenceWidth(
-                latestRunBadgeControl,
-                referenceTransform,
-                canvasScaleFactor);
-            var preferredViewRunLabelWidth = MeasureLatestRunViewRunReferenceWidth(
-                latestRunViewRunControl,
-                referenceTransform,
-                canvasScaleFactor);
-            layout = RetainedVisualLayoutPolicy.Create(
-                referenceTransform,
-                preferredReferenceWidths,
-                latestRunBadgeControl.Presentation.State.Value,
-                preferredBadgeLabelWidth,
-                preferredViewRunLabelWidth);
-        }
-        else
-        {
-            layout = RetainedVisualLayoutPolicy.Create(referenceTransform, preferredReferenceWidths);
-        }
+            if (latestRunBadgeControl.Presentation.IsVisible
+                && latestRunBadgeControl.Presentation.State.HasValue
+                && latestRunBadgeControl.Presentation.Specification != null)
+            {
+                var preferredBadgeLabelWidth = MeasureRunBadgeReferenceWidth(
+                    latestRunBadgeControl,
+                    referenceTransform,
+                    canvasScaleFactor);
+                var preferredViewRunLabelWidth = MeasureLatestRunViewRunReferenceWidth(
+                    latestRunViewRunControl,
+                    referenceTransform,
+                    canvasScaleFactor);
+                return RetainedVisualLayoutPolicy.Create(
+                    referenceTransform,
+                    preferredReferenceWidths,
+                    latestRunBadgeControl.Presentation.State.Value,
+                    preferredBadgeLabelWidth,
+                    preferredViewRunLabelWidth);
+            }
+            return RetainedVisualLayoutPolicy.Create(referenceTransform, preferredReferenceWidths);
+        });
         var leftPanelRect = overviewLeftPanelRect!;
         var leftPanelModifier = overviewLeftPanelModifier!;
         var rightPanelRect = overviewRightPanelRect!;

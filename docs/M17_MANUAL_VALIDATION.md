@@ -6,6 +6,10 @@ No row below is considered passed from source inspection or deterministic tests 
 
 ## Complete retained Runs qualification
 
+Overview refresh checks: open Overview, close the panel, complete another run with a different outcome, reopen on the previously selected tab, then return to Overview. Repeat Died → Extracted → Unknown where normal play supplies those outcomes. The outcome badge and View run button must use current label widths, with no overlap or collapsed background; View run must route to the new exact Run ID. Check both visible-Overview refresh and reopening while Runs is selected. The longest successful raid highlight shows only its ordered start and end maps (one name for a single segment). All four highlight labels and values use native ellipsis within their existing cells; hover exposes the full presentation text through the native tooltip. Exercise long localized map, weapon, consumable and label text. Native visual acceptance requires the game; deterministic tests alone do not qualify it.
+
+The installed TMP implementation initializes screen-space metrics in `TextMeshProUGUI.Awake`; `ForceMeshUpdate(ignoreActiveState: true)` still returns before Awake. Overview measurement temporarily activates its own hierarchy and restores the previous tab visibility in `finally`, so rebuilding while another tab is selected cannot cache the pre-Awake one-tenth-scale badge/button widths. This is layout initialization, not a runtime visual acceptance gate.
+
 Runs implementation and deterministic evidence are described in [M17_RETAINED_RUNS.md](M17_RETAINED_RUNS.md). This protocol qualifies the new view, using the already qualified foundation; it does not require repeating terminal-hook investigation or manipulating saves.
 
 1. Open through main menu, base pause menu and F8. Compare Overview, header, tabs and back control with their accepted appearance. Confirm one shell, native cursor/focus restoration and repeated close/reopen with no errors.
