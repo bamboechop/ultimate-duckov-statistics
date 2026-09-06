@@ -82,6 +82,8 @@ For Combat → Weapons & ammunition, verify a ranged weapon's expanded Firing ac
 
 For Combat and Records, wheel/drag/inertial scrolling must stop at the top and bottom content bounds. On desktop Combat, reaching an inner column's edge must not move the selector or the whole page; on narrow screens the stacked outer page must remain scrollable within its bounds. Verify that incoming/NPC-only weapon records are absent from Weapons & ammunition while genuine player firing, melee, damage-only and unknown-attribution evidence remains correctly represented.
 
+Where native item ID 356 (Unarmed) is legitimately displayed, verify the muted empty-slot dash replaces its knife sprite in Combat, Equipment, Runs and the Runs item overlay. The name, stable identity, occupied evidence and recorded statistics remain unchanged; other IDs retain native icons or the normal unknown-icon fallback.
+
 ## Complete retained Equipment qualification
 
 Use [M17_RETAINED_EQUIPMENT.md](M17_RETAINED_EQUIPMENT.md) and [M17_EQUIPMENT_DATA_FOUNDATION.md](M17_EQUIPMENT_DATA_FOUNDATION.md) for the exact data sources and baseline slot proof. Record results against one candidate; do not manufacture states by editing a Duckov save or a live UDS profile.

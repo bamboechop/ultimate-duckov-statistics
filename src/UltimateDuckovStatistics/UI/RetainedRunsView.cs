@@ -423,8 +423,9 @@ internal sealed partial class RetainedStatisticsShell
                 var sprite = item == null ? null : RunsItemIconPolicy.Resolve(item, icons.ResolveAvailable);
                 control.Icon.sprite = sprite; control.Icon.enabled = sprite != null;
                 NativeTotemIconAppearance.Apply(control.Icon, item?.ItemId);
-                control.Fallback.text = sprite != null ? string.Empty : item?.State == EquipmentSlotState.Empty ? "—" : "?";
-                control.Fallback.color = item?.State == EquipmentSlotState.Empty ? Muted : Color.white;
+                var emptyIcon = item?.State == EquipmentSlotState.Empty || NativeItemTypeIdPolicy.UseEmptyIcon(item?.ItemId);
+                control.Fallback.text = sprite != null ? string.Empty : emptyIcon ? "—" : "?";
+                control.Fallback.color = emptyIcon ? Muted : Color.white;
                 control.Root.GetComponent<ProceduralImage>().color = item == null || item.State is not (EquipmentSlotState.Occupied or EquipmentSlotState.Empty)
                     ? new Color(.28f, .28f, .28f, .5f) : new Color(0, 0, 0, .5f);
                 var attachments = item?.Attachments;
@@ -773,7 +774,9 @@ internal sealed partial class RetainedStatisticsShell
             var rootSprite = RunsItemIconPolicy.Resolve(rootItem, icons.ResolveAvailable);
             evidenceItemIcon.sprite = rootSprite; evidenceItemIcon.enabled = rootSprite != null;
             NativeTotemIconAppearance.Apply(evidenceItemIcon, rootItem.ItemId);
-            evidenceItemFallback.text = rootSprite != null ? string.Empty : "?";
+            var rootEmptyIcon = NativeItemTypeIdPolicy.UseEmptyIcon(rootItem.ItemId);
+            evidenceItemFallback.text = rootSprite != null ? string.Empty : rootEmptyIcon ? "—" : "?";
+            evidenceItemFallback.color = rootEmptyIcon ? Muted : Color.white;
             evidenceItemName.text = rootItem.ItemName;
             var attachmentCount = rows.Count - 1;
             while (evidenceRows.Count < attachmentCount)
@@ -793,8 +796,9 @@ internal sealed partial class RetainedStatisticsShell
                 var sprite = RunsItemIconPolicy.Resolve(captured, icons.ResolveAvailable);
                 row.Icon.sprite = sprite; row.Icon.enabled = sprite != null;
                 NativeTotemIconAppearance.Apply(row.Icon, captured.ItemId);
-                row.Fallback.text = sprite != null ? string.Empty : captured.State == EquipmentSlotState.Empty ? "—" : "?";
-                row.Fallback.color = captured.State == EquipmentSlotState.Empty ? Muted : Color.white;
+                var emptyIcon = captured.State == EquipmentSlotState.Empty || NativeItemTypeIdPolicy.UseEmptyIcon(captured.ItemId);
+                row.Fallback.text = sprite != null ? string.Empty : emptyIcon ? "—" : "?";
+                row.Fallback.color = emptyIcon ? Muted : Color.white;
                 row.Name.text = captured.ItemName;
                 row.Slot.text = RunsViewStyle.Uppercase(captured.SlotName);
             }

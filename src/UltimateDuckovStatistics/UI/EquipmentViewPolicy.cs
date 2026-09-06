@@ -71,7 +71,8 @@ internal sealed class EquipmentRenderRow
     public EquipmentSlotState? EvidenceState { get; set; }
     public bool SectionHeading { get; set; }
     public bool HasIcon => Kind == EquipmentRowKind.Slot || IconId.Length > 0 || EvidenceState.HasValue;
-    public bool EmptyIcon => (Kind == EquipmentRowKind.Slot ? Slot?.State : EvidenceState) == EquipmentSlotState.Empty;
+    public bool EmptyIcon => NativeItemTypeIdPolicy.UseEmptyIcon(IconId)
+        || (Kind == EquipmentRowKind.Slot ? Slot?.State : EvidenceState) == EquipmentSlotState.Empty;
     public string IconFallback => EmptyIcon ? Kind == EquipmentRowKind.Slot ? "–" : "—" : "?";
     public float TextLeft => SectionHeading ? 0 : 15 + (HasIcon ? 72 : 0) + (Expandable ? 28 : 0);
     public float TextTop => SectionHeading || Kind == EquipmentRowKind.SlotDuration ? 0 : 12;

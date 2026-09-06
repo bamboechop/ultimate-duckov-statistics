@@ -61,6 +61,9 @@ internal sealed class RunsRowBinding
 
 internal static class NativeItemTypeIdPolicy
 {
+    // Native Unarmed is invisible to players; retain its identity but use the empty-slot glyph.
+    public static bool UseEmptyIcon(string? id) => id != null && TryParse(id, out var typeId) && typeId == 356;
+
     public static bool TryParse(string id, out int typeId)
     {
         typeId = 0;
@@ -71,7 +74,7 @@ internal static class NativeItemTypeIdPolicy
     }
     public static T? Resolve<T>(string id, Func<int, (int Id, T? Icon)> metadata, T? fallback) where T : class
     {
-        if (!TryParse(id, out var typeId)) return null;
+        if (!TryParse(id, out var typeId) || typeId == 356) return null;
         try
         {
             var result = metadata(typeId);

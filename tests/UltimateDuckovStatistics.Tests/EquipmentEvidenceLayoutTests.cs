@@ -72,6 +72,18 @@ public sealed class EquipmentEvidenceLayoutTests
         Assert.False(row.HasIcon); Assert.False(row.EmptyIcon);
     }
 
+    [Fact]
+    public void InvisibleUnarmedIconKeepsRecordedOccupiedIdentityAndName()
+    {
+        var row = new EquipmentRenderRow { Kind = EquipmentRowKind.Item, IconId = "duckov:weapon:356",
+            Name = "Unbewaffnet", EvidenceState = EquipmentSlotState.Occupied };
+        Assert.True(row.EmptyIcon); Assert.Equal("—", row.IconFallback);
+        Assert.Equal(EquipmentSlotState.Occupied, row.EvidenceState);
+        Assert.Equal("duckov:weapon:356", row.IconId); Assert.Equal("Unbewaffnet", row.Name);
+        row.IconId = "duckov:weapon:357";
+        Assert.False(row.EmptyIcon); Assert.Equal("?", row.IconFallback);
+    }
+
     [Theory]
     [InlineData(1, 900)]
     [InlineData(2, 400)]

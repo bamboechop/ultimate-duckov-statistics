@@ -577,7 +577,8 @@ internal sealed class NativeItemIconResolver
 {
     private readonly Dictionary<string, Sprite?> cache = new(StringComparer.Ordinal);
 
-    public Sprite? Resolve(string stableItemId) => ResolveAvailable(stableItemId) ?? ResolveFallback();
+    public Sprite? Resolve(string stableItemId) => NativeItemTypeIdPolicy.UseEmptyIcon(stableItemId)
+        ? null : ResolveAvailable(stableItemId) ?? ResolveFallback();
 
     public Sprite? ResolveAvailable(string stableItemId)
     {

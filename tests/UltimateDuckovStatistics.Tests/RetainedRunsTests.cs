@@ -563,6 +563,28 @@ public sealed class RetainedRunsTests
         Assert.Null(NativeItemTypeIdPolicy.Resolve<object>("mod:weapon", _ => throw new InvalidOperationException(), fallback));
     }
 
+    [Theory]
+    [InlineData("duckov:weapon:356", true)]
+    [InlineData("duckov:item:356", true)]
+    [InlineData("duckov:totem:356", true)]
+    [InlineData("duckov:weapon:357", false)]
+    [InlineData("duckov:weapon:1356", false)]
+    [InlineData("mod:weapon:356", false)]
+    [InlineData("duckov:weapon:356:extra", false)]
+    [InlineData("duckov:weapon:unknown", false)]
+    public void InvisibleUnarmedUsesEmptyIconOnlyForExactNativeItemIdentity(string id, bool empty)
+    {
+        Assert.Equal(empty, NativeItemTypeIdPolicy.UseEmptyIcon(id));
+        var queries = 0; var knife = new object();
+        var result = NativeItemTypeIdPolicy.Resolve(id, typeId => { queries++; return (typeId, knife); }, null);
+        if (empty)
+        {
+            Assert.Null(result);
+            Assert.Equal(0, queries); // Never retrieve the player-invisible native weapon sprite.
+        }
+        else if (NativeItemTypeIdPolicy.TryParse(id, out _)) Assert.Same(knife, result);
+    }
+
     [Fact]
     public void EquipmentOverlayHeightFitsOneThroughSixSlotsAtSupportedResolutions()
     {

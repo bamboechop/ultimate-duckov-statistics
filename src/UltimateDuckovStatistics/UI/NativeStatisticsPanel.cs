@@ -1366,6 +1366,11 @@ internal sealed class LegacyImmediateStatisticsPanel : IDisposable
     private void DrawItemIcon(string stableItemId, float size = 30f)
     {
         var rect = GUILayoutUtility.GetRect(size, size, GUILayout.Width(size), GUILayout.Height(size));
+        if (NativeItemTypeIdPolicy.UseEmptyIcon(stableItemId))
+        {
+            GUI.Label(rect, "—", theme.Muted);
+            return;
+        }
         var sprite = iconResolver.Resolve(stableItemId);
         if (sprite == null || sprite.texture == null)
         {

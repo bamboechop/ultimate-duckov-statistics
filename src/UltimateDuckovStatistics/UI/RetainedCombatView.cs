@@ -331,6 +331,8 @@ internal sealed partial class RetainedStatisticsShell
                 if (item)
                 {
                     var icon = CombatItemIconPolicy.Resolve(r.IconId, owner.icons.ResolveAvailable); c.Icon.sprite = icon; c.Icon.enabled = icon != null; c.Fallback.enabled = icon == null;
+                    var emptyIcon = NativeItemTypeIdPolicy.UseEmptyIcon(r.IconId);
+                    c.Fallback.text = emptyIcon ? "—" : "?"; c.Fallback.color = emptyIcon ? Muted : Color.white;
                     Place(c.Icon.rectTransform, 15, 15, 80, 80); Place(c.Fallback.rectTransform, 15, 15, 80, 80);
                 }
             }
