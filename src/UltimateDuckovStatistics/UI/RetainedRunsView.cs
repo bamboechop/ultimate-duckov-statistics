@@ -93,6 +93,7 @@ internal sealed partial class RetainedStatisticsShell
         runsView?.Refresh(null, string.Empty);
         recordsView?.Refresh(null);
         combatView?.Refresh(null);
+        equipmentView?.Refresh(null);
     }
 
     private sealed class ScrollRegion : IDisposable

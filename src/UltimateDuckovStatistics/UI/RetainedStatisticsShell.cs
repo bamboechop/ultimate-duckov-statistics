@@ -374,6 +374,11 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
             combatView.Refresh(CombatPresentationFactory.Create(projection, projection.Profile.GenerationId));
             combatView.SetVisible(selectedTab == StatisticsPanelTab.Combat);
+            equipmentView = new EquipmentView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
+                (generation, id) => { runsView?.Route(generation, id); tabSelected?.Invoke(StatisticsPanelTab.Runs); },
+                () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
+            equipmentView.Refresh(EquipmentPresentationFactory.Create(projection, projection.Profile.GenerationId));
+            equipmentView.SetVisible(selectedTab == StatisticsPanelTab.Equipment);
             BindOverviewRun(projection.Profile.GenerationId);
 
             headerRect = CreateHeaderBackground(
@@ -562,6 +567,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         RefreshRuns(projection, generation);
         recordsView?.Refresh(RecordsPresentationFactory.Create(projection, generation));
         combatView?.Refresh(CombatPresentationFactory.Create(projection, generation));
+        equipmentView?.Refresh(EquipmentPresentationFactory.Create(projection, generation));
         RefreshVisualLayout(force: true);
     }
 
@@ -577,6 +583,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         runsView?.SetVisible(selectedTab == StatisticsPanelTab.Runs);
         recordsView?.SetVisible(selectedTab == StatisticsPanelTab.Records);
         combatView?.SetVisible(selectedTab == StatisticsPanelTab.Combat);
+        equipmentView?.SetVisible(selectedTab == StatisticsPanelTab.Equipment);
         EnsureSelectedTabVisible();
         var focused = GameManager.EventSystem?.currentSelectedGameObject;
         if (focused == null || !focused.activeInHierarchy)
@@ -595,6 +602,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             recordsView?.Tick();
             combatView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
             combatView?.Tick();
+            equipmentView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+            equipmentView?.Tick();
             return true;
         }
         catch (Exception exception)
@@ -2324,6 +2333,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         recordsView?.Dispose();
         combatView?.Dispose();
         combatView = null;
+        equipmentView?.Dispose();
+        equipmentView = null;
         recordsView = null;
         runsView?.Dispose();
         runsView = null;

@@ -7,38 +7,38 @@ namespace UltimateDuckovStatistics.Core.Statistics;
 [DataContract]
 public sealed class EquipmentCompositionEvidence
 {
-    [DataMember(Order = 1)] public Dictionary<string, LoadoutDefinition> Loadouts { get; set; } = new(StringComparer.Ordinal);
-    [DataMember(Order = 2)] public Dictionary<string, ActiveTotemSetDefinition> ActiveTotemSets { get; set; } = new(StringComparer.Ordinal);
-    [DataMember(Order = 3)] public Dictionary<string, TotemStateDuration> TotemStates { get; set; } = new(StringComparer.Ordinal);
-    [DataMember(Order = 4)] public bool HistoricalUnavailable { get; set; }
-    [DataMember(Order = 5)] public Dictionary<string, EquipmentDurationAggregate> EmptyDirectSlots { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 1, IsRequired = true)] public Dictionary<string, LoadoutDefinition> Loadouts { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 2, IsRequired = true)] public Dictionary<string, ActiveTotemSetDefinition> ActiveTotemSets { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 3, IsRequired = true)] public Dictionary<string, TotemStateDuration> TotemStates { get; set; } = new(StringComparer.Ordinal);
+    [DataMember(Order = 4, IsRequired = true)] public bool HistoricalUnavailable { get; set; }
+    [DataMember(Order = 5, IsRequired = true)] public Dictionary<string, EquipmentDurationAggregate> EmptyDirectSlots { get; set; } = new(StringComparer.Ordinal);
 }
 
 [DataContract]
 public sealed class LoadoutDefinition
 {
-    [DataMember(Order = 1)] public string LoadoutId { get; set; } = string.Empty;
-    [DataMember(Order = 2)] public List<CharacterEquipmentSlotSnapshot> Roots { get; set; } = new();
-    [DataMember(Order = 3)] public List<EquippedItemSnapshot> Items { get; set; } = new();
-    [DataMember(Order = 4)] public bool RootsComplete { get; set; }
-    [DataMember(Order = 5)] public bool NestedComplete { get; set; }
-    [DataMember(Order = 6)] public bool Conflicting { get; set; }
+    [DataMember(Order = 1, IsRequired = true)] public string LoadoutId { get; set; } = string.Empty;
+    [DataMember(Order = 2, IsRequired = true)] public List<CharacterEquipmentSlotSnapshot> Roots { get; set; } = new();
+    [DataMember(Order = 3, IsRequired = true)] public List<EquippedItemSnapshot> Items { get; set; } = new();
+    [DataMember(Order = 4, IsRequired = true)] public bool RootsComplete { get; set; }
+    [DataMember(Order = 5, IsRequired = true)] public bool NestedComplete { get; set; }
+    [DataMember(Order = 6, IsRequired = true)] public bool Conflicting { get; set; }
 }
 
 [DataContract]
 public sealed class ActiveTotemSetDefinition
 {
-    [DataMember(Order = 1)] public string TotemSetId { get; set; } = string.Empty;
-    [DataMember(Order = 2)] public List<TotemSnapshot> Members { get; set; } = new();
-    [DataMember(Order = 3)] public bool Conflicting { get; set; }
+    [DataMember(Order = 1, IsRequired = true)] public string TotemSetId { get; set; } = string.Empty;
+    [DataMember(Order = 2, IsRequired = true)] public List<TotemSnapshot> Members { get; set; } = new();
+    [DataMember(Order = 3, IsRequired = true)] public bool Conflicting { get; set; }
 }
 
 [DataContract]
 public sealed class TotemStateDuration
 {
-    [DataMember(Order = 1)] public TotemSnapshot Totem { get; set; } = new();
-    [DataMember(Order = 2)] public int CopyOrdinal { get; set; }
-    [DataMember(Order = 3)] public double DurationSeconds { get; set; }
+    [DataMember(Order = 1, IsRequired = true)] public TotemSnapshot Totem { get; set; } = new();
+    [DataMember(Order = 2, IsRequired = true)] public int CopyOrdinal { get; set; }
+    [DataMember(Order = 3, IsRequired = true)] public double DurationSeconds { get; set; }
 }
 
 /// <summary>One definition per exact identity, and one counter per typed presence/copy identity. No observation journal.</summary>
@@ -142,7 +142,7 @@ public static class EquipmentCompositionReducer
         foreach (var pair in evidence.Loadouts)
         {
             var d = pair.Value;
-            if (d == null || !Exact(d.LoadoutId) || pair.Key != d.LoadoutId || d.Roots == null || d.Items == null)
+            if (d == null || !Exact(d.LoadoutId) || pair.Key != d.LoadoutId || d.Roots == null || d.Items == null || !d.RootsComplete)
                 throw new ArgumentException("Invalid loadout definition identity or roots.");
             var snapshot = Snapshot(d);
             EquipmentStatisticsReducer.ValidateSnapshot(snapshot);

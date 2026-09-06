@@ -4375,6 +4375,7 @@ internal sealed class PanelInteractionState
 internal sealed class StatisticsPanelProjection
 {
     internal CombatProjectionBinding? CombatBinding { get; set; }
+    internal EquipmentProjectionBinding? EquipmentBinding { get; set; }
     public ProfileDocument Profile { get; set; } = new();
     public RunStatisticsViewModel Runs { get; set; } = new();
     public CombatStatisticsViewModel Combat { get; set; } = new();
@@ -4517,7 +4518,6 @@ internal static class StatisticsPanelProjectionFactory
             RecentEquipmentRuns = profile.Statistics.Runs
                 .OrderByDescending(value => value.EndedUtc)
                 .ThenBy(value => value.RunId, StringComparer.Ordinal)
-                .Take(5)
                 .ToArray(),
             Containers = ContainerStatisticsViewModelFactory.Create(profile),
             Holdings = EconomyHoldingsReducer.Project(profile.Statistics.Holdings),
@@ -4542,6 +4542,7 @@ internal static class StatisticsPanelProjectionFactory
             CraftingResources = CreateCraftingResources(profile.Statistics.Crafting)
         };
         projection.CombatBinding = new CombatProjectionBinding(projection);
+        projection.EquipmentBinding = new EquipmentProjectionBinding(projection);
         return projection;
     }
 

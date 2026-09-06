@@ -78,6 +78,29 @@ Use [M17_RETAINED_COMBAT.md](M17_RETAINED_COMBAT.md) for exact sources and autom
 
 Deployment, Duckov launch/control, saves, real-profile reset and export remain separately authorized user actions. Record screenshots/audio/input results and any unexercised condition; automated qualification alone does not mark these checks passed.
 
+## Complete retained Equipment qualification
+
+Use [M17_RETAINED_EQUIPMENT.md](M17_RETAINED_EQUIPMENT.md) and [M17_EQUIPMENT_DATA_FOUNDATION.md](M17_EQUIPMENT_DATA_FOUNDATION.md) for the exact data sources and baseline slot proof. Record results against one candidate; do not manufacture states by editing a Duckov save or a live UDS profile.
+
+| Check | User-controlled qualification |
+| --- | --- |
+| Loadouts | Compare the most-used recurring card with lifetime Loadouts, its at-least-two-run threshold, exact duration/count and matching definition. Check a longer one-off does not replace it. Verify every root/icon, empty dash, occupied/empty attachment dot, incomplete ellipsis and tooltip. Click and keyboard/controller submit must toggle captured detail for eligible occupied slots; Empty and proven-no-nested-slot cards remain read-only. Verify inspection selection survives a same-generation refresh and clears when its identity or generation disappears. Recent cards must use their own most-used definition rather than terminal equipment. Verify timestamps and exact View run routing. |
+| Selected time | Compare the weapon-level rows with checked sums of SelectedWeapons by stable ID, including different character slots. Confirm they differ appropriately from Weapons equipped totals. Qualify supported zero versus no observations and current unavailable tracking through safe deterministic fixtures if absent from legitimate history. |
+| Weapons | Expand/collapse each available weapon; check duration ordering, total/per-slot duration, Scope/Muzzle/Grip/Stock/Tactics/Magazine and additional groups. Compare occupied and Nothing equipped rows with exact persisted nested evidence. Unreadable/historical slots remain Unavailable or partial. Only headers have hover/press/submit feedback. |
+| Armor & gear | Check Head/Face/Armor/Backpack/Headset and every extra native/modded slot. Proven weapons and direct-totem slots are excluded. Compare occupied/empty durations; expand a legitimately observed backpack nested slot and ensure ordinary inventory is not counted as equipped. |
+| Totems | Compare direct presence, per-direct-slot activation detail, proven-inactive presence and the two native direct slot labels. Compare empty slot time only with typed proof. Active set duration/count and membership must agree; singleton wording appears only for exactly one proven-active member. Tote rows say carried time and show the unknown-effect subtitle. Degraded tote capability must leave valid direct evidence visible. |
+| Profile/export agreement | For the same generation, compare every affected UI value against profile JSON and exported statistics.json, equipment_totals.csv, character_equipment_slots.csv, equipped_item_nested_slots.csv, recurring_loadouts.csv, loadout_definitions.csv, active_totem_set_definitions.csv and totem_state_durations.csv. Compare matching run/segment scopes; historical unavailable composition must not look empty. The complete export contains one JSON and 36 CSVs. |
+| Desktop screenshots | Capture each page at 2560×1440 and 1920×1080, collapsed and representative expanded states. Check panel relation, native text/shadow, orange selected headers, compact grids, readable durations, translucent surfaces and absence of fake blur. |
+| Narrow screenshots | Repeat at 1024×768 and one available non-default UI scale. Selector precedes page; full left column precedes full right column. All nested groups, values, notices and buttons remain reachable and readable. |
+| Scrolling/clipping | At fit/top/middle/bottom check none/bottom/both/top rounded white cues, independent left/right scrolling, true last-row reachability and edge propagation. Cross every mask edge with text, fallback glyphs, shadows, icons, attachment dots, borders and expanded orange headers; nothing escapes clipping. |
+| Mouse/audio | Verify full selector/header hover, press and click sounds; View run uses native feedback. Read-only rows and empty slots must not acquire click/hover sound effects. Scroll during a press to confirm a recycled row cannot activate another identity. |
+| Keyboard/controller | Down from Equipment enters selectors; Up/Down selects focus, submit changes page, first Up returns to main tab, Right enters content and Left returns to the corresponding selector. Navigate/scroll to the true bottom and back. View run routes exactly; no missing-run fallback. |
+| Persistence/focus | Switch all subpages and main tabs, refresh same-generation data and expand multiple identities. Check remembered offsets/expansion/focus and clamping after legitimate changes. Generation loss/replacement immediately removes old values; use deterministic coverage if no safe live transition is available. |
+| Localization/icons | Repeat in English and an available non-English language. Check very long native/modded names, missing names, missing icons, unavailable earlier composition and extra legitimate roots. Native tooltip availability should be recorded on both main-menu and base-pause surfaces. |
+| Lifetime/stress | Repeat open/close and setup/deactivation cycles; check single sound/listener activation, no hidden retained hierarchies or item references and bounded live control counts while traversing the largest legitimate history. No per-frame history rebuild should occur. |
+
+Capture screenshots/audio/input results and record any unexercised state explicitly. Automated tests do not mark these live rows passed. Duckov launch/control, gameplay, save selection, real-profile reset and export remain user actions.
+
 ## Supporting-state matrix
 
 | Accepted reference | Runtime or safe deterministic exercise | Required evidence |
@@ -89,7 +112,7 @@ Deployment, Duckov launch/control, saves, real-profile reset and export remain s
 | `uds-ui-diagnostics-reset.jpg` | Open reset confirmation without confirming | Warning names read-only archive, new empty UDS profile, unchanged Duckov saves, and no in-UDS undo; Cancel has initial focus, Escape cancels, background is blocked. |
 | `uds-ui-diagnostics-reset-successful.jpg` | User confirms one intentional UDS reset | One new empty generation opens; previous generation exists read-only; success toast/status is visible; Duckov save hashes are unchanged. |
 | `uds-ui-diagnostics-reset-failed.jpg` | Use a safe filesystem/test failure condition only if authorized | Existing profile remains active and no statistics are removed; Recent issue and `Player.log` guidance appear. Do not damage a real profile to create this state. |
-| `uds-ui-diagnostics-export-successful.jpg` | Export once | One JSON plus thirty-two CSVs are produced, the folder path is copied, and live UI/profile/export values agree. |
+| `uds-ui-diagnostics-export-successful.jpg` | Export once | One JSON plus thirty-six CSVs are produced, the folder path is copied, and live UI/profile/export values agree. |
 | `uds-ui-diagnostics-export-failed.jpg` | Use a safe filesystem/test failure condition only if authorized | Failure leaves tracking active, records one actionable Recent issue, and directs details to `Player.log`. |
 
 ## Access and interaction matrix

@@ -5,6 +5,7 @@ using UltimateDuckovStatistics.Core.Export;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Adapters;
+using UltimateDuckovStatistics.Core.Tracking;
 
 namespace UltimateDuckovStatistics.Tests;
 
@@ -109,6 +110,18 @@ public sealed class EquipmentCompositionTests
         a = Observed(); a.Composition.TotemStates.Values.Single().Totem.DirectSlotId = "tampered";
         Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(a, 18));
     }
+    [Fact] public void MissingConflictMarkerCannotSilentlyReleaseConflictingHistory()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "equipment.json"); var store = new AtomicJsonStore<EquipmentStatisticsAggregate>();
+        var a = Observed(); a.Composition.Loadouts.Values.Single().Conflicting = true;
+        store.Save(path, a); store.Save(path, a);
+        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+        var definitions = json["Composition"]!["Loadouts"]!.AsObject();
+        definitions.First().Value!.AsObject().Remove("Conflicting"); File.WriteAllText(path, json.ToJsonString());
+        var recovered = store.Load(path); Assert.Equal(AtomicJsonLoadSource.Backup, recovered.Source);
+        Assert.True(recovered.Value!.Composition.Loadouts.Values.Single().Conflicting);
+    }
     [Fact] public void JsonAndDedicatedCsvPreserveStructuredTruthAndHistoricalGaps()
     {
         var profile = new ProfileDocument { GenerationId = "equipment-generation", Statistics = new ProfileStatistics { SaveGenerationId = "equipment-generation" } };
@@ -129,5 +142,26 @@ public sealed class EquipmentCompositionTests
         Assert.True(ProfileMigrator.Migrate(profile)); Assert.Equal(ProductInfo.SchemaVersion, profile.SchemaVersion);
         Assert.True(profile.Statistics.RunTotals.EquipmentStatistics.Composition.HistoricalUnavailable);
         Assert.Empty(profile.Statistics.RunTotals.EquipmentStatistics.Composition.Loadouts);
+    }
+    [Fact] public void ActiveRunRouteCheckpointCompletedRunAndLifetimeShareExactComposition()
+    {
+        var now = DateTime.UnixEpoch; var tracker = new RunLifecycleTracker(() => "equipment-run");
+        tracker.Apply(new RunLifecycleEvent { Kind = RunLifecycleEventKind.RaidInitialized, TimestampUtc = now, MonotonicSeconds = 0, NativeRaidId = "raid" });
+        tracker.Apply(new RunLifecycleEvent { Kind = RunLifecycleEventKind.ControlReady, TimestampUtc = now, MonotonicSeconds = 0,
+            StartContext = new RunStartContext { SaveGenerationId = "g", NativeRaidId = "raid", Map = new MapIdentity { MapId = "map", DisplayName = "Map", IsKnown = true },
+                LifecycleCapability = AdapterCapabilityState.Supported, EquipmentCapabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities(),
+                RouteCapabilities = RouteStatisticsReducer.Supported("native") } });
+        Assert.True(tracker.ObserveEquipment(Snapshot()));
+        var checkpoint = tracker.CreateCheckpoint(now.AddSeconds(5), 5)!;
+        Assert.Single(checkpoint.EquipmentStatistics.Composition.Loadouts);
+        Assert.Single(checkpoint.Segments); Assert.Single(checkpoint.Segments[0].EquipmentStatistics.Composition.Loadouts);
+        var run = tracker.Apply(new RunLifecycleEvent { Kind = RunLifecycleEventKind.Extracted, TimestampUtc = now.AddSeconds(10), MonotonicSeconds = 10 }).Completed!;
+        var p = new ProfileStatistics { SaveGenerationId = "g" }; Assert.True(RunReducer.Apply(p, run));
+        Assert.Equal(10, run.EquipmentStatistics.Composition.TotemStates.Values.Single().DurationSeconds);
+        Assert.Equal(10, run.Segments[0].EquipmentStatistics.Composition.TotemStates.Values.Single().DurationSeconds);
+        Assert.Single(p.RunTotals.EquipmentStatistics.Composition.Loadouts);
+        Assert.Single(p.RunTotals.Maps.Values.Single().EquipmentStatistics.Composition.Loadouts);
+        Assert.Single(p.RunTotals.RouteMaps.Values.Single().EquipmentStatistics.Composition.Loadouts);
+        Assert.Empty(new ProfileStatistics { SaveGenerationId = "replacement" }.RunTotals.EquipmentStatistics.Composition.Loadouts);
     }
 }

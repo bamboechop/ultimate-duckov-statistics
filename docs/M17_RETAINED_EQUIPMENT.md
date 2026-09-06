@@ -1,0 +1,39 @@
+# Retained Equipment
+
+The retained shell owns a dedicated Equipment view with four native selectors: Loadouts, Weapons, Armor & gear, and Totems. `EquipmentPresentationFactory` copies immutable presentation data from the complete factory-bound generation publication; the view does not consume the legacy IMGUI Equipment renderer. The schema-18 structured foundation is described in [M17_EQUIPMENT_DATA_FOUNDATION.md](M17_EQUIPMENT_DATA_FOUNDATION.md).
+
+## Sources and truthful boundaries
+
+| Section | Source and qualification |
+| --- | --- |
+| Most-used loadout | Highest active-duration lifetime recurring loadout with at least two completed-run occurrences, with ordinal identity tie-breaking. Composition comes only from its matching definition. A longer one-off does not qualify. |
+| Selected weapon time | Lifetime SelectedWeapons, grouped by stable weapon ID with checked sums. The presentation retains underlying exact slot durations. This never uses total equipped duration. Missing observations, supported zero rows, and current capability limitation remain separate. |
+| Recent run loadouts | Complete recent-run projection, newest end timestamp first. Each run's own highest-duration loadout supplies its duration and matching structured composition. Terminal equipment never substitutes. View run carries the exact generation and RunId into the existing Runs route; missing targets cannot select a replacement. |
+| Weapons | Total/per-character-slot equipped duration, descending total then name/ID. Only headers expand. Captured nested groups retain Scope, Muzzle, Grip, Stock, Tactics, Magazine, then other native/modded keys. Exact Empty time is Nothing equipped; missing and partial evidence remain qualified. Attachment hashes never provide members. |
+| Armor & gear | Exact character-slot rows, excluding proven weapon and direct-totem slots. Known familiar groups precede remaining native/modded groups. Occupied rows rank by duration/name/ID; explicitly observed Empty rows remain separate. Only items with observed nested equipment evidence expand. Ordinary inventory does not supply nested equipment time. |
+| Direct totems | Typed DirectSlot presence, including ProvenInactive, grouped by item with exact observed direct-slot/activation detail. Stable native Totem1/Totem2 evidence supports localized slot labels; unavailable attribution remains explicit. |
+| Empty direct-slot time | Only the prospective typed duration for explicitly observed Empty slots with the native required Totem category. Absence of this proof is Unavailable, never inferred Empty. |
+| Active sets | Proven-active set duration and run count; icons/names only from the exact structured member list. No other active totem requires one exact member. Conflict or historical missing membership withholds composition while retaining duration/count. |
+| Tote bags | Typed ToteInventory presence and carried duration, with the visible subtitle Presence is tracked; effect activation is unknown. Current ToteContents limitations do not hide supported direct siblings. |
+
+Every new phrase has a localization key and English fallback. Timestamps use local `yyyy-MM-dd - HH:mm:ss`. Current capability degradation is displayed alongside recorded values; historical missing composition does not remove new evidence. Unknown/modded identities and missing images retain visible rows. Native TypeID icons are borrowed through `NativeItemIconResolver.ResolveAvailable`, with a question-mark/native fallback. No game item object or proprietary image is stored in the presentation or package.
+
+Loadout grids use the Runs renderer's ordinal known-slot order followed by additional unknown/modded roots. Every observed root is retained; the ten-slot baseline fits the common two-row grid. Explicit empty roots use a muted dash. Captured occupied/empty attachment dots remain distinct, with an ellipsis for incomplete nested evidence and captured names in a native text-only tooltip. Click or keyboard/controller submit on an eligible occupied slot toggles its captured attachment detail below the grid; empty roots and items proven to have no nested slots remain read-only. These detail rows show captured names and slot labels without inventing durations. The opaque loadout or attachment ID is never parsed. Missing historical composition displays a notice instead of an empty grid.
+
+## Layout, input and lifetime
+
+The shared native TMP font/material and header remain unchanged. Equipment content starts 40 reference pixels below the header and finishes 30 above the edge. Desktop selector/content widths have a 1:2 relation and a 40-pixel gap. Panels use translucent 50% black, 20-pixel outer corners, 30-pixel padding, 10-pixel internal gaps and rounded cards; selection is `#ff9e2c`. No runtime blur, framebuffer capture or copied screenshot is used.
+
+Each page owns its layout. Loadouts and Totems have independent left/right documents. Armor groups split in reading order. Weapons use one accordion document and two nested-detail columns when wide enough. Below 1180 viewport pixels the selector comes first, then the full left document, then the right. Nested detail also stacks left first. Native measurement determines text heights, value room and the View run button width. Long names reflow without production visual validators.
+
+Native `RunsHistoryButton`, `ButtonAnimation` and focus/submit feedback provide the same selectable behavior as Runs and Combat. Only actionable controls enable animation and click feedback; read-only rows do not acquire interaction effects. Selector Up/Down navigates, Up from the first selector returns to the Equipment main tab, Right enters content, and Left returns to the corresponding selector. Read-only page viewports accept controller scrolling.
+
+Every page remembers scroll state independently. Same-generation refresh preserves present expansion identities and focus, restoring/clamping offsets after layout. Lost/replaced generation clears selection and immediately hides stale controls. Exact RunId routing rechecks the active presentation. Row bindings cancel pending pointer actions when recycled, disabled or scrolled. Focus remains on its identity while visible; wheel scrolling moves it to the viewport instead of revealing it back.
+
+Measured rows are indexed by vertical intervals, and each viewport materializes only visible controls plus overscan. Ordinary Tick performs no history-wide work. Rounded stencil masks supplement rectangular clipping across text, shadows, fallback glyphs, icons and orange backgrounds. The shared native ScrollRect configuration supplies wheel, inertia and nested-edge behavior. Rounded overflow cues show none/bottom/both/top at fit/top/middle/bottom, with the final row reachable. Control listeners, tooltip text and icon references are cleared on refresh/recycle/disposal; owned hierarchies die with the view and shared material ownership remains with the shell.
+
+## Qualification
+
+`EquipmentCompositionTests`, interrupted recovery coverage, `RetainedEquipmentTests`, shared retained native-control tests, export and package tests cover deterministic data, binding, layout, navigation policies and source composition. The installed native build and contract probe establish baseline compilation/contracts. These tests do not execute Unity rendering, audible sounds, actual controller devices or live GameObject counts.
+
+The complete manual matrix is in [M17_MANUAL_VALIDATION.md](M17_MANUAL_VALIDATION.md). Screenshot, audio, gameplay and live lifecycle acceptance remain user-controlled. Visual differences, overflow or preferred-size mismatches never reject/destroy the view or shell.
