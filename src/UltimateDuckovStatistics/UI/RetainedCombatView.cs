@@ -86,7 +86,11 @@ internal sealed partial class RetainedStatisticsShell
                 if (!int.TryParse(id, out var index) || !selection.SelectPage((CombatPanelSection)index)) return;
                 primary.Clear(); ammunition.Clear();
             }
-            else if (selection.Page == CombatPanelSection.Enemies) selection.ToggleEnemy(generation, id);
+            else if (selection.Page == CombatPanelSection.Enemies)
+            {
+                if (id.StartsWith("sort:", StringComparison.Ordinal) && int.TryParse(id.AsSpan(5), out var enemyColumn)) selection.SortEnemy(generation, enemyColumn);
+                else selection.ToggleEnemy(generation, id);
+            }
             else if (selection.Page == CombatPanelSection.WeaponsAndAmmunition) selection.SelectWeapon(generation, id);
             else if (selection.Page == CombatPanelSection.IncomingDamage && id.StartsWith("sort:", StringComparison.Ordinal)
                 && int.TryParse(id.AsSpan(5), out var column)) selection.SortIncoming(generation, column);
@@ -126,7 +130,7 @@ internal sealed partial class RetainedStatisticsShell
             switch (selection.Page)
             {
                 case CombatPanelSection.Summary: page.Summary(snapshot, pageWidth, stacked); break;
-                case CombatPanelSection.Enemies: page.Table(snapshot.Enemies, snapshot.EnemyNotice, pageWidth, selection.EnemyId, false, snapshot, stacked); break;
+                case CombatPanelSection.Enemies: page.Table(snapshot.Enemies, snapshot.EnemyNotice, pageWidth, selection.EnemyId, false, snapshot, stacked, selection.EnemySort); break;
                 case CombatPanelSection.IncomingDamage: page.Table(snapshot.Attackers, snapshot.IncomingNotice, pageWidth, null, true, snapshot, stacked, selection.IncomingSort); break;
                 default: page.Items(selection, pageWidth, false); ammo.Items(selection, pageWidth, true); break;
             }
@@ -256,6 +260,9 @@ internal sealed partial class RetainedStatisticsShell
                     var c = pool[i]; c.Rect.gameObject.SetActive(i < visible.Count);
                     if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; continue; }
                     BindControl(c, document.Rows[visible[i]]);
+                    // Pools may swap focused controls. Restore document paint order so the
+                    // single header band always stays behind its transparent header buttons.
+                    c.Rect.SetAsLastSibling();
                 }
                 scroll.Cues();
             }
@@ -264,7 +271,7 @@ internal sealed partial class RetainedStatisticsShell
                 c.Row = r; c.Button.Binding.Bind(owner.selection.Snapshot!.GenerationId, r.Id);
                 c.Button.BindInteractionOverlay(c.Background, r.Actionable);
                 c.Background.color = r.Selected ? new Color32(255, 158, 44, 255)
-                    : r.Kind is CombatRowKind.Heading or CombatRowKind.Notice ? Color.clear : new Color(0, 0, 0, .5f);
+                    : CombatLayoutPolicy.HasBackground(r.Kind) ? new Color(0, 0, 0, .5f) : Color.clear;
                 Place(c.Rect, r.X, r.Y, r.Width, r.Height);
                 var inner = Math.Max(1, r.Width - 30); float y = 12;
                 for (var i = 0; i < c.Text.Length; i++)
@@ -298,13 +305,15 @@ internal sealed partial class RetainedStatisticsShell
                 }
                 if (r.Kind == CombatRowKind.Heading && r.Cells.Length > 1 && r.SuffixLeft > 0)
                 {
-                    // Align visible glyph bottoms, not font line boxes with different descenders.
                     var title = c.Text[0]; var suffix = c.Text[1];
-                    title.ForceMeshUpdate(ignoreActiveState: true); suffix.ForceMeshUpdate(ignoreActiveState: true);
-                    var position = suffix.rectTransform.anchoredPosition;
-                    position.y = CombatLayoutPolicy.AlignGlyphBottom(title.rectTransform.anchoredPosition.y,
-                        title.textBounds.min.y, suffix.textBounds.min.y);
-                    suffix.rectTransform.anchoredPosition = position;
+                    var titleBottom = CombatNativeTextMeasurement.GlyphBottom(title);
+                    var suffixBottom = CombatNativeTextMeasurement.GlyphBottom(suffix);
+                    if (titleBottom.HasValue && suffixBottom.HasValue)
+                    {
+                        var position = suffix.rectTransform.anchoredPosition;
+                        position.y = CombatLayoutPolicy.AlignGlyphBottom(title.rectTransform.anchoredPosition.y, titleBottom.Value, suffixBottom.Value);
+                        suffix.rectTransform.anchoredPosition = position;
+                    }
                 }
                 c.Chevron.gameObject.SetActive(r.Expandable);
                 if (r.Expandable)
@@ -342,7 +351,7 @@ internal sealed partial class RetainedStatisticsShell
                 if (direction == MoveDirection.Right)
                 { if (region == "selector") owner.primary.Focus(owner.selection.FocusId); else if (region == "primary" && owner.ammunition.Panel.gameObject.activeSelf) owner.ammunition.Focus(); else owner.FocusSelector(); return; }
                 if (direction != MoveDirection.Up && direction != MoveDirection.Down) return;
-                if (region == "primary" && owner.selection.Page == CombatPanelSection.IncomingDamage && id == null && scroll.Offset > .5f)
+                if (region == "primary" && owner.selection.Page is CombatPanelSection.IncomingDamage or CombatPanelSection.Enemies && id == null && scroll.Offset > .5f)
                 {
                     ((RunsScrollRect)scroll.Scroll).MoveBy((direction == MoveDirection.Up ? -1 : 1) * scroll.Scroll.scrollSensitivity);
                     return;

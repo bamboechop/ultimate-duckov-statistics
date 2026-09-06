@@ -6,13 +6,14 @@ internal sealed class CombatSelection
     public CombatPanelSection Page { get; private set; }
     public string? EnemyId { get; private set; }
     public string? WeaponId { get; private set; }
-    public CombatIncomingSort IncomingSort { get; } = new();
+    public CombatTableSort IncomingSort { get; } = new();
+    public CombatTableSort EnemySort { get; } = new(enemies: true);
     private readonly Dictionary<string, float> offsets = new(StringComparer.Ordinal);
     private readonly Dictionary<CombatPanelSection, string> focus = new();
     public void Refresh(CombatPresentation? next)
     {
         if (next == null || Snapshot?.GenerationId != next.GenerationId)
-        { Page = CombatPanelSection.Summary; EnemyId = WeaponId = null; offsets.Clear(); focus.Clear(); IncomingSort.Reset(); }
+        { Page = CombatPanelSection.Summary; EnemyId = WeaponId = null; offsets.Clear(); focus.Clear(); IncomingSort.Reset(); EnemySort.Reset(); }
         Snapshot = next;
         if (next == null) return;
         if (!next.Enemies.Any(r => r.Id == EnemyId && r.CanExpand)) EnemyId = null;
@@ -32,6 +33,7 @@ internal sealed class CombatSelection
     }
     public CombatWeapon? Weapon => Snapshot?.Weapons.FirstOrDefault(w => w.Row.Id == WeaponId);
     public bool SortIncoming(string generation, int column) => Snapshot?.GenerationId == generation && IncomingSort.Toggle(column);
+    public bool SortEnemy(string generation, int column) => Snapshot?.GenerationId == generation && EnemySort.Toggle(column);
     private string Key(string region) => region == "selector" ? region : Page + ":" + region + (region == "ammo" ? ":" + WeaponId : "");
     public void Capture(string region, float offset)
     { if (Snapshot != null && !float.IsNaN(offset) && !float.IsInfinity(offset)) offsets[Key(region)] = Math.Max(0, offset); }
@@ -48,7 +50,8 @@ internal sealed class CombatSelection
 
 internal static class CombatLayoutPolicy
 {
-    public const float TableHeaderSize = 24;
+    public const float TableHeaderSize = 22;
+    public static bool HasBackground(CombatRowKind kind) => kind is not (CombatRowKind.Heading or CombatRowKind.Notice or CombatRowKind.TableHeader);
     public static float AlignGlyphBottom(float titleY, float titleBottom, float suffixBottom) => titleY + titleBottom - suffixBottom;
     public static bool Muted(CombatRenderRow row, int cell) => row.Kind == CombatRowKind.Card && cell == 1
         || row.Kind == CombatRowKind.Notice || row.Kind == CombatRowKind.Heading && cell > 0
@@ -92,7 +95,7 @@ internal static class CombatLayoutPolicy
     }
 }
 
-internal enum CombatRowKind { Heading, Notice, Metric, Card, Table, TableHeader, Item, Selector }
+internal enum CombatRowKind { Heading, Notice, Metric, Card, Table, TableHeader, TableHeaderBackground, Item, Selector }
 
 internal static class CombatItemIconPolicy
 {
@@ -166,6 +169,7 @@ internal sealed class CombatDocument
         float M(string value, float w, float size) => measure(value, Math.Max(1, w), size);
         row.Height = row.Kind switch
         {
+            CombatRowKind.TableHeaderBackground => row.Height,
             CombatRowKind.Heading => Math.Max(50, M(row.Cells[0], inner, 46.3f)),
             CombatRowKind.Notice => Math.Max(36, M(row.Cells[0], inner, 20)) + 12,
             CombatRowKind.Card => M(row.Cells[0], inner, 32) + M(row.Cells[1], inner, 20) + 24,
@@ -228,7 +232,7 @@ internal sealed class CombatDocument
         if (p.OtherKills.Count > 0 || p.KillNotice.Length > 0)
         { y += Heading("ui.combat_other_kills", 30, y, w); y += Metrics(p.OtherKills, 30, y, w); Notice(p.KillNotice, 30, y, w); }
     }
-    public void Table(IReadOnlyList<CombatTableRow> rows, string notice, float width, string? expanded, bool incoming, CombatPresentation p, bool stacked, CombatIncomingSort? sort = null)
+    public void Table(IReadOnlyList<CombatTableRow> rows, string notice, float width, string? expanded, bool incoming, CombatPresentation p, bool stacked, CombatTableSort? sort = null)
     {
         var w = width - 60; float y = 30;
         if (incoming) y += Cards(p.IncomingCards, 30, y, w, stacked);
@@ -236,23 +240,27 @@ internal sealed class CombatDocument
         var headers = incoming ? new[] { text("ui.combat_attacker"), text("ui.combat_damage_to_you"), text("ui.combat_share"), text("ui.combat_deaths_caused") }
             : new[] { text("ui.combat_enemy"), text("ui.overview_damage_dealt"), text("ui.kills_by_you"), text("ui.combat_world_deaths") };
         var columns = CombatLayoutPolicy.TableColumns(w, headers, measureWidth);
-        sort ??= new CombatIncomingSort();
+        sort ??= new CombatTableSort(enemies: !incoming);
+        var headerTop = y;
+        var band = new CombatRenderRow { Kind = CombatRowKind.TableHeaderBackground, Height = 1 };
+        Add(band, 30, y, w);
         float hx = 45, headerHeight = 0;
         for (var i = 0; i < headers.Length; i++)
         {
-            var label = incoming ? sort.Header(i, headers[i]) : i == 2 ? "↓ " + headers[i] : headers[i];
+            var label = sort.Header(i, headers[i]);
             var h = Add(new CombatRenderRow
             {
                 Id = "sort:" + i,
                 Kind = CombatRowKind.TableHeader,
                 Cells = new[] { label },
-                Actionable = incoming
+                Actionable = true
             }, columns.Length == 0 ? 30 : hx - 15,
                 y, columns.Length == 0 ? w : columns[i]);
             if (columns.Length == 0) y += h + 6; else { hx += columns[i]; headerHeight = Math.Max(headerHeight, h); }
         }
+        band.Height = columns.Length == 0 ? y - headerTop - 6 : headerHeight;
         y += headerHeight + 10;
-        foreach (var r in incoming ? new[] { p.IncomingTotal }.Concat(sort.Apply(rows)) : rows)
+        foreach (var r in incoming ? new[] { p.IncomingTotal }.Concat(sort.Apply(rows)) : sort.Apply(rows))
         {
             var canExpand = !incoming && r.CanExpand;
             var cells = new[] { r.Name }.Concat(r.Values.Select((v, i) =>

@@ -23,4 +23,21 @@ internal sealed class CombatNativeTextMeasurement
         label.fontSize = size;
         return label.GetPreferredValues(text, float.PositiveInfinity, float.PositiveInfinity).x;
     }
+    public static float? GlyphBottom(TextMeshProUGUI text)
+    {
+        text.ForceMeshUpdate(ignoreActiveState: true);
+        float? bottom = null;
+        var info = text.textInfo;
+        for (var i = 0; i < info.characterCount && i < info.characterInfo.Length; i++)
+        {
+            var c = info.characterInfo[i];
+            if (!c.isVisible || c.textElement?.glyph == null) continue;
+            // TMP textBounds uses face descenders. Character quads instead include the
+            // individual glyph plus symmetric SDF padding; remove that padding first.
+            var inkHeight = c.textElement.glyph.metrics.height * c.scale;
+            var inkBottom = c.bottomLeft.y + (c.topLeft.y - c.bottomLeft.y - inkHeight) / 2;
+            if (!float.IsNaN(inkBottom) && !float.IsInfinity(inkBottom)) bottom = bottom.HasValue ? Math.Min(bottom.Value, inkBottom) : inkBottom;
+        }
+        return bottom;
+    }
 }

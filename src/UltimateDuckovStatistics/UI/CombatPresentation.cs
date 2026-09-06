@@ -47,11 +47,15 @@ internal sealed class CombatTableRow
     public double? SortDamage { get; }
     public double? SortShare { get; }
     public long? SortDeaths { get; }
+    public long? SortKills { get; }
+    public long? SortWorld { get; }
     public CombatTableRow(string id, string name, IEnumerable<CombatValue> values, string detail = "",
-        double? damage = null, double? share = null, long? deaths = null, IEnumerable<CombatMetric>? ownership = null)
+        double? damage = null, double? share = null, long? deaths = null, IEnumerable<CombatMetric>? ownership = null,
+        long? kills = null, long? world = null)
     {
         Id = id; Name = name; Values = Array.AsReadOnly(values.ToArray()); Detail = detail;
         SortDamage = damage; SortShare = share; SortDeaths = deaths;
+        SortKills = kills; SortWorld = world;
         OwnershipBreakdown = ownership == null ? null : Array.AsReadOnly(ownership.ToArray());
     }
 }
@@ -162,9 +166,12 @@ internal static class CombatPresentationFactory
             .ThenBy(r => r.Id, StringComparer.Ordinal).Select(r =>
             {
                 var wd = ScopedCount(r.Totals.ObservedWorldDeaths, cap.ObservedWorldDeaths, history);
-                return new CombatTableRow(r.Id, Name(r.DisplayName, r.Id, t), new[] {
-                    V(r.Totals.DamageCaused, cap.EnemyIdentity), ScopedCount(r.Totals.KillsByYou, cap.KillsByYou), wd },
-                    t("ui.combat_enemy_world") + ": " + wd.Text + "\n" + t("ui.combat_ownership_unavailable"));
+                var values = new[] { V(r.Totals.DamageCaused, cap.EnemyIdentity), ScopedCount(r.Totals.KillsByYou, cap.KillsByYou), wd };
+                return new CombatTableRow(r.Id, Name(r.DisplayName, r.Id, t), values,
+                    t("ui.combat_enemy_world") + ": " + wd.Text + "\n" + t("ui.combat_ownership_unavailable"),
+                    damage: values[0].Evidence == CombatEvidence.Unavailable ? null : r.Totals.DamageCaused,
+                    kills: values[1].Evidence == CombatEvidence.Unavailable ? null : r.Totals.KillsByYou,
+                    world: wd.Evidence == CombatEvidence.Unavailable ? null : r.Totals.ObservedWorldDeaths);
             }).ToArray();
         var enemyNotice = Notice(enemyRows.Length, "ui.combat_no_enemies", history || a.WasRepairedFromInvalidState,
             new[] { cap.EnemyIdentity, cap.KillsByYou, cap.ObservedWorldDeaths }, t);

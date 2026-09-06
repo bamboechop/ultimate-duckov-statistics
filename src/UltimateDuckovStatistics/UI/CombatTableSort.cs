@@ -1,10 +1,12 @@
 namespace UltimateDuckovStatistics.UI;
 
-internal sealed class CombatIncomingSort
+internal sealed class CombatTableSort
 {
-    public int Column { get; private set; } = 1;
+    private readonly bool enemies;
+    public CombatTableSort(bool enemies = false) { this.enemies = enemies; Reset(); }
+    public int Column { get; private set; }
     public bool Descending { get; private set; } = true;
-    public void Reset() { Column = 1; Descending = true; }
+    public void Reset() { Column = enemies ? 2 : 1; Descending = true; }
     public bool Toggle(int column)
     {
         if (column < 0 || column > 3) return false;
@@ -18,8 +20,8 @@ internal sealed class CombatIncomingSort
         {
             0 => (Descending ? -1 : 1) * StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name),
             1 => CompareValue(a.SortDamage, b.SortDamage),
-            2 => CompareValue(a.SortShare, b.SortShare),
-            _ => CompareValue(a.SortDeaths, b.SortDeaths)
+            2 => enemies ? CompareValue(a.SortKills, b.SortKills) : CompareValue(a.SortShare, b.SortShare),
+            _ => enemies ? CompareValue(a.SortWorld, b.SortWorld) : CompareValue(a.SortDeaths, b.SortDeaths)
         };
         if (result != 0) return result;
         result = StringComparer.Ordinal.Compare(a.Name, b.Name);

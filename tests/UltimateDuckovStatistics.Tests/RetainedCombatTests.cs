@@ -440,14 +440,14 @@ public sealed class RetainedCombatTests
         var projection = Projection(); Enemies(projection, Row("e", "Enemy", world: 4)); var p = Present(projection);
         var state = new CombatSelection(); state.Refresh(p); Assert.False(state.ToggleEnemy("g", "e"));
         var d = Document(); d.Table(p.Enemies, "", 1500, "e", false, p, false);
-        Assert.All(d.Rows, r => { Assert.False(r.Actionable); Assert.False(r.Selected); Assert.False(r.Expandable); });
+        Assert.All(d.Rows.Where(r => r.Kind != CombatRowKind.TableHeader), r => { Assert.False(r.Actionable); Assert.False(r.Selected); Assert.False(r.Expandable); });
         var owner = new CombatMetric("Other NPC", new CombatValue("4", CombatEvidence.Supported));
         var available = new CombatTableRow("e", "Enemy", p.Enemies[0].Values, ownership: new[] { owner });
         var closed = Document(); closed.Table(new[] { available }, "", 1500, null, false, p, false);
         var opened = Document(); opened.Table(new[] { available }, "", 1500, "e", false, p, false);
-        var button = Assert.Single(opened.Rows, r => r.Actionable);
+        var button = Assert.Single(opened.Rows, r => r.Kind == CombatRowKind.Table && r.Actionable);
         Assert.True(button.Selected); Assert.True(button.Expandable);
-        Assert.Equal(Assert.Single(closed.Rows, r => r.Actionable).Height, button.Height);
+        Assert.Equal(Assert.Single(closed.Rows, r => r.Kind == CombatRowKind.Table && r.Actionable).Height, button.Height);
         var detail = Assert.Single(opened.Rows, r => r.Kind == CombatRowKind.Metric);
         Assert.True(detail.Y >= button.Y + button.Height); Assert.False(detail.Actionable); Assert.False(detail.Selected);
         Assert.False(CombatLayoutPolicy.Muted(detail, 0)); Assert.False(CombatLayoutPolicy.Muted(detail, 1));
@@ -457,7 +457,7 @@ public sealed class RetainedCombatTests
     {
         var projection = Projection(); projection.Combat.Lifetime.Totals.DamageReceived = 110;
         Attackers(projection, Row("a", "Alpha", incoming: 10, deaths: 2), Row("z", "Zulu", incoming: 100, deaths: 1));
-        var p = Present(projection); var sort = new CombatIncomingSort();
+        var p = Present(projection); var sort = new CombatTableSort();
         Assert.Equal(new[] { "z", "a" }, sort.Apply(p.Attackers).Select(r => r.Id));
         sort.Toggle(1); Assert.False(sort.Descending); Assert.Equal(new[] { "a", "z" }, sort.Apply(p.Attackers).Select(r => r.Id));
         sort.Toggle(3); Assert.True(sort.Descending); Assert.Equal(new[] { "a", "z" }, sort.Apply(p.Attackers).Select(r => r.Id));
@@ -476,7 +476,7 @@ public sealed class RetainedCombatTests
         var rows = new[] { new CombatTableRow("missing", "A", Array.Empty<CombatValue>()),
             new CombatTableRow("low", "B", Array.Empty<CombatValue>(), deaths: 9007199254740992),
             new CombatTableRow("high", "C", Array.Empty<CombatValue>(), deaths: 9007199254740993) };
-        var sort = new CombatIncomingSort(); sort.Toggle(3);
+        var sort = new CombatTableSort(); sort.Toggle(3);
         Assert.Equal(new[] { "high", "low", "missing" }, sort.Apply(rows).Select(r => r.Id));
         sort.Toggle(3); Assert.Equal(new[] { "low", "high", "missing" }, sort.Apply(rows).Select(r => r.Id));
         var state = new CombatSelection(); state.Refresh(Present(Projection()));
@@ -509,5 +509,48 @@ public sealed class RetainedCombatTests
         Assert.Equal(-38, suffixY - 18);
         foreach (var selected in new[] { false, true })
             for (var i = 0; i < 3; i++) Assert.Equal(!selected && i > 0, CombatLayoutPolicy.Muted(new CombatRenderRow { Kind = CombatRowKind.Item, Selected = selected }, i));
+    }
+    [Fact]
+    public void EnemyHeadersSortTheirOwnDimensionsAndRetainIndependentState()
+    {
+        var projection = Projection();
+        Enemies(projection, Row("a", "Alpha", damage: 100, kills: 2, world: 8, incoming: 1, deaths: 99),
+            Row("z", "Zulu", damage: 10, kills: 9, world: 3, incoming: 900, deaths: 1));
+        var p = Present(projection); var state = new CombatSelection(); state.Refresh(p);
+        Assert.Equal(2, state.EnemySort.Column);
+        Assert.Equal(new[] { "z", "a" }, state.EnemySort.Apply(p.Enemies).Select(r => r.Id));
+        state.SortEnemy("g", 2); Assert.Equal(new[] { "a", "z" }, state.EnemySort.Apply(p.Enemies).Select(r => r.Id));
+        state.SortEnemy("g", 1); Assert.Equal(new[] { "a", "z" }, state.EnemySort.Apply(p.Enemies).Select(r => r.Id));
+        state.SortEnemy("g", 3); Assert.Equal(new[] { "a", "z" }, state.EnemySort.Apply(p.Enemies).Select(r => r.Id));
+        state.SortEnemy("g", 0); Assert.Equal(new[] { "z", "a" }, state.EnemySort.Apply(p.Enemies).Select(r => r.Id));
+        state.SortEnemy("g", 0); state.Refresh(p); Assert.False(state.EnemySort.Descending);
+        Assert.Equal(1, state.IncomingSort.Column); Assert.True(state.IncomingSort.Descending);
+        Assert.False(state.SortEnemy("stale", 2));
+        var d = Document(); d.Table(p.Enemies, "", 1500, null, false, p, false, state.EnemySort);
+        Assert.Equal(4, d.Rows.Count(r => r.Kind == CombatRowKind.TableHeader && r.Actionable));
+        Assert.StartsWith("↑ ", d.Rows.Single(r => r.Id == "sort:0").Cells[0], StringComparison.Ordinal);
+        Assert.Equal(new[] { "a", "z" }, d.Rows.Where(r => r.Kind == CombatRowKind.Table).Select(r => r.Id));
+        state.Refresh(Present(Projection("new"))); Assert.Equal(2, state.EnemySort.Column); Assert.True(state.EnemySort.Descending);
+    }
+    [Theory]
+    [InlineData(true, 1500)]
+    [InlineData(false, 1500)]
+    [InlineData(true, 600)]
+    [InlineData(false, 600)]
+    public void BothTablesHaveOneContinuousHeaderBandAndTransparentSmallerButtons(bool incoming, float width)
+    {
+        var p = Present(Projection()); var d = Document();
+        d.Table(incoming ? p.Attackers : p.Enemies, "", width, null, incoming, p, width < 900);
+        var band = Assert.Single(d.Rows, r => r.Kind == CombatRowKind.TableHeaderBackground);
+        var headers = d.Rows.Where(r => r.Kind == CombatRowKind.TableHeader).ToArray();
+        Assert.Equal(4, headers.Length); Assert.True(CombatLayoutPolicy.HasBackground(band.Kind));
+        Assert.False(band.Actionable); Assert.Equal(width - 60, band.Width);
+        Assert.True(d.Rows.IndexOf(band) < d.Rows.IndexOf(headers[0]));
+        Assert.True(CombatLayoutPolicy.TableHeaderSize <= 28 * .8);
+        foreach (var header in headers)
+        {
+            Assert.False(CombatLayoutPolicy.HasBackground(header.Kind)); Assert.True(header.Actionable);
+            Assert.True(header.Y >= band.Y); Assert.True(header.Y + header.Height <= band.Y + band.Height + .01f);
+        }
     }
 }
