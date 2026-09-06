@@ -2,6 +2,20 @@ using System.Globalization;
 
 namespace UltimateDuckovStatistics.UI;
 
+internal static class RunsEvidenceLayout
+{
+    public static (float Height, float HeaderHeight, float ContentTop, float ContentHeight) Measure(
+        float availableHeight, float titleHeight, float contentHeight)
+    {
+        var headerHeight = Math.Max(64, titleHeight);
+        var contentTop = 16 + headerHeight + 16;
+        // Fit the measured attachment rows instead of imposing a fixed-height scrolling panel.
+        // Exceptional long/localized evidence still has a bounded viewport on small screens.
+        var height = Math.Min(Math.Max(1, availableHeight), contentTop + contentHeight + 16);
+        return (height, headerHeight, contentTop, Math.Max(1, height - contentTop - 16));
+    }
+}
+
 internal static class RunsViewStyle
 {
     public const byte Muted = 177;

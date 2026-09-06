@@ -191,6 +191,9 @@ internal sealed partial class RetainedStatisticsShell
         private readonly RectTransform evidencePanel;
         private readonly ScrollRegion evidence;
         private readonly TextMeshProUGUI evidenceNotice;
+        private readonly Image evidenceItemIcon;
+        private readonly TextMeshProUGUI evidenceItemFallback;
+        private readonly TextMeshProUGUI evidenceItemName;
         private readonly List<(RectTransform Root, Image Icon, TextMeshProUGUI Fallback, TextMeshProUGUI Name, TextMeshProUGUI Slot)> evidenceRows = new();
         private readonly Button evidenceClose;
         private Button? evidenceOwner;
@@ -280,6 +283,11 @@ internal sealed partial class RetainedStatisticsShell
             evidencePanel = Panel(root, "CapturedEquipmentDetails", 16);
             evidencePanel.GetComponent<ProceduralImage>().color = new Color(.015f, .035f, .05f, .98f);
             evidencePanel.GetComponent<ProceduralImage>().raycastTarget = true;
+            evidenceItemIcon = Node(evidencePanel, "EquipmentHeaderIcon").gameObject.AddComponent<Image>();
+            evidenceItemIcon.raycastTarget = false; evidenceItemIcon.preserveAspect = true;
+            evidenceItemFallback = Text(evidencePanel, "EquipmentHeaderFallback", 32);
+            evidenceItemFallback.alignment = TextAlignmentOptions.Center;
+            evidenceItemName = Text(evidencePanel, "EquipmentHeaderName", 24);
             evidence = new ScrollRegion(evidencePanel, "CapturedEquipmentEvidence");
             evidence.Rect.GetComponent<ProceduralImage>().color = new Color(0, 0, 0, .2f);
             evidenceNotice = Text(evidence.Content, "IncompleteEvidence", 20); evidenceNotice.color = Muted;
@@ -747,7 +755,13 @@ internal sealed partial class RetainedStatisticsShell
             evidenceNotice.text = item.NestedComplete ? string.Empty : UiText.Get("ui.runs_nested_partial");
             evidenceNotice.gameObject.SetActive(!item.NestedComplete);
             var rows = item.Evidence;
-            while (evidenceRows.Count < rows.Count)
+            var rootItem = rows[0];
+            var rootSprite = RunsItemIconPolicy.Resolve(rootItem, icons.ResolveAvailable);
+            evidenceItemIcon.sprite = rootSprite; evidenceItemIcon.enabled = rootSprite != null;
+            evidenceItemFallback.text = rootSprite != null ? string.Empty : "?";
+            evidenceItemName.text = rootItem.ItemName;
+            var attachmentCount = rows.Count - 1;
+            while (evidenceRows.Count < attachmentCount)
             {
                 var row = Node(evidence.Content, "CapturedItem" + evidenceRows.Count);
                 var icon = Node(row, "Icon").gameObject.AddComponent<Image>();
@@ -758,9 +772,9 @@ internal sealed partial class RetainedStatisticsShell
             }
             for (var i = 0; i < evidenceRows.Count; i++)
             {
-                var row = evidenceRows[i]; row.Root.gameObject.SetActive(i < rows.Count);
-                if (i >= rows.Count) continue;
-                var captured = rows[i];
+                var row = evidenceRows[i]; row.Root.gameObject.SetActive(i < attachmentCount);
+                if (i >= attachmentCount) continue;
+                var captured = rows[i + 1];
                 var sprite = RunsItemIconPolicy.Resolve(captured, icons.ResolveAvailable);
                 row.Icon.sprite = sprite; row.Icon.enabled = sprite != null;
                 row.Fallback.text = sprite != null ? string.Empty : captured.State == EquipmentSlotState.Empty ? "—" : "?";
@@ -776,9 +790,7 @@ internal sealed partial class RetainedStatisticsShell
         private void LayoutEvidence()
         {
             var w = Math.Max(1, Math.Min(760, width - 40));
-            var h = Math.Max(1, Math.Min(500, height - 40));
-            Place(evidencePanel, (width - w) / 2, (height - h) / 2, w, h);
-            Place((RectTransform)evidenceClose.transform, w - 60, 10, 50, 44);
+            var titleHeight = Put(evidenceItemName, 112, 16, w - 194);
             var y = 12f;
             foreach (var row in evidenceRows)
             {
@@ -792,7 +804,14 @@ internal sealed partial class RetainedStatisticsShell
                 y += rowHeight + 16;
             }
             if (evidenceNotice.gameObject.activeSelf) y += Put(evidenceNotice, 16, y, w - 64) + 12;
-            evidence.Size(16, 64, w - 32, h - 80, y);
+            var layout = RunsEvidenceLayout.Measure(height - 40, titleHeight, y);
+            Place(evidencePanel, (width - w) / 2, (height - layout.Height) / 2, w, layout.Height);
+            Place(evidenceItemIcon.rectTransform, 32, 16 + (layout.HeaderHeight - 64) / 2, 64, 64);
+            Place(evidenceItemFallback.rectTransform, 32, 16 + (layout.HeaderHeight - 64) / 2, 64, 64);
+            Place(evidenceItemName.rectTransform, 112, 16 + (layout.HeaderHeight - titleHeight) / 2, w - 194, titleHeight);
+            Place((RectTransform)evidenceClose.transform, w - 66, 16 + (layout.HeaderHeight - 44) / 2, 50, 44);
+            evidence.Size(16, layout.ContentTop, w - 32, layout.ContentHeight, y);
+            evidence.Scroll.vertical = y > layout.ContentHeight;
         }
 
         private void HideEvidence() => HideEvidence(true);

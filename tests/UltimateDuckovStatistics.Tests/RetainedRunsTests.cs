@@ -564,6 +564,44 @@ public sealed class RetainedRunsTests
     }
 
     [Fact]
+    public void EquipmentOverlayHeightFitsOneThroughSixSlotsAtSupportedResolutions()
+    {
+        foreach (var (width, height) in new (float, float)[] { (1280, 720), (1680, 1050), (2560, 1440), (1024, 768) })
+        {
+            var transform = RetainedReferenceTransformPolicy.Create(width, height, 1);
+            var shell = RetainedVisualLayoutPolicy.Create(transform);
+            var scale = transform.CanvasLength(1);
+            var availableHeight = (height - shell.Header.Top - shell.Header.Height) / scale - 110;
+            var previousHeight = 0f;
+            for (var slots = 1; slots <= 6; slots++)
+            {
+                // Allow wrapped item names: 60px name + 4px gap + 28px slot label.
+                var contentHeight = 12 + slots * (92 + 16);
+                var layout = RunsEvidenceLayout.Measure(availableHeight, 32, contentHeight);
+                Assert.True(layout.Height > previousHeight);
+                Assert.Equal(contentHeight, layout.ContentHeight);
+                Assert.True(layout.Height <= availableHeight);
+                Assert.Equal(96, layout.ContentTop);
+                Assert.Equal(layout.Height - 16, layout.ContentTop + layout.ContentHeight);
+                var cues = OverflowCuePolicy.Resolve(layout.ContentHeight, contentHeight, 0);
+                Assert.False(cues.ShowLeading); Assert.False(cues.ShowTrailing);
+                previousHeight = layout.Height;
+            }
+        }
+    }
+
+    [Fact]
+    public void ExceptionallyLongEquipmentTextKeepsHeaderFixedAndBodyReachable()
+    {
+        var layout = RunsEvidenceLayout.Measure(900, 100, 2000);
+        Assert.Equal(900, layout.Height);
+        Assert.Equal(100, layout.HeaderHeight);
+        Assert.Equal(132, layout.ContentTop);
+        Assert.Equal(752, layout.ContentHeight);
+        Assert.True(OverflowCuePolicy.Resolve(layout.ContentHeight, 2000, 0).ShowTrailing);
+    }
+
+    [Fact]
     public void EquipmentDetailsOpenOnlyForOccupiedItemsWithCapturedOrIncompleteSlots()
     {
         Assert.False(new RunSlotPresentation("empty", EquipmentSlotState.Empty, "", "Empty").CanOpenDetails);
@@ -762,6 +800,13 @@ public sealed class RetainedRunsTests
         Assert.DoesNotContain("ShowEvidence(null)", view);
         Assert.Contains("RunsItemIconPolicy.Resolve(captured, icons.ResolveAvailable)", view);
         Assert.Contains("row.Name.text = captured.ItemName", view);
+        Assert.Contains("Node(evidencePanel, \"EquipmentHeaderIcon\")", view);
+        Assert.Contains("Text(evidencePanel, \"EquipmentHeaderName\", 24)", view);
+        Assert.Contains("evidenceItemName.text = rootItem.ItemName", view);
+        Assert.Contains("var captured = rows[i + 1]", view);
+        Assert.DoesNotContain("rootItem.SlotName", view);
+        Assert.Contains("RunsEvidenceLayout.Measure(height - 40, titleHeight, y)", view);
+        Assert.Contains("evidence.Scroll.vertical = y > layout.ContentHeight", view);
         Assert.Contains("row.Slot.text = RunsViewStyle.Uppercase(captured.SlotName)", view);
         Assert.Contains("Text(row, \"SlotName\", 20); slotName.color = Muted", view);
         Assert.Contains("Put(row.Slot, 80, nameHeight + 4, w - 144)", view);
