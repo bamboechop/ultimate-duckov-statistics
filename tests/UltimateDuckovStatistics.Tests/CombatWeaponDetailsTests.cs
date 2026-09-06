@@ -109,8 +109,8 @@ public sealed class CombatWeaponDetailsTests
         var p = Projection(); Fire(p, "known"); Combat(p, "known"); Fire(p, unknown); Combat(p, unknown);
         var weapons = Present(p).Weapons; Assert.Equal(3, weapons.Count);
         var known = Assert.Single(weapons, w => w.Row.Id == "known");
-        Assert.Equal("5 (" + UiText.Get("ui.runs_partial") + ")", Value(known, "Hits").Text);
-        Assert.Equal("123.5 (" + UiText.Get("ui.runs_partial") + ")", Value(known, "Damage dealt").Text);
+        Assert.Equal("5 (" + UiText.Get("ui.combat_partial") + ")", Value(known, "Hits").Text);
+        Assert.Equal("123.5 (" + UiText.Get("ui.combat_partial") + ")", Value(known, "Damage dealt").Text);
         foreach (var row in weapons.Where(w => w.Row.Id != "known"))
         {
             Assert.Equal(CombatEvidence.Unavailable, Value(row, "Damage dealt").Evidence);

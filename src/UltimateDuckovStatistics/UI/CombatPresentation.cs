@@ -296,22 +296,22 @@ internal static class CombatPresentationFactory
     {
         if (double.IsNaN(value) || double.IsInfinity(value) || value < 0) return new(t("ui.unavailable"), CombatEvidence.Unavailable);
         if (state == AdapterCapabilityState.Supported && !partial) return new(Number(value), CombatEvidence.Supported);
-        return value > 0 ? new(Number(value) + " (" + t("ui.runs_partial") + ")", CombatEvidence.Partial)
-            : new(t("ui.unavailable") + (partial ? " (" + t("ui.runs_partial") + ")" : ""), CombatEvidence.Unavailable);
+        return value > 0 ? new(Number(value) + " (" + t("ui.combat_partial") + ")", CombatEvidence.Partial)
+            : new(t("ui.unavailable") + (partial ? " (" + t("ui.combat_partial") + ")" : ""), CombatEvidence.Unavailable);
     }
     internal static CombatValue Metric(long value, AdapterCapabilityState state, bool partial, Func<string, string> t)
     {
         if (value < 0) return new(t("ui.unavailable"), CombatEvidence.Unavailable);
         if (state == AdapterCapabilityState.Supported && !partial) return new(Number(value), CombatEvidence.Supported);
-        return value > 0 ? new(Number(value) + " (" + t("ui.runs_partial") + ")", CombatEvidence.Partial)
-            : new(t("ui.unavailable") + (partial ? " (" + t("ui.runs_partial") + ")" : ""), CombatEvidence.Unavailable);
+        return value > 0 ? new(Number(value) + " (" + t("ui.combat_partial") + ")", CombatEvidence.Partial)
+            : new(t("ui.unavailable") + (partial ? " (" + t("ui.combat_partial") + ")" : ""), CombatEvidence.Unavailable);
     }
     private static AdapterCapabilityState Both(AdapterCapabilityState a, AdapterCapabilityState b) =>
         a == AdapterCapabilityState.Supported && b == AdapterCapabilityState.Supported ? a : AdapterCapabilityState.DisabledIncompatible;
     private static string Notice(int count, string empty, bool partial, IEnumerable<MetricAvailability> caps, Func<string, string> t)
     {
         var unavailable = caps.Where(c => c.State != AdapterCapabilityState.Supported).ToArray();
-        if (partial || unavailable.Length > 0) return Join(t("ui.unavailable") + " (" + t("ui.runs_partial") + ")",
+        if (partial || unavailable.Length > 0) return Join(t("ui.unavailable") + " (" + t("ui.combat_partial") + ")",
             string.Join("\n", unavailable.Select(c => c.Provenance).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.Ordinal)));
         return count == 0 ? t(empty) : "";
     }

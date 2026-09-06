@@ -73,6 +73,32 @@ public sealed class EquipmentEvidenceLayoutTests
     }
 
     [Theory]
+    [InlineData(1, 900)]
+    [InlineData(2, 400)]
+    public void ExpandedDirectTotemKeepsTenPixelGapBeforeNextButton(int slots, float width)
+    {
+        var totems = new List<EquipmentEntry>();
+        foreach (var id in new[] { "first", "next" })
+            totems.Add(new EquipmentEntry("direct:" + id, id, id, 20, groups: new List<EquipmentGroup> {
+                new("Slots", Enumerable.Range(1, slots).Select(i => new EquipmentEntry("slot:" + i, "Totem slot " + i, "", 10, UiText.Get("ui.equipment_activation_provenactive")))) }));
+        var p = new EquipmentPresentation("g", null, Array.Empty<EquipmentEntry>(), Array.Empty<EquipmentEntry>(),
+            Array.Empty<EquipmentEntry>(), Array.Empty<EquipmentGroup>(), totems, Array.Empty<EquipmentEntry>(),
+            Array.Empty<EquipmentEntry>(), Array.Empty<EquipmentEntry>(), new Dictionary<string, string> { ["direct"] = "", ["empty"] = "" });
+        var selection = new EquipmentSelection(); selection.Refresh(p); selection.SelectPage(EquipmentPanelSection.Totems);
+        selection.Toggle("g", "direct:first");
+        var doc = new EquipmentDocument(Measure); doc.Page(selection, false, width);
+        var surface = Assert.Single(doc.Surfaces);
+        var next = Assert.Single(doc.Rows, r => r.Id == "direct:next");
+        Assert.Equal(10, next.Y - surface.Y - surface.Height);
+        Assert.Equal(slots, doc.Rows.Count(r => r.Kind == EquipmentRowKind.SlotDuration));
+        selection.Toggle("g", "direct:first");
+        doc = new EquipmentDocument(Measure); doc.Page(selection, false, width);
+        var first = Assert.Single(doc.Rows, r => r.Id == "direct:first");
+        next = Assert.Single(doc.Rows, r => r.Id == "direct:next");
+        Assert.Equal(10, next.Y - first.Y - first.Height);
+    }
+
+    [Theory]
     [InlineData(900)]
     [InlineData(400)]
     public void EachTotemSetSurfaceEnclosesItsMembersAndSummaryWithSeparateGaps(float width)

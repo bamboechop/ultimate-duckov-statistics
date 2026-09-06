@@ -54,6 +54,7 @@ internal static class UiText
             ["ui.combat_weapons_ammunition"] = "Weapons & ammunition",
             ["ui.combat_kills"] = "Kills",
             ["ui.combat_swings"] = "Swings",
+            ["ui.combat_partial"] = "Partial",
             ["ui.combat_ranged_hits"] = "Ranged hits",
             ["ui.combat_melee_hits"] = "Melee hits",
             ["ui.combat_actions"] = "Actions",

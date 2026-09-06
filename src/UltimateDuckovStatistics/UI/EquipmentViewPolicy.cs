@@ -214,7 +214,10 @@ internal sealed class EquipmentDocument
                 y = Math.Max(left, right);
             }
             if (directTotem || selection!.Page is EquipmentPanelSection.Weapons or EquipmentPanelSection.ArmorAndGear)
+            {
                 Surfaces.Add(new EquipmentSurface(x, start, w, y - start));
+                if (directTotem) y += 10;
+            }
         }
         return y - start;
     }
