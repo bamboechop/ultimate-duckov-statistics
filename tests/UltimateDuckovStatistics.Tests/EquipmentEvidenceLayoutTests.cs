@@ -73,6 +73,30 @@ public sealed class EquipmentEvidenceLayoutTests
     }
 
     [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void GearOmitsOnlyRedundantSingleSlotHeading(bool repeatedName, bool multipleSlots)
+    {
+        var groups = new List<EquipmentGroup> { new(repeatedName ? "Blauer Würfel" : "Internal slot",
+            new List<EquipmentEntry> { new("cube", "Blauer Würfel", "cube", 30) }, "Partial evidence") };
+        if (multipleSlots) groups.Add(new EquipmentGroup("Other slot", new List<EquipmentEntry> { new("other", "Other item", "other", 10) }));
+        var bag = new EquipmentEntry("gear:bag", "Würfelsammler", "bag", 30, groups: groups);
+        var presentation = new EquipmentPresentation("g", null, Array.Empty<EquipmentEntry>(), Array.Empty<EquipmentEntry>(),
+            Array.Empty<EquipmentEntry>(), new List<EquipmentGroup> { new("Backpack", new List<EquipmentEntry> { bag }) },
+            Array.Empty<EquipmentEntry>(), Array.Empty<EquipmentEntry>(), Array.Empty<EquipmentEntry>(), Array.Empty<EquipmentEntry>(),
+            new Dictionary<string, string> { ["armor"] = "" });
+        var selection = new EquipmentSelection(); selection.Refresh(presentation); selection.SelectPage(EquipmentPanelSection.ArmorAndGear);
+        Assert.True(selection.Toggle("g", bag.Id));
+        var doc = new EquipmentDocument(Measure); doc.Page(selection, false, 900);
+        Assert.Equal(!repeatedName || multipleSlots, doc.Rows.Any(r => r.Kind == EquipmentRowKind.Heading && r.Name == groups[0].Name));
+        var cube = Assert.Single(doc.Rows, r => r.Kind == EquipmentRowKind.Item && r.IconId == "cube");
+        Assert.Equal("Blauer Würfel", cube.Name); Assert.Equal(EquipmentLayoutPolicy.Duration(30), cube.Value);
+        Assert.Contains(doc.Rows, r => r.Kind == EquipmentRowKind.Notice && r.Name == "Partial evidence");
+        Assert.Single(doc.Surfaces);
+    }
+
+    [Theory]
     [InlineData(900, 9, 8)]
     [InlineData(400, 80, 8)]
     [InlineData(400, 9, 40)]

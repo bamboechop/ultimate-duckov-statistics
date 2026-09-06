@@ -193,7 +193,14 @@ internal sealed class EquipmentDocument
                         y += Add(new EquipmentRenderRow { Kind = EquipmentRowKind.SlotDuration,
                             Name = slot.Name + ": " + EquipmentLayoutPolicy.Duration(slot.Duration) + qualification }, x + 10, y, w - 20);
                     }
-                else y += Group(groups[0], x + 10, y, w - 20);
+                else
+                {
+                    // Some native gear slots are named after their sole equipped item.
+                    var repeatedItemName = selection?.Page == EquipmentPanelSection.ArmorAndGear
+                        && groups.Count == 1 && groups[0].Rows.Count == 1
+                        && string.Equals(groups[0].Name, groups[0].Rows[0].Name, StringComparison.Ordinal);
+                    y += Group(groups[0], x + 10, y, w - 20, showHeading: !repeatedItemName);
+                }
             }
             if (groups.Count > 1)
             {
@@ -211,9 +218,9 @@ internal sealed class EquipmentDocument
         }
         return y - start;
     }
-    private float Group(EquipmentGroup g, float x, float y, float w, EquipmentSelection? selection = null)
+    private float Group(EquipmentGroup g, float x, float y, float w, EquipmentSelection? selection = null, bool showHeading = true)
     {
-        var start = y; y += Heading(g.Name, x, y, w); y += Notice(g.Notice, x, y, w);
+        var start = y; if (showHeading) y += Heading(g.Name, x, y, w); y += Notice(g.Notice, x, y, w);
         foreach (var row in g.Rows) y += Entry(row, x, y, w, selection);
         return y - start + 10;
     }
