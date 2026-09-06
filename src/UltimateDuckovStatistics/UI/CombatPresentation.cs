@@ -12,13 +12,17 @@ internal sealed class CombatProjectionBinding
     private readonly ProfileDocument profile;
     private readonly CombatStatisticsViewModel combat;
     private readonly WeaponStatisticsViewModel weapons;
+    private readonly CombatStatisticsAggregate combatLifetime;
+    private readonly object combatWeapons;
     private readonly IReadOnlyList<WeaponAmmunitionGroupProjection> groups;
     private readonly string generation;
     public CombatProjectionBinding(StatisticsPanelProjection p)
-    { profile = p.Profile; combat = p.Combat; weapons = p.Weapons; groups = p.WeaponAmmunitionGroups; generation = profile.GenerationId; }
+    { profile = p.Profile; combat = p.Combat; weapons = p.Weapons; groups = p.WeaponAmmunitionGroups; generation = profile.GenerationId;
+        combatLifetime = combat.Lifetime; combatWeapons = combatLifetime.Weapons; }
     public bool Matches(StatisticsPanelProjection p, string current) => generation == current
         && ReferenceEquals(profile, p.Profile) && ReferenceEquals(combat, p.Combat)
         && ReferenceEquals(weapons, p.Weapons) && ReferenceEquals(groups, p.WeaponAmmunitionGroups)
+        && ReferenceEquals(combatLifetime, combat.Lifetime) && ReferenceEquals(combatWeapons, combat.Lifetime.Weapons)
         && ReferenceEquals(weapons.Lifetime, profile.Statistics.RunTotals.WeaponStatistics);
 }
 
@@ -74,8 +78,13 @@ internal sealed class CombatWeapon
     public CombatItemRow Row { get; }
     public IReadOnlyList<CombatItemRow> Ammunition { get; }
     public string Notice { get; }
-    public CombatWeapon(CombatItemRow row, IEnumerable<CombatItemRow> ammunition, string notice)
-    { Row = row; Ammunition = Array.AsReadOnly(ammunition.ToArray()); Notice = notice; }
+    public IReadOnlyList<CombatMetric> Metrics { get; }
+    public string ActionLabel { get; }
+    public bool HasRangedEvidence { get; }
+    public CombatWeapon(CombatItemRow row, IEnumerable<CombatItemRow> ammunition, string notice,
+        IEnumerable<CombatMetric> metrics, string actionLabel, bool hasRangedEvidence)
+    { Row = row; Ammunition = Array.AsReadOnly(ammunition.ToArray()); Notice = notice;
+        Metrics = Array.AsReadOnly(metrics.ToArray()); ActionLabel = actionLabel; HasRangedEvidence = hasRangedEvidence; }
 }
 internal sealed class CombatPresentation
 {
@@ -175,18 +184,64 @@ internal static class CombatPresentationFactory
             }).ToArray();
         var enemyNotice = Notice(enemyRows.Length, "ui.combat_no_enemies", history || a.WasRepairedFromInvalidState,
             new[] { cap.EnemyIdentity, cap.KillsByYou, cap.ObservedWorldDeaths }, t);
-        var weaponRows = p.WeaponAmmunitionGroups.OrderByDescending(g => g.TotalFiringActions)
-            .ThenBy(g => Name(g.DisplayName, g.WeaponId, t), StringComparer.Ordinal).ThenBy(g => g.WeaponId, StringComparer.Ordinal)
-            .Select(g =>
+        var sources = new List<(WeaponAmmunitionGroupProjection? Fire, CombatBreakdownAggregate? Combat, string Id)>();
+        var firingIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in p.WeaponAmmunitionGroups)
+        {
+            CombatBreakdownAggregate? combat = null;
+            if (ExactWeaponId(group.WeaponId))
             {
+                firingIds.Add(group.WeaponId);
+                if (a.Weapons.TryGetValue(group.WeaponId, out var candidate) && candidate.Id == group.WeaponId) combat = candidate;
+            }
+            sources.Add((group, combat, ExactWeaponId(group.WeaponId) ? group.WeaponId : "unattributed-firing:" + group.WeaponId));
+        }
+        foreach (var pair in a.Weapons)
+            if (!ExactWeaponId(pair.Key) || pair.Key != pair.Value.Id || !firingIds.Contains(pair.Key))
+                sources.Add((null, pair.Value, ExactWeaponId(pair.Key) && pair.Key == pair.Value.Id
+                    ? pair.Key : "unattributed-combat:" + pair.Key));
+        var unattributed = a.Weapons.Where(pair => !ExactWeaponId(pair.Key) || pair.Key != pair.Value.Id).Select(pair => pair.Value.Totals).ToArray();
+        var missingFiringAttribution = w.Lifetime.Totals.FiringActions > p.WeaponAmmunitionGroups.Where(g => ExactWeaponId(g.WeaponId)).Sum(g => (decimal)g.TotalFiringActions);
+        var weaponRows = sources.OrderByDescending(s => s.Fire?.TotalFiringActions ?? 0)
+            .ThenBy(s => Name(s.Fire?.DisplayName ?? s.Combat?.DisplayName ?? "", s.Id, t), StringComparer.Ordinal).ThenBy(s => s.Id, StringComparer.Ordinal)
+            .Select(source =>
+            {
+                var exact = source.Fire != null ? ExactWeaponId(source.Fire.WeaponId)
+                    : source.Combat != null && source.Id == source.Combat.Id && ExactWeaponId(source.Id);
+                var stats = exact ? source.Combat?.Totals : null;
+                var g = source.Fire ?? new WeaponAmmunitionGroupProjection { WeaponId = source.Id, DisplayName = source.Combat?.DisplayName ?? "" };
+                var rangedWeapon = source.Fire != null || stats != null && (stats.RangedHits > 0 || stats.CompletedPlayerProjectiles > 0
+                    || stats.Headshots > 0 || stats.HeadshotFinalBlows > 0 || stats.PlayerKills.Ranged > 0);
+                var meleeWeapon = stats != null && (stats.MeleeSwings > 0 || stats.MeleeHits > 0 || stats.PlayerKills.Melee > 0);
+                CombatValue Count(Func<CombatMetricTotals, long> get, MetricAvailability availability, bool historical = false) => stats == null ? Unavailable()
+                    : Metric(get(stats), Both(availability.State, cap.WeaponIdentity.State), a.WasRepairedFromInvalidState
+                        || historical || unattributed.Any(row => get(row) > 0), t);
+                var actions = source.Fire == null ? rangedWeapon || !meleeWeapon ? Unavailable() : Count(row => row.MeleeSwings, cap.MeleeSwings)
+                    : Metric(g.TotalFiringActions, Both(wc.FiringActions.State, wc.WeaponIdentity.State), w.Lifetime.WasRepairedFromInvalidState || !exact || missingFiringAttribution, t);
+                var metrics = new List<CombatMetric>();
+                if (rangedWeapon)
+                {
+                    metrics.Add(M("ui.firing_actions", source.Fire == null ? Unavailable() : actions));
+                    metrics.Add(M(meleeWeapon ? "ui.combat_ranged_hits" : "ui.combat_hits", Count(row => row.RangedHits, cap.RangedHits)));
+                    metrics.Add(M("ui.runs_headshots", Count(row => row.Headshots, cap.Headshots)));
+                    metrics.Add(M("ui.combat_headshot_final_blows", Count(row => row.HeadshotFinalBlows, cap.HeadshotFinalBlows)));
+                }
+                if (meleeWeapon)
+                {
+                    metrics.Add(M("ui.combat_swings", Count(row => row.MeleeSwings, cap.MeleeSwings)));
+                    metrics.Add(M(rangedWeapon ? "ui.combat_melee_hits" : "ui.combat_hits", Count(row => row.MeleeHits, cap.MeleeHits)));
+                }
+                metrics.Add(M("ui.kills_by_you", Count(row => row.KillsByYou, cap.KillsByYou,
+                    a.HistoricalOwnershipUnavailable || stats?.PlayerKills.HistoricalIncomplete == true || stats?.LegacyUnclassifiedDeaths > 0)));
+                metrics.Add(M("ui.overview_damage_dealt", stats == null ? Unavailable() : Metric(stats.DamageDealt,
+                    Both(cap.DamageDealt.State, cap.WeaponIdentity.State), a.WasRepairedFromInvalidState || unattributed.Any(row => row.DamageDealt > 0), t)));
                 var complete = !g.HistoricalPairingUnavailable && g.UncorrelatedFiringActions == 0 && g.CorrelatedFiringActions == g.TotalFiringActions;
                 var basis = t(complete ? "ui.combat_weapon_basis" : "ui.combat_pair_basis");
-                var row = new CombatItemRow(g.WeaponId, Name(g.DisplayName, g.WeaponId, t),
-                    Metric(g.TotalFiringActions, Both(wc.FiringActions.State, wc.WeaponIdentity.State), w.Lifetime.WasRepairedFromInvalidState, t),
-                    wc.FiringActions.State == AdapterCapabilityState.Supported && wc.WeaponIdentity.State == AdapterCapabilityState.Supported
+                var row = new CombatItemRow(source.Id, exact ? Name(g.DisplayName, source.Id, t) : t("ui.combat_unknown"), actions,
+                    source.Fire != null && exact && wc.FiringActions.State == AdapterCapabilityState.Supported && wc.WeaponIdentity.State == AdapterCapabilityState.Supported
                         && !w.Lifetime.WasRepairedFromInvalidState && w.Lifetime.Totals.FiringActions > 0
-                        ? Percent(g.TotalFiringActions * 100d / w.Lifetime.Totals.FiringActions, t) : Unavailable(), t("ui.combat_all_basis"));
-                var ammo = g.Ammunition.Where(pair => pair.Pair.WeaponId == g.WeaponId)
+                        ? Percent(g.TotalFiringActions * 100d / w.Lifetime.Totals.FiringActions, t) : Unavailable(), source.Fire == null ? "" : t("ui.combat_all_basis"));
+                var ammo = g.Ammunition.Where(pair => exact && pair.Pair.WeaponId == g.WeaponId)
                     .OrderByDescending(pair => pair.Pair.FiringActions).ThenBy(pair => Name(pair.Pair.AmmunitionDisplayName, pair.Pair.AmmunitionId, t), StringComparer.Ordinal)
                     .ThenBy(pair => pair.Pair.AmmunitionId, StringComparer.Ordinal).Select(pair => new CombatItemRow(pair.Pair.AmmunitionId,
                         Name(pair.Pair.AmmunitionDisplayName, pair.Pair.AmmunitionId, t),
@@ -198,10 +253,12 @@ internal static class CombatPresentationFactory
                     g.HistoricalPairingUnavailable ? Join(t("ui.combat_pair_history"), w.Lifetime.HistoricalPairingProvenance) : "",
                     wc.WeaponAmmunitionPairing.State != AdapterCapabilityState.Supported ? Join(t("ui.unavailable"), wc.WeaponAmmunitionPairing.Provenance) : "",
                     ammo.Length == 0 ? t("ui.combat_no_pairs") : "");
-                return new CombatWeapon(row, ammo, notice);
+                if (!rangedWeapon) notice = t(meleeWeapon ? "ui.combat_melee_no_ammo" : "ui.combat_weapon_type_unavailable");
+                if (!exact || stats == null) notice = Join(t("ui.combat_weapon_attribution_unavailable"), notice);
+                return new CombatWeapon(row, ammo, notice, metrics, t(rangedWeapon ? "ui.firing_actions" : meleeWeapon ? "ui.combat_swings" : "ui.combat_actions"), rangedWeapon);
             }).ToArray();
-        var weaponNotice = Notice(weaponRows.Length, "ui.no_combat", w.Lifetime.WasRepairedFromInvalidState,
-            new[] { wc.FiringActions, wc.WeaponIdentity }, t);
+        var weaponNotice = Notice(weaponRows.Length, "ui.no_combat", w.Lifetime.WasRepairedFromInvalidState || a.WasRepairedFromInvalidState,
+            p.WeaponAmmunitionGroups.Count > 0 ? new[] { wc.FiringActions, wc.WeaponIdentity } : new[] { cap.WeaponIdentity }, t);
         var attackers = c.Killers.Where(r => r.Totals.DamageReceived > 0 || r.Totals.PlayerDeaths > 0)
             .OrderByDescending(r => r.Totals.DamageReceived).ThenByDescending(r => r.Totals.PlayerDeaths)
             .ThenBy(r => Name(r.DisplayName, r.Id, t), StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal).ToArray();
@@ -231,6 +288,9 @@ internal static class CombatPresentationFactory
             Notice(incoming.Length, "ui.combat_no_attackers", a.WasRepairedFromInvalidState,
                 new[] { cap.DamageReceived, cap.PlayerDeaths, cap.EnemyIdentity }, t));
     }
+
+    private static bool ExactWeaponId(string id) => !string.IsNullOrWhiteSpace(id)
+        && id != "unknown" && id != "duckov:weapon:unknown" && id != EquipmentEventAssociation.UnavailableId;
 
     internal static CombatValue Metric(double value, AdapterCapabilityState state, bool partial, Func<string, string> t)
     {

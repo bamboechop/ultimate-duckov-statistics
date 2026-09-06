@@ -281,15 +281,17 @@ internal sealed class CombatDocument
     public void Items(CombatSelection selection, float width, bool ammunition)
     {
         var p = selection.Snapshot!; var w = width - 60; float y = 30;
-        y += Heading(ammunition ? "ui.ammunition" : "ui.combat_weapons", 30, y, w);
+        var weaponLabels = p.Weapons.ToDictionary(weapon => weapon.Row.Id, weapon => weapon.ActionLabel, StringComparer.Ordinal);
+        y += Heading(ammunition ? selection.Weapon?.HasRangedEvidence == false ? "ui.combat_weapon_details" : "ui.ammunition" : "ui.combat_weapons", 30, y, w);
         if (ammunition)
         {
-            y += Notice(selection.Weapon == null ? text("ui.combat_no_pairs")
-                : string.Format(System.Globalization.CultureInfo.CurrentCulture, text("ui.combat_fired_with"), selection.Weapon.Row.Name), 30, y, w);
+            y += Notice(selection.Weapon == null ? text("ui.combat_no_pairs") : selection.Weapon.HasRangedEvidence
+                ? string.Format(System.Globalization.CultureInfo.CurrentCulture, text("ui.combat_fired_with"), selection.Weapon.Row.Name) : selection.Weapon.Row.Name, 30, y, w);
             y += Notice(selection.Weapon?.Notice ?? "", 30, y, w);
         }
         else y += Notice(p.WeaponNotice, 30, y, w);
         foreach (var item in ammunition ? selection.Weapon?.Ammunition ?? Array.Empty<CombatItemRow>() : p.Weapons.Select(weapon => weapon.Row))
+        {
             y += Add(new CombatRenderRow
             {
                 Id = item.Id,
@@ -298,7 +300,11 @@ internal sealed class CombatDocument
                 Actionable = !ammunition,
                 Selected = !ammunition && item.Id == selection.WeaponId,
                 Cells = new[] { item.Name,
-                    item.Actions.Text + " " + text("ui.overview_firing_actions_unit"), item.Percentage.Text + " " + item.PercentageBasis }
+                    ammunition ? item.Actions.Text + " " + text("ui.overview_firing_actions_unit")
+                        : weaponLabels[item.Id] + ": " + item.Actions.Text,
+                    item.PercentageBasis.Length == 0 ? "" : item.Percentage.Text + " " + item.PercentageBasis }
             }, 30, y, w) + 10;
+            if (!ammunition && item.Id == selection.WeaponId) y += Metrics(selection.Weapon!.Metrics, 30, y, w);
+        }
     }
 }
