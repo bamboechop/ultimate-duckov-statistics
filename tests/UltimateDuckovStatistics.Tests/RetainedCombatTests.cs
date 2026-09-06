@@ -91,16 +91,18 @@ public sealed class RetainedCombatTests
         Assert.Equal(new[] { "100", "5", "3", "25%", "4", "1" }, result.Ranged.Select(m => m.Value.Text));
         Assert.Equal(new[] { "9", "6", "2" }, result.Melee.Select(m => m.Value.Text));
         Assert.Equal(new[] { "1", "2" }, result.OtherKills.Select(m => m.Value.Text));
-        Assert.NotEmpty(result.KillNotice);
+        Assert.Empty(result.KillNotice);
     }
     [Fact]
-    public void UnknownAndHistoricalKillsStayVisibleAndQualifyRangedMeleeZero()
+    public void HistoricalOnlyKillContentIsOmittedWithoutQualifyingCurrentBuckets()
     {
         var p = Projection(); var n = p.Combat.Lifetime.Totals;
         n.PlayerKills = new PlayerKillPartition { Unknown = 2, HistoricalUnclassified = 8, HistoricalIncomplete = true }; n.KillsByYou = 10;
         var r = Present(p);
-        Assert.Equal(2, r.OtherKills.Count); Assert.All(r.OtherKills, m => Assert.Equal(CombatEvidence.Partial, m.Value.Evidence));
-        Assert.Equal(CombatEvidence.Unavailable, r.Ranged[2].Value.Evidence); Assert.Equal(n.PlayerKills.Provenance, r.KillNotice);
+        Assert.Single(r.OtherKills); Assert.Equal("2", r.OtherKills[0].Value.Text);
+        Assert.Equal("0", r.Ranged[2].Value.Text); Assert.Equal("0", r.Melee[2].Value.Text); Assert.Empty(r.KillNotice);
+        n.PlayerKills.Ranged = 3; p.Combat.Capabilities.KillsByYou.State = AdapterCapabilityState.DisabledIncompatible;
+        Assert.Equal(CombatEvidence.Partial, Present(p).Ranged[2].Value.Evidence);
         Assert.Equal("10", r.Overall[2].Value.Text);
     }
     [Fact]
@@ -261,7 +263,7 @@ public sealed class RetainedCombatTests
         var p = Projection(); Enemies(p, Row("e", "Enemy")); Weapons(p, Weapon("a", 1), Weapon("b", 1));
         var s = new CombatSelection(); s.Refresh(Present(p)); s.Capture("primary", 50);
         s.SelectPage(CombatPanelSection.Enemies); s.ToggleEnemy("g", "e"); s.Capture("primary", 300); s.Focus("e");
-        s.Refresh(Present(p)); Assert.Equal("e", s.EnemyId); Assert.Equal("e", s.FocusId); Assert.Equal(200, s.Offset("primary", 100, 300));
+        s.Refresh(Present(p)); Assert.Null(s.EnemyId); Assert.Equal("e", s.FocusId); Assert.Equal(200, s.Offset("primary", 100, 300));
         s.SelectPage(CombatPanelSection.WeaponsAndAmmunition); s.Capture("primary", 42); s.Capture("ammo", 80); s.Capture("outer", 12);
         s.SelectWeapon("g", "b"); Assert.Equal(0, s.Offset("ammo", 100, 1000)); Assert.Equal(42, s.Offset("primary", 100, 1000)); Assert.Equal(12, s.Offset("outer", 100, 1000));
         s.SelectWeapon("g", "a"); Assert.Equal(80, s.Offset("ammo", 100, 1000));
@@ -415,5 +417,97 @@ public sealed class RetainedCombatTests
         Assert.Equal(150, state.Offset("selector", 400, 600));
         Assert.Equal(900, CombatLayoutPolicy.OuterViewport(false, 900, 45));
         Assert.Equal(855, CombatLayoutPolicy.OuterViewport(true, 900, 45));
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void QuickGlanceValuesPrecedeTheirMutedLabels(bool incoming)
+    {
+        var p = Present(Projection()); var d = Document();
+        if (incoming) d.Table(p.Attackers, "", 1500, null, true, p, false); else d.Summary(p, 1500, false);
+        var cards = d.Rows.Where(r => r.Kind == CombatRowKind.Card).ToArray();
+        var metrics = incoming ? p.IncomingCards : p.Overall;
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.Equal(metrics[i].Value.Text, cards[i].Cells[0]);
+            Assert.Equal(RunsViewStyle.Uppercase(metrics[i].Label), cards[i].Cells[1]);
+            Assert.False(CombatLayoutPolicy.Muted(cards[i], 0)); Assert.True(CombatLayoutPolicy.Muted(cards[i], 1));
+        }
+    }
+    [Fact]
+    public void MissingOwnershipDisablesExpansionAndRealDetailsAreSeparateWhiteReadOnlyRows()
+    {
+        var projection = Projection(); Enemies(projection, Row("e", "Enemy", world: 4)); var p = Present(projection);
+        var state = new CombatSelection(); state.Refresh(p); Assert.False(state.ToggleEnemy("g", "e"));
+        var d = Document(); d.Table(p.Enemies, "", 1500, "e", false, p, false);
+        Assert.All(d.Rows, r => { Assert.False(r.Actionable); Assert.False(r.Selected); Assert.False(r.Expandable); });
+        var owner = new CombatMetric("Other NPC", new CombatValue("4", CombatEvidence.Supported));
+        var available = new CombatTableRow("e", "Enemy", p.Enemies[0].Values, ownership: new[] { owner });
+        var closed = Document(); closed.Table(new[] { available }, "", 1500, null, false, p, false);
+        var opened = Document(); opened.Table(new[] { available }, "", 1500, "e", false, p, false);
+        var button = Assert.Single(opened.Rows, r => r.Actionable);
+        Assert.True(button.Selected); Assert.True(button.Expandable);
+        Assert.Equal(Assert.Single(closed.Rows, r => r.Actionable).Height, button.Height);
+        var detail = Assert.Single(opened.Rows, r => r.Kind == CombatRowKind.Metric);
+        Assert.True(detail.Y >= button.Y + button.Height); Assert.False(detail.Actionable); Assert.False(detail.Selected);
+        Assert.False(CombatLayoutPolicy.Muted(detail, 0)); Assert.False(CombatLayoutPolicy.Muted(detail, 1));
+    }
+    [Fact]
+    public void IncomingSortUsesNumbersRetainsTotalAndSwitchesColumnDirections()
+    {
+        var projection = Projection(); projection.Combat.Lifetime.Totals.DamageReceived = 110;
+        Attackers(projection, Row("a", "Alpha", incoming: 10, deaths: 2), Row("z", "Zulu", incoming: 100, deaths: 1));
+        var p = Present(projection); var sort = new CombatIncomingSort();
+        Assert.Equal(new[] { "z", "a" }, sort.Apply(p.Attackers).Select(r => r.Id));
+        sort.Toggle(1); Assert.False(sort.Descending); Assert.Equal(new[] { "a", "z" }, sort.Apply(p.Attackers).Select(r => r.Id));
+        sort.Toggle(3); Assert.True(sort.Descending); Assert.Equal(new[] { "a", "z" }, sort.Apply(p.Attackers).Select(r => r.Id));
+        sort.Toggle(3); Assert.Equal(new[] { "z", "a" }, sort.Apply(p.Attackers).Select(r => r.Id));
+        sort.Toggle(0); Assert.Equal(new[] { "z", "a" }, sort.Apply(p.Attackers).Select(r => r.Id));
+        sort.Toggle(0); Assert.Equal(new[] { "a", "z" }, sort.Apply(p.Attackers).Select(r => r.Id));
+        sort.Toggle(2); Assert.Equal(new[] { "z", "a" }, sort.Apply(p.Attackers).Select(r => r.Id));
+        var d = Document(); d.Table(p.Attackers, "", 1500, null, true, p, false, sort);
+        Assert.Equal(new[] { "total", "z", "a" }, d.Rows.Where(r => r.Kind == CombatRowKind.Table).Select(r => r.Id));
+        Assert.Equal(4, d.Rows.Count(r => r.Kind == CombatRowKind.TableHeader && r.Actionable));
+        Assert.StartsWith("↓ ", d.Rows.Single(r => r.Id == "sort:2").Cells[0], StringComparison.Ordinal);
+    }
+    [Fact]
+    public void IncomingSortKeepsUnavailableLastAndLargeDeathCountsExact()
+    {
+        var rows = new[] { new CombatTableRow("missing", "A", Array.Empty<CombatValue>()),
+            new CombatTableRow("low", "B", Array.Empty<CombatValue>(), deaths: 9007199254740992),
+            new CombatTableRow("high", "C", Array.Empty<CombatValue>(), deaths: 9007199254740993) };
+        var sort = new CombatIncomingSort(); sort.Toggle(3);
+        Assert.Equal(new[] { "high", "low", "missing" }, sort.Apply(rows).Select(r => r.Id));
+        sort.Toggle(3); Assert.Equal(new[] { "low", "high", "missing" }, sort.Apply(rows).Select(r => r.Id));
+        var state = new CombatSelection(); state.Refresh(Present(Projection()));
+        Assert.True(state.SortIncoming("g", 3)); state.SortIncoming("g", 3); state.Refresh(Present(Projection()));
+        Assert.Equal(3, state.IncomingSort.Column); Assert.False(state.IncomingSort.Descending);
+        Assert.False(state.SortIncoming("stale", 0)); Assert.False(state.SortIncoming("g", 9));
+        state.Refresh(Present(Projection("new"))); Assert.Equal(1, state.IncomingSort.Column); Assert.True(state.IncomingSort.Descending);
+    }
+    [Fact]
+    public void MeasuredHeadersFitOneLineAndShareColumnOriginsWithValues()
+    {
+        var p = Present(Projection()); var d = Document(); d.Table(p.Attackers, "", 1500, null, true, p, false);
+        var headers = d.Rows.Where(r => r.Kind == CombatRowKind.TableHeader).ToArray();
+        var total = d.Rows.Single(r => r.Kind == CombatRowKind.Table);
+        Assert.False(total.Stacked); Assert.NotNull(total.Columns);
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.True(headers[i].Cells[0].Length * CombatLayoutPolicy.TableHeaderSize * .5 <= headers[i].Width - 30);
+            Assert.Equal(total.X + total.Columns.Take(i).Sum(), headers[i].X, 3);
+            Assert.Equal(CombatLayoutPolicy.TableHeaderSize + 24, headers[i].Height);
+        }
+        var narrow = Document(); narrow.Table(p.Attackers, "", 600, null, true, p, true);
+        Assert.True(narrow.Rows.Single(r => r.Kind == CombatRowKind.Table).Stacked);
+        Assert.Equal(4, narrow.Rows.Count(r => r.Actionable));
+    }
+    [Fact]
+    public void GlyphBottomAlignmentAccountsForDifferentFontDescendersAndSelectedItemsStayWhite()
+    {
+        var suffixY = CombatLayoutPolicy.AlignGlyphBottom(0, -38, -18);
+        Assert.Equal(-38, suffixY - 18);
+        foreach (var selected in new[] { false, true })
+            for (var i = 0; i < 3; i++) Assert.Equal(!selected && i > 0, CombatLayoutPolicy.Muted(new CombatRenderRow { Kind = CombatRowKind.Item, Selected = selected }, i));
     }
 }

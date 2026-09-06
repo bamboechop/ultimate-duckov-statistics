@@ -12,6 +12,7 @@ internal static class UiText
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["ui.combat_hits"] = "Hits",
+            ["ui.combat_weapons_ammunition"] = "Weapons & ammunition",
             ["ui.combat_kills"] = "Kills",
             ["ui.combat_swings"] = "Swings",
             ["ui.combat_headshot_final_blows"] = "Headshot final blows",

@@ -43,8 +43,17 @@ internal sealed class CombatTableRow
     public string Detail { get; }
     // Deliberately unavailable: no enemy-by-ownership cross dimension is persisted.
     public IReadOnlyList<CombatMetric>? OwnershipBreakdown { get; }
-    public CombatTableRow(string id, string name, IEnumerable<CombatValue> values, string detail = "")
-    { Id = id; Name = name; Values = Array.AsReadOnly(values.ToArray()); Detail = detail; }
+    public bool CanExpand => OwnershipBreakdown is { Count: > 0 };
+    public double? SortDamage { get; }
+    public double? SortShare { get; }
+    public long? SortDeaths { get; }
+    public CombatTableRow(string id, string name, IEnumerable<CombatValue> values, string detail = "",
+        double? damage = null, double? share = null, long? deaths = null, IEnumerable<CombatMetric>? ownership = null)
+    {
+        Id = id; Name = name; Values = Array.AsReadOnly(values.ToArray()); Detail = detail;
+        SortDamage = damage; SortShare = share; SortDeaths = deaths;
+        OwnershipBreakdown = ownership == null ? null : Array.AsReadOnly(ownership.ToArray());
+    }
 }
 internal sealed class CombatItemRow
 {
@@ -125,15 +134,15 @@ internal static class CombatPresentationFactory
         var overall = new[] { M("ui.overview_damage_dealt", damage), M("ui.overview_damage_taken", received),
             M("ui.kills_by_you", C(n.KillsByYou, cap.KillsByYou)), M("ui.overview_deaths", deaths) };
         var ranged = new[] { M("ui.firing_actions", WV(w.Lifetime.Totals.FiringActions, wc.FiringActions)),
-            M("ui.combat_hits", C(n.RangedHits, cap.RangedHits)), M("ui.combat_kills", C(kills.Ranged, cap.KillsByYou, !kills.ClassificationComplete)),
+            M("ui.combat_hits", C(n.RangedHits, cap.RangedHits)), M("ui.combat_kills", C(kills.Ranged, cap.KillsByYou)),
             M("ui.accuracy", c.Accuracy.HasValue && !a.WasRepairedFromInvalidState ? Percent(c.Accuracy.Value * 100, t) : Unavailable()),
             M("ui.runs_headshots", C(n.Headshots, cap.Headshots)), M("ui.combat_headshot_final_blows", C(n.HeadshotFinalBlows, cap.HeadshotFinalBlows)) };
         var melee = new[] { M("ui.combat_swings", C(n.MeleeSwings, cap.MeleeSwings)), M("ui.combat_hits", C(n.MeleeHits, cap.MeleeHits)),
-            M("ui.combat_kills", C(kills.Melee, cap.KillsByYou, !kills.ClassificationComplete)) };
+            M("ui.combat_kills", C(kills.Melee, cap.KillsByYou)) };
         var other = new List<CombatMetric>();
-        foreach (var entry in new[] { ("effect", kills.Effect), ("environmental", kills.Environmental), ("unknown", kills.Unknown), ("historical", kills.HistoricalUnclassified) })
-            if (entry.Item2 > 0) other.Add(M("ui.combat_" + entry.Item1, C(entry.Item2, cap.KillsByYou, !kills.ClassificationComplete)));
-        var killNotice = other.Count > 0 || !kills.ClassificationComplete ? kills.Provenance : "";
+        foreach (var entry in new[] { ("effect", kills.Effect), ("environmental", kills.Environmental), ("unknown", kills.Unknown) })
+            if (entry.Item2 > 0) other.Add(M("ui.combat_" + entry.Item1, C(entry.Item2, cap.KillsByYou)));
+        var killNotice = "";
         var history = a.HistoricalOwnershipUnavailable || n.LegacyUnclassifiedDeaths > 0;
         var world = C(n.ObservedWorldDeaths, cap.ObservedWorldDeaths, history);
         var ownership = new List<CombatMetric>();
@@ -200,8 +209,14 @@ internal static class CombatPresentationFactory
             ? new CombatValue(Number(attackers.Length), CombatEvidence.Supported) : Unavailable();
         CombatValue Share(double value) => received.Evidence == CombatEvidence.Supported && n.DamageReceived > 0
             ? Percent(value * 100 / n.DamageReceived, t) : Unavailable();
-        var incoming = attackers.Select(r => new CombatTableRow(r.Id, Name(r.DisplayName, r.Id, t),
-            new[] { Scoped(r.Totals.DamageReceived, cap.DamageReceived), identities ? Share(r.Totals.DamageReceived) : Unavailable(), ScopedCount(r.Totals.PlayerDeaths, cap.PlayerDeaths) })).ToArray();
+        var incoming = attackers.Select(r =>
+        {
+            var values = new[] { Scoped(r.Totals.DamageReceived, cap.DamageReceived), identities ? Share(r.Totals.DamageReceived) : Unavailable(), ScopedCount(r.Totals.PlayerDeaths, cap.PlayerDeaths) };
+            return new CombatTableRow(r.Id, Name(r.DisplayName, r.Id, t), values,
+                damage: values[0].Evidence == CombatEvidence.Unavailable ? null : r.Totals.DamageReceived,
+                share: values[1].Evidence == CombatEvidence.Unavailable ? null : r.Totals.DamageReceived / n.DamageReceived,
+                deaths: values[2].Evidence == CombatEvidence.Unavailable ? null : r.Totals.PlayerDeaths);
+        }).ToArray();
         return new CombatPresentation(generation, overall, ranged, melee, other, killNotice, world, ownership, ownershipNotice,
             enemyRows, Join(enemyNotice, ownershipNotice), weaponRows, weaponNotice,
             new[] { M("ui.overview_damage_taken", received), M("ui.overview_deaths", deaths), M("ui.combat_attacker_types", attackerCount), M("ui.combat_deadliest", deadliest) },

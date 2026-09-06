@@ -6,22 +6,23 @@ internal sealed class CombatSelection
     public CombatPanelSection Page { get; private set; }
     public string? EnemyId { get; private set; }
     public string? WeaponId { get; private set; }
+    public CombatIncomingSort IncomingSort { get; } = new();
     private readonly Dictionary<string, float> offsets = new(StringComparer.Ordinal);
     private readonly Dictionary<CombatPanelSection, string> focus = new();
     public void Refresh(CombatPresentation? next)
     {
         if (next == null || Snapshot?.GenerationId != next.GenerationId)
-        { Page = CombatPanelSection.Summary; EnemyId = WeaponId = null; offsets.Clear(); focus.Clear(); }
+        { Page = CombatPanelSection.Summary; EnemyId = WeaponId = null; offsets.Clear(); focus.Clear(); IncomingSort.Reset(); }
         Snapshot = next;
         if (next == null) return;
-        if (!next.Enemies.Any(r => r.Id == EnemyId)) EnemyId = null;
+        if (!next.Enemies.Any(r => r.Id == EnemyId && r.CanExpand)) EnemyId = null;
         if (!next.Weapons.Any(r => r.Row.Id == WeaponId)) WeaponId = next.Weapons.Count == 0 ? null : next.Weapons[0].Row.Id;
     }
     public bool SelectPage(CombatPanelSection page)
     { if (Snapshot == null || !Enum.IsDefined(typeof(CombatPanelSection), page)) return false; Page = page; return true; }
     public bool ToggleEnemy(string generation, string id)
     {
-        if (Snapshot?.GenerationId != generation || !Snapshot.Enemies.Any(r => r.Id == id)) return false;
+        if (Snapshot?.GenerationId != generation || !Snapshot.Enemies.Any(r => r.Id == id && r.CanExpand)) return false;
         EnemyId = EnemyId == id ? null : id; return true;
     }
     public bool SelectWeapon(string generation, string id)
@@ -30,6 +31,7 @@ internal sealed class CombatSelection
         WeaponId = id; return true;
     }
     public CombatWeapon? Weapon => Snapshot?.Weapons.FirstOrDefault(w => w.Row.Id == WeaponId);
+    public bool SortIncoming(string generation, int column) => Snapshot?.GenerationId == generation && IncomingSort.Toggle(column);
     private string Key(string region) => region == "selector" ? region : Page + ":" + region + (region == "ammo" ? ":" + WeaponId : "");
     public void Capture(string region, float offset)
     { if (Snapshot != null && !float.IsNaN(offset) && !float.IsInfinity(offset)) offsets[Key(region)] = Math.Max(0, offset); }
@@ -46,6 +48,20 @@ internal sealed class CombatSelection
 
 internal static class CombatLayoutPolicy
 {
+    public const float TableHeaderSize = 24;
+    public static float AlignGlyphBottom(float titleY, float titleBottom, float suffixBottom) => titleY + titleBottom - suffixBottom;
+    public static bool Muted(CombatRenderRow row, int cell) => row.Kind == CombatRowKind.Card && cell == 1
+        || row.Kind == CombatRowKind.Notice || row.Kind == CombatRowKind.Heading && cell > 0
+        || row.Kind == CombatRowKind.Item && cell > 0 && !row.Selected;
+    public static float[] TableColumns(float width, IReadOnlyList<string> headers, Func<string, float, float> measure)
+    {
+        if (StackTable(width)) return Array.Empty<float>();
+        var minimum = headers.Select(h => Math.Max(measure("↓ " + h, TableHeaderSize), measure("↑ " + h, TableHeaderSize)) + 30).ToArray();
+        var spare = width - 30 - minimum.Sum();
+        if (spare < 0) return Array.Empty<float>();
+        var weights = new[] { .4f, .27f, .12f, .21f };
+        return minimum.Select((m, i) => m + spare * weights[i]).ToArray();
+    }
     public const float Padding = 30, Gap = 40, RowGap = 10, Radius = 20, Bottom = 30;
     public static (float Left, float Top, float Width, float Height, float Scale) Frame(RetainedVisualCanvasLayout shell, float canvasHeight)
     {
@@ -76,7 +92,7 @@ internal static class CombatLayoutPolicy
     }
 }
 
-internal enum CombatRowKind { Heading, Notice, Metric, Card, Table, Item, Selector }
+internal enum CombatRowKind { Heading, Notice, Metric, Card, Table, TableHeader, Item, Selector }
 
 internal static class CombatItemIconPolicy
 {
@@ -127,6 +143,8 @@ internal sealed class CombatRenderRow
     public bool Stacked { get; set; }
     public float SuffixLeft { get; set; }
     public float SuffixTop { get; set; }
+    public float[]? Columns { get; set; }
+    public bool Expandable { get; set; }
 }
 
 // Pure measured document composition. Unity supplies native TMP measurement; tests supply
@@ -143,19 +161,20 @@ internal sealed class CombatDocument
     public float Add(CombatRenderRow row, float x, float y, float width)
     {
         row.X = x; row.Y = y; row.Width = Math.Max(1, width);
-        row.Stacked = row.Kind == CombatRowKind.Table && CombatLayoutPolicy.StackTable(width);
+        row.Stacked = row.Kind == CombatRowKind.Table && (row.Columns == null ? CombatLayoutPolicy.StackTable(width) : row.Columns.Length == 0);
         var inner = Math.Max(1, width - 30);
         float M(string value, float w, float size) => measure(value, Math.Max(1, w), size);
         row.Height = row.Kind switch
         {
             CombatRowKind.Heading => Math.Max(50, M(row.Cells[0], inner, 46.3f)),
             CombatRowKind.Notice => Math.Max(36, M(row.Cells[0], inner, 20)) + 12,
-            CombatRowKind.Card => M(row.Cells[0], inner, 20) + M(row.Cells[1], inner, 32) + 24,
+            CombatRowKind.Card => M(row.Cells[0], inner, 32) + M(row.Cells[1], inner, 20) + 24,
+            CombatRowKind.TableHeader => M(row.Cells[0], inner, CombatLayoutPolicy.TableHeaderSize) + 24,
             CombatRowKind.Metric => Math.Max(M(row.Cells[0], inner * .6f - 10, 28), M(row.Cells[1], inner * .4f, 28)) + 20,
             CombatRowKind.Selector => Math.Max(64, M(row.Cells[0], inner, 32) + 24),
             CombatRowKind.Item => Math.Max(108, M(row.Cells[0], inner - 100, 32) + M(row.Cells[1], inner - 100, 24) + M(row.Cells[2], inner - 100, 20) + 24),
-            _ => (row.Stacked ? row.Cells.Sum(c => M(c, inner, 26)) + (row.Cells.Length - 1) * 6
-                : row.Cells.Select((c, i) => M(c, i == 0 ? inner * .48f - 20 : inner * .52f / 3 - 10, 28)).Max()) + 24
+            _ => (row.Stacked ? row.Cells.Select((c, i) => M(c, inner - (i == 0 && row.Expandable ? 28 : 0), 26)).Sum() + (row.Cells.Length - 1) * 6
+                : row.Cells.Select((c, i) => M(c, (row.Columns == null ? i == 0 ? inner * .48f - 20 : inner * .52f / 3 - 10 : row.Columns[i] - 30) - (i == 0 && row.Expandable ? 28 : 0), 28)).Max()) + 24
         };
         if (row.Kind == CombatRowKind.Heading && row.Cells.Length > 1)
         {
@@ -187,7 +206,7 @@ internal sealed class CombatDocument
             var batch = new List<CombatRenderRow>();
             for (var i = first; i < Math.Min(first + columns, metrics.Count); i++)
             {
-                var row = new CombatRenderRow { Kind = CombatRowKind.Card, Cells = new[] { RunsViewStyle.Uppercase(metrics[i].Label), metrics[i].Value.Text } };
+                var row = new CombatRenderRow { Kind = CombatRowKind.Card, Cells = new[] { metrics[i].Value.Text, RunsViewStyle.Uppercase(metrics[i].Label) } };
                 Add(row, x + (i - first) * (w + 20), y, w); batch.Add(row);
             }
             var h = batch.Max(r => r.Height); foreach (var row in batch) row.Height = h; y += h + 20;
@@ -209,27 +228,46 @@ internal sealed class CombatDocument
         if (p.OtherKills.Count > 0 || p.KillNotice.Length > 0)
         { y += Heading("ui.combat_other_kills", 30, y, w); y += Metrics(p.OtherKills, 30, y, w); Notice(p.KillNotice, 30, y, w); }
     }
-    public void Table(IReadOnlyList<CombatTableRow> rows, string notice, float width, string? expanded, bool incoming, CombatPresentation p, bool stacked)
+    public void Table(IReadOnlyList<CombatTableRow> rows, string notice, float width, string? expanded, bool incoming, CombatPresentation p, bool stacked, CombatIncomingSort? sort = null)
     {
         var w = width - 60; float y = 30;
         if (incoming) y += Cards(p.IncomingCards, 30, y, w, stacked);
         y += Notice(notice, 30, y, w);
-        var headers = incoming ? new[] { text("ui.combat_attacker"), text("ui.combat_damage_to_you") + " ↓", text("ui.combat_share"), text("ui.combat_deaths_caused") }
-            : new[] { text("ui.combat_enemy"), text("ui.overview_damage_dealt"), text("ui.kills_by_you") + " ↓", text("ui.combat_world_deaths") };
-        y += Add(new CombatRenderRow { Kind = CombatRowKind.Table, Cells = headers }, 30, y, w) + 10;
-        foreach (var r in incoming ? new[] { p.IncomingTotal }.Concat(rows) : rows)
+        var headers = incoming ? new[] { text("ui.combat_attacker"), text("ui.combat_damage_to_you"), text("ui.combat_share"), text("ui.combat_deaths_caused") }
+            : new[] { text("ui.combat_enemy"), text("ui.overview_damage_dealt"), text("ui.kills_by_you"), text("ui.combat_world_deaths") };
+        var columns = CombatLayoutPolicy.TableColumns(w, headers, measureWidth);
+        sort ??= new CombatIncomingSort();
+        float hx = 45, headerHeight = 0;
+        for (var i = 0; i < headers.Length; i++)
         {
-            var cells = new[] { (incoming ? "" : expanded == r.Id ? "⌄ " : "› ") + r.Name }.Concat(r.Values.Select((v, i) =>
-                CombatLayoutPolicy.StackTable(w) ? headers[i + 1].Replace(" ↓", "") + ": " + v.Text : v.Text)).ToArray();
+            var label = incoming ? sort.Header(i, headers[i]) : i == 2 ? "↓ " + headers[i] : headers[i];
+            var h = Add(new CombatRenderRow
+            {
+                Id = "sort:" + i,
+                Kind = CombatRowKind.TableHeader,
+                Cells = new[] { label },
+                Actionable = incoming
+            }, columns.Length == 0 ? 30 : hx - 15,
+                y, columns.Length == 0 ? w : columns[i]);
+            if (columns.Length == 0) y += h + 6; else { hx += columns[i]; headerHeight = Math.Max(headerHeight, h); }
+        }
+        y += headerHeight + 10;
+        foreach (var r in incoming ? new[] { p.IncomingTotal }.Concat(sort.Apply(rows)) : rows)
+        {
+            var canExpand = !incoming && r.CanExpand;
+            var cells = new[] { r.Name }.Concat(r.Values.Select((v, i) =>
+                columns.Length == 0 ? headers[i + 1] + ": " + v.Text : v.Text)).ToArray();
             y += Add(new CombatRenderRow
             {
                 Id = r.Id,
                 Kind = CombatRowKind.Table,
                 Cells = cells,
-                Actionable = !incoming,
-                Selected = expanded == r.Id,
-                Detail = !incoming && expanded == r.Id ? r.Detail : ""
+                Actionable = canExpand,
+                Expandable = canExpand,
+                Selected = canExpand && expanded == r.Id,
+                Columns = columns
             }, 30, y, w) + 10;
+            if (canExpand && expanded == r.Id) y += Metrics(r.OwnershipBreakdown!, 30, y, w);
         }
     }
     public void Items(CombatSelection selection, float width, bool ammunition)

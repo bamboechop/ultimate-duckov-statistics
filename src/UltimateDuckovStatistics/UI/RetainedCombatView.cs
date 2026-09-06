@@ -27,7 +27,7 @@ internal sealed partial class RetainedStatisticsShell
         private bool dirty = true, disposed;
         private CombatViewport? restoreFocus;
         private string? restoreFocusId;
-        private readonly string[] pageKeys = { "ui.summary", "ui.enemies", "ui.weapons_ammo", "ui.incoming_damage" };
+        private readonly string[] pageKeys = { "ui.summary", "ui.enemies", "ui.combat_weapons_ammunition", "ui.incoming_damage" };
 
         public CombatView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action focusTabs)
         {
@@ -88,6 +88,8 @@ internal sealed partial class RetainedStatisticsShell
             }
             else if (selection.Page == CombatPanelSection.Enemies) selection.ToggleEnemy(generation, id);
             else if (selection.Page == CombatPanelSection.WeaponsAndAmmunition) selection.SelectWeapon(generation, id);
+            else if (selection.Page == CombatPanelSection.IncomingDamage && id.StartsWith("sort:", StringComparison.Ordinal)
+                && int.TryParse(id.AsSpan(5), out var column)) selection.SortIncoming(generation, column);
             dirty = true;
         }
         public void Layout(RetainedVisualCanvasLayout shell, float viewportPixels, float canvasHeight)
@@ -125,7 +127,7 @@ internal sealed partial class RetainedStatisticsShell
             {
                 case CombatPanelSection.Summary: page.Summary(snapshot, pageWidth, stacked); break;
                 case CombatPanelSection.Enemies: page.Table(snapshot.Enemies, snapshot.EnemyNotice, pageWidth, selection.EnemyId, false, snapshot, stacked); break;
-                case CombatPanelSection.IncomingDamage: page.Table(snapshot.Attackers, snapshot.IncomingNotice, pageWidth, null, true, snapshot, stacked); break;
+                case CombatPanelSection.IncomingDamage: page.Table(snapshot.Attackers, snapshot.IncomingNotice, pageWidth, null, true, snapshot, stacked, selection.IncomingSort); break;
                 default: page.Items(selection, pageWidth, false); ammo.Items(selection, pageWidth, true); break;
             }
             // Narrow documents keep full-width readable rows and bounded inner tables/columns.
@@ -176,7 +178,7 @@ internal sealed partial class RetainedStatisticsShell
                 public RunsHistoryButton Button = null!;
                 public RunsFocusHandler Focus = null!;
                 public TextMeshProUGUI[] Text = null!;
-                public TextMeshProUGUI Detail = null!, Fallback = null!;
+                public TextMeshProUGUI Detail = null!, Fallback = null!, Chevron = null!;
                 public Image Icon = null!;
                 public CombatRenderRow? Row;
                 public void Dispose()
@@ -214,7 +216,8 @@ internal sealed partial class RetainedStatisticsShell
                 c.Button = c.Rect.gameObject.AddComponent<RunsHistoryButton>(); c.Button.Configure(c.Background);
                 c.Rect.gameObject.AddComponent<ButtonAnimation>(); AddButtonFeedback(c.Button);
                 c.Text = Enumerable.Range(0, 4).Select(i => owner.Text(c.Rect, "Cell" + i, 28)).ToArray();
-                c.Detail = owner.Text(c.Rect, "Detail", 22); c.Detail.color = Muted;
+                c.Detail = owner.Text(c.Rect, "Detail", 22);
+                c.Chevron = owner.Text(c.Rect, "Chevron", 28); c.Chevron.text = "›"; c.Chevron.alignment = TextAlignmentOptions.Center;
                 c.Fallback = owner.Text(c.Rect, "MissingItem", 32); c.Fallback.text = "?"; c.Fallback.alignment = TextAlignmentOptions.Center;
                 c.Icon = Node(c.Rect, "ItemIcon").gameObject.AddComponent<Image>(); c.Icon.raycastTarget = false; c.Icon.preserveAspect = true;
                 c.Focus = c.Rect.gameObject.AddComponent<RunsFocusHandler>();
@@ -267,7 +270,7 @@ internal sealed partial class RetainedStatisticsShell
                 for (var i = 0; i < c.Text.Length; i++)
                 {
                     var label = c.Text[i]; label.gameObject.SetActive(i < r.Cells.Length); if (i >= r.Cells.Length) continue;
-                    label.text = r.Cells[i]; label.color = r.Kind == CombatRowKind.Card && i == 0 || r.Kind == CombatRowKind.Notice || r.Kind is CombatRowKind.Item or CombatRowKind.Heading && i > 0 ? Muted : Color.white;
+                    label.text = r.Cells[i]; label.color = CombatLayoutPolicy.Muted(r, i) ? Muted : Color.white;
                     label.alignment = r.Kind == CombatRowKind.Card ? TextAlignmentOptions.Top : TextAlignmentOptions.TopLeft;
                     float x = 15, top = 12, w = inner, size = 28;
                     switch (r.Kind)
@@ -278,17 +281,38 @@ internal sealed partial class RetainedStatisticsShell
                             break;
                         case CombatRowKind.Notice: size = 20; top = 6; break;
                         case CombatRowKind.Selector: size = 32; break;
-                        case CombatRowKind.Card: size = i == 0 ? 20 : 32; top = y; break;
+                        case CombatRowKind.Card: size = i == 0 ? 32 : 20; top = y; break;
+                        case CombatRowKind.TableHeader: size = CombatLayoutPolicy.TableHeaderSize; break;
                         case CombatRowKind.Metric: w = inner * (i == 0 ? .6f : .4f) - (i == 0 ? 10 : 0); x += i == 0 ? 0 : inner * .6f; break;
                         case CombatRowKind.Item: x = 115; w = Math.Max(1, inner - 100); top = y; size = i == 0 ? 32 : i == 1 ? 24 : 20; break;
                         case CombatRowKind.Table:
                             if (r.Stacked) { top = y; size = 26; }
+                            else if (r.Columns is { Length: 4 }) { w = r.Columns[i] - 30; x += r.Columns.Take(i).Sum(); }
                             else { w = i == 0 ? inner * .48f - 20 : inner * .52f / 3 - 10; x += i == 0 ? 0 : inner * .48f + (i - 1) * inner * .52f / 3; }
+                            if (i == 0 && r.Expandable) { x += 28; w -= 28; }
                             break;
                     }
                     label.fontSize = size;
                     var h = owner.Measure(label.text, w, size); Place(label.rectTransform, x, top, w, h);
                     y = r.Kind is CombatRowKind.Card or CombatRowKind.Item || r.Kind == CombatRowKind.Table && r.Stacked ? top + h + (r.Stacked ? 6 : 0) : Math.Max(y, top + h);
+                }
+                if (r.Kind == CombatRowKind.Heading && r.Cells.Length > 1 && r.SuffixLeft > 0)
+                {
+                    // Align visible glyph bottoms, not font line boxes with different descenders.
+                    var title = c.Text[0]; var suffix = c.Text[1];
+                    title.ForceMeshUpdate(ignoreActiveState: true); suffix.ForceMeshUpdate(ignoreActiveState: true);
+                    var position = suffix.rectTransform.anchoredPosition;
+                    position.y = CombatLayoutPolicy.AlignGlyphBottom(title.rectTransform.anchoredPosition.y,
+                        title.textBounds.min.y, suffix.textBounds.min.y);
+                    suffix.rectTransform.anchoredPosition = position;
+                }
+                c.Chevron.gameObject.SetActive(r.Expandable);
+                if (r.Expandable)
+                {
+                    var chevronHeight = owner.Measure("›", 20, 28);
+                    c.Chevron.rectTransform.pivot = new Vector2(.5f, .5f);
+                    Place(c.Chevron.rectTransform, 25, 12 + chevronHeight / 2, 20, chevronHeight);
+                    c.Chevron.rectTransform.localRotation = Quaternion.Euler(0, 0, r.Selected ? -90 : 0);
                 }
                 c.Detail.gameObject.SetActive(r.Detail.Length > 0); c.Detail.text = r.Detail;
                 if (r.Detail.Length > 0) Place(c.Detail.rectTransform, 15, y + 8, inner, owner.Measure(r.Detail, inner, 22));
@@ -318,6 +342,11 @@ internal sealed partial class RetainedStatisticsShell
                 if (direction == MoveDirection.Right)
                 { if (region == "selector") owner.primary.Focus(owner.selection.FocusId); else if (region == "primary" && owner.ammunition.Panel.gameObject.activeSelf) owner.ammunition.Focus(); else owner.FocusSelector(); return; }
                 if (direction != MoveDirection.Up && direction != MoveDirection.Down) return;
+                if (region == "primary" && owner.selection.Page == CombatPanelSection.IncomingDamage && id == null && scroll.Offset > .5f)
+                {
+                    ((RunsScrollRect)scroll.Scroll).MoveBy((direction == MoveDirection.Up ? -1 : 1) * scroll.Scroll.scrollSensitivity);
+                    return;
+                }
                 var rows = document?.Rows.Where(r => r.Actionable).ToArray() ?? Array.Empty<CombatRenderRow>();
                 if (rows.Length == 0)
                 {
