@@ -254,6 +254,7 @@ internal sealed partial class RetainedStatisticsShell
             historyPanel = Panel(outer.Content, "RunHistory", 20);
             detailPanel = Panel(outer.Content, "SelectedRun", 20);
             history = new ScrollRegion(historyPanel, "RunHistoryScroll", historyPanel, 20);
+            RunsHistoryClipping.Attach(history.Scroll.viewport);
             fixedDetail = Node(detailPanel, "FixedRunHeaderAndSummary");
             equipmentCombat = new ScrollRegion(fixedDetail, "EquipmentCombatScroll");
             equipmentCombat.Rect.GetComponent<ProceduralImage>().color = new Color(0, 0, 0, .12f);

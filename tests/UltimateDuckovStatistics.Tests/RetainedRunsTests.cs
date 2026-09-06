@@ -779,6 +779,13 @@ public sealed class RetainedRunsTests
         Assert.NotNull(directory);
         var ui = Path.Combine(directory.FullName, "src", "UltimateDuckovStatistics", "UI");
         var view = File.ReadAllText(Path.Combine(ui, "RetainedRunsView.cs"));
+        var nativeControls = File.ReadAllText(Path.Combine(ui, "RunsNativeControls.cs"));
+        Assert.Contains("viewport.gameObject.AddComponent<RectMask2D>()", view);
+        Assert.Contains("RunsHistoryClipping.Attach(history.Scroll.viewport)", view);
+        Assert.Contains("viewport.gameObject.AddComponent<Image>()", nativeControls);
+        Assert.Contains("stencil.color = Color.white", nativeControls);
+        Assert.Contains("stencil.raycastTarget = false", nativeControls);
+        Assert.Contains("viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false", nativeControls);
         Assert.Contains("row.Button.Configure(row.Background)", view);
         Assert.Contains("row.Button.Binding.Activate(selection)", view);
         Assert.Contains("control.Button.Binding.Bind(selection.Snapshot!.GenerationId, run.Id)", view);

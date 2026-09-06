@@ -547,6 +547,7 @@ try
     using (var ui = new AssemblyMetadata(unityUiPath))
     {
         ui.RequireType("UnityEngine.UI", "RectMask2D");
+        ui.RequireProperty("UnityEngine.UI", "Mask", "showMaskGraphic", "System.Boolean", mustBePublic: true);
         ui.RequireProperty("UnityEngine.UI", "ScrollRect", "content", "UnityEngine.RectTransform", mustBePublic: true);
         ui.RequireProperty("UnityEngine.UI", "ScrollRect", "viewport", "UnityEngine.RectTransform", mustBePublic: true);
         ui.RequireMethod("UnityEngine.UI", "ScrollRect", "OnScroll", 1, mustBePublic: true, mustBeVirtual: true,

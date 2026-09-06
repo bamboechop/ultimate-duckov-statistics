@@ -28,6 +28,19 @@ internal static class RunsNativeScrollConfiguration
     }
 }
 
+internal static class RunsHistoryClipping
+{
+    public static void Attach(RectTransform viewport)
+    {
+        // Keep RectMask2D's culling, with a stencil boundary that also clips newly rebuilt
+        // TMP glyph/fallback submeshes before their deferred rectangular culling settles.
+        var stencil = viewport.gameObject.AddComponent<Image>();
+        stencil.color = Color.white;
+        stencil.raycastTarget = false;
+        viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+    }
+}
+
 // Only the horizontal contour and its two quarter-circle corners are drawn, never a full frame.
 internal sealed class RunsOverflowEdge : MaskableGraphic
 {
