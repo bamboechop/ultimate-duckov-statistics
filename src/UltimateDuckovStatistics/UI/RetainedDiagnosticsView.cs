@@ -360,7 +360,7 @@ internal sealed partial class RetainedStatisticsShell
             Place(chevron.rectTransform, 30, h / 2, 20, h - 24);
             chevron.rectTransform.localRotation = Quaternion.Euler(0, 0, expanded ? -90 : 0);
             if (status.Length > 0) Label(elements[id].Rect, id + ":status", status, w - 20 - valueWidth, 12, valueWidth, size,
-                statusColor ?? Color.white, rightAligned: true);
+                expanded && statusColor == Orange ? Color.white : statusColor ?? Color.white, rightAligned: true);
             return h;
         }
         private float Value(RectTransform parent, string id, DiagnosticsValue value, float x, float y, float w, float size = 30, float gap = 8)
