@@ -21,6 +21,18 @@ internal static class RunsEvidenceLayout
     }
 }
 
+internal static class RunsEvidenceIdentity
+{
+    public static bool Matches(string generation, string runId, RunSlotPresentation captured,
+        string? nextGeneration, string? nextRunId, RunSlotPresentation? next) =>
+        generation == nextGeneration && runId == nextRunId && next?.CanOpenDetails == true
+        && captured.SlotId == next.SlotId && captured.State == next.State && captured.ItemId == next.ItemId
+        && captured.Text == next.Text && captured.NestedComplete == next.NestedComplete
+        && captured.Attachments.SequenceEqual(next.Attachments)
+        && captured.Evidence.Select(row => (row.State, row.ItemId, row.ItemName, row.SlotName))
+            .SequenceEqual(next.Evidence.Select(row => (row.State, row.ItemId, row.ItemName, row.SlotName)));
+}
+
 internal static class RunsViewStyle
 {
     public const byte Muted = 177;

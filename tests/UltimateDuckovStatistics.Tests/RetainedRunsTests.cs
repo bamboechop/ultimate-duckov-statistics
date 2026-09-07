@@ -713,6 +713,26 @@ public sealed class RetainedRunsTests
     }
 
     [Fact]
+    public void OpenInspectionAcceptsRepublishedEvidenceButRejectsChangedIdentityOrContents()
+    {
+        static RunSlotPresentation Slot(string slot = "weapon", string item = "gun", string attachment = "optic", bool complete = true) =>
+            new(slot, EquipmentSlotState.Occupied, item, "Captured weapon",
+                new[] { EquipmentSlotState.Occupied }, complete,
+                new[] { new RunEquipmentEvidence(EquipmentSlotState.Occupied, item, "Weapon", "Primary"),
+                    new RunEquipmentEvidence(EquipmentSlotState.Occupied, attachment, "Optic", "Scope") });
+        var captured = Slot();
+        for (var revision = 0; revision < 5; revision++)
+            Assert.True(RunsEvidenceIdentity.Matches("g", "r", captured, "g", "r", Slot()));
+        Assert.False(RunsEvidenceIdentity.Matches("g", "r", captured, "new", "r", Slot()));
+        Assert.False(RunsEvidenceIdentity.Matches("g", "r", captured, "g", "other", Slot()));
+        Assert.False(RunsEvidenceIdentity.Matches("g", "r", captured, "g", "r", null));
+        Assert.False(RunsEvidenceIdentity.Matches("g", "r", captured, "g", "r", Slot(slot: "secondary")));
+        Assert.False(RunsEvidenceIdentity.Matches("g", "r", captured, "g", "r", Slot(item: "replacement")));
+        Assert.False(RunsEvidenceIdentity.Matches("g", "r", captured, "g", "r", Slot(attachment: "replacement")));
+        Assert.False(RunsEvidenceIdentity.Matches("g", "r", captured, "g", "r", Slot(complete: false)));
+    }
+
+    [Fact]
     public void AttachmentDotsRetainNativeOrderAndNeverPadIncompleteEvidenceWithEmptyDots()
     {
         var nested = new List<TerminalNestedSlot>

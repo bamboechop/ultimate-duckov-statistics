@@ -109,3 +109,8 @@ The additional player-kill-classification section was subsequently removed on re
 Follow-up verification: 1,855 Release tests passed; compatibility probe, zero-warning native build and package checks passed. Deployed with Duckov closed; all five package/ZIP/installed files matched. ZIP SHA-256: 5063CC80A3E139E8A05E7AEEEEEEB72EF87AEF7F038EA6385DA2E245269F06D8. Native DLL SHA-256: F208BB106D7D5B0E943929B526F3B1294ABA133A44703C4C7E50AF0B0856DF32. Updated appearance awaits user confirmation.
 
 Section removal (2a667ea): all 1,855 Release tests, compatibility probe, native build and package checks passed. Deployed with Duckov closed; all five installed hashes matched the package.
+
+### Runs equipment inspection refresh
+
+Removed unconditional evidence-panel dismissal from Runs detail refresh. Open inspection retains its existing controls, scroll offset and selected UI object across same-generation/run/slot publications with unchanged captured evidence. Generation/run/slot changes, changed evidence or unavailable data dismiss it; hiding the Runs tab still closes it. Regression coverage republishes detached equivalent evidence repeatedly and rejects changed identities and contents. All 1,856 Release tests, compatibility probe, zero-warning native build and package validation passed; deployed with Duckov closed and all five installed hashes matched. Unpaused-base F8 inspection across world-clock updates remains the user runtime check.
+

@@ -226,6 +226,7 @@ internal sealed partial class RetainedStatisticsShell
         private readonly List<(RectTransform Root, Image Icon, TextMeshProUGUI Fallback, TextMeshProUGUI Name, TextMeshProUGUI Slot)> evidenceRows = new();
         private readonly Button evidenceClose;
         private Button? evidenceOwner;
+        private (string Generation, string RunId, int SlotIndex, RunSlotPresentation Slot)? evidenceIdentity;
         private readonly TextMeshProUGUI measure;
         private readonly TextMeshProUGUI empty;
         private readonly TextMeshProUGUI title;
@@ -365,8 +366,13 @@ internal sealed partial class RetainedStatisticsShell
 
         private void UpdateDetails()
         {
-            HideEvidence(false);
             var run = selection.Selected;
+            if (evidenceIdentity is { } opened)
+            {
+                var next = run != null && opened.SlotIndex < run.Slots.Count ? run.Slots[opened.SlotIndex] : null;
+                if (!RunsEvidenceIdentity.Matches(opened.Generation, opened.RunId, opened.Slot,
+                    selection.Snapshot?.GenerationId, run?.Id, next)) HideEvidence(false);
+            }
             title.text = run?.Title ?? UiText.Get(selection.Snapshot == null ? "ui.profile_unavailable"
                 : selection.RequestedRunUnavailable ? "ui.runs_requested_unavailable" : "ui.runs_empty");
             foreach (var cell in summary) { cell.Label.gameObject.SetActive(run != null); cell.Value.gameObject.SetActive(run != null); }
@@ -784,6 +790,7 @@ internal sealed partial class RetainedStatisticsShell
             var run = selection.Selected;
             var item = run != null && index >= 0 && index < run.Slots.Count ? run.Slots[index] : null;
             if (item?.CanOpenDetails != true) return;
+            evidenceIdentity = (selection.Snapshot!.GenerationId, run!.Id, index, item);
             evidenceOwner = slot.Button;
             evidenceNotice.text = item.NestedComplete ? string.Empty : UiText.Get("ui.runs_nested_partial");
             evidenceNotice.gameObject.SetActive(!item.NestedComplete);
@@ -855,6 +862,7 @@ internal sealed partial class RetainedStatisticsShell
         private void HideEvidence() => HideEvidence(true);
         private void HideEvidence(bool restoreFocus)
         {
+            evidenceIdentity = null;
             if (!evidencePanel.gameObject.activeSelf) return;
             evidencePanel.gameObject.SetActive(false);
             if (restoreFocus && evidenceOwner != null && evidenceOwner.IsActive()) GameManager.EventSystem?.SetSelectedGameObject(evidenceOwner.gameObject);
