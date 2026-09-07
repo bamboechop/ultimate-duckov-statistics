@@ -33,9 +33,16 @@ public sealed class RunsDataFoundationTests
             var attack = NativeGrenadeAttribution.Classify(true, grenade.damageInfo, CombatAttackKind.Unknown);
             Assert.Equal(CombatAttackKind.Throwable, attack);
             var death = CombatObservationPolicy.ClassifyEnemyDeath(true, true, CombatOwnership.Player);
-            Assert.True(h.Lifecycle.RecordCombat(h.Combat("grenade") with { AttackKind = attack, TargetIsEnemy = true,
-                KillsByYou = death.KillsByYou, ObservedWorldDeaths = death.ObservedWorldDeaths,
-                WeaponId = "duckov:weapon:123", ActualDamageDealt = 50, ActualDamageToTarget = 50 }));
+            Assert.True(h.Lifecycle.RecordCombat(h.Combat("grenade") with
+            {
+                AttackKind = attack,
+                TargetIsEnemy = true,
+                KillsByYou = death.KillsByYou,
+                ObservedWorldDeaths = death.ObservedWorldDeaths,
+                WeaponId = "duckov:weapon:123",
+                ActualDamageDealt = 50,
+                ActualDamageToTarget = 50
+            }));
         }
         finally { NativeGrenadeAttribution.FinalizerMethod.Invoke(null, new[] { null, prefix[1] }); }
         LevelManager.RaiseEvacuated();

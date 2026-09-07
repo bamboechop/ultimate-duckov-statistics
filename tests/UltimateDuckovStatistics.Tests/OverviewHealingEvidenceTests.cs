@@ -57,11 +57,30 @@ public sealed class OverviewHealingEvidenceTests
             var profile = coordinator.Current!;
             Assert.Equal(failed.Detail, Assert.Single(profile.Capabilities, cap => cap.AdapterId == NativeHealingAttributionAdapter.AdapterId).Detail);
             // Same-format retained observations; ordinary item-use data is independently available.
-            ItemUseReducer.Apply(profile.Statistics, new ItemUseRecorded { EventId = "use", SaveGenerationId = profile.GenerationId,
-                GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing,
-                ActivationCount = 1, AmountConsumed = 1, ConsumptionUnit = ConsumptionUnit.Item });
-            if (retained > 0) HealingReducer.Apply(profile.Statistics, new HealingApplied { EventId = "heal", ApplicationId = "application", SourceItemUseEventId = "use", SaveGenerationId = profile.GenerationId,
-                GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing, ActualHealthRestored = retained });
+            ItemUseReducer.Apply(profile.Statistics, new ItemUseRecorded
+            {
+                EventId = "use",
+                SaveGenerationId = profile.GenerationId,
+                GameplayContext = GameplayContext.Raid,
+                ItemId = "medkit",
+                DisplayName = "Medkit",
+                Group = CanonicalItemGroup.Healing,
+                ActivationCount = 1,
+                AmountConsumed = 1,
+                ConsumptionUnit = ConsumptionUnit.Item
+            });
+            if (retained > 0) HealingReducer.Apply(profile.Statistics, new HealingApplied
+            {
+                EventId = "heal",
+                ApplicationId = "application",
+                SourceItemUseEventId = "use",
+                SaveGenerationId = profile.GenerationId,
+                GameplayContext = GameplayContext.Raid,
+                ItemId = "medkit",
+                DisplayName = "Medkit",
+                Group = CanonicalItemGroup.Healing,
+                ActualHealthRestored = retained
+            });
             var projection = StatisticsPanelProjectionFactory.Create(profile, new(), new(), new());
             var overview = ProfileSummaryPresentationFactory.Create(projection, UiText.Get);
             var itemUse = ItemUsePresentationFactory.Create(projection, profile.GenerationId)!;
@@ -123,14 +142,46 @@ public sealed class OverviewHealingEvidenceTests
             Assert.Equal(disabledAtStart ? AdapterCapabilityState.DisabledIncompatible : AdapterCapabilityState.Supported, adapter.Capability.State);
             lifecycle.Initialize(); lifecycle.Tick(); Assert.True(lifecycle.IsActive);
             var generation = coordinator.CurrentGenerationId;
-            var use = new ItemUseRecorded { SegmentId = lifecycle.CurrentSegmentId, EventId = "run-use", SaveGenerationId = generation, RunId = lifecycle.CurrentRunId!, TimestampUtc = DateTime.UtcNow, MapId = lifecycle.CurrentMapId!,
-                GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing,
-                ActivationCount = 1, AmountConsumed = 1, ConsumptionUnit = ConsumptionUnit.Item };
+            var use = new ItemUseRecorded
+            {
+                SegmentId = lifecycle.CurrentSegmentId,
+                EventId = "run-use",
+                SaveGenerationId = generation,
+                RunId = lifecycle.CurrentRunId!,
+                TimestampUtc = DateTime.UtcNow,
+                MapId = lifecycle.CurrentMapId!,
+                GameplayContext = GameplayContext.Raid,
+                ItemId = "medkit",
+                DisplayName = "Medkit",
+                Group = CanonicalItemGroup.Healing,
+                ActivationCount = 1,
+                AmountConsumed = 1,
+                ConsumptionUnit = ConsumptionUnit.Item
+            };
             Assert.True(coordinator.HandleItemUse(new Core.Tracking.ItemUseCompletion(Core.Tracking.ItemUseCompletionDisposition.Counted, use)));
             Assert.True(lifecycle.RecordItemUse(use));
-            if (restored > 0) { var heal = new HealingApplied { EventId = "run-heal", ApplicationId = "application",
-                SourceSegmentId = lifecycle.CurrentSegmentId, SourceMapId = lifecycle.CurrentMapId, OutcomeSegmentId = lifecycle.CurrentSegmentId, OutcomeMapId = lifecycle.CurrentMapId, SourceItemUseEventId = use.EventId, SaveGenerationId = generation, RunId = lifecycle.CurrentRunId!, TimestampUtc = DateTime.UtcNow, MapId = lifecycle.CurrentMapId!,
-                GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing, ActualHealthRestored = restored }; coordinator.HandleHealing(heal); Assert.True(lifecycle.RecordHealing(heal)); }
+            if (restored > 0)
+            {
+                var heal = new HealingApplied
+                {
+                    EventId = "run-heal",
+                    ApplicationId = "application",
+                    SourceSegmentId = lifecycle.CurrentSegmentId,
+                    SourceMapId = lifecycle.CurrentMapId,
+                    OutcomeSegmentId = lifecycle.CurrentSegmentId,
+                    OutcomeMapId = lifecycle.CurrentMapId,
+                    SourceItemUseEventId = use.EventId,
+                    SaveGenerationId = generation,
+                    RunId = lifecycle.CurrentRunId!,
+                    TimestampUtc = DateTime.UtcNow,
+                    MapId = lifecycle.CurrentMapId!,
+                    GameplayContext = GameplayContext.Raid,
+                    ItemId = "medkit",
+                    DisplayName = "Medkit",
+                    Group = CanonicalItemGroup.Healing,
+                    ActualHealthRestored = restored
+                }; coordinator.HandleHealing(heal); Assert.True(lifecycle.RecordHealing(heal));
+            }
             if (loseCapture)
             {
                 // Drain earlier writes so the failure occurs in this capability publication.
