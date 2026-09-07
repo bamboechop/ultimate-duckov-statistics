@@ -2,6 +2,8 @@
 
 This follow-up addresses the Economy, Crafting, Item Use and Diagnostics screenshots supplied after the [initial remaining-tabs delivery](M17_REMAINING_TABS_DELIVERY.md).
 
+The subsequent [effect-filter and pause-menu correction](M17_EFFECT_FILTERS_AND_PAUSE_MENU.md) extends filtering and resolves the source of the pause-menu rejection. The delivery facts below describe the earlier correction revision.
+
 ## Changes
 
 - Section headings use visible glyph ink for their top inset and reserved height. Native font, width and horizontal padding are preserved; no visual acceptance gate is added to shell opening.

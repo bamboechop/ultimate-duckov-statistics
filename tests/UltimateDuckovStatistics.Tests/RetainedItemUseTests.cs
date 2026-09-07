@@ -210,8 +210,40 @@ public sealed class RetainedItemUseTests
         var profile = Profile(); Use(profile, "x", 5, group: CanonicalItemGroup.Food, effects: new[] { ItemEffectTag.Drink, ItemEffectTag.Food, ItemEffectTag.Buff });
         var p = Present(profile); Assert.Equal(5, p.Groups.Sum(group => group.Count));
         Assert.Equal("Food, Drink, Buff", Assert.Single(p.Items).Effects);
-        var selection = Select(p); selection.SelectFilter("g", CanonicalItemGroup.Drink); Assert.Empty(selection.VisibleItems);
+        var selection = Select(p); selection.SelectFilter("g", CanonicalItemGroup.Drink); Assert.Single(selection.VisibleItems);
+        selection.SelectFilter("g", CanonicalItemGroup.StimulantBuff); Assert.Single(selection.VisibleItems);
         selection.SelectFilter("g", CanonicalItemGroup.Food); Assert.Single(selection.VisibleItems);
+    }
+
+    [Theory]
+    [InlineData(CanonicalItemGroup.Healing, ItemEffectTag.Healing)]
+    [InlineData(CanonicalItemGroup.RemedyDebuffRemoval, ItemEffectTag.DebuffRemoval)]
+    [InlineData(CanonicalItemGroup.Food, ItemEffectTag.Food)]
+    [InlineData(CanonicalItemGroup.Drink, ItemEffectTag.Drink)]
+    [InlineData(CanonicalItemGroup.StimulantBuff, ItemEffectTag.Buff)]
+    [InlineData(CanonicalItemGroup.Special, ItemEffectTag.Special)]
+    [InlineData(CanonicalItemGroup.Special, ItemEffectTag.Throwable)]
+    public void EffectFiltersUseRecordedTagsIndependentlyOfLocalizedText(CanonicalItemGroup group, ItemEffectTag tag)
+    {
+        var profile = Profile();
+        Use(profile, "effect", group: CanonicalItemGroup.OtherUnknown, effects: tag);
+        Use(profile, "name-only", group: CanonicalItemGroup.OtherUnknown, name: "Buff Healing Food Drink");
+        var p = ItemUsePresentationFactory.Create(Project(profile), "g", _ => "Localized label")!;
+        var selection = Select(p); selection.SelectFilter("g", group);
+        Assert.Equal("effect", Assert.Single(selection.VisibleItems).ItemId);
+        Assert.Equal(2, p.Groups.Sum(value => value.Count));
+        Assert.Equal(2, p.Groups.Single(value => value.Group == CanonicalItemGroup.OtherUnknown).Count);
+    }
+
+    [Fact]
+    public void EffectFilterSnapshotIsDetachedFromLaterRecordedTagChanges()
+    {
+        var profile = Profile(); Use(profile, "effect", group: CanonicalItemGroup.Food, effects: ItemEffectTag.Buff);
+        var selection = Select(Present(profile)); selection.SelectFilter("g", CanonicalItemGroup.StimulantBuff);
+        profile.Statistics.Items["effect"].EffectTags.Clear();
+        Assert.Single(selection.VisibleItems);
+        selection.Refresh(Present(profile));
+        Assert.Empty(selection.VisibleItems);
     }
 
     [Fact]

@@ -176,7 +176,7 @@ internal sealed class NativeUiIntegration : IDisposable
         {
             mainMenuAnchorWarningWritten = true;
             coordinator.ReportUiDiagnostic(
-                "M17 native main-menu entry was not injected because no version-checked Settings/Options/Mods button anchor was found; the configured hotkey remains available.",
+                "M17 native main-menu entry could not be attached; the configured hotkey remains available.",
                 "Warning");
         }
     }
@@ -203,7 +203,7 @@ internal sealed class NativeUiIntegration : IDisposable
         {
             pauseMenuAnchorWarningWritten = true;
             coordinator.ReportUiDiagnostic(
-                "M17 native base-pause entry was not injected because no version-checked Settings/Options/Mods button anchor was found; the configured hotkey remains available.",
+                "M17 native base-pause entry could not be attached; the configured hotkey remains available.",
                 "Warning");
         }
     }
@@ -232,9 +232,14 @@ internal sealed class NativeUiIntegration : IDisposable
             && candidates.Length > 1
             && candidates[0].Score == candidates[1].Score)
         {
+            coordinator.ReportUiDiagnostic("M17 native base-pause anchor selection was ambiguous between equally ranked native buttons.", "Warning");
             return false;
         }
-        if (anchor == null || anchor.transform.parent == null) return false;
+        if (anchor == null || anchor.transform.parent == null)
+        {
+            coordinator.ReportUiDiagnostic($"M17 native {surface} has no version-checked Settings/Options/Mods button anchor with a parent.", "Warning");
+            return false;
+        }
 
         try
         {
@@ -261,19 +266,14 @@ internal sealed class NativeUiIntegration : IDisposable
             ApplyLocalizedButtonText(clone);
             var iconApplied = ApplyStatisticsIcon(clone);
             clone.SetActive(true);
+            // The installed pause-menu button starts at 0x0: its native layout group
+            // supplies geometry on the next layout pass. That is not an access failure.
+            if (clone.transform.parent is RectTransform layoutRoot) LayoutRebuilder.MarkLayoutForRebuild(layoutRoot);
             var panelCanvas = clone.GetComponentsInParent<Canvas>(includeInactive: false)
                 .Where(IsUsablePanelCanvas)
                 .OrderByDescending(ScorePanelCanvas)
                 .FirstOrDefault();
             if (IsUsablePanelCanvas(panelCanvas)) panelCanvases[surface] = panelCanvas;
-            if (!HasUsableButtonStructure(button))
-            {
-                UnityEngine.Object.Destroy(clone);
-                coordinator.ReportUiDiagnostic(
-                    $"M17 native {surface} entry was rejected because its cloned native button had no usable raycast target or layout geometry.",
-                    "Warning");
-                return false;
-            }
             injectedByRoot[rootId] = clone;
             coordinator.ReportUiDiagnostic(
                 $"M17 native {surface} statistics entry attached; activation has not yet been observed. " +
@@ -297,16 +297,6 @@ internal sealed class NativeUiIntegration : IDisposable
         else if (surface == PanelAccessSurface.BasePauseMenu)
             BasePauseMenuState = NativeMenuIntegrationState.Available;
         coordinator.ReportUiDiagnostic($"M17 native {surface} statistics entry activation observed.");
-    }
-
-    private static bool HasUsableButtonStructure(Button button)
-    {
-        return button != null
-               && button.targetGraphic != null
-               && button.targetGraphic.raycastTarget
-               && button.transform is RectTransform rectTransform
-               && rectTransform.rect.width > 1f
-               && rectTransform.rect.height > 1f;
     }
 
     private static bool IsUsablePanelCanvas(Canvas? canvas)

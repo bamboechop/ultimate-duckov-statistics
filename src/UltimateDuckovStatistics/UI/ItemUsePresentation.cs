@@ -39,14 +39,26 @@ internal sealed class ItemUseEntry
     public CanonicalItemGroup Group { get; }
     public string GroupName { get; }
     public string Effects { get; }
+    public IReadOnlyCollection<ItemEffectTag> EffectTags { get; }
     public long Count { get; }
     public ItemUseValue Uses { get; }
     public ItemUseValue Amount { get; }
     public ItemUseValue Health { get; }
     public ItemUseEntry(string id, string name, CanonicalItemGroup group, string groupName, string effects,
-        long count, ItemUseValue uses, ItemUseValue amount, ItemUseValue health)
+        long count, ItemUseValue uses, ItemUseValue amount, ItemUseValue health, IEnumerable<ItemEffectTag>? effectTags = null)
     { ItemId = id; Name = name; Group = group; GroupName = groupName; Effects = effects;
-        Count = count; Uses = uses; Amount = amount; Health = health; }
+        Count = count; Uses = uses; Amount = amount; Health = health;
+        EffectTags = Array.AsReadOnly(effectTags?.Distinct().ToArray() ?? Array.Empty<ItemEffectTag>()); }
+    public bool Matches(CanonicalItemGroup group) => Group == group || EffectTags.Any(tag => group switch
+    {
+        CanonicalItemGroup.Healing => tag == ItemEffectTag.Healing,
+        CanonicalItemGroup.RemedyDebuffRemoval => tag == ItemEffectTag.DebuffRemoval,
+        CanonicalItemGroup.Food => tag == ItemEffectTag.Food,
+        CanonicalItemGroup.Drink => tag == ItemEffectTag.Drink,
+        CanonicalItemGroup.StimulantBuff => tag == ItemEffectTag.Buff,
+        CanonicalItemGroup.Special => tag is ItemEffectTag.Special or ItemEffectTag.Throwable,
+        _ => false
+    });
 }
 internal sealed class ItemUseGroup
 {
@@ -176,7 +188,7 @@ internal static class ItemUsePresentationFactory
         return new ItemUseEntry(id, StatisticsPanelProjectionFactory.StableDisplayName(name, id), group, GroupName(group, t),
             tags.Length == 0 ? t("ui.unavailable") : string.Join(", ", tags.Select(tag => EffectName(tag, t))),
             totals.ActivationCount, Count(totals.ActivationCount, supported, repaired, t), Amount(totals, supported, repaired, t),
-            Number(totals.ActualHealthRestored, health, repaired, t));
+            Number(totals.ActualHealthRestored, health, repaired, t), tags);
     }
     internal static string GroupName(CanonicalItemGroup group, Func<string, string> t) =>
         Enum.IsDefined(typeof(CanonicalItemGroup), group) ? t("ui.item_use_group_" + group.ToString().ToLowerInvariant()) : t("ui.unavailable");

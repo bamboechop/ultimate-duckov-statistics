@@ -34,7 +34,7 @@ internal sealed class ItemUseSelection
         Filter = group; return true;
     }
     public bool Expanded(string id) => expanded.Contains(id);
-    public IEnumerable<ItemUseEntry> VisibleItems => Snapshot?.Items.Where(item => !Filter.HasValue || item.Group == Filter)
+    public IEnumerable<ItemUseEntry> VisibleItems => Snapshot?.Items.Where(item => !Filter.HasValue || item.Matches(Filter.Value))
         ?? Enumerable.Empty<ItemUseEntry>();
     private string Key(string region) => region == "left" ? region + ":" + (Filter?.ToString() ?? "all") : region;
     public void Capture(string region, float offset)
