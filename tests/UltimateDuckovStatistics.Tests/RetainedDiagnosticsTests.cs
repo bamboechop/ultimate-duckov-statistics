@@ -203,6 +203,39 @@ public sealed class RetainedDiagnosticsTests
         Assert.All(p.Issues, issue => Assert.NotEmpty(issue.Timestamp));
     }
 
+    [Fact]
+    public void RepeatedStorageReportsGroupAcrossSecondsWithoutRemovingTechnicalEvidence()
+    {
+        var runtime = Runtime();
+        runtime.Entries = Enumerable.Range(0, 7).Select(i => new DiagnosticEntry {
+            TimestampUtc = Now.AddSeconds(i / 4), Severity = "Error",
+            Message = i % 2 == 0 ? "Failed to persist profile: disk full" : "Profile flush failed: disk full"
+        }).ToArray();
+        var p = Present(Profile(), runtime);
+        var issue = Assert.Single(p.Issues);
+        Assert.Equal(7, issue.ReportCount);
+        Assert.Equal(DiagnosticsPresentationFactory.Timestamp(Now.AddSeconds(1)), issue.Timestamp);
+        Assert.Equal(7, p.Log.Count);
+        var selection = new DiagnosticsSelection(); selection.Refresh(p); selection.Toggle("g", "issue:" + issue.Id);
+        runtime.Entries = runtime.Entries.Append(Entry(2, "Error", "Failed to persist profile: disk full")).ToArray();
+        selection.Refresh(Present(Profile(), runtime));
+        Assert.True(selection.Expanded("issue:" + issue.Id));
+        Assert.Equal(8, Assert.Single(selection.Snapshot!.Issues).ReportCount);
+    }
+
+    [Fact]
+    public void GroupingKeepsDifferentGuidanceAndSeveritySeparateAndCapsAfterGrouping()
+    {
+        var runtime = Runtime();
+        runtime.Entries = Enumerable.Range(0, 20).Select(i => Entry(i, "Error", "Failed to persist profile: retry"))
+            .Concat(new[] { Entry(21, "Warning", "Failed to persist profile: retry"),
+                Entry(22, "Error", "M17 UI export failed: denied"), Entry(23, "Warning", "different warning") }).ToArray();
+        var p = Present(Profile(), runtime);
+        Assert.Equal(4, p.Issues.Count); Assert.Equal(23, p.Log.Count);
+        Assert.Contains(p.Issues, issue => issue.ReportCount == 20 && issue.Severity == "Error");
+        Assert.Contains(p.Issues, issue => issue.ReportCount == 1 && issue.Detail.Contains("different warning", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("M17 UI reset failed; previous profile remains active: denied", "existing UDS profile remains active")]
     [InlineData("User reset failed with the original generation preserved: archive denied", "existing UDS profile remains active")]
@@ -322,7 +355,9 @@ public sealed class RetainedDiagnosticsTests
     {
         var runtime = Runtime(); runtime.Entries = new[] { Entry(1, "Warning", "first") };
         var p = Present(Profile(), runtime); var selection = new DiagnosticsSelection(); selection.Refresh(p);
-        Assert.True(selection.Expanded("technical")); Assert.True(selection.Expanded("issue:" + p.Issues[0].Id));
+        Assert.True(selection.Expanded("technical")); Assert.False(selection.Expanded("issue:" + p.Issues[0].Id));
+        Assert.False(selection.Expanded("recovery")); Assert.False(selection.Expanded("limitations")); Assert.False(selection.Expanded("log"));
+        Assert.True(selection.Toggle("g", "issue:" + p.Issues[0].Id));
         Assert.True(selection.Toggle("g", "system:economy")); Assert.True(selection.Toggle("g", "contracts:economy"));
         Assert.True(selection.Filter("g", DiagnosticsLogFilter.Errors));
         selection.Capture("left", 900); selection.Capture("right", 200);

@@ -311,8 +311,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         PanelOperationController operations,
         Action changeHotkey,
         Action cancelHotkey,
-        Action copyExportPath,
-        Action copyDataPath,
+        Func<bool> copyExportPath,
+        Func<bool> copyDataPath,
         Action<StatisticsPanelTab> selectTab,
         Action close,
         out string? error)

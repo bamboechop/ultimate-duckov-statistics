@@ -2,6 +2,8 @@
 
 Diagnostics is mounted in the shipped retained shell after Item Use. It presents the current generation's recorded capability inventory, save receipt and recovery result, native menu observations, and bounded diagnostic entries. Opening, layout, scrolling and refresh do not read or write profile files. The controller polls operation completion on the main thread even when the panel is closed.
 
+Recent issues group repeated severity/category/guidance into at most 12 entries, showing the latest timestamp and report count from the newest 50 log records. All left-side accordions except Technical details initially stay collapsed. Clipboard results appear in a local tooltip above the panel. See [Diagnostics and base-access corrections](M17_DIAGNOSTICS_ACCESS_CORRECTIONS.md) for evidence and verification boundaries.
+
 ## Accepted states and production sources
 
 | Reference section/state | Production source and implemented behavior |

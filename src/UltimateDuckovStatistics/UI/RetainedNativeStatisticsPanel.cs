@@ -317,23 +317,23 @@ internal sealed class NativeStatisticsPanel : IDisposable
         catch (Exception) { return false; }
     }
 
-    private void CopyExportPath()
+    private bool CopyExportPath()
     {
         var path = operations.LastNotice?.Path;
-        if (!operations.CanStart || string.IsNullOrWhiteSpace(path)) return;
-        if (TryCopyPath(path!)) nativeUi.ShowToast(UiText.Get("ui.diag_copied"));
+        if (!operations.CanStart || string.IsNullOrWhiteSpace(path)) return false;
+        if (TryCopyPath(path!)) return true;
         else
         {
             coordinator.ReportUiDiagnostic("M17 UI clipboard unavailable while copying the completed export location.", "Warning");
             nativeUi.ShowToast(UiText.Get("ui.diag_export_clipboard"));
             diagnosticsRevision = -1;
+            return false;
         }
     }
 
-    private void CopyDataPath()
+    private bool CopyDataPath()
     {
-        if (!operations.CanStart) return;
-        nativeUi.ShowToast(UiText.Get(TryCopyPath(coordinator.DataRoot) ? "ui.diag_copied" : "ui.diag_export_clipboard"));
+        return operations.CanStart && TryCopyPath(coordinator.DataRoot);
     }
 
     private void BeginHotkeyCapture()

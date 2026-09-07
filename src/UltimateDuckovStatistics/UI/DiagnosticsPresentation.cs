@@ -65,8 +65,9 @@ internal sealed class DiagnosticsIssue
     public string Detail { get; }
     public string Severity { get; }
     public string Timestamp { get; }
-    public DiagnosticsIssue(string id, string title, string detail, string severity, string timestamp = "")
-    { Id = id; Title = title; Detail = detail; Severity = severity; Timestamp = timestamp; }
+    public int ReportCount { get; }
+    public DiagnosticsIssue(string id, string title, string detail, string severity, string timestamp = "", int reportCount = 1)
+    { Id = id; Title = title; Detail = detail; Severity = severity; Timestamp = timestamp; ReportCount = reportCount; }
 }
 internal sealed class DiagnosticsLogEntry
 {
@@ -187,13 +188,16 @@ internal static class DiagnosticsPresentationFactory
             issues.Add(new DiagnosticsIssue("capability:" + system.Id, system.Name + " · " + t("ui.diag_tracking_unavailable"),
                 string.Format(CultureInfo.CurrentCulture, t("ui.diag_affected_metrics"), affected) + "\n" + t("ui.diag_tracking_recovery"), "Error"));
         }
-        foreach (var entry in entries.Where(e => IsIssue(e.Severity)
+        var issueGroups = entries.Where(e => IsIssue(e.Severity)
             && !e.Message.StartsWith("Duplicate ", StringComparison.OrdinalIgnoreCase)
-            && !IsDeferredResetMessage(e.Message)))
+            && !IsDeferredResetMessage(e.Message))
+            .Select(e => (Entry: e, Display: IssueText(e.Message, runtime.Hotkey, t)))
+            .GroupBy(e => (Severity: e.Entry.Severity.ToUpperInvariant(), e.Display.Title, e.Display.Detail));
+        foreach (var group in issueGroups)
         {
-            var (title, detail) = IssueText(entry.Message, runtime.Hotkey, t);
-            issues.Add(new DiagnosticsIssue("log:" + entry.TimestampUtc.Ticks.ToString(CultureInfo.InvariantCulture) + ":" + entry.Message,
-                title, detail, entry.Severity, Timestamp(entry.TimestampUtc)));
+            var latest = group.First().Entry;
+            issues.Add(new DiagnosticsIssue("log:" + group.Key.Severity + ":" + group.Key.Title + ":" + group.Key.Detail,
+                group.Key.Title, group.Key.Detail, latest.Severity, Timestamp(latest.TimestampUtc), group.Count()));
         }
         if (menuUnavailable && !entries.Any(e => IsIssue(e.Severity) && e.Message.StartsWith("M17 native ", StringComparison.Ordinal)))
             issues.Add(new DiagnosticsIssue("menu", t("ui.diag_menu_issue"), string.Format(CultureInfo.CurrentCulture, t("ui.diag_menu_issue_detail"), runtime.Hotkey), "Warning"));

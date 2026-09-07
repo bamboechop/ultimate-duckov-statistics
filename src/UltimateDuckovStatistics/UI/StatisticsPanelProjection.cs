@@ -3592,6 +3592,7 @@ internal static class RetainedHeaderTitlePolicy
     public const string Name = "HeaderTitle";
     public const string Text = "Ultimate Duckov Statistics";
     public const string NativeSourcePath = "Canvas/MainMenuContainer/Menu/OptionsPanel/Text (TMP)";
+    public const string NativePauseSourcePath = "OptionsPanel/Text (TMP)";
     public const string FontAssetName = "ResourceHanRoundedCN-Medium SDF";
     public const string MaterialName = "ResourceHanRoundedCN-Medium Atlas Material Shadow";
     public const float ReferenceFontSize = 85f;

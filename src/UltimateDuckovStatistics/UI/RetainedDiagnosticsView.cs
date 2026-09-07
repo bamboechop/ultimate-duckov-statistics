@@ -27,7 +27,11 @@ internal sealed partial class RetainedStatisticsShell
         private readonly Material material;
         private readonly CombatNativeTextMeasurement measure;
         private readonly PanelOperationController operations;
-        private readonly Action changeHotkey, copyExportPath, copyDataPath, focusTabs;
+        private readonly Action changeHotkey, focusTabs;
+        private readonly Func<bool> copyExportPath, copyDataPath;
+        private readonly RectTransform copyFeedback;
+        private readonly TextMeshProUGUI copyFeedbackText;
+        private float copyFeedbackUntil;
         private readonly string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         private readonly DiagnosticsSelection selection = new();
         private readonly Dictionary<string, Element> elements = new(StringComparer.Ordinal);
@@ -46,7 +50,7 @@ internal sealed partial class RetainedStatisticsShell
         private static Color Green => new Color32(113, 192, 62, 255);
 
         public DiagnosticsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material,
-            PanelOperationController operations, Action changeHotkey, Action copyExportPath, Action copyDataPath, Action focusTabs)
+            PanelOperationController operations, Action changeHotkey, Func<bool> copyExportPath, Func<bool> copyDataPath, Action focusTabs)
         {
             this.typography = typography; this.material = material; this.operations = operations;
             this.changeHotkey = changeHotkey; this.copyExportPath = copyExportPath; this.copyDataPath = copyDataPath; this.focusTabs = focusTabs;
@@ -58,6 +62,12 @@ internal sealed partial class RetainedStatisticsShell
             measure = new CombatNativeTextMeasurement(CreateText(root, "Measurement", 28));
             unavailable = CreateText(root, "Unavailable", 30);
             unavailable.text = UiText.Get("ui.profile_unavailable");
+            copyFeedback = Node(root, "CopyFeedback");
+            copyFeedback.gameObject.AddComponent<ProceduralImage>().color = new Color(0, 0, 0, .95f);
+            copyFeedback.gameObject.GetComponent<ProceduralImage>().raycastTarget = false;
+            copyFeedback.gameObject.AddComponent<UniformModifier>().Radius = 10;
+            copyFeedbackText = CreateText(copyFeedback, "Message", 23);
+            copyFeedback.gameObject.SetActive(false);
         }
         private void ConfigureScroll(ScrollRegion scroll, List<string>? buttons)
         {
@@ -75,7 +85,8 @@ internal sealed partial class RetainedStatisticsShell
         {
             if (disposed) return;
             Capture(); RememberFocus();
-            if (next == null || next.GenerationId != selection.Snapshot?.GenerationId) restoreFocus = null;
+            if (next == null || next.GenerationId != selection.Snapshot?.GenerationId)
+            { restoreFocus = null; copyFeedback.gameObject.SetActive(false); }
             selection.Refresh(next);
             if (next == null) foreach (var element in elements.Values) element.Rect.gameObject.SetActive(false);
             outer.Rect.gameObject.SetActive(next != null); unavailable.gameObject.SetActive(next == null);
@@ -83,7 +94,7 @@ internal sealed partial class RetainedStatisticsShell
             if (focused != null && focused.transform.IsChildOf(root) && !focused.activeInHierarchy) focusTabs();
             dirty = true;
         }
-        public void SetVisible(bool visible) { if (!visible) Capture(); root.gameObject.SetActive(visible); }
+        public void SetVisible(bool visible) { if (!visible) { Capture(); copyFeedback.gameObject.SetActive(false); } root.gameObject.SetActive(visible); }
         private void Capture()
         {
             if (dirty || selection.Snapshot == null) return;
@@ -170,7 +181,7 @@ internal sealed partial class RetainedStatisticsShell
             var copyDataHeight = Math.Max(45, measure.Height(copyDataText, copyDataWidth - 40, 23) + 16);
             var dataHeight = Value(settings, "data", new DiagnosticsValue(UiText.Get("ui.data_path"), "…/UltimateDuckovStatistics"), 30, y, w - 80 - copyDataWidth);
             Button(settings, "action:copy-data", copyDataText, w - 30 - copyDataWidth, y, copyDataWidth, copyDataHeight,
-                Blue, copyDataPath, false, operations.CanStart, 23, true, 23);
+                Blue, () => ShowCopyFeedback(copyDataPath, "action:copy-data"), false, operations.CanStart, 23, true, 23);
             y += Math.Max(dataHeight, copyDataHeight) + 10;
             var hotkeyLabel = UiText.Get("ui.diag_hotkey_hint");
             var chipWidth = Math.Min(w - 60, Math.Max(68, measure.Width(snapshot.Hotkey, 28) + 40));
@@ -200,7 +211,7 @@ internal sealed partial class RetainedStatisticsShell
                     y += Label(settings, "operation:path", DiagnosticsPathPrivacy.ShortPath(notice.Path), 30, y, w - 60, 22) + 10;
                     var copy = UiText.Get("ui.diag_copy_path");
                     var bw = Math.Min(w - 60, measure.Width(copy, 23) + 40); var bh = Math.Max(45, measure.Height(copy, bw - 40, 23) + 16);
-                    Button(settings, "action:copy", copy, 30, y, bw, bh, Blue, copyExportPath, false, operations.CanStart, 23, true, 23); y += bh + 10;
+                    Button(settings, "action:copy", copy, 30, y, bw, bh, Blue, () => ShowCopyFeedback(copyExportPath, "action:copy"), false, operations.CanStart, 23, true, 23); y += bh + 10;
                 }
             }
             Place(settings, 0, 0, w, y + 10);
@@ -212,7 +223,8 @@ internal sealed partial class RetainedStatisticsShell
             foreach (var issue in snapshot.Issues)
             {
                 var key = "issue:" + issue.Id; var group = Panel(issues, key + ":panel", 10);
-                var title = issue.Title + (issue.Timestamp.Length > 0 ? "   " + issue.Timestamp : "");
+                var title = issue.Title + (issue.ReportCount > 1 ? " · " + string.Format(System.Globalization.CultureInfo.CurrentCulture, UiText.Get("ui.diag_report_count"), issue.ReportCount) : "")
+                    + (issue.Timestamp.Length > 0 ? "   " + issue.Timestamp : "");
                 var expanded = selection.Expanded(key);
                 var header = Accordion(group, key, title, UiText.Get(issue.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase) ? "ui.error" : "ui.diag_warning"),
                     0, 0, w - 60, 30, false, issue.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase) ? Red : Color.white);
@@ -416,7 +428,26 @@ internal sealed partial class RetainedStatisticsShell
         { var r = (RectTransform)new GameObject(name, typeof(RectTransform)).transform; r.SetParent(parent, false); r.anchorMin = r.anchorMax = r.pivot = new Vector2(0, 1); return r; }
         private static void Place(RectTransform rect, float x, float y, float w, float h)
         { rect.anchoredPosition = new Vector2(x, -y); rect.sizeDelta = new Vector2(Math.Max(1, w), Math.Max(1, h)); }
-        public void Tick() { if (!root.gameObject.activeInHierarchy) return; left.Cues(); right.Cues(); outer.Cues(); Capture(); }
+        private void ShowCopyFeedback(Func<bool> copy, string buttonId)
+        {
+            var success = copy();
+            copyFeedbackText.text = UiText.Get(success ? "ui.diag_copied" : "ui.diag_clipboard_failed");
+            copyFeedbackText.color = success ? Green : Orange;
+            var w = Math.Min(width - 40, measure.Width(copyFeedbackText.text, 23) + 32);
+            var h = measure.Height(copyFeedbackText.text, w - 32, 23) + 20;
+            var position = root.InverseTransformPoint(elements[buttonId].Rect.position);
+            Place(copyFeedback, Math.Clamp(position.x, 20, Math.Max(20, width - w - 20)),
+                Math.Clamp(-position.y - h - 8, 10, Math.Max(10, height - h - 10)), w, h);
+            Place(copyFeedbackText.rectTransform, 16, 10, w - 32, h - 20);
+            copyFeedbackUntil = Time.unscaledTime + 2.5f;
+            copyFeedback.SetAsLastSibling(); copyFeedback.gameObject.SetActive(true);
+        }
+        public void Tick()
+        {
+            if (!root.gameObject.activeInHierarchy) return;
+            if (copyFeedback.gameObject.activeSelf && Time.unscaledTime >= copyFeedbackUntil) copyFeedback.gameObject.SetActive(false);
+            left.Cues(); right.Cues(); outer.Cues(); Capture();
+        }
         public void Dispose()
         {
             if (disposed) return; disposed = true;

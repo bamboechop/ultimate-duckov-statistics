@@ -74,6 +74,7 @@ internal static class RemainingTabsText
         ["ui.economy_run_metadata"] = "Run {0} · {1} · {2}",
         ["ui.economy_current_unavailable"] = "Current tracking unavailable",
         ["ui.economy_current_limited"] = "Current tracking limited",
+        ["ui.diag_report_count"] = "{0} reports",
         ["ui.economy_incomplete"] = "Recorded values may be incomplete",
         ["ui.economy_no_flows"] = "No recorded changes",
         ["ui.economy_unknown_explanation"] = "For unknown adjustments, the amount and direction are known; the reason is not.",

@@ -33,10 +33,20 @@ internal static class NativeHeaderTitleTypographyResolver
                 RetainedHeaderTitlePolicy.NativeSourcePath,
                 StringComparison.Ordinal))
             .ToArray();
+        // The main-menu scene unloads when a save is entered. The installed pause
+        // menu owns the same heading font/material under its current live instance.
+        // Resolve relative to that component, independent of prefab clone/root names.
+        if (sources.Length == 0 && PauseMenu.Instance != null)
+        {
+            var pauseHeading = PauseMenu.Instance.transform.Find(RetainedHeaderTitlePolicy.NativePauseSourcePath)
+                ?.GetComponent<TextMeshProUGUI>();
+            if (pauseHeading != null && !IsUdsObject(pauseHeading.transform))
+                sources = new[] { new { Text = pauseHeading, Path = HierarchyPath(pauseHeading.transform) } };
+        }
         if (sources.Length != 1)
         {
             error = sources.Length == 0
-                ? $"Duckov's native major-heading source '{RetainedHeaderTitlePolicy.NativeSourcePath}' was not found."
+                ? $"Duckov's native major heading was not found in the main menu or at PauseMenu/{RetainedHeaderTitlePolicy.NativePauseSourcePath}."
                 : $"Duckov exposed {sources.Length} native major-heading sources at '{RetainedHeaderTitlePolicy.NativeSourcePath}'.";
             return false;
         }

@@ -15,8 +15,7 @@ internal sealed class DiagnosticsSelection
             expanded.Clear(); offsets.Clear(); LogFilter = DiagnosticsLogFilter.All;
             if (next != null)
             {
-                expanded.UnionWith(TechnicalIds);
-                if (next.Issues.Count > 0) expanded.Add("issue:" + next.Issues[0].Id);
+                expanded.Add("technical");
             }
         }
         Snapshot = next;
