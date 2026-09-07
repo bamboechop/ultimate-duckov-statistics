@@ -38,3 +38,11 @@ The remaining manual check is button stability across several live refreshes, in
 Commit `181a081` replaces the shared highlight's fixed radius of 10 with the button background's own radius. The existing feedback component synchronizes subsequent layout changes without restarting the tint, so pill buttons and less-rounded controls retain matching hover, press, and keyboard-focus outlines.
 
 Packaged and deployed on 2026-09-07 with Duckov closed. Release tests passed 1846/1846; native build, compatibility probe, and package checks passed. All five installed files matched their package and ZIP entries. ZIP SHA-256: `77fa59e1007a9ec8c4071bb1fef0f3d100c6e3df5c8e98b2551deddff3c79212`. Native DLL SHA-256: `21e101d787a73cddbdd86be6e0cd06fa6b424a6dccdf6e524386c196da869627`. Local logs: ignored `artifacts/m17-button-shape/`. In-game outline acceptance remains user-owned.
+
+## Follow-up: backdrop, quick stats, and recent-run layout
+
+Commit `37f76c1` raises the black shell backdrop to 75%, puts Economy metric values above uppercase muted labels, and applies value-first ordering to all Item Use stat cards. Economy and Item Use recent-run headers align their chevron, badge, and map title; View run appears at the bottom right of the expanded body, outside the header's click target.
+
+The installed item 1181 (`Candy`, displayed as Lolli in the user's profile) has native energy +5, water -3, and AddBuff. UDS previously treated negative resource changes as Food/Drink effects. New observations require positive energy/hydration for those tags. Existing historical tags are retained; another use refreshes the lifetime item entry through the existing reducer.
+
+Packaged and deployed on 2026-09-07 with Duckov closed. Focused tests passed 88/88 and full Release tests 1846/1846. Native build had zero warnings/errors; compatibility and package checks passed. All five installed files matched package and ZIP hashes. ZIP SHA-256: `20456033a412de191a0ba44a69991b1f42dcb8b08c489d02fcd61c3b2afd9231`. Native DLL SHA-256: `290d26e533ff0359e7da560f46cf5b989e34723416b07ab2aa50e15a13de4bee`. Local native inspection/build/deployment evidence: ignored `artifacts/m17-layout-polish/`. In-game visual acceptance remains user-owned.
