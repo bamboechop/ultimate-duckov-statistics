@@ -1070,7 +1070,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToBackButton);
         Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToMainMenuButton);
         Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToLatestRunViewRun);
-        Assert.False(NativeButtonInteractionFeedbackPolicy.AppliesToBasePauseMenuButton);
+        Assert.True(NativeButtonInteractionFeedbackPolicy.AppliesToBasePauseMenuButton);
         Assert.True(NativeButtonInteractionFeedbackPolicy.UsesDefaultConfigurationForCreatedComponents);
     }
 
@@ -1122,7 +1122,7 @@ public sealed class StatisticsPanelProjectionTests
             isPrimaryButtonRoot: true,
             isEnabled: false,
             alreadyPreserved: false));
-        Assert.False(NativeMenuPresentationPolicy.PreservesUsableRootButtonAnimation(
+        Assert.True(NativeMenuPresentationPolicy.PreservesUsableRootButtonAnimation(
             PanelAccessSurface.BasePauseMenu,
             ButtonAnimationHierarchy,
             isPrimaryButtonRoot: true,
@@ -1138,10 +1138,10 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(
             PanelAccessSurface.MainMenu,
             ActionBehaviourHierarchy));
-        Assert.False(NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(
+        Assert.True(NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(
             PanelAccessSurface.BasePauseMenu,
             ToggleAnimationHierarchy));
-        Assert.False(NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(
+        Assert.True(NativeMenuPresentationPolicy.PreservesNativeInteractionDependency(
             PanelAccessSurface.BasePauseMenu,
             ToggleComponentHierarchy));
     }

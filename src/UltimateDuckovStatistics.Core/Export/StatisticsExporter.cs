@@ -971,8 +971,8 @@ public static class StatisticsExporter
                     .Append(Csv(row?.SlotId ?? string.Empty)).Append(',').Append(Csv(row?.SlotDisplayName ?? string.Empty)).Append(',')
                     .Append(row?.State.ToString() ?? string.Empty).Append(',').Append(Csv(row?.ItemId ?? string.Empty)).Append(',')
                     .Append(Csv(row?.ItemDisplayName ?? string.Empty)).Append(',').Append(row?.ItemKind.ToString() ?? string.Empty).Append(',')
-                    .Append((row?.ActiveDurationSeconds ?? 0).ToString("R", CultureInfo.InvariantCulture)).Append(',')
-                    .Append(observed.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append((row?.ActiveDurationSeconds ?? 0).ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(observed.ToString(CultureInfo.InvariantCulture)).Append(',')
                     .Append(statistics.Capabilities.CharacterSlotState.State).Append(',')
                     .Append(Csv(statistics.Capabilities.CharacterSlotState.Provenance)).Append(',')
                     .Append(statistics.HistoricalCharacterSlotStateUnavailable ? "true" : "false").Append(',')
@@ -1017,8 +1017,8 @@ public static class StatisticsExporter
                     .Append(Csv(row?.Path ?? string.Empty)).Append(',').Append(Csv(row?.SlotKey ?? string.Empty)).Append(',')
                     .Append(Csv(row?.SlotDisplayName ?? string.Empty)).Append(',').Append(row?.State.ToString() ?? string.Empty).Append(',')
                     .Append(Csv(row?.ItemId ?? string.Empty)).Append(',').Append(Csv(row?.ItemDisplayName ?? string.Empty)).Append(',')
-                    .Append((row?.ActiveDurationSeconds ?? 0).ToString("R", CultureInfo.InvariantCulture)).Append(',')
-                    .Append(observed.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append((row?.ActiveDurationSeconds ?? 0).ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(observed.ToString(CultureInfo.InvariantCulture)).Append(',')
                     .Append(statistics.Capabilities.NestedSlotState.State).Append(',')
                     .Append(Csv(statistics.Capabilities.NestedSlotState.Provenance)).Append(',')
                     .Append(statistics.HistoricalNestedSlotStateUnavailable ? "true" : "false").Append(',')
@@ -1047,7 +1047,7 @@ public static class StatisticsExporter
             foreach (var row in values.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal))
                 builder.Append(scope).Append(',').Append(Csv(scopeId)).Append(',').Append(kind).Append(',')
                     .Append(Csv(row.Id)).Append(',').Append(Csv(row.DisplayName)).Append(',')
-                    .Append(row.ActiveDurationSeconds.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append(row.ActiveDurationSeconds.ToString(CultureInfo.InvariantCulture)).Append(',')
                     .Append(row.RunOccurrences.ToString(CultureInfo.InvariantCulture)).AppendLine();
         }
     }
@@ -1060,7 +1060,7 @@ public static class StatisticsExporter
                      .Where(x => x.RunOccurrences >= 2)
                      .OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal))
             builder.Append(Csv(row.Id)).Append(',')
-                .Append(row.ActiveDurationSeconds.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.ActiveDurationSeconds.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(row.RunOccurrences.ToString(CultureInfo.InvariantCulture)).AppendLine();
         return builder.ToString();
     }

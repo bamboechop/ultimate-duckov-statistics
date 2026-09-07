@@ -26,6 +26,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private bool priorCursorVisible;
     private CursorLockMode priorCursorLockMode;
     private GameObject? priorSelectedGameObject;
+    private GameObject? inputBlockSource;
+    private InputManager? blockedInputManager;
     private string presentedGeneration = string.Empty;
     private bool projectionDirty;
     private StatisticsPanelProjection? presentedProjection;
@@ -171,8 +173,14 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
         if (lifecycle.IsOpen)
         {
-            shell.SetSelectedTab(interaction.SelectedTab);
-            return;
+            if (surface != PanelAccessSurface.BasePauseMenu || openSurface == surface)
+            {
+                shell.SetSelectedTab(interaction.SelectedTab);
+                return;
+            }
+            // A hotkey-opened shell can belong to the gameplay canvas, below the
+            // pause menu. Reopen on the activated menu's canvas instead of hiding there.
+            Close();
         }
 
         if (!nativeUi.TryResolvePanelCanvas(surface, out var canvas) || canvas == null)
@@ -398,6 +406,13 @@ internal sealed class NativeStatisticsPanel : IDisposable
         priorCursorLockMode = Cursor.lockState;
         priorSelectedGameObject = GameManager.EventSystem?.currentSelectedGameObject;
         cursorStateCaptured = true;
+        UIInputManager.OnCancelEarly += ConsumeNativeCancel;
+        blockedInputManager = LevelManager.Instance?.InputManager;
+        if (blockedInputManager != null)
+        {
+            inputBlockSource = new GameObject("UDS native menu input owner");
+            InputManager.DisableInput(inputBlockSource);
+        }
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
         GameManager.EventSystem?.SetSelectedGameObject(null);
@@ -405,6 +420,16 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
     private void RestoreFocusAndCursor()
     {
+        UIInputManager.OnCancelEarly -= ConsumeNativeCancel;
+        if (inputBlockSource != null)
+        {
+            // Release only our native blocker; other open menus retain their ownership.
+            if (blockedInputManager != null && LevelManager.Instance?.InputManager == blockedInputManager)
+                InputManager.ActiveInput(inputBlockSource);
+            UnityEngine.Object.Destroy(inputBlockSource);
+            inputBlockSource = null;
+            blockedInputManager = null;
+        }
         if (!cursorStateCaptured) return;
         Cursor.visible = priorCursorVisible;
         Cursor.lockState = priorCursorLockMode;
@@ -422,6 +447,11 @@ internal sealed class NativeStatisticsPanel : IDisposable
         }
         priorSelectedGameObject = null;
         cursorStateCaptured = false;
+    }
+
+    private void ConsumeNativeCancel(UIInputEventData eventData)
+    {
+        if (cursorStateCaptured) eventData.Use();
     }
 
     private void LoadSettings()

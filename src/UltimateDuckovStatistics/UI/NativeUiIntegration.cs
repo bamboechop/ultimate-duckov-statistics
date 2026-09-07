@@ -252,7 +252,7 @@ internal sealed class NativeUiIntegration : IDisposable
             clone.name = "UltimateDuckovStatisticsButton";
             clone.transform.SetSiblingIndex(Math.Min(anchor.transform.GetSiblingIndex() + 1, clone.transform.parent.childCount - 1));
             var removedActionBehaviours = RemoveInheritedActionBehaviours(clone, button, surface);
-            if (surface == PanelAccessSurface.MainMenu)
+            if (surface == PanelAccessSurface.MainMenu || surface == PanelAccessSurface.BasePauseMenu)
             {
                 NativeButtonInteractionFeedbackPolicy.AttachIfMissing(
                     clone,

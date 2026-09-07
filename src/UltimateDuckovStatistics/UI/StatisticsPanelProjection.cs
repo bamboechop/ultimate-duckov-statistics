@@ -118,7 +118,7 @@ internal static class NativeMenuPresentationPolicy
         IEnumerable<string?> typeHierarchy)
     {
         if (typeHierarchy == null) throw new ArgumentNullException(nameof(typeHierarchy));
-        if (surface != PanelAccessSurface.MainMenu) return false;
+        if (surface != PanelAccessSurface.MainMenu && surface != PanelAccessSurface.BasePauseMenu) return false;
 
         return typeHierarchy.Any(typeName =>
             string.Equals(typeName, ToggleAnimationTypeName, StringComparison.Ordinal)
@@ -132,7 +132,7 @@ internal static class NativeMenuPresentationPolicy
         bool isEnabled,
         bool alreadyPreserved)
     {
-        return surface == PanelAccessSurface.MainMenu
+        return (surface == PanelAccessSurface.MainMenu || surface == PanelAccessSurface.BasePauseMenu)
                && isPrimaryButtonRoot
                && isEnabled
                && !alreadyPreserved
@@ -605,7 +605,7 @@ internal static class NativeButtonInteractionFeedbackPolicy
     public const bool AppliesToBackButton = true;
     public const bool AppliesToMainMenuButton = true;
     public const bool AppliesToLatestRunViewRun = true;
-    public const bool AppliesToBasePauseMenuButton = false;
+    public const bool AppliesToBasePauseMenuButton = true;
     public const bool UsesDefaultConfigurationForCreatedComponents = true;
 
     public static void AttachIfMissing<TTarget>(

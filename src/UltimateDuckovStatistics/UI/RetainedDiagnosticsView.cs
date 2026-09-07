@@ -32,6 +32,10 @@ internal sealed partial class RetainedStatisticsShell
         private readonly RectTransform copyFeedback;
         private readonly TextMeshProUGUI copyFeedbackText;
         private float copyFeedbackUntil;
+        private readonly RectTransform operationFeedback;
+        private readonly TextMeshProUGUI operationFeedbackText;
+        private PanelOperationNotice? shownOperationNotice;
+        private float operationFeedbackUntil;
         private readonly string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         private readonly DiagnosticsSelection selection = new();
         private readonly Dictionary<string, Element> elements = new(StringComparer.Ordinal);
@@ -53,6 +57,7 @@ internal sealed partial class RetainedStatisticsShell
             PanelOperationController operations, Action changeHotkey, Func<bool> copyExportPath, Func<bool> copyDataPath, Action focusTabs)
         {
             this.typography = typography; this.material = material; this.operations = operations;
+            shownOperationNotice = operations.LastNotice;
             this.changeHotkey = changeHotkey; this.copyExportPath = copyExportPath; this.copyDataPath = copyDataPath; this.focusTabs = focusTabs;
             root = Node(parent, "DiagnosticsContentView");
             outer = new ScrollRegion(root, "DiagnosticsOuter", radius: 20); RoundedMask(outer);
@@ -68,6 +73,11 @@ internal sealed partial class RetainedStatisticsShell
             copyFeedback.gameObject.AddComponent<UniformModifier>().Radius = 10;
             copyFeedbackText = CreateText(copyFeedback, "Message", 23);
             copyFeedback.gameObject.SetActive(false);
+            operationFeedback = Node(root, "OperationFeedback");
+            operationFeedback.gameObject.AddComponent<ProceduralImage>().raycastTarget = false;
+            operationFeedback.gameObject.AddComponent<UniformModifier>().Radius = 20;
+            operationFeedbackText = CreateText(operationFeedback, "Message", 28);
+            operationFeedback.gameObject.SetActive(false);
         }
         private void ConfigureScroll(ScrollRegion scroll, List<string>? buttons)
         {
@@ -86,7 +96,7 @@ internal sealed partial class RetainedStatisticsShell
             if (disposed) return;
             Capture(); RememberFocus();
             if (next == null || next.GenerationId != selection.Snapshot?.GenerationId)
-            { restoreFocus = null; copyFeedback.gameObject.SetActive(false); }
+            { restoreFocus = null; copyFeedback.gameObject.SetActive(false); operationFeedback.gameObject.SetActive(false); }
             selection.Refresh(next);
             if (next == null) foreach (var element in elements.Values) element.Rect.gameObject.SetActive(false);
             outer.Rect.gameObject.SetActive(next != null); unavailable.gameObject.SetActive(next == null);
@@ -445,6 +455,31 @@ internal sealed partial class RetainedStatisticsShell
         public void Tick()
         {
             if (!root.gameObject.activeInHierarchy) return;
+            var notice = operations.LastNotice;
+            if (notice != shownOperationNotice)
+            {
+                shownOperationNotice = notice;
+                if (notice != null && (notice.Outcome == PanelOperationOutcome.Success
+                    || notice.Outcome == PanelOperationOutcome.Failure || notice.Outcome == PanelOperationOutcome.ClipboardUnavailable))
+                {
+                    operationFeedbackText.text = notice.Outcome == PanelOperationOutcome.Failure
+                        ? UiText.Get(notice.Operation == PanelOperation.Export ? "ui.diag_export_failed_toast" : "ui.diag_reset_failed_toast")
+                        : OperationText(notice);
+                    operationFeedback.gameObject.GetComponent<ProceduralImage>().color = notice.Outcome == PanelOperationOutcome.Failure
+                        ? Red : notice.Outcome == PanelOperationOutcome.Success ? Green : Orange;
+                    operationFeedbackUntil = Time.unscaledTime + 7;
+                    operationFeedback.gameObject.SetActive(true);
+                }
+            }
+            if (operationFeedback.gameObject.activeSelf)
+            {
+                var w = Math.Min(Math.Min(width, 960), measure.Width(operationFeedbackText.text, 28) + 56);
+                var h = measure.Height(operationFeedbackText.text, w - 56, 28) + 40;
+                Place(operationFeedback, 0, Math.Max(0, height - h), w, h);
+                Place(operationFeedbackText.rectTransform, 28, 20, w - 56, h - 40);
+                operationFeedback.SetAsLastSibling();
+                if (Time.unscaledTime >= operationFeedbackUntil) operationFeedback.gameObject.SetActive(false);
+            }
             if (copyFeedback.gameObject.activeSelf && Time.unscaledTime >= copyFeedbackUntil) copyFeedback.gameObject.SetActive(false);
             left.Cues(); right.Cues(); outer.Cues(); Capture();
         }

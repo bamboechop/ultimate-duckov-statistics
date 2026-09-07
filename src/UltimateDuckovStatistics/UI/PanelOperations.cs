@@ -106,7 +106,7 @@ internal sealed class PanelOperationController : IDisposable
             var completedTask = exportTask; exportTask = null;
             ProfileExportResult result;
             try { result = completedTask.GetAwaiter().GetResult(); }
-            catch (Exception exception) { Finish(PanelOperationOutcome.Failure, detail: exception.GetType().Name + ": " + exception.Message); return; }
+            catch (Exception exception) { Finish(PanelOperationOutcome.Failure, detail: exception.ToString()); return; }
             bool copied;
             var clipboardDetail = "";
             try { copied = clipboard(result.Directory); }
