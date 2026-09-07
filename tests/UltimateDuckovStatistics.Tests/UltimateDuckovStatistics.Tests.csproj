@@ -133,6 +133,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHealingAttributionAdapter.cs" Link="ProductionAdapters\NativeHealingAttributionAdapter.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHealingCapabilityPublication.cs" Link="ProductionAdapters\NativeHealingCapabilityPublication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\HealingHarmonyBridge.cs" Link="ProductionAdapters\HealingHarmonyBridge.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\IHealingAttributionObserver.cs" Link="ProductionAdapters\IHealingAttributionObserver.cs" />
   </ItemGroup>

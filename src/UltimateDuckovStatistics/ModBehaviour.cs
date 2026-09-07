@@ -613,7 +613,6 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void SetHealingCapability(Core.Persistence.CapabilityRecord capability)
     {
-        profileCoordinator?.SetHealingCapability(capability);
-        runLifecycleAdapter.OwnedValue?.SetHealingCapability(capability);
+        NativeHealingCapabilityPublication.Publish(capability, runLifecycleAdapter.OwnedValue, profileCoordinator);
     }
 }

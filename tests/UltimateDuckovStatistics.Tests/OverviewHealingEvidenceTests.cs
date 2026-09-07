@@ -79,11 +79,13 @@ public sealed class OverviewHealingEvidenceTests
 
 
     [Theory]
-    [InlineData(true, false, 0, "Unavailable")]
-    [InlineData(false, true, 12.5, "12.5 (partial; recorded values only)")]
-    [InlineData(false, false, 0, "0")]
-    [InlineData(false, false, 12.5, "12.5")]
-    public void CompletedRunRetainsHealingCaptureEvidenceAfterReload(bool disabledAtStart, bool loseCapture, double restored, string expected)
+    [InlineData(true, false, 0, "Unavailable", false)]
+    [InlineData(false, true, 12.5, "12.5 (partial; recorded values only)", false)]
+    [InlineData(false, true, 12.5, "12.5 (partial; recorded values only)", true)]
+    [InlineData(false, true, 0, "Unavailable", true)]
+    [InlineData(false, false, 0, "0", false)]
+    [InlineData(false, false, 12.5, "12.5", false)]
+    public void CompletedRunRetainsHealingCaptureEvidenceAfterReload(bool disabledAtStart, bool loseCapture, double restored, string expected, bool lockPersistence)
     {
         var originalPath = Application.persistentDataPath;
         var originalSlot = Saves.SavesSystem.CurrentSlot;
@@ -111,7 +113,7 @@ public sealed class OverviewHealingEvidenceTests
                 coordinator.HandleRunCheckpoint, coordinator.HandleRunCompleted, coordinator.SetRunCapabilities, messages.Add,
                 checkpointCompletionPoller: coordinator.PollRunCheckpoint, checkpointCompletionFlusher: coordinator.FlushRunCheckpoint,
                 monotonicSecondsProvider: () => now);
-            void Publish(Core.Persistence.CapabilityRecord cap) { coordinator.SetHealingCapability(cap); lifecycle.SetHealingCapability(cap); }
+            void Publish(Core.Persistence.CapabilityRecord cap) => NativeHealingCapabilityPublication.Publish(cap, lifecycle, coordinator);
             void ForeignPatch() => new HarmonyLib.Harmony("foreign-healing-run").Patch(typeof(Health).GetMethod(nameof(Health.AddHealth))!,
                 prefix: new HarmonyLib.HarmonyMethod(typeof(OverviewHealingEvidenceTests).GetMethod(nameof(ForeignPrefix), BindingFlags.NonPublic | BindingFlags.Static)!), postfix: null, transpiler: null, finalizer: null);
             if (disabledAtStart) ForeignPatch();
@@ -131,8 +133,18 @@ public sealed class OverviewHealingEvidenceTests
                 GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing, ActualHealthRestored = restored }; coordinator.HandleHealing(heal); Assert.True(lifecycle.RecordHealing(heal)); }
             if (loseCapture)
             {
+                // Drain earlier writes so the failure occurs in this capability publication.
+                coordinator.Flush();
                 ForeignPatch();
-                typeof(NativeHealingAttributionAdapter).GetMethod("InspectNextPatchStamp", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(adapter, new object[] { DateTime.UtcNow.AddSeconds(10) });
+                void Inspect() => typeof(NativeHealingAttributionAdapter).GetMethod("InspectNextPatchStamp", BindingFlags.NonPublic | BindingFlags.Instance)!
+                    .Invoke(adapter, new object[] { DateTime.UtcNow.AddSeconds(10) });
+                if (lockPersistence)
+                {
+                    using var locked = new FileStream(coordinator.CurrentProfilePath, FileMode.Open, FileAccess.Read, FileShare.None);
+                    var failure = Assert.Throws<TargetInvocationException>(Inspect);
+                    Assert.IsAssignableFrom<IOException>(failure.InnerException);
+                }
+                else Inspect();
                 Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.Capability.State);
                 // A later availability recovery must not erase this run's gap.
                 lifecycle.SetHealingCapability(new() { State = AdapterCapabilityState.Supported });
