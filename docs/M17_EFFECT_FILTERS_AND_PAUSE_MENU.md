@@ -28,4 +28,4 @@ Limited Money source/context and raid Cash acquisition metrics have working, int
 
 The complete Debug and Release suites each passed **1844/1844**, with zero failures or skips. The installed-native Release build passed with zero warnings/errors. Filter tests cover every mapped effect, unchanged primary-group totals, localization independence and detached snapshots. The native menu correction is supported by the installed prefab and recorded rejection path; live activation remains a manual check.
 
-No package or deployment was performed for this follow-up, at the user's request while further changes are collected.
+This follow-up was initially held without packaging or deployment at the user's request. It was subsequently included in the [verified combined local deployment](M17_DIAGNOSTICS_ACCESS_CORRECTIONS.md#combined-local-deployment-2026-09-07).
