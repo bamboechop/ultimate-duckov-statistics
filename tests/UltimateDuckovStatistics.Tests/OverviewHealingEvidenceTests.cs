@@ -149,6 +149,18 @@ public sealed class OverviewHealingEvidenceTests
                 // A later availability recovery must not erase this run's gap.
                 lifecycle.SetHealingCapability(new() { State = AdapterCapabilityState.Supported });
             }
+            if (disabledAtStart || loseCapture)
+            {
+                if (loseCapture)
+                {
+                    use.EventId = "missed-healing-use";
+                    Assert.True(coordinator.HandleItemUse(new Core.Tracking.ItemUseCompletion(Core.Tracking.ItemUseCompletionDisposition.Counted, use)));
+                    Assert.True(lifecycle.RecordItemUse(use));
+                }
+                var health = new Health { CurrentHealth = 20, MaxHealth = 100, IsMainCharacterHealth = true };
+                health.AddHealth(10);
+                Assert.Equal(30, health.CurrentHealth);
+            }
             now = 2; LevelManager.RaiseEvacuated();
             Assert.True(coordinator.Current!.Statistics.Runs.Count == 1, string.Join(" | ", messages));
             var path = coordinator.CurrentProfilePath;
@@ -181,15 +193,39 @@ public sealed class OverviewHealingEvidenceTests
                 : restored > 0 ? ItemUseEvidence.Partial : ItemUseEvidence.Unavailable, item.Health.Evidence);
             Assert.Contains(healthText + " HP restored", itemRun.Caption);
             Assert.Equal(ItemUseEvidence.Supported, item.Uses.Evidence);
-            Assert.Equal("1", item.Uses.Text);
+            Assert.Equal(loseCapture ? "2" : "1", item.Uses.Text);
+            void AssertLifetime(Core.Persistence.ProfileDocument profile)
+            {
+                var p = StatisticsPanelProjectionFactory.Create(profile, new(), new(), new());
+                var lifetime = ItemUsePresentationFactory.Create(p, generation)!;
+                Assert.Equal(healthText, lifetime.Health.Text);
+                Assert.Equal(healthText, Assert.Single(lifetime.Items).Health.Text);
+                var overviewText = restored.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+                if (!profile.Statistics.HealingCaptureComplete) overviewText = restored > 0 ? overviewText + " (Partial)" : "Unavailable";
+                Assert.Equal(overviewText, ProfileSummaryPresentationFactory.Create(p, UiText.Get)[(int)ProfileSummaryMetric.HealthRestored].Value);
+            }
+            Assert.Equal(!disabledAtStart && !loseCapture, reopened.Current!.Statistics.HealingCaptureComplete);
+            AssertLifetime(reopened.Current);
+            // Simulate retained-history eviction; the lifetime flag must survive without run rows.
+            var retainedPath = Path.Combine(directory.Path, "without-run-history.json");
+            new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Save(retainedPath, reopened.Current);
+            var pruned = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(retainedPath))!;
+            pruned["Statistics"]!["Runs"]!.AsArray().Clear();
+            File.WriteAllText(retainedPath, pruned.ToJsonString());
+            var reloadedLifetime = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(retainedPath, Core.Persistence.ProfileMigrator.ValidateRecoveryCandidate);
+            Assert.True(reloadedLifetime.Found, string.Join("; ", reloadedLifetime.Failures));
+            Assert.Empty(reloadedLifetime.Value!.Statistics.Runs);
+            AssertLifetime(reloadedLifetime.Value);
             // An absent scalar must degrade evidence, never reject or rotate the profile.
             var missing = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+            missing["Statistics"]!.AsObject().Remove("HealingCaptureComplete");
             foreach (var entry in missing["Statistics"]!["Runs"]!.AsArray()) entry!.AsObject().Remove("HealingCaptureComplete");
             var missingPath = Path.Combine(directory.Path, "missing-capture.json");
             File.WriteAllText(missingPath, missing.ToJsonString());
             var withoutCapture = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(missingPath, Core.Persistence.ProfileMigrator.ValidateRecoveryCandidate);
             Assert.True(withoutCapture.Found);
-            Assert.False(Assert.Single(withoutCapture.Value!.Statistics.Runs).HealingCaptureComplete);
+            Assert.False(withoutCapture.Value!.Statistics.HealingCaptureComplete);
+            Assert.False(Assert.Single(withoutCapture.Value.Statistics.Runs).HealingCaptureComplete);
             Assert.Equal(run.ItemStatistics.Overall.ActualHealthRestored, withoutCapture.Value.Statistics.Runs[0].ItemStatistics.Overall.ActualHealthRestored);
         }
         finally

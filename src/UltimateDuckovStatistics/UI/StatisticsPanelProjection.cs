@@ -1512,7 +1512,7 @@ internal static class ProfileSummaryPresentationFactory
                 text), null),
         ProfileSummaryMetric.HealthRestored => (
             ItemUsePresentationFactory.Number(projection.Profile.Statistics.Overall.ActualHealthRestored,
-                ItemUsePresentationFactory.HealingSupported(projection.Profile.Capabilities),
+                ItemUsePresentationFactory.HealingSupported(projection.Profile.Capabilities) && projection.Profile.Statistics.HealingCaptureComplete,
                 projection.ItemUse.WasRepairedFromInvalidState, text, fixedPrecision: true).Text, null),
         ProfileSummaryMetric.UniqueContainersOpened => (
             UiText.FormatContainers(

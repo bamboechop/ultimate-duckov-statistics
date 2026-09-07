@@ -615,6 +615,15 @@ public sealed partial class ProfileRepository
         return applied || retryingFailedPersistence;
     }
 
+    public void MarkHealingCaptureIncomplete()
+    {
+        var profile = Current;
+        if (!profile.Statistics.HealingCaptureComplete) return;
+        profile.Statistics.HealingCaptureComplete = false;
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
+    }
+
     public void SetCapabilitySnapshot(
         IEnumerable<CapabilityRecord> capabilities,
         EconomyMetricCapabilities economyCapabilities,
@@ -1392,6 +1401,7 @@ public sealed partial class ProfileRepository
                 SaveGenerationId = statistics.SaveGenerationId,
                 CreatedUtc = statistics.CreatedUtc,
                 UpdatedUtc = statistics.UpdatedUtc,
+                HealingCaptureComplete = statistics.HealingCaptureComplete,
                 Overall = CloneTotals(statistics.Overall),
                 Items = statistics.Items.ToDictionary(
                     entry => entry.Key,

@@ -124,14 +124,15 @@ internal static class ItemUsePresentationFactory
             && projection.Profile.Capabilities.Single(cap => cap.AdapterId == id).State == AdapterCapabilityState.Supported;
         var usesSupported = Supported("native-item-use"); var throwsSupported = Supported(ThrowableUseObservation.CapabilityId);
         var healthSupported = HealingSupported(projection.Profile.Capabilities); var repaired = source.WasRepairedFromInvalidState;
+        var lifetimeHealthSupported = healthSupported && projection.Profile.Statistics.HealingCaptureComplete;
         var allUsesSupported = usesSupported && throwsSupported;
         var notices = new List<string>();
         if (!usesSupported) notices.Add(t("ui.item_use_tracking_unavailable"));
         if (!throwsSupported) notices.Add(t("ui.item_use_throwable_unavailable"));
-        if (!healthSupported) notices.Add(t("ui.item_use_healing_unavailable"));
+        if (!lifetimeHealthSupported) notices.Add(t("ui.item_use_healing_unavailable"));
         if (repaired) notices.Add(t("ui.item_use_repaired"));
         var items = source.Items.Select(item => Entry(item.ItemId, item.DisplayName, item.Group, item.EffectTags, item.Totals,
-            usesSupported, throwsSupported, healthSupported, repaired, t)).OrderByDescending(item => item.Count)
+            usesSupported, throwsSupported, lifetimeHealthSupported, repaired, t)).OrderByDescending(item => item.Count)
             .ThenBy(item => item.Name, StringComparer.Ordinal).ThenBy(item => item.ItemId, StringComparer.Ordinal).ToArray();
         var groups = Enum.GetValues(typeof(CanonicalItemGroup)).Cast<CanonicalItemGroup>().Select(group =>
         {
@@ -176,10 +177,10 @@ internal static class ItemUsePresentationFactory
                 runItems, exactEmpty ? t("ui.item_use_no_run_uses") : t("ui.item_use_run_unavailable"));
         }).ToArray();
         return new ItemUsePresentation(generation, items.Length == 0 && source.Overall.ActivationCount == 0
-            && source.Overall.ActualHealthRestored == 0 && allUsesSupported && healthSupported && !repaired,
+            && source.Overall.ActualHealthRestored == 0 && allUsesSupported && lifetimeHealthSupported && !repaired,
             string.Join("\n", notices), Count(source.Overall.ActivationCount, allUsesSupported, repaired, t),
             Count(items.LongCount(item => item.Count > 0), allUsesSupported, repaired, t),
-            Number(source.Overall.ActualHealthRestored, healthSupported, repaired, t), items, groups, runs);
+            Number(source.Overall.ActualHealthRestored, lifetimeHealthSupported, repaired, t), items, groups, runs);
     }
 
     private static ItemUseEntry Entry(string id, string name, CanonicalItemGroup group, IEnumerable<ItemEffectTag> effects,

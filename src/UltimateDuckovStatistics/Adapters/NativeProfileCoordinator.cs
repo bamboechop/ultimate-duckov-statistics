@@ -249,6 +249,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 return false;
             }
 
+            if (healingCapability.State != AdapterCapabilityState.Supported) currentRepository.MarkHealingCaptureIncomplete();
             var deferred = currentRepository.CanDeferItemPersistence(completion.NormalizedEvent.RunId);
             if (!deferred)
             {
@@ -320,6 +321,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public void SetHealingCapability(CapabilityRecord capability)
     {
         healingCapability = capability ?? throw new ArgumentNullException(nameof(capability));
+        if (capability.State != AdapterCapabilityState.Supported) repository?.MarkHealingCaptureIncomplete();
         UpdateCapabilities();
     }
 

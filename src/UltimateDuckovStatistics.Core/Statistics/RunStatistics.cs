@@ -195,6 +195,7 @@ public static class RunReducer
         }
 
         PreflightPlayerKillMerge(profile, summary);
+        profile.HealingCaptureComplete &= summary.HealingCaptureComplete;
         profile.Runs.Add(summary);
         AddTotals(profile.RunTotals, summary);
         if (summary.RecordEligible && summary.Outcome is RunOutcome.Extracted or RunOutcome.Died)
