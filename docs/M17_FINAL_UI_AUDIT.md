@@ -54,13 +54,13 @@ Both native entry mocks use “Ultimate Duckov Statistics”; the implementation
 
 Source: `ui.menu_entry` in [UiText](../src/UltimateDuckovStatistics/UI/UiText.cs), `ApplyLocalizedButtonText` and `ApplyStatisticsIcon` in [native integration](../src/UltimateDuckovStatistics/UI/NativeUiIntegration.cs).
 
-## Large — discuss value before work
+## Large — declined
 
-### L1. Per-enemy world-death ownership expansion
+### L1. Per-enemy world-death ownership expansion — not planned
 
 The Enemies mock expands Soldier into Other NPC / Environmental / Unknown world-death counts. Production `CombatPresentationFactory` never supplies `OwnershipBreakdown`, so those rows correctly have no expansion. The renderer supports the shape, but the underlying saved aggregate has separate `Enemies` and `Ownership` dictionaries, not an enemy-by-owner cross-tab. Global ownership totals cannot truthfully be assigned to individual enemies.
 
-Implementing this requires capturing the joint dimension for future observations, persistence/normalization/recovery/export changes and production-path tests, followed by UI composition. Existing totals cannot be backfilled reliably. This is a feature/data-model change, not a missing chevron fix. Recommendation: defer unless that breakdown is useful enough to justify the additional metric family.
+Implementing this requires capturing the joint dimension for future observations, persistence/normalization/recovery/export changes and production-path tests, followed by UI composition. Existing totals cannot be backfilled reliably. This is a feature/data-model change, not a missing chevron fix. Decision (2026-09-07): the user declined this feature. The rare-event insight does not justify additional tracking and data-model complexity. The mock depicts data UDS does not capture; this is an accepted mock difference, not outstanding UI work. No additional tracking will be implemented for this breakdown.
 
 Source: [Combat presentation](../src/UltimateDuckovStatistics/UI/CombatPresentation.cs), [Combat aggregate](../src/UltimateDuckovStatistics.Core/Statistics/CombatStatistics.cs), and the existing `EnemySortUsesAllTieBreakersAndExpansionHasNoOwnershipCrossDimension` test in [retained Combat tests](../tests/UltimateDuckovStatistics.Tests/RetainedCombatTests.cs). Reference: [Enemies mock](../mockups/uds-ui-combat-enemies.jpg).
 
@@ -72,7 +72,7 @@ Source: [Combat presentation](../src/UltimateDuckovStatistics/UI/CombatPresentat
 | Overview | Profile summary, highlights, latest run and world time remain mounted. Latest-run button identity survives refresh. M1 covers date consistency. |
 | Runs | History, selected-run header, value-first summary, ordered route, terminal slots, combat and equipment evidence are present. S5 addresses tooltip refresh. M1 covers dates. |
 | Records + scrolled | Overall and per-starting-map sections, exact View run routing, row bands and no-death/no-map states are present. M1 covers dates. |
-| Combat Summary / Enemies / Weapons / Incoming | S1/S2 correct alignment; M3 covers weapon detail styling; L1 covers missing per-enemy ownership evidence. Sorting and truthful unavailable values remain. |
+| Combat Summary / Enemies / Weapons / Incoming | S1/S2 correct alignment; M3 covers weapon detail styling; L1 is an accepted mock difference; per-enemy ownership expansion is not planned. Sorting and truthful unavailable values remain. |
 | Equipment Loadouts / Weapons / Armor / Totems | S5 corrects tooltip refresh; M2 covers density/hierarchy. Terminal/most-used/selected equipment meanings stay distinct. |
 | Economy + partial | Holdings, separate Money/Cash flows, sources, contexts, subordinate proven acquisition and recent runs are present. Later value ordering and run-button placement preserved. Current availability comes from evidence, not the sample mock. |
 | Crafting | Both rankings and expansion directions present; successful crafts, produced quantities and consumed resources stay distinct. Corrected section insets retained. |
@@ -91,7 +91,7 @@ Verified for the completed small corrections on 2026-09-07: all 1,853 Release te
 - Release ZIP SHA-256: `38e6699b638628bb5a4c05b97331a7685a9d5030efefb8f5038d6439b8013eb3`.
 - Native DLL SHA-256: `b01ca7210eb196b5f45ca03c52f49282d36da01d8b892e04274f10a3f9671b3d`.
 
-Remaining in-game checks: native menu icon and long label fit; stable button focus/audio and slot tooltips across multiple refreshes; scroll clipping and heading baselines at the user's resolution; a longer-language/narrow-window pass. These are verification items, not claimed confirmed defects. M1–M4 are implemented following user approval; L1 remains deferred.
+Remaining in-game checks: native menu icon and long label fit; stable button focus/audio and slot tooltips across multiple refreshes; scroll clipping and heading baselines at the user's resolution; a longer-language/narrow-window pass. These are verification items, not claimed confirmed defects. M1–M4 are implemented following user approval; L1 was declined and is not outstanding work.
 
 ### Approved medium-change delivery
 
