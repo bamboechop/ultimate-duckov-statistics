@@ -2,38 +2,8 @@ using UltimateDuckovStatistics.Core.Domain;
 
 namespace UltimateDuckovStatistics.Adapters;
 
-internal sealed class NativeRaidContext : IDisposable
+internal static class NativeRaidContext
 {
-    private bool subscribed;
-    private string? currentRunId;
-
-    public string? CurrentRunId => currentRunId;
-
-    public void Subscribe()
-    {
-        if (subscribed)
-        {
-            return;
-        }
-
-        RaidUtilities.OnNewRaid += OnNewRaid;
-        RaidUtilities.OnRaidEnd += OnRaidEnd;
-        subscribed = true;
-    }
-
-    public void Dispose()
-    {
-        if (!subscribed)
-        {
-            return;
-        }
-
-        RaidUtilities.OnNewRaid -= OnNewRaid;
-        RaidUtilities.OnRaidEnd -= OnRaidEnd;
-        currentRunId = null;
-        subscribed = false;
-    }
-
     public static GameplayContext GetGameplayContext()
     {
         try
@@ -94,16 +64,4 @@ internal sealed class NativeRaidContext : IDisposable
         }
     }
 
-    private void OnNewRaid(RaidUtilities.RaidInfo raid)
-    {
-        currentRunId = $"raid:{raid.ID}";
-    }
-
-    private void OnRaidEnd(RaidUtilities.RaidInfo raid)
-    {
-        if (currentRunId == $"raid:{raid.ID}")
-        {
-            currentRunId = null;
-        }
-    }
 }

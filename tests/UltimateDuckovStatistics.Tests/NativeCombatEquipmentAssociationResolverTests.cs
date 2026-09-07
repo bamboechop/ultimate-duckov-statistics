@@ -156,7 +156,7 @@ public sealed class NativeCombatEquipmentAssociationResolverTests
     private static EquipmentEventAssociation Association(string loadoutId, string weaponId) => new()
     {
         LoadoutId = loadoutId,
-        SelectedWeaponSlotId = "slot:primary",
+        SelectedWeaponSlotId = "duckov:slot:PrimaryWeapon",
         SelectedWeaponId = weaponId,
         TotemSetId = "totems:a"
     };

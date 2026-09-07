@@ -142,12 +142,12 @@ public sealed class M14LosslessAssociationTests
         EquipmentStatisticsReducer.Observe(statistics, EquipmentSnapshot("s4", primaryOccupied: false, scopeOccupied: false, pouchItem: "child:modded", includeArmor: true), 8);
         EquipmentStatisticsReducer.Advance(statistics, 9);
 
-        Assert.Equal(6, RootState(statistics, "slot:primary", EquipmentSlotState.Empty).ActiveDurationSeconds);
-        Assert.Equal(3, RootState(statistics, "slot:primary", EquipmentSlotState.Occupied).ActiveDurationSeconds);
+        Assert.Equal(6, RootState(statistics, "duckov:slot:PrimaryWeapon", EquipmentSlotState.Empty).ActiveDurationSeconds);
+        Assert.Equal(3, RootState(statistics, "duckov:slot:PrimaryWeapon", EquipmentSlotState.Occupied).ActiveDurationSeconds);
         Assert.Equal(1, RootState(statistics, "slot:armor", EquipmentSlotState.Empty).ActiveDurationSeconds);
         Assert.Equal(8, RootState(statistics, "slot:armor", EquipmentSlotState.Occupied).ActiveDurationSeconds);
-        Assert.Equal(6, NestedState(statistics, "slot:secondary", "weapon:secondary", "5:scope", EquipmentSlotState.Empty).ActiveDurationSeconds);
-        Assert.Equal(3, NestedState(statistics, "slot:secondary", "weapon:secondary", "5:scope", EquipmentSlotState.Occupied).ActiveDurationSeconds);
+        Assert.Equal(6, NestedState(statistics, "duckov:slot:SecondaryWeapon", "weapon:secondary", "5:scope", EquipmentSlotState.Empty).ActiveDurationSeconds);
+        Assert.Equal(3, NestedState(statistics, "duckov:slot:SecondaryWeapon", "weapon:secondary", "5:scope", EquipmentSlotState.Occupied).ActiveDurationSeconds);
         Assert.Equal(3, NestedState(statistics, "slot:armor", "armor:modded", "5:pouch", EquipmentSlotState.Empty).ActiveDurationSeconds);
         Assert.Equal(2, NestedState(statistics, "slot:armor", "armor:modded", "5:pouch", EquipmentSlotState.Occupied, "child:old").ActiveDurationSeconds);
         Assert.Equal(3, NestedState(statistics, "slot:armor", "armor:modded", "5:pouch", EquipmentSlotState.Occupied, "child:modded").ActiveDurationSeconds);
@@ -250,28 +250,28 @@ public sealed class M14LosslessAssociationTests
         var profile = new ProfileStatistics { SaveGenerationId = "generation" };
         Assert.True(RunReducer.Apply(profile, run));
 
-        Assert.Equal(6, RootState(run.EquipmentStatistics, "slot:primary", EquipmentSlotState.Empty).ActiveDurationSeconds);
+        Assert.Equal(6, RootState(run.EquipmentStatistics, "duckov:slot:PrimaryWeapon", EquipmentSlotState.Empty).ActiveDurationSeconds);
         Assert.Equal(6, NestedState(
             run.EquipmentStatistics,
-            "slot:secondary",
+            "duckov:slot:SecondaryWeapon",
             "weapon:secondary",
             "5:scope",
             EquipmentSlotState.Empty).ActiveDurationSeconds);
         Assert.Equal([2m, 2m, 2m], run.Segments.Select(segment => RootState(
             segment.EquipmentStatistics,
-            "slot:primary",
+            "duckov:slot:PrimaryWeapon",
             EquipmentSlotState.Empty).ActiveDurationSeconds));
         Assert.Equal(6, RootState(
             profile.RunTotals.Maps["duckov:map:A"].EquipmentStatistics,
-            "slot:primary",
+            "duckov:slot:PrimaryWeapon",
             EquipmentSlotState.Empty).ActiveDurationSeconds);
         Assert.Equal(4, RootState(
             profile.RunTotals.RouteMaps["duckov:map:A"].EquipmentStatistics,
-            "slot:primary",
+            "duckov:slot:PrimaryWeapon",
             EquipmentSlotState.Empty).ActiveDurationSeconds);
         Assert.Equal(2, RootState(
             profile.RunTotals.RouteMaps["duckov:map:B"].EquipmentStatistics,
-            "slot:primary",
+            "duckov:slot:PrimaryWeapon",
             EquipmentSlotState.Empty).ActiveDurationSeconds);
     }
 
@@ -309,11 +309,11 @@ public sealed class M14LosslessAssociationTests
 
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, statistics.Capabilities.CharacterSlotState.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, statistics.Capabilities.NestedSlotState.State);
-        Assert.Equal(3, RootState(statistics, "slot:primary", EquipmentSlotState.Empty).ActiveDurationSeconds);
+        Assert.Equal(3, RootState(statistics, "duckov:slot:PrimaryWeapon", EquipmentSlotState.Empty).ActiveDurationSeconds);
         Assert.DoesNotContain(statistics.CharacterSlotStates.Values, value => value.SlotId == "slot:armor");
         Assert.Equal(3, NestedState(
             statistics,
-            "slot:secondary",
+            "duckov:slot:SecondaryWeapon",
             "weapon:secondary",
             "5:scope",
             EquipmentSlotState.Empty).ActiveDurationSeconds);
@@ -361,10 +361,10 @@ public sealed class M14LosslessAssociationTests
 
         Assert.Equal(AdapterCapabilityState.Supported, equipment.Capabilities.CharacterSlotState.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, equipment.Capabilities.NestedSlotState.State);
-        Assert.Equal(2, RootState(equipment, "slot:primary", EquipmentSlotState.Empty).ActiveDurationSeconds);
+        Assert.Equal(2, RootState(equipment, "duckov:slot:PrimaryWeapon", EquipmentSlotState.Empty).ActiveDurationSeconds);
         Assert.Equal(2, NestedState(
             equipment,
-            "slot:secondary",
+            "duckov:slot:SecondaryWeapon",
             "weapon:secondary",
             "5:scope",
             EquipmentSlotState.Empty).ActiveDurationSeconds);
@@ -393,7 +393,7 @@ public sealed class M14LosslessAssociationTests
             EquipmentSnapshot("overflow", false, false, string.Empty, includeArmor: true),
             0);
         EquipmentStatisticsReducer.Advance(statistics, 1);
-        var root = RootState(statistics, "slot:primary", EquipmentSlotState.Empty);
+        var root = RootState(statistics, "duckov:slot:PrimaryWeapon", EquipmentSlotState.Empty);
         root.ActiveDurationSeconds = decimal.MaxValue;
 
         Assert.Throws<OverflowException>(() => EquipmentStatisticsReducer.Advance(statistics, double.MaxValue));
@@ -422,8 +422,8 @@ public sealed class M14LosslessAssociationTests
         var interrupted = restored.ToInterruptedSummary();
 
         Assert.Equal(4, interrupted.ActiveDurationSeconds);
-        Assert.Equal(4, RootState(interrupted.EquipmentStatistics, "slot:primary", EquipmentSlotState.Empty).ActiveDurationSeconds);
-        Assert.Equal(4, NestedState(interrupted.EquipmentStatistics, "slot:secondary", "weapon:secondary", "5:scope", EquipmentSlotState.Empty).ActiveDurationSeconds);
+        Assert.Equal(4, RootState(interrupted.EquipmentStatistics, "duckov:slot:PrimaryWeapon", EquipmentSlotState.Empty).ActiveDurationSeconds);
+        Assert.Equal(4, NestedState(interrupted.EquipmentStatistics, "duckov:slot:SecondaryWeapon", "weapon:secondary", "5:scope", EquipmentSlotState.Empty).ActiveDurationSeconds);
         EquipmentStatisticsReducer.ValidateRecoveryCandidate(interrupted.EquipmentStatistics);
     }
 
@@ -445,7 +445,7 @@ public sealed class M14LosslessAssociationTests
         Assert.Contains("ammunition_to_weapon", export.WeaponAmmunitionPairsCsv);
         Assert.Contains("percentage_within_observed_projection_pairs", export.WeaponAmmunitionPairsCsv);
         Assert.Contains("route_segment", export.WeaponAmmunitionPairsCsv);
-        Assert.Contains("slot:primary", export.CharacterEquipmentSlotsCsv);
+        Assert.Contains("duckov:slot:PrimaryWeapon", export.CharacterEquipmentSlotsCsv);
         Assert.Contains(",Empty,", export.CharacterEquipmentSlotsCsv);
         Assert.Contains("5:scope", export.EquippedItemNestedSlotsCsv);
         Assert.Contains(",Occupied,", export.EquippedItemNestedSlotsCsv);
@@ -460,7 +460,7 @@ public sealed class M14LosslessAssociationTests
         var scope = Assert.Single(weapon.NestedSlotGroups, value => value.GroupKey == "scope");
         Assert.Contains(scope.Rows, value => value.State == EquipmentSlotState.Occupied);
         Assert.Contains(equipmentView.ArmorAndGearSlots, value => value.SlotId == "slot:armor");
-        Assert.DoesNotContain(equipmentView.ArmorAndGearSlots, value => value.SlotId == "slot:primary");
+        Assert.DoesNotContain(equipmentView.ArmorAndGearSlots, value => value.SlotId == "duckov:slot:PrimaryWeapon");
         Assert.Equal("No Scope", UiText.FormatProvenEmpty("Scope"));
     }
 
@@ -510,11 +510,11 @@ public sealed class M14LosslessAssociationTests
             Assert.Equal(1, Assert.Single(segment.WeaponStatistics.WeaponAmmunitionPairs).Value.FiringActions);
             Assert.Equal(2, RootState(
                 segment.EquipmentStatistics,
-                "slot:primary",
+                "duckov:slot:PrimaryWeapon",
                 EquipmentSlotState.Empty).ActiveDurationSeconds);
             Assert.Equal(2, NestedState(
                 segment.EquipmentStatistics,
-                "slot:secondary",
+                "duckov:slot:SecondaryWeapon",
                 "weapon:secondary",
                 "5:scope",
                 EquipmentSlotState.Occupied).ActiveDurationSeconds);
@@ -640,7 +640,7 @@ public sealed class M14LosslessAssociationTests
         Assert.Equal(1, Pair(restarted.Current.Statistics.RunTotals.WeaponStatistics, "weapon:a", "ammo:x").FiringActions);
         Assert.Equal(3, RootState(
             restarted.Current.Statistics.RunTotals.EquipmentStatistics,
-            "slot:primary",
+            "duckov:slot:PrimaryWeapon",
             EquipmentSlotState.Empty).ActiveDurationSeconds);
 
         restarted.Rotate(Identity(1, 100), "UserReset");
@@ -700,7 +700,7 @@ public sealed class M14LosslessAssociationTests
         Assert.Equal(1, Pair(interrupted.WeaponStatistics, "weapon:a", "ammo:x").FiringActions);
         Assert.Equal(7, RootState(
             interrupted.EquipmentStatistics,
-            "slot:primary",
+            "duckov:slot:PrimaryWeapon",
             EquipmentSlotState.Empty).ActiveDurationSeconds);
         Assert.Equal(RunOutcome.Interrupted, interrupted.Outcome);
         recovery.CloseClean();
@@ -876,15 +876,15 @@ public sealed class M14LosslessAssociationTests
         var roots = new List<CharacterEquipmentSlotSnapshot>();
         if (primaryOccupied)
         {
-            items.Add(Root("slot:primary", "weapon:primary", EquipmentItemKind.Weapon, "sig:primary"));
-            roots.Add(RootState("slot:primary", "Primary", "weapon:primary", EquipmentItemKind.Weapon));
+            items.Add(Root("duckov:slot:PrimaryWeapon", "weapon:primary", EquipmentItemKind.Weapon, "sig:primary"));
+            roots.Add(RootState("duckov:slot:PrimaryWeapon", "Primary", "weapon:primary", EquipmentItemKind.Weapon));
         }
-        else roots.Add(EmptyRoot("slot:primary", "Primary"));
+        else roots.Add(EmptyRoot("duckov:slot:PrimaryWeapon", "Primary"));
 
-        var secondary = Root("slot:secondary", "weapon:secondary", EquipmentItemKind.Weapon, "sig:secondary");
+        var secondary = Root("duckov:slot:SecondaryWeapon", "weapon:secondary", EquipmentItemKind.Weapon, "sig:secondary");
         secondary.NestedSlots.Add(Nested("5:scope", "scope", "Scope", scopeOccupied ? "attachment:scope" : string.Empty));
         items.Add(secondary);
-        roots.Add(RootState("slot:secondary", "Secondary", "weapon:secondary", EquipmentItemKind.Weapon));
+        roots.Add(RootState("duckov:slot:SecondaryWeapon", "Secondary", "weapon:secondary", EquipmentItemKind.Weapon));
 
         if (includeArmor)
         {
@@ -917,7 +917,7 @@ public sealed class M14LosslessAssociationTests
         {
             new()
             {
-                SlotId = "slot:primary",
+                SlotId = "duckov:slot:PrimaryWeapon",
                 SlotDisplayName = "Primary",
                 ItemId = "weapon:a",
                 ItemDisplayName = "Weapon A",

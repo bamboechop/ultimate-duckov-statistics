@@ -152,20 +152,9 @@ public static class EquipmentStatisticsViewModelFactory
 
     private static bool IsKnownWeaponSlot(string slotId)
     {
-        const string nativePrefix = "duckov:slot:";
-        const string legacyPrefix = "slot:";
-        var key = slotId.StartsWith(nativePrefix, StringComparison.OrdinalIgnoreCase)
-            ? slotId[nativePrefix.Length..]
-            : slotId.StartsWith(legacyPrefix, StringComparison.OrdinalIgnoreCase)
-                ? slotId[legacyPrefix.Length..]
-                : slotId;
-        return key.IndexOf(':') < 0
-               && (key.Equals("PrimaryWeapon", StringComparison.OrdinalIgnoreCase)
-               || key.Equals("SecondaryWeapon", StringComparison.OrdinalIgnoreCase)
-               || key.Equals("MeleeWeapon", StringComparison.OrdinalIgnoreCase)
-               || key.Equals("primary", StringComparison.OrdinalIgnoreCase)
-               || key.Equals("secondary", StringComparison.OrdinalIgnoreCase)
-               || key.Equals("melee", StringComparison.OrdinalIgnoreCase));
+        return slotId.Equals("duckov:slot:PrimaryWeapon", StringComparison.Ordinal)
+               || slotId.Equals("duckov:slot:SecondaryWeapon", StringComparison.Ordinal)
+               || slotId.Equals("duckov:slot:MeleeWeapon", StringComparison.Ordinal);
     }
 
     private static string NestedGroup(string slotKey)

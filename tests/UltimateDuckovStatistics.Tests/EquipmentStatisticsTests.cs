@@ -32,9 +32,9 @@ public sealed class EquipmentStatisticsTests
 
         Assert.Equal(1, aggregate.TransitionCount);
         Assert.Equal(8, aggregate.Loadouts["loadout:one"].ActiveDurationSeconds);
-        Assert.Equal(8, aggregate.Slots["slot:primary"].ActiveDurationSeconds);
-        Assert.Equal(8, aggregate.SlottedWeapons["slot:primary|weapon:a"].ActiveDurationSeconds);
-        Assert.Equal(8, aggregate.SelectedWeapons["slot:primary|weapon:a"].ActiveDurationSeconds);
+        Assert.Equal(8, aggregate.Slots["duckov:slot:PrimaryWeapon"].ActiveDurationSeconds);
+        Assert.Equal(8, aggregate.SlottedWeapons["duckov:slot:PrimaryWeapon|weapon:a"].ActiveDurationSeconds);
+        Assert.Equal(8, aggregate.SelectedWeapons["duckov:slot:PrimaryWeapon|weapon:a"].ActiveDurationSeconds);
         Assert.Equal(8, aggregate.TotemSets["totems:a"].ActiveDurationSeconds);
     }
 
@@ -307,7 +307,7 @@ public sealed class EquipmentStatisticsTests
     {
         var aggregate = Aggregate();
         var snapshot = Snapshot("bad-selection", "weapon:a", "totems:none");
-        snapshot.SelectedWeaponSlotId = "slot:secondary";
+        snapshot.SelectedWeaponSlotId = "duckov:slot:SecondaryWeapon";
 
         Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.Observe(aggregate, snapshot, 0));
     }
@@ -343,14 +343,14 @@ public sealed class EquipmentStatisticsTests
         var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
         equipment.Items["slot|item"] = new EquipmentDurationAggregate { Id = "slot|item", DisplayName = "Vest", ActiveDurationSeconds = 12.125m };
         equipment.Slots["slot"] = new EquipmentDurationAggregate { Id = "slot", DisplayName = "Armor", ActiveDurationSeconds = 12.125m };
-        equipment.SlottedWeapons["slot:primary|weapon:a"] = new EquipmentDurationAggregate
-        { Id = "slot:primary|weapon:a", DisplayName = "Rifle", ActiveDurationSeconds = 9 };
+        equipment.SlottedWeapons["duckov:slot:PrimaryWeapon|weapon:a"] = new EquipmentDurationAggregate
+        { Id = "duckov:slot:PrimaryWeapon|weapon:a", DisplayName = "Rifle", ActiveDurationSeconds = 9 };
         equipment.TotemStates["tote|totem|unknown|copy:1"] = new EquipmentDurationAggregate
         { Id = "tote|totem|unknown|copy:1", DisplayName = "Totem [Unknown]", ActiveDurationSeconds = 7 };
         equipment.Loadouts["single"] = new EquipmentDurationAggregate { Id = "single", ActiveDurationSeconds = 5, RunOccurrences = 1 };
         equipment.Loadouts["recurring"] = new EquipmentDurationAggregate { Id = "recurring", ActiveDurationSeconds = 15.0625m, RunOccurrences = 2 };
         equipment.CombatAssociations["association"] = new EquipmentCombatAssociationAggregate
-        { LoadoutId = "recurring", SelectedWeaponSlotId = "slot:primary", SelectedWeaponId = "weapon:a", TotemSetId = "totems:a", DamageDealt = 9 };
+        { LoadoutId = "recurring", SelectedWeaponSlotId = "duckov:slot:PrimaryWeapon", SelectedWeaponId = "weapon:a", TotemSetId = "totems:a", DamageDealt = 9 };
 
         var bundle = StatisticsExporter.Create(profile, Now);
         using var json = JsonDocument.Parse(bundle.Json);
@@ -359,12 +359,12 @@ public sealed class EquipmentStatisticsTests
         Assert.Equal(12.125m, jsonEquipment.GetProperty("Items").GetProperty("slot|item").GetProperty("ActiveDurationSeconds").GetDecimal());
         Assert.Contains("lifetime,generation,item,slot|item,Vest,12.125,0", bundle.EquipmentTotalsCsv);
         Assert.Contains("lifetime,generation,slot,slot,Armor,12.125,0", bundle.EquipmentTotalsCsv);
-        Assert.Contains("lifetime,generation,slotted_weapon,slot:primary|weapon:a,Rifle,9,0", bundle.EquipmentTotalsCsv);
+        Assert.Contains("lifetime,generation,slotted_weapon,duckov:slot:PrimaryWeapon|weapon:a,Rifle,9,0", bundle.EquipmentTotalsCsv);
         Assert.Contains("lifetime,generation,totem_state,tote|totem|unknown|copy:1,Totem [Unknown],7,0", bundle.EquipmentTotalsCsv);
         Assert.Contains("recurring,15.0625,2", bundle.RecurringLoadoutsCsv);
         Assert.DoesNotContain("single", bundle.RecurringLoadoutsCsv);
         Assert.StartsWith("scope,scope_id,loadout_id,selected_weapon_slot_id", bundle.EquipmentCombatCsv);
-        Assert.Contains("lifetime,generation,recurring,slot:primary,weapon:a,totems:a,0,9", bundle.EquipmentCombatCsv);
+        Assert.Contains("lifetime,generation,recurring,duckov:slot:PrimaryWeapon,weapon:a,totems:a,0,9", bundle.EquipmentCombatCsv);
     }
 
     [Fact]
@@ -467,7 +467,7 @@ public sealed class EquipmentStatisticsTests
         var first = Snapshot("first", "weapon:a", "totems:none");
         first.Items.Add(new EquippedItemSnapshot
         {
-            SlotId = "slot:secondary",
+            SlotId = "duckov:slot:SecondaryWeapon",
             SlotDisplayName = "Secondary",
             ItemId = "weapon:a",
             ItemDisplayName = "Rifle",
@@ -477,22 +477,22 @@ public sealed class EquipmentStatisticsTests
         var second = Snapshot("second", "weapon:a", "totems:none");
         second.Items.Add(new EquippedItemSnapshot
         {
-            SlotId = "slot:secondary",
+            SlotId = "duckov:slot:SecondaryWeapon",
             SlotDisplayName = "Secondary",
             ItemId = "weapon:a",
             ItemDisplayName = "Rifle",
             Kind = EquipmentItemKind.Weapon,
             AttachmentSignature = "attachments:a"
         });
-        second.SelectedWeaponSlotId = "slot:secondary";
+        second.SelectedWeaponSlotId = "duckov:slot:SecondaryWeapon";
         second.Items[0].AttachmentSignature = "attachments:b";
 
         EquipmentStatisticsReducer.Observe(aggregate, first, 0);
         EquipmentStatisticsReducer.Observe(aggregate, second, 4);
         EquipmentStatisticsReducer.Advance(aggregate, 10);
 
-        Assert.Equal(4, aggregate.SelectedWeapons["slot:primary|weapon:a"].ActiveDurationSeconds);
-        Assert.Equal(6, aggregate.SelectedWeapons["slot:secondary|weapon:a"].ActiveDurationSeconds);
+        Assert.Equal(4, aggregate.SelectedWeapons["duckov:slot:PrimaryWeapon|weapon:a"].ActiveDurationSeconds);
+        Assert.Equal(6, aggregate.SelectedWeapons["duckov:slot:SecondaryWeapon|weapon:a"].ActiveDurationSeconds);
         Assert.Contains("attachments=attachments:a", aggregate.Loadouts["loadout:first"].DisplayName);
         Assert.Contains("attachments=attachments:b", aggregate.Loadouts["loadout:second"].DisplayName);
     }
@@ -544,9 +544,9 @@ public sealed class EquipmentStatisticsTests
     [Fact]
     public void CanonicalSignaturesAreOrderStableIgnoreNamesAndPreserveTotemMultiplicityAndPresenceState()
     {
-        var weapon = Item("slot:primary", "weapon:a", EquipmentItemKind.Weapon);
+        var weapon = Item("duckov:slot:PrimaryWeapon", "weapon:a", EquipmentItemKind.Weapon);
         var armor = Item("slot:armor", "armor:a", EquipmentItemKind.Armor);
-        var renamedWeapon = Item("slot:primary", "weapon:a", EquipmentItemKind.Weapon);
+        var renamedWeapon = Item("duckov:slot:PrimaryWeapon", "weapon:a", EquipmentItemKind.Weapon);
         renamedWeapon.ItemDisplayName = "A different localization";
 
         Assert.Equal(
@@ -619,32 +619,32 @@ public sealed class EquipmentStatisticsTests
     {
         var aggregate = Aggregate();
         var initial = MatrixSnapshot("initial",
-            Item("slot:primary", "weapon:gun", EquipmentItemKind.Weapon),
-            Item("slot:melee", "weapon:knife", EquipmentItemKind.Weapon),
+            Item("duckov:slot:PrimaryWeapon", "weapon:gun", EquipmentItemKind.Weapon),
+            Item("duckov:slot:MeleeWeapon", "weapon:knife", EquipmentItemKind.Weapon),
             Item("slot:backpack", "item:pack-a", EquipmentItemKind.Backpack));
         initial.SelectedWeaponId = "weapon:gun";
-        initial.SelectedWeaponSlotId = "slot:primary";
+        initial.SelectedWeaponSlotId = "duckov:slot:PrimaryWeapon";
         var equippedFace = MatrixSnapshot("face",
-            Item("slot:primary", "weapon:gun", EquipmentItemKind.Weapon),
-            Item("slot:melee", "weapon:knife", EquipmentItemKind.Weapon),
+            Item("duckov:slot:PrimaryWeapon", "weapon:gun", EquipmentItemKind.Weapon),
+            Item("duckov:slot:MeleeWeapon", "weapon:knife", EquipmentItemKind.Weapon),
             Item("slot:backpack", "item:pack-a", EquipmentItemKind.Backpack),
             Item("slot:face", "modded:face", EquipmentItemKind.Other));
         equippedFace.SelectedWeaponId = "weapon:gun";
-        equippedFace.SelectedWeaponSlotId = "slot:primary";
+        equippedFace.SelectedWeaponSlotId = "duckov:slot:PrimaryWeapon";
         var replaced = MatrixSnapshot("replace",
-            Item("slot:primary", "weapon:gun", EquipmentItemKind.Weapon),
-            Item("slot:melee", "weapon:knife", EquipmentItemKind.Weapon),
+            Item("duckov:slot:PrimaryWeapon", "weapon:gun", EquipmentItemKind.Weapon),
+            Item("duckov:slot:MeleeWeapon", "weapon:knife", EquipmentItemKind.Weapon),
             Item("slot:backpack", "item:pack-b", EquipmentItemKind.Backpack),
             Item("slot:face", "modded:face", EquipmentItemKind.Other));
         replaced.SelectedWeaponId = "weapon:gun";
-        replaced.SelectedWeaponSlotId = "slot:primary";
+        replaced.SelectedWeaponSlotId = "duckov:slot:PrimaryWeapon";
         var moved = MatrixSnapshot("move",
-            Item("slot:secondary", "weapon:gun", EquipmentItemKind.Weapon),
-            Item("slot:melee", "weapon:knife", EquipmentItemKind.Weapon),
+            Item("duckov:slot:SecondaryWeapon", "weapon:gun", EquipmentItemKind.Weapon),
+            Item("duckov:slot:MeleeWeapon", "weapon:knife", EquipmentItemKind.Weapon),
             Item("slot:backpack", "item:pack-b", EquipmentItemKind.Backpack),
             Item("slot:face", "modded:face", EquipmentItemKind.Other));
         moved.SelectedWeaponId = "weapon:gun";
-        moved.SelectedWeaponSlotId = "slot:secondary";
+        moved.SelectedWeaponSlotId = "duckov:slot:SecondaryWeapon";
         var cleared = MatrixSnapshot("clear");
 
         EquipmentStatisticsReducer.Observe(aggregate, initial, 0);
@@ -655,17 +655,17 @@ public sealed class EquipmentStatisticsTests
         EquipmentStatisticsReducer.Advance(aggregate, 5);
 
         Assert.Equal(5, aggregate.TransitionCount);
-        Assert.Equal(3, Duration("slot:primary", "weapon:gun"));
-        Assert.Equal(1, Duration("slot:secondary", "weapon:gun"));
-        Assert.Equal(4, Duration("slot:melee", "weapon:knife"));
+        Assert.Equal(3, Duration("duckov:slot:PrimaryWeapon", "weapon:gun"));
+        Assert.Equal(1, Duration("duckov:slot:SecondaryWeapon", "weapon:gun"));
+        Assert.Equal(4, Duration("duckov:slot:MeleeWeapon", "weapon:knife"));
         Assert.Equal(2, Duration("slot:backpack", "item:pack-a"));
         Assert.Equal(2, Duration("slot:backpack", "item:pack-b"));
         Assert.Equal(3, Duration("slot:face", "modded:face"));
-        Assert.Equal(3, aggregate.SelectedWeapons["slot:primary|weapon:gun"].ActiveDurationSeconds);
-        Assert.Equal(1, aggregate.SelectedWeapons["slot:secondary|weapon:gun"].ActiveDurationSeconds);
-        Assert.Equal(3, aggregate.SlottedWeapons["slot:primary|weapon:gun"].ActiveDurationSeconds);
-        Assert.Equal(1, aggregate.SlottedWeapons["slot:secondary|weapon:gun"].ActiveDurationSeconds);
-        Assert.Equal(4, aggregate.Slots["slot:melee"].ActiveDurationSeconds);
+        Assert.Equal(3, aggregate.SelectedWeapons["duckov:slot:PrimaryWeapon|weapon:gun"].ActiveDurationSeconds);
+        Assert.Equal(1, aggregate.SelectedWeapons["duckov:slot:SecondaryWeapon|weapon:gun"].ActiveDurationSeconds);
+        Assert.Equal(3, aggregate.SlottedWeapons["duckov:slot:PrimaryWeapon|weapon:gun"].ActiveDurationSeconds);
+        Assert.Equal(1, aggregate.SlottedWeapons["duckov:slot:SecondaryWeapon|weapon:gun"].ActiveDurationSeconds);
+        Assert.Equal(4, aggregate.Slots["duckov:slot:MeleeWeapon"].ActiveDurationSeconds);
 
         decimal Duration(string slot, string item) => aggregate.Items.Single(pair =>
             pair.Key.StartsWith(slot + "|" + item + "|", StringComparison.Ordinal)).Value.ActiveDurationSeconds;
@@ -725,11 +725,11 @@ public sealed class EquipmentStatisticsTests
         SnapshotId = "snapshot:" + id,
         LoadoutId = "loadout:" + id,
         SelectedWeaponId = selected,
-        SelectedWeaponSlotId = string.IsNullOrWhiteSpace(selected) ? string.Empty : "slot:primary",
+        SelectedWeaponSlotId = string.IsNullOrWhiteSpace(selected) ? string.Empty : "duckov:slot:PrimaryWeapon",
         TotemSetId = totems,
         Items = new List<EquippedItemSnapshot>
         {
-            new() { SlotId = "slot:primary", SlotDisplayName = "Primary", ItemId = "weapon:a", ItemDisplayName = "Rifle", Kind = EquipmentItemKind.Weapon, AttachmentSignature = "attachments:a" }
+            new() { SlotId = "duckov:slot:PrimaryWeapon", SlotDisplayName = "Primary", ItemId = "weapon:a", ItemDisplayName = "Rifle", Kind = EquipmentItemKind.Weapon, AttachmentSignature = "attachments:a" }
         }
     };
 

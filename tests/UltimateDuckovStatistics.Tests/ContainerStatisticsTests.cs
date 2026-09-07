@@ -11,7 +11,24 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class ContainerStatisticsTests
 {
     private static readonly DateTime Origin = new(2026, 8, 12, 12, 0, 0, DateTimeKind.Utc);
-    private static readonly int[] ExpectedCheckpointKeys = { 101, 202 };
+    private static readonly string[] ExpectedCheckpointKeys = { "duckov:map:warehouse\u001f101", "duckov:map:warehouse\u001f202" };
+
+    [Fact]
+    public void MissingRouteSegmentRetainsMapAndNativeKeyDeduplication()
+    {
+        var state = new ContainerRunCheckpointState();
+        var value = Event(101, "first");
+        value.SegmentId = "segment-one";
+        Assert.True(ContainerStatisticsReducer.Record(state, value));
+        value.SegmentId = null;
+        Assert.False(ContainerStatisticsReducer.Record(state, value));
+        value.MapId = "duckov:map:other";
+        Assert.True(ContainerStatisticsReducer.Record(state, value));
+        var clone = ContainerStatisticsReducer.Clone(state);
+        ContainerStatisticsReducer.ValidateRecoveryCandidate(clone);
+        Assert.False(ContainerStatisticsReducer.Record(clone, value));
+        Assert.Equal(2, clone.Statistics.UniqueContainersLooted);
+    }
 
     [Fact]
     [Trait("Category", "Container")]
@@ -40,7 +57,7 @@ public sealed class ContainerStatisticsTests
         Assert.True(tracker.RecordContainer(Event(tracker, 101, "lower-key-second")));
         var checkpoint = tracker.CreateCheckpoint(Origin.AddSeconds(1), 1)!;
 
-        Assert.Equal(ExpectedCheckpointKeys, checkpoint.ContainerState.LootedContainerKeys);
+        Assert.Equal(ExpectedCheckpointKeys, checkpoint.ContainerState.LootedContainerIdentities);
         Assert.False(checkpoint.ContainerState.WasRepairedFromInvalidState);
         Assert.False(checkpoint.ContainerState.Statistics.WasRepairedFromInvalidState);
     }
@@ -151,7 +168,7 @@ public sealed class ContainerStatisticsTests
         var checkpoint = tracker.CreateCheckpoint(Origin.AddSeconds(3), 3)!;
         var interrupted = checkpoint.ToInterruptedSummary();
 
-        Assert.Equal(ExpectedCheckpointKeys, checkpoint.ContainerState.LootedContainerKeys);
+        Assert.Equal(ExpectedCheckpointKeys, checkpoint.ContainerState.LootedContainerIdentities);
         Assert.Equal(2, checkpoint.ContainerState.Statistics.UniqueContainersLooted);
         Assert.Equal(2, interrupted.ContainerStatistics.UniqueContainersLooted);
         Assert.Equal(RunOutcome.Interrupted, interrupted.Outcome);
@@ -172,7 +189,7 @@ public sealed class ContainerStatisticsTests
             Assert.True(ContainerStatisticsReducer.Record(state, Event(key, key.ToString(CultureInfo.InvariantCulture))));
 
         Assert.False(ContainerStatisticsReducer.Record(state, Event(int.MaxValue, "overflow")));
-        Assert.Equal(ContainerRunCheckpointState.DeduplicationCapacity, state.LootedContainerKeys.Count);
+        Assert.Equal(ContainerRunCheckpointState.DeduplicationCapacity, state.LootedContainerIdentities.Count);
         Assert.Equal(ContainerRunCheckpointState.DeduplicationCapacity, state.Statistics.UniqueContainersLooted);
         Assert.True(state.DeduplicationSaturated);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
@@ -210,7 +227,7 @@ public sealed class ContainerStatisticsTests
         var incomplete = new ContainerRunCheckpointState
         {
             Statistics = Supported(1),
-            LootedContainerKeys = [1],
+            LootedContainerIdentities = ["duckov:map:warehouse\u001f1"],
             DeduplicationSaturated = true
         };
         Assert.Throws<ArgumentException>(() => ContainerStatisticsReducer.NormalizeCheckpoint(incomplete));
@@ -218,7 +235,7 @@ public sealed class ContainerStatisticsTests
         var complete = new ContainerRunCheckpointState
         {
             Statistics = Supported(ContainerRunCheckpointState.DeduplicationCapacity),
-            LootedContainerKeys = Enumerable.Range(0, ContainerRunCheckpointState.DeduplicationCapacity).ToList(),
+            LootedContainerIdentities = Enumerable.Range(0, ContainerRunCheckpointState.DeduplicationCapacity).Select(key => $"duckov:map:warehouse\u001f{key}").OrderBy(value => value, StringComparer.Ordinal).ToList(),
             DeduplicationSaturated = true
         };
         Assert.True(ContainerStatisticsReducer.NormalizeCheckpoint(complete));
@@ -236,12 +253,12 @@ public sealed class ContainerStatisticsTests
         var state = new ContainerRunCheckpointState
         {
             Statistics = Supported(2),
-            LootedContainerKeys = [202, 101]
+            LootedContainerIdentities = [ExpectedCheckpointKeys[1], ExpectedCheckpointKeys[0]]
         };
 
         Assert.True(ContainerStatisticsReducer.NormalizeCheckpoint(state));
 
-        Assert.Equal(ExpectedCheckpointKeys, state.LootedContainerKeys);
+        Assert.Equal(ExpectedCheckpointKeys, state.LootedContainerIdentities);
         Assert.True(state.WasRepairedFromInvalidState);
         Assert.True(state.Statistics.WasRepairedFromInvalidState);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,

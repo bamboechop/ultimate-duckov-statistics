@@ -1279,7 +1279,7 @@ public sealed class ActiveRunPersistenceTests
         primary.ContainerState = new ContainerRunCheckpointState
         {
             Statistics = missingStatistics ? null! : primaryStatistics,
-            LootedContainerKeys = missingStableKeys ? null! : new List<int>()
+            LootedContainerIdentities = missingStableKeys ? null! : new List<string>()
         };
         new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), primary);
 
@@ -1310,10 +1310,10 @@ public sealed class ActiveRunPersistenceTests
             SnapshotId = "snapshot:a",
             LoadoutId = "loadout:a",
             SelectedWeaponId = "weapon:a",
-            SelectedWeaponSlotId = "slot:primary",
+            SelectedWeaponSlotId = "duckov:slot:PrimaryWeapon",
             TotemSetId = "totems:a",
             Items = new List<EquippedItemSnapshot>
-            { new() { SlotId = "slot:primary", ItemId = "weapon:a", ItemDisplayName = "Rifle", Kind = EquipmentItemKind.Weapon, AttachmentSignature = "attachments:a" } }
+            { new() { SlotId = "duckov:slot:PrimaryWeapon", ItemId = "weapon:a", ItemDisplayName = "Rifle", Kind = EquipmentItemKind.Weapon, AttachmentSignature = "attachments:a" } }
         }));
         repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(4), 4)!);
 
@@ -1673,7 +1673,7 @@ public sealed class ActiveRunPersistenceTests
         AssertCurrentSchemaEquipmentPrimaryRejected(checkpoint =>
         {
             var transition = Assert.Single(checkpoint.EquipmentStatistics.Transitions);
-            transition.SelectedWeaponSlotId = "slot:primary";
+            transition.SelectedWeaponSlotId = "duckov:slot:PrimaryWeapon";
             transition.SelectedWeaponId = string.Empty;
         });
     }
@@ -2386,7 +2386,7 @@ public sealed class ActiveRunPersistenceTests
             TotemSetId = "totems:none",
             Items = new List<EquippedItemSnapshot>
             {
-                new() { SlotId = "slot:primary", ItemId = "weapon:a", ItemDisplayName = "Rifle" }
+                new() { SlotId = "duckov:slot:PrimaryWeapon", ItemId = "weapon:a", ItemDisplayName = "Rifle" }
             }
         }, 0);
         EquipmentStatisticsReducer.Advance(statistics, activeSeconds);
@@ -2400,7 +2400,7 @@ public sealed class ActiveRunPersistenceTests
             Capabilities = ContainerNativeContractPolicy.Supported(),
             UniqueContainersLooted = keys.Length
         },
-        LootedContainerKeys = keys.OrderBy(value => value).ToList()
+        LootedContainerIdentities = keys.Select(value => $"duckov:map:warehouse\u001f{value}").OrderBy(value => value, StringComparer.Ordinal).ToList()
     };
 
     private static CombatRecorded CombatEvent(
