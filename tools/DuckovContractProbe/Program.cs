@@ -86,6 +86,8 @@ try
     using (var core = new AssemblyMetadata(corePath))
     {
         core.RequireType("Duckov.Modding", "ModBehaviour");
+        core.RequireField("Duckov.Modding", "ModManager", "activeMods", mustBePrivate: true,
+            mustBeInstance: true, exactFieldType: "System.Collections.Generic.Dictionary`2<System.String,Duckov.Modding.ModBehaviour>");
         core.RequireMethod("Duckov.Modding", "ModBehaviour", "OnAfterSetup", parameterCount: 0, mustBeFamily: true, mustBeVirtual: true);
         core.RequireMethod("Duckov.Modding", "ModBehaviour", "OnBeforeDeactivate", parameterCount: 0, mustBeFamily: true, mustBeVirtual: true);
 
@@ -1173,7 +1175,9 @@ internal sealed class AssemblyMetadata : IDisposable
         bool mustBePrivate = false,
         bool mustBeFamily = false,
         bool mustBeStatic = false,
-        string? fieldTypeFragment = null)
+        string? fieldTypeFragment = null,
+        bool mustBeInstance = false,
+        string? exactFieldType = null)
     {
         var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
         foreach (var handle in type.GetFields())
@@ -1182,6 +1186,8 @@ internal sealed class AssemblyMetadata : IDisposable
             if (string.Equals(reader.GetString(field.Name), fieldName, StringComparison.Ordinal)
                 && (fieldTypeFragment == null
                     || field.DecodeSignature(typeProvider, reader).Contains(fieldTypeFragment, StringComparison.Ordinal))
+                && (exactFieldType == null || field.DecodeSignature(typeProvider, reader) == exactFieldType)
+                && (!mustBeInstance || (field.Attributes & FieldAttributes.Static) == 0)
                 && (!mustBePublic
                     || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Public)
                 && (!mustBePrivate

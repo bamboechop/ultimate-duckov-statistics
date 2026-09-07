@@ -8,7 +8,7 @@ using UltimateDuckovStatistics.UI;
 
 namespace UltimateDuckovStatistics.Tests;
 
-public sealed class RouteLifecycleTests
+public sealed partial class RouteLifecycleTests
 {
     private static long economySequence;
     private static readonly DateTime Now = new(2026, 8, 13, 10, 0, 0, DateTimeKind.Utc);
