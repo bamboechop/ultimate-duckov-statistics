@@ -1,8 +1,14 @@
+using UltimateDuckovStatistics.Core.Tracking;
+
 namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeProfileTransitionBoundary
 {
     private readonly Queue<PendingTransition> pending = new();
+    private readonly Func<double> clock;
+
+    public NativeProfileTransitionBoundary(Func<double>? clock = null) =>
+        this.clock = clock ?? (() => (double)System.Diagnostics.Stopwatch.GetTimestamp() / System.Diagnostics.Stopwatch.Frequency);
 
     public bool HasPendingTransition => pending.Count > 0;
 
@@ -15,7 +21,7 @@ internal sealed class NativeProfileTransitionBoundary
             throw new ArgumentException("A profile transition requires at least one non-null step.", nameof(steps));
         pending.Enqueue(new PendingTransition(
             description,
-            steps));
+            steps, clock));
     }
 
     public bool Retry(Func<bool>? boundaryObserver, Action<string> diagnosticHandler)
@@ -24,17 +30,18 @@ internal sealed class NativeProfileTransitionBoundary
         if (pending.Count == 0) return true;
 
         var current = pending.Peek();
+        if (!current.Backoff.IsDue) return false;
         try
         {
             if (boundaryObserver?.Invoke() == false)
             {
-                diagnosticHandler($"{current.Description} remains deferred because queued boundary observations were not accepted.");
+                Defer(current, "queued boundary observations were not accepted", diagnosticHandler);
                 return false;
             }
         }
         catch (Exception exception)
         {
-            diagnosticHandler($"{current.Description} boundary failed safely and remains queued: {exception.GetType().Name}: {exception.Message}");
+            Defer(current, $"boundary failed: {exception.GetType().Name}: {exception.Message}", diagnosticHandler);
             return false;
         }
 
@@ -44,15 +51,26 @@ internal sealed class NativeProfileTransitionBoundary
             {
                 current.Steps[current.NextStep]();
                 current.NextStep++;
+                current.Backoff.Reset();
+                current.DiagnosticCadence.Reset();
             }
             pending.Dequeue();
             return pending.Count == 0;
         }
         catch (Exception exception)
         {
-            diagnosticHandler($"{current.Description} failed and remains queued for retry: {exception.GetType().Name}: {exception.Message}");
+            Defer(current, $"step failed: {exception.GetType().Name}: {exception.Message}", diagnosticHandler);
             return false;
         }
+    }
+
+    private void Defer(PendingTransition current, string reason, Action<string> diagnosticHandler)
+    {
+        current.Backoff.Failed();
+        var now = clock();
+        if (!current.DiagnosticCadence.IsDue(now)) return;
+        current.DiagnosticCadence.MarkCompleted(now);
+        diagnosticHandler($"{current.Description} remains queued because {reason}; retry backoff is bounded at 60s.");
     }
 
     public bool Drain(Func<bool>? boundaryObserver, Action<string> diagnosticHandler)
@@ -73,10 +91,11 @@ internal sealed class NativeProfileTransitionBoundary
 
     private sealed class PendingTransition
     {
-        public PendingTransition(string description, IReadOnlyList<Action> steps)
+        public PendingTransition(string description, IReadOnlyList<Action> steps, Func<double> clock)
         {
             Description = description;
             Steps = steps;
+            Backoff = new PersistenceRetryBackoff(clock);
         }
 
         public string Description { get; }
@@ -84,5 +103,9 @@ internal sealed class NativeProfileTransitionBoundary
         public IReadOnlyList<Action> Steps { get; }
 
         public int NextStep { get; set; }
+
+        public PersistenceRetryBackoff Backoff { get; }
+
+        public MonotonicCadenceGate DiagnosticCadence { get; } = new(60);
     }
 }
