@@ -145,8 +145,10 @@ internal static class ItemUsePresentationFactory
         var runs = source.RecentRuns.OrderByDescending(run => run.EndedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal).Select(run =>
         {
             var aggregate = run.ItemStatistics; var incomplete = aggregate.WasRepairedFromInvalidState;
+            var runHealthSupported = healthSupported && run.HealingCaptureComplete
+                && !aggregate.HistoricalUnavailable && !run.HistoricalEventAttributionIncomplete;
             var runItems = aggregate.Items.Values.Select(item => Entry(item.ItemId, item.DisplayName, item.Group, item.EffectTags,
-                    item.Totals, usesSupported, throwsSupported, healthSupported, incomplete, t))
+                    item.Totals, usesSupported, throwsSupported, runHealthSupported, incomplete, t))
                 .OrderByDescending(item => item.Count).ThenBy(item => item.Name, StringComparer.Ordinal)
                 .ThenBy(item => item.ItemId, StringComparer.Ordinal).ToArray();
             // Historical absence cannot prove an empty run, but it does not add a
@@ -154,7 +156,7 @@ internal static class ItemUsePresentationFactory
             var exactEmpty = !aggregate.HistoricalUnavailable && !incomplete && allUsesSupported;
             var usage = Count(aggregate.Overall.ActivationCount, allUsesSupported, incomplete
                 || aggregate.HistoricalUnavailable && aggregate.Overall.ActivationCount == 0, t);
-            var health = Number(aggregate.Overall.ActualHealthRestored, healthSupported, incomplete
+            var health = Number(aggregate.Overall.ActualHealthRestored, runHealthSupported, incomplete
                 || aggregate.HistoricalUnavailable && aggregate.Overall.ActualHealthRestored == 0, t);
             var route = run.Segments.OrderBy(segment => segment.SegmentIndex).ToArray();
             var exactMaps = UiText.HasAvailableSegments(run) && !run.RouteWasRepairedFromInvalidState

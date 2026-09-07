@@ -407,7 +407,7 @@ public sealed class RetainedItemUseTests
     public void SingularUnitsAndRunHealingCaptionsMatchTheMeasuredFacts()
     {
         var profile = Profile(); var use = Use(profile, "a");
-        var run = new RunSummary { RunId = "r", SaveGenerationId = "g" };
+        var run = new RunSummary { HealingCaptureComplete = true, RunId = "r", SaveGenerationId = "g" };
         ItemStatisticsAggregateReducer.Record(run.ItemStatistics, "g", use); profile.Statistics.Runs.Add(run);
         var p = Present(profile); Assert.Equal("1 item", p.Items[0].Amount.Text);
         var document = Document(); document.Right(Select(p), 1176);

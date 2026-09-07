@@ -160,6 +160,28 @@ public sealed class OverviewHealingEvidenceTests
             var projection = StatisticsPanelProjectionFactory.Create(loaded.Value, new(), new(), new());
             var detail = Assert.Single(RunsPresentationFactory.Create(projection, generation)!.Runs);
             Assert.Equal(expected, detail.Summary.Single(row => row.Key == UiText.Get("ui.runs_hp")).Value);
+            // Restart against the same saved run after removing the conflicting patch.
+            adapter.Dispose();
+            HarmonyLib.Harmony.ClearAll();
+            using var reopened = new NativeProfileCoordinator(); reopened.Initialize();
+            using var recoveredAdapter = new NativeHealingAttributionAdapter(reopened.HandleHealing, _ => { }, new NativeBuffApplicationObservationBoundary());
+            recoveredAdapter.CapabilityChanged += reopened.SetHealingCapability;
+            reopened.SetHealingCapability(recoveredAdapter.Initialize());
+            Assert.Equal(AdapterCapabilityState.Supported, recoveredAdapter.Capability.State);
+            var recoveredProjection = StatisticsPanelProjectionFactory.Create(reopened.Current!, new(), new(), new());
+            Assert.True(ItemUsePresentationFactory.HealingSupported(reopened.Current!.Capabilities));
+            var recoveredRun = Assert.Single(RunsPresentationFactory.Create(recoveredProjection, generation)!.Runs);
+            Assert.Equal(expected, recoveredRun.Summary.Single(row => row.Key == UiText.Get("ui.runs_hp")).Value);
+            var itemRun = Assert.Single(ItemUsePresentationFactory.Create(recoveredProjection, generation)!.RecentRuns);
+            var item = Assert.Single(itemRun.Items);
+            var healthText = run.HealingCaptureComplete ? restored.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : restored > 0 ? restored.ToString(System.Globalization.CultureInfo.InvariantCulture) + " (Partial)" : "Unavailable";
+            Assert.Equal(healthText, item.Health.Text);
+            Assert.Equal(run.HealingCaptureComplete ? ItemUseEvidence.Supported
+                : restored > 0 ? ItemUseEvidence.Partial : ItemUseEvidence.Unavailable, item.Health.Evidence);
+            Assert.Contains(healthText + " HP restored", itemRun.Caption);
+            Assert.Equal(ItemUseEvidence.Supported, item.Uses.Evidence);
+            Assert.Equal("1", item.Uses.Text);
             // An absent scalar must degrade evidence, never reject or rotate the profile.
             var missing = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
             foreach (var entry in missing["Statistics"]!["Runs"]!.AsArray()) entry!.AsObject().Remove("HealingCaptureComplete");
