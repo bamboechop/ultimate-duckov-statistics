@@ -4376,6 +4376,9 @@ internal sealed class StatisticsPanelProjection
 {
     internal CombatProjectionBinding? CombatBinding { get; set; }
     internal EquipmentProjectionBinding? EquipmentBinding { get; set; }
+    internal EconomyProjectionBinding? EconomyBinding { get; set; }
+    internal CraftingProjectionBinding? CraftingBinding { get; set; }
+    internal ItemUseProjectionBinding? ItemUseBinding { get; set; }
     public ProfileDocument Profile { get; set; } = new();
     public RunStatisticsViewModel Runs { get; set; } = new();
     public CombatStatisticsViewModel Combat { get; set; } = new();
@@ -4543,6 +4546,9 @@ internal static class StatisticsPanelProjectionFactory
         };
         projection.CombatBinding = new CombatProjectionBinding(projection);
         projection.EquipmentBinding = new EquipmentProjectionBinding(projection);
+        projection.EconomyBinding = new EconomyProjectionBinding(projection);
+        projection.CraftingBinding = new CraftingProjectionBinding(projection);
+        projection.ItemUseBinding = new ItemUseProjectionBinding(projection);
         return projection;
     }
 

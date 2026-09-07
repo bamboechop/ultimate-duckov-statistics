@@ -6,6 +6,13 @@ namespace UltimateDuckovStatistics.UI;
 
 internal static class UiText
 {
+    static UiText()
+    {
+        foreach (var entry in RemainingTabsText.English) English[entry.Key] = entry.Value;
+        foreach (var entry in DiagnosticsText.English) English[entry.Key] = entry.Value;
+        foreach (var entry in DiagnosticsCapabilityCatalog.All) English[entry.TextKey] = entry.EnglishName;
+    }
+
     private static Func<string, string?>? nativeResolver;
 
     private static readonly Dictionary<string, string> English =

@@ -7,6 +7,8 @@ namespace UltimateDuckovStatistics.Core.Persistence;
 
 public sealed class ProfileOpenResult
 {
+    public AtomicJsonLoadSource LoadSource { get; internal set; }
+
     public bool CreatedNew { get; internal set; }
 
     public bool RotatedGeneration { get; internal set; }
@@ -39,9 +41,20 @@ public sealed class ProfilePersistenceSnapshot
     public string GenerationId => Document.GenerationId;
 
     public long Revision => Document.Revision;
+
 }
 
-public sealed class ProfileRepository
+/// <summary>A successful disk-write receipt, published atomically for read-only UI consumers.</summary>
+public sealed class ProfileSaveReceipt
+{
+    public string GenerationId { get; }
+    public long Revision { get; }
+    public DateTime SavedUtc { get; }
+    internal ProfileSaveReceipt(string generationId, long revision, DateTime savedUtc)
+    { GenerationId = generationId; Revision = revision; SavedUtc = savedUtc; }
+}
+
+public sealed partial class ProfileRepository
 {
     private static void MigrateEquipmentComposition(ActiveRunCheckpoint checkpoint)
     {
@@ -65,6 +78,10 @@ public sealed class ProfileRepository
     private string? completionPersistencePendingRunId;
     private bool capabilitiesConfigured;
     private bool deferredItemPersistenceEnabled;
+    private ProfileSaveReceipt? lastSaveReceipt;
+
+    public ProfileSaveReceipt? LastSaveReceipt => System.Threading.Volatile.Read(ref lastSaveReceipt);
+    public ProfileOpenResult? LastOpenResult { get; private set; }
 
     public ProfileRepository(
         string dataRoot,
@@ -107,6 +124,7 @@ public sealed class ProfileRepository
         var profilePath = GetProfilePath(currentDirectory);
         var loaded = profileStore.Load(profilePath, ProfileMigrator.ValidateRecoveryCandidate);
         result.LoadFailures = loaded.Failures;
+        result.LoadSource = loaded.Source;
 
         if (loaded.Value == null)
         {
@@ -186,6 +204,7 @@ public sealed class ProfileRepository
             EnsureDeferredItemPersistenceEnabled();
         }
         StartSession();
+        LastOpenResult = result;
         return result;
     }
 
@@ -361,6 +380,7 @@ public sealed class ProfileRepository
             throw new ArgumentNullException(nameof(snapshot));
         }
 
+        pendingUserResetRollback?.Restore();
         EnsureSchemaCanBeSaved(snapshot.Document);
         var validationFailure = ProfileMigrator.ValidateRecoveryCandidate(snapshot.Document);
         if (!string.IsNullOrWhiteSpace(validationFailure))
@@ -369,6 +389,8 @@ public sealed class ProfileRepository
                 $"Deferred profile snapshot failed semantic validation: {validationFailure}");
         }
         profileStore.Save(snapshot.Path, snapshot.Document);
+        System.Threading.Volatile.Write(ref lastSaveReceipt,
+            new ProfileSaveReceipt(snapshot.GenerationId, snapshot.Revision, EnsureUtc(utcNow())));
     }
 
     private bool Record(ItemUseRecorded itemUse, bool persistImmediately)
@@ -551,6 +573,7 @@ public sealed class ProfileRepository
         if (checkpoint.SchemaVersion < 18) MigrateEquipmentComposition(checkpoint);
         RunReducer.Validate(checkpoint.ToRecoverySummary());
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
+        pendingUserResetRollback?.Restore();
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
     }
 
@@ -680,6 +703,12 @@ public sealed class ProfileRepository
         if (string.IsNullOrWhiteSpace(reason))
         {
             throw new ArgumentException("A generation rotation reason is required.", nameof(reason));
+        }
+
+        if (reason == "UserReset" && current != null && currentDirectory != null)
+        {
+            RotateUserProfile(identity);
+            return;
         }
 
         if (current == null || currentDirectory == null)
@@ -1332,12 +1361,15 @@ public sealed class ProfileRepository
             throw new InvalidOperationException("No current profile can be saved.");
         }
 
+        pendingUserResetRollback?.Restore();
         EnsureSchemaCanBeSaved(current);
         current.SchemaVersion = ProductInfo.SchemaVersion;
         current.Statistics.SchemaVersion = ProductInfo.SchemaVersion;
         current.Statistics.SaveGenerationId = current.GenerationId;
         current.Statistics.Holdings.SaveGenerationId = current.GenerationId;
         profileStore.Save(GetProfilePath(currentDirectory), current);
+        System.Threading.Volatile.Write(ref lastSaveReceipt,
+            new ProfileSaveReceipt(current.GenerationId, current.Revision, EnsureUtc(utcNow())));
     }
 
     private static ProfileDocument CloneForDeferredPersistence(ProfileDocument source)

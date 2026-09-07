@@ -26,6 +26,18 @@
     <ProjectReference Include="..\..\src\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EquipmentPresentation.cs" Link="ProductionUI\EquipmentPresentation.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EquipmentViewPolicy.cs" Link="ProductionUI\EquipmentViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EconomyPresentation.cs" Link="ProductionUI\EconomyPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EconomyViewPolicy.cs" Link="ProductionUI\EconomyViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\CraftingPresentation.cs" Link="ProductionUI\CraftingPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\CraftingViewPolicy.cs" Link="ProductionUI\CraftingViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\ItemUsePresentation.cs" Link="ProductionUI\ItemUsePresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\ItemUseViewPolicy.cs" Link="ProductionUI\ItemUseViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\PanelOperations.cs" Link="ProductionUI\PanelOperations.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RemainingTabsText.cs" Link="ProductionUI\RemainingTabsText.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsText.cs" Link="ProductionUI\DiagnosticsText.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsCapabilityCatalog.cs" Link="ProductionUI\DiagnosticsCapabilityCatalog.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsPresentation.cs" Link="ProductionUI\DiagnosticsPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsViewPolicy.cs" Link="ProductionUI\DiagnosticsViewPolicy.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsNativeScrollConfiguration.cs" Link="ProductionUI\RunsNativeScrollConfiguration.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ReflectiveHarmonyPatcher.cs"
              Link="ProductionAdapters\ReflectiveHarmonyPatcher.cs" />

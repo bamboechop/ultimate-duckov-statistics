@@ -1,5 +1,6 @@
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Persistence;
+using UltimateDuckovStatistics.Core.Diagnostics;
 using UnityEngine;
 
 namespace UltimateDuckovStatistics.UI;
@@ -9,6 +10,7 @@ namespace UltimateDuckovStatistics.UI;
 /// </summary>
 internal sealed class NativeStatisticsPanel : IDisposable
 {
+    private static readonly KeyCode[] HotkeyCandidates = (KeyCode[])Enum.GetValues(typeof(KeyCode));
     private readonly NativeProfileCoordinator coordinator;
     private readonly NativeUiIntegration nativeUi;
     private readonly RetainedStatisticsShell shell = new();
@@ -16,6 +18,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private readonly PanelInteractionState interaction = new();
     private readonly AtomicJsonStore<UserSettings> settingsStore = new();
     private readonly string settingsPath;
+    private readonly PanelOperationController operations;
     private KeyCode hotkey = KeyCode.F8;
     private PanelAccessSurface? openSurface;
     private bool disposed;
@@ -25,6 +28,16 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private GameObject? priorSelectedGameObject;
     private string presentedGeneration = string.Empty;
     private bool projectionDirty;
+    private StatisticsPanelProjection? presentedProjection;
+    private DiagnosticsPresentation? diagnostics;
+    private long presentedRevision = -1, diagnosticsRevision = -1;
+    private ProfileSaveReceipt? diagnosticReceipt;
+    private DiagnosticEntry? lastDiagnosticEntry;
+    private int diagnosticCount = -1;
+    private NativeMenuIntegrationState lastMainMenu, lastBaseMenu;
+    private bool capturingHotkey;
+    private string hotkeyWarning = "";
+    private int hotkeyCaptureFrame;
 
     public NativeStatisticsPanel(NativeProfileCoordinator coordinator)
     {
@@ -33,6 +46,10 @@ internal sealed class NativeStatisticsPanel : IDisposable
         LoadSettings();
         nativeUi = new NativeUiIntegration(coordinator, RequestOpen, HandleSurfaceClosed);
         nativeUi.Initialize();
+        operations = new PanelOperationController(interaction, () => coordinator.CurrentGenerationId,
+            () => coordinator.HasPendingProfileTransition, coordinator.BeginExportCurrent, coordinator.ResetCurrent,
+            () => coordinator.LastUserResetAttempt,
+            TryCopyPath, HandleOperationNotice);
         coordinator.ProfileChanging += HandleProfileChanging;
         coordinator.ProfileChanged += HandleProfileChanged;
     }
@@ -40,6 +57,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     public void Tick()
     {
         if (disposed) return;
+        operations.Tick();
         if (lifecycle.IsOpen && !shell.IsUsable)
         {
             Close();
@@ -53,7 +71,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         }
 
         if (lifecycle.IsOpen && !coordinator.HasPendingProfileTransition
-            && (projectionDirty || presentedGeneration != coordinator.CurrentGenerationId))
+            && (projectionDirty || presentedGeneration != coordinator.CurrentGenerationId || presentedRevision != coordinator.Current?.Revision))
         {
             var current = coordinator.Current;
             var generation = coordinator.CurrentGenerationId;
@@ -68,6 +86,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
                 var projection = StatisticsPanelProjectionFactory.Create(current!, coordinator.CurrentEconomyCapabilities,
                     coordinator.CurrentCraftingCapabilities, coordinator.CurrentWorldTimeCapabilities);
                 shell.RefreshProjection(projection, generation);
+                presentedProjection = projection;
             }
             catch (Exception exception)
             {
@@ -77,7 +96,14 @@ internal sealed class NativeStatisticsPanel : IDisposable
                 return;
             }
             presentedGeneration = generation;
+            presentedRevision = current!.Revision;
             projectionDirty = false;
+        }
+
+        if (lifecycle.IsOpen)
+        {
+            RefreshDiagnostics();
+            shell.SyncModal(operations.ModalVisible, capturingHotkey, diagnostics?.ProfileLabel ?? UiText.Get("ui.unavailable"), hotkeyWarning);
         }
 
         if (lifecycle.IsOpen && !shell.Tick(out var layoutError))
@@ -90,7 +116,16 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
         if (lifecycle.IsOpen && Input.GetKeyDown(KeyCode.Escape))
         {
+            if (operations.CancelConfirmation()) return;
+            if (capturingHotkey) { CancelHotkeyCapture(); return; }
             Close();
+            return;
+        }
+
+        if (lifecycle.IsOpen && shell.ModalVisible)
+        {
+            if (Input.GetKeyDown(KeyCode.Tab)) shell.MoveModalFocus(Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+            if (capturingHotkey) CaptureHotkeyInput();
             return;
         }
 
@@ -172,6 +207,11 @@ internal sealed class NativeStatisticsPanel : IDisposable
                 canvas,
                 projection,
                 interaction.SelectedTab,
+                DiagnosticsPresentationFactory.Create(projection, coordinator.CurrentGenerationId, CaptureDiagnosticsRuntime()),
+                operations,
+                BeginHotkeyCapture,
+                CancelHotkeyCapture,
+                CopyExportPath,
                 HandleTabSelected,
                 Close,
                 out var error))
@@ -183,11 +223,16 @@ internal sealed class NativeStatisticsPanel : IDisposable
         }
         openSurface = surface;
         presentedGeneration = coordinator.CurrentGenerationId;
+        presentedProjection = projection;
+        presentedRevision = profile!.Revision;
+        diagnosticsRevision = -1;
+        RefreshDiagnostics(force: true);
         projectionDirty = false;
     }
 
     private void HandleProfileChanging()
     {
+        operations.CancelConfirmation(); capturingHotkey = false;
         projectionDirty = true;
         if (lifecycle.IsOpen) shell.InvalidateProjection();
     }
@@ -196,7 +241,123 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
     private void HandleTabSelected(StatisticsPanelTab tab)
     {
+        if (operations.ModalVisible || capturingHotkey) return;
         RetainedTabSelectionPolicy.SelectAndSynchronize(interaction, shell.SetSelectedTab, tab);
+    }
+
+    private DiagnosticsRuntimeSnapshot CaptureDiagnosticsRuntime() => new()
+    {
+        GenerationId = coordinator.CurrentGenerationId,
+        DataRoot = coordinator.DataRoot,
+        Hotkey = hotkey.ToString(),
+        GameVersion = Application.version,
+        OpenDetail = coordinator.LastOpenStatus,
+        SaveReceipt = coordinator.LastSaveReceipt,
+        OpenResult = coordinator.LastOpenResult,
+        MainMenu = nativeUi.MainMenuState,
+        BaseMenu = nativeUi.BasePauseMenuState,
+        Entries = coordinator.DiagnosticEntries,
+        TransitionPending = coordinator.HasPendingProfileTransition
+    };
+
+    private void RefreshDiagnostics(bool force = false)
+    {
+        if (presentedProjection == null || coordinator.HasPendingProfileTransition) return;
+        var entries = coordinator.DiagnosticEntries;
+        var newest = entries.Count > 0 ? entries[entries.Count - 1] : null;
+        var revision = coordinator.Current?.Revision ?? -1;
+        if (!force && diagnosticsRevision == revision && diagnosticReceipt == coordinator.LastSaveReceipt
+            && lastDiagnosticEntry == newest && diagnosticCount == entries.Count
+            && lastMainMenu == nativeUi.MainMenuState && lastBaseMenu == nativeUi.BasePauseMenuState) return;
+        diagnostics = DiagnosticsPresentationFactory.Create(presentedProjection, coordinator.CurrentGenerationId, CaptureDiagnosticsRuntime());
+        shell.RefreshDiagnostics(diagnostics);
+        diagnosticsRevision = revision; diagnosticReceipt = coordinator.LastSaveReceipt;
+        lastDiagnosticEntry = newest; diagnosticCount = entries.Count;
+        lastMainMenu = nativeUi.MainMenuState; lastBaseMenu = nativeUi.BasePauseMenuState;
+    }
+
+    private void HandleOperationNotice(PanelOperationNotice notice)
+    {
+        diagnosticsRevision = -1;
+        if (notice.Outcome == PanelOperationOutcome.Running) return;
+        if (notice.Outcome == PanelOperationOutcome.Pending)
+        {
+            coordinator.ReportUiDiagnostic("M17 UI reset awaiting completion. " + notice.Detail, "Warning");
+            nativeUi.ShowToast(UiText.Get("ui.diag_operation_pending"));
+            return;
+        }
+        if (notice.Outcome == PanelOperationOutcome.Success || notice.Outcome == PanelOperationOutcome.ClipboardUnavailable)
+        {
+            if (notice.Operation == PanelOperation.Reset)
+            {
+                projectionDirty = true;
+                coordinator.ReportUiDiagnostic("M17 UI reset completed; the previous UDS generation was archived.");
+                nativeUi.ShowToast(UiText.Get("ui.diag_reset_success"));
+            }
+            else
+            {
+                coordinator.ReportUiDiagnostic($"M17 UI export completed for generation {notice.GenerationId}: {notice.Path}.");
+                if (notice.Outcome == PanelOperationOutcome.ClipboardUnavailable)
+                    coordinator.ReportUiDiagnostic("M17 UI clipboard unavailable after successful export. " + notice.Detail, "Warning");
+                nativeUi.ShowToast(UiText.Get(notice.Outcome == PanelOperationOutcome.Success ? "ui.diag_export_success" : "ui.diag_export_clipboard"));
+            }
+            return;
+        }
+        var prefix = notice.Operation == PanelOperation.Export ? "M17 UI export failed. "
+            : notice.PriorProfileStillActive ? "M17 UI reset failed; previous profile remains active. "
+            : "M17 UI reset could not be completed for the requested generation. ";
+        coordinator.ReportUiDiagnostic(prefix + notice.Detail, "Error");
+        nativeUi.ShowToast(UiText.Get("ui.diag_operation_failure"));
+    }
+
+    private static bool TryCopyPath(string path)
+    {
+        try { GUIUtility.systemCopyBuffer = path; return GUIUtility.systemCopyBuffer == path; }
+        catch (Exception) { return false; }
+    }
+
+    private void CopyExportPath()
+    {
+        var path = operations.LastNotice?.Path;
+        if (!operations.CanStart || string.IsNullOrWhiteSpace(path)) return;
+        if (TryCopyPath(path!)) nativeUi.ShowToast(UiText.Get("ui.diag_copied"));
+        else
+        {
+            coordinator.ReportUiDiagnostic("M17 UI clipboard unavailable while copying the completed export location.", "Warning");
+            nativeUi.ShowToast(UiText.Get("ui.diag_export_clipboard"));
+            diagnosticsRevision = -1;
+        }
+    }
+
+    private void BeginHotkeyCapture()
+    {
+        if (!lifecycle.IsOpen || !operations.CanStart) return;
+        capturingHotkey = true; hotkeyWarning = ""; hotkeyCaptureFrame = Time.frameCount;
+    }
+
+    private void CancelHotkeyCapture() { capturingHotkey = false; hotkeyWarning = ""; }
+
+    private void CaptureHotkeyInput()
+    {
+        if (!Input.anyKeyDown || Time.frameCount == hotkeyCaptureFrame) return;
+        foreach (var candidate in HotkeyCandidates)
+        {
+            if (!Input.GetKeyDown(candidate)) continue;
+            if (!PanelHotkeyPolicy.IsAllowed(candidate.ToString()))
+            { hotkeyWarning = UiText.Get("ui.diag_hotkey_invalid"); return; }
+            try
+            {
+                settingsStore.Save(settingsPath, new UserSettings { PanelHotkey = candidate.ToString() });
+                hotkey = candidate; CancelHotkeyCapture(); diagnosticsRevision = -1;
+            }
+            catch (Exception exception)
+            {
+                hotkeyWarning = UiText.Get("ui.diag_hotkey_failed");
+                coordinator.ReportUiDiagnostic("M17 UI hotkey change failed; the previous key remains active. "
+                    + exception.GetType().Name + ": " + exception.Message, "Warning");
+            }
+            return;
+        }
     }
 
     private void ReportShellFailure(PanelAccessSurface surface, string detail)
@@ -215,9 +376,11 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private void Close()
     {
         if (!lifecycle.Close()) return;
+        operations.CancelConfirmation(); capturingHotkey = false;
         shell.Dispose();
         openSurface = null;
         presentedGeneration = string.Empty;
+        presentedProjection = null; diagnostics = null; diagnosticsRevision = -1; presentedRevision = -1;
         RestoreFocusAndCursor();
     }
 
@@ -259,7 +422,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
         try
         {
             var settings = settingsStore.Load(settingsPath).Value ?? new UserSettings();
-            if (!Enum.TryParse(settings.PanelHotkey, ignoreCase: true, out hotkey) || hotkey == KeyCode.None)
+            if (!Enum.TryParse(settings.PanelHotkey, ignoreCase: true, out hotkey) || !Enum.IsDefined(typeof(KeyCode), hotkey)
+                || !PanelHotkeyPolicy.IsAllowed(hotkey.ToString()))
                 hotkey = KeyCode.F8;
             settings.PanelHotkey = hotkey.ToString();
             settingsStore.Save(settingsPath, settings);
@@ -277,6 +441,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         coordinator.ProfileChanging -= HandleProfileChanging;
         coordinator.ProfileChanged -= HandleProfileChanged;
         Close();
+        operations.Dispose();
         lifecycle.Dispose();
         shell.Dispose();
         nativeUi.Dispose();

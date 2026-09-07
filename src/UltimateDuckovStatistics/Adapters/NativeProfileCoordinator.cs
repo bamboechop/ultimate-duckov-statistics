@@ -37,7 +37,6 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
     private long profileTransitionSequence;
-    private bool userResetPending;
     private string lastOpenStatus = "Profile has not been opened.";
     private CapabilityRecord healingCapability = new()
     {
@@ -152,6 +151,16 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public string CurrentProfilePath => repository?.CurrentProfilePath ?? string.Empty;
 
     public string LastOpenStatus => lastOpenStatus;
+
+    public ProfileOpenResult? LastOpenResult => repository?.LastOpenResult;
+
+    public ProfileSaveReceipt? LastSaveReceipt => repository?.LastSaveReceipt;
+
+    public long CompletedUserResetVersion { get; private set; }
+
+    public string LastCompletedUserResetGeneration { get; private set; } = string.Empty;
+
+    public NativeUserResetAttempt? LastUserResetAttempt { get; private set; }
 
     public bool HasPendingProfileTransition => profileTransitionBoundary.HasPendingTransition;
 
@@ -555,11 +564,6 @@ internal sealed class NativeProfileCoordinator : IDisposable
         var completed = profileTransitionBoundary.Retry(
             FlushProfileTransitionBoundaries,
             message => WriteDiagnostic(message, "Error"));
-        if (completed && userResetPending)
-        {
-            userResetPending = false;
-            lastOpenStatus = "User reset completed; the prior UDS generation was archived read-only.";
-        }
         return completed;
     }
 
@@ -661,6 +665,26 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public ProfileExportResult ExportCurrent()
     {
+        var snapshot = PrepareCurrentExport();
+        var result = ProfileExportWriter.Write(snapshot, DateTime.UtcNow);
+        WriteDiagnostic($"Exported JSON and CSV statistics to {result.Directory}.");
+        return result;
+    }
+
+    public System.Threading.Tasks.Task<ProfileExportResult> BeginExportCurrent()
+    {
+        // Native barriers and identity reads remain on the main thread. Only the
+        // detached snapshot's serialization and file writes run in the worker.
+        var snapshot = PrepareCurrentExport();
+        var exportedUtc = DateTime.UtcNow;
+        var exportRoot = Path.Combine(dataRoot, "exports");
+        return System.Threading.Tasks.Task.Run(() => ProfileExportWriter.WriteToRoot(snapshot, exportRoot, exportedUtc));
+    }
+
+    private ProfilePersistenceSnapshot PrepareCurrentExport()
+    {
+        if (HasPendingProfileTransition)
+            throw new InvalidOperationException("A profile transition is pending; export cannot select a generation.");
         if (repository?.CurrentProfilePath == null)
         {
             throw new InvalidOperationException("No profile is open for export.");
@@ -676,9 +700,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         DrainProfileWriter();
         repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
         repository.Flush();
-        var result = ProfileExportWriter.Write(repository.Current, repository.CurrentProfilePath, DateTime.UtcNow);
-        WriteDiagnostic($"Exported JSON and CSV statistics to {result.Directory}.");
-        return result;
+        return repository.CaptureExportSnapshot();
     }
 
     public bool ResetCurrent()
@@ -688,9 +710,16 @@ internal sealed class NativeProfileCoordinator : IDisposable
             throw new InvalidOperationException("No profile is open for reset.");
         }
 
+        if (HasPendingProfileTransition)
+            throw new InvalidOperationException("A profile transition is already pending; reset cannot select a generation.");
+
         var currentIdentity = ReadIdentity(repository.Current.Slot);
         var resetIdentity = ReadIdentity();
         var profileTransitionId = NextProfileTransitionId();
+        var requestedGeneration = repository.CurrentGenerationId;
+        LastUserResetAttempt = new NativeUserResetAttempt(profileTransitionId, requestedGeneration,
+            NativeUserResetOutcome.Pending, string.Empty, "The reset is waiting for its persistence boundary.");
+        lastOpenStatus = "User reset remains queued; completion has not been reported and Diagnostics contains the blocking boundary.";
         NativeProfileResetTransition.Queue(
             profileTransitionId,
             craftingProfileChangeStarted: transitionId =>
@@ -705,8 +734,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
             enqueueTransition: QueueProfileTransition,
             profileChanging: () => ProfileChanging?.Invoke(),
             waitRunCheckpoint: WaitRunCheckpoint,
-            drainProfileWriter: DrainProfileWriter,
-            refreshIdentity: () => repository.RefreshIdentity(currentIdentity),
+            drainProfileWriter: DrainProfileWriterForUserReset,
+            refreshIdentity: () => repository.RefreshIdentityForUserReset(currentIdentity),
             rotateRepository: () => repository.Rotate(resetIdentity, "UserReset"),
             openDiagnostics: OpenDiagnosticsForCurrentGeneration,
             worldTimeProfileChanged: () => PublishProfileEvent(
@@ -723,14 +752,25 @@ internal sealed class NativeProfileCoordinator : IDisposable
             },
             profileChanged: () => PublishProfileEvent(ProfileChanged, "profile-changed"),
             applyCurrentMetricCapabilities: ApplyCurrentCapabilities,
-            writeDiagnostic: () => WriteDiagnostic(
-                $"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only."));
-        var completed = !profileTransitionBoundary.HasPendingTransition;
-        userResetPending = !completed;
-        lastOpenStatus = completed
-            ? "User reset completed; the prior UDS generation was archived read-only."
-            : "User reset remains queued; completion has not been reported and Diagnostics contains the blocking boundary.";
-        return completed;
+            writeDiagnostic: () =>
+            {
+                LastCompletedUserResetGeneration = repository.CurrentGenerationId;
+                CompletedUserResetVersion++;
+                LastUserResetAttempt = new NativeUserResetAttempt(profileTransitionId, requestedGeneration,
+                    NativeUserResetOutcome.Success, repository.CurrentGenerationId, string.Empty);
+                lastOpenStatus = "User reset completed; the prior UDS generation was archived read-only.";
+                WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only.");
+            },
+            resetFailed: failure =>
+            {
+                var detail = failure.InnerException == null ? failure.Message
+                    : $"{failure.InnerException.GetType().Name}: {failure.InnerException.Message}";
+                LastUserResetAttempt = new NativeUserResetAttempt(profileTransitionId, requestedGeneration,
+                    NativeUserResetOutcome.Failure, failure.PreservedGenerationId, detail);
+                lastOpenStatus = "User reset failed; the original UDS generation remains active.";
+                WriteDiagnostic($"User reset failed with the original generation preserved: {detail}", "Error");
+            });
+        return LastUserResetAttempt.Outcome == NativeUserResetOutcome.Success;
     }
 
     public void Dispose()
@@ -1166,6 +1206,20 @@ internal sealed class NativeProfileCoordinator : IDisposable
         if (result.State != DeferredWriteState.Failed) return;
         ObserveProfileResult(result);
         throw result.Exception ?? new IOException("Deferred profile persistence failed without an exception.");
+    }
+
+    private void DrainProfileWriterForUserReset()
+    {
+        // An unaccepted lifecycle checkpoint is a retryable boundary. A profile
+        // writer that has actually failed storage is a rejected reset attempt:
+        // its dirty data stays in that writer, against the unchanged generation.
+        if (activeRunCheckpointFlusher != null && !activeRunCheckpointFlusher())
+            throw new IOException("The active-run checkpoint barrier remains pending before reset.");
+        var result = profileWriter.Flush();
+        if (result.State != DeferredWriteState.Failed) return;
+        ObserveProfileResult(result);
+        throw new UserProfileResetFailedException(repository!.CurrentGenerationId,
+            result.Exception ?? new IOException("Deferred profile persistence failed without an exception."));
     }
 
     private ProfileWrite CaptureProfileWrite()

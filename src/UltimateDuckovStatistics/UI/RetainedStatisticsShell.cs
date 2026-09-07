@@ -8,7 +8,7 @@ using UnityEngine.UI.ProceduralImage;
 namespace UltimateDuckovStatistics.UI;
 
 /// <summary>
-/// Owns the shared retained shell and the independent Overview and Runs views.
+/// Owns the shared retained shell and its independently refreshed tab views.
 /// The root graphic remains the modal dimmer; its children are the frozen header controls and tab-owned views.
 /// </summary>
 internal sealed partial class RetainedStatisticsShell : IDisposable
@@ -307,6 +307,11 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         Canvas targetCanvas,
         StatisticsPanelProjection projection,
         StatisticsPanelTab initialTab,
+        DiagnosticsPresentation? diagnostics,
+        PanelOperationController operations,
+        Action changeHotkey,
+        Action cancelHotkey,
+        Action copyExportPath,
         Action<StatisticsPanelTab> selectTab,
         Action close,
         out string? error)
@@ -379,6 +384,19 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
             equipmentView.Refresh(EquipmentPresentationFactory.Create(projection, projection.Profile.GenerationId));
             equipmentView.SetVisible(selectedTab == StatisticsPanelTab.Equipment);
+            economyView = new EconomyView(rootRect, headerTitleTypography, tabLabelMaterial.Instance, RouteToRun, FocusSelectedTab);
+            economyView.Refresh(EconomyPresentationFactory.Create(projection, projection.Profile.GenerationId));
+            economyView.SetVisible(selectedTab == StatisticsPanelTab.Economy);
+            craftingView = new CraftingView(rootRect, headerTitleTypography, tabLabelMaterial.Instance, FocusSelectedTab);
+            craftingView.Refresh(CraftingPresentationFactory.Create(projection, projection.Profile.GenerationId));
+            craftingView.SetVisible(selectedTab == StatisticsPanelTab.Crafting);
+            itemUseView = new ItemUseView(rootRect, headerTitleTypography, tabLabelMaterial.Instance, RouteToRun, FocusSelectedTab);
+            itemUseView.Refresh(ItemUsePresentationFactory.Create(projection, projection.Profile.GenerationId));
+            itemUseView.SetVisible(selectedTab == StatisticsPanelTab.ItemUse);
+            diagnosticsView = new DiagnosticsView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
+                operations, changeHotkey, copyExportPath, FocusSelectedTab);
+            diagnosticsView.Refresh(diagnostics);
+            diagnosticsView.SetVisible(selectedTab == StatisticsPanelTab.Diagnostics);
             BindOverviewRun(projection.Profile.GenerationId);
 
             headerRect = CreateHeaderBackground(
@@ -442,6 +460,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 headerTitleTypography,
                 out var createdHeaderTitleGraphic);
             headerTitleGraphic = createdHeaderTitleGraphic;
+            modal = new PanelModal(rootRect, headerTitleTypography, tabLabelMaterial.Instance, operations, cancelHotkey,
+                () => { if (selectedTab == StatisticsPanelTab.Diagnostics) diagnosticsView?.FocusReset(); else FocusSelectedTab(); });
             root.SetActive(RetainedTabMeasurementPolicy.RequiresActiveHierarchy);
             if (!root.activeInHierarchy)
             {
@@ -463,6 +483,11 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
 
     private NativeHeaderTitleTypography? overviewTypography;
     private Action<StatisticsPanelTab>? tabSelected;
+
+    private void FocusSelectedTab() => GameManager.EventSystem?.SetSelectedGameObject(
+        tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject);
+    private void RouteToRun(string generation, string id)
+    { runsView?.Route(generation, id); tabSelected?.Invoke(StatisticsPanelTab.Runs); }
     private bool projectionAvailable = true;
 
     private void BuildOverview(RectTransform rootRect, NativeHeaderTitleTypography headerTitleTypography, StatisticsPanelProjection projection)
@@ -568,6 +593,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         recordsView?.Refresh(RecordsPresentationFactory.Create(projection, generation));
         combatView?.Refresh(CombatPresentationFactory.Create(projection, generation, isThrowable: NativeThrowableIdentity.IsThrowable));
         equipmentView?.Refresh(EquipmentPresentationFactory.Create(projection, generation));
+        economyView?.Refresh(EconomyPresentationFactory.Create(projection, generation));
+        craftingView?.Refresh(CraftingPresentationFactory.Create(projection, generation));
+        itemUseView?.Refresh(ItemUsePresentationFactory.Create(projection, generation));
         RefreshVisualLayout(force: true);
     }
 
@@ -584,6 +612,10 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         recordsView?.SetVisible(selectedTab == StatisticsPanelTab.Records);
         combatView?.SetVisible(selectedTab == StatisticsPanelTab.Combat);
         equipmentView?.SetVisible(selectedTab == StatisticsPanelTab.Equipment);
+        economyView?.SetVisible(selectedTab == StatisticsPanelTab.Economy);
+        craftingView?.SetVisible(selectedTab == StatisticsPanelTab.Crafting);
+        itemUseView?.SetVisible(selectedTab == StatisticsPanelTab.ItemUse);
+        diagnosticsView?.SetVisible(selectedTab == StatisticsPanelTab.Diagnostics);
         EnsureSelectedTabVisible();
         var focused = GameManager.EventSystem?.currentSelectedGameObject;
         if (focused == null || !focused.activeInHierarchy)
@@ -604,6 +636,15 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             combatView?.Tick();
             equipmentView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
             equipmentView?.Tick();
+            economyView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+            economyView?.Tick();
+            craftingView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+            craftingView?.Tick();
+            itemUseView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+            itemUseView?.Tick();
+            diagnosticsView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+            diagnosticsView?.Tick();
+            modal?.Layout(layout, shellRoot!.rect.width, shellRoot.rect.height);
             return true;
         }
         catch (Exception exception)
@@ -2336,6 +2377,11 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         combatView = null;
         equipmentView?.Dispose();
         equipmentView = null;
+        economyView?.Dispose(); economyView = null;
+        craftingView?.Dispose(); craftingView = null;
+        itemUseView?.Dispose(); itemUseView = null;
+        modal?.Dispose(); modal = null;
+        diagnosticsView?.Dispose(); diagnosticsView = null;
         recordsView = null;
         runsView?.Dispose();
         runsView = null;

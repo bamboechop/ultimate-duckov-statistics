@@ -19,6 +19,18 @@ public sealed class ProfileExportResult
 
 public static class ProfileExportWriter
 {
+    public static ProfileExportResult Write(ProfilePersistenceSnapshot snapshot, DateTime exportedUtc)
+    {
+        if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+        return Write(snapshot.Document, snapshot.Path, exportedUtc);
+    }
+
+    public static ProfileExportResult WriteToRoot(ProfilePersistenceSnapshot snapshot, string exportRoot, DateTime exportedUtc)
+    {
+        if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+        return WriteToRoot(snapshot.Document, exportRoot, exportedUtc);
+    }
+
     public static ProfileExportResult Write(
         ProfileDocument profile,
         string currentProfilePath,
@@ -31,10 +43,14 @@ public static class ProfileExportWriter
 
         var currentDirectory = Path.GetDirectoryName(Path.GetFullPath(currentProfilePath))
             ?? throw new ArgumentException("Profile path has no directory.", nameof(currentProfilePath));
+        return WriteToRoot(profile, Path.Combine(currentDirectory, "exports"), exportedUtc);
+    }
+
+    private static ProfileExportResult WriteToRoot(ProfileDocument profile, string exportRoot, DateTime exportedUtc)
+    {
         exportedUtc = exportedUtc.Kind == DateTimeKind.Utc ? exportedUtc : exportedUtc.ToUniversalTime();
         var exportDirectory = Path.Combine(
-            currentDirectory,
-            "exports",
+            Path.GetFullPath(exportRoot),
             $"{exportedUtc.ToString("yyyyMMddTHHmmssfffffffZ", CultureInfo.InvariantCulture)}-{profile.GenerationId}");
         Directory.CreateDirectory(exportDirectory);
         var bundle = StatisticsExporter.Create(profile, exportedUtc);

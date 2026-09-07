@@ -565,14 +565,6 @@ internal sealed class NativeUiIntegration : IDisposable
     }
 }
 
-internal enum NativeMenuIntegrationState
-{
-    NotObserved,
-    AttachedUnverified,
-    Available,
-    Unavailable
-}
-
 internal sealed class NativeItemIconResolver
 {
     private readonly Dictionary<string, Sprite?> cache = new(StringComparer.Ordinal);
