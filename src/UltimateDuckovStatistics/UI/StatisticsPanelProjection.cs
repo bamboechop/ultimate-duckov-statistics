@@ -41,12 +41,6 @@ internal enum PanelOperation
     Reset
 }
 
-internal enum PanelColumnLayout
-{
-    SideBySide,
-    Stacked
-}
-
 internal enum PanelAccessSurface
 {
     MainMenu,
@@ -137,49 +131,6 @@ internal static class NativeMenuPresentationPolicy
                && isEnabled
                && !alreadyPreserved
                && IsButtonAnimation(typeHierarchy);
-    }
-}
-
-internal sealed class StatisticsPanelLayout
-{
-    public float Width { get; set; }
-    public float Height { get; set; }
-    public float ContentHeight { get; set; }
-    public float Scale { get; set; }
-    public PanelColumnLayout Columns { get; set; }
-    public int PageSize { get; set; }
-    public bool TabStripRequiresScrolling { get; set; }
-}
-
-internal static class StatisticsPanelLayoutPolicy
-{
-    private const float DesktopColumnThreshold = 1180f;
-    private const float EstimatedTabStripWidth = 1120f;
-
-    public static StatisticsPanelLayout Create(float screenWidth, float screenHeight, float uiScale = 1f)
-    {
-        if (screenWidth <= 0) throw new ArgumentOutOfRangeException(nameof(screenWidth));
-        if (screenHeight <= 0) throw new ArgumentOutOfRangeException(nameof(screenHeight));
-        if (uiScale <= 0 || float.IsNaN(uiScale) || float.IsInfinity(uiScale))
-            throw new ArgumentOutOfRangeException(nameof(uiScale));
-
-        var margin = Math.Max(12f, 24f * uiScale);
-        var width = Math.Max(320f, Math.Min(1560f * uiScale, screenWidth - margin * 2f));
-        var height = Math.Max(300f, Math.Min(960f * uiScale, screenHeight - margin * 2f));
-        var contentHeight = Math.Max(160f, height - 150f * uiScale);
-        var estimatedRowHeight = Math.Max(24f, 34f * uiScale);
-        return new StatisticsPanelLayout
-        {
-            Width = width,
-            Height = height,
-            ContentHeight = contentHeight,
-            Scale = uiScale,
-            Columns = width / uiScale >= DesktopColumnThreshold
-                ? PanelColumnLayout.SideBySide
-                : PanelColumnLayout.Stacked,
-            PageSize = Math.Clamp((int)Math.Floor(contentHeight / estimatedRowHeight) * 2, 12, 48),
-            TabStripRequiresScrolling = width < EstimatedTabStripWidth * uiScale
-        };
     }
 }
 
@@ -4271,32 +4222,6 @@ internal sealed class RetainedShellLifecycleState
     {
         IsOpen = false;
         IsDisposed = true;
-    }
-}
-
-internal sealed class BoundedPage<T>
-{
-    public IReadOnlyList<T> Items { get; set; } = Array.Empty<T>();
-    public int PageIndex { get; set; }
-    public int PageCount { get; set; }
-    public int TotalCount { get; set; }
-}
-
-internal static class BoundedPageFactory
-{
-    public static BoundedPage<T> Create<T>(IReadOnlyList<T> source, int requestedPage, int pageSize)
-    {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (pageSize < 1 || pageSize > 100) throw new ArgumentOutOfRangeException(nameof(pageSize));
-        var pageCount = Math.Max(1, (source.Count + pageSize - 1) / pageSize);
-        var pageIndex = Math.Clamp(requestedPage, 0, pageCount - 1);
-        return new BoundedPage<T>
-        {
-            Items = source.Skip(pageIndex * pageSize).Take(pageSize).ToArray(),
-            PageIndex = pageIndex,
-            PageCount = pageCount,
-            TotalCount = source.Count
-        };
     }
 }
 

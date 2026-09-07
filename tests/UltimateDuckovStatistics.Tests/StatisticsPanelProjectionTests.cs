@@ -102,19 +102,6 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void NarrowLayoutStacksLeftFirstAndScrollsTabs()
-    {
-        var narrow = StatisticsPanelLayoutPolicy.Create(1024, 768);
-        var desktop = StatisticsPanelLayoutPolicy.Create(2560, 1440);
-
-        Assert.Equal(PanelColumnLayout.Stacked, narrow.Columns);
-        Assert.True(narrow.TabStripRequiresScrolling);
-        Assert.InRange(narrow.PageSize, 12, 48);
-        Assert.Equal(PanelColumnLayout.SideBySide, desktop.Columns);
-        Assert.False(desktop.TabStripRequiresScrolling);
-    }
-
-    [Fact]
     public void TabScrollMovesOnlyEnoughToKeepTheSelectionVisible()
     {
         Assert.Equal(0f, TabStripScrollPolicy.EnsureVisible(900f, 860f, 700f, 150f, 0f));
@@ -5878,18 +5865,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(lifecycle.IsOpen);
         Assert.True(lifecycle.IsDisposed);
         Assert.False(lifecycle.TryOpen());
-    }
-
-    [Fact]
-    public void BoundedPagesNeverRenderUnboundedHistory()
-    {
-        var source = Enumerable.Range(0, 1000).ToArray();
-        var page = BoundedPageFactory.Create(source, requestedPage: 999, pageSize: 40);
-
-        Assert.Equal(25, page.PageCount);
-        Assert.Equal(24, page.PageIndex);
-        Assert.Equal(40, page.Items.Count);
-        Assert.Equal(960, page.Items[0]);
     }
 
     [Fact]

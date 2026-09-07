@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RetainedTabLabelMaterial.cs" Link="ProductionUI\RetainedTabLabelMaterial.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsPathPrivacy.cs" Link="UI\DiagnosticsPathPrivacy.cs" />
     <ProjectReference Include="..\..\src\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EquipmentPresentation.cs" Link="ProductionUI\EquipmentPresentation.cs" />
