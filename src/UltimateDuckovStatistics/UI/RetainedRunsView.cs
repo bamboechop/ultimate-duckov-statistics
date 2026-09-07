@@ -60,6 +60,19 @@ internal sealed class RunsScrollRect : ScrollRect
 internal sealed class RunsButtonFeedback : MonoBehaviour, ISelectHandler, IDeselectHandler, ISubmitHandler, IPointerEnterHandler, IPointerExitHandler
 {
     private bool pointerInside;
+    private UniformModifier? buttonShape, highlightShape;
+    public void MatchShape(UniformModifier? source, UniformModifier highlight)
+    {
+        buttonShape = source; highlightShape = highlight;
+        LateUpdate();
+    }
+    private void LateUpdate()
+    {
+        // Layout can change the button radius after creation (including pill shapes).
+        // Keep every interaction state on the same outline without restarting its tint.
+        if (buttonShape != null && highlightShape != null && highlightShape.Radius != buttonShape.Radius)
+            highlightShape.Radius = buttonShape.Radius;
+    }
     public void OnPointerEnter(PointerEventData eventData) => pointerInside = true;
     public void OnPointerExit(PointerEventData eventData) => pointerInside = false;
     public void OnSelect(BaseEventData eventData)
@@ -891,17 +904,19 @@ internal sealed partial class RetainedStatisticsShell
 
     private static void AddButtonFeedback(Button button)
     {
+        var buttonShape = button.targetGraphic?.GetComponent<UniformModifier>() ?? button.GetComponent<UniformModifier>();
         var overlay = new GameObject("NativeInteractionHighlight", typeof(RectTransform));
         var rect = (RectTransform)overlay.transform; rect.SetParent(button.transform, false);
         rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
         var graphic = overlay.AddComponent<ProceduralImage>(); graphic.raycastTarget = false;
-        overlay.AddComponent<UniformModifier>().Radius = 10;
+        var highlightShape = overlay.AddComponent<UniformModifier>();
+        highlightShape.Radius = buttonShape != null ? buttonShape.Radius : 10;
         button.targetGraphic = graphic;
         button.transition = Selectable.Transition.ColorTint;
         var colors = button.colors;
         colors.normalColor = Color.clear; colors.highlightedColor = new Color(1, 1, 1, .10f);
         colors.pressedColor = new Color(1, 1, 1, .20f); colors.selectedColor = new Color(1, 1, 1, .13f);
         colors.disabledColor = Color.clear; colors.fadeDuration = .1f; button.colors = colors;
-        button.gameObject.AddComponent<RunsButtonFeedback>();
+        button.gameObject.AddComponent<RunsButtonFeedback>().MatchShape(buttonShape, highlightShape);
     }
 }
