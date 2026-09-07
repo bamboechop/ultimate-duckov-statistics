@@ -107,15 +107,25 @@ internal static class EquipmentPresentationFactory
         EquipmentCompositionReducer.Validate(a.Composition);
         string Name(string? name, string? id = null) => string.IsNullOrWhiteSpace(name) || name == id ? t("ui.equipment_unknown_item") : name!;
         string SlotName(string? name, string? id = null) => string.IsNullOrWhiteSpace(name) || name == id ? t("ui.equipment_unknown_slot") : name!;
-        string DirectName(string id, string? name) => id switch {
-            "duckov:slot:Totem1" => t("ui.equipment_totem_slot_1"), "duckov:slot:Totem2" => t("ui.equipment_totem_slot_2"), _ => SlotName(name, id) };
+        string DirectName(string id, string? name) => id switch
+        {
+            "duckov:slot:Totem1" => t("ui.equipment_totem_slot_1"),
+            "duckov:slot:Totem2" => t("ui.equipment_totem_slot_2"),
+            _ => SlotName(name, id)
+        };
         string Used(long count) => string.Format(CultureInfo.CurrentCulture, t("ui.equipment_used_runs"), count);
         string Notice(MetricAvailability state) => state.State == AdapterCapabilityState.Supported ? "" : t("ui.equipment_current_unavailable");
-        var notices = new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["loadouts"] = Notice(c.EquipmentSlots), ["selected"] = Notice(c.SelectedWeapon),
-            ["weapons"] = Notice(c.CharacterSlotState), ["armor"] = Notice(c.CharacterSlotState),
-            ["direct"] = Notice(c.DirectTotems), ["empty"] = Notice(c.CharacterSlotState),
-            ["sets"] = Notice(c.DirectTotems), ["tote"] = Notice(c.ToteContents) };
+        var notices = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["loadouts"] = Notice(c.EquipmentSlots),
+            ["selected"] = Notice(c.SelectedWeapon),
+            ["weapons"] = Notice(c.CharacterSlotState),
+            ["armor"] = Notice(c.CharacterSlotState),
+            ["direct"] = Notice(c.DirectTotems),
+            ["empty"] = Notice(c.CharacterSlotState),
+            ["sets"] = Notice(c.DirectTotems),
+            ["tote"] = Notice(c.ToteContents)
+        };
         if (a.WasRepairedFromInvalidState)
             foreach (var key in notices.Keys.ToArray()) notices[key] = t("ui.equipment_partial") + "\n" + notices[key];
         var nestedNotice = Notice(c.NestedSlotState);
@@ -137,7 +147,7 @@ internal static class EquipmentPresentationFactory
         {
             var row = run.EquipmentStatistics.Loadouts.Values.OrderByDescending(r => r.ActiveDurationSeconds).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
             var segments = run.Segments.OrderBy(s => s.SegmentIndex).ToArray();
-            var route = segments.Length == 0 ? Name(run.MapDisplayName) : segments.Length == 1 ? Name(segments[0].MapDisplayName)
+            var route = segments.Length == 0 ? Name(run.StartingMapDisplayName) : segments.Length == 1 ? Name(segments[0].MapDisplayName)
                 : Name(segments[0].MapDisplayName) + " - " + Name(segments[segments.Length - 1].MapDisplayName);
             var caption = EconomyPresentationFactory.Timestamp(run.StartedUtc, t, runDate: true) + "\n" + t("ui.equipment_most_during_run");
             return row == null ? new EquipmentEntry("run:" + run.RunId, route, "", 0, caption, t("ui.unavailable"), runId: run.RunId)

@@ -392,7 +392,7 @@ public sealed class RetainedRecordsTests
         p.Profile.Statistics.RunTotals.Maps[id] = map; return map;
     }
     private static DurationRecordReference Reference(RunSummary run) => new()
-    { RunId = run.RunId, ActiveDurationSeconds = run.ActiveDurationSeconds, StartedUtc = run.StartedUtc, MapId = run.MapId, MapDisplayName = run.MapDisplayName };
+    { RunId = run.RunId, ActiveDurationSeconds = run.ActiveDurationSeconds, StartedUtc = run.StartedUtc, MapId = run.StartingMapId, MapDisplayName = run.StartingMapDisplayName };
     private static RunSummary Run(string id, double duration, RunOutcome outcome = RunOutcome.Extracted) => new()
     {
         RunId = id,
@@ -404,12 +404,9 @@ public sealed class RetainedRecordsTests
         IntegrityTags = IntegrityTags.Normal,
         LifecycleCapability = AdapterCapabilityState.Supported,
         MovementCapability = AdapterCapabilityState.Supported,
+        StartingMapKnown = true,
         StartingMapId = "start",
         StartingMapDisplayName = "Start",
-        StartingMapKnown = true,
-        MapId = "start",
-        MapDisplayName = "Start",
-        MapKnown = true,
         RouteCapabilities = new RouteMetricCapabilities { OrderedRoute = new() { State = AdapterCapabilityState.Supported }, Segments = new() { State = AdapterCapabilityState.Supported } },
         Segments = new List<MapSegmentSummary> { Segment("start", "Start") }
     };

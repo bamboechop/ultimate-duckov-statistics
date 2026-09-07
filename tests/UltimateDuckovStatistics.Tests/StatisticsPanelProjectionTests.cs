@@ -2447,7 +2447,7 @@ public sealed class StatisticsPanelProjectionTests
                     {
                         RunId = "unprojected-minimum",
                         ActiveDurationSeconds = 1,
-                        MapDisplayName = "Run history minimum"
+                        StartingMapDisplayName = "Run history minimum"
                     }
                 }
             }
@@ -2737,7 +2737,7 @@ public sealed class StatisticsPanelProjectionTests
             {
                 RunId = "unprojected-run-maximum",
                 ActiveDurationSeconds = 999999d,
-                MapDisplayName = "Run list maximum"
+                StartingMapDisplayName = "Run list maximum"
             }
         };
         var matchingRun = projection.Runs.Runs[0];
@@ -3574,7 +3574,7 @@ public sealed class StatisticsPanelProjectionTests
         var run = new RunSummary
         {
             Outcome = outcome,
-            MapDisplayName = "No later-gate map content"
+            StartingMapDisplayName = "No later-gate map content"
         };
         var projection = new StatisticsPanelProjection
         {
@@ -3592,7 +3592,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(expectedState, presentation.State);
         Assert.Same(RetainedRunBadgePolicy.ResolveSpecification(expectedState), presentation.Specification);
         Assert.Equal($"localized:{expectedTextKey}", presentation.Label);
-        Assert.DoesNotContain(run.MapDisplayName, presentation.Label, StringComparison.Ordinal);
+        Assert.DoesNotContain(run.StartingMapDisplayName, presentation.Label, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -3804,10 +3804,8 @@ public sealed class StatisticsPanelProjectionTests
         var run = new RunSummary
         {
             Outcome = RunOutcome.Extracted,
-            StartingMapKnown = true,
             StartingMapDisplayName = "Ground Zero",
-            MapKnown = true,
-            MapDisplayName = "Legacy root map",
+            StartingMapKnown = true,
             EndingMapKnown = true,
             EndingMapDisplayName = "Farm Town",
             Segments = new List<MapSegmentSummary>
@@ -3833,35 +3831,6 @@ public sealed class StatisticsPanelProjectionTests
             segment => Assert.Equal("Farm Town", segment.MapDisplayName));
     }
 
-    [Theory]
-    [InlineData(false, "Unknown map")]
-    [InlineData(true, "")]
-    [InlineData(true, "   ")]
-    [InlineData(true, "UNKNOWN MAP")]
-    public void GateTwentyTwoUsesLegacyRootMapFallbackWhenStartingIdentityIsUnavailable(
-        bool startingMapKnown,
-        string startingMapDisplayName)
-    {
-        var run = new RunSummary
-        {
-            StartingMapKnown = startingMapKnown,
-            StartingMapDisplayName = startingMapDisplayName,
-            MapKnown = true,
-            MapDisplayName = "Legacy Ground Zero"
-        };
-        var projection = new StatisticsPanelProjection
-        {
-            Runs = new RunStatisticsViewModel { Runs = new[] { run } }
-        };
-
-        var badge = RetainedRunBadgePresentationFactory.Create(projection, UiText.Get);
-        var map = RetainedLatestRunMapPresentationFactory.Create(badge, UiText.Get);
-
-        Assert.True(map.IsVisible);
-        Assert.Same(run, map.LatestRun);
-        Assert.Equal("Legacy Ground Zero", map.MapName);
-    }
-
     [Fact]
     public void GateTwentyTwoUnknownOrBlankMapIdentityUsesLocalizedUnknownMapFallback()
     {
@@ -3869,25 +3838,16 @@ public sealed class StatisticsPanelProjectionTests
         {
             new RunSummary
             {
-                StartingMapKnown = false,
                 StartingMapDisplayName = "Ground Zero",
-                MapKnown = false,
-                MapDisplayName = "Farm Town"
-            },
+                StartingMapKnown = false            },
             new RunSummary
             {
-                StartingMapKnown = true,
                 StartingMapDisplayName = " ",
-                MapKnown = true,
-                MapDisplayName = ""
-            },
+                StartingMapKnown = true            },
             new RunSummary
             {
-                StartingMapKnown = true,
                 StartingMapDisplayName = "Unknown map",
-                MapKnown = true,
-                MapDisplayName = "unknown MAP"
-            }
+                StartingMapKnown = true            }
         };
 
         foreach (var run in invalidIdentities)

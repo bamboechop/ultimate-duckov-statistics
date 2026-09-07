@@ -145,11 +145,18 @@ public sealed class ProfileUserOperationSafetyTests
     private static SaveIdentitySnapshot Identity() => new() { Slot = 1, GameVersion = "2.3.30" };
     private static RunSummary Run(ProfileRepository repository, string id, double seconds, string map) => new()
     {
-        RunId = id, SaveGenerationId = repository.CurrentGenerationId,
-        MapId = "duckov:map:" + map, MapDisplayName = map, MapKnown = true,
-        StartedUtc = TestTime, EndedUtc = TestTime.AddSeconds(seconds),
-        ActiveDurationSeconds = seconds, WallClockDurationSeconds = seconds,
-        Outcome = RunOutcome.Extracted, RecordEligible = true, IntegrityTags = IntegrityTags.Normal,
+        RunId = id,
+        SaveGenerationId = repository.CurrentGenerationId,
+        StartingMapId = "duckov:map:" + map,
+        StartingMapDisplayName = map,
+        StartingMapKnown = true,
+        StartedUtc = TestTime,
+        EndedUtc = TestTime.AddSeconds(seconds),
+        ActiveDurationSeconds = seconds,
+        WallClockDurationSeconds = seconds,
+        Outcome = RunOutcome.Extracted,
+        RecordEligible = true,
+        IntegrityTags = IntegrityTags.Normal,
         LifecycleCapability = AdapterCapabilityState.Supported,
         MovementCapability = AdapterCapabilityState.Supported,
         MapCapability = AdapterCapabilityState.Supported

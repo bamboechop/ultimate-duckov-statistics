@@ -61,9 +61,9 @@ public sealed class RetainedEconomyTests
         StartedUtc = Now.AddMinutes(index),
         EndedUtc = Now.AddMinutes(index + 1),
         Outcome = RunOutcome.Extracted,
-        MapId = "map:" + id,
-        MapDisplayName = "Map " + id,
-        MapKnown = true
+        StartingMapId = "map:" + id,
+        StartingMapDisplayName = "Map " + id,
+        StartingMapKnown = true
     };
     private static float Measure(string value, float width, float size) => Math.Max(1, MathF.Ceiling(value.Length * size * .5f / Math.Max(1, width))) * size * 1.2f;
     private static float MeasureWidth(string value, float size) => value.Length * size * .5f;
@@ -249,7 +249,7 @@ public sealed class RetainedEconomyTests
     [Fact]
     public void RecentRunsRetainExactIdentityAndOwnValuesEvenWithSameDisplayNames()
     {
-        var p = Profile(); var older = Run("a"); var newest = Run("b", 1); older.MapDisplayName = newest.MapDisplayName = "Same map name";
+        var p = Profile(); var older = Run("a"); var newest = Run("b", 1); older.StartingMapDisplayName = newest.StartingMapDisplayName = "Same map name";
         Record(older.Economy, CurrencyKind.Money, 10); Record(newest.Economy, CurrencyKind.Money, 25);
         p.Statistics.Runs.Add(older); p.Statistics.Runs.Add(newest);
         var result = Present(p); Assert.Equal(new[] { "b", "a" }, result.RecentRuns.Select(r => r.RunId));
@@ -264,7 +264,7 @@ public sealed class RetainedEconomyTests
         EconomyHoldingsReducer.Apply(p.Statistics.Holdings, new EconomyHoldingsMutation("g", Now, 50, 5, "test"));
         var run = Run("a"); p.Statistics.Runs.Add(run); var result = Present(p);
         p.Statistics.Economy.Currencies["Money"].Totals.GrossInflow = 999; p.Statistics.Economy.Currencies["Money"].Sources.Clear();
-        p.Statistics.Holdings.Money.Value = 500; run.MapDisplayName = "Changed";
+        p.Statistics.Holdings.Money.Value = 500; run.StartingMapDisplayName = "Changed";
         Assert.Equal(10, result.Money.Totals.Inflow); Assert.Single(result.Money.Sources); Assert.Equal(50, result.Holdings[1].Value);
         Assert.Equal("Map a", result.RecentRuns[0].Title);
     }
@@ -327,7 +327,7 @@ public sealed class RetainedEconomyTests
     {
         var rows = new[] { new EconomyFlowRow("a", new string('L', 180), long.MaxValue, 0, long.MaxValue) };
         Assert.Empty(EconomyLayoutPolicy.TableColumns(650, new[] { "Zufluss", "Abfluss", "Netto" }, rows, MeasureWidth));
-        var p = Profile(); var run = Run("long"); run.MapDisplayName = new string('L', 300); p.Statistics.Runs.Add(run);
+        var p = Profile(); var run = Run("long"); run.StartingMapDisplayName = new string('L', 300); p.Statistics.Runs.Add(run);
         var s = new EconomySelection(); s.Refresh(Present(p)); var d = Recent(s, 600);
         Assert.All(d.Elements, e => { Assert.True(e.X + e.Width <= 600.01); Assert.True(e.Y + e.Height <= d.Height); });
         var title = d.Elements.Single(e => e.Id == "run:long:title"); Assert.True(title.Height > 100);

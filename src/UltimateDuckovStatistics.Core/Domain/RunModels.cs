@@ -60,15 +60,6 @@ public sealed class RunSummary
     [DataMember(Order = 4, EmitDefaultValue = false)]
     public string? NativeRaidId { get; set; }
 
-    [DataMember(Order = 5)]
-    public string MapId { get; set; } = MapIdentity.UnknownId;
-
-    [DataMember(Order = 6)]
-    public string MapDisplayName { get; set; } = MapIdentity.UnknownDisplayName;
-
-    [DataMember(Order = 7)]
-    public bool MapKnown { get; set; }
-
     [DataMember(Order = 8)]
     public DateTime StartedUtc { get; set; }
 
@@ -203,15 +194,6 @@ public sealed class ActiveRunCheckpoint
     [DataMember(Order = 4, EmitDefaultValue = false)]
     public string? NativeRaidId { get; set; }
 
-    [DataMember(Order = 5)]
-    public string MapId { get; set; } = MapIdentity.UnknownId;
-
-    [DataMember(Order = 6)]
-    public string MapDisplayName { get; set; } = MapIdentity.UnknownDisplayName;
-
-    [DataMember(Order = 7)]
-    public bool MapKnown { get; set; }
-
     [DataMember(Order = 8)]
     public DateTime StartedUtc { get; set; }
 
@@ -342,9 +324,6 @@ public sealed class ActiveRunCheckpoint
             RunId = RunId,
             SaveGenerationId = SaveGenerationId,
             NativeRaidId = NativeRaidId,
-            MapId = MapId,
-            MapDisplayName = MapDisplayName,
-            MapKnown = MapKnown,
             StartedUtc = startedUtc,
             EndedUtc = endedUtc,
             ActiveDurationSeconds = FiniteNonNegative(ActiveDurationSeconds),

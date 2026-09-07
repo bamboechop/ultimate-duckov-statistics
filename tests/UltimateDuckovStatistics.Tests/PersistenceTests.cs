@@ -11,7 +11,6 @@ public sealed class PersistenceTests
 {
     private static readonly DateTime TestTime = new(2026, 8, 9, 12, 0, 0, DateTimeKind.Utc);
     private static readonly string[] ExpectedDiagnosticMessages = { "two", "three" };
-    private static readonly string[] SchemaTwoRecentEventIds = { "use-1", "heal-1" };
 
     [Fact]
     [Trait("Category", "Persistence")]
@@ -1819,9 +1818,6 @@ public sealed class PersistenceTests
         {
             RunId = "run-test",
             SaveGenerationId = generationId,
-            MapId = "duckov:map:A",
-            MapDisplayName = "A",
-            MapKnown = true,
             StartedUtc = TestTime,
             EndedUtc = TestTime.AddMinutes(1),
             StartingMapId = "duckov:map:A",

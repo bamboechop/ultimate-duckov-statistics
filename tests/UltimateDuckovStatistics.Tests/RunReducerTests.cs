@@ -94,9 +94,9 @@ public sealed class RunReducerTests
         {
             RunId = runId,
             SaveGenerationId = "generation-1",
-            MapId = mapId,
-            MapDisplayName = mapKnown ? $"Map {mapId}" : MapIdentity.UnknownDisplayName,
-            MapKnown = mapKnown,
+            StartingMapId = mapId,
+            StartingMapDisplayName = mapKnown ? $"Map {mapId}" : MapIdentity.UnknownDisplayName,
+            StartingMapKnown = mapKnown,
             StartedUtc = Origin,
             EndedUtc = Origin.AddSeconds(duration),
             ActiveDurationSeconds = duration,

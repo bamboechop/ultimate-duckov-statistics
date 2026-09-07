@@ -358,11 +358,11 @@ public sealed class ContainerStatisticsTests
         var export = StatisticsExporter.Create(profile, Origin.AddMinutes(1));
 
         Assert.Equal(2, profile.Statistics.RunTotals.ContainerStatistics.UniqueContainersLooted);
-        Assert.Equal(2, profile.Statistics.RunTotals.Maps[summary.MapId].ContainerStatistics.UniqueContainersLooted);
+        Assert.Equal(2, profile.Statistics.RunTotals.Maps[summary.StartingMapId].ContainerStatistics.UniqueContainersLooted);
         Assert.Equal(AdapterCapabilityState.Supported,
             profile.Statistics.RunTotals.ContainerStatistics.Capabilities.UniqueContainersLooted.State);
         Assert.Equal(AdapterCapabilityState.Supported,
-            profile.Statistics.RunTotals.Maps[summary.MapId].ContainerStatistics.Capabilities.UniqueContainersLooted.State);
+            profile.Statistics.RunTotals.Maps[summary.StartingMapId].ContainerStatistics.Capabilities.UniqueContainersLooted.State);
         Assert.Contains("\"UniqueContainersLooted\":2", export.Json, StringComparison.Ordinal);
         Assert.Contains("run," + summary.RunId + ",Warehouse,2,Supported", export.ContainersCsv, StringComparison.Ordinal);
         Assert.Contains(",2,Supported", export.RunsCsv, StringComparison.Ordinal);

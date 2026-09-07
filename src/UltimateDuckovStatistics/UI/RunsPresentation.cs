@@ -154,7 +154,7 @@ internal static class RunsPresentationFactory
         var first = run.Segments.FirstOrDefault();
         var last = run.Segments.LastOrDefault();
         var title = first != null ? Map(first.MapKnown, first.MapDisplayName, t)
-            : Map(run.StartingMapKnown || run.MapKnown, run.StartingMapKnown ? run.StartingMapDisplayName : run.MapDisplayName, t);
+            : Map(run.StartingMapKnown || run.StartingMapKnown, run.StartingMapKnown ? run.StartingMapDisplayName : run.StartingMapDisplayName, t);
         if (last != null && last.MapId != first!.MapId) title += " - " + Map(last.MapKnown, last.MapDisplayName, t);
         var stamp = t("ui.unavailable");
         if (run.StartedUtc != default)

@@ -2680,8 +2680,6 @@ internal static class RetainedLatestRunMapPresentationFactory
     {
         if (HasKnownDisplayName(run.StartingMapKnown, run.StartingMapDisplayName))
             return run.StartingMapDisplayName;
-        if (HasKnownDisplayName(run.MapKnown, run.MapDisplayName))
-            return run.MapDisplayName;
         return text(RetainedOverviewLatestRunMapNamePolicy.UnknownMapTextKey);
     }
 

@@ -170,7 +170,7 @@ internal static class ItemUsePresentationFactory
             metadata.Add(Format(t("ui.item_use_hp_value"), health.Text));
             string Map(bool known, string name) => known && !string.IsNullOrWhiteSpace(name) ? name : t("ui.overview_latest_run_unknown_map");
             var title = route.Length > 0 ? Map(route[0].MapKnown, route[0].MapDisplayName)
-                : Map(run.StartingMapKnown || run.MapKnown, run.StartingMapKnown ? run.StartingMapDisplayName : run.MapDisplayName);
+                : Map(run.StartingMapKnown || run.StartingMapKnown, run.StartingMapKnown ? run.StartingMapDisplayName : run.StartingMapDisplayName);
             if (route.Length > 1 && route[0].MapId != route[route.Length - 1].MapId)
                 title += " - " + Map(route[route.Length - 1].MapKnown, route[route.Length - 1].MapDisplayName);
             return new ItemUseRun(run.RunId, title, string.Join(" · ", metadata), RetainedRunBadgePresentationFactory.MapOutcome(run.Outcome),

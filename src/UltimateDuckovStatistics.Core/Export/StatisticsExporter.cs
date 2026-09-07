@@ -815,7 +815,7 @@ public static class StatisticsExporter
         foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
             Append("route_map", map.MapId, map.DisplayName, map.ContainerStatistics);
         foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
-            Append("run", run.RunId, run.MapDisplayName, run.ContainerStatistics);
+            Append("run", run.RunId, run.StartingMapDisplayName, run.ContainerStatistics);
         return builder.ToString();
 
         void Append(string scope, string scopeId, string mapName, ContainerStatisticsAggregate statistics)
@@ -1119,16 +1119,15 @@ public static class StatisticsExporter
     {
         var builder = new StringBuilder();
         builder.AppendLine(
-            "run_id,save_generation_id,native_raid_id,map_id,map_display_name,map_known,starting_map_id,starting_map_display_name,ending_map_id,ending_map_display_name,route_signature,started_utc,ended_utc,active_duration_seconds,wall_clock_duration_seconds,outcome,physical_distance,teleport_distance,transition_excluded_distance,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,unique_containers_looted,container_capability,integrity_tags,record_eligible,game_version,game_build,lifecycle_capability,lifecycle_adapter_version,movement_capability,movement_adapter_version,map_capability,map_adapter_version,kills_by_you_state,observed_world_deaths_state");
+            "run_id,save_generation_id,native_raid_id,starting_map_id,starting_map_display_name,starting_map_known,ending_map_id,ending_map_display_name,route_signature,started_utc,ended_utc,active_duration_seconds,wall_clock_duration_seconds,outcome,physical_distance,teleport_distance,transition_excluded_distance,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,unique_containers_looted,container_capability,integrity_tags,record_eligible,game_version,game_build,lifecycle_capability,lifecycle_adapter_version,movement_capability,movement_adapter_version,map_capability,map_adapter_version,kills_by_you_state,observed_world_deaths_state");
         foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
         {
             builder.Append(Csv(run.RunId)).Append(',')
                 .Append(Csv(run.SaveGenerationId)).Append(',')
                 .Append(Csv(run.NativeRaidId ?? string.Empty)).Append(',')
-                .Append(Csv(run.MapId)).Append(',')
-                .Append(Csv(run.MapDisplayName)).Append(',')
-                .Append(run.MapKnown ? "true" : "false").Append(',')
-                .Append(Csv(run.StartingMapId)).Append(',').Append(Csv(run.StartingMapDisplayName)).Append(',')
+                .Append(Csv(run.StartingMapId)).Append(',')
+                .Append(Csv(run.StartingMapDisplayName)).Append(',')
+                .Append(run.StartingMapKnown ? "true" : "false").Append(',')
                 .Append(Csv(run.EndingMapId)).Append(',').Append(Csv(run.EndingMapDisplayName)).Append(',')
                 .Append(Csv(run.RouteSignature)).Append(',')
                 .Append(Csv(run.StartedUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',')
@@ -1244,7 +1243,7 @@ public static class StatisticsExporter
 
         foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
         {
-            AppendCombatTotals(builder, "run", run.RunId, run.MapDisplayName, run.WeaponStatistics, document.Capabilities);
+            AppendCombatTotals(builder, "run", run.RunId, run.StartingMapDisplayName, run.WeaponStatistics, document.Capabilities);
         }
 
         return builder.ToString();
@@ -1694,9 +1693,6 @@ public static class StatisticsExporter
         RunId = source.RunId,
         SaveGenerationId = source.SaveGenerationId,
         NativeRaidId = source.NativeRaidId,
-        MapId = source.MapId,
-        MapDisplayName = source.MapDisplayName,
-        MapKnown = source.MapKnown,
         StartedUtc = source.StartedUtc,
         EndedUtc = source.EndedUtc,
         ActiveDurationSeconds = source.ActiveDurationSeconds,

@@ -113,9 +113,9 @@ public sealed class RunStatisticsViewModelTests
         {
             RunId = id,
             SaveGenerationId = "generation-a",
-            MapId = "duckov:map:warehouse",
-            MapDisplayName = "Warehouse",
-            MapKnown = true,
+            StartingMapId = "duckov:map:warehouse",
+            StartingMapDisplayName = "Warehouse",
+            StartingMapKnown = true,
             StartedUtc = started,
             EndedUtc = started.AddSeconds(duration),
             ActiveDurationSeconds = duration,

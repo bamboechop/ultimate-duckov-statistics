@@ -190,7 +190,7 @@ public sealed class EquipmentEvidenceLayoutTests
             RunId = "run",
             SaveGenerationId = "g",
             EndedUtc = DateTime.UtcNow,
-            MapDisplayName = new string('M', mapLength),
+            StartingMapDisplayName = new string('M', mapLength),
             EquipmentStatistics = EquipmentStatisticsReducer.Clone(p.Statistics.RunTotals.EquipmentStatistics)
         });
         var selection = new EquipmentSelection(); selection.Refresh(Present(p));

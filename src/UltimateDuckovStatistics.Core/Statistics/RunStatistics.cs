@@ -211,7 +211,7 @@ public static class RunReducer
     {
         CombatStatisticsReducer.PreflightPlayerKillMerge(profile.RunTotals.CombatStatistics, run.CombatStatistics);
         EquipmentStatisticsReducer.PreflightPlayerKillMerge(profile.RunTotals.EquipmentStatistics, run.EquipmentStatistics);
-        if (profile.RunTotals.Maps.TryGetValue(run.MapId, out var map))
+        if (profile.RunTotals.Maps.TryGetValue(run.StartingMapId, out var map))
         {
             CombatStatisticsReducer.PreflightPlayerKillMerge(map.CombatStatistics, run.CombatStatistics);
             EquipmentStatisticsReducer.PreflightPlayerKillMerge(map.EquipmentStatistics, run.EquipmentStatistics);
@@ -255,14 +255,9 @@ public static class RunReducer
             summary.ContainerStatistics,
             adoptSourceCapability: totals.TotalRuns == 1);
 
-        var legacyStartingMap = string.IsNullOrWhiteSpace(summary.StartingMapId)
-                                || (string.Equals(summary.StartingMapId, MapIdentity.UnknownId, StringComparison.Ordinal)
-                                    && !string.Equals(summary.MapId, MapIdentity.UnknownId, StringComparison.Ordinal));
-        var startingMapId = legacyStartingMap ? summary.MapId : summary.StartingMapId;
-        var startingMapDisplayName = legacyStartingMap || string.IsNullOrWhiteSpace(summary.StartingMapDisplayName)
-            ? summary.MapDisplayName
-            : summary.StartingMapDisplayName;
-        var startingMapKnown = summary.StartingMapKnown || summary.MapKnown;
+        var startingMapId = summary.StartingMapId;
+        var startingMapDisplayName = summary.StartingMapDisplayName;
+        var startingMapKnown = summary.StartingMapKnown;
         if (!totals.Maps.TryGetValue(startingMapId, out var map))
         {
             map = new MapRunAggregate
@@ -361,13 +356,8 @@ public static class RunReducer
         var overall = summary.Outcome == RunOutcome.Extracted ? records.Extraction : records.Death;
         UpdatePair(overall, summary);
 
-        var legacyStartingMap = string.IsNullOrWhiteSpace(summary.StartingMapId)
-                                || (string.Equals(summary.StartingMapId, MapIdentity.UnknownId, StringComparison.Ordinal)
-                                    && !string.Equals(summary.MapId, MapIdentity.UnknownId, StringComparison.Ordinal));
-        var startingMapId = legacyStartingMap ? summary.MapId : summary.StartingMapId;
-        var startingMapDisplayName = legacyStartingMap || string.IsNullOrWhiteSpace(summary.StartingMapDisplayName)
-            ? summary.MapDisplayName
-            : summary.StartingMapDisplayName;
+        var startingMapId = summary.StartingMapId;
+        var startingMapDisplayName = summary.StartingMapDisplayName;
         if (!records.Maps.TryGetValue(startingMapId, out var map))
         {
             map = new MapRunDurationRecords
@@ -419,8 +409,8 @@ public static class RunReducer
         RunId = summary.RunId,
         ActiveDurationSeconds = summary.ActiveDurationSeconds,
         StartedUtc = summary.StartedUtc,
-        MapId = summary.MapId,
-        MapDisplayName = summary.MapDisplayName
+        MapId = summary.StartingMapId,
+        MapDisplayName = summary.StartingMapDisplayName
     };
 
     private static void AddOutcome(Dictionary<string, long> outcomes, RunOutcome outcome)
@@ -439,8 +429,8 @@ public static class RunReducer
         if (summary.SchemaVersion != ProductInfo.SchemaVersion
             || string.IsNullOrWhiteSpace(summary.RunId)
             || string.IsNullOrWhiteSpace(summary.SaveGenerationId)
-            || string.IsNullOrWhiteSpace(summary.MapId)
-            || string.IsNullOrWhiteSpace(summary.MapDisplayName)
+            || string.IsNullOrWhiteSpace(summary.StartingMapId)
+            || string.IsNullOrWhiteSpace(summary.StartingMapDisplayName)
             || summary.EndedUtc < summary.StartedUtc
             || !IsFiniteNonNegative(summary.ActiveDurationSeconds)
             || !IsFiniteNonNegative(summary.WallClockDurationSeconds)
@@ -510,7 +500,7 @@ public static class RunReducer
         ValidateEconomyFanOut("completed-run totals", profile.RunTotals.Economy, profile.Runs.Select(run => run.Economy));
 
         var runsByStartingMap = profile.Runs.GroupBy(
-            run => ResolveStartingMapId(run),
+            run => run.StartingMapId,
             StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
         foreach (var entry in profile.RunTotals.Maps)
         {
@@ -584,13 +574,6 @@ public static class RunReducer
                 && (component.CashAcquired != 0)))
             throw new ArgumentException($"Current-schema {scope} is missing exact Cash acquisition contributions.");
     }
-
-    private static string ResolveStartingMapId(RunSummary summary) =>
-        string.IsNullOrWhiteSpace(summary.StartingMapId)
-        || (string.Equals(summary.StartingMapId, MapIdentity.UnknownId, StringComparison.Ordinal)
-            && !string.Equals(summary.MapId, MapIdentity.UnknownId, StringComparison.Ordinal))
-            ? summary.MapId
-            : summary.StartingMapId;
 
     private static bool IsFiniteNonNegative(double value) =>
         value >= 0 && !double.IsNaN(value) && !double.IsInfinity(value);
