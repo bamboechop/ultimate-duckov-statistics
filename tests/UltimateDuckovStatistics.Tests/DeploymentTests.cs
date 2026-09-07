@@ -112,6 +112,15 @@ public sealed class DeploymentTests
         Assert.Empty(Directory.EnumerateDirectories(destination));
         Assert.False(File.Exists(Path.Combine(destination, "0Harmony.dll")));
         Assert.False(File.Exists(Path.Combine(destination, "obsolete.dll")));
+        var backupLine = output.Split('\n').Single(line => line.StartsWith("Verified prior UDS deployment retained at: ", StringComparison.Ordinal));
+        var backupPath = backupLine["Verified prior UDS deployment retained at: ".Length..].Trim();
+        Assert.Equal("stale forbidden dependency", File.ReadAllText(Path.Combine(backupPath, "0Harmony.dll")));
+        Assert.Equal("stale obsolete dependency", File.ReadAllText(Path.Combine(backupPath, "obsolete.dll")));
+        foreach (var name in ExpectedFiles)
+        {
+            Assert.Equal(File.ReadAllBytes(Path.Combine(packageRoot, name)), File.ReadAllBytes(Path.Combine(destination, name)));
+            Assert.Contains(name + " SHA256=", output, StringComparison.Ordinal);
+        }
         Assert.Empty(Directory.EnumerateFileSystemEntries(Path.GetDirectoryName(destination)!, ".UltimateDuckovStatistics.*"));
     }
 
