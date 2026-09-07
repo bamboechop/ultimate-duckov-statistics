@@ -51,7 +51,9 @@ internal sealed partial class RetainedStatisticsShell
             restoreFocus = next != null && selection.Snapshot?.GenerationId == next.GenerationId && focused != null
                 ? focused.transform.IsChildOf(left.Panel) ? left : focused.transform.IsChildOf(right.Panel) ? right : null : null;
             restoreFocusId = focused == null ? null : restoreFocus?.FocusedRowId(focused);
-            selection.Refresh(next); left.Clear(); right.Clear();
+            if (RetainedRefreshPolicy.RequiresInvalidation(selection.Snapshot?.GenerationId, next?.GenerationId))
+                { left.Clear(); right.Clear(); }
+            selection.Refresh(next);
             outer.Rect.gameObject.SetActive(next != null && !next.Empty);
             emptyPanel.gameObject.SetActive(next?.Empty == true); unavailable.gameObject.SetActive(next == null);
             if (focused != null && focused.transform.IsChildOf(root) && !focused.activeInHierarchy) focusTabs();

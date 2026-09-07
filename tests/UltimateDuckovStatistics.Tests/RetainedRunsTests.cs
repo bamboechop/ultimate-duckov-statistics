@@ -7,6 +7,32 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class RetainedRunsTests
 {
+    [Theory]
+    [InlineData("g", "g", false)]
+    [InlineData("g", "new", true)]
+    [InlineData("g", null, true)]
+    [InlineData("g", "", true)]
+    [InlineData(null, "g", true)]
+    [InlineData(null, null, true)]
+    public void LiveRefreshRetainsControlsOnlyWithinTheSameAvailableGeneration(string? current, string? next, bool clear)
+    {
+        Assert.Equal(clear, RetainedRefreshPolicy.RequiresInvalidation(current, next));
+    }
+
+    [Fact]
+    public void LiveRefreshPreservesAPressButRecyclingStillCancelsIt()
+    {
+        var binding = new RunsRowBinding(); binding.Bind("g", "run:a"); binding.Press();
+        for (var i = 0; i < 120; i++)
+        {
+            Assert.False(RetainedRefreshPolicy.RequiresInvalidation(binding.Generation, "g"));
+            binding.Bind("g", "run:a");
+        }
+        Assert.True(binding.Release(false));
+        binding.Press(); binding.Bind("g", "run:b"); Assert.False(binding.Release(false));
+        binding.Press(); binding.Bind("new", "run:b"); Assert.False(binding.Release(false));
+    }
+
     private static readonly string[] ExpectedRunOrder = ["a", "b", "old"];
     private static readonly string[] ExpectedRouteOrder = ["1  First", "2  Second", "3  First"];
     [Fact]

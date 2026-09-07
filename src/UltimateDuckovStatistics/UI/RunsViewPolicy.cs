@@ -37,6 +37,14 @@ internal static class RunsViewStyle
     }
 }
 
+internal static class RetainedRefreshPolicy
+{
+    // Same-profile data updates must not disable/reselect existing controls: doing so
+    // restarts native highlight transitions and replays keyboard selection feedback.
+    public static bool RequiresInvalidation(string? currentGeneration, string? nextGeneration) =>
+        string.IsNullOrEmpty(nextGeneration) || !string.Equals(currentGeneration, nextGeneration, StringComparison.Ordinal);
+}
+
 // Each click must still refer to the binding that received pointer-down. Wheel scrolling and
 // recycling cancel that gesture; keyboard submit uses the currently focused, rebound identity.
 internal sealed class RunsRowBinding

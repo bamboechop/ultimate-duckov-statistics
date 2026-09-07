@@ -48,7 +48,9 @@ internal sealed partial class RetainedStatisticsShell
             if (disposed) return;
             Capture(); RememberFocus();
             if (next == null || next.GenerationId != selection.Snapshot?.GenerationId) pendingFocus = null;
-            selection.Refresh(next); primary.Clear(); recent.Clear();
+            if (RetainedRefreshPolicy.RequiresInvalidation(selection.Snapshot?.GenerationId, next?.GenerationId))
+                { primary.Clear(); recent.Clear(); }
+            selection.Refresh(next);
             outer.Rect.gameObject.SetActive(next != null); unavailable.gameObject.SetActive(next == null);
             var focused = GameManager.EventSystem?.currentSelectedGameObject;
             if (focused != null && focused.transform.IsChildOf(root) && !focused.activeInHierarchy) focusTabs();

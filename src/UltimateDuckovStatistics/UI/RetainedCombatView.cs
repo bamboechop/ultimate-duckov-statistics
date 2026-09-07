@@ -57,9 +57,9 @@ internal sealed partial class RetainedStatisticsShell
                 ? focused.transform.IsChildOf(primary.Panel) ? primary : focused.transform.IsChildOf(ammunition.Panel) ? ammunition
                     : focused.transform.IsChildOf(selector.Panel) ? selector : null : null;
             restoreFocusId = focused == null ? null : restoreFocus?.FocusedRowId(focused);
+            if (RetainedRefreshPolicy.RequiresInvalidation(selection.Snapshot?.GenerationId, next?.GenerationId))
+                { selector.Clear(); primary.Clear(); ammunition.Clear(); }
             selection.Refresh(next);
-            // Disable stale controls and cancel in-flight presses before the replacement is laid out.
-            selector.Clear(); primary.Clear(); ammunition.Clear();
             outer.Rect.gameObject.SetActive(next != null); unavailable.gameObject.SetActive(next == null);
             footer.gameObject.SetActive(false);
             if (focused != null && focused.transform.IsChildOf(root) && !focused.activeInHierarchy) focusTabs();
