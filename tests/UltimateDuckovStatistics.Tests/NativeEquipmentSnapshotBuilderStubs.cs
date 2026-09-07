@@ -81,6 +81,8 @@ public sealed class CharacterMainControl
     public ItemStatsSystem.Item? CharacterItem { get; set; }
     public DuckovItemAgent? CurrentHoldItemAgent { get; set; }
     public Health Health { get; set; } = new();
+    public CharacterBuffManager? BuffManager { get; set; }
+    public CharacterBuffManager? GetBuffManager() => BuffManager;
     public float CharacterWalkSpeed { get; set; } = 4;
     public float CharacterRunSpeed { get; set; } = 8;
     public float DashSpeed { get; set; } = 12;
@@ -114,6 +116,10 @@ public sealed class CharacterMainControl
 public sealed class Health
 {
     public bool IsDead { get; set; }
+    public float CurrentHealth { get; set; }
+    public float MaxHealth { get; set; } = 100;
+    public bool IsMainCharacterHealth { get; set; }
+    public void AddHealth(float amount) => CurrentHealth = Math.Min(MaxHealth, CurrentHealth + amount);
 }
 
 public sealed class DamageInfo

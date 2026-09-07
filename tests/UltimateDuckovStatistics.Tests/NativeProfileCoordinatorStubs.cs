@@ -1,11 +1,5 @@
 namespace UltimateDuckovStatistics.Adapters;
 
-internal static class NativeHealingAttributionAdapter
-{
-    internal const string AdapterId = "test-native-healing";
-    internal const string AdapterVersion = "test";
-}
-
 internal static class NativeCombatAttributionAdapter
 {
     internal const string AdapterVersion = "test";

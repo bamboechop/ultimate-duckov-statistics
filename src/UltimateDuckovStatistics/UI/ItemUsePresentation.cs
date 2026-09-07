@@ -123,7 +123,7 @@ internal static class ItemUsePresentationFactory
         bool Supported(string id) => projection.Profile.Capabilities.Count(cap => cap.AdapterId == id) == 1
             && projection.Profile.Capabilities.Single(cap => cap.AdapterId == id).State == AdapterCapabilityState.Supported;
         var usesSupported = Supported("native-item-use"); var throwsSupported = Supported(ThrowableUseObservation.CapabilityId);
-        var healthSupported = Supported("native-healing-attribution"); var repaired = source.WasRepairedFromInvalidState;
+        var healthSupported = HealingSupported(projection.Profile.Capabilities); var repaired = source.WasRepairedFromInvalidState;
         var allUsesSupported = usesSupported && throwsSupported;
         var notices = new List<string>();
         if (!usesSupported) notices.Add(t("ui.item_use_tracking_unavailable"));
@@ -220,8 +220,12 @@ internal static class ItemUsePresentationFactory
     }
     internal static ItemUseValue Count(long n, bool supported, bool repaired, Func<string, string> t) => n < 0 ? Unavailable(t)
         : Value(n.ToString("N0", CultureInfo.InvariantCulture), n > 0, supported, repaired, t);
-    private static ItemUseValue Number(double n, bool supported, bool repaired, Func<string, string> t) => !Finite(n) ? Unavailable(t)
-        : Value(n.ToString("N3", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.'), n > 0, supported, repaired, t);
+    internal static bool HealingSupported(IReadOnlyList<CapabilityRecord> capabilities) =>
+        capabilities.Count(cap => cap.AdapterId == "native-healing-attribution") == 1
+        && capabilities.Single(cap => cap.AdapterId == "native-healing-attribution").State == AdapterCapabilityState.Supported;
+    internal static ItemUseValue Number(double n, bool supported, bool repaired, Func<string, string> t, bool fixedPrecision = false) => !Finite(n) ? Unavailable(t)
+        : Value(fixedPrecision ? n.ToString("N2", CultureInfo.InvariantCulture)
+            : n.ToString("N3", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.'), n > 0, supported, repaired, t);
     private static ItemUseValue Value(string value, bool positive, bool supported, bool repaired, Func<string, string> t) => supported && !repaired
         ? new ItemUseValue(value, ItemUseEvidence.Supported) : positive ? new ItemUseValue(value + " (" + t("ui.item_use_partial") + ")", ItemUseEvidence.Partial) : Unavailable(t);
     private static ItemUseValue Unavailable(Func<string, string> t) => new(t("ui.unavailable"), ItemUseEvidence.Unavailable);

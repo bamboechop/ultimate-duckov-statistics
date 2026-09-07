@@ -114,3 +114,8 @@ Section removal (2a667ea): all 1,855 Release tests, compatibility probe, native 
 
 Removed unconditional evidence-panel dismissal from Runs detail refresh. Open inspection retains its existing controls, scroll offset and selected UI object across same-generation/run/slot publications with unchanged captured evidence. Generation/run/slot changes, changed evidence or unavailable data dismiss it; hiding the Runs tab still closes it. Regression coverage republishes detached equivalent evidence repeatedly and rejects changed identities and contents. All 1,856 Release tests, compatibility probe, zero-warning native build and package validation passed; deployed with Duckov closed and all five installed hashes matched. Unpaused-base F8 inspection across world-clock updates remains the user runtime check.
 
+
+### Overview healing evidence
+
+HP restored now shares Item Use capability/evidence formatting: supported zero stays measured zero; missing/disabled/ambiguous healing capability produces Unavailable for zero and Partial for retained positive values. Repaired evidence follows the same rules. Overview keeps two decimal places. Regression tests link the production healing adapter and bridge, reject a foreign Harmony prefix during Initialize, publish through CapabilityChanged -> NativeProfileCoordinator.SetHealingCapability -> repository capability snapshot, then compare Overview and Item Use. The activation regression uses unsafe-patch rejection, not a process with Harmony absent. Additional cases cover supported and repaired zero/positive evidence. All 1,862 Release tests, compatibility probe, zero-warning native build and package checks passed; deployed with Duckov closed and all five installed hashes matched.
+

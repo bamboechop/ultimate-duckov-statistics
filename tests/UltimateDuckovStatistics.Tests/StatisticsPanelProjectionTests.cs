@@ -1872,7 +1872,8 @@ public sealed class StatisticsPanelProjectionTests
                 Statistics = new ProfileStatistics
                 {
                     Overall = new AggregateTotals { ActualHealthRestored = 48.84 }
-                }
+                },
+                Capabilities = new List<CapabilityRecord> { new() { AdapterId = "native-healing-attribution", State = AdapterCapabilityState.Supported } }
             },
             Runs = new RunStatisticsViewModel
             {
