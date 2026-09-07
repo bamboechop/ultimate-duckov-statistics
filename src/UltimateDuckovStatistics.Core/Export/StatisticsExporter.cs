@@ -12,6 +12,10 @@ namespace UltimateDuckovStatistics.Core.Export;
 [DataContract]
 public sealed class StatisticsExportDocument
 {
+    [DataMember(Order = 17)] public bool HealingCaptureComplete { get; set; }
+    [DataMember(Order = 18)] public AdapterCapabilityState HealingCaptureState { get; set; }
+    [DataMember(Order = 19)] public bool HealingEvidenceRepaired { get; set; }
+
     [DataMember(Order = 1)]
     public int SchemaVersion { get; set; } = ProductInfo.SchemaVersion;
 
@@ -333,6 +337,11 @@ public static class StatisticsExporter
             GenerationId = profile.GenerationId,
             Slot = profile.Slot,
             Revision = profile.Revision,
+            HealingCaptureComplete = profile.Statistics.HealingCaptureComplete,
+            HealingCaptureState = profile.Capabilities.Count(cap => cap.AdapterId == "native-healing-attribution") == 1
+                ? profile.Capabilities.Single(cap => cap.AdapterId == "native-healing-attribution").State
+                : AdapterCapabilityState.DisabledIncompatible,
+            HealingEvidenceRepaired = profile.Statistics.RunTotals.ItemStatistics.WasRepairedFromInvalidState,
             Overall = CloneTotals(profile.Statistics.Overall),
             Groups = profile.Statistics.Groups
                 .OrderBy(entry => entry.Key, StringComparer.Ordinal)
@@ -1130,7 +1139,7 @@ public static class StatisticsExporter
             .Append(document.Slot.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(document.Revision.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(Csv(document.ExportedUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',');
-        AppendTotals(builder, document.Overall);
+        AppendTotals(builder, document.Overall, document);
         return builder.ToString();
     }
 
@@ -1141,7 +1150,7 @@ public static class StatisticsExporter
         foreach (var group in document.Groups)
         {
             builder.Append(Csv(group.Group)).Append(',');
-            AppendTotals(builder, group.Totals);
+            AppendTotals(builder, group.Totals, document);
         }
 
         return builder.ToString();
@@ -1157,7 +1166,7 @@ public static class StatisticsExporter
                 .Append(Csv(item.DisplayName)).Append(',')
                 .Append(Csv(item.Group)).Append(',')
                 .Append(Csv(string.Join("|", item.EffectTags))).Append(',');
-            AppendTotals(builder, item.Totals);
+            AppendTotals(builder, item.Totals, document);
         }
 
         return builder.ToString();
@@ -1685,7 +1694,7 @@ public static class StatisticsExporter
 
     private static void AppendTotalsHeader(StringBuilder builder, string prefix)
     {
-        builder.Append(prefix).Append(",activation_count,actual_hp_restored");
+        builder.Append(prefix).Append(",activation_count,actual_hp_restored,healing_capture_complete,healing_capture_state,healing_evidence_repaired,healing_evidence_state");
         foreach (var unit in AmountUnits)
         {
             builder.Append(',').Append(GetAmountColumnName(unit));
@@ -1694,11 +1703,16 @@ public static class StatisticsExporter
         builder.AppendLine();
     }
 
-    private static void AppendTotals(StringBuilder builder, AggregateTotals totals)
+    private static void AppendTotals(StringBuilder builder, AggregateTotals totals, StatisticsExportDocument document)
     {
         builder.Append(totals.ActivationCount.ToString(CultureInfo.InvariantCulture))
             .Append(',')
-            .Append(totals.ActualHealthRestored.ToString("R", CultureInfo.InvariantCulture));
+            .Append(totals.ActualHealthRestored.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+            .Append(document.HealingCaptureComplete ? "true" : "false").Append(',')
+            .Append(document.HealingCaptureState).Append(',')
+            .Append(document.HealingEvidenceRepaired ? "true" : "false").Append(',')
+            .Append(document.HealingCaptureComplete && document.HealingCaptureState == AdapterCapabilityState.Supported
+                && !document.HealingEvidenceRepaired ? "Supported" : totals.ActualHealthRestored > 0 ? "Partial" : "Unavailable");
         foreach (var unit in AmountUnits)
         {
             builder.Append(',').Append(ReadAmount(totals, unit).ToString("R", CultureInfo.InvariantCulture));

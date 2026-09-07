@@ -206,6 +206,33 @@ public sealed class OverviewHealingEvidenceTests
             }
             Assert.Equal(!disabledAtStart && !loseCapture, reopened.Current!.Statistics.HealingCaptureComplete);
             AssertLifetime(reopened.Current);
+            var exported = reopened.ExportCurrent();
+            using (var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(exported.Directory, "statistics.json"))))
+            {
+                Assert.Equal(run.HealingCaptureComplete, json.RootElement.GetProperty("HealingCaptureComplete").GetBoolean());
+                Assert.Equal((int)AdapterCapabilityState.Supported, json.RootElement.GetProperty("HealingCaptureState").GetInt32());
+                Assert.False(json.RootElement.GetProperty("HealingEvidenceRepaired").GetBoolean());
+                Assert.Equal(restored, json.RootElement.GetProperty("Overall").GetProperty("ActualHealthRestored").GetDouble());
+            }
+            foreach (var file in new[] { "overview.csv", "groups.csv", "items.csv" })
+            {
+                var lines = File.ReadAllLines(Path.Combine(exported.Directory, file));
+                var columns = lines[0].Split(',');
+                foreach (var line in lines.Skip(1).Where(line => line.Length > 0))
+                {
+                    // This fixture has no embedded commas or quoted fields.
+                    var cells = line.Split(',');
+                    string Cell(string key) => cells[Array.IndexOf(columns, key)].Trim('"');
+                    Assert.Equal(columns.Length, cells.Length);
+                    Assert.Equal(restored, double.Parse(Cell("actual_hp_restored"), System.Globalization.CultureInfo.InvariantCulture));
+                    Assert.Equal(run.HealingCaptureComplete ? "true" : "false", Cell("healing_capture_complete"));
+                    Assert.Equal("Supported", Cell("healing_capture_state"));
+                    Assert.Equal("false", Cell("healing_evidence_repaired"));
+                    Assert.Equal(run.HealingCaptureComplete ? "Supported" : restored > 0 ? "Partial" : "Unavailable", Cell("healing_evidence_state"));
+                }
+                Assert.True(lines.Length > 1);
+            }
+
             // Simulate retained-history eviction; the lifetime flag must survive without run rows.
             var retainedPath = Path.Combine(directory.Path, "without-run-history.json");
             new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Save(retainedPath, reopened.Current);
