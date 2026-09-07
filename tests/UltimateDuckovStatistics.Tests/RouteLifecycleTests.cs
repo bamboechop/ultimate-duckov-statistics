@@ -264,24 +264,55 @@ public sealed class RouteLifecycleTests
 
     [Fact]
     [Trait("Category", "M8")]
-    public void IncompleteLiveAssociationDisablesOnlyAttributionAndKeepsOverallCombat()
+    public void DelayedEffectWithoutApplicationJoinKeepsOutcomeDamageAndPersistsPartialRoute()
     {
         var tracker = Start("A");
         var outcomeSegment = tracker.ActiveSegmentId!;
-        Assert.True(tracker.RecordCombat(Combat(
-            "combat-incomplete-source",
-            tracker,
-            string.Empty,
-            MapIdentity.UnknownId,
-            outcomeSegment,
-            "A")));
+        var damage = Combat("combat-incomplete-source", tracker, outcomeSegment, "A", outcomeSegment, "A");
+        CombatObservationPolicy.ApplySourceIdentity(damage, delayedEffect: true, MapIdentity.UnknownId, string.Empty);
+        Assert.Equal(MapIdentity.UnknownId, damage.SourceMapId);
+        Assert.Empty(damage.SourceSegmentId!);
+        Assert.True(tracker.RecordCombat(damage));
+        Assert.True(tracker.RecordItemUse(Item("later-exact-capture", tracker, "A")));
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 3)).Completed!;
-
         Assert.Equal(9, summary.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(9, summary.Segments[0].CombatStatistics.Totals.DamageDealt);
         Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.Segments.State);
+        Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.CurrentEventAttributionCapture.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, summary.RouteCapabilities.EventAttribution.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, summary.RouteCapabilities.RouteAwareMapTotals.State);
-        Assert.Empty(summary.SegmentEventAssociations);
+        Assert.Equal("item-use", Assert.Single(summary.SegmentEventAssociations).EventKind);
+
+        using var directory = new TemporaryDirectory();
+        var document = Document(summary);
+        document.Statistics.Holdings.SaveGenerationId = document.GenerationId;
+        document.Statistics.Runs.Clear();
+        Assert.True(RunReducer.Apply(document.Statistics, summary));
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var path = Path.Combine(directory.Path, "profile.json");
+        store.Save(path, document);
+        var loaded = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
+        Assert.True(loaded.Found, string.Join("; ", loaded.Failures));
+        Assert.NotNull(loaded.Value);
+        var recovered = Assert.Single(loaded.Value.Statistics.Runs);
+        Assert.Equal(9, recovered.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(9, recovered.Segments[0].CombatStatistics.Totals.DamageDealt);
+        Assert.True(recovered.HistoricalEventAttributionIncomplete);
+        Assert.Equal("item-use", Assert.Single(recovered.SegmentEventAssociations).EventKind);
+    }
+
+    [Theory]
+    [InlineData(false, "duckov:map:outcome", "outcome-segment")]
+    [InlineData(true, MapIdentity.UnknownId, "")]
+    public void OnlyImmediateUnscopedCombatUsesOutcomeAsSource(bool delayed, string expectedMap, string expectedSegment)
+    {
+        var value = new CombatRecorded { OutcomeMapId = "duckov:map:outcome", OutcomeSegmentId = "outcome-segment" };
+        CombatObservationPolicy.ApplySourceIdentity(value, delayed, null, null);
+        Assert.Equal(expectedMap, value.SourceMapId);
+        Assert.Equal(expectedSegment, value.SourceSegmentId);
+        CombatObservationPolicy.ApplySourceIdentity(value, delayed, "duckov:map:origin", "origin-segment");
+        Assert.Equal("duckov:map:origin", value.SourceMapId);
+        Assert.Equal("origin-segment", value.SourceSegmentId);
     }
 
     [Fact]

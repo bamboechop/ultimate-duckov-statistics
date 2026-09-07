@@ -16,16 +16,14 @@ internal sealed class NativeCombatEquipmentAssociationResolver
     public EquipmentEventAssociation ResolveEffect(
         object source,
         bool delayed,
-        EquipmentEventAssociation? originatingScope,
-        Func<EquipmentEventAssociation> currentAssociationProvider,
+        Func<EquipmentEventAssociation> immediateAssociationProvider,
         string generationId,
-        string runId,
-        string mapId)
+        string runId)
     {
         if (source == null) throw new ArgumentNullException(nameof(source));
-        if (currentAssociationProvider == null) throw new ArgumentNullException(nameof(currentAssociationProvider));
+        if (immediateAssociationProvider == null) throw new ArgumentNullException(nameof(immediateAssociationProvider));
         if (!delayed)
-            return Clone(originatingScope ?? currentAssociationProvider() ?? new EquipmentEventAssociation());
+            return Clone(immediateAssociationProvider() ?? new EquipmentEventAssociation());
 
         lock (sync)
         {
@@ -35,9 +33,6 @@ internal sealed class NativeCombatEquipmentAssociationResolver
                 delayedEffectOrigins.Remove(source);
                 existing = null;
             }
-
-            if (originatingScope != null)
-                existing = Capture(source, existing, originatingScope, generationId, runId, mapId, string.Empty);
 
             return existing is { Ambiguous: false }
                 ? Clone(existing.Association)

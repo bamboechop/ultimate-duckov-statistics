@@ -46,6 +46,21 @@ public readonly struct CombatProjectileTransition
 
 public static class CombatObservationPolicy
 {
+    public static void ApplySourceIdentity(
+        CombatRecorded value,
+        bool delayedEffect,
+        string? sourceMapId,
+        string? sourceSegmentId)
+    {
+        if (value == null) throw new ArgumentNullException(nameof(value));
+        value.SourceMapId = string.IsNullOrWhiteSpace(sourceMapId)
+            ? delayedEffect ? MapIdentity.UnknownId : value.OutcomeMapId
+            : sourceMapId;
+        value.SourceSegmentId = string.IsNullOrWhiteSpace(sourceSegmentId)
+            ? delayedEffect ? string.Empty : value.OutcomeSegmentId
+            : sourceSegmentId;
+    }
+
     public static CombatOwnership ResolveOwnership(
         CombatActorEvidence physicalActor,
         CombatActorEvidence creditedActor,

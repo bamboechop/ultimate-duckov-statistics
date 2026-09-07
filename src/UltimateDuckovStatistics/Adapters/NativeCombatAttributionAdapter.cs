@@ -328,9 +328,6 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             : buffApplicationObservationBoundary.Resolve(parentBuff, ToActorEvidence(actor));
         var playerOwned = !buffOwnership.ConflictingEvidence
                           && ToActorEvidence(actor).Kind == CombatActorEvidenceKind.Player;
-        var fallbackAssociation = playerOwned
-            ? CombatHarmonyBridge.CurrentScope?.EquipmentAssociation ?? equipmentAssociationProvider()
-            : new EquipmentEventAssociation();
         var scope = new CombatNativeScope
         {
             IsEffect = true,
@@ -342,11 +339,11 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             EquipmentAssociation = equipmentAssociationResolver.ResolveEffect(
                 associationSource,
                 delayed,
-                fallbackAssociation,
-                () => fallbackAssociation,
+                () => playerOwned
+                    ? CombatHarmonyBridge.CurrentScope?.EquipmentAssociation ?? equipmentAssociationProvider()
+                    : new EquipmentEventAssociation(),
                 saveGenerationIdProvider(),
-                runIdProvider() ?? string.Empty,
-                mapIdProvider() ?? MapIdentity.UnknownId)
+                runIdProvider() ?? string.Empty)
         };
         if (delayed && equipmentAssociationResolver.TryGetOrigin(
                 associationSource,
@@ -358,7 +355,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             scope.SourceMapId = sourceMapId;
             scope.SourceSegmentId = sourceSegmentId;
         }
-        else
+        else if (!delayed)
         {
             scope.SourceMapId = mapIdProvider() ?? MapIdentity.UnknownId;
             scope.SourceSegmentId = segmentIdProvider() ?? string.Empty;
@@ -660,8 +657,6 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             SaveGenerationId = saveGenerationIdProvider(),
             RunId = runId ?? string.Empty,
             MapId = mapId ?? MapIdentity.UnknownId,
-            SourceMapId = string.IsNullOrWhiteSpace(scope?.SourceMapId) ? mapId : scope.SourceMapId,
-            SourceSegmentId = string.IsNullOrWhiteSpace(scope?.SourceSegmentId) ? segmentIdProvider() : scope.SourceSegmentId,
             OutcomeMapId = mapId ?? MapIdentity.UnknownId,
             OutcomeSegmentId = segmentIdProvider(),
             GameplayContext = NativeRaidContext.GetGameplayContext(),
@@ -673,6 +668,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             Capabilities = MetricCapabilities,
             EquipmentAssociation = equipmentAssociation ?? scope?.EquipmentAssociation ?? equipmentAssociationProvider()
         };
+        CombatObservationPolicy.ApplySourceIdentity(
+            value, scope?.IsDamageOverTime == true, scope?.SourceMapId, scope?.SourceSegmentId);
         CombatObservationPolicy.ApplyOutcomeIdentity(
             value,
             scope?.ProjectileId,
