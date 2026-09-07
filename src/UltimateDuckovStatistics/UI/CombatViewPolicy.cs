@@ -148,6 +148,7 @@ internal sealed class CombatRenderRow
     public float SuffixTop { get; set; }
     public float[]? Columns { get; set; }
     public bool Expandable { get; set; }
+    public bool RightAligned { get; set; }
 }
 
 // Pure measured document composition. Unity supplies native TMP measurement; tests supply
@@ -253,6 +254,7 @@ internal sealed class CombatDocument
                 Id = "sort:" + i,
                 Kind = CombatRowKind.TableHeader,
                 Cells = new[] { label },
+                RightAligned = columns.Length > 0 && i > 0,
                 Actionable = true
             }, columns.Length == 0 ? 30 : hx - 15,
                 y, columns.Length == 0 ? w : columns[i]);

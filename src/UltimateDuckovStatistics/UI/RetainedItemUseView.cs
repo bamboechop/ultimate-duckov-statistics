@@ -37,7 +37,7 @@ internal sealed partial class RetainedStatisticsShell
             outer = new ScrollRegion(root, "ItemUseOuter", radius: 20); RoundedMask(outer);
             left = new ItemUseViewport(this, outer.Content, "left"); right = new ItemUseViewport(this, outer.Content, "right");
             emptyPanel = CreateOverviewPanel(root, "NoItemUses", out var modifier); modifier.Radius = 20;
-            empty = Text(emptyPanel, "Empty", 36); empty.text = UiText.Get("ui.item_use_empty"); empty.alignment = TextAlignmentOptions.Center;
+            empty = Text(emptyPanel, "Empty", 36); empty.text = UiText.Get("ui.item_use_empty"); empty.alignment = TextAlignmentOptions.Center; empty.color = Muted;
             unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable");
             measure = new CombatNativeTextMeasurement(Text(root, "Measurement", 28));
             outer.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };

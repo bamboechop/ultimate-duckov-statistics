@@ -279,12 +279,14 @@ internal sealed partial class RetainedStatisticsShell
                 {
                     var label = c.Text[i]; label.gameObject.SetActive(i < r.Cells.Length); if (i >= r.Cells.Length) continue;
                     label.text = r.Cells[i]; label.color = CombatLayoutPolicy.Muted(r, i) ? Muted : Color.white;
-                    label.alignment = r.Kind == CombatRowKind.Card ? TextAlignmentOptions.Top : TextAlignmentOptions.TopLeft;
+                    label.alignment = r.Kind == CombatRowKind.Card ? TextAlignmentOptions.Top
+                        : r.RightAligned || i > 0 && (r.Kind == CombatRowKind.Metric || r.Kind == CombatRowKind.Table && !r.Stacked)
+                            ? TextAlignmentOptions.TopRight : TextAlignmentOptions.TopLeft;
                     float x = 15, top = 12, w = inner, size = 28;
                     switch (r.Kind)
                     {
                         case CombatRowKind.Heading:
-                            size = i == 0 ? 46.3f : 22; top = i == 0 ? 0 : r.SuffixTop;
+                            x = 0; size = i == 0 ? 46.3f : 22; top = i == 0 ? 0 : r.SuffixTop;
                             if (i > 0) { x += r.SuffixLeft; w -= r.SuffixLeft; }
                             break;
                         case CombatRowKind.Notice: size = 20; top = 6; break;
