@@ -70,20 +70,25 @@ $sourceHashes = Get-TreeHashes $source
 New-Item -ItemType Directory -Path $modsRoot -Force | Out-Null
 
 $deploymentId = [Guid]::NewGuid().ToString('N')
-$staging = Join-Path $modsRoot ".UltimateDuckovStatistics.deploying-$deploymentId"
-$backup = Join-Path $modsRoot ".UltimateDuckovStatistics.previous-$deploymentId"
+# Duckov scans every immediate Mods directory, including dot-prefixed names.
+$workParent = [IO.Path]::GetFullPath((Join-Path $duckovRoot 'Duckov_Data/.UltimateDuckovStatistics-deployment'))
+$workRoot = Join-Path $workParent $deploymentId
+$staging = Join-Path $workRoot 'deploying'
+$backup = Join-Path $workRoot 'previous'
 $retainedBackupRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot "artifacts/deployment-backups/$deploymentId"))
 $retainedBackup = Join-Path $retainedBackupRoot 'UltimateDuckovStatistics'
-foreach ($managedPath in @($staging, $backup, $destination)) {
-    if ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($managedPath)) -ne $modsRoot) { throw 'Unsafe UDS replacement path.' }
+foreach ($managedPath in @($staging, $backup)) {
+    if ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($managedPath)) -ne $workRoot) { throw 'Unsafe UDS replacement path.' }
 }
+if ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($workRoot)) -ne $workParent) { throw 'Unsafe UDS work directory.' }
+if ((Test-Path -LiteralPath $workParent) -and ((Get-Item -LiteralPath $workParent).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Deployment work root must not be a reparse point.' }
 if (-not $retainedBackupRoot.StartsWith([IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts/deployment-backups')) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe reversible backup path.' }
 $destinationMoved = $false
 $stagingPromoted = $false
 $deploymentCommitted = $false
 
 try {
-    New-Item -ItemType Directory -Path $staging | Out-Null
+    New-Item -ItemType Directory -Path $staging -Force | Out-Null
     foreach ($file in Get-ChildItem -File -LiteralPath $source) {
         Copy-Item -Force -LiteralPath $file.FullName -Destination (Join-Path $staging $file.Name)
     }
@@ -135,6 +140,12 @@ catch {
 finally {
     if (Test-Path -LiteralPath $staging) {
         Remove-Item -Recurse -Force -LiteralPath $staging
+    }
+    if ((Test-Path -LiteralPath $workRoot) -and @(Get-ChildItem -Force -LiteralPath $workRoot).Count -eq 0) {
+        Remove-Item -LiteralPath $workRoot
+    }
+    if ((Test-Path -LiteralPath $workParent) -and @(Get-ChildItem -Force -LiteralPath $workParent).Count -eq 0) {
+        Remove-Item -LiteralPath $workParent
     }
 }
 

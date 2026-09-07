@@ -25,6 +25,8 @@ public sealed class ArtifactPathAuditTests
         using var directory = new TemporaryDirectory();
         var path = WritePdb(directory.Path, "/_/uds/src/Mod.cs");
         Assert.Equal(2, ArtifactPathAudit.Audit([path, typeof(Core.ProductInfo).Assembly.Location], []));
+        Assert.Equal(1, ArtifactPathAudit.Audit([typeof(Core.ProductInfo).Assembly.Location], [], Core.ProductInfo.Version));
+        Assert.Throws<InvalidDataException>(() => ArtifactPathAudit.Audit([typeof(Core.ProductInfo).Assembly.Location], [], "9.9.9"));
     }
 
     [Theory]
@@ -36,6 +38,8 @@ public sealed class ArtifactPathAuditTests
         using var directory = new TemporaryDirectory();
         var path = Path.Combine(directory.Path, "payload.bin");
         var encoding = unicode ? Encoding.Unicode : Encoding.UTF8;
+        File.WriteAllBytes(path, encoding.GetBytes("/unusual-build-root/checkouts/Mod.cs"));
+        Assert.Throws<InvalidDataException>(() => ArtifactPathAudit.Audit([path], []));
         File.WriteAllBytes(path, new byte[alignment].Concat(encoding.GetBytes("E:\\game-install\\Duckov_Data\\Managed\\native.dll")).ToArray());
         Assert.Throws<InvalidDataException>(() => ArtifactPathAudit.Audit([path], []));
         File.WriteAllBytes(path, encoding.GetBytes("built by buildtester"));

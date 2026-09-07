@@ -5,12 +5,13 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$resolvedCommit = & git -c "safe.directory=$repoRoot" -C $repoRoot rev-parse "$SourceCommit^{commit}"
+$gitSafeRoot = $repoRoot.Replace('\', '/')
+$resolvedCommit = & git -c "safe.directory=$gitSafeRoot" -C $repoRoot rev-parse "$SourceCommit^{commit}"
 if ($LASTEXITCODE -ne 0 -or $resolvedCommit -ne $SourceCommit) { throw 'Reproducibility requires an exact available commit.' }
 $reproRoot = Join-Path $repoRoot ('artifacts/reproducibility/' + $SourceCommit + '-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $reproRoot | Out-Null
 $sourceArchive = Join-Path $reproRoot 'source.zip'
-& git -c "safe.directory=$repoRoot" -C $repoRoot archive --format=zip --output=$sourceArchive $SourceCommit
+& git -c "safe.directory=$gitSafeRoot" -C $repoRoot archive --format=zip --output=$sourceArchive $SourceCommit
 if ($LASTEXITCODE -ne 0) { throw 'Immutable source archive failed.' }
 $env:DUCKOV_PATH = (Resolve-Path -LiteralPath $DuckovPath).Path
 $records = @()

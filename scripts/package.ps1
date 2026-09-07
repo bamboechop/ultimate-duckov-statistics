@@ -40,10 +40,7 @@ if ((Get-Item -LiteralPath $modAssembly).LastWriteTimeUtc -lt $newestModSourceWr
 $versionLine = Get-Content -LiteralPath (Join-Path $repoRoot 'mod\info.ini') | Where-Object { $_ -match '^\s*version\s*=' }
 if (@($versionLine).Count -ne 1) { throw 'info.ini must declare exactly one version.' }
 $version = ($versionLine -split '=', 2)[1].Trim()
-foreach ($assembly in @($modAssembly, $coreAssembly)) {
-    if ([Diagnostics.FileVersionInfo]::GetVersionInfo($assembly).ProductVersion -ne $version) { throw "Version mismatch: $assembly" }
-}
-& (Join-Path $PSScriptRoot 'audit-artifacts.ps1') -InputPaths @($modAssembly, $coreAssembly, (Join-Path $modOutput 'UltimateDuckovStatistics.pdb'), (Join-Path $modOutput 'UltimateDuckovStatistics.Core.pdb'))
+& (Join-Path $PSScriptRoot 'audit-artifacts.ps1') -ExpectedVersion $version -InputPaths @($modAssembly, $coreAssembly, (Join-Path $modOutput 'UltimateDuckovStatistics.pdb'), (Join-Path $modOutput 'UltimateDuckovStatistics.Core.pdb'))
 
 if (Test-Path -LiteralPath $packageRoot) {
     if ([IO.Path]::GetFullPath($packageRoot) -ne [IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts\package\UltimateDuckovStatistics'))) { throw 'Unsafe package cleanup path.' }

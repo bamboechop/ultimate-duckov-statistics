@@ -8,12 +8,7 @@ $ErrorActionPreference = 'Stop'
 & (Join-Path $PSScriptRoot 'verify-package.ps1') -PackagePath $PackagePath
 $info = Get-Content -LiteralPath (Join-Path $PackagePath 'info.ini') | Where-Object { $_ -match '^\s*version\s*=' }
 if (@($info).Count -ne 1 -or ($info -split '=', 2)[1].Trim() -ne $Version) { throw 'Archive version does not match info.ini.' }
-foreach ($name in @('UltimateDuckovStatistics.dll', 'UltimateDuckovStatistics.Core.dll')) {
-    if ([Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $PackagePath $name)).ProductVersion -ne $Version) {
-        throw "Archive version does not match $name."
-    }
-}
-& (Join-Path $PSScriptRoot 'audit-artifacts.ps1') -InputPaths @($PackagePath)
+& (Join-Path $PSScriptRoot 'audit-artifacts.ps1') -InputPaths @($PackagePath) -ExpectedVersion $Version
 $ArchivePath = [IO.Path]::GetFullPath($ArchivePath)
 New-Item -ItemType Directory -Force -Path ([IO.Path]::GetDirectoryName($ArchivePath)) | Out-Null
 Add-Type -AssemblyName System.IO.Compression.FileSystem
