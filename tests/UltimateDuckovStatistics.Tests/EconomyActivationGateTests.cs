@@ -237,7 +237,8 @@ public sealed class EconomyActivationGateTests : IDisposable
         adapter.Initialize();
         adapter.Tick();
         EconomyManager.RaiseMoneyChanged(0, 5);
-        var boundary = new NativeRunTerminalBoundary();
+        var terminalNow = 0d;
+        var boundary = new NativeRunTerminalBoundary(() => terminalNow);
         boundary.SetTerminalObserver(adapter.FlushPendingForBoundary);
         var checkpointCalls = 0;
 
@@ -258,6 +259,7 @@ public sealed class EconomyActivationGateTests : IDisposable
         Assert.Empty(repository.Current.Statistics.Economy.Currencies);
 
         Directory.Delete(blockedTemporaryPath);
+        terminalNow = 1;
         var completed = boundary.Retry(
             tracker,
             _ => { },

@@ -4,12 +4,23 @@ namespace UltimateDuckovStatistics.Adapters;
 
 internal sealed class NativeRunTerminalBoundary
 {
+    private readonly Func<double> clock;
+    private readonly PersistenceRetryBackoff retry;
+    private readonly MonotonicCadenceGate diagnosticCadence = new(60);
     private Func<bool>? terminalObserver;
     private RunLifecycleEvent? pendingTerminalEvent;
+
+    public bool IsPreparingTerminal { get; private set; }
 
     public bool HasPendingTerminal => pendingTerminalEvent != null;
 
     public RunLifecycleEvent? PendingTerminalEvent => pendingTerminalEvent;
+
+    public NativeRunTerminalBoundary(Func<double>? clock = null)
+    {
+        this.clock = clock ?? (() => (double)System.Diagnostics.Stopwatch.GetTimestamp() / System.Diagnostics.Stopwatch.Frequency);
+        retry = new PersistenceRetryBackoff(this.clock);
+    }
 
     public void SetTerminalObserver(Func<bool>? observer) => terminalObserver = observer;
 
@@ -29,14 +40,19 @@ internal sealed class NativeRunTerminalBoundary
         if (tracker.WillComplete(lifecycleEvent))
         {
             pendingTerminalEvent = lifecycleEvent;
-            if (!ObserveTerminalCandidate(tracker, lifecycleEvent, diagnosticHandler))
+            retry.Reset();
+            diagnosticCadence.Reset();
+            bool observed;
+            IsPreparingTerminal = true;
+            try { observed = ObserveTerminalCandidate(tracker, lifecycleEvent, diagnosticHandler); }
+            finally { IsPreparingTerminal = false; }
+            if (!observed)
             {
-                diagnosticHandler("Run terminalization deferred because queued economy was not accepted.");
+                Defer("queued economy was not accepted", diagnosticHandler);
                 return new RunLifecycleTransition();
             }
-            if (!checkpointObserver())
+            if (!PersistPendingCheckpoint(_ => checkpointObserver(), diagnosticHandler))
             {
-                diagnosticHandler("Run terminalization deferred because the refreshed active-run checkpoint was not durable.");
                 return new RunLifecycleTransition();
             }
 
@@ -60,20 +76,52 @@ internal sealed class NativeRunTerminalBoundary
             return new RunLifecycleTransition();
         }
 
+        if (!retry.IsDue) return new RunLifecycleTransition();
+
         if (!ObserveTerminalCandidate(tracker, pendingTerminalEvent, diagnosticHandler))
         {
-            diagnosticHandler("Run terminalization remains deferred because queued economy was not accepted.");
+            Defer("queued economy was not accepted", diagnosticHandler);
             return new RunLifecycleTransition();
         }
-        if (!checkpointObserver(pendingTerminalEvent))
+        if (!PersistPendingCheckpoint(checkpointObserver, diagnosticHandler))
         {
-            diagnosticHandler("Run terminalization remains deferred because the refreshed active-run checkpoint was not durable.");
             return new RunLifecycleTransition();
         }
 
         var lifecycleEvent = pendingTerminalEvent;
         pendingTerminalEvent = null;
         return tracker.Apply(lifecycleEvent);
+    }
+
+    public bool PersistPendingCheckpoint(Func<RunLifecycleEvent, bool> checkpointObserver, Action<string> diagnosticHandler)
+    {
+        if (checkpointObserver == null) throw new ArgumentNullException(nameof(checkpointObserver));
+        if (diagnosticHandler == null) throw new ArgumentNullException(nameof(diagnosticHandler));
+        if (pendingTerminalEvent == null) return true;
+        if (!retry.IsDue) return false;
+        try
+        {
+            if (checkpointObserver(pendingTerminalEvent))
+            {
+                retry.Reset();
+                return true;
+            }
+            Defer("the refreshed active-run checkpoint was not durable", diagnosticHandler);
+        }
+        catch (Exception exception)
+        {
+            Defer($"checkpoint persistence failed: {exception}", diagnosticHandler);
+        }
+        return false;
+    }
+
+    private void Defer(string reason, Action<string> diagnosticHandler)
+    {
+        retry.Failed();
+        var now = clock();
+        if (!diagnosticCadence.IsDue(now)) return;
+        diagnosticCadence.MarkCompleted(now);
+        diagnosticHandler($"Run terminalization deferred because {reason}; pending outcome retained with backoff up to 60s.");
     }
 
     public bool ObserveTerminalCandidate(

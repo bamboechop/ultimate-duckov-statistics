@@ -659,7 +659,8 @@ public sealed class ActiveRunPersistenceTests
         var generation = repository.CurrentGenerationId;
         var tracker = ActiveTracker(generation);
         repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(1), 1)!);
-        var boundary = new NativeRunTerminalBoundary();
+        var terminalNow = 0d;
+        var boundary = new NativeRunTerminalBoundary(() => terminalNow);
         var observerCalls = 0;
         boundary.SetTerminalObserver(() =>
         {
@@ -694,6 +695,7 @@ public sealed class ActiveRunPersistenceTests
         Assert.True(tracker.IsActive);
         Assert.True(boundary.HasPendingTerminal);
 
+        terminalNow = 1;
         var transition = boundary.Retry(
             tracker,
             _ => { },
