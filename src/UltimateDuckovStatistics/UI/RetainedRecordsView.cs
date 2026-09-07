@@ -167,7 +167,7 @@ internal sealed partial class RetainedStatisticsShell
         private float Section(RectTransform section, TextMeshProUGUI heading, List<Card> cards, float top)
         {
             var inner = Math.Max(1, width - 60);
-            var y = 30 + Put(heading, 30, 30, inner) + 10;
+            var y = 30 + Put(heading, 30, 30, inner) - CombatNativeTextMeasurement.AlignInkTop(heading) + 10;
             foreach (var card in cards) y += ArrangeCard(card, 30, y, inner) + RecordsLayoutPolicy.CardGap;
             if (section == maps && cards.Count == 0) y += Put(noMaps, 30, y, inner) + 20;
             var total = y + 10; Place(section, 0, top, width, total); return total;

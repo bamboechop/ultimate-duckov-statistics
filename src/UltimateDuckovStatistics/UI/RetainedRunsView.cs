@@ -488,7 +488,7 @@ internal sealed partial class RetainedStatisticsShell
             var dy = useStacked ? hh + 40 : 0;
             Place(historyPanel, 0, 0, hw, hh);
             var detailWidth = dw - 60;
-            var y = Put(title, 0, 0, detailWidth) + 6;
+            var y = Put(title, 0, 0, detailWidth) - CombatNativeTextMeasurement.AlignInkTop(title) + 6;
             y += LayoutMetadata(y, detailWidth) + 24;
             var columns = RunsLayoutPolicy.SummaryColumns(useStacked);
             var cellWidth = (detailWidth - (columns - 1) * 20) / columns;

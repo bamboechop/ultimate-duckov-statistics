@@ -45,7 +45,8 @@ internal sealed partial class RetainedStatisticsShell
             outer.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
             outer.Rect.GetComponent<RunsFocusHandler>().Move = d => { if (d == MoveDirection.Up || d == MoveDirection.Left) focusTabs(); else FocusSelector(); };
         }
-        private float Measure(string value, float w, float size) => measure.Height(value, Math.Max(1, w), size);
+        private float Measure(string value, float w, float size) => size == 40
+            ? measure.SectionHeight(value, Math.Max(1, w), size) : measure.Height(value, Math.Max(1, w), size);
         public void Refresh(EquipmentPresentation? next)
         {
             if (disposed) return; Capture();
@@ -334,6 +335,7 @@ internal sealed partial class RetainedStatisticsShell
                 var name = c.Text[0]; name.gameObject.SetActive(true); name.text = r.Name; name.fontSize = sizeText;
                 name.color = r.Kind == EquipmentRowKind.Notice ? Muted : Color.white;
                 Place(name.rectTransform, x, r.TextTop, r.NameWidth, r.NameHeight);
+                if (r.Kind == EquipmentRowKind.Heading) CombatNativeTextMeasurement.AlignInkTop(name);
                 if (r.Value.Length > 0)
                 {
                     var value = c.Text[1]; value.gameObject.SetActive(true); value.text = r.Value; value.fontSize = r.Kind == EquipmentRowKind.Footer ? 22 : 28;

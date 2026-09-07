@@ -34,10 +34,11 @@ internal sealed class CombatNativeTextMeasurement
     }
     public float HeightWithSectionInk(string text, float width, float size) => size == 46.3f
         ? SectionHeight(text, width, size) : Height(text, width, size);
-    public static void AlignInkTop(TextMeshProUGUI text)
+    public static float AlignInkTop(TextMeshProUGUI text)
     {
         var inset = TopInset(text);
         text.rectTransform.anchoredPosition += new UnityEngine.Vector2(0, inset);
+        return inset;
     }
     private static float TopInset(TextMeshProUGUI text)
     {

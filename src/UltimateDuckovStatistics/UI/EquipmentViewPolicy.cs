@@ -154,7 +154,7 @@ internal sealed class EquipmentDocument
     }
     private float Notice(string message, float x, float y, float w) => message.Length == 0 ? 0
         : Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Notice, Name = message }, x, y, w);
-    private float Heading(string title, float x, float y, float w, bool section = false) => title.Length == 0 ? 0
+    private float Heading(string title, float x, float y, float w, bool section = true) => title.Length == 0 ? 0
         : Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Heading, Name = title, SectionHeading = section }, x, y, w);
     private float Entry(EquipmentEntry entry, float x, float y, float w, EquipmentSelection? selection = null, bool value = true, bool compact = false, EquipmentSlotState? evidenceState = null)
     {

@@ -44,7 +44,7 @@ internal sealed partial class RetainedStatisticsShell
             outer.Rect.GetComponent<RunsFocusHandler>().Move = d => { if (d == MoveDirection.Up || d == MoveDirection.Left) focusTabs(); else FocusSelector(); };
         }
         private float Measure(string value, float w, float size)
-            => measure.Height(value, w, size);
+            => measure.HeightWithSectionInk(value, w, size);
         private float MeasureWidth(string value, float size)
             => measure.Width(value, size);
         private CombatDocument Document() => new(Measure, MeasureWidth);
@@ -302,6 +302,7 @@ internal sealed partial class RetainedStatisticsShell
                     }
                     label.fontSize = size;
                     var h = owner.Measure(label.text, w, size); Place(label.rectTransform, x, top, w, h);
+                    if (r.Kind == CombatRowKind.Heading && i == 0) CombatNativeTextMeasurement.AlignInkTop(label);
                     y = r.Kind is CombatRowKind.Card or CombatRowKind.Item || r.Kind == CombatRowKind.Table && r.Stacked ? top + h + (r.Stacked ? 6 : 0) : Math.Max(y, top + h);
                 }
                 if (r.Kind == CombatRowKind.Heading && r.Cells.Length > 1 && r.SuffixLeft > 0)
