@@ -135,7 +135,7 @@ internal static class CraftingPresentationFactory
         if (a.WasRepairedFromInvalidState)
         { outputNotice = Join(outputNotice, t("ui.crafting_recorded_partial")); resourceNotice = Join(resourceNotice, t("ui.crafting_recorded_partial")); }
         return new CraftingPresentation(generation, outputRows, resourceRows, outputNotice, resourceNotice,
-            t(outputSupported && !a.HistoricalUnavailable ? "ui.crafting_outputs_empty" : "ui.unavailable"),
+            t(outputSupported ? "ui.crafting_outputs_empty" : "ui.unavailable"),
             t(resourceSupported && !a.ResourceHistoryUnavailable ? "ui.crafting_resources_empty" : "ui.unavailable"));
     }
     private static bool Supported(MetricAvailability availability) => availability.State == AdapterCapabilityState.Supported;

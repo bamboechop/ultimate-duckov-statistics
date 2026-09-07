@@ -94,12 +94,6 @@ public sealed class WeaponStatisticsAggregate
 
     [DataMember(Order = 9)]
     public long UncorrelatedFiringActions { get; set; }
-
-    [DataMember(Order = 10)]
-    public bool HistoricalPairingUnavailable { get; set; }
-
-    [DataMember(Order = 11)]
-    public string HistoricalPairingProvenance { get; set; } = string.Empty;
 }
 
 public sealed class WeaponStatisticsNormalizationResult
@@ -160,10 +154,6 @@ public static class WeaponStatisticsReducer
         PreflightPairingMerge(target, source);
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
         target.Capabilities = MergeCapabilities(target.Capabilities, source.Capabilities);
-        target.HistoricalPairingUnavailable |= source.HistoricalPairingUnavailable;
-        target.HistoricalPairingProvenance = MergeProvenance(
-            target.HistoricalPairingProvenance,
-            source.HistoricalPairingProvenance);
         Add(target.Totals, source.Totals);
         foreach (var sourceWeapon in source.Weapons.Values)
         {
@@ -278,11 +268,6 @@ public static class WeaponStatisticsReducer
         if (statistics.UncorrelatedAmmunitionFiringActions == null)
         {
             statistics.UncorrelatedAmmunitionFiringActions = new Dictionary<string, long>(StringComparer.Ordinal);
-            result.Changed = true;
-        }
-        if (statistics.HistoricalPairingProvenance == null)
-        {
-            statistics.HistoricalPairingProvenance = string.Empty;
             result.Changed = true;
         }
 
@@ -419,8 +404,7 @@ public static class WeaponStatisticsReducer
             || statistics.Capabilities == null
             || statistics.WeaponAmmunitionPairs == null
             || statistics.UncorrelatedWeaponFiringActions == null
-            || statistics.UncorrelatedAmmunitionFiringActions == null
-            || statistics.HistoricalPairingProvenance == null)
+            || statistics.UncorrelatedAmmunitionFiringActions == null)
         {
             throw new ArgumentException("Weapon statistics are incomplete.", nameof(statistics));
         }
@@ -532,8 +516,7 @@ public static class WeaponStatisticsReducer
                && aggregate.WeaponAmmunitionPairs.Count == 0
                && aggregate.UncorrelatedWeaponFiringActions.Count == 0
                && aggregate.UncorrelatedAmmunitionFiringActions.Count == 0
-               && aggregate.UncorrelatedFiringActions == 0
-               && !aggregate.HistoricalPairingUnavailable;
+               && aggregate.UncorrelatedFiringActions == 0;
     }
 
     private static WeaponAggregate GetOrCreateWeapon(WeaponStatisticsAggregate target, ShotRecorded shot)
@@ -848,8 +831,7 @@ public static class WeaponStatisticsReducer
             var uncorrelated = statistics.UncorrelatedWeaponFiringActions.GetValueOrDefault(weapon.WeaponId);
             if (CheckedAdd(paired, uncorrelated) > weapon.Totals.FiringActions)
                 throw new ArgumentException($"Weapon-ammunition pairs exceed weapon '{weapon.WeaponId}' firing actions.");
-            if (!statistics.HistoricalPairingUnavailable
-                && statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
+            if (statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
                 && CheckedAdd(paired, uncorrelated) != weapon.Totals.FiringActions)
                 throw new ArgumentException($"Weapon '{weapon.WeaponId}' firing actions do not reconcile with correlated and explicitly uncorrelated actions.");
         }
@@ -861,13 +843,11 @@ public static class WeaponStatisticsReducer
             var uncorrelated = statistics.UncorrelatedAmmunitionFiringActions.GetValueOrDefault(ammunition.AmmunitionId);
             if (CheckedAdd(paired, uncorrelated) > ammunition.Totals.FiringActions)
                 throw new ArgumentException($"Weapon-ammunition pairs exceed ammunition '{ammunition.AmmunitionId}' firing actions.");
-            if (!statistics.HistoricalPairingUnavailable
-                && statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
+            if (statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
                 && CheckedAdd(paired, uncorrelated) != ammunition.Totals.FiringActions)
                 throw new ArgumentException($"Ammunition '{ammunition.AmmunitionId}' firing actions do not reconcile with correlated and explicitly uncorrelated actions.");
         }
-        if (!statistics.HistoricalPairingUnavailable
-            && statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
+        if (statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
             && CheckedAdd(pairTotal, statistics.UncorrelatedFiringActions) != statistics.Totals.FiringActions)
             throw new ArgumentException("Firing actions do not reconcile with correlated and explicitly uncorrelated actions.");
     }
@@ -878,10 +858,6 @@ public static class WeaponStatisticsReducer
         foreach (var value in values) total = CheckedAdd(total, value);
         return total;
     }
-
-    private static string MergeProvenance(string? left, string? right) => string.Join(
-        " | ",
-        new[] { left, right }.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal));
 
     private static void Validate(ShotRecorded shot)
     {

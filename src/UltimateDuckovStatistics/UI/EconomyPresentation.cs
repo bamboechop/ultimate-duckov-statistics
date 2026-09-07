@@ -125,7 +125,7 @@ internal static class EconomyPresentationFactory
                 : Map(route[0].MapKnown, route[0].MapDisplayName);
             if (route.Length > 1 && route[0].MapId != route[route.Length - 1].MapId)
                 title += " - " + Map(route[route.Length - 1].MapKnown, route[route.Length - 1].MapDisplayName);
-            var exactMaps = !r.HistoricalRouteUnavailable && !r.RouteWasRepairedFromInvalidState && route.Length > 0
+            var exactMaps = !r.RouteWasRepairedFromInvalidState && route.Length > 0
                 && r.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
                 && r.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported && route.All(s => s.MapKnown);
             var count = route.Select(s => s.MapId).Distinct(StringComparer.Ordinal).Count();
@@ -159,7 +159,7 @@ internal static class EconomyPresentationFactory
         var nowContext = money ? current.MoneyContextAttribution : current.CashContextAttribution;
         a.Currencies.TryGetValue(kind.ToString(), out var row);
         var broken = a.WasRepairedFromInvalidState || (money ? a.MoneyArithmeticSaturated : a.CashArithmeticSaturated);
-        var knownZero = row == null && !a.HistoricalUnavailable && !broken
+        var knownZero = row == null && !broken
             && amount.State == AdapterCapabilityState.Supported && nowAmount.State == AdapterCapabilityState.Supported;
         var hasEvidence = row != null || knownZero;
         var totals = new EconomyFlowRow(kind.ToString(), "", hasEvidence ? row?.Totals.GrossInflow ?? 0 : null,
@@ -172,7 +172,7 @@ internal static class EconomyPresentationFactory
         if (!money)
         {
             if (a.CashAcquired > 0) acquired = a.CashAcquired;
-            else if (!a.HistoricalUnavailable && !broken && a.Capabilities.CashExternalAcquisition.State == AdapterCapabilityState.Supported
+            else if (!broken && a.Capabilities.CashExternalAcquisition.State == AdapterCapabilityState.Supported
                 && current.CashExternalAcquisition.State == AdapterCapabilityState.Supported) acquired = 0;
             // Acquired evidence is a subset of Raid inflow. Missing context remains missing.
             if (acquired > 0 && !contexts.Any(r => r.Id == GameplayContext.Raid.ToString()))

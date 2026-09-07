@@ -11,7 +11,8 @@ public sealed class RetainedItemUseTests
 {
     private static ProfileDocument Profile(string generation = "g") => new()
     {
-        GenerationId = generation, Statistics = new ProfileStatistics { SaveGenerationId = generation },
+        GenerationId = generation,
+        Statistics = new ProfileStatistics { SaveGenerationId = generation },
         Capabilities = new List<CapabilityRecord>
         {
             new() { AdapterId = "native-item-use", State = AdapterCapabilityState.Supported },
@@ -26,9 +27,19 @@ public sealed class RetainedItemUseTests
         ConsumptionUnit unit = ConsumptionUnit.Item, CanonicalItemGroup group = CanonicalItemGroup.Healing,
         string name = "Same name", GameplayContext context = GameplayContext.Raid, params ItemEffectTag[] effects)
     {
-        var value = new ItemUseRecorded { EventId = Guid.NewGuid().ToString("N"), ItemId = id, DisplayName = name,
-            ActivationCount = count, AmountConsumed = amount, ConsumptionUnit = unit, Group = group,
-            EffectTags = effects.ToList(), SaveGenerationId = profile.GenerationId, GameplayContext = context };
+        var value = new ItemUseRecorded
+        {
+            EventId = Guid.NewGuid().ToString("N"),
+            ItemId = id,
+            DisplayName = name,
+            ActivationCount = count,
+            AmountConsumed = amount,
+            ConsumptionUnit = unit,
+            Group = group,
+            EffectTags = effects.ToList(),
+            SaveGenerationId = profile.GenerationId,
+            GameplayContext = context
+        };
         ItemUseReducer.Apply(profile.Statistics, value); return value;
     }
     private static void Disable(ProfileDocument profile, string id) => profile.Capabilities.Single(cap => cap.AdapterId == id).State = AdapterCapabilityState.DisabledIncompatible;
@@ -42,8 +53,16 @@ public sealed class RetainedItemUseTests
     {
         var profile = Profile();
         var value = Use(profile, "duckov:item:1", count: 5, amount: 15, unit: ConsumptionUnit.Durability, effects: ItemEffectTag.Healing);
-        HealingReducer.Apply(profile.Statistics, new HealingApplied { EventId = "h", ApplicationId = "a", SourceItemUseEventId = value.EventId,
-            ItemId = value.ItemId, SaveGenerationId = "g", GameplayContext = GameplayContext.Raid, ActualHealthRestored = 48.84 });
+        HealingReducer.Apply(profile.Statistics, new HealingApplied
+        {
+            EventId = "h",
+            ApplicationId = "a",
+            SourceItemUseEventId = value.EventId,
+            ItemId = value.ItemId,
+            SaveGenerationId = "g",
+            GameplayContext = GameplayContext.Raid,
+            ActualHealthRestored = 48.84
+        });
         Use(profile, "duckov:item:2", count: 30, amount: 99, context: GameplayContext.Base);
         var p = Present(profile); var item = Assert.Single(p.Items);
         Assert.Equal("5", p.Uses.Text); Assert.Equal("1", p.DifferentItems.Text); Assert.Equal("48.84", p.Health.Text);
@@ -58,8 +77,13 @@ public sealed class RetainedItemUseTests
     public void ValueFirstStatisticsReserveWrappedValueBeforeTheirLabel(float width)
     {
         var document = Document();
-        var row = new ItemUseRenderRow { Kind = ItemUseRowKind.Statistic, ValueFirst = true,
-            Name = "AMOUNT USED", Value = "322.419 durability" };
+        var row = new ItemUseRenderRow
+        {
+            Kind = ItemUseRowKind.Statistic,
+            ValueFirst = true,
+            Name = "AMOUNT USED",
+            Value = "322.419 durability"
+        };
         document.Add(row, 0, 0, width);
         Assert.True(row.NameTop >= row.ValueTop + row.ValueHeight);
         Assert.True(row.Height >= row.NameTop + row.NameHeight + 12);
@@ -94,7 +118,6 @@ public sealed class RetainedItemUseTests
     public void ThrowableReleaseNeverImpliesItemConsumption(double amount, ConsumptionUnit unit, string expected, int evidence)
     {
         var profile = Profile(); Use(profile, "duckov:item:100", 3, amount, unit, CanonicalItemGroup.Special, effects: ItemEffectTag.Throwable);
-        profile.Statistics.RunTotals.ItemStatistics.HistoricalUnavailable = true;
         var p = Present(profile); var item = Assert.Single(p.Items);
         Assert.Equal("3", item.Uses.Text); Assert.Equal(ItemUseEvidence.Supported, item.Uses.Evidence);
         Assert.Equal(expected, item.Amount.Text); Assert.Equal((ItemUseEvidence)evidence, item.Amount.Evidence);
@@ -106,8 +129,16 @@ public sealed class RetainedItemUseTests
     public void NativeReleaseObservationFlowsIntoPresentationWithoutInflatingRecoveredThrow()
     {
         var profile = Profile();
-        var observation = ThrowableUseObservation.Begin(new ItemUseSnapshot { SaveGenerationId = "g", RunId = "run", ItemId = "duckov:item:17",
-            DisplayName = "Recoverable", GameplayContext = GameplayContext.Raid, Stackable = true, StackCount = 1 }, true, true)!;
+        var observation = ThrowableUseObservation.Begin(new ItemUseSnapshot
+        {
+            SaveGenerationId = "g",
+            RunId = "run",
+            ItemId = "duckov:item:17",
+            DisplayName = "Recoverable",
+            GameplayContext = GameplayContext.Raid,
+            Stackable = true,
+            StackCount = 1
+        }, true, true)!;
         observation.MarkReleased(); var value = observation.Complete("g", "run", null, 1, false, DateTime.UtcNow)!;
         Assert.True(ItemUseReducer.Apply(profile.Statistics, value));
         var item = Assert.Single(Present(profile).Items);
@@ -262,8 +293,16 @@ public sealed class RetainedItemUseTests
     public void RecentRunsUseTheirOwnExactRecordedItemsAndStableNavigation()
     {
         var profile = Profile(); var use = Use(profile, "x", 5);
-        var run = new RunSummary { RunId = "exact", SaveGenerationId = "g", StartingMapId = "map:a", StartingMapDisplayName = "Map", StartingMapKnown = true,
-            StartedUtc = new DateTime(2026, 9, 7, 1, 2, 3, DateTimeKind.Utc), EndedUtc = new DateTime(2026, 9, 7, 2, 0, 0, DateTimeKind.Utc) };
+        var run = new RunSummary
+        {
+            RunId = "exact",
+            SaveGenerationId = "g",
+            StartingMapId = "map:a",
+            StartingMapDisplayName = "Map",
+            StartingMapKnown = true,
+            StartedUtc = new DateTime(2026, 9, 7, 1, 2, 3, DateTimeKind.Utc),
+            EndedUtc = new DateTime(2026, 9, 7, 2, 0, 0, DateTimeKind.Utc)
+        };
         ItemStatisticsAggregateReducer.Record(run.ItemStatistics, "g", use); profile.Statistics.Runs.Add(run);
         var p = ItemUsePresentationFactory.Create(Project(profile), "g", toLocal: value => value)!;
         var row = Assert.Single(p.RecentRuns);
@@ -274,9 +313,17 @@ public sealed class RetainedItemUseTests
 
     private static RunSummary RoutedRun(params string[] maps) => new()
     {
-        RunId = "route", SaveGenerationId = "g", RouteCapabilities = RouteStatisticsReducer.Supported("native route"),
-        Segments = maps.Select((map, index) => new MapSegmentSummary { SegmentId = "segment:" + index,
-            SegmentIndex = index, MapKnown = true, MapId = "map:" + map, MapDisplayName = map }).ToList()
+        RunId = "route",
+        SaveGenerationId = "g",
+        RouteCapabilities = RouteStatisticsReducer.Supported("native route"),
+        Segments = maps.Select((map, index) => new MapSegmentSummary
+        {
+            SegmentId = "segment:" + index,
+            SegmentIndex = index,
+            MapKnown = true,
+            MapId = "map:" + map,
+            MapDisplayName = map
+        }).ToList()
     };
 
     [Fact]
@@ -316,10 +363,13 @@ public sealed class RetainedItemUseTests
     public void RecentWindowUsesFullHistoryRunOrdinalsWithExactIdTieBreaks()
     {
         var profile = Profile(); Use(profile, "x");
-        for (var i = 0; i < 15; i++) profile.Statistics.Runs.Add(new RunSummary {
-            RunId = "run:" + i.ToString("D2", System.Globalization.CultureInfo.InvariantCulture), SaveGenerationId = "g",
+        for (var i = 0; i < 15; i++) profile.Statistics.Runs.Add(new RunSummary
+        {
+            RunId = "run:" + i.ToString("D2", System.Globalization.CultureInfo.InvariantCulture),
+            SaveGenerationId = "g",
             StartedUtc = new DateTime(2026, 9, 7, 0, 0, 0, DateTimeKind.Utc).AddMinutes(i / 2),
-            EndedUtc = new DateTime(2026, 9, 7, 1, 0, 0, DateTimeKind.Utc).AddMinutes(i) });
+            EndedUtc = new DateTime(2026, 9, 7, 1, 0, 0, DateTimeKind.Utc).AddMinutes(i)
+        });
         var projection = Project(profile); var items = ItemUsePresentationFactory.Create(projection, "g")!;
         var runs = RunsPresentationFactory.Create(projection, "g")!;
         Assert.Equal(12, items.RecentRuns.Count); Assert.Equal("run:14", items.RecentRuns[0].RunId);
@@ -328,11 +378,11 @@ public sealed class RetainedItemUseTests
     }
 
     [Fact]
-    public void EmptyRunDistinguishesRecordedEmptyFromAbsentHistory()
+    public void EmptyRunDistinguishesRecordedEmptyFromUnprovenCapture()
     {
         var profile = Profile(); Use(profile, "x");
         profile.Statistics.Runs.Add(new RunSummary { RunId = "current", SaveGenerationId = "g" });
-        profile.Statistics.Runs.Add(new RunSummary { RunId = "absent", SaveGenerationId = "g", ItemStatistics = new ItemStatisticsAggregate { HistoricalUnavailable = true } });
+        profile.Statistics.Runs.Add(new RunSummary { RunId = "absent", SaveGenerationId = "g", ItemStatistics = new ItemStatisticsAggregate { WasRepairedFromInvalidState = true } });
         var p = Present(profile);
         Assert.Equal(UiText.Get("ui.item_use_no_run_uses"), p.RecentRuns.Single(run => run.RunId == "current").EmptyText);
         Assert.Equal(UiText.Get("ui.item_use_run_unavailable"), p.RecentRuns.Single(run => run.RunId == "absent").EmptyText);

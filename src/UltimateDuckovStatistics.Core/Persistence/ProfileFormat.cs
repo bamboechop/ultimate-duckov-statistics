@@ -474,8 +474,7 @@ public static class ProfileFormat
             if (run.Segments.Count > 0)
             {
                 RouteStatisticsReducer.Validate(run.Segments, allowOpenLast: false);
-                if (!run.HistoricalRouteUnavailable
-                    && !string.Equals(run.StartingMapId, run.Segments[0].MapId, StringComparison.Ordinal))
+                if (!string.Equals(run.StartingMapId, run.Segments[0].MapId, StringComparison.Ordinal))
                 {
                     ClearInvalidRoute(run, "Persisted starting map did not match the first retained segment.");
                     return true;

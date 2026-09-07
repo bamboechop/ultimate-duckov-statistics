@@ -216,8 +216,7 @@ public static class RunReducer
             CombatStatisticsReducer.PreflightPlayerKillMerge(map.CombatStatistics, run.CombatStatistics);
             EquipmentStatisticsReducer.PreflightPlayerKillMerge(map.EquipmentStatistics, run.EquipmentStatistics);
         }
-        if (run.HistoricalRouteUnavailable ||
-            run.RouteCapabilities.RouteAwareMapTotals.State != AdapterCapabilityState.Supported
+        if (run.RouteCapabilities.RouteAwareMapTotals.State != AdapterCapabilityState.Supported
             && !(run.HistoricalEventAttributionIncomplete && run.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported)) return;
         // Route segments are separate observations, including repeated map visits.
         // Simulate their checked addition before publishing any completed-run mutation.
@@ -294,14 +293,11 @@ public static class RunReducer
         ItemStatisticsAggregateReducer.Merge(map.ItemStatistics, summary.ItemStatistics);
         EconomyStatisticsReducer.Merge(map.Economy, summary.Economy);
 
-        var routeMapTotalsSupported = summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported
-                                      && !summary.HistoricalRouteUnavailable;
+        var routeMapTotalsSupported = summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported;
         var routeMapKnownPartialAvailable = summary.HistoricalEventAttributionIncomplete
-                                            && !summary.HistoricalRouteUnavailable
                                             && summary.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported;
         var routeMapTotalsAvailable = routeMapTotalsSupported || routeMapKnownPartialAvailable;
-        var economyRouteAttributionSupported = summary.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported
-                                               && !summary.Economy.HistoricalUnavailable;
+        var economyRouteAttributionSupported = summary.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported;
         if (routeMapTotalsAvailable || economyRouteAttributionSupported)
         {
             foreach (var segmentGroup in summary.Segments.GroupBy(segment => segment.MapId, StringComparer.Ordinal))
@@ -473,8 +469,7 @@ public static class RunReducer
         if (summary.Segments.Count > 0)
         {
             RouteStatisticsReducer.Validate(summary.Segments, allowOpenLast: false);
-            if (!summary.HistoricalRouteUnavailable
-                && !string.Equals(summary.StartingMapId, summary.Segments[0].MapId, StringComparison.Ordinal))
+            if (!string.Equals(summary.StartingMapId, summary.Segments[0].MapId, StringComparison.Ordinal))
                 throw new ArgumentException("Run starting map does not match its first retained segment.", nameof(summary));
         }
         RouteStatisticsReducer.ValidateAssociations(summary.Segments, summary.SegmentEventAssociations);
@@ -487,8 +482,7 @@ public static class RunReducer
 
         ValidateRunEconomyComposition(summary);
 
-        if (!summary.HistoricalRouteUnavailable
-            && summary.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported)
+        if (summary.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported)
         {
             if (summary.Segments.Count == 0)
                 throw new ArgumentException("Supported run route has no segment.", nameof(summary));
@@ -532,9 +526,7 @@ public static class RunReducer
             ValidateMissingEconomyFanOut($"starting-map totals '{entry.Key}'", entry.Value.Select(run => run.Economy));
 
         var segmentsByMap = profile.Runs
-            .Where(run => !run.HistoricalRouteUnavailable
-                          && !run.Economy.HistoricalUnavailable
-                          && run.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported)
+            .Where(run => run.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported)
             .SelectMany(run => run.Segments)
             .GroupBy(segment => segment.MapId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Select(segment => segment.Economy).ToList(), StringComparer.Ordinal);
@@ -552,9 +544,7 @@ public static class RunReducer
 
     private static void ValidateRunEconomyComposition(RunSummary summary)
     {
-        if (summary.HistoricalRouteUnavailable
-            || summary.Economy.HistoricalUnavailable
-            || summary.Economy.Capabilities.RouteAttribution.State != AdapterCapabilityState.Supported)
+        if (summary.Economy.Capabilities.RouteAttribution.State != AdapterCapabilityState.Supported)
             return;
 
         ValidateEconomyFanOut(
@@ -586,9 +576,7 @@ public static class RunReducer
         foreach (CurrencyKind currency in Enum.GetValues(typeof(CurrencyKind)))
         {
             if (materialized.Any(component =>
-                    (EconomyStatisticsReducer.HasExactSupportedCurrency(component, currency)
-                     || component.HistoricalUnavailable
-                     && EconomyStatisticsReducer.HasExactCapturedCurrency(component, currency))
+                    (EconomyStatisticsReducer.HasExactSupportedCurrency(component, currency))
                     && component.Currencies.TryGetValue(currency.ToString(), out var row)
                     && (row.Totals.GrossInflow != 0 || row.Totals.GrossOutflow != 0)))
                 throw new ArgumentException($"Current-schema {scope} is missing exact {currency} contributions.");

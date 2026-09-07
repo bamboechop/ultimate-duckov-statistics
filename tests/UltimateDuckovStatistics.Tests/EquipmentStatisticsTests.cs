@@ -157,7 +157,7 @@ public sealed class EquipmentStatisticsTests
     }
 
     [Fact]
-    public void EqualCapabilityMergeUsesNewestProvenanceButPreservesHistoricalUnavailability()
+    public void EqualCapabilityMergeUsesNewestProvenance()
     {
         var lifetime = Aggregate();
         EquipmentStatisticsReducer.Observe(lifetime, Snapshot("old", string.Empty, "totems:none"), 0);
@@ -169,14 +169,7 @@ public sealed class EquipmentStatisticsTests
 
         Assert.Equal("current type 1255 AnyThing slot contract", lifetime.Capabilities.ToteContents.Provenance);
 
-        var historical = Aggregate();
-        historical.HistoricalUnavailable = true;
-        historical.Capabilities.ToteContents.State = AdapterCapabilityState.DisabledIncompatible;
-        historical.Capabilities.ToteContents.Provenance = "profile predates M6";
-        current.Capabilities.ToteContents.State = AdapterCapabilityState.DisabledIncompatible;
-        EquipmentStatisticsReducer.Merge(historical, current);
 
-        Assert.Equal("profile predates M6", historical.Capabilities.ToteContents.Provenance);
     }
 
     [Fact]

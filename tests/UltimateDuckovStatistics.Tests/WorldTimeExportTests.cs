@@ -19,9 +19,7 @@ public sealed class WorldTimeExportTests
             CalendarDaysAdvanced = 2,
             ObservedGameTimeTicks = TimeSpan.FromHours(5).Ticks,
             CompletedSleepSessions = 3,
-            SleepAdvancedTimeTicks = TimeSpan.FromMinutes(90).Ticks,
-            HistoricalUnavailable = true,
-            HistoricalProvenance = "pre-M12 unavailable"
+            SleepAdvancedTimeTicks = TimeSpan.FromMinutes(90).Ticks
         };
         WorldTimeStatisticsReducer.InitializeOrRestrictCapabilities(
             aggregate,
@@ -52,8 +50,6 @@ public sealed class WorldTimeExportTests
         Assert.Equal(TimeSpan.FromHours(5).Ticks, jsonWorldTime.GetProperty("ObservedGameTimeTicks").GetInt64());
         Assert.Equal(3, jsonWorldTime.GetProperty("CompletedSleepSessions").GetInt64());
         Assert.Equal(TimeSpan.FromMinutes(90).Ticks, jsonWorldTime.GetProperty("SleepAdvancedTimeTicks").GetInt64());
-        Assert.True(jsonWorldTime.GetProperty("HistoricalUnavailable").GetBoolean());
-        Assert.Equal("pre-M12 unavailable", jsonWorldTime.GetProperty("HistoricalProvenance").GetString());
         var jsonCapabilities = jsonWorldTime.GetProperty("Capabilities");
         Assert.Equal((int)AdapterCapabilityState.Supported,
             jsonCapabilities.GetProperty("CalendarDays").GetProperty("State").GetInt32());
@@ -73,8 +69,6 @@ public sealed class WorldTimeExportTests
         Assert.Equal(nameof(AdapterCapabilityState.Supported), csv["observed_elapsed_capability"]);
         Assert.Equal(nameof(AdapterCapabilityState.Supported), csv["sleep_sessions_capability"]);
         Assert.Equal(nameof(AdapterCapabilityState.Supported), csv["sleep_time_capability"]);
-        Assert.Equal("True", csv["historical_unavailable"]);
-        Assert.Equal("pre-M12 unavailable", csv["historical_provenance"]);
         Assert.Equal("05:00:00", UiText.FormatWorldTimeDuration(
             bundle.Document.WorldTime.ObservedGameTimeTicks,
             bundle.Document.WorldTime.Capabilities.ObservedElapsed));

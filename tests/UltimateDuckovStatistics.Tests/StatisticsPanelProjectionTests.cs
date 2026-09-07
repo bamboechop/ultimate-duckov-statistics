@@ -941,27 +941,27 @@ public sealed class StatisticsPanelProjectionTests
             RetainedReferenceTransformPolicy.BaselineWidthPixels,
             RetainedTabMeasurementPolicy.TemporaryLabelWidthPixels);
         foreach (var referenceScale in new[] { 0.5f, 0.65625f, 0.75f, 1f })
-        foreach (var canvasScaleFactor in new[] { 1f, 2f, 3f })
-        {
-            var measuredCanvasWidth = referenceWidth * referenceScale / canvasScaleFactor;
-            var temporaryCanvasWidth = RetainedTabMeasurementPolicy.TemporaryLabelWidthPixels
-                                       * referenceScale
-                                       / canvasScaleFactor;
-            Assert.Equal(
-                RetainedReferenceTransformPolicy.BaselineWidthPixels,
-                RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
-                    temporaryCanvasWidth,
-                    canvasScaleFactor,
-                    referenceScale),
-                3);
-            Assert.Equal(
-                referenceWidth,
-                RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
-                    measuredCanvasWidth,
-                    canvasScaleFactor,
-                    referenceScale),
-                3);
-        }
+            foreach (var canvasScaleFactor in new[] { 1f, 2f, 3f })
+            {
+                var measuredCanvasWidth = referenceWidth * referenceScale / canvasScaleFactor;
+                var temporaryCanvasWidth = RetainedTabMeasurementPolicy.TemporaryLabelWidthPixels
+                                           * referenceScale
+                                           / canvasScaleFactor;
+                Assert.Equal(
+                    RetainedReferenceTransformPolicy.BaselineWidthPixels,
+                    RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
+                        temporaryCanvasWidth,
+                        canvasScaleFactor,
+                        referenceScale),
+                    3);
+                Assert.Equal(
+                    referenceWidth,
+                    RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
+                        measuredCanvasWidth,
+                        canvasScaleFactor,
+                        referenceScale),
+                    3);
+            }
     }
 
     [Fact]
@@ -2010,12 +2010,11 @@ public sealed class StatisticsPanelProjectionTests
             {
                 Lifetime = new ContainerStatisticsAggregate
                 {
-                    UniqueContainersLooted = 1234,
-                    HistoricalUnavailable = true
+                    UniqueContainersLooted = 1234
                 },
                 CurrentCapability = AdapterCapabilityState.Supported
             },
-            Economy = new EconomyStatisticsAggregate { HistoricalUnavailable = true }
+            Economy = new EconomyStatisticsAggregate { }
         };
         string Resolve(string key) => "loc:" + key;
 
@@ -2026,9 +2025,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("loc:ui.unsupported", rows[3].Value);
         Assert.Equal("loc:ui.unsupported", rows[4].Value);
         Assert.Equal("loc:ui.unsupported", rows[6].Value);
-        Assert.Equal("1234 since M7 (loc:ui.container_history_unavailable)", rows[9].Value);
-        Assert.Equal("loc:ui.overview_money_net loc:ui.unavailable (loc:ui.pre_m9_unavailable)", rows[10].Value);
-        Assert.Equal("loc:ui.overview_cash_net loc:ui.unavailable (loc:ui.pre_m9_unavailable)", rows[10].SecondaryValue);
+        Assert.Equal("1234", rows[9].Value);
+        Assert.Equal("loc:ui.overview_money_net loc:ui.unsupported", rows[10].Value);
+        Assert.Equal("loc:ui.overview_cash_net loc:ui.unsupported", rows[10].SecondaryValue);
         Assert.All(rows, row => Assert.Equal("loc:" + RetainedProfileSummaryRowsPolicy.Specifications[(int)row.Metric].LabelTextKey, row.Label));
 
         projection.Containers.Lifetime.WasRepairedFromInvalidState = true;
@@ -2781,7 +2780,7 @@ public sealed class StatisticsPanelProjectionTests
             Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid).Value);
 
         projection = CreateGateFifteenProjection();
-        projection.Runs.Runs[0].HistoricalRouteUnavailable = true;
+        projection.Runs.Runs[0].RouteCapabilities.OrderedRoute.State = AdapterCapabilityState.DisabledIncompatible;
         Assert.Equal(
             "10:07.713 - Recorded map",
             Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid).Value);
@@ -2965,10 +2964,6 @@ public sealed class StatisticsPanelProjectionTests
     {
         string Resolve(string key) => "loc:" + key;
         var projection = CreateConsumableRankingProjection(("item:a", "A", 5, 0d));
-        projection.ItemUse.HistoricalUnavailable = true;
-        Assert.Equal("loc:ui.unavailable",
-            Highlight(projection, OverviewHighlightMetric.MostUsedConsumable, Resolve).Value);
-
         projection = CreateConsumableRankingProjection(("item:a", "A", 5, 0d));
         projection.ItemUse.WasRepairedFromInvalidState = true;
         Assert.Equal("loc:ui.unavailable",
@@ -3006,15 +3001,12 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateFifteenItemUseProjectionCarriesHistoricalAndRepairTruthfulness()
+    public void GateFifteenItemUseProjectionCarriesRepairTruthfulness()
     {
         var profile = Profile("generation-a");
-        profile.Statistics.RunTotals.ItemStatistics.HistoricalUnavailable = true;
         profile.Statistics.RunTotals.ItemStatistics.WasRepairedFromInvalidState = true;
 
         var projection = Create(profile);
-
-        Assert.True(projection.ItemUse.HistoricalUnavailable);
         Assert.True(projection.ItemUse.WasRepairedFromInvalidState);
         Assert.Equal("Unavailable",
             Highlight(projection, OverviewHighlightMetric.MostUsedConsumable).Value);
@@ -4213,7 +4205,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateTwentyThreeRepairedAndHistoricalValuesKeepExistingAvailabilitySemantics()
+    public void GateTwentyThreeRepairedAndExactValuesKeepExistingAvailabilitySemantics()
     {
         var run = CreateGateTwentyThreeRun();
         run.CombatStatistics.WasRepairedFromInvalidState = true;
@@ -4228,12 +4220,11 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("Containers opened: 3 (repaired data; unavailable)", repaired.DisplayLines[6]);
 
         run.ContainerStatistics.WasRepairedFromInvalidState = false;
-        run.ContainerStatistics.HistoricalUnavailable = true;
         run.ContainerStatistics.UniqueContainersLooted = 4;
         var historical = CreateGateTwentyThreePresentation(run);
 
         Assert.Equal(
-            "Containers opened: 4 since M7 (earlier history unavailable)",
+            "Containers opened: 4",
             historical.DisplayLines[6]);
     }
 
@@ -5665,22 +5656,22 @@ public sealed class StatisticsPanelProjectionTests
     private static StatisticsPanelProjection CreateFastestExtractionProjection(
         double durationSeconds,
         string mapDisplayName) => new()
-    {
-        Runs = new RunStatisticsViewModel
         {
-            Records = new RunDurationRecords
+            Runs = new RunStatisticsViewModel
             {
-                Extraction = new DurationRecordPair
+                Records = new RunDurationRecords
                 {
-                    Shortest = new DurationRecordReference
+                    Extraction = new DurationRecordPair
                     {
-                        ActiveDurationSeconds = durationSeconds,
-                        MapDisplayName = mapDisplayName
+                        Shortest = new DurationRecordReference
+                        {
+                            ActiveDurationSeconds = durationSeconds,
+                            MapDisplayName = mapDisplayName
+                        }
                     }
                 }
             }
-        }
-    };
+        };
 
     private static RetainedVisualCanvasLayout CreateRetainedVisualLayout(
         float viewportWidth,

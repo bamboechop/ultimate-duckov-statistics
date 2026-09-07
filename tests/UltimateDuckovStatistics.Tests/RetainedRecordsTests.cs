@@ -102,7 +102,7 @@ public sealed class RetainedRecordsTests
     public void IncompleteRoutesRemainExplicitlyUnavailable(int mode)
     {
         var run = Run("r", 1);
-        if (mode == 0) run.HistoricalRouteUnavailable = true;
+        if (mode == 0) run.RouteCapabilities.Segments.State = AdapterCapabilityState.DisabledIncompatible;
         if (mode == 1) run.RouteWasRepairedFromInvalidState = true;
         if (mode == 2) run.RouteCapabilities.OrderedRoute.State = AdapterCapabilityState.DisabledIncompatible;
         if (mode == 3) run.Segments.Clear();

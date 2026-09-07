@@ -162,9 +162,6 @@ public sealed class RunSummary
     [DataMember(Order = 38)]
     public RouteMetricCapabilities RouteCapabilities { get; set; } = new();
 
-    [DataMember(Order = 39)]
-    public bool HistoricalRouteUnavailable { get; set; }
-
     [DataMember(Order = 40)]
     public bool RouteWasRepairedFromInvalidState { get; set; }
 
@@ -287,9 +284,6 @@ public sealed class ActiveRunCheckpoint
     [DataMember(Order = 31)]
     public RouteMetricCapabilities RouteCapabilities { get; set; } = new();
 
-    [DataMember(Order = 32)]
-    public bool HistoricalRouteUnavailable { get; set; }
-
     [DataMember(Order = 33)]
     public bool RouteWasRepairedFromInvalidState { get; set; }
 
@@ -341,8 +335,7 @@ public sealed class ActiveRunCheckpoint
         }
         var routeCapabilities = RouteCapabilities
                                 ?? RouteStatisticsReducer.Unavailable("Route capability record was missing during interrupted recovery.");
-        var routeSupported = !HistoricalRouteUnavailable
-                             && routeCapabilities.OrderedRoute?.State == AdapterCapabilityState.Supported
+        var routeSupported = routeCapabilities.OrderedRoute?.State == AdapterCapabilityState.Supported
                              && routeCapabilities.Segments?.State == AdapterCapabilityState.Supported;
         var result = new RunSummary
         {
@@ -388,7 +381,6 @@ public sealed class ActiveRunCheckpoint
             Segments = recoveredSegments,
             TransitionExcludedDistance = FiniteNonNegative(TransitionExcludedDistance),
             RouteCapabilities = RouteStatisticsReducer.CloneCapabilities(routeCapabilities),
-            HistoricalRouteUnavailable = HistoricalRouteUnavailable,
             RouteWasRepairedFromInvalidState = RouteWasRepairedFromInvalidState,
             SegmentEventAssociations = SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
             HealingCaptureComplete = HealingCaptureComplete,

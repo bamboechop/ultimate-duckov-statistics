@@ -94,9 +94,7 @@ public sealed class WorldTimeStatisticsTests
     {
         var source = new WorldTimeStatisticsAggregate
         {
-            CalendarDaysAdvanced = 3,
-            HistoricalUnavailable = true,
-            HistoricalProvenance = "pre-M12"
+            CalendarDaysAdvanced = 3
         };
         WorldTimeStatisticsReducer.InitializeOrRestrictCapabilities(
             source,
@@ -105,8 +103,6 @@ public sealed class WorldTimeStatisticsTests
         var clone = WorldTimeStatisticsReducer.Clone(source);
 
         Assert.Equal(3, clone.CalendarDaysAdvanced);
-        Assert.True(clone.HistoricalUnavailable);
-        Assert.Equal("pre-M12", clone.HistoricalProvenance);
         Assert.Equal(AdapterCapabilityState.Supported, clone.Capabilities.CalendarDays.State);
     }
 }

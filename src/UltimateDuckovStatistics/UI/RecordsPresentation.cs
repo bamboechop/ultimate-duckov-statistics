@@ -157,7 +157,7 @@ internal static class RecordsPresentationFactory
     private static string? Route(RunSummary? run, Func<string, string> t)
     {
         if (run == null) return t("ui.unavailable");
-        var exact = !run.HistoricalRouteUnavailable && !run.RouteWasRepairedFromInvalidState
+        var exact = !run.RouteWasRepairedFromInvalidState
             && run.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
             && run.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported
             && run.Segments.Count > 0 && run.Segments.All(segment => !segment.WasRepairedFromInvalidState);

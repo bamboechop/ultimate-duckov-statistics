@@ -73,8 +73,6 @@ public sealed class EconomyHoldingsExport
     [DataMember(Order = 3)] public EconomyHoldingObservation Cash { get; set; } = new();
     [DataMember(Order = 4)] public EconomyHoldingObservation LiquidWealth { get; set; } = new();
     [DataMember(Order = 5)] public EconomyHoldingsMetricCapabilities Capabilities { get; set; } = new();
-    [DataMember(Order = 6)] public bool HistoricalUnavailable { get; set; }
-    [DataMember(Order = 7)] public string HistoricalProvenance { get; set; } = string.Empty;
     [DataMember(Order = 8)] public bool WasRepairedFromInvalidState { get; set; }
 }
 
@@ -376,8 +374,6 @@ public static class StatisticsExporter
                 Cash = holdingsProjection.Cash,
                 LiquidWealth = holdingsProjection.LiquidWealth,
                 Capabilities = holdingsProjection.Capabilities,
-                HistoricalUnavailable = profile.Statistics.Holdings.HistoricalUnavailable,
-                HistoricalProvenance = profile.Statistics.Holdings.HistoricalProvenance,
                 WasRepairedFromInvalidState = profile.Statistics.Holdings.WasRepairedFromInvalidState
             }
         };
@@ -423,14 +419,12 @@ public static class StatisticsExporter
     {
         var value = document.Holdings;
         var builder = new StringBuilder();
-        builder.AppendLine("save_generation_id,money_state,money_value,money_observed_utc,money_observation_provenance,money_freshness_provenance,money_capability,money_capability_provenance,cash_state,cash_value,cash_observed_utc,cash_observation_provenance,cash_freshness_provenance,cash_capability,cash_capability_provenance,liquid_wealth_state,liquid_wealth_value,liquid_wealth_observed_utc,liquid_wealth_observation_provenance,liquid_wealth_freshness_provenance,liquid_wealth_capability,liquid_wealth_capability_provenance,historical_unavailable,historical_provenance,repaired_invalid_state");
+        builder.AppendLine("save_generation_id,money_state,money_value,money_observed_utc,money_observation_provenance,money_freshness_provenance,money_capability,money_capability_provenance,cash_state,cash_value,cash_observed_utc,cash_observation_provenance,cash_freshness_provenance,cash_capability,cash_capability_provenance,liquid_wealth_state,liquid_wealth_value,liquid_wealth_observed_utc,liquid_wealth_observation_provenance,liquid_wealth_freshness_provenance,liquid_wealth_capability,liquid_wealth_capability_provenance,repaired_invalid_state");
         builder.Append(Csv(value.SaveGenerationId)).Append(',');
         AppendObservation(value.Money, value.Capabilities.Money);
         AppendObservation(value.Cash, value.Capabilities.Cash);
         AppendObservation(value.LiquidWealth, value.Capabilities.LiquidWealth);
-        builder.Append(value.HistoricalUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
-            .Append(Csv(value.HistoricalProvenance)).Append(',')
-            .Append(value.WasRepairedFromInvalidState.ToString(CultureInfo.InvariantCulture)).AppendLine();
+        builder.Append(value.WasRepairedFromInvalidState.ToString(CultureInfo.InvariantCulture)).AppendLine();
         return builder.ToString();
 
         void AppendObservation(EconomyHoldingObservation observation, MetricAvailability capability)
@@ -451,7 +445,7 @@ public static class StatisticsExporter
     {
         var value = document.Crafting;
         var builder = new StringBuilder();
-        builder.AppendLine("scope,output_item_id,display_name,completion_actions,produced_quantity,currency_charge_actions,currency_charged,completion_capability,completion_provenance,quantity_capability,quantity_provenance,output_identity_capability,output_identity_provenance,recipe_identity_capability,recipe_identity_provenance,batch_metadata_capability,batch_metadata_provenance,item_resource_capability,item_resource_provenance,output_resource_association_capability,output_resource_association_provenance,currency_charge_capability,currency_charge_provenance,historical_unavailable,historical_provenance,resource_history_unavailable,resource_history_provenance,currency_history_unavailable,currency_history_provenance,completion_arithmetic_unavailable,quantity_arithmetic_unavailable,resource_action_arithmetic_unavailable,resource_quantity_arithmetic_unavailable,currency_action_arithmetic_unavailable,currency_amount_arithmetic_unavailable,repaired_invalid_state");
+        builder.AppendLine("scope,output_item_id,display_name,completion_actions,produced_quantity,currency_charge_actions,currency_charged,completion_capability,completion_provenance,quantity_capability,quantity_provenance,output_identity_capability,output_identity_provenance,recipe_identity_capability,recipe_identity_provenance,batch_metadata_capability,batch_metadata_provenance,item_resource_capability,item_resource_provenance,output_resource_association_capability,output_resource_association_provenance,currency_charge_capability,currency_charge_provenance,resource_history_unavailable,resource_history_provenance,currency_history_unavailable,currency_history_provenance,completion_arithmetic_unavailable,quantity_arithmetic_unavailable,resource_action_arithmetic_unavailable,resource_quantity_arithmetic_unavailable,currency_action_arithmetic_unavailable,currency_amount_arithmetic_unavailable,repaired_invalid_state");
         Append("lifetime", string.Empty, string.Empty, value.CompletionActions, value.ProducedQuantity, value.CurrencyChargeActions, value.CurrencyCharged);
         foreach (var output in value.Outputs.Values.OrderBy(output => output.OutputItemId, StringComparer.Ordinal))
             Append("output", output.OutputItemId, output.DisplayName, output.CompletionActions, output.ProducedQuantity, output.CurrencyChargeActions, output.CurrencyCharged);
@@ -472,8 +466,6 @@ public static class StatisticsExporter
                 .Append(value.Capabilities.ItemResourceIdentity.State).Append(',').Append(Csv(value.Capabilities.ItemResourceIdentity.Provenance)).Append(',')
                 .Append(value.Capabilities.OutputResourceAssociation.State).Append(',').Append(Csv(value.Capabilities.OutputResourceAssociation.Provenance)).Append(',')
                 .Append(value.Capabilities.CurrencyCharge.State).Append(',').Append(Csv(value.Capabilities.CurrencyCharge.Provenance)).Append(',')
-                .Append(value.HistoricalUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(Csv(value.HistoricalProvenance)).Append(',')
                 .Append(value.ResourceHistoryUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(Csv(value.ResourceHistoryProvenance)).Append(',')
                 .Append(value.CurrencyHistoryUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
@@ -492,7 +484,7 @@ public static class StatisticsExporter
     {
         var value = document.Crafting;
         var builder = new StringBuilder();
-        builder.AppendLine("output_item_id,display_name,recipe_id,completion_actions,produced_quantity,currency_charge_actions,currency_charged,batch_quantity,batch_actions,recipe_identity_capability,recipe_identity_provenance,batch_metadata_capability,batch_metadata_provenance,currency_charge_capability,currency_charge_provenance,historical_unavailable,historical_provenance,currency_history_unavailable,currency_history_provenance");
+        builder.AppendLine("output_item_id,display_name,recipe_id,completion_actions,produced_quantity,currency_charge_actions,currency_charged,batch_quantity,batch_actions,recipe_identity_capability,recipe_identity_provenance,batch_metadata_capability,batch_metadata_provenance,currency_charge_capability,currency_charge_provenance,currency_history_unavailable,currency_history_provenance");
         foreach (var output in value.Outputs.Values.OrderBy(output => output.OutputItemId, StringComparer.Ordinal))
         {
             foreach (var recipe in output.Recipes.Values.OrderBy(recipe => recipe.RecipeId, StringComparer.Ordinal))
@@ -520,8 +512,6 @@ public static class StatisticsExporter
                 .Append(value.Capabilities.RecipeIdentity.State).Append(',').Append(Csv(value.Capabilities.RecipeIdentity.Provenance)).Append(',')
                 .Append(value.Capabilities.BatchMetadata.State).Append(',').Append(Csv(value.Capabilities.BatchMetadata.Provenance)).Append(',')
                 .Append(value.Capabilities.CurrencyCharge.State).Append(',').Append(Csv(value.Capabilities.CurrencyCharge.Provenance)).Append(',')
-                .Append(value.HistoricalUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(Csv(value.HistoricalProvenance)).Append(',')
                 .Append(value.CurrencyHistoryUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(Csv(value.CurrencyHistoryProvenance)).AppendLine();
         }
@@ -580,7 +570,7 @@ public static class StatisticsExporter
     {
         var value = document.WorldTime;
         var builder = new StringBuilder();
-        builder.AppendLine("calendar_days_advanced,observed_game_time_ticks,observed_game_time_seconds,completed_sleep_sessions,sleep_advanced_time_ticks,sleep_advanced_time_seconds,calendar_capability,calendar_provenance,observed_elapsed_capability,observed_elapsed_provenance,sleep_sessions_capability,sleep_sessions_provenance,sleep_time_capability,sleep_time_provenance,historical_unavailable,historical_provenance,repaired_invalid_state");
+        builder.AppendLine("calendar_days_advanced,observed_game_time_ticks,observed_game_time_seconds,completed_sleep_sessions,sleep_advanced_time_ticks,sleep_advanced_time_seconds,calendar_capability,calendar_provenance,observed_elapsed_capability,observed_elapsed_provenance,sleep_sessions_capability,sleep_sessions_provenance,sleep_time_capability,sleep_time_provenance,repaired_invalid_state");
         builder.Append(value.CalendarDaysAdvanced.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(value.ObservedGameTimeTicks.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append((value.ObservedGameTimeTicks / (double)TimeSpan.TicksPerSecond).ToString("R", CultureInfo.InvariantCulture)).Append(',')
@@ -591,8 +581,6 @@ public static class StatisticsExporter
             .Append(value.Capabilities.ObservedElapsed.State).Append(',').Append(Csv(value.Capabilities.ObservedElapsed.Provenance)).Append(',')
             .Append(value.Capabilities.CompletedSleepSessions.State).Append(',').Append(Csv(value.Capabilities.CompletedSleepSessions.Provenance)).Append(',')
             .Append(value.Capabilities.SleepAdvancedTime.State).Append(',').Append(Csv(value.Capabilities.SleepAdvancedTime.Provenance)).Append(',')
-            .Append(value.HistoricalUnavailable.ToString(CultureInfo.InvariantCulture)).Append(',')
-            .Append(Csv(value.HistoricalProvenance)).Append(',')
             .Append(value.WasRepairedFromInvalidState.ToString(CultureInfo.InvariantCulture)).AppendLine();
         return builder.ToString();
     }
@@ -600,25 +588,23 @@ public static class StatisticsExporter
     private static string CreateEconomyTotalsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,map_display_name,currency,gross_inflow,gross_outflow,net_flow,amount_capability,amount_capability_provenance,source_capability,source_capability_provenance,context_capability,context_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,map_display_name,currency,gross_inflow,gross_outflow,net_flow,amount_capability,amount_capability_provenance,source_capability,source_capability_provenance,context_capability,context_capability_provenance,repaired_invalid_state,arithmetic_saturated");
         foreach (var scope in EconomyScopes(document))
             foreach (var currency in Enum.GetValues(typeof(CurrencyKind)).Cast<CurrencyKind>())
             {
                 scope.Economy.Currencies.TryGetValue(currency.ToString(), out var value);
                 var totals = value?.Totals ?? new CurrencyFlowTotals();
                 var capabilities = CurrencyCapabilities(scope.Economy, currency);
-                var unavailableHistoryWithoutM9Flow = scope.Economy.HistoricalUnavailable && value == null;
                 builder.Append(Csv(scope.Scope)).Append(',').Append(Csv(scope.ScopeId)).Append(',')
                     .Append(Csv(scope.RunId)).Append(',').Append(Csv(scope.SegmentId)).Append(',')
                     .Append(Csv(scope.MapId)).Append(',').Append(Csv(scope.MapDisplayName)).Append(',')
                     .Append(currency).Append(',')
-                    .Append(unavailableHistoryWithoutM9Flow ? string.Empty : totals.GrossInflow.ToString(CultureInfo.InvariantCulture)).Append(',')
-                    .Append(unavailableHistoryWithoutM9Flow ? string.Empty : totals.GrossOutflow.ToString(CultureInfo.InvariantCulture)).Append(',')
-                    .Append(unavailableHistoryWithoutM9Flow ? string.Empty : totals.NetFlow.ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(totals.GrossInflow.ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(totals.GrossOutflow.ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(totals.NetFlow.ToString(CultureInfo.InvariantCulture)).Append(',')
                     .Append(capabilities.Amount.State).Append(',').Append(Csv(capabilities.Amount.Provenance)).Append(',')
                     .Append(capabilities.Source.State).Append(',').Append(Csv(capabilities.Source.Provenance)).Append(',')
                     .Append(capabilities.Context.State).Append(',').Append(Csv(capabilities.Context.Provenance)).Append(',')
-                    .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
                     .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
                     .Append(IsArithmeticSaturated(scope.Economy, currency) ? "true" : "false").AppendLine();
             }
@@ -628,7 +614,7 @@ public static class StatisticsExporter
     private static string CreateEconomySourcesCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,source,gross_inflow,gross_outflow,net_flow,source_capability,source_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,source,gross_inflow,gross_outflow,net_flow,source_capability,source_capability_provenance,repaired_invalid_state,arithmetic_saturated");
         foreach (var scope in EconomyScopes(document))
             foreach (var currency in scope.Economy.Currencies.Values.OrderBy(value => value.Currency))
                 foreach (var row in currency.Sources.OrderBy(value => value.Key, StringComparer.Ordinal))
@@ -640,7 +626,6 @@ public static class StatisticsExporter
                         .Append(row.Value.NetFlow.ToString(CultureInfo.InvariantCulture)).Append(',')
                         .Append(CurrencyCapabilities(scope.Economy, currency.Currency).Source.State).Append(',')
                         .Append(Csv(CurrencyCapabilities(scope.Economy, currency.Currency).Source.Provenance)).Append(',')
-                        .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
                         .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
                         .Append(IsArithmeticSaturated(scope.Economy, currency.Currency) ? "true" : "false").AppendLine();
         return builder.ToString();
@@ -649,7 +634,7 @@ public static class StatisticsExporter
     private static string CreateEconomyContextsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,gameplay_context,gross_inflow,gross_outflow,net_flow,context_capability,context_capability_provenance,historical_unavailable,repaired_invalid_state,arithmetic_saturated");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,gameplay_context,gross_inflow,gross_outflow,net_flow,context_capability,context_capability_provenance,repaired_invalid_state,arithmetic_saturated");
         foreach (var scope in EconomyScopes(document))
             foreach (var currency in scope.Economy.Currencies.Values.OrderBy(value => value.Currency))
                 foreach (var row in currency.Contexts.OrderBy(value => value.Key, StringComparer.Ordinal))
@@ -661,7 +646,6 @@ public static class StatisticsExporter
                         .Append(row.Value.NetFlow.ToString(CultureInfo.InvariantCulture)).Append(',')
                         .Append(CurrencyCapabilities(scope.Economy, currency.Currency).Context.State).Append(',')
                         .Append(Csv(CurrencyCapabilities(scope.Economy, currency.Currency).Context.Provenance)).Append(',')
-                        .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
                         .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
                         .Append(IsArithmeticSaturated(scope.Economy, currency.Currency) ? "true" : "false").AppendLine();
         return builder.ToString();
@@ -712,7 +696,7 @@ public static class StatisticsExporter
     private static string CreateRoutesCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("run_id,starting_map_id,starting_map_display_name,ending_map_id,ending_map_display_name,route_signature,segment_count,ordered_route_capability,ordered_route_provenance,segment_capability,segment_provenance,event_attribution_capability,event_attribution_provenance,route_map_totals_capability,route_map_totals_provenance,historical_route_unavailable,repaired_invalid_state,current_event_capture_capability,current_event_capture_provenance,historical_event_attribution_incomplete,historical_event_attribution_provenance,associated_event_count,association_row_count");
+        builder.AppendLine("run_id,starting_map_id,starting_map_display_name,ending_map_id,ending_map_display_name,route_signature,segment_count,ordered_route_capability,ordered_route_provenance,segment_capability,segment_provenance,event_attribution_capability,event_attribution_provenance,route_map_totals_capability,route_map_totals_provenance,repaired_invalid_state,current_event_capture_capability,current_event_capture_provenance,historical_event_attribution_incomplete,historical_event_attribution_provenance,associated_event_count,association_row_count");
         foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
             builder.Append(Csv(run.RunId)).Append(',').Append(Csv(run.StartingMapId)).Append(',')
                 .Append(Csv(run.StartingMapDisplayName)).Append(',').Append(Csv(run.EndingMapId)).Append(',')
@@ -722,7 +706,6 @@ public static class StatisticsExporter
                 .Append(run.RouteCapabilities.Segments.State).Append(',').Append(Csv(run.RouteCapabilities.Segments.Provenance)).Append(',')
                 .Append(run.RouteCapabilities.EventAttribution.State).Append(',').Append(Csv(run.RouteCapabilities.EventAttribution.Provenance)).Append(',')
                 .Append(run.RouteCapabilities.RouteAwareMapTotals.State).Append(',').Append(Csv(run.RouteCapabilities.RouteAwareMapTotals.Provenance)).Append(',')
-                .Append(run.HistoricalRouteUnavailable ? "true" : "false").Append(',')
                 .Append(run.RouteWasRepairedFromInvalidState ? "true" : "false").Append(',')
                 .Append(run.RouteCapabilities.CurrentEventAttributionCapture.State).Append(',')
                 .Append(Csv(run.RouteCapabilities.CurrentEventAttributionCapture.Provenance)).Append(',')
@@ -825,7 +808,7 @@ public static class StatisticsExporter
     private static string CreateContainersCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,map_display_name,unique_containers_looted,capability,historical_unavailable,repaired_invalid_state");
+        builder.AppendLine("scope,scope_id,map_display_name,unique_containers_looted,capability,repaired_invalid_state");
         Append("lifetime", document.GenerationId, string.Empty, document.RunTotals.ContainerStatistics);
         foreach (var map in document.RunTotals.Maps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
             Append("starting_map", map.MapId, map.DisplayName, map.ContainerStatistics);
@@ -840,7 +823,6 @@ public static class StatisticsExporter
             builder.Append(Csv(scope)).Append(',').Append(Csv(scopeId)).Append(',').Append(Csv(mapName)).Append(',')
                 .Append(statistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(statistics.Capabilities.UniqueContainersLooted.State).Append(',')
-                .Append(statistics.HistoricalUnavailable ? "true" : "false").Append(',')
                 .Append(statistics.WasRepairedFromInvalidState ? "true" : "false").AppendLine();
         }
     }
@@ -862,7 +844,7 @@ public static class StatisticsExporter
     private static string CreateWeaponAmmunitionPairsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,projection,weapon_id,weapon_display_name,ammunition_id,ammunition_display_name,accepted_firing_actions,percentage_within_observed_projection_pairs,pairing_state,pairing_provenance,uncorrelated_firing_actions,historical_unavailable,historical_provenance,repaired_invalid_state");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,projection,weapon_id,weapon_display_name,ammunition_id,ammunition_display_name,accepted_firing_actions,percentage_within_observed_projection_pairs,pairing_state,pairing_provenance,uncorrelated_firing_actions,repaired_invalid_state");
         foreach (var scope in M14Scopes(document))
         {
             var statistics = scope.WeaponStatistics;
@@ -916,8 +898,6 @@ public static class StatisticsExporter
                     .Append(statistics.Capabilities.WeaponAmmunitionPairing.State).Append(',')
                     .Append(Csv(statistics.Capabilities.WeaponAmmunitionPairing.Provenance)).Append(',')
                     .Append(statistics.UncorrelatedFiringActions.ToString(CultureInfo.InvariantCulture)).Append(',')
-                    .Append(statistics.HistoricalPairingUnavailable ? "true" : "false").Append(',')
-                    .Append(Csv(statistics.HistoricalPairingProvenance)).Append(',')
                     .Append(statistics.WasRepairedFromInvalidState ? "true" : "false").AppendLine();
             }
         }
@@ -927,7 +907,7 @@ public static class StatisticsExporter
     private static string CreateCharacterEquipmentSlotsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,slot_id,slot_display_name,state,item_id,item_display_name,item_kind,active_duration_seconds,observed_slot_duration_seconds,capability_state,capability_provenance,historical_unavailable,historical_provenance,repaired_invalid_state");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,slot_id,slot_display_name,state,item_id,item_display_name,item_kind,active_duration_seconds,observed_slot_duration_seconds,capability_state,capability_provenance,repaired_invalid_state");
         foreach (var scope in M14Scopes(document))
         {
             var statistics = scope.EquipmentStatistics;
@@ -956,8 +936,6 @@ public static class StatisticsExporter
                     .Append(observed.ToString(CultureInfo.InvariantCulture)).Append(',')
                     .Append(statistics.Capabilities.CharacterSlotState.State).Append(',')
                     .Append(Csv(statistics.Capabilities.CharacterSlotState.Provenance)).Append(',')
-                    .Append(statistics.HistoricalCharacterSlotStateUnavailable ? "true" : "false").Append(',')
-                    .Append(Csv(statistics.HistoricalCharacterSlotStateProvenance)).Append(',')
                     .Append(statistics.WasRepairedFromInvalidState ? "true" : "false").AppendLine();
             }
         }
@@ -967,7 +945,7 @@ public static class StatisticsExporter
     private static string CreateEquippedItemNestedSlotsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,parent_slot_id,parent_item_id,parent_item_display_name,parent_item_kind,nested_path,slot_key,slot_display_name,state,item_id,item_display_name,active_duration_seconds,observed_path_duration_seconds,capability_state,capability_provenance,historical_unavailable,historical_provenance,repaired_invalid_state");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,parent_slot_id,parent_item_id,parent_item_display_name,parent_item_kind,nested_path,slot_key,slot_display_name,state,item_id,item_display_name,active_duration_seconds,observed_path_duration_seconds,capability_state,capability_provenance,repaired_invalid_state");
         foreach (var scope in M14Scopes(document))
         {
             var statistics = scope.EquipmentStatistics;
@@ -1002,8 +980,6 @@ public static class StatisticsExporter
                     .Append(observed.ToString(CultureInfo.InvariantCulture)).Append(',')
                     .Append(statistics.Capabilities.NestedSlotState.State).Append(',')
                     .Append(Csv(statistics.Capabilities.NestedSlotState.Provenance)).Append(',')
-                    .Append(statistics.HistoricalNestedSlotStateUnavailable ? "true" : "false").Append(',')
-                    .Append(Csv(statistics.HistoricalNestedSlotStateProvenance)).Append(',')
                     .Append(statistics.WasRepairedFromInvalidState ? "true" : "false").AppendLine();
             }
         }
@@ -1212,7 +1188,7 @@ public static class StatisticsExporter
     private static string CreateMapTotalsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("aggregation_scope,map_id,map_display_name,map_known,total_runs,extracted,died,interrupted,physical_distance,teleport_distance,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,historical_unclassified_kills_by_you,kill_classification_historical_incomplete,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,unique_containers_looted,container_capability,item_activations,actual_health_restored,item_history_unavailable,item_repaired_invalid_state,kills_by_you_state,observed_world_deaths_state");
+        builder.AppendLine("aggregation_scope,map_id,map_display_name,map_known,total_runs,extracted,died,interrupted,physical_distance,teleport_distance,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,historical_unclassified_kills_by_you,kill_classification_historical_incomplete,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,unique_containers_looted,container_capability,item_activations,actual_health_restored,item_repaired_invalid_state,kills_by_you_state,observed_world_deaths_state");
         foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
         {
             builder.Append("starting_map,").Append(Csv(map.MapId)).Append(',')
@@ -1231,7 +1207,6 @@ public static class StatisticsExporter
                 .Append(map.ContainerStatistics.Capabilities.UniqueContainersLooted.State).Append(',')
                 .Append(map.ItemStatistics.Overall.ActivationCount.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(map.ItemStatistics.Overall.ActualHealthRestored.ToString("R", CultureInfo.InvariantCulture)).Append(',')
-                .Append(map.ItemStatistics.HistoricalUnavailable ? "true" : "false").Append(',')
                 .Append(map.ItemStatistics.WasRepairedFromInvalidState ? "true" : "false").Append(',')
                 .Append(map.CombatStatistics.Capabilities.KillsByYou.State).Append(',')
                 .Append(map.CombatStatistics.Capabilities.ObservedWorldDeaths.State).AppendLine();
@@ -1754,7 +1729,6 @@ public static class StatisticsExporter
         Segments = source.Segments.Select(RouteStatisticsReducer.CloneSegment).ToList(),
         TransitionExcludedDistance = source.TransitionExcludedDistance,
         RouteCapabilities = RouteStatisticsReducer.CloneCapabilities(source.RouteCapabilities),
-        HistoricalRouteUnavailable = source.HistoricalRouteUnavailable,
         RouteWasRepairedFromInvalidState = source.RouteWasRepairedFromInvalidState,
         SegmentEventAssociations = source.SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
         HealingCaptureComplete = source.HealingCaptureComplete,

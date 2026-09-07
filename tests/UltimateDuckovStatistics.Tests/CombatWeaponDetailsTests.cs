@@ -249,15 +249,14 @@ public sealed class CombatWeaponDetailsTests
     }
 
     [Fact]
-    public void MissingCombatRecordIsUnavailableAndPairingHistoryDoesNotEraseExactCombatCounters()
+    public void MissingCombatRecordIsUnavailableAndPresentCombatCountersRemainExact()
     {
         var p = Projection(); Fire(p, "w");
         var weapon = Assert.Single(Present(p).Weapons);
         Assert.All(weapon.Metrics.Skip(1), m => Assert.Equal(CombatEvidence.Unavailable, m.Value.Evidence));
-        Combat(p, "w"); p.WeaponAmmunitionGroups[0].HistoricalPairingUnavailable = true;
-        weapon = Assert.Single(Present(p).Weapons);
+        Combat(p, "w"); weapon = Assert.Single(Present(p).Weapons);
         Assert.Equal(CombatEvidence.Supported, Value(weapon, "Hits").Evidence);
-        Assert.Contains(UiText.Get("ui.combat_pair_history"), weapon.Notice);
+        Assert.Empty(weapon.Notice);
     }
 
     [Fact]

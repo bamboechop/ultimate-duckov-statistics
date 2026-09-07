@@ -12,51 +12,6 @@ public sealed class EconomyStatisticsTests
     private static long economySequence;
 
     [Fact]
-    [Trait("Category", "M9")]
-    public void HistoricalCapturedCompositionAcceptsDegradedZeroButRejectsSaturatedZero()
-    {
-        var historicalTotal = new EconomyStatisticsAggregate { HistoricalUnavailable = true };
-        Assert.True(EconomyStatisticsReducer.Record(
-            historicalTotal,
-            "generation",
-            Flow("historical-total", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 10)));
-        var captured = EconomyStatisticsReducer.Clone(historicalTotal);
-        captured.HistoricalUnavailable = false;
-        var degradedZero = new EconomyStatisticsAggregate();
-        degradedZero.Capabilities.MoneyAmountDirection = new MetricAvailability
-        {
-            State = AdapterCapabilityState.DisabledIncompatible,
-            Provenance = "test degraded zero-flow capture"
-        };
-
-        Assert.True(EconomyStatisticsReducer.IsExactCurrencyComposition(
-            historicalTotal,
-            new[] { captured, degradedZero },
-            CurrencyKind.Money));
-
-        var totalMoney = historicalTotal.Currencies[CurrencyKind.Money.ToString()];
-        Assert.True(historicalTotal.Currencies.Remove(CurrencyKind.Money.ToString()));
-        Assert.False(EconomyStatisticsReducer.IsExactCurrencyComposition(
-            historicalTotal,
-            new[] { captured, degradedZero },
-            CurrencyKind.Money));
-        historicalTotal.Currencies[CurrencyKind.Money.ToString()] = totalMoney;
-
-        degradedZero.MoneyArithmeticSaturated = true;
-        Assert.False(EconomyStatisticsReducer.IsExactCurrencyComposition(
-            historicalTotal,
-            new[] { captured, degradedZero },
-            CurrencyKind.Money));
-
-        degradedZero.MoneyArithmeticSaturated = false;
-        var historicalZero = new EconomyStatisticsAggregate { HistoricalUnavailable = true };
-        Assert.True(EconomyStatisticsReducer.IsExactCurrencyComposition(
-            historicalZero,
-            new[] { degradedZero },
-            CurrencyKind.Money));
-    }
-
-    [Fact]
     public void MoneyAndCashRemainSeparateAndNetDerivesFromGrossFlows()
     {
         var aggregate = new EconomyStatisticsAggregate();
@@ -537,7 +492,7 @@ public sealed class EconomyStatisticsTests
     [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "UI")]
-    public void EconomyUiProjectionKeepsCurrenciesDirectionsAndUnavailableHistoryDistinct()
+    public void EconomyUiProjectionKeepsCurrenciesDirectionsAndUnavailableCaptureDistinct()
     {
         var aggregate = Supported();
         EconomyStatisticsReducer.Record(aggregate, "generation", Flow("ui-money", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 12));
@@ -546,17 +501,8 @@ public sealed class EconomyStatisticsTests
         Assert.Contains("Money +12/-0 net 12", compact, StringComparison.Ordinal);
         Assert.Contains("Cash +0/-3 net -3", compact, StringComparison.Ordinal);
 
-        var historical = new EconomyStatisticsAggregate { HistoricalUnavailable = true };
-        historical.Capabilities.CashExternalAcquisition = new MetricAvailability
-        {
-            State = AdapterCapabilityState.DisabledIncompatible,
-            Provenance = "pre-M9 history unavailable"
-        };
-        var unavailable = UiText.FormatEconomyCompact(historical);
-        Assert.Contains("Money no recorded M9 flow", unavailable, StringComparison.Ordinal);
-        Assert.Contains("Cash no recorded M9 flow", unavailable, StringComparison.Ordinal);
-        Assert.Contains("earlier economy history unavailable", unavailable, StringComparison.Ordinal);
-        Assert.DoesNotContain("Money 0", unavailable, StringComparison.Ordinal);
+        var unavailable = UiText.FormatEconomyCompact(new EconomyStatisticsAggregate());
+        Assert.Equal("Money Unsupported; Cash Unsupported", unavailable);
 
         aggregate.Capabilities.MoneyAmountDirection = new MetricAvailability
         {

@@ -261,7 +261,7 @@ internal static class CombatPresentationFactory
                     var summary = stats.DamageDealt > 0 ? metrics[metrics.Count - 1] : metrics[metrics.Count - 2];
                     actions = summary.Value; actionLabel = summary.Label;
                 }
-                var complete = !g.HistoricalPairingUnavailable && g.UncorrelatedFiringActions == 0 && g.CorrelatedFiringActions == g.TotalFiringActions;
+                var complete = g.UncorrelatedFiringActions == 0 && g.CorrelatedFiringActions == g.TotalFiringActions;
                 var basis = t(complete ? "ui.combat_weapon_basis" : "ui.combat_pair_basis");
                 var row = new CombatItemRow(source.Id, exact ? Name(g.DisplayName, source.Id, t) : t("ui.combat_unknown"), actions,
                     source.Fire != null && exact && wc.FiringActions.State == AdapterCapabilityState.Supported && wc.WeaponIdentity.State == AdapterCapabilityState.Supported
@@ -276,7 +276,6 @@ internal static class CombatPresentationFactory
                             && wc.AmmunitionIdentity.State == AdapterCapabilityState.Supported && !w.Lifetime.WasRepairedFromInvalidState && g.CorrelatedFiringActions > 0
                             ? Percent(pair.PercentageWithinObservedWeaponPairs, t) : Unavailable(), basis)).ToArray();
                 var notice = Join(g.UncorrelatedFiringActions > 0 ? t("ui.combat_uncorrelated") + ": " + WV(g.UncorrelatedFiringActions, wc.FiringActions).Text : "",
-                    g.HistoricalPairingUnavailable ? Join(t("ui.combat_pair_history"), w.Lifetime.HistoricalPairingProvenance) : "",
                     wc.WeaponAmmunitionPairing.State != AdapterCapabilityState.Supported ? Join(t("ui.unavailable"), wc.WeaponAmmunitionPairing.Provenance) : "",
                     ammo.Length == 0 ? t("ui.combat_no_pairs") : "");
                 if (!rangedWeapon) notice = t(meleeWeapon ? "ui.combat_melee_no_ammo" : "ui.combat_weapon_type_unavailable");

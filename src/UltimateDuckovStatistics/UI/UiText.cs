@@ -452,8 +452,6 @@ internal static class UiText
         var value = statistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture);
         if (statistics.WasRepairedFromInvalidState)
             return $"{value} ({resolve("ui.repaired_unavailable")})";
-        if (statistics.HistoricalUnavailable)
-            return $"{value} since M7 ({resolve("ui.container_history_unavailable")})";
         return currentCapability == AdapterCapabilityState.Supported
             ? value
             : $"{value} ({resolve("ui.unsupported")})";
@@ -527,8 +525,6 @@ internal static class UiText
         {
             if (!economy.Currencies.TryGetValue(kind.ToString(), out var row))
             {
-                if (economy.HistoricalUnavailable)
-                    return $"{kind} {Get("ui.no_m9_flows")}";
                 return $"{kind} {FormatEconomyValue(0, availability, currentAvailability)}";
             }
             var totals = $"{kind} +{row.Totals.GrossInflow.ToString(CultureInfo.InvariantCulture)}"
@@ -540,7 +536,7 @@ internal static class UiText
         }
         var result = $"{Part(CurrencyKind.Money, economy.Capabilities.MoneyAmountDirection, currentCapabilities?.MoneyAmountDirection)}; "
                      + Part(CurrencyKind.Cash, economy.Capabilities.CashAmountDirection, currentCapabilities?.CashAmountDirection);
-        return economy.HistoricalUnavailable ? $"{result} ({Get("ui.pre_m9_unavailable")})" : result;
+        return result;
     }
 
     internal static string FormatEconomyValue(
@@ -561,7 +557,6 @@ internal static class UiText
     public static string FormatRoute(RunSummary run)
     {
         if (run == null) throw new ArgumentNullException(nameof(run));
-        if (run.HistoricalRouteUnavailable) return "Route unavailable (pre-M8)";
         if (!HasAvailableSegments(run))
             return "Route unavailable";
         return string.Join(" → ", run.Segments.OrderBy(value => value.SegmentIndex).Select(value => value.MapDisplayName));
@@ -570,8 +565,7 @@ internal static class UiText
     public static bool HasAvailableSegments(RunSummary run)
     {
         if (run == null) throw new ArgumentNullException(nameof(run));
-        return !run.HistoricalRouteUnavailable
-               && run.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
+        return run.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
                && run.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported
                && run.Segments.Count > 0;
     }

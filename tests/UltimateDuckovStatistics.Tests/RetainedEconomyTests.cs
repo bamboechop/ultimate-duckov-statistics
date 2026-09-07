@@ -192,9 +192,10 @@ public sealed class RetainedEconomyTests
         Assert.NotEmpty(result.Money.Notice); Assert.Equal(0, result.Cash.Totals.Net); Assert.Empty(result.Cash.Notice);
     }
     [Fact]
-    public void MissingEarlierEvidenceDoesNotBecomeZeroOrAddDevelopmentHistoryBoilerplate()
+    public void MissingCashCaptureDoesNotBecomeZero()
     {
-        var p = Profile(); p.Statistics.Economy.HistoricalUnavailable = true; Record(p.Statistics.Economy, CurrencyKind.Money, 20);
+        var p = Profile(); Record(p.Statistics.Economy, CurrencyKind.Money, 20);
+        p.Statistics.Economy.Capabilities.CashAmountDirection.State = AdapterCapabilityState.DisabledIncompatible;
         var result = Present(p); Assert.Equal(20, result.Money.Totals.Net); Assert.Null(result.Cash.Totals.Net);
         Assert.Empty(result.Money.Notice);
         Assert.DoesNotContain(Primary(result).Elements, e => e.Text.Contains("earlier", StringComparison.OrdinalIgnoreCase));

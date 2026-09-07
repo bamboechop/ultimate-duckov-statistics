@@ -502,8 +502,6 @@ public sealed class PersistenceTests
             10,
             repository.Current.Statistics.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
         var zeroFlowRun = repository.Current.Statistics.Runs.Single(run => run.RunId == "run-post-m9-zero");
-        Assert.False(zeroFlowRun.HistoricalRouteUnavailable);
-        Assert.False(zeroFlowRun.Economy.HistoricalUnavailable);
         Assert.Equal(
             degradedCapability ? AdapterCapabilityState.DisabledIncompatible : AdapterCapabilityState.Supported,
             zeroFlowRun.Economy.Capabilities.MoneyAmountDirection.State);

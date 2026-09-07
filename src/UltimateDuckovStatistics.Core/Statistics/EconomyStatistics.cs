@@ -37,7 +37,6 @@ public sealed class EconomyStatisticsAggregate
     [DataMember(Order = 1)] public Dictionary<string, CurrencyEconomyAggregate> Currencies { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 2)] public long CashAcquired { get; set; }
     [DataMember(Order = 3)] public EconomyMetricCapabilities Capabilities { get; set; } = new();
-    [DataMember(Order = 5)] public bool HistoricalUnavailable { get; set; }
     [DataMember(Order = 6)] public bool WasRepairedFromInvalidState { get; set; }
     [DataMember(Order = 10)] public bool MoneyArithmeticSaturated { get; set; }
     [DataMember(Order = 11)] public bool CashArithmeticSaturated { get; set; }
@@ -116,11 +115,10 @@ public static class EconomyStatisticsReducer
         {
             target.CashAcquired = SaturatingAdd(target.CashAcquired, source.CashAcquired);
         }
-        target.HistoricalUnavailable |= source.HistoricalUnavailable;
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
         target.MoneyArithmeticSaturated |= source.MoneyArithmeticSaturated;
         target.CashArithmeticSaturated |= source.CashArithmeticSaturated;
-        target.Capabilities = targetWasUninitialized && !target.HistoricalUnavailable
+        target.Capabilities = targetWasUninitialized
             ? CloneCapabilities(source.Capabilities)
             : MergeCapabilities(target.Capabilities, source.Capabilities);
         if (moneyOverflow || source.MoneyArithmeticSaturated)
@@ -137,7 +135,6 @@ public static class EconomyStatisticsReducer
         {
             CashAcquired = source.CashAcquired,
             Capabilities = CloneCapabilities(source.Capabilities),
-            HistoricalUnavailable = source.HistoricalUnavailable,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
             MoneyArithmeticSaturated = source.MoneyArithmeticSaturated,
             CashArithmeticSaturated = source.CashArithmeticSaturated,
@@ -172,7 +169,6 @@ public static class EconomyStatisticsReducer
         difference = new EconomyStatisticsAggregate
         {
             Capabilities = CloneCapabilities(total.Capabilities),
-            HistoricalUnavailable = total.HistoricalUnavailable,
             WasRepairedFromInvalidState = total.WasRepairedFromInvalidState,
             MoneyArithmeticSaturated = total.MoneyArithmeticSaturated,
             CashArithmeticSaturated = total.CashArithmeticSaturated
@@ -204,7 +200,6 @@ public static class EconomyStatisticsReducer
     public static bool HasExactSupportedCurrency(EconomyStatisticsAggregate aggregate, CurrencyKind currency)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        if (aggregate.HistoricalUnavailable) return false;
         return currency switch
         {
             CurrencyKind.Money => !aggregate.MoneyArithmeticSaturated
@@ -230,23 +225,13 @@ public static class EconomyStatisticsReducer
         if (total == null) throw new ArgumentNullException(nameof(total));
         if (components == null) throw new ArgumentNullException(nameof(components));
         var supportedComposition = HasExactSupportedCurrency(total, currency);
-        var historicalCapturedComposition = total.HistoricalUnavailable
-                                            && !IsCurrencyArithmeticSaturated(total, currency);
-        if (!supportedComposition && !historicalCapturedComposition) return true;
+        if (!supportedComposition) return true;
 
         var expected = new CurrencyEconomyAggregate { Currency = currency };
         foreach (var component in components)
         {
             if (component == null) return false;
             if (supportedComposition && !HasExactSupportedCurrency(component, currency)) return false;
-            if (historicalCapturedComposition
-                && !HasExactCapturedCurrency(component, currency))
-            {
-                if (!component.Currencies.ContainsKey(currency.ToString())
-                    && !IsCurrencyArithmeticSaturated(component, currency))
-                    continue;
-                return false;
-            }
             if (!component.Currencies.TryGetValue(currency.ToString(), out var row)) continue;
             if (!TryMergeExact(expected, row)) return false;
         }
@@ -394,7 +379,7 @@ public static class EconomyStatisticsReducer
         if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
         var aggregateWasUninitialized = IsUninitialized(aggregate);
         NormalizePersisted(aggregate);
-        aggregate.Capabilities = aggregateWasUninitialized && !aggregate.HistoricalUnavailable
+        aggregate.Capabilities = aggregateWasUninitialized
             ? CloneCapabilities(capabilities)
             : MergeLifetimeCapabilities(aggregate.Capabilities, capabilities);
         if (aggregate.MoneyArithmeticSaturated) ApplyArithmeticSaturation(aggregate, CurrencyKind.Money);
@@ -716,7 +701,6 @@ public static class EconomyStatisticsReducer
     private static bool IsUninitialized(EconomyStatisticsAggregate value)
     {
         if (!IsEmpty(value)
-            || value.HistoricalUnavailable
             || value.WasRepairedFromInvalidState
             || value.MoneyArithmeticSaturated
             || value.CashArithmeticSaturated

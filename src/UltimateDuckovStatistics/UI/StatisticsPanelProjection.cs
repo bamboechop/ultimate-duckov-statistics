@@ -1438,53 +1438,53 @@ internal static class ProfileSummaryPresentationFactory
         ProfileSummaryMetric metric,
         StatisticsPanelProjection projection,
         Func<string, string> text) => metric switch
-    {
-        ProfileSummaryMetric.TotalRuns => (
-            RetainedOverviewFirstStatisticsRowEntryPolicy.FormatProjectedValue(projection), null),
-        ProfileSummaryMetric.ExtractionRate => (FormatExtractionRate(projection.Runs, text), null),
-        ProfileSummaryMetric.TotalActiveRaidTime => (FormatActiveRaidTime(projection.Runs.Runs, text), null),
-        ProfileSummaryMetric.TotalDistanceTravelled => (
-            FormatDistance(projection.Runs.PhysicalDistance, projection.Runs.MovementSupported, text), null),
-        ProfileSummaryMetric.KillsByYou => (
-            FormatCapabilityInteger(
-                projection.Combat.Lifetime.Totals.KillsByYou,
-                projection.Combat.Capabilities.KillsByYou,
-                text), null),
-        ProfileSummaryMetric.Deaths => (FormatInteger(projection.Runs.DiedRuns), null),
-        ProfileSummaryMetric.DamageDealt => (
-            FormatCapabilityDecimal(
-                projection.Combat.Lifetime.Totals.DamageDealt,
-                projection.Combat.Capabilities.DamageDealt,
-                text), null),
-        ProfileSummaryMetric.DamageTaken => (
-            FormatCapabilityDecimal(
-                projection.Combat.Lifetime.Totals.DamageReceived,
-                projection.Combat.Capabilities.DamageReceived,
-                text), null),
-        ProfileSummaryMetric.HealthRestored => (
-            ItemUsePresentationFactory.Number(projection.Profile.Statistics.Overall.ActualHealthRestored,
-                ItemUsePresentationFactory.HealingSupported(projection.Profile.Capabilities) && projection.Profile.Statistics.HealingCaptureComplete,
-                projection.ItemUse.WasRepairedFromInvalidState, text, fixedPrecision: true).Text, null),
-        ProfileSummaryMetric.UniqueContainersOpened => (
-            UiText.FormatContainers(
-                projection.Containers.Lifetime,
-                projection.Containers.CurrentCapability,
-                text), null),
-        ProfileSummaryMetric.Economy => (
-            text("ui.overview_money_net") + " " + FormatEconomyNet(
-                projection.Economy,
-                CurrencyKind.Money,
-                projection.Economy.Capabilities.MoneyAmountDirection,
-                projection.CurrentEconomyCapabilities.MoneyAmountDirection,
-                text),
-            text("ui.overview_cash_net") + " " + FormatEconomyNet(
-                projection.Economy,
-                CurrencyKind.Cash,
-                projection.Economy.Capabilities.CashAmountDirection,
-                projection.CurrentEconomyCapabilities.CashAmountDirection,
-                text)),
-        _ => throw new ArgumentOutOfRangeException(nameof(metric))
-    };
+        {
+            ProfileSummaryMetric.TotalRuns => (
+                RetainedOverviewFirstStatisticsRowEntryPolicy.FormatProjectedValue(projection), null),
+            ProfileSummaryMetric.ExtractionRate => (FormatExtractionRate(projection.Runs, text), null),
+            ProfileSummaryMetric.TotalActiveRaidTime => (FormatActiveRaidTime(projection.Runs.Runs, text), null),
+            ProfileSummaryMetric.TotalDistanceTravelled => (
+                FormatDistance(projection.Runs.PhysicalDistance, projection.Runs.MovementSupported, text), null),
+            ProfileSummaryMetric.KillsByYou => (
+                FormatCapabilityInteger(
+                    projection.Combat.Lifetime.Totals.KillsByYou,
+                    projection.Combat.Capabilities.KillsByYou,
+                    text), null),
+            ProfileSummaryMetric.Deaths => (FormatInteger(projection.Runs.DiedRuns), null),
+            ProfileSummaryMetric.DamageDealt => (
+                FormatCapabilityDecimal(
+                    projection.Combat.Lifetime.Totals.DamageDealt,
+                    projection.Combat.Capabilities.DamageDealt,
+                    text), null),
+            ProfileSummaryMetric.DamageTaken => (
+                FormatCapabilityDecimal(
+                    projection.Combat.Lifetime.Totals.DamageReceived,
+                    projection.Combat.Capabilities.DamageReceived,
+                    text), null),
+            ProfileSummaryMetric.HealthRestored => (
+                ItemUsePresentationFactory.Number(projection.Profile.Statistics.Overall.ActualHealthRestored,
+                    ItemUsePresentationFactory.HealingSupported(projection.Profile.Capabilities) && projection.Profile.Statistics.HealingCaptureComplete,
+                    projection.ItemUse.WasRepairedFromInvalidState, text, fixedPrecision: true).Text, null),
+            ProfileSummaryMetric.UniqueContainersOpened => (
+                UiText.FormatContainers(
+                    projection.Containers.Lifetime,
+                    projection.Containers.CurrentCapability,
+                    text), null),
+            ProfileSummaryMetric.Economy => (
+                text("ui.overview_money_net") + " " + FormatEconomyNet(
+                    projection.Economy,
+                    CurrencyKind.Money,
+                    projection.Economy.Capabilities.MoneyAmountDirection,
+                    projection.CurrentEconomyCapabilities.MoneyAmountDirection,
+                    text),
+                text("ui.overview_cash_net") + " " + FormatEconomyNet(
+                    projection.Economy,
+                    CurrencyKind.Cash,
+                    projection.Economy.Capabilities.CashAmountDirection,
+                    projection.CurrentEconomyCapabilities.CashAmountDirection,
+                    text)),
+            _ => throw new ArgumentOutOfRangeException(nameof(metric))
+        };
 
     private static string FormatExtractionRate(RunStatisticsViewModel runs, Func<string, string> text)
     {
@@ -1556,11 +1556,7 @@ internal static class ProfileSummaryPresentationFactory
         var key = kind.ToString();
         var hasCurrency = economy.Currencies.TryGetValue(key, out var currency);
         string result;
-        if (!hasCurrency && economy.HistoricalUnavailable)
-        {
-            result = text("ui.unavailable");
-        }
-        else if (!hasCurrency)
+        if (!hasCurrency)
         {
             result = scopeAvailability.State == AdapterCapabilityState.DisabledIncompatible
                 ? text("ui.unsupported")
@@ -1585,9 +1581,6 @@ internal static class ProfileSummaryPresentationFactory
                 }
             }
         }
-
-        if (economy.HistoricalUnavailable)
-            result = $"{result} ({text("ui.pre_m9_unavailable")})";
         if (economy.WasRepairedFromInvalidState)
             result = $"{result} ({text("ui.repaired_unavailable")})";
         var saturated = kind == CurrencyKind.Money
@@ -1796,8 +1789,7 @@ internal static class OverviewHighlightsPresentationFactory
         Func<string, string> text)
     {
         var itemUse = projection.ItemUse;
-        if (itemUse == null || itemUse.Overall == null || itemUse.Items == null
-            || itemUse.HistoricalUnavailable || itemUse.WasRepairedFromInvalidState
+        if (itemUse == null || itemUse.Overall == null || itemUse.Items == null || itemUse.WasRepairedFromInvalidState
             || itemUse.Overall.ActivationCount < 0
             || itemUse.Items.Any(value => value == null
                 || value.Totals == null
@@ -2487,12 +2479,12 @@ internal static class RetainedRunBadgePolicy
 
     public static RetainedRunBadgeVariantSpecification ResolveSpecification(
         RetainedRunBadgeState state) => state switch
-    {
-        RetainedRunBadgeState.Extracted => ExtractedSpecification,
-        RetainedRunBadgeState.Died => DiedSpecification,
-        RetainedRunBadgeState.Unknown => UnknownSpecification,
-        _ => throw new ArgumentOutOfRangeException(nameof(state))
-    };
+        {
+            RetainedRunBadgeState.Extracted => ExtractedSpecification,
+            RetainedRunBadgeState.Died => DiedSpecification,
+            RetainedRunBadgeState.Unknown => UnknownSpecification,
+            _ => throw new ArgumentOutOfRangeException(nameof(state))
+        };
 
     public static RetainedRunBadgeCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform,
@@ -2837,7 +2829,6 @@ internal static class RetainedLatestRunStatisticsPresentationFactory
         if (containers == null || availability == null) return unavailable;
         if (containers.UniqueContainersLooted < 0
             && !containers.WasRepairedFromInvalidState
-            && !containers.HistoricalUnavailable
             && availability.State == AdapterCapabilityState.Supported)
         {
             return unavailable;
@@ -3477,17 +3468,17 @@ internal static class RetainedRunBadgeProceduralIconPolicy
         var deltaY = endY - startY;
         var squaredLength = deltaX * deltaX + deltaY * deltaY;
         for (var y = 0; y < height; y++)
-        for (var x = 0; x < width; x++)
-        {
-            var projection = squaredLength == 0f
-                ? 0f
-                : Math.Max(0f, Math.Min(1f,
-                    ((x - startX) * deltaX + (y - startY) * deltaY) / squaredLength));
-            var distanceX = x - (startX + projection * deltaX);
-            var distanceY = y - (startY + projection * deltaY);
-            if (distanceX * distanceX + distanceY * distanceY <= radius * radius)
-                alpha[y * width + x] = 255;
-        }
+            for (var x = 0; x < width; x++)
+            {
+                var projection = squaredLength == 0f
+                    ? 0f
+                    : Math.Max(0f, Math.Min(1f,
+                        ((x - startX) * deltaX + (y - startY) * deltaY) / squaredLength));
+                var distanceX = x - (startX + projection * deltaX);
+                var distanceY = y - (startY + projection * deltaY);
+                if (distanceX * distanceX + distanceY * distanceY <= radius * radius)
+                    alpha[y * width + x] = 255;
+            }
     }
 
     private static void PaintEllipse(
@@ -3501,13 +3492,13 @@ internal static class RetainedRunBadgeProceduralIconPolicy
         byte value)
     {
         for (var y = 0; y < height; y++)
-        for (var x = 0; x < width; x++)
-        {
-            var normalizedX = (x - centerX) / radiusX;
-            var normalizedY = (y - centerY) / radiusY;
-            if (normalizedX * normalizedX + normalizedY * normalizedY <= 1f)
-                alpha[y * width + x] = value;
-        }
+            for (var x = 0; x < width; x++)
+            {
+                var normalizedX = (x - centerX) / radiusX;
+                var normalizedY = (y - centerY) / radiusY;
+                if (normalizedX * normalizedX + normalizedY * normalizedY <= 1f)
+                    alpha[y * width + x] = value;
+            }
     }
 
     private static void PaintRectangle(
@@ -3521,8 +3512,8 @@ internal static class RetainedRunBadgeProceduralIconPolicy
         byte value)
     {
         for (var y = Math.Max(0, top); y <= Math.Min(height - 1, bottom); y++)
-        for (var x = Math.Max(0, left); x <= Math.Min(width - 1, right); x++)
-            alpha[y * width + x] = value;
+            for (var x = Math.Max(0, left); x <= Math.Min(width - 1, right); x++)
+                alpha[y * width + x] = value;
     }
 }
 
@@ -4086,14 +4077,14 @@ internal static class RetainedBackArrowAssetPolicy
         var rightExclusive = 0;
         var bottomExclusive = 0;
         for (var y = 0; y < HeightPixels; y++)
-        for (var x = 0; x < WidthPixels; x++)
-        {
-            if (alpha[y * WidthPixels + x] == 0) continue;
-            left = Math.Min(left, x);
-            top = Math.Min(top, y);
-            rightExclusive = Math.Max(rightExclusive, x + 1);
-            bottomExclusive = Math.Max(bottomExclusive, y + 1);
-        }
+            for (var x = 0; x < WidthPixels; x++)
+            {
+                if (alpha[y * WidthPixels + x] == 0) continue;
+                left = Math.Min(left, x);
+                top = Math.Min(top, y);
+                rightExclusive = Math.Max(rightExclusive, x + 1);
+                bottomExclusive = Math.Max(bottomExclusive, y + 1);
+            }
 
         return left == VisibleLeftPixels
                && top == VisibleTopPixels
@@ -4341,7 +4332,6 @@ internal sealed class WeaponAmmunitionGroupProjection
     public long TotalFiringActions { get; set; }
     public long CorrelatedFiringActions { get; set; }
     public long UncorrelatedFiringActions { get; set; }
-    public bool HistoricalPairingUnavailable { get; set; }
     public IReadOnlyList<WeaponAmmunitionPairView> Ammunition { get; set; } =
         Array.Empty<WeaponAmmunitionPairView>();
 }
@@ -4352,7 +4342,6 @@ internal sealed class ItemUsePanelProjection
     public IReadOnlyList<ItemUseRowProjection> Items { get; set; } = Array.Empty<ItemUseRowProjection>();
     public IReadOnlyList<ItemUseGroupProjection> Groups { get; set; } = Array.Empty<ItemUseGroupProjection>();
     public IReadOnlyList<RunSummary> RecentRuns { get; set; } = Array.Empty<RunSummary>();
-    public bool HistoricalUnavailable { get; set; }
     public bool WasRepairedFromInvalidState { get; set; }
 }
 
@@ -4494,7 +4483,6 @@ internal static class StatisticsPanelProjectionFactory
         return new ItemUsePanelProjection
         {
             Overall = profile.Statistics.Overall,
-            HistoricalUnavailable = profile.Statistics.RunTotals.ItemStatistics.HistoricalUnavailable,
             WasRepairedFromInvalidState =
                 profile.Statistics.RunTotals.ItemStatistics.WasRepairedFromInvalidState,
             Items = profile.Statistics.Items.Values
@@ -4539,7 +4527,6 @@ internal static class StatisticsPanelProjectionFactory
                 TotalFiringActions = weapon.Totals.FiringActions,
                 CorrelatedFiringActions = ammunition.Sum(value => value.Pair.FiringActions),
                 UncorrelatedFiringActions = uncorrelated,
-                HistoricalPairingUnavailable = weapons.Lifetime.HistoricalPairingUnavailable,
                 Ammunition = ammunition
             };
         }).ToArray();

@@ -1122,8 +1122,7 @@ public sealed partial class ProfileRepository
         if (hasRetainedSegments)
         {
             RouteStatisticsReducer.Validate(checkpoint.Segments, allowOpenLast: true);
-            if (!checkpoint.HistoricalRouteUnavailable
-                && !string.Equals(checkpoint.StartingMapId, checkpoint.Segments[0].MapId, StringComparison.Ordinal))
+            if (!string.Equals(checkpoint.StartingMapId, checkpoint.Segments[0].MapId, StringComparison.Ordinal))
                 throw new ArgumentException("Active route checkpoint starting map does not match its first segment.", nameof(checkpoint));
         }
         RouteStatisticsReducer.ValidateAssociations(checkpoint.Segments, checkpoint.SegmentEventAssociations);

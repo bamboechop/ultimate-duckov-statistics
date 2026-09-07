@@ -144,7 +144,7 @@ internal static class RunsPresentationFactory
             Format(value, capability.State == AdapterCapabilityState.Supported && !broken && !partial, t);
         string Count(long value, MetricAvailability capability, bool partial = false) =>
             FormatCount(value, capability.State == AdapterCapabilityState.Supported && !broken && !partial, t);
-        var routeExact = !run.HistoricalRouteUnavailable && !run.RouteWasRepairedFromInvalidState
+        var routeExact = !run.RouteWasRepairedFromInvalidState
             && run.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
             && run.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported;
         var mapsExact = routeExact && run.Segments.Count > 0 && run.Segments.All(segment => segment.MapKnown);
@@ -170,7 +170,7 @@ internal static class RunsPresentationFactory
         var accuracy = !broken && c.Accuracy.State == AdapterCapabilityState.Supported && v.CompletedPlayerProjectiles > 0
             ? ((double)v.RangedHits / v.CompletedPlayerProjectiles).ToString("P2", CultureInfo.InvariantCulture) : t("ui.unavailable");
         var cash = run.Economy.Currencies.TryGetValue(CurrencyKind.Cash.ToString(), out var currency) ? currency.Totals.NetFlow : 0;
-        var cashExact = !run.Economy.HistoricalUnavailable && !run.Economy.WasRepairedFromInvalidState
+        var cashExact = !run.Economy.WasRepairedFromInvalidState
             && run.Economy.Capabilities.CashAmountDirection.State == AdapterCapabilityState.Supported && !attributionPartial;
         var cashText = cashExact ? cash.ToString("+#,0;-#,0;0", CultureInfo.InvariantCulture)
             : cash != 0 ? cash.ToString(CultureInfo.InvariantCulture) + " (" + t("ui.runs_partial") + ")" : t("ui.unavailable");
@@ -185,7 +185,7 @@ internal static class RunsPresentationFactory
             Pair(t("ui.overview_damage_taken"), Metric(v.DamageReceived, c.DamageReceived)),
             Pair(t("ui.runs_accuracy"), accuracy), Pair(t("ui.runs_headshots"), headshots),
             Pair(t("ui.runs_hp"), Format(run.ItemStatistics.Overall.ActualHealthRestored,
-                run.HealingCaptureComplete && !run.ItemStatistics.HistoricalUnavailable && !run.ItemStatistics.WasRepairedFromInvalidState && !attributionPartial, t))
+                run.HealingCaptureComplete && !run.ItemStatistics.WasRepairedFromInvalidState && !attributionPartial, t))
         };
         var segments = run.Segments.Select((segment, index) =>
         {
@@ -257,7 +257,7 @@ internal static class RunsPresentationFactory
                 capabilities.MeleeSwings, capabilities.MeleeHits, capabilities.KillsByYou,
                 capabilities.Headshots, capabilities.HeadshotFinalBlows, capabilities.PlayerDeaths,
                 capabilities.ObservedWorldDeaths, capabilities.Accuracy }.All(metric => metric.State == AdapterCapabilityState.Supported);
-        var containersComplete = eventsExact && !segment.ContainerStatistics.HistoricalUnavailable
+        var containersComplete = eventsExact
             && !segment.ContainerStatistics.WasRepairedFromInvalidState
             && segment.ContainerStatistics.Capabilities.UniqueContainersLooted.State == AdapterCapabilityState.Supported;
         var noCombat = combatComplete && containersComplete
@@ -304,7 +304,7 @@ internal static class RunsPresentationFactory
     private static string Distance(double value, bool exact, Func<string, string> t) => exact && value >= 0 && !double.IsInfinity(value)
         ? value >= 1000 ? (value / 1000).ToString("0.00", CultureInfo.InvariantCulture) + " km" : value.ToString("0.##", CultureInfo.InvariantCulture) + " m" : t("ui.unavailable");
     private static string Containers(ContainerStatisticsAggregate value, bool partial, Func<string, string> t) => FormatCount(value.UniqueContainersLooted,
-        !partial && !value.HistoricalUnavailable && !value.WasRepairedFromInvalidState && value.Capabilities.UniqueContainersLooted.State == AdapterCapabilityState.Supported, t);
+        !partial && !value.WasRepairedFromInvalidState && value.Capabilities.UniqueContainersLooted.State == AdapterCapabilityState.Supported, t);
     internal static string FormatCount(long value, bool exact, Func<string, string> t) => value < 0 ? t("ui.unavailable")
         : exact ? value.ToString(CultureInfo.InvariantCulture) : value > 0 ? value.ToString(CultureInfo.InvariantCulture) + " (" + t("ui.runs_partial") + ")" : t("ui.unavailable");
     internal static string Format(double value, bool exact, Func<string, string> t) => double.IsNaN(value) || double.IsInfinity(value) || value < 0 ? t("ui.unavailable")

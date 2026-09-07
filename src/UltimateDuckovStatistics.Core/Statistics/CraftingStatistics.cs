@@ -72,8 +72,6 @@ public sealed class CraftingStatisticsAggregate
     [DataMember(Order = 2)] public long ProducedQuantity { get; set; }
     [DataMember(Order = 3)] public Dictionary<string, CraftedOutputAggregate> Outputs { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 4)] public CraftingMetricCapabilities Capabilities { get; set; } = new();
-    [DataMember(Order = 5)] public bool HistoricalUnavailable { get; set; }
-    [DataMember(Order = 6)] public string HistoricalProvenance { get; set; } = string.Empty;
     [DataMember(Order = 7)] public bool CompletionArithmeticUnavailable { get; set; }
     [DataMember(Order = 8)] public bool QuantityArithmeticUnavailable { get; set; }
     [DataMember(Order = 9)] public bool WasRepairedFromInvalidState { get; set; }
@@ -372,7 +370,6 @@ public static class CraftingStatisticsReducer
             aggregate.WasRepairedFromInvalidState = true;
             changed = true;
         }
-        aggregate.HistoricalProvenance ??= string.Empty;
         aggregate.ResourceHistoryProvenance ??= string.Empty;
         aggregate.CurrencyHistoryProvenance ??= string.Empty;
         foreach (var entry in aggregate.Resources.ToArray())
@@ -445,8 +442,7 @@ public static class CraftingStatisticsReducer
         if (aggregate == null || aggregate.Capabilities == null || aggregate.Outputs == null || aggregate.Resources == null)
             throw new ArgumentException("Crafting roots are missing.", nameof(aggregate));
         foreach (var value in EnumerateCapabilities(aggregate.Capabilities)) ValidateAvailability(value);
-        if ((aggregate.HistoricalUnavailable && string.IsNullOrWhiteSpace(aggregate.HistoricalProvenance))
-            || (aggregate.ResourceHistoryUnavailable && string.IsNullOrWhiteSpace(aggregate.ResourceHistoryProvenance))
+        if ((aggregate.ResourceHistoryUnavailable && string.IsNullOrWhiteSpace(aggregate.ResourceHistoryProvenance))
             || (aggregate.CurrencyHistoryUnavailable && string.IsNullOrWhiteSpace(aggregate.CurrencyHistoryProvenance)))
             throw new ArgumentException("Crafting partial-history provenance is missing.", nameof(aggregate));
         if (aggregate.CompletionActions < 0 || aggregate.ProducedQuantity < 0
@@ -568,8 +564,6 @@ public static class CraftingStatisticsReducer
             ProducedQuantity = source.ProducedQuantity,
             Outputs = source.Outputs.ToDictionary(entry => entry.Key, entry => CloneOutput(entry.Value), StringComparer.Ordinal),
             Capabilities = CloneCapabilities(source.Capabilities),
-            HistoricalUnavailable = source.HistoricalUnavailable,
-            HistoricalProvenance = source.HistoricalProvenance,
             CompletionArithmeticUnavailable = source.CompletionArithmeticUnavailable,
             QuantityArithmeticUnavailable = source.QuantityArithmeticUnavailable,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,

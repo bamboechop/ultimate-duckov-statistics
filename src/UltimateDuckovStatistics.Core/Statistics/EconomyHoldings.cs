@@ -43,8 +43,6 @@ public sealed class EconomyHoldingsSnapshot
     [DataMember(Order = 2)] public EconomyHoldingObservation Money { get; set; } = new();
     [DataMember(Order = 3)] public EconomyHoldingObservation Cash { get; set; } = new();
     [DataMember(Order = 4)] public EconomyHoldingsMetricCapabilities Capabilities { get; set; } = new();
-    [DataMember(Order = 5)] public bool HistoricalUnavailable { get; set; }
-    [DataMember(Order = 6)] public string HistoricalProvenance { get; set; } = string.Empty;
     [DataMember(Order = 7)] public bool WasRepairedFromInvalidState { get; set; }
 }
 
@@ -165,7 +163,6 @@ public static class EconomyHoldingsReducer
             throw new ArgumentException("A save generation is required.", nameof(expectedSaveGenerationId));
 
         var changed = false;
-        snapshot.HistoricalProvenance ??= string.Empty;
         if (!string.Equals(snapshot.SaveGenerationId, expectedSaveGenerationId, StringComparison.Ordinal))
         {
             snapshot.SaveGenerationId = expectedSaveGenerationId;
@@ -217,8 +214,6 @@ public static class EconomyHoldingsReducer
         if (snapshot.Cash.State == EconomyHoldingObservationState.Current
             && snapshot.Capabilities.Cash.State != AdapterCapabilityState.Supported)
             throw new ArgumentException("Current Cash observation has no supported current capability.");
-        if (snapshot.HistoricalProvenance == null)
-            throw new ArgumentException("Economy holdings historical provenance is missing.", nameof(snapshot));
     }
 
     public static EconomyHoldingsProjection Project(EconomyHoldingsSnapshot snapshot)
@@ -281,24 +276,12 @@ public static class EconomyHoldingsReducer
         Money = Clone(source.Money),
         Cash = Clone(source.Cash),
         Capabilities = Clone(source.Capabilities),
-        HistoricalUnavailable = source.HistoricalUnavailable,
-        HistoricalProvenance = source.HistoricalProvenance,
         WasRepairedFromInvalidState = source.WasRepairedFromInvalidState
     };
 
     public static bool HasObservedValue(EconomyHoldingsSnapshot snapshot) =>
         snapshot?.Money?.State is EconomyHoldingObservationState.Current or EconomyHoldingObservationState.LastObserved
         || snapshot?.Cash?.State is EconomyHoldingObservationState.Current or EconomyHoldingObservationState.LastObserved;
-
-    public static EconomyHoldingsSnapshot HistoricalUnavailable(string saveGenerationId, string provenance) => new()
-    {
-        SaveGenerationId = saveGenerationId,
-        Money = Unavailable(provenance),
-        Cash = Unavailable(provenance),
-        Capabilities = EconomyHoldingsNativeContractPolicy.Unavailable(provenance),
-        HistoricalUnavailable = true,
-        HistoricalProvenance = provenance
-    };
 
     public static EconomyHoldingsMetricCapabilities Clone(EconomyHoldingsMetricCapabilities source) => new()
     {

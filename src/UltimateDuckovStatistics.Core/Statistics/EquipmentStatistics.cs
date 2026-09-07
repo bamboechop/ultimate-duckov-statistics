@@ -87,7 +87,6 @@ public sealed class EquipmentStatisticsAggregate
     [DataMember(Order = 9)] public bool TransitionsTruncated { get; set; }
     [DataMember(Order = 10)] public double ObservedActiveDurationSeconds { get; set; }
     [DataMember(Order = 11, EmitDefaultValue = false)] public EquipmentSnapshot? CurrentSnapshot { get; set; }
-    [DataMember(Order = 12)] public bool HistoricalUnavailable { get; set; }
     [DataMember(Order = 13)] public bool WasRepairedFromInvalidState { get; set; }
     [DataMember(Order = 14)] public Dictionary<string, EquipmentDurationAggregate> TotemStates { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 15)] public Dictionary<string, EquipmentDurationAggregate> Slots { get; set; } = new(StringComparer.Ordinal);
@@ -96,10 +95,6 @@ public sealed class EquipmentStatisticsAggregate
     [DataMember(Order = 20)] public Dictionary<string, CharacterSlotStateDurationAggregate> CharacterSlotStates { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 21)] public Dictionary<string, EquipmentDurationAggregate> NestedSlotObservedDurations { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 22)] public Dictionary<string, NestedSlotStateDurationAggregate> NestedSlotStates { get; set; } = new(StringComparer.Ordinal);
-    [DataMember(Order = 23)] public bool HistoricalCharacterSlotStateUnavailable { get; set; }
-    [DataMember(Order = 24)] public string HistoricalCharacterSlotStateProvenance { get; set; } = string.Empty;
-    [DataMember(Order = 25)] public bool HistoricalNestedSlotStateUnavailable { get; set; }
-    [DataMember(Order = 26)] public string HistoricalNestedSlotStateProvenance { get; set; } = string.Empty;
     [DataMember(Order = 27)] public EquipmentCompositionEvidence Composition { get; set; } = new();
 }
 
@@ -247,14 +242,14 @@ public static class EquipmentStatisticsReducer
         EquipmentStatisticsAggregate source,
         bool countRunOccurrence = true)
     {
-        var preserveUnavailable = target.HistoricalUnavailable || HasObservations(target);
+        var preserveUnavailable = HasObservations(target);
         NormalizePersisted(target);
         NormalizePersisted(source);
         PreflightPlayerKillMerge(target, source);
         PreflightSlotStateMerge(target, source);
         EquipmentCompositionReducer.Merge(target.Composition, source.Composition);
         target.Capabilities = preserveUnavailable
-            ? RestrictCapabilities(target.Capabilities, source.Capabilities, preferSourceOnTie: !target.HistoricalUnavailable)
+            ? RestrictCapabilities(target.Capabilities, source.Capabilities, preferSourceOnTie: true)
             : CloneCapabilities(source.Capabilities);
         MergeDurations(target.Items, source.Items);
         MergeDurations(target.SelectedWeapons, source.SelectedWeapons);
@@ -286,15 +281,6 @@ public static class EquipmentStatisticsReducer
             row.KillsByYou = checked(row.KillsByYou + value.KillsByYou);
             row.PlayerDeaths = SaturatingAdd(row.PlayerDeaths, value.PlayerDeaths);
         }
-        target.HistoricalUnavailable |= source.HistoricalUnavailable;
-        target.HistoricalCharacterSlotStateUnavailable |= source.HistoricalCharacterSlotStateUnavailable;
-        target.HistoricalCharacterSlotStateProvenance = MergeProvenance(
-            target.HistoricalCharacterSlotStateProvenance,
-            source.HistoricalCharacterSlotStateProvenance);
-        target.HistoricalNestedSlotStateUnavailable |= source.HistoricalNestedSlotStateUnavailable;
-        target.HistoricalNestedSlotStateProvenance = MergeProvenance(
-            target.HistoricalNestedSlotStateProvenance,
-            source.HistoricalNestedSlotStateProvenance);
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
     }
 
@@ -309,12 +295,7 @@ public static class EquipmentStatisticsReducer
             TransitionsTruncated = source.TransitionsTruncated,
             ObservedActiveDurationSeconds = source.ObservedActiveDurationSeconds,
             CurrentSnapshot = source.CurrentSnapshot == null ? null : Clone(source.CurrentSnapshot),
-            HistoricalUnavailable = source.HistoricalUnavailable,
-            WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
-            HistoricalCharacterSlotStateUnavailable = source.HistoricalCharacterSlotStateUnavailable,
-            HistoricalCharacterSlotStateProvenance = source.HistoricalCharacterSlotStateProvenance,
-            HistoricalNestedSlotStateUnavailable = source.HistoricalNestedSlotStateUnavailable,
-            HistoricalNestedSlotStateProvenance = source.HistoricalNestedSlotStateProvenance
+            WasRepairedFromInvalidState = source.WasRepairedFromInvalidState
         };
         clone.Composition = EquipmentCompositionReducer.Clone(source.Composition);
         MergeDurations(clone.Items, source.Items);
@@ -380,16 +361,6 @@ public static class EquipmentStatisticsReducer
         if (target.Composition == null)
         {
             target.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
-            changed = true;
-        }
-        if (target.HistoricalCharacterSlotStateProvenance == null)
-        {
-            target.HistoricalCharacterSlotStateProvenance = string.Empty;
-            changed = true;
-        }
-        if (target.HistoricalNestedSlotStateProvenance == null)
-        {
-            target.HistoricalNestedSlotStateProvenance = string.Empty;
             changed = true;
         }
         if (target.Capabilities == null)
@@ -539,9 +510,7 @@ public static class EquipmentStatisticsReducer
         if (schemaVersion >= 14 && (target == null || target.Capabilities.CharacterSlotState == null
             || target.Capabilities.NestedSlotState == null
             || target.CharacterSlotObservedDurations == null || target.CharacterSlotStates == null
-            || target.NestedSlotObservedDurations == null || target.NestedSlotStates == null
-            || target.HistoricalCharacterSlotStateProvenance == null
-            || target.HistoricalNestedSlotStateProvenance == null))
+            || target.NestedSlotObservedDurations == null || target.NestedSlotStates == null))
             throw new ArgumentException("Schema-14 equipment-slot checkpoint is incomplete.", nameof(target));
         if (target == null) return;
         if (!IsFinite(target.ObservedActiveDurationSeconds) || target.ObservedActiveDurationSeconds < 0
@@ -604,7 +573,7 @@ public static class EquipmentStatisticsReducer
         AdapterCapabilityState current,
         bool allowUninitializedFallback)
     {
-        if (allowUninitializedFallback && !aggregate.HistoricalUnavailable && IsEmpty(aggregate))
+        if (allowUninitializedFallback && IsEmpty(aggregate))
             return current;
         return (int)recorded.State >= (int)current ? recorded.State : current;
     }
@@ -623,7 +592,7 @@ public static class EquipmentStatisticsReducer
             && resolved == AdapterCapabilityState.DisabledIncompatible
             && string.IsNullOrWhiteSpace(recorded.Provenance))
             recorded.Provenance = "Persisted equipment data was repaired; capability remains unavailable.";
-        if (!aggregate.HistoricalUnavailable && resolved == current && !string.IsNullOrWhiteSpace(currentProvenance))
+        if (resolved == current && !string.IsNullOrWhiteSpace(currentProvenance))
             recorded.Provenance = currentProvenance;
         recorded.State = resolved;
     }
@@ -1513,10 +1482,6 @@ public static class EquipmentStatisticsReducer
         if (right <= 0) return left;
         return left > long.MaxValue - right ? long.MaxValue : left + right;
     }
-
-    private static string MergeProvenance(string? left, string? right) => string.Join(
-        " | ",
-        new[] { left, right }.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal));
 
     private static void RecordTransition(
         EquipmentStatisticsAggregate target,

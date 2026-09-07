@@ -39,7 +39,6 @@ public sealed class RetainedCombatTests
             DisplayName = name ?? id,
             TotalFiringActions = count,
             UncorrelatedFiringActions = uncorrelated,
-            HistoricalPairingUnavailable = historical,
             CorrelatedFiringActions = pairs.Sum(pair => pair.Count),
             Ammunition = pairs.Select(pair => new WeaponAmmunitionPairView
             {

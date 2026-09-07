@@ -14,7 +14,6 @@ public sealed class ContainerStatisticsAggregate
 {
     [DataMember(Order = 1)] public ContainerMetricCapabilities Capabilities { get; set; } = new();
     [DataMember(Order = 2)] public long UniqueContainersLooted { get; set; }
-    [DataMember(Order = 3)] public bool HistoricalUnavailable { get; set; }
     [DataMember(Order = 4)] public bool WasRepairedFromInvalidState { get; set; }
 }
 
@@ -71,16 +70,14 @@ public static class ContainerStatisticsReducer
         NormalizePersisted(target);
         NormalizePersisted(source);
         var adoptFirstRunCapability = adoptSourceCapability
-                                      && IsEmpty(target)
-                                      && !target.HistoricalUnavailable;
+                                      && IsEmpty(target);
         target.UniqueContainersLooted = SaturatingAdd(target.UniqueContainersLooted, source.UniqueContainersLooted);
         target.Capabilities.UniqueContainersLooted = adoptFirstRunCapability
             ? Clone(source.Capabilities.UniqueContainersLooted)
             : Restrict(
                 target.Capabilities.UniqueContainersLooted,
                 source.Capabilities.UniqueContainersLooted,
-                preferSourceOnTie: !target.HistoricalUnavailable);
-        target.HistoricalUnavailable |= source.HistoricalUnavailable;
+                preferSourceOnTie: true);
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
     }
 
@@ -92,7 +89,6 @@ public static class ContainerStatisticsReducer
         {
             Capabilities = CloneCapabilities(source.Capabilities),
             UniqueContainersLooted = source.UniqueContainersLooted,
-            HistoricalUnavailable = source.HistoricalUnavailable,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState
         };
     }
@@ -251,7 +247,7 @@ public static class ContainerStatisticsReducer
             aggregate.Capabilities.UniqueContainersLooted.Provenance = RepairProvenance;
             return;
         }
-        if (aggregate.HistoricalUnavailable || aggregate.UniqueContainersLooted > 0) return;
+        if (aggregate.UniqueContainersLooted > 0) return;
         aggregate.Capabilities.UniqueContainersLooted = new MetricAvailability
         {
             State = state,

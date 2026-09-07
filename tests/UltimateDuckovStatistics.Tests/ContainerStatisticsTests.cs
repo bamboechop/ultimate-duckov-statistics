@@ -309,7 +309,6 @@ public sealed class ContainerStatisticsTests
         profile.Statistics.RunTotals.ContainerStatistics = new ContainerStatisticsAggregate { WasRepairedFromInvalidState = true };
         var lifetime = profile.Statistics.RunTotals.ContainerStatistics;
         Assert.True(lifetime.WasRepairedFromInvalidState);
-        Assert.False(lifetime.HistoricalUnavailable);
         profile.Capabilities.Add(ContainerNativeContractPolicy.ToRecord(
             ContainerNativeContractPolicy.Supported(), "container/test"));
 
@@ -321,7 +320,7 @@ public sealed class ContainerStatisticsTests
         Assert.False(string.IsNullOrWhiteSpace(model.CapabilityDetail));
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
             export.Document.RunTotals.ContainerStatistics.Capabilities.UniqueContainersLooted.State);
-        Assert.Contains("lifetime,generation-1,,0,DisabledIncompatible,false,true", export.ContainersCsv);
+        Assert.Contains("lifetime,generation-1,,0,DisabledIncompatible,true", export.ContainersCsv);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
             lifetime.Capabilities.UniqueContainersLooted.State);
     }

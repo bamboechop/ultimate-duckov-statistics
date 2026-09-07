@@ -30,7 +30,6 @@ public sealed class ItemStatisticsAggregate
     [DataMember(Order = 2)] public Dictionary<string, ItemAggregate> Items { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 3)] public Dictionary<string, AggregateTotals> Groups { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 4)] public List<string> RecentEventIds { get; set; } = new();
-    [DataMember(Order = 5)] public bool HistoricalUnavailable { get; set; }
     [DataMember(Order = 6)] public bool WasRepairedFromInvalidState { get; set; }
 }
 

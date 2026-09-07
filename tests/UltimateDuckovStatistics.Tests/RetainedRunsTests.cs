@@ -170,7 +170,7 @@ public sealed class RetainedRunsTests
         Assert.Equal("0", exact.Summary[3].Value);
         Assert.Contains("0 kills", exact.Melee);
         run.CombatStatistics.Capabilities.KillsByYou.State = AdapterCapabilityState.DisabledIncompatible;
-        run.ContainerStatistics.HistoricalUnavailable = true;
+        run.ContainerStatistics.Capabilities.UniqueContainersLooted.State = AdapterCapabilityState.DisabledIncompatible;
         var unavailable = Present(run).Runs[0];
         Assert.Equal("Unavailable", unavailable.Summary[2].Value);
         Assert.Equal("Unavailable", unavailable.Summary[3].Value);
@@ -178,12 +178,14 @@ public sealed class RetainedRunsTests
     }
 
     [Fact]
-    public void HistoricalPartialFieldsKeepUsefulProvenValues()
+    public void RepairedPartialFieldsKeepUsefulProvenValues()
     {
         var run = Run("r", 1);
-        run.ContainerStatistics.HistoricalUnavailable = true; run.ContainerStatistics.UniqueContainersLooted = 7;
-        run.ItemStatistics.HistoricalUnavailable = true; run.ItemStatistics.Overall.ActualHealthRestored = 23;
-        run.HistoricalRouteUnavailable = true;
+        run.ContainerStatistics.UniqueContainersLooted = 7;
+        run.ContainerStatistics.WasRepairedFromInvalidState = true;
+        run.ItemStatistics.Overall.ActualHealthRestored = 23;
+        run.ItemStatistics.WasRepairedFromInvalidState = true;
+        run.RouteWasRepairedFromInvalidState = true;
         var result = Present(run).Runs[0];
         Assert.Contains("7 (partial", result.Summary[3].Value);
         Assert.Contains("23 (partial", result.Summary[9].Value);
@@ -496,7 +498,7 @@ public sealed class RetainedRunsTests
         if (boundary == "route") run.RouteCapabilities.Segments.State = AdapterCapabilityState.Experimental;
         if (boundary == "combat") segment.CombatStatistics.Capabilities.MeleeSwings.State = AdapterCapabilityState.Experimental;
         if (boundary == "firing") segment.WeaponStatistics.Capabilities.FiringActions.State = AdapterCapabilityState.Experimental;
-        if (boundary == "container") segment.ContainerStatistics.HistoricalUnavailable = true;
+        if (boundary == "container") segment.ContainerStatistics.Capabilities.UniqueContainersLooted.State = AdapterCapabilityState.Experimental;
         if (boundary == "attribution") run.HistoricalEventAttributionIncomplete = true;
         if (boundary == "repair") segment.WasRepairedFromInvalidState = true;
         var text = Present(run).Runs[0].Segments[0].Value;

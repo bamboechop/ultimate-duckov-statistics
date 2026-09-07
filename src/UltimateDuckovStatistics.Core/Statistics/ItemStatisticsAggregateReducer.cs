@@ -73,7 +73,6 @@ public static class ItemStatisticsAggregateReducer
                 StringComparer.Ordinal),
             Groups = source.Groups.ToDictionary(entry => entry.Key, entry => Clone(entry.Value), StringComparer.Ordinal),
             RecentEventIds = source.RecentEventIds.ToList(),
-            HistoricalUnavailable = source.HistoricalUnavailable,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState
         };
     }
@@ -102,7 +101,6 @@ public static class ItemStatisticsAggregateReducer
             PromoteProvenHealing(item);
         }
         RebuildGroups(target);
-        target.HistoricalUnavailable |= source.HistoricalUnavailable;
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
     }
 
@@ -163,7 +161,6 @@ public static class ItemStatisticsAggregateReducer
         difference.RecentEventIds = total.RecentEventIds
             .Where(eventId => !baselineEvents.Contains(eventId))
             .ToList();
-        difference.HistoricalUnavailable = total.HistoricalUnavailable;
         difference.WasRepairedFromInvalidState = total.WasRepairedFromInvalidState;
         RebuildGroups(difference);
         return IsCompositionConsistent(difference);
