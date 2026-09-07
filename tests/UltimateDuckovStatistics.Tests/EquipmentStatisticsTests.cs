@@ -79,8 +79,8 @@ public sealed class EquipmentStatisticsTests
         tracker.ObserveEquipment(Snapshot("after", string.Empty, "totems:none"), Now.AddSeconds(2.5), 2.5);
         var summary = tracker.Apply(Lifecycle(RunLifecycleEventKind.Extracted, 5)).Completed!;
 
-        Assert.Equal(2.5, summary.EquipmentStatistics.Loadouts["loadout:before"].ActiveDurationSeconds);
-        Assert.Equal(2.5, summary.EquipmentStatistics.Loadouts["loadout:after"].ActiveDurationSeconds);
+        Assert.Equal(2.5m, summary.EquipmentStatistics.Loadouts["loadout:before"].ActiveDurationSeconds);
+        Assert.Equal(2.5m, summary.EquipmentStatistics.Loadouts["loadout:after"].ActiveDurationSeconds);
         Assert.Equal("loadout:before", summary.EquipmentStatistics.Transitions[1].FromLoadoutId);
         Assert.Equal("loadout:after", summary.EquipmentStatistics.Transitions[1].ToLoadoutId);
     }
@@ -211,7 +211,7 @@ public sealed class EquipmentStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(16, profile.SchemaVersion);
+        Assert.Equal(18, profile.SchemaVersion);
         var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
         Assert.True(equipment.HistoricalUnavailable);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, equipment.Capabilities.EquipmentSlots.State);
@@ -385,14 +385,14 @@ public sealed class EquipmentStatisticsTests
     {
         var profile = Profile(6);
         var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
-        equipment.Items["slot|item"] = new EquipmentDurationAggregate { Id = "slot|item", DisplayName = "Vest", ActiveDurationSeconds = 12 };
-        equipment.Slots["slot"] = new EquipmentDurationAggregate { Id = "slot", DisplayName = "Armor", ActiveDurationSeconds = 12 };
+        equipment.Items["slot|item"] = new EquipmentDurationAggregate { Id = "slot|item", DisplayName = "Vest", ActiveDurationSeconds = 12.125m };
+        equipment.Slots["slot"] = new EquipmentDurationAggregate { Id = "slot", DisplayName = "Armor", ActiveDurationSeconds = 12.125m };
         equipment.SlottedWeapons["slot:primary|weapon:a"] = new EquipmentDurationAggregate
         { Id = "slot:primary|weapon:a", DisplayName = "Rifle", ActiveDurationSeconds = 9 };
         equipment.TotemStates["tote|totem|unknown|copy:1"] = new EquipmentDurationAggregate
         { Id = "tote|totem|unknown|copy:1", DisplayName = "Totem [Unknown]", ActiveDurationSeconds = 7 };
         equipment.Loadouts["single"] = new EquipmentDurationAggregate { Id = "single", ActiveDurationSeconds = 5, RunOccurrences = 1 };
-        equipment.Loadouts["recurring"] = new EquipmentDurationAggregate { Id = "recurring", ActiveDurationSeconds = 15, RunOccurrences = 2 };
+        equipment.Loadouts["recurring"] = new EquipmentDurationAggregate { Id = "recurring", ActiveDurationSeconds = 15.0625m, RunOccurrences = 2 };
         equipment.CombatAssociations["association"] = new EquipmentCombatAssociationAggregate
         { LoadoutId = "recurring", SelectedWeaponSlotId = "slot:primary", SelectedWeaponId = "weapon:a", TotemSetId = "totems:a", DamageDealt = 9 };
 
@@ -400,12 +400,12 @@ public sealed class EquipmentStatisticsTests
         using var json = JsonDocument.Parse(bundle.Json);
         var jsonEquipment = json.RootElement.GetProperty("RunTotals").GetProperty("EquipmentStatistics");
 
-        Assert.Equal(12, jsonEquipment.GetProperty("Items").GetProperty("slot|item").GetProperty("ActiveDurationSeconds").GetDouble());
-        Assert.Contains("lifetime,generation,item,slot|item,Vest,12,0", bundle.EquipmentTotalsCsv);
-        Assert.Contains("lifetime,generation,slot,slot,Armor,12,0", bundle.EquipmentTotalsCsv);
+        Assert.Equal(12.125m, jsonEquipment.GetProperty("Items").GetProperty("slot|item").GetProperty("ActiveDurationSeconds").GetDecimal());
+        Assert.Contains("lifetime,generation,item,slot|item,Vest,12.125,0", bundle.EquipmentTotalsCsv);
+        Assert.Contains("lifetime,generation,slot,slot,Armor,12.125,0", bundle.EquipmentTotalsCsv);
         Assert.Contains("lifetime,generation,slotted_weapon,slot:primary|weapon:a,Rifle,9,0", bundle.EquipmentTotalsCsv);
         Assert.Contains("lifetime,generation,totem_state,tote|totem|unknown|copy:1,Totem [Unknown],7,0", bundle.EquipmentTotalsCsv);
-        Assert.Contains("recurring", bundle.RecurringLoadoutsCsv);
+        Assert.Contains("recurring,15.0625,2", bundle.RecurringLoadoutsCsv);
         Assert.DoesNotContain("single", bundle.RecurringLoadoutsCsv);
         Assert.StartsWith("scope,scope_id,loadout_id,selected_weapon_slot_id", bundle.EquipmentCombatCsv);
         Assert.Contains("lifetime,generation,recurring,slot:primary,weapon:a,totems:a,0,0,0,9", bundle.EquipmentCombatCsv);
@@ -467,9 +467,9 @@ public sealed class EquipmentStatisticsTests
         aggregate.Loadouts[snapshot.LoadoutId] = new EquipmentDurationAggregate
         {
             Id = snapshot.LoadoutId,
-            ActiveDurationSeconds = double.MaxValue
+            ActiveDurationSeconds = decimal.MaxValue
         };
-        EquipmentStatisticsReducer.Advance(aggregate, 1);
+        Assert.Throws<OverflowException>(() => EquipmentStatisticsReducer.Advance(aggregate, 1));
 
         var association = new EquipmentEventAssociation { LoadoutId = "loadout:a", TotemSetId = "totems:none" };
         EquipmentStatisticsReducer.RecordCombat(aggregate, new CombatRecorded
@@ -499,7 +499,7 @@ public sealed class EquipmentStatisticsTests
         });
 
         var row = Assert.Single(aggregate.CombatAssociations).Value;
-        Assert.Equal(double.MaxValue, aggregate.Loadouts[snapshot.LoadoutId].ActiveDurationSeconds);
+        Assert.Equal(decimal.MaxValue, aggregate.Loadouts[snapshot.LoadoutId].ActiveDurationSeconds);
         Assert.Equal(double.MaxValue, row.DamageDealt);
         Assert.Equal(long.MaxValue, row.FiringActions);
     }
@@ -711,7 +711,7 @@ public sealed class EquipmentStatisticsTests
         Assert.Equal(1, aggregate.SlottedWeapons["slot:secondary|weapon:gun"].ActiveDurationSeconds);
         Assert.Equal(4, aggregate.Slots["slot:melee"].ActiveDurationSeconds);
 
-        double Duration(string slot, string item) => aggregate.Items.Single(pair =>
+        decimal Duration(string slot, string item) => aggregate.Items.Single(pair =>
             pair.Key.StartsWith(slot + "|" + item + "|", StringComparison.Ordinal)).Value.ActiveDurationSeconds;
     }
 

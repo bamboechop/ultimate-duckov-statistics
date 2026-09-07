@@ -23,7 +23,23 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsPathPrivacy.cs" Link="UI\DiagnosticsPathPrivacy.cs" />
     <ProjectReference Include="..\..\src\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EquipmentPresentation.cs" Link="ProductionUI\EquipmentPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EquipmentViewPolicy.cs" Link="ProductionUI\EquipmentViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EconomyPresentation.cs" Link="ProductionUI\EconomyPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EconomyViewPolicy.cs" Link="ProductionUI\EconomyViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\CraftingPresentation.cs" Link="ProductionUI\CraftingPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\CraftingViewPolicy.cs" Link="ProductionUI\CraftingViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\ItemUsePresentation.cs" Link="ProductionUI\ItemUsePresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\ItemUseViewPolicy.cs" Link="ProductionUI\ItemUseViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\PanelOperations.cs" Link="ProductionUI\PanelOperations.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RemainingTabsText.cs" Link="ProductionUI\RemainingTabsText.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsText.cs" Link="ProductionUI\DiagnosticsText.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsCapabilityCatalog.cs" Link="ProductionUI\DiagnosticsCapabilityCatalog.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsPresentation.cs" Link="ProductionUI\DiagnosticsPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsViewPolicy.cs" Link="ProductionUI\DiagnosticsViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsNativeScrollConfiguration.cs" Link="ProductionUI\RunsNativeScrollConfiguration.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ReflectiveHarmonyPatcher.cs"
              Link="ProductionAdapters\ReflectiveHarmonyPatcher.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\RetryableHarmonyPatcherLease.cs"
@@ -70,6 +86,8 @@
              Link="ProductionAdapters\NativeRunLifecycleAdapter.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeWeaponFireAdapter.cs"
              Link="ProductionAdapters\NativeWeaponFireAdapter.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeThrowableAdapter.cs"
+             Link="ProductionAdapters\NativeThrowableAdapter.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeCombatEquipmentAssociationResolver.cs"
              Link="ProductionAdapters\NativeCombatEquipmentAssociationResolver.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeBuffApplicationObservationBoundary.cs"
@@ -88,6 +106,20 @@
              Link="ProductionAdapters\ItemUsePublication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\UiText.cs"
              Link="ProductionUI\UiText.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\StatisticsPanelProjection.cs"
+             Link="ProductionUI\StatisticsPanelProjection.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RecordsPresentation.cs" Link="ProductionUI\RecordsPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\CombatPresentation.cs" Link="ProductionUI\CombatPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\CombatViewPolicy.cs" Link="ProductionUI\CombatViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\CombatNativeTextMeasurement.cs" Link="ProductionUI\CombatNativeTextMeasurement.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\CombatTableSort.cs" Link="ProductionUI\CombatTableSort.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RecordsViewPolicy.cs" Link="ProductionUI\RecordsViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsPresentation.cs"
+             Link="ProductionUI\RunsPresentation.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsViewPolicy.cs"
+             Link="ProductionUI\RunsViewPolicy.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RunsHistoryButton.cs"
+             Link="ProductionUI\RunsHistoryButton.cs" />
     <Compile Include="..\..\tools\FrameTimeAnalyzer\FrameTimeAnalysis.cs"
              Link="Performance\FrameTimeAnalysis.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHotPathDiagnostics.cs"
@@ -98,5 +130,14 @@
              Link="Performance\ReferenceScopeStack.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\DeferredCheckpointWriter.cs"
              Link="Performance\DeferredCheckpointWriter.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHealingAttributionAdapter.cs" Link="ProductionAdapters\NativeHealingAttributionAdapter.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHealingCapabilityPublication.cs" Link="ProductionAdapters\NativeHealingCapabilityPublication.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\HealingHarmonyBridge.cs" Link="ProductionAdapters\HealingHarmonyBridge.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\IHealingAttributionObserver.cs" Link="ProductionAdapters\IHealingAttributionObserver.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeGrenadeAttribution.cs" Link="ProductionAdapters\NativeGrenadeAttribution.cs" />
   </ItemGroup>
 </Project>

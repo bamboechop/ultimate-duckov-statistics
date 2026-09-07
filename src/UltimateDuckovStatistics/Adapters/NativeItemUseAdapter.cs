@@ -207,6 +207,8 @@ internal sealed class NativeItemUseAdapter : IDisposable
 
     private void BeginUse(Item item, bool replaceExisting)
     {
+        // Throwable skill releases have their own completion evidence; do not double-count generic use callbacks.
+        if (item.GetComponent<ItemSetting_Skill>()?.Skill is Skill_Grenade) return;
         var runtimeItemId = item.GetInstanceID();
         if (!replaceExisting && correlator.Contains(runtimeItemId))
         {

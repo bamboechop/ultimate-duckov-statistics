@@ -16,6 +16,7 @@ public static class CombatNativeContractPolicy
         EffectTrigger = true,
         EffectApplication = true,
         BuffApplication = true,
+        GrenadeExplosion = true,
         EnvironmentalDamage = true,
         PublicMeleeSwing = true,
         PublicPlayerDeath = true
@@ -49,6 +50,7 @@ public static class CombatNativeContractPolicy
             DamageOverTime = Availability(effectDamage && support.BuffApplication, "ItemStatsSystem TickTrigger/UpdateTrigger scope proves repeated effect damage; trusted buff application preserves actor and originating-equipment evidence.", "Damage over time requires an effect scope, proven health/death evidence, and trusted buff actor observation."),
             Headshots = Availability(projectileDamage, "InputManager.AimingEnemyHead sampled for an exact player projectile; DamageInfo.crit alone is never used.", "Headshots require Health.Hurt and Projectile.Init/Update."),
             HeadshotFinalBlows = Availability(projectileDamage, "A proven player-owned head-targeted projectile that performs the fatal Health.Hurt transition.", "Headshot final blows require Health.Hurt and Projectile.Init/Update."),
+            ThrowableKills = Availability(completeOwnership && support.GrenadeExplosion, "Proven player final blows during item-sourced Grenade.Explode damage.", "Throwable kills require trusted grenade explosion and player ownership hooks."),
             KillsByYou = Availability(completeOwnership, "Only a fatal enemy Health.Hurt transition with proven player ownership and trusted buff actor and effect-scope observation counts.", "Kills by you require exact Health.Hurt plus trusted buff actor and effect-scope observation."),
             ObservedWorldDeaths = Availability(
                 completeOwnership,
@@ -76,6 +78,7 @@ public static class CombatNativeContractPolicy
         DamageOverTime = Unavailable(detail),
         Headshots = Unavailable(detail),
         HeadshotFinalBlows = Unavailable(detail),
+        ThrowableKills = Unavailable(detail),
         KillsByYou = Unavailable(detail),
         ObservedWorldDeaths = Unavailable(detail)
     };
@@ -101,6 +104,7 @@ public static class CombatNativeContractPolicy
             Record(CombatCapabilityIds.DamageOverTime, capabilities.DamageOverTime, adapterVersion),
             Record(CombatCapabilityIds.Headshots, capabilities.Headshots, adapterVersion),
             Record(CombatCapabilityIds.HeadshotFinalBlows, capabilities.HeadshotFinalBlows, adapterVersion),
+            Record(CombatCapabilityIds.ThrowableKills, capabilities.ThrowableKills, adapterVersion),
             Record(CombatCapabilityIds.KillsByYou, capabilities.KillsByYou, adapterVersion),
             Record(CombatCapabilityIds.ObservedWorldDeaths, capabilities.ObservedWorldDeaths, adapterVersion)
         };
@@ -120,6 +124,7 @@ public static class CombatNativeContractPolicy
 
 public sealed record class CombatHookSupport
 {
+    public bool GrenadeExplosion { get; set; }
     public bool HealthHurt { get; set; }
     public bool ProjectileInit { get; set; }
     public bool ProjectileUpdate { get; set; }

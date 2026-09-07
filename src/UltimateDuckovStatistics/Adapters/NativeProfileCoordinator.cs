@@ -16,6 +16,8 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeProfileCoordinator : IDisposable
 {
     private const int DiagnosticCapacity = 200;
+    private readonly MonotonicCadenceGate persistenceDiagnosticCadence = new(60);
+    private readonly Func<double> monotonicClock;
     private static readonly Regex SaveTimePattern = new(
         "\\\"SaveTime\\\"\\s*:\\s*\\{[^{}]*?\\\"value\\\"\\s*:\\s*(-?\\d+)",
         RegexOptions.CultureInvariant);
@@ -35,6 +37,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private bool subscribed;
     private bool saveResetAwaitingNewGameReport;
     private long profileTransitionSequence;
+    private string lastOpenStatus = "Profile has not been opened.";
     private CapabilityRecord healingCapability = new()
     {
         AdapterId = NativeHealingAttributionAdapter.AdapterId,
@@ -91,8 +94,9 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private EconomyHoldingsMetricCapabilities economyHoldingsMetricCapabilities =
         EconomyHoldingsNativeContractPolicy.Unavailable(EconomyHoldingsNativeContractPolicy.BootstrapProvenance);
 
-    public NativeProfileCoordinator()
+    public NativeProfileCoordinator(Func<double>? monotonicClock = null)
     {
+        this.monotonicClock = monotonicClock ?? (() => (double)System.Diagnostics.Stopwatch.GetTimestamp() / System.Diagnostics.Stopwatch.Frequency);
         dataRoot = Path.Combine(Application.persistentDataPath, Core.ProductInfo.ModId);
         checkpointWriter = new DeferredCheckpointWriter<CheckpointWrite>(write =>
         {
@@ -105,7 +109,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             NativeHotPathDiagnostics.CountProfileStoreAttempt();
             write.Repository.SaveSnapshot(write.Snapshot);
             NativeHotPathDiagnostics.CountProfileStoreSuccess();
-        });
+        }, this.monotonicClock);
         economyActivationGate = new EconomyActivationGate(
             activationId =>
             {
@@ -144,6 +148,22 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public string DataRoot => dataRoot;
 
+    public string CurrentProfilePath => repository?.CurrentProfilePath ?? string.Empty;
+
+    public string LastOpenStatus => lastOpenStatus;
+
+    public ProfileOpenResult? LastOpenResult => repository?.LastOpenResult;
+
+    public ProfileSaveReceipt? LastSaveReceipt => repository?.LastSaveReceipt;
+
+    public long CompletedUserResetVersion { get; private set; }
+
+    public string LastCompletedUserResetGeneration { get; private set; } = string.Empty;
+
+    public NativeUserResetAttempt? LastUserResetAttempt { get; private set; }
+
+    public bool HasPendingProfileTransition => profileTransitionBoundary.HasPendingTransition;
+
     public string CurrentGenerationId => repository?.CurrentGenerationId ?? string.Empty;
 
     public ProfileDocument? Current => repository == null ? null : repository.Current;
@@ -163,6 +183,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public IReadOnlyList<DiagnosticEntry> DiagnosticEntries =>
         diagnostics?.Entries ?? Array.Empty<DiagnosticEntry>();
 
+    public void ReportUiDiagnostic(string message, string severity = "Info")
+    {
+        if (string.IsNullOrWhiteSpace(message)) throw new ArgumentException("A UI diagnostic message is required.", nameof(message));
+        WriteDiagnostic(message, severity);
+    }
+
     public void Initialize()
     {
         if (subscribed)
@@ -179,6 +205,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             message => WriteDiagnostic(message));
 
         var openResult = repository.Open(ReadIdentity());
+        lastOpenStatus = FormatOpenResult(openResult);
         repository.EnableDeferredItemPersistence();
         OpenDiagnosticsForCurrentGeneration();
         UpdateCapabilities();
@@ -222,6 +249,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 return false;
             }
 
+            if (healingCapability.State != AdapterCapabilityState.Supported) currentRepository.MarkHealingCaptureIncomplete();
             var deferred = currentRepository.CanDeferItemPersistence(completion.NormalizedEvent.RunId);
             if (!deferred)
             {
@@ -293,6 +321,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public void SetHealingCapability(CapabilityRecord capability)
     {
         healingCapability = capability ?? throw new ArgumentNullException(nameof(capability));
+        if (capability.State != AdapterCapabilityState.Supported) repository?.MarkHealingCaptureIncomplete();
         UpdateCapabilities();
     }
 
@@ -306,6 +335,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
         runCapabilities = capabilities.Select(CloneCapability).ToList();
         UpdateCapabilities();
     }
+
+    private CapabilityRecord throwableCapability = new() { AdapterId = ThrowableUseObservation.CapabilityId,
+        State = AdapterCapabilityState.DisabledIncompatible, Detail = "Throwable tracking has not been initialized." };
+
+    public void SetThrowableCapability(CapabilityRecord value)
+    { throwableCapability = CloneCapability(value); UpdateCapabilities(); }
 
     public void SetWeaponCapabilities(IReadOnlyList<CapabilityRecord> capabilities)
     {
@@ -526,9 +561,13 @@ internal sealed class NativeProfileCoordinator : IDisposable
         craftingProfileTransitionBoundaryFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
     }
 
-    public bool RetryPendingProfileTransition() => profileTransitionBoundary.Retry(
-        FlushProfileTransitionBoundaries,
-        message => WriteDiagnostic(message, "Error"));
+    public bool RetryPendingProfileTransition()
+    {
+        var completed = profileTransitionBoundary.Retry(
+            FlushProfileTransitionBoundaries,
+            message => WriteDiagnostic(message, "Error"));
+        return completed;
+    }
 
     public bool DrainPendingProfileTransitions() => profileTransitionBoundary.Drain(
         FlushProfileTransitionBoundaries,
@@ -574,8 +613,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
         catch (Exception exception)
         {
-            Debug.LogException(exception);
-            WriteDiagnostic($"Failed to persist active-run checkpoint: {exception.GetType().Name}.", "Error");
+            ReportPersistenceFailure(exception, "Failed to persist active-run checkpoint");
             return false;
         }
     }
@@ -597,8 +635,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
         catch (Exception exception)
         {
-            Debug.LogException(exception);
-            WriteDiagnostic($"Failed to persist completed run: {exception.GetType().Name}.", "Error");
+            ReportPersistenceFailure(exception, "Failed to persist completed run");
             return false;
         }
     }
@@ -630,6 +667,26 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public ProfileExportResult ExportCurrent()
     {
+        var snapshot = PrepareCurrentExport();
+        var result = ProfileExportWriter.Write(snapshot, DateTime.UtcNow);
+        WriteDiagnostic($"Exported JSON and CSV statistics to {result.Directory}.");
+        return result;
+    }
+
+    public System.Threading.Tasks.Task<ProfileExportResult> BeginExportCurrent()
+    {
+        // Native barriers and identity reads remain on the main thread. Only the
+        // detached snapshot's serialization and file writes run in the worker.
+        var snapshot = PrepareCurrentExport();
+        var exportedUtc = DateTime.UtcNow;
+        var exportRoot = Path.Combine(dataRoot, "exports");
+        return System.Threading.Tasks.Task.Run(() => ProfileExportWriter.WriteToRoot(snapshot, exportRoot, exportedUtc));
+    }
+
+    private ProfilePersistenceSnapshot PrepareCurrentExport()
+    {
+        if (HasPendingProfileTransition)
+            throw new InvalidOperationException("A profile transition is pending; export cannot select a generation.");
         if (repository?.CurrentProfilePath == null)
         {
             throw new InvalidOperationException("No profile is open for export.");
@@ -645,21 +702,26 @@ internal sealed class NativeProfileCoordinator : IDisposable
         DrainProfileWriter();
         repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
         repository.Flush();
-        var result = ProfileExportWriter.Write(repository.Current, repository.CurrentProfilePath, DateTime.UtcNow);
-        WriteDiagnostic($"Exported JSON and CSV statistics to {result.Directory}.");
-        return result;
+        return repository.CaptureExportSnapshot();
     }
 
-    public void ResetCurrent()
+    public bool ResetCurrent()
     {
         if (repository == null)
         {
             throw new InvalidOperationException("No profile is open for reset.");
         }
 
+        if (HasPendingProfileTransition)
+            throw new InvalidOperationException("A profile transition is already pending; reset cannot select a generation.");
+
         var currentIdentity = ReadIdentity(repository.Current.Slot);
         var resetIdentity = ReadIdentity();
         var profileTransitionId = NextProfileTransitionId();
+        var requestedGeneration = repository.CurrentGenerationId;
+        LastUserResetAttempt = new NativeUserResetAttempt(profileTransitionId, requestedGeneration,
+            NativeUserResetOutcome.Pending, string.Empty, "The reset is waiting for its persistence boundary.");
+        lastOpenStatus = "User reset remains queued; completion has not been reported and Diagnostics contains the blocking boundary.";
         NativeProfileResetTransition.Queue(
             profileTransitionId,
             craftingProfileChangeStarted: transitionId =>
@@ -674,8 +736,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
             enqueueTransition: QueueProfileTransition,
             profileChanging: () => ProfileChanging?.Invoke(),
             waitRunCheckpoint: WaitRunCheckpoint,
-            drainProfileWriter: DrainProfileWriter,
-            refreshIdentity: () => repository.RefreshIdentity(currentIdentity),
+            drainProfileWriter: DrainProfileWriterForUserReset,
+            refreshIdentity: () => repository.RefreshIdentityForUserReset(currentIdentity),
             rotateRepository: () => repository.Rotate(resetIdentity, "UserReset"),
             openDiagnostics: OpenDiagnosticsForCurrentGeneration,
             worldTimeProfileChanged: () => PublishProfileEvent(
@@ -692,8 +754,25 @@ internal sealed class NativeProfileCoordinator : IDisposable
             },
             profileChanged: () => PublishProfileEvent(ProfileChanged, "profile-changed"),
             applyCurrentMetricCapabilities: ApplyCurrentCapabilities,
-            writeDiagnostic: () => WriteDiagnostic(
-                $"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only."));
+            writeDiagnostic: () =>
+            {
+                LastCompletedUserResetGeneration = repository.CurrentGenerationId;
+                CompletedUserResetVersion++;
+                LastUserResetAttempt = new NativeUserResetAttempt(profileTransitionId, requestedGeneration,
+                    NativeUserResetOutcome.Success, repository.CurrentGenerationId, string.Empty);
+                lastOpenStatus = "User reset completed; the prior UDS generation was archived read-only.";
+                WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only.");
+            },
+            resetFailed: failure =>
+            {
+                var detail = failure.InnerException == null ? failure.Message
+                    : $"{failure.InnerException.GetType().Name}: {failure.InnerException.Message}";
+                LastUserResetAttempt = new NativeUserResetAttempt(profileTransitionId, requestedGeneration,
+                    NativeUserResetOutcome.Failure, failure.PreservedGenerationId, detail);
+                lastOpenStatus = "User reset failed; the original UDS generation remains active.";
+                WriteDiagnostic($"User reset failed with the original generation preserved: {detail}", "Error");
+            });
+        return LastUserResetAttempt.Outcome == NativeUserResetOutcome.Success;
     }
 
     public void Dispose()
@@ -846,8 +925,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         }
         catch (Exception exception)
         {
-            Debug.LogException(exception);
-            WriteDiagnostic($"Pre-save identity refresh failed: {exception.GetType().Name}.", "Error");
+            ReportPersistenceFailure(exception, "Pre-save identity refresh failed");
         }
     }
 
@@ -1083,19 +1161,28 @@ internal sealed class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities).Concat(economyHoldingsCapabilities),
+        }.Concat(new[] { throwableCapability }).Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities).Concat(economyHoldingsCapabilities),
         economyMetricCapabilities,
         worldTimeMetricCapabilities,
         craftingMetricCapabilities,
         economyHoldingsMetricCapabilities);
     }
 
+    private void ReportPersistenceFailure(Exception exception, string operation)
+    {
+        var now = monotonicClock();
+        if (!persistenceDiagnosticCadence.IsDue(now)) return;
+        persistenceDiagnosticCadence.MarkCompleted(now);
+        Debug.LogException(exception);
+        WriteDiagnostic($"{operation}: {exception.GetType().Name}: {exception.Message}. "
+            + "Pending data retained; repeated persistence diagnostics limited to once per 60s.", "Error");
+    }
+
     private DeferredWriteState ObserveCheckpointResult(DeferredWriteResult result)
     {
         if (result.State != DeferredWriteState.Failed) return result.State;
         var exception = result.Exception ?? new IOException("Deferred active-run checkpoint failed without an exception.");
-        Debug.LogException(exception);
-        WriteDiagnostic($"Failed to persist active-run checkpoint: {exception.GetType().Name}.", "Error");
+        ReportPersistenceFailure(exception, "Failed to persist active-run checkpoint");
         return DeferredWriteState.Failed;
     }
 
@@ -1103,8 +1190,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         if (result.State != DeferredWriteState.Failed) return result.State;
         var exception = result.Exception ?? new IOException("Deferred profile persistence failed without an exception.");
-        Debug.LogException(exception);
-        WriteDiagnostic($"Failed to persist deferred profile snapshot: {exception.GetType().Name}.", "Error");
+        ReportPersistenceFailure(exception, "Failed to persist deferred profile snapshot");
         return DeferredWriteState.Failed;
     }
 
@@ -1122,6 +1208,20 @@ internal sealed class NativeProfileCoordinator : IDisposable
         if (result.State != DeferredWriteState.Failed) return;
         ObserveProfileResult(result);
         throw result.Exception ?? new IOException("Deferred profile persistence failed without an exception.");
+    }
+
+    private void DrainProfileWriterForUserReset()
+    {
+        // An unaccepted lifecycle checkpoint is a retryable boundary. A profile
+        // writer that has actually failed storage is a rejected reset attempt:
+        // its dirty data stays in that writer, against the unchanged generation.
+        if (activeRunCheckpointFlusher != null && !activeRunCheckpointFlusher())
+            throw new IOException("The active-run checkpoint barrier remains pending before reset.");
+        var result = profileWriter.Flush();
+        if (result.State != DeferredWriteState.Failed) return;
+        ObserveProfileResult(result);
+        throw new UserProfileResetFailedException(repository!.CurrentGenerationId,
+            result.Exception ?? new IOException("Deferred profile persistence failed without an exception."));
     }
 
     private ProfileWrite CaptureProfileWrite()
@@ -1171,6 +1271,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
         public ProfileRepository Repository { get; }
         public ProfilePersistenceSnapshot Snapshot { get; }
     }
+
+    private static string FormatOpenResult(ProfileOpenResult result) =>
+        $"created={result.CreatedNew}; rotated={result.RotatedGeneration}; recoveredSnapshot={result.RecoveredSnapshot}; "
+        + $"migratedSchema={result.MigratedSchema}; unsupportedSchemaArchived={result.UnsupportedSchemaArchived}; "
+        + $"interruptedSessionRecovered={result.InterruptedSessionRecovered}; interruptedRunRecovered={result.InterruptedRunRecovered}; "
+        + $"loadFailures={result.LoadFailures.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
     private void WriteDiagnostic(string message, string severity = "Info")
     {

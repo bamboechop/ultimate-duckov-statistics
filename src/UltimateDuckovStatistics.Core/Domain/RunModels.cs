@@ -44,6 +44,10 @@ public sealed class MapIdentity
 [DataContract]
 public sealed class RunSummary
 {
+    [DataMember(Order = 48)] public bool HealingCaptureComplete { get; set; }
+
+    [DataMember(Order = 46)] public TerminalLoadout TerminalLoadout { get; set; } = new();
+
     [DataMember(Order = 1)]
     public int SchemaVersion { get; set; } = ProductInfo.SchemaVersion;
 
@@ -183,6 +187,10 @@ public sealed class RunSummary
 [DataContract]
 public sealed class ActiveRunCheckpoint
 {
+    [DataMember(Order = 44)] public bool HealingCaptureComplete { get; set; }
+
+    [DataMember(Order = 43)] public TerminalLoadout TerminalLoadout { get; set; } = new();
+
     [DataMember(Order = 1)]
     public int SchemaVersion { get; set; } = ProductInfo.SchemaVersion;
 
@@ -346,6 +354,7 @@ public sealed class ActiveRunCheckpoint
             ActiveDurationSeconds = FiniteNonNegative(ActiveDurationSeconds),
             WallClockDurationSeconds = Math.Max(0, (endedUtc - startedUtc).TotalSeconds),
             Outcome = outcome,
+            TerminalLoadout = TerminalLoadout.ForOutcome(TerminalLoadout, outcome),
             PhysicalDistance = FiniteNonNegative(PhysicalDistance),
             TeleportDistance = FiniteNonNegative(TeleportDistance),
             IntegrityTags = IntegrityTags,
@@ -379,6 +388,7 @@ public sealed class ActiveRunCheckpoint
             HistoricalRouteUnavailable = HistoricalRouteUnavailable,
             RouteWasRepairedFromInvalidState = RouteWasRepairedFromInvalidState,
             SegmentEventAssociations = SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+            HealingCaptureComplete = HealingCaptureComplete,
             ItemStatistics = ItemStatisticsAggregateReducer.Clone(ItemStatistics),
             Economy = EconomyStatisticsReducer.Clone(Economy),
             HistoricalEventAttributionIncomplete = HistoricalEventAttributionIncomplete,

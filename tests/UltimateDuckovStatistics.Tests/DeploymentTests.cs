@@ -19,6 +19,10 @@ public sealed class DeploymentTests
     [InlineData("TeamSoda.Duckov.Core.dll", "Forbidden dependency")]
     [InlineData("UnityEngine.CoreModule.dll", "Framework/game dependency")]
     [InlineData("System.Runtime.dll", "Framework/game dependency")]
+    [InlineData("uds-ui-equipment-loadouts.jpg", "exactly the five permitted files")]
+    [InlineData("uds-ui-equipment-weapons.jpg", "exactly the five permitted files")]
+    [InlineData("uds-ui-equipment-armor-and-gear.jpg", "exactly the five permitted files")]
+    [InlineData("uds-ui-equipment-totems.jpg", "exactly the five permitted files")]
     public void PackageVerificationRejectsForbiddenDependencies(string dependencyName, string expectedError)
     {
         if (!OperatingSystem.IsWindows())

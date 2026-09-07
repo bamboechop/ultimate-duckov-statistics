@@ -50,7 +50,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly DeathObservationGate deathObservationGate = new();
     private readonly NativeRunTerminalBoundary terminalBoundary = new();
-    private readonly NativeRunCompletionBoundary completionBoundary = new();
+    private readonly NativeRunCompletionBoundary completionBoundary;
     private readonly List<CapabilityRecord> capabilities = new();
     private CharacterMainControl? mainCharacter;
     private bool paused;
@@ -58,6 +58,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private MovementObservationKind? pendingBoundary;
     private string? movementMapId;
     private Action<DamageInfo>? playerDeathObserver;
+    private Func<RunOutcome, TerminalLoadout>? terminalLoadoutCapture;
     private bool pendingDeathTerminal;
     private bool routeTransitionPending;
     private bool destinationPlacementObserved;
@@ -83,6 +84,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         Func<DeferredWriteState>? checkpointCompletionFlusher = null,
         Func<double>? monotonicSecondsProvider = null)
     {
+        completionBoundary = new NativeRunCompletionBoundary(monotonicSecondsProvider);
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.checkpointHandler = checkpointHandler ?? throw new ArgumentNullException(nameof(checkpointHandler));
@@ -149,6 +151,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public bool RecordItemUse(ItemUseRecorded value) =>
         callbackLifetime.CanHandleCallbacks && tracker.RecordItemUse(value);
 
+    public void SetHealingCapability(CapabilityRecord capability) => tracker.SetHealingCapability(capability.State);
+
     public bool RecordHealing(HealingApplied value) =>
         callbackLifetime.CanHandleCallbacks && tracker.RecordHealing(value);
 
@@ -183,6 +187,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 pendingTerminalOutcome: TerminalOutcome(pendingTerminalEvent));
         return SaveCheckpoint(DateTime.UtcNow, NowMonotonic(), awaitPersistence: true);
     }
+
+    public void SetTerminalLoadoutCapture(Func<RunOutcome, TerminalLoadout> capture) => terminalLoadoutCapture = capture;
+
+    private void CaptureTerminalLoadout(RunOutcome outcome) => tracker.CaptureTerminalLoadout(
+        outcome, () => terminalLoadoutCapture?.Invoke(outcome) ?? new TerminalLoadout(), diagnosticHandler);
 
     public void SetPlayerDeathObserver(Action<DamageInfo>? observer) => playerDeathObserver = observer;
 
@@ -332,7 +341,6 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         callbackLifetime.BeginDisposal();
         if (completionBoundary.HasPendingCompletion && !RetryPendingCompletion())
         {
-            diagnosticHandler("Run-lifecycle cleanup remains pending until the completed run is durable.");
             return false;
         }
         if (tracker.IsActive)
@@ -346,7 +354,6 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             }
             if (completionBoundary.HasPendingCompletion)
             {
-                diagnosticHandler("Run-lifecycle cleanup remains pending until the completed run is durable.");
                 return false;
             }
         }
@@ -1017,13 +1024,21 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         ApplyTerminal(RunLifecycleEventKind.Interrupted);
     }
 
-    private void OnRaidDead(RaidUtilities.RaidInfo raid) => pendingDeathTerminal = tracker.IsActive;
+    private void OnRaidDead(RaidUtilities.RaidInfo raid)
+    {
+        CaptureTerminalLoadout(RunOutcome.Died);
+        pendingDeathTerminal = tracker.IsActive;
+    }
 
     private void OnLevelInitialized() => SynchronizeMainCharacter();
 
     private void OnAfterLevelInitialized() => SynchronizeMainCharacter();
 
-    private void OnEvacuated(EvacuationInfo info) => ApplyTerminal(RunLifecycleEventKind.Extracted);
+    private void OnEvacuated(EvacuationInfo info)
+    {
+        CaptureTerminalLoadout(RunOutcome.Extracted);
+        ApplyTerminal(RunLifecycleEventKind.Extracted);
+    }
 
     private void OnMainCharacterDead(DamageInfo info)
     {

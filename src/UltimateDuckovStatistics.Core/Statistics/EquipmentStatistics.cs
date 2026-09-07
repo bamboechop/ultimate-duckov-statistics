@@ -8,7 +8,7 @@ public sealed class EquipmentDurationAggregate
 {
     [DataMember(Order = 1)] public string Id { get; set; } = string.Empty;
     [DataMember(Order = 2)] public string DisplayName { get; set; } = string.Empty;
-    [DataMember(Order = 3)] public double ActiveDurationSeconds { get; set; }
+    [DataMember(Order = 3)] public decimal ActiveDurationSeconds { get; set; }
     [DataMember(Order = 4)] public long RunOccurrences { get; set; }
 }
 
@@ -21,7 +21,7 @@ public sealed class CharacterSlotStateDurationAggregate
     [DataMember(Order = 4)] public string ItemId { get; set; } = string.Empty;
     [DataMember(Order = 5)] public string ItemDisplayName { get; set; } = string.Empty;
     [DataMember(Order = 6)] public EquipmentItemKind ItemKind { get; set; }
-    [DataMember(Order = 7)] public double ActiveDurationSeconds { get; set; }
+    [DataMember(Order = 7)] public decimal ActiveDurationSeconds { get; set; }
 }
 
 [DataContract]
@@ -37,7 +37,7 @@ public sealed class NestedSlotStateDurationAggregate
     [DataMember(Order = 8)] public EquipmentSlotState State { get; set; }
     [DataMember(Order = 9)] public string ItemId { get; set; } = string.Empty;
     [DataMember(Order = 10)] public string ItemDisplayName { get; set; } = string.Empty;
-    [DataMember(Order = 11)] public double ActiveDurationSeconds { get; set; }
+    [DataMember(Order = 11)] public decimal ActiveDurationSeconds { get; set; }
 }
 
 [DataContract]
@@ -71,6 +71,7 @@ public sealed class EquipmentCombatAssociationAggregate
     [DataMember(Order = 13)] public string SelectedWeaponSlotId { get; set; } = string.Empty;
     [DataMember(Order = 14)] public long KillsByYou { get; set; }
     [DataMember(Order = 15)] public long LegacyUnclassifiedDeathCredit { get; set; }
+    [DataMember(Order = 16)] public PlayerKillPartition PlayerKills { get; set; } = new();
 }
 
 [DataContract]
@@ -105,6 +106,7 @@ public sealed class EquipmentStatisticsAggregate
     [DataMember(Order = 24)] public string HistoricalCharacterSlotStateProvenance { get; set; } = string.Empty;
     [DataMember(Order = 25)] public bool HistoricalNestedSlotStateUnavailable { get; set; }
     [DataMember(Order = 26)] public string HistoricalNestedSlotStateProvenance { get; set; } = string.Empty;
+    [DataMember(Order = 27)] public EquipmentCompositionEvidence Composition { get; set; } = new();
 }
 
 public static class EquipmentStatisticsReducer
@@ -115,11 +117,12 @@ public static class EquipmentStatisticsReducer
         ValidateSnapshot(snapshot);
         Advance(target, activeSeconds);
         ApplySnapshotCompleteness(target, snapshot);
+        var compositionChanged = EquipmentCompositionReducer.Observe(target.Composition, snapshot);
         if (string.Equals(target.CurrentSnapshot?.SnapshotId, snapshot.SnapshotId, StringComparison.Ordinal))
         {
             var enriched = EnrichDisplayMetadata(target, snapshot);
             target.CurrentSnapshot = Clone(snapshot);
-            return enriched;
+            return enriched || compositionChanged;
         }
 
         var from = target.CurrentSnapshot;
@@ -144,7 +147,9 @@ public static class EquipmentStatisticsReducer
     {
         if (target == null) throw new ArgumentNullException(nameof(target));
         if (!IsFinite(activeSeconds) || activeSeconds < target.ObservedActiveDurationSeconds) return;
-        var delta = activeSeconds - target.ObservedActiveDurationSeconds;
+        // Convert absolute boundaries once, before partitioning the interval. Decimal
+        // sums retain the same value across attachment variants, runs and maps.
+        var delta = (decimal)activeSeconds - (decimal)target.ObservedActiveDurationSeconds;
         var snapshot = target.CurrentSnapshot;
         if (delta <= 0 || snapshot == null)
         {
@@ -152,6 +157,7 @@ public static class EquipmentStatisticsReducer
             return;
         }
         PreflightSlotStateAdvance(target, snapshot, delta);
+        EquipmentCompositionReducer.Advance(target.Composition, snapshot, delta);
         target.ObservedActiveDurationSeconds = activeSeconds;
 
         if (!string.Equals(snapshot.LoadoutId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal))
@@ -226,6 +232,7 @@ public static class EquipmentStatisticsReducer
     {
         if (target == null) throw new ArgumentNullException(nameof(target));
         if (value == null) throw new ArgumentNullException(nameof(value));
+        PreflightPlayerKills(target, value);
         var playerKills = value.Ownership == CombatOwnership.Player ? value.KillsByYou : 0;
         if (value.ActualDamageDealt <= 0 && value.ActualDamageReceived <= 0
             && value.RangedHits == 0 && value.MeleeHits == 0 && playerKills == 0
@@ -235,7 +242,11 @@ public static class EquipmentStatisticsReducer
         row.DamageReceived = SaturatingAdd(row.DamageReceived, value.ActualDamageReceived);
         row.RangedHits = SaturatingAdd(row.RangedHits, value.RangedHits);
         row.MeleeHits = SaturatingAdd(row.MeleeHits, value.MeleeHits);
-        row.KillsByYou = SaturatingAdd(row.KillsByYou, playerKills);
+        if (playerKills > 0)
+        {
+            row.PlayerKills = PlayerKillPartition.Merge(row.PlayerKills, PlayerKillPartition.FromEvent(value));
+            row.KillsByYou = checked(row.KillsByYou + playerKills);
+        }
         row.PlayerDeaths = SaturatingAdd(row.PlayerDeaths, value.PlayerDeaths);
     }
 
@@ -247,7 +258,9 @@ public static class EquipmentStatisticsReducer
         var preserveUnavailable = target.HistoricalUnavailable || HasObservations(target);
         NormalizePersisted(target);
         NormalizePersisted(source);
+        PreflightPlayerKillMerge(target, source);
         PreflightSlotStateMerge(target, source);
+        EquipmentCompositionReducer.Merge(target.Composition, source.Composition);
         target.Capabilities = preserveUnavailable
             ? RestrictCapabilities(target.Capabilities, source.Capabilities, preferSourceOnTie: !target.HistoricalUnavailable)
             : CloneCapabilities(source.Capabilities);
@@ -280,7 +293,8 @@ public static class EquipmentStatisticsReducer
             row.RangedHits = SaturatingAdd(row.RangedHits, value.RangedHits);
             row.MeleeHits = SaturatingAdd(row.MeleeHits, value.MeleeHits);
             row.EnemiesKilled = SaturatingAdd(row.EnemiesKilled, value.EnemiesKilled);
-            row.KillsByYou = SaturatingAdd(row.KillsByYou, value.KillsByYou);
+            row.PlayerKills = PlayerKillPartition.Merge(row.PlayerKills, value.PlayerKills);
+            row.KillsByYou = checked(row.KillsByYou + value.KillsByYou);
             row.LegacyUnclassifiedDeathCredit = SaturatingAdd(
                 row.LegacyUnclassifiedDeathCredit,
                 value.LegacyUnclassifiedDeathCredit);
@@ -322,6 +336,7 @@ public static class EquipmentStatisticsReducer
             HistoricalNestedSlotStateUnavailable = source.HistoricalNestedSlotStateUnavailable,
             HistoricalNestedSlotStateProvenance = source.HistoricalNestedSlotStateProvenance
         };
+        clone.Composition = EquipmentCompositionReducer.Clone(source.Composition);
         MergeDurations(clone.Items, source.Items);
         MergeDurations(clone.SelectedWeapons, source.SelectedWeapons);
         MergeDurations(clone.Loadouts, source.Loadouts);
@@ -362,6 +377,7 @@ public static class EquipmentStatisticsReducer
                 MeleeHits = value.MeleeHits,
                 EnemiesKilled = value.EnemiesKilled,
                 KillsByYou = value.KillsByYou,
+                PlayerKills = value.PlayerKills?.Clone()!,
                 LegacyUnclassifiedDeathCredit = value.LegacyUnclassifiedDeathCredit,
                 PlayerDeaths = value.PlayerDeaths
             };
@@ -412,6 +428,11 @@ public static class EquipmentStatisticsReducer
         if (target == null) return false;
         var changed = false;
         var repaired = false;
+        if (target.Composition == null)
+        {
+            target.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
+            changed = true;
+        }
         if (target.HistoricalCombatOwnershipProvenance == null)
         {
             target.HistoricalCombatOwnershipProvenance = string.Empty;
@@ -538,6 +559,7 @@ public static class EquipmentStatisticsReducer
 
     public static void ValidateAggregate(EquipmentStatisticsAggregate target)
     {
+        EquipmentCompositionReducer.Validate(target?.Composition);
         if (target == null) throw new ArgumentNullException(nameof(target));
         if (target.Capabilities == null || target.Items == null || target.SelectedWeapons == null
             || target.Loadouts == null || target.TotemSets == null || target.CombatAssociations == null
@@ -561,6 +583,7 @@ public static class EquipmentStatisticsReducer
 
     public static void ValidateRecoveryCandidate(EquipmentStatisticsAggregate? target, int schemaVersion)
     {
+        if (schemaVersion >= 18) EquipmentCompositionReducer.Validate(target?.Composition);
         if (schemaVersion >= 6 && (target == null || target.Capabilities == null
             || target.Capabilities.EquipmentSlots == null || target.Capabilities.SelectedWeapon == null
             || target.Capabilities.AttachmentMetadata == null || target.Capabilities.DirectTotems == null
@@ -601,15 +624,13 @@ public static class EquipmentStatisticsReducer
         foreach (var values in new[] { target.Items, target.SelectedWeapons, target.Loadouts, target.TotemSets, target.TotemStates, target.Slots, target.SlottedWeapons })
         {
             if (values == null) continue;
-            if (values.Values.Any(row => row == null || !IsFinite(row.ActiveDurationSeconds)
-                                         || row.ActiveDurationSeconds < 0 || row.RunOccurrences < 0))
+            if (values.Values.Any(row => row == null || row.ActiveDurationSeconds < 0 || row.RunOccurrences < 0))
                 throw new ArgumentException("Equipment checkpoint contains invalid aggregate durations.", nameof(target));
         }
         foreach (var values in new[] { target.CharacterSlotObservedDurations, target.NestedSlotObservedDurations })
         {
             if (values == null) continue;
-            if (values.Values.Any(row => row == null || !IsFinite(row.ActiveDurationSeconds)
-                                         || row.ActiveDurationSeconds < 0 || row.RunOccurrences < 0))
+            if (values.Values.Any(row => row == null || row.ActiveDurationSeconds < 0 || row.RunOccurrences < 0))
                 throw new ArgumentException("Equipment checkpoint contains invalid slot observation durations.", nameof(target));
         }
         if (target.CharacterSlotStates?.Values.Any(row => !ValidCharacterSlotState(row)) == true
@@ -665,7 +686,7 @@ public static class EquipmentStatisticsReducer
         recorded.State = resolved;
     }
 
-    private static void ValidateSnapshot(EquipmentSnapshot snapshot)
+    public static void ValidateSnapshot(EquipmentSnapshot snapshot)
     {
         if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
         if (string.IsNullOrWhiteSpace(snapshot.SnapshotId) || string.IsNullOrWhiteSpace(snapshot.LoadoutId)
@@ -721,6 +742,8 @@ public static class EquipmentStatisticsReducer
             throw new ArgumentException("Selected weapon is not a current slotted item.", nameof(snapshot));
     }
 
+    public static EquipmentSnapshot CloneSnapshot(EquipmentSnapshot source) => Clone(source);
+
     private static EquipmentSnapshot Clone(EquipmentSnapshot source) => new()
     {
         SnapshotId = source.SnapshotId,
@@ -753,6 +776,7 @@ public static class EquipmentStatisticsReducer
             DisplayName = x.DisplayName,
             CarryKind = x.CarryKind,
             ContainerId = x.ContainerId,
+            DirectSlotId = x.DirectSlotId ?? string.Empty,
             ActivationState = x.ActivationState
         }).ToList(),
         CharacterSlotStateComplete = source.CharacterSlotStateComplete,
@@ -765,6 +789,7 @@ public static class EquipmentStatisticsReducer
             ItemId = slot.ItemId,
             ItemDisplayName = slot.ItemDisplayName,
             ItemKind = slot.ItemKind
+            , IsDirectTotemSlot = slot.IsDirectTotemSlot
         }).ToList()
     };
 
@@ -807,10 +832,27 @@ public static class EquipmentStatisticsReducer
     private static void PreflightSlotStateAdvance(
         EquipmentStatisticsAggregate target,
         EquipmentSnapshot snapshot,
-        double delta)
+        decimal delta)
     {
+        Check(target.Loadouts, snapshot.LoadoutId);
+        Check(target.SelectedWeapons, snapshot.SelectedWeaponSlotId + "|" + snapshot.SelectedWeaponId);
+        Check(target.TotemSets, snapshot.TotemSetId);
+        foreach (var item in snapshot.Items)
+        {
+            Check(target.Slots, item.SlotId);
+            Check(target.Items, item.SlotId + "|" + item.ItemId + "|" + item.AttachmentSignature);
+            if (item.Kind == EquipmentItemKind.Weapon)
+                Check(target.SlottedWeapons, item.SlotId + "|" + item.ItemId);
+        }
+        foreach (var group in snapshot.Totems.GroupBy(TotemStateKey, StringComparer.Ordinal))
+        {
+            var index = 0;
+            foreach (var _ in group)
+                Check(target.TotemStates, group.Key + "|copy:" + (++index).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
         foreach (var slot in snapshot.CharacterSlots)
         {
+            Check(target.CharacterSlotObservedDurations, CharacterSlotObservationKey(slot.SlotId));
             target.CharacterSlotStates.TryGetValue(CharacterSlotStateKey(slot), out var row);
             _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
         }
@@ -818,9 +860,16 @@ public static class EquipmentStatisticsReducer
         {
             foreach (var slot in parent.NestedSlots)
             {
+                Check(target.NestedSlotObservedDurations, NestedSlotObservationKey(parent.SlotId, parent.ItemId, slot.Path));
                 target.NestedSlotStates.TryGetValue(NestedSlotStateKey(parent.SlotId, parent.ItemId, slot), out var row);
                 _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
             }
+        }
+
+        void Check(Dictionary<string, EquipmentDurationAggregate> rows, string key)
+        {
+            rows.TryGetValue(key, out var row);
+            _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
         }
     }
 
@@ -828,6 +877,15 @@ public static class EquipmentStatisticsReducer
         EquipmentStatisticsAggregate target,
         EquipmentStatisticsAggregate source)
     {
+        Check(target.Items, source.Items);
+        Check(target.SelectedWeapons, source.SelectedWeapons);
+        Check(target.Loadouts, source.Loadouts);
+        Check(target.TotemSets, source.TotemSets);
+        Check(target.TotemStates, source.TotemStates);
+        Check(target.Slots, source.Slots);
+        Check(target.SlottedWeapons, source.SlottedWeapons);
+        Check(target.CharacterSlotObservedDurations, source.CharacterSlotObservedDurations);
+        Check(target.NestedSlotObservedDurations, source.NestedSlotObservedDurations);
         foreach (var row in source.CharacterSlotStates.Values)
         {
             var key = CharacterSlotStateKey(new CharacterEquipmentSlotSnapshot
@@ -850,12 +908,21 @@ public static class EquipmentStatisticsReducer
             target.NestedSlotStates.TryGetValue(key, out var existing);
             _ = CheckedDurationAdd(existing?.ActiveDurationSeconds ?? 0, row.ActiveDurationSeconds);
         }
+
+        static void Check(Dictionary<string, EquipmentDurationAggregate> left, Dictionary<string, EquipmentDurationAggregate> right)
+        {
+            foreach (var pair in right)
+            {
+                left.TryGetValue(pair.Key, out var row);
+                _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, pair.Value.ActiveDurationSeconds);
+            }
+        }
     }
 
     private static void AddCharacterSlotStateDuration(
         Dictionary<string, CharacterSlotStateDurationAggregate> target,
         CharacterEquipmentSlotSnapshot slot,
-        double delta)
+        decimal delta)
     {
         var key = CharacterSlotStateKey(slot);
         if (!target.TryGetValue(key, out var row))
@@ -880,7 +947,7 @@ public static class EquipmentStatisticsReducer
         Dictionary<string, NestedSlotStateDurationAggregate> target,
         EquippedItemSnapshot parent,
         NestedEquipmentSlotSnapshot slot,
-        double delta)
+        decimal delta)
     {
         var key = NestedSlotStateKey(parent.SlotId, parent.ItemId, slot);
         if (!target.TryGetValue(key, out var row))
@@ -1079,11 +1146,35 @@ public static class EquipmentStatisticsReducer
         return value.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + value;
     }
 
-    private static double CheckedDurationAdd(double left, double right)
+    private static decimal CheckedDurationAdd(decimal left, decimal right)
     {
-        if (!IsFinite(left) || left < 0 || !IsFinite(right) || right < 0 || left > double.MaxValue - right)
+        if (left < 0 || right < 0 || left > decimal.MaxValue - right)
             throw new OverflowException("Equipment slot-state duration overflowed.");
         return left + right;
+    }
+
+    public static void PreflightPlayerKills(EquipmentStatisticsAggregate target, CombatRecorded value)
+    {
+        if (value.KillsByYou < 0) throw new ArgumentException("Equipment kill event has invalid count.");
+        var playerKills = value.Ownership == CombatOwnership.Player ? value.KillsByYou : 0;
+        if (playerKills == 0) return;
+        var association = value.EquipmentAssociation ?? new EquipmentEventAssociation();
+        var key = EmptyToUnavailable(association.LoadoutId) + "|" + (association.SelectedWeaponSlotId ?? string.Empty)
+                  + "|" + (association.SelectedWeaponId ?? string.Empty) + "|" + EmptyToUnavailable(association.TotemSetId);
+        if (!target.CombatAssociations.TryGetValue(key, out var row)) return;
+        row.PlayerKills.Validate(row.KillsByYou);
+        _ = checked(row.KillsByYou + playerKills);
+    }
+
+    public static void PreflightPlayerKillMerge(EquipmentStatisticsAggregate target, EquipmentStatisticsAggregate source)
+    {
+        foreach (var row in target.CombatAssociations.Values) row.PlayerKills.Validate(row.KillsByYou);
+        foreach (var entry in source.CombatAssociations)
+        {
+            entry.Value.PlayerKills.Validate(entry.Value.KillsByYou);
+            if (target.CombatAssociations.TryGetValue(entry.Key, out var existing))
+                _ = checked(existing.KillsByYou + entry.Value.KillsByYou);
+        }
     }
 
     private static EquipmentCombatAssociationAggregate Association(EquipmentStatisticsAggregate target, EquipmentEventAssociation? association)
@@ -1105,13 +1196,13 @@ public static class EquipmentStatisticsReducer
     private static string EmptyToUnavailable(string? value) =>
         string.IsNullOrWhiteSpace(value) ? EquipmentEventAssociation.UnavailableId : value;
 
-    private static void AddDuration(Dictionary<string, EquipmentDurationAggregate> target, string id, string name, double delta)
+    private static void AddDuration(Dictionary<string, EquipmentDurationAggregate> target, string id, string name, decimal delta)
     {
         if (string.IsNullOrWhiteSpace(id)) return;
         if (!target.TryGetValue(id, out var row))
         { row = new EquipmentDurationAggregate { Id = id, DisplayName = name }; target[id] = row; }
         if (!string.IsNullOrWhiteSpace(name)) row.DisplayName = name;
-        row.ActiveDurationSeconds = SaturatingAdd(row.ActiveDurationSeconds, delta);
+        row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, delta);
     }
 
     private static void MergeDurations(Dictionary<string, EquipmentDurationAggregate> target, Dictionary<string, EquipmentDurationAggregate> source, bool countRun = false)
@@ -1121,7 +1212,7 @@ public static class EquipmentStatisticsReducer
             if (!target.TryGetValue(pair.Key, out var row))
             { row = new EquipmentDurationAggregate { Id = pair.Value.Id, DisplayName = pair.Value.DisplayName }; target[pair.Key] = row; }
             row.DisplayName = string.IsNullOrWhiteSpace(pair.Value.DisplayName) ? row.DisplayName : pair.Value.DisplayName;
-            row.ActiveDurationSeconds = SaturatingAdd(row.ActiveDurationSeconds, pair.Value.ActiveDurationSeconds);
+            row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, pair.Value.ActiveDurationSeconds);
             row.RunOccurrences = SaturatingAdd(row.RunOccurrences, countRun ? 1 : pair.Value.RunOccurrences);
         }
     }
@@ -1198,7 +1289,7 @@ public static class EquipmentStatisticsReducer
                 continue;
             }
             var displayName = row.DisplayName?.Trim() ?? string.Empty;
-            var duration = FiniteNonNegative(row.ActiveDurationSeconds);
+            var duration = Math.Max(0m, row.ActiveDurationSeconds);
             var occurrences = Math.Max(0, row.RunOccurrences);
             if (!string.Equals(pair.Key, key, StringComparison.Ordinal)
                 || !string.Equals(row.Id, key, StringComparison.Ordinal)
@@ -1216,7 +1307,7 @@ public static class EquipmentStatisticsReducer
                 continue;
             }
             changed = true;
-            existing.ActiveDurationSeconds = SaturatingAdd(existing.ActiveDurationSeconds, duration);
+            existing.ActiveDurationSeconds = CheckedDurationAdd(existing.ActiveDurationSeconds, duration);
             existing.RunOccurrences = SaturatingAdd(existing.RunOccurrences, occurrences);
             if (string.IsNullOrWhiteSpace(existing.DisplayName)) existing.DisplayName = displayName;
         }
@@ -1291,6 +1382,8 @@ public static class EquipmentStatisticsReducer
             existing.RangedHits = SaturatingAdd(existing.RangedHits, ranged);
             existing.MeleeHits = SaturatingAdd(existing.MeleeHits, melee);
             existing.EnemiesKilled = SaturatingAdd(existing.EnemiesKilled, kills);
+            existing.PlayerKills = existing.PlayerKills == null || row.PlayerKills == null
+                ? null! : PlayerKillPartition.Merge(existing.PlayerKills, row.PlayerKills);
             existing.KillsByYou = SaturatingAdd(existing.KillsByYou, playerKills);
             existing.LegacyUnclassifiedDeathCredit = SaturatingAdd(
                 existing.LegacyUnclassifiedDeathCredit,
@@ -1333,7 +1426,7 @@ public static class EquipmentStatisticsReducer
                 normalized[key] = row;
                 continue;
             }
-            existing.ActiveDurationSeconds = SaturatingAdd(existing.ActiveDurationSeconds, row.ActiveDurationSeconds);
+            existing.ActiveDurationSeconds = CheckedDurationAdd(existing.ActiveDurationSeconds, row.ActiveDurationSeconds);
             if (string.IsNullOrWhiteSpace(existing.SlotDisplayName)) existing.SlotDisplayName = row.SlotDisplayName;
             if (string.IsNullOrWhiteSpace(existing.ItemDisplayName)) existing.ItemDisplayName = row.ItemDisplayName;
             repaired = true;
@@ -1375,7 +1468,7 @@ public static class EquipmentStatisticsReducer
                 normalized[key] = row;
                 continue;
             }
-            existing.ActiveDurationSeconds = SaturatingAdd(existing.ActiveDurationSeconds, row.ActiveDurationSeconds);
+            existing.ActiveDurationSeconds = CheckedDurationAdd(existing.ActiveDurationSeconds, row.ActiveDurationSeconds);
             if (string.IsNullOrWhiteSpace(existing.ParentItemDisplayName)) existing.ParentItemDisplayName = row.ParentItemDisplayName;
             if (string.IsNullOrWhiteSpace(existing.SlotDisplayName)) existing.SlotDisplayName = row.SlotDisplayName;
             if (string.IsNullOrWhiteSpace(existing.ItemDisplayName)) existing.ItemDisplayName = row.ItemDisplayName;
@@ -1391,7 +1484,7 @@ public static class EquipmentStatisticsReducer
         && (row.State == EquipmentSlotState.Occupied
             ? !string.IsNullOrWhiteSpace(row.ItemId)
             : string.IsNullOrEmpty(row.ItemId) && string.IsNullOrEmpty(row.ItemDisplayName))
-        && IsFinite(row.ActiveDurationSeconds) && row.ActiveDurationSeconds >= 0;
+        && row.ActiveDurationSeconds >= 0;
 
     private static bool ValidNestedSlotState(NestedSlotStateDurationAggregate? row) => row != null
         && !string.IsNullOrWhiteSpace(row.ParentSlotId)
@@ -1403,7 +1496,7 @@ public static class EquipmentStatisticsReducer
         && (row.State == EquipmentSlotState.Occupied
             ? !string.IsNullOrWhiteSpace(row.ItemId)
             : string.IsNullOrEmpty(row.ItemId) && string.IsNullOrEmpty(row.ItemDisplayName))
-        && IsFinite(row.ActiveDurationSeconds) && row.ActiveDurationSeconds >= 0;
+        && row.ActiveDurationSeconds >= 0;
 
     private static void ValidateSlotStateReconciliation(EquipmentStatisticsAggregate target)
     {
@@ -1421,7 +1514,7 @@ public static class EquipmentStatisticsReducer
             var total = target.CharacterSlotStates.Values
                 .Where(row => string.Equals(CharacterSlotObservationKey(row.SlotId), observed.Key, StringComparison.Ordinal))
                 .Select(row => row.ActiveDurationSeconds)
-                .Aggregate(0d, CheckedDurationAdd);
+                .Aggregate(0m, CheckedDurationAdd);
             if (!DurationsEqual(total, observed.Value.ActiveDurationSeconds))
                 throw new ArgumentException("Character-slot occupied and empty states do not reconcile.", nameof(target));
         }
@@ -1438,7 +1531,7 @@ public static class EquipmentStatisticsReducer
             var parentDuration = target.Items
                 .Where(pair => pair.Key.StartsWith(parentPrefix, StringComparison.Ordinal))
                 .Select(pair => pair.Value.ActiveDurationSeconds)
-                .Aggregate(0d, CheckedDurationAdd);
+                .Aggregate(0m, CheckedDurationAdd);
             if (observed.ActiveDurationSeconds > parentDuration)
                 throw new ArgumentException("Nested-slot observation exceeds parent equipped duration.", nameof(target));
         }
@@ -1449,17 +1542,17 @@ public static class EquipmentStatisticsReducer
                     observed.Key,
                     StringComparison.Ordinal))
                 .Select(row => row.ActiveDurationSeconds)
-                .Aggregate(0d, CheckedDurationAdd);
+                .Aggregate(0m, CheckedDurationAdd);
             if (!DurationsEqual(total, observed.Value.ActiveDurationSeconds))
                 throw new ArgumentException("Nested-slot occupied and empty states do not reconcile.", nameof(target));
         }
     }
 
-    private static bool DurationsEqual(double left, double right)
+    private static bool DurationsEqual(decimal left, decimal right)
     {
         if (left == right) return true;
-        var scale = Math.Max(1d, Math.Max(Math.Abs(left), Math.Abs(right)));
-        return Math.Abs(left - right) <= scale * 1e-12;
+        var scale = Math.Max(1m, Math.Max(Math.Abs(left), Math.Abs(right)));
+        return Math.Abs(left - right) <= scale * 0.000000000001m;
     }
 
     private static void NormalizeAvailability(MetricAvailability value, ref bool repaired)

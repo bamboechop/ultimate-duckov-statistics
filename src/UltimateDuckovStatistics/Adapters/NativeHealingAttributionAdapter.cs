@@ -612,7 +612,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
 
     private static Exception Unwrap(Exception exception) =>
         exception is TargetInvocationException { InnerException: not null } invocation
-            ? invocation.InnerException
+            ? invocation.InnerException!
             : exception;
 
     private sealed class PatchRegistration

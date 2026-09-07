@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Text;
@@ -27,10 +28,18 @@ try
     var managedRoot = Path.Combine(gameRoot, "Duckov_Data", "Managed");
     var corePath = Path.Combine(managedRoot, "TeamSoda.Duckov.Core.dll");
     var itemStatsPath = Path.Combine(managedRoot, "ItemStatsSystem.dll");
+    var sodaLocalizationPath = Path.Combine(managedRoot, "SodaLocalization.dll");
+    var unityUiPath = Path.Combine(managedRoot, "UnityEngine.UI.dll");
+    var textMeshProPath = Path.Combine(managedRoot, "Unity.TextMeshPro.dll");
+    var pluginsPath = Path.Combine(managedRoot, "Plugins.dll");
     var resourcesPath = Path.Combine(gameRoot, "Duckov_Data", "resources.assets");
 
     RequireFile(corePath);
     RequireFile(itemStatsPath);
+    RequireFile(sodaLocalizationPath);
+    RequireFile(unityUiPath);
+    RequireFile(textMeshProPath);
+    RequireFile(pluginsPath);
     RequireFile(resourcesPath);
 
     var gameVersion = ReadIniValue(Path.Combine(gameRoot, "Info.ini"), "version");
@@ -95,6 +104,66 @@ try
         core.RequireEvent(string.Empty, "LevelManager", "OnMainCharacterDead", "System.Action", "DamageInfo");
         core.RequireEvent(string.Empty, "PauseMenu", "onPauseMenuOn", "System.Action");
         core.RequireEvent(string.Empty, "PauseMenu", "onPauseMenuOff", "System.Action");
+        core.RequireField(string.Empty, "MainMenu", "OnMainMenuAwake", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Action");
+        core.RequireField(string.Empty, "MainMenu", "OnMainMenuDestroy", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Action");
+        core.RequireProperty(string.Empty, "PauseMenu", "Instance", "PauseMenu", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty(string.Empty, "PauseMenu", "Shown", "System.Boolean", mustBePublic: true);
+        core.RequireProperty(string.Empty, "GameManager", "EventSystem", "UnityEngine.EventSystems.EventSystem", mustBePublic: true, mustBeStatic: true);
+        core.RequireMethod("Duckov.UI", "NotificationText", "Push", 1, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String"]);
+        core.RequireInterfaces(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "UnityEngine.EventSystems.IPointerEnterHandler",
+            "UnityEngine.EventSystems.IPointerExitHandler",
+            "UnityEngine.EventSystems.IPointerDownHandler",
+            "UnityEngine.EventSystems.IPointerUpHandler");
+        foreach (var pointerMethod in new[]
+                 {
+                     "OnPointerEnter",
+                     "OnPointerExit",
+                     "OnPointerDown",
+                     "OnPointerUp"
+                 })
+        {
+            core.RequireMethod(
+                "Duckov.UI.Animations",
+                "ButtonAnimation",
+                pointerMethod,
+                1,
+                mustBePublic: true,
+                parameterTypeFragments: ["UnityEngine.EventSystems.PointerEventData"]);
+        }
+        core.RequireMethodUserStrings(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "OnPointerEnter",
+            "UI/hover");
+        core.RequireMethodUserStrings(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "OnPointerDown",
+            "UI/click",
+            "Interact_UI");
+        core.RequireField(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "mute",
+            mustBePrivate: true,
+            fieldTypeFragment: "System.Boolean");
+        core.RequireField(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "hoveringIndicator",
+            mustBePrivate: true,
+            fieldTypeFragment: "UnityEngine.GameObject");
+        core.RequireField(
+            "Duckov.UI.Animations",
+            "ButtonAnimation",
+            "toggles",
+            mustBePrivate: true,
+            fieldTypeFragment: "Duckov.UI.Animations.ToggleAnimation");
+        core.RequireType("Duckov.UI.Animations", "ToggleAnimation");
+        core.RequireType("Duckov.UI.Animations", "ToggleComponent");
         core.RequireEvent(string.Empty, "SceneLoader", "onStartedLoadingScene", "System.Action", "SceneLoadingContext");
         core.RequireEvent(string.Empty, "SceneLoader", "onFinishedLoadingScene", "System.Action", "SceneLoadingContext");
         core.RequireEvent(string.Empty, "SceneLoader", "onAfterSceneInitialize", "System.Action", "SceneLoadingContext");
@@ -123,6 +192,20 @@ try
         core.RequireProperty(string.Empty, "GameClock", "Instance", "GameClock", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "GameClock", "Day", "System.Int64", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "GameClock", "TimeOfDay", "System.TimeSpan", mustBePublic: true, mustBeStatic: true);
+        core.RequireMethod(string.Empty, "SkillBase", "ReleaseSkill", 2, mustBePublic: true,
+            returnTypeFragment: "System.Void", parameterTypeFragments: ["SkillReleaseContext", "CharacterMainControl"]);
+        core.RequireMethod(string.Empty, "Skill_Grenade", "OnRelease", 0, mustBePublic: true, mustBeVirtual: true);
+        core.RequireMethod(string.Empty, "Grenade", "Explode", 0, mustBePublic: false, returnTypeFragment: "System.Void");
+        core.RequireMethod(string.Empty, "Grenade", "SetWeaponIdInfo", 1, mustBePublic: true, parameterTypeFragments: ["System.Int32"]);
+        core.RequireField(string.Empty, "Grenade", "damageInfo", mustBePublic: true, fieldTypeFragment: "DamageInfo");
+        core.RequireField(string.Empty, "Grenade", "createExplosion", mustBePublic: true, fieldTypeFragment: "System.Boolean");
+        core.RequireField(string.Empty, "DamageInfo", "fromWeaponItemID", mustBePublic: true, fieldTypeFragment: "System.Int32");
+        core.RequireField(string.Empty, "DamageInfo", "fromCharacter", mustBePublic: true, fieldTypeFragment: "CharacterMainControl");
+        core.RequireField(string.Empty, "DamageInfo", "isExplosion", mustBePublic: true, fieldTypeFragment: "System.Boolean");
+        core.RequireField(string.Empty, "SkillBase", "fromItem", mustBePublic: true, fieldTypeFragment: "ItemStatsSystem.Item");
+        core.RequireField(string.Empty, "SkillBase", "OnSkillReleasedEvent", mustBePublic: true, fieldTypeFragment: "System.Action");
+        core.RequireField(string.Empty, "ItemSetting_Skill", "Skill", mustBePublic: true, fieldTypeFragment: "SkillBase");
+        core.RequireMethod(string.Empty, "ItemSetting_Skill", "OnSkillReleased", 0);
         core.RequireProperty(string.Empty, "GameClock", "Now", "System.TimeSpan", mustBePublic: true, mustBeStatic: true);
         core.RequireDoubleConstant(string.Empty, "GameClock", "SecondsPerDay", 86300d);
         core.RequireMethod(
@@ -151,6 +234,7 @@ try
 
         core.RequireProperty(string.Empty, "LevelManager", "IsRaidMap");
         core.RequireProperty(string.Empty, "LevelManager", "IsBaseLevel");
+        core.RequireProperty(string.Empty, "LevelManager", "Instance", "LevelManager", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "LevelManager", "LevelInited", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "LevelManager", "LevelInitializing", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "LevelManager", "MainCharacter", "CharacterMainControl", mustBePublic: true);
@@ -307,6 +391,26 @@ try
             returnTypeFragment: "System.Boolean",
             parameterTypeFragments: ["ItemStatsSystem.Item", "System.Boolean"]);
         core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "Prefabs", "PrefabsData", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "UIPrefabs", "Duckov.UI.UIPrefabsReference", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "UIStyle", "UIStyleData", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov.UI", "UIPrefabsReference", "Button", "UnityEngine.UI.Button", mustBePublic: true);
+        core.RequireProperty("Duckov.UI", "UIPrefabsReference", "ScrollRect", "UnityEngine.UI.ScrollRect", mustBePublic: true);
+        core.RequireField("Duckov.UI", "TooltipsProvider", "text", mustBePublic: true, fieldTypeFragment: "System.String");
+        core.RequireMethod("Duckov.UI", "TooltipsProvider", "OnPointerEnter", 1, mustBePublic: true,
+            parameterTypeFragments: ["UnityEngine.EventSystems.PointerEventData"]);
+        core.RequireMethod("Duckov.UI", "TooltipsProvider", "OnPointerExit", 1, mustBePublic: true,
+            parameterTypeFragments: ["UnityEngine.EventSystems.PointerEventData"]);
+        core.RequireMethod("Duckov.UI", "TooltipsProvider", "OnDisable", 0);
+        core.RequireNestedProperty(
+            "Duckov.Utilities",
+            "GameplayDataSettings",
+            "UIStyleData",
+            "TemplateTextUGUI",
+            "TMPro.TextMeshProUGUI",
+            mustBePublic: true);
+        core.RequireType(string.Empty, "CanvasScalerController");
+        core.RequireProperty("Duckov", "GameMetaData", "Instance", "Duckov.GameMetaData", mustBePublic: true, mustBeStatic: true);
+        core.RequireProperty("Duckov", "GameMetaData", "Version", "Duckov.VersionData", mustBePublic: true);
         core.RequireProperty(string.Empty, "PrefabsData", "LootBoxPrefab_Tomb", "InteractableLootbox", mustBePublic: true);
         core.RequireProperty(string.Empty, "DuckovItemAgent", "Holder", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty(string.Empty, "ItemAgent_Gun", "GunItemSetting", "ItemSetting_Gun", mustBePublic: true);
@@ -425,6 +529,7 @@ try
             itemStats.RequireProperty("ItemStatsSystem", "Item", property);
         }
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "Key", "System.String", mustBePublic: true);
+        itemStats.RequireField("ItemStatsSystem.Items", "Slot", "requireTags", mustBePublic: true, fieldTypeFragment: "Duckov.Utilities.Tag");
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "DisplayName", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem.Items", "Slot", "Content", "ItemStatsSystem.Item", mustBePublic: true);
         itemStats.RequireEvent("ItemStatsSystem.Items", "Slot", "onSlotContentChanged", "System.Action", "ItemStatsSystem.Items.Slot");
@@ -450,6 +555,49 @@ try
             parameterTypeFragments: ["System.Int32"]);
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "Name", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "DisplayName", "System.String", mustBePublic: true);
+        itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "icon", mustBePublic: true, fieldTypeFragment: "UnityEngine.Sprite");
+        itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "id", mustBePublic: true, fieldTypeFragment: "System.Int32");
+        itemStats.RequireMethod("ItemStatsSystem", "ItemAssetsCollection", "GetPrefab", 1, mustBePublic: true,
+            mustBeStatic: true, returnTypeFragment: "ItemStatsSystem.Item", parameterTypeFragments: ["System.Int32"]);
+    }
+
+    using (var ui = new AssemblyMetadata(unityUiPath))
+    {
+        ui.RequireType("UnityEngine.UI", "RectMask2D");
+        ui.RequireProperty("UnityEngine.UI", "Mask", "showMaskGraphic", "System.Boolean", mustBePublic: true);
+        ui.RequireProperty("UnityEngine.UI", "ScrollRect", "content", "UnityEngine.RectTransform", mustBePublic: true);
+        ui.RequireProperty("UnityEngine.UI", "ScrollRect", "viewport", "UnityEngine.RectTransform", mustBePublic: true);
+        ui.RequireMethod("UnityEngine.UI", "ScrollRect", "OnScroll", 1, mustBePublic: true, mustBeVirtual: true,
+            parameterTypeFragments: ["UnityEngine.EventSystems.PointerEventData"]);
+        ui.RequireMethod("UnityEngine.UI", "ScrollRect", "StopMovement", 0, mustBePublic: true);
+        foreach (var property in new[] { "elasticity", "decelerationRate", "scrollSensitivity" })
+            ui.RequireProperty("UnityEngine.UI", "ScrollRect", property, "System.Single", mustBePublic: true);
+        ui.RequireProperty("UnityEngine.UI", "ScrollRect", "inertia", "System.Boolean", mustBePublic: true);
+        ui.RequireProperty("UnityEngine.UI", "ScrollRect", "movementType", mustBePublic: true);
+        ui.RequireMethod("UnityEngine.UI", "Button", "OnSubmit", 1, mustBePublic: true,
+            parameterTypeFragments: ["UnityEngine.EventSystems.BaseEventData"]);
+        ui.RequireMethod("UnityEngine.EventSystems", "EventSystem", "SetSelectedGameObject", 1, mustBePublic: true,
+            parameterTypeFragments: ["UnityEngine.GameObject"]);
+    }
+
+    using (var plugins = new AssemblyMetadata(pluginsPath))
+    {
+        plugins.RequireType("UnityEngine.UI.ProceduralImage", "ProceduralImage");
+        plugins.RequireType("UnityEngine.UI.ProceduralImage", "ProceduralImageModifier");
+        plugins.RequireProperty("UnityEngine.UI.ProceduralImage", "ProceduralImage", "BorderWidth", "System.Single", mustBePublic: true);
+        plugins.RequireProperty("UnityEngine.UI.ProceduralImage", "ProceduralImage", "FalloffDistance", "System.Single", mustBePublic: true);
+        plugins.RequireType(string.Empty, "UniformModifier");
+        plugins.RequireProperty(string.Empty, "UniformModifier", "Radius", "System.Single", mustBePublic: true);
+        plugins.RequireMethod(string.Empty, "UniformModifier", "set_Radius", 1, mustBePublic: true, parameterTypeFragments: ["System.Single"]);
+    }
+
+    using (var localization = new AssemblyMetadata(sodaLocalizationPath))
+    {
+        localization.RequireField("SodaCraft.Localizations", "LocalizationManager", "overrideTexts", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Collections.Generic.Dictionary");
+        localization.RequireMethod("SodaCraft.Localizations", "LocalizationManager", "SetOverrideText", 2, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String", "System.String"]);
+        localization.RequireMethod("SodaCraft.Localizations", "LocalizationManager", "RemoveOverrideText", 1, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String"]);
+        localization.RequireMethod("SodaCraft.Localizations", "LocalizationManager", "GetPlainText", 1, mustBePublic: true, mustBeStatic: true, returnTypeFragment: "System.String", parameterTypeFragments: ["System.String"]);
+        localization.RequireProperty("SodaCraft.Localizations", "TextLocalizor", "Key", "System.String", mustBePublic: true);
     }
 
     var craftingFormulaAudit = AuditCraftingFormulas(resourcesPath);
@@ -459,6 +607,7 @@ try
     Console.WriteLine($"  Unity: {unityMatch.Value}");
     Console.WriteLine($"  TeamSoda.Duckov.Core.dll SHA-256: {HashFile(corePath)}");
     Console.WriteLine($"  ItemStatsSystem.dll SHA-256: {HashFile(itemStatsPath)}");
+    Console.WriteLine($"  SodaLocalization.dll SHA-256: {HashFile(sodaLocalizationPath)}");
     Console.WriteLine($"  resources.assets SHA-256: {HashFile(resourcesPath)}");
     Console.WriteLine($"  HarmonyLib: {harmonyVersion} SHA-256: {HashFile(harmonyPath)}");
     Console.WriteLine($"  Crafting formulas: {craftingFormulaAudit.FormulaCount}; serialized bytes: {craftingFormulaAudit.SerializedBytes}; item-cost entries: {craftingFormulaAudit.ItemCostEntryCount}; empty item-cost arrays: {craftingFormulaAudit.EmptyItemCostCount}; repeated resource ids within one formula: {craftingFormulaAudit.RepeatedResourceIdCount}; maximum item-cost entries/formula: {craftingFormulaAudit.MaximumItemCostEntries}.");
@@ -470,7 +619,7 @@ try
         foreach (var formula in craftingFormulaAudit.NonzeroCurrencyFormulas)
             Console.WriteLine($"    {formula.FormulaId} -> output {formula.OutputItemId}: money={formula.Money}; tags={formula.Tags}; items={formula.ItemCosts}");
     }
-    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, and M16 CraftingFormula.cost item/currency plus repeated-stack mutation/transfer contracts are present.");
+    Console.WriteLine("  Native loader, multi-map route identity/transition, item/healing, run lifecycle, movement, weapon, combat, lossless M14 equipment-slot enumeration, containers, M12 world-clock/sleep, M13 crafting task/delivery, M15 authoritative Money/Cash holdings, M16 CraftingFormula.cost item/currency plus repeated-stack mutation/transfer, and M17 retained UI/menu/localization/item-icon/toast/focus/procedural-image/ButtonAnimation contracts are present.");
     Console.WriteLine("  M4 loaded-ammunition consumption, M6 tote activation, M13 crafting workstation/run-map/multiple-output attribution, and M16 Money/Cash charge splitting remain unavailable; M5 accuracy uses completed player projectiles from the independently verified Projectile.Release contract.");
     return 0;
 }
@@ -818,6 +967,26 @@ internal sealed class AssemblyMetadata : IDisposable
         _ = FindType(@namespace, name);
     }
 
+    public void RequireInterfaces(
+        string @namespace,
+        string typeName,
+        params string[] requiredInterfaceNames)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        var implementedInterfaceNames = type.GetInterfaceImplementations()
+            .Select(handle => reader.GetInterfaceImplementation(handle).Interface)
+            .Select(ResolveTypeName)
+            .ToHashSet(StringComparer.Ordinal);
+        var missing = requiredInterfaceNames
+            .Where(required => !implementedInterfaceNames.Contains(required))
+            .ToArray();
+        if (missing.Length != 0)
+        {
+            throw new ContractException(
+                $"Required interfaces missing from {@namespace}.{typeName}: {string.Join(", ", missing)}.");
+        }
+    }
+
     public void RequireMethod(
         string @namespace,
         string typeName,
@@ -898,6 +1067,55 @@ internal sealed class AssemblyMetadata : IDisposable
         }
 
         throw new ContractException($"Required method not found: {@namespace}.{typeName}.{methodName}({parameterCount} parameter(s)).");
+    }
+
+    public void RequireMethodUserStrings(
+        string @namespace,
+        string typeName,
+        string methodName,
+        params string[] requiredValues)
+    {
+        var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var handle in type.GetMethods())
+        {
+            var method = reader.GetMethodDefinition(handle);
+            if (!string.Equals(reader.GetString(method.Name), methodName, StringComparison.Ordinal)
+                || method.RelativeVirtualAddress == 0)
+            {
+                continue;
+            }
+
+            var il = peReader.GetMethodBody(method.RelativeVirtualAddress).GetILBytes()
+                     ?? throw new ContractException(
+                         $"Method body IL was unavailable: {@namespace}.{typeName}.{methodName}.");
+            var found = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index <= il.Length - 5; index++)
+            {
+                if (il[index] != 0x72) continue;
+                var token = il[index + 1]
+                            | (il[index + 2] << 8)
+                            | (il[index + 3] << 16)
+                            | (il[index + 4] << 24);
+                if ((token & unchecked((int)0xff000000)) != 0x70000000) continue;
+                try
+                {
+                    found.Add(reader.GetUserString(
+                        MetadataTokens.UserStringHandle(token & 0x00ffffff)));
+                }
+                catch (BadImageFormatException)
+                {
+                    // The byte can occur inside another operand; only valid user-string tokens count.
+                }
+            }
+
+            var missing = requiredValues.Where(required => !found.Contains(required)).ToArray();
+            if (missing.Length == 0) return;
+            throw new ContractException(
+                $"Required user strings missing from {@namespace}.{typeName}.{methodName}: {string.Join(", ", missing)}.");
+        }
+
+        throw new ContractException(
+            $"Required method body not found: {@namespace}.{typeName}.{methodName}.");
     }
 
     public void RequireProperty(
@@ -1002,6 +1220,46 @@ internal sealed class AssemblyMetadata : IDisposable
         }
         throw new ContractException(
             $"Required nested field not found: {@namespace}.{typeName}.{nestedTypeName}.{fieldName}.");
+    }
+
+    public void RequireNestedProperty(
+        string @namespace,
+        string typeName,
+        string nestedTypeName,
+        string propertyName,
+        string propertyTypeFragment,
+        bool mustBePublic = false)
+    {
+        var declaringType = reader.GetTypeDefinition(FindType(@namespace, typeName));
+        foreach (var nestedHandle in declaringType.GetNestedTypes())
+        {
+            var nested = reader.GetTypeDefinition(nestedHandle);
+            if (!string.Equals(reader.GetString(nested.Name), nestedTypeName, StringComparison.Ordinal)) continue;
+            foreach (var propertyHandle in nested.GetProperties())
+            {
+                var property = reader.GetPropertyDefinition(propertyHandle);
+                if (!string.Equals(reader.GetString(property.Name), propertyName, StringComparison.Ordinal)
+                    || !property.DecodeSignature(typeProvider, reader).ReturnType.Contains(
+                        propertyTypeFragment,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var accessors = property.GetAccessors();
+                var accessorHandle = !accessors.Getter.IsNil ? accessors.Getter : accessors.Setter;
+                if (accessorHandle.IsNil) continue;
+                var accessor = reader.GetMethodDefinition(accessorHandle);
+                if (mustBePublic
+                    && (accessor.Attributes & MethodAttributes.MemberAccessMask) != MethodAttributes.Public)
+                {
+                    continue;
+                }
+                return;
+            }
+        }
+        throw new ContractException(
+            $"Required nested property not found: {@namespace}.{typeName}.{nestedTypeName}.{propertyName}.");
     }
 
     public void RequireDoubleConstant(string @namespace, string typeName, string fieldName, double expected)
@@ -1132,6 +1390,29 @@ internal sealed class AssemblyMetadata : IDisposable
 
         var qualifiedName = string.IsNullOrEmpty(@namespace) ? name : $"{@namespace}.{name}";
         throw new ContractException($"Required type not found: {qualifiedName}.");
+    }
+
+    private string ResolveTypeName(EntityHandle handle) => handle.Kind switch
+    {
+        HandleKind.TypeDefinition => ResolveTypeName(reader.GetTypeDefinition((TypeDefinitionHandle)handle)),
+        HandleKind.TypeReference => ResolveTypeName(reader.GetTypeReference((TypeReferenceHandle)handle)),
+        HandleKind.TypeSpecification => reader.GetTypeSpecification((TypeSpecificationHandle)handle)
+            .DecodeSignature(typeProvider, reader),
+        _ => handle.Kind.ToString()
+    };
+
+    private string ResolveTypeName(TypeDefinition definition)
+    {
+        var @namespace = reader.GetString(definition.Namespace);
+        var name = reader.GetString(definition.Name);
+        return string.IsNullOrEmpty(@namespace) ? name : $"{@namespace}.{name}";
+    }
+
+    private string ResolveTypeName(TypeReference reference)
+    {
+        var @namespace = reader.GetString(reference.Namespace);
+        var name = reader.GetString(reference.Name);
+        return string.IsNullOrEmpty(@namespace) ? name : $"{@namespace}.{name}";
     }
 }
 

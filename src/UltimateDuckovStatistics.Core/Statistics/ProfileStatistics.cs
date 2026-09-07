@@ -6,6 +6,9 @@ namespace UltimateDuckovStatistics.Core.Statistics;
 [DataContract]
 public sealed class ProfileStatistics
 {
+    // New generations start complete; absent persisted evidence never proves completeness.
+    [DataMember(Order = 16)] public bool HealingCaptureComplete { get; set; } = true;
+
     [DataMember(Order = 1)]
     public int SchemaVersion { get; set; } = ProductInfo.SchemaVersion;
 
@@ -54,6 +57,7 @@ public sealed class ProfileStatistics
     [OnDeserializing]
     private void OnDeserializing(StreamingContext _)
     {
+        HealingCaptureComplete = false;
         Holdings = null!;
     }
 }

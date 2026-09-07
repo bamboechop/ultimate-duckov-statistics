@@ -76,7 +76,8 @@ public enum ItemEffectTag
     [EnumMember] Drink = 2,
     [EnumMember] Buff = 3,
     [EnumMember] DebuffRemoval = 4,
-    [EnumMember] Special = 5
+    [EnumMember] Special = 5,
+    [EnumMember] Throwable = 6
 }
 
 [DataContract]
@@ -121,7 +122,8 @@ public enum CombatAttackKind
     [EnumMember] Ranged = 1,
     [EnumMember] Melee = 2,
     [EnumMember] Effect = 3,
-    [EnumMember] Environmental = 4
+    [EnumMember] Environmental = 4,
+    [EnumMember] Throwable = 5
 }
 
 [DataContract]

@@ -815,7 +815,7 @@ public sealed class CombatStatisticsTests
 
     [Fact]
     [Trait("Category", "Combat")]
-    public void RunMapAndLifetimeMergeRemainEqualAndSaturate()
+    public void RunMapAndLifetimeMergeRemainEqualAndRejectKillOverflow()
     {
         var summary = StartedTracker();
         Assert.True(summary.RecordCombat(Event("max") with
@@ -825,7 +825,7 @@ public sealed class CombatStatisticsTests
             Ownership = CombatOwnership.Player,
             KillsByYou = long.MaxValue
         }));
-        Assert.True(summary.RecordCombat(Event("overflow") with
+        Assert.Throws<OverflowException>(() => summary.RecordCombat(Event("overflow") with
         {
             ActualDamageToTarget = double.MaxValue,
             ActualDamageDealt = double.MaxValue,
@@ -938,7 +938,7 @@ public sealed class CombatStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(16, profile.SchemaVersion);
+        Assert.Equal(18, profile.SchemaVersion);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
             profile.Statistics.RunTotals.CombatStatistics.Capabilities.DamageDealt.State);
         Assert.Contains("predates M5",
@@ -1077,8 +1077,8 @@ public sealed class CombatStatisticsTests
 
         Assert.True(ProfileMigrator.Migrate(profile));
 
-        Assert.Equal(16, profile.SchemaVersion);
-        Assert.Equal(16, profile.Statistics.SchemaVersion);
+        Assert.Equal(18, profile.SchemaVersion);
+        Assert.Equal(18, profile.Statistics.SchemaVersion);
         Assert.Equal(14, run.SchemaVersion);
         foreach (var combat in new[]
                  {

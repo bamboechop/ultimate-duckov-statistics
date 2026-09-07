@@ -288,6 +288,30 @@ public sealed class RunLifecycleTracker
         return result;
     }
 
+    public void CaptureTerminalLoadout(RunOutcome outcome, Func<TerminalLoadout> capture, Action<string> diagnostic)
+    {
+        if (active == null || active.TerminalLoadout.CapturedOutcome.HasValue) return;
+        TerminalLoadout candidate;
+        try
+        {
+            candidate = capture();
+            candidate.CapturedOutcome = outcome;
+            candidate.Validate(outcome);
+            candidate = candidate.Clone();
+        }
+        catch (Exception exception)
+        {
+            candidate = new TerminalLoadout
+            {
+                CapturedOutcome = outcome,
+                Provenance = $"Fresh terminal equipment capture failed: {exception.GetType().Name}: {exception.Message}"
+            };
+        }
+        active.TerminalLoadout = candidate;
+        RequireCombatCheckpoint();
+        if (candidate.State != TerminalLoadoutState.Complete) diagnostic(candidate.Provenance);
+    }
+
     public bool ObserveIntegrity(IntegrityTags integrityTags)
     {
         if (active == null)
@@ -377,6 +401,13 @@ public sealed class RunLifecycleTracker
         active.RecentCombatEventIds.Add(value.EventId);
         try
         {
+            CombatStatisticsReducer.PreflightPlayerKills(active.CombatStatistics, value);
+            EquipmentStatisticsReducer.PreflightPlayerKills(active.EquipmentStatistics, value);
+            if (MatchesCurrentAttribution(value.OutcomeMapId ?? value.MapId, value.OutcomeSegmentId))
+            {
+                CombatStatisticsReducer.PreflightPlayerKills(active.CurrentSegment!.CombatStatistics, value);
+                EquipmentStatisticsReducer.PreflightPlayerKills(active.CurrentSegment.EquipmentStatistics, value);
+            }
             CombatStatisticsReducer.Apply(active.CombatStatistics, value);
             EquipmentStatisticsReducer.RecordCombat(active.EquipmentStatistics, value);
             if (MatchesCurrentAttribution(value.OutcomeMapId ?? value.MapId, value.OutcomeSegmentId))
@@ -620,6 +651,19 @@ public sealed class RunLifecycleTracker
         Provenance = value.Provenance
     };
 
+    private bool healingCaptureSupported;
+
+    public void SetHealingCapability(AdapterCapabilityState state)
+    {
+        healingCaptureSupported = state == AdapterCapabilityState.Supported;
+        if (active != null && active.HealingCaptureComplete && !healingCaptureSupported)
+        {
+            active.HealingCaptureComplete = false;
+            checkpointMutationRevision++;
+            combatCheckpointRequired = true;
+        }
+    }
+
     public bool RecordHealing(HealingApplied value)
     {
         if (active == null || value == null || value.GameplayContext != GameplayContext.Raid
@@ -683,6 +727,7 @@ public sealed class RunLifecycleTracker
             WeaponStatistics = WeaponStatisticsReducer.Clone(active.WeaponStatistics),
             CombatStatistics = CombatStatisticsReducer.Clone(active.CombatStatistics),
             EquipmentStatistics = EquipmentStatisticsReducer.Clone(active.EquipmentStatistics),
+            TerminalLoadout = active.TerminalLoadout.Clone(),
             ContainerState = ContainerStatisticsReducer.Clone(active.ContainerState),
             StartingMapId = active.Context.Map.MapId,
             StartingMapDisplayName = active.Context.Map.DisplayName,
@@ -693,6 +738,7 @@ public sealed class RunLifecycleTracker
             HistoricalRouteUnavailable = false,
             RouteWasRepairedFromInvalidState = false,
             SegmentEventAssociations = active.EventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+            HealingCaptureComplete = active.HealingCaptureComplete,
             ItemStatistics = ItemStatisticsAggregateReducer.Clone(active.ItemStatistics),
             TransitionPending = active.TransitionPending,
             CurrentSegmentId = active.CurrentSegment?.SegmentId,
@@ -739,6 +785,7 @@ public sealed class RunLifecycleTracker
         context.NativeRaidId ??= nativeRaidId;
         timestampUtc = EnsureUtc(timestampUtc);
         active = new ActiveState(runId, context, timestampUtc, monotonicSeconds);
+        active.HealingCaptureComplete = healingCaptureSupported;
         suspensions.Clear();
         movement.Reset();
         lastCheckpointMonotonicSeconds = monotonicSeconds;
@@ -927,6 +974,7 @@ public sealed class RunLifecycleTracker
             WeaponStatistics = WeaponStatisticsReducer.Clone(state.WeaponStatistics),
             CombatStatistics = CombatStatisticsReducer.Clone(state.CombatStatistics),
             EquipmentStatistics = EquipmentStatisticsReducer.Clone(state.EquipmentStatistics),
+            TerminalLoadout = TerminalLoadout.ForOutcome(state.TerminalLoadout, outcome),
             ContainerStatistics = ContainerStatisticsReducer.Clone(state.ContainerState.Statistics),
             StartingMapId = state.Context.Map.MapId,
             StartingMapDisplayName = state.Context.Map.DisplayName,
@@ -943,6 +991,7 @@ public sealed class RunLifecycleTracker
             HistoricalRouteUnavailable = false,
             RouteWasRepairedFromInvalidState = false,
             SegmentEventAssociations = state.EventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+            HealingCaptureComplete = state.HealingCaptureComplete,
             ItemStatistics = ItemStatisticsAggregateReducer.Clone(state.ItemStatistics),
             Economy = EconomyStatisticsReducer.Clone(state.Economy),
             HistoricalEventAttributionIncomplete = state.HistoricalEventAttributionIncomplete,
@@ -1182,6 +1231,7 @@ public sealed class RunLifecycleTracker
 
     private sealed class ActiveState
     {
+        public TerminalLoadout TerminalLoadout { get; set; } = new();
         public ActiveState(string runId, RunStartContext context, DateTime startedUtc, double startedMonotonicSeconds)
         {
             RunId = runId;
@@ -1252,6 +1302,7 @@ public sealed class RunLifecycleTracker
 
         public Dictionary<EventAssociationKey, SegmentEventAssociation> EventAssociationsByKey { get; } = new();
 
+        public bool HealingCaptureComplete { get; set; }
         public ItemStatisticsAggregate ItemStatistics { get; } = new();
 
         public WeaponStatisticsAggregate WeaponStatistics { get; } = new();

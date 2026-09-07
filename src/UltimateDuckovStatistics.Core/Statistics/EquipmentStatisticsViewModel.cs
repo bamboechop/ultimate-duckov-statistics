@@ -212,15 +212,5 @@ public static class EquipmentStatisticsViewModelFactory
             .OrderBy(value => value, StringComparer.Ordinal)
             .FirstOrDefault() ?? fallback;
 
-    private static double CheckedDurationSum(IEnumerable<double> values)
-    {
-        var total = 0d;
-        foreach (var value in values)
-        {
-            total += value;
-            if (double.IsNaN(total) || double.IsInfinity(total))
-                throw new OverflowException("Equipment view duration exceeds the representable range.");
-        }
-        return total;
-    }
+    private static double CheckedDurationSum(IEnumerable<decimal> values) => (double)values.Sum();
 }

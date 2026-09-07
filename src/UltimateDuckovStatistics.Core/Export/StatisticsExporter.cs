@@ -12,6 +12,10 @@ namespace UltimateDuckovStatistics.Core.Export;
 [DataContract]
 public sealed class StatisticsExportDocument
 {
+    [DataMember(Order = 17)] public bool HealingCaptureComplete { get; set; }
+    [DataMember(Order = 18)] public AdapterCapabilityState HealingCaptureState { get; set; }
+    [DataMember(Order = 19)] public bool HealingEvidenceRepaired { get; set; }
+
     [DataMember(Order = 1)]
     public int SchemaVersion { get; set; } = ProductInfo.SchemaVersion;
 
@@ -206,6 +210,9 @@ public sealed class StatisticsExportBundle
     public string WeaponAmmunitionPairsCsv { get; }
 
     public string EquipmentTotalsCsv { get; }
+    public string LoadoutDefinitionsCsv => EquipmentCompositionCsv.Loadouts(Document);
+    public string ActiveTotemSetDefinitionsCsv => EquipmentCompositionCsv.ActiveSets(Document);
+    public string TotemStateDurationsCsv => EquipmentCompositionCsv.TotemStates(Document);
 
     public string CharacterEquipmentSlotsCsv { get; }
 
@@ -330,6 +337,11 @@ public static class StatisticsExporter
             GenerationId = profile.GenerationId,
             Slot = profile.Slot,
             Revision = profile.Revision,
+            HealingCaptureComplete = profile.Statistics.HealingCaptureComplete,
+            HealingCaptureState = profile.Capabilities.Count(cap => cap.AdapterId == "native-healing-attribution") == 1
+                ? profile.Capabilities.Single(cap => cap.AdapterId == "native-healing-attribution").State
+                : AdapterCapabilityState.DisabledIncompatible,
+            HealingEvidenceRepaired = profile.Statistics.RunTotals.ItemStatistics.WasRepairedFromInvalidState,
             Overall = CloneTotals(profile.Statistics.Overall),
             Groups = profile.Statistics.Groups
                 .OrderBy(entry => entry.Key, StringComparer.Ordinal)
@@ -751,7 +763,7 @@ public static class StatisticsExporter
     private static string CreateSegmentsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("run_id,segment_id,segment_index,map_id,map_display_name,map_known,entered_utc,exited_utc,active_duration_seconds,physical_distance,teleport_distance,transition_excluded_distance,exit_reason,segment_capability,event_attribution_capability,item_activations,actual_health_restored,firing_actions,ammunition_units_consumed,projectiles,damage_dealt,damage_received,ranged_hits,melee_hits,kills_by_you,observed_world_deaths,legacy_unclassified_deaths,player_deaths,unique_containers_looted,integrity_tags,repaired_invalid_state,current_event_capture_capability,historical_event_attribution_incomplete,damage_dealt_state,damage_received_state,ranged_hits_state,melee_hits_state,kills_by_you_state,observed_world_deaths_state,player_deaths_state");
+        builder.AppendLine("run_id,segment_id,segment_index,map_id,map_display_name,map_known,entered_utc,exited_utc,active_duration_seconds,physical_distance,teleport_distance,transition_excluded_distance,exit_reason,segment_capability,event_attribution_capability,item_activations,actual_health_restored,firing_actions,ammunition_units_consumed,projectiles,damage_dealt,damage_received,ranged_hits,melee_hits,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,historical_unclassified_kills_by_you,kill_classification_historical_incomplete,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,legacy_unclassified_deaths,player_deaths,unique_containers_looted,integrity_tags,repaired_invalid_state,current_event_capture_capability,historical_event_attribution_incomplete,damage_dealt_state,damage_received_state,ranged_hits_state,melee_hits_state,kills_by_you_state,observed_world_deaths_state,player_deaths_state");
         foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
             foreach (var segment in run.Segments.OrderBy(value => value.SegmentIndex))
                 builder.Append(Csv(run.RunId)).Append(',').Append(Csv(segment.SegmentId)).Append(',')
@@ -772,6 +784,7 @@ public static class StatisticsExporter
                     .Append(segment.CombatStatistics.Totals.DamageReceived.ToString("R", CultureInfo.InvariantCulture)).Append(',')
                     .Append(segment.CombatStatistics.Totals.RangedHits).Append(',').Append(segment.CombatStatistics.Totals.MeleeHits).Append(',')
                     .Append(segment.CombatStatistics.Totals.KillsByYou).Append(',')
+                .Append(PlayerKillsCsv(segment.CombatStatistics.Totals.PlayerKills, segment.CombatStatistics.Capabilities.KillsByYou, segment.CombatStatistics.Capabilities.ThrowableKills))
                     .Append(segment.CombatStatistics.Totals.ObservedWorldDeaths).Append(',')
                     .Append(segment.CombatStatistics.Totals.LegacyUnclassifiedDeaths).Append(',')
                     .Append(segment.CombatStatistics.Totals.PlayerDeaths).Append(',')
@@ -810,7 +823,7 @@ public static class StatisticsExporter
     private static string CreateRouteMapTotalsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("map_id,map_display_name,map_known,runs_visited,segment_visits,active_duration_seconds,physical_distance,teleport_distance,transition_excluded_distance,item_activations,actual_health_restored,firing_actions,damage_dealt,damage_received,kills_by_you,observed_world_deaths,legacy_unclassified_deaths,unique_containers_looted,historical_unavailable,repaired_invalid_state,damage_dealt_state,damage_received_state,kills_by_you_state,observed_world_deaths_state");
+        builder.AppendLine("map_id,map_display_name,map_known,runs_visited,segment_visits,active_duration_seconds,physical_distance,teleport_distance,transition_excluded_distance,item_activations,actual_health_restored,firing_actions,damage_dealt,damage_received,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,historical_unclassified_kills_by_you,kill_classification_historical_incomplete,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,legacy_unclassified_deaths,unique_containers_looted,historical_unavailable,repaired_invalid_state,damage_dealt_state,damage_received_state,kills_by_you_state,observed_world_deaths_state");
         foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
             builder.Append(Csv(map.MapId)).Append(',').Append(Csv(map.DisplayName)).Append(',').Append(map.IsKnown ? "true" : "false").Append(',')
                 .Append(map.RunsVisited).Append(',').Append(map.SegmentVisits).Append(',')
@@ -824,6 +837,7 @@ public static class StatisticsExporter
                 .Append(map.CombatStatistics.Totals.DamageDealt.ToString("R", CultureInfo.InvariantCulture)).Append(',')
                 .Append(map.CombatStatistics.Totals.DamageReceived.ToString("R", CultureInfo.InvariantCulture)).Append(',')
                 .Append(map.CombatStatistics.Totals.KillsByYou).Append(',')
+                .Append(PlayerKillsCsv(map.CombatStatistics.Totals.PlayerKills, map.CombatStatistics.Capabilities.KillsByYou, map.CombatStatistics.Capabilities.ThrowableKills))
                 .Append(map.CombatStatistics.Totals.ObservedWorldDeaths).Append(',')
                 .Append(map.CombatStatistics.Totals.LegacyUnclassifiedDeaths).Append(',')
                 .Append(map.ContainerStatistics.UniqueContainersLooted).Append(',')
@@ -966,8 +980,8 @@ public static class StatisticsExporter
                     .Append(Csv(row?.SlotId ?? string.Empty)).Append(',').Append(Csv(row?.SlotDisplayName ?? string.Empty)).Append(',')
                     .Append(row?.State.ToString() ?? string.Empty).Append(',').Append(Csv(row?.ItemId ?? string.Empty)).Append(',')
                     .Append(Csv(row?.ItemDisplayName ?? string.Empty)).Append(',').Append(row?.ItemKind.ToString() ?? string.Empty).Append(',')
-                    .Append((row?.ActiveDurationSeconds ?? 0).ToString("R", CultureInfo.InvariantCulture)).Append(',')
-                    .Append(observed.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append((row?.ActiveDurationSeconds ?? 0).ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(observed.ToString(CultureInfo.InvariantCulture)).Append(',')
                     .Append(statistics.Capabilities.CharacterSlotState.State).Append(',')
                     .Append(Csv(statistics.Capabilities.CharacterSlotState.Provenance)).Append(',')
                     .Append(statistics.HistoricalCharacterSlotStateUnavailable ? "true" : "false").Append(',')
@@ -1012,8 +1026,8 @@ public static class StatisticsExporter
                     .Append(Csv(row?.Path ?? string.Empty)).Append(',').Append(Csv(row?.SlotKey ?? string.Empty)).Append(',')
                     .Append(Csv(row?.SlotDisplayName ?? string.Empty)).Append(',').Append(row?.State.ToString() ?? string.Empty).Append(',')
                     .Append(Csv(row?.ItemId ?? string.Empty)).Append(',').Append(Csv(row?.ItemDisplayName ?? string.Empty)).Append(',')
-                    .Append((row?.ActiveDurationSeconds ?? 0).ToString("R", CultureInfo.InvariantCulture)).Append(',')
-                    .Append(observed.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append((row?.ActiveDurationSeconds ?? 0).ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(observed.ToString(CultureInfo.InvariantCulture)).Append(',')
                     .Append(statistics.Capabilities.NestedSlotState.State).Append(',')
                     .Append(Csv(statistics.Capabilities.NestedSlotState.Provenance)).Append(',')
                     .Append(statistics.HistoricalNestedSlotStateUnavailable ? "true" : "false").Append(',')
@@ -1042,7 +1056,7 @@ public static class StatisticsExporter
             foreach (var row in values.Values.OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal))
                 builder.Append(scope).Append(',').Append(Csv(scopeId)).Append(',').Append(kind).Append(',')
                     .Append(Csv(row.Id)).Append(',').Append(Csv(row.DisplayName)).Append(',')
-                    .Append(row.ActiveDurationSeconds.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                    .Append(row.ActiveDurationSeconds.ToString(CultureInfo.InvariantCulture)).Append(',')
                     .Append(row.RunOccurrences.ToString(CultureInfo.InvariantCulture)).AppendLine();
         }
     }
@@ -1055,7 +1069,7 @@ public static class StatisticsExporter
                      .Where(x => x.RunOccurrences >= 2)
                      .OrderByDescending(x => x.ActiveDurationSeconds).ThenBy(x => x.Id, StringComparer.Ordinal))
             builder.Append(Csv(row.Id)).Append(',')
-                .Append(row.ActiveDurationSeconds.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+                .Append(row.ActiveDurationSeconds.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(row.RunOccurrences.ToString(CultureInfo.InvariantCulture)).AppendLine();
         return builder.ToString();
     }
@@ -1063,7 +1077,7 @@ public static class StatisticsExporter
     private static string CreateEquipmentCombatCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,loadout_id,selected_weapon_slot_id,selected_weapon_id,totem_set_id,firing_actions,ammunition_units_consumed,projectiles,damage_dealt,damage_received,ranged_hits,melee_hits,kills_by_you,legacy_unclassified_death_credit,player_deaths,historical_combat_ownership_unavailable,historical_combat_ownership_provenance,damage_dealt_state,damage_received_state,ranged_hits_state,melee_hits_state,kills_by_you_state,player_deaths_state,ownership_state");
+        builder.AppendLine("scope,scope_id,loadout_id,selected_weapon_slot_id,selected_weapon_id,totem_set_id,firing_actions,ammunition_units_consumed,projectiles,damage_dealt,damage_received,ranged_hits,melee_hits,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,historical_unclassified_kills_by_you,kill_classification_historical_incomplete,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,legacy_unclassified_death_credit,player_deaths,historical_combat_ownership_unavailable,historical_combat_ownership_provenance,damage_dealt_state,damage_received_state,ranged_hits_state,melee_hits_state,kills_by_you_state,player_deaths_state,ownership_state");
         AppendEquipmentCombat(builder, "lifetime", document.GenerationId, document.RunTotals.EquipmentStatistics, document.RunTotals.CombatStatistics);
         foreach (var map in document.RunTotals.Maps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
             AppendEquipmentCombat(builder, "starting_map", map.MapId, map.EquipmentStatistics, map.CombatStatistics);
@@ -1093,6 +1107,7 @@ public static class StatisticsExporter
                 .Append(row.RangedHits.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(row.MeleeHits.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(row.KillsByYou.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(PlayerKillsCsv(row.PlayerKills, combatStatistics.Capabilities.KillsByYou, combatStatistics.Capabilities.ThrowableKills))
                 .Append(row.LegacyUnclassifiedDeathCredit.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(row.PlayerDeaths.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(statistics.HistoricalCombatOwnershipUnavailable ? "true" : "false").Append(',')
@@ -1124,7 +1139,7 @@ public static class StatisticsExporter
             .Append(document.Slot.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(document.Revision.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(Csv(document.ExportedUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',');
-        AppendTotals(builder, document.Overall);
+        AppendTotals(builder, document.Overall, document);
         return builder.ToString();
     }
 
@@ -1135,7 +1150,7 @@ public static class StatisticsExporter
         foreach (var group in document.Groups)
         {
             builder.Append(Csv(group.Group)).Append(',');
-            AppendTotals(builder, group.Totals);
+            AppendTotals(builder, group.Totals, document);
         }
 
         return builder.ToString();
@@ -1151,7 +1166,7 @@ public static class StatisticsExporter
                 .Append(Csv(item.DisplayName)).Append(',')
                 .Append(Csv(item.Group)).Append(',')
                 .Append(Csv(string.Join("|", item.EffectTags))).Append(',');
-            AppendTotals(builder, item.Totals);
+            AppendTotals(builder, item.Totals, document);
         }
 
         return builder.ToString();
@@ -1161,7 +1176,7 @@ public static class StatisticsExporter
     {
         var builder = new StringBuilder();
         builder.AppendLine(
-            "run_id,save_generation_id,native_raid_id,map_id,map_display_name,map_known,starting_map_id,starting_map_display_name,ending_map_id,ending_map_display_name,route_signature,started_utc,ended_utc,active_duration_seconds,wall_clock_duration_seconds,outcome,physical_distance,teleport_distance,transition_excluded_distance,kills_by_you,observed_world_deaths,legacy_unclassified_deaths,unique_containers_looted,container_capability,integrity_tags,record_eligible,game_version,game_build,lifecycle_capability,lifecycle_adapter_version,movement_capability,movement_adapter_version,map_capability,map_adapter_version,kills_by_you_state,observed_world_deaths_state");
+            "run_id,save_generation_id,native_raid_id,map_id,map_display_name,map_known,starting_map_id,starting_map_display_name,ending_map_id,ending_map_display_name,route_signature,started_utc,ended_utc,active_duration_seconds,wall_clock_duration_seconds,outcome,physical_distance,teleport_distance,transition_excluded_distance,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,historical_unclassified_kills_by_you,kill_classification_historical_incomplete,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,legacy_unclassified_deaths,unique_containers_looted,container_capability,integrity_tags,record_eligible,game_version,game_build,lifecycle_capability,lifecycle_adapter_version,movement_capability,movement_adapter_version,map_capability,map_adapter_version,kills_by_you_state,observed_world_deaths_state");
         foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
         {
             builder.Append(Csv(run.RunId)).Append(',')
@@ -1182,6 +1197,7 @@ public static class StatisticsExporter
                 .Append(run.TeleportDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
                 .Append(run.TransitionExcludedDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
                 .Append(run.CombatStatistics.Totals.KillsByYou).Append(',')
+                .Append(PlayerKillsCsv(run.CombatStatistics.Totals.PlayerKills, run.CombatStatistics.Capabilities.KillsByYou, run.CombatStatistics.Capabilities.ThrowableKills))
                 .Append(run.CombatStatistics.Totals.ObservedWorldDeaths).Append(',')
                 .Append(run.CombatStatistics.Totals.LegacyUnclassifiedDeaths).Append(',')
                 .Append(run.ContainerStatistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture)).Append(',')
@@ -1207,7 +1223,7 @@ public static class StatisticsExporter
     {
         var totals = document.RunTotals;
         var builder = new StringBuilder();
-        builder.AppendLine("generation_id,total_runs,extracted,died,interrupted,physical_distance,teleport_distance,transition_excluded_distance,route_aware_history_unavailable,kills_by_you,observed_world_deaths,legacy_unclassified_deaths,unique_containers_looted,container_capability,kills_by_you_state,observed_world_deaths_state");
+        builder.AppendLine("generation_id,total_runs,extracted,died,interrupted,physical_distance,teleport_distance,transition_excluded_distance,route_aware_history_unavailable,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,historical_unclassified_kills_by_you,kill_classification_historical_incomplete,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,legacy_unclassified_deaths,unique_containers_looted,container_capability,kills_by_you_state,observed_world_deaths_state");
         builder.Append(Csv(document.GenerationId)).Append(',')
             .Append(totals.TotalRuns.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(ReadOutcome(totals.Outcomes, RunOutcome.Extracted)).Append(',')
@@ -1218,6 +1234,7 @@ public static class StatisticsExporter
             .Append(totals.TransitionExcludedDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
             .Append(totals.RouteAwareHistoryUnavailable ? "true" : "false").Append(',')
             .Append(totals.CombatStatistics.Totals.KillsByYou).Append(',')
+                .Append(PlayerKillsCsv(totals.CombatStatistics.Totals.PlayerKills, totals.CombatStatistics.Capabilities.KillsByYou, totals.CombatStatistics.Capabilities.ThrowableKills))
             .Append(totals.CombatStatistics.Totals.ObservedWorldDeaths).Append(',')
             .Append(totals.CombatStatistics.Totals.LegacyUnclassifiedDeaths).Append(',')
             .Append(totals.ContainerStatistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture)).Append(',')
@@ -1230,7 +1247,7 @@ public static class StatisticsExporter
     private static string CreateMapTotalsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("aggregation_scope,map_id,map_display_name,map_known,total_runs,extracted,died,interrupted,physical_distance,teleport_distance,kills_by_you,observed_world_deaths,legacy_unclassified_deaths,unique_containers_looted,container_capability,item_activations,actual_health_restored,item_history_unavailable,item_repaired_invalid_state,kills_by_you_state,observed_world_deaths_state");
+        builder.AppendLine("aggregation_scope,map_id,map_display_name,map_known,total_runs,extracted,died,interrupted,physical_distance,teleport_distance,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,historical_unclassified_kills_by_you,kill_classification_historical_incomplete,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,legacy_unclassified_deaths,unique_containers_looted,container_capability,item_activations,actual_health_restored,item_history_unavailable,item_repaired_invalid_state,kills_by_you_state,observed_world_deaths_state");
         foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
         {
             builder.Append("starting_map,").Append(Csv(map.MapId)).Append(',')
@@ -1243,6 +1260,7 @@ public static class StatisticsExporter
                 .Append(map.PhysicalDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
                 .Append(map.TeleportDistance.ToString("R", CultureInfo.InvariantCulture)).Append(',')
                 .Append(map.CombatStatistics.Totals.KillsByYou).Append(',')
+                .Append(PlayerKillsCsv(map.CombatStatistics.Totals.PlayerKills, map.CombatStatistics.Capabilities.KillsByYou, map.CombatStatistics.Capabilities.ThrowableKills))
                 .Append(map.CombatStatistics.Totals.ObservedWorldDeaths).Append(',')
                 .Append(map.CombatStatistics.Totals.LegacyUnclassifiedDeaths).Append(',')
                 .Append(map.ContainerStatistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture)).Append(',')
@@ -1316,7 +1334,7 @@ public static class StatisticsExporter
     private static string CreateCombatAttributionCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,breakdown,entity_id,display_name,damage_caused,damage_dealt,damage_received,completed_player_projectiles,ranged_hits,accuracy,melee_swings,melee_hits,kills_by_you,observed_world_deaths,legacy_unclassified_deaths,player_deaths,headshots,headshot_final_blows,damage_dealt_state,damage_received_state,accuracy_state,melee_swings_state,melee_hits_state,kills_by_you_state,observed_world_deaths_state,player_deaths_state,ownership_state,enemy_identity_state,enemy_family_state,cause_state,weapon_identity_state,ammunition_identity_state,damage_over_time_state,headshots_state,headshot_final_blows_state,historical_ownership_unavailable,historical_ownership_provenance,repaired");
+        builder.AppendLine("scope,scope_id,breakdown,entity_id,display_name,damage_caused,damage_dealt,damage_received,completed_player_projectiles,ranged_hits,accuracy,melee_swings,melee_hits,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,historical_unclassified_kills_by_you,kill_classification_historical_incomplete,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,legacy_unclassified_deaths,player_deaths,headshots,headshot_final_blows,damage_dealt_state,damage_received_state,accuracy_state,melee_swings_state,melee_hits_state,kills_by_you_state,observed_world_deaths_state,player_deaths_state,ownership_state,enemy_identity_state,enemy_family_state,cause_state,weapon_identity_state,ammunition_identity_state,damage_over_time_state,headshots_state,headshot_final_blows_state,historical_ownership_unavailable,historical_ownership_provenance,repaired");
         AppendCombatAttributionScope(builder, "lifetime", document.GenerationId, document.RunTotals.CombatStatistics);
         foreach (var map in document.RunTotals.Maps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
             AppendCombatAttributionScope(builder, "starting_map", map.MapId, map.CombatStatistics);
@@ -1365,6 +1383,7 @@ public static class StatisticsExporter
             .Append(totals.MeleeSwings.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(totals.MeleeHits.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(totals.KillsByYou.ToString(CultureInfo.InvariantCulture)).Append(',')
+                .Append(PlayerKillsCsv(totals.PlayerKills, caps.KillsByYou, caps.ThrowableKills))
             .Append(totals.ObservedWorldDeaths.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(totals.LegacyUnclassifiedDeaths.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(totals.PlayerDeaths.ToString(CultureInfo.InvariantCulture)).Append(',')
@@ -1382,6 +1401,40 @@ public static class StatisticsExporter
             .Append(statistics.HistoricalOwnershipUnavailable ? "true" : "false").Append(',')
             .Append(Csv(statistics.HistoricalOwnershipProvenance)).Append(',')
             .Append(statistics.WasRepairedFromInvalidState ? "true" : "false").AppendLine();
+    }
+
+    private static string PlayerKillsCsv(PlayerKillPartition kills, MetricAvailability availability, MetricAvailability throwable) =>
+        string.Join(",", kills.Ranged.ToString(CultureInfo.InvariantCulture), kills.Melee.ToString(CultureInfo.InvariantCulture),
+            kills.Throwables.ToString(CultureInfo.InvariantCulture), Csv(throwable.State.ToString()), kills.Effect.ToString(CultureInfo.InvariantCulture), kills.Environmental.ToString(CultureInfo.InvariantCulture),
+            kills.Unknown.ToString(CultureInfo.InvariantCulture), kills.HistoricalUnclassified.ToString(CultureInfo.InvariantCulture),
+            kills.HistoricalIncomplete ? "true" : "false", kills.ClassificationComplete ? "true" : "false",
+            kills.ClassificationComplete && availability.State == AdapterCapabilityState.Supported ? "true" : "false",
+            Csv(kills.Provenance)) + ",";
+
+    public static string CreateTerminalLoadoutsCsv(IEnumerable<RunSummary> runs)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("run_id,outcome,terminal_state,terminal_provenance,root_slots_complete,nested_slots_complete,entry_kind,root_slot_id,root_slot_display_name,root_state,root_item_id,root_item_display_name,nested_path,nested_slot_key,nested_slot_display_name,nested_state,nested_item_id,nested_item_display_name");
+        foreach (var run in runs)
+        {
+            var data = new RunDataProjection(run);
+            if (data.TerminalSlots.Count == 0) Append(null, null);
+            foreach (var root in data.TerminalSlots)
+            {
+                Append(root, null);
+                foreach (var nested in root.NestedSlots) Append(root, nested);
+            }
+            void Append(TerminalRootSlot? root, TerminalNestedSlot? nested)
+            {
+                builder.AppendLine(string.Join(",", new[] { run.RunId, run.Outcome.ToString(), data.TerminalState.ToString(),
+                    data.TerminalProvenance, data.RootSlotsComplete ? "true" : "false", data.NestedSlotsComplete ? "true" : "false",
+                    root == null ? "state" : nested == null ? "root" : "nested", root?.SlotId ?? "", root?.DisplayName ?? "",
+                    root?.State.ToString() ?? "", root?.ItemId ?? "", root?.ItemDisplayName ?? "", nested?.Path ?? "",
+                    nested?.SlotKey ?? "", nested?.DisplayName ?? "", nested?.State.ToString() ?? "",
+                    nested?.ItemId ?? "", nested?.ItemDisplayName ?? "" }.Select(Csv)));
+            }
+        }
+        return builder.ToString();
     }
 
     private static string CreateAmmunitionTotalsCsv(StatisticsExportDocument document)
@@ -1537,6 +1590,7 @@ public static class StatisticsExporter
         Apply(result.DamageOverTime, CombatCapabilityIds.DamageOverTime);
         Apply(result.Headshots, CombatCapabilityIds.Headshots);
         Apply(result.HeadshotFinalBlows, CombatCapabilityIds.HeadshotFinalBlows);
+        Apply(result.ThrowableKills, CombatCapabilityIds.ThrowableKills);
         Apply(result.KillsByYou, CombatCapabilityIds.KillsByYou);
         Apply(result.ObservedWorldDeaths, CombatCapabilityIds.ObservedWorldDeaths);
         return result;
@@ -1640,7 +1694,7 @@ public static class StatisticsExporter
 
     private static void AppendTotalsHeader(StringBuilder builder, string prefix)
     {
-        builder.Append(prefix).Append(",activation_count,actual_hp_restored");
+        builder.Append(prefix).Append(",activation_count,actual_hp_restored,healing_capture_complete,healing_capture_state,healing_evidence_repaired,healing_evidence_state");
         foreach (var unit in AmountUnits)
         {
             builder.Append(',').Append(GetAmountColumnName(unit));
@@ -1649,11 +1703,16 @@ public static class StatisticsExporter
         builder.AppendLine();
     }
 
-    private static void AppendTotals(StringBuilder builder, AggregateTotals totals)
+    private static void AppendTotals(StringBuilder builder, AggregateTotals totals, StatisticsExportDocument document)
     {
         builder.Append(totals.ActivationCount.ToString(CultureInfo.InvariantCulture))
             .Append(',')
-            .Append(totals.ActualHealthRestored.ToString("R", CultureInfo.InvariantCulture));
+            .Append(totals.ActualHealthRestored.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+            .Append(document.HealingCaptureComplete ? "true" : "false").Append(',')
+            .Append(document.HealingCaptureState).Append(',')
+            .Append(document.HealingEvidenceRepaired ? "true" : "false").Append(',')
+            .Append(document.HealingCaptureComplete && document.HealingCaptureState == AdapterCapabilityState.Supported
+                && !document.HealingEvidenceRepaired ? "Supported" : totals.ActualHealthRestored > 0 ? "Partial" : "Unavailable");
         foreach (var unit in AmountUnits)
         {
             builder.Append(',').Append(ReadAmount(totals, unit).ToString("R", CultureInfo.InvariantCulture));
@@ -1743,6 +1802,7 @@ public static class StatisticsExporter
         WeaponStatistics = WeaponStatisticsReducer.Clone(source.WeaponStatistics),
         CombatStatistics = CombatStatisticsReducer.Clone(source.CombatStatistics),
         EquipmentStatistics = EquipmentStatisticsReducer.Clone(source.EquipmentStatistics),
+        TerminalLoadout = source.TerminalLoadout.Clone(),
         ContainerStatistics = ContainerStatisticsReducer.Clone(source.ContainerStatistics),
         StartingMapId = source.StartingMapId,
         StartingMapDisplayName = source.StartingMapDisplayName,
@@ -1757,6 +1817,7 @@ public static class StatisticsExporter
         HistoricalRouteUnavailable = source.HistoricalRouteUnavailable,
         RouteWasRepairedFromInvalidState = source.RouteWasRepairedFromInvalidState,
         SegmentEventAssociations = source.SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+        HealingCaptureComplete = source.HealingCaptureComplete,
         ItemStatistics = ItemStatisticsAggregateReducer.Clone(source.ItemStatistics),
         Economy = EconomyStatisticsReducer.Clone(source.Economy),
         HistoricalEventAttributionIncomplete = source.HistoricalEventAttributionIncomplete,

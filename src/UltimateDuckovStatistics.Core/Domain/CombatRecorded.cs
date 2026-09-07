@@ -24,6 +24,7 @@ public sealed class CombatMetricCapabilities
     [DataMember(Order = 17)] public MetricAvailability HeadshotFinalBlows { get; set; } = new();
     [DataMember(Order = 18)] public MetricAvailability KillsByYou { get; set; } = new();
     [DataMember(Order = 19)] public MetricAvailability ObservedWorldDeaths { get; set; } = new();
+    [DataMember(Order = 20)] public MetricAvailability ThrowableKills { get; set; } = new();
 }
 
 [DataContract]

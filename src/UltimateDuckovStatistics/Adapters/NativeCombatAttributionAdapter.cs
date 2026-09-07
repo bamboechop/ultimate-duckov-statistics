@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCleanup
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.combat";
-    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v9+patch-stamp-v1";
+    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v10+throwables-v1+patch-stamp-v1";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int MaximumProjectileCorrelations = 2048;
@@ -496,11 +496,12 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         {
             AttackKind = targetIsMain
                 ? CombatAttackKind.Unknown
-                : scope?.IsRanged == true ? CombatAttackKind.Ranged
+                : NativeGrenadeAttribution.Classify(hookSupport.GrenadeExplosion, state.DamageInfo,
+                scope?.IsRanged == true ? CombatAttackKind.Ranged
                 : scope?.IsMelee == true ? CombatAttackKind.Melee
                 : scope?.IsEffect == true || state.DamageInfo.isFromBuffOrEffect ? CombatAttackKind.Effect
                 : ownership == CombatOwnership.Environmental ? CombatAttackKind.Environmental
-                : CombatAttackKind.Unknown,
+                : CombatAttackKind.Unknown),
             CauseKind = cause.Kind,
             CauseId = cause.Id,
             CauseDisplayName = cause.Name,
@@ -934,6 +935,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         return new ResolvedMethods
         {
+            GrenadeExplosion = Exact(typeof(Grenade), "Explode", BindingFlags.Instance | BindingFlags.NonPublic, typeof(void)),
             HealthHurt = Exact(typeof(Health), "Hurt", BindingFlags.Instance | BindingFlags.Public, typeof(bool), typeof(DamageInfo)),
             ProjectileInit = Exact(typeof(Projectile), "Init", BindingFlags.Instance | BindingFlags.Public, typeof(void), typeof(ProjectileContext)),
             ProjectileUpdate = Exact(typeof(Projectile), "Update", BindingFlags.Instance | BindingFlags.NonPublic, typeof(void)),
@@ -953,6 +955,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private static PatchRegistration[] CreateRegistrations(ResolvedMethods m) =>
         new (CombatHook Hook, MethodInfo? Method, HarmonyPatchExpectation[] Expected)[]
         {
+            (CombatHook.GrenadeExplosion, m.GrenadeExplosion, [new("Prefixes", NativeGrenadeAttribution.PrefixMethod), new("Finalizers", NativeGrenadeAttribution.FinalizerMethod)]),
             (CombatHook.HealthHurt, m.HealthHurt, [new("Prefixes", CombatHarmonyCallbacks.HealthPrefixMethod), new("Postfixes", CombatHarmonyCallbacks.HealthPostfixMethod)]),
             (CombatHook.ProjectileInit, m.ProjectileInit, [new("Postfixes", CombatHarmonyCallbacks.ProjectileInitPostfixMethod)]),
             (CombatHook.ProjectileUpdate, m.ProjectileUpdate, [new("Prefixes", CombatHarmonyCallbacks.ProjectileUpdatePrefixMethod), new("Finalizers", CombatHarmonyCallbacks.ProjectileUpdateFinalizerMethod)]),
@@ -970,6 +973,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         switch (registration.Hook)
         {
+            case CombatHook.GrenadeExplosion:
+                patcher.Patch(registration.Original, NativeGrenadeAttribution.PrefixMethod, finalizer: NativeGrenadeAttribution.FinalizerMethod);
+                break;
             case CombatHook.HealthHurt:
                 patcher.Patch(registration.Original, CombatHarmonyCallbacks.HealthPrefixMethod, CombatHarmonyCallbacks.HealthPostfixMethod);
                 break;
@@ -1050,6 +1056,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     private sealed class ResolvedMethods
     {
+        public MethodInfo? GrenadeExplosion { get; set; }
         public MethodInfo? HealthHurt { get; set; }
         public MethodInfo? ProjectileInit { get; set; }
         public MethodInfo? ProjectileUpdate { get; set; }
@@ -1061,6 +1068,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
         public CombatHookSupport CreateHookSupport() => new()
         {
+            GrenadeExplosion = GrenadeExplosion != null,
             HealthHurt = HealthHurt != null,
             ProjectileInit = ProjectileInit != null,
             ProjectileUpdate = ProjectileUpdate != null,
@@ -1087,6 +1095,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     internal enum CombatHook
     {
+        GrenadeExplosion,
         HealthHurt,
         ProjectileInit,
         ProjectileUpdate,
@@ -1102,6 +1111,7 @@ internal static class CombatHookSupportExtensions
 {
     public static bool IsEnabled(this CombatHookSupport support, NativeCombatAttributionAdapter.CombatHook hook) => hook switch
     {
+        NativeCombatAttributionAdapter.CombatHook.GrenadeExplosion => support.GrenadeExplosion,
         NativeCombatAttributionAdapter.CombatHook.HealthHurt => support.HealthHurt,
         NativeCombatAttributionAdapter.CombatHook.ProjectileInit => support.ProjectileInit,
         NativeCombatAttributionAdapter.CombatHook.ProjectileUpdate => support.ProjectileUpdate,
@@ -1117,6 +1127,7 @@ internal static class CombatHookSupportExtensions
     {
         switch (hook)
         {
+            case NativeCombatAttributionAdapter.CombatHook.GrenadeExplosion: support.GrenadeExplosion = false; break;
             case NativeCombatAttributionAdapter.CombatHook.HealthHurt: support.HealthHurt = false; break;
             case NativeCombatAttributionAdapter.CombatHook.ProjectileInit: support.ProjectileInit = false; break;
             case NativeCombatAttributionAdapter.CombatHook.ProjectileUpdate: support.ProjectileUpdate = false; break;
@@ -1130,6 +1141,7 @@ internal static class CombatHookSupportExtensions
 
     public static void DisableHarmonyHooks(this CombatHookSupport support)
     {
+        support.GrenadeExplosion = false;
         support.HealthHurt = false;
         support.ProjectileInit = false;
         support.ProjectileUpdate = false;

@@ -194,6 +194,8 @@ public static class RunReducer
             EconomyStatisticsReducer.Validate(map.Economy);
         }
 
+        PreflightPlayerKillMerge(profile, summary);
+        profile.HealingCaptureComplete &= summary.HealingCaptureComplete;
         profile.Runs.Add(summary);
         AddTotals(profile.RunTotals, summary);
         if (summary.RecordEligible && summary.Outcome is RunOutcome.Extracted or RunOutcome.Died)
@@ -203,6 +205,33 @@ public static class RunReducer
 
         profile.UpdatedUtc = summary.EndedUtc;
         return true;
+    }
+
+    private static void PreflightPlayerKillMerge(ProfileStatistics profile, RunSummary run)
+    {
+        CombatStatisticsReducer.PreflightPlayerKillMerge(profile.RunTotals.CombatStatistics, run.CombatStatistics);
+        EquipmentStatisticsReducer.PreflightPlayerKillMerge(profile.RunTotals.EquipmentStatistics, run.EquipmentStatistics);
+        if (profile.RunTotals.Maps.TryGetValue(run.MapId, out var map))
+        {
+            CombatStatisticsReducer.PreflightPlayerKillMerge(map.CombatStatistics, run.CombatStatistics);
+            EquipmentStatisticsReducer.PreflightPlayerKillMerge(map.EquipmentStatistics, run.EquipmentStatistics);
+        }
+        if (run.HistoricalRouteUnavailable ||
+            run.RouteCapabilities.RouteAwareMapTotals.State != AdapterCapabilityState.Supported
+            && !(run.HistoricalEventAttributionIncomplete && run.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported)) return;
+        // Route segments are separate observations, including repeated map visits.
+        // Simulate their checked addition before publishing any completed-run mutation.
+        foreach (var group in run.Segments.GroupBy(segment => segment.MapId, StringComparer.Ordinal))
+        {
+            profile.RunTotals.RouteMaps.TryGetValue(group.Key, out var existing);
+            var combat = existing == null ? new CombatStatisticsAggregate() : CombatStatisticsReducer.Clone(existing.CombatStatistics);
+            var equipment = existing == null ? new EquipmentStatisticsAggregate() : EquipmentStatisticsReducer.Clone(existing.EquipmentStatistics);
+            foreach (var segment in group)
+            {
+                CombatStatisticsReducer.Merge(combat, segment.CombatStatistics);
+                EquipmentStatisticsReducer.Merge(equipment, segment.EquipmentStatistics, countRunOccurrence: false);
+            }
+        }
     }
 
     private static void AddTotals(RunAggregateTotals totals, RunSummary summary)
@@ -425,6 +454,14 @@ public static class RunReducer
             throw new ArgumentException("Run summary is invalid.", nameof(summary));
         }
 
+        if (summary.SchemaVersion >= 17)
+        {
+            if (summary.TerminalLoadout == null) throw new ArgumentException("Terminal loadout state is missing.", nameof(summary));
+            summary.TerminalLoadout.Validate(summary.Outcome);
+            Persistence.RunDataSchema.Validate(summary.CombatStatistics, summary.EquipmentStatistics);
+            foreach (var segment in summary.Segments)
+                Persistence.RunDataSchema.Validate(segment.CombatStatistics, segment.EquipmentStatistics);
+        }
         WeaponStatisticsReducer.ValidateAggregate(summary.WeaponStatistics);
         CombatStatisticsReducer.ValidateAggregate(summary.CombatStatistics);
         EquipmentStatisticsReducer.ValidateAggregate(summary.EquipmentStatistics);

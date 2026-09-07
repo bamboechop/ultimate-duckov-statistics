@@ -5,9 +5,9 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class ProductInfoTests
 {
     [Fact]
-    public void VersionAndSchemaArePinnedForCraftingResourceConsumption()
+    public void NativeUiVersionRetainsM17WithRunsDataSchema17()
     {
-        Assert.Equal("0.16.0", ProductInfo.Version);
-        Assert.Equal(16, ProductInfo.SchemaVersion);
+        Assert.Equal("0.17.0", ProductInfo.Version);
+        Assert.Equal(18, ProductInfo.SchemaVersion);
     }
 }

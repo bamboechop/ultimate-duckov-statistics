@@ -7,6 +7,8 @@ namespace UltimateDuckovStatistics.Core.Persistence;
 
 public sealed class ProfileOpenResult
 {
+    public AtomicJsonLoadSource LoadSource { get; internal set; }
+
     public bool CreatedNew { get; internal set; }
 
     public bool RotatedGeneration { get; internal set; }
@@ -39,10 +41,29 @@ public sealed class ProfilePersistenceSnapshot
     public string GenerationId => Document.GenerationId;
 
     public long Revision => Document.Revision;
+
 }
 
-public sealed class ProfileRepository
+/// <summary>A successful disk-write receipt, published atomically for read-only UI consumers.</summary>
+public sealed class ProfileSaveReceipt
 {
+    public string GenerationId { get; }
+    public long Revision { get; }
+    public DateTime SavedUtc { get; }
+    internal ProfileSaveReceipt(string generationId, long revision, DateTime savedUtc)
+    { GenerationId = generationId; Revision = revision; SavedUtc = savedUtc; }
+}
+
+public sealed partial class ProfileRepository
+{
+    private static void MigrateEquipmentComposition(ActiveRunCheckpoint checkpoint)
+    {
+        checkpoint.EquipmentStatistics.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
+        foreach (var segment in checkpoint.Segments)
+            segment.EquipmentStatistics.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
+        if (checkpoint.TerminalLoadout?.Snapshot != null)
+            foreach (var totem in checkpoint.TerminalLoadout.Snapshot.Totems) totem.DirectSlotId ??= string.Empty;
+    }
     private static readonly TimeSpan NativeSaveIntentWindow = TimeSpan.FromSeconds(30);
     private readonly string dataRoot;
     private readonly Func<DateTime> utcNow;
@@ -57,6 +78,10 @@ public sealed class ProfileRepository
     private string? completionPersistencePendingRunId;
     private bool capabilitiesConfigured;
     private bool deferredItemPersistenceEnabled;
+    private ProfileSaveReceipt? lastSaveReceipt;
+
+    public ProfileSaveReceipt? LastSaveReceipt => System.Threading.Volatile.Read(ref lastSaveReceipt);
+    public ProfileOpenResult? LastOpenResult { get; private set; }
 
     public ProfileRepository(
         string dataRoot,
@@ -99,6 +124,7 @@ public sealed class ProfileRepository
         var profilePath = GetProfilePath(currentDirectory);
         var loaded = profileStore.Load(profilePath, ProfileMigrator.ValidateRecoveryCandidate);
         result.LoadFailures = loaded.Failures;
+        result.LoadSource = loaded.Source;
 
         if (loaded.Value == null)
         {
@@ -178,6 +204,7 @@ public sealed class ProfileRepository
             EnsureDeferredItemPersistenceEnabled();
         }
         StartSession();
+        LastOpenResult = result;
         return result;
     }
 
@@ -353,6 +380,7 @@ public sealed class ProfileRepository
             throw new ArgumentNullException(nameof(snapshot));
         }
 
+        pendingUserResetRollback?.Restore();
         EnsureSchemaCanBeSaved(snapshot.Document);
         var validationFailure = ProfileMigrator.ValidateRecoveryCandidate(snapshot.Document);
         if (!string.IsNullOrWhiteSpace(validationFailure))
@@ -361,6 +389,8 @@ public sealed class ProfileRepository
                 $"Deferred profile snapshot failed semantic validation: {validationFailure}");
         }
         profileStore.Save(snapshot.Path, snapshot.Document);
+        System.Threading.Volatile.Write(ref lastSaveReceipt,
+            new ProfileSaveReceipt(snapshot.GenerationId, snapshot.Revision, EnsureUtc(utcNow())));
     }
 
     private bool Record(ItemUseRecorded itemUse, bool persistImmediately)
@@ -458,6 +488,7 @@ public sealed class ProfileRepository
             throw new ArgumentException("Active-run checkpoint does not match the current generation.", nameof(checkpoint));
         }
 
+        if (checkpoint.SchemaVersion == ProductInfo.SchemaVersion) RunDataSchema.Validate(checkpoint);
         ValidateAndNormalizeRouteCheckpoint(checkpoint, requireCurrentSchemaRoots: checkpoint.SchemaVersion >= 8);
 
         checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
@@ -538,8 +569,11 @@ public sealed class ProfileRepository
         if (checkpoint.PendingTerminalOutcome is { } terminalOutcome
             && !Enum.IsDefined(typeof(RunOutcome), terminalOutcome))
             throw new ArgumentException("Active-run checkpoint contains an invalid pending terminal outcome.", nameof(checkpoint));
+        if (checkpoint.SchemaVersion < 17) RunDataSchema.Migrate(checkpoint);
+        if (checkpoint.SchemaVersion < 18) MigrateEquipmentComposition(checkpoint);
         RunReducer.Validate(checkpoint.ToRecoverySummary());
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
+        pendingUserResetRollback?.Restore();
         activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
     }
 
@@ -579,6 +613,15 @@ public sealed class ProfileRepository
         if (applied || clearedDeferredWatermark || retryingFailedPersistence)
             completionPersistencePendingRunId = null;
         return applied || retryingFailedPersistence;
+    }
+
+    public void MarkHealingCaptureIncomplete()
+    {
+        var profile = Current;
+        if (!profile.Statistics.HealingCaptureComplete) return;
+        profile.Statistics.HealingCaptureComplete = false;
+        profile.Revision++;
+        profile.UpdatedUtc = EnsureUtc(utcNow());
     }
 
     public void SetCapabilitySnapshot(
@@ -669,6 +712,12 @@ public sealed class ProfileRepository
         if (string.IsNullOrWhiteSpace(reason))
         {
             throw new ArgumentException("A generation rotation reason is required.", nameof(reason));
+        }
+
+        if (reason == "UserReset" && current != null && currentDirectory != null)
+        {
+            RotateUserProfile(identity);
+            return;
         }
 
         if (current == null || currentDirectory == null)
@@ -925,6 +974,11 @@ public sealed class ProfileRepository
 
     private string? ValidateActiveRunCheckpointForRecovery(ActiveRunCheckpoint checkpoint)
     {
+        if (checkpoint.SchemaVersion == ProductInfo.SchemaVersion)
+        {
+            try { RunDataSchema.Validate(checkpoint); }
+            catch (ArgumentException exception) { return $"Invalid schema-17 checkpoint: {exception.Message}"; }
+        }
         try
         {
             ValidateAndNormalizeRouteCheckpoint(checkpoint, requireCurrentSchemaRoots: checkpoint.SchemaVersion >= 8);
@@ -1078,6 +1132,9 @@ public sealed class ProfileRepository
             }
             checkpoint.SchemaVersion = 14;
         }
+
+        if (checkpoint.SchemaVersion < 17) RunDataSchema.Migrate(checkpoint);
+        if (checkpoint.SchemaVersion < 18) MigrateEquipmentComposition(checkpoint);
 
         if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
         {
@@ -1313,12 +1370,15 @@ public sealed class ProfileRepository
             throw new InvalidOperationException("No current profile can be saved.");
         }
 
+        pendingUserResetRollback?.Restore();
         EnsureSchemaCanBeSaved(current);
         current.SchemaVersion = ProductInfo.SchemaVersion;
         current.Statistics.SchemaVersion = ProductInfo.SchemaVersion;
         current.Statistics.SaveGenerationId = current.GenerationId;
         current.Statistics.Holdings.SaveGenerationId = current.GenerationId;
         profileStore.Save(GetProfilePath(currentDirectory), current);
+        System.Threading.Volatile.Write(ref lastSaveReceipt,
+            new ProfileSaveReceipt(current.GenerationId, current.Revision, EnsureUtc(utcNow())));
     }
 
     private static ProfileDocument CloneForDeferredPersistence(ProfileDocument source)
@@ -1341,6 +1401,7 @@ public sealed class ProfileRepository
                 SaveGenerationId = statistics.SaveGenerationId,
                 CreatedUtc = statistics.CreatedUtc,
                 UpdatedUtc = statistics.UpdatedUtc,
+                HealingCaptureComplete = statistics.HealingCaptureComplete,
                 Overall = CloneTotals(statistics.Overall),
                 Items = statistics.Items.ToDictionary(
                     entry => entry.Key,

@@ -47,9 +47,20 @@ namespace ItemStatsSystem.Items
 {
     public sealed class Slot
     {
+        public List<NativeSlotTag> requireTags { get; } = new();
         public string Key { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
-        public ItemStatsSystem.Item? Content { get; set; }
+        private ItemStatsSystem.Item? content;
+        public bool ThrowOnContentRead { get; set; }
+        public ItemStatsSystem.Item? Content
+        {
+            get => ThrowOnContentRead ? throw new InvalidOperationException("Simulated unreadable native slot.") : content;
+            set => content = value;
+        }
+    }
+    public sealed class NativeSlotTag
+    {
+        public string name { get; set; } = string.Empty;
     }
 }
 
@@ -70,6 +81,8 @@ public sealed class CharacterMainControl
     public ItemStatsSystem.Item? CharacterItem { get; set; }
     public DuckovItemAgent? CurrentHoldItemAgent { get; set; }
     public Health Health { get; set; } = new();
+    public CharacterBuffManager? BuffManager { get; set; }
+    public CharacterBuffManager? GetBuffManager() => BuffManager;
     public float CharacterWalkSpeed { get; set; } = 4;
     public float CharacterRunSpeed { get; set; } = 8;
     public float DashSpeed { get; set; } = 12;
@@ -103,10 +116,24 @@ public sealed class CharacterMainControl
 public sealed class Health
 {
     public bool IsDead { get; set; }
+    public float CurrentHealth { get; set; }
+    public float MaxHealth { get; set; } = 100;
+    public bool IsMainCharacterHealth { get; set; }
+    public void AddHealth(float amount) => CurrentHealth = Math.Min(MaxHealth, CurrentHealth + amount);
 }
 
 public sealed class DamageInfo
 {
+    public CharacterMainControl? fromCharacter;
+    public int fromWeaponItemID;
+    public bool isExplosion;
+}
+
+public sealed class Grenade
+{
+    public DamageInfo damageInfo = new();
+    public bool createExplosion = true;
+    public void SetWeaponIdInfo(int typeId) => damageInfo.fromWeaponItemID = typeId;
 }
 
 public sealed class EvacuationInfo
@@ -126,7 +153,8 @@ namespace UnityEngine
     {
         public static void Log(object message) { }
         public static void LogWarning(object message) { }
-        public static void LogException(Exception exception) { }
+        public static Action<Exception>? ExceptionLogged { get; set; }
+        public static void LogException(Exception exception) => ExceptionLogged?.Invoke(exception);
     }
 
     public readonly struct Vector3
@@ -414,6 +442,8 @@ public static class RaidUtilities
         CurrentRaid = raid;
         OnRaidEnd?.Invoke(raid);
     }
+
+    public static void RaiseRaidDead() => OnRaidDead?.Invoke(CurrentRaid);
 
     public static void ResetNativeState()
     {

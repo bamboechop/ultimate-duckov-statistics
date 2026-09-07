@@ -19,6 +19,18 @@ public sealed class ProfileExportResult
 
 public static class ProfileExportWriter
 {
+    public static ProfileExportResult Write(ProfilePersistenceSnapshot snapshot, DateTime exportedUtc)
+    {
+        if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+        return Write(snapshot.Document, snapshot.Path, exportedUtc);
+    }
+
+    public static ProfileExportResult WriteToRoot(ProfilePersistenceSnapshot snapshot, string exportRoot, DateTime exportedUtc)
+    {
+        if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+        return WriteToRoot(snapshot.Document, exportRoot, exportedUtc);
+    }
+
     public static ProfileExportResult Write(
         ProfileDocument profile,
         string currentProfilePath,
@@ -31,10 +43,14 @@ public static class ProfileExportWriter
 
         var currentDirectory = Path.GetDirectoryName(Path.GetFullPath(currentProfilePath))
             ?? throw new ArgumentException("Profile path has no directory.", nameof(currentProfilePath));
+        return WriteToRoot(profile, Path.Combine(currentDirectory, "exports"), exportedUtc);
+    }
+
+    private static ProfileExportResult WriteToRoot(ProfileDocument profile, string exportRoot, DateTime exportedUtc)
+    {
         exportedUtc = exportedUtc.Kind == DateTimeKind.Utc ? exportedUtc : exportedUtc.ToUniversalTime();
         var exportDirectory = Path.Combine(
-            currentDirectory,
-            "exports",
+            Path.GetFullPath(exportRoot),
             $"{exportedUtc.ToString("yyyyMMddTHHmmssfffffffZ", CultureInfo.InvariantCulture)}-{profile.GenerationId}");
         Directory.CreateDirectory(exportDirectory);
         var bundle = StatisticsExporter.Create(profile, exportedUtc);
@@ -45,6 +61,7 @@ public static class ProfileExportWriter
             WriteAtomicText(exportDirectory, "groups.csv", bundle.GroupsCsv),
             WriteAtomicText(exportDirectory, "items.csv", bundle.ItemsCsv),
             WriteAtomicText(exportDirectory, "runs.csv", bundle.RunsCsv),
+            WriteAtomicText(exportDirectory, "terminal_loadouts.csv", StatisticsExporter.CreateTerminalLoadoutsCsv(profile.Statistics.Runs)),
             WriteAtomicText(exportDirectory, "run_totals.csv", bundle.RunTotalsCsv),
             WriteAtomicText(exportDirectory, "map_totals.csv", bundle.MapTotalsCsv),
             WriteAtomicText(exportDirectory, "records.csv", bundle.RecordsCsv),
@@ -54,6 +71,9 @@ public static class ProfileExportWriter
             WriteAtomicText(exportDirectory, "ammunition_totals.csv", bundle.AmmunitionTotalsCsv),
             WriteAtomicText(exportDirectory, "weapon_ammunition_pairs.csv", bundle.WeaponAmmunitionPairsCsv),
             WriteAtomicText(exportDirectory, "equipment_totals.csv", bundle.EquipmentTotalsCsv),
+            WriteAtomicText(exportDirectory, "loadout_definitions.csv", bundle.LoadoutDefinitionsCsv),
+            WriteAtomicText(exportDirectory, "active_totem_set_definitions.csv", bundle.ActiveTotemSetDefinitionsCsv),
+            WriteAtomicText(exportDirectory, "totem_state_durations.csv", bundle.TotemStateDurationsCsv),
             WriteAtomicText(exportDirectory, "character_equipment_slots.csv", bundle.CharacterEquipmentSlotsCsv),
             WriteAtomicText(exportDirectory, "equipped_item_nested_slots.csv", bundle.EquippedItemNestedSlotsCsv),
             WriteAtomicText(exportDirectory, "recurring_loadouts.csv", bundle.RecurringLoadoutsCsv),

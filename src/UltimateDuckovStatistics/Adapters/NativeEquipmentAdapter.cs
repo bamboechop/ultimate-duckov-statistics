@@ -122,6 +122,30 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
         ObserveNow();
     }
 
+    public TerminalLoadout CaptureTerminalLoadout(RunOutcome outcome)
+    {
+        // Read the native owner afresh, without changing the periodic cache, durations,
+        // capability publication, or disk state. Death has already set Health.IsDead.
+        var main = CharacterMainControl.Main;
+        if (!callbackLifetime.CanHandleCallbacks || !runActiveProvider()
+            || main == null || !main.IsMainCharacter || main.CharacterItem == null)
+            return new TerminalLoadout
+            {
+                CapturedOutcome = outcome,
+                Provenance = "Fresh terminal equipment unavailable: active main character/item tree or equipment adapter is missing."
+            };
+        var warnings = new List<string>();
+        var snapshot = NativeEquipmentSnapshotBuilder.Build(main, main.CharacterItem, warnings.Add);
+        var result = TerminalLoadout.Captured(snapshot, outcome,
+            outcome == RunOutcome.Died
+                ? "Fresh live equipment tree at RaidUtilities.OnRaidDead, before native teardown."
+                : "Fresh live equipment tree at LevelManager.OnEvacuated, before terminal application.");
+        if (result.State == TerminalLoadoutState.Partial)
+            result.Provenance += " Partial equipment tree: unreadable, duplicate, or bounded slot evidence; inspect native equipment contracts. "
+                                 + string.Join("; ", warnings);
+        return result;
+    }
+
     public EquipmentEventAssociation CaptureAssociation()
     {
         if (!callbackLifetime.CanHandleCallbacks || !runActiveProvider()) return new EquipmentEventAssociation();

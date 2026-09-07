@@ -24,6 +24,7 @@ public static class CombatCapabilityIds
     public const string Headshots = "native-headshots";
     public const string HeadshotFinalBlows = "native-headshot-final-blows";
     public const string KillsByYou = "native-proven-player-final-blows";
+    public const string ThrowableKills = "native-throwable-player-final-blows";
     public const string ObservedWorldDeaths = "native-observed-world-deaths";
 }
 
@@ -44,6 +45,7 @@ public sealed class CombatMetricTotals
     [DataMember(Order = 12)] public long KillsByYou { get; set; }
     [DataMember(Order = 13)] public long ObservedWorldDeaths { get; set; }
     [DataMember(Order = 14)] public long LegacyUnclassifiedDeaths { get; set; }
+    [DataMember(Order = 15)] public PlayerKillPartition PlayerKills { get; set; } = new();
 }
 
 [DataContract]
@@ -83,6 +85,7 @@ public static class CombatStatisticsReducer
     {
         ValidateAggregate(target);
         Validate(value);
+        PreflightPlayerKills(target, value);
         target.Capabilities = MergeCapabilities(target.Capabilities, value.Capabilities);
         Add(target.Totals, value);
 
@@ -109,6 +112,7 @@ public static class CombatStatisticsReducer
     {
         ValidateAggregate(target);
         ValidateAggregate(source);
+        PreflightPlayerKillMerge(target, source);
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
         target.HistoricalOwnershipUnavailable |= source.HistoricalOwnershipUnavailable;
         target.HistoricalOwnershipProvenance = MergeProvenance(
@@ -323,6 +327,7 @@ public static class CombatStatisticsReducer
         Headshots = Clone(source.Headshots),
         HeadshotFinalBlows = Clone(source.HeadshotFinalBlows),
         KillsByYou = Clone(source.KillsByYou),
+        ThrowableKills = Clone(source.ThrowableKills),
         ObservedWorldDeaths = Clone(source.ObservedWorldDeaths)
     };
 
@@ -407,6 +412,61 @@ public static class CombatStatisticsReducer
         yield return value.PlayerDeaths; yield return value.Headshots; yield return value.HeadshotFinalBlows;
     }
 
+    public static IEnumerable<CombatMetricTotals> PlayerKillScopes(CombatStatisticsAggregate value)
+    {
+        yield return value.Totals;
+        foreach (var rows in AllRows(value))
+            foreach (var row in rows.Values) yield return row.Totals;
+    }
+
+    public static void ValidatePlayerKills(CombatStatisticsAggregate value)
+    {
+        foreach (var totals in PlayerKillScopes(value))
+        {
+            if (totals.PlayerKills == null) throw new ArgumentException("Player-kill partition is missing.");
+            totals.PlayerKills.Validate(totals.KillsByYou);
+        }
+    }
+
+    public static void PreflightPlayerKills(CombatStatisticsAggregate target, CombatRecorded value)
+    {
+        Validate(value);
+        if (value.KillsByYou == 0) return;
+        Check(target.Totals);
+        if (value.TargetIsEnemy && (value.ActualDamageToTarget > 0 || value.KillsByYou > 0
+                                   || value.ObservedWorldDeaths > 0 || value.LegacyUnclassifiedDeaths > 0))
+        {
+            CheckRow(target.Enemies, value.TargetId);
+            CheckRow(target.Families, value.TargetFamilyId);
+        }
+        if (value.ActualDamageReceived > 0 || value.PlayerDeaths > 0) CheckRow(target.Killers, value.AttackerId);
+        CheckRow(target.Causes, value.CauseId);
+        CheckRow(target.Weapons, value.WeaponId);
+        CheckRow(target.Ammunition, value.AmmunitionId);
+        CheckRow(target.Ownership, CombatObservationPolicy.OwnershipDisplayName(value.Ownership));
+
+        void CheckRow(Dictionary<string, CombatBreakdownAggregate> rows, string id)
+        {
+            if (rows.TryGetValue(string.IsNullOrWhiteSpace(id) ? "unknown" : id, out var row)) Check(row.Totals);
+        }
+        void Check(CombatMetricTotals totals)
+        {
+            totals.PlayerKills.Validate(totals.KillsByYou);
+            _ = checked(totals.KillsByYou + value.KillsByYou);
+        }
+    }
+
+    public static void PreflightPlayerKillMerge(CombatStatisticsAggregate target, CombatStatisticsAggregate source)
+    {
+        ValidatePlayerKills(target);
+        ValidatePlayerKills(source);
+        _ = checked(target.Totals.KillsByYou + source.Totals.KillsByYou);
+        foreach (var pair in AllRows(target).Zip(AllRows(source), (left, right) => (left, right)))
+            foreach (var entry in pair.right)
+                if (pair.left.TryGetValue(entry.Key, out var existing))
+                    _ = checked(existing.Totals.KillsByYou + entry.Value.Totals.KillsByYou);
+    }
+
     private static IEnumerable<Dictionary<string, CombatBreakdownAggregate>> AllRows(CombatStatisticsAggregate value)
     {
         yield return value.Enemies; yield return value.Killers; yield return value.Families;
@@ -489,7 +549,11 @@ public static class CombatStatisticsReducer
         target.MeleeSwings = SaturatingAdd(target.MeleeSwings, value.MeleeSwings);
         target.MeleeHits = SaturatingAdd(target.MeleeHits, value.MeleeHits);
         target.EnemiesKilled = SaturatingAdd(target.EnemiesKilled, value.EnemiesKilled);
-        target.KillsByYou = SaturatingAdd(target.KillsByYou, value.KillsByYou);
+        if (value.KillsByYou > 0)
+        {
+            target.PlayerKills = PlayerKillPartition.Merge(target.PlayerKills, PlayerKillPartition.FromEvent(value));
+            target.KillsByYou = checked(target.KillsByYou + value.KillsByYou);
+        }
         target.ObservedWorldDeaths = SaturatingAdd(target.ObservedWorldDeaths, value.ObservedWorldDeaths);
         target.LegacyUnclassifiedDeaths = SaturatingAdd(target.LegacyUnclassifiedDeaths, value.LegacyUnclassifiedDeaths);
         target.PlayerDeaths = SaturatingAdd(target.PlayerDeaths, value.PlayerDeaths);
@@ -507,7 +571,8 @@ public static class CombatStatisticsReducer
         target.MeleeSwings = SaturatingAdd(target.MeleeSwings, source.MeleeSwings);
         target.MeleeHits = SaturatingAdd(target.MeleeHits, source.MeleeHits);
         target.EnemiesKilled = SaturatingAdd(target.EnemiesKilled, source.EnemiesKilled);
-        target.KillsByYou = SaturatingAdd(target.KillsByYou, source.KillsByYou);
+        target.PlayerKills = PlayerKillPartition.Merge(target.PlayerKills, source.PlayerKills);
+        target.KillsByYou = checked(target.KillsByYou + source.KillsByYou);
         target.ObservedWorldDeaths = SaturatingAdd(target.ObservedWorldDeaths, source.ObservedWorldDeaths);
         target.LegacyUnclassifiedDeaths = SaturatingAdd(target.LegacyUnclassifiedDeaths, source.LegacyUnclassifiedDeaths);
         target.PlayerDeaths = SaturatingAdd(target.PlayerDeaths, source.PlayerDeaths);
@@ -534,6 +599,7 @@ public static class CombatStatisticsReducer
         DamageOverTime = Merge(a.DamageOverTime, b.DamageOverTime),
         Headshots = Merge(a.Headshots, b.Headshots),
         HeadshotFinalBlows = Merge(a.HeadshotFinalBlows, b.HeadshotFinalBlows),
+        ThrowableKills = Merge(a.ThrowableKills, b.ThrowableKills),
         KillsByYou = Merge(a.KillsByYou, b.KillsByYou),
         ObservedWorldDeaths = Merge(a.ObservedWorldDeaths, b.ObservedWorldDeaths)
     };
@@ -563,6 +629,7 @@ public static class CombatStatisticsReducer
         MeleeHits = value.MeleeHits,
         EnemiesKilled = value.EnemiesKilled,
         KillsByYou = value.KillsByYou,
+        PlayerKills = value.PlayerKills?.Clone()!,
         ObservedWorldDeaths = value.ObservedWorldDeaths,
         LegacyUnclassifiedDeaths = value.LegacyUnclassifiedDeaths,
         PlayerDeaths = value.PlayerDeaths,
