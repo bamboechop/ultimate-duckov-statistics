@@ -263,7 +263,10 @@ internal sealed partial class RetainedStatisticsShell
             }
             private void BindControl(Control c, EquipmentRenderRow r)
             {
-                c.Tooltip.OnPointerExit(null!); c.Tooltip.text = string.Empty;
+                var tooltipText = r.Kind == EquipmentRowKind.Slot
+                    ? (r.Slot?.Text ?? UiText.Get("ui.unavailable")).Replace("<", "‹").Replace(">", "›") : string.Empty;
+                if (!string.Equals(c.Tooltip.text, tooltipText, StringComparison.Ordinal))
+                { c.Tooltip.OnPointerExit(null!); c.Tooltip.text = tooltipText; }
                 c.Row = r; c.Button.Binding.Bind(owner.selection.Snapshot!.GenerationId, r.Id);
                 c.Button.BindInteractionOverlay(c.Background, r.Actionable);
                 c.Rect.GetComponent<ButtonAnimation>().enabled = r.Actionable;
@@ -312,7 +315,6 @@ internal sealed partial class RetainedStatisticsShell
                 if (isSlot)
                 {
                     c.Background.raycastTarget = true;
-                    c.Tooltip.text = (r.Slot?.Text ?? UiText.Get("ui.unavailable")).Replace("<", "‹").Replace(">", "›");
                     var count = r.Slot?.Attachments.Count ?? 0;
                     while (c.Dots.Count < count)
                     {

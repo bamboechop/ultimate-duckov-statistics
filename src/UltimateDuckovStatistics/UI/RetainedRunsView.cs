@@ -433,10 +433,11 @@ internal sealed partial class RetainedStatisticsShell
             {
                 var control = slots[i]; var item = run != null && i < run.Slots.Count ? run.Slots[i] : null;
                 control.Root.gameObject.SetActive(i < count);
-                control.Tooltip.OnPointerExit(null!);
                 if (i >= count) continue;
                 control.Button.interactable = item?.CanOpenDetails == true;
-                control.Tooltip.text = SafeTooltip(item == null ? UiText.Get("ui.unavailable") + "\n" + run!.EquipmentState : item.Text + "\n" + run!.EquipmentState);
+                var tooltipText = SafeTooltip(item == null ? UiText.Get("ui.unavailable") + "\n" + run!.EquipmentState : item.Text + "\n" + run!.EquipmentState);
+                if (!string.Equals(control.Tooltip.text, tooltipText, StringComparison.Ordinal))
+                { control.Tooltip.OnPointerExit(null!); control.Tooltip.text = tooltipText; }
                 var sprite = item == null ? null : RunsItemIconPolicy.Resolve(item, icons.ResolveAvailable);
                 control.Icon.sprite = sprite; control.Icon.enabled = sprite != null;
                 NativeTotemIconAppearance.Apply(control.Icon, item?.ItemId);
