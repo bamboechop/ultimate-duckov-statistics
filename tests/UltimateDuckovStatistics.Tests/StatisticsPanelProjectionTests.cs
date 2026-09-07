@@ -158,11 +158,11 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedDimmerPolicy.Red);
         Assert.Equal(0f, RetainedDimmerPolicy.Green);
         Assert.Equal(0f, RetainedDimmerPolicy.Blue);
-        Assert.Equal(0.50f, RetainedDimmerPolicy.VisualAlpha);
+        Assert.Equal(0.75f, RetainedDimmerPolicy.VisualAlpha);
         Assert.True(RetainedDimmerPolicy.BlocksRaycasts);
-        Assert.True(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.50f, blockerRaycastTarget: true));
+        Assert.True(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.75f, blockerRaycastTarget: true));
         Assert.False(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.25f, blockerRaycastTarget: true));
-        Assert.False(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.50f, blockerRaycastTarget: false));
+        Assert.False(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.75f, blockerRaycastTarget: false));
     }
 
     [Fact]

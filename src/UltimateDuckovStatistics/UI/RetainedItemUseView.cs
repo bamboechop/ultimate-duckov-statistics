@@ -249,6 +249,7 @@ internal sealed partial class RetainedStatisticsShell
                     c.Name.text = row.Name; c.Name.fontSize = row.Size;
                     c.Name.color = row.Kind is ItemUseRowKind.Notice or ItemUseRowKind.Statistic ? Muted : Color.white;
                     c.Name.alignment = row.Kind is ItemUseRowKind.Statistic or ItemUseRowKind.Filter ? TextAlignmentOptions.Top : TextAlignmentOptions.TopLeft;
+                    if (row.Kind == ItemUseRowKind.Run) c.Name.alignment = TextAlignmentOptions.MidlineLeft;
                     Place(c.Name.rectTransform, row.NameLeft, row.NameTop, row.NameWidth, row.NameHeight);
                     if (row.Kind == ItemUseRowKind.Heading) CombatNativeTextMeasurement.AlignInkTop(c.Name);
                     c.Value.text = row.Value; c.Value.color = Color.white;
@@ -291,6 +292,7 @@ internal sealed partial class RetainedStatisticsShell
                 var layout = RetainedRunBadgePolicy.CreateCanvasLayout(transform, badge.Presentation.State!.Value,
                     Math.Max(1, width - RetainedRunBadgePolicy.FixedHorizontalContentPixels));
                 badge.Label.fontSize = RetainedRunBadgePolicy.ReferenceFontSize; badge.Label.enableWordWrapping = true;
+                badge.Label.alignment = TextAlignmentOptions.MidlineLeft;
                 layout.Height = layout.LabelHeight = Math.Max(layout.Height,
                     badge.Label.GetPreferredValues(badge.Label.text, layout.LabelWidth, float.PositiveInfinity).y + 6);
                 layout.IconTop = (layout.Height - layout.IconHeight) / 2;

@@ -235,12 +235,13 @@ public sealed class RetainedEconomyTests
         var money = d.Elements.Single(e => e.Text == "Money flow"); var cash = d.Elements.Single(e => e.Text == "Cash flow");
         if (stacked) Assert.True(cash.Y > money.Y + money.Height); else Assert.Equal(money.Y, cash.Y);
     }
-    [Fact] public void ExpandedRecentCardHasExactlyTwoPeerNetsAndCenteredStyledRoute()
+    [Fact] public void ExpandedRecentCardHasPeerNetsAndSeparateBottomRightRoute()
     {
         var p = Profile(); p.Statistics.Runs.Add(Run("a")); var s = new EconomySelection(); s.Refresh(Present(p)); var d = Recent(s);
         var route = Assert.Single(d.Elements, e => e.Kind == EconomyElementKind.Route);
         var title = d.Elements.Single(e => e.Id == "run:a:title");
-        Assert.Equal(title.Y + title.Height / 2, route.Y + route.Height / 2, 3);
+        Assert.True(route.Y >= d.Elements.Single(e => e.Id == "run:a:cash:label").Y + d.Elements.Single(e => e.Id == "run:a:cash:label").Height);
+        Assert.Equal(title.Y + title.Height / 2, d.Elements.Single(e => e.Kind == EconomyElementKind.Badge).Y + d.Elements.Single(e => e.Kind == EconomyElementKind.Badge).Height / 2, 3);
         Assert.Equal(20, 780 - 30 - route.X - route.Width, 3);
         Assert.Equal(2, d.Elements.Count(e => e.Id is "run:a:money:value" or "run:a:cash:value"));
         Assert.DoesNotContain(d.Elements, e => e.Text.Contains("acquired", StringComparison.OrdinalIgnoreCase));

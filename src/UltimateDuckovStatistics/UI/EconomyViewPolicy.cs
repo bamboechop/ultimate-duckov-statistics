@@ -54,7 +54,7 @@ internal static class EconomyLayoutPolicy
 }
 
 internal enum EconomyElementKind { Text, RunToggle, Route, Badge, MoneyIcon, CashIcon, Chevron }
-internal enum EconomyTextAlignment { Left, Center, Right }
+internal enum EconomyTextAlignment { Left, Center, Right, MiddleLeft }
 
 internal sealed class EconomyElement
 {
@@ -128,14 +128,14 @@ internal sealed class EconomyDocument
         var right = Flow(snapshot.Cash, stacked ? 30 : 30 + flowWidth + 40, stacked ? left + 40 : y, flowWidth);
         Height = Math.Max(left, right) + 30;
     }
-    private float MetricHeight(string name, string value, string caption, float width) => 28 + measure(name, Math.Max(1, width - 30), 28)
+    private float MetricHeight(string name, string value, string caption, float width) => 28 + measure(RunsViewStyle.Uppercase(name), Math.Max(1, width - 30), 28)
         + 6 + measure(value, Math.Max(1, width - 30), 42) + (caption.Length == 0 ? 0 : 10 + measure(caption, Math.Max(1, width - 30), 22));
     private void Metric(string name, string value, string caption, float x, float y, float width, float height, string id)
     {
         Surfaces.Add(new EconomySurface(x, y, width, height));
         var top = y + 14;
-        top += Label(name, x + 15, top, width - 30, 28, alignment: EconomyTextAlignment.Center, id: id + ":label") + 6;
-        top += Label(value, x + 15, top, width - 30, 42, alignment: EconomyTextAlignment.Center, id: id + ":value");
+        top += Label(value, x + 15, top, width - 30, 42, alignment: EconomyTextAlignment.Center, id: id + ":value") + 6;
+        top += Label(RunsViewStyle.Uppercase(name), x + 15, top, width - 30, 28, true, alignment: EconomyTextAlignment.Center, id: id + ":label");
         if (caption.Length > 0) Label(caption, x + 15, top + 10, width - 30, 22, true, id: id + ":caption");
     }
     private string Value(long? value, bool signed = false) => value.HasValue ? EconomyPresentationFactory.Number(value, signed) : text("ui.unavailable");
@@ -223,24 +223,19 @@ internal sealed class EconomyDocument
             var routeHeight = Math.Max(RetainedOverviewLatestRunViewRunPolicy.HeightPixels,
                 measure(routeText, Math.Max(1, routeWidth - 2 * RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels), RetainedOverviewLatestRunViewRunPolicy.ReferenceFontSize) + 12);
             var top = y + 12;
-            // Compact collapsed history follows Runs. Expansion places View run at the
-            // right inset, vertically centered against the wrapping map title.
-            var inlineTitle = !selected && inner - badgeWidth - 85 >= 180;
-            var titleLeft = inlineTitle ? 77 + badgeWidth + 12 : 50;
-            var titleTop = inlineTitle ? top : top + badgeHeight + 8;
-            var titleWidth = Math.Max(1, selected ? inner - routeWidth - 60 : 30 + inner - titleLeft - 20);
-            var titleHeight = Math.Max(selected ? routeHeight : 0, measure(run.Title, titleWidth, 34));
-            var metaTop = Math.Max(top + badgeHeight, titleTop + titleHeight) + 8;
+            var titleLeft = 77 + badgeWidth + 12;
+            var titleWidth = Math.Max(1, 30 + inner - titleLeft - 20);
+            var titleHeight = measure(run.Title, titleWidth, 34);
+            var bandHeight = Math.Max(badgeHeight, titleHeight);
+            var metaTop = top + bandHeight + 8;
             var metaHeight = measure(run.Metadata, Math.Max(1, inner - 40), 22);
-            var routeTop = titleTop + (titleHeight - routeHeight) / 2;
             var headerHeight = Math.Max(96, metaTop + metaHeight - y + 12);
             Add(new EconomyElement { Kind = EconomyElementKind.RunToggle, Id = run.RunId, Selected = selected }, 30, y, inner, headerHeight);
             Add(new EconomyElement { Kind = EconomyElementKind.Chevron, Text = "›", Selected = selected },
-                45, top, 24, measure("›", 24, 28));
-            Add(new EconomyElement { Kind = EconomyElementKind.Badge, Outcome = run.Outcome, Text = badgeText }, 77, top, badgeWidth, badgeHeight);
-            Label(run.Title, titleLeft, titleTop + (titleHeight - measure(run.Title, titleWidth, 34)) / 2, titleWidth, 34, id: "run:" + run.RunId + ":title");
+                45, top, 24, bandHeight);
+            Add(new EconomyElement { Kind = EconomyElementKind.Badge, Outcome = run.Outcome, Text = badgeText }, 77, top + (bandHeight - badgeHeight) / 2, badgeWidth, badgeHeight);
+            Add(new EconomyElement { Text = run.Title, Size = 34, Alignment = EconomyTextAlignment.MiddleLeft, Id = "run:" + run.RunId + ":title" }, titleLeft, top, titleWidth, bandHeight);
             Label(run.Metadata, 50, metaTop, inner - 40, 22, !selected, id: "run:" + run.RunId + ":metadata");
-            if (selected) Add(new EconomyElement { Kind = EconomyElementKind.Route, Id = run.RunId, Text = routeText }, 30 + inner - routeWidth - 20, routeTop, routeWidth, routeHeight);
             y += headerHeight;
             if (selected)
             {
@@ -252,6 +247,8 @@ internal sealed class EconomyDocument
                 Metric(moneyName, Value(run.Money.Totals.Net, true), run.Money.Notice, 50, y, mw, mh, "run:" + run.RunId + ":money");
                 Metric(cashName, Value(run.Cash.Totals.Net, true), run.Cash.Notice, 50 + mw + 10, y, mw, mh, "run:" + run.RunId + ":cash");
                 y += mh + 20;
+                Add(new EconomyElement { Kind = EconomyElementKind.Route, Id = run.RunId, Text = routeText }, 30 + inner - routeWidth - 20, y, routeWidth, routeHeight);
+                y += routeHeight + 20;
                 Surfaces.Add(new EconomySurface(30, start, inner, y - start));
             }
             y += EconomyLayoutPolicy.RowGap;

@@ -23,8 +23,8 @@ internal static class NativeItemClassifier
                     result.AppliesPositiveHealing = true;
                     break;
                 case FoodDrink foodDrink:
-                    result.AppliesFoodEnergy |= foodDrink.energyValue != 0;
-                    result.AppliesDrinkHydration |= foodDrink.waterValue != 0;
+                    result.AppliesFoodEnergy |= foodDrink.energyValue > 0;
+                    result.AppliesDrinkHydration |= foodDrink.waterValue > 0;
                     break;
                 case AddBuff addBuff:
                     result.AppliesBuff = true;

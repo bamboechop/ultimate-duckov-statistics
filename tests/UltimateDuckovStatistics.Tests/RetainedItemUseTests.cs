@@ -427,7 +427,9 @@ public sealed class RetainedItemUseTests
         var header = document.Rows.Single(row => row.Id == "run:r"); var route = document.Rows.Single(row => row.Id == "route:r");
         Assert.Equal(RetainedRunBadgeState.Extracted, header.Outcome); Assert.True(header.Expandable); Assert.True(route.Actionable);
         Assert.True(route.X + route.Width < header.X + header.Width);
-        Assert.Equal(header.Y + header.NameTop + header.NameHeight / 2, route.Y + route.Height / 2, precision: 3);
+        Assert.True(route.Y >= header.Y + header.Height);
+        Assert.Equal(header.NameTop + header.NameHeight / 2, header.BadgeTop + header.BadgeHeight / 2, precision: 3);
+        Assert.All(document.Rows.Where(row => row.Kind == ItemUseRowKind.Item), row => Assert.True(route.Y >= row.Y + row.Height));
         Assert.All(document.Rows.Where(row => row.Kind == ItemUseRowKind.Item), row => Assert.False(row.Actionable));
     }
 

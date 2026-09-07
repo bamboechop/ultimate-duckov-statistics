@@ -280,6 +280,7 @@ internal sealed partial class RetainedStatisticsShell
                     Place(badge.IconRect, layout.IconLeft, (element.Height - layout.IconHeight) / 2, layout.IconWidth, layout.IconHeight);
                     Place(badge.LabelRect, layout.LabelLeft, 0, layout.LabelWidth, element.Height);
                     badge.Label.enableWordWrapping = true; badge.Label.fontSize = RetainedRunBadgePolicy.ReferenceFontSize;
+                    badge.Label.alignment = TextAlignmentOptions.MidlineLeft;
                     if (badge.IconText != null) badge.IconText.fontSize = layout.FontSize;
                 }
                 else if (element.Kind is EconomyElementKind.MoneyIcon or EconomyElementKind.CashIcon)
@@ -292,7 +293,7 @@ internal sealed partial class RetainedStatisticsShell
                     var label = control.Label!; label.text = element.Text; label.fontSize = element.Size;
                     label.color = element.Muted ? new Color32(177, 177, 177, 255) : Color.white;
                     label.alignment = element.Alignment switch { EconomyTextAlignment.Center => TextAlignmentOptions.Top,
-                        EconomyTextAlignment.Right => TextAlignmentOptions.TopRight, _ => TextAlignmentOptions.TopLeft };
+                        EconomyTextAlignment.Right => TextAlignmentOptions.TopRight, EconomyTextAlignment.MiddleLeft => TextAlignmentOptions.MidlineLeft, _ => TextAlignmentOptions.TopLeft };
                     if (element.Size == 46.3f) CombatNativeTextMeasurement.AlignInkTop(label);
                     if (element.Kind == EconomyElementKind.Chevron)
                     {

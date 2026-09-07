@@ -173,7 +173,7 @@ internal sealed class ItemUseDocument
             var line = new List<ItemUseRenderRow>();
             for (var column = 0; column < columns && i + column < values.Count; column++)
             {
-                var pair = values[i + column]; var row = new ItemUseRenderRow { Kind = ItemUseRowKind.Statistic, Name = RunsViewStyle.Uppercase(pair.Key), Value = pair.Value, ValueFirst = values.Count == 4 };
+                var pair = values[i + column]; var row = new ItemUseRenderRow { Kind = ItemUseRowKind.Statistic, Name = RunsViewStyle.Uppercase(pair.Key), Value = pair.Value, ValueFirst = true };
                 Add(row, x + column * (cellWidth + 20), cursor, cellWidth); line.Add(row);
             }
             var rowHeight = line.Max(row => row.Height);
@@ -239,15 +239,12 @@ internal sealed class ItemUseDocument
             var routeWidth = Math.Min(inner * .27f, measureWidth(routeLabel, RetainedOverviewLatestRunViewRunPolicy.ReferenceFontSize)
                 + 2 * RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels);
             var header = new ItemUseRenderRow { Id = id, Kind = ItemUseRowKind.Run, Name = run.Title, Caption = run.Caption,
-                Expandable = true, Actionable = true, Selected = expanded, Outcome = run.Outcome, RouteWidth = routeWidth };
+                Expandable = true, Actionable = true, Selected = expanded, Outcome = run.Outcome };
             Add(header, 30, y, inner);
             var route = new ItemUseRenderRow { Id = "route:" + run.RunId, Kind = ItemUseRowKind.Route, Name = routeLabel, Actionable = true };
-            Add(route, width - 45 - routeWidth, y + 12, routeWidth);
-            // The styled route control shares the title band, with a real right inset.
-            var headerBand = Math.Max(header.BadgeHeight, Math.Max(header.NameHeight, route.Height));
-            header.NameTop = 12 + (headerBand - header.NameHeight) / 2;
+            var headerBand = Math.Max(header.BadgeHeight, header.NameHeight);
+            header.NameTop = 12; header.NameHeight = headerBand;
             header.BadgeTop = 12 + (headerBand - header.BadgeHeight) / 2;
-            route.Y = y + 12 + (headerBand - route.Height) / 2;
             header.CaptionTop = 12 + headerBand + 8;
             header.Height = header.CaptionTop + header.CaptionHeight + 12;
             y += header.Height + 10;
@@ -258,6 +255,7 @@ internal sealed class ItemUseDocument
                     y += Add(new ItemUseRenderRow { Kind = ItemUseRowKind.Item, Name = item.Name, IconId = item.ItemId, Value = Uses(item.Uses, item.Count),
                         Caption = item.Health.Evidence == ItemUseEvidence.Supported && item.Health.Text == "0" ? ""
                             : ItemUsePresentationFactory.Format(text("ui.item_use_hp_value"), item.Health.Text) }, 50, y, inner - 40) + 10;
+                y += Add(route, width - 50 - routeWidth, y, routeWidth) + 20;
                 Surfaces.Add(new ItemUseSurface(30, cardTop, inner, y - cardTop, 10)); y += 10;
             }
         }

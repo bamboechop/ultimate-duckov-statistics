@@ -242,7 +242,7 @@ internal static class RetainedDimmerPolicy
     public const float Red = 0f;
     public const float Green = 0f;
     public const float Blue = 0f;
-    public const float VisualAlpha = 0.50f;
+    public const float VisualAlpha = 0.75f;
     public const bool BlocksRaycasts = true;
 
     public static bool IsValidGraphic(
