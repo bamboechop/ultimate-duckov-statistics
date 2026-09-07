@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 & (Join-Path $PSScriptRoot 'verify-package.ps1') -PackagePath $PackagePath
 $info = Get-Content -LiteralPath (Join-Path $PackagePath 'info.ini') | Where-Object { $_ -match '^\s*version\s*=' }
 if (@($info).Count -ne 1 -or ($info -split '=', 2)[1].Trim() -ne $Version) { throw 'Archive version does not match info.ini.' }
-& (Join-Path $PSScriptRoot 'audit-artifacts.ps1') -InputPaths @($PackagePath) -ExpectedVersion $Version
+& (Join-Path $PSScriptRoot 'audit-artifacts.ps1') -OrdinaryRelease -InputPaths @($PackagePath) -ExpectedVersion $Version
 $ArchivePath = [IO.Path]::GetFullPath($ArchivePath)
 New-Item -ItemType Directory -Force -Path ([IO.Path]::GetDirectoryName($ArchivePath)) | Out-Null
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -30,7 +30,7 @@ $extraction = Join-Path ([IO.Path]::GetDirectoryName($ArchivePath)) ('verify-' +
 [IO.Compression.ZipFile]::ExtractToDirectory($ArchivePath, $extraction)
 $extracted = Join-Path $extraction 'UltimateDuckovStatistics'
 & (Join-Path $PSScriptRoot 'verify-package.ps1') -PackagePath $extracted
-& (Join-Path $PSScriptRoot 'audit-artifacts.ps1') -InputPaths @($extracted)
+& (Join-Path $PSScriptRoot 'audit-artifacts.ps1') -OrdinaryRelease -InputPaths @($extracted)
 foreach ($name in $names) {
     if ((Get-FileHash -LiteralPath (Join-Path $PackagePath $name)).Hash -ne (Get-FileHash -LiteralPath (Join-Path $extracted $name)).Hash) {
         throw "Extracted artifact differs: $name"

@@ -8,6 +8,14 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class ArtifactPathAuditTests
 {
+    [Fact]
+    public void OrdinaryReleaseIlRejectsTheInstrumentedAdapterComposition()
+    {
+        OrdinaryReleaseAudit.Verify(typeof(Core.ProductInfo).Assembly.Location);
+        var error = Assert.Throws<InvalidDataException>(() => OrdinaryReleaseAudit.Verify(typeof(ArtifactPathAuditTests).Assembly.Location));
+        Assert.Contains("performance-diagnostic call site", error.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("C:\\Users\\builder\\checkout\\Mod.cs")]
     [InlineData("/home/builder/checkout/Mod.cs")]

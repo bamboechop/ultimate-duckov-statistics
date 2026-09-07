@@ -25,7 +25,11 @@ dotnet build (Join-Path $repoRoot 'src\UltimateDuckovStatistics\UltimateDuckovSt
 if ($LASTEXITCODE -ne 0) { throw "diagnostic build failed with exit code $LASTEXITCODE." }
 
 foreach ($path in @($packageRoot)) {
-    if (Test-Path -LiteralPath $path) { Remove-Item -Recurse -Force -LiteralPath $path }
+    if ([IO.Path]::GetFullPath($path) -ne [IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts/performance/diagnostic-package/UltimateDuckovStatistics'))) { throw 'Unsafe diagnostic cleanup path.' }
+    if (Test-Path -LiteralPath $path) {
+        if ((Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Diagnostic package must not be a reparse point.' }
+        Remove-Item -Recurse -Force -LiteralPath $path
+    }
 }
 New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
 $inputs = @(
@@ -61,7 +65,7 @@ $sourceTreeBytes = [System.Text.Encoding]::UTF8.GetBytes($sourceInventory -join 
 $sourceTreeSha256 = [Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($sourceTreeBytes)).ToLowerInvariant()
 $manifest = [ordered]@{
     SchemaVersion = 1
-    BuildKind = 'M8.1 opt-in performance diagnostic; never a release candidate'
+    BuildKind = 'Opt-in performance diagnostic; never a release candidate'
     PerformanceDiagnostics = $true
     RepositoryCommit = (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot rev-parse HEAD).Trim()
     RepositoryWorktreeStatus = @(& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot status --short)

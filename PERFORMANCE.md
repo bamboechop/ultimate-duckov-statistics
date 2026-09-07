@@ -1,4 +1,25 @@
-# M8.1 performance protocol
+# Performance qualification
+
+## M18 campaign, declared before acceptance capture
+
+M18 uses the existing M8.1 CapFrameX wrapper and `FrameTimeAnalyzer` method below. The [machine-readable matrix](docs/M18_CAPTURE_MATRIX.json) freezes 14 cells, three valid B and three valid D repetitions per cell, 30-second captures, a 10-second focus delay, scenario-specific action windows, and the established thresholds. B is Harmony enabled/UDS disabled; D is the exact ordinary `1.0.0-rc.1` candidate with every supported feature enabled. No new M18 native measurements have been accepted yet. Historical results below do not qualify this candidate.
+
+The new base/menu/inventory/crafting/export/terminal cells deliberately include their named actions; the historical raid firing exclusions apply to all other cells. `base-idle-ui-closed` covers closed UI. `base-ui-open` compares native pause-menu B with UDS on that same pause surface in D, avoiding a pause-versus-gameplay confound. Record checkpoint/terminal/export peaks and persistence latency; do not hide a boundary spike inside a whole-capture percentile. Natural multi-map/high-history gameplay supplements the matched matrix with untrimmed evidence, named map and equal early/middle/late windows, retained run/segment/item/loadout cardinalities, profile size and memory/native-resource observations. Repeat UI/export cells on the progressed v1 history and disclose its actual size.
+
+Before the first paired capture, freeze the actually available weapon instances, ammunition, modifications, target/location/facing, exact sequence, equipment/totems, save/generation/route, graphics/display/limiter settings, collector configuration and background state. Do not assume the old inventory below still exists. A pilot may establish safe timing before acceptance; any necessary timing change creates a newly frozen campaign before its first accepted capture. Unreproducible scenarios require a concrete recorded reason and remain unresolved rather than disappearing. A high-history state that has not been exercised remains Not exercised.
+
+- Engineering targets remain at most 5% median and 10% p99 D/B overhead for both whole capture and action window, an indistinguishable >16.7 ms rate and no UDS-specific >33.3 ms frame or cluster.
+- The weaker ceiling remains 10% median, 20% p99, no repeatable >16.7 ms increase above 0.25 percentage points unless raw evidence establishes unrelated noise, and no repeatable new >33.3 ms cluster. Report a missed engineering target even when this ceiling passes.
+- A cluster is at least two >33.3 ms frames within one rolling second in the same practical action phase, present in at least two of three D runs and absent from matched B. An isolated maximum is diagnostic, not automatically a rejection. A repeatable scenario failure rejects the candidate regardless of other averages. The historical M10 Med-Kit exception grants no M18 exception.
+- Preserve every unfavorable valid capture. Keep invalid attempts and their objective control/collector/action failure reasons. No threshold-based trimming, favorable replacement or unrecorded omission is allowed. Duration mismatch, collector overlap, wrong mod/artifact identity, loading outside a declared boundary cell, unrelated input/background interruption, failed required action or changed material controls invalidate the comparison, not its evidence files.
+
+`prepare-m18-campaign.ps1` binds a matrix copy and both DLL hashes to a passing immutable two-checkout result. `capture-m18.ps1` passes those identities and explicit controls to the existing collector; schema-6 sidecars distinguish the candidate source from the current documentation checkout. `FrameTimeAnalyzer --campaign <campaign.json>` verifies campaign/source/build/configuration, actual deployed DLLs, declared timing, raw CSV/JSON hashes and distinct repetitions before grouping results; missing cells remain explicit. Human review still validates physical controls, adverse captures and every engineering/spike/ceiling gate. Earlier sidecars and analyzer results remain unchanged when this opt-in argument is absent.
+
+During controlled captures, the agent suspends builds, tests, indexing and other work until the user reports completion. The user owns launch, actions, captures and shutdown. See [manual qualification](docs/M18_MANUAL_QUALIFICATION.md) for the minimal sequence and controls template. Synthetic 144,000-event tests and isolated native-boundary allocation measurements support diagnosis only; they cannot replace ordinary Release native captures.
+
+## Historical M8.1 protocol and measured results
+
+The following dated method and results describe the earlier binaries. Configuration/version defaults were removed from the reusable capture script for M18; explicit version and both DLL hashes are now required for production C/D.
 
 This document freezes the M8.1 native benchmark method before runtime corrections are selected. Raw captures and their machine-specific sidecars live under ignored `artifacts/performance/captures/`; accepted results and hashes are summarized in `TESTING.md`.
 

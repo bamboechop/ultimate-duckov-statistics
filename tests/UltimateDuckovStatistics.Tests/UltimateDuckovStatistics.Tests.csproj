@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <Compile Include="..\..\tools\ArtifactAudit\ArtifactPathAudit.cs" Link="Tools\ArtifactPathAudit.cs" />
+    <Compile Include="..\..\tools\ArtifactAudit\OrdinaryReleaseAudit.cs" Link="Tools\OrdinaryReleaseAudit.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -127,6 +128,7 @@
              Link="ProductionUI\RunsHistoryButton.cs" />
     <Compile Include="..\..\tools\FrameTimeAnalyzer\FrameTimeAnalysis.cs"
              Link="Performance\FrameTimeAnalysis.cs" />
+    <Compile Include="..\..\tools\FrameTimeAnalyzer\CampaignEvidence.cs" Link="Performance\CampaignEvidence.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHotPathDiagnostics.cs"
              Link="Performance\NativeHotPathDiagnostics.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\IncrementalPatchInspectionScheduler.cs"

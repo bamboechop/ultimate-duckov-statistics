@@ -160,6 +160,7 @@ internal sealed class ControlComparison
 
 internal sealed class FrameTimeReport
 {
+    public IReadOnlyList<string>? MissingCampaignCells { get; set; }
     public required IReadOnlyList<CaptureSummary> Captures { get; init; }
     public required IReadOnlyList<AggregateSummary> Aggregates { get; init; }
     public required IReadOnlyList<ControlComparison> Comparisons { get; init; }

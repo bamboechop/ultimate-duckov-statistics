@@ -13,12 +13,14 @@ public sealed partial class RouteLifecycleTests
     private readonly Xunit.Abstractions.ITestOutputHelper output;
     public RouteLifecycleTests(Xunit.Abstractions.ITestOutputHelper output) => this.output = output;
 
-    [Fact]
+    [Theory]
+    [InlineData(0)]
+    [InlineData(200)]
     [Trait("Category", "M18")]
-    public void Mixed144000EventsPersistExactlyAcrossSixSegmentsAndCurrentFormatReopen()
+    public void Mixed144000EventsPersistExactlyAcrossSixSegmentsAndCurrentFormatReopen(int priorRunCount)
     {
         using var directory = new TemporaryDirectory();
-        var clock = Now;
+        var clock = Now.AddDays(-1);
         var repository = new ProfileRepository(directory.Path, () => clock, () => "generation-1");
         var identity = new SaveIdentitySnapshot { Slot = 1, GameVersion = "2.3.30", SaveFilePresent = true, ContentSha256 = new string('a', 64) };
         repository.Open(identity);
@@ -27,6 +29,20 @@ public sealed partial class RouteLifecycleTests
         repository.SetCraftingCapabilities(CraftingNativeContractPolicy.Supported("delivery", "recipe", "items", "money"));
         repository.SetWorldTimeCapabilities(WorldTimeNativeContractPolicy.Supported("clock", "sleep"));
         repository.BeginEconomyActivation("test-route-lifecycle");
+        // Real reducers build an isolated, sequential prior history. Nothing is
+        // injected into a user's profile or attributed to actual native play.
+        for (var prior = 0; prior < priorRunCount; prior++)
+        {
+            var history = new RunLifecycleTracker(() => "history-" + prior);
+            var start = Now.AddDays(-1).AddSeconds(prior * 2);
+            var initialized = Event(RunLifecycleEventKind.RaidInitialized, 0, nativeRaidId: "1"); initialized.TimestampUtc = start;
+            var ready = Event(RunLifecycleEventKind.ControlReady, 0, context: Context("A", "1")); ready.TimestampUtc = start;
+            var terminal = Event(RunLifecycleEventKind.Extracted, 1); terminal.TimestampUtc = start.AddSeconds(1);
+            history.Apply(initialized); history.Apply(ready);
+            Assert.True(RunReducer.Apply(repository.Current.Statistics, history.Apply(terminal).Completed!));
+        }
+        clock = Now;
+        repository.Flush();
         var tracker = Start("A");
         repository.SaveActiveRun(tracker.CreateCheckpoint(clock, 0)!);
         var windows = new List<object>();
@@ -115,6 +131,7 @@ public sealed partial class RouteLifecycleTests
         Assert.Empty(result.LoadFailures);
         Assert.Equal("generation-1", reopened.CurrentGenerationId);
         var statistics = reopened.Current.Statistics;
+        Assert.Equal(priorRunCount + 1, statistics.Runs.Count);
         Assert.Equal(18_000, statistics.Overall.ActivationCount);
         Assert.Equal(126_000, statistics.Overall.ActualHealthRestored);
         Assert.Equal(18_000, statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
@@ -131,6 +148,7 @@ public sealed partial class RouteLifecycleTests
         output.WriteLine("M18_SYNTHETIC_WORKLOAD " + JsonSerializer.Serialize(new
         {
             eventCount,
+            priorRunCount,
             segments = 6,
             maps = 3,
             exactReopen = true,

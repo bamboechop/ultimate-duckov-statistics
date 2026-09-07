@@ -34,6 +34,7 @@ param(
     [string]$Location = '',
     [string]$ShotCountExpectation = '',
     [switch]$ConsumableAction,
+    [switch]$ActivityAction,
     [string]$Consumable = '',
     [string]$ConsumableCountExpectation = '',
     [string]$StartingHealth = '',
@@ -53,6 +54,8 @@ param(
     [string]$BuildLabel = 'production',
     [switch]$ValidateOnly,
     [string]$ExpectedUdsVersion = '',
+    [string]$CandidateSourceCommit = '',
+    [string]$CampaignSha256 = '',
     [ValidatePattern('^$|^[a-fA-F0-9]{64}$')]
     [string]$ExpectedUdsDllSha256 = '',
     [ValidatePattern('^$|^[a-fA-F0-9]{64}$')]
@@ -82,6 +85,7 @@ if (-not $Idle -and $ActionStartSeconds -ge $ActionEndSeconds) {
 if ($Idle -and $ConsumableAction) {
     throw 'ConsumableAction cannot be combined with Idle.'
 }
+if ($ActivityAction -and ($Idle -or $ConsumableAction)) { throw 'ActivityAction must be a distinct non-idle action.' }
 if (-not (Test-Path -LiteralPath $CapFrameXInstallPath)) {
     throw "CapFrameX was not found at: $CapFrameXInstallPath"
 }
@@ -173,19 +177,9 @@ if ($Configuration -in @('C', 'D')) {
     $versionLine = Get-Content -LiteralPath $deployedInfoPath | Where-Object { $_ -match '^\s*version\s*=' } | Select-Object -First 1
     if ($null -eq $versionLine) { throw "Deployed info.ini has no version: $deployedInfoPath" }
     $deployedInfoVersion = ($versionLine -split '=', 2)[1].Trim()
-    if ([string]::IsNullOrWhiteSpace($ExpectedUdsVersion) -and $BuildLabel -eq 'production') {
-        $ExpectedUdsVersion = if ($Configuration -eq 'C') { '0.8.0' } else { '0.8.1' }
-    }
-    if ($BuildLabel -eq 'production' -and $Configuration -eq 'C') {
-        if ([string]::IsNullOrWhiteSpace($ExpectedUdsDllSha256)) {
-            $ExpectedUdsDllSha256 = 'd937f9a5b31e544e8fa9ba337f1ed2082a1c64c7a5a2fac33c6853d55de787a1'
-        }
-        if ([string]::IsNullOrWhiteSpace($ExpectedUdsCoreDllSha256)) {
-            $ExpectedUdsCoreDllSha256 = 'e2b06828ae60e71b2f7b9ef066562cab14241a3168ea0a251d9cb9003075cdeb'
-        }
-    }
-    if (($BuildLabel -eq 'production') -and ($Configuration -eq 'D') -and ([string]::IsNullOrWhiteSpace($ExpectedUdsDllSha256) -or [string]::IsNullOrWhiteSpace($ExpectedUdsCoreDllSha256))) {
-        throw 'Production configuration D requires both final candidate DLL hashes.'
+    if ($BuildLabel -eq 'production' -and ([string]::IsNullOrWhiteSpace($ExpectedUdsVersion) -or
+        [string]::IsNullOrWhiteSpace($ExpectedUdsDllSha256) -or [string]::IsNullOrWhiteSpace($ExpectedUdsCoreDllSha256))) {
+        throw 'Production C/D captures require an explicit candidate version and both DLL hashes.'
     }
     if ((-not [string]::IsNullOrWhiteSpace($ExpectedUdsVersion)) -and ($deployedInfoVersion -ne $ExpectedUdsVersion)) {
         throw "Configuration $Configuration requires UDS version '$ExpectedUdsVersion', found '$deployedInfoVersion'."
@@ -200,6 +194,46 @@ if ($Configuration -in @('C', 'D')) {
         $deployedCoreDllSha256 = (Get-FileHash -LiteralPath $deployedCoreDllPath -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($deployedCoreDllSha256 -ne $ExpectedUdsCoreDllSha256.ToLowerInvariant()) {
             throw "Deployed UDS Core DLL hash mismatch. Expected $ExpectedUdsCoreDllSha256, found $deployedCoreDllSha256."
+        }
+    }
+}
+
+$requiredControls = [ordered]@{
+    Weapon = $Weapon
+    WeaponModifications = $WeaponModifications
+    Ammunition = $Ammunition
+    EquipmentAndTotems = $EquipmentAndTotems
+    Location = $Location
+    ShotCountExpectation = $ShotCountExpectation
+    SaveGenerationId = $SaveGenerationId
+    BackgroundApplicationState = $BackgroundApplicationState
+    Resolution = $Resolution
+    DisplayMode = $DisplayMode
+    RefreshRateHz = $RefreshRateHz
+    FrameLimiterFps = $FrameLimiterFps
+    VSyncState = $VSyncState
+    GraphicsPreset = $GraphicsPreset
+    RouteAssociationState = $RouteAssociationState
+}
+if (-not $Idle) { $requiredControls.ActionLabel = $ActionLabel }
+foreach ($control in $requiredControls.GetEnumerator()) {
+    $controlValue = [string]$control.Value
+    if ([string]::IsNullOrWhiteSpace($controlValue) -or $controlValue -match '^(pilot-not-yet-recorded|not-recorded)$') {
+        throw "Controlled capture requires a non-placeholder $($control.Key) value."
+    }
+}
+if ($ConsumableAction) {
+    $requiredConsumableControls = [ordered]@{
+        Consumable = $Consumable
+        ConsumableCountExpectation = $ConsumableCountExpectation
+        StartingHealth = $StartingHealth
+        ActiveDamageEffects = $ActiveDamageEffects
+        PassiveHealingEffects = $PassiveHealingEffects
+    }
+    foreach ($control in $requiredConsumableControls.GetEnumerator()) {
+        $controlValue = [string]$control.Value
+        if ([string]::IsNullOrWhiteSpace($controlValue) -or $controlValue -match '^(pilot-not-yet-recorded|not-recorded)$') {
+            throw "Consumable capture requires a non-placeholder $($control.Key) value."
         }
     }
 }
@@ -225,45 +259,6 @@ if ($ValidateOnly) {
     return
 }
 
-$requiredControls = [ordered]@{
-    Weapon = $Weapon
-    WeaponModifications = $WeaponModifications
-    Ammunition = $Ammunition
-    EquipmentAndTotems = $EquipmentAndTotems
-    Location = $Location
-    ShotCountExpectation = $ShotCountExpectation
-    SaveGenerationId = $SaveGenerationId
-    BackgroundApplicationState = $BackgroundApplicationState
-    Resolution = $Resolution
-    DisplayMode = $DisplayMode
-    RefreshRateHz = $RefreshRateHz
-    FrameLimiterFps = $FrameLimiterFps
-    VSyncState = $VSyncState
-    GraphicsPreset = $GraphicsPreset
-    RouteAssociationState = $RouteAssociationState
-}
-foreach ($control in $requiredControls.GetEnumerator()) {
-    $controlValue = [string]$control.Value
-    if ([string]::IsNullOrWhiteSpace($controlValue) -or $controlValue -match '^(pilot-not-yet-recorded|not-recorded)$') {
-        throw "Controlled capture requires a non-placeholder $($control.Key) value."
-    }
-}
-if ($ConsumableAction) {
-    $requiredConsumableControls = [ordered]@{
-        Consumable = $Consumable
-        ConsumableCountExpectation = $ConsumableCountExpectation
-        StartingHealth = $StartingHealth
-        ActiveDamageEffects = $ActiveDamageEffects
-        PassiveHealingEffects = $PassiveHealingEffects
-    }
-    foreach ($control in $requiredConsumableControls.GetEnumerator()) {
-        $controlValue = [string]$control.Value
-        if ([string]::IsNullOrWhiteSpace($controlValue) -or $controlValue -match '^(pilot-not-yet-recorded|not-recorded)$') {
-            throw "Consumable capture requires a non-placeholder $($control.Key) value."
-        }
-    }
-}
-
 $scenarioDirectory = Join-Path (Join-Path $OutputRoot $Configuration) $Scenario
 New-Item -ItemType Directory -Path $scenarioDirectory -Force | Out-Null
 $baseName = ('{0}-{1}-r{2:D2}' -f $Configuration.ToLowerInvariant(), $Scenario, $Run)
@@ -278,7 +273,7 @@ foreach ($path in @($csvPath, $capFrameXRawJsonPath, $metadataPath)) {
 
 $stagingDirectory = Join-Path $scenarioDirectory ('.{0}-capframex-staging-{1}' -f $baseName, [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $stagingDirectory | Out-Null
-$capFrameXCaptureComment = "UDS M8.1 $Configuration/$BuildLabel $Scenario r$($Run.ToString('D2'))"
+$capFrameXCaptureComment = "UDS $Configuration/$BuildLabel $Scenario r$($Run.ToString('D2'))"
 $capFrameXCaptureRequest = [ordered]@{
     CaptureTime = [double]$CaptureSeconds
     ProcessName = 'Duckov'
@@ -406,7 +401,9 @@ $harmony = if (Test-Path -LiteralPath $harmonyPath) { Get-Item -LiteralPath $har
 $capFrameXRun = @($capFrameXRecord.Runs)[0]
 $capFrameXSensorPayloadPresent = ($null -ne $capFrameXRun.SensorData) -or ($null -ne $capFrameXRun.SensorData2)
 $metadata = [ordered]@{
-    SchemaVersion = 5
+    SchemaVersion = 6
+    CandidateSourceCommit = $CandidateSourceCommit
+    CampaignSha256 = $CampaignSha256
     Configuration = $Configuration
     Scenario = $Scenario
     Run = $Run
@@ -432,7 +429,7 @@ $metadata = [ordered]@{
     EquipmentAndTotems = $EquipmentAndTotems
     Location = $Location
     ShotCountExpectation = $ShotCountExpectation
-    ActionKind = if ($Idle) { 'idle' } elseif ($ConsumableAction) { 'consumable' } else { 'weapon' }
+    ActionKind = if ($Idle) { 'idle' } elseif ($ConsumableAction) { 'consumable' } elseif ($ActivityAction) { 'activity' } else { 'weapon' }
     Consumable = $Consumable
     ConsumableCountExpectation = $ConsumableCountExpectation
     StartingHealth = $StartingHealth
