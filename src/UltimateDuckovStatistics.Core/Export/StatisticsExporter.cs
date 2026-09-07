@@ -1803,6 +1803,7 @@ public static class StatisticsExporter
         HistoricalRouteUnavailable = source.HistoricalRouteUnavailable,
         RouteWasRepairedFromInvalidState = source.RouteWasRepairedFromInvalidState,
         SegmentEventAssociations = source.SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+        HealingCaptureComplete = source.HealingCaptureComplete,
         ItemStatistics = ItemStatisticsAggregateReducer.Clone(source.ItemStatistics),
         Economy = EconomyStatisticsReducer.Clone(source.Economy),
         HistoricalEventAttributionIncomplete = source.HistoricalEventAttributionIncomplete,

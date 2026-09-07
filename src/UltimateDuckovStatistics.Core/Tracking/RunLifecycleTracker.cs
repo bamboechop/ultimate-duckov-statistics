@@ -651,6 +651,19 @@ public sealed class RunLifecycleTracker
         Provenance = value.Provenance
     };
 
+    private bool healingCaptureSupported;
+
+    public void SetHealingCapability(AdapterCapabilityState state)
+    {
+        healingCaptureSupported = state == AdapterCapabilityState.Supported;
+        if (active != null && active.HealingCaptureComplete && !healingCaptureSupported)
+        {
+            active.HealingCaptureComplete = false;
+            checkpointMutationRevision++;
+            combatCheckpointRequired = true;
+        }
+    }
+
     public bool RecordHealing(HealingApplied value)
     {
         if (active == null || value == null || value.GameplayContext != GameplayContext.Raid
@@ -725,6 +738,7 @@ public sealed class RunLifecycleTracker
             HistoricalRouteUnavailable = false,
             RouteWasRepairedFromInvalidState = false,
             SegmentEventAssociations = active.EventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+            HealingCaptureComplete = active.HealingCaptureComplete,
             ItemStatistics = ItemStatisticsAggregateReducer.Clone(active.ItemStatistics),
             TransitionPending = active.TransitionPending,
             CurrentSegmentId = active.CurrentSegment?.SegmentId,
@@ -771,6 +785,7 @@ public sealed class RunLifecycleTracker
         context.NativeRaidId ??= nativeRaidId;
         timestampUtc = EnsureUtc(timestampUtc);
         active = new ActiveState(runId, context, timestampUtc, monotonicSeconds);
+        active.HealingCaptureComplete = healingCaptureSupported;
         suspensions.Clear();
         movement.Reset();
         lastCheckpointMonotonicSeconds = monotonicSeconds;
@@ -976,6 +991,7 @@ public sealed class RunLifecycleTracker
             HistoricalRouteUnavailable = false,
             RouteWasRepairedFromInvalidState = false,
             SegmentEventAssociations = state.EventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+            HealingCaptureComplete = state.HealingCaptureComplete,
             ItemStatistics = ItemStatisticsAggregateReducer.Clone(state.ItemStatistics),
             Economy = EconomyStatisticsReducer.Clone(state.Economy),
             HistoricalEventAttributionIncomplete = state.HistoricalEventAttributionIncomplete,
@@ -1286,6 +1302,7 @@ public sealed class RunLifecycleTracker
 
         public Dictionary<EventAssociationKey, SegmentEventAssociation> EventAssociationsByKey { get; } = new();
 
+        public bool HealingCaptureComplete { get; set; }
         public ItemStatisticsAggregate ItemStatistics { get; } = new();
 
         public WeaponStatisticsAggregate WeaponStatistics { get; } = new();

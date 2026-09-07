@@ -185,7 +185,7 @@ internal static class RunsPresentationFactory
             Pair(t("ui.overview_damage_taken"), Metric(v.DamageReceived, c.DamageReceived)),
             Pair(t("ui.runs_accuracy"), accuracy), Pair(t("ui.runs_headshots"), headshots),
             Pair(t("ui.runs_hp"), Format(run.ItemStatistics.Overall.ActualHealthRestored,
-                !run.ItemStatistics.HistoricalUnavailable && !run.ItemStatistics.WasRepairedFromInvalidState && !attributionPartial, t))
+                run.HealingCaptureComplete && !run.ItemStatistics.HistoricalUnavailable && !run.ItemStatistics.WasRepairedFromInvalidState && !attributionPartial, t))
         };
         var segments = run.Segments.Select((segment, index) =>
         {

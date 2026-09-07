@@ -77,5 +77,93 @@ public sealed class OverviewHealingEvidenceTests
         }
     }
 
+
+    [Theory]
+    [InlineData(true, false, 0, "Unavailable")]
+    [InlineData(false, true, 12.5, "12.5 (partial; recorded values only)")]
+    [InlineData(false, false, 0, "0")]
+    [InlineData(false, false, 12.5, "12.5")]
+    public void CompletedRunRetainsHealingCaptureEvidenceAfterReload(bool disabledAtStart, bool loseCapture, double restored, string expected)
+    {
+        var originalPath = Application.persistentDataPath;
+        var originalSlot = Saves.SavesSystem.CurrentSlot;
+        using var directory = new TemporaryDirectory();
+        HarmonyLib.Harmony.ClearAll();
+        CharacterMainControl.ResetNativeState(); LevelManager.ResetNativeState(); RaidUtilities.ResetNativeState();
+        try
+        {
+            Application.persistentDataPath = directory.Path; Application.version = "2.3.30";
+            Saves.SavesSystem.CurrentSlot = 1;
+            var save = Path.Combine(directory.Path, Saves.SavesSystem.GetFilePath(1));
+            Directory.CreateDirectory(Path.GetDirectoryName(save)!);
+            File.WriteAllText(save, "{\"SaveTime\":{\"value\":1}}");
+            using var coordinator = new NativeProfileCoordinator(); coordinator.Initialize();
+            InputManager.InputActived = true; GameManager.Paused = false;
+            NativeRaidContext.GameplayContext = GameplayContext.Raid;
+            Duckov.Scenes.SceneLoader.IsSceneLoading = false;
+            var main = new CharacterMainControl { IsMainCharacter = true, CharacterItem = new ItemStatsSystem.Item() };
+            CharacterMainControl.Main = main;
+            LevelManager.Instance = new LevelManagerInstance { MainCharacter = main };
+            RaidUtilities.CurrentRaid = new RaidUtilities.RaidInfo { ID = 1, valid = true };
+            double now = 0;
+            var messages = new List<string>(); Debug.ExceptionLogged = ex => messages.Add(ex.ToString());
+            using var lifecycle = new NativeRunLifecycleAdapter(() => coordinator.CurrentGenerationId,
+                coordinator.HandleRunCheckpoint, coordinator.HandleRunCompleted, coordinator.SetRunCapabilities, messages.Add,
+                checkpointCompletionPoller: coordinator.PollRunCheckpoint, checkpointCompletionFlusher: coordinator.FlushRunCheckpoint,
+                monotonicSecondsProvider: () => now);
+            void Publish(Core.Persistence.CapabilityRecord cap) { coordinator.SetHealingCapability(cap); lifecycle.SetHealingCapability(cap); }
+            void ForeignPatch() => new HarmonyLib.Harmony("foreign-healing-run").Patch(typeof(Health).GetMethod(nameof(Health.AddHealth))!,
+                prefix: new HarmonyLib.HarmonyMethod(typeof(OverviewHealingEvidenceTests).GetMethod(nameof(ForeignPrefix), BindingFlags.NonPublic | BindingFlags.Static)!), postfix: null, transpiler: null, finalizer: null);
+            if (disabledAtStart) ForeignPatch();
+            using var adapter = new NativeHealingAttributionAdapter(coordinator.HandleHealing, _ => { }, new NativeBuffApplicationObservationBoundary());
+            adapter.CapabilityChanged += Publish;
+            Publish(adapter.Initialize());
+            Assert.Equal(disabledAtStart ? AdapterCapabilityState.DisabledIncompatible : AdapterCapabilityState.Supported, adapter.Capability.State);
+            lifecycle.Initialize(); lifecycle.Tick(); Assert.True(lifecycle.IsActive);
+            var generation = coordinator.CurrentGenerationId;
+            var use = new ItemUseRecorded { SegmentId = lifecycle.CurrentSegmentId, EventId = "run-use", SaveGenerationId = generation, RunId = lifecycle.CurrentRunId!, TimestampUtc = DateTime.UtcNow, MapId = lifecycle.CurrentMapId!,
+                GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing,
+                ActivationCount = 1, AmountConsumed = 1, ConsumptionUnit = ConsumptionUnit.Item };
+            Assert.True(coordinator.HandleItemUse(new Core.Tracking.ItemUseCompletion(Core.Tracking.ItemUseCompletionDisposition.Counted, use)));
+            Assert.True(lifecycle.RecordItemUse(use));
+            if (restored > 0) { var heal = new HealingApplied { EventId = "run-heal", ApplicationId = "application",
+                SourceSegmentId = lifecycle.CurrentSegmentId, SourceMapId = lifecycle.CurrentMapId, OutcomeSegmentId = lifecycle.CurrentSegmentId, OutcomeMapId = lifecycle.CurrentMapId, SourceItemUseEventId = use.EventId, SaveGenerationId = generation, RunId = lifecycle.CurrentRunId!, TimestampUtc = DateTime.UtcNow, MapId = lifecycle.CurrentMapId!,
+                GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing, ActualHealthRestored = restored }; coordinator.HandleHealing(heal); Assert.True(lifecycle.RecordHealing(heal)); }
+            if (loseCapture)
+            {
+                ForeignPatch();
+                typeof(NativeHealingAttributionAdapter).GetMethod("InspectNextPatchStamp", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(adapter, new object[] { DateTime.UtcNow.AddSeconds(10) });
+                Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.Capability.State);
+                // A later availability recovery must not erase this run's gap.
+                lifecycle.SetHealingCapability(new() { State = AdapterCapabilityState.Supported });
+            }
+            now = 2; LevelManager.RaiseEvacuated();
+            Assert.True(coordinator.Current!.Statistics.Runs.Count == 1, string.Join(" | ", messages));
+            var path = coordinator.CurrentProfilePath;
+            coordinator.Dispose();
+            var loaded = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(path, Core.Persistence.ProfileMigrator.ValidateRecoveryCandidate);
+            Assert.True(loaded.Found);
+            var run = Assert.Single(loaded.Value!.Statistics.Runs);
+            Assert.Equal(!disabledAtStart && !loseCapture, run.HealingCaptureComplete);
+            var projection = StatisticsPanelProjectionFactory.Create(loaded.Value, new(), new(), new());
+            var detail = Assert.Single(RunsPresentationFactory.Create(projection, generation)!.Runs);
+            Assert.Equal(expected, detail.Summary.Single(row => row.Key == UiText.Get("ui.runs_hp")).Value);
+            // An absent scalar must degrade evidence, never reject or rotate the profile.
+            var missing = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+            foreach (var entry in missing["Statistics"]!["Runs"]!.AsArray()) entry!.AsObject().Remove("HealingCaptureComplete");
+            var missingPath = Path.Combine(directory.Path, "missing-capture.json");
+            File.WriteAllText(missingPath, missing.ToJsonString());
+            var withoutCapture = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(missingPath, Core.Persistence.ProfileMigrator.ValidateRecoveryCandidate);
+            Assert.True(withoutCapture.Found);
+            Assert.False(Assert.Single(withoutCapture.Value!.Statistics.Runs).HealingCaptureComplete);
+            Assert.Equal(run.ItemStatistics.Overall.ActualHealthRestored, withoutCapture.Value.Statistics.Runs[0].ItemStatistics.Overall.ActualHealthRestored);
+        }
+        finally
+        {
+            HarmonyLib.Harmony.ClearAll(); CharacterMainControl.ResetNativeState(); LevelManager.ResetNativeState(); RaidUtilities.ResetNativeState();
+            Debug.ExceptionLogged = null; Application.persistentDataPath = originalPath; Saves.SavesSystem.CurrentSlot = originalSlot;
+        }
+    }
+
     private static void ForeignPrefix() { }
 }

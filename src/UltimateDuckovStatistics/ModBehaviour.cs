@@ -202,7 +202,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 buffApplicationObservationBoundary,
                 () => runLifecycleAdapter.OwnedValue?.CurrentEventContext);
             profileCoordinator.SetHealingCapability(healingAttributionAdapter.Initialize());
-            healingAttributionAdapter.CapabilityChanged += profileCoordinator.SetHealingCapability;
+            healingAttributionAdapter.CapabilityChanged += SetHealingCapability;
             var newRunLifecycleAdapter = new NativeRunLifecycleAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 profileCoordinator.HandleRunCheckpoint,
@@ -218,6 +218,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 profileCoordinator.PollRunCheckpoint,
                 profileCoordinator.FlushRunCheckpoint);
             runLifecycleAdapter.Assign(newRunLifecycleAdapter);
+            newRunLifecycleAdapter.SetHealingCapability(healingAttributionAdapter.Capability);
             profileCoordinator.SetActiveRunCheckpointBarrier(newRunLifecycleAdapter.FlushCheckpoint);
             var newContainerAdapter = new NativeContainerAdapter(
                 () => profileCoordinator.CurrentGenerationId,
@@ -470,7 +471,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         economyAdapter = null;
         if (healingAttributionAdapter != null && profileCoordinator != null)
         {
-            healingAttributionAdapter.CapabilityChanged -= profileCoordinator.SetHealingCapability;
+            healingAttributionAdapter.CapabilityChanged -= SetHealingCapability;
         }
 
         healingAttributionAdapter?.Dispose();
@@ -610,4 +611,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         }
     }
 
+    private void SetHealingCapability(Core.Persistence.CapabilityRecord capability)
+    {
+        profileCoordinator?.SetHealingCapability(capability);
+        runLifecycleAdapter.OwnedValue?.SetHealingCapability(capability);
+    }
 }

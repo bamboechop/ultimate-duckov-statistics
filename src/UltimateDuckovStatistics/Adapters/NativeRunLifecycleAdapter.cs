@@ -151,6 +151,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public bool RecordItemUse(ItemUseRecorded value) =>
         callbackLifetime.CanHandleCallbacks && tracker.RecordItemUse(value);
 
+    public void SetHealingCapability(CapabilityRecord capability) => tracker.SetHealingCapability(capability.State);
+
     public bool RecordHealing(HealingApplied value) =>
         callbackLifetime.CanHandleCallbacks && tracker.RecordHealing(value);
 
