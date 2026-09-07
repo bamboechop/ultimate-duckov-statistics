@@ -210,13 +210,6 @@ public static class EconomyStatisticsReducer
         };
     }
 
-    public static bool HasExactCapturedCurrency(EconomyStatisticsAggregate aggregate, CurrencyKind currency)
-    {
-        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        return !IsCurrencyArithmeticSaturated(aggregate, currency)
-               && aggregate.Currencies.ContainsKey(currency.ToString());
-    }
-
     public static bool IsExactCurrencyComposition(
         EconomyStatisticsAggregate total,
         IEnumerable<EconomyStatisticsAggregate> components,

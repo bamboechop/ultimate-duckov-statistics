@@ -819,9 +819,7 @@ public sealed class ActiveRunPersistenceTests
         AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
             checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
             {
-                EventId = "invalid-association",
                 EventKind = "combat",
-                TimestampUtc = TestTime.AddSeconds(7),
                 FirstTimestampUtc = TestTime.AddSeconds(7),
                 LastTimestampUtc = TestTime.AddSeconds(7),
                 Count = 1,
@@ -838,9 +836,7 @@ public sealed class ActiveRunPersistenceTests
         AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
             checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
             {
-                EventId = "one-sided-association",
                 EventKind = "combat",
-                TimestampUtc = TestTime.AddSeconds(7),
                 FirstTimestampUtc = TestTime.AddSeconds(7),
                 LastTimestampUtc = TestTime.AddSeconds(7),
                 Count = 1,
@@ -889,14 +885,12 @@ public sealed class ActiveRunPersistenceTests
             checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
             {
                 EventKind = "item-use",
-                TimestampUtc = TestTime.AddSeconds(7),
                 FirstTimestampUtc = TestTime.AddSeconds(7),
                 LastTimestampUtc = TestTime.AddSeconds(7),
                 SourceSegmentId = segment.SegmentId,
                 SourceMapId = segment.MapId,
                 OutcomeSegmentId = segment.SegmentId,
                 OutcomeMapId = segment.MapId,
-                Representation = SegmentEventAssociationRepresentation.ExactAggregate,
                 Count = 0
             });
         });
@@ -913,14 +907,12 @@ public sealed class ActiveRunPersistenceTests
             checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
             {
                 EventKind = "item-use",
-                TimestampUtc = TestTime.AddSeconds(7),
                 FirstTimestampUtc = TestTime.AddSeconds(7),
                 LastTimestampUtc = TestTime.AddSeconds(7),
                 SourceSegmentId = segment.SegmentId,
                 SourceMapId = segment.MapId,
                 OutcomeSegmentId = segment.SegmentId,
                 OutcomeMapId = segment.MapId,
-                Representation = SegmentEventAssociationRepresentation.ExactAggregate,
                 Count = 0
             });
         }
@@ -1034,7 +1026,6 @@ public sealed class ActiveRunPersistenceTests
         Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
         var run = Assert.Single(recovery.Current.Statistics.Runs);
         var association = Assert.Single(run.SegmentEventAssociations, value => value.EventKind == "item-use");
-        Assert.Equal(SegmentEventAssociationRepresentation.ExactAggregate, association.Representation);
         Assert.Equal(2049, association.Count);
         Assert.Equal(2053, run.SegmentEventAssociations.Sum(value => value.Count));
         Assert.Equal(5, run.SegmentEventAssociations.Count);
@@ -2197,20 +2188,6 @@ public sealed class ActiveRunPersistenceTests
         });
         return tracker.CreateCheckpoint(TestTime.AddSeconds(activeSeconds), activeSeconds)!;
     }
-
-    private static SegmentEventAssociation LegacyRouteAssociation(string eventId, MapSegmentSummary segment) => new()
-    {
-        EventId = eventId,
-        EventKind = "item-use",
-        TimestampUtc = TestTime.AddSeconds(1),
-        FirstTimestampUtc = TestTime.AddSeconds(1),
-        LastTimestampUtc = TestTime.AddSeconds(1),
-        Count = 1,
-        SourceSegmentId = segment.SegmentId,
-        SourceMapId = segment.MapId,
-        OutcomeSegmentId = segment.SegmentId,
-        OutcomeMapId = segment.MapId
-    };
 
     private static RunLifecycleTracker ActiveTracker(string generation)
     {

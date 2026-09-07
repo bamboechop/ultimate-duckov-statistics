@@ -208,7 +208,6 @@ public sealed class RouteLifecycleTests
         summary.Segments[1].SegmentId = "run-1:segment:1";
         summary.SegmentEventAssociations.Add(new SegmentEventAssociation
         {
-            EventId = "broken",
             EventKind = "combat",
             SourceSegmentId = summary.Segments[0].SegmentId,
             SourceMapId = summary.Segments[1].MapId
@@ -253,9 +252,7 @@ public sealed class RouteLifecycleTests
         var segment = summary.Segments[0];
         summary.SegmentEventAssociations.Add(new SegmentEventAssociation
         {
-            EventId = "one-sided",
             EventKind = "combat",
-            TimestampUtc = Now.AddSeconds(2),
             SourceSegmentId = missingSource ? string.Empty : segment.SegmentId,
             SourceMapId = missingSource ? MapIdentity.UnknownId : segment.MapId,
             OutcomeSegmentId = missingSource ? segment.SegmentId : string.Empty,
@@ -471,7 +468,6 @@ public sealed class RouteLifecycleTests
         Assert.Equal(eventCount, summary.ItemStatistics.Overall.ActivationCount);
         Assert.Equal(eventCount, summary.Segments[0].ItemStatistics.Overall.ActivationCount);
         var association = Assert.Single(summary.SegmentEventAssociations);
-        Assert.Equal(SegmentEventAssociationRepresentation.ExactAggregate, association.Representation);
         Assert.Equal(eventCount, association.Count);
         Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.Segments.State);
         Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.EventAttribution.State);
@@ -508,8 +504,6 @@ public sealed class RouteLifecycleTests
 
         Assert.Equal(eventCount, run.SegmentEventAssociations.Sum(value => value.Count));
         Assert.Equal(16, run.SegmentEventAssociations.Count);
-        Assert.All(run.SegmentEventAssociations, value =>
-            Assert.Equal(SegmentEventAssociationRepresentation.ExactAggregate, value.Representation));
         Assert.Equal(4, run.Segments.Count);
         Assert.Equal(FourSegmentRepeatedMapIds,
             run.Segments.Select(value => value.MapId));
@@ -654,13 +648,12 @@ public sealed class RouteLifecycleTests
         Assert.Equal(7, profile.Statistics.RunTotals.RouteMaps["duckov:map:B"].ItemStatistics.Overall.ActualHealthRestored);
         Assert.Contains("loadout-a", profile.Statistics.RunTotals.RouteMaps["duckov:map:B"].EquipmentStatistics.Loadouts.Keys);
         Assert.True(UiText.HasAvailableEventAttribution(run));
-        Assert.Contains("\"Representation\":1", export.Json);
         Assert.Contains("\"EventKind\":\"shot\"", export.Json);
         Assert.Contains("\"EventKind\":\"combat\"", export.Json);
         Assert.Contains("\"EventKind\":\"container\"", export.Json);
         Assert.Contains("\"EventKind\":\"item-use\"", export.Json);
         Assert.Contains("\"EventKind\":\"healing\"", export.Json);
-        Assert.Contains(",2050,ExactAggregate,", export.SegmentEventsCsv);
+        Assert.Contains(",2050,", export.SegmentEventsCsv);
         Assert.Contains(",combat,", export.SegmentEventsCsv);
         Assert.Contains(",healing,", export.SegmentEventsCsv);
         Assert.Contains(",2055,6", export.RoutesCsv);
@@ -951,9 +944,8 @@ public sealed class RouteLifecycleTests
             Assert.Equal(AdapterCapabilityState.Supported, segment.Economy.Capabilities.MoneyAmountDirection.State);
         });
         var itemAssociation = Assert.Single(run.SegmentEventAssociations);
-        Assert.Empty(itemAssociation.EventId);
+
         Assert.Equal("item-use", itemAssociation.EventKind);
-        Assert.Equal(SegmentEventAssociationRepresentation.ExactAggregate, itemAssociation.Representation);
         Assert.Equal(1, itemAssociation.Count);
         Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
         Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.RouteAwareMapTotals.State);
@@ -1156,9 +1148,7 @@ public sealed class RouteLifecycleTests
         var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 6)).Completed!;
         run.SegmentEventAssociations.Add(new SegmentEventAssociation
         {
-            EventId = "broken",
             EventKind = "combat",
-            TimestampUtc = Now.AddSeconds(5),
             SourceSegmentId = run.Segments[0].SegmentId,
             SourceMapId = run.Segments[1].MapId
         });
@@ -1546,18 +1536,4 @@ public sealed class RouteLifecycleTests
         GameplayContext = GameplayContext.Raid,
         ContainerKey = key
     };
-
-    private static SegmentEventAssociation LegacyAssociation(
-        string eventId,
-        MapSegmentSummary segment,
-        DateTime timestampUtc) => new()
-        {
-            EventId = eventId,
-            EventKind = "item-use",
-            TimestampUtc = timestampUtc,
-            SourceSegmentId = segment.SegmentId,
-            SourceMapId = segment.MapId,
-            OutcomeSegmentId = segment.SegmentId,
-            OutcomeMapId = segment.MapId
-        };
 }

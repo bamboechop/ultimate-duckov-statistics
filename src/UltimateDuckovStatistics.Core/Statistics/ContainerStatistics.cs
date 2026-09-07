@@ -214,14 +214,14 @@ public static class ContainerStatisticsReducer
         return repaired;
     }
 
-    public static void ValidateRecoveryCandidate(ContainerRunCheckpointState? value, int schemaVersion)
+    public static void ValidateRecoveryCandidate(ContainerRunCheckpointState? value)
     {
-        if (schemaVersion >= 7 && (value == null
+        if (value == null
             || value.Statistics == null
             || value.Statistics.Capabilities == null
             || value.Statistics.Capabilities.UniqueContainersLooted == null
             || value.LootedContainerKeys == null
-            || (schemaVersion >= 8 && value.LootedContainerIdentities == null)))
+            || value.LootedContainerIdentities == null)
         {
             throw new ArgumentException("Current-schema container checkpoint is incomplete.", nameof(value));
         }

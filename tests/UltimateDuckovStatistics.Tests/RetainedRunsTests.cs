@@ -263,21 +263,21 @@ public sealed class RetainedRunsTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void IncompleteClassificationsDoNotCreateExactZeros(bool historical)
+    public void IncompleteClassificationsDoNotCreateExactZeros(bool missingPartition)
     {
         var run = Run("r", 1);
         run.CombatStatistics.Totals.KillsByYou = 5;
-        run.CombatStatistics.Totals.PlayerKills = historical ? PlayerKillPartition.Historical(5) : new PlayerKillPartition { Unknown = 5 };
+        run.CombatStatistics.Totals.PlayerKills = missingPartition ? null! : new PlayerKillPartition { Unknown = 5 };
         var result = Present(run).Runs[0];
         Assert.Contains("Unavailable kills", result.Melee);
         Assert.DoesNotContain("0 kills", result.Ranged);
-        Assert.Contains(historical ? "Historical" : "incomplete", result.Ranged);
+        Assert.Contains("incomplete", result.Ranged);
     }
 
     [Fact]
-    public void NewlyExactRunIsNotContaminatedByHistoricalSibling()
+    public void ExactRunIsNotContaminatedByUnprovenSibling()
     {
-        var old = Run("old", 1); old.CombatStatistics.Totals.PlayerKills = PlayerKillPartition.Historical(0);
+        var old = Run("old", 1); old.CombatStatistics.Totals.PlayerKills = null!;
         var current = Run("current", 2);
         var result = Present(old, current);
         Assert.Contains("0 kills", result.Runs[0].Melee);

@@ -361,7 +361,7 @@ public sealed class RunLifecycleTracker
             {
                 WeaponStatisticsReducer.Apply(active.CurrentSegment.WeaponStatistics, shot);
                 EquipmentStatisticsReducer.RecordShot(active.CurrentSegment.EquipmentStatistics, shot);
-                RecordAssociation(shot.EventId, "shot", shot.TimestampUtc, shot.SegmentId, shot.MapId, shot.SegmentId, shot.MapId);
+                RecordAssociation("shot", shot.TimestampUtc, shot.SegmentId, shot.MapId, shot.SegmentId, shot.MapId);
             }
             active.Context.IntegrityTags = RunIntegrityPolicy.Accumulate(
                 active.Context.IntegrityTags,
@@ -425,7 +425,6 @@ public sealed class RunLifecycleTracker
             if (active.CurrentEventCaptureSupported)
             {
                 RecordAssociation(
-                    value.EventId,
                     "combat",
                     value.TimestampUtc,
                     value.SourceSegmentId,
@@ -476,7 +475,7 @@ public sealed class RunLifecycleTracker
                 active.CurrentSegment.ContainerStatistics.UniqueContainersLooted = SaturatingAdd(
                     active.CurrentSegment.ContainerStatistics.UniqueContainersLooted,
                     1);
-                RecordAssociation(value.EventId, "container", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
+                RecordAssociation("container", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
             }
         }
         if (accepted || saturationChanged) RequireCombatCheckpoint();
@@ -556,7 +555,7 @@ public sealed class RunLifecycleTracker
         if (changed && active.CurrentEventCaptureSupported && active.CurrentSegment != null)
         {
             ItemStatisticsAggregateReducer.Record(active.CurrentSegment.ItemStatistics, active.Context.SaveGenerationId, value);
-            RecordAssociation(value.EventId, "item-use", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
+            RecordAssociation("item-use", value.TimestampUtc, value.SegmentId, value.MapId, value.SegmentId, value.MapId);
         }
         if (changed) RequireCombatCheckpoint();
         return changed;
@@ -682,7 +681,6 @@ public sealed class RunLifecycleTracker
         }
         if (changed && active.CurrentEventCaptureSupported)
             RecordAssociation(
-                value.EventId,
                 "healing",
                 value.TimestampUtc,
                 value.SourceSegmentId,
@@ -1094,7 +1092,6 @@ public sealed class RunLifecycleTracker
         && string.Equals(active.CurrentSegment.SegmentId, segmentId, StringComparison.Ordinal);
 
     private void RecordAssociation(
-        string eventId,
         string eventKind,
         DateTime timestampUtc,
         string? sourceSegmentId,
@@ -1134,19 +1131,15 @@ public sealed class RunLifecycleTracker
             aggregate.Count++;
             if (eventTimestampUtc < aggregate.FirstTimestampUtc) aggregate.FirstTimestampUtc = eventTimestampUtc;
             if (eventTimestampUtc > aggregate.LastTimestampUtc) aggregate.LastTimestampUtc = eventTimestampUtc;
-            aggregate.TimestampUtc = aggregate.LastTimestampUtc;
             return;
         }
         var association = new SegmentEventAssociation
         {
-            EventId = string.Empty,
             EventKind = eventKind,
-            TimestampUtc = eventTimestampUtc,
             SourceSegmentId = source.SegmentId,
             SourceMapId = source.MapId,
             OutcomeSegmentId = outcome.SegmentId,
             OutcomeMapId = outcome.MapId,
-            Representation = SegmentEventAssociationRepresentation.ExactAggregate,
             Count = 1,
             FirstTimestampUtc = eventTimestampUtc,
             LastTimestampUtc = eventTimestampUtc

@@ -424,7 +424,7 @@ public sealed class M14LosslessAssociationTests
         Assert.Equal(4, interrupted.ActiveDurationSeconds);
         Assert.Equal(4, RootState(interrupted.EquipmentStatistics, "slot:primary", EquipmentSlotState.Empty).ActiveDurationSeconds);
         Assert.Equal(4, NestedState(interrupted.EquipmentStatistics, "slot:secondary", "weapon:secondary", "5:scope", EquipmentSlotState.Empty).ActiveDurationSeconds);
-        EquipmentStatisticsReducer.ValidateRecoveryCandidate(interrupted.EquipmentStatistics, 14);
+        EquipmentStatisticsReducer.ValidateRecoveryCandidate(interrupted.EquipmentStatistics);
     }
 
     [Fact]

@@ -436,7 +436,8 @@ public static class RunReducer
         {
             throw new ArgumentNullException(nameof(summary));
         }
-        if (string.IsNullOrWhiteSpace(summary.RunId)
+        if (summary.SchemaVersion != ProductInfo.SchemaVersion
+            || string.IsNullOrWhiteSpace(summary.RunId)
             || string.IsNullOrWhiteSpace(summary.SaveGenerationId)
             || string.IsNullOrWhiteSpace(summary.MapId)
             || string.IsNullOrWhiteSpace(summary.MapDisplayName)
@@ -450,14 +451,11 @@ public static class RunReducer
             throw new ArgumentException("Run summary is invalid.", nameof(summary));
         }
 
-        if (summary.SchemaVersion >= 17)
-        {
-            if (summary.TerminalLoadout == null) throw new ArgumentException("Terminal loadout state is missing.", nameof(summary));
-            summary.TerminalLoadout.Validate(summary.Outcome);
-            Persistence.RunDataSchema.Validate(summary.CombatStatistics, summary.EquipmentStatistics);
-            foreach (var segment in summary.Segments)
-                Persistence.RunDataSchema.Validate(segment.CombatStatistics, segment.EquipmentStatistics);
-        }
+        if (summary.TerminalLoadout == null) throw new ArgumentException("Terminal loadout state is missing.", nameof(summary));
+        summary.TerminalLoadout.Validate(summary.Outcome);
+        Persistence.RunDataSchema.Validate(summary.CombatStatistics, summary.EquipmentStatistics);
+        foreach (var segment in summary.Segments)
+            Persistence.RunDataSchema.Validate(segment.CombatStatistics, segment.EquipmentStatistics);
         WeaponStatisticsReducer.ValidateAggregate(summary.WeaponStatistics);
         CombatStatisticsReducer.ValidateAggregate(summary.CombatStatistics);
         EquipmentStatisticsReducer.ValidateAggregate(summary.EquipmentStatistics);

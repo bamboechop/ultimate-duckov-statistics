@@ -496,22 +496,22 @@ public static class EquipmentStatisticsReducer
         ValidateSlotStateReconciliation(target);
     }
 
-    public static void ValidateRecoveryCandidate(EquipmentStatisticsAggregate? target, int schemaVersion)
+    public static void ValidateRecoveryCandidate(EquipmentStatisticsAggregate? target)
     {
-        if (schemaVersion >= 18) EquipmentCompositionReducer.Validate(target?.Composition);
-        if (schemaVersion >= 6 && (target == null || target.Capabilities == null
+        EquipmentCompositionReducer.Validate(target?.Composition);
+        if (target == null || target.Capabilities == null
             || target.Capabilities.EquipmentSlots == null || target.Capabilities.SelectedWeapon == null
             || target.Capabilities.AttachmentMetadata == null || target.Capabilities.DirectTotems == null
             || target.Capabilities.ToteContents == null
             || target.Items == null || target.SelectedWeapons == null || target.Loadouts == null
             || target.TotemSets == null || target.TotemStates == null || target.Slots == null
-            || target.SlottedWeapons == null || target.CombatAssociations == null || target.Transitions == null))
+            || target.SlottedWeapons == null || target.CombatAssociations == null || target.Transitions == null)
             throw new ArgumentException("Current-schema equipment checkpoint is incomplete.", nameof(target));
-        if (schemaVersion >= 14 && (target == null || target.Capabilities.CharacterSlotState == null
+        if (target == null || target.Capabilities.CharacterSlotState == null
             || target.Capabilities.NestedSlotState == null
             || target.CharacterSlotObservedDurations == null || target.CharacterSlotStates == null
-            || target.NestedSlotObservedDurations == null || target.NestedSlotStates == null))
-            throw new ArgumentException("Schema-14 equipment-slot checkpoint is incomplete.", nameof(target));
+            || target.NestedSlotObservedDurations == null || target.NestedSlotStates == null)
+            throw new ArgumentException("Current-schema equipment-slot checkpoint is incomplete.", nameof(target));
         if (target == null) return;
         if (!IsFinite(target.ObservedActiveDurationSeconds) || target.ObservedActiveDurationSeconds < 0
             || target.TransitionCount < 0 || target.Transitions?.Count > EquipmentStatisticsAggregate.TransitionCapacity
@@ -525,7 +525,7 @@ public static class EquipmentStatisticsReducer
                 || row.ActiveTimeSeconds < previousTransitionTime
                 || row.ActiveTimeSeconds > target.ObservedActiveDurationSeconds
                 || string.IsNullOrWhiteSpace(row.ToSnapshotId)
-                || schemaVersion >= 6 && (row.FromSnapshotId == null
+                || (row.FromSnapshotId == null
                     || string.IsNullOrWhiteSpace(row.FromLoadoutId)
                     || string.IsNullOrWhiteSpace(row.ToLoadoutId)
                     || string.IsNullOrWhiteSpace(row.TotemSetId)
@@ -554,7 +554,7 @@ public static class EquipmentStatisticsReducer
                 || !IsFinite(row.DamageDealt) || row.DamageDealt < 0
                 || !IsFinite(row.DamageReceived) || row.DamageReceived < 0) == true)
             throw new ArgumentException("Equipment checkpoint contains invalid combat-association counters.", nameof(target));
-        if (schemaVersion >= 14) ValidateSlotStateReconciliation(target);
+        ValidateSlotStateReconciliation(target);
     }
 
     public static bool IsEmpty(EquipmentStatisticsAggregate value) => value != null

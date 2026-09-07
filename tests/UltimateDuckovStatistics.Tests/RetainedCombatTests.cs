@@ -32,7 +32,7 @@ public sealed class RetainedCombatTests
     private static void Attackers(StatisticsPanelProjection p, params CombatBreakdownAggregate[] rows) => p.Combat.Killers = rows;
     private static void Weapons(StatisticsPanelProjection p, params WeaponAmmunitionGroupProjection[] groups)
     { p.WeaponAmmunitionGroups = groups; p.CombatBinding = new CombatProjectionBinding(p); }
-    private static WeaponAmmunitionGroupProjection Weapon(string id, long count, string? name = null, long uncorrelated = 0, bool historical = false,
+    private static WeaponAmmunitionGroupProjection Weapon(string id, long count, string? name = null, long uncorrelated = 0,
         params (string Id, long Count, double Percentage)[] pairs) => new()
         {
             WeaponId = id,
@@ -127,10 +127,10 @@ public sealed class RetainedCombatTests
         Assert.Equal(new[] { "9", "6", "2" }, result.Melee.Select(m => m.Value.Text));
     }
     [Fact]
-    public void HistoricalOnlyKillContentIsOmittedWithoutQualifyingCurrentBuckets()
+    public void UnknownAttackKindsDoNotAlterProvenKillBuckets()
     {
         var p = Projection(); var n = p.Combat.Lifetime.Totals;
-        n.PlayerKills = new PlayerKillPartition { Unknown = 2, HistoricalUnclassified = 8, HistoricalIncomplete = true }; n.KillsByYou = 10;
+        n.PlayerKills = new PlayerKillPartition { Unknown = 10 }; n.KillsByYou = 10;
         var r = Present(p);
         Assert.Equal("0", r.Ranged[2].Value.Text); Assert.Equal("0", r.Melee[2].Value.Text);
         n.PlayerKills.Ranged = 3; p.Combat.Capabilities.KillsByYou.State = AdapterCapabilityState.DisabledIncompatible;
@@ -198,11 +198,11 @@ public sealed class RetainedCombatTests
         Weapons(p, Weapon("b", 20)); state.Refresh(Present(p)); Assert.Equal("b", state.WeaponId);
     }
     [Theory]
-    [InlineData(false, 2)]
-    [InlineData(true, 0)]
-    public void PairHistoryAndUncorrelatedActionsQualifyThePercentageBasis(bool historical, int uncorrelated)
+    [InlineData(2)]
+    [InlineData(0)]
+    public void IncompletePairingAndUncorrelatedActionsQualifyThePercentageBasis(int uncorrelated)
     {
-        var p = Projection(); Weapons(p, Weapon("w", 10, uncorrelated: uncorrelated, historical: historical, pairs: new[] { ("ammo", 8L, 100d) }));
+        var p = Projection(); Weapons(p, Weapon("w", 10, uncorrelated: uncorrelated, pairs: new[] { ("ammo", 8L, 100d) }));
         var w = Present(p).Weapons[0];
         Assert.Equal("100%", w.Ammunition[0].Percentage.Text); Assert.Equal(UiText.Get("ui.combat_pair_basis"), w.Ammunition[0].PercentageBasis);
         Assert.NotEmpty(w.Notice);
@@ -345,7 +345,7 @@ public sealed class RetainedCombatTests
     [Fact]
     public void LongNamesAndAmmunitionCollectionsReflowWithoutLosingRowsOrNotices()
     {
-        var p = Projection(); var name = new string('界', 300); Weapons(p, Weapon("mod:weapon", 1000, name, 1, true,
+        var p = Projection(); var name = new string('界', 300); Weapons(p, Weapon("mod:weapon", 1000, name, 1,
             Enumerable.Range(0, 1000).Select(i => ("mod:ammo" + i, 1L, .1d)).ToArray()));
         var s = new CombatSelection(); s.Refresh(Present(p)); var d = Document(); d.Items(s, 800, true);
         Assert.Equal(1000, d.Rows.Count(r => r.Kind == CombatRowKind.Item)); Assert.Contains(d.Rows, r => r.Kind == CombatRowKind.Notice);

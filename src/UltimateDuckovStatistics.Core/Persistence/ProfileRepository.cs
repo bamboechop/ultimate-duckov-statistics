@@ -509,7 +509,7 @@ public sealed partial class ProfileRepository
         CombatStatisticsReducer.ValidateAggregate(checkpoint.CombatStatistics);
         try
         {
-            EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics, checkpoint.SchemaVersion);
+            EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics);
         }
         catch (ArgumentException exception)
         {
@@ -524,8 +524,7 @@ public sealed partial class ProfileRepository
         try
         {
             ContainerStatisticsReducer.ValidateRecoveryCandidate(
-                checkpoint.ContainerState,
-                ProductInfo.SchemaVersion);
+                checkpoint.ContainerState);
         }
         catch (ArgumentException exception)
         {
@@ -966,11 +965,11 @@ public sealed partial class ProfileRepository
             try
             {
                 WeaponStatisticsReducer.ValidateAggregate(checkpoint.WeaponStatistics);
-                EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics, checkpoint.SchemaVersion);
+                EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics);
                 foreach (var segment in checkpoint.Segments)
                 {
                     WeaponStatisticsReducer.ValidateAggregate(segment.WeaponStatistics);
-                    EquipmentStatisticsReducer.ValidateRecoveryCandidate(segment.EquipmentStatistics, checkpoint.SchemaVersion);
+                    EquipmentStatisticsReducer.ValidateRecoveryCandidate(segment.EquipmentStatistics);
                 }
             }
             catch (ArgumentException exception)
@@ -1003,7 +1002,7 @@ public sealed partial class ProfileRepository
         CombatStatisticsReducer.NormalizePersisted(checkpoint.CombatStatistics);
         try
         {
-            EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics, checkpoint.SchemaVersion);
+            EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics);
         }
         catch (ArgumentException exception)
         {
@@ -1014,8 +1013,7 @@ public sealed partial class ProfileRepository
         try
         {
             ContainerStatisticsReducer.ValidateRecoveryCandidate(
-                checkpoint.ContainerState,
-                checkpoint.SchemaVersion);
+                checkpoint.ContainerState);
         }
         catch (ArgumentException exception)
         {
@@ -1112,7 +1110,7 @@ public sealed partial class ProfileRepository
             }
         }
         if (checkpoint.Segments.Count > RouteStatisticsReducer.MaximumSegmentsPerRun
-            || checkpoint.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumPersistedEventAssociationsPerRun)
+            || checkpoint.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumAggregateEventAssociationsPerRun)
             throw new ArgumentException("Current-schema route state exceeds its defensive bound.", nameof(checkpoint));
 
         var segmentsSupported = checkpoint.RouteCapabilities.Segments?.State == AdapterCapabilityState.Supported;

@@ -318,7 +318,7 @@ public sealed class EquipmentStatisticsTests
         var aggregate = Aggregate();
         aggregate.Items["bad"] = new EquipmentDurationAggregate { Id = "bad", ActiveDurationSeconds = -1 };
 
-        Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(aggregate, 6));
+        Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(aggregate));
     }
 
     [Fact]
@@ -333,7 +333,7 @@ public sealed class EquipmentStatisticsTests
             new() { ActiveTimeSeconds = 4, ToSnapshotId = "snapshot:b" }
         };
 
-        Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(aggregate, 6));
+        Assert.Throws<ArgumentException>(() => EquipmentStatisticsReducer.ValidateRecoveryCandidate(aggregate));
     }
 
     [Fact]

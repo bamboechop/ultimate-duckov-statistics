@@ -122,14 +122,12 @@ public sealed class PersistenceTests
         run.SegmentEventAssociations.Add(new SegmentEventAssociation
         {
             EventKind = "item-use",
-            TimestampUtc = TestTime,
             FirstTimestampUtc = TestTime,
             LastTimestampUtc = TestTime,
             SourceSegmentId = segment.SegmentId,
             SourceMapId = segment.MapId,
             OutcomeSegmentId = segment.SegmentId,
             OutcomeMapId = segment.MapId,
-            Representation = SegmentEventAssociationRepresentation.ExactAggregate,
             Count = 0
         });
         store.Save(path, backup);
@@ -995,12 +993,12 @@ public sealed class PersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M8")]
-    public void CurrentProfileSemanticSelectionAllowsHistoricalRunSchemaProvenance()
+    public void CurrentProfileRejectsIncompatibleRunSchema()
     {
         var profile = CreateDocument("generation-a", revision: 7);
-        profile.Statistics.Runs.Add(new RunSummary { SchemaVersion = 6 });
+        profile.Statistics.Runs.Add(new RunSummary { SchemaVersion = ProductInfo.SchemaVersion + 1 });
 
-        Assert.Null(ProfileFormat.ValidateRecoveryCandidate(profile));
+        Assert.Contains("incompatible run schema", ProfileFormat.ValidateRecoveryCandidate(profile));
     }
 
     [Fact]

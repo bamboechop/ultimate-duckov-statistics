@@ -225,9 +225,9 @@ internal static class CombatPresentationFactory
                 var rangedWeapon = source.Fire != null || stats != null && (stats.RangedHits > 0 || stats.CompletedPlayerProjectiles > 0
                     || stats.Headshots > 0 || stats.HeadshotFinalBlows > 0 || stats.PlayerKills.Ranged > 0);
                 var meleeWeapon = stats != null && (stats.MeleeSwings > 0 || stats.MeleeHits > 0 || stats.PlayerKills.Melee > 0);
-                CombatValue Count(Func<CombatMetricTotals, long> get, MetricAvailability availability, bool historical = false) => stats == null ? Unavailable()
+                CombatValue Count(Func<CombatMetricTotals, long> get, MetricAvailability availability) => stats == null ? Unavailable()
                     : Metric(get(stats), Both(availability.State, cap.WeaponIdentity.State), a.WasRepairedFromInvalidState
-                        || historical || unattributed.Any(row => get(row) > 0), t);
+                        || unattributed.Any(row => get(row) > 0), t);
                 var actions = source.Fire == null ? rangedWeapon || !meleeWeapon ? Unavailable() : Count(row => row.MeleeSwings, cap.MeleeSwings)
                     : Metric(g.TotalFiringActions, Both(wc.FiringActions.State, wc.WeaponIdentity.State), w.Lifetime.WasRepairedFromInvalidState || !exact || missingFiringAttribution, t);
                 var metrics = new List<CombatMetric>();
@@ -250,8 +250,7 @@ internal static class CombatPresentationFactory
                     metrics.Add(M("ui.combat_swings", Count(row => row.MeleeSwings, cap.MeleeSwings)));
                     metrics.Add(M(rangedWeapon ? "ui.combat_melee_hits" : "ui.combat_hits", Count(row => row.MeleeHits, cap.MeleeHits)));
                 }
-                metrics.Add(M("ui.kills_by_you", Count(row => row.KillsByYou, cap.KillsByYou,
-                    stats?.PlayerKills.HistoricalIncomplete == true)));
+                metrics.Add(M("ui.kills_by_you", Count(row => row.KillsByYou, cap.KillsByYou)));
                 metrics.Add(M("ui.overview_damage_dealt", stats == null ? Unavailable() : Metric(stats.DamageDealt,
                     Both(cap.DamageDealt.State, cap.WeaponIdentity.State), a.WasRepairedFromInvalidState || unattributed.Any(row => row.DamageDealt > 0), t)));
                 var actionLabel = throwable ? t("ui.combat_throwable_uses") : rangedWeapon ? t("ui.firing_actions") : meleeWeapon ? t("ui.combat_swings") : "";

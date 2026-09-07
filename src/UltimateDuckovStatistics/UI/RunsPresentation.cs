@@ -215,8 +215,7 @@ internal static class RunsPresentationFactory
             + "\n" + Unit(Count(v.MeleeHits, c.MeleeHits), "hit", t) + "\n" + Unit(meleeKills, "kill", t);
         if (!data.RangedMeleeExact)
         {
-            var classification = t(data.HistoricalUnclassifiedKills > 0 || data.KillClassificationProvenance.Contains("Historical", StringComparison.OrdinalIgnoreCase)
-                ? "ui.runs_classification_historical" : "ui.runs_classification_partial");
+            var classification = t("ui.runs_classification_partial");
             ranged += "\n" + classification; melee += "\n" + classification;
         }
         var slots = data.TerminalSlots.Select(slot => PresentSlot(slot, t));

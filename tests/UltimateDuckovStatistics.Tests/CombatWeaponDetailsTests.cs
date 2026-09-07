@@ -219,10 +219,10 @@ public sealed class CombatWeaponDetailsTests
     }
 
     [Fact]
-    public void HistoricalOwnershipAndRepairedEvidenceNeverTurnIntoSupportedZero()
+    public void DegradedOwnershipAndRepairedEvidenceNeverTurnIntoSupportedZero()
     {
         var p = Projection(); Fire(p, "w"); var n = Combat(p, "w");
-        n.PlayerKills.HistoricalIncomplete = true;
+        p.Combat.Capabilities.KillsByYou.State = AdapterCapabilityState.DisabledIncompatible;
         Assert.Equal(CombatEvidence.Partial, Value(Assert.Single(Present(p).Weapons), "Kills by you").Evidence);
         n.KillsByYou = 0;
         Assert.Equal(CombatEvidence.Unavailable, Value(Assert.Single(Present(p).Weapons), "Kills by you").Evidence);
@@ -308,7 +308,7 @@ public sealed class CombatWeaponDetailsTests
                     DamageReceived = 121,
                     PlayerDeaths = 2,
                     ObservedWorldDeaths = 3,
-                    PlayerKills = new PlayerKillPartition { HistoricalIncomplete = true }
+                    PlayerKills = new PlayerKillPartition()
                 }
             };
         Assert.Empty(Present(p).Weapons);

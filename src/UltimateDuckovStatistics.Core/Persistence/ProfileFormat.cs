@@ -33,6 +33,9 @@ public static class ProfileFormat
             return $"Current-schema profile roots are incomplete. Missing required data member: {missingPath}.";
         }
 
+        if (profile.Statistics.Runs.Any(run => run.SchemaVersion != ProductInfo.SchemaVersion))
+            return "Current-format profile contains an incompatible run schema.";
+
         try { RunDataSchema.Validate(profile.Statistics); }
         catch (ArgumentException exception)
         {
@@ -56,7 +59,7 @@ public static class ProfileFormat
             try
             {
                 WeaponStatisticsReducer.ValidateAggregate(scope.WeaponStatistics);
-                EquipmentStatisticsReducer.ValidateRecoveryCandidate(scope.EquipmentStatistics, ProductInfo.SchemaVersion);
+                EquipmentStatisticsReducer.ValidateRecoveryCandidate(scope.EquipmentStatistics);
             }
             catch (ArgumentException exception)
             {
@@ -487,7 +490,7 @@ public static class ProfileFormat
             return true;
         }
 
-        if (run.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumPersistedEventAssociationsPerRun)
+        if (run.SegmentEventAssociations.Count > RouteStatisticsReducer.MaximumAggregateEventAssociationsPerRun)
         {
             ClearInvalidAttribution(run, "Persisted event attribution exceeded its route-cardinality bound.");
             changed = true;
