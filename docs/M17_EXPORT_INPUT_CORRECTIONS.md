@@ -24,3 +24,11 @@ Local probe sources and logs are retained under ignored `artifacts/m17-export-in
 ## User-owned runtime checks
 
 Confirm export and its result banner, base F8 input blocking and restoration after close, and pause-menu Statistics hover/click/open behaviour. Automated and isolated-runtime checks do not establish in-game visual or input acceptance.
+
+## Follow-up: Overview refresh flicker
+
+On 2026-09-07 the user confirmed the reported export/input/menu fixes work, then reported periodic flicker of Overview's Latest run button. Commit `ddd9c7b` retains that button and its highlight across live projection refreshes instead of destroying and recreating them. Its presentation and exact generation/run callback still refresh; feedback components are attached once.
+
+Release tests passed 1846/1846, the native build completed without warnings/errors, and the installed compatibility probe and package validation passed. Deployed with Duckov closed; all five installed files matched the package and ZIP hashes. ZIP SHA-256: `1a59d00b81568a533840fec545287677dfe28b5fd9ad4a5f76e86ec6b9219ed6`. Native DLL SHA-256: `86864e50d700313c28b4dc982de3e8542922b67b8f37bae1293ce3ee37184f43`.
+
+The remaining manual check is button stability across several live refreshes, including hover, keyboard focus, and opening the latest run. Local build/deployment logs are under ignored `artifacts/m17-overview-refresh/`.
