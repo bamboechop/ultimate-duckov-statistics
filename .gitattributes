@@ -1,0 +1,2 @@
+# Keep checkout source and package text identical to immutable Git archives.
+* text=auto eol=lf
