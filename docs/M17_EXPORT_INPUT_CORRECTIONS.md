@@ -32,3 +32,9 @@ On 2026-09-07 the user confirmed the reported export/input/menu fixes work, then
 Release tests passed 1846/1846, the native build completed without warnings/errors, and the installed compatibility probe and package validation passed. Deployed with Duckov closed; all five installed files matched the package and ZIP hashes. ZIP SHA-256: `1a59d00b81568a533840fec545287677dfe28b5fd9ad4a5f76e86ec6b9219ed6`. Native DLL SHA-256: `86864e50d700313c28b4dc982de3e8542922b67b8f37bae1293ce3ee37184f43`.
 
 The remaining manual check is button stability across several live refreshes, including hover, keyboard focus, and opening the latest run. Local build/deployment logs are under ignored `artifacts/m17-overview-refresh/`.
+
+## Follow-up: matching button highlight outlines
+
+Commit `181a081` replaces the shared highlight's fixed radius of 10 with the button background's own radius. The existing feedback component synchronizes subsequent layout changes without restarting the tint, so pill buttons and less-rounded controls retain matching hover, press, and keyboard-focus outlines.
+
+Packaged and deployed on 2026-09-07 with Duckov closed. Release tests passed 1846/1846; native build, compatibility probe, and package checks passed. All five installed files matched their package and ZIP entries. ZIP SHA-256: `77fa59e1007a9ec8c4071bb1fef0f3d100c6e3df5c8e98b2551deddff3c79212`. Native DLL SHA-256: `21e101d787a73cddbdd86be6e0cd06fa6b424a6dccdf6e524386c196da869627`. Local logs: ignored `artifacts/m17-button-shape/`. In-game outline acceptance remains user-owned.
