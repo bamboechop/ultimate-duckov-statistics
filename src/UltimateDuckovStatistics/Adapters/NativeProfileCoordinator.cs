@@ -27,7 +27,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private readonly DeferredCheckpointWriter<CheckpointWrite> checkpointWriter;
     private readonly DeferredSnapshotWriter<ProfileWrite> profileWriter;
     private readonly EconomyActivationGate economyActivationGate;
-    private readonly NativeProfileTransitionBoundary profileTransitionBoundary = new();
+    private readonly NativeProfileTransitionBoundary profileTransitionBoundary;
     private Func<bool>? activeRunCheckpointFlusher;
     private Func<bool>? economyBoundaryFlusher;
     private Func<bool>? economyHoldingsBoundaryFlusher;
@@ -97,6 +97,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public NativeProfileCoordinator(Func<double>? monotonicClock = null)
     {
         this.monotonicClock = monotonicClock ?? (() => (double)System.Diagnostics.Stopwatch.GetTimestamp() / System.Diagnostics.Stopwatch.Frequency);
+        profileTransitionBoundary = new NativeProfileTransitionBoundary(this.monotonicClock);
         dataRoot = Path.Combine(Application.persistentDataPath, Core.ProductInfo.ModId, Core.ProductInfo.DataDirectory);
         checkpointWriter = new DeferredCheckpointWriter<CheckpointWrite>(write =>
         {
@@ -336,8 +337,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
-    private CapabilityRecord throwableCapability = new() { AdapterId = ThrowableUseObservation.CapabilityId,
-        State = AdapterCapabilityState.DisabledIncompatible, Detail = "Throwable tracking has not been initialized." };
+    private CapabilityRecord throwableCapability = new()
+    {
+        AdapterId = ThrowableUseObservation.CapabilityId,
+        State = AdapterCapabilityState.DisabledIncompatible,
+        Detail = "Throwable tracking has not been initialized."
+    };
 
     public void SetThrowableCapability(CapabilityRecord value)
     { throwableCapability = CloneCapability(value); UpdateCapabilities(); }

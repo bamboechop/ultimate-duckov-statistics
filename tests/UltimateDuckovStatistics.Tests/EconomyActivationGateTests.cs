@@ -309,7 +309,8 @@ public sealed class EconomyActivationGateTests : IDisposable
         adapter.Tick();
         EconomyManager.RaiseMoneyChanged(0, 7);
         var transitionCalls = 0;
-        var boundary = new NativeProfileTransitionBoundary();
+        var transitionSeconds = 0d;
+        var boundary = new NativeProfileTransitionBoundary(() => transitionSeconds);
         boundary.Enqueue("Test profile transition", () =>
         {
             transitionCalls++;
@@ -322,6 +323,7 @@ public sealed class EconomyActivationGateTests : IDisposable
         Assert.Empty(repository.Current.Statistics.Economy.Currencies);
 
         Directory.Delete(blockedTemporaryPath);
+        transitionSeconds = 1;
         Assert.True(boundary.Retry(adapter.FlushPendingForBoundary, _ => { }));
 
         Assert.False(boundary.HasPendingTransition);

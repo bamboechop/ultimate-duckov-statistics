@@ -51,7 +51,8 @@ public sealed class WorldTimeLifecycleTests
         var slotA = new SaveIdentitySnapshot { Slot = 1, SaveFilePresent = false };
         var slotB = new SaveIdentitySnapshot { Slot = 2, SaveFilePresent = false };
         repository.Open(slotA);
-        var transition = new NativeProfileTransitionBoundary();
+        var transitionSeconds = 0d;
+        var transition = new NativeProfileTransitionBoundary(() => transitionSeconds);
         var boundary = new NativeWorldTimeObservationBoundary();
         var handoff = new NativeWorldTimeProfileHandoffBoundary();
         RetainedProfileCoordinator? coordinatorField = new(
@@ -113,6 +114,7 @@ public sealed class WorldTimeLifecycleTests
         Assert.True(handoff.HasUncommittedData);
         coordinatorField = null;
         transitionFaulted = false;
+        transitionSeconds = 1;
 
         var replacementOwner = new ProcessLifetimeCleanupOwner<RetainedWorldTimeCleanupResource>();
         Assert.True(replacementOwner.HasPendingCleanup);
