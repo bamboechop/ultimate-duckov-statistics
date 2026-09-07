@@ -2,7 +2,7 @@ namespace UltimateDuckovStatistics.UI;
 
 internal sealed class DiagnosticsSelection
 {
-    private static readonly string[] TechnicalIds = { "technical", "recovery", "limitations", "log" };
+    private static readonly string[] TechnicalIds = { "technical", "recovery", "log" };
     private readonly HashSet<string> expanded = new(StringComparer.Ordinal);
     private readonly Dictionary<string, float> offsets = new(StringComparer.Ordinal);
     public DiagnosticsPresentation? Snapshot { get; private set; }

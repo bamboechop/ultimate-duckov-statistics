@@ -213,7 +213,6 @@ public sealed class NativeProfileTransitionBoundaryTests
             CashAmountDirection = Supported(),
             CashExternalAcquisition = Supported(),
             CashContextAttribution = Supported(),
-            CashTerminalOutcomes = Supported(),
             RouteAttribution = Supported()
         };
     }

@@ -137,7 +137,7 @@ public sealed class StatisticsExportBundle
         string economyTotalsCsv,
         string economySourcesCsv,
         string economyContextsCsv,
-        string cashRaidOutcomesCsv,
+        string cashAcquisitionCsv,
         string economyHoldingsCsv,
         string worldTimeCsv,
         string craftingTotalsCsv,
@@ -172,7 +172,7 @@ public sealed class StatisticsExportBundle
         EconomyTotalsCsv = economyTotalsCsv;
         EconomySourcesCsv = economySourcesCsv;
         EconomyContextsCsv = economyContextsCsv;
-        CashRaidOutcomesCsv = cashRaidOutcomesCsv;
+        CashAcquisitionCsv = cashAcquisitionCsv;
         EconomyHoldingsCsv = economyHoldingsCsv;
         WorldTimeCsv = worldTimeCsv;
         CraftingTotalsCsv = craftingTotalsCsv;
@@ -238,7 +238,7 @@ public sealed class StatisticsExportBundle
 
     public string EconomyContextsCsv { get; }
 
-    public string CashRaidOutcomesCsv { get; }
+    public string CashAcquisitionCsv { get; }
 
     public string EconomyHoldingsCsv { get; }
 
@@ -410,7 +410,7 @@ public static class StatisticsExporter
             CreateEconomyTotalsCsv(document),
             CreateEconomySourcesCsv(document),
             CreateEconomyContextsCsv(document),
-            CreateCashRaidOutcomesCsv(document),
+            CreateCashAcquisitionCsv(document),
             CreateEconomyHoldingsCsv(document),
             CreateWorldTimeCsv(document),
             CreateCraftingTotalsCsv(document),
@@ -670,36 +670,18 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateCashRaidOutcomesCsv(StatisticsExportDocument document)
+    private static string CreateCashAcquisitionCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,acquired,secured,lost,unresolved,acquisition_capability,acquisition_capability_provenance,terminal_capability,terminal_capability_provenance,terminal_ambiguous,terminal_recorded,historical_unavailable,repaired_invalid_state,cash_arithmetic_saturated,legacy_identity_saturation_incomplete");
+        builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,acquired,acquisition_capability,acquisition_capability_provenance,repaired_invalid_state,cash_arithmetic_saturated");
         foreach (var scope in EconomyScopes(document))
-        {
-            var value = scope.Economy.CashRaidOutcomes;
-            var unavailableHistoryWithoutM9Outcome = scope.Economy.HistoricalUnavailable
-                                                     && value.Acquired == 0
-                                                     && value.Secured == 0
-                                                     && value.Lost == 0
-                                                     && value.Unresolved == 0;
-            string Outcome(long amount) => unavailableHistoryWithoutM9Outcome
-                ? string.Empty
-                : amount.ToString(CultureInfo.InvariantCulture);
             builder.Append(Csv(scope.Scope)).Append(',').Append(Csv(scope.ScopeId)).Append(',')
                 .Append(Csv(scope.RunId)).Append(',').Append(Csv(scope.SegmentId)).Append(',').Append(Csv(scope.MapId)).Append(',')
-                .Append(Outcome(value.Acquired)).Append(',').Append(Outcome(value.Secured)).Append(',')
-                .Append(Outcome(value.Lost)).Append(',').Append(Outcome(value.Unresolved)).Append(',')
+                .Append(scope.Economy.CashAcquired.ToString(CultureInfo.InvariantCulture)).Append(',')
                 .Append(scope.Economy.Capabilities.CashExternalAcquisition.State).Append(',')
                 .Append(Csv(scope.Economy.Capabilities.CashExternalAcquisition.Provenance)).Append(',')
-                .Append(scope.Economy.Capabilities.CashTerminalOutcomes.State).Append(',')
-                .Append(Csv(scope.Economy.Capabilities.CashTerminalOutcomes.Provenance)).Append(',')
-                .Append(scope.Economy.CashTerminalDispositionAmbiguous ? "true" : "false").Append(',')
-                .Append(scope.Economy.CashTerminalDispositionRecorded ? "true" : "false").Append(',')
-                .Append(scope.Economy.HistoricalUnavailable ? "true" : "false").Append(',')
                 .Append(scope.Economy.WasRepairedFromInvalidState ? "true" : "false").Append(',')
-                .Append(scope.Economy.CashArithmeticSaturated ? "true" : "false").Append(',')
-                .Append(scope.Economy.LegacyIdentitySaturationIncomplete ? "true" : "false").AppendLine();
-        }
+                .Append(scope.Economy.CashArithmeticSaturated ? "true" : "false").AppendLine();
         return builder.ToString();
     }
 

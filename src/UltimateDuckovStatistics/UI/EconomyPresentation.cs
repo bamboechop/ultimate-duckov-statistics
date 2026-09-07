@@ -171,7 +171,7 @@ internal static class EconomyPresentationFactory
         long? acquired = null;
         if (!money)
         {
-            if (a.CashRaidOutcomes.Acquired > 0) acquired = a.CashRaidOutcomes.Acquired;
+            if (a.CashAcquired > 0) acquired = a.CashAcquired;
             else if (!a.HistoricalUnavailable && !broken && a.Capabilities.CashExternalAcquisition.State == AdapterCapabilityState.Supported
                 && current.CashExternalAcquisition.State == AdapterCapabilityState.Supported) acquired = 0;
             // Acquired evidence is a subset of Raid inflow. Missing context remains missing.
@@ -190,20 +190,42 @@ internal static class EconomyPresentationFactory
             ? t("ui.economy_current_unavailable") : incomplete || scope.State != AdapterCapabilityState.Supported ? t("ui.economy_incomplete") : "";
         static EconomyFlowRow Present(string id, string name, CurrencyFlowTotals value) => new(id, name, value.GrossInflow, value.GrossOutflow, value.NetFlow);
     }
-    private static int SourceOrder(string key) => key switch {
-        nameof(CurrencySourceCategory.Sale) => 0, nameof(CurrencySourceCategory.Reward) => 1, nameof(CurrencySourceCategory.Purchase) => 2,
-        nameof(CurrencySourceCategory.FeeOrCraftingCost) => 3, nameof(CurrencySourceCategory.LootOrPickup) => 4, _ => 5 };
-    private static int ContextOrder(string key) => key switch {
-        nameof(GameplayContext.Base) => 0, nameof(GameplayContext.Raid) => 1, nameof(GameplayContext.Shop) => 2,
-        nameof(GameplayContext.Reward) => 3, nameof(GameplayContext.Paused) => 4, _ => 5 };
-    private static string SourceName(string key, Func<string, string> t) => t(key switch {
-        nameof(CurrencySourceCategory.Sale) => "ui.economy_source_sales", nameof(CurrencySourceCategory.Reward) => "ui.economy_source_rewards",
-        nameof(CurrencySourceCategory.Purchase) => "ui.economy_source_purchases", nameof(CurrencySourceCategory.FeeOrCraftingCost) => "ui.economy_source_fees",
-        nameof(CurrencySourceCategory.LootOrPickup) => "ui.economy_source_loot", _ => "ui.economy_source_unknown" });
-    private static string ContextName(string key, Func<string, string> t) => t(key switch {
-        nameof(GameplayContext.Base) => "ui.economy_context_base", nameof(GameplayContext.Raid) => "ui.economy_context_raid",
-        nameof(GameplayContext.Shop) => "ui.economy_context_shop", nameof(GameplayContext.Reward) => "ui.economy_context_reward",
-        nameof(GameplayContext.Paused) => "ui.economy_context_paused", _ => "ui.economy_context_unknown" });
+    private static int SourceOrder(string key) => key switch
+    {
+        nameof(CurrencySourceCategory.Sale) => 0,
+        nameof(CurrencySourceCategory.Reward) => 1,
+        nameof(CurrencySourceCategory.Purchase) => 2,
+        nameof(CurrencySourceCategory.FeeOrCraftingCost) => 3,
+        nameof(CurrencySourceCategory.LootOrPickup) => 4,
+        _ => 5
+    };
+    private static int ContextOrder(string key) => key switch
+    {
+        nameof(GameplayContext.Base) => 0,
+        nameof(GameplayContext.Raid) => 1,
+        nameof(GameplayContext.Shop) => 2,
+        nameof(GameplayContext.Reward) => 3,
+        nameof(GameplayContext.Paused) => 4,
+        _ => 5
+    };
+    private static string SourceName(string key, Func<string, string> t) => t(key switch
+    {
+        nameof(CurrencySourceCategory.Sale) => "ui.economy_source_sales",
+        nameof(CurrencySourceCategory.Reward) => "ui.economy_source_rewards",
+        nameof(CurrencySourceCategory.Purchase) => "ui.economy_source_purchases",
+        nameof(CurrencySourceCategory.FeeOrCraftingCost) => "ui.economy_source_fees",
+        nameof(CurrencySourceCategory.LootOrPickup) => "ui.economy_source_loot",
+        _ => "ui.economy_source_unknown"
+    });
+    private static string ContextName(string key, Func<string, string> t) => t(key switch
+    {
+        nameof(GameplayContext.Base) => "ui.economy_context_base",
+        nameof(GameplayContext.Raid) => "ui.economy_context_raid",
+        nameof(GameplayContext.Shop) => "ui.economy_context_shop",
+        nameof(GameplayContext.Reward) => "ui.economy_context_reward",
+        nameof(GameplayContext.Paused) => "ui.economy_context_paused",
+        _ => "ui.economy_context_unknown"
+    });
     internal static string Number(long? value, bool signed = false) => !value.HasValue ? UiText.Get("ui.unavailable")
         : (signed && value > 0 ? "+" : "") + value.Value.ToString("#,0", CultureInfo.InvariantCulture);
     internal static string Timestamp(DateTime value, Func<string, string>? text = null, bool runDate = false)

@@ -62,7 +62,6 @@ internal static class DiagnosticsText
         ["ui.diag_statistics_format"] = "Statistics format",
         ["ui.diag_versions"] = "Versions",
         ["ui.diag_recovery"] = "Recovery & data integrity",
-        ["ui.diag_limitations"] = "Known limitations",
         ["ui.diag_contracts"] = "Native contract details",
         ["ui.diag_adapter"] = "Adapter",
         ["ui.diag_capability_version"] = "Capability version",

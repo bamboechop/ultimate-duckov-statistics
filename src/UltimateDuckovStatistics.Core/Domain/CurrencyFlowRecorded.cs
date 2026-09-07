@@ -11,7 +11,6 @@ public sealed class EconomyMetricCapabilities
     [DataMember(Order = 4)] public MetricAvailability CashAmountDirection { get; set; } = new();
     [DataMember(Order = 5)] public MetricAvailability CashExternalAcquisition { get; set; } = new();
     [DataMember(Order = 6)] public MetricAvailability CashContextAttribution { get; set; } = new();
-    [DataMember(Order = 7)] public MetricAvailability CashTerminalOutcomes { get; set; } = new();
     [DataMember(Order = 8)] public MetricAvailability RouteAttribution { get; set; } = new();
 }
 

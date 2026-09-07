@@ -25,7 +25,7 @@ public sealed class RetainedDiagnosticsTests
             AdapterId = d.Id,
             Version = "observed-contract-v1",
             Detail = "Observed " + d.Id,
-            State = d.BaselineLimitation ? AdapterCapabilityState.DisabledIncompatible : AdapterCapabilityState.Supported
+            State = AdapterCapabilityState.Supported
         }).ToList()
     };
     private static DiagnosticsRuntimeSnapshot Runtime(string generation = "g") => new()
@@ -58,17 +58,6 @@ public sealed class RetainedDiagnosticsTests
         Assert.Equal(expected, DiagnosticsCapabilityCatalog.All.Select(d => d.Id).OrderBy(id => id, StringComparer.Ordinal));
         Assert.Equal(expected.Length, expected.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal("items", Assert.Single(DiagnosticsCapabilityCatalog.All, d => d.Id == ThrowableUseObservation.CapabilityId).Group);
-    }
-
-    [Fact]
-    public void KnownBaselineLimitationsDoNotBecomeTrackingErrorsOrRecentIssues()
-    {
-        var p = Present(Profile());
-        Assert.Equal(DiagnosticsHealth.Working, p.Health); Assert.Empty(p.Issues);
-        Assert.All(p.Systems.Where(s => s.Id != "storage"), s => Assert.Equal(DiagnosticsHealth.Working, s.Health));
-        var limitations = p.Systems.SelectMany(s => s.Capabilities).Where(c => c.BaselineLimitation).ToArray();
-        Assert.NotEmpty(limitations); Assert.Equal(limitations.Length, p.Limitations.Count);
-        Assert.All(limitations, cap => { Assert.Equal(DiagnosticsHealth.Limited, cap.Health); Assert.Equal("Unavailable", cap.Status); });
     }
 
     [Fact]
@@ -106,14 +95,10 @@ public sealed class RetainedDiagnosticsTests
             var p = Present(profile);
             Assert.Equal(DiagnosticsHealth.Limited, p.Health); Assert.Empty(p.Issues);
             Assert.DoesNotContain(p.Systems, s => s.Health == DiagnosticsHealth.Error);
-            var terminal = Cap(p, EconomyCapabilityIds.CashTerminalOutcomes);
-            Assert.True(terminal.BaselineLimitation); Assert.Equal("Unavailable", terminal.Status);
-            Assert.Equal(AdapterCapabilityState.DisabledIncompatible.ToString(), terminal.State);
             Assert.Equal("Limited", Cap(p, EconomyCapabilityIds.MoneySourceAttribution).Status);
             Assert.Equal("Limited", Cap(p, EconomyCapabilityIds.CashExternalAcquisition).Status);
             Assert.Equal("Working", Cap(p, EconomyCapabilityIds.MoneyAmountDirection).Status);
             Assert.Equal("Working", Cap(p, EconomyCapabilityIds.CashAmountDirection).Status);
-            Assert.Contains(p.Limitations, row => row.Label == terminal.Name);
             Assert.Equal(records.Count, p.Systems.Sum(s => s.Capabilities.Count));
         }
         finally { UnityEngine.Application.version = oldVersion; }
@@ -363,7 +348,7 @@ public sealed class RetainedDiagnosticsTests
         var runtime = Runtime(); runtime.Entries = new[] { Entry(1, "Warning", "first") };
         var p = Present(Profile(), runtime); var selection = new DiagnosticsSelection(); selection.Refresh(p);
         Assert.True(selection.Expanded("technical")); Assert.False(selection.Expanded("issue:" + p.Issues[0].Id));
-        Assert.False(selection.Expanded("recovery")); Assert.False(selection.Expanded("limitations")); Assert.False(selection.Expanded("log"));
+        Assert.False(selection.Expanded("recovery")); Assert.False(selection.Expanded("log"));
         Assert.True(selection.Toggle("g", "issue:" + p.Issues[0].Id));
         Assert.True(selection.Toggle("g", "system:economy")); Assert.True(selection.Toggle("g", "contracts:economy"));
         Assert.True(selection.Filter("g", DiagnosticsLogFilter.Errors));

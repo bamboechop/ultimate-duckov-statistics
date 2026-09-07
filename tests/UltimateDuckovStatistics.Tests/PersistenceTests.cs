@@ -169,7 +169,6 @@ public sealed class PersistenceTests
         "Statistics.RunRecords",
         "Statistics.Economy",
         "Statistics.Economy.Currencies",
-        "Statistics.Economy.CashRaidOutcomes",
         "Statistics.Economy.Capabilities",
         "Statistics.Economy.RecentEventIds",
         "Statistics.Economy.Capabilities.MoneyAmountDirection",
@@ -178,7 +177,6 @@ public sealed class PersistenceTests
         "Statistics.Economy.Capabilities.CashAmountDirection",
         "Statistics.Economy.Capabilities.CashExternalAcquisition",
         "Statistics.Economy.Capabilities.CashContextAttribution",
-        "Statistics.Economy.Capabilities.CashTerminalOutcomes",
         "Statistics.Economy.Capabilities.RouteAttribution",
         "Statistics.Economy.Currency.Totals",
         "Statistics.Economy.Currency.Sources",
@@ -270,7 +268,7 @@ public sealed class PersistenceTests
 
     [Theory]
     [InlineData("negative-counter")]
-    [InlineData("overlapping-raid-outcomes")]
+    [InlineData("negative-cash-acquired")]
     [InlineData("duplicate-deduplication-identity")]
     [InlineData("malformed-replay-cursor")]
     [InlineData("noncomposing-source")]
@@ -293,14 +291,9 @@ public sealed class PersistenceTests
             invalidPrimary.Statistics.Economy.Currencies["Money"].Contexts["Unknown"] =
                 new CurrencyFlowTotals { GrossInflow = -1 };
         }
-        else if (corruption == "overlapping-raid-outcomes")
+        else if (corruption == "negative-cash-acquired")
         {
-            invalidPrimary.Statistics.Economy.CashRaidOutcomes = new CashRaidOutcomeAggregate
-            {
-                Acquired = 5,
-                Secured = 4,
-                Lost = 4
-            };
+            invalidPrimary.Statistics.Economy.CashAcquired = -1;
         }
         else if (corruption == "duplicate-deduplication-identity")
         {
@@ -391,15 +384,15 @@ public sealed class PersistenceTests
     [InlineData("route-map")]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
-    public void CurrentSchemaCrossScopeCashOutcomeMismatchLosesToIntactBackup(string corruption)
+    public void CurrentSchemaCrossScopeCashAcquisitionMismatchLosesToIntactBackup(string corruption)
     {
         using var temporaryDirectory = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
         var store = new AtomicJsonStore<ProfileDocument>();
         var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
         var invalidPrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
-        ConfigureExactCashOutcomeFanOut(backup, amount: 10);
-        ConfigureExactCashOutcomeFanOut(invalidPrimary, amount: 10);
+        ConfigureExactCashAcquisitionFanOut(backup, amount: 10);
+        ConfigureExactCashAcquisitionFanOut(invalidPrimary, amount: 10);
         var invalidRun = invalidPrimary.Statistics.Runs[0];
         var corrupted = corruption switch
         {
@@ -408,7 +401,7 @@ public sealed class PersistenceTests
             "starting-map" => invalidPrimary.Statistics.RunTotals.Maps[invalidRun.StartingMapId].Economy,
             _ => invalidPrimary.Statistics.RunTotals.RouteMaps[invalidRun.Segments[0].MapId].Economy
         };
-        corrupted.CashRaidOutcomes = new CashRaidOutcomeAggregate();
+        corrupted.CashAcquired = 0;
         Assert.Null(ProfileFormat.ValidateRecoveryCandidate(backup));
         Assert.Contains(
             "economy fan-out is inconsistent",
@@ -424,8 +417,7 @@ public sealed class PersistenceTests
         Assert.Contains(result.LoadFailures, failure =>
             failure.Contains("economy fan-out is inconsistent", StringComparison.Ordinal));
         Assert.Equal(7, repository.Current.Revision);
-        Assert.Equal(10, repository.Current.Statistics.RunTotals.Economy.CashRaidOutcomes.Acquired);
-        Assert.Equal(10, repository.Current.Statistics.RunTotals.Economy.CashRaidOutcomes.Secured);
+        Assert.Equal(10, repository.Current.Statistics.RunTotals.Economy.CashAcquired);
         repository.CloseClean();
     }
 
@@ -1840,7 +1832,6 @@ public sealed class PersistenceTests
             CashAmountDirection = Supported(),
             CashExternalAcquisition = Supported(),
             CashContextAttribution = Supported(),
-            CashTerminalOutcomes = Supported(),
             RouteAttribution = Supported()
         };
     }
@@ -1969,18 +1960,18 @@ public sealed class PersistenceTests
         SetMoneyInflow(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy, segmentAmount);
     }
 
-    private static void ConfigureExactCashOutcomeFanOut(ProfileDocument document, long amount)
+    private static void ConfigureExactCashAcquisitionFanOut(ProfileDocument document, long amount)
     {
         var run = document.Statistics.Runs[0];
         var segment = run.Segments[0];
-        SetCashOutcome(run.Economy, amount, amount);
-        SetCashOutcome(segment.Economy, amount, secured: 0);
-        SetCashOutcome(document.Statistics.RunTotals.Economy, amount, amount);
-        SetCashOutcome(document.Statistics.RunTotals.Maps[run.StartingMapId].Economy, amount, amount);
-        SetCashOutcome(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy, amount, secured: 0);
+        SetCashAcquisition(run.Economy, amount);
+        SetCashAcquisition(segment.Economy, amount);
+        SetCashAcquisition(document.Statistics.RunTotals.Economy, amount);
+        SetCashAcquisition(document.Statistics.RunTotals.Maps[run.StartingMapId].Economy, amount);
+        SetCashAcquisition(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy, amount);
     }
 
-    private static void SetCashOutcome(EconomyStatisticsAggregate economy, long acquired, long secured)
+    private static void SetCashAcquisition(EconomyStatisticsAggregate economy, long acquired)
     {
         economy.Capabilities.RouteAttribution = new MetricAvailability
         {
@@ -2000,12 +1991,7 @@ public sealed class PersistenceTests
                 [GameplayContext.Raid.ToString()] = new() { GrossInflow = acquired }
             }
         };
-        economy.CashRaidOutcomes = new CashRaidOutcomeAggregate
-        {
-            Acquired = acquired,
-            Secured = secured
-        };
-        economy.CashTerminalDispositionRecorded = secured > 0;
+        economy.CashAcquired = acquired;
     }
 
     private static ProfileDocument CreateCurrentProfileWithExactEconomyRun(
@@ -2139,7 +2125,6 @@ public sealed class PersistenceTests
             case "Statistics.RunRecords": statistics.RunRecords = null!; break;
             case "Statistics.Economy": statistics.Economy = null!; break;
             case "Statistics.Economy.Currencies": statistics.Economy.Currencies = null!; break;
-            case "Statistics.Economy.CashRaidOutcomes": statistics.Economy.CashRaidOutcomes = null!; break;
             case "Statistics.Economy.Capabilities": statistics.Economy.Capabilities = null!; break;
             case "Statistics.Economy.RecentEventIds": statistics.Economy.RecentEventIds = null!; break;
             case "Statistics.Economy.Capabilities.MoneyAmountDirection": statistics.Economy.Capabilities.MoneyAmountDirection = null!; break;
@@ -2148,7 +2133,6 @@ public sealed class PersistenceTests
             case "Statistics.Economy.Capabilities.CashAmountDirection": statistics.Economy.Capabilities.CashAmountDirection = null!; break;
             case "Statistics.Economy.Capabilities.CashExternalAcquisition": statistics.Economy.Capabilities.CashExternalAcquisition = null!; break;
             case "Statistics.Economy.Capabilities.CashContextAttribution": statistics.Economy.Capabilities.CashContextAttribution = null!; break;
-            case "Statistics.Economy.Capabilities.CashTerminalOutcomes": statistics.Economy.Capabilities.CashTerminalOutcomes = null!; break;
             case "Statistics.Economy.Capabilities.RouteAttribution": statistics.Economy.Capabilities.RouteAttribution = null!; break;
             case "Statistics.Economy.Currency.Totals": statistics.Economy.Currencies["Money"].Totals = null!; break;
             case "Statistics.Economy.Currency.Sources": statistics.Economy.Currencies["Money"].Sources = null!; break;

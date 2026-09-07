@@ -6,15 +6,13 @@ internal sealed class DiagnosticsCapabilityDescriptor
     public string Group { get; }
     public string EnglishName { get; }
     public string TextKey => "ui.diag_cap_" + Id;
-    public bool BaselineLimitation { get; }
-    public DiagnosticsCapabilityDescriptor(string id, string group, string name, bool baselineLimitation = false)
-    { Id = id; Group = group; EnglishName = name; BaselineLimitation = baselineLimitation; }
+    public DiagnosticsCapabilityDescriptor(string id, string group, string name)
+    { Id = id; Group = group; EnglishName = name; }
 }
 
 internal static class DiagnosticsCapabilityCatalog
 {
-    // Exact shipped IDs, grouped by user-facing metric family. Deliberately unsupported
-    // baseline metrics stay visible without declaring otherwise healthy capture broken.
+    // Exact shipped IDs, grouped by supported native metric family.
     public static IReadOnlyList<DiagnosticsCapabilityDescriptor> All { get; } = new DiagnosticsCapabilityDescriptor[]
     {
         new("native-item-use", "items", "Successful raid item uses"),
@@ -61,7 +59,6 @@ internal static class DiagnosticsCapabilityCatalog
         new("native-economy-cash-flow", "economy", "Cash flow"),
         new("native-economy-cash-acquisition", "economy", "Proven raid Cash acquisition"),
         new("native-economy-cash-context", "economy", "Cash contexts"),
-        new("native-economy-cash-terminal", "economy", "Run Cash outcomes", true),
         new("native-economy-route", "economy", "Run and route flow attribution"),
         new("native-economy-holdings-current-money", "economy", "Current Money holding"),
         new("native-economy-holdings-current-cash", "economy", "Current Cash holding"),

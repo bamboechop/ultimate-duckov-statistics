@@ -255,14 +255,12 @@ public sealed class EconomyStatisticsTests
             target,
             "generation",
             Flow("target-cash", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, long.MaxValue - 2)));
-        target.CashRaidOutcomes.Acquired = long.MaxValue - 2;
-        target.CashRaidOutcomes.Unresolved = long.MaxValue - 2;
+        target.CashAcquired = long.MaxValue - 2;
         Assert.True(EconomyStatisticsReducer.Record(
             source,
             "generation",
             Flow("source-cash", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 5)));
-        source.CashRaidOutcomes.Acquired = 5;
-        source.CashRaidOutcomes.Unresolved = 5;
+        source.CashAcquired = 5;
         Assert.True(EconomyStatisticsReducer.Record(
             source,
             "generation",
@@ -271,8 +269,7 @@ public sealed class EconomyStatisticsTests
         EconomyStatisticsReducer.Merge(target, source);
 
         Assert.Equal(long.MaxValue - 2, target.Currencies["Cash"].Totals.GrossInflow);
-        Assert.Equal(long.MaxValue - 2, target.CashRaidOutcomes.Acquired);
-        Assert.Equal(long.MaxValue - 2, target.CashRaidOutcomes.Unresolved);
+        Assert.Equal(long.MaxValue - 2, target.CashAcquired);
         Assert.True(target.CashArithmeticSaturated);
         Assert.Equal(7, target.Currencies["Money"].Totals.GrossInflow);
         EconomyStatisticsReducer.Validate(target);
@@ -301,48 +298,7 @@ public sealed class EconomyStatisticsTests
     }
 
     [Fact]
-    public void TerminalOutcomeMergeOverflowRetainsThePriorExactOutcome()
-    {
-        var target = Supported();
-        target.CashRaidOutcomes.Acquired = long.MaxValue;
-        target.CashRaidOutcomes.Secured = long.MaxValue - 1;
-        target.CashTerminalDispositionRecorded = true;
-        var run = Supported();
-        run.CashRaidOutcomes.Acquired = 2;
-        run.CashRaidOutcomes.Secured = 2;
-        run.CashTerminalDispositionRecorded = true;
-
-        EconomyStatisticsReducer.MergeTerminalOutcomes(target, run);
-
-        Assert.Equal(long.MaxValue - 1, target.CashRaidOutcomes.Secured);
-        Assert.True(target.CashArithmeticSaturated);
-        Assert.True(target.CashTerminalDispositionAmbiguous);
-        EconomyStatisticsReducer.Validate(target);
-    }
-
-    [Theory]
-    [InlineData(RunOutcome.Extracted, 12, 0, 0)]
-    [InlineData(RunOutcome.Died, 0, 12, 0)]
-    [InlineData(RunOutcome.Interrupted, 0, 0, 12)]
-    public void ProvenCashAcquisitionGetsTruthfulTerminalDisposition(RunOutcome outcome, long secured, long lost, long unresolved)
-    {
-        var aggregate = Supported();
-        var flow = Flow("pickup", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 12, CurrencySourceCategory.LootOrPickup, GameplayContext.Raid);
-        flow.RunId = "run";
-        flow.SegmentId = "segment";
-        flow.MapId = "duckov:map:A";
-        flow.ProvenExternalRaidAcquisition = true;
-        EconomyStatisticsReducer.Record(aggregate, "generation", flow);
-        EconomyStatisticsReducer.FinalizeCashRaidOutcome(aggregate, outcome);
-        EconomyStatisticsReducer.FinalizeCashRaidOutcome(aggregate, outcome);
-        Assert.Equal(12, aggregate.CashRaidOutcomes.Acquired);
-        Assert.Equal(secured, aggregate.CashRaidOutcomes.Secured);
-        Assert.Equal(lost, aggregate.CashRaidOutcomes.Lost);
-        Assert.Equal(unresolved, aggregate.CashRaidOutcomes.Unresolved);
-    }
-
-    [Fact]
-    public void InterveningCashOutflowMakesOnlyTerminalDispositionUnresolved()
+    public void CashOutflowPreservesPreviouslyAcquiredAmount()
     {
         var aggregate = Supported();
         var pickup = Flow("pickup", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 12, CurrencySourceCategory.LootOrPickup, GameplayContext.Raid);
@@ -352,10 +308,7 @@ public sealed class EconomyStatisticsTests
         var outflow = Flow("drop", CurrencyKind.Cash, CurrencyFlowDirection.Outflow, 2, CurrencySourceCategory.UnknownAdjustment, GameplayContext.Raid);
         outflow.RunId = "run";
         EconomyStatisticsReducer.Record(aggregate, "generation", outflow);
-        EconomyStatisticsReducer.FinalizeCashRaidOutcome(aggregate, RunOutcome.Extracted);
-        Assert.Equal(12, aggregate.CashRaidOutcomes.Acquired);
-        Assert.Equal(0, aggregate.CashRaidOutcomes.Secured);
-        Assert.Equal(12, aggregate.CashRaidOutcomes.Unresolved);
+        Assert.Equal(12, aggregate.CashAcquired);
         Assert.Equal(2, aggregate.Currencies["Cash"].Totals.GrossOutflow);
     }
 
@@ -458,57 +411,6 @@ public sealed class EconomyStatisticsTests
     }
 
     [Fact]
-    public void UnavailableTerminalOutcomePreservesAcquiredAndUsesUnresolved()
-    {
-        var aggregate = Supported();
-        aggregate.Capabilities.CashTerminalOutcomes = new MetricAvailability
-        {
-            State = AdapterCapabilityState.DisabledIncompatible,
-            Provenance = "fungible terminal disposition unavailable"
-        };
-        var pickup = Flow(
-            "pickup-unavailable",
-            CurrencyKind.Cash,
-            CurrencyFlowDirection.Inflow,
-            6,
-            CurrencySourceCategory.LootOrPickup,
-            GameplayContext.Raid);
-        pickup.RunId = "run";
-        pickup.ProvenExternalRaidAcquisition = true;
-        EconomyStatisticsReducer.Record(aggregate, "generation", pickup);
-
-        EconomyStatisticsReducer.FinalizeCashRaidOutcome(aggregate, RunOutcome.Extracted);
-
-        Assert.Equal(6, aggregate.CashRaidOutcomes.Acquired);
-        Assert.Equal(0, aggregate.CashRaidOutcomes.Secured);
-        Assert.Equal(0, aggregate.CashRaidOutcomes.Lost);
-        Assert.Equal(6, aggregate.CashRaidOutcomes.Unresolved);
-    }
-
-    [Fact]
-    public void RepairRejectsOverlappingTerminalBucketsAndIsIdempotent()
-    {
-        var aggregate = new EconomyStatisticsAggregate
-        {
-            CashRaidOutcomes = new CashRaidOutcomeAggregate
-            {
-                Acquired = 10,
-                Secured = 6,
-                Lost = 0,
-                Unresolved = 6
-            }
-        };
-
-        Assert.True(EconomyStatisticsReducer.NormalizePersisted(aggregate));
-        Assert.False(EconomyStatisticsReducer.NormalizePersisted(aggregate));
-        Assert.Equal(0, aggregate.CashRaidOutcomes.Secured);
-        Assert.Equal(0, aggregate.CashRaidOutcomes.Lost);
-        Assert.Equal(10, aggregate.CashRaidOutcomes.Unresolved);
-        Assert.True(aggregate.CashTerminalDispositionAmbiguous);
-        EconomyStatisticsReducer.Validate(aggregate);
-    }
-
-    [Fact]
     public void ReplayWatermarkContinuesExactlyBeyondTheLegacyIdentityLimit()
     {
         var aggregate = Supported();
@@ -535,11 +437,6 @@ public sealed class EconomyStatisticsTests
         EconomyStatisticsReducer.Merge(aggregate, later);
         Assert.Equal(3, aggregate.Currencies["Cash"].Totals.GrossInflow);
 
-        later.CashRaidOutcomes.Acquired = 3;
-        later.CashRaidOutcomes.Unresolved = 3;
-        later.CashTerminalDispositionRecorded = true;
-        EconomyStatisticsReducer.MergeTerminalOutcomes(aggregate, later);
-        Assert.Equal(3, aggregate.CashRaidOutcomes.Unresolved);
     }
 
     [Fact]
@@ -563,24 +460,27 @@ public sealed class EconomyStatisticsTests
 
     [Fact]
     [Trait("Category", "Performance")]
-    public void OneHundredThousandLifetimeEventsKeepConstantReplayMetadata()
+    public void MoreThanOneHundredThousandLifetimeEventsKeepConstantReplayMetadata()
     {
         var aggregate = Supported();
-        for (var index = 0; index < 100_000; index++)
+        long lastSequence = 0;
+        for (var index = 0; index < 120_000; index++)
         {
             var currency = index % 2 == 0 ? CurrencyKind.Money : CurrencyKind.Cash;
+            var flow = Flow($"stress:{index}", currency, CurrencyFlowDirection.Inflow, 1);
+            lastSequence = flow.ProducerSequence;
             Assert.True(EconomyStatisticsReducer.Record(
                 aggregate,
                 "generation",
-                Flow($"stress:{index}", currency, CurrencyFlowDirection.Inflow, 1)));
+                flow));
         }
 
-        Assert.Equal(50_000, aggregate.Currencies["Money"].Totals.GrossInflow);
-        Assert.Equal(50_000, aggregate.Currencies["Cash"].Totals.GrossInflow);
+        Assert.Equal(60_000, aggregate.Currencies["Money"].Totals.GrossInflow);
+        Assert.Equal(60_000, aggregate.Currencies["Cash"].Totals.GrossInflow);
         Assert.Empty(aggregate.RecentEventIds);
         Assert.False(aggregate.DeduplicationSaturated);
         Assert.False(string.IsNullOrWhiteSpace(aggregate.ReplayCursor!.ActivationId));
-        Assert.True(aggregate.ReplayCursor.ClosedThroughSequence > 100_000);
+        Assert.Equal(lastSequence, aggregate.ReplayCursor.ClosedThroughSequence);
         EconomyStatisticsReducer.Validate(aggregate);
     }
 
@@ -660,19 +560,11 @@ public sealed class EconomyStatisticsTests
             State = AdapterCapabilityState.DisabledIncompatible,
             Provenance = "pre-M9 history unavailable"
         };
-        historical.Capabilities.CashTerminalOutcomes = new MetricAvailability
-        {
-            State = AdapterCapabilityState.DisabledIncompatible,
-            Provenance = "pre-M9 history unavailable"
-        };
         var unavailable = UiText.FormatEconomyCompact(historical);
-        var unavailableOutcome = UiText.FormatCashOutcome(historical);
         Assert.Contains("Money no recorded M9 flow", unavailable, StringComparison.Ordinal);
         Assert.Contains("Cash no recorded M9 flow", unavailable, StringComparison.Ordinal);
         Assert.Contains("earlier economy history unavailable", unavailable, StringComparison.Ordinal);
         Assert.DoesNotContain("Money 0", unavailable, StringComparison.Ordinal);
-        Assert.Contains("unresolved Unsupported", unavailableOutcome, StringComparison.Ordinal);
-        Assert.DoesNotContain("unresolved 0", unavailableOutcome, StringComparison.Ordinal);
 
         aggregate.Capabilities.MoneyAmountDirection = new MetricAvailability
         {
@@ -693,7 +585,7 @@ public sealed class EconomyStatisticsTests
             degradedLifetime,
             "generation",
             Flow("ui-degraded-money", CurrencyKind.Money, CurrencyFlowDirection.Inflow, 12));
-        degradedLifetime.CashRaidOutcomes.Acquired = 4;
+        degradedLifetime.CashAcquired = 4;
         degradedLifetime.Capabilities.MoneyAmountDirection = new MetricAvailability
         {
             State = AdapterCapabilityState.DisabledIncompatible,
@@ -707,11 +599,8 @@ public sealed class EconomyStatisticsTests
 
         var supportedCurrent = Supported().Capabilities;
         var degradedCompact = UiText.FormatEconomyCompact(degradedLifetime, supportedCurrent);
-        var degradedOutcome = UiText.FormatCashOutcome(degradedLifetime, supportedCurrent);
         Assert.Contains("Money +12/-0 net 12 (capture unavailable for part of this scope)", degradedCompact, StringComparison.Ordinal);
-        Assert.Contains("acquired 4 (capture unavailable for part of this scope)", degradedOutcome, StringComparison.Ordinal);
         Assert.DoesNotContain("current capture unavailable", degradedCompact, StringComparison.Ordinal);
-        Assert.DoesNotContain("current capture unavailable", degradedOutcome, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -735,22 +624,12 @@ public sealed class EconomyStatisticsTests
             State = AdapterCapabilityState.DisabledIncompatible,
             Provenance = "transient Cash acquisition failure"
         };
-        degradedLifetime.CashTerminalOutcomes = new MetricAvailability
-        {
-            State = AdapterCapabilityState.DisabledIncompatible,
-            Provenance = "Cash terminal outcomes unavailable"
-        };
 
         var current = Supported().Capabilities;
         current.CashExternalAcquisition = new MetricAvailability
         {
             State = AdapterCapabilityState.Experimental,
             Provenance = "current Cash acquisition is experimental"
-        };
-        current.CashTerminalOutcomes = new MetricAvailability
-        {
-            State = AdapterCapabilityState.DisabledIncompatible,
-            Provenance = "current Cash terminal outcomes unavailable"
         };
 
         var moneyWithSupportedCurrent = UiText.FormatEconomyValue(
@@ -765,15 +644,10 @@ public sealed class EconomyStatisticsTests
             4,
             degradedLifetime.CashExternalAcquisition,
             current.CashExternalAcquisition);
-        var terminalWithDisabledCurrent = UiText.FormatEconomyValue(
-            3,
-            degradedLifetime.CashTerminalOutcomes,
-            current.CashTerminalOutcomes);
 
         Assert.Equal("12 (capture unavailable for part of this scope)", moneyWithSupportedCurrent);
         Assert.Equal("9 (capture unavailable for part of this scope)", cashWithSupportedCurrent);
         Assert.Equal("4 (capture unavailable for part of this scope)", acquisitionWithExperimentalCurrent);
-        Assert.Equal("3 (current capture unavailable)", terminalWithDisabledCurrent);
         Assert.DoesNotContain("current capture unavailable", moneyWithSupportedCurrent, StringComparison.Ordinal);
         Assert.DoesNotContain("current capture unavailable", acquisitionWithExperimentalCurrent, StringComparison.Ordinal);
         Assert.Equal(
@@ -782,9 +656,6 @@ public sealed class EconomyStatisticsTests
         Assert.Equal(
             "Unsupported",
             UiText.FormatEconomyValue(0, degradedLifetime.CashExternalAcquisition, current.CashExternalAcquisition));
-        Assert.Equal(
-            "Unsupported",
-            UiText.FormatEconomyValue(0, degradedLifetime.CashTerminalOutcomes, current.CashTerminalOutcomes));
     }
 
     private static EconomyStatisticsAggregate Supported()
@@ -800,7 +671,6 @@ public sealed class EconomyStatisticsTests
                 CashAmountDirection = supported,
                 CashExternalAcquisition = supported,
                 CashContextAttribution = supported,
-                CashTerminalOutcomes = supported,
                 RouteAttribution = supported
             }
         };

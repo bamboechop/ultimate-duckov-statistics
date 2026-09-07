@@ -781,9 +781,7 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(AdapterCapabilityState.Supported, recovered.LifecycleCapability);
         Assert.True(recovered.RecordEligible);
         Assert.Equal(MapSegmentExitReason.Extracted, Assert.Single(recovered.Segments).ExitReason);
-        Assert.Equal(5, recovered.Economy.CashRaidOutcomes.Acquired);
-        Assert.Equal(5, recovered.Economy.CashRaidOutcomes.Secured);
-        Assert.Equal(0, recovered.Economy.CashRaidOutcomes.Unresolved);
+        Assert.Equal(5, recovered.Economy.CashAcquired);
         Assert.Equal(1, recovery.Current.Statistics.RunTotals.Outcomes[nameof(RunOutcome.Extracted)]);
         recovery.CloseClean();
     }
@@ -2331,7 +2329,6 @@ public sealed class ActiveRunPersistenceTests
             CashAmountDirection = Available(),
             CashExternalAcquisition = Available(),
             CashContextAttribution = Available(),
-            CashTerminalOutcomes = Available(),
             RouteAttribution = Available()
         };
     }

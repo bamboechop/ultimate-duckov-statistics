@@ -560,15 +560,13 @@ public static class RunReducer
         ValidateEconomyFanOut(
             $"run '{summary.RunId}' segment composition",
             summary.Economy,
-            summary.Segments.Select(segment => segment.Economy),
-            validateTerminalOutcomes: false);
+            summary.Segments.Select(segment => segment.Economy));
     }
 
     private static void ValidateEconomyFanOut(
         string scope,
         EconomyStatisticsAggregate total,
-        IEnumerable<EconomyStatisticsAggregate> components,
-        bool validateTerminalOutcomes = true)
+        IEnumerable<EconomyStatisticsAggregate> components)
     {
         var materialized = components.ToList();
         foreach (CurrencyKind currency in Enum.GetValues(typeof(CurrencyKind)))
@@ -576,11 +574,8 @@ public static class RunReducer
             if (!EconomyStatisticsReducer.IsExactCurrencyComposition(total, materialized, currency))
                 throw new ArgumentException($"Current-schema {scope} does not equal its exact {currency} composition.");
         }
-        var cashOutcomesCompose = validateTerminalOutcomes
-            ? EconomyStatisticsReducer.IsExactCashOutcomeComposition(total, materialized)
-            : EconomyStatisticsReducer.IsExactCashAcquisitionComposition(total, materialized);
-        if (!cashOutcomesCompose)
-            throw new ArgumentException($"Current-schema {scope} does not equal its exact Cash raid-outcome composition.");
+        if (!EconomyStatisticsReducer.IsExactCashAcquisitionComposition(total, materialized))
+            throw new ArgumentException($"Current-schema {scope} does not equal its exact Cash acquisition composition.");
     }
 
     private static void ValidateMissingEconomyFanOut(
@@ -600,11 +595,8 @@ public static class RunReducer
         }
         if (materialized.Any(component =>
                 !component.CashArithmeticSaturated
-                && (component.CashRaidOutcomes.Acquired != 0
-                    || component.CashRaidOutcomes.Secured != 0
-                    || component.CashRaidOutcomes.Lost != 0
-                    || component.CashRaidOutcomes.Unresolved != 0)))
-            throw new ArgumentException($"Current-schema {scope} is missing exact Cash raid-outcome contributions.");
+                && (component.CashAcquired != 0)))
+            throw new ArgumentException($"Current-schema {scope} is missing exact Cash acquisition contributions.");
     }
 
     private static string ResolveStartingMapId(RunSummary summary) =>

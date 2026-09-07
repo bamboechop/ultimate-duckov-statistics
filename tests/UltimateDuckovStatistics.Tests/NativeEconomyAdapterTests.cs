@@ -660,8 +660,6 @@ public sealed class NativeEconomyAdapterTests : IDisposable
         Assert.Equal(AdapterCapabilityState.Supported, adapter.MetricCapabilities.MoneyAmountDirection.State);
         Assert.Equal(AdapterCapabilityState.Experimental, adapter.MetricCapabilities.MoneySourceAttribution.State);
         Assert.Equal(AdapterCapabilityState.Experimental, adapter.MetricCapabilities.CashExternalAcquisition.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.MetricCapabilities.CashTerminalOutcomes.State);
-        Assert.Contains("fungible", adapter.MetricCapabilities.CashTerminalOutcomes.Provenance, StringComparison.OrdinalIgnoreCase);
         Assert.Single(capabilities);
     }
 

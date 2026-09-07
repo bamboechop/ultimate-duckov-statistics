@@ -945,7 +945,6 @@ public sealed class RunLifecycleTracker
         var recordEligible = outcome != RunOutcome.Interrupted
                              && state.Context.IntegrityTags == IntegrityTags.Normal
                              && state.Context.LifecycleCapability == AdapterCapabilityState.Supported;
-        EconomyStatisticsReducer.FinalizeCashRaidOutcome(state.Economy, outcome);
         var summary = new RunSummary
         {
             RunId = state.RunId,

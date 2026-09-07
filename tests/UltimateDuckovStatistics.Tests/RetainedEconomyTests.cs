@@ -10,12 +10,26 @@ public sealed class RetainedEconomyTests
 {
     private static readonly DateTime Now = new(2026, 9, 6, 12, 34, 56, DateTimeKind.Utc);
     private static MetricAvailability Supported() => new() { State = AdapterCapabilityState.Supported };
-    private static EconomyMetricCapabilities Capabilities() => new() { MoneyAmountDirection = Supported(), MoneySourceAttribution = Supported(),
-        MoneyContextAttribution = Supported(), CashAmountDirection = Supported(), CashExternalAcquisition = Supported(),
-        CashContextAttribution = Supported(), CashTerminalOutcomes = Supported(), RouteAttribution = Supported() };
-    private static ProfileDocument Profile() => new() { GenerationId = "g", Statistics = new ProfileStatistics {
-        SaveGenerationId = "g", Economy = new EconomyStatisticsAggregate { Capabilities = Capabilities() },
-        Holdings = new EconomyHoldingsSnapshot { SaveGenerationId = "g", Capabilities = new() { Money = Supported(), Cash = Supported(), LiquidWealth = Supported() } } } };
+    private static EconomyMetricCapabilities Capabilities() => new()
+    {
+        MoneyAmountDirection = Supported(),
+        MoneySourceAttribution = Supported(),
+        MoneyContextAttribution = Supported(),
+        CashAmountDirection = Supported(),
+        CashExternalAcquisition = Supported(),
+        CashContextAttribution = Supported(),
+        RouteAttribution = Supported()
+    };
+    private static ProfileDocument Profile() => new()
+    {
+        GenerationId = "g",
+        Statistics = new ProfileStatistics
+        {
+            SaveGenerationId = "g",
+            Economy = new EconomyStatisticsAggregate { Capabilities = Capabilities() },
+            Holdings = new EconomyHoldingsSnapshot { SaveGenerationId = "g", Capabilities = new() { Money = Supported(), Cash = Supported(), LiquidWealth = Supported() } }
+        }
+    };
     private static StatisticsPanelProjection Projection(ProfileDocument? profile = null, EconomyMetricCapabilities? current = null) =>
         StatisticsPanelProjectionFactory.Create(profile ?? Profile(), current ?? Capabilities(), new(), new());
     private static EconomyPresentation Present(ProfileDocument? profile = null, EconomyMetricCapabilities? current = null) =>
@@ -24,15 +38,33 @@ public sealed class RetainedEconomyTests
         CurrencySourceCategory source = CurrencySourceCategory.UnknownAdjustment, GameplayContext context = GameplayContext.Base,
         bool acquired = false, long sequence = 1)
     {
-        Assert.True(EconomyStatisticsReducer.Record(aggregate, "g", new CurrencyFlowRecorded {
-            EventId = "event:" + sequence, SaveGenerationId = "g", TimestampUtc = Now,
-            ProducerActivationId = "activation", ProducerSequence = sequence,
-            RunId = context == GameplayContext.Raid ? "run" : null, Currency = currency, Amount = amount,
+        Assert.True(EconomyStatisticsReducer.Record(aggregate, "g", new CurrencyFlowRecorded
+        {
+            EventId = "event:" + sequence,
+            SaveGenerationId = "g",
+            TimestampUtc = Now,
+            ProducerActivationId = "activation",
+            ProducerSequence = sequence,
+            RunId = context == GameplayContext.Raid ? "run" : null,
+            Currency = currency,
+            Amount = amount,
             Direction = outflow ? CurrencyFlowDirection.Outflow : CurrencyFlowDirection.Inflow,
-            Source = source, GameplayContext = context, ProvenExternalRaidAcquisition = acquired }));
+            Source = source,
+            GameplayContext = context,
+            ProvenExternalRaidAcquisition = acquired
+        }));
     }
-    private static RunSummary Run(string id, int index = 0) => new() { RunId = id, SaveGenerationId = "g", StartedUtc = Now.AddMinutes(index),
-        EndedUtc = Now.AddMinutes(index + 1), Outcome = RunOutcome.Extracted, MapId = "map:" + id, MapDisplayName = "Map " + id, MapKnown = true };
+    private static RunSummary Run(string id, int index = 0) => new()
+    {
+        RunId = id,
+        SaveGenerationId = "g",
+        StartedUtc = Now.AddMinutes(index),
+        EndedUtc = Now.AddMinutes(index + 1),
+        Outcome = RunOutcome.Extracted,
+        MapId = "map:" + id,
+        MapDisplayName = "Map " + id,
+        MapKnown = true
+    };
     private static float Measure(string value, float width, float size) => Math.Max(1, MathF.Ceiling(value.Length * size * .5f / Math.Max(1, width))) * size * 1.2f;
     private static float MeasureWidth(string value, float size) => value.Length * size * .5f;
     private static EconomyDocument Primary(EconomyPresentation p, float width = 1550, bool stacked = false)
@@ -40,13 +72,15 @@ public sealed class RetainedEconomyTests
     private static EconomyDocument Recent(EconomySelection selection, float width = 780)
     { var result = new EconomyDocument(Measure, MeasureWidth); result.Recent(selection, width); return result; }
 
-    [Fact] public void FactoryRejectsLostAndMixedGeneration()
+    [Fact]
+    public void FactoryRejectsLostAndMixedGeneration()
     {
         var p = Projection(); Assert.NotNull(EconomyPresentationFactory.Create(p, "g"));
         Assert.Null(EconomyPresentationFactory.Create(p, "other"));
         p.Profile.Statistics.SaveGenerationId = "other"; Assert.Null(EconomyPresentationFactory.Create(p, "g"));
     }
-    [Fact] public void ExperimentalSourcesRemainLimitedInsteadOfClaimingDisabledTracking()
+    [Fact]
+    public void ExperimentalSourcesRemainLimitedInsteadOfClaimingDisabledTracking()
     {
         var profile = Profile(); var current = Capabilities();
         Record(profile.Statistics.Economy, CurrencyKind.Money, 17);
@@ -55,7 +89,15 @@ public sealed class RetainedEconomyTests
         Assert.Equal("ui.economy_current_limited", flow.SourceNotice);
         Assert.Equal(17, flow.Totals.Inflow);
     }
-    [Theory] [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)] [InlineData(5)] [InlineData(6)] [InlineData(7)]
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
     public void ReplacedPublicationMemberFailsBinding(int member)
     {
         var p = Projection();
@@ -72,21 +114,25 @@ public sealed class RetainedEconomyTests
         }
         Assert.Null(EconomyPresentationFactory.Create(p, "g"));
     }
-    [Fact] public void RecentRunIdentityMustBelongToExactPublication()
+    [Fact]
+    public void RecentRunIdentityMustBelongToExactPublication()
     {
         var profile = Profile(); profile.Statistics.Runs.Add(Run("a")); profile.Statistics.Runs.Add(Run("a", 1));
         Assert.Null(EconomyPresentationFactory.Create(Projection(profile), "g"));
         profile.Statistics.Runs.RemoveAt(1); profile.Statistics.Runs[0].SaveGenerationId = "other";
         Assert.Null(EconomyPresentationFactory.Create(Projection(profile), "g"));
     }
-    [Fact] public void CurrentZeroHoldingsRemainCurrentAndComparable()
+    [Fact]
+    public void CurrentZeroHoldingsRemainCurrentAndComparable()
     {
         var p = Profile(); EconomyHoldingsReducer.Apply(p.Statistics.Holdings, new EconomyHoldingsMutation("g", Now, 0, 0, "test"));
         var result = Present(p);
         Assert.All(result.Holdings, holding => { Assert.Equal(0, holding.Value); Assert.Equal(EconomyHoldingObservationState.Current, holding.State); });
         Assert.Equal("Current ATM balance", result.Holdings[1].Caption);
     }
-    [Theory] [InlineData(true)] [InlineData(false)]
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
     public void LastObservedComponentRetainsValueIndependentlyAndInvalidatesCombinedWealth(bool money)
     {
         var p = Profile(); EconomyHoldingsReducer.Apply(p.Statistics.Holdings, new EconomyHoldingsMutation("g", Now, 100, 25, "test"));
@@ -97,21 +143,24 @@ public sealed class RetainedEconomyTests
         Assert.Equal(EconomyHoldingObservationState.Current, sibling.State); Assert.NotNull(sibling.Value);
         Assert.Null(result.Holdings[0].Value); Assert.Equal(EconomyHoldingObservationState.Unavailable, result.Holdings[0].State);
     }
-    [Fact] public void MissingCashDoesNotEraseCurrentMoneyOrUseFlowsForHoldings()
+    [Fact]
+    public void MissingCashDoesNotEraseCurrentMoneyOrUseFlowsForHoldings()
     {
         var p = Profile(); EconomyHoldingsReducer.Apply(p.Statistics.Holdings, new EconomyHoldingsMutation("g", Now, 125, null, "test"));
         Record(p.Statistics.Economy, CurrencyKind.Cash, 999);
         var result = Present(p); Assert.Equal(125, result.Holdings[1].Value); Assert.Null(result.Holdings[2].Value); Assert.Null(result.Holdings[0].Value);
         Assert.Equal(999, result.Cash.Totals.Net);
     }
-    [Fact] public void UnsupportedComparabilityAndOverflowLeaveBothComponentsVisible()
+    [Fact]
+    public void UnsupportedComparabilityAndOverflowLeaveBothComponentsVisible()
     {
         var p = Profile(); EconomyHoldingsReducer.Apply(p.Statistics.Holdings, new EconomyHoldingsMutation("g", Now, long.MaxValue, 1, "test"));
         var result = Present(p); Assert.Null(result.Holdings[0].Value); Assert.Equal(long.MaxValue, result.Holdings[1].Value); Assert.Equal(1, result.Holdings[2].Value);
         p.Statistics.Holdings.Money.Value = 100; p.Statistics.Holdings.Capabilities.LiquidWealth.State = AdapterCapabilityState.DisabledIncompatible;
         result = Present(p); Assert.Null(result.Holdings[0].Value); Assert.Equal(100, result.Holdings[1].Value); Assert.Equal(1, result.Holdings[2].Value);
     }
-    [Fact] public void FlowGrossAndNetValuesStaySeparateAcrossCurrencies()
+    [Fact]
+    public void FlowGrossAndNetValuesStaySeparateAcrossCurrencies()
     {
         var p = Profile(); var a = p.Statistics.Economy;
         Record(a, CurrencyKind.Money, 1800, source: CurrencySourceCategory.Sale, context: GameplayContext.Shop);
@@ -125,14 +174,16 @@ public sealed class RetainedEconomyTests
         Assert.Equal(2436, result.Cash.Totals.Inflow); Assert.Equal(12180, result.Cash.Totals.Outflow); Assert.Equal(-9744, result.Cash.Totals.Net);
         Assert.Equal(1000, result.Cash.ProvenRaidAcquired); Assert.Null(result.Money.ProvenRaidAcquired);
     }
-    [Fact] public void SupportedNoChangesIsZeroButUnavailableCurrencyDoesNotInventZero()
+    [Fact]
+    public void SupportedNoChangesIsZeroButUnavailableCurrencyDoesNotInventZero()
     {
         var current = Capabilities(); current.CashAmountDirection.State = AdapterCapabilityState.DisabledIncompatible;
         var result = Present(current: current);
         Assert.Equal(0, result.Money.Totals.Net); Assert.Null(result.Cash.Totals.Net);
         Assert.Equal("", result.Money.Notice); Assert.Contains("unavailable", result.Cash.Notice, StringComparison.OrdinalIgnoreCase);
     }
-    [Fact] public void NetZeroWithRecordedChangesSurvivesCurrentFailure()
+    [Fact]
+    public void NetZeroWithRecordedChangesSurvivesCurrentFailure()
     {
         var p = Profile(); Record(p.Statistics.Economy, CurrencyKind.Money, 50); Record(p.Statistics.Economy, CurrencyKind.Money, 50, true, sequence: 2);
         var current = Capabilities(); current.MoneyAmountDirection.State = AdapterCapabilityState.DisabledIncompatible;
@@ -140,20 +191,23 @@ public sealed class RetainedEconomyTests
         Assert.Equal(50, result.Money.Totals.Inflow); Assert.Equal(50, result.Money.Totals.Outflow); Assert.Equal(0, result.Money.Totals.Net);
         Assert.NotEmpty(result.Money.Notice); Assert.Equal(0, result.Cash.Totals.Net); Assert.Empty(result.Cash.Notice);
     }
-    [Fact] public void MissingEarlierEvidenceDoesNotBecomeZeroOrAddDevelopmentHistoryBoilerplate()
+    [Fact]
+    public void MissingEarlierEvidenceDoesNotBecomeZeroOrAddDevelopmentHistoryBoilerplate()
     {
         var p = Profile(); p.Statistics.Economy.HistoricalUnavailable = true; Record(p.Statistics.Economy, CurrencyKind.Money, 20);
         var result = Present(p); Assert.Equal(20, result.Money.Totals.Net); Assert.Null(result.Cash.Totals.Net);
         Assert.Empty(result.Money.Notice);
         Assert.DoesNotContain(Primary(result).Elements, e => e.Text.Contains("earlier", StringComparison.OrdinalIgnoreCase));
     }
-    [Fact] public void ActualPartialEvidenceRemainsQualified()
+    [Fact]
+    public void ActualPartialEvidenceRemainsQualified()
     {
         var p = Profile(); Record(p.Statistics.Economy, CurrencyKind.Money, 20); p.Statistics.Economy.MoneyArithmeticSaturated = true;
         var result = Present(p); Assert.Equal(20, result.Money.Totals.Net); Assert.Contains("incomplete", result.Money.Notice);
         Assert.Equal("", result.Cash.Notice);
     }
-    [Fact] public void SourceFailureDoesNotEraseAmountOrContexts()
+    [Fact]
+    public void SourceFailureDoesNotEraseAmountOrContexts()
     {
         var p = Profile(); Record(p.Statistics.Economy, CurrencyKind.Money, 100, source: CurrencySourceCategory.Sale, context: GameplayContext.Shop);
         var current = Capabilities(); current.MoneySourceAttribution.State = AdapterCapabilityState.DisabledIncompatible;
@@ -161,7 +215,8 @@ public sealed class RetainedEconomyTests
         Assert.Equal(100, result.Money.Sources.Single().Net); Assert.NotEmpty(result.Money.SourceNotice);
         Assert.Equal(100, result.Money.Contexts.Single().Net); Assert.Empty(result.Money.ContextNotice);
     }
-    [Fact] public void SourcesAndContextsHaveDeterministicSemanticOrderWithoutJoiningNames()
+    [Fact]
+    public void SourcesAndContextsHaveDeterministicSemanticOrderWithoutJoiningNames()
     {
         var p = Profile(); var a = p.Statistics.Economy;
         Record(a, CurrencyKind.Money, 1, source: CurrencySourceCategory.UnknownAdjustment, context: GameplayContext.Reward);
@@ -172,7 +227,8 @@ public sealed class RetainedEconomyTests
         Assert.Equal(new[] { "Base", "Shop", "Reward" }, result.Money.Contexts.Select(r => r.Id));
         Assert.Equal(new long?[] { 3, 2, 1 }, result.Money.Sources.Select(r => r.Net));
     }
-    [Fact] public void RaidAcquisitionIsOnlyAnInflowSubordinateAndNeverAnotherNet()
+    [Fact]
+    public void RaidAcquisitionIsOnlyAnInflowSubordinateAndNeverAnotherNet()
     {
         var p = Profile(); Record(p.Statistics.Economy, CurrencyKind.Cash, 100, source: CurrencySourceCategory.LootOrPickup, context: GameplayContext.Raid, acquired: true);
         var d = Primary(Present(p));
@@ -182,13 +238,15 @@ public sealed class RetainedEconomyTests
         Assert.True(label.Y >= raid.Y + raid.Height); Assert.True(label.X > raid.X); Assert.Equal("+100", value.Text);
         Assert.DoesNotContain(d.Elements, e => e.Id.StartsWith("Cash:contexts:acquired", StringComparison.Ordinal) && e.Text.Contains("net", StringComparison.OrdinalIgnoreCase));
     }
-    [Fact] public void AcquisitionDoesNotReconstructMissingRaidContext()
+    [Fact]
+    public void AcquisitionDoesNotReconstructMissingRaidContext()
     {
-        var a = new EconomyStatisticsAggregate(); a.CashRaidOutcomes.Acquired = 10;
+        var a = new EconomyStatisticsAggregate(); a.CashAcquired = 10;
         var result = EconomyPresentationFactory.Flow(a, CurrencyKind.Cash, new());
         Assert.Equal(10, result.ProvenRaidAcquired); Assert.Null(result.Contexts.Single().Inflow);
     }
-    [Fact] public void RecentRunsRetainExactIdentityAndOwnValuesEvenWithSameDisplayNames()
+    [Fact]
+    public void RecentRunsRetainExactIdentityAndOwnValuesEvenWithSameDisplayNames()
     {
         var p = Profile(); var older = Run("a"); var newest = Run("b", 1); older.MapDisplayName = newest.MapDisplayName = "Same map name";
         Record(older.Economy, CurrencyKind.Money, 10); Record(newest.Economy, CurrencyKind.Money, 25);
@@ -198,7 +256,8 @@ public sealed class RetainedEconomyTests
         Assert.True(result.CanRoute("g", "a")); Assert.False(result.CanRoute("other", "a")); Assert.False(result.CanRoute("g", "missing"));
         Assert.StartsWith("Run 2", result.RecentRuns[0].Metadata); Assert.StartsWith("Run 1", result.RecentRuns[1].Metadata);
     }
-    [Fact] public void PresentationIsDetachedFromRecordedDictionariesAndHoldings()
+    [Fact]
+    public void PresentationIsDetachedFromRecordedDictionariesAndHoldings()
     {
         var p = Profile(); Record(p.Statistics.Economy, CurrencyKind.Money, 10);
         EconomyHoldingsReducer.Apply(p.Statistics.Holdings, new EconomyHoldingsMutation("g", Now, 50, 5, "test"));
@@ -208,13 +267,15 @@ public sealed class RetainedEconomyTests
         Assert.Equal(10, result.Money.Totals.Inflow); Assert.Single(result.Money.Sources); Assert.Equal(50, result.Holdings[1].Value);
         Assert.Equal("Map a", result.RecentRuns[0].Title);
     }
-    [Fact] public void RecentRunPublicationRetainsExistingBound()
+    [Fact]
+    public void RecentRunPublicationRetainsExistingBound()
     {
         var p = Profile(); for (var i = 0; i < 100; i++) p.Statistics.Runs.Add(Run("run-" + i, i));
         var result = Present(p); Assert.Equal(12, result.RecentRuns.Count); Assert.Equal("run-99", result.RecentRuns[0].RunId);
         Assert.Equal("run-88", result.RecentRuns[11].RunId);
     }
-    [Fact] public void SelectionRefreshNeverSubstitutesAReplacementRun()
+    [Fact]
+    public void SelectionRefreshNeverSubstitutesAReplacementRun()
     {
         var p = Profile(); p.Statistics.Runs.Add(Run("a")); p.Statistics.Runs.Add(Run("b", 1));
         var s = new EconomySelection(); s.Refresh(Present(p)); Assert.Equal("b", s.ExpandedRunId);
@@ -223,7 +284,9 @@ public sealed class RetainedEconomyTests
         p.Statistics.Runs.RemoveAt(0); s.Refresh(Present(p)); Assert.Null(s.ExpandedRunId); Assert.Equal(10, s.Offset("Recent", 100, 110));
         s.Refresh(null); Assert.Null(s.ExpandedRunId); Assert.False(s.Toggle("g", "b")); Assert.Equal(0, s.Offset("Recent", 100, 1000));
     }
-    [Theory] [InlineData(false)] [InlineData(true)]
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void BothLayoutsKeepAllHoldingsFlowsAndRecordedBreakdowns(bool stacked)
     {
         var p = Profile(); Record(p.Statistics.Economy, CurrencyKind.Cash, 100, source: CurrencySourceCategory.LootOrPickup, context: GameplayContext.Raid, acquired: true);
@@ -235,7 +298,8 @@ public sealed class RetainedEconomyTests
         var money = d.Elements.Single(e => e.Text == "Money flow"); var cash = d.Elements.Single(e => e.Text == "Cash flow");
         if (stacked) Assert.True(cash.Y > money.Y + money.Height); else Assert.Equal(money.Y, cash.Y);
     }
-    [Fact] public void ExpandedRecentCardHasPeerNetsAndSeparateBottomRightRoute()
+    [Fact]
+    public void ExpandedRecentCardHasPeerNetsAndSeparateBottomRightRoute()
     {
         var p = Profile(); p.Statistics.Runs.Add(Run("a")); var s = new EconomySelection(); s.Refresh(Present(p)); var d = Recent(s);
         var route = Assert.Single(d.Elements, e => e.Kind == EconomyElementKind.Route);
@@ -248,7 +312,8 @@ public sealed class RetainedEconomyTests
         Assert.True(s.Toggle("g", "a")); var collapsed = Recent(s);
         Assert.DoesNotContain(collapsed.Elements, e => e.Kind == EconomyElementKind.Route); Assert.True(collapsed.Height < d.Height);
     }
-    [Fact] public void ExpandedCardsKeepTenPixelGapAndEnclosingBackground()
+    [Fact]
+    public void ExpandedCardsKeepTenPixelGapAndEnclosingBackground()
     {
         var p = Profile(); p.Statistics.Runs.Add(Run("a")); p.Statistics.Runs.Add(Run("b", 1)); var s = new EconomySelection(); s.Refresh(Present(p)); var d = Recent(s);
         var group = d.Surfaces.Single(surface => surface.X == 30);
@@ -256,7 +321,8 @@ public sealed class RetainedEconomyTests
         Assert.Equal(10, next.Y - group.Y - group.Height, 3);
         Assert.All(d.Elements.Where(e => e.Id.StartsWith("run:b:", StringComparison.Ordinal)), e => Assert.True(e.Y + e.Height <= group.Y + group.Height));
     }
-    [Fact] public void LongNamesAndTableFallbackRemainInsideTheirMeasuredRegions()
+    [Fact]
+    public void LongNamesAndTableFallbackRemainInsideTheirMeasuredRegions()
     {
         var rows = new[] { new EconomyFlowRow("a", new string('L', 180), long.MaxValue, 0, long.MaxValue) };
         Assert.Empty(EconomyLayoutPolicy.TableColumns(650, new[] { "Zufluss", "Abfluss", "Netto" }, rows, MeasureWidth));
@@ -265,7 +331,8 @@ public sealed class RetainedEconomyTests
         Assert.All(d.Elements, e => { Assert.True(e.X + e.Width <= 600.01); Assert.True(e.Y + e.Height <= d.Height); });
         var title = d.Elements.Single(e => e.Id == "run:long:title"); Assert.True(title.Height > 100);
     }
-    [Fact] public void EmptyStateContainsNoAnonymousLegacyHistoryCard()
+    [Fact]
+    public void EmptyStateContainsNoAnonymousLegacyHistoryCard()
     {
         var s = new EconomySelection(); s.Refresh(Present()); var d = Recent(s);
         Assert.Empty(d.Surfaces); Assert.DoesNotContain(d.Elements, e => e.Actionable);

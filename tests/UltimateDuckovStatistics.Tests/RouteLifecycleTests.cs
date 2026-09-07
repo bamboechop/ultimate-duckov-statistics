@@ -755,11 +755,8 @@ public sealed class RouteLifecycleTests
         Assert.Equal(10, run.Segments[0].Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.False(run.Segments[0].Economy.Currencies.ContainsKey("Cash"));
         Assert.Equal(3, run.Segments[1].Economy.Currencies["Cash"].Totals.GrossInflow);
-        Assert.Equal(3, run.Economy.CashRaidOutcomes.Secured);
-        Assert.True(run.Economy.CashTerminalDispositionRecorded);
         Assert.Equal(10, profile.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(3, profile.RunTotals.Economy.Currencies["Cash"].Totals.GrossInflow);
-        Assert.True(profile.RunTotals.Economy.CashTerminalDispositionRecorded);
         Assert.Equal(10, profile.RunTotals.Maps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(3, profile.RunTotals.Maps["duckov:map:A"].Economy.Currencies["Cash"].Totals.GrossInflow);
         Assert.Equal(10, profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
@@ -1473,7 +1470,6 @@ public sealed class RouteLifecycleTests
             CashAmountDirection = Available(),
             CashExternalAcquisition = Available(),
             CashContextAttribution = Available(),
-            CashTerminalOutcomes = Available(),
             RouteAttribution = Available()
         };
     }

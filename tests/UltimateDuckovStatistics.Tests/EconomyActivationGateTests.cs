@@ -401,7 +401,6 @@ public sealed class EconomyActivationGateTests : IDisposable
             CashAmountDirection = Supported(),
             CashExternalAcquisition = Supported(),
             CashContextAttribution = Supported(),
-            CashTerminalOutcomes = Supported(),
             RouteAttribution = Supported()
         };
     }

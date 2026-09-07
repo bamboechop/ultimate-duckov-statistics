@@ -251,12 +251,12 @@ internal sealed partial class RetainedStatisticsShell
                 foreach (var value in snapshot.Versions) y += Value(technical, "version:" + value.Label, value, 20, y, w - 40);
                 y += 26;
                 y = TechnicalGroup(technical, "recovery", UiText.Get("ui.diag_recovery"), snapshot.Recovery, y, w);
-                y = TechnicalGroup(technical, "limitations", UiText.Get("ui.diag_limitations"), snapshot.Limitations, y, w, paragraphs: true);
                 y += Accordion(technical, "log", UiText.Get("ui.diagnostic_log"), "", 20, y, w - 40, 34, false) + 10;
                 if (selection.Expanded("log"))
                 {
                     var labels = new[] { UiText.Get("ui.diag_log_all"), UiText.Get("ui.diag_log_warnings"), UiText.Get("ui.diag_log_errors") };
-                    var sizes = labels.Select(l => {
+                    var sizes = labels.Select(l =>
+                    {
                         var bw = Math.Min(w - 40, measure.Width(l, 23) + 40);
                         return (bw, Math.Max(38, measure.Height(l, bw - 40, 23) + 16));
                     }).ToArray();
@@ -318,7 +318,7 @@ internal sealed partial class RetainedStatisticsShell
                     h += 14;
                     foreach (var capability in system.Capabilities)
                         h += Value(group, "cap:" + capability.Id, new DiagnosticsValue(capability.Name, capability.Status,
-                            capability.BaselineLimitation ? null : capability.Health), 20, h, w - 80, 23, 2);
+                            capability.Health), 20, h, w - 80, 23, 2);
                     foreach (var value in system.ExtraRows) h += Value(group, key + ":extra:" + value.Label, value, 20, h, w - 80, 23, 2);
                     h += 14;
                     var contractKey = "contracts:" + system.Id;

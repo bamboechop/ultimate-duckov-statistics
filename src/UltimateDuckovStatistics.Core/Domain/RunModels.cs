@@ -397,8 +397,6 @@ public sealed class ActiveRunCheckpoint
             HistoricalEventAttributionIncomplete = HistoricalEventAttributionIncomplete,
             HistoricalEventAttributionProvenance = HistoricalEventAttributionProvenance
         };
-
-        EconomyStatisticsReducer.FinalizeCashRaidOutcome(result.Economy, outcome);
         return result;
     }
 

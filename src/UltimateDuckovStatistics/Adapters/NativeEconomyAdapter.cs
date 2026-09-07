@@ -676,7 +676,6 @@ internal sealed class NativeEconomyAdapter : IDisposable
             CashAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " Cash is item type 451; event-coalesced totals span storage, main inventory, and pet inventory, while full-scene inventory hydration is baselined only after level initialization completes."),
             CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " successful exact-main world pickup plus owned-total delta, with bounded player-originated drop/re-pickup item-identity and last-owned-amount exclusion that remains exact when AddAndMerge consumes the picked item; a player-originated partial-stack decrease disables acquisition attribution because Duckov gives the dropped portion a new unobservable identity; verified OnMoneyPaid, OnCostPaid, and Item.IsBeingDestroyed boundaries exclude completed Cost.money and Cost.items Cash spending, including coalesced full-stack removal; corpse/container transfers remain exact UnknownAdjustment flows."),
             CashContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " context is captured at the accepted owned-total delta boundary."),
-            CashTerminalOutcomes = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, "Cash acquisition is supported, but installed-game public events do not prove terminal disposition across fungible main, pet, and storage ownership; acquired amounts remain unresolved."),
             RouteAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " active run/map/segment identity is captured at event time; route loss degrades only segment attribution.")
         };
     }
@@ -730,7 +729,6 @@ internal sealed class NativeEconomyAdapter : IDisposable
         MetricCapabilities.CashAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.CashContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
-        MetricCapabilities.CashTerminalOutcomes = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         PublishCapabilities(); diagnostic(reason);
     }
     private void DisableCashAcquisition(string reason)

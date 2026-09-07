@@ -562,7 +562,6 @@ public sealed partial class ProfileRepository
             summary.RunId,
             StringComparison.Ordinal);
         var applied = RunReducer.Apply(profile.Statistics, summary);
-        if (applied) EconomyStatisticsReducer.MergeTerminalOutcomes(profile.Statistics.Economy, summary.Economy);
         var clearedDeferredWatermark = ClearDeferredWatermark(profile, summary.RunId);
         if (applied || clearedDeferredWatermark || retryingFailedPersistence)
         {
@@ -927,7 +926,6 @@ public sealed partial class ProfileRepository
         var recoveredLifetimeItems = !alreadyFinalized && RecoverDeferredLifetimeItems(checkpoint);
         var recoveredLifetimeEconomy = !alreadyFinalized && RecoverDeferredLifetimeEconomy(checkpoint);
         var applied = RunReducer.Apply(Current.Statistics, summary);
-        if (applied) EconomyStatisticsReducer.MergeTerminalOutcomes(Current.Statistics.Economy, summary.Economy);
         var clearedDeferredWatermark = ClearDeferredWatermark(Current, summary.RunId);
 
         if (applied || recoveredLifetimeItems || recoveredLifetimeEconomy || clearedDeferredWatermark)
@@ -1480,10 +1478,7 @@ public sealed partial class ProfileRepository
         }
         if (difference.Currencies.ContainsKey(CurrencyKind.Cash.ToString())
             || cashSaturationDelta
-            || difference.CashRaidOutcomes.Acquired > 0
-            || difference.CashRaidOutcomes.Secured > 0
-            || difference.CashRaidOutcomes.Lost > 0
-            || difference.CashRaidOutcomes.Unresolved > 0)
+            || difference.CashAcquired > 0)
         {
             if (lifetime.CashArithmeticSaturated) skippedCurrencies.Add(CurrencyKind.Cash.ToString());
             else recoverableCurrency = true;

@@ -11,7 +11,6 @@ public static class EconomyCapabilityIds
     public const string CashAmountDirection = "native-economy-cash-flow";
     public const string CashExternalAcquisition = "native-economy-cash-acquisition";
     public const string CashContextAttribution = "native-economy-cash-context";
-    public const string CashTerminalOutcomes = "native-economy-cash-terminal";
     public const string RouteAttribution = "native-economy-route";
 }
 
@@ -30,7 +29,6 @@ public static class EconomyNativeContractPolicy
             CashAmountDirection = Clone(unavailable),
             CashExternalAcquisition = Clone(unavailable),
             CashContextAttribution = Clone(unavailable),
-            CashTerminalOutcomes = Clone(unavailable),
             RouteAttribution = Clone(unavailable)
         };
     }
@@ -44,7 +42,6 @@ public static class EconomyNativeContractPolicy
             Record(EconomyCapabilityIds.CashAmountDirection, value.CashAmountDirection, version),
             Record(EconomyCapabilityIds.CashExternalAcquisition, value.CashExternalAcquisition, version),
             Record(EconomyCapabilityIds.CashContextAttribution, value.CashContextAttribution, version),
-            Record(EconomyCapabilityIds.CashTerminalOutcomes, value.CashTerminalOutcomes, version),
             Record(EconomyCapabilityIds.RouteAttribution, value.RouteAttribution, version)
         };
 

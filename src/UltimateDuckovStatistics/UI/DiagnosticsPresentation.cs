@@ -39,13 +39,12 @@ internal sealed class DiagnosticsCapability
     public string Name { get; }
     public string Status { get; }
     public DiagnosticsHealth Health { get; }
-    public bool BaselineLimitation { get; }
     public string Version { get; }
     public string State { get; }
     public string Detail { get; }
-    public DiagnosticsCapability(string id, string name, string status, DiagnosticsHealth health, bool limitation,
+    public DiagnosticsCapability(string id, string name, string status, DiagnosticsHealth health,
         string version, string state, string detail)
-    { Id = id; Name = name; Status = status; Health = health; BaselineLimitation = limitation; Version = version; State = state; Detail = detail; }
+    { Id = id; Name = name; Status = status; Health = health; Version = version; State = state; Detail = detail; }
 }
 internal sealed class DiagnosticsSystem
 {
@@ -93,17 +92,16 @@ internal sealed class DiagnosticsPresentation
     public IReadOnlyList<DiagnosticsLogEntry> Log { get; }
     public IReadOnlyList<DiagnosticsValue> Versions { get; }
     public IReadOnlyList<DiagnosticsValue> Recovery { get; }
-    public IReadOnlyList<DiagnosticsValue> Limitations { get; }
     public string OpenDetail { get; }
     public DiagnosticsPresentation(string generation, string profile, string lastSaved, string dataRoot, string hotkey,
         DiagnosticsHealth health, string bannerTitle, string bannerDetail, IEnumerable<DiagnosticsSystem> systems,
         IEnumerable<DiagnosticsIssue> issues, IEnumerable<DiagnosticsLogEntry> log, IEnumerable<DiagnosticsValue> versions,
-        IEnumerable<DiagnosticsValue> recovery, IEnumerable<DiagnosticsValue> limitations, string openDetail)
+        IEnumerable<DiagnosticsValue> recovery, string openDetail)
     {
         GenerationId = generation; ProfileLabel = profile; LastSaved = lastSaved; DataRoot = dataRoot; Hotkey = hotkey;
         Health = health; BannerTitle = bannerTitle; BannerDetail = bannerDetail; OpenDetail = openDetail;
         Systems = Array.AsReadOnly(systems.ToArray()); Issues = Array.AsReadOnly(issues.ToArray()); Log = Array.AsReadOnly(log.ToArray());
-        Versions = Array.AsReadOnly(versions.ToArray()); Recovery = Array.AsReadOnly(recovery.ToArray()); Limitations = Array.AsReadOnly(limitations.ToArray());
+        Versions = Array.AsReadOnly(versions.ToArray()); Recovery = Array.AsReadOnly(recovery.ToArray());
     }
 }
 
@@ -135,16 +133,14 @@ internal static class DiagnosticsPresentationFactory
                 grouped.TryGetValue(d.Id, out var records);
                 var record = records?.Length == 1 ? records[0] : null;
                 var health = record?.State == AdapterCapabilityState.Supported ? DiagnosticsHealth.Working
-                    : d.BaselineLimitation || record?.State == AdapterCapabilityState.Experimental ? DiagnosticsHealth.Limited : DiagnosticsHealth.Error;
-                var status = record == null ? unavailable : record.State == AdapterCapabilityState.DisabledIncompatible && d.BaselineLimitation
-                    ? unavailable : t("ui." + health.ToString().ToLowerInvariant());
+                    : record?.State == AdapterCapabilityState.Experimental ? DiagnosticsHealth.Limited : DiagnosticsHealth.Error;
+                var status = record == null ? unavailable : t("ui." + health.ToString().ToLowerInvariant());
                 return new DiagnosticsCapability(d.Id, group == "other" ? d.EnglishName : t(d.TextKey), status, health,
-                    d.BaselineLimitation, record?.Version ?? unavailable, record?.State.ToString() ?? unavailable,
+                    record?.Version ?? unavailable, record?.State.ToString() ?? unavailable,
                     record == null ? t(records?.Length > 1 ? "ui.diag_conflicting_contract" : "ui.diag_missing_contract") : DetailForDisplay(record.Detail ?? unavailable, t));
             }).ToArray();
-            var relevant = capabilities.Where(c => !c.BaselineLimitation).ToArray();
-            var state = relevant.Any(c => c.Health == DiagnosticsHealth.Error) ? DiagnosticsHealth.Error
-                : relevant.Any(c => c.Health == DiagnosticsHealth.Limited) ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
+            var state = capabilities.Any(c => c.Health == DiagnosticsHealth.Error) ? DiagnosticsHealth.Error
+                : capabilities.Any(c => c.Health == DiagnosticsHealth.Limited) ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
             var extra = new List<DiagnosticsValue>();
             if (group == "storage")
             {
@@ -182,9 +178,9 @@ internal static class DiagnosticsPresentationFactory
             : menuUnavailable ? string.Format(CultureInfo.CurrentCulture, t("ui.diag_menu_fallback"), runtime.Hotkey) : t("ui.diag_supported_recording");
 
         var issues = new List<DiagnosticsIssue>();
-        foreach (var system in systems.Where(s => s.Id != "menu" && s.Capabilities.Any(c => c.Health == DiagnosticsHealth.Error && !c.BaselineLimitation)))
+        foreach (var system in systems.Where(s => s.Id != "menu" && s.Capabilities.Any(c => c.Health == DiagnosticsHealth.Error)))
         {
-            var affected = string.Join(", ", system.Capabilities.Where(c => c.Health == DiagnosticsHealth.Error && !c.BaselineLimitation).Select(c => c.Name));
+            var affected = string.Join(", ", system.Capabilities.Where(c => c.Health == DiagnosticsHealth.Error).Select(c => c.Name));
             issues.Add(new DiagnosticsIssue("capability:" + system.Id, system.Name + " · " + t("ui.diag_tracking_unavailable"),
                 string.Format(CultureInfo.CurrentCulture, t("ui.diag_affected_metrics"), affected) + "\n" + t("ui.diag_tracking_recovery"), "Error"));
         }
@@ -227,11 +223,9 @@ internal static class DiagnosticsPresentationFactory
             new DiagnosticsValue(t("ui.diag_profile_format"), profile.SchemaVersion.ToString(CultureInfo.InvariantCulture)),
             new DiagnosticsValue(t("ui.diag_statistics_format"), stats.SchemaVersion.ToString(CultureInfo.InvariantCulture))
         };
-        var limitations = systems.SelectMany(s => s.Capabilities).Where(c => c.BaselineLimitation && c.State != AdapterCapabilityState.Supported.ToString())
-            .Select(c => new DiagnosticsValue(c.Name, c.Detail));
         var lastSaved = runtime.SaveReceipt?.GenerationId == generation ? Timestamp(runtime.SaveReceipt.SavedUtc) : unavailable;
         return new DiagnosticsPresentation(generation, string.Format(CultureInfo.CurrentCulture, t("ui.diag_save_slot"), profile.Slot), lastSaved,
-            runtime.DataRoot, runtime.Hotkey, health, bannerTitle, bannerDetail, systems, issues.Take(12), log, versions, recovery, limitations, runtime.OpenDetail);
+            runtime.DataRoot, runtime.Hotkey, health, bannerTitle, bannerDetail, systems, issues.Take(12), log, versions, recovery, runtime.OpenDetail);
     }
 
     public static string Timestamp(DateTime utc) => utc == default ? UiText.Get("ui.unavailable")
