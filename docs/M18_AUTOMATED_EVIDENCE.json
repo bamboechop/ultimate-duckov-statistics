@@ -1,0 +1,645 @@
+{
+  "SchemaVersion": 1,
+  "SourceCommit": "4068480cd736642a16e14b0510384c957b3b08e0",
+  "StartingCommit": "443fad6a268916a6038c919501a714d1f17da371",
+  "Version": "1.0.0-rc.1",
+  "RecordedUtc": "2026-09-07T23:36:22.006241+00:00",
+  "Status": "Automated qualification passed; native user qualification Not exercised. M18 incomplete.",
+  "Automated": {
+    "Debug": {
+      "MainPassed": 1856,
+      "ShellPassed": 8,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "Release": {
+      "MainPassed": 1856,
+      "ShellPassed": 8,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "NativeDebugBuildWarnings": 0,
+    "NativeReleaseBuildWarnings": 0,
+    "ChangedSourceFormattingAndAnalyzers": "Pass",
+    "TrackedForbiddenBinaryAudit": "Pass",
+    "CurrentFormatRepositoryCoordinatorRecoveryResetExportComposition": "Pass",
+    "IsolatedShellBoundaryCoverage": "Real panel/shell access, overflow, 25 open/close cycles, 10000 closed ticks; native rendering and GPU resources not measured."
+  },
+  "NativeBaseline": {
+    "Duckov": "2.3.30",
+    "SteamBuild": "24013657",
+    "Unity": "2022.3.62f2",
+    "Harmony": "2.4.1.0",
+    "ContractProbe": "Pass",
+    "NativeRuntimeMeasurements": "Not exercised",
+    "Sha256": {
+      "TeamSoda.Duckov.Core.dll": "298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f",
+      "ItemStatsSystem.dll": "a276e15c022f71b2214bd05e1b9b0f2e620c16561df576fed0b79c2fe4402e60",
+      "SodaLocalization.dll": "f3af2174321f1193e8eea169b4d6050c5819efc927cf3ad42cde19aa54758c7c",
+      "resources.assets": "93c4ab6ad71fdb3bf4a331bbb2ac6bc2f7db7b0f12efe60dd43ea019ab2e543d",
+      "HarmonyLib": "353daafec180bb8e7bbe4da78f2a7cdc78067392e3a4e79dc8e7af295f2371e6"
+    }
+  },
+  "Reproducibility": {
+    "SourceCommit": "4068480cd736642a16e14b0510384c957b3b08e0",
+    "DotnetSdk": "8.0.424",
+    "Result": "Pass",
+    "Checkouts": [
+      {
+        "Checkout": "checkout-a",
+        "Hashes": {
+          "candidate.zip": "aed9c92fd7ffd854671a9ecc98769e0a4451481b8181784f82b28752b8d086e4",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "5c61dd42dc9408a3f684d385c1ce34d721f372394f60f4b2133ee7babcd94d3a",
+          "UltimateDuckovStatistics.pdb": "9e4730c97efb0ab5b1d217a0ad2c44fec531bd239391c75247a87a2a59097410"
+        }
+      },
+      {
+        "Checkout": "different-long-checkout-root-b",
+        "Hashes": {
+          "candidate.zip": "aed9c92fd7ffd854671a9ecc98769e0a4451481b8181784f82b28752b8d086e4",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "5c61dd42dc9408a3f684d385c1ce34d721f372394f60f4b2133ee7babcd94d3a",
+          "UltimateDuckovStatistics.pdb": "9e4730c97efb0ab5b1d217a0ad2c44fec531bd239391c75247a87a2a59097410"
+        }
+      }
+    ]
+  },
+  "ReleaseArchive": {
+    "File": "UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+    "Bytes": 622371,
+    "Sha256": "aed9c92fd7ffd854671a9ecc98769e0a4451481b8181784f82b28752b8d086e4",
+    "IndependentExtraction": "Pass",
+    "ExactFiveFileInventory": "Pass",
+    "OrdinaryReleaseDiagnosticCallSites": "None found by PE IL audit",
+    "EmbeddedAbsoluteBuildPaths": "None found by PE/PDB/package audit",
+    "WorktreeDllPdbZipMatchBothArchiveRoots": true
+  },
+  "Deployment": {
+    "DuckovClosed": true,
+    "Files": [
+      {
+        "File": "info.ini",
+        "Bytes": 336,
+        "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+      },
+      {
+        "File": "INSTALL.md",
+        "Bytes": 6820,
+        "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+      },
+      {
+        "File": "LICENSE",
+        "Bytes": 1096,
+        "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+      },
+      {
+        "File": "UltimateDuckovStatistics.Core.dll",
+        "Bytes": 687104,
+        "Sha256": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073"
+      },
+      {
+        "File": "UltimateDuckovStatistics.dll",
+        "Bytes": 1097216,
+        "Sha256": "5c61dd42dc9408a3f684d385c1ce34d721f372394f60f4b2133ee7babcd94d3a"
+      }
+    ],
+    "AllDestinationHashesMatchPackage": true,
+    "PriorVersion": "0.17.0",
+    "VerifiedPriorBackupId": "7e680a87e7a94cf59d5b2c9aa78a3a9c",
+    "DeploymentResidue": false,
+    "RealDuckovSavesOrUdsProfilesModified": false
+  },
+  "CaptureCampaign": {
+    "Sha256": "b16dab9d05af892b19909b218cd3190143349877f8e00ded951968f387a3303a",
+    "Cells": 14,
+    "BRepetitionsPerCell": 3,
+    "DRepetitionsPerCell": 3,
+    "CandidateDllsFrozen": true,
+    "UserControls": "Template prepared; actual physical controls must be completed before capture.",
+    "NativeCaptures": "Not exercised"
+  },
+  "IndependentReviews": {
+    "Range": "443fad6a268916a6038c919501a714d1f17da371..4068480cd736642a16e14b0510384c957b3b08e0",
+    "FinalIntegration": "Pass; no confirmed P1/P2",
+    "CurrentDataAndRuntimeComposition": "Pass; no confirmed P1/P2",
+    "DeliveryToolingAndLineEndingCorrection": "Pass; no confirmed P1/P2",
+    "Method": "Read-only source/native production composition, including unchanged callers. No reviewer build/test/gameplay claims."
+  },
+  "ManagedWorkload": {
+    "SourceCommit": "4068480cd736642a16e14b0510384c957b3b08e0",
+    "RuntimeScope": "Windows .NET 8 Release test harness; event construction and managed repository/tracker/reducer composition. No Unity/Mono or native frame-time claim. Other agent work stopped for this isolated run. Whole-test-process retained managed heap includes fixture and harness. Persistence includes checkpoint and complete snapshot writes outside event-processing windows.",
+    "Results": [
+      {
+        "eventCount": 144000,
+        "priorRunCount": 0,
+        "segments": 6,
+        "maps": 3,
+        "exactReopen": true,
+        "measurementScope": "Managed event construction, repository/tracker/reducer fan-out; persistence and full GC outside processing windows. No native frame-time claim.",
+        "windows": [
+          {
+            "chunk": 0,
+            "events": 6000,
+            "processingMilliseconds": 62.6623,
+            "allocatedBytes": 76631616,
+            "retainedBytes": 21851336,
+            "persistenceMilliseconds": 16.512,
+            "profileBytes": 22981
+          },
+          {
+            "chunk": 1,
+            "events": 6000,
+            "processingMilliseconds": 55.0918,
+            "allocatedBytes": 76535440,
+            "retainedBytes": 21916008,
+            "persistenceMilliseconds": 17.0938,
+            "profileBytes": 24008
+          },
+          {
+            "chunk": 2,
+            "events": 6000,
+            "processingMilliseconds": 66.0833,
+            "allocatedBytes": 76594184,
+            "retainedBytes": 22002120,
+            "persistenceMilliseconds": 14.8406,
+            "profileBytes": 24033
+          },
+          {
+            "chunk": 3,
+            "events": 6000,
+            "processingMilliseconds": 50.791,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 22002184,
+            "persistenceMilliseconds": 15.5528,
+            "profileBytes": 24033
+          },
+          {
+            "chunk": 4,
+            "events": 6000,
+            "processingMilliseconds": 49.3279,
+            "allocatedBytes": 76498192,
+            "retainedBytes": 22047472,
+            "persistenceMilliseconds": 16.2932,
+            "profileBytes": 24039
+          },
+          {
+            "chunk": 5,
+            "events": 6000,
+            "processingMilliseconds": 47.7534,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 22047568,
+            "persistenceMilliseconds": 16.482,
+            "profileBytes": 24039
+          },
+          {
+            "chunk": 6,
+            "events": 6000,
+            "processingMilliseconds": 50.3201,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 22047632,
+            "persistenceMilliseconds": 16.8853,
+            "profileBytes": 24041
+          },
+          {
+            "chunk": 7,
+            "events": 6000,
+            "processingMilliseconds": 49.6857,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 22047696,
+            "persistenceMilliseconds": 326.3297,
+            "profileBytes": 24041
+          },
+          {
+            "chunk": 8,
+            "events": 6000,
+            "processingMilliseconds": 51.0285,
+            "allocatedBytes": 76497280,
+            "retainedBytes": 22092472,
+            "persistenceMilliseconds": 249.7139,
+            "profileBytes": 24041
+          },
+          {
+            "chunk": 9,
+            "events": 6000,
+            "processingMilliseconds": 49.1917,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 22092600,
+            "persistenceMilliseconds": 38.2828,
+            "profileBytes": 24041
+          },
+          {
+            "chunk": 10,
+            "events": 6000,
+            "processingMilliseconds": 49.141,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 22092664,
+            "persistenceMilliseconds": 15.1788,
+            "profileBytes": 24041
+          },
+          {
+            "chunk": 11,
+            "events": 6000,
+            "processingMilliseconds": 48.9879,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 22092728,
+            "persistenceMilliseconds": 16.0165,
+            "profileBytes": 24041
+          },
+          {
+            "chunk": 12,
+            "events": 6000,
+            "processingMilliseconds": 52.9325,
+            "allocatedBytes": 76497128,
+            "retainedBytes": 22137552,
+            "persistenceMilliseconds": 15.9389,
+            "profileBytes": 24041
+          },
+          {
+            "chunk": 13,
+            "events": 6000,
+            "processingMilliseconds": 50.732,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 22137616,
+            "persistenceMilliseconds": 16.8135,
+            "profileBytes": 24062
+          },
+          {
+            "chunk": 14,
+            "events": 6000,
+            "processingMilliseconds": 57.6277,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 22137680,
+            "persistenceMilliseconds": 15.9772,
+            "profileBytes": 24062
+          },
+          {
+            "chunk": 15,
+            "events": 6000,
+            "processingMilliseconds": 76.931,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 22137744,
+            "persistenceMilliseconds": 17.6229,
+            "profileBytes": 24062
+          },
+          {
+            "chunk": 16,
+            "events": 6000,
+            "processingMilliseconds": 48.3792,
+            "allocatedBytes": 76515264,
+            "retainedBytes": 22183496,
+            "persistenceMilliseconds": 16.9151,
+            "profileBytes": 25062
+          },
+          {
+            "chunk": 17,
+            "events": 6000,
+            "processingMilliseconds": 51.0889,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 22183688,
+            "persistenceMilliseconds": 16.1775,
+            "profileBytes": 25086
+          },
+          {
+            "chunk": 18,
+            "events": 6000,
+            "processingMilliseconds": 49.4136,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 22183752,
+            "persistenceMilliseconds": 16.7627,
+            "profileBytes": 25086
+          },
+          {
+            "chunk": 19,
+            "events": 6000,
+            "processingMilliseconds": 48.3874,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 22183816,
+            "persistenceMilliseconds": 16.2387,
+            "profileBytes": 25092
+          },
+          {
+            "chunk": 20,
+            "events": 6000,
+            "processingMilliseconds": 49.2331,
+            "allocatedBytes": 76545304,
+            "retainedBytes": 22228528,
+            "persistenceMilliseconds": 17.7865,
+            "profileBytes": 25092
+          },
+          {
+            "chunk": 21,
+            "events": 6000,
+            "processingMilliseconds": 76.7001,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 22228592,
+            "persistenceMilliseconds": 17.5085,
+            "profileBytes": 25092
+          },
+          {
+            "chunk": 22,
+            "events": 6000,
+            "processingMilliseconds": 49.5958,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 22228656,
+            "persistenceMilliseconds": 15.6598,
+            "profileBytes": 25092
+          },
+          {
+            "chunk": 23,
+            "events": 6000,
+            "processingMilliseconds": 48.8496,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 22228720,
+            "persistenceMilliseconds": 15.6309,
+            "profileBytes": 25092
+          }
+        ],
+        "summary": {
+          "processingMedianMillisecondsPer6000Events": 50.0029,
+          "earlyMiddleLateProcessingMedianMilliseconds": [
+            50.55555,
+            50.880250000000004,
+            49.323350000000005
+          ],
+          "allocatedBytesPerEvent": 12752.001166666667,
+          "retainedHeapFirstLastBytes": [
+            21851336,
+            22228720
+          ],
+          "persistenceMedianMilliseconds": 16.497,
+          "persistenceMaximumMilliseconds": 326.3297,
+          "profileFirstLastBytes": [
+            22981,
+            25092
+          ]
+        }
+      },
+      {
+        "eventCount": 144000,
+        "priorRunCount": 200,
+        "segments": 6,
+        "maps": 3,
+        "exactReopen": true,
+        "measurementScope": "Managed event construction, repository/tracker/reducer fan-out; persistence and full GC outside processing windows. No native frame-time claim.",
+        "windows": [
+          {
+            "chunk": 0,
+            "events": 6000,
+            "processingMilliseconds": 162.3884,
+            "allocatedBytes": 76644568,
+            "retainedBytes": 22908136,
+            "persistenceMilliseconds": 184.8783,
+            "profileBytes": 3153264
+          },
+          {
+            "chunk": 1,
+            "events": 6000,
+            "processingMilliseconds": 121.9597,
+            "allocatedBytes": 76535440,
+            "retainedBytes": 23099832,
+            "persistenceMilliseconds": 145.9466,
+            "profileBytes": 3154293
+          },
+          {
+            "chunk": 2,
+            "events": 6000,
+            "processingMilliseconds": 143.2474,
+            "allocatedBytes": 76594184,
+            "retainedBytes": 23501016,
+            "persistenceMilliseconds": 187.1977,
+            "profileBytes": 3154318
+          },
+          {
+            "chunk": 3,
+            "events": 6000,
+            "processingMilliseconds": 139.9045,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 23500912,
+            "persistenceMilliseconds": 213.9007,
+            "profileBytes": 3154318
+          },
+          {
+            "chunk": 4,
+            "events": 6000,
+            "processingMilliseconds": 144.5527,
+            "allocatedBytes": 76498192,
+            "retainedBytes": 23546224,
+            "persistenceMilliseconds": 199.8324,
+            "profileBytes": 3154324
+          },
+          {
+            "chunk": 5,
+            "events": 6000,
+            "processingMilliseconds": 109.7746,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 23546320,
+            "persistenceMilliseconds": 166.8129,
+            "profileBytes": 3154324
+          },
+          {
+            "chunk": 6,
+            "events": 6000,
+            "processingMilliseconds": 73.6428,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 23546384,
+            "persistenceMilliseconds": 121.4101,
+            "profileBytes": 3154326
+          },
+          {
+            "chunk": 7,
+            "events": 6000,
+            "processingMilliseconds": 75.0817,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 23546448,
+            "persistenceMilliseconds": 153.5094,
+            "profileBytes": 3154326
+          },
+          {
+            "chunk": 8,
+            "events": 6000,
+            "processingMilliseconds": 70.361,
+            "allocatedBytes": 76497280,
+            "retainedBytes": 23591224,
+            "persistenceMilliseconds": 156.314,
+            "profileBytes": 3154326
+          },
+          {
+            "chunk": 9,
+            "events": 6000,
+            "processingMilliseconds": 49.3237,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 23591352,
+            "persistenceMilliseconds": 110.2334,
+            "profileBytes": 3154326
+          },
+          {
+            "chunk": 10,
+            "events": 6000,
+            "processingMilliseconds": 49.1311,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 23591416,
+            "persistenceMilliseconds": 105.8489,
+            "profileBytes": 3154326
+          },
+          {
+            "chunk": 11,
+            "events": 6000,
+            "processingMilliseconds": 48.8324,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 23591480,
+            "persistenceMilliseconds": 104.8009,
+            "profileBytes": 3154326
+          },
+          {
+            "chunk": 12,
+            "events": 6000,
+            "processingMilliseconds": 47.644,
+            "allocatedBytes": 76497128,
+            "retainedBytes": 23636304,
+            "persistenceMilliseconds": 108.1756,
+            "profileBytes": 3154326
+          },
+          {
+            "chunk": 13,
+            "events": 6000,
+            "processingMilliseconds": 49.4945,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 23636368,
+            "persistenceMilliseconds": 107.9778,
+            "profileBytes": 3154349
+          },
+          {
+            "chunk": 14,
+            "events": 6000,
+            "processingMilliseconds": 50.5338,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 23636432,
+            "persistenceMilliseconds": 116.0881,
+            "profileBytes": 3154349
+          },
+          {
+            "chunk": 15,
+            "events": 6000,
+            "processingMilliseconds": 52.1169,
+            "allocatedBytes": 76480360,
+            "retainedBytes": 23636496,
+            "persistenceMilliseconds": 105.6616,
+            "profileBytes": 3154349
+          },
+          {
+            "chunk": 16,
+            "events": 6000,
+            "processingMilliseconds": 48.2687,
+            "allocatedBytes": 76515264,
+            "retainedBytes": 23682248,
+            "persistenceMilliseconds": 110.3924,
+            "profileBytes": 3155349
+          },
+          {
+            "chunk": 17,
+            "events": 6000,
+            "processingMilliseconds": 51.3433,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 23682440,
+            "persistenceMilliseconds": 106.8109,
+            "profileBytes": 3155373
+          },
+          {
+            "chunk": 18,
+            "events": 6000,
+            "processingMilliseconds": 50.7551,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 23682504,
+            "persistenceMilliseconds": 112.6006,
+            "profileBytes": 3155373
+          },
+          {
+            "chunk": 19,
+            "events": 6000,
+            "processingMilliseconds": 49.6796,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 23682568,
+            "persistenceMilliseconds": 107.4968,
+            "profileBytes": 3155379
+          },
+          {
+            "chunk": 20,
+            "events": 6000,
+            "processingMilliseconds": 48.3561,
+            "allocatedBytes": 76545304,
+            "retainedBytes": 23727280,
+            "persistenceMilliseconds": 106.7269,
+            "profileBytes": 3155379
+          },
+          {
+            "chunk": 21,
+            "events": 6000,
+            "processingMilliseconds": 77.3433,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 23727344,
+            "persistenceMilliseconds": 118.4735,
+            "profileBytes": 3155379
+          },
+          {
+            "chunk": 22,
+            "events": 6000,
+            "processingMilliseconds": 49.3099,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 23727408,
+            "persistenceMilliseconds": 115.3606,
+            "profileBytes": 3155379
+          },
+          {
+            "chunk": 23,
+            "events": 6000,
+            "processingMilliseconds": 48.3,
+            "allocatedBytes": 76528360,
+            "retainedBytes": 23727472,
+            "persistenceMilliseconds": 105.6315,
+            "profileBytes": 3155379
+          }
+        ],
+        "summary": {
+          "processingMedianMillisecondsPer6000Events": 51.0492,
+          "earlyMiddleLateProcessingMedianMilliseconds": [
+            130.9321,
+            49.4091,
+            49.494749999999996
+          ],
+          "allocatedBytesPerEvent": 12752.09111111111,
+          "retainedHeapFirstLastBytes": [
+            22908136,
+            23727472
+          ],
+          "persistenceMedianMilliseconds": 113.98060000000001,
+          "persistenceMaximumMilliseconds": 213.9007,
+          "profileFirstLastBytes": [
+            3153264,
+            3155379
+          ]
+        }
+      }
+    ]
+  },
+  "LocalEvidenceSha256": {
+    "m18-canonical-release.log": "7cee4f807bee16009578b3bc8d6f9fdcb45950b0420b8daabcd2514776ab71b2",
+    "m18-final-native-debug.log": "8ebe5e2258f95a01439f279b0870897320135ee4fc46a8eacfb0195da50553a4",
+    "m18-canonical-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "m18-canonical-repro.log": "a9f3bb249fa352d839cbb74ce6559e575de3ecf444d6d25f61c872f6c8d28cef",
+    "m18-final-mixed-workload.log": "d2f93241d7a68f8e8254072bed5928c8a42f5f4918805a0a54cc946f82563f2d",
+    "m18-final-campaign.log": "80fa62ecc939976fb701b321ebf20b10f8936e27b5a4881a4551317821f06a99",
+    "m18-final-deploy.log": "b9bdd5a1378acbd337a2d9505736dd755e84ef38ff69facc83e1259260bc4bce",
+    "m18-final-installed-hashes.json": "74bf320bca761b037ecb07c526782566f6ea297f2b5d808f82fa36b65b7f46d6"
+  },
+  "Outstanding": [
+    "User-controlled gameplay and UI/profile/JSON/CSV agreement",
+    "Fresh/current-format reinstall and second-save native qualification",
+    "User-selected native recovery, degradation and setup/cleanup qualification",
+    "All required B/D native captures and natural multi-map/high-history soak",
+    "Native resource/memory observations and clean shutdown",
+    "Publication instruction; Workshop preview and subscription-install qualification"
+  ]
+}

@@ -20,6 +20,6 @@ Behavior-changing corrections require regression tests, independent re-review, n
 
 Only after required gates pass, prepare the exact reviewed release body, tag target, ZIP, checksum and dependency declaration for user approval. Do not merge, tag, publish or upload merely because a draft PR exists.
 
-Workshop readiness requires the verified package, project license, description/limitations, preview image, supported game/build, separately installed HarmonyLib item `3589088839`, correct content root and install/use instructions. The Workshop item ID, final preview/description, upload and subscription-install check remain user-approved work; do not invent a published item or claim a supported channel before it exists.
+Workshop readiness requires the verified package, project license, [prepared description/limitations](WORKSHOP_DESCRIPTION.md), preview image, supported game/build, separately installed HarmonyLib item `3589088839`, correct content root and install/use instructions. Select the final preview from qualified native UI captures. The Workshop item ID, preview approval, upload and subscription-install check remain outstanding; do not invent a published item or claim a supported channel before it exists.
 
 Publish `v1.0.0-rc.1` only on instruction. Later behavior-changing RCs increment the suffix; eventual v1.0 promotion needs its own acceptance and approval. The first explicitly supported distribution defines the supported upgrade baseline. No development `0.x` build creates a migration promise.

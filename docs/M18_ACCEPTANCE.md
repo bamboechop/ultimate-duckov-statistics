@@ -10,10 +10,10 @@ M18 hardens the completed M17 feature baseline. Starting source: `443fad6a268916
 | UI runtime cleanup | Immediate renderer, appearance rejection, unused formatters/production fixture constants removed; hidden Diagnostics measurement fixed. Five real-panel/shell access and ownership regressions through isolated boundaries | Pass (isolated); native rendering/resources Not exercised |
 | Runtime cost/durability | Terminal attribution freeze and bounded terminal/transition retries; live integrity enumeration avoids a per-event list; 144,000 mixed operations with 0/200 prior runs, exact six-segment/three-map persistence/reopen | Pass (managed); native performance Not exercised |
 | Performance protocol | [Frozen 14-cell matrix](M18_CAPTURE_MATRIX.json), three B/D repetitions, existing engineering/spike/ceiling rules; campaign source/DLL/raw-data checks | Pass (prepared/tested); native captures Not exercised |
-| Artifact privacy/reproducibility | Normalized PE/PDB identities, UTF-8/UTF-16/package audits and ordinary IL diagnostic-call rejection. Earlier two-root proof passed at `6f352290c5f25a2e18b927447dd2fd5aff282bb1` | Final source/artifact proof Not exercised |
-| Complete automated qualification | Full Debug/Release suites, formatting/analyzers, installed probe, warning-free build and source safety | Final run Not exercised |
-| Independent whole-system review | Fresh native/UI and persistence/economy/world-time/crafting reviews, correction re-reviews below | Bounded reviews Pass; complete immutable M18 integration review Not exercised |
-| Package/deployment | Deterministic five-file ZIP, independent extraction, staging outside native loader scan root, verified prior backup and exact destination hash readback | Final candidate Not exercised |
+| Artifact privacy/reproducibility | Normalized PE/PDB identities, canonical LF source text, UTF-8/UTF-16/package audits and ordinary IL diagnostic-call rejection. Both isolated roots and the Windows checkout produce identical DLL/PDB/ZIP hashes at the source below | Pass |
+| Complete automated qualification | 1,856 main + 8 shell tests in **each** Debug and Release; zero failures/skips. Final changed-source formatting/analyzers, installed probe, zero-warning native Debug/Release builds and source safety | Pass |
+| Independent whole-system review | Native/UI, persistence/economy/world-time/crafting and delivery reviews; correction re-reviews below; final complete immutable range `443fad6..4068480` | Pass; no confirmed P1/P2 |
+| Package/deployment | 622,371-byte deterministic five-file ZIP; independent extraction; exact installed-file readback while Duckov closed; verified 0.17.0 rollback copy; no deployment residue | Pass |
 | Native user gates | [Manual sequence](M18_MANUAL_QUALIFICATION.md): fresh/current-format reinstallation, progressed/second save, gameplay, degradation, recovery, UI/export agreement, performance and clean shutdown | Not exercised |
 
 ## Confirmed corrections and independent re-review
@@ -25,8 +25,22 @@ M18 hardens the completed M17 feature baseline. Starting source: `443fad6a268916
 - `eaf083bedff494d6800b142ff39f6eee6361875f`: real-shell overflow/access, 25 open/close cycles and 10,000 closed ticks through isolated boundaries passed.
 - `9a99b02d266efb39b81b9a24b8094b89584ad58c`: live integrity optimization, exact native dictionary contract and 144,000-event repository/tracker workload. Independent complete correction-range review passed with no confirmed P1/P2. Managed timing must be collected alone.
 
-These reviews inspected production/native composition, including unchanged supported code. They do not replace the final complete-range integration review or native user qualification.
+These reviews inspected production/native composition, including unchanged supported code. The final integration, current-data/runtime and delivery reviewers independently passed the complete or assigned bounded immutable range ending at `4068480cd736642a16e14b0510384c957b3b08e0`. Native user qualification remains separate.
 
 ## Final identities and outstanding gates
 
-Final source, Debug/Release totals, raw managed workload evidence, review range, ZIP/file hashes, reproducibility and deployment readback will be filled only from their completed final runs. The [release procedure](RELEASE_PROCESS.md) and [local data guide](LOCAL_DATA.md) are prepared. Merge, tags, release publication and Workshop upload require explicit instruction after qualification.
+Qualified binary/package source: [`4068480cd736642a16e14b0510384c957b3b08e0`](https://github.com/bamboechop/ultimate-duckov-statistics/commit/4068480cd736642a16e14b0510384c957b3b08e0), version `1.0.0-rc.1`. Later evidence/documentation commits do not change this binary identity. Exact native hashes, all five package hashes, portable PDB hashes, two-root proof, raw managed timing windows, review scope and local evidence checksums are in [the automated evidence manifest](M18_AUTOMATED_EVIDENCE.json).
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `UltimateDuckovStatistics-v1.0.0-rc.1.zip` (622,371 bytes) | `aed9c92fd7ffd854671a9ecc98769e0a4451481b8181784f82b28752b8d086e4` |
+| `UltimateDuckovStatistics.dll` | `5c61dd42dc9408a3f684d385c1ce34d721f372394f60f4b2133ee7babcd94d3a` |
+| `UltimateDuckovStatistics.Core.dll` | `1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073` |
+
+Local candidate: `artifacts/release/UltimateDuckovStatistics-v1.0.0-rc.1.zip`. Frozen campaign: `artifacts/qualification/4068480cd736642a16e14b0510384c957b3b08e0/campaign.json`, SHA-256 `b16dab9d05af892b19909b218cd3190143349877f8e00ded951968f387a3303a`. Its adjacent `controls.json` is a blank copy to fill from the actual user-selected setup. Verified rollback package: `artifacts/deployment-backups/7e680a87e7a94cf59d5b2c9aa78a3a9c/UltimateDuckovStatistics`. No real UDS profile or Duckov save was changed.
+
+The final isolated .NET 8 workload retained exact totals after **144,000 operations per case**, six segments and three maps, with zero and 200 prior runs. Median processing per 6,000 operations was 50.003 / 51.049 ms; the early/middle/late medians were 50.556/50.880/49.323 ms and 130.932/49.409/49.495 ms. These runs show no progressive processing slowdown within this workload. Each synthetic operation allocated approximately 12,752 bytes, including event construction and managed fan-out. Whole-test-process retained heap changed from 21,851,336 to 22,228,720 bytes and from 22,908,136 to 23,727,472 bytes. These are diagnostic observations, not native frame-time or memory acceptance.
+
+Checkpoint plus complete-profile snapshot writes were measured separately: median 16.497 / 113.981 ms, maximum **326.330 / 213.901 ms**, at final profile sizes 25,092 / 3,155,379 bytes. These peaks are retained, not excluded. Serialization cost grows with retained history; the native persistence/high-history gates must still pass. No comparable native before/after measurement or gameplay overhead claim is available.
+
+Next, follow [the first native check](M18_MANUAL_QUALIFICATION.md#first-native-check), then complete current-format/reinstallation, second-save, recovery/degradation, all matched performance cells and the natural high-history soak. Native rendering/resources, gameplay/export agreement, performance and clean shutdown remain **Not exercised**. The [release procedure](RELEASE_PROCESS.md), [prepared Workshop description](WORKSHOP_DESCRIPTION.md) and [local data guide](LOCAL_DATA.md) are ready. Workshop preview selection/subscription installation and merge/tag/release/upload authorization remain outstanding.
