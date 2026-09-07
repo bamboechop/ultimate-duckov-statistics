@@ -569,14 +569,12 @@ public sealed class ExportTests
         Assert.Equal(70, json.Economy.Currencies["Money"].Totals.NetFlow);
         Assert.Equal(profile.Statistics.Economy.ReplayCursor!.ActivationId, json.Economy.ReplayCursor!.ActivationId);
         Assert.Equal(profile.Statistics.Economy.ReplayCursor.ClosedThroughSequence, json.Economy.ReplayCursor.ClosedThroughSequence);
-        Assert.False(json.Economy.LegacyIdentitySaturationIncomplete);
         Assert.Equal(100, ReadLong(money, "gross_inflow"));
         Assert.Equal(30, ReadLong(money, "gross_outflow"));
         Assert.Equal(70, ReadLong(money, "net_flow"));
         Assert.Equal("Supported", money["amount_capability"]);
         Assert.Equal("test", money["amount_capability_provenance"]);
         Assert.Equal("false", money["arithmetic_saturated"]);
-        Assert.Equal("false", money["legacy_identity_saturation_incomplete"]);
         Assert.False(money.ContainsKey("deduplication_saturated"));
         Assert.Equal(100, sources.Where(row => row["scope"] == "lifetime" && row["currency"] == "Money").Sum(row => ReadLong(row, "gross_inflow")));
         Assert.Equal(30, sources.Where(row => row["scope"] == "lifetime" && row["currency"] == "Money").Sum(row => ReadLong(row, "gross_outflow")));

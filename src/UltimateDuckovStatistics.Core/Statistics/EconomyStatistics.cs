@@ -37,23 +37,15 @@ public sealed class EconomyStatisticsAggregate
     [DataMember(Order = 1)] public Dictionary<string, CurrencyEconomyAggregate> Currencies { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 2)] public long CashAcquired { get; set; }
     [DataMember(Order = 3)] public EconomyMetricCapabilities Capabilities { get; set; } = new();
-    // Legacy schema-9 candidate evidence. Corrected M9 never appends here; it is
-    // compacted only after old checkpoint recovery artifacts are no longer replayable.
-    [DataMember(Order = 4)] public List<string> RecentEventIds { get; set; } = new();
     [DataMember(Order = 5)] public bool HistoricalUnavailable { get; set; }
     [DataMember(Order = 6)] public bool WasRepairedFromInvalidState { get; set; }
-    // Legacy schema-9 candidate marker. It is migrated to
-    // LegacyIdentitySaturationIncomplete at the post-recovery compaction boundary.
-    [DataMember(Order = 9)] public bool DeduplicationSaturated { get; set; }
     [DataMember(Order = 10)] public bool MoneyArithmeticSaturated { get; set; }
     [DataMember(Order = 11)] public bool CashArithmeticSaturated { get; set; }
-    [DataMember(Order = 12, EmitDefaultValue = false)] public EconomyReplayCursor? ReplayCursor { get; set; } = new();
-    [DataMember(Order = 13)] public bool LegacyIdentitySaturationIncomplete { get; set; }
+    [DataMember(Order = 12)] public EconomyReplayCursor ReplayCursor { get; set; } = new();
 }
 
 public static class EconomyStatisticsReducer
 {
-    private const int LegacyMaximumRecentEventIds = 2048;
 
     public static bool Record(EconomyStatisticsAggregate aggregate, string saveGenerationId, CurrencyFlowRecorded value)
         => Record(aggregate, saveGenerationId, value, out _);
@@ -126,8 +118,6 @@ public static class EconomyStatisticsReducer
         }
         target.HistoricalUnavailable |= source.HistoricalUnavailable;
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
-        target.LegacyIdentitySaturationIncomplete |= source.LegacyIdentitySaturationIncomplete
-                                                     || source.DeduplicationSaturated;
         target.MoneyArithmeticSaturated |= source.MoneyArithmeticSaturated;
         target.CashArithmeticSaturated |= source.CashArithmeticSaturated;
         target.Capabilities = targetWasUninitialized && !target.HistoricalUnavailable
@@ -147,14 +137,11 @@ public static class EconomyStatisticsReducer
         {
             CashAcquired = source.CashAcquired,
             Capabilities = CloneCapabilities(source.Capabilities),
-            RecentEventIds = source.RecentEventIds.ToList(),
             HistoricalUnavailable = source.HistoricalUnavailable,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
-            DeduplicationSaturated = source.DeduplicationSaturated,
             MoneyArithmeticSaturated = source.MoneyArithmeticSaturated,
             CashArithmeticSaturated = source.CashArithmeticSaturated,
-            ReplayCursor = CloneReplayCursor(source.ReplayCursor),
-            LegacyIdentitySaturationIncomplete = source.LegacyIdentitySaturationIncomplete
+            ReplayCursor = CloneReplayCursor(source.ReplayCursor)
         };
         foreach (var entry in source.Currencies)
         {
@@ -188,8 +175,7 @@ public static class EconomyStatisticsReducer
             HistoricalUnavailable = total.HistoricalUnavailable,
             WasRepairedFromInvalidState = total.WasRepairedFromInvalidState,
             MoneyArithmeticSaturated = total.MoneyArithmeticSaturated,
-            CashArithmeticSaturated = total.CashArithmeticSaturated,
-            LegacyIdentitySaturationIncomplete = total.LegacyIdentitySaturationIncomplete
+            CashArithmeticSaturated = total.CashArithmeticSaturated
         };
         foreach (var totalEntry in total.Currencies)
         {
@@ -301,7 +287,6 @@ public static class EconomyStatisticsReducer
         var repaired = false;
         aggregate.Currencies ??= Repair(new Dictionary<string, CurrencyEconomyAggregate>(StringComparer.Ordinal), ref repaired);
         aggregate.Capabilities ??= Repair(new EconomyMetricCapabilities(), ref repaired);
-        aggregate.RecentEventIds ??= Repair(new List<string>(), ref repaired);
         aggregate.ReplayCursor ??= Repair(new EconomyReplayCursor(), ref repaired);
         NormalizeCapabilities(aggregate.Capabilities, ref repaired);
         NormalizeReplayCursor(aggregate.ReplayCursor, ref repaired);
@@ -316,19 +301,6 @@ public static class EconomyStatisticsReducer
             if (!string.Equals(entry.Key, key, StringComparison.Ordinal)) repaired = true;
         }
         aggregate.Currencies = normalized;
-        var deduped = aggregate.RecentEventIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).Take(LegacyMaximumRecentEventIds).ToList();
-        if (deduped.Count != aggregate.RecentEventIds.Count) repaired = true;
-        aggregate.RecentEventIds = deduped;
-        if (aggregate.RecentEventIds.Count == LegacyMaximumRecentEventIds && !aggregate.DeduplicationSaturated)
-        {
-            aggregate.DeduplicationSaturated = true;
-            repaired = true;
-        }
-        if (aggregate.DeduplicationSaturated)
-        {
-            if (!aggregate.LegacyIdentitySaturationIncomplete) repaired = true;
-            aggregate.LegacyIdentitySaturationIncomplete = true;
-        }
         if (aggregate.MoneyArithmeticSaturated)
         {
             if (MoneyCapabilities(aggregate.Capabilities).Any(value => value.State != AdapterCapabilityState.DisabledIncompatible))
@@ -349,14 +321,8 @@ public static class EconomyStatisticsReducer
     public static void Validate(EconomyStatisticsAggregate aggregate)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        if (aggregate.Currencies == null || aggregate.Capabilities == null
-            || aggregate.RecentEventIds == null || aggregate.ReplayCursor == null)
+        if (aggregate.Currencies == null || aggregate.Capabilities == null || aggregate.ReplayCursor == null)
             throw new ArgumentException("Economy roots are missing.", nameof(aggregate));
-        if (aggregate.RecentEventIds.Count > LegacyMaximumRecentEventIds || aggregate.RecentEventIds.Any(string.IsNullOrWhiteSpace)
-            || aggregate.RecentEventIds.Distinct(StringComparer.Ordinal).Count() != aggregate.RecentEventIds.Count)
-            throw new ArgumentException("Legacy economy identity evidence is invalid.", nameof(aggregate));
-        if (aggregate.RecentEventIds.Count == LegacyMaximumRecentEventIds && !aggregate.DeduplicationSaturated)
-            throw new ArgumentException("Legacy economy identity saturation state is invalid.", nameof(aggregate));
         ValidateReplayCursor(aggregate.ReplayCursor);
         foreach (var entry in aggregate.Currencies)
         {
@@ -378,15 +344,9 @@ public static class EconomyStatisticsReducer
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
         if (aggregate.Currencies == null
-            || aggregate.Capabilities == null || aggregate.RecentEventIds == null)
+            || aggregate.Capabilities == null || aggregate.ReplayCursor == null)
             throw new ArgumentException("Economy roots are missing.", nameof(aggregate));
-        if (aggregate.RecentEventIds.Count > LegacyMaximumRecentEventIds
-            || aggregate.RecentEventIds.Any(string.IsNullOrWhiteSpace)
-            || aggregate.RecentEventIds.Distinct(StringComparer.Ordinal).Count() != aggregate.RecentEventIds.Count)
-            throw new ArgumentException("Legacy economy identity evidence is unsafe.", nameof(aggregate));
-        if (aggregate.RecentEventIds.Count == LegacyMaximumRecentEventIds && !aggregate.DeduplicationSaturated)
-            throw new ArgumentException("Legacy economy identity saturation evidence is inconsistent.", nameof(aggregate));
-        if (aggregate.ReplayCursor != null) ValidateReplayCursor(aggregate.ReplayCursor);
+        ValidateReplayCursor(aggregate.ReplayCursor);
         foreach (var entry in aggregate.Currencies)
         {
             var value = entry.Value;
@@ -452,25 +412,13 @@ public static class EconomyStatisticsReducer
         return true;
     }
 
-    public static bool CompactLegacyReplayEvidence(
-        EconomyStatisticsAggregate aggregate,
-        bool clearReplayCursor)
+    public static bool ClearReplayCursor(EconomyStatisticsAggregate aggregate)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        NormalizePersisted(aggregate);
-        var changed = aggregate.RecentEventIds.Count > 0 || aggregate.DeduplicationSaturated;
-        if (aggregate.DeduplicationSaturated)
-            aggregate.LegacyIdentitySaturationIncomplete = true;
-        aggregate.RecentEventIds.Clear();
-        aggregate.DeduplicationSaturated = false;
-        if (clearReplayCursor
-            && (!string.IsNullOrEmpty(aggregate.ReplayCursor!.ActivationId)
-                || aggregate.ReplayCursor.ClosedThroughSequence != 0))
-        {
-            aggregate.ReplayCursor = new EconomyReplayCursor();
-            changed = true;
-        }
-        return changed;
+        if (string.IsNullOrEmpty(aggregate.ReplayCursor?.ActivationId)
+            && aggregate.ReplayCursor?.ClosedThroughSequence == 0) return false;
+        aggregate.ReplayCursor = new EconomyReplayCursor();
+        return true;
     }
 
     public static void ApplyArithmeticSaturation(EconomyStatisticsAggregate aggregate, CurrencyKind currency)
@@ -770,12 +718,8 @@ public static class EconomyStatisticsReducer
         if (!IsEmpty(value)
             || value.HistoricalUnavailable
             || value.WasRepairedFromInvalidState
-            || value.DeduplicationSaturated
             || value.MoneyArithmeticSaturated
             || value.CashArithmeticSaturated
-            || value.LegacyIdentitySaturationIncomplete
-            || value.RecentEventIds == null
-            || value.RecentEventIds.Count != 0
             || value.Capabilities == null)
             return false;
 
@@ -892,13 +836,11 @@ public static class EconomyStatisticsReducer
         return true;
     }
     private static CurrencyFlowTotals CloneTotals(CurrencyFlowTotals source) => new() { GrossInflow = source.GrossInflow, GrossOutflow = source.GrossOutflow };
-    private static EconomyReplayCursor? CloneReplayCursor(EconomyReplayCursor? source) => source == null
-        ? null
-        : new EconomyReplayCursor
-        {
-            ActivationId = source.ActivationId,
-            ClosedThroughSequence = source.ClosedThroughSequence
-        };
+    private static EconomyReplayCursor CloneReplayCursor(EconomyReplayCursor source) => new()
+    {
+        ActivationId = source.ActivationId,
+        ClosedThroughSequence = source.ClosedThroughSequence
+    };
     private static void ValidateCurrency(CurrencyEconomyAggregate value)
     {
         var validSources = Enum.GetNames(typeof(CurrencySourceCategory));

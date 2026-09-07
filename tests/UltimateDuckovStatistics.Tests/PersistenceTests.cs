@@ -170,7 +170,7 @@ public sealed class PersistenceTests
         "Statistics.Economy",
         "Statistics.Economy.Currencies",
         "Statistics.Economy.Capabilities",
-        "Statistics.Economy.RecentEventIds",
+        "Statistics.Economy.ReplayCursor",
         "Statistics.Economy.Capabilities.MoneyAmountDirection",
         "Statistics.Economy.Capabilities.MoneySourceAttribution",
         "Statistics.Economy.Capabilities.MoneyContextAttribution",
@@ -269,7 +269,6 @@ public sealed class PersistenceTests
     [Theory]
     [InlineData("negative-counter")]
     [InlineData("negative-cash-acquired")]
-    [InlineData("duplicate-deduplication-identity")]
     [InlineData("malformed-replay-cursor")]
     [InlineData("noncomposing-source")]
     [InlineData("noncomposing-context")]
@@ -294,11 +293,6 @@ public sealed class PersistenceTests
         else if (corruption == "negative-cash-acquired")
         {
             invalidPrimary.Statistics.Economy.CashAcquired = -1;
-        }
-        else if (corruption == "duplicate-deduplication-identity")
-        {
-            invalidPrimary.Statistics.Economy.RecentEventIds.Add("duplicate");
-            invalidPrimary.Statistics.Economy.RecentEventIds.Add("duplicate");
         }
         else if (corruption == "malformed-replay-cursor")
         {
@@ -551,76 +545,6 @@ public sealed class PersistenceTests
             failure.Contains("invalid economy state", StringComparison.Ordinal)));
         Assert.Equal(9, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(9, repository.Current.Revision);
-        repository.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "M9")]
-    public void UnsaturatedSchemaNineCandidateCompactsLegacyIdentitiesWithoutChangingTotals()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var candidate = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
-        SetMoneyInflow(candidate.Statistics.Economy, 3);
-        candidate.Statistics.Economy.RecentEventIds.AddRange(["legacy:1", "legacy:2", "legacy:3"]);
-        candidate.Statistics.Economy.ReplayCursor = null;
-        new AtomicJsonStore<ProfileDocument>().Save(path, candidate);
-
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-
-        var economy = repository.Current.Statistics.Economy;
-        Assert.Equal(3, economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(economy.RecentEventIds);
-        Assert.False(economy.DeduplicationSaturated);
-        Assert.False(economy.LegacyIdentitySaturationIncomplete);
-        Assert.NotNull(economy.ReplayCursor);
-        Assert.Equal(string.Empty, economy.ReplayCursor!.ActivationId);
-        Assert.False(ProfileFormat.CompactEconomyReplayEvidenceAfterRecovery(repository.Current));
-        repository.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "M9")]
-    public void SaturatedSchemaNineCandidatePreservesExactTotalsAndResumesUnderANewActivation()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var candidate = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
-        SetMoneyInflow(candidate.Statistics.Economy, 2048);
-        candidate.Statistics.Economy.RecentEventIds.AddRange(
-            Enumerable.Range(1, 2048).Select(value => $"legacy:{value}"));
-        candidate.Statistics.Economy.DeduplicationSaturated = true;
-        candidate.Statistics.Economy.ReplayCursor = null;
-        new AtomicJsonStore<ProfileDocument>().Save(path, candidate);
-
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-        var economy = repository.Current.Statistics.Economy;
-        Assert.Equal(2048, economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(economy.RecentEventIds);
-        Assert.False(economy.DeduplicationSaturated);
-        Assert.True(economy.LegacyIdentitySaturationIncomplete);
-
-        repository.BeginEconomyActivation("corrected-activation");
-        Assert.True(repository.Record(new CurrencyFlowRecorded
-        {
-            EventId = "corrected:1",
-            TimestampUtc = TestTime,
-            SaveGenerationId = repository.CurrentGenerationId,
-            MapId = MapIdentity.UnknownId,
-            Currency = CurrencyKind.Money,
-            Direction = CurrencyFlowDirection.Inflow,
-            Amount = 1,
-            Source = CurrencySourceCategory.UnknownAdjustment,
-            GameplayContext = GameplayContext.Base,
-            ProducerActivationId = "corrected-activation",
-            ProducerSequence = 1
-        }));
-        Assert.Equal(2049, economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.True(economy.LegacyIdentitySaturationIncomplete);
         repository.CloseClean();
     }
 
@@ -2126,7 +2050,7 @@ public sealed class PersistenceTests
             case "Statistics.Economy": statistics.Economy = null!; break;
             case "Statistics.Economy.Currencies": statistics.Economy.Currencies = null!; break;
             case "Statistics.Economy.Capabilities": statistics.Economy.Capabilities = null!; break;
-            case "Statistics.Economy.RecentEventIds": statistics.Economy.RecentEventIds = null!; break;
+            case "Statistics.Economy.ReplayCursor": statistics.Economy.ReplayCursor = null!; break;
             case "Statistics.Economy.Capabilities.MoneyAmountDirection": statistics.Economy.Capabilities.MoneyAmountDirection = null!; break;
             case "Statistics.Economy.Capabilities.MoneySourceAttribution": statistics.Economy.Capabilities.MoneySourceAttribution = null!; break;
             case "Statistics.Economy.Capabilities.MoneyContextAttribution": statistics.Economy.Capabilities.MoneyContextAttribution = null!; break;

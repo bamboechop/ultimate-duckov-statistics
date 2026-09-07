@@ -319,51 +319,6 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
-    public void LegacyIdentityEvidenceIsCompactedOnlyAfterItsCheckpointIsRecoveredAndDeleted()
-    {
-        using var directory = new TemporaryDirectory();
-        var repository = Repository(directory.Path);
-        repository.Open(Identity());
-        repository.EnableDeferredItemPersistence();
-        var generation = repository.CurrentGenerationId;
-        var profilePath = repository.CurrentProfilePath!;
-        repository.CloseClean();
-
-        var profileStore = new AtomicJsonStore<ProfileDocument>();
-        var legacyProfile = profileStore.Load(profilePath).Value!;
-        SetMoneyInflow(legacyProfile.Statistics.Economy, 5);
-        legacyProfile.Statistics.Economy.RecentEventIds.Add("legacy:persisted");
-        legacyProfile.Statistics.Economy.ReplayCursor = null;
-        legacyProfile.DeferredItemPersistence!.RunId = "run-checkpoint";
-        SetMoneyInflow(legacyProfile.DeferredItemPersistence.AppliedLifetimeEconomy, 5);
-        legacyProfile.DeferredItemPersistence.AppliedLifetimeEconomy.RecentEventIds.Add("legacy:persisted");
-        legacyProfile.DeferredItemPersistence.AppliedLifetimeEconomy.ReplayCursor = null;
-        profileStore.Save(profilePath, legacyProfile);
-
-        var checkpoint = Checkpoint(generation, 8);
-        SetMoneyInflow(checkpoint.Economy, 12);
-        checkpoint.Economy.RecentEventIds.AddRange(["legacy:persisted", "legacy:checkpoint-only"]);
-        checkpoint.Economy.ReplayCursor = null;
-        foreach (var segment in checkpoint.Segments)
-            segment.Economy.ReplayCursor = null;
-        var activeRunPath = ActiveRunPath(directory.Path);
-        new AtomicJsonStore<ActiveRunCheckpoint>().Save(activeRunPath, checkpoint);
-
-        var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-        Assert.Equal(12, recovery.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Equal(12, Assert.Single(recovery.Current.Statistics.Runs).Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(recovery.Current.Statistics.Economy.RecentEventIds);
-        Assert.Empty(recovery.Current.DeferredItemPersistence!.AppliedLifetimeEconomy.RecentEventIds);
-        Assert.False(File.Exists(activeRunPath));
-        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(activeRunPath)));
-        Assert.False(File.Exists(AtomicJsonPaths.GetTemporaryPath(activeRunPath)));
-        recovery.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "M9")]
     [Trait("Category", "Performance")]
     public void DeferredBaseEconomyMutationRequiresTheCoalescedSnapshotWriterToPersist()
     {
@@ -430,13 +385,10 @@ public sealed class ActiveRunPersistenceTests
 
         Assert.False(repository.RecordDeferred(first!));
         Assert.Equal(4096, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(repository.Current.Statistics.Economy.RecentEventIds);
-        Assert.False(repository.Current.Statistics.Economy.DeduplicationSaturated);
         Assert.Equal(last!.ProducerActivationId, repository.Current.Statistics.Economy.ReplayCursor!.ActivationId);
         Assert.Equal(last.ProducerSequence, repository.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
         var watermark = repository.Current.DeferredItemPersistence!.AppliedLifetimeEconomy;
         Assert.Equal(4096, watermark.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(watermark.RecentEventIds);
         Assert.Equal(last.ProducerSequence, watermark.ReplayCursor!.ClosedThroughSequence);
     }
 
@@ -476,7 +428,6 @@ public sealed class ActiveRunPersistenceTests
             CurrencyFlowDirection.Inflow,
             1)));
         Assert.True(repository.Current.Statistics.Economy.MoneyArithmeticSaturated);
-        Assert.Empty(repository.Current.DeferredItemPersistence!.AppliedLifetimeEconomy.RecentEventIds);
         repository.SaveSnapshot(repository.CapturePersistenceSnapshot());
         repository.CloseClean();
 
@@ -599,11 +550,9 @@ public sealed class ActiveRunPersistenceTests
         var recovery = Repository(directory.Path);
         Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
         Assert.Equal(4103, recovery.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(recovery.Current.Statistics.Economy.RecentEventIds);
         Assert.Equal(
             7,
             Assert.Single(recovery.Current.Statistics.Runs).Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.False(recovery.Current.Statistics.Economy.DeduplicationSaturated);
         recovery.CloseClean();
 
         var repeated = Repository(directory.Path);

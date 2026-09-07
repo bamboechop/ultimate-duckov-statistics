@@ -217,27 +217,21 @@ public static class ProfileFormat
     {
         if (profile == null) throw new ArgumentNullException(nameof(profile));
         var changed = false;
-        var lifetime = profile.Statistics.Economy;
-        changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(
-            lifetime,
-            clearReplayCursor: false);
-        changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(
-            profile.Statistics.RunTotals.Economy,
-            clearReplayCursor: true);
+        changed |= EconomyStatisticsReducer.ClearReplayCursor(
+            profile.Statistics.RunTotals.Economy);
         foreach (var map in profile.Statistics.RunTotals.Maps.Values)
-            changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(map.Economy, clearReplayCursor: true);
+            changed |= EconomyStatisticsReducer.ClearReplayCursor(map.Economy);
         foreach (var map in profile.Statistics.RunTotals.RouteMaps.Values)
-            changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(map.Economy, clearReplayCursor: true);
+            changed |= EconomyStatisticsReducer.ClearReplayCursor(map.Economy);
         foreach (var run in profile.Statistics.Runs)
         {
-            changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(run.Economy, clearReplayCursor: true);
+            changed |= EconomyStatisticsReducer.ClearReplayCursor(run.Economy);
             foreach (var segment in run.Segments)
-                changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(segment.Economy, clearReplayCursor: true);
+                changed |= EconomyStatisticsReducer.ClearReplayCursor(segment.Economy);
         }
         if (profile.DeferredItemPersistence?.AppliedLifetimeEconomy != null)
-            changed |= EconomyStatisticsReducer.CompactLegacyReplayEvidence(
-                profile.DeferredItemPersistence.AppliedLifetimeEconomy,
-                clearReplayCursor: true);
+            changed |= EconomyStatisticsReducer.ClearReplayCursor(
+                profile.DeferredItemPersistence.AppliedLifetimeEconomy);
         return changed;
     }
 

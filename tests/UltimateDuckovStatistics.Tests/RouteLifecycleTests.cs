@@ -945,13 +945,10 @@ public sealed class RouteLifecycleTests
         Assert.Equal(5000, run.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(AdapterCapabilityState.Supported, run.Economy.Capabilities.MoneyAmountDirection.State);
         Assert.Equal(AdapterCapabilityState.Supported, run.Economy.Capabilities.RouteAttribution.State);
-        Assert.Empty(run.Economy.RecentEventIds);
-        Assert.False(run.Economy.DeduplicationSaturated);
         Assert.All(run.Segments, segment =>
         {
             Assert.Equal(2500, segment.Economy.Currencies["Money"].Totals.GrossInflow);
             Assert.Equal(AdapterCapabilityState.Supported, segment.Economy.Capabilities.MoneyAmountDirection.State);
-            Assert.Empty(segment.Economy.RecentEventIds);
         });
         var itemAssociation = Assert.Single(run.SegmentEventAssociations);
         Assert.Empty(itemAssociation.EventId);
@@ -971,10 +968,6 @@ public sealed class RouteLifecycleTests
             profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Capabilities.RouteAttribution.State);
         Assert.Equal(AdapterCapabilityState.Supported,
             profile.RunTotals.RouteMaps["duckov:map:B"].Economy.Capabilities.RouteAttribution.State);
-        Assert.Empty(profile.RunTotals.Economy.RecentEventIds);
-        Assert.Empty(profile.RunTotals.Maps["duckov:map:A"].Economy.RecentEventIds);
-        Assert.Empty(profile.RunTotals.RouteMaps["duckov:map:A"].Economy.RecentEventIds);
-        Assert.Empty(profile.RunTotals.RouteMaps["duckov:map:B"].Economy.RecentEventIds);
     }
 
     [Fact]
@@ -1009,7 +1002,6 @@ public sealed class RouteLifecycleTests
         Assert.Equal(2500, profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(AdapterCapabilityState.Supported,
             profile.RunTotals.RouteMaps["duckov:map:A"].Economy.Capabilities.MoneyAmountDirection.State);
-        Assert.Empty(profile.RunTotals.RouteMaps["duckov:map:A"].Economy.RecentEventIds);
     }
 
     [Fact]

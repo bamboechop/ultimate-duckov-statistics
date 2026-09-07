@@ -323,7 +323,6 @@ public sealed class EconomyStatisticsTests
         Assert.True(EconomyStatisticsReducer.TrySubtract(checkpoint, watermark, out var difference));
         Assert.Equal(0, difference.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(2, difference.Currencies["Money"].Totals.GrossOutflow);
-        Assert.Empty(difference.RecentEventIds);
         Assert.True(string.IsNullOrEmpty(difference.ReplayCursor!.ActivationId));
     }
 
@@ -421,9 +420,6 @@ public sealed class EconomyStatisticsTests
             first ??= flow;
             Assert.True(EconomyStatisticsReducer.Record(aggregate, "generation", flow));
         }
-
-        Assert.Empty(aggregate.RecentEventIds);
-        Assert.False(aggregate.DeduplicationSaturated);
         Assert.Equal(AdapterCapabilityState.Supported, aggregate.Capabilities.MoneyAmountDirection.State);
         Assert.Equal(4096, aggregate.Currencies["Money"].Totals.GrossInflow);
         Assert.False(EconomyStatisticsReducer.Record(aggregate, "generation", first!));
@@ -453,8 +449,6 @@ public sealed class EconomyStatisticsTests
 
         Assert.Equal(4096, aggregate.Currencies["Cash"].Totals.GrossInflow);
         Assert.Equal(AdapterCapabilityState.Supported, aggregate.Capabilities.CashAmountDirection.State);
-        Assert.Empty(aggregate.RecentEventIds);
-        Assert.False(aggregate.DeduplicationSaturated);
         EconomyStatisticsReducer.Validate(aggregate);
     }
 
@@ -477,8 +471,6 @@ public sealed class EconomyStatisticsTests
 
         Assert.Equal(60_000, aggregate.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(60_000, aggregate.Currencies["Cash"].Totals.GrossInflow);
-        Assert.Empty(aggregate.RecentEventIds);
-        Assert.False(aggregate.DeduplicationSaturated);
         Assert.False(string.IsNullOrWhiteSpace(aggregate.ReplayCursor!.ActivationId));
         Assert.Equal(lastSequence, aggregate.ReplayCursor.ClosedThroughSequence);
         EconomyStatisticsReducer.Validate(aggregate);
