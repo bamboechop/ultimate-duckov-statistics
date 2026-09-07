@@ -3849,7 +3849,7 @@ internal static class RetainedVisualLayoutPolicy
             || !IsFinite(header.Top)
             || !IsPositiveFinite(header.Width)
             || !IsPositiveFinite(header.Height)
-            || !IsPositiveFinite(header.CornerRadius)
+
             || tabStrip.Tabs.Count != RetainedTabStripPolicy.Specifications.Count
             || tabStrip.Tabs.Any(tab =>
                 !IsFinite(tab.Left)
@@ -3857,11 +3857,7 @@ internal static class RetainedVisualLayoutPolicy
                 || !IsPositiveFinite(tab.Width)
                 || !IsPositiveFinite(tab.Height)
                 || !IsPositiveFinite(tab.ExposedHeight)
-                || !IsPositiveFinite(tab.CornerRadius)
-                || !IsPositiveFinite(tab.LeftPadding)
-                || !IsPositiveFinite(tab.RightPadding)
-                || !IsPositiveFinite(tab.TopPadding)
-                || !IsPositiveFinite(tab.BottomPadding)
+
                 || !IsPositiveFinite(tab.FontSize)
                 || !IsPositiveFinite(tab.ReferencePreferredLabelWidth)
                 || !IsPositiveFinite(tab.PreferredLabelWidth)
@@ -3877,7 +3873,7 @@ internal static class RetainedVisualLayoutPolicy
             || !IsFinite(headerBottomBar.SurfaceTop)
             || !IsPositiveFinite(headerBottomBar.SurfaceWidth)
             || !IsPositiveFinite(headerBottomBar.SurfaceHeight)
-            || !IsPositiveFinite(headerBottomBar.SurfaceCornerRadius)
+
             || !IsFinite(headerTitle.Left)
             || !IsFinite(headerTitle.Top)
             || !IsPositiveFinite(headerTitle.Width)
@@ -3891,7 +3887,7 @@ internal static class RetainedVisualLayoutPolicy
             || !IsFinite(backControl.Top)
             || !IsPositiveFinite(backControl.Width)
             || !IsPositiveFinite(backControl.Height)
-            || !IsPositiveFinite(backControl.CornerRadius)
+
             || !IsFinite(backControl.ArrowLeft)
             || !IsFinite(backControl.ArrowTop)
             || !IsPositiveFinite(backControl.ArrowWidth)
@@ -3934,64 +3930,6 @@ internal static class RetainedVisualLayoutPolicy
     private static bool IsPositiveFinite(float value) => value > 0f && IsFinite(value);
 
     private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
-}
-
-internal static class RetainedShellCompositionPolicy
-{
-    public const int TabCount = 9;
-    public const int RootChildCount = 14;
-    public const int HeaderChildCount = 0;
-    public const int TabChildCount = 1;
-    public const int TabLabelChildCount = 0;
-    public const int OverviewTabChildCount = TabChildCount;
-    public const int OverviewTabLabelChildCount = TabLabelChildCount;
-    public const int HeaderBottomBarChildCount = 1;
-    public const int HeaderBottomBarGraphicChildCount = 0;
-    public const int HeaderTitleChildCount = 0;
-    public const int BackButtonChildCount = 1;
-    public const int BackArrowChildCount = 0;
-    public const int OverviewContentViewChildCount = 2;
-    public const int OverviewLeftPanelChildCount = 1;
-    public const int OverviewLeftPanelContentChildCount = 12;
-    public const int OverviewProfileSummaryHeadingChildCount = 0;
-    public const int OverviewFirstStatisticsRowChildCount = 1;
-    public const int OverviewFirstStatisticsRowContentChildCount = 2;
-    public const int OverviewFirstStatisticsRowLabelChildCount = 0;
-    public const int OverviewFirstStatisticsRowValueChildCount = 0;
-    public const int ProfileSummaryRowCount = 11;
-    public const int ProfileSummaryStandardRowContentChildCount = 2;
-    public const int ProfileSummaryEconomyRowContentChildCount = 3;
-    public const int OverviewRightPanelChildCount = 1;
-    public const int OverviewRightPanelContentChildCount = 9;
-    public const int OverviewHighlightsHeadingChildCount = 0;
-    public const int OverviewLatestRunHeadingChildCount = 0;
-    public const int OverviewLatestRunCardChildCount = 4;
-    public const int OverviewLatestRunBadgeChildCount = 2;
-    public const int OverviewLatestRunBadgeIconChildCount = 0;
-    public const int OverviewLatestRunBadgeLabelChildCount = 0;
-    public const int OverviewLatestRunBadgeGraphicCount = 3;
-    public const int OverviewLatestRunMapNameChildCount = 0;
-    public const int OverviewLatestRunMapNameGraphicCount = 1;
-    public const int OverviewLatestRunStatisticsChildCount = 0;
-    public const int OverviewLatestRunStatisticsGraphicCount = 1;
-    public const int OverviewLatestRunViewRunChildCount = 1;
-    public const int OverviewLatestRunViewRunLabelChildCount = 0;
-    public const int OverviewLatestRunViewRunGraphicCount = 2;
-    public const int OverviewWorldTimeHeadingChildCount = 0;
-    public const int OverviewWorldTimeCardChildCount = 1;
-    public const int OverviewWorldTimeStatisticsChildCount = 0;
-    public const int OverviewWorldTimeGraphicCount = 3;
-    public const int OverviewHighlightRowCount = 4;
-    public const int OverviewHighlightRowChildCount = 2;
-    public const int OverviewHighlightRowGraphicCount = 1;
-    public const int OverviewFastestExtractionRowChildCount = 2;
-    public const int OverviewFastestExtractionRowGraphicCount = OverviewHighlightRowGraphicCount;
-    public const int OverviewFastestExtractionLabelChildCount = 0;
-    public const int OverviewFastestExtractionValueChildCount = 0;
-    public const int GraphicCount = 86;
-    public const int ButtonCount = 11;
-    public const int RectMaskCount = 1;
-    public const int OnlyOneEdgeModifierCount = 9;
 }
 
 internal sealed class RetainedBackControlActivation

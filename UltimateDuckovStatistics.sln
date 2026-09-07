@@ -16,6 +16,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{57048220
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArtifactAudit", "tools\ArtifactAudit\ArtifactAudit.csproj", "{0C9F663A-24B7-4C51-A68D-F5736A3DA1E8}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{08DD2EBE-1601-485E-B8DB-CE00DBFE13D2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UltimateDuckovStatistics.Shell.Tests", "tests\UltimateDuckovStatistics.Shell.Tests\UltimateDuckovStatistics.Shell.Tests.csproj", "{2DAC542A-2D36-4243-8F69-585A76A416D7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -46,8 +50,13 @@ Global
 		{0C9F663A-24B7-4C51-A68D-F5736A3DA1E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0C9F663A-24B7-4C51-A68D-F5736A3DA1E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0C9F663A-24B7-4C51-A68D-F5736A3DA1E8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2DAC542A-2D36-4243-8F69-585A76A416D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2DAC542A-2D36-4243-8F69-585A76A416D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2DAC542A-2D36-4243-8F69-585A76A416D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2DAC542A-2D36-4243-8F69-585A76A416D7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{0C9F663A-24B7-4C51-A68D-F5736A3DA1E8} = {57048220-7CA4-4202-B34D-C25A8A4A9DD3}
+		{2DAC542A-2D36-4243-8F69-585A76A416D7} = {08DD2EBE-1601-485E-B8DB-CE00DBFE13D2}
 	EndGlobalSection
 EndGlobal

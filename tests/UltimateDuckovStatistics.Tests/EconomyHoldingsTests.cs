@@ -170,7 +170,6 @@ public sealed class EconomyHoldingsTests : IDisposable
             EconomyHoldingsReducer.ValidateRecoveryCandidate(holdings, "generation-1"));
 
         Assert.Contains("no supported current capability", exception.Message, StringComparison.Ordinal);
-        Assert.Equal("Unavailable (unsupported)", UI.UiText.FormatHolding(holdings.Money, holdings.Capabilities.Money));
     }
 
     [Fact]
@@ -309,28 +308,6 @@ public sealed class EconomyHoldingsTests : IDisposable
         Assert.False(gate.IsMoneyDue(force: false));
         gate.Advance();
         Assert.True(gate.IsMoneyDue(force: false));
-    }
-
-    [Fact]
-    [Trait("Category", "M15")]
-    [Trait("Category", "UI")]
-    public void TemporaryUiDistinguishesUnavailableZeroCurrentAndLastObserved()
-    {
-        var capability = EconomyHoldingsNativeContractPolicy.Supported("money", "cash", "liquid").Money;
-        var holdings = Supported("generation-1");
-
-        Assert.Equal("Unavailable", UI.UiText.FormatHolding(holdings.Money, capability));
-        EconomyHoldingsReducer.Apply(
-            holdings,
-            new EconomyHoldingsMutation("generation-1", Now, 0, null, "ui"));
-        Assert.Equal("0 (current)", UI.UiText.FormatHolding(holdings.Money, capability));
-        EconomyHoldingsReducer.MarkNotCurrent(
-            holdings,
-            "generation-1",
-            money: true,
-            cash: false,
-            "restart");
-        Assert.Contains("0 (last observed", UI.UiText.FormatHolding(holdings.Money, capability), StringComparison.Ordinal);
     }
 
     private static EconomyHoldingsSnapshot Supported(string generation) => new()

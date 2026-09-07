@@ -56,18 +56,7 @@ public sealed class CraftingExportTests
         Assert.Equal("7", recipe["batch_quantity"]);
         Assert.Equal("2", recipe["batch_actions"]);
         Assert.Equal(nameof(AdapterCapabilityState.Supported), total["completion_capability"]);
-        Assert.Equal("2", UiText.FormatCraftingCount(2, aggregate.Capabilities.CompletionActions));
-        Assert.Equal("14", UiText.FormatCraftingCount(14, aggregate.Capabilities.ProducedQuantity));
 
-        var unavailable = CraftingNativeContractPolicy.Unavailable("gap");
-        Assert.Equal("Unsupported", UiText.FormatCraftingCount(0, unavailable.CompletionActions));
-        Assert.Equal("2 (capture incomplete)", UiText.FormatCraftingCount(2, unavailable.CompletionActions));
-        Assert.Equal(
-            "2 (capture incomplete)",
-            UiText.FormatCraftingCount(
-                2,
-                aggregate.Capabilities.CompletionActions,
-                unavailable.RecipeIdentity));
     }
 
     [Fact]

@@ -1,0 +1,60 @@
+namespace UltimateDuckovStatistics.UI;
+
+internal static class RetainedShellCompositionPolicy
+{
+    public const int TabCount = 9;
+    public const int RootChildCount = 14;
+    public const int HeaderChildCount = 0;
+    public const int TabChildCount = 1;
+    public const int TabLabelChildCount = 0;
+    public const int OverviewTabChildCount = TabChildCount;
+    public const int OverviewTabLabelChildCount = TabLabelChildCount;
+    public const int HeaderBottomBarChildCount = 1;
+    public const int HeaderBottomBarGraphicChildCount = 0;
+    public const int HeaderTitleChildCount = 0;
+    public const int BackButtonChildCount = 1;
+    public const int BackArrowChildCount = 0;
+    public const int OverviewContentViewChildCount = 2;
+    public const int OverviewLeftPanelChildCount = 1;
+    public const int OverviewLeftPanelContentChildCount = 12;
+    public const int OverviewProfileSummaryHeadingChildCount = 0;
+    public const int OverviewFirstStatisticsRowChildCount = 1;
+    public const int OverviewFirstStatisticsRowContentChildCount = 2;
+    public const int OverviewFirstStatisticsRowLabelChildCount = 0;
+    public const int OverviewFirstStatisticsRowValueChildCount = 0;
+    public const int ProfileSummaryRowCount = 11;
+    public const int ProfileSummaryStandardRowContentChildCount = 2;
+    public const int ProfileSummaryEconomyRowContentChildCount = 3;
+    public const int OverviewRightPanelChildCount = 1;
+    public const int OverviewRightPanelContentChildCount = 9;
+    public const int OverviewHighlightsHeadingChildCount = 0;
+    public const int OverviewLatestRunHeadingChildCount = 0;
+    public const int OverviewLatestRunCardChildCount = 4;
+    public const int OverviewLatestRunBadgeChildCount = 2;
+    public const int OverviewLatestRunBadgeIconChildCount = 0;
+    public const int OverviewLatestRunBadgeLabelChildCount = 0;
+    public const int OverviewLatestRunBadgeGraphicCount = 3;
+    public const int OverviewLatestRunMapNameChildCount = 0;
+    public const int OverviewLatestRunMapNameGraphicCount = 1;
+    public const int OverviewLatestRunStatisticsChildCount = 0;
+    public const int OverviewLatestRunStatisticsGraphicCount = 1;
+    public const int OverviewLatestRunViewRunChildCount = 1;
+    public const int OverviewLatestRunViewRunLabelChildCount = 0;
+    public const int OverviewLatestRunViewRunGraphicCount = 2;
+    public const int OverviewWorldTimeHeadingChildCount = 0;
+    public const int OverviewWorldTimeCardChildCount = 1;
+    public const int OverviewWorldTimeStatisticsChildCount = 0;
+    public const int OverviewWorldTimeGraphicCount = 3;
+    public const int OverviewHighlightRowCount = 4;
+    public const int OverviewHighlightRowChildCount = 2;
+    public const int OverviewHighlightRowGraphicCount = 1;
+    public const int OverviewFastestExtractionRowChildCount = 2;
+    public const int OverviewFastestExtractionRowGraphicCount = OverviewHighlightRowGraphicCount;
+    public const int OverviewFastestExtractionLabelChildCount = 0;
+    public const int OverviewFastestExtractionValueChildCount = 0;
+    public const int GraphicCount = 86;
+    public const int ButtonCount = 11;
+    public const int RectMaskCount = 1;
+    public const int OnlyOneEdgeModifierCount = 9;
+}
+

@@ -148,12 +148,12 @@ internal sealed partial class RetainedStatisticsShell
             root.localScale = new Vector3(frame.Scale, frame.Scale, 1); Place(root, shell.Header.Left, frame.Top, width, height);
             if (lastNotice != operations.LastNotice || lastOperation != operations.Current || lastCanStart != operations.CanStart)
             { Capture(); RememberFocus(); lastNotice = operations.LastNotice; lastOperation = operations.Current; lastCanStart = operations.CanStart; dirty = true; }
-            Place(unavailable.rectTransform, 30, 30, Math.Max(1, width - 60), measure.Height(unavailable.text, width - 60, 30));
             if (!dirty || !root.gameObject.activeInHierarchy) return;
             dirty = false;
             if (selection.Snapshot == null)
             {
                 unavailable.text = operations.Current == PanelOperation.Reset ? UiText.Get("ui.diag_operation_pending") : UiText.Get("ui.profile_unavailable");
+                Place(unavailable.rectTransform, 30, 30, Math.Max(1, width - 60), measure.Height(unavailable.text, width - 60, 30));
                 return;
             }
             foreach (var e in elements.Values) e.Used = false;

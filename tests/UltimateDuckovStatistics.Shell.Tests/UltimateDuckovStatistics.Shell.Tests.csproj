@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2"><PrivateAssets>all</PrivateAssets></PackageReference>
+    <ProjectReference Include="../../src/UltimateDuckovStatistics.Core/UltimateDuckovStatistics.Core.csproj" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/*Presentation.cs;../../src/UltimateDuckovStatistics/UI/*ViewPolicy.cs;../../src/UltimateDuckovStatistics/UI/*Text.cs;../../src/UltimateDuckovStatistics/UI/StatisticsPanelProjection.cs;../../src/UltimateDuckovStatistics/UI/CombatTableSort.cs;../../src/UltimateDuckovStatistics/UI/DiagnosticsCapabilityCatalog.cs;../../src/UltimateDuckovStatistics/UI/DiagnosticsPathPrivacy.cs;../../src/UltimateDuckovStatistics/UI/PanelOperations.cs;../../src/UltimateDuckovStatistics/UI/RetainedStatisticsShell.cs;../../src/UltimateDuckovStatistics/UI/RetainedTabScroll.cs;../../src/UltimateDuckovStatistics/UI/RetainedTabLabelMaterial.cs;../../src/UltimateDuckovStatistics/UI/RetainedNativeStatisticsPanel.cs" Link="ProductionUI/%(Filename)%(Extension)" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeProfileResetTransition.cs" Link="ProductionAdapters/NativeProfileResetTransition.cs" />
+  </ItemGroup>
+</Project>

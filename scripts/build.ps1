@@ -21,6 +21,8 @@ if ($LASTEXITCODE -ne 0) {
 foreach ($configuration in @('Debug', 'Release')) {
     dotnet test (Join-Path $repoRoot 'tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj') -c $configuration --no-restore
     if ($LASTEXITCODE -ne 0) { throw "$configuration tests failed with exit code $LASTEXITCODE." }
+    dotnet test (Join-Path $repoRoot 'tests\UltimateDuckovStatistics.Shell.Tests\UltimateDuckovStatistics.Shell.Tests.csproj') -c $configuration --no-restore
+    if ($LASTEXITCODE -ne 0) { throw "$configuration shell tests failed with exit code $LASTEXITCODE." }
 }
 
 dotnet run --project (Join-Path $repoRoot 'tools\DuckovContractProbe\DuckovContractProbe.csproj') -c Release --no-restore -- $env:DUCKOV_PATH

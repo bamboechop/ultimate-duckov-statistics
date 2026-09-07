@@ -25,6 +25,8 @@ jobs:
         run: dotnet restore .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj
       - name: Test core
         run: dotnet test .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj -c ${{ matrix.configuration }} --no-restore --collect:"XPlat Code Coverage"
+      - name: Test retained shell through isolated native boundaries
+        run: dotnet test .\tests\UltimateDuckovStatistics.Shell.Tests\UltimateDuckovStatistics.Shell.Tests.csproj -c ${{ matrix.configuration }}
       - name: Audit core PE and PDB identities
         run: ./scripts/audit-artifacts.ps1 -InputPaths @('./src/UltimateDuckovStatistics.Core/bin/${{ matrix.configuration }}/netstandard2.1/UltimateDuckovStatistics.Core.dll', './src/UltimateDuckovStatistics.Core/bin/${{ matrix.configuration }}/netstandard2.1/UltimateDuckovStatistics.Core.pdb')
       - name: Build contract probe
