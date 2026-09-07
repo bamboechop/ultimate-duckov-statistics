@@ -26,3 +26,17 @@ The local diagnostic records a base pause-menu injection attempt that failed to 
 Before packaging, the complete Debug suite passed 1836/1836 with no failures or skips, and the installed-native Release build passed with zero warnings/errors. Added checks cover path redaction, wrapped value-first layout, independent menu colors, limited Economy presentation and glyph-ink padding. Native test doubles cover the measurement boundary, not actual Unity rendering.
 
 Manual verification should revisit all reported heading insets and open chevrons; F8 and longer hotkeys; export/reset labels; all three Diagnostics log filters; four expanded item statistics; and path visibility plus full-path copying. Check normal desktop and narrow layouts. Gameplay, live UI/input/audio qualification and real profile reset remain user-controlled.
+
+## Verified local delivery
+
+Implementation revision `145188c75b35ae8592c2cf796548e3394d527209` was packaged and transactionally deployed on 2026-09-07 after confirming Duckov was closed. The complete Release suite passed **1836/1836**, with no failures or skips. The installed compatibility probe passed for Duckov 2.3.30 / Steam build 24013657, Unity 2022.3.62f2 and HarmonyLib 2.4.1.0. The native and frame-time analyzer Release builds passed without warnings or errors.
+
+The ZIP and installed mod directory contain exactly the five permitted package files. Every ZIP entry and installed file was compared to its package SHA-256. This remains a local pre-1.0 development artifact; nothing was published, pushed or merged.
+
+- ZIP: `artifacts/release/UltimateDuckovStatistics-v0.17.0.zip`, **660047 bytes**.
+- ZIP SHA-256: `6437d3f9ba6ead970482afcfe81b9863d930b0b1ba48a331339260ca48956473`.
+- Native DLL SHA-256: `495ebbf27fcb90d45274a9f9d3f3306bfac4fce7e59f4195eb1c8705cee9c5a3`.
+- Core DLL SHA-256: `5bcf58f2f2c82dbc780b43fa2c51532cad0aa2e750cb740bd35816d788bd60f7`.
+- Destination: `E:\SteamLibrary\steamapps\common\Escape from Duckov\Duckov_Data\Mods\UltimateDuckovStatistics`.
+
+Ignored evidence is under `artifacts/m17-screenshot-corrections-20260907/`: full Debug and Release workflow logs, native-build log, deployment log and the five-file deployed hash manifest. These checks do not constitute an in-game screenshot acceptance or repair of the base pause-menu anchor failure described above.
