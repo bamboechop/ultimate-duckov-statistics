@@ -221,7 +221,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         public Button Button { get; }
         public RectTransform LabelRect { get; }
         public TextMeshProUGUI Label { get; }
-        public RetainedLatestRunViewRunPresentation Presentation { get; }
+        public RetainedLatestRunViewRunPresentation Presentation { get; set; }
     }
 
     private sealed class RetainedWorldTimeStatisticsControl
@@ -491,7 +491,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
     { runsView?.Route(generation, id); tabSelected?.Invoke(StatisticsPanelTab.Runs); }
     private bool projectionAvailable = true;
 
-    private void BuildOverview(RectTransform rootRect, NativeHeaderTitleTypography headerTitleTypography, StatisticsPanelProjection projection)
+    private void BuildOverview(RectTransform rootRect, NativeHeaderTitleTypography headerTitleTypography, StatisticsPanelProjection projection,
+        RetainedLatestRunViewRunControl? retainedViewRun = null)
     {
         overviewContentView = CreateOverviewContentView(
             rootRect,
@@ -522,7 +523,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             out var createdOverviewWorldTimeStatistics,
             out var createdOverviewHighlightRows,
             out var createdOverviewProfileSummaryRows,
-            projection);
+            projection,
+            retainedViewRun);
         overviewLeftPanelRect = createdOverviewLeftPanelRect;
         overviewLeftPanelModifier = createdOverviewLeftPanelModifier;
         overviewRightPanelRect = createdOverviewRightPanelRect;
@@ -561,7 +563,6 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         var overviewGeneration = generation;
         overviewLatestRunViewRun.Button.interactable = overviewRun != null;
         overviewLatestRunViewRun.Button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
-        AddButtonFeedback(overviewLatestRunViewRun.Button);
         if (overviewRun != null)
         {
             var runId = overviewRun.RunId;
@@ -578,6 +579,10 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
     {
         if (shellRoot == null || overviewTypography == null) return;
         projectionAvailable = true;
+        var retainedViewRun = overviewLatestRunViewRun;
+        // Keep the selectable and its highlight alive across live projection refreshes.
+        // Detach before disabling the old view so hover, press and focus are retained.
+        retainedViewRun?.Rect.SetParent(shellRoot, worldPositionStays: false);
         overviewLatestRunViewRun?.Button.onClick.RemoveAllListeners();
         overviewLatestRunBadge?.Dispose();
         if (overviewContentView != null)
@@ -587,7 +592,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         }
         overviewHighlightRows.Clear();
         overviewProfileSummaryRows.Clear();
-        BuildOverview(shellRoot, overviewTypography, projection);
+        BuildOverview(shellRoot, overviewTypography, projection, retainedViewRun);
         overviewContentView?.transform.SetAsFirstSibling();
         BindOverviewRun(generation);
         RefreshRuns(projection, generation);
@@ -713,7 +718,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         out RetainedWorldTimeStatisticsControl worldTimeStatistics,
         out List<RetainedOverviewHighlightRowControl> highlightRows,
         out List<RetainedStatisticsRowControl> profileSummaryRows,
-        StatisticsPanelProjection projection)
+        StatisticsPanelProjection projection,
+        RetainedLatestRunViewRunControl? retainedViewRun)
     {
         var view = new GameObject(
             RetainedOverviewLeftPanelPolicy.ViewName,
@@ -798,11 +804,19 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         var latestRunViewRunPresentation = RetainedLatestRunViewRunPresentationFactory.Create(
             runBadgePresentation,
             UiText.Get);
-        latestRunViewRun = CreateOverviewLatestRunViewRun(
-            latestRunCardRect,
-            latestRunViewRunPresentation,
-            typography,
-            headingMaterial);
+        if (retainedViewRun == null)
+        {
+            latestRunViewRun = CreateOverviewLatestRunViewRun(
+                latestRunCardRect, latestRunViewRunPresentation, typography, headingMaterial);
+            AddButtonFeedback(latestRunViewRun.Button);
+        }
+        else
+        {
+            latestRunViewRun = retainedViewRun;
+            latestRunViewRun.Rect.SetParent(latestRunCardRect, worldPositionStays: false);
+            latestRunViewRun.Presentation = latestRunViewRunPresentation;
+            latestRunViewRun.Label.text = latestRunViewRunPresentation.Label;
+        }
         worldTimeHeadingRect = CreateOverviewWorldTimeHeading(
             rightPanelContentRect,
             typography,
