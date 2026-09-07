@@ -2,6 +2,11 @@ using System.Globalization;
 
 namespace UltimateDuckovStatistics.UI;
 
+internal static class RunDateStyle
+{
+    public const string Format = "dd.MM.yyyy - HH:mm";
+}
+
 internal static class RunsEvidenceLayout
 {
     public static (float Height, float HeaderHeight, float ContentTop, float ContentHeight) Measure(

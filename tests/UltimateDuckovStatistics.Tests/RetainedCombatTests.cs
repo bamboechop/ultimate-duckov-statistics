@@ -51,6 +51,42 @@ public sealed class RetainedCombatTests
         (value, size) => value.Length * size * .5f);
 
     [Fact]
+    public void WeaponDetailsStayClosedUntilRequestedAndRejectStaleOrOtherWeaponCallbacks()
+    {
+        var p = Projection(); Weapons(p, Weapon("a", 5), Weapon("b", 3));
+        var selection = new CombatSelection(); selection.Refresh(Present(p));
+        Assert.False(selection.WeaponDetailsExpanded);
+        Assert.False(selection.ToggleWeaponDetails("old", "a"));
+        Assert.False(selection.ToggleWeaponDetails("g", "b"));
+        Assert.True(selection.ToggleWeaponDetails("g", "a"));
+        selection.Refresh(Present(p)); Assert.True(selection.WeaponDetailsExpanded);
+        selection.SelectWeapon("g", "b"); Assert.False(selection.WeaponDetailsExpanded);
+        selection.SelectWeapon("g", "a"); Assert.True(selection.WeaponDetailsExpanded);
+        Weapons(p, Weapon("b", 3)); selection.Refresh(Present(p));
+        Weapons(p, Weapon("a", 5)); selection.Refresh(Present(p));
+        Assert.False(selection.WeaponDetailsExpanded);
+        selection.ToggleWeaponDetails("g", "a"); selection.Refresh(null);
+        Assert.False(selection.WeaponDetailsExpanded);
+    }
+
+    [Fact]
+    public void AmmunitionIsPlainAndAdditionalMetricsAppearOnlyInsideOpenedDetails()
+    {
+        var p = Projection(); Weapons(p, Weapon("a", 5, pairs: ("ammo", 5, 100)));
+        var selection = new CombatSelection(); selection.Refresh(Present(p));
+        var left = Document(); left.Items(selection, 600, false);
+        Assert.DoesNotContain(left.Rows, row => row.Kind == CombatRowKind.Metric);
+        var right = Document(); right.Items(selection, 600, true);
+        Assert.True(Assert.Single(right.Rows, row => row.Kind == CombatRowKind.Item).Plain);
+        Assert.DoesNotContain(right.Rows, row => row.Kind == CombatRowKind.Metric);
+        Assert.Contains(right.Rows, row => row.Expandable && !row.Selected);
+        selection.ToggleWeaponDetails("g", "a");
+        var opened = Document(); opened.Items(selection, 600, true);
+        Assert.Equal(selection.Weapon!.Metrics.Count, opened.Rows.Count(row => row.Kind == CombatRowKind.Metric));
+        Assert.True(opened.Height > right.Height);
+    }
+
+    [Fact]
     public void FourOverallCardsUseSeparateLifetimeTotals()
     {
         var p = Projection(); var n = p.Combat.Lifetime.Totals;

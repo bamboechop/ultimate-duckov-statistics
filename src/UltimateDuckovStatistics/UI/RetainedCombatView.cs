@@ -91,7 +91,11 @@ internal sealed partial class RetainedStatisticsShell
                 if (id.StartsWith("sort:", StringComparison.Ordinal) && int.TryParse(id.AsSpan(5), out var enemyColumn)) selection.SortEnemy(generation, enemyColumn);
                 else selection.ToggleEnemy(generation, id);
             }
-            else if (selection.Page == CombatPanelSection.WeaponsAndAmmunition) selection.SelectWeapon(generation, id);
+            else if (selection.Page == CombatPanelSection.WeaponsAndAmmunition)
+            {
+                if (id.StartsWith("details:", StringComparison.Ordinal)) selection.ToggleWeaponDetails(generation, id.Substring(8));
+                else selection.SelectWeapon(generation, id);
+            }
             else if (selection.Page == CombatPanelSection.IncomingDamage && id.StartsWith("sort:", StringComparison.Ordinal)
                 && int.TryParse(id.AsSpan(5), out var column)) selection.SortIncoming(generation, column);
             dirty = true;
@@ -272,7 +276,7 @@ internal sealed partial class RetainedStatisticsShell
                 c.Row = r; c.Button.Binding.Bind(owner.selection.Snapshot!.GenerationId, r.Id);
                 c.Button.BindInteractionOverlay(c.Background, r.Actionable);
                 c.Background.color = r.Selected ? new Color32(255, 158, 44, 255)
-                    : CombatLayoutPolicy.HasBackground(r.Kind) ? new Color(0, 0, 0, .5f) : Color.clear;
+                    : !r.Plain && CombatLayoutPolicy.HasBackground(r.Kind) ? new Color(0, 0, 0, .5f) : Color.clear;
                 Place(c.Rect, r.X, r.Y, r.Width, r.Height);
                 var inner = Math.Max(1, r.Width - 30); float y = 12;
                 for (var i = 0; i < c.Text.Length; i++)
@@ -290,7 +294,7 @@ internal sealed partial class RetainedStatisticsShell
                             if (i > 0) { x += r.SuffixLeft; w -= r.SuffixLeft; }
                             break;
                         case CombatRowKind.Notice: size = 20; top = 6; break;
-                        case CombatRowKind.Selector: size = 32; break;
+                        case CombatRowKind.Selector: size = 32; if (r.Expandable) { x += 28; w -= 28; } break;
                         case CombatRowKind.Card: size = i == 0 ? 32 : 20; top = y; break;
                         case CombatRowKind.TableHeader: size = CombatLayoutPolicy.TableHeaderSize; break;
                         case CombatRowKind.Metric: w = inner * (i == 0 ? .6f : .4f) - (i == 0 ? 10 : 0); x += i == 0 ? 0 : inner * .6f; break;

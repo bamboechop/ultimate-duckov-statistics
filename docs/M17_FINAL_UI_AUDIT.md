@@ -20,13 +20,13 @@ S1–S4: `ee3d04a1f8f4e0158e1a479a77ccb891083a901f`, with Limited-status contras
 
 Source: [Combat rendering](../src/UltimateDuckovStatistics/UI/RetainedCombatView.cs), [Combat layout](../src/UltimateDuckovStatistics/UI/CombatViewPolicy.cs), [Diagnostics rendering](../src/UltimateDuckovStatistics/UI/RetainedDiagnosticsView.cs), [Item Use rendering](../src/UltimateDuckovStatistics/UI/RetainedItemUseView.cs), [Runs rendering](../src/UltimateDuckovStatistics/UI/RetainedRunsView.cs), [Equipment rendering](../src/UltimateDuckovStatistics/UI/RetainedEquipmentView.cs).
 
-## Medium — decisions before implementation
+## Medium — approved and implemented
 
 ### M1. Consistent run dates
 
 Overview uses `dd.MM.yyyy - HH:mm`; Runs, Records, Economy and Item Use use `yyyy-MM-dd - HH:mm:ss`. The mocks themselves vary between ordinary run dates and technical timestamps, so there is no single literal format to copy everywhere. Equipment recent loadouts also display the run's end timestamp, while the other run cards display its start timestamp.
 
-**Proposed yes/no:** use the Overview format and run start time across player-facing run cards and Records. Keep second-precision timestamps in Diagnostics and holding-observation captions. No export or persisted timestamp changes. Recommended: yes, to make the same run recognizable across tabs.
+**Implemented after approval:** player-facing run cards and Records use `dd.MM.yyyy - HH:mm`; recent Equipment loadouts now use run start time. Diagnostics and holding observations retain seconds. Export and persisted timestamps are unchanged.
 
 Source: timestamp formatting in [Overview projection](../src/UltimateDuckovStatistics/UI/StatisticsPanelProjection.cs), [Runs](../src/UltimateDuckovStatistics/UI/RunsPresentation.cs), [Records](../src/UltimateDuckovStatistics/UI/RecordsPresentation.cs), [Economy](../src/UltimateDuckovStatistics/UI/EconomyPresentation.cs), [Item Use](../src/UltimateDuckovStatistics/UI/ItemUsePresentation.cs), [Equipment](../src/UltimateDuckovStatistics/UI/EquipmentPresentation.cs).
 
@@ -34,7 +34,7 @@ Source: timestamp formatting in [Overview projection](../src/UltimateDuckovStati
 
 The Weapons, Armor & gear and Totems mocks distinguish small group headings and compact subordinate rows from major section headings and expandable item cards. `EquipmentDocument` currently gives every heading size 40, reserves at least 80 units for icon rows, and shares caption/row spacing across those roles. Active-totem sets are composed from separate item rows rather than the mock's compact combined member block. The result is a looser hierarchy and more scrolling, even after correcting duplicate heading padding.
 
-**Proposed yes/no:** introduce separate major-heading, group-heading and compact-detail styles; reduce attachment/gear/totem detail spacing and combine active-set members visually within their existing card. Keep native font/material, expandable headers, exact membership and all evidence notices. Recommended: yes, as a bounded Equipment layout pass. This requires measured reflow and inspection of long localized item names, not a global font-size replacement.
+**Implemented after approval:** major/group headings and compact subordinate rows have separate measured styles. Active-set members share their parent surface. Native typography, expandable item headers, membership, captions and evidence notices remain intact.
 
 Source: [EquipmentDocument](../src/UltimateDuckovStatistics/UI/EquipmentViewPolicy.cs), [Equipment renderer](../src/UltimateDuckovStatistics/UI/RetainedEquipmentView.cs); compare the four Equipment JPGs.
 
@@ -42,7 +42,7 @@ Source: [EquipmentDocument](../src/UltimateDuckovStatistics/UI/EquipmentViewPoli
 
 The mock gives the selected weapon a simple orange selector and displays plain ammunition entries on the right. The implementation additionally renders selected-weapon metric rows and gives ammunition the same dark item-row background used by weapon selectors. The extra metrics are real supported information, so deleting them to match a screenshot would be a product choice.
 
-**Proposed yes/no:** use plain ammunition rows and move the additional weapon metrics into a separate, initially collapsed details block. Preserve the firing-action definition and ammunition percentage basis. Recommended: yes if matching the mock's compact first view is the priority.
+**Implemented after approval:** ammunition rows are plain; additional metrics live in an initially collapsed weapon-details block on the right. Expansion survives same-generation refresh, remains specific to each weapon, and clears when identity is lost. Firing-action and percentage definitions remain intact.
 
 Source: `CombatDocument.Items`, `CombatLayoutPolicy.HasBackground` in [Combat layout](../src/UltimateDuckovStatistics/UI/CombatViewPolicy.cs); compare [Weapons/ammunition mock](../mockups/uds-ui-combat-weapons.jpg).
 
@@ -50,7 +50,7 @@ Source: `CombatDocument.Items`, `CombatLayoutPolicy.HasBackground` in [Combat la
 
 Both native entry mocks use “Ultimate Duckov Statistics”; the implementation deliberately has a short “Statistics” translation key. This is a confirmed naming difference, not an access failure. Chart-icon replacement exists but depends on finding a native Image under an icon-named transform; the current installed menu appearance needs visual verification before claiming that part matches.
 
-**Proposed yes/no:** restore the full mod name in both native menus and qualify its fit using native layout measurement. Recommended: keep the short name unless the full branding is preferred; it fits the game's existing menu more easily. Icon appearance is a separate runtime verification item.
+**Implemented as an approved experiment:** both menus use “Ultimate Duckov Statistics”. The single `ui.menu_entry` key can revert to “Statistics”, “UD Statistics” or “UDS” after visual feedback. Installed Duckov 2.3.30 level1 assets confirm the main-menu Settings icon is a direct sprite-bearing Image child named `Image`, separate from ProceduralImage background/hover layers. Icon replacement now targets that native image. The native HorizontalLayoutGroup controls child width from preferred measurements and retains its spacing/font metrics; final full-name appearance remains a user visual check.
 
 Source: `ui.menu_entry` in [UiText](../src/UltimateDuckovStatistics/UI/UiText.cs), `ApplyLocalizedButtonText` and `ApplyStatisticsIcon` in [native integration](../src/UltimateDuckovStatistics/UI/NativeUiIntegration.cs).
 
@@ -91,4 +91,11 @@ Verified for the completed small corrections on 2026-09-07: all 1,853 Release te
 - Release ZIP SHA-256: `38e6699b638628bb5a4c05b97331a7685a9d5030efefb8f5038d6439b8013eb3`.
 - Native DLL SHA-256: `b01ca7210eb196b5f45ca03c52f49282d36da01d8b892e04274f10a3f9671b3d`.
 
-Remaining in-game checks: native menu icon and long label fit; stable button focus/audio and slot tooltips across multiple refreshes; scroll clipping and heading baselines at the user's resolution; a longer-language/narrow-window pass. These are verification items, not claimed confirmed defects. Medium and large proposals above are not implemented by this audit.
+Remaining in-game checks: native menu icon and long label fit; stable button focus/audio and slot tooltips across multiple refreshes; scroll clipping and heading baselines at the user's resolution; a longer-language/narrow-window pass. These are verification items, not claimed confirmed defects. M1–M4 are implemented following user approval; L1 remains deferred.
+
+### Approved medium-change delivery
+
+M1–M4 passed all 1,855 Release tests, the Duckov 2.3.30 compatibility probe, zero-warning native build and package validation. Deployed with Duckov closed; all five installed files match the package and ZIP by SHA-256. The full native-menu name remains an experiment awaiting user visual feedback.
+
+- ZIP SHA-256: `2036335d952d6285c62bc9761ceff912e63e15e28515b7f63076a65265105f26`.
+- Native DLL SHA-256: `c98fe14327adae7b324a8bd31ebe30c37028d22b5ff3985ceed7f8a7bf39a829`.

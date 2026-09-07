@@ -6,6 +6,8 @@ internal sealed class CombatSelection
     public CombatPanelSection Page { get; private set; }
     public string? EnemyId { get; private set; }
     public string? WeaponId { get; private set; }
+    private readonly HashSet<string> weaponDetails = new(StringComparer.Ordinal);
+    public bool WeaponDetailsExpanded => WeaponId != null && weaponDetails.Contains(WeaponId);
     public CombatTableSort IncomingSort { get; } = new();
     public CombatTableSort EnemySort { get; } = new(enemies: true);
     private readonly Dictionary<string, float> offsets = new(StringComparer.Ordinal);
@@ -13,9 +15,10 @@ internal sealed class CombatSelection
     public void Refresh(CombatPresentation? next)
     {
         if (next == null || Snapshot?.GenerationId != next.GenerationId)
-        { Page = CombatPanelSection.Summary; EnemyId = WeaponId = null; offsets.Clear(); focus.Clear(); IncomingSort.Reset(); EnemySort.Reset(); }
+        { Page = CombatPanelSection.Summary; EnemyId = WeaponId = null; weaponDetails.Clear(); offsets.Clear(); focus.Clear(); IncomingSort.Reset(); EnemySort.Reset(); }
         Snapshot = next;
         if (next == null) return;
+        weaponDetails.IntersectWith(next.Weapons.Select(w => w.Row.Id));
         if (!next.Enemies.Any(r => r.Id == EnemyId && r.CanExpand)) EnemyId = null;
         if (!next.Weapons.Any(r => r.Row.Id == WeaponId)) WeaponId = next.Weapons.Count == 0 ? null : next.Weapons[0].Row.Id;
     }
@@ -32,6 +35,12 @@ internal sealed class CombatSelection
         WeaponId = id; return true;
     }
     public CombatWeapon? Weapon => Snapshot?.Weapons.FirstOrDefault(w => w.Row.Id == WeaponId);
+    public bool ToggleWeaponDetails(string generation, string id)
+    {
+        if (Snapshot?.GenerationId != generation || WeaponId != id || Weapon == null) return false;
+        if (!weaponDetails.Add(id)) weaponDetails.Remove(id);
+        return true;
+    }
     public bool SortIncoming(string generation, int column) => Snapshot?.GenerationId == generation && IncomingSort.Toggle(column);
     public bool SortEnemy(string generation, int column) => Snapshot?.GenerationId == generation && EnemySort.Toggle(column);
     private string Key(string region) => region == "selector" ? region : Page + ":" + region + (region == "ammo" ? ":" + WeaponId : "");
@@ -149,6 +158,7 @@ internal sealed class CombatRenderRow
     public float[]? Columns { get; set; }
     public bool Expandable { get; set; }
     public bool RightAligned { get; set; }
+    public bool Plain { get; set; }
 }
 
 // Pure measured document composition. Unity supplies native TMP measurement; tests supply
@@ -176,7 +186,7 @@ internal sealed class CombatDocument
             CombatRowKind.Card => M(row.Cells[0], inner, 32) + M(row.Cells[1], inner, 20) + 24,
             CombatRowKind.TableHeader => M(row.Cells[0], inner, CombatLayoutPolicy.TableHeaderSize) + 24,
             CombatRowKind.Metric => Math.Max(M(row.Cells[0], inner * .6f - 10, 28), M(row.Cells[1], inner * .4f, 28)) + 20,
-            CombatRowKind.Selector => Math.Max(64, M(row.Cells[0], inner, 32) + 24),
+            CombatRowKind.Selector => Math.Max(64, M(row.Cells[0], inner - (row.Expandable ? 28 : 0), 32) + 24),
             CombatRowKind.Item => Math.Max(108, M(row.Cells[0], inner - 100, 32) + M(row.Cells[1], inner - 100, 24) + M(row.Cells[2], inner - 100, 20) + 24),
             _ => (row.Stacked ? row.Cells.Select((c, i) => M(c, inner - (i == 0 && row.Expandable ? 28 : 0), 26)).Sum() + (row.Cells.Length - 1) * 6
                 : row.Cells.Select((c, i) => M(c, (row.Columns == null ? i == 0 ? inner * .48f - 20 : inner * .52f / 3 - 10 : row.Columns[i] - 30) - (i == 0 && row.Expandable ? 28 : 0), 28)).Max()) + 24
@@ -300,13 +310,21 @@ internal sealed class CombatDocument
                 Kind = CombatRowKind.Item,
                 IconId = item.Id,
                 Actionable = !ammunition,
+                Plain = ammunition,
                 Selected = !ammunition && item.Id == selection.WeaponId,
                 Cells = new[] { item.Name,
                     ammunition ? item.Actions.Text + " " + text("ui.overview_firing_actions_unit")
                         : weaponLabels[item.Id].Length == 0 ? "" : weaponLabels[item.Id] + ": " + item.Actions.Text,
                     item.PercentageBasis.Length == 0 ? "" : item.Percentage.Text + " " + item.PercentageBasis }
             }, 30, y, w) + 10;
-            if (!ammunition && item.Id == selection.WeaponId) y += Metrics(selection.Weapon!.Metrics, 30, y, w);
+        }
+        if (ammunition && selection.Weapon is CombatWeapon weapon && weapon.Metrics.Count > 0)
+        {
+            y += 20;
+            y += Add(new CombatRenderRow { Id = "details:" + weapon.Row.Id, Kind = CombatRowKind.Selector,
+                Cells = new[] { text("ui.combat_weapon_details") }, Actionable = true, Expandable = true,
+                Selected = selection.WeaponDetailsExpanded }, 30, y, w) + 10;
+            if (selection.WeaponDetailsExpanded) Metrics(weapon.Metrics, 30, y, w);
         }
     }
 }

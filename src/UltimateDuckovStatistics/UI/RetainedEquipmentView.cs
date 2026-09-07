@@ -45,7 +45,7 @@ internal sealed partial class RetainedStatisticsShell
             outer.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
             outer.Rect.GetComponent<RunsFocusHandler>().Move = d => { if (d == MoveDirection.Up || d == MoveDirection.Left) focusTabs(); else FocusSelector(); };
         }
-        private float Measure(string value, float w, float size) => size == 40
+        private float Measure(string value, float w, float size) => size is 40 or 30
             ? measure.SectionHeight(value, Math.Max(1, w), size) : measure.Height(value, Math.Max(1, w), size);
         public void Refresh(EquipmentPresentation? next)
         {
@@ -272,7 +272,7 @@ internal sealed partial class RetainedStatisticsShell
                 c.Rect.GetComponent<ButtonAnimation>().enabled = r.Actionable;
                 c.Rect.GetComponent<RunsButtonFeedback>().enabled = r.Actionable;
                 c.Background.color = r.Selected ? new Color32(255, 158, 44, 255)
-                    : r.Kind is EquipmentRowKind.Heading or EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? Color.clear : new Color(0, 0, 0, .5f);
+                    : r.Plain || r.Kind is EquipmentRowKind.Heading or EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? Color.clear : new Color(0, 0, 0, .5f);
                 Place(c.Rect, r.X, r.Y, r.Width, r.Height);
                 c.Border.gameObject.SetActive(r.Kind == EquipmentRowKind.Slot);
                 c.Rect.GetComponent<UniformModifier>().Radius = r.Kind == EquipmentRowKind.Slot ? RunsViewStyle.SlotRadius : 10;
@@ -308,8 +308,8 @@ internal sealed partial class RetainedStatisticsShell
                     NativeTotemIconAppearance.Apply(c.Icon, r.IconId);
                     c.Fallback.enabled = icon == null; c.Fallback.text = r.IconFallback;
                     c.Fallback.color = r.EmptyIcon ? Muted : Color.white;
-                    var size = isSlot ? r.Width - 12 : 60; var inset = isSlot ? 6 : r.Expandable ? 40 : 15;
-                    Place(c.Icon.rectTransform, inset, isSlot ? 6 : 12, size, size); Place(c.Fallback.rectTransform, inset, isSlot ? 6 : 12, size, size);
+                    var size = isSlot ? r.Width - 12 : r.Compact ? 48 : 60; var inset = isSlot ? 6 : r.Expandable ? 40 : 15;
+                    Place(c.Icon.rectTransform, inset, isSlot ? 6 : r.TextTop, size, size); Place(c.Fallback.rectTransform, inset, isSlot ? 6 : r.TextTop, size, size);
                 }
                 else { c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); }
                 if (isSlot)
@@ -332,7 +332,7 @@ internal sealed partial class RetainedStatisticsShell
                     { c.Detail.gameObject.SetActive(true); c.Detail.text = "…"; c.Detail.color = Muted; Place(c.Detail.rectTransform, r.Width - 24, 0, 24, 28); }
                     return;
                 }
-                var sizeText = r.Kind == EquipmentRowKind.Heading ? 40 : r.Kind is EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? 22 : r.Kind == EquipmentRowKind.Selector ? 32 : 28;
+                var sizeText = r.NameSize;
                 float x = r.TextLeft;
                 var name = c.Text[0]; name.gameObject.SetActive(true); name.text = r.Name; name.fontSize = sizeText;
                 name.color = r.Kind == EquipmentRowKind.Notice ? Muted : Color.white;
@@ -340,9 +340,9 @@ internal sealed partial class RetainedStatisticsShell
                 if (r.Kind == EquipmentRowKind.Heading) CombatNativeTextMeasurement.AlignInkTop(name);
                 if (r.Value.Length > 0)
                 {
-                    var value = c.Text[1]; value.gameObject.SetActive(true); value.text = r.Value; value.fontSize = r.Kind == EquipmentRowKind.Footer ? 22 : 28;
+                    var value = c.Text[1]; value.gameObject.SetActive(true); value.text = r.Value; value.fontSize = r.Kind == EquipmentRowKind.Footer ? 22 : r.ValueSize;
                     value.color = Color.white; value.alignment = TextAlignmentOptions.TopRight;
-                    Place(value.rectTransform, x + r.NameWidth + 10, 12, r.Width - x - r.NameWidth - 25, r.ValueHeight);
+                    Place(value.rectTransform, x + r.NameWidth + 10, r.TextTop, r.Width - x - r.NameWidth - 25, r.ValueHeight);
                 }
                 if (r.Caption.Length > 0)
                 {

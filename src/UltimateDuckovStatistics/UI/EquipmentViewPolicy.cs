@@ -70,12 +70,19 @@ internal sealed class EquipmentRenderRow
     public RunSlotPresentation? Slot { get; set; }
     public EquipmentSlotState? EvidenceState { get; set; }
     public bool SectionHeading { get; set; }
+    public bool GroupHeading { get; set; }
+    public bool Compact { get; set; }
+    public bool Plain { get; set; }
+    public float NameSize => Kind == EquipmentRowKind.Heading ? GroupHeading ? 30 : 40
+        : Kind is EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? 22
+        : Kind == EquipmentRowKind.Selector ? 32 : Compact ? 24 : 28;
+    public float ValueSize => Compact ? 24 : 28;
     public bool HasIcon => Kind == EquipmentRowKind.Slot || IconId.Length > 0 || EvidenceState.HasValue;
     public bool EmptyIcon => NativeItemTypeIdPolicy.UseEmptyIcon(IconId)
         || (Kind == EquipmentRowKind.Slot ? Slot?.State : EvidenceState) == EquipmentSlotState.Empty;
     public string IconFallback => EmptyIcon ? Kind == EquipmentRowKind.Slot ? "–" : "—" : "?";
-    public float TextLeft => SectionHeading ? 0 : 15 + (HasIcon ? 72 : 0) + (Expandable ? 28 : 0);
-    public float TextTop => SectionHeading || Kind == EquipmentRowKind.SlotDuration ? 0 : 12;
+    public float TextLeft => SectionHeading ? 0 : 15 + (HasIcon ? Compact ? 60 : 72 : 0) + (Expandable ? 28 : 0);
+    public float TextTop => SectionHeading || Kind == EquipmentRowKind.SlotDuration ? 0 : Compact ? 8 : 12;
     public float X { get; set; }
     public float Y { get; set; }
     public float Width { get; set; }
@@ -111,15 +118,15 @@ internal sealed class EquipmentDocument
     public float Add(EquipmentRenderRow r, float x, float y, float width)
     {
         r.X = x; r.Y = y; r.Width = Math.Max(1, width);
-        var size = r.Kind == EquipmentRowKind.Heading ? 40 : r.Kind is EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? 22 : r.Kind == EquipmentRowKind.Selector ? 32 : 28;
+        var size = r.NameSize;
         var inset = r.TextLeft + (r.SectionHeading ? 0 : 15);
         var inner = Math.Max(1, width - inset);
         r.NameWidth = r.Value.Length > 0 ? Math.Max(1, inner * .64f - 10) : inner;
         r.NameHeight = measure(r.Name, r.NameWidth, size);
-        r.ValueHeight = r.Value.Length == 0 ? 0 : measure(r.Value, Math.Max(1, inner * .36f), 28);
-        r.CaptionTop = Math.Max(r.NameHeight, r.ValueHeight) + 16;
-        r.Height = r.Kind == EquipmentRowKind.Slot ? width : Math.Max(r.HasIcon ? 80 : r.Kind == EquipmentRowKind.Selector ? 64 : 36,
-            r.CaptionTop + (r.Caption.Length == 0 ? 0 : measure(r.Caption, inner, 22) + 6) + 12);
+        r.ValueHeight = r.Value.Length == 0 ? 0 : measure(r.Value, Math.Max(1, inner * .36f), r.ValueSize);
+        r.CaptionTop = Math.Max(r.NameHeight, r.ValueHeight) + r.TextTop + 4;
+        r.Height = r.Kind == EquipmentRowKind.Slot ? width : Math.Max(r.HasIcon ? r.Compact ? 64 : 80 : r.Kind == EquipmentRowKind.Selector ? 64 : 36,
+            r.CaptionTop + (r.Caption.Length == 0 ? 0 : measure(r.Caption, inner, 22) + 6) + (r.Compact ? 8 : 12));
         if (r.Kind == EquipmentRowKind.Route)
             r.Height = Math.Max(RetainedOverviewLatestRunViewRunPolicy.HeightPixels,
                 measure(r.Name, Math.Max(1, width - 2 * RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels),
@@ -154,16 +161,17 @@ internal sealed class EquipmentDocument
     }
     private float Notice(string message, float x, float y, float w) => message.Length == 0 ? 0
         : Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Notice, Name = message }, x, y, w);
-    private float Heading(string title, float x, float y, float w, bool section = true) => title.Length == 0 ? 0
-        : Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Heading, Name = title, SectionHeading = section }, x, y, w);
-    private float Entry(EquipmentEntry entry, float x, float y, float w, EquipmentSelection? selection = null, bool value = true, bool compact = false, EquipmentSlotState? evidenceState = null)
+    private float Heading(string title, float x, float y, float w, bool section = true, bool group = false) => title.Length == 0 ? 0
+        : Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Heading, Name = title, SectionHeading = section, GroupHeading = group }, x, y, w);
+    private float Entry(EquipmentEntry entry, float x, float y, float w, EquipmentSelection? selection = null, bool value = true, bool compact = false, EquipmentSlotState? evidenceState = null, bool plain = false, bool hideCaption = false)
     {
         var start = y; var expanded = selection?.Expanded(entry.Id) == true;
         var weapon = selection?.Page == EquipmentPanelSection.Weapons;
         var directTotem = selection?.Page == EquipmentPanelSection.Totems && entry.Id.StartsWith("direct:", StringComparison.Ordinal);
         var durationBelowName = weapon || directTotem;
-        var caption = compact ? "" : durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) + " " + entry.Caption : entry.Caption;
+        var caption = hideCaption ? "" : durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) + " " + entry.Caption : entry.Caption;
         y += Add(new EquipmentRenderRow { Id = entry.Id, Kind = EquipmentRowKind.Item, Name = entry.Name,
+            Compact = compact, Plain = plain,
             IconId = entry.ItemId, EvidenceState = evidenceState, Value = value && !durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) : "", Caption = caption,
             Actionable = selection != null && entry.Expandable, Expandable = selection != null && entry.Expandable, Selected = expanded }, x, y, w);
         y += Notice(entry.Notice, x, y, w);
@@ -224,8 +232,8 @@ internal sealed class EquipmentDocument
     }
     private float Group(EquipmentGroup g, float x, float y, float w, EquipmentSelection? selection = null, bool showHeading = true)
     {
-        var start = y; if (showHeading) y += Heading(g.Name, x, y, w); y += Notice(g.Notice, x, y, w);
-        foreach (var row in g.Rows) y += Entry(row, x, y, w, selection);
+        var start = y; if (showHeading) y += Heading(g.Name, x, y, w, group: true); y += Notice(g.Notice, x, y, w);
+        foreach (var row in g.Rows) y += Entry(row, x, y, w, selection, compact: true);
         return y - start + 10;
     }
     private float Loadout(EquipmentEntry entry, float x, float y, float width, EquipmentSelection selection)
@@ -275,7 +283,7 @@ internal sealed class EquipmentDocument
     {
         this.stacked = stacked;
         var p = selection.Snapshot!; float y = 30; var w = Math.Max(1, width - 60); const float x = 30;
-        void Section(string title, string key) { y += Heading(text(title), x, y, w, section: true); y += Notice(p.Notices[key], x, y, w); }
+        void Section(string title, string key) { y += Heading(text(title), x, y, w, section: true, group: selection.Page == EquipmentPanelSection.Totems); y += Notice(p.Notices[key], x, y, w); }
         void Empty(string key = "ui.equipment_no_observation") { y += Notice(text(key), x, y, w); }
         switch (selection.Page)
         {
@@ -285,7 +293,7 @@ internal sealed class EquipmentDocument
                     Section("ui.equipment_most_used", "loadouts");
                     if (p.MostUsed == null) Empty("ui.equipment_no_loadout"); else y += Loadout(p.MostUsed, x, y, w, selection);
                     Section("ui.equipment_selected", "selected");
-                    foreach (var row in p.SelectedWeapons) y += Entry(row, x, y, w, compact: true);
+                    foreach (var row in p.SelectedWeapons) y += Entry(row, x, y, w, compact: true, hideCaption: true);
                     if (p.SelectedWeapons.Count == 0) Empty();
                 }
                 else
@@ -313,7 +321,7 @@ internal sealed class EquipmentDocument
                     foreach (var row in p.DirectTotems) y += Entry(row, x, y, w, selection);
                     if (p.DirectTotems.Count == 0) Empty();
                     Section("ui.equipment_empty_slots", "empty");
-                    foreach (var row in p.EmptySlots) y += Entry(row, x, y, w);
+                    foreach (var row in p.EmptySlots) y += Entry(row, x, y, w, compact: true);
                     if (p.EmptySlots.Count == 0) Empty("ui.unavailable");
                 }
                 else
@@ -322,8 +330,8 @@ internal sealed class EquipmentDocument
                     foreach (var set in p.ActiveSets)
                     {
                         var start = y;
-                        foreach (var member in set.Groups.SelectMany(g => g.Rows)) y += Entry(member, x, y, w, value: false);
-                        y += Notice(set.Notice, x, y, w); y += Notice(EquipmentLayoutPolicy.Duration(set.Duration) + " " + set.Caption, x, y, w);
+                        foreach (var member in set.Groups.SelectMany(g => g.Rows)) y += Entry(member, x, y, w, value: false, compact: true, plain: true);
+                        y += Notice(set.Notice, x, y, w); y += Notice(EquipmentLayoutPolicy.Duration(set.Duration) + " " + set.Caption, x + 60, y, w - 60);
                         Surfaces.Add(new EquipmentSurface(x, start, w, y - start));
                         y += 10;
                     }

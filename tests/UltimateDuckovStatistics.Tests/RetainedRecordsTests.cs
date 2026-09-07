@@ -61,11 +61,11 @@ public sealed class RetainedRecordsTests
     }
 
     [Fact]
-    public void TimestampUsesStoredUtcConvertedToCanonicalLocalFullTime()
+    public void TimestampUsesStoredUtcConvertedToLocalRunDate()
     {
         var p = WithExtraction(Run("r", 1));
         var result = RecordsPresentationFactory.Create(p, "g", toLocal: utc => { Assert.Equal(DateTimeKind.Utc, utc.Kind); return utc.AddHours(2); })!;
-        Assert.Equal("2026-09-01 - 03:02:03", Value(result.Overall[0], "Date"));
+        Assert.Equal("01.09.2026 - 03:02", Value(result.Overall[0], "Date"));
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public sealed class RetainedRecordsTests
     {
         var p = Projection(); p.Runs.Records.Extraction.Shortest = p.Runs.Records.Extraction.Longest = Reference(Run("missing", 64.083));
         var card = Present(p).Overall[0];
-        Assert.Equal("01:04.083", Value(card, "Time")); Assert.Equal("2026-09-01 - 01:02:03", Value(card, "Date"));
+        Assert.Equal("01:04.083", Value(card, "Time")); Assert.Equal("01.09.2026 - 01:02", Value(card, "Date"));
         Assert.Equal("Unavailable", Value(card, "Starting map")); Assert.Equal("Unavailable", Value(card, "Route"));
         Assert.Null(card.RunId); Assert.Contains("exact recorded run", card.Notice);
     }

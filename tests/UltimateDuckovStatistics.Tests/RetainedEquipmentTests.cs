@@ -109,13 +109,14 @@ public sealed class RetainedEquipmentTests
     }
     [Fact] public void RecentRunUsesOwnMostUsedAndExactRouteNeverTerminalOrNewestFallback()
     {
-        var p = Profile(); var a = Observe(p); var run = new RunSummary { RunId = "old", SaveGenerationId = "g", EndedUtc = DateTime.UtcNow,
+        var p = Profile(); var a = Observe(p); var run = new RunSummary { RunId = "old", SaveGenerationId = "g", StartedUtc = new DateTime(2026, 9, 1, 1, 2, 3, DateTimeKind.Utc), EndedUtc = DateTime.UtcNow,
             MapDisplayName = "Route", EquipmentStatistics = EquipmentStatisticsReducer.Clone(a) };
         run.EquipmentStatistics.Loadouts.Add("history", new EquipmentDurationAggregate { Id = "history", ActiveDurationSeconds = 99 });
         p.Statistics.Runs.Add(run); var result = Present(p);
         Assert.Equal(99, result.Recent.Single().Duration); Assert.Empty(result.Recent.Single().Slots);
         Assert.True(result.CanRoute("g", "old")); Assert.False(result.CanRoute("other", "old")); Assert.False(result.CanRoute("g", "missing"));
         Assert.Contains("Most used during this run", result.Recent[0].Caption);
+        Assert.StartsWith(run.StartedUtc.ToLocalTime().ToString("dd.MM.yyyy - HH:mm", System.Globalization.CultureInfo.InvariantCulture), result.Recent[0].Caption);
     }
     [Fact] public void WeaponsOrderAndNestedStatePreserveEmptyPartialAndModdedGroups()
     {

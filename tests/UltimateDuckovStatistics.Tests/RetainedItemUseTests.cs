@@ -267,7 +267,7 @@ public sealed class RetainedItemUseTests
         ItemStatisticsAggregateReducer.Record(run.ItemStatistics, "g", use); profile.Statistics.Runs.Add(run);
         var p = ItemUsePresentationFactory.Create(Project(profile), "g", toLocal: value => value)!;
         var row = Assert.Single(p.RecentRuns);
-        Assert.Equal("exact", row.RunId); Assert.Equal("5", Assert.Single(row.Items).Uses.Text); Assert.Contains("2026-09-07 - 01:02:03", row.Caption, StringComparison.Ordinal);
+        Assert.Equal("exact", row.RunId); Assert.Equal("5", Assert.Single(row.Items).Uses.Text); Assert.Contains("07.09.2026 - 01:02", row.Caption, StringComparison.Ordinal);
         Assert.True(p.CanRoute("g", "exact")); Assert.False(p.CanRoute("other", "exact")); Assert.False(p.CanRoute("g", "nearby"));
         run.ItemStatistics.Items["x"].DisplayName = "Changed"; Assert.Equal("Same name", row.Items[0].Name);
     }

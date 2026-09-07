@@ -159,7 +159,7 @@ internal static class RunsPresentationFactory
         var stamp = t("ui.unavailable");
         if (run.StartedUtc != default)
         {
-            try { stamp = toLocal(DateTime.SpecifyKind(run.StartedUtc, DateTimeKind.Utc)).ToString("yyyy-MM-dd - HH:mm:ss", CultureInfo.InvariantCulture); }
+            try { stamp = toLocal(DateTime.SpecifyKind(run.StartedUtc, DateTimeKind.Utc)).ToString(RunDateStyle.Format, CultureInfo.InvariantCulture); }
             catch { /* Invalid timestamps remain unavailable. */ }
         }
         var metadata = $"{t("ui.runs_run")} {number} · {stamp} · {maps}";

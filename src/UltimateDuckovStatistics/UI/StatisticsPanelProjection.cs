@@ -2824,7 +2824,7 @@ internal static class RetainedLatestRunStatisticsPresentationFactory
             var local = (convertToLocalTime ?? (value => value.ToLocalTime()))(startedUtc);
             return local == default
                 ? unavailable
-                : local.ToString("dd.MM.yyyy - HH:mm", CultureInfo.InvariantCulture);
+                : local.ToString(RunDateStyle.Format, CultureInfo.InvariantCulture);
         }
         catch
         {

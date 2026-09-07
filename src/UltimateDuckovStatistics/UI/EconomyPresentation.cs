@@ -130,7 +130,7 @@ internal static class EconomyPresentationFactory
                 && r.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported && route.All(s => s.MapKnown);
             var count = route.Select(s => s.MapId).Distinct(StringComparer.Ordinal).Count();
             var mapText = exactMaps ? count.ToString(CultureInfo.InvariantCulture) + " " + t(count == 1 ? "ui.runs_map" : "ui.runs_maps") : t("ui.unavailable");
-            var metadata = string.Format(CultureInfo.CurrentCulture, t("ui.economy_run_metadata"), order[r.RunId], Timestamp(r.StartedUtc, t), mapText);
+            var metadata = string.Format(CultureInfo.CurrentCulture, t("ui.economy_run_metadata"), order[r.RunId], Timestamp(r.StartedUtc, t, runDate: true), mapText);
             return new EconomyRun(r.RunId, title, metadata, RetainedRunBadgePresentationFactory.MapOutcome(r.Outcome),
                 Flow(r.Economy, CurrencyKind.Money, p.CurrentEconomyCapabilities, t), Flow(r.Economy, CurrencyKind.Cash, p.CurrentEconomyCapabilities, t));
         });
@@ -206,10 +206,10 @@ internal static class EconomyPresentationFactory
         nameof(GameplayContext.Paused) => "ui.economy_context_paused", _ => "ui.economy_context_unknown" });
     internal static string Number(long? value, bool signed = false) => !value.HasValue ? UiText.Get("ui.unavailable")
         : (signed && value > 0 ? "+" : "") + value.Value.ToString("#,0", CultureInfo.InvariantCulture);
-    internal static string Timestamp(DateTime value, Func<string, string>? text = null)
+    internal static string Timestamp(DateTime value, Func<string, string>? text = null, bool runDate = false)
     {
         if (value == default) return (text ?? UiText.Get)("ui.unavailable");
-        try { return DateTime.SpecifyKind(value, DateTimeKind.Utc).ToLocalTime().ToString("yyyy-MM-dd - HH:mm:ss", CultureInfo.InvariantCulture); }
+        try { return DateTime.SpecifyKind(value, DateTimeKind.Utc).ToLocalTime().ToString(runDate ? RunDateStyle.Format : "yyyy-MM-dd - HH:mm:ss", CultureInfo.InvariantCulture); }
         catch (ArgumentException) { return (text ?? UiText.Get)("ui.unavailable"); }
     }
 }

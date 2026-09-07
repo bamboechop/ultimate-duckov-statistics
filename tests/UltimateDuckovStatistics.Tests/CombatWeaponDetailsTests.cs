@@ -151,12 +151,16 @@ public sealed class CombatWeaponDetailsTests
         var selection = new CombatSelection(); selection.Refresh(result);
         var doc = new CombatDocument((_, _, size) => size, (s, size) => s.Length * size);
         doc.Items(selection, 800, false);
-        Assert.Equal(4, doc.Rows.Count(r => r.Kind == CombatRowKind.Metric));
+        Assert.DoesNotContain(doc.Rows, r => r.Kind == CombatRowKind.Metric);
         Assert.Contains(doc.Rows, r => r.Kind == CombatRowKind.Item && r.Cells[1] == "Swings: 7");
         var ammoDoc = new CombatDocument((_, _, size) => size, (s, size) => s.Length * size);
         ammoDoc.Items(selection, 800, true);
         Assert.DoesNotContain(ammoDoc.Rows, r => r.Kind == CombatRowKind.Item);
         Assert.Contains(ammoDoc.Rows, r => r.Cells.Any(c => c.Contains("Not applicable", StringComparison.Ordinal)));
+        Assert.True(selection.ToggleWeaponDetails(result.GenerationId, weapon.Row.Id));
+        var details = new CombatDocument((_, _, size) => size, (s, size) => s.Length * size);
+        details.Items(selection, 800, true);
+        Assert.Equal(4, details.Rows.Count(r => r.Kind == CombatRowKind.Metric));
     }
 
     [Theory]

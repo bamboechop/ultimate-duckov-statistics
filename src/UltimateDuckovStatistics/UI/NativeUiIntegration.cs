@@ -264,7 +264,7 @@ internal sealed class NativeUiIntegration : IDisposable
             var activation = new NativeMenuButtonActivation(() => HandleInjectedButtonActivated(surface));
             button.onClick.AddListener(activation.Invoke);
             ApplyLocalizedButtonText(clone);
-            var iconApplied = ApplyStatisticsIcon(clone);
+            var iconApplied = ApplyStatisticsIcon(clone, surface);
             clone.SetActive(true);
             // The installed pause-menu button starts at 0x0: its native layout group
             // supplies geometry on the next layout pass. That is not an access failure.
@@ -406,10 +406,17 @@ internal sealed class NativeUiIntegration : IDisposable
         for (var current = type; current != null; current = current.BaseType) yield return current.FullName;
     }
 
-    private bool ApplyStatisticsIcon(GameObject clone)
+    private bool ApplyStatisticsIcon(GameObject clone, PanelAccessSurface surface)
     {
-        var image = clone.GetComponentsInChildren<Image>(includeInactive: true)
-            .FirstOrDefault(candidate => IsIconTransform(candidate.transform, clone.transform));
+        // Duckov 2.3.30 main-menu buttons use a direct Image child for the icon.
+        // The root and Hovering children are ProceduralImages and must stay untouched.
+        var images = clone.GetComponentsInChildren<Image>(includeInactive: true);
+        var image = surface == PanelAccessSurface.MainMenu
+            ? images.FirstOrDefault(candidate => candidate.GetType() == typeof(Image)
+                && candidate.transform.parent == clone.transform && candidate.name == "Image" && candidate.sprite != null)
+            : null;
+        image ??= images.FirstOrDefault(candidate => candidate.GetType() == typeof(Image)
+            && IsIconTransform(candidate.transform, clone.transform));
         if (image == null) return false;
         var sprite = GetStatisticsIcon();
         image.sprite = sprite;

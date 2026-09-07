@@ -138,7 +138,7 @@ internal static class EquipmentPresentationFactory
             var segments = run.Segments.OrderBy(s => s.SegmentIndex).ToArray();
             var route = segments.Length == 0 ? Name(run.MapDisplayName) : segments.Length == 1 ? Name(segments[0].MapDisplayName)
                 : Name(segments[0].MapDisplayName) + " - " + Name(segments[segments.Length - 1].MapDisplayName);
-            var caption = run.EndedUtc.ToLocalTime().ToString("yyyy-MM-dd - HH:mm:ss", CultureInfo.InvariantCulture) + "\n" + t("ui.equipment_most_during_run");
+            var caption = EconomyPresentationFactory.Timestamp(run.StartedUtc, t, runDate: true) + "\n" + t("ui.equipment_most_during_run");
             return row == null ? new EquipmentEntry("run:" + run.RunId, route, "", 0, caption, t("ui.unavailable"), runId: run.RunId)
                 : Loadout(run.EquipmentStatistics, row, "run:" + run.RunId, route, run.RunId, caption);
         }).ToArray();

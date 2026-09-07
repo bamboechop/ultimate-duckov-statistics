@@ -168,7 +168,7 @@ internal static class RecordsPresentationFactory
     private static string Timestamp(DateTime utc, Func<DateTime, DateTime> local, Func<string, string> t)
     {
         if (utc == default) return t("ui.unavailable");
-        try { return local(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToString("yyyy-MM-dd - HH:mm:ss", CultureInfo.InvariantCulture); }
+        try { return local(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToString(RunDateStyle.Format, CultureInfo.InvariantCulture); }
         catch (ArgumentException) { return t("ui.unavailable"); }
     }
     private static string Duration(DurationRecordReference reference, Func<string, string> t) =>
