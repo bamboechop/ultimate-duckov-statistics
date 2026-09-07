@@ -122,7 +122,8 @@ public enum CombatAttackKind
     [EnumMember] Ranged = 1,
     [EnumMember] Melee = 2,
     [EnumMember] Effect = 3,
-    [EnumMember] Environmental = 4
+    [EnumMember] Environmental = 4,
+    [EnumMember] Throwable = 5
 }
 
 [DataContract]

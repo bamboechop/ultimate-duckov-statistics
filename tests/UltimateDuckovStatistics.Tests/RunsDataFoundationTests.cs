@@ -14,6 +14,54 @@ namespace UltimateDuckovStatistics.Tests;
 [Collection(NativeHotPathDiagnosticsTestGroup.CollectionName)]
 public sealed class RunsDataFoundationTests
 {
+    [Fact]
+    public void DelayedItemGrenadeKillSurvivesExtractionWithoutReassigningEarlierUnknownKills()
+    {
+        using var h = new NativeHarness();
+        Assert.True(h.Lifecycle.RecordCombat(h.Combat("earlier") with { AttackKind = CombatAttackKind.Unknown, KillsByYou = 2, TargetIsEnemy = true }));
+        // Replay the installed Skill_Grenade handoff: the thrown instance retains source and item ID.
+        var player = new CharacterMainControl { IsMainCharacter = true };
+        var grenade = new Grenade { damageInfo = new DamageInfo { fromCharacter = player } };
+        grenade.SetWeaponIdInfo(123);
+        h.Now = 2; // Detonation happens after the release scope ended, independently of the held weapon.
+        object?[] prefix = { grenade, null };
+        NativeGrenadeAttribution.PrefixMethod.Invoke(null, prefix);
+        try
+        {
+            // Grenade.Explode -> ExplosionManager sets isExplosion before DamageReceiver -> Health.Hurt.
+            grenade.damageInfo.isExplosion = true;
+            var attack = NativeGrenadeAttribution.Classify(true, grenade.damageInfo, CombatAttackKind.Unknown);
+            Assert.Equal(CombatAttackKind.Throwable, attack);
+            var death = CombatObservationPolicy.ClassifyEnemyDeath(true, true, CombatOwnership.Player);
+            Assert.True(h.Lifecycle.RecordCombat(h.Combat("grenade") with { AttackKind = attack, TargetIsEnemy = true,
+                KillsByYou = death.KillsByYou, ObservedWorldDeaths = death.ObservedWorldDeaths,
+                WeaponId = "duckov:weapon:123", ActualDamageDealt = 50, ActualDamageToTarget = 50 }));
+        }
+        finally { NativeGrenadeAttribution.FinalizerMethod.Invoke(null, new[] { null, prefix[1] }); }
+        LevelManager.RaiseEvacuated();
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        repository.CompleteRun(h.Completed!);
+        var profile = RoundTrip(repository.Current);
+        repository.CloseClean();
+        profile.Capabilities = CombatNativeContractPolicy.ToRecords(CombatNativeContractPolicy.CreateSupportedCapabilities(), "test").ToList();
+        Assert.Null(ProfileMigrator.ValidateRecoveryCandidate(profile));
+        var totals = profile.Statistics.RunTotals.CombatStatistics.Totals;
+        Assert.Equal(3, totals.KillsByYou); Assert.Equal(2, totals.PlayerKills.Unknown);
+        Assert.Equal(1, totals.PlayerKills.Throwables); Assert.Equal(0, totals.ObservedWorldDeaths);
+        var projection = UI.StatisticsPanelProjectionFactory.Create(profile, new(), new(), new());
+        var summary = UI.CombatPresentationFactory.Create(projection, profile.GenerationId)!;
+        Assert.Equal("1", Assert.Single(summary.Throwables).Value.Text);
+        Assert.Equal("3", summary.Overall[2].Value.Text);
+        var document = new UI.CombatDocument((_, _, size) => size, (value, size) => value.Length * size);
+        document.Summary(summary, 1200, false);
+        Assert.Contains(document.Rows, row => row.Kind == UI.CombatRowKind.Heading && row.Cells[0] == "Throwables");
+        profile.Capabilities.Single(cap => cap.AdapterId == CombatCapabilityIds.ThrowableKills).State = AdapterCapabilityState.DisabledIncompatible;
+        projection = UI.StatisticsPanelProjectionFactory.Create(profile, new(), new(), new());
+        Assert.Equal(UI.CombatEvidence.Partial, UI.CombatPresentationFactory.Create(projection, profile.GenerationId)!.Throwables[0].Value.Evidence);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -243,6 +291,7 @@ public sealed class RunsDataFoundationTests
     [Theory]
     [InlineData(CombatAttackKind.Ranged)]
     [InlineData(CombatAttackKind.Melee)]
+    [InlineData(CombatAttackKind.Throwable)]
     [InlineData(CombatAttackKind.Effect)]
     [InlineData(CombatAttackKind.Environmental)]
     [InlineData(CombatAttackKind.Unknown)]
@@ -502,6 +551,7 @@ public sealed class RunsDataFoundationTests
     {
         Assert.Equal(kind == CombatAttackKind.Ranged ? expected : 0, partition.Ranged);
         Assert.Equal(kind == CombatAttackKind.Melee ? expected : 0, partition.Melee);
+        Assert.Equal(kind == CombatAttackKind.Throwable ? expected : 0, partition.Throwables);
         Assert.Equal(kind == CombatAttackKind.Effect ? expected : 0, partition.Effect);
         Assert.Equal(kind == CombatAttackKind.Environmental ? expected : 0, partition.Environmental);
         Assert.Equal(kind == CombatAttackKind.Unknown ? expected : 0, partition.Unknown);

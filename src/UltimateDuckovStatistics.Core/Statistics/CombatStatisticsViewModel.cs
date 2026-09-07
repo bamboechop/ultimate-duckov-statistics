@@ -61,6 +61,7 @@ public static class CombatStatisticsViewModelFactory
         Set(values.DamageOverTime, CombatCapabilityIds.DamageOverTime, current);
         Set(values.Headshots, CombatCapabilityIds.Headshots, current);
         Set(values.HeadshotFinalBlows, CombatCapabilityIds.HeadshotFinalBlows, current);
+        Set(values.ThrowableKills, CombatCapabilityIds.ThrowableKills, current);
         Set(values.KillsByYou, CombatCapabilityIds.KillsByYou, current);
         Set(values.ObservedWorldDeaths, CombatCapabilityIds.ObservedWorldDeaths, current);
 

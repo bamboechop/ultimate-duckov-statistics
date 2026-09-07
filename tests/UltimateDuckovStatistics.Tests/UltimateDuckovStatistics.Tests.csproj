@@ -136,4 +136,7 @@
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\HealingHarmonyBridge.cs" Link="ProductionAdapters\HealingHarmonyBridge.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\IHealingAttributionObserver.cs" Link="ProductionAdapters\IHealingAttributionObserver.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeGrenadeAttribution.cs" Link="ProductionAdapters\NativeGrenadeAttribution.cs" />
+  </ItemGroup>
 </Project>

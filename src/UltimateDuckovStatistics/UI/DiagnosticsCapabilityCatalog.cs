@@ -48,6 +48,7 @@ internal static class DiagnosticsCapabilityCatalog
         new("native-damage-over-time", "combat", "Damage over time"),
         new("native-headshots", "combat", "Headshots"),
         new("native-headshot-final-blows", "combat", "Headshot final blows"),
+        new("native-throwable-player-final-blows", "combat", "Throwable kills"),
         new("native-proven-player-final-blows", "combat", "Kills by you"),
         new("native-observed-world-deaths", "combat", "Observed world deaths"),
         new("native-equipment-slots", "equipment", "Equipped slots and loadouts"),

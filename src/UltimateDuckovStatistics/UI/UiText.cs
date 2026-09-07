@@ -128,6 +128,7 @@ internal static class UiText
             ["ui.title"] = "Ultimate Duckov Statistics",
             // Full native-menu name accepted after in-game visual validation.
             ["ui.menu_entry"] = "Ultimate Duckov Statistics",
+            ["ui.combat_throwables"] = "Throwables",
             ["ui.shell_placeholder"] = "The retained-mode shell is ready. Statistics view content is restored in visual correction Gate 2.",
             ["ui.shell_unavailable"] = "The statistics panel could not attach to Duckov's current UI. Tracking remains active; use Player.log for details.",
             ["ui.close"] = "Close",

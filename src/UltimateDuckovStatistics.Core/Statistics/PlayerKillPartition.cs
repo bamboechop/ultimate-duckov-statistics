@@ -14,6 +14,7 @@ public sealed class PlayerKillPartition
     [DataMember(Order = 5)] public long Unknown { get; set; }
     [DataMember(Order = 6)] public long HistoricalUnclassified { get; set; }
     [DataMember(Order = 7)] public bool HistoricalIncomplete { get; set; }
+    [DataMember(Order = 9)] public long Throwables { get; set; }
 
     [DataMember(Order = 8)] public string EvidenceSource { get; set; } = "CombatRecorded.AttackKind on the same proven KillsByYou event; HistoricalUnclassified has no attack-kind evidence.";
 
@@ -38,6 +39,7 @@ public sealed class PlayerKillPartition
         {
             case CombatAttackKind.Ranged: result.Ranged = value.KillsByYou; break;
             case CombatAttackKind.Melee: result.Melee = value.KillsByYou; break;
+            case CombatAttackKind.Throwable: result.Throwables = value.KillsByYou; break;
             case CombatAttackKind.Effect: result.Effect = value.KillsByYou; break;
             case CombatAttackKind.Environmental: result.Environmental = value.KillsByYou; break;
             default: result.Unknown = value.KillsByYou; break;
@@ -47,12 +49,12 @@ public sealed class PlayerKillPartition
 
     public void Validate(long total)
     {
-        if (string.IsNullOrWhiteSpace(EvidenceSource) || Ranged < 0 || Melee < 0 || Effect < 0 || Environmental < 0 || Unknown < 0
+        if (string.IsNullOrWhiteSpace(EvidenceSource) || Ranged < 0 || Melee < 0 || Throwables < 0 || Effect < 0 || Environmental < 0 || Unknown < 0
             || HistoricalUnclassified < 0 || HistoricalUnclassified > 0 && !HistoricalIncomplete)
             throw new ArgumentException("Player-kill partition contains invalid counters or history.");
         try
         {
-            if (checked(Ranged + Melee + Effect + Environmental + Unknown + HistoricalUnclassified) != total)
+            if (checked(Ranged + Melee + Throwables + Effect + Environmental + Unknown + HistoricalUnclassified) != total)
                 throw new ArgumentException("Player-kill partition does not reconcile to KillsByYou.");
         }
         catch (OverflowException exception)
@@ -65,6 +67,7 @@ public sealed class PlayerKillPartition
     {
         Ranged = checked(left.Ranged + right.Ranged),
         Melee = checked(left.Melee + right.Melee),
+        Throwables = checked(left.Throwables + right.Throwables),
         Effect = checked(left.Effect + right.Effect),
         Environmental = checked(left.Environmental + right.Environmental),
         Unknown = checked(left.Unknown + right.Unknown),

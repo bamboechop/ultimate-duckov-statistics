@@ -24,6 +24,7 @@ public static class CombatCapabilityIds
     public const string Headshots = "native-headshots";
     public const string HeadshotFinalBlows = "native-headshot-final-blows";
     public const string KillsByYou = "native-proven-player-final-blows";
+    public const string ThrowableKills = "native-throwable-player-final-blows";
     public const string ObservedWorldDeaths = "native-observed-world-deaths";
 }
 
@@ -326,6 +327,7 @@ public static class CombatStatisticsReducer
         Headshots = Clone(source.Headshots),
         HeadshotFinalBlows = Clone(source.HeadshotFinalBlows),
         KillsByYou = Clone(source.KillsByYou),
+        ThrowableKills = Clone(source.ThrowableKills),
         ObservedWorldDeaths = Clone(source.ObservedWorldDeaths)
     };
 
@@ -597,6 +599,7 @@ public static class CombatStatisticsReducer
         DamageOverTime = Merge(a.DamageOverTime, b.DamageOverTime),
         Headshots = Merge(a.Headshots, b.Headshots),
         HeadshotFinalBlows = Merge(a.HeadshotFinalBlows, b.HeadshotFinalBlows),
+        ThrowableKills = Merge(a.ThrowableKills, b.ThrowableKills),
         KillsByYou = Merge(a.KillsByYou, b.KillsByYou),
         ObservedWorldDeaths = Merge(a.ObservedWorldDeaths, b.ObservedWorldDeaths)
     };

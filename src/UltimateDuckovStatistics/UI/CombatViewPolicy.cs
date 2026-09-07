@@ -236,6 +236,7 @@ internal sealed class CombatDocument
         var left = y + Heading("ui.runs_ranged", 30, y, cw); left += Metrics(p.Ranged, 30, left, cw);
         var rx = two ? 60 + cw : 30; var right = two ? y : left + 20;
         right += Heading("ui.runs_melee", rx, right, cw); right += Metrics(p.Melee, rx, right, cw);
+        right += Heading("ui.combat_throwables", rx, right, cw); right += Metrics(p.Throwables, rx, right, cw);
         right += Heading("ui.observed_world_deaths", rx, right, cw, "(" + p.WorldTotal.Text + " " + text("ui.combat_total_suffix") + ")");
         right += Notice(text("ui.combat_world_subtitle"), rx, right, cw); right += Metrics(p.Ownership, rx, right, cw);
         right += Notice(p.OwnershipNotice, rx, right, cw);

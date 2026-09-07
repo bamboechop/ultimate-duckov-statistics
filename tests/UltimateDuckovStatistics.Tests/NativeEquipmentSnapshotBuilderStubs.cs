@@ -124,6 +124,16 @@ public sealed class Health
 
 public sealed class DamageInfo
 {
+    public CharacterMainControl? fromCharacter;
+    public int fromWeaponItemID;
+    public bool isExplosion;
+}
+
+public sealed class Grenade
+{
+    public DamageInfo damageInfo = new();
+    public bool createExplosion = true;
+    public void SetWeaponIdInfo(int typeId) => damageInfo.fromWeaponItemID = typeId;
 }
 
 public sealed class EvacuationInfo

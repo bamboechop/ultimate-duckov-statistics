@@ -317,8 +317,8 @@ public sealed class RetainedCombatTests
         Assert.True(d.Height > 0); Assert.True(frame.Height > 0);
         Assert.Equal(stacked ? frame.Width : frame.Width - 40, stacked ? widths.Page : widths.Selector + widths.Page, 3);
         Assert.Equal(4, d.Rows.Count(row => row.Kind == CombatRowKind.Card));
-        Assert.Equal(12, d.Rows.Count(row => row.Kind == CombatRowKind.Metric));
-        Assert.Equal(4, d.Rows.Count(row => row.Kind == CombatRowKind.Heading));
+        Assert.Equal(13, d.Rows.Count(row => row.Kind == CombatRowKind.Metric));
+        Assert.Equal(5, d.Rows.Count(row => row.Kind == CombatRowKind.Heading));
         Assert.All(d.Rows, row => { Assert.True(row.X >= 30); Assert.True(row.Width > 0); Assert.True(row.X + row.Width <= widths.Page - 29); });
     }
     [Theory]

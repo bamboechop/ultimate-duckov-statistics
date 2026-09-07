@@ -195,6 +195,13 @@ try
         core.RequireMethod(string.Empty, "SkillBase", "ReleaseSkill", 2, mustBePublic: true,
             returnTypeFragment: "System.Void", parameterTypeFragments: ["SkillReleaseContext", "CharacterMainControl"]);
         core.RequireMethod(string.Empty, "Skill_Grenade", "OnRelease", 0, mustBePublic: true, mustBeVirtual: true);
+        core.RequireMethod(string.Empty, "Grenade", "Explode", 0, mustBePublic: false, returnTypeFragment: "System.Void");
+        core.RequireMethod(string.Empty, "Grenade", "SetWeaponIdInfo", 1, mustBePublic: true, parameterTypeFragments: ["System.Int32"]);
+        core.RequireField(string.Empty, "Grenade", "damageInfo", mustBePublic: true, fieldTypeFragment: "DamageInfo");
+        core.RequireField(string.Empty, "Grenade", "createExplosion", mustBePublic: true, fieldTypeFragment: "System.Boolean");
+        core.RequireField(string.Empty, "DamageInfo", "fromWeaponItemID", mustBePublic: true, fieldTypeFragment: "System.Int32");
+        core.RequireField(string.Empty, "DamageInfo", "fromCharacter", mustBePublic: true, fieldTypeFragment: "CharacterMainControl");
+        core.RequireField(string.Empty, "DamageInfo", "isExplosion", mustBePublic: true, fieldTypeFragment: "System.Boolean");
         core.RequireField(string.Empty, "SkillBase", "fromItem", mustBePublic: true, fieldTypeFragment: "ItemStatsSystem.Item");
         core.RequireField(string.Empty, "SkillBase", "OnSkillReleasedEvent", mustBePublic: true, fieldTypeFragment: "System.Action");
         core.RequireField(string.Empty, "ItemSetting_Skill", "Skill", mustBePublic: true, fieldTypeFragment: "SkillBase");

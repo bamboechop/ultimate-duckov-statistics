@@ -56,6 +56,7 @@ public sealed class RunDataProjection
     public long KillsByYou { get; }
     public long RangedKills { get; }
     public long MeleeKills { get; }
+    public long ThrowableKills { get; }
     public long EffectKills { get; }
     public long EnvironmentalKills { get; }
     public long UnknownKills { get; }
@@ -84,6 +85,7 @@ public sealed class RunDataProjection
         }).ToArray() ?? Array.Empty<TerminalRootSlot>());
         KillsByYou = run.CombatStatistics.Totals.KillsByYou;
         var kills = run.CombatStatistics.Totals.PlayerKills ?? PlayerKillPartition.Historical(KillsByYou);
+        ThrowableKills = kills.Throwables;
         RangedKills = kills.Ranged; MeleeKills = kills.Melee; EffectKills = kills.Effect;
         EnvironmentalKills = kills.Environmental; UnknownKills = kills.Unknown;
         HistoricalUnclassifiedKills = kills.HistoricalUnclassified;
