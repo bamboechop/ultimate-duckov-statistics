@@ -424,7 +424,6 @@ public sealed class RetainedCombatTests
     public void AmmunitionIdentityLossQualifiesPairsWithoutInventingConsumptionOrProjectiles()
     {
         var p = Projection(); p.Weapons.Lifetime.Totals.FiringActions = 10;
-        p.Weapons.Lifetime.Totals.AmmunitionUnitsConsumed = 9999; p.Weapons.Lifetime.Totals.Projectiles = 8888;
         Weapons(p, Weapon("w", 10, pairs: new[] { ("ammo", 10L, 100d) }));
         p.Weapons.Capabilities.AmmunitionIdentity.State = AdapterCapabilityState.DisabledIncompatible;
         var r = Present(p); Assert.Equal("10", r.Ranged[0].Value.Text);

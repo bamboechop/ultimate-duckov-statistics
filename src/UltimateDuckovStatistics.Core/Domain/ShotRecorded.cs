@@ -18,12 +18,6 @@ public sealed class WeaponMetricCapabilities
     [DataMember(Order = 1)]
     public MetricAvailability FiringActions { get; set; } = new();
 
-    [DataMember(Order = 2)]
-    public MetricAvailability AmmunitionConsumption { get; set; } = new();
-
-    [DataMember(Order = 3)]
-    public MetricAvailability Projectiles { get; set; } = new();
-
     [DataMember(Order = 4)]
     public MetricAvailability WeaponIdentity { get; set; } = new();
 
@@ -84,12 +78,6 @@ public sealed class ShotRecorded
 
     [DataMember(Order = 16, EmitDefaultValue = false)]
     public long? FiringActionCount { get; set; }
-
-    [DataMember(Order = 17, EmitDefaultValue = false)]
-    public long? AmmunitionUnitsConsumed { get; set; }
-
-    [DataMember(Order = 18, EmitDefaultValue = false)]
-    public long? ProjectileCount { get; set; }
 
     [DataMember(Order = 19)]
     public WeaponMetricCapabilities Capabilities { get; set; } = new();

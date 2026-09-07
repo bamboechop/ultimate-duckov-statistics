@@ -68,6 +68,9 @@ public sealed class ExportTests
 
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
+        foreach (var property in bundle.GetType().GetProperties().Where(property =>
+                     property.PropertyType == typeof(string) && property.Name.EndsWith("Csv", StringComparison.Ordinal)))
+            ParseCsv((string)property.GetValue(bundle)!);
         var uiModel = WeaponStatisticsViewModelFactory.Create(profile);
         var overview = ParseCsv(bundle.OverviewCsv);
         var groups = ParseCsv(bundle.GroupsCsv);
@@ -128,18 +131,14 @@ public sealed class ExportTests
         var lifetimeCombat = Assert.Single(combatTotals, row => row["scope"] == "lifetime");
         Assert.Equal(json.RunTotals.WeaponStatistics.Totals.FiringActions, ReadLong(lifetimeCombat, "firing_actions"));
         Assert.Equal(json.RunTotals.WeaponStatistics.Totals.FiringActions, uiModel.Lifetime.Totals.FiringActions);
-        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed, ReadLong(lifetimeCombat, "ammunition_units_consumed"));
-        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.Projectiles, ReadLong(lifetimeCombat, "projectiles"));
         Assert.Equal(nameof(AdapterCapabilityState.Supported), lifetimeCombat["firing_actions_state"]);
-        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), lifetimeCombat["trigger_attempts_state"]);
         Assert.Equal(uiModel.Capabilities.FiringActions.State, json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
         Assert.Equal(4, combatTotals.Count);
         Assert.Equal(
             json.RunTotals.WeaponStatistics.Weapons.Values.Sum(value => value.Totals.FiringActions),
             weaponTotals.Where(row => row["scope"] == "lifetime").Sum(row => ReadLong(row, "firing_actions")));
-        Assert.Equal(
-            json.RunTotals.WeaponStatistics.AmmunitionTypes.Values.Sum(value => value.Totals.AmmunitionUnitsConsumed),
-            ammunitionTotals.Where(row => row["scope"] == "lifetime").Sum(row => ReadLong(row, "ammunition_units_consumed")));
+        Assert.Equal(json.RunTotals.WeaponStatistics.AmmunitionTypes.Values.Sum(value => value.Totals.FiringActions),
+            ammunitionTotals.Where(row => row["scope"] == "lifetime").Sum(row => ReadLong(row, "firing_actions")));
     }
 
     [Fact]
@@ -287,47 +286,6 @@ public sealed class ExportTests
         var row = Assert.Single(ParseCsv(StatisticsExporter.Create(profile, TestTime).ItemsCsv));
 
         Assert.Equal(name, row["display_name"]);
-    }
-
-    [Fact]
-    [Trait("Category", "Export")]
-    [Trait("Category", "Weapon")]
-    public void CurrentUnavailableOutcomeMetricsRestrictEveryJsonAndCsvScope()
-    {
-        var profile = CreateProfile();
-        RunReducer.Apply(profile.Statistics, CreateRun("run-one", RunOutcome.Extracted, 95, 123.5, 8));
-        profile.Capabilities.Single(
-            capability => capability.AdapterId == WeaponCapabilityIds.AmmunitionConsumption).State =
-            AdapterCapabilityState.DisabledIncompatible;
-        profile.Capabilities.Single(
-            capability => capability.AdapterId == WeaponCapabilityIds.Projectiles).State =
-            AdapterCapabilityState.DisabledIncompatible;
-
-        var bundle = StatisticsExporter.Create(profile, TestTime);
-        var json = Deserialize(bundle.Json);
-        var combatRows = ParseCsv(bundle.CombatTotalsCsv);
-        var weaponRows = ParseCsv(bundle.WeaponTotalsCsv);
-        var ammunitionRows = ParseCsv(bundle.AmmunitionTotalsCsv);
-
-        Assert.Equal(
-            AdapterCapabilityState.DisabledIncompatible,
-            json.RunTotals.WeaponStatistics.Capabilities.AmmunitionConsumption.State);
-        Assert.All(json.RunTotals.Maps.Values, map => Assert.Equal(
-            AdapterCapabilityState.DisabledIncompatible,
-            map.WeaponStatistics.Capabilities.Projectiles.State));
-        Assert.All(json.Runs, run => Assert.Equal(
-            AdapterCapabilityState.DisabledIncompatible,
-            run.WeaponStatistics.Capabilities.AmmunitionConsumption.State));
-        Assert.All(combatRows, row =>
-        {
-            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["ammunition_consumption_state"]);
-            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["projectiles_state"]);
-        });
-        Assert.All(weaponRows.Concat(ammunitionRows), row =>
-        {
-            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["ammunition_consumption_state"]);
-            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["projectiles_state"]);
-        });
     }
 
     [Fact]
@@ -528,8 +486,6 @@ public sealed class ExportTests
         Assert.Equal(firstModel.Capabilities.FiringActions.State, secondModel.Capabilities.FiringActions.State);
         Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), weapon["firing_actions_state"]);
         Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), ammunition["firing_actions_state"]);
-        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), weapon["ammunition_consumption_state"]);
-        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), ammunition["projectiles_state"]);
         repository.CloseClean();
     }
 
@@ -736,9 +692,7 @@ public sealed class ExportTests
         Capabilities = WeaponCapabilityIds.All.Select(id => new CapabilityRecord
         {
             AdapterId = id,
-            State = id == WeaponCapabilityIds.TriggerAttempts
-                ? AdapterCapabilityState.DisabledIncompatible
-                : AdapterCapabilityState.Supported,
+            State = AdapterCapabilityState.Supported,
             Version = ProductInfo.Version,
             Detail = "test"
         }).ToList(),
@@ -859,13 +813,9 @@ public sealed class ExportTests
             AmmunitionId = $"ammo-{runId}",
             AmmunitionDisplayName = $"Ammo {runId}",
             FiringActionCount = 1,
-            AmmunitionUnitsConsumed = 1,
-            ProjectileCount = runId == "run-one" ? 6 : 1,
             Capabilities = new WeaponMetricCapabilities
             {
                 FiringActions = Available(),
-                AmmunitionConsumption = Available(),
-                Projectiles = Available(),
                 WeaponIdentity = Available(),
                 AmmunitionIdentity = Available()
             }
@@ -984,6 +934,7 @@ public sealed class ExportTests
         }
 
         var headers = rows[0];
+        Assert.All(rows.Skip(1).Where(values => values.Count > 1), values => Assert.Equal(headers.Count, values.Count));
         return rows.Skip(1)
             .Where(values => values.Count > 1)
             .Select(values => (IReadOnlyDictionary<string, string>)headers

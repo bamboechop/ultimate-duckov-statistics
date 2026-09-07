@@ -13,8 +13,6 @@ public sealed class WeaponStatisticsViewModelTests
     {
         var profile = new ProfileDocument();
         profile.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions = 4;
-        profile.Statistics.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed = 4;
-        profile.Statistics.RunTotals.WeaponStatistics.Totals.Projectiles = 9;
         profile.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:b"] = Weapon("weapon:b", "Beta", 1);
         profile.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:a"] = Weapon("weapon:a", "Alpha", 3);
         profile.Statistics.RunTotals.WeaponStatistics.Capabilities.FiringActions = new MetricAvailability
@@ -22,20 +20,10 @@ public sealed class WeaponStatisticsViewModelTests
             State = AdapterCapabilityState.Supported,
             Provenance = "recorded firing actions"
         };
-        profile.Statistics.RunTotals.WeaponStatistics.Capabilities.Projectiles = new MetricAvailability
-        {
-            State = AdapterCapabilityState.Supported,
-            Provenance = "recorded projectiles"
-        };
         profile.Capabilities.Add(new CapabilityRecord
         {
             AdapterId = WeaponCapabilityIds.FiringActions,
             State = AdapterCapabilityState.Supported
-        });
-        profile.Capabilities.Add(new CapabilityRecord
-        {
-            AdapterId = WeaponCapabilityIds.Projectiles,
-            State = AdapterCapabilityState.DisabledIncompatible
         });
 
         var model = WeaponStatisticsViewModelFactory.Create(profile);
@@ -47,7 +35,6 @@ public sealed class WeaponStatisticsViewModelTests
             value => Assert.Equal("weapon:a", value.WeaponId),
             value => Assert.Equal("weapon:b", value.WeaponId));
         Assert.Equal(AdapterCapabilityState.Supported, model.Capabilities.FiringActions.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, model.Capabilities.Projectiles.State);
     }
 
     [Fact]
@@ -84,30 +71,10 @@ public sealed class WeaponStatisticsViewModelTests
             AdapterId = WeaponCapabilityIds.FiringActions,
             State = AdapterCapabilityState.Experimental
         });
-        profile.Capabilities.Add(new CapabilityRecord
-        {
-            AdapterId = WeaponCapabilityIds.AmmunitionConsumption,
-            State = AdapterCapabilityState.DisabledIncompatible
-        });
 
         var model = WeaponStatisticsViewModelFactory.Create(profile);
 
         Assert.Equal(AdapterCapabilityState.Experimental, model.Capabilities.FiringActions.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, model.Capabilities.AmmunitionConsumption.State);
-    }
-
-    [Fact]
-    [Trait("Category", "Weapon")]
-    [Trait("Category", "UI")]
-    public void VisibleCombatCopySeparatesActionsAmmunitionProjectilesAndDryFireLimitation()
-    {
-        Assert.Contains(WeaponCapabilityIds.TriggerAttempts, WeaponCapabilityIds.All);
-        Assert.Equal("Firing actions", UI.UiText.Get("ui.firing_actions"));
-        Assert.Equal("Loaded ammunition units consumed", UI.UiText.Get("ui.ammunition_consumed"));
-        Assert.Equal("Projectiles created", UI.UiText.Get("ui.projectiles"));
-        Assert.Contains("actual loaded-ammunition consumption", UI.UiText.Get("ui.metric_contract"), StringComparison.Ordinal);
-        Assert.Contains("completed projectile creation", UI.UiText.Get("ui.metric_contract"), StringComparison.Ordinal);
-        Assert.Equal("Unsupported", UI.UiText.Get("ui.unsupported"));
     }
 
     private static WeaponAggregate Weapon(string id, string name, long actions) => new()

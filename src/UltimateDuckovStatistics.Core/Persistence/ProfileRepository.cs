@@ -1614,8 +1614,6 @@ public sealed partial class ProfileRepository
         && statistics.Overall.ActualHealthRestored == 0
         && statistics.RunTotals.TotalRuns == 0
         && statistics.RunTotals.WeaponStatistics.Totals.FiringActions == 0
-        && statistics.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed == 0
-        && statistics.RunTotals.WeaponStatistics.Totals.Projectiles == 0
         && statistics.RunTotals.CombatStatistics.Totals.DamageCaused == 0
         && statistics.RunTotals.CombatStatistics.Totals.DamageDealt == 0
         && statistics.RunTotals.CombatStatistics.Totals.DamageReceived == 0

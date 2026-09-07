@@ -1047,8 +1047,6 @@ public sealed class ActiveRunPersistenceTests
             AmmunitionId = "duckov:ammo:test",
             AmmunitionDisplayName = "Test ammunition",
             FiringActionCount = 1,
-            AmmunitionUnitsConsumed = 1,
-            ProjectileCount = 1,
             Capabilities = SupportedCapabilities()
         }));
         var combat = CombatEvent(generation, "restart:late-combat", "target:late", "Late target");
@@ -1459,8 +1457,6 @@ public sealed class ActiveRunPersistenceTests
         checkpoint.WeaponStatistics.Capabilities = new WeaponMetricCapabilities
         {
             FiringActions = null!,
-            AmmunitionConsumption = null!,
-            Projectiles = null!,
             WeaponIdentity = null!,
             AmmunitionIdentity = null!
         };
@@ -1524,8 +1520,6 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(4, run.PhysicalDistance);
         Assert.Equal(9, run.TeleportDistance);
         Assert.Equal(1, run.WeaponStatistics.Totals.FiringActions);
-        Assert.Equal(1, run.WeaponStatistics.Totals.AmmunitionUnitsConsumed);
-        Assert.Equal(6, run.WeaponStatistics.Totals.Projectiles);
         Assert.Equal(1, recovery.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         Assert.Null(recovery.Current.Statistics.RunRecords.Extraction.Shortest);
         recovery.CloseClean();
@@ -2428,8 +2422,6 @@ public sealed class ActiveRunPersistenceTests
             AmmunitionId = "duckov:ammo:2",
             AmmunitionDisplayName = "Test shell",
             FiringActionCount = 1,
-            AmmunitionUnitsConsumed = 1,
-            ProjectileCount = 6,
             Capabilities = SupportedCapabilities()
         });
         return statistics;
@@ -2521,8 +2513,6 @@ public sealed class ActiveRunPersistenceTests
     private static WeaponMetricCapabilities SupportedCapabilities() => new()
     {
         FiringActions = Supported(),
-        AmmunitionConsumption = Supported(),
-        Projectiles = Supported(),
         WeaponIdentity = Supported(),
         AmmunitionIdentity = Supported()
     };
@@ -2591,8 +2581,6 @@ public sealed class ActiveRunPersistenceTests
         AmmunitionId = "duckov:ammo:2",
         AmmunitionDisplayName = "Test round",
         FiringActionCount = 1,
-        AmmunitionUnitsConsumed = 1,
-        ProjectileCount = 1,
         Capabilities = SupportedCapabilities()
     };
 

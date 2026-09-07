@@ -60,8 +60,6 @@ public sealed class EquipmentCombatAssociationAggregate
     [DataMember(Order = 2)] public string SelectedWeaponId { get; set; } = string.Empty;
     [DataMember(Order = 3)] public string TotemSetId { get; set; } = string.Empty;
     [DataMember(Order = 4)] public long FiringActions { get; set; }
-    [DataMember(Order = 5)] public long AmmunitionUnitsConsumed { get; set; }
-    [DataMember(Order = 6)] public long Projectiles { get; set; }
     [DataMember(Order = 7)] public double DamageDealt { get; set; }
     [DataMember(Order = 8)] public double DamageReceived { get; set; }
     [DataMember(Order = 9)] public long RangedHits { get; set; }
@@ -224,8 +222,6 @@ public static class EquipmentStatisticsReducer
         if (shot == null) throw new ArgumentNullException(nameof(shot));
         var row = Association(target, shot.EquipmentAssociation);
         row.FiringActions = SaturatingAdd(row.FiringActions, shot.FiringActionCount ?? 0);
-        row.AmmunitionUnitsConsumed = SaturatingAdd(row.AmmunitionUnitsConsumed, shot.AmmunitionUnitsConsumed ?? 0);
-        row.Projectiles = SaturatingAdd(row.Projectiles, shot.ProjectileCount ?? 0);
     }
 
     public static void RecordCombat(EquipmentStatisticsAggregate target, CombatRecorded value)
@@ -286,8 +282,6 @@ public static class EquipmentStatisticsReducer
             });
             var value = pair.Value;
             row.FiringActions = SaturatingAdd(row.FiringActions, value.FiringActions);
-            row.AmmunitionUnitsConsumed = SaturatingAdd(row.AmmunitionUnitsConsumed, value.AmmunitionUnitsConsumed);
-            row.Projectiles = SaturatingAdd(row.Projectiles, value.Projectiles);
             row.DamageDealt = SaturatingAdd(row.DamageDealt, value.DamageDealt);
             row.DamageReceived = SaturatingAdd(row.DamageReceived, value.DamageReceived);
             row.RangedHits = SaturatingAdd(row.RangedHits, value.RangedHits);
@@ -369,8 +363,6 @@ public static class EquipmentStatisticsReducer
                 TotemSetId = value.TotemSetId,
                 SelectedWeaponSlotId = value.SelectedWeaponSlotId,
                 FiringActions = value.FiringActions,
-                AmmunitionUnitsConsumed = value.AmmunitionUnitsConsumed,
-                Projectiles = value.Projectiles,
                 DamageDealt = value.DamageDealt,
                 DamageReceived = value.DamageReceived,
                 RangedHits = value.RangedHits,
@@ -418,7 +410,6 @@ public static class EquipmentStatisticsReducer
         AttachmentMetadata = Clone(value?.AttachmentMetadata),
         DirectTotems = Clone(value?.DirectTotems),
         ToteContents = Clone(value?.ToteContents),
-        ToteActivation = Clone(value?.ToteActivation),
         CharacterSlotState = Clone(value?.CharacterSlotState),
         NestedSlotState = Clone(value?.NestedSlotState)
     };
@@ -587,7 +578,7 @@ public static class EquipmentStatisticsReducer
         if (schemaVersion >= 6 && (target == null || target.Capabilities == null
             || target.Capabilities.EquipmentSlots == null || target.Capabilities.SelectedWeapon == null
             || target.Capabilities.AttachmentMetadata == null || target.Capabilities.DirectTotems == null
-            || target.Capabilities.ToteContents == null || target.Capabilities.ToteActivation == null
+            || target.Capabilities.ToteContents == null
             || target.Items == null || target.SelectedWeapons == null || target.Loadouts == null
             || target.TotemSets == null || target.TotemStates == null || target.Slots == null
             || target.SlottedWeapons == null || target.CombatAssociations == null || target.Transitions == null))
@@ -636,8 +627,7 @@ public static class EquipmentStatisticsReducer
         if (target.CharacterSlotStates?.Values.Any(row => !ValidCharacterSlotState(row)) == true
             || target.NestedSlotStates?.Values.Any(row => !ValidNestedSlotState(row)) == true)
             throw new ArgumentException("Equipment checkpoint contains invalid slot-state durations.", nameof(target));
-        if (target.CombatAssociations?.Values.Any(row => row == null || row.FiringActions < 0
-                || row.AmmunitionUnitsConsumed < 0 || row.Projectiles < 0 || row.RangedHits < 0
+        if (target.CombatAssociations?.Values.Any(row => row == null || row.FiringActions < 0 || row.RangedHits < 0
                 || row.MeleeHits < 0 || row.EnemiesKilled < 0 || row.KillsByYou < 0
                 || row.LegacyUnclassifiedDeathCredit < 0 || row.PlayerDeaths < 0
                 || !IsFinite(row.DamageDealt) || row.DamageDealt < 0
@@ -789,7 +779,8 @@ public static class EquipmentStatisticsReducer
             ItemId = slot.ItemId,
             ItemDisplayName = slot.ItemDisplayName,
             ItemKind = slot.ItemKind
-            , IsDirectTotemSlot = slot.IsDirectTotemSlot
+            ,
+            IsDirectTotemSlot = slot.IsDirectTotemSlot
         }).ToList()
     };
 
@@ -1227,7 +1218,6 @@ public static class EquipmentStatisticsReducer
             AttachmentMetadata = Restrict(target.AttachmentMetadata, source.AttachmentMetadata, preferSourceOnTie),
             DirectTotems = Restrict(target.DirectTotems, source.DirectTotems, preferSourceOnTie),
             ToteContents = Restrict(target.ToteContents, source.ToteContents, preferSourceOnTie),
-            ToteActivation = Restrict(target.ToteActivation, source.ToteActivation, preferSourceOnTie),
             CharacterSlotState = Restrict(target.CharacterSlotState, source.CharacterSlotState, preferSourceOnTie),
             NestedSlotState = Restrict(target.NestedSlotState, source.NestedSlotState, preferSourceOnTie)
         };
@@ -1255,7 +1245,6 @@ public static class EquipmentStatisticsReducer
         value.AttachmentMetadata ??= Repair(new MetricAvailability(), ref repaired);
         value.DirectTotems ??= Repair(new MetricAvailability(), ref repaired);
         value.ToteContents ??= Repair(new MetricAvailability(), ref repaired);
-        value.ToteActivation ??= Repair(new MetricAvailability(), ref repaired);
         value.CharacterSlotState ??= Repair(new MetricAvailability(), ref repaired);
         value.NestedSlotState ??= Repair(new MetricAvailability(), ref repaired);
         NormalizeAvailability(value.EquipmentSlots, ref repaired);
@@ -1263,7 +1252,6 @@ public static class EquipmentStatisticsReducer
         NormalizeAvailability(value.AttachmentMetadata, ref repaired);
         NormalizeAvailability(value.DirectTotems, ref repaired);
         NormalizeAvailability(value.ToteContents, ref repaired);
-        NormalizeAvailability(value.ToteActivation, ref repaired);
         NormalizeAvailability(value.CharacterSlotState, ref repaired);
         NormalizeAvailability(value.NestedSlotState, ref repaired);
     }
@@ -1341,8 +1329,6 @@ public static class EquipmentStatisticsReducer
             }
             var canonicalKey = loadout + "|" + selectedSlot + "|" + selected + "|" + totems;
             var firing = Math.Max(0, row.FiringActions);
-            var ammunition = Math.Max(0, row.AmmunitionUnitsConsumed);
-            var projectiles = Math.Max(0, row.Projectiles);
             var ranged = Math.Max(0, row.RangedHits);
             var melee = Math.Max(0, row.MeleeHits);
             var kills = Math.Max(0, row.EnemiesKilled);
@@ -1356,8 +1342,7 @@ public static class EquipmentStatisticsReducer
                 || !string.Equals(row.TotemSetId, totems, StringComparison.Ordinal)
                 || !string.Equals(row.SelectedWeaponId, selected, StringComparison.Ordinal)
                 || !string.Equals(row.SelectedWeaponSlotId, selectedSlot, StringComparison.Ordinal)
-                || firing != row.FiringActions || ammunition != row.AmmunitionUnitsConsumed
-                || projectiles != row.Projectiles || ranged != row.RangedHits || melee != row.MeleeHits
+                || firing != row.FiringActions || ranged != row.RangedHits || melee != row.MeleeHits
                 || kills != row.EnemiesKilled || playerKills != row.KillsByYou
                 || legacyDeathCredit != row.LegacyUnclassifiedDeathCredit || deaths != row.PlayerDeaths
                 || dealt != row.DamageDealt || received != row.DamageReceived) changed = true;
@@ -1377,8 +1362,6 @@ public static class EquipmentStatisticsReducer
                 changed = true;
             }
             existing.FiringActions = SaturatingAdd(existing.FiringActions, firing);
-            existing.AmmunitionUnitsConsumed = SaturatingAdd(existing.AmmunitionUnitsConsumed, ammunition);
-            existing.Projectiles = SaturatingAdd(existing.Projectiles, projectiles);
             existing.RangedHits = SaturatingAdd(existing.RangedHits, ranged);
             existing.MeleeHits = SaturatingAdd(existing.MeleeHits, melee);
             existing.EnemiesKilled = SaturatingAdd(existing.EnemiesKilled, kills);

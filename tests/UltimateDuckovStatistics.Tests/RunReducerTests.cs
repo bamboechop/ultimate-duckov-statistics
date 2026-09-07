@@ -127,13 +127,9 @@ public sealed class RunReducerTests
             AmmunitionId = "ammo",
             AmmunitionDisplayName = "Ammo",
             FiringActionCount = 1,
-            AmmunitionUnitsConsumed = 1,
-            ProjectileCount = 1,
             Capabilities = new WeaponMetricCapabilities
             {
                 FiringActions = Supported(),
-                AmmunitionConsumption = Supported(),
-                Projectiles = Supported(),
                 WeaponIdentity = Supported(),
                 AmmunitionIdentity = Supported()
             }

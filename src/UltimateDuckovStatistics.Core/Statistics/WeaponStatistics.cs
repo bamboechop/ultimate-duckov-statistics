@@ -5,20 +5,14 @@ namespace UltimateDuckovStatistics.Core.Statistics;
 
 public static class WeaponCapabilityIds
 {
-    public const string TriggerAttempts = "native-trigger-attempts";
     public const string FiringActions = "native-firing-actions";
-    public const string AmmunitionConsumption = "native-ammunition-consumption";
-    public const string Projectiles = "native-projectile-count";
     public const string WeaponIdentity = "native-weapon-identity";
     public const string AmmunitionIdentity = "native-ammunition-identity";
     public const string WeaponAmmunitionPairing = "native-weapon-ammunition-pairing";
 
     public static IReadOnlyList<string> All { get; } = new[]
     {
-        TriggerAttempts,
         FiringActions,
-        AmmunitionConsumption,
-        Projectiles,
         WeaponIdentity,
         AmmunitionIdentity,
         WeaponAmmunitionPairing
@@ -30,12 +24,6 @@ public sealed class WeaponMetricTotals
 {
     [DataMember(Order = 1)]
     public long FiringActions { get; set; }
-
-    [DataMember(Order = 2)]
-    public long AmmunitionUnitsConsumed { get; set; }
-
-    [DataMember(Order = 3)]
-    public long Projectiles { get; set; }
 }
 
 [DataContract]
@@ -490,8 +478,6 @@ public static class WeaponStatisticsReducer
     public static WeaponMetricCapabilities CloneCapabilities(WeaponMetricCapabilities source) => new()
     {
         FiringActions = CloneAvailability(source.FiringActions),
-        AmmunitionConsumption = CloneAvailability(source.AmmunitionConsumption),
-        Projectiles = CloneAvailability(source.Projectiles),
         WeaponIdentity = CloneAvailability(source.WeaponIdentity),
         AmmunitionIdentity = CloneAvailability(source.AmmunitionIdentity),
         WeaponAmmunitionPairing = CloneAvailability(source.WeaponAmmunitionPairing)
@@ -541,8 +527,6 @@ public static class WeaponStatisticsReducer
         ValidateAggregate(aggregate);
         return !aggregate.WasRepairedFromInvalidState
                && aggregate.Totals.FiringActions == 0
-               && aggregate.Totals.AmmunitionUnitsConsumed == 0
-               && aggregate.Totals.Projectiles == 0
                && aggregate.Weapons.Count == 0
                && aggregate.AmmunitionTypes.Count == 0
                && aggregate.WeaponAmmunitionPairs.Count == 0
@@ -670,27 +654,11 @@ public static class WeaponStatisticsReducer
         {
             target.FiringActions = SaturatingAdd(target.FiringActions, shot.FiringActionCount.Value);
         }
-
-        if (shot.AmmunitionUnitsConsumed.HasValue)
-        {
-            target.AmmunitionUnitsConsumed = SaturatingAdd(
-                target.AmmunitionUnitsConsumed,
-                shot.AmmunitionUnitsConsumed.Value);
-        }
-
-        if (shot.ProjectileCount.HasValue)
-        {
-            target.Projectiles = SaturatingAdd(target.Projectiles, shot.ProjectileCount.Value);
-        }
     }
 
     private static void Add(WeaponMetricTotals target, WeaponMetricTotals source)
     {
         target.FiringActions = SaturatingAdd(target.FiringActions, source.FiringActions);
-        target.AmmunitionUnitsConsumed = SaturatingAdd(
-            target.AmmunitionUnitsConsumed,
-            source.AmmunitionUnitsConsumed);
-        target.Projectiles = SaturatingAdd(target.Projectiles, source.Projectiles);
     }
 
     private static WeaponMetricCapabilities MergeCapabilities(
@@ -698,8 +666,6 @@ public static class WeaponStatisticsReducer
         WeaponMetricCapabilities observed) => new()
         {
             FiringActions = MergeAvailability(current.FiringActions, observed.FiringActions),
-            AmmunitionConsumption = MergeAvailability(current.AmmunitionConsumption, observed.AmmunitionConsumption),
-            Projectiles = MergeAvailability(current.Projectiles, observed.Projectiles),
             WeaponIdentity = MergeAvailability(current.WeaponIdentity, observed.WeaponIdentity),
             AmmunitionIdentity = MergeAvailability(current.AmmunitionIdentity, observed.AmmunitionIdentity),
             WeaponAmmunitionPairing = MergeAvailability(
@@ -744,20 +710,6 @@ public static class WeaponStatisticsReducer
             result.InvalidCapabilities = true;
         }
 
-        if (capabilities.AmmunitionConsumption == null)
-        {
-            capabilities.AmmunitionConsumption = new MetricAvailability();
-            result.Changed = true;
-            result.InvalidCapabilities = true;
-        }
-
-        if (capabilities.Projectiles == null)
-        {
-            capabilities.Projectiles = new MetricAvailability();
-            result.Changed = true;
-            result.InvalidCapabilities = true;
-        }
-
         if (capabilities.WeaponIdentity == null)
         {
             capabilities.WeaponIdentity = new MetricAvailability();
@@ -782,8 +734,6 @@ public static class WeaponStatisticsReducer
         foreach (var availability in new[]
                  {
                      capabilities.FiringActions,
-                     capabilities.AmmunitionConsumption,
-                     capabilities.Projectiles,
                      capabilities.WeaponIdentity,
                      capabilities.AmmunitionIdentity,
                      capabilities.WeaponAmmunitionPairing
@@ -815,27 +765,11 @@ public static class WeaponStatisticsReducer
             result.Changed = true;
             result.InvalidCounters = true;
         }
-
-        if (totals.AmmunitionUnitsConsumed < 0)
-        {
-            totals.AmmunitionUnitsConsumed = 0;
-            result.Changed = true;
-            result.InvalidCounters = true;
-        }
-
-        if (totals.Projectiles < 0)
-        {
-            totals.Projectiles = 0;
-            result.Changed = true;
-            result.InvalidCounters = true;
-        }
     }
 
     private static void ValidateCapabilities(WeaponMetricCapabilities capabilities)
     {
         if (capabilities.FiringActions == null
-            || capabilities.AmmunitionConsumption == null
-            || capabilities.Projectiles == null
             || capabilities.WeaponIdentity == null
             || capabilities.AmmunitionIdentity == null
             || capabilities.WeaponAmmunitionPairing == null)
@@ -846,9 +780,7 @@ public static class WeaponStatisticsReducer
 
     private static void ValidateTotals(WeaponMetricTotals totals)
     {
-        if (totals.FiringActions < 0
-            || totals.AmmunitionUnitsConsumed < 0
-            || totals.Projectiles < 0)
+        if (totals.FiringActions < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(totals), "Weapon counters cannot be negative.");
         }
@@ -968,8 +900,6 @@ public static class WeaponStatisticsReducer
         }
 
         ValidateMetric(shot.FiringActionCount, shot.Capabilities.FiringActions, nameof(shot.FiringActionCount));
-        ValidateMetric(shot.AmmunitionUnitsConsumed, shot.Capabilities.AmmunitionConsumption, nameof(shot.AmmunitionUnitsConsumed));
-        ValidateMetric(shot.ProjectileCount, shot.Capabilities.Projectiles, nameof(shot.ProjectileCount));
         ValidateIdentity(shot.WeaponId, shot.WeaponDisplayName, shot.Capabilities.WeaponIdentity, "weapon");
         ValidateIdentity(
             shot.AmmunitionId,

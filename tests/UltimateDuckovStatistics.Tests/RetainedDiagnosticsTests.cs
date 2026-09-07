@@ -17,17 +17,24 @@ public sealed class RetainedDiagnosticsTests
     private static readonly DateTime Now = new(2026, 9, 7, 1, 0, 0, DateTimeKind.Utc);
     private static ProfileDocument Profile(string generation = "g") => new()
     {
-        GenerationId = generation, Slot = 2, Statistics = new ProfileStatistics { SaveGenerationId = generation },
+        GenerationId = generation,
+        Slot = 2,
+        Statistics = new ProfileStatistics { SaveGenerationId = generation },
         Capabilities = DiagnosticsCapabilityCatalog.All.Select(d => new CapabilityRecord
         {
-            AdapterId = d.Id, Version = "observed-contract-v1", Detail = "Observed " + d.Id,
+            AdapterId = d.Id,
+            Version = "observed-contract-v1",
+            Detail = "Observed " + d.Id,
             State = d.BaselineLimitation ? AdapterCapabilityState.DisabledIncompatible : AdapterCapabilityState.Supported
         }).ToList()
     };
     private static DiagnosticsRuntimeSnapshot Runtime(string generation = "g") => new()
     {
-        GenerationId = generation, MainMenu = NativeMenuIntegrationState.Available,
-        BaseMenu = NativeMenuIntegrationState.Available, DataRoot = "C:\\UDS data", GameVersion = "native-version"
+        GenerationId = generation,
+        MainMenu = NativeMenuIntegrationState.Available,
+        BaseMenu = NativeMenuIntegrationState.Available,
+        DataRoot = "C:\\UDS data",
+        GameVersion = "native-version"
     };
     private static StatisticsPanelProjection Project(ProfileDocument profile) => StatisticsPanelProjectionFactory.Create(profile,
         new EconomyMetricCapabilities(), new CraftingMetricCapabilities(), new WorldTimeMetricCapabilities());
@@ -62,8 +69,6 @@ public sealed class RetainedDiagnosticsTests
         var limitations = p.Systems.SelectMany(s => s.Capabilities).Where(c => c.BaselineLimitation).ToArray();
         Assert.NotEmpty(limitations); Assert.Equal(limitations.Length, p.Limitations.Count);
         Assert.All(limitations, cap => { Assert.Equal(DiagnosticsHealth.Limited, cap.Health); Assert.Equal("Unavailable", cap.Status); });
-        Assert.Contains(limitations, cap => cap.Id == EquipmentCapabilityIds.ToteActivation);
-        Assert.Contains(limitations, cap => cap.Id == CraftingCapabilityIds.CurrencyMoneyCashSplit);
     }
 
     [Fact]
@@ -207,8 +212,10 @@ public sealed class RetainedDiagnosticsTests
     public void RepeatedStorageReportsGroupAcrossSecondsWithoutRemovingTechnicalEvidence()
     {
         var runtime = Runtime();
-        runtime.Entries = Enumerable.Range(0, 7).Select(i => new DiagnosticEntry {
-            TimestampUtc = Now.AddSeconds(i / 4), Severity = "Error",
+        runtime.Entries = Enumerable.Range(0, 7).Select(i => new DiagnosticEntry
+        {
+            TimestampUtc = Now.AddSeconds(i / 4),
+            Severity = "Error",
             Message = i % 2 == 0 ? "Failed to persist profile: disk full" : "Profile flush failed: disk full"
         }).ToArray();
         var p = Present(Profile(), runtime);

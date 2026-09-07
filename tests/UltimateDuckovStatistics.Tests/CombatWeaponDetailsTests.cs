@@ -23,18 +23,32 @@ public sealed class CombatWeaponDetailsTests
     private static void Fire(StatisticsPanelProjection p, string id, long actions = 8)
     {
         p.Weapons.Lifetime.Totals.FiringActions += actions;
-        p.WeaponAmmunitionGroups = p.WeaponAmmunitionGroups.Append(new WeaponAmmunitionGroupProjection {
-            WeaponId = id, DisplayName = "Same name", TotalFiringActions = actions, CorrelatedFiringActions = actions,
+        p.WeaponAmmunitionGroups = p.WeaponAmmunitionGroups.Append(new WeaponAmmunitionGroupProjection
+        {
+            WeaponId = id,
+            DisplayName = "Same name",
+            TotalFiringActions = actions,
+            CorrelatedFiringActions = actions,
             Ammunition = new[] { new WeaponAmmunitionPairView { Pair = new WeaponAmmunitionPairAggregate {
                 WeaponId = id, AmmunitionId = "ammo:1", AmmunitionDisplayName = "Ammo", FiringActions = actions }, PercentageWithinObservedWeaponPairs = 100 } }
         }).ToArray();
     }
     private static CombatMetricTotals Combat(StatisticsPanelProjection p, string id, bool melee = false)
     {
-        var n = new CombatMetricTotals { RangedHits = melee ? 0 : 5, Headshots = melee ? 0 : 3, HeadshotFinalBlows = melee ? 0 : 1,
-            MeleeSwings = melee ? 7 : 0, MeleeHits = melee ? 4 : 0, KillsByYou = 2, DamageDealt = 123.5,
-            DamageCaused = 999, DamageReceived = 888, ObservedWorldDeaths = 777,
-            PlayerKills = melee ? new PlayerKillPartition { Melee = 2 } : new PlayerKillPartition { Ranged = 2 } };
+        var n = new CombatMetricTotals
+        {
+            RangedHits = melee ? 0 : 5,
+            Headshots = melee ? 0 : 3,
+            HeadshotFinalBlows = melee ? 0 : 1,
+            MeleeSwings = melee ? 7 : 0,
+            MeleeHits = melee ? 4 : 0,
+            KillsByYou = 2,
+            DamageDealt = 123.5,
+            DamageCaused = 999,
+            DamageReceived = 888,
+            ObservedWorldDeaths = 777,
+            PlayerKills = melee ? new PlayerKillPartition { Melee = 2 } : new PlayerKillPartition { Ranged = 2 }
+        };
         p.Combat.Lifetime.Weapons[id] = new CombatBreakdownAggregate { Id = id, DisplayName = "Same name", Totals = n };
         return n;
     }
@@ -44,8 +58,13 @@ public sealed class CombatWeaponDetailsTests
 
     private static void Throwable(StatisticsPanelProjection p, string id = "duckov:item:67", long count = 3)
     {
-        p.Profile.Statistics.Items[id] = new ItemAggregate { ItemId = id, DisplayName = "Grenade",
-            EffectTags = new() { ItemEffectTag.Throwable }, Totals = new() { ActivationCount = count } };
+        p.Profile.Statistics.Items[id] = new ItemAggregate
+        {
+            ItemId = id,
+            DisplayName = "Grenade",
+            EffectTags = new() { ItemEffectTag.Throwable },
+            Totals = new() { ActivationCount = count }
+        };
         p.Profile.Capabilities.Add(new CapabilityRecord { AdapterId = "throwable-releases", State = AdapterCapabilityState.Supported });
     }
 
@@ -64,8 +83,12 @@ public sealed class CombatWeaponDetailsTests
     public void ThrowableUseJoinsOnlyTheSameNativeIdAndShowsPlainSupportedCount()
     {
         var p = Projection(); Throwable(p);
-        p.Combat.Lifetime.Weapons["duckov:weapon:67"] = new CombatBreakdownAggregate { Id = "duckov:weapon:67", DisplayName = "Grenade",
-            Totals = new() { DamageDealt = 77.86, KillsByYou = 1 } };
+        p.Combat.Lifetime.Weapons["duckov:weapon:67"] = new CombatBreakdownAggregate
+        {
+            Id = "duckov:weapon:67",
+            DisplayName = "Grenade",
+            Totals = new() { DamageDealt = 77.86, KillsByYou = 1 }
+        };
         var weapon = Assert.Single(Present(p).Weapons);
         Assert.Equal(new[] { "Throws / uses", "Kills by you", "Damage dealt" }, weapon.Metrics.Select(m => m.Label));
         Assert.Equal("3", Value(weapon, "Throws / uses").Text);
@@ -120,7 +143,6 @@ public sealed class CombatWeaponDetailsTests
     public void ExactRangedJoinKeepsPlayerCountersAndExistingAmmoActions()
     {
         var p = Projection(); Fire(p, "weapon:a"); Combat(p, "weapon:a");
-        p.Weapons.Lifetime.Totals.AmmunitionUnitsConsumed = 1000; p.Weapons.Lifetime.Totals.Projectiles = 2000;
         var weapon = Assert.Single(Present(p).Weapons);
         Assert.Equal(new[] { "Firing actions", "Hits", "Headshots", "Headshot final blows", "Kills by you", "Damage dealt" }, weapon.Metrics.Select(m => m.Label));
         Assert.Equal(new[] { "8", "5", "3", "1", "2", "123.5" }, weapon.Metrics.Select(m => m.Value.Text));
@@ -277,9 +299,20 @@ public sealed class CombatWeaponDetailsTests
     {
         var p = Projection();
         foreach (var id in new[] { "duckov:weapon:258", "duckov:weapon:356", "duckov:weapon:305", "duckov:weapon:unknown" })
-            p.Combat.Lifetime.Weapons[id] = new CombatBreakdownAggregate { Id = id, DisplayName = "Attacker weapon",
-                Totals = new CombatMetricTotals { DamageCaused = 205, DamageReceived = 121, PlayerDeaths = 2, ObservedWorldDeaths = 3,
-                    LegacyUnclassifiedDeaths = 1, PlayerKills = new PlayerKillPartition { HistoricalIncomplete = true } } };
+            p.Combat.Lifetime.Weapons[id] = new CombatBreakdownAggregate
+            {
+                Id = id,
+                DisplayName = "Attacker weapon",
+                Totals = new CombatMetricTotals
+                {
+                    DamageCaused = 205,
+                    DamageReceived = 121,
+                    PlayerDeaths = 2,
+                    ObservedWorldDeaths = 3,
+                    LegacyUnclassifiedDeaths = 1,
+                    PlayerKills = new PlayerKillPartition { HistoricalIncomplete = true }
+                }
+            };
         Assert.Empty(Present(p).Weapons);
         Combat(p, "player:axe", melee: true);
         Assert.Equal("player:axe", Assert.Single(Present(p).Weapons).Row.Id);
@@ -289,8 +322,14 @@ public sealed class CombatWeaponDetailsTests
     }
 
     [Theory]
-    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)]
-    [InlineData(4)] [InlineData(5)] [InlineData(6)] [InlineData(7)]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
     public void EachRecordedPlayerCounterCanIncludeACombatOnlyWeapon(int counter)
     {
         var p = Projection(); var totals = new CombatMetricTotals();

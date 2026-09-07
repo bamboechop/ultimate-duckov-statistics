@@ -11,20 +11,17 @@ public sealed class WeaponStatisticsTests
 
     [Fact]
     [Trait("Category", "Weapon")]
-    public void OneFiringEventCountsDistinctActionAmmunitionAndProjectileMetricsExactlyOnce()
+    public void OneFiringEventCountsAnActionAndBothIdentitiesExactlyOnce()
     {
         var tracker = StartedTracker();
-        var shot = Shot("event-one", "weapon:shotgun", "Shotgun", "ammo:shell", "Shell", 1, 1, 8);
+        var shot = Shot("event-one", "weapon:shotgun", "Shotgun", "ammo:shell", "Shell", 1);
 
         Assert.True(tracker.RecordShot(shot));
         Assert.False(tracker.RecordShot(shot));
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
 
         Assert.Equal(1, summary.WeaponStatistics.Totals.FiringActions);
-        Assert.Equal(1, summary.WeaponStatistics.Totals.AmmunitionUnitsConsumed);
-        Assert.Equal(8, summary.WeaponStatistics.Totals.Projectiles);
         Assert.Equal(1, summary.WeaponStatistics.Weapons["weapon:shotgun"].Totals.FiringActions);
-        Assert.Equal(8, summary.WeaponStatistics.AmmunitionTypes["ammo:shell"].Totals.Projectiles);
     }
 
     [Fact]
@@ -33,32 +30,27 @@ public sealed class WeaponStatisticsTests
     {
         var tracker = StartedTracker();
 
-        Assert.True(tracker.RecordShot(Shot("semi", "weapon:one", "Rifle", "ammo:a", "A", 1, 1, 1)));
-        Assert.True(tracker.RecordShot(Shot("auto-1", "weapon:one", "Rifle", "ammo:a", "A", 1, 1, 1)));
-        Assert.True(tracker.RecordShot(Shot("auto-2", "weapon:one", "Rifle", "ammo:a", "A", 1, 1, 1)));
-        Assert.True(tracker.RecordShot(Shot("burst-1", "weapon:one", "Rifle", "ammo:a", "A", 1, 1, 1)));
-        Assert.True(tracker.RecordShot(Shot("burst-2", "weapon:one", "Rifle", "ammo:a", "A", 1, 1, 1)));
-        Assert.True(tracker.RecordShot(Shot("burst-3", "weapon:one", "Rifle", "ammo:a", "A", 1, 1, 1)));
+        Assert.True(tracker.RecordShot(Shot("semi", "weapon:one", "Rifle", "ammo:a", "A", 1)));
+        Assert.True(tracker.RecordShot(Shot("auto-1", "weapon:one", "Rifle", "ammo:a", "A", 1)));
+        Assert.True(tracker.RecordShot(Shot("auto-2", "weapon:one", "Rifle", "ammo:a", "A", 1)));
+        Assert.True(tracker.RecordShot(Shot("burst-1", "weapon:one", "Rifle", "ammo:a", "A", 1)));
+        Assert.True(tracker.RecordShot(Shot("burst-2", "weapon:one", "Rifle", "ammo:a", "A", 1)));
+        Assert.True(tracker.RecordShot(Shot("burst-3", "weapon:one", "Rifle", "ammo:a", "A", 1)));
 
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Died, 10)).Completed!;
         Assert.Equal(6, summary.WeaponStatistics.Totals.FiringActions);
-        Assert.Equal(6, summary.WeaponStatistics.Totals.AmmunitionUnitsConsumed);
-        Assert.Equal(6, summary.WeaponStatistics.Totals.Projectiles);
     }
 
     [Fact]
     [Trait("Category", "Weapon")]
-    public void SupportedMultiUnitConsumptionAndEventTimeWeaponAndAmmoSwitchesStayAttributed()
+    public void EventTimeWeaponAndAmmunitionSwitchesStayAttributed()
     {
         var tracker = StartedTracker();
-        tracker.RecordShot(Shot("one", "weapon:a", "A", "ammo:a", "Ammo A", 1, 2, 3));
-        tracker.RecordShot(Shot("two", "weapon:b", "B", "ammo:b", "Ammo B", 1, 1, 1));
+        tracker.RecordShot(Shot("one", "weapon:a", "A", "ammo:a", "Ammo A", 1));
+        tracker.RecordShot(Shot("two", "weapon:b", "B", "ammo:b", "Ammo B", 1));
 
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
-
-        Assert.Equal(3, summary.WeaponStatistics.Totals.AmmunitionUnitsConsumed);
         Assert.Equal(2, summary.WeaponStatistics.Weapons.Count);
-        Assert.Equal(2, summary.WeaponStatistics.Weapons["weapon:a"].Totals.AmmunitionUnitsConsumed);
         Assert.Equal(1, summary.WeaponStatistics.AmmunitionTypes["ammo:b"].Totals.FiringActions);
     }
 
@@ -67,8 +59,8 @@ public sealed class WeaponStatisticsTests
     public void UnknownAndModdedStableIdsRemainDistinctAndKeepFallbackNames()
     {
         var tracker = StartedTracker();
-        tracker.RecordShot(Shot("one", "duckov:weapon:900001", "Unknown weapon 900001", "duckov:ammo:800001", "Unknown ammo 800001", 1, 1, 1));
-        tracker.RecordShot(Shot("two", "duckov:weapon:900002", "Modded blaster", "duckov:ammo:800002", "Modded cell", 1, 1, 4));
+        tracker.RecordShot(Shot("one", "duckov:weapon:900001", "Unknown weapon 900001", "duckov:ammo:800001", "Unknown ammo 800001", 1));
+        tracker.RecordShot(Shot("two", "duckov:weapon:900002", "Modded blaster", "duckov:ammo:800002", "Modded cell", 1));
 
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
 
@@ -83,18 +75,18 @@ public sealed class WeaponStatisticsTests
     public void MismatchedGenerationRunMapAndLateTerminalEventsCannotEnterStatistics()
     {
         var tracker = StartedTracker();
-        var wrongGeneration = Shot("generation", "weapon:a", "A", "ammo:a", "A", 1, 1, 1);
+        var wrongGeneration = Shot("generation", "weapon:a", "A", "ammo:a", "A", 1);
         wrongGeneration.SaveGenerationId = "other";
-        var wrongRun = Shot("run", "weapon:a", "A", "ammo:a", "A", 1, 1, 1);
+        var wrongRun = Shot("run", "weapon:a", "A", "ammo:a", "A", 1);
         wrongRun.RunId = "other";
-        var wrongMap = Shot("map", "weapon:a", "A", "ammo:a", "A", 1, 1, 1);
+        var wrongMap = Shot("map", "weapon:a", "A", "ammo:a", "A", 1);
         wrongMap.MapId = "other";
 
         Assert.False(tracker.RecordShot(wrongGeneration));
         Assert.False(tracker.RecordShot(wrongRun));
         Assert.False(tracker.RecordShot(wrongMap));
         var completed = tracker.Apply(Event(RunLifecycleEventKind.Interrupted, 5)).Completed!;
-        Assert.False(tracker.RecordShot(Shot("late", "weapon:a", "A", "ammo:a", "A", 1, 1, 1)));
+        Assert.False(tracker.RecordShot(Shot("late", "weapon:a", "A", "ammo:a", "A", 1)));
         Assert.Equal(0, completed.WeaponStatistics.Totals.FiringActions);
     }
 
@@ -131,29 +123,21 @@ public sealed class WeaponStatisticsTests
         Assert.False(WeaponFireAcceptancePolicy.ShouldRecord(true, GameplayContext.Raid, false, false, false));
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
         Assert.Equal(0, summary.WeaponStatistics.Totals.FiringActions);
-        Assert.Equal(0, summary.WeaponStatistics.Totals.AmmunitionUnitsConsumed);
-        Assert.Equal(0, summary.WeaponStatistics.Totals.Projectiles);
     }
 
     [Fact]
     [Trait("Category", "Weapon")]
     [Trait("Category", "Compatibility")]
-    public void PublicNativeFiringContractDoesNotInventAmmunitionOrProjectileOutcomes()
+    public void PublicNativeFiringContractRecordsAcceptedActions()
     {
         var capabilities = WeaponNativeContractPolicy.CreateMetricCapabilities();
-        var shot = Shot("native", "weapon", "Weapon", "ammo", "Ammo", 1, 1, 5);
-        shot.AmmunitionUnitsConsumed = null;
-        shot.ProjectileCount = null;
+        var shot = Shot("native", "weapon", "Weapon", "ammo", "Ammo", 1);
         shot.Capabilities = capabilities;
         var statistics = new WeaponStatisticsAggregate();
 
         WeaponStatisticsReducer.Apply(statistics, shot);
 
         Assert.Equal(1, statistics.Totals.FiringActions);
-        Assert.Equal(0, statistics.Totals.AmmunitionUnitsConsumed);
-        Assert.Equal(0, statistics.Totals.Projectiles);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, statistics.Capabilities.AmmunitionConsumption.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, statistics.Capabilities.Projectiles.State);
     }
 
     [Fact]
@@ -162,7 +146,7 @@ public sealed class WeaponStatisticsTests
     public void FiringEventIntegrityIsAccumulatedIntoTheRunSummary()
     {
         var tracker = StartedTracker();
-        var shot = Shot("modded", "weapon", "Weapon", "ammo", "Ammo", 1, 1, 1);
+        var shot = Shot("modded", "weapon", "Weapon", "ammo", "Ammo", 1);
         shot.IntegrityTags = IntegrityTags.ModdedContent;
 
         Assert.True(tracker.RecordShot(shot));
@@ -177,11 +161,11 @@ public sealed class WeaponStatisticsTests
     public void RejectedInvalidEventDoesNotPoisonItsEventIdForALaterValidEvent()
     {
         var tracker = StartedTracker();
-        var invalid = Shot("recoverable-id", "weapon", "Weapon", "ammo", "Ammo", 1, 1, 1);
-        invalid.ProjectileCount = -1;
+        var invalid = Shot("recoverable-id", "weapon", "Weapon", "ammo", "Ammo", 1);
+        invalid.FiringActionCount = -1;
 
         Assert.Throws<ArgumentException>(() => tracker.RecordShot(invalid));
-        Assert.True(tracker.RecordShot(Shot("recoverable-id", "weapon", "Weapon", "ammo", "Ammo", 1, 1, 1)));
+        Assert.True(tracker.RecordShot(Shot("recoverable-id", "weapon", "Weapon", "ammo", "Ammo", 1)));
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
         Assert.Equal(1, summary.WeaponStatistics.Totals.FiringActions);
     }
@@ -206,17 +190,13 @@ public sealed class WeaponStatisticsTests
     public void PersistedCounterOverflowSaturatesInsteadOfWrappingNegative()
     {
         var tracker = StartedTracker();
-        tracker.RecordShot(Shot("one", "weapon", "Weapon", "ammo", "Ammo", 1, 1, 1));
+        tracker.RecordShot(Shot("one", "weapon", "Weapon", "ammo", "Ammo", 1));
         var summary = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
         var profile = new ProfileStatistics { SaveGenerationId = "generation-1" };
         profile.RunTotals.WeaponStatistics.Totals.FiringActions = long.MaxValue;
-        profile.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed = long.MaxValue;
-        profile.RunTotals.WeaponStatistics.Totals.Projectiles = long.MaxValue;
 
         Assert.True(RunReducer.Apply(profile, summary));
         Assert.Equal(long.MaxValue, profile.RunTotals.WeaponStatistics.Totals.FiringActions);
-        Assert.Equal(long.MaxValue, profile.RunTotals.WeaponStatistics.Totals.AmmunitionUnitsConsumed);
-        Assert.Equal(long.MaxValue, profile.RunTotals.WeaponStatistics.Totals.Projectiles);
     }
 
     [Fact]
@@ -228,9 +208,7 @@ public sealed class WeaponStatisticsTests
         {
             Totals = new WeaponMetricTotals
             {
-                FiringActions = -1,
-                AmmunitionUnitsConsumed = -2,
-                Projectiles = -3
+                FiringActions = -1
             }
         };
 
@@ -240,8 +218,6 @@ public sealed class WeaponStatisticsTests
         Assert.True(result.InvalidCounters);
         Assert.True(statistics.WasRepairedFromInvalidState);
         Assert.Equal(0, statistics.Totals.FiringActions);
-        Assert.Equal(0, statistics.Totals.AmmunitionUnitsConsumed);
-        Assert.Equal(0, statistics.Totals.Projectiles);
         WeaponStatisticsReducer.ValidateAggregate(statistics);
     }
 
@@ -373,9 +349,7 @@ public sealed class WeaponStatisticsTests
         string weaponName,
         string ammunitionId,
         string ammunitionName,
-        long firingActions,
-        long ammunition,
-        long projectiles) => new()
+        long firingActions) => new()
         {
             EventId = eventId,
             TimestampUtc = Origin,
@@ -389,16 +363,12 @@ public sealed class WeaponStatisticsTests
             AmmunitionId = ammunitionId,
             AmmunitionDisplayName = ammunitionName,
             FiringActionCount = firingActions,
-            AmmunitionUnitsConsumed = ammunition,
-            ProjectileCount = projectiles,
             Capabilities = Capabilities()
         };
 
     internal static WeaponMetricCapabilities Capabilities() => new()
     {
         FiringActions = Supported("public firing event"),
-        AmmunitionConsumption = Supported("native loaded-ammunition consumption"),
-        Projectiles = Supported("native ShotCount projectile loop"),
         WeaponIdentity = Supported("weapon TypeID"),
         AmmunitionIdentity = Supported("ammunition TypeID")
     };

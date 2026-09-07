@@ -239,8 +239,6 @@ internal static class UiText
             ["ui.containers_looted"] = "Unique containers opened",
             ["ui.container_history_unavailable"] = "earlier history unavailable",
             ["ui.repaired_unavailable"] = "repaired data; unavailable",
-            ["ui.ammunition_consumed"] = "Loaded ammunition units consumed",
-            ["ui.projectiles"] = "Projectiles created",
             ["ui.weapon"] = "Weapon",
             ["ui.ammunition"] = "Ammunition",
             ["ui.no_combat"] = "No accepted firing actions recorded for this save generation.",

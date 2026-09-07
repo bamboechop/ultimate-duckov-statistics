@@ -1,0 +1,20 @@
+# M18 removal and retained-cost inventory
+
+Supported native baseline: Duckov 2.3.30 / Steam 24013657, Unity 2022.3.62f2, Harmony 2.4.1.0. The installed contract probe and independent decompilation audit confirm the boundaries below. Source baseline: `443fad6a268916a6038c919501a714d1f17da371`.
+
+| Removed implementation | Native evidence / production dependency | Supported behavior retained |
+| --- | --- | --- |
+| Schema-by-schema profile/checkpoint readers | Repository startup/reopen mixed predecessor transfer with current validation | `ProfileFormat` retains current validation, normalization, primary/backup/temporary recovery, and exact generation checks. `uds-profile-v1` in a separate `v1` data directory starts testers fresh without deleting old data. |
+| Unused immediate statistics panel and its exclusive layout/theme helpers | `ModBehaviour` constructs the retained panel; there is no immediate-panel construction caller | Retained native shell, menu/F8 access, native item icons, responsive layout and scrolling |
+| Font/material appearance rejection | Retained label and heading construction used exact native names/properties as opening conditions | Required-object checks and private material ownership; native appearance differences do not reject an operable surface |
+| Trigger-attempt, ammunition-consumption and per-firing projectile counters | `ItemAgent_Gun.OnMainCharacterShootEvent` proves an accepted firing callback with simultaneous weapon/ammunition identity, but exposes no rejected-trigger or completed-consumption/creation result | Accepted firing actions and identity/pairing totals. Combat's independently observed completed projectiles remain the accuracy denominator. Removed domain fields, reducers, equipment association counters, capability records, diagnostic rows and CSV columns. |
+| Tote-effect activation capability | Tote slot membership does not expose activation evidence | Direct equipped totem state and observed tote contents; tote activation remains Unknown. Removed the permanent disabled capability and all exclusive consumers. |
+| Crafting workstation, run/map attribution, multiple outputs, Money/Cash split capabilities | `Craft(CraftingFormula)` has one result and no workstation/run/map argument; successful payment exposes a total charge without a proven currency split | Successful actions, produced units, output/recipe/batch identity, exact paid item resources and total currency charge. Removed permanent disabled capabilities and all exclusive consumers. |
+
+These omitted metrics are limitations of the verified baseline. They are not dormant features waiting to activate, and are not serialized or advertised as permanent failed adapters.
+
+Every major adapter owner still serves supported behavior: item use/classification; healing and shared buff attribution; runs/movement/routes; firing; combat/grenades; throwable use; equipment; containers; economy flows/holdings; world time/sleep; crafting/resources; profile lifecycle/integrity. Conditional degradation for missing Harmony, foreign patches, contract drift and partial native evidence remains necessary and independent between siblings.
+
+The runtime audit retains bounded native-state reconciliation, event-time equipment snapshots, activation-time reflective patch validation, cheap live patch-stamp checks, exact event attribution, single-flight snapshot/persistence ownership and pending-data barriers. Checkpoint cloning and serialization scale with retained evidence and history and require native high-history qualification. A confirmed terminal-write failure path now retries at 1, 2, 4, 8, 16, 32, then 60 seconds and freezes the retiring raid at its original terminal boundary. Isolated coordinator/lifecycle/economy composition tests cover failed writes, queued raid Money, subsequent base Money and exact single completion.
+
+Remaining removal and qualification work is tracked in [the M18 acceptance record](M18_ACCEPTANCE.md). This inventory does not establish native gameplay or performance acceptance.

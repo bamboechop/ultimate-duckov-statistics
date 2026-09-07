@@ -106,14 +106,12 @@ public sealed class EquipmentStatisticsTests
         var association = new EquipmentEventAssociation
         { LoadoutId = "loadout:a", SelectedWeaponId = "weapon:a", TotemSetId = "totems:a" };
         EquipmentStatisticsReducer.RecordShot(aggregate, new ShotRecorded
-        { EquipmentAssociation = association, FiringActionCount = 1, AmmunitionUnitsConsumed = 2, ProjectileCount = 3 });
+        { EquipmentAssociation = association, FiringActionCount = 1 });
         EquipmentStatisticsReducer.RecordCombat(aggregate, new CombatRecorded
         { EquipmentAssociation = association, Ownership = CombatOwnership.Player, ActualDamageDealt = 12.5, RangedHits = 1, KillsByYou = 1 });
 
         var row = Assert.Single(aggregate.CombatAssociations).Value;
         Assert.Equal(1, row.FiringActions);
-        Assert.Equal(2, row.AmmunitionUnitsConsumed);
-        Assert.Equal(3, row.Projectiles);
         Assert.Equal(12.5, row.DamageDealt);
         Assert.Equal(1, row.KillsByYou);
     }
@@ -205,13 +203,12 @@ public sealed class EquipmentStatisticsTests
     }
 
     [Fact]
-    public void ToteActivationRemainsDisabledWhilePresenceIsSupported()
+    public void DirectAndTotePresenceCapabilitiesRemainIndependent()
     {
         var capabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities();
 
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.DirectTotems.State);
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.ToteContents.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.ToteActivation.State);
     }
 
     [Fact]
@@ -222,7 +219,6 @@ public sealed class EquipmentStatisticsTests
             EquipmentNativeContractPolicy.CreateSupportedCapabilities(), "current").ToList();
         var currentModel = EquipmentStatisticsViewModelFactory.Create(current);
         Assert.Equal(AdapterCapabilityState.Supported, currentModel.Capabilities.EquipmentSlots.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, currentModel.Capabilities.ToteActivation.State);
 
 
     }
@@ -375,7 +371,7 @@ public sealed class EquipmentStatisticsTests
         Assert.Contains("recurring,15.0625,2", bundle.RecurringLoadoutsCsv);
         Assert.DoesNotContain("single", bundle.RecurringLoadoutsCsv);
         Assert.StartsWith("scope,scope_id,loadout_id,selected_weapon_slot_id", bundle.EquipmentCombatCsv);
-        Assert.Contains("lifetime,generation,recurring,slot:primary,weapon:a,totems:a,0,0,0,9", bundle.EquipmentCombatCsv);
+        Assert.Contains("lifetime,generation,recurring,slot:primary,weapon:a,totems:a,0,9", bundle.EquipmentCombatCsv);
     }
 
     [Fact]

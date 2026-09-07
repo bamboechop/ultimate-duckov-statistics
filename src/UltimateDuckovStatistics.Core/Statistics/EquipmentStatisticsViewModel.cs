@@ -54,7 +54,6 @@ public static class EquipmentStatisticsViewModelFactory
         Apply(capabilities.AttachmentMetadata, EquipmentCapabilityIds.AttachmentMetadata);
         Apply(capabilities.DirectTotems, EquipmentCapabilityIds.DirectTotems);
         Apply(capabilities.ToteContents, EquipmentCapabilityIds.ToteContents);
-        Apply(capabilities.ToteActivation, EquipmentCapabilityIds.ToteActivation);
         Apply(capabilities.CharacterSlotState, EquipmentCapabilityIds.CharacterSlotState);
         Apply(capabilities.NestedSlotState, EquipmentCapabilityIds.NestedSlotState);
         return new EquipmentStatisticsViewModel
