@@ -17,14 +17,6 @@ internal static class RunDataSchema
         }
     }
 
-    internal static void Migrate(CombatStatisticsAggregate combat, EquipmentStatisticsAggregate equipment)
-    {
-        foreach (var totals in CombatStatisticsReducer.PlayerKillScopes(combat))
-            totals.PlayerKills = PlayerKillPartition.Historical(totals.KillsByYou);
-        foreach (var row in equipment.CombatAssociations.Values)
-            row.PlayerKills = PlayerKillPartition.Historical(row.KillsByYou);
-    }
-
     internal static void Validate(CombatStatisticsAggregate combat, EquipmentStatisticsAggregate equipment)
     {
         if (combat == null || equipment?.CombatAssociations == null)
@@ -61,10 +53,4 @@ internal static class RunDataSchema
         checkpoint.TerminalLoadout.Validate(checkpoint.PendingTerminalOutcome);
     }
 
-    internal static void Migrate(ActiveRunCheckpoint checkpoint)
-    {
-        Migrate(checkpoint.CombatStatistics, checkpoint.EquipmentStatistics);
-        foreach (var segment in checkpoint.Segments) Migrate(segment.CombatStatistics, segment.EquipmentStatistics);
-        checkpoint.TerminalLoadout = TerminalLoadout.Historical();
-    }
 }

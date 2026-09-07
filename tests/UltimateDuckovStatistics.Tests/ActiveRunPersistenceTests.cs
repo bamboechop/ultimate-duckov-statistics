@@ -1017,43 +1017,6 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "M10")]
     [Trait("Category", "Persistence")]
-    public void SchemaNineSaturatedActiveCheckpointRecoversExactRowsWithIncompleteProvenance()
-    {
-        using var directory = new TemporaryDirectory();
-        var repository = Repository(directory.Path);
-        repository.Open(Identity());
-        var generation = repository.CurrentGenerationId;
-        repository.CloseClean();
-        var checkpoint = RouteCheckpoint(generation, 5);
-        checkpoint.SchemaVersion = 9;
-        checkpoint.RouteCapabilities.CurrentEventAttributionCapture = null!;
-        RouteStatisticsReducer.DisableAttribution(
-            checkpoint.RouteCapabilities,
-            "The defensive 2048-event association bound was reached.");
-        var segment = checkpoint.Segments[0];
-        for (var index = 0; index < RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun; index++)
-            checkpoint.SegmentEventAssociations.Add(LegacyRouteAssociation($"legacy-checkpoint-{index}", segment));
-        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
-
-        var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-        var run = Assert.Single(recovery.Current.Statistics.Runs);
-        Assert.Equal(RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun, run.SegmentEventAssociations.Count);
-        Assert.All(run.SegmentEventAssociations, association =>
-        {
-            Assert.Equal(SegmentEventAssociationRepresentation.LegacyRaw, association.Representation);
-            Assert.Equal(1, association.Count);
-        });
-        Assert.True(run.HistoricalEventAttributionIncomplete);
-        Assert.Contains("2,048", run.HistoricalEventAttributionProvenance, StringComparison.Ordinal);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
-        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.CurrentEventAttributionCapture.State);
-        recovery.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "M10")]
-    [Trait("Category", "Persistence")]
     public void SchemaTenAggregateCheckpointSurvivesFailedWriteRetryAndDurableRestartExactlyOnce()
     {
         using var directory = new TemporaryDirectory();
@@ -1459,13 +1422,12 @@ public sealed class ActiveRunPersistenceTests
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     [Trait("Category", "Weapon")]
-    public void PartiallyPopulatedWeaponCheckpointIsNormalizedBeforeInterruptedRecovery()
+    public void PartiallyPopulatedWeaponCheckpointIsRejectedBeforeInterruptedRecovery()
     {
         using var directory = new TemporaryDirectory();
         var repository = Repository(directory.Path);
         repository.Open(Identity());
         var checkpoint = Checkpoint(repository.CurrentGenerationId, 3);
-        checkpoint.SchemaVersion = 13;
         checkpoint.WeaponStatistics.Totals = null!;
         checkpoint.WeaponStatistics.Weapons = null!;
         checkpoint.WeaponStatistics.AmmunitionTypes = null!;
@@ -1474,27 +1436,24 @@ public sealed class ActiveRunPersistenceTests
         new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
 
         var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-
-        var recovered = Assert.Single(recovery.Current.Statistics.Runs);
-        Assert.NotNull(recovered.WeaponStatistics.Totals);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.FiringActions);
-        Assert.Empty(recovered.WeaponStatistics.Weapons);
-        Assert.Empty(recovered.WeaponStatistics.AmmunitionTypes);
+        Assert.False(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.Empty(recovery.Current.Statistics.Runs);
+        var preserved = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(ActiveRunPath(directory.Path))!, "checkpoint-recovery"));
+        Assert.NotEmpty(preserved);
         recovery.CloseClean();
+
     }
 
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     [Trait("Category", "Weapon")]
-    public void NullCheckpointAvailabilityMembersAreNormalizedBeforeInterruptedRecovery()
+    public void NullCheckpointAvailabilityMembersAreRejectedBeforeInterruptedRecovery()
     {
         using var directory = new TemporaryDirectory();
         var repository = Repository(directory.Path);
         repository.Open(Identity());
         var checkpoint = Checkpoint(repository.CurrentGenerationId, 3);
-        checkpoint.SchemaVersion = 13;
         checkpoint.WeaponStatistics.Capabilities = new WeaponMetricCapabilities
         {
             FiringActions = null!,
@@ -1507,15 +1466,12 @@ public sealed class ActiveRunPersistenceTests
         new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
 
         var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-
-        var recovered = Assert.Single(recovery.Current.Statistics.Runs);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.FiringActions);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.AmmunitionConsumption);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.Projectiles);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.WeaponIdentity);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.AmmunitionIdentity);
+        Assert.False(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.Empty(recovery.Current.Statistics.Runs);
+        var preserved = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(ActiveRunPath(directory.Path))!, "checkpoint-recovery"));
+        Assert.NotEmpty(preserved);
         recovery.CloseClean();
+
     }
 
     [Fact]
@@ -1578,33 +1534,6 @@ public sealed class ActiveRunPersistenceTests
         Assert.Single(repeated.Current.Statistics.Runs);
         Assert.Equal(1, repeated.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         repeated.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "Run")]
-    [Trait("Category", "Combat")]
-    public void SchemaFourCheckpointRecoveryRetainsHistoricalCombatUnavailability()
-    {
-        using var directory = new TemporaryDirectory();
-        var repository = Repository(directory.Path);
-        repository.Open(Identity());
-        var checkpoint = Checkpoint(repository.CurrentGenerationId, 4);
-        checkpoint.SchemaVersion = 4;
-        checkpoint.CombatStatistics = null!;
-        repository.CloseClean();
-        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
-
-        var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-
-        var run = Assert.Single(recovery.Current.Statistics.Runs);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
-            run.CombatStatistics.Capabilities.DamageDealt.State);
-        Assert.Contains("predates M5", run.CombatStatistics.Capabilities.DamageDealt.Provenance);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
-            recovery.Current.Statistics.RunTotals.CombatStatistics.Capabilities.DamageDealt.State);
-        recovery.CloseClean();
     }
 
     [Fact]
@@ -2122,56 +2051,6 @@ public sealed class ActiveRunPersistenceTests
             Assert.Equal("DisabledIncompatible", segmentRow["damage_dealt_state"]);
         }
         Assert.Empty(ParseCsv(export.EquipmentCombatCsv));
-        recovery.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Run")]
-    [Trait("Category", "Combat")]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "M11")]
-    public void SchemaTenActiveRunRecoveryMigratesAmbiguousDeathsBeforeLifetimeAggregation()
-    {
-        using var directory = new TemporaryDirectory();
-        var repository = Repository(directory.Path);
-        repository.Open(Identity());
-        var checkpoint = Checkpoint(repository.CurrentGenerationId, 5);
-        checkpoint.SchemaVersion = 10;
-        checkpoint.CombatStatistics = new CombatStatisticsAggregate
-        {
-            Totals = new CombatMetricTotals { EnemiesKilled = 2 }
-        };
-        checkpoint.CombatStatistics.Ownership["Player"] = new CombatBreakdownAggregate
-        {
-            Id = "Player",
-            DisplayName = "Player",
-            Totals = new CombatMetricTotals { EnemiesKilled = 1 }
-        };
-        checkpoint.CombatStatistics.Ownership["Environmental"] = new CombatBreakdownAggregate
-        {
-            Id = "Environmental",
-            DisplayName = "Environmental",
-            Totals = new CombatMetricTotals { EnemiesKilled = 1 }
-        };
-        checkpoint.EquipmentStatistics.CombatAssociations["legacy"] = new EquipmentCombatAssociationAggregate
-        {
-            LoadoutId = "legacy-loadout",
-            EnemiesKilled = 2
-        };
-        repository.SaveActiveRun(checkpoint);
-
-        var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-        var run = Assert.Single(recovery.Current.Statistics.Runs);
-
-        Assert.Equal(1, run.CombatStatistics.Totals.KillsByYou);
-        Assert.Equal(0, run.CombatStatistics.Totals.ObservedWorldDeaths);
-        Assert.Equal(1, run.CombatStatistics.Totals.LegacyUnclassifiedDeaths);
-        Assert.True(run.CombatStatistics.HistoricalOwnershipUnavailable);
-        Assert.Equal(2,
-            Assert.Single(run.EquipmentStatistics.CombatAssociations.Values).LegacyUnclassifiedDeathCredit);
-        Assert.Equal(1, recovery.Current.Statistics.RunTotals.CombatStatistics.Totals.KillsByYou);
-        Assert.Equal(1, recovery.Current.Statistics.RunTotals.CombatStatistics.Totals.LegacyUnclassifiedDeaths);
         recovery.CloseClean();
     }
 

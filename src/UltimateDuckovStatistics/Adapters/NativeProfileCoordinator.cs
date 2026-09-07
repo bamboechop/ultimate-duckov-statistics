@@ -97,7 +97,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public NativeProfileCoordinator(Func<double>? monotonicClock = null)
     {
         this.monotonicClock = monotonicClock ?? (() => (double)System.Diagnostics.Stopwatch.GetTimestamp() / System.Diagnostics.Stopwatch.Frequency);
-        dataRoot = Path.Combine(Application.persistentDataPath, Core.ProductInfo.ModId);
+        dataRoot = Path.Combine(Application.persistentDataPath, Core.ProductInfo.ModId, Core.ProductInfo.DataDirectory);
         checkpointWriter = new DeferredCheckpointWriter<CheckpointWrite>(write =>
         {
             NativeHotPathDiagnostics.CountCheckpointStoreAttempt();
@@ -218,7 +218,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         WriteDiagnostic(
             $"Profile opened slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
             $"created={openResult.CreatedNew} rotated={openResult.RotatedGeneration} " +
-            $"recovered={openResult.RecoveredSnapshot} migrated={openResult.MigratedSchema} " +
+            $"recovered={openResult.RecoveredSnapshot} migrated={openResult.NormalizedProfile} " +
             $"unsupportedArchived={openResult.UnsupportedSchemaArchived} " +
             $"interruptedSession={openResult.InterruptedSessionRecovered} " +
             $"interruptedRun={openResult.InterruptedRunRecovered}.");
@@ -1274,7 +1274,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     private static string FormatOpenResult(ProfileOpenResult result) =>
         $"created={result.CreatedNew}; rotated={result.RotatedGeneration}; recoveredSnapshot={result.RecoveredSnapshot}; "
-        + $"migratedSchema={result.MigratedSchema}; unsupportedSchemaArchived={result.UnsupportedSchemaArchived}; "
+        + $"migratedSchema={result.NormalizedProfile}; unsupportedSchemaArchived={result.UnsupportedSchemaArchived}; "
         + $"interruptedSessionRecovered={result.InterruptedSessionRecovered}; interruptedRunRecovered={result.InterruptedRunRecovered}; "
         + $"loadFailures={result.LoadFailures.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 

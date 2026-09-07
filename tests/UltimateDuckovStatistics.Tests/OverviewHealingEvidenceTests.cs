@@ -165,7 +165,7 @@ public sealed class OverviewHealingEvidenceTests
             Assert.True(coordinator.Current!.Statistics.Runs.Count == 1, string.Join(" | ", messages));
             var path = coordinator.CurrentProfilePath;
             coordinator.Dispose();
-            var loaded = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(path, Core.Persistence.ProfileMigrator.ValidateRecoveryCandidate);
+            var loaded = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(path, Core.Persistence.ProfileFormat.ValidateRecoveryCandidate);
             Assert.True(loaded.Found);
             var run = Assert.Single(loaded.Value!.Statistics.Runs);
             Assert.Equal(!disabledAtStart && !loseCapture, run.HealingCaptureComplete);
@@ -239,7 +239,7 @@ public sealed class OverviewHealingEvidenceTests
             var pruned = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(retainedPath))!;
             pruned["Statistics"]!["Runs"]!.AsArray().Clear();
             File.WriteAllText(retainedPath, pruned.ToJsonString());
-            var reloadedLifetime = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(retainedPath, Core.Persistence.ProfileMigrator.ValidateRecoveryCandidate);
+            var reloadedLifetime = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(retainedPath, Core.Persistence.ProfileFormat.ValidateRecoveryCandidate);
             Assert.True(reloadedLifetime.Found, string.Join("; ", reloadedLifetime.Failures));
             Assert.Empty(reloadedLifetime.Value!.Statistics.Runs);
             AssertLifetime(reloadedLifetime.Value);
@@ -249,7 +249,7 @@ public sealed class OverviewHealingEvidenceTests
             foreach (var entry in missing["Statistics"]!["Runs"]!.AsArray()) entry!.AsObject().Remove("HealingCaptureComplete");
             var missingPath = Path.Combine(directory.Path, "missing-capture.json");
             File.WriteAllText(missingPath, missing.ToJsonString());
-            var withoutCapture = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(missingPath, Core.Persistence.ProfileMigrator.ValidateRecoveryCandidate);
+            var withoutCapture = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(missingPath, Core.Persistence.ProfileFormat.ValidateRecoveryCandidate);
             Assert.True(withoutCapture.Found);
             Assert.False(withoutCapture.Value!.Statistics.HealingCaptureComplete);
             Assert.False(Assert.Single(withoutCapture.Value.Statistics.Runs).HealingCaptureComplete);

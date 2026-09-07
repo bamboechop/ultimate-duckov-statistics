@@ -303,60 +303,10 @@ public sealed class ContainerStatisticsTests
 
     [Fact]
     [Trait("Category", "Container")]
-    public void SchemaSixMigrationPreservesM1ToM6AndMarksHistoricalM7Unavailable()
-    {
-        var profile = new ProfileDocument
-        {
-            SchemaVersion = 6,
-            GenerationId = "generation-1",
-            Statistics = new ProfileStatistics
-            {
-                SchemaVersion = 6,
-                SaveGenerationId = "generation-1",
-                Overall = new AggregateTotals { ActivationCount = 9, ActualHealthRestored = 17 },
-                RunTotals = new RunAggregateTotals
-                {
-                    TotalRuns = 3,
-                    PhysicalDistance = 42,
-                    WeaponStatistics = new WeaponStatisticsAggregate
-                    {
-                        Totals = new WeaponMetricTotals { FiringActions = 4 }
-                    },
-                    CombatStatistics = new CombatStatisticsAggregate
-                    {
-                        Totals = new CombatMetricTotals { DamageDealt = 23 }
-                    },
-                    EquipmentStatistics = new EquipmentStatisticsAggregate
-                    {
-                        ObservedActiveDurationSeconds = 11
-                    }
-                }
-            }
-        };
-
-        Assert.True(ProfileMigrator.Migrate(profile));
-
-        Assert.Equal(18, profile.SchemaVersion);
-        Assert.Equal(9, profile.Statistics.Overall.ActivationCount);
-        Assert.Equal(17, profile.Statistics.Overall.ActualHealthRestored);
-        Assert.Equal(3, profile.Statistics.RunTotals.TotalRuns);
-        Assert.Equal(42, profile.Statistics.RunTotals.PhysicalDistance);
-        Assert.Equal(4, profile.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
-        Assert.Equal(23, profile.Statistics.RunTotals.CombatStatistics.Totals.DamageDealt);
-        Assert.Equal(11, profile.Statistics.RunTotals.EquipmentStatistics.ObservedActiveDurationSeconds);
-        Assert.Equal(0, profile.Statistics.RunTotals.ContainerStatistics.UniqueContainersLooted);
-        Assert.True(profile.Statistics.RunTotals.ContainerStatistics.HistoricalUnavailable);
-        Assert.Contains("predates M7",
-            profile.Statistics.RunTotals.ContainerStatistics.Capabilities.UniqueContainersLooted.Provenance);
-    }
-
-    [Fact]
-    [Trait("Category", "Container")]
-    public void RepairedCurrentContainerRootRemainsUnavailableInUiJsonAndCsv()
+    public void CurrentContainerRepairMarkerRemainsUnavailableInUiJsonAndCsv()
     {
         var profile = Profile();
-        profile.Statistics.RunTotals.ContainerStatistics = null!;
-        Assert.True(ProfileMigrator.Migrate(profile));
+        profile.Statistics.RunTotals.ContainerStatistics = new ContainerStatisticsAggregate { WasRepairedFromInvalidState = true };
         var lifetime = profile.Statistics.RunTotals.ContainerStatistics;
         Assert.True(lifetime.WasRepairedFromInvalidState);
         Assert.False(lifetime.HistoricalUnavailable);

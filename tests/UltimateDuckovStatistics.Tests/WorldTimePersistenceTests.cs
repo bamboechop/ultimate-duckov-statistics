@@ -10,27 +10,6 @@ public sealed class WorldTimePersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
-    public void SchemaElevenMigrationPreservesAllPriorDataAndMarksM12HistoryUnavailable()
-    {
-        var profile = Document("generation-1");
-        profile.SchemaVersion = 11;
-        profile.Statistics.SchemaVersion = 11;
-        profile.Statistics.Overall.ActivationCount = 42;
-        profile.Statistics.WorldTime = null!;
-
-        Assert.True(ProfileMigrator.Migrate(profile));
-
-        Assert.Equal(18, profile.SchemaVersion);
-        Assert.Equal(18, profile.Statistics.SchemaVersion);
-        Assert.Equal(42, profile.Statistics.Overall.ActivationCount);
-        Assert.True(profile.Statistics.WorldTime.HistoricalUnavailable);
-        Assert.Contains("predates M12", profile.Statistics.WorldTime.HistoricalProvenance, StringComparison.Ordinal);
-        Assert.Equal(0, profile.Statistics.WorldTime.ObservedGameTimeTicks);
-        Assert.Equal(0, profile.Statistics.WorldTime.CompletedSleepSessions);
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
     public void DeferredWorldTimeSurvivesCleanRestartAndInterruptedSessionRecovery()
     {
         using var temporaryDirectory = new TemporaryDirectory();
@@ -92,18 +71,18 @@ public sealed class WorldTimePersistenceTests
         second.Revision = 2;
         second.Statistics.WorldTime = Aggregate(2, 200, 2, 100);
         store.Save(path, first);
-        AssertWorldTime(store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!.Statistics.WorldTime, 1, 100, 1, 50);
+        AssertWorldTime(store.Load(path, ProfileFormat.ValidateRecoveryCandidate).Value!.Statistics.WorldTime, 1, 100, 1, 50);
         store.Save(path, second);
         File.WriteAllText(path, "{ corrupt");
 
-        var backup = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+        var backup = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
         Assert.Equal(AtomicJsonLoadSource.Backup, backup.Source);
         AssertWorldTime(backup.Value!.Statistics.WorldTime, 1, 100, 1, 50);
 
         var tempPath = Path.Combine(temporaryDirectory.Path, "temporary-profile.json");
         store.Save(tempPath, second);
         File.Move(tempPath, AtomicJsonPaths.GetTemporaryPath(tempPath));
-        var temporary = store.Load(tempPath, ProfileMigrator.ValidateRecoveryCandidate);
+        var temporary = store.Load(tempPath, ProfileFormat.ValidateRecoveryCandidate);
         Assert.Equal(AtomicJsonLoadSource.Temporary, temporary.Source);
         AssertWorldTime(temporary.Value!.Statistics.WorldTime, 2, 200, 2, 100);
     }

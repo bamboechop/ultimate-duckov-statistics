@@ -46,7 +46,7 @@ public sealed class RunsDataFoundationTests
         var profile = RoundTrip(repository.Current);
         repository.CloseClean();
         profile.Capabilities = CombatNativeContractPolicy.ToRecords(CombatNativeContractPolicy.CreateSupportedCapabilities(), "test").ToList();
-        Assert.Null(ProfileMigrator.ValidateRecoveryCandidate(profile));
+        Assert.Null(ProfileFormat.ValidateRecoveryCandidate(profile));
         var totals = profile.Statistics.RunTotals.CombatStatistics.Totals;
         Assert.Equal(3, totals.KillsByYou); Assert.Equal(2, totals.PlayerKills.Unknown);
         Assert.Equal(1, totals.PlayerKills.Throwables); Assert.Equal(0, totals.ObservedWorldDeaths);
@@ -352,43 +352,6 @@ public sealed class RunsDataFoundationTests
         kills.Validate(3);
     }
 
-    [Fact]
-    public void HistoricalAndNewRunEvidenceRemainDistinctThroughMigrationAndMerge()
-    {
-        using var h = new NativeHarness();
-        Assert.True(h.Lifecycle.RecordCombat(h.Combat("old") with { AttackKind = CombatAttackKind.Ranged, KillsByYou = 2, TargetIsEnemy = true }));
-        LevelManager.RaiseEvacuated();
-        var profile = new ProfileDocument { GenerationId = "generation", CreatedUtc = DateTime.UnixEpoch, UpdatedUtc = DateTime.UnixEpoch, Statistics = new ProfileStatistics { SaveGenerationId = "generation", CreatedUtc = DateTime.UnixEpoch, UpdatedUtc = DateTime.UnixEpoch } };
-        RunReducer.Apply(profile.Statistics, h.Completed!);
-        profile.SchemaVersion = profile.Statistics.SchemaVersion = 16;
-        foreach (var combat in CombatScopes(profile))
-            foreach (var total in CombatStatisticsReducer.PlayerKillScopes(combat)) total.PlayerKills = null!;
-        foreach (var equipment in EquipmentScopes(profile))
-            foreach (var row in equipment.CombatAssociations.Values) row.PlayerKills = null!;
-        profile.Statistics.Runs[0].TerminalLoadout = null!;
-        Assert.True(ProfileMigrator.Migrate(RoundTrip(profile)));
-        Assert.True(ProfileMigrator.Migrate(profile));
-        Assert.False(ProfileMigrator.Migrate(profile));
-        Assert.Equal(18, profile.SchemaVersion);
-        Assert.Equal(TerminalLoadoutState.HistoricalUnavailable, profile.Statistics.Runs[0].TerminalLoadout.State);
-        foreach (var combat in CombatScopes(profile))
-            foreach (var total in CombatStatisticsReducer.PlayerKillScopes(combat))
-            {
-                Assert.Equal(2, total.PlayerKills.HistoricalUnclassified);
-                Assert.Equal(0, total.PlayerKills.Unknown);
-                Assert.False(total.PlayerKills.ClassificationComplete);
-                total.PlayerKills.Validate(2);
-            }
-        using var next = new NativeHarness();
-        next.Lifecycle.RecordCombat(next.Combat("new") with { AttackKind = CombatAttackKind.Melee, KillsByYou = 1, TargetIsEnemy = true });
-        LevelManager.RaiseEvacuated();
-        RunReducer.Apply(profile.Statistics, next.Completed!);
-        Assert.True(new RunDataProjection(next.Completed!).RangedMeleeExact);
-        Assert.False(profile.Statistics.RunTotals.CombatStatistics.Totals.PlayerKills.ClassificationComplete);
-        Assert.Equal(1, profile.Statistics.RunTotals.CombatStatistics.Totals.PlayerKills.Melee);
-        Assert.Equal(2, profile.Statistics.RunTotals.CombatStatistics.Totals.PlayerKills.HistoricalUnclassified);
-    }
-
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
@@ -449,7 +412,7 @@ public sealed class RunsDataFoundationTests
         LevelManager.RaiseEvacuated();
         repository.CompleteRun(h.Completed!);
         var valid = RoundTrip(repository.Current);
-        Assert.Null(ProfileMigrator.ValidateRecoveryCandidate(valid));
+        Assert.Null(ProfileFormat.ValidateRecoveryCandidate(valid));
         var store = new AtomicJsonStore<ProfileDocument>();
         var path = Path.Combine(directory.Path, "candidate.json");
         store.Save(path, valid);
@@ -460,38 +423,10 @@ public sealed class RunsDataFoundationTests
         {
             File.Move(AtomicJsonPaths.GetBackupPath(path), AtomicJsonPaths.GetTemporaryPath(path));
         }
-        var result = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+        var result = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
         Assert.Equal(temporary ? AtomicJsonLoadSource.Temporary : AtomicJsonLoadSource.Backup, result.Source);
         Assert.Equal(1, result.Value!.Statistics.RunTotals.CombatStatistics.Totals.PlayerKills.Ranged);
         repository.CloseClean();
-    }
-
-    [Fact]
-    public void Schema16CheckpointMigrationDoesNotInferAttackKindOrTerminalTree()
-    {
-        using var directory = new TemporaryDirectory();
-        var repository = Repository(directory.Path);
-        repository.Open(Identity());
-        using var h = new NativeHarness();
-        h.Lifecycle.RecordCombat(h.Combat("kill") with { AttackKind = CombatAttackKind.Ranged, KillsByYou = 3, TargetIsEnemy = true });
-        h.CheckpointDurable = false;
-        LevelManager.RaiseEvacuated();
-        var checkpoint = RoundTrip(h.Checkpoints.Last());
-        checkpoint.SchemaVersion = 16;
-        checkpoint.TerminalLoadout = null!;
-        checkpoint.CombatStatistics.Totals.PlayerKills = null!;
-        var path = Path.Combine(Path.GetDirectoryName(repository.CurrentProfilePath!)!, "active-run.json");
-        new AtomicJsonStore<ActiveRunCheckpoint>().Save(path, checkpoint);
-        repository.CloseClean();
-        var reopened = Repository(directory.Path);
-        Assert.True(reopened.Open(Identity()).InterruptedRunRecovered);
-        var run = Assert.Single(reopened.Current.Statistics.Runs);
-        Assert.Equal(3, run.CombatStatistics.Totals.KillsByYou);
-        Assert.Equal(3, run.CombatStatistics.Totals.PlayerKills.HistoricalUnclassified);
-        Assert.Equal(0, run.CombatStatistics.Totals.PlayerKills.Ranged);
-        Assert.Equal(TerminalLoadoutState.HistoricalUnavailable, run.TerminalLoadout.State);
-        Assert.Null(run.TerminalLoadout.Snapshot);
-        reopened.CloseClean();
     }
 
     [Fact]

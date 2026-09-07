@@ -188,7 +188,7 @@ public sealed class NativeEconomyHoldingsCoordinatorTests : IDisposable
     {
         var loaded = new AtomicJsonStore<ProfileDocument>().Load(
             path,
-            ProfileMigrator.ValidateRecoveryCandidate);
+            ProfileFormat.ValidateRecoveryCandidate);
         Assert.NotNull(loaded.Value);
         return loaded.Value;
     }

@@ -1142,66 +1142,20 @@ public sealed class RouteLifecycleTests
 
     [Fact]
     [Trait("Category", "M8")]
-    public void SchemaSevenMigrationPreservesLegacyMapAsStartingMapWithoutFabricatingRoute()
-    {
-        var document = new ProfileDocument
-        {
-            SchemaVersion = 7,
-            GenerationId = "generation-1",
-            CreatedUtc = Now,
-            UpdatedUtc = Now,
-            Statistics = new ProfileStatistics
-            {
-                SchemaVersion = 7,
-                SaveGenerationId = "generation-1",
-                CreatedUtc = Now,
-                UpdatedUtc = Now,
-                Runs = new List<RunSummary>
-                {
-                    new()
-                    {
-                        SchemaVersion = 7,
-                        RunId = "legacy-run",
-                        SaveGenerationId = "generation-1",
-                        MapId = "duckov:map:A",
-                        MapDisplayName = "A",
-                        MapKnown = true,
-                        StartedUtc = Now,
-                        EndedUtc = Now.AddSeconds(10),
-                        Outcome = RunOutcome.Extracted
-                    }
-                }
-            }
-        };
-
-        Assert.True(ProfileMigrator.Migrate(document));
-        var run = Assert.Single(document.Statistics.Runs);
-        Assert.Equal(18, document.SchemaVersion);
-        Assert.Equal("duckov:map:A", run.StartingMapId);
-        Assert.Equal(MapIdentity.UnknownId, run.EndingMapId);
-        Assert.Empty(run.Segments);
-        Assert.Empty(run.RouteSignature);
-        Assert.True(run.HistoricalRouteUnavailable);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.OrderedRoute.State);
-        Assert.Equal("Route unavailable (pre-M8)", UiText.FormatRoute(run));
-    }
-
-    [Fact]
-    [Trait("Category", "M8")]
     public void CurrentSchemaSegmentRepairDisablesRouteAndPersistsIdempotentProvenance()
     {
         var run = Start("A").Apply(Event(RunLifecycleEventKind.Extracted, 5)).Completed!;
         run.Segments[0].ItemStatistics.Overall.ActivationCount = -1;
         var document = Document(run);
 
-        Assert.True(ProfileMigrator.Migrate(document));
+        Assert.True(ProfileFormat.Normalize(document));
         Assert.True(run.RouteWasRepairedFromInvalidState);
         Assert.True(run.Segments[0].WasRepairedFromInvalidState);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.OrderedRoute.State);
         Assert.Empty(run.RouteSignature);
         Assert.Equal(MapIdentity.UnknownId, run.EndingMapId);
         Assert.Equal("Route unavailable", UiText.FormatRoute(run));
-        Assert.False(ProfileMigrator.Migrate(document));
+        Assert.False(ProfileFormat.Normalize(document));
     }
 
     [Fact]
@@ -1221,7 +1175,7 @@ public sealed class RouteLifecycleTests
         });
         var document = Document(run);
 
-        Assert.True(ProfileMigrator.Migrate(document));
+        Assert.True(ProfileFormat.Normalize(document));
         Assert.Empty(run.SegmentEventAssociations);
         Assert.True(run.RouteWasRepairedFromInvalidState);
         Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.OrderedRoute.State);
@@ -1229,74 +1183,7 @@ public sealed class RouteLifecycleTests
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.RouteAwareMapTotals.State);
         Assert.Equal("A → B", UiText.FormatRoute(run));
-        Assert.False(ProfileMigrator.Migrate(document));
-    }
-
-    [Fact]
-    [Trait("Category", "M10")]
-    [Trait("Category", "Persistence")]
-    public void UnsaturatedSchemaNineRawAssociationsMigrateWithoutLoss()
-    {
-        var run = Start("A").Apply(Event(RunLifecycleEventKind.Extracted, 5)).Completed!;
-        run.SchemaVersion = 9;
-        run.SegmentEventAssociations.Add(LegacyAssociation("legacy-one", run.Segments[0], Now.AddSeconds(1)));
-        run.RouteCapabilities.CurrentEventAttributionCapture = null!;
-        var document = Document(run);
-        document.SchemaVersion = 9;
-        document.Statistics.SchemaVersion = 9;
-
-        Assert.True(ProfileMigrator.Migrate(document));
-        Assert.Equal(18, document.SchemaVersion);
-        var association = Assert.Single(run.SegmentEventAssociations);
-        Assert.Equal("legacy-one", association.EventId);
-        Assert.Equal(SegmentEventAssociationRepresentation.LegacyRaw, association.Representation);
-        Assert.Equal(1, association.Count);
-        Assert.Equal(association.TimestampUtc, association.FirstTimestampUtc);
-        Assert.Equal(association.TimestampUtc, association.LastTimestampUtc);
-        Assert.False(run.HistoricalEventAttributionIncomplete);
-        Assert.Empty(run.HistoricalEventAttributionProvenance);
-        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
-        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.CurrentEventAttributionCapture.State);
-        RunReducer.Validate(run);
-        Assert.False(ProfileMigrator.Migrate(document));
-    }
-
-    [Fact]
-    [Trait("Category", "M10")]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "Export")]
-    public void SaturatedSchemaNineHistoryKeepsExactRowsAndExplicitIncompleteProvenance()
-    {
-        var run = Start("A").Apply(Event(RunLifecycleEventKind.Extracted, 5)).Completed!;
-        run.SchemaVersion = 9;
-        for (var index = 0; index < RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun; index++)
-            run.SegmentEventAssociations.Add(LegacyAssociation($"legacy-{index}", run.Segments[0], Now.AddSeconds(1)));
-        RouteStatisticsReducer.DisableAttribution(run.RouteCapabilities, "The defensive 2048-event association bound was reached.");
-        run.RouteCapabilities.CurrentEventAttributionCapture = null!;
-        var document = Document(run);
-        document.SchemaVersion = 9;
-        document.Statistics.SchemaVersion = 9;
-
-        Assert.True(ProfileMigrator.Migrate(document));
-        Assert.Equal(RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun, run.SegmentEventAssociations.Count);
-        Assert.All(run.SegmentEventAssociations, association =>
-        {
-            Assert.Equal(SegmentEventAssociationRepresentation.LegacyRaw, association.Representation);
-            Assert.Equal(1, association.Count);
-        });
-        Assert.True(run.HistoricalEventAttributionIncomplete);
-        Assert.Contains("2,048", run.HistoricalEventAttributionProvenance, StringComparison.Ordinal);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.RouteAwareMapTotals.State);
-        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.CurrentEventAttributionCapture.State);
-        RunReducer.Validate(run);
-
-        var export = StatisticsExporter.Create(document, Now.AddMinutes(1));
-        Assert.Contains("\"HistoricalEventAttributionIncomplete\":true", export.Json);
-        Assert.Contains("LegacyRaw", export.SegmentEventsCsv);
-        Assert.Contains(",true,Supported", export.SegmentEventsCsv);
-        Assert.Contains(",Supported,", export.RoutesCsv);
-        Assert.False(ProfileMigrator.Migrate(document));
+        Assert.False(ProfileFormat.Normalize(document));
     }
 
     [Fact]
@@ -1310,13 +1197,13 @@ public sealed class RouteLifecycleTests
         var retainedOverall = run.ActiveDurationSeconds;
         var document = Document(run);
 
-        Assert.True(ProfileMigrator.Migrate(document));
+        Assert.True(ProfileFormat.Normalize(document));
         Assert.Equal(retainedOverall, run.ActiveDurationSeconds);
         Assert.Empty(run.Segments);
         Assert.Empty(run.RouteSignature);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.OrderedRoute.State);
         Assert.True(run.RouteWasRepairedFromInvalidState);
-        Assert.False(ProfileMigrator.Migrate(document));
+        Assert.False(ProfileFormat.Normalize(document));
     }
 
     [Fact]
@@ -1329,14 +1216,14 @@ public sealed class RouteLifecycleTests
         run.StartingMapId = "duckov:map:not-A";
         var document = Document(run);
 
-        Assert.True(ProfileMigrator.Migrate(document));
+        Assert.True(ProfileFormat.Normalize(document));
         Assert.Empty(run.Segments);
         Assert.Empty(run.SegmentEventAssociations);
         Assert.Empty(run.RouteSignature);
         Assert.Equal(MapIdentity.UnknownId, run.EndingMapId);
         Assert.True(run.RouteWasRepairedFromInvalidState);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.OrderedRoute.State);
-        Assert.False(ProfileMigrator.Migrate(document));
+        Assert.False(ProfileFormat.Normalize(document));
     }
 
     [Fact]
@@ -1356,7 +1243,7 @@ public sealed class RouteLifecycleTests
             TransitionExcludedDistance = -1
         };
 
-        Assert.True(ProfileMigrator.Migrate(document));
+        Assert.True(ProfileFormat.Normalize(document));
         var map = document.Statistics.RunTotals.RouteMaps["broken"];
         Assert.Equal(MapIdentity.UnknownId, map.MapId);
         Assert.Equal(0, map.RunsVisited);
@@ -1367,7 +1254,7 @@ public sealed class RouteLifecycleTests
         Assert.Equal(0, map.TransitionExcludedDistance);
         Assert.True(map.HistoricalUnavailable);
         Assert.True(map.WasRepairedFromInvalidState);
-        Assert.False(ProfileMigrator.Migrate(document));
+        Assert.False(ProfileFormat.Normalize(document));
     }
 
     [Fact]

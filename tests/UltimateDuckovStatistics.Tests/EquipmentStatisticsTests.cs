@@ -205,20 +205,6 @@ public sealed class EquipmentStatisticsTests
     }
 
     [Fact]
-    public void SchemaFiveMigrationLeavesHistoricalEquipmentUnavailable()
-    {
-        var profile = Profile(5);
-
-        Assert.True(ProfileMigrator.Migrate(profile));
-
-        Assert.Equal(18, profile.SchemaVersion);
-        var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
-        Assert.True(equipment.HistoricalUnavailable);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, equipment.Capabilities.EquipmentSlots.State);
-        Assert.Contains("predates M6", equipment.Capabilities.EquipmentSlots.Provenance);
-    }
-
-    [Fact]
     public void ToteActivationRemainsDisabledWhilePresenceIsSupported()
     {
         var capabilities = EquipmentNativeContractPolicy.CreateSupportedCapabilities();
@@ -229,7 +215,7 @@ public sealed class EquipmentStatisticsTests
     }
 
     [Fact]
-    public void EmptyCurrentGenerationUsesLiveCapabilitiesButHistoricalGenerationStaysUnavailable()
+    public void EmptyCurrentGenerationUsesLiveCapabilities()
     {
         var current = Profile(6);
         current.Capabilities = EquipmentNativeContractPolicy.ToRecords(
@@ -238,12 +224,7 @@ public sealed class EquipmentStatisticsTests
         Assert.Equal(AdapterCapabilityState.Supported, currentModel.Capabilities.EquipmentSlots.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, currentModel.Capabilities.ToteActivation.State);
 
-        var historical = Profile(5);
-        ProfileMigrator.Migrate(historical);
-        historical.Capabilities = current.Capabilities;
-        var historicalModel = EquipmentStatisticsViewModelFactory.Create(historical);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, historicalModel.Capabilities.EquipmentSlots.State);
-        Assert.Contains("predates M6", historicalModel.Capabilities.EquipmentSlots.Provenance);
+
     }
 
     [Fact]
@@ -298,9 +279,9 @@ public sealed class EquipmentStatisticsTests
     [Trait("Category", "Equipment")]
     [Trait("Category", "UI")]
     [Trait("Category", "Export")]
-    public void MissingCurrentSchemaParentRootRemainsUnavailableInViewAndExport(bool missingStatistics)
+    public void MissingCurrentParentIsRejectedBeforeNormalization(bool missingStatistics)
     {
-        var profile = Profile(6);
+        var profile = Profile(UltimateDuckovStatistics.Core.ProductInfo.SchemaVersion);
         profile.Capabilities = EquipmentNativeContractPolicy.ToRecords(
             EquipmentNativeContractPolicy.CreateSupportedCapabilities(), "current").ToList();
         if (missingStatistics)
@@ -308,22 +289,8 @@ public sealed class EquipmentStatisticsTests
         else
             profile.Statistics.RunTotals = null!;
 
-        Assert.True(ProfileMigrator.Migrate(profile));
+        Assert.NotNull(ProfileFormat.ValidateRecoveryCandidate(profile));
 
-        var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
-        var model = EquipmentStatisticsViewModelFactory.Create(profile);
-        var bundle = StatisticsExporter.Create(profile, Now);
-        using var json = JsonDocument.Parse(bundle.Json);
-        var exported = json.RootElement.GetProperty("RunTotals").GetProperty("EquipmentStatistics");
-
-        Assert.True(equipment.WasRepairedFromInvalidState);
-        Assert.False(EquipmentStatisticsReducer.IsEmpty(equipment));
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, model.Capabilities.EquipmentSlots.State);
-        Assert.Contains("repaired", model.Capabilities.EquipmentSlots.Provenance, StringComparison.OrdinalIgnoreCase);
-        Assert.True(exported.GetProperty("WasRepairedFromInvalidState").GetBoolean());
-        Assert.Equal(
-            (int)AdapterCapabilityState.DisabledIncompatible,
-            exported.GetProperty("Capabilities").GetProperty("EquipmentSlots").GetProperty("State").GetInt32());
     }
 
     [Fact]

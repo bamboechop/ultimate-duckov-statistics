@@ -134,15 +134,6 @@ public sealed class EquipmentCompositionTests
         Assert.Contains("5:Scope/", bundle.LoadoutDefinitionsCsv); Assert.Contains("ProvenActive", bundle.ActiveTotemSetDefinitionsCsv);
         Assert.Contains("duckov:slot:totem-a", bundle.TotemStateDurationsCsv);
     }
-    [Fact] public void Schema17MigrationMarksCompositionUnavailableWithoutParsingOrChangingRunSchema()
-    {
-        var profile = new ProfileDocument { GenerationId = "equipment-generation", Statistics = new ProfileStatistics { SaveGenerationId = "equipment-generation" } };
-        profile.SchemaVersion = profile.Statistics.SchemaVersion = 17;
-        profile.Statistics.RunTotals.EquipmentStatistics.Loadouts.Add("old", new EquipmentDurationAggregate { Id = "old", DisplayName = "Scope;Weapon", ActiveDurationSeconds = 10 });
-        Assert.True(ProfileMigrator.Migrate(profile)); Assert.Equal(ProductInfo.SchemaVersion, profile.SchemaVersion);
-        Assert.True(profile.Statistics.RunTotals.EquipmentStatistics.Composition.HistoricalUnavailable);
-        Assert.Empty(profile.Statistics.RunTotals.EquipmentStatistics.Composition.Loadouts);
-    }
     [Fact] public void ActiveRunRouteCheckpointCompletedRunAndLifetimeShareExactComposition()
     {
         var now = DateTime.UnixEpoch; var tracker = new RunLifecycleTracker(() => "equipment-run");

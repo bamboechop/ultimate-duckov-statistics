@@ -395,7 +395,7 @@ public sealed class ExportTests
         var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
         lifetime.Totals.FiringActions = -7;
 
-        Assert.True(ProfileMigrator.Migrate(profile));
+        Assert.True(ProfileFormat.Normalize(profile));
 
         var model = WeaponStatisticsViewModelFactory.Create(profile);
         var bundle = StatisticsExporter.Create(profile, TestTime);
@@ -430,7 +430,7 @@ public sealed class ExportTests
         var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
         lifetime.Capabilities.FiringActions.State = (AdapterCapabilityState)int.MaxValue;
 
-        Assert.True(ProfileMigrator.Migrate(profile));
+        Assert.True(ProfileFormat.Normalize(profile));
 
         var model = WeaponStatisticsViewModelFactory.Create(profile);
         var bundle = StatisticsExporter.Create(profile, TestTime);
@@ -465,18 +465,17 @@ public sealed class ExportTests
             "current",
             "profile.json");
         var profile = CreateProfile();
-        profile.SchemaVersion = 13;
-        profile.Statistics.SchemaVersion = 13;
         var lifetime = profile.Statistics.RunTotals.WeaponStatistics;
         lifetime.Weapons["weapon:corrupt"] = null!;
         lifetime.AmmunitionTypes["ammo:corrupt"] = null!;
+        Assert.True(ProfileFormat.Normalize(profile));
         new AtomicJsonStore<ProfileDocument>().Save(path, profile);
         var repository = new ProfileRepository(
             temporaryDirectory.Path,
             () => TestTime,
             () => "session-corrupt-identities");
 
-        Assert.True(repository.Open(new SaveIdentitySnapshot { Slot = 1 }).MigratedSchema);
+        Assert.False(repository.Open(new SaveIdentitySnapshot { Slot = 1 }).NormalizedProfile);
 
         lifetime = repository.Current.Statistics.RunTotals.WeaponStatistics;
         Assert.Empty(lifetime.Weapons);

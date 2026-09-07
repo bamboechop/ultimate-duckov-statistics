@@ -579,50 +579,17 @@ public sealed class M14LosslessAssociationTests
 
     [Fact]
     [Trait("Category", "M14")]
-    [Trait("Category", "Persistence")]
-    public void SchemaThirteenMigrationPreservesExactSignaturesAndMarksEveryM14ScopeHistoricallyUnavailable()
-    {
-        var tracker = Start("A", pairingSupported: false);
-        tracker.RecordShot(Shot("old", tracker, "weapon:a", "Weapon A", "ammo:x", "Ammo X", pairingSupported: false));
-        tracker.ObserveEquipment(LegacyEquipmentSnapshot("legacy-a", "signature:irreversible"));
-        Transition(tracker, 2, 4, "B");
-        tracker.ObserveEquipment(LegacyEquipmentSnapshot("legacy-b", "signature:other"));
-        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 6)).Completed!;
-        run.SchemaVersion = 13;
-        var profile = Profile(run);
-        profile.SchemaVersion = 13;
-        profile.Statistics.SchemaVersion = 13;
-
-        Assert.True(ProfileMigrator.Migrate(profile));
-
-        Assert.Equal(18, profile.SchemaVersion);
-        Assert.Equal(18, profile.Statistics.SchemaVersion);
-        Assert.Equal(14, Assert.Single(profile.Statistics.Runs).SchemaVersion);
-        foreach (var scope in M14Scopes(profile))
-        {
-            Assert.True(scope.Weapon.HistoricalPairingUnavailable);
-            Assert.True(scope.Equipment.HistoricalCharacterSlotStateUnavailable);
-            Assert.True(scope.Equipment.HistoricalNestedSlotStateUnavailable);
-            Assert.Empty(scope.Weapon.WeaponAmmunitionPairs);
-        }
-        Assert.Contains(
-            profile.Statistics.RunTotals.EquipmentStatistics.Items.Values,
-            value => value.Id.Contains("signature:irreversible", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    [Trait("Category", "M14")]
     [Trait("Category", "Recovery")]
     public void CurrentSchemaRecoveryRejectsPairReconciliationDamageBeforeSelection()
     {
         var tracker = Start("A");
         tracker.RecordShot(Shot("pair", tracker, "weapon:a", "Weapon A", "ammo:x", "Ammo X"));
         var profile = Profile(tracker.Apply(Event(RunLifecycleEventKind.Extracted, 2)).Completed!);
-        Assert.Null(ProfileMigrator.ValidateRecoveryCandidate(profile));
+        Assert.Null(ProfileFormat.ValidateRecoveryCandidate(profile));
 
         profile.Statistics.RunTotals.WeaponStatistics.WeaponAmmunitionPairs.Values.Single().FiringActions = 2;
 
-        var failure = ProfileMigrator.ValidateRecoveryCandidate(profile);
+        var failure = ProfileFormat.ValidateRecoveryCandidate(profile);
         Assert.NotNull(failure);
         Assert.Contains("invalid M14 association state", failure, StringComparison.Ordinal);
     }
@@ -637,14 +604,14 @@ public sealed class M14LosslessAssociationTests
         var tracker = Start("A");
         tracker.ObserveEquipment(EquipmentSnapshot("recovery", false, false, string.Empty, includeArmor: true));
         var profile = Profile(tracker.Apply(Event(RunLifecycleEventKind.Extracted, 2)).Completed!);
-        Assert.Null(ProfileMigrator.ValidateRecoveryCandidate(profile));
+        Assert.Null(ProfileFormat.ValidateRecoveryCandidate(profile));
 
         if (dimension == "character")
             profile.Statistics.RunTotals.EquipmentStatistics.CharacterSlotStates.Values.First().ActiveDurationSeconds += 1;
         else
             profile.Statistics.RunTotals.EquipmentStatistics.NestedSlotStates.Values.First().ActiveDurationSeconds += 1;
 
-        var failure = ProfileMigrator.ValidateRecoveryCandidate(profile);
+        var failure = ProfileFormat.ValidateRecoveryCandidate(profile);
         Assert.NotNull(failure);
         Assert.Contains("invalid M14 association state", failure, StringComparison.Ordinal);
     }

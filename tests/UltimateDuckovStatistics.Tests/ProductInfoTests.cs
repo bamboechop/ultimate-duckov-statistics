@@ -5,9 +5,10 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class ProductInfoTests
 {
     [Fact]
-    public void NativeUiVersionRetainsM17WithRunsDataSchema17()
+    public void ReleaseCandidateHasDistinctV1FormatIdentity()
     {
-        Assert.Equal("0.17.0", ProductInfo.Version);
-        Assert.Equal(18, ProductInfo.SchemaVersion);
+        Assert.Equal("1.0.0-rc.1", ProductInfo.Version);
+        Assert.Equal("uds-profile-v1", ProductInfo.ProfileFormatId);
+        Assert.Equal("v1", ProductInfo.DataDirectory);
     }
 }

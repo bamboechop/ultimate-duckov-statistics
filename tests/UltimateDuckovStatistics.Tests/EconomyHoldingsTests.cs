@@ -175,46 +175,6 @@ public sealed class EconomyHoldingsTests : IDisposable
 
     [Fact]
     [Trait("Category", "M15")]
-    public void SchemaFourteenMigrationDoesNotReconstructHoldingsFromM9Flows()
-    {
-        var profile = new ProfileDocument
-        {
-            SchemaVersion = 14,
-            GenerationId = "generation-1",
-            CreatedUtc = Now,
-            UpdatedUtc = Now,
-            Statistics = new ProfileStatistics
-            {
-                SchemaVersion = 14,
-                SaveGenerationId = "generation-1",
-                CreatedUtc = Now,
-                UpdatedUtc = Now
-            }
-        };
-        profile.Statistics.Economy.Currencies[CurrencyKind.Money.ToString()] = new CurrencyEconomyAggregate
-        {
-            Currency = CurrencyKind.Money,
-            Totals = new CurrencyFlowTotals { GrossInflow = 999 }
-        };
-        profile.Statistics.Economy.Currencies[CurrencyKind.Cash.ToString()] = new CurrencyEconomyAggregate
-        {
-            Currency = CurrencyKind.Cash,
-            Totals = new CurrencyFlowTotals { GrossInflow = 888 }
-        };
-
-        Assert.True(ProfileMigrator.Migrate(profile));
-
-        Assert.Equal(18, profile.SchemaVersion);
-        Assert.True(profile.Statistics.Holdings.HistoricalUnavailable);
-        Assert.Equal(EconomyHoldingObservationState.Unavailable, profile.Statistics.Holdings.Money.State);
-        Assert.Equal(EconomyHoldingObservationState.Unavailable, profile.Statistics.Holdings.Cash.State);
-        Assert.Null(profile.Statistics.Holdings.Money.Value);
-        Assert.Null(profile.Statistics.Holdings.Cash.Value);
-        Assert.Contains("not reconstructed", profile.Statistics.Holdings.HistoricalProvenance, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Category", "M15")]
     public void CashBuilderSumsExactTopLevelRootsAndDeduplicatesIdentityOverlap()
     {
         var roots = ConfigureReadyRoots();

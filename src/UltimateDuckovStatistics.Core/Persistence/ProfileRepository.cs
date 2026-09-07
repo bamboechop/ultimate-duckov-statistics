@@ -15,7 +15,7 @@ public sealed class ProfileOpenResult
 
     public bool RecoveredSnapshot { get; internal set; }
 
-    public bool MigratedSchema { get; internal set; }
+    public bool NormalizedProfile { get; internal set; }
 
     public bool InterruptedSessionRecovered { get; internal set; }
 
@@ -56,14 +56,6 @@ public sealed class ProfileSaveReceipt
 
 public sealed partial class ProfileRepository
 {
-    private static void MigrateEquipmentComposition(ActiveRunCheckpoint checkpoint)
-    {
-        checkpoint.EquipmentStatistics.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
-        foreach (var segment in checkpoint.Segments)
-            segment.EquipmentStatistics.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
-        if (checkpoint.TerminalLoadout?.Snapshot != null)
-            foreach (var totem in checkpoint.TerminalLoadout.Snapshot.Totems) totem.DirectSlotId ??= string.Empty;
-    }
     private static readonly TimeSpan NativeSaveIntentWindow = TimeSpan.FromSeconds(30);
     private readonly string dataRoot;
     private readonly Func<DateTime> utcNow;
@@ -122,7 +114,7 @@ public sealed partial class ProfileRepository
         currentDirectory = Path.Combine(slotDirectory, "current");
         Directory.CreateDirectory(currentDirectory);
         var profilePath = GetProfilePath(currentDirectory);
-        var loaded = profileStore.Load(profilePath, ProfileMigrator.ValidateRecoveryCandidate);
+        var loaded = profileStore.Load(profilePath, ProfileFormat.ValidateRecoveryCandidate);
         result.LoadFailures = loaded.Failures;
         result.LoadSource = loaded.Source;
 
@@ -146,7 +138,7 @@ public sealed partial class ProfileRepository
             var candidate = loaded.Value;
             try
             {
-                result.MigratedSchema = ProfileMigrator.Migrate(candidate);
+                result.NormalizedProfile = ProfileFormat.Normalize(candidate);
             }
             catch (NotSupportedException exception)
             {
@@ -182,7 +174,7 @@ public sealed partial class ProfileRepository
                     var pendingSaveCleared = candidate.PendingSave != null;
                     current.Identity = identity;
                     current.PendingSave = null;
-                    if (loaded.Recovered || result.MigratedSchema || identityChanged || pendingSaveCleared)
+                    if (loaded.Recovered || result.NormalizedProfile || identityChanged || pendingSaveCleared)
                     {
                         SaveCurrent();
                     }
@@ -193,7 +185,7 @@ public sealed partial class ProfileRepository
         ApplyConfiguredCapabilities();
         result.InterruptedRunRecovered |= RecoverInterruptedRun();
         result.InterruptedSessionRecovered |= RecoverInterruptedSession();
-        if (ProfileMigrator.CompactEconomyReplayEvidenceAfterRecovery(Current))
+        if (ProfileFormat.CompactEconomyReplayEvidenceAfterRecovery(Current))
         {
             Current.Revision++;
             Current.UpdatedUtc = EnsureUtc(utcNow());
@@ -382,7 +374,7 @@ public sealed partial class ProfileRepository
 
         pendingUserResetRollback?.Restore();
         EnsureSchemaCanBeSaved(snapshot.Document);
-        var validationFailure = ProfileMigrator.ValidateRecoveryCandidate(snapshot.Document);
+        var validationFailure = ProfileFormat.ValidateRecoveryCandidate(snapshot.Document);
         if (!string.IsNullOrWhiteSpace(validationFailure))
         {
             throw new InvalidOperationException(
@@ -481,15 +473,16 @@ public sealed partial class ProfileRepository
             throw new InvalidOperationException("No profile generation is open.");
         }
 
-        if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion
+        if (checkpoint.SchemaVersion != ProductInfo.SchemaVersion
+            || !string.Equals(checkpoint.FormatId, ProductInfo.ProfileFormatId, StringComparison.Ordinal)
             || string.IsNullOrWhiteSpace(checkpoint.RunId)
             || !string.Equals(checkpoint.SaveGenerationId, Current.GenerationId, StringComparison.Ordinal))
         {
             throw new ArgumentException("Active-run checkpoint does not match the current generation.", nameof(checkpoint));
         }
 
-        if (checkpoint.SchemaVersion == ProductInfo.SchemaVersion) RunDataSchema.Validate(checkpoint);
-        ValidateAndNormalizeRouteCheckpoint(checkpoint, requireCurrentSchemaRoots: checkpoint.SchemaVersion >= 8);
+        RunDataSchema.Validate(checkpoint);
+        ValidateAndNormalizeRouteCheckpoint(checkpoint);
 
         checkpoint.WeaponStatistics ??= new WeaponStatisticsAggregate();
         var normalization = WeaponStatisticsReducer.NormalizePersisted(checkpoint.WeaponStatistics);
@@ -544,33 +537,14 @@ public sealed partial class ProfileRepository
         checkpoint.ContainerState ??= new ContainerRunCheckpointState();
         ContainerStatisticsReducer.NormalizeCheckpoint(checkpoint.ContainerState);
         ContainerStatisticsReducer.ValidateAggregate(checkpoint.ContainerState.Statistics);
-        if (checkpoint.SchemaVersion >= 9 && checkpoint.Economy == null)
+        if (checkpoint.Economy == null)
             throw new ArgumentException("Current-schema active-run economy root is missing.", nameof(checkpoint));
-        checkpoint.Economy ??= new EconomyStatisticsAggregate
-        {
-            HistoricalUnavailable = true,
-            Capabilities = HistoricalEconomyCapabilities("Historical active-run checkpoint predates M9; economy was not recorded.")
-        };
         EconomyStatisticsReducer.ValidateRecoveryCandidate(checkpoint.Economy);
         EconomyStatisticsReducer.NormalizePersisted(checkpoint.Economy);
         EconomyStatisticsReducer.Validate(checkpoint.Economy);
-        if (checkpoint.SchemaVersion < 11)
-        {
-            ProfileMigrator.MigrateCombatOwnership(
-                checkpoint.CombatStatistics,
-                checkpoint.EquipmentStatistics);
-            foreach (var segment in checkpoint.Segments)
-            {
-                ProfileMigrator.MigrateCombatOwnership(
-                    segment.CombatStatistics,
-                    segment.EquipmentStatistics);
-            }
-        }
         if (checkpoint.PendingTerminalOutcome is { } terminalOutcome
             && !Enum.IsDefined(typeof(RunOutcome), terminalOutcome))
             throw new ArgumentException("Active-run checkpoint contains an invalid pending terminal outcome.", nameof(checkpoint));
-        if (checkpoint.SchemaVersion < 17) RunDataSchema.Migrate(checkpoint);
-        if (checkpoint.SchemaVersion < 18) MigrateEquipmentComposition(checkpoint);
         RunReducer.Validate(checkpoint.ToRecoverySummary());
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
         pendingUserResetRollback?.Restore();
@@ -974,21 +948,22 @@ public sealed partial class ProfileRepository
 
     private string? ValidateActiveRunCheckpointForRecovery(ActiveRunCheckpoint checkpoint)
     {
-        if (checkpoint.SchemaVersion == ProductInfo.SchemaVersion)
+        if (checkpoint.SchemaVersion != ProductInfo.SchemaVersion
+            || !string.Equals(checkpoint.FormatId, ProductInfo.ProfileFormatId, StringComparison.Ordinal))
+            return "Active-run checkpoint format is incompatible.";
         {
             try { RunDataSchema.Validate(checkpoint); }
-            catch (ArgumentException exception) { return $"Invalid schema-17 checkpoint: {exception.Message}"; }
+            catch (ArgumentException exception) { return $"Invalid current-format checkpoint: {exception.Message}"; }
         }
         try
         {
-            ValidateAndNormalizeRouteCheckpoint(checkpoint, requireCurrentSchemaRoots: checkpoint.SchemaVersion >= 8);
+            ValidateAndNormalizeRouteCheckpoint(checkpoint);
         }
         catch (ArgumentException exception)
         {
             return $"Active-run checkpoint contains invalid route state: {exception.Message}";
         }
 
-        if (checkpoint.SchemaVersion >= 14)
         {
             try
             {
@@ -1028,12 +1003,6 @@ public sealed partial class ProfileRepository
 
         checkpoint.CombatStatistics ??= new CombatStatisticsAggregate();
         CombatStatisticsReducer.NormalizePersisted(checkpoint.CombatStatistics);
-        if (checkpoint.SchemaVersion < 5)
-        {
-            checkpoint.CombatStatistics.Capabilities = CombatNativeContractPolicy.CreateUnavailableCapabilities(
-                "Historical active-run checkpoint predates M5; combat attribution was not recorded.");
-        }
-
         try
         {
             EquipmentStatisticsReducer.ValidateRecoveryCandidate(checkpoint.EquipmentStatistics, checkpoint.SchemaVersion);
@@ -1044,13 +1013,6 @@ public sealed partial class ProfileRepository
         }
         checkpoint.EquipmentStatistics ??= new EquipmentStatisticsAggregate();
         EquipmentStatisticsReducer.NormalizePersisted(checkpoint.EquipmentStatistics);
-        if (checkpoint.SchemaVersion < 6)
-        {
-            checkpoint.EquipmentStatistics.Capabilities = EquipmentNativeContractPolicy.CreateUnavailableCapabilities(
-                "Historical active-run checkpoint predates M6; equipment and totem state was not recorded.");
-            checkpoint.EquipmentStatistics.HistoricalUnavailable = true;
-        }
-
         try
         {
             ContainerStatisticsReducer.ValidateRecoveryCandidate(
@@ -1061,18 +1023,6 @@ public sealed partial class ProfileRepository
         {
             return $"Active-run checkpoint contains invalid container state: {exception.Message}";
         }
-        if (checkpoint.ContainerState == null)
-        {
-            checkpoint.ContainerState = new ContainerRunCheckpointState
-            {
-                Statistics = new ContainerStatisticsAggregate
-                {
-                    Capabilities = ContainerNativeContractPolicy.Unavailable(
-                        "Historical active-run checkpoint predates M7; successful unique-container access was not recorded."),
-                    HistoricalUnavailable = true
-                }
-            };
-        }
         try
         {
             ContainerStatisticsReducer.NormalizeCheckpoint(checkpoint.ContainerState);
@@ -1081,20 +1031,8 @@ public sealed partial class ProfileRepository
         {
             return $"Active-run checkpoint contains invalid container state: {exception.Message}";
         }
-        if (checkpoint.SchemaVersion < 7)
-        {
-            checkpoint.ContainerState.Statistics.Capabilities = ContainerNativeContractPolicy.Unavailable(
-                "Historical active-run checkpoint predates M7; successful unique-container access was not recorded.");
-            checkpoint.ContainerState.Statistics.HistoricalUnavailable = true;
-        }
-
-        if (checkpoint.SchemaVersion >= 9 && checkpoint.Economy == null)
+        if (checkpoint.Economy == null)
             return "Current-schema active-run economy root is missing.";
-        checkpoint.Economy ??= new EconomyStatisticsAggregate
-        {
-            HistoricalUnavailable = true,
-            Capabilities = HistoricalEconomyCapabilities("Historical active-run checkpoint predates M9; economy was not recorded.")
-        };
         try
         {
             EconomyStatisticsReducer.ValidateRecoveryCandidate(checkpoint.Economy);
@@ -1105,38 +1043,9 @@ public sealed partial class ProfileRepository
         }
         EconomyStatisticsReducer.NormalizePersisted(checkpoint.Economy);
 
-        if (checkpoint.SchemaVersion < 11)
-        {
-            ProfileMigrator.MigrateCombatOwnership(
-                checkpoint.CombatStatistics,
-                checkpoint.EquipmentStatistics);
-            foreach (var segment in checkpoint.Segments)
-            {
-                ProfileMigrator.MigrateCombatOwnership(
-                    segment.CombatStatistics,
-                    segment.EquipmentStatistics);
-            }
-            checkpoint.SchemaVersion = 11;
-        }
 
-        if (checkpoint.SchemaVersion < 14)
-        {
-            ProfileMigrator.MarkHistoricalM14Unavailable(
-                checkpoint.WeaponStatistics,
-                checkpoint.EquipmentStatistics);
-            foreach (var segment in checkpoint.Segments)
-            {
-                ProfileMigrator.MarkHistoricalM14Unavailable(
-                    segment.WeaponStatistics,
-                    segment.EquipmentStatistics);
-            }
-            checkpoint.SchemaVersion = 14;
-        }
-
-        if (checkpoint.SchemaVersion < 17) RunDataSchema.Migrate(checkpoint);
-        if (checkpoint.SchemaVersion < 18) MigrateEquipmentComposition(checkpoint);
-
-        if (checkpoint.SchemaVersion > ProductInfo.SchemaVersion)
+        if (checkpoint.SchemaVersion != ProductInfo.SchemaVersion
+            || !string.Equals(checkpoint.FormatId, ProductInfo.ProfileFormatId, StringComparison.Ordinal))
         {
             return $"Active-run checkpoint schema {checkpoint.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion}.";
         }
@@ -1171,11 +1080,9 @@ public sealed partial class ProfileRepository
     }
 
     private static void ValidateAndNormalizeRouteCheckpoint(
-        ActiveRunCheckpoint checkpoint,
-        bool requireCurrentSchemaRoots)
+        ActiveRunCheckpoint checkpoint)
     {
-        if (requireCurrentSchemaRoots
-            && (checkpoint.RouteCapabilities == null
+        if ((checkpoint.RouteCapabilities == null
                 || checkpoint.Segments == null
                 || checkpoint.SegmentEventAssociations == null
                 || checkpoint.ItemStatistics == null
@@ -1186,61 +1093,17 @@ public sealed partial class ProfileRepository
                 || checkpoint.RouteCapabilities.RouteAwareMapTotals == null
                 || string.IsNullOrWhiteSpace(checkpoint.StartingMapId)))
             throw new ArgumentException("Current-schema route roots are incomplete.", nameof(checkpoint));
-        if (checkpoint.SchemaVersion >= 10
-            && (checkpoint.RouteCapabilities.CurrentEventAttributionCapture == null
+        if ((checkpoint.RouteCapabilities.CurrentEventAttributionCapture == null
                 || checkpoint.HistoricalEventAttributionProvenance == null))
             throw new ArgumentException("Schema-10 route-association roots are incomplete.", nameof(checkpoint));
-
-        if (checkpoint.SchemaVersion < 8)
-        {
-            checkpoint.StartingMapId = checkpoint.MapId;
-            checkpoint.StartingMapDisplayName = checkpoint.MapDisplayName;
-            checkpoint.StartingMapKnown = checkpoint.MapKnown;
-            checkpoint.Segments = new List<MapSegmentSummary>();
-            checkpoint.SegmentEventAssociations = new List<SegmentEventAssociation>();
-            checkpoint.RouteCapabilities = RouteStatisticsReducer.Unavailable(
-                "Historical active-run checkpoint predates M8; route recovery is unavailable.");
-            checkpoint.HistoricalRouteUnavailable = true;
-            checkpoint.ItemStatistics = new ItemStatisticsAggregate { HistoricalUnavailable = true };
-            checkpoint.TransitionExcludedDistance = 0;
-            checkpoint.TransitionPending = false;
-            checkpoint.CurrentSegmentId = null;
-            checkpoint.MovementBaseline ??= new MovementBaselineState();
-            return;
-        }
 
         checkpoint.Segments ??= new List<MapSegmentSummary>();
         checkpoint.SegmentEventAssociations ??= new List<SegmentEventAssociation>();
         checkpoint.RouteCapabilities ??= RouteStatisticsReducer.Unavailable("Route capability record was missing.");
-        if (checkpoint.SchemaVersion < 10)
-        {
-            var legacySaturationIncomplete = checkpoint.SegmentEventAssociations.Count
-                                             == RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun
-                                             && checkpoint.RouteCapabilities.EventAttribution?.State
-                                             != AdapterCapabilityState.Supported;
-            RouteStatisticsReducer.MigrateLegacyAssociations(checkpoint.SegmentEventAssociations);
-            RouteStatisticsReducer.MigrateLegacyCaptureCapability(
-                checkpoint.RouteCapabilities,
-                legacySaturationIncomplete);
-            if (legacySaturationIncomplete)
-            {
-                checkpoint.HistoricalEventAttributionIncomplete = true;
-                checkpoint.HistoricalEventAttributionProvenance =
-                    "Schema-9 reached the 2,048-row association ceiling; retained rows are exact and later historical associations may be missing.";
-            }
-            else
-            {
-                checkpoint.HistoricalEventAttributionProvenance ??= string.Empty;
-            }
-        }
         checkpoint.ItemStatistics ??= new ItemStatisticsAggregate();
         checkpoint.MovementBaseline ??= new MovementBaselineState();
-        if (checkpoint.SchemaVersion >= 10)
-            RouteStatisticsReducer.ValidateCapabilities(checkpoint.RouteCapabilities);
-        else
-            RouteStatisticsReducer.NormalizeCapabilities(checkpoint.RouteCapabilities);
+        RouteStatisticsReducer.ValidateCapabilities(checkpoint.RouteCapabilities);
         ValidateHistoricalEventAttribution(checkpoint);
-        if (requireCurrentSchemaRoots)
         {
             ItemStatisticsAggregateReducer.Validate(checkpoint.ItemStatistics);
             if (!ItemStatisticsAggregateReducer.IsCompositionConsistent(checkpoint.ItemStatistics))
@@ -1387,6 +1250,7 @@ public sealed partial class ProfileRepository
         return new ProfileDocument
         {
             SchemaVersion = source.SchemaVersion,
+            FormatId = source.FormatId,
             GenerationId = source.GenerationId,
             Slot = source.Slot,
             GenerationReason = source.GenerationReason,
@@ -1769,21 +1633,6 @@ public sealed partial class ProfileRepository
         && !EconomyHoldingsReducer.HasObservedValue(statistics.Holdings)
         && statistics.Runs.Count == 0;
 
-    private static EconomyMetricCapabilities HistoricalEconomyCapabilities(string provenance) => new()
-    {
-        MoneyAmountDirection = Unavailable(provenance),
-        MoneySourceAttribution = Unavailable(provenance),
-        MoneyContextAttribution = Unavailable(provenance),
-        CashAmountDirection = Unavailable(provenance),
-        CashExternalAcquisition = Unavailable(provenance),
-        CashContextAttribution = Unavailable(provenance),
-        CashTerminalOutcomes = Unavailable(provenance),
-        RouteAttribution = Unavailable(provenance)
-    };
-
-    private static MetricAvailability Unavailable(string provenance) => new()
-    { State = AdapterCapabilityState.DisabledIncompatible, Provenance = provenance };
-
     private static bool IdentitiesEqual(SaveIdentitySnapshot left, SaveIdentitySnapshot right) =>
         left.Slot == right.Slot
         && left.SaveFilePresent == right.SaveFilePresent
@@ -1828,22 +1677,8 @@ public sealed partial class ProfileRepository
 
     private static void EnsureSchemaCanBeSaved(ProfileDocument profile)
     {
-        if (profile.SchemaVersion > ProductInfo.SchemaVersion)
-        {
-            throw new NotSupportedException(
-                $"Profile schema {profile.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion} and will not be saved.");
-        }
-
-        if (profile.Statistics == null)
-        {
-            throw new InvalidOperationException("Profile statistics must be normalized before saving.");
-        }
-
-        if (profile.Statistics.SchemaVersion > ProductInfo.SchemaVersion)
-        {
-            throw new NotSupportedException(
-                $"Statistics schema {profile.Statistics.SchemaVersion} is newer than supported schema {ProductInfo.SchemaVersion} and will not be saved.");
-        }
+        if (!ProfileFormat.IsCurrent(profile))
+            throw new NotSupportedException("An incompatible UDS profile format will not be saved.");
     }
 
     private static CapabilityRecord CloneCapability(CapabilityRecord source) => new()

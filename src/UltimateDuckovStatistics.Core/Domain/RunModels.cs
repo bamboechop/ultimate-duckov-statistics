@@ -187,6 +187,9 @@ public sealed class RunSummary
 [DataContract]
 public sealed class ActiveRunCheckpoint
 {
+    [DataMember(Order = 60)]
+    public string FormatId { get; set; } = ProductInfo.ProfileFormatId;
+
     [DataMember(Order = 44)] public bool HealingCaptureComplete { get; set; }
 
     [DataMember(Order = 43)] public TerminalLoadout TerminalLoadout { get; set; } = new();

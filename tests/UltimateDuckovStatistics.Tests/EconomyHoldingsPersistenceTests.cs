@@ -60,11 +60,11 @@ public sealed class EconomyHoldingsPersistenceTests
             "cash unavailable");
 
         store.Save(path, first);
-        AssertCurrent(store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!.Statistics.Holdings, 100, 10);
+        AssertCurrent(store.Load(path, ProfileFormat.ValidateRecoveryCandidate).Value!.Statistics.Holdings, 100, 10);
         store.Save(path, second);
         File.WriteAllText(path, "{ corrupt");
 
-        var backup = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+        var backup = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
         Assert.Equal(AtomicJsonLoadSource.Backup, backup.Source);
         AssertCurrent(backup.Value!.Statistics.Holdings, 100, 10);
         Assert.Equal(AdapterCapabilityState.Supported, backup.Value.Statistics.Holdings.Capabilities.Cash.State);
@@ -72,7 +72,7 @@ public sealed class EconomyHoldingsPersistenceTests
         var temporaryPath = Path.Combine(directory.Path, "temporary-profile.json");
         store.Save(temporaryPath, second);
         File.Move(temporaryPath, AtomicJsonPaths.GetTemporaryPath(temporaryPath));
-        var temporary = store.Load(temporaryPath, ProfileMigrator.ValidateRecoveryCandidate);
+        var temporary = store.Load(temporaryPath, ProfileFormat.ValidateRecoveryCandidate);
         Assert.Equal(AtomicJsonLoadSource.Temporary, temporary.Source);
         Assert.Equal(EconomyHoldingObservationState.Current, temporary.Value!.Statistics.Holdings.Money.State);
         Assert.Equal(200, temporary.Value.Statistics.Holdings.Money.Value);
@@ -98,7 +98,7 @@ public sealed class EconomyHoldingsPersistenceTests
         Assert.Contains("\"Holdings\":null", json, StringComparison.Ordinal);
         File.WriteAllText(path, json.Replace(",\"Holdings\":null", string.Empty, StringComparison.Ordinal));
 
-        var result = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+        var result = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
 
         Assert.False(result.Found);
         Assert.Contains(

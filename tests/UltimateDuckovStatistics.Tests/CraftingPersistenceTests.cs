@@ -11,29 +11,6 @@ public sealed class CraftingPersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
-    public void SchemaTwelveMigrationPreservesPriorDataAndMarksPreM13CraftingUnavailable()
-    {
-        var profile = Document("generation-1");
-        profile.SchemaVersion = 12;
-        profile.Statistics.SchemaVersion = 12;
-        profile.Statistics.Overall.ActivationCount = 42;
-        profile.Statistics.Crafting = null!;
-
-        Assert.True(ProfileMigrator.Migrate(profile));
-
-        Assert.Equal(18, profile.SchemaVersion);
-        Assert.Equal(18, profile.Statistics.SchemaVersion);
-        Assert.Equal(42, profile.Statistics.Overall.ActivationCount);
-        Assert.True(profile.Statistics.Crafting.HistoricalUnavailable);
-        Assert.Contains("predates M13", profile.Statistics.Crafting.HistoricalProvenance, StringComparison.Ordinal);
-        Assert.True(profile.Statistics.Crafting.ResourceHistoryUnavailable);
-        Assert.True(profile.Statistics.Crafting.CurrencyHistoryUnavailable);
-        Assert.Equal(0, profile.Statistics.Crafting.CompletionActions);
-        Assert.Equal(0, profile.Statistics.Crafting.ProducedQuantity);
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
     public void DeferredCraftingMutationSurvivesInterruptedAndCleanRestartExactlyOnce()
     {
         using var temporaryDirectory = new TemporaryDirectory();
@@ -147,7 +124,7 @@ public sealed class CraftingPersistenceTests
         store.Save(path, backup);
         store.Save(path, invalid);
 
-        var loaded = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+        var loaded = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
 
         Assert.Equal(AtomicJsonLoadSource.Backup, loaded.Source);
         AssertCrafting(loaded.Value!.Statistics.Crafting, 1, 2);
@@ -169,7 +146,7 @@ public sealed class CraftingPersistenceTests
         store.Save(path, backup);
         store.Save(path, invalid);
 
-        var loaded = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+        var loaded = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
 
         Assert.Equal(AtomicJsonLoadSource.Backup, loaded.Source);
         AssertCrafting(loaded.Value!.Statistics.Crafting, 1, 2);
@@ -220,7 +197,7 @@ public sealed class CraftingPersistenceTests
         store.Save(path, backup);
         store.Save(path, invalid);
 
-        var loaded = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+        var loaded = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
 
         Assert.Equal(AtomicJsonLoadSource.Backup, loaded.Source);
         AssertCrafting(loaded.Value!.Statistics.Crafting, 1, 2);
@@ -242,7 +219,7 @@ public sealed class CraftingPersistenceTests
         store.Save(path, backup);
         store.Save(path, invalid);
 
-        var loaded = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+        var loaded = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
 
         Assert.Equal(AtomicJsonLoadSource.Backup, loaded.Source);
         AssertCrafting(loaded.Value!.Statistics.Crafting, 1, 2);
@@ -279,7 +256,7 @@ public sealed class CraftingPersistenceTests
         store.Save(path, backup);
         store.Save(path, invalid);
 
-        var loaded = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+        var loaded = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
 
         Assert.Equal(AtomicJsonLoadSource.Backup, loaded.Source);
         AssertCrafting(loaded.Value!.Statistics.Crafting, 1, 2);
@@ -302,7 +279,7 @@ public sealed class CraftingPersistenceTests
         store.Save(path, backup);
         store.Save(path, invalid);
 
-        var loaded = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate);
+        var loaded = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
 
         Assert.Equal(AtomicJsonLoadSource.Backup, loaded.Source);
         AssertCrafting(loaded.Value!.Statistics.Crafting, 1, 2);
