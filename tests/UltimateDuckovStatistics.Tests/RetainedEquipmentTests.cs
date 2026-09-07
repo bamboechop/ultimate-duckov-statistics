@@ -116,7 +116,7 @@ public sealed class RetainedEquipmentTests
         Assert.Equal(99, result.Recent.Single().Duration); Assert.Empty(result.Recent.Single().Slots);
         Assert.True(result.CanRoute("g", "old")); Assert.False(result.CanRoute("other", "old")); Assert.False(result.CanRoute("g", "missing"));
         Assert.Contains("Most used during this run", result.Recent[0].Caption);
-        Assert.StartsWith(run.StartedUtc.ToLocalTime().ToString("dd.MM.yyyy - HH:mm", System.Globalization.CultureInfo.InvariantCulture), result.Recent[0].Caption);
+        Assert.StartsWith(run.StartedUtc.ToLocalTime().ToString("yyyy-MM-dd - HH:mm", System.Globalization.CultureInfo.InvariantCulture), result.Recent[0].Caption);
     }
     [Fact] public void WeaponsOrderAndNestedStatePreserveEmptyPartialAndModdedGroups()
     {
@@ -126,6 +126,10 @@ public sealed class RetainedEquipmentTests
         Assert.Contains(w.Groups, g => g.Name == "Scope" && g.Rows.Single().Name == "Nothing equipped");
         Assert.Contains(w.Groups, g => g.Name == "Modded" && g.Rows.Single().ItemId == "mod:1");
         Assert.True(w.Expandable); Assert.Equal(6, EquipmentPresentationFactory.NestedOrder("Mod"));
+        var empty = Assert.Single(Document(result, EquipmentPanelSection.Weapons, true, expand: true).Rows,
+            row => row.Name == "Nothing equipped");
+        Assert.True(empty.HasIcon); Assert.True(empty.EmptyIcon);
+        Assert.Equal(EquipmentSlotState.Empty, empty.EvidenceState);
         Assert.Equal(new[] { 0, 1, 2, 3, 4, 5 }, new[] { "Scope", "Muzzle", "Grip", "Stock", "Tactics", "Magazine" }.Select(EquipmentPresentationFactory.NestedOrder));
     }
     [Fact] public void ArmorExcludesKnownWeaponAndTotemSlotsButRetainsUnknownEmpty()
@@ -133,6 +137,9 @@ public sealed class RetainedEquipmentTests
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot(); Observe(p, s);
         var result = Present(p); Assert.Single(result.Armor); Assert.Equal("Modded slot", result.Armor[0].Name);
         Assert.Equal("Nothing equipped", result.Armor[0].Rows[0].Name); Assert.False(result.Armor[0].Rows[0].Expandable);
+        var empty = Assert.Single(Document(result, EquipmentPanelSection.ArmorAndGear).Rows,
+            row => row.Name == "Nothing equipped");
+        Assert.True(empty.HasIcon); Assert.True(empty.EmptyIcon);
     }
     [Fact] public void TotemStatesSeparateInactiveDirectPresenceAndUnknownToteFromActiveSets()
     {

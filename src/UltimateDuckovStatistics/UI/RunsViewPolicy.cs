@@ -4,7 +4,7 @@ namespace UltimateDuckovStatistics.UI;
 
 internal static class RunDateStyle
 {
-    public const string Format = "dd.MM.yyyy - HH:mm";
+    public const string Format = "yyyy-MM-dd - HH:mm";
 }
 
 internal static class RunsEvidenceLayout

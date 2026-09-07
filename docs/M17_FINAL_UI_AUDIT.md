@@ -26,7 +26,7 @@ Source: [Combat rendering](../src/UltimateDuckovStatistics/UI/RetainedCombatView
 
 Overview uses `dd.MM.yyyy - HH:mm`; Runs, Records, Economy and Item Use use `yyyy-MM-dd - HH:mm:ss`. The mocks themselves vary between ordinary run dates and technical timestamps, so there is no single literal format to copy everywhere. Equipment recent loadouts also display the run's end timestamp, while the other run cards display its start timestamp.
 
-**Implemented after approval:** player-facing run cards and Records use `dd.MM.yyyy - HH:mm`; recent Equipment loadouts now use run start time. Diagnostics and holding observations retain seconds. Export and persisted timestamps are unchanged.
+**Implemented after approval:** player-facing run cards and Records use `yyyy-MM-dd - HH:mm` (corrected after the user clarified the date-order preference); recent Equipment loadouts now use run start time. Diagnostics and holding observations retain seconds. Export and persisted timestamps are unchanged.
 
 Source: timestamp formatting in [Overview projection](../src/UltimateDuckovStatistics/UI/StatisticsPanelProjection.cs), [Runs](../src/UltimateDuckovStatistics/UI/RunsPresentation.cs), [Records](../src/UltimateDuckovStatistics/UI/RecordsPresentation.cs), [Economy](../src/UltimateDuckovStatistics/UI/EconomyPresentation.cs), [Item Use](../src/UltimateDuckovStatistics/UI/ItemUsePresentation.cs), [Equipment](../src/UltimateDuckovStatistics/UI/EquipmentPresentation.cs).
 
@@ -50,7 +50,7 @@ Source: `CombatDocument.Items`, `CombatLayoutPolicy.HasBackground` in [Combat la
 
 Both native entry mocks use “Ultimate Duckov Statistics”; the implementation deliberately has a short “Statistics” translation key. This is a confirmed naming difference, not an access failure. Chart-icon replacement exists but depends on finding a native Image under an icon-named transform; the current installed menu appearance needs visual verification before claiming that part matches.
 
-**Implemented as an approved experiment:** both menus use “Ultimate Duckov Statistics”. The single `ui.menu_entry` key can revert to “Statistics”, “UD Statistics” or “UDS” after visual feedback. Installed Duckov 2.3.30 level1 assets confirm the main-menu Settings icon is a direct sprite-bearing Image child named `Image`, separate from ProceduralImage background/hover layers. Icon replacement now targets that native image. The native HorizontalLayoutGroup controls child width from preferred measurements and retains its spacing/font metrics; final full-name appearance remains a user visual check.
+**Implemented and visually accepted:** both menus use “Ultimate Duckov Statistics”. The single `ui.menu_entry` key can revert to “Statistics”, “UD Statistics” or “UDS” if a future naming change is requested. Installed Duckov 2.3.30 level1 assets confirm the main-menu Settings icon is a direct sprite-bearing Image child named `Image`, separate from ProceduralImage background/hover layers. Icon replacement now targets that native image. The native HorizontalLayoutGroup controls child width from preferred measurements and retains its spacing/font metrics; the user confirmed the full name looks good and works.
 
 Source: `ui.menu_entry` in [UiText](../src/UltimateDuckovStatistics/UI/UiText.cs), `ApplyLocalizedButtonText` and `ApplyStatisticsIcon` in [native integration](../src/UltimateDuckovStatistics/UI/NativeUiIntegration.cs).
 
@@ -95,7 +95,15 @@ Remaining in-game checks: native menu icon and long label fit; stable button foc
 
 ### Approved medium-change delivery
 
-M1–M4 passed all 1,855 Release tests, the Duckov 2.3.30 compatibility probe, zero-warning native build and package validation. Deployed with Duckov closed; all five installed files match the package and ZIP by SHA-256. The full native-menu name remains an experiment awaiting user visual feedback.
+M1–M4 passed all 1,855 Release tests, the Duckov 2.3.30 compatibility probe, zero-warning native build and package validation. Deployed with Duckov closed; all five installed files match the package and ZIP by SHA-256. The user subsequently accepted the full native-menu name.
 
 - ZIP SHA-256: `2036335d952d6285c62bc9761ceff912e63e15e28515b7f63076a65265105f26`.
 - Native DLL SHA-256: `c98fe14327adae7b324a8bd31ebe30c37028d22b5ff3985ceed7f8a7bf39a829`.
+
+### Follow-up visual corrections
+
+Run dates use YYYY-MM-DD across all tabs; technical timestamps still include seconds. Equipment navigation rows now use the same measured text height plus 24 units of padding (minimum 64) as Combat. Nested attachment and armor/gear rows carry explicit slot evidence into the renderer, restoring the empty glyph for proven empty slots. Native menu chart icons retain their cloned tint, including the main menu pale blue. The full name is accepted.
+
+The additional Combat summary section remains unchanged: it displays positive Effect, Environmental and Unknown player-kill partitions, already included in total Kills by you. Unknown records player credit without a classified attack kind; it is not a count of unknown killers or additional world deaths.
+
+Follow-up verification: 1,855 Release tests passed; compatibility probe, zero-warning native build and package checks passed. Deployed with Duckov closed; all five package/ZIP/installed files matched. ZIP SHA-256: 5063CC80A3E139E8A05E7AEEEEEEB72EF87AEF7F038EA6385DA2E245269F06D8. Native DLL SHA-256: F208BB106D7D5B0E943929B526F3B1294ABA133A44703C4C7E50AF0B0856DF32. Updated appearance awaits user confirmation.

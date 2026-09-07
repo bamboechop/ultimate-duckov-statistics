@@ -132,6 +132,7 @@ internal sealed class EquipmentDocument
                 measure(r.Name, Math.Max(1, width - 2 * RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels),
                     RetainedOverviewLatestRunViewRunPolicy.ReferenceFontSize) + 12);
         if (r.Kind == EquipmentRowKind.SlotDuration) r.Height = r.NameHeight + 4;
+        if (r.Kind == EquipmentRowKind.Selector) r.Height = Math.Max(64, r.NameHeight + 24);
         if (r.SectionHeading) r.Height = r.NameHeight;
         Rows.Add(r); Height = Math.Max(Height, y + r.Height + 30); return r.Height + (r.Kind == EquipmentRowKind.SlotDuration ? 0 : 10);
     }
@@ -172,7 +173,7 @@ internal sealed class EquipmentDocument
         var caption = hideCaption ? "" : durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) + " " + entry.Caption : entry.Caption;
         y += Add(new EquipmentRenderRow { Id = entry.Id, Kind = EquipmentRowKind.Item, Name = entry.Name,
             Compact = compact, Plain = plain,
-            IconId = entry.ItemId, EvidenceState = evidenceState, Value = value && !durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) : "", Caption = caption,
+            IconId = entry.ItemId, EvidenceState = evidenceState ?? entry.EvidenceState, Value = value && !durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) : "", Caption = caption,
             Actionable = selection != null && entry.Expandable, Expandable = selection != null && entry.Expandable, Selected = expanded }, x, y, w);
         y += Notice(entry.Notice, x, y, w);
         if (expanded)

@@ -127,7 +127,7 @@ internal static class UiText
             ["ui.records_run_unavailable"] = "View run unavailable: the exact recorded run cannot be verified.",
             ["ui.records_no_maps"] = "No starting-map runs recorded so far",
             ["ui.title"] = "Ultimate Duckov Statistics",
-            // Full-name menu experiment; this key also makes reverting the label independent of icon/layout code.
+            // Full native-menu name accepted after in-game visual validation.
             ["ui.menu_entry"] = "Ultimate Duckov Statistics",
             ["ui.shell_placeholder"] = "The retained-mode shell is ready. Statistics view content is restored in visual correction Gate 2.",
             ["ui.shell_unavailable"] = "The statistics panel could not attach to Duckov's current UI. Tracking remains active; use Player.log for details.",

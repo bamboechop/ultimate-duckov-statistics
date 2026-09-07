@@ -158,7 +158,7 @@ public sealed class RetainedRunsTests
     {
         var run = Run("r", 1);
         var snapshot = RunsPresentationFactory.Create(Projection(run), "g", toLocal: utc => utc.AddHours(2))!;
-        Assert.Contains("01.09.2026 - 03:02", snapshot.Runs[0].Metadata);
+        Assert.Contains("2026-09-01 - 03:02", snapshot.Runs[0].Metadata);
     }
 
     [Fact]

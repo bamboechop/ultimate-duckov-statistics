@@ -422,7 +422,7 @@ internal sealed class NativeUiIntegration : IDisposable
         image.sprite = sprite;
         image.overrideSprite = sprite;
         image.preserveAspect = true;
-        image.color = Color.white;
+        // Keep the cloned native icon tint (the main menu uses pale blue).
         return true;
     }
 

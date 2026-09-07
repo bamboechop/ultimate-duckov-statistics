@@ -37,6 +37,7 @@ internal sealed class EquipmentEntry
     public string Id { get; }
     public string Name { get; }
     public string ItemId { get; }
+    public EquipmentSlotState? EvidenceState { get; }
     public double Duration { get; }
     public string Caption { get; }
     public string Notice { get; }
@@ -45,9 +46,9 @@ internal sealed class EquipmentEntry
     public string RunId { get; }
     public bool Expandable => Groups.Count > 0;
     public EquipmentEntry(string id, string name, string itemId, double duration, string caption = "", string notice = "",
-        IEnumerable<EquipmentGroup>? groups = null, IEnumerable<RunSlotPresentation>? slots = null, string runId = "")
+        IEnumerable<EquipmentGroup>? groups = null, IEnumerable<RunSlotPresentation>? slots = null, string runId = "", EquipmentSlotState? evidenceState = null)
     {
-        Id = id; Name = name; ItemId = itemId; Duration = duration; Caption = caption; Notice = notice; RunId = runId;
+        Id = id; Name = name; ItemId = itemId; Duration = duration; Caption = caption; Notice = notice; RunId = runId; EvidenceState = evidenceState;
         Groups = Array.AsReadOnly(groups?.ToArray() ?? Array.Empty<EquipmentGroup>());
         Slots = Array.AsReadOnly(slots?.ToArray() ?? Array.Empty<RunSlotPresentation>());
     }
@@ -154,7 +155,7 @@ internal static class EquipmentPresentationFactory
             .Select(g => new EquipmentGroup(SlotName(g.SlotDisplayName, g.SlotId), g.Rows.OrderBy(r => r.State).ThenByDescending(r => r.ActiveDurationSeconds)
                 .ThenBy(r => r.ItemDisplayName, StringComparer.Ordinal).ThenBy(r => r.ItemId, StringComparer.Ordinal).Select(r =>
                     new EquipmentEntry("gear:" + g.SlotId + "|" + r.ItemId, r.State == EquipmentSlotState.Empty ? t("ui.equipment_nothing") : Name(r.ItemDisplayName, r.ItemId),
-                        r.ItemId, (double)r.ActiveDurationSeconds, groups: r.State == EquipmentSlotState.Empty ? null : Nested(r.ItemId, g.SlotId, onlyObserved: true))))).ToArray();
+                        r.ItemId, (double)r.ActiveDurationSeconds, groups: r.State == EquipmentSlotState.Empty ? null : Nested(r.ItemId, g.SlotId, onlyObserved: true), evidenceState: r.State)))).ToArray();
         var direct = Totems(TotemCarryKind.DirectSlot); var tote = Totems(TotemCarryKind.ToteInventory);
         var empty = a.Composition.EmptyDirectSlots.Values.OrderBy(r => r.Id, StringComparer.Ordinal)
             .Select(r => new EquipmentEntry("empty:" + r.Id, DirectName(r.Id, r.DisplayName), "", (double)r.ActiveDurationSeconds)).ToArray();
@@ -196,7 +197,7 @@ internal static class EquipmentPresentationFactory
                 yield return new EquipmentGroup(SlotName(group.Select(r => r.SlotDisplayName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))),
                     group.GroupBy(r => (r.State, r.ItemId)).Select(g => new EquipmentEntry("nested:" + itemId + ":" + group.Key + ":" + g.Key.ItemId,
                         g.Key.State == EquipmentSlotState.Empty ? t("ui.equipment_nothing") : Name(g.Select(r => r.ItemDisplayName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))),
-                        g.Key.ItemId, Sum(g.Select(r => r.ActiveDurationSeconds))))
+                        g.Key.ItemId, Sum(g.Select(r => r.ActiveDurationSeconds)), evidenceState: g.Key.State))
                         .OrderByDescending(r => r.Duration).ThenBy(r => r.Name, StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal),
                     nestedNotice.Length > 0 ? nestedNotice : a.Composition.Loadouts.Values.Any(d => !d.Conflicting && d.Items.Any(i => i.ItemId == itemId && !i.NestedSlotStateComplete)) ? t("ui.runs_nested_partial") : "");
         }

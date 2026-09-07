@@ -4144,7 +4144,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.True(statistics.IsVisible);
         Assert.Collection(
             statistics.DisplayLines,
-            line => Assert.Equal("20.08.2026 - 09:48", line),
+            line => Assert.Equal("2026-08-20 - 09:48", line),
             line => Assert.Equal("Active time: 01:04.083", line),
             line => Assert.Equal("Distance: 271.24m", line),
             line => Assert.Equal("Kills by you: 1", line),
