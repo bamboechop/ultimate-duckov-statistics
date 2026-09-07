@@ -1,4 +1,14 @@
-# M0/M1 validation protocol
+# Validation and delivery evidence
+
+Current v1 qualification is maintained in [the M18 acceptance record](docs/M18_ACCEPTANCE.md). The frozen source starts at `443fad6a268916a6038c919501a714d1f17da371`; native gameplay/performance gates remain user-controlled. [Manual qualification](docs/M18_MANUAL_QUALIFICATION.md), [performance protocol](PERFORMANCE.md), [removal inventory](docs/M18_REMOVAL_INVENTORY.md) and [release procedure](docs/RELEASE_PROCESS.md) define the current workflow.
+
+Run `scripts/build.ps1` for complete Debug/Release main and shell suites, installed-native probing, native build and package checks. Run changed-source formatting/analyzers, source safety, ordinary-release IL/path audits, two-root reproducibility, independent ZIP extraction and deployed hash readback against the recorded source. The managed workload is run alone when its timings/memory are reported, since full-suite parallel work would contaminate those observations.
+
+The main suite exercises actual repository/coordinator/lifecycle composition for current-format install/reopen, primary/backup/temporary recovery, incompatible-format preservation, interrupted writes, generation transitions, retry/backoff, reset/export and supported metric fan-out. `UltimateDuckovStatistics.Shell.Tests` source-links the real panel/shell/overview/tab-scroll/material code and integrity probe through isolated Unity/TMP/native boundaries. Its five shell cases cover three access surfaces with oversized text, repeated open/close ownership, closed-tick measurement avoidance and generation/raid restrictions; three probe cases cover fresh native-state reads, fail-closed errors and warmed managed allocation. It does not emulate child-view rendering, native menu discovery, GPU resources or Unity Mono timing.
+
+The dated records below preserve historical delivery and performance evidence. Old commands, temporary candidate states and removed predecessor-format fixtures are not current v1 acceptance instructions. Supported format/recovery rules are those of M18; no predecessor-migration code ships.
+
+## Historical M0/M1 validation protocol
 
 This file is the authoritative, reproducible validation protocol for the consumable-usage MVP. Record evidence and timestamps in the checkpoint tables. Never edit, delete, or restore a Duckov save file while running these checks. A timestamped copy of the user-selected progressed save and its existing backups is created before gameplay testing; the source files remain untouched.
 

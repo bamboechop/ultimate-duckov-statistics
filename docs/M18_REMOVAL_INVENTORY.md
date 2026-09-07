@@ -15,10 +15,29 @@ Supported native baseline: Duckov 2.3.30 / Steam 24013657, Unity 2022.3.62f2, Ha
 | Tote-effect activation capability | Tote slot membership does not expose activation evidence | Direct equipped totem state and observed tote contents; tote activation remains Unknown. Removed the permanent disabled capability and all exclusive consumers. |
 | Crafting workstation, run/map attribution, multiple outputs, Money/Cash split capabilities | `Craft(CraftingFormula)` has one result and no workstation/run/map argument; successful payment exposes a total charge without a proven currency split | Successful actions, produced units, output/recipe/batch identity, exact paid item resources and total currency charge. Removed permanent disabled capabilities and all exclusive consumers. |
 
+| Duplicate starting-map aliases and container keys | Current lifecycle owns `StartingMap*`; container replay uses map/native key even while segment identity is unavailable | One serialized source of truth, exact cross-map deduplication and current `starting_map_*` exports. Removed legacy slot aliases, unused group repair helper and duplicate item-use context subscriptions. |
+| Unused UI formatter/composition helpers and hidden measurement | Only the removed immediate panel consumed the deleted formatters; exact composition constants were test-only consumers | Constants move into test fixtures, long labels still open the real shell, and hidden Diagnostics does no text measurement. |
+| Per-event active-mod list/LINQ materialization | Installed private `ModManager.activeMods` is a typed dictionary; native list reads Unity-live `mod.info.name` | Cache checked FieldInfo only; enumerate current manager/dictionary completely on each integrity observation. Current rules, Unity-null filtering, ordinal exclusions and fail-closed exceptions remain. |
+
 These omitted metrics are limitations of the verified baseline. They are not dormant features waiting to activate, and are not serialized or advertised as permanent failed adapters.
 
 Every major adapter owner still serves supported behavior: item use/classification; healing and shared buff attribution; runs/movement/routes; firing; combat/grenades; throwable use; equipment; containers; economy flows/holdings; world time/sleep; crafting/resources; profile lifecycle/integrity. Conditional degradation for missing Harmony, foreign patches, contract drift and partial native evidence remains necessary and independent between siblings.
 
 The runtime audit retains bounded native-state reconciliation, event-time equipment snapshots, activation-time reflective patch validation, cheap live patch-stamp checks, exact event attribution, single-flight snapshot/persistence ownership and pending-data barriers. Checkpoint cloning and serialization scale with retained evidence and history and require native high-history qualification. A confirmed terminal-write failure path now retries at 1, 2, 4, 8, 16, 32, then 60 seconds and freezes the retiring raid at its original terminal boundary. Isolated coordinator/lifecycle/economy composition tests cover failed writes, queued raid Money, subsequent base Money and exact single completion.
 
-Remaining removal and qualification work is tracked in [the M18 acceptance record](M18_ACCEPTANCE.md). This inventory does not establish native gameplay or performance acceptance.
+Qualification is tracked in [the M18 acceptance record](M18_ACCEPTANCE.md). This inventory does not establish native gameplay or performance acceptance.
+
+## Retained runtime costs
+
+| Production owner / callers | Necessary work and bound |
+| --- | --- |
+| Native adapters and attribution scopes | Accepted native callbacks preserve event-time actor, equipment, run, source/outcome and generation evidence. Correlation state is bounded and explicitly degraded when evidence cannot be retained safely. No raw unbounded event journal is used. |
+| Native patch owners / conflict checks | Full reflection and ownership validation at activation; cheap current patch-stamp checks and distributed checks on the established two-second cadence preserve fail-closed behavior after foreign changes. |
+| Equipment and holdings adapters | Native change signals coalesce; immutable equipment snapshots serve event attribution and a one-second reconciliation watchdog detects missed changes. Cash ownership traversal runs after trustworthy dirty/hydration signals; internal transfers do not invent mutations. |
+| Lifecycle / movement / world time | Cheap live control/context checks, approximately 5 Hz movement sampling and exact native clock/sleep observation distinguish active time, loading, relocation and sleep evidence. |
+| Retained UI / panel tick | Closed UI checks access and pending operations without shell measurement. Open views refresh changed generation/revision/selection/layout; measurement, projection and native controls support visible data and input. |
+| Checkpoint/profile persistence | Dirty/periodic cadence, immutable snapshot cloning, semantic validation, serialization, durable replacement and synchronous lifecycle barriers preserve crash recovery. Cost grows with retained history and must pass native high-history qualification. |
+| Failed terminal/profile-transition boundaries | Retain pending events and exact step ownership; retries at 1, 2, 4, 8, 16, 32, then 60 seconds, with bounded diagnostic cadence. A successful step resets its retry budget; blocked frame ticks do not re-run that step. |
+| Integrity and diagnostics | Observe live native rule/mod evidence where attribution requires it. Diagnostic entries/correlation caches remain bounded. Ordinary Release IL has no opt-in performance-counter call sites. |
+
+The synthetic mixed workload measures managed construction/reducer/persistence behavior with zero and 200 prior runs. Isolated shell tests track listener, private-material, input and focus release. Neither supplies native frame-time or GPU-resource acceptance.

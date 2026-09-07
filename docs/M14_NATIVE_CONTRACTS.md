@@ -93,7 +93,6 @@ M14 publishes three independent capabilities:
 
 One capability can degrade without disabling either of the others. Profile, Diagnostics, JSON, CSV, and the temporary UI expose the same state and provenance.
 
-Schema-13 and earlier data contains independent weapon/ammunition totals and irreversible M6 item-tree signatures, but no event-time pair catalog, native character-slot member catalog, or named occupied/proven-empty nested intervals. Migration preserves those prior exact totals and signatures while explicitly marking pair, named-child, and empty-slot history unavailable. It never decodes hashes, subtracts marginal totals, estimates a pair, or fills historical gaps with zero.
 
 ## Reconciliation and persistence
 

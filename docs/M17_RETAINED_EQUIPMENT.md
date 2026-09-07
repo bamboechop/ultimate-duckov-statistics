@@ -1,6 +1,6 @@
 # Retained Equipment
 
-The retained shell owns a dedicated Equipment view with four native selectors: Loadouts, Weapons, Armor & gear, and Totems. `EquipmentPresentationFactory` copies immutable presentation data from the complete factory-bound generation publication; the view does not consume the legacy IMGUI Equipment renderer. The schema-18 structured foundation is described in [M17_EQUIPMENT_DATA_FOUNDATION.md](M17_EQUIPMENT_DATA_FOUNDATION.md).
+The retained shell owns a dedicated Equipment view with four native selectors: Loadouts, Weapons, Armor & gear, and Totems. `EquipmentPresentationFactory` copies immutable presentation data from the complete factory-bound generation publication. The schema-18 structured foundation is described in [M17_EQUIPMENT_DATA_FOUNDATION.md](M17_EQUIPMENT_DATA_FOUNDATION.md).
 
 ## Sources and truthful boundaries
 

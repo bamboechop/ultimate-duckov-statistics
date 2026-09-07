@@ -1,23 +1,32 @@
 # M18 acceptance record
 
-M18 is release hardening of the completed M17 feature baseline. Starting source: `443fad6a268916a6038c919501a714d1f17da371`. Candidate source and artifact identities will be recorded after qualification. Publication is user-controlled.
+M18 hardens the completed M17 feature baseline. Starting source: `443fad6a268916a6038c919501a714d1f17da371`. Publication is user-controlled. **Native qualification remains open; M18 is not complete and the candidate is not declared production-ready.** Live delivery state belongs on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics).
 
-| Requirement | Implementation / evidence | Status |
+| Requirement | Implementation and evidence | Status |
 | --- | --- | --- |
-| Baseline | Clean starting checkout matched the verified source commit; [authoritative repository](https://github.com/bamboechop/ultimate-duckov-statistics) | Pass |
-| Native baseline | Installed probe: Duckov 2.3.30, Steam 24013657, Unity 2022.3.62f2, Harmony 2.4.1.0 | Pass |
-| Current v1 persistence only | Implemented `uds-profile-v1` in the separate `v1` data namespace; predecessor readers/fields removed through `b4011a0`. Current validation, replay cursor, partial evidence and recovery remain. Final qualification pending | Not exercised |
-| Native adapter and metric removal | Installed-contract audit and [removal inventory](M18_REMOVAL_INVENTORY.md); impossible firing/tote/crafting/Cash surfaces removed, supported siblings retained | Not exercised |
-| UI runtime cleanup | `e103d9c` deletes the unused immediate panel and appearance rejection; material ownership regressions pass. Shell access/overflow and native qualification remain | Not exercised |
-| Performance | Existing M8.1 method, 5% median / 10% p99 engineering targets and all spike/ceiling rules; final matrix must precede captures | Not exercised |
-| Build privacy and reproducibility | Normalized source paths; PE/PDB/package scans; two-checkout artifact comparison | Not exercised |
-| Automated qualification | Debug/Release, formatting/analyzers, native probe/build, source/package audits, isolated recovery/composition fixtures | Not exercised |
-| Independent review | Fresh bounded whole-system reviews, then immutable full-range integration review and correction re-review | Not exercised |
-| Final package and deployment | Independent ZIP extraction, exact inventory and hashes, UDS-only reversible deployment with Duckov closed | Not exercised |
-| User qualification | Clean/current-format install, fresh/progressed saves, access/localization, degradation, interruption/recovery, multi-map/high-history gameplay, export agreement, shutdown | Not exercised |
+| Frozen source/native baseline | Clean starting checkout; installed Duckov 2.3.30 / Steam 24013657 / Unity 2022.3.62f2 / Harmony 2.4.1.0 probe | Pass |
+| Current v1 persistence | `uds-profile-v1`, separate `v1` namespace, predecessor readers/fields removed; current semantic validation, atomic recovery, generation/reset/export and pending retry retained | Pass (automated composition); native requalification Not exercised |
+| Supported native metrics and removal | [Removal inventory](M18_REMOVAL_INVENTORY.md); impossible firing/tote/crafting/Cash surfaces and exclusive consumers removed | Pass (source/native contract review) |
+| UI runtime cleanup | Immediate renderer, appearance rejection, unused formatters/production fixture constants removed; hidden Diagnostics measurement fixed. Five real-panel/shell access and ownership regressions through isolated boundaries | Pass (isolated); native rendering/resources Not exercised |
+| Runtime cost/durability | Terminal attribution freeze and bounded terminal/transition retries; live integrity enumeration avoids a per-event list; 144,000 mixed operations with 0/200 prior runs, exact six-segment/three-map persistence/reopen | Pass (managed); native performance Not exercised |
+| Performance protocol | [Frozen 14-cell matrix](M18_CAPTURE_MATRIX.json), three B/D repetitions, existing engineering/spike/ceiling rules; campaign source/DLL/raw-data checks | Pass (prepared/tested); native captures Not exercised |
+| Artifact privacy/reproducibility | Normalized PE/PDB identities, UTF-8/UTF-16/package audits and ordinary IL diagnostic-call rejection. Earlier two-root proof passed at `6f352290c5f25a2e18b927447dd2fd5aff282bb1` | Final source/artifact proof Not exercised |
+| Complete automated qualification | Full Debug/Release suites, formatting/analyzers, installed probe, warning-free build and source safety | Final run Not exercised |
+| Independent whole-system review | Fresh native/UI and persistence/economy/world-time/crafting reviews, correction re-reviews below | Bounded reviews Pass; complete immutable M18 integration review Not exercised |
+| Package/deployment | Deterministic five-file ZIP, independent extraction, staging outside native loader scan root, verified prior backup and exact destination hash readback | Final candidate Not exercised |
+| Native user gates | [Manual sequence](M18_MANUAL_QUALIFICATION.md): fresh/current-format reinstallation, progressed/second save, gameplay, degradation, recovery, UI/export agreement, performance and clean shutdown | Not exercised |
 
-Implementation and evidence are tracked in [the removal inventory](M18_REMOVAL_INVENTORY.md). `c24275da06f81e956aa20cf75acc529607552936` fixes terminal-checkpoint retry frequency and freezes pending run attribution; isolated lifecycle/coordinator/economy tests and independent correction review passed. `9811d2c` passed 1,845 Release tests after Cash cleanup. Subsequent current-format removal slices passed their relevant suites; complete final Debug/Release qualification remains outstanding.
+## Confirmed corrections and independent re-review
 
-Independent review of `d9a90547fec74fdf5b596db0d50a82567c204c81` covered item use/healing, firing/combat/grenades/throwables, equipment, containers and integrity. It confirmed a P2 delayed-effect caller defect after a loadout swap; correction and re-review are required before acceptance. A separate whole-system persistence review is also checking transition retry cadence. These bounded reviews do not certify the final complete M18 range.
+- `c24275da06f81e956aa20cf75acc529607552936`: terminal checkpoint failure freezes original raid attribution and retries with bounded backoff; actual lifecycle/coordinator/economy regression and independent correction review passed.
+- `41f16874e9c5e0eea94dc245f5a398f90cd0ca51`: delayed effects cannot capture a later loadout as their origin. Missing origin remains unknown, with independently proven outcome retained. Correction review passed.
+- `34f1b89` and `a419c756946c6727ab7801c4408b0637623563df`: profile-transition retry/backoff and shared injected clock; exact step/generation and queued-flow tests and correction review passed.
+- `6f352290c5f25a2e18b927447dd2fd5aff282bb1`: staging/backup folders moved outside `Mods` after installed loader review showed dot-prefixed folders are still discoverable. Denied-cleanup regression and delivery re-review passed. The same commit passed byte-identical two-root DLL/PDB/ZIP comparison.
+- `eaf083bedff494d6800b142ff39f6eee6361875f`: real-shell overflow/access, 25 open/close cycles and 10,000 closed ticks through isolated boundaries passed.
+- `9a99b02d266efb39b81b9a24b8094b89584ad58c`: live integrity optimization, exact native dictionary contract and 144,000-event repository/tracker workload. Independent complete correction-range review passed with no confirmed P1/P2. Managed timing must be collected alone.
 
-Execution: persistence boundary and removal; impossible metrics and redundant/UI runtime code; measured-cost and artifact hardening; full automated qualification; independent review/corrections; exact candidate deployment and user-controlled qualification. Old captures remain immutable. No gameplay performance claim is established by synthetic tests.
+These reviews inspected production/native composition, including unchanged supported code. They do not replace the final complete-range integration review or native user qualification.
+
+## Final identities and outstanding gates
+
+Final source, Debug/Release totals, raw managed workload evidence, review range, ZIP/file hashes, reproducibility and deployment readback will be filled only from their completed final runs. The [release procedure](RELEASE_PROCESS.md) and [local data guide](LOCAL_DATA.md) are prepared. Merge, tags, release publication and Workshop upload require explicit instruction after qualification.

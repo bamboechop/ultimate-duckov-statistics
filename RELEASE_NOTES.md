@@ -1,4 +1,18 @@
-# Ultimate Duckov Statistics v0.17.0 — M17 native UI overhaul
+# Ultimate Duckov Statistics 1.0.0-rc.1 — release hardening
+
+Prepared for qualification; publication requires explicit approval and the unresolved gates in [M18 acceptance](docs/M18_ACCEPTANCE.md).
+
+The candidate establishes `uds-profile-v1` in a separate `v1` data directory, preserving older development data without importing it. It removes predecessor migrations/serialized compatibility members, impossible firing/tote/crafting/Cash-disposition metrics, the unused immediate UI and appearance-only opening checks. Current validation, recovery, generation isolation, supported sibling capabilities and honest partial/unknown evidence remain.
+
+Persistence corrections freeze pending terminal attribution and bound terminal/profile-transition retries and diagnostics. Delayed effects no longer capture a newly equipped loadout as their original source. UI cleanup removes hidden Diagnostics measurement and tests real shell access/overflow/ownership through isolated boundaries. Live integrity observations avoid rebuilding the native active-mod list without caching gameplay state.
+
+Release tooling adds normalized PE/PDB identities, builder-path scans, diagnostic-call-site rejection, deterministic ZIPs, two-root reproducibility and reversible deployment staging outside Duckov's mod-discovery root. The M18 campaign binds raw captures to exact candidate DLLs. Managed stress/recovery tests are supporting evidence; native gameplay, performance and resource qualification remain separate.
+
+## Earlier development deliveries
+
+The following records describe historical builds. Removed compatibility behavior is not a v1 import promise; live PR/release state remains on GitHub.
+
+## Ultimate Duckov Statistics v0.17.0 — M17 native UI overhaul
 
 M17 replaces the temporary milestone-by-milestone panel with the final nine-tab presentation over the M0-M16 data model plus the new Runs and Equipment foundations: Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, and Diagnostics. It adds exact-generation gating, native main-menu and base pause-menu access, configurable F8 fallback, raid rejection, localization keys with English fallback, native item icons with deterministic missing/modded fallback, responsive desktop/narrow layouts, a horizontally scrolling tab row, bounded history pages, keyboard navigation, focus/cursor restoration, and one shared panel instance.
 
@@ -126,7 +140,7 @@ M8.1 PR #9 merged into `main` without a separate v0.8.1 tag or release; its acce
 
 ---
 
-# Ultimate Duckov Statistics v0.8.1 — performance-hardening candidate
+## Ultimate Duckov Statistics v0.8.1 — completed performance hardening (included in v0.9.0)
 
 M8.1 retains every M1-M8 statistic, attribution, capability, persistence, recovery, and export contract while hardening five measured CPU hot paths. Controlled raw-frame captures show Harmony alone is indistinguishable from the clean game, but production v0.8.0 fails the matched Harmony-only ceiling at idle p99 and during a 30-round Electrified MP7 empty-space firing window. A later three-map soak also exposes a separate synchronous lifetime-profile persistence hitch on consumable completion. Both regressions are CPU-side rather than GPU-side.
 
@@ -141,7 +155,7 @@ M8.1 retains every M1-M8 statistic, attribution, capability, persistence, recove
 - Route-independent equipment continuity: losing safe map/segment context republishes one overall-only snapshot and preserves overall equipment durations and event-time associations while only route-dependent evidence degrades.
 - A frozen CapFrameX/PresentMon protocol, independent raw-frame analyzer, and compile-time diagnostic counters whose call sites are absent from ordinary production builds.
 
-## Candidate status
+## Completed qualification
 
 The complete Release suite passes 507/507. The installed Duckov 2.3.30 / Steam 24013657 / Unity 2022.3.62f2 / Harmony 2.4.1 contract probe, frame-time analyzer build, warning-free native Release build, exact-five-file package validation, changed-source formatting, route-independent equipment regressions, and ordinary-build zero-diagnostic-call proof pass. Earlier candidates identified and corrected the measured equipment, Harmony inspection, projectile reconciliation, checkpoint, lifetime-profile, and segment-cache costs. The final review correction preserves overall equipment tracking when route attribution becomes unavailable. Product commit `90384352d323e6ea19dfa607c7da18162dbcefcb` is the frozen build measured by the final campaign; its Core/native SHA-256 values are `8dd6b6b5891273a9f7807cd9239373c7ca261ee9bb7badf2b4b6ee53f18231a9` / `82a36bdbd41c584d051d637c38d89c186a238cf33c009fff0f4193f0b5b35096`.
 

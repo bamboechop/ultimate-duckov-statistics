@@ -1586,10 +1586,10 @@ public sealed partial class ProfileRepository
                 return ExpectedNativeSaveMatches(candidate.PendingSave, stored, observed);
             }
 
-            // Profiles written before content fingerprints were introduced
-            // cannot prove continuity once they contain statistics. A zero
-            // profile is harmless to adopt only when every legacy metadata
-            // observation still agrees; Open then persists the fingerprint.
+            // A failed native read can leave a stored fingerprint absent.
+            // Continuity is unproven once that profile contains statistics.
+            // A zero profile is harmless to adopt only when all stored metadata
+            // still agrees; Open then persists the newly observed fingerprint.
             return HasNoStatistics(candidate.Statistics)
                    && stored.SaveFileCreationUtcTicks == observed.SaveFileCreationUtcTicks
                    && stored.ObservedWriteUtcTicks == observed.ObservedWriteUtcTicks
