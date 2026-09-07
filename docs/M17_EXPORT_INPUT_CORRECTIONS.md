@@ -54,3 +54,9 @@ Commit `d555ade` removes unconditional control clearing during same-generation r
 Audited the other button paths: Overview retains its Latest run button; Runs and Records retain their control pools; Diagnostics retains controls by element ID; modal, tab, back, and native menu controls are not recreated on periodic projection refresh. Their ordinary selection feedback remains enabled. Final in-game audio/visual acceptance is pending.
 
 Focused tests passed 116/116; full Release tests passed 1853/1853, including seven new refresh/identity regression cases. Native build, compatibility probe, and package checks passed. Deployed on 2026-09-07 with Duckov closed; all five installed files matched package and ZIP hashes. ZIP SHA-256: `ff46e8a7b57d962858184db418605a25c6ad34be3536c3c1dec659f5f2145fcf`. Native DLL SHA-256: `4e09d4b28d9371bee3649e21efcb5774669d99e7fec1112bb291dfd0b7ec93fd`. Local logs: ignored `artifacts/m17-stable-focus/`.
+
+## Follow-up: remaining heading insets
+
+Commit `1934e6d` aligns the Runs map title, Records section headings, Combat section headings, and Equipment headings to visible native glyph ink. Layout measurement removes the same top inset so it does not become extra space below the heading. Equipment group headings also use section insets instead of ordinary row padding. Panel margins remain unchanged.
+
+Focused tests passed 478/478; full Release tests passed 1853/1853. Native build, compatibility probe, and package checks passed. Deployed on 2026-09-07 with Duckov closed; all five installed files matched their package and ZIP entries. ZIP SHA-256: `e81c98c8714a37aefc8821972a8a5695912dac5557a2bb7fba0f94f5a1c6806f`. Native DLL SHA-256: `cc062d0d680a4cc10d82d971d812a1f1449406e5786d79eb4980aff73db290f6`. Local logs: ignored `artifacts/m17-heading-insets/`. In-game heading spacing acceptance remains user-owned.
