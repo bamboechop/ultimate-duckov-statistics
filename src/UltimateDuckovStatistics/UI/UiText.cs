@@ -76,7 +76,6 @@ internal static class UiText
             ["ui.combat_environmental"] = "Environmental",
             ["ui.combat_unknown"] = "Unknown",
             ["ui.combat_historical"] = "Historical unclassified",
-            ["ui.combat_other_kills"] = "Other player-kill classifications and evidence",
             ["ui.combat_owner_othernpc"] = "Other NPC",
             ["ui.combat_owner_environmental"] = "Environmental",
             ["ui.combat_owner_unknown"] = "Unknown",

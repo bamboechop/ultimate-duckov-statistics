@@ -239,9 +239,6 @@ internal sealed class CombatDocument
         right += Heading("ui.observed_world_deaths", rx, right, cw, "(" + p.WorldTotal.Text + " " + text("ui.combat_total_suffix") + ")");
         right += Notice(text("ui.combat_world_subtitle"), rx, right, cw); right += Metrics(p.Ownership, rx, right, cw);
         right += Notice(p.OwnershipNotice, rx, right, cw);
-        y = Math.Max(left, right) + 20;
-        if (p.OtherKills.Count > 0 || p.KillNotice.Length > 0)
-        { y += Heading("ui.combat_other_kills", 30, y, w); y += Metrics(p.OtherKills, 30, y, w); Notice(p.KillNotice, 30, y, w); }
     }
     public void Table(IReadOnlyList<CombatTableRow> rows, string notice, float width, string? expanded, bool incoming, CombatPresentation p, bool stacked, CombatTableSort? sort = null)
     {

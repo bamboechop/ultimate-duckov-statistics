@@ -126,8 +126,6 @@ public sealed class RetainedCombatTests
         var result = Present(p);
         Assert.Equal(new[] { "100", "5", "3", "25%", "4", "1" }, result.Ranged.Select(m => m.Value.Text));
         Assert.Equal(new[] { "9", "6", "2" }, result.Melee.Select(m => m.Value.Text));
-        Assert.Equal(new[] { "1", "2" }, result.OtherKills.Select(m => m.Value.Text));
-        Assert.Empty(result.KillNotice);
     }
     [Fact]
     public void HistoricalOnlyKillContentIsOmittedWithoutQualifyingCurrentBuckets()
@@ -135,8 +133,7 @@ public sealed class RetainedCombatTests
         var p = Projection(); var n = p.Combat.Lifetime.Totals;
         n.PlayerKills = new PlayerKillPartition { Unknown = 2, HistoricalUnclassified = 8, HistoricalIncomplete = true }; n.KillsByYou = 10;
         var r = Present(p);
-        Assert.Single(r.OtherKills); Assert.Equal("2", r.OtherKills[0].Value.Text);
-        Assert.Equal("0", r.Ranged[2].Value.Text); Assert.Equal("0", r.Melee[2].Value.Text); Assert.Empty(r.KillNotice);
+        Assert.Equal("0", r.Ranged[2].Value.Text); Assert.Equal("0", r.Melee[2].Value.Text);
         n.PlayerKills.Ranged = 3; p.Combat.Capabilities.KillsByYou.State = AdapterCapabilityState.DisabledIncompatible;
         Assert.Equal(CombatEvidence.Partial, Present(p).Ranged[2].Value.Evidence);
         Assert.Equal("10", r.Overall[2].Value.Text);
