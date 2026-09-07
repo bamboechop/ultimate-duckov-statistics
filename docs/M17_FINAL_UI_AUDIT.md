@@ -104,6 +104,8 @@ M1–M4 passed all 1,855 Release tests, the Duckov 2.3.30 compatibility probe, z
 
 Run dates use YYYY-MM-DD across all tabs; technical timestamps still include seconds. Equipment navigation rows now use the same measured text height plus 24 units of padding (minimum 64) as Combat. Nested attachment and armor/gear rows carry explicit slot evidence into the renderer, restoring the empty glyph for proven empty slots. Native menu chart icons retain their cloned tint, including the main menu pale blue. The full name is accepted.
 
-The additional Combat summary section remains unchanged: it displays positive Effect, Environmental and Unknown player-kill partitions, already included in total Kills by you. Unknown records player credit without a classified attack kind; it is not a count of unknown killers or additional world deaths.
+The additional player-kill-classification section was subsequently removed on request. Combat Summary no longer presents its heading or rows; underlying recorded partitions and total Kills by you remain intact.
 
 Follow-up verification: 1,855 Release tests passed; compatibility probe, zero-warning native build and package checks passed. Deployed with Duckov closed; all five package/ZIP/installed files matched. ZIP SHA-256: 5063CC80A3E139E8A05E7AEEEEEEB72EF87AEF7F038EA6385DA2E245269F06D8. Native DLL SHA-256: F208BB106D7D5B0E943929B526F3B1294ABA133A44703C4C7E50AF0B0856DF32. Updated appearance awaits user confirmation.
+
+Section removal (2a667ea): all 1,855 Release tests, compatibility probe, native build and package checks passed. Deployed with Duckov closed; all five installed hashes matched the package.
