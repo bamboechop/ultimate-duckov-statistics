@@ -178,7 +178,7 @@ internal static class RunsPresentationFactory
         {
             Pair(t("ui.overview_latest_run_active_time"), Duration(run.ActiveDurationSeconds, run.LifecycleCapability == AdapterCapabilityState.Supported, t)),
             Pair(t("ui.overview_latest_run_distance"), Distance(run.PhysicalDistance, run.MovementCapability == AdapterCapabilityState.Supported, t)),
-            Pair(t("ui.overview_kills_by_you"), Count(v.KillsByYou, c.KillsByYou, combat.HistoricalOwnershipUnavailable)),
+            Pair(t("ui.overview_kills_by_you"), Count(v.KillsByYou, c.KillsByYou)),
             Pair(t("ui.runs_containers"), Containers(run.ContainerStatistics, attributionPartial, t)),
             Pair(t("ui.runs_cash_net"), cashText),
             Pair(t("ui.overview_damage_dealt"), Metric(v.DamageDealt, c.DamageDealt)),
@@ -192,7 +192,7 @@ internal static class RunsPresentationFactory
             var exact = routeExact && !segment.WasRepairedFromInvalidState;
             var eventsExact = exact && !attributionPartial && run.RouteCapabilities.EventAttribution.State == AdapterCapabilityState.Supported;
             var kills = FormatCount(segment.CombatStatistics.Totals.KillsByYou, eventsExact
-                && !segment.CombatStatistics.WasRepairedFromInvalidState && !segment.CombatStatistics.HistoricalOwnershipUnavailable
+                && !segment.CombatStatistics.WasRepairedFromInvalidState
                 && segment.CombatStatistics.Capabilities.KillsByYou.State == AdapterCapabilityState.Supported, t);
             var firing = FormatCount(segment.WeaponStatistics.Totals.FiringActions, eventsExact
                 && !segment.WeaponStatistics.WasRepairedFromInvalidState
@@ -253,7 +253,6 @@ internal static class RunsPresentationFactory
         var firingExact = !segment.WeaponStatistics.WasRepairedFromInvalidState
             && segment.WeaponStatistics.Capabilities.FiringActions.State == AdapterCapabilityState.Supported;
         var combatComplete = eventsExact && firingExact && !combat.WasRepairedFromInvalidState
-            && !combat.HistoricalOwnershipUnavailable
             && new[] { capabilities.DamageDealt, capabilities.DamageReceived, capabilities.RangedHits,
                 capabilities.MeleeSwings, capabilities.MeleeHits, capabilities.KillsByYou,
                 capabilities.Headshots, capabilities.HeadshotFinalBlows, capabilities.PlayerDeaths,
@@ -265,7 +264,7 @@ internal static class RunsPresentationFactory
             && totals.DamageCaused == 0 && totals.DamageDealt == 0 && totals.DamageReceived == 0
             && totals.RangedHits == 0 && totals.MeleeSwings == 0 && totals.MeleeHits == 0
             && totals.KillsByYou == 0 && totals.Headshots == 0 && totals.HeadshotFinalBlows == 0
-            && totals.PlayerDeaths == 0 && totals.ObservedWorldDeaths == 0 && totals.LegacyUnclassifiedDeaths == 0
+            && totals.PlayerDeaths == 0 && totals.ObservedWorldDeaths == 0
             && totals.CompletedPlayerProjectiles == 0 && segment.WeaponStatistics.Totals.FiringActions == 0;
         // A formatted exact zero is emitted only after the container evidence gates pass.
         var noContainers = combatComplete && containersComplete && containers == "0";

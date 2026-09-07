@@ -210,7 +210,6 @@ public sealed class ExportTests
         Assert.Equal("2", total["observed_world_deaths"]);
         Assert.Equal("1", companionRow["observed_world_deaths"]);
         Assert.Equal("1", equipment["kills_by_you"]);
-        Assert.Equal("0", equipment["legacy_unclassified_death_credit"]);
         Assert.Equal("1", runRow["kills_by_you"]);
         Assert.Equal("2", runRow["observed_world_deaths"]);
         Assert.Equal("1", runTotals["kills_by_you"]);

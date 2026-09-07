@@ -309,7 +309,6 @@ public sealed class CombatWeaponDetailsTests
                     DamageReceived = 121,
                     PlayerDeaths = 2,
                     ObservedWorldDeaths = 3,
-                    LegacyUnclassifiedDeaths = 1,
                     PlayerKills = new PlayerKillPartition { HistoricalIncomplete = true }
                 }
             };

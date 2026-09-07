@@ -50,7 +50,6 @@ public static class CombatStatisticsViewModelFactory
         Set(values.Accuracy, CombatCapabilityIds.Accuracy, current);
         Set(values.MeleeSwings, CombatCapabilityIds.MeleeSwings, current);
         Set(values.MeleeHits, CombatCapabilityIds.MeleeHits, current);
-        Set(values.EnemiesKilled, CombatCapabilityIds.EnemiesKilled, current);
         Set(values.PlayerDeaths, CombatCapabilityIds.PlayerDeaths, current);
         Set(values.Ownership, CombatCapabilityIds.Ownership, current);
         Set(values.EnemyIdentity, CombatCapabilityIds.EnemyIdentity, current);

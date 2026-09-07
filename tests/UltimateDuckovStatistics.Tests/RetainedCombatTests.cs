@@ -152,18 +152,6 @@ public sealed class RetainedCombatTests
         a.Ownership.Remove("Companion"); Assert.Equal(3, Present(p).Ownership.Count);
     }
     [Fact]
-    public void HistoricalOwnershipIsNeverAllocatedToModernCategories()
-    {
-        var p = Projection(); p.Combat.Lifetime.HistoricalOwnershipUnavailable = true;
-        p.Combat.Lifetime.HistoricalOwnershipProvenance = "recorded provenance";
-        p.Combat.Lifetime.Totals.LegacyUnclassifiedDeaths = 8;
-        var r = Present(p);
-        Assert.All(r.Ownership, m => Assert.Equal(CombatEvidence.Unavailable, m.Value.Evidence));
-        Assert.Equal(CombatEvidence.Unavailable, r.WorldTotal.Evidence);
-        Assert.Contains("8", r.OwnershipNotice, StringComparison.Ordinal); Assert.Contains("recorded provenance", r.OwnershipNotice, StringComparison.Ordinal);
-        Assert.DoesNotContain("8", r.Overall[2].Value.Text, StringComparison.Ordinal);
-    }
-    [Fact]
     public void EnemySortUsesAllTieBreakersAndExpansionHasNoOwnershipCrossDimension()
     {
         var p = Projection();
@@ -188,7 +176,8 @@ public sealed class RetainedCombatTests
         p.Combat.Capabilities.EnemyIdentity.State = AdapterCapabilityState.DisabledIncompatible;
         Assert.NotEqual(supported, Present(p).EnemyNotice);
         p.Combat.Capabilities.EnemyIdentity.State = AdapterCapabilityState.Supported;
-        p.Combat.Lifetime.HistoricalOwnershipUnavailable = true; Assert.NotEqual(supported, Present(p).EnemyNotice);
+        p.Combat.Lifetime.WasRepairedFromInvalidState = true;
+        Assert.NotEqual(supported, Present(p).EnemyNotice);
     }
     [Fact]
     public void WeaponsUseOverallActionsAndPairsUseTheSelectedWeaponViewDenominator()

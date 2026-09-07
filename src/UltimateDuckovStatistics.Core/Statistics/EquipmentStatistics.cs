@@ -64,11 +64,9 @@ public sealed class EquipmentCombatAssociationAggregate
     [DataMember(Order = 8)] public double DamageReceived { get; set; }
     [DataMember(Order = 9)] public long RangedHits { get; set; }
     [DataMember(Order = 10)] public long MeleeHits { get; set; }
-    [DataMember(Order = 11, EmitDefaultValue = false)] public long EnemiesKilled { get; set; }
     [DataMember(Order = 12)] public long PlayerDeaths { get; set; }
     [DataMember(Order = 13)] public string SelectedWeaponSlotId { get; set; } = string.Empty;
     [DataMember(Order = 14)] public long KillsByYou { get; set; }
-    [DataMember(Order = 15)] public long LegacyUnclassifiedDeathCredit { get; set; }
     [DataMember(Order = 16)] public PlayerKillPartition PlayerKills { get; set; } = new();
 }
 
@@ -94,8 +92,6 @@ public sealed class EquipmentStatisticsAggregate
     [DataMember(Order = 14)] public Dictionary<string, EquipmentDurationAggregate> TotemStates { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 15)] public Dictionary<string, EquipmentDurationAggregate> Slots { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 16)] public Dictionary<string, EquipmentDurationAggregate> SlottedWeapons { get; set; } = new(StringComparer.Ordinal);
-    [DataMember(Order = 17)] public bool HistoricalCombatOwnershipUnavailable { get; set; }
-    [DataMember(Order = 18)] public string HistoricalCombatOwnershipProvenance { get; set; } = string.Empty;
     [DataMember(Order = 19)] public Dictionary<string, EquipmentDurationAggregate> CharacterSlotObservedDurations { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 20)] public Dictionary<string, CharacterSlotStateDurationAggregate> CharacterSlotStates { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 21)] public Dictionary<string, EquipmentDurationAggregate> NestedSlotObservedDurations { get; set; } = new(StringComparer.Ordinal);
@@ -286,19 +282,11 @@ public static class EquipmentStatisticsReducer
             row.DamageReceived = SaturatingAdd(row.DamageReceived, value.DamageReceived);
             row.RangedHits = SaturatingAdd(row.RangedHits, value.RangedHits);
             row.MeleeHits = SaturatingAdd(row.MeleeHits, value.MeleeHits);
-            row.EnemiesKilled = SaturatingAdd(row.EnemiesKilled, value.EnemiesKilled);
             row.PlayerKills = PlayerKillPartition.Merge(row.PlayerKills, value.PlayerKills);
             row.KillsByYou = checked(row.KillsByYou + value.KillsByYou);
-            row.LegacyUnclassifiedDeathCredit = SaturatingAdd(
-                row.LegacyUnclassifiedDeathCredit,
-                value.LegacyUnclassifiedDeathCredit);
             row.PlayerDeaths = SaturatingAdd(row.PlayerDeaths, value.PlayerDeaths);
         }
         target.HistoricalUnavailable |= source.HistoricalUnavailable;
-        target.HistoricalCombatOwnershipUnavailable |= source.HistoricalCombatOwnershipUnavailable;
-        target.HistoricalCombatOwnershipProvenance = MergeProvenance(
-            target.HistoricalCombatOwnershipProvenance,
-            source.HistoricalCombatOwnershipProvenance);
         target.HistoricalCharacterSlotStateUnavailable |= source.HistoricalCharacterSlotStateUnavailable;
         target.HistoricalCharacterSlotStateProvenance = MergeProvenance(
             target.HistoricalCharacterSlotStateProvenance,
@@ -323,8 +311,6 @@ public static class EquipmentStatisticsReducer
             CurrentSnapshot = source.CurrentSnapshot == null ? null : Clone(source.CurrentSnapshot),
             HistoricalUnavailable = source.HistoricalUnavailable,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
-            HistoricalCombatOwnershipUnavailable = source.HistoricalCombatOwnershipUnavailable,
-            HistoricalCombatOwnershipProvenance = source.HistoricalCombatOwnershipProvenance,
             HistoricalCharacterSlotStateUnavailable = source.HistoricalCharacterSlotStateUnavailable,
             HistoricalCharacterSlotStateProvenance = source.HistoricalCharacterSlotStateProvenance,
             HistoricalNestedSlotStateUnavailable = source.HistoricalNestedSlotStateUnavailable,
@@ -367,40 +353,12 @@ public static class EquipmentStatisticsReducer
                 DamageReceived = value.DamageReceived,
                 RangedHits = value.RangedHits,
                 MeleeHits = value.MeleeHits,
-                EnemiesKilled = value.EnemiesKilled,
                 KillsByYou = value.KillsByYou,
                 PlayerKills = value.PlayerKills?.Clone()!,
-                LegacyUnclassifiedDeathCredit = value.LegacyUnclassifiedDeathCredit,
                 PlayerDeaths = value.PlayerDeaths
             };
         }
         return clone;
-    }
-
-    public static bool MigrateLegacyCombatOwnership(
-        EquipmentStatisticsAggregate target,
-        string provenance)
-    {
-        if (target == null) throw new ArgumentNullException(nameof(target));
-        NormalizePersisted(target);
-        var changed = false;
-        foreach (var row in target.CombatAssociations.Values)
-        {
-            if (row.EnemiesKilled <= 0) continue;
-            row.LegacyUnclassifiedDeathCredit = SaturatingAdd(
-                row.LegacyUnclassifiedDeathCredit,
-                row.EnemiesKilled);
-            row.EnemiesKilled = 0;
-            changed = true;
-        }
-        if (changed)
-        {
-            target.HistoricalCombatOwnershipUnavailable = true;
-            target.HistoricalCombatOwnershipProvenance = MergeProvenance(
-                target.HistoricalCombatOwnershipProvenance,
-                provenance);
-        }
-        return changed;
     }
 
     public static EquipmentMetricCapabilities CloneCapabilities(EquipmentMetricCapabilities value) => new()
@@ -422,11 +380,6 @@ public static class EquipmentStatisticsReducer
         if (target.Composition == null)
         {
             target.Composition = new EquipmentCompositionEvidence { HistoricalUnavailable = true };
-            changed = true;
-        }
-        if (target.HistoricalCombatOwnershipProvenance == null)
-        {
-            target.HistoricalCombatOwnershipProvenance = string.Empty;
             changed = true;
         }
         if (target.HistoricalCharacterSlotStateProvenance == null)
@@ -628,8 +581,7 @@ public static class EquipmentStatisticsReducer
             || target.NestedSlotStates?.Values.Any(row => !ValidNestedSlotState(row)) == true)
             throw new ArgumentException("Equipment checkpoint contains invalid slot-state durations.", nameof(target));
         if (target.CombatAssociations?.Values.Any(row => row == null || row.FiringActions < 0 || row.RangedHits < 0
-                || row.MeleeHits < 0 || row.EnemiesKilled < 0 || row.KillsByYou < 0
-                || row.LegacyUnclassifiedDeathCredit < 0 || row.PlayerDeaths < 0
+                || row.MeleeHits < 0 || row.KillsByYou < 0 || row.PlayerDeaths < 0
                 || !IsFinite(row.DamageDealt) || row.DamageDealt < 0
                 || !IsFinite(row.DamageReceived) || row.DamageReceived < 0) == true)
             throw new ArgumentException("Equipment checkpoint contains invalid combat-association counters.", nameof(target));
@@ -1331,9 +1283,7 @@ public static class EquipmentStatisticsReducer
             var firing = Math.Max(0, row.FiringActions);
             var ranged = Math.Max(0, row.RangedHits);
             var melee = Math.Max(0, row.MeleeHits);
-            var kills = Math.Max(0, row.EnemiesKilled);
             var playerKills = Math.Max(0, row.KillsByYou);
-            var legacyDeathCredit = Math.Max(0, row.LegacyUnclassifiedDeathCredit);
             var deaths = Math.Max(0, row.PlayerDeaths);
             var dealt = FiniteNonNegative(row.DamageDealt);
             var received = FiniteNonNegative(row.DamageReceived);
@@ -1342,9 +1292,7 @@ public static class EquipmentStatisticsReducer
                 || !string.Equals(row.TotemSetId, totems, StringComparison.Ordinal)
                 || !string.Equals(row.SelectedWeaponId, selected, StringComparison.Ordinal)
                 || !string.Equals(row.SelectedWeaponSlotId, selectedSlot, StringComparison.Ordinal)
-                || firing != row.FiringActions || ranged != row.RangedHits || melee != row.MeleeHits
-                || kills != row.EnemiesKilled || playerKills != row.KillsByYou
-                || legacyDeathCredit != row.LegacyUnclassifiedDeathCredit || deaths != row.PlayerDeaths
+                || firing != row.FiringActions || ranged != row.RangedHits || melee != row.MeleeHits || playerKills != row.KillsByYou || deaths != row.PlayerDeaths
                 || dealt != row.DamageDealt || received != row.DamageReceived) changed = true;
             if (!normalized.TryGetValue(canonicalKey, out var existing))
             {
@@ -1364,13 +1312,9 @@ public static class EquipmentStatisticsReducer
             existing.FiringActions = SaturatingAdd(existing.FiringActions, firing);
             existing.RangedHits = SaturatingAdd(existing.RangedHits, ranged);
             existing.MeleeHits = SaturatingAdd(existing.MeleeHits, melee);
-            existing.EnemiesKilled = SaturatingAdd(existing.EnemiesKilled, kills);
             existing.PlayerKills = existing.PlayerKills == null || row.PlayerKills == null
                 ? null! : PlayerKillPartition.Merge(existing.PlayerKills, row.PlayerKills);
             existing.KillsByYou = SaturatingAdd(existing.KillsByYou, playerKills);
-            existing.LegacyUnclassifiedDeathCredit = SaturatingAdd(
-                existing.LegacyUnclassifiedDeathCredit,
-                legacyDeathCredit);
             existing.PlayerDeaths = SaturatingAdd(existing.PlayerDeaths, deaths);
             existing.DamageDealt = SaturatingAdd(existing.DamageDealt, dealt);
             existing.DamageReceived = SaturatingAdd(existing.DamageReceived, received);

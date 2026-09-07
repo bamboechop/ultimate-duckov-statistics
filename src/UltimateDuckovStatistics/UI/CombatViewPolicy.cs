@@ -241,7 +241,6 @@ internal sealed class CombatDocument
         right += 20;
         right += Heading("ui.observed_world_deaths", rx, right, cw, "(" + p.WorldTotal.Text + " " + text("ui.combat_total_suffix") + ")");
         right += Notice(text("ui.combat_world_subtitle"), rx, right, cw); right += Metrics(p.Ownership, rx, right, cw);
-        right += Notice(p.OwnershipNotice, rx, right, cw);
     }
     public void Table(IReadOnlyList<CombatTableRow> rows, string notice, float width, string? expanded, bool incoming, CombatPresentation p, bool stacked, CombatTableSort? sort = null)
     {
@@ -321,9 +320,15 @@ internal sealed class CombatDocument
         if (ammunition && selection.Weapon is CombatWeapon weapon && weapon.Metrics.Count > 0)
         {
             y += 20;
-            y += Add(new CombatRenderRow { Id = "details:" + weapon.Row.Id, Kind = CombatRowKind.Selector,
-                Cells = new[] { text("ui.combat_weapon_details") }, Actionable = true, Expandable = true,
-                Selected = selection.WeaponDetailsExpanded }, 30, y, w) + 10;
+            y += Add(new CombatRenderRow
+            {
+                Id = "details:" + weapon.Row.Id,
+                Kind = CombatRowKind.Selector,
+                Cells = new[] { text("ui.combat_weapon_details") },
+                Actionable = true,
+                Expandable = true,
+                Selected = selection.WeaponDetailsExpanded
+            }, 30, y, w) + 10;
             if (selection.WeaponDetailsExpanded) Metrics(weapon.Metrics, 30, y, w);
         }
     }

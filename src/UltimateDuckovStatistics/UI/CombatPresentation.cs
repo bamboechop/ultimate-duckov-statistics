@@ -18,8 +18,10 @@ internal sealed class CombatProjectionBinding
     private readonly IReadOnlyList<WeaponAmmunitionGroupProjection> groups;
     private readonly string generation;
     public CombatProjectionBinding(StatisticsPanelProjection p)
-    { profile = p.Profile; combat = p.Combat; weapons = p.Weapons; groups = p.WeaponAmmunitionGroups; generation = profile.GenerationId;
-        combatLifetime = combat.Lifetime; combatWeapons = combatLifetime.Weapons; }
+    {
+        profile = p.Profile; combat = p.Combat; weapons = p.Weapons; groups = p.WeaponAmmunitionGroups; generation = profile.GenerationId;
+        combatLifetime = combat.Lifetime; combatWeapons = combatLifetime.Weapons;
+    }
     public bool Matches(StatisticsPanelProjection p, string current) => generation == current
         && ReferenceEquals(profile, p.Profile) && ReferenceEquals(combat, p.Combat)
         && ReferenceEquals(weapons, p.Weapons) && ReferenceEquals(groups, p.WeaponAmmunitionGroups)
@@ -84,8 +86,10 @@ internal sealed class CombatWeapon
     public bool HasRangedEvidence { get; }
     public CombatWeapon(CombatItemRow row, IEnumerable<CombatItemRow> ammunition, string notice,
         IEnumerable<CombatMetric> metrics, string actionLabel, bool hasRangedEvidence)
-    { Row = row; Ammunition = Array.AsReadOnly(ammunition.ToArray()); Notice = notice;
-        Metrics = Array.AsReadOnly(metrics.ToArray()); ActionLabel = actionLabel; HasRangedEvidence = hasRangedEvidence; }
+    {
+        Row = row; Ammunition = Array.AsReadOnly(ammunition.ToArray()); Notice = notice;
+        Metrics = Array.AsReadOnly(metrics.ToArray()); ActionLabel = actionLabel; HasRangedEvidence = hasRangedEvidence;
+    }
 }
 internal sealed class CombatPresentation
 {
@@ -96,7 +100,6 @@ internal sealed class CombatPresentation
     public IReadOnlyList<CombatMetric> Throwables { get; }
     public CombatValue WorldTotal { get; }
     public IReadOnlyList<CombatMetric> Ownership { get; }
-    public string OwnershipNotice { get; }
     public IReadOnlyList<CombatTableRow> Enemies { get; }
     public string EnemyNotice { get; }
     public IReadOnlyList<CombatWeapon> Weapons { get; }
@@ -107,14 +110,14 @@ internal sealed class CombatPresentation
     public string IncomingNotice { get; }
     public CombatPresentation(string generation, IEnumerable<CombatMetric> overall, IEnumerable<CombatMetric> ranged,
         IEnumerable<CombatMetric> melee, IEnumerable<CombatMetric> throwables, CombatValue worldTotal,
-        IEnumerable<CombatMetric> ownership, string ownershipNotice, IEnumerable<CombatTableRow> enemies, string enemyNotice,
+        IEnumerable<CombatMetric> ownership, IEnumerable<CombatTableRow> enemies, string enemyNotice,
         IEnumerable<CombatWeapon> weapons, string weaponNotice, IEnumerable<CombatMetric> incomingCards,
         CombatTableRow incomingTotal, IEnumerable<CombatTableRow> attackers, string incomingNotice)
     {
         GenerationId = generation; Overall = Freeze(overall); Ranged = Freeze(ranged); Melee = Freeze(melee);
         Throwables = Freeze(throwables);
         WorldTotal = worldTotal; Ownership = Freeze(ownership);
-        OwnershipNotice = ownershipNotice; Enemies = Freeze(enemies); EnemyNotice = enemyNotice; Weapons = Freeze(weapons);
+        Enemies = Freeze(enemies); EnemyNotice = enemyNotice; Weapons = Freeze(weapons);
         WeaponNotice = weaponNotice; IncomingCards = Freeze(incomingCards); IncomingTotal = incomingTotal;
         Attackers = Freeze(attackers); IncomingNotice = incomingNotice;
     }
@@ -154,8 +157,7 @@ internal static class CombatPresentationFactory
             M("ui.runs_headshots", C(n.Headshots, cap.Headshots)), M("ui.combat_headshot_final_blows", C(n.HeadshotFinalBlows, cap.HeadshotFinalBlows)) };
         var melee = new[] { M("ui.combat_swings", C(n.MeleeSwings, cap.MeleeSwings)), M("ui.combat_hits", C(n.MeleeHits, cap.MeleeHits)),
             M("ui.combat_kills", C(kills.Melee, cap.KillsByYou)) };
-        var history = a.HistoricalOwnershipUnavailable || n.LegacyUnclassifiedDeaths > 0;
-        var world = C(n.ObservedWorldDeaths, cap.ObservedWorldDeaths, history);
+        var world = C(n.ObservedWorldDeaths, cap.ObservedWorldDeaths);
         var ownership = new List<CombatMetric>();
         foreach (var id in new[] { "Other NPC", "Environmental", "Unknown", "Companion" })
         {
@@ -164,15 +166,13 @@ internal static class CombatPresentationFactory
             if (id == "Companion" && count == 0) continue;
             var state = Both(cap.ObservedWorldDeaths.State, cap.Ownership.State);
             ownership.Add(new CombatMetric(t("ui.combat_owner_" + id.Replace(" ", "").ToLowerInvariant()),
-                Metric(count, state, history || a.WasRepairedFromInvalidState, t)));
+                Metric(count, state, a.WasRepairedFromInvalidState, t)));
         }
-        var ownershipNotice = history ? Join(t("ui.historical_ownership_unavailable"), a.HistoricalOwnershipProvenance,
-            n.LegacyUnclassifiedDeaths > 0 ? t("ui.legacy_unclassified_deaths") + ": " + Number(n.LegacyUnclassifiedDeaths) : "") : "";
         var enemyRows = c.Enemies.OrderByDescending(r => r.Totals.KillsByYou).ThenByDescending(r => r.Totals.DamageCaused)
             .ThenByDescending(r => r.Totals.ObservedWorldDeaths).ThenBy(r => Name(r.DisplayName, r.Id, t), StringComparer.Ordinal)
             .ThenBy(r => r.Id, StringComparer.Ordinal).Select(r =>
             {
-                var wd = ScopedCount(r.Totals.ObservedWorldDeaths, cap.ObservedWorldDeaths, history);
+                var wd = ScopedCount(r.Totals.ObservedWorldDeaths, cap.ObservedWorldDeaths);
                 var values = new[] { V(r.Totals.DamageCaused, cap.EnemyIdentity), ScopedCount(r.Totals.KillsByYou, cap.KillsByYou), wd };
                 return new CombatTableRow(r.Id, Name(r.DisplayName, r.Id, t), values,
                     t("ui.combat_enemy_world") + ": " + wd.Text + "\n" + t("ui.combat_ownership_unavailable"),
@@ -180,7 +180,7 @@ internal static class CombatPresentationFactory
                     kills: values[1].Evidence == CombatEvidence.Unavailable ? null : r.Totals.KillsByYou,
                     world: wd.Evidence == CombatEvidence.Unavailable ? null : r.Totals.ObservedWorldDeaths);
             }).ToArray();
-        var enemyNotice = Notice(enemyRows.Length, "ui.combat_no_enemies", history || a.WasRepairedFromInvalidState,
+        var enemyNotice = Notice(enemyRows.Length, "ui.combat_no_enemies", a.WasRepairedFromInvalidState,
             new[] { cap.EnemyIdentity, cap.KillsByYou, cap.ObservedWorldDeaths }, t);
         var sources = new List<(WeaponAmmunitionGroupProjection? Fire, CombatBreakdownAggregate? Combat, string Id)>();
         var throwableItems = p.Profile.Statistics.Items.Where(pair => pair.Key == pair.Value.ItemId
@@ -251,7 +251,7 @@ internal static class CombatPresentationFactory
                     metrics.Add(M(rangedWeapon ? "ui.combat_melee_hits" : "ui.combat_hits", Count(row => row.MeleeHits, cap.MeleeHits)));
                 }
                 metrics.Add(M("ui.kills_by_you", Count(row => row.KillsByYou, cap.KillsByYou,
-                    a.HistoricalOwnershipUnavailable || stats?.PlayerKills.HistoricalIncomplete == true || stats?.LegacyUnclassifiedDeaths > 0)));
+                    stats?.PlayerKills.HistoricalIncomplete == true)));
                 metrics.Add(M("ui.overview_damage_dealt", stats == null ? Unavailable() : Metric(stats.DamageDealt,
                     Both(cap.DamageDealt.State, cap.WeaponIdentity.State), a.WasRepairedFromInvalidState || unattributed.Any(row => row.DamageDealt > 0), t)));
                 var actionLabel = throwable ? t("ui.combat_throwable_uses") : rangedWeapon ? t("ui.firing_actions") : meleeWeapon ? t("ui.combat_swings") : "";
@@ -311,8 +311,8 @@ internal static class CombatPresentationFactory
                 deaths: values[2].Evidence == CombatEvidence.Unavailable ? null : r.Totals.PlayerDeaths);
         }).ToArray();
         return new CombatPresentation(generation, overall, ranged, melee,
-            new[] { M("ui.combat_kills", C(kills.Throwables, cap.ThrowableKills)) }, world, ownership, ownershipNotice,
-            enemyRows, Join(enemyNotice, ownershipNotice), weaponRows, weaponNotice,
+            new[] { M("ui.combat_kills", C(kills.Throwables, cap.ThrowableKills)) }, world, ownership,
+            enemyRows, enemyNotice, weaponRows, weaponNotice,
             new[] { M("ui.overview_damage_taken", received), M("ui.overview_deaths", deaths), M("ui.combat_attacker_types", attackerCount), M("ui.combat_deadliest", deadliest) },
             new CombatTableRow("total", t("ui.combat_total"), new[] { received, Share(n.DamageReceived), deaths }), incoming,
             Notice(incoming.Length, "ui.combat_no_attackers", a.WasRepairedFromInvalidState,

@@ -34,7 +34,6 @@ internal static class DiagnosticsCapabilityCatalog
         new("native-projectile-accuracy", "combat", "Projectile accuracy"),
         new("native-melee-swings", "combat", "Melee swings"),
         new("native-melee-hits", "combat", "Melee hits"),
-        new("native-enemies-killed", "combat", "Legacy enemy-kill metric", true),
         new("native-player-deaths", "combat", "Player deaths"),
         new("native-combat-ownership", "combat", "Damage ownership"),
         new("native-enemy-identity", "combat", "Enemy identity"),

@@ -1619,10 +1619,8 @@ public sealed partial class ProfileRepository
         && statistics.RunTotals.CombatStatistics.Totals.DamageReceived == 0
         && statistics.RunTotals.CombatStatistics.Totals.CompletedPlayerProjectiles == 0
         && statistics.RunTotals.CombatStatistics.Totals.MeleeSwings == 0
-        && statistics.RunTotals.CombatStatistics.Totals.EnemiesKilled == 0
         && statistics.RunTotals.CombatStatistics.Totals.KillsByYou == 0
         && statistics.RunTotals.CombatStatistics.Totals.ObservedWorldDeaths == 0
-        && statistics.RunTotals.CombatStatistics.Totals.LegacyUnclassifiedDeaths == 0
         && statistics.RunTotals.CombatStatistics.Totals.PlayerDeaths == 0
         && EquipmentStatisticsReducer.IsEmpty(statistics.RunTotals.EquipmentStatistics)
         && ContainerStatisticsReducer.IsEmpty(statistics.RunTotals.ContainerStatistics)
