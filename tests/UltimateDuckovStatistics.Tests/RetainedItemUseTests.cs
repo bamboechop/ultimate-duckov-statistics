@@ -52,6 +52,19 @@ public sealed class RetainedItemUseTests
         Assert.All(p.Groups.Where(group => group.Group != CanonicalItemGroup.Healing), group => Assert.Equal("0", group.Uses.Text));
     }
 
+    [Theory]
+    [InlineData(180)]
+    [InlineData(600)]
+    public void ValueFirstStatisticsReserveWrappedValueBeforeTheirLabel(float width)
+    {
+        var document = Document();
+        var row = new ItemUseRenderRow { Kind = ItemUseRowKind.Statistic, ValueFirst = true,
+            Name = "AMOUNT USED", Value = "322.419 durability" };
+        document.Add(row, 0, 0, width);
+        Assert.True(row.NameTop >= row.ValueTop + row.ValueHeight);
+        Assert.True(row.Height >= row.NameTop + row.NameHeight + 12);
+    }
+
     [Fact]
     public void ExactIdsStaySeparateAndInt64CountsSortWithoutDoubleConversion()
     {

@@ -53,7 +53,7 @@ internal static class EconomyLayoutPolicy
         _ => EconomyPresentationFactory.Number(row.Net, true) };
 }
 
-internal enum EconomyElementKind { Text, RunToggle, Route, Badge, MoneyIcon, CashIcon }
+internal enum EconomyElementKind { Text, RunToggle, Route, Badge, MoneyIcon, CashIcon, Chevron }
 internal enum EconomyTextAlignment { Left, Center, Right }
 
 internal sealed class EconomyElement
@@ -235,7 +235,8 @@ internal sealed class EconomyDocument
             var routeTop = titleTop + (titleHeight - routeHeight) / 2;
             var headerHeight = Math.Max(96, metaTop + metaHeight - y + 12);
             Add(new EconomyElement { Kind = EconomyElementKind.RunToggle, Id = run.RunId, Selected = selected }, 30, y, inner, headerHeight);
-            Label(selected ? "⌄" : "›", 45, top, 24, 28, alignment: EconomyTextAlignment.Center);
+            Add(new EconomyElement { Kind = EconomyElementKind.Chevron, Text = "›", Selected = selected },
+                45, top, 24, measure("›", 24, 28));
             Add(new EconomyElement { Kind = EconomyElementKind.Badge, Outcome = run.Outcome, Text = badgeText }, 77, top, badgeWidth, badgeHeight);
             Label(run.Title, titleLeft, titleTop + (titleHeight - measure(run.Title, titleWidth, 34)) / 2, titleWidth, 34, id: "run:" + run.RunId + ":title");
             Label(run.Metadata, 50, metaTop, inner - 40, 22, !selected, id: "run:" + run.RunId + ":metadata");

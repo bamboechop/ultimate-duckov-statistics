@@ -67,6 +67,15 @@ public sealed class RetainedDiagnosticsTests
     }
 
     [Fact]
+    public void AvailableMenuEntryPublishesWorkingColorEvenWhenSiblingIsUnavailable()
+    {
+        var runtime = Runtime(); runtime.BaseMenu = NativeMenuIntegrationState.Unavailable;
+        var menu = Present(Profile(), runtime).Systems.Single(s => s.Id == "menu");
+        Assert.Equal(DiagnosticsHealth.Working, menu.ExtraRows[0].Health);
+        Assert.Equal(DiagnosticsHealth.Limited, menu.ExtraRows[1].Health);
+    }
+
+    [Fact]
     public void RealNativeInitializationAndSupportedFactoriesHaveNoFalseTrackingError()
     {
         var oldVersion = UnityEngine.Application.version;

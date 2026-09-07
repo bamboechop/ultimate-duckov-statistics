@@ -27,7 +27,8 @@ internal sealed partial class RetainedStatisticsShell
         private readonly Material material;
         private readonly CombatNativeTextMeasurement measure;
         private readonly PanelOperationController operations;
-        private readonly Action changeHotkey, copyExportPath, focusTabs;
+        private readonly Action changeHotkey, copyExportPath, copyDataPath, focusTabs;
+        private readonly string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         private readonly DiagnosticsSelection selection = new();
         private readonly Dictionary<string, Element> elements = new(StringComparer.Ordinal);
         private readonly List<string> leftButtons = new(), rightButtons = new();
@@ -45,10 +46,10 @@ internal sealed partial class RetainedStatisticsShell
         private static Color Green => new Color32(113, 192, 62, 255);
 
         public DiagnosticsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material,
-            PanelOperationController operations, Action changeHotkey, Action copyExportPath, Action focusTabs)
+            PanelOperationController operations, Action changeHotkey, Action copyExportPath, Action copyDataPath, Action focusTabs)
         {
             this.typography = typography; this.material = material; this.operations = operations;
-            this.changeHotkey = changeHotkey; this.copyExportPath = copyExportPath; this.focusTabs = focusTabs;
+            this.changeHotkey = changeHotkey; this.copyExportPath = copyExportPath; this.copyDataPath = copyDataPath; this.focusTabs = focusTabs;
             root = Node(parent, "DiagnosticsContentView");
             outer = new ScrollRegion(root, "DiagnosticsOuter", radius: 20); RoundedMask(outer);
             left = new ScrollRegion(outer.Content, "DataAndTechnicalColumn", radius: 20); RoundedMask(left);
@@ -164,19 +165,26 @@ internal sealed partial class RetainedStatisticsShell
             var y = 30 + Label(settings, "settings:title", UiText.Get("ui.data_settings"), 30, 30, w - 60, 46.3f) + 20;
             y += Value(settings, "profile", new DiagnosticsValue(UiText.Get("ui.diag_current_profile"), snapshot.ProfileLabel), 30, y, w - 60);
             y += Value(settings, "saved", new DiagnosticsValue(UiText.Get("ui.diag_last_saved"), snapshot.LastSaved), 30, y, w - 60);
-            y += Value(settings, "data", new DiagnosticsValue(UiText.Get("ui.data_path"), snapshot.DataRoot), 30, y, w - 60);
+            var copyDataText = UiText.Get("ui.diag_copy_path");
+            var copyDataWidth = Math.Min((w - 80) / 2, measure.Width(copyDataText, 23) + 40);
+            var copyDataHeight = Math.Max(45, measure.Height(copyDataText, copyDataWidth - 40, 23) + 16);
+            var dataHeight = Value(settings, "data", new DiagnosticsValue(UiText.Get("ui.data_path"), "…/UltimateDuckovStatistics"), 30, y, w - 80 - copyDataWidth);
+            Button(settings, "action:copy-data", copyDataText, w - 30 - copyDataWidth, y, copyDataWidth, copyDataHeight,
+                Blue, copyDataPath, false, operations.CanStart, 23, true, 23);
+            y += Math.Max(dataHeight, copyDataHeight) + 10;
             var hotkeyLabel = UiText.Get("ui.diag_hotkey_hint");
-            var chipWidth = Math.Min(w - 60, Math.Max(68, measure.Width(snapshot.Hotkey, 28) + 32));
+            var chipWidth = Math.Min(w - 60, Math.Max(68, measure.Width(snapshot.Hotkey, 28) + 40));
             var labelWidth = Math.Max(1, w - 80 - chipWidth);
-            var hh = Math.Max(50, Label(settings, "hotkey:label", hotkeyLabel, 30, y + 8, labelWidth, 30));
+            var hh = Math.Max(measure.Height(snapshot.Hotkey, chipWidth - 40, 28) + 16,
+                Math.Max(50, Label(settings, "hotkey:label", hotkeyLabel, 30, y + 8, labelWidth, 30) + 16));
             Button(settings, "action:hotkey", snapshot.Hotkey, w - 30 - chipWidth, y, chipWidth, hh, Blue,
                 changeHotkey, false, operations.CanStart, size: 28, centered: true, radius: 25);
             y += hh + 28;
             var exportText = UiText.Get("ui.diag_export"); var resetText = UiText.Get("ui.diag_reset");
-            var ew = Math.Min(w - 60, measure.Width(exportText, 25) + 36); var rw = Math.Min(w - 60, measure.Width(resetText, 25) + 36);
+            var ew = Math.Min(w - 60, measure.Width(exportText, 25) + 40); var rw = Math.Min(w - 60, measure.Width(resetText, 25) + 40);
             var row = RunsFlowLayout.Arrange(w - 60, new[] { (ew, 50f), (rw, 50f) }, 20);
-            var exportHeight = Math.Max(50, measure.Height(exportText, ew - 32, 25) + 16);
-            var resetHeight = Math.Max(50, measure.Height(resetText, rw - 32, 25) + 16);
+            var exportHeight = Math.Max(50, measure.Height(exportText, ew - 40, 25) + 16);
+            var resetHeight = Math.Max(50, measure.Height(resetText, rw - 40, 25) + 16);
             Button(settings, "action:export", exportText, 30, y, ew, exportHeight, Blue,
                 () => { operations.RequestExport(); dirty = true; }, false, operations.CanStart, size: 25, centered: true, radius: 25);
             var resetY = row[1].Y > 0 ? y + exportHeight + 10 : y;
@@ -189,9 +197,9 @@ internal sealed partial class RetainedStatisticsShell
                     notice.Outcome == PanelOperationOutcome.Failure ? Red : notice.Outcome == PanelOperationOutcome.Success ? Green : Muted) + 10;
                 if (notice.Path.Length > 0)
                 {
-                    y += Label(settings, "operation:path", notice.Path, 30, y, w - 60, 22) + 10;
+                    y += Label(settings, "operation:path", DiagnosticsPathPrivacy.ShortPath(notice.Path), 30, y, w - 60, 22) + 10;
                     var copy = UiText.Get("ui.diag_copy_path");
-                    var bw = Math.Min(w - 60, measure.Width(copy, 23) + 32); var bh = Math.Max(45, measure.Height(copy, bw - 32, 23) + 16);
+                    var bw = Math.Min(w - 60, measure.Width(copy, 23) + 40); var bh = Math.Max(45, measure.Height(copy, bw - 40, 23) + 16);
                     Button(settings, "action:copy", copy, 30, y, bw, bh, Blue, copyExportPath, false, operations.CanStart, 23, true, 23); y += bh + 10;
                 }
             }
@@ -226,7 +234,10 @@ internal sealed partial class RetainedStatisticsShell
                 if (selection.Expanded("log"))
                 {
                     var labels = new[] { UiText.Get("ui.diag_log_all"), UiText.Get("ui.diag_log_warnings"), UiText.Get("ui.diag_log_errors") };
-                    var sizes = labels.Select(l => (Math.Min(w - 40, measure.Width(l, 23) + 24), 38f)).ToArray();
+                    var sizes = labels.Select(l => {
+                        var bw = Math.Min(w - 40, measure.Width(l, 23) + 40);
+                        return (bw, Math.Max(38, measure.Height(l, bw - 40, 23) + 16));
+                    }).ToArray();
                     var filters = RunsFlowLayout.Arrange(w - 40, sizes, 10); float bottom = 0;
                     for (var i = 0; i < labels.Length; i++)
                     {
@@ -311,15 +322,21 @@ internal sealed partial class RetainedStatisticsShell
         {
             var expanded = selection.Expanded(id);
             var valueWidth = status.Length == 0 ? 0 : Math.Min(w * .36f, measure.Width(status, size) + 12);
-            var textWidth = Math.Max(1, w - 40 - valueWidth - (valueWidth > 0 ? 10 : 0));
-            var displayedTitle = (expanded ? "⌄  " : "›  ") + title;
+            var textWidth = Math.Max(1, w - 70 - valueWidth - (valueWidth > 0 ? 10 : 0));
+            var displayedTitle = title;
             var statusHeight = status.Length == 0 ? 0 : measure.Height(status, valueWidth, size);
             var h = Math.Max(size >= 40 ? 86 : 62, Math.Max(measure.Height(displayedTitle, textWidth, size), statusHeight) + 24);
             Button(parent, id, displayedTitle, x, y, w, h, expanded ? Orange : new Color(0, 0, 0, .5f),
                 () => Toggle(id), isRight, true, size, false);
             // A separate status field reserves its own measured width; long titles wrap.
             var titleElement = elements[id + ":label"].Text!;
-            Place(titleElement.rectTransform, 20, 12, textWidth, h - 24);
+            Place(titleElement.rectTransform, 50, 12, textWidth, h - 24);
+            Label(elements[id].Rect, id + ":chevron", "›", 20, 12, 20, size);
+            var chevron = elements[id + ":chevron"].Text!;
+            chevron.alignment = TextAlignmentOptions.Center;
+            chevron.rectTransform.pivot = new Vector2(.5f, .5f);
+            Place(chevron.rectTransform, 30, h / 2, 20, h - 24);
+            chevron.rectTransform.localRotation = Quaternion.Euler(0, 0, expanded ? -90 : 0);
             if (status.Length > 0) Label(elements[id].Rect, id + ":status", status, w - 20 - valueWidth, 12, valueWidth, size,
                 expanded ? Color.white : statusColor ?? Color.white, rightAligned: true);
             return h;
@@ -335,10 +352,15 @@ internal sealed partial class RetainedStatisticsShell
         }
         private float Label(RectTransform parent, string id, string value, float x, float y, float w, float size, Color? color = null, bool centered = false, bool rightAligned = false)
         {
+            value = DiagnosticsPathPrivacy.Redact(value, userProfile);
             var e = Use(parent, id); e.Text ??= InitializeText(e.Rect.gameObject.AddComponent<TextMeshProUGUI>(), size);
             e.Text.text = value; e.Text.fontSize = size; e.Text.color = color ?? Color.white;
             e.Text.alignment = centered ? TextAlignmentOptions.Top : rightAligned ? TextAlignmentOptions.TopRight : TextAlignmentOptions.TopLeft;
-            var h = Math.Max(1, measure.Height(value, w, size)); Place(e.Rect, x, y, Math.Max(1, w), h); return h;
+            var section = id == "settings:title" || id == "issues:title";
+            var h = Math.Max(1, section ? measure.SectionHeight(value, w, size) : measure.Height(value, w, size));
+            Place(e.Rect, x, y, Math.Max(1, w), h);
+            if (section) CombatNativeTextMeasurement.AlignInkTop(e.Text);
+            return h;
         }
         private void Button(RectTransform parent, string id, string text, float x, float y, float w, float h, Color color,
             Action click, bool isRight, bool enabled = true, float size = 28, bool centered = false, float radius = 10)

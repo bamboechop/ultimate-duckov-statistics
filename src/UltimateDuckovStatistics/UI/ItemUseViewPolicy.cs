@@ -77,6 +77,7 @@ internal sealed class ItemUseRenderRow
     public float Height { get; set; }
     public float NameLeft { get; set; }
     public float NameTop { get; set; }
+    public bool ValueFirst { get; set; }
     public float NameWidth { get; set; }
     public float NameHeight { get; set; }
     public float ValueTop { get; set; }
@@ -143,6 +144,8 @@ internal sealed class ItemUseDocument
         if (row.Kind == ItemUseRowKind.Statistic)
         { row.NameLeft = row.ValueLeft = 20; row.NameWidth = row.ValueWidth = Math.Max(1, width - 40); row.NameHeight = measure(row.Name, row.NameWidth, 20); row.ValueTop = 12 + row.NameHeight + 2; }
         row.ValueHeight = row.Value.Length == 0 ? 0 : measure(row.Value, row.ValueWidth, 32);
+        if (row.Kind == ItemUseRowKind.Statistic && row.ValueFirst)
+        { row.ValueTop = 12; row.NameTop = row.ValueTop + row.ValueHeight + 2; }
         var bodyBottom = Math.Max(row.NameTop + row.NameHeight, row.ValueTop + row.ValueHeight);
         if (row.Kind == ItemUseRowKind.Run) bodyBottom = Math.Max(bodyBottom, row.NameTop + row.BadgeHeight);
         row.BadgeTop = row.NameTop + (bodyBottom - row.NameTop - row.BadgeHeight) / 2;
@@ -170,7 +173,7 @@ internal sealed class ItemUseDocument
             var line = new List<ItemUseRenderRow>();
             for (var column = 0; column < columns && i + column < values.Count; column++)
             {
-                var pair = values[i + column]; var row = new ItemUseRenderRow { Kind = ItemUseRowKind.Statistic, Name = RunsViewStyle.Uppercase(pair.Key), Value = pair.Value };
+                var pair = values[i + column]; var row = new ItemUseRenderRow { Kind = ItemUseRowKind.Statistic, Name = RunsViewStyle.Uppercase(pair.Key), Value = pair.Value, ValueFirst = values.Count == 4 };
                 Add(row, x + column * (cellWidth + 20), cursor, cellWidth); line.Add(row);
             }
             var rowHeight = line.Max(row => row.Height);

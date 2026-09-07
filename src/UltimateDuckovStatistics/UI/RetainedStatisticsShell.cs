@@ -312,6 +312,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         Action changeHotkey,
         Action cancelHotkey,
         Action copyExportPath,
+        Action copyDataPath,
         Action<StatisticsPanelTab> selectTab,
         Action close,
         out string? error)
@@ -394,7 +395,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             itemUseView.Refresh(ItemUsePresentationFactory.Create(projection, projection.Profile.GenerationId));
             itemUseView.SetVisible(selectedTab == StatisticsPanelTab.ItemUse);
             diagnosticsView = new DiagnosticsView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
-                operations, changeHotkey, copyExportPath, FocusSelectedTab);
+                operations, changeHotkey, copyExportPath, copyDataPath, FocusSelectedTab);
             diagnosticsView.Refresh(diagnostics);
             diagnosticsView.SetVisible(selectedTab == StatisticsPanelTab.Diagnostics);
             BindOverviewRun(projection.Profile.GenerationId);

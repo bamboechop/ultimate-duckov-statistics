@@ -95,8 +95,8 @@ internal sealed partial class RetainedStatisticsShell
             Place(emptyPanel, 0, 0, width, height); Place(empty.rectTransform, 40, 30, width - 80, height - 60);
             var snapshot = selection.Snapshot; if (snapshot == null || snapshot.Empty) return;
             var stacked = CombatLayoutPolicy.Stack(pixels); var columnWidth = ItemUseLayoutPolicy.ColumnWidth(width, stacked);
-            var leftDocument = new ItemUseDocument(measure.Height, measure.Width); leftDocument.Left(selection, columnWidth);
-            var rightDocument = new ItemUseDocument(measure.Height, measure.Width); rightDocument.Right(selection, columnWidth);
+            var leftDocument = new ItemUseDocument(measure.HeightWithSectionInk, measure.Width); leftDocument.Left(selection, columnWidth);
+            var rightDocument = new ItemUseDocument(measure.HeightWithSectionInk, measure.Width); rightDocument.Right(selection, columnWidth);
             var lh = ItemUseLayoutPolicy.BoundedHeight(stacked, height, leftDocument.Height);
             var rh = ItemUseLayoutPolicy.BoundedHeight(stacked, height, rightDocument.Height);
             left.Bind(leftDocument, 0, 0, columnWidth, lh);
@@ -250,6 +250,7 @@ internal sealed partial class RetainedStatisticsShell
                     c.Name.color = row.Kind is ItemUseRowKind.Notice or ItemUseRowKind.Statistic ? Muted : Color.white;
                     c.Name.alignment = row.Kind is ItemUseRowKind.Statistic or ItemUseRowKind.Filter ? TextAlignmentOptions.Top : TextAlignmentOptions.TopLeft;
                     Place(c.Name.rectTransform, row.NameLeft, row.NameTop, row.NameWidth, row.NameHeight);
+                    if (row.Kind == ItemUseRowKind.Heading) CombatNativeTextMeasurement.AlignInkTop(c.Name);
                     c.Value.text = row.Value; c.Value.color = Color.white;
                     c.Value.alignment = row.Kind == ItemUseRowKind.Statistic ? TextAlignmentOptions.Top : TextAlignmentOptions.TopRight;
                     Place(c.Value.rectTransform, row.ValueLeft, row.ValueTop, row.ValueWidth, row.ValueHeight);

@@ -1,5 +1,7 @@
 # Remaining M17 tabs: local delivery evidence
 
+For the subsequent screenshot-driven fixes, see [M17 screenshot corrections](M17_SCREENSHOT_CORRECTIONS.md). The artifact facts below describe the original delivery revision.
+
 On 2026-09-07, implementation revision `d0db13ef754bac0034c8367dee983d9ba3822317` was built, packaged and transactionally deployed to the local Duckov installation. This is a voluntary pre-1.0 development artifact, not an official supported distribution or a gameplay/visual acceptance result. No push, merge or release publication was performed.
 
 ## Delivered scope

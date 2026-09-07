@@ -46,6 +46,15 @@ public sealed class RetainedEconomyTests
         Assert.Null(EconomyPresentationFactory.Create(p, "other"));
         p.Profile.Statistics.SaveGenerationId = "other"; Assert.Null(EconomyPresentationFactory.Create(p, "g"));
     }
+    [Fact] public void ExperimentalSourcesRemainLimitedInsteadOfClaimingDisabledTracking()
+    {
+        var profile = Profile(); var current = Capabilities();
+        Record(profile.Statistics.Economy, CurrencyKind.Money, 17);
+        current.MoneySourceAttribution.State = AdapterCapabilityState.Experimental;
+        var flow = EconomyPresentationFactory.Flow(profile.Statistics.Economy, CurrencyKind.Money, current, key => key);
+        Assert.Equal("ui.economy_current_limited", flow.SourceNotice);
+        Assert.Equal(17, flow.Totals.Inflow);
+    }
     [Theory] [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)] [InlineData(5)] [InlineData(6)] [InlineData(7)]
     public void ReplacedPublicationMemberFailsBinding(int member)
     {

@@ -212,6 +212,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
                 BeginHotkeyCapture,
                 CancelHotkeyCapture,
                 CopyExportPath,
+                CopyDataPath,
                 HandleTabSelected,
                 Close,
                 out var error))
@@ -327,6 +328,12 @@ internal sealed class NativeStatisticsPanel : IDisposable
             nativeUi.ShowToast(UiText.Get("ui.diag_export_clipboard"));
             diagnosticsRevision = -1;
         }
+    }
+
+    private void CopyDataPath()
+    {
+        if (!operations.CanStart) return;
+        nativeUi.ShowToast(UiText.Get(TryCopyPath(coordinator.DataRoot) ? "ui.diag_copied" : "ui.diag_export_clipboard"));
     }
 
     private void BeginHotkeyCapture()

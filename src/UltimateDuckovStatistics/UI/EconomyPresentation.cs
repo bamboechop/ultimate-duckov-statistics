@@ -185,7 +185,8 @@ internal static class EconomyPresentationFactory
                 ? t("ui.unavailable") : Notice(context, nowContext, broken), acquired,
             money ? "" : Notice(a.Capabilities.CashExternalAcquisition, current.CashExternalAcquisition, broken));
 
-        string Notice(MetricAvailability scope, MetricAvailability now, bool incomplete) => now.State != AdapterCapabilityState.Supported
+        string Notice(MetricAvailability scope, MetricAvailability now, bool incomplete) => now.State == AdapterCapabilityState.Experimental
+            ? t("ui.economy_current_limited") : now.State != AdapterCapabilityState.Supported
             ? t("ui.economy_current_unavailable") : incomplete || scope.State != AdapterCapabilityState.Supported ? t("ui.economy_incomplete") : "";
         static EconomyFlowRow Present(string id, string name, CurrencyFlowTotals value) => new(id, name, value.GrossInflow, value.GrossOutflow, value.NetFlow);
     }

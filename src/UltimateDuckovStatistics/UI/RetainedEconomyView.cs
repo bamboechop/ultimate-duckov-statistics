@@ -89,8 +89,8 @@ internal sealed partial class RetainedStatisticsShell
             if (selection.Snapshot == null) return;
             var stacked = CombatLayoutPolicy.Stack(pixels);
             var columns = EconomyLayoutPolicy.Widths(width, stacked);
-            var left = new EconomyDocument(measure.Height, measure.Width); left.Primary(selection.Snapshot, columns.Primary, stacked);
-            var right = new EconomyDocument(measure.Height, measure.Width); right.Recent(selection, columns.Recent);
+            var left = new EconomyDocument(measure.HeightWithSectionInk, measure.Width); left.Primary(selection.Snapshot, columns.Primary, stacked);
+            var right = new EconomyDocument(measure.HeightWithSectionInk, measure.Width); right.Recent(selection, columns.Recent);
             var lh = EconomyLayoutPolicy.BoundedHeight(stacked, height, left.Height);
             var rh = EconomyLayoutPolicy.BoundedHeight(stacked, height, right.Height);
             primary.Bind(left, 0, 0, columns.Primary, lh);
@@ -293,6 +293,14 @@ internal sealed partial class RetainedStatisticsShell
                     label.color = element.Muted ? new Color32(177, 177, 177, 255) : Color.white;
                     label.alignment = element.Alignment switch { EconomyTextAlignment.Center => TextAlignmentOptions.Top,
                         EconomyTextAlignment.Right => TextAlignmentOptions.TopRight, _ => TextAlignmentOptions.TopLeft };
+                    if (element.Size == 46.3f) CombatNativeTextMeasurement.AlignInkTop(label);
+                    if (element.Kind == EconomyElementKind.Chevron)
+                    {
+                        label.alignment = TextAlignmentOptions.Center;
+                        control.Rect.pivot = new Vector2(.5f, .5f);
+                        Place(control.Rect, element.X + element.Width / 2, element.Y + element.Height / 2, element.Width, element.Height);
+                        control.Rect.localRotation = Quaternion.Euler(0, 0, element.Selected ? -90 : 0);
+                    }
                 }
             }
             public void FocusViewport()

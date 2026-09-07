@@ -39,7 +39,8 @@ internal sealed partial class RetainedStatisticsShell
             outer.Rect.GetComponent<RunsFocusHandler>().Move = d =>
             { if (d == MoveDirection.Up || d == MoveDirection.Left) focusTabs(); else FocusFirst(); };
         }
-        private float Measure(string value, float w, float size) => measure.Height(value, Math.Max(1, w), size);
+        private float Measure(string value, float w, float size) => size == 40
+            ? measure.SectionHeight(value, Math.Max(1, w), size) : measure.Height(value, Math.Max(1, w), size);
         public void Refresh(CraftingPresentation? next)
         {
             if (disposed) return; Capture();
@@ -214,6 +215,7 @@ internal sealed partial class RetainedStatisticsShell
                 c.Name.color = r.Kind == EquipmentRowKind.Notice ? Muted : Color.white;
                 var centerText = r.HasIcon && r.Caption.Length == 0;
                 Place(c.Name.rectTransform, r.TextLeft, centerText ? (r.Height - r.NameHeight) / 2 : r.TextTop, r.NameWidth, r.NameHeight);
+                if (r.SectionHeading) CombatNativeTextMeasurement.AlignInkTop(c.Name);
                 c.Value.gameObject.SetActive(r.Value.Length > 0);
                 if (r.Value.Length > 0)
                 { c.Value.text = r.Value; Place(c.Value.rectTransform, r.TextLeft + r.NameWidth + 10, centerText ? (r.Height - r.ValueHeight) / 2 : 12, r.Width - r.TextLeft - r.NameWidth - 25, r.ValueHeight); }

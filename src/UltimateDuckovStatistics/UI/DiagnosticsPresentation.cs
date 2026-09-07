@@ -164,8 +164,8 @@ internal static class DiagnosticsPresentationFactory
             : state == NativeMenuIntegrationState.AttachedUnverified ? "ui.attached_unverified" : "ui.unavailable");
         systems.Add(new DiagnosticsSystem("menu", t("ui.menu_access"), menuLimited ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working,
             Array.Empty<DiagnosticsCapability>(), new[] {
-                new DiagnosticsValue(t("ui.main_menu_entry"), MenuState(runtime.MainMenu)),
-                new DiagnosticsValue(t("ui.base_pause_entry"), MenuState(runtime.BaseMenu)),
+                new DiagnosticsValue(t("ui.main_menu_entry"), MenuState(runtime.MainMenu), runtime.MainMenu == NativeMenuIntegrationState.Available ? DiagnosticsHealth.Working : DiagnosticsHealth.Limited),
+                new DiagnosticsValue(t("ui.base_pause_entry"), MenuState(runtime.BaseMenu), runtime.BaseMenu == NativeMenuIntegrationState.Available ? DiagnosticsHealth.Working : DiagnosticsHealth.Limited),
                 new DiagnosticsValue(string.Format(CultureInfo.CurrentCulture, t("ui.diag_hotkey_fallback"), runtime.Hotkey), t("ui.working"), DiagnosticsHealth.Working),
                 new DiagnosticsValue(t("ui.diag_outside_raids"), t("ui.working"), DiagnosticsHealth.Working)
             }));

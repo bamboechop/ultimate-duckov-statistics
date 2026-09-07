@@ -5,8 +5,20 @@
 #pragma warning disable CA1708, CA1720, CA1716, CA1707 // Native TMP API names.
 namespace TMPro;
 
+public enum TextAlignmentOptions { TopLeft }
+public sealed class MeasurementRectTransform
+{
+    public UnityEngine.Vector2 sizeDelta { get; set; } = new(0, 0);
+    public UnityEngine.Vector2 anchoredPosition { get; set; } = new(0, 0);
+    public MeasurementRect rect { get; } = new();
+}
+public sealed class MeasurementRect { public float yMax { get; set; } }
+
 public sealed class TextMeshProUGUI
 {
+    public string text { get; set; } = "";
+    public TextAlignmentOptions alignment { get; set; }
+    public MeasurementRectTransform rectTransform { get; } = new();
     public MeasurementObject gameObject { get; }
     public bool enabled { get; set; } = true;
     public bool AwakeCalled { get; private set; }
