@@ -1,76 +1,39 @@
 {
   "SourceCommit": "9f503b7bfafd0350b427d6eeb3de55b02be7e47a",
-  "Status": "Pass for native tutorial start, two-segment route, extraction and displayed run/profile/JSON/CSV agreement.",
-  "ExportId": "20260908T1145417048373Z-5872f0daafc14aabb2cd8207cbcc4494",
-  "Slot": 3,
+  "CompletedRunPersistence": "Pass: one identical completed tutorial run after restart, apart from intentional replay-cursor compaction.",
+  "LifetimeCash": "Fail: user confirms only quit/restart, no Cash action; false 58 Base UnknownAdjustment outflow appeared, while native holdings remained 58.",
+  "OldExportId": "20260908T1145417048373Z-5872f0daafc14aabb2cd8207cbcc4494",
+  "NewExportId": "20260908T1154256923746Z-5872f0daafc14aabb2cd8207cbcc4494",
   "GenerationId": "5872f0daafc14aabb2cd8207cbcc4494",
-  "ExportRevision": 227,
-  "ObservedProfileRevision": 227,
   "RunId": "1f9fb18e0bc64259adcdbc3031a1ba18",
-  "NativeRaidId": null,
-  "Observed": {
-    "Outcome": "Extracted",
-    "ActiveSeconds": 168.7574764,
-    "DistanceMetres": 625.0205580292734,
-    "Segments": [
-      {
-        "MapId": "duckov:map:Level_Guide_1",
-        "DisplayName": "Gefängnis",
-        "ActiveSeconds": 144.6737732,
-        "DistanceMetres": 520.2594989496655
-      },
-      {
-        "MapId": "duckov:map:Level_Guide_2",
-        "DisplayName": "Gefängnis",
-        "ActiveSeconds": 24.083703200000002,
-        "DistanceMetres": 104.76105907960805
-      }
-    ],
-    "Kills": 4,
-    "RangedKills": 3,
-    "EffectKills": 1,
-    "Containers": 9,
-    "CashNet": 58,
-    "CashContext": "Raid",
-    "FiringActions": 15,
-    "CompletedProjectiles": 15,
-    "RangedHits": 11,
-    "Headshots": 8,
-    "HeadshotFinalBlows": 0,
-    "DamageDealt": 92.39999961853027,
-    "DamageTaken": 0,
-    "ActualHpRestored": 0,
-    "ItemUses": [
-      {
-        "ItemId": "duckov:item:108",
-        "DisplayName": "Whiskey",
-        "ActivationCount": 1
-      },
-      {
-        "ItemId": "duckov:item:1181",
-        "DisplayName": "Lolli",
-        "ActivationCount": 1
-      }
-    ],
-    "TransitionExcludedMetres": 239.7000208700026,
-    "TerminalEquipmentComplete": true
-  },
-  "Agreement": {
-    "ExportRunDeepEqualsSavedProfileRun": true,
-    "ScreenshotDisplayedTotalsMatch": true,
-    "TargetedCsvBreakdownsMatch": true,
-    "AllCsvStructuresValid": true,
-    "NoRemainingActiveRunCheckpoint": true,
-    "OneNativeStartAndCompletion": true,
-    "InstalledFiveFileHashesMatchCandidate": true,
-    "EarlierBaselineExportFilesUnchanged": 37
-  },
-  "Remaining": [
-    "Native tutorial death/retry scenario",
-    "Exact gameplay action ground truth beyond the supplied screen and export",
-    "Other M18 native/performance gates"
+  "OldRevision": 227,
+  "NewRevision": 263,
+  "ClosedProfileRevision": 267,
+  "RunMetadataDifferences": [
+    {
+      "path": "Runs/0/Economy/ReplayCursor/ActivationId",
+      "old": "85a074e648d348eca0f25617324ea98b",
+      "new": ""
+    },
+    {
+      "path": "Runs/0/Economy/ReplayCursor/ClosedThroughSequence",
+      "old": 1,
+      "new": 0
+    },
+    {
+      "path": "Runs/0/Segments/0/Economy/ReplayCursor/ActivationId",
+      "old": "85a074e648d348eca0f25617324ea98b",
+      "new": ""
+    },
+    {
+      "path": "Runs/0/Segments/0/Economy/ReplayCursor/ClosedThroughSequence",
+      "old": 1,
+      "new": 0
+    }
   ],
-  "Files": [
+  "InterruptedSessionCount": 0,
+  "NoActiveRunOrSessionCheckpoint": true,
+  "PreservedFiles": [
     {
       "File": "active_totem_set_definitions.csv",
       "Bytes": 5106,
@@ -128,23 +91,23 @@
     },
     {
       "File": "economy_contexts.csv",
-      "Bytes": 1981,
-      "Sha256": "4e2a064bb087e63848f566a797fa3ad72b188da710b06ee714c3dea25fb76641"
+      "Bytes": 2246,
+      "Sha256": "029f896e3186ae0b4af9990c7ee7793191c644e8d963edf9c4cfee097105648d"
     },
     {
       "File": "economy_holdings.csv",
       "Bytes": 1451,
-      "Sha256": "0661e4b741b37f4063e9d2742b0c416fb8f765a7db1dbf038d0c9f80219846ad"
+      "Sha256": "6cd8a2650cdeb0a0305d4eac692054ee036e4a6eecf05c5b80b0d1e30ca5e05e"
     },
     {
       "File": "economy_sources.csv",
       "Bytes": 5257,
-      "Sha256": "e177d6d7ad5ded9a16d8b8297538ee573e85a6a8e63f1bec5ad11e6059bb34ea"
+      "Sha256": "695495751bd3c7a23827b943a31626dc57b1c6d5ff5040fd609906a91b6e1a8b"
     },
     {
       "File": "economy_totals.csv",
       "Bytes": 17808,
-      "Sha256": "5ebc5efd4cb05ffc9f8b6d3f2805859344646b6bc93919bb4ed98c57561ba124"
+      "Sha256": "f630f8281bd2cd192a6cdc0a4dd1afc0e130c7a9834f394c941cead4d14f4115"
     },
     {
       "File": "equipment_combat.csv",
@@ -184,7 +147,27 @@
     {
       "File": "overview.csv",
       "Bytes": 349,
-      "Sha256": "09c55a082fa6a953eab7432e2ca36a7b2478354feccf81ea1ba3f73a1d0e46b9"
+      "Sha256": "69d4327c6094d6ba0a628d370706602d1234d0fd1b78c626b03d877f7537bdf6"
+    },
+    {
+      "File": "player-first-quit.log",
+      "Bytes": 31039,
+      "Sha256": "890ee0df55520541257857cec0f07bafb82c025a352d5e02050ead5d2fe6aeaf"
+    },
+    {
+      "File": "player-reopen.log",
+      "Bytes": 21852,
+      "Sha256": "f98df5fb417f26328e4a98cb41262b5f3d71d65332dbe4948fcd949997e7e3ea"
+    },
+    {
+      "File": "profile-after-second-quit.json",
+      "Bytes": 367401,
+      "Sha256": "1b002b9c532cb37e739f596479e105173a43f126621055a4737c3fafd987649f"
+    },
+    {
+      "File": "profile-backup-after-second-quit.json",
+      "Bytes": 367401,
+      "Sha256": "1b002b9c532cb37e739f596479e105173a43f126621055a4737c3fafd987649f"
     },
     {
       "File": "records.csv",
@@ -228,8 +211,8 @@
     },
     {
       "File": "statistics.json",
-      "Bytes": 366354,
-      "Sha256": "f6bfe51963db8aa961466f0520bf837d4549eb58d403e348536228b7b10c9b5d"
+      "Bytes": 366335,
+      "Sha256": "e293aefa86263df87aaaa369f76ad4852f1625b9adf7322bd3f934f52b8c9d81"
     },
     {
       "File": "terminal_loadouts.csv",
@@ -254,13 +237,7 @@
     {
       "File": "world_time.csv",
       "Bytes": 862,
-      "Sha256": "ec42afef9c6a890f767aad4e8b8972ec8f8c3cfc2290a58499c72e312d638a4a"
+      "Sha256": "27eeb6aa2a9aa3ad53999fdd8ba351c204262ad7dd0f40572151f5e40b03912a"
     }
-  ],
-  "LocalEvidenceSha256": {
-    "profile-observed.json": "a29eb0966b51bc6aeffc10a11d261fcc15cbd9f3dc07526d68a0fa3585088ac7",
-    "player-observed.log": "66a355537dd1a6f03d3c05d3fd131cf82af808a75fb18eca2ea013c3cc5c68a7",
-    "user-runs-screenshot.png": "64eb8ad7d52115e19db7417d95be31ce8d9aeb55ad8092b27e971a26559ac744"
-  },
-  "ColdReopen": "Pass for the completed run: same generation, one run and unchanged metrics. M18_TUTORIAL_REOPEN_QUALIFICATION.json separately records an incorrect lifetime Cash outflow at shutdown, addressed by M18_DIRECT_QUIT_CASH_CORRECTION.json."
+  ]
 }

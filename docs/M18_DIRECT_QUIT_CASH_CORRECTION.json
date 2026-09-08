@@ -1,0 +1,132 @@
+{
+  "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "Problem": "A user-confirmed quit/restart with no Cash action added 58 Base UnknownAdjustment outflow while actual Cash holdings remained 58. The completed tutorial run remained unchanged apart from intentional replay-cursor compaction.",
+  "NativeObservation": "M18_TUTORIAL_REOPEN_QUALIFICATION.json preserves both export identities, the post-restart export, both session logs and closed profile. It records a failure of lifetime Cash shutdown accounting on the prior source, separately from passed completed-run persistence.",
+  "NativeContracts": {
+    "DirectQuit": "Button_QuitGame.QuitTask saves character and collected save data, awaits saving, then calls Application.Quit without SceneLoader.onStartedLoadingScene.",
+    "OwnershipDestruction": "CharacterMainControl.OnDestroy destroys its item tree; Item.OnDestroy detaches and Inventory.RemoveAt emits content change. FindAllBelongsToPlayer omits absent roots. OnDestroy ordering can therefore expose incomplete ownership to the still-active UDS cleanup scan.",
+    "QuitBoundary": "Application.quitting is the committed-quit notification. The handler need not precede ModBehaviour.OnApplicationQuit; both occur before the identified OnDestroy ownership teardown.",
+    "UnityReference": "https://docs.unity3d.com/2022.3/Documentation/ScriptReference/Application-quitting.html",
+    "ObservationLimit": "The existing logs do not identify which individual destruction callback dirtied the first shutdown scan. A second quit did not add another outflow."
+  },
+  "Correction": "Subscribe and unsubscribe Application.quitting with the Economy adapter. Flush final live changes, then reuse Cash baseline suspension. Existing boundary/cleanup calls retry retained Money/Cash queues without scanning destroyed inventories. No additional per-frame work, schema change, replay adjustment or profile repair is introduced.",
+  "Validation": {
+    "NewCases": 5,
+    "InitialRegressionFailuresAgainstPriorSource": 4,
+    "RegressionNote": "The four initial cases all failed before correction. The final suite additionally exercises the opposite relative ordering of the two quit notifications.",
+    "MainPassedPerConfiguration": 1884,
+    "ShellPassedPerConfiguration": 11,
+    "Configurations": [
+      "Debug",
+      "Release"
+    ],
+    "NativeWarningsPerConfiguration": 0,
+    "FormattingAndAnalyzers": "Pass",
+    "InstalledNativeProbe": "Pass",
+    "OrdinaryReleaseIlAndArtifactPathAudits": "Pass",
+    "IndependentCorrectionReview": "Pass: complete immutable range 75adb3505001613b5255537e47b6d04a5ee6ce49..f0187b2893bdb341298d094ef161f39e0ba56ba4; no actionable findings.",
+    "Cases": [
+      "both relative quit-notification orders and repeated notification",
+      "no ownership scan or false outflow after native inventory destruction",
+      "genuine pending Money and Cash preserved across publication-gate/publisher rejection and cleanup retry",
+      "stable flow identity and original run/segment/map attribution",
+      "one owned quit subscription, idempotent disposal and subsequent activation"
+    ]
+  },
+  "Reproducibility": {
+    "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+    "DotnetSdk": "8.0.424",
+    "Result": "Pass",
+    "Checkouts": [
+      {
+        "Checkout": "checkout-a",
+        "Hashes": {
+          "candidate.zip": "a3b47620970a054a62c815f810caa013ae2ea81c26f929012337645c50010dc9",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "43e3ab86aeb82cb45145acc5b47b2c75230215739d9deff8c21ad7a337e29d4f",
+          "UltimateDuckovStatistics.pdb": "a1dc207c90c4d354bfefa90c8e96de60d0aaad87c026ea8106dbc9f36aaaedd3"
+        }
+      },
+      {
+        "Checkout": "different-long-checkout-root-b",
+        "Hashes": {
+          "candidate.zip": "a3b47620970a054a62c815f810caa013ae2ea81c26f929012337645c50010dc9",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "43e3ab86aeb82cb45145acc5b47b2c75230215739d9deff8c21ad7a337e29d4f",
+          "UltimateDuckovStatistics.pdb": "a1dc207c90c4d354bfefa90c8e96de60d0aaad87c026ea8106dbc9f36aaaedd3"
+        }
+      }
+    ]
+  },
+  "OrdinaryCheckoutDllPdbAndZipMatchBothRoots": true,
+  "CoreDllUnchanged": true,
+  "Archive": {
+    "File": "UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+    "Bytes": 623190,
+    "Sha256": "a3b47620970a054a62c815f810caa013ae2ea81c26f929012337645c50010dc9"
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687104,
+      "Sha256": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1099264,
+      "Sha256": "43e3ab86aeb82cb45145acc5b47b2c75230215739d9deff8c21ad7a337e29d4f"
+    }
+  ],
+  "CampaignSha256": "a26fc78119075dd10c8b2118d7a8b77ae30656100532275ac45e91bcee7880f7",
+  "Deployment": {
+    "Result": "Pass",
+    "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+    "VerifiedUtc": "2026-09-08T12:09:24.4428460Z",
+    "DuckovClosedDuringDeployment": true,
+    "FiveInstalledFileHashesMatch": true,
+    "UdsV1DataFilesUnchanged": 129,
+    "TransactionResidue": false,
+    "VerifiedPriorBackupId": "f185919f678d48b291167dd1b71f7478",
+    "PreviousInstalledSource": "9f503b7bfafd0350b427d6eeb3de55b02be7e47a",
+    "InstalledHashes": {
+      "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+      "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+      "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+      "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+      "UltimateDuckovStatistics.dll": "43e3ab86aeb82cb45145acc5b47b2c75230215739d9deff8c21ad7a337e29d4f"
+    }
+  },
+  "NativeCorrectionAcceptance": "Not exercised. Repeat exports around direct quit/restart without gameplay. The existing erroneous 58 outflow is preserved as baseline, not automatically repaired.",
+  "LocalEvidenceSha256": {
+    "m18-direct-quit-before.log": "ea44d02ea1ace25c55d6c6f5183792f1c124823426c69dfeeb9e577ad71cf0b1",
+    "m18-direct-quit-Debug-main.log": "f1b44d1067b78b7bd5836457ea91baa21585af09e22e46b3c03ceebc74122fff",
+    "m18-direct-quit-Debug-native.log": "7dd9e13103e4835ae89265b8a75d5a856ee96a2cbec2906b54b4e92c2531faff",
+    "m18-direct-quit-Debug-shell.log": "1b99ed2da34c4b68fcfbf1eaff4d958fac3032398a1366e8ba745420dfa0bcfe",
+    "m18-direct-quit-deploy.log": "1e60fca372dfef1aae6508236b7e6c09b6a3c35806e9bdb11b80bbc55cee51fb",
+    "m18-direct-quit-focused.log": "1ef8621ec451aa24c448d2d1b5e6e12455ec3b9b9b8e58ccfdeca344080dde89",
+    "m18-direct-quit-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "m18-direct-quit-package.log": "0e753b4ad9be6e230c7a7d978fb2dfbfd3010f0eef41b9cc7e0a6222ebc97ed9",
+    "m18-direct-quit-probe.log": "131c9478afd4576d1b651117c551b432a09cb6ca90175ade642d6bd03a1cf46f",
+    "m18-direct-quit-Release-main.log": "a7bb9663cc4a9008eb13151ca64d75ac5ccdb74b61469c61a28cdf466ff2b2e5",
+    "m18-direct-quit-Release-native.log": "6a2cbbdb876b3adde8ab3ccf12758850d07e9d0ebefe67f1df6046c4ec10252e",
+    "m18-direct-quit-Release-shell.log": "7d4b66003d4c2c551fd7989451e8804a98b22e120591e1daea141c2b7441c9c7",
+    "m18-direct-quit-repro.log": "b6cff9951f582dbfce7b74cac74bbeaf2b328c51cb30d3544460fd3b96753928"
+  }
+}

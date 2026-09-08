@@ -123,7 +123,7 @@
       "UltimateDuckovStatistics.dll": "bacee530b8636b067cc4ce2f6613fb555360031a9b0aae6bc61c51de8c05ac73"
     }
   },
-  "NativeTutorialAcceptance": "Pass for the subsequent native save-3 tutorial run: one start, two guide segments, one extraction and screenshot/profile/JSON/CSV agreement. M18_TUTORIAL_NATIVE_QUALIFICATION.json preserves export revision 227 of generation 5872f0daafc14aabb2cd8207cbcc4494. Cold reopen and native death/retry remain open; the earlier baseline export is unchanged.",
+  "NativeTutorialAcceptance": "Pass for the subsequent native save-3 tutorial run: one start, two guide segments, one extraction and screenshot/profile/JSON/CSV agreement. M18_TUTORIAL_NATIVE_QUALIFICATION.json preserves export revision 227 of generation 5872f0daafc14aabb2cd8207cbcc4494. Completed-run cold reopen passed; a separate false lifetime Cash outflow was found at direct shutdown (M18_TUTORIAL_REOPEN_QUALIFICATION.json), with correction in M18_DIRECT_QUIT_CASH_CORRECTION.json. Native death/retry remains open; the earlier baseline export is unchanged.",
   "EarlierNativeAcceptance": {
     "SourceCommit": "78265dc5e2266bf1c7918cb7b4ac4d2a093bc2cf",
     "UserConfirmed": [

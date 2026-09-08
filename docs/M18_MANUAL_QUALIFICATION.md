@@ -10,7 +10,11 @@ Use the candidate source and file identities in [M18 acceptance](M18_ACCEPTANCE.
 4. Complete an expedition with at least three map visits, including a repeated map if naturally available. For delayed effects, record the source, any loadout swap and the later outcome when such an item is actually available. Extract, inspect Runs and the relevant tabs, then export through Diagnostics.
 5. Close the game normally yourself. Codex can read the local logs, generation, checkpoints, profile/backup and exports, compare JSON/CSV/UI against the action notes, and verify clean shutdown and exact deployed hashes.
 
-For tutorial coverage, use a user-selected fresh save. After gaining control, record a few exact actions and finish the prison exit countdown. Verify one completed run for the observed tutorial map, matching actions and Cash, then compare an export and cold reopen. The first attempt has a UDS run ID and no native raid ID. If death occurs, that attempt should end as Died and the retry should become a separate run with Duckov's newly created raid ID. The already completed save-3 tutorial remains the original zero-run baseline; no historical duration or movement is reconstructed.
+For tutorial coverage, use a user-selected fresh save. After gaining control, record a few exact actions and finish the prison exit countdown. Verify one completed run for the observed tutorial map, matching actions and Cash, then compare an export and cold reopen. The first attempt has a UDS run ID and no native raid ID. If death occurs, that attempt should end as Died and the retry should become a separate run with Duckov's newly created raid ID. The original save-3 generation remains the zero-run baseline; a subsequent fresh generation has a verified two-segment tutorial extraction and completed-run cold reopen. No historical duration or movement is reconstructed.
+
+## Direct-quit correction check
+
+On the deployed correction, launch save 3 and export without gameplay. Quit directly from the base pause menu, relaunch the same save and export again. The generation, completed run, Cash holdings and lifetime Cash flow totals must be unchanged. The existing erroneous 58 Cash outflow remains in the preserved baseline; the correction must not add another outflow. Compare the two exports and shutdown log against [the correction evidence](M18_DIRECT_QUIT_CASH_CORRECTION.json).
 
 ## Persistence, degradation and ownership
 
