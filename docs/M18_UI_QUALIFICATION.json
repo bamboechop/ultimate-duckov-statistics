@@ -1,6 +1,6 @@
 {
   "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
-  "Status": "Pass for reported tab navigation, scrolling, details/tooltips and 720x480 layout. Language switching exposed stale recorded entity names; correction requires native requalification. Input and measured native resource checks remain open.",
+  "Status": "Pass for reported tab navigation, scrolling, details/tooltips, 720x480 layout and subsequent corrected-package English/German language switching. Remaining input and measured native resource checks stay open.",
   "Context": {
     "Slot": 1,
     "GenerationId": "063240a5b57647138bc4de0c18179981",
@@ -19,7 +19,6 @@
   "RelatedNumericUiAcceptance": "M18_BURNING_SWITCH_KILL_QUALIFICATION.json separately records the user-confirmed latest Runs values of 35 damage/1 kill and Combat lifetime Brand-Muni values of 56 damage/1 kill.",
   "Deferred": "The user's previously noted empty-state and text-rendering polish remains deferred and is not treated as a new failure of this functional check.",
   "Remaining": [
-    "Repeat native English/German entity-name checks with the corrected package, including recent routes, item rows and equipment tooltips.",
     "Complete remaining Back/Escape, keyboard-focus and repeated open/close observations where not already covered by earlier access qualification.",
     "Measure native UI resource behavior and complete the matched performance campaign."
   ],
@@ -45,5 +44,13 @@
     ],
     "Layout": "Pass by user report, supported by 720x480 Diagnostics screenshot and 2560x1440 Equipment screenshot. This is visual/manual evidence, not a measured frame-time capture.",
     "EntityNames": "Fail on installed e4824ff source: Schrott-Bogen, Kriegsaxt and Abgenutzte Angelrute remain German while native menu is English."
+  },
+  "CorrectedLanguageRepeat": {
+    "SourceCommit": "7379417ff2aca3939af2d2c4076d00e46bd3ffde",
+    "UserConfirmation": "Language switching works",
+    "Status": "Pass by user confirmation in response to the requested English/German repeat.",
+    "Evidence": "M18_NATIVE_NAME_QUALIFICATION.json",
+    "Retention": "Nine pre-deployment runs and all recorded statistics/names preserved; new export and startup log verified.",
+    "Scope": "No new screenshot, tooltip-specific traversal or timing capture supplied for this repeat."
   }
 }

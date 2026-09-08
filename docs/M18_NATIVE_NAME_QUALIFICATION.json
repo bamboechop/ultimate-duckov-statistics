@@ -1,0 +1,46 @@
+{
+  "SourceCommit": "7379417ff2aca3939af2d2c4076d00e46bd3ffde",
+  "Status": "Pass for user-confirmed language switching and observed cold-reopen/profile/export retention.",
+  "UserConfirmation": "Language switching works",
+  "UiScope": "Response to the requested slot-1 English Equipment/Combat/recorded map-name checks, followed by switching to German and reopening. No additional screenshot, tooltip traversal or native timing capture was supplied for this repeat.",
+  "ExportId": "20260908T1640201656934Z-063240a5b57647138bc4de0c18179981",
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "Slot": 1,
+  "ExportRevision": 7418,
+  "ProfileRevision": 7418,
+  "PreDeploymentProfileRevision": 7403,
+  "StartupUtc": "2026-09-08T16:39:26.5557090Z",
+  "ObservedSurface": "Main Menu; four successful UDS entry-open log messages and one successful export.",
+  "SameGenerationReopenedWithoutInterruption": true,
+  "RetainedRunsExact": 9,
+  "CsvRuns": 9,
+  "CsvSegments": 11,
+  "PrePostDifferences": [
+    "/Revision",
+    "/Statistics/Economy/ReplayCursor/ActivationId",
+    "/Statistics/Economy/ReplayCursor/ClosedThroughSequence",
+    "/UpdatedUtc"
+  ],
+  "UnchangedStatistics": "Every recorded statistic and label matches the pre-deployment profile; only the Economy producer replay cursor changes at activation. No profile repair or reconstruction was performed.",
+  "ExportAgreement": {
+    "ExactProfileSections": [
+      "Overall",
+      "Runs",
+      "RunTotals",
+      "RunRecords",
+      "Economy",
+      "WorldTime",
+      "Crafting",
+      "HealingCaptureComplete"
+    ],
+    "Items": "Exact ID, recorded name and totals; groups equal after keyed/list projection.",
+    "Holdings": "Money/Cash and capability fields equal the saved snapshot; Money 12154 and Cash 60 remain LastObserved at Main Menu, and derived liquid wealth remains Unavailable.",
+    "Csv": "All nine run IDs, captured starting-map IDs/names, durations, distances and kills agree with JSON; all eleven segment identities/map labels, durations and kills agree."
+  },
+  "Diagnostics": "11/11 combat hooks active; no UDS failure/warning found in the preserved startup log. This is bounded observed-log evidence.",
+  "InstalledFilesVerified": 5,
+  "PreservedExportFiles": 37,
+  "EvidenceRoot": "artifacts/qualification/7379417ff2aca3939af2d2c4076d00e46bd3ffde/native-name-reopen",
+  "ManifestSha256": "a3dd72040a822fedce77284acea4d8f654455d617caab8854ccd3b240a01c1d8",
+  "Remaining": "Keyboard/focus/modal cancellation checks, deliberate native recovery/degradation, native resource/performance captures and high-history qualification remain separate."
+}

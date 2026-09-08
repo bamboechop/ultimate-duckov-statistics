@@ -20,7 +20,7 @@ On the deployed correction, launch save 3 and export without gameplay. Quit dire
 
 ## Current-language names repeat
 
-The reported 720x480 layout passed; English exposed saved German entity labels. The [name correction](M18_NATIVE_NAME_CORRECTION.json) is deployed and still needs native acceptance. On slot 1, open Equipment and Combat in English, then inspect a recorded run's map/route names. Switch back to German and reopen the same views. Names should follow Duckov's current language while counts and durations stay unchanged. Missing native metadata retains its recorded label; UDS interface text remains English. Export once after the check so startup and profile retention can be compared with the preserved pre-deployment snapshot.
+The reported 720x480 layout passed; English exposed saved German entity labels. The [name correction](M18_NATIVE_NAME_CORRECTION.json) is deployed and the user confirms language switching works. [Native repeat evidence](M18_NATIVE_NAME_QUALIFICATION.json) also verifies cold-reopen/profile/export retention. The following procedure is retained for future regressions. On slot 1, open Equipment and Combat in English, then inspect a recorded run's map/route names. Switch back to German and reopen the same views. Names should follow Duckov's current language while counts and durations stay unchanged. Missing native metadata retains its recorded label; UDS interface text remains English. Export once after the check so startup and profile retention can be compared with the preserved pre-deployment snapshot.
 
 ## Persistence, degradation and ownership
 

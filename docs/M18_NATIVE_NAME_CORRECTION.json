@@ -1,7 +1,7 @@
 {
   "SourceCommit": "7379417ff2aca3939af2d2c4076d00e46bd3ffde",
   "PreviousInstalledSource": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
-  "Status": "Automated validation, independent immutable review, reproducible package and game-closed deployment passed. Native English/German name repeat remains pending.",
+  "Status": "Automated validation, independent review, deployment and user-confirmed native language switching passed. Cold-reopen/profile/export retention also passed; remaining M18 gates are separate.",
   "Automated": {
     "MainDebugPassed": 1908,
     "MainReleasePassed": 1908,
@@ -49,12 +49,12 @@
     "ReproducibilityResult": "artifacts/reproducibility/7379417ff2aca3939af2d2c4076d00e46bd3ffde-14031df5be8c4f2e82eee2b77b2469d8/result.json",
     "IndependentRootsAndOrdinaryCheckoutMatch": true
   },
-  "NativeAcceptance": "Pending English/German entity-name repeat; previous 720x480 layout pass is documented separately.",
+  "NativeAcceptance": "Pass: user confirms Language switching works. M18_NATIVE_NAME_QUALIFICATION.json records the same-generation cold reopen, nine exact retained runs and saved-profile/JSON/targeted-CSV agreement.",
   "MeasuredPerformance": "No native captures; campaign remains unqualified.",
   "Review": {
     "Range": "af81785a8033d9ca676222fdb6902138ffe7a444..7379417ff2aca3939af2d2c4076d00e46bd3ffde",
     "Verdict": "Pass; no actionable P1/P2 after full 29-file correction and native production-composition review.",
-    "Limits": "Missing or ambiguous identities and unproven immediate parents retain recorded labels; same-language metadata overrides refresh on reopen. Native acceptance remains pending."
+    "Limits": "Missing or ambiguous identities and unproven immediate parents retain recorded labels; same-language metadata overrides refresh on reopen. Subsequent native acceptance is recorded separately."
   },
   "Deployment": {
     "Result": "Pass for corrected package deployment and byte-for-byte data preservation; native reopen and English/German name checks remain pending.",
