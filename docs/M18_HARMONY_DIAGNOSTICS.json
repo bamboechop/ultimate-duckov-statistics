@@ -1,0 +1,94 @@
+{
+  "SourceCommit": "b8c1f08c9be566766de75a5379651a4d86ab06dd",
+  "PreviousInstalledSource": "adb5e706be1cfff93e0b97ece07399df8b9072b8",
+  "Status": "Automated qualification, independent immutable review, reproducible packaging and game-closed five-file deployment passed. All UDS data files unchanged; native diagnosis, wrapping/retry and restoration repeats remain open.",
+  "Automated": {
+    "MainDebugPassed": 1918,
+    "MainReleasePassed": 1918,
+    "ShellDebugPassed": 30,
+    "ShellReleasePassed": 30,
+    "GameClosedTestsPassedPerConfiguration": 2,
+    "NewCases": "Nine presentation cases; existing retained-panel foreign-patch regression now checks the actual loaded-Harmony observation and cause label.",
+    "NativeBuilds": "Debug/Release, zero warnings/errors",
+    "FormatAnalyzers": "Pass for all changed production and test sources",
+    "InstalledContractProbe": "Pass",
+    "Logs": "artifacts/m18-harmony-diagnostics-validation"
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687616,
+      "Sha256": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1121280,
+      "Sha256": "db10e6d3690d9144bf91c731c61c140d54f56bb139f4373c638852c0dc6259a3"
+    }
+  ],
+  "Package": {
+    "Path": "artifacts/candidates/b8c1f08c9be566766de75a5379651a4d86ab06dd/UltimateDuckovStatistics",
+    "ZipBytes": 632370,
+    "ZipSha256": "316141b97c8f6c70d3b4158427f6b8dbb1067a72101d4c2ca9a7d2fafdd6ee4c",
+    "ReproducibilityResult": "artifacts/reproducibility/b8c1f08c9be566766de75a5379651a4d86ab06dd-5c0f02daebdb4a86b7bf6ecb5e311614/result.json",
+    "IndependentRootsAndOrdinaryCheckoutMatch": true,
+    "ArtifactAuditsAndIndependentExtraction": "Pass"
+  },
+  "CoreDllUnchangedFromPreviousDeployment": true,
+  "OriginalNativeCheck": "M18_MISSING_HARMONY_QUALIFICATION.json",
+  "PreviousCorrection": "M18_DEGRADATION_CORRECTION.json",
+  "NativeAcceptance": "Not exercised for corrected source. Combine actionable Harmony diagnosis with the outstanding disabled-Harmony wrapping/retry check, then restoration after a full restart.",
+  "MeasuredPerformance": "No native captures; the new campaign is unqualified.",
+  "Campaign": {
+    "Path": "artifacts/qualification/b8c1f08c9be566766de75a5379651a4d86ab06dd/campaign.json",
+    "Sha256": "fb4cb6241eb74822a1bf0b74fcec587123650ae00275ff6cdaa36f3420fa0d38",
+    "NativeCaptures": 0
+  },
+  "DataPolicy": "Preserve all statistics, historical incomplete evidence, failed observations and protected PLAN.md edits.",
+  "Review": {
+    "Range": "30c01bed6d40e0f38f85cc7561c5754ef051853f..b8c1f08c9be566766de75a5379651a4d86ab06dd",
+    "Verdict": "Pass; no actionable P1/P2 in the complete eight-file correction and affected production/native composition.",
+    "Report": "artifacts/m18-harmony-diagnostics-review/review.md",
+    "ReportSha256": "d1f18e98f751a6d79ade408a766c82a1b90d8c00f80b0fd32deea5851e50e6e2",
+    "Limits": "Actual absent-Harmony rendering and restoration remain native user checks; test Harmony is permanently loaded."
+  },
+  "Deployment": {
+    "Result": "Pass for corrected package deployment and byte-for-byte data preservation; native missing-Harmony diagnosis, wrapping/retry and restoration checks remain pending.",
+    "SourceCommit": "b8c1f08c9be566766de75a5379651a4d86ab06dd",
+    "StartedUtc": "2026-09-08T18:43:46.9659626Z",
+    "VerifiedUtc": "2026-09-08T18:43:48.1024231Z",
+    "DuckovClosedDuringDeployment": true,
+    "FiveInstalledFileHashesMatch": true,
+    "PreviousInstalledSource": "adb5e706be1cfff93e0b97ece07399df8b9072b8",
+    "ExactInstalledFileCount": 5,
+    "AllUdsDataFilesUnchanged": 2241,
+    "V1DataFilesUnchanged": 985,
+    "PreV1AndOtherUdsDataFilesUnchanged": 1256,
+    "VerifiedPriorBackupId": "3059f8e0951f4ae197a5978da29ee1a7",
+    "TransactionResidue": false,
+    "InstalledHashes": {
+      "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+      "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+      "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+      "UltimateDuckovStatistics.Core.dll": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549",
+      "UltimateDuckovStatistics.dll": "db10e6d3690d9144bf91c731c61c140d54f56bb139f4373c638852c0dc6259a3"
+    },
+    "ResultPath": "artifacts/qualification/b8c1f08c9be566766de75a5379651a4d86ab06dd/native-harmony-diagnostics-deployment/result.json",
+    "ResultSha256": "8c0e324bda4068a4a02bfc9065539c0031a422794a1040879dff25df2401f011"
+  }
+}
