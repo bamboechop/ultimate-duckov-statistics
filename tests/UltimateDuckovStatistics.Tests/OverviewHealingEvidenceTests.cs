@@ -10,6 +10,48 @@ namespace UltimateDuckovStatistics.Tests;
 [Collection(NativeEconomyAdapterTestGroup.CollectionName)]
 public sealed class OverviewHealingEvidenceTests
 {
+    [Fact]
+    public void RepeatedPatcherInitializationFailureReportsOnceAndStillRecoversOnTick()
+    {
+        HarmonyLib.Harmony.ClearAll();
+        Assert.True(ReflectiveHarmonyPatcher.TryCreate(out var prior, out var detail), detail);
+        var reports = new List<string>();
+        using var adapter = new NativeHealingAttributionAdapter(_ => { }, reports.Add, new NativeBuffApplicationObservationBoundary());
+        var capabilityChanges = 0;
+        adapter.CapabilityChanged += _ => capabilityChanges++;
+        try
+        {
+            // Registered cleanup failure enters the same retry branch as a missing
+            // Harmony assembly, without pretending a loaded assembly can unload.
+            HarmonyLib.Harmony.FailNextUnpatches(4);
+            Assert.False(prior!.TryDispose(out _));
+            Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.Initialize().State);
+            Retry();
+            Retry();
+            Assert.Equal(1, capabilityChanges);
+            Assert.Single(reports);
+            Assert.Contains("previous UDS activation is still pending", reports[0]);
+            Retry();
+            Assert.Equal(AdapterCapabilityState.Supported, adapter.Capability.State);
+            Assert.Equal(2, capabilityChanges);
+            Assert.Contains(reports, report => report.Contains("patches active", StringComparison.Ordinal));
+        }
+        finally
+        {
+            HarmonyLib.Harmony.FailNextUnpatches(0);
+            adapter.Dispose();
+            prior!.Dispose();
+            HarmonyLib.Harmony.ClearAll();
+        }
+
+        void Retry()
+        {
+            typeof(NativeHealingAttributionAdapter).GetField("nextInitializationAttemptUtc", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(adapter, DateTime.MinValue);
+            adapter.Tick();
+        }
+    }
+
     [Theory]
     [InlineData(0, false, "0.00", "0")]
     [InlineData(12.5, false, "12.50", "12.5")]

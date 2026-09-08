@@ -4814,7 +4814,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesRegularWeight);
         Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesNativeHorizontalMetrics);
         Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesOwnedSubtleShadowMaterial);
-        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.WordWrapping);
+        Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.WordWrapping);
         Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.AutoSizing);
         Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.HasInteraction);

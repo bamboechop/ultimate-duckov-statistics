@@ -3360,7 +3360,7 @@ internal static class RetainedOverviewWorldTimeStatisticsPolicy
     public const float ParagraphSpacing = 0f;
     public const float HorizontalScale = 1f;
     public const bool BlocksRaycasts = false;
-    public const bool WordWrapping = false;
+    public const bool WordWrapping = true;
     public const bool AutoSizing = false;
     public const bool UsesVisibleOverflow = true;
     public const bool UsesZeroTextMargins = true;

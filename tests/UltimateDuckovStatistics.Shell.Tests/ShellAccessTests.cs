@@ -140,6 +140,37 @@ public sealed class ShellAccessTests : IDisposable
         Assert.Empty(coordinator.Reports);
     }
 
+    [Theory]
+    [InlineData(2560, 1440)]
+    [InlineData(720, 480)]
+    public void IncompleteSleepCaptureWrapsInsideItsMeasuredCardOnOpenAndResize(int width, int height)
+    {
+        coordinator.Current.Statistics.WorldTime.CompletedSleepSessions = 1;
+        coordinator.Current.Statistics.WorldTime.SleepAdvancedTimeTicks = TimeSpan.FromMinutes(59).Ticks;
+        ((RectTransform)canvas.transform).sizeDelta = new Vector2(width, height);
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        AssertWorldTimeFits();
+        ((RectTransform)canvas.transform).sizeDelta = new Vector2(960, 540);
+        panel.Tick();
+        AssertWorldTimeFits();
+
+        void AssertWorldTimeFits()
+        {
+            var label = Find(RetainedOverviewWorldTimeStatisticsPolicy.Name).GetComponent<TextMeshProUGUI>();
+            var card = Find(RetainedOverviewWorldTimeCardPolicy.Name).GetComponent<RectTransform>();
+            Assert.Contains("00:59:00 (capture incomplete)", label.text);
+            Assert.True(label.enableWordWrapping);
+            Assert.False(label.enableAutoSizing);
+            var inset = label.rectTransform.anchoredPosition.x;
+            Assert.True(label.rectTransform.rect.width + 2 * inset <= card.rect.width + .001f);
+            Assert.True(label.preferredHeight <= label.rectTransform.rect.height + .001f);
+            Assert.True(label.rectTransform.rect.height + 2 * inset <= card.rect.height + .001f);
+            Assert.True(card.rect.height > RetainedOverviewWorldTimeCardPolicy.HeightPixels * (label.fontSize / RetainedOverviewWorldTimeStatisticsPolicy.ReferenceFontSize));
+            Assert.True(Find(RetainedDimmerPolicy.RootName).activeInHierarchy);
+        }
+    }
+
     [Fact]
     public void UnprovenGenerationAndRaidKeepSupportedAccessRestrictions()
     {

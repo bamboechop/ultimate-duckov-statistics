@@ -42,6 +42,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
     private bool retryInitialization;
     private DateTime nextInitializationAttemptUtc;
+    private string? lastHarmonyInitializationFailure;
     private bool initialized;
     private string projectileGenerationId = string.Empty;
     private string projectileRunId = string.Empty;
@@ -107,6 +108,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             return CapabilityRecords();
         }
 
+        lastHarmonyInitializationFailure = null;
         patcherLease.Attach(created);
         try
         {
@@ -934,12 +936,21 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     private void ActivateCapabilities(CombatHookSupport support, string detail)
     {
-        hookSupport = support;
-        metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
-        initialized = true;
-        PublishCapabilities();
+        // Retrying a missing dependency must not rewrite the profile/checkpoint
+        // when the supported public callbacks and disabled hooks are unchanged.
+        if (!initialized || hookSupport != support)
+        {
+            hookSupport = support;
+            metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
+            initialized = true;
+            PublishCapabilities();
+        }
         SynchronizeMainCharacter();
-        diagnosticHandler(detail);
+        if (lastHarmonyInitializationFailure != detail)
+        {
+            lastHarmonyInitializationFailure = detail;
+            diagnosticHandler(detail);
+        }
     }
 
     private IReadOnlyList<CapabilityRecord> CapabilityRecords() =>

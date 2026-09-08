@@ -2202,6 +2202,21 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             layout.OverviewWorldTimeStatistics.Width,
             layout.OverviewWorldTimeStatistics.Height);
         worldTimeStatisticsControl.Label.fontSize = layout.OverviewWorldTimeStatistics.FontSize;
+        // Capture-status suffixes can add wrapped lines. Measure at the actual
+        // content width and grow the card so the complete evidence stays visible.
+        var worldTimeHeight = RetainedActiveMeasurementPolicy.Measure(
+            overviewContentView!.activeSelf, overviewContentView.SetActive,
+            () => worldTimeStatisticsControl.Label.GetPreferredValues(
+                layout.OverviewWorldTimeStatistics.Width, float.PositiveInfinity).y);
+        if (!float.IsNaN(worldTimeHeight) && !float.IsInfinity(worldTimeHeight) && worldTimeHeight > 0f)
+        {
+            worldTimeHeight = Math.Max(layout.OverviewWorldTimeStatistics.Height, worldTimeHeight);
+            worldTimeStatisticsControl.Rect.sizeDelta = new Vector2(
+                layout.OverviewWorldTimeStatistics.Width, worldTimeHeight);
+            var inset = layout.OverviewWorldTimeStatistics.Top - layout.OverviewWorldTimeCard.Top;
+            worldTimeCardRect.sizeDelta = new Vector2(layout.OverviewWorldTimeCard.Width,
+                Math.Max(layout.OverviewWorldTimeCard.Height, worldTimeHeight + inset * 2f));
+        }
         for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
             ApplyStatisticsRowLayout(
                 overviewProfileSummaryRows[index],
