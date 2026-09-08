@@ -113,7 +113,7 @@
       "UltimateDuckovStatistics.dll": "43e3ab86aeb82cb45145acc5b47b2c75230215739d9deff8c21ad7a337e29d4f"
     }
   },
-  "NativeCorrectionAcceptance": "Not exercised. Repeat exports around direct quit/restart without gameplay. The existing erroneous 58 outflow is preserved as baseline, not automatically repaired.",
+  "NativeCorrectionAcceptance": "Pass for the observed direct base quit at 2026-09-08T12:16:32.6951840Z and cold restart at 2026-09-08T12:16:46.3628409Z. M18_DIRECT_QUIT_NATIVE_QUALIFICATION.json preserves the exports and logs: one unchanged completed run, holdings 58, unchanged lifetime Cash inflow/outflow (58/58), no added outflow and clean profile closure. The existing erroneous 58 outflow is preserved without repair.",
   "LocalEvidenceSha256": {
     "m18-direct-quit-before.log": "ea44d02ea1ace25c55d6c6f5183792f1c124823426c69dfeeb9e577ad71cf0b1",
     "m18-direct-quit-Debug-main.log": "f1b44d1067b78b7bd5836457ea91baa21585af09e22e46b3c03ceebc74122fff",

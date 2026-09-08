@@ -14,6 +14,8 @@ For tutorial coverage, use a user-selected fresh save. After gaining control, re
 
 ## Direct-quit correction check
 
+Passed on save 3 at `2026-09-08T12:16:32.6951840Z` with cold-restart export afterward; [qualification evidence](M18_DIRECT_QUIT_NATIVE_QUALIFICATION.json) records unchanged run/Cash totals and clean closure. The procedure below remains available for future regression checks.
+
 On the deployed correction, launch save 3 and export without gameplay. Quit directly from the base pause menu, relaunch the same save and export again. The generation, completed run, Cash holdings and lifetime Cash flow totals must be unchanged. The existing erroneous 58 Cash outflow remains in the preserved baseline; the correction must not add another outflow. Compare the two exports and shutdown log against [the correction evidence](M18_DIRECT_QUIT_CASH_CORRECTION.json).
 
 ## Persistence, degradation and ownership
