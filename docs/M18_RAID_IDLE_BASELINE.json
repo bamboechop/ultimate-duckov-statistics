@@ -1,0 +1,314 @@
+{
+  "SourceCommit": "09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
+  "Campaign": {
+    "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/campaign.json",
+    "Bytes": 4265,
+    "Sha256": "f7d5271b2acf5044bb2959513cc56e5aff4ea5d62f73dc888d4be26673c62232"
+  },
+  "Status": "Three valid Harmony-only Nullpunkt raid-idle samples after explicit location-label correction. Baseline evidence alone establishes no UDS overhead; the subsequent six-sample comparison is linked below.",
+  "Scenario": "idle",
+  "Configuration": "B",
+  "Controls": {
+    "Weapon": "SR-3M held for idle capture; MMG remains in second firearm slot. Retain these exact instances and equipment between B/D.",
+    "WeaponModifications": "SR-3M: MP-DMG-Boost-Mündung; Leichter Schaft; Laser (Basic). MMG: Rotpunkt-Visier; Gewehr-Schalldämpfer; Hüftfeuer-Schaft II; Gewehr-Magazinerweiterung I.",
+    "Ammunition": "SR-3M loaded with Rost-Muni (S); MMG loaded with Rost-Muni (AR), confirmed by user. Backpack holds 320 S and 240 AR as shown. No firing, reload or ammunition transfer during this idle cell.",
+    "EquipmentAndTotems": "Friedenswächter-Helm; Kampf-Körperpanzer St. 3; Gasmaske; Würfelsammler. Melee, headphones and both totem slots empty, as shown. No gear changes during the pair.",
+    "Location": "Nullpunkt (duckov:map:Level_GroundZero_1), stationary at the exact same user-confirmed location and camera angle for all three B samples and the subsequent D setup. Earlier base screenshot establishes equipment only, not this capture location.",
+    "ShotCountExpectation": "0 shots; no input during the timed idle capture",
+    "SaveGenerationId": "063240a5b57647138bc4de0c18179981",
+    "BackgroundApplicationState": "User reports no recording/streaming, video playback or download and closed other applications as far as possible. Keep Steam/game, Codex and CapFrameX setup unchanged between B/D. Agent performs no builds/tests/indexing/analysis during timed capture. Collector preflight: FvSvc stopped, no RTSS/PresentMon/FrameView/OCAT/OBS process, sensor logging off.",
+    "Resolution": "2560x1440 (native game setting; supplied screenshots are 2559x1439)",
+    "DisplayMode": "Borderless fullscreen (Randloses Vollbild)",
+    "RefreshRateHz": "143 (Win32_VideoController integer-reported current mode on NVIDIA GeForce RTX 4080 SUPER; active 2560x1440 mode)",
+    "FrameLimiterFps": "Unlimited (user changed from 240 before repeat; all other graphics controls retained)",
+    "VSyncState": "Off (Aus)",
+    "GraphicsPreset": "Explicit settings: FSR 1.0 Off; interface shadow effect On; ambient occlusion High; shadows High; grass On; rim lighting On; fog On.",
+    "RouteAssociationState": "Slot 1 Nullpunkt raid. B: UDS disabled; generation 063240a5b57647138bc4de0c18179981 is the archived-statistics reference, not a live B tracking session. No movement or transition during capture.",
+    "ActionLabel": "Stationary Nullpunkt raid idle with all menus closed",
+    "Consumable": "No consumable use in this idle cell",
+    "ConsumableCountExpectation": "0",
+    "StartingHealth": "",
+    "ActiveDamageEffects": "",
+    "PassiveHealingEffects": "",
+    "CharacterState": "Natural survival decay accepted; no quantitative hydration or energy control. No deliberate status/equipment changes during timing."
+  },
+  "CaptureStagingCorrection": {
+    "SourceCommit": "c03933549829b37bb6821942cadfae9e0b35fd92",
+    "ChangedFile": "scripts/capture-frame-times.ps1",
+    "Reason": "CapFrameX .NET Framework file writes failed at 268/272 characters despite an existing parent. Use unique short artifacts/capture-staging directories and reject paths at or above 260 characters before capture.",
+    "ReviewRange": "76d3984c6dc6eae5eab66938df0fe26870280885..c03933549829b37bb6821942cadfae9e0b35fd92",
+    "Review": {
+      "Path": "artifacts/m18-capture-path-review/review.md",
+      "Bytes": 3928,
+      "Sha256": "187da84c30d21e740a0e72f5f028227395ea935673d006a3dfb61b3953d9c73e"
+    },
+    "ReviewVerdict": "Pass; no actionable P1/P2.",
+    "Validation": "PowerShell parser and diff checks passed. All three native repeats wrote CSV, raw session JSON and metadata successfully; campaign identity and both raw hashes passed in the analyzer.",
+    "RuntimePackageImpact": "None: collector wrapper only. Candidate source and deployed DLL hashes remain unchanged."
+  },
+  "FailedAttempt": {
+    "Run": 1,
+    "Status": "Invalid: collector failed to save both raw files; log frame count cannot substitute for raw data.",
+    "Evidence": {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/original-captures/B/base-idle-ui-closed/failed-attempt-01/failure.json",
+      "Bytes": 7844,
+      "Sha256": "7b22faeaf7e4a587cbca9a02b7aed4acb8d5ffd53a7fed29dfb82e7e049cc5ae"
+    },
+    "Manifest": {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/original-captures/B/base-idle-ui-closed/failed-attempt-01/manifest.json",
+      "Bytes": 347,
+      "Sha256": "91b8c2ab544d195cd7ffbb9e3d8db9289c84e06986f8bd8cab5b576fbbc9b350"
+    },
+    "ControlChangeBeforeAcceptedCaptures": "User changed FPS limit from 240 to Unlimited before run 2. Original 240 controls and failed evidence remain preserved. Runs 2/3/4 all use the same Unlimited controls."
+  },
+  "Captures": [
+    {
+      "Run": 2,
+      "CapturedUtc": "2026-09-08T21:59:15.5218255Z",
+      "UserConfirmation": "Yes: ending beep finished, Duckov focused and character idle throughout",
+      "Frames": 7988,
+      "Seconds": 30.00398820000005,
+      "AverageFps": 266.23127388111646,
+      "MedianMilliseconds": 3.67915,
+      "P99Milliseconds": 4.557755,
+      "MaximumMilliseconds": 9.9685,
+      "Thresholds": [
+        {
+          "Milliseconds": 8.33,
+          "Count": 5,
+          "Percentage": 0.06259389083625438
+        },
+        {
+          "Milliseconds": 16.7,
+          "Count": 0,
+          "Percentage": 0
+        },
+        {
+          "Milliseconds": 33.3,
+          "Count": 0,
+          "Percentage": 0
+        }
+      ],
+      "Warnings": [],
+      "HasSpikeCluster": false,
+      "Artifacts": [
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r02.csv",
+          "Bytes": 2160141,
+          "Sha256": "b65077071d76610da92bc7722ebe8d024e05ee794ad6157995776815cb487c37"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r02.capframex.json",
+          "Bytes": 848662,
+          "Sha256": "a97aef32634f9be1dbbef7b1b9dfc32f664d7d61226fa4d675db3ceac79819a4"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r02.capture.json",
+          "Bytes": 7479,
+          "Sha256": "e1707a257363532b4e6535ebd07b6cb58d1be207a5cba95c13f6a79afcfd0181"
+        }
+      ],
+      "OriginalFocusIdleConfirmation": {
+        "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/original-captures/B/base-idle-ui-closed/b-base-idle-ui-closed-r02.review.json",
+        "Bytes": 1256,
+        "Sha256": "e811a4ec14027a2f182e663a3aad79302ebfeaa8f30d643dc4ff5f0b2691c5f7"
+      }
+    },
+    {
+      "Run": 3,
+      "CapturedUtc": "2026-09-08T22:02:16.8997432Z",
+      "UserConfirmation": "Yes: ending beep finished, Duckov focused and character idle throughout",
+      "Frames": 8089,
+      "Seconds": 30.00270539999997,
+      "AverageFps": 269.6090199919107,
+      "MedianMilliseconds": 3.6342,
+      "P99Milliseconds": 4.506428,
+      "MaximumMilliseconds": 10.346,
+      "Thresholds": [
+        {
+          "Milliseconds": 8.33,
+          "Count": 4,
+          "Percentage": 0.04944987019409074
+        },
+        {
+          "Milliseconds": 16.7,
+          "Count": 0,
+          "Percentage": 0
+        },
+        {
+          "Milliseconds": 33.3,
+          "Count": 0,
+          "Percentage": 0
+        }
+      ],
+      "Warnings": [],
+      "HasSpikeCluster": false,
+      "Artifacts": [
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r03.csv",
+          "Bytes": 2197062,
+          "Sha256": "594dbcf49a47cf89368f4d6767c8a70c1ca3fdf3d7b60bc9486a687dda0804a6"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r03.capframex.json",
+          "Bytes": 859456,
+          "Sha256": "3d5eb5c608d824e127a50f6bf9875b2e23a22f15955066904da7696f76d5f29f"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r03.capture.json",
+          "Bytes": 7479,
+          "Sha256": "6c4b7192dc92853c52983cfebdfd521c99961efc0c0c386ceb9468600a91b029"
+        }
+      ],
+      "OriginalFocusIdleConfirmation": {
+        "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/original-captures/B/base-idle-ui-closed/b-base-idle-ui-closed-r03.review.json",
+        "Bytes": 993,
+        "Sha256": "318318fdf010d7fc1d25a010948dd29ae15085cea1a93bc31b006a2c8d209f11"
+      }
+    },
+    {
+      "Run": 4,
+      "CapturedUtc": "2026-09-08T22:04:18.3858374Z",
+      "UserConfirmation": "Yes: ending beep finished, Duckov focused and character idle throughout",
+      "Frames": 7966,
+      "Seconds": 30.00104539999999,
+      "AverageFps": 265.52408070420114,
+      "MedianMilliseconds": 3.67805,
+      "P99Milliseconds": 4.96104,
+      "MaximumMilliseconds": 9.4537,
+      "Thresholds": [
+        {
+          "Milliseconds": 8.33,
+          "Count": 8,
+          "Percentage": 0.10042681395932714
+        },
+        {
+          "Milliseconds": 16.7,
+          "Count": 0,
+          "Percentage": 0
+        },
+        {
+          "Milliseconds": 33.3,
+          "Count": 0,
+          "Percentage": 0
+        }
+      ],
+      "Warnings": [],
+      "HasSpikeCluster": false,
+      "Artifacts": [
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r04.csv",
+          "Bytes": 2157231,
+          "Sha256": "2729795de420159f9c339786b60aa3f28a3d0089305a379897a0e07ece6f8e00"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r04.capframex.json",
+          "Bytes": 846467,
+          "Sha256": "62b9e2779448b42b4b998474fbedbabf8e7673e8355bdb5cba2a6ef11678e071"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r04.capture.json",
+          "Bytes": 7479,
+          "Sha256": "ed5aa07239bd7438c92a8f3ec1f2330166df21ae99ab2d0cf13ca7a4e5478d97"
+        }
+      ],
+      "OriginalFocusIdleConfirmation": {
+        "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/original-captures/B/base-idle-ui-closed/b-base-idle-ui-closed-r04.review.json",
+        "Bytes": 993,
+        "Sha256": "c9870e776b3564599d5ec503863f2327dd7319841b57cfb66770069819dea12e"
+      }
+    }
+  ],
+  "TotalFrames": 24043,
+  "Aggregate": {
+    "Configuration": "B",
+    "BuildLabel": "production",
+    "Scenario": "idle",
+    "RunCount": 3,
+    "MedianOfRunMediansMilliseconds": 3.67805,
+    "MedianOfRunP99Milliseconds": 4.557755,
+    "MedianFramesOver16MillisecondsPercentage": 0,
+    "CapturesWithSpikeCluster": 0,
+    "CapturesWithActionSpikeCluster": 0,
+    "MedianOfRunCpuBusyMediansMilliseconds": 3.6189,
+    "MedianOfRunCpuBusyP99Milliseconds": 4.500904,
+    "MedianOfRunGpuBusyMediansMilliseconds": 3.1933,
+    "MedianOfRunGpuBusyP99Milliseconds": 3.5572,
+    "MedianOfRunActionMediansMilliseconds": null,
+    "MedianOfRunActionP99Milliseconds": null,
+    "MedianActionFramesOver16MillisecondsPercentage": null,
+    "MedianOfRunActionCpuBusyMediansMilliseconds": null,
+    "MedianOfRunActionCpuBusyP99Milliseconds": null,
+    "MedianOfRunActionGpuBusyMediansMilliseconds": null,
+    "MedianOfRunActionGpuBusyP99Milliseconds": null
+  },
+  "AnalyzerReport": {
+    "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/analysis/raid-idle-B-complete.json",
+    "Bytes": 6931,
+    "Sha256": "cfc360ef378d5824f50e6aaa01fc273218735978e053a7dee0ec56dcef1eca9b"
+  },
+  "CollectorLog": {
+    "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/analysis/capframex-after-baseline.log",
+    "Bytes": 169613,
+    "Sha256": "b6ce5136f3da71e70ea9a5bdfd4ae8e71938a399c790239c4f5e36008c4a358d"
+  },
+  "CollectorSoundLimitation": "CapFrameX logs missing sound resources at capture start/end. The wrapper emits its own signals; the user confirmed every ending beep, focus and idle period. All corrected raw writes succeeded.",
+  "ControlEvidenceLimit": "Position, camera, held weapon and background activity are user-controlled and confirmed. Graphics screenshots/settings and CIM integer-reported display mode are preserved; no precise display refresh or automated input observation is inferred.",
+  "Remaining": "The subsequent comparison misses the engineering target. Base-idle and twelve other declared cells, progressed-history soak, native resources and remaining acceptance gates stay open.",
+  "OriginalControlsFile": {
+    "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/controls.base-idle-ui-closed.unlimited.json",
+    "Bytes": 2535,
+    "Sha256": "dbac3ef9b539ced44e867541b6cb037905cc1a385317ff2c3c44862283399c2e"
+  },
+  "LocationCorrection": {
+    "Evidence": {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/idle-location-correction.json",
+      "Bytes": 5103,
+      "Sha256": "cb1e5c59de58e60b8d7da2651847501ae3e6739ad97962e5c5bf34ee499cf83b"
+    },
+    "UserReport": "Nullpunkt. Same spot I stood on earlier for the Harmony only baseline",
+    "Scope": "All three complete B samples reassociated to the already-declared stationary raid idle cell. Duration, focus delay, idle action kind, null action windows, thresholds, raw data and collector comments are unchanged. No selection based on performance.",
+    "PreservedOriginalFiles": 17,
+    "OriginalDirectory": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/original-captures/B/base-idle-ui-closed",
+    "SupersededInitialRecord": {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/analysis/superseded-base-label-baseline-record.json",
+      "Bytes": 13409,
+      "Sha256": "d0e2a3c2eae55bc2fc77da3f5013c8dd0cdb7e95de951ddc9657ec7c39435f62"
+    },
+    "AcceptanceInputRule": "Analyze captures/ only. original-captures/ preserves mislabeled originals and the failed collector attempt; it is not a second acceptance input."
+  },
+  "ProfileRotationBeforeD": {
+    "UserReport": "Only continued the existing save",
+    "ArchivedGeneration": "063240a5b57647138bc4de0c18179981",
+    "ArchivedRuns": 9,
+    "CurrentGeneration": "6e5cbc624f234ec1a773e40251a0da39",
+    "Reason": "SaveIdentityChanged",
+    "Evidence": {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/profile-generation-change/archived-profile.json",
+      "Bytes": 1241184,
+      "Sha256": "fca2e95949276a84eab181b90a16a4b41385a5064fc92f24b3e1e0fec2d71557"
+    },
+    "CurrentProfileAtPreflight": {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/profile-generation-change/new-profile-at-preflight.json",
+      "Bytes": 31467,
+      "Sha256": "c02242d84c996f474509511941c81f079a5a8216e96748b91e4b37fbf43dd668"
+    },
+    "IndependentReview": {
+      "Path": "artifacts/m18-profile-lineage-review/review.md",
+      "Bytes": 7650,
+      "Sha256": "a83283545b79f162e08830900010724a9d8918accd4d7c8ff6aa7f2264d653d0"
+    },
+    "Interpretation": "Documented conservative rotation after native saving while UDS was disabled: changed fingerprint and no persisted pre-save evidence. Nine prior runs remain archived. No real profile or save was restored or edited by the agent.",
+    "PerformanceScope": "D captures use the new generation and do not qualify the archived nine-run workload or progressed-history scaling."
+  },
+  "CompletedComparison": {
+    "Evidence": "M18_RAID_IDLE_QUALIFICATION.json",
+    "Result": "Engineering target missed; weaker ceiling passes narrowly.",
+    "IndependentReview": {
+      "Path": "artifacts/m18-idle-qualification-review/review.md",
+      "Bytes": 4951,
+      "Sha256": "7fd28835ea58442d16738397c001b6447477bbb4c7266d4dbe095f3906babe87"
+    },
+    "ReviewVerdict": "Evidence integrity and honest classification pass; engineering performance fails."
+  }
+}

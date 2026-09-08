@@ -1,0 +1,717 @@
+{
+  "SourceCommit": "09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
+  "CaptureWrapperCommit": "c03933549829b37bb6821942cadfae9e0b35fd92",
+  "Campaign": {
+    "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/campaign.json",
+    "Bytes": 4265,
+    "Sha256": "f7d5271b2acf5044bb2959513cc56e5aff4ea5d62f73dc888d4be26673c62232"
+  },
+  "Scenario": "idle",
+  "Status": "Engineering target missed. Weaker ceiling passes numerically for this cell; M18 performance qualification remains open.",
+  "BaselineEvidence": "M18_RAID_IDLE_BASELINE.json",
+  "MetadataCorrectionReview": {
+    "Path": "artifacts/m18-idle-metadata-review/review.md",
+    "Bytes": 4554,
+    "Sha256": "310c5840f5a96bd44cb2403c72af8c54590db27f11613d51ccaf1d1cfa5cfa8c"
+  },
+  "ControlsD": {
+    "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/controls.idle.nullpunkt.D.json",
+    "Bytes": 2617,
+    "Sha256": "164e625af0942fb12036bbbdb106383df3980012e28fc7691c36165e067e7f1d"
+  },
+  "Captures": [
+    {
+      "Configuration": "B",
+      "Run": 2,
+      "CaptureStartSignalUtc": "2026-09-08T21:59:15.5422662Z",
+      "CaptureEndSignalUtc": "2026-09-08T21:59:45.8140143Z",
+      "SaveGenerationId": "063240a5b57647138bc4de0c18179981",
+      "UserConfirmation": "User confirmed readiness, same position/controls, ending beep, focus and idle throughout.",
+      "Summary": {
+        "Source": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures\\B\\idle\\b-idle-r02.csv",
+        "Configuration": "B",
+        "BuildLabel": "production",
+        "Scenario": "idle",
+        "Run": 2,
+        "FrameTimeColumn": "msBetweenPresents",
+        "DominantSwapChain": "0x144292B06E0",
+        "ParsedRows": 7988,
+        "FrameCount": 7988,
+        "IgnoredNonDominantRows": 0,
+        "DurationSeconds": 30.00398820000005,
+        "AverageFps": 266.23127388111646,
+        "MeanMilliseconds": 3.7561327240861355,
+        "MedianMilliseconds": 3.67915,
+        "P95Milliseconds": 4.20278,
+        "P99Milliseconds": 4.557755,
+        "MaximumMilliseconds": 9.9685,
+        "Thresholds": [
+          {
+            "Milliseconds": 8.33,
+            "Count": 5,
+            "Percentage": 0.06259389083625438
+          },
+          {
+            "Milliseconds": 16.7,
+            "Count": 0,
+            "Percentage": 0
+          },
+          {
+            "Milliseconds": 33.3,
+            "Count": 0,
+            "Percentage": 0
+          }
+        ],
+        "SpikesOver33Milliseconds": [],
+        "Windows": [],
+        "HasSpikeCluster": false,
+        "HasActionSpikeCluster": false,
+        "Warnings": [],
+        "CpuBusy": {
+          "SampleCount": 7988,
+          "MeanMilliseconds": 3.6982435403104588,
+          "MedianMilliseconds": 3.622,
+          "P95Milliseconds": 4.144999999999999,
+          "P99Milliseconds": 4.500904,
+          "MaximumMilliseconds": 9.9107
+        },
+        "GpuBusy": {
+          "SampleCount": 7988,
+          "MeanMilliseconds": 3.256582961942919,
+          "MedianMilliseconds": 3.1933,
+          "P95Milliseconds": 3.490165,
+          "P99Milliseconds": 3.5572,
+          "MaximumMilliseconds": 3.7995
+        },
+        "ActionFrameCount": null,
+        "ActionDurationSeconds": null,
+        "ActionAverageFps": null,
+        "ActionMeanMilliseconds": null,
+        "ActionMedianMilliseconds": null,
+        "ActionP95Milliseconds": null,
+        "ActionP99Milliseconds": null,
+        "ActionMaximumMilliseconds": null,
+        "ActionThresholds": null,
+        "ActionCpuBusy": null,
+        "ActionGpuBusy": null
+      },
+      "Artifacts": [
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r02.csv",
+          "Bytes": 2160141,
+          "Sha256": "b65077071d76610da92bc7722ebe8d024e05ee794ad6157995776815cb487c37"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r02.capframex.json",
+          "Bytes": 848662,
+          "Sha256": "a97aef32634f9be1dbbef7b1b9dfc32f664d7d61226fa4d675db3ceac79819a4"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r02.capture.json",
+          "Bytes": 7479,
+          "Sha256": "e1707a257363532b4e6535ebd07b6cb58d1be207a5cba95c13f6a79afcfd0181"
+        }
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Run": 3,
+      "CaptureStartSignalUtc": "2026-09-08T22:02:16.9190640Z",
+      "CaptureEndSignalUtc": "2026-09-08T22:02:47.1899997Z",
+      "SaveGenerationId": "063240a5b57647138bc4de0c18179981",
+      "UserConfirmation": "User confirmed readiness, same position/controls, ending beep, focus and idle throughout.",
+      "Summary": {
+        "Source": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures\\B\\idle\\b-idle-r03.csv",
+        "Configuration": "B",
+        "BuildLabel": "production",
+        "Scenario": "idle",
+        "Run": 3,
+        "FrameTimeColumn": "msBetweenPresents",
+        "DominantSwapChain": "0x144292B06E0",
+        "ParsedRows": 8089,
+        "FrameCount": 8089,
+        "IgnoredNonDominantRows": 0,
+        "DurationSeconds": 30.00270539999997,
+        "AverageFps": 269.6090199919107,
+        "MeanMilliseconds": 3.7090747187538597,
+        "MedianMilliseconds": 3.6342,
+        "P95Milliseconds": 4.160959999999999,
+        "P99Milliseconds": 4.506428,
+        "MaximumMilliseconds": 10.346,
+        "Thresholds": [
+          {
+            "Milliseconds": 8.33,
+            "Count": 4,
+            "Percentage": 0.04944987019409074
+          },
+          {
+            "Milliseconds": 16.7,
+            "Count": 0,
+            "Percentage": 0
+          },
+          {
+            "Milliseconds": 33.3,
+            "Count": 0,
+            "Percentage": 0
+          }
+        ],
+        "SpikesOver33Milliseconds": [],
+        "Windows": [],
+        "HasSpikeCluster": false,
+        "HasActionSpikeCluster": false,
+        "Warnings": [],
+        "CpuBusy": {
+          "SampleCount": 8089,
+          "MeanMilliseconds": 3.6511260477191265,
+          "MedianMilliseconds": 3.5765,
+          "P95Milliseconds": 4.10204,
+          "P99Milliseconds": 4.452579999999999,
+          "MaximumMilliseconds": 10.2794
+        },
+        "GpuBusy": {
+          "SampleCount": 8089,
+          "MeanMilliseconds": 3.258118914575352,
+          "MedianMilliseconds": 3.1942,
+          "P95Milliseconds": 3.49866,
+          "P99Milliseconds": 3.576548,
+          "MaximumMilliseconds": 3.7362
+        },
+        "ActionFrameCount": null,
+        "ActionDurationSeconds": null,
+        "ActionAverageFps": null,
+        "ActionMeanMilliseconds": null,
+        "ActionMedianMilliseconds": null,
+        "ActionP95Milliseconds": null,
+        "ActionP99Milliseconds": null,
+        "ActionMaximumMilliseconds": null,
+        "ActionThresholds": null,
+        "ActionCpuBusy": null,
+        "ActionGpuBusy": null
+      },
+      "Artifacts": [
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r03.csv",
+          "Bytes": 2197062,
+          "Sha256": "594dbcf49a47cf89368f4d6767c8a70c1ca3fdf3d7b60bc9486a687dda0804a6"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r03.capframex.json",
+          "Bytes": 859456,
+          "Sha256": "3d5eb5c608d824e127a50f6bf9875b2e23a22f15955066904da7696f76d5f29f"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r03.capture.json",
+          "Bytes": 7479,
+          "Sha256": "6c4b7192dc92853c52983cfebdfd521c99961efc0c0c386ceb9468600a91b029"
+        }
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Run": 4,
+      "CaptureStartSignalUtc": "2026-09-08T22:04:18.4041904Z",
+      "CaptureEndSignalUtc": "2026-09-08T22:04:48.6753376Z",
+      "SaveGenerationId": "063240a5b57647138bc4de0c18179981",
+      "UserConfirmation": "User confirmed readiness, same position/controls, ending beep, focus and idle throughout.",
+      "Summary": {
+        "Source": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures\\B\\idle\\b-idle-r04.csv",
+        "Configuration": "B",
+        "BuildLabel": "production",
+        "Scenario": "idle",
+        "Run": 4,
+        "FrameTimeColumn": "msBetweenPresents",
+        "DominantSwapChain": "0x144292B06E0",
+        "ParsedRows": 7966,
+        "FrameCount": 7966,
+        "IgnoredNonDominantRows": 0,
+        "DurationSeconds": 30.00104539999999,
+        "AverageFps": 265.52408070420114,
+        "MeanMilliseconds": 3.766136756213908,
+        "MedianMilliseconds": 3.67805,
+        "P95Milliseconds": 4.25135,
+        "P99Milliseconds": 4.96104,
+        "MaximumMilliseconds": 9.4537,
+        "Thresholds": [
+          {
+            "Milliseconds": 8.33,
+            "Count": 8,
+            "Percentage": 0.10042681395932714
+          },
+          {
+            "Milliseconds": 16.7,
+            "Count": 0,
+            "Percentage": 0
+          },
+          {
+            "Milliseconds": 33.3,
+            "Count": 0,
+            "Percentage": 0
+          }
+        ],
+        "SpikesOver33Milliseconds": [],
+        "Windows": [],
+        "HasSpikeCluster": false,
+        "HasActionSpikeCluster": false,
+        "Warnings": [],
+        "CpuBusy": {
+          "SampleCount": 7966,
+          "MeanMilliseconds": 3.707302008536296,
+          "MedianMilliseconds": 3.6189,
+          "P95Milliseconds": 4.18975,
+          "P99Milliseconds": 4.90027,
+          "MaximumMilliseconds": 9.3969
+        },
+        "GpuBusy": {
+          "SampleCount": 7966,
+          "MeanMilliseconds": 3.2572353753452195,
+          "MedianMilliseconds": 3.1933,
+          "P95Milliseconds": 3.492175,
+          "P99Milliseconds": 3.54757,
+          "MaximumMilliseconds": 3.6795
+        },
+        "ActionFrameCount": null,
+        "ActionDurationSeconds": null,
+        "ActionAverageFps": null,
+        "ActionMeanMilliseconds": null,
+        "ActionMedianMilliseconds": null,
+        "ActionP95Milliseconds": null,
+        "ActionP99Milliseconds": null,
+        "ActionMaximumMilliseconds": null,
+        "ActionThresholds": null,
+        "ActionCpuBusy": null,
+        "ActionGpuBusy": null
+      },
+      "Artifacts": [
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r04.csv",
+          "Bytes": 2157231,
+          "Sha256": "2729795de420159f9c339786b60aa3f28a3d0089305a379897a0e07ece6f8e00"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r04.capframex.json",
+          "Bytes": 846467,
+          "Sha256": "62b9e2779448b42b4b998474fbedbabf8e7673e8355bdb5cba2a6ef11678e071"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/B/idle/b-idle-r04.capture.json",
+          "Bytes": 7479,
+          "Sha256": "ed5aa07239bd7438c92a8f3ec1f2330166df21ae99ab2d0cf13ca7a4e5478d97"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 1,
+      "CaptureStartSignalUtc": "2026-09-08T22:19:58.9549501Z",
+      "CaptureEndSignalUtc": "2026-09-08T22:20:29.2271889Z",
+      "SaveGenerationId": "6e5cbc624f234ec1a773e40251a0da39",
+      "UserConfirmation": "User confirmed readiness, same position/controls, ending beep, focus and idle throughout.",
+      "Summary": {
+        "Source": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures\\D\\idle\\d-idle-r01.csv",
+        "Configuration": "D",
+        "BuildLabel": "production",
+        "Scenario": "idle",
+        "Run": 1,
+        "FrameTimeColumn": "msBetweenPresents",
+        "DominantSwapChain": "0x22820E32830",
+        "ParsedRows": 7548,
+        "FrameCount": 7548,
+        "IgnoredNonDominantRows": 0,
+        "DurationSeconds": 30.003748399999925,
+        "AverageFps": 251.56856734607265,
+        "MeanMilliseconds": 3.9750594064652787,
+        "MedianMilliseconds": 3.89715,
+        "P95Milliseconds": 4.422655,
+        "P99Milliseconds": 5.4691659999999995,
+        "MaximumMilliseconds": 13.1894,
+        "Thresholds": [
+          {
+            "Milliseconds": 8.33,
+            "Count": 5,
+            "Percentage": 0.06624271330153683
+          },
+          {
+            "Milliseconds": 16.7,
+            "Count": 0,
+            "Percentage": 0
+          },
+          {
+            "Milliseconds": 33.3,
+            "Count": 0,
+            "Percentage": 0
+          }
+        ],
+        "SpikesOver33Milliseconds": [],
+        "Windows": [],
+        "HasSpikeCluster": false,
+        "HasActionSpikeCluster": false,
+        "Warnings": [],
+        "CpuBusy": {
+          "SampleCount": 7548,
+          "MeanMilliseconds": 3.918718044515112,
+          "MedianMilliseconds": 3.8418,
+          "P95Milliseconds": 4.36746,
+          "P99Milliseconds": 5.413802999999999,
+          "MaximumMilliseconds": 13.1333
+        },
+        "GpuBusy": {
+          "SampleCount": 7548,
+          "MeanMilliseconds": 3.2554466083730773,
+          "MedianMilliseconds": 3.1917,
+          "P95Milliseconds": 3.4923,
+          "P99Milliseconds": 3.5603769999999995,
+          "MaximumMilliseconds": 3.6971
+        },
+        "ActionFrameCount": null,
+        "ActionDurationSeconds": null,
+        "ActionAverageFps": null,
+        "ActionMeanMilliseconds": null,
+        "ActionMedianMilliseconds": null,
+        "ActionP95Milliseconds": null,
+        "ActionP99Milliseconds": null,
+        "ActionMaximumMilliseconds": null,
+        "ActionThresholds": null,
+        "ActionCpuBusy": null,
+        "ActionGpuBusy": null
+      },
+      "Artifacts": [
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/D/idle/d-idle-r01.csv",
+          "Bytes": 2050735,
+          "Sha256": "a3531dded4331e875c00373890212841f5dcb74da4806454c971a0dac6cd6a2b"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/D/idle/d-idle-r01.capframex.json",
+          "Bytes": 801999,
+          "Sha256": "c07e51da5b6e20bddbd4ca82b25d29eca1927c42d5209c0b9766ee1f4288ddcb"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/D/idle/d-idle-r01.capture.json",
+          "Bytes": 6823,
+          "Sha256": "564483ab73973a2f76633d4e8b2948b20d5f8b340c09e9b312138faa2aacf112"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 2,
+      "CaptureStartSignalUtc": "2026-09-08T22:22:26.5114312Z",
+      "CaptureEndSignalUtc": "2026-09-08T22:22:56.7805775Z",
+      "SaveGenerationId": "6e5cbc624f234ec1a773e40251a0da39",
+      "UserConfirmation": "User confirmed readiness, same position/controls, ending beep, focus and idle throughout.",
+      "Summary": {
+        "Source": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures\\D\\idle\\d-idle-r02.csv",
+        "Configuration": "D",
+        "BuildLabel": "production",
+        "Scenario": "idle",
+        "Run": 2,
+        "FrameTimeColumn": "msBetweenPresents",
+        "DominantSwapChain": "0x22820E32830",
+        "ParsedRows": 7498,
+        "FrameCount": 7498,
+        "IgnoredNonDominantRows": 0,
+        "DurationSeconds": 30.003571800000035,
+        "AverageFps": 249.90357981312047,
+        "MeanMilliseconds": 4.0015433182181965,
+        "MedianMilliseconds": 3.9122500000000002,
+        "P95Milliseconds": 4.4675,
+        "P99Milliseconds": 5.468636,
+        "MaximumMilliseconds": 9.0261,
+        "Thresholds": [
+          {
+            "Milliseconds": 8.33,
+            "Count": 11,
+            "Percentage": 0.1467057882101894
+          },
+          {
+            "Milliseconds": 16.7,
+            "Count": 0,
+            "Percentage": 0
+          },
+          {
+            "Milliseconds": 33.3,
+            "Count": 0,
+            "Percentage": 0
+          }
+        ],
+        "SpikesOver33Milliseconds": [],
+        "Windows": [],
+        "HasSpikeCluster": false,
+        "HasActionSpikeCluster": false,
+        "Warnings": [],
+        "CpuBusy": {
+          "SampleCount": 7498,
+          "MeanMilliseconds": 3.9453823152840517,
+          "MedianMilliseconds": 3.8564,
+          "P95Milliseconds": 4.41153,
+          "P99Milliseconds": 5.412156999999999,
+          "MaximumMilliseconds": 8.9681
+        },
+        "GpuBusy": {
+          "SampleCount": 7498,
+          "MeanMilliseconds": 3.254409055748193,
+          "MedianMilliseconds": 3.19165,
+          "P95Milliseconds": 3.4944,
+          "P99Milliseconds": 3.566915,
+          "MaximumMilliseconds": 3.7294
+        },
+        "ActionFrameCount": null,
+        "ActionDurationSeconds": null,
+        "ActionAverageFps": null,
+        "ActionMeanMilliseconds": null,
+        "ActionMedianMilliseconds": null,
+        "ActionP95Milliseconds": null,
+        "ActionP99Milliseconds": null,
+        "ActionMaximumMilliseconds": null,
+        "ActionThresholds": null,
+        "ActionCpuBusy": null,
+        "ActionGpuBusy": null
+      },
+      "Artifacts": [
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/D/idle/d-idle-r02.csv",
+          "Bytes": 2034759,
+          "Sha256": "bb7cda282e458d02c07797f32347359cb29b89bce38b75bb801ca940155fefe1"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/D/idle/d-idle-r02.capframex.json",
+          "Bytes": 796700,
+          "Sha256": "5cf414256d58f82f2e73d42822d760f90686a58e73bd1b8dcfc9cceb35487ce1"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/D/idle/d-idle-r02.capture.json",
+          "Bytes": 6822,
+          "Sha256": "a4c9824b582c8205a1b933fcd80d2bc93d304ea7736b05f8513afdf7eadafc72"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 3,
+      "CaptureStartSignalUtc": "2026-09-08T22:24:11.1351056Z",
+      "CaptureEndSignalUtc": "2026-09-08T22:24:41.3985425Z",
+      "SaveGenerationId": "6e5cbc624f234ec1a773e40251a0da39",
+      "UserConfirmation": "User confirmed readiness, same position/controls, ending beep, focus and idle throughout.",
+      "Summary": {
+        "Source": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures\\D\\idle\\d-idle-r03.csv",
+        "Configuration": "D",
+        "BuildLabel": "production",
+        "Scenario": "idle",
+        "Run": 3,
+        "FrameTimeColumn": "msBetweenPresents",
+        "DominantSwapChain": "0x22820E32830",
+        "ParsedRows": 7418,
+        "FrameCount": 7418,
+        "IgnoredNonDominantRows": 0,
+        "DurationSeconds": 30.00083270000009,
+        "AverageFps": 247.2598035587185,
+        "MeanMilliseconds": 4.044329023995698,
+        "MedianMilliseconds": 3.95045,
+        "P95Milliseconds": 4.547965,
+        "P99Milliseconds": 5.855029999999999,
+        "MaximumMilliseconds": 10.4501,
+        "Thresholds": [
+          {
+            "Milliseconds": 8.33,
+            "Count": 4,
+            "Percentage": 0.05392289026691831
+          },
+          {
+            "Milliseconds": 16.7,
+            "Count": 0,
+            "Percentage": 0
+          },
+          {
+            "Milliseconds": 33.3,
+            "Count": 0,
+            "Percentage": 0
+          }
+        ],
+        "SpikesOver33Milliseconds": [],
+        "Windows": [],
+        "HasSpikeCluster": false,
+        "HasActionSpikeCluster": false,
+        "Warnings": [],
+        "CpuBusy": {
+          "SampleCount": 7418,
+          "MeanMilliseconds": 3.9880403478026496,
+          "MedianMilliseconds": 3.89445,
+          "P95Milliseconds": 4.49133,
+          "P99Milliseconds": 5.7886,
+          "MaximumMilliseconds": 10.3854
+        },
+        "GpuBusy": {
+          "SampleCount": 7418,
+          "MeanMilliseconds": 3.2535766244270587,
+          "MedianMilliseconds": 3.1894,
+          "P95Milliseconds": 3.4920299999999997,
+          "P99Milliseconds": 3.567583,
+          "MaximumMilliseconds": 3.8003
+        },
+        "ActionFrameCount": null,
+        "ActionDurationSeconds": null,
+        "ActionAverageFps": null,
+        "ActionMeanMilliseconds": null,
+        "ActionMedianMilliseconds": null,
+        "ActionP95Milliseconds": null,
+        "ActionP99Milliseconds": null,
+        "ActionMaximumMilliseconds": null,
+        "ActionThresholds": null,
+        "ActionCpuBusy": null,
+        "ActionGpuBusy": null
+      },
+      "Artifacts": [
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/D/idle/d-idle-r03.csv",
+          "Bytes": 2007233,
+          "Sha256": "7c32f724626e6cff6c11a1215dd386e93f369a544c3f0df97425f6419364127f"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/D/idle/d-idle-r03.capframex.json",
+          "Bytes": 787992,
+          "Sha256": "311b6196fc4e18f876f85d9f3bc99e9bd65dedad56ea7cbc3c324ac3f16e821d"
+        },
+        {
+          "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/captures/D/idle/d-idle-r03.capture.json",
+          "Bytes": 6821,
+          "Sha256": "04a81cecfd557f6b90a44541cc77969e0dd11f5879db9c8e15343c72a2867986"
+        }
+      ]
+    }
+  ],
+  "TotalFrames": 46507,
+  "Aggregates": [
+    {
+      "Configuration": "B",
+      "BuildLabel": "production",
+      "Scenario": "idle",
+      "RunCount": 3,
+      "MedianOfRunMediansMilliseconds": 3.67805,
+      "MedianOfRunP99Milliseconds": 4.557755,
+      "MedianFramesOver16MillisecondsPercentage": 0,
+      "CapturesWithSpikeCluster": 0,
+      "CapturesWithActionSpikeCluster": 0,
+      "MedianOfRunCpuBusyMediansMilliseconds": 3.6189,
+      "MedianOfRunCpuBusyP99Milliseconds": 4.500904,
+      "MedianOfRunGpuBusyMediansMilliseconds": 3.1933,
+      "MedianOfRunGpuBusyP99Milliseconds": 3.5572,
+      "MedianOfRunActionMediansMilliseconds": null,
+      "MedianOfRunActionP99Milliseconds": null,
+      "MedianActionFramesOver16MillisecondsPercentage": null,
+      "MedianOfRunActionCpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionCpuBusyP99Milliseconds": null,
+      "MedianOfRunActionGpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionGpuBusyP99Milliseconds": null
+    },
+    {
+      "Configuration": "D",
+      "BuildLabel": "production",
+      "Scenario": "idle",
+      "RunCount": 3,
+      "MedianOfRunMediansMilliseconds": 3.9122500000000002,
+      "MedianOfRunP99Milliseconds": 5.4691659999999995,
+      "MedianFramesOver16MillisecondsPercentage": 0,
+      "CapturesWithSpikeCluster": 0,
+      "CapturesWithActionSpikeCluster": 0,
+      "MedianOfRunCpuBusyMediansMilliseconds": 3.8564,
+      "MedianOfRunCpuBusyP99Milliseconds": 5.413802999999999,
+      "MedianOfRunGpuBusyMediansMilliseconds": 3.19165,
+      "MedianOfRunGpuBusyP99Milliseconds": 3.566915,
+      "MedianOfRunActionMediansMilliseconds": null,
+      "MedianOfRunActionP99Milliseconds": null,
+      "MedianActionFramesOver16MillisecondsPercentage": null,
+      "MedianOfRunActionCpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionCpuBusyP99Milliseconds": null,
+      "MedianOfRunActionGpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionGpuBusyP99Milliseconds": null
+    }
+  ],
+  "Comparison": {
+    "BaselineConfiguration": "B",
+    "BaselineBuildLabel": "production",
+    "CandidateConfiguration": "D",
+    "CandidateBuildLabel": "production",
+    "Scenario": "idle",
+    "MedianOverheadPercentage": 6.367504520058187,
+    "P99OverheadPercentage": 19.996928312294095,
+    "FramesOver16MillisecondsPercentagePointDelta": 0,
+    "BaselineActionSpikeClusterCaptures": 0,
+    "CandidateActionSpikeClusterCaptures": 0,
+    "HasRepeatableNewActionSpikeCluster": false,
+    "CpuBusyMedianOverheadPercentage": 6.562767691840055,
+    "CpuBusyP99OverheadPercentage": 20.282569901513092,
+    "GpuBusyMedianOverheadPercentage": -0.05167068549775111,
+    "GpuBusyP99OverheadPercentage": 0.2731080625210769,
+    "ActionMedianOverheadPercentage": null,
+    "ActionP99OverheadPercentage": null,
+    "ActionFramesOver16MillisecondsPercentagePointDelta": null,
+    "ActionCpuBusyMedianOverheadPercentage": null,
+    "ActionCpuBusyP99OverheadPercentage": null,
+    "ActionGpuBusyMedianOverheadPercentage": null,
+    "ActionGpuBusyP99OverheadPercentage": null
+  },
+  "Engineering": {
+    "MedianLimitPercent": 5,
+    "P99LimitPercent": 10,
+    "MedianPassed": false,
+    "P99Passed": false,
+    "Passed": false
+  },
+  "WeakerCeiling": {
+    "MedianLimitPercent": 10,
+    "P99LimitPercent": 20,
+    "MedianPassed": true,
+    "P99Passed": true,
+    "ComparisonUsesUnroundedValues": true,
+    "Limit": "P99 overhead is 19.996928312294095%, only 0.003071687705905 percentage points below the 20% ceiling. This narrow numerical pass is not an engineering-target pass."
+  },
+  "Spikes": {
+    "FramesAbove16_7Milliseconds": 0,
+    "FramesAbove33_3Milliseconds": 0,
+    "CapturesWithClusters": 0
+  },
+  "Workload": {
+    "DGeneration": "6e5cbc624f234ec1a773e40251a0da39",
+    "HistoryDuringCapture": "Fresh statistics generation with no completed runs; the same native raid 210 remained active through all three D samples.",
+    "AfterCapture": {
+      "RunId": "77bb3a8ed0a546ffaea41aa66fa3b40f",
+      "EndedUtc": "/Date(1788906325135)/",
+      "Outcome": 0,
+      "Interpretation": "Native extraction recorded after the final capture end signal; no active-run file remained when the post-capture snapshot was taken."
+    },
+    "CapabilitiesAfterCapture": {
+      "0": 59,
+      "1": 3
+    },
+    "HistoryLimit": "The archived nine-run generation remains preserved. This cell does not qualify progressed-history processing/UI/export behavior."
+  },
+  "AfterCaptureEvidence": [
+    {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/after-raid-idle/capframex.log",
+      "Bytes": 174458,
+      "Sha256": "ca484e2b787eb54855ec7d2ebb358dec3e28bc1ddea3b3d732d7704dc1a252a7"
+    },
+    {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/after-raid-idle/diagnostics.json",
+      "Bytes": 1190,
+      "Sha256": "208cf0cb4787dcf7eae4512062d87e8ea92d2b33bd25224a497159084aeb7f86"
+    },
+    {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/after-raid-idle/player.log",
+      "Bytes": 21794,
+      "Sha256": "5ef8b8ae5a92efef83ebf997b370151c2c6423c990cbabe96ce5ca9459735a70"
+    },
+    {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/after-raid-idle/profile.json",
+      "Bytes": 171365,
+      "Sha256": "688041e1ed34dd0e42d6febb45e39ebedf6142720ce87066e9cc71682505aa07"
+    }
+  ],
+  "AnalyzerReport": {
+    "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/analysis/raid-idle-B-D-complete.json",
+    "Bytes": 13122,
+    "Sha256": "82ba0aa7a075abbeaff22253b9e457ba5d6dd77256cc3a1c8a17768e462fb5a4"
+  },
+  "Interpretation": "UDS-enabled median and p99 CPU busy time rose while GPU busy time remained nearly unchanged. This directs CPU-side investigation but is not isolated proof of a specific UDS method or exclusion of temporal/native simulation variance. Preserve all six valid samples and investigate the missed target.",
+  "Remaining": "Engineering performance correction/diagnosis, thirteen other matched cells, progressed-history soak, native resources and other open M18 acceptance gates. No unfavorable valid capture was removed."
+}
