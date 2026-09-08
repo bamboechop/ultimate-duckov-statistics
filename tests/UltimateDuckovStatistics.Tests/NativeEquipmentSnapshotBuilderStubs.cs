@@ -147,6 +147,9 @@ namespace UnityEngine
     {
         public static string version { get; set; } = "2.3.30";
         public static string persistentDataPath { get; set; } = string.Empty;
+        public static event Action? quitting;
+        public static int QuittingSubscriberCount => quitting?.GetInvocationList().Length ?? 0;
+        public static void RaiseQuitting() => quitting?.Invoke();
     }
 
     public static class Debug

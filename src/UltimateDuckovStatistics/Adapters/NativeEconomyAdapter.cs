@@ -105,6 +105,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         CharacterMainControl.OnMainCharacterInventoryChangedEvent += OnMainInventoryChanged;
         PlayerStorage.OnPlayerStorageChange += OnStorageChanged;
         SceneLoader.onStartedLoadingScene += OnSceneLoadingStarted;
+        Application.quitting += OnApplicationQuitting;
         LevelManager.OnLevelBeginInitializing += OnLevelBeginInitializing;
         LevelManager.OnAfterLevelInitialized += OnAfterLevelInitialized;
         LevelManager.OnControllingCharacterChanged += OnControllingCharacterChanged;
@@ -258,6 +259,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
             CharacterMainControl.OnMainCharacterInventoryChangedEvent -= OnMainInventoryChanged;
             PlayerStorage.OnPlayerStorageChange -= OnStorageChanged;
             SceneLoader.onStartedLoadingScene -= OnSceneLoadingStarted;
+            Application.quitting -= OnApplicationQuitting;
             LevelManager.OnLevelBeginInitializing -= OnLevelBeginInitializing;
             LevelManager.OnAfterLevelInitialized -= OnAfterLevelInitialized;
             LevelManager.OnControllingCharacterChanged -= OnControllingCharacterChanged;
@@ -599,10 +601,13 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private void OnMainInventoryChanged(CharacterMainControl character, Inventory inventory, int index) { if (!disposed && subscribed && character != null && character.IsMainCharacter && ReferenceEquals(character, CharacterMainControl.Main)) MarkCashDirty(); }
     private void OnStorageChanged(PlayerStorage storage, Inventory inventory, int index) { if (!disposed && subscribed) MarkCashDirty(); }
     private void OnPetInventoryChanged(Inventory inventory, int index) { if (!disposed && subscribed) MarkCashDirty(); }
-    private void OnSceneLoadingStarted(SceneLoadingContext _) => SuspendCashForSceneTransition();
-    private void OnLevelBeginInitializing() => SuspendCashForSceneTransition();
+    private void OnSceneLoadingStarted(SceneLoadingContext _) => SuspendCashObservation();
+    private void OnLevelBeginInitializing() => SuspendCashObservation();
+    // Direct quit bypasses SceneLoader. Observe the final live changes before
+    // native OnDestroy detaches inventory items; cleanup must only retry queues.
+    private void OnApplicationQuitting() => SuspendCashObservation();
 
-    private void SuspendCashForSceneTransition()
+    private void SuspendCashObservation()
     {
         if (disposed || !subscribed) return;
         FlushPendingForBoundary();

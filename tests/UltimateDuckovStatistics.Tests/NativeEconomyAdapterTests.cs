@@ -878,6 +878,110 @@ public sealed class NativeEconomyAdapterTests : IDisposable
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
+    public void DirectQuitPreservesCashAcrossInventoryDestructionAndCleanup(bool modQuitFlushFirst)
+    {
+        ItemUtilities.OwnedItems.Add(Cash(58));
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+        // Unity's two quit notifications need no relative ordering here.
+        if (modQuitFlushFirst) Assert.True(adapter.FlushPendingForBoundary());
+        UnityEngine.Application.RaiseQuitting();
+        if (!modQuitFlushFirst) Assert.True(adapter.FlushPendingForBoundary());
+        var scansBeforeDestruction = ItemUtilities.ScanCount;
+
+        // Direct quit has no SceneLoader boundary. Native inventories can be
+        // destroyed before ModBehaviour.OnDestroy flushes/disposes the adapter.
+        ItemUtilities.OwnedItems.Clear();
+        ItemUtilities.RaisePlayerItemOperation();
+        UnityEngine.Application.RaiseQuitting();
+        Assert.True(adapter.FlushPendingForBoundary());
+        adapter.Dispose();
+
+        Assert.Empty(published);
+        Assert.Equal(scansBeforeDestruction, ItemUtilities.ScanCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void DirectQuitRetainsLegitimatePendingMoneyAndCashAcrossCleanupRetries(bool blockAtGate)
+    {
+        var allowPublication = false;
+        var attempts = new List<CurrencyFlowRecorded>();
+        runActive = true;
+        runId = "run-before-quit";
+        segmentId = "segment-before-quit";
+        mapId = "map-before-quit";
+        using var adapter = new NativeEconomyAdapter(
+            () => "generation:one", () => runId, () => mapId, () => segmentId, () => runActive,
+            flow =>
+            {
+                attempts.Add(flow);
+                if (!allowPublication) return false;
+                published.Add(flow);
+                return true;
+            }, records => capabilities.Add(records), diagnostics.Add,
+            () => !blockAtGate || allowPublication);
+        ItemUtilities.OwnedItems.Add(Cash(58));
+        adapter.Initialize();
+        adapter.Tick();
+        EconomyManager.RaiseMoneyChanged(50, 45);
+        ItemUtilities.OwnedItems.Add(Cash(4));
+        ItemUtilities.RaisePlayerItemOperation();
+        UnityEngine.Application.RaiseQuitting();
+        Assert.False(adapter.FlushPendingForBoundary());
+        var scansBeforeDestruction = ItemUtilities.ScanCount;
+
+        runActive = false;
+        runId = segmentId = mapId = null;
+        ItemUtilities.OwnedItems.Clear();
+        ItemUtilities.RaisePlayerItemOperation();
+        Assert.False(adapter.FlushPendingForBoundary());
+        allowPublication = true;
+        Assert.True(adapter.FlushPendingForBoundary());
+        adapter.Dispose();
+
+        Assert.Equal(scansBeforeDestruction, ItemUtilities.ScanCount);
+        Assert.Equal(2, published.Count);
+        var money = Assert.Single(published, flow => flow.Currency == CurrencyKind.Money);
+        Assert.Equal(5, money.Amount);
+        Assert.Equal(CurrencyFlowDirection.Outflow, money.Direction);
+        var cash = Assert.Single(published, flow => flow.Currency == CurrencyKind.Cash);
+        Assert.Equal(4, cash.Amount);
+        Assert.Equal(CurrencyFlowDirection.Inflow, cash.Direction);
+        Assert.All(published, flow =>
+        {
+            Assert.Equal("run-before-quit", flow.RunId);
+            Assert.Equal("segment-before-quit", flow.SegmentId);
+            Assert.Equal("map-before-quit", flow.MapId);
+            Assert.All(attempts.Where(attempt => attempt.Currency == flow.Currency), attempt => Assert.Same(flow, attempt));
+        });
+    }
+
+    [Fact]
+    public void DirectQuitSubscriptionIsOwnedOnceAndReleasedOnDispose()
+    {
+        var subscribersBefore = UnityEngine.Application.QuittingSubscriberCount;
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Initialize();
+        Assert.Equal(subscribersBefore + 1, UnityEngine.Application.QuittingSubscriberCount);
+        adapter.Dispose();
+        adapter.Dispose();
+        Assert.Equal(subscribersBefore, UnityEngine.Application.QuittingSubscriberCount);
+        using var next = CreateAdapter();
+        next.Initialize();
+        next.Tick();
+        ItemUtilities.OwnedItems.Add(Cash(3));
+        ItemUtilities.RaisePlayerItemOperation();
+        UnityEngine.Application.RaiseQuitting();
+        Assert.Equal(3, Assert.Single(published).Amount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
     public void SuspendedCashBoundaryRetainsRejectedFlowsUntilPublicationSucceeds(bool blockAtGate)
     {
         var allowPublication = false;
