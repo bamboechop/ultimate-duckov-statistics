@@ -48,11 +48,12 @@
         "Sha256": "a4d10cec09f4ed5c09c825832188cd9ef1168fe236642ab5f2833db98a9a46ba"
       }
     ],
-    "Scope": "One successful sleep; interrupted/cancelled sleep and cold reopen of the new sleep totals were not exercised in this observation. No UI screenshot was supplied."
+    "Scope": "One successful sleep; subsequent full restart and slot switch retain one completion and 6,000 advanced seconds (M18_SAVE_ISOLATION_QUALIFICATION.json). Interrupted/cancelled sleep was not exercised. No UI screenshot was supplied."
   },
   "Crafting": {
     "Status": "Not exercised",
-    "Reason": "The user confirms crafting is not unlocked on save 3 yet. Qualification is deferred until naturally available."
+    "Reason": "Crafting is not unlocked on save 3; the next qualification uses the existing slot 1 save, where it is available.",
+    "AvailableOnSlot1": "User confirms crafting and a shop are available on slot 1; qualification can use that existing save."
   },
   "RemainingBaseActions": [
     "Crafting with known item inputs/output and currency cost where available",

@@ -113,9 +113,9 @@
     }
   ],
   "Remaining": [
-    "Regular-run cold reopen",
     "Multi-map and repeated-map route",
     "Death outcome",
     "Other M18 gameplay/UI/resource/recovery/performance gates"
-  ]
+  ],
+  "ColdReopen": "Pass: M18_SAVE_ISOLATION_QUALIFICATION.json records full restart through slot 1 and back to slot 3; both completed runs retain all metrics, with only obsolete Economy replay cursors compacted."
 }

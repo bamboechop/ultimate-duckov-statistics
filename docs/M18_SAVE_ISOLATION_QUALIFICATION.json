@@ -1,0 +1,96 @@
+{
+  "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "Status": "Pass for the observed full restart, slot 1 export, return to slot 3 and export; completed-run, sleep, item-use and Economy state remain isolated and durable.",
+  "BeforeSlot3ExportId": "20260908T1228573800911Z-5872f0daafc14aabb2cd8207cbcc4494",
+  "Slot1ExportId": "20260908T1242195268433Z-063240a5b57647138bc4de0c18179981",
+  "AfterSlot3ExportId": "20260908T1242405641814Z-5872f0daafc14aabb2cd8207cbcc4494",
+  "QuitUtc": "2026-09-08T12:40:38.5520430Z",
+  "NewActivationUtc": "2026-09-08T12:40:54.6164607Z",
+  "Slot1": {
+    "GenerationId": "063240a5b57647138bc4de0c18179981",
+    "ExportRevision": 26,
+    "ObservedProfileRevision": 33,
+    "Runs": 0,
+    "CompletedSleepSessions": 0,
+    "ItemActivations": 0,
+    "RecordedCurrencyFlows": 0,
+    "MoneyHeld": 13374,
+    "CashHeld": 0,
+    "ProfileClosedCleanly": true,
+    "NoSessionOrActiveRunCheckpoint": true
+  },
+  "Slot3": {
+    "GenerationId": "5872f0daafc14aabb2cd8207cbcc4494",
+    "ExportRevision": 1568,
+    "ObservedProfileRevision": 1871,
+    "Runs": 2,
+    "RunIds": [
+      "1f9fb18e0bc64259adcdbc3031a1ba18",
+      "f2bdcbbcf336447dab9164b1504d8d9a"
+    ],
+    "CompletedSleepSessions": 1,
+    "SleepAdvancedSeconds": 6000,
+    "ItemActivations": 5,
+    "ActualHpRestored": 10,
+    "MoneyHeld": 0,
+    "CashHeld": 136,
+    "CashGrossInflow": 136,
+    "CashGrossOutflow": 58,
+    "AdditionalCashOutflow": 0
+  },
+  "Agreement": {
+    "DistinctStableGenerations": true,
+    "AllCompletedRunMetricsRetained": true,
+    "ItemTotalsRetained": true,
+    "SleepTotalsRetained": true,
+    "EconomyTotalsRetained": true,
+    "Slot1DidNotInheritSlot3RunSleepItemOrCurrencyFlows": true,
+    "HoldingsReboundToSelectedNativeSave": true,
+    "NoNewRunDuringSwitch": true,
+    "NoInterruptedSessions": true,
+    "AllCsvStructuresValid": true,
+    "Slot3UnchangedExportFiles": 33,
+    "Slot3ChangedExportFiles": [
+      "economy_holdings.csv",
+      "overview.csv",
+      "statistics.json",
+      "world_time.csv"
+    ]
+  },
+  "ExpectedMetadataChanges": "Obsolete completed-run Economy replay cursors were compacted on reopen and the lifetime producer activation ID changed. Other run data is deeply equal. Export revision/timestamp, observed clock progression and holdings freshness changed.",
+  "HistoricalFalseOutflow": "The earlier erroneous 58 Cash outflow remains preserved without repair; no new outflow appeared.",
+  "Scope": "Observed save switch and same-format restart only. Exact ordinary clock progression, same-package reinstallation, native recovery/degradation and other gameplay/performance gates remain separate.",
+  "EvidenceManifestSha256": "a1a73fbff96a2e10c828b460b64d8afd77294923f55fe8ca210f0919f6f5b46c",
+  "KeyEvidenceFiles": [
+    {
+      "File": "player-before-quit.log",
+      "Bytes": 28417,
+      "Sha256": "51f1e396b6b3eb37f5f06877e9a31a52ac3cfc3dece06f7aba94c31ecc56aa5d"
+    },
+    {
+      "File": "player-save-switch.log",
+      "Bytes": 16726,
+      "Sha256": "158b0e1d18f10e70036df68d3bc5682ce72ff49000306f1e2df93ed982028da2"
+    },
+    {
+      "File": "slot-01-export/statistics.json",
+      "Bytes": 30755,
+      "Sha256": "b9a784843f0127ce35f825a221507d7cd66ed9f560f6d2bd223b71071ace94d5"
+    },
+    {
+      "File": "slot-01-profile.json",
+      "Bytes": 30914,
+      "Sha256": "7b45877bd02a82abb5ef24a4b20accbddcc40ad1e7eccf08b881740bc742077f"
+    },
+    {
+      "File": "slot-03-export/statistics.json",
+      "Bytes": 533094,
+      "Sha256": "3880cda879176f9e851b87088c2745cb0f62ac3705d05d1c19fada5497946a2b"
+    },
+    {
+      "File": "slot-03-profile.json",
+      "Bytes": 534486,
+      "Sha256": "b552c4148b944ef30bf34d091d80f6e67662e39d3f4875eb0b2415e897014b79"
+    }
+  ]
+}
