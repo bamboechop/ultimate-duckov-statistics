@@ -63,6 +63,11 @@
       "Escape then closes the panel and character movement is restored."
     ],
     "Finding": "Native inventory input still receives plain Tab and modified Tab while UDS is open; the inventory renders above the UDS shell.",
-    "Disposition": "Confirmed current-baseline input-isolation defect; correction and native repeat required."
+    "Disposition": "Confirmed current-baseline input-isolation defect; correction and native repeat required.",
+    "Correction": {
+      "SourceCommit": "c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7",
+      "Evidence": "M18_SHORTCUT_CORRECTION.json",
+      "Status": "Reviewed four-callback correction deployed; native repeat not exercised."
+    }
   }
 }
