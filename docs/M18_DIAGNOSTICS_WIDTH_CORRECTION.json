@@ -1,0 +1,95 @@
+{
+  "SourceCommit": "5c39d84b2380f101f0424755d0e7c43f892c4603",
+  "PreviousInstalledSource": "b8c1f08c9be566766de75a5379651a4d86ab06dd",
+  "Status": "Automated qualification, independent one-file immutable review, reproducible packaging and game-closed five-file deployment passed. All 2278 UDS data files unchanged; native status-row width and Harmony restoration remain open.",
+  "Automated": {
+    "MainDebugPassed": 1918,
+    "MainReleasePassed": 1918,
+    "ShellDebugPassed": 30,
+    "ShellReleasePassed": 30,
+    "GameClosedTestsPassedPerConfiguration": 2,
+    "NewCases": "No new tests for the reversible layout-only change. Existing complete suites and changed-file formatting/analyzers passed; actual native glyph acceptance remains user-controlled.",
+    "NativeBuilds": "Debug/Release, zero warnings/errors",
+    "FormatAnalyzers": "Pass for all changed production and test sources",
+    "InstalledContractProbe": "Pass",
+    "Logs": "artifacts/m18-diagnostics-width-validation"
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687616,
+      "Sha256": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1121792,
+      "Sha256": "f1e25216d0d57569e6fff65a3827bfa91d4e89c649780f1003aa8b13299c8eef"
+    }
+  ],
+  "Package": {
+    "Path": "artifacts/candidates/5c39d84b2380f101f0424755d0e7c43f892c4603/UltimateDuckovStatistics",
+    "ZipBytes": 632386,
+    "ZipSha256": "62255944112d73ad2b7764caba0a2494244aa801591c339783777ccbf4030ce1",
+    "ReproducibilityResult": "artifacts/reproducibility/5c39d84b2380f101f0424755d0e7c43f892c4603-ec94d2adaa30431ab9c8e5867fb3a2ef/result.json",
+    "IndependentRootsAndOrdinaryCheckoutMatch": true,
+    "ArtifactAuditsAndIndependentExtraction": "Pass"
+  },
+  "CoreDllUnchangedFromPreviousDeployment": true,
+  "OriginalNativeCheck": "M18_MISSING_HARMONY_QUALIFICATION.json",
+  "PreviousCorrection": "M18_HARMONY_DIAGNOSTICS.json",
+  "NativeAcceptance": "The prior source passed the user-reported World time wrapping and actionable diagnosis checks; the status column still wrapped unnecessarily. Updated row width and Harmony-enabled restoration remain open.",
+  "MeasuredPerformance": "No native captures; the new campaign is unqualified.",
+  "Campaign": {
+    "Path": "artifacts/qualification/5c39d84b2380f101f0424755d0e7c43f892c4603/campaign.json",
+    "Sha256": "7d5815f496d93a2c9250407d26894f945a428b0c4367bafadf063099b31f60ec",
+    "NativeCaptures": 0
+  },
+  "DataPolicy": "Preserve all statistics, historical incomplete evidence, failed observations and protected PLAN.md edits.",
+  "Review": {
+    "Range": "951713c3e9d1d5311610775dac106e5e2e5f7b02..5c39d84b2380f101f0424755d0e7c43f892c4603",
+    "Verdict": "Pass; no actionable P1/P2 in the complete one-file layout correction and affected native measurement/rendering composition.",
+    "Report": "artifacts/m18-diagnostics-width-review/review.md",
+    "ReportSha256": "b47a8359c6fb5387ea0bb32722a6f8e8b1514194c7dd1f7ede52426c585ba4c1",
+    "Limits": "Native glyph fit remains user-controlled; no child-renderer acceptance is inferred from shell tests."
+  },
+  "Deployment": {
+    "Result": "Pass for corrected package deployment and byte-for-byte data preservation; native status-row width and Harmony restoration checks remain pending.",
+    "SourceCommit": "5c39d84b2380f101f0424755d0e7c43f892c4603",
+    "StartedUtc": "2026-09-08T19:41:46.2116407Z",
+    "VerifiedUtc": "2026-09-08T19:41:47.2270983Z",
+    "DuckovClosedDuringDeployment": true,
+    "FiveInstalledFileHashesMatch": true,
+    "PreviousInstalledSource": "b8c1f08c9be566766de75a5379651a4d86ab06dd",
+    "ExactInstalledFileCount": 5,
+    "AllUdsDataFilesUnchanged": 2278,
+    "V1DataFilesUnchanged": 1022,
+    "PreV1AndOtherUdsDataFilesUnchanged": 1256,
+    "VerifiedPriorBackupId": "f56d2a2e85644f04b50be43424953963",
+    "TransactionResidue": false,
+    "InstalledHashes": {
+      "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+      "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+      "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+      "UltimateDuckovStatistics.Core.dll": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549",
+      "UltimateDuckovStatistics.dll": "f1e25216d0d57569e6fff65a3827bfa91d4e89c649780f1003aa8b13299c8eef"
+    },
+    "ResultPath": "artifacts/qualification/5c39d84b2380f101f0424755d0e7c43f892c4603/native-diagnostics-width-deployment/result.json",
+    "ResultSha256": "9fa822c8811b44be43005045ae940f25c72855cfb2dc971ce2343f275c675246"
+  },
+  "NativeRepeatEvidence": "M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json"
+}

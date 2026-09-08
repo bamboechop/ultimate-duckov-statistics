@@ -1,7 +1,7 @@
 {
   "SourceCommit": "b8c1f08c9be566766de75a5379651a4d86ab06dd",
   "PreviousInstalledSource": "adb5e706be1cfff93e0b97ece07399df8b9072b8",
-  "Status": "Automated qualification, independent immutable review, reproducible packaging and game-closed five-file deployment passed. All UDS data files unchanged; native diagnosis, wrapping/retry and restoration repeats remain open.",
+  "Status": "Automated qualification, independent immutable review, reproducible packaging and game-closed five-file deployment passed. All UDS data files unchanged; subsequent bounded disabled-Harmony repeat passed. Status-row width and Harmony-enabled restoration remain open.",
   "Automated": {
     "MainDebugPassed": 1918,
     "MainReleasePassed": 1918,
@@ -52,7 +52,7 @@
   "CoreDllUnchangedFromPreviousDeployment": true,
   "OriginalNativeCheck": "M18_MISSING_HARMONY_QUALIFICATION.json",
   "PreviousCorrection": "M18_DEGRADATION_CORRECTION.json",
-  "NativeAcceptance": "Not exercised for corrected source. Combine actionable Harmony diagnosis with the outstanding disabled-Harmony wrapping/retry check, then restoration after a full restart.",
+  "NativeAcceptance": "Bounded disabled-Harmony repeat passed for user-reported World time fit and actionable diagnosis, retained generation/sleep/export and startup-only warnings; see M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json. Status-row width and Harmony-enabled restoration remain open.",
   "MeasuredPerformance": "No native captures; the new campaign is unqualified.",
   "Campaign": {
     "Path": "artifacts/qualification/b8c1f08c9be566766de75a5379651a4d86ab06dd/campaign.json",
@@ -90,5 +90,6 @@
     },
     "ResultPath": "artifacts/qualification/b8c1f08c9be566766de75a5379651a4d86ab06dd/native-harmony-diagnostics-deployment/result.json",
     "ResultSha256": "8c0e324bda4068a4a02bfc9065539c0031a422794a1040879dff25df2401f011"
-  }
+  },
+  "NativeRepeatEvidence": "M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json"
 }
