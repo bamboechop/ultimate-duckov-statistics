@@ -1,0 +1,126 @@
+{
+  "SourceCommit": "78265dc5e2266bf1c7918cb7b4ac4d2a093bc2cf",
+  "Version": "1.0.0-rc.1",
+  "Correction": "A deliberately suspended Cash baseline completes a boundary after both captured event queues drain. Rejected Money/Cash publication remains pending; suspension never resumes a teardown inventory scan.",
+  "NativeEvidence": "Base to Main Menu invokes SceneLoader.onStartedLoadingScene. UDS flushes and suspends Cash, and Main Menu has no LevelManager initialization to resume it. Prior quit and deactivation returned false solely because suspension persisted. The user session log demonstrates this reachable warning, but does not prove every queue was empty or demonstrate lost data.",
+  "PriorObservedSource": "6125a2b95592151765c3f85b8ca3288e8bd37308",
+  "Validation": {
+    "NewRegressionCasesFailedBeforeCorrection": 3,
+    "FocusedNativeEconomyAdapterPassed": 32,
+    "MainPassedPerConfiguration": 1867,
+    "ShellPassedPerConfiguration": 11,
+    "Configurations": [
+      "Debug",
+      "Release"
+    ],
+    "SkippedTests": 0,
+    "NativeWarningsPerConfiguration": 0,
+    "FormattingAndAnalyzers": "Pass",
+    "InstalledNativeProbe": "Pass",
+    "OrdinaryReleaseIlAndArtifactPathAudits": "Pass",
+    "IndependentCorrectionReview": "Pass: ef10fd088132da345617c831d03e382adaa1dde0..78265dc5e2266bf1c7918cb7b4ac4d2a093bc2cf; no confirmed P1/P2.",
+    "Cases": [
+      "repeated main-menu shutdown flush without teardown scans or fabricated flow; later hydration establishes a baseline",
+      "gate rejection retains both queues until successful publication",
+      "publisher rejection retains exact event identities and attribution until successful publication"
+    ]
+  },
+  "Reproducibility": {
+    "SourceCommit": "78265dc5e2266bf1c7918cb7b4ac4d2a093bc2cf",
+    "DotnetSdk": "8.0.424",
+    "Result": "Pass",
+    "Checkouts": [
+      {
+        "Checkout": "checkout-a",
+        "Hashes": {
+          "candidate.zip": "00c7bbcf1e9ddf274844c23cc482757cfc8fdfad8aa04afee6d662f26d63456c",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "c069f171095311b0a06cdf0068806b1a3c0bd75901aba5f95542338a9c25741f",
+          "UltimateDuckovStatistics.pdb": "9c039d82e174998609289cc7ea29c0eafef0583c02cab468cf198d7c536f79d5"
+        }
+      },
+      {
+        "Checkout": "different-long-checkout-root-b",
+        "Hashes": {
+          "candidate.zip": "00c7bbcf1e9ddf274844c23cc482757cfc8fdfad8aa04afee6d662f26d63456c",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "c069f171095311b0a06cdf0068806b1a3c0bd75901aba5f95542338a9c25741f",
+          "UltimateDuckovStatistics.pdb": "9c039d82e174998609289cc7ea29c0eafef0583c02cab468cf198d7c536f79d5"
+        }
+      }
+    ]
+  },
+  "OrdinaryCheckoutDllAndPdbMatchBothRoots": true,
+  "CoreDllUnchangedFromOriginalCandidate": true,
+  "Archive": {
+    "File": "UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+    "Bytes": 622916,
+    "Sha256": "00c7bbcf1e9ddf274844c23cc482757cfc8fdfad8aa04afee6d662f26d63456c"
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687104,
+      "Sha256": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1098240,
+      "Sha256": "c069f171095311b0a06cdf0068806b1a3c0bd75901aba5f95542338a9c25741f"
+    }
+  ],
+  "CampaignSha256": "da799adf4c17f3e88416b418e69a4f4f2b2b96121df161b74a4d4e4c6cdf1f2f",
+  "Deployment": {
+    "Result": "Pass",
+    "SourceCommit": "78265dc5e2266bf1c7918cb7b4ac4d2a093bc2cf",
+    "VerifiedUtc": "2026-09-08T11:09:46.0355794Z",
+    "DuckovClosedDuringDeployment": true,
+    "FiveInstalledFileHashesMatch": true,
+    "UdsV1DataFilesUnchanged": 51,
+    "TransactionResidue": false,
+    "VerifiedPriorBackupId": "e26d5da644a74169a3bc65cd5149f04b",
+    "PreviousInstalledSource": "ef10fd088132da345617c831d03e382adaa1dde0",
+    "InstalledHashes": {
+      "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+      "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+      "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+      "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+      "UltimateDuckovStatistics.dll": "c069f171095311b0a06cdf0068806b1a3c0bd75901aba5f95542338a9c25741f"
+    }
+  },
+  "NativeAcceptance": "Not exercised on this replacement. Recheck pause-menu open/close/reopen, neutral pending writes and a normal base-to-main-menu-to-quit readback.",
+  "EarlierCorrections": "M18_ACCESS_STORAGE_CORRECTION.json",
+  "LocalEvidenceSha256": {
+    "m18-shutdown-economy-before.log": "3d7d2e20439a2a238640330fd17fa227076763274e44468fc6a67c9e4d02d4b2",
+    "m18-shutdown-economy-after.log": "e3271f7d992662985089fff43538793fea82e2451de3a4fbb65621447cd1e14e",
+    "m18-shutdown-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "m18-shutdown-probe.log": "131c9478afd4576d1b651117c551b432a09cb6ca90175ade642d6bd03a1cf46f",
+    "m18-shutdown-repro.log": "5d0910296caed7b25bdfadcf0a62fb3a6c464c1a0c61892137b2dd2cd9e25fa4",
+    "m18-shutdown-campaign.log": "611d61655dbac218d93a82cd5f5dff6aaeaa2274566a13082469345c06b1cb34",
+    "m18-shutdown-economy-deploy.log": "8a21aeba9af3f397be5d0208e93c042b830a29bdebd64a6795294e6e1182f5b4",
+    "m18-slot3-first-shutdown.log": "cbcd367f99a03f64809b6f1bac544d7a746112dcbacf238984cf4425a458cb3e",
+    "m18-shutdown-Debug-Tests.log": "25cee5312837f18159305cf6b0b4649f4806f0d2b4fe3dcfc52a46139f9414d2",
+    "m18-shutdown-Debug-Shell.Tests.log": "6c38ca6edb18af1fda85dd02fd14cbffce9d6152b8c0d0244b151fd2fe06f6b0",
+    "m18-shutdown-Debug-native.log": "87f372acf1dd493f3d9db7aef08e834364474ec9d54aa965d91672dd6584e929",
+    "m18-shutdown-Release-Tests.log": "1e2e225bbed29104ab90113664061604741f31dfef92162afde33539d9871017",
+    "m18-shutdown-Release-Shell.Tests.log": "43c836eafdf072d2e3380f17a65b732ed9b9247a924604b8a908a20cdda82ed2",
+    "m18-shutdown-Release-native.log": "f5b6659e6785428429a9e21f3f78137eb96d359867d71370f1995fdc8c2f3752"
+  }
+}

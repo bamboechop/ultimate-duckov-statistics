@@ -1,0 +1,140 @@
+{
+  "SourceCommit": "ef10fd088132da345617c831d03e382adaa1dde0",
+  "Version": "1.0.0-rc.1",
+  "Corrections": [
+    "Base pause-menu access resolves the live ancestor Canvas owned by PauseMenu; an unavailable host cannot fall back to an unrelated lower native canvas.",
+    "Injected menu entries become Available only when the retained panel opening succeeds.",
+    "Normal deferred profile updates retain neutral Pending text with Working storage when a matching-generation successful write exists. Missing receipts remain Limited and actual failures remain Error.",
+    "Retained writer failure is captured separately from throttled diagnostic entries and invalidates an open Diagnostics panel even without revision, receipt or log changes."
+  ],
+  "NativeEvidence": {
+    "ResourcesAssetsSha256": "93c4ab6ad71fdb3bf4a331bbb2ac6bc2f7db7b0f12efe60dd43ea019ab2e543d",
+    "PauseMenuComponentPathId": 81991,
+    "PauseMenuCanvasPathId": 63704,
+    "Hierarchy": "PauseMenu canvas (sorting order 10000) / Menu (PauseMenu component, no descendant canvas)",
+    "CompetingCanvas": "DialogueInteractiveCanvas, path ID 63712, sorting order 100; both canvases have scaler and raycaster.",
+    "PriorFailure": "Closing removed the cache; reusing the injected button skipped recaching. Descendant-only discovery then fell back globally, where the clamped sorting score tied and chose the dialogue canvas below the pause overlay.",
+    "ProfileWritesObserved": "The deployed prior candidate advanced on-disk revision 452 to 512 without a persistence failure; per-second world-time publication normally precedes its 30-second durable cadence."
+  },
+  "Validation": {
+    "RegressionsReproducedBeforeCorrection": [
+      "routine pending world-time health",
+      "real resolver/injection reopen on wrong canvas",
+      "fail-success-fail hidden by diagnostic throttling"
+    ],
+    "DebugMainPassedBeforeShutdown": 1862,
+    "ReleaseMainPassedBeforeShutdown": 1862,
+    "DeploymentTestsPassedAfterShutdownPerConfiguration": 2,
+    "CompleteLocalMainPassedPerConfiguration": 1864,
+    "ShellPassedPerConfiguration": 11,
+    "NativeDebugWarnings": 0,
+    "NativeReleaseWarnings": 0,
+    "FormattingAndAnalyzers": "Pass",
+    "InstalledNativeProbe": "Pass",
+    "OrdinaryReleaseIlAndArtifactPathAudits": "Pass",
+    "IndependentCompleteCorrectionReview": "Pass: c33b14c831525ea65adfac506ed29a0dd662cd27..ef10fd088132da345617c831d03e382adaa1dde0, after correcting the independently identified throttled-log P2.",
+    "CiRun": "https://github.com/bamboechop/ultimate-duckov-statistics/actions/runs/34218005952"
+  },
+  "Reproducibility": {
+    "SourceCommit": "ef10fd088132da345617c831d03e382adaa1dde0",
+    "DotnetSdk": "8.0.424",
+    "Result": "Pass",
+    "Checkouts": [
+      {
+        "Checkout": "checkout-a",
+        "Hashes": {
+          "candidate.zip": "b93e59503ec2cf5f101cdcfc9c6ff6d2a65573b359244ae8eb6e2e005384cc6b",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "773f144fdf71d4ae44b70004b5a90a200dfe94e3e8b06cb0f6281f008e36e96c",
+          "UltimateDuckovStatistics.pdb": "25bce5aca224248a73ae91da963368a770604dddcc3264ea423bb8fa8e5a72d6"
+        }
+      },
+      {
+        "Checkout": "different-long-checkout-root-b",
+        "Hashes": {
+          "candidate.zip": "b93e59503ec2cf5f101cdcfc9c6ff6d2a65573b359244ae8eb6e2e005384cc6b",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "773f144fdf71d4ae44b70004b5a90a200dfe94e3e8b06cb0f6281f008e36e96c",
+          "UltimateDuckovStatistics.pdb": "25bce5aca224248a73ae91da963368a770604dddcc3264ea423bb8fa8e5a72d6"
+        }
+      }
+    ]
+  },
+  "OrdinaryCheckoutDllAndPdbMatchBothRoots": true,
+  "CoreDllUnchangedFromOriginalCandidate": true,
+  "Archive": {
+    "File": "UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+    "Bytes": 622916,
+    "Sha256": "b93e59503ec2cf5f101cdcfc9c6ff6d2a65573b359244ae8eb6e2e005384cc6b"
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687104,
+      "Sha256": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1098240,
+      "Sha256": "773f144fdf71d4ae44b70004b5a90a200dfe94e3e8b06cb0f6281f008e36e96c"
+    }
+  ],
+  "CampaignSha256": "1a60412413a747a832d9f4f90b92fa6311d0c5c026d8cb3d16fb7de248e45b43",
+  "Deployment": {
+    "Result": "Pass",
+    "SourceCommit": "ef10fd088132da345617c831d03e382adaa1dde0",
+    "VerifiedUtc": "2026-09-08T10:59:14.7398417Z",
+    "DuckovClosedDuringDeployment": true,
+    "FiveInstalledFileHashesMatch": true,
+    "UdsV1DataFilesUnchanged": 51,
+    "TransactionResidue": false,
+    "VerifiedPriorBackupId": "5aa1e5bdbbf04845aac88c51b5cdb08d",
+    "PreviousInstalledSource": "6125a2b95592151765c3f85b8ca3288e8bd37308",
+    "InstalledHashes": {
+      "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+      "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+      "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+      "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+      "UltimateDuckovStatistics.dll": "773f144fdf71d4ae44b70004b5a90a200dfe94e3e8b06cb0f6281f008e36e96c"
+    }
+  },
+  "NativeAcceptance": "Not exercised on this replacement; recheck repeated base-menu access, close/input restoration and neutral pending profile writes.",
+  "EarlierUserChecks": "On deployed source 6125a2b, the user confirmed Economy/Menu access displayed Working and closing Statistics restored controls. The user separately reported the pause-menu click failed to display Statistics.",
+  "ShutdownObservation": "The prior source emitted economy boundary pending messages during quit/deactivation after base to main menu. The suspended-baseline cause and reviewed correction are recorded in M18_SHUTDOWN_ECONOMY_CORRECTION.json; native shutdown requalification remains open.",
+  "LocalEvidenceSha256": {
+    "m18-storage-health-before.log": "ff53faa43dfbcc9570eed987761a029c9c5f274dc3968713e1cfc89939eb677a",
+    "m18-pause-canvas-before.log": "ce8ccdc442b93cbf8358692acdb81e558adf9d2fcba7e09fb9ac7ced9cdd8fa2",
+    "m18-storage-failure-before.log": "7a7fac7d0689ef661d91d55dc1542406a668f068fea2e7957151dab703a4781d",
+    "m18-storage-failure-after.log": "d482a62c716cc9f51649430d078ae36ac47f954687b48bb8d734c05b231e6280",
+    "m18-pause-storage-final-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "m18-pause-storage-probe.log": "131c9478afd4576d1b651117c551b432a09cb6ca90175ade642d6bd03a1cf46f",
+    "m18-pause-storage-final-repro.log": "035dcc7644102da776c823ce95b10e743bd009d707e366dcf71d8b7daa21fcb9",
+    "m18-pause-storage-deploy.log": "34c001b0bea269f0cdf36dba73c4636aa583babbaefb4c7086827a7e457c5d1d",
+    "m18-slot3-first-shutdown.log": "cbcd367f99a03f64809b6f1bac544d7a746112dcbacf238984cf4425a458cb3e",
+    "m18-pause-storage-final-Debug-main.log": "5a2140eb688bc41387e22e11071cb602f1a587348bb9c1fee091c0093419a64c",
+    "m18-pause-storage-final-Debug-shell.log": "d83fd91d8be779c6767c5c92c6bd28aecf13572da8b98c63852bf0d1d1134617",
+    "m18-pause-storage-final-Debug-native.log": "0b11ac9e636aedda69c937e759149471577621fef8769e8853f792f11e7fc22e",
+    "m18-pause-storage-deployment-Debug-tests.log": "a64fd5a980a0463b8745cde9e968cf0b76d359598671ec1313b1e963a586ee04",
+    "m18-pause-storage-final-Release-main.log": "b3c6fd1f02494c5acede15f36fcd270fee923391175d9673ee15e450a0d5b5cd",
+    "m18-pause-storage-final-Release-shell.log": "5b2a7659e2a3e32f19fd1b13061cc84481cd53517d42f005f679465e89b53caa",
+    "m18-pause-storage-final-Release-native.log": "837a212d0dc2c522730ed3ae8b61e807517309a3b814989d894c8013e134d081",
+    "m18-pause-storage-deployment-Release-tests.log": "8d6d9e87032644b5dea1fd1b4024999e6fa3ad7a950209d1afac560b7c3d8118"
+  }
+}

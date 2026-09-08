@@ -93,7 +93,7 @@
     "VerifiedPriorBackupId": "4dba75218dbb4572870db05135896138",
     "PreviousInstalledSource": "4068480cd736642a16e14b0510384c957b3b08e0"
   },
-  "NativeCorrectionAcceptance": "Not exercised",
+  "NativeCorrectionAcceptance": "Pass for user-confirmed Economy/Menu access Working labels and closing/input restoration on save 3. Separate pause-menu opening failure is corrected in M18_ACCESS_STORAGE_CORRECTION.json and requires native requalification.",
   "LocalEvidenceSha256": {
     "m18-economy-health-tests.log": "a63abc1eff7e86dd08b649f6c148a5a1b699814593bc3a6485133af4b6d85008",
     "m18-economy-health-build.log": "c5310b34eb42b5426d38ac5d9911f0c56e71ea8c06c3e12fad710511fd86ef5d",
