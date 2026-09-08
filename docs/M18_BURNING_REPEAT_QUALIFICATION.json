@@ -1,0 +1,121 @@
+{
+  "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
+  "Status": "Pass for observed player-owned Brand-Muni burning damage and saved-profile/JSON/CSV agreement. This attempt contained no weapon switches and no kill; switch retention and corrected burning final-blow attribution remain unexercised.",
+  "Slot": 1,
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "RunId": "59d774c3d2c34115b4e9bb7039f49731",
+  "NativeRaidId": "205",
+  "ExportId": "20260908T1527295071696Z-063240a5b57647138bc4de0c18179981",
+  "ExportRevision": 5753,
+  "ObservedProfileRevision": 5768,
+  "UserReported": {
+    "BrandMuniThrown": 1,
+    "DuckSurvived": true,
+    "ApproximateRemainingHpPercent": 35,
+    "WeaponSwitches": "User confirmed the switches were skipped in this attempt."
+  },
+  "Observed": {
+    "ItemId": "duckov:item:941",
+    "ItemName": "Brand-Muni",
+    "Uses": 1,
+    "StackUnitsConsumed": 1,
+    "Outcome": "Extracted",
+    "ActiveSeconds": 60.54119749999995,
+    "PhysicalDistanceMetres": 149.70267191540282,
+    "PlayerDamage": 21,
+    "DamageWeaponId": "duckov:weapon:941",
+    "DamageCause": "DamageOverTime",
+    "KillsByYou": 0,
+    "ObservedWorldDeaths": 0,
+    "FiringActions": 0,
+    "MeleeSwings": 0,
+    "SelectedWeaponTransitions": [
+      {
+        "ActiveTimeSeconds": 0.7055453000000398,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": "duckov:weapon:736"
+      },
+      {
+        "ActiveTimeSeconds": 4.121920100000011,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": ""
+      },
+      {
+        "ActiveTimeSeconds": 60.54119749999995,
+        "ToLoadoutId": "duckov:equipment:unavailable",
+        "SelectedWeaponId": ""
+      }
+    ],
+    "DamageEquipmentAssociation": {
+      "LoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+      "SelectedWeaponId": "",
+      "TotemSetId": "duckov:totem-set:e3b0c44298fc1c149afbf4c8",
+      "FiringActions": 0,
+      "DamageDealt": 21,
+      "DamageReceived": 0,
+      "RangedHits": 0,
+      "MeleeHits": 0,
+      "PlayerDeaths": 0,
+      "SelectedWeaponSlotId": "",
+      "KillsByYou": 0,
+      "PlayerKills": {
+        "Ranged": 0,
+        "Melee": 0,
+        "Effect": 0,
+        "Environmental": 0,
+        "Unknown": 0,
+        "EvidenceSource": "CombatRecorded.AttackKind on the same proven KillsByYou event.",
+        "Throwables": 0
+      }
+    }
+  },
+  "Agreement": {
+    "SavedRunsEqualJson": true,
+    "AllFivePriorRunsUnchanged": true,
+    "TargetedCsvMatchesJson": true,
+    "AllCsvStructuresValid": true,
+    "SurvivingDuckMatchesZeroKills": true,
+    "AllOutgoingDamageAttributedToPlayerAndBrandMuni": true
+  },
+  "NativeCorrelationEvidence": "The corrected native run attributes all 21 outgoing damage to Player, Brand-Muni and DamageOverTime. This is live evidence that the exact spawned-hazard correlation is active, beyond startup patch metadata. The aggregate does not expose a per-tick zone-versus-buff breakdown.",
+  "UnqualifiedSurroundingActivity": {
+    "AdditionalRunId": "cffbaf3723944221aa3be73741fc745a",
+    "NativeRaidId": "204",
+    "Context": "The user reported an extra farming run and crafting Brand-Muni. These remain in history and outside the controlled action tally. No unchanged-crafting or unchanged-Economy claim is made across this interval."
+  },
+  "Remaining": "Repeat with visible bow/SR-3M switches after the throw. A kill is not required for the damage/switch check; corrected burning final-blow behavior remains separate if the target survives.",
+  "NoUdsFailureOrPendingWarningInObservedLog": true,
+  "EvidenceManifestSha256": "8d687eb15faf6dd5dafd01ab6a0ac221594dd67662b127424914d22cc091fcfc",
+  "KeyEvidenceFiles": [
+    {
+      "File": "export/combat_attribution.csv",
+      "Bytes": 108476,
+      "Sha256": "855cf772d28bfc7598c6e328f7780ff105afc8f71f57ee0256b05e3be336178a"
+    },
+    {
+      "File": "export/equipment_combat.csv",
+      "Bytes": 18483,
+      "Sha256": "5d5d6ee8de0586c1031618ba37fd5609c1f57ce51610481c1cb5beaab78e9fd4"
+    },
+    {
+      "File": "export/runs.csv",
+      "Bytes": 5189,
+      "Sha256": "e41c7ffe361b16603de7c0d97ca10481eb3796d2a16b4bea2a51dd7b4229abbd"
+    },
+    {
+      "File": "export/statistics.json",
+      "Bytes": 1081954,
+      "Sha256": "e8e58a11d652b9acf70ae5a52a7e42ceef7e043a8525140e4650a98a3ca1cb03"
+    },
+    {
+      "File": "player-observed.log",
+      "Bytes": 36558,
+      "Sha256": "8eed934bead03ffff004473a10977d84e1af7f6e6492de4f4101f8c8a41e7e3a"
+    },
+    {
+      "File": "profile-observed.json",
+      "Bytes": 1083818,
+      "Sha256": "48a8675f178d6bf95b868afe0896f4311218c06b0d1d035d7b31a51c4234d42c"
+    }
+  ]
+}
