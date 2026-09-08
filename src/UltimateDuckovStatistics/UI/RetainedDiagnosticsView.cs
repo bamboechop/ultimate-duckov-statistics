@@ -343,7 +343,10 @@ internal sealed partial class RetainedStatisticsShell
         private float Accordion(RectTransform parent, string id, string title, string status, float x, float y, float w, float size, bool isRight, Color? statusColor = null)
         {
             var expanded = selection.Expanded(id);
-            var valueWidth = status.Length == 0 ? 0 : Math.Min(w * .36f, measure.Width(status, size) + 12);
+            // Let the status use spare space after the measured title; retain the
+            // wrapping allocation when both labels need more than the row can offer.
+            var valueWidth = status.Length == 0 ? 0 : Math.Min(measure.Width(status, size) + 12,
+                Math.Max(w * .36f, w - 80 - measure.Width(title, size) - 12));
             var textWidth = Math.Max(1, w - 70 - valueWidth - (valueWidth > 0 ? 10 : 0));
             var displayedTitle = title;
             var statusHeight = status.Length == 0 ? 0 : measure.Height(status, valueWidth, size);
