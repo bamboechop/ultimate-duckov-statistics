@@ -1,7 +1,7 @@
 {
   "SourceCommit": "5c39d84b2380f101f0424755d0e7c43f892c4603",
   "PreviousInstalledSource": "b8c1f08c9be566766de75a5379651a4d86ab06dd",
-  "Status": "Automated qualification, independent one-file immutable review, reproducible packaging and game-closed five-file deployment passed. All 2278 UDS data files unchanged; native status-row width and Harmony restoration remain open.",
+  "Status": "Automated qualification, immutable review, reproducible packaging and game-closed five-file deployment passed. Later native checks pass for actionable diagnosis, quiet retries, retained statistics/export and Harmony restoration. Overview World time fit failed; corrected initialization needs native acceptance. Diagnostics status-row fit remains unconfirmed.",
   "Automated": {
     "MainDebugPassed": 1918,
     "MainReleasePassed": 1918,
@@ -52,7 +52,7 @@
   "CoreDllUnchangedFromPreviousDeployment": true,
   "OriginalNativeCheck": "M18_MISSING_HARMONY_QUALIFICATION.json",
   "PreviousCorrection": "M18_HARMONY_DIAGNOSTICS.json",
-  "NativeAcceptance": "The prior source passed the user-reported World time wrapping and actionable diagnosis checks; the status column still wrapped unnecessarily. Updated row width and Harmony-enabled restoration remain open.",
+  "NativeAcceptance": "M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json preserves the disabled-Harmony diagnosis/export/retry pass. M18_HARMONY_RESTORATION_QUALIFICATION.json confirms all 29 previously disabled capabilities restored, retained sleep and historical gaps, but explicitly disproves earlier broad World time fit acceptance. See M18_WORLD_TIME_INITIALIZATION.json for the follow-up correction; native fit remains pending.",
   "MeasuredPerformance": "No native captures; the new campaign is unqualified.",
   "Campaign": {
     "Path": "artifacts/qualification/5c39d84b2380f101f0424755d0e7c43f892c4603/campaign.json",
@@ -91,5 +91,6 @@
     "ResultPath": "artifacts/qualification/5c39d84b2380f101f0424755d0e7c43f892c4603/native-diagnostics-width-deployment/result.json",
     "ResultSha256": "9fa822c8811b44be43005045ae940f25c72855cfb2dc971ce2343f275c675246"
   },
-  "NativeRepeatEvidence": "M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json"
+  "NativeRepeatEvidence": "M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json",
+  "LaterQualification": "M18_HARMONY_RESTORATION_QUALIFICATION.json"
 }

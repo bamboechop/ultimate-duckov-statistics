@@ -1,0 +1,172 @@
+{
+  "SourceCommit": "5c39d84b2380f101f0424755d0e7c43f892c4603",
+  "NativeDllSha256": "f1e25216d0d57569e6fff65a3827bfa91d4e89c649780f1003aa8b13299c8eef",
+  "Status": "Pass for Harmony restoration, current capability health and retained statistics/export. Failed for Overview World time fit at 2560x1440. Diagnostics status-row width remains visually unconfirmed.",
+  "UserReport": "Still overflowing on 2560x1440. Re-enabled Harmony, restarted, Diagnostics is back to green.",
+  "Slot": 3,
+  "GenerationId": "51fe1548e0d94fce9de3e22d3b99305d",
+  "SessionStartedUtc": "2026-09-08T19:53:14.2327002Z",
+  "ApplicationQuittingUtc": "2026-09-08T19:53:45.8874731Z",
+  "SessionDurationSeconds": 31.654773,
+  "ClosedProcessCheck": "Get-Process outside the sandbox returned no Duckov processes before evidence capture. Live inputs were only read/copied; no game files or saves were altered by this audit.",
+  "CleanShutdown": true,
+  "CreatedRotatedRecoveredMigratedInterrupted": false,
+  "Mods": {
+    "AllowLoadingMod": {
+      "__type": "bool",
+      "value": true
+    },
+    "ModActive_UltimateDuckovStatistics": {
+      "__type": "bool",
+      "value": true
+    },
+    "ModActive_HarmonyLoadMod": {
+      "__type": "bool",
+      "value": true
+    },
+    "ModActive_DuckovItemIconExporter": {
+      "__type": "bool",
+      "value": false
+    }
+  },
+  "NativeUi": {
+    "HarmonyRestored": "User confirms green Diagnostics after enablement and full restart; current log and capability records corroborate it.",
+    "WorldTimeFit": "Failed: supplied 2559x1439 screenshot, user-reported 2560x1440, visibly shows the sleep-time line extending beyond the card and panel edge. This specific report supersedes the earlier broad Everything else looks good acceptance.",
+    "DiagnosticsStatusWidth": "Unconfirmed: no Diagnostics screenshot or explicit status-row fit acceptance was supplied for source 5c39d84.",
+    "MainMenuEntry": "Current Player.log confirms successful native MainMenu entry activation.",
+    "Gameplay": "No base/raid load is present in the restored session; this check does not qualify new gameplay events."
+  },
+  "ExportId": "20260908T1953440614336Z-51fe1548e0d94fce9de3e22d3b99305d",
+  "ExportFiles": 37,
+  "CsvFiles": 36,
+  "ExportRevision": 1594,
+  "ClosedRevision": 1594,
+  "PriorClosedRevision": 1562,
+  "RetainedStatistics": {
+    "UnchangedProfileSections": [
+      "Overall",
+      "Items",
+      "Groups",
+      "RecentEventIds",
+      "Runs",
+      "RunTotals",
+      "RunRecords",
+      "WorldTime",
+      "Crafting",
+      "HealingCaptureComplete"
+    ],
+    "EconomyUnchangedExceptActivationReplayCursor": true,
+    "CompletedSleepSessions": 1,
+    "SleepAdvancedTicks": 35400000000,
+    "SleepAdvancedSeconds": 3540,
+    "Runs": 0,
+    "HealingCaptureComplete": false,
+    "CurrentHealingCaptureState": "Supported",
+    "HistoricalHealingEvidence": "Unavailable at zero observed HP because prior capture was incomplete; restoration does not erase the gap.",
+    "HistoricalSleepAndCraftingCapabilities": "Prior incomplete capture remains in lifetime evidence while current adapter records are Supported.",
+    "ClosedPrimaryEqualsBackup": true,
+    "Money": 0,
+    "Cash": 136,
+    "HoldingsFreshness": "LastObserved; current main-menu process has not re-observed inventories. Liquid wealth remains Unavailable.",
+    "Slot1Generation": "063240a5b57647138bc4de0c18179981",
+    "Slot1Runs": 9,
+    "Slot1FourFilesAndBothSettingsFilesUnchanged": true
+  },
+  "WorldTimeProgress": {
+    "CalendarDaysBeforeAndAfter": 2,
+    "ObservedTicksBeforeAndAfter": 1763874880000,
+    "ChangeSincePriorClosedCapture": 0,
+    "Explanation": "Restored session remained at the main menu. Current retained world totals equal the prior closed capture; the prior native boot clock advancement is already documented in the disabled-Harmony repeat and was not retraced here."
+  },
+  "Capabilities": {
+    "Supported": 59,
+    "ExperimentalExpectedPartial": 3,
+    "DisabledIncompatible": 0,
+    "RestoredFromDisabled": 29,
+    "RestoredAdapterIds": [
+      "native-healing-attribution",
+      "throwable-releases",
+      "native-damage-dealt",
+      "native-damage-received",
+      "native-ranged-hits",
+      "native-projectile-accuracy",
+      "native-melee-hits",
+      "native-combat-ownership",
+      "native-enemy-family",
+      "native-damage-weapon-identity",
+      "native-damage-ammunition-identity",
+      "native-damage-over-time",
+      "native-headshots",
+      "native-headshot-final-blows",
+      "native-throwable-player-final-blows",
+      "native-proven-player-final-blows",
+      "native-observed-world-deaths",
+      "native-grenade-hazard-attribution",
+      "native-container-loot-access",
+      "native-world-time-completed-sleep",
+      "native-world-time-sleep-advanced",
+      "native-crafting-completion-actions",
+      "native-crafting-produced-quantity",
+      "native-crafting-output-identity",
+      "native-crafting-recipe-identity",
+      "native-crafting-batch-metadata",
+      "native-crafting-item-resource-identity",
+      "native-crafting-output-resource-association",
+      "native-crafting-currency-charge"
+    ],
+    "UserDiagnosticsHealth": "Working"
+  },
+  "ExportAgreement": {
+    "DirectStatisticsSections": "Overall, Runs, RunRecords, Economy, WorldTime, Crafting, HealingCaptureComplete and current Capabilities agree exactly. Empty Items/Groups use the documented export list shape.",
+    "RunTotals": "All action data agrees exactly; only the four empty-run capability families gain current Supported fallback per StatisticsExporter.Create, inspected at source lines 273-282.",
+    "Holdings": "Money/Cash agree exactly; LiquidWealth is a derived Unavailable value because both observations are LastObserved.",
+    "CsvVerification": "All 36 CSV files parsed with complete consistent columns. Critical world time, healing, run/combat/container, crafting and holdings values agree with JSON. Thirty CSV files are byte-identical to the prior disabled-Harmony export.",
+    "ChangedCsvFiles": [
+      "combat_attribution.csv",
+      "containers.csv",
+      "economy_holdings.csv",
+      "overview.csv",
+      "run_totals.csv",
+      "world_time.csv"
+    ],
+    "ProductionReexportExecuted": false
+  },
+  "Logging": {
+    "CurrentLifecycleDiagnosticEntries": 5,
+    "CurrentLifecycleWarnings": 0,
+    "CurrentLifecycleErrors": 0,
+    "MissingHarmonyMessagesInCurrentPlayerLog": 0,
+    "CombatHooksActive": "11/11",
+    "OtherMessages": "Two Mono fallback-handler library messages are retained without a UDS attribution; the same message form occurs in the earlier successful native backup-recovery log. No new actionable log defect was established."
+  },
+  "DataIsolation": {
+    "PreviousFiles": 2278,
+    "CurrentFiles": 2315,
+    "UnchangedFiles": 2274,
+    "ChangedFiles": [
+      "v1\\profiles\\slot-03\\current\\diagnostics.json",
+      "v1\\profiles\\slot-03\\current\\diagnostics.json.bak",
+      "v1\\profiles\\slot-03\\current\\profile.json",
+      "v1\\profiles\\slot-03\\current\\profile.json.bak"
+    ],
+    "AddedExportFiles": 37,
+    "MissingFiles": 0,
+    "DuckovSaveMutationByAudit": false
+  },
+  "EvidenceRoot": "artifacts/qualification/5c39d84b2380f101f0424755d0e7c43f892c4603/native-harmony-restoration",
+  "ManifestFiles": 51,
+  "ManifestSha256": "8580b4d5e99c6780c23be45c58574d23cff4b104f7fcc36fb1c34ed2e39fdd76",
+  "DataComparisonSha256": "3538a884fc116a5ec2fec6503849e65ef8cfd1fe26055ba8d7bdccf445a6947b",
+  "Limits": [
+    "Overview text fit failed and needs a correction plus native screenshot acceptance.",
+    "Diagnostics status-row width native acceptance remains open.",
+    "No gameplay event, frame-time capture, high-history workload or physical-write count was performed.",
+    "This audit parsed the frozen native outputs and inspected export projection composition; it did not build or rerun the exporter."
+  ],
+  "VerificationUtc": "2026-09-08T20:00:56.908131+00:00",
+  "ReportPath": "artifacts/qualification/5c39d84b2380f101f0424755d0e7c43f892c4603/native-harmony-restoration/report.md",
+  "ReportSha256": "1483bbd6f754d11e8c7e71ce7e661bc2336db7be423dbc187fd451d7cff28e62",
+  "FrozenQualificationSha256": "ff18b2e636166d360004cdbb81f43170e7b2740b9161af0087512dab4c126f5d",
+  "RootVerification": "All 51 frozen manifest entries independently rehashed before recording this evidence.",
+  "WorldTimeCorrection": "M18_WORLD_TIME_INITIALIZATION.json"
+}

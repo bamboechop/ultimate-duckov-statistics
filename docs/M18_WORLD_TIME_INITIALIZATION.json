@@ -1,0 +1,99 @@
+{
+  "SourceCommit": "09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
+  "PreviousInstalledSource": "5c39d84b2380f101f0424755d0e7c43f892c4603",
+  "Status": "Automated qualification, independent immutable review, reproducible packaging and game-closed five-file deployment passed. All 2315 UDS data files unchanged. Native World time fit remains pending; Harmony restoration passed separately.",
+  "Correction": "Restore the World time wrapping policy inside the existing active-measurement callback, after native TMP Awake and before actual-width preferred-height measurement. Preserve native defaults, including kerning.",
+  "Automated": {
+    "MainDebugPassed": 1918,
+    "MainReleasePassed": 1918,
+    "ShellDebugPassed": 30,
+    "ShellReleasePassed": 30,
+    "GameClosedTestsPassedPerConfiguration": 2,
+    "NativeBuilds": "Debug/Release, zero warnings/errors",
+    "FormatAnalyzers": "Pass for all changed production and test sources",
+    "InstalledContractProbe": "Pass",
+    "Logs": "artifacts/m18-worldtime-wrapping-validation",
+    "Regression": "Two existing cases fail for wrapping against prior production source with corrected native boundary, then pass with final correction at 2560x1440 and 720x480 plus resize. Superseded early-font proposal fails both native-kerning assertions. No new test cases added."
+  },
+  "NativeCause": {
+    "Report": "artifacts/m18-worldtime-native-cause/report.md",
+    "ReportSha256": "5e35845af2b27628873d652463d6d5a285345769dc9fff3af286280012849e95",
+    "InstalledTmpSha256": "b0874e185c9ea2d0fc852b8a030892e4d4461bcbbfbb6dca057534d80b3edcb9",
+    "InstalledDefaults": "Wrapping false, kerning true; native Awake loads defaults when font size is still -99 or waiting on resources."
+  },
+  "Review": {
+    "Range": "35379851c361c7fb636ef09853993649ca11210f..09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
+    "Verdict": "Pass; no actionable P1/P2 in complete four-file range and affected native composition.",
+    "Report": "artifacts/m18-worldtime-initialization-review/review.md",
+    "ReportSha256": "4870e5814ab590340487c8ffc0238c7656e006a3c9c786388803ee14f461a196",
+    "Limits": "Approximate lifecycle boundary does not simulate native glyph metrics/GPU output. Native screenshot acceptance remains pending."
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687616,
+      "Sha256": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1121792,
+      "Sha256": "49ee6f8d731f89c93cde4df095a0c567a4e1ad3529346f836aa09c715f766b3f"
+    }
+  ],
+  "Package": {
+    "Path": "artifacts/candidates/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/UltimateDuckovStatistics",
+    "ZipBytes": 632388,
+    "ZipSha256": "e3bcc23ff3cdc60fd49ae6e7f1fdb2454889a38c96eff023f8c3df9a853f7f21",
+    "ReproducibilityResult": "artifacts/reproducibility/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7-ca44dd2e68f74d48825648d70a61c8b6/result.json",
+    "IndependentRootsAndOrdinaryCheckoutMatch": true,
+    "ArtifactAuditsAndIndependentExtraction": "Pass"
+  },
+  "CoreDllUnchangedFromPreviousDeployment": true,
+  "NativeRestoration": "M18_HARMONY_RESTORATION_QUALIFICATION.json",
+  "NativeAcceptance": "Explicit overflow screenshot supersedes earlier broad acceptance. Corrected World time fit at reported resolution and after resize remains pending; Harmony can stay enabled. Diagnostics status-row fit remains independently unconfirmed.",
+  "Campaign": {
+    "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/campaign.json",
+    "Sha256": "f7d5271b2acf5044bb2959513cc56e5aff4ea5d62f73dc888d4be26673c62232",
+    "NativeCaptures": 0
+  },
+  "DataPolicy": "Preserve all statistics, historical incomplete evidence, frozen failed observations and unrelated PLAN.md edits.",
+  "Deployment": {
+    "Result": "Pass for corrected package deployment and byte-for-byte data preservation; native World time fit remains pending; Harmony restoration passed separately.",
+    "SourceCommit": "09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
+    "StartedUtc": "2026-09-08T20:16:12.4509384Z",
+    "VerifiedUtc": "2026-09-08T20:16:13.4621960Z",
+    "DuckovClosedDuringDeployment": true,
+    "FiveInstalledFileHashesMatch": true,
+    "PreviousInstalledSource": "5c39d84b2380f101f0424755d0e7c43f892c4603",
+    "ExactInstalledFileCount": 5,
+    "AllUdsDataFilesUnchanged": 2315,
+    "V1DataFilesUnchanged": 1059,
+    "PreV1AndOtherUdsDataFilesUnchanged": 1256,
+    "VerifiedPriorBackupId": "6f702229938d464582f9f32fd7d579c6",
+    "TransactionResidue": false,
+    "InstalledHashes": {
+      "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+      "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+      "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+      "UltimateDuckovStatistics.Core.dll": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549",
+      "UltimateDuckovStatistics.dll": "49ee6f8d731f89c93cde4df095a0c567a4e1ad3529346f836aa09c715f766b3f"
+    },
+    "ResultPath": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/native-worldtime-initialization-deployment/result.json",
+    "ResultSha256": "daa15344f776c168d34e06149748ad4d03630970d358ad672a45cfad5c234808"
+  }
+}

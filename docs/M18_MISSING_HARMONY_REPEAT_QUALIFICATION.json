@@ -1,7 +1,7 @@
 {
   "SourceCommit": "b8c1f08c9be566766de75a5379651a4d86ab06dd",
   "NativeDllSha256": "db10e6d3690d9144bf91c731c61c140d54f56bb139f4373c638852c0dc6259a3",
-  "Status": "Pass for actionable Harmony diagnosis, user-confirmed World time fit, disabled-Harmony UI/export, retained statistics and quiet unchanged retries. Status rows still wrap unnecessarily; later layout correction and restored-Harmony native acceptance remain separate.",
+  "Status": "Pass for actionable Harmony diagnosis, disabled-Harmony UI/export, retained statistics and quiet unchanged retries. The later explicit screenshot disproves the earlier broad World time fit acceptance; restoration subsequently passed separately. Status-row fit remains unconfirmed.",
   "UserReport": "We should give the Error . Harmony not loaded more space to fit in one line. Everything else looks good, exported and closed.",
   "Slot": 3,
   "GenerationId": "51fe1548e0d94fce9de3e22d3b99305d",
@@ -30,7 +30,7 @@
   },
   "NativeUi": {
     "HarmonyDiagnosis": "Screenshot confirms the missing-Harmony banner, actionable installation/enablement/full-restart guidance, and cause-bearing system/issue rows.",
-    "WorldTimeFit": "User confirmed Everything else looks good following the requested 720x480 and resize check; no new Overview screenshot supplied.",
+    "WorldTimeFit": "Earlier broad Everything else looks good report was interpreted as fit acceptance without an Overview screenshot. Superseded by the explicit overflow screenshot after Harmony restoration; see M18_HARMONY_RESTORATION_QUALIFICATION.json.",
     "StatusRowWidth": "Screenshot confirms unnecessary two-line Error / Harmony not loaded despite spare row width; root handles correction separately.",
     "MenuEntry": "Pause entry attached but activation not observed in this lifecycle; no click acceptance inferred.",
     "ShortcutIsolation": "Expected unavailable without Harmony; one warning this lifecycle."
@@ -120,7 +120,7 @@
   "ManifestSha256": "e2cbdf8cb49583cd9597508681801cb2db67708d49d56e48980e56e4cda1c9e4",
   "DataComparisonSha256": "c64076ab816fdeae5b19361d7c0e604a73b708d857f83c255e7b6af8b7a064e5",
   "Limits": [
-    "Harmony restoration after enablement and full restart remains open.",
+    "Harmony restoration was not performed in this disabled session; the subsequent native restoration passes in M18_HARMONY_RESTORATION_QUALIFICATION.json.",
     "Later status-width correction needs its own native visual confirmation.",
     "No missing-Harmony raid gameplay/combat or per-callback clock trace was performed.",
     "No native frame-time capture, physical profile-write measurement or high-history workload."
@@ -128,5 +128,6 @@
   "Verification": "All 51 manifest entries rehashed; generation, retained actions, sleep and capabilities compared; all 36 CSV parsed; JSON/world-time CSV agree; 33 CSV unchanged; complete prior 2241-file UDS manifest compared with current 2278 files.",
   "ReportPath": "artifacts/qualification/b8c1f08c9be566766de75a5379651a4d86ab06dd/native-missing-harmony-repeat/report.md",
   "ReportSha256": "ec56da927b6363dfdce9fc0f027196b584a4e767d1c56fa695f2ac8195070e87",
-  "StatusWidthCorrection": "M18_DIAGNOSTICS_WIDTH_CORRECTION.json"
+  "StatusWidthCorrection": "M18_DIAGNOSTICS_WIDTH_CORRECTION.json",
+  "LaterQualification": "M18_HARMONY_RESTORATION_QUALIFICATION.json"
 }
