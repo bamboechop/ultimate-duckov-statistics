@@ -1,0 +1,358 @@
+{
+  "SourceCommit": "7667fdface781af0f8038e8b1b6a39475ba217f8",
+  "PriorMeasuredCandidate": "09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
+  "ReviewRange": "9bdf686361aee75a17f39c9349b96a1a5b06dd83..7667fdface781af0f8038e8b1b6a39475ba217f8",
+  "Status": "Automated correction and reviewed game-closed deployment pass; native requalification pending",
+  "Problem": "Run and active segment equipment duration reducers rebuilt keys, descriptions, grouped totem state and temporary traversal collections every active frame.",
+  "Correction": "Retain one snapshot-derived duration plan per active aggregate; compare the full mutable snapshot before reuse. Continue every duration boundary, current destination-row lookup and checked decimal preflight. Clear on suspension; do not serialize or copy the plan into recovery/checkpoint aggregates. Skip empty profile-transition retry delegate creation.",
+  "PreservedNativeFailure": {
+    "Path": "docs/M18_RAID_IDLE_QUALIFICATION.json",
+    "Bytes": 27608,
+    "Sha256": "69feebd9b4af75fa4d4fd605df6c47e75ea9243464160ae8e5103d2c3d843193"
+  },
+  "ManagedDiagnostic": {
+    "Runtime": ".NET 8.0.30",
+    "Topology": {
+      "Items": 6,
+      "Roots": 10,
+      "Nested": 9,
+      "Totems": 0
+    },
+    "Before": {
+      "Path": "artifacts/m18-idle-benchmark/before/report.json",
+      "Bytes": 3081,
+      "Sha256": "627bbf4842f2ac50517b32b717fa72a673819bd8bfd2f2c160c5e36c2f5c3874"
+    },
+    "After": {
+      "Path": "artifacts/m18-idle-benchmark/after-7667fdf/report.json",
+      "Bytes": 3057,
+      "Sha256": "56e00e5de02c2aad08c701b00adf622220f76f0f7423f93c10597f20a45ae513"
+    },
+    "Harness": [
+      {
+        "Path": "artifacts/m18-idle-benchmark/Program.cs",
+        "Bytes": 5132,
+        "Sha256": "434798a69a0454f7f20a785538e7a685f0b5d6025437e0728892ad95e69df3b9"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/IdleBenchmark.csproj",
+        "Bytes": 512,
+        "Sha256": "041fbab0e3996e9e51bbc0e83c5a0a9c25d6fa814d6c3b5fe046a730c8378323"
+      }
+    ],
+    "PreservedProfile": {
+      "Path": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/after-raid-idle/profile.json",
+      "Bytes": 171365,
+      "Sha256": "688041e1ed34dd0e42d6febb45e39ebedf6142720ce87066e9cc71682505aa07"
+    },
+    "RepetitionsPerShape": 3,
+    "WarmupTicksPerTrial": 10000,
+    "MeasuredTicksPerTrial": 50000,
+    "BeforeBytesPerEquippedTick": 34616,
+    "AfterBytesPerEquippedTick": 0,
+    "BeforeMedianMicrosecondsPerEquippedTick": 12.900446,
+    "AfterMedianMicrosecondsPerEquippedTick": 6.1161319999999995,
+    "BeforeGen0CollectionsPerTrial": [
+      34,
+      34,
+      34
+    ],
+    "AfterGen0CollectionsPerTrial": [
+      0,
+      0,
+      0
+    ],
+    "CheckpointBytesMatchAllSixPairs": true,
+    "Checkpoints": [
+      {
+        "Path": "artifacts/m18-idle-benchmark/before/none-1.checkpoint.json",
+        "Bytes": 5465,
+        "Sha256": "afa6ca8aa72ab556255e00cc5e3396f11f5072dfa0e657b37aa3222974b27403"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/after-7667fdf/none-1.checkpoint.json",
+        "Bytes": 5465,
+        "Sha256": "afa6ca8aa72ab556255e00cc5e3396f11f5072dfa0e657b37aa3222974b27403"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/before/none-2.checkpoint.json",
+        "Bytes": 5465,
+        "Sha256": "afa6ca8aa72ab556255e00cc5e3396f11f5072dfa0e657b37aa3222974b27403"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/after-7667fdf/none-2.checkpoint.json",
+        "Bytes": 5465,
+        "Sha256": "afa6ca8aa72ab556255e00cc5e3396f11f5072dfa0e657b37aa3222974b27403"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/before/none-3.checkpoint.json",
+        "Bytes": 5465,
+        "Sha256": "afa6ca8aa72ab556255e00cc5e3396f11f5072dfa0e657b37aa3222974b27403"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/after-7667fdf/none-3.checkpoint.json",
+        "Bytes": 5465,
+        "Sha256": "afa6ca8aa72ab556255e00cc5e3396f11f5072dfa0e657b37aa3222974b27403"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/before/captured-loadout-1.checkpoint.json",
+        "Bytes": 27478,
+        "Sha256": "7ad5cc6b2b12984437653ff627bee3e1100665f7d48cc5d00d270360215d8f17"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/after-7667fdf/captured-loadout-1.checkpoint.json",
+        "Bytes": 27478,
+        "Sha256": "7ad5cc6b2b12984437653ff627bee3e1100665f7d48cc5d00d270360215d8f17"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/before/captured-loadout-2.checkpoint.json",
+        "Bytes": 27478,
+        "Sha256": "7ad5cc6b2b12984437653ff627bee3e1100665f7d48cc5d00d270360215d8f17"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/after-7667fdf/captured-loadout-2.checkpoint.json",
+        "Bytes": 27478,
+        "Sha256": "7ad5cc6b2b12984437653ff627bee3e1100665f7d48cc5d00d270360215d8f17"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/before/captured-loadout-3.checkpoint.json",
+        "Bytes": 27478,
+        "Sha256": "7ad5cc6b2b12984437653ff627bee3e1100665f7d48cc5d00d270360215d8f17"
+      },
+      {
+        "Path": "artifacts/m18-idle-benchmark/after-7667fdf/captured-loadout-3.checkpoint.json",
+        "Bytes": 27478,
+        "Sha256": "7ad5cc6b2b12984437653ff627bee3e1100665f7d48cc5d00d270360215d8f17"
+      }
+    ],
+    "Limits": "Managed .NET 8 real tracker/reducer diagnostic; no-equipment control and actual 6-item/10-root/9-nested-slot/zero-totem topology. Excludes Unity/native adapters, one-second reconciliation, watchdogs, checkpoint serialization and disk cost. Timing is diagnostic, not native acceptance or proof that this path fully explains the frame-time regression. No native samples on this correction yet."
+  },
+  "AutomatedQualification": {
+    "MainTestsPerConfiguration": 1927,
+    "ShellTestsPerConfiguration": 30,
+    "Configurations": [
+      "Debug",
+      "Release"
+    ],
+    "NewRegressionCases": 9,
+    "ExcludedUntilGameClosed": [],
+    "Evidence": [
+      {
+        "Path": "artifacts/m18-idle-correction-validation/main-Debug.log",
+        "Bytes": 802,
+        "Sha256": "8121e1cefd4ee795ddc903d3c9c6798b3eb29859bd7fa7e3a6e9b21e72b60bb0"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/main-Release.log",
+        "Bytes": 808,
+        "Sha256": "ff0cf9e12a906f7cde49b63bb62c4b05751479a52ad6a97ed151eed14dc4b8f6"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/shell-Debug.log",
+        "Bytes": 840,
+        "Sha256": "533de96e913b73e5253dd8fc545076bb128f18c4994756d0cffd8668389a87ac"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/shell-Release.log",
+        "Bytes": 846,
+        "Sha256": "a8fa6ef995addf833815a33b5984d7ab6ac9e8ffae783cf06b9538d9a88cba94"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/native-build.log",
+        "Bytes": 431,
+        "Sha256": "f92e4a0b88e9b827839aed3e26f4a3dd1e60041d5426f8df003a930e17c65c9b"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/native-build-Debug.log",
+        "Bytes": 427,
+        "Sha256": "70621a9ebaf5669b93993b10d8822c3da677d4f2e361a754db2216976b6bcdba"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/contract-probe.log",
+        "Bytes": 2829,
+        "Sha256": "131c9478afd4576d1b651117c551b432a09cb6ca90175ade642d6bd03a1cf46f"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/format.log",
+        "Bytes": 0,
+        "Sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/package.log",
+        "Bytes": 401,
+        "Sha256": "47830f4a9270833dba0f4116e7a4f2a62e03c2d099ee4782dca614d8f969ad45"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/archive.log",
+        "Bytes": 861,
+        "Sha256": "b80a344fb4518005dea331b94a7a0bbf43e48f66682c0ec32ab73aa846977755"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/extraction-verification.log",
+        "Bytes": 176,
+        "Sha256": "a77044902f54fcb38024f058c3e206f61eff7711483165607447bf4d78856852"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/deployment-Debug.log",
+        "Bytes": 444,
+        "Sha256": "a64fd5a980a0463b8745cde9e968cf0b76d359598671ec1313b1e963a586ee04"
+      },
+      {
+        "Path": "artifacts/m18-idle-correction-validation/deployment-Release.log",
+        "Bytes": 446,
+        "Sha256": "8d6d9e87032644b5dea1fd1b4024999e6fa3ad7a950209d1afac560b7c3d8118"
+      }
+    ]
+  },
+  "IndependentReview": {
+    "Path": "artifacts/m18-duration-cache-review/review.md",
+    "Bytes": 8404,
+    "Sha256": "3bd7669a109f0d202ddde282399eba7a4d060ae651b74158ff33e245ee9450c3"
+  },
+  "IndependentDifferential": {
+    "Comparisons": 218,
+    "SnapshotSteps": 72,
+    "Result": "Pass",
+    "Evidence": [
+      {
+        "Path": "artifacts/m18-duration-cache-review/differential/result.json",
+        "Bytes": 580,
+        "Sha256": "27083af62aff0fe161a40933f4fbfb020e54dac084b0f0b55a856f5139c397a8"
+      },
+      {
+        "Path": "artifacts/m18-duration-cache-review/differential/Program.cs",
+        "Bytes": 7341,
+        "Sha256": "ab5b778646489508b3aeca7dcfabd17d3cf2f09457761f14f3653068c2d6c5f3"
+      },
+      {
+        "Path": "artifacts/m18-duration-cache-review/differential/Differential.csproj",
+        "Bytes": 194,
+        "Sha256": "50fc637bdad8db8c487825f92092fddf7697083f23f4e8ddd9e062c70eb105ec"
+      }
+    ]
+  },
+  "Reproducibility": {
+    "Path": "artifacts/reproducibility/7667fdface781af0f8038e8b1b6a39475ba217f8-c6d35a8c98cf4df2b3198c587fb5fd9b/result.json",
+    "Bytes": 1389,
+    "Sha256": "800395f2199f3983171c3c83f5df006bac248a479fb0b158ca3bd485b5f68bbf"
+  },
+  "OrdinaryCheckoutDllPdbZipMatchesBothIsolatedRoots": true,
+  "Package": [
+    {
+      "Path": "artifacts/candidates/7667fdface781af0f8038e8b1b6a39475ba217f8/UltimateDuckovStatistics/info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "Path": "artifacts/candidates/7667fdface781af0f8038e8b1b6a39475ba217f8/UltimateDuckovStatistics/INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "Path": "artifacts/candidates/7667fdface781af0f8038e8b1b6a39475ba217f8/UltimateDuckovStatistics/LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "Path": "artifacts/candidates/7667fdface781af0f8038e8b1b6a39475ba217f8/UltimateDuckovStatistics/UltimateDuckovStatistics.Core.dll",
+      "Bytes": 693248,
+      "Sha256": "22fcc78b4cbe12eb23a2d408b6f642353a5394f3e8a29bc45116169632e6d845"
+    },
+    {
+      "Path": "artifacts/candidates/7667fdface781af0f8038e8b1b6a39475ba217f8/UltimateDuckovStatistics/UltimateDuckovStatistics.dll",
+      "Bytes": 1121792,
+      "Sha256": "48d2d2a693b01083fd653cda215a166db6d91dd40c3c42aa19f7fc2fe245f9f7"
+    }
+  ],
+  "Zip": {
+    "Path": "artifacts/candidates/7667fdface781af0f8038e8b1b6a39475ba217f8/UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+    "Bytes": 635211,
+    "Sha256": "79ed5e65938937331bb81d755d769fc1600e0d57425cab6ab9f7da145e4d7c7d"
+  },
+  "NewFrozenCampaign": {
+    "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/campaign.json",
+    "Bytes": 4265,
+    "Sha256": "23e86feb68d0b5ee2441c8ad1e03e0fa968d5c8b8dfd61ebea121a1b64b29c4b"
+  },
+  "Deployment": {
+    "Result": {
+      "Result": "Pass for reviewed equipment-duration correction deployment and byte-for-byte data preservation; matched native performance requalification remains pending.",
+      "SourceCommit": "7667fdface781af0f8038e8b1b6a39475ba217f8",
+      "StartedUtc": "2026-09-08T23:08:18.1838864Z",
+      "VerifiedUtc": "2026-09-08T23:08:19.1906110Z",
+      "DuckovClosedDuringDeployment": true,
+      "FiveInstalledFileHashesMatch": true,
+      "PreviousInstalledSource": "09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
+      "ExactInstalledFileCount": 5,
+      "AllUdsDataFilesUnchanged": 2356,
+      "V1DataFilesUnchanged": 1100,
+      "PreV1AndOtherUdsDataFilesUnchanged": 1256,
+      "VerifiedPriorBackupId": "d8e2a5eeba3d4a47b1b9aed415e1ecae",
+      "TransactionResidue": false,
+      "InstalledHashes": {
+        "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+        "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+        "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+        "UltimateDuckovStatistics.Core.dll": "22fcc78b4cbe12eb23a2d408b6f642353a5394f3e8a29bc45116169632e6d845",
+        "UltimateDuckovStatistics.dll": "48d2d2a693b01083fd653cda215a166db6d91dd40c3c42aa19f7fc2fe245f9f7"
+      }
+    },
+    "UserClosureConfirmation": {
+      "QuestionCallId": "call_EhB9IV74HPpKTiIuup9KL08r",
+      "Answer": "Closed"
+    },
+    "Evidence": [
+      {
+        "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/result.json",
+        "Bytes": 1241,
+        "Sha256": "889caa55b2b4141550cdeca6fdcc4810c927d1404d94013802de0d240acbcb3c"
+      },
+      {
+        "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/data-before.json",
+        "Bytes": 479188,
+        "Sha256": "5faeac7f7b09f266a2044a4f8a31c9b56b497839a4198de96d305d8c05567a99"
+      },
+      {
+        "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/data-after.json",
+        "Bytes": 479188,
+        "Sha256": "5faeac7f7b09f266a2044a4f8a31c9b56b497839a4198de96d305d8c05567a99"
+      },
+      {
+        "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/installed-before.json",
+        "Bytes": 466,
+        "Sha256": "e600d8d33a03da97be85e35eaad33f223f91e984769a4e72c8b232bb2a7824dc"
+      },
+      {
+        "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/installed-after.json",
+        "Bytes": 466,
+        "Sha256": "0b565285a4c8bc6b30ffb898aaeb1ea93304387074d150d9b7a047ec976702fd"
+      },
+      {
+        "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/candidate-hashes.json",
+        "Bytes": 466,
+        "Sha256": "0b565285a4c8bc6b30ffb898aaeb1ea93304387074d150d9b7a047ec976702fd"
+      },
+      {
+        "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/deployment.log",
+        "Bytes": 1210,
+        "Sha256": "b03eed84562d1db2e3e03d73b64715c3bc62c1473454d29412e689d3478e815c"
+      },
+      {
+        "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/slot-01-profile-before.json",
+        "Bytes": 171170,
+        "Sha256": "1c07087c308c6ed482e50eb69f9e06b0185de93015e359d8b14405333aafce7f"
+      },
+      {
+        "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/slot-03-profile-before.json",
+        "Bytes": 31072,
+        "Sha256": "58482f0db3e83afc6a921013d5eac0c33d7ac65a2cc192b17bd5665cd98fd230"
+      },
+      {
+        "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/player-closed-before.log",
+        "Bytes": 35459,
+        "Sha256": "0a2f773615b81587efb28833d29fa7030f64239a0fa8f37e34fef72da2eede51"
+      }
+    ]
+  },
+  "Remaining": "User-controlled restart, current profile/Diagnostics/export retention check, then fresh matched B/D native idle captures with confirmed controls. Preserve the prior failed campaign. Other open native qualification gates remain open."
+}
