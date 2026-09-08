@@ -59,10 +59,21 @@
     "MoneyBefore": 13374,
     "MoneyAfter": 13224,
     "SavedProfileJsonAndCsvAgree": true,
-    "Scope": "Crafting is not unlocked on save 3, so this observation uses the existing slot 1 save. Cold reopen of the new craft and shop sale remain separate."
+    "Scope": "Crafting is not unlocked on save 3, so this observation uses the existing slot 1 save. The subsequent shop sale preserves the craft totals; cold reopen of the new totals remains separate."
+  },
+  "ShopSale": {
+    "Status": "Pass for the user-reported one MF sale: 1,284 Money inflow attributed to Sale/Shop; saved profile, JSON and CSV agree and crafting totals are unchanged.",
+    "Slot": 1,
+    "GenerationId": "063240a5b57647138bc4de0c18179981",
+    "Evidence": "M18_SHOP_SALE_QUALIFICATION.json",
+    "ExportId": "20260908T1301559350005Z-063240a5b57647138bc4de0c18179981",
+    "MoneyBefore": 13224,
+    "MoneyAfter": 14508,
+    "SavedProfileJsonAndCsvAgree": true,
+    "Scope": "Currency amount and Sale/Shop attribution verified; sold-item identity and quantity are user observations because UDS exports aggregate currency flows."
   },
   "RemainingBaseActions": [
-    "Known shop sale with quantity, price and Money/Cash balance observations"
+    "Cold reopen of the new slot 1 crafting and sale totals, combined with the same-package reinstallation check"
   ],
   "HealingAndItemUse": {
     "Status": "Pass for the observed regular Nullpunkt raid: two Verband activations restore 10 actual HP, matching the reported 29 to 39 HP; one Limonade activation is recorded.",
