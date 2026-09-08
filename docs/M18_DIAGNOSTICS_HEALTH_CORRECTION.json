@@ -1,0 +1,93 @@
+{
+  "SourceCommit": "6125a2b95592151765c3f85b8ca3288e8bd37308",
+  "Version": "1.0.0-rc.1",
+  "IncludesPreviousMenuHealthCorrection": true,
+  "Correction": "Diagnostics reports expected partial Economy attribution coverage as Working operational health. Raw capability states, provenance, Economy data notices, Unknown attribution and real failure reporting remain intact.",
+  "Reproducibility": {
+    "SourceCommit": "6125a2b95592151765c3f85b8ca3288e8bd37308",
+    "DotnetSdk": "8.0.424",
+    "Result": "Pass",
+    "Checkouts": [
+      {
+        "Checkout": "checkout-a",
+        "Hashes": {
+          "candidate.zip": "be26c2ec83c5cf24c2a58472ed3b69092ccba633740eda259330808a3034f988",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "74b90dda0c548825c0a68fc3bca8114e8f67ba715edc2699c12284edf6e69af7",
+          "UltimateDuckovStatistics.pdb": "12950d3f49035024c6d800acfbba7e005eafb9280f546858371b0991bef8b873"
+        }
+      },
+      {
+        "Checkout": "different-long-checkout-root-b",
+        "Hashes": {
+          "candidate.zip": "be26c2ec83c5cf24c2a58472ed3b69092ccba633740eda259330808a3034f988",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "74b90dda0c548825c0a68fc3bca8114e8f67ba715edc2699c12284edf6e69af7",
+          "UltimateDuckovStatistics.pdb": "12950d3f49035024c6d800acfbba7e005eafb9280f546858371b0991bef8b873"
+        }
+      }
+    ]
+  },
+  "RegularCheckoutDllAndPdbMatchBothRoots": true,
+  "Archive": {
+    "File": "UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+    "Bytes": 622498,
+    "Sha256": "be26c2ec83c5cf24c2a58472ed3b69092ccba633740eda259330808a3034f988"
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687104,
+      "Sha256": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1097216,
+      "Sha256": "74b90dda0c548825c0a68fc3bca8114e8f67ba715edc2699c12284edf6e69af7"
+    }
+  ],
+  "CoreDllUnchangedFromOriginalCandidate": true,
+  "Validation": {
+    "FocusedReleaseDiagnosticsAndEconomyPassed": 117,
+    "DebugMainPassed": 1860,
+    "ReleaseMainPassed": 1860,
+    "DebugShellPassed": 8,
+    "ReleaseShellPassed": 8,
+    "LocalExcludedDeploymentTestsPerConfiguration": 2,
+    "DeploymentTestConstraint": "The two deployment-script tests require Duckov closed and were excluded locally while the user game was running. CI runs the complete suites.",
+    "NativeReleaseWarnings": 0,
+    "FormattingAndAnalyzers": "Pass",
+    "OrdinaryReleaseIlAndArtifactPathAudits": "Pass",
+    "IndependentCorrectionReview": "Pass; no confirmed P1/P2 in f40bd5c9398a226b5e9d7062b9e520d5836eb950..6125a2b95592151765c3f85b8ca3288e8bd37308"
+  },
+  "CampaignSha256": "2b8f8990493f1189aa4980a7a4c4b713ba795f09fb1180d6adce44bed9164271",
+  "Deployment": "Not exercised; installed five-file hashes still match original source 4068480cd736642a16e14b0510384c957b3b08e0.",
+  "NativeCorrectionAcceptance": "Not exercised",
+  "LocalEvidenceSha256": {
+    "m18-economy-health-tests.log": "a63abc1eff7e86dd08b649f6c148a5a1b699814593bc3a6485133af4b6d85008",
+    "m18-economy-health-build.log": "c5310b34eb42b5426d38ac5d9911f0c56e71ea8c06c3e12fad710511fd86ef5d",
+    "m18-economy-health-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "m18-economy-health-Debug-main.log": "6921e57c0ab6c19b89364a540d3e12efa7f8aedba2907c456b51dd893250cbfe",
+    "m18-economy-health-Release-main.log": "f8ab65b9d3cee8e27620dfa626006888babd912619da6052e6333aff8f719312",
+    "m18-economy-health-Debug-shell.log": "67d6990cfcc2cd5829f73113d568702454a78efe4f8f213157e5ce0e965ad752",
+    "m18-economy-health-Release-shell.log": "ef8920b9a73a4ee43e5b8405d807bc93f5b41f126c45b4fa80038ea628081f4e",
+    "m18-economy-health-repro.log": "57f046bcde75e2629fc7e4e486873167e53e2e6a52791c4453e2acff4f7c03d2"
+  }
+}
