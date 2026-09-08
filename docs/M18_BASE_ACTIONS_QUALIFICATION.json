@@ -51,13 +51,18 @@
     "Scope": "One successful sleep; subsequent full restart and slot switch retain one completion and 6,000 advanced seconds (M18_SAVE_ISOLATION_QUALIFICATION.json). Interrupted/cancelled sleep was not exercised. No UI screenshot was supplied."
   },
   "Crafting": {
-    "Status": "Not exercised",
-    "Reason": "Crafting is not unlocked on save 3; the next qualification uses the existing slot 1 save, where it is available.",
-    "AvailableOnSlot1": "User confirms crafting and a shop are available on slot 1; qualification can use that existing save."
+    "Status": "Pass for one paid Tasse craft: four Polyethylen-Folie consumed, one output delivered and 150 currency charged; saved profile, JSON and CSV agree.",
+    "Slot": 1,
+    "GenerationId": "063240a5b57647138bc4de0c18179981",
+    "Evidence": "M18_PAID_CRAFT_QUALIFICATION.json",
+    "ExportId": "20260908T1257130981457Z-063240a5b57647138bc4de0c18179981",
+    "MoneyBefore": 13374,
+    "MoneyAfter": 13224,
+    "SavedProfileJsonAndCsvAgree": true,
+    "Scope": "Crafting is not unlocked on save 3, so this observation uses the existing slot 1 save. Cold reopen of the new craft and shop sale remain separate."
   },
   "RemainingBaseActions": [
-    "Crafting with known item inputs/output and currency cost where available",
-    "Known currency transaction"
+    "Known shop sale with quantity, price and Money/Cash balance observations"
   ],
   "HealingAndItemUse": {
     "Status": "Pass for the observed regular Nullpunkt raid: two Verband activations restore 10 actual HP, matching the reported 29 to 39 HP; one Limonade activation is recorded.",
