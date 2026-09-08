@@ -360,6 +360,10 @@ public sealed class ShellAccessTests : IDisposable
             Assert.Equal(NativeMenuIntegrationState.Unavailable, Field<NativePanelShortcutGuard>(panel, "shortcutGuard").State);
             var menu = Field<DiagnosticsPresentation>(panel, "diagnostics").Systems.Single(s => s.Id == "menu");
             Assert.Equal(DiagnosticsHealth.Limited, menu.Health);
+            var runtime = (DiagnosticsRuntimeSnapshot)typeof(NativeStatisticsPanel)
+                .GetMethod("CaptureDiagnosticsRuntime", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(panel, null)!;
+            Assert.True(runtime.HarmonyLoaded);
+            Assert.Equal("Limited", menu.Status); // A foreign patch is not a missing dependency.
             Assert.Contains(menu.ExtraRows, row => row.Label.Contains("reload", StringComparison.Ordinal) && row.Value == "Unavailable");
             for (var tick = 0; tick < 100; tick++) panel.Tick();
             Assert.Single(coordinator.Reports, report => report.Contains("shortcut isolation unavailable", StringComparison.Ordinal));

@@ -312,7 +312,7 @@ internal sealed partial class RetainedStatisticsShell
             {
                 var key = "system:" + system.Id;
                 var group = Panel(panel, key + ":panel", 10);
-                var h = Accordion(group, key, system.Name, UiText.Get("ui." + system.Health.ToString().ToLowerInvariant()), 0, 0, w - 40, 30, true, HealthColor(system.Health));
+                var h = Accordion(group, key, system.Name, system.Status, 0, 0, w - 40, 30, true, HealthColor(system.Health));
                 if (selection.Expanded(key))
                 {
                     h += 14;

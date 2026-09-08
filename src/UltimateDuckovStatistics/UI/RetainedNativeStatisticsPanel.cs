@@ -271,6 +271,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         DataRoot = coordinator.DataRoot,
         Hotkey = hotkey.ToString(),
         GameVersion = Application.version,
+        HarmonyLoaded = ReflectiveHarmonyPatcher.IsHarmonyLoaded,
         OpenDetail = coordinator.LastOpenStatus,
         SaveReceipt = coordinator.LastSaveReceipt,
         ProfilePersistenceFailed = coordinator.HasProfilePersistenceFailure,

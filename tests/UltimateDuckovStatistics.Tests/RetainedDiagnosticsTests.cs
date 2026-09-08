@@ -61,6 +61,131 @@ public sealed class RetainedDiagnosticsTests
     }
 
     [Fact]
+    public void MissingHarmonyExplainsFailedCombatHooksAndPreservesPublicCallbacks()
+    {
+        var profile = Profile();
+        var records = CombatNativeContractPolicy.ToRecords(CombatNativeContractPolicy.CreateCapabilities(new CombatHookSupport
+        { PublicMeleeSwing = true, PublicPlayerDeath = true }), "native");
+        profile.Capabilities.RemoveAll(c => records.Any(r => r.AdapterId == c.AdapterId));
+        profile.Capabilities.AddRange(records);
+        var runtime = Runtime(); runtime.HarmonyLoaded = false;
+        var p = Present(profile, runtime);
+        Assert.Equal(DiagnosticsHealth.Error, p.Health);
+        Assert.Equal(UiText.Get("ui.diag_harmony_banner"), p.BannerTitle);
+        Assert.Contains(UiText.Get("ui.diag_harmony_recovery"), p.BannerDetail, StringComparison.Ordinal);
+        Assert.Contains("Harmony", p.Systems.Single(s => s.Id == "combat").Status, StringComparison.Ordinal);
+        foreach (var record in records)
+        {
+            var cap = Cap(p, record.AdapterId);
+            Assert.Equal(record.State == AdapterCapabilityState.DisabledIncompatible, cap.HarmonyUnavailable);
+            Assert.Equal(record.Detail, cap.Detail);
+            if (record.State == AdapterCapabilityState.Supported) Assert.Equal("Working", cap.Status);
+        }
+        Assert.All(p.Systems.Where(s => s.Id != "combat" && s.Id != "storage"), s => Assert.Equal("Working", s.Status));
+        var issue = Assert.Single(p.Issues);
+        Assert.Contains("Harmony", issue.Title, StringComparison.Ordinal);
+        Assert.Contains(UiText.Get("ui.diag_harmony_recovery"), issue.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MissingHarmonyIdentifiesSleepAndPreservesIndependentClock()
+    {
+        var profile = Profile();
+        var records = WorldTimeNativeContractPolicy.ToRecords(
+            WorldTimeNativeContractPolicy.ClockSupportedSleepUnavailable("clock", "HarmonyLib is not loaded."), "native");
+        profile.Capabilities.RemoveAll(c => records.Any(r => r.AdapterId == c.AdapterId));
+        profile.Capabilities.AddRange(records);
+        var runtime = Runtime(); runtime.HarmonyLoaded = false;
+        var p = Present(profile, runtime);
+        foreach (var record in records)
+            Assert.Equal(record.State == AdapterCapabilityState.DisabledIncompatible, Cap(p, record.AdapterId).HarmonyUnavailable);
+        Assert.Equal("Working", Cap(p, WorldTimeCapabilityIds.CalendarDays).Status);
+        Assert.Contains("Harmony", p.Systems.Single(s => s.Id == "world").Status, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(null)]
+    public void OldMissingHarmonyLogDoesNotDiagnoseCurrentContractFailure(bool? loaded)
+    {
+        var profile = Profile();
+        profile.Capabilities.Single(c => c.AdapterId == "native-healing-attribution").State = AdapterCapabilityState.DisabledIncompatible;
+        var runtime = Runtime(); runtime.HarmonyLoaded = loaded;
+        runtime.Entries = new[] { Entry(1, "Warning", "HarmonyLib is not loaded. Install and activate Workshop item 3589088839 before UDS.") };
+        var p = Present(profile, runtime);
+        Assert.Equal(UiText.Get("ui.diag_tracking_error"), p.BannerTitle);
+        Assert.Equal("Error", p.Systems.Single(s => s.Id == "items").Status);
+        Assert.False(Cap(p, "native-healing-attribution").HarmonyUnavailable);
+        Assert.Equal("Error", Cap(p, "native-healing-attribution").Status);
+        Assert.Single(p.Log); // Historical evidence remains in the log, not current cause detection.
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AbsentHarmonyDoesNotExplainMissingOrConflictingCapabilityRecords(bool conflicting)
+    {
+        var profile = Profile();
+        profile.Capabilities.Single(c => c.AdapterId == ThrowableUseObservation.CapabilityId).State = AdapterCapabilityState.DisabledIncompatible;
+        if (conflicting) profile.Capabilities.Add(new CapabilityRecord { AdapterId = ThrowableUseObservation.CapabilityId });
+        else profile.Capabilities.RemoveAll(c => c.AdapterId == ThrowableUseObservation.CapabilityId);
+        var runtime = Runtime(); runtime.HarmonyLoaded = false;
+        var p = Present(profile, runtime);
+        Assert.Equal("Unavailable", Cap(p, ThrowableUseObservation.CapabilityId).Status);
+        Assert.False(Cap(p, ThrowableUseObservation.CapabilityId).HarmonyUnavailable);
+        Assert.Equal(UiText.Get("ui.diag_tracking_error"), p.BannerTitle);
+    }
+
+    [Fact]
+    public void MixedFailureKeepsOtherCauseAndStorageFailureVisible()
+    {
+        var profile = Profile();
+        foreach (var id in new[] { "native-healing-attribution", "native-item-use", EconomyCapabilityIds.MoneyAmountDirection })
+            profile.Capabilities.Single(c => c.AdapterId == id).State = AdapterCapabilityState.DisabledIncompatible;
+        var runtime = Runtime(); runtime.HarmonyLoaded = false; runtime.ProfilePersistenceFailed = true;
+        var p = Present(profile, runtime);
+        Assert.Equal("Error", Cap(p, "native-item-use").Status);
+        Assert.Equal("Error", p.Systems.Single(s => s.Id == "economy").Status);
+        Assert.Equal("Error", p.Systems.Single(s => s.Id == "storage").Status);
+        var issue = p.Issues.Single(i => i.Id == "capability:items");
+        Assert.Contains(UiText.Get("ui.diag_harmony_recovery"), issue.Detail, StringComparison.Ordinal);
+        Assert.Contains(UiText.Get("ui.diag_tracking_recovery"), issue.Detail, StringComparison.Ordinal);
+        Assert.Contains(UiText.Get("ui.diag_tracking_recovery"), p.Issues.Single(i => i.Id == "capability:economy").Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RestoringHarmonyAndCapabilitiesClearsCurrentCause()
+    {
+        var profile = Profile();
+        profile.Capabilities.Single(c => c.AdapterId == "native-healing-attribution").State = AdapterCapabilityState.DisabledIncompatible;
+        var runtime = Runtime(); runtime.HarmonyLoaded = false;
+        var before = Present(profile, runtime);
+        runtime.HarmonyLoaded = true;
+        profile.Capabilities.Single(c => c.AdapterId == "native-healing-attribution").State = AdapterCapabilityState.Supported;
+        var after = Present(profile, runtime);
+        Assert.Equal(UiText.Get("ui.diag_harmony_banner"), before.BannerTitle);
+        Assert.Equal(DiagnosticsHealth.Working, after.Health);
+        Assert.Equal(UiText.Get("ui.diag_all_working"), after.BannerTitle);
+        Assert.Empty(after.Issues);
+        Assert.All(after.Systems.SelectMany(s => s.Capabilities), c => Assert.False(c.HarmonyUnavailable));
+    }
+
+    [Fact]
+    public void MissingHarmonyExplainsShortcutIsolationWithoutBlamingMenuEntries()
+    {
+        var runtime = Runtime(); runtime.HarmonyLoaded = false;
+        runtime.ShortcutIsolation = NativeMenuIntegrationState.Unavailable;
+        var p = Present(Profile(), runtime);
+        Assert.Equal(DiagnosticsHealth.Limited, p.Health);
+        Assert.Equal(UiText.Get("ui.diag_harmony_banner"), p.BannerTitle);
+        var menu = p.Systems.Single(s => s.Id == "menu");
+        Assert.Contains("Harmony", menu.Status, StringComparison.Ordinal);
+        Assert.Equal("Working", menu.ExtraRows[0].Value);
+        Assert.Equal("Working", menu.ExtraRows[1].Value);
+        Assert.Equal(UiText.Get("ui.diag_harmony_not_loaded"), menu.ExtraRows[3].Value);
+    }
+
+    [Fact]
     public void AvailableMenuEntryPublishesWorkingColorEvenWhenSiblingIsUnavailable()
     {
         var runtime = Runtime(); runtime.BaseMenu = NativeMenuIntegrationState.Unavailable;
