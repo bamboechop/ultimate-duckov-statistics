@@ -4,7 +4,7 @@
   "PreviousGenerationId": "5872f0daafc14aabb2cd8207cbcc4494",
   "PreviousRevision": 2219,
   "RunsBefore": 2,
-  "Status": "Pass for observed confirmed native reset, preserved archive, generation isolation and profile/JSON/targeted-CSV agreement. Cancel/empty-page UI confirmation pending.",
+  "Status": "Pass for user-confirmed Cancel preserving both runs, confirmed reset showing empty Runs, and observed reset/archive/generation isolation with profile/JSON/targeted-CSV agreement.",
   "UserSelection": "Probably 3 first as there is barely any data in there. Unless we do not need any more data afterwards, then we can also use 1.",
   "Decision": "Use slot 3. Keep slot 1 history for later performance qualification.",
   "EvidenceRoot": "artifacts/qualification/c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7/native-slot3-reset",
@@ -21,7 +21,7 @@
     "20260908T1140529540491Z-153f0548340f4daaa8c81c91646b7282-DuckovSaveDeleted"
   ],
   "UserReport": "Exported",
-  "NativeUiConfirmation": "Pending response: did Cancel retain both runs, then confirmed reset display empty Runs?",
+  "NativeUiConfirmation": "Yes, cancel preserved both runs. And yes, reset show an empty runs page.",
   "NewGenerationId": "51fe1548e0d94fce9de3e22d3b99305d",
   "ExportId": "20260908T1721272359109Z-51fe1548e0d94fce9de3e22d3b99305d",
   "ExportRevision": 13,
@@ -62,7 +62,7 @@
   "InstalledFilesVerified": 5,
   "PreservedExportFiles": 37,
   "AfterManifestSha256": "8a1d562dcf3d4060d74c00ae0984f7fc0a58886c61b016367c2d21dfaa56043e",
-  "Remaining": "Cancel/empty-page UI confirmation; restart after reset, deliberate recovery/degradation and native resource/performance/high-history qualification remain open.",
+  "Remaining": "Reset-generation native backup recovery is staged separately; deliberate degradation and native resource/performance/high-history qualification remain open.",
   "BackupRecoveryRehearsal": {
     "Path": "artifacts/qualification/c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7/native-slot3-reset/backup-rehearsal/result.json",
     "Sha256": "0891e83c0830dbde68de686d075171f3aa1c724471d5d07e379f2ddb2dd99ecd",
@@ -79,5 +79,11 @@
       "NativeFilesModified": false
     },
     "NextNativeCheck": "Use the user-selected slot 3 generation. A completed sleep will provide a visible nonzero statistic; after clean shutdown preserve both primary and backup, validate them, then prepare a reversible missing-primary recovery. No native file has been altered for this rehearsal."
+  },
+  "SubsequentSleepMarker": {
+    "UserReport": "Slept for 59m, exported, closed.",
+    "CompletedSleepSessions": 1,
+    "SleepAdvancedSeconds": 3540,
+    "Evidence": "M18_SLOT3_BACKUP_RECOVERY_QUALIFICATION.json"
   }
 }
