@@ -570,6 +570,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public bool RetryPendingProfileTransition()
     {
+        if (!profileTransitionBoundary.HasPendingTransition) return true;
         var completed = profileTransitionBoundary.Retry(
             FlushProfileTransitionBoundaries,
             message => WriteDiagnostic(message, "Error"));

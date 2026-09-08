@@ -96,9 +96,10 @@ public sealed class EquipmentStatisticsAggregate
     [DataMember(Order = 21)] public Dictionary<string, EquipmentDurationAggregate> NestedSlotObservedDurations { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 22)] public Dictionary<string, NestedSlotStateDurationAggregate> NestedSlotStates { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 27)] public EquipmentCompositionEvidence Composition { get; set; } = new();
+    [IgnoreDataMember] internal EquipmentStatisticsReducer.DurationPlan? PreparedDurationPlan { get; set; }
 }
 
-public static class EquipmentStatisticsReducer
+public static partial class EquipmentStatisticsReducer
 {
     public static bool Observe(EquipmentStatisticsAggregate target, EquipmentSnapshot snapshot, double activeSeconds)
     {
@@ -128,6 +129,7 @@ public static class EquipmentStatisticsReducer
         var current = target.CurrentSnapshot;
         if (current == null) return false;
         target.CurrentSnapshot = null;
+        target.PreparedDurationPlan = null;
         RecordTransition(target, activeSeconds, current, null);
         return true;
     }
@@ -142,69 +144,54 @@ public static class EquipmentStatisticsReducer
         var snapshot = target.CurrentSnapshot;
         if (delta <= 0 || snapshot == null)
         {
+            if (snapshot == null) target.PreparedDurationPlan = null;
             target.ObservedActiveDurationSeconds = activeSeconds;
             return;
         }
-        PreflightSlotStateAdvance(target, snapshot, delta);
-        EquipmentCompositionReducer.Advance(target.Composition, snapshot, delta);
+        var plan = target.PreparedDurationPlan;
+        if (plan == null || !plan.Matches(snapshot))
+            target.PreparedDurationPlan = plan = new DurationPlan(snapshot);
+        PreflightSlotStateAdvance(target, plan, delta);
+        EquipmentCompositionReducer.Advance(target.Composition, plan.Composition, delta);
         target.ObservedActiveDurationSeconds = activeSeconds;
 
         if (!string.Equals(snapshot.LoadoutId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal))
-            AddDuration(target.Loadouts, snapshot.LoadoutId, DescribeLoadout(snapshot), delta);
+            AddDuration(target.Loadouts, snapshot.LoadoutId, plan.LoadoutDescription, delta);
         if (!string.IsNullOrWhiteSpace(snapshot.SelectedWeaponId))
-            AddDuration(target.SelectedWeapons, snapshot.SelectedWeaponSlotId + "|" + snapshot.SelectedWeaponId, snapshot.SelectedWeaponId, delta);
+            AddDuration(target.SelectedWeapons, plan.SelectedWeaponKey, snapshot.SelectedWeaponId, delta);
         if (!string.Equals(snapshot.TotemSetId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal)
-            && snapshot.Totems.Any(value => value.ActivationState == TotemActivationState.ProvenActive))
-            AddDuration(target.TotemSets, snapshot.TotemSetId, DescribeActiveTotemSet(snapshot), delta);
-        foreach (var item in snapshot.Items)
+            && plan.HasActiveTotems)
+            AddDuration(target.TotemSets, snapshot.TotemSetId, plan.TotemSetDescription, delta);
+        foreach (var entry in plan.Items)
         {
+            var item = entry.Item;
             AddDuration(target.Slots, item.SlotId, item.SlotDisplayName, delta);
-            AddDuration(target.Items, item.SlotId + "|" + item.ItemId + "|" + item.AttachmentSignature, item.ItemDisplayName, delta);
+            AddDuration(target.Items, entry.ItemKey, item.ItemDisplayName, delta);
             if (item.Kind == EquipmentItemKind.Weapon)
-                AddDuration(target.SlottedWeapons, item.SlotId + "|" + item.ItemId, item.ItemDisplayName, delta);
+                AddDuration(target.SlottedWeapons, entry.WeaponKey, item.ItemDisplayName, delta);
         }
         // Completeness gates the family capability, not the truth of slots that
         // were individually retained. A damaged sibling must not erase a slot
         // whose key and current state were still proven by the native snapshot.
-        foreach (var slot in snapshot.CharacterSlots)
+        foreach (var entry in plan.Roots)
         {
             AddDuration(
                 target.CharacterSlotObservedDurations,
-                CharacterSlotObservationKey(slot.SlotId),
-                slot.SlotDisplayName,
+                entry.ObservationKey,
+                entry.Slot.SlotDisplayName,
                 delta);
-            AddCharacterSlotStateDuration(target.CharacterSlotStates, slot, delta);
+            AddCharacterSlotStateDuration(target.CharacterSlotStates, entry.Slot, delta, entry.StateKey);
         }
         // Completeness gates the family capability, not the readable paths that
         // survived native enumeration. Missing siblings remain unavailable and
         // are never reconstructed as empty rows.
-        foreach (var parent in snapshot.Items)
+        foreach (var entry in plan.Nested)
         {
-            foreach (var slot in parent.NestedSlots)
-            {
-                AddDuration(
-                    target.NestedSlotObservedDurations,
-                    NestedSlotObservationKey(parent.SlotId, parent.ItemId, slot.Path),
-                    slot.SlotDisplayName,
-                    delta);
-                AddNestedSlotStateDuration(target.NestedSlotStates, parent, slot, delta);
-            }
+            AddDuration(target.NestedSlotObservedDurations, entry.ObservationKey, entry.Slot.SlotDisplayName, delta);
+            AddNestedSlotStateDuration(target.NestedSlotStates, entry.Parent, entry.Slot, delta, entry.StateKey);
         }
-        foreach (var group in snapshot.Totems
-                     .GroupBy(TotemStateKey, StringComparer.Ordinal)
-                     .OrderBy(value => value.Key, StringComparer.Ordinal))
-        {
-            var index = 0;
-            foreach (var totem in group)
-            {
-                index++;
-                AddDuration(
-                    target.TotemStates,
-                    group.Key + "|copy:" + index.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    DescribeTotem(totem),
-                    delta);
-            }
-        }
+        foreach (var entry in plan.Totems)
+            AddDuration(target.TotemStates, entry.Key, entry.Description, delta);
     }
 
     public static void RecordShot(EquipmentStatisticsAggregate target, ShotRecorded shot)
@@ -743,39 +730,33 @@ public static class EquipmentStatisticsReducer
 
     private static void PreflightSlotStateAdvance(
         EquipmentStatisticsAggregate target,
-        EquipmentSnapshot snapshot,
+        DurationPlan plan,
         decimal delta)
     {
+        var snapshot = plan.Snapshot;
         Check(target.Loadouts, snapshot.LoadoutId);
-        Check(target.SelectedWeapons, snapshot.SelectedWeaponSlotId + "|" + snapshot.SelectedWeaponId);
+        Check(target.SelectedWeapons, plan.SelectedWeaponKey);
         Check(target.TotemSets, snapshot.TotemSetId);
-        foreach (var item in snapshot.Items)
+        foreach (var entry in plan.Items)
         {
+            var item = entry.Item;
             Check(target.Slots, item.SlotId);
-            Check(target.Items, item.SlotId + "|" + item.ItemId + "|" + item.AttachmentSignature);
+            Check(target.Items, entry.ItemKey);
             if (item.Kind == EquipmentItemKind.Weapon)
-                Check(target.SlottedWeapons, item.SlotId + "|" + item.ItemId);
+                Check(target.SlottedWeapons, entry.WeaponKey);
         }
-        foreach (var group in snapshot.Totems.GroupBy(TotemStateKey, StringComparer.Ordinal))
+        foreach (var entry in plan.Totems) Check(target.TotemStates, entry.Key);
+        foreach (var entry in plan.Roots)
         {
-            var index = 0;
-            foreach (var _ in group)
-                Check(target.TotemStates, group.Key + "|copy:" + (++index).ToString(System.Globalization.CultureInfo.InvariantCulture));
-        }
-        foreach (var slot in snapshot.CharacterSlots)
-        {
-            Check(target.CharacterSlotObservedDurations, CharacterSlotObservationKey(slot.SlotId));
-            target.CharacterSlotStates.TryGetValue(CharacterSlotStateKey(slot), out var row);
+            Check(target.CharacterSlotObservedDurations, entry.ObservationKey);
+            target.CharacterSlotStates.TryGetValue(entry.StateKey, out var row);
             _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
         }
-        foreach (var parent in snapshot.Items)
+        foreach (var entry in plan.Nested)
         {
-            foreach (var slot in parent.NestedSlots)
-            {
-                Check(target.NestedSlotObservedDurations, NestedSlotObservationKey(parent.SlotId, parent.ItemId, slot.Path));
-                target.NestedSlotStates.TryGetValue(NestedSlotStateKey(parent.SlotId, parent.ItemId, slot), out var row);
-                _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
-            }
+            Check(target.NestedSlotObservedDurations, entry.ObservationKey);
+            target.NestedSlotStates.TryGetValue(entry.StateKey, out var row);
+            _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
         }
 
         void Check(Dictionary<string, EquipmentDurationAggregate> rows, string key)
@@ -834,9 +815,10 @@ public static class EquipmentStatisticsReducer
     private static void AddCharacterSlotStateDuration(
         Dictionary<string, CharacterSlotStateDurationAggregate> target,
         CharacterEquipmentSlotSnapshot slot,
-        decimal delta)
+        decimal delta,
+        string? preparedKey = null)
     {
-        var key = CharacterSlotStateKey(slot);
+        var key = preparedKey ?? CharacterSlotStateKey(slot);
         if (!target.TryGetValue(key, out var row))
         {
             row = new CharacterSlotStateDurationAggregate
@@ -859,9 +841,10 @@ public static class EquipmentStatisticsReducer
         Dictionary<string, NestedSlotStateDurationAggregate> target,
         EquippedItemSnapshot parent,
         NestedEquipmentSlotSnapshot slot,
-        decimal delta)
+        decimal delta,
+        string? preparedKey = null)
     {
-        var key = NestedSlotStateKey(parent.SlotId, parent.ItemId, slot);
+        var key = preparedKey ?? NestedSlotStateKey(parent.SlotId, parent.ItemId, slot);
         if (!target.TryGetValue(key, out var row))
         {
             row = new NestedSlotStateDurationAggregate
