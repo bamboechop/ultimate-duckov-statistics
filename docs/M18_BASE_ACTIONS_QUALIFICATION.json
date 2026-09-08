@@ -73,7 +73,7 @@
     "Scope": "Currency amount and Sale/Shop attribution verified; sold-item identity and quantity are user observations because UDS exports aggregate currency flows."
   },
   "RemainingBaseActions": [
-    "Cold reopen of the new slot 1 crafting and sale totals, combined with the same-package reinstallation check"
+    "Native reopen of the new slot 1 crafting and sale totals after the verified same-package replacement (M18_REINSTALLATION_QUALIFICATION.json)"
   ],
   "HealingAndItemUse": {
     "Status": "Pass for the observed regular Nullpunkt raid: two Verband activations restore 10 actual HP, matching the reported 29 to 39 HP; one Limonade activation is recorded.",

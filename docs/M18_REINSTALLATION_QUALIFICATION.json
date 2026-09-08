@@ -1,0 +1,89 @@
+{
+  "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "Status": "Pass for exact same-package replacement, verified rollback and byte-for-byte preservation of all UDS files; post-reinstallation native reopen remains Not exercised.",
+  "Version": "1.0.0-rc.1",
+  "QuitUtc": "2026-09-08T13:06:35.4721680Z",
+  "StartedUtc": "2026-09-08T13:08:42.0877525Z",
+  "VerifiedUtc": "2026-09-08T13:08:42.9077877Z",
+  "DuckovClosedDuringReinstallation": true,
+  "ExactFiveFilePackageBeforeAndAfter": true,
+  "AllUdsDataFilesUnchanged": 1718,
+  "V1DataFilesUnchanged": 462,
+  "PreV1AndOtherUdsDataFilesUnchanged": 1256,
+  "VerifiedRollbackBackupId": "01d213f06c44429693e43f667894d70c",
+  "TransactionResidue": false,
+  "InstalledHashes": {
+    "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+    "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+    "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+    "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+    "UltimateDuckovStatistics.dll": "43e3ab86aeb82cb45145acc5b47b2c75230215739d9deff8c21ad7a337e29d4f"
+  },
+  "Slot1ClosedProfile": {
+    "GenerationId": "063240a5b57647138bc4de0c18179981",
+    "Revision": 850,
+    "CraftCompletionActions": 1,
+    "CraftedTasseQuantity": 1,
+    "PolyethylenFolieConsumed": 4,
+    "CraftCurrencyCharged": 150,
+    "MoneyGrossInflow": 1284,
+    "MoneyGrossOutflow": 150,
+    "MoneyHeld": 14508,
+    "CashHeld": 0,
+    "CraftingAndEconomyEqualSaleExport": true,
+    "NoSessionOrActiveRunCheckpoint": true
+  },
+  "Slot3ClosedProfile": {
+    "GenerationId": "5872f0daafc14aabb2cd8207cbcc4494",
+    "Revision": 2219,
+    "CompletedRuns": 2,
+    "CompletedSleepSessions": 1,
+    "SleepAdvancedSeconds": 6000,
+    "CashHeld": 136,
+    "RunAndCurrencyTotalsUnchangedFromSaveIsolation": true,
+    "NoSessionOrActiveRunCheckpoint": true
+  },
+  "NativeReopen": {
+    "Status": "Not exercised",
+    "NextAction": "User launches Duckov, selects slot 1 and exports without gameplay; compare retained generation, crafting and sale totals, holdings and clean lifecycle."
+  },
+  "Scope": "Reinstalled the preserved current candidate using the shipped deployment procedure. No Duckov save or UDS data was edited or reset. Hash comparison covers all files under UltimateDuckovStatistics, including unsupported pre-v1 data. Native recovery/degradation, performance and other remaining gates are separate.",
+  "EvidenceManifestSha256": "bca2b68e293897592b3d266d210929a8aebe8777486f9654ce46a0b434933abe",
+  "KeyEvidenceFiles": [
+    {
+      "File": "data-after.json",
+      "Bytes": 373542,
+      "Sha256": "5f77aac39228d6b0e4d18b16ee105fc7a46fc35e89f6d1d1c430f5bcd265d6b6"
+    },
+    {
+      "File": "data-before.json",
+      "Bytes": 373542,
+      "Sha256": "5f77aac39228d6b0e4d18b16ee105fc7a46fc35e89f6d1d1c430f5bcd265d6b6"
+    },
+    {
+      "File": "deployment.log",
+      "Bytes": 1210,
+      "Sha256": "107fec810b4efe781214da75af3c542dc96f2f9673b81759162040b9933622ec"
+    },
+    {
+      "File": "player-closed-before.log",
+      "Bytes": 37460,
+      "Sha256": "d33f80e0a2970ae8f76754c5aa9fddeb67731fb083255f011ef93521b5c84936"
+    },
+    {
+      "File": "result.json",
+      "Bytes": 1119,
+      "Sha256": "0c8363382888b263d47730353ecee29e59941f402aeee36092919a643ce3a1f2"
+    },
+    {
+      "File": "slot-01-profile-before.json",
+      "Bytes": 31697,
+      "Sha256": "408ab661cbb98c7ba2ee9d1859e17e918fd6116b1e53cddee39c57e32d33e920"
+    },
+    {
+      "File": "slot-03-profile-before.json",
+      "Bytes": 534299,
+      "Sha256": "8293f009df038515e1019c8d0b607196ef9e8cd3de3eebc848b034a254da38e3"
+    }
+  ]
+}
