@@ -56,7 +56,13 @@
   },
   "RemainingBaseActions": [
     "Crafting with known item inputs/output and currency cost where available",
-    "Known currency transaction",
-    "Consumable healing with observed actual HP restoration where available"
-  ]
+    "Known currency transaction"
+  ],
+  "HealingAndItemUse": {
+    "Status": "Pass for the observed regular Nullpunkt raid: two Verband activations restore 10 actual HP, matching the reported 29 to 39 HP; one Limonade activation is recorded.",
+    "Evidence": "M18_REGULAR_RAID_QUALIFICATION.json",
+    "ExportId": "20260908T1228573800911Z-5872f0daafc14aabb2cd8207cbcc4494",
+    "RunId": "f2bdcbbcf336447dab9164b1504d8d9a",
+    "SavedProfileJsonAndCsvAgree": true
+  }
 }

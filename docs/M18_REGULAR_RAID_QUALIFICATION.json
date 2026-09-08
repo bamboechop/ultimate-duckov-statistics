@@ -1,0 +1,121 @@
+{
+  "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "ExportId": "20260908T1228573800911Z-5872f0daafc14aabb2cd8207cbcc4494",
+  "BeforeExportId": "20260908T1222225931866Z-5872f0daafc14aabb2cd8207cbcc4494",
+  "Slot": 3,
+  "GenerationId": "5872f0daafc14aabb2cd8207cbcc4494",
+  "ExportRevision": 841,
+  "ObservedProfileRevision": 1198,
+  "RunId": "f2bdcbbcf336447dab9164b1504d8d9a",
+  "NativeRaidId": "1",
+  "Status": "Pass for the observed regular-raid start/extraction, corrected container tally, kills, item-use/healing and persistence/export agreement.",
+  "UserReported": {
+    "Map": "Nullpunkt",
+    "Kills": 3,
+    "RangedKills": 2,
+    "MeleeKills": 1,
+    "BandagesUsed": 2,
+    "HpBefore": 29,
+    "HpAfter": 39,
+    "LimonadeUsed": 1,
+    "Containers": 2,
+    "ContainerKinds": [
+      "starter crate (ammo taken)",
+      "medical box"
+    ],
+    "CorpseClarification": "Two duck bodies looted; wolf was not looted."
+  },
+  "ContainerTallyResolution": {
+    "InitialReport": 1,
+    "CorrectedReport": 2,
+    "UserConfirmed": "The initial tally omitted the starter crate, from which ammunition was taken. No tracking defect or code change was required.",
+    "IndependentNativeIdentityCheck": [
+      {
+        "Key": 4452,
+        "SceneAsset": "level14",
+        "Object": "LootBox_Starter_1",
+        "ComponentPathId": 45304
+      },
+      {
+        "Key": 268440406,
+        "SceneAsset": "level14",
+        "Object": "LootBox_Medic_5",
+        "ComponentPathId": 45771
+      }
+    ],
+    "NativeCheckScope": "Each serialized position produces the recorded GetKey uniquely among 278 GroundZero map lootboxes. Both objects are static; the checked wolf uses ordinary synchronous corpse creation."
+  },
+  "Observed": {
+    "Outcome": "Extracted",
+    "MapId": "duckov:map:Level_GroundZero_1",
+    "MapDisplayName": "Nullpunkt",
+    "Segments": 1,
+    "ActiveSeconds": 116.31834519999995,
+    "DistanceMetres": 279.90560275638217,
+    "Kills": 3,
+    "RangedKills": 2,
+    "MeleeKills": 1,
+    "BandagesUsed": 2,
+    "ActualHpRestored": 10,
+    "LimonadeUsed": 1,
+    "ContainersOpened": 2,
+    "ContainerKeys": [
+      4452,
+      268440406
+    ],
+    "FiringActions": 7,
+    "DamageDealt": 44,
+    "DamageTaken": 11,
+    "CashNet": 78
+  },
+  "Agreement": {
+    "OneNewRunAndNativeStartCompletion": true,
+    "CompleteRunDeepEqualsSavedProfile": true,
+    "PriorTutorialUnchanged": true,
+    "ReportedCombatAndItemUseMatch": true,
+    "TargetedCsvMetricsMatchJson": true,
+    "AllCsvStructuresValid": true,
+    "NoRemainingActiveRunCheckpoint": true,
+    "SleepTotalsRetained": true,
+    "CorpseExclusionObserved": "At least one exclusion is logged; the diagnostic is throttled by provenance and does not establish a count of looted bodies."
+  },
+  "EvidenceManifestSha256": "abcdbe4f6ff9f7e75d7160616f6524683b7d5844d930a477432ef88767858115",
+  "KeyEvidenceFiles": [
+    {
+      "File": "export/containers.csv",
+      "Bytes": 660,
+      "Sha256": "3d065aec1ffae74524218fd85c3751a5381e85e8dd3462c8e92419986a825734"
+    },
+    {
+      "File": "export/items.csv",
+      "Bytes": 608,
+      "Sha256": "05629254735e9d651e05a6c1d468b9632fa140d20d7529b8e7355053ab576b01"
+    },
+    {
+      "File": "export/runs.csv",
+      "Bytes": 2076,
+      "Sha256": "80f0a5999dd5cbe46de1746cdec4a255dfbabcffcbe1ff2cdd70b37502a12dec"
+    },
+    {
+      "File": "export/statistics.json",
+      "Bytes": 533157,
+      "Sha256": "55af09871381b09197c300986c94d85c7db6e9d0e08523aaf746b6d68b4353ee"
+    },
+    {
+      "File": "player-observed.log",
+      "Bytes": 15353,
+      "Sha256": "47e86a6ab2e8c14ac13ab81ded168f28ab4a95d020a2949b19be2a5162c7c4c9"
+    },
+    {
+      "File": "profile-observed.json",
+      "Bytes": 534550,
+      "Sha256": "a0f0ff5140b14cf97353d342e690714a9646da4f5dccf4196781db056ad1290a"
+    }
+  ],
+  "Remaining": [
+    "Regular-run cold reopen",
+    "Multi-map and repeated-map route",
+    "Death outcome",
+    "Other M18 gameplay/UI/resource/recovery/performance gates"
+  ]
+}
