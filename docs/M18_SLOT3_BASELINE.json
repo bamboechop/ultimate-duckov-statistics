@@ -1,0 +1,239 @@
+{
+  "SourceCommit": "6125a2b95592151765c3f85b8ca3288e8bd37308",
+  "ExportId": "20260908T1029261733502Z-153f0548340f4daaa8c81c91646b7282",
+  "Slot": 3,
+  "GenerationId": "153f0548340f4daaa8c81c91646b7282",
+  "Revision": 350,
+  "Status": "Pass for baseline export and reported item/Cash totals only; remaining native qualification is open.",
+  "Files": [
+    {
+      "File": "active_totem_set_definitions.csv",
+      "Bytes": 242,
+      "Sha256": "7c8071a28629ab057491e6e278af7c68b4304fdc5c123c9c3d5b40e5f1e82c01"
+    },
+    {
+      "File": "ammunition_totals.csv",
+      "Bytes": 79,
+      "Sha256": "32feb190ccfae094f6e91e65e4a9f590e262b18a49233987568796fcc09c3bb5"
+    },
+    {
+      "File": "cash_acquisition.csv",
+      "Bytes": 1027,
+      "Sha256": "3d79721099ace67b40cbe9f833ef326adc35f8f042424d57d79ea3e53278d95e"
+    },
+    {
+      "File": "character_equipment_slots.csv",
+      "Bytes": 427,
+      "Sha256": "da880f80307c4e8fa7416d2bb12db0e50fb1bd64b52d4a68cc362715bf64af44"
+    },
+    {
+      "File": "combat_attribution.csv",
+      "Bytes": 1194,
+      "Sha256": "594dfaf13ce4f68341a21c0d1bda1a13dcf3c618932525494c91a28cdb047281"
+    },
+    {
+      "File": "combat_totals.csv",
+      "Bytes": 203,
+      "Sha256": "960a3503b3e371f4d84e6bbf8b0b3bff56d0db049a0eca68e842a1c619df5908"
+    },
+    {
+      "File": "containers.csv",
+      "Bytes": 154,
+      "Sha256": "4b1aa990708e45ac15140f8373fec467aad5549070abf4c47b8908a2286ff5d9"
+    },
+    {
+      "File": "crafting_recipes.csv",
+      "Bytes": 363,
+      "Sha256": "e3a44d253741208a997e3d57430f635a24594a16beb01c4f6de9e7891b64b82a"
+    },
+    {
+      "File": "crafting_resource_associations.csv",
+      "Bytes": 306,
+      "Sha256": "fb66048832bd0c32ba5f33132b9cfc1beb6c1c350a2bcdb6b911ee3c331eeaef"
+    },
+    {
+      "File": "crafting_resources.csv",
+      "Bytes": 220,
+      "Sha256": "ca80b4e395c976f36053fdd1c6b8135a73e5cf43b91cb26d2a16a704564a036e"
+    },
+    {
+      "File": "crafting_totals.csv",
+      "Bytes": 2324,
+      "Sha256": "defc2939658a90434f02b8b0d5e83c5e7f3b52e96298d27c9c4f32fbb5c548a0"
+    },
+    {
+      "File": "economy_contexts.csv",
+      "Bytes": 460,
+      "Sha256": "dd8448ce8a70c7286b23557826770c1c6b8e74ec802cb7e9f2d1ae36b8381527"
+    },
+    {
+      "File": "economy_holdings.csv",
+      "Bytes": 1451,
+      "Sha256": "cee7c5888ac43ec0dc8b515516cffa1c2cce2c0691e75d19d869a957ce7afef0"
+    },
+    {
+      "File": "economy_sources.csv",
+      "Bytes": 996,
+      "Sha256": "14b36468270381c74f8d5a354ad2fb7330d18ed4c035dd80f266c5174e80178d"
+    },
+    {
+      "File": "economy_totals.csv",
+      "Bytes": 2669,
+      "Sha256": "092705024a9db8c12dc0ddd347b42c21344c2d4e27f739bee9638c3448ddf797"
+    },
+    {
+      "File": "equipment_combat.csv",
+      "Bytes": 539,
+      "Sha256": "172ee4de330172cfe773d136e277bc296765980af8508c55f7a7cdb134fb9700"
+    },
+    {
+      "File": "equipment_totals.csv",
+      "Bytes": 89,
+      "Sha256": "1c3acbc9b048cd101ca74cb4e0f00e4ed4bd04b71fb1fbaecaf8c46663264a81"
+    },
+    {
+      "File": "equipped_item_nested_slots.csv",
+      "Bytes": 516,
+      "Sha256": "e251d8f54954c839231b76098beefa8bb6790cef10eb376f8cb3d34ae1cacde6"
+    },
+    {
+      "File": "groups.csv",
+      "Bytes": 320,
+      "Sha256": "12516df2f055e9c61a2ec0271ea56a1cd8933181caadb4674777efdaabb84665"
+    },
+    {
+      "File": "items.csv",
+      "Bytes": 429,
+      "Sha256": "a7d11081b03b95a6879e0664cdf147fb53d3bb2f82dca8a05d6f97ee0ebb53fe"
+    },
+    {
+      "File": "loadout_definitions.csv",
+      "Bytes": 242,
+      "Sha256": "7c8071a28629ab057491e6e278af7c68b4304fdc5c123c9c3d5b40e5f1e82c01"
+    },
+    {
+      "File": "map_totals.csv",
+      "Bytes": 554,
+      "Sha256": "c2ff9b7708f77dd33abfcee74de3d99cafa1d6e9475ac79f039c366d79a15cb9"
+    },
+    {
+      "File": "overview.csv",
+      "Bytes": 366,
+      "Sha256": "b5cc71904a42cb65c4bb2bfebba552b8da19cd377cfd0848c2c17eeb2a206041"
+    },
+    {
+      "File": "records.csv",
+      "Bytes": 89,
+      "Sha256": "4a53bdf8b306258e70edfb6d09639ce92837e13aa775c0c37eb76ee7c14d231c"
+    },
+    {
+      "File": "recurring_loadouts.csv",
+      "Bytes": 52,
+      "Sha256": "637363399a9e6ded64e793a87d5b3cfe13245448554c6a10a4fd95de76395676"
+    },
+    {
+      "File": "route_map_totals.csv",
+      "Bytes": 661,
+      "Sha256": "b092becc0b1d28a0b1d3e57ed7771f9d2c36e9ef9e3b51adb0e3a1e663b33b41"
+    },
+    {
+      "File": "routes.csv",
+      "Bytes": 534,
+      "Sha256": "a7e3c3b306ccf50b84a5ff71ad896782b45393004ba83d86545538a48a330a8d"
+    },
+    {
+      "File": "run_totals.csv",
+      "Bytes": 709,
+      "Sha256": "2b026884ed78d2275a71a2cae7f81421c5436b9356df75cb39e14088242d8098"
+    },
+    {
+      "File": "runs.csv",
+      "Bytes": 845,
+      "Sha256": "b8a11fb7dcb5f290572d043b97584f839cc295a11a89f2f96a47ae16c42ef02c"
+    },
+    {
+      "File": "segment_events.csv",
+      "Bytes": 215,
+      "Sha256": "b53da119af6fc44af80541a4770e50202ba97f6ba8f8b61ab8f16c94bcf5d463"
+    },
+    {
+      "File": "segments.csv",
+      "Bytes": 905,
+      "Sha256": "4090698b08599e3964f943068bdee5c4b4981966b560ebd67c7889e78bdcd4b5"
+    },
+    {
+      "File": "statistics.json",
+      "Bytes": 31595,
+      "Sha256": "52e421aabb0b7839109daa4a35a52c338fb5b6139ecde38acdbed7be7996fabc"
+    },
+    {
+      "File": "terminal_loadouts.csv",
+      "Bytes": 293,
+      "Sha256": "4f67573c6d57ba67b5581e29af245fd7c07f4951b4fe8b2402ae31d1d680fa80"
+    },
+    {
+      "File": "totem_state_durations.csv",
+      "Bytes": 242,
+      "Sha256": "7c8071a28629ab057491e6e278af7c68b4304fdc5c123c9c3d5b40e5f1e82c01"
+    },
+    {
+      "File": "weapon_ammunition_pairs.csv",
+      "Bytes": 345,
+      "Sha256": "5b1e804059dc5b9a6f95bc47997024d7ed6396e1d3519044430c016140240b7f"
+    },
+    {
+      "File": "weapon_totals.csv",
+      "Bytes": 75,
+      "Sha256": "48a6c1c86306da91b68ea80b033923d422438c1a3f0bfc3eb71b06f93da0beed"
+    },
+    {
+      "File": "world_time.csv",
+      "Bytes": 862,
+      "Sha256": "16e208e2d367f420f0866950d6afb9549b31072b028816551b912d16045b4547"
+    }
+  ],
+  "ObservedBaseline": {
+    "ItemActivations": 2,
+    "Items": [
+      {
+        "ItemId": "duckov:item:403",
+        "DisplayName": "Kartoffel",
+        "Activations": 1,
+        "StackUnits": 1
+      },
+      {
+        "ItemId": "duckov:item:10",
+        "DisplayName": "Verband",
+        "Activations": 1,
+        "StackUnits": 1,
+        "ExportedActualHpRestored": 1.0338478088378906
+      }
+    ],
+    "Runs": 0,
+    "MoneyHeld": 0,
+    "CashInflow": 55,
+    "CashOutflow": 0,
+    "CashHeld": 55,
+    "CashSource": "UnknownAdjustment",
+    "CashContext": "Base",
+    "ProvenRaidCashAcquired": 0
+  },
+  "BasePauseEntry": "Native diagnostics confirms activation; user confirmation of closing/input recovery and corrected health labels is still pending.",
+  "TutorialBoundary": {
+    "NativeCoreSha256": "298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f",
+    "NativeGuideLevelFile": "level25",
+    "NativeGuideLevelSha256": "be7660338a4c2c5351a2d38e689a32135b27c9da88fc55c0a47d0b6e3f82a3ba",
+    "Scene": "Level_Guide_Main",
+    "LevelConfigPathId": 272,
+    "IsRaidMap": true,
+    "IsBaseLevel": false,
+    "NativeCode": "SavesSystem.Load<RaidInfo> defaults to valid=false, ended=false on a fresh save. LevelManager.HandleRaidInitialization calls NewRaid on raid maps only when ended=true. Reaching base calls NotifyEnd, enabling initialization on the next expedition.",
+    "UdsCode": "NativeRunLifecycleAdapter requires native raid initialization followed by control readiness. Lifetime item use and economy capture are independent of an active run.",
+    "Conclusion": "The reported fresh-save tutorial sequence is consistent with the existing native-raid run definition; no tutorial run is reconstructed.",
+    "EvidenceLimit": "Native code and serialized scene configuration plus user-reported sequence/export; no runtime trace of the tutorial RaidInfo was captured."
+  },
+  "OpenObservations": [
+    "Economy currently labels all changes without an active UDS run as Base, including these tutorial Cash changes; review this context-labeling boundary separately.",
+    "User-requested empty-state text rendering polish remains deferred until checks are complete."
+  ]
+}
