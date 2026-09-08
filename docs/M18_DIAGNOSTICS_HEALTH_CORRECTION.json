@@ -70,15 +70,29 @@
     "ReleaseMainPassed": 1860,
     "DebugShellPassed": 8,
     "ReleaseShellPassed": 8,
-    "LocalExcludedDeploymentTestsPerConfiguration": 2,
-    "DeploymentTestConstraint": "The two deployment-script tests require Duckov closed and were excluded locally while the user game was running. CI runs the complete suites.",
+    "DeploymentTestConstraint": "The two game-closed deployment tests were subsequently run and passed in each Debug and Release configuration after user shutdown, completing the local test coverage.",
     "NativeReleaseWarnings": 0,
     "FormattingAndAnalyzers": "Pass",
     "OrdinaryReleaseIlAndArtifactPathAudits": "Pass",
-    "IndependentCorrectionReview": "Pass; no confirmed P1/P2 in f40bd5c9398a226b5e9d7062b9e520d5836eb950..6125a2b95592151765c3f85b8ca3288e8bd37308"
+    "IndependentCorrectionReview": "Pass; no confirmed P1/P2 in f40bd5c9398a226b5e9d7062b9e520d5836eb950..6125a2b95592151765c3f85b8ca3288e8bd37308",
+    "DeploymentTestsSubsequentlyPassedPerConfiguration": 2,
+    "CompleteLocalMainPassedPerConfiguration": 1862,
+    "NativeDebugWarnings": 0,
+    "CompleteCiRun": "https://github.com/bamboechop/ultimate-duckov-statistics/actions/runs/34212807168",
+    "InitiallyExcludedLocalDeploymentTestsPerConfiguration": 2
   },
   "CampaignSha256": "2b8f8990493f1189aa4980a7a4c4b713ba795f09fb1180d6adce44bed9164271",
-  "Deployment": "Not exercised; installed five-file hashes still match original source 4068480cd736642a16e14b0510384c957b3b08e0.",
+  "Deployment": {
+    "Result": "Pass",
+    "VerifiedUtc": "2026-09-08T10:18:45.150176+00:00",
+    "SourceCommit": "6125a2b95592151765c3f85b8ca3288e8bd37308",
+    "FiveInstalledFileHashesMatch": true,
+    "DuckovClosedDuringDeployment": true,
+    "UdsV1DataFilesUnchanged": 9,
+    "TransactionResidue": false,
+    "VerifiedPriorBackupId": "4dba75218dbb4572870db05135896138",
+    "PreviousInstalledSource": "4068480cd736642a16e14b0510384c957b3b08e0"
+  },
   "NativeCorrectionAcceptance": "Not exercised",
   "LocalEvidenceSha256": {
     "m18-economy-health-tests.log": "a63abc1eff7e86dd08b649f6c148a5a1b699814593bc3a6485133af4b6d85008",
@@ -88,6 +102,11 @@
     "m18-economy-health-Release-main.log": "f8ab65b9d3cee8e27620dfa626006888babd912619da6052e6333aff8f719312",
     "m18-economy-health-Debug-shell.log": "67d6990cfcc2cd5829f73113d568702454a78efe4f8f213157e5ce0e965ad752",
     "m18-economy-health-Release-shell.log": "ef8920b9a73a4ee43e5b8405d807bc93f5b41f126c45b4fa80038ea628081f4e",
-    "m18-economy-health-repro.log": "57f046bcde75e2629fc7e4e486873167e53e2e6a52791c4453e2acff4f7c03d2"
+    "m18-economy-health-repro.log": "57f046bcde75e2629fc7e4e486873167e53e2e6a52791c4453e2acff4f7c03d2",
+    "m18-diagnostics-final-deploy.log": "1ad14d5e5fb8e7806e7fcbd139bcbff1f5788d642dd54dd7f73bb023ffdf9f05",
+    "m18-diagnostics-data-before-deploy.json": "341bb8fc1dba91b11a0d6b2165069822f8a414b996c54d6133187641c6f7e4f1",
+    "m18-diagnostics-deployment-Debug-tests.log": "a64fd5a980a0463b8745cde9e968cf0b76d359598671ec1313b1e963a586ee04",
+    "m18-diagnostics-deployment-Release-tests.log": "8d6d9e87032644b5dea1fd1b4024999e6fa3ad7a950209d1afac560b7c3d8118",
+    "m18-diagnostics-native-debug-build.log": "eb50689e3907cd7dc5fc5809917f896d9d14abdc0ed3cf2f64014cb22c29213c"
   }
 }
