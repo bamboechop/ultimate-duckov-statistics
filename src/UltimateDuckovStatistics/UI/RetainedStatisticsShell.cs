@@ -1143,6 +1143,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         rect.localScale = Vector3.one;
 
         var label = statisticsObject.AddComponent<TextMeshProUGUI>();
+        // Set a real size before deferred TMP Awake: its -99 default otherwise
+        // reloads Duckov's text defaults, including disabled word wrapping.
+        label.fontSize = RetainedOverviewWorldTimeStatisticsPolicy.ReferenceFontSize;
         label.font = typography.Font;
         label.fontSharedMaterial = material;
         label.text = presentation.Text;

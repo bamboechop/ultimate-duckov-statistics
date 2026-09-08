@@ -42,9 +42,15 @@ namespace UnityEngine
         public Transform transform { get; }
         public UnityEngine.SceneManagement.Scene scene => new();
         public GameObject(string name, params Type[] types) { this.name = name; transform = new RectTransform { gameObject = this }; components.Add(transform); Live.Add(this); foreach (var type in types) if (type != typeof(RectTransform)) AddComponent(type); }
-        public void SetActive(bool value) => activeSelf = value;
+        public void SetActive(bool value) { activeSelf = value; NotifyTextActivation(); }
+        internal void NotifyTextActivation()
+        {
+            if (!activeInHierarchy) return;
+            foreach (var text in GetComponents<TMPro.TextMeshProUGUI>()) text.AwakeForActiveHierarchy();
+            foreach (var child in transform.Children) child.gameObject.NotifyTextActivation();
+        }
         public T AddComponent<T>() where T : Component, new() => (T)AddComponent(typeof(T));
-        public Component AddComponent(Type type) { var value = (Component)Activator.CreateInstance(type)!; value.gameObject = this; components.Add(value); return value; }
+        public Component AddComponent(Type type) { var value = (Component)Activator.CreateInstance(type)!; value.gameObject = this; components.Add(value); NotifyTextActivation(); return value; }
         public T GetComponent<T>() where T : class => components.OfType<T>().FirstOrDefault()!;
         public T[] GetComponents<T>() where T : class => components.Where(c => !c.Destroyed).OfType<T>().ToArray();
         public T[] GetComponentsInParent<T>(bool includeInactive = false) where T : class =>
@@ -73,7 +79,7 @@ namespace UnityEngine
         public Transform parent = null!;
         public Vector3 localScale = Vector3.one;
         public int childCount => Children.Count;
-        public void SetParent(Transform? value, bool worldPositionStays = false) { parent?.Children.Remove(this); parent = value!; parent?.Children.Add(this); }
+        public void SetParent(Transform? value, bool worldPositionStays = false) { parent?.Children.Remove(this); parent = value!; parent?.Children.Add(this); gameObject.NotifyTextActivation(); }
         public Transform GetChild(int index) => Children[index];
         public int GetSiblingIndex() => parent?.Children.IndexOf(this) ?? 0;
         public void SetSiblingIndex(int index) { if (parent == null) return; parent.Children.Remove(this); parent.Children.Insert(Math.Clamp(index, 0, parent.Children.Count), this); }
@@ -165,13 +171,30 @@ namespace TMPro
     {
         public static long Measurements;
         public string text = ""; public TMP_FontAsset font = null!; public Material fontSharedMaterial = null!;
-        public float fontSize = 30, fontSizeMin, fontSizeMax, characterSpacing, lineSpacing, wordSpacing, paragraphSpacing;
+        public float fontSize = -99, fontSizeMin, fontSizeMax, characterSpacing, lineSpacing, wordSpacing, paragraphSpacing;
         public FontWeight fontWeight; public FontStyles fontStyle; public TextAlignmentOptions alignment; public TextOverflowModes overflowMode;
         public bool enableWordWrapping, enableAutoSizing, richText; public Vector4 margin;
         public Vector2 GetPreferredValues(float width, float height) => GetPreferredValues(text, width, height);
         public float preferredWidth => GetPreferredValues(text).x;
         public float preferredHeight => GetPreferredValues(text, rectTransform.rect.width, float.PositiveInfinity).y;
-        public Vector2 GetPreferredValues(string value, float width = float.PositiveInfinity, float height = float.PositiveInfinity) { Measurements++; var natural = Math.Max(1, value.Length * fontSize * .55f); var lines = float.IsFinite(width) && width > 0 ? Math.Max(1, Math.Ceiling(natural / width)) : 1; return new Vector2(float.IsFinite(width) ? Math.Min(width, natural) : natural, (float)lines * fontSize * 1.2f); }
+        private bool awake;
+        internal void AwakeForActiveHierarchy()
+        {
+            if (awake) return;
+            awake = true;
+            // Installed TMP Awake/LoadDefaultSettings overwrites wrapping only
+            // when the font size is still its -99 sentinel; Duckov defaults to off.
+            if (fontSize == -99) { fontSize = 30; enableWordWrapping = false; }
+        }
+        public Vector2 GetPreferredValues(string value, float width = float.PositiveInfinity, float height = float.PositiveInfinity)
+        {
+            Measurements++;
+            var explicitLines = value.Split('\n');
+            var widths = explicitLines.Select(line => Math.Max(1, line.Length * fontSize * .55f)).ToArray();
+            var wraps = enableWordWrapping && float.IsFinite(width) && width > 0;
+            var lines = widths.Sum(natural => wraps ? Math.Max(1, Math.Ceiling(natural / width)) : 1);
+            return new Vector2(wraps ? Math.Min(width, widths.Max()) : widths.Max(), (float)lines * fontSize * 1.2f);
+        }
         public void ForceMeshUpdate(bool ignoreActiveState = false, bool forceTextReparsing = false) { }
         public Bounds textBounds => new() { size = new(preferredWidth, preferredHeight, 0) };
     }
