@@ -10,6 +10,8 @@ Use the candidate source and file identities in [M18 acceptance](M18_ACCEPTANCE.
 4. Complete an expedition with at least three map visits, including a repeated map if naturally available. For delayed effects, record the source, any loadout swap and the later outcome when such an item is actually available. Extract, inspect Runs and the relevant tabs, then export through Diagnostics.
 5. Close the game normally yourself. Codex can read the local logs, generation, checkpoints, profile/backup and exports, compare JSON/CSV/UI against the action notes, and verify clean shutdown and exact deployed hashes.
 
+For tutorial coverage, use a user-selected fresh save. After gaining control, record a few exact actions and finish the prison exit countdown. Verify one completed run for the observed tutorial map, matching actions and Cash, then compare an export and cold reopen. The first attempt has a UDS run ID and no native raid ID. If death occurs, that attempt should end as Died and the retry should become a separate run with Duckov's newly created raid ID. The already completed save-3 tutorial remains the original zero-run baseline; no historical duration or movement is reconstructed.
+
 ## Persistence, degradation and ownership
 
 - Cold reopen the same current-format profile and verify exact totals/generation. Reinstalling the same package while closed must preserve those totals. A second user-selected save gets its own generation and cannot borrow data.

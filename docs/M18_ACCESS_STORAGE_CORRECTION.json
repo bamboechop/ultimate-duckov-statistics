@@ -115,9 +115,9 @@
       "UltimateDuckovStatistics.dll": "773f144fdf71d4ae44b70004b5a90a200dfe94e3e8b06cb0f6281f008e36e96c"
     }
   },
-  "NativeAcceptance": "Not exercised on this replacement; recheck repeated base-menu access, close/input restoration and neutral pending profile writes.",
+  "NativeAcceptance": "User confirmed repeated base-menu access, close/input restoration and Working storage with neutral Pending writes on the later source 78265dc5e2266bf1c7918cb7b4ac4d2a093bc2cf, which includes these corrections.",
   "EarlierUserChecks": "On deployed source 6125a2b, the user confirmed Economy/Menu access displayed Working and closing Statistics restored controls. The user separately reported the pause-menu click failed to display Statistics.",
-  "ShutdownObservation": "The prior source emitted economy boundary pending messages during quit/deactivation after base to main menu. The suspended-baseline cause and reviewed correction are recorded in M18_SHUTDOWN_ECONOMY_CORRECTION.json; native shutdown requalification remains open.",
+  "ShutdownObservation": "The prior source emitted economy boundary pending messages during quit/deactivation after base to main menu. M18_SHUTDOWN_ECONOMY_CORRECTION.json records the suspended-baseline correction and subsequent clean native shutdown on source 78265dc.",
   "LocalEvidenceSha256": {
     "m18-storage-health-before.log": "ff53faa43dfbcc9570eed987761a029c9c5f274dc3968713e1cfc89939eb677a",
     "m18-pause-canvas-before.log": "ce8ccdc442b93cbf8358692acdb81e558adf9d2fcba7e09fb9ac7ced9cdd8fa2",

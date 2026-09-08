@@ -105,7 +105,7 @@
       "UltimateDuckovStatistics.dll": "c069f171095311b0a06cdf0068806b1a3c0bd75901aba5f95542338a9c25741f"
     }
   },
-  "NativeAcceptance": "Not exercised on this replacement. Recheck pause-menu open/close/reopen, neutral pending writes and a normal base-to-main-menu-to-quit readback.",
+  "NativeAcceptance": "Pass on this replacement: user confirmed repeated pause-menu opening, restored controls and Working storage with neutral Pending writes. The subsequent normal shutdown at 2026-09-08T11:23:08.0510743Z closed the generation cleanly without the false Economy pending warning; preserved log is referenced in M18_TUTORIAL_RUN_CORRECTION.json.",
   "EarlierCorrections": "M18_ACCESS_STORAGE_CORRECTION.json",
   "LocalEvidenceSha256": {
     "m18-shutdown-economy-before.log": "3d7d2e20439a2a238640330fd17fa227076763274e44468fc6a67c9e4d02d4b2",
