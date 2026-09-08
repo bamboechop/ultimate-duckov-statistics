@@ -118,7 +118,7 @@
       "UltimateDuckovStatistics.dll": "17da90caecaa76c153dd1242438713b6e2a87b3329e7e361758d54c1fedc9c57"
     }
   },
-  "NativeCorrectionAcceptance": "Pass for observed player-owned burning damage on the corrected build: one Brand-Muni use records 21 DamageOverTime damage credited to Player and Brand-Muni, with zero kills matching the surviving duck. M18_BURNING_REPEAT_QUALIFICATION.json preserves saved-profile/JSON/CSV agreement and live origin-correlation evidence. The user confirms no weapon switches in this attempt; retention through switches and corrected burn final blows remain unexercised. The historical failed run is preserved.",
+  "NativeCorrectionAcceptance": "Pass for the observed same-map burning damage and final blow through bow/SR-3M switches. M18_BURNING_SWITCH_KILL_QUALIFICATION.json records one Brand-Muni use, 35 player damage and one Effect kill under Brand-Muni, six weapon selections during the combat window, originating throw equipment retained, zero firing/melee actions, exact saved-profile/JSON/CSV agreement and all seven prior runs unchanged. Historical failed runs are preserved. Mixed-source/cross-map effects and other M18 gates remain separate.",
   "NativePerformanceCaptures": 0,
   "LocalEvidenceSha256": {
     "m18-burning-final-Debug-tests.log": "d4d8ef7a60931262837c88290b0a36deb63ec7ac56cd62ccda16a4a7bc164e74",
