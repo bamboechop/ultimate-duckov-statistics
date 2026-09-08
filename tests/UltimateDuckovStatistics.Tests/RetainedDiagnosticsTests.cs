@@ -346,11 +346,55 @@ public sealed class RetainedDiagnosticsTests
         Assert.Equal(DiagnosticsHealth.Working, Assert.Single(saved.Systems, s => s.Id == "storage").Health);
         Assert.Contains(saved.Recovery, r => r.Value == "New profile");
         profile.Revision++;
-        Assert.Equal(DiagnosticsHealth.Limited, Assert.Single(Present(profile, runtime).Systems, s => s.Id == "storage").Health);
+        var pending = Assert.Single(Present(profile, runtime).Systems, s => s.Id == "storage");
+        Assert.Equal(DiagnosticsHealth.Working, pending.Health);
+        Assert.Equal("Pending", Assert.Single(pending.ExtraRows).Value);
+        Assert.Null(Assert.Single(pending.ExtraRows).Health);
         runtime.Entries = new[] { Entry(1, "Error", "Failed to persist snapshot") };
         Assert.Equal(DiagnosticsHealth.Error, Assert.Single(Present(profile, runtime).Systems, s => s.Id == "storage").Health);
         var another = Profile("another"); runtime.GenerationId = "another";
         Assert.Equal("Unavailable", Present(another, runtime).LastSaved);
+        runtime.Entries = Array.Empty<DiagnosticEntry>();
+        Assert.Equal(DiagnosticsHealth.Limited, Assert.Single(Present(another, runtime).Systems, s => s.Id == "storage").Health);
+        runtime.SaveReceipt = null;
+        Assert.Equal(DiagnosticsHealth.Limited, Assert.Single(Present(another, runtime).Systems, s => s.Id == "storage").Health);
+    }
+
+    [Fact]
+    public void WorldTimeBetweenScheduledWritesRemainsPendingWithoutDegradingWorkingStorage()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = new ProfileRepository(directory.Path, () => Now, () => "world-time-generation");
+        repository.Open(new SaveIdentitySnapshot { Slot = 3, SaveFilePresent = false });
+        repository.SetCapabilitySnapshot(Profile().Capabilities, new EconomyMetricCapabilities(),
+            WorldTimeNativeContractPolicy.Supported("clock", "sleep"), new CraftingMetricCapabilities());
+        var receipt = repository.LastSaveReceipt;
+        var runtime = Runtime(repository.CurrentGenerationId);
+        runtime.SaveReceipt = receipt;
+        var cadence = new NativeWorldTimePersistenceCadence();
+        cadence.Start(0);
+        for (var second = 1; second < NativeWorldTimePersistenceCadence.DurablePersistenceIntervalSeconds; second++)
+        {
+            Assert.True(cadence.ShouldPublish(second));
+            Assert.True(repository.RecordWorldTimeDeferred(new WorldTimeMutation(0, TimeSpan.TicksPerSecond, 0, 0)));
+            cadence.RecordPublicationAttempt(succeeded: true, changed: true, second);
+            Assert.False(cadence.ShouldSchedulePersistence(second));
+            Assert.Same(receipt, repository.LastSaveReceipt);
+            var storage = Assert.Single(Present(repository.Current, runtime).Systems, s => s.Id == "storage");
+            Assert.Equal(DiagnosticsHealth.Working, storage.Health);
+            Assert.Equal("Pending", Assert.Single(storage.ExtraRows).Value);
+            Assert.Null(Assert.Single(storage.ExtraRows).Health);
+        }
+        Assert.True(cadence.ShouldSchedulePersistence(NativeWorldTimePersistenceCadence.DurablePersistenceIntervalSeconds));
+        var writer = new DeferredSnapshotWriter<ProfilePersistenceSnapshot>(repository.CapturePersistenceSnapshot, repository.SaveSnapshot);
+        writer.MarkDirty();
+        Assert.Equal(DeferredWriteState.Succeeded, writer.Flush().State);
+        runtime.SaveReceipt = repository.LastSaveReceipt;
+        Assert.Equal(repository.Current.Revision, runtime.SaveReceipt!.Revision);
+        var completed = Assert.Single(Present(repository.Current, runtime).Systems, s => s.Id == "storage");
+        Assert.Equal(DiagnosticsHealth.Working, completed.Health);
+        Assert.Equal("Working", Assert.Single(completed.ExtraRows).Value);
+        Assert.Equal(DiagnosticsHealth.Working, Assert.Single(completed.ExtraRows).Health);
     }
 
     [Fact]

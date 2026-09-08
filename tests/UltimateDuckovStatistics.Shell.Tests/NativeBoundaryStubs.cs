@@ -9,7 +9,7 @@ using UnityEngine;
 
 // Isolated external boundaries. Actual panel orchestration, shared shell,
 // overview, projection factories, tab construction/scroll and material ownership
-// are source-linked. Native menu discovery, child views and GPU assets are not.
+// and native menu discovery are source-linked. Child views and GPU assets are not.
 namespace UltimateDuckovStatistics.Adapters
 {
     internal sealed class NativeProfileCoordinator(string dataRoot)
@@ -38,24 +38,6 @@ namespace UltimateDuckovStatistics.Adapters
 }
 namespace UltimateDuckovStatistics.UI
 {
-    internal sealed class NativeUiIntegration : IDisposable
-    {
-        public static NativeUiIntegration Last = null!;
-        public static Canvas TargetCanvas = null!;
-        private readonly Action<PanelAccessSurface> open, close;
-        public bool Disposed;
-        public List<string> Toasts { get; } = new();
-        public NativeUiIntegration(Adapters.NativeProfileCoordinator coordinator, Action<PanelAccessSurface> open, Action<PanelAccessSurface> close)
-        { this.open = open; this.close = close; Last = this; }
-        public void Initialize() { }
-        public void Activate(PanelAccessSurface surface) => open(surface);
-        public void Deactivate(PanelAccessSurface surface) => close(surface);
-        public bool TryResolvePanelCanvas(PanelAccessSurface surface, out Canvas canvas) { canvas = TargetCanvas; return canvas != null; }
-        public NativeMenuIntegrationState MainMenuState => NativeMenuIntegrationState.Available;
-        public NativeMenuIntegrationState BasePauseMenuState => NativeMenuIntegrationState.Available;
-        public void ShowToast(string message) => Toasts.Add(message);
-        public void Dispose() => Disposed = true;
-    }
     internal sealed class NativeHeaderTitleTypography
     {
         public TMP_FontAsset Font { get; } = new() { name = "Alternative native heading font" };

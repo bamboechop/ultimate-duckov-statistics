@@ -26,7 +26,8 @@ public sealed class ShellAccessTests : IDisposable
         coordinator.Current.Statistics.SaveGenerationId = coordinator.CurrentGenerationId;
         canvas = new GameObject("Native menu canvas").AddComponent<Canvas>();
         ((RectTransform)canvas.transform).sizeDelta = new Vector2(1280, 720);
-        NativeUiIntegration.TargetCanvas = canvas;
+        canvas.gameObject.AddComponent<GraphicRaycaster>();
+        canvas.gameObject.AddComponent<CanvasScaler>();
         LevelManager.Instance = new LevelManager();
         NativeRaidContext.InRaid = false;
         Input.Down.Clear();
@@ -40,8 +41,9 @@ public sealed class ShellAccessTests : IDisposable
     {
         // Real localization, access, shell construction and measurement call chain.
         // Finite oversized measurements are supplied by the TMP boundary double.
-        UiText.ConfigureNativeResolver(key => key + " " + new string('W', 240));
+        if ((PanelAccessSurface)surfaceValue == PanelAccessSurface.BasePauseMenu) PreparePauseMenu(canvas);
         using var panel = new NativeStatisticsPanel(coordinator);
+        UiText.ConfigureNativeResolver(key => key + " " + new string('W', 240));
         Open(panel, (PanelAccessSurface)surfaceValue);
         var root = Assert.Single(GameObject.Live, go => go.name == RetainedDimmerPolicy.RootName);
         Assert.True(root.activeInHierarchy, string.Join("\n", coordinator.Reports));
@@ -58,7 +60,7 @@ public sealed class ShellAccessTests : IDisposable
         panel.Tick();
         Assert.True(root.activeInHierarchy);
         Assert.True(diagnostics.interactable);
-        Assert.Empty(coordinator.Reports);
+        Assert.DoesNotContain(coordinator.Reports, report => report.Contains("unavailable", StringComparison.OrdinalIgnoreCase));
         Press(panel, KeyCode.Escape);
         Assert.True(root.Destroyed);
         Assert.Equal(0, UIInputManager.CancelListeners);
@@ -100,7 +102,8 @@ public sealed class ShellAccessTests : IDisposable
         Assert.Equal(measured, TextMeshProUGUI.Measurements);
         panel.Dispose();
         Assert.Equal(0, coordinator.ProfileListeners);
-        Assert.True(NativeUiIntegration.Last.Disposed);
+        Assert.Equal(0, MainMenu.Listeners);
+        Assert.Equal(0, PauseMenu.Listeners);
         Assert.Empty(coordinator.Reports);
     }
 
@@ -122,11 +125,79 @@ public sealed class ShellAccessTests : IDisposable
         Assert.Empty(InputManager.Blocks);
     }
 
+    [Fact]
+    public void ReopenedPauseMenuButtonUsesItsAncestorCanvasAboveOtherNativeCanvases()
+    {
+        // Installed resources.assets: PauseMenu lives on the Menu child below
+        // the PauseMenu canvas, while DialogueInteractiveCanvas is a lower overlay.
+        canvas.gameObject.name = "DialogueInteractiveCanvas";
+        canvas.sortingOrder = 100;
+        var pauseCanvas = new GameObject("PauseMenu").AddComponent<Canvas>();
+        pauseCanvas.sortingOrder = 10000;
+        pauseCanvas.gameObject.AddComponent<GraphicRaycaster>();
+        pauseCanvas.gameObject.AddComponent<CanvasScaler>();
+        ((RectTransform)pauseCanvas.transform).sizeDelta = new Vector2(1280, 720);
+        PreparePauseMenu(pauseCanvas);
+        using var panel = new NativeStatisticsPanel(coordinator);
+        var injected = Find("UltimateDuckovStatisticsButton").GetComponent<Button>();
+        injected.onClick.Invoke();
+        var firstRoot = Find(RetainedDimmerPolicy.RootName);
+        Assert.Same(pauseCanvas.transform, firstRoot.transform.parent);
+        for (var cycle = 0; cycle < 3; cycle++)
+        {
+            PauseMenu.Hide();
+            Assert.True(firstRoot.Destroyed);
+            PauseMenu.Show();
+            injected.onClick.Invoke();
+            var root = Find(RetainedDimmerPolicy.RootName);
+            Assert.Same(pauseCanvas.transform, root.transform.parent);
+            Assert.True(root.activeInHierarchy);
+            Assert.Single(InputManager.Blocks);
+            Press(panel, KeyCode.Escape);
+            Assert.True(root.Destroyed);
+            Assert.Empty(InputManager.Blocks);
+        }
+        Assert.DoesNotContain(coordinator.Reports, report => report.Contains("unavailable", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void UnavailablePauseCanvasDoesNotUseAnUnrelatedHostOrClaimSuccessfulAccess()
+    {
+        PreparePauseMenu(canvas);
+        var other = new GameObject("DialogueInteractiveCanvas").AddComponent<Canvas>();
+        other.gameObject.AddComponent<GraphicRaycaster>();
+        other.gameObject.AddComponent<CanvasScaler>();
+        using var panel = new NativeStatisticsPanel(coordinator);
+        var integration = (NativeUiIntegration)typeof(NativeStatisticsPanel)
+            .GetField("nativeUi", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(panel)!;
+        var injected = Find("UltimateDuckovStatisticsButton").GetComponent<Button>();
+        canvas.enabled = false;
+        injected.onClick.Invoke();
+        Assert.DoesNotContain(GameObject.Live, go => go.name == RetainedDimmerPolicy.RootName);
+        Assert.Equal(NativeMenuIntegrationState.Unavailable, integration.BasePauseMenuState);
+        Assert.Contains(coordinator.Reports, report => report.Contains("entry could not open", StringComparison.Ordinal));
+        Assert.Empty(InputManager.Blocks);
+        canvas.enabled = true;
+        injected.onClick.Invoke();
+        Assert.Same(canvas.transform, Find(RetainedDimmerPolicy.RootName).transform.parent);
+        Assert.Equal(NativeMenuIntegrationState.Available, integration.BasePauseMenuState);
+    }
+
+    private static void PreparePauseMenu(Canvas host)
+    {
+        var menu = new GameObject("Menu"); menu.transform.SetParent(host.transform);
+        PauseMenu.Instance = menu.AddComponent<PauseMenu>();
+        var anchor = new GameObject("Options"); anchor.transform.SetParent(menu.transform);
+        anchor.AddComponent<Button>();
+        anchor.AddComponent<TextLocalizor>().Key = "UI_Menu_Options";
+    }
+
     private static GameObject Find(string name) => Assert.Single(GameObject.Live, go => go.name == name);
     private static void Open(NativeStatisticsPanel panel, PanelAccessSurface surface)
     {
         if (surface == PanelAccessSurface.Hotkey) Press(panel, KeyCode.F8);
-        else NativeUiIntegration.Last.Activate(surface);
+        else typeof(NativeStatisticsPanel).GetMethod("RequestOpen", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(panel, new object[] { surface });
     }
     private static void Press(NativeStatisticsPanel panel, KeyCode key)
     {
@@ -139,6 +210,8 @@ public sealed class ShellAccessTests : IDisposable
         UiText.ConfigureNativeResolver(null);
         foreach (var go in GameObject.Live.ToArray()) UnityEngine.Object.Destroy(go);
         LevelManager.Instance = null;
+        PauseMenu.Instance = null;
+        Duckov.UI.NotificationText.Messages.Clear();
         NativeRaidContext.InRaid = false;
         Directory.Delete(fixtureRoot, recursive: true);
     }

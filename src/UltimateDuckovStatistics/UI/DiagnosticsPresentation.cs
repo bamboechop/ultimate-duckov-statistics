@@ -150,9 +150,13 @@ internal static class DiagnosticsPresentationFactory
                 var pending = !saved || receipt!.Revision < profile.Revision;
                 var failedWrite = entries.Any(e => e.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase)
                     && IsPersistenceFailure(e.Message) && (!saved || e.TimestampUtc > receipt!.SavedUtc));
-                var disk = failedWrite ? DiagnosticsHealth.Error : pending ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
+                // Deferred updates (including the normal world-time save cadence) are
+                // pending data, not degraded storage. A matching receipt still proves
+                // storage is working without claiming the newest revision is durable.
+                var disk = failedWrite ? DiagnosticsHealth.Error : !saved ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
                 if (disk > state) state = disk;
-                extra.Add(new DiagnosticsValue(t("ui.diag_profile_writes"), t(failedWrite ? "ui.error" : pending ? "ui.diag_pending_write" : "ui.working"), disk));
+                extra.Add(new DiagnosticsValue(t("ui.diag_profile_writes"), t(failedWrite ? "ui.error" : pending ? "ui.diag_pending_write" : "ui.working"),
+                    pending && saved && !failedWrite ? null : disk));
             }
             systems.Add(new DiagnosticsSystem(group, t("ui.diag_group_" + group), state, capabilities, extra));
         }

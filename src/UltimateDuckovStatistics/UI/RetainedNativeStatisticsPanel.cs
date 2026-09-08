@@ -147,9 +147,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
         }
     }
 
-    private void RequestOpen(PanelAccessSurface surface)
+    private bool RequestOpen(PanelAccessSurface surface)
     {
-        if (disposed) return;
+        if (disposed) return false;
         var decision = StatisticsPanelAccessPolicy.Resolve(surface, NativeRaidContext.IsRaidMap());
         if (surface == PanelAccessSurface.BasePauseMenu
             && (LevelManager.Instance == null || !LevelManager.Instance.IsBaseLevel))
@@ -161,14 +161,14 @@ internal sealed class NativeStatisticsPanel : IDisposable
         {
             Close();
             nativeUi.ShowToast(UiText.Get(decision.RejectionTextKey ?? "ui.raid_unavailable"));
-            return;
+            return false;
         }
 
         var profile = coordinator.Current;
         if (coordinator.HasPendingProfileTransition || !StatisticsPanelProjectionFactory.HasProvableGeneration(profile, coordinator.CurrentGenerationId))
         {
             nativeUi.ShowToast(UiText.Get("ui.profile_unavailable"));
-            return;
+            return false;
         }
 
         if (lifecycle.IsOpen)
@@ -176,7 +176,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             if (surface != PanelAccessSurface.BasePauseMenu || openSurface == surface)
             {
                 shell.SetSelectedTab(interaction.SelectedTab);
-                return;
+                return shell.IsUsable;
             }
             // A hotkey-opened shell can belong to the gameplay canvas, below the
             // pause menu. Reopen on the activated menu's canvas instead of hiding there.
@@ -186,7 +186,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         if (!nativeUi.TryResolvePanelCanvas(surface, out var canvas) || canvas == null)
         {
             ReportShellFailure(surface, "no active supported screen-space Duckov canvas was found");
-            return;
+            return false;
         }
 
         StatisticsPanelProjection projection;
@@ -201,14 +201,14 @@ internal sealed class NativeStatisticsPanel : IDisposable
         catch (Exception exception)
         {
             ReportShellFailure(surface, $"statistics projection failed: {exception.GetType().Name}: {exception.Message}");
-            return;
+            return false;
         }
 
         CaptureFocusAndCursor();
         if (!lifecycle.TryOpen())
         {
             RestoreFocusAndCursor();
-            return;
+            return false;
         }
 
         if (!shell.TryCreate(
@@ -228,7 +228,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             lifecycle.Close();
             RestoreFocusAndCursor();
             ReportShellFailure(surface, error ?? "unknown retained-mode construction failure");
-            return;
+            return false;
         }
         openSurface = surface;
         presentedGeneration = coordinator.CurrentGenerationId;
@@ -237,6 +237,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         diagnosticsRevision = -1;
         RefreshDiagnostics(force: true);
         projectionDirty = false;
+        return true;
     }
 
     private void HandleProfileChanging()

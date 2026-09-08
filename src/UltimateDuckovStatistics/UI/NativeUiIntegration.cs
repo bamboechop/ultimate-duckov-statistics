@@ -15,7 +15,7 @@ internal sealed class NativeUiIntegration : IDisposable
 {
     private const string LocalizationPrefix = "ultimate-duckov-statistics.";
     private readonly NativeProfileCoordinator coordinator;
-    private readonly Action<PanelAccessSurface> openPanel;
+    private readonly Func<PanelAccessSurface, bool> openPanel;
     private readonly Action<PanelAccessSurface> closePanel;
     private readonly Dictionary<int, GameObject> injectedByRoot = new();
     private readonly Dictionary<PanelAccessSurface, Canvas> panelCanvases = new();
@@ -32,7 +32,7 @@ internal sealed class NativeUiIntegration : IDisposable
 
     public NativeUiIntegration(
         NativeProfileCoordinator coordinator,
-        Action<PanelAccessSurface> openPanel,
+        Func<PanelAccessSurface, bool> openPanel,
         Action<PanelAccessSurface> closePanel)
     {
         this.coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
@@ -86,6 +86,18 @@ internal sealed class NativeUiIntegration : IDisposable
     {
         try
         {
+            if (surface == PanelAccessSurface.BasePauseMenu)
+            {
+                // Duckov places PauseMenu on a child of its screen-space canvas.
+                // Resolve that live owner on every menu activation: closing clears
+                // the cache while the injected button survives for reuse.
+                canvas = PauseMenu.Instance == null ? null : PauseMenu.Instance
+                    .GetComponentsInParent<Canvas>(includeInactive: false)
+                    .FirstOrDefault(IsUsablePanelCanvas);
+                if (canvas == null) return false;
+                panelCanvases[surface] = canvas;
+                return true;
+            }
             if (panelCanvases.TryGetValue(surface, out var exact) && IsUsablePanelCanvas(exact))
             {
                 canvas = exact;
@@ -291,15 +303,19 @@ internal sealed class NativeUiIntegration : IDisposable
 
     private void HandleInjectedButtonActivated(PanelAccessSurface surface)
     {
-        openPanel(surface);
+        var opened = openPanel(surface);
+        var state = opened ? NativeMenuIntegrationState.Available : NativeMenuIntegrationState.Unavailable;
         if (surface == PanelAccessSurface.MainMenu)
-            MainMenuState = NativeMenuIntegrationState.Available;
+            MainMenuState = state;
         else if (surface == PanelAccessSurface.BasePauseMenu)
-            BasePauseMenuState = NativeMenuIntegrationState.Available;
-        coordinator.ReportUiDiagnostic($"M17 native {surface} statistics entry activation observed.");
+            BasePauseMenuState = state;
+        coordinator.ReportUiDiagnostic(opened
+            ? $"M17 native {surface} statistics entry opened successfully."
+            : $"M17 native {surface} statistics entry could not open; the configured hotkey remains available.",
+            opened ? "Info" : "Warning");
     }
 
-    private static bool IsUsablePanelCanvas(Canvas? canvas)
+    private static bool IsUsablePanelCanvas([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] Canvas? canvas)
     {
         return canvas != null
                && canvas.enabled
