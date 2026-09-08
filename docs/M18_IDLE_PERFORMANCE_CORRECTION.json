@@ -354,5 +354,10 @@
       }
     ]
   },
-  "Remaining": "User-controlled restart, current profile/Diagnostics/export retention check, then fresh matched B/D native idle captures with confirmed controls. Preserve the prior failed campaign. Other open native qualification gates remain open."
+  "Remaining": "Fresh matched B/D idle samples under the new frozen campaign; preserve the prior failed campaign and objective invalid attempts. All other open native qualification gates remain open.",
+  "NativeReopen": {
+    "Result": "Pass for current generation, completed run/equipment and export retention; user confirms green Diagnostics. Native frame-time repeat remains open.",
+    "Path": "docs/M18_IDLE_CORRECTION_REOPEN.json",
+    "Sha256": "a010a5301359898f9c9cd8c4d18a77b4d9c4903e08ab05ea4e239f4af9b3d6cb"
+  }
 }
