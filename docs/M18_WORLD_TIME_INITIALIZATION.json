@@ -1,7 +1,7 @@
 {
   "SourceCommit": "09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
   "PreviousInstalledSource": "5c39d84b2380f101f0424755d0e7c43f892c4603",
-  "Status": "Automated qualification, independent immutable review, reproducible packaging and game-closed five-file deployment passed, preserving all 2315 UDS data files. The subsequent user-confirmed World time viewport/resize check, export retention and clean shutdown pass. Diagnostics status-row fit remains separately unconfirmed.",
+  "Status": "Automated qualification, independent immutable review, reproducible packaging and game-closed five-file deployment passed, preserving all 2315 UDS data files. The subsequent user-confirmed World time viewport/resize check, export retention and clean shutdown pass. The subsequent Diagnostics status-row check passes by direct user confirmation.",
   "Correction": "Restore the World time wrapping policy inside the existing active-measurement callback, after native TMP Awake and before actual-width preferred-height measurement. Preserve native defaults, including kerning.",
   "Automated": {
     "MainDebugPassed": 1918,
@@ -96,5 +96,6 @@
     "ResultPath": "artifacts/qualification/09fa7e3cc5d383f3a8ef58e96dd295aac00514c7/native-worldtime-initialization-deployment/result.json",
     "ResultSha256": "daa15344f776c168d34e06149748ad4d03630970d358ad672a45cfad5c234808"
   },
-  "NativeRepeatEvidence": "M18_WORLD_TIME_NATIVE_QUALIFICATION.json"
+  "NativeRepeatEvidence": "M18_WORLD_TIME_NATIVE_QUALIFICATION.json",
+  "NativeWidthAcceptance": "M18_DIAGNOSTICS_WIDTH_NATIVE_QUALIFICATION.json"
 }

@@ -1,0 +1,13 @@
+{
+  "SourceCommit": "09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
+  "WidthCorrectionSourceCommit": "5c39d84b2380f101f0424755d0e7c43f892c4603",
+  "NativeDllSha256": "49ee6f8d731f89c93cde4df095a0c567a4e1ad3529346f836aa09c715f766b3f",
+  "Status": "Pass by direct user confirmation for the requested Diagnostics status-label fit check.",
+  "RequestedCheck": "Disable Harmony, fully restart Duckov, open slot 3 Diagnostics at 2560x1440, and confirm Error · Harmony not loaded fits on one line. Re-enable Harmony and restart before continuing. No gameplay or export requested.",
+  "UserReport": "Fits.",
+  "AcceptedScope": "The missing-Harmony status label fits on one line at the requested 2560x1440 size. This is user-reported native visual acceptance; no screenshot or automated pixel measurement was supplied.",
+  "SourceIdentityBasis": "Previously deployed and hash-verified candidate; no intervening code or package change. This report did not trigger a new installation readback or export audit.",
+  "HarmonyRestoration": "M18_HARMONY_RESTORATION_QUALIFICATION.json already records the successful independent restoration check. Fits confirms label geometry; current mod enablement is not inferred from that word alone.",
+  "DataMutationByAgent": false,
+  "Remaining": "Native performance/resource measurements, high-history soak and other explicitly open acceptance gates remain separate. No new capture, gameplay or recovery qualification is inferred."
+}

@@ -1,7 +1,7 @@
 {
   "SourceCommit": "b8c1f08c9be566766de75a5379651a4d86ab06dd",
   "PreviousInstalledSource": "adb5e706be1cfff93e0b97ece07399df8b9072b8",
-  "Status": "Automated qualification, immutable review, reproducible packaging and game-closed five-file deployment passed. Later native checks pass for actionable diagnosis, quiet retries, retained statistics/export and Harmony restoration. The subsequent World time initialization correction passes the user-confirmed native viewport/resize check. Diagnostics status-row fit remains unconfirmed.",
+  "Status": "Automated qualification, immutable review, reproducible packaging and game-closed five-file deployment passed. Later native checks pass for actionable diagnosis, quiet retries, retained statistics/export and Harmony restoration. The subsequent World time initialization correction passes the user-confirmed native viewport/resize check. The subsequent Diagnostics status-row check passes by direct user confirmation.",
   "Automated": {
     "MainDebugPassed": 1918,
     "MainReleasePassed": 1918,
@@ -93,5 +93,6 @@
   },
   "NativeRepeatEvidence": "M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json",
   "LaterQualification": "M18_HARMONY_RESTORATION_QUALIFICATION.json",
-  "LaterWorldTimeQualification": "M18_WORLD_TIME_NATIVE_QUALIFICATION.json"
+  "LaterWorldTimeQualification": "M18_WORLD_TIME_NATIVE_QUALIFICATION.json",
+  "NativeWidthAcceptance": "M18_DIAGNOSTICS_WIDTH_NATIVE_QUALIFICATION.json"
 }

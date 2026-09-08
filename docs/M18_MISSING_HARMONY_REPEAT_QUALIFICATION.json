@@ -1,7 +1,7 @@
 {
   "SourceCommit": "b8c1f08c9be566766de75a5379651a4d86ab06dd",
   "NativeDllSha256": "db10e6d3690d9144bf91c731c61c140d54f56bb139f4373c638852c0dc6259a3",
-  "Status": "Pass for actionable Harmony diagnosis, disabled-Harmony UI/export, retained statistics and quiet unchanged retries. The later explicit screenshot disproves the earlier broad World time fit acceptance; restoration subsequently passed separately. Status-row fit remains unconfirmed.",
+  "Status": "Pass for actionable Harmony diagnosis, disabled-Harmony UI/export, retained statistics and quiet unchanged retries. The later explicit screenshot disproves the earlier broad World time fit acceptance; restoration subsequently passed separately. Status-row fit was outside this observation; the subsequent user-confirmed pass is linked separately.",
   "UserReport": "We should give the Error . Harmony not loaded more space to fit in one line. Everything else looks good, exported and closed.",
   "Slot": 3,
   "GenerationId": "51fe1548e0d94fce9de3e22d3b99305d",
@@ -129,5 +129,6 @@
   "ReportPath": "artifacts/qualification/b8c1f08c9be566766de75a5379651a4d86ab06dd/native-missing-harmony-repeat/report.md",
   "ReportSha256": "ec56da927b6363dfdce9fc0f027196b584a4e767d1c56fa695f2ac8195070e87",
   "StatusWidthCorrection": "M18_DIAGNOSTICS_WIDTH_CORRECTION.json",
-  "LaterQualification": "M18_HARMONY_RESTORATION_QUALIFICATION.json"
+  "LaterQualification": "M18_HARMONY_RESTORATION_QUALIFICATION.json",
+  "LaterStatusWidthQualification": "M18_DIAGNOSTICS_WIDTH_NATIVE_QUALIFICATION.json"
 }

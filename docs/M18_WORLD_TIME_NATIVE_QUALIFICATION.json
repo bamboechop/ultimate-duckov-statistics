@@ -1,7 +1,7 @@
 {
   "SourceCommit": "09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
   "NativeDllSha256": "49ee6f8d731f89c93cde4df095a0c567a4e1ad3529346f836aa09c715f766b3f",
-  "Status": "Pass for user-confirmed corrected World time layout, current-format cold reopen, retained statistics/export and clean shutdown. Diagnostics missing-Harmony status-row fit remains separately unconfirmed.",
+  "Status": "Pass for user-confirmed corrected World time layout, current-format cold reopen, retained statistics/export and clean shutdown. Status-row fit was outside this observation; the subsequent user-confirmed pass is linked separately.",
   "UserReport": "Fixed. Exported and closed.",
   "RequestedCheck": "Open slot 3 with Harmony enabled; inspect World time at 2560x1440, then 720x480, ensuring the full capture incomplete text wraps inside the card; export and close.",
   "VisualEvidence": "Pass by direct user confirmation in response to the requested viewport/resize check. No new screenshot or automated native pixel measurement supplied; neither is inferred from the export.",
@@ -82,8 +82,9 @@
   "Limits": [
     "No new gameplay, frame-time capture, resource measurement or high-history workload.",
     "All prior failed observations remain frozen; this bounded native repeat qualifies only the reported correction and retained data.",
-    "Diagnostics status-row fit without Harmony remains separately unconfirmed."
+    "Diagnostics status-row fit was outside this export observation; see the separate later user-confirmed pass."
   ],
   "FrozenQualificationSha256": "7d6b4dca02d62c1ac3271b38c942ee50ae4944b801a070356ed27f9fcae63888",
-  "Verification": "All 50 frozen evidence manifest entries rehashed. Actual installed five-file hashes match the reviewed candidate. Profile/backup, exported statistics and prior export compared; all 36 CSV files parsed. Closed process verified outside the sandbox."
+  "Verification": "All 50 frozen evidence manifest entries rehashed. Actual installed five-file hashes match the reviewed candidate. Profile/backup, exported statistics and prior export compared; all 36 CSV files parsed. Closed process verified outside the sandbox.",
+  "LaterStatusWidthQualification": "M18_DIAGNOSTICS_WIDTH_NATIVE_QUALIFICATION.json"
 }

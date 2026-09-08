@@ -1,7 +1,7 @@
 {
   "SourceCommit": "5c39d84b2380f101f0424755d0e7c43f892c4603",
   "NativeDllSha256": "f1e25216d0d57569e6fff65a3827bfa91d4e89c649780f1003aa8b13299c8eef",
-  "Status": "Pass for Harmony restoration, current capability health and retained statistics/export. Failed for Overview World time fit at 2560x1440. Diagnostics status-row width remains visually unconfirmed.",
+  "Status": "Pass for Harmony restoration, current capability health and retained statistics/export. Failed for Overview World time fit at 2560x1440. Status-row fit was outside this observation; the subsequent user-confirmed pass is linked separately.",
   "UserReport": "Still overflowing on 2560x1440. Re-enabled Harmony, restarted, Diagnostics is back to green.",
   "Slot": 3,
   "GenerationId": "51fe1548e0d94fce9de3e22d3b99305d",
@@ -169,5 +169,6 @@
   "FrozenQualificationSha256": "ff18b2e636166d360004cdbb81f43170e7b2740b9161af0087512dab4c126f5d",
   "RootVerification": "All 51 frozen manifest entries independently rehashed before recording this evidence.",
   "WorldTimeCorrection": "M18_WORLD_TIME_INITIALIZATION.json",
-  "LaterCorrectedWorldTimeQualification": "M18_WORLD_TIME_NATIVE_QUALIFICATION.json"
+  "LaterCorrectedWorldTimeQualification": "M18_WORLD_TIME_NATIVE_QUALIFICATION.json",
+  "LaterStatusWidthQualification": "M18_DIAGNOSTICS_WIDTH_NATIVE_QUALIFICATION.json"
 }
