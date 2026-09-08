@@ -238,6 +238,14 @@ if ($ConsumableAction) {
     }
 }
 
+# CapFrameX uses .NET Framework file APIs. Its generated filename must stay
+# below MAX_PATH even when the campaign output lives under a long source hash.
+$stagingDirectory = [IO.Path]::GetFullPath((Join-Path $repoRoot ('artifacts/capture-staging/' + [guid]::NewGuid().ToString('N'))))
+$collectorFileName = 'CapFrameX-Duckov.exe-2000-01-01T000000.json.csv'
+if ((Join-Path $stagingDirectory $collectorFileName).Length -ge 260) {
+    throw 'CapFrameX capture staging requires a shorter repository path; its generated files must fit below 260 characters.'
+}
+
 if ($ValidateOnly) {
     [pscustomobject]@{
         Configuration = $Configuration
@@ -255,6 +263,7 @@ if ($ValidateOnly) {
         CapFrameXOverlayEffective = $capFrameXOverlayEffective
         RtssInstalled = $rtssInstalled
         RtssRunning = $rtssRunning
+        CapFrameXStagingDirectory = $stagingDirectory
     }
     return
 }
@@ -271,7 +280,6 @@ foreach ($path in @($csvPath, $capFrameXRawJsonPath, $metadataPath)) {
     }
 }
 
-$stagingDirectory = Join-Path $scenarioDirectory ('.{0}-capframex-staging-{1}' -f $baseName, [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $stagingDirectory | Out-Null
 $capFrameXCaptureComment = "UDS $Configuration/$BuildLabel $Scenario r$($Run.ToString('D2'))"
 $capFrameXCaptureRequest = [ordered]@{
