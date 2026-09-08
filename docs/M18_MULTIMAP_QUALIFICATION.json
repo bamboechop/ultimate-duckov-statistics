@@ -1,6 +1,6 @@
 {
   "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
-  "Status": "Pass for observed multi-map/revisit extraction, per-visit enemy and weapon attribution, corpse exclusion and saved-profile/JSON/CSV agreement.",
+  "Status": "Pass for observed multi-map/revisit extraction, per-visit enemy and weapon attribution, corpse exclusion, saved-profile/JSON/CSV agreement and the supplied Runs screenshot.",
   "Slot": 1,
   "GenerationId": "063240a5b57647138bc4de0c18179981",
   "RunId": "967b0ed59289428d8fe8ad9eb9470255",
@@ -89,7 +89,7 @@
     "NoRemainingActiveRunCheckpoint": true
   },
   "CorpseObservationScope": "User reports five corpse accesses, with items taken from three. UDS records zero containers and logs corpse exclusion. The diagnostic is throttled by provenance and cannot independently establish the number of accessed or looted corpses; no corpse-count metric is claimed.",
-  "Scope": "This covers ordinary direct-fire weapon switching and a three-visit route. Delayed effects/throwables, native death, terminal-equipment visual agreement, this run cold reopen, full UI/resources/recovery/performance and history soak remain separate.",
+  "Scope": "This covers ordinary direct-fire weapon switching, a three-visit route and the supplied Runs detail screenshot. Delayed effects/throwables, native death, this run cold reopen, hover detail, full UI/resources/recovery/performance and history soak remain separate.",
   "EvidenceManifestSha256": "27dad527bf745291226a721c9f72a36f9f8e9aae7eac3329547924073b7d7ae3",
   "KeyEvidenceFiles": [
     {
@@ -142,5 +142,108 @@
       "Bytes": 356263,
       "Sha256": "e411f29426a04d397fb7b7174f6930482e84249cd8704747ed688c2bc2fae088"
     }
-  ]
+  ],
+  "VisualQualification": {
+    "Status": "Pass for visible multi-map Runs detail, summary, combat, terminal root-slot grid and occupied/empty attachment indicators in the supplied screenshot.",
+    "Method": "Manual visual inspection of the original screenshot, followed by numeric and slot-state comparison against the preserved export. No image transformation or automatic OCR was used.",
+    "Screenshot": {
+      "OriginalName": "codex-clipboard-1b4b37b0-cf1a-4995-9dfb-aac8e839a7d3.png",
+      "PreservedFile": "runs-route-equipment.png",
+      "Width": 2560,
+      "Height": 1440,
+      "Bytes": 2391370,
+      "Sha256": "7bea3a3ac5832004b0c97ef16fb5f1e46e7b7c1982dc516fbd1bb53c17eab96f"
+    },
+    "VisibleSummary": {
+      "Title": "Lagerbereich",
+      "Outcome": "Extracted",
+      "RunNumber": 1,
+      "Segments": 3,
+      "DistinctMaps": 2,
+      "Integrity": "Normal",
+      "RecordEligible": true,
+      "ActiveTime": "04:22.788",
+      "DistanceMetres": "821.68",
+      "Kills": 6,
+      "Containers": 0,
+      "CashNet": "+60",
+      "DamageDealt": "260",
+      "DamageTaken": "5.11",
+      "AccuracyPercent": "37.10",
+      "Headshots": 7,
+      "HeadshotFinalBlows": 4,
+      "HpRestored": 0,
+      "RangedFiringActions": 62,
+      "RangedHits": 23,
+      "RangedKills": 6,
+      "MeleeSwings": 0,
+      "MeleeHits": 0,
+      "MeleeKills": 0
+    },
+    "VisibleRoute": [
+      {
+        "Name": "Lagerbereich",
+        "ActiveTime": "02:07.348",
+        "DistanceMetres": "342.22",
+        "Kills": 4,
+        "FiringActions": 48,
+        "Containers": 0
+      },
+      {
+        "Name": "Keller",
+        "ActiveTime": "00:57.751",
+        "DistanceMetres": "235.07",
+        "Kills": 0,
+        "FiringActions": 0,
+        "Containers": 0
+      },
+      {
+        "Name": "Lagerbereich",
+        "ActiveTime": "01:17.689",
+        "DistanceMetres": "244.38",
+        "Kills": 2,
+        "FiringActions": 14,
+        "Containers": 0
+      }
+    ],
+    "Equipment": {
+      "TerminalCaptureState": "Complete",
+      "RootSlotsShown": 10,
+      "OccupiedRootSlots": 9,
+      "EmptyRootSlot": "Headset",
+      "VisibleIconCategories": [
+        "armor",
+        "backpack",
+        "gas mask",
+        "empty headset",
+        "helmet",
+        "axe",
+        "MMG",
+        "SR-3M",
+        "orange totem",
+        "blue totem"
+      ],
+      "NestedIndicators": {
+        "Backpack": {
+          "Occupied": 1,
+          "Empty": 0
+        },
+        "MeleeWeapon": {
+          "Occupied": 0,
+          "Empty": 1
+        },
+        "PrimaryWeapon": {
+          "Occupied": 4,
+          "Empty": 0
+        },
+        "SecondaryWeapon": {
+          "Occupied": 3,
+          "Empty": 1
+        }
+      }
+    },
+    "LayoutObservation": "All nine tab labels, three route entries, summary values and equipment cells are visible without clipped text or overlaps between UDS controls in this frame.",
+    "Scope": "One supplied 2560x1440 screenshot. Root icon categories and slot occupancy agree with the captured loadout; exact item IDs and attachment identities are not independently proven by unlabelled icons. Hover details, keyboard/input behavior, scrolling, other resolutions/languages, other tabs, native resource lifetime and performance remain separate. The displayed FPS counter is not performance acceptance evidence.",
+    "EvidenceManifestSha256": "c6b18e750686da17f8add00875b841b97fb91dbdf5c5aa6b82822dbc4a0168fd"
+  }
 }
