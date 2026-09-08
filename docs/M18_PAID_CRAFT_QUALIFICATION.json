@@ -57,7 +57,8 @@
     "world_time.csv"
   ],
   "UnchangedExportFiles": 26,
-  "Scope": "One successful single-output paid craft. Batch/multiple-resource/repeated-resource and cancelled/failed recipes, cold reopen of the new craft and native rendering remain separate. The subsequent Money shop sale passes in M18_SHOP_SALE_QUALIFICATION.json and preserves all crafting totals.",
+  "Scope": "One successful single-output paid craft. Batch/multiple-resource/repeated-resource and cancelled/failed recipes and native rendering remain separate. The subsequent Money shop sale passes in M18_SHOP_SALE_QUALIFICATION.json and preserves all crafting totals.",
+  "ColdReopen": "Pass: M18_REINSTALLATION_QUALIFICATION.json records native slot 1 reopen after same-package reinstallation with all crafting totals unchanged.",
   "EvidenceManifestSha256": "58ad74bf1ad641a4e85904a16c0ca53cacb81ae12a7516359da8f1c78114a10c",
   "KeyEvidenceFiles": [
     {

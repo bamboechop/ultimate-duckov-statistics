@@ -45,7 +45,8 @@
     "world_time.csv"
   ],
   "UnchangedExportFiles": 30,
-  "Scope": "The sale item name and quantity are user observations; UDS exports aggregate currency flows, not a sold-item ledger. This verifies the exact Money amount and native Sale/Shop attribution. Cold reopen of the new crafting/sale totals, physical-Cash shop payouts and native rendering remain separate.",
+  "Scope": "The sale item name and quantity are user observations; UDS exports aggregate currency flows, not a sold-item ledger. This verifies the exact Money amount and native Sale/Shop attribution. Physical-Cash shop payouts and native rendering remain separate.",
+  "ColdReopen": "Pass: M18_REINSTALLATION_QUALIFICATION.json records native slot 1 reopen after same-package reinstallation with all currency metrics and 14,508 Money holdings unchanged.",
   "EvidenceManifestSha256": "c430e8e913a5e0b825ff8edef3d8f2b2c31e644f6fe04dba1cd5ced434e478cd",
   "KeyEvidenceFiles": [
     {

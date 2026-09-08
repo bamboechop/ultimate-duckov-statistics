@@ -1,6 +1,6 @@
 {
   "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
-  "Status": "Pass for exact same-package replacement, verified rollback and byte-for-byte preservation of all UDS files; post-reinstallation native reopen remains Not exercised.",
+  "Status": "Pass for exact same-package replacement, verified rollback, byte-for-byte preservation of all UDS files and subsequent native slot 1 reopen with exact crafting/sale totals.",
   "Version": "1.0.0-rc.1",
   "QuitUtc": "2026-09-08T13:06:35.4721680Z",
   "StartedUtc": "2026-09-08T13:08:42.0877525Z",
@@ -44,8 +44,61 @@
     "NoSessionOrActiveRunCheckpoint": true
   },
   "NativeReopen": {
-    "Status": "Not exercised",
-    "NextAction": "User launches Duckov, selects slot 1 and exports without gameplay; compare retained generation, crafting and sale totals, holdings and clean lifecycle."
+    "Status": "Pass for observed native cold reopen after same-package reinstallation and saved-profile/JSON/CSV agreement.",
+    "ActivatedUtc": "2026-09-08T13:12:07.6674073Z",
+    "Slot": 1,
+    "GenerationId": "063240a5b57647138bc4de0c18179981",
+    "BeforeExportId": "20260908T1301559350005Z-063240a5b57647138bc4de0c18179981",
+    "AfterExportId": "20260908T1315114307803Z-063240a5b57647138bc4de0c18179981",
+    "ClosedProfileRevision": 850,
+    "AfterExportRevision": 873,
+    "ObservedProfileRevision": 965,
+    "CraftCompletionActions": 1,
+    "CraftedTasseQuantity": 1,
+    "PolyethylenFolieConsumed": 4,
+    "CraftCurrencyCharged": 150,
+    "MoneyGrossInflow": 1284,
+    "MoneyGrossOutflow": 150,
+    "SaleSourceAndShopContextInflow": 1284,
+    "MoneyHeld": 14508,
+    "CashHeld": 0,
+    "AllCraftingAndEconomyMetricsRetained": true,
+    "AllOtherNonWorldTimeMetricsRetained": true,
+    "NoGenerationRotationOrInterruptedSession": true,
+    "NoNewRunOrCashFlow": true,
+    "AllCsvStructuresValid": true,
+    "UnchangedExportFiles": 33,
+    "ChangedExportFiles": [
+      "economy_holdings.csv",
+      "overview.csv",
+      "statistics.json",
+      "world_time.csv"
+    ],
+    "ExpectedMetadataChanges": "Producer Economy replay cursor belongs to the new activation with sequence zero. Current-schema reopen normalizes obsolete replay metadata (logged migrated=True); export revision/time, observed ordinary clock progression and holdings freshness change. No pre-v1 data migration or statistics reconstruction occurred.",
+    "Scope": "Slot 1 crafting/sale cold reopen on the same reinstalled package. Slot 3 byte preservation is covered by the preceding replacement evidence; native recovery/degradation and other remaining gates are separate.",
+    "EvidenceManifestSha256": "37948b85391006553444cebf491b56bd4a0f8a59ddc8a8f59b49e845dda8e8d4",
+    "KeyEvidenceFiles": [
+      {
+        "File": "export/economy_holdings.csv",
+        "Bytes": 1457,
+        "Sha256": "29c5b158033cd4f11f6d453e735d2e2b6bd90428006d8d6e17fb92d485d4b69b"
+      },
+      {
+        "File": "export/statistics.json",
+        "Bytes": 31548,
+        "Sha256": "669fde8fe4da96b6621df7963ab1940aaa8607fcfc0adae84fdbe724d9210a11"
+      },
+      {
+        "File": "player-observed.log",
+        "Bytes": 11295,
+        "Sha256": "9e8468a71f00286ec385a3dd0b1da58b08ce811f6fcc5fe44c21e80da286fe1b"
+      },
+      {
+        "File": "profile-observed.json",
+        "Bytes": 31894,
+        "Sha256": "483e62a5eda4bf04bb27ccbaca23e354d20efc010875863bc0a9e51a96f3b91f"
+      }
+    ]
   },
   "Scope": "Reinstalled the preserved current candidate using the shipped deployment procedure. No Duckov save or UDS data was edited or reset. Hash comparison covers all files under UltimateDuckovStatistics, including unsupported pre-v1 data. Native recovery/degradation, performance and other remaining gates are separate.",
   "EvidenceManifestSha256": "bca2b68e293897592b3d266d210929a8aebe8777486f9654ce46a0b434933abe",
