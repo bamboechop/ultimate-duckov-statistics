@@ -62,7 +62,7 @@
   "InstalledFilesVerified": 5,
   "PreservedExportFiles": 37,
   "AfterManifestSha256": "8a1d562dcf3d4060d74c00ae0984f7fc0a58886c61b016367c2d21dfaa56043e",
-  "Remaining": "Reset-generation native backup recovery is staged separately; deliberate degradation and native resource/performance/high-history qualification remain open.",
+  "Remaining": "Reset-generation cold reopen and native missing-primary backup recovery passed in M18_SLOT3_BACKUP_RECOVERY_QUALIFICATION.json. Deliberate degradation, other recovery scenarios and native resource/performance/high-history qualification remain open.",
   "BackupRecoveryRehearsal": {
     "Path": "artifacts/qualification/c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7/native-slot3-reset/backup-rehearsal/result.json",
     "Sha256": "0891e83c0830dbde68de686d075171f3aa1c724471d5d07e379f2ddb2dd99ecd",
