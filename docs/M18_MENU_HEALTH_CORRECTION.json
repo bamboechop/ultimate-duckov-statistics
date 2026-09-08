@@ -1,0 +1,92 @@
+{
+  "SourceCommit": "da1746ba9ab94abb9fcdebb0e30488754ebe2227",
+  "Version": "1.0.0-rc.1",
+  "Correction": "Unobserved or attached-unexercised menu entries stay neutral. Only actual unavailability limits Menu access. Economy unchanged.",
+  "Reproducibility": {
+    "SourceCommit": "da1746ba9ab94abb9fcdebb0e30488754ebe2227",
+    "DotnetSdk": "8.0.424",
+    "Result": "Pass",
+    "Checkouts": [
+      {
+        "Checkout": "checkout-a",
+        "Hashes": {
+          "candidate.zip": "b130313aee788303f1c910b1af361bcddac9e401fada12aa5d5e545f8709cba3",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "3069011fd00bdad08fb5c558aebe34a0522496b572111312f50025b3d9774b21",
+          "UltimateDuckovStatistics.pdb": "78639d5a0000acc4b6370ae93ebf3e41a157f27a9b00b1d1b42aaec188922da0"
+        }
+      },
+      {
+        "Checkout": "different-long-checkout-root-b",
+        "Hashes": {
+          "candidate.zip": "b130313aee788303f1c910b1af361bcddac9e401fada12aa5d5e545f8709cba3",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "3069011fd00bdad08fb5c558aebe34a0522496b572111312f50025b3d9774b21",
+          "UltimateDuckovStatistics.pdb": "78639d5a0000acc4b6370ae93ebf3e41a157f27a9b00b1d1b42aaec188922da0"
+        }
+      }
+    ]
+  },
+  "RegularCheckoutDllAndPdbMatchBothRoots": true,
+  "Archive": {
+    "File": "UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+    "Bytes": 622514,
+    "Sha256": "b130313aee788303f1c910b1af361bcddac9e401fada12aa5d5e545f8709cba3"
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687104,
+      "Sha256": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1097216,
+      "Sha256": "3069011fd00bdad08fb5c558aebe34a0522496b572111312f50025b3d9774b21"
+    }
+  ],
+  "Validation": {
+    "FocusedReleaseDiagnosticsPassed": 50,
+    "LocalDebugMainPassed": 1857,
+    "LocalDebugEnvironmentBlocked": 2,
+    "LocalReleaseMainPassed": 1857,
+    "LocalReleaseEnvironmentExcluded": 2,
+    "DebugShellPassed": 8,
+    "ReleaseShellPassed": 8,
+    "DeploymentTestConstraint": "The two real deployment-script fixture tests require Duckov closed. The attempted Debug run stopped at that production guard; Release excluded those two cases. This is not a local full-suite pass.",
+    "NativeReleaseWarnings": 0,
+    "FormattingAndAnalyzers": "Pass",
+    "OrdinaryReleaseIlAndArtifactPathAudits": "Pass",
+    "IndependentCorrectionReview": "Pass; no confirmed P1/P2 in 3015686087d8adaf0e8e86c121ea20fa184a1137..da1746ba9ab94abb9fcdebb0e30488754ebe2227"
+  },
+  "CampaignSha256": "9426c5182e9a4f043c403617959e7bcc8bd4fcb64a0effb359ecda0e58436a3a",
+  "Deployment": "Not exercised; previous 4068480 candidate remains installed while user game is running.",
+  "NativeCorrectionAcceptance": "Not exercised",
+  "LocalEvidenceSha256": {
+    "m18-menu-health-tests.log": "bc974387fbc696df872673dcbf0824a1f96746d08163dd895f17d94601d99545",
+    "m18-menu-health-build.log": "ccb93aaea02e91677d58670d621c52aecdb3eb21980bfba3978b30ec859f1265",
+    "m18-menu-health-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "m18-menu-health-Debug-full.log": "e506959ac4e7be0072aadc6cb08073964ebbaff8e893257be4f813b4bc467941",
+    "m18-menu-health-Release-full.log": "036e1abe9468cbe85849d865a7c92e25e21f824cc032d34ed3ad491c1fc1b8f4",
+    "m18-menu-health-Debug-shell.log": "a63a8b92ff8d549a8046283ba74b7a29a8879f92829fca09a0c82d4bfb1658b7",
+    "m18-menu-health-Release-shell.log": "8bfd079f32978281a2e0bf8c722eef66e97d5e524480aa38216cf20b6db4bc9b",
+    "m18-menu-health-repro.log": "ff1ef2648a941059a95959274bbb1b9f14604dfa4a4f7420980d7533374907bf"
+  }
+}
