@@ -53,6 +53,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly NativeRunCompletionBoundary completionBoundary;
     private readonly List<CapabilityRecord> capabilities = new();
     private CharacterMainControl? mainCharacter;
+    private GameObject? startedTutorialHost;
     private bool paused;
     private bool loading;
     private MovementObservationKind? pendingBoundary;
@@ -344,6 +345,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         destinationPlacementObserved = false;
         pendingDeathTerminal = false;
         deathObservationGate.Reset();
+        startedTutorialHost = null;
         tracker.Apply(Event(RunLifecycleEventKind.RaidCleared));
     }
 
@@ -423,6 +425,16 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return;
         }
 
+        var raid = RaidUtilities.CurrentRaid;
+        var tutorialStart = !raid.valid;
+        if (tutorialStart)
+        {
+            if (!CanStartUninitializedTutorial(raid)) return;
+            // The verified tutorial has ordinary raid gameplay and evacuation/death
+            // callbacks, but its first attempt has no native RaidInfo identity.
+            tracker.Apply(Event(RunLifecycleEventKind.RaidInitialized));
+        }
+
         var now = NowMonotonic();
         var utcNow = DateTime.UtcNow;
         var transition = tracker.Apply(new RunLifecycleEvent
@@ -433,7 +445,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             StartContext = new RunStartContext
             {
                 SaveGenerationId = generationId,
-                NativeRaidId = ReadNativeRaidId(),
+                NativeRaidId = raid.valid ? raid.ID.ToString(CultureInfo.InvariantCulture) : null,
                 Map = ReadMapIdentity(),
                 IntegrityTags = NativeIntegrityProbe.Read(),
                 GameVersion = Application.version ?? string.Empty,
@@ -459,6 +471,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return;
         }
 
+        if (tutorialStart) startedTutorialHost = LevelManager.Instance?.gameObject;
         sampleCadence.Reset();
         checkpointScheduler.Reset();
         movementMapId = tracker.ActiveMapId;
@@ -471,6 +484,19 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         SaveCheckpoint(utcNow, now);
         diagnosticHandler(
             $"Run started id={tracker.ActiveRunId} nativeRaid={ReadNativeRaidId() ?? "unknown"} map={ReadMapIdentity().MapId}.");
+    }
+
+    private bool CanStartUninitializedTutorial(RaidUtilities.RaidInfo raid)
+    {
+        var level = LevelManager.Instance;
+        if (raid.ended || raid.dead || level == null
+            || ReferenceEquals(startedTutorialHost, level.gameObject)) return false;
+
+        var mainSceneId = MultiSceneCore.Instance != null
+            ? MultiSceneCore.MainSceneID
+            : SceneInfoCollection.GetSceneID(level.gameObject.scene.buildIndex);
+        return string.Equals(mainSceneId, "Level_Guide_Main", StringComparison.Ordinal)
+               && SceneInfoCollection.GetSceneInfo(mainSceneId) != null;
     }
 
     private bool ApplyTerminal(RunLifecycleEventKind kind)
