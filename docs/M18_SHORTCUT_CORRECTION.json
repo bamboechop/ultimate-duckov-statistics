@@ -1,7 +1,7 @@
 {
   "SourceCommit": "c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7",
   "PreviousInstalledSource": "7379417ff2aca3939af2d2c4076d00e46bd3ffde",
-  "Status": "Automated validation, independent immutable review, reproducible package and game-closed deployment passed. Corrected native shortcut repeat remains open.",
+  "Status": "Automated validation, independent immutable review, reproducible package, game-closed deployment and user-confirmed native shortcut repeat passed. Cold-reopen/profile/export retention passed; remaining M18 gates stay separate.",
   "Automated": {
     "MainDebugPassed": 1908,
     "MainReleasePassed": 1908,
@@ -48,14 +48,14 @@
     "IndependentRootsAndOrdinaryCheckoutMatch": true,
     "ArtifactAuditsAndIndependentExtraction": "Pass"
   },
-  "NativeAcceptance": "Not exercised on corrected package; original Tab leak and independently passing controls are recorded in M18_UI_QUALIFICATION.json.",
+  "NativeAcceptance": "Pass by user confirmation: Works. M18_SHORTCUT_QUALIFICATION.json preserves the requested scope, startup/export evidence, nine exact retained runs and targeted CSV agreement.",
   "MeasuredPerformance": "No native captures; campaign remains unqualified.",
   "Review": {
     "Range": "771bba36e287501585bfccaae5688144db88abd4..c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7",
     "Verdict": "Pass; no actionable P1/P2 in the complete 16-file correction range and installed-native production composition.",
     "Report": "artifacts/m18-shortcut-correction-review/review.md",
     "ReportSha256": "c7737e6613b96ef5c99e64a92e4f5e71eb244abc1465c880036ad9c4f8642e08",
-    "Limits": "Native input repeat and broader input/resource/performance qualification remain separate."
+    "Limits": "Independent review was source/native-contract evidence; subsequent user-confirmed shortcut acceptance is recorded separately. Broader input/resource/performance qualification remains open."
   },
   "Campaign": {
     "Path": "artifacts/qualification/c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7/campaign.json",

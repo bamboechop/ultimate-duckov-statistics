@@ -1,6 +1,6 @@
 {
   "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
-  "Status": "Pass for reported tab navigation, scrolling, details/tooltips, 720x480 layout, corrected English/German language switching and the requested close/rebind controls. Tab still opens native inventory above UDS; input isolation requires correction. Native resource/performance checks remain open.",
+  "Status": "Pass for reported tab navigation, scrolling, details/tooltips, 720x480 layout, corrected English/German names, close/rebind controls and the corrected native shortcut repeat. Broader gameplay/controller input coverage and measured resource/performance checks remain separate.",
   "Context": {
     "Slot": 1,
     "GenerationId": "063240a5b57647138bc4de0c18179981",
@@ -19,7 +19,7 @@
   "RelatedNumericUiAcceptance": "M18_BURNING_SWITCH_KILL_QUALIFICATION.json separately records the user-confirmed latest Runs values of 35 damage/1 kill and Combat lifetime Brand-Muni values of 56 damage/1 kill.",
   "Deferred": "The user's previously noted empty-state and text-rendering polish remains deferred and is not treated as a new failure of this functional check.",
   "Remaining": [
-    "Correct and repeat native inventory/input isolation while UDS is open, preserving the confirmed navigation, hotkey cancellation and restored controls.",
+    "Broader gameplay/controller input coverage beyond the four corrected shortcuts.",
     "Measure native UI resource behavior and complete the matched performance campaign."
   ],
   "LanguageAndResolutionCheck": {
@@ -63,11 +63,18 @@
       "Escape then closes the panel and character movement is restored."
     ],
     "Finding": "Native inventory input still receives plain Tab and modified Tab while UDS is open; the inventory renders above the UDS shell.",
-    "Disposition": "Confirmed current-baseline input-isolation defect; correction and native repeat required.",
+    "Disposition": "Original failure preserved; corrected repeat passes by user confirmation on c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7.",
     "Correction": {
       "SourceCommit": "c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7",
       "Evidence": "M18_SHORTCUT_CORRECTION.json",
-      "Status": "Reviewed four-callback correction deployed; native repeat not exercised."
+      "Status": "Pass by user confirmation in response to the full requested shortcut/restoration sequence.",
+      "NativeEvidence": "M18_SHORTCUT_QUALIFICATION.json"
     }
+  },
+  "CorrectedInputRepeat": {
+    "SourceCommit": "c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7",
+    "UserConfirmation": "Works.",
+    "Evidence": "M18_SHORTCUT_QUALIFICATION.json",
+    "Status": "Pass for the requested native shortcut/navigation/modal/restoration sequence by user report; no action-level trace or screenshot supplied."
   }
 }
