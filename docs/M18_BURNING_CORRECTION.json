@@ -133,5 +133,6 @@
     "m18-burning-closed-Debug-tests.log": "a64fd5a980a0463b8745cde9e968cf0b76d359598671ec1313b1e963a586ee04",
     "m18-burning-closed-Release-tests.log": "8d6d9e87032644b5dea1fd1b4024999e6fa3ad7a950209d1afac560b7c3d8118",
     "m18-burning-deployment.log": "46312304f610a83b7c896aa5b05e095910db9b0a13b3450a3ee78f3c9e350410"
-  }
+  },
+  "NativeReopen": "Pass: M18_BURNING_REOPEN_QUALIFICATION.json preserves the cold startup at 2026-09-08T15:15:39.5768744Z, 11/11 installed combat hooks, Supported grenade-hazard capability, exact five-run statistics and unchanged Money/Cash 13954/60. Actual burn attribution remains unexercised."
 }

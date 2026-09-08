@@ -1,0 +1,104 @@
+{
+  "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
+  "Status": "Pass for observed cold startup, supported hook installation, five-run retention and saved-profile/JSON/CSV agreement; corrected burn attribution remains unexercised.",
+  "PreviousQuitUtc": "2026-09-08T14:23:12.5323427Z",
+  "ActivatedUtc": "2026-09-08T15:15:39.5768744Z",
+  "Slot": 1,
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "ExportId": "20260908T1516020874597Z-063240a5b57647138bc4de0c18179981",
+  "ClosedProfileRevision": 4964,
+  "ExportRevision": 4987,
+  "ObservedProfileRevision": 5029,
+  "Runs": [
+    {
+      "RunId": "967b0ed59289428d8fe8ad9eb9470255",
+      "NativeRaidId": "199",
+      "Outcome": 0,
+      "KillsByYou": 6
+    },
+    {
+      "RunId": "9fc9b640c5bb4339aa94bc4b174469e6",
+      "NativeRaidId": "200",
+      "Outcome": 0,
+      "KillsByYou": 1
+    },
+    {
+      "RunId": "c3962c74d1414d9481f68a4ba4c3a207",
+      "NativeRaidId": "201",
+      "Outcome": 1,
+      "KillsByYou": 1
+    },
+    {
+      "RunId": "aafcdbbaa23946179bb66aa8e722a206",
+      "NativeRaidId": "202",
+      "Outcome": 0,
+      "KillsByYou": 2
+    },
+    {
+      "RunId": "a06ea6eaa80e4e399b80e537e4c6de28",
+      "NativeRaidId": "203",
+      "Outcome": 0,
+      "KillsByYou": 0
+    }
+  ],
+  "RunRetention": "All five complete runs equal the closed profile and previous export after excluding only Economy replay cursors. Four runs are fully identical; the first multi-map run and its first segment clear their obsolete Economy producer cursor during current-format reopen. Current saved runs equal the new export exactly. No statistics are reconstructed.",
+  "MoneyHeld": 13954,
+  "CashHeld": 60,
+  "CraftingAndEconomyMetricsUnchanged": true,
+  "SleepTotalsUnchanged": true,
+  "NoNewRunOrInterruptedSession": true,
+  "CombatHarmonyHooksInstalled": 11,
+  "CombatHarmonyHooksExpected": 11,
+  "GrenadeHazardCapability": {
+    "AdapterId": "native-grenade-hazard-attribution",
+    "State": 0,
+    "Version": "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v11+throwables-v1+patch-stamp-v1",
+    "Detail": "Exact grenade launch and native prefab/clone identity preserve spawned zone and burning-buff ownership, item and launch equipment; conflicting buff origins remain Unknown."
+  },
+  "AllPriorCapabilityStatesRetained": true,
+  "NoUdsFailureOrPendingWarningInObservedLog": true,
+  "UnrelatedLogMessages": "Unity GL.End/material and native Index out of range messages appear outside UDS-prefixed logging; this qualification does not establish their cause.",
+  "AllCsvStructuresValid": true,
+  "UnchangedExportFiles": 33,
+  "ChangedExportFiles": [
+    "economy_holdings.csv",
+    "overview.csv",
+    "statistics.json",
+    "world_time.csv"
+  ],
+  "ExpectedMetadataChanges": "Export time/revision, current capability version/new row, live holdings freshness, ordinary clock progression and new producer replay cursor. Completed-run cursor compaction is current-format housekeeping in ProfileFormat; migrated=True does not indicate a pre-v1 migration.",
+  "Scope": "Startup and persisted-data check only. Eleven installed patches and Supported capability do not establish actual managed Instantiate postfix execution or corrected burning damage/kill attribution. Repeat the Brand-Muni throw and held-weapon switches in native gameplay.",
+  "EvidenceManifestSha256": "9ba8bdd403571e51e93b515e0716e6ab80e0e486431ffe9fb8ab4c9ae725b8f0",
+  "KeyEvidenceFiles": [
+    {
+      "File": "export/combat_attribution.csv",
+      "Bytes": 88216,
+      "Sha256": "157f4e0a1f8ff836f80e7de346ef2abb2553663cb837bee592da4bde8f64bcfa"
+    },
+    {
+      "File": "export/economy_holdings.csv",
+      "Bytes": 1458,
+      "Sha256": "880c87567c2f604876279d36ded8396afe799a7e006614e445bcd5dfed5a2117"
+    },
+    {
+      "File": "export/runs.csv",
+      "Bytes": 3968,
+      "Sha256": "7d4b8169d577d33f8aed8264fb9a2057a7694974bd5fa1a0069aced6dac458f0"
+    },
+    {
+      "File": "export/statistics.json",
+      "Bytes": 825929,
+      "Sha256": "4471f9d2b35eb7fef2dc0218e12007633b64f6e9f3d35795556810fee8a01bb7"
+    },
+    {
+      "File": "player-observed.log",
+      "Bytes": 11790,
+      "Sha256": "d8e3c6ffa1b04c3c9565a19d592ca524dcbf6e287b58dd48483bec40f0ccbbfb"
+    },
+    {
+      "File": "profile-observed.json",
+      "Bytes": 827255,
+      "Sha256": "bb237434d3071e5554cf5dbafd5ed942eeec820ce82045a919bc45abaa85a87d"
+    }
+  ]
+}
