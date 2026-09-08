@@ -1,0 +1,27 @@
+{
+  "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
+  "Status": "Pass by user confirmation for the requested tab, scrolling, detail and tooltip checks in the current setup. Language/resolution changes, remaining input checks and measured native resource behavior remain open.",
+  "Context": {
+    "Slot": 1,
+    "GenerationId": "063240a5b57647138bc4de0c18179981",
+    "Location": "Base",
+    "PrecedingExportId": "20260908T1533463539366Z-063240a5b57647138bc4de0c18179981",
+    "Settings": "Existing user setup; the exact active resolution and language were not reconfirmed for this check."
+  },
+  "RequestedChecks": [
+    "Visit all nine tabs: Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use and Diagnostics.",
+    "Scroll the longer pages.",
+    "Expand Combat weapon details and hover Equipment attachments.",
+    "Check for missing content, clipping, stuck scrolling or broken tooltips."
+  ],
+  "UserResponse": "Looking good.",
+  "Result": "The user reported no issue in response to the requested checks. This records manual acceptance of that scope; no new screenshot, automated UI traversal or measured object/resource capture was supplied.",
+  "RelatedNumericUiAcceptance": "M18_BURNING_SWITCH_KILL_QUALIFICATION.json separately records the user-confirmed latest Runs values of 35 damage/1 kill and Combat lifetime Brand-Muni values of 56 damage/1 kill.",
+  "Deferred": "The user's previously noted empty-state and text-rendering polish remains deferred and is not treated as a new failure of this functional check.",
+  "Remaining": [
+    "Reopen and operate the UI after a game-language change.",
+    "Reopen and operate the UI at another available resolution, then restore the user's settings.",
+    "Complete remaining Back/Escape, keyboard-focus and repeated open/close observations where not already covered by the earlier access qualification.",
+    "Measure native UI resource behavior and complete the matched performance campaign."
+  ]
+}
