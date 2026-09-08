@@ -849,6 +849,87 @@ public sealed class NativeEconomyAdapterTests : IDisposable
     }
 
     [Fact]
+    public void MainMenuShutdownCompletesWithoutScanningSuspendedCashOrRecordingTeardown()
+    {
+        ItemUtilities.OwnedItems.Add(Cash(55));
+        using var adapter = CreateAdapter();
+        adapter.Initialize();
+        adapter.Tick();
+        SceneLoader.RaiseStarted();
+        var scansBeforeTeardown = ItemUtilities.ScanCount;
+
+        ItemUtilities.OwnedItems.Clear();
+        ItemUtilities.RaisePlayerItemOperation();
+        adapter.Tick();
+
+        Assert.True(adapter.FlushPendingForBoundary());
+        Assert.True(adapter.FlushPendingForBoundary());
+        Assert.Equal(scansBeforeTeardown, ItemUtilities.ScanCount);
+        Assert.Empty(published);
+
+        EconomyManager.RaiseLoaded();
+        ItemUtilities.OwnedItems.Add(Cash(55));
+        LevelManager.RaiseAfterLevelInitialized();
+        Assert.True(adapter.FlushPendingForBoundary());
+        Assert.Equal(scansBeforeTeardown + 1, ItemUtilities.ScanCount);
+        Assert.Empty(published);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void SuspendedCashBoundaryRetainsRejectedFlowsUntilPublicationSucceeds(bool blockAtGate)
+    {
+        var allowPublication = false;
+        var attempts = new List<CurrencyFlowRecorded>();
+        runActive = true;
+        runId = "run-before-menu";
+        segmentId = "segment-before-menu";
+        mapId = "map-before-menu";
+        using var adapter = new NativeEconomyAdapter(
+            () => "generation:one", () => runId, () => mapId, () => segmentId, () => runActive,
+            flow =>
+            {
+                attempts.Add(flow);
+                if (!allowPublication) return false;
+                published.Add(flow);
+                return true;
+            }, records => capabilities.Add(records), diagnostics.Add,
+            () => !blockAtGate || allowPublication);
+        ItemUtilities.OwnedItems.Add(Cash(10));
+        adapter.Initialize();
+        adapter.Tick();
+        EconomyManager.RaiseMoneyChanged(50, 45);
+        ItemUtilities.OwnedItems.Add(Cash(4));
+        ItemUtilities.RaisePlayerItemOperation();
+        SceneLoader.RaiseStarted();
+        var scansBeforeTeardown = ItemUtilities.ScanCount;
+
+        runActive = false;
+        runId = segmentId = mapId = null;
+        ItemUtilities.OwnedItems.Clear();
+        ItemUtilities.RaisePlayerItemOperation();
+        Assert.False(adapter.FlushPendingForBoundary());
+        Assert.False(adapter.FlushPendingForBoundary());
+        Assert.Empty(published);
+
+        allowPublication = true;
+        Assert.True(adapter.FlushPendingForBoundary());
+        Assert.True(adapter.FlushPendingForBoundary());
+        Assert.Equal(scansBeforeTeardown, ItemUtilities.ScanCount);
+        Assert.Equal(2, published.Count);
+        Assert.Equal(5, Assert.Single(published, flow => flow.Currency == CurrencyKind.Money).Amount);
+        Assert.Equal(4, Assert.Single(published, flow => flow.Currency == CurrencyKind.Cash).Amount);
+        Assert.All(published, flow =>
+        {
+            Assert.Equal("run-before-menu", flow.RunId);
+            Assert.Equal("segment-before-menu", flow.SegmentId);
+            Assert.Equal("map-before-menu", flow.MapId);
+            Assert.All(attempts.Where(attempt => attempt.Currency == flow.Currency), attempt => Assert.Same(flow, attempt));
+        });
+    }
+
+    [Fact]
     [Trait("Category", "M9")]
     [Trait("Category", "Lifecycle")]
     public void FullSceneInventoryHydrationDoesNotBecomeBaseInflowOnRaidEntryOrExtraction()

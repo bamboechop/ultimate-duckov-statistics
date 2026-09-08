@@ -131,7 +131,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         FlushCash();
         return moneyPublished
                && pendingCash.Count == 0
-               && (cashDisabled || (!cashBaselineSuspended && cashBaselineReady && !cashDirty));
+               && (cashDisabled || cashBaselineSuspended || (cashBaselineReady && !cashDirty));
     }
 
     private bool FlushPendingMoney()
