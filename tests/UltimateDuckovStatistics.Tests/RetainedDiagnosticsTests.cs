@@ -156,14 +156,25 @@ public sealed class RetainedDiagnosticsTests
     }
 
     [Theory]
-    [InlineData((int)NativeMenuIntegrationState.NotObserved, false)]
-    [InlineData((int)NativeMenuIntegrationState.AttachedUnverified, false)]
-    [InlineData((int)NativeMenuIntegrationState.Unavailable, true)]
-    public void MenuFallbackDoesNotDowngradeWorkingStatistics(int state, bool issueExpected)
+    [InlineData((int)NativeMenuIntegrationState.NotObserved, true, false)]
+    [InlineData((int)NativeMenuIntegrationState.NotObserved, false, false)]
+    [InlineData((int)NativeMenuIntegrationState.AttachedUnverified, true, false)]
+    [InlineData((int)NativeMenuIntegrationState.AttachedUnverified, false, false)]
+    [InlineData((int)NativeMenuIntegrationState.Unavailable, true, true)]
+    [InlineData((int)NativeMenuIntegrationState.Unavailable, false, true)]
+    public void OnlyAnObservedMenuFailureDowngradesMenuHealth(int state, bool mainMenu, bool issueExpected)
     {
-        var runtime = Runtime(); runtime.MainMenu = (NativeMenuIntegrationState)state;
+        var runtime = Runtime();
+        if (mainMenu) runtime.MainMenu = (NativeMenuIntegrationState)state;
+        else runtime.BaseMenu = (NativeMenuIntegrationState)state;
         var p = Present(Profile(), runtime); var menu = Assert.Single(p.Systems, s => s.Id == "menu");
-        Assert.Equal(DiagnosticsHealth.Working, p.Health); Assert.Equal(DiagnosticsHealth.Limited, menu.Health);
+        Assert.Equal(DiagnosticsHealth.Working, p.Health);
+        Assert.Equal(issueExpected ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working, menu.Health);
+        Assert.Equal<DiagnosticsHealth?>(issueExpected ? DiagnosticsHealth.Limited : null, menu.ExtraRows[mainMenu ? 0 : 1].Health);
+        Assert.Equal(UiText.Get(state == (int)NativeMenuIntegrationState.NotObserved ? "ui.not_observed"
+            : state == (int)NativeMenuIntegrationState.AttachedUnverified ? "ui.attached_unverified" : "ui.unavailable"),
+            menu.ExtraRows[mainMenu ? 0 : 1].Value);
+        Assert.Equal(UiText.Get("ui.diag_tracking_working"), p.BannerTitle);
         Assert.Equal(DiagnosticsHealth.Working, Assert.Single(menu.ExtraRows, r => r.Label.Contains("F8", StringComparison.Ordinal)).Health);
         Assert.Equal(issueExpected ? 1 : 0, p.Issues.Count);
         if (issueExpected) { Assert.Contains("F8", p.BannerDetail, StringComparison.Ordinal); Assert.Equal("Warning", p.Issues[0].Severity); }

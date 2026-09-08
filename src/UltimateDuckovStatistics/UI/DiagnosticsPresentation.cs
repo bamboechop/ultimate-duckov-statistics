@@ -155,14 +155,21 @@ internal static class DiagnosticsPresentationFactory
             }
             systems.Add(new DiagnosticsSystem(group, t("ui.diag_group_" + group), state, capabilities, extra));
         }
-        var menuLimited = runtime.MainMenu != NativeMenuIntegrationState.Available || runtime.BaseMenu != NativeMenuIntegrationState.Available;
+        var menusVerified = runtime.MainMenu == NativeMenuIntegrationState.Available && runtime.BaseMenu == NativeMenuIntegrationState.Available;
+        var menuUnavailable = runtime.MainMenu == NativeMenuIntegrationState.Unavailable || runtime.BaseMenu == NativeMenuIntegrationState.Unavailable;
         string MenuState(NativeMenuIntegrationState state) => t(state == NativeMenuIntegrationState.Available ? "ui.working"
             : state == NativeMenuIntegrationState.NotObserved ? "ui.not_observed"
             : state == NativeMenuIntegrationState.AttachedUnverified ? "ui.attached_unverified" : "ui.unavailable");
-        systems.Add(new DiagnosticsSystem("menu", t("ui.menu_access"), menuLimited ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working,
+        DiagnosticsHealth? MenuHealth(NativeMenuIntegrationState state) => state switch
+        {
+            NativeMenuIntegrationState.Available => DiagnosticsHealth.Working,
+            NativeMenuIntegrationState.Unavailable => DiagnosticsHealth.Limited,
+            _ => null
+        };
+        systems.Add(new DiagnosticsSystem("menu", t("ui.menu_access"), menuUnavailable ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working,
             Array.Empty<DiagnosticsCapability>(), new[] {
-                new DiagnosticsValue(t("ui.main_menu_entry"), MenuState(runtime.MainMenu), runtime.MainMenu == NativeMenuIntegrationState.Available ? DiagnosticsHealth.Working : DiagnosticsHealth.Limited),
-                new DiagnosticsValue(t("ui.base_pause_entry"), MenuState(runtime.BaseMenu), runtime.BaseMenu == NativeMenuIntegrationState.Available ? DiagnosticsHealth.Working : DiagnosticsHealth.Limited),
+                new DiagnosticsValue(t("ui.main_menu_entry"), MenuState(runtime.MainMenu), MenuHealth(runtime.MainMenu)),
+                new DiagnosticsValue(t("ui.base_pause_entry"), MenuState(runtime.BaseMenu), MenuHealth(runtime.BaseMenu)),
                 new DiagnosticsValue(string.Format(CultureInfo.CurrentCulture, t("ui.diag_hotkey_fallback"), runtime.Hotkey), t("ui.working"), DiagnosticsHealth.Working),
                 new DiagnosticsValue(t("ui.diag_outside_raids"), t("ui.working"), DiagnosticsHealth.Working)
             }));
@@ -171,8 +178,7 @@ internal static class DiagnosticsPresentationFactory
         var health = tracking.Any(s => s.Health == DiagnosticsHealth.Error) ? DiagnosticsHealth.Error
             : tracking.Any(s => s.Health == DiagnosticsHealth.Limited) ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
         var bannerTitle = t(health == DiagnosticsHealth.Error ? "ui.diag_tracking_error" : health == DiagnosticsHealth.Limited ? "ui.diag_tracking_limited"
-            : menuLimited ? "ui.diag_tracking_working" : "ui.diag_all_working");
-        var menuUnavailable = runtime.MainMenu == NativeMenuIntegrationState.Unavailable || runtime.BaseMenu == NativeMenuIntegrationState.Unavailable;
+            : menusVerified ? "ui.diag_all_working" : "ui.diag_tracking_working");
         var bannerDetail = health == DiagnosticsHealth.Error ? t("ui.diag_tracking_error_detail")
             : health == DiagnosticsHealth.Limited ? t("ui.diag_tracking_limited_detail")
             : menuUnavailable ? string.Format(CultureInfo.CurrentCulture, t("ui.diag_menu_fallback"), runtime.Hotkey) : t("ui.diag_supported_recording");
