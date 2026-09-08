@@ -141,7 +141,8 @@ internal static class HealingHarmonyBridge
         CharacterBuffManager manager,
         Buff buffPrefab,
         CharacterMainControl? fromWho,
-        int overrideWeaponID)
+        int overrideWeaponID,
+        bool newlyCreated = false)
     {
         var currentAdapter = adapter;
         if (currentAdapter == null || !currentAdapter.IsPatchPointTrusted(HealingPatchPoint.Buff))
@@ -149,7 +150,7 @@ internal static class HealingHarmonyBridge
             return;
         }
 
-        CombatHarmonyBridge.CaptureBuffApplication(manager, buffPrefab, fromWho, overrideWeaponID);
+        CombatHarmonyBridge.CaptureBuffApplication(manager, buffPrefab, fromWho, overrideWeaponID, newlyCreated);
         currentAdapter.ReconcileAppliedBuff(manager, buffPrefab, CurrentCorrelationId);
     }
 
@@ -237,13 +238,25 @@ internal static class HealingHarmonyCallbacks
         return __exception;
     }
 
+    private static void BuffPrefix(CharacterBuffManager __instance, Buff buffPrefab, out bool __state)
+    {
+        __state = false;
+        try
+        {
+            if (__instance != null && buffPrefab != null)
+                __state = !__instance.Buffs.Any(value => value != null && value.ID == buffPrefab.ID);
+        }
+        catch { /* An unreadable pre-call buff list cannot prove a new instance. */ }
+    }
+
     private static void BuffPostfix(
         CharacterBuffManager __instance,
         Buff buffPrefab,
         CharacterMainControl? fromWho,
-        int overrideWeaponID)
+        int overrideWeaponID,
+        bool __state)
     {
-        HealingHarmonyBridge.BindBuff(__instance, buffPrefab, fromWho, overrideWeaponID);
+        HealingHarmonyBridge.BindBuff(__instance, buffPrefab, fromWho, overrideWeaponID, __state);
     }
 
     public static MethodInfo HealthPrefixMethod => Get(nameof(HealthPrefix));
@@ -255,6 +268,7 @@ internal static class HealingHarmonyCallbacks
     public static MethodInfo EffectFinalizerMethod => Get(nameof(EffectFinalizer));
 
     public static MethodInfo BuffPostfixMethod => Get(nameof(BuffPostfix));
+    public static MethodInfo BuffPrefixMethod => Get(nameof(BuffPrefix));
 
     private static MethodInfo Get(string name) => typeof(HealingHarmonyCallbacks).GetMethod(
         name,

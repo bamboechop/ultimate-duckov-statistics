@@ -122,7 +122,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 effectMethod,
                 HealingHarmonyCallbacks.EffectPrefixMethod,
                 finalizer: HealingHarmonyCallbacks.EffectFinalizerMethod);
-            patcher.Patch(buffMethod, postfix: HealingHarmonyCallbacks.BuffPostfixMethod);
+            patcher.Patch(buffMethod, HealingHarmonyCallbacks.BuffPrefixMethod, HealingHarmonyCallbacks.BuffPostfixMethod);
             patchRegistrations = registrations;
             foreach (var registration in patchRegistrations)
             {
@@ -481,6 +481,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             HealingPatchPoint.Buff,
             buffMethod,
             [
+                new HarmonyPatchExpectation("Prefixes", HealingHarmonyCallbacks.BuffPrefixMethod),
                 new HarmonyPatchExpectation("Postfixes", HealingHarmonyCallbacks.BuffPostfixMethod)
             ])
     ];

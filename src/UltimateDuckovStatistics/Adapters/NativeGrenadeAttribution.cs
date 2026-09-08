@@ -11,14 +11,21 @@ internal static class NativeGrenadeAttribution
     internal sealed class Scope
     {
         internal Scope? Parent;
+        internal Grenade Grenade = null!;
         internal CharacterMainControl? Source;
         internal int ItemId;
         internal bool CreatesExplosion;
     }
     internal static Scope Begin(Grenade grenade)
     {
-        var scope = new Scope { Parent = current, Source = grenade.damageInfo.fromCharacter,
-            ItemId = grenade.damageInfo.fromWeaponItemID, CreatesExplosion = grenade.createExplosion };
+        var scope = new Scope
+        {
+            Parent = current,
+            Grenade = grenade,
+            Source = grenade.damageInfo.fromCharacter,
+            ItemId = grenade.damageInfo.fromWeaponItemID,
+            CreatesExplosion = grenade.createExplosion
+        };
         current = scope;
         return scope;
     }
@@ -26,6 +33,8 @@ internal static class NativeGrenadeAttribution
     {
         if (scope != null && ReferenceEquals(current, scope)) current = scope.Parent;
     }
+    internal static Scope? MatchCreatedPrefab(UnityEngine.Object original) =>
+        current is { } scope && ReferenceEquals(original, scope.Grenade.createOnExlode) ? scope : null;
     internal static bool Matches(DamageInfo damage) => current is { CreatesExplosion: true, ItemId: > 0 } scope
         && scope.Source != null && scope.Source.IsMainCharacter
         && ReferenceEquals(scope.Source, damage.fromCharacter)

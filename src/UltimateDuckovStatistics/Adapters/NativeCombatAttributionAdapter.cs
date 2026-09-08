@@ -15,7 +15,7 @@ namespace UltimateDuckovStatistics.Adapters;
 internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCleanup
 {
     internal const string HarmonyId = "at.bamboechop.ultimate-duckov-statistics.combat";
-    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v10+throwables-v1+patch-stamp-v1";
+    internal const string AdapterVersion = "native-combat-attribution/2.3.30+harmony-2.4.1+ownership-v11+throwables-v1+patch-stamp-v1";
     private const string SupportedGameVersion = "2.3.30";
     private const string SupportedGameBuild = "24013657";
     private const int MaximumProjectileCorrelations = 2048;
@@ -30,6 +30,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private readonly Action<string> diagnosticHandler;
     private readonly RetryableHarmonyPatcherLease patcherLease = new();
     private readonly NativeCombatEquipmentAssociationResolver equipmentAssociationResolver = new();
+    private readonly NativeGrenadeHazardOrigins grenadeHazards = new();
     private readonly Dictionary<int, ProjectileSnapshot> projectiles = new();
     private readonly Queue<(int RuntimeId, string ProjectileId)> projectileOrder = new();
     private PatchRegistration[] patchRegistrations = Array.Empty<PatchRegistration>();
@@ -84,12 +85,12 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         if (disposed) throw new ObjectDisposedException(nameof(NativeCombatAttributionAdapter));
         if (initialized && !retryInitialization)
-            return CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion);
+            return CapabilityRecords();
         if (!string.Equals(Application.version, SupportedGameVersion, StringComparison.Ordinal))
         {
             initialized = true;
             SetUnavailable($"Installed Duckov version '{Application.version}' does not match verified combat contract '{SupportedGameVersion}'.");
-            return CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion);
+            return CapabilityRecords();
         }
 
         var methods = ResolveContracts();
@@ -103,7 +104,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             nextInitializationAttemptUtc = DateTime.UtcNow.AddSeconds(1);
             support.DisableHarmonyHooks();
             ActivateCapabilities(support, harmonyDetail);
-            return CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion);
+            return CapabilityRecords();
         }
 
         patcherLease.Attach(created);
@@ -122,9 +123,18 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
             patchRegistrations = registrations.Where(x => support.IsEnabled(x.Hook)).ToArray();
             if (patchRegistrations.Length > 0) CombatHarmonyBridge.Attach(this);
-            foreach (var registration in patchRegistrations) ApplyPatch(created, registration);
             foreach (var registration in patchRegistrations)
             {
+                try { ApplyPatch(created, registration); }
+                catch (Exception exception) when (registration.Hook is CombatHook.GrenadeLaunch or CombatHook.GrenadeObjectCreation)
+                {
+                    support.Disable(registration.Hook);
+                    diagnosticHandler($"Spawned grenade observation hook {registration.Original.Name} is unavailable: {Unwrap(exception).GetType().Name}.");
+                }
+            }
+            foreach (var registration in patchRegistrations)
+            {
+                if (!support.IsEnabled(registration.Hook)) continue;
                 if (!created.TryCaptureValidatedPatchSetStamp(
                         registration.Original,
                         registration.Expected,
@@ -132,6 +142,12 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
                         out var detail)
                     || stamp == null)
                 {
+                    if (registration.Hook is CombatHook.GrenadeLaunch or CombatHook.GrenadeObjectCreation)
+                    {
+                        support.Disable(registration.Hook);
+                        diagnosticHandler($"Spawned grenade observation hook {registration.Original.Name} is untrusted: {detail}");
+                        continue;
+                    }
                     throw new InvalidOperationException(
                         $"Installed combat patch set/stamp validation failed for "
                         + $"{registration.Original.DeclaringType?.Name}.{registration.Original.Name}: "
@@ -139,6 +155,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
                 }
                 registration.Stamp = stamp;
             }
+            patchRegistrations = patchRegistrations.Where(x => support.IsEnabled(x.Hook)).ToArray();
 
             hookSupport = support;
             metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
@@ -154,7 +171,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             SynchronizeMainCharacter();
             SynchronizeProjectileContext();
             diagnosticHandler(
-                $"Combat attribution active with HarmonyLib {created.Version}; {patchRegistrations.Length}/8 Harmony hooks and independent public melee/death callbacks are available.");
+                $"Combat attribution active with HarmonyLib {created.Version}; {patchRegistrations.Length}/11 Harmony hooks and independent public melee/death callbacks are available.");
         }
         catch (Exception exception)
         {
@@ -166,7 +183,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             TryCompleteCleanup();
         }
 
-        return CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion);
+        return CapabilityRecords();
     }
 
     public void Tick()
@@ -321,6 +338,13 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         if (parentBuff != null)
         {
             associationSource = parentBuff;
+            SynchronizeGrenadeHazards();
+            if (CanObserveGrenadeHazards && grenadeHazards.TryResolveBuff(parentBuff,
+                    parentBuff.fromWho, parentBuff.fromWeaponID, out var hazard))
+            {
+                return hazard != null ? CreateHazardScope(hazard, delayed)
+                    : new CombatNativeScope { IsEffect = true, IsDamageOverTime = delayed, ConflictingActorEvidence = true };
+            }
         }
         var actor = parentBuff?.fromWho ?? context.source.Master?.Item?.GetCharacterMainControl();
         var buffOwnership = parentBuff == null
@@ -363,22 +387,79 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         return scope;
     }
 
-    public CombatNativeScope? CreateEnvironmentalScope() =>
-        !IsActive || !hookSupport.EnvironmentalDamage
-            ? null
-            : new CombatNativeScope
-            {
-                SourceMapId = mapIdProvider() ?? MapIdentity.UnknownId,
-                SourceSegmentId = segmentIdProvider() ?? string.Empty,
-                ExplicitActorlessWorldDamage = true,
-                EquipmentAssociation = new EquipmentEventAssociation()
-            };
+    private bool CanObserveGrenadeHazards => IsActive && hookSupport.HealthHurt
+        && hookSupport.GrenadeExplosion && hookSupport.GrenadeLaunch && hookSupport.GrenadeObjectCreation
+        && hookSupport.EnvironmentalDamage && hookSupport.BuffApplication && hookSupport.EffectTrigger;
+
+    private void SynchronizeGrenadeHazards() =>
+        grenadeHazards.Synchronize(saveGenerationIdProvider(), runIdProvider() ?? string.Empty);
+
+    public void CaptureGrenadeLaunch(Grenade grenade, CharacterMainControl? source)
+    {
+        if (!CanObserveGrenadeHazards || grenade == null || source == null
+            || string.IsNullOrWhiteSpace(saveGenerationIdProvider()) || string.IsNullOrWhiteSpace(runIdProvider())
+            || NativeRaidContext.GetGameplayContext() != GameplayContext.Raid) return;
+        SynchronizeGrenadeHazards();
+        grenadeHazards.CaptureLaunch(grenade, new NativeGrenadeHazardOrigins.Origin(source, 0,
+            mapIdProvider() ?? MapIdentity.UnknownId, segmentIdProvider() ?? string.Empty,
+            ToActorEvidence(source).Kind == CombatActorEvidenceKind.Player
+                ? equipmentAssociationProvider() : new EquipmentEventAssociation()));
+    }
+
+    public void CaptureGrenadeClone(NativeGrenadeAttribution.Scope scope, UnityEngine.Object clone)
+    {
+        if (!CanObserveGrenadeHazards || clone is not GameObject root) return;
+        SynchronizeGrenadeHazards();
+        var origin = grenadeHazards.ResolveLaunch(scope.Grenade, scope.Source, scope.ItemId);
+        if (origin == null) return;
+        foreach (var zone in root.GetComponentsInChildren<ZoneDamage>(includeInactive: true))
+            grenadeHazards.CaptureZone(zone, origin);
+    }
+
+    public void DisableGrenadeHazards(Exception exception)
+    {
+        if (!hookSupport.GrenadeObjectCreation) return;
+        hookSupport.GrenadeObjectCreation = false;
+        grenadeHazards.Clear();
+        PublishCapabilities();
+        diagnosticHandler($"Spawned grenade attribution disabled after observation failure: {exception.GetType().Name}.");
+    }
+
+    private static CombatNativeScope CreateHazardScope(NativeGrenadeHazardOrigins.Origin origin, bool delayed) => new()
+    {
+        SourceMapId = origin.MapId,
+        SourceSegmentId = origin.SegmentId,
+        PhysicalSource = origin.Actor,
+        CreditedSource = origin.Actor,
+        WeaponTypeId = origin.ItemId,
+        IsEffect = true,
+        IsDamageOverTime = delayed,
+        EquipmentAssociation = origin.Equipment,
+        GrenadeHazardOrigin = origin
+    };
+
+    public CombatNativeScope? CreateEnvironmentalScope(ZoneDamage? zone)
+    {
+        if (!IsActive || !hookSupport.EnvironmentalDamage) return null;
+        SynchronizeBuffApplicationObservationTrust();
+        SynchronizeGrenadeHazards();
+        if (zone != null && CanObserveGrenadeHazards && grenadeHazards.ResolveZone(zone) is { } origin)
+            return CreateHazardScope(origin, delayed: true);
+        return new CombatNativeScope
+        {
+            SourceMapId = mapIdProvider() ?? MapIdentity.UnknownId,
+            SourceSegmentId = segmentIdProvider() ?? string.Empty,
+            ExplicitActorlessWorldDamage = true,
+            EquipmentAssociation = new EquipmentEventAssociation()
+        };
+    }
 
     public void CaptureBuffApplication(
         CharacterBuffManager manager,
         Buff buffPrefab,
         CharacterMainControl? fromWho,
-        int overrideWeaponID)
+        int overrideWeaponID,
+        bool newlyCreated)
     {
         if (!IsActive || manager == null || buffPrefab == null) return;
         SynchronizeBuffApplicationObservationTrust();
@@ -386,6 +467,27 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         // Match CharacterBuffManager.AddBuff's first same-ID lookup exactly.
         var applied = manager.Buffs.FirstOrDefault(value => value != null && value.ID == buffPrefab.ID);
         if (applied == null) return;
+        SynchronizeGrenadeHazards();
+        if (CanObserveGrenadeHazards)
+        {
+            try
+            {
+                var scope = CombatHarmonyBridge.CurrentScope;
+                var incoming = scope?.GrenadeHazardOrigin;
+                var grenadeOrigin = incoming != null;
+                // Retain independently proven native actors when an ordinary buff application
+                // overlaps grenade fire; this does not make ordinary buffs use the hazard path.
+                if (incoming == null && fromWho != null)
+                    incoming = new NativeGrenadeHazardOrigins.Origin(fromWho,
+                        overrideWeaponID > 0 ? overrideWeaponID : 0,
+                        scope?.SourceMapId ?? mapIdProvider() ?? MapIdentity.UnknownId,
+                        scope?.SourceSegmentId ?? segmentIdProvider() ?? string.Empty,
+                        scope?.EquipmentAssociation ?? equipmentAssociationProvider());
+                grenadeHazards.CaptureBuff(applied, incoming,
+                    applied.fromWho ?? fromWho, applied.fromWeaponID > 0 ? applied.fromWeaponID : overrideWeaponID, newlyCreated, grenadeOrigin);
+            }
+            catch (Exception exception) { DisableGrenadeHazards(exception); }
+        }
         buffApplicationObservationBoundary.Capture(
             applied,
             ToActorEvidence(applied.fromWho),
@@ -475,7 +577,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         var attackerIdentity = ReadAttackerIdentity(ownership, source);
         var family = ReadFamily(health);
         var cause = ResolveCause(state.DamageInfo, scope, ownership);
-        var weaponTypeId = CombatObservationPolicy.ResolveHealthTransitionWeaponTypeId(
+        var weaponTypeId = scope?.GrenadeHazardOrigin is { ItemId: <= 0 } ? -1 : CombatObservationPolicy.ResolveHealthTransitionWeaponTypeId(
             scope?.WeaponTypeId ?? -1,
             state.DamageInfo.fromWeaponItemID,
             scope != null,
@@ -840,8 +942,21 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         diagnosticHandler(detail);
     }
 
-    private void PublishCapabilities() =>
-        capabilityHandler(CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion));
+    private IReadOnlyList<CapabilityRecord> CapabilityRecords() =>
+    [
+        .. CombatNativeContractPolicy.ToRecords(metricCapabilities, AdapterVersion),
+        new CapabilityRecord
+        {
+            AdapterId = "native-grenade-hazard-attribution",
+            Version = AdapterVersion,
+            State = CanObserveGrenadeHazards ? AdapterCapabilityState.Supported : AdapterCapabilityState.DisabledIncompatible,
+            Detail = CanObserveGrenadeHazards
+                ? "Exact grenade launch and native prefab/clone identity preserve spawned zone and burning-buff ownership, item and launch equipment; conflicting buff origins remain Unknown."
+                : "Spawned grenade hazards require trusted launch, explosion, object creation, zone damage, health, buff application and effect hooks; independently supported combat remains available."
+        }
+    ];
+
+    private void PublishCapabilities() => capabilityHandler(CapabilityRecords());
 
     private bool ReadBuffApplicationObservationTrust()
         => buffApplicationObservationBoundary.IsTrusted;
@@ -852,6 +967,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         hookSupport.BuffApplication = false;
         buffApplicationObservationBoundary.Clear();
         equipmentAssociationResolver.Clear();
+        grenadeHazards.Clear();
         metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
         PublishCapabilities();
         diagnosticHandler(
@@ -885,6 +1001,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         if (registration.Disabled) return;
         registration.Disabled = true;
         hookSupport.Disable(registration.Hook);
+        grenadeHazards.Clear();
         metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
         if (registration.Hook is CombatHook.ProjectileInit or CombatHook.ProjectileUpdate
             or CombatHook.ProjectileRelease or CombatHook.EffectApplication)
@@ -900,6 +1017,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         if (subscribedMainCharacter?.attackAction != null) subscribedMainCharacter.attackAction.OnAttack -= OnMeleeAttack;
         subscribedMainCharacter = null;
+        grenadeHazards.Clear();
         ClearProjectileCorrelations();
         projectileGenerationId = string.Empty;
         projectileRunId = string.Empty;
@@ -932,6 +1050,10 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         return new ResolvedMethods
         {
+            GrenadeLaunch = Exact(typeof(Grenade), "Launch", BindingFlags.Instance | BindingFlags.Public,
+                typeof(void), typeof(Vector3), typeof(Vector3), typeof(CharacterMainControl), typeof(bool)),
+            GrenadeObjectCreation = Exact(typeof(UnityEngine.Object), "Instantiate", BindingFlags.Static | BindingFlags.Public,
+                typeof(UnityEngine.Object), typeof(UnityEngine.Object), typeof(Vector3), typeof(Quaternion)),
             GrenadeExplosion = Exact(typeof(Grenade), "Explode", BindingFlags.Instance | BindingFlags.NonPublic, typeof(void)),
             HealthHurt = Exact(typeof(Health), "Hurt", BindingFlags.Instance | BindingFlags.Public, typeof(bool), typeof(DamageInfo)),
             ProjectileInit = Exact(typeof(Projectile), "Init", BindingFlags.Instance | BindingFlags.Public, typeof(void), typeof(ProjectileContext)),
@@ -952,6 +1074,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private static PatchRegistration[] CreateRegistrations(ResolvedMethods m) =>
         new (CombatHook Hook, MethodInfo? Method, HarmonyPatchExpectation[] Expected)[]
         {
+            (CombatHook.GrenadeLaunch, m.GrenadeLaunch, [new("Postfixes", CombatHarmonyCallbacks.GrenadeLaunchPostfixMethod)]),
+            (CombatHook.GrenadeObjectCreation, m.GrenadeObjectCreation, [new("Postfixes", CombatHarmonyCallbacks.GrenadeClonePostfixMethod)]),
             (CombatHook.GrenadeExplosion, m.GrenadeExplosion, [new("Prefixes", NativeGrenadeAttribution.PrefixMethod), new("Finalizers", NativeGrenadeAttribution.FinalizerMethod)]),
             (CombatHook.HealthHurt, m.HealthHurt, [new("Prefixes", CombatHarmonyCallbacks.HealthPrefixMethod), new("Postfixes", CombatHarmonyCallbacks.HealthPostfixMethod)]),
             (CombatHook.ProjectileInit, m.ProjectileInit, [new("Postfixes", CombatHarmonyCallbacks.ProjectileInitPostfixMethod)]),
@@ -970,6 +1094,12 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     {
         switch (registration.Hook)
         {
+            case CombatHook.GrenadeLaunch:
+                patcher.Patch(registration.Original, postfix: CombatHarmonyCallbacks.GrenadeLaunchPostfixMethod);
+                break;
+            case CombatHook.GrenadeObjectCreation:
+                patcher.Patch(registration.Original, postfix: CombatHarmonyCallbacks.GrenadeClonePostfixMethod);
+                break;
             case CombatHook.GrenadeExplosion:
                 patcher.Patch(registration.Original, NativeGrenadeAttribution.PrefixMethod, finalizer: NativeGrenadeAttribution.FinalizerMethod);
                 break;
@@ -1053,6 +1183,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     private sealed class ResolvedMethods
     {
+        public MethodInfo? GrenadeLaunch { get; set; }
+        public MethodInfo? GrenadeObjectCreation { get; set; }
         public MethodInfo? GrenadeExplosion { get; set; }
         public MethodInfo? HealthHurt { get; set; }
         public MethodInfo? ProjectileInit { get; set; }
@@ -1065,6 +1197,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
         public CombatHookSupport CreateHookSupport() => new()
         {
+            GrenadeLaunch = GrenadeLaunch != null,
+            GrenadeObjectCreation = GrenadeObjectCreation != null,
             GrenadeExplosion = GrenadeExplosion != null,
             HealthHurt = HealthHurt != null,
             ProjectileInit = ProjectileInit != null,
@@ -1092,6 +1226,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     internal enum CombatHook
     {
+        GrenadeLaunch,
+        GrenadeObjectCreation,
         GrenadeExplosion,
         HealthHurt,
         ProjectileInit,
@@ -1108,6 +1244,8 @@ internal static class CombatHookSupportExtensions
 {
     public static bool IsEnabled(this CombatHookSupport support, NativeCombatAttributionAdapter.CombatHook hook) => hook switch
     {
+        NativeCombatAttributionAdapter.CombatHook.GrenadeLaunch => support.GrenadeLaunch,
+        NativeCombatAttributionAdapter.CombatHook.GrenadeObjectCreation => support.GrenadeObjectCreation,
         NativeCombatAttributionAdapter.CombatHook.GrenadeExplosion => support.GrenadeExplosion,
         NativeCombatAttributionAdapter.CombatHook.HealthHurt => support.HealthHurt,
         NativeCombatAttributionAdapter.CombatHook.ProjectileInit => support.ProjectileInit,
@@ -1124,6 +1262,8 @@ internal static class CombatHookSupportExtensions
     {
         switch (hook)
         {
+            case NativeCombatAttributionAdapter.CombatHook.GrenadeLaunch: support.GrenadeLaunch = false; break;
+            case NativeCombatAttributionAdapter.CombatHook.GrenadeObjectCreation: support.GrenadeObjectCreation = false; break;
             case NativeCombatAttributionAdapter.CombatHook.GrenadeExplosion: support.GrenadeExplosion = false; break;
             case NativeCombatAttributionAdapter.CombatHook.HealthHurt: support.HealthHurt = false; break;
             case NativeCombatAttributionAdapter.CombatHook.ProjectileInit: support.ProjectileInit = false; break;
@@ -1138,6 +1278,8 @@ internal static class CombatHookSupportExtensions
 
     public static void DisableHarmonyHooks(this CombatHookSupport support)
     {
+        support.GrenadeLaunch = false;
+        support.GrenadeObjectCreation = false;
         support.GrenadeExplosion = false;
         support.HealthHurt = false;
         support.ProjectileInit = false;

@@ -18,7 +18,8 @@ namespace ItemStatsSystem
     public sealed class EffectMaster { public Item? Item { get; set; } }
     public sealed class EffectAction
     {
-        public EffectMaster? Master { get; set; } public T? GetComponentInParent<T>() where T : class => null;
+        public EffectMaster? Master { get; set; }
+        public T? GetComponentInParent<T>() where T : class => null;
         internal void NotifyTriggered(EffectTriggerEventContext context) { }
     }
 }
@@ -26,6 +27,6 @@ namespace UltimateDuckovStatistics.Adapters
 {
     internal static class CombatHarmonyBridge
     {
-        public static void CaptureBuffApplication(CharacterBuffManager manager, Duckov.Buffs.Buff buff, CharacterMainControl? fromWho, int overrideWeaponID) { }
+        public static void CaptureBuffApplication(CharacterBuffManager manager, Duckov.Buffs.Buff buff, CharacterMainControl? fromWho, int overrideWeaponID, bool newlyCreated) { }
     }
 }

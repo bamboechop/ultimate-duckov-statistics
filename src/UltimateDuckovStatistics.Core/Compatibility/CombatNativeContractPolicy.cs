@@ -121,6 +121,8 @@ public static class CombatNativeContractPolicy
 
 public sealed record class CombatHookSupport
 {
+    public bool GrenadeLaunch { get; set; }
+    public bool GrenadeObjectCreation { get; set; }
     public bool GrenadeExplosion { get; set; }
     public bool HealthHurt { get; set; }
     public bool ProjectileInit { get; set; }

@@ -52,7 +52,7 @@ public sealed class RetainedDiagnosticsTests
             typeof(CraftingCapabilityIds), typeof(WorldTimeCapabilityIds) };
         var expected = families.SelectMany(type => type.GetFields(BindingFlags.Public | BindingFlags.Static)
             .Where(f => f.IsLiteral && f.FieldType == typeof(string)).Select(f => (string)f.GetRawConstantValue()!))
-            .Concat(new[] { "native-item-use", "native-healing-attribution", ThrowableUseObservation.CapabilityId,
+            .Concat(new[] { "native-item-use", "native-healing-attribution", ThrowableUseObservation.CapabilityId, "native-grenade-hazard-attribution",
                 "native-run-lifecycle", "native-main-duck-movement", "native-map-identity", "native-multi-map-route", "native-save-lifecycle" })
             .OrderBy(id => id, StringComparer.Ordinal).ToArray();
         Assert.Equal(expected, DiagnosticsCapabilityCatalog.All.Select(d => d.Id).OrderBy(id => id, StringComparer.Ordinal));
@@ -88,7 +88,7 @@ public sealed class RetainedDiagnosticsTests
             records.AddRange(WorldTimeNativeContractPolicy.ToRecords(WorldTimeNativeContractPolicy.Supported("clock", "sleep"), "native"));
             records.Add(ContainerNativeContractPolicy.ToRecord(ContainerNativeContractPolicy.Supported(), "native"));
             // Public lifecycle/item callbacks and the trusted throwable release boundary publish these exact IDs.
-            records.AddRange(new[] { "native-item-use", "native-healing-attribution", ThrowableUseObservation.CapabilityId,
+            records.AddRange(new[] { "native-item-use", "native-healing-attribution", ThrowableUseObservation.CapabilityId, "native-grenade-hazard-attribution",
                 "native-run-lifecycle", "native-main-duck-movement", "native-map-identity", "native-multi-map-route", "native-save-lifecycle" }
                 .Select(id => new CapabilityRecord { AdapterId = id, State = AdapterCapabilityState.Supported }));
             var profile = Profile(); profile.Capabilities = records;

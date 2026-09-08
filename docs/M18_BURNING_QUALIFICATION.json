@@ -1,0 +1,106 @@
+{
+  "ObservedSourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "Status": "Fail for player-owned burning damage and kill attribution; saved-profile/JSON/CSV agreement passes for the recorded observations.",
+  "Slot": 1,
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "RunId": "a06ea6eaa80e4e399b80e537e4c6de28",
+  "NativeRaidId": "203",
+  "ExportId": "20260908T1412575494952Z-063240a5b57647138bc4de0c18179981",
+  "ExportRevision": 4394,
+  "ObservedProfileRevision": 4425,
+  "UserReported": {
+    "BrandMuniThrown": 1,
+    "WeaponSwitches": "Bow and SR-3M several times",
+    "DuckKilledByBurning": 1,
+    "Extracted": true
+  },
+  "Observed": {
+    "ItemId": "duckov:item:941",
+    "ItemName": "Brand-Muni",
+    "Uses": 1,
+    "StackUnitsConsumed": 1,
+    "Outcome": "Extracted",
+    "ActiveSeconds": 25.679067000000032,
+    "PhysicalDistanceMetres": 101.63131357315487,
+    "PlayerDamage": 0,
+    "KillsByYou": 0,
+    "EnvironmentalDamage": 6,
+    "UnknownDamageOverTime": 29,
+    "UnknownWorldDeaths": 1,
+    "FiringActions": 0,
+    "SelectedWeaponTransitions": [
+      {
+        "ActiveTimeSeconds": 0.006897200000366865,
+        "SelectedWeaponId": "duckov:weapon:736"
+      },
+      {
+        "ActiveTimeSeconds": 1.5611924000004365,
+        "SelectedWeaponId": ""
+      },
+      {
+        "ActiveTimeSeconds": 11.455660200000239,
+        "SelectedWeaponId": "duckov:weapon:357"
+      },
+      {
+        "ActiveTimeSeconds": 12.972604900000078,
+        "SelectedWeaponId": "duckov:weapon:736"
+      },
+      {
+        "ActiveTimeSeconds": 15.77985660000013,
+        "SelectedWeaponId": "duckov:weapon:357"
+      },
+      {
+        "ActiveTimeSeconds": 25.679067000000032,
+        "SelectedWeaponId": ""
+      }
+    ]
+  },
+  "Agreement": {
+    "SavedRunEqualsJson": true,
+    "AllFourPriorRunsUnchanged": true,
+    "TargetedCsvMatchesJson": true,
+    "AllCsvStructuresValid": true,
+    "CraftingAndEconomyUnchanged": true,
+    "ReportedBurnKillMatchesPlayerKillTotal": false
+  },
+  "NativeDiagnosis": {
+    "CoreAssemblySha256": "298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f",
+    "Path": "Skill_Grenade assigns grenade thrower/item; Grenade.Explode creates a separate zone prefab. ZoneDamage explicitly clears damageInfo.fromCharacter. Health passes that missing actor to AddBuff and DamageAction repeats the missing Buff.fromWho. Existing UDS records Environmental then Unknown without a grenade-to-clone correlation.",
+    "ExactObservationAvailable": "The managed Object.Instantiate(Object, Vector3, Quaternion) overload exposes the original prefab and exact returned clone while the grenade explosion scope retains its native actor/item.",
+    "IndependentReadOnlyReview": "Confirmed reachable attribution gap; not baseline-impossible. Unknown was conservative for the observed payload, but exact creation provenance can be retained."
+  },
+  "Scope": "Historical failed observation is preserved. No user statistics are reconstructed or repaired. Corrected source and native repeat qualification must be recorded separately.",
+  "EvidenceManifestSha256": "fc5e7c56d0c74926743419b84c309e1a11a5ee41d11d70797c39632a4e60501e",
+  "KeyEvidenceFiles": [
+    {
+      "File": "export/combat_attribution.csv",
+      "Bytes": 88216,
+      "Sha256": "157f4e0a1f8ff836f80e7de346ef2abb2553663cb837bee592da4bde8f64bcfa"
+    },
+    {
+      "File": "export/items.csv",
+      "Bytes": 497,
+      "Sha256": "d52c46198e3c5fd85083f1cde853844077eab16b1e460a4a904c5f86dd848226"
+    },
+    {
+      "File": "export/runs.csv",
+      "Bytes": 3968,
+      "Sha256": "7d4b8169d577d33f8aed8264fb9a2057a7694974bd5fa1a0069aced6dac458f0"
+    },
+    {
+      "File": "export/statistics.json",
+      "Bytes": 825646,
+      "Sha256": "207c9838b732a8a89058fa9e6edec65d3c2fe3652d6dc63a1f7244cb138b0e5c"
+    },
+    {
+      "File": "player-observed.log",
+      "Bytes": 70087,
+      "Sha256": "7b7d50013516d68886f18c293c2209709eb65b049538b0d41e813fd619e9cba4"
+    },
+    {
+      "File": "profile-observed.json",
+      "Bytes": 826972,
+      "Sha256": "c9649b141d4078e53704c407914001e52d3d385f9b0f1d600e4073116e60efd0"
+    }
+  ]
+}

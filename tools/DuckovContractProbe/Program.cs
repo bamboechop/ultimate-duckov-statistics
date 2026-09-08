@@ -201,6 +201,9 @@ try
         core.RequireMethod(string.Empty, "Grenade", "SetWeaponIdInfo", 1, mustBePublic: true, parameterTypeFragments: ["System.Int32"]);
         core.RequireField(string.Empty, "Grenade", "damageInfo", mustBePublic: true, fieldTypeFragment: "DamageInfo");
         core.RequireField(string.Empty, "Grenade", "createExplosion", mustBePublic: true, fieldTypeFragment: "System.Boolean");
+        core.RequireField(string.Empty, "Grenade", "createOnExlode", mustBePublic: true, fieldTypeFragment: "UnityEngine.GameObject");
+        core.RequireMethod(string.Empty, "Grenade", "Launch", 4, mustBePublic: true,
+            returnTypeFragment: "System.Void", parameterTypeFragments: ["UnityEngine.Vector3", "UnityEngine.Vector3", "CharacterMainControl", "System.Boolean"]);
         core.RequireField(string.Empty, "DamageInfo", "fromWeaponItemID", mustBePublic: true, fieldTypeFragment: "System.Int32");
         core.RequireField(string.Empty, "DamageInfo", "fromCharacter", mustBePublic: true, fieldTypeFragment: "CharacterMainControl");
         core.RequireField(string.Empty, "DamageInfo", "isExplosion", mustBePublic: true, fieldTypeFragment: "System.Boolean");
@@ -561,6 +564,13 @@ try
         itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "id", mustBePublic: true, fieldTypeFragment: "System.Int32");
         itemStats.RequireMethod("ItemStatsSystem", "ItemAssetsCollection", "GetPrefab", 1, mustBePublic: true,
             mustBeStatic: true, returnTypeFragment: "ItemStatsSystem.Item", parameterTypeFragments: ["System.Int32"]);
+    }
+
+    using (var unityCore = new AssemblyMetadata(Path.Combine(managedRoot, "UnityEngine.CoreModule.dll")))
+    {
+        unityCore.RequireMethod("UnityEngine", "Object", "Instantiate", 3,
+            mustBePublic: true, mustBeStatic: true, returnTypeFragment: "UnityEngine.Object",
+            parameterTypeFragments: ["UnityEngine.Object", "UnityEngine.Vector3", "UnityEngine.Quaternion"]);
     }
 
     using (var ui = new AssemblyMetadata(unityUiPath))

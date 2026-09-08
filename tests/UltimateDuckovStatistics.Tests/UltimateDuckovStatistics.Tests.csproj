@@ -146,5 +146,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeGrenadeAttribution.cs" Link="ProductionAdapters\NativeGrenadeAttribution.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeGrenadeHazardOrigins.cs" Link="ProductionAdapters\NativeGrenadeHazardOrigins.cs" />
   </ItemGroup>
 </Project>
