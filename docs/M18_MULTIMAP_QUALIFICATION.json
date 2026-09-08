@@ -89,7 +89,8 @@
     "NoRemainingActiveRunCheckpoint": true
   },
   "CorpseObservationScope": "User reports five corpse accesses, with items taken from three. UDS records zero containers and logs corpse exclusion. The diagnostic is throttled by provenance and cannot independently establish the number of accessed or looted corpses; no corpse-count metric is claimed.",
-  "Scope": "This covers ordinary direct-fire weapon switching, a three-visit route and the supplied Runs detail screenshot. Delayed effects/throwables, native death, this run cold reopen, hover detail, full UI/resources/recovery/performance and history soak remain separate.",
+  "Scope": "This covers ordinary direct-fire weapon switching, a three-visit route and the supplied Runs detail screenshot. Delayed effects/throwables, this run cold reopen, hover detail, full UI/resources/recovery/performance and history soak remain separate.",
+  "DeathFollowUp": "Pass separately on slot 1: M18_DEATH_QUALIFICATION.json records the subsequent bow/Spider-Bot death run and confirms this multi-map run remains unchanged.",
   "EvidenceManifestSha256": "27dad527bf745291226a721c9f72a36f9f8e9aae7eac3329547924073b7d7ae3",
   "KeyEvidenceFiles": [
     {

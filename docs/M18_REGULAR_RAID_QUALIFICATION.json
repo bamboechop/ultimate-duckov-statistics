@@ -113,9 +113,9 @@
     }
   ],
   "Remaining": [
-    "Death outcome",
     "Other M18 gameplay/UI/resource/recovery/performance gates"
   ],
+  "DeathFollowUp": "Pass separately on slot 1: M18_DEATH_QUALIFICATION.json records one Nullpunkt Died outcome, one bow kill and Spider-Bot killer attribution.",
   "MultiMapFollowUp": "Pass separately on slot 1: M18_MULTIMAP_QUALIFICATION.json records Lagerbereich to Keller to Lagerbereich as one extracted run with distinct first/return visit attribution.",
   "ColdReopen": "Pass: M18_SAVE_ISOLATION_QUALIFICATION.json records full restart through slot 1 and back to slot 3; both completed runs retain all metrics, with only obsolete Economy replay cursors compacted."
 }
