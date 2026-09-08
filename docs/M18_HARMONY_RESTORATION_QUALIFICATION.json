@@ -168,5 +168,6 @@
   "ReportSha256": "1483bbd6f754d11e8c7e71ce7e661bc2336db7be423dbc187fd451d7cff28e62",
   "FrozenQualificationSha256": "ff18b2e636166d360004cdbb81f43170e7b2740b9161af0087512dab4c126f5d",
   "RootVerification": "All 51 frozen manifest entries independently rehashed before recording this evidence.",
-  "WorldTimeCorrection": "M18_WORLD_TIME_INITIALIZATION.json"
+  "WorldTimeCorrection": "M18_WORLD_TIME_INITIALIZATION.json",
+  "LaterCorrectedWorldTimeQualification": "M18_WORLD_TIME_NATIVE_QUALIFICATION.json"
 }

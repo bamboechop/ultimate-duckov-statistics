@@ -1,7 +1,7 @@
 {
   "SourceCommit": "adb5e706be1cfff93e0b97ece07399df8b9072b8",
   "PreviousInstalledSource": "c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7",
-  "Status": "Automated qualification, immutable review, reproducible packaging and game-closed five-file deployment passed. Later native checks pass for actionable diagnosis, quiet retries, retained statistics/export and Harmony restoration. Overview World time fit failed; corrected initialization needs native acceptance. Diagnostics status-row fit remains unconfirmed.",
+  "Status": "Automated qualification, immutable review, reproducible packaging and game-closed five-file deployment passed. Later native checks pass for actionable diagnosis, quiet retries, retained statistics/export and Harmony restoration. The subsequent World time initialization correction passes the user-confirmed native viewport/resize check. Diagnostics status-row fit remains unconfirmed.",
   "Automated": {
     "MainDebugPassed": 1909,
     "MainReleasePassed": 1909,
@@ -58,7 +58,7 @@
     "ReportSha256": "6a668cf788ec036cf5d1f1467a52037ce5116f78f51b9b7767fb3b4671041e26",
     "Limits": "Native glyph rendering and complete combat behavior with actual Harmony absence await the native repeat."
   },
-  "NativeAcceptance": "M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json preserves the disabled-Harmony diagnosis/export/retry pass. M18_HARMONY_RESTORATION_QUALIFICATION.json confirms all 29 previously disabled capabilities restored, retained sleep and historical gaps, but explicitly disproves earlier broad World time fit acceptance. See M18_WORLD_TIME_INITIALIZATION.json for the follow-up correction; native fit remains pending.",
+  "NativeAcceptance": "M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json preserves the disabled-Harmony diagnosis/export/retry pass. M18_HARMONY_RESTORATION_QUALIFICATION.json confirms all 29 previously disabled capabilities restored, retained sleep and historical gaps, but explicitly disproves earlier broad World time fit acceptance. M18_WORLD_TIME_NATIVE_QUALIFICATION.json records the subsequent corrected viewport/resize pass, retained statistics/export and clean shutdown.",
   "MeasuredPerformance": "No native captures; the new campaign is unqualified.",
   "Campaign": {
     "Path": "artifacts/qualification/adb5e706be1cfff93e0b97ece07399df8b9072b8/campaign.json",
@@ -91,5 +91,6 @@
     "ResultSha256": "236bc461ae5d091a0a60ec5bc28103a8579d110f013b3799879e3b827130d101"
   },
   "NativeRepeatEvidence": "M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json",
-  "LaterQualification": "M18_HARMONY_RESTORATION_QUALIFICATION.json"
+  "LaterQualification": "M18_HARMONY_RESTORATION_QUALIFICATION.json",
+  "LaterWorldTimeQualification": "M18_WORLD_TIME_NATIVE_QUALIFICATION.json"
 }
