@@ -1,0 +1,128 @@
+{
+  "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "Status": "Pass for observed grenade use, two grenade kills after a weapon switch, trap use/damage and saved-profile/JSON/CSV agreement.",
+  "Slot": 1,
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "RunId": "aafcdbbaa23946179bb66aa8e722a206",
+  "NativeRaidId": "202",
+  "BeforeExportId": "20260908T1347229424563Z-063240a5b57647138bc4de0c18179981",
+  "ExportId": "20260908T1357202301683Z-063240a5b57647138bc4de0c18179981",
+  "ExportRevision": 3445,
+  "ObservedProfileRevision": 4058,
+  "UserReported": {
+    "GrenadesThrown": 1,
+    "SwitchedToBeforeExplosion": "SR-3M",
+    "GrenadeDuckKills": 2,
+    "TrapUseConfirmed": true
+  },
+  "Observed": {
+    "Map": "Nullpunkt",
+    "Outcome": "Extracted",
+    "Segments": 1,
+    "ActiveSeconds": 49.89352319999989,
+    "PhysicalDistanceMetres": 249.46437967887374,
+    "Integrity": "Normal",
+    "RecordEligible": true,
+    "KillsByYou": 2,
+    "ThrowableKills": 2,
+    "Grenade": {
+      "ItemId": "duckov:item:67",
+      "WeaponId": "duckov:weapon:67",
+      "DisplayName": "Granate",
+      "Uses": 1,
+      "StackUnitsConsumed": 1,
+      "DamageDealt": 60,
+      "KillsByYou": 2
+    },
+    "Trap": {
+      "ItemId": "duckov:item:100",
+      "WeaponId": "duckov:weapon:100",
+      "DisplayName": "Tierfalle",
+      "Uses": 1,
+      "StackUnitsConsumed": 1,
+      "DamageDealt": 10,
+      "KillsByYou": 0
+    },
+    "FiringActions": 0,
+    "RangedKills": 0,
+    "ObservedWorldDeathsKeptSeparate": 1,
+    "EquipmentAssociation": {
+      "SelectedWeaponId": "duckov:weapon:736",
+      "DamageDealt": 60,
+      "ThrowableKills": 2,
+      "RangedKills": 0,
+      "Meaning": "Equipment selected at impact; the separate combat damage-weapon breakdown attributes both kills to Granate. This does not establish retained grenade launch-time equipment or delayed-buff origin."
+    },
+    "TerminalLoadoutState": "Complete",
+    "UnqualifiedEconomyChange": {
+      "MoneyOutflowSinceBeforeExport": 554,
+      "Source": "UnknownAdjustment",
+      "Context": "Base",
+      "MoneyHeld": 13954,
+      "CashHeld": 60,
+      "Meaning": "Observed separately from this raid, whose currency flows are empty. The user did not provide an action tally for this Money change; no unchanged-currency or semantic-source qualification is claimed."
+    }
+  },
+  "Agreement": {
+    "OneNativeStartAndExtraction": true,
+    "CompleteRunDeepEqualsSavedProfile": true,
+    "AllThreePriorRunsUnchanged": true,
+    "OneGrenadeUseDespiteTwoTargets": true,
+    "BothKillsAttributedToGrenadeAfterSwitch": true,
+    "TrapUseExplainedByUser": true,
+    "NoRifleFiringOrRangedKillCredit": true,
+    "TargetedCsvMetricsMatchJson": true,
+    "All36CsvStructuresValid": true,
+    "CraftingRetained": true,
+    "NoRemainingActiveRunCheckpoint": true
+  },
+  "Scope": "One damaging grenade with two player kills and one damaging trap use. Grenade misses, cancelled preparation, other throwable types and lingering/delayed-buff attribution remain separate. New-run cold reopen, this scenario UI, broader UI/resources/recovery/performance and history soak are not established by this export. The user confirms use of the trap; its exact damage is an exported observation rather than a user-measured value.",
+  "EvidenceManifestSha256": "02fb823c49be9a09dfc1bcab01e53d3dc3dcdce76a0fc73218bdb14fbfddc972",
+  "KeyEvidenceFiles": [
+    {
+      "File": "export/combat_attribution.csv",
+      "Bytes": 77980,
+      "Sha256": "bcdc5c0130d68413491ae55d87e2cb554e3d51a6f1dc8ecdeb03633b5b9be5df"
+    },
+    {
+      "File": "export/equipment_combat.csv",
+      "Bytes": 13239,
+      "Sha256": "fe3f627f9ac18d17e237a04ae25574e2a6279187007e7c6f868e2b4c7a1fa2c6"
+    },
+    {
+      "File": "export/items.csv",
+      "Bytes": 408,
+      "Sha256": "dbec47df37e0e6585150c7acc3ee837ca361005c10f3724e97c0c5bc8556c0e0"
+    },
+    {
+      "File": "export/run_totals.csv",
+      "Bytes": 761,
+      "Sha256": "5f33e8285cf5b7629f7dda6f13c7e224cbd7ae60f7d2c5e3b574693931b2ebfc"
+    },
+    {
+      "File": "export/runs.csv",
+      "Bytes": 3369,
+      "Sha256": "b2a6b80718e0890d24b11a86c173051a9d5873d216cb89c24a0da3bce1dd7bf2"
+    },
+    {
+      "File": "export/statistics.json",
+      "Bytes": 753533,
+      "Sha256": "6d9b517e1a799f7e55051330d5e83100720204630e4f683895243cef0ce5264a"
+    },
+    {
+      "File": "export/terminal_loadouts.csv",
+      "Bytes": 15700,
+      "Sha256": "446427962404898289014d7e558ee3d2e16fd88b1e147b2bc1e92e35a3934b2f"
+    },
+    {
+      "File": "player-observed.log",
+      "Bytes": 59590,
+      "Sha256": "4c198344fb31d93d90b2d800dad8e6708872e24a4d1aa4022bd4bfb629ef5c4c"
+    },
+    {
+      "File": "profile-observed.json",
+      "Bytes": 754824,
+      "Sha256": "bcd06f62542966ded8aea33ae366379e10c2cf81c019229e03d99e31afca259a"
+    }
+  ]
+}
