@@ -48,8 +48,9 @@ namespace UltimateDuckovStatistics.UI
     internal static class NativeHeaderTitleTypographyResolver
     {
         public static NativeHeaderTitleTypography Typography = new();
+        public static bool Unavailable;
         public static bool TryResolve(Canvas canvas, out NativeHeaderTitleTypography typography, out string? error)
-        { typography = Typography; error = null; return true; }
+        { typography = Typography; error = Unavailable ? "Typography unavailable" : null; return !Unavailable; }
     }
     internal sealed class RetainedBackArrowAsset : IDisposable
     {
@@ -79,8 +80,8 @@ namespace UltimateDuckovStatistics.UI
         private ItemUseView? itemUseView;
         private DiagnosticsView? diagnosticsView;
         private PanelModal? modal;
-        public bool ModalVisible => false;
-        public void SyncModal(bool visible, bool hotkey, string label, string warning) { }
+        public bool ModalVisible { get; private set; }
+        public void SyncModal(bool visible, bool hotkey, string label, string warning) { ModalVisible = visible || hotkey; }
         public void MoveModalFocus(bool reverse) { }
         public void RefreshDiagnostics(DiagnosticsPresentation? presentation) => diagnosticsView?.Refresh(presentation);
         public void InvalidateProjection() { }

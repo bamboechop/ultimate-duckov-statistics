@@ -1,6 +1,6 @@
 {
   "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
-  "Status": "Pass for reported tab navigation, scrolling, details/tooltips, 720x480 layout and subsequent corrected-package English/German language switching. Remaining input and measured native resource checks stay open.",
+  "Status": "Pass for reported tab navigation, scrolling, details/tooltips, 720x480 layout, corrected English/German language switching and the requested close/rebind controls. Tab still opens native inventory above UDS; input isolation requires correction. Native resource/performance checks remain open.",
   "Context": {
     "Slot": 1,
     "GenerationId": "063240a5b57647138bc4de0c18179981",
@@ -19,7 +19,7 @@
   "RelatedNumericUiAcceptance": "M18_BURNING_SWITCH_KILL_QUALIFICATION.json separately records the user-confirmed latest Runs values of 35 damage/1 kill and Combat lifetime Brand-Muni values of 56 damage/1 kill.",
   "Deferred": "The user's previously noted empty-state and text-rendering polish remains deferred and is not treated as a new failure of this functional check.",
   "Remaining": [
-    "Complete remaining Back/Escape, keyboard-focus and repeated open/close observations where not already covered by earlier access qualification.",
+    "Correct and repeat native inventory/input isolation while UDS is open, preserving the confirmed navigation, hotkey cancellation and restored controls.",
     "Measure native UI resource behavior and complete the matched performance campaign."
   ],
   "LanguageAndResolutionCheck": {
@@ -52,5 +52,17 @@
     "Evidence": "M18_NATIVE_NAME_QUALIFICATION.json",
     "Retention": "Nine pre-deployment runs and all recorded statistics/names preserved; new export and startup log verified.",
     "Scope": "No new screenshot, tooltip-specific traversal or timing capture supplied for this repeat."
+  },
+  "InputCheck": {
+    "SourceCommit": "7379417ff2aca3939af2d2c4076d00e46bd3ffde",
+    "UserConfirmation": "1-3 confirmed working. Ctrl Tab / Shift Ctrl Tab cycles through the tabs, but pressing Tab while UDS is open still opens the inventory above UDS.",
+    "Passed": [
+      "F8 opens and reopens UDS.",
+      "Ctrl+Tab and Ctrl+Shift+Tab cycle UDS tabs.",
+      "Escape cancels hotkey capture and keeps the panel open.",
+      "Escape then closes the panel and character movement is restored."
+    ],
+    "Finding": "Native inventory input still receives plain Tab and modified Tab while UDS is open; the inventory renders above the UDS shell.",
+    "Disposition": "Confirmed current-baseline input-isolation defect; correction and native repeat required."
   }
 }

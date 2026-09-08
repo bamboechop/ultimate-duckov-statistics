@@ -21,6 +21,7 @@ internal static class DiagnosticsText
         ["ui.diag_profile_writes"] = "Profile writes",
         ["ui.diag_pending_write"] = "Pending",
         ["ui.diag_hotkey_fallback"] = "{0} fallback",
+        ["ui.diag_shortcut_isolation"] = "Inventory, map, quest and reload isolation",
         ["ui.diag_outside_raids"] = "Panel access outside raids",
         ["ui.diag_tracking_error"] = "ONE OR MORE TRACKING SYSTEMS HAVE ERRORS",
         ["ui.diag_tracking_limited"] = "SOME TRACKING SYSTEMS ARE LIMITED",

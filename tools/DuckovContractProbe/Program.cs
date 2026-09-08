@@ -245,6 +245,10 @@ try
         core.RequireProperty(string.Empty, "LevelManager", "MainCharacter", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty(string.Empty, "LevelManager", "PetCharacter", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty(string.Empty, "LevelManager", "PetProxy", "PetProxy", mustBePublic: true);
+        foreach (var shortcut in new[] { "OnUIInventoryInput", "OnUIMapInput", "OnUIQuestViewInput", "OnReloadInput" })
+            core.RequireMethod(string.Empty, "CharacterInputControl", shortcut, 1, mustBePublic: true,
+                mustBeStatic: false, returnTypeFragment: "System.Void",
+                parameterTypeFragments: ["CallbackContext"]);
         core.RequireProperty(string.Empty, "InputManager", "InputActived", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "InputManager", "AimingEnemyHead", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "GameManager", "Paused", "System.Boolean", mustBePublic: true, mustBeStatic: true);

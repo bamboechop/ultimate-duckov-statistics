@@ -22,6 +22,10 @@ On the deployed correction, launch save 3 and export without gameplay. Quit dire
 
 The reported 720x480 layout passed; English exposed saved German entity labels. The [name correction](M18_NATIVE_NAME_CORRECTION.json) is deployed and the user confirms language switching works. [Native repeat evidence](M18_NATIVE_NAME_QUALIFICATION.json) also verifies cold-reopen/profile/export retention. The following procedure is retained for future regressions. On slot 1, open Equipment and Combat in English, then inspect a recorded run's map/route names. Switch back to German and reopen the same views. Names should follow Duckov's current language while counts and durations stay unchanged. Missing native metadata retains its recorded label; UDS interface text remains English. Export once after the check so startup and profile retention can be compared with the preserved pre-deployment snapshot.
 
+## Native shortcut isolation repeat
+
+F8 opening/reopening, Ctrl+Tab cycling, hotkey-capture cancellation and restored movement passed. The user found that Tab still opened Duckov inventory above UDS. The [scoped correction](M18_SHORTCUT_CORRECTION.md) guards inventory, map, quest and reload callbacks while the panel owns input; its native repeat remains open. At base, use F8, test plain Tab and both Ctrl+Tab directions, then the configured map/quest/reload shortcuts. The native actions should stay inactive. Escape should cancel hotkey capture without closing UDS; a second Escape should close UDS. Verify the ordinary native shortcuts and movement after closing. Export after the repeat. Broader deferred input coverage and resource/performance checks remain separate.
+
 ## Persistence, degradation and ownership
 
 - Cold reopen the same current-format profile and verify exact totals/generation. Reinstalling the same package while closed must preserve those totals. A second user-selected save gets its own generation and cannot borrow data.

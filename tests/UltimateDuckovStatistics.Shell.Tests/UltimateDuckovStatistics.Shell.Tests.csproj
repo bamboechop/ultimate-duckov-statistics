@@ -1,11 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <AssemblyVersion>2.4.1.0</AssemblyVersion>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeHotPathDiagnostics.cs" Link="Production/Adapters/NativeHotPathDiagnostics.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/ReflectiveHarmonyPatcher.cs" Link="Production/Adapters/ReflectiveHarmonyPatcher.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/NativePanelShortcutGuard.cs" Link="Production/UI/NativePanelShortcutGuard.cs" />
+    <Compile Include="../Shared/HarmonyBoundaryStubs.cs" Link="HarmonyBoundaryStubs.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/EntityDisplayNames.cs" Link="ProductionUI/EntityDisplayNames.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeEntityDisplayNames.cs" Link="ProductionUI/NativeEntityDisplayNames.cs" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />

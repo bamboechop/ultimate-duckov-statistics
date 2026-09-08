@@ -233,6 +233,143 @@ public sealed class ShellAccessTests : IDisposable
         Assert.Equal("Pending", Writes());
     }
 
+    [Theory]
+    [InlineData("OnUIInventoryInput")]
+    [InlineData("OnUIMapInput")]
+    [InlineData("OnUIQuestViewInput")]
+    [InlineData("OnReloadInput")]
+    public void NativeActionDispatchIsSuppressedOnlyWhileThePanelOwnsInput(string action)
+    {
+        var native = new CharacterInputControl();
+        using var panel = new NativeStatisticsPanel(coordinator);
+        native.Dispatch(action);
+        Assert.Equal(1, native.Calls);
+        for (var cycle = 0; cycle < 3; cycle++)
+        {
+            Press(panel, KeyCode.F8);
+            native.Dispatch(action); native.Dispatch(action, performed: false);
+            Assert.Equal(cycle + 1, native.Calls);
+            var patches = HarmonyLib.Harmony.GetPatchInfo(typeof(CharacterInputControl).GetMethod(action)!)!;
+            Assert.Single(patches.Prefixes);
+            Assert.Equal(NativeMenuIntegrationState.Available, Field<NativePanelShortcutGuard>(panel, "shortcutGuard").State);
+            // The native configured action is guarded, independent of its key binding.
+            Input.Down.Add(KeyCode.LeftControl); Press(panel, KeyCode.Tab);
+            Assert.True(Find("RunsView").activeInHierarchy);
+            Input.Down.Add(KeyCode.LeftControl); Input.Down.Add(KeyCode.LeftShift); Press(panel, KeyCode.Tab);
+            Assert.True(Find("OverviewContentView").activeInHierarchy);
+            native.Dispatch(action);
+            Assert.Equal(cycle + 1, native.Calls);
+            Press(panel, KeyCode.Escape);
+            native.Dispatch(action);
+            Assert.Equal(cycle + 2, native.Calls);
+        }
+        Press(panel, KeyCode.F8);
+        panel.Dispose();
+        native.Dispatch(action);
+        Assert.Equal(5, native.Calls);
+        Assert.Empty(HarmonyLib.Harmony.GetPatchInfo(typeof(CharacterInputControl).GetMethod(action)!)!.Prefixes);
+    }
+
+    [Fact]
+    public void NativeShortcutsStaySuppressedThroughHotkeyAndResetConfirmationModals()
+    {
+        var native = new CharacterInputControl();
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        typeof(NativeStatisticsPanel).GetMethod("BeginHotkeyCapture", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(panel, null);
+        Press(panel, KeyCode.Tab);
+        native.Dispatch("OnUIInventoryInput");
+        Assert.Equal(0, native.Calls);
+        Press(panel, KeyCode.Escape);
+        Assert.True(Find(RetainedDimmerPolicy.RootName).activeInHierarchy);
+        Assert.False(Field<bool>(panel, "capturingHotkey"));
+        Assert.True(Field<PanelOperationController>(panel, "operations").RequestResetConfirmation());
+        panel.Tick();
+        native.Dispatch("OnUIInventoryInput");
+        Assert.Equal(0, native.Calls);
+        Press(panel, KeyCode.Escape);
+        Assert.True(Find(RetainedDimmerPolicy.RootName).activeInHierarchy);
+        Press(panel, KeyCode.Escape);
+        native.Dispatch("OnUIInventoryInput");
+        Assert.Equal(1, native.Calls);
+    }
+
+    [Fact]
+    public void FailedShellConstructionAndDestroyedShellReleaseNativeShortcuts()
+    {
+        var native = new CharacterInputControl();
+        using var panel = new NativeStatisticsPanel(coordinator);
+        NativeHeaderTitleTypographyResolver.Unavailable = true;
+        try { Press(panel, KeyCode.F8); }
+        finally { NativeHeaderTitleTypographyResolver.Unavailable = false; }
+        Assert.DoesNotContain(GameObject.Live, go => go.name == RetainedDimmerPolicy.RootName);
+        Assert.Empty(InputManager.Blocks);
+        native.Dispatch("OnUIInventoryInput");
+        Assert.Equal(1, native.Calls);
+        Press(panel, KeyCode.F8);
+        UnityEngine.Object.Destroy(Find(RetainedDimmerPolicy.RootName));
+        panel.Tick();
+        native.Dispatch("OnUIInventoryInput");
+        Assert.Equal(2, native.Calls);
+        Assert.Empty(InputManager.Blocks);
+    }
+
+    [Fact]
+    public void IncompatibleShortcutPatchLeavesDiagnosticsAccessibleAndForeignOwnerUntouched()
+    {
+        var method = typeof(CharacterInputControl).GetMethod("OnUIInventoryInput")!;
+        var foreign = new HarmonyLib.Harmony("fixture.foreign.shortcuts");
+        foreign.Patch(method, new HarmonyLib.HarmonyMethod(typeof(ShellAccessTests).GetMethod(nameof(ForeignShortcut), System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!), null, null, null);
+        try
+        {
+            using var panel = new NativeStatisticsPanel(coordinator);
+            Press(panel, KeyCode.F8);
+            Find("DiagnosticsTab").GetComponent<Button>().onClick.Invoke();
+            Assert.True(Find("DiagnosticsView").activeInHierarchy);
+            Assert.Equal(NativeMenuIntegrationState.Unavailable, Field<NativePanelShortcutGuard>(panel, "shortcutGuard").State);
+            var menu = Field<DiagnosticsPresentation>(panel, "diagnostics").Systems.Single(s => s.Id == "menu");
+            Assert.Equal(DiagnosticsHealth.Limited, menu.Health);
+            Assert.Contains(menu.ExtraRows, row => row.Label.Contains("reload", StringComparison.Ordinal) && row.Value == "Unavailable");
+            for (var tick = 0; tick < 100; tick++) panel.Tick();
+            Assert.Single(coordinator.Reports, report => report.Contains("shortcut isolation unavailable", StringComparison.Ordinal));
+            panel.Dispose();
+            Assert.Equal("fixture.foreign.shortcuts", Assert.Single(HarmonyLib.Harmony.GetPatchInfo(method)!.Prefixes).owner);
+        }
+        finally { foreign.UnpatchAll("fixture.foreign.shortcuts"); }
+    }
+
+    [Fact]
+    public void RemovedGuardIsReportedAndFailedCleanupLeavesCallbacksPassiveUntilNextActivationRetries()
+    {
+        var native = new CharacterInputControl();
+        var panel = new NativeStatisticsPanel(coordinator);
+        try
+        {
+            Press(panel, KeyCode.F8);
+            new HarmonyLib.Harmony("fixture.remove").UnpatchAll("at.bamboechop.ultimate-duckov-statistics.panel-shortcuts");
+            panel.Tick();
+            Assert.Equal(NativeMenuIntegrationState.Unavailable, Field<NativePanelShortcutGuard>(panel, "shortcutGuard").State);
+            Assert.Contains(coordinator.Reports, report => report.Contains("patch state changed", StringComparison.Ordinal));
+        }
+        finally { panel.Dispose(); }
+        using var replacement = new NativeStatisticsPanel(coordinator);
+        Press(replacement, KeyCode.F8);
+        HarmonyLib.Harmony.FailNextUnpatches(1);
+        replacement.Dispose();
+        native.Dispatch("OnUIInventoryInput");
+        Assert.Equal(1, native.Calls);
+        using var retry = new NativeStatisticsPanel(coordinator);
+        Press(retry, KeyCode.F8);
+        Assert.Equal(NativeMenuIntegrationState.Available, Field<NativePanelShortcutGuard>(retry, "shortcutGuard").State);
+        Assert.Single(HarmonyLib.Harmony.GetPatchInfo(typeof(CharacterInputControl).GetMethod("OnUIInventoryInput")!)!.Prefixes);
+        native.Dispatch("OnUIInventoryInput");
+        Assert.Equal(1, native.Calls);
+    }
+
+    private static bool ForeignShortcut() => true;
+    private static T Field<T>(NativeStatisticsPanel panel, string name) => (T)typeof(NativeStatisticsPanel)
+        .GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(panel)!;
+
     private static void PreparePauseMenu(Canvas host)
     {
         var menu = new GameObject("Menu"); menu.transform.SetParent(host.transform);

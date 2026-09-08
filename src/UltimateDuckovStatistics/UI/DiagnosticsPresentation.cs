@@ -22,6 +22,7 @@ internal sealed class DiagnosticsRuntimeSnapshot
     public ProfileOpenResult? OpenResult { get; set; }
     public NativeMenuIntegrationState MainMenu { get; set; }
     public NativeMenuIntegrationState BaseMenu { get; set; }
+    public NativeMenuIntegrationState ShortcutIsolation { get; set; }
     public IReadOnlyList<DiagnosticEntry> Entries { get; set; } = Array.Empty<DiagnosticEntry>();
     public bool TransitionPending { get; set; }
 }
@@ -172,11 +173,12 @@ internal static class DiagnosticsPresentationFactory
             NativeMenuIntegrationState.Unavailable => DiagnosticsHealth.Limited,
             _ => null
         };
-        systems.Add(new DiagnosticsSystem("menu", t("ui.menu_access"), menuUnavailable ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working,
+        systems.Add(new DiagnosticsSystem("menu", t("ui.menu_access"), menuUnavailable || runtime.ShortcutIsolation == NativeMenuIntegrationState.Unavailable ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working,
             Array.Empty<DiagnosticsCapability>(), new[] {
                 new DiagnosticsValue(t("ui.main_menu_entry"), MenuState(runtime.MainMenu), MenuHealth(runtime.MainMenu)),
                 new DiagnosticsValue(t("ui.base_pause_entry"), MenuState(runtime.BaseMenu), MenuHealth(runtime.BaseMenu)),
                 new DiagnosticsValue(string.Format(CultureInfo.CurrentCulture, t("ui.diag_hotkey_fallback"), runtime.Hotkey), t("ui.working"), DiagnosticsHealth.Working),
+                new DiagnosticsValue(t("ui.diag_shortcut_isolation"), MenuState(runtime.ShortcutIsolation), MenuHealth(runtime.ShortcutIsolation)),
                 new DiagnosticsValue(t("ui.diag_outside_raids"), t("ui.working"), DiagnosticsHealth.Working)
             }));
         systems = systems.OrderBy(s => Array.IndexOf(DiagnosticsCapabilityCatalog.GroupOrder.ToArray(), s.Id)).ToList();

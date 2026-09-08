@@ -13,6 +13,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private static readonly KeyCode[] HotkeyCandidates = (KeyCode[])Enum.GetValues(typeof(KeyCode));
     private readonly NativeProfileCoordinator coordinator;
     private readonly NativeUiIntegration nativeUi;
+    private readonly NativePanelShortcutGuard shortcutGuard;
     private readonly NativeEntityDisplayNames entityNames = new();
     private readonly RetainedStatisticsShell shell = new();
     private readonly RetainedShellLifecycleState lifecycle = new();
@@ -38,7 +39,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private bool diagnosticWriteFailed;
     private DiagnosticEntry? lastDiagnosticEntry;
     private int diagnosticCount = -1;
-    private NativeMenuIntegrationState lastMainMenu, lastBaseMenu;
+    private NativeMenuIntegrationState lastMainMenu, lastBaseMenu, lastShortcutState;
     private bool capturingHotkey;
     private string hotkeyWarning = "";
     private int hotkeyCaptureFrame;
@@ -46,6 +47,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     public NativeStatisticsPanel(NativeProfileCoordinator coordinator)
     {
         this.coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
+        shortcutGuard = new NativePanelShortcutGuard(message => coordinator.ReportUiDiagnostic(message, "Warning"));
         settingsPath = Path.Combine(coordinator.DataRoot, "settings.json");
         LoadSettings();
         nativeUi = new NativeUiIntegration(coordinator, RequestOpen, HandleSurfaceClosed);
@@ -107,6 +109,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
         if (lifecycle.IsOpen)
         {
+            shortcutGuard.Refresh();
             RefreshDiagnostics();
             shell.SyncModal(operations.ModalVisible, capturingHotkey, diagnostics?.ProfileLabel ?? UiText.Get("ui.unavailable"), hotkeyWarning);
         }
@@ -274,6 +277,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         OpenResult = coordinator.LastOpenResult,
         MainMenu = nativeUi.MainMenuState,
         BaseMenu = nativeUi.BasePauseMenuState,
+        ShortcutIsolation = shortcutGuard.State,
         Entries = coordinator.DiagnosticEntries,
         TransitionPending = coordinator.HasPendingProfileTransition
     };
@@ -287,13 +291,15 @@ internal sealed class NativeStatisticsPanel : IDisposable
         if (!force && diagnosticsRevision == revision && diagnosticReceipt == coordinator.LastSaveReceipt
             && diagnosticWriteFailed == coordinator.HasProfilePersistenceFailure
             && lastDiagnosticEntry == newest && diagnosticCount == entries.Count
-            && lastMainMenu == nativeUi.MainMenuState && lastBaseMenu == nativeUi.BasePauseMenuState) return;
+            && lastMainMenu == nativeUi.MainMenuState && lastBaseMenu == nativeUi.BasePauseMenuState
+            && lastShortcutState == shortcutGuard.State) return;
         diagnostics = DiagnosticsPresentationFactory.Create(presentedProjection, coordinator.CurrentGenerationId, CaptureDiagnosticsRuntime());
         shell.RefreshDiagnostics(diagnostics);
         diagnosticsRevision = revision; diagnosticReceipt = coordinator.LastSaveReceipt;
         diagnosticWriteFailed = coordinator.HasProfilePersistenceFailure;
         lastDiagnosticEntry = newest; diagnosticCount = entries.Count;
         lastMainMenu = nativeUi.MainMenuState; lastBaseMenu = nativeUi.BasePauseMenuState;
+        lastShortcutState = shortcutGuard.State;
     }
 
     private void HandleOperationNotice(PanelOperationNotice notice)
@@ -417,6 +423,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         priorCursorLockMode = Cursor.lockState;
         priorSelectedGameObject = GameManager.EventSystem?.currentSelectedGameObject;
         cursorStateCaptured = true;
+        shortcutGuard.SetOpen(true);
         UIInputManager.OnCancelEarly += ConsumeNativeCancel;
         blockedInputManager = LevelManager.Instance?.InputManager;
         if (blockedInputManager != null)
@@ -431,6 +438,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
     private void RestoreFocusAndCursor()
     {
+        shortcutGuard.SetOpen(false);
         UIInputManager.OnCancelEarly -= ConsumeNativeCancel;
         if (inputBlockSource != null)
         {
@@ -494,6 +502,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         shell.Dispose();
         nativeUi.Dispose();
         entityNames.Dispose();
+        shortcutGuard.Dispose();
         RestoreFocusAndCursor();
         disposed = true;
     }
