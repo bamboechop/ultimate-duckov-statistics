@@ -18,6 +18,10 @@ Passed on save 3 at `2026-09-08T12:16:32.6951840Z` with cold-restart export afte
 
 On the deployed correction, launch save 3 and export without gameplay. Quit directly from the base pause menu, relaunch the same save and export again. The generation, completed run, Cash holdings and lifetime Cash flow totals must be unchanged. The existing erroneous 58 Cash outflow remains in the preserved baseline; the correction must not add another outflow. Compare the two exports and shutdown log against [the correction evidence](M18_DIRECT_QUIT_CASH_CORRECTION.json).
 
+## Current-language names repeat
+
+The reported 720x480 layout passed; English exposed saved German entity labels. The [name correction](M18_NATIVE_NAME_CORRECTION.json) is deployed and still needs native acceptance. On slot 1, open Equipment and Combat in English, then inspect a recorded run's map/route names. Switch back to German and reopen the same views. Names should follow Duckov's current language while counts and durations stay unchanged. Missing native metadata retains its recorded label; UDS interface text remains English. Export once after the check so startup and profile retention can be compared with the preserved pre-deployment snapshot.
+
 ## Persistence, degradation and ownership
 
 - Cold reopen the same current-format profile and verify exact totals/generation. Reinstalling the same package while closed must preserve those totals. A second user-selected save gets its own generation and cannot borrow data.

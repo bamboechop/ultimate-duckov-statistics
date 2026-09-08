@@ -1,0 +1,87 @@
+{
+  "SourceCommit": "7379417ff2aca3939af2d2c4076d00e46bd3ffde",
+  "PreviousInstalledSource": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
+  "Status": "Automated validation, independent immutable review, reproducible package and game-closed deployment passed. Native English/German name repeat remains pending.",
+  "Automated": {
+    "MainDebugPassed": 1908,
+    "MainReleasePassed": 1908,
+    "ShellDebugPassed": 20,
+    "ShellReleasePassed": 20,
+    "GameClosedTestsPendingPerConfiguration": 0,
+    "NewPresentationRegressions": 8,
+    "NewNativeBoundaryAndShellCases": 9,
+    "NativeBuilds": "Debug/Release, zero warnings/errors",
+    "FormatAnalyzers": "Pass",
+    "InstalledNativeContractProbe": "Pass, including new metadata/localization accessors",
+    "GameClosedTestsPassedPerConfiguration": 2
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687616,
+      "Sha256": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1114112,
+      "Sha256": "66ee65d97ad951618bbfd8d5c4994724f7ef41ee4ca868b2e5eb47724ca40254"
+    }
+  ],
+  "Package": {
+    "Path": "artifacts/candidates/7379417ff2aca3939af2d2c4076d00e46bd3ffde/UltimateDuckovStatistics",
+    "ZipBytes": 629573,
+    "ZipSha256": "8a25788e57a8a25c85935d81c4aedca4df9b5ee9783e6ba1437b9932c63da76e",
+    "ReproducibilityResult": "artifacts/reproducibility/7379417ff2aca3939af2d2c4076d00e46bd3ffde-14031df5be8c4f2e82eee2b77b2469d8/result.json",
+    "IndependentRootsAndOrdinaryCheckoutMatch": true
+  },
+  "NativeAcceptance": "Pending English/German entity-name repeat; previous 720x480 layout pass is documented separately.",
+  "MeasuredPerformance": "No native captures; campaign remains unqualified.",
+  "Review": {
+    "Range": "af81785a8033d9ca676222fdb6902138ffe7a444..7379417ff2aca3939af2d2c4076d00e46bd3ffde",
+    "Verdict": "Pass; no actionable P1/P2 after full 29-file correction and native production-composition review.",
+    "Limits": "Missing or ambiguous identities and unproven immediate parents retain recorded labels; same-language metadata overrides refresh on reopen. Native acceptance remains pending."
+  },
+  "Deployment": {
+    "Result": "Pass for corrected package deployment and byte-for-byte data preservation; native reopen and English/German name checks remain pending.",
+    "SourceCommit": "7379417ff2aca3939af2d2c4076d00e46bd3ffde",
+    "StartedUtc": "2026-09-08T16:24:58.5903587Z",
+    "VerifiedUtc": "2026-09-08T16:24:59.5750981Z",
+    "DuckovClosedDuringDeployment": true,
+    "FiveInstalledFileHashesMatch": true,
+    "PreviousInstalledSource": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
+    "ExactInstalledFileCount": 5,
+    "AllUdsDataFilesUnchanged": 2014,
+    "V1DataFilesUnchanged": 758,
+    "PreV1AndOtherUdsDataFilesUnchanged": 1256,
+    "VerifiedPriorBackupId": "b968ea8317b840a5aa451acfa17a594a",
+    "TransactionResidue": false,
+    "InstalledHashes": {
+      "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+      "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+      "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+      "UltimateDuckovStatistics.Core.dll": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549",
+      "UltimateDuckovStatistics.dll": "66ee65d97ad951618bbfd8d5c4994724f7ef41ee4ca868b2e5eb47724ca40254"
+    }
+  },
+  "Campaign": {
+    "Path": "artifacts/qualification/7379417ff2aca3939af2d2c4076d00e46bd3ffde/campaign.json",
+    "Sha256": "376e1cd2fe50a97f174e49a937905f2498c6a80bb9c903d2fcd1064c8105a3e8",
+    "NativeCaptures": 0
+  },
+  "CoreDllUnchangedFromPreviousDeployment": true
+}
