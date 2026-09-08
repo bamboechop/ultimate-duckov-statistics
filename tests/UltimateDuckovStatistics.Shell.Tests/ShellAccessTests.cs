@@ -183,6 +183,23 @@ public sealed class ShellAccessTests : IDisposable
         Assert.Equal(NativeMenuIntegrationState.Available, integration.BasePauseMenuState);
     }
 
+    [Fact]
+    public void WriterFailureRefreshesDiagnosticsWithoutANewRevisionReceiptOrLogEntry()
+    {
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        DiagnosticsPresentation Snapshot() => (DiagnosticsPresentation)typeof(NativeStatisticsPanel)
+            .GetField("diagnostics", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(panel)!;
+        string Writes() => Assert.Single(Snapshot().Systems.Single(s => s.Id == "storage").ExtraRows).Value;
+        Assert.Equal("Pending", Writes());
+        coordinator.HasProfilePersistenceFailure = true;
+        panel.Tick();
+        Assert.Equal("Error", Writes());
+        coordinator.HasProfilePersistenceFailure = false;
+        panel.Tick();
+        Assert.Equal("Pending", Writes());
+    }
+
     private static void PreparePauseMenu(Canvas host)
     {
         var menu = new GameObject("Menu"); menu.transform.SetParent(host.transform);

@@ -34,6 +34,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private DiagnosticsPresentation? diagnostics;
     private long presentedRevision = -1, diagnosticsRevision = -1;
     private ProfileSaveReceipt? diagnosticReceipt;
+    private bool diagnosticWriteFailed;
     private DiagnosticEntry? lastDiagnosticEntry;
     private int diagnosticCount = -1;
     private NativeMenuIntegrationState lastMainMenu, lastBaseMenu;
@@ -263,6 +264,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         GameVersion = Application.version,
         OpenDetail = coordinator.LastOpenStatus,
         SaveReceipt = coordinator.LastSaveReceipt,
+        ProfilePersistenceFailed = coordinator.HasProfilePersistenceFailure,
         OpenResult = coordinator.LastOpenResult,
         MainMenu = nativeUi.MainMenuState,
         BaseMenu = nativeUi.BasePauseMenuState,
@@ -277,11 +279,13 @@ internal sealed class NativeStatisticsPanel : IDisposable
         var newest = entries.Count > 0 ? entries[entries.Count - 1] : null;
         var revision = coordinator.Current?.Revision ?? -1;
         if (!force && diagnosticsRevision == revision && diagnosticReceipt == coordinator.LastSaveReceipt
+            && diagnosticWriteFailed == coordinator.HasProfilePersistenceFailure
             && lastDiagnosticEntry == newest && diagnosticCount == entries.Count
             && lastMainMenu == nativeUi.MainMenuState && lastBaseMenu == nativeUi.BasePauseMenuState) return;
         diagnostics = DiagnosticsPresentationFactory.Create(presentedProjection, coordinator.CurrentGenerationId, CaptureDiagnosticsRuntime());
         shell.RefreshDiagnostics(diagnostics);
         diagnosticsRevision = revision; diagnosticReceipt = coordinator.LastSaveReceipt;
+        diagnosticWriteFailed = coordinator.HasProfilePersistenceFailure;
         lastDiagnosticEntry = newest; diagnosticCount = entries.Count;
         lastMainMenu = nativeUi.MainMenuState; lastBaseMenu = nativeUi.BasePauseMenuState;
     }

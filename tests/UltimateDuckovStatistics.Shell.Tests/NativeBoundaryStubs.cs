@@ -22,6 +22,7 @@ namespace UltimateDuckovStatistics.Adapters
         public CraftingMetricCapabilities CurrentCraftingCapabilities { get; } = new();
         public WorldTimeMetricCapabilities CurrentWorldTimeCapabilities { get; } = new();
         public ProfileSaveReceipt? LastSaveReceipt => null;
+        public bool HasProfilePersistenceFailure { get; set; }
         public ProfileOpenResult? LastOpenResult => null;
         public string LastOpenStatus => "Isolated current-format fixture";
         public IReadOnlyList<DiagnosticEntry> DiagnosticEntries => Array.Empty<DiagnosticEntry>();

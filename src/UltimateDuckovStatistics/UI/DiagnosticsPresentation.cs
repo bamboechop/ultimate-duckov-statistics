@@ -18,6 +18,7 @@ internal sealed class DiagnosticsRuntimeSnapshot
     public string GameVersion { get; set; } = "";
     public string OpenDetail { get; set; } = "";
     public ProfileSaveReceipt? SaveReceipt { get; set; }
+    public bool ProfilePersistenceFailed { get; set; }
     public ProfileOpenResult? OpenResult { get; set; }
     public NativeMenuIntegrationState MainMenu { get; set; }
     public NativeMenuIntegrationState BaseMenu { get; set; }
@@ -148,7 +149,7 @@ internal static class DiagnosticsPresentationFactory
                 var receipt = runtime.SaveReceipt;
                 var saved = receipt?.GenerationId == generation;
                 var pending = !saved || receipt!.Revision < profile.Revision;
-                var failedWrite = entries.Any(e => e.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase)
+                var failedWrite = runtime.ProfilePersistenceFailed || entries.Any(e => e.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase)
                     && IsPersistenceFailure(e.Message) && (!saved || e.TimestampUtc > receipt!.SavedUtc));
                 // Deferred updates (including the normal world-time save cadence) are
                 // pending data, not degraded storage. A matching receipt still proves

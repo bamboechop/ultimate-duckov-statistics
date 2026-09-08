@@ -157,6 +157,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public ProfileSaveReceipt? LastSaveReceipt => repository?.LastSaveReceipt;
 
+    public bool HasProfilePersistenceFailure => profileWriter.HasFailure;
+
     public long CompletedUserResetVersion { get; private set; }
 
     public string LastCompletedUserResetGeneration { get; private set; } = string.Empty;

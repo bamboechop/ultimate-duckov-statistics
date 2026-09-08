@@ -398,6 +398,73 @@ public sealed class RetainedDiagnosticsTests
     }
 
     [Fact]
+    public void RepeatedWriteFailureAfterRecoveryRemainsErrorWhenItsDiagnosticIsThrottled()
+    {
+        using var directory = new TemporaryDirectory();
+        var priorDataPath = UnityEngine.Application.persistentDataPath;
+        UnityEngine.Application.persistentDataPath = directory.Path;
+        Saves.SavesSystem.ResetNativeState();
+        try
+        {
+            var seconds = 0d;
+            using var coordinator = new NativeProfileCoordinator(() => seconds);
+            coordinator.Initialize();
+            void ChangeWorldTime()
+            {
+                Assert.True(coordinator.HandleWorldTime(new WorldTimeMutation(0, TimeSpan.TicksPerSecond, 0, 0)));
+                Assert.True(coordinator.RequestWorldTimePersistence());
+            }
+            DeferredWriteState CompleteWrite()
+            {
+                var state = coordinator.TickProfilePersistence();
+                Assert.True(SpinWait.SpinUntil(() =>
+                {
+                    if (state != DeferredWriteState.Pending) return true;
+                    state = coordinator.TickProfilePersistence();
+                    return state != DeferredWriteState.Pending;
+                }, TimeSpan.FromSeconds(5)));
+                return state;
+            }
+            int FailureEntries() => coordinator.DiagnosticEntries.Count(e => e.Message.StartsWith("Failed to persist deferred profile snapshot", StringComparison.Ordinal));
+            ChangeWorldTime();
+            using (var held = new FileStream(coordinator.CurrentProfilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                Assert.Equal(DeferredWriteState.Failed, CompleteWrite());
+            Assert.Equal(1, FailureEntries());
+            seconds = 1;
+            Assert.Equal(DeferredWriteState.Succeeded, CompleteWrite());
+            Assert.Equal(coordinator.Current!.Revision, coordinator.LastSaveReceipt!.Revision);
+            var saved = coordinator.LastSaveReceipt;
+            seconds = 2;
+            ChangeWorldTime();
+            try
+            {
+                using var held = new FileStream(coordinator.CurrentProfilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                Assert.Equal(DeferredWriteState.Failed, CompleteWrite());
+                Assert.Equal(1, FailureEntries());
+                Assert.Same(saved, coordinator.LastSaveReceipt);
+                var runtime = Runtime(coordinator.CurrentGenerationId);
+                runtime.SaveReceipt = coordinator.LastSaveReceipt;
+                runtime.ProfilePersistenceFailed = coordinator.HasProfilePersistenceFailure;
+                runtime.Entries = coordinator.DiagnosticEntries;
+                var storage = Assert.Single(Present(coordinator.Current, runtime).Systems, s => s.Id == "storage");
+                Assert.Equal(DiagnosticsHealth.Error, storage.Health);
+                Assert.Equal("Error", Assert.Single(storage.ExtraRows).Value);
+            }
+            finally
+            {
+                seconds = 3;
+                Assert.Equal(DeferredWriteState.Succeeded, CompleteWrite());
+                Assert.False(coordinator.HasProfilePersistenceFailure);
+            }
+        }
+        finally
+        {
+            Saves.SavesSystem.ResetNativeState();
+            UnityEngine.Application.persistentDataPath = priorDataPath;
+        }
+    }
+
+    [Fact]
     public void RepairAndArithmeticEvidenceAppearWithoutChangingIndependentWorkingContracts()
     {
         var profile = Profile(); profile.Statistics.Crafting.WasRepairedFromInvalidState = true;
