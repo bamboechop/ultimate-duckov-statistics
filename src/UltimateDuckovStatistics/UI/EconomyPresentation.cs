@@ -120,11 +120,11 @@ internal static class EconomyPresentationFactory
         var recent = p.RecentEconomyRuns.OrderByDescending(r => r.EndedUtc).ThenBy(r => r.RunId, StringComparer.Ordinal).Select(r =>
         {
             var route = r.Segments.OrderBy(s => s.SegmentIndex).ToArray();
-            string Map(bool known, string name) => known && !string.IsNullOrWhiteSpace(name) ? name : t("ui.overview_latest_run_unknown_map");
-            var title = route.Length == 0 ? Map(r.StartingMapKnown || r.StartingMapKnown, r.StartingMapKnown ? r.StartingMapDisplayName : r.StartingMapDisplayName)
-                : Map(route[0].MapKnown, route[0].MapDisplayName);
+            string Map(bool known, string id, string name) => known && !string.IsNullOrWhiteSpace(name) ? p.Names.Get(id, name) : t("ui.overview_latest_run_unknown_map");
+            var title = route.Length == 0 ? Map(r.StartingMapKnown, r.StartingMapId, r.StartingMapDisplayName)
+                : Map(route[0].MapKnown, route[0].MapId, route[0].MapDisplayName);
             if (route.Length > 1 && route[0].MapId != route[route.Length - 1].MapId)
-                title += " - " + Map(route[route.Length - 1].MapKnown, route[route.Length - 1].MapDisplayName);
+                title += " - " + Map(route[route.Length - 1].MapKnown, route[route.Length - 1].MapId, route[route.Length - 1].MapDisplayName);
             var exactMaps = !r.RouteWasRepairedFromInvalidState && route.Length > 0
                 && r.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
                 && r.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported && route.All(s => s.MapKnown);

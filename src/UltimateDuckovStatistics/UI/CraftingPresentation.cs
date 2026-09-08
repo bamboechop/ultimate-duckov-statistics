@@ -78,8 +78,12 @@ internal static class CraftingPresentationFactory
     {
         if (p == null || string.IsNullOrWhiteSpace(generation) || p.CraftingBinding?.Matches(p, generation) != true) return null;
         var t = text ?? UiText.Get; var a = p.Crafting; var c = p.CraftingCapabilities;
-        string Name(string id, string name) => string.IsNullOrWhiteSpace(name) || name == id
-            ? string.Format(CultureInfo.CurrentCulture, t("ui.crafting_unknown_item"), id) : name.Trim();
+        string Name(string id, string name)
+        {
+            name = p.Names.Get(id, name);
+            return string.IsNullOrWhiteSpace(name) || name == id
+                ? string.Format(CultureInfo.CurrentCulture, t("ui.crafting_unknown_item"), id) : name.Trim();
+        }
         var outputSupported = Supported(c.CompletionActions) && Supported(c.OutputIdentity);
         var resourceSupported = Supported(c.ItemResourceIdentity);
         var associationSupported = Supported(c.OutputResourceAssociation);

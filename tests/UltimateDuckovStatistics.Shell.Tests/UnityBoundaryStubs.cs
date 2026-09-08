@@ -209,12 +209,53 @@ namespace SodaCraft.Localizations
 {
     public static class LocalizationManager
     {
+        public static bool Initialized = true;
+        public static object? DataModel = new();
+        public static UnityEngine.SystemLanguage CurrentLanguage { get; private set; }
+        public static event Action<UnityEngine.SystemLanguage>? OnSetLanguage;
+        public static int Listeners => OnSetLanguage?.GetInvocationList().Length ?? 0;
+        public static readonly Dictionary<(UnityEngine.SystemLanguage, string), string> Translations = new();
+        public static int Reads;
+        public static void SetLanguage(UnityEngine.SystemLanguage language)
+        { CurrentLanguage = language; OnSetLanguage?.Invoke(language); }
         private static readonly Dictionary<string, string> Overrides = new();
         public static void SetOverrideText(string key, string text) => Overrides[key] = text;
         public static void RemoveOverrideText(string key) => Overrides.Remove(key);
-        public static string GetPlainText(string key) => Overrides.GetValueOrDefault(key, key);
+        public static string GetPlainText(string key)
+        { Reads++; return Overrides.GetValueOrDefault(key, Translations.GetValueOrDefault((CurrentLanguage, key), "*" + key.Trim() + "*")); }
     }
 }
 namespace Duckov.UI { public static class NotificationText { public static readonly List<string> Messages = new(); public static void Push(string message) => Messages.Add(message); } }
-namespace Duckov.Utilities { public static class GameplayDataSettings { public static UiStyle UIStyle { get; } = new(); } public sealed class UiStyle { public UnityEngine.Sprite? FallbackItemIcon; } }
-namespace ItemStatsSystem { public static class ItemAssetsCollection { public static (int id, UnityEngine.Sprite? icon) GetMetaData(int typeId) => (typeId, null); } }
+namespace Duckov.Utilities
+{
+    public static class GameplayDataSettings
+    {
+        public static UiStyle UIStyle { get; } = new();
+        public static ItemAssets ItemAssets { get; } = new();
+        public static CharacterRandomPresetData? CharacterRandomPresetData { get; set; } = new();
+    }
+    public sealed class ItemAssets { public int DefaultCharacterItemTypeID = 1; }
+    public sealed class CharacterRandomPresetData { public List<CharacterRandomPreset> presets = new(); }
+    public sealed class UiStyle { public UnityEngine.Sprite? FallbackItemIcon; }
+}
+public sealed class CharacterRandomPreset { public string nameKey = "", name = ""; }
+public sealed class SceneInfoEntry { public string ID = "", DisplayNameRaw = ""; }
+public static class SceneInfoCollection
+{
+    public static readonly Dictionary<string, SceneInfoEntry> Scenes = new();
+    public static SceneInfoEntry? GetSceneInfo(string id) => Scenes.GetValueOrDefault(id);
+}
+namespace UnityEngine { public enum SystemLanguage { English, German } }
+namespace ItemStatsSystem
+{
+    public sealed class ItemMetaData { public int id; public string DisplayNameKey = ""; public UnityEngine.Sprite? icon; }
+    public sealed class Item { public int TypeID; public List<Items.Slot>? Slots; }
+    public static class ItemAssetsCollection
+    {
+        public static readonly Dictionary<int, ItemMetaData> Metadata = new();
+        public static readonly Dictionary<int, Item> Prefabs = new();
+        public static ItemMetaData GetMetaData(int typeId) => Metadata.GetValueOrDefault(typeId, new());
+        public static Item? GetPrefab(int typeId) => Prefabs.GetValueOrDefault(typeId);
+    }
+}
+namespace ItemStatsSystem.Items { public sealed class Slot { public string Key = "", DisplayName = ""; } }

@@ -12,6 +12,39 @@ namespace UltimateDuckovStatistics.Shell.Tests;
 
 public sealed class ShellAccessTests : IDisposable
 {
+    [Fact]
+    public void OpenShellRefreshesNativeMapNameOnLanguageChangeAndReopenWithoutProfileMutation()
+    {
+        var run = new UltimateDuckovStatistics.Core.Domain.RunSummary
+        {
+            RunId = "localized-run",
+            SaveGenerationId = coordinator.CurrentGenerationId,
+            StartingMapId = "duckov:map:Scene_Zero",
+            StartingMapDisplayName = "Nullpunkt",
+            StartingMapKnown = true,
+            Outcome = UltimateDuckovStatistics.Core.Domain.RunOutcome.Extracted
+        };
+        coordinator.Current.Statistics.Runs.Add(run);
+        SceneInfoCollection.Scenes["Scene_Zero"] = new() { ID = "Scene_Zero", DisplayNameRaw = "MapZero" };
+        SodaCraft.Localizations.LocalizationManager.Translations[(SystemLanguage.English, "MapZero")] = "Ground Zero";
+        SodaCraft.Localizations.LocalizationManager.Translations[(SystemLanguage.German, "MapZero")] = "Nullpunkt";
+        SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
+        var original = System.Text.Json.JsonSerializer.Serialize(coordinator.Current);
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        bool Has(string value) => GameObject.Live.SelectMany(go => go.GetComponents<TextMeshProUGUI>()).Any(t => t.text == value);
+        Assert.True(Has("Ground Zero"));
+        SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.German);
+        panel.Tick();
+        Assert.True(Has("Nullpunkt")); Assert.False(Has("Ground Zero"));
+        Press(panel, KeyCode.Escape);
+        SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
+        Press(panel, KeyCode.F8);
+        Assert.True(Has("Ground Zero"));
+        Assert.Equal(original, System.Text.Json.JsonSerializer.Serialize(coordinator.Current));
+        SceneInfoCollection.Scenes.Clear(); SodaCraft.Localizations.LocalizationManager.Translations.Clear();
+    }
+
     private readonly string fixtureRoot = Path.Combine(Path.GetTempPath(), "uds-shell-" + Guid.NewGuid().ToString("N"));
     private readonly NativeProfileCoordinator coordinator;
     private readonly Canvas canvas;

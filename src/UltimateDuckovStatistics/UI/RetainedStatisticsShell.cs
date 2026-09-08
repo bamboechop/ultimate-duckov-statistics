@@ -787,7 +787,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             headingMaterial);
         var latestRunMapPresentation = RetainedLatestRunMapPresentationFactory.Create(
             runBadgePresentation,
-            UiText.Get);
+            UiText.Get, projection.Names);
         latestRunMapName = CreateOverviewLatestRunMapName(
             latestRunCardRect,
             latestRunMapPresentation,

@@ -2820,6 +2820,19 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
+    public void CurrentLanguageResolvesOverviewItemHighlightsAndKeepsMissingNameFallback()
+    {
+        var weapon = CreateWeaponRankingProjection(("duckov:weapon:357", "Schrott-Bogen", 5));
+        var consumable = CreateConsumableRankingProjection(("duckov:item:1", "Verband", 2, 0d));
+        var names = new EntityDisplayNames(id => id == "duckov:weapon:357" ? "Scrap Bow" : id == "duckov:item:1" ? "Bandage" : null);
+        weapon.Names = names; consumable.Names = names;
+        Assert.Equal("Scrap Bow - 5 firing actions", Highlight(weapon, OverviewHighlightMetric.MostUsedWeapon).Value);
+        Assert.Equal("Bandage - 2 uses", Highlight(consumable, OverviewHighlightMetric.MostUsedConsumable).Value);
+        weapon.Names = new EntityDisplayNames(_ => null);
+        Assert.Equal("Schrott-Bogen - 5 firing actions", Highlight(weapon, OverviewHighlightMetric.MostUsedWeapon).Value);
+    }
+
+    [Fact]
     public void GateFifteenMostUsedWeaponRanksAcceptedFiringActionsOnly()
     {
         var projection = CreateGateFifteenProjection();

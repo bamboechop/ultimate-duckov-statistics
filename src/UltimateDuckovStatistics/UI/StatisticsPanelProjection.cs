@@ -1641,7 +1641,7 @@ internal static class OverviewHighlightsPresentationFactory
                     OverviewHighlightMetric.FastestExtraction => FormatDurationRecord(
                         projection.Runs.Records?.Extraction?.Shortest,
                         routeDisplayName: null,
-                        text),
+                        text, projection.Names),
                     OverviewHighlightMetric.LongestSuccessfulRaid => FormatLongestSuccessfulRaid(projection, text),
                     OverviewHighlightMetric.MostUsedWeapon => FormatMostUsedWeapon(projection, text),
                     OverviewHighlightMetric.MostUsedConsumable => FormatMostUsedConsumable(projection, text),
@@ -1666,7 +1666,7 @@ internal static class OverviewHighlightsPresentationFactory
             {
                 var mapDisplayNames = run.Segments
                     .OrderBy(segment => segment.SegmentIndex)
-                    .Select(segment => segment.MapDisplayName)
+                    .Select(segment => segment.MapKnown ? projection.Names.Get(segment.MapId, segment.MapDisplayName) : segment.MapDisplayName)
                     .ToArray();
                 if (!string.IsNullOrWhiteSpace(mapDisplayNames[0]) && !string.IsNullOrWhiteSpace(mapDisplayNames[mapDisplayNames.Length - 1]))
                     routeDisplayName = mapDisplayNames.Length == 1 ? mapDisplayNames[0]
@@ -1674,13 +1674,13 @@ internal static class OverviewHighlightsPresentationFactory
             }
         }
 
-        return FormatDurationRecord(record, routeDisplayName, text);
+        return FormatDurationRecord(record, routeDisplayName, text, projection.Names);
     }
 
     private static string FormatDurationRecord(
         DurationRecordReference? record,
         string? routeDisplayName,
-        Func<string, string> text)
+        Func<string, string> text, EntityDisplayNames names)
     {
         if (record == null) return text("ui.em_dash");
         if (!IsFiniteNonNegative(record.ActiveDurationSeconds)
@@ -1691,7 +1691,7 @@ internal static class OverviewHighlightsPresentationFactory
 
         if (!RetainedRunDurationFormatter.TryFormat(record.ActiveDurationSeconds, out var duration))
             return text("ui.unavailable");
-        return $"{duration} - {routeDisplayName ?? record.MapDisplayName}";
+        return $"{duration} - {routeDisplayName ?? names.Get(record.MapId, record.MapDisplayName)}";
     }
 
     private static string FormatMostUsedWeapon(
@@ -1714,7 +1714,7 @@ internal static class OverviewHighlightsPresentationFactory
                 && value.TotalFiringActions > 0)
             .OrderByDescending(value => value.TotalFiringActions)
             .ThenBy(
-                value => StatisticsPanelProjectionFactory.StableDisplayName(value.DisplayName, value.WeaponId),
+                value => StatisticsPanelProjectionFactory.StableDisplayName(projection.Names.Get(value.WeaponId, value.DisplayName), value.WeaponId),
                 StringComparer.Ordinal)
             .ThenBy(value => value.WeaponId, StringComparer.Ordinal)
             .ToArray();
@@ -1780,7 +1780,7 @@ internal static class OverviewHighlightsPresentationFactory
         }
 
         var winner = candidates[0];
-        return $"{StatisticsPanelProjectionFactory.StableDisplayName(winner.DisplayName, winner.WeaponId)}"
+        return $"{StatisticsPanelProjectionFactory.StableDisplayName(projection.Names.Get(winner.WeaponId, winner.DisplayName), winner.WeaponId)}"
             + $" - {FormatInteger(winner.TotalFiringActions)} {text("ui.overview_firing_actions_unit")}";
     }
 
@@ -1821,12 +1821,12 @@ internal static class OverviewHighlightsPresentationFactory
             .Where(value => value.Totals.ActivationCount > 0)
             .OrderByDescending(value => value.Totals.ActivationCount)
             .ThenBy(
-                value => StatisticsPanelProjectionFactory.StableDisplayName(value.DisplayName, value.ItemId),
+                value => StatisticsPanelProjectionFactory.StableDisplayName(projection.Names.Get(value.ItemId, value.DisplayName), value.ItemId),
                 StringComparer.Ordinal)
             .ThenBy(value => value.ItemId, StringComparer.Ordinal)
             .FirstOrDefault();
         if (winner == null) return text("ui.em_dash");
-        return $"{StatisticsPanelProjectionFactory.StableDisplayName(winner.DisplayName, winner.ItemId)}"
+        return $"{StatisticsPanelProjectionFactory.StableDisplayName(projection.Names.Get(winner.ItemId, winner.DisplayName), winner.ItemId)}"
             + $" - {FormatInteger(winner.Totals.ActivationCount)} {text("ui.overview_uses_unit")}";
     }
 
@@ -2660,7 +2660,7 @@ internal static class RetainedLatestRunMapPresentationFactory
 {
     public static RetainedLatestRunMapPresentation Create(
         RetainedRunBadgePresentation runBadgePresentation,
-        Func<string, string> text)
+        Func<string, string> text, EntityDisplayNames? names = null)
     {
         if (runBadgePresentation == null) throw new ArgumentNullException(nameof(runBadgePresentation));
         if (text == null) throw new ArgumentNullException(nameof(text));
@@ -2672,14 +2672,14 @@ internal static class RetainedLatestRunMapPresentationFactory
         {
             IsVisible = true,
             LatestRun = latestRun,
-            MapName = ResolveMapName(latestRun, text)
+            MapName = ResolveMapName(latestRun, text, names)
         };
     }
 
-    private static string ResolveMapName(RunSummary run, Func<string, string> text)
+    private static string ResolveMapName(RunSummary run, Func<string, string> text, EntityDisplayNames? names = null)
     {
         if (HasKnownDisplayName(run.StartingMapKnown, run.StartingMapDisplayName))
-            return run.StartingMapDisplayName;
+            return (names ?? EntityDisplayNames.Recorded).Get(run.StartingMapId, run.StartingMapDisplayName);
         return text(RetainedOverviewLatestRunMapNamePolicy.UnknownMapTextKey);
     }
 
@@ -4229,6 +4229,7 @@ internal sealed class PanelInteractionState
 
 internal sealed class StatisticsPanelProjection
 {
+    internal EntityDisplayNames Names { get; set; } = EntityDisplayNames.Recorded;
     internal CombatProjectionBinding? CombatBinding { get; set; }
     internal EquipmentProjectionBinding? EquipmentBinding { get; set; }
     internal EconomyProjectionBinding? EconomyBinding { get; set; }
@@ -4337,7 +4338,8 @@ internal static class StatisticsPanelProjectionFactory
         ProfileDocument profile,
         EconomyMetricCapabilities currentEconomyCapabilities,
         CraftingMetricCapabilities currentCraftingCapabilities,
-        WorldTimeMetricCapabilities currentWorldTimeCapabilities)
+        WorldTimeMetricCapabilities currentWorldTimeCapabilities,
+        EntityDisplayNames? names = null)
     {
         if (profile == null) throw new ArgumentNullException(nameof(profile));
         if (currentEconomyCapabilities == null)
@@ -4353,6 +4355,7 @@ internal static class StatisticsPanelProjectionFactory
         var equipment = EquipmentStatisticsViewModelFactory.Create(profile);
         var projection = new StatisticsPanelProjection
         {
+            Names = names ?? EntityDisplayNames.Recorded,
             Profile = profile,
             Runs = RunStatisticsViewModelFactory.Create(profile),
             Combat = CombatStatisticsViewModelFactory.Create(profile),

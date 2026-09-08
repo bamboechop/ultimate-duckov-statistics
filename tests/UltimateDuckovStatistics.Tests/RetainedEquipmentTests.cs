@@ -9,6 +9,25 @@ namespace UltimateDuckovStatistics.Tests;
 #pragma warning disable CA1861
 public sealed class RetainedEquipmentTests
 {
+    [Fact]
+    public void CurrentLanguageResolvesEquipmentAndLoadoutTooltipsWithoutChangingDurationsOrComposition()
+    {
+        var profile = Profile(); var snapshot = EquipmentCompositionTests.Snapshot();
+        var item = snapshot.Items[0]; item.ItemDisplayName = "Schrott-Bogen";
+        snapshot.CharacterSlots[0].ItemDisplayName = "Schrott-Bogen";
+        Observe(profile, snapshot);
+        var before = System.Text.Json.JsonSerializer.Serialize(profile);
+        var p = Projection(profile); p.Names = new EntityDisplayNames(id => id == item.ItemId ? "Scrap Bow" : null,
+            (parent, key) => parent == item.ItemId && key == "Scope" ? "Sight" : null);
+        var result = EquipmentPresentationFactory.Create(p, "g")!;
+        Assert.Equal("Scrap Bow", result.Weapons[0].Name);
+        Assert.Equal(10, result.Weapons[0].Duration);
+        Assert.Contains(result.Weapons[0].Groups, group => group.Name == "Sight");
+        Assert.Contains("Scrap Bow", result.MostUsed!.Slots[0].Text, StringComparison.Ordinal);
+        Assert.Contains("Sight", result.MostUsed.Slots[0].Text, StringComparison.Ordinal);
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(profile));
+    }
+
     private static ProfileDocument Profile()
     {
         var profile = new ProfileDocument { GenerationId = "g", Statistics = new ProfileStatistics { SaveGenerationId = "g" } };

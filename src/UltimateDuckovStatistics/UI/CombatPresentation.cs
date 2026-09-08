@@ -132,6 +132,7 @@ internal static class CombatPresentationFactory
         if (!StatisticsPanelProjectionFactory.HasProvableGeneration(p.Profile, generation)
             || p.CombatBinding?.Matches(p, generation) != true) return null;
         var t = text ?? UiText.Get;
+        string LocalName(string? name, string id) => Name(p.Names.Get(id, name), id, t);
         var c = p.Combat; var a = c.Lifetime; var n = a.Totals; var cap = c.Capabilities;
         var w = p.Weapons; var wc = w.Capabilities; var kills = n.PlayerKills;
         CombatValue V(double value, MetricAvailability availability, bool partial = false) =>
@@ -169,12 +170,12 @@ internal static class CombatPresentationFactory
                 Metric(count, state, a.WasRepairedFromInvalidState, t)));
         }
         var enemyRows = c.Enemies.OrderByDescending(r => r.Totals.KillsByYou).ThenByDescending(r => r.Totals.DamageCaused)
-            .ThenByDescending(r => r.Totals.ObservedWorldDeaths).ThenBy(r => Name(r.DisplayName, r.Id, t), StringComparer.Ordinal)
+            .ThenByDescending(r => r.Totals.ObservedWorldDeaths).ThenBy(r => LocalName(r.DisplayName, r.Id), StringComparer.Ordinal)
             .ThenBy(r => r.Id, StringComparer.Ordinal).Select(r =>
             {
                 var wd = ScopedCount(r.Totals.ObservedWorldDeaths, cap.ObservedWorldDeaths);
                 var values = new[] { V(r.Totals.DamageCaused, cap.EnemyIdentity), ScopedCount(r.Totals.KillsByYou, cap.KillsByYou), wd };
-                return new CombatTableRow(r.Id, Name(r.DisplayName, r.Id, t), values,
+                return new CombatTableRow(r.Id, LocalName(r.DisplayName, r.Id), values,
                     t("ui.combat_enemy_world") + ": " + wd.Text + "\n" + t("ui.combat_ownership_unavailable"),
                     damage: values[0].Evidence == CombatEvidence.Unavailable ? null : r.Totals.DamageCaused,
                     kills: values[1].Evidence == CombatEvidence.Unavailable ? null : r.Totals.KillsByYou,
@@ -212,8 +213,8 @@ internal static class CombatPresentationFactory
         var unattributed = a.Weapons.Where(pair => !ExactWeaponId(pair.Key) || pair.Key != pair.Value.Id).Select(pair => pair.Value.Totals).ToArray();
         var missingFiringAttribution = w.Lifetime.Totals.FiringActions > p.WeaponAmmunitionGroups.Where(g => ExactWeaponId(g.WeaponId)).Sum(g => (decimal)g.TotalFiringActions);
         var weaponRows = sources.OrderByDescending(s => s.Fire?.TotalFiringActions ?? 0)
-            .ThenBy(s => Name(s.Fire?.DisplayName ?? s.Combat?.DisplayName
-                ?? (throwableItems.TryGetValue(s.Id, out var used) ? used.DisplayName : ""), s.Id, t), StringComparer.Ordinal).ThenBy(s => s.Id, StringComparer.Ordinal)
+            .ThenBy(s => LocalName(s.Fire?.DisplayName ?? s.Combat?.DisplayName
+                ?? (throwableItems.TryGetValue(s.Id, out var used) ? used.DisplayName : ""), s.Id), StringComparer.Ordinal).ThenBy(s => s.Id, StringComparer.Ordinal)
             .Select(source =>
             {
                 throwableItems.TryGetValue(source.Id, out var throwableItem);
@@ -262,14 +263,14 @@ internal static class CombatPresentationFactory
                 }
                 var complete = g.UncorrelatedFiringActions == 0 && g.CorrelatedFiringActions == g.TotalFiringActions;
                 var basis = t(complete ? "ui.combat_weapon_basis" : "ui.combat_pair_basis");
-                var row = new CombatItemRow(source.Id, exact ? Name(g.DisplayName, source.Id, t) : t("ui.combat_unknown"), actions,
+                var row = new CombatItemRow(source.Id, exact ? LocalName(g.DisplayName, source.Id) : t("ui.combat_unknown"), actions,
                     source.Fire != null && exact && wc.FiringActions.State == AdapterCapabilityState.Supported && wc.WeaponIdentity.State == AdapterCapabilityState.Supported
                         && !w.Lifetime.WasRepairedFromInvalidState && w.Lifetime.Totals.FiringActions > 0
                         ? Percent(g.TotalFiringActions * 100d / w.Lifetime.Totals.FiringActions, t) : Unavailable(), source.Fire == null ? "" : t("ui.combat_all_basis"));
                 var ammo = g.Ammunition.Where(pair => exact && pair.Pair.WeaponId == g.WeaponId)
-                    .OrderByDescending(pair => pair.Pair.FiringActions).ThenBy(pair => Name(pair.Pair.AmmunitionDisplayName, pair.Pair.AmmunitionId, t), StringComparer.Ordinal)
+                    .OrderByDescending(pair => pair.Pair.FiringActions).ThenBy(pair => LocalName(pair.Pair.AmmunitionDisplayName, pair.Pair.AmmunitionId), StringComparer.Ordinal)
                     .ThenBy(pair => pair.Pair.AmmunitionId, StringComparer.Ordinal).Select(pair => new CombatItemRow(pair.Pair.AmmunitionId,
-                        Name(pair.Pair.AmmunitionDisplayName, pair.Pair.AmmunitionId, t),
+                        LocalName(pair.Pair.AmmunitionDisplayName, pair.Pair.AmmunitionId),
                         Metric(pair.Pair.FiringActions, Both(wc.WeaponAmmunitionPairing.State, Both(wc.WeaponIdentity.State, wc.AmmunitionIdentity.State)), w.Lifetime.WasRepairedFromInvalidState, t),
                         wc.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported && wc.WeaponIdentity.State == AdapterCapabilityState.Supported
                             && wc.AmmunitionIdentity.State == AdapterCapabilityState.Supported && !w.Lifetime.WasRepairedFromInvalidState && g.CorrelatedFiringActions > 0
@@ -288,14 +289,14 @@ internal static class CombatPresentationFactory
             p.WeaponAmmunitionGroups.Count > 0 ? new[] { wc.FiringActions, wc.WeaponIdentity } : new[] { cap.WeaponIdentity }, t);
         var attackers = c.Killers.Where(r => r.Totals.DamageReceived > 0 || r.Totals.PlayerDeaths > 0)
             .OrderByDescending(r => r.Totals.DamageReceived).ThenByDescending(r => r.Totals.PlayerDeaths)
-            .ThenBy(r => Name(r.DisplayName, r.Id, t), StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal).ToArray();
+            .ThenBy(r => LocalName(r.DisplayName, r.Id), StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal).ToArray();
         var identities = cap.EnemyIdentity.State == AdapterCapabilityState.Supported && attackers.All(r => !string.IsNullOrWhiteSpace(r.Id));
         var exactDeaths = deaths.Evidence == CombatEvidence.Supported && identities
             && attackers.Sum(r => (decimal)r.Totals.PlayerDeaths) == n.PlayerDeaths;
         var winner = attackers.OrderByDescending(r => r.Totals.PlayerDeaths).ThenByDescending(r => r.Totals.DamageReceived)
-            .ThenBy(r => Name(r.DisplayName, r.Id, t), StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
+            .ThenBy(r => LocalName(r.DisplayName, r.Id), StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
         var deadliest = !exactDeaths ? Unavailable() : new CombatValue(n.PlayerDeaths == 0 ? t("ui.combat_none")
-            : Name(winner!.DisplayName, winner.Id, t), CombatEvidence.Supported);
+            : LocalName(winner!.DisplayName, winner.Id), CombatEvidence.Supported);
         var attackerCount = identities && received.Evidence == CombatEvidence.Supported && exactDeaths
             ? new CombatValue(Number(attackers.Length), CombatEvidence.Supported) : Unavailable();
         CombatValue Share(double value) => received.Evidence == CombatEvidence.Supported && n.DamageReceived > 0
@@ -303,7 +304,7 @@ internal static class CombatPresentationFactory
         var incoming = attackers.Select(r =>
         {
             var values = new[] { Scoped(r.Totals.DamageReceived, cap.DamageReceived), identities ? Share(r.Totals.DamageReceived) : Unavailable(), ScopedCount(r.Totals.PlayerDeaths, cap.PlayerDeaths) };
-            return new CombatTableRow(r.Id, Name(r.DisplayName, r.Id, t), values,
+            return new CombatTableRow(r.Id, LocalName(r.DisplayName, r.Id), values,
                 damage: values[0].Evidence == CombatEvidence.Unavailable ? null : r.Totals.DamageReceived,
                 share: values[1].Evidence == CombatEvidence.Unavailable ? null : r.Totals.DamageReceived / n.DamageReceived,
                 deaths: values[2].Evidence == CombatEvidence.Unavailable ? null : r.Totals.PlayerDeaths);

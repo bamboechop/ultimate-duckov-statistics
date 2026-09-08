@@ -56,13 +56,13 @@ internal static class RecordsPresentationFactory
         var runs = model.Runs.ToDictionary(run => run.RunId, StringComparer.Ordinal);
         var startingRuns = model.Runs.ToLookup(run => run.StartingMapId, StringComparer.Ordinal);
         var overall = new List<RecordsCard>();
-        AddOverall(model.Records.Extraction, RunOutcome.Extracted, "extraction", overall, runs, t, local);
-        AddOverall(model.Records.Death, RunOutcome.Died, "death", overall, runs, t, local);
+        AddOverall(model.Records.Extraction, RunOutcome.Extracted, "extraction", overall, runs, t, local, projection.Names);
+        AddOverall(model.Records.Death, RunOutcome.Died, "death", overall, runs, t, local, projection.Names);
         var maps = model.Maps.ToDictionary(map => map.MapId, StringComparer.Ordinal);
         // Orphan record-map entries remain visible as inconsistent aggregate composition.
         var ids = maps.Keys.Union(model.Records.Maps.Keys, StringComparer.Ordinal)
             .OrderBy(id => maps.TryGetValue(id, out var map) && map.IsKnown ? 0 : 1)
-            .ThenBy(id => maps.TryGetValue(id, out var map) ? MapName(map.MapId, map.DisplayName, map.IsKnown, t) : id, StringComparer.Ordinal)
+            .ThenBy(id => maps.TryGetValue(id, out var map) ? MapName(map.MapId, map.DisplayName, map.IsKnown, t, projection.Names) : id, StringComparer.Ordinal)
             .ThenBy(id => id, StringComparer.Ordinal);
         var cards = new List<RecordsCard>();
         foreach (var id in ids)
@@ -87,15 +87,15 @@ internal static class RecordsPresentationFactory
             if (!validMapRecords || records != null && (records.Death == null || records.Death.Shortest != null || records.Death.Longest != null))
                 AddMapPair(records?.Death, RunOutcome.Died, "death", id,
                     validMapRecords && (records == null || records.Death != null), rows, runs, t);
-            cards.Add(new RecordsCard(id, map == null ? MapName(id, records?.DisplayName ?? "", false, t)
-                : MapName(id, map.DisplayName, map.IsKnown, t), rows,
+            cards.Add(new RecordsCard(id, map == null ? MapName(id, records?.DisplayName ?? "", false, t, projection.Names)
+                : MapName(id, map.DisplayName, map.IsKnown, t, projection.Names), rows,
                 notice: map == null || !validMapRecords ? t("ui.records_inconsistent") : ""));
         }
         return new RecordsPresentation(generation, overall, cards);
     }
 
     private static void AddOverall(DurationRecordPair? pair, RunOutcome outcome, string category,
-        List<RecordsCard> cards, IReadOnlyDictionary<string, RunSummary> runs, Func<string, string> t, Func<DateTime, DateTime> local)
+        List<RecordsCard> cards, IReadOnlyDictionary<string, RunSummary> runs, Func<string, string> t, Func<DateTime, DateTime> local, EntityDisplayNames names)
     {
         if (pair != null && pair.Shortest == null && pair.Longest == null)
         {
@@ -110,10 +110,10 @@ internal static class RecordsPresentationFactory
             var rows = new List<KeyValuePair<string, string>>
             {
                 new(t("ui.records_time"), valid ? Duration(reference!, t) : t("ui.unavailable")),
-                new(t("ui.records_starting_map"), run == null ? t("ui.unavailable") : MapName(run.StartingMapId, run.StartingMapDisplayName, run.StartingMapKnown, t)),
+                new(t("ui.records_starting_map"), run == null ? t("ui.unavailable") : MapName(run.StartingMapId, run.StartingMapDisplayName, run.StartingMapKnown, t, names)),
                 new(t("ui.records_date"), Timestamp(reference?.StartedUtc ?? default, local, t))
             };
-            var route = Route(run, t);
+            var route = Route(run, t, names);
             if (route != null) rows.Add(new(t("ui.runs_route"), route));
             cards.Add(new RecordsCard(category + i, Heading(category, i, t), rows,
                 runId: valid ? run?.RunId : null, notice: run == null || !valid ? t("ui.records_run_unavailable") : ""));
@@ -151,10 +151,10 @@ internal static class RecordsPresentationFactory
         && run.StartedUtc == reference.StartedUtc && run.ActiveDurationSeconds == reference.ActiveDurationSeconds
         && (map == null || run.StartingMapId == map) ? run : null;
 
-    internal static string MapName(string id, string name, bool known, Func<string, string> t) =>
-        known && !string.IsNullOrWhiteSpace(name) ? name
+    internal static string MapName(string id, string name, bool known, Func<string, string> t, EntityDisplayNames? names = null) =>
+        known && !string.IsNullOrWhiteSpace(name) ? (names ?? EntityDisplayNames.Recorded).Get(id, name)
         : !string.IsNullOrWhiteSpace(id) && id != MapIdentity.UnknownId ? t("ui.overview_latest_run_unknown_map") + " (" + id + ")" : t("ui.overview_latest_run_unknown_map");
-    private static string? Route(RunSummary? run, Func<string, string> t)
+    private static string? Route(RunSummary? run, Func<string, string> t, EntityDisplayNames names)
     {
         if (run == null) return t("ui.unavailable");
         var exact = !run.RouteWasRepairedFromInvalidState
@@ -163,7 +163,7 @@ internal static class RecordsPresentationFactory
             && run.Segments.Count > 0 && run.Segments.All(segment => !segment.WasRepairedFromInvalidState);
         if (exact && run.Segments.Count == 1) return null;
         if (!exact) return t("ui.unavailable") + " (" + t("ui.runs_partial") + ")";
-        return string.Join(" - ", run.Segments.Select(segment => MapName(segment.MapId, segment.MapDisplayName, segment.MapKnown, t)));
+        return string.Join(" - ", run.Segments.Select(segment => MapName(segment.MapId, segment.MapDisplayName, segment.MapKnown, t, names)));
     }
     private static string Timestamp(DateTime utc, Func<DateTime, DateTime> local, Func<string, string> t)
     {

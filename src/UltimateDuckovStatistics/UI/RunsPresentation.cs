@@ -129,11 +129,11 @@ internal static class RunsPresentationFactory
             || runs.Select(run => run.RunId).Distinct(StringComparer.Ordinal).Count() != runs.Length) return null;
         var resolve = text ?? UiText.Get;
         return new RunsPresentation(expectedGeneration, runs.Select((run, index) =>
-            CreateRun(run, runs.Length - index, resolve, toLocal ?? (value => value.ToLocalTime()))));
+            CreateRun(run, runs.Length - index, resolve, toLocal ?? (value => value.ToLocalTime()), projection.Names)));
     }
 
     private static RunDetailPresentation CreateRun(RunSummary run, int number,
-        Func<string, string> t, Func<DateTime, DateTime> toLocal)
+        Func<string, string> t, Func<DateTime, DateTime> toLocal, EntityDisplayNames names)
     {
         var data = new RunDataProjection(run);
         var combat = run.CombatStatistics;
@@ -153,9 +153,9 @@ internal static class RunsPresentationFactory
         if (!routeExact) routeSummary += " · " + t("ui.runs_partial");
         var first = run.Segments.FirstOrDefault();
         var last = run.Segments.LastOrDefault();
-        var title = first != null ? Map(first.MapKnown, first.MapDisplayName, t)
-            : Map(run.StartingMapKnown || run.StartingMapKnown, run.StartingMapKnown ? run.StartingMapDisplayName : run.StartingMapDisplayName, t);
-        if (last != null && last.MapId != first!.MapId) title += " - " + Map(last.MapKnown, last.MapDisplayName, t);
+        var title = first != null ? Map(first.MapKnown, names.Get(first.MapId, first.MapDisplayName), t)
+            : Map(run.StartingMapKnown, names.Get(run.StartingMapId, run.StartingMapDisplayName), t);
+        if (last != null && last.MapId != first!.MapId) title += " - " + Map(last.MapKnown, names.Get(last.MapId, last.MapDisplayName), t);
         var stamp = t("ui.unavailable");
         if (run.StartedUtc != default)
         {
@@ -201,7 +201,7 @@ internal static class RunsPresentationFactory
             var facts = Duration(segment.ActiveDurationSeconds, exact && run.LifecycleCapability == AdapterCapabilityState.Supported, t)
                 + " · " + Distance(segment.PhysicalDistance, exact && run.MovementCapability == AdapterCapabilityState.Supported, t)
                 + " · " + SegmentActivity(segment, eventsExact, kills, firing, containers, t);
-            return Pair($"{index + 1}  {Map(segment.MapKnown, segment.MapDisplayName, t)}", facts);
+            return Pair($"{index + 1}  {Map(segment.MapKnown, names.Get(segment.MapId, segment.MapDisplayName), t)}", facts);
         });
         var rangedKills = Count(data.RangedKills, c.KillsByYou, !data.RangedMeleeExact);
         var meleeKills = Count(data.MeleeKills, c.KillsByYou, !data.RangedMeleeExact);
@@ -218,29 +218,41 @@ internal static class RunsPresentationFactory
             var classification = t("ui.runs_classification_partial");
             ranged += "\n" + classification; melee += "\n" + classification;
         }
-        var slots = data.TerminalSlots.Select(slot => PresentSlot(slot, t));
+        var slots = data.TerminalSlots.Select(slot => PresentSlot(slot, t, names));
         var equipmentState = t("ui.runs_terminal_" + data.TerminalState.ToString().ToLowerInvariant());
         return new RunDetailPresentation(run.RunId, title, metadata, integrity,
             RetainedRunBadgePresentationFactory.MapOutcome(run.Outcome), summary, routeSummary, segments,
             equipmentState, data.TerminalState, slots, ranged, melee);
     }
 
-    internal static RunSlotPresentation PresentSlot(TerminalRootSlot slot, Func<string, string> t)
+    internal static RunSlotPresentation PresentSlot(TerminalRootSlot slot, Func<string, string> t, EntityDisplayNames? names = null)
     {
+        names ??= EntityDisplayNames.Recorded;
         string Name(EquipmentSlotState state, string displayName) => state == EquipmentSlotState.Empty
             ? t("ui.runs_empty_slot") : state == EquipmentSlotState.Occupied && !string.IsNullOrWhiteSpace(displayName)
                 ? displayName : t("ui.unavailable");
         var evidence = new List<RunEquipmentEvidence>
-        { new(slot.State, slot.ItemId, Name(slot.State, slot.ItemDisplayName), slot.DisplayName) };
+        { new(slot.State, slot.ItemId, Name(slot.State, names.Get(slot.ItemId, slot.ItemDisplayName)), names.Get(slot.SlotId, slot.DisplayName)) };
         foreach (var child in slot.NestedSlots)
         {
             evidence.Add(new RunEquipmentEvidence(child.State, child.ItemId,
-                Name(child.State, child.ItemDisplayName), child.DisplayName));
+                Name(child.State, names.Get(child.ItemId, child.ItemDisplayName)), NestedSlotName(slot, child, names)));
         }
         var detail = string.Join("\n", evidence.Select(row => row.SlotName + ": " + row.ItemName));
         if (!slot.NestedComplete && slot.State != EquipmentSlotState.Empty) detail += "\n" + t("ui.runs_nested_partial");
         return new RunSlotPresentation(slot.SlotId, slot.State, slot.ItemId, detail,
             slot.NestedSlots.Select(child => child.State), slot.NestedComplete, evidence);
+    }
+
+    private static string NestedSlotName(TerminalRootSlot root, TerminalNestedSlot child, EntityDisplayNames names)
+    {
+        var suffix = child.SlotKey.Length.ToString(CultureInfo.InvariantCulture) + ":" + child.SlotKey + "/";
+        if (!child.Path.EndsWith(suffix, StringComparison.Ordinal)) return child.DisplayName;
+        var parentPath = child.Path.Substring(0, child.Path.Length - suffix.Length);
+        if (parentPath.Length == 0) return names.Slot(root.ItemId, child.SlotKey, child.DisplayName);
+        var parents = root.NestedSlots.Where(s => s.Path == parentPath).Take(2).ToArray();
+        return parents.Length == 1 && parents[0].State == EquipmentSlotState.Occupied
+            ? names.Slot(parents[0].ItemId, child.SlotKey, child.DisplayName) : child.DisplayName;
     }
 
     private static string SegmentActivity(MapSegmentSummary segment, bool eventsExact, string kills,

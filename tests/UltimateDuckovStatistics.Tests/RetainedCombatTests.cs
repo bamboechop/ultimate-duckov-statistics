@@ -11,6 +11,30 @@ namespace UltimateDuckovStatistics.Tests;
 #pragma warning disable CA1861
 public sealed class RetainedCombatTests
 {
+    [Fact]
+    public void CurrentLanguageResolvesEnemyWeaponAmmoAndAttackerWithoutChangingIdentities()
+    {
+        var p = Projection();
+        Weapons(p, Weapon("duckov:weapon:357", 5, "Schrott-Bogen", pairs: ("duckov:ammo:2", 5, 100)));
+        Enemies(p, Row("duckov:target:preset:cname-scav", "Ente", kills: 1));
+        Attackers(p, Row("duckov:attacker:preset:cname-robspider", "Spinnenbot", incoming: 5, deaths: 1));
+        p.Names = new EntityDisplayNames(id => id switch
+        {
+            "duckov:weapon:357" => "Scrap Bow",
+            "duckov:ammo:2" => "Arrow",
+            "duckov:target:preset:cname-scav" => "Scav",
+            "duckov:attacker:preset:cname-robspider" => "Spider Bot",
+            _ => null
+        });
+        var result = Present(p);
+        Assert.Equal("Scrap Bow", result.Weapons[0].Row.Name);
+        Assert.Equal("Arrow", result.Weapons[0].Ammunition[0].Name);
+        Assert.Equal("Scav", result.Enemies[0].Name);
+        Assert.Equal("Spider Bot", result.Attackers[0].Name);
+        Assert.Equal("Schrott-Bogen", p.WeaponAmmunitionGroups[0].DisplayName);
+        Assert.Equal("duckov:weapon:357", result.Weapons[0].Row.Id);
+    }
+
     private static StatisticsPanelProjection Projection(string generation = "g")
     {
         var profile = new ProfileDocument { GenerationId = generation, Statistics = new ProfileStatistics { SaveGenerationId = generation } };

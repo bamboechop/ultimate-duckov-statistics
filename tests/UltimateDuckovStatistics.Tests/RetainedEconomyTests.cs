@@ -8,6 +8,29 @@ namespace UltimateDuckovStatistics.Tests;
 #pragma warning disable CA1861
 public sealed class RetainedEconomyTests
 {
+    [Fact]
+    public void CurrentLanguageResolvesSharedRecentRunTitlesWithoutRewritingRecordedNames()
+    {
+        var profile = Profile();
+        var run = new RunSummary
+        {
+            RunId = "translated",
+            SaveGenerationId = "g",
+            StartingMapKnown = true,
+            StartingMapId = "duckov:map:A",
+            StartingMapDisplayName = "Lagerbereich"
+        };
+        run.Segments.Add(new() { MapId = "duckov:map:A", MapDisplayName = "Lagerbereich", MapKnown = true });
+        run.Segments.Add(new() { SegmentIndex = 1, MapId = "duckov:map:B", MapDisplayName = "Keller", MapKnown = true });
+        profile.Statistics.Runs.Add(run);
+        var p = Projection(profile); p.Names = new EntityDisplayNames(id => id == "duckov:map:A" ? "Warehouse" : id == "duckov:map:B" ? "Basement" : null);
+        Assert.Equal("Warehouse - Basement", EconomyPresentationFactory.Create(p, "g")!.RecentRuns[0].Title);
+        Assert.Equal("Warehouse - Basement", ItemUsePresentationFactory.Create(p, "g")!.RecentRuns[0].Title);
+        Assert.Equal("Warehouse - Basement", EquipmentPresentationFactory.Create(p, "g")!.Recent[0].Name);
+        Assert.Equal("Lagerbereich", run.StartingMapDisplayName);
+        Assert.Equal("Keller", run.Segments[1].MapDisplayName);
+    }
+
     private static readonly DateTime Now = new(2026, 9, 6, 12, 34, 56, DateTimeKind.Utc);
     private static MetricAvailability Supported() => new() { State = AdapterCapabilityState.Supported };
     private static EconomyMetricCapabilities Capabilities() => new()

@@ -434,6 +434,9 @@ try
         core.RequireField(string.Empty, "InteractableBase", "interactCharacter", mustBeFamily: true, fieldTypeFragment: "CharacterMainControl");
         core.RequireMethod(string.Empty, "SceneInfoCollection", "GetSceneID", parameterCount: 1, mustBePublic: true, returnTypeFragment: "System.String", parameterTypeFragments: ["System.Int32"]);
         core.RequireMethod(string.Empty, "SceneInfoCollection", "GetSceneInfo", parameterCount: 1, mustBePublic: true, returnTypeFragment: "SceneInfoEntry", parameterTypeFragments: ["System.String"]);
+        core.RequireProperty(string.Empty, "SceneInfoEntry", "ID", "System.String", mustBePublic: true);
+        core.RequireProperty(string.Empty, "SceneInfoEntry", "DisplayNameRaw", "System.String", mustBePublic: true);
+        core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "CharacterRandomPresetData", "CharacterRandomPresets", mustBePublic: true);
         core.RequireMethod(
             string.Empty,
             "Health",
@@ -560,6 +563,7 @@ try
             parameterTypeFragments: ["System.Int32"]);
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "Name", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "DisplayName", "System.String", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "DisplayNameKey", "System.String", mustBePublic: true);
         itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "icon", mustBePublic: true, fieldTypeFragment: "UnityEngine.Sprite");
         itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "id", mustBePublic: true, fieldTypeFragment: "System.Int32");
         itemStats.RequireMethod("ItemStatsSystem", "ItemAssetsCollection", "GetPrefab", 1, mustBePublic: true,
@@ -605,6 +609,9 @@ try
 
     using (var localization = new AssemblyMetadata(sodaLocalizationPath))
     {
+        localization.RequireProperty("SodaCraft.Localizations", "LocalizationManager", "Initialized", "System.Boolean", mustBePublic: true);
+        localization.RequireProperty("SodaCraft.Localizations", "LocalizationManager", "DataModel", "LocalizationDataModel", mustBePublic: true);
+        localization.RequireEvent("SodaCraft.Localizations", "LocalizationManager", "OnSetLanguage", "UnityEngine.SystemLanguage");
         localization.RequireField("SodaCraft.Localizations", "LocalizationManager", "overrideTexts", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Collections.Generic.Dictionary");
         localization.RequireMethod("SodaCraft.Localizations", "LocalizationManager", "SetOverrideText", 2, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String", "System.String"]);
         localization.RequireMethod("SodaCraft.Localizations", "LocalizationManager", "RemoveOverrideText", 1, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String"]);

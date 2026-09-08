@@ -7,6 +7,25 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class RetainedRunsTests
 {
+    [Fact]
+    public void CurrentLanguageResolvesRouteAndDeepAttachmentWithImmediateParent()
+    {
+        var run = Run("translated", 1); run.StartingMapId = "duckov:map:A";
+        run.StartingMapDisplayName = "Lagerbereich"; run.Segments[0].MapId = run.StartingMapId;
+        run.Segments[0].MapDisplayName = run.StartingMapDisplayName;
+        var p = Projection(run); p.Names = new EntityDisplayNames(id => id == "duckov:map:A" ? "Warehouse" : null,
+            (parent, key) => parent == "duckov:item:2" && key == "Special" ? "Attachment accessory" : null);
+        Assert.Equal("Warehouse", RunsPresentationFactory.Create(p, "g")!.Runs[0].Title);
+        var nested = new[] {
+            new TerminalNestedSlot("5:Scope/", "Scope", "Scope", EquipmentSlotState.Occupied, "duckov:item:2", "Adapter"),
+            new TerminalNestedSlot("5:Scope/7:Special/", "Special", "Alt", EquipmentSlotState.Empty, "", "") };
+        var root = new TerminalRootSlot("duckov:slot:PrimaryWeapon", "Weapon", EquipmentSlotState.Occupied,
+            "duckov:weapon:357", "Bow", EquipmentItemKind.Weapon, true, nested);
+        var result = RunsPresentationFactory.PresentSlot(root, UiText.Get, p.Names);
+        Assert.Contains("Attachment accessory", result.Text, StringComparison.Ordinal);
+        Assert.Equal("Alt", nested[1].DisplayName);
+    }
+
     [Theory]
     [InlineData("g", "g", false)]
     [InlineData("g", "new", true)]

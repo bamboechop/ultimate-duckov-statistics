@@ -11,6 +11,20 @@ namespace UltimateDuckovStatistics.Tests;
 #pragma warning disable CA1861
 public sealed class RetainedCraftingTests
 {
+    [Fact]
+    public void CurrentLanguageResolvesOutputsResourcesAndReciprocalDetailsWithoutRewritingCrafts()
+    {
+        var profile = Profile(); Craft(profile, "131", "Tasse", "1026", 1, "764", 4, "Polyethylen-Folie");
+        var before = System.Text.Json.JsonSerializer.Serialize(profile);
+        var p = Projection(profile);
+        p.Names = new EntityDisplayNames(id => id == "131" ? "Cup" : id == "764" ? "Polyethylene" : null);
+        var result = CraftingPresentationFactory.Create(p, "g")!;
+        Assert.Equal("Cup", result.Outputs[0].Name); Assert.Equal("Polyethylene", result.Resources[0].Name);
+        Assert.Equal("Polyethylene", result.Outputs[0].Details[0].Name);
+        Assert.Equal("Cup", result.Resources[0].Details[0].Name);
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(profile));
+    }
+
     private static CraftingMetricCapabilities Supported() => CraftingNativeContractPolicy.Supported("delivered", "captured formula", "exact paid items");
     private static ProfileDocument Profile()
     {

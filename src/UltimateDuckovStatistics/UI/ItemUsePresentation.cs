@@ -135,7 +135,7 @@ internal static class ItemUsePresentationFactory
         if (!throwsSupported) notices.Add(t("ui.item_use_throwable_unavailable"));
         if (!lifetimeHealthSupported) notices.Add(t("ui.item_use_healing_unavailable"));
         if (repaired) notices.Add(t("ui.item_use_repaired"));
-        var items = source.Items.Select(item => Entry(item.ItemId, item.DisplayName, item.Group, item.EffectTags, item.Totals,
+        var items = source.Items.Select(item => Entry(item.ItemId, projection.Names.Get(item.ItemId, item.DisplayName), item.Group, item.EffectTags, item.Totals,
             usesSupported, throwsSupported, lifetimeHealthSupported, repaired, t)).OrderByDescending(item => item.Count)
             .ThenBy(item => item.Name, StringComparer.Ordinal).ThenBy(item => item.ItemId, StringComparer.Ordinal).ToArray();
         var groups = Enum.GetValues(typeof(CanonicalItemGroup)).Cast<CanonicalItemGroup>().Select(group =>
@@ -151,7 +151,7 @@ internal static class ItemUsePresentationFactory
         {
             var aggregate = run.ItemStatistics; var incomplete = aggregate.WasRepairedFromInvalidState;
             var runHealthSupported = healthSupported && run.HealingCaptureComplete && !run.HistoricalEventAttributionIncomplete;
-            var runItems = aggregate.Items.Values.Select(item => Entry(item.ItemId, item.DisplayName, item.Group, item.EffectTags,
+            var runItems = aggregate.Items.Values.Select(item => Entry(item.ItemId, projection.Names.Get(item.ItemId, item.DisplayName), item.Group, item.EffectTags,
                     item.Totals, usesSupported, throwsSupported, runHealthSupported, incomplete, t))
                 .OrderByDescending(item => item.Count).ThenBy(item => item.Name, StringComparer.Ordinal)
                 .ThenBy(item => item.ItemId, StringComparer.Ordinal).ToArray();
@@ -168,11 +168,11 @@ internal static class ItemUsePresentationFactory
                 Timestamp(run.StartedUtc, local, t), maps };
             metadata.Add(Format(t(aggregate.Overall.ActivationCount == 1 ? "ui.item_use_use_value" : "ui.item_use_uses_value"), usage.Text));
             metadata.Add(Format(t("ui.item_use_hp_value"), health.Text));
-            string Map(bool known, string name) => known && !string.IsNullOrWhiteSpace(name) ? name : t("ui.overview_latest_run_unknown_map");
-            var title = route.Length > 0 ? Map(route[0].MapKnown, route[0].MapDisplayName)
-                : Map(run.StartingMapKnown || run.StartingMapKnown, run.StartingMapKnown ? run.StartingMapDisplayName : run.StartingMapDisplayName);
+            string Map(bool known, string id, string name) => known && !string.IsNullOrWhiteSpace(name) ? projection.Names.Get(id, name) : t("ui.overview_latest_run_unknown_map");
+            var title = route.Length > 0 ? Map(route[0].MapKnown, route[0].MapId, route[0].MapDisplayName)
+                : Map(run.StartingMapKnown, run.StartingMapId, run.StartingMapDisplayName);
             if (route.Length > 1 && route[0].MapId != route[route.Length - 1].MapId)
-                title += " - " + Map(route[route.Length - 1].MapKnown, route[route.Length - 1].MapDisplayName);
+                title += " - " + Map(route[route.Length - 1].MapKnown, route[route.Length - 1].MapId, route[route.Length - 1].MapDisplayName);
             return new ItemUseRun(run.RunId, title, string.Join(" · ", metadata), RetainedRunBadgePresentationFactory.MapOutcome(run.Outcome),
                 runItems, exactEmpty ? t("ui.item_use_no_run_uses") : t("ui.item_use_run_unavailable"));
         }).ToArray();

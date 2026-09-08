@@ -7,6 +7,25 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class RetainedRecordsTests
 {
+    [Fact]
+    public void CurrentLanguageResolvesRecordRoutesAndOverviewDurationHighlights()
+    {
+        var run = Run("translated", 60); run.StartingMapId = "duckov:map:A"; run.StartingMapDisplayName = "Lagerbereich";
+        run.Segments = new() { Segment("duckov:map:A", "Lagerbereich"), Segment("duckov:map:B", "Keller") };
+        run.Segments[1].SegmentIndex = 1;
+        var p = WithExtraction(run);
+        p.Names = new EntityDisplayNames(id => id == "duckov:map:A" ? "Warehouse" : id == "duckov:map:B" ? "Basement" : null);
+        var before = System.Text.Json.JsonSerializer.Serialize(p.Profile);
+        var result = Present(p);
+        Assert.Equal("Warehouse", Value(result.Overall[0], "Starting map"));
+        Assert.Equal("Warehouse - Basement", Value(result.Overall[0], "Route"));
+        var highlights = OverviewHighlightsPresentationFactory.Create(p, UiText.Get);
+        Assert.Contains("Warehouse", highlights[0].Value, StringComparison.Ordinal);
+        Assert.Contains("Basement", highlights[1].Value, StringComparison.Ordinal);
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(p.Profile));
+        Assert.DoesNotContain("Warehouse", RecordsPresentationFactory.MapName("duckov:map:A", "Unknown", false, UiText.Get, p.Names), StringComparison.Ordinal);
+    }
+
     private static readonly string[] ExpectedHeadings = ["Fastest extraction", "Longest successful raid", "Shortest death run", "Longest death run"];
     private static readonly string[] ExpectedDurations = ["01:04.083", "1:10:00.999", "00:12.000", "08:20.000"];
     [Fact]

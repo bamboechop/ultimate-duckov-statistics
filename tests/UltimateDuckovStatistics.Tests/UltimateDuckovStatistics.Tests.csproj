@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/EntityDisplayNames.cs" Link="ProductionUI/EntityDisplayNames.cs" />
     <Compile Include="..\..\tools\ArtifactAudit\ArtifactPathAudit.cs" Link="Tools\ArtifactPathAudit.cs" />
     <Compile Include="..\..\tools\ArtifactAudit\OrdinaryReleaseAudit.cs" Link="Tools\OrdinaryReleaseAudit.cs" />
   </ItemGroup>

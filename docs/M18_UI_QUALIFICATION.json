@@ -1,6 +1,6 @@
 {
   "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
-  "Status": "Pass by user confirmation for the requested tab, scrolling, detail and tooltip checks in the current setup. Language/resolution changes, remaining input checks and measured native resource behavior remain open.",
+  "Status": "Pass for reported tab navigation, scrolling, details/tooltips and 720x480 layout. Language switching exposed stale recorded entity names; correction requires native requalification. Input and measured native resource checks remain open.",
   "Context": {
     "Slot": 1,
     "GenerationId": "063240a5b57647138bc4de0c18179981",
@@ -19,9 +19,31 @@
   "RelatedNumericUiAcceptance": "M18_BURNING_SWITCH_KILL_QUALIFICATION.json separately records the user-confirmed latest Runs values of 35 damage/1 kill and Combat lifetime Brand-Muni values of 56 damage/1 kill.",
   "Deferred": "The user's previously noted empty-state and text-rendering polish remains deferred and is not treated as a new failure of this functional check.",
   "Remaining": [
-    "Reopen and operate the UI after a game-language change.",
-    "Reopen and operate the UI at another available resolution, then restore the user's settings.",
-    "Complete remaining Back/Escape, keyboard-focus and repeated open/close observations where not already covered by the earlier access qualification.",
+    "Repeat native English/German entity-name checks with the corrected package, including recent routes, item rows and equipment tooltips.",
+    "Complete remaining Back/Escape, keyboard-focus and repeated open/close observations where not already covered by earlier access qualification.",
     "Measure native UI resource behavior and complete the matched performance campaign."
-  ]
+  ],
+  "LanguageAndResolutionCheck": {
+    "ReportedGameLanguage": "English after German",
+    "ReportedMinimumWindowedResolution": "720x480",
+    "UserResult": "Everything still looks good at 720x480; weapons and maps retain German captured labels after switching to English. UDS interface text remains English by design.",
+    "ScreenshotEvidence": [
+      {
+        "File": "artifacts/qualification/e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb/native-language-resolution/codex-clipboard-09412c62-d737-48a5-8149-d0b4a5288efc.png",
+        "Width": 2560,
+        "Height": 1440,
+        "Bytes": 2337529,
+        "Sha256": "4442923fb9f4119aa8a32a5f2530a496a41f48b69bc26bc4d0e19565b3b5c564"
+      },
+      {
+        "File": "artifacts/qualification/e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb/native-language-resolution/codex-clipboard-c17739b7-578a-4ebb-901f-0f09ed10f689.png",
+        "Width": 720,
+        "Height": 480,
+        "Bytes": 307764,
+        "Sha256": "3453575b2865721722646234b2c7ee9a825f198d9f35570abc7b5465c298aceb"
+      }
+    ],
+    "Layout": "Pass by user report, supported by 720x480 Diagnostics screenshot and 2560x1440 Equipment screenshot. This is visual/manual evidence, not a measured frame-time capture.",
+    "EntityNames": "Fail on installed e4824ff source: Schrott-Bogen, Kriegsaxt and Abgenutzte Angelrute remain German while native menu is English."
+  }
 }

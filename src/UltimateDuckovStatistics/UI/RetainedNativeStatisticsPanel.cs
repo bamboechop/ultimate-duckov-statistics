@@ -13,6 +13,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private static readonly KeyCode[] HotkeyCandidates = (KeyCode[])Enum.GetValues(typeof(KeyCode));
     private readonly NativeProfileCoordinator coordinator;
     private readonly NativeUiIntegration nativeUi;
+    private readonly NativeEntityDisplayNames entityNames = new();
     private readonly RetainedStatisticsShell shell = new();
     private readonly RetainedShellLifecycleState lifecycle = new();
     private readonly PanelInteractionState interaction = new();
@@ -49,6 +50,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         LoadSettings();
         nativeUi = new NativeUiIntegration(coordinator, RequestOpen, HandleSurfaceClosed);
         nativeUi.Initialize();
+        entityNames.Changed += HandleLanguageChanged;
         operations = new PanelOperationController(interaction, () => coordinator.CurrentGenerationId,
             () => coordinator.HasPendingProfileTransition, coordinator.BeginExportCurrent, coordinator.ResetCurrent,
             () => coordinator.LastUserResetAttempt,
@@ -87,7 +89,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             try
             {
                 var projection = StatisticsPanelProjectionFactory.Create(current!, coordinator.CurrentEconomyCapabilities,
-                    coordinator.CurrentCraftingCapabilities, coordinator.CurrentWorldTimeCapabilities);
+                    coordinator.CurrentCraftingCapabilities, coordinator.CurrentWorldTimeCapabilities, entityNames.Names);
                 shell.RefreshProjection(projection, generation);
                 presentedProjection = projection;
             }
@@ -193,11 +195,13 @@ internal sealed class NativeStatisticsPanel : IDisposable
         StatisticsPanelProjection projection;
         try
         {
+            entityNames.Invalidate();
             projection = StatisticsPanelProjectionFactory.Create(
                 profile!,
                 coordinator.CurrentEconomyCapabilities,
                 coordinator.CurrentCraftingCapabilities,
-                coordinator.CurrentWorldTimeCapabilities);
+                coordinator.CurrentWorldTimeCapabilities,
+                entityNames.Names);
         }
         catch (Exception exception)
         {
@@ -240,6 +244,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
         projectionDirty = false;
         return true;
     }
+
+    private void HandleLanguageChanged() => projectionDirty = true;
 
     private void HandleProfileChanging()
     {
@@ -487,6 +493,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         lifecycle.Dispose();
         shell.Dispose();
         nativeUi.Dispose();
+        entityNames.Dispose();
         RestoreFocusAndCursor();
         disposed = true;
     }

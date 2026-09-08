@@ -9,6 +9,18 @@ namespace UltimateDuckovStatistics.Tests;
 #pragma warning disable CA1861
 public sealed class RetainedItemUseTests
 {
+    [Fact]
+    public void CurrentLanguageResolvesLifetimeItemsWithoutRewritingUses()
+    {
+        var profile = Profile(); Use(profile, "duckov:item:941", name: "Brand-Muni");
+        var before = System.Text.Json.JsonSerializer.Serialize(profile);
+        var p = Project(profile); p.Names = new EntityDisplayNames(id => id == "duckov:item:941" ? "Incendiary" : null);
+        var result = ItemUsePresentationFactory.Create(p, "g")!;
+        Assert.Equal("Incendiary", result.Items[0].Name);
+        Assert.Equal("duckov:item:941", result.Items[0].ItemId);
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(profile));
+    }
+
     private static ProfileDocument Profile(string generation = "g") => new()
     {
         GenerationId = generation,
