@@ -70,7 +70,7 @@ public sealed class RetainedDiagnosticsTests
     }
 
     [Fact]
-    public void RealNativeInitializationAndSupportedFactoriesHaveNoFalseTrackingError()
+    public void RealNativeInitializationReportsWorkingWithinExpectedAttributionCoverage()
     {
         var oldVersion = UnityEngine.Application.version;
         UnityEngine.Application.version = "2.3.30";
@@ -93,10 +93,18 @@ public sealed class RetainedDiagnosticsTests
                 .Select(id => new CapabilityRecord { AdapterId = id, State = AdapterCapabilityState.Supported }));
             var profile = Profile(); profile.Capabilities = records;
             var p = Present(profile);
-            Assert.Equal(DiagnosticsHealth.Limited, p.Health); Assert.Empty(p.Issues);
-            Assert.DoesNotContain(p.Systems, s => s.Health == DiagnosticsHealth.Error);
-            Assert.Equal("Limited", Cap(p, EconomyCapabilityIds.MoneySourceAttribution).Status);
-            Assert.Equal("Limited", Cap(p, EconomyCapabilityIds.CashExternalAcquisition).Status);
+            Assert.Equal(DiagnosticsHealth.Working, p.Health); Assert.Empty(p.Issues);
+            Assert.All(p.Systems.Where(s => s.Id != "storage"), s => Assert.Equal(DiagnosticsHealth.Working, s.Health));
+            foreach (var id in new[] { EconomyCapabilityIds.MoneySourceAttribution, EconomyCapabilityIds.MoneyContextAttribution,
+                EconomyCapabilityIds.CashExternalAcquisition })
+            {
+                Assert.Equal("Working", Cap(p, id).Status);
+                Assert.Equal(nameof(AdapterCapabilityState.Experimental), Cap(p, id).State);
+                Assert.Equal(records.Single(r => r.AdapterId == id).Detail, Cap(p, id).Detail);
+            }
+            Assert.Equal(AdapterCapabilityState.Experimental, economy.MetricCapabilities.MoneySourceAttribution.State);
+            Assert.Equal(AdapterCapabilityState.Experimental, economy.MetricCapabilities.MoneyContextAttribution.State);
+            Assert.Equal(AdapterCapabilityState.Experimental, economy.MetricCapabilities.CashExternalAcquisition.State);
             Assert.Equal("Working", Cap(p, EconomyCapabilityIds.MoneyAmountDirection).Status);
             Assert.Equal("Working", Cap(p, EconomyCapabilityIds.CashAmountDirection).Status);
             Assert.Equal(records.Count, p.Systems.Sum(s => s.Capabilities.Count));
@@ -108,6 +116,9 @@ public sealed class RetainedDiagnosticsTests
     [InlineData(EconomyCapabilityIds.MoneyAmountDirection, EconomyCapabilityIds.CashAmountDirection)]
     [InlineData(EconomyCapabilityIds.CashAmountDirection, EconomyCapabilityIds.MoneyAmountDirection)]
     [InlineData(EconomyHoldingsCapabilityIds.CurrentMoney, EconomyHoldingsCapabilityIds.CurrentCash)]
+    [InlineData(EconomyCapabilityIds.MoneySourceAttribution, EconomyCapabilityIds.MoneyAmountDirection)]
+    [InlineData(EconomyCapabilityIds.MoneyContextAttribution, EconomyCapabilityIds.MoneyAmountDirection)]
+    [InlineData(EconomyCapabilityIds.CashExternalAcquisition, EconomyCapabilityIds.CashAmountDirection)]
     public void AFailedEconomyMetricKeepsItsIndependentSiblingWorking(string failing, string working)
     {
         var profile = Profile(); profile.Capabilities.Single(c => c.AdapterId == failing).State = AdapterCapabilityState.DisabledIncompatible;

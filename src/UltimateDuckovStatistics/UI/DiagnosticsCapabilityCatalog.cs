@@ -5,9 +5,10 @@ internal sealed class DiagnosticsCapabilityDescriptor
     public string Id { get; }
     public string Group { get; }
     public string EnglishName { get; }
+    public bool PartialCoverageIsExpected { get; }
     public string TextKey => "ui.diag_cap_" + Id;
-    public DiagnosticsCapabilityDescriptor(string id, string group, string name)
-    { Id = id; Group = group; EnglishName = name; }
+    public DiagnosticsCapabilityDescriptor(string id, string group, string name, bool partialCoverageIsExpected = false)
+    { Id = id; Group = group; EnglishName = name; PartialCoverageIsExpected = partialCoverageIsExpected; }
 }
 
 internal static class DiagnosticsCapabilityCatalog
@@ -54,10 +55,12 @@ internal static class DiagnosticsCapabilityCatalog
         new("native-equipped-item-nested-slot-state", "equipment", "Occupied and empty nested slots"),
         new("native-container-loot-access", "containers", "Unique containers looted"),
         new("native-economy-money-flow", "economy", "Money flow"),
-        new("native-economy-money-source", "economy", "Money sources"),
-        new("native-economy-money-context", "economy", "Money contexts"),
+        // These native contracts operate normally with partial attribution coverage.
+        // Runtime loss of those capabilities is published as DisabledIncompatible.
+        new("native-economy-money-source", "economy", "Money sources", partialCoverageIsExpected: true),
+        new("native-economy-money-context", "economy", "Money contexts", partialCoverageIsExpected: true),
         new("native-economy-cash-flow", "economy", "Cash flow"),
-        new("native-economy-cash-acquisition", "economy", "Proven raid Cash acquisition"),
+        new("native-economy-cash-acquisition", "economy", "Proven raid Cash acquisition", partialCoverageIsExpected: true),
         new("native-economy-cash-context", "economy", "Cash contexts"),
         new("native-economy-route", "economy", "Run and route flow attribution"),
         new("native-economy-holdings-current-money", "economy", "Current Money holding"),

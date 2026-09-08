@@ -132,7 +132,8 @@ internal static class DiagnosticsPresentationFactory
             {
                 grouped.TryGetValue(d.Id, out var records);
                 var record = records?.Length == 1 ? records[0] : null;
-                var health = record?.State == AdapterCapabilityState.Supported ? DiagnosticsHealth.Working
+                var health = record?.State == AdapterCapabilityState.Supported
+                    || (record?.State == AdapterCapabilityState.Experimental && d.PartialCoverageIsExpected) ? DiagnosticsHealth.Working
                     : record?.State == AdapterCapabilityState.Experimental ? DiagnosticsHealth.Limited : DiagnosticsHealth.Error;
                 var status = record == null ? unavailable : t("ui." + health.ToString().ToLowerInvariant());
                 return new DiagnosticsCapability(d.Id, group == "other" ? d.EnglishName : t(d.TextKey), status, health,
