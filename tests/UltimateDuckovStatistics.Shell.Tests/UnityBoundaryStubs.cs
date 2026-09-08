@@ -173,7 +173,7 @@ namespace TMPro
         public string text = ""; public TMP_FontAsset font = null!; public Material fontSharedMaterial = null!;
         public float fontSize = -99, fontSizeMin, fontSizeMax, characterSpacing, lineSpacing, wordSpacing, paragraphSpacing;
         public FontWeight fontWeight; public FontStyles fontStyle; public TextAlignmentOptions alignment; public TextOverflowModes overflowMode;
-        public bool enableWordWrapping, enableAutoSizing, richText; public Vector4 margin;
+        public bool enableWordWrapping, enableAutoSizing, enableKerning, richText; public Vector4 margin;
         public Vector2 GetPreferredValues(float width, float height) => GetPreferredValues(text, width, height);
         public float preferredWidth => GetPreferredValues(text).x;
         public float preferredHeight => GetPreferredValues(text, rectTransform.rect.width, float.PositiveInfinity).y;
@@ -182,9 +182,9 @@ namespace TMPro
         {
             if (awake) return;
             awake = true;
-            // Installed TMP Awake/LoadDefaultSettings overwrites wrapping only
-            // when the font size is still its -99 sentinel; Duckov defaults to off.
-            if (fontSize == -99) { fontSize = 30; enableWordWrapping = false; }
+            // Installed TMP Awake/LoadDefaultSettings loads these defaults while
+            // font size is still -99; Duckov disables wrapping and enables kerning.
+            if (fontSize == -99) { fontSize = 30; enableWordWrapping = false; enableKerning = true; }
         }
         public Vector2 GetPreferredValues(string value, float width = float.PositiveInfinity, float height = float.PositiveInfinity)
         {

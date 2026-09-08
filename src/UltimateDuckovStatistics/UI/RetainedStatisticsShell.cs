@@ -1143,9 +1143,6 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         rect.localScale = Vector3.one;
 
         var label = statisticsObject.AddComponent<TextMeshProUGUI>();
-        // Set a real size before deferred TMP Awake: its -99 default otherwise
-        // reloads Duckov's text defaults, including disabled word wrapping.
-        label.fontSize = RetainedOverviewWorldTimeStatisticsPolicy.ReferenceFontSize;
         label.font = typography.Font;
         label.fontSharedMaterial = material;
         label.text = presentation.Text;
@@ -2209,8 +2206,14 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         // content width and grow the card so the complete evidence stays visible.
         var worldTimeHeight = RetainedActiveMeasurementPolicy.Measure(
             overviewContentView!.activeSelf, overviewContentView.SetActive,
-            () => worldTimeStatisticsControl.Label.GetPreferredValues(
-                layout.OverviewWorldTimeStatistics.Width, float.PositiveInfinity).y);
+            () =>
+            {
+                // TMP Awake can restore game defaults when Overview activates.
+                // Restore the owned wrapping policy after activation, before measuring.
+                worldTimeStatisticsControl.Label.enableWordWrapping = RetainedOverviewWorldTimeStatisticsPolicy.WordWrapping;
+                return worldTimeStatisticsControl.Label.GetPreferredValues(
+                    layout.OverviewWorldTimeStatistics.Width, float.PositiveInfinity).y;
+            });
         if (!float.IsNaN(worldTimeHeight) && !float.IsInfinity(worldTimeHeight) && worldTimeHeight > 0f)
         {
             worldTimeHeight = Math.Max(layout.OverviewWorldTimeStatistics.Height, worldTimeHeight);

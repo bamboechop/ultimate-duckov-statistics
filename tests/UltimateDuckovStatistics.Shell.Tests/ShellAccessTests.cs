@@ -161,6 +161,7 @@ public sealed class ShellAccessTests : IDisposable
             var card = Find(RetainedOverviewWorldTimeCardPolicy.Name).GetComponent<RectTransform>();
             Assert.Contains("00:59:00 (capture incomplete)", label.text);
             Assert.True(label.enableWordWrapping);
+            Assert.True(label.enableKerning);
             Assert.False(label.enableAutoSizing);
             var inset = label.rectTransform.anchoredPosition.x;
             Assert.True(label.rectTransform.rect.width + 2 * inset <= card.rect.width + .001f);
