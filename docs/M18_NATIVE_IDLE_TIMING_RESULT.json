@@ -1,0 +1,307 @@
+{
+  "SourceCommit": "b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
+  "Kind": "Opt-in native attribution diagnostic; not ordinary-release acceptance",
+  "UserCompletion": "User replied Done after instructions to focus Duckov, press F9, idle about 30 seconds, press F10 and report completion.",
+  "AgentWork": "All reviewer agents were completed and root work stopped before instructions; analysis resumed only after user completion.",
+  "ProcessId": 35328,
+  "ActivationUtc": "2026-09-09T00:16:32.4735964Z",
+  "ResetMessages": 1,
+  "SummaryMessages": 1,
+  "StopwatchFrequency": 10000000,
+  "ElapsedStopwatchTicks": 302607520,
+  "ElapsedSeconds": 30.260752,
+  "OtherThreadAttempts": 0,
+  "GcCollectionCountDeltas": {
+    "Generation0": 9,
+    "Generation1": 9,
+    "Generation2": 9
+  },
+  "GcScope": "Raw per-generation runtime API counter deltas; do not sum them as independent collections or attribute them to a UDS subsystem.",
+  "Counters": {
+    "firing": 0,
+    "trackerShots": 0,
+    "projectileCaptures": 0,
+    "projectileScopeAttempts": 0,
+    "projectileScopesPushed": 0,
+    "projectileCompletions": 0,
+    "healthPrefixes": 0,
+    "healthTransitions": 0,
+    "trackerCombat": 0,
+    "equipmentAssociationRequests": 0,
+    "equipmentBuilds": 30,
+    "equipmentChanged": 0,
+    "equipmentUnchanged": 30,
+    "harmonyPatchSetInspections": 0,
+    "checkpointClones": 6,
+    "checkpointStoreAttempts": 6,
+    "checkpointStoreSuccesses": 6,
+    "profileSnapshotCaptures": 1,
+    "profileStoreAttempts": 1,
+    "profileStoreSuccesses": 1,
+    "dirtySignals": 0,
+    "readinessChecks": 8181,
+    "cashScans": 0,
+    "publications": 0
+  },
+  "Areas": [
+    {
+      "Area": "Update",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 4723749,
+      "MaximumStopwatchTicks": 43594,
+      "TotalMilliseconds": 472.3749,
+      "MeanMicroseconds": 57.740484048404845,
+      "MaximumMilliseconds": 4.3594
+    },
+    {
+      "Area": "ProfileReadiness",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 10188,
+      "MaximumStopwatchTicks": 42,
+      "TotalMilliseconds": 1.0188,
+      "MeanMicroseconds": 0.12453245324532453,
+      "MaximumMilliseconds": 0.0042
+    },
+    {
+      "Area": "RunLifecycle",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 4259847,
+      "MaximumStopwatchTicks": 43535,
+      "TotalMilliseconds": 425.9847,
+      "MeanMicroseconds": 52.07000366703337,
+      "MaximumMilliseconds": 4.3535
+    },
+    {
+      "Area": "Equipment",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 167642,
+      "MaximumStopwatchTicks": 34903,
+      "TotalMilliseconds": 16.7642,
+      "MeanMicroseconds": 2.0491626940471828,
+      "MaximumMilliseconds": 3.4903
+    },
+    {
+      "Area": "ItemUse",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 10119,
+      "MaximumStopwatchTicks": 328,
+      "TotalMilliseconds": 1.0119,
+      "MeanMicroseconds": 0.12368903557022369,
+      "MaximumMilliseconds": 0.0328
+    },
+    {
+      "Area": "Economy",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 10396,
+      "MaximumStopwatchTicks": 106,
+      "TotalMilliseconds": 1.0396,
+      "MeanMicroseconds": 0.12707492971519374,
+      "MaximumMilliseconds": 0.0106
+    },
+    {
+      "Area": "Holdings",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 52803,
+      "MaximumStopwatchTicks": 58,
+      "TotalMilliseconds": 5.2803,
+      "MeanMicroseconds": 0.6454345434543455,
+      "MaximumMilliseconds": 0.0058
+    },
+    {
+      "Area": "Healing",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 21707,
+      "MaximumStopwatchTicks": 55,
+      "TotalMilliseconds": 2.1707,
+      "MeanMicroseconds": 0.26533431120889867,
+      "MaximumMilliseconds": 0.0055
+    },
+    {
+      "Area": "Combat",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 29101,
+      "MaximumStopwatchTicks": 57,
+      "TotalMilliseconds": 2.9101,
+      "MeanMicroseconds": 0.3557144603349224,
+      "MaximumMilliseconds": 0.0057
+    },
+    {
+      "Area": "Containers",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 14338,
+      "MaximumStopwatchTicks": 55,
+      "TotalMilliseconds": 1.4338,
+      "MeanMicroseconds": 0.17525974819704193,
+      "MaximumMilliseconds": 0.0055
+    },
+    {
+      "Area": "WorldTime",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 28736,
+      "MaximumStopwatchTicks": 102,
+      "TotalMilliseconds": 2.8736,
+      "MeanMicroseconds": 0.3512529030680846,
+      "MaximumMilliseconds": 0.0102
+    },
+    {
+      "Area": "Crafting",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 27823,
+      "MaximumStopwatchTicks": 50,
+      "TotalMilliseconds": 2.7823,
+      "MeanMicroseconds": 0.3400928981787068,
+      "MaximumMilliseconds": 0.005
+    },
+    {
+      "Area": "ProfilePersistence",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 19033,
+      "MaximumStopwatchTicks": 747,
+      "TotalMilliseconds": 1.9033,
+      "MeanMicroseconds": 0.2326488204375993,
+      "MaximumMilliseconds": 0.0747
+    },
+    {
+      "Area": "Panel",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 24065,
+      "MaximumStopwatchTicks": 7,
+      "TotalMilliseconds": 2.4065,
+      "MeanMicroseconds": 0.2941571934971275,
+      "MaximumMilliseconds": 0.0007
+    },
+    {
+      "Area": "GameClockCallback",
+      "Calls": 8181,
+      "TotalStopwatchTicks": 61687,
+      "MaximumStopwatchTicks": 176,
+      "TotalMilliseconds": 6.1687,
+      "MeanMicroseconds": 0.7540276249847206,
+      "MaximumMilliseconds": 0.0176
+    },
+    {
+      "Area": "CombatEffectUpdate",
+      "Calls": 0,
+      "TotalStopwatchTicks": 0,
+      "MaximumStopwatchTicks": 0,
+      "TotalMilliseconds": 0.0,
+      "MeanMicroseconds": null,
+      "MaximumMilliseconds": 0.0
+    },
+    {
+      "Area": "CombatEffectTick",
+      "Calls": 0,
+      "TotalStopwatchTicks": 0,
+      "MaximumStopwatchTicks": 0,
+      "TotalMilliseconds": 0.0,
+      "MeanMicroseconds": null,
+      "MaximumMilliseconds": 0.0
+    },
+    {
+      "Area": "CombatEffectOther",
+      "Calls": 0,
+      "TotalStopwatchTicks": 0,
+      "MaximumStopwatchTicks": 0,
+      "TotalMilliseconds": 0.0,
+      "MeanMicroseconds": null,
+      "MaximumMilliseconds": 0.0
+    },
+    {
+      "Area": "CombatEffectFinalizer",
+      "Calls": 0,
+      "TotalStopwatchTicks": 0,
+      "MaximumStopwatchTicks": 0,
+      "TotalMilliseconds": 0.0,
+      "MeanMicroseconds": null,
+      "MaximumMilliseconds": 0.0
+    },
+    {
+      "Area": "HealingEffectPrefix",
+      "Calls": 0,
+      "TotalStopwatchTicks": 0,
+      "MaximumStopwatchTicks": 0,
+      "TotalMilliseconds": 0.0,
+      "MeanMicroseconds": null,
+      "MaximumMilliseconds": 0.0
+    },
+    {
+      "Area": "HealingEffectFinalizer",
+      "Calls": 0,
+      "TotalStopwatchTicks": 0,
+      "MaximumStopwatchTicks": 0,
+      "TotalMilliseconds": 0.0,
+      "MeanMicroseconds": null,
+      "MaximumMilliseconds": 0.0
+    },
+    {
+      "Area": "MovementSample",
+      "Calls": 150,
+      "TotalStopwatchTicks": 39885,
+      "MaximumStopwatchTicks": 409,
+      "TotalMilliseconds": 3.9885,
+      "MeanMicroseconds": 26.59,
+      "MaximumMilliseconds": 0.0409
+    }
+  ],
+  "RunLifecycleShareOfMeasuredUpdatePercent": 90.179368124767,
+  "Profile": {
+    "GenerationId": "ced3938bda07407183ffa7cc36224d4f",
+    "RunId": "2c9e644a622f456bbe49df31f599f497",
+    "NativeRaidId": "213",
+    "MapId": "duckov:map:Level_GroundZero_1",
+    "PreservedCompletedRuns": 1,
+    "ExactPreflightEquipmentSnapshotRetained": true,
+    "SupportedCapabilities": 59,
+    "ExpectedExperimentalCapabilities": 3,
+    "DiagnosticsWarningsAndErrors": 0
+  },
+  "Interpretation": "RunLifecycle.Tick dominates the measured inclusive UDS Update duration. It includes synchronization, tracker advancement, checkpoint work and movement, so this does not separately measure the equipment reducer or prove decimal arithmetic causes the original median miss. All six effect prefix/finalizer timer areas recorded zero calls in this interval.",
+  "Limits": "Inclusive parent/child timers overlap and must not be summed. Means/maxima are UDS method durations, not presented frame-time percentiles. Instrumentation overhead and native scene variance remain; no ordinary-release performance pass is inferred. Startup is excluded by F9 reset; F10 stops timing before summary formatting.",
+  "Evidence": [
+    {
+      "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing/preflight/active-run.json",
+      "Bytes": 66034,
+      "Sha256": "6b1e365de76c95717379888ebc595643a272cc9107d4dbf3ea7b74bd377d7b0e"
+    },
+    {
+      "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing/preflight/diagnostics.json",
+      "Bytes": 2055,
+      "Sha256": "689dc05debc2c4243eff03deac9910778c1365ab7bad7b53aba409eeffed1f68"
+    },
+    {
+      "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing/preflight/player.log",
+      "Bytes": 16004,
+      "Sha256": "c6fb34c332f5975bb00441107fa8c9ad2ed428a0125ec150bf11f035f3968d96"
+    },
+    {
+      "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing/preflight/profile.json",
+      "Bytes": 171099,
+      "Sha256": "11d18530b040d0fa35d1e60ef7cd73fe8dbf802aaf6734d5448c1c3c1e00b470"
+    },
+    {
+      "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing/preflight/result.json",
+      "Bytes": 973,
+      "Sha256": "4fdac4c0b29eb4625f4b53ce0199031fff6ffee362b2661b5bd60d98af8bfe12"
+    },
+    {
+      "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing/interval-01/active-run.json",
+      "Bytes": 66013,
+      "Sha256": "a418e8577c7edd14e5a0bfaef9ad356fc92f53e7ad5d984efbaed2bee606e7fa"
+    },
+    {
+      "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing/interval-01/diagnostics.json",
+      "Bytes": 2055,
+      "Sha256": "689dc05debc2c4243eff03deac9910778c1365ab7bad7b53aba409eeffed1f68"
+    },
+    {
+      "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing/interval-01/player.log",
+      "Bytes": 17319,
+      "Sha256": "1f61d3dd462a830eeab68d482ab8b469b6e81739e77d6b831ace37bfdb7c4029"
+    },
+    {
+      "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing/interval-01/profile.json",
+      "Bytes": 171100,
+      "Sha256": "2c9011d8836b11d88f5961161063d85d2700d9735d17a9df846b4f503c2d3c6f"
+    }
+  ]
+}

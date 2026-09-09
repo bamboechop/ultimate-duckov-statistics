@@ -1,7 +1,7 @@
 {
   "SourceCommit": "b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
   "ReviewRange": "1e2602ac0760784f7a9d0b403b12bc95c078b1a9..b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
-  "Status": "Prepared, independently reviewed and deployed opt-in diagnostic; native timing interval not yet exercised.",
+  "Status": "Prepared, independently reviewed and deployed opt-in diagnostic; native F9/F10 interval completed and independently reviewed.",
   "Purpose": "Locate remaining ordinary-release idle median overhead without changing tracking behavior or accepting instrumented frame times.",
   "Method": {
     "Path": "docs/M18_IDLE_TIMING_DIAGNOSTIC.md",
@@ -136,7 +136,7 @@
       "Sha256": "02a57d1dc61705858766a0d654a02b3bd0c3976a67e850d7cc2c75cbd6e6d59a"
     }
   ],
-  "Remaining": "Verify diagnostic activation after user launch, then one user-controlled F9/F10 idle interval. Restore ordinary candidate after diagnosis. Performance qualification remains open.",
+  "Remaining": "Replace the diagnostic with the reviewed ordinary duration-bound correction after user-confirmed closure and deployment checks. Ordinary native performance qualification remains open.",
   "Deployment": {
     "Result": {
       "Result": "Pass for opt-in diagnostic deployment and byte-for-byte data preservation; diagnostic timings cannot qualify ordinary Release. Restore the frozen 7667 ordinary package after diagnosis.",
@@ -222,5 +222,22 @@
         "Sha256": "58482f0db3e83afc6a921013d5eac0c33d7ac65a2cc192b17bd5665cd98fd230"
       }
     ]
+  },
+  "NativeInterval": {
+    "Result": {
+      "Path": "docs/M18_NATIVE_IDLE_TIMING_RESULT.json",
+      "Bytes": 10444,
+      "Sha256": "0cb22488a577027b7a1d88688277a3b997bb75d66f36e9f6acd730387ea00b2c"
+    },
+    "Review": {
+      "Path": "artifacts/m18-native-timing-result-review/review.md",
+      "Bytes": 9920,
+      "Sha256": "8f2b9e4ffa12096c59fc50334012a279df817983744b25ca1ae4c6b913449406"
+    },
+    "CanonicalReview": {
+      "Path": "artifacts/m18-native-timing-result-review/canonical-review.md",
+      "Bytes": 2742,
+      "Sha256": "2b974278e472cba6377e2d7455eb59d3d49a1485e314438f26552dcaa9f5a4b2"
+    }
   }
 }
