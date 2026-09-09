@@ -229,11 +229,17 @@ internal static class HealingHarmonyCallbacks
 
     private static void EffectPrefix(EffectAction __instance, out string? __state)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.HealingEffectPrefix);
+#endif
         __state = HealingHarmonyBridge.PushEffect(__instance);
     }
 
     private static Exception? EffectFinalizer(Exception? __exception, string? __state)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.HealingEffectFinalizer);
+#endif
         HealingHarmonyBridge.Pop(__state);
         return __exception;
     }

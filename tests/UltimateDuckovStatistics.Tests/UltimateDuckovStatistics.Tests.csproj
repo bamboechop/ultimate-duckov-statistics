@@ -133,6 +133,8 @@
     <Compile Include="..\..\tools\FrameTimeAnalyzer\CampaignEvidence.cs" Link="Performance\CampaignEvidence.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHotPathDiagnostics.cs"
              Link="Performance\NativeHotPathDiagnostics.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeHotPathTimings.cs"
+             Link="Performance/NativeHotPathTimings.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\IncrementalPatchInspectionScheduler.cs"
              Link="Performance\IncrementalPatchInspectionScheduler.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ReferenceScopeStack.cs"

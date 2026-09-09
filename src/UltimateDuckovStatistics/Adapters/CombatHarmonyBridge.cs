@@ -215,11 +215,21 @@ internal static class CombatHarmonyCallbacks
         return __exception;
     }
 
-    private static void EffectPrefix(EffectTriggerEventContext context, out CombatNativeScope? __state) =>
+    private static void EffectPrefix(EffectTriggerEventContext context, out CombatNativeScope? __state)
+    {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(context.source is UpdateTrigger
+            ? NativeHotPathArea.CombatEffectUpdate
+            : context.source is TickTrigger ? NativeHotPathArea.CombatEffectTick : NativeHotPathArea.CombatEffectOther);
+#endif
         __state = CombatHarmonyBridge.PushEffect(context);
+    }
 
     private static Exception? EffectFinalizer(Exception? __exception, CombatNativeScope? __state)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.CombatEffectFinalizer);
+#endif
         CombatHarmonyBridge.Pop(__state);
         return __exception;
     }

@@ -307,6 +307,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 && MovementCapability.State == AdapterCapabilityState.Supported
                 && sampleCadence.IsDue(now))
             {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+                using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.MovementSample))
+#endif
                 SampleMainDuck(utcNow, now);
                 sampleCadence.MarkCompleted(now);
             }

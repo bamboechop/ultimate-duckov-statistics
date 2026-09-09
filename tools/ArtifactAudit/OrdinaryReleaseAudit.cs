@@ -64,6 +64,6 @@ public static class OrdinaryReleaseAudit
             HandleKind.TypeReference => metadata.GetString(metadata.GetTypeReference((TypeReferenceHandle)handle).Name),
             _ => ""
         };
-        return name is "NativeHotPathDiagnostics" or "NativeHotPathCounterSnapshot";
+        return name is "NativeHotPathDiagnostics" or "NativeHotPathCounterSnapshot" or "NativeHotPathMeasurement";
     }
 }

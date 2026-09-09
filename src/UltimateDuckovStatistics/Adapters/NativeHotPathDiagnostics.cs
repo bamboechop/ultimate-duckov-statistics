@@ -31,7 +31,7 @@ internal sealed class NativeHotPathCounterSnapshot
     public long EconomyHoldingsPublications { get; set; }
 }
 
-internal static class NativeHotPathDiagnostics
+internal static partial class NativeHotPathDiagnostics
 {
     private static long acceptedFiringCallbacks;
     private static long trackerShotMutations;
@@ -87,6 +87,9 @@ internal static class NativeHotPathDiagnostics
         economyHoldingsCashScans = 0;
         economyHoldingsPublications = 0;
         summaryWritten = 0;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        ResetTimings();
+#endif
     }
 
     [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")] public static void CountAcceptedFiringCallback() => Interlocked.Increment(ref acceptedFiringCallbacks);
@@ -146,6 +149,10 @@ internal static class NativeHotPathDiagnostics
     public static void WriteSummary(Action<string> diagnostic)
     {
         if (Interlocked.Exchange(ref summaryWritten, 1) != 0) return;
+        var timingSummary = string.Empty;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        timingSummary = FinishTimingSummary();
+#endif
         var value = Snapshot();
         diagnostic(
             "M8.1 diagnostic counters "
@@ -162,7 +169,8 @@ internal static class NativeHotPathDiagnostics
             + $"profileStoreAttempts={value.ProfileStoreAttempts} profileStoreSuccesses={value.ProfileStoreSuccesses} "
             + "M15Holdings "
             + $"dirtySignals={value.EconomyHoldingsDirtySignals} readinessChecks={value.EconomyHoldingsReadinessChecks} "
-            + $"cashScans={value.EconomyHoldingsCashScans} publications={value.EconomyHoldingsPublications}.");
+            + $"cashScans={value.EconomyHoldingsCashScans} publications={value.EconomyHoldingsPublications}."
+            + timingSummary);
     }
 
     [Conditional("UDS_PERFORMANCE_DIAGNOSTICS")]
