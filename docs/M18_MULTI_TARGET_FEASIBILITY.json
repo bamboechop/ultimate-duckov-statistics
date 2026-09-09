@@ -1,0 +1,12 @@
+{
+  "RecordedUtc": "2026-09-09T20:12:04.190323+00:00",
+  "Scenario": "high-rate-multi",
+  "Status": "Not exercised: no reproducible multi-target encounter identified in the current manual setup.",
+  "UserReport": "Two regular ducks together? That's almost completely random. Why do we need it?",
+  "Assessment": "Controlled comparison needs repeatable multi-target engagement within the same three-second firing window in both configurations. The user reports random pairing; searching or farming for such encounters is not warranted for the bounded qualification. This is current setup feasibility, not proof that the native game can never produce two targets.",
+  "Action": "Defer the controlled cell and retain its unmet status explicitly. Observe multi-target activity opportunistically during the natural gameplay soak; do not represent that observation as a matched controlled comparison.",
+  "FrozenMatrixChanged": false,
+  "AcceptedAsPass": false,
+  "ReleaseGateWaived": false,
+  "ReasonForExclusion": "Encounter repeatability, not an unfavorable numerical result; no captures exist for this cell."
+}
