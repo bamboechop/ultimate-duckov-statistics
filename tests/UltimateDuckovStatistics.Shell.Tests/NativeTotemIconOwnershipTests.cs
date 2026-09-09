@@ -17,7 +17,9 @@ public sealed class NativeTotemIconOwnershipTests : IDisposable
     {
         ItemAssetsCollection.Metadata[TotemId] = new ItemMetaData
         {
-            id = TotemId, icon = borrowedIcon, displayQuality = 4,
+            id = TotemId,
+            icon = borrowedIcon,
+            displayQuality = 4,
             tags = new List<ItemTag> { new() { name = "Totem" } }
         };
     }
