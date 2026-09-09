@@ -1,7 +1,7 @@
 {
   "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
   "ReviewRange": "e3eb69f9f7e22214d58078eea9e00f81e95910ba..88efddb5eacdab40a40498b62f90fdde14d167af",
-  "Status": "Ordinary correction reviewed, checked, deployed and natively reopened. Three new D idle samples against the fixed existing baseline miss the 5% median target (+6.20728%) and meet the 10% p99 target (+1.95090%). Matched native performance qualification remains open.",
+  "Status": "Ordinary correction reviewed, checked, deployed and natively reopened. The bounded fixed-D/current-control Nullpunkt idle comparison passes at +2.32632% median and +1.74807% p99. The earlier missed reference comparison and all samples remain preserved. Other native performance gates remain open.",
   "Change": "Calculate the exact decimal.MaxValue - delta bound once per positive equipment Advance. Both preflight and mutation retain the original comparisons and additions, current destination lookup and metadata updates. Cold merges retain the original bound calculation.",
   "Preserved": "Absolute-duration conversion, per-frame run/segment updates, event and pause boundaries, decimal precision, composition, validation, persistence cadence, pending recovery and mutable snapshot/row handling.",
   "DiagnosticResult": {
@@ -202,7 +202,7 @@
     }
   ],
   "Limits": "The instrumented RunLifecycle timer includes more than equipment arithmetic. Managed improvement does not establish the cause of the prior native frame delta or pass the 5% median/10% p99 target. All original native failures and valid samples remain preserved.",
-  "Next": "Before any acceptance claim or further frame-time optimization, collect one fixed reconciliation set of three current Harmony-only B samples with this D triplet held fixed. Reconfirm the same location, camera, loadout and controls after the user-controlled restart. Retain the existing-baseline comparison regardless of outcome. A further target miss remains a failure requiring diagnosis; do not repeat captures until a favorable result appears.",
+  "Next": "Proceed to the declared action-heavy cells. Keep Harmony-only configuration for the next B cell to avoid an unnecessary restart. Confirm current weapon magazine capacity and available ammunition before freezing the concrete firing setup and announcing any timed action.",
   "Deployment": {
     "Result": {
       "Result": "Pass for reviewed ordinary duration-bound correction deployment and byte-for-byte data preservation; native performance requalification remains pending.",
@@ -327,6 +327,26 @@
         "Path": "artifacts/m18-duration-bound-idle-result-review/result.json",
         "Bytes": 16826,
         "Sha256": "08270cc855d0b9441327dc6965337608df9a220064e556a87b9bd828e896b2f2"
+      }
+    ]
+  },
+  "NativeIdleReconciliation": {
+    "Path": "docs/M18_IDLE_CONTROL_RECONCILIATION.json",
+    "Bytes": 27619,
+    "Sha256": "02a0d792e17ca0e41253f45851ac2f6ddb08059842e402e27229e6153daa91ef"
+  },
+  "NativeIdleReconciliationReview": {
+    "Result": "Pass for bounded idle result, preserved raw evidence and future zero-delay tooling. Independent computation reproduces all 46,501 frames and both raw input paths; full M18 acceptance remains open.",
+    "Evidence": [
+      {
+        "Path": "artifacts/m18-idle-reconciliation-review/review.md",
+        "Bytes": 3186,
+        "Sha256": "afddc91fbadc7950e9f67cce5f25eaff42074d03ddf60f812123d3ef6d687665"
+      },
+      {
+        "Path": "artifacts/m18-idle-reconciliation-review/result.json",
+        "Bytes": 22476,
+        "Sha256": "89db8e7d0265b054c0cd43ea274cfde9fcaa35820afaa1170d37ef89a7d9cc11"
       }
     ]
   }

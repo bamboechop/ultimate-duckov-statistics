@@ -15,8 +15,8 @@ param(
     [ValidateRange(10, 120)]
     [int]$CaptureSeconds = 30,
 
-    [ValidateRange(5, 30)]
-    [int]$AttachDelaySeconds = 10,
+    [ValidateRange(0, 30)]
+    [int]$AttachDelaySeconds = 0,
 
     [switch]$Idle,
 
@@ -294,8 +294,12 @@ function Send-CaptureSignal([int]$Frequency) {
     try { [Console]::Beep($Frequency, 250) } catch { }
 }
 
-Write-Host "CapFrameX will begin the $CaptureSeconds-second capture after $AttachDelaySeconds seconds. Return focus to Duckov now."
-Start-Sleep -Seconds $AttachDelaySeconds
+if ($AttachDelaySeconds -gt 0) {
+    Write-Host "CapFrameX will begin the $CaptureSeconds-second capture after $AttachDelaySeconds seconds. Return focus to Duckov now."
+    Start-Sleep -Seconds $AttachDelaySeconds
+} else {
+    Write-Host "CapFrameX is starting the $CaptureSeconds-second capture now."
+}
 $captureStartedUtc = (Get-Date).ToUniversalTime()
 $captureControlClock = [System.Diagnostics.Stopwatch]::StartNew()
 try {

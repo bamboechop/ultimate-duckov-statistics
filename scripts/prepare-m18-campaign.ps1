@@ -17,7 +17,7 @@ foreach ($name in @('UltimateDuckovStatistics.dll', 'UltimateDuckovStatistics.Co
     if ($hash -ne $proof.Checkouts[0].Hashes.$name -or $hash -ne $proof.Checkouts[1].Hashes.$name) { throw "Candidate differs from immutable proof: $name" }
     $hashes[$name] = $hash
 }
-$matrixPath = Join-Path $PSScriptRoot '../docs/M18_CAPTURE_MATRIX.json'
+$matrixPath = Join-Path $PSScriptRoot '../docs/M18_CAPTURE_MATRIX_NO_FOCUS_DELAY.json'
 $campaign = [ordered]@{
     SchemaVersion = 1
     CreatedUtc = (Get-Date).ToUniversalTime().ToString('O')

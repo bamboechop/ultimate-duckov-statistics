@@ -1,0 +1,31 @@
+{
+  "Protocol": "M18 using M8.1 frame-time method",
+  "Repetitions": 3,
+  "CaptureSeconds": 30,
+  "AttachDelaySeconds": 0,
+  "Configurations": ["B", "D"],
+  "EngineeringMedianPercent": 5,
+  "EngineeringP99Percent": 10,
+  "CeilingMedianPercent": 10,
+  "CeilingP99Percent": 20,
+  "MaterialFrameRateDeltaPercentagePoints": 0.25,
+  "ClusterFrameMilliseconds": 33.3,
+  "ClusterWindowSeconds": 1,
+  "ClusterMinimumFrames": 2,
+  "Scenarios": [
+    {"Id":"idle", "Kind":"idle", "Start":null, "End":null, "Control":"Stationary raid, same loadout, no input."},
+    {"Id":"high-rate-empty", "Kind":"weapon", "Start":5, "End":8, "Control":"Same retained fast automatic, one full 30-round magazine into empty space."},
+    {"Id":"high-rate-single", "Kind":"weapon", "Start":5, "End":8, "Control":"Same fast automatic and magazine against one reproducible target."},
+    {"Id":"high-rate-multi", "Kind":"weapon", "Start":5, "End":8, "Control":"Same fast automatic and magazine against multiple reproducible targets; concrete unreproducibility requires a recorded exception, never implicit omission."},
+    {"Id":"second-auto-empty", "Kind":"weapon", "Start":5, "End":8, "Control":"Distinct retained automatic, one full 30-round magazine into empty space."},
+    {"Id":"second-auto-single", "Kind":"weapon", "Start":5, "End":8, "Control":"Same second automatic against one reproducible target."},
+    {"Id":"slower-control", "Kind":"weapon", "Start":5, "End":16, "Control":"Same slower cross-class weapon, five shots as soon as weapon permits."},
+    {"Id":"consumable-medkit", "Kind":"consumable", "Start":5, "End":15, "Control":"Exactly one Med-Kit (S) use; same safe location, starting HP range, no active damage or passive healing."},
+    {"Id":"base-idle-ui-closed", "Kind":"idle", "Start":null, "End":null, "Control":"Same stationary base location, all menus closed."},
+    {"Id":"base-inventory-equipment", "Kind":"activity", "Start":5, "End":20, "Control":"Same native inventory and exact recorded equip/unequip/transfer sequence, with fixed item identities and counts."},
+    {"Id":"base-crafting-economy", "Kind":"activity", "Start":5, "End":20, "Control":"Same recorded paid recipe, batch and shop/ATM actions; exact resources, quantity and funds."},
+    {"Id":"base-ui-open", "Kind":"activity", "Start":5, "End":20, "Control":"B native pause menu, D UDS opened from that menu; fixed tab sequence and scrolling. Both pause gameplay. Repeat against declared high-history state."},
+    {"Id":"export-boundary", "Kind":"activity", "Start":5, "End":20, "Control":"B native pause menu, D one local export at second 5; inspect export time and aligned spike without averaging it away."},
+    {"Id":"terminal-boundary", "Kind":"activity", "Start":5, "End":20, "Control":"Same extraction interaction and route; loading is intentional in this cell only. Report terminal write peak and whole/action distributions."}
+  ]
+}
