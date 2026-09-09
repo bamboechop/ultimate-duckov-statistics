@@ -4,6 +4,8 @@ The [declared base UI comparison](M18_BASE_UI_QUALIFICATION.json) fails both the
 
 The bounded source review found change-gated full projection rebuilding, eager construction of all tabs on open, synchronous disposal on close, and per-frame layout entry into hidden views with guards before expensive reflow. Native menu discovery is callback-driven; shortcut integrity checks already use shared patch tokens. A running world clock can cause a profile revision and full open-panel refresh, but that occurrence is not established for this paused workload. No method has yet been shown to cause the measured miss.
 
+The [prepared diagnostic package record](M18_UI_TIMING_DIAGNOSTIC.json) binds the source, independent reviews, tests, privacy/IL audits, extracted inventory and fresh DLL repeat. Deployment and native attribution remain pending.
+
 ## One diagnostic interval
 
 The existing opt-in fixed-storage stopwatch counters now distinguish Update and panel Tick by panel state at entry. Separate scopes cover opening projection, complete shell construction, projection refresh, shell refresh, actual visual layout after its cache guard, shell layout/ticks, diagnostics rebuild, tab selection and synchronous closing cleanup. Existing adapter and persistence timings remain available for the pre-opening cost. All added code is behind `UDS_PERFORMANCE_DIAGNOSTICS`; ordinary builds contain none of these calls or the state accessor.

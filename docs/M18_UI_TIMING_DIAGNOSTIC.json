@@ -1,0 +1,158 @@
+{
+  "RecordedUtc": "2026-09-09T13:33:41.136165+00:00",
+  "SourceCommit": "9c9db8f0e9c235ff467807a97d11ed5733a93209",
+  "NativeTimingCommit": "bdf9b31aeb454f469a69287c101d286fca9ad47e",
+  "OrdinaryAcceptanceSource": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "Status": "Prepared and reviewed; not deployed. One native attribution interval remains unexercised.",
+  "Package": {
+    "Directory": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\diagnostic-candidates\\9c9db8f0e9c235ff467807a97d11ed5733a93209\\UltimateDuckovStatistics",
+    "Files": [
+      {
+        "Name": "info.ini",
+        "Length": 336,
+        "FileVersion": null,
+        "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+      },
+      {
+        "Name": "INSTALL.md",
+        "Length": 6820,
+        "FileVersion": null,
+        "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+      },
+      {
+        "Name": "LICENSE",
+        "Length": 1096,
+        "FileVersion": null,
+        "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+      },
+      {
+        "Name": "UltimateDuckovStatistics.Core.dll",
+        "Length": 693760,
+        "FileVersion": "1.0.0.0",
+        "Sha256": "e2a9256f58ba08b3bc5b127184a297548c85020f23d90564b763ca8754984ca6"
+      },
+      {
+        "Name": "UltimateDuckovStatistics.dll",
+        "Length": 1127936,
+        "FileVersion": "1.0.0.0",
+        "Sha256": "25ba4292655cef8a6d8d09b1e64bf667e373e34d18a3ccbe3a9409bb78e40b14"
+      }
+    ],
+    "ManifestSha256": "f93441abfcbda90658672e7a3103762ccaa49ba55024be999677b733090a3fce",
+    "SourceTreeSha256": "810f054b4549feac4edbf6febc7561bb14482d0dfe65c5285dc143056d99b3cb",
+    "Zip": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\diagnostic-candidates\\9c9db8f0e9c235ff467807a97d11ed5733a93209\\UltimateDuckovStatistics-ui-diagnostic.zip",
+    "ZipBytes": 638430,
+    "ZipSha256": "c5ae07db9f76462a54387bc40058d7e4ca70a913cd480c62b8a300edc556332b"
+  },
+  "Checks": {
+    "Debug": {
+      "MainPassed": 1937,
+      "ShellPassed": 30
+    },
+    "Release": {
+      "MainPassed": 1937,
+      "ShellPassed": 30
+    },
+    "Warnings": 0,
+    "ScopedFormatting": "Pass",
+    "InstalledNativeContractProbe": "Pass",
+    "OrdinarySourceEquivalence": "Pass for all four changed source paths after excluding diagnostic regions",
+    "OrdinaryReleaseIlAndPrivacyAudit": "Pass on fresh ordinary build",
+    "DiagnosticPrivacyAndPackageInventory": "Pass",
+    "IndependentZipExtractionHashes": "Pass for all five files",
+    "FreshDiagnosticDllRepeat": "Pass for both DLLs in two output directories; not full two-checkout release qualification"
+  },
+  "Review": {
+    "Reviewer": "/root/ui_cost_review",
+    "Verdict": "Pass; no actionable findings",
+    "Ranges": [
+      "453286f31c8cfd5b46e5d137853ebb002bc406c6..bdf9b31aeb454f469a69287c101d286fca9ad47e",
+      "bdf9b31aeb454f469a69287c101d286fca9ad47e..9c9db8f0e9c235ff467807a97d11ed5733a93209"
+    ]
+  },
+  "ToolchainMismatch": {
+    "InitialPackagePreserved": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\diagnostic-candidates\\bdf9b31aeb454f469a69287c101d286fca9ad47e",
+    "Evidence": "Identical compiler version and Core source checksums, but PDB compiler-runtime metadata differed between 8.0.30 and 8.0.31. The builder now rebuilds all projects without a shared compiler; clean repeats match.",
+    "RawSymbols": [
+      {
+        "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\compiler-runtime-symbols\\initial\\UltimateDuckovStatistics.Core.pdb",
+        "Sha256": "2cf7ef2caa26396f6f07011eca56f924be728545e519c0bf7c22b5e44d9a4184"
+      },
+      {
+        "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\compiler-runtime-symbols\\initial\\UltimateDuckovStatistics.pdb",
+        "Sha256": "a46b345ed16bbb454f7d96dfd963e8462d82355d43816abac3d9cc65222dbb15"
+      },
+      {
+        "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\compiler-runtime-symbols\\rebuild\\UltimateDuckovStatistics.Core.pdb",
+        "Sha256": "c3ad65334b6fe88e10f69bbe1642683cc013cd69da0c4736eff4d02e50097c0b"
+      },
+      {
+        "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\compiler-runtime-symbols\\rebuild\\UltimateDuckovStatistics.pdb",
+        "Sha256": "fee64b4375f964b95ac342bcc5a106d7de46fdbc146d17b41d1e151af5f5da3d"
+      }
+    ]
+  },
+  "Evidence": [
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\tests-Debug.log",
+      "Sha256": "85998cbb36a528fcb251314185330ac829fec7177c0d0a489051f9e09fa1bc49"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\tests-Release.log",
+      "Sha256": "bf4cf50191dfb0fb9edfacc28989ebad8e66c414deb4d28fccbb9468faabd0aa"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\format.log",
+      "Sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\native-contract.log",
+      "Sha256": "131c9478afd4576d1b651117c551b432a09cb6ca90175ade642d6bd03a1cf46f"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\ordinary-source-equivalence.json",
+      "Sha256": "eea756f9bde7a1f823288c1f215ad6db6cf876d5ab4b1bed1f7f2442a3d23c5f"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\ordinary-clean-build.log",
+      "Sha256": "0ed265cf5fae0e36e83a75c3ba835a0ce1c21476d9ee8ae6ba076095f8ea83d3"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\ordinary-clean-audit.log",
+      "Sha256": "77d6dc4fe3ab60c12324acb718f83a545886cd8fe038e3d3eda5d3e676c78a16"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\diagnostic-clean-package.log",
+      "Sha256": "f66e983f2116372f27e7f71361466a2d8d1c57a849c95e512180ee8d4d680039"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\diagnostic-clean-repeat.log",
+      "Sha256": "4df71012bbaf77d714358eafa84b64c752531af4349af59f3a539995b1be32a3"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\diagnostic-clean-audit.log",
+      "Sha256": "d8ce4006676828b5570d2820a69639cfb3ee28b981e7dc42deef261a37cdae76"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\compiler-runtime-mismatch.txt",
+      "Sha256": "426d5ce1692b3d723ebeee5c490bd98b501cead47276cd948c7c0f6e301b91fb"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\dotnet-info.txt",
+      "Sha256": "080081b19c37c1064e4814f7ecab0ec8306b6e75b075f555c1c64b6049106cc1"
+    },
+    {
+      "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\independent-review.txt",
+      "Sha256": "03feb40d9ca0b576a98759188d0acf3683e9bf9091867257f0c04150b73273cc"
+    }
+  ],
+  "DeferredGameClosedTests": [
+    "DeploymentReplacesStaleDestinationWithExactPermittedInventory",
+    "BackupCleanupFailureCannotExposeAPriorManifestToNativeModDiscovery"
+  ],
+  "DeploymentGate": "Explicit user confirmation that Duckov is closed, process absence, the two deferred tests in Debug/Release, reversible UDS-only replacement and exact hash/data readback.",
+  "NativeProcedure": "One approximately 30-second paused-base interval: F9; 5 seconds closed; open via injected button, eight tab changes and Diagnostics scroll; F8 around20seconds; 10 seconds closed; F10. Preserve deviations. No new baseline series. See M18_UI_TIMING_DIAGNOSTIC.md.",
+  "StoppingRule": "Assess this interval before any correction or further capture. Small/unattributable synchronous cost is a limitation to report, not authorization for another diagnostic loop.",
+  "RestorationPackage": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\candidates\\88efddb5eacdab40a40498b62f90fdde14d167af\\UltimateDuckovStatistics",
+  "Qualification": "Original base UI engineering/ceiling failure remains unchanged. No runtime improvement or M18 completion claimed."
+}
