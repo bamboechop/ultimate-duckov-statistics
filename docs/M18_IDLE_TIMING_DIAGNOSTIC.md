@@ -2,6 +2,8 @@
 
 The [ordinary Release repeat](M18_IDLE_REPEAT_QUALIFICATION.json) misses the median engineering target. This opt-in diagnostic measures the remaining native work before selecting another correction. It is not a release candidate and its frame times cannot qualify ordinary Release.
 
+The [prepared package record](M18_IDLE_TIMING_DIAGNOSTIC.json) preserves the exact source, validation, independent review and package identities. Native deployment and the controlled interval remain separate checks.
+
 Build with `scripts/build-performance-diagnostic.ps1 -DuckovPath <installed-game-directory>`. The existing script produces a separate five-file diagnostic package and a manifest containing its source inventory and hashes. Deployment remains a reversible UDS-only replacement after the user closes Duckov; restore the recorded ordinary package after diagnosis. Never alter profiles or saves for this check.
 
 After launch, use the same Nullpunkt position, camera, SR-3M/MMG loadout and closed menus. Let the scene settle, then press F9 to reset counters and timers. Stay idle for about 30 seconds and press F10 once to write the bounded summary to Player.log. The agent suspends builds, tests and analysis until the user confirms the interval has ended. The initial startup interval is not controlled evidence. No CapFrameX acceptance capture is needed for this attribution check.

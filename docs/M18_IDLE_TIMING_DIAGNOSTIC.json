@@ -1,0 +1,140 @@
+{
+  "SourceCommit": "b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
+  "ReviewRange": "1e2602ac0760784f7a9d0b403b12bc95c078b1a9..b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
+  "Status": "Prepared and independently reviewed opt-in diagnostic; native deployment and timing interval not yet exercised.",
+  "Purpose": "Locate remaining ordinary-release idle median overhead without changing tracking behavior or accepting instrumented frame times.",
+  "Method": {
+    "Path": "docs/M18_IDLE_TIMING_DIAGNOSTIC.md",
+    "Bytes": 3273,
+    "Sha256": "f9abc035acd8e37066cc2bb32983e059784b2adb69a87f513c774d60035aceda"
+  },
+  "NativeFailure": {
+    "Path": "docs/M18_IDLE_REPEAT_QUALIFICATION.json",
+    "Bytes": 20515,
+    "Sha256": "e3f121a7ad5fb785fcc12c3bd0ff16f4b2d97ca13cc3058592cc218efc4e18a7"
+  },
+  "FullMainTestsPerConfiguration": 1932,
+  "ShellTestsPerConfiguration": 30,
+  "Configurations": [
+    "Debug",
+    "Release"
+  ],
+  "GameClosedFixtureChecks": "Both deployment fixtures passed in both configurations after process absence was verified; no game/profile mutation.",
+  "NewTimingRegressions": 5,
+  "NativeBuilds": "Debug and Release: zero warnings/errors; opt-in diagnostic Release: zero warnings/errors",
+  "OrdinaryReleaseAudit": "Pass: no timing call sites; timing implementation excluded. Existing deployed ordinary candidate remains 7667fdf.",
+  "DiagnosticAudit": "Package, native/core portable PDB and absolute-build-path audit passed; five independently extracted ZIP files match manifest.",
+  "Review": {
+    "Path": "artifacts/m18-idle-timing-review/review.md",
+    "Bytes": 7494,
+    "Sha256": "976530fc7ffd27e2db8413371970ad4500595ba187479cf752a5bf58fca1f492"
+  },
+  "CorrectedReviewFinding": "GC end counts now precede summary allocation; F9 timing baseline starts after its reset log. Forced collection in the reset logger is excluded by regression.",
+  "Manifest": {
+    "Path": "artifacts/diagnostic-candidates/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/manifest.json",
+    "Bytes": 28539,
+    "Sha256": "c523c3d2e6bbebc8545d2c15e303dce9714cbf819e576b4880ada798aa7493df"
+  },
+  "Package": [
+    {
+      "Name": "info.ini",
+      "Length": 336,
+      "FileVersion": null,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "Name": "INSTALL.md",
+      "Length": 6820,
+      "FileVersion": null,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "Name": "LICENSE",
+      "Length": 1096,
+      "FileVersion": null,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "Name": "UltimateDuckovStatistics.Core.dll",
+      "Length": 693248,
+      "FileVersion": "1.0.0.0",
+      "Sha256": "22fcc78b4cbe12eb23a2d408b6f642353a5394f3e8a29bc45116169632e6d845"
+    },
+    {
+      "Name": "UltimateDuckovStatistics.dll",
+      "Length": 1125888,
+      "FileVersion": "1.0.0.0",
+      "Sha256": "57c1de7fa29ce9373d8df85b3d1109efc810ee0c7fe5e1f42f7ef4bcd456b5e5"
+    }
+  ],
+  "Zip": {
+    "Path": "artifacts/diagnostic-candidates/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/UltimateDuckovStatistics-diagnostic-b1df147.zip",
+    "Bytes": 637072,
+    "Sha256": "4134a1178ca23777e00a1b607d02829458aeadc2058e991cf0d145689ca196fc"
+  },
+  "PreservedSupersededDiagnostic": "artifacts/diagnostic-candidates/8a593274d20d4e864ed3d00a96dd895095eb21d7; not deployed",
+  "RestoreOrdinarySource": "7667fdface781af0f8038e8b1b6a39475ba217f8",
+  "PreparedDeploymentWrapper": {
+    "Path": "artifacts/m18-deploy-idle-timing-final.ps1",
+    "Bytes": 6231,
+    "Sha256": "02a57d1dc61705858766a0d654a02b3bd0c3976a67e850d7cc2c75cbd6e6d59a"
+  },
+  "Evidence": [
+    {
+      "Path": "artifacts/m18-idle-timing-validation/final/diagnostic-audit.log",
+      "Bytes": 84,
+      "Sha256": "929ff995eb9720cfc3739e5d25989b719fb77d81fff0ea1da49e28e3a85dfc8c"
+    },
+    {
+      "Path": "artifacts/m18-idle-timing-validation/final/diagnostic-package.log",
+      "Bytes": 1234,
+      "Sha256": "f46f49a11a7a086a00abbb391ed128749252aabba7979b91d5e6dbbd5f0a4e23"
+    },
+    {
+      "Path": "artifacts/m18-idle-timing-validation/final/main-Debug.log",
+      "Bytes": 802,
+      "Sha256": "e243b21dc110a3e6b9b028ee1ea47edd9951e27e740fe296cdb00a7386529f57"
+    },
+    {
+      "Path": "artifacts/m18-idle-timing-validation/final/main-Release.log",
+      "Bytes": 808,
+      "Sha256": "87eca29fe885fce9885f4cdd8887facefb525cb909996115109ec74803a1ebf7"
+    },
+    {
+      "Path": "artifacts/m18-idle-timing-validation/final/native-Debug.log",
+      "Bytes": 427,
+      "Sha256": "865c086e95877d675480b0936a81813f2bc811789f559d4b342896472a8c0762"
+    },
+    {
+      "Path": "artifacts/m18-idle-timing-validation/final/native-Release.log",
+      "Bytes": 431,
+      "Sha256": "88ab1bdb26b56b67a542f7e5ea2cf8c57b9a267275d6c2bc2b086c88a1f6d77f"
+    },
+    {
+      "Path": "artifacts/m18-idle-timing-validation/final/ordinary-audit.log",
+      "Bytes": 153,
+      "Sha256": "ddf6fb82521e0fa83ac15a6d94b0e88f0f3e593325f1de568ad747defbbfe419"
+    },
+    {
+      "Path": "artifacts/m18-idle-timing-validation/final/shell-Debug.log",
+      "Bytes": 840,
+      "Sha256": "20174963ba3ba8d73d091c497b91576e4091cc65ff651442310749aaa1f0b361"
+    },
+    {
+      "Path": "artifacts/m18-idle-timing-validation/final/shell-Release.log",
+      "Bytes": 846,
+      "Sha256": "d86e1eab73b1c6de9f6df5068571db590b87bd0cf9b0169104020815d8e0a43f"
+    },
+    {
+      "Path": "artifacts/m18-idle-timing-validation/contract-probe.log",
+      "Bytes": 2829,
+      "Sha256": "131c9478afd4576d1b651117c551b432a09cb6ca90175ade642d6bd03a1cf46f"
+    },
+    {
+      "Path": "artifacts/m18-deploy-idle-timing-final.ps1",
+      "Bytes": 6231,
+      "Sha256": "02a57d1dc61705858766a0d654a02b3bd0c3976a67e850d7cc2c75cbd6e6d59a"
+    }
+  ],
+  "Remaining": "User confirms Duckov closed; reversible UDS-only diagnostic replacement with exact installed/data hash readback, then one user-controlled F9/F10 idle interval. Restore ordinary candidate after diagnosis. Performance qualification remains open."
+}
