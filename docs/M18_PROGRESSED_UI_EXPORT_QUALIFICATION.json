@@ -1,0 +1,758 @@
+{
+  "RecordedUtc": "2026-09-09T23:06:34.776250+00:00",
+  "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "EvidenceRoot": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay/progressed-history-r01",
+  "Status": "Six accepted D captures and three exports verified; bounded progressed-profile observation completed. Reused historical references are not a fresh matched-control or causal profile-scaling result. Numerical UI action p99 ceiling miss and earlier failures remain open.",
+  "GenerationId": "304ab645d198451e992c0cb3057ebe87",
+  "CompletedRuns": 5,
+  "NativeReplayCountScope": "Production replay counts apply separately to each of the three exports: 36 CSV projections, 28 exact text matches, eight CSVs with 239 equivalent floating-point spellings. All parsed numeric values agree.",
+  "ProfileBytesBefore": 1337253,
+  "ProfileBytesAfter": 1337253,
+  "RevisionBefore": 4090,
+  "RevisionAfter": 4108,
+  "StatisticsAndCapabilitiesUnchanged": true,
+  "SessionByteIdentical": true,
+  "AcceptedNewCaptures": {
+    "base-ui-open": [
+      2,
+      3,
+      4
+    ],
+    "export-boundary": [
+      1,
+      2,
+      3
+    ]
+  },
+  "InvalidAttempt": {
+    "Scenario": "base-ui-open",
+    "Run": 1,
+    "Reason": "User started on the first beep instead of the declared second higher action beep. All original files retained; exclusion is independent of measured performance."
+  },
+  "ReusedHistoricalB": {
+    "base-ui-open": [
+      4,
+      5,
+      6
+    ],
+    "export-boundary": [
+      1,
+      2,
+      3
+    ]
+  },
+  "NewDFrames": 33536,
+  "HistoricalBFrames": 33689,
+  "TotalVerifiedFrames": 67225,
+  "Comparisons": [
+    {
+      "Scenario": "base-ui-open",
+      "Interpretation": "Historical references, not a new matched-control qualification. Numeric gates alone cannot establish profile-size cost, improvement or causal UDS overhead.",
+      "Aggregates": {
+        "B": {
+          "WholeMedianMs": 4.9611,
+          "WholeP99Ms": 5.942976000000002,
+          "ActionMedianMs": 4.962400000000001,
+          "ActionP99Ms": 5.867514,
+          "WholeMaterialRate": 0.01671402306535183,
+          "ActionMaterialRate": 0.0328515111695138,
+          "WholeGpuMedianMs": 2.6034,
+          "ActionGpuMedianMs": 2.6105
+        },
+        "D": {
+          "WholeMedianMs": 5.1203,
+          "WholeP99Ms": 6.550197999999999,
+          "ActionMedianMs": 5.3046,
+          "ActionP99Ms": 7.183283999999964,
+          "WholeMaterialRate": 0.12146451500954364,
+          "ActionMaterialRate": 0.21352313167259787,
+          "WholeGpuMedianMs": 5.1145,
+          "ActionGpuMedianMs": 5.307
+        }
+      },
+      "DifferenceFromHistoricalBPercent": {
+        "WholeMedianMs": 3.2089657535627314,
+        "WholeP99Ms": 10.217473535144638,
+        "ActionMedianMs": 6.895856843462833,
+        "ActionP99Ms": 22.42465889301608,
+        "WholeGpuMedianMs": 96.45463624491049,
+        "ActionGpuMedianMs": 103.29438804826663
+      },
+      "NumericalGates": {
+        "EngineeringMedian": false,
+        "EngineeringP99": false,
+        "CeilingMedian": true,
+        "CeilingP99": false,
+        "WholeMaterialRate": true,
+        "ActionMaterialRate": true,
+        "NoRepeatableNewActionCluster": true
+      },
+      "EarlierSmallProfileD": {
+        "WholeMedianMs": 5.8779,
+        "WholeP99Ms": 7.31600300000001,
+        "ActionMedianMs": 6.0341000000000005,
+        "ActionP99Ms": 7.996442999999992
+      },
+      "DifferenceFromEarlierDPercent": {
+        "WholeMedianMs": -12.888956940403883,
+        "WholeP99Ms": -10.46753261309502,
+        "ActionMedianMs": -12.089623970434705,
+        "ActionP99Ms": -10.169008895580555
+      }
+    },
+    {
+      "Scenario": "export-boundary",
+      "Interpretation": "Historical references, not a new matched-control qualification. Numeric gates alone cannot establish profile-size cost, improvement or causal UDS overhead.",
+      "Aggregates": {
+        "B": {
+          "WholeMedianMs": 5.5616,
+          "WholeP99Ms": 6.7250160000000045,
+          "ActionMedianMs": 5.5521,
+          "ActionP99Ms": 6.659468000000001,
+          "WholeMaterialRate": 0.01885014137606032,
+          "ActionMaterialRate": 0,
+          "WholeGpuMedianMs": 2.7727,
+          "ActionGpuMedianMs": 2.77385
+        },
+        "D": {
+          "WholeMedianMs": 5.3497,
+          "WholeP99Ms": 7.013856000000007,
+          "ActionMedianMs": 5.3799,
+          "ActionP99Ms": 7.003593999999992,
+          "WholeMaterialRate": 0.055299539170506916,
+          "ActionMaterialRate": 0.07415647015202076,
+          "WholeGpuMedianMs": 5.3611,
+          "ActionGpuMedianMs": 5.391
+        }
+      },
+      "DifferenceFromHistoricalBPercent": {
+        "WholeMedianMs": -3.8100546605293384,
+        "WholeP99Ms": 4.295008368753361,
+        "ActionMedianMs": -3.1015291511320098,
+        "ActionP99Ms": 5.16746983392653,
+        "WholeGpuMedianMs": 93.35304937425617,
+        "ActionGpuMedianMs": 94.35081204823621
+      },
+      "NumericalGates": {
+        "EngineeringMedian": true,
+        "EngineeringP99": true,
+        "CeilingMedian": true,
+        "CeilingP99": true,
+        "WholeMaterialRate": true,
+        "ActionMaterialRate": true,
+        "NoRepeatableNewActionCluster": true
+      },
+      "EarlierSmallProfileD": {
+        "WholeMedianMs": 6.0398499999999995,
+        "WholeP99Ms": 7.257219999999994,
+        "ActionMedianMs": 6.0801,
+        "ActionP99Ms": 7.258688000000002
+      },
+      "DifferenceFromEarlierDPercent": {
+        "WholeMedianMs": -11.426608276695605,
+        "WholeP99Ms": -3.3534052984474427,
+        "ActionMedianMs": -11.516257956283605,
+        "ActionP99Ms": -3.5143265559838155
+      }
+    }
+  ],
+  "Samples": [
+    {
+      "Configuration": "B",
+      "Scenario": "base-ui-open",
+      "Run": 4,
+      "Frames": 5980,
+      "WholeMedianMs": 4.9611,
+      "WholeP99Ms": 6.069202,
+      "ActionMedianMs": 4.962400000000001,
+      "ActionP99Ms": 6.066317000000002,
+      "WholeMaterialRate": 0,
+      "ActionMaterialRate": 0,
+      "WholeGpuMedianMs": 2.6028,
+      "ActionGpuMedianMs": 2.6105,
+      "Spikes": [],
+      "ActionCluster": false,
+      "MetadataSha256": "fc89c7bedfb7e663ffa56ffe98d187cab588edadd0c1b9449601926665f58cf6",
+      "CsvSha256": "d209d710b575121c5ea1b92a248d47c680338c4e77fb4c6a3702d2ff52269bfa",
+      "RawJsonSha256": "efeade10614297effe3ca25222c58c57596bcde9873c0ed1b77e795aa14f5b1b",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Scenario": "base-ui-open",
+      "Run": 5,
+      "Frames": 5983,
+      "WholeMedianMs": 4.9607,
+      "WholeP99Ms": 5.852744,
+      "ActionMedianMs": 4.9571,
+      "ActionP99Ms": 5.867514,
+      "WholeMaterialRate": 0.01671402306535183,
+      "ActionMaterialRate": 0.0328515111695138,
+      "WholeGpuMedianMs": 2.6034,
+      "ActionGpuMedianMs": 2.6023,
+      "Spikes": [
+        {
+          "OffsetSeconds": 17.684231299999702,
+          "FrameTimeMilliseconds": 39.5348,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 39.4828,
+          "GpuBusyMilliseconds": 2.4863
+        }
+      ],
+      "ActionCluster": false,
+      "MetadataSha256": "4cde7dcd51ec9cb1f2b7ce8496f91107f500c9cf05d39328121bdcba8ed85fba",
+      "CsvSha256": "2febdf65f37d735376b5dc7dd1617f323dab8daaeb93e7cc798b7291e20a8c91",
+      "RawJsonSha256": "541d3f9e4eeb6029c846c0f86125c333feda51b18c0dd8a8c3a5b85ad37987b2",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Scenario": "base-ui-open",
+      "Run": 6,
+      "Frames": 5909,
+      "WholeMedianMs": 4.9755,
+      "WholeP99Ms": 5.942976000000002,
+      "ActionMedianMs": 4.9739,
+      "ActionP99Ms": 5.8628219999999995,
+      "WholeMaterialRate": 0.016923337282112032,
+      "ActionMaterialRate": 0.03356831151393085,
+      "WholeGpuMedianMs": 2.6095,
+      "ActionGpuMedianMs": 2.6148,
+      "Spikes": [
+        {
+          "OffsetSeconds": 13.0100055000003,
+          "FrameTimeMilliseconds": 320.4381,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 320.3868,
+          "GpuBusyMilliseconds": 3.1293
+        }
+      ],
+      "ActionCluster": false,
+      "MetadataSha256": "4836c454feb79c6a2501b44298e4c95366f27e270327f2783e77e791b217d837",
+      "CsvSha256": "00f389c776a60aacd69238725393b70d1861b5b754d522ada9d1e8111a76de57",
+      "RawJsonSha256": "84853c832067e2e1d7393acd6b20cde793a48e4a269f50f27ce4c5d141485b9f",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Scenario": "base-ui-open",
+      "Run": 2,
+      "Frames": 5778,
+      "WholeMedianMs": 5.10245,
+      "WholeP99Ms": 6.550197999999999,
+      "ActionMedianMs": 5.3046,
+      "ActionP99Ms": 7.72479400000001,
+      "WholeMaterialRate": 0.10384215991692627,
+      "ActionMaterialRate": 0.21405636817695325,
+      "WholeGpuMedianMs": 5.1027000000000005,
+      "ActionGpuMedianMs": 5.2997,
+      "Spikes": [
+        {
+          "OffsetSeconds": 5.64996670000255,
+          "FrameTimeMilliseconds": 57.0087,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 56.9565,
+          "GpuBusyMilliseconds": 56.7084
+        },
+        {
+          "OffsetSeconds": 9.88787710000906,
+          "FrameTimeMilliseconds": 41.9939,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 41.9371,
+          "GpuBusyMilliseconds": 41.9582
+        },
+        {
+          "OffsetSeconds": 10.8895304000034,
+          "FrameTimeMilliseconds": 35.9233,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 35.8682,
+          "GpuBusyMilliseconds": 35.9071
+        },
+        {
+          "OffsetSeconds": 12.8987705000109,
+          "FrameTimeMilliseconds": 41.5042,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 41.4498,
+          "GpuBusyMilliseconds": 41.0823
+        }
+      ],
+      "ActionCluster": false,
+      "MetadataSha256": "a71046e9dc99d7ad918883ce39bfdcd8da3e3fbc811d4021a74e1bd63dc87e10",
+      "CsvSha256": "cb4a0b06861ac1e8d9314210d6785f875e0927a270bcb8c61074a02331ac0781",
+      "RawJsonSha256": "0761beaf4a2084906612660717c626c8389a81f2a6ae64a6c48be06fa9e058c8",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Scenario": "base-ui-open",
+      "Run": 3,
+      "Frames": 5763,
+      "WholeMedianMs": 5.1289,
+      "WholeP99Ms": 6.714384000000003,
+      "ActionMedianMs": 5.316750000000001,
+      "ActionP99Ms": 7.183283999999964,
+      "WholeMaterialRate": 0.12146451500954364,
+      "ActionMaterialRate": 0.21352313167259787,
+      "WholeGpuMedianMs": 5.1196,
+      "ActionGpuMedianMs": 5.3315,
+      "Spikes": [
+        {
+          "OffsetSeconds": 5.57147429999168,
+          "FrameTimeMilliseconds": 53.9395,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 53.8871,
+          "GpuBusyMilliseconds": 53.5348
+        },
+        {
+          "OffsetSeconds": 9.5301083000013,
+          "FrameTimeMilliseconds": 44.569,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 44.5137,
+          "GpuBusyMilliseconds": 44.5511
+        }
+      ],
+      "ActionCluster": false,
+      "MetadataSha256": "d5601b82f3aff5c36af835ae9a385aa33e8bb74c961d73a2d13123db73562636",
+      "CsvSha256": "d1ec968d9df88fb492f7117d1e7cb233d22fd6c48b2cd8014f03f4b621c4f3b3",
+      "RawJsonSha256": "fa326c2bd13e0563a4bae12fd87289d0e84af9cc96051c1fd6d63ec901dc55fe",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Scenario": "base-ui-open",
+      "Run": 4,
+      "Frames": 5731,
+      "WholeMedianMs": 5.1203,
+      "WholeP99Ms": 6.454419999999996,
+      "ActionMedianMs": 5.3035,
+      "ActionP99Ms": 6.768335999999998,
+      "WholeMaterialRate": 0.12214273250741581,
+      "ActionMaterialRate": 0.21352313167259787,
+      "WholeGpuMedianMs": 5.1145,
+      "ActionGpuMedianMs": 5.307,
+      "Spikes": [
+        {
+          "OffsetSeconds": 5.35317290000239,
+          "FrameTimeMilliseconds": 53.8121,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 53.758,
+          "GpuBusyMilliseconds": 53.642
+        },
+        {
+          "OffsetSeconds": 9.19002309999632,
+          "FrameTimeMilliseconds": 41.6996,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 41.6447,
+          "GpuBusyMilliseconds": 41.7778
+        },
+        {
+          "OffsetSeconds": 23.0145264999956,
+          "FrameTimeMilliseconds": 232.3403,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 232.2864,
+          "GpuBusyMilliseconds": 4.8621
+        }
+      ],
+      "ActionCluster": false,
+      "MetadataSha256": "b59a40315baf59346be5a5ee853eb0b2be72246f8f0fffb88a80e2acd86f91b3",
+      "CsvSha256": "c9234140ea207218b232b9917ed87369c47e378ca2fc84b78c416da1bc251a45",
+      "RawJsonSha256": "9d7cec0dd4ae8177508ed91a589991e287b2b082d00fd851d6f7111dd62bd4d6",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Scenario": "export-boundary",
+      "Run": 1,
+      "Frames": 5183,
+      "WholeMedianMs": 5.5616,
+      "WholeP99Ms": 6.7250160000000045,
+      "ActionMedianMs": 5.5521,
+      "ActionP99Ms": 6.659468000000001,
+      "WholeMaterialRate": 0.05788153579008296,
+      "ActionMaterialRate": 0.038270187523918864,
+      "WholeGpuMedianMs": 2.7852,
+      "ActionGpuMedianMs": 2.7751,
+      "Spikes": [
+        {
+          "OffsetSeconds": 4.14012920000096,
+          "FrameTimeMilliseconds": 212.1869,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 212.1335,
+          "GpuBusyMilliseconds": 2.7657
+        },
+        {
+          "OffsetSeconds": 12.597806400001,
+          "FrameTimeMilliseconds": 598.2847,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 598.2308,
+          "GpuBusyMilliseconds": 2.624
+        }
+      ],
+      "ActionCluster": false,
+      "MetadataSha256": "e29ac548ae87d4ba3fd38af2eaeb5dab595c152216d3b09e81d273dfd10f907b",
+      "CsvSha256": "1ed42da4c2f9ffbca7e79e59fb69502eddb72656a44a58be86fca3d53e6e5a23",
+      "RawJsonSha256": "d7fe7453412318280bd3b0ced04775b0851010e925e7269afea4f4313b2ef159",
+      "PresentModes": [
+        "Composed: Flip",
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Scenario": "export-boundary",
+      "Run": 2,
+      "Frames": 5329,
+      "WholeMedianMs": 5.5658,
+      "WholeP99Ms": 6.768848,
+      "ActionMedianMs": 5.5616,
+      "ActionP99Ms": 6.814660999999999,
+      "WholeMaterialRate": 0,
+      "ActionMaterialRate": 0,
+      "WholeGpuMedianMs": 2.7725,
+      "ActionGpuMedianMs": 2.77385,
+      "Spikes": [],
+      "ActionCluster": false,
+      "MetadataSha256": "cbee4ab1eed01cdd9b342d9c8ddfbfd6d17a8a43cccdc42d8b3b32ad3dc752d7",
+      "CsvSha256": "cc817623668adfae87f9f513ec47f5f27605629cd7c3cb81cf39cdab10d91ec7",
+      "RawJsonSha256": "fe89bc232a054908e58ae160c041997c1941c6bfd80ca3b2fbed3cf93e7b39d1",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Scenario": "export-boundary",
+      "Run": 3,
+      "Frames": 5305,
+      "WholeMedianMs": 5.5551,
+      "WholeP99Ms": 6.719492000000001,
+      "ActionMedianMs": 5.5511,
+      "ActionP99Ms": 6.5703100000000045,
+      "WholeMaterialRate": 0.01885014137606032,
+      "ActionMaterialRate": 0,
+      "WholeGpuMedianMs": 2.7727,
+      "ActionGpuMedianMs": 2.7711,
+      "Spikes": [
+        {
+          "OffsetSeconds": 4.27766979999797,
+          "FrameTimeMilliseconds": 203.259,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 203.1701,
+          "GpuBusyMilliseconds": 2.7951
+        }
+      ],
+      "ActionCluster": false,
+      "MetadataSha256": "43ebbfdb2e3299f666beebb1870f1b296c049762ad0bb484f8f4ce41cbcb8448",
+      "CsvSha256": "a130cd38f972748bbcbb6a2ee1d5a45ebca5c050b5ec35cef659d200da8f13f6",
+      "RawJsonSha256": "5d86c30ff021e2cd7efb9c39da9e7763fe1a019f02bf9e96b9f14d242a53e351",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Scenario": "export-boundary",
+      "Run": 1,
+      "Frames": 5425,
+      "WholeMedianMs": 5.3526,
+      "WholeP99Ms": 7.013856000000007,
+      "ActionMedianMs": 5.3799,
+      "ActionP99Ms": 6.663080000000022,
+      "WholeMaterialRate": 0.055299539170506916,
+      "ActionMaterialRate": 0.11127596439169139,
+      "WholeGpuMedianMs": 5.3638,
+      "ActionGpuMedianMs": 5.3871,
+      "Spikes": [
+        {
+          "OffsetSeconds": 5.72516560000076,
+          "FrameTimeMilliseconds": 34.0415,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 33.968,
+          "GpuBusyMilliseconds": 34.0701
+        },
+        {
+          "OffsetSeconds": 5.86012850000407,
+          "FrameTimeMilliseconds": 505.5842,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 505.5253,
+          "GpuBusyMilliseconds": 13.0167
+        }
+      ],
+      "ActionCluster": true,
+      "MetadataSha256": "a3fe0f776929e1a0f8bf87241159e28a7fcaa4e406c753785ec67dcca0973477",
+      "CsvSha256": "45fa2318796bef4a864c0ae7aac16e0e36d06741d0ca642e380a79862e178814",
+      "RawJsonSha256": "1a794dd2b1c7379d471b8131f1ca063881651f1be17e78e26918035df2062a1e",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Scenario": "export-boundary",
+      "Run": 2,
+      "Frames": 5439,
+      "WholeMedianMs": 5.3497,
+      "WholeP99Ms": 6.454227999999997,
+      "ActionMedianMs": 5.3806,
+      "ActionP99Ms": 7.003593999999992,
+      "WholeMaterialRate": 0.03677146534289391,
+      "ActionMaterialRate": 0.07410151908114117,
+      "WholeGpuMedianMs": 5.3611,
+      "ActionGpuMedianMs": 5.3937,
+      "Spikes": [
+        {
+          "OffsetSeconds": 5.79270359999646,
+          "FrameTimeMilliseconds": 502.6747,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 502.6171,
+          "GpuBusyMilliseconds": 502.3264
+        }
+      ],
+      "ActionCluster": false,
+      "MetadataSha256": "db2f790305cce603381afd29e663977f2c5efb3cdc66abdda9ac59a43c62ea91",
+      "CsvSha256": "5429125130b74cd033c7c12c071ffa5837c84959540f12cfd500f5567df0830b",
+      "RawJsonSha256": "cc6acd62d3ae0151ac8d64b2fd1aaaf12925b1d782bc77675d8a2b5eabeb233e",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Scenario": "export-boundary",
+      "Run": 3,
+      "Frames": 5400,
+      "WholeMedianMs": 5.345000000000001,
+      "WholeP99Ms": 7.190230000000005,
+      "ActionMedianMs": 5.3763,
+      "ActionP99Ms": 8.086739999999992,
+      "WholeMaterialRate": 0.05555555555555555,
+      "ActionMaterialRate": 0.07415647015202076,
+      "WholeGpuMedianMs": 5.3559,
+      "ActionGpuMedianMs": 5.391,
+      "Spikes": [
+        {
+          "OffsetSeconds": 6.00422070000059,
+          "FrameTimeMilliseconds": 474.8389,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 474.7847,
+          "GpuBusyMilliseconds": 474.2508
+        },
+        {
+          "OffsetSeconds": 26.6419334000093,
+          "FrameTimeMilliseconds": 230.2279,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 230.1744,
+          "GpuBusyMilliseconds": 5.5873
+        }
+      ],
+      "ActionCluster": false,
+      "MetadataSha256": "c95e4f8b7cf0522b292d45e3584745380b2666c9b8dc3dbfba5c4975d0e4c744",
+      "CsvSha256": "fd0f05a4973320d68250df2275ba1cbaa8b4461933374e2c633117ab3163a98b",
+      "RawJsonSha256": "2a50614d8f09b2c8263d66d47ad6733609f78cfb588659f02713b9323675ea94",
+      "PresentModes": [
+        "Hardware: Independent Flip"
+      ]
+    }
+  ],
+  "UserReports": {
+    "AllSixFocusedAndCued": true,
+    "AllThreeExportsCompleted": true,
+    "PerceivedHitch": false,
+    "PausedExportContext": {
+      "RecordedUtc": "2026-09-09T23:02:01.5312183Z",
+      "UserReport": "Well, how am I supposed to notice a hitch when nothing moves on the screen that indicates to me that there is a freeze? Sure, exporting causes a brief freeze but is it noticable? Honestly, no.",
+      "Scope": "Exports performed while gameplay was paused and Diagnostics was largely static.",
+      "Interpretation": "The user reports no noticeable disruption. Static content provides limited visual feedback for frame stalls. No perceived hitch is neither absence of a measured frame gap nor proof of uninterrupted UI responsiveness. These pauses do not demonstrate gameplay stutter.",
+      "Acceptance": "Retain original measurements and confirmations. This clarification neither waives the existing numerical gates nor requests another capture or optimization loop."
+    }
+  },
+  "NativeExportReview": {
+    "Reviewer": "/root/progressed_export_review",
+    "Verdict": "No actionable export/data defect found in bounded independent read-only review; native resource and full performance qualification remain open.",
+    "ReviewedHead": "347f583cab060000feb405029cc35f80f296744a",
+    "Manifest": "native-review-input.json",
+    "ManifestSha256": "313a5193a386f91160033e8951cb61d301a1b8d2f132e87524588a5d6d53562d",
+    "VerifiedFiles": 122,
+    "HashOrLengthMismatches": 0,
+    "Exports": 3,
+    "FilesPerExport": 37,
+    "BytesPerExport": 2348453,
+    "ExportRevisions": [
+      4103,
+      4105,
+      4107
+    ],
+    "ExportJsonSha256": [
+      "c2d76acbdfd0858254577183e431a4d7bf3ae6f1c810d7eb64daa80c5a779dbd",
+      "d147b1ad23bafe2cecd5952266946e9681711b12a9e9868dd38014dad7fd99f8",
+      "c6f05487bd3a389ea5183b4d9499f1982646f36620970795a2d3c25c7f724b6f"
+    ],
+    "Profiles": {
+      "ValidateRecoveryCandidate": true,
+      "StatisticsEqual": true,
+      "CapabilitiesEqual": true,
+      "BytesBefore": 1337253,
+      "BytesAfter": 1337253,
+      "RevisionBefore": 4090,
+      "RevisionAfter": 4108,
+      "SessionByteIdentical": true,
+      "OtherChanges": "Save identity/pending-save bookkeeping and UpdatedUtc."
+    },
+    "ProductionReplay": {
+      "CoreDllSha256": "9fe4865ad1c6355278f67b45d0a20b2fb6b8573e534d17357b50a99dd3594e1f",
+      "Method": "In-memory StatisticsExporter.Create against the frozen data; no save mutation.",
+      "JsonSemanticEquality": true,
+      "CsvProjections": 36,
+      "ExactCsvTextMatches": 28,
+      "CsvWithEquivalentFloatingPointSpellings": 8,
+      "AlternateFloatingPointSpellings": 239,
+      "NumericDifferences": 0
+    },
+    "RetainedStatistics": {
+      "CompletedRuns": 5,
+      "Extracted": 4,
+      "Died": 1,
+      "Segments": 9,
+      "AssociationRows": 21,
+      "PlayerKills": 46,
+      "FiringActions": 485,
+      "Containers": 11,
+      "ItemActivations": 21,
+      "HpRestored": 142.94925737380981,
+      "Money": 16021,
+      "Cash": 2648,
+      "LiquidWealth": 18669,
+      "CalendarDayAdvances": 7,
+      "Sleeps": 5
+    },
+    "Capabilities": {
+      "Supported": 59,
+      "Experimental": 3,
+      "Limitations": "Route-history unavailability and one run's incomplete historical event attribution remain explicit. Supported zero crafting has empty recipe/resource detail; this is not positive crafting-export qualification."
+    },
+    "AcrossExportDifferences": "Only statistics.json and overview.csv differ: exported timestamp and revision.",
+    "Timing": {
+      "ExportUtc": [
+        "2026-09-09T22:50:01.4135429Z",
+        "2026-09-09T22:51:23.6703920Z",
+        "2026-09-09T22:52:40.3930541Z"
+      ],
+      "CompletionDiagnosticUtc": [
+        "2026-09-09T22:50:01.714Z",
+        "2026-09-09T22:51:23.902Z",
+        "2026-09-09T22:52:40.631Z"
+      ],
+      "PostSnapshotStampToCompletionDiagnosticMs": [
+        300.4571,
+        231.608,
+        237.9459
+      ],
+      "ActionCueToCompletionDiagnosticMs": [
+        1317.8171,
+        1209.0204,
+        1415.7524
+      ],
+      "NearExportLongestFrameMs": [
+        505.5842,
+        502.6747,
+        474.8389
+      ],
+      "Scope": "Export stamps from overview.csv are taken after synchronous PrepareCurrentExport/CaptureExportSnapshot and before Task.Run. Completion includes task observation and clipboard processing. Post-stamp intervals exclude snapshot preparation and include queue delay. Cue intervals include user response; exact click-to-completion duration and callback attribution are unavailable. Raw frame zero has no exact UTC join to metadata."
+    },
+    "Diagnostics": "12 added Info entries: nine successful openings and three successful exports; no new UDS warnings/errors. Earlier index errors are in the frozen prefix. Two additional native raw-input errors do not establish a UDS defect.",
+    "UserContext": "No noticeable disruption on largely static paused Diagnostics. This is not proof of uninterrupted responsiveness or gameplay-stutter evidence."
+  },
+  "IndependentFrameReview": {
+    "Reviewer": "/root/progressed_frames_review",
+    "Verdict": "PASS for evidence integrity and arithmetic; supplement does not close performance qualification. No actionable factual error found in frozen reports.",
+    "Manifest": "frame-review-input.json",
+    "ManifestSha256": "019997a85ed0b0d3307eee623e72a436997ab7c147dc10d50ad86b7f6f60d113",
+    "VerifiedFiles": 88,
+    "VerifiedCopiedInputs": 36,
+    "NewDFrames": 33536,
+    "HistoricalBFrames": 33689,
+    "TotalFrames": 67225,
+    "ExcludedUiRun": 1,
+    "PreservedExcludedFrames": 5669,
+    "AcceptedRuns": {
+      "base-ui-open": [
+        2,
+        3,
+        4
+      ],
+      "export-boundary": [
+        1,
+        2,
+        3
+      ]
+    },
+    "Verified": "All CSV/raw-array frame times, CPU/GPU busy values and timestamps; full/action distributions, thresholds, spikes, aggregates and gates.",
+    "NumericalResult": "UI misses engineering gates and the action-p9920% ceiling at+22.4246588930%. Export passes numerical percentage/material/repeated-cluster rules; one of three D export samples has an action cluster versus zero of three B. All long frames retained.",
+    "NearExportLongestFrameMs": [
+      505.5842,
+      502.6747,
+      474.8389
+    ],
+    "Limitations": "Historical references, different sessions and uncertain scene/loadout/camera match; approximately doubled GPU-busy medians. No causal UDS-overhead, pure profile-scaling or improvement claim. Earlier UI failure remains unchanged. No new B captures, repeat or optimization loop implied.",
+    "SupplementalContextSha256": "3f4b6e7af52f707e649881e40bf2ed287f58bea886cc0627d9e10edf902d3db0"
+  },
+  "Limitations": [
+    "User authorized six new D captures only; same-scenario historical B references reused unchanged. Historical short-profile D results are shown as separate references.",
+    "No claimed exact camera, base location, equipped loadout or scene match to earlier sessions. Render workload differs: new D GPU busy medians are approximately twice the reused B values.",
+    "Original controls contain the superseded plan for new B captures. six-capture-amendment.json governs this batch; all captured metadata is preserved.",
+    "A saved terminal equipment snapshot does not prove the current live base loadout. Current gear was retained without requesting another attachment inventory.",
+    "Five retained runs and approximately1.3MB profile is a bounded progressed-profile workload, not maximum-history or native100000-event qualification.",
+    "Original short-history UI ceiling failure and natural-soak elapsed-p99 miss remain unchanged; no gate exception or new repeat is implied.",
+    "Exports are measured over paused, largely static Diagnostics. No reported disruption is not proof of absent frame stalls; near-export stalls do not demonstrate gameplay stutter.",
+    "All three exports have near-export long frames of 505.5842, 502.6747 and 474.8389ms. One sample has an action cluster; the existing repeated-new-cluster rule is not triggered. All frames remain included.",
+    "Export stamps occur after synchronous snapshot preparation and before background dispatch. Stamp-to-completion intervals exclude preparation and include queue delay; they are not total export duration. Cue-to-completion includes user response.",
+    "The before/after whole-process readings include a long intervening paused session and repeated UI/export work; no controlled retained-resource, GC or leak conclusion follows."
+  ],
+  "Evidence": [
+    {
+      "Path": "six-capture-amendment.json",
+      "Sha256": "2b5e2bd44c28563693346937e0f9fb8f4f0447ab9a53b39fd20bfbdfb912b93d"
+    },
+    {
+      "Path": "paused-export-user-context.json",
+      "Sha256": "3f4b6e7af52f707e649881e40bf2ed287f58bea886cc0627d9e10edf902d3db0"
+    },
+    {
+      "Path": "frame-review-input.json",
+      "Sha256": "019997a85ed0b0d3307eee623e72a436997ab7c147dc10d50ad86b7f6f60d113"
+    },
+    {
+      "Path": "native-review-input.json",
+      "Sha256": "313a5193a386f91160033e8951cb61d301a1b8d2f132e87524588a5d6d53562d"
+    },
+    {
+      "Path": "frame-verification.json",
+      "Sha256": "0d6af4977d4e4e88779ca9ec4a554d31e5edb30476a7b36919db2c5a0895d97b"
+    },
+    {
+      "Path": "historical-reference-analysis.json",
+      "Sha256": "70d26cb78f6fa1203ae071f547a2fcc91deefcd436284a5a4398b321731feb69"
+    },
+    {
+      "Path": "native-independent-review.json",
+      "Sha256": "8dcf550223ea78abe984c23706c3988107097f91157774b517bb5684f5d7aea4"
+    },
+    {
+      "Path": "frame-independent-review.json",
+      "Sha256": "d36bd13fc63f1b159502ac91f5b381790bd06959e9786fdac6a2118a05003cf8"
+    }
+  ],
+  "FurtherCaptures": "None requested for this completed six-capture batch. No automatic B repeats or optimization loop. Maximum-history, native resources, controlled multi-target feasibility and release acceptance remain separately unresolved."
+}
