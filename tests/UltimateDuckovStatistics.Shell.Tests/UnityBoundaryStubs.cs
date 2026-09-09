@@ -111,9 +111,16 @@ namespace UnityEngine
     public enum TextureFormat { RGBA32 }
     public enum TextureWrapMode { Clamp }
     public enum FilterMode { Bilinear }
-    public class Texture2D : Object
+    public class Texture : Object { }
+    public class Texture2D : Texture
     { public Texture2D(int width, int height, TextureFormat format, bool mipChain) { } public TextureWrapMode wrapMode; public FilterMode filterMode; public void SetPixels32(Color32[] pixels) { } public void Apply(bool updateMipmaps, bool makeNoLongerReadable) { } }
-    public static class Resources { public static T[] FindObjectsOfTypeAll<T>() where T : class => GameObject.Live.SelectMany(go => go.GetComponents<T>()).ToArray(); }
+    public static class Resources
+    {
+        public static readonly List<Object> AdditionalObjects = new();
+        public static T[] FindObjectsOfTypeAll<T>() where T : class => GameObject.Live.SelectMany(go => go.GetComponents<T>())
+            .Concat(GameObject.Live.OfType<T>()).Concat(AdditionalObjects.OfType<T>())
+            .Where(value => value is not Object native || !native.Destroyed).ToArray();
+    }
     public static class Mathf { public static float Max(float a, float b) => Math.Max(a, b); public static float Min(float a, float b) => Math.Min(a, b); public static float Clamp(float x, float a, float b) => Math.Clamp(x, a, b); public static int RoundToInt(float v) => (int)Math.Round(v); public static bool Approximately(float a, float b) => Math.Abs(a - b) < .0001; }
     public enum KeyCode { None, F8, F9, F10, Escape, Tab, LeftShift, RightShift, LeftControl, RightControl, Return, KeypadEnter, Mouse0, Mouse1 }
     public static class Input { public static readonly HashSet<KeyCode> Down = new(); public static bool GetKeyDown(KeyCode key) => Down.Contains(key); public static bool GetKey(KeyCode key) => Down.Contains(key); public static bool anyKeyDown => Down.Count > 0; }
@@ -259,7 +266,11 @@ namespace Duckov.Utilities
     }
     public sealed class ItemAssets { public int DefaultCharacterItemTypeID = 1; }
     public sealed class CharacterRandomPresetData { public List<CharacterRandomPreset> presets = new(); }
-    public sealed class UiStyle { public UnityEngine.Sprite? FallbackItemIcon; }
+    public sealed class UiStyle
+    {
+        public UnityEngine.Sprite? FallbackItemIcon;
+        public void ApplyDisplayQualityShadow(int quality, LeTai.TrueShadow.TrueShadow shadow) => shadow.AppliedQuality = quality;
+    }
 }
 public sealed class CharacterRandomPreset { public string nameKey = "", name = ""; }
 public sealed class SceneInfoEntry { public string ID = "", DisplayNameRaw = ""; }
@@ -271,7 +282,14 @@ public static class SceneInfoCollection
 namespace UnityEngine { public enum SystemLanguage { English, German } }
 namespace ItemStatsSystem
 {
-    public sealed class ItemMetaData { public int id; public string DisplayNameKey = ""; public UnityEngine.Sprite? icon; }
+    public sealed class ItemMetaData
+    {
+        public int id, displayQuality;
+        public string DisplayNameKey = "";
+        public UnityEngine.Sprite? icon;
+        public List<ItemTag>? tags;
+    }
+    public sealed class ItemTag { public string name = ""; }
     public sealed class Item { public int TypeID; public List<Items.Slot>? Slots; }
     public static class ItemAssetsCollection
     {

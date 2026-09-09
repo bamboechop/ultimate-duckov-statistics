@@ -732,11 +732,16 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     private void ClearProjectileCorrelations()
     {
-        projectiles.Clear();
-        projectileOrder.Clear();
+        ClearTrackedProjectiles();
         equipmentAssociationResolver.Clear();
         buffApplicationObservationBoundary.Clear();
         CombatHarmonyBridge.ClearScopes();
+    }
+
+    private void ClearTrackedProjectiles()
+    {
+        projectiles.Clear();
+        projectileOrder.Clear();
         projectileContextFrame = -1;
     }
 
@@ -1021,12 +1026,22 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         if (registration.Disabled) return;
         registration.Disabled = true;
         hookSupport.Disable(registration.Hook);
-        grenadeHazards.Clear();
+        if (registration.Hook is CombatHook.HealthHurt or CombatHook.GrenadeExplosion
+            or CombatHook.GrenadeLaunch or CombatHook.GrenadeObjectCreation
+            or CombatHook.EnvironmentalDamage or CombatHook.EffectTrigger)
+        {
+            grenadeHazards.Clear();
+        }
         metricCapabilities = CombatNativeContractPolicy.CreateCapabilities(hookSupport);
         if (registration.Hook is CombatHook.ProjectileInit or CombatHook.ProjectileUpdate
-            or CombatHook.ProjectileRelease or CombatHook.EffectApplication)
+            or CombatHook.ProjectileRelease)
         {
-            ClearProjectileCorrelations();
+            ClearTrackedProjectiles();
+        }
+        else if (registration.Hook == CombatHook.EffectApplication)
+        {
+            // Effect origin trust is independent of the still-supported projectile lifecycle.
+            equipmentAssociationResolver.Clear();
         }
         PublishCapabilities();
         diagnosticHandler(
@@ -1151,7 +1166,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     }
 
     private static Exception Unwrap(Exception exception) =>
-        exception is TargetInvocationException { InnerException: not null } invocation ? invocation.InnerException : exception;
+        exception is TargetInvocationException { InnerException: not null } invocation ? invocation.InnerException! : exception;
 
     private sealed class ProjectileSnapshot
     {

@@ -2,7 +2,7 @@
 #pragma warning disable CA1707, CA1708, CA1720, CA1716, CA1711
 namespace UnityEngine
 {
-    public class Object
+    public partial class Object
     {
         public int DestroyCount { get; private set; }
         public static void Destroy(Object value) => value.DestroyCount++;

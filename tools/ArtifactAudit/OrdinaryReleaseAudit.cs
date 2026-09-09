@@ -17,6 +17,11 @@ public static class OrdinaryReleaseAudit
         using var stream = File.OpenRead(assemblyPath);
         using var pe = new PEReader(stream);
         var metadata = pe.GetMetadataReader();
+        foreach (var typeHandle in metadata.TypeDefinitions)
+        {
+            if (metadata.GetString(metadata.GetTypeDefinition(typeHandle).Name) == "NativeUiResourceDiagnostics")
+                throw new InvalidDataException("Ordinary Release contains the opt-in native resource diagnostic type.");
+        }
         foreach (var handle in metadata.MethodDefinitions)
         {
             var method = metadata.GetMethodDefinition(handle);

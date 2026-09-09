@@ -79,10 +79,6 @@ namespace UltimateDuckovStatistics.UI
         private CraftingView? craftingView;
         private ItemUseView? itemUseView;
         private DiagnosticsView? diagnosticsView;
-        private PanelModal? modal;
-        public bool ModalVisible { get; private set; }
-        public void SyncModal(bool visible, bool hotkey, string label, string warning) { ModalVisible = visible || hotkey; }
-        public void MoveModalFocus(bool reverse) { }
         public void RefreshDiagnostics(DiagnosticsPresentation? presentation) => diagnosticsView?.Refresh(presentation);
         public void InvalidateProjection() { }
         private void RefreshRuns(StatisticsPanelProjection projection, string generation) => runsView?.Refresh(RunsPresentationFactory.Create(projection, generation), generation);
@@ -110,6 +106,5 @@ namespace UltimateDuckovStatistics.UI
         private sealed class CraftingView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action fallback) : BoundaryView(parent);
         private sealed class ItemUseView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action fallback) : BoundaryView(parent);
         private sealed class DiagnosticsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, PanelOperationController operations, Action hotkey, Func<bool> copyExport, Func<bool> copyData, Action fallback) : BoundaryView(parent);
-        private sealed class PanelModal(RectTransform parent, NativeHeaderTitleTypography typography, Material material, PanelOperationController operations, Action cancel, Action fallback) : BoundaryView(parent);
     }
 }

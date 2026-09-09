@@ -31,6 +31,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private readonly ProcessLifetimeCleanupOwner<NativeWorldTimeAdapter> worldTimeAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeCraftingAdapter> craftingAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+    private readonly NativeUiResourceDiagnostics uiResourceDiagnostics = new();
+#endif
 
     protected override void OnAfterSetup()
     {
@@ -356,6 +359,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             Input.GetKeyDown(KeyCode.F10),
             message => Debug.Log($"{LogPrefix} {message}"));
 #if UDS_PERFORMANCE_DIAGNOSTICS
+        if (Input.GetKeyDown(KeyCode.F11))
+            uiResourceDiagnostics.WriteSnapshot(message => Debug.Log($"{LogPrefix} {message}"));
         using var updateTiming = NativeHotPathDiagnostics.Measure(NativeHotPathArea.Update);
         // State is sampled at Update entry; an open/close action in this frame
         // stays in that bucket. Native UI callbacks also have their own scopes.

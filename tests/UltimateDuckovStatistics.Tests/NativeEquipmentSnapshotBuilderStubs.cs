@@ -14,7 +14,7 @@ namespace ItemStatsSystem
         public void RaiseContentChanged(int index = 0) => onContentChanged?.Invoke(this, index);
     }
 
-    public sealed class Item
+    public sealed partial class Item
     {
         private static int nextInstanceId;
         private readonly int instanceId = Interlocked.Increment(ref nextInstanceId);
@@ -70,7 +70,7 @@ public sealed class DuckovItemAgent
     public ItemStatsSystem.Item? Item { get; set; }
 }
 
-public sealed class CharacterMainControl
+public sealed partial class CharacterMainControl
 {
     public static CharacterMainControl? Main { get; set; }
     public static event Action<CharacterMainControl, ItemStatsSystem.Items.Slot>? OnMainCharacterSlotContentChangedEvent;
@@ -113,7 +113,7 @@ public sealed class CharacterMainControl
     }
 }
 
-public sealed class Health
+public sealed partial class Health
 {
     public bool IsDead { get; set; }
     public float CurrentHealth { get; set; }
@@ -122,17 +122,20 @@ public sealed class Health
     public void AddHealth(float amount) => CurrentHealth = Math.Min(MaxHealth, CurrentHealth + amount);
 }
 
-public sealed class DamageInfo
+public struct DamageInfo
 {
     public CharacterMainControl? fromCharacter;
     public int fromWeaponItemID;
     public bool isExplosion;
+    public int crit;
+    public bool isFromBuffOrEffect;
+    public DamageTypes damageType;
 }
 
-public sealed class Grenade
+public sealed partial class Grenade
 {
     public UnityEngine.Object? createOnExlode;
-    public DamageInfo damageInfo = new();
+    public DamageInfo damageInfo;
     public bool createExplosion = true;
     public void SetWeaponIdInfo(int typeId) => damageInfo.fromWeaponItemID = typeId;
 }
@@ -180,7 +183,7 @@ namespace UnityEngine
         public Vector3 position { get; set; }
     }
 
-    public sealed class GameObject
+    public sealed partial class GameObject
     {
         public SceneManagement.Scene scene { get; set; } = new(1);
     }
@@ -403,7 +406,7 @@ public static class LevelManager
     }
 }
 
-public sealed class LevelManagerInstance
+public sealed partial class LevelManagerInstance
 {
     public CharacterMainControl? MainCharacter { get; set; }
     public PetProxy? PetProxy { get; set; }
