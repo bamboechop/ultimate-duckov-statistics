@@ -30,6 +30,16 @@ internal enum NativeHotPathArea
     HealingEffectPrefix,
     HealingEffectFinalizer,
     MovementSample,
+    WeaponFireCallback,
+    ProjectileCapture,
+    ProjectileScopeLookup,
+    ProjectileCompletion,
+    ShotMutation,
+    CombatMutation,
+    EquipmentAssociation,
+    EquipmentObservation,
+    ProjectileScopePush,
+    CombatScopePop,
     Count
 }
 

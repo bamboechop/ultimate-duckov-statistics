@@ -211,6 +211,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public void CaptureProjectile(Projectile projectile, ProjectileContext context)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.ProjectileCapture);
+#endif
         if (!IsActive || !hookSupport.ProjectileInit || projectile == null) return;
         NativeHotPathDiagnostics.CountProjectileCapture();
         var generationId = saveGenerationIdProvider();
@@ -270,6 +273,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public CombatNativeScope? CreateProjectileScope(Projectile projectile)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.ProjectileScopeLookup);
+#endif
         if (!IsActive || !hookSupport.ProjectileUpdate || projectile == null) return null;
         NativeHotPathDiagnostics.CountProjectileScopeAttempt();
         SynchronizeProjectileContextOncePerFrame();
@@ -282,6 +288,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public void CompleteProjectile(Projectile projectile)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.ProjectileCompletion);
+#endif
         if (!IsActive || !hookSupport.ProjectileRelease || projectile == null
             || !projectiles.TryGetValue(projectile.GetInstanceID(), out var value)
             || value.Completed) return;

@@ -148,6 +148,9 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 
     public EquipmentEventAssociation CaptureAssociation()
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.EquipmentAssociation);
+#endif
         if (!callbackLifetime.CanHandleCallbacks || !runActiveProvider()) return new EquipmentEventAssociation();
         NativeHotPathDiagnostics.CountEquipmentAssociationRequest();
         SynchronizeMain();
@@ -209,6 +212,9 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 
     private void ObserveNow()
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.EquipmentObservation);
+#endif
         if (!callbackLifetime.CanHandleCallbacks) return;
         SynchronizeMain();
         if (!runActiveProvider())

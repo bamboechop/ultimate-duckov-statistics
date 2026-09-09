@@ -138,6 +138,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public bool RecordShot(ShotRecorded shot)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.ShotMutation);
+#endif
         var recorded = CanRecord(shot.TimestampUtc) && tracker.RecordShot(shot);
         if (recorded) NativeHotPathDiagnostics.CountTrackerShotMutation();
         return recorded;
@@ -145,6 +148,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public bool RecordCombat(CombatRecorded value)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.CombatMutation);
+#endif
         var recorded = CanRecord(value.TimestampUtc) && tracker.RecordCombat(value);
         if (recorded) NativeHotPathDiagnostics.CountTrackerCombatMutation();
         return recorded;

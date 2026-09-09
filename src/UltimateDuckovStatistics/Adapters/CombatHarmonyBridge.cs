@@ -28,7 +28,14 @@ internal static class CombatHarmonyBridge
     public static void CaptureProjectile(Projectile projectile, ProjectileContext context) =>
         adapter?.CaptureProjectile(projectile, context);
 
-    public static CombatNativeScope? PushProjectile(Projectile projectile) => Push(adapter?.CreateProjectileScope(projectile));
+    public static CombatNativeScope? PushProjectile(Projectile projectile)
+    {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        // This synchronous scope ends before the native Projectile.Update body runs.
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.ProjectileScopePush);
+#endif
+        return Push(adapter?.CreateProjectileScope(projectile));
+    }
 
     public static void CompleteProjectile(Projectile projectile) => adapter?.CompleteProjectile(projectile);
 
@@ -116,6 +123,9 @@ internal static class CombatHarmonyBridge
 
     public static void Pop(CombatNativeScope? scope)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.CombatScopePop);
+#endif
         scopes?.Pop(scope);
     }
 

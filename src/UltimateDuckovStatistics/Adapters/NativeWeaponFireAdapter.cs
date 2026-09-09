@@ -119,6 +119,9 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
 
     private void OnMainCharacterShoot(ItemAgent_Gun agent)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.WeaponFireCallback);
+#endif
         try
         {
             var runId = runIdProvider();
