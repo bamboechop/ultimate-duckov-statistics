@@ -1,7 +1,7 @@
 {
   "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
   "ReviewRange": "e3eb69f9f7e22214d58078eea9e00f81e95910ba..88efddb5eacdab40a40498b62f90fdde14d167af",
-  "Status": "Ordinary correction independently reviewed, fully checked and deployed; bounded native reopen/export retention passes. Native performance requalification remains pending.",
+  "Status": "Ordinary correction reviewed, checked, deployed and natively reopened. Three new D idle samples against the fixed existing baseline miss the 5% median target (+6.20728%) and meet the 10% p99 target (+1.95090%). Matched native performance qualification remains open.",
   "Change": "Calculate the exact decimal.MaxValue - delta bound once per positive equipment Advance. Both preflight and mutation retain the original comparisons and additions, current destination lookup and metadata updates. Cold merges retain the original bound calculation.",
   "Preserved": "Absolute-duration conversion, per-frame run/segment updates, event and pause boundaries, decimal precision, composition, validation, persistence cadence, pending recovery and mutable snapshot/row handling.",
   "DiagnosticResult": {
@@ -202,7 +202,7 @@
     }
   ],
   "Limits": "The instrumented RunLifecycle timer includes more than equipment arithmetic. Managed improvement does not establish the cause of the prior native frame delta or pass the 5% median/10% p99 target. All original native failures and valid samples remain preserved.",
-  "Next": "User disables only UDS, leaves Harmony enabled and fully restarts for fresh B samples at the same Nullpunkt spot. Reconfirm the exact loadout, camera, Unlimited FPS and background controls before timing. Repeat D on this ordinary package after B; retain every valid sample and previous failure.",
+  "Next": "Before any acceptance claim or further frame-time optimization, collect one fixed reconciliation set of three current Harmony-only B samples with this D triplet held fixed. Reconfirm the same location, camera, loadout and controls after the user-controlled restart. Retain the existing-baseline comparison regardless of outcome. A further target miss remains a failure requiring diagnosis; do not repeat captures until a favorable result appears.",
   "Deployment": {
     "Result": {
       "Result": "Pass for reviewed ordinary duration-bound correction deployment and byte-for-byte data preservation; native performance requalification remains pending.",
@@ -304,5 +304,30 @@
     "Path": "docs/M18_DURATION_BOUND_REOPEN.json",
     "Bytes": 14413,
     "Sha256": "23082156666f674fcfaeaea01a3171a6a4ceb66645987b832ea291fce4be61e1"
+  },
+  "NativeIdleComparison": {
+    "Path": "docs/M18_DURATION_BOUND_IDLE_COMPARISON.json",
+    "Bytes": 26696,
+    "Sha256": "becf7704436f0eb7af28c85b23db38dbba22a8a598ed709dbece674fdaf09d3e"
+  },
+  "ControlReconciliationPlan": {
+    "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/idle-control-reconciliation-plan.json",
+    "Bytes": 13409,
+    "Sha256": "c9e6a8de71e8c1eaf05b169384799b229e9b275741f14f5bb953b61e3ae89487"
+  },
+  "NativeIdleEvidenceReview": {
+    "Result": "Pass for calculation and provenance correctness; engineering median target remains Fail. Independent CSV/JSON recomputation verifies 46,610 frames, 36 proof files and the bounded fixed-D reconciliation plan. Physical controls remain user-confirmed.",
+    "Evidence": [
+      {
+        "Path": "artifacts/m18-duration-bound-idle-result-review/review.md",
+        "Bytes": 7099,
+        "Sha256": "be0a75a80bbf86dd21759186cbafe241904e177a446e7baf0434c12f6705a766"
+      },
+      {
+        "Path": "artifacts/m18-duration-bound-idle-result-review/result.json",
+        "Bytes": 16826,
+        "Sha256": "08270cc855d0b9441327dc6965337608df9a220064e556a87b9bd828e896b2f2"
+      }
+    ]
   }
 }
