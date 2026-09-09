@@ -180,6 +180,10 @@ internal static partial class NativeHotPathDiagnostics
         {
             Reset();
             diagnostic("M8.1 diagnostic counter interval reset.");
+#if UDS_PERFORMANCE_DIAGNOSTICS
+            // Start the controlled timing/GC interval after the reset message.
+            ResetTimings();
+#endif
         }
 
         if (summaryRequested)

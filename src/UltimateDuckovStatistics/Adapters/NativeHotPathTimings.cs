@@ -91,12 +91,14 @@ internal static partial class NativeHotPathDiagnostics
     {
         timingActive = false;
         var elapsed = Stopwatch.GetTimestamp() - timingStarted;
+        var gen0 = GC.CollectionCount(0) - timingCollections[0];
+        var gen1 = GC.CollectionCount(1) - timingCollections[1];
+        var gen2 = GC.CollectionCount(2) - timingCollections[2];
         var result = new StringBuilder(" M18Timing frequency=");
         result.Append(Stopwatch.Frequency.ToString(CultureInfo.InvariantCulture));
         result.Append(" elapsedTicks=").Append(elapsed.ToString(CultureInfo.InvariantCulture));
         result.Append(" otherThreadCalls=").Append(Interlocked.Read(ref timingOtherThreadCalls).ToString(CultureInfo.InvariantCulture));
-        for (var i = 0; i < timingCollections.Length; i++)
-            result.Append(" gc").Append(i).Append('=').Append(GC.CollectionCount(i) - timingCollections[i]);
+        result.Append(" gc0=").Append(gen0).Append(" gc1=").Append(gen1).Append(" gc2=").Append(gen2);
         // Parent measurements include child work and instrumentation. These rows
         // must not be summed or treated as an ordinary-release frame-time result.
         result.Append(" units=stopwatchTicks fields=calls,total,max nested=inclusive");

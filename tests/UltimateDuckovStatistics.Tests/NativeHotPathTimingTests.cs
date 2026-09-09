@@ -66,6 +66,16 @@ public sealed class NativeHotPathTimingTests
     }
 
     [Fact]
+    public void ResetLoggingIsOutsideTheControlledGcInterval()
+    {
+        NativeHotPathDiagnostics.HandleControl(true, false, _ => GC.Collect(2, GCCollectionMode.Forced, blocking: true));
+        var baseline = GC.CollectionCount(2);
+        var summary = Summary();
+        var gen2 = long.Parse(summary.Split(' ').Single(part => part.StartsWith("gc2=", StringComparison.Ordinal))[4..], CultureInfo.InvariantCulture);
+        Assert.Equal(GC.CollectionCount(2) - baseline, gen2);
+    }
+
+    [Fact]
     public void SteadyTimingDoesNotAllocatePerCallback()
     {
         NativeHotPathDiagnostics.Reset();
