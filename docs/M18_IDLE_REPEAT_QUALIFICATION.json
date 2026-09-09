@@ -1,0 +1,441 @@
+{
+  "SourceCommit": "7667fdface781af0f8038e8b1b6a39475ba217f8",
+  "RepositoryCommitAtCapture": {
+    "B": "12b55ce7ba1c1378b71a69801a004a6bdde5aba1",
+    "D": "c52c32855f5a9e29d103c946838ea72ee5608814"
+  },
+  "Result": "Fail engineering median target; pass engineering p99 target. Native performance qualification remains open.",
+  "Scope": "One fresh-generation Nullpunkt idle scenario, three Harmony-only B and three production UDS-enabled D samples. Thirteen other scenario pairs remain unexercised.",
+  "Aggregation": "Median of three per-capture medians and median of three per-capture p99 values; raw frames are not pooled.",
+  "Thresholds": {
+    "EngineeringMedianPercent": 5,
+    "EngineeringP99Percent": 10,
+    "EngineeringMedian": "Fail",
+    "EngineeringP99": "Pass",
+    "WeakerMedianCeilingPercent": 10,
+    "WeakerP99CeilingPercent": 20,
+    "WeakerCeiling": "Pass; does not waive engineering failure",
+    "MaterialFramesOver16MillisecondsPercentagePointDelta": 0,
+    "RepeatableNewActionSpikeCluster": false
+  },
+  "AcceptedFrames": {
+    "B": 23486,
+    "D": 22923,
+    "Total": 46409
+  },
+  "Aggregates": [
+    {
+      "Configuration": "B",
+      "BuildLabel": "production",
+      "Scenario": "idle",
+      "RunCount": 3,
+      "MedianOfRunMediansMilliseconds": 3.6425,
+      "MedianOfRunP99Milliseconds": 4.597623999999998,
+      "MedianFramesOver16MillisecondsPercentage": 0,
+      "CapturesWithSpikeCluster": 0,
+      "CapturesWithActionSpikeCluster": 0,
+      "MedianOfRunCpuBusyMediansMilliseconds": 3.5861,
+      "MedianOfRunCpuBusyP99Milliseconds": 4.542757999999998,
+      "MedianOfRunGpuBusyMediansMilliseconds": 3.18645,
+      "MedianOfRunGpuBusyP99Milliseconds": 3.567185,
+      "MedianOfRunActionMediansMilliseconds": null,
+      "MedianOfRunActionP99Milliseconds": null,
+      "MedianActionFramesOver16MillisecondsPercentage": null,
+      "MedianOfRunActionCpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionCpuBusyP99Milliseconds": null,
+      "MedianOfRunActionGpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionGpuBusyP99Milliseconds": null
+    },
+    {
+      "Configuration": "D",
+      "BuildLabel": "production",
+      "Scenario": "idle",
+      "RunCount": 3,
+      "MedianOfRunMediansMilliseconds": 3.85975,
+      "MedianOfRunP99Milliseconds": 4.895856000000001,
+      "MedianFramesOver16MillisecondsPercentage": 0,
+      "CapturesWithSpikeCluster": 0,
+      "CapturesWithActionSpikeCluster": 0,
+      "MedianOfRunCpuBusyMediansMilliseconds": 3.80365,
+      "MedianOfRunCpuBusyP99Milliseconds": 4.827432,
+      "MedianOfRunGpuBusyMediansMilliseconds": 3.1887,
+      "MedianOfRunGpuBusyP99Milliseconds": 3.566,
+      "MedianOfRunActionMediansMilliseconds": null,
+      "MedianOfRunActionP99Milliseconds": null,
+      "MedianActionFramesOver16MillisecondsPercentage": null,
+      "MedianOfRunActionCpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionCpuBusyP99Milliseconds": null,
+      "MedianOfRunActionGpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionGpuBusyP99Milliseconds": null
+    }
+  ],
+  "Comparison": {
+    "BaselineConfiguration": "B",
+    "BaselineBuildLabel": "production",
+    "CandidateConfiguration": "D",
+    "CandidateBuildLabel": "production",
+    "Scenario": "idle",
+    "MedianOverheadPercentage": 5.964310226492797,
+    "P99OverheadPercentage": 6.486654846068385,
+    "FramesOver16MillisecondsPercentagePointDelta": 0,
+    "BaselineActionSpikeClusterCaptures": 0,
+    "CandidateActionSpikeClusterCaptures": 0,
+    "HasRepeatableNewActionSpikeCluster": false,
+    "CpuBusyMedianOverheadPercentage": 6.066478904659656,
+    "CpuBusyP99OverheadPercentage": 6.2665455654913105,
+    "GpuBusyMedianOverheadPercentage": 0.07061149555147583,
+    "GpuBusyP99OverheadPercentage": -0.03321947137588932,
+    "ActionMedianOverheadPercentage": null,
+    "ActionP99OverheadPercentage": null,
+    "ActionFramesOver16MillisecondsPercentagePointDelta": null,
+    "ActionCpuBusyMedianOverheadPercentage": null,
+    "ActionCpuBusyP99OverheadPercentage": null,
+    "ActionGpuBusyMedianOverheadPercentage": null,
+    "ActionGpuBusyP99OverheadPercentage": null
+  },
+  "Samples": [
+    {
+      "Configuration": "B",
+      "Run": 2,
+      "FrameCount": 8076,
+      "MedianMilliseconds": 3.638,
+      "P99Milliseconds": 4.5585,
+      "MaximumMilliseconds": 8.895,
+      "DurationSeconds": 30.001921500000062,
+      "SpikesOver33Milliseconds": [],
+      "HasSpikeCluster": false,
+      "CaptureStartSignalUtc": "2026-09-08T23:20:00.4113773Z",
+      "CaptureEndSignalUtc": "2026-09-08T23:20:30.6874461Z",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/B/idle/b-idle-r02.csv",
+          "Bytes": 2183969,
+          "Sha256": "b56d6552ecd914d62c0e6f229a56eb3cfd15f0186483752d6c9c9f09b06d90d0"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/B/idle/b-idle-r02.capframex.json",
+          "Bytes": 857957,
+          "Sha256": "67202daacf4f21f8f2e34ae6209e13a057ed868419b0cc85f79e20f6e2ac303e"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/B/idle/b-idle-r02.capture.json",
+          "Bytes": 6723,
+          "Sha256": "7880c41fded9478051a52d263eb2329f2bdfee4393ab9b2d63d47126cae77412"
+        }
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Run": 3,
+      "FrameCount": 8064,
+      "MedianMilliseconds": 3.6425,
+      "P99Milliseconds": 4.597623999999998,
+      "MaximumMilliseconds": 8.5449,
+      "DurationSeconds": 30.00297270000003,
+      "SpikesOver33Milliseconds": [],
+      "HasSpikeCluster": false,
+      "CaptureStartSignalUtc": "2026-09-08T23:22:08.5089426Z",
+      "CaptureEndSignalUtc": "2026-09-08T23:22:38.7711817Z",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/B/idle/b-idle-r03.csv",
+          "Bytes": 2190477,
+          "Sha256": "5fa0a53735f6167f41c8ff3960b5daa016832e3dcb0c26d62bb8f31583cb1708"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/B/idle/b-idle-r03.capframex.json",
+          "Bytes": 857111,
+          "Sha256": "d190d12444184c449629bbba68ef4c7abf57f66d94ee3e96fc51165f608d2692"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/B/idle/b-idle-r03.capture.json",
+          "Bytes": 6723,
+          "Sha256": "2d7bae678a3fb7fa9e816b3b5469df6bb1b8ec25c374981efeaf67132ba94fc7"
+        }
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Run": 4,
+      "FrameCount": 7346,
+      "MedianMilliseconds": 3.96455,
+      "P99Milliseconds": 5.100865000000001,
+      "MaximumMilliseconds": 314.5382,
+      "DurationSeconds": 30.00174230000006,
+      "SpikesOver33Milliseconds": [
+        {
+          "OffsetSeconds": 3.99232890000712,
+          "FrameTimeMilliseconds": 314.5382,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 314.4855,
+          "GpuBusyMilliseconds": 3.1056
+        }
+      ],
+      "HasSpikeCluster": false,
+      "CaptureStartSignalUtc": "2026-09-08T23:23:56.2853184Z",
+      "CaptureEndSignalUtc": "2026-09-08T23:24:26.5689956Z",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/B/idle/b-idle-r04.csv",
+          "Bytes": 1994890,
+          "Sha256": "cfbba3ce12097565244e9a93d32a7f4db2126cf5bc4862b4a3307ec5eb48bb71"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/B/idle/b-idle-r04.capframex.json",
+          "Bytes": 780609,
+          "Sha256": "1b90b3e6cb94907223b897d7baeface2ac98e46bc3f05dcdb41d5b899cffe0ae"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/B/idle/b-idle-r04.capture.json",
+          "Bytes": 6722,
+          "Sha256": "28ac80dab198fd1cea84bb4017709f9d8e05c717efaf64ab2175a881ca1ad7b6"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 1,
+      "FrameCount": 7637,
+      "MedianMilliseconds": 3.8672,
+      "P99Milliseconds": 4.895856000000001,
+      "MaximumMilliseconds": 10.2363,
+      "DurationSeconds": 30.002818400000017,
+      "SpikesOver33Milliseconds": [],
+      "HasSpikeCluster": false,
+      "CaptureStartSignalUtc": "2026-09-08T23:34:06.0218479Z",
+      "CaptureEndSignalUtc": "2026-09-08T23:34:36.2964501Z",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/D/idle/d-idle-r01.csv",
+          "Bytes": 2067659,
+          "Sha256": "d66d0cd841b4a1670180df43c6994bfb8f6da7a07bf830add75014f6330c04f1"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/D/idle/d-idle-r01.capframex.json",
+          "Bytes": 811308,
+          "Sha256": "17ac82e431957aa2dd1dbe05c9544d4138b033db0742eb41923c5a21c6ce2625"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/D/idle/d-idle-r01.capture.json",
+          "Bytes": 6937,
+          "Sha256": "04b3891bd832febb943f82a582cd929b10136705cbaee3902967d654cd93c404"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 2,
+      "FrameCount": 7626,
+      "MedianMilliseconds": 3.85975,
+      "P99Milliseconds": 4.705775,
+      "MaximumMilliseconds": 146.1314,
+      "DurationSeconds": 30.002782099999962,
+      "SpikesOver33Milliseconds": [
+        {
+          "OffsetSeconds": 16.9367992999978,
+          "FrameTimeMilliseconds": 146.1314,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 146.0751,
+          "GpuBusyMilliseconds": 3.1669
+        }
+      ],
+      "HasSpikeCluster": false,
+      "CaptureStartSignalUtc": "2026-09-08T23:35:43.4389571Z",
+      "CaptureEndSignalUtc": "2026-09-08T23:36:13.7145414Z",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/D/idle/d-idle-r02.csv",
+          "Bytes": 2066748,
+          "Sha256": "1332daf5e73736582bdf93b0e8effcba261ae26628980d857c33d5aac2a50a25"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/D/idle/d-idle-r02.capframex.json",
+          "Bytes": 810198,
+          "Sha256": "3fff4e830002bb9fb7acd54f64f2cd0f5f0982cd77c75dcac49e0c52dac23cdd"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/D/idle/d-idle-r02.capture.json",
+          "Bytes": 6936,
+          "Sha256": "f8101344ea121d732ab8faac1da59314fd2388f308c68719e05fd383284fb9af"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 3,
+      "FrameCount": 7660,
+      "MedianMilliseconds": 3.8565,
+      "P99Milliseconds": 4.924186999999999,
+      "MaximumMilliseconds": 9.71,
+      "DurationSeconds": 30.002678599999975,
+      "SpikesOver33Milliseconds": [],
+      "HasSpikeCluster": false,
+      "CaptureStartSignalUtc": "2026-09-08T23:37:27.8144658Z",
+      "CaptureEndSignalUtc": "2026-09-08T23:37:58.0932574Z",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/D/idle/d-idle-r03.csv",
+          "Bytes": 2081397,
+          "Sha256": "ce57cbd16506ecc9ab86b56e1234b3145fe50daba715753fce8437c4b892b06d"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/D/idle/d-idle-r03.capframex.json",
+          "Bytes": 814136,
+          "Sha256": "b18a04b57c09ce46139545612c8fe3cab9ea395e0765830bb90e292fe0dff472"
+        },
+        {
+          "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/captures/D/idle/d-idle-r03.capture.json",
+          "Bytes": 6936,
+          "Sha256": "2da8eee41c1993f7443cc1503c8d7189566282f53e982acf0fcb4343fcb56f6e"
+        }
+      ]
+    }
+  ],
+  "Controls": "Same user-confirmed Nullpunkt position/camera and SR-3M/MMG loadout; 2560x1440 borderless, Unlimited FPS, VSync off. Full user controls and collector/process/package preflight are in the hashed sidecars. Natural survival decay was accepted; hydration and energy were not quantitatively controlled. B native raid ID was not independently observed while UDS was disabled.",
+  "UserConfirmationProvenance": "All six ending confirmations explicitly cover beep completion, game focus, closed menus and idle character. Ledger is a root-agent transcription of the user messages, not an independent recording. Agent builds, tests and analysis remained suspended through each capture and confirmation.",
+  "InvalidAttempt": "Initial B r01 was excluded solely because the user reported being in the pause screen at capture start. Original three files and original path strings are preserved with unchanged hashes under invalid-attempts, plus an invalidation record. Accepted baseline uses r02/r03/r04.",
+  "HitchTreatment": "One isolated 314.5382 ms hitch in B r04 and one isolated 146.1314 ms hitch in D r02 are retained. Neither configuration has a detected cluster. Their causes are unproven; no valid samples were discarded because of their performance.",
+  "ProfileContext": {
+    "GenerationId": "ced3938bda07407183ffa7cc36224d4f",
+    "NativeRaidId": "212",
+    "RunId": "ba8493731dc64273a5be7f960b9b7c9c",
+    "CompletedRunsDuringCapture": 0,
+    "PriorGeneration": "6e5cbc624f234ec1a773e40251a0da39",
+    "PriorCompletedRunPreserved": true,
+    "Continuity": "UDS conservatively archived the prior one-run generation after unobserved native saving with UDS disabled. No profile was restored or edited. This is not progressed-history qualification.",
+    "PostCaptureOutcome": "Extracted",
+    "PostCaptureEndedUtc": "2026-09-08T23:38:20.978000+00:00",
+    "SecondsAfterLastEndingSignal": 22.884743,
+    "PostCaptureCapabilities": {
+      "Supported": 59,
+      "ExpectedExperimental": 3
+    },
+    "PostCaptureDiagnosticsWarningsAndErrors": 0
+  },
+  "PreviousFailure": {
+    "Path": "docs/M18_RAID_IDLE_QUALIFICATION.json",
+    "Bytes": 27608,
+    "Sha256": "69feebd9b4af75fa4d4fd605df6c47e75ea9243464160ae8e5103d2c3d843193"
+  },
+  "Interpretation": "The current p99 comparison passes where the earlier campaign failed; median still fails. Different sessions and observed baseline variation prevent attributing the entire native difference solely to the correction. Managed zero-allocation evidence is separately recorded and does not substitute for this result.",
+  "Evidence": [
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/campaign.json",
+      "Bytes": 4265,
+      "Sha256": "23e86feb68d0b5ee2441c8ad1e03e0fa968d5c8b8dfd61ebea121a1b64b29c4b"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/controls.idle.B.json",
+      "Bytes": 2625,
+      "Sha256": "fe7bb6bf67755268ffa9eae5dd682b154948ed393947a34133021a09dc73e738"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/controls.idle.D.json",
+      "Bytes": 2731,
+      "Sha256": "53aa1c9f9618c52abaa52b6090759ac8027b8461e0fc9fb22442e35c0a216a09"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/user-confirmations.json",
+      "Bytes": 2407,
+      "Sha256": "07c63e5b23b84ba82892389a50b6da4237d24b9c5047793ea32eeac24f22c987"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/analysis/complete-idle.json",
+      "Bytes": 13527,
+      "Sha256": "db6e85d43d5347268a4e8bbc901bc66d7ea1d0e6be1d3b19dd05562b8b34a8ef"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/analysis/complete-idle.log",
+      "Bytes": 4684,
+      "Sha256": "a2504257ac78200ff05d1583f0ab8a95924ea204ba56efe2ad340957f54bac5e"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/D-setup/active-run.json",
+      "Bytes": 65897,
+      "Sha256": "90ad295fa199a51de5d6cd7ca6f55deb51966959f4772c6e0fc3c334d390bfeb"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/D-setup/archived-prior-profile.json",
+      "Bytes": 171180,
+      "Sha256": "1911dfda44cbf67b8da1cc53f4ca2eb874a4f50cd6029000d1eb7b6c03127581"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/D-setup/diagnostics.json",
+      "Bytes": 1424,
+      "Sha256": "1a2f5fab3bcd07fe75415ce9b06858803fcc435399f020ca3941c9bdbb2a7c8f"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/D-setup/player.log",
+      "Bytes": 16221,
+      "Sha256": "03911990f7870824045df127852becf1cfeb13e7e9c9078250f168ae14f0bf15"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/D-setup/profile.json",
+      "Bytes": 31467,
+      "Sha256": "824841fe0930b01611b362ccbce97da4a45336102b4cfe4f111777430ce4e407"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/D-setup/result.json",
+      "Bytes": 1022,
+      "Sha256": "84f315d957cb58a5b82a462896a666d8ad1cbaf1926e7078ae60b8ddac306f4f"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/after-idle/diagnostics.json",
+      "Bytes": 1424,
+      "Sha256": "1a2f5fab3bcd07fe75415ce9b06858803fcc435399f020ca3941c9bdbb2a7c8f"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/after-idle/profile.json",
+      "Bytes": 171077,
+      "Sha256": "b02bcc76521b7a647985d74560788ff7e281f7f9a71d43e5cc49f60bd3d818ad"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/invalid-attempts/B/idle/b-idle-r01/b-idle-r01.capframex.json",
+      "Bytes": 841877,
+      "Sha256": "22e210fea9c1475147cd8e67c4d741033c27447f8445b49cfc3a0f00bf5372e9"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/invalid-attempts/B/idle/b-idle-r01/b-idle-r01.capture.json",
+      "Bytes": 6723,
+      "Sha256": "28a0865e945bca2bbdf0867b356876a4bb7242830a2b30f18c4787c3dd838aa0"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/invalid-attempts/B/idle/b-idle-r01/b-idle-r01.csv",
+      "Bytes": 2152615,
+      "Sha256": "f4235a5514355071c7e64d27af473aaedcb6c537ce1433cfbbce13ce4006e981"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/invalid-attempts/B/idle/b-idle-r01/invalidation.json",
+      "Bytes": 2181,
+      "Sha256": "af49a81c08f1657ddf2a9b9d783361c8958bd2799105d9f28fbd8b7f9159337a"
+    }
+  ],
+  "Remaining": [
+    "Not exercised: B/high-rate-empty needs 3 valid captures.",
+    "Not exercised: D/high-rate-empty needs 3 valid captures.",
+    "Not exercised: B/high-rate-single needs 3 valid captures.",
+    "Not exercised: D/high-rate-single needs 3 valid captures.",
+    "Not exercised: B/high-rate-multi needs 3 valid captures.",
+    "Not exercised: D/high-rate-multi needs 3 valid captures.",
+    "Not exercised: B/second-auto-empty needs 3 valid captures.",
+    "Not exercised: D/second-auto-empty needs 3 valid captures.",
+    "Not exercised: B/second-auto-single needs 3 valid captures.",
+    "Not exercised: D/second-auto-single needs 3 valid captures.",
+    "Not exercised: B/slower-control needs 3 valid captures.",
+    "Not exercised: D/slower-control needs 3 valid captures.",
+    "Not exercised: B/consumable-medkit needs 3 valid captures.",
+    "Not exercised: D/consumable-medkit needs 3 valid captures.",
+    "Not exercised: B/base-idle-ui-closed needs 3 valid captures.",
+    "Not exercised: D/base-idle-ui-closed needs 3 valid captures.",
+    "Not exercised: B/base-inventory-equipment needs 3 valid captures.",
+    "Not exercised: D/base-inventory-equipment needs 3 valid captures.",
+    "Not exercised: B/base-crafting-economy needs 3 valid captures.",
+    "Not exercised: D/base-crafting-economy needs 3 valid captures.",
+    "Not exercised: B/base-ui-open needs 3 valid captures.",
+    "Not exercised: D/base-ui-open needs 3 valid captures.",
+    "Not exercised: B/export-boundary needs 3 valid captures.",
+    "Not exercised: D/export-boundary needs 3 valid captures.",
+    "Not exercised: B/terminal-boundary needs 3 valid captures.",
+    "Not exercised: D/terminal-boundary needs 3 valid captures."
+  ]
+}

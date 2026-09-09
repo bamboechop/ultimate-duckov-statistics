@@ -2,7 +2,7 @@
   "SourceCommit": "7667fdface781af0f8038e8b1b6a39475ba217f8",
   "PriorMeasuredCandidate": "09fa7e3cc5d383f3a8ef58e96dd295aac00514c7",
   "ReviewRange": "9bdf686361aee75a17f39c9349b96a1a5b06dd83..7667fdface781af0f8038e8b1b6a39475ba217f8",
-  "Status": "Automated correction and reviewed game-closed deployment pass; native requalification pending",
+  "Status": "Automated correction, deployment and native restart/export pass; native repeat fails median target and passes p99 target",
   "Problem": "Run and active segment equipment duration reducers rebuilt keys, descriptions, grouped totem state and temporary traversal collections every active frame.",
   "Correction": "Retain one snapshot-derived duration plan per active aggregate; compare the full mutable snapshot before reuse. Continue every duration boundary, current destination-row lookup and checked decimal preflight. Clear on suspension; do not serialize or copy the plan into recovery/checkpoint aggregates. Skip empty profile-transition retry delegate creation.",
   "PreservedNativeFailure": {
@@ -354,10 +354,20 @@
       }
     ]
   },
-  "Remaining": "Fresh matched B/D idle samples under the new frozen campaign; preserve the prior failed campaign and objective invalid attempts. All other open native qualification gates remain open.",
+  "Remaining": "Investigate remaining idle median overhead; all other open native qualification gates remain open. Preserve both completed campaigns and invalid attempts.",
   "NativeReopen": {
     "Result": "Pass for current generation, completed run/equipment and export retention; user confirms green Diagnostics. Native frame-time repeat remains open.",
     "Path": "docs/M18_IDLE_CORRECTION_REOPEN.json",
     "Sha256": "a010a5301359898f9c9cd8c4d18a77b4d9c4903e08ab05ea4e239f4af9b3d6cb"
+  },
+  "NativeRepeat": {
+    "Path": "docs/M18_IDLE_REPEAT_QUALIFICATION.json",
+    "Sha256": "e3f121a7ad5fb785fcc12c3bd0ff16f4b2d97ca13cc3058592cc218efc4e18a7",
+    "MedianTarget": "Fail",
+    "P99Target": "Pass",
+    "IndependentEvidenceReview": {
+      "Path": "artifacts/m18-idle-repeat-review/review.md",
+      "Sha256": "240702357ee96d2e6142c110ed1e06817c314eb3ec6a2fcda5c9f77270700145"
+    }
   }
 }
