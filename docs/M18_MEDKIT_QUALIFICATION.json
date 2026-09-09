@@ -1,0 +1,256 @@
+{
+  "RecordedUtc": "2026-09-09T12:19:40.416546+00:00",
+  "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "Scenario": "consumable-medkit",
+  "EvidenceRoot": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay",
+  "CampaignSha256": "367bf25fa55ba7db4ce69c80d97cc3a38fee40b7b9ea4062835c637406e8091d",
+  "VerificationScriptSha256": "51cbd2ae3dbd06260c2b99e50b01db7ce9e37b2ad2bc3c7720bb152f27be7e75",
+  "AnalyzerOutputSha256": "088a28977c0539725210e937fd4a0586cf74858194554b0bfbfd78c715df8b24",
+  "ExportEvidenceManifestSha256": "657ae0f7b1d08bd65451bfcd5c0a182306fb8b10ab1b6b9ffcd77df7fb88e6fc",
+  "BFrames": 20749,
+  "DFrames": 21514,
+  "Samples": [
+    {
+      "Configuration": "B",
+      "Run": 1,
+      "Frames": 7025,
+      "WholeMedianMs": 4.1518,
+      "WholeP99Ms": 5.117876,
+      "ActionMedianMs": 4.20505,
+      "ActionP99Ms": 5.5418369999999815,
+      "WholeMaterialRate": 0.014234875444839857,
+      "ActionMaterialRate": 0,
+      "Spikes": [
+        {
+          "OffsetSeconds": 20.4218701,
+          "FrameTimeMilliseconds": 453.4283,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 453.3736,
+          "GpuBusyMilliseconds": 2.7514
+        }
+      ],
+      "ActionCluster": false,
+      "CsvSha256": "8cc24e3f64570c08073b88eb73f44520c3c4b5100ce7201bfa9c8cf9bd02752d",
+      "RawJsonSha256": "c6f6abd5777959300807af13b0d3721c22ffdbe586f0d94bdeec4c8a9c99a32f",
+      "MetadataSha256": "11c107ee691df979c11534cfa6d68ca2082b7fcc72ef76c5417978222e4cb45c"
+    },
+    {
+      "Configuration": "B",
+      "Run": 2,
+      "Frames": 6819,
+      "WholeMedianMs": 4.2353,
+      "WholeP99Ms": 5.605197999999996,
+      "ActionMedianMs": 4.28575,
+      "ActionP99Ms": 6.035109999999993,
+      "WholeMaterialRate": 0.04399472063352398,
+      "ActionMaterialRate": 0,
+      "Spikes": [
+        {
+          "OffsetSeconds": 26.0325492000011,
+          "FrameTimeMilliseconds": 45.2456,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 45.1909,
+          "GpuBusyMilliseconds": 2.6255
+        },
+        {
+          "OffsetSeconds": 26.4687724000014,
+          "FrameTimeMilliseconds": 659.0187,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 658.9599,
+          "GpuBusyMilliseconds": 2.7303
+        }
+      ],
+      "ActionCluster": false,
+      "CsvSha256": "e010e446cd517c4af1a82ab22d4ed4cd01fee7d3609ca29bfb83396cdab29fca",
+      "RawJsonSha256": "ade5ef8fdaac5cce6ea1ea821a4c8345d279e3e0dddbe56b992d308f566614a0",
+      "MetadataSha256": "d6ed9c26fd5ae7b1251c117380772d6faa17237010462765e160fcc4452530d9"
+    },
+    {
+      "Configuration": "B",
+      "Run": 3,
+      "Frames": 6905,
+      "WholeMedianMs": 4.2079,
+      "WholeP99Ms": 5.102328,
+      "ActionMedianMs": 4.2343,
+      "ActionP99Ms": 5.391826000000001,
+      "WholeMaterialRate": 0.01448225923244026,
+      "ActionMaterialRate": 0,
+      "Spikes": [
+        {
+          "OffsetSeconds": 4.86545110000043,
+          "FrameTimeMilliseconds": 585.3528,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 585.2905,
+          "GpuBusyMilliseconds": 2.7058
+        }
+      ],
+      "ActionCluster": false,
+      "CsvSha256": "d969381f1e374c806e944238b782779877d7615e030d37c2c89d2cb7fcf789f3",
+      "RawJsonSha256": "dcb10f0dcb0152940c9935117df450fdfc19d51b9c2591a22f430512eb4546fd",
+      "MetadataSha256": "dd4ba39dc8dc7ba6c57b7875035f16d723347c95049125b996e3f060a25fb31d"
+    },
+    {
+      "Configuration": "D",
+      "Run": 1,
+      "Frames": 7188,
+      "WholeMedianMs": 4.103899999999999,
+      "WholeP99Ms": 5.394336000000001,
+      "ActionMedianMs": 4.1227,
+      "ActionP99Ms": 5.160990999999988,
+      "WholeMaterialRate": 0,
+      "ActionMaterialRate": 0,
+      "Spikes": [],
+      "ActionCluster": false,
+      "CsvSha256": "e7f2af34a7aa4312afa10534b93f57e7c22ae9bc469fdccbbd874e298b28847a",
+      "RawJsonSha256": "45ef1d7e7ed9148821535efce7a17452566570d5e54d35c6d83b40be0d7210da",
+      "MetadataSha256": "9e23afbc7dad12634c66fac740b11df261561ff5d5f6fd67e74aa7f6cd4ce68e"
+    },
+    {
+      "Configuration": "D",
+      "Run": 2,
+      "Frames": 7154,
+      "WholeMedianMs": 4.12715,
+      "WholeP99Ms": 5.326247,
+      "ActionMedianMs": 4.1502,
+      "ActionP99Ms": 5.057475999999999,
+      "WholeMaterialRate": 0,
+      "ActionMaterialRate": 0,
+      "Spikes": [],
+      "ActionCluster": false,
+      "CsvSha256": "73ee935748f7d584b7751a4f273e89181e75cfdd5a3de2d5e09625a123c32f6c",
+      "RawJsonSha256": "2fdcffbbd15674a8d80198b6039c69d854fdbaadec84ca969619ec0c108a3241",
+      "MetadataSha256": "4137f56209f38fe7909e92bcc2b7de9ee0e0cb1cf69bd389f7d81042dc80a161"
+    },
+    {
+      "Configuration": "D",
+      "Run": 3,
+      "Frames": 7172,
+      "WholeMedianMs": 4.111000000000001,
+      "WholeP99Ms": 5.48177,
+      "ActionMedianMs": 4.1452,
+      "ActionP99Ms": 5.144181999999999,
+      "WholeMaterialRate": 0,
+      "ActionMaterialRate": 0,
+      "Spikes": [],
+      "ActionCluster": false,
+      "CsvSha256": "5e876a4c2dff9ba8c8863bc8271c9b14d48b77b183a4010a3d8009a934729345",
+      "RawJsonSha256": "9411be03d66ea5f190ee044b5766405600d6d13246e920b537f9a514e31b1f6d",
+      "MetadataSha256": "57b9337848d93228ef5902692d9907450b9daf449c8214032c8cdb2f525ddfe6"
+    }
+  ],
+  "Aggregates": {
+    "B": {
+      "WholeMedianMs": 4.2079,
+      "WholeP99Ms": 5.117876,
+      "ActionMedianMs": 4.2343,
+      "ActionP99Ms": 5.5418369999999815,
+      "WholeMaterialRate": 0.01448225923244026,
+      "ActionMaterialRate": 0
+    },
+    "D": {
+      "WholeMedianMs": 4.111000000000001,
+      "WholeP99Ms": 5.394336000000001,
+      "ActionMedianMs": 4.1452,
+      "ActionP99Ms": 5.144181999999999,
+      "WholeMaterialRate": 0,
+      "ActionMaterialRate": 0
+    }
+  },
+  "OverheadPercent": {
+    "WholeMedianMs": -2.3028113785973914,
+    "WholeP99Ms": 5.4018502988349315,
+    "ActionMedianMs": -2.104243912807313,
+    "ActionP99Ms": -7.175508770827865
+  },
+  "Gates": {
+    "EngineeringMedian": true,
+    "EngineeringP99": true,
+    "CeilingMedian": true,
+    "CeilingP99": true,
+    "WholeMaterialRate": true,
+    "ActionMaterialRate": true,
+    "NoRepeatableNewActionCluster": true
+  },
+  "MatchedPhysicalControlFields": [
+    "Weapon",
+    "WeaponModifications",
+    "EquipmentAndTotems",
+    "Location",
+    "ShotCountExpectation",
+    "BackgroundApplicationState",
+    "Resolution",
+    "DisplayMode",
+    "RefreshRateHz",
+    "FrameLimiterFps",
+    "VSyncState",
+    "GraphicsPreset",
+    "ActionLabel",
+    "Consumable",
+    "ConsumableCountExpectation",
+    "ActiveDamageEffects",
+    "PassiveHealingEffects"
+  ],
+  "DGenerationId": "aa6131c66bb34e6fb8a7ea6635b2c2ca",
+  "HealthControlChangeSha256": "25349a100c4ff3fddb79e38db29184a6bb36d444bc91f0d05641593b7c5bb751",
+  "DSetupSha256": "12d81382c7c5e38743e2f658dbe54a24b7c30888ce6d96456ec37cc9c70dd9d2",
+  "BConfirmationSha256": "834ef1e607340aa728427548922bd0fd3868fb0f8e2f11c1f3cc7af843d710cf",
+  "DConfirmationSha256": "041fbe908ba9e0b20178b1fbd2388ed837eafb1ac45e2acc6a4559aa0cc16278",
+  "ReportedHealthProgressions": {
+    "B": [
+      7.6,
+      19.6,
+      31.6,
+      43.6
+    ],
+    "D": [
+      1.5,
+      13.5,
+      25.5,
+      37.5
+    ]
+  },
+  "ExportAgreement": {
+    "Uses": 3,
+    "ItemId": "duckov:item:17",
+    "ItemName": "Med-Kit (S)",
+    "ReportedHealthRestored": 36,
+    "RecordedHealthRestored": 36.000000953674316,
+    "DurabilityConsumed": 75,
+    "HealingCaptureComplete": true,
+    "HealingCaptureState": "Supported",
+    "ExportedUtc": "/Date(1788956160159)/",
+    "ExportRevision": 436,
+    "ProfileRevision": 527,
+    "ProfileAndJsonRunsEqual": true,
+    "TargetedCsvAgreement": true
+  },
+  "Verified": [
+    "All six user-confirmed captures and raw hashes retained.",
+    "Every raw frame, CPU/GPU value and timestamp matches; no non-dominant rows omitted.",
+    "Independent numerical replay matches whole/action mean, median, p95, p99, max, material rates and clusters.",
+    "Campaign, ordinary DLL identities and listed physical control strings agree.",
+    "Sequential uncapped healing amendment was recorded before B2; D starting-health offset was recorded before D1.",
+    "All 37 export files and saved profile/log hashes verified. Profile/JSON/CSV agree on three uses, 75 durability and 36.000000953674316 HP restored, matching 36 reported HP at native float precision."
+  ],
+  "Limitations": [
+    "B started at 7.6/65; D started at 1.5/65. Both series heal fully without reaching maximum, but low-health rendering is not identically controlled.",
+    "Unarmed and unequipped medkit-only loadout; this cell does not qualify a populated equipment path.",
+    "All baseline spikes, including the non-action B2 cluster and peak near 659.019 ms, remain included. D has no frame above 16.7 ms.",
+    "Health and between-session differences prevent claiming a causal improvement from negative median/action differences.",
+    "Fresh current generation and short history only; remaining UI, persistence, history/resource and final-artifact gates stay open."
+  ],
+  "TotalAcceptedFrames": 42263,
+  "Verdict": "Pass for this bounded unarmed Med-Kit (S) cell under engineering, numeric ceiling and spike rules, with disclosed starting-health offset. No causal performance-improvement or full M18 claim.",
+  "VerifiedResultSha256": "3794d92e226d089c6d9bb61da0283e0b7278f50e2f390efcc07b848d8d10226d",
+  "GateThresholds": {
+    "EngineeringMedianPercent": 5,
+    "EngineeringP99Percent": 10,
+    "CeilingMedianPercent": 10,
+    "CeilingP99Percent": 20,
+    "MaterialFrameRateDeltaPercentagePoints": 0.25,
+    "ClusterFrameMilliseconds": 33.3,
+    "ClusterWindowSeconds": 1,
+    "ClusterMinimumFrames": 2
+  },
+  "UserFinalConfirmation": "Yes, no hitch, exported."
+}
