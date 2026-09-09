@@ -131,6 +131,8 @@ public sealed class EquipmentDurationPerformanceTests
 
     [Theory]
     [InlineData("item")]
+    [InlineData("character-slot")]
+    [InlineData("nested-slot")]
     [InlineData("typed-totem")]
     [InlineData("empty-slot")]
     public void OverflowAfterSuccessfulAdvanceLeavesAllPersistedStateUnchanged(string family)
@@ -139,12 +141,34 @@ public sealed class EquipmentDurationPerformanceTests
         switch (family)
         {
             case "item": aggregate.Items.Values.Single().ActiveDurationSeconds = decimal.MaxValue; break;
+            case "character-slot": aggregate.CharacterSlotStates.Values.Last().ActiveDurationSeconds = decimal.MaxValue; break;
+            case "nested-slot": aggregate.NestedSlotStates.Values.Single().ActiveDurationSeconds = decimal.MaxValue; break;
             case "typed-totem": aggregate.Composition.TotemStates.Values.Last().DurationSeconds = decimal.MaxValue; break;
             case "empty-slot": aggregate.Composition.EmptyDirectSlots.Values.Single().ActiveDurationSeconds = decimal.MaxValue; break;
         }
         var before = Serialize(aggregate);
 
         Assert.Throws<OverflowException>(() => EquipmentStatisticsReducer.Advance(aggregate, 2));
+
+        Assert.Equal(before, Serialize(aggregate));
+    }
+
+    [Theory]
+    [InlineData("item")]
+    [InlineData("character-slot")]
+    [InlineData("nested-slot")]
+    public void NegativeLiveDurationRejectsAdvanceBeforeAnyPersistedMutation(string family)
+    {
+        var aggregate = Observed(Snapshot());
+        switch (family)
+        {
+            case "item": aggregate.Items.Values.Single().ActiveDurationSeconds = -0.0001m; break;
+            case "character-slot": aggregate.CharacterSlotStates.Values.Last().ActiveDurationSeconds = -0.0001m; break;
+            case "nested-slot": aggregate.NestedSlotStates.Values.Single().ActiveDurationSeconds = -0.0001m; break;
+        }
+        var before = Serialize(aggregate);
+
+        Assert.Throws<OverflowException>(() => EquipmentStatisticsReducer.Advance(aggregate, 1.0004));
 
         Assert.Equal(before, Serialize(aggregate));
     }

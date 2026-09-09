@@ -151,24 +151,27 @@ public static partial class EquipmentStatisticsReducer
         var plan = target.PreparedDurationPlan;
         if (plan == null || !plan.Matches(snapshot))
             target.PreparedDurationPlan = plan = new DurationPlan(snapshot);
-        PreflightSlotStateAdvance(target, plan, delta);
+        // Every row in both passes uses this same positive increment. Retain the
+        // exact decimal bound, but calculate its scale adjustment only once.
+        var maximumStartingValue = decimal.MaxValue - delta;
+        PreflightSlotStateAdvance(target, plan, delta, maximumStartingValue);
         EquipmentCompositionReducer.Advance(target.Composition, plan.Composition, delta);
         target.ObservedActiveDurationSeconds = activeSeconds;
 
         if (!string.Equals(snapshot.LoadoutId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal))
-            AddDuration(target.Loadouts, snapshot.LoadoutId, plan.LoadoutDescription, delta);
+            AddDuration(target.Loadouts, snapshot.LoadoutId, plan.LoadoutDescription, delta, maximumStartingValue);
         if (!string.IsNullOrWhiteSpace(snapshot.SelectedWeaponId))
-            AddDuration(target.SelectedWeapons, plan.SelectedWeaponKey, snapshot.SelectedWeaponId, delta);
+            AddDuration(target.SelectedWeapons, plan.SelectedWeaponKey, snapshot.SelectedWeaponId, delta, maximumStartingValue);
         if (!string.Equals(snapshot.TotemSetId, EquipmentEventAssociation.UnavailableId, StringComparison.Ordinal)
             && plan.HasActiveTotems)
-            AddDuration(target.TotemSets, snapshot.TotemSetId, plan.TotemSetDescription, delta);
+            AddDuration(target.TotemSets, snapshot.TotemSetId, plan.TotemSetDescription, delta, maximumStartingValue);
         foreach (var entry in plan.Items)
         {
             var item = entry.Item;
-            AddDuration(target.Slots, item.SlotId, item.SlotDisplayName, delta);
-            AddDuration(target.Items, entry.ItemKey, item.ItemDisplayName, delta);
+            AddDuration(target.Slots, item.SlotId, item.SlotDisplayName, delta, maximumStartingValue);
+            AddDuration(target.Items, entry.ItemKey, item.ItemDisplayName, delta, maximumStartingValue);
             if (item.Kind == EquipmentItemKind.Weapon)
-                AddDuration(target.SlottedWeapons, entry.WeaponKey, item.ItemDisplayName, delta);
+                AddDuration(target.SlottedWeapons, entry.WeaponKey, item.ItemDisplayName, delta, maximumStartingValue);
         }
         // Completeness gates the family capability, not the truth of slots that
         // were individually retained. A damaged sibling must not erase a slot
@@ -179,19 +182,19 @@ public static partial class EquipmentStatisticsReducer
                 target.CharacterSlotObservedDurations,
                 entry.ObservationKey,
                 entry.Slot.SlotDisplayName,
-                delta);
-            AddCharacterSlotStateDuration(target.CharacterSlotStates, entry.Slot, delta, entry.StateKey);
+                delta, maximumStartingValue);
+            AddCharacterSlotStateDuration(target.CharacterSlotStates, entry.Slot, delta, entry.StateKey, maximumStartingValue);
         }
         // Completeness gates the family capability, not the readable paths that
         // survived native enumeration. Missing siblings remain unavailable and
         // are never reconstructed as empty rows.
         foreach (var entry in plan.Nested)
         {
-            AddDuration(target.NestedSlotObservedDurations, entry.ObservationKey, entry.Slot.SlotDisplayName, delta);
-            AddNestedSlotStateDuration(target.NestedSlotStates, entry.Parent, entry.Slot, delta, entry.StateKey);
+            AddDuration(target.NestedSlotObservedDurations, entry.ObservationKey, entry.Slot.SlotDisplayName, delta, maximumStartingValue);
+            AddNestedSlotStateDuration(target.NestedSlotStates, entry.Parent, entry.Slot, delta, entry.StateKey, maximumStartingValue);
         }
         foreach (var entry in plan.Totems)
-            AddDuration(target.TotemStates, entry.Key, entry.Description, delta);
+            AddDuration(target.TotemStates, entry.Key, entry.Description, delta, maximumStartingValue);
     }
 
     public static void RecordShot(EquipmentStatisticsAggregate target, ShotRecorded shot)
@@ -731,7 +734,8 @@ public static partial class EquipmentStatisticsReducer
     private static void PreflightSlotStateAdvance(
         EquipmentStatisticsAggregate target,
         DurationPlan plan,
-        decimal delta)
+        decimal delta,
+        decimal maximumStartingValue)
     {
         var snapshot = plan.Snapshot;
         Check(target.Loadouts, snapshot.LoadoutId);
@@ -750,19 +754,19 @@ public static partial class EquipmentStatisticsReducer
         {
             Check(target.CharacterSlotObservedDurations, entry.ObservationKey);
             target.CharacterSlotStates.TryGetValue(entry.StateKey, out var row);
-            _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
+            _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta, maximumStartingValue);
         }
         foreach (var entry in plan.Nested)
         {
             Check(target.NestedSlotObservedDurations, entry.ObservationKey);
             target.NestedSlotStates.TryGetValue(entry.StateKey, out var row);
-            _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
+            _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta, maximumStartingValue);
         }
 
         void Check(Dictionary<string, EquipmentDurationAggregate> rows, string key)
         {
             rows.TryGetValue(key, out var row);
-            _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta);
+            _ = CheckedDurationAdd(row?.ActiveDurationSeconds ?? 0, delta, maximumStartingValue);
         }
     }
 
@@ -816,7 +820,8 @@ public static partial class EquipmentStatisticsReducer
         Dictionary<string, CharacterSlotStateDurationAggregate> target,
         CharacterEquipmentSlotSnapshot slot,
         decimal delta,
-        string? preparedKey = null)
+        string? preparedKey = null,
+        decimal? maximumStartingValue = null)
     {
         var key = preparedKey ?? CharacterSlotStateKey(slot);
         if (!target.TryGetValue(key, out var row))
@@ -834,7 +839,7 @@ public static partial class EquipmentStatisticsReducer
         }
         if (!string.IsNullOrWhiteSpace(slot.SlotDisplayName)) row.SlotDisplayName = slot.SlotDisplayName;
         if (!string.IsNullOrWhiteSpace(slot.ItemDisplayName)) row.ItemDisplayName = slot.ItemDisplayName;
-        row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, delta);
+        row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, delta, maximumStartingValue);
     }
 
     private static void AddNestedSlotStateDuration(
@@ -842,7 +847,8 @@ public static partial class EquipmentStatisticsReducer
         EquippedItemSnapshot parent,
         NestedEquipmentSlotSnapshot slot,
         decimal delta,
-        string? preparedKey = null)
+        string? preparedKey = null,
+        decimal? maximumStartingValue = null)
     {
         var key = preparedKey ?? NestedSlotStateKey(parent.SlotId, parent.ItemId, slot);
         if (!target.TryGetValue(key, out var row))
@@ -865,7 +871,7 @@ public static partial class EquipmentStatisticsReducer
         if (!string.IsNullOrWhiteSpace(parent.ItemDisplayName)) row.ParentItemDisplayName = parent.ItemDisplayName;
         if (!string.IsNullOrWhiteSpace(slot.SlotDisplayName)) row.SlotDisplayName = slot.SlotDisplayName;
         if (!string.IsNullOrWhiteSpace(slot.ItemDisplayName)) row.ItemDisplayName = slot.ItemDisplayName;
-        row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, delta);
+        row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, delta, maximumStartingValue);
     }
 
     private static bool EnrichDisplayMetadata(EquipmentStatisticsAggregate target, EquipmentSnapshot snapshot)
@@ -1041,9 +1047,12 @@ public static partial class EquipmentStatisticsReducer
         return value.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + value;
     }
 
-    private static decimal CheckedDurationAdd(decimal left, decimal right)
+    private static decimal CheckedDurationAdd(decimal left, decimal right) =>
+        CheckedDurationAdd(left, right, null);
+
+    private static decimal CheckedDurationAdd(decimal left, decimal right, decimal? maximumStartingValue)
     {
-        if (left < 0 || right < 0 || left > decimal.MaxValue - right)
+        if (left < 0 || right < 0 || left > (maximumStartingValue ?? decimal.MaxValue - right))
             throw new OverflowException("Equipment slot-state duration overflowed.");
         return left + right;
     }
@@ -1091,13 +1100,14 @@ public static partial class EquipmentStatisticsReducer
     private static string EmptyToUnavailable(string? value) =>
         string.IsNullOrWhiteSpace(value) ? EquipmentEventAssociation.UnavailableId : value;
 
-    private static void AddDuration(Dictionary<string, EquipmentDurationAggregate> target, string id, string name, decimal delta)
+    private static void AddDuration(Dictionary<string, EquipmentDurationAggregate> target, string id, string name,
+        decimal delta, decimal maximumStartingValue)
     {
         if (string.IsNullOrWhiteSpace(id)) return;
         if (!target.TryGetValue(id, out var row))
         { row = new EquipmentDurationAggregate { Id = id, DisplayName = name }; target[id] = row; }
         if (!string.IsNullOrWhiteSpace(name)) row.DisplayName = name;
-        row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, delta);
+        row.ActiveDurationSeconds = CheckedDurationAdd(row.ActiveDurationSeconds, delta, maximumStartingValue);
     }
 
     private static void MergeDurations(Dictionary<string, EquipmentDurationAggregate> target, Dictionary<string, EquipmentDurationAggregate> source, bool countRun = false)
