@@ -1,7 +1,7 @@
 {
   "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
   "ReviewRange": "e3eb69f9f7e22214d58078eea9e00f81e95910ba..88efddb5eacdab40a40498b62f90fdde14d167af",
-  "Status": "Ordinary correction prepared and independently reviewed; complete automated qualification passes. Deployment, native reopen and performance requalification remain pending.",
+  "Status": "Ordinary correction independently reviewed, fully checked and deployed with exact installed/data readback. Native reopen and performance requalification remain pending.",
   "Change": "Calculate the exact decimal.MaxValue - delta bound once per positive equipment Advance. Both preflight and mutation retain the original comparisons and additions, current destination lookup and metadata updates. Cold merges retain the original bound calculation.",
   "Preserved": "Absolute-duration conversion, per-frame run/segment updates, event and pause boundaries, decimal precision, composition, validation, persistence cadence, pending recovery and mutable snapshot/row handling.",
   "DiagnosticResult": {
@@ -202,5 +202,102 @@
     }
   ],
   "Limits": "The instrumented RunLifecycle timer includes more than equipment arithmetic. Managed improvement does not establish the cause of the prior native frame delta or pass the 5% median/10% p99 target. All original native failures and valid samples remain preserved.",
-  "Next": "After user-confirmed Duckov closure and verified process absence, replace the diagnostic with the reviewed ordinary package, verify all installed and UDS-data hashes, then obtain user-controlled reopen/export and matched native captures."
+  "Next": "User launches slot 1 with Harmony and UDS enabled, confirms green Diagnostics and both retained Nullpunkt extractions, then exports once. Reconfirm controls and collect matched ordinary Release performance samples afterward.",
+  "Deployment": {
+    "Result": {
+      "Result": "Pass for reviewed ordinary duration-bound correction deployment and byte-for-byte data preservation; native performance requalification remains pending.",
+      "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+      "StartedUtc": "2026-09-09T00:52:34.9389689Z",
+      "VerifiedUtc": "2026-09-09T00:52:35.9950160Z",
+      "DuckovClosedDuringDeployment": true,
+      "FiveInstalledFileHashesMatch": true,
+      "PreviousInstalledSource": "b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
+      "ExactInstalledFileCount": 5,
+      "AllUdsDataFilesUnchanged": 2397,
+      "V1DataFilesUnchanged": 1141,
+      "PreV1AndOtherUdsDataFilesUnchanged": 1256,
+      "VerifiedPriorBackupId": "30ece80d6c29423cb6ee77c6580f20c2",
+      "TransactionResidue": false,
+      "InstalledHashes": {
+        "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+        "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+        "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+        "UltimateDuckovStatistics.Core.dll": "9fe4865ad1c6355278f67b45d0a20b2fb6b8573e534d17357b50a99dd3594e1f",
+        "UltimateDuckovStatistics.dll": "e0f7198b40c8110c3c0bcbd21122275204274cd6695225e55d112cb7b6ac8bc5"
+      }
+    },
+    "UserClosureConfirmation": {
+      "Reply": "closed",
+      "Context": "Explicit response to request to confirm full closure before replacing the diagnostic build."
+    },
+    "IndependentReadback": {
+      "InstalledFiles": 5,
+      "UnchangedUdsDataFiles": 2397,
+      "RollbackFiles": 5,
+      "Slot1Generation": "ced3938bda07407183ffa7cc36224d4f",
+      "CompletedRuns": 2,
+      "NativeRaidIds": [
+        "212",
+        "213"
+      ],
+      "TransactionResidue": false
+    },
+    "Evidence": [
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/candidate-hashes.json",
+        "Bytes": 466,
+        "Sha256": "b4fc4b76b57f919abf109cb90d91dbd4e217508a1cce48052e7ba7004eac8362"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/data-after.json",
+        "Bytes": 486097,
+        "Sha256": "49a135eb3d670d0173688b040ba0d35957f4de266972694d512f86119cfcc164"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/data-before.json",
+        "Bytes": 486097,
+        "Sha256": "49a135eb3d670d0173688b040ba0d35957f4de266972694d512f86119cfcc164"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/deployment.log",
+        "Bytes": 1210,
+        "Sha256": "ddc2b5b62057c6a957fe851d101340f2a5e9319e576b7a7c27191d030dac683f"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/independent-readback.json",
+        "Bytes": 238,
+        "Sha256": "293e220b9f749f78aecf5e4392ffcd0feaa07e797ac86de07a56fe366e857da1"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/installed-after.json",
+        "Bytes": 466,
+        "Sha256": "b4fc4b76b57f919abf109cb90d91dbd4e217508a1cce48052e7ba7004eac8362"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/installed-before.json",
+        "Bytes": 466,
+        "Sha256": "a4e557b0150af0d191ad89c5d1a6003d31016cdcd5910c1391fd11ee6add465f"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/player-closed-before.log",
+        "Bytes": 36763,
+        "Sha256": "856daed784a142e0a144c385f6865e2153c41729f7c565cff94c96233fa3032e"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/result.json",
+        "Bytes": 1238,
+        "Sha256": "a4cf75aed6f4825c02361a92ca6df695a2fbbe0cc6dfe97b440f9cffe2d0cd1d"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/slot-01-profile-before.json",
+        "Bytes": 232856,
+        "Sha256": "1d400e750caa513977c1be23e35af177670ee9d717e2d87ee905f41f41a92fdd"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/slot-03-profile-before.json",
+        "Bytes": 31072,
+        "Sha256": "58482f0db3e83afc6a921013d5eac0c33d7ac65a2cc192b17bd5665cd98fd230"
+      }
+    ]
+  }
 }

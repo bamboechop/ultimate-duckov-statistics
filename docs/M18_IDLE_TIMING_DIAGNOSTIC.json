@@ -1,7 +1,7 @@
 {
   "SourceCommit": "b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
   "ReviewRange": "1e2602ac0760784f7a9d0b403b12bc95c078b1a9..b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
-  "Status": "Prepared, independently reviewed and deployed opt-in diagnostic; native F9/F10 interval completed and independently reviewed.",
+  "Status": "Opt-in diagnostic interval completed and independently reviewed; the installed diagnostic was replaced by the verified ordinary duration-bound correction.",
   "Purpose": "Locate remaining ordinary-release idle median overhead without changing tracking behavior or accepting instrumented frame times.",
   "Method": {
     "Path": "docs/M18_IDLE_TIMING_DIAGNOSTIC.md",
@@ -136,7 +136,7 @@
       "Sha256": "02a57d1dc61705858766a0d654a02b3bd0c3976a67e850d7cc2c75cbd6e6d59a"
     }
   ],
-  "Remaining": "Replace the diagnostic with the reviewed ordinary duration-bound correction after user-confirmed closure and deployment checks. Ordinary native performance qualification remains open.",
+  "Remaining": "Diagnostic measurement is complete. The ordinary replacement now requires native reopen/export retention and matched performance qualification.",
   "Deployment": {
     "Result": {
       "Result": "Pass for opt-in diagnostic deployment and byte-for-byte data preservation; diagnostic timings cannot qualify ordinary Release. Restore the frozen 7667 ordinary package after diagnosis.",
@@ -238,6 +238,14 @@
       "Path": "artifacts/m18-native-timing-result-review/canonical-review.md",
       "Bytes": 2742,
       "Sha256": "2b974278e472cba6377e2d7455eb59d3d49a1485e314438f26552dcaa9f5a4b2"
+    }
+  },
+  "OrdinaryReplacement": {
+    "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+    "Result": {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/result.json",
+      "Bytes": 1238,
+      "Sha256": "a4cf75aed6f4825c02361a92ca6df695a2fbbe0cc6dfe97b440f9cffe2d0cd1d"
     }
   }
 }
