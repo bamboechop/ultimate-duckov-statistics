@@ -4,7 +4,7 @@ The [declared base UI comparison](M18_BASE_UI_QUALIFICATION.json) fails both the
 
 The bounded source review found change-gated full projection rebuilding, eager construction of all tabs on open, synchronous disposal on close, and per-frame layout entry into hidden views with guards before expensive reflow. Native menu discovery is callback-driven; shortcut integrity checks already use shared patch tokens. A running world clock can cause a profile revision and full open-panel refresh, but that occurrence is not established for this paused workload. No method has yet been shown to cause the measured miss.
 
-The [prepared diagnostic package record](M18_UI_TIMING_DIAGNOSTIC.json) binds the source, independent reviews, tests, privacy/IL audits, extracted inventory and fresh DLL repeat. Deployment and native attribution remain pending.
+The [diagnostic package and deployment record](M18_UI_TIMING_DIAGNOSTIC.json) binds the source, independent reviews, tests, privacy/IL audits, extracted inventory and fresh DLL repeat. After explicit closure confirmation, both game-closed deployment tests passed in Debug and Release. The exact five-file diagnostic is deployed, all 2,524 UDS data files remain byte-identical, and the prior ordinary package is preserved with verified rollback hashes. Native attribution remains unexercised.
 
 ## One diagnostic interval
 
