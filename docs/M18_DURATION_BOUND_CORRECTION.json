@@ -1,7 +1,7 @@
 {
   "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
   "ReviewRange": "e3eb69f9f7e22214d58078eea9e00f81e95910ba..88efddb5eacdab40a40498b62f90fdde14d167af",
-  "Status": "Ordinary correction independently reviewed, fully checked and deployed with exact installed/data readback. Native reopen and performance requalification remain pending.",
+  "Status": "Ordinary correction independently reviewed, fully checked and deployed; bounded native reopen/export retention passes. Native performance requalification remains pending.",
   "Change": "Calculate the exact decimal.MaxValue - delta bound once per positive equipment Advance. Both preflight and mutation retain the original comparisons and additions, current destination lookup and metadata updates. Cold merges retain the original bound calculation.",
   "Preserved": "Absolute-duration conversion, per-frame run/segment updates, event and pause boundaries, decimal precision, composition, validation, persistence cadence, pending recovery and mutable snapshot/row handling.",
   "DiagnosticResult": {
@@ -202,7 +202,7 @@
     }
   ],
   "Limits": "The instrumented RunLifecycle timer includes more than equipment arithmetic. Managed improvement does not establish the cause of the prior native frame delta or pass the 5% median/10% p99 target. All original native failures and valid samples remain preserved.",
-  "Next": "User launches slot 1 with Harmony and UDS enabled, confirms green Diagnostics and both retained Nullpunkt extractions, then exports once. Reconfirm controls and collect matched ordinary Release performance samples afterward.",
+  "Next": "User disables only UDS, leaves Harmony enabled and fully restarts for fresh B samples at the same Nullpunkt spot. Reconfirm the exact loadout, camera, Unlimited FPS and background controls before timing. Repeat D on this ordinary package after B; retain every valid sample and previous failure.",
   "Deployment": {
     "Result": {
       "Result": "Pass for reviewed ordinary duration-bound correction deployment and byte-for-byte data preservation; native performance requalification remains pending.",
@@ -299,5 +299,10 @@
         "Sha256": "58482f0db3e83afc6a921013d5eac0c33d7ac65a2cc192b17bd5665cd98fd230"
       }
     ]
+  },
+  "NativeReopen": {
+    "Path": "docs/M18_DURATION_BOUND_REOPEN.json",
+    "Bytes": 14413,
+    "Sha256": "23082156666f674fcfaeaea01a3171a6a4ceb66645987b832ea291fce4be61e1"
   }
 }

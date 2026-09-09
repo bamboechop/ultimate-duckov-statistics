@@ -136,7 +136,7 @@
       "Sha256": "02a57d1dc61705858766a0d654a02b3bd0c3976a67e850d7cc2c75cbd6e6d59a"
     }
   ],
-  "Remaining": "Diagnostic measurement is complete. The ordinary replacement now requires native reopen/export retention and matched performance qualification.",
+  "Remaining": "Diagnostic measurement and ordinary replacement reopen/export retention are complete. Matched ordinary performance qualification remains open.",
   "Deployment": {
     "Result": {
       "Result": "Pass for opt-in diagnostic deployment and byte-for-byte data preservation; diagnostic timings cannot qualify ordinary Release. Restore the frozen 7667 ordinary package after diagnosis.",
