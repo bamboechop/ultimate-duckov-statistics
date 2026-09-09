@@ -1,7 +1,7 @@
 {
   "SourceCommit": "b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
   "ReviewRange": "1e2602ac0760784f7a9d0b403b12bc95c078b1a9..b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
-  "Status": "Prepared and independently reviewed opt-in diagnostic; native deployment and timing interval not yet exercised.",
+  "Status": "Prepared, independently reviewed and deployed opt-in diagnostic; native timing interval not yet exercised.",
   "Purpose": "Locate remaining ordinary-release idle median overhead without changing tracking behavior or accepting instrumented frame times.",
   "Method": {
     "Path": "docs/M18_IDLE_TIMING_DIAGNOSTIC.md",
@@ -22,7 +22,7 @@
   "GameClosedFixtureChecks": "Both deployment fixtures passed in both configurations after process absence was verified; no game/profile mutation.",
   "NewTimingRegressions": 5,
   "NativeBuilds": "Debug and Release: zero warnings/errors; opt-in diagnostic Release: zero warnings/errors",
-  "OrdinaryReleaseAudit": "Pass: no timing call sites; timing implementation excluded. Existing deployed ordinary candidate remains 7667fdf.",
+  "OrdinaryReleaseAudit": "Pass: no timing call sites; timing implementation excluded. Frozen ordinary candidate 7667fdf is retained for restoration after diagnosis.",
   "DiagnosticAudit": "Package, native/core portable PDB and absolute-build-path audit passed; five independently extracted ZIP files match manifest.",
   "Review": {
     "Path": "artifacts/m18-idle-timing-review/review.md",
@@ -136,5 +136,91 @@
       "Sha256": "02a57d1dc61705858766a0d654a02b3bd0c3976a67e850d7cc2c75cbd6e6d59a"
     }
   ],
-  "Remaining": "User confirms Duckov closed; reversible UDS-only diagnostic replacement with exact installed/data hash readback, then one user-controlled F9/F10 idle interval. Restore ordinary candidate after diagnosis. Performance qualification remains open."
+  "Remaining": "Verify diagnostic activation after user launch, then one user-controlled F9/F10 idle interval. Restore ordinary candidate after diagnosis. Performance qualification remains open.",
+  "Deployment": {
+    "Result": {
+      "Result": "Pass for opt-in diagnostic deployment and byte-for-byte data preservation; diagnostic timings cannot qualify ordinary Release. Restore the frozen 7667 ordinary package after diagnosis.",
+      "SourceCommit": "b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
+      "StartedUtc": "2026-09-09T00:14:32.1442701Z",
+      "VerifiedUtc": "2026-09-09T00:14:33.2238819Z",
+      "DuckovClosedDuringDeployment": true,
+      "FiveInstalledFileHashesMatch": true,
+      "PreviousInstalledSource": "7667fdface781af0f8038e8b1b6a39475ba217f8",
+      "ExactInstalledFileCount": 5,
+      "AllUdsDataFilesUnchanged": 2397,
+      "V1DataFilesUnchanged": 1141,
+      "PreV1AndOtherUdsDataFilesUnchanged": 1256,
+      "VerifiedPriorBackupId": "36bd3297bfc649f38a7342f392cb9610",
+      "TransactionResidue": false,
+      "InstalledHashes": {
+        "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+        "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+        "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+        "UltimateDuckovStatistics.Core.dll": "22fcc78b4cbe12eb23a2d408b6f642353a5394f3e8a29bc45116169632e6d845",
+        "UltimateDuckovStatistics.dll": "57c1de7fa29ce9373d8df85b3d1109efc810ee0c7fe5e1f42f7ef4bcd456b5e5"
+      }
+    },
+    "UserClosedConfirmation": {
+      "QuestionCallId": "call_LD0ajkGFPbtZgpw48uTznY7H",
+      "Answer": "Closed"
+    },
+    "IndependentReadback": {
+      "InstalledFiles": 5,
+      "UnchangedDataFiles": 2397,
+      "RollbackFiles": 5,
+      "Slot1Generation": "ced3938bda07407183ffa7cc36224d4f"
+    },
+    "Evidence": [
+      {
+        "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing-deployment/candidate-hashes.json",
+        "Bytes": 466,
+        "Sha256": "a4e557b0150af0d191ad89c5d1a6003d31016cdcd5910c1391fd11ee6add465f"
+      },
+      {
+        "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing-deployment/data-after.json",
+        "Bytes": 486097,
+        "Sha256": "33f1a8c5a71d8a66297da28f395d8efc17232e70988f8db85337b96c6cff1c46"
+      },
+      {
+        "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing-deployment/data-before.json",
+        "Bytes": 486097,
+        "Sha256": "33f1a8c5a71d8a66297da28f395d8efc17232e70988f8db85337b96c6cff1c46"
+      },
+      {
+        "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing-deployment/deployment.log",
+        "Bytes": 1221,
+        "Sha256": "bccb9576fb75402cbf4db294a3cf99d6982ed2aadf5c4ef09c382c8cef54e298"
+      },
+      {
+        "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing-deployment/installed-after.json",
+        "Bytes": 466,
+        "Sha256": "a4e557b0150af0d191ad89c5d1a6003d31016cdcd5910c1391fd11ee6add465f"
+      },
+      {
+        "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing-deployment/installed-before.json",
+        "Bytes": 466,
+        "Sha256": "0b565285a4c8bc6b30ffb898aaeb1ea93304387074d150d9b7a047ec976702fd"
+      },
+      {
+        "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing-deployment/player-closed-before.log",
+        "Bytes": 34800,
+        "Sha256": "49c3539869481a5939aa2c0ef27c14d6b5bb309881a1084a84420f94f0c38445"
+      },
+      {
+        "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing-deployment/result.json",
+        "Bytes": 1270,
+        "Sha256": "64b223542c44ce92385a9bc0ec9b49180e0638e7e8789e50af595cdbde99e1ac"
+      },
+      {
+        "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing-deployment/slot-01-profile-before.json",
+        "Bytes": 170880,
+        "Sha256": "b334d58d5b0936d4dcac82e9c47e10abd30f8a94585330eb6dceff8573ef3693"
+      },
+      {
+        "Path": "artifacts/qualification/b1df147691ba253f6d3e5978d1aee82b6cf9d91f/native-idle-timing-deployment/slot-03-profile-before.json",
+        "Bytes": 31072,
+        "Sha256": "58482f0db3e83afc6a921013d5eac0c33d7ac65a2cc192b17bd5665cd98fd230"
+      }
+    ]
+  }
 }
