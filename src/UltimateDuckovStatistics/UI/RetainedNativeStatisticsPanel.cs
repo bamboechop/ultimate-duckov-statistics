@@ -43,6 +43,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private bool capturingHotkey;
     private string hotkeyWarning = "";
     private int hotkeyCaptureFrame;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+    public bool TimingPanelIsOpen => lifecycle.IsOpen;
+#endif
 
     public NativeStatisticsPanel(NativeProfileCoordinator coordinator)
     {
@@ -64,6 +67,10 @@ internal sealed class NativeStatisticsPanel : IDisposable
     public void Tick()
     {
         if (disposed) return;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(
+            lifecycle.IsOpen ? NativeHotPathArea.PanelOpenTick : NativeHotPathArea.PanelClosedTick);
+#endif
         operations.Tick();
         if (lifecycle.IsOpen && !shell.IsUsable)
         {
@@ -90,6 +97,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
             }
             try
             {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+                using var projectionTiming = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelProjectionRefresh);
+#endif
                 var projection = StatisticsPanelProjectionFactory.Create(current!, coordinator.CurrentEconomyCapabilities,
                     coordinator.CurrentCraftingCapabilities, coordinator.CurrentWorldTimeCapabilities, entityNames.Names);
                 shell.RefreshProjection(projection, generation);
@@ -155,6 +165,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
     private bool RequestOpen(PanelAccessSurface surface)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelOpen);
+#endif
         if (disposed) return false;
         var decision = StatisticsPanelAccessPolicy.Resolve(surface, NativeRaidContext.IsRaidMap());
         if (surface == PanelAccessSurface.BasePauseMenu
@@ -198,6 +211,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
         StatisticsPanelProjection projection;
         try
         {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+            using var projectionTiming = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelOpenProjection);
+#endif
             entityNames.Invalidate();
             projection = StatisticsPanelProjectionFactory.Create(
                 profile!,
@@ -294,6 +310,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
             && lastDiagnosticEntry == newest && diagnosticCount == entries.Count
             && lastMainMenu == nativeUi.MainMenuState && lastBaseMenu == nativeUi.BasePauseMenuState
             && lastShortcutState == shortcutGuard.State) return;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelDiagnostics);
+#endif
         diagnostics = DiagnosticsPresentationFactory.Create(presentedProjection, coordinator.CurrentGenerationId, CaptureDiagnosticsRuntime());
         shell.RefreshDiagnostics(diagnostics);
         diagnosticsRevision = revision; diagnosticReceipt = coordinator.LastSaveReceipt;
@@ -409,6 +428,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private void Close()
     {
         if (!lifecycle.Close()) return;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelClose);
+#endif
         operations.CancelConfirmation(); capturingHotkey = false;
         shell.Dispose();
         openSurface = null;

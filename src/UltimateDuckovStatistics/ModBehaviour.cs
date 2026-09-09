@@ -357,6 +357,11 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             message => Debug.Log($"{LogPrefix} {message}"));
 #if UDS_PERFORMANCE_DIAGNOSTICS
         using var updateTiming = NativeHotPathDiagnostics.Measure(NativeHotPathArea.Update);
+        // State is sampled at Update entry; an open/close action in this frame
+        // stays in that bucket. Native UI callbacks also have their own scopes.
+        using var panelStateTiming = NativeHotPathDiagnostics.Measure(
+            statisticsPanel?.TimingPanelIsOpen == true
+                ? NativeHotPathArea.UpdatePanelOpen : NativeHotPathArea.UpdatePanelClosed);
 #endif
         bool economyActivationReady;
 #if UDS_PERFORMANCE_DIAGNOSTICS

@@ -40,6 +40,20 @@ internal enum NativeHotPathArea
     EquipmentObservation,
     ProjectileScopePush,
     CombatScopePop,
+    UpdatePanelClosed,
+    UpdatePanelOpen,
+    PanelClosedTick,
+    PanelOpenTick,
+    PanelOpen,
+    PanelOpenProjection,
+    PanelCreate,
+    PanelProjectionRefresh,
+    PanelRefresh,
+    PanelDiagnostics,
+    PanelLayout,
+    PanelVisualLayout,
+    PanelTabChange,
+    PanelClose,
     Count
 }
 

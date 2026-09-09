@@ -4,6 +4,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.UI.ProceduralImage;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+using UltimateDuckovStatistics.Adapters;
+#endif
 
 namespace UltimateDuckovStatistics.UI;
 
@@ -317,6 +320,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         Action close,
         out string? error)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelCreate);
+#endif
         if (targetCanvas == null) throw new ArgumentNullException(nameof(targetCanvas));
         if (projection == null) throw new ArgumentNullException(nameof(projection));
         if (selectTab == null) throw new ArgumentNullException(nameof(selectTab));
@@ -578,6 +584,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
     public void RefreshProjection(StatisticsPanelProjection projection, string generation)
     {
         if (shellRoot == null || overviewTypography == null) return;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelRefresh);
+#endif
         projectionAvailable = true;
         var retainedViewRun = overviewLatestRunViewRun;
         // Keep the selectable and its highlight alive across live projection refreshes.
@@ -610,6 +619,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         if (!PanelInteractionState.NavigationOrder.Contains(tab))
             throw new ArgumentOutOfRangeException(nameof(tab));
         if (selectedTab == tab) return;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelTabChange);
+#endif
         selectedTab = tab;
         foreach (var control in tabControls) control.VisualState.Apply(selectedTab);
         overviewContentVisibility?.Apply(selectedTab);
@@ -630,6 +642,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
 
     public bool Tick(out string? error)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelLayout);
+#endif
         error = null;
         try
         {
@@ -1912,6 +1927,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             return lastAppliedVisualLayout;
         }
 
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelVisualLayout);
+#endif
         var referenceTransform = RetainedReferenceTransformPolicy.Create(
             viewportPixelWidth,
             viewportPixelHeight,
