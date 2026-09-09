@@ -1,0 +1,446 @@
+{
+  "RecordedUtc": "2026-09-09T13:50:52.995949+00:00",
+  "SourceCommit": "9c9db8f0e9c235ff467807a97d11ed5733a93209",
+  "Result": "One bounded attribution interval completed; no justified ordinary runtime correction identified. Original ceiling miss remains failed.",
+  "UserReport": "done, nothing noticed",
+  "PerceivedHitchReported": false,
+  "ReportedTimingDeviation": false,
+  "ElapsedSeconds": 29.9840953,
+  "Frequency": 10000000,
+  "ElapsedTicks": 299840953,
+  "UpdateCalls": 5886,
+  "OtherThreadCalls": 0,
+  "GcCollectionCountDeltas": {
+    "gc0": 12,
+    "gc1": 12,
+    "gc2": 12
+  },
+  "Counters": {
+    "firing": 0,
+    "trackerShots": 0,
+    "projectileCaptures": 0,
+    "projectileScopeAttempts": 0,
+    "projectileScopesPushed": 0,
+    "projectileCompletions": 0,
+    "healthPrefixes": 0,
+    "healthTransitions": 0,
+    "trackerCombat": 0,
+    "equipmentAssociationRequests": 0,
+    "equipmentBuilds": 30,
+    "equipmentChanged": 0,
+    "equipmentUnchanged": 0,
+    "harmonyPatchSetInspections": 0,
+    "checkpointClones": 0,
+    "checkpointStoreAttempts": 0,
+    "checkpointStoreSuccesses": 0,
+    "profileSnapshotCaptures": 0,
+    "profileStoreAttempts": 0,
+    "profileStoreSuccesses": 0,
+    "dirtySignals": 0,
+    "readinessChecks": 0,
+    "cashScans": 0,
+    "publications": 0
+  },
+  "Timings": {
+    "Update": {
+      "Calls": 5886,
+      "TotalTicks": 1939003,
+      "MaxTicks": 209885,
+      "TotalMs": 193.9003,
+      "MeanMsPerCall": 0.03294262657152565,
+      "MaxMs": 20.9885
+    },
+    "ProfileReadiness": {
+      "Calls": 5886,
+      "TotalTicks": 7731,
+      "MaxTicks": 3,
+      "TotalMs": 0.7731,
+      "MeanMsPerCall": 0.0001313455657492355,
+      "MaxMs": 0.0003
+    },
+    "RunLifecycle": {
+      "Calls": 5886,
+      "TotalTicks": 83998,
+      "MaxTicks": 122,
+      "TotalMs": 8.3998,
+      "MeanMsPerCall": 0.0014270812096500171,
+      "MaxMs": 0.0122
+    },
+    "Equipment": {
+      "Calls": 5886,
+      "TotalTicks": 55164,
+      "MaxTicks": 1331,
+      "TotalMs": 5.5164,
+      "MeanMsPerCall": 0.0009372069317023445,
+      "MaxMs": 0.1331
+    },
+    "ItemUse": {
+      "Calls": 5886,
+      "TotalTicks": 7192,
+      "MaxTicks": 236,
+      "TotalMs": 0.7192,
+      "MeanMsPerCall": 0.00012218824328916073,
+      "MaxMs": 0.0236
+    },
+    "Economy": {
+      "Calls": 5886,
+      "TotalTicks": 6366,
+      "MaxTicks": 4,
+      "TotalMs": 0.6366,
+      "MeanMsPerCall": 0.00010815494393476046,
+      "MaxMs": 0.0004
+    },
+    "Holdings": {
+      "Calls": 5886,
+      "TotalTicks": 16611,
+      "MaxTicks": 7,
+      "TotalMs": 1.6611,
+      "MeanMsPerCall": 0.0002822120285423038,
+      "MaxMs": 0.0007
+    },
+    "Healing": {
+      "Calls": 5886,
+      "TotalTicks": 14688,
+      "MaxTicks": 24,
+      "TotalMs": 1.4688,
+      "MeanMsPerCall": 0.00024954128440366977,
+      "MaxMs": 0.0024
+    },
+    "Combat": {
+      "Calls": 5886,
+      "TotalTicks": 22395,
+      "MaxTicks": 35,
+      "TotalMs": 2.2395,
+      "MeanMsPerCall": 0.00038047910295616717,
+      "MaxMs": 0.0035
+    },
+    "Containers": {
+      "Calls": 5886,
+      "TotalTicks": 11071,
+      "MaxTicks": 21,
+      "TotalMs": 1.1071,
+      "MeanMsPerCall": 0.0001880903839619436,
+      "MaxMs": 0.0021
+    },
+    "WorldTime": {
+      "Calls": 5886,
+      "TotalTicks": 17616,
+      "MaxTicks": 18,
+      "TotalMs": 1.7616,
+      "MeanMsPerCall": 0.0002992864424057085,
+      "MaxMs": 0.0018
+    },
+    "Crafting": {
+      "Calls": 5886,
+      "TotalTicks": 19158,
+      "MaxTicks": 25,
+      "TotalMs": 1.9158,
+      "MeanMsPerCall": 0.0003254841997961264,
+      "MaxMs": 0.0025
+    },
+    "ProfilePersistence": {
+      "Calls": 5886,
+      "TotalTicks": 12491,
+      "MaxTicks": 6,
+      "TotalMs": 1.2491,
+      "MeanMsPerCall": 0.00021221542643560994,
+      "MaxMs": 0.0006
+    },
+    "Panel": {
+      "Calls": 5886,
+      "TotalTicks": 1622499,
+      "MaxTicks": 209826,
+      "TotalMs": 162.2499,
+      "MeanMsPerCall": 0.02756539245667686,
+      "MaxMs": 20.9826
+    },
+    "GameClockCallback": {
+      "Calls": 5886,
+      "TotalTicks": 40810,
+      "MaxTicks": 102,
+      "TotalMs": 4.081,
+      "MeanMsPerCall": 0.0006933401291199457,
+      "MaxMs": 0.0102
+    },
+    "CombatEffectUpdate": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "CombatEffectTick": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "CombatEffectOther": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "CombatEffectFinalizer": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "HealingEffectPrefix": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "HealingEffectFinalizer": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "MovementSample": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "WeaponFireCallback": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "ProjectileCapture": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "ProjectileScopeLookup": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "ProjectileCompletion": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "ShotMutation": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "CombatMutation": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "EquipmentAssociation": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "EquipmentObservation": {
+      "Calls": 30,
+      "TotalTicks": 37714,
+      "MaxTicks": 1326,
+      "TotalMs": 3.7714,
+      "MeanMsPerCall": 0.12571333333333332,
+      "MaxMs": 0.1326
+    },
+    "ProjectileScopePush": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "CombatScopePop": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "UpdatePanelClosed": {
+      "Calls": 3055,
+      "TotalTicks": 170188,
+      "MaxTicks": 1352,
+      "TotalMs": 17.0188,
+      "MeanMsPerCall": 0.005570801963993453,
+      "MaxMs": 0.1352
+    },
+    "UpdatePanelOpen": {
+      "Calls": 2831,
+      "TotalTicks": 1761785,
+      "MaxTicks": 209884,
+      "TotalMs": 176.1785,
+      "MeanMsPerCall": 0.06223189685623455,
+      "MaxMs": 20.9884
+    },
+    "PanelClosedTick": {
+      "Calls": 3055,
+      "TotalTicks": 7457,
+      "MaxTicks": 5,
+      "TotalMs": 0.7457,
+      "MeanMsPerCall": 0.00024409165302782324,
+      "MaxMs": 0.0005
+    },
+    "PanelOpenTick": {
+      "Calls": 2831,
+      "TotalTicks": 1609623,
+      "MaxTicks": 209824,
+      "TotalMs": 160.9623,
+      "MeanMsPerCall": 0.05685704697986577,
+      "MaxMs": 20.9824
+    },
+    "PanelOpen": {
+      "Calls": 1,
+      "TotalTicks": 294576,
+      "MaxTicks": 294576,
+      "TotalMs": 29.4576,
+      "MeanMsPerCall": 29.4576,
+      "MaxMs": 29.4576
+    },
+    "PanelOpenProjection": {
+      "Calls": 1,
+      "TotalTicks": 4724,
+      "MaxTicks": 4724,
+      "TotalMs": 0.4724,
+      "MeanMsPerCall": 0.4724,
+      "MaxMs": 0.4724
+    },
+    "PanelCreate": {
+      "Calls": 1,
+      "TotalTicks": 278274,
+      "MaxTicks": 278274,
+      "TotalMs": 27.8274,
+      "MeanMsPerCall": 27.8274,
+      "MaxMs": 27.8274
+    },
+    "PanelProjectionRefresh": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "PanelRefresh": {
+      "Calls": 0,
+      "TotalTicks": 0,
+      "MaxTicks": 0,
+      "TotalMs": 0.0,
+      "MeanMsPerCall": null,
+      "MaxMs": 0.0
+    },
+    "PanelDiagnostics": {
+      "Calls": 2,
+      "TotalTicks": 9052,
+      "MaxTicks": 4728,
+      "TotalMs": 0.9052,
+      "MeanMsPerCall": 0.4526,
+      "MaxMs": 0.4728
+    },
+    "PanelLayout": {
+      "Calls": 2831,
+      "TotalTicks": 1407582,
+      "MaxTicks": 209798,
+      "TotalMs": 140.7582,
+      "MeanMsPerCall": 0.04972031084422465,
+      "MaxMs": 20.9798
+    },
+    "PanelVisualLayout": {
+      "Calls": 1,
+      "TotalTicks": 44707,
+      "MaxTicks": 44707,
+      "TotalMs": 4.4707,
+      "MeanMsPerCall": 4.4707,
+      "MaxMs": 4.4707
+    },
+    "PanelTabChange": {
+      "Calls": 8,
+      "TotalTicks": 70225,
+      "MaxTicks": 19579,
+      "TotalMs": 7.0225,
+      "MeanMsPerCall": 0.8778125,
+      "MaxMs": 1.9579
+    },
+    "PanelClose": {
+      "Calls": 1,
+      "TotalTicks": 39760,
+      "MaxTicks": 39760,
+      "TotalMs": 3.976,
+      "MeanMsPerCall": 3.976,
+      "MaxMs": 3.976
+    }
+  },
+  "CurrentGeneration": "6a944ac80fd64044a3eadc44b699d044",
+  "RetainedRunCount": 0,
+  "ProfileBytes": 31461,
+  "OriginalAcceptanceGeneration": "aa6131c66bb34e6fb8a7ea6635b2c2ca",
+  "Evidence": {
+    "PlayerLog": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\ui-diagnostic-453286f\\native-interval-completed\\Player.log",
+    "PlayerLogSha256": "eeea52ebb3ffde336eddfadb200093eec15af14aa562df4f69ca2a8ff0f3038d",
+    "PreflightSha256": "c3f8815748e76d2978b65fe8d4f6c4e45eabb783257ef3224e906ba8c53421b4",
+    "BeforeLogSha256": "dae123d4266249a83bdd5d8e2a8b2c1f25d90223f827712bb7856bac0787770c",
+    "ProfileSha256": "ab9d0776996e4696cf189b1db249e72c5bb709a16f6dfe487cb8779100e2c84d",
+    "Summary": "[UDS] M8.1 diagnostic counters firing=0 trackerShots=0 projectileCaptures=0 projectileScopeAttempts=0 projectileScopesPushed=0 projectileCompletions=0 healthPrefixes=0 healthTransitions=0 trackerCombat=0 equipmentAssociationRequests=0 equipmentBuilds=30 equipmentChanged=0 equipmentUnchanged=0 harmonyPatchSetInspections=0 checkpointClones=0 checkpointStoreAttempts=0 checkpointStoreSuccesses=0 profileSnapshotCaptures=0 profileStoreAttempts=0 profileStoreSuccesses=0 M15Holdings dirtySignals=0 readinessChecks=0 cashScans=0 publications=0. M18Timing frequency=10000000 elapsedTicks=299840953 otherThreadCalls=0 gc0=12 gc1=12 gc2=12 units=stopwatchTicks fields=calls,total,max nested=inclusive Update=5886,1939003,209885 ProfileReadiness=5886,7731,3 RunLifecycle=5886,83998,122 Equipment=5886,55164,1331 ItemUse=5886,7192,236 Economy=5886,6366,4 Holdings=5886,16611,7 Healing=5886,14688,24 Combat=5886,22395,35 Containers=5886,11071,21 WorldTime=5886,17616,18 Crafting=5886,19158,25 ProfilePersistence=5886,12491,6 Panel=5886,1622499,209826 GameClockCallback=5886,40810,102 CombatEffectUpdate=0,0,0 CombatEffectTick=0,0,0 CombatEffectOther=0,0,0 CombatEffectFinalizer=0,0,0 HealingEffectPrefix=0,0,0 HealingEffectFinalizer=0,0,0 MovementSample=0,0,0 WeaponFireCallback=0,0,0 ProjectileCapture=0,0,0 ProjectileScopeLookup=0,0,0 ProjectileCompletion=0,0,0 ShotMutation=0,0,0 CombatMutation=0,0,0 EquipmentAssociation=0,0,0 EquipmentObservation=30,37714,1326 ProjectileScopePush=0,0,0 CombatScopePop=0,0,0 UpdatePanelClosed=3055,170188,1352 UpdatePanelOpen=2831,1761785,209884 PanelClosedTick=3055,7457,5 PanelOpenTick=2831,1609623,209824 PanelOpen=1,294576,294576 PanelOpenProjection=1,4724,4724 PanelCreate=1,278274,278274 PanelProjectionRefresh=0,0,0 PanelRefresh=0,0,0 PanelDiagnostics=2,9052,4728 PanelLayout=2831,1407582,209798 PanelVisualLayout=1,44707,44707 PanelTabChange=8,70225,19579 PanelClose=1,39760,39760"
+  },
+  "Verified": [
+    "The post-interval log retains the full preflight prefix and exactly one reset/summary pair after it.",
+    "One open, one shell construction, eight tab changes and one close agree with the requested sequence.",
+    "No projection refresh ran; paused-clock full-rebuild hypothesis was not exercised.",
+    "No firing/combat counter, holdings scan, checkpoint or profile write was recorded inside the diagnostic interval.",
+    "No error/exception text appears between reset and summary; pre-existing initialization error lines remain in the preserved full log."
+  ],
+  "Interpretation": [
+    "Synchronous UDS Update averaged about 0.005571ms while closed and 0.062232ms while open. This does not explain the approximately0.71ms pre-opening difference in the earlier separate B/D sessions.",
+    "Panel construction/opening is a one-time 29.4576ms path; synchronous close is 3.976ms. No speculative lifecycle rewrite is selected from these single observations.",
+    "Panel layout/ticks averaged about 0.04972ms per open call, with 20.9798ms maximum. There are no per-frame quantiles or causal frame correlations in these aggregate timer rows."
+  ],
+  "Limitations": [
+    "Diagnostic profile differs from the one-run acceptance generation; current retained run count is recorded explicitly. This is attribution on the observed workload, not a matched acceptance repeat or full-history result.",
+    "Nested timings are inclusive and contain instrumentation. Do not add overlapping rows or infer ordinary-release frame median/p99 from them.",
+    "Native UI dispatch outside UDS, deferred canvas rebuilding/rendering, deferred destruction, unmeasured allocations and between-session variance remain unisolated. Small synchronous time does not prove all UDS-induced native costs are small.",
+    "GC deltas 12/12/12 are process-wide counters, not 36 independent pauses or proof of UDS allocation.",
+    "Self-timed approximate 30-second procedure: exact open/close wall-clock timestamps are not logged; counts support the sequence but not precise 5/20-second boundaries."
+  ],
+  "Decision": "Stop the bounded diagnostic loop, restore frozen ordinary 88efddb package after user-confirmed closure, and retain the unresolved original UI ceiling failure. No further capture or product acceptance exception is inferred."
+}

@@ -3,7 +3,14 @@
   "SourceCommit": "9c9db8f0e9c235ff467807a97d11ed5733a93209",
   "NativeTimingCommit": "bdf9b31aeb454f469a69287c101d286fca9ad47e",
   "OrdinaryAcceptanceSource": "88efddb5eacdab40a40498b62f90fdde14d167af",
-  "Status": "Reviewed diagnostic deployed with verified hashes and unchanged UDS data; one native attribution interval remains unexercised.",
+  "Status": "One native attribution interval completed; no ordinary runtime correction justified. Diagnostic remains installed pending user-confirmed closure for ordinary restoration.",
+  "NativeResult": {
+    "Path": "M18_UI_TIMING_RESULT.json",
+    "Sha256": "cff7de8a0e5d628d53c523ab19a160a7c77edcacaf97c943e9733dcfb2b67b48",
+    "IndependentReview": "PASS by /root/ui_cost_review: all 46 timer rows, counters, conversions, evidence hashes, sequence and disclosed limitations replayed against preserved inputs; no actionable findings.",
+    "Decision": "Apply the declared stopping rule; no new diagnostic or baseline series. Original UI ceiling failure remains unresolved."
+  },
+  "RestorationStatus": "Pending fresh user-confirmed Duckov closure; restore frozen ordinary 88efddb package.",
   "Package": {
     "Directory": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\diagnostic-candidates\\9c9db8f0e9c235ff467807a97d11ed5733a93209\\UltimateDuckovStatistics",
     "Files": [
@@ -231,7 +238,7 @@
         "LogSha256": "4ca5208fb3adaa7e003f4fb1fe40e01b2f6a68801fd963dd2a491879131be2ed"
       }
     },
-    "NativeInterval": "Not exercised; await user launch/readiness."
+    "NativeInterval": "Completed after this deployment; see M18_UI_TIMING_RESULT.json."
   },
   "DeploymentVerificationSha256": "18d510a4d2de135bebc201b20ae6979a9384ac5daa2eb388a834695c6ab44070"
 }

@@ -4,7 +4,26 @@ The [declared base UI comparison](M18_BASE_UI_QUALIFICATION.json) fails both the
 
 The bounded source review found change-gated full projection rebuilding, eager construction of all tabs on open, synchronous disposal on close, and per-frame layout entry into hidden views with guards before expensive reflow. Native menu discovery is callback-driven; shortcut integrity checks already use shared patch tokens. A running world clock can cause a profile revision and full open-panel refresh, but that occurrence is not established for this paused workload. No method has yet been shown to cause the measured miss.
 
-The [diagnostic package and deployment record](M18_UI_TIMING_DIAGNOSTIC.json) binds the source, independent reviews, tests, privacy/IL audits, extracted inventory and fresh DLL repeat. After explicit closure confirmation, both game-closed deployment tests passed in Debug and Release. The exact five-file diagnostic is deployed, all 2,524 UDS data files remain byte-identical, and the prior ordinary package is preserved with verified rollback hashes. Native attribution remains unexercised.
+The [diagnostic package and deployment record](M18_UI_TIMING_DIAGNOSTIC.json) binds the source, independent reviews, tests, privacy/IL audits, extracted inventory and fresh DLL repeat. After explicit closure confirmation, both game-closed deployment tests passed in Debug and Release. Deployment verified the exact five-file diagnostic and all 2,524 then-existing UDS data files byte-identical, with the prior ordinary package preserved under verified rollback hashes. The native attribution interval is complete; ordinary-package restoration awaits fresh user-confirmed closure.
+
+## Completed result
+
+The [preserved native result](M18_UI_TIMING_RESULT.json) contains one reset/summary pair spanning 29.984 seconds and 5,886 UDS Update calls. One open/construction, eight tab changes and one close agree with the requested cycle. The user reported "done, nothing noticed", with no timing deviation reported. These counts do not establish exact action timestamps or displayed frame counts.
+
+| Synchronous scope | Calls | Mean per call | Maximum |
+| --- | ---: | ---: | ---: |
+| Update with panel closed | 3,055 | 0.005571 ms | 0.1352 ms |
+| Update with panel open | 2,831 | 0.062232 ms | 20.9884 ms |
+| Open, including construction | 1 | 29.4576 ms | 29.4576 ms |
+| Shell layout/ticks | 2,831 | 0.049720 ms | 20.9798 ms |
+| Tab selection | 8 | 0.877813 ms | 1.9579 ms |
+| Close | 1 | 3.9760 ms | 3.9760 ms |
+
+No projection refresh ran while paused, so the clock-triggered full-refresh hypothesis was not exercised. The interval recorded no checkpoint/profile write, holdings scan or combat activity. Process-wide GC counters increased by 12/12/12; these are not 36 independent pauses or attribution to UDS. No error/exception text appears between reset and summary. Pre-existing native initialization errors remain in the full preserved log.
+
+The diagnostic used a fresh zero-run generation, whereas the original UI acceptance used one retained run. It is not a matched acceptance repeat or progressed-history qualification. Timings include instrumentation and overlap. Native dispatch, deferred Unity canvas rebuilding/rendering/destruction, unmeasured allocations and session variance remain unisolated; small synchronous costs do not establish small total UDS-induced native costs.
+
+The measured closed/open Update work is too small to explain the earlier approximately 0.71 ms pre-opening gap. The single opening/closing observations do not justify a lifecycle rewrite. Apply the declared stopping rule: end this investigation with no ordinary runtime correction selected, restore frozen ordinary `88efddb` after confirmed closure, and retain the original UI ceiling failure. No new baseline series or acceptance exception is inferred.
 
 ## One diagnostic interval
 
