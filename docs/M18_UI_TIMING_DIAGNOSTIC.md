@@ -10,6 +10,8 @@ The existing opt-in fixed-storage stopwatch counters now distinguish Update and 
 
 Build with `scripts/build-performance-diagnostic.ps1 -DuckovPath <installed-game-directory>`. Preserve the exact five-file package and manifest, verify ordinary Release IL and obtain independent review before deployment. This package is a measurement tool, not the release candidate. The frozen ordinary `88efddb5eacdab40a40498b62f90fdde14d167af` package remains the restoration target. Duckov must be confirmed closed before reversible UDS-only replacement; do not alter saves or reset profiles.
 
+The diagnostic builder performs a nonincremental build with shared compilation disabled. The first package check encountered cached .NET 8.0.30 compiler-runtime metadata alongside a fresh .NET 8.0.31 rebuild. Both attempts and their PDB evidence are preserved. A fresh toolchain build must reproduce its DLL hashes before this diagnostic is deployed; output-directory comparison is not a substitute for the separate release-candidate two-checkout qualification.
+
 Use slot 1 at the same base position/camera and native pause surface, with the unequipped loadout, display settings and short history disclosed. Prepare UDS with Overview selected, then close it. The user controls this approximate 30-second interval:
 
 1. With native pause open and UDS closed, press F9 once to reset/start the counters. Remain paused for about five seconds.
