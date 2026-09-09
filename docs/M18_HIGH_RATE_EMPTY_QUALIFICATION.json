@@ -1,0 +1,454 @@
+{
+  "RecordedUtc": "2026-09-09T10:41:40.1264487Z",
+  "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "Scenario": "high-rate-empty",
+  "Verdict": "Engineering target failed; weaker ceiling passed for this measured cell. No M18 completion or causal attribution.",
+  "BFrames": 23252,
+  "DFrames": 22305.0,
+  "TotalAcceptedFrames": 45557.0,
+  "ReportedValidShotsPerConfiguration": 90,
+  "AcceptedBRuns": [
+    1,
+    2,
+    3
+  ],
+  "AcceptedDRuns": [
+    1,
+    3,
+    4
+  ],
+  "InvalidDRuns": [
+    2
+  ],
+  "Verified": [
+    "Frozen campaign and B-control hash unchanged; existing analyzer verified all six campaign identities and both DLLs.",
+    "Every D raw CSV/JSON frame time, CPU busy, GPU busy and CPU timestamp matches; no dropped or non-dominant frames.",
+    "Independent numerical replay reproduced each D whole/action mean, median, p95, p99 and max, including CPU/GPU distributions.",
+    "Three explicit D confirmations; all unfavorable valid frames and all isolated spikes retained.",
+    "B and D physical control strings match for listed fields; current UDS generation and cumulative short-history state recorded separately."
+  ],
+  "MatchedPhysicalControls": [
+    "Weapon",
+    "WeaponModifications",
+    "EquipmentAndTotems",
+    "Location",
+    "ShotCountExpectation",
+    "BackgroundApplicationState",
+    "Resolution",
+    "DisplayMode",
+    "RefreshRateHz",
+    "FrameLimiterFps",
+    "VSyncState",
+    "GraphicsPreset",
+    "ActionLabel",
+    "CharacterState"
+  ],
+  "ControlLimitations": [
+    "Physical focus, location/aim, shooting and no movement/menu/reload conditions are user-confirmed, not independently observed by the collector.",
+    "Spare ammunition counts for D were unreported; 30 loaded rounds and 30 valid shots were affirmed by the user.",
+    "UDS-disabled B retained inactive generation db3f3f654a7b443383d16614c33bb3af. D has a fresh SaveIdentityChanged generation 9d76fb554dbf460e8fefbec21259d1a3; previous generation is preserved in native UDS archives. This stationary short-history pair does not establish high-history performance.",
+    "Individual spike causes and attribution of the B/D difference to a specific UDS hot path are unproven.",
+    "Raw CPU/GPU busy numbers are diagnostics; presented frame times determine acceptance."
+  ],
+  "Gates": {
+    "EngineeringWholeMedian": false,
+    "EngineeringWholeP99": true,
+    "EngineeringActionMedian": false,
+    "EngineeringActionP99": false,
+    "CeilingWholeMedian": true,
+    "CeilingWholeP99": true,
+    "CeilingActionMedian": true,
+    "CeilingActionP99": true,
+    "NoMaterialWholeOver16PointIncrease": true,
+    "NoMaterialActionOver16PointIncrease": true,
+    "NoRepeatableNewActionCluster": true
+  },
+  "GateThresholds": {
+    "EngineeringMedianPercent": 5,
+    "EngineeringP99Percent": 10,
+    "CeilingMedianPercent": 10,
+    "CeilingP99Percent": 20,
+    "MaterialFrameRateDeltaPercentagePoints": 0.25,
+    "ClusterFrameMilliseconds": 33.3,
+    "ClusterWindowSeconds": 1,
+    "ClusterMinimumFrames": 2
+  },
+  "Aggregates": [
+    {
+      "Configuration": "B",
+      "BuildLabel": "production",
+      "Scenario": "high-rate-empty",
+      "RunCount": 3,
+      "MedianOfRunMediansMilliseconds": 3.7888,
+      "MedianOfRunP99Milliseconds": 4.665089999999998,
+      "MedianFramesOver16MillisecondsPercentage": 0.012948336138806164,
+      "CapturesWithSpikeCluster": 0,
+      "CapturesWithActionSpikeCluster": 0,
+      "MedianOfRunCpuBusyMediansMilliseconds": 3.7317,
+      "MedianOfRunCpuBusyP99Milliseconds": 4.605993999999999,
+      "MedianOfRunGpuBusyMediansMilliseconds": 3.1699,
+      "MedianOfRunGpuBusyP99Milliseconds": 3.5428719999999996,
+      "MedianOfRunActionMediansMilliseconds": 4.06375,
+      "MedianOfRunActionP99Milliseconds": 4.80878,
+      "MedianActionFramesOver16MillisecondsPercentage": 0,
+      "MedianOfRunActionCpuBusyMediansMilliseconds": 4.00875,
+      "MedianOfRunActionCpuBusyP99Milliseconds": 4.756169999999999,
+      "MedianOfRunActionGpuBusyMediansMilliseconds": 3.23075,
+      "MedianOfRunActionGpuBusyP99Milliseconds": 3.6839500000000003
+    },
+    {
+      "Configuration": "D",
+      "BuildLabel": "production",
+      "Scenario": "high-rate-empty",
+      "RunCount": 3,
+      "MedianOfRunMediansMilliseconds": 3.9987,
+      "MedianOfRunP99Milliseconds": 5.056633999999999,
+      "MedianFramesOver16MillisecondsPercentage": 0,
+      "CapturesWithSpikeCluster": 0,
+      "CapturesWithActionSpikeCluster": 0,
+      "MedianOfRunCpuBusyMediansMilliseconds": 3.9434,
+      "MedianOfRunCpuBusyP99Milliseconds": 4.996261999999995,
+      "MedianOfRunGpuBusyMediansMilliseconds": 3.2443,
+      "MedianOfRunGpuBusyP99Milliseconds": 3.6888549999999998,
+      "MedianOfRunActionMediansMilliseconds": 4.28465,
+      "MedianOfRunActionP99Milliseconds": 5.634077,
+      "MedianActionFramesOver16MillisecondsPercentage": 0,
+      "MedianOfRunActionCpuBusyMediansMilliseconds": 4.23045,
+      "MedianOfRunActionCpuBusyP99Milliseconds": 5.573509,
+      "MedianOfRunActionGpuBusyMediansMilliseconds": 3.283,
+      "MedianOfRunActionGpuBusyP99Milliseconds": 3.7138289999999996
+    }
+  ],
+  "Comparison": {
+    "BaselineConfiguration": "B",
+    "BaselineBuildLabel": "production",
+    "CandidateConfiguration": "D",
+    "CandidateBuildLabel": "production",
+    "Scenario": "high-rate-empty",
+    "MedianOverheadPercentage": 5.540012668918903,
+    "P99OverheadPercentage": 8.39306422812851,
+    "FramesOver16MillisecondsPercentagePointDelta": -0.012948336138806164,
+    "BaselineActionSpikeClusterCaptures": 0,
+    "CandidateActionSpikeClusterCaptures": 0,
+    "HasRepeatableNewActionSpikeCluster": false,
+    "CpuBusyMedianOverheadPercentage": 5.673017659511759,
+    "CpuBusyP99OverheadPercentage": 8.473046208918134,
+    "GpuBusyMedianOverheadPercentage": 2.3470771948641778,
+    "GpuBusyP99OverheadPercentage": 4.1204706238328725,
+    "ActionMedianOverheadPercentage": 5.435865887419267,
+    "ActionP99OverheadPercentage": 17.162294802423904,
+    "ActionFramesOver16MillisecondsPercentagePointDelta": 0,
+    "ActionCpuBusyMedianOverheadPercentage": 5.530402245088872,
+    "ActionCpuBusyP99OverheadPercentage": 17.184814672309876,
+    "ActionGpuBusyMedianOverheadPercentage": 1.6172715313781616,
+    "ActionGpuBusyP99OverheadPercentage": 0.8110587820138626
+  },
+  "SpikesOver33Milliseconds": [
+    {
+      "Configuration": "B",
+      "Run": 1,
+      "Spike": {
+        "OffsetSeconds": 0.858523100000184,
+        "FrameTimeMilliseconds": 244.9491,
+        "DuringAction": false,
+        "CpuBusyMilliseconds": 244.8968,
+        "GpuBusyMilliseconds": 3.1159
+      }
+    },
+    {
+      "Configuration": "B",
+      "Run": 2,
+      "Spike": {
+        "OffsetSeconds": 19.002706799999903,
+        "FrameTimeMilliseconds": 284.3284,
+        "DuringAction": false,
+        "CpuBusyMilliseconds": 284.2734,
+        "GpuBusyMilliseconds": 3.1217
+      }
+    },
+    {
+      "Configuration": "B",
+      "Run": 3,
+      "Spike": {
+        "OffsetSeconds": 22.9154805999999,
+        "FrameTimeMilliseconds": 274.6872,
+        "DuringAction": false,
+        "CpuBusyMilliseconds": 274.6313,
+        "GpuBusyMilliseconds": 3.1231
+      }
+    },
+    {
+      "Configuration": "D",
+      "Run": 4,
+      "Spike": {
+        "OffsetSeconds": 16.321849099999298,
+        "FrameTimeMilliseconds": 310.5464,
+        "DuringAction": false,
+        "CpuBusyMilliseconds": 310.4935,
+        "GpuBusyMilliseconds": 3.1648
+      }
+    }
+  ],
+  "SpikeReview": "No whole or action cluster in either configuration. One isolated 310.5464 ms D run 4 spike outside action, versus isolated maxima in all three B runs; no >16.7 ms action frames in either configuration. No repeatable new spike or material >16.7 ms rate increase observed; isolated causes remain unproven.",
+  "DSamples": [
+    {
+      "Configuration": "D",
+      "Scenario": "high-rate-empty",
+      "Run": 1,
+      "LogicalSample": 1,
+      "Status": "Valid: user confirmed required action and capture conditions.",
+      "ReadyAnswer": "ready",
+      "ReadyProvenance": "Root relayed readiness to instructions to load/reload exactly 30 rounds; spare count unreported.",
+      "CompletionPrompt": "D1 confirmation of all 30 rounds between action beeps, continuous focus and no movement, menus or reload until final beep; reload and include ready for D2.",
+      "CompletionAnswer": "yes. ready",
+      "ReportedShots": 30,
+      "LoadedBefore": 30,
+      "SpareBefore": null,
+      "AmmoAfterReported": null,
+      "FrameCount": 7712,
+      "ActionFrameCount": 759,
+      "RawDataAndMetadataVerified": true,
+      "ActionStartSeconds": 5.2903992,
+      "ActionEndSeconds": 8.5633481,
+      "CaptureStartSignalUtc": "2026-09-09T10:30:20.5571882Z",
+      "CaptureEndSignalUtc": "2026-09-09T10:30:51.3777188Z",
+      "Evidence": [
+        {
+          "Path": "captures/D/high-rate-empty/d-high-rate-empty-r01.csv",
+          "Bytes": 2069209,
+          "Sha256": "aacd81b7756969bb806d6868244308460aad204dcaeb16cda0576c0adea35007"
+        },
+        {
+          "Path": "captures/D/high-rate-empty/d-high-rate-empty-r01.capframex.json",
+          "Bytes": 816454,
+          "Sha256": "098bb4aff76daa07e0a54e4278a2b9824d0b11e738e768b93b04b0810426e467"
+        },
+        {
+          "Path": "captures/D/high-rate-empty/d-high-rate-empty-r01.capture.json",
+          "Bytes": 7330,
+          "Sha256": "9c6a2c6eecf90b9a1cdf26b47c23f8cafc87dcf54b90541175cd38cf9d194c9e"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Scenario": "high-rate-empty",
+      "Run": 3,
+      "LogicalSample": 2,
+      "Status": "Valid: user confirmed required action and capture conditions.",
+      "ReadyAnswer": "ready",
+      "ReadyProvenance": "Root relayed readiness to instructions to load/reload exactly 30 rounds; spare count unreported.",
+      "CompletionPrompt": "Final sample saved. For both the retry and final sample, did all 30 rounds fire between the action beeps, with Duckov focused and no movement, menus or reload until the final beep?",
+      "CompletionAnswer": "yes",
+      "ReportedShots": 30,
+      "LoadedBefore": 30,
+      "SpareBefore": null,
+      "AmmoAfterReported": null,
+      "FrameCount": 7370,
+      "ActionFrameCount": 747,
+      "RawDataAndMetadataVerified": true,
+      "ActionStartSeconds": 5.2791742,
+      "ActionEndSeconds": 8.5560948,
+      "CaptureStartSignalUtc": "2026-09-09T10:34:13.2940131Z",
+      "CaptureEndSignalUtc": "2026-09-09T10:34:44.1007314Z",
+      "Evidence": [
+        {
+          "Path": "captures/D/high-rate-empty/d-high-rate-empty-r03.csv",
+          "Bytes": 1978385,
+          "Sha256": "9ad5651488de94f0760393049effee67dca761c04dbd24bbdb73d369cf0e86c5"
+        },
+        {
+          "Path": "captures/D/high-rate-empty/d-high-rate-empty-r03.capframex.json",
+          "Bytes": 780510,
+          "Sha256": "0b3a1733af6b9fbb9a80325d1bf5c833d0e99f24469862c25df923ab2bde3bd6"
+        },
+        {
+          "Path": "captures/D/high-rate-empty/d-high-rate-empty-r03.capture.json",
+          "Bytes": 7330,
+          "Sha256": "8b17614498cabe1474b8c4b310a777a5eaad6921d8e5ffdc0cbd745b2e782c5f"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Scenario": "high-rate-empty",
+      "Run": 4,
+      "LogicalSample": 3,
+      "Status": "Valid: user confirmed required action and capture conditions.",
+      "ReadyAnswer": "ready",
+      "ReadyProvenance": "Root relayed readiness to instructions to load/reload exactly 30 rounds; spare count unreported.",
+      "CompletionPrompt": "Final sample saved. For both the retry and final sample, did all 30 rounds fire between the action beeps, with Duckov focused and no movement, menus or reload until the final beep?",
+      "CompletionAnswer": "yes",
+      "ReportedShots": 30,
+      "LoadedBefore": 30,
+      "SpareBefore": null,
+      "AmmoAfterReported": null,
+      "FrameCount": 7223,
+      "ActionFrameCount": 750,
+      "RawDataAndMetadataVerified": true,
+      "ActionStartSeconds": 5.2905662,
+      "ActionEndSeconds": 8.5657856,
+      "CaptureStartSignalUtc": "2026-09-09T10:35:44.1873638Z",
+      "CaptureEndSignalUtc": "2026-09-09T10:36:15.0021371Z",
+      "Evidence": [
+        {
+          "Path": "captures/D/high-rate-empty/d-high-rate-empty-r04.csv",
+          "Bytes": 1940316,
+          "Sha256": "270ea7b4803596e7d9e94383d06c1178b94dafc124505654585ddfa1ad33be42"
+        },
+        {
+          "Path": "captures/D/high-rate-empty/d-high-rate-empty-r04.capframex.json",
+          "Bytes": 766403,
+          "Sha256": "279f75c00242ebd215f5c76688afb5102618cf82a00376732c66ebae3641baf7"
+        },
+        {
+          "Path": "captures/D/high-rate-empty/d-high-rate-empty-r04.capture.json",
+          "Bytes": 7329,
+          "Sha256": "b31243455268a282f9e77c21a3acb31160b0fd66ade280f849fc17f9b5238745"
+        }
+      ]
+    }
+  ],
+  "PostCaptureObservation": {
+    "ObservedUtc": "2026-09-09T10:41:40.0829656Z",
+    "GenerationId": "9d76fb554dbf460e8fefbec21259d1a3",
+    "GenerationReason": "SaveIdentityChanged",
+    "CreatedUtc": "2026-09-09T10:28:14.123Z",
+    "ProfileRevision": 804,
+    "RunId": "2ed4dcf3eeaa491d96894ed7b6f319bd",
+    "NativeRaidId": "217",
+    "EndedUtc": "2026-09-09T10:36:47.938Z",
+    "FiringActions": 97,
+    "CompletedPlayerProjectiles": 97,
+    "RangedHits": 0,
+    "DamageDealt": 0,
+    "Interpretation": "Post-capture cumulative run totals include the invalid attempt and any activity outside timed records. The three accepted samples have 90 user-confirmed shots. Invalid-attempt shot count was not reported; no per-capture persisted-count attribution is inferred.",
+    "Evidence": {
+      "Path": "high-rate-empty-D-post-capture/profile.json",
+      "Bytes": 186449,
+      "Sha256": "19bca7d2a6fd10260eb33fe89a651804442bfe621eedbdea566395d3339ea27e"
+    }
+  },
+  "Evidence": [
+    {
+      "Path": "campaign.json",
+      "Bytes": 4264,
+      "Sha256": "367bf25fa55ba7db4ce69c80d97cc3a38fee40b7b9ea4062835c637406e8091d"
+    },
+    {
+      "Path": "controls.high-rate-empty.B.json",
+      "Bytes": 2906,
+      "Sha256": "294f6a2c579ea5fb361c79983fe19782f9b53ec1931f20a62ad5b4dfd2664d56"
+    },
+    {
+      "Path": "controls.high-rate-empty.D.json",
+      "Bytes": 3012,
+      "Sha256": "cebffbab462333d6f8316e888da2288e3122cb3a841b121535eba35159079f05"
+    },
+    {
+      "Path": "high-rate-empty-B-confirmations.json",
+      "Bytes": 7030,
+      "Sha256": "529b7cd76ff9cbf91245496cbc8632cc63ee6fa409b18ee8ac0668919d8a2f32"
+    },
+    {
+      "Path": "high-rate-empty-B-verified.json",
+      "Bytes": 5630,
+      "Sha256": "4075beca94b2d8c7d949091a4b55c88ef62c4ee47ef2b0ce59936f11538639b8"
+    },
+    {
+      "Path": "high-rate-empty-D-confirmations.json",
+      "Bytes": 8640,
+      "Sha256": "bc8c89765fc6cff26615a8269602075b0d55074ede6023f309bc1e35af00fc2a"
+    },
+    {
+      "Path": "high-rate-empty-B-vs-D-analysis.json",
+      "Bytes": 17845,
+      "Sha256": "f938111da4f4d61f9d8160e9cdbc94b26e33f55e621118111f8ebca6e417f459"
+    },
+    {
+      "Path": "high-rate-empty-B-vs-D-analysis.txt",
+      "Bytes": 5584,
+      "Sha256": "38ac4b8526af2b408b7bf0c2a9196c19536a462729adaa3e3e4f71f62d8a79c3"
+    },
+    {
+      "Path": "high-rate-empty-D1-preflight.json",
+      "Bytes": 789,
+      "Sha256": "075b20f5acf85fef3076684981822499cb2d90ac2080c38bd871706ea7db845c"
+    },
+    {
+      "Path": "high-rate-empty-D1-capture.log",
+      "Bytes": 1141,
+      "Sha256": "00c49a776929d34a54c126929437184cb73728e20bbad59e0409acec21f6fc0e"
+    },
+    {
+      "Path": "high-rate-empty-D2-capture.log",
+      "Bytes": 1141,
+      "Sha256": "8acfc6eb6eb7c1b8afd8f824df4cfadac8d4e1e1d97cc4d7d30562ade9c65324"
+    },
+    {
+      "Path": "high-rate-empty-D3-capture.log",
+      "Bytes": 1141,
+      "Sha256": "96d784c00f58ba02ff27a0bfead50553d6868f31875e328337cd17a41ae52a25"
+    },
+    {
+      "Path": "high-rate-empty-D4-capture.log",
+      "Bytes": 1141,
+      "Sha256": "c61f39682d06b40236092a9d702b679090c3fa30fc597ab13e313e70c56452f8"
+    },
+    {
+      "Path": "invalid-attempts/D/high-rate-empty/d-high-rate-empty-r02/invalidation.json",
+      "Bytes": 2409,
+      "Sha256": "51add68cd087547d1d950f7747ff8943f18c28d26af19eccdcfb18da9d624f4c"
+    },
+    {
+      "Path": "high-rate-empty-D-post-capture/profile.json",
+      "Bytes": 186449,
+      "Sha256": "19bca7d2a6fd10260eb33fe89a651804442bfe621eedbdea566395d3339ea27e"
+    },
+    {
+      "Path": "high-rate-empty-D-post-capture/observation.json",
+      "Bytes": 919,
+      "Sha256": "fb58b4e38aec7d0aa9c58af13196af40e20902ff762bb5bf9777cd33358685d2"
+    },
+    {
+      "Path": "verify-high-rate-empty-D.ps1",
+      "Bytes": 16442,
+      "Sha256": "9558cbabd6356d39dd1f7f9546b96615fd8a879fd1d0b0697de0a63df7253982"
+    }
+  ],
+  "RemainingCampaignCells": [
+    "Not exercised: B/idle needs 3 valid captures.",
+    "Not exercised: D/idle needs 3 valid captures.",
+    "Not exercised: B/high-rate-single needs 3 valid captures.",
+    "Not exercised: D/high-rate-single needs 3 valid captures.",
+    "Not exercised: B/high-rate-multi needs 3 valid captures.",
+    "Not exercised: D/high-rate-multi needs 3 valid captures.",
+    "Not exercised: B/second-auto-empty needs 3 valid captures.",
+    "Not exercised: D/second-auto-empty needs 3 valid captures.",
+    "Not exercised: B/second-auto-single needs 3 valid captures.",
+    "Not exercised: D/second-auto-single needs 3 valid captures.",
+    "Not exercised: B/slower-control needs 3 valid captures.",
+    "Not exercised: D/slower-control needs 3 valid captures.",
+    "Not exercised: B/consumable-medkit needs 3 valid captures.",
+    "Not exercised: D/consumable-medkit needs 3 valid captures.",
+    "Not exercised: B/base-idle-ui-closed needs 3 valid captures.",
+    "Not exercised: D/base-idle-ui-closed needs 3 valid captures.",
+    "Not exercised: B/base-inventory-equipment needs 3 valid captures.",
+    "Not exercised: D/base-inventory-equipment needs 3 valid captures.",
+    "Not exercised: B/base-crafting-economy needs 3 valid captures.",
+    "Not exercised: D/base-crafting-economy needs 3 valid captures.",
+    "Not exercised: B/base-ui-open needs 3 valid captures.",
+    "Not exercised: D/base-ui-open needs 3 valid captures.",
+    "Not exercised: B/export-boundary needs 3 valid captures.",
+    "Not exercised: D/export-boundary needs 3 valid captures.",
+    "Not exercised: B/terminal-boundary needs 3 valid captures.",
+    "Not exercised: D/terminal-boundary needs 3 valid captures."
+  ],
+  "EvidenceRoot": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay",
+  "VerifiedResultSource": {
+    "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay/high-rate-empty-B-vs-D-verified.json",
+    "Bytes": 18879,
+    "Sha256": "78bead4af3b51a0709cf425fce7349bfeb479b2f04f5e87a3dc5b8514a0895da"
+  },
+  "SeparateQualifiedIdleEvidence": "docs/M18_IDLE_CONTROL_RECONCILIATION.json qualifies the bounded idle cell in its original campaign. Missing idle cells in this separate zero-delay campaign do not revoke that result. Twelve other scenario pairs remain unexercised, and this firing cell misses its engineering target."
+}
