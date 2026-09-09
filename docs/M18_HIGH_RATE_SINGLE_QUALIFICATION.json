@@ -1,0 +1,250 @@
+{
+  "RecordedUtc": "2026-09-09T11:52:23.987291+00:00",
+  "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "Scenario": "high-rate-single",
+  "EvidenceRoot": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay",
+  "CampaignSha256": "367bf25fa55ba7db4ce69c80d97cc3a38fee40b7b9ea4062835c637406e8091d",
+  "VerificationScriptSha256": "ce5818f1035ca4183c1791851858ef2ddd5f6f289b63e87d7091d1bcbf7f5711",
+  "AnalyzerOutputSha256": "d689ac69814f655b81bf6b5c562e3ee9e0ea42903413615935c3756acbd1c5a1",
+  "ExportEvidenceManifestSha256": "e801827c6d418633f3b170372938e668752ad1f71d9cda2fc5dc1e5c6a1a3c07",
+  "BFrames": 20390,
+  "DFrames": 22320,
+  "Samples": [
+    {
+      "Configuration": "B",
+      "Run": 1,
+      "Frames": 7257,
+      "WholeMedianMs": 4.0295,
+      "WholeP99Ms": 5.316527999999999,
+      "ActionMedianMs": 4.4848,
+      "ActionP99Ms": 7.6113,
+      "WholeMaterialRate": 0.013779798814937303,
+      "ActionMaterialRate": 0,
+      "Spikes": [
+        {
+          "OffsetSeconds": 13.405965800000601,
+          "FrameTimeMilliseconds": 223.1698,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 223.1129,
+          "GpuBusyMilliseconds": 2.9675
+        }
+      ],
+      "ActionCluster": false,
+      "CsvSha256": "d12fd09c637c0039472df0e477aab801c8e2c77acba5837f3d599f53aac2fb9b",
+      "RawJsonSha256": "a90cb284303d662f6d883665ad3ca218ebe3de20ab7775078690de59a73c7cc1",
+      "MetadataSha256": "ac3b908e909b58d93abe15f803fc3183acc8a20cc0897f17c2a7aba8aef00e52"
+    },
+    {
+      "Configuration": "B",
+      "Run": 2,
+      "Frames": 7301,
+      "WholeMedianMs": 3.8893,
+      "WholeP99Ms": 5.0688,
+      "ActionMedianMs": 4.3386499999999995,
+      "ActionP99Ms": 6.002605000000008,
+      "WholeMaterialRate": 0.041090261607998904,
+      "ActionMaterialRate": 0,
+      "Spikes": [
+        {
+          "OffsetSeconds": 0.367671800000608,
+          "FrameTimeMilliseconds": 33.3456,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 33.2727,
+          "GpuBusyMilliseconds": 2.8674
+        },
+        {
+          "OffsetSeconds": 0.749005400000897,
+          "FrameTimeMilliseconds": 663.8469,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 663.7944,
+          "GpuBusyMilliseconds": 3.0757
+        },
+        {
+          "OffsetSeconds": 23.2460103000003,
+          "FrameTimeMilliseconds": 384.0067,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 383.9506,
+          "GpuBusyMilliseconds": 2.989
+        }
+      ],
+      "ActionCluster": false,
+      "CsvSha256": "1f5ac1b904adce33b6c19ee80ff962fc4d1d0243c148ef3e49e33578f6c02322",
+      "RawJsonSha256": "dc95c7effbf8add475c6b1b223642505fb8408d54c178a185cb7a423b7035c7d",
+      "MetadataSha256": "44afa4b00f7ce17d45b85b134be50c2386403e8c29e0317839e29d53d9e0ee6d"
+    },
+    {
+      "Configuration": "B",
+      "Run": 3,
+      "Frames": 5832,
+      "WholeMedianMs": 5.0432500000000005,
+      "WholeP99Ms": 6.446606999999999,
+      "ActionMedianMs": 5.5412,
+      "ActionP99Ms": 7.643072000000003,
+      "WholeMaterialRate": 0.017146776406035666,
+      "ActionMaterialRate": 0,
+      "Spikes": [
+        {
+          "OffsetSeconds": 14.2679538000002,
+          "FrameTimeMilliseconds": 119.1342,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 119.0758,
+          "GpuBusyMilliseconds": 3.1996
+        }
+      ],
+      "ActionCluster": false,
+      "CsvSha256": "1041057ad7c28b81c3c96f9fcd2c952844daaa2684a2c4debb938d559a607c72",
+      "RawJsonSha256": "ddf449a1335617ce0d151849d72acac9cc172e60c38f46617a0affbfa7cc7ae0",
+      "MetadataSha256": "0d7f2d8f88d1044823d2085bbe2a201e247e1abc20b136c7689a9c7d111e0724"
+    },
+    {
+      "Configuration": "D",
+      "Run": 1,
+      "Frames": 7517,
+      "WholeMedianMs": 3.9247,
+      "WholeP99Ms": 5.111104,
+      "ActionMedianMs": 4.3574,
+      "ActionP99Ms": 5.835627999999989,
+      "WholeMaterialRate": 0,
+      "ActionMaterialRate": 0,
+      "Spikes": [],
+      "ActionCluster": false,
+      "CsvSha256": "dbe2e32a84d06ebf48fa4e5f6558d368779b612d0d995befdb963a3af830d629",
+      "RawJsonSha256": "208f85652bf93854bd082e1d400365114399dc18247b59330d5adae895b9a434",
+      "MetadataSha256": "a0ac7076e2e029309c7bc74c2a869854cc7ad8ed4aee0532d95939eafa8f3f04"
+    },
+    {
+      "Configuration": "D",
+      "Run": 2,
+      "Frames": 7354,
+      "WholeMedianMs": 4.00905,
+      "WholeP99Ms": 5.2461790000000015,
+      "ActionMedianMs": 4.3368,
+      "ActionP99Ms": 5.8282300000000165,
+      "WholeMaterialRate": 0,
+      "ActionMaterialRate": 0,
+      "Spikes": [],
+      "ActionCluster": false,
+      "CsvSha256": "c900a3acd508751d45016cf1eebf589fc234bf37a16bbddf27327a9bbbf041b7",
+      "RawJsonSha256": "c1cb14e109146c208320bcdbd1145af039ace84c506dd695070cfcac3f8070e0",
+      "MetadataSha256": "d246f570b73b1c64d627c01cc426adbffb93926ed27cb2babdfdffe2c570f935"
+    },
+    {
+      "Configuration": "D",
+      "Run": 3,
+      "Frames": 7449,
+      "WholeMedianMs": 3.8951,
+      "WholeP99Ms": 5.036004,
+      "ActionMedianMs": 4.24,
+      "ActionP99Ms": 5.902112000000001,
+      "WholeMaterialRate": 0.013424620754463686,
+      "ActionMaterialRate": 0.1564945226917058,
+      "Spikes": [
+        {
+          "OffsetSeconds": 6.66567990000021,
+          "FrameTimeMilliseconds": 511.1887,
+          "DuringAction": true,
+          "CpuBusyMilliseconds": 511.1324,
+          "GpuBusyMilliseconds": 3.1108
+        }
+      ],
+      "ActionCluster": false,
+      "CsvSha256": "a07c76b08029f40dfa137f4f9697c128097001b0be700ece5b98e081923950d1",
+      "RawJsonSha256": "0c4ca9d0f3fe9f1ea71b60b9db99849f0de32f517d294e3c0ebb0565cfa38c78",
+      "MetadataSha256": "e03d53aa39f7c9d7c2e65d42aac3470a71888fe91d10214a5a261ab7df00b2d0"
+    }
+  ],
+  "Aggregates": {
+    "B": {
+      "WholeMedianMs": 4.0295,
+      "WholeP99Ms": 5.316527999999999,
+      "ActionMedianMs": 4.4848,
+      "ActionP99Ms": 7.6113,
+      "WholeMaterialRate": 0.017146776406035666,
+      "ActionMaterialRate": 0
+    },
+    "D": {
+      "WholeMedianMs": 3.9247,
+      "WholeP99Ms": 5.111104,
+      "ActionMedianMs": 4.3368,
+      "ActionP99Ms": 5.835627999999989,
+      "WholeMaterialRate": 0,
+      "ActionMaterialRate": 0
+    }
+  },
+  "OverheadPercent": {
+    "WholeMedianMs": -2.6008189601687492,
+    "WholeP99Ms": -3.863875070346645,
+    "ActionMedianMs": -3.3000356760613525,
+    "ActionP99Ms": -23.32941810203265
+  },
+  "Gates": {
+    "EngineeringMedian": true,
+    "EngineeringP99": true,
+    "CeilingMedian": true,
+    "CeilingP99": true,
+    "WholeMaterialRate": true,
+    "ActionMaterialRate": true,
+    "NoRepeatableNewActionCluster": true
+  },
+  "MatchedPhysicalControlFields": [
+    "Weapon",
+    "WeaponModifications",
+    "EquipmentAndTotems",
+    "Location",
+    "ShotCountExpectation",
+    "CharacterState",
+    "BackgroundApplicationState",
+    "Resolution",
+    "DisplayMode",
+    "RefreshRateHz",
+    "FrameLimiterFps",
+    "VSyncState",
+    "GraphicsPreset",
+    "ActionLabel"
+  ],
+  "DGenerationId": "335b38b69388443a826bc4f30c670bfd",
+  "ExportAgreement": {
+    "RunId": "2a7b9114ede345808a5655c1bbf0bc9e",
+    "NativeRaidId": "219",
+    "ExportedUtc": "/Date(1788954374684)/",
+    "ExportRevision": 360,
+    "PreservedProfileRevision": 422,
+    "FiringActions": 90,
+    "CompletedProjectiles": 90,
+    "SR3MDamageDealt": 105,
+    "SR3MRangedKills": 3,
+    "DamageReceivedDuringEntireRun": 23.72793197631836,
+    "CompletedOutcome": "Extracted",
+    "ProfileAndJsonRunTotalsEqual": true,
+    "TargetedCsvAgreement": true
+  },
+  "Verified": [
+    "All six confirmed captures and raw hashes retained.",
+    "Every raw frame/CPU/GPU/timestamp matches; no non-dominant rows omitted.",
+    "Independent numerical replay matches whole/action mean, median, p95, p99, max, material rates and clusters.",
+    "Campaign, ordinary DLL identities and physical control strings agree.",
+    "All 37 exported files and preserved profile/log hashes verified; profile and JSON runs/totals agree.",
+    "Saved run, export JSON and targeted CSV agree with 90 reported shots and three reported regular-duck kills; SR-3M retains all damage/kill credit."
+  ],
+  "Limitations": [
+    "One approximately 511.189 ms action frame in D3 is retained; its cause is unproven. No action cluster or repeated action spike occurred.",
+    "Slower B3 and all B spikes are retained. Between-encounter/session variation prevents claiming UDS improves performance.",
+    "Enemy armor, exact range, AI behavior and incoming-hit timing are not independently matched. Native B damage counts unavailable.",
+    "Current short-history generation only; remaining performance and history/resource gates are separate."
+  ],
+  "Verdict": "Pass for this bounded short-history SR-3M regular-duck cell under engineering, numeric ceiling and established spike rules. Retained isolated 511 ms action frame; no causal performance-improvement or full M18 claim.",
+  "TotalAcceptedFrames": 42710,
+  "VerifiedResultSha256": "4f98fc73a29f31d8b8c8285a6a48a80cbbc09cf8e5e8554b83927b12c2546793",
+  "UserFinalConfirmation": "no hitches, ducks died in all three attempts. Exported.",
+  "BroaderQualification": "Remaining native performance, high-history/resource and final-artifact gates stay open. Direct firing diagnostic collection and speculative optimization remain paused at the user request.",
+  "GateThresholds": {
+    "EngineeringMedianPercent": 5,
+    "EngineeringP99Percent": 10,
+    "CeilingMedianPercent": 10,
+    "CeilingP99Percent": 20,
+    "MaterialFrameRateDeltaPercentagePoints": 0.25,
+    "ClusterFrameMilliseconds": 33.3,
+    "ClusterWindowSeconds": 1,
+    "ClusterMinimumFrames": 2
+  }
+}
