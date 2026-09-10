@@ -1,6 +1,6 @@
 # Install and use Ultimate Duckov Statistics
 
-This `1.0.0-rc.1` package is prepared for voluntary qualification. Publication and production readiness require the remaining gates in the [M18 acceptance record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/codex/m18-release-hardening/docs/M18_ACCEPTANCE.md). The first version explicitly distributed through a supported channel will declare the supported upgrade baseline. Earlier `0.x` GitHub downloads were development artifacts.
+This `1.0.0-rc.1` package is a release candidate. M18 implementation, independent reviews and native qualification are complete within the accepted performance and coverage bounds in the [M18 acceptance record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/M18_ACCEPTANCE.md). Publication and Workshop channel verification remain separate release steps. The first version explicitly distributed through a supported channel will declare the supported upgrade baseline. Earlier `0.x` GitHub downloads were development artifacts.
 
 ## Verified native baseline
 
@@ -48,4 +48,4 @@ Reset requires confirmation, defaults to Cancel, archives the current UDS genera
 - For export, UI or statistics disagreement, retain the candidate version, DLL hashes, ordered reproduction steps and relevant local export. Report through the [repository issues](https://github.com/bamboechop/ultimate-duckov-statistics/issues).
 - Do not edit the Duckov save or reset real statistics as a troubleshooting shortcut. Recovery and reset rehearsals belong in isolated fixtures unless the user chooses otherwise.
 
-Workshop upload, dependency declaration, release publication and v1 promotion remain separate approval steps. Consult the repository's [release documentation](https://github.com/bamboechop/ultimate-duckov-statistics) and [M18 acceptance record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/codex/m18-release-hardening/docs/M18_ACCEPTANCE.md) for qualification evidence and unresolved gates.
+Workshop upload, dependency declaration, release publication and v1 promotion remain separate approval steps. Consult the repository's [release procedure](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/RELEASE_PROCESS.md) and [M18 acceptance record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/M18_ACCEPTANCE.md) for completed qualification, accepted limits and remaining release steps.

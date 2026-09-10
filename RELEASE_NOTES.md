@@ -1,12 +1,12 @@
 # Ultimate Duckov Statistics 1.0.0-rc.1 — release hardening
 
-Prepared for qualification; publication requires explicit approval and the unresolved gates in [M18 acceptance](docs/M18_ACCEPTANCE.md).
+M18 merged through [PR #19](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19) on 2026-09-10 as `6e2d8b9bb7fda5b8cc0b9296cb399256315b4319`, from reviewed head `87eed7e57c02a3aa80ce6962a0e0cbc927534dbd`. Two independent reviews found no actionable defects. Native qualification is complete within the accepted performance and coverage bounds in [M18 acceptance](docs/M18_ACCEPTANCE.md). Release publication and Workshop channel verification remain separate steps.
 
 The candidate establishes `uds-profile-v1` in a separate `v1` data directory, preserving older development data without importing it. It removes predecessor migrations/serialized compatibility members, impossible firing/tote/crafting/Cash-disposition metrics, the unused immediate UI and appearance-only opening checks. Current validation, recovery, generation isolation, supported sibling capabilities and honest partial/unknown evidence remain.
 
 Persistence corrections freeze pending terminal attribution and bound terminal/profile-transition retries and diagnostics. Delayed effects no longer capture a newly equipped loadout as their original source. UI cleanup removes hidden Diagnostics measurement and tests real shell access/overflow/ownership through isolated boundaries. Live integrity observations avoid rebuilding the native active-mod list without caching gameplay state.
 
-Release tooling adds normalized PE/PDB identities, builder-path scans, diagnostic-call-site rejection, deterministic ZIPs, two-root reproducibility and reversible deployment staging outside Duckov's mod-discovery root. The M18 campaign binds raw captures to exact candidate DLLs. Managed stress/recovery tests are supporting evidence; native gameplay, performance and resource qualification remain separate.
+Release tooling adds normalized PE/PDB identities, builder-path scans, diagnostic-call-site rejection, deterministic ZIPs, two-root reproducibility and reversible deployment staging outside Duckov's mod-discovery root. The M18 campaign binds raw captures to exact candidate DLLs. Independent reviews verified Debug/Release tests, installed native contracts, ordinary-package audits and reproducibility. Recorded native gameplay, performance, resource teardown and cold-reopen evidence remains distinct from managed stress/recovery tests; accepted numerical misses and coverage limits remain explicit.
 
 ## Earlier development deliveries
 

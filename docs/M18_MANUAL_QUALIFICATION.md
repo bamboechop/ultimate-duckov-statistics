@@ -2,7 +2,7 @@
 
 This is the remaining action list, not a replay of the completed campaign. Current evidence and candidate identities are in [M18 acceptance](M18_ACCEPTANCE.md) and [item 2 closeout](M18_ITEM2_CLOSEOUT.json). The user accepted the [observed performance deviations](M18_PERFORMANCE_ACCEPTANCE.json). No further CapFrameX captures or attempts to improve the accepted percentiles are scheduled.
 
-Branch delivery and CI are tracked on [PR #19](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19). The exact completed delivery and native resource evidence are recorded in [resource qualification](M18_RESOURCE_NATIVE_QUALIFICATION.json).
+[PR #19](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19) merged on 2026-09-10 as `6e2d8b9bb7fda5b8cc0b9296cb399256315b4319` after two independent reviews of head `87eed7e57c02a3aa80ce6962a0e0cbc927534dbd` found no actionable defects. The exact completed delivery and native resource evidence are recorded in [resource qualification](M18_RESOURCE_NATIVE_QUALIFICATION.json). The [release procedure](RELEASE_PROCESS.md) covers final packaging and publication.
 
 ## Completed native resource and replacement checks
 
@@ -16,7 +16,7 @@ The F11 reader originally treated inactive components with mesh ID zero as unrel
 
 - **Controlled multi-target firing remains Not exercised; its coverage limit is accepted.** The [feasibility record](M18_MULTI_TARGET_FEASIBILITY.json) documents that paired regular ducks occur unpredictably. The user [accepted the limitation](M18_COVERAGE_ACCEPTANCE.json). No farming or random encounter search is scheduled.
 - **History coverage is bounded and accepted.** UDS has no fixed retained-run maximum. The isolated 1,000-run check qualifies production persistence/projections/export; native UI/export observations use the actual five-run progressed profile. Neither proves unlimited-history native cost. The user [accepted that stated coverage](M18_COVERAGE_ACCEPTANCE.json); no additional profile or capture is requested.
-- Merge, tags, GitHub release, Workshop upload, preview approval and subscription installation remain user-controlled. The candidate and release material are prepared before those decisions. Deferred empty-state polish and other PLAN follow-ups are separate from this item 2 work.
+- The merge is complete. Tagging, GitHub release, Workshop upload, preview approval and subscription installation remain user-controlled. Prepare and verify the final package from the documentation-bearing release commit before publication. Deferred empty-state polish and other PLAN follow-ups are separate from this item 2 work.
 
 ## Already qualified; no repeat requested
 

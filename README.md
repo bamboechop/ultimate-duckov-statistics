@@ -2,7 +2,7 @@
 
 Ultimate Duckov Statistics (UDS) records proven single-player gameplay events in local per-save profiles. It never writes Duckov save files and has no telemetry or online account.
 
-M17 is the completed feature baseline. M18 prepares `1.0.0-rc.1` by removing pre-v1 compatibility paths, impossible metrics and unused runtime code, hardening persistence, and qualifying the ordinary Release artifact. Required native qualification remains recorded in [M18 acceptance](docs/M18_ACCEPTANCE.md); this is not a production-readiness claim. Current delivery state is authoritative on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics).
+M17 is the completed feature baseline. M18 release hardening merged through [PR #19](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19) on 2026-09-10 as `6e2d8b9bb7fda5b8cc0b9296cb399256315b4319`. It removes pre-v1 compatibility paths, impossible metrics and unused runtime code, and hardens persistence and the ordinary Release artifact. Independent reviews and native qualification are complete within the [recorded acceptance bounds](docs/M18_ACCEPTANCE.md), including accepted performance deviations and coverage limits. Publication of `v1.0.0-rc.1` and Workshop channel verification are the next release steps; current release state is authoritative on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/releases).
 
 ## Install and use
 

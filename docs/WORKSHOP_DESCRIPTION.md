@@ -1,6 +1,6 @@
 # Workshop description prepared for review
 
-Publication is pending the M18 acceptance gates and explicit user instruction. The text below is the prepared item description; it is not evidence of an existing Workshop item or a qualified native candidate. Choose the final preview from the user-qualified native UI captures, then verify subscription installation before declaring this a supported distribution channel.
+M18 implementation and bounded native qualification are complete as recorded in [M18 acceptance](M18_ACCEPTANCE.md). Publication still requires final release-package verification and explicit user instruction. The text below is the prepared item description; it is not evidence of an existing Workshop item. Choose the final preview from the user-qualified native UI captures, then verify subscription installation before declaring this a supported distribution channel.
 
 ---
 

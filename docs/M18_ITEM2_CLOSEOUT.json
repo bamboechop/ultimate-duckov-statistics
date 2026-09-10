@@ -685,7 +685,7 @@
   },
   "PerformanceDecision": "The user accepted observed deviations; original measurements, numerical failures and limitations are unchanged in M18_PERFORMANCE_ACCEPTANCE.json. No additional CapFrameX captures or speculative tuning performed.",
   "RemainingUserDependencies": [
-    "Separate merge/tag/release/Workshop permission, preview approval and subscription-install observation."
+    "M18 merged through PR #19 as 6e2d8b9bb7fda5b8cc0b9296cb399256315b4319 on 2026-09-10. Final release packaging, tag/release/Workshop permission, preview approval and subscription-install observation remain."
   ],
   "UnrelatedWork": "PLAN.md and docs/M18_FIRING_TIMING_DIAGNOSTIC.md remain byte-identical to the starting manifest and unstaged. Deferred UI polish is not included.",
   "Evidence": [
@@ -795,7 +795,7 @@
   "RemoteDelivery": {
     "Reason": "Automatic review requires trusted explicit authorization for exact payload and destination; original broad M18 authorization was not accepted by that review.",
     "Status": "Historical rejected attempt; subsequently authorized delivery of c074386 completed. See M18_RESOURCE_NATIVE_QUALIFICATION.json for exact readback and PR #19 for current state.",
-    "RequiredUserAction": "None for the recorded delivery; merge/tag/release/Workshop remain separately controlled.",
+    "RequiredUserAction": "None for the recorded delivery or completed PR #19 merge; tag/release/Workshop remain separately controlled.",
     "RejectedCommit": "9f3b63973e8208bab3af5506256c0e89393cf150",
     "NewRemoteCi": "Not run for the rejected attempt. Six successful checks on the subsequent approved commit are recorded in M18_RESOURCE_NATIVE_QUALIFICATION.json.",
     "PreparedPrBody": "artifacts/m18-item2-closeout-755636a/pr-body.md",
