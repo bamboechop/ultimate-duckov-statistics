@@ -33,7 +33,7 @@ On 2026-09-10 the user completed the requested F11 interaction checks in the cor
 
 The verified ordinary package built from `e6dde3e7af1dd17e9e05a92c6637cf826dd3a455` passed independent extraction and two-root DLL/PDB/ZIP reproducibility. Its ZIP is 636,592 bytes, SHA-256 `d39e9352d174ac75cd2656d3056c5c0394d4a8913df1b61c21b6c3d642070230`. It was restored to the local mod installation while Duckov was closed, retaining the diagnostic backup and verifying all five installed hashes. Ordinary native DLL SHA-256: `2d2174215dca8bf9ea68cc4e3d96d721932c2b4360a2a7775a32b29cd9dcf73e`. The user subsequently cold-opened Duckov and confirmed the shading works in this ordinary package as well.
 
-## Validation and remaining manual checks
+## Validation and manual acceptance
 
 Focused coverage exercises empty → recorded → different profile → recorded transitions, degraded capability evidence, incoming totals without attacker identities, locale/midpoint/invalid HP boundaries, persisted/reloaded healing and precise JSON/CSV export, and export completion across panel and profile boundaries. Shell tests dispatch real panel close and profile-change handlers. Child-view rendering and Unity GPU/resource behavior are native test boundaries.
 
@@ -41,12 +41,12 @@ Use the repository build/package/ordinary-IL audit, diagnostic ownership suite, 
 
 The corrected source passed 1,976 main tests and 46 ordinary shell tests in each of Debug and Release, plus 50 diagnostic shell tests per configuration. Native Debug/Release builds, the installed contract probe, changed-source analyzers, package inventory and ordinary IL/privacy audits passed. Follow implementation and CI on [PR #20](https://github.com/bamboechop/ultimate-duckov-statistics/pull/20).
 
-Remaining user checks:
+On 2026-09-10, after the diagnostic and ordinary-package totem confirmations above, the user reported that all remaining checks were completed and everything looked good. The nine-item UI batch has no outstanding manual acceptance checks. This acceptance covers the checklist below and the totem checks recorded above; it does not qualify other planned rc.2 batches or authorize publication.
 
-1. With a fresh profile, inspect Runs centering/wrapping at the usual and narrower window sizes, Records' absent map section, and the Enemies/Incoming Damage empty panels without table headers. No profile reset is required; use an existing suitable profile.
-2. Switch between fresh and populated profiles. Confirm recorded rows return, and unavailable/partial tracking remains distinct from proven empty.
-3. Compare HP restored on Overview, Runs, Item Use totals/items/recent runs. Verify integer display and retained availability markers; exports should still retain fractions.
-4. Export, close/reopen, then export again. Also close while an export is pending and switch profile during a pending export. Old confirmations/path/copy controls must not return; normal data-location controls remain usable and completed files remain available.
-5. Expand weapons with recorded and unavailable attachments; inspect section spacing. Check recent-run MONEY NET/CASH NET labels in Economy and existing Overview punctuation.
+1. Fresh-profile Runs centering/wrapping at the usual and narrower window sizes, absent Records map section, and Enemies/Incoming Damage empty panels without table headers.
+2. Fresh/populated profile switching, recorded rows returning, and unavailable/partial tracking remaining distinct from proven empty.
+3. Integer HP-restored display across Overview, Runs and Item Use totals/items/recent runs, retained availability markers, and fractional export precision.
+4. Export completion across close/reopen and profile changes, including pending exports; dismissed confirmations/path/copy controls stay dismissed, normal data-location controls remain usable and completed files remain available.
+5. Expanded weapon attachment spacing, including unavailable attachments, and Economy recent-run MONEY NET/CASH NET labels with existing Overview punctuation preserved.
 
 Only the user launches Duckov, selects saves, performs gameplay and accepts native visuals. No save or UDS profile is edited or reset by this batch.
