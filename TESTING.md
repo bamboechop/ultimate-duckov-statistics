@@ -1,5 +1,7 @@
 # Validation and delivery evidence
 
+The [post-M18 About/community batch](docs/RC2_ABOUT_COMMUNITY.md) records the ten-tab integration, installed URL-opening contract, prepared unpublished community copy and affected manual checklist. It records approved author/link content, automated shell qualification, verified ordinary local package/deployment and the separate user-controlled visual/browser checks.
+
 The [post-M18 Combat Statistics batch](docs/RC2_COMBAT_STATISTICS.md) defines the combined, ranged, melee and weapon firing-action ratios, effect-kill presentation, installed-native evidence, regression scope and remaining user-controlled checks for this contribution to rc.2. Existing ranged exports and the accepted M18/UI-batch evidence retain their meanings.
 
 The [post-M18 UI batch](docs/RC2_UI_FIXES.md) records the scoped rc.2 follow-up behavior, regression boundaries, totem correction qualification and completed user visual acceptance. Its affected checks supplement the accepted M18 evidence.

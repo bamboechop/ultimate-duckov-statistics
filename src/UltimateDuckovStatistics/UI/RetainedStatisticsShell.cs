@@ -404,6 +404,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 operations, changeHotkey, copyExportPath, copyDataPath, FocusSelectedTab);
             diagnosticsView.Refresh(diagnostics);
             diagnosticsView.SetVisible(selectedTab == StatisticsPanelTab.Diagnostics);
+            aboutView = new AboutView(rootRect, headerTitleTypography, tabLabelMaterial.Instance, FocusSelectedTab);
+            aboutView.SetVisible(selectedTab == StatisticsPanelTab.About);
             BindOverviewRun(projection.Profile.GenerationId);
 
             headerRect = CreateHeaderBackground(
@@ -614,6 +616,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         RefreshVisualLayout(force: true);
     }
 
+    public void RefreshStaticText() => aboutView?.RefreshText();
+
     public void SetSelectedTab(StatisticsPanelTab tab)
     {
         if (!PanelInteractionState.NavigationOrder.Contains(tab))
@@ -634,6 +638,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         craftingView?.SetVisible(selectedTab == StatisticsPanelTab.Crafting);
         itemUseView?.SetVisible(selectedTab == StatisticsPanelTab.ItemUse);
         diagnosticsView?.SetVisible(selectedTab == StatisticsPanelTab.Diagnostics);
+        aboutView?.SetVisible(selectedTab == StatisticsPanelTab.About);
         EnsureSelectedTabVisible();
         var focused = GameManager.EventSystem?.currentSelectedGameObject;
         if (focused == null || !focused.activeInHierarchy)
@@ -665,6 +670,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             itemUseView?.Tick();
             diagnosticsView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
             diagnosticsView?.Tick();
+            aboutView?.Layout(layout, shellRoot!.rect.height);
             modal?.Layout(layout, shellRoot!.rect.width, shellRoot.rect.height);
             return true;
         }
@@ -2436,6 +2442,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         itemUseView?.Dispose(); itemUseView = null;
         modal?.Dispose(); modal = null;
         diagnosticsView?.Dispose(); diagnosticsView = null;
+        aboutView?.Dispose(); aboutView = null;
         recordsView = null;
         runsView?.Dispose();
         runsView = null;

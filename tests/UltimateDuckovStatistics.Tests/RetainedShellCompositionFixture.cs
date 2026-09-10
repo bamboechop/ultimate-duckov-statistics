@@ -2,7 +2,7 @@ namespace UltimateDuckovStatistics.UI;
 
 internal static class RetainedShellCompositionPolicy
 {
-    public const int TabCount = 9;
+    public const int TabCount = 10;
     public const int RootChildCount = 14;
     public const int HeaderChildCount = 0;
     public const int TabChildCount = 1;

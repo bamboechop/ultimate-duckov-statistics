@@ -19,6 +19,13 @@ internal static class UiText
     private static readonly Dictionary<string, string> English =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["ui.about"] = "About",
+            ["ui.about_description"] = "Local, per-save statistics for your raids: routes, combat, equipment, item use and healing, economy, crafting, world time and sleep. Recording starts when Ultimate Duckov Statistics (UDS) is installed.",
+            ["ui.about_author"] = "Created by {0}",
+            ["ui.about_support"] = "Support the author (optional)",
+            ["ui.about_discord"] = "Join Discord",
+            ["ui.about_translation"] = "Want to help translate UDS? Contact me on Discord or leave a comment on the Steam Workshop page, and mention the language you could help with.",
+            ["ui.about_link_failed"] = "Could not open the link. You can try again; your Statistics panel is still available.",
             ["ui.equipment_unknown_item"] = "Unknown item",
             ["ui.equipment_totem_slot_1"] = "Totem slot 1",
             ["ui.equipment_totem_slot_2"] = "Totem slot 2",

@@ -167,7 +167,7 @@ namespace UnityEngine.UI
     public class ContentSizeFitter : MonoBehaviour { }
     public class AspectRatioFitter : MonoBehaviour { }
     public class BaseMeshEffect : MonoBehaviour { }
-    public class Mask : MonoBehaviour { }
+    public class Mask : MonoBehaviour { public bool showMaskGraphic; }
     public static class LayoutRebuilder { public static void MarkLayoutForRebuild(RectTransform rect) { } }
 }
 namespace UnityEngine.UI.ProceduralImage
@@ -225,7 +225,7 @@ public sealed class LevelManager { public static LevelManager? Instance; public 
 public sealed class UIInputEventData { public void Use() { } }
 public static class UIInputManager { public static event Action<UIInputEventData>? OnCancelEarly; public static int CancelListeners => OnCancelEarly?.GetInvocationList().Length ?? 0; }
 
-namespace UnityEngine { public static class Application { public static string version = "2.3.30"; } public static class Debug { public static void LogException(Exception exception) => throw exception; } public struct Vector2Int { public static Vector2 zero => new(0, 0); } }
+namespace UnityEngine { public static class Application { public static string version = "2.3.30"; public static Action<string>? UrlLauncher; public static void OpenURL(string url) => (UrlLauncher ?? throw new InvalidOperationException("Unexpected external launch"))(url); } public static class Debug { public static void LogException(Exception exception) => throw exception; } public struct Vector2Int { public static Vector2 zero => new(0, 0); } }
 
 namespace UnityEngine.SceneManagement
 {

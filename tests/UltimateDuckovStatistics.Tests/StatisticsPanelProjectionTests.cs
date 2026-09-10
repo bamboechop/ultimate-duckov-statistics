@@ -96,6 +96,7 @@ public sealed class StatisticsPanelProjectionTests
                 StatisticsPanelTab.Economy,
                 StatisticsPanelTab.Crafting,
                 StatisticsPanelTab.ItemUse,
+                StatisticsPanelTab.About,
                 StatisticsPanelTab.Diagnostics
             },
             PanelInteractionState.NavigationOrder);
@@ -884,6 +885,7 @@ public sealed class StatisticsPanelProjectionTests
             (StatisticsPanelTab.Economy, "ui.economy", "Economy"),
             (StatisticsPanelTab.Crafting, "ui.crafting", "Crafting"),
             (StatisticsPanelTab.ItemUse, "ui.item_use", "Item Use"),
+            (StatisticsPanelTab.About, "ui.about", "About"),
             (StatisticsPanelTab.Diagnostics, "ui.diagnostics", "Diagnostics")
         };
 
@@ -908,7 +910,7 @@ public sealed class StatisticsPanelProjectionTests
     [Fact]
     public void GateSevenRelationalLayoutUsesOnlyMeasuredWidthsPaddingAndGaps()
     {
-        var suppliedWidths = new[] { 100f, 110f, 120f, 130f, 140f, 150f, 160f, 170f, 180f };
+        var suppliedWidths = new[] { 100f, 110f, 120f, 130f, 140f, 150f, 160f, 170f, 180f, 190f };
         var transform = RetainedReferenceTransformPolicy.Create(2560f, 1440f, 1f);
         var strip = RetainedTabStripPolicy.CreateCanvasLayout(transform, suppliedWidths);
 
@@ -974,7 +976,7 @@ public sealed class StatisticsPanelProjectionTests
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 RetainedTabStripPolicy.CreateCanvasLayout(
                     RetainedReferenceTransformPolicy.Create(2560f, 1440f, 1f),
-                    new[] { invalid, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f }));
+                    new[] { invalid, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f }));
         }
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
@@ -984,7 +986,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateSevenANativeFeedbackTargetsExactlyTheNineTabBackgroundObjects()
+    public void GateSevenANativeFeedbackTargetsExactlyTheTenTabBackgroundObjects()
     {
         var targets = RetainedTabStripPolicy.Specifications
             .Select(specification => new RetainedFeedbackTarget(specification.BackgroundName))
@@ -998,7 +1000,7 @@ public sealed class StatisticsPanelProjectionTests
                 candidate => candidate.Attach());
         }
 
-        Assert.Equal(9, targets.Length);
+        Assert.Equal(10, targets.Length);
         Assert.All(targets, target =>
         {
             Assert.True(target.HasFeedback);
@@ -3090,9 +3092,10 @@ public sealed class StatisticsPanelProjectionTests
             StatisticsPanelTab.Economy,
             StatisticsPanelTab.Crafting,
             StatisticsPanelTab.ItemUse,
+            StatisticsPanelTab.About,
             StatisticsPanelTab.Diagnostics
         }, PanelInteractionState.NavigationOrder);
-        Assert.Equal(9, RetainedTabStripPolicy.Specifications.Count);
+        Assert.Equal(10, RetainedTabStripPolicy.Specifications.Count);
         Assert.Equal(StatisticsPanelTab.Overview, RetainedOverviewFastestExtractionRowPolicy.OwnerTab);
     }
 
@@ -5025,7 +5028,7 @@ public sealed class StatisticsPanelProjectionTests
                         viewport.Height,
                         canvasScaleFactor),
                     RetainedTabStripPolicy.AuditedEnglishPreferredWidths);
-                Assert.Equal(9, layout.TabStrip.Tabs.Count);
+                Assert.Equal(10, layout.TabStrip.Tabs.Count);
                 for (var index = 0; index < layout.TabStrip.Tabs.Count; index++)
                 {
                     var expected = baseline.TabStrip.Tabs[index];
@@ -5073,7 +5076,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateSevenKeyboardCyclingKeepsExactlyOneOfNineBackgroundsSelected()
+    public void GateSevenKeyboardCyclingKeepsExactlyOneOfTenBackgroundsSelected()
     {
         var interaction = new PanelInteractionState();
         var targets = RetainedTabStripPolicy.Specifications.Select(_ => new object()).ToArray();
@@ -5105,13 +5108,13 @@ public sealed class StatisticsPanelProjectionTests
         }
 
         AssertSynchronized();
-        for (var step = 0; step < 9; step++)
+        for (var step = 0; step < PanelInteractionState.NavigationOrder.Count; step++)
         {
             interaction.MoveTab(1);
             AssertSynchronized();
         }
         Assert.Equal(StatisticsPanelTab.Overview, interaction.SelectedTab);
-        for (var step = 0; step < 9; step++)
+        for (var step = 0; step < PanelInteractionState.NavigationOrder.Count; step++)
         {
             interaction.MoveTab(-1);
             AssertSynchronized();
@@ -5149,7 +5152,7 @@ public sealed class StatisticsPanelProjectionTests
 
         Assert.Equal(1, createdMaterials);
         Assert.All(assignedMaterials, assigned => Assert.Same(material.Resource, assigned));
-        Assert.Equal(9, listeners.Count);
+        Assert.Equal(10, listeners.Count);
         Assert.Equal(0, destroyedMaterials);
         listeners.Dispose();
         listeners.Dispose();
@@ -5165,7 +5168,7 @@ public sealed class StatisticsPanelProjectionTests
     [Fact]
     public void GateEightCompositionRetainsTheAcceptedTabStripAndAddsOnlyOverviewContent()
     {
-        Assert.Equal(9, RetainedShellCompositionPolicy.TabCount);
+        Assert.Equal(10, RetainedShellCompositionPolicy.TabCount);
         Assert.Equal(14, RetainedShellCompositionPolicy.RootChildCount);
         Assert.Equal(1, RetainedShellCompositionPolicy.TabChildCount);
         Assert.Equal(0, RetainedShellCompositionPolicy.TabLabelChildCount);
@@ -5716,14 +5719,14 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void InstalledNativeEnglishMetricsFitAllNineDesktopTabsWithoutEllipsis()
+    public void InstalledNativeEnglishMetricsFitAllTenDesktopTabsWithoutEllipsis()
     {
         // Audited from installed Duckov 2.3.30 ResourceHanRoundedCN-Medium SDF
         // glyph advances at the final retained navigation size of 27 px.
         var installedEnglishWidths = new[]
         {
             121.439063f, 64.260937f, 104.521875f, 102.656250f, 142.935937f,
-            120.285938f, 104.217187f, 113.803125f, 149.498437f
+            120.285938f, 104.217187f, 113.803125f, 77.789063f, 149.498437f
         };
         var geometry = RetainedTabGeometryPolicy.Create(
             2334f,
@@ -5733,7 +5736,7 @@ public sealed class StatisticsPanelProjectionTests
             38f,
             installedEnglishWidths);
 
-        Assert.Equal(9, geometry.Widths.Count);
+        Assert.Equal(10, geometry.Widths.Count);
         Assert.False(geometry.RequiresScrolling);
         Assert.True(geometry.ContentWidth < 2334f);
         for (var index = 0; index < installedEnglishWidths.Length; index++)
@@ -5749,11 +5752,11 @@ public sealed class StatisticsPanelProjectionTests
             10f,
             10f,
             38f,
-            Enumerable.Repeat(420f, 9).ToArray());
+            Enumerable.Repeat(420f, 10).ToArray());
 
         Assert.True(geometry.RequiresScrolling);
         Assert.All(geometry.Widths, width => Assert.Equal(458f, width));
-        Assert.Equal(9, geometry.Widths.Count);
+        Assert.Equal(10, geometry.Widths.Count);
     }
 
     [Fact]
