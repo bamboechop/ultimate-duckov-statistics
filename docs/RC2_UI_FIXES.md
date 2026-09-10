@@ -31,7 +31,7 @@ The temporary F11 investigation extension was confined to diagnostic builds and 
 
 On 2026-09-10 the user completed the requested F11 interaction checks in the corrected diagnostic build and reported that shading did not disappear. Captures at 15:37:17 and 15:37:25 UTC showed all four active shadows retaining the same valid stencil material across expansion, including the newly created row; the three retained rows also preserved their private mesh identities. At 15:37:42 UTC, after panel closure, there were zero UDS roots, input owners or totem owners, and all 11 tracked owner/mesh pairs were observed absent. Tracking remained complete, with zero remaining tracked meshes or destroyed-owner mesh candidates. This is bounded native rendering/cleanup evidence for the exercised session, not a new frame-time or unlimited-resource qualification.
 
-The verified ordinary package built from `e6dde3e7af1dd17e9e05a92c6637cf826dd3a455` passed independent extraction and two-root DLL/PDB/ZIP reproducibility. Its ZIP is 636,592 bytes, SHA-256 `d39e9352d174ac75cd2656d3056c5c0394d4a8913df1b61c21b6c3d642070230`. It was restored to the local mod installation while Duckov was closed, retaining the diagnostic backup and verifying all five installed hashes. Ordinary native DLL SHA-256: `2d2174215dca8bf9ea68cc4e3d96d721932c2b4360a2a7775a32b29cd9dcf73e`. Ordinary-package cold opening remains user-controlled.
+The verified ordinary package built from `e6dde3e7af1dd17e9e05a92c6637cf826dd3a455` passed independent extraction and two-root DLL/PDB/ZIP reproducibility. Its ZIP is 636,592 bytes, SHA-256 `d39e9352d174ac75cd2656d3056c5c0394d4a8913df1b61c21b6c3d642070230`. It was restored to the local mod installation while Duckov was closed, retaining the diagnostic backup and verifying all five installed hashes. Ordinary native DLL SHA-256: `2d2174215dca8bf9ea68cc4e3d96d721932c2b4360a2a7775a32b29cd9dcf73e`. The user subsequently cold-opened Duckov and confirmed the shading works in this ordinary package as well.
 
 ## Validation and remaining manual checks
 
@@ -48,6 +48,5 @@ Remaining user checks:
 3. Compare HP restored on Overview, Runs, Item Use totals/items/recent runs. Verify integer display and retained availability markers; exports should still retain fractions.
 4. Export, close/reopen, then export again. Also close while an export is pending and switch profile during a pending export. Old confirmations/path/copy controls must not return; normal data-location controls remain usable and completed files remain available.
 5. Expand weapons with recorded and unavailable attachments; inspect section spacing. Check recent-run MONEY NET/CASH NET labels in Economy and existing Overview punctuation.
-6. Cold-open the restored ordinary package and confirm totem shading remains visible. The requested diagnostic interaction and post-close cleanup checks above are complete.
 
 Only the user launches Duckov, selects saves, performs gameplay and accepts native visuals. No save or UDS profile is edited or reset by this batch.
