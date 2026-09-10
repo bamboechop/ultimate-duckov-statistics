@@ -2,13 +2,13 @@
 
 Ultimate Duckov Statistics (UDS) records proven single-player gameplay events in local per-save profiles. It never writes Duckov save files and has no telemetry or online account.
 
-M17 is the completed feature baseline. M18 release hardening merged through [PR #19](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19) on 2026-09-10 as `6e2d8b9bb7fda5b8cc0b9296cb399256315b4319`. It removes pre-v1 compatibility paths, impossible metrics and unused runtime code, and hardens persistence and the ordinary Release artifact. Independent reviews and native qualification are complete within the [recorded acceptance bounds](docs/M18_ACCEPTANCE.md), including accepted performance deviations and coverage limits. Publication of `v1.0.0-rc.1` and Workshop channel verification are the next release steps; current release state is authoritative on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/releases).
+M17 is the completed feature baseline. M18 release hardening merged through [PR #19](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19) on 2026-09-10 as `6e2d8b9bb7fda5b8cc0b9296cb399256315b4319`. It removes pre-v1 compatibility paths, impossible metrics and unused runtime code, and hardens persistence and the ordinary Release artifact. Independent reviews and native qualification are complete within the [recorded acceptance bounds](docs/M18_ACCEPTANCE.md), including accepted performance deviations and coverage limits. Release state is authoritative on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/releases); Workshop publication and supported-channel verification remain separate steps.
 
 ## Install and use
 
 See [INSTALL.md](INSTALL.md) for installation, activation, data locations, export/reset and troubleshooting. The verified baseline is Duckov 2.3.30 / Steam build 24013657 / Unity 2022.3.62f2 on Windows, with the separately installed [HarmonyLib dependency](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) at 2.4.1.0. Game, Unity and Harmony DLLs are never bundled.
 
-Outside raids, open Statistics from the main menu, base pause menu or configurable F8. The retained native shell contains Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use and Diagnostics. Long localization text uses measured layout, clipping and scrolling. Missing required native objects can prevent construction; appearance differences do not reject the shell.
+Outside raids, open Statistics from the main menu, base pause menu or configurable F8. The retained native shell contains Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, About and Diagnostics. About introduces UDS and provides optional author support and community translation contact links. Long localization text uses measured layout, clipping and scrolling. Missing required native objects can prevent construction; appearance differences do not reject the shell.
 
 ## Statistics and evidence
 

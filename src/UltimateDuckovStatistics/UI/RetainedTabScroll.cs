@@ -42,6 +42,7 @@ internal sealed partial class RetainedStatisticsShell
                     else if (selectedTab == StatisticsPanelTab.Economy) economyView?.FocusPage();
                     else if (selectedTab == StatisticsPanelTab.Crafting) craftingView?.FocusFirst();
                     else if (selectedTab == StatisticsPanelTab.ItemUse) itemUseView?.FocusPage();
+                    else if (selectedTab == StatisticsPanelTab.About) aboutView?.FocusFirst();
                     else if (selectedTab == StatisticsPanelTab.Diagnostics) diagnosticsView?.FocusFirst();
                     else if (selectedTab == StatisticsPanelTab.Overview && overviewLatestRunViewRun?.Button.interactable == true)
                         GameManager.EventSystem?.SetSelectedGameObject(overviewLatestRunViewRun.Button.gameObject);

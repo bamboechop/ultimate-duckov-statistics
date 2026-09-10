@@ -15,7 +15,8 @@ internal enum StatisticsPanelTab
     Economy,
     Crafting,
     ItemUse,
-    Diagnostics
+    Diagnostics,
+    About
 }
 
 internal enum CombatPanelSection
@@ -768,6 +769,13 @@ internal static class RetainedTabStripPolicy
                 "ui.item_use",
                 "Item Use",
                 151.7375f),
+            new RetainedTabSpecification(
+                StatisticsPanelTab.About,
+                "AboutTab",
+                "AboutTabLabel",
+                "ui.about",
+                "About",
+                103.71875f),
             new RetainedTabSpecification(
                 StatisticsPanelTab.Diagnostics,
                 "DiagnosticsTab",
@@ -4184,6 +4192,7 @@ internal sealed class PanelInteractionState
         StatisticsPanelTab.Economy,
         StatisticsPanelTab.Crafting,
         StatisticsPanelTab.ItemUse,
+        StatisticsPanelTab.About,
         StatisticsPanelTab.Diagnostics
     };
 

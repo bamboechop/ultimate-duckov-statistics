@@ -1,6 +1,6 @@
 # Local data and privacy
 
-UDS performs no telemetry, network reporting, account login or remote synchronization. Runtime data stays below Duckov's `Application.persistentDataPath`, in `UltimateDuckovStatistics/v1/`. The packaged mod never writes Duckov saves.
+UDS performs no telemetry, network reporting, account login or remote synchronization. Runtime data stays below Duckov's `Application.persistentDataPath`, in `UltimateDuckovStatistics/v1/`. The packaged mod never writes Duckov saves. About opens fixed community links in your browser only when you activate a button; UDS makes no background web requests or automatic uploads.
 
 Per-save data includes the UDS generation, native save slot, read-only save fingerprint/SaveTime evidence, aggregate statistics, compact run summaries, capability state, bounded diagnostics, session/active-run checkpoints, atomic backups and exports. Replaced generations are archived read-only. Run history and user-created exports persist; diagnostic logs and correlation caches are bounded. Removing the mod package does not remove these files.
 

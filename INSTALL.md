@@ -24,7 +24,7 @@ To uninstall, close Duckov and remove only its UDS mod folder. Statistics remain
 
 ## Statistics and access
 
-All nine retained tabs use the same native shell. It supports localized labels, scrolling, keyboard focus, and responsive layout. Statistics access is deliberately unavailable during raids. Changing the selected save invalidates controls from the previous statistics generation.
+All ten retained tabs use the same native shell. It supports localized labels, scrolling, keyboard focus, and responsive layout. Statistics access is deliberately unavailable during raids. Changing the selected save invalidates controls from the previous statistics generation. About precedes Diagnostics and remains available with an empty profile or unavailable measurements whenever the panel can open. Its optional support and Discord buttons open your browser only when activated.
 
 Runs begin when the living main duck gains control in a native raid. Loading/base activity is excluded from raid duration and movement. Unknown identity, unavailable capture, partial attribution, repaired evidence, and proven empty observations remain distinct. Disabling a dependency does not invent zeros or erase independently supported sibling metrics.
 

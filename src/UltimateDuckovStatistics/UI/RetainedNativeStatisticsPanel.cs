@@ -264,7 +264,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         return true;
     }
 
-    private void HandleLanguageChanged() => projectionDirty = true;
+    private void HandleLanguageChanged() { projectionDirty = true; shell.RefreshStaticText(); }
 
     private void HandleProfileChanging()
     {
