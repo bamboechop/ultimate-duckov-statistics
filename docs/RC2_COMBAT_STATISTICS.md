@@ -4,6 +4,8 @@ Immutable base: `e8f59b9a07d4c02ea0344035a5b5c1b964b27d4c`, fetched from `origin
 
 The accepted [M18 evidence](M18_ACCEPTANCE.md) and [UI batch](RC2_UI_FIXES.md) remain the baseline for unchanged behavior. The original checkout's modified PLAN and firing-timing diagnostic are separate local work. About/community content, base distance and blur are outside this batch.
 
+Implementation and CI are tracked on [PR #21](https://github.com/bamboechop/ultimate-duckov-statistics/pull/21).
+
 ## Metric definitions
 
 | Surface | Definition |
@@ -52,3 +54,11 @@ Only the user launches Duckov, selects saves and performs these checks:
 5. Close/reopen the panel and game, then change profile through normal user controls: check stable counts, fresh selection/generation, no stale weapon result, readable rows, and retained accepted UI styling/interaction. Save/profile files must not be edited or reset for this checklist.
 
 Native gameplay and visual acceptance of these changes remain open until the user reports results. No new frame-time, unlimited-resource, final rc.2, or publication qualification is claimed.
+
+## Verified ordinary local delivery — 2026-09-10
+
+Source commit `6cde1d7f56d81c2c72adad156e7ac79e1fb0b246` passed exact-commit two-root DLL/PDB/ZIP reproducibility, independent ZIP extraction and ordinary audits. The first nested-worktree attempt hit Windows error 206 when launching the audit executable; rerunning the identical committed source with the identical script from a shorter artifact root passed. No source change or audit bypass was needed.
+
+`UltimateDuckovStatistics-combat-6cde1d7.zip` is 637,639 bytes, SHA-256 `9f49d964fdd5b5f8f3986b0f90ac129b298ecb5b1c4a4ba1e60ff5af7ef890b3`. The exact five-file inventory is `info.ini`, `INSTALL.md`, `LICENSE`, `UltimateDuckovStatistics.Core.dll` and `UltimateDuckovStatistics.dll`. The native DLL is SHA-256 `e0f2acfc485b90e777906b9ee6fab76b911911601dc9b7dc05c8b2b2c072fa2a`; Core is `ed8bd6c806261034222b1240bce2e8b42296c19037ef93429ebe53753d364bc7`. The local package matches both immutable builds, including the deterministic ZIP. Artifact evidence is retained under the original checkout's separate `artifacts/rc2-combat-6cde1d7` directory.
+
+With Duckov closed, the existing deployment transaction retained and verified the previous mod installation under backup ID `32d28b8717a9404289a9b0a33d8569fb` in the isolated worktree's `artifacts/deployment-backups`. All five installed hashes match the package. The inventory and hashes of all 3,116 checked files under Saves/UDS data plus the original checkout's two protected local files remain unchanged. No launch, gameplay, save selection, reset, tag, release or Workshop upload was performed. This documentation-only delivery record does not change the packaged source.
