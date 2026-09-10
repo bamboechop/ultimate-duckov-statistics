@@ -1,0 +1,47 @@
+{
+  "SchemaVersion": 1,
+  "RecordedUtc": "2026-09-09T23:18:24.9977396Z",
+  "EvidenceCommit": "755636a0a8415d913a69d7c2d0c1ae8f57878fad",
+  "MeasuredSourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "Version": "1.0.0-rc.1",
+  "UserStatement": "Given that I didn't notice anything that would hinder my gameplay I accept the performance deviations we observed.",
+  "Decision": "User accepts the observed performance deviations for the evaluated ordinary candidate. Those observed numerical misses no longer independently block release acceptance.",
+  "CoveredObservedResults": [
+    "SR-3M empty-space engineering-target misses",
+    "Base inventory/export engineering-target misses",
+    "Original paused-UI engineering/ceiling misses",
+    "Natural changing-map soak elapsed-p99 threshold miss",
+    "Progressed-profile historical-reference UI numerical miss and observed paused export stalls"
+  ],
+  "NumericalEvidence": "All original frame data, numerical failures, thresholds, exclusions and causal/control limitations are preserved. Accepted deviations are not rewritten as numerical passes.",
+  "RepeatPolicy": "Do not repeat captures or resume speculative optimization solely to meet the original thresholds for these accepted observations. Future behavior-changing corrections require only affected qualification.",
+  "NotCovered": [
+    "Unexercised controlled multi-target workload",
+    "Unmeasured maximum-history or native resource/cleanup behavior",
+    "Data safety, recovery or correctness defects",
+    "Future unmeasured builds",
+    "Merge, tag, release or Workshop publication authorization"
+  ],
+  "Evidence": [
+    {
+      "Path": "M18_HIGH_RATE_EMPTY_QUALIFICATION.json",
+      "Sha256": "16a39a86623386428041d2ac4a4348d8d07121f46873e6188545774a93a308e5"
+    },
+    {
+      "Path": "M18_BASE_PERFORMANCE_QUALIFICATION.json",
+      "Sha256": "25d7d98494ec3efafbaa6e7a26ded791baf88e4fe65e784d80cd29934c1fde2e"
+    },
+    {
+      "Path": "M18_BASE_UI_QUALIFICATION.json",
+      "Sha256": "a023a21ec522c5229a4212893ef7c41893d62e62aeac838ec4b92d50df970358"
+    },
+    {
+      "Path": "M18_NATURAL_SOAK_QUALIFICATION.json",
+      "Sha256": "08034bd24dd7d9460ffc54e3d089ca9cce766c67735b1e97baa317bed81147a1"
+    },
+    {
+      "Path": "M18_PROGRESSED_UI_EXPORT_QUALIFICATION.json",
+      "Sha256": "77cab5b93fb2ad5b35641aed6e865baa97c848de5a4a21d4ac7d647bafeb7176"
+    }
+  ]
+}

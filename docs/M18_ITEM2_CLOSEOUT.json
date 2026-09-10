@@ -1,0 +1,798 @@
+{
+  "SchemaVersion": 1,
+  "RecordedUtc": "2026-09-10T02:00:25.551357+02:00",
+  "Scope": "M18 item 2: finish all game-closed recovery, resource, input, degradation and bounded large-history work",
+  "SourceCommit": "830ef3f5633e7ba1f3caa5a0ee4a518e4675315c",
+  "RuntimeCorrectionCommit": "8a1211b3eb00743104cea2899cd90239caaf5084",
+  "FinalSourceDelta": "830ef3f only formats the new totem ownership test initializer; runtime and tested behavior are unchanged.",
+  "StartingHead": "755636a0a8415d913a69d7c2d0c1ae8f57878fad",
+  "Version": "1.0.0-rc.1",
+  "Status": "All agent-owned game-closed item 2 work complete. Specific native observation and user coverage/publication decisions remain; M18 is not declared complete or production-ready.",
+  "ConfirmedCorrections": [
+    {
+      "Problem": "Native TrueShadow Image casters allocate a private SpriteMesh which native OnDestroy leaves alive.",
+      "Correction": "Only UDS-created totem shadows use the native subclass that preserves native teardown and destroys its final private Image mesh. Pooling reuses it; borrowed sprites/materials/native shadows remain outside UDS ownership.",
+      "NativeShadowAssemblySha256": "a0fd277f98ba9cf6d8b169fd6e02171f612fbe7b3d7b7decb753bdbea6896208",
+      "RemainingObservation": "Actual Unity deferred destruction, native glow/tooltip and input restoration through the prepared F11 session."
+    },
+    {
+      "Problem": "Broad combat hook-drift cleanup discarded observations still independently supported: in-flight projectiles, conflicting buff actors and proven grenade hazards.",
+      "Correction": "Invalidate only stores dependent on the failed hook. Preserve independent evidence; required-hook failures still disable dependent attribution and full lifecycle cleanup remains intact.",
+      "Regression": "17 production-adapter cases pass; replaying the previous adapter fails seven. Tests cover hit before/after drift, completion deduplication, buff conflict retention, grenade origin retention and required-hook fail-closed behavior."
+    }
+  ],
+  "Recovery": {
+    "Result": "No additional confirmed defect; current-format production logic and isolated filesystem failures are qualified.",
+    "Coverage": [
+      "Clean/current-format install and reopen",
+      "Primary/backup/temp semantic validation and repair",
+      "Incompatible/future-format byte preservation",
+      "Interrupted multi-map run and exact-once recovery",
+      "Real locked-file terminal checkpoint/profile failures with bounded retries",
+      "Generation/reset/holdings transitions",
+      "Native tutorial death/retry callback order through actual UDS lifecycle/coordinator"
+    ],
+    "NativeCoreSha256": "298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f",
+    "NativeLimit": "Live missing-primary recovery, reset/reinstall and ordinary reopen already observed. No real-file corruption, forced termination or tutorial replay is required to resolve an identified logic gap."
+  },
+  "InputAndModal": {
+    "NativeInput": "Installed Duckov Controls asset pathID5142: only KeyAndMouse, 95 bindings, zero Gamepad/Joystick bindings. Exact source identities in input-capability-audit.json.",
+    "ProductionModalCoverage": "Cancel-first focus, containment/wrap, original CanvasGroup restoration, inactive/destroyed prior selection fallback, hotkey isolation, reset single-flight and listener disposal.",
+    "NativeLimit": "Actual scroll rendering and Unity event delivery remain native boundaries; existing keyboard/mouse and Harmony absence/restoration observations remain applicable."
+  },
+  "LargeHistory": {
+    "FixedRunCountMaximum": null,
+    "Meaning": "Shipping retained run history has no fixed maximum. This is a declared bounded correctness workload, not maximum-history or native cost acceptance.",
+    "Runs": 1000,
+    "Extracted": 600,
+    "Died": 200,
+    "Interrupted": 200,
+    "Segments": 2000,
+    "AggregateEventAssociationRows": 8000,
+    "ExportFiles": 37,
+    "Verified": "Reducer-created history; final completion through repository; exact current-format reopen, lifetime/run/map totals, old/middle/new selection, records, complete JSON and CSV export.",
+    "Isolation": "Synthetic profiles/exports use disposable test directories only; user data untouched.",
+    "ExistingStress": "144,000-event cases with zero and 200 prior runs also pass in each full suite. Concurrent full-suite timings are not reported as performance acceptance."
+  },
+  "Validation": {
+    "Tests": [
+      {
+        "Name": "main.Debug",
+        "total": 1957,
+        "executed": 1957,
+        "passed": 1957,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0,
+        "Evidence": {
+          "Path": "artifacts/m18-item2-closeout-755636a/tests/main.Debug.trx",
+          "Bytes": 3065545,
+          "Sha256": "eb7c490728a2039a8e4d0e983af7285b9b390fc12f9f5c6a33ba1a299919a3a4"
+        }
+      },
+      {
+        "Name": "main.Release",
+        "total": 1957,
+        "executed": 1957,
+        "passed": 1957,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0,
+        "Evidence": {
+          "Path": "artifacts/m18-item2-closeout-755636a/tests/main.Release.trx",
+          "Bytes": 3073369,
+          "Sha256": "727b4df340a7ee5ea884a0cd6db66989312f95f5e7742a491d5c9be285124850"
+        }
+      },
+      {
+        "Name": "shell-diagnostic.Debug",
+        "total": 45,
+        "executed": 45,
+        "passed": 45,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0,
+        "Evidence": {
+          "Path": "artifacts/m18-item2-closeout-755636a/tests/shell-diagnostic.Debug.trx",
+          "Bytes": 72528,
+          "Sha256": "76d076753dca3902a18d2e4ce2c840a12b1a0fb26710793df8eae92149bd68fe"
+        }
+      },
+      {
+        "Name": "shell-diagnostic.Release",
+        "total": 45,
+        "executed": 45,
+        "passed": 45,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0,
+        "Evidence": {
+          "Path": "artifacts/m18-item2-closeout-755636a/tests/shell-diagnostic.Release.trx",
+          "Bytes": 72708,
+          "Sha256": "a0f0d18cf839108b0afea1705348c3e709e592897e08065ff7a172a32af61847"
+        }
+      },
+      {
+        "Name": "shell.Debug",
+        "total": 41,
+        "executed": 41,
+        "passed": 41,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0,
+        "Evidence": {
+          "Path": "artifacts/m18-item2-closeout-755636a/tests/shell.Debug.trx",
+          "Bytes": 66148,
+          "Sha256": "4a7c78f5b5989f6e4fc9732e147b3f3735aa619bb6408f250cffadbd554da47d"
+        }
+      },
+      {
+        "Name": "shell.Release",
+        "total": 41,
+        "executed": 41,
+        "passed": 41,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0,
+        "Evidence": {
+          "Path": "artifacts/m18-item2-closeout-755636a/tests/shell.Release.trx",
+          "Bytes": 66312,
+          "Sha256": "2d8571bc76b4918297746013af840d87819f6b01bc2b24b0568a91267bc07c92"
+        }
+      }
+    ],
+    "Checks": [
+      {
+        "Name": "main.Debug",
+        "ExitCode": 0,
+        "StartedUtc": "2026-09-09T23:48:33.4591017Z",
+        "EndedUtc": "2026-09-09T23:49:09.0034531Z",
+        "Log": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\m18-item2-closeout-755636a\\main.Debug.log"
+      },
+      {
+        "Name": "shell.Debug",
+        "ExitCode": 0,
+        "StartedUtc": "2026-09-09T23:49:09.0203234Z",
+        "EndedUtc": "2026-09-09T23:49:10.8763764Z",
+        "Log": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\m18-item2-closeout-755636a\\shell.Debug.log"
+      },
+      {
+        "Name": "native.Debug",
+        "ExitCode": 0,
+        "StartedUtc": "2026-09-09T23:49:10.8798297Z",
+        "EndedUtc": "2026-09-09T23:49:11.8900692Z",
+        "Log": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\m18-item2-closeout-755636a\\native.Debug.log"
+      },
+      {
+        "Name": "main.Release",
+        "ExitCode": 0,
+        "StartedUtc": "2026-09-09T23:49:11.8917824Z",
+        "EndedUtc": "2026-09-09T23:49:45.4849832Z",
+        "Log": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\m18-item2-closeout-755636a\\main.Release.log"
+      },
+      {
+        "Name": "shell.Release",
+        "ExitCode": 0,
+        "StartedUtc": "2026-09-09T23:49:45.4868317Z",
+        "EndedUtc": "2026-09-09T23:49:47.2726458Z",
+        "Log": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\m18-item2-closeout-755636a\\shell.Release.log"
+      },
+      {
+        "Name": "native.Release",
+        "ExitCode": 0,
+        "StartedUtc": "2026-09-09T23:49:47.2744762Z",
+        "EndedUtc": "2026-09-09T23:49:48.2495159Z",
+        "Log": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\m18-item2-closeout-755636a\\native.Release.log"
+      },
+      {
+        "Name": "native-contract",
+        "ExitCode": 0,
+        "StartedUtc": "2026-09-09T23:49:48.2510964Z",
+        "EndedUtc": "2026-09-09T23:49:49.1587367Z",
+        "Log": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\m18-item2-closeout-755636a\\native-contract.log"
+      },
+      {
+        "Name": "frame-analyzer",
+        "ExitCode": 0,
+        "StartedUtc": "2026-09-09T23:49:49.1604294Z",
+        "EndedUtc": "2026-09-09T23:49:49.8148934Z",
+        "Log": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\m18-item2-closeout-755636a\\frame-analyzer.log"
+      }
+    ],
+    "NativeBuilds": "Debug and Release zero warnings/errors against installed baseline; actual diagnostic Release also builds cleanly.",
+    "Formatting": "Changed-source whitespace and native analyzers pass; one test initializer normalized. Subsequent diagnostic workspace check passes.",
+    "SourceSafety": {
+      "SourceCommit": "830ef3f5633e7ba1f3caa5a0ee4a518e4675315c",
+      "TrackedFiles": 516,
+      "ForbiddenNativeDependencies": [],
+      "Result": "Pass"
+    },
+    "OrdinaryDiagnosticAudit": "Ordinary artifact audit passes and rejects NativeUiResourceDiagnostics presence. F11 field, call and type are compile-time excluded.",
+    "NuGet": "Cached dependencies unchanged; unavailable vulnerability lookup disabled for offline restore/build invocations only, not persisted to source configuration.",
+    "ArtifactInputCorrection": "Initial ad hoc invocation incorrectly passed compressed ZIP bytes to the plain-file scanner, yielding random-byte path matches. The shipped archive workflow scans extracted contents. Independent extraction and all five exact source/extracted hashes pass; extracted PE/text/privacy audit passes. Failed input log preserved."
+  },
+  "IndependentReviews": [
+    {
+      "SchemaVersion": 1,
+      "ReviewedAtUtc": "2026-09-09T23:52:29.5922088Z",
+      "Reviewer": "item2_recovery_audit independent resource and integration reviewer",
+      "BaseCommit": "755636a0a8415d913a69d7c2d0c1ae8f57878fad",
+      "FrozenCorrectionCommit": "8a1211b3eb00743104cea2899cd90239caaf5084",
+      "FinalReviewedCommit": "830ef3f5633e7ba1f3caa5a0ee4a518e4675315c",
+      "Verdict": "PASS for reviewed resource ownership, opt-in diagnostic, modal and production integration scope; no confirmed reachable P1/P2",
+      "Findings": [],
+      "ReviewMethod": "Read-only immutable diff, changed production source and unchanged consumers, test-source inspection, fresh installed-assembly decompilation. No builds, tests, gameplay or profile mutations by this reviewer.",
+      "Scope": [
+        "OwnedTotemIconShadow and NativeTotemIconAppearance plus all shipping Image callers and shell/child teardown",
+        "NativeUiResourceDiagnostics, ModBehaviour F11 composition, conditional compilation and OrdinaryReleaseAudit",
+        "Actual RetainedPanelModal linked into shell fixtures, real PanelOperationController and RetainedNativeStatisticsPanel routing",
+        "Supplementary inspection of NativeCombatAttributionAdapter cleanup partition and source-linked degradation fixtures"
+      ],
+      "ExcludedSelfAuthoredCode": "M18LargeHistoryTests.cs; reviewed independently by the other reviewer",
+      "InstalledContracts": [
+        {
+          "Assembly": "LeTai.TrueShadow.dll",
+          "Sha256": "a0fd277f98ba9cf6d8b169fd6e02171f612fbe7b3d7b7decb753bdbea6896208",
+          "Method": "Fresh ilspycmd stdout from installed Duckov managed assembly",
+          "Verified": "TrueShadow.SpriteMesh is an internal instance Mesh auto-property with a zero-argument getter. OnEnable allocates it if absent. Image ModifyMesh(VertexHelper) fills the private mesh; legacy ModifyMesh(Mesh) destroys the old private mesh and clones its input. Native OnDisable keeps the mesh; native OnDestroy disposes renderer, releases the shadow container and stops coroutines without destroying SpriteMesh. TMP branches may borrow native text meshes and are outside UDS ownership."
+        },
+        {
+          "Assembly": "UnityEngine.UI.dll",
+          "Sha256": "b4003eb15f894de8da32b52a8ff832704c5da899780f1a914e85f859c7f34cda",
+          "Method": "Fresh ilspycmd -t UnityEngine.UI.Graphic stdout from installed Duckov managed assembly",
+          "Verified": "Graphic supplies VertexHelper or its shared workerMesh to IMeshModifier. TrueShadow fills or clones a separate SpriteMesh; the owned override therefore does not destroy Graphic.workerMesh."
+        }
+      ],
+      "ProductionPaths": [
+        "A retained Equipment, Crafting, Item Use, or Runs item Image resolves verified Totem metadata; NativeTotemIconAppearance adds OwnedTotemIconShadow only if no TrueShadow already exists. Native styling is unchanged. Pool clear/disable retains the mesh. Child/root teardown destroys the UDS GameObject; derived OnDestroy calls native base then releases its private mesh in finally. Existing native TrueShadow and borrowed icon sprites never acquire UDS destruction ownership.",
+        "UDSPerformanceDiagnostics=true defines UDS_PERFORMANCE_DIAGNOSTICS. Only that build contains the resource diagnostic type, ModBehaviour field, F11 branch and reflective mesh-ID getter. The ordinary source path has no snapshot polling. Artifact audit rejects an ordinary DLL containing the diagnostic type. Snapshots keep bounded integer owner/mesh IDs, label unresolved survivors as candidates, and explicitly disclaim attribution from global counts and possible ID reuse.",
+        "RetainedStatisticsShell constructs the real PanelModal. Panel sync blocks other child CanvasGroups, captures prior focus, selects Cancel first and contains navigation. ConfirmReset delegates to generation-checked single-flight PanelOperationController. Panel input handling consumes modal navigation before tab switching. Dismissal restores prior interactability and valid focus; disposal removes listeners and shell teardown destroys the modal root."
+      ],
+      "TestSourceAssessment": [
+        "Ownership fixtures cover repeated creation/destruction, pooled reuse, existing native shadow exclusion, cleanup failure and unavailable metadata. They explicitly dispatch native lifecycle boundaries; Unity deferred destruction and rendering are not emulated.",
+        "Resource fixtures cover exact owner/mesh census, destroyed-owner surviving-mesh candidates, later absence, hidden-owner reuse and unrelated global growth. Native resource completion remains an observation task.",
+        "Modal fixtures now execute RetainedPanelModal.cs rather than a replacement modal. Only ScrollRegion viewport rendering is isolated. Cancel-default focus, navigation containment, background-state restoration, hotkey-only cancellation, invalid prior focus, one queued reset and disposal are checked."
+      ],
+      "FinalDelta": "8a1211b..830ef3f changes only whitespace in the NativeTotemIconOwnershipTests metadata initializer; independently inspected, no behavior change.",
+      "RefRecheck": "HEAD was 830ef3f5633e7ba1f3caa5a0ee4a518e4675315c; reviewed src/tests/tools scope matches that commit.",
+      "EvidenceLimits": [
+        "No native rendering, deferred destruction completion, frame-time or long-lived Unity resource claim is made by this read-only review.",
+        "Root owns and reports full suite, installed contract probe, ordinary/diagnostic native builds and artifact validation.",
+        "No unsupported pre-v1 migration path or hypothetical unreachable callback ordering was elevated to a defect."
+      ]
+    },
+    {
+      "reviewer": "item2_resource_audit",
+      "mode": "independent read-only review of code not authored by this reviewer",
+      "base": "755636a0a8415d913a69d7c2d0c1ae8f57878fad",
+      "frozen_correction_head": "8a1211b3eb00743104cea2899cd90239caaf5084",
+      "final_ref": "830ef3f5633e7ba1f3caa5a0ee4a518e4675315c",
+      "verdict": "PASS: no actionable P1 or P2 finding in the assigned combat, modal and large-history scope",
+      "findings": [],
+      "scope": [
+        "NativeCombatAttributionAdapter DisableRegistration and all changed correlation-clear paths, composed with CombatHarmonyBridge, native callback registration, capability dependencies, buff trust, effect origins and grenade hazard ownership",
+        "New source-linked NativeCombatDegradationTests and shared combat/native stub changes",
+        "Source-linked RetainedPanelModal, modal focus/blocking/reset operation tests and the isolated scroll boundary",
+        "M18LargeHistoryTests: 1000 diverse runs, final completion through ProfileRepository, current-format save/reopen, projections, exact run routing, records, JSON and CSV export"
+      ],
+      "excluded": [
+        "Self-authored native totem mesh correction and resource diagnostic implementation; reviewed independently by another reviewer"
+      ],
+      "evidence": [
+        "Effect.SetItem drift now clears effect equipment origins without discarding supported in-flight projectile identity or its hit state. Projectile Init/Update/Release drift still clears tracked projectiles and disables dependent accuracy capabilities.",
+        "Grenade origin clearing matches CanObserveGrenadeHazards dependencies. Buff-application trust failure retains its separate existing broad dependency cleanup. Unrelated drift preserves conflicting buff evidence and proven grenade hazard origins.",
+        "Inspected installed native Projectile Init/Update/Release and damage call ordering, plus ItemStatsSystem.Effect SetItem/Trigger. Production callbacks retain prefix/finalizer scope pairing; disposal and genuine generation/run transitions still clear all correlations/scopes.",
+        "Modal tests now execute the production modal's Cancel-first focus, keyboard containment, original CanvasGroup state restoration, inactive/destroyed focus fallback, reset single-flight and listener disposal. Native scroll rendering remains isolated.",
+        "The large-history fixture builds prior runs through the shipping reducer and exercises repository completion at the 1000-run boundary, then validates persisted totals, repeated-map routes, records, exact projections and real 37-file export output. It does not claim 1000 separate disk flushes or native rendering/resource soak.",
+        "Post-freeze delta 8a1211b..830ef3f only splits a test initializer's id/icon/displayQuality properties onto separate lines. No production behavior changes. Reviewed-source working-tree diff was empty at ref recheck."
+      ],
+      "validation": {
+        "tests_or_builds_run_by_reviewer": false,
+        "reason": "Root owns combined full validation; this review did not run shared builds or modify source/profiles.",
+        "native_inspection": "Fresh ilspycmd reads from installed TeamSoda.Duckov.Core.dll and ItemStatsSystem.dll",
+        "remaining_native_limit": "These managed tests do not establish Unity rendering, native object reclamation or in-game focus acceptance."
+      }
+    },
+    {
+      "SchemaVersion": 1,
+      "RecordedUtc": "2026-09-09T23:55:28.6169709Z",
+      "Reviewer": "Independent final integration reviewer; combat/modal implementation excluded from self-review and assigned by root to other reviewers",
+      "Range": {
+        "Base": "443fad6a268916a6038c919501a714d1f17da371",
+        "InitiallyRequestedHead": "8a1211b3eb00743104cea2899cd90239caaf5084",
+        "FinalHead": "830ef3f5633e7ba1f3caa5a0ee4a518e4675315c",
+        "FinalHeadRechecked": true,
+        "FinalFollowupDelta": "Only three initializer assignments split onto separate lines in NativeTotemIconOwnershipTests; all runtime source unchanged."
+      },
+      "Verdict": "PASS: no confirmed P1/P2 in the assigned final shipping integration boundaries.",
+      "Findings": [],
+      "Method": "Read-only current source/native composition and immutable deltas, with earlier complete immutable review evidence retained where applicable. The entire 304-file historical M18 change was inventoried; this is a final integration review using prior scoped reviews, not a claim of independently rereading every historical line or executing tests in this turn.",
+      "PriorReviewUse": {
+        "CompleteRange": "443fad6a268916a6038c919501a714d1f17da371..4068480cd736642a16e14b0510384c957b3b08e0",
+        "RecordedVerdicts": "Final integration, current-data/runtime composition and delivery tooling passed without confirmed P1/P2 in M18_AUTOMATED_EVIDENCE.json.",
+        "FreshAgreement": "git diff verified Core/Persistence plus ordinary package, deploy, verify-package, archive-package, create-release and verify-reproducibility scripts unchanged between4068480 and final830ef3f. Shipping entry paths were nevertheless read back.",
+        "LaterReviewEvidence": "Read complete duration-cache and exact-bound review reports, then current DurationPlan/Advance and native lifecycle composition. Read recorded access/storage correction range and deliberate later coordinator/economy/tutorial/diagnostic integrations.",
+        "Artifacts": [
+          {
+            "Path": "docs/M18_AUTOMATED_EVIDENCE.json",
+            "Sha256": "14b589f70d73e9e3285037c0b10192d35c00a10aea7762bc6edb8ee489176faa"
+          },
+          {
+            "Path": "docs/M18_ACCESS_STORAGE_CORRECTION.json",
+            "Sha256": "c9d1de883f71c8d1f821c46dbddb02eaa77f1b5ad8c0968eeedbc031bec7a907"
+          },
+          {
+            "Path": "artifacts/m18-duration-cache-review/review.md",
+            "Sha256": "3bd7669a109f0d202ddde282399eba7a4d060ae651b74158ff33e245ee9450c3"
+          },
+          {
+            "Path": "artifacts/m18-duration-bound-review/review.md",
+            "Sha256": "8ad4719881c36325432a184a1b3c33206f4d27dbbd4a1498ae439614b7a94996"
+          }
+        ]
+      },
+      "InspectedBoundaries": [
+        {
+          "Area": "Activation and teardown",
+          "Result": "Pass",
+          "Details": "ModBehaviour.OnAfterSetup assigns explicit owners and wires generation/run/segment consumers and persistence barriers before activation. Update runs readiness, lifecycle, equipment and native adapters before persistence/UI. ProcessLifetimeCleanupOwner blocks duplicate replacements and retains failed cleanup; CleanupCompletionGate retains coordinator until crafting/world-time/run cleanup completes. Application quit drains boundaries/checkpoints. Direct-quit Cash uses Application.quitting to suspend before native inventory teardown; deactivation unsubscribes it."
+        },
+        {
+          "Area": "Current-format persistence",
+          "Result": "Pass",
+          "Details": "ProfileRepository.Open uses AtomicJsonStore primary/backup/temp semantic selection. Incompatible current-primary format is preserved then archived without conversion. Current-schema validation/normalization, save identity, interrupted recovery and replay compaction remain. No ProfileMigrator/schema-by-schema conversion source remains. Coordinator completion waits checkpoint/profile writers; export captures detached snapshot after barriers; reset and save-slot operations use queued transitions. No save/profile writes were performed by reviewer."
+        },
+        {
+          "Area": "Post-baseline integrations",
+          "Result": "Pass",
+          "Details": "Read actual coordinator retry guard and persistent-failure reporting delta; economy suspended-boundary and direct-quit changes; native first-tutorial identity guard and lifecycle integration; exact-equipment duration metadata plan and checked positive-bound path; localized name cache invalidation/disposal without history mutation. These preserve original capture, publication and persistence order in the inspected callers."
+        },
+        {
+          "Area": "Ordinary diagnostic exclusion",
+          "Result": "Pass at source/package contract",
+          "Details": "NativeHotPathTimings and NativeUiResourceDiagnostics are wholly preprocessor-gated. F11 resource field/readback and synchronous timing scopes are opt-in. Ordinary counter control/count calls use Conditional so argument evaluation is removed. OrdinaryReleaseAudit rejects diagnostic calls and NativeUiResourceDiagnostics type; package/archive invoke audit. Diagnostic builder writes a distinct output/package/manifest and uses fresh nonincremental/no-shared-compiler build. Reviewer did not execute IL audit or build in this turn; root reports completed validation separately."
+        },
+        {
+          "Area": "Resource ownership",
+          "Result": "Pass against installed native contract",
+          "Details": "Retained shell destroys owned root and disposes private materials/icons/listeners; borrowed native assets remain borrowed. OwnedTotemIconShadow is added only to UDS Image casters, retains its private mesh across disable/reuse, invokes native destruction then releases only that mesh in finally. Existing native shadows are not converted to UDS ownership. Actual installed SpriteMesh getter is an auto-property; OnEnable/geometry allocates Mesh, OnDisable retains it, base OnDestroy releases renderer/container but not SpriteMesh. Tests exercise production helper with native boundary doubles; native deferred destruction remains an explicit limit."
+        },
+        {
+          "Area": "Package and replacement transaction",
+          "Result": "Pass",
+          "Details": "Ordinary package checks source/build freshness/version/path/diagnostic exclusion and exact five-file inventory. Archive fixes ordering/timestamps and independently extracts/hash-compares contents. Deployment checks game closure and reparse-point/path safety, stages outside scanned Mods, preserves verified old bytes, hash-validates staging and replacement, and rolls back before commit on failure. No game/save/native dependency is packaged. Current package execution/reproducibility/deployment outcome is root-owned validation, not a reviewer execution claim."
+        }
+      ],
+      "NativeContract": {
+        "Path": "E:/SteamLibrary/steamapps/common/Escape from Duckov/Duckov_Data/Managed/LeTai.TrueShadow.dll",
+        "Sha256": "a0fd277f98ba9cf6d8b169fd6e02171f612fbe7b3d7b7decb753bdbea6896208",
+        "Readback": "Live ilspycmd decompilation of LeTai.TrueShadow.TrueShadow SpriteMesh, OnDisable and OnDestroy; no native program execution."
+      },
+      "ExcludedSelfReview": [
+        "NativeCombatAttributionAdapter/CombatHarmonyBridge attribution correction and its regression fixtures",
+        "RetainedPanelModal behavior and newly linked modal/access fixture changes"
+      ],
+      "RemainingLimits": [
+        "No new Unity gameplay, live modal/pointer/rendering or final package deployment was exercised by this reviewer.",
+        "Actual Unity deferred Mesh/material/texture destruction and driver/process memory after repeated UI cycles require native observation. Managed boundary tests prove ownership calls, not native/GPU release timing or a leak-free entire game process.",
+        "Opt-in F11 snapshots retain integer identities only and label global counts as unattributed and candidate IDs as reusable. They support bounded native investigation, not an automatic leak verdict.",
+        "Prior/current automated and manual evidence retain their documented scope. This PASS does not declare the entire M18 native/manual matrix complete, establish new performance thresholds, or authorize merge/publication."
+      ],
+      "ReadOnlyActions": [
+        "Immutable Git range/delta/status inspection",
+        "Current shipping source and named prior review readback",
+        "Installed native contract decompilation and hashing",
+        "This review JSON only"
+      ],
+      "BuildsTestsOrDeploymentExecuted": false,
+      "ShippingSourceCleanAtFinalReadback": true,
+      "SourceProof": [
+        {
+          "Path": "src/UltimateDuckovStatistics/ModBehaviour.cs",
+          "Sha256": "0933fe35db38e507e4e1e0bfc39f5c5ef56e76a5a8ef5ebe3a9ea19037c8889b"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics.Core/Compatibility/RetryableCleanupOwner.cs",
+          "Sha256": "9987f27faa90c7c5517fcb8ee8101ed13bfb749904b9f3504f34d1ddb13718aa"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics.Core/Compatibility/CleanupCompletionGate.cs",
+          "Sha256": "ad6d12efd8e860f599caee525c6b48700b520e6d00be7939771fb28d32877925"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics.Core/Persistence/ProfileRepository.cs",
+          "Sha256": "0a5cd699d456423d1157ec1e895ea85432576b54122984b6c9e779a55cac110f"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics.Core/Persistence/ProfileFormat.cs",
+          "Sha256": "e4e5e021019a49c3ef288693b88c374af61c5574436e730b1c6257f57e1019c8"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics.Core/Persistence/AtomicJsonStore.cs",
+          "Sha256": "b913d1098e566ef83c254bf101218c79cd36092ac0199487cb9b4ac298b38d42"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/Adapters/NativeProfileCoordinator.cs",
+          "Sha256": "22896eec34f8d45bd096d581187e1849ff14b2713bdf628c9a29a2133d914799"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/Adapters/DeferredCheckpointWriter.cs",
+          "Sha256": "7f0c87c73aeec4eda3eb0af6988c7e0f25ad92767bb5927b6dffd638048b8722"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/Adapters/NativeEconomyAdapter.cs",
+          "Sha256": "e7da2ead9ce8ea07cab6390fce96d9a0761e1efda0b67084c063c34663dde0c9"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/Adapters/NativeRunLifecycleAdapter.cs",
+          "Sha256": "a51f1f8750990d5ea6c42d4ead259f7de8ceaef62aeb23d37e20e9d16ef2ab09"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/Adapters/NativeHealingAttributionAdapter.cs",
+          "Sha256": "1015dd4c81eaa70f70562a2d5ef5d0f60c5b930b771bbf7631557664f4a76ff8"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/Adapters/NativeWorldTimeAdapter.cs",
+          "Sha256": "97adc58988c7cb22915ceaec7b306b7e33d25129300976ad1143dd344b5ff53e"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics.Core/Statistics/EquipmentDurationPlan.cs",
+          "Sha256": "2ba1031eaf699053d19c864b956bad2ca606efd86e838b2a8cfd373274ef1526"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics.Core/Statistics/EquipmentStatistics.cs",
+          "Sha256": "0ea3e96c878f3a2d2ae0d48aa0840ef93a243386182900cfde58b7f5fe0f1eed"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/UI/NativeEntityDisplayNames.cs",
+          "Sha256": "2a0e08acd5bdc263be3c694bf2664b6260ad7ba6cd9a290d08769c1b7a2a7e13"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/UI/RetainedStatisticsShell.cs",
+          "Sha256": "2ee9b989745fb0788efc654100701aa03f757d698161fe36c8b6df6cc09522bb"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/UI/RetainedTabLabelMaterial.cs",
+          "Sha256": "9c49a6ecc0ac32be46c28eb9baf53be437f7e5f40dd58fab5eb360a903933d90"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/UI/OwnedTotemIconShadow.cs",
+          "Sha256": "ea15c970a2e57199e1f23fac6864e4b4f02e213044ac8694c2561d542978f460"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/UI/NativeTotemIconAppearance.cs",
+          "Sha256": "b5296e0c108afe325dcc5b9bf07f0be251ba324edc439a09cf63cd3f47587450"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/Adapters/NativeUiResourceDiagnostics.cs",
+          "Sha256": "e18c6e0931aaf0b16c89cc5c96630b1e35c21d3bb6594793baf07fdab7d23221"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/Adapters/NativeHotPathDiagnostics.cs",
+          "Sha256": "f9529b089c79a48c2d14a43b7121b2f4314849a0dbeb6acdc9a01354d335c45e"
+        },
+        {
+          "Path": "src/UltimateDuckovStatistics/Adapters/NativeHotPathTimings.cs",
+          "Sha256": "44c7ee44454a3754201aa5ea12896351026d9344cb1704569e7b99e4a360dc98"
+        },
+        {
+          "Path": "scripts/build.ps1",
+          "Sha256": "93a03d0f3e421f62592cb47b355594b88d5469629746350079817932a9ac2e1c"
+        },
+        {
+          "Path": "scripts/package.ps1",
+          "Sha256": "4af3776283a473125a02a9cb299e10bf9a0f6b95d06f3b0bb8e504566943da40"
+        },
+        {
+          "Path": "scripts/verify-package.ps1",
+          "Sha256": "a2761f3811051b5d485c4bb9e3c2f74e0a11ab44d10ea6347d250f9dc4113f6a"
+        },
+        {
+          "Path": "scripts/deploy.ps1",
+          "Sha256": "e829c88866e5512019e9eca6e54db93840d79b6c6d7a58270868e6655088ea68"
+        },
+        {
+          "Path": "scripts/archive-package.ps1",
+          "Sha256": "30f85a2467f7f0e85412956efd15fbb8565847b2f62415cdc4b1cce362a1b27f"
+        },
+        {
+          "Path": "scripts/create-release.ps1",
+          "Sha256": "340d456c61814c9a343a7a8fb2b322560ea798d2a649a2dc287d484fcfe09cba"
+        },
+        {
+          "Path": "scripts/verify-reproducibility.ps1",
+          "Sha256": "dd8b783136fd49f9ca8f88828e1d1d18fa7e0dbe4858fb2b3e79252fe0878c6e"
+        },
+        {
+          "Path": "scripts/build-performance-diagnostic.ps1",
+          "Sha256": "14dacc8131517b34298d99b2fdf7110692fdb63c945077b28a93da86c7d92940"
+        },
+        {
+          "Path": "tools/ArtifactAudit/OrdinaryReleaseAudit.cs",
+          "Sha256": "a75e9bbb62c6f8a49c88f868a18ed3e16aff42c748d4d776c36fcd0fcdeee09c"
+        },
+        {
+          "Path": "tests/UltimateDuckovStatistics.Shell.Tests/NativeTotemIconOwnershipTests.cs",
+          "Sha256": "f2ff8f5f8c23943925a6ab8c95217b0238a94670d3e974bb5453b38f5304c452"
+        }
+      ]
+    }
+  ],
+  "ReviewBoundary": "Three reviewers collectively cover non-self-authored corrections and final integration. An additional fresh-agent request hit the platform thread limit; existing reviewers performed cross-review and explicit current integration readback. Historical whole-system review remains cited with exact immutable refs; no claim that every historical line was reread independently in this turn.",
+  "Artifacts": {
+    "SourceCommit": "830ef3f5633e7ba1f3caa5a0ee4a518e4675315c",
+    "Version": "1.0.0-rc.1",
+    "Ordinary": {
+      "ZipBytes": 635765,
+      "ZipSha256": "df8de4c982530b0c21a1b30c77355bb420c059bdbc87fef7b9c4c0bc5aec080c",
+      "Zip": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\candidates\\830ef3f5633e7ba1f3caa5a0ee4a518e4675315c\\UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+      "Directory": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\candidates\\830ef3f5633e7ba1f3caa5a0ee4a518e4675315c\\UltimateDuckovStatistics",
+      "Files": [
+        {
+          "Name": "info.ini",
+          "Bytes": 336,
+          "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+        },
+        {
+          "Name": "INSTALL.md",
+          "Bytes": 6820,
+          "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+        },
+        {
+          "Name": "LICENSE",
+          "Bytes": 1096,
+          "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+        },
+        {
+          "Name": "UltimateDuckovStatistics.Core.dll",
+          "Bytes": 693760,
+          "Sha256": "e2a9256f58ba08b3bc5b127184a297548c85020f23d90564b763ca8754984ca6"
+        },
+        {
+          "Name": "UltimateDuckovStatistics.dll",
+          "Bytes": 1122304,
+          "Sha256": "08c59c3b03ea47fc2bdb455486eb0f2fd31ae8c76d05c5aca21bcb4eeb57b937"
+        }
+      ]
+    },
+    "Diagnostic": {
+      "ZipSha256": "360ef01c1706bff40dc81889451d5d8730089f5ea89059bb9b21e86211971a85",
+      "ZipBytes": 640615,
+      "Purpose": "F11 native resource observation only; not an ordinary release candidate",
+      "Directory": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\diagnostic-candidates\\830ef3f5633e7ba1f3caa5a0ee4a518e4675315c-resources\\UltimateDuckovStatistics",
+      "Zip": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\diagnostic-candidates\\830ef3f5633e7ba1f3caa5a0ee4a518e4675315c-resources\\UltimateDuckovStatistics-resource-diagnostic.zip",
+      "Files": [
+        {
+          "Name": "info.ini",
+          "Bytes": 336,
+          "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+        },
+        {
+          "Name": "INSTALL.md",
+          "Bytes": 6820,
+          "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+        },
+        {
+          "Name": "LICENSE",
+          "Bytes": 1096,
+          "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+        },
+        {
+          "Name": "UltimateDuckovStatistics.Core.dll",
+          "Bytes": 693760,
+          "Sha256": "e2a9256f58ba08b3bc5b127184a297548c85020f23d90564b763ca8754984ca6"
+        },
+        {
+          "Name": "UltimateDuckovStatistics.dll",
+          "Bytes": 1133568,
+          "Sha256": "74e4586ddc4dad2202b6ae76b65e2543eaa7454331333bdad9098e21c2b7e220"
+        }
+      ]
+    },
+    "Reproducibility": {
+      "Report": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\reproducibility\\830ef3f5633e7ba1f3caa5a0ee4a518e4675315c-d4c5cdbc10a64c5e93a85c981e3f9615\\result.json",
+      "Result": "Pass",
+      "Compared": "DLL/PDB/ZIP across normal checkout and two immutable archive roots"
+    },
+    "AuditInputCorrection": "Initial ad hoc invocation incorrectly passed compressed ZIP bytes to the plain-file scanner, yielding random-byte path matches. The shipped archive workflow scans extracted contents. Independent extraction and all five exact source/extracted hashes pass; extracted PE/text/privacy audit passes. Failed input log preserved."
+  },
+  "Deployment": {
+    "RecordedUtc": "2026-09-09T23:58:29.95076Z",
+    "UserConfirmedClosure": true,
+    "GameAndCaptureProcesses": [],
+    "InstalledKind": "Resource diagnostic",
+    "InstalledReadback": "All five exact hashes match artifacts.json Diagnostic.Files",
+    "UdsDataFilesUnchanged": 2906,
+    "ProtectedFiles": [
+      {
+        "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\PLAN.md",
+        "Sha256": "63c24123b56dc5c77fec082589957eb99b92f6788d49451815ec9519a837b214"
+      },
+      {
+        "Path": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\docs\\M18_FIRING_TIMING_DIAGNOSTIC.md",
+        "Sha256": "a344fc0eb0bcb22ece9f2ace35bd07d305f29599f795e2320b9478f0cfaf2614"
+      }
+    ],
+    "RollbackDirectory": "artifacts/deployment-backups/d0846e6e5ef84abd822d61bc0188add6/UltimateDuckovStatistics",
+    "RollbackHashes": {
+      "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+      "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+      "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+      "UltimateDuckovStatistics.Core.dll": "9fe4865ad1c6355278f67b45d0a20b2fb6b8573e534d17357b50a99dd3594e1f",
+      "UltimateDuckovStatistics.dll": "e0f7198b40c8110c3c0bcbd21122275204274cd6695225e55d112cb7b6ac8bc5"
+    },
+    "TransactionResidue": false
+  },
+  "PerformanceDecision": "The user accepted observed deviations; original measurements, numerical failures and limitations are unchanged in M18_PERFORMANCE_ACCEPTANCE.json. No additional CapFrameX captures or speculative tuning performed.",
+  "RemainingUserDependencies": [
+    "One short prepared native totem/resource session using F11 and an export, then user closes Duckov.",
+    "Restore the already-prepared ordinary package after that closure; user cold activation/export verifies replacement.",
+    "Explicit decision on unexercised random controlled multi-target and bounded-history coverage.",
+    "Separate merge/tag/release/Workshop permission, preview approval and subscription-install observation."
+  ],
+  "UnrelatedWork": "PLAN.md and docs/M18_FIRING_TIMING_DIAGNOSTIC.md remain byte-identical to the starting manifest and unstaged. Deferred UI polish is not included.",
+  "Evidence": [
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/checks.json",
+      "Bytes": 2303,
+      "Sha256": "604d95d78bb213a247ccf17da896084d33971c2ce5af4a3251486735badf342c"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/artifacts.json",
+      "Bytes": 3600,
+      "Sha256": "5d85f6fcfc534a56a35464c3edecb71915c28f36647178cc6bbf7c3cf04d833c"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/deployment.json",
+      "Bytes": 1351,
+      "Sha256": "30c906e2c8545527c087532fb781a030b37e071f426d791f39f87b2d5690fbb9"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/source-safety.json",
+      "Bytes": 151,
+      "Sha256": "0e55dc9bbf51ed6f726a9702a8f6cae38566534d826bc52cd08e655807a95ba5"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/input-capability-audit.json",
+      "Bytes": 10424,
+      "Sha256": "c111ca8966e9904173c844a2996e5192b1a1f8e1745d5aa388f40f2b37b3e02b"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/review-resource-integration.json",
+      "Bytes": 5569,
+      "Sha256": "5cd820925a27067683317f3628ce50f85ae4b866bce588fbd7f5f570128680af"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/review-combat-history.json",
+      "Bytes": 3300,
+      "Sha256": "67d32893a746851b8f46141ed277759c023c073d424690d43c5e98da53679474"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/review-final-integration.json",
+      "Bytes": 13985,
+      "Sha256": "cccf576d2049c61f82ca00339a0566ec74038471c786e4d9af1ddce2d38629ce"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/format.log",
+      "Bytes": 0,
+      "Sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/formatter-workspace-details.log",
+      "Bytes": 4176,
+      "Sha256": "444b73243a3743f15efc25333e477714d075eac1ccd40dc61bdf085e78756c98"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/analyzers.log",
+      "Bytes": 124,
+      "Sha256": "fa397e31a142a019209205d2f95c50522eb19bc5c9794c51efa376777e92a88e"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/package.log",
+      "Bytes": 401,
+      "Sha256": "47830f4a9270833dba0f4116e7a4f2a62e03c2d099ee4782dca614d8f969ad45"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/package-verify.log",
+      "Bytes": 122,
+      "Sha256": "4b26665db66e5a1072a730843ed78f861cbdc12e5837573b0b94b8e64b181a33"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/archive.log",
+      "Bytes": 817,
+      "Sha256": "affdce61319aeb86462b906be0201a5c2d948ebfd012944baeab0b8379fac191"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/reproducibility.log",
+      "Bytes": 5800,
+      "Sha256": "e707bfd10bf1ecd0be0d07ad0429a8cd6cfd92097443d0eca6d156514c533758"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/diagnostic-build.log",
+      "Bytes": 2083,
+      "Sha256": "f2afe3915da6181f17940ca643df4d619daee80df7c1ce7834bd64bdd6575711"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/diagnostic-audit.log",
+      "Bytes": 84,
+      "Sha256": "d8ce4006676828b5570d2820a69639cfb3ee28b981e7dc42deef261a37cdae76"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/diagnostic-extracted-audit.log",
+      "Bytes": 84,
+      "Sha256": "d8ce4006676828b5570d2820a69639cfb3ee28b981e7dc42deef261a37cdae76"
+    },
+    {
+      "Path": "artifacts/m18-item2-closeout-755636a/deploy.log",
+      "Bytes": 1231,
+      "Sha256": "cc33aef703965f9455e8969f6398010c81bdb47549ca7fa9daca24492d7451a6"
+    }
+  ],
+  "PublicationPreparation": {
+    "MergeExecuted": false,
+    "Sha256": "dfee1c529a9338c8358e3bd44af808183c94b92eaa1628e8516ba8243667891f",
+    "PublicationExecuted": false,
+    "DraftBody": "artifacts/m18-item2-closeout-755636a/release-body.draft.md",
+    "TagCreated": false
+  }
+}
