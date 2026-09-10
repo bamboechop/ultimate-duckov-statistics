@@ -1,8 +1,8 @@
 # M18 acceptance record
 
-M18 hardens the completed M17 feature baseline, starting at `443fad6a268916a6038c919501a714d1f17da371`. The first RC has not been published or fully accepted. **M18 remains incomplete only for the specific native observations, coverage decisions and publication steps below.** Live branch, PR and CI state belongs on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19), not in this durable record.
+M18 hardens the completed M17 feature baseline, starting at `443fad6a268916a6038c919501a714d1f17da371`. The first RC has not been published or fully accepted. **Native qualification and ordinary replacement are complete within the recorded bounds; coverage decisions and publication steps remain below.** Live branch, PR and CI state belongs on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19), not in this durable record.
 
-The [item 2 closeout](M18_ITEM2_CLOSEOUT.json) records the latest exact source, complete validation, independent review, ordinary and diagnostic artifacts, deployment readback and user-data preservation. It supersedes older candidate identities as the current handoff. The [remaining manual procedure](M18_MANUAL_QUALIFICATION.md) contains only actions that require the user.
+The [item 2 closeout](M18_ITEM2_CLOSEOUT.json) records the exact source, complete validation, independent review, and ordinary and diagnostic artifacts. The subsequent [native resource qualification](M18_RESOURCE_NATIVE_QUALIFICATION.json) records observed cleanup and restoration of that same ordinary candidate. The [remaining manual procedure](M18_MANUAL_QUALIFICATION.md) contains only actions that require the user.
 
 ## Acceptance summary
 
@@ -16,8 +16,8 @@ The [item 2 closeout](M18_ITEM2_CLOSEOUT.json) records the latest exact source, 
 | Economy, crafting, sleep | [Paid craft](M18_PAID_CRAFT_QUALIFICATION.json), [shop sale](M18_SHOP_SALE_QUALIFICATION.json), [base actions](M18_BASE_ACTIONS_QUALIFICATION.json), [craft/ATM controls](M18_BASE_PERFORMANCE_QUALIFICATION.json), [direct quit](M18_DIRECT_QUIT_NATIVE_QUALIFICATION.json) | Completed native observations and data agreement; supported Unknown/Unavailable/partial states preserved |
 | Language, layout and input | [Native names](M18_NATIVE_NAME_QUALIFICATION.json), [shortcut isolation](M18_SHORTCUT_QUALIFICATION.json), [World time layout](M18_WORLD_TIME_NATIVE_QUALIFICATION.json), [Diagnostics width](M18_DIAGNOSTICS_WIDTH_NATIVE_QUALIFICATION.json); real modal tests and installed input-asset audit in item 2 | Supported keyboard/mouse paths qualified within stated bounds. Installed controls contain no Gamepad/Joystick bindings; no controller-only remainder |
 | Degradation | [Missing Harmony](M18_MISSING_HARMONY_REPEAT_QUALIFICATION.json), [restoration](M18_HARMONY_RESTORATION_QUALIFICATION.json), production foreign-hook drift regression in item 2 | Actionable diagnostics and supported siblings preserved. No arbitrary conflicting mod installation required |
-| UI ownership | Native ownership audit and linked-production regressions in item 2; UDS-created totem shadow mesh now released on destruction | Source/isolated lifecycle verified. Actual Unity deferred reclamation remains one prepared native check |
-| Build and release artifacts | Item 2 exact Debug/Release totals, warning-free builds, installed probe, formatting/analyzers, ordinary IL/privacy audit, extraction, reproducibility and deployment evidence | Latest immutable results recorded in closeout |
+| UI ownership | Native ownership audit and linked-production regressions in item 2; [five native resource snapshots](M18_RESOURCE_NATIVE_QUALIFICATION.json) | Both open/close cycles pass: all 21 observed meshes released; closed UDS roots, totem owners and input owners absent. Bounded observation; no unlimited resource-lifetime claim |
+| Build and release artifacts | Item 2 exact Debug/Release totals, warning-free builds, installed probe, formatting/analyzers, ordinary IL/privacy audit, extraction, reproducibility and deployment evidence; [ordinary restoration and cold activation](M18_RESOURCE_NATIVE_QUALIFICATION.json) | All five installed hashes match; 2,943 data files unchanged during restoration; subsequent same-generation five-run export and unchanged projections verified |
 | Reviews | Prior complete M18 integration review through `4068480`, subsequent correction/evidence reviews, and latest immutable item 2 review | Independent code/native composition review; not a substitute for actual Unity resource measurement |
 
 ## Performance decision and preserved measurements
@@ -43,10 +43,7 @@ The 144,000-event managed workloads preserve exact totals through persistence an
 
 ## What still needs the user
 
-Remote delivery is approval-blocked: the final commits and prepared PR update are saved locally. Automatic approval review requires explicit authorization for the exact final push to `bamboechop/ultimate-duckov-statistics`, branch `codex/m18-release-hardening`. Local validation and deployment are complete; the final push/PR update and subsequent CI readback depend on that approval.
-
-1. Run the prepared short totem/resource session, then close Duckov. Codex will verify deferred mesh cleanup and restore the already-built ordinary package. One ordinary cold activation/export then confirms the replacement.
-2. Decide whether to accept the explicit unexercised controlled multi-target case and bounded-history coverage for this release. The observed-performance acceptance does not silently waive either limitation.
-3. Approve eventual merge/tag/release/Workshop actions separately. The [release procedure](RELEASE_PROCESS.md), [Workshop description](WORKSHOP_DESCRIPTION.md) and [local data guide](LOCAL_DATA.md) are prepared; preview approval and subscription-install verification remain user-controlled.
+1. Decide whether to accept the explicit unexercised controlled multi-target case and bounded-history coverage for this release. The observed-performance acceptance does not silently waive either limitation.
+2. Approve eventual merge/tag/release/Workshop actions separately. The [release procedure](RELEASE_PROCESS.md), [Workshop description](WORKSHOP_DESCRIPTION.md) and [local data guide](LOCAL_DATA.md) are prepared; preview approval and subscription-install verification remain user-controlled.
 
 No tutorial replay, deliberate profile corruption, forced termination, new farming, controller setup or repeated completed performance batch is requested. Deferred text/layout polish and unrelated PLAN follow-ups remain separate. The older chronological acceptance records are preserved in Git history and the individual immutable evidence files; obsolete instructions in those records are not the current work queue.

@@ -7,13 +7,13 @@
   "FinalSourceDelta": "830ef3f only formats the new totem ownership test initializer; runtime and tested behavior are unchanged.",
   "StartingHead": "755636a0a8415d913a69d7c2d0c1ae8f57878fad",
   "Version": "1.0.0-rc.1",
-  "Status": "All agent-owned game-closed item 2 work complete. Specific native observation and user coverage/publication decisions remain; M18 is not declared complete or production-ready.",
+  "Status": "All agent-owned item 2 work and subsequent bounded native resource and ordinary cold-activation qualification complete. User coverage/publication decisions remain; M18 is not declared published or production-ready.",
   "ConfirmedCorrections": [
     {
       "Problem": "Native TrueShadow Image casters allocate a private SpriteMesh which native OnDestroy leaves alive.",
       "Correction": "Only UDS-created totem shadows use the native subclass that preserves native teardown and destroys its final private Image mesh. Pooling reuses it; borrowed sprites/materials/native shadows remain outside UDS ownership.",
       "NativeShadowAssemblySha256": "a0fd277f98ba9cf6d8b169fd6e02171f612fbe7b3d7b7decb753bdbea6896208",
-      "RemainingObservation": "Actual Unity deferred destruction, native glow/tooltip and input restoration through the prepared F11 session."
+      "RemainingObservation": "Two native owned-mesh cleanup cycles and ordinary cold activation/export pass; see M18_RESOURCE_NATIVE_QUALIFICATION.json. No repeat requested."
     },
     {
       "Problem": "Broad combat hook-drift cleanup discarded observations still independently supported: in-flight projectiles, conflicting buff actors and proven grenade hazards.",
@@ -685,8 +685,6 @@
   },
   "PerformanceDecision": "The user accepted observed deviations; original measurements, numerical failures and limitations are unchanged in M18_PERFORMANCE_ACCEPTANCE.json. No additional CapFrameX captures or speculative tuning performed.",
   "RemainingUserDependencies": [
-    "One short prepared native totem/resource session using F11 and an export, then user closes Duckov.",
-    "Restore the already-prepared ordinary package after that closure; user cold activation/export verifies replacement.",
     "Explicit decision on unexercised random controlled multi-target and bounded-history coverage.",
     "Separate merge/tag/release/Workshop permission, preview approval and subscription-install observation."
   ],
@@ -797,12 +795,13 @@
   },
   "RemoteDelivery": {
     "Reason": "Automatic review requires trusted explicit authorization for exact payload and destination; original broad M18 authorization was not accepted by that review.",
-    "Status": "Blocked by automatic approval review; all work saved locally",
-    "RequiredUserAction": "Approve pushing the final saved commit to this repository and branch; update prepared draft PR after push.",
+    "Status": "Historical rejected attempt; subsequently authorized delivery of c074386 completed. See M18_RESOURCE_NATIVE_QUALIFICATION.json for exact readback and PR #19 for current state.",
+    "RequiredUserAction": "None for the recorded delivery; merge/tag/release/Workshop remain separately controlled.",
     "RejectedCommit": "9f3b63973e8208bab3af5506256c0e89393cf150",
-    "NewRemoteCi": "Not run because push was blocked",
+    "NewRemoteCi": "Not run for the rejected attempt. Six successful checks on the subsequent approved commit are recorded in M18_RESOURCE_NATIVE_QUALIFICATION.json.",
     "PreparedPrBody": "artifacts/m18-item2-closeout-755636a/pr-body.md",
     "Branch": "codex/m18-release-hardening",
     "Destination": "bamboechop/ultimate-duckov-statistics"
-  }
+  },
+  "SubsequentQualification": "M18_RESOURCE_NATIVE_QUALIFICATION.json records native resource cleanup, ordinary restoration and completed remote delivery; M18_MANUAL_QUALIFICATION.md is the current user action list."
 }

@@ -2,23 +2,15 @@
 
 This is the remaining action list, not a replay of the completed campaign. Current evidence and candidate identities are in [M18 acceptance](M18_ACCEPTANCE.md) and [item 2 closeout](M18_ITEM2_CLOSEOUT.json). The user accepted the [observed performance deviations](M18_PERFORMANCE_ACCEPTANCE.json). No further CapFrameX captures or attempts to improve the accepted percentiles are scheduled.
 
-The final branch push and prepared draft PR update also await explicit approval. Automatic approval review rejected remote delivery because it requires authorization for the exact final commit and destination, despite the original M18 delivery authorization. All commits, packages and the prepared PR body are saved locally; this step needs no gameplay.
+Branch delivery and CI are tracked on [PR #19](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19). The exact completed delivery and native resource evidence are recorded in [resource qualification](M18_RESOURCE_NATIVE_QUALIFICATION.json).
 
-## One native resource session
+## Completed native resource and replacement checks
 
-The prepared diagnostic differs from the ordinary candidate only by opt-in observations. F11 records live Unity resources on request; it does not start a timed capture or change statistics. Ordinary release code contains no resource diagnostic. The purpose is to verify actual deferred destruction of the totem shadow mesh corrected during item 2, and restoration of the surrounding native UI. Managed tests cannot prove Unity's deferred object reclamation.
+The five F11 snapshots qualify two native open/close cycles: all 10 observed meshes from the first opening and all 11 from the second are absent after closing. Both closed endpoints have no UDS roots, totem owners or input owners. Mesh/material/texture counts also return to the warm baseline. This is bounded native cleanup evidence, not an unlimited resource-lifetime claim. The 37-file export retains the five runs on slot 1.
 
-Use slot 1 at base with Harmony and UDS enabled. Use the existing recorded totems; no equipment changes or raid are required. Keep the same location, camera, language and resolution throughout.
+The ordinary package has replaced the diagnostic with all five installed hashes verified and all 2,943 UDS data files unchanged. The user then completed ordinary cold activation with green Diagnostics and a new 37-file export. Slot 1 retained the same generation and all five runs; run, item, crafting and record projections and capabilities match the prior export. No icon, tooltip or input issue was reported. No repeat F11 or cold activation is requested.
 
-1. Confirm Diagnostics is green. Open Equipment → Totems and hover a totem icon; also visit a recorded run containing totems. Confirm icons, glow and tooltips look normal. Close UDS and wait briefly for the native menu to settle. This is warm-up.
-2. With UDS closed, press F11 once for the warm baseline. Open Equipment → Totems and press F11 again so the diagnostic observes the actual mesh owners.
-3. Close UDS, wait about two seconds and press F11 for the closed endpoint.
-4. Repeat that measured open/close cycle once: same Totems view, F11 while open, close, wait two seconds, F11. Check that the native inventory/map shortcuts and movement work normally after closing UDS.
-5. Export once from Diagnostics, close Duckov completely, and report completion plus any changed glow, missing tooltip, stuck input or error. No CapFrameX recording is needed.
-
-Codex then compares observed owned mesh IDs against live post-close meshes, remaining UDS roots/shadows/input blockers, and the global resource counts. Global counts are context, not proof of a UDS leak: native caches and unrelated objects can change. A scan taken with the panel still open or before deferred destruction is not a failed cleanup result. The diagnostic retains bounded integer identities, never Unity object references; it does not force garbage collection or unload assets.
-
-After that session, the already-built ordinary candidate must replace the diagnostic while the game is closed. One ordinary cold activation with green Diagnostics, retained statistics and a final export completes the replacement check. Repeat only affected behavior if a concrete defect is found.
+The F11 reader originally treated inactive components with mesh ID zero as unreleased meshes. Those components have no live mesh to reclaim. The corrected offline reader excludes only inactive zero-mesh owners from mesh comparisons, still rejects active missing meshes and retained mesh/input owners, and preserves the original result. No runtime change or repeat resource session was required.
 
 ## Scope decisions and publication
 
