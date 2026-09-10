@@ -30,3 +30,11 @@ The [M18 performance and coverage decisions](M18_ACCEPTANCE.md) remain accepted 
 The RC2 version is declared consistently in build properties, `ProductInfo`, `mod/info.ini`, the release-script default and the packaged install guide. Profile format `uds-profile-v1`, data directory `v1` and schema identity stay unchanged. There is no old-build migration or downgrade machinery.
 
 Follow [the release procedure](RELEASE_PROCESS.md) to freeze the exact release commit, run final tests/native builds, audit the ordinary artifacts, reproduce DLL/PDB/ZIP bytes from two clean roots, independently extract the payload and record hashes. The local release manifest and prepared release body identify that exact source, validation and assets. Evidence files and PDBs are outside the installable five-file package. Tag/release publication and post-publication download verification remain separate operations.
+
+## Published RC2 verification
+
+[v1.0.0-rc.2](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0-rc.2) was published as a non-draft GitHub pre-release at 2026-09-10 22:22:51 UTC (2026-09-11 in Europe/Vienna). Its lightweight tag resolves exactly to `f6cd8840b2cdbaface9ad3aeaf99efc9770b9021`.
+
+Independent downloads of the ZIP and checksum sidecar matched the qualified local assets byte-for-byte. The ZIP is 647,365 bytes with SHA-256 `51376393c9d57d1902b3054c35c77aa387ae745b405156af9d465ab4bb6e8ec3`. The sidecar names that same archive and hash. Independent extraction verified exactly the five required files and matched each length, digest and byte sequence against the qualified package. The [publication receipt](RC2_PUBLICATION.json) records all identities and the verification timestamp.
+
+The release source passed 2,020 main, 67 ordinary shell and 71 diagnostic shell tests in each Debug/Release configuration, native Debug/Release builds, installed contracts, changed-source formatting/analyzers, source safety, ordinary artifact audits, two-root DLL/PDB/ZIP reproducibility and independent extraction. [Exact-source CI](https://github.com/bamboechop/ultimate-duckov-statistics/actions/runs/34536377349) completed successfully. The later publication-record commit changes documentation only and does not move the tag or replace assets. Final v1.0 promotion and Workshop publication remain separate user decisions.

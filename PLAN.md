@@ -469,7 +469,7 @@ The four follow-up batches merged through [UI PR #20](https://github.com/bamboec
 - [x] **Background opacity:** Use an 85% outer dimmer and 75% inner panels/dark rows. Blur was cancelled.
 - [x] **Equipment / Totems - color shading:** Preserve native shading through interactions and refreshes; completed resource/visual checks remain in the UI batch record.
 
-Release preparation follows [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md): freeze and verify rc.2, publish the GitHub pre-release on user instruction, then separately decide final v1.0 promotion and Workshop distribution. Live publication and CI state belong on GitHub.
+The [RC2 pre-release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0-rc.2) was published and independently verified; [the publication receipt](docs/RC2_PUBLICATION.json) records its exact tag and asset identities. Final v1.0 promotion and Workshop distribution are the remaining user-controlled release decisions under [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md). Live publication and CI state belong on GitHub.
 
 #### Planned M8 acceptance boundary
 

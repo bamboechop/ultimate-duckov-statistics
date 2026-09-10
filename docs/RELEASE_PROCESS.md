@@ -2,7 +2,7 @@
 
 [M18 acceptance](M18_ACCEPTANCE.md) records the accepted baseline. The [RC2 release record](RC2_RELEASE.md) adds the four merged follow-up batches and the user's 2026-09-11 confirmation that their final in-game checks passed. Live branch, checks and release state belong on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics).
 
-RC1 was published from `58591d5a397abd484284291fd95ab92d949f46fb`. These instructions prepare `v1.0.0-rc.2` from the combined source; earlier M18 and batch packages retain their own historical identities. Do not overwrite RC1's tag or assets.
+RC1 was published from `58591d5a397abd484284291fd95ab92d949f46fb`. RC2 was published from `f6cd8840b2cdbaface9ad3aeaf99efc9770b9021`; its [independent publication readback](RC2_PUBLICATION.json) passed. The steps below record the RC2 preparation procedure. For a later candidate or final v1.0, select its new version and exact source explicitly. Earlier tags, release assets and batch packages retain their historical identities.
 
 ## Prepare the exact candidate
 

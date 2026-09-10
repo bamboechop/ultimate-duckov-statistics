@@ -1,0 +1,50 @@
+{
+  "Tag": "v1.0.0-rc.2",
+  "SourceCommit": "f6cd8840b2cdbaface9ad3aeaf99efc9770b9021",
+  "ReleaseUrl": "https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0-rc.2",
+  "PublishedUtc": "2026-09-10T22:22:51Z",
+  "Prerelease": true,
+  "Draft": false,
+  "Verification": {
+    "VerifiedUtc": "2026-09-10T22:24:40.362553+00:00",
+    "SourceCommit": "f6cd8840b2cdbaface9ad3aeaf99efc9770b9021",
+    "Archive": {
+      "Name": "UltimateDuckovStatistics-v1.0.0-rc.2.zip",
+      "Bytes": 647365,
+      "Sha256": "51376393c9d57d1902b3054c35c77aa387ae745b405156af9d465ab4bb6e8ec3"
+    },
+    "Checksum": {
+      "Name": "UltimateDuckovStatistics-v1.0.0-rc.2.zip.sha256",
+      "Bytes": 107,
+      "Sha256": "c2f4818cdb914f8dc32636917737b061b877643fa524a70787c2bf86193a8775"
+    },
+    "Files": [
+      {
+        "Name": "INSTALL.md",
+        "Bytes": 7802,
+        "Sha256": "b696673a097043dcbd3ab5b3375c30419f94f1f86887862ccd0b1ef06ca17fc6"
+      },
+      {
+        "Name": "LICENSE",
+        "Bytes": 1096,
+        "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+      },
+      {
+        "Name": "UltimateDuckovStatistics.Core.dll",
+        "Bytes": 703488,
+        "Sha256": "9a939986527e29f158dfab9e69a4fa80c0d95e0557f7a29a7e18856dc3e06d2f"
+      },
+      {
+        "Name": "UltimateDuckovStatistics.dll",
+        "Bytes": 1143296,
+        "Sha256": "6a479917ed992a1a92608a57e006e48d78a0bb12ab33d398b4e188d7c5e8b1b8"
+      },
+      {
+        "Name": "info.ini",
+        "Bytes": 336,
+        "Sha256": "88d93f8ef77cb6e9512fd17f56966fe832a692a50ba3c1a37e6ae5dba26fa64e"
+      }
+    ],
+    "Result": "Pass: independently downloaded both assets, verified sidecar and exact byte equality, and extracted/compared all five payload files."
+  }
+}
