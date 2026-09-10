@@ -794,5 +794,15 @@
     "PublicationExecuted": false,
     "DraftBody": "artifacts/m18-item2-closeout-755636a/release-body.draft.md",
     "TagCreated": false
+  },
+  "RemoteDelivery": {
+    "Reason": "Automatic review requires trusted explicit authorization for exact payload and destination; original broad M18 authorization was not accepted by that review.",
+    "Status": "Blocked by automatic approval review; all work saved locally",
+    "RequiredUserAction": "Approve pushing the final saved commit to this repository and branch; update prepared draft PR after push.",
+    "RejectedCommit": "9f3b63973e8208bab3af5506256c0e89393cf150",
+    "NewRemoteCi": "Not run because push was blocked",
+    "PreparedPrBody": "artifacts/m18-item2-closeout-755636a/pr-body.md",
+    "Branch": "codex/m18-release-hardening",
+    "Destination": "bamboechop/ultimate-duckov-statistics"
   }
 }

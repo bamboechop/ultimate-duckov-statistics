@@ -2,6 +2,8 @@
 
 This is the remaining action list, not a replay of the completed campaign. Current evidence and candidate identities are in [M18 acceptance](M18_ACCEPTANCE.md) and [item 2 closeout](M18_ITEM2_CLOSEOUT.json). The user accepted the [observed performance deviations](M18_PERFORMANCE_ACCEPTANCE.json). No further CapFrameX captures or attempts to improve the accepted percentiles are scheduled.
 
+The final branch push and prepared draft PR update also await explicit approval. Automatic approval review rejected remote delivery because it requires authorization for the exact final commit and destination, despite the original M18 delivery authorization. All commits, packages and the prepared PR body are saved locally; this step needs no gameplay.
+
 ## One native resource session
 
 The prepared diagnostic differs from the ordinary candidate only by opt-in observations. F11 records live Unity resources on request; it does not start a timed capture or change statistics. Ordinary release code contains no resource diagnostic. The purpose is to verify actual deferred destruction of the totem shadow mesh corrected during item 2, and restoration of the surrounding native UI. Managed tests cannot prove Unity's deferred object reclamation.

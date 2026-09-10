@@ -43,6 +43,8 @@ The 144,000-event managed workloads preserve exact totals through persistence an
 
 ## What still needs the user
 
+Remote delivery is approval-blocked: the final commits and prepared PR update are saved locally. Automatic approval review requires explicit authorization for the exact final push to `bamboechop/ultimate-duckov-statistics`, branch `codex/m18-release-hardening`. Local validation and deployment are complete; the final push/PR update and subsequent CI readback depend on that approval.
+
 1. Run the prepared short totem/resource session, then close Duckov. Codex will verify deferred mesh cleanup and restore the already-built ordinary package. One ordinary cold activation/export then confirms the replacement.
 2. Decide whether to accept the explicit unexercised controlled multi-target case and bounded-history coverage for this release. The observed-performance acceptance does not silently waive either limitation.
 3. Approve eventual merge/tag/release/Workshop actions separately. The [release procedure](RELEASE_PROCESS.md), [Workshop description](WORKSHOP_DESCRIPTION.md) and [local data guide](LOCAL_DATA.md) are prepared; preview approval and subscription-install verification remain user-controlled.
