@@ -118,6 +118,8 @@
              Link="ProductionAdapters\ItemUsePublication.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\UiText.cs"
              Link="ProductionUI\UiText.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\GermanText.cs"
+             Link="ProductionUI\GermanText.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\StatisticsPanelProjection.cs"
              Link="ProductionUI\StatisticsPanelProjection.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RecordsPresentation.cs" Link="ProductionUI\RecordsPresentation.cs" />

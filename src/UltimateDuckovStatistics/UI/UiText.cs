@@ -422,6 +422,8 @@ internal static class UiText
 
     internal static IReadOnlyDictionary<string, string> EnglishFallbacks => English;
 
+    internal static IReadOnlyDictionary<string, string> GermanFallbacks => GermanText.All;
+
     public static string Get(string key) => Resolve(key, nativeResolver);
 
     internal static string Resolve(string key, Func<string, string?>? resolver)

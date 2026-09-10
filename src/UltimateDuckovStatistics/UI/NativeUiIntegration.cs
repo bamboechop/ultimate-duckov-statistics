@@ -47,6 +47,7 @@ internal sealed class NativeUiIntegration : IDisposable
         try
         {
             RegisterLocalizationFallbacks();
+            LocalizationManager.OnSetLanguage += HandleLanguageChanged;
             UiText.ConfigureNativeResolver(ResolveLocalizedText);
             MainMenu.OnMainMenuAwake += HandleMainMenuAwake;
             MainMenu.OnMainMenuDestroy += HandleMainMenuDestroy;
@@ -528,8 +529,25 @@ internal sealed class NativeUiIntegration : IDisposable
         foreach (var entry in UiText.EnglishFallbacks)
         {
             var key = LocalizationPrefix + entry.Key;
-            LocalizationManager.SetOverrideText(key, entry.Value);
             registeredLocalizationKeys.Add(key);
+        }
+        ApplyLocalizationFallbacks();
+    }
+
+    private static void HandleLanguageChanged(SystemLanguage _)
+    {
+        ApplyLocalizationFallbacks();
+    }
+
+    private static void ApplyLocalizationFallbacks()
+    {
+        var german = LocalizationManager.CurrentLanguage == SystemLanguage.German;
+        foreach (var entry in UiText.EnglishFallbacks)
+        {
+            var value = german && UiText.GermanFallbacks.TryGetValue(entry.Key, out var translation)
+                ? translation
+                : entry.Value;
+            LocalizationManager.SetOverrideText(LocalizationPrefix + entry.Key, value);
         }
     }
 
@@ -563,6 +581,7 @@ internal sealed class NativeUiIntegration : IDisposable
         MainMenu.OnMainMenuDestroy -= HandleMainMenuDestroy;
         PauseMenu.onPauseMenuOn -= HandlePauseMenuOpened;
         PauseMenu.onPauseMenuOff -= HandlePauseMenuClosed;
+        LocalizationManager.OnSetLanguage -= HandleLanguageChanged;
         foreach (var injected in injectedByRoot.Values.Where(value => value != null))
             UnityEngine.Object.Destroy(injected);
         injectedByRoot.Clear();

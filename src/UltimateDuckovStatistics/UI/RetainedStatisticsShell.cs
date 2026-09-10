@@ -622,11 +622,18 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         craftingView?.Refresh(CraftingPresentationFactory.Create(projection, generation));
         itemUseView?.Refresh(ItemUsePresentationFactory.Create(projection, generation));
         RefreshVisualLayout(force: true);
+        RefreshStaticText();
         overviewSummaryScroll?.SetOffset(summaryOffset);
         if (summaryFocused && overviewSummaryScroll != null) GameManager.EventSystem?.SetSelectedGameObject(overviewSummaryScroll.Rect.gameObject);
     }
 
-    public void RefreshStaticText() => aboutView?.RefreshText();
+    public void RefreshStaticText()
+    {
+        aboutView?.RefreshText();
+        if (headerTitleGraphic != null) headerTitleGraphic.text = UiText.Get("ui.title");
+        foreach (var control in tabControls)
+            control.Label.text = UiText.Get(control.Specification.TextKey);
+    }
 
     public void SetSelectedTab(StatisticsPanelTab tab)
     {
@@ -1895,7 +1902,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         text = title.AddComponent<TextMeshProUGUI>();
         text.font = typography.Font;
         text.fontSharedMaterial = typography.Material;
-        text.text = RetainedHeaderTitlePolicy.Text;
+        text.text = UiText.Get("ui.title");
         text.fontStyle = FontStyles.Normal;
         text.fontWeight = FontWeight.Regular;
         text.characterSpacing = 0f;

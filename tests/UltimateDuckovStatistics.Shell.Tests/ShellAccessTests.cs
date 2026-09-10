@@ -232,6 +232,45 @@ public sealed class ShellAccessTests : IDisposable
         SceneInfoCollection.Scenes.Clear(); SodaCraft.Localizations.LocalizationManager.Translations.Clear();
     }
 
+    [Fact]
+    public void StatisticsLocalizationKeepsEnglishKeysAndSwitchesCompleteGermanTable()
+    {
+        Assert.Equal(
+            UiText.EnglishFallbacks.Keys.OrderBy(key => key),
+            UiText.GermanFallbacks.Keys.OrderBy(key => key));
+        Assert.Equal(UiText.EnglishFallbacks.Count, UiText.GermanFallbacks.Count);
+
+        try
+        {
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
+            using var panel = new NativeStatisticsPanel(coordinator);
+            Press(panel, KeyCode.F8);
+            bool HasText(string value) => GameObject.Live
+                .SelectMany(go => go.GetComponents<TextMeshProUGUI>())
+                .Any(text => text.text == value);
+            Assert.True(HasText("Overview"));
+            Assert.Equal("Overview", UiText.Get("ui.overview"));
+            Assert.Equal("Overview", SodaCraft.Localizations.LocalizationManager.GetPlainText(
+                "ultimate-duckov-statistics.ui.overview"));
+
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.German);
+            Assert.Equal("Übersicht", UiText.Get("ui.overview"));
+            panel.Tick();
+            Assert.True(HasText("Übersicht"));
+            Assert.False(HasText("Overview"));
+            Assert.Equal("Übersicht", UiText.Get("ui.overview"));
+            Assert.Equal("Übersicht", SodaCraft.Localizations.LocalizationManager.GetPlainText(
+                "ultimate-duckov-statistics.ui.overview"));
+
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
+            Assert.Equal("Overview", UiText.Get("ui.overview"));
+        }
+        finally
+        {
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
+        }
+    }
+
     private readonly string fixtureRoot = Path.Combine(Path.GetTempPath(), "uds-shell-" + Guid.NewGuid().ToString("N"));
     private readonly NativeProfileCoordinator coordinator;
     private readonly Canvas canvas;
