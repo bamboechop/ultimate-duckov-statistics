@@ -102,7 +102,6 @@ internal static class UiText
             ["ui.combat_enemy"] = "Enemy",
             ["ui.combat_world_deaths"] = "World deaths",
             ["ui.combat_weapons"] = "Weapons",
-            ["ui.combat_fired_with"] = "fired with {0}",
             ["ui.combat_firing_footer"] = "A firing action is one accepted weapon firing event. It may not equal ammunition consumed or projectiles created.",
             ["ui.records_overall"] = "Overall",
             ["ui.records_per_map"] = "Per starting map",

@@ -8,6 +8,7 @@
     <DefineConstants Condition="'$(UDSPerformanceDiagnostics)' == 'true'">$(DefineConstants);UDS_PERFORMANCE_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/CombatTooltip.cs" Link="ProductionUI/CombatTooltip.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/RetainedPanelModal.cs" Link="ProductionUI/RetainedPanelModal.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeHotPathDiagnostics.cs" Link="Production/Adapters/NativeHotPathDiagnostics.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeHotPathTimings.cs" Link="Production/Adapters/NativeHotPathTimings.cs" />

@@ -293,12 +293,9 @@ internal sealed class CombatDocument
         {
             var weapon = selection.Weapon;
             if (weapon == null) { Notice(text("ui.combat_no_pairs"), 30, y, w); return; }
-            y += Notice(weapon.Row.Name, 30, y, w);
             y += Metrics(weapon.Metrics, 30, y, w);
             y += 20;
             y += Heading("ui.ammunition", 30, y, w);
-            if (weapon.HasRangedEvidence)
-                y += Notice(string.Format(System.Globalization.CultureInfo.CurrentCulture, text("ui.combat_fired_with"), weapon.Row.Name), 30, y, w);
             y += Notice(weapon.Notice, 30, y, w);
         }
         else y += Notice(p.WeaponNotice, 30, y, w);

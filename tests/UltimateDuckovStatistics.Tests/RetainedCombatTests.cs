@@ -144,6 +144,8 @@ public sealed class RetainedCombatTests
         Assert.DoesNotContain(right.Rows, row => row.Actionable || row.Expandable || row.Kind == CombatRowKind.Selector);
         var details = Assert.Single(right.Rows, row => row.Kind == CombatRowKind.Heading && row.Cells[0] == "Weapon details");
         var ammo = Assert.Single(right.Rows, row => row.Kind == CombatRowKind.Heading && row.Cells[0] == "Ammunition");
+        Assert.DoesNotContain(right.Rows, row => row.Kind == CombatRowKind.Notice &&
+            (row.Cells[0] == selection.Weapon.Row.Name || row.Cells[0].StartsWith("fired with", StringComparison.Ordinal)));
         Assert.All(right.Rows.Where(row => row.Kind == CombatRowKind.Metric), row => Assert.True(row.Y > details.Y && row.Y + row.Height < ammo.Y));
         Assert.All(right.Rows.Where(row => row.Kind == CombatRowKind.Item), row => Assert.True(row.Y > ammo.Y));
     }
