@@ -39,3 +39,14 @@ Only the user launches Duckov, selects saves and interacts with external sites. 
 - Deliberately activate each approved external link once. Confirm its exact destination, return to Duckov and continue navigating/closing the panel. If launch fails, verify the panel remains usable and retry remains possible.
 
 Automated boundary tests cannot establish native text rendering, audio, browser behavior or manual visual acceptance. Reuse the accepted M18 and Combat evidence for unchanged paths; this batch requires the affected checks above rather than another full gameplay campaign.
+
+
+## Verified ordinary local test delivery — 2026-09-10
+
+Implementation source `864005b5088668fd52e2635f097f5bf4a3db9dbb` produced `artifacts/rc2-about-community-864005b/UltimateDuckovStatistics-about-community-test.zip` under the original checkout. The ZIP is 640,877 bytes, SHA-256 `17052409c5a52043557ae8b2a28edbc7d4b64e0f96b090f2bce4f3ff490ad454`. The adjacent checksum sidecar and `package-evidence.json` record the archive and all five files. Independent extraction matched the package byte-for-byte and passed exact inventory, ordinary IL and privacy audits. The native DLL is SHA-256 `3d234092ff370c7163880699d973494eeee49f001aef34e75326a50dc151acda`; the unchanged Core DLL is `62db0d1def9d3e91f7391581e617a164b9b5d086dc1104e9c5ec52048ae6c688`.
+
+Version fields remain `1.0.0-rc.1`, matching the existing ordinary-package contract; the source SHA and hashes identify this separate local test build. This is not an rc.2 release or a replacement published rc.1 asset. No tag, release or Workshop upload was created.
+
+Deployment used the independently extracted package with Duckov closed. All five installed file lengths and SHA-256 hashes matched. The preceding mod remains in the isolated worktree at `artifacts/deployment-backups/66e117edf1fa4913b78eccddcddd50c5/UltimateDuckovStatistics`. Fresh before/after inventories verified all 3,116 save, UDS-data and protected original-checkout files unchanged. The original checkout's modified `PLAN.md` and untracked firing diagnostic were not included in this branch. Package and deployment evidence remain beside the ZIP. The later documentation-only delivery record does not change the packaged code or installation guide.
+
+The manual checklist above remains open. Review and CI status are authoritative on the repository's [pull requests](https://github.com/bamboechop/ultimate-duckov-statistics/pulls).
