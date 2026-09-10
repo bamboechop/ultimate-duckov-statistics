@@ -33,6 +33,13 @@ namespace UnityEngine
     }
     public class Behaviour : Component { public bool enabled = true; public bool isActiveAndEnabled => enabled && gameObject.activeInHierarchy; }
     public class MonoBehaviour : Behaviour { }
+    public class Camera : Object { }
+    // Pointer coordinates are already local in tooltip tests; Unity owns the real canvas/camera conversion.
+    public static class RectTransformUtility
+    {
+        public static bool ScreenPointToLocalPointInRectangle(RectTransform rect, Vector2 screen, Camera? camera, out Vector2 local)
+        { local = screen; return true; }
+    }
     public class GameObject : Object
     {
         public static readonly List<GameObject> Live = new();
@@ -136,6 +143,9 @@ namespace UnityEngine.Events
 }
 namespace UnityEngine.EventSystems
 {
+    public interface IPointerEnterHandler { void OnPointerEnter(PointerEventData data); }
+    public interface IPointerExitHandler { void OnPointerExit(PointerEventData data); }
+    public sealed class PointerEventData { public UnityEngine.Vector2 position; public UnityEngine.Camera? enterEventCamera; }
     public enum MoveDirection { Left, Right, Up, Down, None }
     public class EventSystem { public UnityEngine.GameObject? currentSelectedGameObject; public void SetSelectedGameObject(UnityEngine.GameObject? value) { currentSelectedGameObject = value; value?.GetComponent<UltimateDuckovStatistics.UI.RunsFocusHandler>()?.Selected?.Invoke(); } }
 }
@@ -261,10 +271,12 @@ namespace Duckov.Utilities
     public static class GameplayDataSettings
     {
         public static UiStyle UIStyle { get; } = new();
+        public static TagsData Tags { get; } = new();
         public static ItemAssets ItemAssets { get; } = new();
         public static CharacterRandomPresetData? CharacterRandomPresetData { get; set; } = new();
     }
     public sealed class ItemAssets { public int DefaultCharacterItemTypeID = 1; }
+    public sealed class TagsData { public ItemStatsSystem.ItemTag Bullet { get; } = new() { name = "NativeBulletTag" }; }
     public sealed class CharacterRandomPresetData { public List<CharacterRandomPreset> presets = new(); }
     public sealed class UiStyle
     {

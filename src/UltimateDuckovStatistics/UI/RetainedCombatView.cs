@@ -22,6 +22,7 @@ internal sealed partial class RetainedStatisticsShell
         private readonly Material material;
         private readonly NativeItemIconResolver icons = new();
         private readonly CombatSelection selection = new();
+        private readonly CombatTooltip tooltip;
         private readonly Action focusTabs;
         private float width, height, pixels;
         private bool dirty = true, disposed;
@@ -40,6 +41,8 @@ internal sealed partial class RetainedStatisticsShell
             unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable");
             footer = Text(root, "FiringActionContract", 20); footer.text = UiText.Get("ui.combat_firing_footer");
             measure = new CombatNativeTextMeasurement(Text(root, "Measurement", 28));
+            tooltip = new CombatTooltip(root, typography.Font, material);
+            outer.Scroll.onValueChanged.AddListener(_ => tooltip.Dismiss());
             outer.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
             outer.Rect.GetComponent<RunsFocusHandler>().Move = d => { if (d == MoveDirection.Up || d == MoveDirection.Left) focusTabs(); else FocusSelector(); };
         }
@@ -58,7 +61,7 @@ internal sealed partial class RetainedStatisticsShell
                     : focused.transform.IsChildOf(selector.Panel) ? selector : null : null;
             restoreFocusId = focused == null ? null : restoreFocus?.FocusedRowId(focused);
             if (RetainedRefreshPolicy.RequiresInvalidation(selection.Snapshot?.GenerationId, next?.GenerationId))
-                { selector.Clear(); primary.Clear(); ammunition.Clear(); }
+            { selector.Clear(); primary.Clear(); ammunition.Clear(); }
             selection.Refresh(next);
             outer.Rect.gameObject.SetActive(next != null); unavailable.gameObject.SetActive(next == null);
             footer.gameObject.SetActive(false);
@@ -73,7 +76,7 @@ internal sealed partial class RetainedStatisticsShell
         public void SetVisible(bool visible)
         {
             if (disposed) return;
-            if (!visible) Capture();
+            if (!visible) { Capture(); tooltip.Dismiss(); }
             root.gameObject.SetActive(visible);
         }
         public void FocusSelector() => selector.Focus(((int)selection.Page).ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -81,6 +84,7 @@ internal sealed partial class RetainedStatisticsShell
         {
             if (disposed || selection.Snapshot?.GenerationId != generation) return;
             Capture();
+            tooltip.Dismiss();
             if (region == "selector")
             {
                 if (!int.TryParse(id, out var index) || !selection.SelectPage((CombatPanelSection)index)) return;
@@ -93,8 +97,7 @@ internal sealed partial class RetainedStatisticsShell
             }
             else if (selection.Page == CombatPanelSection.WeaponsAndAmmunition)
             {
-                if (id.StartsWith("details:", StringComparison.Ordinal)) selection.ToggleWeaponDetails(generation, id.Substring(8));
-                else selection.SelectWeapon(generation, id);
+                selection.SelectWeapon(generation, id);
             }
             else if (selection.Page == CombatPanelSection.IncomingDamage && id.StartsWith("sort:", StringComparison.Ordinal)
                 && int.TryParse(id.AsSpan(5), out var column)) selection.SortIncoming(generation, column);
@@ -106,7 +109,7 @@ internal sealed partial class RetainedStatisticsShell
             var frame = CombatLayoutPolicy.Frame(shell, canvasHeight);
             var scale = frame.Scale; var top = frame.Top; var w = frame.Width; var h = frame.Height;
             if (w != width || h != height || pixels != viewportPixels)
-            { Capture(); width = w; height = h; pixels = viewportPixels; dirty = true; }
+            { Capture(); tooltip.Dismiss(); width = w; height = h; pixels = viewportPixels; dirty = true; }
             root.localScale = new Vector3(scale, scale, 1); Place(root, shell.Header.Left, top, w, h);
             if (!dirty || !root.gameObject.activeInHierarchy) return;
             dirty = false; Place(unavailable.rectTransform, 30, 30, width - 60, Measure(unavailable.text, width - 60, 30));
@@ -189,9 +192,10 @@ internal sealed partial class RetainedStatisticsShell
                 public TextMeshProUGUI[] Text = null!;
                 public TextMeshProUGUI Detail = null!, Fallback = null!, Chevron = null!;
                 public Image Icon = null!;
+                public CombatTooltipTrigger Tooltip = null!;
                 public CombatRenderRow? Row;
                 public void Dispose()
-                { Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; }
+                { Tooltip.Bind(null, ""); Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); }
             }
             public CombatViewport(CombatView owner, RectTransform parent, string name, string region)
             {
@@ -208,7 +212,7 @@ internal sealed partial class RetainedStatisticsShell
             public void Clear()
             {
                 document = null; focusedId = null;
-                foreach (var c in Pool) { c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; }
+                foreach (var c in Pool) { c.Tooltip.Bind(null, ""); c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); }
                 rebuild = true;
             }
             public void Bind(CombatDocument next, float x, float y, float width, float height)
@@ -223,6 +227,7 @@ internal sealed partial class RetainedStatisticsShell
                 c.Rect.GetComponent<UniformModifier>().Radius = 10;
                 c.Background = c.Rect.GetComponent<ProceduralImage>();
                 c.Button = c.Rect.gameObject.AddComponent<RunsHistoryButton>(); c.Button.Configure(c.Background);
+                c.Tooltip = c.Rect.gameObject.AddComponent<CombatTooltipTrigger>();
                 c.Rect.gameObject.AddComponent<ButtonAnimation>(); AddButtonFeedback(c.Button);
                 c.Text = Enumerable.Range(0, 4).Select(i => owner.Text(c.Rect, "Cell" + i, 28)).ToArray();
                 c.Detail = owner.Text(c.Rect, "Detail", 22);
@@ -245,6 +250,7 @@ internal sealed partial class RetainedStatisticsShell
             public void Render()
             {
                 if (document == null || !Panel.gameObject.activeInHierarchy || !rebuild && Math.Abs(lastOffset - scroll.Offset) < .1f) return;
+                if (Math.Abs(lastOffset - scroll.Offset) >= .1f) owner.tooltip.Dismiss();
                 rebuild = false; lastOffset = scroll.Offset;
                 var visible = CombatLayoutPolicy.Visible(document.Rows, scroll.Offset, scroll.Rect.rect.height);
                 controls.Ensure(visible.Count);
@@ -263,7 +269,7 @@ internal sealed partial class RetainedStatisticsShell
                 for (var i = 0; i < pool.Count; i++)
                 {
                     var c = pool[i]; c.Rect.gameObject.SetActive(i < visible.Count);
-                    if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; continue; }
+                    if (i >= visible.Count) { c.Tooltip.Bind(null, ""); c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); continue; }
                     BindControl(c, document.Rows[visible[i]]);
                     // Pools may swap focused controls. Restore document paint order so the
                     // single header band always stays behind its transparent header buttons.
@@ -275,6 +281,11 @@ internal sealed partial class RetainedStatisticsShell
             {
                 c.Row = r; c.Button.Binding.Bind(owner.selection.Snapshot!.GenerationId, r.Id);
                 c.Button.BindInteractionOverlay(c.Background, r.Actionable);
+                c.Tooltip.Bind(owner.tooltip, r.Tooltip);
+                c.Tooltip.enabled = r.Tooltip.Length > 0;
+                c.Background.raycastTarget = r.Actionable || r.Tooltip.Length > 0;
+                c.Rect.GetComponent<ButtonAnimation>().enabled = r.Actionable;
+                c.Rect.GetComponent<RunsButtonFeedback>().enabled = r.Actionable;
                 c.Background.color = r.Selected ? new Color32(255, 158, 44, 255)
                     : !r.Plain && CombatLayoutPolicy.HasBackground(r.Kind) ? new Color(0, 0, 0, .5f) : Color.clear;
                 Place(c.Rect, r.X, r.Y, r.Width, r.Height);
@@ -338,10 +349,12 @@ internal sealed partial class RetainedStatisticsShell
                 if (item)
                 {
                     var icon = CombatItemIconPolicy.Resolve(r.IconId, owner.icons.ResolveAvailable); c.Icon.sprite = icon; c.Icon.enabled = icon != null; c.Fallback.enabled = icon == null;
+                    NativeItemIconAppearance.Apply(c.Icon, r.IconId);
                     var emptyIcon = NativeItemTypeIdPolicy.UseEmptyIcon(r.IconId);
                     c.Fallback.text = emptyIcon ? "—" : "?"; c.Fallback.color = emptyIcon ? Muted : Color.white;
                     Place(c.Icon.rectTransform, 15, 15, 80, 80); Place(c.Fallback.rectTransform, 15, 15, 80, 80);
                 }
+                else { c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); }
             }
             public void Focus(string? id = null)
             {
@@ -412,7 +425,7 @@ internal sealed partial class RetainedStatisticsShell
         public void Dispose()
         {
             if (disposed) return; disposed = true;
-            selector.Dispose(); primary.Dispose(); ammunition.Dispose(); outer.Dispose(); selection.Refresh(null);
+            selector.Dispose(); primary.Dispose(); ammunition.Dispose(); tooltip.Dispose(); outer.Dispose(); selection.Refresh(null);
             root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject);
         }
     }

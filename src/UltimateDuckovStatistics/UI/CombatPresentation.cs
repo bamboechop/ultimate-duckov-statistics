@@ -40,7 +40,8 @@ internal sealed class CombatMetric
 {
     public string Label { get; }
     public CombatValue Value { get; }
-    public CombatMetric(string label, CombatValue value) { Label = label; Value = value; }
+    public string Tooltip { get; }
+    public CombatMetric(string label, CombatValue value, string tooltip = "") { Label = label; Value = value; Tooltip = tooltip; }
 }
 internal sealed class CombatTableRow
 {
@@ -98,6 +99,7 @@ internal sealed class CombatPresentation
     public IReadOnlyList<CombatMetric> Ranged { get; }
     public IReadOnlyList<CombatMetric> Melee { get; }
     public IReadOnlyList<CombatMetric> Throwables { get; }
+    public IReadOnlyList<CombatMetric> OtherPlayerKills { get; }
     public CombatValue WorldTotal { get; }
     public IReadOnlyList<CombatMetric> Ownership { get; }
     public IReadOnlyList<CombatTableRow> Enemies { get; }
@@ -113,10 +115,12 @@ internal sealed class CombatPresentation
         IEnumerable<CombatMetric> melee, IEnumerable<CombatMetric> throwables, CombatValue worldTotal,
         IEnumerable<CombatMetric> ownership, IEnumerable<CombatTableRow> enemies, string enemyNotice,
         IEnumerable<CombatWeapon> weapons, string weaponNotice, IEnumerable<CombatMetric> incomingCards,
-        CombatTableRow incomingTotal, IEnumerable<CombatTableRow> attackers, string incomingNotice, bool hasIncomingEvidence = false)
+        CombatTableRow incomingTotal, IEnumerable<CombatTableRow> attackers, string incomingNotice, bool hasIncomingEvidence = false,
+        IEnumerable<CombatMetric>? otherPlayerKills = null)
     {
         GenerationId = generation; Overall = Freeze(overall); Ranged = Freeze(ranged); Melee = Freeze(melee);
         Throwables = Freeze(throwables);
+        OtherPlayerKills = Freeze(otherPlayerKills ?? Array.Empty<CombatMetric>());
         WorldTotal = worldTotal; Ownership = Freeze(ownership);
         Enemies = Freeze(enemies); EnemyNotice = enemyNotice; Weapons = Freeze(weapons);
         WeaponNotice = weaponNotice; IncomingCards = Freeze(incomingCards); IncomingTotal = incomingTotal;
@@ -147,19 +151,28 @@ internal static class CombatPresentationFactory
             Metric(value, Both(availability.State, cap.EnemyIdentity.State), partial || a.WasRepairedFromInvalidState, t);
         CombatValue ScopedCount(long value, MetricAvailability availability, bool partial = false) =>
             Metric(value, Both(availability.State, cap.EnemyIdentity.State), partial || a.WasRepairedFromInvalidState, t);
-        CombatMetric M(string key, CombatValue value) => new(t(key), value);
+        CombatMetric M(string key, CombatValue value, string tooltip = "") => new(t(key), value, tooltip);
         CombatValue Unavailable() => new(t("ui.unavailable"), CombatEvidence.Unavailable);
+        CombatValue Accuracy(double? ratio, bool allowAbove100 = false, bool empty = false) => ratio.HasValue ? Percent(ratio.Value * 100, t, allowAbove100)
+            : empty ? new("—", CombatEvidence.Supported) : Unavailable();
         var damage = V(n.DamageDealt, cap.DamageDealt);
         var received = V(n.DamageReceived, cap.DamageReceived);
         var deaths = C(n.PlayerDeaths, cap.PlayerDeaths);
         var overall = new[] { M("ui.overview_damage_dealt", damage), M("ui.overview_damage_taken", received),
-            M("ui.kills_by_you", C(n.KillsByYou, cap.KillsByYou)), M("ui.overview_deaths", deaths) };
+            M("ui.kills_by_you", C(n.KillsByYou, cap.KillsByYou)), M("ui.overview_deaths", deaths),
+            M("ui.overall_accuracy", Accuracy(CombatAccuracyProjection.Overall(n, cap, a.WasRepairedFromInvalidState), allowAbove100: true,
+                empty: CombatAccuracyProjection.OverallIsEmpty(n, cap, a.WasRepairedFromInvalidState))) };
         var ranged = new[] { M("ui.firing_actions", WV(w.Lifetime.Totals.FiringActions, wc.FiringActions)),
             M("ui.combat_hits", C(n.RangedHits, cap.RangedHits)), M("ui.combat_kills", C(kills.Ranged, cap.KillsByYou)),
-            M("ui.accuracy", c.Accuracy.HasValue && !a.WasRepairedFromInvalidState ? Percent(c.Accuracy.Value * 100, t) : Unavailable()),
+            M("ui.accuracy", Accuracy(c.Accuracy, empty: CombatAccuracyProjection.RangedIsEmpty(n, cap, a.WasRepairedFromInvalidState))),
             M("ui.runs_headshots", C(n.Headshots, cap.Headshots)), M("ui.combat_headshot_final_blows", C(n.HeadshotFinalBlows, cap.HeadshotFinalBlows)) };
         var melee = new[] { M("ui.combat_swings", C(n.MeleeSwings, cap.MeleeSwings)), M("ui.combat_hits", C(n.MeleeHits, cap.MeleeHits)),
-            M("ui.combat_kills", C(kills.Melee, cap.KillsByYou)) };
+            M("ui.combat_kills", C(kills.Melee, cap.KillsByYou)),
+            M("ui.melee_accuracy", Accuracy(CombatAccuracyProjection.Melee(n, cap, a.WasRepairedFromInvalidState), allowAbove100: true,
+                empty: CombatAccuracyProjection.MeleeIsEmpty(n, cap, a.WasRepairedFromInvalidState))) };
+        var otherPlayerKills = new List<CombatMetric> { M("ui.combat_effect_kills", C(kills.Effect, cap.KillsByYou), t("ui.combat_effect_kills_tooltip")) };
+        if (kills.Environmental > 0) otherPlayerKills.Add(M("ui.combat_environmental_kills", C(kills.Environmental, cap.KillsByYou)));
+        if (kills.Unknown > 0) otherPlayerKills.Add(M("ui.combat_unknown_kills", C(kills.Unknown, cap.KillsByYou)));
         var world = C(n.ObservedWorldDeaths, cap.ObservedWorldDeaths);
         var ownership = new List<CombatMetric>();
         foreach (var id in new[] { "Other NPC", "Environmental", "Unknown", "Companion" })
@@ -245,7 +258,11 @@ internal static class CombatPresentationFactory
                 if (rangedWeapon)
                 {
                     metrics.Add(M("ui.firing_actions", source.Fire == null ? Unavailable() : firingActions));
-                    metrics.Add(M(meleeWeapon ? "ui.combat_ranged_hits" : "ui.combat_hits", Count(row => row.RangedHits, cap.RangedHits)));
+                    var hits = Count(row => row.RangedHits, cap.RangedHits);
+                    metrics.Add(M(meleeWeapon ? "ui.combat_ranged_hits" : "ui.combat_hits", hits));
+                    metrics.Add(M("ui.combat_weapon_accuracy", Accuracy(CombatAccuracyProjection.Ratio(stats?.RangedHits ?? 0,
+                        g.TotalFiringActions, exact && source.Fire != null && hits.Evidence == CombatEvidence.Supported
+                            && firingActions.Evidence == CombatEvidence.Supported), allowAbove100: true), t("ui.combat_weapon_accuracy_basis")));
                     metrics.Add(M("ui.runs_headshots", Count(row => row.Headshots, cap.Headshots)));
                     metrics.Add(M("ui.combat_headshot_final_blows", Count(row => row.HeadshotFinalBlows, cap.HeadshotFinalBlows)));
                 }
@@ -319,7 +336,8 @@ internal static class CombatPresentationFactory
             new CombatTableRow("total", t("ui.combat_total"), new[] { received, Share(n.DamageReceived), deaths }), incoming,
             Notice(incoming.Length, "ui.combat_no_attackers", a.WasRepairedFromInvalidState
                 || incoming.Length == 0 && (n.DamageReceived > 0 || n.PlayerDeaths > 0),
-                new[] { cap.DamageReceived, cap.PlayerDeaths, cap.EnemyIdentity }, t), n.DamageReceived > 0 || n.PlayerDeaths > 0);
+                new[] { cap.DamageReceived, cap.PlayerDeaths, cap.EnemyIdentity }, t), n.DamageReceived > 0 || n.PlayerDeaths > 0,
+            otherPlayerKills);
     }
 
     private static bool HasPlayerWeaponEvidence(CombatMetricTotals totals) => totals.DamageDealt > 0 || totals.KillsByYou > 0
@@ -354,7 +372,7 @@ internal static class CombatPresentationFactory
     }
     internal static string Name(string name, string id, Func<string, string> t) => !string.IsNullOrWhiteSpace(name) ? name
         : string.IsNullOrWhiteSpace(id) || id == "unknown" ? t("ui.combat_unknown") : t("ui.combat_unknown") + " (" + id + ")";
-    private static CombatValue Percent(double n, Func<string, string> t) => double.IsNaN(n) || double.IsInfinity(n) || n < 0 || n > 100
+    private static CombatValue Percent(double n, Func<string, string> t, bool allowAbove100 = false) => double.IsNaN(n) || double.IsInfinity(n) || n < 0 || !allowAbove100 && n > 100
         ? new(t("ui.unavailable"), CombatEvidence.Unavailable) : new(n.ToString("0.##", CultureInfo.InvariantCulture) + "%", CombatEvidence.Supported);
     private static string Number(double n) => n.ToString("#,0.##", CultureInfo.InvariantCulture);
     private static string Number(long n) => n.ToString("N0", CultureInfo.InvariantCulture);

@@ -49,7 +49,7 @@ internal sealed partial class RetainedStatisticsShell
                 ? focused.transform.IsChildOf(outputs.Panel) ? outputs : focused.transform.IsChildOf(resources.Panel) ? resources : null : null;
             restoreFocusId = focused == null ? null : restoreFocus?.FocusedRowId(focused);
             if (RetainedRefreshPolicy.RequiresInvalidation(selection.Snapshot?.GenerationId, next?.GenerationId))
-                { outputs.Clear(); resources.Clear(); }
+            { outputs.Clear(); resources.Clear(); }
             selection.Refresh(next);
             outer.Rect.gameObject.SetActive(next != null); unavailable.gameObject.SetActive(next == null);
             if (focused != null && focused.transform.IsChildOf(root) && !focused.activeInHierarchy) focusTabs();
@@ -125,7 +125,7 @@ internal sealed partial class RetainedStatisticsShell
                 public void Dispose()
                 {
                     Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null;
-                    Row = null; Icon.sprite = null; NativeTotemIconAppearance.Clear(Icon);
+                    Row = null; Icon.sprite = null; NativeItemIconAppearance.Clear(Icon);
                 }
             }
             public CraftingViewport(CraftingView owner, RectTransform parent, string name, string region)
@@ -145,7 +145,7 @@ internal sealed partial class RetainedStatisticsShell
             {
                 document = null; focusedId = null;
                 foreach (var c in controls.Items)
-                { c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); }
+                { c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); }
                 foreach (var surface in surfaces) surface.gameObject.SetActive(false);
                 rebuild = true;
             }
@@ -157,7 +157,7 @@ internal sealed partial class RetainedStatisticsShell
             private Control Create()
             {
                 var shared = CreateOverviewLatestRunViewRun(scroll.Content, new RetainedLatestRunViewRunPresentation
-                    { IsVisible = true, Label = "" }, owner.typography, owner.material, useIdentityBinding: true);
+                { IsVisible = true, Label = "" }, owner.typography, owner.material, useIdentityBinding: true);
                 shared.Label.gameObject.SetActive(false);
                 var c = new Control { Rect = shared.Rect, Background = shared.Rect.GetComponent<ProceduralImage>(), Button = (RunsHistoryButton)shared.Button };
                 c.Rect.gameObject.name = "CraftingRow"; c.Rect.GetComponent<UniformModifier>().Radius = 10;
@@ -201,7 +201,7 @@ internal sealed partial class RetainedStatisticsShell
                 for (var i = 0; i < pool.Count; i++)
                 {
                     var c = pool[i]; c.Rect.gameObject.SetActive(i < visible.Count);
-                    if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); continue; }
+                    if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); continue; }
                     BindControl(c, document.Rows[visible[i]]); c.Rect.SetAsLastSibling();
                 }
                 scroll.Cues();
@@ -231,12 +231,12 @@ internal sealed partial class RetainedStatisticsShell
                 if (r.HasIcon)
                 {
                     var icon = CombatItemIconPolicy.Resolve(r.IconId, owner.icons.ResolveAvailable);
-                    c.Icon.sprite = icon; c.Icon.enabled = icon != null; NativeTotemIconAppearance.Apply(c.Icon, r.IconId);
+                    c.Icon.sprite = icon; c.Icon.enabled = icon != null; NativeItemIconAppearance.Apply(c.Icon, r.IconId);
                     c.Fallback.enabled = icon == null; c.Fallback.text = r.IconFallback; c.Fallback.color = r.EmptyIcon ? Muted : Color.white;
                     var inset = r.Expandable ? 40 : 15;
                     Place(c.Icon.rectTransform, inset, (r.Height - 60) / 2, 60, 60); Place(c.Fallback.rectTransform, inset, (r.Height - 60) / 2, 60, 60);
                 }
-                else { c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); }
+                else { c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); }
                 c.Chevron.gameObject.SetActive(r.Expandable);
                 if (r.Expandable)
                 {

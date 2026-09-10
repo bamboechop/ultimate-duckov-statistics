@@ -144,8 +144,8 @@ public sealed class CombatWeaponDetailsTests
     {
         var p = Projection(); Fire(p, "weapon:a"); Combat(p, "weapon:a");
         var weapon = Assert.Single(Present(p).Weapons);
-        Assert.Equal(new[] { "Firing actions", "Hits", "Headshots", "Headshot final blows", "Kills by you", "Damage dealt" }, weapon.Metrics.Select(m => m.Label));
-        Assert.Equal(new[] { "8", "5", "3", "1", "2", "123.5" }, weapon.Metrics.Select(m => m.Value.Text));
+        Assert.Equal(new[] { "Firing actions", "Hits", "Accuracy", "Headshots", "Headshot final blows", "Kills by you", "Damage dealt" }, weapon.Metrics.Select(m => m.Label));
+        Assert.Equal(new[] { "8", "5", "62.5%", "3", "1", "2", "123.5" }, weapon.Metrics.Select(m => m.Value.Text));
         Assert.All(weapon.Metrics, m => Assert.Equal(CombatEvidence.Supported, m.Value.Evidence));
         Assert.Equal("8", Assert.Single(weapon.Ammunition).Actions.Text); Assert.Equal("100%", weapon.Ammunition[0].Percentage.Text);
     }
@@ -162,7 +162,7 @@ public sealed class CombatWeaponDetailsTests
     }
 
     [Fact]
-    public void MeleeOnlyWeaponAppearsAndExpandsWithoutRangedZeroes()
+    public void MeleeOnlyWeaponShowsDetailsWithoutRangedZeroes()
     {
         var p = Projection(); Combat(p, "weapon:axe", melee: true);
         p.Weapons.Capabilities.FiringActions.State = AdapterCapabilityState.DisabledIncompatible;
@@ -179,10 +179,8 @@ public sealed class CombatWeaponDetailsTests
         ammoDoc.Items(selection, 800, true);
         Assert.DoesNotContain(ammoDoc.Rows, r => r.Kind == CombatRowKind.Item);
         Assert.Contains(ammoDoc.Rows, r => r.Cells.Any(c => c.Contains("Not applicable", StringComparison.Ordinal)));
-        Assert.True(selection.ToggleWeaponDetails(result.GenerationId, weapon.Row.Id));
-        var details = new CombatDocument((_, _, size) => size, (s, size) => s.Length * size);
-        details.Items(selection, 800, true);
-        Assert.Equal(4, details.Rows.Count(r => r.Kind == CombatRowKind.Metric));
+        Assert.Equal(4, ammoDoc.Rows.Count(r => r.Kind == CombatRowKind.Metric));
+        Assert.DoesNotContain(ammoDoc.Rows, r => r.Actionable || r.Expandable);
     }
 
     [Theory]
@@ -257,6 +255,7 @@ public sealed class CombatWeaponDetailsTests
         Combat(p, "w"); weapon = Assert.Single(Present(p).Weapons);
         Assert.Equal(CombatEvidence.Supported, Value(weapon, "Hits").Evidence);
         Assert.Empty(weapon.Notice);
+        Assert.Equal(UiText.Get("ui.combat_weapon_accuracy_basis"), weapon.Metrics.Single(metric => metric.Label == "Accuracy").Tooltip);
     }
 
     [Fact]

@@ -6,7 +6,7 @@ namespace UltimateDuckovStatistics.UI;
 
 // Duckov ItemDisplay keeps the sprite white and applies its DisplayQuality glow.
 // Borrow the same native metadata/style; never infer a color from a name or tier.
-internal static class NativeTotemIconAppearance
+internal static class NativeItemIconAppearance
 {
     public static void Apply(Image icon, string? stableId)
     {
@@ -17,7 +17,8 @@ internal static class NativeTotemIconAppearance
             { if (shadow != null) shadow.enabled = false; return; }
             var metadata = ItemAssetsCollection.GetMetaData(typeId);
             if (metadata.id != typeId || metadata.icon != icon.sprite
-                || metadata.tags?.Any(tag => tag != null && tag.name == "Totem") != true)
+                || metadata.tags?.Any(tag => tag != null && (tag.name == "Totem"
+                    || tag == Duckov.Utilities.GameplayDataSettings.Tags?.Bullet)) != true)
             { if (shadow != null) shadow.enabled = false; return; }
             if (shadow == null)
             {

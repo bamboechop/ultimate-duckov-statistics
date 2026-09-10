@@ -8,6 +8,7 @@ namespace UltimateDuckovStatistics.UI;
 // The installed TrueShadow allocates a separate mesh for Image casters, but its
 // OnDestroy only releases the renderer and shadow texture. Own that final mesh
 // only for shadows UDS adds to its own item Images, never for native TMP casters.
+// Ammunition shares this owner with totems, including the existing resource diagnostics.
 internal sealed class OwnedTotemIconShadow : TrueShadow
 {
     private static readonly PropertyInfo? SpriteMeshProperty = ResolveSpriteMeshProperty();

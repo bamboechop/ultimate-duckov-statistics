@@ -56,7 +56,7 @@ internal sealed partial class RetainedStatisticsShell
                     : focused.transform.IsChildOf(selector.Panel) ? selector : null : null;
             restoreFocusId = focused == null ? null : restoreFocus?.FocusedRowId(focused);
             if (RetainedRefreshPolicy.RequiresInvalidation(selection.Snapshot?.GenerationId, next?.GenerationId))
-                { selector.Clear(); primary.Clear(); secondary.Clear(); }
+            { selector.Clear(); primary.Clear(); secondary.Clear(); }
             selection.Refresh(next);
             outer.Rect.gameObject.SetActive(next != null); unavailable.gameObject.SetActive(next == null);
             if (focused != null && focused.transform.IsChildOf(root) && !focused.activeInHierarchy) focusTabs();
@@ -96,8 +96,14 @@ internal sealed partial class RetainedStatisticsShell
             if (selection.Snapshot == null) return;
             var stacked = CombatLayoutPolicy.Stack(pixels); var widths = CombatLayoutPolicy.Widths(width, stacked);
             var nav = new EquipmentDocument(Measure, measureWidth: measure.Width); float ny = 30;
-            for (var i = 0; i < PageKeys.Length; i++) ny += nav.Add(new EquipmentRenderRow { Id = i.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                Kind = EquipmentRowKind.Selector, Name = UiText.Get(PageKeys[i]), Actionable = true, Selected = i == (int)selection.Page }, 30, ny, widths.Selector - 60);
+            for (var i = 0; i < PageKeys.Length; i++) ny += nav.Add(new EquipmentRenderRow
+            {
+                Id = i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Kind = EquipmentRowKind.Selector,
+                Name = UiText.Get(PageKeys[i]),
+                Actionable = true,
+                Selected = i == (int)selection.Page
+            }, 30, ny, widths.Selector - 60);
             nav.Seal(); var nh = stacked ? Math.Min(nav.Height, Math.Max(240, height * .6f)) : height;
             selector.Bind(nav, 0, 0, widths.Selector, nh);
             var two = EquipmentLayoutPolicy.TwoColumns(selection.Page);
@@ -154,7 +160,7 @@ internal sealed partial class RetainedStatisticsShell
                 public RetainedLatestRunViewRunControl Route = null!;
                 public readonly List<ProceduralImage> Dots = new();
                 public void Dispose()
-                { Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; Icon.sprite = null; NativeTotemIconAppearance.Clear(Icon); Tooltip.text = string.Empty; }
+                { Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); Tooltip.text = string.Empty; }
             }
             public EquipmentViewport(EquipmentView owner, RectTransform parent, string name, string region)
             {
@@ -173,7 +179,7 @@ internal sealed partial class RetainedStatisticsShell
             public void Clear()
             {
                 document = null; focusedId = null;
-                foreach (var c in Pool) { c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); c.Tooltip.text = string.Empty; }
+                foreach (var c in Pool) { c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); c.Tooltip.text = string.Empty; }
                 foreach (var surface in surfaces) surface.gameObject.SetActive(false);
                 rebuild = true;
             }
@@ -186,7 +192,7 @@ internal sealed partial class RetainedStatisticsShell
             private Control Create()
             {
                 var shared = CreateOverviewLatestRunViewRun(scroll.Content, new RetainedLatestRunViewRunPresentation
-                    { IsVisible = true, Label = UiText.Get(RetainedOverviewLatestRunViewRunPolicy.TextKey) }, owner.typography, owner.material, useIdentityBinding: true);
+                { IsVisible = true, Label = UiText.Get(RetainedOverviewLatestRunViewRunPolicy.TextKey) }, owner.typography, owner.material, useIdentityBinding: true);
                 var c = new Control { Rect = shared.Rect, Route = shared };
                 c.Rect.gameObject.name = "EquipmentRow";
                 c.Rect.GetComponent<UniformModifier>().Radius = 10;
@@ -253,7 +259,7 @@ internal sealed partial class RetainedStatisticsShell
                 for (var i = 0; i < pool.Count; i++)
                 {
                     var c = pool[i]; c.Rect.gameObject.SetActive(i < visible.Count);
-                    if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); c.Tooltip.text = string.Empty; continue; }
+                    if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); c.Tooltip.text = string.Empty; continue; }
                     BindControl(c, document.Rows[visible[i]]);
                     // Pools may swap focused controls. Restore document paint order above
                     // the separately pooled card surfaces.
@@ -298,20 +304,20 @@ internal sealed partial class RetainedStatisticsShell
                     var padding = RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels;
                     Place(c.Route.LabelRect, padding, 0, r.Width - 2 * padding, r.Height);
                     c.Icon.sprite = null;
-                    NativeTotemIconAppearance.Clear(c.Icon);
+                    NativeItemIconAppearance.Clear(c.Icon);
                     return;
                 }
                 if (showIcon)
                 {
                     var icon = CombatItemIconPolicy.Resolve(r.IconId, owner.icons.ResolveAvailable);
                     c.Icon.sprite = icon; c.Icon.enabled = icon != null;
-                    NativeTotemIconAppearance.Apply(c.Icon, r.IconId);
+                    NativeItemIconAppearance.Apply(c.Icon, r.IconId);
                     c.Fallback.enabled = icon == null; c.Fallback.text = r.IconFallback;
                     c.Fallback.color = r.EmptyIcon ? Muted : Color.white;
                     var size = isSlot ? r.Width - 12 : r.Compact ? 48 : 60; var inset = isSlot ? 6 : r.Expandable ? 40 : 15;
                     Place(c.Icon.rectTransform, inset, isSlot ? 6 : r.TextTop, size, size); Place(c.Fallback.rectTransform, inset, isSlot ? 6 : r.TextTop, size, size);
                 }
-                else { c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); }
+                else { c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); }
                 if (isSlot)
                 {
                     c.Background.raycastTarget = true;

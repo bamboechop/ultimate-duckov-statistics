@@ -11,9 +11,14 @@ public sealed partial class CharacterMainControl
     public string name { get; set; } = "Native character";
     public int GetInstanceID() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
     public T? GetComponent<T>() where T : class => null;
-    public ItemAgent_MeleeWeapon? GetMeleeWeapon() => null;
+    public ItemAgent_MeleeWeapon? MeleeWeapon { get; set; }
+    public ItemAgent_MeleeWeapon? GetMeleeWeapon() => MeleeWeapon;
 }
-public sealed class AttackAction { public event Action? OnAttack; }
+public sealed class AttackAction
+{
+    public event Action? OnAttack;
+    public void RaiseAttack() => OnAttack?.Invoke();
+}
 public sealed class CharacterPreset
 {
     public string nameKey { get; set; } = "";

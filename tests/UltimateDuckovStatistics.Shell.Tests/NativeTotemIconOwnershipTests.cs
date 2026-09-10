@@ -31,7 +31,7 @@ public sealed class NativeTotemIconOwnershipTests : IDisposable
         for (var cycle = 0; cycle < 25; cycle++)
         {
             var icon = CreateIcon();
-            NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+            NativeItemIconAppearance.Apply(icon, "duckov:totem:3001");
             var shadow = Assert.IsType<OwnedTotemIconShadow>(icon.GetComponent<TrueShadow>());
             shadow.NativeEnable();
             var mesh = Assert.IsType<Mesh>(shadow.SpriteMesh);
@@ -56,17 +56,17 @@ public sealed class NativeTotemIconOwnershipTests : IDisposable
     public void PooledTotemShadowReusesItsMeshAcrossClearAndReenable()
     {
         var icon = CreateIcon();
-        NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+        NativeItemIconAppearance.Apply(icon, "duckov:totem:3001");
         var shadow = Assert.IsType<OwnedTotemIconShadow>(icon.GetComponent<TrueShadow>());
         shadow.NativeEnable();
         var mesh = Assert.IsType<Mesh>(shadow.SpriteMesh);
         for (var cycle = 0; cycle < 25; cycle++)
         {
-            NativeTotemIconAppearance.Clear(icon);
+            NativeItemIconAppearance.Clear(icon);
             shadow.NativeDisable();
             Assert.False(shadow.enabled);
             Assert.False(mesh.Destroyed);
-            NativeTotemIconAppearance.Apply(icon, "duckov:item:3001");
+            NativeItemIconAppearance.Apply(icon, "duckov:item:3001");
             shadow.NativeEnable();
             Assert.Same(shadow, Assert.Single(icon.GetComponents<TrueShadow>()));
             Assert.Same(mesh, shadow.SpriteMesh);
@@ -83,7 +83,7 @@ public sealed class NativeTotemIconOwnershipTests : IDisposable
         var retained = Enumerable.Range(0, 4).Select(_ => CreateIcon()).ToArray();
         foreach (var icon in retained)
         {
-            NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+            NativeItemIconAppearance.Apply(icon, "duckov:totem:3001");
             var shadow = Assert.IsType<OwnedTotemIconShadow>(icon.GetComponent<TrueShadow>());
             shadow.NativeEnable();
         }
@@ -94,10 +94,10 @@ public sealed class NativeTotemIconOwnershipTests : IDisposable
 
         // Expanding a row changes its control identity: the old row is pooled,
         // a new row is created, and the other visible rows remain retained.
-        NativeTotemIconAppearance.Clear(retained[0]);
+        NativeItemIconAppearance.Clear(retained[0]);
         shadows[0].NativeDisable();
         var expanded = CreateIcon();
-        NativeTotemIconAppearance.Apply(expanded, "duckov:totem:3001");
+        NativeItemIconAppearance.Apply(expanded, "duckov:totem:3001");
         var expandedShadow = Assert.IsType<OwnedTotemIconShadow>(expanded.GetComponent<TrueShadow>());
         expandedShadow.NativeEnable();
         expandedShadow.NativeRebuildMaterial();
@@ -105,7 +105,7 @@ public sealed class NativeTotemIconOwnershipTests : IDisposable
         Assert.All(shadows, shadow => Assert.Same(material, shadow.RenderedMaskMaterial));
         Assert.Same(material, expandedShadow.RenderedMaskMaterial);
 
-        NativeTotemIconAppearance.Apply(retained[0], "duckov:totem:3001");
+        NativeItemIconAppearance.Apply(retained[0], "duckov:totem:3001");
         shadows[0].NativeEnable();
         for (var i = 0; i < shadows.Length; i++)
         {
@@ -126,10 +126,10 @@ public sealed class NativeTotemIconOwnershipTests : IDisposable
         var native = icon.gameObject.AddComponent<TrueShadow>();
         native.NativeEnable();
         var mesh = Assert.IsType<Mesh>(native.SpriteMesh);
-        NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+        NativeItemIconAppearance.Apply(icon, "duckov:totem:3001");
         Assert.Same(native, Assert.Single(icon.GetComponents<TrueShadow>()));
         Assert.Null(icon.GetComponent<OwnedTotemIconShadow>());
-        NativeTotemIconAppearance.Clear(icon);
+        NativeItemIconAppearance.Clear(icon);
         Assert.False(mesh.Destroyed);
         Assert.False(borrowedIcon.Destroyed);
         UnityEngine.Object.Destroy(mesh);
@@ -139,7 +139,7 @@ public sealed class NativeTotemIconOwnershipTests : IDisposable
     public void NativeCleanupFailureStillReleasesTheOwnedMesh()
     {
         var icon = CreateIcon();
-        NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+        NativeItemIconAppearance.Apply(icon, "duckov:totem:3001");
         var shadow = Assert.IsType<OwnedTotemIconShadow>(icon.GetComponent<TrueShadow>());
         shadow.NativeEnable();
         var mesh = Assert.IsType<Mesh>(shadow.SpriteMesh);
@@ -156,7 +156,7 @@ public sealed class NativeTotemIconOwnershipTests : IDisposable
     public void UnavailableMetadataDoesNotAllocateAShadow(string id)
     {
         var icon = CreateIcon();
-        NativeTotemIconAppearance.Apply(icon, id);
+        NativeItemIconAppearance.Apply(icon, id);
         Assert.Empty(icon.GetComponents<TrueShadow>());
     }
 

@@ -11,10 +11,7 @@ public sealed class CombatStatisticsViewModel
     public IReadOnlyList<CombatBreakdownAggregate> Killers { get; set; } = Array.Empty<CombatBreakdownAggregate>();
     public IReadOnlyList<CombatBreakdownAggregate> Ownership { get; set; } = Array.Empty<CombatBreakdownAggregate>();
     public IReadOnlyList<RunSummary> Runs { get; set; } = Array.Empty<RunSummary>();
-    public double? Accuracy => Capabilities.Accuracy.State == AdapterCapabilityState.Supported
-        && Lifetime.Totals.CompletedPlayerProjectiles > 0
-            ? (double)Lifetime.Totals.RangedHits / Lifetime.Totals.CompletedPlayerProjectiles
-            : null;
+    public double? Accuracy => CombatAccuracyProjection.Ranged(Lifetime.Totals, Capabilities, Lifetime.WasRepairedFromInvalidState);
 }
 
 public static class CombatStatisticsViewModelFactory
