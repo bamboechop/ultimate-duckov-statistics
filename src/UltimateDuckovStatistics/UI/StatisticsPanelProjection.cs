@@ -294,7 +294,7 @@ internal static class RetainedHeaderPolicy
     public const float Red = 0f;
     public const float Green = 0f;
     public const float Blue = 0f;
-    public const float VisualAlpha = 0.50f;
+    public const float VisualAlpha = 0.75f;
     public const float CornerRadiusPixels = 20f;
     public const bool BlocksRaycasts = false;
 
@@ -974,7 +974,7 @@ internal static class RetainedOverviewPanelStylePolicy
     public const float Red = 0f;
     public const float Green = 0f;
     public const float Blue = 0f;
-    public const float LayerAlpha = 0.50f;
+    public const float LayerAlpha = 0.75f;
     public const float CornerRadiusPixels = 20f;
     public const float ContentPaddingPixels = 30f;
     public const bool BlocksRaycasts = false;
@@ -1119,7 +1119,7 @@ internal static class RetainedOverviewFirstStatisticsRowPolicy
     public const float Red = 0f;
     public const float Green = 0f;
     public const float Blue = 0f;
-    public const float LayerAlpha = 0.50f;
+    public const float LayerAlpha = 0.75f;
     public const bool BlocksRaycasts = false;
 
     public static RetainedOverviewFirstStatisticsRowCanvasLayout CreateCanvasLayout(
@@ -1284,6 +1284,8 @@ internal enum ProfileSummaryMetric
     ExtractionRate,
     TotalActiveRaidTime,
     TotalDistanceTravelled,
+    RaidDistance,
+    BaseDistance,
     KillsByYou,
     Deaths,
     DamageDealt,
@@ -1333,11 +1335,11 @@ internal sealed class RetainedProfileSummaryRowCanvasLayout
 
 internal static class RetainedProfileSummaryRowsPolicy
 {
-    public const int RowCount = 11;
+    public const int RowCount = 13;
     public const float RowGapPixels = 10f;
     public const float RowStepPixels = 76f;
-    public const float LastRowTopPixels = 1216f;
-    public const float LastRowBottomExclusivePixels = 1282f;
+    public const float LastRowTopPixels = 1368f;
+    public const float LastRowBottomExclusivePixels = 1434f;
     public const float EconomyPrimaryValueWidthPixels = 310f;
     public const float EconomySecondaryValueWidthPixels = 300f;
 
@@ -1346,7 +1348,9 @@ internal static class RetainedProfileSummaryRowsPolicy
         new(ProfileSummaryMetric.TotalRuns, "OverviewFirstStatistics", "ui.overview_total_runs", "Total runs"),
         new(ProfileSummaryMetric.ExtractionRate, "OverviewExtractionRate", "ui.overview_extraction_rate", "Extraction rate"),
         new(ProfileSummaryMetric.TotalActiveRaidTime, "OverviewTotalActiveRaidTime", "ui.overview_total_active_raid_time", "Total active raid time"),
-        new(ProfileSummaryMetric.TotalDistanceTravelled, "OverviewTotalDistanceTravelled", "ui.overview_total_distance_travelled", "Total distance travelled"),
+        new(ProfileSummaryMetric.TotalDistanceTravelled, "OverviewTotalDistanceTravelled", "ui.overview_total_recorded_distance", "Total recorded distance"),
+        new(ProfileSummaryMetric.RaidDistance, "OverviewRaidDistance", "ui.overview_raid_distance", "Raid distance"),
+        new(ProfileSummaryMetric.BaseDistance, "OverviewBaseDistance", "ui.overview_base_distance", "Recorded base distance"),
         new(ProfileSummaryMetric.KillsByYou, "OverviewKillsByYou", "ui.overview_kills_by_you", "Kills by you"),
         new(ProfileSummaryMetric.Deaths, "OverviewDeaths", "ui.overview_deaths", "Deaths"),
         new(ProfileSummaryMetric.DamageDealt, "OverviewDamageDealt", "ui.overview_damage_dealt", "Damage dealt"),
@@ -1416,6 +1420,8 @@ internal sealed class ProfileSummaryRowPresentation
 {
     public ProfileSummaryMetric Metric { get; set; }
     public string Label { get; set; } = string.Empty;
+    public string? Tooltip { get; set; }
+
     public string Value { get; set; } = string.Empty;
     public string? SecondaryValue { get; set; }
 }
@@ -1436,7 +1442,11 @@ internal static class ProfileSummaryPresentationFactory
                 Metric = specification.Metric,
                 Label = text(specification.LabelTextKey),
                 Value = values.Value,
-                SecondaryValue = values.SecondaryValue
+                SecondaryValue = values.SecondaryValue,
+                Tooltip = specification.Metric is ProfileSummaryMetric.TotalDistanceTravelled or ProfileSummaryMetric.RaidDistance or ProfileSummaryMetric.BaseDistance
+                    ? text("ui.distance_coverage") + (projection.Profile.Statistics.BaseMovement is { } recorded
+                        ? "\n" + string.Format(CultureInfo.InvariantCulture, text("ui.distance_since"), recorded.CollectionStartedUtc.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture)) : string.Empty)
+                    : null
             };
         }).ToArray();
     }
@@ -1451,7 +1461,9 @@ internal static class ProfileSummaryPresentationFactory
             ProfileSummaryMetric.ExtractionRate => (FormatExtractionRate(projection.Runs, text), null),
             ProfileSummaryMetric.TotalActiveRaidTime => (FormatActiveRaidTime(projection.Runs.Runs, text), null),
             ProfileSummaryMetric.TotalDistanceTravelled => (
-                FormatDistance(projection.Runs.PhysicalDistance, projection.Runs.MovementSupported, text), null),
+                FormatRecordedDistance(DistanceStatisticsProjection.Create(projection.Profile), ProfileSummaryMetric.TotalDistanceTravelled, text), null),
+            ProfileSummaryMetric.RaidDistance => (FormatRecordedDistance(DistanceStatisticsProjection.Create(projection.Profile), ProfileSummaryMetric.RaidDistance, text), null),
+            ProfileSummaryMetric.BaseDistance => (FormatRecordedDistance(DistanceStatisticsProjection.Create(projection.Profile), ProfileSummaryMetric.BaseDistance, text), null),
             ProfileSummaryMetric.KillsByYou => (
                 FormatCapabilityInteger(
                     projection.Combat.Lifetime.Totals.KillsByYou,
@@ -1525,6 +1537,16 @@ internal static class ProfileSummaryPresentationFactory
         return hours > 0
             ? $"{hours.ToString(CultureInfo.InvariantCulture)}:{minutesPart:00}:{secondsPart:00}.{milliseconds:000}"
             : $"{totalMinutes.ToString(CultureInfo.InvariantCulture)}:{secondsPart:00}.{milliseconds:000}";
+    }
+
+    private static string FormatRecordedDistance(DistanceStatisticsProjection distance, ProfileSummaryMetric metric, Func<string, string> text)
+    {
+        var meters = metric == ProfileSummaryMetric.RaidDistance ? distance.RaidMeters
+            : metric == ProfileSummaryMetric.BaseDistance ? distance.BaseMeters : distance.CombinedMeters;
+        if (!meters.HasValue) return text(metric == ProfileSummaryMetric.BaseDistance ? "ui.distance_not_recorded" : "ui.unavailable");
+        var partial = metric == ProfileSummaryMetric.RaidDistance ? distance.RaidPartial
+            : metric == ProfileSummaryMetric.BaseDistance ? distance.BasePartial : distance.CombinedPartial;
+        return FormatDistance(meters.Value, true, text) + (partial ? " (" + text("ui.combat_partial") + ")" : string.Empty);
     }
 
     private static string FormatDistance(double meters, bool supported, Func<string, string> text) =>

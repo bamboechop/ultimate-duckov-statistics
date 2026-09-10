@@ -27,6 +27,9 @@ public static class ProfileFormat
         if (profile.Statistics?.SchemaVersion != ProductInfo.SchemaVersion)
             return "Current-schema profile roots are incomplete.";
 
+        try { BaseMovementStatistics.Validate(profile.Statistics.BaseMovement); }
+        catch (ArgumentException exception) { return exception.Message; }
+
         var missingPath = FindMissingRequiredDataMember(profile, "Profile");
         if (missingPath != null)
         {

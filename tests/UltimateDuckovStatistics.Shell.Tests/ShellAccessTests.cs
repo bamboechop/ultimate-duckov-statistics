@@ -12,6 +12,32 @@ namespace UltimateDuckovStatistics.Shell.Tests;
 
 public sealed class ShellAccessTests : IDisposable
 {
+    [Theory]
+    [InlineData(2560, 1440)]
+    [InlineData(1280, 720)]
+    [InlineData(720, 480)]
+    public void OverviewDistanceRowsAndEconomyRemainReachableAndKeepScrollFocusOnRefresh(int width, int height)
+    {
+        ((RectTransform)canvas.transform).sizeDelta = new Vector2(width, height);
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        var scroll = Find("OverviewSummaryScroll").GetComponent<ScrollRect>();
+        Assert.True(scroll.content.rect.height > ((RectTransform)scroll.transform).rect.height);
+        Find("OverviewTab").GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Down);
+        Assert.Same(scroll.gameObject, GameManager.EventSystem!.currentSelectedGameObject);
+        for (var i = 0; i < 30; i++) scroll.GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Down);
+        var offset = scroll.content.anchoredPosition.y;
+        Assert.Equal(scroll.content.rect.height - ((RectTransform)scroll.transform).rect.height, offset, 3);
+        var shell = Field<RetainedStatisticsShell>(panel, "shell");
+        shell.RefreshProjection(new StatisticsPanelProjection { Profile = coordinator.Current }, coordinator.CurrentGenerationId);
+        scroll = Find("OverviewSummaryScroll").GetComponent<ScrollRect>();
+        Assert.Equal(offset, scroll.content.anchoredPosition.y, 3);
+        Assert.Same(scroll.gameObject, GameManager.EventSystem.currentSelectedGameObject);
+        Assert.Equal(3, scroll.GetComponentsInChildren<CombatTooltipTrigger>().Length);
+        for (var i = 0; i < 30; i++) scroll.GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Up);
+        Assert.Same(Find("OverviewTab"), GameManager.EventSystem.currentSelectedGameObject);
+    }
+
     [Fact]
     public void AboutPointerHitSurfacesDispatchBothApprovedLinks()
     {

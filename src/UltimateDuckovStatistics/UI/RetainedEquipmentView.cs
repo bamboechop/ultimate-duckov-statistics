@@ -278,7 +278,7 @@ internal sealed partial class RetainedStatisticsShell
                 c.Rect.GetComponent<ButtonAnimation>().enabled = r.Actionable;
                 c.Rect.GetComponent<RunsButtonFeedback>().enabled = r.Actionable;
                 c.Background.color = r.Selected ? new Color32(255, 158, 44, 255)
-                    : r.Plain || r.Kind is EquipmentRowKind.Heading or EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? Color.clear : new Color(0, 0, 0, .5f);
+                    : r.Plain || r.Kind is EquipmentRowKind.Heading or EquipmentRowKind.Notice or EquipmentRowKind.Footer or EquipmentRowKind.SlotDuration ? Color.clear : new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha);
                 Place(c.Rect, r.X, r.Y, r.Width, r.Height);
                 c.Border.gameObject.SetActive(r.Kind == EquipmentRowKind.Slot);
                 c.Rect.GetComponent<UniformModifier>().Radius = r.Kind == EquipmentRowKind.Slot ? RunsViewStyle.SlotRadius : 10;

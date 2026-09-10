@@ -287,7 +287,7 @@ internal sealed partial class RetainedStatisticsShell
                 c.Rect.GetComponent<ButtonAnimation>().enabled = r.Actionable;
                 c.Rect.GetComponent<RunsButtonFeedback>().enabled = r.Actionable;
                 c.Background.color = r.Selected ? new Color32(255, 158, 44, 255)
-                    : !r.Plain && CombatLayoutPolicy.HasBackground(r.Kind) ? new Color(0, 0, 0, .5f) : Color.clear;
+                    : !r.Plain && CombatLayoutPolicy.HasBackground(r.Kind) ? new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha) : Color.clear;
                 Place(c.Rect, r.X, r.Y, r.Width, r.Height);
                 var inner = Math.Max(1, r.Width - 30); float y = 12;
                 for (var i = 0; i < c.Text.Length; i++)

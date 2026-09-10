@@ -167,10 +167,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedHeaderPolicy.Red);
         Assert.Equal(0f, RetainedHeaderPolicy.Green);
         Assert.Equal(0f, RetainedHeaderPolicy.Blue);
-        Assert.Equal(0.50f, RetainedHeaderPolicy.VisualAlpha);
         Assert.Equal(20f, RetainedHeaderPolicy.CornerRadiusPixels);
         Assert.False(RetainedHeaderPolicy.BlocksRaycasts);
-        Assert.True(RetainedHeaderPolicy.IsValidGraphic(0f, 0f, 0f, 0.50f, raycastTarget: false));
+        Assert.True(RetainedHeaderPolicy.IsValidGraphic(0f, 0f, 0f, RetainedHeaderPolicy.VisualAlpha, raycastTarget: false));
     }
 
     [Fact]
@@ -1187,7 +1186,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedOverviewLeftPanelPolicy.Red);
         Assert.Equal(0f, RetainedOverviewLeftPanelPolicy.Green);
         Assert.Equal(0f, RetainedOverviewLeftPanelPolicy.Blue);
-        Assert.Equal(0.50f, RetainedOverviewLeftPanelPolicy.LayerAlpha);
         Assert.False(RetainedOverviewLeftPanelPolicy.BlocksRaycasts);
         Assert.Equal(
             RetainedHeaderPolicy.BottomExclusivePixels + RetainedOverviewLeftPanelPolicy.HeaderGapPixels,
@@ -1340,7 +1338,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedOverviewPanelStylePolicy.Red);
         Assert.Equal(0f, RetainedOverviewPanelStylePolicy.Green);
         Assert.Equal(0f, RetainedOverviewPanelStylePolicy.Blue);
-        Assert.Equal(0.50f, RetainedOverviewPanelStylePolicy.LayerAlpha);
         Assert.False(RetainedOverviewPanelStylePolicy.BlocksRaycasts);
 
         Assert.Equal(1300f, right.Left);
@@ -1523,7 +1520,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedOverviewFirstStatisticsRowPolicy.Red);
         Assert.Equal(0f, RetainedOverviewFirstStatisticsRowPolicy.Green);
         Assert.Equal(0f, RetainedOverviewFirstStatisticsRowPolicy.Blue);
-        Assert.Equal(0.50f, RetainedOverviewFirstStatisticsRowPolicy.LayerAlpha);
         Assert.False(RetainedOverviewFirstStatisticsRowPolicy.BlocksRaycasts);
 
         Assert.Same(layout.ReferenceTransform, row.ReferenceTransform);
@@ -1736,17 +1732,19 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateTwelveDefinesExactlyElevenLocalizedRowsInTheRequiredOrder()
+    public void GateTwelveDefinesThirteenLocalizedRowsInTheRequiredOrder()
     {
         var specifications = RetainedProfileSummaryRowsPolicy.Specifications;
 
-        Assert.Equal(11, specifications.Count);
+        Assert.Equal(13, specifications.Count);
         var expectedMetrics = new[]
         {
             ProfileSummaryMetric.TotalRuns,
             ProfileSummaryMetric.ExtractionRate,
             ProfileSummaryMetric.TotalActiveRaidTime,
             ProfileSummaryMetric.TotalDistanceTravelled,
+            ProfileSummaryMetric.RaidDistance,
+            ProfileSummaryMetric.BaseDistance,
             ProfileSummaryMetric.KillsByYou,
             ProfileSummaryMetric.Deaths,
             ProfileSummaryMetric.DamageDealt,
@@ -1760,7 +1758,9 @@ public sealed class StatisticsPanelProjectionTests
             "Total runs",
             "Extraction rate",
             "Total active raid time",
-            "Total distance travelled",
+            "Total recorded distance",
+            "Raid distance",
+            "Recorded base distance",
             "Kills by you",
             "Deaths",
             "Damage dealt",
@@ -1778,7 +1778,7 @@ public sealed class StatisticsPanelProjectionTests
                 UiText.EnglishFallbacks[specification.LabelTextKey]));
         Assert.Equal("Money net:", UiText.EnglishFallbacks["ui.overview_money_net"]);
         Assert.Equal("Cash net:", UiText.EnglishFallbacks["ui.overview_cash_net"]);
-        Assert.All(specifications.Take(10), specification => Assert.False(specification.HasSecondaryValue));
+        Assert.All(specifications.Take(12), specification => Assert.False(specification.HasSecondaryValue));
         Assert.True(specifications[^1].HasSecondaryValue);
     }
 
@@ -1788,11 +1788,11 @@ public sealed class StatisticsPanelProjectionTests
         var layout = CreateRetainedVisualLayout(2560f, 1440f);
         var rows = layout.OverviewProfileSummaryRows;
 
-        Assert.Equal(11, rows.Count);
+        Assert.Equal(13, rows.Count);
         Assert.Equal(10f, RetainedProfileSummaryRowsPolicy.RowGapPixels);
         Assert.Equal(76f, RetainedProfileSummaryRowsPolicy.RowStepPixels);
-        Assert.Equal(1216f, RetainedProfileSummaryRowsPolicy.LastRowTopPixels);
-        Assert.Equal(1282f, RetainedProfileSummaryRowsPolicy.LastRowBottomExclusivePixels);
+        Assert.Equal(1368f, RetainedProfileSummaryRowsPolicy.LastRowTopPixels);
+        Assert.Equal(1434f, RetainedProfileSummaryRowsPolicy.LastRowBottomExclusivePixels);
         Assert.Equal(310f, RetainedProfileSummaryRowsPolicy.EconomyPrimaryValueWidthPixels);
         Assert.Equal(300f, RetainedProfileSummaryRowsPolicy.EconomySecondaryValueWidthPixels);
         for (var index = 0; index < rows.Count; index++)
@@ -1827,11 +1827,11 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Theory]
-    [InlineData(1280f, 720f, 228f, 608f, 33f)]
-    [InlineData(1680f, 1050f, 351.75f, 850.5f, 43.3125f)]
-    [InlineData(1920f, 1080f, 342f, 912f, 49.5f)]
-    [InlineData(1920f, 1200f, 402f, 972f, 49.5f)]
-    [InlineData(2560f, 1440f, 456f, 1216f, 66f)]
+    [InlineData(1280f, 720f, 228f, 684f, 33f)]
+    [InlineData(1680f, 1050f, 351.75f, 950.25f, 43.3125f)]
+    [InlineData(1920f, 1080f, 342f, 1026f, 49.5f)]
+    [InlineData(1920f, 1200f, 402f, 1086f, 49.5f)]
+    [InlineData(2560f, 1440f, 456f, 1368f, 66f)]
     public void GateTwelveRowStackUsesTheSharedReferenceTransform(
         float viewportWidth,
         float viewportHeight,
@@ -1858,9 +1858,11 @@ public sealed class StatisticsPanelProjectionTests
             {
                 Statistics = new ProfileStatistics
                 {
-                    Overall = new AggregateTotals { ActualHealthRestored = 48.84 }
+                    Overall = new AggregateTotals { ActualHealthRestored = 48.84 },
+                    RunTotals = new RunAggregateTotals { PhysicalDistance = 2325.94 },
+                    BaseMovement = new BaseMovementStatistics { RecordedMeters = 100, CollectionStartedUtc = DateTime.UtcNow }
                 },
-                Capabilities = new List<CapabilityRecord> { new() { AdapterId = "native-healing-attribution", State = AdapterCapabilityState.Supported } }
+                Capabilities = new List<CapabilityRecord> { new() { AdapterId = "native-healing-attribution", State = AdapterCapabilityState.Supported }, new() { AdapterId = "native-main-duck-movement", State = AdapterCapabilityState.Supported } }
             },
             Runs = new RunStatisticsViewModel
             {
@@ -1924,25 +1926,28 @@ public sealed class StatisticsPanelProjectionTests
 
         var rows = ProfileSummaryPresentationFactory.Create(projection, key => UiText.EnglishFallbacks[key]);
 
-        Assert.Equal(11, rows.Count);
+        Assert.Equal(13, rows.Count);
         Assert.Equal("2", rows[0].Value);
         Assert.Equal("100% - 2/2", rows[1].Value);
         Assert.Equal("11:11.795", rows[2].Value);
-        Assert.Equal("2,325.94 m", rows[3].Value);
-        Assert.Equal("19", rows[4].Value);
-        Assert.Equal("0", rows[5].Value);
-        Assert.Equal("1,298.25", rows[6].Value);
-        Assert.Equal("85.80", rows[7].Value);
-        Assert.Equal("49", rows[8].Value);
-        Assert.Equal("7", rows[9].Value);
-        Assert.Equal("Money net: +2,230", rows[10].Value);
-        Assert.Equal("Cash net: -9,744", rows[10].SecondaryValue);
+        Assert.Equal("2,425.94 m", rows[3].Value);
+        Assert.Equal("2,325.94 m", rows[4].Value);
+        Assert.Equal("100.00 m", rows[5].Value);
+        Assert.Equal("19", rows[6].Value);
+        Assert.Equal("0", rows[7].Value);
+        Assert.Equal("1,298.25", rows[8].Value);
+        Assert.Equal("85.80", rows[9].Value);
+        Assert.Equal("49", rows[10].Value);
+        Assert.Equal("7", rows[11].Value);
+        Assert.Equal("Money net: +2,230", rows[12].Value);
+        Assert.Equal("Cash net: -9,744", rows[12].SecondaryValue);
 
         projection.Runs.TotalRuns = 3000;
         projection.Runs.ExtractedRuns = 1;
         projection.Runs.DiedRuns = 1;
         projection.Runs.Runs = new[] { new RunSummary { ActiveDurationSeconds = 60.25 } };
         projection.Runs.PhysicalDistance = 12.3;
+        projection.Profile.Statistics.RunTotals.PhysicalDistance = 12.3;
         projection.Combat.Lifetime.Totals.KillsByYou = 42;
         projection.Combat.Lifetime.Totals.DamageDealt = 7.5;
         projection.Combat.Lifetime.Totals.DamageReceived = 6.25;
@@ -1955,15 +1960,15 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("3000", changed[0].Value);
         Assert.Equal("0% - 1/3,000", changed[1].Value);
         Assert.Equal("1:00.250", changed[2].Value);
-        Assert.Equal("12.30 m", changed[3].Value);
-        Assert.Equal("42", changed[4].Value);
-        Assert.Equal("1", changed[5].Value);
-        Assert.Equal("7.50", changed[6].Value);
-        Assert.Equal("6.25", changed[7].Value);
-        Assert.Equal("6", changed[8].Value);
-        Assert.Equal("4", changed[9].Value);
-        Assert.Equal("Money net: 0", changed[10].Value);
-        Assert.Equal("Cash net: -3", changed[10].SecondaryValue);
+        Assert.Equal("112.30 m", changed[3].Value);
+        Assert.Equal("42", changed[6].Value);
+        Assert.Equal("1", changed[7].Value);
+        Assert.Equal("7.50", changed[8].Value);
+        Assert.Equal("6.25", changed[9].Value);
+        Assert.Equal("6", changed[10].Value);
+        Assert.Equal("4", changed[11].Value);
+        Assert.Equal("Money net: 0", changed[12].Value);
+        Assert.Equal("Cash net: -3", changed[12].SecondaryValue);
     }
 
     [Theory]
@@ -2022,12 +2027,14 @@ public sealed class StatisticsPanelProjectionTests
 
         Assert.Equal("loc:ui.em_dash - 0/0", rows[1].Value);
         Assert.Equal("1:00:00.001", rows[2].Value);
-        Assert.Equal("loc:ui.unsupported", rows[3].Value);
-        Assert.Equal("loc:ui.unsupported", rows[4].Value);
+        Assert.Equal("loc:ui.unavailable", rows[3].Value);
+        Assert.Equal("loc:ui.unavailable", rows[4].Value);
+        Assert.Equal("loc:ui.distance_not_recorded", rows[5].Value);
         Assert.Equal("loc:ui.unsupported", rows[6].Value);
-        Assert.Equal("1234", rows[9].Value);
-        Assert.Equal("loc:ui.overview_money_net loc:ui.unsupported", rows[10].Value);
-        Assert.Equal("loc:ui.overview_cash_net loc:ui.unsupported", rows[10].SecondaryValue);
+        Assert.Equal("loc:ui.unsupported", rows[8].Value);
+        Assert.Equal("1234", rows[11].Value);
+        Assert.Equal("loc:ui.overview_money_net loc:ui.unsupported", rows[12].Value);
+        Assert.Equal("loc:ui.overview_cash_net loc:ui.unsupported", rows[12].SecondaryValue);
         Assert.All(rows, row => Assert.Equal("loc:" + RetainedProfileSummaryRowsPolicy.Specifications[(int)row.Metric].LabelTextKey, row.Label));
 
         projection.Containers.Lifetime.WasRepairedFromInvalidState = true;
@@ -2048,8 +2055,8 @@ public sealed class StatisticsPanelProjectionTests
             }
         };
         rows = ProfileSummaryPresentationFactory.Create(projection, Resolve);
-        Assert.Equal("1234 (loc:ui.repaired_unavailable)", rows[9].Value);
-        Assert.Equal("loc:ui.overview_money_net +5 (loc:ui.capture_incomplete)", rows[10].Value);
+        Assert.Equal("1234 (loc:ui.repaired_unavailable)", rows[11].Value);
+        Assert.Equal("loc:ui.overview_money_net +5 (loc:ui.capture_incomplete)", rows[12].Value);
         Assert.Throws<ArgumentNullException>(() => ProfileSummaryPresentationFactory.Create(null!, Resolve));
         Assert.Throws<ArgumentNullException>(() => ProfileSummaryPresentationFactory.Create(projection, null!));
     }
@@ -2067,7 +2074,7 @@ public sealed class StatisticsPanelProjectionTests
         foreach (var tab in PanelInteractionState.NavigationOrder) visibility.Apply(tab);
         visibility.Apply(StatisticsPanelTab.Overview);
 
-        Assert.Equal(11, RetainedShellCompositionPolicy.ProfileSummaryRowCount);
+        Assert.Equal(RetainedProfileSummaryRowsPolicy.RowCount, RetainedShellCompositionPolicy.ProfileSummaryRowCount);
         Assert.Equal(12, RetainedShellCompositionPolicy.OverviewLeftPanelContentChildCount);
         Assert.Equal(2, RetainedShellCompositionPolicy.ProfileSummaryStandardRowContentChildCount);
         Assert.Equal(3, RetainedShellCompositionPolicy.ProfileSummaryEconomyRowContentChildCount);
@@ -2562,7 +2569,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedOverviewFastestExtractionRowPolicy.Red);
         Assert.Equal(0f, RetainedOverviewFastestExtractionRowPolicy.Green);
         Assert.Equal(0f, RetainedOverviewFastestExtractionRowPolicy.Blue);
-        Assert.Equal(0.50f, RetainedOverviewFastestExtractionRowPolicy.LayerAlpha);
         Assert.Equal(10f, RetainedOverviewFastestExtractionRowPolicy.CornerRadiusPixels);
         Assert.True(RetainedOverviewFastestExtractionRowPolicy.BlocksRaycasts);
         Assert.Equal(
@@ -3263,7 +3269,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.Red);
         Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.Green);
         Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.Blue);
-        Assert.Equal(0.50f, RetainedOverviewLatestRunCardPolicy.LayerAlpha);
         Assert.Equal(20f, RetainedOverviewLatestRunCardPolicy.CornerRadiusPixels);
         Assert.Equal(0f, RetainedOverviewLatestRunCardPolicy.BorderWidth);
         Assert.False(RetainedOverviewLatestRunCardPolicy.HasSprite);
@@ -4779,7 +4784,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedOverviewWorldTimeCardPolicy.Red);
         Assert.Equal(0f, RetainedOverviewWorldTimeCardPolicy.Green);
         Assert.Equal(0f, RetainedOverviewWorldTimeCardPolicy.Blue);
-        Assert.Equal(0.50f, RetainedOverviewWorldTimeCardPolicy.LayerAlpha);
         Assert.Equal(10f, RetainedOverviewWorldTimeCardPolicy.CornerRadiusPixels);
         Assert.Equal(0f, RetainedOverviewWorldTimeCardPolicy.BorderWidth);
         Assert.False(RetainedOverviewWorldTimeCardPolicy.HasSprite);

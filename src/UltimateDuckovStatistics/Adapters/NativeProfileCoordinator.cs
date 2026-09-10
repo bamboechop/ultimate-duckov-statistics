@@ -13,7 +13,7 @@ using UnityEngine;
 
 namespace UltimateDuckovStatistics.Adapters;
 
-internal sealed class NativeProfileCoordinator : IDisposable
+internal sealed partial class NativeProfileCoordinator : IDisposable
 {
     private const int DiagnosticCapacity = 200;
     private readonly MonotonicCadenceGate persistenceDiagnosticCadence = new(60);
@@ -630,8 +630,13 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public DeferredWriteState FlushRunCheckpoint() => ObserveCheckpointResult(checkpointWriter.Flush());
 
-    public DeferredWriteState TickProfilePersistence(bool activeRunCheckpointCurrent = true) =>
-        ObserveProfileResult(profileWriter.Tick(activeRunCheckpointCurrent));
+    public DeferredWriteState TickProfilePersistence(bool activeRunCheckpointCurrent = true)
+    {
+        QueueBaseMovementPersistence();
+        var result = ObserveProfileResult(profileWriter.Tick(activeRunCheckpointCurrent));
+        if (result == DeferredWriteState.Succeeded && !profileWriter.IsDirty) baseMovementWriteQueued = false;
+        return result;
+    }
 
     public bool HandleRunCompleted(RunSummary summary)
     {
@@ -652,6 +657,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            if (!FlushBaseMovement()) throw new IOException("Base movement remains pending at a profile boundary.");
             if (economyHoldingsBoundaryFlusher?.Invoke() == false)
                 throw new IOException("Economy holdings remain pending during profile flush.");
             if (worldTimeBoundaryFlusher?.Invoke() == false)
@@ -700,6 +706,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             throw new InvalidOperationException("No profile is open for export.");
         }
 
+        if (!FlushBaseMovement()) throw new IOException("Base movement remains pending before export.");
         if (economyHoldingsBoundaryFlusher?.Invoke() == false)
             throw new IOException("Economy holdings remain pending before export.");
         if (worldTimeBoundaryFlusher?.Invoke() == false)
@@ -801,6 +808,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
             if (repository != null)
             {
                 repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
+                if (!FlushBaseMovement()) throw new IOException("Base movement remains pending during disposal.");
                 repository.CloseClean();
             }
         }
@@ -919,6 +927,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            if (!FlushBaseMovement()) throw new IOException("Base movement remains pending at a profile boundary.");
             if (economyHoldingsBoundaryFlusher?.Invoke() == false)
                 throw new IOException("Economy holdings remain pending before native save collection.");
             if (worldTimeBoundaryFlusher?.Invoke() == false)
@@ -1018,6 +1027,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     private bool FlushProfileTransitionBoundaries()
     {
+        if (!FlushBaseMovement()) return false;
         if (economyHoldingsBoundaryFlusher?.Invoke() == false) return false;
         if (economyBoundaryFlusher?.Invoke() == false) return false;
         if (worldTimeBoundaryFlusher?.Invoke() == false) return false;

@@ -229,7 +229,7 @@ internal sealed partial class RetainedStatisticsShell
                 c.Rect.GetComponent<ButtonAnimation>().enabled = row.Actionable;
                 c.Rect.GetComponent<RunsButtonFeedback>().enabled = row.Actionable;
                 var plain = row.Kind is ItemUseRowKind.Heading or ItemUseRowKind.Notice or ItemUseRowKind.Group;
-                c.Background.color = row.Selected ? new Color32(255, 158, 44, 255) : plain ? Color.clear : new Color(0, 0, 0, .5f);
+                c.Background.color = row.Selected ? new Color32(255, 158, 44, 255) : plain ? Color.clear : new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha);
                 c.Rect.GetComponent<UniformModifier>().Radius = 10; c.Button.targetGraphic.GetComponent<UniformModifier>().Radius = 10;
                 Place(c.Rect, row.X, row.Y, row.Width, row.Height);
                 c.Route.Label.gameObject.SetActive(row.Kind == ItemUseRowKind.Route);

@@ -12,13 +12,14 @@ internal sealed partial class RetainedStatisticsShell
         public RectTransform Rect { get; }
         public RectTransform Content { get; }
         public float Offset => Math.Max(0, Content.anchoredPosition.y);
-        public ScrollRegion(RectTransform parent, string name, float radius)
+        public ScrollRegion(RectTransform parent, string name, float radius = 10)
         {
             Rect = (RectTransform)new GameObject(name).transform;
             Rect.SetParent(parent);
             Rect.gameObject.AddComponent<RunsFocusHandler>();
             Rect.gameObject.AddComponent<UnityEngine.UI.Selectable>();
             Scroll = Rect.gameObject.AddComponent<UnityEngine.UI.ScrollRect>();
+            Scroll.scrollSensitivity = 40;
             Scroll.viewport = (RectTransform)new GameObject("Viewport").transform;
             Scroll.viewport.SetParent(Rect);
             Content = (RectTransform)new GameObject("Content").transform;

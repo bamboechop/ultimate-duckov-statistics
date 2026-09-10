@@ -1,6 +1,6 @@
 # Validation and delivery evidence
 
-The [post-M18 opacity batch and base-distance investigation](docs/RC2_OPACITY_BASE_DISTANCE.md) records the shared 85% dimmer change, its focused visual checklist, and the proposed base-distance scope. Base tracking remains unimplemented; accepted unchanged M18/UI/Combat/About evidence is reused.
+The [post-M18 opacity and base-distance batch](docs/RC2_OPACITY_BASE_DISTANCE.md) records the 85% dimmer, 75% inner panels, base-movement collection and current-format persistence, combined/raid/base UI and exports, and focused native gameplay/rendering acceptance. Accepted unchanged M18/UI/Combat/About evidence is reused.
 
 The [post-M18 About/community batch](docs/RC2_ABOUT_COMMUNITY.md) records the ten-tab integration, installed URL-opening contract, prepared unpublished community copy and affected manual checklist. It records approved author/link content, automated shell qualification, verified ordinary local package/deployment and the separate user-controlled visual/browser checks.
 

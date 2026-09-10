@@ -181,7 +181,7 @@ internal sealed partial class RetainedStatisticsShell
                 while (surfaces.Count < visibleSurfaces.Length)
                 {
                     var surface = CreateOverviewPanel(surfaceRoot, "CraftingCard", out var modifier); modifier.Radius = 10;
-                    surface.GetComponent<ProceduralImage>().raycastTarget = false; surface.GetComponent<ProceduralImage>().color = new Color(0, 0, 0, .5f); surfaces.Add(surface);
+                    surface.GetComponent<ProceduralImage>().raycastTarget = false; surface.GetComponent<ProceduralImage>().color = new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha); surfaces.Add(surface);
                 }
                 for (var i = 0; i < surfaces.Count; i++)
                 {

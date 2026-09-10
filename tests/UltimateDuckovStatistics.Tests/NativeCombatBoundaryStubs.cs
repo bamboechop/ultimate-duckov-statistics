@@ -106,7 +106,7 @@ namespace Duckov.Buffs
 namespace UnityEngine
 {
     public readonly struct Quaternion { }
-    public static class Time { public static int frameCount { get; set; } }
+    public static class Time { public static int frameCount { get; set; } public static float timeScale { get; set; } = 1; }
     public partial class Object
     {
         public static Object Instantiate(Object original, Vector3 position, Quaternion rotation) => original;

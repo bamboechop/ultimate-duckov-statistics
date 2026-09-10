@@ -351,7 +351,7 @@ internal sealed partial class RetainedStatisticsShell
             var displayedTitle = title;
             var statusHeight = status.Length == 0 ? 0 : measure.Height(status, valueWidth, size);
             var h = Math.Max(size >= 40 ? 86 : 62, Math.Max(measure.Height(displayedTitle, textWidth, size), statusHeight) + 24);
-            Button(parent, id, displayedTitle, x, y, w, h, expanded ? Orange : new Color(0, 0, 0, .5f),
+            Button(parent, id, displayedTitle, x, y, w, h, expanded ? Orange : new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha),
                 () => Toggle(id), isRight, true, size, false);
             // A separate status field reserves its own measured width; long titles wrap.
             var titleElement = elements[id + ":label"].Text!;
@@ -407,7 +407,7 @@ internal sealed partial class RetainedStatisticsShell
         {
             var e = Use(parent, id); var background = e.Rect.GetComponent<ProceduralImage>();
             if (background == null) { background = e.Rect.gameObject.AddComponent<ProceduralImage>(); e.Rect.gameObject.AddComponent<UniformModifier>(); }
-            background.color = color ?? new Color(0, 0, 0, .5f); background.raycastTarget = true;
+            background.color = color ?? new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha); background.raycastTarget = true;
             e.Rect.GetComponent<UniformModifier>().Radius = radius; return e.Rect;
         }
         private Element Use(RectTransform parent, string id)

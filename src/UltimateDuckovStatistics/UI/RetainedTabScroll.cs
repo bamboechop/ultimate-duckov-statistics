@@ -44,8 +44,8 @@ internal sealed partial class RetainedStatisticsShell
                     else if (selectedTab == StatisticsPanelTab.ItemUse) itemUseView?.FocusPage();
                     else if (selectedTab == StatisticsPanelTab.About) aboutView?.FocusFirst();
                     else if (selectedTab == StatisticsPanelTab.Diagnostics) diagnosticsView?.FocusFirst();
-                    else if (selectedTab == StatisticsPanelTab.Overview && overviewLatestRunViewRun?.Button.interactable == true)
-                        GameManager.EventSystem?.SetSelectedGameObject(overviewLatestRunViewRun.Button.gameObject);
+                    else if (selectedTab == StatisticsPanelTab.Overview && overviewSummaryScroll != null)
+                        GameManager.EventSystem?.SetSelectedGameObject(overviewSummaryScroll.Rect.gameObject);
                     return;
                 }
                 if (direction != MoveDirection.Left && direction != MoveDirection.Right) return;
