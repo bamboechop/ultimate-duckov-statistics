@@ -1,6 +1,8 @@
 # About and community invitation batch
 
-This batch is being prepared for the eventual `v1.0.0-rc.2`. It does not publish a release or a Workshop item. Its immutable base is `48428b32cf0108d59bd73c1a981a7acdc2078f68`, the merge of [Combat Statistics PR #21](https://github.com/bamboechop/ultimate-duckov-statistics/pull/21).
+This batch is merged. The user confirmed final in-game acceptance on 2026-09-11; see the [combined RC2 release record](RC2_RELEASE.md). Pending manual-check wording below describes the earlier delivery checkpoints and is superseded by that confirmation. The recorded batch artifact hashes remain historical evidence, not the versioned RC2 release package.
+
+This batch contributed to the combined `v1.0.0-rc.2`. It does not publish a release or a Workshop item. Its immutable base is `48428b32cf0108d59bd73c1a981a7acdc2078f68`, the merge of [Combat Statistics PR #21](https://github.com/bamboechop/ultimate-duckov-statistics/pull/21).
 
 ## Approved public content
 

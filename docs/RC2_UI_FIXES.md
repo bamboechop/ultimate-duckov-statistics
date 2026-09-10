@@ -1,5 +1,7 @@
 # Post-M18 UI batch
 
+This batch is merged. The user confirmed final in-game acceptance on 2026-09-11; see the [combined RC2 release record](RC2_RELEASE.md). Pending manual-check wording below describes the earlier delivery checkpoints and is superseded by that confirmation. The recorded batch artifact hashes remain historical evidence, not the versioned RC2 release package.
+
 Immutable base: `58591d5a397abd484284291fd95ab92d949f46fb` (current `origin/main` when the isolated batch branch was created). This is one contribution toward rc.2, not a new release or a replacement for the accepted [M18 qualification](M18_ACCEPTANCE.md). Published rc.1 artifacts and the original checkout's unrelated PLAN/diagnostic work are preserved.
 
 ## Behavior and baseline findings

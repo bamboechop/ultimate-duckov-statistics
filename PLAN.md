@@ -446,6 +446,31 @@ Post-M18 batch four is documented in [the opacity/base-distance record](docs/RC2
 
 The post-M9 order is intentional: first remove the remaining data-loss boundary, then correct combat meaning, then implement the coupled world-time/sleep lifecycle, then implement the independent crafting lifecycle, then preserve both shot-time weapon-ammunition and equipped-time character/nested equipment-slot associations, then establish truthful current Money/Cash holdings and conditional liquid wealth, then add exact crafting-resource consumption before redesigning every presentation surface. This leaves M18 with a feature-frozen data model and gives each remaining native-contract family its own schema, review, manual acceptance, and minor pre-release.
 
+### Completed post-M18 implementation checklist
+
+The four follow-up batches merged through [UI PR #20](https://github.com/bamboechop/ultimate-duckov-statistics/pull/20), [Combat PR #21](https://github.com/bamboechop/ultimate-duckov-statistics/pull/21), [About PR #22](https://github.com/bamboechop/ultimate-duckov-statistics/pull/22) and [opacity/base-distance PR #23](https://github.com/bamboechop/ultimate-duckov-statistics/pull/23). The user confirmed on 2026-09-11 that the final in-game checks passed. The [RC2 release record](docs/RC2_RELEASE.md) separates completed implementation and acceptance from exact-package verification and publication. Steam publication remains a later user-controlled step.
+
+- [x] **Community translations:** Added the About invitation and prepared the Steam-description call to action. Publish that copy with the Workshop page; the promo caption is optional. Translation infrastructure stays deferred until volunteers respond.
+- [x] **Performance audit and cleanup (M18):** Completed within the recorded [M18 acceptance](docs/M18_ACCEPTANCE.md) bounds. Follow-ups require checks of affected behavior, not repetition of the accepted campaign.
+- [x] **Empty profiles - Runs:** Centered and reduced the right-side empty-state text.
+- [x] **Empty profiles - Records:** Hide the starting-map section without recorded evidence.
+- [x] **Empty profiles - Combat / Enemies:** Hide the empty table, including headers.
+- [x] **Empty profiles - Combat / Incoming Damage:** Hide the empty table while retaining any recorded aggregate evidence.
+- [x] **HP display:** Round restored-HP UI values to whole numbers; retain recorded/export precision and availability.
+- [x] **Overview distance:** Implemented recorded base distance, separate raid distance and their combined total, with current-format persistence, export and coverage information. Runs/routes/records remain raid-only.
+- [x] **Combat Summary - effect kills:** Display the existing Effects / DoT player-kill partition separately from observed world deaths.
+- [x] **Overall accuracy:** Include ranged and melee counts with compatible denominators and truthful unavailable/zero-attempt states.
+- [x] **Runs - Combat accuracy:** Display separate ranged and melee accuracy.
+- [x] **Diagnostics - export confirmation:** Dismiss result-specific feedback on panel close or profile transition, including late completion feedback.
+- [x] **Combat - selected weapon accuracy:** Display that weapon's hits/firing-actions ratio across its ammunition in Weapon details, as clarified during implementation; preserve ammunition usage share separately.
+- [x] **Equipment / Weapons - attachment spacing:** Separate equipped-time details from attachment groups.
+- [x] **Economy / Recent runs - labels:** Remove trailing colons from MONEY NET and CASH NET.
+- [x] **About:** Add the tenth tab before Diagnostics, with author, support, Discord and translation information.
+- [x] **Background opacity:** Use an 85% outer dimmer and 75% inner panels/dark rows. Blur was cancelled.
+- [x] **Equipment / Totems - color shading:** Preserve native shading through interactions and refreshes; completed resource/visual checks remain in the UI batch record.
+
+Release preparation follows [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md): freeze and verify rc.2, publish the GitHub pre-release on user instruction, then separately decide final v1.0 promotion and Workshop distribution. Live publication and CI state belong on GitHub.
+
 #### Planned M8 acceptance boundary
 
 - Prove a single-map run remains behaviorally identical except for its explicit one-segment route.

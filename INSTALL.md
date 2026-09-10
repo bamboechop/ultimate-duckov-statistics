@@ -1,6 +1,6 @@
 # Install and use Ultimate Duckov Statistics
 
-This `1.0.0-rc.1` package is a release candidate. M18 implementation, independent reviews and native qualification are complete within the accepted performance and coverage bounds in the [M18 acceptance record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/M18_ACCEPTANCE.md). Publication and Workshop channel verification remain separate release steps. The first version explicitly distributed through a supported channel will declare the supported upgrade baseline. Earlier `0.x` GitHub downloads were development artifacts.
+This `1.0.0-rc.2` package is a release candidate for voluntary testing. It includes the four merged post-M18 batches and the user's completed in-game acceptance recorded in the [RC2 release record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/RC2_RELEASE.md). The [M18 acceptance record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/M18_ACCEPTANCE.md) retains the accepted performance and coverage bounds. Workshop channel verification and final v1.0 promotion remain separate release steps. The first version explicitly distributed through a supported channel will declare the supported upgrade baseline. Earlier `0.x` GitHub downloads were development artifacts.
 
 ## Verified native baseline
 
@@ -27,6 +27,8 @@ To uninstall, close Duckov and remove only its UDS mod folder. Statistics remain
 All ten retained tabs use the same native shell. It supports localized labels, scrolling, keyboard focus, and responsive layout. Statistics access is deliberately unavailable during raids. Changing the selected save invalidates controls from the previous statistics generation. About precedes Diagnostics and remains available with an empty profile or unavailable measurements whenever the panel can open. Its optional support and Discord buttons open your browser only when activated.
 
 Runs begin when the living main duck gains control in a native raid. Loading/base activity is excluded from raid duration and movement. Unknown identity, unavailable capture, partial attribution, repaired evidence, and proven empty observations remain distinct. Disabling a dependency does not invent zeros or erase independently supported sibling metrics.
+
+Overview and exports show total recorded distance, raid distance and recorded base distance. Raid distance uses completed/recovered runs; active checkpoints do not contribute to that lifetime total. Base movement is a separate sampled distance with pause/loading/placement exclusions. It starts at the first valid observation, cannot backfill earlier movement, and reports collection-start and partial coverage. No base activity is added to run, route or record statistics.
 
 Accepted firing callbacks, weapon/ammunition identity and completed player projectiles have distinct meanings. Kills by the player are distinct from observed world deaths. Delayed damage uses application-time source/equipment evidence; a missing source remains unknown while a proven destination can retain its damage. Equipment and totem statistics describe observed state. Container deduplication uses native map/key evidence. Economy flows, current holdings, crafting actions/outputs/resources/total charges, item use/consumption/healing, and world time/sleep retain their separate scopes.
 

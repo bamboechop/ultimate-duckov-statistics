@@ -14,6 +14,8 @@ Open Statistics outside a raid from the main menu, base pause menu or F8. Ten ta
 
 **Measurement limits:** UDS records evidence the game exposes. It does not infer rejected trigger attempts, ammunition consumption from firing callbacks, tote-effect activation, crafting workstation or map attribution, crafting Money/Cash split, or the final disposition of fungible Cash. Unknown and partial evidence remains visibly identified.
 
+Overview shows recorded base distance, raid distance and their combined total. Base distance starts when UDS first observes it; earlier movement cannot be reconstructed. Run and route statistics remain raid-only.
+
 **Development-data transition:** v1 uses a separate data namespace. Older UDS development profiles remain untouched and are not imported. Keep one active UDS installation.
 
 Installation, local data, limitations and troubleshooting: [project documentation](https://github.com/bamboechop/ultimate-duckov-statistics). Source is available under the MIT license.

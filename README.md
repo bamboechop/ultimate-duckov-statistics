@@ -6,6 +6,8 @@ M17 is the completed feature baseline. M18 release hardening merged through [PR 
 
 ## Install and use
 
+The four post-M18 batches add UI fixes, combat accuracy and kill breakdowns, About/community links, and recorded base distance with stronger panel backgrounds. They merged through [PR #20](https://github.com/bamboechop/ultimate-duckov-statistics/pull/20), [PR #21](https://github.com/bamboechop/ultimate-duckov-statistics/pull/21), [PR #22](https://github.com/bamboechop/ultimate-duckov-statistics/pull/22) and [PR #23](https://github.com/bamboechop/ultimate-duckov-statistics/pull/23). See the [RC2 release record](docs/RC2_RELEASE.md) for scope and the user's completed in-game acceptance; the [release page](https://github.com/bamboechop/ultimate-duckov-statistics/releases) remains authoritative for publication.
+
 See [INSTALL.md](INSTALL.md) for installation, activation, data locations, export/reset and troubleshooting. The verified baseline is Duckov 2.3.30 / Steam build 24013657 / Unity 2022.3.62f2 on Windows, with the separately installed [HarmonyLib dependency](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) at 2.4.1.0. Game, Unity and Harmony DLLs are never bundled.
 
 Outside raids, open Statistics from the main menu, base pause menu or configurable F8. The retained native shell contains Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, About and Diagnostics. About introduces UDS and provides optional author support and community translation contact links. Long localization text uses measured layout, clipping and scrolling. Missing required native objects can prevent construction; appearance differences do not reject the shell.
@@ -13,6 +15,7 @@ Outside raids, open Statistics from the main menu, base pause menu or configurab
 ## Statistics and evidence
 
 - Runs, physical movement, teleport/transition-excluded distance, ordered maps and repeated visits use native lifecycle boundaries. Active raid time excludes loading and pause. Records retain eligibility and integrity evidence.
+- Overview and exports separate recorded base distance from recorded raid distance and show their combined total. Base collection begins with the first valid observation; it cannot reconstruct earlier movement. Collection-start and partial-coverage information describe its limits. Runs, routes and records remain raid-only.
 - Accepted firing actions preserve proven weapon/ammunition pairing. Combat uses exact actual damage, actor ownership, player kills, observed world deaths, headshots and completed player projectiles. Delayed effects keep proven application-time source identity; unknown source evidence stays unknown while independently proven outcomes remain available.
 - Equipment records observed loadout, attachment, native-slot and nested-slot state and active-raid duration. Proven empty, missing and partially observed state remain distinct. Container counting uses native map/key identity.
 - Item activation, consumption and attributed healing remain separate. Known, unknown and modded items retain stable identities and supported effect classifications.

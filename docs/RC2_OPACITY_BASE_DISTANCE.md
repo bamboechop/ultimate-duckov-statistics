@@ -1,5 +1,7 @@
 # Post-M18 batch four: panel opacity and base distance
 
+This batch is merged. The user confirmed final in-game acceptance on 2026-09-11; see the [combined RC2 release record](RC2_RELEASE.md). Pending manual-check wording below describes the earlier delivery checkpoints and is superseded by that confirmation. The recorded batch artifact hashes remain historical evidence, not the versioned RC2 release package.
+
 Based on `68623d4f32190b7c73f1368b10d3ee3f8b73cb09`, the merge of [PR #22](https://github.com/bamboechop/ultimate-duckov-statistics/pull/22). The change and its review/CI live at [PR #23](https://github.com/bamboechop/ultimate-duckov-statistics/pull/23). This is an ordinary local test build, not an rc.2 publication. The original checkout's modified `PLAN.md` and untracked firing diagnostic remain outside this batch.
 
 ## Background opacity

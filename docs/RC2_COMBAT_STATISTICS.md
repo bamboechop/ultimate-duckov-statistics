@@ -1,6 +1,8 @@
 # Post-M18 Combat Statistics batch
 
-Immutable base: `e8f59b9a07d4c02ea0344035a5b5c1b964b27d4c`, fetched from `origin/main` and verified as the merge of [UI-fix PR #20](https://github.com/bamboechop/ultimate-duckov-statistics/pull/20). Implementation is isolated on `codex/rc2-combat-statistics`. This contributes to the eventual combined rc.2; it does not publish or version that release. The existing version metadata remains unchanged; identify this local test package by its source commit and hashes.
+This batch is merged. The user confirmed final in-game acceptance on 2026-09-11; see the [combined RC2 release record](RC2_RELEASE.md). Pending manual-check wording below describes the earlier delivery checkpoints and is superseded by that confirmation. The recorded batch artifact hashes remain historical evidence, not the versioned RC2 release package.
+
+Immutable base: `e8f59b9a07d4c02ea0344035a5b5c1b964b27d4c`, fetched from `origin/main` and verified as the merge of [UI-fix PR #20](https://github.com/bamboechop/ultimate-duckov-statistics/pull/20). Implementation was isolated on `codex/rc2-combat-statistics`. This contributes to the eventual combined rc.2; it does not publish or version that release. The existing version metadata remains unchanged; identify this local test package by its source commit and hashes.
 
 The accepted [M18 evidence](M18_ACCEPTANCE.md) and [UI batch](RC2_UI_FIXES.md) remain the baseline for unchanged behavior. The original checkout's modified PLAN and firing-timing diagnostic are separate local work. About/community content, base distance and blur are outside this batch.
 
