@@ -1,0 +1,58 @@
+{
+  "ImplementationSourceCommit": "e3fa8c4b0ffe769632a4aa2fc01cfe3a081ab0af",
+  "BaseCommit": "68623d4f32190b7c73f1368b10d3ee3f8b73cb09",
+  "VerifiedUtc": "2026-09-10T20:37:32.4179917Z",
+  "PullRequest": "https://github.com/bamboechop/ultimate-duckov-statistics/pull/23",
+  "ArtifactKind": "ordinary local opacity test; no rc.2 publication",
+  "Archive": {
+    "Name": "UltimateDuckovStatistics-opacity-batch4.zip",
+    "Bytes": 640904,
+    "SHA256": "4b901a6000478b4a36d4c3f97088c122d9908918d38bc6af42cbfe9f8ed92214"
+  },
+  "Files": [
+    {
+      "Name": "info.ini",
+      "Bytes": 336,
+      "SHA256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "Name": "INSTALL.md",
+      "Bytes": 7161,
+      "SHA256": "b6f5c74a966e81eff8d7235d23e789650e7355e243886998f3b3609aaea13109"
+    },
+    {
+      "Name": "LICENSE",
+      "Bytes": 1096,
+      "SHA256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "Name": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 694784,
+      "SHA256": "62db0d1def9d3e91f7391581e617a164b9b5d086dc1104e9c5ec52048ae6c688"
+    },
+    {
+      "Name": "UltimateDuckovStatistics.dll",
+      "Bytes": 1136128,
+      "SHA256": "d59702468a312a9387c1055860dd5b6f08044fa56b72e3f7f76d26c67a3557ef"
+    }
+  ],
+  "TwoRootReproducibility": "pass; both DLLs, both PDBs and deterministic ZIP; ZIP matches delivered artifact",
+  "MainTestsPerConfiguration": 2001,
+  "OrdinaryShellTestsPerConfiguration": 64,
+  "DiagnosticShellTestsPerConfiguration": 68,
+  "Configurations": [
+    "Debug",
+    "Release"
+  ],
+  "ScopedFormatAnalyzers": "pass",
+  "NativeContractProbe": "pass; Duckov 2.3.30, Steam 24013657, Unity 2022.3.62f2",
+  "OrdinaryPackagePrivacyAndIL": "pass",
+  "IndependentExtraction": "pass; exact five files and hashes",
+  "Deployment": "pass; Duckov closed, five installed hashes match, no staging residue",
+  "PreviousDeploymentBackup": "artifacts/deployment-backups/1564209aa312467ab026c1ea9f38ad04/UltimateDuckovStatistics",
+  "PreviousDeploymentHashesVerified": true,
+  "ProtectedSaveAndProfileFilesUnchanged": 3114,
+  "OriginalProtectedLocalFilesUnchanged": 2,
+  "VisualAcceptance": "user-controlled; not performed by agent",
+  "BaseTracking": "proposal only; no tracking or schema change"
+}

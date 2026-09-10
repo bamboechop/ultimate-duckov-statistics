@@ -111,4 +111,14 @@ User-controlled gameplay qualification after implementation: known base walks/ru
 
 The full ordinary build passed 2,001 main tests and 64 shell tests in **each** of Debug and Release, the installed contract probe, native Debug/Release builds and package/ordinary-IL/privacy checks. Diagnostic shell suites also passed 68 tests per configuration; these source-linked test builds are not the deployed mod. Changed-source formatting/analyzers, whitespace checks and tracked native-binary exclusion passed. The first run's existing 75% assertion was corrected as described above. No test count was added for opacity literals. Prior accepted M18/UI/Combat/About evidence is reused for unchanged behavior; actual visual acceptance remains with the user. Local scratch experiments touched no game, save or UDS-profile data.
 
-Final package/deployment evidence is recorded in the delivery section below. PR and CI status should be read from GitHub rather than treated as durable document state.
+### Ordinary package and deployment receipt
+
+[PR #23](https://github.com/bamboechop/ultimate-duckov-statistics/pull/23) is the authoritative review/CI surface. [The delivery receipt](RC2_OPACITY_DELIVERY.json) records verified immutable artifact facts for implementation commit `e3fa8c4b0ffe769632a4aa2fc01cfe3a081ab0af`; subsequent delivery-document changes do not affect the package.
+
+- Separate local artifact: `artifacts/batch4/ordinary/UltimateDuckovStatistics-opacity-batch4.zip`, **640,904 bytes**, SHA-256 `4b901a6000478b4a36d4c3f97088c122d9908918d38bc6af42cbfe9f8ed92214`. It retains rc.1 internal version metadata as an unpublished batch test package; it must not be confused with the published rc.1 artifact.
+- Two immutable source extractions produced identical DLLs, PDBs and deterministic ZIP, and that ZIP matches the delivered one. The first deeply nested reproduction attempt hit Windows process-path length error 206; repeating the same build/package/hash procedure under shorter isolated artifact roots passed without source changes.
+- Independent extraction verified the exact five-file inventory and all hashes; ordinary IL and privacy audits passed. Only the extracted ordinary package was deployed.
+- Duckov was closed. Installed hashes match all five files; the previous mod was preserved and its backup hashes reverified under `artifacts/deployment-backups/1564209aa312467ab026c1ea9f38ad04/UltimateDuckovStatistics`. No deployment staging residue remains.
+- All **3,114** save/UDS-profile files were hash-identical before and after deployment. The original checkout's two protected local-work files were also unchanged. No launch, gameplay, save selection, reset, merge, tag, release or Workshop operation was performed.
+
+Visual acceptance and any future base-tracking implementation remain separate from these automated/package results. PR and CI status should be read from GitHub rather than treated as durable document state.
