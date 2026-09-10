@@ -144,8 +144,8 @@ public sealed class CombatWeaponDetailsTests
     {
         var p = Projection(); Fire(p, "weapon:a"); Combat(p, "weapon:a");
         var weapon = Assert.Single(Present(p).Weapons);
-        Assert.Equal(new[] { "Firing actions", "Hits", "Headshots", "Headshot final blows", "Kills by you", "Damage dealt" }, weapon.Metrics.Select(m => m.Label));
-        Assert.Equal(new[] { "8", "5", "3", "1", "2", "123.5" }, weapon.Metrics.Select(m => m.Value.Text));
+        Assert.Equal(new[] { "Firing actions", "Hits", "Accuracy", "Headshots", "Headshot final blows", "Kills by you", "Damage dealt" }, weapon.Metrics.Select(m => m.Label));
+        Assert.Equal(new[] { "8", "5", "62.5%", "3", "1", "2", "123.5" }, weapon.Metrics.Select(m => m.Value.Text));
         Assert.All(weapon.Metrics, m => Assert.Equal(CombatEvidence.Supported, m.Value.Evidence));
         Assert.Equal("8", Assert.Single(weapon.Ammunition).Actions.Text); Assert.Equal("100%", weapon.Ammunition[0].Percentage.Text);
     }
@@ -256,7 +256,7 @@ public sealed class CombatWeaponDetailsTests
         Assert.All(weapon.Metrics.Skip(1), m => Assert.Equal(CombatEvidence.Unavailable, m.Value.Evidence));
         Combat(p, "w"); weapon = Assert.Single(Present(p).Weapons);
         Assert.Equal(CombatEvidence.Supported, Value(weapon, "Hits").Evidence);
-        Assert.Empty(weapon.Notice);
+        Assert.Equal(UiText.Get("ui.combat_weapon_accuracy_basis"), weapon.Notice);
     }
 
     [Fact]

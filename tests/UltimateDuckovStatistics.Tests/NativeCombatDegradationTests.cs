@@ -146,6 +146,57 @@ public sealed class NativeCombatDegradationTests : IDisposable
         Assert.Equal(1, Assert.Single(events).PlayerDeaths);
     }
 
+    [Fact]
+    public void ThreeAcceptedSwingsWithOneMultiContactDamageCheckCountOneMeleeHit()
+    {
+        player.MeleeWeapon = new ItemAgent_MeleeWeapon { Holder = player, Item = new Item { TypeID = 42 } };
+        // Installed CA_Attack.OnStart emits OnAttack once; OnUpdateAction's damageDealed guard
+        // admits one CheckAndDealDamage per action. The native loop can hurt multiple colliders.
+        for (var swing = 0; swing < 3; swing++)
+        {
+            player.attackAction.RaiseAttack();
+            object?[] check = [player.MeleeWeapon, true, null];
+            CombatHarmonyCallbacks.MeleePrefixMethod.Invoke(null, check);
+            Assert.NotNull(check[2]);
+            if (swing == 1)
+            {
+                var first = new Health { CurrentHealth = 100, Character = new CharacterMainControl(), team = Teams.enemy };
+                var second = new Health { CurrentHealth = 100, Character = new CharacterMainControl(), team = Teams.enemy };
+                foreach (var target in new[] { first, first, second })
+                {
+                    object?[] hurt = [target, new DamageInfo { fromCharacter = player }, null];
+                    CombatHarmonyCallbacks.HealthPrefixMethod.Invoke(null, hurt);
+                    target.CurrentHealth -= 10;
+                    CombatHarmonyCallbacks.HealthPostfixMethod.Invoke(null, [target, hurt[2]]);
+                }
+            }
+            CombatHarmonyCallbacks.MeleeFinalizerMethod.Invoke(null, [null, check[2]]);
+        }
+        Assert.Equal(3, events.Sum(value => value.MeleeSwings));
+        Assert.Equal(1, events.Sum(value => value.MeleeHits));
+        Assert.Equal(30, events.Sum(value => value.ActualDamageDealt));
+        Assert.All(events, value => Assert.Equal("duckov:weapon:42", value.WeaponId));
+        var aggregate = new Core.Statistics.CombatStatisticsAggregate();
+        foreach (var value in events) Core.Statistics.CombatStatisticsReducer.Apply(aggregate, value);
+        Assert.Equal(1d / 3, Core.Statistics.CombatAccuracyProjection.Melee(aggregate.Totals, aggregate.Capabilities, false));
+        // Native range queries use dealDamage:false, and must not create a hit scope.
+        Assert.Null(CombatHarmonyBridge.PushMelee(player.MeleeWeapon, false));
+    }
+
+    [Fact]
+    public void MultipleProjectilesAndPenetratingContactsCountOncePerCompletedProjectile()
+    {
+        // One native gun firing action can loop ShotCount times; each Init has its own correlation.
+        var first = Capture(); var second = Capture();
+        Hit(first); Hit(first); Hit(second);
+        Assert.Equal(0, events.Sum(value => value.RangedHits));
+        foreach (var projectile in new[] { first, second, first })
+            CombatHarmonyCallbacks.ProjectileReleasePrefixMethod.Invoke(null, [projectile]);
+        Assert.Equal(2, events.Sum(value => value.CompletedPlayerProjectiles));
+        Assert.Equal(2, events.Sum(value => value.RangedHits));
+        Assert.Equal(30, events.Sum(value => value.ActualDamageDealt));
+    }
+
     private Projectile Capture()
     {
         var projectile = new Projectile();

@@ -1,5 +1,7 @@
 # Validation and delivery evidence
 
+The [post-M18 Combat Statistics batch](docs/RC2_COMBAT_STATISTICS.md) defines the combined, ranged, melee and weapon firing-action ratios, effect-kill presentation, installed-native evidence, regression scope and remaining user-controlled checks for this contribution to rc.2. Existing ranged exports and the accepted M18/UI-batch evidence retain their meanings.
+
 The [post-M18 UI batch](docs/RC2_UI_FIXES.md) records the scoped rc.2 follow-up behavior, regression boundaries, totem correction qualification and completed user visual acceptance. Its affected checks supplement the accepted M18 evidence.
 
 Current v1 qualification is maintained in [the M18 acceptance record](docs/M18_ACCEPTANCE.md). [PR #19](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19) squash-merged head `87eed7e57c02a3aa80ce6962a0e0cbc927534dbd` on 2026-09-10 as `6e2d8b9bb7fda5b8cc0b9296cb399256315b4319`, after two independent reviews of the full range from `443fad6a268916a6038c919501a714d1f17da371` found no actionable defects. Native qualification is complete within the accepted bounds. [Manual qualification](docs/M18_MANUAL_QUALIFICATION.md), [performance protocol](PERFORMANCE.md), [removal inventory](docs/M18_REMOVAL_INVENTORY.md) and [release procedure](docs/RELEASE_PROCESS.md) distinguish completed evidence from final packaging and publication steps.

@@ -149,12 +149,12 @@ public sealed class RetainedCombatTests
     }
 
     [Fact]
-    public void FourOverallCardsUseSeparateLifetimeTotals()
+    public void OverallCardsUseSeparateLifetimeTotals()
     {
         var p = Projection(); var n = p.Combat.Lifetime.Totals;
         n.DamageDealt = 2400.25; n.DamageReceived = 82.25; n.KillsByYou = 14; n.PlayerDeaths = 3; n.ObservedWorldDeaths = 900;
-        Assert.Equal(new[] { "2,400.25", "82.25", "14", "3" }, Present(p).Overall.Select(m => m.Value.Text));
-        Assert.All(Present(p).Overall, m => Assert.Equal(CombatEvidence.Supported, m.Value.Evidence));
+        Assert.Equal(new[] { "2,400.25", "82.25", "14", "3", "Unavailable" }, Present(p).Overall.Select(m => m.Value.Text));
+        Assert.All(Present(p).Overall.Take(4), m => Assert.Equal(CombatEvidence.Supported, m.Value.Evidence));
     }
     [Theory]
     [InlineData(0)]
@@ -187,7 +187,9 @@ public sealed class RetainedCombatTests
         p.Weapons.Lifetime.Totals.FiringActions = 100; n.Headshots = 4; n.HeadshotFinalBlows = 1;
         var result = Present(p);
         Assert.Equal(new[] { "100", "5", "3", "25%", "4", "1" }, result.Ranged.Select(m => m.Value.Text));
-        Assert.Equal(new[] { "9", "6", "2" }, result.Melee.Select(m => m.Value.Text));
+        Assert.Equal(new[] { "9", "6", "2", "66.67%" }, result.Melee.Select(m => m.Value.Text));
+        Assert.Equal("37.93%", result.Overall[4].Value.Text);
+        Assert.Equal(new[] { "1", "2" }, result.OtherPlayerKills.Select(m => m.Value.Text));
     }
     [Fact]
     public void UnknownAttackKindsDoNotAlterProvenKillBuckets()
@@ -367,9 +369,9 @@ public sealed class RetainedCombatTests
         var widths = CombatLayoutPolicy.Widths(frame.Width, stacked); var d = Document(); d.Summary(s, widths.Page, stacked);
         Assert.True(d.Height > 0); Assert.True(frame.Height > 0);
         Assert.Equal(stacked ? frame.Width : frame.Width - 40, stacked ? widths.Page : widths.Selector + widths.Page, 3);
-        Assert.Equal(4, d.Rows.Count(row => row.Kind == CombatRowKind.Card));
-        Assert.Equal(13, d.Rows.Count(row => row.Kind == CombatRowKind.Metric));
-        Assert.Equal(5, d.Rows.Count(row => row.Kind == CombatRowKind.Heading));
+        Assert.Equal(5, d.Rows.Count(row => row.Kind == CombatRowKind.Card));
+        Assert.Equal(15, d.Rows.Count(row => row.Kind == CombatRowKind.Metric));
+        Assert.Equal(6, d.Rows.Count(row => row.Kind == CombatRowKind.Heading));
         Assert.All(d.Rows, row => { Assert.True(row.X >= 30); Assert.True(row.Width > 0); Assert.True(row.X + row.Width <= widths.Page - 29); });
     }
     [Theory]

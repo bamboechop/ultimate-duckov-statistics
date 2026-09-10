@@ -1,0 +1,54 @@
+# Post-M18 Combat Statistics batch
+
+Immutable base: `e8f59b9a07d4c02ea0344035a5b5c1b964b27d4c`, fetched from `origin/main` and verified as the merge of [UI-fix PR #20](https://github.com/bamboechop/ultimate-duckov-statistics/pull/20). Implementation is isolated on `codex/rc2-combat-statistics`. This contributes to the eventual combined rc.2; it does not publish or version that release. The existing version metadata remains unchanged; identify this local test package by its source commit and hashes.
+
+The accepted [M18 evidence](M18_ACCEPTANCE.md) and [UI batch](RC2_UI_FIXES.md) remain the baseline for unchanged behavior. The original checkout's modified PLAN and firing-timing diagnostic are separate local work. About/community content, base distance and blur are outside this batch.
+
+## Metric definitions
+
+| Surface | Definition |
+| --- | --- |
+| Combat Summary: Effects / damage-over-time kills | Recorded `PlayerKills.Effect`, part of `KillsByYou`. Never a residual calculated from other rows. |
+| Combat Summary: Overall accuracy; Runs summary: Accuracy | `(RangedHits + MeleeHits) / (CompletedPlayerProjectiles + MeleeSwings) × 100`. Combines counts, never averages percentages. |
+| Combat Summary and Runs Combat: Ranged accuracy | `RangedHits / CompletedPlayerProjectiles × 100`, retaining the established projectile calculation and capability. |
+| Combat Summary and Runs Combat: Melee accuracy | `MeleeHits / MeleeSwings × 100`. |
+| Selected weapon's Weapon details in Ammunition: Accuracy | That weapon's `RangedHits / FiringActions × 100`, across all its ammunition in the same lifetime/profile publication. |
+
+All ratios use the shared presentation calculation in `CombatAccuracyProjection`. No counters, capture hooks, schema, migration logic, or JSON/CSV definitions change. In particular, the Combat view model's `Accuracy` and the CSV `accuracy` field retain their ranged meaning. Overall sums use a wide intermediate so combining two valid Int64 counts cannot overflow.
+
+The Summary's other player-kill rows expose nonzero Environmental and Unknown partitions alongside Effects. The complete recorded partition is Ranged + Melee + Throwables + Effect + Environmental + Unknown. Each classification belongs to the same proven player fatal event. On the inspected baseline, the actorless Environmental branch instead produces observed world deaths, so it does not establish a native path for new Environmental player kills; the existing partition is still presented directly if recorded. Observed world deaths have separate ownership and are never included. An explosive cause alone does not establish an Effect attack kind: the existing native grenade classification and ranged/melee/effect scope precedence still decide the recorded partition. Unknown classification remains visible; no barrel or other kill is reclassified for numerical reconciliation.
+
+## Installed native semantics
+
+Read-only decompilation inspected the installed Duckov 2.3.30 `TeamSoda.Duckov.Core.dll`, SHA-256 `298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f`, alongside the shipped UDS adapter and reducers. Decompiled proprietary source is local ignored evidence, not a package or repository asset.
+
+- `CA_Attack.IsReady` checks cooldown, melee weapon, stamina and running state. Accepted `OnStart` emits `OnAttack` once. `OnUpdateAction` sets `damageDealed` before the single `CheckAndDealDamage` invocation. An accepted attack interrupted before damage remains an attempt.
+- `ItemAgent_MeleeWeapon.CheckAndDealDamage` calls `CheckCollidersInRange(true)`, which loops the native collider results and can hurt multiple colliders/targets. UDS creates one scope for that call. `CaptureHealthAfter` requires positive actual HP loss to an enemy with exact player ownership, then sets the shared `HitCounted` flag. Repeated contacts and additional targets in that scope do not add melee hits. Range queries use `false` and create no damage scope. Thus the observed baseline supports one successful melee damage check per accepted swing; neither collider count nor targets hit is the numerator. Reflected projectiles retain existing projectile ownership semantics; they are not extra melee hits.
+- `ItemAgent_Gun` loops `ShotCount` and calls `ShootOneBullet` before its accepted firing notification. Multiple projectiles can therefore share one firing action. The projectile's `Update` can perform multiple penetrating contacts. UDS retains one hit flag per captured projectile and publishes `RangedHits` together with one `CompletedPlayerProjectiles` at the first observed `Release`. Damage events do not also increment that hit counter. Projectiles lost before observed completion do not become invented completed attempts.
+- Existing generation/run/map correlation boundaries, callback-loss capability restrictions and aggregation fan-out remain unchanged. Native-boundary tests invoke the actual registered UDS callbacks, with physics and Harmony detours represented by explicit test boundaries; they do not claim new gameplay observation.
+
+## Availability and attribution
+
+Ratios require complete evidence and a positive denominator. Zero attempts display Unavailable; complete attempts with no hits display 0%. Incomplete or repaired ratios display Unavailable because a ratio of partial numerator/denominator counts is not a proven percentage. Existing positive raw counts retain their Partial markers. A disabled ranged capability does not hide independently supported melee accuracy, and vice versa.
+
+Overall accuracy can include an independently proven zero contribution: supported melee swings of zero with no recorded melee hits prove an unused melee family even if its hit hook is unavailable. Supported, unrepaired firing actions of zero, together with zero recorded ranged hits/completions, prove an unused ranged family. Firing actions are used only for this zero proof, never as the ranged denominator. Missing attempt evidence is not zero. Recorded degradation remains restrictive after current capability restoration. Completed Runs use their recorded evidence; lifetime Combat also applies the existing current capability restrictions.
+
+Weapon accuracy uses the existing exact, case-sensitive stable weapon join and complete Combat projection binding, which ties Combat, firing groups and profile generation to the same publication. Missing Combat/firing rows, missing weapon identity, repaired aggregates, unassigned relevant hits/actions, or disabled dependencies yield Unavailable. Ammunition identity/pairing is not a dependency of the weapon-wide ratio. No ammunition-wide hit numerator is divided by a single weapon/ammunition pair, and no weapon/ammunition hit intersection is invented. Existing within-weapon ammunition usage shares remain unchanged.
+
+The firing-action ratio is not the fraction of trigger pulls that hit. Two firing actions producing three successful projectiles show 150%. That value is allowed explicitly for this row; usage-share range validation remains unchanged. A concise localized notice explains the denominator and possible values above 100%.
+
+## Validation and remaining manual checks
+
+Focused regressions exercise production lifecycle/reducer/projection paths, atomic persistence and reload, JSON/CSV preservation, independent degradation, known misses/unused families, repaired aggregates, exact weapon selection/generation, shared ammunition and ammunition changes, multiple projectiles, penetrating contacts, and player versus world death partitions. Existing responsive Combat documents and the accepted UI-batch regressions run with the added rows. No production layout assertion or shell suppression is introduced. Calculations run during existing presentation publication; there are no added frame scans, polling, aggregate rebuilds or caches.
+
+Automated validation on 2026-09-10 passed 1,995 main tests and 46 ordinary shell tests in each of Debug and Release, plus 50 diagnostic shell tests per configuration. Native Debug/Release builds, the installed contract probe, changed-source formatting/analyzers, source binary safety, `git diff --check`, and the ordinary five-file package/IL/privacy audits passed. Reuse the accepted performance campaign; this batch requires affected presentation/gameplay acceptance rather than another full campaign.
+
+Only the user launches Duckov, selects saves and performs these checks:
+
+1. Open Combat Summary: check Overall accuracy, Ranged accuracy, Melee accuracy and Effects / damage-over-time kills. Effects are under Other kills by you; observed world deaths remain separate. Confirm any existing Environmental/Unclassified player rows and readable wrapping/scrolling.
+2. In a melee-only run, make three accepted swings with one damaging swing: Runs summary and Combat melee accuracy should show 33.33%; ranged accuracy has no attempts and remains Unavailable. Compare a mixed run against combined hits divided by combined attempts, rather than an average of the two percentages.
+3. Check the run's Combat section has separate ranged/melee accuracy values. Confirm a family with attempts but no hits shows 0%, and an unused family shows Unavailable for its standalone ratio.
+4. Switch weapons in Weapons & ammunition, expand Weapon details, and compare Accuracy to that selected weapon's ranged hits/firing actions. Change ammunition within a weapon and use shared ammunition across weapons when convenient: usage percentages retain their original meaning and the accuracy row remains weapon-wide. Multi-projectile weapons can validly exceed 100%; no difficult controlled multi-target farming is required.
+5. Close/reopen the panel and game, then change profile through normal user controls: check stable counts, fresh selection/generation, no stale weapon result, readable rows, and retained accepted UI styling/interaction. Save/profile files must not be edited or reset for this checklist.
+
+Native gameplay and visual acceptance of these changes remain open until the user reports results. No new frame-time, unlimited-resource, final rc.2, or publication qualification is claimed.
