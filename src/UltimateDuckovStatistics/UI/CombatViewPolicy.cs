@@ -247,6 +247,7 @@ internal sealed class CombatDocument
         var w = width - 60; float y = 30;
         if (incoming) y += Cards(p.IncomingCards, 30, y, w, stacked);
         y += Notice(notice, 30, y, w);
+        if (rows.Count == 0 && (!incoming || !p.HasIncomingEvidence)) return;
         var headers = incoming ? new[] { text("ui.combat_attacker"), text("ui.combat_damage_to_you"), text("ui.combat_share"), text("ui.combat_deaths_caused") }
             : new[] { text("ui.combat_enemy"), text("ui.overview_damage_dealt"), text("ui.kills_by_you"), text("ui.combat_world_deaths") };
         var columns = CombatLayoutPolicy.TableColumns(w, headers, measureWidth);

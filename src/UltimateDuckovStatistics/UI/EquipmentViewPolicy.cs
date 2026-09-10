@@ -214,6 +214,7 @@ internal sealed class EquipmentDocument
             }
             if (groups.Count > 1)
             {
+                if (weapon) y += 20;
                 var stack = stacked || w < 850; var split = EquipmentLayoutPolicy.Split(groups.Count - 1); var cw = stack ? w - 20 : (w - 40) / 2;
                 var left = y; var right = y;
                 for (var i = 1; i < groups.Count; i++)

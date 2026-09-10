@@ -268,6 +268,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
     private void HandleProfileChanging()
     {
+        operations.DismissExportResult();
         operations.CancelConfirmation(); capturingHotkey = false;
         projectionDirty = true;
         if (lifecycle.IsOpen) shell.InvalidateProjection();
@@ -345,7 +346,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
                 coordinator.ReportUiDiagnostic($"M17 UI export completed for generation {notice.GenerationId}: {notice.Path}.");
                 if (notice.Outcome == PanelOperationOutcome.ClipboardUnavailable)
                     coordinator.ReportUiDiagnostic("M17 UI clipboard unavailable after successful export. " + notice.Detail, "Warning");
-                nativeUi.ShowToast(UiText.Get(notice.Outcome == PanelOperationOutcome.Success ? "ui.diag_export_success" : "ui.diag_export_clipboard"));
+                if (notice.PresentResult) nativeUi.ShowToast(UiText.Get(notice.Outcome == PanelOperationOutcome.Success ? "ui.diag_export_success" : "ui.diag_export_clipboard"));
             }
             return;
         }
@@ -353,7 +354,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             : notice.PriorProfileStillActive ? "M17 UI reset failed; previous profile remains active. "
             : "M17 UI reset could not be completed for the requested generation. ";
         coordinator.ReportUiDiagnostic(prefix + notice.Detail, "Error");
-        nativeUi.ShowToast(UiText.Get("ui.diag_operation_failure"));
+        if (notice.PresentResult) nativeUi.ShowToast(UiText.Get("ui.diag_operation_failure"));
     }
 
     private static bool TryCopyPath(string path)
@@ -428,6 +429,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private void Close()
     {
         if (!lifecycle.Close()) return;
+        operations.DismissExportResult();
 #if UDS_PERFORMANCE_DIAGNOSTICS
         using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelClose);
 #endif

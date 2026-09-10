@@ -15,7 +15,23 @@ namespace LeTai.TrueShadow
     {
         internal Mesh? SpriteMesh { get; set; }
         public float Size, Spread;
-        public bool UseCasterAlpha, IgnoreCasterColor, IgnoreExternalActive, ShadowAsSibling;
+        public bool UseCasterAlpha, IgnoreCasterColor, IgnoreExternalActive;
+        private bool shadowAsSibling;
+        private static UnityEngine.Object? cachedMaskMaterial;
+        internal UnityEngine.Object? RenderedMaskMaterial { get; private set; }
+        // Installed setter unconditionally destroys the shared cache; existing
+        // renderers keep their now-destroyed assignment until a material rebuild.
+        public bool ShadowAsSibling
+        {
+            get => shadowAsSibling;
+            set
+            {
+                shadowAsSibling = value;
+                UnityEngine.Object.Destroy(cachedMaskMaterial);
+                cachedMaskMaterial = null;
+            }
+        }
+        internal void NativeRebuildMaterial() => RenderedMaskMaterial = cachedMaskMaterial ??= new UnityEngine.Object();
         public int AppliedQuality, NativeCleanupCount;
         public bool ThrowDuringNativeCleanup;
         public void NativeEnable() => OnEnable();

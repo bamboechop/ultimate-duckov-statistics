@@ -158,7 +158,7 @@ internal static class ItemUsePresentationFactory
             // Only complete supported capture can prove an empty run.
             var exactEmpty = !incomplete && allUsesSupported;
             var usage = Count(aggregate.Overall.ActivationCount, allUsesSupported, incomplete, t);
-            var health = Number(aggregate.Overall.ActualHealthRestored, runHealthSupported, incomplete, t);
+            var health = Health(aggregate.Overall.ActualHealthRestored, runHealthSupported, incomplete, t);
             var route = run.Segments.OrderBy(segment => segment.SegmentIndex).ToArray();
             var exactMaps = UiText.HasAvailableSegments(run) && !run.RouteWasRepairedFromInvalidState
                 && route.All(segment => segment.MapKnown && !segment.WasRepairedFromInvalidState);
@@ -180,7 +180,7 @@ internal static class ItemUsePresentationFactory
             && source.Overall.ActualHealthRestored == 0 && allUsesSupported && lifetimeHealthSupported && !repaired,
             string.Join("\n", notices), Count(source.Overall.ActivationCount, allUsesSupported, repaired, t),
             Count(items.LongCount(item => item.Count > 0), allUsesSupported, repaired, t),
-            Number(source.Overall.ActualHealthRestored, lifetimeHealthSupported, repaired, t), items, groups, runs);
+            Health(source.Overall.ActualHealthRestored, lifetimeHealthSupported, repaired, t), items, groups, runs);
     }
 
     private static ItemUseEntry Entry(string id, string name, CanonicalItemGroup group, IEnumerable<ItemEffectTag> effects,
@@ -191,7 +191,7 @@ internal static class ItemUsePresentationFactory
         return new ItemUseEntry(id, StatisticsPanelProjectionFactory.StableDisplayName(name, id), group, GroupName(group, t),
             tags.Length == 0 ? t("ui.unavailable") : string.Join(", ", tags.Select(tag => EffectName(tag, t))),
             totals.ActivationCount, Count(totals.ActivationCount, supported, repaired, t), Amount(totals, supported, repaired, t),
-            Number(totals.ActualHealthRestored, health, repaired, t), tags);
+            Health(totals.ActualHealthRestored, health, repaired, t), tags);
     }
     internal static string GroupName(CanonicalItemGroup group, Func<string, string> t) =>
         Enum.IsDefined(typeof(CanonicalItemGroup), group) ? t("ui.item_use_group_" + group.ToString().ToLowerInvariant()) : t("ui.unavailable");
@@ -237,6 +237,8 @@ internal static class ItemUsePresentationFactory
     internal static ItemUseValue Number(double n, bool supported, bool repaired, Func<string, string> t, bool fixedPrecision = false) => !Finite(n) ? Unavailable(t)
         : Value(fixedPrecision ? n.ToString("N2", CultureInfo.InvariantCulture)
             : n.ToString("N3", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.'), n > 0, supported, repaired, t);
+    internal static ItemUseValue Health(double n, bool supported, bool repaired, Func<string, string> t) => !Finite(n) ? Unavailable(t)
+        : Value(UiText.FormatHealth(n), n > 0, supported, repaired, t);
     private static ItemUseValue Value(string value, bool positive, bool supported, bool repaired, Func<string, string> t) => supported && !repaired
         ? new ItemUseValue(value, ItemUseEvidence.Supported) : positive ? new ItemUseValue(value + " (" + t("ui.item_use_partial") + ")", ItemUseEvidence.Partial) : Unavailable(t);
     private static ItemUseValue Unavailable(Func<string, string> t) => new(t("ui.unavailable"), ItemUseEvidence.Unavailable);

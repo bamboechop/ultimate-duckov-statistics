@@ -27,7 +27,9 @@ internal static class NativeTotemIconAppearance
                 // independent of the sprite's color, using its alpha silhouette.
                 shadow.Size = 3; shadow.Spread = .5f; shadow.UseCasterAlpha = true;
                 shadow.IgnoreCasterColor = true; shadow.IgnoreExternalActive = true;
-                shadow.ShadowAsSibling = false;
+                // New native components already use child rendering. Even an
+                // unchanged ShadowAsSibling assignment destroys TrueShadow's
+                // shared mask materials, leaving retained shadows without one.
             }
             Duckov.Utilities.GameplayDataSettings.UIStyle.ApplyDisplayQualityShadow(metadata.displayQuality, shadow);
             shadow.enabled = true;

@@ -108,11 +108,12 @@ internal sealed class CombatPresentation
     public CombatTableRow IncomingTotal { get; }
     public IReadOnlyList<CombatTableRow> Attackers { get; }
     public string IncomingNotice { get; }
+    public bool HasIncomingEvidence { get; }
     public CombatPresentation(string generation, IEnumerable<CombatMetric> overall, IEnumerable<CombatMetric> ranged,
         IEnumerable<CombatMetric> melee, IEnumerable<CombatMetric> throwables, CombatValue worldTotal,
         IEnumerable<CombatMetric> ownership, IEnumerable<CombatTableRow> enemies, string enemyNotice,
         IEnumerable<CombatWeapon> weapons, string weaponNotice, IEnumerable<CombatMetric> incomingCards,
-        CombatTableRow incomingTotal, IEnumerable<CombatTableRow> attackers, string incomingNotice)
+        CombatTableRow incomingTotal, IEnumerable<CombatTableRow> attackers, string incomingNotice, bool hasIncomingEvidence = false)
     {
         GenerationId = generation; Overall = Freeze(overall); Ranged = Freeze(ranged); Melee = Freeze(melee);
         Throwables = Freeze(throwables);
@@ -120,6 +121,7 @@ internal sealed class CombatPresentation
         Enemies = Freeze(enemies); EnemyNotice = enemyNotice; Weapons = Freeze(weapons);
         WeaponNotice = weaponNotice; IncomingCards = Freeze(incomingCards); IncomingTotal = incomingTotal;
         Attackers = Freeze(attackers); IncomingNotice = incomingNotice;
+        HasIncomingEvidence = hasIncomingEvidence || Attackers.Count > 0;
     }
     private static System.Collections.ObjectModel.ReadOnlyCollection<T> Freeze<T>(IEnumerable<T> values) => Array.AsReadOnly(values.ToArray());
 }
@@ -181,8 +183,9 @@ internal static class CombatPresentationFactory
                     kills: values[1].Evidence == CombatEvidence.Unavailable ? null : r.Totals.KillsByYou,
                     world: wd.Evidence == CombatEvidence.Unavailable ? null : r.Totals.ObservedWorldDeaths);
             }).ToArray();
-        var enemyNotice = Notice(enemyRows.Length, "ui.combat_no_enemies", a.WasRepairedFromInvalidState,
-            new[] { cap.EnemyIdentity, cap.KillsByYou, cap.ObservedWorldDeaths }, t);
+        var enemyNotice = Notice(enemyRows.Length, "ui.combat_no_enemies", a.WasRepairedFromInvalidState
+            || enemyRows.Length == 0 && (n.DamageDealt > 0 || n.KillsByYou > 0 || n.ObservedWorldDeaths > 0),
+            new[] { cap.EnemyIdentity, cap.DamageDealt, cap.KillsByYou, cap.ObservedWorldDeaths }, t);
         var sources = new List<(WeaponAmmunitionGroupProjection? Fire, CombatBreakdownAggregate? Combat, string Id)>();
         var throwableItems = p.Profile.Statistics.Items.Where(pair => pair.Key == pair.Value.ItemId
                 && pair.Value.EffectTags.Contains(ItemEffectTag.Throwable)
@@ -314,8 +317,9 @@ internal static class CombatPresentationFactory
             enemyRows, enemyNotice, weaponRows, weaponNotice,
             new[] { M("ui.overview_damage_taken", received), M("ui.overview_deaths", deaths), M("ui.combat_attacker_types", attackerCount), M("ui.combat_deadliest", deadliest) },
             new CombatTableRow("total", t("ui.combat_total"), new[] { received, Share(n.DamageReceived), deaths }), incoming,
-            Notice(incoming.Length, "ui.combat_no_attackers", a.WasRepairedFromInvalidState,
-                new[] { cap.DamageReceived, cap.PlayerDeaths, cap.EnemyIdentity }, t));
+            Notice(incoming.Length, "ui.combat_no_attackers", a.WasRepairedFromInvalidState
+                || incoming.Length == 0 && (n.DamageReceived > 0 || n.PlayerDeaths > 0),
+                new[] { cap.DamageReceived, cap.PlayerDeaths, cap.EnemyIdentity }, t), n.DamageReceived > 0 || n.PlayerDeaths > 0);
     }
 
     private static bool HasPlayerWeaponEvidence(CombatMetricTotals totals) => totals.DamageDealt > 0 || totals.KillsByYou > 0

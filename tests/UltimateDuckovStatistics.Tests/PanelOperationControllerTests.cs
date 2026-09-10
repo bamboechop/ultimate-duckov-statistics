@@ -6,6 +6,58 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class PanelOperationControllerTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void DismissedExportCompletesWithoutRestoringResultOrClipboard(bool changeProfile, bool fail)
+    {
+        using var h = new Harness();
+        Assert.True(h.Controller.RequestExport()); h.Controller.Tick();
+        if (changeProfile) { h.Generation = "other"; h.Controller.Tick(); }
+        else h.Controller.DismissExportResult();
+        Assert.Null(h.Controller.LastNotice);
+        Assert.Equal(PanelOperation.Export, h.Controller.Current);
+        Assert.False(h.Controller.RequestExport());
+        // Even returning to the original profile cannot revive the dismissed request.
+        h.Generation = "g";
+        if (fail) h.ExportCompletion.SetException(new IOException("disk failure"));
+        else h.ExportCompletion.SetResult(new ProfileExportResult("completed-file-directory", Array.Empty<string>()));
+        h.Controller.Tick();
+        Assert.Null(h.Controller.LastNotice); Assert.Equal(0, h.ClipboardCalls);
+        Assert.Equal(PanelOperation.None, h.Controller.Current);
+        var completed = h.Notices.Last(); Assert.False(completed.PresentResult);
+        Assert.Equal(fail ? PanelOperationOutcome.Failure : PanelOperationOutcome.Success, completed.Outcome);
+        if (!fail) Assert.Equal("completed-file-directory", completed.Path);
+        h.Export = () => Task.FromResult(new ProfileExportResult("new-export", Array.Empty<string>()));
+        Assert.True(h.Controller.RequestExport()); h.Controller.Tick();
+        Assert.Equal("new-export", h.Controller.LastNotice!.Path); Assert.Equal(1, h.ClipboardCalls);
+    }
+
+    [Fact]
+    public void ClosingBeforeQueuedExportStartsStillCompletesTheExportWithoutConfirmation()
+    {
+        using var h = new Harness(); Assert.True(h.Controller.RequestExport());
+        h.Controller.DismissExportResult(); h.Controller.Tick();
+        Assert.Equal(1, h.ExportCalls); Assert.Equal(PanelOperation.Export, h.Controller.Current);
+        h.ExportCompletion.SetResult(new ProfileExportResult("completed", Array.Empty<string>()));
+        h.Controller.Tick(); Assert.Null(h.Controller.LastNotice); Assert.Equal(0, h.ClipboardCalls);
+        Assert.True(h.Controller.CanStart);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CompletedExportResultIsClearedByCloseOrGenerationChange(bool generationChange)
+    {
+        using var h = new Harness { Export = () => Task.FromResult(new ProfileExportResult("completed", Array.Empty<string>())) };
+        Assert.True(h.Controller.RequestExport()); h.Controller.Tick(); Assert.NotNull(h.Controller.LastNotice);
+        if (generationChange) { h.Generation = "other"; h.Controller.Tick(); }
+        else h.Controller.DismissExportResult();
+        Assert.Null(h.Controller.LastNotice); Assert.Equal(1, h.ClipboardCalls);
+    }
+
     private sealed class Harness : IDisposable
     {
         public string Generation = "g";
@@ -99,9 +151,12 @@ public sealed class PanelOperationControllerTests
         if (transition) h.Transitioning = true; else h.Generation = "next";
         h.Controller.Tick();
         Assert.Equal(0, h.ResetCalls); Assert.Equal(0, h.ExportCalls); Assert.Equal(0, h.ClipboardCalls);
-        Assert.Equal(PanelOperationOutcome.Failure, h.Controller.LastNotice!.Outcome);
-        Assert.Equal("g", h.Controller.LastNotice.GenerationId); Assert.Equal(PanelOperation.None, h.Controller.Current);
-        Assert.False(h.Controller.LastNotice.PriorProfileStillActive);
+        var result = h.Notices.Last();
+        Assert.Equal(PanelOperationOutcome.Failure, result.Outcome);
+        Assert.Equal("g", result.GenerationId); Assert.Equal(PanelOperation.None, h.Controller.Current);
+        Assert.False(result.PriorProfileStillActive);
+        Assert.Equal(reset, result.PresentResult);
+        if (!reset) Assert.Null(h.Controller.LastNotice);
     }
 
     [Theory]
@@ -181,9 +236,11 @@ public sealed class PanelOperationControllerTests
         using var h = new Harness(); Assert.True(h.Controller.RequestExport()); h.Controller.Tick();
         h.Generation = "next"; h.ExportCompletion.SetResult(new ProfileExportResult("old-generation-export", Array.Empty<string>()));
         h.Controller.Tick();
-        Assert.Equal(PanelOperationOutcome.Success, h.Controller.LastNotice!.Outcome);
-        Assert.Equal("g", h.Controller.LastNotice.GenerationId); Assert.False(h.Controller.LastNotice.PriorProfileStillActive);
-        Assert.Equal("old-generation-export", h.Controller.LastNotice.Path);
+        var result = h.Notices.Last();
+        Assert.Equal(PanelOperationOutcome.Success, result.Outcome);
+        Assert.Equal("g", result.GenerationId); Assert.False(result.PriorProfileStillActive);
+        Assert.Equal("old-generation-export", result.Path);
+        Assert.False(result.PresentResult); Assert.Null(h.Controller.LastNotice); Assert.Equal(0, h.ClipboardCalls);
     }
 
     [Fact]

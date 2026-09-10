@@ -75,6 +75,7 @@ internal sealed partial class RetainedStatisticsShell
                 Bind(overallCards, overall, next.Overall, true);
                 Bind(mapCards, maps, next.Maps, false);
                 noMaps.gameObject.SetActive(next.Maps.Count == 0);
+                maps.gameObject.SetActive(next.ShowMaps);
             }
             var focused = GameManager.EventSystem?.currentSelectedGameObject;
             if (focused != null && focused.transform.IsChildOf(root) && !focused.activeInHierarchy) focusTabs();
@@ -160,7 +161,7 @@ internal sealed partial class RetainedStatisticsShell
             dirty = false; Put(unavailable, 30, 30, width - 60);
             if (snapshot == null) return;
             var overallHeight = Section(overall, overallHeading, overallCards, 0);
-            var mapHeight = Section(maps, mapsHeading, mapCards, overallHeight + RecordsLayoutPolicy.SectionGap);
+            var mapHeight = snapshot.ShowMaps ? Section(maps, mapsHeading, mapCards, overallHeight + RecordsLayoutPolicy.SectionGap) : 0;
             page.Size(0, 0, width, height, RecordsLayoutPolicy.DocumentHeight(overallHeight, mapHeight));
             page.SetOffset(scroll.Offset); scroll.Capture(page.Offset);
         }

@@ -9,6 +9,30 @@ namespace UltimateDuckovStatistics.Tests;
 #pragma warning disable CA1861
 public sealed class RetainedItemUseTests
 {
+    [Theory]
+    [InlineData("en-US", 1234.5, "1,235")]
+    [InlineData("de-DE", 1234.5, "1.235")]
+    [InlineData("en-US", .49, "0")]
+    [InlineData("en-US", .5, "1")]
+    [InlineData("en-US", 2.5, "3")]
+    [InlineData("en-US", 0, "0")]
+    public void HealthUsesWholeLocaleValuesWhileEvidenceUsesUnroundedAmount(string locale, double amount, string expected)
+    {
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(locale);
+            Assert.Equal(expected, ItemUsePresentationFactory.Health(amount, true, false, UiText.Get).Text);
+            Assert.Equal(expected, RunsPresentationFactory.Format(amount, true, UiText.Get, health: true));
+            var incomplete = ItemUsePresentationFactory.Health(amount, false, false, UiText.Get);
+            Assert.Equal(amount > 0 ? ItemUseEvidence.Partial : ItemUseEvidence.Unavailable, incomplete.Evidence);
+            if (amount > 0) Assert.StartsWith(expected + " (", incomplete.Text, StringComparison.Ordinal);
+            foreach (var invalid in new[] { double.NaN, double.PositiveInfinity, -1 })
+                Assert.Equal(ItemUseEvidence.Unavailable, ItemUsePresentationFactory.Health(invalid, true, false, UiText.Get).Evidence);
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = previous; }
+    }
+
     [Fact]
     public void CurrentLanguageResolvesLifetimeItemsWithoutRewritingUses()
     {
@@ -77,7 +101,9 @@ public sealed class RetainedItemUseTests
         });
         Use(profile, "duckov:item:2", count: 30, amount: 99, context: GameplayContext.Base);
         var p = Present(profile); var item = Assert.Single(p.Items);
-        Assert.Equal("5", p.Uses.Text); Assert.Equal("1", p.DifferentItems.Text); Assert.Equal("48.84", p.Health.Text);
+        Assert.Equal("5", p.Uses.Text); Assert.Equal("1", p.DifferentItems.Text); Assert.Equal("49", p.Health.Text);
+        Assert.Equal("49", item.Health.Text);
+        Assert.Equal(48.84, profile.Statistics.Overall.ActualHealthRestored);
         Assert.Equal("15 durability", item.Amount.Text); Assert.Equal("Healing", item.GroupName); Assert.Equal("Healing", item.Effects);
         Assert.Equal(5, p.Groups.Single(group => group.Group == CanonicalItemGroup.Healing).Count);
         Assert.All(p.Groups.Where(group => group.Group != CanonicalItemGroup.Healing), group => Assert.Equal("0", group.Uses.Text));

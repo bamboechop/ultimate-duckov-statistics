@@ -11,6 +11,45 @@ namespace UltimateDuckovStatistics.Tests;
 #pragma warning disable CA1861
 public sealed class RetainedCombatTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void EmptyCombatTablesHideHeadersAndRecoverAfterEvidenceOrProfileChanges(bool incoming, bool degraded)
+    {
+        var projection = Projection();
+        if (degraded) projection.Combat.Capabilities.EnemyIdentity.State = AdapterCapabilityState.DisabledIncompatible;
+        var selection = new CombatSelection();
+        void Check(bool populated)
+        {
+            var p = selection.Snapshot!; var document = Document();
+            document.Table(incoming ? p.Attackers : p.Enemies, incoming ? p.IncomingNotice : p.EnemyNotice, 1500, null, incoming, p, false);
+            Assert.Equal(populated ? 4 : 0, document.Rows.Count(r => r.Kind == CombatRowKind.TableHeader));
+            Assert.Equal(populated, document.Rows.Any(r => r.Kind == CombatRowKind.Table));
+            if (!populated) Assert.Contains(document.Rows, r => r.Kind == CombatRowKind.Notice && r.Cells[0].Length > 0);
+        }
+        selection.Refresh(Present(projection)); Check(false);
+        if (degraded) Assert.Contains("Unavailable", incoming ? selection.Snapshot!.IncomingNotice : selection.Snapshot!.EnemyNotice, StringComparison.Ordinal);
+        Enemies(projection, Row("enemy", "Enemy", damage: 5));
+        Attackers(projection, Row("attacker", "Attacker", incoming: 5));
+        selection.Refresh(Present(projection)); Check(true);
+        selection.Refresh(Present(Projection("new-profile"))); Check(false);
+        selection.Refresh(Present(projection)); Check(true);
+    }
+
+    [Fact]
+    public void IncomingAggregateEvidenceSurvivesMissingIdentityRowsAndDegradation()
+    {
+        var projection = Projection(); projection.Combat.Lifetime.Totals.DamageReceived = .25;
+        projection.Combat.Capabilities.DamageReceived.State = AdapterCapabilityState.DisabledIncompatible;
+        var p = Present(projection); var document = Document();
+        document.Table(p.Attackers, p.IncomingNotice, 1500, null, true, p, false);
+        Assert.Equal("total", Assert.Single(document.Rows, r => r.Kind == CombatRowKind.Table).Id);
+        Assert.Contains("partial", p.IncomingTotal.Values[0].Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("No incoming", p.IncomingNotice, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void CurrentLanguageResolvesEnemyWeaponAmmoAndAttackerWithoutChangingIdentities()
     {
@@ -532,7 +571,8 @@ public sealed class RetainedCombatTests
     [Fact]
     public void MeasuredHeadersFitOneLineAndShareColumnOriginsWithValues()
     {
-        var p = Present(Projection()); var d = Document(); d.Table(p.Attackers, "", 1500, null, true, p, false);
+        var projection = Projection(); projection.Combat.Lifetime.Totals.DamageReceived = 5;
+        var p = Present(projection); var d = Document(); d.Table(p.Attackers, "", 1500, null, true, p, false);
         var headers = d.Rows.Where(r => r.Kind == CombatRowKind.TableHeader).ToArray();
         var total = d.Rows.Single(r => r.Kind == CombatRowKind.Table);
         Assert.False(total.Stacked); Assert.NotNull(total.Columns);
@@ -583,7 +623,10 @@ public sealed class RetainedCombatTests
     [InlineData(false, 600)]
     public void BothTablesHaveOneContinuousHeaderBandAndTransparentSmallerButtons(bool incoming, float width)
     {
-        var p = Present(Projection()); var d = Document();
+        var projection = Projection();
+        Enemies(projection, Row("enemy", "Enemy", damage: 5));
+        Attackers(projection, Row("attacker", "Attacker", incoming: 5));
+        var p = Present(projection); var d = Document();
         d.Table(incoming ? p.Attackers : p.Enemies, "", width, null, incoming, p, width < 900);
         var band = Assert.Single(d.Rows, r => r.Kind == CombatRowKind.TableHeaderBackground);
         var headers = d.Rows.Where(r => r.Kind == CombatRowKind.TableHeader).ToArray();

@@ -185,7 +185,7 @@ internal static class RunsPresentationFactory
             Pair(t("ui.overview_damage_taken"), Metric(v.DamageReceived, c.DamageReceived)),
             Pair(t("ui.runs_accuracy"), accuracy), Pair(t("ui.runs_headshots"), headshots),
             Pair(t("ui.runs_hp"), Format(run.ItemStatistics.Overall.ActualHealthRestored,
-                run.HealingCaptureComplete && !run.ItemStatistics.WasRepairedFromInvalidState && !attributionPartial, t))
+                run.HealingCaptureComplete && !run.ItemStatistics.WasRepairedFromInvalidState && !attributionPartial, t, health: true))
         };
         var segments = run.Segments.Select((segment, index) =>
         {
@@ -318,8 +318,12 @@ internal static class RunsPresentationFactory
         !partial && !value.WasRepairedFromInvalidState && value.Capabilities.UniqueContainersLooted.State == AdapterCapabilityState.Supported, t);
     internal static string FormatCount(long value, bool exact, Func<string, string> t) => value < 0 ? t("ui.unavailable")
         : exact ? value.ToString(CultureInfo.InvariantCulture) : value > 0 ? value.ToString(CultureInfo.InvariantCulture) + " (" + t("ui.runs_partial") + ")" : t("ui.unavailable");
-    internal static string Format(double value, bool exact, Func<string, string> t) => double.IsNaN(value) || double.IsInfinity(value) || value < 0 ? t("ui.unavailable")
-        : exact ? value.ToString("0.##", CultureInfo.InvariantCulture) : value > 0 ? value.ToString("0.##", CultureInfo.InvariantCulture) + " (" + t("ui.runs_partial") + ")" : t("ui.unavailable");
+    internal static string Format(double value, bool exact, Func<string, string> t, bool health = false)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || !exact && value == 0) return t("ui.unavailable");
+        var formatted = health ? UiText.FormatHealth(value) : value.ToString("0.##", CultureInfo.InvariantCulture);
+        return exact ? formatted : formatted + " (" + t("ui.runs_partial") + ")";
+    }
 }
 
 internal static class RunsLayoutPolicy

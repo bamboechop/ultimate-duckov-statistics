@@ -47,10 +47,12 @@ internal static class EconomyLayoutPolicy
         var label = width - values.Sum() - 30;
         return label < 180 ? Array.Empty<float>() : new[] { label, values[0] + 10, values[1] + 10, values[2] + 10 };
     }
-    public static string Cell(EconomyFlowRow row, int column) => column switch {
+    public static string Cell(EconomyFlowRow row, int column) => column switch
+    {
         0 => EconomyPresentationFactory.Number(row.Inflow, true),
         1 => EconomyPresentationFactory.Number(row.Outflow.HasValue ? -row.Outflow.Value : null),
-        _ => EconomyPresentationFactory.Number(row.Net, true) };
+        _ => EconomyPresentationFactory.Number(row.Net, true)
+    };
 }
 
 internal enum EconomyElementKind { Text, RunToggle, Route, Badge, MoneyIcon, CashIcon, Chevron }
@@ -241,7 +243,7 @@ internal sealed class EconomyDocument
             {
                 y += 20;
                 var mw = (inner - 50) / 2;
-                var moneyName = text("ui.overview_money_net"); var cashName = text("ui.overview_cash_net");
+                var moneyName = text("ui.economy_money_net_label"); var cashName = text("ui.economy_cash_net_label");
                 var mh = Math.Max(MetricHeight(moneyName, Value(run.Money.Totals.Net, true), run.Money.Notice, mw),
                     MetricHeight(cashName, Value(run.Cash.Totals.Net, true), run.Cash.Notice, mw));
                 Metric(moneyName, Value(run.Money.Totals.Net, true), run.Money.Notice, 50, y, mw, mh, "run:" + run.RunId + ":money");

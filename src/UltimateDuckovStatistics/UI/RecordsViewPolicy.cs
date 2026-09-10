@@ -40,5 +40,5 @@ internal static class RecordsLayoutPolicy
     }
     public static float RowHeight(float label, float value, bool stacked) =>
         (stacked ? label + 6 + value : Math.Max(label, value)) + 12;
-    public static float DocumentHeight(float overall, float maps) => overall + SectionGap + maps + Bottom;
+    public static float DocumentHeight(float overall, float maps) => overall + (maps > 0 ? SectionGap + maps : 0) + Bottom;
 }
