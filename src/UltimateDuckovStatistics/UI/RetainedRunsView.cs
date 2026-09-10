@@ -449,7 +449,7 @@ internal sealed partial class RetainedStatisticsShell
                 { control.Tooltip.OnPointerExit(null!); control.Tooltip.text = tooltipText; }
                 var sprite = item == null ? null : RunsItemIconPolicy.Resolve(item, icons.ResolveAvailable);
                 control.Icon.sprite = sprite; control.Icon.enabled = sprite != null;
-                NativeTotemIconAppearance.Apply(control.Icon, item?.ItemId);
+                NativeItemIconAppearance.Apply(control.Icon, item?.ItemId);
                 var emptyIcon = item?.State == EquipmentSlotState.Empty || NativeItemTypeIdPolicy.UseEmptyIcon(item?.ItemId);
                 control.Fallback.text = sprite != null ? string.Empty : emptyIcon ? "—" : "?";
                 control.Fallback.color = emptyIcon ? Muted : Color.white;
@@ -803,7 +803,7 @@ internal sealed partial class RetainedStatisticsShell
             var rootItem = rows[0];
             var rootSprite = RunsItemIconPolicy.Resolve(rootItem, icons.ResolveAvailable);
             evidenceItemIcon.sprite = rootSprite; evidenceItemIcon.enabled = rootSprite != null;
-            NativeTotemIconAppearance.Apply(evidenceItemIcon, rootItem.ItemId);
+            NativeItemIconAppearance.Apply(evidenceItemIcon, rootItem.ItemId);
             var rootEmptyIcon = NativeItemTypeIdPolicy.UseEmptyIcon(rootItem.ItemId);
             evidenceItemFallback.text = rootSprite != null ? string.Empty : rootEmptyIcon ? "—" : "?";
             evidenceItemFallback.color = rootEmptyIcon ? Muted : Color.white;
@@ -825,7 +825,7 @@ internal sealed partial class RetainedStatisticsShell
                 var captured = rows[i + 1];
                 var sprite = RunsItemIconPolicy.Resolve(captured, icons.ResolveAvailable);
                 row.Icon.sprite = sprite; row.Icon.enabled = sprite != null;
-                NativeTotemIconAppearance.Apply(row.Icon, captured.ItemId);
+                NativeItemIconAppearance.Apply(row.Icon, captured.ItemId);
                 var emptyIcon = captured.State == EquipmentSlotState.Empty || NativeItemTypeIdPolicy.UseEmptyIcon(captured.ItemId);
                 row.Fallback.text = sprite != null ? string.Empty : emptyIcon ? "—" : "?";
                 row.Fallback.color = emptyIcon ? Muted : Color.white;

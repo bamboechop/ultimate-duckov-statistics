@@ -52,7 +52,7 @@ internal sealed partial class RetainedStatisticsShell
                 ? focused.transform.IsChildOf(left.Panel) ? left : focused.transform.IsChildOf(right.Panel) ? right : null : null;
             restoreFocusId = focused == null ? null : restoreFocus?.FocusedRowId(focused);
             if (RetainedRefreshPolicy.RequiresInvalidation(selection.Snapshot?.GenerationId, next?.GenerationId))
-                { left.Clear(); right.Clear(); }
+            { left.Clear(); right.Clear(); }
             selection.Refresh(next);
             outer.Rect.gameObject.SetActive(next != null && !next.Empty);
             emptyPanel.gameObject.SetActive(next?.Empty == true); unavailable.gameObject.SetActive(next == null);
@@ -142,7 +142,7 @@ internal sealed partial class RetainedStatisticsShell
                 public void Dispose()
                 {
                     Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null;
-                    Row = null; Icon.sprite = null; NativeTotemIconAppearance.Clear(Icon); Badge?.Dispose();
+                    Row = null; Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); Badge?.Dispose();
                 }
             }
             public ItemUseViewport(ItemUseView owner, RectTransform parent, string region)
@@ -162,8 +162,10 @@ internal sealed partial class RetainedStatisticsShell
             {
                 document = null;
                 foreach (var control in controls.Items)
-                { control.Button.Binding.CancelPointer(); control.Rect.gameObject.SetActive(false); control.Row = null;
-                    control.Icon.sprite = null; NativeTotemIconAppearance.Clear(control.Icon); }
+                {
+                    control.Button.Binding.CancelPointer(); control.Rect.gameObject.SetActive(false); control.Row = null;
+                    control.Icon.sprite = null; NativeItemIconAppearance.Clear(control.Icon);
+                }
                 foreach (var surface in surfaces) surface.gameObject.SetActive(false);
                 rebuild = true;
             }
@@ -175,7 +177,7 @@ internal sealed partial class RetainedStatisticsShell
             private Control Create()
             {
                 var shared = CreateOverviewLatestRunViewRun(scroll.Content, new RetainedLatestRunViewRunPresentation
-                    { IsVisible = true, Label = UiText.Get(RetainedOverviewLatestRunViewRunPolicy.TextKey) }, owner.typography, owner.material, useIdentityBinding: true);
+                { IsVisible = true, Label = UiText.Get(RetainedOverviewLatestRunViewRunPolicy.TextKey) }, owner.typography, owner.material, useIdentityBinding: true);
                 var c = new Control { Rect = shared.Rect, Route = shared };
                 c.Rect.gameObject.name = "ItemUseRow"; c.Background = c.Rect.GetComponent<ProceduralImage>();
                 c.Button = (RunsHistoryButton)shared.Button; c.Button.Configure(c.Background); AddButtonFeedback(c.Button);
@@ -215,7 +217,7 @@ internal sealed partial class RetainedStatisticsShell
                 for (var i = 0; i < pool.Count; i++)
                 {
                     var c = pool[i]; c.Rect.gameObject.SetActive(i < visible.Count);
-                    if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); continue; }
+                    if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); continue; }
                     BindControl(c, document.Rows[visible[i]]); c.Rect.SetAsLastSibling();
                 }
                 scroll.Cues();
@@ -265,12 +267,12 @@ internal sealed partial class RetainedStatisticsShell
                 if (row.HasIcon)
                 {
                     var icon = CombatItemIconPolicy.Resolve(row.IconId, owner.icons.ResolveAvailable);
-                    c.Icon.sprite = icon; c.Icon.enabled = icon != null; NativeTotemIconAppearance.Apply(c.Icon, row.IconId);
+                    c.Icon.sprite = icon; c.Icon.enabled = icon != null; NativeItemIconAppearance.Apply(c.Icon, row.IconId);
                     c.Fallback.enabled = icon == null; c.Fallback.text = row.IconFallback; c.Fallback.color = row.EmptyIcon ? Muted : Color.white;
                     var ix = row.Expandable ? 50 : 20; var iy = (Math.Max(100, row.Height) - 76) / 2;
                     Place(c.Icon.rectTransform, ix, iy, 70, 76); Place(c.Fallback.rectTransform, ix, iy, 70, 76);
                 }
-                else { c.Icon.sprite = null; NativeTotemIconAppearance.Clear(c.Icon); }
+                else { c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); }
                 if (row.Expandable)
                 {
                     c.Chevron.rectTransform.pivot = new Vector2(.5f, .5f);
@@ -286,7 +288,7 @@ internal sealed partial class RetainedStatisticsShell
                 if (!state.HasValue) return;
                 var specification = RetainedRunBadgePolicy.ResolveSpecification(state.Value);
                 c.Badge = CreateOverviewLatestRunBadge(c.Rect, new RetainedRunBadgePresentation
-                    { IsVisible = true, State = state, Specification = specification, Label = UiText.Get(specification.TextKey) }, owner.typography, owner.material);
+                { IsVisible = true, State = state, Specification = specification, Label = UiText.Get(specification.TextKey) }, owner.typography, owner.material);
             }
             private static void BadgeLayout(RetainedRunBadgeControl badge, float x, float y, float width)
             {

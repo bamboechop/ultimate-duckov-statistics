@@ -195,7 +195,7 @@ internal sealed partial class RetainedStatisticsShell
                 public CombatTooltipTrigger Tooltip = null!;
                 public CombatRenderRow? Row;
                 public void Dispose()
-                { Tooltip.Bind(null, ""); Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; }
+                { Tooltip.Bind(null, ""); Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); }
             }
             public CombatViewport(CombatView owner, RectTransform parent, string name, string region)
             {
@@ -212,7 +212,7 @@ internal sealed partial class RetainedStatisticsShell
             public void Clear()
             {
                 document = null; focusedId = null;
-                foreach (var c in Pool) { c.Tooltip.Bind(null, ""); c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; }
+                foreach (var c in Pool) { c.Tooltip.Bind(null, ""); c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); }
                 rebuild = true;
             }
             public void Bind(CombatDocument next, float x, float y, float width, float height)
@@ -269,7 +269,7 @@ internal sealed partial class RetainedStatisticsShell
                 for (var i = 0; i < pool.Count; i++)
                 {
                     var c = pool[i]; c.Rect.gameObject.SetActive(i < visible.Count);
-                    if (i >= visible.Count) { c.Tooltip.Bind(null, ""); c.Button.Binding.CancelPointer(); c.Row = null; continue; }
+                    if (i >= visible.Count) { c.Tooltip.Bind(null, ""); c.Button.Binding.CancelPointer(); c.Row = null; c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); continue; }
                     BindControl(c, document.Rows[visible[i]]);
                     // Pools may swap focused controls. Restore document paint order so the
                     // single header band always stays behind its transparent header buttons.
@@ -349,10 +349,12 @@ internal sealed partial class RetainedStatisticsShell
                 if (item)
                 {
                     var icon = CombatItemIconPolicy.Resolve(r.IconId, owner.icons.ResolveAvailable); c.Icon.sprite = icon; c.Icon.enabled = icon != null; c.Fallback.enabled = icon == null;
+                    NativeItemIconAppearance.Apply(c.Icon, r.IconId);
                     var emptyIcon = NativeItemTypeIdPolicy.UseEmptyIcon(r.IconId);
                     c.Fallback.text = emptyIcon ? "—" : "?"; c.Fallback.color = emptyIcon ? Muted : Color.white;
                     Place(c.Icon.rectTransform, 15, 15, 80, 80); Place(c.Fallback.rectTransform, 15, 15, 80, 80);
                 }
+                else { c.Icon.sprite = null; NativeItemIconAppearance.Clear(c.Icon); }
             }
             public void Focus(string? id = null)
             {

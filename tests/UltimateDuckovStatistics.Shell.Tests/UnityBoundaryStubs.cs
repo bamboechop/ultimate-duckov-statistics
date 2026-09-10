@@ -271,10 +271,12 @@ namespace Duckov.Utilities
     public static class GameplayDataSettings
     {
         public static UiStyle UIStyle { get; } = new();
+        public static TagsData Tags { get; } = new();
         public static ItemAssets ItemAssets { get; } = new();
         public static CharacterRandomPresetData? CharacterRandomPresetData { get; set; } = new();
     }
     public sealed class ItemAssets { public int DefaultCharacterItemTypeID = 1; }
+    public sealed class TagsData { public ItemStatsSystem.ItemTag Bullet { get; } = new() { name = "NativeBulletTag" }; }
     public sealed class CharacterRandomPresetData { public List<CharacterRandomPreset> presets = new(); }
     public sealed class UiStyle
     {

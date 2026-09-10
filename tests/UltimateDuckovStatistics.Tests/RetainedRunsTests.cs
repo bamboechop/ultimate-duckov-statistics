@@ -589,6 +589,8 @@ public sealed class RetainedRunsTests
     [InlineData("duckov:item:1", true, 1)]
     [InlineData("duckov:weapon:141", true, 141)]
     [InlineData("duckov:totem:792", true, 792)]
+    [InlineData("duckov:ammo:3002", true, 3002)]
+    [InlineData("duckov:ammo:unknown", false, 0)]
     [InlineData("mod:weapon:141", false, 0)]
     [InlineData("duckov:weapon:unknown", false, 0)]
     [InlineData("duckov:weapon:141:extra", false, 0)]

@@ -94,7 +94,7 @@ internal static class NativeItemTypeIdPolicy
         typeId = 0;
         if (string.IsNullOrWhiteSpace(id)) return false;
         var parts = id.Split(':');
-        return parts.Length == 3 && parts[0] == "duckov" && parts[1] is "item" or "weapon" or "totem"
+        return parts.Length == 3 && parts[0] == "duckov" && parts[1] is "item" or "weapon" or "totem" or "ammo"
             && int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out typeId);
     }
     public static T? Resolve<T>(string id, Func<int, (int Id, T? Icon)> metadata, T? fallback) where T : class

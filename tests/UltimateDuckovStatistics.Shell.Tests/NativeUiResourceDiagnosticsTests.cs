@@ -122,7 +122,7 @@ public sealed class NativeUiResourceDiagnosticsTests : IDisposable
     {
         var icon = root.AddComponent<Image>();
         icon.sprite = borrowedIcon;
-        NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+        NativeItemIconAppearance.Apply(icon, "duckov:totem:3001");
         var shadow = Assert.IsType<OwnedTotemIconShadow>(root.GetComponent<TrueShadow>());
         shadow.NativeEnable();
         Resources.AdditionalObjects.Add(Assert.IsType<Mesh>(shadow.SpriteMesh));
