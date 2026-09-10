@@ -194,7 +194,7 @@ internal static class RetainedDimmerPolicy
     public const float Red = 0f;
     public const float Green = 0f;
     public const float Blue = 0f;
-    public const float VisualAlpha = 0.75f;
+    public const float VisualAlpha = 0.85f;
     public const bool BlocksRaycasts = true;
 
     public static bool IsValidGraphic(
@@ -297,7 +297,6 @@ internal static class RetainedHeaderPolicy
     public const float VisualAlpha = 0.50f;
     public const float CornerRadiusPixels = 20f;
     public const bool BlocksRaycasts = false;
-    public const float EffectiveOpacity = 0.75f;
 
     public static RetainedHeaderCanvasLayout CreateCanvasLayout(RetainedReferenceTransform referenceTransform)
     {

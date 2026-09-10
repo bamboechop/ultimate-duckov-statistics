@@ -146,11 +146,10 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0f, RetainedDimmerPolicy.Red);
         Assert.Equal(0f, RetainedDimmerPolicy.Green);
         Assert.Equal(0f, RetainedDimmerPolicy.Blue);
-        Assert.Equal(0.75f, RetainedDimmerPolicy.VisualAlpha);
         Assert.True(RetainedDimmerPolicy.BlocksRaycasts);
-        Assert.True(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.75f, blockerRaycastTarget: true));
-        Assert.False(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.25f, blockerRaycastTarget: true));
-        Assert.False(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, 0.75f, blockerRaycastTarget: false));
+        Assert.True(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, RetainedDimmerPolicy.VisualAlpha, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, RetainedDimmerPolicy.VisualAlpha / 2f, blockerRaycastTarget: true));
+        Assert.False(RetainedDimmerPolicy.IsValidGraphic(0f, 0f, 0f, RetainedDimmerPolicy.VisualAlpha, blockerRaycastTarget: false));
     }
 
     [Fact]
@@ -171,7 +170,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(0.50f, RetainedHeaderPolicy.VisualAlpha);
         Assert.Equal(20f, RetainedHeaderPolicy.CornerRadiusPixels);
         Assert.False(RetainedHeaderPolicy.BlocksRaycasts);
-        Assert.Equal(0.75f, RetainedHeaderPolicy.EffectiveOpacity);
         Assert.True(RetainedHeaderPolicy.IsValidGraphic(0f, 0f, 0f, 0.50f, raycastTarget: false));
     }
 

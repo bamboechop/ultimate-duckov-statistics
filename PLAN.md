@@ -442,6 +442,8 @@ Never infer tote activation from inventory presence alone. Tote-bag activation b
 
 Each milestone updates the capability matrix and is manually tested before the next begins.
 
+Post-M18 batch four is documented in [the opacity/base-distance record](docs/RC2_OPACITY_BASE_DISTANCE.md): the shared dimmer is increased to an initial 85% target for user visual acceptance. This replaces the cancelled blur investigation. Base movement is investigated with a concrete implementation proposal; tracking and persistence changes require a subsequent implementation batch.
+
 The post-M9 order is intentional: first remove the remaining data-loss boundary, then correct combat meaning, then implement the coupled world-time/sleep lifecycle, then implement the independent crafting lifecycle, then preserve both shot-time weapon-ammunition and equipped-time character/nested equipment-slot associations, then establish truthful current Money/Cash holdings and conditional liquid wealth, then add exact crafting-resource consumption before redesigning every presentation surface. This leaves M18 with a feature-frozen data model and gives each remaining native-contract family its own schema, review, manual acceptance, and minor pre-release.
 
 #### Planned M8 acceptance boundary
