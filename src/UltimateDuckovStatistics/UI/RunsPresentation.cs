@@ -167,8 +167,9 @@ internal static class RunsPresentationFactory
             + t(run.RecordEligible ? "ui.runs_eligible" : "ui.runs_ineligible");
         var attributionPartial = run.HistoricalEventAttributionIncomplete;
         var headshots = Count(v.Headshots, c.Headshots) + " (" + Count(v.HeadshotFinalBlows, c.HeadshotFinalBlows) + " " + t("ui.runs_final_blows") + ")";
-        string Accuracy(double? ratio) => ratio.HasValue ? ratio.Value.ToString("P2", CultureInfo.InvariantCulture) : t("ui.unavailable");
-        var accuracy = Accuracy(CombatAccuracyProjection.Overall(v, c, broken));
+        string Accuracy(double? ratio, bool empty) => ratio.HasValue ? ratio.Value.ToString("P2", CultureInfo.InvariantCulture)
+            : empty ? "—" : t("ui.unavailable");
+        var accuracy = Accuracy(CombatAccuracyProjection.Overall(v, c, broken), CombatAccuracyProjection.OverallIsEmpty(v, c, broken));
         var cash = run.Economy.Currencies.TryGetValue(CurrencyKind.Cash.ToString(), out var currency) ? currency.Totals.NetFlow : 0;
         var cashExact = !run.Economy.WasRepairedFromInvalidState
             && run.Economy.Capabilities.CashAmountDirection.State == AdapterCapabilityState.Supported && !attributionPartial;
@@ -211,11 +212,10 @@ internal static class RunsPresentationFactory
             + "\n" + Unit(Count(v.Headshots, c.Headshots), "headshot", t)
             + "\n" + Count(v.HeadshotFinalBlows, c.HeadshotFinalBlows) + " " + t("ui.runs_headshot_final_blows")
             + "\n" + Unit(rangedKills, "kill", t)
-            + "\n" + t("ui.accuracy") + ": " + Accuracy(CombatAccuracyProjection.Ranged(v, c, broken));
+            + "\n" + t("ui.accuracy") + ": " + Accuracy(CombatAccuracyProjection.Ranged(v, c, broken), CombatAccuracyProjection.RangedIsEmpty(v, c, broken));
         var melee = Unit(Count(v.MeleeSwings, c.MeleeSwings), "swing", t)
             + "\n" + Unit(Count(v.MeleeHits, c.MeleeHits), "hit", t) + "\n" + Unit(meleeKills, "kill", t)
-            + "\n" + t("ui.melee_accuracy") + ": " + Accuracy(CombatAccuracyProjection.Melee(v, c, broken))
-            + "\n" + t("ui.combat_accuracy_scope");
+            + "\n" + t("ui.melee_accuracy") + ": " + Accuracy(CombatAccuracyProjection.Melee(v, c, broken), CombatAccuracyProjection.MeleeIsEmpty(v, c, broken));
         if (!data.RangedMeleeExact)
         {
             var classification = t("ui.runs_classification_partial");

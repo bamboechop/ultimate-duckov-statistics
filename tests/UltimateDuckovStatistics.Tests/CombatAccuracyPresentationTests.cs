@@ -12,12 +12,12 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class CombatAccuracyPresentationTests
 {
     [Theory]
-    [InlineData(3, 1, 0, 0, "33.33%", "Unavailable")]
-    [InlineData(0, 0, 3, 1, "Unavailable", "33.33%")]
+    [InlineData(3, 1, 0, 0, "33.33%", "—")]
+    [InlineData(0, 0, 3, 1, "—", "33.33%")]
     [InlineData(9, 1, 1, 1, "11.11%", "100%")]
     [InlineData(2, 2, 6, 2, "100%", "33.33%")]
     [InlineData(2, 0, 3, 0, "0%", "0%")]
-    [InlineData(0, 0, 0, 0, "Unavailable", "Unavailable")]
+    [InlineData(0, 0, 0, 0, "—", "—")]
     public void ProductionRunAndLifetimeUseCombinedCountsAndIndependentBreakdowns(
         int projectiles, int rangedHits, int swings, int meleeHits, string rangedText, string meleeText)
     {
@@ -48,14 +48,14 @@ public sealed class CombatAccuracyPresentationTests
             var run = Assert.Single(RunsPresentationFactory.Create(p, "g")!.Runs);
             var attempts = projectiles + swings;
             var expected = attempts == 0 ? (double?)null : (double)(rangedHits + meleeHits) / attempts;
-            var runExpected = expected?.ToString("P2", CultureInfo.InvariantCulture) ?? "Unavailable";
+            var runExpected = expected?.ToString("P2", CultureInfo.InvariantCulture) ?? "—";
             Assert.Equal(runExpected, Assert.Single(run.Summary, row => row.Key == "Accuracy").Value);
-            Assert.Equal(expected == null ? "Unavailable" : (expected.Value * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%",
+            Assert.Equal(expected == null ? "—" : (expected.Value * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%",
                 Value(combat.Overall, "Overall accuracy").Text);
             Assert.Equal(rangedText, Value(combat.Ranged, "Ranged accuracy").Text);
             Assert.Equal(meleeText, Value(combat.Melee, "Melee accuracy").Text);
-            Assert.Contains("Ranged accuracy: " + (projectiles == 0 ? "Unavailable" : ((double)rangedHits / projectiles).ToString("P2", CultureInfo.InvariantCulture)), run.Ranged, StringComparison.Ordinal);
-            Assert.Contains("Melee accuracy: " + (swings == 0 ? "Unavailable" : ((double)meleeHits / swings).ToString("P2", CultureInfo.InvariantCulture)), run.Melee, StringComparison.Ordinal);
+            Assert.Contains("Ranged accuracy: " + (projectiles == 0 ? "—" : ((double)rangedHits / projectiles).ToString("P2", CultureInfo.InvariantCulture)), run.Ranged, StringComparison.Ordinal);
+            Assert.Contains("Melee accuracy: " + (swings == 0 ? "—" : ((double)meleeHits / swings).ToString("P2", CultureInfo.InvariantCulture)), run.Melee, StringComparison.Ordinal);
             Assert.Equal(projectiles == 0 ? (double?)null : (double)rangedHits / projectiles, p.Combat.Accuracy);
         }
     }
@@ -105,6 +105,32 @@ public sealed class CombatAccuracyPresentationTests
     }
 
     [Fact]
+    public void ZeroCountsWithMissingCaptureRemainUnavailable()
+    {
+        var session = new Session(c => { c.Accuracy.State = Disabled; c.MeleeHits.State = Disabled; });
+        var p = Project(session.Complete()); var combat = CombatPresentationFactory.Create(p, "g")!;
+        Assert.Equal("Unavailable", Value(combat.Overall, "Overall accuracy").Text);
+        Assert.Equal("Unavailable", Value(combat.Ranged, "Ranged accuracy").Text);
+        Assert.Equal("Unavailable", Value(combat.Melee, "Melee accuracy").Text);
+        var run = Assert.Single(RunsPresentationFactory.Create(p, "g")!.Runs);
+        Assert.Equal("Unavailable", Assert.Single(run.Summary, row => row.Key == "Accuracy").Value);
+        Assert.Contains("Ranged accuracy: Unavailable", run.Ranged, StringComparison.Ordinal);
+        Assert.Contains("Melee accuracy: Unavailable", run.Melee, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ControlledHitsWithoutMainDuckAttemptsAreNotAnEmptyFamily()
+    {
+        var session = new Session(); session.ControlledMeleeHit();
+        var p = Project(session.Complete()); var combat = CombatPresentationFactory.Create(p, "g")!;
+        Assert.Equal("Unavailable", Value(combat.Melee, "Melee accuracy").Text);
+        Assert.Equal("Unavailable", Value(combat.Overall, "Overall accuracy").Text);
+        Assert.Equal("—", Value(combat.Ranged, "Ranged accuracy").Text);
+        var run = Assert.Single(RunsPresentationFactory.Create(p, "g")!.Runs);
+        Assert.Contains("Melee accuracy: Unavailable", run.Melee, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ControlledMeleeContributionUsesRecordedRatioOnBothSurfacesWithoutClamping()
     {
         var session = new Session(); session.Swing(true); session.ControlledMeleeHit();
@@ -114,7 +140,7 @@ public sealed class CombatAccuracyPresentationTests
         var run = Assert.Single(RunsPresentationFactory.Create(p, "g")!.Runs);
         Assert.Equal("200.00 %", Assert.Single(run.Summary, row => row.Key == "Accuracy").Value);
         Assert.Contains("Melee accuracy: 200.00 %", run.Melee, StringComparison.Ordinal);
-        Assert.Contains(UiText.Get("ui.combat_accuracy_scope"), run.Melee, StringComparison.Ordinal);
+        Assert.Equal(4, run.Melee.Split('\n').Length);
     }
 
     [Fact]
@@ -154,10 +180,9 @@ public sealed class CombatAccuracyPresentationTests
         Assert.All(first.Ammunition, row => Assert.Equal("50%", row.Percentage.Text));
         Assert.Equal("100%", Assert.Single(second.Ammunition).Percentage.Text);
         Assert.Equal("75%", Value(combat.Ranged, "Ranged accuracy").Text);
-        Assert.Contains("Multiple projectiles", first.Notice, StringComparison.Ordinal);
+        Assert.Contains("Multiple projectiles", first.Metrics.Single(metric => metric.Label == "Accuracy").Tooltip, StringComparison.Ordinal);
         var selection = new CombatSelection(); selection.Refresh(combat);
         Assert.True(selection.SelectWeapon("g", first.Row.Id));
-        Assert.True(selection.ToggleWeaponDetails("g", first.Row.Id));
         var document = new CombatDocument((_, _, _) => 30, (text, _) => text.Length * 10, UiText.Get);
         document.Items(selection, 1000, true);
         Assert.Contains(document.Rows, row => row.Kind == CombatRowKind.Metric && row.Cells[0] == "Accuracy" && row.Cells[1] == "150%");
@@ -192,7 +217,7 @@ public sealed class CombatAccuracyPresentationTests
         var combat = CombatPresentationFactory.Create(Project(profile), "g")!;
         Assert.Equal("5", Value(combat.Overall, "Kills by you").Text);
         Assert.Equal("1", combat.WorldTotal.Text);
-        Assert.Equal("1", Value(combat.OtherPlayerKills, "Effects / damage-over-time kills").Text);
+        Assert.Equal("1", Value(combat.OtherPlayerKills, "Effects / DoT kills").Text);
         Assert.DoesNotContain(combat.OtherPlayerKills, row => row.Label == "Environmental kills");
         Assert.Equal("1", Value(combat.OtherPlayerKills, "Unclassified kills").Text);
         Assert.Equal("1", Value(combat.Ranged, "Kills").Text);
@@ -201,7 +226,10 @@ public sealed class CombatAccuracyPresentationTests
         Assert.Equal(export.Json, StatisticsExporter.Create(profile, Session.Now).Json);
         var document = new CombatDocument((_, _, _) => 30, (text, _) => text.Length * 10, UiText.Get);
         document.Summary(combat, 1500, false);
-        Assert.Contains(document.Rows, row => row.Kind == CombatRowKind.Metric && row.Cells[0] == "Effects / damage-over-time kills");
+        var effectRow = Assert.Single(document.Rows, row => row.Kind == CombatRowKind.Metric && row.Cells[0] == "Effects / DoT kills");
+        Assert.Equal(combat.OtherPlayerKills.Single(metric => metric.Label == "Effects / DoT kills").Tooltip, effectRow.Tooltip);
+        Assert.Contains("damage-over-time", effectRow.Tooltip, StringComparison.Ordinal);
+        Assert.False(effectRow.Actionable);
     }
 
     private const AdapterCapabilityState Disabled = AdapterCapabilityState.DisabledIncompatible;

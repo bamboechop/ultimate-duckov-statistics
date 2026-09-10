@@ -113,26 +113,26 @@ public sealed class RetainedCombatTests
         (value, size) => value.Length * size * .5f);
 
     [Fact]
-    public void WeaponDetailsStayClosedUntilRequestedAndRejectStaleOrOtherWeaponCallbacks()
+    public void WeaponSelectionRetainsCurrentIdentityAndRejectsStaleCallbacks()
     {
         var p = Projection(); Weapons(p, Weapon("a", 5), Weapon("b", 3));
         var selection = new CombatSelection(); selection.Refresh(Present(p));
-        Assert.False(selection.WeaponDetailsExpanded);
-        Assert.False(selection.ToggleWeaponDetails("old", "a"));
-        Assert.False(selection.ToggleWeaponDetails("g", "b"));
-        Assert.True(selection.ToggleWeaponDetails("g", "a"));
-        selection.Refresh(Present(p)); Assert.True(selection.WeaponDetailsExpanded);
-        selection.SelectWeapon("g", "b"); Assert.False(selection.WeaponDetailsExpanded);
-        selection.SelectWeapon("g", "a"); Assert.True(selection.WeaponDetailsExpanded);
+        Assert.Equal("a", selection.WeaponId);
+        Assert.False(selection.SelectWeapon("old", "b"));
+        Assert.False(selection.SelectWeapon("g", "missing"));
+        Assert.True(selection.SelectWeapon("g", "b"));
+        selection.Refresh(Present(p)); Assert.Equal("b", selection.WeaponId);
+        selection.SelectWeapon("g", "a"); Assert.Equal("a", selection.WeaponId);
         Weapons(p, Weapon("b", 3)); selection.Refresh(Present(p));
+        Assert.Equal("b", selection.WeaponId);
         Weapons(p, Weapon("a", 5)); selection.Refresh(Present(p));
-        Assert.False(selection.WeaponDetailsExpanded);
-        selection.ToggleWeaponDetails("g", "a"); selection.Refresh(null);
-        Assert.False(selection.WeaponDetailsExpanded);
+        Assert.Equal("a", selection.WeaponId);
+        selection.Refresh(null);
+        Assert.Null(selection.Weapon);
     }
 
     [Fact]
-    public void AmmunitionIsPlainAndAdditionalMetricsAppearOnlyInsideOpenedDetails()
+    public void WeaponDetailsAreAlwaysVisibleAbovePlainAmmunition()
     {
         var p = Projection(); Weapons(p, Weapon("a", 5, pairs: ("ammo", 5, 100)));
         var selection = new CombatSelection(); selection.Refresh(Present(p));
@@ -140,12 +140,12 @@ public sealed class RetainedCombatTests
         Assert.DoesNotContain(left.Rows, row => row.Kind == CombatRowKind.Metric);
         var right = Document(); right.Items(selection, 600, true);
         Assert.True(Assert.Single(right.Rows, row => row.Kind == CombatRowKind.Item).Plain);
-        Assert.DoesNotContain(right.Rows, row => row.Kind == CombatRowKind.Metric);
-        Assert.Contains(right.Rows, row => row.Expandable && !row.Selected);
-        selection.ToggleWeaponDetails("g", "a");
-        var opened = Document(); opened.Items(selection, 600, true);
-        Assert.Equal(selection.Weapon!.Metrics.Count, opened.Rows.Count(row => row.Kind == CombatRowKind.Metric));
-        Assert.True(opened.Height > right.Height);
+        Assert.Equal(selection.Weapon!.Metrics.Count, right.Rows.Count(row => row.Kind == CombatRowKind.Metric));
+        Assert.DoesNotContain(right.Rows, row => row.Actionable || row.Expandable || row.Kind == CombatRowKind.Selector);
+        var details = Assert.Single(right.Rows, row => row.Kind == CombatRowKind.Heading && row.Cells[0] == "Weapon details");
+        var ammo = Assert.Single(right.Rows, row => row.Kind == CombatRowKind.Heading && row.Cells[0] == "Ammunition");
+        Assert.All(right.Rows.Where(row => row.Kind == CombatRowKind.Metric), row => Assert.True(row.Y > details.Y && row.Y + row.Height < ammo.Y));
+        Assert.All(right.Rows.Where(row => row.Kind == CombatRowKind.Item), row => Assert.True(row.Y > ammo.Y));
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public sealed class RetainedCombatTests
     {
         var p = Projection(); var n = p.Combat.Lifetime.Totals;
         n.DamageDealt = 2400.25; n.DamageReceived = 82.25; n.KillsByYou = 14; n.PlayerDeaths = 3; n.ObservedWorldDeaths = 900;
-        Assert.Equal(new[] { "2,400.25", "82.25", "14", "3", "Unavailable" }, Present(p).Overall.Select(m => m.Value.Text));
+        Assert.Equal(new[] { "2,400.25", "82.25", "14", "3", "—" }, Present(p).Overall.Select(m => m.Value.Text));
         Assert.All(Present(p).Overall.Take(4), m => Assert.Equal(CombatEvidence.Supported, m.Value.Evidence));
     }
     [Theory]

@@ -58,7 +58,7 @@ internal sealed partial class RetainedStatisticsShell
                     : focused.transform.IsChildOf(selector.Panel) ? selector : null : null;
             restoreFocusId = focused == null ? null : restoreFocus?.FocusedRowId(focused);
             if (RetainedRefreshPolicy.RequiresInvalidation(selection.Snapshot?.GenerationId, next?.GenerationId))
-                { selector.Clear(); primary.Clear(); ammunition.Clear(); }
+            { selector.Clear(); primary.Clear(); ammunition.Clear(); }
             selection.Refresh(next);
             outer.Rect.gameObject.SetActive(next != null); unavailable.gameObject.SetActive(next == null);
             footer.gameObject.SetActive(false);
@@ -93,8 +93,7 @@ internal sealed partial class RetainedStatisticsShell
             }
             else if (selection.Page == CombatPanelSection.WeaponsAndAmmunition)
             {
-                if (id.StartsWith("details:", StringComparison.Ordinal)) selection.ToggleWeaponDetails(generation, id.Substring(8));
-                else selection.SelectWeapon(generation, id);
+                selection.SelectWeapon(generation, id);
             }
             else if (selection.Page == CombatPanelSection.IncomingDamage && id.StartsWith("sort:", StringComparison.Ordinal)
                 && int.TryParse(id.AsSpan(5), out var column)) selection.SortIncoming(generation, column);
@@ -189,9 +188,10 @@ internal sealed partial class RetainedStatisticsShell
                 public TextMeshProUGUI[] Text = null!;
                 public TextMeshProUGUI Detail = null!, Fallback = null!, Chevron = null!;
                 public Image Icon = null!;
+                public Duckov.UI.TooltipsProvider Tooltip = null!;
                 public CombatRenderRow? Row;
                 public void Dispose()
-                { Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; }
+                { Tooltip.OnPointerExit(null!); Tooltip.text = ""; Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null; Row = null; }
             }
             public CombatViewport(CombatView owner, RectTransform parent, string name, string region)
             {
@@ -208,7 +208,7 @@ internal sealed partial class RetainedStatisticsShell
             public void Clear()
             {
                 document = null; focusedId = null;
-                foreach (var c in Pool) { c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; }
+                foreach (var c in Pool) { c.Tooltip.OnPointerExit(null!); c.Tooltip.text = ""; c.Button.Binding.CancelPointer(); c.Rect.gameObject.SetActive(false); c.Row = null; }
                 rebuild = true;
             }
             public void Bind(CombatDocument next, float x, float y, float width, float height)
@@ -223,6 +223,7 @@ internal sealed partial class RetainedStatisticsShell
                 c.Rect.GetComponent<UniformModifier>().Radius = 10;
                 c.Background = c.Rect.GetComponent<ProceduralImage>();
                 c.Button = c.Rect.gameObject.AddComponent<RunsHistoryButton>(); c.Button.Configure(c.Background);
+                c.Tooltip = c.Rect.gameObject.AddComponent<Duckov.UI.TooltipsProvider>();
                 c.Rect.gameObject.AddComponent<ButtonAnimation>(); AddButtonFeedback(c.Button);
                 c.Text = Enumerable.Range(0, 4).Select(i => owner.Text(c.Rect, "Cell" + i, 28)).ToArray();
                 c.Detail = owner.Text(c.Rect, "Detail", 22);
@@ -263,7 +264,7 @@ internal sealed partial class RetainedStatisticsShell
                 for (var i = 0; i < pool.Count; i++)
                 {
                     var c = pool[i]; c.Rect.gameObject.SetActive(i < visible.Count);
-                    if (i >= visible.Count) { c.Button.Binding.CancelPointer(); c.Row = null; continue; }
+                    if (i >= visible.Count) { c.Tooltip.OnPointerExit(null!); c.Tooltip.text = ""; c.Button.Binding.CancelPointer(); c.Row = null; continue; }
                     BindControl(c, document.Rows[visible[i]]);
                     // Pools may swap focused controls. Restore document paint order so the
                     // single header band always stays behind its transparent header buttons.
@@ -275,6 +276,13 @@ internal sealed partial class RetainedStatisticsShell
             {
                 c.Row = r; c.Button.Binding.Bind(owner.selection.Snapshot!.GenerationId, r.Id);
                 c.Button.BindInteractionOverlay(c.Background, r.Actionable);
+                var tooltip = r.Tooltip.Replace("<", "‹").Replace(">", "›");
+                if (!string.Equals(c.Tooltip.text, tooltip, StringComparison.Ordinal))
+                { c.Tooltip.OnPointerExit(null!); c.Tooltip.text = tooltip; }
+                c.Tooltip.enabled = tooltip.Length > 0;
+                c.Background.raycastTarget = r.Actionable || tooltip.Length > 0;
+                c.Rect.GetComponent<ButtonAnimation>().enabled = r.Actionable;
+                c.Rect.GetComponent<RunsButtonFeedback>().enabled = r.Actionable;
                 c.Background.color = r.Selected ? new Color32(255, 158, 44, 255)
                     : !r.Plain && CombatLayoutPolicy.HasBackground(r.Kind) ? new Color(0, 0, 0, .5f) : Color.clear;
                 Place(c.Rect, r.X, r.Y, r.Width, r.Height);

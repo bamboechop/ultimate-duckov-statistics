@@ -162,7 +162,7 @@ public sealed class CombatWeaponDetailsTests
     }
 
     [Fact]
-    public void MeleeOnlyWeaponAppearsAndExpandsWithoutRangedZeroes()
+    public void MeleeOnlyWeaponShowsDetailsWithoutRangedZeroes()
     {
         var p = Projection(); Combat(p, "weapon:axe", melee: true);
         p.Weapons.Capabilities.FiringActions.State = AdapterCapabilityState.DisabledIncompatible;
@@ -179,10 +179,8 @@ public sealed class CombatWeaponDetailsTests
         ammoDoc.Items(selection, 800, true);
         Assert.DoesNotContain(ammoDoc.Rows, r => r.Kind == CombatRowKind.Item);
         Assert.Contains(ammoDoc.Rows, r => r.Cells.Any(c => c.Contains("Not applicable", StringComparison.Ordinal)));
-        Assert.True(selection.ToggleWeaponDetails(result.GenerationId, weapon.Row.Id));
-        var details = new CombatDocument((_, _, size) => size, (s, size) => s.Length * size);
-        details.Items(selection, 800, true);
-        Assert.Equal(4, details.Rows.Count(r => r.Kind == CombatRowKind.Metric));
+        Assert.Equal(4, ammoDoc.Rows.Count(r => r.Kind == CombatRowKind.Metric));
+        Assert.DoesNotContain(ammoDoc.Rows, r => r.Actionable || r.Expandable);
     }
 
     [Theory]
@@ -256,7 +254,8 @@ public sealed class CombatWeaponDetailsTests
         Assert.All(weapon.Metrics.Skip(1), m => Assert.Equal(CombatEvidence.Unavailable, m.Value.Evidence));
         Combat(p, "w"); weapon = Assert.Single(Present(p).Weapons);
         Assert.Equal(CombatEvidence.Supported, Value(weapon, "Hits").Evidence);
-        Assert.Equal(UiText.Get("ui.combat_weapon_accuracy_basis"), weapon.Notice);
+        Assert.Empty(weapon.Notice);
+        Assert.Equal(UiText.Get("ui.combat_weapon_accuracy_basis"), weapon.Metrics.Single(metric => metric.Label == "Accuracy").Tooltip);
     }
 
     [Fact]

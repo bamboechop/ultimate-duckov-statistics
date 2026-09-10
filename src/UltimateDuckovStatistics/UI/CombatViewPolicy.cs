@@ -6,8 +6,6 @@ internal sealed class CombatSelection
     public CombatPanelSection Page { get; private set; }
     public string? EnemyId { get; private set; }
     public string? WeaponId { get; private set; }
-    private readonly HashSet<string> weaponDetails = new(StringComparer.Ordinal);
-    public bool WeaponDetailsExpanded => WeaponId != null && weaponDetails.Contains(WeaponId);
     public CombatTableSort IncomingSort { get; } = new();
     public CombatTableSort EnemySort { get; } = new(enemies: true);
     private readonly Dictionary<string, float> offsets = new(StringComparer.Ordinal);
@@ -15,10 +13,9 @@ internal sealed class CombatSelection
     public void Refresh(CombatPresentation? next)
     {
         if (next == null || Snapshot?.GenerationId != next.GenerationId)
-        { Page = CombatPanelSection.Summary; EnemyId = WeaponId = null; weaponDetails.Clear(); offsets.Clear(); focus.Clear(); IncomingSort.Reset(); EnemySort.Reset(); }
+        { Page = CombatPanelSection.Summary; EnemyId = WeaponId = null; offsets.Clear(); focus.Clear(); IncomingSort.Reset(); EnemySort.Reset(); }
         Snapshot = next;
         if (next == null) return;
-        weaponDetails.IntersectWith(next.Weapons.Select(w => w.Row.Id));
         if (!next.Enemies.Any(r => r.Id == EnemyId && r.CanExpand)) EnemyId = null;
         if (!next.Weapons.Any(r => r.Row.Id == WeaponId)) WeaponId = next.Weapons.Count == 0 ? null : next.Weapons[0].Row.Id;
     }
@@ -35,12 +32,6 @@ internal sealed class CombatSelection
         WeaponId = id; return true;
     }
     public CombatWeapon? Weapon => Snapshot?.Weapons.FirstOrDefault(w => w.Row.Id == WeaponId);
-    public bool ToggleWeaponDetails(string generation, string id)
-    {
-        if (Snapshot?.GenerationId != generation || WeaponId != id || Weapon == null) return false;
-        if (!weaponDetails.Add(id)) weaponDetails.Remove(id);
-        return true;
-    }
     public bool SortIncoming(string generation, int column) => Snapshot?.GenerationId == generation && IncomingSort.Toggle(column);
     public bool SortEnemy(string generation, int column) => Snapshot?.GenerationId == generation && EnemySort.Toggle(column);
     private string Key(string region) => region == "selector" ? region : Page + ":" + region + (region == "ammo" ? ":" + WeaponId : "");
@@ -145,6 +136,7 @@ internal sealed class CombatRenderRow
     public CombatRowKind Kind { get; set; }
     public string[] Cells { get; set; } = Array.Empty<string>();
     public string Detail { get; set; } = "";
+    public string Tooltip { get; set; } = "";
     public string IconId { get; set; } = "";
     public bool Actionable { get; set; }
     public bool Selected { get; set; }
@@ -210,7 +202,7 @@ internal sealed class CombatDocument
     public float Metrics(IReadOnlyList<CombatMetric> metrics, float x, float y, float width)
     {
         var start = y;
-        foreach (var m in metrics) y += Add(new CombatRenderRow { Kind = CombatRowKind.Metric, Cells = new[] { m.Label, m.Value.Text } }, x, y, width) + 10;
+        foreach (var m in metrics) y += Add(new CombatRenderRow { Kind = CombatRowKind.Metric, Cells = new[] { m.Label, m.Value.Text }, Tooltip = m.Tooltip }, x, y, width) + 10;
         return y - start;
     }
     public float Cards(IReadOnlyList<CombatMetric> metrics, float x, float y, float width, bool stacked)
@@ -232,7 +224,6 @@ internal sealed class CombatDocument
     {
         var w = width - 60; float y = 30;
         y += Heading("ui.records_overall", 30, y, w); y += Cards(p.Overall, 30, y, w, stacked);
-        y += Notice(text("ui.combat_accuracy_scope"), 30, y, w);
         var two = !stacked && w >= 1000; var cw = two ? (w - 30) / 2 : w;
         var left = y + Heading("ui.runs_ranged", 30, y, cw); left += Metrics(p.Ranged, 30, left, cw);
         left += 20;
@@ -297,12 +288,18 @@ internal sealed class CombatDocument
     {
         var p = selection.Snapshot!; var w = width - 60; float y = 30;
         var weaponLabels = p.Weapons.ToDictionary(weapon => weapon.Row.Id, weapon => weapon.ActionLabel, StringComparer.Ordinal);
-        y += Heading(ammunition ? selection.Weapon?.HasRangedEvidence == false ? "ui.combat_weapon_details" : "ui.ammunition" : "ui.combat_weapons", 30, y, w);
+        y += Heading(ammunition ? "ui.combat_weapon_details" : "ui.combat_weapons", 30, y, w);
         if (ammunition)
         {
-            y += Notice(selection.Weapon == null ? text("ui.combat_no_pairs") : selection.Weapon.HasRangedEvidence
-                ? string.Format(System.Globalization.CultureInfo.CurrentCulture, text("ui.combat_fired_with"), selection.Weapon.Row.Name) : selection.Weapon.Row.Name, 30, y, w);
-            y += Notice(selection.Weapon?.Notice ?? "", 30, y, w);
+            var weapon = selection.Weapon;
+            if (weapon == null) { Notice(text("ui.combat_no_pairs"), 30, y, w); return; }
+            y += Notice(weapon.Row.Name, 30, y, w);
+            y += Metrics(weapon.Metrics, 30, y, w);
+            y += 20;
+            y += Heading("ui.ammunition", 30, y, w);
+            if (weapon.HasRangedEvidence)
+                y += Notice(string.Format(System.Globalization.CultureInfo.CurrentCulture, text("ui.combat_fired_with"), weapon.Row.Name), 30, y, w);
+            y += Notice(weapon.Notice, 30, y, w);
         }
         else y += Notice(p.WeaponNotice, 30, y, w);
         foreach (var item in ammunition ? selection.Weapon?.Ammunition ?? Array.Empty<CombatItemRow>() : p.Weapons.Select(weapon => weapon.Row))
@@ -320,20 +317,6 @@ internal sealed class CombatDocument
                         : weaponLabels[item.Id].Length == 0 ? "" : weaponLabels[item.Id] + ": " + item.Actions.Text,
                     item.PercentageBasis.Length == 0 ? "" : item.Percentage.Text + " " + item.PercentageBasis }
             }, 30, y, w) + 10;
-        }
-        if (ammunition && selection.Weapon is CombatWeapon weapon && weapon.Metrics.Count > 0)
-        {
-            y += 20;
-            y += Add(new CombatRenderRow
-            {
-                Id = "details:" + weapon.Row.Id,
-                Kind = CombatRowKind.Selector,
-                Cells = new[] { text("ui.combat_weapon_details") },
-                Actionable = true,
-                Expandable = true,
-                Selected = selection.WeaponDetailsExpanded
-            }, 30, y, w) + 10;
-            if (selection.WeaponDetailsExpanded) Metrics(weapon.Metrics, 30, y, w);
         }
     }
 }
