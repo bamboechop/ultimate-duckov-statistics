@@ -6,6 +6,7 @@ namespace UltimateDuckovStatistics.UI;
 
 internal static class UiText
 {
+    internal static string FormatHealth(double value) => Math.Round(value, MidpointRounding.AwayFromZero).ToString("N0", CultureInfo.CurrentCulture);
     static UiText()
     {
         foreach (var entry in RemainingTabsText.English) English[entry.Key] = entry.Value;

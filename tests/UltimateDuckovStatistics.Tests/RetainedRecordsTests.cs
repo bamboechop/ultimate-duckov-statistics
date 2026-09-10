@@ -8,6 +8,19 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class RetainedRecordsTests
 {
     [Fact]
+    public void EmptyMapSectionReturnsForRecordedOrOrphanMapEvidence()
+    {
+        Assert.False(Present(Projection()).ShowMaps);
+        var populated = WithExtraction(Run("one", 60));
+        Assert.True(Present(populated).ShowMaps);
+        populated.Runs.MovementSupported = false;
+        Assert.True(Present(populated).ShowMaps);
+        Assert.False(Present(Projection()).ShowMaps);
+        Assert.True(new RecordsPresentation("g", Array.Empty<RecordsCard>(),
+            new[] { new RecordsCard("orphan", "Unknown", Array.Empty<KeyValuePair<string, string>>()) }).ShowMaps);
+    }
+
+    [Fact]
     public void CurrentLanguageResolvesRecordRoutesAndOverviewDurationHighlights()
     {
         var run = Run("translated", 60); run.StartingMapId = "duckov:map:A"; run.StartingMapDisplayName = "Lagerbereich";

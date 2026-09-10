@@ -1933,7 +1933,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("0", rows[5].Value);
         Assert.Equal("1,298.25", rows[6].Value);
         Assert.Equal("85.80", rows[7].Value);
-        Assert.Equal("48.84", rows[8].Value);
+        Assert.Equal("49", rows[8].Value);
         Assert.Equal("7", rows[9].Value);
         Assert.Equal("Money net: +2,230", rows[10].Value);
         Assert.Equal("Cash net: -9,744", rows[10].SecondaryValue);
@@ -1960,7 +1960,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("1", changed[5].Value);
         Assert.Equal("7.50", changed[6].Value);
         Assert.Equal("6.25", changed[7].Value);
-        Assert.Equal("5.50", changed[8].Value);
+        Assert.Equal("6", changed[8].Value);
         Assert.Equal("4", changed[9].Value);
         Assert.Equal("Money net: 0", changed[10].Value);
         Assert.Equal("Cash net: -3", changed[10].SecondaryValue);

@@ -53,10 +53,10 @@ public sealed class OverviewHealingEvidenceTests
     }
 
     [Theory]
-    [InlineData(0, false, "0.00", "0")]
-    [InlineData(12.5, false, "12.50", "12.5")]
+    [InlineData(0, false, "0", "0")]
+    [InlineData(12.5, false, "13", "13")]
     [InlineData(0, true, "Unavailable", "Unavailable")]
-    [InlineData(12.5, true, "12.50 (Partial)", "12.5 (Partial)")]
+    [InlineData(12.5, true, "13 (Partial)", "13 (Partial)")]
     public void SupportedAndRepairedEvidenceAgreeAcrossBothViews(double value, bool repaired, string overviewExpected, string itemExpected)
     {
         var profile = new Core.Persistence.ProfileDocument { GenerationId = "g" };
@@ -71,7 +71,7 @@ public sealed class OverviewHealingEvidenceTests
 
     [Theory]
     [InlineData(0, "Unavailable", "Unavailable", ItemUseEvidence.Unavailable)]
-    [InlineData(12.5, "12.50 (Partial)", "12.5 (Partial)", ItemUseEvidence.Partial)]
+    [InlineData(12.5, "13 (Partial)", "13 (Partial)", ItemUseEvidence.Partial)]
     public void FailedNativeActivationPublishesUnavailableHealingToBothViews(double retained,
         string overviewExpected, string itemUseExpected, object expectedEvidence)
     {
@@ -141,11 +141,11 @@ public sealed class OverviewHealingEvidenceTests
 
     [Theory]
     [InlineData(true, false, 0, "Unavailable", false)]
-    [InlineData(false, true, 12.5, "12.5 (partial; recorded values only)", false)]
-    [InlineData(false, true, 12.5, "12.5 (partial; recorded values only)", true)]
+    [InlineData(false, true, 12.5, "13 (partial; recorded values only)", false)]
+    [InlineData(false, true, 12.5, "13 (partial; recorded values only)", true)]
     [InlineData(false, true, 0, "Unavailable", true)]
     [InlineData(false, false, 0, "0", false)]
-    [InlineData(false, false, 12.5, "12.5", false)]
+    [InlineData(false, false, 12.5, "13", false)]
     public void CompletedRunRetainsHealingCaptureEvidenceAfterReload(bool disabledAtStart, bool loseCapture, double restored, string expected, bool lockPersistence)
     {
         var originalPath = Application.persistentDataPath;
@@ -279,8 +279,9 @@ public sealed class OverviewHealingEvidenceTests
             Assert.Equal(expected, recoveredRun.Summary.Single(row => row.Key == UiText.Get("ui.runs_hp")).Value);
             var itemRun = Assert.Single(ItemUsePresentationFactory.Create(recoveredProjection, generation)!.RecentRuns);
             var item = Assert.Single(itemRun.Items);
-            var healthText = run.HealingCaptureComplete ? restored.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                : restored > 0 ? restored.ToString(System.Globalization.CultureInfo.InvariantCulture) + " (Partial)" : "Unavailable";
+            var rounded = restored > 0 ? "13" : "0";
+            var healthText = run.HealingCaptureComplete ? rounded
+                : restored > 0 ? rounded + " (Partial)" : "Unavailable";
             Assert.Equal(healthText, item.Health.Text);
             Assert.Equal(run.HealingCaptureComplete ? ItemUseEvidence.Supported
                 : restored > 0 ? ItemUseEvidence.Partial : ItemUseEvidence.Unavailable, item.Health.Evidence);
@@ -293,7 +294,7 @@ public sealed class OverviewHealingEvidenceTests
                 var lifetime = ItemUsePresentationFactory.Create(p, generation)!;
                 Assert.Equal(healthText, lifetime.Health.Text);
                 Assert.Equal(healthText, Assert.Single(lifetime.Items).Health.Text);
-                var overviewText = restored.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+                var overviewText = rounded;
                 if (!profile.Statistics.HealingCaptureComplete) overviewText = restored > 0 ? overviewText + " (Partial)" : "Unavailable";
                 Assert.Equal(overviewText, ProfileSummaryPresentationFactory.Create(p, UiText.Get)[(int)ProfileSummaryMetric.HealthRestored].Value);
             }

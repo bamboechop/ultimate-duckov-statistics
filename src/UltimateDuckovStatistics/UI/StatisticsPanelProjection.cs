@@ -1462,9 +1462,9 @@ internal static class ProfileSummaryPresentationFactory
                     projection.Combat.Capabilities.DamageReceived,
                     text), null),
             ProfileSummaryMetric.HealthRestored => (
-                ItemUsePresentationFactory.Number(projection.Profile.Statistics.Overall.ActualHealthRestored,
+                ItemUsePresentationFactory.Health(projection.Profile.Statistics.Overall.ActualHealthRestored,
                     ItemUsePresentationFactory.HealingSupported(projection.Profile.Capabilities) && projection.Profile.Statistics.HealingCaptureComplete,
-                    projection.ItemUse.WasRepairedFromInvalidState, text, fixedPrecision: true).Text, null),
+                    projection.ItemUse.WasRepairedFromInvalidState, text).Text, null),
             ProfileSummaryMetric.UniqueContainersOpened => (
                 UiText.FormatContainers(
                     projection.Containers.Lifetime,

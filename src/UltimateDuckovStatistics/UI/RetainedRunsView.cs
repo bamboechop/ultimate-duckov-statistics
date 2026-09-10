@@ -375,6 +375,9 @@ internal sealed partial class RetainedStatisticsShell
             }
             title.text = run?.Title ?? UiText.Get(selection.Snapshot == null ? "ui.profile_unavailable"
                 : selection.RequestedRunUnavailable ? "ui.runs_requested_unavailable" : "ui.runs_empty");
+            title.fontSize = run == null ? 36 : 48;
+            title.alignment = run == null ? TextAlignmentOptions.Center : TextAlignmentOptions.TopLeft;
+            title.color = run == null ? Muted : Color.white;
             foreach (var cell in summary) { cell.Label.gameObject.SetActive(run != null); cell.Value.gameObject.SetActive(run != null); }
             routeHeading.gameObject.SetActive(run != null); routeSummary.gameObject.SetActive(run != null);
             equipmentCombat.Rect.gameObject.SetActive(run != null);
@@ -511,7 +514,7 @@ internal sealed partial class RetainedStatisticsShell
             }
             // Extremely long localized/stored header content can exhaust a desktop column.
             // Reuse the existing responsive page so every section stays reachable, never reject text.
-            if (!useStacked && y + 250 > height) { Reflow(forceStacked: true); return; }
+            if (selection.Selected != null && !useStacked && y + 250 > height) { Reflow(forceStacked: true); return; }
             var lowerTop = y + 10;
             var lowerWidth = useStacked ? detailWidth : (detailWidth - 30) / 2;
             var headingHeight = LayoutRouteHeading(lowerTop, lowerWidth);
@@ -561,9 +564,11 @@ internal sealed partial class RetainedStatisticsShell
             equipmentCombat.Size(rx, rightTop, lowerWidth, rightHeight, rightContentHeight);
             var contentHeight = selection.Selected == null ? title.rectTransform.rect.height + 30
                 : Math.Max(routeTop + routeHeight, rightTop + rightHeight);
-            var dh = useStacked ? contentHeight + 60 : height;
+            var dh = !useStacked ? height : selection.Selected == null
+                ? Math.Max(Math.Max(240, contentHeight + 60), height - dy) : contentHeight + 60;
             Place(detailPanel, useStacked ? 0 : hw + 40, dy, dw, dh);
             Place(fixedDetail, 30, 30, detailWidth, dh - 60);
+            if (selection.Selected == null) Place(title.rectTransform, 0, 0, detailWidth, dh - 60);
             outer.Size(0, 0, width, height, useStacked ? dy + dh : height);
             outer.Scroll.vertical = useStacked;
             LayoutEvidence();

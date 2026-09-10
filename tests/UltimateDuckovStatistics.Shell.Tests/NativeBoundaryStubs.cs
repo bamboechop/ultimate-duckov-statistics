@@ -32,7 +32,9 @@ namespace UltimateDuckovStatistics.Adapters
         public int ProfileListeners => (ProfileChanging?.GetInvocationList().Length ?? 0) + (ProfileChanged?.GetInvocationList().Length ?? 0);
         public List<string> Reports { get; } = new();
         public void ReportUiDiagnostic(string message, string severity = "Info") => Reports.Add(message);
-        public Task<ProfileExportResult> BeginExportCurrent() => throw new NotSupportedException("Not an export test");
+        public Func<Task<ProfileExportResult>> Export = () => throw new NotSupportedException("Not an export test");
+        public Task<ProfileExportResult> BeginExportCurrent() => Export();
+        public void ChangeProfile(ProfileDocument next) { ProfileChanging?.Invoke(); Current = next; ProfileChanged?.Invoke(); }
         public bool ResetCurrent() => throw new NotSupportedException("Not a reset test");
     }
     internal static class NativeRaidContext { public static bool InRaid = false; public static bool IsRaidMap() => InRaid; }

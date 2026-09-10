@@ -12,6 +12,34 @@ namespace UltimateDuckovStatistics.Shell.Tests;
 
 public sealed class ShellAccessTests : IDisposable
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ExportConfirmationCannotOutlivePanelOrProfile(bool profileChange, bool completeBeforeBoundary)
+    {
+        var completion = new TaskCompletionSource<UltimateDuckovStatistics.Core.Export.ProfileExportResult>();
+        coordinator.Export = () => completion.Task;
+        using var panel = new NativeStatisticsPanel(coordinator); Press(panel, KeyCode.F8);
+        var operations = Field<PanelOperationController>(panel, "operations");
+        Assert.True(operations.RequestExport()); panel.Tick();
+        void Complete() { completion.SetResult(new("finished-export", Array.Empty<string>())); panel.Tick(); }
+        if (completeBeforeBoundary) { Complete(); Assert.NotNull(operations.LastNotice); }
+        if (profileChange)
+        {
+            var next = new ProfileDocument { GenerationId = "next", Statistics = new() { SaveGenerationId = "next" } };
+            coordinator.ChangeProfile(next); panel.Tick();
+        }
+        else { Press(panel, KeyCode.Escape); Press(panel, KeyCode.F8); }
+        Assert.Null(operations.LastNotice);
+        var messages = Duckov.UI.NotificationText.Messages.Count;
+        if (!completeBeforeBoundary) Complete();
+        Assert.Null(operations.LastNotice); Assert.Equal(PanelOperation.None, operations.Current);
+        Assert.Equal(messages, Duckov.UI.NotificationText.Messages.Count);
+        Assert.Contains(coordinator.Reports, r => r.Contains("export completed", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void OpenShellRefreshesNativeMapNameOnLanguageChangeAndReopenWithoutProfileMutation()
     {

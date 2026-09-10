@@ -25,10 +25,12 @@ internal sealed class RecordsPresentation
     public string GenerationId { get; }
     public IReadOnlyList<RecordsCard> Overall { get; }
     public IReadOnlyList<RecordsCard> Maps { get; }
-    public RecordsPresentation(string generation, IEnumerable<RecordsCard> overall, IEnumerable<RecordsCard> maps)
+    public bool ShowMaps { get; }
+    public RecordsPresentation(string generation, IEnumerable<RecordsCard> overall, IEnumerable<RecordsCard> maps, bool hasRecordedRuns = false)
     {
         GenerationId = generation;
         Overall = Array.AsReadOnly(overall.ToArray()); Maps = Array.AsReadOnly(maps.ToArray());
+        ShowMaps = hasRecordedRuns || Maps.Count > 0;
     }
 }
 
@@ -91,7 +93,7 @@ internal static class RecordsPresentationFactory
                 : MapName(id, map.DisplayName, map.IsKnown, t, projection.Names), rows,
                 notice: map == null || !validMapRecords ? t("ui.records_inconsistent") : ""));
         }
-        return new RecordsPresentation(generation, overall, cards);
+        return new RecordsPresentation(generation, overall, cards, runs.Count > 0 || model.TotalRuns > 0);
     }
 
     private static void AddOverall(DurationRecordPair? pair, RunOutcome outcome, string category,

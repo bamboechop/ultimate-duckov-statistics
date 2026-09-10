@@ -14,9 +14,10 @@ internal sealed class PanelOperationNotice
     public string Path { get; }
     public string Detail { get; }
     public bool PriorProfileStillActive { get; }
+    public bool PresentResult { get; }
     public PanelOperationNotice(PanelOperation operation, PanelOperationOutcome outcome, string generation,
-        string path = "", string detail = "", bool priorProfileStillActive = false)
-    { Operation = operation; Outcome = outcome; GenerationId = generation; Path = path; Detail = detail; PriorProfileStillActive = priorProfileStillActive; }
+        string path = "", string detail = "", bool priorProfileStillActive = false, bool presentResult = true)
+    { Operation = operation; Outcome = outcome; GenerationId = generation; Path = path; Detail = detail; PriorProfileStillActive = priorProfileStillActive; PresentResult = presentResult; }
 }
 
 /// <summary>Main-thread single-flight owner shared by mouse, keyboard and retained controls.</summary>
@@ -35,6 +36,7 @@ internal sealed class PanelOperationController : IDisposable
     private string requestedGeneration = "", confirmationGeneration = "";
     private long priorResetTransition;
     private bool queued, disposed;
+    private bool exportResultDismissed;
 
     public PanelOperation Current => gate.Current;
     public bool ModalVisible => interaction.ResetConfirmationVisible;
@@ -53,7 +55,7 @@ internal sealed class PanelOperationController : IDisposable
     public bool RequestExport()
     {
         if (!CanStart || string.IsNullOrWhiteSpace(generation()) || !gate.TryBegin(PanelOperation.Export)) return false;
-        requestedGeneration = generation(); queued = true;
+        requestedGeneration = generation(); queued = true; exportResultDismissed = false;
         Publish(PanelOperationOutcome.Running); return true;
     }
     public bool RequestResetConfirmation()
@@ -78,6 +80,9 @@ internal sealed class PanelOperationController : IDisposable
     public void Tick()
     {
         if (disposed) return;
+        if ((Current == PanelOperation.Export || LastNotice?.Operation == PanelOperation.Export)
+            && (transitioning() || generation() != (Current == PanelOperation.Export ? requestedGeneration : LastNotice!.GenerationId)))
+            DismissExportResult();
         if (ModalVisible && (generation() != confirmationGeneration || transitioning())) CancelConfirmation();
         if (queued)
         {
@@ -107,6 +112,8 @@ internal sealed class PanelOperationController : IDisposable
             ProfileExportResult result;
             try { result = completedTask.GetAwaiter().GetResult(); }
             catch (Exception exception) { Finish(PanelOperationOutcome.Failure, detail: exception.ToString()); return; }
+            if (exportResultDismissed)
+            { Finish(PanelOperationOutcome.Success, result.Directory); return; }
             bool copied;
             var clipboardDetail = "";
             try { copied = clipboard(result.Directory); }
@@ -138,15 +145,25 @@ internal sealed class PanelOperationController : IDisposable
     {
         var operation = Current;
         var notice = new PanelOperationNotice(operation, outcome, requestedGeneration, path, detail,
-            generation() == requestedGeneration && !transitioning());
+            generation() == requestedGeneration && !transitioning(),
+            operation != PanelOperation.Export || !exportResultDismissed);
         gate.Complete(operation);
-        LastNotice = notice; Notify(notice);
+        if (notice.PresentResult) LastNotice = notice;
+        Notify(notice);
     }
     private void Publish(PanelOperationOutcome outcome, string path = "", string detail = "")
     {
         LastNotice = new PanelOperationNotice(Current, outcome, requestedGeneration, path, detail,
             generation() == requestedGeneration);
         Notify(LastNotice);
+    }
+
+    // The file operation retains its gate and generation. Only its transient UI
+    // and automatic clipboard action lose ownership across this boundary.
+    public void DismissExportResult()
+    {
+        if (Current == PanelOperation.Export) exportResultDismissed = true;
+        if (LastNotice?.Operation == PanelOperation.Export) LastNotice = null;
     }
 
     private void Notify(PanelOperationNotice notice)

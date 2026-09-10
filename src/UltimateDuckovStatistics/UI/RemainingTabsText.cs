@@ -41,6 +41,8 @@ internal static class RemainingTabsText
         ["ui.item_use_partial"] = "Partial",
         ["ui.item_use_uses_value"] = "{0} uses",
         ["ui.item_use_hp_value"] = "{0} HP restored",
+        ["ui.economy_money_net_label"] = "Money net",
+        ["ui.economy_cash_net_label"] = "Cash net",
         ["ui.item_use_items_unit"] = "items",
         ["ui.item_use_stack_unit"] = "stack units",
         ["ui.item_use_durability_unit"] = "durability",
