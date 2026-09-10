@@ -13,6 +13,31 @@ namespace UltimateDuckovStatistics.Shell.Tests;
 public sealed class ShellAccessTests : IDisposable
 {
     [Fact]
+    public void AboutPointerHitSurfacesDispatchBothApprovedLinks()
+    {
+        var launches = new List<string>(); Application.UrlLauncher = launches.Add;
+        using var panel = new NativeStatisticsPanel(coordinator); Press(panel, KeyCode.F8);
+        Find("AboutTab").GetComponent<Button>().onClick.Invoke(); panel.Tick();
+        foreach (var name in new[] { "AboutSupport", "AboutDiscord" })
+        {
+            var button = Find(name).GetComponent<Button>();
+            var background = button.GetComponent<UnityEngine.UI.ProceduralImage.ProceduralImage>();
+            // Installed GraphicRaycaster excludes graphics with raycastTarget=false.
+            // Model that pointer-hit boundary before invoking the native Button event;
+            // direct onClick tests alone cannot detect a non-clickable surface.
+            var hit = button.GetComponentsInChildren<Graphic>().FirstOrDefault(g => g.raycastTarget && g.isActiveAndEnabled);
+            Assert.Same(background, hit);
+            Assert.NotEqual(Find("AboutCard").GetComponent<Graphic>().color, background.color);
+            Assert.Equal(1f, background.color.a);
+            var receiver = hit!.GetComponentInParent<Button>();
+            Assert.Same(button, receiver);
+            Assert.True(receiver.IsInteractable());
+            receiver.onClick.Invoke();
+        }
+        Assert.Equal(new[] { "https://ko-fi.com/bamboechop", "https://discord.gg/8ngDVJ7jHH" }, launches);
+    }
+
+    [Fact]
     public void AboutLongLocalizedContentCanBeScrolledAndFocusedAcrossResizeWithoutLaunchingLinks()
     {
         var launches = new List<string>(); Application.UrlLauncher = launches.Add;

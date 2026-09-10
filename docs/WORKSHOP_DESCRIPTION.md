@@ -4,7 +4,7 @@ M18 implementation and bounded native qualification are complete as recorded in 
 
 ---
 
-**Ultimate Duckov Statistics** keeps local, per-save statistics for Escape from Duckov: expeditions and routes, combat, equipment, item use and healing, economy, crafting, world time and sleep.
+**Ultimate Duckov Statistics** keeps local, per-save statistics for Escape from Duckov: raids and routes, combat, equipment, item use and healing, economy, crafting, world time and sleep.
 
 Open Statistics outside a raid from the main menu, base pause menu or F8. Ten tabs cover your statistics, recorded expeditions and About. About introduces UDS and its author, with optional support and community links. Diagnostics explains unavailable or partial measurements and exports a JSON snapshot with CSV tables. Resetting UDS statistics archives its own generation; it does not change Duckov saves.
 
@@ -20,8 +20,8 @@ Installation, local data, limitations and troubleshooting: [project documentatio
 
 **Created by bamboechop.** If you would like to support my work, [Ko-fi](https://ko-fi.com/bamboechop) is optional. Join my [Discord](https://discord.gg/8ngDVJ7jHH) to chat or get in touch.
 
-Want to help translate UDS? Contact me on Discord and mention the language you could help with. Once the Steam Workshop page is available, you can leave a comment there too.
+Want to help translate UDS? Contact me on Discord or leave a comment on the Steam Workshop page, and mention the language you could help with.
 
 ---
 
-Optional future promo caption (unpublished): “Help translate UDS. Tell me your language on Discord or in a Workshop comment once the page is available.”
+Optional future promo caption (unpublished): “Help translate UDS. Tell me your language on Discord or in a Steam Workshop comment.”

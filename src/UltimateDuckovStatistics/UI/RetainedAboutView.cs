@@ -131,8 +131,9 @@ internal sealed partial class RetainedStatisticsShell
         }
         private Button Link(string name, out TextMeshProUGUI label)
         {
-            var rect = CreateOverviewPanel(scroll.Content, name, out var modifier); modifier.Radius = 10;
-            var background = rect.GetComponent<ProceduralImage>(); background.color = new Color(0, 0, 0, .5f);
+            var rect = CreateOverviewPanel(scroll.Content, name, out var modifier); modifier.Radius = 25;
+            var background = rect.GetComponent<ProceduralImage>();
+            background.color = new Color32(72, 195, 242, 255); background.raycastTarget = true;
             var button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = background;
             button.navigation = new Navigation { mode = Navigation.Mode.None };
             rect.gameObject.AddComponent<ButtonAnimation>(); AddButtonFeedback(button);

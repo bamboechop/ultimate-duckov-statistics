@@ -9,11 +9,11 @@ Author: **bamboechop**. Fixed runtime destinations are declared together in [`Co
 - Optional support: [Ko-fi](https://ko-fi.com/bamboechop).
 - Community and translation contact: [Discord](https://discord.gg/8ngDVJ7jHH).
 
-The author also welcomes translation volunteers through comments on the eventual Steam Workshop page. No Workshop item or item URL currently exists in this batch, so About links only to the two approved destinations above.
+The prepared release copy also welcomes translation volunteers through comments on the Steam Workshop page. No Workshop item or item URL currently exists in this batch, so About links only to the two approved destinations above.
 
-Invitation shared by About and the unpublished [Workshop description](WORKSHOP_DESCRIPTION.md): “Want to help translate UDS? Contact me on Discord and mention the language you could help with. Once the Steam Workshop page is available, you can leave a comment there too.”
+Invitation shared by About and the unpublished [Workshop description](WORKSHOP_DESCRIPTION.md): “Want to help translate UDS? Contact me on Discord or leave a comment on the Steam Workshop page, and mention the language you could help with.”
 
-Optional future promo caption: “Help translate UDS. Tell me your language on Discord or in a Workshop comment once the page is available.” No new promo image or translation infrastructure is needed for this demand test.
+Optional future promo caption: “Help translate UDS. Tell me your language on Discord or in a Steam Workshop comment.” No new promo image or translation infrastructure is needed for this demand test.
 
 ## Runtime scope
 
@@ -50,3 +50,12 @@ Version fields remain `1.0.0-rc.1`, matching the existing ordinary-package contr
 Deployment used the independently extracted package with Duckov closed. All five installed file lengths and SHA-256 hashes matched. The preceding mod remains in the isolated worktree at `artifacts/deployment-backups/66e117edf1fa4913b78eccddcddd50c5/UltimateDuckovStatistics`. Fresh before/after inventories verified all 3,116 save, UDS-data and protected original-checkout files unchanged. The original checkout's modified `PLAN.md` and untracked firing diagnostic were not included in this branch. Package and deployment evidence remain beside the ZIP. The later documentation-only delivery record does not change the packaged code or installation guide.
 
 The manual checklist above remains open. Review and CI status are authoritative on the repository's [pull requests](https://github.com/bamboechop/ultimate-duckov-statistics/pulls).
+
+
+## User-reported button and release-copy correction
+
+The first manual check found that both external buttons looked like content panels and ignored mouse clicks. `CreateOverviewPanel` deliberately disables background raycast targeting; About had not restored it, and its label and feedback graphics also ignore pointer hits. Inspection of installed `UnityEngine.UI.GraphicRaycaster` confirms that it excludes any graphic with `raycastTarget == false`. About's shared link factory now explicitly enables the background hit surface and uses the existing native solid blue action-button fill and rounded shape. Native hover/click feedback and the approved destinations are unchanged.
+
+The new regression applies that pointer-hit filter before dispatching either button event to the intercepted URL boundary. It fails on the previous code with no hittable graphic, then passes for both exact destinations after the correction. Full ordinary shell tests pass 64/64, diagnostic shell tests 68/68, and focused projection/localization tests 278/278 in each of Debug and Release. Native builds are warning-free, and scoped formatting/analyzers and diff checks pass. Earlier unchanged core and installed-contract evidence remains applicable; actual browser activation and visual acceptance require another user check.
+
+About's description now uses “raids” and expands the name to “Ultimate Duckov Statistics (UDS)”. The invitation and optional promo caption are written for the released product and refer directly to Steam Workshop comments. Their preparation remains unpublished; no Workshop item URL is invented.
