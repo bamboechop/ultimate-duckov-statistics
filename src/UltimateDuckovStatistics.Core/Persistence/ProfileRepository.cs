@@ -878,6 +878,7 @@ public sealed partial class ProfileRepository
 
         var loaded = sessionStore.Load(sessionPath);
         var interruptedGeneration = loaded.Value?.GenerationId ?? "unknown";
+        if (Current.Statistics.BaseMovement is { } baseMovement) baseMovement.HasKnownGaps = true;
         Current.InterruptedSessionCount++;
         Current.Revision++;
         Current.UpdatedUtc = EnsureUtc(utcNow());
@@ -1286,6 +1287,7 @@ public sealed partial class ProfileRepository
                 Economy = EconomyStatisticsReducer.Clone(statistics.Economy),
                 WorldTime = WorldTimeStatisticsReducer.Clone(statistics.WorldTime),
                 Crafting = CraftingStatisticsReducer.Clone(statistics.Crafting),
+                BaseMovement = BaseMovementStatistics.Clone(statistics.BaseMovement),
                 Holdings = EconomyHoldingsReducer.Clone(statistics.Holdings)
             },
             Capabilities = source.Capabilities.Select(CloneCapability).ToList(),

@@ -256,7 +256,7 @@ internal sealed partial class RetainedStatisticsShell
                     background.color = element.Kind == EconomyElementKind.Route
                         ? new Color(RetainedOverviewLatestRunViewRunPolicy.BackgroundRed, RetainedOverviewLatestRunViewRunPolicy.BackgroundGreen,
                             RetainedOverviewLatestRunViewRunPolicy.BackgroundBlue, RetainedOverviewLatestRunViewRunPolicy.BackgroundAlpha)
-                        : element.Selected ? new Color32(255, 158, 44, 255) : new Color(0, 0, 0, .5f);
+                        : element.Selected ? new Color32(255, 158, 44, 255) : new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha);
                     action.Modifier.Radius = element.Kind == EconomyElementKind.Route ? RetainedOverviewLatestRunViewRunPolicy.CornerRadiusPixels : 10;
                     button.targetGraphic.GetComponent<UniformModifier>().Radius = action.Modifier.Radius;
                     action.Label.gameObject.SetActive(element.Kind == EconomyElementKind.Route);

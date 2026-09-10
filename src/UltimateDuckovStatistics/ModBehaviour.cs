@@ -220,6 +220,11 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 () => economyAdapter?.MetricCapabilities ?? new Core.Domain.EconomyMetricCapabilities(),
                 profileCoordinator.PollRunCheckpoint,
                 profileCoordinator.FlushRunCheckpoint);
+            newRunLifecycleAdapter.ConfigureBaseMovement(
+                profileCoordinator.HandleBaseMovement, profileCoordinator.FlushBaseMovement,
+                () => profileCoordinator.HasPendingProfileTransition);
+            profileCoordinator.SetBaseMovementBoundaryPublisher(newRunLifecycleAdapter.PublishBaseMovementForBoundary);
+            profileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted += newRunLifecycleAdapter.BeginBaseMovementNativeLoad;
             runLifecycleAdapter.Assign(newRunLifecycleAdapter);
             newRunLifecycleAdapter.SetHealingCapability(healingAttributionAdapter.Capability);
             profileCoordinator.SetActiveRunCheckpointBarrier(newRunLifecycleAdapter.FlushCheckpoint);
@@ -462,7 +467,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         if (profileCoordinator != null)
         {
             if (ownedRunLifecycleAdapter != null)
+            {
                 profileCoordinator.ProfileChanging -= ownedRunLifecycleAdapter.InterruptForProfileTransition;
+                profileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted -= ownedRunLifecycleAdapter.BeginBaseMovementNativeLoad;
+            }
             if (profileTransitionsDrained && worldTimeAdapter.OwnedValue != null)
             {
                 profileCoordinator.WorldTimeProfileChangeAwaitingNativeLoadStarted -= worldTimeAdapter.OwnedValue.BeginProfileChangeAwaitingNativeLoad;

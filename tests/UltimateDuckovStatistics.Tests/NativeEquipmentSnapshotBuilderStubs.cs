@@ -384,6 +384,7 @@ public static class LevelManager
     public static event Action? OnNewGameReport;
     public static bool LevelInitializing { get; set; }
     public static bool LevelInited { get; set; } = true;
+    public static bool AfterInit { get; set; } = true;
     public static void RaiseLevelBeginInitializing() => OnLevelBeginInitializing?.Invoke();
     public static void RaiseLevelInitialized() => OnLevelInitialized?.Invoke();
     public static void RaiseAfterLevelInitialized() => OnAfterLevelInitialized?.Invoke();
@@ -403,11 +404,14 @@ public static class LevelManager
         OnNewGameReport = null;
         LevelInitializing = false;
         LevelInited = true;
+        AfterInit = true;
     }
 }
 
 public sealed partial class LevelManagerInstance
 {
+    public bool IsBaseLevel { get; set; }
+    public bool IsRaidMap { get; set; }
     public CharacterMainControl? MainCharacter { get; set; }
     public PetProxy? PetProxy { get; set; }
     public UnityEngine.GameObject gameObject { get; } = new();

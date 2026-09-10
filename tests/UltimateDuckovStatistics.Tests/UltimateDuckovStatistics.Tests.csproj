@@ -10,6 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeProfileCoordinator.BaseMovement.cs" Link="ProductionAdapters/NativeProfileCoordinator.BaseMovement.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeRunLifecycleAdapter.BaseMovement.cs" Link="ProductionAdapters/NativeRunLifecycleAdapter.BaseMovement.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeCombatAttributionAdapter.cs" Link="ProductionAdapters/NativeCombatAttributionAdapter.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/CombatHarmonyBridge.cs" Link="ProductionAdapters/CombatHarmonyBridge.cs" />
     <Compile Include="../Shared/HarmonyBoundaryStubs.cs" Link="HarmonyBoundaryStubs.cs" />

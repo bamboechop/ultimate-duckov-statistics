@@ -245,6 +245,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
     }
 
     private GameObject? root;
+    private ScrollRegion? overviewSummaryScroll;
+    private CombatTooltip? overviewDistanceTooltip;
     private Canvas? canvas;
     private RectTransform? shellRoot;
     private RectTransform? headerRect;
@@ -590,6 +592,12 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelRefresh);
 #endif
         projectionAvailable = true;
+        var summaryOffset = overviewSummaryScroll?.Offset ?? 0;
+        var summaryFocused = overviewSummaryScroll != null && GameManager.EventSystem?.currentSelectedGameObject == overviewSummaryScroll.Rect.gameObject;
+        overviewDistanceTooltip?.Dispose();
+        overviewDistanceTooltip = null;
+        overviewSummaryScroll?.Dispose();
+        overviewSummaryScroll = null;
         var retainedViewRun = overviewLatestRunViewRun;
         // Keep the selectable and its highlight alive across live projection refreshes.
         // Detach before disabling the old view so hover, press and focus are retained.
@@ -614,12 +622,15 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         craftingView?.Refresh(CraftingPresentationFactory.Create(projection, generation));
         itemUseView?.Refresh(ItemUsePresentationFactory.Create(projection, generation));
         RefreshVisualLayout(force: true);
+        overviewSummaryScroll?.SetOffset(summaryOffset);
+        if (summaryFocused && overviewSummaryScroll != null) GameManager.EventSystem?.SetSelectedGameObject(overviewSummaryScroll.Rect.gameObject);
     }
 
     public void RefreshStaticText() => aboutView?.RefreshText();
 
     public void SetSelectedTab(StatisticsPanelTab tab)
     {
+        overviewDistanceTooltip?.Dismiss();
         if (!PanelInteractionState.NavigationOrder.Contains(tab))
             throw new ArgumentOutOfRangeException(nameof(tab));
         if (selectedTab == tab) return;
@@ -710,7 +721,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         return rect;
     }
 
-    private static GameObject CreateOverviewContentView(
+    private GameObject CreateOverviewContentView(
         RectTransform parent,
         NativeHeaderTitleTypography typography,
         Material headingMaterial,
@@ -757,7 +768,20 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             viewRect,
             RetainedOverviewRightPanelPolicy.BackgroundName,
             out rightPanelModifier);
-        leftPanelContentRect = CreateOverviewLeftPanelContent(leftPanelRect);
+        overviewDistanceTooltip = new CombatTooltip(viewRect, typography.Font, headingMaterial);
+        overviewSummaryScroll = new ScrollRegion(leftPanelRect, "OverviewSummaryScroll");
+        overviewSummaryScroll.Scroll.onValueChanged.AddListener(_ => overviewDistanceTooltip.Dismiss());
+        overviewSummaryScroll.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
+        overviewSummaryScroll.Rect.GetComponent<RunsFocusHandler>().Move = direction =>
+        {
+            if (direction == UnityEngine.EventSystems.MoveDirection.Up && overviewSummaryScroll.Offset <= 0)
+                FocusSelectedTab();
+            else if (direction == UnityEngine.EventSystems.MoveDirection.Up || direction == UnityEngine.EventSystems.MoveDirection.Down)
+                overviewSummaryScroll.SetOffset(overviewSummaryScroll.Offset + (direction == UnityEngine.EventSystems.MoveDirection.Up ? -1 : 1) * overviewSummaryScroll.Scroll.scrollSensitivity);
+            else if (direction == UnityEngine.EventSystems.MoveDirection.Right && overviewLatestRunViewRun?.Button.interactable == true)
+                GameManager.EventSystem?.SetSelectedGameObject(overviewLatestRunViewRun.Button.gameObject);
+        };
+        leftPanelContentRect = CreateOverviewLeftPanelContent(overviewSummaryScroll.Content);
         rightPanelContentRect = CreateOverviewRightPanelContent(rightPanelRect);
         profileSummaryHeadingRect = CreateOverviewProfileSummaryHeading(
             leftPanelContentRect,
@@ -1517,7 +1541,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             presentation);
     }
 
-    private static RetainedStatisticsRowControl CreateOverviewStatisticsRow(
+    private RetainedStatisticsRowControl CreateOverviewStatisticsRow(
         RectTransform parent,
         RetainedProfileSummaryRowSpecification specification,
         ProfileSummaryRowPresentation presentation,
@@ -1571,6 +1595,12 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 typography,
                 textMaterial,
                 out secondaryValue);
+        }
+
+        if (presentation.Tooltip != null)
+        {
+            row.AddComponent<CombatTooltipTrigger>().Bind(overviewDistanceTooltip, presentation.Tooltip);
+            row.GetComponent<Graphic>().raycastTarget = true;
         }
 
         var textElements = new RetainedStatisticsRowTextElements(
@@ -2252,6 +2282,16 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 overviewProfileSummaryRows[index],
                 layout.OverviewProfileSummaryRows[index],
                 layout.OverviewLeftPanel);
+        if (overviewSummaryScroll != null)
+        {
+            var panel = layout.OverviewLeftPanel;
+            var lastRow = layout.OverviewProfileSummaryRows[layout.OverviewProfileSummaryRows.Count - 1].Surface;
+            var contentHeight = Math.Max(panel.ContentHeight, lastRow.Top + lastRow.Height - panel.ContentTop + referenceTransform.CanvasLength(20));
+            overviewSummaryScroll.Size(panel.ContentLeft - panel.Left, panel.ContentTop - panel.Top,
+                panel.ContentWidth, panel.ContentHeight, contentHeight);
+            leftPanelContentRect.anchoredPosition = Vector2.zero;
+            leftPanelContentRect.sizeDelta = new Vector2(panel.ContentWidth, contentHeight);
+        }
         lastViewportPixelWidth = viewportPixelWidth;
         lastViewportPixelHeight = viewportPixelHeight;
         lastCanvasScaleFactor = canvasScaleFactor;
@@ -2449,6 +2489,10 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         tabScroll = null;
         tabViewport = null;
         tabContent = null;
+        overviewDistanceTooltip?.Dispose();
+        overviewDistanceTooltip = null;
+        overviewSummaryScroll?.Dispose();
+        overviewSummaryScroll = null;
         overviewTypography = null;
         tabSelected = null;
         projectionAvailable = true;

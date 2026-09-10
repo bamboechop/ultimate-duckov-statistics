@@ -22,7 +22,7 @@ internal static class RetainedShellCompositionPolicy
     public const int OverviewFirstStatisticsRowContentChildCount = 2;
     public const int OverviewFirstStatisticsRowLabelChildCount = 0;
     public const int OverviewFirstStatisticsRowValueChildCount = 0;
-    public const int ProfileSummaryRowCount = 11;
+    public const int ProfileSummaryRowCount = 13;
     public const int ProfileSummaryStandardRowContentChildCount = 2;
     public const int ProfileSummaryEconomyRowContentChildCount = 3;
     public const int OverviewRightPanelChildCount = 1;

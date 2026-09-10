@@ -385,7 +385,7 @@ internal sealed partial class RetainedStatisticsShell
             equipmentHeading.gameObject.SetActive(run != null); equipmentCard.gameObject.SetActive(run != null);
             combatHeading.gameObject.SetActive(run != null); combatCard.gameObject.SetActive(run != null);
             equipmentCard.GetComponent<ProceduralImage>().color = run?.TerminalState == TerminalLoadoutState.Complete
-                ? new Color(0, 0, 0, .5f) : new Color(.15f, .15f, .15f, .5f);
+                ? new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha) : new Color(.15f, .15f, .15f, RetainedOverviewPanelStylePolicy.LayerAlpha);
             metadata.text = run?.Metadata ?? string.Empty; integrity.text = run?.Integrity ?? string.Empty;
             for (var i = 0; i < summary.Count; i++)
             {
@@ -454,7 +454,7 @@ internal sealed partial class RetainedStatisticsShell
                 control.Fallback.text = sprite != null ? string.Empty : emptyIcon ? "—" : "?";
                 control.Fallback.color = emptyIcon ? Muted : Color.white;
                 control.Root.GetComponent<ProceduralImage>().color = item == null || item.State is not (EquipmentSlotState.Occupied or EquipmentSlotState.Empty)
-                    ? new Color(.28f, .28f, .28f, .5f) : new Color(0, 0, 0, .5f);
+                    ? new Color(.28f, .28f, .28f, RetainedOverviewPanelStylePolicy.LayerAlpha) : new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha);
                 var attachments = item?.Attachments;
                 while (control.Dots.Count < (attachments?.Count ?? 0))
                 {
@@ -689,7 +689,7 @@ internal sealed partial class RetainedStatisticsShell
                 Put(control.Title, geometry.TitleLeft, geometry.TitleTop, geometry.TitleWidth);
                 Put(control.Metadata, 20, geometry.MetadataTop, history.Rect.rect.width - 40);
                 Place(control.Rect, 0, rowTops[index], history.Rect.rect.width, rowHeights[index]);
-                control.Background.color = run.Id == selection.SelectedId ? new Color(1, .62f, .18f, 1) : new Color(0, 0, 0, .5f);
+                control.Background.color = run.Id == selection.SelectedId ? new Color(1, .62f, .18f, 1) : new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha);
             }
             if (focusedId != null)
             {

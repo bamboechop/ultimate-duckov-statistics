@@ -15,6 +15,7 @@ public sealed class StatisticsExportDocument
     [DataMember(Order = 17)] public bool HealingCaptureComplete { get; set; }
     [DataMember(Order = 18)] public AdapterCapabilityState HealingCaptureState { get; set; }
     [DataMember(Order = 19)] public bool HealingEvidenceRepaired { get; set; }
+    [DataMember(Order = 20)] public DistanceStatisticsProjection Distance { get; set; } = new();
 
     [DataMember(Order = 1)]
     public int SchemaVersion { get; set; } = ProductInfo.SchemaVersion;
@@ -360,6 +361,7 @@ public static class StatisticsExporter
                     Totals = CloneTotals(item.Totals)
                 })
                 .ToList(),
+            Distance = DistanceStatisticsProjection.Create(profile),
             RunTotals = runTotals,
             Runs = runs,
             RunRecords = CloneRunRecords(profile.Statistics.RunRecords),
@@ -1077,11 +1079,20 @@ public static class StatisticsExporter
     private static string CreateOverviewCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        AppendTotalsHeader(builder, "generation_id,slot,revision,exported_utc");
+        AppendTotalsHeader(builder, "generation_id,slot,revision,exported_utc,raid_distance_meters,base_distance_meters,total_recorded_distance_meters,base_collection_started_utc,movement_collection_available,raid_distance_partial,base_distance_partial,total_distance_partial,distance_coverage");
         builder.Append(Csv(document.GenerationId)).Append(',')
             .Append(document.Slot.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(document.Revision.ToString(CultureInfo.InvariantCulture)).Append(',')
-            .Append(Csv(document.ExportedUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',');
+            .Append(Csv(document.ExportedUtc.ToString("O", CultureInfo.InvariantCulture))).Append(',')
+            .Append(document.Distance.RaidMeters?.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+            .Append(document.Distance.BaseMeters?.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+            .Append(document.Distance.CombinedMeters?.ToString("R", CultureInfo.InvariantCulture)).Append(',')
+            .Append(Csv(document.Distance.BaseCollectionStartedUtc?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty)).Append(',')
+            .Append(document.Distance.MovementCollectionAvailable.ToString().ToLowerInvariant()).Append(',')
+            .Append(document.Distance.RaidPartial.ToString().ToLowerInvariant()).Append(',')
+            .Append(document.Distance.BasePartial.ToString().ToLowerInvariant()).Append(',')
+            .Append(document.Distance.CombinedPartial.ToString().ToLowerInvariant()).Append(',')
+            .Append(Csv(document.Distance.Coverage)).Append(',');
         AppendTotals(builder, document.Overall, document);
         return builder.ToString();
     }

@@ -54,6 +54,9 @@ public sealed class ProfileStatistics
     [DataMember(Order = 15)]
     public EconomyHoldingsSnapshot Holdings { get; set; } = new();
 
+    [DataMember(Order = 17, EmitDefaultValue = false)]
+    public BaseMovementStatistics? BaseMovement { get; set; }
+
     [OnDeserializing]
     private void OnDeserializing(StreamingContext _)
     {

@@ -13,7 +13,7 @@ using UnityEngine.SceneManagement;
 
 namespace UltimateDuckovStatistics.Adapters;
 
-internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
+internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 {
     internal const string LifecycleAdapterId = "native-run-lifecycle";
     internal const string LifecycleAdapterVersion = "native-run-lifecycle/2.3.30";
@@ -285,6 +285,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             SynchronizeMainCharacter();
             SynchronizeNativeStates();
             SynchronizeRaidInitialization();
+            TickBaseMovement(DateTime.UtcNow, NowMonotonic());
             TryResumeDestination();
             if (pendingDeathTerminal && tracker.IsActive)
             {
@@ -346,6 +347,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 throw new IOException("Profile transition was blocked because the completed run was not durable.");
         }
 
+        baseMovement?.ResetBaseline();
+        if (baseMovementDurability?.Invoke() == false)
+            throw new IOException("Base movement remains pending before profile transition.");
         DetachMainCharacter();
         sampleCadence.Reset();
         checkpointScheduler.Reset();
@@ -361,6 +365,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     public bool TryCleanup()
     {
         callbackLifetime.BeginDisposal();
+        baseMovement?.ResetBaseline();
+        if (baseMovementDurability?.Invoke() == false) return false;
         if (completionBoundary.HasPendingCompletion && !RetryPendingCompletion())
         {
             return false;
@@ -712,6 +718,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return;
         }
 
+        baseMovement?.ResetBaseline();
         DetachMainCharacter();
         mainCharacter = observed;
         mainCharacterGate.Replace(observed);
@@ -940,6 +947,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             MovementAdapterVersion,
             AdapterCapabilityState.DisabledIncompatible,
             detail);
+        baseMovement?.ResetBaseline(knownGap: true);
         tracker.DisableMovement();
         sampleCadence.Reset();
         capabilityHandler(capabilities);
@@ -1112,18 +1120,21 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnPauseStarted()
     {
+        ResetBaseMovementBoundary();
         paused = true;
         ApplySuspension(RunLifecycleEventKind.PauseStarted, MovementObservationKind.ResumeBoundary);
     }
 
     private void OnPauseEnded()
     {
+        ResetBaseMovementBoundary();
         paused = false;
         ApplySuspension(RunLifecycleEventKind.PauseEnded, MovementObservationKind.ResumeBoundary);
     }
 
     private void OnSceneLoadingStarted(SceneLoadingContext context)
     {
+        ResetBaseMovementBoundary();
         loading = true;
         if (tracker.IsActive) BeginRouteTransition();
         else ApplySuspension(RunLifecycleEventKind.LoadingStarted, MovementObservationKind.LoadingBoundary);
@@ -1135,6 +1146,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnSubSceneWillBeUnloaded(MultiSceneCore core, Scene scene)
     {
+        ResetBaseMovementBoundary();
         loading = true;
         if (tracker.IsActive) BeginRouteTransition();
         else ApplySuspension(RunLifecycleEventKind.LoadingStarted, MovementObservationKind.LoadingBoundary);
@@ -1172,6 +1184,8 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnMainCharacterSetPosition(CharacterMainControl character, Vector3 position)
     {
+        if (callbackLifetime.CanHandleCallbacks && mainCharacterGate.Accepts(character))
+            baseMovement?.ResetBaseline();
         if (!callbackLifetime.CanHandleCallbacks
             || !mainCharacterGate.Accepts(character)
             || !IsActive)

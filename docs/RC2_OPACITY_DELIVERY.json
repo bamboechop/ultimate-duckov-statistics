@@ -1,0 +1,92 @@
+{
+  "ImplementationSourceCommit": "3c06fd3216b8a15f0f7e450003120eab1f765536",
+  "BaseCommit": "68623d4f32190b7c73f1368b10d3ee3f8b73cb09",
+  "VerifiedUtc": "2026-09-10T21:20:02.2312028Z",
+  "PullRequest": "https://github.com/bamboechop/ultimate-duckov-statistics/pull/23",
+  "ArtifactKind": "ordinary local opacity and base-distance test; no rc.2 publication",
+  "Archive": {
+    "Name": "UltimateDuckovStatistics-opacity-base-distance.zip",
+    "Bytes": 647136,
+    "SHA256": "456d044a63cdecfb4a8b3fa4ca4f649c723b86e829cd5e1b40e19a349750ac73"
+  },
+  "Files": [
+    {
+      "Name": "info.ini",
+      "Bytes": 336,
+      "SHA256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "Name": "INSTALL.md",
+      "Bytes": 7161,
+      "SHA256": "b6f5c74a966e81eff8d7235d23e789650e7355e243886998f3b3609aaea13109"
+    },
+    {
+      "Name": "LICENSE",
+      "Bytes": 1096,
+      "SHA256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "Name": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 703488,
+      "SHA256": "1378677d42d63890ed38db8038cd7c20b175f56babde0811659f43ffdf99df2f"
+    },
+    {
+      "Name": "UltimateDuckovStatistics.dll",
+      "Bytes": 1143296,
+      "SHA256": "993804a20c97ae3cbbcec54958cfc97b03e18fb64bef32d7b2c270711799c90e"
+    }
+  ],
+  "TwoRootReproducibility": {
+    "Result": "Pass; both DLLs, both PDBs and deterministic ZIP match each other and the delivery archive",
+    "Checkouts": [
+      {
+        "Checkout": "a",
+        "Hashes": {
+          "candidate.zip": "456d044a63cdecfb4a8b3fa4ca4f649c723b86e829cd5e1b40e19a349750ac73",
+          "UltimateDuckovStatistics.Core.dll": "1378677d42d63890ed38db8038cd7c20b175f56babde0811659f43ffdf99df2f",
+          "UltimateDuckovStatistics.Core.pdb": "cffc60ff7f7c325ec11fb28736669cbff4c72a1e85d17f43828fc1e7497e42c1",
+          "UltimateDuckovStatistics.dll": "993804a20c97ae3cbbcec54958cfc97b03e18fb64bef32d7b2c270711799c90e",
+          "UltimateDuckovStatistics.pdb": "39aeea3791b2ca370eacdc9bfefd6d10361e57aad4ca64aa53e937335cab7dc9"
+        }
+      },
+      {
+        "Checkout": "different-root-b",
+        "Hashes": {
+          "candidate.zip": "456d044a63cdecfb4a8b3fa4ca4f649c723b86e829cd5e1b40e19a349750ac73",
+          "UltimateDuckovStatistics.Core.dll": "1378677d42d63890ed38db8038cd7c20b175f56babde0811659f43ffdf99df2f",
+          "UltimateDuckovStatistics.Core.pdb": "cffc60ff7f7c325ec11fb28736669cbff4c72a1e85d17f43828fc1e7497e42c1",
+          "UltimateDuckovStatistics.dll": "993804a20c97ae3cbbcec54958cfc97b03e18fb64bef32d7b2c270711799c90e",
+          "UltimateDuckovStatistics.pdb": "39aeea3791b2ca370eacdc9bfefd6d10361e57aad4ca64aa53e937335cab7dc9"
+        }
+      }
+    ]
+  },
+  "MainTestsPerConfiguration": 2020,
+  "OrdinaryShellTestsPerConfiguration": 67,
+  "DiagnosticShellTestsPerConfiguration": 71,
+  "Configurations": [
+    "Debug",
+    "Release"
+  ],
+  "ScopedFormatAnalyzers": "Pass on changed files except existing unrelated whitespace in RetainedEconomyView.cs at lines 52, 297, 298, 338; its one alpha replacement was reviewed separately. No new analyzer findings.",
+  "NativeBuilds": "Pass; Debug and Release; zero warnings and errors",
+  "NativeContractProbe": "Pass; Duckov 2.3.30, Steam 24013657, Unity 2022.3.62f2",
+  "OrdinaryPackagePrivacyAndIL": "Pass",
+  "IndependentExtraction": "Pass; exact five files and hashes",
+  "Deployment": "Pass; Duckov closed, five installed hashes match, prior binaries retained and verified",
+  "PreviousDeploymentBackup": "artifacts/deployment-backups/e4fefa8b13f545f9ad69f13cc9660178/UltimateDuckovStatistics",
+  "PreviousDeploymentHashesVerified": true,
+  "ProtectedSaveAndProfileFilesUnchanged": 3114,
+  "OriginalProtectedLocalFilesUnchanged": 2,
+  "NativeGameplayAndVisualAcceptance": "User-controlled; not performed by agent",
+  "BaseTracking": "Implemented; optional current-format aggregate, no schema bump or older-build migration/guard",
+  "PrecedingOpacityOnlyPackage": {
+    "SourceCommit": "e3fa8c4b0ffe769632a4aa2fc01cfe3a081ab0af",
+    "Archive": {
+      "Name": "UltimateDuckovStatistics-opacity-batch4.zip",
+      "Bytes": 640904,
+      "SHA256": "4b901a6000478b4a36d4c3f97088c122d9908918d38bc6af42cbfe9f8ed92214"
+    },
+    "VerifiedUtc": "2026-09-10T20:37:32.4179917Z"
+  }
+}
