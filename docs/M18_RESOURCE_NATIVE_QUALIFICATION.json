@@ -1,6 +1,6 @@
 {
   "SchemaVersion": 1,
-  "RecordedUtc": "2026-09-10T10:39:49.544871+00:00",
+  "RecordedUtc": "2026-09-10T12:39:49.544871+02:00",
   "Scope": "Two native totem resource open/close cycles, export and ordinary package restoration",
   "SourceCommit": "830ef3f5633e7ba1f3caa5a0ee4a518e4675315c",
   "DiagnosticDllSha256": "74e4586ddc4dad2202b6ae76b65e2543eaa7454331333bdad9098e21c2b7e220",
@@ -50,7 +50,7 @@
     {
       "version": "1",
       "sequence": "3",
-      "utc": "2026-09-10T10:31:43.9414450Z",
+      "utc": "2026-09-10T10:31:43.941445Z",
       "frame": "18810",
       "meshes": "2773",
       "materials": "1282",
@@ -328,7 +328,7 @@
   "OrdinaryColdActivation": {
     "Result": "Pass",
     "ExportName": "20260910T1039454525949Z-304ab645d198451e992c0cb3057ebe87",
-    "ExportUtc": "/Date(1789036785452)/",
+    "ExportUtc": "2026-09-10T10:39:45.452Z",
     "ExportSha256": "093084664ba3e3c4be17719c6f51702640e8178b99cbf7bbbe81a8cf8f5b6c50",
     "Files": 37,
     "Slot": 1,
@@ -349,5 +349,6 @@
     "DiagnosticSnapshotOrCounterLogPresent": false,
     "LogSha256": "1dd6920b39474fba26834604b091655a5b008c916d061ca9bec5dfaadae73664",
     "UserReport": "Done in response to confirmation of green Diagnostics, five retained runs, successful export and request to mention visual/input issues. No issue reported."
-  }
+  },
+  "SubsequentCoverageDecision": "M18_COVERAGE_ACCEPTANCE.json records explicit acceptance of both limits; their measured/not-exercised status is unchanged."
 }

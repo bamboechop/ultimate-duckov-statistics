@@ -1,6 +1,6 @@
 # M18 acceptance record
 
-M18 hardens the completed M17 feature baseline, starting at `443fad6a268916a6038c919501a714d1f17da371`. The first RC has not been published or fully accepted. **Native qualification and ordinary replacement are complete within the recorded bounds; coverage decisions and publication steps remain below.** Live branch, PR and CI state belongs on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19), not in this durable record.
+M18 hardens the completed M17 feature baseline, starting at `443fad6a268916a6038c919501a714d1f17da371`. **Native qualification and ordinary replacement are complete within the recorded bounds; the user has accepted the observed performance deviations and both coverage limits.** The first RC is not published; publication and channel qualification remain below. Live branch, PR and CI state belongs on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19), not in this durable record.
 
 The [item 2 closeout](M18_ITEM2_CLOSEOUT.json) records the exact source, complete validation, independent review, and ordinary and diagnostic artifacts. The subsequent [native resource qualification](M18_RESOURCE_NATIVE_QUALIFICATION.json) records observed cleanup and restoration of that same ordinary candidate. The [remaining manual procedure](M18_MANUAL_QUALIFICATION.md) contains only actions that require the user.
 
@@ -43,7 +43,8 @@ The 144,000-event managed workloads preserve exact totals through persistence an
 
 ## What still needs the user
 
-1. Decide whether to accept the explicit unexercised controlled multi-target case and bounded-history coverage for this release. The observed-performance acceptance does not silently waive either limitation.
-2. Approve eventual merge/tag/release/Workshop actions separately. The [release procedure](RELEASE_PROCESS.md), [Workshop description](WORKSHOP_DESCRIPTION.md) and [local data guide](LOCAL_DATA.md) are prepared; preview approval and subscription-install verification remain user-controlled.
+The user explicitly [accepted both coverage limits](M18_COVERAGE_ACCEPTANCE.json): controlled multi-target remains Not exercised, and 1,000-run managed/five-run native history coverage remains bounded. No further gameplay or performance session is requested to revisit these accepted limits.
+
+Approve eventual merge/tag/release/Workshop actions separately. The [release procedure](RELEASE_PROCESS.md), [Workshop description](WORKSHOP_DESCRIPTION.md) and [local data guide](LOCAL_DATA.md) are prepared; preview approval and subscription-install verification remain user-controlled.
 
 No tutorial replay, deliberate profile corruption, forced termination, new farming, controller setup or repeated completed performance batch is requested. Deferred text/layout polish and unrelated PLAN follow-ups remain separate. The older chronological acceptance records are preserved in Git history and the individual immutable evidence files; obsolete instructions in those records are not the current work queue.

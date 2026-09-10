@@ -7,7 +7,7 @@
   "FinalSourceDelta": "830ef3f only formats the new totem ownership test initializer; runtime and tested behavior are unchanged.",
   "StartingHead": "755636a0a8415d913a69d7c2d0c1ae8f57878fad",
   "Version": "1.0.0-rc.1",
-  "Status": "All agent-owned item 2 work and subsequent bounded native resource and ordinary cold-activation qualification complete. User coverage/publication decisions remain; M18 is not declared published or production-ready.",
+  "Status": "All agent-owned item 2 work and subsequent bounded native resource and ordinary cold-activation qualification complete. The user accepted controlled multi-target and bounded-history coverage limits in M18_COVERAGE_ACCEPTANCE.json. Publication/channel decisions remain; M18 is not declared published.",
   "ConfirmedCorrections": [
     {
       "Problem": "Native TrueShadow Image casters allocate a private SpriteMesh which native OnDestroy leaves alive.",
@@ -685,7 +685,6 @@
   },
   "PerformanceDecision": "The user accepted observed deviations; original measurements, numerical failures and limitations are unchanged in M18_PERFORMANCE_ACCEPTANCE.json. No additional CapFrameX captures or speculative tuning performed.",
   "RemainingUserDependencies": [
-    "Explicit decision on unexercised random controlled multi-target and bounded-history coverage.",
     "Separate merge/tag/release/Workshop permission, preview approval and subscription-install observation."
   ],
   "UnrelatedWork": "PLAN.md and docs/M18_FIRING_TIMING_DIAGNOSTIC.md remain byte-identical to the starting manifest and unstaged. Deferred UI polish is not included.",
@@ -803,5 +802,6 @@
     "Branch": "codex/m18-release-hardening",
     "Destination": "bamboechop/ultimate-duckov-statistics"
   },
-  "SubsequentQualification": "M18_RESOURCE_NATIVE_QUALIFICATION.json records native resource cleanup, ordinary restoration and completed remote delivery; M18_MANUAL_QUALIFICATION.md is the current user action list."
+  "SubsequentQualification": "M18_RESOURCE_NATIVE_QUALIFICATION.json records native resource cleanup, ordinary restoration and completed remote delivery; M18_MANUAL_QUALIFICATION.md is the current user action list.",
+  "CoverageAcceptance": "M18_COVERAGE_ACCEPTANCE.json"
 }

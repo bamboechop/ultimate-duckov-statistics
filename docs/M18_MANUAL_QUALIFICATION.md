@@ -14,8 +14,8 @@ The F11 reader originally treated inactive components with mesh ID zero as unrel
 
 ## Scope decisions and publication
 
-- **Controlled multi-target firing remains Not exercised.** The [feasibility record](M18_MULTI_TARGET_FEASIBILITY.json) documents that paired regular ducks occur unpredictably. Accept this coverage limitation explicitly or identify an available repeatable encounter. No farming or random encounter search is scheduled.
-- **History coverage is bounded.** UDS has no fixed retained-run maximum. The isolated large-history check qualifies its stated run count through production persistence/projections/export; native UI/export observations use the actual five-run progressed profile. Neither proves unlimited-history native cost. Accept that stated coverage for this release or specify a concrete additional profile available for native observation.
+- **Controlled multi-target firing remains Not exercised; its coverage limit is accepted.** The [feasibility record](M18_MULTI_TARGET_FEASIBILITY.json) documents that paired regular ducks occur unpredictably. The user [accepted the limitation](M18_COVERAGE_ACCEPTANCE.json). No farming or random encounter search is scheduled.
+- **History coverage is bounded and accepted.** UDS has no fixed retained-run maximum. The isolated 1,000-run check qualifies production persistence/projections/export; native UI/export observations use the actual five-run progressed profile. Neither proves unlimited-history native cost. The user [accepted that stated coverage](M18_COVERAGE_ACCEPTANCE.json); no additional profile or capture is requested.
 - Merge, tags, GitHub release, Workshop upload, preview approval and subscription installation remain user-controlled. The candidate and release material are prepared before those decisions. Deferred empty-state polish and other PLAN follow-ups are separate from this item 2 work.
 
 ## Already qualified; no repeat requested
