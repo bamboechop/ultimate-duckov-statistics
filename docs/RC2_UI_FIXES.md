@@ -12,22 +12,30 @@ Immutable base: `58591d5a397abd484284291fd95ab92d949f46fb` (current `origin/main
 - Expanded weapon entries now separate their character-slot durations from subsequent attachment groups, including the existing unavailable attachment group.
 - Economy recent-run quick-glance labels use separate localization keys without trailing colons. Overview's punctuated labels remain unchanged.
 
-## Totem investigation
+## Totem material-cache correction
 
-The user confirmed that expanding a closed entry can still make shading disappear with rc.1. This is not treated as fixed by M18's earlier resource-cleanup acceptance. Fresh read-only decompilation inspected the installed TrueShadow, ShadowRenderer, ShadowFactory, ShadowSettingSnapshot, Unity Graphic, item metadata, UI quality styling and ButtonAnimation contracts. The static audit has not yet established the failing native path. No speculative lifecycle repair or per-frame polling was added.
+The user reproduced the rc.1 failure by expanding the first directly equipped totem: three of four visible shades disappeared. Fresh read-only decompilation inspected the installed TrueShadow, ShadowRenderer, ShadowFactory, ShadowSettingSnapshot, Unity Graphic, item metadata, UI quality styling and ButtonAnimation contracts. Two native before/after F11 captures established the failure path:
+
+1. Expanding the entry pools its old control and creates a new control while the other three icon controls remain retained.
+2. UDS created the new TrueShadow and assigned `ShadowAsSibling = false`. The installed component already defaults to false, but its setter unconditionally calls `ShadowRenderer.ClearMaskMaterialCache()`, destroying shared materials without invalidating the other renderers.
+3. Before expansion, all four renderers held the same valid stencil material. After expansion, the new renderer held a new valid material, while the three retained renderers' assigned materials were destroyed/null. Their active state, alpha, culling, private sprite meshes and live shadow textures remained valid. Thus the loss was a shared rendering-material invalidation, not premature destruction of the owned meshes.
+
+The fix removes that redundant setter call and relies on the verified native child-rendering default. It adds no polling, hierarchy scan, repair callback, allocation or global cache patch. M18's private-mesh destruction and pooled-mesh reuse remain unchanged. The focused production-boundary test models the installed setter's destructive cache contract, fails with the original assignment, and passes with the correction; it also checks retained/reused mesh identity and final cleanup. The stub does not establish GPU correctness.
 
 Installed contract hashes (SHA-256):
 
 - `LeTai.TrueShadow.dll`: `a0fd277f98ba9cf6d8b169fd6e02171f612fbe7b3d7b7decb753bdbea6896208`.
 - `UnityEngine.UI.dll`: `b4003eb15f894de8da32b52a8ff832704c5da899780f1a914e85f859c7f34cda`.
 
-The separate F11 diagnostic build extends the existing explicit resource snapshot with owner/sprite/mesh identity, renderer activation/alpha/culling, texture validity/reference counts, and native dirty flags. This observes state without repairing it or retaining native resources. All additions are inside `UDS_PERFORMANCE_DIAGNOSTICS` and excluded from the ordinary package. M18's private-mesh destruction and pooled-mesh reuse are unchanged. The totem fix and its affected native rendering/resource qualification remain open until before/after captures establish the failure path.
+The temporary F11 investigation extension was confined to diagnostic builds and removed from the final source after diagnosis; the original M18 diagnostic remains. The separate corrected diagnostic build is used for affected native rendering/resource qualification. In-game confirmation of the corrected interactions and cleanup is recorded separately from automated checks.
 
 ## Validation and remaining manual checks
 
 Focused coverage exercises empty → recorded → different profile → recorded transitions, degraded capability evidence, incoming totals without attacker identities, locale/midpoint/invalid HP boundaries, persisted/reloaded healing and precise JSON/CSV export, and export completion across panel and profile boundaries. Shell tests dispatch real panel close and profile-change handlers. Child-view rendering and Unity GPU/resource behavior are native test boundaries.
 
 Use the repository build/package/ordinary-IL audit, diagnostic ownership suite, and changed-source analyzers. The accepted M18 performance campaign is reused for unaffected behavior; no new frame-time or unlimited-resource claim follows from managed tests.
+
+The corrected source passed 1,976 main tests and 46 ordinary shell tests in each of Debug and Release, plus 50 diagnostic shell tests per configuration. Native Debug/Release builds, the installed contract probe, changed-source analyzers, package inventory and ordinary IL/privacy audits passed. Follow implementation and CI on [PR #20](https://github.com/bamboechop/ultimate-duckov-statistics/pull/20).
 
 Remaining user checks:
 
@@ -36,6 +44,6 @@ Remaining user checks:
 3. Compare HP restored on Overview, Runs, Item Use totals/items/recent runs. Verify integer display and retained availability markers; exports should still retain fractions.
 4. Export, close/reopen, then export again. Also close while an export is pending and switch profile during a pending export. Old confirmations/path/copy controls must not return; normal data-location controls remain usable and completed files remain available.
 5. Expand weapons with recorded and unavailable attachments; inspect section spacing. Check recent-run MONEY NET/CASH NET labels in Economy and existing Overview punctuation.
-6. For the separate diagnostic build, capture F11 with visible totem shading, expand a closed entry until the failure occurs, then capture F11 again. Once diagnosed and corrected, recheck expand/collapse, another entry, scrolling/pool reuse, tab switching, refresh and panel reopening, then close and capture resource cleanup. Restore and cold-open the ordinary package afterward.
+6. Recheck totem expand/collapse, another entry, scrolling/pool reuse, tab switching, refresh and panel reopening in the corrected build, then close and capture resource cleanup using the separate diagnostic build. Cold-open the ordinary package afterward.
 
 Only the user launches Duckov, selects saves, performs gameplay and accepts native visuals. No save or UDS profile is edited or reset by this batch.

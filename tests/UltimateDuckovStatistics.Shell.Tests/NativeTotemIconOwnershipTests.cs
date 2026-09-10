@@ -78,6 +78,48 @@ public sealed class NativeTotemIconOwnershipTests : IDisposable
     }
 
     [Fact]
+    public void CreatingAnotherTotemPreservesMaterialsAndMeshesOfRetainedRows()
+    {
+        var retained = Enumerable.Range(0, 4).Select(_ => CreateIcon()).ToArray();
+        foreach (var icon in retained)
+        {
+            NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+            var shadow = Assert.IsType<OwnedTotemIconShadow>(icon.GetComponent<TrueShadow>());
+            shadow.NativeEnable();
+        }
+        var shadows = retained.Select(icon => icon.GetComponent<TrueShadow>()).ToArray();
+        foreach (var shadow in shadows) shadow.NativeRebuildMaterial();
+        var meshes = shadows.Select(shadow => shadow.SpriteMesh).ToArray();
+        var material = Assert.IsType<UnityEngine.Object>(shadows[0].RenderedMaskMaterial);
+
+        // Expanding a row changes its control identity: the old row is pooled,
+        // a new row is created, and the other visible rows remain retained.
+        NativeTotemIconAppearance.Clear(retained[0]);
+        shadows[0].NativeDisable();
+        var expanded = CreateIcon();
+        NativeTotemIconAppearance.Apply(expanded, "duckov:totem:3001");
+        var expandedShadow = Assert.IsType<OwnedTotemIconShadow>(expanded.GetComponent<TrueShadow>());
+        expandedShadow.NativeEnable();
+        expandedShadow.NativeRebuildMaterial();
+        Assert.False(material.Destroyed);
+        Assert.All(shadows, shadow => Assert.Same(material, shadow.RenderedMaskMaterial));
+        Assert.Same(material, expandedShadow.RenderedMaskMaterial);
+
+        NativeTotemIconAppearance.Apply(retained[0], "duckov:totem:3001");
+        shadows[0].NativeEnable();
+        for (var i = 0; i < shadows.Length; i++)
+        {
+            Assert.Same(meshes[i], shadows[i].SpriteMesh);
+            Assert.False(meshes[i]!.Destroyed);
+            shadows[i].NativeDestroy();
+            Assert.True(meshes[i]!.Destroyed);
+        }
+        expandedShadow.NativeDestroy();
+        Assert.False(material.Destroyed);
+        Assert.False(borrowedIcon.Destroyed);
+    }
+
+    [Fact]
     public void ExistingNativeShadowDoesNotAcquireUdsMeshOwnership()
     {
         var icon = CreateIcon();

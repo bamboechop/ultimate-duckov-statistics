@@ -41,14 +41,12 @@ internal sealed class NativeUiResourceDiagnostics
             }
 
             var current = new List<string>();
-            var rendering = new List<string>();
             var missingMeshes = 0;
             foreach (var owner in owners.OrderBy(value => value.GetInstanceID()))
             {
                 var ownerId = owner.GetInstanceID();
                 var meshId = owner.DiagnosticMeshInstanceId;
                 current.Add(Pair(ownerId, meshId) + ":" + (owner.isActiveAndEnabled ? "active" : "inactive"));
-                rendering.Add(owner.DiagnosticRenderState());
                 if (meshId == 0) { missingMeshes++; continue; }
                 if (observedMeshOwners.ContainsKey(meshId) || observedMeshOwners.Count < MaximumTrackedMeshes)
                     observedMeshOwners[meshId] = ownerId;
@@ -64,7 +62,6 @@ internal sealed class NativeUiResourceDiagnostics
                 + " totemOwnerCount=" + owners.Length.ToString(CultureInfo.InvariantCulture)
                 + " udsRoots=[" + Objects(roots) + "] udsInputOwners=[" + Objects(inputOwners) + "]"
                 + " totemOwners=[" + string.Join(",", current) + "]"
-                + " totemRendering=[" + string.Join(",", rendering) + "]"
                 + " observedMeshesNowAbsent=[" + string.Join(",", released) + "]"
                 + " destroyedOwnerMeshCandidates=[" + string.Join(",", retainedCandidates) + "]"
                 + " trackedMeshes=" + observedMeshOwners.Count.ToString(CultureInfo.InvariantCulture)
