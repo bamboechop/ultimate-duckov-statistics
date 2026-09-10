@@ -65,7 +65,7 @@ public sealed class CombatAccuracyPresentationTests
     [InlineData(true, false)]
     [InlineData(false, true)]
     [InlineData(false, false)]
-    public void UnusedFamilyRequiresKnownZeroAttemptsRatherThanMissingEvidence(bool meleeOnly, bool attemptsKnown)
+    public void UnavailableHitEvidenceCannotBecomeKnownZeroFromMainDuckActionCounters(bool meleeOnly, bool attemptsKnown)
     {
         var session = new Session(c =>
         {
@@ -76,9 +76,9 @@ public sealed class CombatAccuracyPresentationTests
         else { session.Fire("42", "1", 1); session.Fire("42", "1", 0); session.Fire("42", "1", 0); }
         var p = Project(session.Complete());
         var combat = CombatPresentationFactory.Create(p, "g")!;
-        Assert.Equal(attemptsKnown ? "33.33%" : "Unavailable", Value(combat.Overall, "Overall accuracy").Text);
+        Assert.Equal("Unavailable", Value(combat.Overall, "Overall accuracy").Text);
         Assert.Equal("33.33%", Value(meleeOnly ? combat.Melee : combat.Ranged, meleeOnly ? "Melee accuracy" : "Ranged accuracy").Text);
-        Assert.Equal(attemptsKnown ? "33.33 %" : "Unavailable",
+        Assert.Equal("Unavailable",
             Assert.Single(RunsPresentationFactory.Create(p, "g")!.Runs[0].Summary, row => row.Key == "Accuracy").Value);
     }
 
@@ -102,6 +102,19 @@ public sealed class CombatAccuracyPresentationTests
         Assert.Equal("100%", Value(rangedLost ? combat.Melee : combat.Ranged, rangedLost ? "Melee accuracy" : "Ranged accuracy").Text);
         Assert.Contains("partial", Value(rangedLost ? combat.Ranged : combat.Melee, "Hits").Text, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Unavailable", Assert.Single(RunsPresentationFactory.Create(p, "g")!.Runs[0].Summary, row => row.Key == "Accuracy").Value);
+    }
+
+    [Fact]
+    public void ControlledMeleeContributionUsesRecordedRatioOnBothSurfacesWithoutClamping()
+    {
+        var session = new Session(); session.Swing(true); session.ControlledMeleeHit();
+        var p = Project(session.Complete()); var combat = CombatPresentationFactory.Create(p, "g")!;
+        Assert.Equal("200%", Value(combat.Melee, "Melee accuracy").Text);
+        Assert.Equal("200%", Value(combat.Overall, "Overall accuracy").Text);
+        var run = Assert.Single(RunsPresentationFactory.Create(p, "g")!.Runs);
+        Assert.Equal("200.00 %", Assert.Single(run.Summary, row => row.Key == "Accuracy").Value);
+        Assert.Contains("Melee accuracy: 200.00 %", run.Melee, StringComparison.Ordinal);
+        Assert.Contains(UiText.Get("ui.combat_accuracy_scope"), run.Melee, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -233,6 +246,8 @@ public sealed class CombatAccuracyPresentationTests
         }
         public void Fire(string weapon, string ammo, int hits, int projectiles = 1)
         { FiringAction(weapon, ammo); for (var i = 0; i < projectiles; i++) Projectile(weapon, ammo, i < hits); }
+        public void ControlledMeleeHit() => Record(Event("99") with
+        { AttackKind = CombatAttackKind.Melee, MeleeHits = 1, ActualDamageDealt = 10, ActualDamageToTarget = 10 });
         public void FiringAction(string weapon, string ammo) => Assert.True(tracker.RecordShot(new ShotRecorded
         {
             EventId = (++sequence).ToString(CultureInfo.InvariantCulture),

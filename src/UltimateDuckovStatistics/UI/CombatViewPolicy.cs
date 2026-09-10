@@ -232,6 +232,7 @@ internal sealed class CombatDocument
     {
         var w = width - 60; float y = 30;
         y += Heading("ui.records_overall", 30, y, w); y += Cards(p.Overall, 30, y, w, stacked);
+        y += Notice(text("ui.combat_accuracy_scope"), 30, y, w);
         var two = !stacked && w >= 1000; var cw = two ? (w - 30) / 2 : w;
         var left = y + Heading("ui.runs_ranged", 30, y, cw); left += Metrics(p.Ranged, 30, left, cw);
         left += 20;

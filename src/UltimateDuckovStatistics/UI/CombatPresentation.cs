@@ -158,15 +158,14 @@ internal static class CombatPresentationFactory
         var deaths = C(n.PlayerDeaths, cap.PlayerDeaths);
         var overall = new[] { M("ui.overview_damage_dealt", damage), M("ui.overview_damage_taken", received),
             M("ui.kills_by_you", C(n.KillsByYou, cap.KillsByYou)), M("ui.overview_deaths", deaths),
-            M("ui.overall_accuracy", Accuracy(CombatAccuracyProjection.Overall(n, cap, a.WasRepairedFromInvalidState,
-                w.Lifetime.Totals, wc, w.Lifetime.WasRepairedFromInvalidState))) };
+            M("ui.overall_accuracy", Accuracy(CombatAccuracyProjection.Overall(n, cap, a.WasRepairedFromInvalidState), allowAbove100: true)) };
         var ranged = new[] { M("ui.firing_actions", WV(w.Lifetime.Totals.FiringActions, wc.FiringActions)),
             M("ui.combat_hits", C(n.RangedHits, cap.RangedHits)), M("ui.combat_kills", C(kills.Ranged, cap.KillsByYou)),
             M("ui.accuracy", Accuracy(c.Accuracy)),
             M("ui.runs_headshots", C(n.Headshots, cap.Headshots)), M("ui.combat_headshot_final_blows", C(n.HeadshotFinalBlows, cap.HeadshotFinalBlows)) };
         var melee = new[] { M("ui.combat_swings", C(n.MeleeSwings, cap.MeleeSwings)), M("ui.combat_hits", C(n.MeleeHits, cap.MeleeHits)),
             M("ui.combat_kills", C(kills.Melee, cap.KillsByYou)),
-            M("ui.melee_accuracy", Accuracy(CombatAccuracyProjection.Melee(n, cap, a.WasRepairedFromInvalidState))) };
+            M("ui.melee_accuracy", Accuracy(CombatAccuracyProjection.Melee(n, cap, a.WasRepairedFromInvalidState), allowAbove100: true)) };
         var otherPlayerKills = new List<CombatMetric> { M("ui.combat_effect_kills", C(kills.Effect, cap.KillsByYou)) };
         if (kills.Environmental > 0) otherPlayerKills.Add(M("ui.combat_environmental_kills", C(kills.Environmental, cap.KillsByYou)));
         if (kills.Unknown > 0) otherPlayerKills.Add(M("ui.combat_unknown_kills", C(kills.Unknown, cap.KillsByYou)));

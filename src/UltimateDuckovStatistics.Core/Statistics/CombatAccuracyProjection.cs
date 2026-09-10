@@ -13,20 +13,15 @@ public static class CombatAccuracyProjection
         Ratio(totals.MeleeHits, totals.MeleeSwings,
             !repaired && Supported(capabilities.MeleeSwings) && Supported(capabilities.MeleeHits));
 
-    public static double? Overall(CombatMetricTotals totals, CombatMetricCapabilities capabilities, bool repaired,
-        WeaponMetricTotals firing, WeaponMetricCapabilities firingCapabilities, bool firingRepaired)
+    public static double? Overall(CombatMetricTotals totals, CombatMetricCapabilities capabilities, bool repaired)
     {
-        // An exact zero attempt count proves an unused family's contribution even if its hit hook is unavailable.
-        // A missing/disabled attempt counter does not prove zero. Firing actions are used only for this zero proof,
-        // never as a replacement for the completed-projectile denominator.
-        var rangedComplete = Supported(capabilities.Accuracy)
-            || !firingRepaired && Supported(firingCapabilities.FiringActions) && firing.FiringActions == 0
-                && totals.CompletedPlayerProjectiles == 0 && totals.RangedHits == 0;
-        var meleeComplete = Supported(capabilities.MeleeSwings)
-            && (Supported(capabilities.MeleeHits) || totals.MeleeSwings == 0 && totals.MeleeHits == 0);
+        // Zero attempts with complete capture contribute zero, without requiring a standalone percentage.
+        // Main-duck action counters cannot prove absent player-credited hits: controlled NPCs can contribute
+        // hits without those callbacks. Missing hit/projectile evidence must therefore remain unavailable.
         return Ratio((decimal)totals.RangedHits + totals.MeleeHits,
             (decimal)totals.CompletedPlayerProjectiles + totals.MeleeSwings,
-            !repaired && rangedComplete && meleeComplete);
+            !repaired && Supported(capabilities.Accuracy) && Supported(capabilities.MeleeSwings)
+                && Supported(capabilities.MeleeHits));
     }
 
     /// <summary>Complete matching-scope counts only. Ratios may exceed one for multi-projectile firing actions.</summary>
