@@ -120,12 +120,12 @@ internal static class EconomyPresentationFactory
         var recent = p.RecentEconomyRuns.OrderByDescending(r => r.EndedUtc).ThenBy(r => r.RunId, StringComparer.Ordinal).Select(r =>
         {
             var route = r.Segments.OrderBy(s => s.SegmentIndex).ToArray();
-            string Map(bool known, string name) => known && !string.IsNullOrWhiteSpace(name) ? name : t("ui.overview_latest_run_unknown_map");
-            var title = route.Length == 0 ? Map(r.StartingMapKnown || r.MapKnown, r.StartingMapKnown ? r.StartingMapDisplayName : r.MapDisplayName)
-                : Map(route[0].MapKnown, route[0].MapDisplayName);
+            string Map(bool known, string id, string name) => known && !string.IsNullOrWhiteSpace(name) ? p.Names.Get(id, name) : t("ui.overview_latest_run_unknown_map");
+            var title = route.Length == 0 ? Map(r.StartingMapKnown, r.StartingMapId, r.StartingMapDisplayName)
+                : Map(route[0].MapKnown, route[0].MapId, route[0].MapDisplayName);
             if (route.Length > 1 && route[0].MapId != route[route.Length - 1].MapId)
-                title += " - " + Map(route[route.Length - 1].MapKnown, route[route.Length - 1].MapDisplayName);
-            var exactMaps = !r.HistoricalRouteUnavailable && !r.RouteWasRepairedFromInvalidState && route.Length > 0
+                title += " - " + Map(route[route.Length - 1].MapKnown, route[route.Length - 1].MapId, route[route.Length - 1].MapDisplayName);
+            var exactMaps = !r.RouteWasRepairedFromInvalidState && route.Length > 0
                 && r.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
                 && r.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported && route.All(s => s.MapKnown);
             var count = route.Select(s => s.MapId).Distinct(StringComparer.Ordinal).Count();
@@ -159,7 +159,7 @@ internal static class EconomyPresentationFactory
         var nowContext = money ? current.MoneyContextAttribution : current.CashContextAttribution;
         a.Currencies.TryGetValue(kind.ToString(), out var row);
         var broken = a.WasRepairedFromInvalidState || (money ? a.MoneyArithmeticSaturated : a.CashArithmeticSaturated);
-        var knownZero = row == null && !a.HistoricalUnavailable && !broken
+        var knownZero = row == null && !broken
             && amount.State == AdapterCapabilityState.Supported && nowAmount.State == AdapterCapabilityState.Supported;
         var hasEvidence = row != null || knownZero;
         var totals = new EconomyFlowRow(kind.ToString(), "", hasEvidence ? row?.Totals.GrossInflow ?? 0 : null,
@@ -171,8 +171,8 @@ internal static class EconomyPresentationFactory
         long? acquired = null;
         if (!money)
         {
-            if (a.CashRaidOutcomes.Acquired > 0) acquired = a.CashRaidOutcomes.Acquired;
-            else if (!a.HistoricalUnavailable && !broken && a.Capabilities.CashExternalAcquisition.State == AdapterCapabilityState.Supported
+            if (a.CashAcquired > 0) acquired = a.CashAcquired;
+            else if (!broken && a.Capabilities.CashExternalAcquisition.State == AdapterCapabilityState.Supported
                 && current.CashExternalAcquisition.State == AdapterCapabilityState.Supported) acquired = 0;
             // Acquired evidence is a subset of Raid inflow. Missing context remains missing.
             if (acquired > 0 && !contexts.Any(r => r.Id == GameplayContext.Raid.ToString()))
@@ -190,20 +190,42 @@ internal static class EconomyPresentationFactory
             ? t("ui.economy_current_unavailable") : incomplete || scope.State != AdapterCapabilityState.Supported ? t("ui.economy_incomplete") : "";
         static EconomyFlowRow Present(string id, string name, CurrencyFlowTotals value) => new(id, name, value.GrossInflow, value.GrossOutflow, value.NetFlow);
     }
-    private static int SourceOrder(string key) => key switch {
-        nameof(CurrencySourceCategory.Sale) => 0, nameof(CurrencySourceCategory.Reward) => 1, nameof(CurrencySourceCategory.Purchase) => 2,
-        nameof(CurrencySourceCategory.FeeOrCraftingCost) => 3, nameof(CurrencySourceCategory.LootOrPickup) => 4, _ => 5 };
-    private static int ContextOrder(string key) => key switch {
-        nameof(GameplayContext.Base) => 0, nameof(GameplayContext.Raid) => 1, nameof(GameplayContext.Shop) => 2,
-        nameof(GameplayContext.Reward) => 3, nameof(GameplayContext.Paused) => 4, _ => 5 };
-    private static string SourceName(string key, Func<string, string> t) => t(key switch {
-        nameof(CurrencySourceCategory.Sale) => "ui.economy_source_sales", nameof(CurrencySourceCategory.Reward) => "ui.economy_source_rewards",
-        nameof(CurrencySourceCategory.Purchase) => "ui.economy_source_purchases", nameof(CurrencySourceCategory.FeeOrCraftingCost) => "ui.economy_source_fees",
-        nameof(CurrencySourceCategory.LootOrPickup) => "ui.economy_source_loot", _ => "ui.economy_source_unknown" });
-    private static string ContextName(string key, Func<string, string> t) => t(key switch {
-        nameof(GameplayContext.Base) => "ui.economy_context_base", nameof(GameplayContext.Raid) => "ui.economy_context_raid",
-        nameof(GameplayContext.Shop) => "ui.economy_context_shop", nameof(GameplayContext.Reward) => "ui.economy_context_reward",
-        nameof(GameplayContext.Paused) => "ui.economy_context_paused", _ => "ui.economy_context_unknown" });
+    private static int SourceOrder(string key) => key switch
+    {
+        nameof(CurrencySourceCategory.Sale) => 0,
+        nameof(CurrencySourceCategory.Reward) => 1,
+        nameof(CurrencySourceCategory.Purchase) => 2,
+        nameof(CurrencySourceCategory.FeeOrCraftingCost) => 3,
+        nameof(CurrencySourceCategory.LootOrPickup) => 4,
+        _ => 5
+    };
+    private static int ContextOrder(string key) => key switch
+    {
+        nameof(GameplayContext.Base) => 0,
+        nameof(GameplayContext.Raid) => 1,
+        nameof(GameplayContext.Shop) => 2,
+        nameof(GameplayContext.Reward) => 3,
+        nameof(GameplayContext.Paused) => 4,
+        _ => 5
+    };
+    private static string SourceName(string key, Func<string, string> t) => t(key switch
+    {
+        nameof(CurrencySourceCategory.Sale) => "ui.economy_source_sales",
+        nameof(CurrencySourceCategory.Reward) => "ui.economy_source_rewards",
+        nameof(CurrencySourceCategory.Purchase) => "ui.economy_source_purchases",
+        nameof(CurrencySourceCategory.FeeOrCraftingCost) => "ui.economy_source_fees",
+        nameof(CurrencySourceCategory.LootOrPickup) => "ui.economy_source_loot",
+        _ => "ui.economy_source_unknown"
+    });
+    private static string ContextName(string key, Func<string, string> t) => t(key switch
+    {
+        nameof(GameplayContext.Base) => "ui.economy_context_base",
+        nameof(GameplayContext.Raid) => "ui.economy_context_raid",
+        nameof(GameplayContext.Shop) => "ui.economy_context_shop",
+        nameof(GameplayContext.Reward) => "ui.economy_context_reward",
+        nameof(GameplayContext.Paused) => "ui.economy_context_paused",
+        _ => "ui.economy_context_unknown"
+    });
     internal static string Number(long? value, bool signed = false) => !value.HasValue ? UiText.Get("ui.unavailable")
         : (signed && value > 0 ? "+" : "") + value.Value.ToString("#,0", CultureInfo.InvariantCulture);
     internal static string Timestamp(DateTime value, Func<string, string>? text = null, bool runDate = false)

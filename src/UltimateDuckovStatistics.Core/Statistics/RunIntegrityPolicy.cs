@@ -27,10 +27,15 @@ public static class RunIntegrityPolicy
             return IntegrityTags.Unknown;
         }
 
+        return Evaluate(cheatOrCustomDifficulty, activeModIds.Any(IsGameplayMod));
+    }
+
+    public static IntegrityTags Evaluate(bool cheatOrCustomDifficulty, bool hasGameplayMod)
+    {
         var result = cheatOrCustomDifficulty
             ? IntegrityTags.CheatOrCustomDifficulty
             : IntegrityTags.Unknown;
-        if (activeModIds.Any(IsGameplayMod))
+        if (hasGameplayMod)
         {
             result |= IntegrityTags.ModdedContent;
         }
@@ -38,7 +43,7 @@ public static class RunIntegrityPolicy
         return result == IntegrityTags.Unknown ? IntegrityTags.Normal : result;
     }
 
-    private static bool IsGameplayMod(string? modId) =>
+    public static bool IsGameplayMod(string? modId) =>
         !string.IsNullOrWhiteSpace(modId)
         && !string.Equals(modId, ProductInfo.ModId, StringComparison.Ordinal)
         && !string.Equals(modId, HarmonyLoaderModId, StringComparison.Ordinal);

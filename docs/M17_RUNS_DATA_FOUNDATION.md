@@ -1,6 +1,6 @@
 # M17 Runs data foundation (schema 17)
 
-Product version remains 0.17.0. This prerequisite provides data for the [retained Runs UI](M17_RETAINED_RUNS.md). It does not change Overview, retained tab visuals, mockups, or native UI construction.
+Introduced in M17, this foundation provides data for the [retained Runs UI](M17_RETAINED_RUNS.md). It does not change Overview, retained tab visuals, mockups, or native UI construction.
 
 ## Installed native evidence
 
@@ -18,7 +18,7 @@ No new equipment or combat hook is added. Capture reads the current main charact
 
 `RunSummary.TerminalLoadout` and `ActiveRunCheckpoint.TerminalLoadout` retain an independent detached candidate, so suspending ordinary equipment duration statistics does not erase it. Native character-slot keys, display names, occupied root item IDs/names, proven-empty slots, and ordered nested slot paths use the existing M14 identities. Unknown/modded identities are retained without guessing categories. Ordinary inventory is not substituted for equipped roots.
 
-States are `Complete`, `Partial`, `Unavailable`, and `HistoricalUnavailable`. Complete requires complete root and nested evidence. Partial retains individually readable entries, including proven-empty slots, while unreadable/duplicate/bounded evidence prevents an exact whole-loadout claim. Missing evidence is never an empty loadout. Root/nested completeness and provenance accompany exports and the projection.
+States are `Complete`, `Partial`, and `Unavailable`. Complete requires complete root and nested evidence. Partial retains individually readable entries, including proven-empty slots, while unreadable/duplicate/bounded evidence prevents an exact whole-loadout claim. Missing evidence is never an empty loadout. Root/nested completeness and provenance accompany exports and the projection.
 
 The first accepted candidate is deep-copied into active state. Repeated notifications and economy/checkpoint retries reuse that candidate, including a failed capture recorded as unavailable. No later teardown state can overwrite it. Capture errors produce diagnostics and do not block an otherwise valid run. Candidate capture does not publish equipment duration transitions or extend intervals.
 
@@ -28,17 +28,13 @@ The economy pre-terminal observer remains a distinct retryable durability barrie
 
 Every accepted `CombatRecorded.KillsByYou` contributes exactly once according to that same event's `CombatAttackKind`: `Ranged`, `Melee`, `Effect`, `Environmental`, or `Unknown`. Other enum values fail into unknown classification rather than being guessed. This extends the existing proven player-owned fatal-health-transition path; it introduces no second kill detector.
 
-`PlayerKills` accompanies combat totals and each enemy, killer, family, cause, weapon, ammunition, ownership, and equipment-combat association row. It propagates through run/segment checkpoints, completed runs, save-generation lifetime totals, starting maps, and route maps. Buckets plus `HistoricalUnclassified` reconcile exactly to each containing `KillsByYou`. Bucket validation does not assert that kills are bounded by projectiles, hits, swings, or headshots; penetrating projectiles, separate victims, and delayed effects retain their independent event semantics.
+`PlayerKills` accompanies combat totals and each enemy, killer, family, cause, weapon, ammunition, ownership, and equipment-combat association row. It propagates through run/segment checkpoints, completed runs, save-generation lifetime totals, starting maps, and route maps. Buckets reconcile exactly to each containing `KillsByYou`. Bucket validation does not assert that kills are bounded by projectiles, hits, swings, or headshots; penetrating projectiles, separate victims, and delayed effects retain their independent event semantics.
 
-`HistoricalIncomplete` distinguishes missing old classification from a newly observed `Unknown` attack. `ClassificationComplete` requires no historical gap and no unknown attacks. Ranged/melee values are presentable as exact only when classification is complete and the existing `KillsByYou` capability is Supported. Known retained counts are still exported when incomplete, with provenance and availability. Other combat availability semantics remain unchanged. Nonfatal and non-player outcomes add no player kills. Effects are not reclassified as ranged/melee from source weapons.
+`ClassificationComplete` requires no unknown attacks. Ranged/melee values are presentable as exact only when classification is complete and the existing `KillsByYou` capability is Supported. Known retained counts are still exported when incomplete, with provenance and availability. Other combat availability semantics remain unchanged. Nonfatal and non-player outcomes add no player kills. Effects are not reclassified as ranged/melee from source weapons.
 
 Player-kill arithmetic uses checked addition and preflights affected scopes before mutation. An overflowing player-kill event or merge is rejected rather than saturating a total independently of its partition. Other established counter semantics remain unchanged. Current-schema profile and checkpoint selection validates partition reconciliation before normalization or choosing an unsafe primary over a valid backup/temporary candidate.
 
-## Historical continuity and consumer contracts
-
-Schema 16 and earlier migrate through the existing pre-1.0 migrations, then into schema 17. Existing proven player kills become `HistoricalUnclassified`; their attack kind is never inferred from weapons, ammunition, headshots, firing, or aggregate subtraction. Every historical scope is marked incomplete, even if its retained count is zero. Existing durations, transitions, identities, records, combat totals, and prior availability remain intact. Every old run has `HistoricalUnavailable` terminal equipment. None can be backfilled.
-
-Old-plus-new lifetime/map scopes retain their historical qualification. A newly completed run can independently have exact equipment and classification. Older migrations remain as M17 development continuity; their removal is M18 work, per AGENTS.md.
+## Current consumer contracts
 
 `RunPresentationRow.Data` / `RunDataProjection` expose detached terminal root/nested rows, state/completeness/provenance, all kill buckets, total kills, exactness, and existing combat capabilities. No Unity object or layout policy is constructed.
 
@@ -46,12 +42,12 @@ JSON includes terminal candidates and partitions. `runs.csv`, `run_totals.csv`, 
 
 ## User-controlled qualification
 
-Automated tests establish callback composition, retry/recovery, migration, overflow, and export contracts. They do not establish live gameplay acceptance. On the exact packaged candidate, the user must complete:
+Automated tests establish callback composition, retry/recovery, overflow, and export contracts. They do not establish live gameplay acceptance. On the exact packaged candidate, the user must complete:
 
 1. One new extracted run: note equipped root items, nested attachments, and empty slots immediately before extraction; include a late loadout change. Verify persisted terminal equipment and `terminal_loadouts.csv` match the extraction boundary, with no reconstruction from subsequent base inventory.
 2. One new died run: note the equipped tree before a fatal hit. Verify the died summary retains that pre-teardown loadout even when native death removes items; confirm the fatal received damage and player death are included exactly once.
 3. In those runs, record known ranged and melee final blows and, when safely reproducible, delayed/effect damage. Compare total kills and same-event buckets in run, lifetime, map, segment, equipment association, JSON, and CSV. Unknown evidence must remain qualified.
-4. Restart and reopen the profile/export. Confirm no duplicate runs or durations. If an older development profile is voluntarily used, confirm historical runs remain unavailable and only new runs can show exact terminal evidence. No native save edits or fabricated runtime history are required.
+4. Restart and reopen the profile/export. Confirm no duplicate runs or durations. No native save edits or fabricated runtime history are required.
 
 Deployment, game launch/control, native save access, and gameplay are not performed by the data-foundation implementation task.
 

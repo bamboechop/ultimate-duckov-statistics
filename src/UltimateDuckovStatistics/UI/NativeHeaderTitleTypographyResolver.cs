@@ -54,10 +54,7 @@ internal static class NativeHeaderTitleTypographyResolver
         var source = sources[0].Text;
         var font = source.font;
         var material = source.fontSharedMaterial;
-        if (font == null
-            || material == null
-            || !string.Equals(font.name, RetainedHeaderTitlePolicy.FontAssetName, StringComparison.Ordinal)
-            || !string.Equals(material.name, RetainedHeaderTitlePolicy.MaterialName, StringComparison.Ordinal))
+        if (font == null || material == null)
         {
             error = "Duckov's native OptionsPanel/Text (TMP) no longer exposes the required major-heading presentation references. "
                     + $"Observed font='{font?.name ?? "<null>"}', material='{material?.name ?? "<null>"}'.";

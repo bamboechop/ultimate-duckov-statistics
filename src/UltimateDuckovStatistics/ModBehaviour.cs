@@ -31,6 +31,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private readonly ProcessLifetimeCleanupOwner<NativeWorldTimeAdapter> worldTimeAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeCraftingAdapter> craftingAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+    private readonly NativeUiResourceDiagnostics uiResourceDiagnostics = new();
+#endif
 
     protected override void OnAfterSetup()
     {
@@ -351,24 +354,76 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void Update()
     {
-        profileCoordinator?.RetryPendingProfileTransition();
-        var economyActivationReady = profileCoordinator?.RetryPendingEconomyActivation() != false;
         NativeHotPathDiagnostics.HandleControl(
             Input.GetKeyDown(KeyCode.F9),
             Input.GetKeyDown(KeyCode.F10),
             message => Debug.Log($"{LogPrefix} {message}"));
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        if (Input.GetKeyDown(KeyCode.F11))
+            uiResourceDiagnostics.WriteSnapshot(message => Debug.Log($"{LogPrefix} {message}"));
+        using var updateTiming = NativeHotPathDiagnostics.Measure(NativeHotPathArea.Update);
+        // State is sampled at Update entry; an open/close action in this frame
+        // stays in that bucket. Native UI callbacks also have their own scopes.
+        using var panelStateTiming = NativeHotPathDiagnostics.Measure(
+            statisticsPanel?.TimingPanelIsOpen == true
+                ? NativeHotPathArea.UpdatePanelOpen : NativeHotPathArea.UpdatePanelClosed);
+#endif
+        bool economyActivationReady;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.ProfileReadiness))
+#endif
+        {
+            profileCoordinator?.RetryPendingProfileTransition();
+            economyActivationReady = profileCoordinator?.RetryPendingEconomyActivation() != false;
+        }
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.RunLifecycle))
+#endif
         runLifecycleAdapter.OwnedValue?.Tick();
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Equipment))
+#endif
         equipmentAdapter.OwnedValue?.Tick();
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.ItemUse))
+#endif
         itemUseAdapter?.Tick(DateTime.UtcNow);
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Economy))
+#endif
         if (economyActivationReady) economyAdapter?.Tick();
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Holdings))
+#endif
         economyHoldingsAdapter?.Tick();
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Healing))
+#endif
         healingAttributionAdapter?.Tick();
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Combat))
+#endif
         combatAttributionAdapter.OwnedValue?.Tick();
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Containers))
+#endif
         containerAdapter.OwnedValue?.Tick();
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.WorldTime))
+#endif
         worldTimeAdapter.OwnedValue?.Tick(DateTime.UtcNow);
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Crafting))
+#endif
         craftingAdapter.OwnedValue?.Tick(DateTime.UtcNow);
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.ProfilePersistence))
+#endif
         profileCoordinator?.TickProfilePersistence(
             runLifecycleAdapter.OwnedValue?.HasUncheckpointedRunMutations != true);
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Panel))
+#endif
         statisticsPanel?.Tick();
     }
 

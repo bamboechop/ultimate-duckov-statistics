@@ -1,0 +1,314 @@
+{
+  "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "AcceptedQualificationSha256": "a023a21ec522c5229a4212893ef7c41893d62e62aeac838ec4b92d50df970358",
+  "ScriptSha256": "33b7538e48a04e6c8fcffcdf6f253781215612234d7055bcac5dc89f3422d543",
+  "Purpose": "Exploratory attribution from existing captures; not a new acceptance comparison.",
+  "Method": "Median of raw frames in fixed post-hoc windows, with time normalized to first recorded present. Configuration aggregates are medians of per-run medians. No raw capture or accepted result is changed.",
+  "Samples": [
+    {
+      "Configuration": "B",
+      "Run": 4,
+      "RawJsonSha256": "efeade10614297effe3ca25222c58c57596bcde9873c0ed1b77e795aa14f5b1b",
+      "Windows": [
+        {
+          "StartSeconds": 1,
+          "EndSeconds": 4,
+          "Frames": 596,
+          "MedianFrameMs": 4.97335,
+          "MedianCpuActiveMs": 4.9188,
+          "MedianGpuActiveMs": 2.5927499999999997
+        },
+        {
+          "StartSeconds": 6,
+          "EndSeconds": 9,
+          "Frames": 599,
+          "MedianFrameMs": 4.9545,
+          "MedianCpuActiveMs": 4.9001,
+          "MedianGpuActiveMs": 2.6082
+        },
+        {
+          "StartSeconds": 10,
+          "EndSeconds": 13,
+          "Frames": 594,
+          "MedianFrameMs": 4.97405,
+          "MedianCpuActiveMs": 4.9213,
+          "MedianGpuActiveMs": 2.6108
+        },
+        {
+          "StartSeconds": 16,
+          "EndSeconds": 19,
+          "Frames": 602,
+          "MedianFrameMs": 4.92805,
+          "MedianCpuActiveMs": 4.874750000000001,
+          "MedianGpuActiveMs": 2.61085
+        },
+        {
+          "StartSeconds": 23,
+          "EndSeconds": 29,
+          "Frames": 1199,
+          "MedianFrameMs": 4.9448,
+          "MedianCpuActiveMs": 4.8918,
+          "MedianGpuActiveMs": 2.587
+        }
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Run": 5,
+      "RawJsonSha256": "541d3f9e4eeb6029c846c0f86125c333feda51b18c0dd8a8c3a5b85ad37987b2",
+      "Windows": [
+        {
+          "StartSeconds": 1,
+          "EndSeconds": 4,
+          "Frames": 600,
+          "MedianFrameMs": 4.9553,
+          "MedianCpuActiveMs": 4.90305,
+          "MedianGpuActiveMs": 2.5968
+        },
+        {
+          "StartSeconds": 6,
+          "EndSeconds": 9,
+          "Frames": 603,
+          "MedianFrameMs": 4.9376,
+          "MedianCpuActiveMs": 4.8822,
+          "MedianGpuActiveMs": 2.6015
+        },
+        {
+          "StartSeconds": 10,
+          "EndSeconds": 13,
+          "Frames": 599,
+          "MedianFrameMs": 4.9517,
+          "MedianCpuActiveMs": 4.8967,
+          "MedianGpuActiveMs": 2.5957
+        },
+        {
+          "StartSeconds": 16,
+          "EndSeconds": 19,
+          "Frames": 594,
+          "MedianFrameMs": 4.9441500000000005,
+          "MedianCpuActiveMs": 4.8915500000000005,
+          "MedianGpuActiveMs": 2.60905
+        },
+        {
+          "StartSeconds": 23,
+          "EndSeconds": 29,
+          "Frames": 1197,
+          "MedianFrameMs": 4.9641,
+          "MedianCpuActiveMs": 4.9095,
+          "MedianGpuActiveMs": 2.6089
+        }
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Run": 6,
+      "RawJsonSha256": "84853c832067e2e1d7393acd6b20cde793a48e4a269f50f27ce4c5d141485b9f",
+      "Windows": [
+        {
+          "StartSeconds": 1,
+          "EndSeconds": 4,
+          "Frames": 600,
+          "MedianFrameMs": 4.95625,
+          "MedianCpuActiveMs": 4.90155,
+          "MedianGpuActiveMs": 2.59485
+        },
+        {
+          "StartSeconds": 6,
+          "EndSeconds": 9,
+          "Frames": 599,
+          "MedianFrameMs": 4.9603,
+          "MedianCpuActiveMs": 4.9065,
+          "MedianGpuActiveMs": 2.6056
+        },
+        {
+          "StartSeconds": 10,
+          "EndSeconds": 13,
+          "Frames": 599,
+          "MedianFrameMs": 4.973,
+          "MedianCpuActiveMs": 4.9183,
+          "MedianGpuActiveMs": 2.6141
+        },
+        {
+          "StartSeconds": 16,
+          "EndSeconds": 19,
+          "Frames": 598,
+          "MedianFrameMs": 4.96805,
+          "MedianCpuActiveMs": 4.91535,
+          "MedianGpuActiveMs": 2.6169000000000002
+        },
+        {
+          "StartSeconds": 23,
+          "EndSeconds": 29,
+          "Frames": 1191,
+          "MedianFrameMs": 4.9837,
+          "MedianCpuActiveMs": 4.9308,
+          "MedianGpuActiveMs": 2.6072
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 1,
+      "RawJsonSha256": "26244f32403e3bbed332a8b2cb7e09cfbf9ab1e8fa2db8458c3ed66e961f3b24",
+      "Windows": [
+        {
+          "StartSeconds": 1,
+          "EndSeconds": 4,
+          "Frames": 523,
+          "MedianFrameMs": 5.6596,
+          "MedianCpuActiveMs": 5.6044,
+          "MedianGpuActiveMs": 2.7361
+        },
+        {
+          "StartSeconds": 6,
+          "EndSeconds": 9,
+          "Frames": 496,
+          "MedianFrameMs": 5.9359,
+          "MedianCpuActiveMs": 5.878500000000001,
+          "MedianGpuActiveMs": 2.8350999999999997
+        },
+        {
+          "StartSeconds": 10,
+          "EndSeconds": 13,
+          "Frames": 480,
+          "MedianFrameMs": 6.0354,
+          "MedianCpuActiveMs": 5.981350000000001,
+          "MedianGpuActiveMs": 2.8637
+        },
+        {
+          "StartSeconds": 16,
+          "EndSeconds": 19,
+          "Frames": 486,
+          "MedianFrameMs": 6.1137,
+          "MedianCpuActiveMs": 6.0577000000000005,
+          "MedianGpuActiveMs": 2.8659999999999997
+        },
+        {
+          "StartSeconds": 23,
+          "EndSeconds": 29,
+          "Frames": 1003,
+          "MedianFrameMs": 5.8772,
+          "MedianCpuActiveMs": 5.8199,
+          "MedianGpuActiveMs": 2.8127
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 2,
+      "RawJsonSha256": "1c59a4df7e420746a1ba5ac4adc589b1950e36c9b9d5b4ce734b4640806bef76",
+      "Windows": [
+        {
+          "StartSeconds": 1,
+          "EndSeconds": 4,
+          "Frames": 523,
+          "MedianFrameMs": 5.668,
+          "MedianCpuActiveMs": 5.6116,
+          "MedianGpuActiveMs": 2.735
+        },
+        {
+          "StartSeconds": 6,
+          "EndSeconds": 9,
+          "Frames": 501,
+          "MedianFrameMs": 5.8982,
+          "MedianCpuActiveMs": 5.8421,
+          "MedianGpuActiveMs": 2.8288
+        },
+        {
+          "StartSeconds": 10,
+          "EndSeconds": 13,
+          "Frames": 485,
+          "MedianFrameMs": 6.0368,
+          "MedianCpuActiveMs": 5.9754,
+          "MedianGpuActiveMs": 2.8733
+        },
+        {
+          "StartSeconds": 16,
+          "EndSeconds": 19,
+          "Frames": 485,
+          "MedianFrameMs": 6.1066,
+          "MedianCpuActiveMs": 6.0515,
+          "MedianGpuActiveMs": 2.8704
+        },
+        {
+          "StartSeconds": 23,
+          "EndSeconds": 29,
+          "Frames": 1043,
+          "MedianFrameMs": 5.6812,
+          "MedianCpuActiveMs": 5.6252,
+          "MedianGpuActiveMs": 2.7406
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 3,
+      "RawJsonSha256": "5ae9fd004b164284cd53c6e7c7c02cc2fac55934d5ffd19347f904080daa628f",
+      "Windows": [
+        {
+          "StartSeconds": 1,
+          "EndSeconds": 4,
+          "Frames": 519,
+          "MedianFrameMs": 5.7013,
+          "MedianCpuActiveMs": 5.6458,
+          "MedianGpuActiveMs": 2.7416
+        },
+        {
+          "StartSeconds": 6,
+          "EndSeconds": 9,
+          "Frames": 495,
+          "MedianFrameMs": 5.9288,
+          "MedianCpuActiveMs": 5.8735,
+          "MedianGpuActiveMs": 2.8295
+        },
+        {
+          "StartSeconds": 10,
+          "EndSeconds": 13,
+          "Frames": 490,
+          "MedianFrameMs": 6.0146,
+          "MedianCpuActiveMs": 5.95805,
+          "MedianGpuActiveMs": 2.86935
+        },
+        {
+          "StartSeconds": 16,
+          "EndSeconds": 19,
+          "Frames": 485,
+          "MedianFrameMs": 6.1146,
+          "MedianCpuActiveMs": 6.0579,
+          "MedianGpuActiveMs": 2.8722
+        },
+        {
+          "StartSeconds": 23,
+          "EndSeconds": 29,
+          "Frames": 1047,
+          "MedianFrameMs": 5.6685,
+          "MedianCpuActiveMs": 5.6142,
+          "MedianGpuActiveMs": 2.7584
+        }
+      ]
+    }
+  ],
+  "MedianFrameMsAggregates": {
+    "B": {
+      "1-4": 4.95625,
+      "6-9": 4.9545,
+      "10-13": 4.973,
+      "16-19": 4.9441500000000005,
+      "23-29": 4.9641
+    },
+    "D": {
+      "1-4": 5.668,
+      "6-9": 5.9288,
+      "10-13": 6.0354,
+      "16-19": 6.1137,
+      "23-29": 5.6812
+    }
+  },
+  "Interpretation": [
+    "The D median is already elevated before the opening cue. Complete-panel construction cannot explain that pre-existing gap.",
+    "D2/D3 return close to their own pre-open median after the closing cue. D1 has a disclosed late close of unknown duration, so its late window is not claimed as a fully controlled closed-panel slice.",
+    "The additional visible-panel difference is diagnostic context only. Subtracting a same-session baseline cannot change the failed declared B/D ceiling verdict.",
+    "Window selection is post-hoc. Native tab-change timestamps and deferred Unity rendering/destruction are uninstrumented. The data do not distinguish UDS background callbacks, injected-menu/native rendering cost and session differences."
+  ],
+  "Decision": "Prepare one opt-in timing interval separating panel-open/closed Update and synchronous UI paths. No ordinary runtime correction is justified from these slices alone. No further unchanged baseline series is requested."
+}

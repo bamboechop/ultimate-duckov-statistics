@@ -1,0 +1,83 @@
+{
+  "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "Slot": 3,
+  "GenerationId": "5872f0daafc14aabb2cd8207cbcc4494",
+  "CompletedSleep": {
+    "Status": "Pass for the observed native completed sleep and saved-profile/JSON/CSV agreement.",
+    "UserReported": "One completed sleep for 1h 40m, from approximately 07:05 to 08:45. Clock readings are approximate user observations.",
+    "BeforeExportId": "20260908T1217026256397Z-5872f0daafc14aabb2cd8207cbcc4494",
+    "AfterExportId": "20260908T1222225931866Z-5872f0daafc14aabb2cd8207cbcc4494",
+    "BeforeRevision": 388,
+    "AfterRevision": 423,
+    "ObservedProfileRevision": 559,
+    "CompletedSleepSessionDelta": 1,
+    "SleepAdvancedTimeTicksDelta": 60000000000,
+    "SleepAdvancedSecondsDelta": 6000,
+    "SleepAdvancedMinutesDelta": 100,
+    "SavedProfileAndJsonCsvSleepMetricsAgree": true,
+    "CompletedRunAndAllOtherNonWorldTimeStatisticsUnchanged": true,
+    "SleepCapabilities": "Supported",
+    "ArithmeticUnavailableOrRepaired": false,
+    "ChangedExportFiles": [
+      "overview.csv",
+      "statistics.json",
+      "world_time.csv"
+    ],
+    "UnchangedExportFiles": 34,
+    "AllCsvStructuresValid": true,
+    "EvidenceManifestSha256": "8784334dba31b3df68f0580f73178e07ce84c6a1ee7a4dd13047c8158d2b50ec",
+    "KeyEvidenceFiles": [
+      {
+        "File": "export/statistics.json",
+        "Bytes": 366345,
+        "Sha256": "3bcd70a8d52e1e612ff814aa7194bbdf13b9b8821077fd074d80c0f022dc1e2b"
+      },
+      {
+        "File": "export/world_time.csv",
+        "Bytes": 875,
+        "Sha256": "6815929f4d08b09aa8acd6911861911290183b55194196f68ec92b39419e54cf"
+      },
+      {
+        "File": "player-observed.log",
+        "Bytes": 9354,
+        "Sha256": "daf6bcaab1fec4a33f2945cd91814e739ea90d767e2958636e28c34ffd883844"
+      },
+      {
+        "File": "profile-observed.json",
+        "Bytes": 367608,
+        "Sha256": "a4d10cec09f4ed5c09c825832188cd9ef1168fe236642ab5f2833db98a9a46ba"
+      }
+    ],
+    "Scope": "One successful sleep; subsequent full restart and slot switch retain one completion and 6,000 advanced seconds (M18_SAVE_ISOLATION_QUALIFICATION.json). Interrupted/cancelled sleep was not exercised. No UI screenshot was supplied."
+  },
+  "Crafting": {
+    "Status": "Pass for one paid Tasse craft: four Polyethylen-Folie consumed, one output delivered and 150 currency charged; saved profile, JSON and CSV agree.",
+    "Slot": 1,
+    "GenerationId": "063240a5b57647138bc4de0c18179981",
+    "Evidence": "M18_PAID_CRAFT_QUALIFICATION.json",
+    "ExportId": "20260908T1257130981457Z-063240a5b57647138bc4de0c18179981",
+    "MoneyBefore": 13374,
+    "MoneyAfter": 13224,
+    "SavedProfileJsonAndCsvAgree": true,
+    "Scope": "Crafting is not unlocked on save 3, so this observation uses the existing slot 1 save. The subsequent shop sale and native cold reopen after same-package reinstallation preserve all craft totals (M18_REINSTALLATION_QUALIFICATION.json)."
+  },
+  "ShopSale": {
+    "Status": "Pass for the user-reported one MF sale: 1,284 Money inflow attributed to Sale/Shop; saved profile, JSON and CSV agree and crafting totals are unchanged.",
+    "Slot": 1,
+    "GenerationId": "063240a5b57647138bc4de0c18179981",
+    "Evidence": "M18_SHOP_SALE_QUALIFICATION.json",
+    "ExportId": "20260908T1301559350005Z-063240a5b57647138bc4de0c18179981",
+    "MoneyBefore": 13224,
+    "MoneyAfter": 14508,
+    "SavedProfileJsonAndCsvAgree": true,
+    "Scope": "Currency amount and Sale/Shop attribution verified, including native cold reopen after same-package reinstallation (M18_REINSTALLATION_QUALIFICATION.json); sold-item identity and quantity are user observations because UDS exports aggregate currency flows."
+  },
+  "RemainingBaseActions": [],
+  "HealingAndItemUse": {
+    "Status": "Pass for the observed regular Nullpunkt raid: two Verband activations restore 10 actual HP, matching the reported 29 to 39 HP; one Limonade activation is recorded.",
+    "Evidence": "M18_REGULAR_RAID_QUALIFICATION.json",
+    "ExportId": "20260908T1228573800911Z-5872f0daafc14aabb2cd8207cbcc4494",
+    "RunId": "f2bdcbbcf336447dab9164b1504d8d9a",
+    "SavedProfileJsonAndCsvAgree": true
+  }
+}

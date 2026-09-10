@@ -1,0 +1,353 @@
+{
+  "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "ReviewRange": "e3eb69f9f7e22214d58078eea9e00f81e95910ba..88efddb5eacdab40a40498b62f90fdde14d167af",
+  "Status": "Ordinary correction reviewed, checked, deployed and natively reopened. The bounded fixed-D/current-control Nullpunkt idle comparison passes at +2.32632% median and +1.74807% p99. The earlier missed reference comparison and all samples remain preserved. Other native performance gates remain open.",
+  "Change": "Calculate the exact decimal.MaxValue - delta bound once per positive equipment Advance. Both preflight and mutation retain the original comparisons and additions, current destination lookup and metadata updates. Cold merges retain the original bound calculation.",
+  "Preserved": "Absolute-duration conversion, per-frame run/segment updates, event and pause boundaries, decimal precision, composition, validation, persistence cadence, pending recovery and mutable snapshot/row handling.",
+  "DiagnosticResult": {
+    "Path": "docs/M18_NATIVE_IDLE_TIMING_RESULT.json",
+    "Bytes": 10444,
+    "Sha256": "0cb22488a577027b7a1d88688277a3b997bb75d66f36e9f6acd730387ea00b2c"
+  },
+  "ManagedBenchmark": {
+    "Before": {
+      "Path": "artifacts/m18-idle-benchmark/before-bound-hoist/report.json",
+      "Bytes": 3035,
+      "Sha256": "b5b66def0222a2347fbfc12eb651712bd5758ef1680fcec9cc2b37de46d49bff"
+    },
+    "After": {
+      "Path": "artifacts/m18-idle-benchmark/after-bound-hoist-built/report.json",
+      "Bytes": 3036,
+      "Sha256": "8a366852bca5b61fafd0c0f8ee0330580f01d5846d8da64c8eb87a51324f66c3"
+    },
+    "Runtime": ".NET 8.0.30",
+    "Topology": {
+      "Items": 6,
+      "Roots": 10,
+      "Nested": 9,
+      "Totems": 0
+    },
+    "BaselineCoreSha256": "22fcc78b4cbe12eb23a2d408b6f642353a5394f3e8a29bc45116169632e6d845",
+    "CorrectionCoreSha256": "9fe4865ad1c6355278f67b45d0a20b2fb6b8573e534d17357b50a99dd3594e1f",
+    "ProfileSha256": "1c07087c308c6ed482e50eb69f9e06b0185de93015e359d8b14405333aafce7f",
+    "TrialsPerShape": 3,
+    "WarmupTicks": 10000,
+    "MeasuredTicksPerTrial": 50000,
+    "BeforeCapturedLoadoutMedianMicrosecondsPerTick": 5.866376,
+    "AfterCapturedLoadoutMedianMicrosecondsPerTick": 4.979752,
+    "ChangePercent": -15.113657903959776,
+    "AllocatedBytesPerTickBeforeAndAfter": 0,
+    "MeasuredCollectionsBeforeAndAfter": [
+      0,
+      0,
+      0
+    ],
+    "ByteIdenticalCheckpointPairs": 6,
+    "CapturedLoadoutCheckpointSha256": "7ad5cc6b2b12984437653ff627bee3e1100665f7d48cc5d00d270360215d8f17",
+    "NoEquipmentCheckpointSha256": "afa6ca8aa72ab556255e00cc5e3396f11f5072dfa0e657b37aa3222974b27403",
+    "Scope": "Managed real RunLifecycleTracker.Tick plus run/segment reducers. Excludes native adapters, snapshot reconciliation, checkpoint/disk cost. No Unity frame-time conclusion.",
+    "InvalidAttempt": "artifacts/m18-idle-benchmark/after-bound-hoist is preserved but excluded: the preceding build failed and that harness loaded the old Core DLL. after-bound-hoist-built uses the verified correction."
+  },
+  "Validation": {
+    "Configurations": [
+      "Debug",
+      "Release"
+    ],
+    "MainPassedPerConfiguration": 1937,
+    "ShellPassedPerConfiguration": 30,
+    "GeneralMainSubsetPassed": 1935,
+    "GameClosedSubsetPassed": 2,
+    "GameClosedTests": [
+      "DeploymentReplacesStaleDestinationWithExactPermittedInventory",
+      "BackupCleanupFailureCannotExposeAPriorManifestToNativeModDiscovery"
+    ],
+    "GameClosedEvidence": {
+      "Path": "artifacts/m18-duration-bound-validation/fixture-preflight.json",
+      "Bytes": 199,
+      "Sha256": "0914dbe04b013cdde190ab8024616d4e5622c6cb4cbc07a0f90521514cbd4b49"
+    },
+    "GameClosedReason": "Both fixtures invoke the shipped deployment process guard. They passed in both configurations after process absence was verified; no real game/profile mutation.",
+    "FocusedDurationTests": 14,
+    "AddedRejectionCases": 5,
+    "NativeBuilds": "Debug and ordinary Release: zero warnings/errors",
+    "Formatting": "Changed-source whitespace verification passed; analyzers run with the builds.",
+    "InstalledContractProbe": "Pass",
+    "OrdinaryArtifactAudit": "Pass: no performance-diagnostic call sites; PE/PDB/path and package scans pass.",
+    "Reproducibility": "Both isolated immutable roots and the normal checkout match DLL/PDB/ZIP hashes.",
+    "IndependentExtractionFiles": 5
+  },
+  "Review": {
+    "Path": "artifacts/m18-duration-bound-review/review.md",
+    "Bytes": 10569,
+    "Sha256": "8ad4719881c36325432a184a1b3c33206f4d27dbbd4a1498ae439614b7a94996"
+  },
+  "ReviewResult": "No actionable P1/P2; 409 byte-identical full-state comparisons, including matching exceptions and unchanged rejected states.",
+  "Manifest": {
+    "Path": "artifacts/candidates/88efddb5eacdab40a40498b62f90fdde14d167af/manifest.json",
+    "Bytes": 922,
+    "Sha256": "be8f63cd288be76436da484be9ebccab2a89e66fa1f35c3c14a073f70713da79"
+  },
+  "Package": [
+    {
+      "Name": "info.ini",
+      "Length": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "Name": "INSTALL.md",
+      "Length": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "Name": "LICENSE",
+      "Length": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "Name": "UltimateDuckovStatistics.Core.dll",
+      "Length": 693760,
+      "Sha256": "9fe4865ad1c6355278f67b45d0a20b2fb6b8573e534d17357b50a99dd3594e1f"
+    },
+    {
+      "Name": "UltimateDuckovStatistics.dll",
+      "Length": 1121792,
+      "Sha256": "e0f7198b40c8110c3c0bcbd21122275204274cd6695225e55d112cb7b6ac8bc5"
+    }
+  ],
+  "Zip": {
+    "Path": "artifacts/candidates/88efddb5eacdab40a40498b62f90fdde14d167af/UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+    "Bytes": 635378,
+    "Sha256": "d52ae128cd5773513e7bfa0164733bc10827dbd390269eb94f4853ee09d041fe"
+  },
+  "Reproducibility": {
+    "Path": "artifacts/reproducibility/88efddb5eacdab40a40498b62f90fdde14d167af-b842fe6b76b0450c8cd7ffdc548999f7/result.json",
+    "Bytes": 1389,
+    "Sha256": "55b528faf88795295799eefea9d42d1e39ab0d3b3a594d187f81c9612d67eac7"
+  },
+  "Campaign": {
+    "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/campaign.json",
+    "Bytes": 4265,
+    "Sha256": "18d1df0be0687b46679b48be9f3cf93033b70dd1829b9cd1b0d4e99e58beb5c7"
+  },
+  "PreparedDeploymentWrapper": {
+    "Path": "artifacts/m18-deploy-duration-bound.ps1",
+    "Bytes": 6186,
+    "Sha256": "75c1c5f930ee969581e513063169ceb0f1d867507df1e9e70d5e13f6ec1ab898"
+  },
+  "Evidence": [
+    {
+      "Path": "artifacts/m18-duration-bound-validation/archive.log",
+      "Bytes": 861,
+      "Sha256": "056d66061edfb4d5cf1dcd7e2654773f891b8906e8ea5ce0349bf72326fb8ef9"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/closed-fixtures-Debug.log",
+      "Bytes": 444,
+      "Sha256": "a64fd5a980a0463b8745cde9e968cf0b76d359598671ec1313b1e963a586ee04"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/closed-fixtures-Release.log",
+      "Bytes": 446,
+      "Sha256": "8d6d9e87032644b5dea1fd1b4024999e6fa3ad7a950209d1afac560b7c3d8118"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/contract-probe.log",
+      "Bytes": 2829,
+      "Sha256": "131c9478afd4576d1b651117c551b432a09cb6ca90175ade642d6bd03a1cf46f"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/formatting.log",
+      "Bytes": 1948,
+      "Sha256": "91309d2ca6c44a7964a7709e541a6a5d113c64d84edb9e9af5d6d0a490b28596"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/main-Debug.log",
+      "Bytes": 884,
+      "Sha256": "3cec400233af25fa6fd14a52d98ef89485d728e690af52e30c62a7667c209f7f"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/main-Release.log",
+      "Bytes": 890,
+      "Sha256": "f304a418831962fb69a3b5b2608118bd063206c45e9f06132f10ea9e6baed42b"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/native-Debug.log",
+      "Bytes": 509,
+      "Sha256": "6987deb08c879e667cdf0f211e39e59bfab6111897fccd7f893710390e2a6f73"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/native-Release.log",
+      "Bytes": 513,
+      "Sha256": "82170b766599561740f83357a56601674d13610fa1c6169b4380d7b2d990f312"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/package.log",
+      "Bytes": 523,
+      "Sha256": "826fd04aff5755997c43c8a874c9d07a6e61f203ac3d15ab374c7c13710b142e"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/reproducibility.log",
+      "Bytes": 5800,
+      "Sha256": "f686d6ce80ee8cecda3c89ed5bc6fa4a646175c8d2d9fb9358cca508a4173b2a"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/shell-Debug.log",
+      "Bytes": 922,
+      "Sha256": "b4ca30c3eb05800f8972fa1206b20547ffe634e894115a13e65fab96927a3c6f"
+    },
+    {
+      "Path": "artifacts/m18-duration-bound-validation/shell-Release.log",
+      "Bytes": 928,
+      "Sha256": "daf243e8c390e1043f9f8f317af7aece332602971faf3d3a775006485dfbf22c"
+    }
+  ],
+  "Limits": "The instrumented RunLifecycle timer includes more than equipment arithmetic. Managed improvement does not establish the cause of the prior native frame delta or pass the 5% median/10% p99 target. All original native failures and valid samples remain preserved.",
+  "Next": "Proceed to the declared action-heavy cells. Keep Harmony-only configuration for the next B cell to avoid an unnecessary restart. Confirm current weapon magazine capacity and available ammunition before freezing the concrete firing setup and announcing any timed action.",
+  "Deployment": {
+    "Result": {
+      "Result": "Pass for reviewed ordinary duration-bound correction deployment and byte-for-byte data preservation; native performance requalification remains pending.",
+      "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+      "StartedUtc": "2026-09-09T00:52:34.9389689Z",
+      "VerifiedUtc": "2026-09-09T00:52:35.9950160Z",
+      "DuckovClosedDuringDeployment": true,
+      "FiveInstalledFileHashesMatch": true,
+      "PreviousInstalledSource": "b1df147691ba253f6d3e5978d1aee82b6cf9d91f",
+      "ExactInstalledFileCount": 5,
+      "AllUdsDataFilesUnchanged": 2397,
+      "V1DataFilesUnchanged": 1141,
+      "PreV1AndOtherUdsDataFilesUnchanged": 1256,
+      "VerifiedPriorBackupId": "30ece80d6c29423cb6ee77c6580f20c2",
+      "TransactionResidue": false,
+      "InstalledHashes": {
+        "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+        "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+        "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+        "UltimateDuckovStatistics.Core.dll": "9fe4865ad1c6355278f67b45d0a20b2fb6b8573e534d17357b50a99dd3594e1f",
+        "UltimateDuckovStatistics.dll": "e0f7198b40c8110c3c0bcbd21122275204274cd6695225e55d112cb7b6ac8bc5"
+      }
+    },
+    "UserClosureConfirmation": {
+      "Reply": "closed",
+      "Context": "Explicit response to request to confirm full closure before replacing the diagnostic build."
+    },
+    "IndependentReadback": {
+      "InstalledFiles": 5,
+      "UnchangedUdsDataFiles": 2397,
+      "RollbackFiles": 5,
+      "Slot1Generation": "ced3938bda07407183ffa7cc36224d4f",
+      "CompletedRuns": 2,
+      "NativeRaidIds": [
+        "212",
+        "213"
+      ],
+      "TransactionResidue": false
+    },
+    "Evidence": [
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/candidate-hashes.json",
+        "Bytes": 466,
+        "Sha256": "b4fc4b76b57f919abf109cb90d91dbd4e217508a1cce48052e7ba7004eac8362"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/data-after.json",
+        "Bytes": 486097,
+        "Sha256": "49a135eb3d670d0173688b040ba0d35957f4de266972694d512f86119cfcc164"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/data-before.json",
+        "Bytes": 486097,
+        "Sha256": "49a135eb3d670d0173688b040ba0d35957f4de266972694d512f86119cfcc164"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/deployment.log",
+        "Bytes": 1210,
+        "Sha256": "ddc2b5b62057c6a957fe851d101340f2a5e9319e576b7a7c27191d030dac683f"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/independent-readback.json",
+        "Bytes": 238,
+        "Sha256": "293e220b9f749f78aecf5e4392ffcd0feaa07e797ac86de07a56fe366e857da1"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/installed-after.json",
+        "Bytes": 466,
+        "Sha256": "b4fc4b76b57f919abf109cb90d91dbd4e217508a1cce48052e7ba7004eac8362"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/installed-before.json",
+        "Bytes": 466,
+        "Sha256": "a4e557b0150af0d191ad89c5d1a6003d31016cdcd5910c1391fd11ee6add465f"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/player-closed-before.log",
+        "Bytes": 36763,
+        "Sha256": "856daed784a142e0a144c385f6865e2153c41729f7c565cff94c96233fa3032e"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/result.json",
+        "Bytes": 1238,
+        "Sha256": "a4cf75aed6f4825c02361a92ca6df695a2fbbe0cc6dfe97b440f9cffe2d0cd1d"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/slot-01-profile-before.json",
+        "Bytes": 232856,
+        "Sha256": "1d400e750caa513977c1be23e35af177670ee9d717e2d87ee905f41f41a92fdd"
+      },
+      {
+        "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/native-duration-bound-deployment/slot-03-profile-before.json",
+        "Bytes": 31072,
+        "Sha256": "58482f0db3e83afc6a921013d5eac0c33d7ac65a2cc192b17bd5665cd98fd230"
+      }
+    ]
+  },
+  "NativeReopen": {
+    "Path": "docs/M18_DURATION_BOUND_REOPEN.json",
+    "Bytes": 14413,
+    "Sha256": "23082156666f674fcfaeaea01a3171a6a4ceb66645987b832ea291fce4be61e1"
+  },
+  "NativeIdleComparison": {
+    "Path": "docs/M18_DURATION_BOUND_IDLE_COMPARISON.json",
+    "Bytes": 26696,
+    "Sha256": "becf7704436f0eb7af28c85b23db38dbba22a8a598ed709dbece674fdaf09d3e"
+  },
+  "ControlReconciliationPlan": {
+    "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/idle-control-reconciliation-plan.json",
+    "Bytes": 13409,
+    "Sha256": "c9e6a8de71e8c1eaf05b169384799b229e9b275741f14f5bb953b61e3ae89487"
+  },
+  "NativeIdleEvidenceReview": {
+    "Result": "Pass for calculation and provenance correctness; engineering median target remains Fail. Independent CSV/JSON recomputation verifies 46,610 frames, 36 proof files and the bounded fixed-D reconciliation plan. Physical controls remain user-confirmed.",
+    "Evidence": [
+      {
+        "Path": "artifacts/m18-duration-bound-idle-result-review/review.md",
+        "Bytes": 7099,
+        "Sha256": "be0a75a80bbf86dd21759186cbafe241904e177a446e7baf0434c12f6705a766"
+      },
+      {
+        "Path": "artifacts/m18-duration-bound-idle-result-review/result.json",
+        "Bytes": 16826,
+        "Sha256": "08270cc855d0b9441327dc6965337608df9a220064e556a87b9bd828e896b2f2"
+      }
+    ]
+  },
+  "NativeIdleReconciliation": {
+    "Path": "docs/M18_IDLE_CONTROL_RECONCILIATION.json",
+    "Bytes": 27619,
+    "Sha256": "02a0d792e17ca0e41253f45851ac2f6ddb08059842e402e27229e6153daa91ef"
+  },
+  "NativeIdleReconciliationReview": {
+    "Result": "Pass for bounded idle result, preserved raw evidence and future zero-delay tooling. Independent computation reproduces all 46,501 frames and both raw input paths; full M18 acceptance remains open.",
+    "Evidence": [
+      {
+        "Path": "artifacts/m18-idle-reconciliation-review/review.md",
+        "Bytes": 3186,
+        "Sha256": "afddc91fbadc7950e9f67cce5f25eaff42074d03ddf60f812123d3ef6d687665"
+      },
+      {
+        "Path": "artifacts/m18-idle-reconciliation-review/result.json",
+        "Bytes": 22476,
+        "Sha256": "89db8e7d0265b054c0cd43ea274cfde9fcaa35820afaa1170d37ef89a7d9cc11"
+      }
+    ]
+  }
+}

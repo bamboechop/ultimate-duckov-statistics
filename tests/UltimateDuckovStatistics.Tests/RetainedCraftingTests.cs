@@ -11,6 +11,20 @@ namespace UltimateDuckovStatistics.Tests;
 #pragma warning disable CA1861
 public sealed class RetainedCraftingTests
 {
+    [Fact]
+    public void CurrentLanguageResolvesOutputsResourcesAndReciprocalDetailsWithoutRewritingCrafts()
+    {
+        var profile = Profile(); Craft(profile, "131", "Tasse", "1026", 1, "764", 4, "Polyethylen-Folie");
+        var before = System.Text.Json.JsonSerializer.Serialize(profile);
+        var p = Projection(profile);
+        p.Names = new EntityDisplayNames(id => id == "131" ? "Cup" : id == "764" ? "Polyethylene" : null);
+        var result = CraftingPresentationFactory.Create(p, "g")!;
+        Assert.Equal("Cup", result.Outputs[0].Name); Assert.Equal("Polyethylene", result.Resources[0].Name);
+        Assert.Equal("Polyethylene", result.Outputs[0].Details[0].Name);
+        Assert.Equal("Cup", result.Resources[0].Details[0].Name);
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(profile));
+    }
+
     private static CraftingMetricCapabilities Supported() => CraftingNativeContractPolicy.Supported("delivered", "captured formula", "exact paid items");
     private static ProfileDocument Profile()
     {
@@ -41,7 +55,8 @@ public sealed class RetainedCraftingTests
         return CraftingDocument.Create(selection, resources, width, Measure);
     }
 
-    [Fact] public void SuccessfulActionsRankIndependentlyOfProducedAndConsumedUnits()
+    [Fact]
+    public void SuccessfulActionsRankIndependentlyOfProducedAndConsumedUnits()
     {
         var p = Profile();
         Craft(p, "1", "Small batch", "small", 30, "8", 2);
@@ -56,7 +71,8 @@ public sealed class RetainedCraftingTests
         Assert.Equal(60, Assert.Single(result.Resources[0].Details).ProducedQuantity);
         CraftingStatisticsReducer.Validate(p.Statistics.Crafting);
     }
-    [Fact] public void ReciprocalViewOnlyIncludesRecipesThatRecordedThisExactResource()
+    [Fact]
+    public void ReciprocalViewOnlyIncludesRecipesThatRecordedThisExactResource()
     {
         var p = Profile();
         Craft(p, "1", "Output", "with-first", 30, "8", 2);
@@ -69,7 +85,8 @@ public sealed class RetainedCraftingTests
         Assert.Equal(90, result.Outputs.Single(r => r.ItemId == "1").ProducedQuantity);
         Assert.Equal(2, result.Outputs.Single(r => r.ItemId == "1").Details.Count);
     }
-    [Fact] public void DisplayNameCollisionsDoNotJoinDifferentOutputOrResourceIdentities()
+    [Fact]
+    public void DisplayNameCollisionsDoNotJoinDifferentOutputOrResourceIdentities()
     {
         var p = Profile();
         Craft(p, "mod:output:a", "Same name", "a", 2, "mod:resource:a", 3, "Same resource");
@@ -79,7 +96,8 @@ public sealed class RetainedCraftingTests
         Assert.Equal("mod:output:a", result.Resources.Single(r => r.ItemId == "mod:resource:a").Details[0].ItemId);
         Assert.Equal(3, result.Resources.Single(r => r.ItemId == "mod:resource:a").Count);
     }
-    [Fact] public void EqualCountsHaveDeterministicOrdinalNameAndIdentityOrdering()
+    [Fact]
+    public void EqualCountsHaveDeterministicOrdinalNameAndIdentityOrdering()
     {
         var p = Profile();
         Craft(p, "b", "Same", "b", 2, "z", 1, "Same");
@@ -89,7 +107,8 @@ public sealed class RetainedCraftingTests
         Assert.Equal(new[] { "z", "A", "b" }, result.Outputs.Select(r => r.ItemId));
         Assert.Equal(new[] { "a", "B", "z" }, result.Resources.Select(r => r.ItemId));
     }
-    [Fact] public void PresentationCopiesEvidenceAndNeverReadsCurrentRecipeOrInventory()
+    [Fact]
+    public void PresentationCopiesEvidenceAndNeverReadsCurrentRecipeOrInventory()
     {
         var p = Profile(); Craft(p, "1", "Captured output", "recipe", 30, "8", 2, "Captured resource");
         var result = Present(p);
@@ -99,14 +118,21 @@ public sealed class RetainedCraftingTests
         Assert.Equal("Captured resource", result.Outputs[0].Details[0].Name);
         Assert.Equal(30, result.Resources[0].Details[0].ProducedQuantity); Assert.Equal(2, result.Resources[0].Count);
     }
-    [Fact] public void FactoryRequiresExactProfileAndStatisticsGeneration()
+    [Fact]
+    public void FactoryRequiresExactProfileAndStatisticsGeneration()
     {
         var p = Projection(); Assert.NotNull(CraftingPresentationFactory.Create(p, "g"));
         Assert.Null(CraftingPresentationFactory.Create(p, "other"));
         p.Profile.Statistics.SaveGenerationId = "other"; Assert.Null(CraftingPresentationFactory.Create(p, "g"));
     }
     [Theory]
-    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)] [InlineData(5)] [InlineData(6)]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
     public void ReplacedPublicationMemberCannotMixGenerations(int member)
     {
         var p = Projection();
@@ -122,7 +148,8 @@ public sealed class RetainedCraftingTests
         }
         Assert.Null(CraftingPresentationFactory.Create(p, "g"));
     }
-    [Fact] public void ResourceFailureKeepsIndependentSuccessfulOutputAndRecordedResourceValues()
+    [Fact]
+    public void ResourceFailureKeepsIndependentSuccessfulOutputAndRecordedResourceValues()
     {
         var p = Profile(); Craft(p, "1", "Output", "recipe", 30, "8", 2);
         var c = Supported(); c.ItemResourceIdentity.State = AdapterCapabilityState.DisabledIncompatible;
@@ -133,7 +160,8 @@ public sealed class RetainedCraftingTests
         Assert.Equal(UiText.Get("ui.crafting_resource_current_unavailable"), result.ResourceNotice);
         Assert.Equal(UiText.Get("ui.crafting_association_unavailable"), result.Outputs[0].DetailNotice);
     }
-    [Fact] public void QuantityFailureIsVisibleWithoutDisablingSuccessfulActionsOrResources()
+    [Fact]
+    public void QuantityFailureIsVisibleWithoutDisablingSuccessfulActionsOrResources()
     {
         var p = Profile(); Craft(p, "1", "Output", "recipe", 30, "8", 2);
         var c = Supported(); c.ProducedQuantity.State = AdapterCapabilityState.DisabledIncompatible;
@@ -142,7 +170,8 @@ public sealed class RetainedCraftingTests
         Assert.Contains(UiText.Get("ui.crafting_quantity_current_unavailable"), result.Outputs[0].DetailNotice, StringComparison.Ordinal);
         Assert.Empty(result.ResourceNotice);
     }
-    [Fact] public void SupportedEmptyUnavailableEmptyAndProvenFreeRecipeRemainDifferent()
+    [Fact]
+    public void SupportedEmptyUnavailableEmptyAndProvenFreeRecipeRemainDifferent()
     {
         var result = Present(); Assert.Empty(result.Outputs); Assert.Empty(result.Resources);
         Assert.Equal(UiText.Get("ui.crafting_outputs_empty"), result.OutputEmpty);
@@ -157,7 +186,8 @@ public sealed class RetainedCraftingTests
         Assert.Empty(missingResult.Resources); Assert.Equal(UiText.Get("ui.unavailable"), missingResult.ResourceEmpty);
         Assert.NotEqual(UiText.Get("ui.crafting_no_resources_used"), missingResult.Outputs[0].DetailNotice);
     }
-    [Fact] public void SingleRecordedBatchCanProveResourceAssociatedProductionAfterLaterMissingEvidence()
+    [Fact]
+    public void SingleRecordedBatchCanProveResourceAssociatedProductionAfterLaterMissingEvidence()
     {
         var p = Profile(); Craft(p, "1", "Output", "recipe", 30, "8", 2);
         Craft(p, "1", "Output", "recipe", 30, resourcesProven: false);
@@ -166,7 +196,8 @@ public sealed class RetainedCraftingTests
         Assert.Equal(2, detail.ConsumedQuantity);
         CraftingStatisticsReducer.Validate(p.Statistics.Crafting);
     }
-    [Fact] public void MixedRecordedBatchesDoNotGuessWhichProductionBelongsToResourceSubset()
+    [Fact]
+    public void MixedRecordedBatchesDoNotGuessWhichProductionBelongsToResourceSubset()
     {
         var p = Profile(); Craft(p, "1", "Output", "recipe", 30, "8", 2);
         Craft(p, "1", "Output", "recipe", 60, resourcesProven: false);
@@ -176,14 +207,16 @@ public sealed class RetainedCraftingTests
         Assert.Contains(doc.Rows, r => r.Caption == UiText.Get("ui.crafting_produced_unavailable"));
         CraftingStatisticsReducer.Validate(p.Statistics.Crafting);
     }
-    [Fact] public void FullyAssociatedMixedBatchesUseExactRecordedRecipeQuantity()
+    [Fact]
+    public void FullyAssociatedMixedBatchesUseExactRecordedRecipeQuantity()
     {
         var p = Profile(); Craft(p, "1", "Output", "recipe", 30, "8", 2);
         Craft(p, "1", "Output", "recipe", 60, "8", 5);
         var result = Present(p); Assert.Equal(90, result.Resources[0].Details[0].ProducedQuantity);
         Assert.Equal(7, result.Resources[0].Details[0].ConsumedQuantity);
     }
-    [Fact] public void CompletionArithmeticBoundaryDoesNotFabricateZeroActionsForLaterOutput()
+    [Fact]
+    public void CompletionArithmeticBoundaryDoesNotFabricateZeroActionsForLaterOutput()
     {
         var p = Profile();
         var row = new CraftingMutationRow("old", "Old output", "old", long.MaxValue, long.MaxValue,
@@ -194,20 +227,25 @@ public sealed class RetainedCraftingTests
         Assert.Equal(2, result.Resources.Single(r => r.ItemId == "8").Count);
         Assert.Null(result.Resources.Single(r => r.ItemId == "8").Details[0].ProducedQuantity);
     }
-    [Fact] public void HistoryFlagsDoNotAddBoilerplateOrAnonymousTotalsCards()
+    [Fact]
+    public void ResourceCaptureGapDoesNotHideProvenEmptyOutput()
     {
-        var p = Profile(); p.Statistics.Crafting.HistoricalUnavailable = true; p.Statistics.Crafting.ResourceHistoryUnavailable = true;
+        var p = Profile(); p.Statistics.Crafting.ResourceHistoryUnavailable = true;
         var result = Present(p); Assert.Empty(result.Outputs); Assert.Empty(result.Resources);
         Assert.Empty(result.OutputNotice); Assert.Empty(result.ResourceNotice);
         Assert.Empty(Document(result).Surfaces); Assert.Empty(Document(result, resources: true).Surfaces);
-        Assert.Equal(UiText.Get("ui.unavailable"), result.OutputEmpty);
+        Assert.Equal(UiText.Get("ui.crafting_outputs_empty"), result.OutputEmpty);
     }
     [Theory]
-    [InlineData("131", "duckov:item:131")] [InlineData("356", "duckov:item:356")]
-    [InlineData("0131", "0131")] [InlineData("-1", "-1")] [InlineData("mod:131", "mod:131")]
+    [InlineData("131", "duckov:item:131")]
+    [InlineData("356", "duckov:item:356")]
+    [InlineData("0131", "0131")]
+    [InlineData("-1", "-1")]
+    [InlineData("mod:131", "mod:131")]
     [InlineData("duckov:item:131", "duckov:item:131")]
     public void IconOnlyNormalizationAcceptsCanonicalNativeIds(string captured, string expected) => Assert.Equal(expected, CraftingIconPolicy.ResolveId(captured));
-    [Fact] public void UnknownIdentityAndNativeUnarmedIconRemainDistinctFromAProvenEmptyRecipe()
+    [Fact]
+    public void UnknownIdentityAndNativeUnarmedIconRemainDistinctFromAProvenEmptyRecipe()
     {
         var p = Profile(); Craft(p, "356", "356", "free", 1);
         var result = Present(p); Assert.Contains("356", result.Outputs[0].Name, StringComparison.Ordinal);
@@ -215,7 +253,8 @@ public sealed class RetainedCraftingTests
         Assert.True(row.EmptyIcon); Assert.Equal("—", row.IconFallback); Assert.Equal("output:356", row.Id);
         Assert.Equal(UiText.Get("ui.crafting_no_resources_used"), result.Outputs[0].DetailNotice);
     }
-    [Fact] public void ExpansionAndOffsetsSurviveSameGenerationAndRejectStaleCallbacks()
+    [Fact]
+    public void ExpansionAndOffsetsSurviveSameGenerationAndRejectStaleCallbacks()
     {
         var p = Profile(); Craft(p, "1", "Output", "recipe", 30, "8", 2);
         var s = new CraftingSelection(); s.Refresh(Present(p)); Assert.True(s.Toggle("g", "output:1"));
@@ -230,7 +269,9 @@ public sealed class RetainedCraftingTests
         s.Refresh(null); Assert.False(s.Toggle("new", "output:1"));
     }
     [Theory]
-    [InlineData(1150f)] [InlineData(850f)] [InlineData(520f)]
+    [InlineData(1150f)]
+    [InlineData(850f)]
+    [InlineData(520f)]
     public void ExpandedCardsContainWrappedDetailsAndPreserveTenPixelGaps(float width)
     {
         var p = Profile();
@@ -247,7 +288,8 @@ public sealed class RetainedCraftingTests
             for (var i = 1; i < d.Surfaces.Count; i++) Assert.Equal(10, d.Surfaces[i].Y - d.Surfaces[i - 1].Y - d.Surfaces[i - 1].Height);
         }
     }
-    [Fact] public void DesktopColumnsArePeersAndNarrowColumnHeightsRemainBounded()
+    [Fact]
+    public void DesktopColumnsArePeersAndNarrowColumnHeightsRemainBounded()
     {
         Assert.Equal(1155, CraftingLayoutPolicy.ColumnWidth(2350, false));
         Assert.Equal(2350, CraftingLayoutPolicy.ColumnWidth(2350, true));
@@ -255,7 +297,8 @@ public sealed class RetainedCraftingTests
         Assert.Equal(680, CraftingLayoutPolicy.ColumnHeight(800, 10000, true));
         Assert.Equal(180, CraftingLayoutPolicy.ColumnHeight(800, 180, true));
     }
-    [Fact] public void LargeExpandedGraphBoundsVisibleRowsAndSurfaces()
+    [Fact]
+    public void LargeExpandedGraphBoundsVisibleRowsAndSurfaces()
     {
         var details = Enumerable.Range(0, 10000).Select(i => new CraftingDetail(i.ToString(CultureInfo.InvariantCulture), "Resource", i + 1L)).ToArray();
         var output = new CraftingEntry("output:1", "1", "Output", 1, 1, details);

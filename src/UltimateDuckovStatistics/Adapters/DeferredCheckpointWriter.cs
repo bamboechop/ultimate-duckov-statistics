@@ -101,6 +101,8 @@ internal sealed class DeferredSnapshotWriter<T>
 
     public bool IsDirty => dirty;
 
+    public bool HasFailure => lastFailure != null;
+
     public void MarkDirty()
     {
         dirty = true;

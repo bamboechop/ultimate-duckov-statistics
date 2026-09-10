@@ -105,6 +105,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         CharacterMainControl.OnMainCharacterInventoryChangedEvent += OnMainInventoryChanged;
         PlayerStorage.OnPlayerStorageChange += OnStorageChanged;
         SceneLoader.onStartedLoadingScene += OnSceneLoadingStarted;
+        Application.quitting += OnApplicationQuitting;
         LevelManager.OnLevelBeginInitializing += OnLevelBeginInitializing;
         LevelManager.OnAfterLevelInitialized += OnAfterLevelInitialized;
         LevelManager.OnControllingCharacterChanged += OnControllingCharacterChanged;
@@ -131,7 +132,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
         FlushCash();
         return moneyPublished
                && pendingCash.Count == 0
-               && (cashDisabled || (!cashBaselineSuspended && cashBaselineReady && !cashDirty));
+               && (cashDisabled || cashBaselineSuspended || (cashBaselineReady && !cashDirty));
     }
 
     private bool FlushPendingMoney()
@@ -258,6 +259,7 @@ internal sealed class NativeEconomyAdapter : IDisposable
             CharacterMainControl.OnMainCharacterInventoryChangedEvent -= OnMainInventoryChanged;
             PlayerStorage.OnPlayerStorageChange -= OnStorageChanged;
             SceneLoader.onStartedLoadingScene -= OnSceneLoadingStarted;
+            Application.quitting -= OnApplicationQuitting;
             LevelManager.OnLevelBeginInitializing -= OnLevelBeginInitializing;
             LevelManager.OnAfterLevelInitialized -= OnAfterLevelInitialized;
             LevelManager.OnControllingCharacterChanged -= OnControllingCharacterChanged;
@@ -599,10 +601,13 @@ internal sealed class NativeEconomyAdapter : IDisposable
     private void OnMainInventoryChanged(CharacterMainControl character, Inventory inventory, int index) { if (!disposed && subscribed && character != null && character.IsMainCharacter && ReferenceEquals(character, CharacterMainControl.Main)) MarkCashDirty(); }
     private void OnStorageChanged(PlayerStorage storage, Inventory inventory, int index) { if (!disposed && subscribed) MarkCashDirty(); }
     private void OnPetInventoryChanged(Inventory inventory, int index) { if (!disposed && subscribed) MarkCashDirty(); }
-    private void OnSceneLoadingStarted(SceneLoadingContext _) => SuspendCashForSceneTransition();
-    private void OnLevelBeginInitializing() => SuspendCashForSceneTransition();
+    private void OnSceneLoadingStarted(SceneLoadingContext _) => SuspendCashObservation();
+    private void OnLevelBeginInitializing() => SuspendCashObservation();
+    // Direct quit bypasses SceneLoader. Observe the final live changes before
+    // native OnDestroy detaches inventory items; cleanup must only retry queues.
+    private void OnApplicationQuitting() => SuspendCashObservation();
 
-    private void SuspendCashForSceneTransition()
+    private void SuspendCashObservation()
     {
         if (disposed || !subscribed) return;
         FlushPendingForBoundary();
@@ -676,7 +681,6 @@ internal sealed class NativeEconomyAdapter : IDisposable
             CashAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " Cash is item type 451; event-coalesced totals span storage, main inventory, and pet inventory, while full-scene inventory hydration is baselined only after level initialization completes."),
             CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Experimental, publicEvents + " successful exact-main world pickup plus owned-total delta, with bounded player-originated drop/re-pickup item-identity and last-owned-amount exclusion that remains exact when AddAndMerge consumes the picked item; a player-originated partial-stack decrease disables acquisition attribution because Duckov gives the dropped portion a new unobservable identity; verified OnMoneyPaid, OnCostPaid, and Item.IsBeingDestroyed boundaries exclude completed Cost.money and Cost.items Cash spending, including coalesced full-stack removal; corpse/container transfers remain exact UnknownAdjustment flows."),
             CashContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " context is captured at the accepted owned-total delta boundary."),
-            CashTerminalOutcomes = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, "Cash acquisition is supported, but installed-game public events do not prove terminal disposition across fungible main, pet, and storage ownership; acquired amounts remain unresolved."),
             RouteAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.Supported, publicEvents + " active run/map/segment identity is captured at event time; route loss degrades only segment attribution.")
         };
     }
@@ -730,7 +734,6 @@ internal sealed class NativeEconomyAdapter : IDisposable
         MetricCapabilities.CashAmountDirection = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.CashExternalAcquisition = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         MetricCapabilities.CashContextAttribution = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
-        MetricCapabilities.CashTerminalOutcomes = EconomyNativeContractPolicy.Availability(AdapterCapabilityState.DisabledIncompatible, reason);
         PublishCapabilities(); diagnostic(reason);
     }
     private void DisableCashAcquisition(string reason)

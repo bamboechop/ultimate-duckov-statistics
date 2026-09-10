@@ -75,7 +75,6 @@ internal static class UiText
             ["ui.combat_effect"] = "Effect",
             ["ui.combat_environmental"] = "Environmental",
             ["ui.combat_unknown"] = "Unknown",
-            ["ui.combat_historical"] = "Historical unclassified",
             ["ui.combat_owner_othernpc"] = "Other NPC",
             ["ui.combat_owner_environmental"] = "Environmental",
             ["ui.combat_owner_unknown"] = "Unknown",
@@ -89,7 +88,6 @@ internal static class UiText
             ["ui.combat_pair_basis"] = "within observed correlated pairs for this weapon",
             ["ui.combat_all_basis"] = "of all firing actions",
             ["ui.combat_uncorrelated"] = "Uncorrelated firing actions",
-            ["ui.combat_pair_history"] = "Historical ammunition pairing unavailable; recorded pairs only",
             ["ui.combat_no_pairs"] = "No correlated ammunition data",
             ["ui.combat_none"] = "None",
             ["ui.combat_attacker_types"] = "Attacker types",
@@ -173,7 +171,6 @@ internal static class UiText
             ["ui.runs_final_blows"] = "final blows",
             ["ui.runs_headshot_final_blows"] = "headshot final blows",
             ["ui.runs_classification_partial"] = "Ranged/melee classification incomplete",
-            ["ui.runs_classification_historical"] = "Historical ranged/melee classification unavailable; recorded values only",
             ["ui.runs_empty_slot"] = "Empty",
             ["ui.runs_no_combat_or_containers"] = "No combat or containers",
             ["ui.runs_no_combat"] = "No combat",
@@ -183,7 +180,6 @@ internal static class UiText
             ["ui.runs_terminal_complete"] = "Captured terminal equipment",
             ["ui.runs_terminal_partial"] = "Partial terminal equipment; unreadable root or attachment evidence unavailable",
             ["ui.runs_terminal_unavailable"] = "Terminal equipment unavailable",
-            ["ui.runs_terminal_historicalunavailable"] = "Historical terminal equipment unavailable",
             ["ui.runs_route"] = "Route",
             ["ui.runs_equipment"] = "Equipment",
             ["ui.runs_combat"] = "Combat",
@@ -239,8 +235,6 @@ internal static class UiText
             ["ui.containers_looted"] = "Unique containers opened",
             ["ui.container_history_unavailable"] = "earlier history unavailable",
             ["ui.repaired_unavailable"] = "repaired data; unavailable",
-            ["ui.ammunition_consumed"] = "Loaded ammunition units consumed",
-            ["ui.projectiles"] = "Projectiles created",
             ["ui.weapon"] = "Weapon",
             ["ui.ammunition"] = "Ammunition",
             ["ui.no_combat"] = "No accepted firing actions recorded for this save generation.",
@@ -252,9 +246,7 @@ internal static class UiText
             ["ui.melee"] = "Melee swings / hits",
             ["ui.kills_by_you"] = "Kills by you",
             ["ui.observed_world_deaths"] = "Observed world deaths",
-            ["ui.legacy_unclassified_deaths"] = "Legacy unclassified deaths",
             ["ui.ownership"] = "Observed-death ownership",
-            ["ui.historical_ownership_unavailable"] = "Earlier combat ownership is incomplete",
             ["ui.deaths"] = "Player deaths",
             ["ui.headshots"] = "Headshots / final blows",
             ["ui.enemies"] = "Enemies",
@@ -456,8 +448,6 @@ internal static class UiText
         var value = statistics.UniqueContainersLooted.ToString(CultureInfo.InvariantCulture);
         if (statistics.WasRepairedFromInvalidState)
             return $"{value} ({resolve("ui.repaired_unavailable")})";
-        if (statistics.HistoricalUnavailable)
-            return $"{value} since M7 ({resolve("ui.container_history_unavailable")})";
         return currentCapability == AdapterCapabilityState.Supported
             ? value
             : $"{value} ({resolve("ui.unsupported")})";
@@ -485,95 +475,9 @@ internal static class UiText
             : formatted;
     }
 
-    public static string FormatCraftingCount(long value, MetricAvailability availability)
-    {
-        if (availability.State != AdapterCapabilityState.DisabledIncompatible)
-            return value.ToString(CultureInfo.InvariantCulture);
-        return value == 0
-            ? Get("ui.unsupported")
-            : $"{value.ToString(CultureInfo.InvariantCulture)} ({Get("ui.crafting_capture_incomplete")})";
-    }
-
-    public static string FormatCraftingCount(
-        long value,
-        MetricAvailability metricAvailability,
-        MetricAvailability identityAvailability) =>
-        FormatCraftingCount(
-            value,
-            metricAvailability.State >= identityAvailability.State
-                ? metricAvailability
-                : identityAvailability);
-
-    public static string FormatHolding(
-        EconomyHoldingObservation observation,
-        MetricAvailability capability)
-    {
-        if (observation == null) return Get("ui.unavailable");
-        if (capability.State == AdapterCapabilityState.DisabledIncompatible)
-            return $"{Get("ui.unavailable")} ({Get("ui.unsupported").ToLowerInvariant()})";
-        if (observation.State == EconomyHoldingObservationState.Unavailable || !observation.Value.HasValue)
-            return Get("ui.unavailable");
-        var value = observation.Value.Value.ToString(CultureInfo.InvariantCulture);
-        if (observation.State == EconomyHoldingObservationState.Current)
-            return $"{value} ({Get("ui.current").ToLowerInvariant()})";
-        var timestamp = observation.ObservedUtc.HasValue
-            ? observation.ObservedUtc.Value.ToUniversalTime().ToString("yyyy-MM-dd - HH:mm:ss", CultureInfo.InvariantCulture)
-            : Get("ui.unavailable");
-        return $"{value} ({Get("ui.last_observed").ToLowerInvariant()} {timestamp})";
-    }
-
-    public static string FormatEconomyCompact(
-        EconomyStatisticsAggregate economy,
-        EconomyMetricCapabilities? currentCapabilities = null)
-    {
-        if (economy == null) return Get("ui.unsupported");
-        string Part(CurrencyKind kind, MetricAvailability availability, MetricAvailability? currentAvailability)
-        {
-            if (!economy.Currencies.TryGetValue(kind.ToString(), out var row))
-            {
-                if (economy.HistoricalUnavailable)
-                    return $"{kind} {Get("ui.no_m9_flows")}";
-                return $"{kind} {FormatEconomyValue(0, availability, currentAvailability)}";
-            }
-            var totals = $"{kind} +{row.Totals.GrossInflow.ToString(CultureInfo.InvariantCulture)}"
-                         + $"/-{row.Totals.GrossOutflow.ToString(CultureInfo.InvariantCulture)}"
-                         + $" net {row.Totals.NetFlow.ToString(CultureInfo.InvariantCulture)}";
-            return availability.State == AdapterCapabilityState.DisabledIncompatible
-                ? $"{totals} ({FormatUnavailableScope(currentAvailability)})"
-                : totals;
-        }
-        var result = $"{Part(CurrencyKind.Money, economy.Capabilities.MoneyAmountDirection, currentCapabilities?.MoneyAmountDirection)}; "
-                     + Part(CurrencyKind.Cash, economy.Capabilities.CashAmountDirection, currentCapabilities?.CashAmountDirection);
-        return economy.HistoricalUnavailable ? $"{result} ({Get("ui.pre_m9_unavailable")})" : result;
-    }
-
-    public static string FormatCashOutcome(
-        EconomyStatisticsAggregate economy,
-        EconomyMetricCapabilities? currentCapabilities = null) =>
-        $"{Get("ui.raid_cash")} {Get("ui.acquired").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Acquired, economy.Capabilities.CashExternalAcquisition, currentCapabilities?.CashExternalAcquisition)}, "
-        + $"{Get("ui.secured").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Secured, economy.Capabilities.CashTerminalOutcomes, currentCapabilities?.CashTerminalOutcomes)}, "
-        + $"{Get("ui.lost").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Lost, economy.Capabilities.CashTerminalOutcomes, currentCapabilities?.CashTerminalOutcomes)}, "
-        + $"{Get("ui.unresolved").ToLowerInvariant()} {FormatEconomyValue(economy.CashRaidOutcomes.Unresolved, economy.Capabilities.CashTerminalOutcomes, currentCapabilities?.CashTerminalOutcomes)}";
-
-    internal static string FormatEconomyValue(
-        long value,
-        MetricAvailability scopeAvailability,
-        MetricAvailability? currentAvailability = null) =>
-        scopeAvailability.State == AdapterCapabilityState.DisabledIncompatible
-            ? value == 0 ? Get("ui.unsupported") : $"{value.ToString(CultureInfo.InvariantCulture)} ({FormatUnavailableScope(currentAvailability)})"
-            : value.ToString(CultureInfo.InvariantCulture);
-
-    private static string FormatUnavailableScope(MetricAvailability? currentAvailability) =>
-        currentAvailability == null
-            ? Get("ui.scope_capture_unavailable")
-            : currentAvailability.State == AdapterCapabilityState.DisabledIncompatible
-                ? Get("ui.current_capture_unavailable")
-                : Get("ui.scope_capture_partly_unavailable");
-
     public static string FormatRoute(RunSummary run)
     {
         if (run == null) throw new ArgumentNullException(nameof(run));
-        if (run.HistoricalRouteUnavailable) return "Route unavailable (pre-M8)";
         if (!HasAvailableSegments(run))
             return "Route unavailable";
         return string.Join(" → ", run.Segments.OrderBy(value => value.SegmentIndex).Select(value => value.MapDisplayName));
@@ -582,8 +486,7 @@ internal static class UiText
     public static bool HasAvailableSegments(RunSummary run)
     {
         if (run == null) throw new ArgumentNullException(nameof(run));
-        return !run.HistoricalRouteUnavailable
-               && run.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
+        return run.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
                && run.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported
                && run.Segments.Count > 0;
     }

@@ -1,0 +1,668 @@
+{
+  "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "RepositoryCommitsAtCapture": {
+    "D": "9251fea5b6156d594b719c43be5ff5d59ec03355",
+    "B": "9bcd5f22492a792100cb7e076fca68dc56624565"
+  },
+  "Result": "Pass for the bounded current-control Nullpunkt idle comparison: median/p99, material-frame-rate and cluster limits are met. Earlier missed comparisons remain preserved; M18 native qualification is incomplete.",
+  "Scope": "Exactly three new Harmony-only B samples against all three ordinary Release D samples fixed before B collection. Same frozen campaign, unchanged DLLs and thresholds. Only raid idle with the disclosed fresh-history D workload is assessed.",
+  "Plan": {
+    "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/idle-control-reconciliation-plan.json",
+    "Bytes": 13409,
+    "Sha256": "c9e6a8de71e8c1eaf05b169384799b229e9b275741f14f5bb953b61e3ae89487"
+  },
+  "Aggregation": "Median of three per-capture medians and median of three per-capture p99 values; no pooled frames, omitted adverse samples or replacement D runs.",
+  "Thresholds": {
+    "EngineeringMedianPercent": 5,
+    "EngineeringP99Percent": 10,
+    "CeilingMedianPercent": 10,
+    "CeilingP99Percent": 20,
+    "MaterialFrameRateDeltaPercentagePoints": 0.25,
+    "ClusterFrameMilliseconds": 33.3,
+    "ClusterWindowSeconds": 1,
+    "ClusterMinimumFrames": 2
+  },
+  "AcceptedFrames": {
+    "B": 23377,
+    "D": 23124,
+    "Total": 46501
+  },
+  "Aggregates": [
+    {
+      "Configuration": "B",
+      "BuildLabel": "production",
+      "Scenario": "idle",
+      "RunCount": 3,
+      "MedianOfRunMediansMilliseconds": 3.78065,
+      "MedianOfRunP99Milliseconds": 4.606789,
+      "MedianFramesOver16MillisecondsPercentage": 0.012822156686754712,
+      "CapturesWithSpikeCluster": 0,
+      "CapturesWithActionSpikeCluster": 0,
+      "MedianOfRunCpuBusyMediansMilliseconds": 3.72505,
+      "MedianOfRunCpuBusyP99Milliseconds": 4.548242999999999,
+      "MedianOfRunGpuBusyMediansMilliseconds": 3.2164,
+      "MedianOfRunGpuBusyP99Milliseconds": 3.594254,
+      "MedianOfRunActionMediansMilliseconds": null,
+      "MedianOfRunActionP99Milliseconds": null,
+      "MedianActionFramesOver16MillisecondsPercentage": null,
+      "MedianOfRunActionCpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionCpuBusyP99Milliseconds": null,
+      "MedianOfRunActionGpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionGpuBusyP99Milliseconds": null
+    },
+    {
+      "Configuration": "D",
+      "BuildLabel": "production",
+      "Scenario": "idle",
+      "RunCount": 3,
+      "MedianOfRunMediansMilliseconds": 3.8686,
+      "MedianOfRunP99Milliseconds": 4.687319,
+      "MedianFramesOver16MillisecondsPercentage": 0,
+      "CapturesWithSpikeCluster": 0,
+      "CapturesWithActionSpikeCluster": 0,
+      "MedianOfRunCpuBusyMediansMilliseconds": 3.8134,
+      "MedianOfRunCpuBusyP99Milliseconds": 4.628157,
+      "MedianOfRunGpuBusyMediansMilliseconds": 3.1473500000000003,
+      "MedianOfRunGpuBusyP99Milliseconds": 3.558038,
+      "MedianOfRunActionMediansMilliseconds": null,
+      "MedianOfRunActionP99Milliseconds": null,
+      "MedianActionFramesOver16MillisecondsPercentage": null,
+      "MedianOfRunActionCpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionCpuBusyP99Milliseconds": null,
+      "MedianOfRunActionGpuBusyMediansMilliseconds": null,
+      "MedianOfRunActionGpuBusyP99Milliseconds": null
+    }
+  ],
+  "Comparison": {
+    "BaselineConfiguration": "B",
+    "BaselineBuildLabel": "production",
+    "CandidateConfiguration": "D",
+    "CandidateBuildLabel": "production",
+    "Scenario": "idle",
+    "MedianOverheadPercentage": 2.326319548225819,
+    "P99OverheadPercentage": 1.7480722472854593,
+    "FramesOver16MillisecondsPercentagePointDelta": -0.012822156686754712,
+    "BaselineActionSpikeClusterCaptures": 0,
+    "CandidateActionSpikeClusterCaptures": 0,
+    "HasRepeatableNewActionSpikeCluster": false,
+    "CpuBusyMedianOverheadPercentage": 2.371780244560484,
+    "CpuBusyP99OverheadPercentage": 1.7570301322950455,
+    "GpuBusyMedianOverheadPercentage": -2.1468100982464766,
+    "GpuBusyP99OverheadPercentage": -1.0076082547310294,
+    "ActionMedianOverheadPercentage": null,
+    "ActionP99OverheadPercentage": null,
+    "ActionFramesOver16MillisecondsPercentagePointDelta": null,
+    "ActionCpuBusyMedianOverheadPercentage": null,
+    "ActionCpuBusyP99OverheadPercentage": null,
+    "ActionGpuBusyMedianOverheadPercentage": null,
+    "ActionGpuBusyP99OverheadPercentage": null
+  },
+  "Samples": [
+    {
+      "Configuration": "B",
+      "Run": 1,
+      "FrameCount": 7799,
+      "DurationSeconds": 30.00129870000006,
+      "MedianMilliseconds": 3.7076,
+      "P99Milliseconds": 4.508945999999999,
+      "MaximumMilliseconds": 570.325,
+      "Thresholds": [
+        {
+          "Milliseconds": 8.33,
+          "Count": 1,
+          "Percentage": 0.012822156686754712
+        },
+        {
+          "Milliseconds": 16.7,
+          "Count": 1,
+          "Percentage": 0.012822156686754712
+        },
+        {
+          "Milliseconds": 33.3,
+          "Count": 1,
+          "Percentage": 0.012822156686754712
+        }
+      ],
+      "SpikesOver33Milliseconds": [
+        {
+          "OffsetSeconds": 6.27047500000481,
+          "FrameTimeMilliseconds": 570.325,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 570.2722,
+          "GpuBusyMilliseconds": 3.3435
+        }
+      ],
+      "HasSpikeCluster": false,
+      "CpuBusy": {
+        "SampleCount": 7799,
+        "MeanMilliseconds": 3.790852288754966,
+        "MedianMilliseconds": 3.6514,
+        "P95Milliseconds": 4.16733,
+        "P99Milliseconds": 4.453221999999999,
+        "MaximumMilliseconds": 570.2722
+      },
+      "GpuBusy": {
+        "SampleCount": 7799,
+        "MeanMilliseconds": 3.273274855750746,
+        "MedianMilliseconds": 3.2164,
+        "P95Milliseconds": 3.54001,
+        "P99Milliseconds": 3.6108059999999997,
+        "MaximumMilliseconds": 3.8204
+      },
+      "CaptureStartSignalUtc": "2026-09-09T01:39:54.0415375Z",
+      "CaptureEndSignalUtc": "2026-09-09T01:40:24.3017642Z",
+      "CandidateSourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+      "CampaignSha256": "18d1df0be0687b46679b48be9f3cf93033b70dd1829b9cd1b0d4e99e58beb5c7",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/B/idle/b-idle-r01.csv",
+          "Bytes": 2127529,
+          "Sha256": "4a5e79212ddff0baf92c6f69867ea4f8b760b4b8b54802fea40374f444719471"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/B/idle/b-idle-r01.capframex.json",
+          "Bytes": 828898,
+          "Sha256": "86695e2b47f4c6005ddd2f9f819649ad543c2022ce42216c3b8dbd763c47e925"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/B/idle/b-idle-r01.capture.json",
+          "Bytes": 6767,
+          "Sha256": "b6abda60c717e3b2aba7ed8f46fb0d3fb4739d3ab4b382a18ac381d4ba914e4b"
+        }
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Run": 2,
+      "FrameCount": 7804,
+      "DurationSeconds": 30.002714099999846,
+      "MedianMilliseconds": 3.78065,
+      "P99Milliseconds": 4.767173000000003,
+      "MaximumMilliseconds": 8.2697,
+      "Thresholds": [
+        {
+          "Milliseconds": 8.33,
+          "Count": 0,
+          "Percentage": 0
+        },
+        {
+          "Milliseconds": 16.7,
+          "Count": 0,
+          "Percentage": 0
+        },
+        {
+          "Milliseconds": 33.3,
+          "Count": 0,
+          "Percentage": 0
+        }
+      ],
+      "SpikesOver33Milliseconds": [],
+      "HasSpikeCluster": false,
+      "CpuBusy": {
+        "SampleCount": 7804,
+        "MeanMilliseconds": 3.789021014864172,
+        "MedianMilliseconds": 3.72505,
+        "P95Milliseconds": 4.244025,
+        "P99Milliseconds": 4.712718000000002,
+        "MaximumMilliseconds": 8.2161
+      },
+      "GpuBusy": {
+        "SampleCount": 7804,
+        "MeanMilliseconds": 3.210714056893912,
+        "MedianMilliseconds": 3.1609,
+        "P95Milliseconds": 3.4821,
+        "P99Milliseconds": 3.5717400000000006,
+        "MaximumMilliseconds": 3.7151
+      },
+      "CaptureStartSignalUtc": "2026-09-09T01:42:48.2673384Z",
+      "CaptureEndSignalUtc": "2026-09-09T01:43:18.5353077Z",
+      "CandidateSourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+      "CampaignSha256": "18d1df0be0687b46679b48be9f3cf93033b70dd1829b9cd1b0d4e99e58beb5c7",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/B/idle/b-idle-r02.csv",
+          "Bytes": 2128738,
+          "Sha256": "9e9ab31fc44cfe1927161026c5dd6b4356f6c219f8ce19a11dd3d8e4b33de3ad"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/B/idle/b-idle-r02.capframex.json",
+          "Bytes": 829308,
+          "Sha256": "62e5001776ac4af203ed1359b6209903cf749e148470786a11847744fdbfb588"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/B/idle/b-idle-r02.capture.json",
+          "Bytes": 6768,
+          "Sha256": "7c8c7f643b7c5d2a79ade47f7cc9f949474dc9d548a86bc0c77cc53dc1436ec5"
+        }
+      ]
+    },
+    {
+      "Configuration": "B",
+      "Run": 3,
+      "FrameCount": 7774,
+      "DurationSeconds": 30.00243689999994,
+      "MedianMilliseconds": 3.7835,
+      "P99Milliseconds": 4.606789,
+      "MaximumMilliseconds": 79.6616,
+      "Thresholds": [
+        {
+          "Milliseconds": 8.33,
+          "Count": 1,
+          "Percentage": 0.012863390789812194
+        },
+        {
+          "Milliseconds": 16.7,
+          "Count": 1,
+          "Percentage": 0.012863390789812194
+        },
+        {
+          "Milliseconds": 33.3,
+          "Count": 1,
+          "Percentage": 0.012863390789812194
+        }
+      ],
+      "SpikesOver33Milliseconds": [
+        {
+          "OffsetSeconds": 15.633515200002899,
+          "FrameTimeMilliseconds": 79.6616,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 79.6096,
+          "GpuBusyMilliseconds": 3.4936
+        }
+      ],
+      "HasSpikeCluster": false,
+      "CpuBusy": {
+        "SampleCount": 7774,
+        "MeanMilliseconds": 3.8038788783123283,
+        "MedianMilliseconds": 3.7287999999999997,
+        "P95Milliseconds": 4.2392449999999995,
+        "P99Milliseconds": 4.548242999999999,
+        "MaximumMilliseconds": 79.6096
+      },
+      "GpuBusy": {
+        "SampleCount": 7774,
+        "MeanMilliseconds": 3.2237633521996387,
+        "MedianMilliseconds": 3.2208,
+        "P95Milliseconds": 3.507835,
+        "P99Milliseconds": 3.594254,
+        "MaximumMilliseconds": 3.7678
+      },
+      "CaptureStartSignalUtc": "2026-09-09T01:45:44.7443247Z",
+      "CaptureEndSignalUtc": "2026-09-09T01:46:15.0180194Z",
+      "CandidateSourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+      "CampaignSha256": "18d1df0be0687b46679b48be9f3cf93033b70dd1829b9cd1b0d4e99e58beb5c7",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/B/idle/b-idle-r03.csv",
+          "Bytes": 2120614,
+          "Sha256": "0d9c723565762f530c020c883c17d2dcabd47db71c86f2bbdb5aae857a16927b"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/B/idle/b-idle-r03.capframex.json",
+          "Bytes": 825956,
+          "Sha256": "d28964143a72decd47abcd6faaa3ebc97324d209e5c09e99089dc73dd137a234"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/B/idle/b-idle-r03.capture.json",
+          "Bytes": 6766,
+          "Sha256": "48aa41686bc1d3392728188823a7fd6b0ebc90856a03050e8a51eb6b4483a930"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 1,
+      "FrameCount": 7923,
+      "DurationSeconds": 30.00250040000008,
+      "MedianMilliseconds": 3.667,
+      "P99Milliseconds": 4.672357999999997,
+      "MaximumMilliseconds": 330.1799,
+      "Thresholds": [
+        {
+          "Milliseconds": 8.33,
+          "Count": 4,
+          "Percentage": 0.050485927047835416
+        },
+        {
+          "Milliseconds": 16.7,
+          "Count": 1,
+          "Percentage": 0.012621481761958854
+        },
+        {
+          "Milliseconds": 33.3,
+          "Count": 1,
+          "Percentage": 0.012621481761958854
+        }
+      ],
+      "SpikesOver33Milliseconds": [
+        {
+          "OffsetSeconds": 6.78472159999365,
+          "FrameTimeMilliseconds": 330.1799,
+          "DuringAction": false,
+          "CpuBusyMilliseconds": 330.126,
+          "GpuBusyMilliseconds": 3.3674
+        }
+      ],
+      "HasSpikeCluster": false,
+      "CpuBusy": {
+        "SampleCount": 7923,
+        "MeanMilliseconds": 3.7310839076107523,
+        "MedianMilliseconds": 3.6116,
+        "P95Milliseconds": 4.15126,
+        "P99Milliseconds": 4.609048,
+        "MaximumMilliseconds": 330.126
+      },
+      "GpuBusy": {
+        "SampleCount": 7923,
+        "MeanMilliseconds": 3.2625987883377565,
+        "MedianMilliseconds": 3.197,
+        "P95Milliseconds": 3.49909,
+        "P99Milliseconds": 3.5673019999999998,
+        "MaximumMilliseconds": 3.7251
+      },
+      "CaptureStartSignalUtc": "2026-09-09T01:08:53.2681903Z",
+      "CaptureEndSignalUtc": "2026-09-09T01:09:23.5446009Z",
+      "CandidateSourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+      "CampaignSha256": "18d1df0be0687b46679b48be9f3cf93033b70dd1829b9cd1b0d4e99e58beb5c7",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/D/idle/d-idle-r01.csv",
+          "Bytes": 2161043,
+          "Sha256": "e75f680b26262522c56c02b56520b3dbd00e38e0e9bbbbf9d41dad05b37bb251"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/D/idle/d-idle-r01.capframex.json",
+          "Bytes": 841898,
+          "Sha256": "d993de1fe2594e78b0e2a735caf65fc5e5864a38fb6f662efc3b97973d4f9bf8"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/D/idle/d-idle-r01.capture.json",
+          "Bytes": 6808,
+          "Sha256": "b4249c5b67edc6fdcd76eb13f6dd646d3549f9281b138163c2e165119cc8383e"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 2,
+      "FrameCount": 7582,
+      "DurationSeconds": 30.002779899999958,
+      "MedianMilliseconds": 3.89285,
+      "P99Milliseconds": 4.687319,
+      "MaximumMilliseconds": 8.6401,
+      "Thresholds": [
+        {
+          "Milliseconds": 8.33,
+          "Count": 1,
+          "Percentage": 0.013189132155104194
+        },
+        {
+          "Milliseconds": 16.7,
+          "Count": 0,
+          "Percentage": 0
+        },
+        {
+          "Milliseconds": 33.3,
+          "Count": 0,
+          "Percentage": 0
+        }
+      ],
+      "SpikesOver33Milliseconds": [],
+      "HasSpikeCluster": false,
+      "CpuBusy": {
+        "SampleCount": 7582,
+        "MeanMilliseconds": 3.9018191506198914,
+        "MedianMilliseconds": 3.8383,
+        "P95Milliseconds": 4.335495,
+        "P99Milliseconds": 4.628157,
+        "MaximumMilliseconds": 8.583
+      },
+      "GpuBusy": {
+        "SampleCount": 7582,
+        "MeanMilliseconds": 3.21067389870745,
+        "MedianMilliseconds": 3.1473500000000003,
+        "P95Milliseconds": 3.470295,
+        "P99Milliseconds": 3.558038,
+        "MaximumMilliseconds": 3.7608
+      },
+      "CaptureStartSignalUtc": "2026-09-09T01:17:48.5557282Z",
+      "CaptureEndSignalUtc": "2026-09-09T01:18:18.8209404Z",
+      "CandidateSourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+      "CampaignSha256": "18d1df0be0687b46679b48be9f3cf93033b70dd1829b9cd1b0d4e99e58beb5c7",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/D/idle/d-idle-r02.csv",
+          "Bytes": 2071725,
+          "Sha256": "d8cca0065eefef7b8010ae59a639ff2e31ca3a00960acf32f7d46314e1cf46c4"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/D/idle/d-idle-r02.capframex.json",
+          "Bytes": 805385,
+          "Sha256": "a431d69c6174d8e37f67394e2ce03615b5b9bf0c7fabe2f43a3377135fb49e43"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/D/idle/d-idle-r02.capture.json",
+          "Bytes": 6808,
+          "Sha256": "91b49954d4b4dc16a97734d14c1a48d1ba69f1210856bb46ea51afada72d7b5d"
+        }
+      ]
+    },
+    {
+      "Configuration": "D",
+      "Run": 3,
+      "FrameCount": 7619,
+      "DurationSeconds": 30.00427700000014,
+      "MedianMilliseconds": 3.8686,
+      "P99Milliseconds": 4.711207999999998,
+      "MaximumMilliseconds": 8.8727,
+      "Thresholds": [
+        {
+          "Milliseconds": 8.33,
+          "Count": 4,
+          "Percentage": 0.05250032812705079
+        },
+        {
+          "Milliseconds": 16.7,
+          "Count": 0,
+          "Percentage": 0
+        },
+        {
+          "Milliseconds": 33.3,
+          "Count": 0,
+          "Percentage": 0
+        }
+      ],
+      "SpikesOver33Milliseconds": [],
+      "HasSpikeCluster": false,
+      "CpuBusy": {
+        "SampleCount": 7619,
+        "MeanMilliseconds": 3.882529347683426,
+        "MedianMilliseconds": 3.8134,
+        "P95Milliseconds": 4.32243,
+        "P99Milliseconds": 4.655307999999999,
+        "MaximumMilliseconds": 8.8205
+      },
+      "GpuBusy": {
+        "SampleCount": 7619,
+        "MeanMilliseconds": 3.206568552303451,
+        "MedianMilliseconds": 3.1425,
+        "P95Milliseconds": 3.46223,
+        "P99Milliseconds": 3.5425820000000003,
+        "MaximumMilliseconds": 3.7547
+      },
+      "CaptureStartSignalUtc": "2026-09-09T01:20:28.8062353Z",
+      "CaptureEndSignalUtc": "2026-09-09T01:20:59.0781493Z",
+      "CandidateSourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+      "CampaignSha256": "18d1df0be0687b46679b48be9f3cf93033b70dd1829b9cd1b0d4e99e58beb5c7",
+      "Files": [
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/D/idle/d-idle-r03.csv",
+          "Bytes": 2076000,
+          "Sha256": "1a566cdb399ac289345fbd2d7dff6526bcb541645dc144639cab852c065026b2"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/D/idle/d-idle-r03.capframex.json",
+          "Bytes": 809439,
+          "Sha256": "b61343891b7b7b2c88eb4fa6135abcf8c6b8e78ab6c244b2f5b59e6e77b21f0f"
+        },
+        {
+          "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/captures/D/idle/d-idle-r03.capture.json",
+          "Bytes": 6808,
+          "Sha256": "aca9ddcfa95ec6f56fde598f7336084272b1bd3efe9fa5a81f16520759f2debf"
+        }
+      ]
+    }
+  ],
+  "Gates": {
+    "EngineeringMedian": "Pass: +2.3263195482% is within 5%.",
+    "EngineeringP99": "Pass: +1.7480722473% is within 10%.",
+    "WeakerCeiling": "Pass for 10% median / 20% p99.",
+    "MaterialFrameRate": "Pass: median per-run >16.7 ms percentage is 0.0128221567% in B and 0% in D; no increased D rate.",
+    "SpikesAndClusters": "No cluster in any capture. Two isolated B frames (570.325 and 79.6616 ms) and one isolated D frame (330.1799 ms) remain included. No repeatable new D spike pattern is observed. Their source is unproven; no subsystem attribution is claimed."
+  },
+  "OriginalReferenceComparison": {
+    "Path": "docs/M18_DURATION_BOUND_IDLE_COMPARISON.json",
+    "Bytes": 26696,
+    "Sha256": "becf7704436f0eb7af28c85b23db38dbba22a8a598ed709dbece674fdaf09d3e"
+  },
+  "Interpretation": [
+    "The same D data missed the median target against the older B baseline and meets it against the predeclared new controls. Both results are retained. This supports sensitivity to session/control variance without proving its cause or attributing a native improvement to the code correction.",
+    "New B run medians are 3.7076, 3.78065 and 3.7835 ms; D medians remain 3.667, 3.89285 and 3.8686 ms. All valid samples are included under the original aggregation rule.",
+    "CPU-busy median delta is +2.37178% and GPU-busy median delta is -2.14681%. Presented frame time remains the acceptance measure.",
+    "Separate launches and natural survival/world progression remain disclosed controls. The user confirms the same Nullpunkt spot, camera, loadout, closed menus, focus and idle behavior. Those physical conditions are not independently established by files.",
+    "The inactive UDS profile and diagnostics are byte-identical before/after all B controls. D used zero completed runs; its completed run was retained before B. Current native B raid ID is not independently observed while UDS is disabled. This does not qualify progressed history."
+  ],
+  "ProfileContext": {
+    "GenerationId": "db3f3f654a7b443383d16614c33bb3af",
+    "DCompletedRunsAtSetup": 0,
+    "BInactiveProfileCompletedRuns": 1,
+    "BProfileAndDiagnosticsUnchanged": true,
+    "BNativeRaidId": null
+  },
+  "Controls": [
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/controls.idle.B.json",
+      "Bytes": 2670,
+      "Sha256": "a3abeeb0b4983a1bf3a1d561d2e0ef5029ccfc4c741485dfe28191c2464fb14c"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/controls.idle.D.json",
+      "Bytes": 2602,
+      "Sha256": "9d06332d1bc6eeae183414f1e00df21e81d0a78726b3dd4e9e17019ec8d60070"
+    }
+  ],
+  "UserConfirmationProvenance": [
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/control-reconciliation-confirmations.json",
+      "Bytes": 4627,
+      "Sha256": "e038f10b6cb00cda8a806a20c766cbcb35e4d9d854ac01e6b926d760902d276b"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/user-confirmations.json",
+      "Bytes": 4437,
+      "Sha256": "4f43b99885fd823825f8f2cb28fe2a00b7bcb66de26fd971410b58a12555712f"
+    }
+  ],
+  "Evidence": [
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/campaign.json",
+      "Bytes": 4265,
+      "Sha256": "18d1df0be0687b46679b48be9f3cf93033b70dd1829b9cd1b0d4e99e58beb5c7"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/idle-control-reconciliation.json",
+      "Bytes": 13761,
+      "Sha256": "5c095583eae308a0c560273d2b1eac50a9878ca926ca98705e159a42deeeadfd"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/idle-control-reconciliation.txt",
+      "Bytes": 4777,
+      "Sha256": "19bf1466cdd0db49ffc724db36826e74319dff608fd8d690db193dbff426c820"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-setup/setup.json",
+      "Bytes": 976,
+      "Sha256": "29e34f0d84688137515071fbcd59e5abaf268c0ff55a74fc63635f7c07abe1ee"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-setup/capture-preflight.json",
+      "Bytes": 716,
+      "Sha256": "d849b47c62cb44f04f036f1d1cc643193ad4424f97fa17e5b542115bb967699b"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-setup/player-before-capture.log",
+      "Bytes": 13052,
+      "Sha256": "95e52a039974bcc122d478c0a1652e3c4891a0e7d907b88c6cdf39b188417472"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-setup/profile.json",
+      "Bytes": 170903,
+      "Sha256": "3c8873487cc067cd1b2e29f7dd6b59a3d8920ebcd378c29e6111075937cf1e07"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-setup/diagnostics.json",
+      "Bytes": 1785,
+      "Sha256": "d13bc0d8aac22f1befb2475517e5548b0fd7ce049dd72d5e02fc9bf8b3ffe9a3"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-setup/capture-r01.log",
+      "Bytes": 764,
+      "Sha256": "9b8225c47e6abe983bb0a751f910673f2e5462281e28fcf1764f64b2493db5c4"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-setup/capture-r02.log",
+      "Bytes": 764,
+      "Sha256": "dce24dd5ab3d0ebf31201cfd2886cf2965516d18d64c53b5166e0651dd4b6db1"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-setup/capture-r03.log",
+      "Bytes": 764,
+      "Sha256": "03071b6ea6bc3c228ac13e5eb7c0703aa00ff0259ac70d24c02d224607e71f05"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-complete/profile.json",
+      "Bytes": 170903,
+      "Sha256": "3c8873487cc067cd1b2e29f7dd6b59a3d8920ebcd378c29e6111075937cf1e07"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-complete/diagnostics.json",
+      "Bytes": 1785,
+      "Sha256": "d13bc0d8aac22f1befb2475517e5548b0fd7ce049dd72d5e02fc9bf8b3ffe9a3"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af/B-complete/player-after-controls.log",
+      "Bytes": 18602,
+      "Sha256": "5c500b265fe6e2649743861897b2f06e1db7ebed4d670393662649b639bf6ae9"
+    }
+  ],
+  "CurrentCampaignMissingCells": [
+    "Not exercised: B/high-rate-empty needs 3 valid captures.",
+    "Not exercised: D/high-rate-empty needs 3 valid captures.",
+    "Not exercised: B/high-rate-single needs 3 valid captures.",
+    "Not exercised: D/high-rate-single needs 3 valid captures.",
+    "Not exercised: B/high-rate-multi needs 3 valid captures.",
+    "Not exercised: D/high-rate-multi needs 3 valid captures.",
+    "Not exercised: B/second-auto-empty needs 3 valid captures.",
+    "Not exercised: D/second-auto-empty needs 3 valid captures.",
+    "Not exercised: B/second-auto-single needs 3 valid captures.",
+    "Not exercised: D/second-auto-single needs 3 valid captures.",
+    "Not exercised: B/slower-control needs 3 valid captures.",
+    "Not exercised: D/slower-control needs 3 valid captures.",
+    "Not exercised: B/consumable-medkit needs 3 valid captures.",
+    "Not exercised: D/consumable-medkit needs 3 valid captures.",
+    "Not exercised: B/base-idle-ui-closed needs 3 valid captures.",
+    "Not exercised: D/base-idle-ui-closed needs 3 valid captures.",
+    "Not exercised: B/base-inventory-equipment needs 3 valid captures.",
+    "Not exercised: D/base-inventory-equipment needs 3 valid captures.",
+    "Not exercised: B/base-crafting-economy needs 3 valid captures.",
+    "Not exercised: D/base-crafting-economy needs 3 valid captures.",
+    "Not exercised: B/base-ui-open needs 3 valid captures.",
+    "Not exercised: D/base-ui-open needs 3 valid captures.",
+    "Not exercised: B/export-boundary needs 3 valid captures.",
+    "Not exercised: D/export-boundary needs 3 valid captures.",
+    "Not exercised: B/terminal-boundary needs 3 valid captures.",
+    "Not exercised: D/terminal-boundary needs 3 valid captures."
+  ],
+  "Next": "Proceed to the declared action-heavy cells. Keep Harmony-only configuration for the next B cell to avoid an unnecessary restart. Confirm current weapon magazine capacity and available ammunition before freezing the concrete firing setup and announcing any timed action.",
+  "Remaining": "Other thirteen scenario pairs, progressed-history and resource measurements, remaining native recovery/degradation checks, and final integration/artifact gates remain open. No publication or M18 completion claim."
+}

@@ -148,12 +148,12 @@ internal sealed partial class RetainedStatisticsShell
             root.localScale = new Vector3(frame.Scale, frame.Scale, 1); Place(root, shell.Header.Left, frame.Top, width, height);
             if (lastNotice != operations.LastNotice || lastOperation != operations.Current || lastCanStart != operations.CanStart)
             { Capture(); RememberFocus(); lastNotice = operations.LastNotice; lastOperation = operations.Current; lastCanStart = operations.CanStart; dirty = true; }
-            Place(unavailable.rectTransform, 30, 30, Math.Max(1, width - 60), measure.Height(unavailable.text, width - 60, 30));
             if (!dirty || !root.gameObject.activeInHierarchy) return;
             dirty = false;
             if (selection.Snapshot == null)
             {
                 unavailable.text = operations.Current == PanelOperation.Reset ? UiText.Get("ui.diag_operation_pending") : UiText.Get("ui.profile_unavailable");
+                Place(unavailable.rectTransform, 30, 30, Math.Max(1, width - 60), measure.Height(unavailable.text, width - 60, 30));
                 return;
             }
             foreach (var e in elements.Values) e.Used = false;
@@ -251,12 +251,12 @@ internal sealed partial class RetainedStatisticsShell
                 foreach (var value in snapshot.Versions) y += Value(technical, "version:" + value.Label, value, 20, y, w - 40);
                 y += 26;
                 y = TechnicalGroup(technical, "recovery", UiText.Get("ui.diag_recovery"), snapshot.Recovery, y, w);
-                y = TechnicalGroup(technical, "limitations", UiText.Get("ui.diag_limitations"), snapshot.Limitations, y, w, paragraphs: true);
                 y += Accordion(technical, "log", UiText.Get("ui.diagnostic_log"), "", 20, y, w - 40, 34, false) + 10;
                 if (selection.Expanded("log"))
                 {
                     var labels = new[] { UiText.Get("ui.diag_log_all"), UiText.Get("ui.diag_log_warnings"), UiText.Get("ui.diag_log_errors") };
-                    var sizes = labels.Select(l => {
+                    var sizes = labels.Select(l =>
+                    {
                         var bw = Math.Min(w - 40, measure.Width(l, 23) + 40);
                         return (bw, Math.Max(38, measure.Height(l, bw - 40, 23) + 16));
                     }).ToArray();
@@ -312,13 +312,13 @@ internal sealed partial class RetainedStatisticsShell
             {
                 var key = "system:" + system.Id;
                 var group = Panel(panel, key + ":panel", 10);
-                var h = Accordion(group, key, system.Name, UiText.Get("ui." + system.Health.ToString().ToLowerInvariant()), 0, 0, w - 40, 30, true, HealthColor(system.Health));
+                var h = Accordion(group, key, system.Name, system.Status, 0, 0, w - 40, 30, true, HealthColor(system.Health));
                 if (selection.Expanded(key))
                 {
                     h += 14;
                     foreach (var capability in system.Capabilities)
                         h += Value(group, "cap:" + capability.Id, new DiagnosticsValue(capability.Name, capability.Status,
-                            capability.BaselineLimitation ? null : capability.Health), 20, h, w - 80, 23, 2);
+                            capability.Health), 20, h, w - 80, 23, 2);
                     foreach (var value in system.ExtraRows) h += Value(group, key + ":extra:" + value.Label, value, 20, h, w - 80, 23, 2);
                     h += 14;
                     var contractKey = "contracts:" + system.Id;
@@ -343,7 +343,10 @@ internal sealed partial class RetainedStatisticsShell
         private float Accordion(RectTransform parent, string id, string title, string status, float x, float y, float w, float size, bool isRight, Color? statusColor = null)
         {
             var expanded = selection.Expanded(id);
-            var valueWidth = status.Length == 0 ? 0 : Math.Min(w * .36f, measure.Width(status, size) + 12);
+            // Let the status use spare space after the measured title; retain the
+            // wrapping allocation when both labels need more than the row can offer.
+            var valueWidth = status.Length == 0 ? 0 : Math.Min(measure.Width(status, size) + 12,
+                Math.Max(w * .36f, w - 80 - measure.Width(title, size) - 12));
             var textWidth = Math.Max(1, w - 70 - valueWidth - (valueWidth > 0 ? 10 : 0));
             var displayedTitle = title;
             var statusHeight = status.Length == 0 ? 0 : measure.Height(status, valueWidth, size);

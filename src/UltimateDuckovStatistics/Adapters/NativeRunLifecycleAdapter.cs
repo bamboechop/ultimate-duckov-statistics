@@ -49,10 +49,11 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private readonly ReferenceSubjectGate<CharacterMainControl> mainCharacterGate = new();
     private readonly NativeCallbackLifetime callbackLifetime = new();
     private readonly DeathObservationGate deathObservationGate = new();
-    private readonly NativeRunTerminalBoundary terminalBoundary = new();
+    private readonly NativeRunTerminalBoundary terminalBoundary;
     private readonly NativeRunCompletionBoundary completionBoundary;
     private readonly List<CapabilityRecord> capabilities = new();
     private CharacterMainControl? mainCharacter;
+    private GameObject? startedTutorialHost;
     private bool paused;
     private bool loading;
     private MovementObservationKind? pendingBoundary;
@@ -85,6 +86,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         Func<double>? monotonicSecondsProvider = null)
     {
         completionBoundary = new NativeRunCompletionBoundary(monotonicSecondsProvider);
+        terminalBoundary = new NativeRunTerminalBoundary(monotonicSecondsProvider);
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.checkpointHandler = checkpointHandler ?? throw new ArgumentNullException(nameof(checkpointHandler));
@@ -115,15 +117,18 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             "Run lifecycle and movement have not been initialized.");
     }
 
-    public bool IsActive => tracker.IsActive;
+    // A terminal checkpoint can remain pending after native gameplay has already ended.
+    // Expose capture activity separately from the retiring tracker retained for durability.
+    public bool IsActive => tracker.IsActive
+        && (!terminalBoundary.HasPendingTerminal || terminalBoundary.IsPreparingTerminal);
 
-    public string? CurrentRunId => tracker.ActiveRunId;
+    public string? CurrentRunId => IsActive ? tracker.ActiveRunId : null;
 
-    public string? CurrentMapId => tracker.ActiveMapId;
+    public string? CurrentMapId => IsActive ? tracker.ActiveMapId : null;
 
-    public string? CurrentSegmentId => tracker.ActiveSegmentId;
+    public string? CurrentSegmentId => IsActive ? tracker.ActiveSegmentId : null;
 
-    public EventAttributionContext? CurrentEventContext => tracker.ActiveEventContext;
+    public EventAttributionContext? CurrentEventContext => IsActive ? tracker.ActiveEventContext : null;
 
     public bool HasUncheckpointedRunMutations =>
         terminalBoundary.HasPendingTerminal
@@ -133,65 +138,78 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     public bool RecordShot(ShotRecorded shot)
     {
-        var recorded = callbackLifetime.CanHandleCallbacks && tracker.RecordShot(shot);
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.ShotMutation);
+#endif
+        var recorded = CanRecord(shot.TimestampUtc) && tracker.RecordShot(shot);
         if (recorded) NativeHotPathDiagnostics.CountTrackerShotMutation();
         return recorded;
     }
 
     public bool RecordCombat(CombatRecorded value)
     {
-        var recorded = callbackLifetime.CanHandleCallbacks && tracker.RecordCombat(value);
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.CombatMutation);
+#endif
+        var recorded = CanRecord(value.TimestampUtc) && tracker.RecordCombat(value);
         if (recorded) NativeHotPathDiagnostics.CountTrackerCombatMutation();
         return recorded;
     }
 
     public bool RecordContainer(ContainerLooted value) =>
-        callbackLifetime.CanHandleCallbacks && tracker.RecordContainer(value);
+        CanRecord(value.TimestampUtc) && tracker.RecordContainer(value);
 
     public bool RecordItemUse(ItemUseRecorded value) =>
-        callbackLifetime.CanHandleCallbacks && tracker.RecordItemUse(value);
+        CanRecord(value.TimestampUtc) && tracker.RecordItemUse(value);
 
-    public void SetHealingCapability(CapabilityRecord capability) => tracker.SetHealingCapability(capability.State);
+    public void SetHealingCapability(CapabilityRecord capability)
+    {
+        if (!terminalBoundary.HasPendingTerminal) tracker.SetHealingCapability(capability.State);
+    }
+
+    private bool CanRecord(DateTime timestampUtc) => callbackLifetime.CanHandleCallbacks
+        && (IsActive || (terminalBoundary.PendingTerminalEvent is { } terminal && timestampUtc <= terminal.TimestampUtc));
 
     public bool RecordHealing(HealingApplied value) =>
-        callbackLifetime.CanHandleCallbacks && tracker.RecordHealing(value);
+        CanRecord(value.TimestampUtc) && tracker.RecordHealing(value);
 
     public bool RecordCurrencyFlow(CurrencyFlowRecorded value) =>
-        callbackLifetime.CanHandleCallbacks && tracker.RecordCurrencyFlow(value);
+        CanRecord(value.TimestampUtc) && tracker.RecordCurrencyFlow(value);
 
     public bool UpdateCombatCapabilities(CombatMetricCapabilities capabilities) =>
-        callbackLifetime.CanHandleCallbacks && tracker.UpdateCombatCapabilities(capabilities);
+        callbackLifetime.CanHandleCallbacks && !terminalBoundary.HasPendingTerminal && tracker.UpdateCombatCapabilities(capabilities);
 
     public bool UpdateContainerCapabilities(ContainerMetricCapabilities capabilities) =>
-        callbackLifetime.CanHandleCallbacks && tracker.UpdateContainerCapabilities(capabilities);
+        callbackLifetime.CanHandleCallbacks && !terminalBoundary.HasPendingTerminal && tracker.UpdateContainerCapabilities(capabilities);
 
     public bool UpdateEconomyCapabilities(EconomyMetricCapabilities capabilities) =>
-        callbackLifetime.CanHandleCallbacks && tracker.UpdateEconomyCapabilities(capabilities);
+        callbackLifetime.CanHandleCallbacks && !terminalBoundary.HasPendingTerminal && tracker.UpdateEconomyCapabilities(capabilities);
 
     public bool ObserveEquipment(EquipmentSnapshot snapshot) =>
-        callbackLifetime.CanHandleCallbacks
+        callbackLifetime.CanHandleCallbacks && IsActive
         && tracker.ObserveEquipment(snapshot, DateTime.UtcNow, NowMonotonic());
 
     public bool InvalidateEquipmentObservation() =>
-        callbackLifetime.CanHandleCallbacks
+        callbackLifetime.CanHandleCallbacks && IsActive
         && tracker.SuspendEquipment(DateTime.UtcNow, NowMonotonic());
 
     public bool FlushCheckpoint()
     {
         if (!tracker.IsActive) return DrainPendingCheckpoint();
-        if (terminalBoundary.PendingTerminalEvent is { } pendingTerminalEvent)
-            return SaveCheckpoint(
-                pendingTerminalEvent.TimestampUtc,
-                pendingTerminalEvent.MonotonicSeconds,
-                awaitPersistence: true,
-                pendingTerminalOutcome: TerminalOutcome(pendingTerminalEvent));
+        if (terminalBoundary.HasPendingTerminal)
+            return terminalBoundary.PersistPendingCheckpoint(pendingTerminalEvent => SaveCheckpoint(
+                pendingTerminalEvent.TimestampUtc, pendingTerminalEvent.MonotonicSeconds,
+                awaitPersistence: true, pendingTerminalOutcome: TerminalOutcome(pendingTerminalEvent)), diagnosticHandler);
         return SaveCheckpoint(DateTime.UtcNow, NowMonotonic(), awaitPersistence: true);
     }
 
     public void SetTerminalLoadoutCapture(Func<RunOutcome, TerminalLoadout> capture) => terminalLoadoutCapture = capture;
 
-    private void CaptureTerminalLoadout(RunOutcome outcome) => tracker.CaptureTerminalLoadout(
-        outcome, () => terminalLoadoutCapture?.Invoke(outcome) ?? new TerminalLoadout(), diagnosticHandler);
+    private void CaptureTerminalLoadout(RunOutcome outcome)
+    {
+        if (!terminalBoundary.HasPendingTerminal)
+            tracker.CaptureTerminalLoadout(outcome, () => terminalLoadoutCapture?.Invoke(outcome) ?? new TerminalLoadout(), diagnosticHandler);
+    }
 
     public void SetPlayerDeathObserver(Action<DamageInfo>? observer) => playerDeathObserver = observer;
 
@@ -295,6 +313,9 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
                 && MovementCapability.State == AdapterCapabilityState.Supported
                 && sampleCadence.IsDue(now))
             {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+                using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.MovementSample))
+#endif
                 SampleMainDuck(utcNow, now);
                 sampleCadence.MarkCompleted(now);
             }
@@ -333,6 +354,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         destinationPlacementObserved = false;
         pendingDeathTerminal = false;
         deathObservationGate.Reset();
+        startedTutorialHost = null;
         tracker.Apply(Event(RunLifecycleEventKind.RaidCleared));
     }
 
@@ -412,6 +434,16 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return;
         }
 
+        var raid = RaidUtilities.CurrentRaid;
+        var tutorialStart = !raid.valid;
+        if (tutorialStart)
+        {
+            if (!CanStartUninitializedTutorial(raid)) return;
+            // The verified tutorial has ordinary raid gameplay and evacuation/death
+            // callbacks, but its first attempt has no native RaidInfo identity.
+            tracker.Apply(Event(RunLifecycleEventKind.RaidInitialized));
+        }
+
         var now = NowMonotonic();
         var utcNow = DateTime.UtcNow;
         var transition = tracker.Apply(new RunLifecycleEvent
@@ -422,7 +454,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             StartContext = new RunStartContext
             {
                 SaveGenerationId = generationId,
-                NativeRaidId = ReadNativeRaidId(),
+                NativeRaidId = raid.valid ? raid.ID.ToString(CultureInfo.InvariantCulture) : null,
                 Map = ReadMapIdentity(),
                 IntegrityTags = NativeIntegrityProbe.Read(),
                 GameVersion = Application.version ?? string.Empty,
@@ -448,6 +480,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
             return;
         }
 
+        if (tutorialStart) startedTutorialHost = LevelManager.Instance?.gameObject;
         sampleCadence.Reset();
         checkpointScheduler.Reset();
         movementMapId = tracker.ActiveMapId;
@@ -460,6 +493,19 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         SaveCheckpoint(utcNow, now);
         diagnosticHandler(
             $"Run started id={tracker.ActiveRunId} nativeRaid={ReadNativeRaidId() ?? "unknown"} map={ReadMapIdentity().MapId}.");
+    }
+
+    private bool CanStartUninitializedTutorial(RaidUtilities.RaidInfo raid)
+    {
+        var level = LevelManager.Instance;
+        if (raid.ended || raid.dead || level == null
+            || ReferenceEquals(startedTutorialHost, level.gameObject)) return false;
+
+        var mainSceneId = MultiSceneCore.Instance != null
+            ? MultiSceneCore.MainSceneID
+            : SceneInfoCollection.GetSceneID(level.gameObject.scene.buildIndex);
+        return string.Equals(mainSceneId, "Level_Guide_Main", StringComparison.Ordinal)
+               && SceneInfoCollection.GetSceneInfo(mainSceneId) != null;
     }
 
     private bool ApplyTerminal(RunLifecycleEventKind kind)
@@ -507,6 +553,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void ApplySuspension(RunLifecycleEventKind kind, MovementObservationKind boundaryOnResume)
     {
+        if (terminalBoundary.HasPendingTerminal) return;
         var transition = tracker.Apply(Event(kind));
         if (transition.CheckpointRequired && tracker.IsActive)
         {
@@ -576,6 +623,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         bool awaitPersistence = true,
         RunOutcome? pendingTerminalOutcome = null)
     {
+        if (terminalBoundary.HasPendingTerminal && !pendingTerminalOutcome.HasValue) return false;
         if (checkpointWritePending)
         {
             if (!awaitPersistence) return false;
@@ -673,7 +721,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
         }
 
         mainCharacter.OnSetPositionEvent += OnMainCharacterSetPosition;
-        if (tracker.IsActive && MovementCapability.State == AdapterCapabilityState.Supported)
+        if (IsActive && MovementCapability.State == AdapterCapabilityState.Supported)
         {
             var position = mainCharacter.transform.position;
             tracker.ObserveMovement(
@@ -742,7 +790,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void BeginRouteTransition()
     {
-        if (routeTransitionPending || !tracker.IsActive) return;
+        if (routeTransitionPending || !IsActive) return;
         routeTransitionPending = true;
         destinationPlacementObserved = false;
         pendingBoundary = MovementObservationKind.LoadingBoundary;
@@ -756,6 +804,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private void TryResumeDestination()
     {
         if (!routeTransitionPending
+            || !IsActive
             || loading
             || paused
             || !destinationPlacementObserved
@@ -1017,7 +1066,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     {
         if (raid.dead)
         {
-            pendingDeathTerminal = tracker.IsActive;
+            pendingDeathTerminal = IsActive;
             return;
         }
 
@@ -1027,7 +1076,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     private void OnRaidDead(RaidUtilities.RaidInfo raid)
     {
         CaptureTerminalLoadout(RunOutcome.Died);
-        pendingDeathTerminal = tracker.IsActive;
+        pendingDeathTerminal = IsActive;
     }
 
     private void OnLevelInitialized() => SynchronizeMainCharacter();
@@ -1042,7 +1091,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void OnMainCharacterDead(DamageInfo info)
     {
-        if (!deathObservationGate.TryObserve(tracker.IsActive))
+        if (!deathObservationGate.TryObserve(IsActive))
         {
             return;
         }
@@ -1099,7 +1148,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
 
     private void RefreshActiveIntegrity()
     {
-        if (!tracker.IsActive)
+        if (!IsActive)
         {
             return;
         }
@@ -1125,7 +1174,7 @@ internal sealed class NativeRunLifecycleAdapter : IDisposable, IRetryableCleanup
     {
         if (!callbackLifetime.CanHandleCallbacks
             || !mainCharacterGate.Accepts(character)
-            || !tracker.IsActive)
+            || !IsActive)
         {
             return;
         }

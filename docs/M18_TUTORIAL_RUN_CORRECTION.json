@@ -1,0 +1,157 @@
+{
+  "SourceCommit": "9f503b7bfafd0350b427d6eeb3de55b02be7e47a",
+  "Version": "1.0.0-rc.1",
+  "Correction": "Start the first playable tutorial run when the exact verified tutorial main scene is present and native RaidInfo is invalid, not ended and not dead. Normal raid, input, loading, pause and player-health guards remain. The UDS run GUID supplies identity; NativeRaidId stays absent.",
+  "NativeEvidence": {
+    "GameVersion": "2.3.30",
+    "GameBuild": "24013657",
+    "CoreAssemblySha256": "298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f",
+    "SceneInfoCollectionPathId": 76724,
+    "MainSceneId": "Level_Guide_Main",
+    "MainSceneBuildIndex": 25,
+    "SubSceneIds": [
+      "Level_Guide_1",
+      "Level_Guide_2"
+    ],
+    "Extraction": "Active level24 Exit GO2025 / CountDownArea11154 completes after 5 seconds and invokes SceneLoaderProxy11309.LoadScene. The proxy targets Base/FirstTimeToBase with notifyEvacuation=true and showClosure=true, emitting the existing OnEvacuated boundary twice around closure.",
+    "DeathRetry": "NotifyDead emits OnRaidEnd then OnRaidDead, followed by OnMainCharacterDead. The invalid first raid becomes ended/dead; the tutorial death override reloads the main scene, whose initialization creates the next valid native raid ID.",
+    "HostLifetime": "LevelConfig creates and parents LevelManager to the main scene. Subscene changes retain it; full death reload destroys it. A consumed GameObject reference prevents fallback rearming across duplicate evacuation callbacks."
+  },
+  "DataSemantics": "Existing metrics, run/segment projection, terminal handling, checkpoints, recovery and exports are reused with no schema change or Duckov save mutation. Tutorial Cash captured during the active run receives Raid context. Past unobserved duration/movement/events are not reconstructed from lifetime totals.",
+  "Validation": {
+    "NewTests": 12,
+    "FailedAgainstPriorSource": 6,
+    "FocusedPassed": 12,
+    "MainPassedBeforeShutdownPerConfiguration": 1877,
+    "DeploymentTestsPassedAfterShutdownPerConfiguration": 2,
+    "CompleteLocalMainPassedPerConfiguration": 1879,
+    "ShellPassedPerConfiguration": 11,
+    "Configurations": [
+      "Debug",
+      "Release"
+    ],
+    "NativeWarningsPerConfiguration": 0,
+    "FormattingAndAnalyzers": "Pass",
+    "InstalledNativeProbe": "Pass",
+    "OrdinaryReleaseIlAndArtifactPathAudits": "Pass",
+    "IndependentCorrectionReview": "Pass: da796e673a84ea6fb66bf56181a90d928b5fdc01..9f503b7bfafd0350b427d6eeb3de55b02be7e47a; no confirmed P1/P2.",
+    "Cases": [
+      "both tutorial subscenes, item/Cash/movement retention, duplicate evacuation, JSON/CSV and current-format reopen",
+      "subscene route stays in one run; loading and placement excluded",
+      "death and subsequent valid native-ID retry",
+      "ordinary/prologue/ended/dead/no-input/paused/non-raid/loading exclusions",
+      "terminal write failure retries the original outcome without restarting"
+    ]
+  },
+  "Reproducibility": {
+    "SourceCommit": "9f503b7bfafd0350b427d6eeb3de55b02be7e47a",
+    "DotnetSdk": "8.0.424",
+    "Result": "Pass",
+    "Checkouts": [
+      {
+        "Checkout": "checkout-a",
+        "Hashes": {
+          "candidate.zip": "819828a5806a6e18ac1f60d486bd1c1593a23c6141b725d546aba57035e1c623",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "bacee530b8636b067cc4ce2f6613fb555360031a9b0aae6bc61c51de8c05ac73",
+          "UltimateDuckovStatistics.pdb": "940e058f80f174a9c283d9a4bb7ee2731784d7d18557f51041b2f75f2644d9fe"
+        }
+      },
+      {
+        "Checkout": "different-long-checkout-root-b",
+        "Hashes": {
+          "candidate.zip": "819828a5806a6e18ac1f60d486bd1c1593a23c6141b725d546aba57035e1c623",
+          "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+          "UltimateDuckovStatistics.Core.pdb": "83fb3264684cec169667a4308ecb6ce9b272076c19191be367ae8b161beee4ab",
+          "UltimateDuckovStatistics.dll": "bacee530b8636b067cc4ce2f6613fb555360031a9b0aae6bc61c51de8c05ac73",
+          "UltimateDuckovStatistics.pdb": "940e058f80f174a9c283d9a4bb7ee2731784d7d18557f51041b2f75f2644d9fe"
+        }
+      }
+    ]
+  },
+  "OrdinaryCheckoutDllAndPdbMatchBothRoots": true,
+  "CoreDllUnchangedFromOriginalCandidate": true,
+  "Archive": {
+    "File": "UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+    "Bytes": 623152,
+    "Sha256": "819828a5806a6e18ac1f60d486bd1c1593a23c6141b725d546aba57035e1c623"
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687104,
+      "Sha256": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1098752,
+      "Sha256": "bacee530b8636b067cc4ce2f6613fb555360031a9b0aae6bc61c51de8c05ac73"
+    }
+  ],
+  "CampaignSha256": "b1fca51366c49e7cdae24edcc78b5d8133eecec9fb0363d3e2bb6bd81a29e3fe",
+  "Deployment": {
+    "Result": "Pass",
+    "SourceCommit": "9f503b7bfafd0350b427d6eeb3de55b02be7e47a",
+    "VerifiedUtc": "2026-09-08T11:36:04.0080706Z",
+    "DuckovClosedDuringDeployment": true,
+    "FiveInstalledFileHashesMatch": true,
+    "UdsV1DataFilesUnchanged": 51,
+    "TransactionResidue": false,
+    "VerifiedPriorBackupId": "095dabe7c9304654b751854427c546f4",
+    "PreviousInstalledSource": "78265dc5e2266bf1c7918cb7b4ac4d2a093bc2cf",
+    "InstalledHashes": {
+      "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+      "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+      "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+      "UltimateDuckovStatistics.Core.dll": "1b8c95ad4489d0615863d1387fe6737c4ad6989410bc9fd36480c916b4c0b073",
+      "UltimateDuckovStatistics.dll": "bacee530b8636b067cc4ce2f6613fb555360031a9b0aae6bc61c51de8c05ac73"
+    }
+  },
+  "NativeTutorialAcceptance": "Pass for the subsequent native save-3 tutorial run: one start, two guide segments, one extraction and screenshot/profile/JSON/CSV agreement. M18_TUTORIAL_NATIVE_QUALIFICATION.json preserves export revision 227 of generation 5872f0daafc14aabb2cd8207cbcc4494. Completed-run cold reopen passed; a separate false lifetime Cash outflow was found at direct shutdown (M18_TUTORIAL_REOPEN_QUALIFICATION.json), with correction in M18_DIRECT_QUIT_CASH_CORRECTION.json. Native death/retry remains open; the earlier baseline export is unchanged.",
+  "EarlierNativeAcceptance": {
+    "SourceCommit": "78265dc5e2266bf1c7918cb7b4ac4d2a093bc2cf",
+    "UserConfirmed": [
+      "pause-menu entry opens Statistics",
+      "repeated close/reopen restores controls",
+      "Profile storage Working with neutral Pending writes"
+    ],
+    "ShutdownUtc": "2026-09-08T11:23:08.0510743Z",
+    "Observed": "Six successful base-menu entry messages and clean generation closure; no economy boundary-pending warning in the preserved session log.",
+    "LogSha256": "c12f9f5adde273f67d16f2f185b022637ccd19c808450de2d77436ce607fc50f"
+  },
+  "LocalEvidenceSha256": {
+    "m18-tutorial-before.log": "088a77d1b690c45bc826475756d43c59d29086c5e033b46785fa51883efbe10b",
+    "m18-tutorial-focused.log": "524aba838e9bb3c56ec136e7fa8bd91902c49b1a73beb0e39cb359a69d741c40",
+    "m18-tutorial-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "m18-tutorial-probe.log": "131c9478afd4576d1b651117c551b432a09cb6ca90175ade642d6bd03a1cf46f",
+    "m18-tutorial-repro.log": "753b7639931d61601f4013c18128b079b80e86a6883cb1d8ffea933d8f49a5d2",
+    "m18-tutorial-campaign.log": "ff1d4381d005c52c61ff1450b1cf7a577ec3145af43a52046ad600317d5eb282",
+    "m18-tutorial-deploy.log": "d88f1c98c0db3fda5b8c6024be13e258d043934333874864420428f3d84f3f1a",
+    "m18-native-tutorial-evidence-20260908.json": "b95192865a384329c614eb8506d2e9404b082b06861cff387c7b7bd216907a9d",
+    "m18-slot3-access-confirmed-shutdown.log": "c12f9f5adde273f67d16f2f185b022637ccd19c808450de2d77436ce607fc50f",
+    "m18-tutorial-Debug-main.log": "a5c7967fd5d06bab390e07bf2b1aabe89e9c94b429d1c2d692f0a6e49626af10",
+    "m18-tutorial-Debug-shell.log": "523dceb9c79d4ed5ecf487069faafdfe50609d7f7c4eaca1ecfa3a0ae786362e",
+    "m18-tutorial-Debug-native.log": "5adee7106c99dbb1422aa27dfcb6b7d83f89f6dfeaff7dbab1decb0c37065ac3",
+    "m18-tutorial-Debug-deployment-tests.log": "0d85cd408f14a75d3c4d4461ea460de274baf505ddc57c37697b1867f270e6df",
+    "m18-tutorial-Release-main.log": "aeef848506d932978cf1fbfd54944bde08957c82c50559ec920f0347c20b088f",
+    "m18-tutorial-Release-shell.log": "1d68694c5d0a458addd61675973bf3356e963d250f05823a092305389f3b3546",
+    "m18-tutorial-Release-native.log": "41189cec7db46c7ffe294a1466dc3af8fed4c9841f28b76787c575f537b21966",
+    "m18-tutorial-Release-deployment-tests.log": "cda61093e98249e517e5ddaf010f59e72af5536b9875b1d8d6b3a0d78d9d5897"
+  }
+}

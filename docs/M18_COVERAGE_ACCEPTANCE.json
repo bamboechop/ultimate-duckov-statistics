@@ -1,0 +1,23 @@
+{
+  "SchemaVersion": 1,
+  "RecordedUtc": "2026-09-10T10:47:01.0821093Z",
+  "Decision": "Accepted by user for this release",
+  "UserAnswer": "Accept both limits",
+  "Question": "Do you accept these two remaining coverage limits for this release: the controlled two-enemy firing test was not exercised, and large-history validation covers 1,000 runs in automated tests while native UI/export was checked with five runs?",
+  "ControlledMultiTarget": {
+    "Evidence": "M18_MULTI_TARGET_FEASIBILITY.json",
+    "Result": "Not exercised",
+    "Acceptance": "Accepted coverage limitation; no repeatable paired encounter was available. No farming or further capture requested."
+  },
+  "History": {
+    "Evidence": "M18_ITEM2_CLOSEOUT.json",
+    "ManagedRuns": 1000,
+    "ManagedSegments": 2000,
+    "NativeProfileRuns": 5,
+    "Result": "Bounded coverage",
+    "Acceptance": "Accepted as stated; no unlimited-history native performance or resource claim."
+  },
+  "NativeResourceEvidence": "M18_RESOURCE_NATIVE_QUALIFICATION.json",
+  "PerformanceDecision": "M18_PERFORMANCE_ACCEPTANCE.json remains unchanged; observed deviations were separately accepted.",
+  "Publication": "This decision does not authorize merge, tags, GitHub release or Workshop upload. Preview approval and subscription installation remain user-controlled."
+}

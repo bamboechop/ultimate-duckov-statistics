@@ -5,20 +5,14 @@ namespace UltimateDuckovStatistics.Core.Statistics;
 
 public static class WeaponCapabilityIds
 {
-    public const string TriggerAttempts = "native-trigger-attempts";
     public const string FiringActions = "native-firing-actions";
-    public const string AmmunitionConsumption = "native-ammunition-consumption";
-    public const string Projectiles = "native-projectile-count";
     public const string WeaponIdentity = "native-weapon-identity";
     public const string AmmunitionIdentity = "native-ammunition-identity";
     public const string WeaponAmmunitionPairing = "native-weapon-ammunition-pairing";
 
     public static IReadOnlyList<string> All { get; } = new[]
     {
-        TriggerAttempts,
         FiringActions,
-        AmmunitionConsumption,
-        Projectiles,
         WeaponIdentity,
         AmmunitionIdentity,
         WeaponAmmunitionPairing
@@ -30,12 +24,6 @@ public sealed class WeaponMetricTotals
 {
     [DataMember(Order = 1)]
     public long FiringActions { get; set; }
-
-    [DataMember(Order = 2)]
-    public long AmmunitionUnitsConsumed { get; set; }
-
-    [DataMember(Order = 3)]
-    public long Projectiles { get; set; }
 }
 
 [DataContract]
@@ -106,12 +94,6 @@ public sealed class WeaponStatisticsAggregate
 
     [DataMember(Order = 9)]
     public long UncorrelatedFiringActions { get; set; }
-
-    [DataMember(Order = 10)]
-    public bool HistoricalPairingUnavailable { get; set; }
-
-    [DataMember(Order = 11)]
-    public string HistoricalPairingProvenance { get; set; } = string.Empty;
 }
 
 public sealed class WeaponStatisticsNormalizationResult
@@ -172,10 +154,6 @@ public static class WeaponStatisticsReducer
         PreflightPairingMerge(target, source);
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
         target.Capabilities = MergeCapabilities(target.Capabilities, source.Capabilities);
-        target.HistoricalPairingUnavailable |= source.HistoricalPairingUnavailable;
-        target.HistoricalPairingProvenance = MergeProvenance(
-            target.HistoricalPairingProvenance,
-            source.HistoricalPairingProvenance);
         Add(target.Totals, source.Totals);
         foreach (var sourceWeapon in source.Weapons.Values)
         {
@@ -290,11 +268,6 @@ public static class WeaponStatisticsReducer
         if (statistics.UncorrelatedAmmunitionFiringActions == null)
         {
             statistics.UncorrelatedAmmunitionFiringActions = new Dictionary<string, long>(StringComparer.Ordinal);
-            result.Changed = true;
-        }
-        if (statistics.HistoricalPairingProvenance == null)
-        {
-            statistics.HistoricalPairingProvenance = string.Empty;
             result.Changed = true;
         }
 
@@ -431,8 +404,7 @@ public static class WeaponStatisticsReducer
             || statistics.Capabilities == null
             || statistics.WeaponAmmunitionPairs == null
             || statistics.UncorrelatedWeaponFiringActions == null
-            || statistics.UncorrelatedAmmunitionFiringActions == null
-            || statistics.HistoricalPairingProvenance == null)
+            || statistics.UncorrelatedAmmunitionFiringActions == null)
         {
             throw new ArgumentException("Weapon statistics are incomplete.", nameof(statistics));
         }
@@ -490,8 +462,6 @@ public static class WeaponStatisticsReducer
     public static WeaponMetricCapabilities CloneCapabilities(WeaponMetricCapabilities source) => new()
     {
         FiringActions = CloneAvailability(source.FiringActions),
-        AmmunitionConsumption = CloneAvailability(source.AmmunitionConsumption),
-        Projectiles = CloneAvailability(source.Projectiles),
         WeaponIdentity = CloneAvailability(source.WeaponIdentity),
         AmmunitionIdentity = CloneAvailability(source.AmmunitionIdentity),
         WeaponAmmunitionPairing = CloneAvailability(source.WeaponAmmunitionPairing)
@@ -541,15 +511,12 @@ public static class WeaponStatisticsReducer
         ValidateAggregate(aggregate);
         return !aggregate.WasRepairedFromInvalidState
                && aggregate.Totals.FiringActions == 0
-               && aggregate.Totals.AmmunitionUnitsConsumed == 0
-               && aggregate.Totals.Projectiles == 0
                && aggregate.Weapons.Count == 0
                && aggregate.AmmunitionTypes.Count == 0
                && aggregate.WeaponAmmunitionPairs.Count == 0
                && aggregate.UncorrelatedWeaponFiringActions.Count == 0
                && aggregate.UncorrelatedAmmunitionFiringActions.Count == 0
-               && aggregate.UncorrelatedFiringActions == 0
-               && !aggregate.HistoricalPairingUnavailable;
+               && aggregate.UncorrelatedFiringActions == 0;
     }
 
     private static WeaponAggregate GetOrCreateWeapon(WeaponStatisticsAggregate target, ShotRecorded shot)
@@ -670,27 +637,11 @@ public static class WeaponStatisticsReducer
         {
             target.FiringActions = SaturatingAdd(target.FiringActions, shot.FiringActionCount.Value);
         }
-
-        if (shot.AmmunitionUnitsConsumed.HasValue)
-        {
-            target.AmmunitionUnitsConsumed = SaturatingAdd(
-                target.AmmunitionUnitsConsumed,
-                shot.AmmunitionUnitsConsumed.Value);
-        }
-
-        if (shot.ProjectileCount.HasValue)
-        {
-            target.Projectiles = SaturatingAdd(target.Projectiles, shot.ProjectileCount.Value);
-        }
     }
 
     private static void Add(WeaponMetricTotals target, WeaponMetricTotals source)
     {
         target.FiringActions = SaturatingAdd(target.FiringActions, source.FiringActions);
-        target.AmmunitionUnitsConsumed = SaturatingAdd(
-            target.AmmunitionUnitsConsumed,
-            source.AmmunitionUnitsConsumed);
-        target.Projectiles = SaturatingAdd(target.Projectiles, source.Projectiles);
     }
 
     private static WeaponMetricCapabilities MergeCapabilities(
@@ -698,8 +649,6 @@ public static class WeaponStatisticsReducer
         WeaponMetricCapabilities observed) => new()
         {
             FiringActions = MergeAvailability(current.FiringActions, observed.FiringActions),
-            AmmunitionConsumption = MergeAvailability(current.AmmunitionConsumption, observed.AmmunitionConsumption),
-            Projectiles = MergeAvailability(current.Projectiles, observed.Projectiles),
             WeaponIdentity = MergeAvailability(current.WeaponIdentity, observed.WeaponIdentity),
             AmmunitionIdentity = MergeAvailability(current.AmmunitionIdentity, observed.AmmunitionIdentity),
             WeaponAmmunitionPairing = MergeAvailability(
@@ -744,20 +693,6 @@ public static class WeaponStatisticsReducer
             result.InvalidCapabilities = true;
         }
 
-        if (capabilities.AmmunitionConsumption == null)
-        {
-            capabilities.AmmunitionConsumption = new MetricAvailability();
-            result.Changed = true;
-            result.InvalidCapabilities = true;
-        }
-
-        if (capabilities.Projectiles == null)
-        {
-            capabilities.Projectiles = new MetricAvailability();
-            result.Changed = true;
-            result.InvalidCapabilities = true;
-        }
-
         if (capabilities.WeaponIdentity == null)
         {
             capabilities.WeaponIdentity = new MetricAvailability();
@@ -782,8 +717,6 @@ public static class WeaponStatisticsReducer
         foreach (var availability in new[]
                  {
                      capabilities.FiringActions,
-                     capabilities.AmmunitionConsumption,
-                     capabilities.Projectiles,
                      capabilities.WeaponIdentity,
                      capabilities.AmmunitionIdentity,
                      capabilities.WeaponAmmunitionPairing
@@ -815,27 +748,11 @@ public static class WeaponStatisticsReducer
             result.Changed = true;
             result.InvalidCounters = true;
         }
-
-        if (totals.AmmunitionUnitsConsumed < 0)
-        {
-            totals.AmmunitionUnitsConsumed = 0;
-            result.Changed = true;
-            result.InvalidCounters = true;
-        }
-
-        if (totals.Projectiles < 0)
-        {
-            totals.Projectiles = 0;
-            result.Changed = true;
-            result.InvalidCounters = true;
-        }
     }
 
     private static void ValidateCapabilities(WeaponMetricCapabilities capabilities)
     {
         if (capabilities.FiringActions == null
-            || capabilities.AmmunitionConsumption == null
-            || capabilities.Projectiles == null
             || capabilities.WeaponIdentity == null
             || capabilities.AmmunitionIdentity == null
             || capabilities.WeaponAmmunitionPairing == null)
@@ -846,9 +763,7 @@ public static class WeaponStatisticsReducer
 
     private static void ValidateTotals(WeaponMetricTotals totals)
     {
-        if (totals.FiringActions < 0
-            || totals.AmmunitionUnitsConsumed < 0
-            || totals.Projectiles < 0)
+        if (totals.FiringActions < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(totals), "Weapon counters cannot be negative.");
         }
@@ -916,8 +831,7 @@ public static class WeaponStatisticsReducer
             var uncorrelated = statistics.UncorrelatedWeaponFiringActions.GetValueOrDefault(weapon.WeaponId);
             if (CheckedAdd(paired, uncorrelated) > weapon.Totals.FiringActions)
                 throw new ArgumentException($"Weapon-ammunition pairs exceed weapon '{weapon.WeaponId}' firing actions.");
-            if (!statistics.HistoricalPairingUnavailable
-                && statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
+            if (statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
                 && CheckedAdd(paired, uncorrelated) != weapon.Totals.FiringActions)
                 throw new ArgumentException($"Weapon '{weapon.WeaponId}' firing actions do not reconcile with correlated and explicitly uncorrelated actions.");
         }
@@ -929,13 +843,11 @@ public static class WeaponStatisticsReducer
             var uncorrelated = statistics.UncorrelatedAmmunitionFiringActions.GetValueOrDefault(ammunition.AmmunitionId);
             if (CheckedAdd(paired, uncorrelated) > ammunition.Totals.FiringActions)
                 throw new ArgumentException($"Weapon-ammunition pairs exceed ammunition '{ammunition.AmmunitionId}' firing actions.");
-            if (!statistics.HistoricalPairingUnavailable
-                && statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
+            if (statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
                 && CheckedAdd(paired, uncorrelated) != ammunition.Totals.FiringActions)
                 throw new ArgumentException($"Ammunition '{ammunition.AmmunitionId}' firing actions do not reconcile with correlated and explicitly uncorrelated actions.");
         }
-        if (!statistics.HistoricalPairingUnavailable
-            && statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
+        if (statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
             && CheckedAdd(pairTotal, statistics.UncorrelatedFiringActions) != statistics.Totals.FiringActions)
             throw new ArgumentException("Firing actions do not reconcile with correlated and explicitly uncorrelated actions.");
     }
@@ -946,10 +858,6 @@ public static class WeaponStatisticsReducer
         foreach (var value in values) total = CheckedAdd(total, value);
         return total;
     }
-
-    private static string MergeProvenance(string? left, string? right) => string.Join(
-        " | ",
-        new[] { left, right }.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal));
 
     private static void Validate(ShotRecorded shot)
     {
@@ -968,8 +876,6 @@ public static class WeaponStatisticsReducer
         }
 
         ValidateMetric(shot.FiringActionCount, shot.Capabilities.FiringActions, nameof(shot.FiringActionCount));
-        ValidateMetric(shot.AmmunitionUnitsConsumed, shot.Capabilities.AmmunitionConsumption, nameof(shot.AmmunitionUnitsConsumed));
-        ValidateMetric(shot.ProjectileCount, shot.Capabilities.Projectiles, nameof(shot.ProjectileCount));
         ValidateIdentity(shot.WeaponId, shot.WeaponDisplayName, shot.Capabilities.WeaponIdentity, "weapon");
         ValidateIdentity(
             shot.AmmunitionId,

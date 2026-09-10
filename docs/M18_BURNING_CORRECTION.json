@@ -1,0 +1,138 @@
+{
+  "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
+  "Problem": "A user-observed Brand-Muni burn kill after bow/SR-3M switches received no player credit. M18_BURNING_QUALIFICATION.json preserves the failed observation on f0187b2, including 6 Environmental and 29 Unknown periodic damage.",
+  "NativeCoreAssemblySha256": "298d5d5885427632d5a94b2f3ce587f8ebc9528ec71e575a475158c326ecae8f",
+  "NativeContracts": [
+    "Skill_Grenade retains the native thrower on the launched Grenade and sets its item identity after Launch.",
+    "Grenade.Explode invokes managed Object.Instantiate(Object, Vector3, Quaternion) for createOnExlode; original prefab and exact returned clone can be observed within the owned grenade scope.",
+    "The fire-zone clone contains ZoneDamage. ZoneDamage clears fromCharacter; Health forwards that missing actor into AddBuff and DamageAction later reads the retained Buff fields.",
+    "AddBuff reuses an existing same-ID buff without replacing its original actor/item. New and repeated applications therefore require separate observation and conservative origin merging.",
+    "Player and enemy grenade skills share the fire-zone prefab, so prefab identity alone cannot establish player ownership."
+  ],
+  "Correction": "Weak instance correlations retain the actual launch actor and native item through the exact created zone and its buff applications. Delayed damage retains originating map/segment/equipment across held-weapon changes. Missing or conflicting origins remain unknown; ordinary non-grenade buff behavior and supported sibling hooks remain active. Correlations clear on run/generation change, trust loss and disposal. Native damage fields, buff fields and return values are unchanged.",
+  "Validation": {
+    "NewRegressionCases": 16,
+    "MainPassedPerConfiguration": 1900,
+    "MainTestBatches": "1,898 passed with Duckov running; the remaining two deployment tests passed after the user closed Duckov, in each configuration.",
+    "ShellPassedPerConfiguration": 11,
+    "Configurations": [
+      "Debug",
+      "Release"
+    ],
+    "NativeWarningsPerConfiguration": 0,
+    "FormattingAndAnalyzers": "Pass",
+    "InstalledNativeProbe": "Pass, including the new launch and exact managed creation contracts",
+    "OrdinaryReleaseIlAndArtifactPathAudits": "Pass",
+    "IndependentCorrectionReview": {
+      "Range": "24e53981494eb4a4eb7057ef7e168ef5dee15054..e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
+      "Result": "Pass; no actionable P1/P2 in the complete immutable range; endpoint rechecked.",
+      "Coverage": "Production launch, exact prefab/clone, zone, AddBuff, periodic effect and Health path; actor policy, mixed origins, optional-hook failure, patch trust, context invalidation and cleanup ownership.",
+      "Limits": [
+        "A cold native repeat must establish that the actual Unity JIT executes the managed Instantiate postfix. Contract resolution, tests and patch metadata do not establish this.",
+        "When an enemy fire-gun burn is mixed with player grenade fire, ownership remains Unknown but the generic fallback can retain the first native buff weapon label. This ambiguity also exists in the preceding generic buff path; the review did not classify it as an introduced P2."
+      ]
+    }
+  },
+  "Reproducibility": {
+    "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
+    "DotnetSdk": "8.0.424",
+    "Result": "Pass",
+    "Checkouts": [
+      {
+        "Checkout": "checkout-a",
+        "Hashes": {
+          "candidate.zip": "4cdd23d72c7a342f37680c2a113cad244cb7c481da7bc0b7382558aefe7078c8",
+          "UltimateDuckovStatistics.Core.dll": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549",
+          "UltimateDuckovStatistics.Core.pdb": "6de1ea204d745973cd37e5aaf7cad474547be2c4129cc8c8416cf5f3e36f2aaa",
+          "UltimateDuckovStatistics.dll": "17da90caecaa76c153dd1242438713b6e2a87b3329e7e361758d54c1fedc9c57",
+          "UltimateDuckovStatistics.pdb": "ba84a5e8202abcf3f668d264344fb8cc15d932a451b050a1bd493b6566f6a2c4"
+        }
+      },
+      {
+        "Checkout": "different-long-checkout-root-b",
+        "Hashes": {
+          "candidate.zip": "4cdd23d72c7a342f37680c2a113cad244cb7c481da7bc0b7382558aefe7078c8",
+          "UltimateDuckovStatistics.Core.dll": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549",
+          "UltimateDuckovStatistics.Core.pdb": "6de1ea204d745973cd37e5aaf7cad474547be2c4129cc8c8416cf5f3e36f2aaa",
+          "UltimateDuckovStatistics.dll": "17da90caecaa76c153dd1242438713b6e2a87b3329e7e361758d54c1fedc9c57",
+          "UltimateDuckovStatistics.pdb": "ba84a5e8202abcf3f668d264344fb8cc15d932a451b050a1bd493b6566f6a2c4"
+        }
+      }
+    ]
+  },
+  "OrdinaryCheckoutDllPdbAndZipMatchBothRoots": true,
+  "CoreDllUnchanged": false,
+  "ManagedPerformance": "Historical 4068480 managed-workload results remain evidence for that source. The changed Core DLL is not byte-identical to that workload source; no new performance acceptance is claimed.",
+  "Archive": {
+    "File": "UltimateDuckovStatistics-v1.0.0-rc.1.zip",
+    "Bytes": 627022,
+    "Sha256": "4cdd23d72c7a342f37680c2a113cad244cb7c481da7bc0b7382558aefe7078c8"
+  },
+  "Files": [
+    {
+      "File": "info.ini",
+      "Bytes": 336,
+      "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+    },
+    {
+      "File": "INSTALL.md",
+      "Bytes": 6820,
+      "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+    },
+    {
+      "File": "LICENSE",
+      "Bytes": 1096,
+      "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+    },
+    {
+      "File": "UltimateDuckovStatistics.Core.dll",
+      "Bytes": 687616,
+      "Sha256": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549"
+    },
+    {
+      "File": "UltimateDuckovStatistics.dll",
+      "Bytes": 1107968,
+      "Sha256": "17da90caecaa76c153dd1242438713b6e2a87b3329e7e361758d54c1fedc9c57"
+    }
+  ],
+  "CampaignSha256": "0e8d9d16e517ea3ffe4979301e0b3937ae0a793936e67ee331c06491cd6f3ca5",
+  "Deployment": {
+    "Result": "Pass for corrected package deployment and byte-for-byte data preservation; native reopen and burn repeat remain pending.",
+    "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
+    "StartedUtc": "2026-09-08T14:58:43.2281354Z",
+    "VerifiedUtc": "2026-09-08T14:58:44.1397512Z",
+    "DuckovClosedDuringDeployment": true,
+    "FiveInstalledFileHashesMatch": true,
+    "PreviousInstalledSource": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+    "ExactInstalledFileCount": 5,
+    "AllUdsDataFilesUnchanged": 1903,
+    "V1DataFilesUnchanged": 647,
+    "PreV1AndOtherUdsDataFilesUnchanged": 1256,
+    "VerifiedPriorBackupId": "f714033109f24b1383871eaca3c8bcfd",
+    "TransactionResidue": false,
+    "InstalledHashes": {
+      "info.ini": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5",
+      "INSTALL.md": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016",
+      "LICENSE": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c",
+      "UltimateDuckovStatistics.Core.dll": "293ff0158ec6d3b80eef46a952ecd6bf8b1157f791a7cd539f4a418a8c1a2549",
+      "UltimateDuckovStatistics.dll": "17da90caecaa76c153dd1242438713b6e2a87b3329e7e361758d54c1fedc9c57"
+    }
+  },
+  "NativeCorrectionAcceptance": "Pass for the observed same-map burning damage and final blow through bow/SR-3M switches. M18_BURNING_SWITCH_KILL_QUALIFICATION.json records one Brand-Muni use, 35 player damage and one Effect kill under Brand-Muni, six weapon selections during the combat window, originating throw equipment retained, zero firing/melee actions, exact saved-profile/JSON/CSV agreement and all seven prior runs unchanged. Historical failed runs are preserved. Mixed-source/cross-map effects and other M18 gates remain separate.",
+  "NativePerformanceCaptures": 0,
+  "LocalEvidenceSha256": {
+    "m18-burning-final-Debug-tests.log": "d4d8ef7a60931262837c88290b0a36deb63ec7ac56cd62ccda16a4a7bc164e74",
+    "m18-burning-final-Debug-shell.log": "5c7a51729b3c16e4549102593342c8d7f432df5486ed6c14046471f2b9815cdb",
+    "m18-burning-final-Debug-build.log": "13f8e93b159fb7a750c0043b284cd90fa7e7546248f3300f9ff279fbc88843e4",
+    "m18-burning-final-Release-tests.log": "0d3297d12244a808f3897e0949705132fef31509f744fda4f29b1be5ebe8777c",
+    "m18-burning-final-Release-shell.log": "03f14aab19b6335de4d20ee36cc427ac1428f1004fb9263f55309cbf8e4b054f",
+    "m18-burning-final-Release-build.log": "ac8affb9e599a249f74672083645724893b91155f61d5e8ff65d952166ee9996",
+    "m18-burning-final-native-probe.log": "131c9478afd4576d1b651117c551b432a09cb6ca90175ade642d6bd03a1cf46f",
+    "m18-burning-repro.log": "f69c13acaf28764fba5fc2740febdb673173363ea21dc03df9fe14a115efe54e",
+    "m18-burning-package.log": "97fa9aa5f6f2db0ecf89394c6d5264fab57fe97763f3bba16898685579c4a8c9",
+    "m18-burning-closed-Debug-tests.log": "a64fd5a980a0463b8745cde9e968cf0b76d359598671ec1313b1e963a586ee04",
+    "m18-burning-closed-Release-tests.log": "8d6d9e87032644b5dea1fd1b4024999e6fa3ad7a950209d1afac560b7c3d8118",
+    "m18-burning-deployment.log": "46312304f610a83b7c896aa5b05e095910db9b0a13b3450a3ee78f3c9e350410"
+  },
+  "NativeReopen": "Pass: M18_BURNING_REOPEN_QUALIFICATION.json preserves the cold startup at 2026-09-08T15:15:39.5768744Z, 11/11 installed combat hooks, Supported grenade-hazard capability, exact five-run statistics and unchanged Money/Cash 13954/60. Actual burn attribution remains unexercised."
+}

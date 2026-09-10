@@ -60,7 +60,6 @@ public sealed class RunDataProjection
     public long EffectKills { get; }
     public long EnvironmentalKills { get; }
     public long UnknownKills { get; }
-    public long HistoricalUnclassifiedKills { get; }
     public bool ClassificationComplete { get; }
     public bool RangedMeleeExact { get; }
     public string KillClassificationProvenance { get; }
@@ -69,7 +68,7 @@ public sealed class RunDataProjection
     public RunDataProjection(RunSummary run)
     {
         if (run == null) throw new ArgumentNullException(nameof(run));
-        var terminal = run.TerminalLoadout ?? TerminalLoadout.Historical();
+        var terminal = run.TerminalLoadout ?? new TerminalLoadout();
         TerminalState = terminal.State;
         TerminalProvenance = terminal.Provenance;
         RootSlotsComplete = terminal.Snapshot?.CharacterSlotStateComplete == true;
@@ -84,13 +83,13 @@ public sealed class RunDataProjection
                     ?? Array.Empty<TerminalNestedSlot>()));
         }).ToArray() ?? Array.Empty<TerminalRootSlot>());
         KillsByYou = run.CombatStatistics.Totals.KillsByYou;
-        var kills = run.CombatStatistics.Totals.PlayerKills ?? PlayerKillPartition.Historical(KillsByYou);
+        var kills = run.CombatStatistics.Totals.PlayerKills ?? new PlayerKillPartition { Unknown = KillsByYou };
         ThrowableKills = kills.Throwables;
         RangedKills = kills.Ranged; MeleeKills = kills.Melee; EffectKills = kills.Effect;
         EnvironmentalKills = kills.Environmental; UnknownKills = kills.Unknown;
-        HistoricalUnclassifiedKills = kills.HistoricalUnclassified;
-        ClassificationComplete = kills.ClassificationComplete;
-        KillClassificationProvenance = kills.Provenance;
+        ClassificationComplete = run.CombatStatistics.Totals.PlayerKills != null && kills.ClassificationComplete;
+        KillClassificationProvenance = run.CombatStatistics.Totals.PlayerKills == null
+            ? "Player-kill partition evidence is unavailable." : kills.Provenance;
         CombatCapabilities = CombatStatisticsReducer.CloneCapabilities(run.CombatStatistics.Capabilities);
         RangedMeleeExact = ClassificationComplete && CombatCapabilities.KillsByYou.State == AdapterCapabilityState.Supported;
     }

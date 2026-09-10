@@ -346,6 +346,5 @@ public sealed class HotPathSchedulingTests
         Assert.Equal(17, persisted.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal("retry-activation", persisted.ReplayCursor!.ActivationId);
         Assert.Equal(1, persisted.ReplayCursor.ClosedThroughSequence);
-        Assert.Empty(persisted.RecentEventIds);
     }
 }

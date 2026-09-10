@@ -29,7 +29,7 @@ public sealed class EquipmentEvidenceLayoutTests
     public void GenericHistoryNoticeIsOmittedWhileSpecificMissingEvidenceAndCurrentLimitationsRemain()
     {
         var p = ObservedProfile(); var a = p.Statistics.RunTotals.EquipmentStatistics;
-        a.HistoricalUnavailable = a.HistoricalCharacterSlotStateUnavailable = a.HistoricalNestedSlotStateUnavailable = a.Composition.HistoricalUnavailable = true;
+        a.Composition.HistoricalUnavailable = true;
         var presentation = Present(p);
         Assert.All(presentation.Notices.Values, value => Assert.Empty(value));
         Assert.NotEmpty(presentation.MostUsed!.Notice); // Incomplete captured nested evidence is still qualified.
@@ -47,8 +47,13 @@ public sealed class EquipmentEvidenceLayoutTests
     public void CapturedEmptyAttachmentUsesRunsOverlayDashAndOccupiedTextColumn(bool recent)
     {
         var p = ObservedProfile();
-        p.Statistics.Runs.Add(new RunSummary { RunId = "run", SaveGenerationId = "g", EndedUtc = DateTime.UtcNow,
-            EquipmentStatistics = EquipmentStatisticsReducer.Clone(p.Statistics.RunTotals.EquipmentStatistics) });
+        p.Statistics.Runs.Add(new RunSummary
+        {
+            RunId = "run",
+            SaveGenerationId = "g",
+            EndedUtc = DateTime.UtcNow,
+            EquipmentStatistics = EquipmentStatisticsReducer.Clone(p.Statistics.RunTotals.EquipmentStatistics)
+        });
         var presentation = Present(p); var selection = new EquipmentSelection(); selection.Refresh(presentation);
         var card = recent ? Assert.Single(presentation.Recent) : presentation.MostUsed!;
         var slot = Assert.Single(card.Slots, s => s.CanOpenDetails);
@@ -75,8 +80,13 @@ public sealed class EquipmentEvidenceLayoutTests
     [Fact]
     public void InvisibleUnarmedIconKeepsRecordedOccupiedIdentityAndName()
     {
-        var row = new EquipmentRenderRow { Kind = EquipmentRowKind.Item, IconId = "duckov:weapon:356",
-            Name = "Unbewaffnet", EvidenceState = EquipmentSlotState.Occupied };
+        var row = new EquipmentRenderRow
+        {
+            Kind = EquipmentRowKind.Item,
+            IconId = "duckov:weapon:356",
+            Name = "Unbewaffnet",
+            EvidenceState = EquipmentSlotState.Occupied
+        };
         Assert.True(row.EmptyIcon); Assert.Equal("—", row.IconFallback);
         Assert.Equal(EquipmentSlotState.Occupied, row.EvidenceState);
         Assert.Equal("duckov:weapon:356", row.IconId); Assert.Equal("Unbewaffnet", row.Name);
@@ -175,8 +185,14 @@ public sealed class EquipmentEvidenceLayoutTests
     public void RecentRunButtonHasCardMarginAndSharesMeasuredMapTextCenter(float width, int mapLength, int buttonLength)
     {
         var p = ObservedProfile();
-        p.Statistics.Runs.Add(new RunSummary { RunId = "run", SaveGenerationId = "g", EndedUtc = DateTime.UtcNow,
-            MapDisplayName = new string('M', mapLength), EquipmentStatistics = EquipmentStatisticsReducer.Clone(p.Statistics.RunTotals.EquipmentStatistics) });
+        p.Statistics.Runs.Add(new RunSummary
+        {
+            RunId = "run",
+            SaveGenerationId = "g",
+            EndedUtc = DateTime.UtcNow,
+            StartingMapDisplayName = new string('M', mapLength),
+            EquipmentStatistics = EquipmentStatisticsReducer.Clone(p.Statistics.RunTotals.EquipmentStatistics)
+        });
         var selection = new EquipmentSelection(); selection.Refresh(Present(p));
         var doc = new EquipmentDocument(Measure, key => key == RetainedOverviewLatestRunViewRunPolicy.TextKey
             ? new string('V', buttonLength) : UiText.Get(key));

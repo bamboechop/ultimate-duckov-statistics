@@ -13,13 +13,9 @@ public sealed class CraftingMetricCapabilities
     [DataMember(Order = 3)] public MetricAvailability OutputIdentity { get; set; } = Bootstrap();
     [DataMember(Order = 4)] public MetricAvailability RecipeIdentity { get; set; } = Bootstrap();
     [DataMember(Order = 5)] public MetricAvailability BatchMetadata { get; set; } = Bootstrap();
-    [DataMember(Order = 6)] public MetricAvailability WorkstationIdentity { get; set; } = Bootstrap();
-    [DataMember(Order = 7)] public MetricAvailability ContextAttribution { get; set; } = Bootstrap();
-    [DataMember(Order = 8)] public MetricAvailability MultipleOutputRecipes { get; set; } = Bootstrap();
     [DataMember(Order = 9)] public MetricAvailability ItemResourceIdentity { get; set; } = Bootstrap();
     [DataMember(Order = 10)] public MetricAvailability OutputResourceAssociation { get; set; } = Bootstrap();
     [DataMember(Order = 11)] public MetricAvailability CurrencyCharge { get; set; } = Bootstrap();
-    [DataMember(Order = 12)] public MetricAvailability CurrencyMoneyCashSplit { get; set; } = Bootstrap();
 
     private static MetricAvailability Bootstrap() => new()
     {
@@ -76,8 +72,6 @@ public sealed class CraftingStatisticsAggregate
     [DataMember(Order = 2)] public long ProducedQuantity { get; set; }
     [DataMember(Order = 3)] public Dictionary<string, CraftedOutputAggregate> Outputs { get; set; } = new(StringComparer.Ordinal);
     [DataMember(Order = 4)] public CraftingMetricCapabilities Capabilities { get; set; } = new();
-    [DataMember(Order = 5)] public bool HistoricalUnavailable { get; set; }
-    [DataMember(Order = 6)] public string HistoricalProvenance { get; set; } = string.Empty;
     [DataMember(Order = 7)] public bool CompletionArithmeticUnavailable { get; set; }
     [DataMember(Order = 8)] public bool QuantityArithmeticUnavailable { get; set; }
     [DataMember(Order = 9)] public bool WasRepairedFromInvalidState { get; set; }
@@ -361,13 +355,9 @@ public static class CraftingStatisticsReducer
         changed |= EnsureAvailability(aggregate, aggregate.Capabilities.OutputIdentity, value => aggregate.Capabilities.OutputIdentity = value);
         changed |= EnsureAvailability(aggregate, aggregate.Capabilities.RecipeIdentity, value => aggregate.Capabilities.RecipeIdentity = value);
         changed |= EnsureAvailability(aggregate, aggregate.Capabilities.BatchMetadata, value => aggregate.Capabilities.BatchMetadata = value);
-        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.WorkstationIdentity, value => aggregate.Capabilities.WorkstationIdentity = value);
-        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.ContextAttribution, value => aggregate.Capabilities.ContextAttribution = value);
-        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.MultipleOutputRecipes, value => aggregate.Capabilities.MultipleOutputRecipes = value);
         changed |= EnsureAvailability(aggregate, aggregate.Capabilities.ItemResourceIdentity, value => aggregate.Capabilities.ItemResourceIdentity = value);
         changed |= EnsureAvailability(aggregate, aggregate.Capabilities.OutputResourceAssociation, value => aggregate.Capabilities.OutputResourceAssociation = value);
         changed |= EnsureAvailability(aggregate, aggregate.Capabilities.CurrencyCharge, value => aggregate.Capabilities.CurrencyCharge = value);
-        changed |= EnsureAvailability(aggregate, aggregate.Capabilities.CurrencyMoneyCashSplit, value => aggregate.Capabilities.CurrencyMoneyCashSplit = value);
         if (aggregate.Outputs == null)
         {
             aggregate.Outputs = new Dictionary<string, CraftedOutputAggregate>(StringComparer.Ordinal);
@@ -380,7 +370,6 @@ public static class CraftingStatisticsReducer
             aggregate.WasRepairedFromInvalidState = true;
             changed = true;
         }
-        aggregate.HistoricalProvenance ??= string.Empty;
         aggregate.ResourceHistoryProvenance ??= string.Empty;
         aggregate.CurrencyHistoryProvenance ??= string.Empty;
         foreach (var entry in aggregate.Resources.ToArray())
@@ -453,8 +442,7 @@ public static class CraftingStatisticsReducer
         if (aggregate == null || aggregate.Capabilities == null || aggregate.Outputs == null || aggregate.Resources == null)
             throw new ArgumentException("Crafting roots are missing.", nameof(aggregate));
         foreach (var value in EnumerateCapabilities(aggregate.Capabilities)) ValidateAvailability(value);
-        if ((aggregate.HistoricalUnavailable && string.IsNullOrWhiteSpace(aggregate.HistoricalProvenance))
-            || (aggregate.ResourceHistoryUnavailable && string.IsNullOrWhiteSpace(aggregate.ResourceHistoryProvenance))
+        if ((aggregate.ResourceHistoryUnavailable && string.IsNullOrWhiteSpace(aggregate.ResourceHistoryProvenance))
             || (aggregate.CurrencyHistoryUnavailable && string.IsNullOrWhiteSpace(aggregate.CurrencyHistoryProvenance)))
             throw new ArgumentException("Crafting partial-history provenance is missing.", nameof(aggregate));
         if (aggregate.CompletionActions < 0 || aggregate.ProducedQuantity < 0
@@ -576,8 +564,6 @@ public static class CraftingStatisticsReducer
             ProducedQuantity = source.ProducedQuantity,
             Outputs = source.Outputs.ToDictionary(entry => entry.Key, entry => CloneOutput(entry.Value), StringComparer.Ordinal),
             Capabilities = CloneCapabilities(source.Capabilities),
-            HistoricalUnavailable = source.HistoricalUnavailable,
-            HistoricalProvenance = source.HistoricalProvenance,
             CompletionArithmeticUnavailable = source.CompletionArithmeticUnavailable,
             QuantityArithmeticUnavailable = source.QuantityArithmeticUnavailable,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
@@ -610,13 +596,9 @@ public static class CraftingStatisticsReducer
         OutputIdentity = Clone(source.OutputIdentity),
         RecipeIdentity = Clone(source.RecipeIdentity),
         BatchMetadata = Clone(source.BatchMetadata),
-        WorkstationIdentity = Clone(source.WorkstationIdentity),
-        ContextAttribution = Clone(source.ContextAttribution),
-        MultipleOutputRecipes = Clone(source.MultipleOutputRecipes),
         ItemResourceIdentity = Clone(source.ItemResourceIdentity),
         OutputResourceAssociation = Clone(source.OutputResourceAssociation),
-        CurrencyCharge = Clone(source.CurrencyCharge),
-        CurrencyMoneyCashSplit = Clone(source.CurrencyMoneyCashSplit)
+        CurrencyCharge = Clone(source.CurrencyCharge)
     };
 
     public static void InitializeOrRestrictCapabilities(CraftingStatisticsAggregate aggregate, CraftingMetricCapabilities current)
@@ -656,13 +638,9 @@ public static class CraftingStatisticsReducer
             OutputIdentity = Restrict(recorded.OutputIdentity, current.OutputIdentity, initializeBootstrap),
             RecipeIdentity = Restrict(recorded.RecipeIdentity, current.RecipeIdentity, initializeBootstrap),
             BatchMetadata = Restrict(recorded.BatchMetadata, current.BatchMetadata, initializeBootstrap),
-            WorkstationIdentity = Restrict(recorded.WorkstationIdentity, current.WorkstationIdentity, initializeBootstrap),
-            ContextAttribution = Restrict(recorded.ContextAttribution, current.ContextAttribution, initializeBootstrap),
-            MultipleOutputRecipes = Restrict(recorded.MultipleOutputRecipes, current.MultipleOutputRecipes, initializeBootstrap),
             ItemResourceIdentity = Restrict(recorded.ItemResourceIdentity, current.ItemResourceIdentity, initializeBootstrap),
             OutputResourceAssociation = Restrict(recorded.OutputResourceAssociation, current.OutputResourceAssociation, initializeBootstrap),
-            CurrencyCharge = Restrict(recorded.CurrencyCharge, current.CurrencyCharge, initializeBootstrap),
-            CurrencyMoneyCashSplit = Restrict(recorded.CurrencyMoneyCashSplit, current.CurrencyMoneyCashSplit, initializeBootstrap)
+            CurrencyCharge = Restrict(recorded.CurrencyCharge, current.CurrencyCharge, initializeBootstrap)
         };
 
     private static void ApplyActions(CraftingStatisticsAggregate aggregate, CraftingMutationRow row)
@@ -1071,13 +1049,9 @@ public static class CraftingStatisticsReducer
         yield return value.OutputIdentity;
         yield return value.RecipeIdentity;
         yield return value.BatchMetadata;
-        yield return value.WorkstationIdentity;
-        yield return value.ContextAttribution;
-        yield return value.MultipleOutputRecipes;
         yield return value.ItemResourceIdentity;
         yield return value.OutputResourceAssociation;
         yield return value.CurrencyCharge;
-        yield return value.CurrencyMoneyCashSplit;
     }
 
     private static bool TryAdd(ref long current, long delta)

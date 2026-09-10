@@ -105,17 +105,35 @@ internal static class EquipmentPresentationFactory
         if (p.RecentEquipmentRuns.Any(r => r.SaveGenerationId != generation || !routableRuns.Contains(r))) return null;
         var t = text ?? UiText.Get; var a = p.Equipment.Lifetime; var c = p.Equipment.Capabilities;
         EquipmentCompositionReducer.Validate(a.Composition);
-        string Name(string? name, string? id = null) => string.IsNullOrWhiteSpace(name) || name == id ? t("ui.equipment_unknown_item") : name!;
-        string SlotName(string? name, string? id = null) => string.IsNullOrWhiteSpace(name) || name == id ? t("ui.equipment_unknown_slot") : name!;
-        string DirectName(string id, string? name) => id switch {
-            "duckov:slot:Totem1" => t("ui.equipment_totem_slot_1"), "duckov:slot:Totem2" => t("ui.equipment_totem_slot_2"), _ => SlotName(name, id) };
+        string Name(string? name, string? id = null)
+        {
+            name = p.Names.Get(id, name);
+            return string.IsNullOrWhiteSpace(name) || name == id ? t("ui.equipment_unknown_item") : name!;
+        }
+        string SlotName(string? name, string? id = null)
+        {
+            name = p.Names.Get(id, name);
+            return string.IsNullOrWhiteSpace(name) || name == id ? t("ui.equipment_unknown_slot") : name!;
+        }
+        string DirectName(string id, string? name) => id switch
+        {
+            "duckov:slot:Totem1" => t("ui.equipment_totem_slot_1"),
+            "duckov:slot:Totem2" => t("ui.equipment_totem_slot_2"),
+            _ => SlotName(name, id)
+        };
         string Used(long count) => string.Format(CultureInfo.CurrentCulture, t("ui.equipment_used_runs"), count);
         string Notice(MetricAvailability state) => state.State == AdapterCapabilityState.Supported ? "" : t("ui.equipment_current_unavailable");
-        var notices = new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["loadouts"] = Notice(c.EquipmentSlots), ["selected"] = Notice(c.SelectedWeapon),
-            ["weapons"] = Notice(c.CharacterSlotState), ["armor"] = Notice(c.CharacterSlotState),
-            ["direct"] = Notice(c.DirectTotems), ["empty"] = Notice(c.CharacterSlotState),
-            ["sets"] = Notice(c.DirectTotems), ["tote"] = Notice(c.ToteContents) };
+        var notices = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["loadouts"] = Notice(c.EquipmentSlots),
+            ["selected"] = Notice(c.SelectedWeapon),
+            ["weapons"] = Notice(c.CharacterSlotState),
+            ["armor"] = Notice(c.CharacterSlotState),
+            ["direct"] = Notice(c.DirectTotems),
+            ["empty"] = Notice(c.CharacterSlotState),
+            ["sets"] = Notice(c.DirectTotems),
+            ["tote"] = Notice(c.ToteContents)
+        };
         if (a.WasRepairedFromInvalidState)
             foreach (var key in notices.Keys.ToArray()) notices[key] = t("ui.equipment_partial") + "\n" + notices[key];
         var nestedNotice = Notice(c.NestedSlotState);
@@ -129,23 +147,23 @@ internal static class EquipmentPresentationFactory
                     .Concat(a.Composition.Loadouts.Values.Where(d => !d.Conflicting).SelectMany(d => d.Items).Where(i => i.ItemId == g.Key).Select(i => i.ItemDisplayName));
                 var name = names.Where(n => !string.IsNullOrWhiteSpace(n) && n != g.Key).OrderBy(n => n, StringComparer.Ordinal).FirstOrDefault();
                 var slots = g.OrderBy(r => r.Row.Id, StringComparer.Ordinal).Select(r => new EquipmentEntry(r.Row.Id,
-                    SlotName(a.Slots.TryGetValue(r.Row.Id.Substring(0, r.Split), out var slot) ? slot.DisplayName : null), "", (double)r.Row.ActiveDurationSeconds));
-                return new EquipmentEntry("selected:" + g.Key, Name(name), g.Key, Sum(g.Select(r => r.Row.ActiveDurationSeconds)),
+                    SlotName(a.Slots.TryGetValue(r.Row.Id.Substring(0, r.Split), out var slot) ? slot.DisplayName : null, r.Row.Id.Substring(0, r.Split)), "", (double)r.Row.ActiveDurationSeconds));
+                return new EquipmentEntry("selected:" + g.Key, Name(name, g.Key), g.Key, Sum(g.Select(r => r.Row.ActiveDurationSeconds)),
                     t("ui.equipment_selected_time"), groups: new[] { new EquipmentGroup(t("ui.equipment_selected_by_slot"), slots) });
             }).OrderByDescending(r => r.Duration).ThenBy(r => r.Name, StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal).ToArray();
         var recent = p.RecentEquipmentRuns.OrderByDescending(r => r.EndedUtc).ThenBy(r => r.RunId, StringComparer.Ordinal).Select(run =>
         {
             var row = run.EquipmentStatistics.Loadouts.Values.OrderByDescending(r => r.ActiveDurationSeconds).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
             var segments = run.Segments.OrderBy(s => s.SegmentIndex).ToArray();
-            var route = segments.Length == 0 ? Name(run.MapDisplayName) : segments.Length == 1 ? Name(segments[0].MapDisplayName)
-                : Name(segments[0].MapDisplayName) + " - " + Name(segments[segments.Length - 1].MapDisplayName);
+            var route = segments.Length == 0 ? Name(run.StartingMapDisplayName, run.StartingMapKnown ? run.StartingMapId : null) : segments.Length == 1 ? Name(segments[0].MapDisplayName, segments[0].MapKnown ? segments[0].MapId : null)
+                : Name(segments[0].MapDisplayName, segments[0].MapKnown ? segments[0].MapId : null) + " - " + Name(segments[segments.Length - 1].MapDisplayName, segments[segments.Length - 1].MapKnown ? segments[segments.Length - 1].MapId : null);
             var caption = EconomyPresentationFactory.Timestamp(run.StartedUtc, t, runDate: true) + "\n" + t("ui.equipment_most_during_run");
             return row == null ? new EquipmentEntry("run:" + run.RunId, route, "", 0, caption, t("ui.unavailable"), runId: run.RunId)
                 : Loadout(run.EquipmentStatistics, row, "run:" + run.RunId, route, run.RunId, caption);
         }).ToArray();
-        var weapons = p.Equipment.Weapons.OrderByDescending(w => w.TotalEquippedDurationSeconds).ThenBy(w => w.DisplayName, StringComparer.Ordinal).ThenBy(w => w.WeaponId, StringComparer.Ordinal)
+        var weapons = p.Equipment.Weapons.OrderByDescending(w => w.TotalEquippedDurationSeconds).ThenBy(w => Name(w.DisplayName, w.WeaponId), StringComparer.Ordinal).ThenBy(w => w.WeaponId, StringComparer.Ordinal)
             .Select(w => new EquipmentEntry("weapon:" + w.WeaponId, Name(w.DisplayName, w.WeaponId), w.WeaponId, w.TotalEquippedDurationSeconds, t("ui.equipment_total_equipped"),
-                groups: new[] { new EquipmentGroup(t("ui.equipment_character_slots"), w.CharacterSlots.Select(s => new EquipmentEntry(s.SlotId, SlotName(s.SlotDisplayName), "", s.EquippedDurationSeconds))) }
+                groups: new[] { new EquipmentGroup(t("ui.equipment_character_slots"), w.CharacterSlots.Select(s => new EquipmentEntry(s.SlotId, SlotName(s.SlotDisplayName, s.SlotId), "", s.EquippedDurationSeconds))) }
                     .Concat(Nested(w.WeaponId, null)))).ToArray();
         var excluded = new HashSet<string>(a.CharacterSlotStates.Values.Where(r => r.ItemKind is EquipmentItemKind.Weapon or EquipmentItemKind.Totem).Select(r => r.SlotId), StringComparer.Ordinal);
         foreach (var definition in a.Composition.Loadouts.Values.Where(d => !d.Conflicting))
@@ -153,7 +171,7 @@ internal static class EquipmentPresentationFactory
         foreach (var slot in a.Composition.EmptyDirectSlots.Keys) excluded.Add(slot);
         var armor = p.Equipment.ArmorAndGearSlots.Where(g => !excluded.Contains(g.SlotId)).OrderBy(g => ArmorOrder(g.SlotId)).ThenBy(g => g.SlotId, StringComparer.Ordinal)
             .Select(g => new EquipmentGroup(SlotName(g.SlotDisplayName, g.SlotId), g.Rows.OrderBy(r => r.State).ThenByDescending(r => r.ActiveDurationSeconds)
-                .ThenBy(r => r.ItemDisplayName, StringComparer.Ordinal).ThenBy(r => r.ItemId, StringComparer.Ordinal).Select(r =>
+                .ThenBy(r => Name(r.ItemDisplayName, r.ItemId), StringComparer.Ordinal).ThenBy(r => r.ItemId, StringComparer.Ordinal).Select(r =>
                     new EquipmentEntry("gear:" + g.SlotId + "|" + r.ItemId, r.State == EquipmentSlotState.Empty ? t("ui.equipment_nothing") : Name(r.ItemDisplayName, r.ItemId),
                         r.ItemId, (double)r.ActiveDurationSeconds, groups: r.State == EquipmentSlotState.Empty ? null : Nested(r.ItemId, g.SlotId, onlyObserved: true), evidenceState: r.State)))).ToArray();
         var direct = Totems(TotemCarryKind.DirectSlot); var tote = Totems(TotemCarryKind.ToteInventory);
@@ -163,7 +181,7 @@ internal static class EquipmentPresentationFactory
         {
             a.Composition.ActiveTotemSets.TryGetValue(r.Id, out var d);
             var available = d != null && !d.Conflicting;
-            var members = available ? d!.Members.Select(m => new EquipmentEntry("member:" + m.ItemId, Name(m.DisplayName), m.ItemId, 0)).ToArray() : Array.Empty<EquipmentEntry>();
+            var members = available ? d!.Members.Select(m => new EquipmentEntry("member:" + m.ItemId, Name(m.DisplayName, m.ItemId), m.ItemId, 0)).ToArray() : Array.Empty<EquipmentEntry>();
             return new EquipmentEntry("set:" + r.Id, "", "", (double)r.ActiveDurationSeconds, t("ui.equipment_active_together") + " · " + Used(r.RunOccurrences),
                 d?.Conflicting == true ? t("ui.equipment_conflict") : available && members.Length == 1 ? t("ui.equipment_singleton") : "",
                 groups: new[] { new EquipmentGroup("", members) });
@@ -179,7 +197,7 @@ internal static class EquipmentPresentationFactory
                 return RunsPresentationFactory.PresentSlot(new TerminalRootSlot(root.SlotId, root.SlotDisplayName, root.State, root.ItemId,
                     root.ItemDisplayName, root.ItemKind, root.State == EquipmentSlotState.Empty || item?.NestedSlotStateComplete == true,
                     Array.AsReadOnly(item?.NestedSlots.Select(n => new TerminalNestedSlot(n.Path, n.SlotKey, n.SlotDisplayName, n.State, n.ItemId, n.ItemDisplayName)).ToArray()
-                        ?? Array.Empty<TerminalNestedSlot>())), t);
+                        ?? Array.Empty<TerminalNestedSlot>())), t, p.Names);
             }).ToArray();
             return new EquipmentEntry(id, name, "", (double)row.ActiveDurationSeconds, caption,
                 definition == null ? t("ui.equipment_loadout_history") : definition.Conflicting ? t("ui.equipment_conflict") : definition.NestedComplete ? "" : t("ui.runs_nested_partial"), slots: slots, runId: runId);
@@ -194,16 +212,17 @@ internal static class EquipmentPresentationFactory
                 yield break;
             }
             foreach (var group in groups)
-                yield return new EquipmentGroup(SlotName(group.Select(r => r.SlotDisplayName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))),
+                yield return new EquipmentGroup(SlotName(group.All(r => r.Path == group.Key.Length.ToString(CultureInfo.InvariantCulture) + ":" + group.Key + "/")
+                    ? p.Names.Slot(itemId, group.Key, group.First().SlotDisplayName) : group.First().SlotDisplayName),
                     group.GroupBy(r => (r.State, r.ItemId)).Select(g => new EquipmentEntry("nested:" + itemId + ":" + group.Key + ":" + g.Key.ItemId,
-                        g.Key.State == EquipmentSlotState.Empty ? t("ui.equipment_nothing") : Name(g.Select(r => r.ItemDisplayName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))),
+                        g.Key.State == EquipmentSlotState.Empty ? t("ui.equipment_nothing") : Name(g.Select(r => r.ItemDisplayName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)), g.Key.ItemId),
                         g.Key.ItemId, Sum(g.Select(r => r.ActiveDurationSeconds)), evidenceState: g.Key.State))
                         .OrderByDescending(r => r.Duration).ThenBy(r => r.Name, StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal),
                     nestedNotice.Length > 0 ? nestedNotice : a.Composition.Loadouts.Values.Any(d => !d.Conflicting && d.Items.Any(i => i.ItemId == itemId && !i.NestedSlotStateComplete)) ? t("ui.runs_nested_partial") : "");
         }
         EquipmentEntry[] Totems(TotemCarryKind carry) => a.Composition.TotemStates.Values.Where(r => r.Totem.CarryKind == carry)
             .GroupBy(r => r.Totem.ItemId, StringComparer.Ordinal).Select(g => new EquipmentEntry((carry == TotemCarryKind.DirectSlot ? "direct:" : "tote:") + g.Key,
-                Name(g.Select(r => r.Totem.DisplayName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))), g.Key, Sum(g.Select(r => r.DurationSeconds)),
+                Name(g.Select(r => r.Totem.DisplayName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)), g.Key), g.Key, Sum(g.Select(r => r.DurationSeconds)),
                 t(carry == TotemCarryKind.DirectSlot ? "ui.equipment_total_equipped" : "ui.equipment_carried"),
                 groups: carry == TotemCarryKind.ToteInventory ? null : new[] { new EquipmentGroup(t("ui.equipment_character_slots"),
                     g.GroupBy(r => (r.Totem.DirectSlotId, r.Totem.ActivationState)).OrderBy(s => s.Key.DirectSlotId, StringComparer.Ordinal).ThenBy(s => s.Key.ActivationState)

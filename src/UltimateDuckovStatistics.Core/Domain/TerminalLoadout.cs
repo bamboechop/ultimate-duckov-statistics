@@ -7,7 +7,6 @@ namespace UltimateDuckovStatistics.Core.Domain;
 public enum TerminalLoadoutState
 {
     [EnumMember] Unavailable = 0,
-    [EnumMember] HistoricalUnavailable = 1,
     [EnumMember] Partial = 2,
     [EnumMember] Complete = 3
 }
@@ -20,12 +19,6 @@ public sealed class TerminalLoadout
     [DataMember(Order = 2)] public string Provenance { get; set; } = "No terminal boundary equipment evidence was captured.";
     [DataMember(Order = 3, EmitDefaultValue = false)] public EquipmentSnapshot? Snapshot { get; set; }
     [DataMember(Order = 4, EmitDefaultValue = false)] public RunOutcome? CapturedOutcome { get; set; }
-
-    public static TerminalLoadout Historical() => new()
-    {
-        State = TerminalLoadoutState.HistoricalUnavailable,
-        Provenance = "Pre-schema-17 run: terminal equipment was not recorded and cannot be backfilled."
-    };
 
     public static TerminalLoadout Captured(EquipmentSnapshot snapshot, RunOutcome outcome, string provenance)
     {

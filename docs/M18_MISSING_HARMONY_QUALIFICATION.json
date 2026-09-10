@@ -1,0 +1,28 @@
+{
+  "SourceCommit": "c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7",
+  "Slot": 3,
+  "GenerationId": "51fe1548e0d94fce9de3e22d3b99305d",
+  "Status": "Failed qualification: degraded capabilities and UI/export access behaved as expected, but incomplete World time text overflowed its card and healing/combat retries repeated warnings plus unchanged combat capability writes. Correction/native repeat required.",
+  "UserReport": "Diagnostics tab in screenshot. Also we have an overflow error on the Overview tab in the world time when the capture is incomplete.",
+  "ExportId": "20260908T1805217185609Z-51fe1548e0d94fce9de3e22d3b99305d",
+  "ExportRevision": 1425,
+  "ClosedRevision": 1428,
+  "CompletedSleepSessions": 1,
+  "SleepAdvancedSeconds": 3540,
+  "CalendarCapability": "Supported",
+  "SleepCapabilities": "DisabledIncompatible; retained positive values correctly display capture incomplete",
+  "PublicSiblings": "Run lifecycle, movement/maps/routes, firing/weapon/ammunition identity, equipment, economy and calendar observation remain supported; combat public melee/death callbacks remain independently supported.",
+  "NativeUi": "Screenshots show Diagnostics and Overview operable; native UI export completed. World time incomplete-capture suffix extends past the card.",
+  "MissingHarmonyLogCopies": 233,
+  "SessionStartedUtc": "2026-09-08T18:03:27.3521773Z",
+  "CleanShutdownUtc": "2026-09-08T18:05:24.9178071Z",
+  "Mods": {
+    "HarmonyLoadMod": false,
+    "UltimateDuckovStatistics": true,
+    "DuckovItemIconExporter": false
+  },
+  "PreservedExportFiles": 37,
+  "EvidenceRoot": "artifacts/qualification/c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7/native-missing-harmony-original",
+  "ManifestSha256": "4c87187eea9eefc7b183f3e8da78cabcffe0c287544d2bbdc52b725ff8bb5941",
+  "Corrections": "M18_DEGRADATION_CORRECTION.md"
+}

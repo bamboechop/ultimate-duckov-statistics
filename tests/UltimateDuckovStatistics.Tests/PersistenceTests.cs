@@ -11,7 +11,6 @@ public sealed class PersistenceTests
 {
     private static readonly DateTime TestTime = new(2026, 8, 9, 12, 0, 0, DateTimeKind.Utc);
     private static readonly string[] ExpectedDiagnosticMessages = { "two", "three" };
-    private static readonly string[] SchemaTwoRecentEventIds = { "use-1", "heal-1" };
 
     [Fact]
     [Trait("Category", "Persistence")]
@@ -63,28 +62,6 @@ public sealed class PersistenceTests
 
     [Fact]
     [Trait("Category", "Persistence")]
-    public void RepositoryMigratesLegacySchemaWithoutChangingGeneration()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var legacy = CreateDocument("generation-legacy", revision: 4);
-        legacy.SchemaVersion = 0;
-        legacy.Statistics.SchemaVersion = 0;
-        legacy.Statistics.SaveGenerationId = string.Empty;
-        new AtomicJsonStore<ProfileDocument>().Save(path, legacy);
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-
-        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-
-        Assert.True(result.MigratedSchema);
-        Assert.Equal(ProductInfo.SchemaVersion, repository.Current.SchemaVersion);
-        Assert.Equal("generation-legacy", repository.Current.GenerationId);
-        Assert.Equal("generation-legacy", repository.Current.Statistics.SaveGenerationId);
-        repository.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
     [Trait("Category", "M8")]
     public void CurrentSchemaIncompleteRouteTotalsPrimaryLosesToIntactBackupBeforeMigration()
     {
@@ -111,7 +88,7 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.RecoveredSnapshot);
-        Assert.False(result.MigratedSchema);
+        Assert.False(result.NormalizedProfile);
         Assert.Contains(result.LoadFailures, failure => failure.Contains("Current-schema profile roots are incomplete.", StringComparison.Ordinal));
         Assert.Equal(7, repository.Current.Revision);
         var routeMap = Assert.Single(repository.Current.Statistics.RunTotals.RouteMaps).Value;
@@ -121,7 +98,7 @@ public sealed class PersistenceTests
         Assert.False(routeMap.WasRepairedFromInvalidState);
         repository.CloseClean();
 
-        var persisted = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!;
+        var persisted = store.Load(path, ProfileFormat.ValidateRecoveryCandidate).Value!;
         var persistedRouteMap = Assert.Single(persisted.Statistics.RunTotals.RouteMaps).Value;
         Assert.Equal(3, persistedRouteMap.RunsVisited);
         Assert.False(persistedRouteMap.HistoricalUnavailable);
@@ -144,14 +121,12 @@ public sealed class PersistenceTests
         run.SegmentEventAssociations.Add(new SegmentEventAssociation
         {
             EventKind = "item-use",
-            TimestampUtc = TestTime,
             FirstTimestampUtc = TestTime,
             LastTimestampUtc = TestTime,
             SourceSegmentId = segment.SegmentId,
             SourceMapId = segment.MapId,
             OutcomeSegmentId = segment.SegmentId,
             OutcomeMapId = segment.MapId,
-            Representation = SegmentEventAssociationRepresentation.ExactAggregate,
             Count = 0
         });
         store.Save(path, backup);
@@ -161,7 +136,7 @@ public sealed class PersistenceTests
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
         Assert.True(result.RecoveredSnapshot);
-        Assert.False(result.MigratedSchema);
+        Assert.False(result.NormalizedProfile);
         Assert.Contains(result.LoadFailures, failure =>
             failure.Contains("invalid route-association state", StringComparison.Ordinal));
         Assert.Equal(7, repository.Current.Revision);
@@ -191,16 +166,14 @@ public sealed class PersistenceTests
         "Statistics.RunRecords",
         "Statistics.Economy",
         "Statistics.Economy.Currencies",
-        "Statistics.Economy.CashRaidOutcomes",
         "Statistics.Economy.Capabilities",
-        "Statistics.Economy.RecentEventIds",
+        "Statistics.Economy.ReplayCursor",
         "Statistics.Economy.Capabilities.MoneyAmountDirection",
         "Statistics.Economy.Capabilities.MoneySourceAttribution",
         "Statistics.Economy.Capabilities.MoneyContextAttribution",
         "Statistics.Economy.Capabilities.CashAmountDirection",
         "Statistics.Economy.Capabilities.CashExternalAcquisition",
         "Statistics.Economy.Capabilities.CashContextAttribution",
-        "Statistics.Economy.Capabilities.CashTerminalOutcomes",
         "Statistics.Economy.Capabilities.RouteAttribution",
         "Statistics.Economy.Currency.Totals",
         "Statistics.Economy.Currency.Sources",
@@ -290,70 +263,9 @@ public sealed class PersistenceTests
         "Segment.Economy"
     };
 
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "M9")]
-    public void SchemaEightMigrationPreservesPriorStatisticsAndMarksEveryEconomyScopeUnavailable()
-    {
-        var document = CreateCompleteCurrentSchemaDocument("generation-m8", revision: 81);
-        document.SchemaVersion = 8;
-        document.Statistics.SchemaVersion = 8;
-        document.Statistics.Overall.ActivationCount = 17;
-        document.Statistics.Economy = null!;
-        document.DeferredItemPersistence!.AppliedLifetimeEconomy = null!;
-        document.Statistics.RunTotals.Economy = null!;
-        foreach (var map in document.Statistics.RunTotals.Maps.Values) map.Economy = null!;
-        foreach (var map in document.Statistics.RunTotals.RouteMaps.Values) map.Economy = null!;
-        foreach (var run in document.Statistics.Runs)
-        {
-            run.SchemaVersion = 8;
-            run.ActiveDurationSeconds = 60;
-            run.RouteSignature = "duckov:map:A";
-            run.RouteCapabilities = RouteStatisticsReducer.Supported("test");
-            run.Economy = null!;
-            foreach (var segment in run.Segments)
-            {
-                segment.SegmentIndex = 0;
-                segment.ActiveDurationSeconds = 60;
-                segment.ExitReason = MapSegmentExitReason.Extracted;
-                segment.Economy = null!;
-            }
-        }
-
-        Assert.True(ProfileMigrator.Migrate(document));
-
-        Assert.Equal(18, document.SchemaVersion);
-        Assert.Equal(18, document.Statistics.SchemaVersion);
-        Assert.Equal("generation-m8", document.GenerationId);
-        Assert.Equal(17, document.Statistics.Overall.ActivationCount);
-        var migratedMap = Assert.Single(document.Statistics.RunTotals.Maps).Value;
-        var migratedRouteMap = Assert.Single(document.Statistics.RunTotals.RouteMaps).Value;
-        var migratedRun = Assert.Single(document.Statistics.Runs);
-        var migratedSegment = Assert.Single(migratedRun.Segments);
-        var scopes = new[]
-        {
-            document.Statistics.Economy,
-            document.Statistics.RunTotals.Economy,
-            migratedMap.Economy,
-            migratedRouteMap.Economy,
-            migratedRun.Economy,
-            migratedSegment.Economy
-        };
-        Assert.All(scopes, economy =>
-        {
-            Assert.True(economy.HistoricalUnavailable);
-            Assert.Equal(AdapterCapabilityState.DisabledIncompatible, economy.Capabilities.MoneyAmountDirection.State);
-            Assert.Equal(AdapterCapabilityState.DisabledIncompatible, economy.Capabilities.CashTerminalOutcomes.State);
-            Assert.Contains("predates M9", economy.Capabilities.MoneyAmountDirection.Provenance, StringComparison.Ordinal);
-            Assert.Empty(economy.Currencies);
-        });
-        Assert.False(ProfileMigrator.Migrate(document));
-    }
-
     [Theory]
     [InlineData("negative-counter")]
-    [InlineData("overlapping-raid-outcomes")]
-    [InlineData("duplicate-deduplication-identity")]
+    [InlineData("negative-cash-acquired")]
     [InlineData("malformed-replay-cursor")]
     [InlineData("noncomposing-source")]
     [InlineData("noncomposing-context")]
@@ -375,19 +287,9 @@ public sealed class PersistenceTests
             invalidPrimary.Statistics.Economy.Currencies["Money"].Contexts["Unknown"] =
                 new CurrencyFlowTotals { GrossInflow = -1 };
         }
-        else if (corruption == "overlapping-raid-outcomes")
+        else if (corruption == "negative-cash-acquired")
         {
-            invalidPrimary.Statistics.Economy.CashRaidOutcomes = new CashRaidOutcomeAggregate
-            {
-                Acquired = 5,
-                Secured = 4,
-                Lost = 4
-            };
-        }
-        else if (corruption == "duplicate-deduplication-identity")
-        {
-            invalidPrimary.Statistics.Economy.RecentEventIds.Add("duplicate");
-            invalidPrimary.Statistics.Economy.RecentEventIds.Add("duplicate");
+            invalidPrimary.Statistics.Economy.CashAcquired = -1;
         }
         else if (corruption == "malformed-replay-cursor")
         {
@@ -473,15 +375,15 @@ public sealed class PersistenceTests
     [InlineData("route-map")]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
-    public void CurrentSchemaCrossScopeCashOutcomeMismatchLosesToIntactBackup(string corruption)
+    public void CurrentSchemaCrossScopeCashAcquisitionMismatchLosesToIntactBackup(string corruption)
     {
         using var temporaryDirectory = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
         var store = new AtomicJsonStore<ProfileDocument>();
         var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
         var invalidPrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
-        ConfigureExactCashOutcomeFanOut(backup, amount: 10);
-        ConfigureExactCashOutcomeFanOut(invalidPrimary, amount: 10);
+        ConfigureExactCashAcquisitionFanOut(backup, amount: 10);
+        ConfigureExactCashAcquisitionFanOut(invalidPrimary, amount: 10);
         var invalidRun = invalidPrimary.Statistics.Runs[0];
         var corrupted = corruption switch
         {
@@ -490,11 +392,11 @@ public sealed class PersistenceTests
             "starting-map" => invalidPrimary.Statistics.RunTotals.Maps[invalidRun.StartingMapId].Economy,
             _ => invalidPrimary.Statistics.RunTotals.RouteMaps[invalidRun.Segments[0].MapId].Economy
         };
-        corrupted.CashRaidOutcomes = new CashRaidOutcomeAggregate();
-        Assert.Null(ProfileMigrator.ValidateRecoveryCandidate(backup));
+        corrupted.CashAcquired = 0;
+        Assert.Null(ProfileFormat.ValidateRecoveryCandidate(backup));
         Assert.Contains(
             "economy fan-out is inconsistent",
-            ProfileMigrator.ValidateRecoveryCandidate(invalidPrimary),
+            ProfileFormat.ValidateRecoveryCandidate(invalidPrimary),
             StringComparison.Ordinal);
         store.Save(path, backup);
         store.Save(path, invalidPrimary);
@@ -506,8 +408,7 @@ public sealed class PersistenceTests
         Assert.Contains(result.LoadFailures, failure =>
             failure.Contains("economy fan-out is inconsistent", StringComparison.Ordinal));
         Assert.Equal(7, repository.Current.Revision);
-        Assert.Equal(10, repository.Current.Statistics.RunTotals.Economy.CashRaidOutcomes.Acquired);
-        Assert.Equal(10, repository.Current.Statistics.RunTotals.Economy.CashRaidOutcomes.Secured);
+        Assert.Equal(10, repository.Current.Statistics.RunTotals.Economy.CashAcquired);
         repository.CloseClean();
     }
 
@@ -520,23 +421,23 @@ public sealed class PersistenceTests
     [InlineData("route-map-missing-row")]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
-    public void MigratedProfileWithPostM9EconomyStillRejectsCrossScopeMismatch(string corruption)
+    public void CurrentProfileRejectsCrossScopeEconomyMismatch(string corruption)
     {
         using var temporaryDirectory = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
         var store = new AtomicJsonStore<ProfileDocument>();
-        var backup = CreateMigratedProfileWithExactPostM9Run(
+        var backup = CreateCurrentProfileWithExactEconomyRun(
             "generation-a",
             revision: 7,
             amount: 10,
             includeCurrentZeroFlowRun: true,
-            degradeCurrentZeroFlowRun: true);
-        var invalidPrimary = CreateMigratedProfileWithExactPostM9Run(
+            degradeCurrentZeroFlowRun: false);
+        var invalidPrimary = CreateCurrentProfileWithExactEconomyRun(
             "generation-a",
             revision: 8,
             amount: 10,
             includeCurrentZeroFlowRun: true,
-            degradeCurrentZeroFlowRun: true);
+            degradeCurrentZeroFlowRun: false);
         var postM9Run = invalidPrimary.Statistics.Runs.Single(run => run.RunId == "run-post-m9");
         var corruptedTotal = corruption.StartsWith("completed-runs", StringComparison.Ordinal)
             ? invalidPrimary.Statistics.RunTotals.Economy
@@ -568,18 +469,18 @@ public sealed class PersistenceTests
     [InlineData(true)]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
-    public void MigratedProfileAcceptsCurrentZeroFlowBesidePostM9MoneyFlow(bool degradedCapability)
+    public void CurrentProfileAcceptsZeroFlowBesideMoneyFlow(bool degradedCapability)
     {
         using var temporaryDirectory = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
         var store = new AtomicJsonStore<ProfileDocument>();
-        store.Save(path, CreateMigratedProfileWithExactPostM9Run(
+        store.Save(path, CreateCurrentProfileWithExactEconomyRun(
             "generation-a",
             revision: 7,
             amount: 10,
             includeCurrentZeroFlowRun: true,
             degradeCurrentZeroFlowRun: degradedCapability));
-        store.Save(path, CreateMigratedProfileWithExactPostM9Run(
+        store.Save(path, CreateCurrentProfileWithExactEconomyRun(
             "generation-a",
             revision: 8,
             amount: 10,
@@ -598,8 +499,6 @@ public sealed class PersistenceTests
             10,
             repository.Current.Statistics.RunTotals.Economy.Currencies["Money"].Totals.GrossInflow);
         var zeroFlowRun = repository.Current.Statistics.Runs.Single(run => run.RunId == "run-post-m9-zero");
-        Assert.False(zeroFlowRun.HistoricalRouteUnavailable);
-        Assert.False(zeroFlowRun.Economy.HistoricalUnavailable);
         Assert.Equal(
             degradedCapability ? AdapterCapabilityState.DisabledIncompatible : AdapterCapabilityState.Supported,
             zeroFlowRun.Economy.Capabilities.MoneyAmountDirection.State);
@@ -641,76 +540,6 @@ public sealed class PersistenceTests
             failure.Contains("invalid economy state", StringComparison.Ordinal)));
         Assert.Equal(9, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(9, repository.Current.Revision);
-        repository.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "M9")]
-    public void UnsaturatedSchemaNineCandidateCompactsLegacyIdentitiesWithoutChangingTotals()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var candidate = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
-        SetMoneyInflow(candidate.Statistics.Economy, 3);
-        candidate.Statistics.Economy.RecentEventIds.AddRange(["legacy:1", "legacy:2", "legacy:3"]);
-        candidate.Statistics.Economy.ReplayCursor = null;
-        new AtomicJsonStore<ProfileDocument>().Save(path, candidate);
-
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-
-        var economy = repository.Current.Statistics.Economy;
-        Assert.Equal(3, economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(economy.RecentEventIds);
-        Assert.False(economy.DeduplicationSaturated);
-        Assert.False(economy.LegacyIdentitySaturationIncomplete);
-        Assert.NotNull(economy.ReplayCursor);
-        Assert.Equal(string.Empty, economy.ReplayCursor!.ActivationId);
-        Assert.False(ProfileMigrator.CompactEconomyReplayEvidenceAfterRecovery(repository.Current));
-        repository.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "M9")]
-    public void SaturatedSchemaNineCandidatePreservesExactTotalsAndResumesUnderANewActivation()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var candidate = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
-        SetMoneyInflow(candidate.Statistics.Economy, 2048);
-        candidate.Statistics.Economy.RecentEventIds.AddRange(
-            Enumerable.Range(1, 2048).Select(value => $"legacy:{value}"));
-        candidate.Statistics.Economy.DeduplicationSaturated = true;
-        candidate.Statistics.Economy.ReplayCursor = null;
-        new AtomicJsonStore<ProfileDocument>().Save(path, candidate);
-
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-        repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-        var economy = repository.Current.Statistics.Economy;
-        Assert.Equal(2048, economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(economy.RecentEventIds);
-        Assert.False(economy.DeduplicationSaturated);
-        Assert.True(economy.LegacyIdentitySaturationIncomplete);
-
-        repository.BeginEconomyActivation("corrected-activation");
-        Assert.True(repository.Record(new CurrencyFlowRecorded
-        {
-            EventId = "corrected:1",
-            TimestampUtc = TestTime,
-            SaveGenerationId = repository.CurrentGenerationId,
-            MapId = MapIdentity.UnknownId,
-            Currency = CurrencyKind.Money,
-            Direction = CurrencyFlowDirection.Inflow,
-            Amount = 1,
-            Source = CurrencySourceCategory.UnknownAdjustment,
-            GameplayContext = GameplayContext.Base,
-            ProducerActivationId = "corrected-activation",
-            ProducerSequence = 1
-        }));
-        Assert.Equal(2049, economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.True(economy.LegacyIdentitySaturationIncomplete);
         repository.CloseClean();
     }
 
@@ -997,7 +826,7 @@ public sealed class PersistenceTests
         Assert.Equal(37, repository.Current.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
         repository.CloseClean();
 
-        var persisted = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!;
+        var persisted = store.Load(path, ProfileFormat.ValidateRecoveryCandidate).Value!;
         Assert.Equal(7, persisted.Revision);
         Assert.Equal(37, persisted.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
     }
@@ -1126,7 +955,7 @@ public sealed class PersistenceTests
         Assert.Equal(37, repository.Current.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
         repository.CloseClean();
 
-        var persisted = store.Load(path, ProfileMigrator.ValidateRecoveryCandidate).Value!;
+        var persisted = store.Load(path, ProfileFormat.ValidateRecoveryCandidate).Value!;
         Assert.Equal(7, persisted.Revision);
         Assert.Equal(37, persisted.Statistics.RunTotals.Maps["duckov:map:A"].TotalRuns);
     }
@@ -1134,15 +963,13 @@ public sealed class PersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M8")]
-    public void SchemaThirteenRepairableNullDictionaryRowsRemainEligibleForM14Normalization()
+    public void CurrentInvalidDictionaryRowsRecoverValidatedBackup()
     {
         using var temporaryDirectory = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
         var store = new AtomicJsonStore<ProfileDocument>();
         var backup = CreateCompleteCurrentSchemaDocument("generation-a", revision: 7);
         var repairablePrimary = CreateCompleteCurrentSchemaDocument("generation-a", revision: 8);
-        repairablePrimary.SchemaVersion = 13;
-        repairablePrimary.Statistics.SchemaVersion = 13;
         repairablePrimary.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:null"] = null!;
         repairablePrimary.Statistics.RunTotals.CombatStatistics.Enemies["enemy:null"] = null!;
         repairablePrimary.Statistics.RunTotals.EquipmentStatistics.Items["equipment:null"] = null!;
@@ -1153,9 +980,8 @@ public sealed class PersistenceTests
         var repository = CreateRepository(temporaryDirectory.Path, "session-new");
         var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
-        Assert.False(result.RecoveredSnapshot);
-        Assert.True(result.MigratedSchema);
-        Assert.Equal(8, repository.Current.Revision);
+        Assert.True(result.RecoveredSnapshot);
+        Assert.Equal(7, repository.Current.Revision);
         Assert.DoesNotContain("weapon:null", repository.Current.Statistics.RunTotals.WeaponStatistics.Weapons.Keys);
         Assert.DoesNotContain("enemy:null", repository.Current.Statistics.RunTotals.CombatStatistics.Enemies.Keys);
         Assert.DoesNotContain("equipment:null", repository.Current.Statistics.RunTotals.EquipmentStatistics.Items.Keys);
@@ -1166,210 +992,12 @@ public sealed class PersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M8")]
-    public void CurrentProfileSemanticSelectionAllowsHistoricalRunSchemaProvenance()
+    public void CurrentProfileRejectsIncompatibleRunSchema()
     {
         var profile = CreateDocument("generation-a", revision: 7);
-        profile.Statistics.Runs.Add(new RunSummary { SchemaVersion = 6 });
+        profile.Statistics.Runs.Add(new RunSummary { SchemaVersion = ProductInfo.SchemaVersion + 1 });
 
-        Assert.Null(ProfileMigrator.ValidateRecoveryCandidate(profile));
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    public void RepositoryMigratesEveryV01AggregateWithoutLosingUsageStatistics()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var legacy = CreateDocument("generation-v01", revision: 12);
-        legacy.SchemaVersion = 1;
-        legacy.Statistics.SchemaVersion = 1;
-        legacy.Statistics.Overall.ActivationCount = 3;
-        legacy.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)] = 3;
-        legacy.Statistics.Items["item:a"] = new()
-        {
-            ItemId = "item:a",
-            DisplayName = "Legacy medkit",
-            Group = CanonicalItemGroup.Healing,
-            Totals = new()
-            {
-                ActivationCount = 3,
-                AmountsByUnit = new() { [nameof(ConsumptionUnit.StackUnit)] = 3 }
-            }
-        };
-        legacy.Statistics.Groups[nameof(CanonicalItemGroup.Healing)] = new()
-        {
-            ActivationCount = 3,
-            AmountsByUnit = new() { [nameof(ConsumptionUnit.StackUnit)] = 3 }
-        };
-        new AtomicJsonStore<ProfileDocument>().Save(path, legacy);
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-
-        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-
-        Assert.True(result.MigratedSchema);
-        Assert.Equal(18, repository.Current.SchemaVersion);
-        Assert.Equal(18, repository.Current.Statistics.SchemaVersion);
-        Assert.Equal(3, repository.Current.Statistics.Overall.ActivationCount);
-        Assert.Equal(3, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)]);
-        Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
-        Assert.Equal(3, repository.Current.Statistics.Items["item:a"].Totals.ActivationCount);
-        Assert.Empty(repository.Current.Statistics.Runs);
-        Assert.Equal(0, repository.Current.Statistics.RunTotals.TotalRuns);
-        Assert.Null(repository.Current.Statistics.RunRecords.Extraction.Shortest);
-        repository.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "Migration")]
-    public void RepositoryMigratesSchemaTwoWithoutChangingM1M2DataCapabilitiesOrArchives()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var slotDirectory = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01");
-        var path = System.IO.Path.Combine(slotDirectory, "current", "profile.json");
-        var archivePath = System.IO.Path.Combine(slotDirectory, "archives", "historical-generation", "profile.json");
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(archivePath)!);
-        File.WriteAllText(archivePath, "historical archive bytes");
-        File.SetAttributes(archivePath, File.GetAttributes(archivePath) | FileAttributes.ReadOnly);
-        var archiveHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(archivePath)));
-
-        var legacy = CreateDocument("generation-v02", revision: 41);
-        legacy.SchemaVersion = 2;
-        legacy.Statistics.SchemaVersion = 2;
-        legacy.InterruptedSessionCount = 3;
-        legacy.Statistics.Overall.ActivationCount = 4;
-        legacy.Statistics.Overall.ActualHealthRestored = 72.5;
-        legacy.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.Durability)] = 50;
-        legacy.Statistics.Groups[nameof(CanonicalItemGroup.Healing)] = new AggregateTotals
-        {
-            ActivationCount = 4,
-            ActualHealthRestored = 72.5,
-            AmountsByUnit = new() { [nameof(ConsumptionUnit.Durability)] = 50 }
-        };
-        legacy.Statistics.Items["item:medkit"] = new ItemAggregate
-        {
-            ItemId = "item:medkit",
-            DisplayName = "Medkit",
-            Group = CanonicalItemGroup.Healing,
-            EffectTags = new() { ItemEffectTag.Healing },
-            Totals = new AggregateTotals
-            {
-                ActivationCount = 4,
-                ActualHealthRestored = 72.5,
-                AmountsByUnit = new() { [nameof(ConsumptionUnit.Durability)] = 50 }
-            }
-        };
-        legacy.Statistics.RecentEventIds.AddRange(SchemaTwoRecentEventIds);
-        legacy.Capabilities.Add(new CapabilityRecord
-        {
-            AdapterId = "native-healing-attribution",
-            State = AdapterCapabilityState.Supported,
-            Version = "native-healing-attribution/2.3.30"
-        });
-        new AtomicJsonStore<ProfileDocument>().Save(path, legacy);
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-
-        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-
-        Assert.True(result.MigratedSchema);
-        Assert.Equal(ProductInfo.SchemaVersion, repository.Current.SchemaVersion);
-        Assert.Equal("generation-v02", repository.Current.GenerationId);
-        Assert.Equal(41, repository.Current.Revision);
-        Assert.Equal(3, repository.Current.InterruptedSessionCount);
-        Assert.Equal(4, repository.Current.Statistics.Overall.ActivationCount);
-        Assert.Equal(72.5, repository.Current.Statistics.Overall.ActualHealthRestored);
-        Assert.Equal(50, repository.Current.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.Durability)]);
-        Assert.Equal(4, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Healing)].ActivationCount);
-        Assert.Equal(72.5, repository.Current.Statistics.Items["item:medkit"].Totals.ActualHealthRestored);
-        Assert.Equal(SchemaTwoRecentEventIds, repository.Current.Statistics.RecentEventIds);
-        Assert.Equal("native-healing-attribution", Assert.Single(repository.Current.Capabilities).AdapterId);
-        Assert.Empty(repository.Current.Statistics.Runs);
-        Assert.Equal(0, repository.Current.Statistics.RunTotals.TotalRuns);
-        Assert.Equal(archiveHash, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(archivePath))));
-        Assert.True(File.GetAttributes(archivePath).HasFlag(FileAttributes.ReadOnly));
-        repository.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "Migration")]
-    [Trait("Category", "Weapon")]
-    public void RepositoryMigratesSchemaThreeWithoutChangingM1ToM3Data()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var legacy = CreateDocument("generation-v03", revision: 73);
-        legacy.SchemaVersion = 3;
-        legacy.Statistics.SchemaVersion = 3;
-        legacy.InterruptedSessionCount = 2;
-        legacy.Statistics.Overall.ActivationCount = 5;
-        legacy.Statistics.Overall.ActualHealthRestored = 24;
-        legacy.Statistics.RunTotals.TotalRuns = 1;
-        legacy.Statistics.RunTotals.PhysicalDistance = 120;
-        legacy.Statistics.RunTotals.TeleportDistance = 3;
-        legacy.Statistics.RunTotals.Outcomes[nameof(RunOutcome.Extracted)] = 1;
-        legacy.Statistics.RunTotals.WeaponStatistics = null!;
-        legacy.Statistics.RunTotals.Maps["duckov:map:test"] = new MapRunAggregate
-        {
-            MapId = "duckov:map:test",
-            DisplayName = "Test map",
-            IsKnown = true,
-            TotalRuns = 1,
-            PhysicalDistance = 120,
-            TeleportDistance = 3,
-            Outcomes = new() { [nameof(RunOutcome.Extracted)] = 1 },
-            WeaponStatistics = null!
-        };
-        legacy.Statistics.Runs.Add(new RunSummary
-        {
-            RunId = "run-v03",
-            SaveGenerationId = "generation-v03",
-            MapId = "duckov:map:test",
-            MapDisplayName = "Test map",
-            MapKnown = true,
-            StartedUtc = TestTime.AddMinutes(-2),
-            EndedUtc = TestTime,
-            ActiveDurationSeconds = 90,
-            WallClockDurationSeconds = 120,
-            Outcome = RunOutcome.Extracted,
-            PhysicalDistance = 120,
-            TeleportDistance = 3,
-            RecordEligible = true,
-            LifecycleCapability = AdapterCapabilityState.Supported,
-            MovementCapability = AdapterCapabilityState.Supported,
-            MapCapability = AdapterCapabilityState.Supported,
-            WeaponStatistics = null!
-        });
-        legacy.Capabilities.Add(new CapabilityRecord
-        {
-            AdapterId = RunStatisticsViewModelFactory.MovementAdapterId,
-            State = AdapterCapabilityState.Supported,
-            Version = "native-main-duck-movement/2.3.30"
-        });
-        new AtomicJsonStore<ProfileDocument>().Save(path, legacy);
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-
-        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-
-        Assert.True(result.MigratedSchema);
-        Assert.Equal(18, repository.Current.SchemaVersion);
-        Assert.Equal(18, repository.Current.Statistics.SchemaVersion);
-        Assert.Equal("generation-v03", repository.Current.GenerationId);
-        Assert.Equal(73, repository.Current.Revision);
-        Assert.Equal(2, repository.Current.InterruptedSessionCount);
-        Assert.Equal(5, repository.Current.Statistics.Overall.ActivationCount);
-        Assert.Equal(24, repository.Current.Statistics.Overall.ActualHealthRestored);
-        Assert.Equal(1, repository.Current.Statistics.RunTotals.TotalRuns);
-        Assert.Equal(120, repository.Current.Statistics.RunTotals.PhysicalDistance);
-        Assert.Equal(3, repository.Current.Statistics.RunTotals.TeleportDistance);
-        Assert.Equal("run-v03", Assert.Single(repository.Current.Statistics.Runs).RunId);
-        Assert.Equal("native-main-duck-movement", Assert.Single(repository.Current.Capabilities).AdapterId);
-        Assert.Equal(0, repository.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
-        Assert.Empty(repository.Current.Statistics.RunTotals.WeaponStatistics.Weapons);
-        Assert.Empty(repository.Current.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes);
-        Assert.NotNull(repository.Current.Statistics.RunTotals.Maps["duckov:map:test"].WeaponStatistics);
-        Assert.NotNull(repository.Current.Statistics.Runs[0].WeaponStatistics);
-        repository.CloseClean();
+        Assert.Contains("incompatible run schema", ProfileFormat.ValidateRecoveryCandidate(profile));
     }
 
     [Fact]
@@ -1386,8 +1014,6 @@ public sealed class PersistenceTests
             "current",
             "profile.json");
         var profile = CreateDocument("generation-repaired", revision: 9);
-        profile.SchemaVersion = 13;
-        profile.Statistics.SchemaVersion = 13;
         profile.Capabilities.Add(new CapabilityRecord
         {
             AdapterId = WeaponCapabilityIds.FiringActions,
@@ -1395,12 +1021,13 @@ public sealed class PersistenceTests
             Version = ProductInfo.Version
         });
         profile.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions = -7;
+        Assert.True(ProfileFormat.Normalize(profile));
         new AtomicJsonStore<ProfileDocument>().Save(path, profile);
 
         var first = CreateRepository(temporaryDirectory.Path, "session-first");
         var firstResult = first.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
-        Assert.True(firstResult.MigratedSchema);
+        Assert.False(firstResult.NormalizedProfile);
         Assert.Equal(0, first.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         Assert.True(first.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
         Assert.Equal(
@@ -1411,7 +1038,7 @@ public sealed class PersistenceTests
         var second = CreateRepository(temporaryDirectory.Path, "session-second");
         var secondResult = second.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
-        Assert.False(secondResult.MigratedSchema);
+        Assert.False(secondResult.NormalizedProfile);
         Assert.True(second.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
         Assert.False(WeaponStatisticsReducer.IsEmpty(
             second.Current.Statistics.RunTotals.WeaponStatistics));
@@ -1435,8 +1062,6 @@ public sealed class PersistenceTests
             "current",
             "profile.json");
         var profile = CreateDocument("generation-corrupt-identities", revision: 10);
-        profile.SchemaVersion = 13;
-        profile.Statistics.SchemaVersion = 13;
         profile.Capabilities.Add(new CapabilityRecord
         {
             AdapterId = WeaponCapabilityIds.FiringActions,
@@ -1450,21 +1075,19 @@ public sealed class PersistenceTests
         lifetime.AmmunitionTypes["ammo:null"] = null!;
         lifetime.AmmunitionTypes[string.Empty] = new AmmunitionAggregate { AmmunitionId = "ammo:empty" };
         lifetime.AmmunitionTypes[" \t"] = new AmmunitionAggregate { AmmunitionId = "ammo:whitespace" };
+        Assert.True(ProfileFormat.Normalize(profile));
         var store = new AtomicJsonStore<ProfileDocument>();
         store.Save(path, profile);
 
         var roundTripped = store.Load(path).Value!;
-        Assert.Null(roundTripped.Statistics.RunTotals.WeaponStatistics.Weapons["weapon:null"]);
-        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.Weapons.ContainsKey(string.Empty));
-        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.Weapons.ContainsKey(" \t"));
-        Assert.Null(roundTripped.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes["ammo:null"]);
-        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes.ContainsKey(string.Empty));
-        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes.ContainsKey(" \t"));
+        Assert.Empty(roundTripped.Statistics.RunTotals.WeaponStatistics.Weapons);
+        Assert.Empty(roundTripped.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes);
+        Assert.True(roundTripped.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
 
         var first = CreateRepository(temporaryDirectory.Path, "session-first");
         var firstResult = first.Open(CreateIdentity(slot: 1, creationTicks: 100));
 
-        Assert.True(firstResult.MigratedSchema);
+        Assert.False(firstResult.NormalizedProfile);
         Assert.Empty(first.Current.Statistics.RunTotals.WeaponStatistics.Weapons);
         Assert.Empty(first.Current.Statistics.RunTotals.WeaponStatistics.AmmunitionTypes);
         Assert.True(first.Current.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
@@ -1501,159 +1124,6 @@ public sealed class PersistenceTests
         var archived = store.Load(System.IO.Path.Combine(archive, "profile.json")).Value!;
         Assert.True(archived.Statistics.RunTotals.WeaponStatistics.WasRepairedFromInvalidState);
         third.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "Healing")]
-    public void RepositoryRepairsPreReleaseDelayedHealingGroupWithoutChangingGenerationOrTotals()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var profile = CreateDocument("generation-schema-2", revision: 58);
-        profile.Statistics.Overall.ActivationCount = 2;
-        profile.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.Durability)] = 50;
-        profile.Statistics.Overall.AmountsByUnit[nameof(ConsumptionUnit.StackUnit)] = 1;
-        profile.Statistics.Overall.ActualHealthRestored = 60;
-        profile.Statistics.Items["item:water"] = new()
-        {
-            ItemId = "item:water",
-            DisplayName = "Water",
-            Group = CanonicalItemGroup.Drink,
-            EffectTags = new List<ItemEffectTag> { ItemEffectTag.Drink },
-            Totals = new()
-            {
-                ActivationCount = 1,
-                AmountsByUnit = new() { [nameof(ConsumptionUnit.Durability)] = 50 }
-            }
-        };
-        profile.Statistics.Items["item:injector"] = new()
-        {
-            ItemId = "item:injector",
-            DisplayName = "Recovery Injector",
-            Group = CanonicalItemGroup.Drink,
-            EffectTags = new List<ItemEffectTag> { ItemEffectTag.Drink, ItemEffectTag.Buff },
-            Totals = new()
-            {
-                ActivationCount = 1,
-                AmountsByUnit = new() { [nameof(ConsumptionUnit.StackUnit)] = 1 },
-                ActualHealthRestored = 60
-            }
-        };
-        profile.Statistics.Groups[nameof(CanonicalItemGroup.Drink)] = new()
-        {
-            ActivationCount = 2,
-            AmountsByUnit = new()
-            {
-                [nameof(ConsumptionUnit.Durability)] = 50,
-                [nameof(ConsumptionUnit.StackUnit)] = 1
-            },
-            ActualHealthRestored = 60
-        };
-        new AtomicJsonStore<ProfileDocument>().Save(path, profile);
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-
-        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-
-        Assert.True(result.MigratedSchema);
-        Assert.Equal("generation-schema-2", repository.Current.GenerationId);
-        Assert.Equal(2, repository.Current.Statistics.Overall.ActivationCount);
-        Assert.Equal(60, repository.Current.Statistics.Overall.ActualHealthRestored);
-        var injector = repository.Current.Statistics.Items["item:injector"];
-        Assert.Equal(CanonicalItemGroup.Healing, injector.Group);
-        Assert.Contains(ItemEffectTag.Healing, injector.EffectTags);
-        Assert.Equal(1, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Drink)].ActivationCount);
-        Assert.Equal(0, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Drink)].ActualHealthRestored);
-        Assert.Equal(1, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Healing)].ActivationCount);
-        Assert.Equal(60, repository.Current.Statistics.Groups[nameof(CanonicalItemGroup.Healing)].ActualHealthRestored);
-        Assert.Equal(
-            repository.Current.Statistics.Overall.ActivationCount,
-            repository.Current.Statistics.Groups.Values.Sum(group => group.ActivationCount));
-        Assert.Equal(
-            repository.Current.Statistics.Overall.ActualHealthRestored,
-            repository.Current.Statistics.Groups.Values.Sum(group => group.ActualHealthRestored));
-        repository.CloseClean();
-
-        var persisted = new AtomicJsonStore<ProfileDocument>().Load(path).Value!;
-        Assert.Equal("generation-schema-2", persisted.GenerationId);
-        Assert.Equal(CanonicalItemGroup.Healing, persisted.Statistics.Items["item:injector"].Group);
-        Assert.Equal(60, persisted.Statistics.Overall.ActualHealthRestored);
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    public void RepositoryRecoversAndMigratesV01BackupSnapshot()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var store = new AtomicJsonStore<ProfileDocument>();
-        var legacy = CreateDocument("generation-v01-backup", revision: 8);
-        legacy.SchemaVersion = 1;
-        legacy.Statistics.SchemaVersion = 1;
-        legacy.Statistics.Overall.ActivationCount = 2;
-        store.Save(path, legacy);
-        store.Save(path, CreateDocument("generation-discarded", revision: 9));
-        File.WriteAllText(path, "{ corrupt-primary");
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-
-        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-
-        Assert.True(result.RecoveredSnapshot);
-        Assert.True(result.MigratedSchema);
-        Assert.Equal(ProductInfo.SchemaVersion, repository.Current.SchemaVersion);
-        Assert.Equal("generation-v01-backup", repository.Current.GenerationId);
-        Assert.Equal(2, repository.Current.Statistics.Overall.ActivationCount);
-        Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
-        repository.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    public void RepositoryRecoversAndMigratesV01TemporarySnapshot()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var legacy = CreateDocument("generation-v01-temporary", revision: 6);
-        legacy.SchemaVersion = 1;
-        legacy.Statistics.SchemaVersion = 1;
-        legacy.Statistics.Overall.ActivationCount = 4;
-        new AtomicJsonStore<ProfileDocument>().Save(AtomicJsonPaths.GetTemporaryPath(path), legacy);
-        var repository = CreateRepository(temporaryDirectory.Path, "session-new");
-
-        var result = repository.Open(CreateIdentity(slot: 1, creationTicks: 100));
-
-        Assert.True(result.RecoveredSnapshot);
-        Assert.True(result.MigratedSchema);
-        Assert.Equal(ProductInfo.SchemaVersion, repository.Current.SchemaVersion);
-        Assert.Equal("generation-v01-temporary", repository.Current.GenerationId);
-        Assert.Equal(4, repository.Current.Statistics.Overall.ActivationCount);
-        Assert.Equal(0, repository.Current.Statistics.Overall.ActualHealthRestored);
-        repository.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    public void RepositoryNormalizesMissingLegacyFieldsBeforeIdentityChecks()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var path = System.IO.Path.Combine(temporaryDirectory.Path, "profiles", "slot-01", "current", "profile.json");
-        var legacy = CreateDocument("generation-legacy", revision: 4);
-        legacy.SchemaVersion = 0;
-        legacy.Identity = null!;
-        legacy.Statistics = null!;
-        new AtomicJsonStore<ProfileDocument>().Save(path, legacy);
-        var ids = new Queue<string>();
-        ids.Enqueue("session-new");
-        var repository = CreateRepository(temporaryDirectory.Path, ids);
-
-        var result = repository.Open(new SaveIdentitySnapshot { Slot = 1, SaveFilePresent = false });
-
-        Assert.True(result.MigratedSchema);
-        Assert.False(result.RotatedGeneration);
-        Assert.Equal("generation-legacy", repository.Current.GenerationId);
-        Assert.NotNull(repository.Current.Identity);
-        Assert.NotNull(repository.Current.Statistics);
-        repository.CloseClean();
     }
 
     [Fact]
@@ -2281,7 +1751,6 @@ public sealed class PersistenceTests
             CashAmountDirection = Supported(),
             CashExternalAcquisition = Supported(),
             CashContextAttribution = Supported(),
-            CashTerminalOutcomes = Supported(),
             RouteAttribution = Supported()
         };
     }
@@ -2349,9 +1818,6 @@ public sealed class PersistenceTests
         {
             RunId = "run-test",
             SaveGenerationId = generationId,
-            MapId = "duckov:map:A",
-            MapDisplayName = "A",
-            MapKnown = true,
             StartedUtc = TestTime,
             EndedUtc = TestTime.AddMinutes(1),
             StartingMapId = "duckov:map:A",
@@ -2410,18 +1876,18 @@ public sealed class PersistenceTests
         SetMoneyInflow(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy, segmentAmount);
     }
 
-    private static void ConfigureExactCashOutcomeFanOut(ProfileDocument document, long amount)
+    private static void ConfigureExactCashAcquisitionFanOut(ProfileDocument document, long amount)
     {
         var run = document.Statistics.Runs[0];
         var segment = run.Segments[0];
-        SetCashOutcome(run.Economy, amount, amount);
-        SetCashOutcome(segment.Economy, amount, secured: 0);
-        SetCashOutcome(document.Statistics.RunTotals.Economy, amount, amount);
-        SetCashOutcome(document.Statistics.RunTotals.Maps[run.StartingMapId].Economy, amount, amount);
-        SetCashOutcome(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy, amount, secured: 0);
+        SetCashAcquisition(run.Economy, amount);
+        SetCashAcquisition(segment.Economy, amount);
+        SetCashAcquisition(document.Statistics.RunTotals.Economy, amount);
+        SetCashAcquisition(document.Statistics.RunTotals.Maps[run.StartingMapId].Economy, amount);
+        SetCashAcquisition(document.Statistics.RunTotals.RouteMaps[segment.MapId].Economy, amount);
     }
 
-    private static void SetCashOutcome(EconomyStatisticsAggregate economy, long acquired, long secured)
+    private static void SetCashAcquisition(EconomyStatisticsAggregate economy, long acquired)
     {
         economy.Capabilities.RouteAttribution = new MetricAvailability
         {
@@ -2441,15 +1907,10 @@ public sealed class PersistenceTests
                 [GameplayContext.Raid.ToString()] = new() { GrossInflow = acquired }
             }
         };
-        economy.CashRaidOutcomes = new CashRaidOutcomeAggregate
-        {
-            Acquired = acquired,
-            Secured = secured
-        };
-        economy.CashTerminalDispositionRecorded = secured > 0;
+        economy.CashAcquired = acquired;
     }
 
-    private static ProfileDocument CreateMigratedProfileWithExactPostM9Run(
+    private static ProfileDocument CreateCurrentProfileWithExactEconomyRun(
         string generationId,
         long revision,
         long amount,
@@ -2457,20 +1918,22 @@ public sealed class PersistenceTests
         bool degradeCurrentZeroFlowRun = false)
     {
         var document = CreateCompleteCurrentSchemaDocument(generationId, revision);
-        document.SchemaVersion = 8;
-        document.Statistics.SchemaVersion = 8;
-        document.Statistics.Economy = null!;
-        document.DeferredItemPersistence!.AppliedLifetimeEconomy = null!;
-        document.Statistics.RunTotals.Economy = null!;
-        foreach (var map in document.Statistics.RunTotals.Maps.Values) map.Economy = null!;
-        foreach (var map in document.Statistics.RunTotals.RouteMaps.Values) map.Economy = null!;
+        document.Statistics.Economy = new EconomyStatisticsAggregate();
+        document.Statistics.RunTotals.Economy = new EconomyStatisticsAggregate();
+        foreach (var map in document.Statistics.RunTotals.Maps.Values) map.Economy = new EconomyStatisticsAggregate();
+        foreach (var map in document.Statistics.RunTotals.RouteMaps.Values) map.Economy = new EconomyStatisticsAggregate();
         foreach (var run in document.Statistics.Runs)
         {
-            run.SchemaVersion = 8;
-            run.Economy = null!;
-            foreach (var segment in run.Segments) segment.Economy = null!;
+            run.Economy = new EconomyStatisticsAggregate();
+            SetExactMoneySupported(run.Economy);
+            foreach (var segment in run.Segments)
+            {
+                segment.Economy = new EconomyStatisticsAggregate();
+                SetExactMoneySupported(segment.Economy);
+            }
         }
-        Assert.True(ProfileMigrator.Migrate(document));
+        SetExactMoneySupported(document.Statistics.Economy);
+        SetMoneyInflow(document.Statistics.Economy, amount);
 
         var postM9Run = CreateCompleteCurrentSchemaDocument(generationId, revision).Statistics.Runs[0];
         postM9Run.RunId = "run-post-m9";
@@ -2510,9 +1973,14 @@ public sealed class PersistenceTests
                     State = AdapterCapabilityState.DisabledIncompatible,
                     Provenance = "test degraded zero-flow capture"
                 };
+                EconomyStatisticsReducer.Merge(document.Statistics.RunTotals.Economy, zeroFlowRun.Economy);
+                EconomyStatisticsReducer.Merge(document.Statistics.RunTotals.Maps[zeroFlowRun.StartingMapId].Economy, zeroFlowRun.Economy);
+                EconomyStatisticsReducer.Merge(document.Statistics.RunTotals.RouteMaps[zeroFlowRun.Segments[0].MapId].Economy, zeroFlowRun.Segments[0].Economy);
             }
             document.Statistics.Runs.Add(zeroFlowRun);
         }
+        var validationFailure = ProfileFormat.ValidateRecoveryCandidate(document);
+        Assert.True(validationFailure == null, validationFailure);
         return document;
     }
 
@@ -2573,16 +2041,14 @@ public sealed class PersistenceTests
             case "Statistics.RunRecords": statistics.RunRecords = null!; break;
             case "Statistics.Economy": statistics.Economy = null!; break;
             case "Statistics.Economy.Currencies": statistics.Economy.Currencies = null!; break;
-            case "Statistics.Economy.CashRaidOutcomes": statistics.Economy.CashRaidOutcomes = null!; break;
             case "Statistics.Economy.Capabilities": statistics.Economy.Capabilities = null!; break;
-            case "Statistics.Economy.RecentEventIds": statistics.Economy.RecentEventIds = null!; break;
+            case "Statistics.Economy.ReplayCursor": statistics.Economy.ReplayCursor = null!; break;
             case "Statistics.Economy.Capabilities.MoneyAmountDirection": statistics.Economy.Capabilities.MoneyAmountDirection = null!; break;
             case "Statistics.Economy.Capabilities.MoneySourceAttribution": statistics.Economy.Capabilities.MoneySourceAttribution = null!; break;
             case "Statistics.Economy.Capabilities.MoneyContextAttribution": statistics.Economy.Capabilities.MoneyContextAttribution = null!; break;
             case "Statistics.Economy.Capabilities.CashAmountDirection": statistics.Economy.Capabilities.CashAmountDirection = null!; break;
             case "Statistics.Economy.Capabilities.CashExternalAcquisition": statistics.Economy.Capabilities.CashExternalAcquisition = null!; break;
             case "Statistics.Economy.Capabilities.CashContextAttribution": statistics.Economy.Capabilities.CashContextAttribution = null!; break;
-            case "Statistics.Economy.Capabilities.CashTerminalOutcomes": statistics.Economy.Capabilities.CashTerminalOutcomes = null!; break;
             case "Statistics.Economy.Capabilities.RouteAttribution": statistics.Economy.Capabilities.RouteAttribution = null!; break;
             case "Statistics.Economy.Currency.Totals": statistics.Economy.Currencies["Money"].Totals = null!; break;
             case "Statistics.Economy.Currency.Sources": statistics.Economy.Currencies["Money"].Sources = null!; break;

@@ -1,0 +1,2620 @@
+{
+  "RecordedUtc": "2026-09-09T21:54:57.698031+00:00",
+  "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "CheckoutAtReview": "c849fa567c586b83852777ac5a20a3c4136b7e47",
+  "EvidenceRoot": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay\\natural-soak-r01",
+  "EvidenceManifest": {
+    "Path": "review-input.json",
+    "Sha256": "66e91ca31099c92321d4c9be69ff218aa4254c893f094a71b552a9528d7b4263"
+  },
+  "FrozenAnalysisSha256": "76c69f073617ebdba33352aae95b5f86dc9f968ebc0cd324a9e11d4808f34d38",
+  "RawCaptureSha256": "6114cbb1eedddd9b3e67a2b104cabc76d529c7a493cf986fe92c6697e57e7ed0",
+  "RawCaptureBytes": 19944226,
+  "Status": "Pass for bounded evidence/native composition review and saved/exported run agreement. Elapsed-raid p99 fails declared20percent bound at20.77437percent. Historical map joins remain partial; memory retention and wider M18 qualification remain open.",
+  "Evidence": {
+    "RecordedUtc": "2026-09-09T21:47:59.055067+00:00",
+    "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+    "RawSha256": "6114cbb1eedddd9b3e67a2b104cabc76d529c7a493cf986fe92c6697e57e7ed0",
+    "RawBytes": 19944226,
+    "CaptureStartUtc": "2026-09-09T21:27:04.8115315Z",
+    "StopHotkeyUtc": "2026-09-09T21:41:22.7865470Z",
+    "DurationSeconds": 857.963325699995,
+    "EarlierCaptureBoundaryEvents": [
+      {
+        "@t": "2026-09-09T21:26:34.3070702Z",
+        "@mt": "IsCapturing state: {isCapturingState}",
+        "isCapturingState": false,
+        "SourceContext": "CapFrameX.ViewModel.CaptureViewModel"
+      },
+      {
+        "@t": "2026-09-09T21:26:48.3929011Z",
+        "@mt": "IsCapturing state: {isCapturingState}",
+        "isCapturingState": true,
+        "SourceContext": "CapFrameX.ViewModel.CaptureViewModel"
+      }
+    ],
+    "Alignment": "Logged F11 IsCapturing=False/True callback timestamps; CreationDate is completion metadata. Frame start offsets assign half-open windows. Millisecond native lifecycle timestamps and collector-start latency limit exact callback alignment.",
+    "TotalFrames": 188332,
+    "WholeCapture": {
+      "Frames": 188332,
+      "FirstOffsetSeconds": 0.0,
+      "LastOffsetSeconds": 857.963325699995,
+      "MeanMs": 4.555613372661009,
+      "MedianMs": 4.1752,
+      "P95Ms": 6.393344999999998,
+      "P99Ms": 9.473269,
+      "MaximumMs": 1172.4663,
+      "Thresholds": {
+        "8.3": {
+          "Count": 2769,
+          "Percent": 1.470275895758554
+        },
+        "16.7": {
+          "Count": 598,
+          "Percent": 0.31752437185396004
+        },
+        "33.3": {
+          "Count": 102,
+          "Percent": 0.054159675466728965
+        },
+        "50": {
+          "Count": 58,
+          "Percent": 0.030796678206571376
+        },
+        "100": {
+          "Count": 29,
+          "Percent": 0.015398339103285688
+        }
+      },
+      "CpuMedianMs": 4.1158,
+      "CpuP99Ms": 9.41254100000002,
+      "GpuMedianMs": 2.6487,
+      "GpuP99Ms": 3.0417,
+      "Peak": {
+        "OffsetSeconds": 507.122066999997,
+        "FrameMs": 1172.4663,
+        "CpuMs": 1172.398,
+        "GpuMs": 17.8598
+      }
+    },
+    "RaidStartSeconds": 13.79646897315979,
+    "RaidEndSeconds": 841.3344688415527,
+    "RaidIncludingTransitions": {
+      "Frames": 183858,
+      "FirstOffsetSeconds": 13.8428511999955,
+      "LastOffsetSeconds": 841.3280106999961,
+      "MeanMs": 4.501844894429394,
+      "MedianMs": 4.1521,
+      "P95Ms": 6.3606,
+      "P99Ms": 8.742489999999979,
+      "MaximumMs": 1172.4663,
+      "Thresholds": {
+        "8.3": {
+          "Count": 2255,
+          "Percent": 1.2264900085935886
+        },
+        "16.7": {
+          "Count": 179,
+          "Percent": 0.09735774347594339
+        },
+        "33.3": {
+          "Count": 89,
+          "Percent": 0.04840692273384895
+        },
+        "50": {
+          "Count": 46,
+          "Percent": 0.025019308379292716
+        },
+        "100": {
+          "Count": 20,
+          "Percent": 0.010877960164909876
+        }
+      },
+      "CpuMedianMs": 4.09345,
+      "CpuP99Ms": 8.676972999999993,
+      "GpuMedianMs": 2.6516,
+      "GpuP99Ms": 3.04,
+      "Peak": {
+        "OffsetSeconds": 507.122066999997,
+        "FrameMs": 1172.4663,
+        "CpuMs": 1172.398,
+        "GpuMs": 17.8598
+      }
+    },
+    "GameplayOnly": {
+      "Frames": 182463,
+      "FirstOffsetSeconds": 13.8428511999955,
+      "LastOffsetSeconds": 841.3280106999961,
+      "MeanMs": 4.461268844094397,
+      "MedianMs": 4.1544,
+      "P95Ms": 6.3227699999999984,
+      "P99Ms": 8.25579800000001,
+      "MaximumMs": 341.6501,
+      "Thresholds": {
+        "8.3": {
+          "Count": 1786,
+          "Percent": 0.9788285844253356
+        },
+        "16.7": {
+          "Count": 145,
+          "Percent": 0.07946816614875345
+        },
+        "33.3": {
+          "Count": 71,
+          "Percent": 0.038911998596975826
+        },
+        "50": {
+          "Count": 30,
+          "Percent": 0.016441689548017953
+        },
+        "100": {
+          "Count": 9,
+          "Percent": 0.004932506864405386
+        }
+      },
+      "CpuMedianMs": 4.0958,
+      "CpuP99Ms": 8.189854000000015,
+      "GpuMedianMs": 2.6521,
+      "GpuP99Ms": 3.0379,
+      "Peak": {
+        "OffsetSeconds": 840.9863294000021,
+        "FrameMs": 341.6501,
+        "CpuMs": 341.5902,
+        "GpuMs": 2.925
+      }
+    },
+    "BeforeRaid": {
+      "Frames": 2158,
+      "FirstOffsetSeconds": 0.0,
+      "LastOffsetSeconds": 13.7486332999979,
+      "MeanMs": 6.414657089898053,
+      "MedianMs": 4.7459,
+      "P95Ms": 17.045775,
+      "P99Ms": 17.532372999999993,
+      "MaximumMs": 675.6207,
+      "Thresholds": {
+        "8.3": {
+          "Count": 197,
+          "Percent": 9.128822984244671
+        },
+        "16.7": {
+          "Count": 163,
+          "Percent": 7.553290083410565
+        },
+        "33.3": {
+          "Count": 7,
+          "Percent": 0.3243744207599629
+        },
+        "50": {
+          "Count": 6,
+          "Percent": 0.27803521779425394
+        },
+        "100": {
+          "Count": 5,
+          "Percent": 0.23169601482854496
+        }
+      },
+      "CpuMedianMs": 4.6905,
+      "CpuP99Ms": 17.468026999999996,
+      "GpuMedianMs": 2.0597,
+      "GpuP99Ms": 2.7369449999999995,
+      "Peak": {
+        "OffsetSeconds": 12.7642384999926,
+        "FrameMs": 675.6207,
+        "CpuMs": 675.5665,
+        "GpuMs": 26.3927
+      }
+    },
+    "AfterTerminal": {
+      "Frames": 2316,
+      "FirstOffsetSeconds": 841.543061899996,
+      "LastOffsetSeconds": 857.963325699995,
+      "MeanMs": 7.091860578583765,
+      "MedianMs": 4.79765,
+      "P95Ms": 17.3267,
+      "P99Ms": 17.995549999999994,
+      "MaximumMs": 488.4243,
+      "Thresholds": {
+        "8.3": {
+          "Count": 317,
+          "Percent": 13.687392055267702
+        },
+        "16.7": {
+          "Count": 256,
+          "Percent": 11.053540587219343
+        },
+        "33.3": {
+          "Count": 6,
+          "Percent": 0.25906735751295334
+        },
+        "50": {
+          "Count": 6,
+          "Percent": 0.25906735751295334
+        },
+        "100": {
+          "Count": 4,
+          "Percent": 0.17271157167530224
+        }
+      },
+      "CpuMedianMs": 4.7368500000000004,
+      "CpuP99Ms": 17.884599999999992,
+      "GpuMedianMs": 2.51915,
+      "GpuP99Ms": 9.240744999999999,
+      "Peak": {
+        "OffsetSeconds": 848.953315099992,
+        "FrameMs": 488.4243,
+        "CpuMs": 488.3625,
+        "GpuMs": 0.8393
+      }
+    },
+    "Segments": [
+      {
+        "Index": 0,
+        "Map": "Nullpunkt",
+        "MapId": "duckov:map:Level_GroundZero_1",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:0",
+        "StartSeconds": 13.79646897315979,
+        "EndSeconds": 139.2504689693451,
+        "NativeActiveSeconds": 125.45490440000003,
+        "Statistics": {
+          "Frames": 28148,
+          "FirstOffsetSeconds": 13.8428511999955,
+          "LastOffsetSeconds": 139.124998099993,
+          "MeanMs": 4.455842081142549,
+          "MedianMs": 4.2891,
+          "P95Ms": 5.568424999999999,
+          "P99Ms": 7.230852999999988,
+          "MaximumMs": 140.8838,
+          "Thresholds": {
+            "8.3": {
+              "Count": 195,
+              "Percent": 0.6927668040358107
+            },
+            "16.7": {
+              "Count": 38,
+              "Percent": 0.1350007105300554
+            },
+            "33.3": {
+              "Count": 4,
+              "Percent": 0.014210601108426887
+            },
+            "50": {
+              "Count": 2,
+              "Percent": 0.0071053005542134435
+            },
+            "100": {
+              "Count": 2,
+              "Percent": 0.0071053005542134435
+            }
+          },
+          "CpuMedianMs": 4.2314,
+          "CpuP99Ms": 7.1672709999999995,
+          "GpuMedianMs": 2.7244,
+          "GpuP99Ms": 3.049,
+          "Peak": {
+            "OffsetSeconds": 139.124998099993,
+            "FrameMs": 140.8838,
+            "CpuMs": 140.8201,
+            "GpuMs": 2.736
+          }
+        },
+        "Shots": 81,
+        "Kills": 9,
+        "ItemUses": 0
+      },
+      {
+        "Index": 1,
+        "Map": "Lagerbereich",
+        "MapId": "duckov:map:Level_HiddenWarehouse",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:1",
+        "StartSeconds": 144.67546892166138,
+        "EndSeconds": 352.40746903419495,
+        "NativeActiveSeconds": 207.73197560000006,
+        "Statistics": {
+          "Frames": 52776,
+          "FirstOffsetSeconds": 144.73915839999202,
+          "LastOffsetSeconds": 352.3985856,
+          "MeanMs": 3.9353272642868276,
+          "MedianMs": 3.76865,
+          "P95Ms": 4.879875,
+          "P99Ms": 6.978875,
+          "MaximumMs": 126.2893,
+          "Thresholds": {
+            "8.3": {
+              "Count": 217,
+              "Percent": 0.41117174473245416
+            },
+            "16.7": {
+              "Count": 22,
+              "Percent": 0.04168561467333636
+            },
+            "33.3": {
+              "Count": 15,
+              "Percent": 0.028422010004547523
+            },
+            "50": {
+              "Count": 5,
+              "Percent": 0.009474003334849174
+            },
+            "100": {
+              "Count": 1,
+              "Percent": 0.0018948006669698347
+            }
+          },
+          "CpuMedianMs": 3.7105,
+          "CpuP99Ms": 6.91865,
+          "GpuMedianMs": 2.6411,
+          "GpuP99Ms": 2.9162,
+          "Peak": {
+            "OffsetSeconds": 159.289402499999,
+            "FrameMs": 126.2893,
+            "CpuMs": 126.2219,
+            "GpuMs": 3.6977
+          }
+        },
+        "Shots": 83,
+        "Kills": 11,
+        "ItemUses": 6
+      },
+      {
+        "Index": 2,
+        "Map": "Keller",
+        "MapId": "duckov:map:Level_HiddenWarehouse_CellarUnderGround",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:2",
+        "StartSeconds": 353.11146903038025,
+        "EndSeconds": 431.6344690322876,
+        "NativeActiveSeconds": 78.52254800000003,
+        "Statistics": {
+          "Frames": 22452,
+          "FirstOffsetSeconds": 353.14357809999603,
+          "LastOffsetSeconds": 431.625590699994,
+          "MeanMs": 3.49698999643686,
+          "MedianMs": 3.3687,
+          "P95Ms": 4.197870000000001,
+          "P99Ms": 6.630953000000016,
+          "MaximumMs": 70.0846,
+          "Thresholds": {
+            "8.3": {
+              "Count": 70,
+              "Percent": 0.3117762337430964
+            },
+            "16.7": {
+              "Count": 10,
+              "Percent": 0.044539461963299484
+            },
+            "33.3": {
+              "Count": 7,
+              "Percent": 0.031177623374309637
+            },
+            "50": {
+              "Count": 3,
+              "Percent": 0.013361838588989846
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 3.3104,
+          "CpuP99Ms": 6.572220000000013,
+          "GpuMedianMs": 2.6980500000000003,
+          "GpuP99Ms": 3.0543,
+          "Peak": {
+            "OffsetSeconds": 420.925435899997,
+            "FrameMs": 70.0846,
+            "CpuMs": 70.0264,
+            "GpuMs": 2.6455
+          }
+        },
+        "Shots": 0,
+        "Kills": 0,
+        "ItemUses": 0
+      },
+      {
+        "Index": 3,
+        "Map": "Lagerbereich",
+        "MapId": "duckov:map:Level_HiddenWarehouse",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:3",
+        "StartSeconds": 432.3644690513611,
+        "EndSeconds": 502.98646903038025,
+        "NativeActiveSeconds": 70.62231499999996,
+        "Statistics": {
+          "Frames": 17899,
+          "FirstOffsetSeconds": 432.426937700002,
+          "LastOffsetSeconds": 502.857428799995,
+          "MeanMs": 3.944201541985597,
+          "MedianMs": 3.7784,
+          "P95Ms": 4.810069999999999,
+          "P99Ms": 7.104482000000002,
+          "MaximumMs": 166.7454,
+          "Thresholds": {
+            "8.3": {
+              "Count": 95,
+              "Percent": 0.5307559081512934
+            },
+            "16.7": {
+              "Count": 11,
+              "Percent": 0.061455947259623445
+            },
+            "33.3": {
+              "Count": 7,
+              "Percent": 0.03910833007430583
+            },
+            "50": {
+              "Count": 1,
+              "Percent": 0.005586904296329404
+            },
+            "100": {
+              "Count": 1,
+              "Percent": 0.005586904296329404
+            }
+          },
+          "CpuMedianMs": 3.7191,
+          "CpuP99Ms": 7.0461940000000025,
+          "GpuMedianMs": 2.5992,
+          "GpuP99Ms": 2.7730040000000002,
+          "Peak": {
+            "OffsetSeconds": 502.857428799995,
+            "FrameMs": 166.7454,
+            "CpuMs": 166.6867,
+            "GpuMs": 2.6989
+          }
+        },
+        "Shots": 27,
+        "Kills": 3,
+        "ItemUses": 1
+      },
+      {
+        "Index": 4,
+        "Map": "Farmstadt",
+        "MapId": "duckov:map:Level_Farm_01",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:4",
+        "StartSeconds": 509.6694688796997,
+        "EndSeconds": 841.3344688415527,
+        "NativeActiveSeconds": 331.66611810000006,
+        "Statistics": {
+          "Frames": 61188,
+          "FirstOffsetSeconds": 509.752114899995,
+          "LastOffsetSeconds": 841.3280106999961,
+          "MeanMs": 5.422483815454048,
+          "MedianMs": 5.2058,
+          "P95Ms": 7.0483949999999975,
+          "P99Ms": 9.280439,
+          "MaximumMs": 341.6501,
+          "Thresholds": {
+            "8.3": {
+              "Count": 1209,
+              "Percent": 1.9758776230633457
+            },
+            "16.7": {
+              "Count": 64,
+              "Percent": 0.10459567235405635
+            },
+            "33.3": {
+              "Count": 38,
+              "Percent": 0.06210368046022096
+            },
+            "50": {
+              "Count": 19,
+              "Percent": 0.03105184023011048
+            },
+            "100": {
+              "Count": 5,
+              "Percent": 0.008171536902660653
+            }
+          },
+          "CpuMedianMs": 5.1423,
+          "CpuP99Ms": 9.218011999999995,
+          "GpuMedianMs": 2.6359,
+          "GpuP99Ms": 3.0664,
+          "Peak": {
+            "OffsetSeconds": 840.9863294000021,
+            "FrameMs": 341.6501,
+            "CpuMs": 341.5902,
+            "GpuMs": 2.925
+          }
+        },
+        "Shots": 279,
+        "Kills": 17,
+        "ItemUses": 13
+      }
+    ],
+    "TransitionGaps": [
+      {
+        "AfterSegment": 0,
+        "StartSeconds": 139.2504689693451,
+        "EndSeconds": 144.67546892166138,
+        "Statistics": {
+          "Frames": 416,
+          "FirstOffsetSeconds": 139.265903499996,
+          "LastOffsetSeconds": 144.625474499997,
+          "MeanMs": 13.156881490384622,
+          "MedianMs": 13.78445,
+          "P95Ms": 14.839625,
+          "P99Ms": 102.63852000000071,
+          "MaximumMs": 835.0855,
+          "Thresholds": {
+            "8.3": {
+              "Count": 230,
+              "Percent": 55.28846153846154
+            },
+            "16.7": {
+              "Count": 13,
+              "Percent": 3.125
+            },
+            "33.3": {
+              "Count": 6,
+              "Percent": 1.4423076923076923
+            },
+            "50": {
+              "Count": 6,
+              "Percent": 1.4423076923076923
+            },
+            "100": {
+              "Count": 5,
+              "Percent": 1.2019230769230769
+            }
+          },
+          "CpuMedianMs": 13.707799999999999,
+          "CpuP99Ms": 102.5756700000007,
+          "GpuMedianMs": 1.7539500000000001,
+          "GpuP99Ms": 10.837705000000035,
+          "Peak": {
+            "OffsetSeconds": 143.370634699997,
+            "FrameMs": 835.0855,
+            "CpuMs": 835.0192,
+            "GpuMs": 18.2951
+          }
+        }
+      },
+      {
+        "AfterSegment": 1,
+        "StartSeconds": 352.40746903419495,
+        "EndSeconds": 353.11146903038025,
+        "Statistics": {
+          "Frames": 162,
+          "FirstOffsetSeconds": 352.429986499999,
+          "LastOffsetSeconds": 353.065706799993,
+          "MeanMs": 4.404891358024692,
+          "MedianMs": 3.30635,
+          "P95Ms": 3.8404949999999993,
+          "P99Ms": 49.42079599999966,
+          "MaximumMs": 77.86,
+          "Thresholds": {
+            "8.3": {
+              "Count": 3,
+              "Percent": 1.8518518518518519
+            },
+            "16.7": {
+              "Count": 3,
+              "Percent": 1.8518518518518519
+            },
+            "33.3": {
+              "Count": 3,
+              "Percent": 1.8518518518518519
+            },
+            "50": {
+              "Count": 2,
+              "Percent": 1.2345679012345678
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 3.2449500000000002,
+          "CpuP99Ms": 49.364905999999664,
+          "GpuMedianMs": 2.6915500000000003,
+          "GpuP99Ms": 2.8260179999999995,
+          "Peak": {
+            "OffsetSeconds": 353.065706799993,
+            "FrameMs": 77.86,
+            "CpuMs": 77.7982,
+            "GpuMs": 2.7146
+          }
+        }
+      },
+      {
+        "AfterSegment": 2,
+        "StartSeconds": 431.6344690322876,
+        "EndSeconds": 432.3644690513611,
+        "Statistics": {
+          "Frames": 198,
+          "FirstOffsetSeconds": 431.657985899998,
+          "LastOffsetSeconds": 432.311330499993,
+          "MeanMs": 3.8834732323232317,
+          "MedianMs": 2.83275,
+          "P95Ms": 3.3699999999999997,
+          "P99Ms": 9.880471000000094,
+          "MaximumMs": 115.6195,
+          "Thresholds": {
+            "8.3": {
+              "Count": 2,
+              "Percent": 1.0101010101010102
+            },
+            "16.7": {
+              "Count": 2,
+              "Percent": 1.0101010101010102
+            },
+            "33.3": {
+              "Count": 2,
+              "Percent": 1.0101010101010102
+            },
+            "50": {
+              "Count": 2,
+              "Percent": 1.0101010101010102
+            },
+            "100": {
+              "Count": 1,
+              "Percent": 0.5050505050505051
+            }
+          },
+          "CpuMedianMs": 2.77285,
+          "CpuP99Ms": 9.820419000000093,
+          "GpuMedianMs": 2.49505,
+          "GpuP99Ms": 2.776676000000004,
+          "Peak": {
+            "OffsetSeconds": 432.311330499993,
+            "FrameMs": 115.6195,
+            "CpuMs": 115.5216,
+            "GpuMs": 7.9579
+          }
+        }
+      },
+      {
+        "AfterSegment": 3,
+        "StartSeconds": 502.98646903038025,
+        "EndSeconds": 509.6694688796997,
+        "Statistics": {
+          "Frames": 619,
+          "FirstOffsetSeconds": 503.0241943,
+          "LastOffsetSeconds": 509.631257799992,
+          "MeanMs": 10.869012439418425,
+          "MedianMs": 3.6379,
+          "P95Ms": 15.112890000000004,
+          "P99Ms": 43.728750000001085,
+          "MaximumMs": 1172.4663,
+          "Thresholds": {
+            "8.3": {
+              "Count": 234,
+              "Percent": 37.802907915993536
+            },
+            "16.7": {
+              "Count": 16,
+              "Percent": 2.5848142164781907
+            },
+            "33.3": {
+              "Count": 7,
+              "Percent": 1.1308562197092085
+            },
+            "50": {
+              "Count": 6,
+              "Percent": 0.9693053311793215
+            },
+            "100": {
+              "Count": 5,
+              "Percent": 0.8077544426494345
+            }
+          },
+          "CpuMedianMs": 3.5739,
+          "CpuP99Ms": 43.66929800000109,
+          "GpuMedianMs": 1.2185,
+          "GpuP99Ms": 9.112508000000009,
+          "Peak": {
+            "OffsetSeconds": 507.122066999997,
+            "FrameMs": 1172.4663,
+            "CpuMs": 1172.398,
+            "GpuMs": 17.8598
+          }
+        }
+      }
+    ],
+    "EqualWallClockRaidThirds": [
+      {
+        "Name": "Early",
+        "StartSeconds": 13.79646897315979,
+        "EndSeconds": 289.64246892929077,
+        "RaidStatistics": {
+          "Frames": 65813,
+          "FirstOffsetSeconds": 13.8428511999955,
+          "LastOffsetSeconds": 289.639219199998,
+          "MeanMs": 4.19066656283712,
+          "MedianMs": 3.9405,
+          "P95Ms": 5.392519999999998,
+          "P99Ms": 7.730776,
+          "MaximumMs": 835.0855,
+          "Thresholds": {
+            "8.3": {
+              "Count": 569,
+              "Percent": 0.8645708294713811
+            },
+            "16.7": {
+              "Count": 65,
+              "Percent": 0.09876468174980627
+            },
+            "33.3": {
+              "Count": 19,
+              "Percent": 0.028869676203789524
+            },
+            "50": {
+              "Count": 10,
+              "Percent": 0.015194566423047118
+            },
+            "100": {
+              "Count": 8,
+              "Percent": 0.012155653138437694
+            }
+          },
+          "CpuMedianMs": 3.8823,
+          "CpuP99Ms": 7.6755559999999905,
+          "GpuMedianMs": 2.6337,
+          "GpuP99Ms": 3.0044759999999995,
+          "Peak": {
+            "OffsetSeconds": 143.370634699997,
+            "FrameMs": 835.0855,
+            "CpuMs": 835.0192,
+            "GpuMs": 18.2951
+          }
+        },
+        "GameplayOnlyStatistics": {
+          "Frames": 65397,
+          "FirstOffsetSeconds": 13.8428511999955,
+          "LastOffsetSeconds": 289.639219199998,
+          "MeanMs": 4.133631142101304,
+          "MedianMs": 3.9393,
+          "P95Ms": 5.340019999999999,
+          "P99Ms": 6.9994360000000055,
+          "MaximumMs": 140.8838,
+          "Thresholds": {
+            "8.3": {
+              "Count": 339,
+              "Percent": 0.51837240240378
+            },
+            "16.7": {
+              "Count": 52,
+              "Percent": 0.07951435081119929
+            },
+            "33.3": {
+              "Count": 13,
+              "Percent": 0.01987858770279982
+            },
+            "50": {
+              "Count": 4,
+              "Percent": 0.006116488523938407
+            },
+            "100": {
+              "Count": 3,
+              "Percent": 0.004587366392953806
+            }
+          },
+          "CpuMedianMs": 3.881,
+          "CpuP99Ms": 6.943328,
+          "GpuMedianMs": 2.6341,
+          "GpuP99Ms": 3.0004,
+          "Peak": {
+            "OffsetSeconds": 139.124998099993,
+            "FrameMs": 140.8838,
+            "CpuMs": 140.8201,
+            "GpuMs": 2.736
+          }
+        }
+      },
+      {
+        "Name": "Middle",
+        "StartSeconds": 289.64246892929077,
+        "EndSeconds": 565.4884688854218,
+        "RaidStatistics": {
+          "Frames": 68402,
+          "FirstOffsetSeconds": 289.643170099996,
+          "LastOffsetSeconds": 565.487192699999,
+          "MeanMs": 4.032763932341121,
+          "MedianMs": 3.7593,
+          "P95Ms": 5.263574999999999,
+          "P99Ms": 8.474392000000003,
+          "MaximumMs": 1172.4663,
+          "Thresholds": {
+            "8.3": {
+              "Count": 733,
+              "Percent": 1.071606093389082
+            },
+            "16.7": {
+              "Count": 76,
+              "Percent": 0.11110786234320634
+            },
+            "33.3": {
+              "Count": 52,
+              "Percent": 0.0760211689716675
+            },
+            "50": {
+              "Count": 22,
+              "Percent": 0.03216280225724394
+            },
+            "100": {
+              "Count": 10,
+              "Percent": 0.014619455571474519
+            }
+          },
+          "CpuMedianMs": 3.7005,
+          "CpuP99Ms": 8.411794000000002,
+          "GpuMedianMs": 2.6613,
+          "GpuP99Ms": 3.0138970000000014,
+          "Peak": {
+            "OffsetSeconds": 507.122066999997,
+            "FrameMs": 1172.4663,
+            "CpuMs": 1172.398,
+            "GpuMs": 17.8598
+          }
+        },
+        "GameplayOnlyStatistics": {
+          "Frames": 67423,
+          "FirstOffsetSeconds": 289.643170099996,
+          "LastOffsetSeconds": 565.487192699999,
+          "MeanMs": 3.9695456995387093,
+          "MedianMs": 3.7631,
+          "P95Ms": 5.20259,
+          "P99Ms": 7.580563999999996,
+          "MaximumMs": 166.7454,
+          "Thresholds": {
+            "8.3": {
+              "Count": 494,
+              "Percent": 0.7326876585141568
+            },
+            "16.7": {
+              "Count": 55,
+              "Percent": 0.08157453687910654
+            },
+            "33.3": {
+              "Count": 40,
+              "Percent": 0.05932693591207748
+            },
+            "50": {
+              "Count": 12,
+              "Percent": 0.017798080773623243
+            },
+            "100": {
+              "Count": 4,
+              "Percent": 0.005932693591207748
+            }
+          },
+          "CpuMedianMs": 3.7039,
+          "CpuP99Ms": 7.519117999999996,
+          "GpuMedianMs": 2.6619,
+          "GpuP99Ms": 3.0119,
+          "Peak": {
+            "OffsetSeconds": 502.857428799995,
+            "FrameMs": 166.7454,
+            "CpuMs": 166.6867,
+            "GpuMs": 2.6989
+          }
+        }
+      },
+      {
+        "Name": "Late",
+        "StartSeconds": 565.4884688854218,
+        "EndSeconds": 841.3344688415527,
+        "RaidStatistics": {
+          "Frames": 49643,
+          "FirstOffsetSeconds": 565.492295699994,
+          "LastOffsetSeconds": 841.3280106999961,
+          "MeanMs": 5.560718361098257,
+          "MedianMs": 5.345,
+          "P95Ms": 7.125429999999995,
+          "P99Ms": 9.33679600000002,
+          "MaximumMs": 341.6501,
+          "Thresholds": {
+            "8.3": {
+              "Count": 953,
+              "Percent": 1.919706705879983
+            },
+            "16.7": {
+              "Count": 38,
+              "Percent": 0.07654654231210846
+            },
+            "33.3": {
+              "Count": 18,
+              "Percent": 0.03625888846363032
+            },
+            "50": {
+              "Count": 14,
+              "Percent": 0.028201357693934694
+            },
+            "100": {
+              "Count": 2,
+              "Percent": 0.0040287653848478135
+            }
+          },
+          "CpuMedianMs": 5.2814,
+          "CpuP99Ms": 9.267060000000003,
+          "GpuMedianMs": 2.6629,
+          "GpuP99Ms": 3.0736160000000003,
+          "Peak": {
+            "OffsetSeconds": 840.9863294000021,
+            "FrameMs": 341.6501,
+            "CpuMs": 341.5902,
+            "GpuMs": 2.925
+          }
+        },
+        "GameplayOnlyStatistics": {
+          "Frames": 49643,
+          "FirstOffsetSeconds": 565.492295699994,
+          "LastOffsetSeconds": 841.3280106999961,
+          "MeanMs": 5.560718361098257,
+          "MedianMs": 5.345,
+          "P95Ms": 7.125429999999995,
+          "P99Ms": 9.33679600000002,
+          "MaximumMs": 341.6501,
+          "Thresholds": {
+            "8.3": {
+              "Count": 953,
+              "Percent": 1.919706705879983
+            },
+            "16.7": {
+              "Count": 38,
+              "Percent": 0.07654654231210846
+            },
+            "33.3": {
+              "Count": 18,
+              "Percent": 0.03625888846363032
+            },
+            "50": {
+              "Count": 14,
+              "Percent": 0.028201357693934694
+            },
+            "100": {
+              "Count": 2,
+              "Percent": 0.0040287653848478135
+            }
+          },
+          "CpuMedianMs": 5.2814,
+          "CpuP99Ms": 9.267060000000003,
+          "GpuMedianMs": 2.6629,
+          "GpuP99Ms": 3.0736160000000003,
+          "Peak": {
+            "OffsetSeconds": 840.9863294000021,
+            "FrameMs": 341.6501,
+            "CpuMs": 341.5902,
+            "GpuMs": 2.925
+          }
+        }
+      }
+    ],
+    "LateVersusEarlyP99Percent": 20.77436986920873,
+    "ElapsedRaidP99Rule": "Exceeds declared20percent bound",
+    "TerminalWindowPlusMinusOneSecond": {
+      "Frames": 251,
+      "FirstOffsetSeconds": 840.3348390999961,
+      "LastOffsetSeconds": 842.3319987,
+      "MeanMs": 7.974423505976094,
+      "MedianMs": 5.5316,
+      "P95Ms": 7.788550000000001,
+      "P99Ms": 12.652650000000001,
+      "MaximumMs": 341.6501,
+      "Thresholds": {
+        "8.3": {
+          "Count": 11,
+          "Percent": 4.382470119521912
+        },
+        "16.7": {
+          "Count": 2,
+          "Percent": 0.796812749003984
+        },
+        "33.3": {
+          "Count": 2,
+          "Percent": 0.796812749003984
+        },
+        "50": {
+          "Count": 2,
+          "Percent": 0.796812749003984
+        },
+        "100": {
+          "Count": 2,
+          "Percent": 0.796812749003984
+        }
+      },
+      "CpuMedianMs": 5.4703,
+      "CpuP99Ms": 12.57525,
+      "GpuMedianMs": 2.5858,
+      "GpuP99Ms": 2.85405,
+      "Peak": {
+        "OffsetSeconds": 840.9863294000021,
+        "FrameMs": 341.6501,
+        "CpuMs": 341.5902,
+        "GpuMs": 2.925
+      }
+    },
+    "ItemHealingAggregateBoundaryWindows": [
+      {
+        "Kind": "item-use",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:1",
+        "AggregateCount": 6,
+        "Boundary": "FirstTimestampUtc",
+        "OffsetSeconds": 272.29346895217896,
+        "WindowPlusMinusQuarterSecond": {
+          "Frames": 125,
+          "FirstOffsetSeconds": 272.044565199998,
+          "LastOffsetSeconds": 272.541089799997,
+          "MeanMs": 4.001627999999999,
+          "MedianMs": 3.8743,
+          "P95Ms": 4.4992399999999995,
+          "P99Ms": 6.949244000000008,
+          "MaximumMs": 12.4997,
+          "Thresholds": {
+            "8.3": {
+              "Count": 1,
+              "Percent": 0.8
+            },
+            "16.7": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "33.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "50": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 3.8134,
+          "CpuP99Ms": 6.8858880000000084,
+          "GpuMedianMs": 2.6107,
+          "GpuP99Ms": 2.751608,
+          "Peak": {
+            "OffsetSeconds": 272.282584799992,
+            "FrameMs": 12.4997,
+            "CpuMs": 12.4374,
+            "GpuMs": 2.6226
+          }
+        }
+      },
+      {
+        "Kind": "item-use",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:1",
+        "AggregateCount": 6,
+        "Boundary": "LastTimestampUtc",
+        "OffsetSeconds": 348.4394688606262,
+        "WindowPlusMinusQuarterSecond": {
+          "Frames": 132,
+          "FirstOffsetSeconds": 348.190079499997,
+          "LastOffsetSeconds": 348.68589259999897,
+          "MeanMs": 3.7863446969696968,
+          "MedianMs": 3.70025,
+          "P95Ms": 4.097385,
+          "P99Ms": 5.6757439999999955,
+          "MaximumMs": 11.6974,
+          "Thresholds": {
+            "8.3": {
+              "Count": 1,
+              "Percent": 0.7575757575757576
+            },
+            "16.7": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "33.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "50": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 3.6417,
+          "CpuP99Ms": 5.586507999999996,
+          "GpuMedianMs": 2.7794,
+          "GpuP99Ms": 2.8679390000000002,
+          "Peak": {
+            "OffsetSeconds": 348.425802799997,
+            "FrameMs": 11.6974,
+            "CpuMs": 11.6342,
+            "GpuMs": 2.7946
+          }
+        }
+      },
+      {
+        "Kind": "item-use",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:3",
+        "AggregateCount": 1,
+        "Boundary": "FirstTimestampUtc",
+        "OffsetSeconds": 453.1214690208435,
+        "WindowPlusMinusQuarterSecond": {
+          "Frames": 132,
+          "FirstOffsetSeconds": 452.87181829999497,
+          "LastOffsetSeconds": 453.362452699992,
+          "MeanMs": 4.09442803030303,
+          "MedianMs": 3.664,
+          "P95Ms": 4.763169999999992,
+          "P99Ms": 7.663464999999994,
+          "MaximumMs": 49.8373,
+          "Thresholds": {
+            "8.3": {
+              "Count": 2,
+              "Percent": 1.5151515151515151
+            },
+            "16.7": {
+              "Count": 1,
+              "Percent": 0.7575757575757576
+            },
+            "33.3": {
+              "Count": 1,
+              "Percent": 0.7575757575757576
+            },
+            "50": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 3.60595,
+          "CpuP99Ms": 7.6070029999999935,
+          "GpuMedianMs": 2.5209,
+          "GpuP99Ms": 2.656174,
+          "Peak": {
+            "OffsetSeconds": 453.362452699992,
+            "FrameMs": 49.8373,
+            "CpuMs": 49.7727,
+            "GpuMs": 2.6032
+          }
+        }
+      },
+      {
+        "Kind": "healing",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:3",
+        "AggregateCount": 6,
+        "Boundary": "FirstTimestampUtc",
+        "OffsetSeconds": 454.1254689693451,
+        "WindowPlusMinusQuarterSecond": {
+          "Frames": 117,
+          "FirstOffsetSeconds": 453.878696899999,
+          "LastOffsetSeconds": 454.372253199996,
+          "MeanMs": 4.252725641025641,
+          "MedianMs": 3.9081,
+          "P95Ms": 4.541539999999999,
+          "P99Ms": 8.05147600000001,
+          "MaximumMs": 31.4674,
+          "Thresholds": {
+            "8.3": {
+              "Count": 2,
+              "Percent": 1.7094017094017093
+            },
+            "16.7": {
+              "Count": 1,
+              "Percent": 0.8547008547008547
+            },
+            "33.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "50": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 3.8533,
+          "CpuP99Ms": 7.993832000000009,
+          "GpuMedianMs": 2.5366,
+          "GpuP99Ms": 2.609992,
+          "Peak": {
+            "OffsetSeconds": 453.985944499997,
+            "FrameMs": 31.4674,
+            "CpuMs": 31.4119,
+            "GpuMs": 2.5417
+          }
+        }
+      },
+      {
+        "Kind": "healing",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:3",
+        "AggregateCount": 6,
+        "Boundary": "LastTimestampUtc",
+        "OffsetSeconds": 459.123468875885,
+        "WindowPlusMinusQuarterSecond": {
+          "Frames": 101,
+          "FirstOffsetSeconds": 458.880734999999,
+          "LastOffsetSeconds": 459.370165699998,
+          "MeanMs": 4.901975247524754,
+          "MedianMs": 4.178,
+          "P95Ms": 6.9956,
+          "P99Ms": 7.9346,
+          "MaximumMs": 9.6749,
+          "Thresholds": {
+            "8.3": {
+              "Count": 1,
+              "Percent": 0.9900990099009901
+            },
+            "16.7": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "33.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "50": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 4.1183,
+          "CpuP99Ms": 7.877,
+          "GpuMedianMs": 2.6012,
+          "GpuP99Ms": 2.7006,
+          "Peak": {
+            "OffsetSeconds": 459.30233149999503,
+            "FrameMs": 9.6749,
+            "CpuMs": 9.6175,
+            "GpuMs": 2.6063
+          }
+        }
+      },
+      {
+        "Kind": "item-use",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:4",
+        "AggregateCount": 13,
+        "Boundary": "FirstTimestampUtc",
+        "OffsetSeconds": 623.8944690227509,
+        "WindowPlusMinusQuarterSecond": {
+          "Frames": 86,
+          "FirstOffsetSeconds": 623.649600599994,
+          "LastOffsetSeconds": 624.1394080999961,
+          "MeanMs": 5.762776744186045,
+          "MedianMs": 5.58385,
+          "P95Ms": 6.92935,
+          "P99Ms": 8.111790000000008,
+          "MaximumMs": 9.2292,
+          "Thresholds": {
+            "8.3": {
+              "Count": 1,
+              "Percent": 1.1627906976744187
+            },
+            "16.7": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "33.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "50": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 5.5175,
+          "CpuP99Ms": 8.051295000000007,
+          "GpuMedianMs": 2.85395,
+          "GpuP99Ms": 2.966945,
+          "Peak": {
+            "OffsetSeconds": 623.892833599995,
+            "FrameMs": 9.2292,
+            "CpuMs": 9.1642,
+            "GpuMs": 2.9163
+          }
+        }
+      },
+      {
+        "Kind": "item-use",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:4",
+        "AggregateCount": 13,
+        "Boundary": "LastTimestampUtc",
+        "OffsetSeconds": 834.1594688892365,
+        "WindowPlusMinusQuarterSecond": {
+          "Frames": 92,
+          "FirstOffsetSeconds": 833.913466599996,
+          "LastOffsetSeconds": 834.4082681,
+          "MeanMs": 5.440840217391303,
+          "MedianMs": 5.358750000000001,
+          "P95Ms": 6.170635,
+          "P99Ms": 7.814133000000001,
+          "MaximumMs": 7.9631,
+          "Thresholds": {
+            "8.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "16.7": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "33.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "50": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 5.2941,
+          "CpuP99Ms": 7.754397000000001,
+          "GpuMedianMs": 2.6308,
+          "GpuP99Ms": 2.724587,
+          "Peak": {
+            "OffsetSeconds": 834.2418360000011,
+            "FrameMs": 7.9631,
+            "CpuMs": 7.903,
+            "GpuMs": 2.6576
+          }
+        }
+      },
+      {
+        "Kind": "healing",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:4",
+        "AggregateCount": 6,
+        "Boundary": "FirstTimestampUtc",
+        "OffsetSeconds": 632.3994688987732,
+        "WindowPlusMinusQuarterSecond": {
+          "Frames": 88,
+          "FirstOffsetSeconds": 632.1496553999971,
+          "LastOffsetSeconds": 632.645155999999,
+          "MeanMs": 5.691954545454543,
+          "MedianMs": 5.628,
+          "P95Ms": 6.656234999999999,
+          "P99Ms": 8.051863,
+          "MaximumMs": 8.1259,
+          "Thresholds": {
+            "8.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "16.7": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "33.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "50": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 5.56445,
+          "CpuP99Ms": 7.989713999999999,
+          "GpuMedianMs": 2.8951000000000002,
+          "GpuP99Ms": 2.968815,
+          "Peak": {
+            "OffsetSeconds": 632.161579899992,
+            "FrameMs": 8.1259,
+            "CpuMs": 8.0661,
+            "GpuMs": 2.9823
+          }
+        }
+      },
+      {
+        "Kind": "healing",
+        "SegmentId": "2ba2b46394b447f5a426e5d4e80555e6:segment:4",
+        "AggregateCount": 6,
+        "Boundary": "LastTimestampUtc",
+        "OffsetSeconds": 834.1584689617157,
+        "WindowPlusMinusQuarterSecond": {
+          "Frames": 92,
+          "FirstOffsetSeconds": 833.913466599996,
+          "LastOffsetSeconds": 834.4082681,
+          "MeanMs": 5.440840217391303,
+          "MedianMs": 5.358750000000001,
+          "P95Ms": 6.170635,
+          "P99Ms": 7.814133000000001,
+          "MaximumMs": 7.9631,
+          "Thresholds": {
+            "8.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "16.7": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "33.3": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "50": {
+              "Count": 0,
+              "Percent": 0.0
+            },
+            "100": {
+              "Count": 0,
+              "Percent": 0.0
+            }
+          },
+          "CpuMedianMs": 5.2941,
+          "CpuP99Ms": 7.754397000000001,
+          "GpuMedianMs": 2.6308,
+          "GpuP99Ms": 2.724587,
+          "Peak": {
+            "OffsetSeconds": 834.2418360000011,
+            "FrameMs": 7.9631,
+            "CpuMs": 7.903,
+            "GpuMs": 2.6576
+          }
+        }
+      }
+    ],
+    "SpikesOver33Point3Ms": [
+      {
+        "OffsetSeconds": 8.56172479999805,
+        "Ms": 105.0411,
+        "CpuMs": 104.9905,
+        "GpuMs": 1.6894
+      },
+      {
+        "OffsetSeconds": 9.1835518999942,
+        "Ms": 250.3138,
+        "CpuMs": 250.262,
+        "GpuMs": 0.8981
+      },
+      {
+        "OffsetSeconds": 9.4345272999999,
+        "Ms": 137.5728,
+        "CpuMs": 136.8594,
+        "GpuMs": 0.7516
+      },
+      {
+        "OffsetSeconds": 12.7642384999926,
+        "Ms": 675.6207,
+        "CpuMs": 675.5665,
+        "GpuMs": 26.3927
+      },
+      {
+        "OffsetSeconds": 13.6032070000001,
+        "Ms": 106.3251,
+        "CpuMs": 106.2727,
+        "GpuMs": 4.3848
+      },
+      {
+        "OffsetSeconds": 13.709552399996001,
+        "Ms": 39.0845,
+        "CpuMs": 39.0118,
+        "GpuMs": 5.78
+      },
+      {
+        "OffsetSeconds": 13.7486332999979,
+        "Ms": 94.2111,
+        "CpuMs": 94.142,
+        "GpuMs": 5.707
+      },
+      {
+        "OffsetSeconds": 16.7513154999979,
+        "Ms": 41.4113,
+        "CpuMs": 41.3562,
+        "GpuMs": 2.8644
+      },
+      {
+        "OffsetSeconds": 89.7475455999956,
+        "Ms": 138.6838,
+        "CpuMs": 138.6308,
+        "GpuMs": 3.9651
+      },
+      {
+        "OffsetSeconds": 104.17716839999,
+        "Ms": 46.7645,
+        "CpuMs": 46.7058,
+        "GpuMs": 2.8742
+      },
+      {
+        "OffsetSeconds": 139.124998099993,
+        "Ms": 140.8838,
+        "CpuMs": 140.8201,
+        "GpuMs": 2.736
+      },
+      {
+        "OffsetSeconds": 139.795655599992,
+        "Ms": 227.5368,
+        "CpuMs": 227.481,
+        "GpuMs": 0.7434
+      },
+      {
+        "OffsetSeconds": 140.03746549999101,
+        "Ms": 171.3636,
+        "CpuMs": 157.0347,
+        "GpuMs": 0.6919
+      },
+      {
+        "OffsetSeconds": 143.370634699997,
+        "Ms": 835.0855,
+        "CpuMs": 835.0192,
+        "GpuMs": 18.2951
+      },
+      {
+        "OffsetSeconds": 144.441706699996,
+        "Ms": 107.2506,
+        "CpuMs": 107.1939,
+        "GpuMs": 11.0725
+      },
+      {
+        "OffsetSeconds": 144.548998300001,
+        "Ms": 76.5034,
+        "CpuMs": 76.4057,
+        "GpuMs": 15.2868
+      },
+      {
+        "OffsetSeconds": 144.625474499997,
+        "Ms": 113.6769,
+        "CpuMs": 113.6064,
+        "GpuMs": 16.4346
+      },
+      {
+        "OffsetSeconds": 144.73915839999202,
+        "Ms": 47.2735,
+        "CpuMs": 47.196,
+        "GpuMs": 15.855
+      },
+      {
+        "OffsetSeconds": 159.289402499999,
+        "Ms": 126.2893,
+        "CpuMs": 126.2219,
+        "GpuMs": 3.6977
+      },
+      {
+        "OffsetSeconds": 171.184432800001,
+        "Ms": 49.9333,
+        "CpuMs": 49.8793,
+        "GpuMs": 2.6969
+      },
+      {
+        "OffsetSeconds": 210.905659199991,
+        "Ms": 46.5913,
+        "CpuMs": 46.522,
+        "GpuMs": 2.7656
+      },
+      {
+        "OffsetSeconds": 220.514259000003,
+        "Ms": 46.9229,
+        "CpuMs": 46.8646,
+        "GpuMs": 2.5701
+      },
+      {
+        "OffsetSeconds": 227.38121159999702,
+        "Ms": 51.6973,
+        "CpuMs": 51.6391,
+        "GpuMs": 2.668
+      },
+      {
+        "OffsetSeconds": 231.526779599997,
+        "Ms": 47.2602,
+        "CpuMs": 47.1935,
+        "GpuMs": 2.8299
+      },
+      {
+        "OffsetSeconds": 236.85278359999901,
+        "Ms": 49.0721,
+        "CpuMs": 49.0141,
+        "GpuMs": 2.9043
+      },
+      {
+        "OffsetSeconds": 264.853096499995,
+        "Ms": 48.0604,
+        "CpuMs": 48.0043,
+        "GpuMs": 2.6954
+      },
+      {
+        "OffsetSeconds": 308.865266399996,
+        "Ms": 90.4565,
+        "CpuMs": 90.3988,
+        "GpuMs": 2.9699
+      },
+      {
+        "OffsetSeconds": 317.560213999997,
+        "Ms": 46.1084,
+        "CpuMs": 46.0503,
+        "GpuMs": 2.8703
+      },
+      {
+        "OffsetSeconds": 324.0377563,
+        "Ms": 44.8209,
+        "CpuMs": 44.7658,
+        "GpuMs": 2.8452
+      },
+      {
+        "OffsetSeconds": 331.88502789999603,
+        "Ms": 88.653,
+        "CpuMs": 88.5864,
+        "GpuMs": 2.9183
+      },
+      {
+        "OffsetSeconds": 337.735760299998,
+        "Ms": 49.647,
+        "CpuMs": 49.5891,
+        "GpuMs": 2.8948
+      },
+      {
+        "OffsetSeconds": 341.441572999996,
+        "Ms": 59.5024,
+        "CpuMs": 59.4332,
+        "GpuMs": 2.9744
+      },
+      {
+        "OffsetSeconds": 352.937169999997,
+        "Ms": 39.6488,
+        "CpuMs": 39.5933,
+        "GpuMs": 2.0044
+      },
+      {
+        "OffsetSeconds": 353.00099629999,
+        "Ms": 64.7052,
+        "CpuMs": 64.6487,
+        "GpuMs": 4.0904
+      },
+      {
+        "OffsetSeconds": 353.065706799993,
+        "Ms": 77.86,
+        "CpuMs": 77.7982,
+        "GpuMs": 2.7146
+      },
+      {
+        "OffsetSeconds": 366.168534699995,
+        "Ms": 44.1991,
+        "CpuMs": 44.135,
+        "GpuMs": 2.9425
+      },
+      {
+        "OffsetSeconds": 367.922142999996,
+        "Ms": 51.1886,
+        "CpuMs": 51.1328,
+        "GpuMs": 2.9022
+      },
+      {
+        "OffsetSeconds": 385.1820572,
+        "Ms": 53.2851,
+        "CpuMs": 53.2163,
+        "GpuMs": 2.8575
+      },
+      {
+        "OffsetSeconds": 398.539642899996,
+        "Ms": 43.7726,
+        "CpuMs": 43.7179,
+        "GpuMs": 2.7317
+      },
+      {
+        "OffsetSeconds": 404.284020199993,
+        "Ms": 46.4751,
+        "CpuMs": 46.4217,
+        "GpuMs": 2.6841
+      },
+      {
+        "OffsetSeconds": 408.656980999993,
+        "Ms": 45.6366,
+        "CpuMs": 45.5788,
+        "GpuMs": 2.6942
+      },
+      {
+        "OffsetSeconds": 420.925435899997,
+        "Ms": 70.0846,
+        "CpuMs": 70.0264,
+        "GpuMs": 2.6455
+      },
+      {
+        "OffsetSeconds": 432.221438299995,
+        "Ms": 89.9595,
+        "CpuMs": 89.7943,
+        "GpuMs": 6.3261
+      },
+      {
+        "OffsetSeconds": 432.311330499993,
+        "Ms": 115.6195,
+        "CpuMs": 115.5216,
+        "GpuMs": 7.9579
+      },
+      {
+        "OffsetSeconds": 432.426937700002,
+        "Ms": 43.1264,
+        "CpuMs": 43.0408,
+        "GpuMs": 7.6995
+      },
+      {
+        "OffsetSeconds": 432.470039999993,
+        "Ms": 38.3021,
+        "CpuMs": 38.2406,
+        "GpuMs": 7.6763
+      },
+      {
+        "OffsetSeconds": 447.6080191,
+        "Ms": 47.8682,
+        "CpuMs": 47.811,
+        "GpuMs": 2.6116
+      },
+      {
+        "OffsetSeconds": 453.362452699992,
+        "Ms": 49.8373,
+        "CpuMs": 49.7727,
+        "GpuMs": 2.6032
+      },
+      {
+        "OffsetSeconds": 458.717945999997,
+        "Ms": 49.9333,
+        "CpuMs": 49.8722,
+        "GpuMs": 2.6139
+      },
+      {
+        "OffsetSeconds": 465.823781899999,
+        "Ms": 49.3181,
+        "CpuMs": 49.2628,
+        "GpuMs": 2.6195
+      },
+      {
+        "OffsetSeconds": 502.857428799995,
+        "Ms": 166.7454,
+        "CpuMs": 166.6867,
+        "GpuMs": 2.6989
+      },
+      {
+        "OffsetSeconds": 503.103888099991,
+        "Ms": 47.646,
+        "CpuMs": 47.5913,
+        "GpuMs": 2.7863
+      },
+      {
+        "OffsetSeconds": 503.540281900001,
+        "Ms": 244.3954,
+        "CpuMs": 244.3346,
+        "GpuMs": 0.7414
+      },
+      {
+        "OffsetSeconds": 503.786980799996,
+        "Ms": 181.7011,
+        "CpuMs": 179.3368,
+        "GpuMs": 0.711
+      },
+      {
+        "OffsetSeconds": 507.122066999997,
+        "Ms": 1172.4663,
+        "CpuMs": 1172.398,
+        "GpuMs": 17.8598
+      },
+      {
+        "OffsetSeconds": 509.149469599994,
+        "Ms": 391.6017,
+        "CpuMs": 391.5468,
+        "GpuMs": 6.0806
+      },
+      {
+        "OffsetSeconds": 509.541111599996,
+        "Ms": 90.1616,
+        "CpuMs": 90.0664,
+        "GpuMs": 6.2511
+      },
+      {
+        "OffsetSeconds": 509.631257799992,
+        "Ms": 120.8562,
+        "CpuMs": 120.7764,
+        "GpuMs": 6.8111
+      },
+      {
+        "OffsetSeconds": 509.752114899995,
+        "Ms": 45.3617,
+        "CpuMs": 45.281,
+        "GpuMs": 7.0155
+      },
+      {
+        "OffsetSeconds": 509.797466399992,
+        "Ms": 34.5821,
+        "CpuMs": 34.5116,
+        "GpuMs": 6.9766
+      },
+      {
+        "OffsetSeconds": 509.83204999999,
+        "Ms": 37.1347,
+        "CpuMs": 37.0627,
+        "GpuMs": 6.966
+      },
+      {
+        "OffsetSeconds": 509.869188099998,
+        "Ms": 36.0659,
+        "CpuMs": 35.9905,
+        "GpuMs": 6.7078
+      },
+      {
+        "OffsetSeconds": 509.905239399995,
+        "Ms": 39.9849,
+        "CpuMs": 39.9241,
+        "GpuMs": 6.9322
+      },
+      {
+        "OffsetSeconds": 509.945227599994,
+        "Ms": 40.8996,
+        "CpuMs": 40.8355,
+        "GpuMs": 7.3076
+      },
+      {
+        "OffsetSeconds": 509.986127599994,
+        "Ms": 46.358,
+        "CpuMs": 46.2935,
+        "GpuMs": 7.3069
+      },
+      {
+        "OffsetSeconds": 510.032490999991,
+        "Ms": 42.9418,
+        "CpuMs": 42.8719,
+        "GpuMs": 7.4565
+      },
+      {
+        "OffsetSeconds": 510.075431199992,
+        "Ms": 48.2258,
+        "CpuMs": 48.1575,
+        "GpuMs": 7.7565
+      },
+      {
+        "OffsetSeconds": 510.123664399995,
+        "Ms": 47.0754,
+        "CpuMs": 46.9997,
+        "GpuMs": 7.3816
+      },
+      {
+        "OffsetSeconds": 510.170729500001,
+        "Ms": 44.5173,
+        "CpuMs": 44.4519,
+        "GpuMs": 6.9067
+      },
+      {
+        "OffsetSeconds": 510.215249999994,
+        "Ms": 35.4001,
+        "CpuMs": 35.3315,
+        "GpuMs": 6.2618
+      },
+      {
+        "OffsetSeconds": 510.250662999999,
+        "Ms": 33.491,
+        "CpuMs": 33.4095,
+        "GpuMs": 5.7939
+      },
+      {
+        "OffsetSeconds": 514.623939699995,
+        "Ms": 107.3861,
+        "CpuMs": 107.3279,
+        "GpuMs": 2.5794
+      },
+      {
+        "OffsetSeconds": 514.731354999996,
+        "Ms": 111.3237,
+        "CpuMs": 111.2363,
+        "GpuMs": 2.5954
+      },
+      {
+        "OffsetSeconds": 514.842687600001,
+        "Ms": 48.2805,
+        "CpuMs": 48.1842,
+        "GpuMs": 2.5832
+      },
+      {
+        "OffsetSeconds": 519.558573599999,
+        "Ms": 75.0779,
+        "CpuMs": 75.0169,
+        "GpuMs": 3.7963
+      },
+      {
+        "OffsetSeconds": 531.632867599998,
+        "Ms": 137.808,
+        "CpuMs": 137.7445,
+        "GpuMs": 3.4448
+      },
+      {
+        "OffsetSeconds": 544.6190511999961,
+        "Ms": 50.9092,
+        "CpuMs": 50.8502,
+        "GpuMs": 2.6806
+      },
+      {
+        "OffsetSeconds": 548.937059899996,
+        "Ms": 48.0328,
+        "CpuMs": 47.9669,
+        "GpuMs": 2.697
+      },
+      {
+        "OffsetSeconds": 567.722081299995,
+        "Ms": 51.5807,
+        "CpuMs": 51.5202,
+        "GpuMs": 2.6819
+      },
+      {
+        "OffsetSeconds": 582.418008399996,
+        "Ms": 51.4897,
+        "CpuMs": 51.43,
+        "GpuMs": 2.8673
+      },
+      {
+        "OffsetSeconds": 604.856728499995,
+        "Ms": 59.7349,
+        "CpuMs": 59.6577,
+        "GpuMs": 3.0159
+      },
+      {
+        "OffsetSeconds": 611.392566799994,
+        "Ms": 61.5614,
+        "CpuMs": 61.502,
+        "GpuMs": 2.769
+      },
+      {
+        "OffsetSeconds": 635.553924299995,
+        "Ms": 55.3081,
+        "CpuMs": 55.2412,
+        "GpuMs": 2.9798
+      },
+      {
+        "OffsetSeconds": 645.49268689999,
+        "Ms": 54.398,
+        "CpuMs": 54.3351,
+        "GpuMs": 2.8933
+      },
+      {
+        "OffsetSeconds": 655.1414282999981,
+        "Ms": 55.0958,
+        "CpuMs": 55.0325,
+        "GpuMs": 2.6586
+      },
+      {
+        "OffsetSeconds": 667.067744999993,
+        "Ms": 52.403,
+        "CpuMs": 52.3404,
+        "GpuMs": 2.5393
+      },
+      {
+        "OffsetSeconds": 688.60757729999,
+        "Ms": 45.3264,
+        "CpuMs": 45.2584,
+        "GpuMs": 2.905
+      },
+      {
+        "OffsetSeconds": 702.052255499992,
+        "Ms": 52.1855,
+        "CpuMs": 52.1243,
+        "GpuMs": 2.7024
+      },
+      {
+        "OffsetSeconds": 716.214342399995,
+        "Ms": 51.4774,
+        "CpuMs": 51.4141,
+        "GpuMs": 2.857
+      },
+      {
+        "OffsetSeconds": 719.091002499998,
+        "Ms": 37.8438,
+        "CpuMs": 37.7824,
+        "GpuMs": 3.0499
+      },
+      {
+        "OffsetSeconds": 780.607367799996,
+        "Ms": 54.1443,
+        "CpuMs": 54.0801,
+        "GpuMs": 3.1184
+      },
+      {
+        "OffsetSeconds": 782.5375572999981,
+        "Ms": 59.1651,
+        "CpuMs": 59.0893,
+        "GpuMs": 3.2955
+      },
+      {
+        "OffsetSeconds": 786.6018128999931,
+        "Ms": 36.2453,
+        "CpuMs": 36.1777,
+        "GpuMs": 2.9998
+      },
+      {
+        "OffsetSeconds": 810.2098523999961,
+        "Ms": 40.1635,
+        "CpuMs": 40.0998,
+        "GpuMs": 2.9535
+      },
+      {
+        "OffsetSeconds": 840.9863294000021,
+        "Ms": 341.6501,
+        "CpuMs": 341.5902,
+        "GpuMs": 2.925
+      },
+      {
+        "OffsetSeconds": 841.3280106999961,
+        "Ms": 215.0543,
+        "CpuMs": 214.9632,
+        "GpuMs": 2.6684
+      },
+      {
+        "OffsetSeconds": 848.152342299996,
+        "Ms": 266.4254,
+        "CpuMs": 266.3656,
+        "GpuMs": 2.8151
+      },
+      {
+        "OffsetSeconds": 848.953315099992,
+        "Ms": 488.4243,
+        "CpuMs": 488.3625,
+        "GpuMs": 0.8393
+      },
+      {
+        "OffsetSeconds": 849.4417594999901,
+        "Ms": 236.5053,
+        "CpuMs": 236.4234,
+        "GpuMs": 0.7918
+      },
+      {
+        "OffsetSeconds": 854.376755999991,
+        "Ms": 459.1637,
+        "CpuMs": 459.0946,
+        "GpuMs": 36.2386
+      },
+      {
+        "OffsetSeconds": 854.993707199996,
+        "Ms": 50.9788,
+        "CpuMs": 50.9116,
+        "GpuMs": 14.407
+      },
+      {
+        "OffsetSeconds": 855.0529628,
+        "Ms": 68.0686,
+        "CpuMs": 68.0067,
+        "GpuMs": 11.6879
+      }
+    ],
+    "Native": {
+      "GenerationId": "304ab645d198451e992c0cb3057ebe87",
+      "RunId": "2ba2b46394b447f5a426e5d4e80555e6",
+      "Outcome": "Died",
+      "Segments": 5,
+      "DistinctMaps": 4,
+      "ActiveSeconds": 813.9978611000001,
+      "Shots": 470,
+      "Combat": {
+        "DamageCaused": 3311.8876342773438,
+        "DamageDealt": 2739.442060470581,
+        "DamageReceived": 247.3990330696106,
+        "CompletedPlayerProjectiles": 468,
+        "RangedHits": 307,
+        "MeleeSwings": 0,
+        "MeleeHits": 0,
+        "PlayerDeaths": 1,
+        "Headshots": 58,
+        "HeadshotFinalBlows": 7,
+        "KillsByYou": 40,
+        "ObservedWorldDeaths": 9,
+        "PlayerKills": {
+          "Ranged": 40,
+          "Melee": 0,
+          "Effect": 0,
+          "Environmental": 0,
+          "Unknown": 0,
+          "EvidenceSource": "CombatRecorded.AttackKind on the same proven KillsByYou event.",
+          "Throwables": 0
+        }
+      },
+      "ItemTotals": {
+        "ActivationCount": 20,
+        "AmountsByUnit": {
+          "Durability": 288.19975757598877,
+          "StackUnit": 6
+        },
+        "ActualHealthRestored": 130.94925737380981
+      },
+      "ItemRows": {
+        "duckov:item:129": {
+          "ItemId": "duckov:item:129",
+          "DisplayName": "K\u00fcrbis",
+          "Group": 1,
+          "EffectTags": [
+            1,
+            2
+          ],
+          "Totals": {
+            "ActivationCount": 6,
+            "AmountsByUnit": {
+              "Durability": 38.19975757598877
+            },
+            "ActualHealthRestored": 0
+          }
+        },
+        "duckov:item:932": {
+          "ItemId": "duckov:item:932",
+          "DisplayName": "Kleiner Stein",
+          "Group": 5,
+          "EffectTags": [
+            6
+          ],
+          "Totals": {
+            "ActivationCount": 4,
+            "AmountsByUnit": {
+              "StackUnit": 4
+            },
+            "ActualHealthRestored": 0
+          }
+        },
+        "duckov:item:875": {
+          "ItemId": "duckov:item:875",
+          "DisplayName": "Heilungsinjektor",
+          "Group": 0,
+          "EffectTags": [
+            0,
+            3
+          ],
+          "Totals": {
+            "ActivationCount": 1,
+            "AmountsByUnit": {
+              "StackUnit": 1
+            },
+            "ActualHealthRestored": 10.949256896972656
+          }
+        },
+        "duckov:item:107": {
+          "ItemId": "duckov:item:107",
+          "DisplayName": "Wasserflasche",
+          "Group": 2,
+          "EffectTags": [
+            2
+          ],
+          "Totals": {
+            "ActivationCount": 2,
+            "AmountsByUnit": {
+              "Durability": 100
+            },
+            "ActualHealthRestored": 0
+          }
+        },
+        "duckov:item:16": {
+          "ItemId": "duckov:item:16",
+          "DisplayName": "Med-Kit",
+          "Group": 0,
+          "EffectTags": [
+            0,
+            4
+          ],
+          "Totals": {
+            "ActivationCount": 6,
+            "AmountsByUnit": {
+              "Durability": 150
+            },
+            "ActualHealthRestored": 120.00000047683716
+          }
+        },
+        "duckov:item:137": {
+          "ItemId": "duckov:item:137",
+          "DisplayName": "Gelber Injektor",
+          "Group": 3,
+          "EffectTags": [
+            3
+          ],
+          "Totals": {
+            "ActivationCount": 1,
+            "AmountsByUnit": {
+              "StackUnit": 1
+            },
+            "ActualHealthRestored": 0
+          }
+        }
+      },
+      "AssociationRows": 16,
+      "AssociationEventCounts": {
+        "shot": 470,
+        "combat": 916,
+        "item-use": 20,
+        "container": 11,
+        "healing": 12
+      },
+      "HistoricalEventAttributionIncomplete": true,
+      "TerminalLoadout": {
+        "State": 3,
+        "Provenance": "Fresh live equipment tree at RaidUtilities.OnRaidDead, before native teardown.",
+        "Snapshot": {
+          "SnapshotId": "duckov:equipment-snapshot:03b15f28f5b42f630449e62a",
+          "LoadoutId": "duckov:loadout:764025a67d94efc79dfc5d0c",
+          "Items": [
+            {
+              "SlotId": "duckov:slot:Armor",
+              "SlotDisplayName": "K\u00f6rper",
+              "ItemId": "duckov:item:35",
+              "ItemDisplayName": "K\u00f6rperpanzer St. 5",
+              "Kind": 2,
+              "AttachmentSignature": "e3b0c44298fc1c149afbf4c8",
+              "NestedSlots": [],
+              "NestedSlotStateComplete": true
+            },
+            {
+              "SlotId": "duckov:slot:Backpack",
+              "SlotDisplayName": "Rucksack",
+              "ItemId": "duckov:item:1166",
+              "ItemDisplayName": "W\u00fcrfelsammler",
+              "Kind": 4,
+              "AttachmentSignature": "2ebf4b737ed5168ba33f8534",
+              "NestedSlots": [
+                {
+                  "Path": "8:SoulCube/",
+                  "SlotKey": "SoulCube",
+                  "SlotDisplayName": "Blauer W\u00fcrfel",
+                  "State": 0,
+                  "ItemId": "duckov:item:1165",
+                  "ItemDisplayName": "Blauer W\u00fcrfel"
+                }
+              ],
+              "NestedSlotStateComplete": true
+            },
+            {
+              "SlotId": "duckov:slot:FaceMask",
+              "SlotDisplayName": "Gesicht",
+              "ItemId": "duckov:item:26",
+              "ItemDisplayName": "Gasmaske",
+              "Kind": 5,
+              "AttachmentSignature": "e3b0c44298fc1c149afbf4c8",
+              "NestedSlots": [],
+              "NestedSlotStateComplete": true
+            },
+            {
+              "SlotId": "duckov:slot:Helmat",
+              "SlotDisplayName": "Kopf",
+              "ItemId": "duckov:item:1149",
+              "ItemDisplayName": "Kampfhelm St. 5",
+              "Kind": 3,
+              "AttachmentSignature": "e3b0c44298fc1c149afbf4c8",
+              "NestedSlots": [],
+              "NestedSlotStateComplete": true
+            },
+            {
+              "SlotId": "duckov:slot:PrimaryWeapon",
+              "SlotDisplayName": "Schusswaffe",
+              "ItemId": "duckov:weapon:736",
+              "ItemDisplayName": "SR-3M",
+              "Kind": 1,
+              "AttachmentSignature": "4269882cfdcc8de4cd7cbb7e",
+              "NestedSlots": [
+                {
+                  "Path": "3:Mag/",
+                  "SlotKey": "Mag",
+                  "SlotDisplayName": "Magazin",
+                  "State": 1,
+                  "ItemId": "",
+                  "ItemDisplayName": ""
+                },
+                {
+                  "Path": "3:Tec/",
+                  "SlotKey": "Tec",
+                  "SlotDisplayName": "Taktik",
+                  "State": 0,
+                  "ItemId": "duckov:item:578",
+                  "ItemDisplayName": "Laser (Basic)"
+                },
+                {
+                  "Path": "5:Stock/",
+                  "SlotKey": "Stock",
+                  "SlotDisplayName": "Schaft",
+                  "State": 0,
+                  "ItemId": "duckov:item:511",
+                  "ItemDisplayName": "Leichter Schaft"
+                },
+                {
+                  "Path": "6:Muzzle/",
+                  "SlotKey": "Muzzle",
+                  "SlotDisplayName": "M\u00fcndung",
+                  "State": 0,
+                  "ItemId": "duckov:item:713",
+                  "ItemDisplayName": "MP-DMG-Boost-M\u00fcndung"
+                }
+              ],
+              "NestedSlotStateComplete": true
+            },
+            {
+              "SlotId": "duckov:slot:SecondaryWeapon",
+              "SlotDisplayName": "Schusswaffe",
+              "ItemId": "duckov:weapon:256",
+              "ItemDisplayName": "MMG",
+              "Kind": 1,
+              "AttachmentSignature": "a8bf06999d964ddb799b02a3",
+              "NestedSlots": [
+                {
+                  "Path": "3:Mag/",
+                  "SlotKey": "Mag",
+                  "SlotDisplayName": "Magazin",
+                  "State": 1,
+                  "ItemId": "",
+                  "ItemDisplayName": ""
+                },
+                {
+                  "Path": "5:Scope/",
+                  "SlotKey": "Scope",
+                  "SlotDisplayName": "Zielfernrohr",
+                  "State": 0,
+                  "ItemId": "duckov:item:573",
+                  "ItemDisplayName": "Rotpunkt-Visier"
+                },
+                {
+                  "Path": "5:Stock/",
+                  "SlotKey": "Stock",
+                  "SlotDisplayName": "Schaft",
+                  "State": 0,
+                  "ItemId": "duckov:item:516",
+                  "ItemDisplayName": "H\u00fcftfeuer-Schaft II"
+                },
+                {
+                  "Path": "6:Muzzle/",
+                  "SlotKey": "Muzzle",
+                  "SlotDisplayName": "M\u00fcndung",
+                  "State": 0,
+                  "ItemId": "duckov:item:482",
+                  "ItemDisplayName": "Gewehr \u2013 Schalld\u00e4mpfer"
+                }
+              ],
+              "NestedSlotStateComplete": true
+            },
+            {
+              "SlotId": "duckov:slot:Totem1",
+              "SlotDisplayName": "Totem",
+              "ItemId": "duckov:totem:959",
+              "ItemDisplayName": "Totem: Heilung III",
+              "Kind": 7,
+              "AttachmentSignature": "e3b0c44298fc1c149afbf4c8",
+              "NestedSlots": [],
+              "NestedSlotStateComplete": true
+            },
+            {
+              "SlotId": "duckov:slot:Totem2",
+              "SlotDisplayName": "Totem",
+              "ItemId": "duckov:totem:966",
+              "ItemDisplayName": "Totem:Phys. RES III",
+              "Kind": 7,
+              "AttachmentSignature": "e3b0c44298fc1c149afbf4c8",
+              "NestedSlots": [],
+              "NestedSlotStateComplete": true
+            }
+          ],
+          "SelectedWeaponId": "duckov:weapon:736",
+          "TotemSetId": "duckov:totem-set:92fec5891dca03dfca79833c",
+          "Totems": [
+            {
+              "ItemId": "duckov:totem:959",
+              "DisplayName": "Totem: Heilung III",
+              "CarryKind": 0,
+              "ContainerId": "duckov:character",
+              "ActivationState": 1,
+              "DirectSlotId": "duckov:slot:Totem1"
+            },
+            {
+              "ItemId": "duckov:totem:966",
+              "DisplayName": "Totem:Phys. RES III",
+              "CarryKind": 0,
+              "ContainerId": "duckov:character",
+              "ActivationState": 1,
+              "DirectSlotId": "duckov:slot:Totem2"
+            }
+          ],
+          "SelectedWeaponSlotId": "duckov:slot:PrimaryWeapon",
+          "CharacterSlots": [
+            {
+              "SlotId": "duckov:slot:Armor",
+              "SlotDisplayName": "K\u00f6rper",
+              "State": 0,
+              "ItemId": "duckov:item:35",
+              "ItemDisplayName": "K\u00f6rperpanzer St. 5",
+              "ItemKind": 2,
+              "IsDirectTotemSlot": false
+            },
+            {
+              "SlotId": "duckov:slot:Backpack",
+              "SlotDisplayName": "Rucksack",
+              "State": 0,
+              "ItemId": "duckov:item:1166",
+              "ItemDisplayName": "W\u00fcrfelsammler",
+              "ItemKind": 4,
+              "IsDirectTotemSlot": false
+            },
+            {
+              "SlotId": "duckov:slot:FaceMask",
+              "SlotDisplayName": "Gesicht",
+              "State": 0,
+              "ItemId": "duckov:item:26",
+              "ItemDisplayName": "Gasmaske",
+              "ItemKind": 5,
+              "IsDirectTotemSlot": false
+            },
+            {
+              "SlotId": "duckov:slot:Headset",
+              "SlotDisplayName": "Kopfh\u00f6rer",
+              "State": 1,
+              "ItemId": "",
+              "ItemDisplayName": "",
+              "ItemKind": 0,
+              "IsDirectTotemSlot": false
+            },
+            {
+              "SlotId": "duckov:slot:Helmat",
+              "SlotDisplayName": "Kopf",
+              "State": 0,
+              "ItemId": "duckov:item:1149",
+              "ItemDisplayName": "Kampfhelm St. 5",
+              "ItemKind": 3,
+              "IsDirectTotemSlot": false
+            },
+            {
+              "SlotId": "duckov:slot:MeleeWeapon",
+              "SlotDisplayName": "Nahkampfwaffe",
+              "State": 1,
+              "ItemId": "",
+              "ItemDisplayName": "",
+              "ItemKind": 0,
+              "IsDirectTotemSlot": false
+            },
+            {
+              "SlotId": "duckov:slot:PrimaryWeapon",
+              "SlotDisplayName": "Schusswaffe",
+              "State": 0,
+              "ItemId": "duckov:weapon:736",
+              "ItemDisplayName": "SR-3M",
+              "ItemKind": 1,
+              "IsDirectTotemSlot": false
+            },
+            {
+              "SlotId": "duckov:slot:SecondaryWeapon",
+              "SlotDisplayName": "Schusswaffe",
+              "State": 0,
+              "ItemId": "duckov:weapon:256",
+              "ItemDisplayName": "MMG",
+              "ItemKind": 1,
+              "IsDirectTotemSlot": false
+            },
+            {
+              "SlotId": "duckov:slot:Totem1",
+              "SlotDisplayName": "Totem",
+              "State": 0,
+              "ItemId": "duckov:totem:959",
+              "ItemDisplayName": "Totem: Heilung III",
+              "ItemKind": 7,
+              "IsDirectTotemSlot": true
+            },
+            {
+              "SlotId": "duckov:slot:Totem2",
+              "SlotDisplayName": "Totem",
+              "State": 0,
+              "ItemId": "duckov:totem:966",
+              "ItemDisplayName": "Totem:Phys. RES III",
+              "ItemKind": 7,
+              "IsDirectTotemSlot": true
+            }
+          ],
+          "CharacterSlotStateComplete": true,
+          "NestedSlotStateComplete": true
+        },
+        "CapturedOutcome": 1
+      },
+      "PriorThreeRunsUnchanged": true,
+      "SavedRunsEqualExportRuns": true,
+      "SavedRunTotalsEqualExportRunTotals": true
+    },
+    "Resources": {
+      "Before": {
+        "RecordedUtc": "2026-09-09T21:24:50.1142160Z",
+        "Id": 14568,
+        "StartUtc": "2026-09-09T21:20:09.1741030Z",
+        "PrivateBytes": 3779727360,
+        "WorkingSetBytes": 1277566976,
+        "Handles": 2758,
+        "Threads": 147,
+        "ProfileBytes": 244555
+      },
+      "After": {
+        "RecordedUtc": "2026-09-09T21:43:55.4840106Z",
+        "Id": 14568,
+        "StartUtc": "2026-09-09T21:20:09.1741030Z",
+        "PrivateBytes": 6155821056,
+        "WorkingSetBytes": 2600812544,
+        "Handles": 3021,
+        "Threads": 148,
+        "ProfileBytes": 1024526,
+        "Scope": "Post-run after user has exported, not a precise capture-end sample; includes native loaded assets and UDS export/UI work."
+      },
+      "Delta": {
+        "PrivateBytes": 2376093696,
+        "WorkingSetBytes": 1323245568,
+        "Handles": 263,
+        "Threads": 1,
+        "ProfileBytes": 779971
+      },
+      "Limitations": "Whole-game process after map loading, terminal handling, opening UDS and export; not mod-only retention or a leak test. No in-record process polling or Unity object count observation."
+    },
+    "UserReport": "Not really, at the end when I died there was a hitch but the game has that even without UDS. So I wouldn'T credit that to UDS alone. Even if UDS makes it worse, it happens after the game knows I'm dead so there is no gameplay interference.",
+    "Limitations": [
+      "Supplementary D-only observation; no matched causal overhead inference.",
+      "Changing maps, encounters, equipment and death affect scene workload. No unfavorable valid frame removed.",
+      "Grouped item/healing associations expose first/last timestamps only. Boundary windows do not identify every individual completion or its item when multiple events share the group.",
+      "Death-frame timing does not isolate UDS from native death/save/scene work.",
+      "Whole-process resource growth includes map caches, result/UI/export work; current profile contains four runs, not a large historical dataset.",
+      "Controlled multi-target comparison, progressed-history UI/export and existing base-UI failure remain separate.",
+      "User reported no gameplay hitch and a death hitch; focus continuity was not separately confirmed."
+    ]
+  },
+  "ScopeAnnotations": {
+    "Path": "scope-annotations.json",
+    "Sha256": "fa998d1dfd6b1a060ae0d0de784ee11e6db64fad704ea21b72c7e9bc12450e71",
+    "Evidence": {
+      "RecordedUtc": "2026-09-09T21:54:57.697031+00:00",
+      "LaterRun": {
+        "RunId": "f2831159bd054c499046c4050b32bcde",
+        "StartedUtc": "/Date(1788990177036)/",
+        "StartingMapDisplayName": "Farmstadt"
+      },
+      "LaterRunEvidence": {
+        "Path": "after/active-run.json",
+        "Sha256": "ce7473b2ca554a4729d9612665e2fc9bcd21906d52d6b98593e8b7c5d34def4b"
+      },
+      "ResourceQualification": "Not established for this captured run. Both post-run process samples were collected after a later unrecorded Farmstadt run began, in addition to prior loading, UDS UI and export. Preserve process deltas as whole-game observations; do not attribute them to UDS or the measured soak, and do not infer leak absence.",
+      "HistoricalRouteAttribution": {
+        "Incomplete": true,
+        "Provenance": "An event association lacked a complete proven source/outcome segment join; overall statistics remain available.",
+        "Capabilities": {
+          "OrderedRoute": {
+            "State": 0,
+            "Provenance": "Verified Duckov 2.3.30 public lifecycle, map, main-duck position, and movement-speed contracts."
+          },
+          "Segments": {
+            "State": 0,
+            "Provenance": "Verified Duckov 2.3.30 public lifecycle, map, main-duck position, and movement-speed contracts."
+          },
+          "EventAttribution": {
+            "State": 2,
+            "Provenance": "An event association lacked a complete proven source/outcome segment join; overall statistics remain available."
+          },
+          "RouteAwareMapTotals": {
+            "State": 2,
+            "Provenance": "An event association lacked a complete proven source/outcome segment join; overall statistics remain available."
+          },
+          "CurrentEventAttributionCapture": {
+            "State": 0,
+            "Provenance": "Verified Duckov 2.3.30 public lifecycle, map, main-duck position, and movement-speed contracts."
+          }
+        },
+        "Interpretation": "Ordered route and segment evidence are supported, but historical event/map joins remain partial. Overall run statistics remain available; do not claim complete historical map attribution."
+      },
+      "ShotAndProjectileMetrics": "470 accepted firing actions and468 completed player projectiles are separate observations. Equality is not a native contract; the export preserves both. No claim that two shots were lost or that all projectiles had completed at terminal time.",
+      "UserPerception": "No gameplay hitch reported; death hitch explicitly retained and not attributed to UDS alone. No automated continuous focus observation.",
+      "NoReplayRequested": true,
+      "FrozenOriginalAnalysisUnchanged": true
+    }
+  },
+  "IndependentReview": {
+    "RecordedUtc": "2026-09-09T22:01:20.070561+00:00",
+    "Reviewer": "Fresh independent natural_soak_evidence_review agent",
+    "Verdict": "Pass for bounded evidence and native composition review; no actionable defect found. Elapsed-raid p99 gate fails at20.77436986920873percent against declared20percent bound.",
+    "ReviewedHead": "c849fa567c586b83852777ac5a20a3c4136b7e47",
+    "ManifestSha256": "66e91ca31099c92321d4c9be69ff218aa4254c893f094a71b552a9528d7b4263",
+    "ReferencesVerified": 58,
+    "RawFramesVerified": 188332,
+    "SummaryWindowsIndependentlyReproduced": 30,
+    "Verified": [
+      "All58 frozen hashes, exact raw summary/CPU/GPU/timestamp/threshold/peak/spike calculations, correct F11 log alignment and exact report/scope embeds.",
+      "Exact37-file export inventory and native/profile/targetedCSV agreement:470shots,468completedprojectiles,40kills,1death,20uses,130.949257HP. Five segments,16groupedrows/1429events and all19terminal equipmentCSVrows agree. Prior three runs unchanged.",
+      "Narrow firing/projectile and native terminal/run/profile/export composition. Completion depends on actual projectile release and matching current run; firing callback count and completed-projectile count are separate metrics.",
+      "Historical route joins remain partial; historical capabilityenum2 is DisabledIncompatible, while current capture is supported. This is not a claim of a literal Partial capability enum.",
+      "341.6501ms terminal-area frame retained. Later unrecorded Farmstadt run contaminates post-run process memory interpretation; no mod-causal or retained-memory conclusion."
+    ],
+    "Limits": "Changing maps/workloads, grouped first/last event timestamps, retrospective user perception, uninstrumented focus and later gameplay limit interpretation. Original base-UI ceiling failure, natural elapsed-p99 miss, multi-target feasibility and progressed-history UI/export/resource gates remain open.",
+    "EvidencePath": "independent-review.json",
+    "EvidenceSha256": "4d3c46c6ae47c2f7f6693d15856375a63510b2e68bef642672664ebeec26395c"
+  }
+}

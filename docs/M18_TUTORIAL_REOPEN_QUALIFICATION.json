@@ -1,0 +1,243 @@
+{
+  "SourceCommit": "9f503b7bfafd0350b427d6eeb3de55b02be7e47a",
+  "CompletedRunPersistence": "Pass: one identical completed tutorial run after restart, apart from intentional replay-cursor compaction.",
+  "LifetimeCash": "Fail: user confirms only quit/restart, no Cash action; false 58 Base UnknownAdjustment outflow appeared, while native holdings remained 58.",
+  "OldExportId": "20260908T1145417048373Z-5872f0daafc14aabb2cd8207cbcc4494",
+  "NewExportId": "20260908T1154256923746Z-5872f0daafc14aabb2cd8207cbcc4494",
+  "GenerationId": "5872f0daafc14aabb2cd8207cbcc4494",
+  "RunId": "1f9fb18e0bc64259adcdbc3031a1ba18",
+  "OldRevision": 227,
+  "NewRevision": 263,
+  "ClosedProfileRevision": 267,
+  "RunMetadataDifferences": [
+    {
+      "path": "Runs/0/Economy/ReplayCursor/ActivationId",
+      "old": "85a074e648d348eca0f25617324ea98b",
+      "new": ""
+    },
+    {
+      "path": "Runs/0/Economy/ReplayCursor/ClosedThroughSequence",
+      "old": 1,
+      "new": 0
+    },
+    {
+      "path": "Runs/0/Segments/0/Economy/ReplayCursor/ActivationId",
+      "old": "85a074e648d348eca0f25617324ea98b",
+      "new": ""
+    },
+    {
+      "path": "Runs/0/Segments/0/Economy/ReplayCursor/ClosedThroughSequence",
+      "old": 1,
+      "new": 0
+    }
+  ],
+  "InterruptedSessionCount": 0,
+  "NoActiveRunOrSessionCheckpoint": true,
+  "PreservedFiles": [
+    {
+      "File": "active_totem_set_definitions.csv",
+      "Bytes": 5106,
+      "Sha256": "64cc868a7940064435f67cf0e35194c0ae760812e283141d12974d158012daaf"
+    },
+    {
+      "File": "ammunition_totals.csv",
+      "Bytes": 407,
+      "Sha256": "dff5f3e8dde1a8a2a6d95ff8b7588843369a3996f9c1aeaefa299e4b06f0f39d"
+    },
+    {
+      "File": "cash_acquisition.csv",
+      "Bytes": 6745,
+      "Sha256": "3880c3d2d4f5ab02cff4640ca56f1046650cf2371e8e6582b613ff8bd30ea2a1"
+    },
+    {
+      "File": "character_equipment_slots.csv",
+      "Bytes": 33757,
+      "Sha256": "171c8298d96ba4a2c7472e9f5272c4db5a04236735c832a86c563a8d63f4479c"
+    },
+    {
+      "File": "combat_attribution.csv",
+      "Bytes": 23035,
+      "Sha256": "267a4c8efad2fbccfc8fd2ea364df5c107983d4b1572e7c41c0ded104e016709"
+    },
+    {
+      "File": "combat_totals.csv",
+      "Bytes": 528,
+      "Sha256": "8af96e8eb1da4cf1d3c9be2dcddc8fbebbef32dab008061b5683d7c2b0f17285"
+    },
+    {
+      "File": "containers.csv",
+      "Bytes": 441,
+      "Sha256": "273253ee3aefcfb4b4cd85fb87cc86c35a31ba2d3387924ead153f155f9ce10b"
+    },
+    {
+      "File": "crafting_recipes.csv",
+      "Bytes": 363,
+      "Sha256": "e3a44d253741208a997e3d57430f635a24594a16beb01c4f6de9e7891b64b82a"
+    },
+    {
+      "File": "crafting_resource_associations.csv",
+      "Bytes": 306,
+      "Sha256": "fb66048832bd0c32ba5f33132b9cfc1beb6c1c350a2bcdb6b911ee3c331eeaef"
+    },
+    {
+      "File": "crafting_resources.csv",
+      "Bytes": 220,
+      "Sha256": "ca80b4e395c976f36053fdd1c6b8135a73e5cf43b91cb26d2a16a704564a036e"
+    },
+    {
+      "File": "crafting_totals.csv",
+      "Bytes": 2324,
+      "Sha256": "defc2939658a90434f02b8b0d5e83c5e7f3b52e96298d27c9c4f32fbb5c548a0"
+    },
+    {
+      "File": "economy_contexts.csv",
+      "Bytes": 2246,
+      "Sha256": "029f896e3186ae0b4af9990c7ee7793191c644e8d963edf9c4cfee097105648d"
+    },
+    {
+      "File": "economy_holdings.csv",
+      "Bytes": 1451,
+      "Sha256": "6cd8a2650cdeb0a0305d4eac692054ee036e4a6eecf05c5b80b0d1e30ca5e05e"
+    },
+    {
+      "File": "economy_sources.csv",
+      "Bytes": 5257,
+      "Sha256": "695495751bd3c7a23827b943a31626dc57b1c6d5ff5040fd609906a91b6e1a8b"
+    },
+    {
+      "File": "economy_totals.csv",
+      "Bytes": 17808,
+      "Sha256": "f630f8281bd2cd192a6cdc0a4dd1afc0e130c7a9834f394c941cead4d14f4115"
+    },
+    {
+      "File": "equipment_combat.csv",
+      "Bytes": 4931,
+      "Sha256": "942502f0cfe66e788fde86a1b4dae79b438707936cd65ce62a88c2f32047b9c9"
+    },
+    {
+      "File": "equipment_totals.csv",
+      "Bytes": 22660,
+      "Sha256": "e579be2e5d85b050a5b8d364bc070ae2501ad14485c75b793885e01e0fc9521a"
+    },
+    {
+      "File": "equipped_item_nested_slots.csv",
+      "Bytes": 13143,
+      "Sha256": "956dd141308bc45fe34683825d5500cfe109c1a73f428713370da89c26d5083e"
+    },
+    {
+      "File": "groups.csv",
+      "Bytes": 315,
+      "Sha256": "f7274865ef90b4b45a2bb05e5b53ccf91b001a486ca221a1d184291212576f4e"
+    },
+    {
+      "File": "items.csv",
+      "Bytes": 429,
+      "Sha256": "56ebc5cdb82179dc5c4dc882e0fb0de5fb0fda6374a545b0e62b2db49e2b62da"
+    },
+    {
+      "File": "loadout_definitions.csv",
+      "Bytes": 132715,
+      "Sha256": "81a06a753b1614f541b1790680b5417621fe30a179f9239ddc1c3b8ca52f8a83"
+    },
+    {
+      "File": "map_totals.csv",
+      "Bytes": 794,
+      "Sha256": "6cdb423e29b95729817e66a3b54edff0cdfa2a8f31d024a9c2a967621cb35154"
+    },
+    {
+      "File": "overview.csv",
+      "Bytes": 349,
+      "Sha256": "69d4327c6094d6ba0a628d370706602d1234d0fd1b78c626b03d877f7537bdf6"
+    },
+    {
+      "File": "player-first-quit.log",
+      "Bytes": 31039,
+      "Sha256": "890ee0df55520541257857cec0f07bafb82c025a352d5e02050ead5d2fe6aeaf"
+    },
+    {
+      "File": "player-reopen.log",
+      "Bytes": 21852,
+      "Sha256": "f98df5fb417f26328e4a98cb41262b5f3d71d65332dbe4948fcd949997e7e3ea"
+    },
+    {
+      "File": "profile-after-second-quit.json",
+      "Bytes": 367401,
+      "Sha256": "1b002b9c532cb37e739f596479e105173a43f126621055a4737c3fafd987649f"
+    },
+    {
+      "File": "profile-backup-after-second-quit.json",
+      "Bytes": 367401,
+      "Sha256": "1b002b9c532cb37e739f596479e105173a43f126621055a4737c3fafd987649f"
+    },
+    {
+      "File": "records.csv",
+      "Bytes": 581,
+      "Sha256": "7ff4e95cc6f4beb6a1b841981823d108655d6178831b5f58238b363593db6fe7"
+    },
+    {
+      "File": "recurring_loadouts.csv",
+      "Bytes": 52,
+      "Sha256": "637363399a9e6ded64e793a87d5b3cfe13245448554c6a10a4fd95de76395676"
+    },
+    {
+      "File": "route_map_totals.csv",
+      "Bytes": 1220,
+      "Sha256": "96636b23f5036903cddaeb691bb927c1bc86f1f4053f5e4e615c21d841ec7057"
+    },
+    {
+      "File": "routes.csv",
+      "Bytes": 1250,
+      "Sha256": "3013647a939ea77e9face9b1eb3f1793863871e3a9b89d16d00b96606f1e5173"
+    },
+    {
+      "File": "run_totals.csv",
+      "Bytes": 743,
+      "Sha256": "98e6ef70432b0c9086fb00fb93eb152edb9f7bfda01ca86ce2737041d998f359"
+    },
+    {
+      "File": "runs.csv",
+      "Bytes": 1471,
+      "Sha256": "a4a63e7c1f065e3b6bea643c81ed7c77459698858d178612e8cab75b6bf4cc31"
+    },
+    {
+      "File": "segment_events.csv",
+      "Bytes": 1232,
+      "Sha256": "dd26a15a848d59c748934a460dd4924ef4e665dbb781fb59e6e573c4d4002699"
+    },
+    {
+      "File": "segments.csv",
+      "Bytes": 1896,
+      "Sha256": "bf00297b426227b6c5859955eee2f4aa3876b7b76a4e986f8281e8f523a19020"
+    },
+    {
+      "File": "statistics.json",
+      "Bytes": 366335,
+      "Sha256": "e293aefa86263df87aaaa369f76ad4852f1625b9adf7322bd3f934f52b8c9d81"
+    },
+    {
+      "File": "terminal_loadouts.csv",
+      "Bytes": 3782,
+      "Sha256": "aa205bab3ec214a8530443bcced71cd8a7f5fa671b49dbcda75980ff2c56c063"
+    },
+    {
+      "File": "totem_state_durations.csv",
+      "Bytes": 5002,
+      "Sha256": "6e1f32a5796e8bf063c150e5b30c027027a4fdce3f58fc7fe9f5f77e0cc34715"
+    },
+    {
+      "File": "weapon_ammunition_pairs.csv",
+      "Bytes": 7588,
+      "Sha256": "3db44a4691bb30964d04a6c2af5f0f4978311c5b14680ff2e1c323124cd522ab"
+    },
+    {
+      "File": "weapon_totals.csv",
+      "Bytes": 683,
+      "Sha256": "8b237c8a76862677c1f163384b3bcb4682a9a455f0fe3c92f30cc6e5451cb417"
+    },
+    {
+      "File": "world_time.csv",
+      "Bytes": 862,
+      "Sha256": "27eeb6aa2a9aa3ad53999fdd8ba351c204262ad7dd0f40572151f5e40b03912a"
+    }
+  ]
+}

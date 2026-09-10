@@ -102,19 +102,6 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void NarrowLayoutStacksLeftFirstAndScrollsTabs()
-    {
-        var narrow = StatisticsPanelLayoutPolicy.Create(1024, 768);
-        var desktop = StatisticsPanelLayoutPolicy.Create(2560, 1440);
-
-        Assert.Equal(PanelColumnLayout.Stacked, narrow.Columns);
-        Assert.True(narrow.TabStripRequiresScrolling);
-        Assert.InRange(narrow.PageSize, 12, 48);
-        Assert.Equal(PanelColumnLayout.SideBySide, desktop.Columns);
-        Assert.False(desktop.TabStripRequiresScrolling);
-    }
-
-    [Fact]
     public void TabScrollMovesOnlyEnoughToKeepTheSelectionVisible()
     {
         Assert.Equal(0f, TabStripScrollPolicy.EnsureVisible(900f, 860f, 700f, 150f, 0f));
@@ -954,27 +941,27 @@ public sealed class StatisticsPanelProjectionTests
             RetainedReferenceTransformPolicy.BaselineWidthPixels,
             RetainedTabMeasurementPolicy.TemporaryLabelWidthPixels);
         foreach (var referenceScale in new[] { 0.5f, 0.65625f, 0.75f, 1f })
-        foreach (var canvasScaleFactor in new[] { 1f, 2f, 3f })
-        {
-            var measuredCanvasWidth = referenceWidth * referenceScale / canvasScaleFactor;
-            var temporaryCanvasWidth = RetainedTabMeasurementPolicy.TemporaryLabelWidthPixels
-                                       * referenceScale
-                                       / canvasScaleFactor;
-            Assert.Equal(
-                RetainedReferenceTransformPolicy.BaselineWidthPixels,
-                RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
-                    temporaryCanvasWidth,
-                    canvasScaleFactor,
-                    referenceScale),
-                3);
-            Assert.Equal(
-                referenceWidth,
-                RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
-                    measuredCanvasWidth,
-                    canvasScaleFactor,
-                    referenceScale),
-                3);
-        }
+            foreach (var canvasScaleFactor in new[] { 1f, 2f, 3f })
+            {
+                var measuredCanvasWidth = referenceWidth * referenceScale / canvasScaleFactor;
+                var temporaryCanvasWidth = RetainedTabMeasurementPolicy.TemporaryLabelWidthPixels
+                                           * referenceScale
+                                           / canvasScaleFactor;
+                Assert.Equal(
+                    RetainedReferenceTransformPolicy.BaselineWidthPixels,
+                    RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
+                        temporaryCanvasWidth,
+                        canvasScaleFactor,
+                        referenceScale),
+                    3);
+                Assert.Equal(
+                    referenceWidth,
+                    RetainedTabMeasurementPolicy.NormalizeCanvasWidth(
+                        measuredCanvasWidth,
+                        canvasScaleFactor,
+                        referenceScale),
+                    3);
+            }
     }
 
     [Fact]
@@ -2023,12 +2010,11 @@ public sealed class StatisticsPanelProjectionTests
             {
                 Lifetime = new ContainerStatisticsAggregate
                 {
-                    UniqueContainersLooted = 1234,
-                    HistoricalUnavailable = true
+                    UniqueContainersLooted = 1234
                 },
                 CurrentCapability = AdapterCapabilityState.Supported
             },
-            Economy = new EconomyStatisticsAggregate { HistoricalUnavailable = true }
+            Economy = new EconomyStatisticsAggregate { }
         };
         string Resolve(string key) => "loc:" + key;
 
@@ -2039,9 +2025,9 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("loc:ui.unsupported", rows[3].Value);
         Assert.Equal("loc:ui.unsupported", rows[4].Value);
         Assert.Equal("loc:ui.unsupported", rows[6].Value);
-        Assert.Equal("1234 since M7 (loc:ui.container_history_unavailable)", rows[9].Value);
-        Assert.Equal("loc:ui.overview_money_net loc:ui.unavailable (loc:ui.pre_m9_unavailable)", rows[10].Value);
-        Assert.Equal("loc:ui.overview_cash_net loc:ui.unavailable (loc:ui.pre_m9_unavailable)", rows[10].SecondaryValue);
+        Assert.Equal("1234", rows[9].Value);
+        Assert.Equal("loc:ui.overview_money_net loc:ui.unsupported", rows[10].Value);
+        Assert.Equal("loc:ui.overview_cash_net loc:ui.unsupported", rows[10].SecondaryValue);
         Assert.All(rows, row => Assert.Equal("loc:" + RetainedProfileSummaryRowsPolicy.Specifications[(int)row.Metric].LabelTextKey, row.Label));
 
         projection.Containers.Lifetime.WasRepairedFromInvalidState = true;
@@ -2461,7 +2447,7 @@ public sealed class StatisticsPanelProjectionTests
                     {
                         RunId = "unprojected-minimum",
                         ActiveDurationSeconds = 1,
-                        MapDisplayName = "Run history minimum"
+                        StartingMapDisplayName = "Run history minimum"
                     }
                 }
             }
@@ -2751,7 +2737,7 @@ public sealed class StatisticsPanelProjectionTests
             {
                 RunId = "unprojected-run-maximum",
                 ActiveDurationSeconds = 999999d,
-                MapDisplayName = "Run list maximum"
+                StartingMapDisplayName = "Run list maximum"
             }
         };
         var matchingRun = projection.Runs.Runs[0];
@@ -2794,7 +2780,7 @@ public sealed class StatisticsPanelProjectionTests
             Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid).Value);
 
         projection = CreateGateFifteenProjection();
-        projection.Runs.Runs[0].HistoricalRouteUnavailable = true;
+        projection.Runs.Runs[0].RouteCapabilities.OrderedRoute.State = AdapterCapabilityState.DisabledIncompatible;
         Assert.Equal(
             "10:07.713 - Recorded map",
             Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid).Value);
@@ -2831,6 +2817,19 @@ public sealed class StatisticsPanelProjectionTests
         };
         Assert.Equal($"00:00.000 - {MapIdentity.UnknownDisplayName}",
             Highlight(projection, OverviewHighlightMetric.LongestSuccessfulRaid, Resolve).Value);
+    }
+
+    [Fact]
+    public void CurrentLanguageResolvesOverviewItemHighlightsAndKeepsMissingNameFallback()
+    {
+        var weapon = CreateWeaponRankingProjection(("duckov:weapon:357", "Schrott-Bogen", 5));
+        var consumable = CreateConsumableRankingProjection(("duckov:item:1", "Verband", 2, 0d));
+        var names = new EntityDisplayNames(id => id == "duckov:weapon:357" ? "Scrap Bow" : id == "duckov:item:1" ? "Bandage" : null);
+        weapon.Names = names; consumable.Names = names;
+        Assert.Equal("Scrap Bow - 5 firing actions", Highlight(weapon, OverviewHighlightMetric.MostUsedWeapon).Value);
+        Assert.Equal("Bandage - 2 uses", Highlight(consumable, OverviewHighlightMetric.MostUsedConsumable).Value);
+        weapon.Names = new EntityDisplayNames(_ => null);
+        Assert.Equal("Schrott-Bogen - 5 firing actions", Highlight(weapon, OverviewHighlightMetric.MostUsedWeapon).Value);
     }
 
     [Fact]
@@ -2978,10 +2977,6 @@ public sealed class StatisticsPanelProjectionTests
     {
         string Resolve(string key) => "loc:" + key;
         var projection = CreateConsumableRankingProjection(("item:a", "A", 5, 0d));
-        projection.ItemUse.HistoricalUnavailable = true;
-        Assert.Equal("loc:ui.unavailable",
-            Highlight(projection, OverviewHighlightMetric.MostUsedConsumable, Resolve).Value);
-
         projection = CreateConsumableRankingProjection(("item:a", "A", 5, 0d));
         projection.ItemUse.WasRepairedFromInvalidState = true;
         Assert.Equal("loc:ui.unavailable",
@@ -3019,15 +3014,12 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateFifteenItemUseProjectionCarriesHistoricalAndRepairTruthfulness()
+    public void GateFifteenItemUseProjectionCarriesRepairTruthfulness()
     {
         var profile = Profile("generation-a");
-        profile.Statistics.RunTotals.ItemStatistics.HistoricalUnavailable = true;
         profile.Statistics.RunTotals.ItemStatistics.WasRepairedFromInvalidState = true;
 
         var projection = Create(profile);
-
-        Assert.True(projection.ItemUse.HistoricalUnavailable);
         Assert.True(projection.ItemUse.WasRepairedFromInvalidState);
         Assert.Equal("Unavailable",
             Highlight(projection, OverviewHighlightMetric.MostUsedConsumable).Value);
@@ -3595,7 +3587,7 @@ public sealed class StatisticsPanelProjectionTests
         var run = new RunSummary
         {
             Outcome = outcome,
-            MapDisplayName = "No later-gate map content"
+            StartingMapDisplayName = "No later-gate map content"
         };
         var projection = new StatisticsPanelProjection
         {
@@ -3613,7 +3605,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal(expectedState, presentation.State);
         Assert.Same(RetainedRunBadgePolicy.ResolveSpecification(expectedState), presentation.Specification);
         Assert.Equal($"localized:{expectedTextKey}", presentation.Label);
-        Assert.DoesNotContain(run.MapDisplayName, presentation.Label, StringComparison.Ordinal);
+        Assert.DoesNotContain(run.StartingMapDisplayName, presentation.Label, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -3825,10 +3817,8 @@ public sealed class StatisticsPanelProjectionTests
         var run = new RunSummary
         {
             Outcome = RunOutcome.Extracted,
-            StartingMapKnown = true,
             StartingMapDisplayName = "Ground Zero",
-            MapKnown = true,
-            MapDisplayName = "Legacy root map",
+            StartingMapKnown = true,
             EndingMapKnown = true,
             EndingMapDisplayName = "Farm Town",
             Segments = new List<MapSegmentSummary>
@@ -3854,35 +3844,6 @@ public sealed class StatisticsPanelProjectionTests
             segment => Assert.Equal("Farm Town", segment.MapDisplayName));
     }
 
-    [Theory]
-    [InlineData(false, "Unknown map")]
-    [InlineData(true, "")]
-    [InlineData(true, "   ")]
-    [InlineData(true, "UNKNOWN MAP")]
-    public void GateTwentyTwoUsesLegacyRootMapFallbackWhenStartingIdentityIsUnavailable(
-        bool startingMapKnown,
-        string startingMapDisplayName)
-    {
-        var run = new RunSummary
-        {
-            StartingMapKnown = startingMapKnown,
-            StartingMapDisplayName = startingMapDisplayName,
-            MapKnown = true,
-            MapDisplayName = "Legacy Ground Zero"
-        };
-        var projection = new StatisticsPanelProjection
-        {
-            Runs = new RunStatisticsViewModel { Runs = new[] { run } }
-        };
-
-        var badge = RetainedRunBadgePresentationFactory.Create(projection, UiText.Get);
-        var map = RetainedLatestRunMapPresentationFactory.Create(badge, UiText.Get);
-
-        Assert.True(map.IsVisible);
-        Assert.Same(run, map.LatestRun);
-        Assert.Equal("Legacy Ground Zero", map.MapName);
-    }
-
     [Fact]
     public void GateTwentyTwoUnknownOrBlankMapIdentityUsesLocalizedUnknownMapFallback()
     {
@@ -3890,25 +3851,16 @@ public sealed class StatisticsPanelProjectionTests
         {
             new RunSummary
             {
-                StartingMapKnown = false,
                 StartingMapDisplayName = "Ground Zero",
-                MapKnown = false,
-                MapDisplayName = "Farm Town"
-            },
+                StartingMapKnown = false            },
             new RunSummary
             {
-                StartingMapKnown = true,
                 StartingMapDisplayName = " ",
-                MapKnown = true,
-                MapDisplayName = ""
-            },
+                StartingMapKnown = true            },
             new RunSummary
             {
-                StartingMapKnown = true,
                 StartingMapDisplayName = "Unknown map",
-                MapKnown = true,
-                MapDisplayName = "unknown MAP"
-            }
+                StartingMapKnown = true            }
         };
 
         foreach (var run in invalidIdentities)
@@ -4226,7 +4178,7 @@ public sealed class StatisticsPanelProjectionTests
     }
 
     [Fact]
-    public void GateTwentyThreeRepairedAndHistoricalValuesKeepExistingAvailabilitySemantics()
+    public void GateTwentyThreeRepairedAndExactValuesKeepExistingAvailabilitySemantics()
     {
         var run = CreateGateTwentyThreeRun();
         run.CombatStatistics.WasRepairedFromInvalidState = true;
@@ -4241,12 +4193,11 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Equal("Containers opened: 3 (repaired data; unavailable)", repaired.DisplayLines[6]);
 
         run.ContainerStatistics.WasRepairedFromInvalidState = false;
-        run.ContainerStatistics.HistoricalUnavailable = true;
         run.ContainerStatistics.UniqueContainersLooted = 4;
         var historical = CreateGateTwentyThreePresentation(run);
 
         Assert.Equal(
-            "Containers opened: 4 since M7 (earlier history unavailable)",
+            "Containers opened: 4",
             historical.DisplayLines[6]);
     }
 
@@ -4863,7 +4814,7 @@ public sealed class StatisticsPanelProjectionTests
         Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesRegularWeight);
         Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesNativeHorizontalMetrics);
         Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.UsesOwnedSubtleShadowMaterial);
-        Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.WordWrapping);
+        Assert.True(RetainedOverviewWorldTimeStatisticsPolicy.WordWrapping);
         Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.AutoSizing);
         Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.BlocksRaycasts);
         Assert.False(RetainedOverviewWorldTimeStatisticsPolicy.HasInteraction);
@@ -5678,22 +5629,22 @@ public sealed class StatisticsPanelProjectionTests
     private static StatisticsPanelProjection CreateFastestExtractionProjection(
         double durationSeconds,
         string mapDisplayName) => new()
-    {
-        Runs = new RunStatisticsViewModel
         {
-            Records = new RunDurationRecords
+            Runs = new RunStatisticsViewModel
             {
-                Extraction = new DurationRecordPair
+                Records = new RunDurationRecords
                 {
-                    Shortest = new DurationRecordReference
+                    Extraction = new DurationRecordPair
                     {
-                        ActiveDurationSeconds = durationSeconds,
-                        MapDisplayName = mapDisplayName
+                        Shortest = new DurationRecordReference
+                        {
+                            ActiveDurationSeconds = durationSeconds,
+                            MapDisplayName = mapDisplayName
+                        }
                     }
                 }
             }
-        }
-    };
+        };
 
     private static RetainedVisualCanvasLayout CreateRetainedVisualLayout(
         float viewportWidth,
@@ -5878,18 +5829,6 @@ public sealed class StatisticsPanelProjectionTests
         Assert.False(lifecycle.IsOpen);
         Assert.True(lifecycle.IsDisposed);
         Assert.False(lifecycle.TryOpen());
-    }
-
-    [Fact]
-    public void BoundedPagesNeverRenderUnboundedHistory()
-    {
-        var source = Enumerable.Range(0, 1000).ToArray();
-        var page = BoundedPageFactory.Create(source, requestedPage: 999, pageSize: 40);
-
-        Assert.Equal(25, page.PageCount);
-        Assert.Equal(24, page.PageIndex);
-        Assert.Equal(40, page.Items.Count);
-        Assert.Equal(960, page.Items[0]);
     }
 
     [Fact]

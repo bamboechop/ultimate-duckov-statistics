@@ -5,12 +5,13 @@ using FrameTimeAnalyzer;
 var arguments = args.ToList();
 if (arguments.Count == 0 || arguments.Contains("--help", StringComparer.OrdinalIgnoreCase))
 {
-    Console.WriteLine("Usage: dotnet run --project tools/FrameTimeAnalyzer -c Release -- <capture.csv|capture.capframex.json|directory> [...] [--baseline B] [--output-json path]");
+    Console.WriteLine("Usage: dotnet run --project tools/FrameTimeAnalyzer -c Release -- <capture.csv|capture.capframex.json|directory> [...] [--baseline B] [--output-json path] [--campaign frozen-campaign.json]");
     return;
 }
 
 string? baseline = null;
 string? outputJson = null;
+string? campaignPath = null;
 var inputs = new List<string>();
 for (var index = 0; index < arguments.Count; index++)
 {
@@ -21,6 +22,10 @@ for (var index = 0; index < arguments.Count; index++)
             break;
         case "--output-json" when index + 1 < arguments.Count:
             outputJson = arguments[++index];
+            break;
+        case "--campaign" when index + 1 < arguments.Count:
+            campaignPath = arguments[++index];
+            baseline = "B";
             break;
         default:
             inputs.Add(arguments[index]);
@@ -41,7 +46,16 @@ var files = inputs.SelectMany(input => Directory.Exists(input)
     .ToArray();
 if (files.Length == 0) throw new InvalidOperationException("No raw CapFrameX CSV or JSON capture files were found.");
 
+if (campaignPath != null && baseline != "B") throw new ArgumentException("Campaign baseline must be B.");
+var missingCampaignCells = campaignPath == null ? null : CampaignEvidence.Validate(campaignPath, files);
+if (missingCampaignCells != null)
+{
+    foreach (var missing in missingCampaignCells) Console.WriteLine(missing);
+    Console.WriteLine("Campaign artifact identity checks passed. Physical controls, valid-capture decisions and all engineering/spike/ceiling gates still require review.");
+}
+
 var report = FrameTimeCsvAnalyzer.BuildReport(files.Select(FrameTimeCsvAnalyzer.AnalyzeFile), baseline);
+report.MissingCampaignCells = missingCampaignCells;
 Console.WriteLine("CAPTURE\tCONFIG\tBUILD\tSCENARIO\tRUN\tFRAMES\tSECONDS\tAVG_FPS\tMEAN_MS\tMEDIAN_MS\tP95_MS\tP99_MS\tMAX_MS\tCPU_BUSY_MEDIAN_MS\tCPU_BUSY_P99_MS\tGPU_BUSY_MEDIAN_MS\tGPU_BUSY_P99_MS\tGT8.33_COUNT\tGT8.33_%\tGT16.7_COUNT\tGT16.7_%\tGT33.3_COUNT\tGT33.3_%\tCLUSTER\tACTION_CLUSTER\tACTION_FRAMES\tACTION_SECONDS\tACTION_AVG_FPS\tACTION_MEAN_MS\tACTION_MEDIAN_MS\tACTION_P95_MS\tACTION_P99_MS\tACTION_MAX_MS\tACTION_CPU_BUSY_MEDIAN_MS\tACTION_CPU_BUSY_P99_MS\tACTION_GPU_BUSY_MEDIAN_MS\tACTION_GPU_BUSY_P99_MS\tACTION_GT8.33_COUNT\tACTION_GT8.33_%\tACTION_GT16.7_COUNT\tACTION_GT16.7_%\tACTION_GT33.3_COUNT\tACTION_GT33.3_%");
 foreach (var capture in report.Captures)
 {

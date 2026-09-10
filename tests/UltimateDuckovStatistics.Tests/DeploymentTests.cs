@@ -112,12 +112,21 @@ public sealed class DeploymentTests
         Assert.Empty(Directory.EnumerateDirectories(destination));
         Assert.False(File.Exists(Path.Combine(destination, "0Harmony.dll")));
         Assert.False(File.Exists(Path.Combine(destination, "obsolete.dll")));
+        var backupLine = output.Split('\n').Single(line => line.StartsWith("Verified prior UDS deployment retained at: ", StringComparison.Ordinal));
+        var backupPath = backupLine["Verified prior UDS deployment retained at: ".Length..].Trim();
+        Assert.Equal("stale forbidden dependency", File.ReadAllText(Path.Combine(backupPath, "0Harmony.dll")));
+        Assert.Equal("stale obsolete dependency", File.ReadAllText(Path.Combine(backupPath, "obsolete.dll")));
+        foreach (var name in ExpectedFiles)
+        {
+            Assert.Equal(File.ReadAllBytes(Path.Combine(packageRoot, name)), File.ReadAllBytes(Path.Combine(destination, name)));
+            Assert.Contains(name + " SHA256=", output, StringComparison.Ordinal);
+        }
         Assert.Empty(Directory.EnumerateFileSystemEntries(Path.GetDirectoryName(destination)!, ".UltimateDuckovStatistics.*"));
     }
 
     [Fact]
     [Trait("Category", "Package")]
-    public void BackupCleanupFailureKeepsVerifiedDeploymentAndRetainsBackup()
+    public void BackupCleanupFailureCannotExposeAPriorManifestToNativeModDiscovery()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -137,8 +146,8 @@ public sealed class DeploymentTests
             File.WriteAllText(Path.Combine(packageRoot, name), $"package:{name}");
         }
 
-        File.WriteAllText(Path.Combine(destination, "old-a.dll"), "old deployment");
-        File.WriteAllText(Path.Combine(destination, "old-b.dll"), "old deployment");
+        File.WriteAllText(Path.Combine(destination, "info.ini"), "name = UltimateDuckovStatistics");
+        File.WriteAllText(Path.Combine(destination, "UltimateDuckovStatistics.dll"), "old deployment");
 
         var repositoryRoot = FindRepositoryRoot();
         var wrapperPath = Path.Combine(temporaryDirectory.Path, "invoke-deploy-cleanup-failure.ps1");
@@ -153,11 +162,7 @@ public sealed class DeploymentTests
 
             & $DeployScript -DuckovPath $DuckovPath -PackagePath $PackagePath -BackupCleanupAction {
                 param([string]$BackupPath)
-                $first = Get-ChildItem -File -LiteralPath $BackupPath | Select-Object -First 1
-                if ($null -ne $first) {
-                    Remove-Item -Force -LiteralPath $first.FullName
-                }
-                throw 'simulated partial backup cleanup failure'
+                throw 'simulated denied backup cleanup'
             }
             """);
 
@@ -189,11 +194,15 @@ public sealed class DeploymentTests
             ExpectedFiles.OrderBy(name => name, StringComparer.OrdinalIgnoreCase),
             Directory.EnumerateFiles(destination).Select(Path.GetFileName).OrderBy(name => name, StringComparer.OrdinalIgnoreCase));
         Assert.Empty(Directory.EnumerateDirectories(destination));
+        // ModManager.Rescan enumerates every immediate Mods subdirectory, even dot names.
+        Assert.Equal(destination, Assert.Single(Directory.EnumerateDirectories(modsRoot)));
         var retainedBackup = Assert.Single(Directory.EnumerateDirectories(
-            modsRoot,
-            ".UltimateDuckovStatistics.previous-*"));
-        Assert.Single(Directory.EnumerateFiles(retainedBackup));
-        Assert.Empty(Directory.EnumerateDirectories(modsRoot, ".UltimateDuckovStatistics.deploying-*"));
+            Path.Combine(gameRoot, "Duckov_Data", ".UltimateDuckovStatistics-deployment"),
+            "previous", SearchOption.AllDirectories));
+        Assert.Equal("name = UltimateDuckovStatistics", File.ReadAllText(Path.Combine(retainedBackup, "info.ini")));
+        Assert.Equal("old deployment", File.ReadAllText(Path.Combine(retainedBackup, "UltimateDuckovStatistics.dll")));
+        Assert.Equal("package:UltimateDuckovStatistics.dll", File.ReadAllText(Path.Combine(destination, "UltimateDuckovStatistics.dll")));
+
     }
 
     private static string FindRepositoryRoot()

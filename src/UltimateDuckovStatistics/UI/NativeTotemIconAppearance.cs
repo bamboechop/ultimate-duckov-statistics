@@ -21,7 +21,8 @@ internal static class NativeTotemIconAppearance
             { if (shadow != null) shadow.enabled = false; return; }
             if (shadow == null)
             {
-                shadow = icon.gameObject.AddComponent<TrueShadow>();
+                shadow = OwnedTotemIconShadow.TryAddTo(icon);
+                if (shadow == null) return;
                 // Installed ItemDisplay prefab quality shadow: size 3, spread .5,
                 // independent of the sprite's color, using its alpha silhouette.
                 shadow.Size = 3; shadow.Spread = .5f; shadow.UseCasterAlpha = true;

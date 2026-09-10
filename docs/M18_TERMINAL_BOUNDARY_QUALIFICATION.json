@@ -1,0 +1,1106 @@
+{
+  "RecordedUtc": "2026-09-09T21:04:17.096176+00:00",
+  "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "CheckoutAtReview": "1ab0e76ddd72851de0f3b569b64795fade0144bf",
+  "EvidenceRoot": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay",
+  "EvidenceManifest": {
+    "Path": "terminal-boundary-review-input.json",
+    "Sha256": "4ba712ff485f34577ea683414c273045e22f4cc348275146c5cb9fa3c54f5d9e"
+  },
+  "FrozenReportSha256": "1cc3e0b57b8703aad3f5452219f5d33b6160dd7fcb9fee4a0db230842bddb205",
+  "CaptureCount": 6,
+  "TotalFrames": 49677,
+  "Status": "Pass for bounded numerical rules and independent evidence/native composition review after loadout correction. B single-M700 setup is retrospectively user-confirmed; D is native-verified. Full base loading and broader M18 qualification remain open.",
+  "Evidence": {
+    "RecordedUtc": "2026-09-09T21:04:17.060384+00:00",
+    "Scenario": "terminal-boundary",
+    "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+    "CampaignSha256": "367bf25fa55ba7db4ce69c80d97cc3a38fee40b7b9ea4062835c637406e8091d",
+    "AnalysisSha256": "7772a763d4b33848218e4ddc93b78ef1d59883377556f428971248018c617566",
+    "CaptureCount": 6,
+    "TotalFrames": 49677,
+    "Analysis": {
+      "MissingCampaignCells": [
+        "Not exercised: B/idle needs 3 valid captures.",
+        "Not exercised: D/idle needs 3 valid captures.",
+        "Not exercised: B/high-rate-empty needs 3 valid captures.",
+        "Not exercised: D/high-rate-empty needs 3 valid captures.",
+        "Not exercised: B/high-rate-single needs 3 valid captures.",
+        "Not exercised: D/high-rate-single needs 3 valid captures.",
+        "Not exercised: B/high-rate-multi needs 3 valid captures.",
+        "Not exercised: D/high-rate-multi needs 3 valid captures.",
+        "Not exercised: B/second-auto-empty needs 3 valid captures.",
+        "Not exercised: D/second-auto-empty needs 3 valid captures.",
+        "Not exercised: B/second-auto-single needs 3 valid captures.",
+        "Not exercised: D/second-auto-single needs 3 valid captures.",
+        "Not exercised: B/slower-control needs 3 valid captures.",
+        "Not exercised: D/slower-control needs 3 valid captures.",
+        "Not exercised: B/consumable-medkit needs 3 valid captures.",
+        "Not exercised: D/consumable-medkit needs 3 valid captures.",
+        "Not exercised: B/base-idle-ui-closed needs 3 valid captures.",
+        "Not exercised: D/base-idle-ui-closed needs 3 valid captures.",
+        "Not exercised: B/base-inventory-equipment needs 3 valid captures.",
+        "Not exercised: D/base-inventory-equipment needs 3 valid captures.",
+        "Not exercised: B/base-crafting-economy needs 3 valid captures.",
+        "Not exercised: D/base-crafting-economy needs 3 valid captures.",
+        "Not exercised: B/base-ui-open needs 3 valid captures.",
+        "Not exercised: D/base-ui-open needs 3 valid captures.",
+        "Not exercised: B/export-boundary needs 3 valid captures.",
+        "Not exercised: D/export-boundary needs 3 valid captures."
+      ],
+      "Captures": [
+        {
+          "Source": "artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay\\captures\\B\\terminal-boundary\\b-terminal-boundary-r01.csv",
+          "Configuration": "B",
+          "BuildLabel": "production",
+          "Scenario": "terminal-boundary",
+          "Run": 1,
+          "FrameTimeColumn": "msBetweenPresents",
+          "DominantSwapChain": "0x20096271280",
+          "ParsedRows": 8556,
+          "FrameCount": 8556,
+          "IgnoredNonDominantRows": 0,
+          "DurationSeconds": 30.001734300000173,
+          "AverageFps": 285.1835135410806,
+          "MeanMilliseconds": 3.5065140603085756,
+          "MedianMilliseconds": 3.4325,
+          "P95Milliseconds": 3.97175,
+          "P99Milliseconds": 4.5161250000000015,
+          "MaximumMilliseconds": 92.1798,
+          "Thresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 11,
+              "Percentage": 0.12856474988312294
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 4,
+              "Percentage": 0.04675081813931744
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 3,
+              "Percentage": 0.03506311360448808
+            }
+          ],
+          "SpikesOver33Milliseconds": [
+            {
+              "OffsetSeconds": 6.91629690000991,
+              "FrameTimeMilliseconds": 41.9498,
+              "DuringAction": true,
+              "CpuBusyMilliseconds": 41.8956,
+              "GpuBusyMilliseconds": 3.5452
+            },
+            {
+              "OffsetSeconds": 7.04063660000975,
+              "FrameTimeMilliseconds": 92.1798,
+              "DuringAction": true,
+              "CpuBusyMilliseconds": 92.1062,
+              "GpuBusyMilliseconds": 3.3478
+            },
+            {
+              "OffsetSeconds": 8.29020850000234,
+              "FrameTimeMilliseconds": 43.4913,
+              "DuringAction": true,
+              "CpuBusyMilliseconds": 43.4363,
+              "GpuBusyMilliseconds": 3.3787
+            }
+          ],
+          "Windows": [],
+          "HasSpikeCluster": true,
+          "HasActionSpikeCluster": true,
+          "Warnings": [],
+          "CpuBusy": {
+            "SampleCount": 8556,
+            "MeanMilliseconds": 3.4476440743337893,
+            "MedianMilliseconds": 3.3747,
+            "P95Milliseconds": 3.912925,
+            "P99Milliseconds": 4.459025000000002,
+            "MaximumMilliseconds": 92.1062
+          },
+          "GpuBusy": {
+            "SampleCount": 8556,
+            "MeanMilliseconds": 3.2462696236559037,
+            "MedianMilliseconds": 3.2198,
+            "P95Milliseconds": 3.5577,
+            "P99Milliseconds": 3.6945800000000015,
+            "MaximumMilliseconds": 3.9174
+          },
+          "ActionFrameCount": 4364,
+          "ActionDurationSeconds": 15.271619499999963,
+          "ActionAverageFps": 285.7588221078983,
+          "ActionMeanMilliseconds": 3.499454514207141,
+          "ActionMedianMilliseconds": 3.3981,
+          "ActionP95Milliseconds": 3.9180099999999998,
+          "ActionP99Milliseconds": 4.453746999999998,
+          "ActionMaximumMilliseconds": 92.1798,
+          "ActionThresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 8,
+              "Percentage": 0.18331805682859761
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 4,
+              "Percentage": 0.09165902841429881
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 3,
+              "Percentage": 0.06874427131072411
+            }
+          ],
+          "ActionCpuBusy": {
+            "SampleCount": 4364,
+            "MeanMilliseconds": 3.4406085472043992,
+            "MedianMilliseconds": 3.33975,
+            "P95Milliseconds": 3.859639999999996,
+            "P99Milliseconds": 4.396131,
+            "MaximumMilliseconds": 92.1062
+          },
+          "ActionGpuBusy": {
+            "SampleCount": 4364,
+            "MeanMilliseconds": 3.249363611365726,
+            "MedianMilliseconds": 3.2331000000000003,
+            "P95Milliseconds": 3.5802949999999996,
+            "P99Milliseconds": 3.704937,
+            "MaximumMilliseconds": 3.9174
+          }
+        },
+        {
+          "Source": "artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay\\captures\\B\\terminal-boundary\\b-terminal-boundary-r02.csv",
+          "Configuration": "B",
+          "BuildLabel": "production",
+          "Scenario": "terminal-boundary",
+          "Run": 2,
+          "FrameTimeColumn": "msBetweenPresents",
+          "DominantSwapChain": "0x20096271280",
+          "ParsedRows": 8399,
+          "FrameCount": 8399,
+          "IgnoredNonDominantRows": 0,
+          "DurationSeconds": 30.00398549999997,
+          "AverageFps": 279.92947803550993,
+          "MeanMilliseconds": 3.572328312894389,
+          "MedianMilliseconds": 3.522,
+          "P95Milliseconds": 4.011189999999999,
+          "P99Milliseconds": 4.372696000000002,
+          "MaximumMilliseconds": 17.3196,
+          "Thresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 9,
+              "Percentage": 0.10715561376354328
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 1,
+              "Percentage": 0.011906179307060364
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 0,
+              "Percentage": 0
+            }
+          ],
+          "SpikesOver33Milliseconds": [],
+          "Windows": [],
+          "HasSpikeCluster": false,
+          "HasActionSpikeCluster": false,
+          "Warnings": [],
+          "CpuBusy": {
+            "SampleCount": 8399,
+            "MeanMilliseconds": 3.5146088581974095,
+            "MedianMilliseconds": 3.4646,
+            "P95Milliseconds": 3.95384,
+            "P99Milliseconds": 4.314814000000003,
+            "MaximumMilliseconds": 17.2647
+          },
+          "GpuBusy": {
+            "SampleCount": 8399,
+            "MeanMilliseconds": 3.254868174782718,
+            "MedianMilliseconds": 3.2247,
+            "P95Milliseconds": 3.5710100000000002,
+            "P99Milliseconds": 3.66081,
+            "MaximumMilliseconds": 4.727
+          },
+          "ActionFrameCount": 4283,
+          "ActionDurationSeconds": 15.276991999999986,
+          "ActionAverageFps": 280.3562376677296,
+          "ActionMeanMilliseconds": 3.566890497314963,
+          "ActionMedianMilliseconds": 3.5089,
+          "ActionP95Milliseconds": 4.019119999999999,
+          "ActionP99Milliseconds": 4.4677640000000025,
+          "ActionMaximumMilliseconds": 17.3196,
+          "ActionThresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 5,
+              "Percentage": 0.11674060238150828
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 1,
+              "Percentage": 0.023348120476301658
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 0,
+              "Percentage": 0
+            }
+          ],
+          "ActionCpuBusy": {
+            "SampleCount": 4283,
+            "MeanMilliseconds": 3.5092142423534933,
+            "MedianMilliseconds": 3.4515,
+            "P95Milliseconds": 3.96319,
+            "P99Milliseconds": 4.4118840000000015,
+            "MaximumMilliseconds": 17.2647
+          },
+          "ActionGpuBusy": {
+            "SampleCount": 4283,
+            "MeanMilliseconds": 3.258840275507823,
+            "MedianMilliseconds": 3.2349,
+            "P95Milliseconds": 3.57679,
+            "P99Milliseconds": 3.66089,
+            "MaximumMilliseconds": 4.727
+          }
+        },
+        {
+          "Source": "artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay\\captures\\B\\terminal-boundary\\b-terminal-boundary-r03.csv",
+          "Configuration": "B",
+          "BuildLabel": "production",
+          "Scenario": "terminal-boundary",
+          "Run": 3,
+          "FrameTimeColumn": "msBetweenPresents",
+          "DominantSwapChain": "0x20096271280",
+          "ParsedRows": 8033,
+          "FrameCount": 8033,
+          "IgnoredNonDominantRows": 0,
+          "DurationSeconds": 30.000568000000012,
+          "AverageFps": 267.7615970470958,
+          "MeanMilliseconds": 3.7346655047927313,
+          "MedianMilliseconds": 3.5791,
+          "P95Milliseconds": 4.23598,
+          "P99Milliseconds": 4.893524000000005,
+          "MaximumMilliseconds": 571.5558,
+          "Thresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 10,
+              "Percentage": 0.12448649321548612
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 2,
+              "Percentage": 0.024897298643097223
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 2,
+              "Percentage": 0.024897298643097223
+            }
+          ],
+          "SpikesOver33Milliseconds": [
+            {
+              "OffsetSeconds": 12.464022000000101,
+              "FrameTimeMilliseconds": 571.5558,
+              "DuringAction": true,
+              "CpuBusyMilliseconds": 571.5001,
+              "GpuBusyMilliseconds": 3.3387
+            },
+            {
+              "OffsetSeconds": 18.901929700005,
+              "FrameTimeMilliseconds": 243.5377,
+              "DuringAction": true,
+              "CpuBusyMilliseconds": 243.4786,
+              "GpuBusyMilliseconds": 3.3763
+            }
+          ],
+          "Windows": [],
+          "HasSpikeCluster": false,
+          "HasActionSpikeCluster": false,
+          "Warnings": [],
+          "CpuBusy": {
+            "SampleCount": 8033,
+            "MeanMilliseconds": 3.675827710693394,
+            "MedianMilliseconds": 3.5205,
+            "P95Milliseconds": 4.17186,
+            "P99Milliseconds": 4.825188000000005,
+            "MaximumMilliseconds": 571.5001
+          },
+          "GpuBusy": {
+            "SampleCount": 8033,
+            "MeanMilliseconds": 3.2517096601518785,
+            "MedianMilliseconds": 3.2194,
+            "P95Milliseconds": 3.5546800000000003,
+            "P99Milliseconds": 3.6977160000000002,
+            "MaximumMilliseconds": 4.7164
+          },
+          "ActionFrameCount": 3876,
+          "ActionDurationSeconds": 15.272158499999982,
+          "ActionAverageFps": 253.79516588961573,
+          "ActionMeanMilliseconds": 3.940185371517023,
+          "ActionMedianMilliseconds": 3.6491499999999997,
+          "ActionP95Milliseconds": 4.394225,
+          "ActionP99Milliseconds": 5.198625,
+          "ActionMaximumMilliseconds": 571.5558,
+          "ActionThresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 7,
+              "Percentage": 0.18059855521155832
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 2,
+              "Percentage": 0.05159958720330237
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 2,
+              "Percentage": 0.05159958720330237
+            }
+          ],
+          "ActionCpuBusy": {
+            "SampleCount": 3876,
+            "MeanMilliseconds": 3.880729102167177,
+            "MedianMilliseconds": 3.5923,
+            "P95Milliseconds": 4.335375,
+            "P99Milliseconds": 5.119075,
+            "MaximumMilliseconds": 571.5001
+          },
+          "ActionGpuBusy": {
+            "SampleCount": 3876,
+            "MeanMilliseconds": 3.270690067079465,
+            "MedianMilliseconds": 3.24045,
+            "P95Milliseconds": 3.5902249999999998,
+            "P99Milliseconds": 3.722125,
+            "MaximumMilliseconds": 4.7164
+          }
+        },
+        {
+          "Source": "artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay\\captures\\D\\terminal-boundary\\d-terminal-boundary-r01.csv",
+          "Configuration": "D",
+          "BuildLabel": "production",
+          "Scenario": "terminal-boundary",
+          "Run": 1,
+          "FrameTimeColumn": "msBetweenPresents",
+          "DominantSwapChain": "0x18291AAD3E0",
+          "ParsedRows": 8204,
+          "FrameCount": 8204,
+          "IgnoredNonDominantRows": 0,
+          "DurationSeconds": 30.004045600000094,
+          "AverageFps": 273.4297937475463,
+          "MeanMilliseconds": 3.6572459288152235,
+          "MedianMilliseconds": 3.5789,
+          "P95Milliseconds": 4.083125,
+          "P99Milliseconds": 4.745044000000001,
+          "MaximumMilliseconds": 159.8234,
+          "Thresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 11,
+              "Percentage": 0.1340809361287177
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 2,
+              "Percentage": 0.02437835202340322
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 2,
+              "Percentage": 0.02437835202340322
+            }
+          ],
+          "SpikesOver33Milliseconds": [
+            {
+              "OffsetSeconds": 6.92585459999827,
+              "FrameTimeMilliseconds": 159.8234,
+              "DuringAction": true,
+              "CpuBusyMilliseconds": 159.7677,
+              "GpuBusyMilliseconds": 3.2196
+            },
+            {
+              "OffsetSeconds": 7.1555824999959405,
+              "FrameTimeMilliseconds": 36.6168,
+              "DuringAction": true,
+              "CpuBusyMilliseconds": 36.5599,
+              "GpuBusyMilliseconds": 3.4762
+            }
+          ],
+          "Windows": [],
+          "HasSpikeCluster": true,
+          "HasActionSpikeCluster": true,
+          "Warnings": [],
+          "CpuBusy": {
+            "SampleCount": 8204,
+            "MeanMilliseconds": 3.6016053510482737,
+            "MedianMilliseconds": 3.5237,
+            "P95Milliseconds": 4.02817,
+            "P99Milliseconds": 4.684761000000001,
+            "MaximumMilliseconds": 159.7677
+          },
+          "GpuBusy": {
+            "SampleCount": 8204,
+            "MeanMilliseconds": 3.1966810580204923,
+            "MedianMilliseconds": 3.16865,
+            "P95Milliseconds": 3.5201,
+            "P99Milliseconds": 3.615891,
+            "MaximumMilliseconds": 3.8112
+          },
+          "ActionFrameCount": 4164,
+          "ActionDurationSeconds": 15.276377000000002,
+          "ActionAverageFps": 272.5777191804051,
+          "ActionMeanMilliseconds": 3.6686784341978873,
+          "ActionMedianMilliseconds": 3.5675499999999998,
+          "ActionP95Milliseconds": 4.0766849999999994,
+          "ActionP99Milliseconds": 4.5903480000000005,
+          "ActionMaximumMilliseconds": 159.8234,
+          "ActionThresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 5,
+              "Percentage": 0.12007684918347743
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 2,
+              "Percentage": 0.04803073967339097
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 2,
+              "Percentage": 0.04803073967339097
+            }
+          ],
+          "ActionCpuBusy": {
+            "SampleCount": 4164,
+            "MeanMilliseconds": 3.6128716138328616,
+            "MedianMilliseconds": 3.5123,
+            "P95Milliseconds": 4.023765,
+            "P99Milliseconds": 4.5241659999999975,
+            "MaximumMilliseconds": 159.7677
+          },
+          "ActionGpuBusy": {
+            "SampleCount": 4164,
+            "MeanMilliseconds": 3.2054599903938494,
+            "MedianMilliseconds": 3.1868999999999996,
+            "P95Milliseconds": 3.53427,
+            "P99Milliseconds": 3.632522,
+            "MaximumMilliseconds": 3.8112
+          }
+        },
+        {
+          "Source": "artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay\\captures\\D\\terminal-boundary\\d-terminal-boundary-r02.csv",
+          "Configuration": "D",
+          "BuildLabel": "production",
+          "Scenario": "terminal-boundary",
+          "Run": 2,
+          "FrameTimeColumn": "msBetweenPresents",
+          "DominantSwapChain": "0x18291AAD3E0",
+          "ParsedRows": 8103,
+          "FrameCount": 8103,
+          "IgnoredNonDominantRows": 0,
+          "DurationSeconds": 30.003023400000078,
+          "AverageFps": 270.07278206502275,
+          "MeanMilliseconds": 3.7027055905220387,
+          "MedianMilliseconds": 3.619,
+          "P95Milliseconds": 4.16129,
+          "P99Milliseconds": 4.899445999999995,
+          "MaximumMilliseconds": 125.9469,
+          "Thresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 11,
+              "Percentage": 0.1357521905467111
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 1,
+              "Percentage": 0.012341108231519191
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 1,
+              "Percentage": 0.012341108231519191
+            }
+          ],
+          "SpikesOver33Milliseconds": [
+            {
+              "OffsetSeconds": 6.64398779999465,
+              "FrameTimeMilliseconds": 125.9469,
+              "DuringAction": true,
+              "CpuBusyMilliseconds": 125.8918,
+              "GpuBusyMilliseconds": 3.3094
+            }
+          ],
+          "Windows": [],
+          "HasSpikeCluster": false,
+          "HasActionSpikeCluster": false,
+          "Warnings": [],
+          "CpuBusy": {
+            "SampleCount": 8103,
+            "MeanMilliseconds": 3.6464857213377915,
+            "MedianMilliseconds": 3.5622,
+            "P95Milliseconds": 4.10469,
+            "P99Milliseconds": 4.833705999999998,
+            "MaximumMilliseconds": 125.8918
+          },
+          "GpuBusy": {
+            "SampleCount": 8103,
+            "MeanMilliseconds": 3.234035887942745,
+            "MedianMilliseconds": 3.2024,
+            "P95Milliseconds": 3.5446299999999997,
+            "P99Milliseconds": 3.6623779999999995,
+            "MaximumMilliseconds": 3.951
+          },
+          "ActionFrameCount": 4107,
+          "ActionDurationSeconds": 15.276332199999972,
+          "ActionAverageFps": 268.8472564114577,
+          "ActionMeanMilliseconds": 3.719584173362545,
+          "ActionMedianMilliseconds": 3.6192,
+          "ActionP95Milliseconds": 4.18118,
+          "ActionP99Milliseconds": 4.8740820000000005,
+          "ActionMaximumMilliseconds": 125.9469,
+          "ActionThresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 7,
+              "Percentage": 0.17044071098125152
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 1,
+              "Percentage": 0.024348672997321647
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 1,
+              "Percentage": 0.024348672997321647
+            }
+          ],
+          "ActionCpuBusy": {
+            "SampleCount": 4107,
+            "MeanMilliseconds": 3.6633112490869286,
+            "MedianMilliseconds": 3.5628,
+            "P95Milliseconds": 4.12379,
+            "P99Milliseconds": 4.810776000000001,
+            "MaximumMilliseconds": 125.8918
+          },
+          "ActionGpuBusy": {
+            "SampleCount": 4107,
+            "MeanMilliseconds": 3.23838215242269,
+            "MedianMilliseconds": 3.2096,
+            "P95Milliseconds": 3.5554,
+            "P99Milliseconds": 3.66374,
+            "MaximumMilliseconds": 3.8827
+          }
+        },
+        {
+          "Source": "artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay\\captures\\D\\terminal-boundary\\d-terminal-boundary-r03.csv",
+          "Configuration": "D",
+          "BuildLabel": "production",
+          "Scenario": "terminal-boundary",
+          "Run": 3,
+          "FrameTimeColumn": "msBetweenPresents",
+          "DominantSwapChain": "0x18291AAD3E0",
+          "ParsedRows": 8382,
+          "FrameCount": 8382,
+          "IgnoredNonDominantRows": 0,
+          "DurationSeconds": 30.000841800000057,
+          "AverageFps": 279.3921602559827,
+          "MeanMilliseconds": 3.5791984967788184,
+          "MedianMilliseconds": 3.4851,
+          "P95Milliseconds": 4.02436,
+          "P99Milliseconds": 4.643026000000003,
+          "MaximumMilliseconds": 225.0463,
+          "Thresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 11,
+              "Percentage": 0.13123359580052493
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 2,
+              "Percentage": 0.023860653781913623
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 2,
+              "Percentage": 0.023860653781913623
+            }
+          ],
+          "SpikesOver33Milliseconds": [
+            {
+              "OffsetSeconds": 6.7421255000008395,
+              "FrameTimeMilliseconds": 149.146,
+              "DuringAction": true,
+              "CpuBusyMilliseconds": 149.0927,
+              "GpuBusyMilliseconds": 3.7313
+            },
+            {
+              "OffsetSeconds": 17.0470797000016,
+              "FrameTimeMilliseconds": 225.0463,
+              "DuringAction": true,
+              "CpuBusyMilliseconds": 224.9925,
+              "GpuBusyMilliseconds": 2.9601
+            }
+          ],
+          "Windows": [],
+          "HasSpikeCluster": false,
+          "HasActionSpikeCluster": false,
+          "Warnings": [],
+          "CpuBusy": {
+            "SampleCount": 8382,
+            "MeanMilliseconds": 3.522621975662132,
+            "MedianMilliseconds": 3.4292,
+            "P95Milliseconds": 3.96788,
+            "P99Milliseconds": 4.579095,
+            "MaximumMilliseconds": 224.9925
+          },
+          "GpuBusy": {
+            "SampleCount": 8382,
+            "MeanMilliseconds": 3.244239906943439,
+            "MedianMilliseconds": 3.23835,
+            "P95Milliseconds": 3.58089,
+            "P99Milliseconds": 3.6905140000000003,
+            "MaximumMilliseconds": 3.8367
+          },
+          "ActionFrameCount": 4230,
+          "ActionDurationSeconds": 15.277719900000022,
+          "ActionAverageFps": 276.87377617127237,
+          "ActionMeanMilliseconds": 3.6117541134751825,
+          "ActionMedianMilliseconds": 3.4667,
+          "ActionP95Milliseconds": 4.024039999999999,
+          "ActionP99Milliseconds": 4.716201000000001,
+          "ActionMaximumMilliseconds": 225.0463,
+          "ActionThresholds": [
+            {
+              "Milliseconds": 8.33,
+              "Count": 6,
+              "Percentage": 0.14184397163120568
+            },
+            {
+              "Milliseconds": 16.7,
+              "Count": 2,
+              "Percentage": 0.04728132387706856
+            },
+            {
+              "Milliseconds": 33.3,
+              "Count": 2,
+              "Percentage": 0.04728132387706856
+            }
+          ],
+          "ActionCpuBusy": {
+            "SampleCount": 4230,
+            "MeanMilliseconds": 3.5550085815602954,
+            "MedianMilliseconds": 3.4101,
+            "P95Milliseconds": 3.9693299999999994,
+            "P99Milliseconds": 4.664695000000001,
+            "MaximumMilliseconds": 224.9925
+          },
+          "ActionGpuBusy": {
+            "SampleCount": 4230,
+            "MeanMilliseconds": 3.2445513238770674,
+            "MedianMilliseconds": 3.24145,
+            "P95Milliseconds": 3.5871,
+            "P99Milliseconds": 3.689868,
+            "MaximumMilliseconds": 3.8367
+          }
+        }
+      ],
+      "Aggregates": [
+        {
+          "Configuration": "B",
+          "BuildLabel": "production",
+          "Scenario": "terminal-boundary",
+          "RunCount": 3,
+          "MedianOfRunMediansMilliseconds": 3.522,
+          "MedianOfRunP99Milliseconds": 4.5161250000000015,
+          "MedianFramesOver16MillisecondsPercentage": 0.024897298643097223,
+          "CapturesWithSpikeCluster": 1,
+          "CapturesWithActionSpikeCluster": 1,
+          "MedianOfRunCpuBusyMediansMilliseconds": 3.4646,
+          "MedianOfRunCpuBusyP99Milliseconds": 4.459025000000002,
+          "MedianOfRunGpuBusyMediansMilliseconds": 3.2198,
+          "MedianOfRunGpuBusyP99Milliseconds": 3.6945800000000015,
+          "MedianOfRunActionMediansMilliseconds": 3.5089,
+          "MedianOfRunActionP99Milliseconds": 4.4677640000000025,
+          "MedianActionFramesOver16MillisecondsPercentage": 0.05159958720330237,
+          "MedianOfRunActionCpuBusyMediansMilliseconds": 3.4515,
+          "MedianOfRunActionCpuBusyP99Milliseconds": 4.4118840000000015,
+          "MedianOfRunActionGpuBusyMediansMilliseconds": 3.2349,
+          "MedianOfRunActionGpuBusyP99Milliseconds": 3.704937
+        },
+        {
+          "Configuration": "D",
+          "BuildLabel": "production",
+          "Scenario": "terminal-boundary",
+          "RunCount": 3,
+          "MedianOfRunMediansMilliseconds": 3.5789,
+          "MedianOfRunP99Milliseconds": 4.745044000000001,
+          "MedianFramesOver16MillisecondsPercentage": 0.023860653781913623,
+          "CapturesWithSpikeCluster": 1,
+          "CapturesWithActionSpikeCluster": 1,
+          "MedianOfRunCpuBusyMediansMilliseconds": 3.5237,
+          "MedianOfRunCpuBusyP99Milliseconds": 4.684761000000001,
+          "MedianOfRunGpuBusyMediansMilliseconds": 3.2024,
+          "MedianOfRunGpuBusyP99Milliseconds": 3.6623779999999995,
+          "MedianOfRunActionMediansMilliseconds": 3.5675499999999998,
+          "MedianOfRunActionP99Milliseconds": 4.716201000000001,
+          "MedianActionFramesOver16MillisecondsPercentage": 0.04728132387706856,
+          "MedianOfRunActionCpuBusyMediansMilliseconds": 3.5123,
+          "MedianOfRunActionCpuBusyP99Milliseconds": 4.664695000000001,
+          "MedianOfRunActionGpuBusyMediansMilliseconds": 3.2096,
+          "MedianOfRunActionGpuBusyP99Milliseconds": 3.66374
+        }
+      ],
+      "Comparisons": [
+        {
+          "BaselineConfiguration": "B",
+          "BaselineBuildLabel": "production",
+          "CandidateConfiguration": "D",
+          "CandidateBuildLabel": "production",
+          "Scenario": "terminal-boundary",
+          "MedianOverheadPercentage": 1.615559341283368,
+          "P99OverheadPercentage": 5.068925240111799,
+          "FramesOver16MillisecondsPercentagePointDelta": -0.0010366448611835999,
+          "BaselineActionSpikeClusterCaptures": 1,
+          "CandidateActionSpikeClusterCaptures": 1,
+          "HasRepeatableNewActionSpikeCluster": false,
+          "CpuBusyMedianOverheadPercentage": 1.7058246262194654,
+          "CpuBusyP99OverheadPercentage": 5.062451993429029,
+          "GpuBusyMedianOverheadPercentage": -0.5404062364122053,
+          "GpuBusyP99OverheadPercentage": -0.8716011021551062,
+          "ActionMedianOverheadPercentage": 1.6714639915643037,
+          "ActionP99OverheadPercentage": 5.5606562924988445,
+          "ActionFramesOver16MillisecondsPercentagePointDelta": -0.0043182633262338135,
+          "ActionCpuBusyMedianOverheadPercentage": 1.7615529479936276,
+          "ActionCpuBusyP99OverheadPercentage": 5.730227721309067,
+          "ActionGpuBusyMedianOverheadPercentage": -0.7820952734242215,
+          "ActionGpuBusyP99OverheadPercentage": -1.11194873219167
+        }
+      ]
+    },
+    "Gates": {
+      "Engineering": "Pass numerically",
+      "Ceiling": "Pass numerically",
+      "MaterialRate": "Pass",
+      "RepeatableNewActionCluster": "Pass numerical rule; no repeatable new action cluster"
+    },
+    "UserConfirmations": {
+      "B": {
+        "Scenario": "terminal-boundary",
+        "Configuration": "B",
+        "Samples": [
+          {
+            "Run": 1,
+            "ConfirmedUtc": "2026-09-09T20:29:48.6134434Z",
+            "UserReport": "There is an extraction screen in between. I remained on that until the end of the recording. Yes, no hitches",
+            "ExtractionOnCueConfirmed": true,
+            "FocusConfirmed": true,
+            "PerceivedHitchReported": false,
+            "EndState": "Evakuiert results screen, Weiter not pressed",
+            "ReachedBaseDuringCapture": false,
+            "ResultsArrivalBeforeLowerBeep": null,
+            "CaptureEvidence": {
+              ".csv": "b2b70e4c920eb21af8a204f463515c90fa04cc472f95a7066fb1283cef087b0e",
+              ".capframex.json": "e468e00ee5d9835d73bd88b6a346909d49ab15460b53d44bc1a28dda25336b27",
+              ".capture.json": "fb65c10abb594ac770800447928dc132b85687f7b3e018e3ff864f2e0bd06f98"
+            }
+          },
+          {
+            "Run": 2,
+            "ConfirmedUtc": "2026-09-09T20:32:47.2426133Z",
+            "UserReport": "yes, no, ready",
+            "ExtractionOnCueConfirmed": true,
+            "ResultsArrivalBeforeLowerBeep": true,
+            "ResultsScreenHeldUntilEndConfirmed": true,
+            "FocusConfirmed": true,
+            "PerceivedHitchReported": false,
+            "ReadyForNext": true,
+            "EndState": "Evakuiert, Weiter not pressed",
+            "CaptureEvidence": {
+              ".csv": "cd0196345606b2199992f3ac73f0fae3f782d5b97bffebbc6cb3100d0d31094a",
+              ".capframex.json": "23f0ce841e44b002929863af3b0b1f81e64b0bf10b8d79b88ace087cbd566ce3",
+              ".capture.json": "ed5168964ad3efc4697e0a02df13bb438166fb43765cfa0ad8532906649eb4ce"
+            }
+          },
+          {
+            "Run": 3,
+            "ConfirmedUtc": "2026-09-09T20:36:09.1570177Z",
+            "UserReport": "yes, no, ready",
+            "ExtractionOnCueConfirmed": true,
+            "ResultsArrivalBeforeLowerBeep": true,
+            "ResultsScreenHeldUntilEndConfirmed": true,
+            "FocusConfirmed": true,
+            "PerceivedHitchReported": false,
+            "EndState": "Evakuiert, Weiter not pressed",
+            "CaptureEvidence": {
+              ".csv": "90f4fc8e595fb0268fcc3d25808baff65ab47d2d5c1f8b5a57c42b4bd9b2b876",
+              ".capframex.json": "c31a258770b33f1538b67f9250f6d909313867569da970d625aa075b8a765214",
+              ".capture.json": "b2651c87877b12122355ab98e8336c5c503dfa6f90cd7d20f02db1139570a148"
+            }
+          }
+        ]
+      },
+      "D": {
+        "Scenario": "terminal-boundary",
+        "Configuration": "D",
+        "Samples": [
+          {
+            "Run": 1,
+            "ConfirmedUtc": "2026-09-09T20:56:42.7998892Z",
+            "UserReport": "yes, no, ready",
+            "ConfirmationScope": "User confirmed both extraction samples followed beeps, reached Evakuiert before lower beep, remained focused until ending beep, and reported no hitches.",
+            "ExtractionOnCueConfirmed": true,
+            "ResultsArrivalBeforeLowerBeep": true,
+            "ResultsScreenHeldUntilEndConfirmed": true,
+            "FocusConfirmed": true,
+            "PerceivedHitchReported": false,
+            "EndState": "Evakuiert, Weiter not pressed during capture",
+            "CaptureEvidence": {
+              ".csv": "6fcc1e28adda0edaae7bd1674f683d2463f027559f818d7ddcc169dc9d9f72ea",
+              ".capframex.json": "e49b163914802913eec7a3017bc8112bba6d2a336b20211c00d398712caac582",
+              ".capture.json": "2cc727a72bb37d665ce9247eb7603aed1985f35d1ef64020163519812e4e5872"
+            }
+          },
+          {
+            "Run": 2,
+            "ConfirmedUtc": "2026-09-09T20:56:42.8064911Z",
+            "UserReport": "yes, no, ready",
+            "ConfirmationScope": "User confirmed both extraction samples followed beeps, reached Evakuiert before lower beep, remained focused until ending beep, and reported no hitches.",
+            "ExtractionOnCueConfirmed": true,
+            "ResultsArrivalBeforeLowerBeep": true,
+            "ResultsScreenHeldUntilEndConfirmed": true,
+            "FocusConfirmed": true,
+            "PerceivedHitchReported": false,
+            "EndState": "Evakuiert, Weiter not pressed during capture",
+            "CaptureEvidence": {
+              ".csv": "796202224a15471438061313f43bcf3678e58b366c6f3322ef1b3bc75810f133",
+              ".capframex.json": "1933ad3ae9967bdb62cf32a912227bd81062f2d23cd7f17e33dd8d1ed41f0ccb",
+              ".capture.json": "773c01a0c0dfaf69a5892733d20cfab52bca958092c2e6f194ced6575e0932af"
+            }
+          },
+          {
+            "Run": 3,
+            "ConfirmedUtc": "2026-09-09T20:59:06.059953+00:00",
+            "UserReport": "yes, no",
+            "ExtractionOnCueConfirmed": true,
+            "ResultsArrivalBeforeLowerBeep": true,
+            "ResultsScreenHeldUntilEndConfirmed": true,
+            "FocusConfirmed": true,
+            "PerceivedHitchReported": false,
+            "EndState": "Evakuiert, Weiter not pressed during capture",
+            "CaptureEvidence": {
+              ".csv": "bacc7065947669836d0829621d31f7c66a3bceb90dd74779b7f7abd4d92f0ba4",
+              ".capframex.json": "75edabc474a42f1f2abcb635ea739f1683b781b3a7ae20ed62c4a776d7d2034d",
+              ".capture.json": "96da385b0d7c2aa5b531c927fd2e29f89695b8b6037c4eb2e1db655f0f7feda6"
+            }
+          }
+        ]
+      }
+    },
+    "NativeAgreement": {
+      "GenerationId": "304ab645d198451e992c0cb3057ebe87",
+      "ProfileRunsEqualExportRuns": true,
+      "ProfileRunTotalsEqualExportRunTotals": true,
+      "M700RunId": "7a57e8cf917d470fab5d3d49aab62b3e",
+      "WeaponId": "duckov:weapon:780",
+      "AmmunitionId": "duckov:ammo:622",
+      "LifetimeShots": 15,
+      "LifetimeCompletedProjectiles": 15,
+      "LifetimeKills": 0,
+      "LifetimeDamageDealt": 0,
+      "ExportFileCount": 37,
+      "TargetedCsvRowsChecked": {
+        "weapon_totals.csv": 2,
+        "ammunition_totals.csv": 2,
+        "weapon_ammunition_pairs.csv": 4
+      },
+      "RunIds": [
+        "7a57e8cf917d470fab5d3d49aab62b3e",
+        "58fca88c82044e0d845fcaf772a925a2",
+        "037683b536f24f568fd942700fb9eedc"
+      ],
+      "Outcomes": [
+        "Extracted",
+        "Extracted",
+        "Extracted"
+      ],
+      "ShotsPerRun": [
+        15,
+        0,
+        0
+      ],
+      "M700Checkpoints": [
+        {
+          "Path": "slower-control-D-before/active-run.json",
+          "Shots": 0,
+          "CompletedProjectiles": 0,
+          "Sha256": "7f23c567fa1e367d3736be03312ad2eed6afea49911d30d568151a124c65188d"
+        },
+        {
+          "Path": "slower-control-D1-after-active-run.json",
+          "Shots": 5,
+          "CompletedProjectiles": 5,
+          "Sha256": "75596008cb0b53a642b7c0dc6247f1a10cfece3eef6d74be40ffc38bf3e018ca"
+        },
+        {
+          "Path": "slower-control-D2-after-active-run.json",
+          "Shots": 10,
+          "CompletedProjectiles": 10,
+          "Sha256": "d0d2dc6815d602ee66eade21b22ca5b67ba9b43a40cab223ffc2e7322e3d90a4"
+        },
+        {
+          "Path": "terminal-boundary-D1-before/active-run.json",
+          "Shots": 15,
+          "CompletedProjectiles": 15,
+          "Sha256": "ebe30b93ced756730d2ee0f3df3961853a968fc77de61126a29639ab9219b909"
+        }
+      ],
+      "DormantProfileByteIdenticalAcrossB": true,
+      "DormantProfileBeforeEvidence": "second-auto-single-B-before/profile.json",
+      "DormantProfileAfterSlowerB": "slower-control-B-after/profile.json",
+      "TerminalPersistenceObservation": "Each D completed run was read from profile after capture while the user was asked to hold Evakuiert. User confirms results-screen hold through capture end. No automated screen-state observation fixes the precise subsequent disk-read time relative to Weiter. Cached native contract and production code show NotifyEvacuated and UDS terminal completion precede awaiting ClosureView."
+    },
+    "Limitations": [
+      "Separate B/D sessions, world state and accumulated native raid history remain unisolated; paired percentages do not establish a causal method cost or improvement.",
+      "All unfavorable valid frames are retained; user-reported absence of perceived hitches does not erase recorded spikes.",
+      "Short current-generation history only. Existing base-UI ceiling failure, controlled multi-target feasibility, long-session/history/resource checks and overall M18 qualification remain open.",
+      "Capture endpoint corrected after B1: activate Nullpunkt base-entry button and hold Evakuiert. Weiter and subsequent loading into base are outside the measured scope; this does not qualify full scene loading. Original B1 controls/metadata and screenshot remain unchanged.",
+      "B1 exact results arrival before lower beep was not independently confirmed; subsequent five samples explicitly confirm it. B1 remains retained, with its disclosed endpoint correction.",
+      "First B/D extractions have different preceding combat/firing and native raid/XP histories; second/third repetitions are short return trips. These differences may affect native result-screen work.",
+      "Every D sample has at least one recorded action spike above125ms; B also has action spikes and clusters. One action cluster occurs in each configuration. The declared repeatable-new-cluster rule passes, but causality and exact callback alignment remain unresolved.",
+      "There is no separate terminal-B-after profile snapshot before restart; rely on capture identities, original B ready/confirmation records and the preserved dormant profile from preceding slower B."
+    ],
+    "IndependentReviewStatus": "Pending at evidence freeze; see durable wrapper for subsequent verdict."
+  },
+  "IndependentReview": {
+    "RecordedUtc": "2026-09-09T21:15:39.112746+00:00",
+    "Reviewer": "Fresh independent slower_terminal_evidence_review agent",
+    "Verdict": "Pass after appended loadout correction and retrospective B confirmation; no remaining actionable discrepancy in bounded evidence or updated narratives.",
+    "ReviewedHead": "1ab0e76ddd72851de0f3b569b64795fade0144bf",
+    "Manifests": {
+      "slower-control-review-input.json": "b3094b2ae3138532f2543569a3eba5fe92a181d2b4ebd3a801b1d7e284ff9bd6",
+      "terminal-boundary-review-input.json": "4ba712ff485f34577ea683414c273045e22f4cc348275146c5cb9fa3c54f5d9e"
+    },
+    "ReferencesVerified": 213,
+    "FramesIndependentlyReplayed": 94397,
+    "Corrections": {
+      "slower-terminal-loadout-correction.json": "2160561363963137b64e8500217a18d09a57816105b151d0b18bc6257ee67816",
+      "slower-terminal-loadout-user-confirmation.json": "f8ed3d8c5db1739b3ea3b08573d08479ea053bc08e275a3b5dcd6e4107d991e9"
+    },
+    "Verified": [
+      "Every frame/CPU/GPU/timestamp value, whole/action statistics, duration/FPS, thresholds, spikes, clusters, aggregates and all comparisons.",
+      "All frozen references, exact durable report embeds, correction/confirmation artifacts, capture/control/mod/source/DLL identities and user reports.",
+      "Native0/5/10/15 firing/projectile checkpoints; three Extracted runs with15/0/0shots/projectiles, zero hits/damage/kills and supported relevant capabilities. Exact profile/37-file export and targeted firing/combat/run/terminalCSV agreement.",
+      "Production firing/projectile capture and NotifyEvacuated -> OnEvacuated -> ApplyTerminal -> CompleteRun -> SaveCurrent. Native notification precedes awaiting ClosureView.",
+      "D recorded completion timestamps fall6.941138/6.660064/6.757567seconds after capture start, within action windows; this is not method-cost attribution.",
+      "Updated narrative scope and loadout correction: DonlyM700 proven natively, BonlyM700 retrospectively confirmed by user."
+    ],
+    "Limitations": [
+      "All extraction spikes retained.",
+      "B1 exact results arrival before lower beep unknown; exact post-capture disk-read position relative to Weiter not instrumented.",
+      "Weiter and full base loading are outside measured scope. Separate sessions/nativeXP/history and B retrospective equipment confirmation limit inference.",
+      "Existing base-UI ceiling failure, controlled multi-target feasibility and wider M18/history/resource qualification remain open."
+    ],
+    "EvidencePath": "slower-terminal-independent-review.json",
+    "EvidenceSha256": "bf20acd07495f8805a40df1ec2dd91a4b09cf5910ce8c0bf04358f924989e973"
+  },
+  "ControlCorrection": {
+    "Path": "slower-terminal-loadout-correction.json",
+    "Sha256": "2160561363963137b64e8500217a18d09a57816105b151d0b18bc6257ee67816",
+    "Evidence": {
+      "RecordedUtc": "2026-09-09T21:10:47.357032+00:00",
+      "Correction": "Capture instructions and frozen slower report carried forward SR-3M from earlier checks. Actual D evidence proves only an unmodified M700 equipped, with every other root slot empty. The retained-SR3M claim is superseded by this correction.",
+      "DetectedBy": "Fresh independent slower_terminal_evidence_review agent",
+      "Evidence": [
+        {
+          "Path": "slower-control-D-before/active-run.json",
+          "Sha256": "7f23c567fa1e367d3736be03312ad2eed6afea49911d30d568151a124c65188d",
+          "SnapshotId": "duckov:equipment-snapshot:51fc1608f4bbee6d09eade29",
+          "LoadoutId": "duckov:loadout:a4fb48a20e4deeb21e69cd74",
+          "OnlyEquippedItem": "M700",
+          "SelectedWeaponId": "duckov:weapon:780",
+          "OtherRootSlots": "All nine Empty",
+          "NestedSlots": "All six Empty"
+        },
+        {
+          "Path": "slower-control-D1-after-active-run.json",
+          "Sha256": "75596008cb0b53a642b7c0dc6247f1a10cfece3eef6d74be40ffc38bf3e018ca",
+          "SnapshotId": "duckov:equipment-snapshot:51fc1608f4bbee6d09eade29",
+          "LoadoutId": "duckov:loadout:a4fb48a20e4deeb21e69cd74",
+          "OnlyEquippedItem": "M700",
+          "SelectedWeaponId": "duckov:weapon:780",
+          "OtherRootSlots": "All nine Empty",
+          "NestedSlots": "All six Empty"
+        },
+        {
+          "Path": "slower-control-D2-after-active-run.json",
+          "Sha256": "d0d2dc6815d602ee66eade21b22ca5b67ba9b43a40cab223ffc2e7322e3d90a4",
+          "SnapshotId": "duckov:equipment-snapshot:51fc1608f4bbee6d09eade29",
+          "LoadoutId": "duckov:loadout:a4fb48a20e4deeb21e69cd74",
+          "OnlyEquippedItem": "M700",
+          "SelectedWeaponId": "duckov:weapon:780",
+          "OtherRootSlots": "All nine Empty",
+          "NestedSlots": "All six Empty"
+        },
+        {
+          "Path": "terminal-boundary-D1-before/active-run.json",
+          "Sha256": "ebe30b93ced756730d2ee0f3df3961853a968fc77de61126a29639ab9219b909",
+          "SnapshotId": "duckov:equipment-snapshot:51fc1608f4bbee6d09eade29",
+          "LoadoutId": "duckov:loadout:a4fb48a20e4deeb21e69cd74",
+          "OnlyEquippedItem": "M700",
+          "SelectedWeaponId": "duckov:weapon:780",
+          "OtherRootSlots": "All nine Empty",
+          "NestedSlots": "All six Empty"
+        },
+        {
+          "Path": "terminal-boundary-D2-before/active-run.json",
+          "Sha256": "26d78e34f99c9d39d26c66109b942d965f08a7227627ca0b98d88bcb5fe8a691",
+          "SnapshotId": "duckov:equipment-snapshot:51fc1608f4bbee6d09eade29",
+          "LoadoutId": "duckov:loadout:a4fb48a20e4deeb21e69cd74",
+          "OnlyEquippedItem": "M700",
+          "SelectedWeaponId": "duckov:weapon:780",
+          "OtherRootSlots": "All nine Empty",
+          "NestedSlots": "All six Empty"
+        },
+        {
+          "Path": "terminal-boundary-D3-before/active-run.json",
+          "Sha256": "a066b2bec920c4dc5c19bda401059a34db8d8ac5ea97f1e72d696294e233f5b4",
+          "SnapshotId": "duckov:equipment-snapshot:51fc1608f4bbee6d09eade29",
+          "LoadoutId": "duckov:loadout:a4fb48a20e4deeb21e69cd74",
+          "OnlyEquippedItem": "M700",
+          "SelectedWeaponId": "duckov:weapon:780",
+          "OtherRootSlots": "All nine Empty",
+          "NestedSlots": "All six Empty"
+        }
+      ],
+      "BaselineEvidence": "B actual secondary equipment is not observed by disabled UDS. Original requested setup is not proof of presence. User clarification pending; exact B/D secondary-loadout matching is currently unproven.",
+      "Qualification": "Numerical rules pass; current evidence does not establish exact matching secondary loadout. No proven B/D mismatch and no raw sample invalidated by this metadata correction.",
+      "OriginalArtifactsUnchanged": true,
+      "NewCapturesRequested": false
+    }
+  },
+  "ControlConfirmation": {
+    "Path": "slower-terminal-loadout-user-confirmation.json",
+    "Sha256": "f8ed3d8c5db1739b3ea3b08573d08479ea053bc08e275a3b5dcd6e4107d991e9",
+    "Evidence": {
+      "RecordedUtc": "2026-09-09T21:11:27.409028+00:00",
+      "Question": "For all six M700/extraction samples with UDS disabled, was the M700 your only equipped item? The UDS-enabled snapshots show it alone; my written setup incorrectly carried over the SR-3M.",
+      "UserAnswer": "Yes, only the M700 throughout",
+      "Scope": "All three B slower-control and all three B terminal-boundary samples",
+      "BaselineOnlyM700EquippedUserConfirmed": true,
+      "CandidateOnlyM700EquippedNativeVerified": true,
+      "SupersedesUncertaintyIn": "slower-terminal-loadout-correction.json",
+      "CorrectionSha256": "2160561363963137b64e8500217a18d09a57816105b151d0b18bc6257ee67816",
+      "Conclusion": "B/D single-M700 loadout agreement is established by retrospective user confirmation for B and preserved native snapshots for D. Original requested SR-3M setup text was stale; no observed gameplay mismatch or capture exclusion.",
+      "Limitations": "B equipment remains user-confirmed rather than independently instrumented, and confirmation is retrospective. Frozen raw metadata/reports remain unchanged."
+    }
+  }
+}

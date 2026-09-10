@@ -1,0 +1,88 @@
+{
+  "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "Slot": 1,
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "Status": "Pass for observed Money sale amount, Sale/Shop attribution, holdings and saved-profile/JSON/CSV agreement.",
+  "UserReported": {
+    "ItemName": "MF",
+    "Quantity": 1,
+    "SalePrice": 1284,
+    "MoneyBefore": 13224,
+    "MoneyAfter": 14508
+  },
+  "BeforeExportId": "20260908T1257130981457Z-063240a5b57647138bc4de0c18179981",
+  "AfterExportId": "20260908T1301559350005Z-063240a5b57647138bc4de0c18179981",
+  "BeforeRevision": 271,
+  "AfterRevision": 566,
+  "ObservedProfileRevision": 660,
+  "ObservedEconomy": {
+    "MoneyInflowDelta": 1284,
+    "MoneyOutflowDelta": 0,
+    "Source": "Sale",
+    "Context": "Shop",
+    "LifetimeMoneyGrossInflow": 1284,
+    "LifetimeMoneyGrossOutflow": 150,
+    "LifetimeMoneyNetFlow": 1134,
+    "MoneyHeld": 14508,
+    "CashHeld": 0,
+    "CashFlowDelta": 0
+  },
+  "Agreement": {
+    "SavedProfileJsonAndTargetedCsvAgree": true,
+    "CraftingTotalsUnchanged": true,
+    "AllFourCraftingCsvFilesUnchanged": true,
+    "RunAndItemUseStatisticsUnchanged": true,
+    "AllCsvStructuresValid": true,
+    "NoEconomyArithmeticSaturationOrRepair": true
+  },
+  "ChangedExportFiles": [
+    "economy_contexts.csv",
+    "economy_holdings.csv",
+    "economy_sources.csv",
+    "economy_totals.csv",
+    "overview.csv",
+    "statistics.json",
+    "world_time.csv"
+  ],
+  "UnchangedExportFiles": 30,
+  "Scope": "The sale item name and quantity are user observations; UDS exports aggregate currency flows, not a sold-item ledger. This verifies the exact Money amount and native Sale/Shop attribution. Physical-Cash shop payouts and native rendering remain separate.",
+  "ColdReopen": "Pass: M18_REINSTALLATION_QUALIFICATION.json records native slot 1 reopen after same-package reinstallation with all currency metrics and 14,508 Money holdings unchanged.",
+  "EvidenceManifestSha256": "c430e8e913a5e0b825ff8edef3d8f2b2c31e644f6fe04dba1cd5ced434e478cd",
+  "KeyEvidenceFiles": [
+    {
+      "File": "export/economy_contexts.csv",
+      "Bytes": 815,
+      "Sha256": "9ebe325c2bc22777d79781a327659136ecedb48e245af4ac62417bb15fc9fe76"
+    },
+    {
+      "File": "export/economy_holdings.csv",
+      "Bytes": 1457,
+      "Sha256": "2d60cb2ad0f13f3b55403051fb7f6e768d2bdc9c0aff1b7194c0b8092d5c7c1b"
+    },
+    {
+      "File": "export/economy_sources.csv",
+      "Bytes": 920,
+      "Sha256": "024e139b028e293cd38d635e9b7e85729e64307d2657e8213e75baa7abbae5a9"
+    },
+    {
+      "File": "export/economy_totals.csv",
+      "Bytes": 2675,
+      "Sha256": "68a85e011acee2bbc7700faa641a090b02818baf5f9b2a67a8145b0946d460c1"
+    },
+    {
+      "File": "export/statistics.json",
+      "Bytes": 31548,
+      "Sha256": "70e3841e8bcd00c0f6ddfd1ca79fc6abd04359707b36a64425989279ba6989de"
+    },
+    {
+      "File": "player-observed.log",
+      "Bytes": 24437,
+      "Sha256": "f51fbed838cde3e49c2cba4d21ca7d793900ff29dc3a6df4f9b0b9aa2a987dba"
+    },
+    {
+      "File": "profile-observed.json",
+      "Bytes": 31894,
+      "Sha256": "b2b181e5b30ad4e92fa19342cb3cf794806512deb6fad23bf7b3865d137b584d"
+    }
+  ]
+}

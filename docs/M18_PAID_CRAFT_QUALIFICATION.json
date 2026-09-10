@@ -1,0 +1,100 @@
+{
+  "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "Slot": 1,
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "Status": "Pass for one observed paid craft and saved-profile/JSON/CSV agreement.",
+  "UserReported": "Crafted one Tasse using four polyethylene material units and 150 currency; balance 13,374 before and 13,224 after.",
+  "BeforeExportId": "20260908T1242195268433Z-063240a5b57647138bc4de0c18179981",
+  "AfterExportId": "20260908T1257130981457Z-063240a5b57647138bc4de0c18179981",
+  "BeforeRevision": 26,
+  "AfterRevision": 271,
+  "ObservedProfileRevision": 362,
+  "Output": {
+    "ItemId": "131",
+    "DisplayName": "Tasse",
+    "RecipeId": "1026",
+    "CompletionActions": 1,
+    "ProducedQuantity": 1,
+    "BatchQuantity": 1
+  },
+  "Resource": {
+    "ItemId": "764",
+    "DisplayName": "Polyethylen-Folie",
+    "ConsumptionActions": 1,
+    "ConsumedQuantity": 4
+  },
+  "Currency": {
+    "CraftChargeActions": 1,
+    "CraftCharged": 150,
+    "MoneyBefore": 13374,
+    "MoneyAfter": 13224,
+    "MoneyGrossInflow": 0,
+    "MoneyGrossOutflow": 150,
+    "CashHeld": 0,
+    "EconomySource": "UnknownAdjustment",
+    "EconomyContext": "Base"
+  },
+  "AttributionBoundary": "Crafting records the recipe-associated declared charge proven by successful payment and delivery. The shared Economy public-event adapter independently records the exact Money delta as UnknownAdjustment/Base, as documented for crafting; it does not infer a semantic source.",
+  "Agreement": {
+    "SavedProfileJsonAndTargetedCsvAgree": true,
+    "AllCraftingCapabilitiesSupported": true,
+    "NoUnavailableOrRepairedCraftingArithmetic": true,
+    "AllCsvStructuresValid": true,
+    "RunAndItemUseStatisticsUnchanged": true,
+    "NoAdditionalCashFlow": true
+  },
+  "ChangedExportFiles": [
+    "crafting_recipes.csv",
+    "crafting_resource_associations.csv",
+    "crafting_resources.csv",
+    "crafting_totals.csv",
+    "economy_contexts.csv",
+    "economy_holdings.csv",
+    "economy_sources.csv",
+    "economy_totals.csv",
+    "overview.csv",
+    "statistics.json",
+    "world_time.csv"
+  ],
+  "UnchangedExportFiles": 26,
+  "Scope": "One successful single-output paid craft. Batch/multiple-resource/repeated-resource and cancelled/failed recipes and native rendering remain separate. The subsequent Money shop sale passes in M18_SHOP_SALE_QUALIFICATION.json and preserves all crafting totals.",
+  "ColdReopen": "Pass: M18_REINSTALLATION_QUALIFICATION.json records native slot 1 reopen after same-package reinstallation with all crafting totals unchanged.",
+  "EvidenceManifestSha256": "58ad74bf1ad641a4e85904a16c0ca53cacb81ae12a7516359da8f1c78114a10c",
+  "KeyEvidenceFiles": [
+    {
+      "File": "export/crafting_resource_associations.csv",
+      "Bytes": 680,
+      "Sha256": "f9dbfc9bcabb425ab5cdf1f762164e818392f1be161bb1ca66dc7bde582250c0"
+    },
+    {
+      "File": "export/crafting_resources.csv",
+      "Bytes": 577,
+      "Sha256": "0a7d61f08eebd85e755809ae403a49a5a3f859d8a106bd6305e4e2f04e77d0fe"
+    },
+    {
+      "File": "export/crafting_totals.csv",
+      "Bytes": 3758,
+      "Sha256": "3a8d9176bd71796d747bc8ab94711a6c26e8823c502c7f2a783d39383718b35c"
+    },
+    {
+      "File": "export/economy_totals.csv",
+      "Bytes": 2672,
+      "Sha256": "699793b3c877da6691965b3220a0ffcb3f822839b26036660e84486a444a8456"
+    },
+    {
+      "File": "export/statistics.json",
+      "Bytes": 31455,
+      "Sha256": "1a940660a1ac7732fb0734c79debe2bf784a7fcd7c26af3f30dc8acceb6319a5"
+    },
+    {
+      "File": "player-observed.log",
+      "Bytes": 24039,
+      "Sha256": "9eee6b808906a978161fdd63d7dcd5962d600bfae6fd5420c577b7cb44997aba"
+    },
+    {
+      "File": "profile-observed.json",
+      "Bytes": 31801,
+      "Sha256": "6d11eaefefcd55eeb7bb7355f69f9e15eb368d3eb29ea5abc9cd575142d1de6d"
+    }
+  ]
+}

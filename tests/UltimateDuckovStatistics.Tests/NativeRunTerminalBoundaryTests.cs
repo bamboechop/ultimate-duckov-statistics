@@ -69,7 +69,8 @@ public sealed class NativeRunTerminalBoundaryTests
         var observerCalls = 0;
         var checkpointAttempts = 0;
         var diagnostics = new List<string>();
-        var boundary = new NativeRunTerminalBoundary();
+        var now = 0d;
+        var boundary = new NativeRunTerminalBoundary(() => now);
         boundary.SetTerminalObserver(() =>
         {
             observerCalls++;
@@ -115,6 +116,9 @@ public sealed class NativeRunTerminalBoundaryTests
         Assert.Equal(1, observerCalls);
         Assert.Equal(1, checkpointAttempts);
 
+        for (var frame = 0; frame < 1000; frame++)
+            Assert.Null(boundary.Retry(tracker, diagnostics.Add, _ => throw new InvalidOperationException("Early retry")).Completed);
+        now = 1;
         var completed = boundary.Retry(
             tracker,
             diagnostics.Add,
@@ -263,7 +267,6 @@ public sealed class NativeRunTerminalBoundaryTests
             CashAmountDirection = Supported(),
             CashExternalAcquisition = Supported(),
             CashContextAttribution = Supported(),
-            CashTerminalOutcomes = Supported(),
             RouteAttribution = Supported()
         };
     }

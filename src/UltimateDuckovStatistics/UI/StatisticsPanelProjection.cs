@@ -41,12 +41,6 @@ internal enum PanelOperation
     Reset
 }
 
-internal enum PanelColumnLayout
-{
-    SideBySide,
-    Stacked
-}
-
 internal enum PanelAccessSurface
 {
     MainMenu,
@@ -137,49 +131,6 @@ internal static class NativeMenuPresentationPolicy
                && isEnabled
                && !alreadyPreserved
                && IsButtonAnimation(typeHierarchy);
-    }
-}
-
-internal sealed class StatisticsPanelLayout
-{
-    public float Width { get; set; }
-    public float Height { get; set; }
-    public float ContentHeight { get; set; }
-    public float Scale { get; set; }
-    public PanelColumnLayout Columns { get; set; }
-    public int PageSize { get; set; }
-    public bool TabStripRequiresScrolling { get; set; }
-}
-
-internal static class StatisticsPanelLayoutPolicy
-{
-    private const float DesktopColumnThreshold = 1180f;
-    private const float EstimatedTabStripWidth = 1120f;
-
-    public static StatisticsPanelLayout Create(float screenWidth, float screenHeight, float uiScale = 1f)
-    {
-        if (screenWidth <= 0) throw new ArgumentOutOfRangeException(nameof(screenWidth));
-        if (screenHeight <= 0) throw new ArgumentOutOfRangeException(nameof(screenHeight));
-        if (uiScale <= 0 || float.IsNaN(uiScale) || float.IsInfinity(uiScale))
-            throw new ArgumentOutOfRangeException(nameof(uiScale));
-
-        var margin = Math.Max(12f, 24f * uiScale);
-        var width = Math.Max(320f, Math.Min(1560f * uiScale, screenWidth - margin * 2f));
-        var height = Math.Max(300f, Math.Min(960f * uiScale, screenHeight - margin * 2f));
-        var contentHeight = Math.Max(160f, height - 150f * uiScale);
-        var estimatedRowHeight = Math.Max(24f, 34f * uiScale);
-        return new StatisticsPanelLayout
-        {
-            Width = width,
-            Height = height,
-            ContentHeight = contentHeight,
-            Scale = uiScale,
-            Columns = width / uiScale >= DesktopColumnThreshold
-                ? PanelColumnLayout.SideBySide
-                : PanelColumnLayout.Stacked,
-            PageSize = Math.Clamp((int)Math.Floor(contentHeight / estimatedRowHeight) * 2, 12, 48),
-            TabStripRequiresScrolling = width < EstimatedTabStripWidth * uiScale
-        };
     }
 }
 
@@ -1487,53 +1438,53 @@ internal static class ProfileSummaryPresentationFactory
         ProfileSummaryMetric metric,
         StatisticsPanelProjection projection,
         Func<string, string> text) => metric switch
-    {
-        ProfileSummaryMetric.TotalRuns => (
-            RetainedOverviewFirstStatisticsRowEntryPolicy.FormatProjectedValue(projection), null),
-        ProfileSummaryMetric.ExtractionRate => (FormatExtractionRate(projection.Runs, text), null),
-        ProfileSummaryMetric.TotalActiveRaidTime => (FormatActiveRaidTime(projection.Runs.Runs, text), null),
-        ProfileSummaryMetric.TotalDistanceTravelled => (
-            FormatDistance(projection.Runs.PhysicalDistance, projection.Runs.MovementSupported, text), null),
-        ProfileSummaryMetric.KillsByYou => (
-            FormatCapabilityInteger(
-                projection.Combat.Lifetime.Totals.KillsByYou,
-                projection.Combat.Capabilities.KillsByYou,
-                text), null),
-        ProfileSummaryMetric.Deaths => (FormatInteger(projection.Runs.DiedRuns), null),
-        ProfileSummaryMetric.DamageDealt => (
-            FormatCapabilityDecimal(
-                projection.Combat.Lifetime.Totals.DamageDealt,
-                projection.Combat.Capabilities.DamageDealt,
-                text), null),
-        ProfileSummaryMetric.DamageTaken => (
-            FormatCapabilityDecimal(
-                projection.Combat.Lifetime.Totals.DamageReceived,
-                projection.Combat.Capabilities.DamageReceived,
-                text), null),
-        ProfileSummaryMetric.HealthRestored => (
-            ItemUsePresentationFactory.Number(projection.Profile.Statistics.Overall.ActualHealthRestored,
-                ItemUsePresentationFactory.HealingSupported(projection.Profile.Capabilities) && projection.Profile.Statistics.HealingCaptureComplete,
-                projection.ItemUse.WasRepairedFromInvalidState, text, fixedPrecision: true).Text, null),
-        ProfileSummaryMetric.UniqueContainersOpened => (
-            UiText.FormatContainers(
-                projection.Containers.Lifetime,
-                projection.Containers.CurrentCapability,
-                text), null),
-        ProfileSummaryMetric.Economy => (
-            text("ui.overview_money_net") + " " + FormatEconomyNet(
-                projection.Economy,
-                CurrencyKind.Money,
-                projection.Economy.Capabilities.MoneyAmountDirection,
-                projection.CurrentEconomyCapabilities.MoneyAmountDirection,
-                text),
-            text("ui.overview_cash_net") + " " + FormatEconomyNet(
-                projection.Economy,
-                CurrencyKind.Cash,
-                projection.Economy.Capabilities.CashAmountDirection,
-                projection.CurrentEconomyCapabilities.CashAmountDirection,
-                text)),
-        _ => throw new ArgumentOutOfRangeException(nameof(metric))
-    };
+        {
+            ProfileSummaryMetric.TotalRuns => (
+                RetainedOverviewFirstStatisticsRowEntryPolicy.FormatProjectedValue(projection), null),
+            ProfileSummaryMetric.ExtractionRate => (FormatExtractionRate(projection.Runs, text), null),
+            ProfileSummaryMetric.TotalActiveRaidTime => (FormatActiveRaidTime(projection.Runs.Runs, text), null),
+            ProfileSummaryMetric.TotalDistanceTravelled => (
+                FormatDistance(projection.Runs.PhysicalDistance, projection.Runs.MovementSupported, text), null),
+            ProfileSummaryMetric.KillsByYou => (
+                FormatCapabilityInteger(
+                    projection.Combat.Lifetime.Totals.KillsByYou,
+                    projection.Combat.Capabilities.KillsByYou,
+                    text), null),
+            ProfileSummaryMetric.Deaths => (FormatInteger(projection.Runs.DiedRuns), null),
+            ProfileSummaryMetric.DamageDealt => (
+                FormatCapabilityDecimal(
+                    projection.Combat.Lifetime.Totals.DamageDealt,
+                    projection.Combat.Capabilities.DamageDealt,
+                    text), null),
+            ProfileSummaryMetric.DamageTaken => (
+                FormatCapabilityDecimal(
+                    projection.Combat.Lifetime.Totals.DamageReceived,
+                    projection.Combat.Capabilities.DamageReceived,
+                    text), null),
+            ProfileSummaryMetric.HealthRestored => (
+                ItemUsePresentationFactory.Number(projection.Profile.Statistics.Overall.ActualHealthRestored,
+                    ItemUsePresentationFactory.HealingSupported(projection.Profile.Capabilities) && projection.Profile.Statistics.HealingCaptureComplete,
+                    projection.ItemUse.WasRepairedFromInvalidState, text, fixedPrecision: true).Text, null),
+            ProfileSummaryMetric.UniqueContainersOpened => (
+                UiText.FormatContainers(
+                    projection.Containers.Lifetime,
+                    projection.Containers.CurrentCapability,
+                    text), null),
+            ProfileSummaryMetric.Economy => (
+                text("ui.overview_money_net") + " " + FormatEconomyNet(
+                    projection.Economy,
+                    CurrencyKind.Money,
+                    projection.Economy.Capabilities.MoneyAmountDirection,
+                    projection.CurrentEconomyCapabilities.MoneyAmountDirection,
+                    text),
+                text("ui.overview_cash_net") + " " + FormatEconomyNet(
+                    projection.Economy,
+                    CurrencyKind.Cash,
+                    projection.Economy.Capabilities.CashAmountDirection,
+                    projection.CurrentEconomyCapabilities.CashAmountDirection,
+                    text)),
+            _ => throw new ArgumentOutOfRangeException(nameof(metric))
+        };
 
     private static string FormatExtractionRate(RunStatisticsViewModel runs, Func<string, string> text)
     {
@@ -1605,11 +1556,7 @@ internal static class ProfileSummaryPresentationFactory
         var key = kind.ToString();
         var hasCurrency = economy.Currencies.TryGetValue(key, out var currency);
         string result;
-        if (!hasCurrency && economy.HistoricalUnavailable)
-        {
-            result = text("ui.unavailable");
-        }
-        else if (!hasCurrency)
+        if (!hasCurrency)
         {
             result = scopeAvailability.State == AdapterCapabilityState.DisabledIncompatible
                 ? text("ui.unsupported")
@@ -1634,9 +1581,6 @@ internal static class ProfileSummaryPresentationFactory
                 }
             }
         }
-
-        if (economy.HistoricalUnavailable)
-            result = $"{result} ({text("ui.pre_m9_unavailable")})";
         if (economy.WasRepairedFromInvalidState)
             result = $"{result} ({text("ui.repaired_unavailable")})";
         var saturated = kind == CurrencyKind.Money
@@ -1697,7 +1641,7 @@ internal static class OverviewHighlightsPresentationFactory
                     OverviewHighlightMetric.FastestExtraction => FormatDurationRecord(
                         projection.Runs.Records?.Extraction?.Shortest,
                         routeDisplayName: null,
-                        text),
+                        text, projection.Names),
                     OverviewHighlightMetric.LongestSuccessfulRaid => FormatLongestSuccessfulRaid(projection, text),
                     OverviewHighlightMetric.MostUsedWeapon => FormatMostUsedWeapon(projection, text),
                     OverviewHighlightMetric.MostUsedConsumable => FormatMostUsedConsumable(projection, text),
@@ -1722,7 +1666,7 @@ internal static class OverviewHighlightsPresentationFactory
             {
                 var mapDisplayNames = run.Segments
                     .OrderBy(segment => segment.SegmentIndex)
-                    .Select(segment => segment.MapDisplayName)
+                    .Select(segment => segment.MapKnown ? projection.Names.Get(segment.MapId, segment.MapDisplayName) : segment.MapDisplayName)
                     .ToArray();
                 if (!string.IsNullOrWhiteSpace(mapDisplayNames[0]) && !string.IsNullOrWhiteSpace(mapDisplayNames[mapDisplayNames.Length - 1]))
                     routeDisplayName = mapDisplayNames.Length == 1 ? mapDisplayNames[0]
@@ -1730,13 +1674,13 @@ internal static class OverviewHighlightsPresentationFactory
             }
         }
 
-        return FormatDurationRecord(record, routeDisplayName, text);
+        return FormatDurationRecord(record, routeDisplayName, text, projection.Names);
     }
 
     private static string FormatDurationRecord(
         DurationRecordReference? record,
         string? routeDisplayName,
-        Func<string, string> text)
+        Func<string, string> text, EntityDisplayNames names)
     {
         if (record == null) return text("ui.em_dash");
         if (!IsFiniteNonNegative(record.ActiveDurationSeconds)
@@ -1747,7 +1691,7 @@ internal static class OverviewHighlightsPresentationFactory
 
         if (!RetainedRunDurationFormatter.TryFormat(record.ActiveDurationSeconds, out var duration))
             return text("ui.unavailable");
-        return $"{duration} - {routeDisplayName ?? record.MapDisplayName}";
+        return $"{duration} - {routeDisplayName ?? names.Get(record.MapId, record.MapDisplayName)}";
     }
 
     private static string FormatMostUsedWeapon(
@@ -1770,7 +1714,7 @@ internal static class OverviewHighlightsPresentationFactory
                 && value.TotalFiringActions > 0)
             .OrderByDescending(value => value.TotalFiringActions)
             .ThenBy(
-                value => StatisticsPanelProjectionFactory.StableDisplayName(value.DisplayName, value.WeaponId),
+                value => StatisticsPanelProjectionFactory.StableDisplayName(projection.Names.Get(value.WeaponId, value.DisplayName), value.WeaponId),
                 StringComparer.Ordinal)
             .ThenBy(value => value.WeaponId, StringComparer.Ordinal)
             .ToArray();
@@ -1836,7 +1780,7 @@ internal static class OverviewHighlightsPresentationFactory
         }
 
         var winner = candidates[0];
-        return $"{StatisticsPanelProjectionFactory.StableDisplayName(winner.DisplayName, winner.WeaponId)}"
+        return $"{StatisticsPanelProjectionFactory.StableDisplayName(projection.Names.Get(winner.WeaponId, winner.DisplayName), winner.WeaponId)}"
             + $" - {FormatInteger(winner.TotalFiringActions)} {text("ui.overview_firing_actions_unit")}";
     }
 
@@ -1845,8 +1789,7 @@ internal static class OverviewHighlightsPresentationFactory
         Func<string, string> text)
     {
         var itemUse = projection.ItemUse;
-        if (itemUse == null || itemUse.Overall == null || itemUse.Items == null
-            || itemUse.HistoricalUnavailable || itemUse.WasRepairedFromInvalidState
+        if (itemUse == null || itemUse.Overall == null || itemUse.Items == null || itemUse.WasRepairedFromInvalidState
             || itemUse.Overall.ActivationCount < 0
             || itemUse.Items.Any(value => value == null
                 || value.Totals == null
@@ -1878,12 +1821,12 @@ internal static class OverviewHighlightsPresentationFactory
             .Where(value => value.Totals.ActivationCount > 0)
             .OrderByDescending(value => value.Totals.ActivationCount)
             .ThenBy(
-                value => StatisticsPanelProjectionFactory.StableDisplayName(value.DisplayName, value.ItemId),
+                value => StatisticsPanelProjectionFactory.StableDisplayName(projection.Names.Get(value.ItemId, value.DisplayName), value.ItemId),
                 StringComparer.Ordinal)
             .ThenBy(value => value.ItemId, StringComparer.Ordinal)
             .FirstOrDefault();
         if (winner == null) return text("ui.em_dash");
-        return $"{StatisticsPanelProjectionFactory.StableDisplayName(winner.DisplayName, winner.ItemId)}"
+        return $"{StatisticsPanelProjectionFactory.StableDisplayName(projection.Names.Get(winner.ItemId, winner.DisplayName), winner.ItemId)}"
             + $" - {FormatInteger(winner.Totals.ActivationCount)} {text("ui.overview_uses_unit")}";
     }
 
@@ -2536,12 +2479,12 @@ internal static class RetainedRunBadgePolicy
 
     public static RetainedRunBadgeVariantSpecification ResolveSpecification(
         RetainedRunBadgeState state) => state switch
-    {
-        RetainedRunBadgeState.Extracted => ExtractedSpecification,
-        RetainedRunBadgeState.Died => DiedSpecification,
-        RetainedRunBadgeState.Unknown => UnknownSpecification,
-        _ => throw new ArgumentOutOfRangeException(nameof(state))
-    };
+        {
+            RetainedRunBadgeState.Extracted => ExtractedSpecification,
+            RetainedRunBadgeState.Died => DiedSpecification,
+            RetainedRunBadgeState.Unknown => UnknownSpecification,
+            _ => throw new ArgumentOutOfRangeException(nameof(state))
+        };
 
     public static RetainedRunBadgeCanvasLayout CreateCanvasLayout(
         RetainedReferenceTransform referenceTransform,
@@ -2717,7 +2660,7 @@ internal static class RetainedLatestRunMapPresentationFactory
 {
     public static RetainedLatestRunMapPresentation Create(
         RetainedRunBadgePresentation runBadgePresentation,
-        Func<string, string> text)
+        Func<string, string> text, EntityDisplayNames? names = null)
     {
         if (runBadgePresentation == null) throw new ArgumentNullException(nameof(runBadgePresentation));
         if (text == null) throw new ArgumentNullException(nameof(text));
@@ -2729,16 +2672,14 @@ internal static class RetainedLatestRunMapPresentationFactory
         {
             IsVisible = true,
             LatestRun = latestRun,
-            MapName = ResolveMapName(latestRun, text)
+            MapName = ResolveMapName(latestRun, text, names)
         };
     }
 
-    private static string ResolveMapName(RunSummary run, Func<string, string> text)
+    private static string ResolveMapName(RunSummary run, Func<string, string> text, EntityDisplayNames? names = null)
     {
         if (HasKnownDisplayName(run.StartingMapKnown, run.StartingMapDisplayName))
-            return run.StartingMapDisplayName;
-        if (HasKnownDisplayName(run.MapKnown, run.MapDisplayName))
-            return run.MapDisplayName;
+            return (names ?? EntityDisplayNames.Recorded).Get(run.StartingMapId, run.StartingMapDisplayName);
         return text(RetainedOverviewLatestRunMapNamePolicy.UnknownMapTextKey);
     }
 
@@ -2886,7 +2827,6 @@ internal static class RetainedLatestRunStatisticsPresentationFactory
         if (containers == null || availability == null) return unavailable;
         if (containers.UniqueContainersLooted < 0
             && !containers.WasRepairedFromInvalidState
-            && !containers.HistoricalUnavailable
             && availability.State == AdapterCapabilityState.Supported)
         {
             return unavailable;
@@ -3420,7 +3360,7 @@ internal static class RetainedOverviewWorldTimeStatisticsPolicy
     public const float ParagraphSpacing = 0f;
     public const float HorizontalScale = 1f;
     public const bool BlocksRaycasts = false;
-    public const bool WordWrapping = false;
+    public const bool WordWrapping = true;
     public const bool AutoSizing = false;
     public const bool UsesVisibleOverflow = true;
     public const bool UsesZeroTextMargins = true;
@@ -3526,17 +3466,17 @@ internal static class RetainedRunBadgeProceduralIconPolicy
         var deltaY = endY - startY;
         var squaredLength = deltaX * deltaX + deltaY * deltaY;
         for (var y = 0; y < height; y++)
-        for (var x = 0; x < width; x++)
-        {
-            var projection = squaredLength == 0f
-                ? 0f
-                : Math.Max(0f, Math.Min(1f,
-                    ((x - startX) * deltaX + (y - startY) * deltaY) / squaredLength));
-            var distanceX = x - (startX + projection * deltaX);
-            var distanceY = y - (startY + projection * deltaY);
-            if (distanceX * distanceX + distanceY * distanceY <= radius * radius)
-                alpha[y * width + x] = 255;
-        }
+            for (var x = 0; x < width; x++)
+            {
+                var projection = squaredLength == 0f
+                    ? 0f
+                    : Math.Max(0f, Math.Min(1f,
+                        ((x - startX) * deltaX + (y - startY) * deltaY) / squaredLength));
+                var distanceX = x - (startX + projection * deltaX);
+                var distanceY = y - (startY + projection * deltaY);
+                if (distanceX * distanceX + distanceY * distanceY <= radius * radius)
+                    alpha[y * width + x] = 255;
+            }
     }
 
     private static void PaintEllipse(
@@ -3550,13 +3490,13 @@ internal static class RetainedRunBadgeProceduralIconPolicy
         byte value)
     {
         for (var y = 0; y < height; y++)
-        for (var x = 0; x < width; x++)
-        {
-            var normalizedX = (x - centerX) / radiusX;
-            var normalizedY = (y - centerY) / radiusY;
-            if (normalizedX * normalizedX + normalizedY * normalizedY <= 1f)
-                alpha[y * width + x] = value;
-        }
+            for (var x = 0; x < width; x++)
+            {
+                var normalizedX = (x - centerX) / radiusX;
+                var normalizedY = (y - centerY) / radiusY;
+                if (normalizedX * normalizedX + normalizedY * normalizedY <= 1f)
+                    alpha[y * width + x] = value;
+            }
     }
 
     private static void PaintRectangle(
@@ -3570,8 +3510,8 @@ internal static class RetainedRunBadgeProceduralIconPolicy
         byte value)
     {
         for (var y = Math.Max(0, top); y <= Math.Min(height - 1, bottom); y++)
-        for (var x = Math.Max(0, left); x <= Math.Min(width - 1, right); x++)
-            alpha[y * width + x] = value;
+            for (var x = Math.Max(0, left); x <= Math.Min(width - 1, right); x++)
+                alpha[y * width + x] = value;
     }
 }
 
@@ -3909,7 +3849,7 @@ internal static class RetainedVisualLayoutPolicy
             || !IsFinite(header.Top)
             || !IsPositiveFinite(header.Width)
             || !IsPositiveFinite(header.Height)
-            || !IsPositiveFinite(header.CornerRadius)
+
             || tabStrip.Tabs.Count != RetainedTabStripPolicy.Specifications.Count
             || tabStrip.Tabs.Any(tab =>
                 !IsFinite(tab.Left)
@@ -3917,11 +3857,7 @@ internal static class RetainedVisualLayoutPolicy
                 || !IsPositiveFinite(tab.Width)
                 || !IsPositiveFinite(tab.Height)
                 || !IsPositiveFinite(tab.ExposedHeight)
-                || !IsPositiveFinite(tab.CornerRadius)
-                || !IsPositiveFinite(tab.LeftPadding)
-                || !IsPositiveFinite(tab.RightPadding)
-                || !IsPositiveFinite(tab.TopPadding)
-                || !IsPositiveFinite(tab.BottomPadding)
+
                 || !IsPositiveFinite(tab.FontSize)
                 || !IsPositiveFinite(tab.ReferencePreferredLabelWidth)
                 || !IsPositiveFinite(tab.PreferredLabelWidth)
@@ -3937,7 +3873,7 @@ internal static class RetainedVisualLayoutPolicy
             || !IsFinite(headerBottomBar.SurfaceTop)
             || !IsPositiveFinite(headerBottomBar.SurfaceWidth)
             || !IsPositiveFinite(headerBottomBar.SurfaceHeight)
-            || !IsPositiveFinite(headerBottomBar.SurfaceCornerRadius)
+
             || !IsFinite(headerTitle.Left)
             || !IsFinite(headerTitle.Top)
             || !IsPositiveFinite(headerTitle.Width)
@@ -3951,7 +3887,7 @@ internal static class RetainedVisualLayoutPolicy
             || !IsFinite(backControl.Top)
             || !IsPositiveFinite(backControl.Width)
             || !IsPositiveFinite(backControl.Height)
-            || !IsPositiveFinite(backControl.CornerRadius)
+
             || !IsFinite(backControl.ArrowLeft)
             || !IsFinite(backControl.ArrowTop)
             || !IsPositiveFinite(backControl.ArrowWidth)
@@ -3994,64 +3930,6 @@ internal static class RetainedVisualLayoutPolicy
     private static bool IsPositiveFinite(float value) => value > 0f && IsFinite(value);
 
     private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
-}
-
-internal static class RetainedShellCompositionPolicy
-{
-    public const int TabCount = 9;
-    public const int RootChildCount = 14;
-    public const int HeaderChildCount = 0;
-    public const int TabChildCount = 1;
-    public const int TabLabelChildCount = 0;
-    public const int OverviewTabChildCount = TabChildCount;
-    public const int OverviewTabLabelChildCount = TabLabelChildCount;
-    public const int HeaderBottomBarChildCount = 1;
-    public const int HeaderBottomBarGraphicChildCount = 0;
-    public const int HeaderTitleChildCount = 0;
-    public const int BackButtonChildCount = 1;
-    public const int BackArrowChildCount = 0;
-    public const int OverviewContentViewChildCount = 2;
-    public const int OverviewLeftPanelChildCount = 1;
-    public const int OverviewLeftPanelContentChildCount = 12;
-    public const int OverviewProfileSummaryHeadingChildCount = 0;
-    public const int OverviewFirstStatisticsRowChildCount = 1;
-    public const int OverviewFirstStatisticsRowContentChildCount = 2;
-    public const int OverviewFirstStatisticsRowLabelChildCount = 0;
-    public const int OverviewFirstStatisticsRowValueChildCount = 0;
-    public const int ProfileSummaryRowCount = 11;
-    public const int ProfileSummaryStandardRowContentChildCount = 2;
-    public const int ProfileSummaryEconomyRowContentChildCount = 3;
-    public const int OverviewRightPanelChildCount = 1;
-    public const int OverviewRightPanelContentChildCount = 9;
-    public const int OverviewHighlightsHeadingChildCount = 0;
-    public const int OverviewLatestRunHeadingChildCount = 0;
-    public const int OverviewLatestRunCardChildCount = 4;
-    public const int OverviewLatestRunBadgeChildCount = 2;
-    public const int OverviewLatestRunBadgeIconChildCount = 0;
-    public const int OverviewLatestRunBadgeLabelChildCount = 0;
-    public const int OverviewLatestRunBadgeGraphicCount = 3;
-    public const int OverviewLatestRunMapNameChildCount = 0;
-    public const int OverviewLatestRunMapNameGraphicCount = 1;
-    public const int OverviewLatestRunStatisticsChildCount = 0;
-    public const int OverviewLatestRunStatisticsGraphicCount = 1;
-    public const int OverviewLatestRunViewRunChildCount = 1;
-    public const int OverviewLatestRunViewRunLabelChildCount = 0;
-    public const int OverviewLatestRunViewRunGraphicCount = 2;
-    public const int OverviewWorldTimeHeadingChildCount = 0;
-    public const int OverviewWorldTimeCardChildCount = 1;
-    public const int OverviewWorldTimeStatisticsChildCount = 0;
-    public const int OverviewWorldTimeGraphicCount = 3;
-    public const int OverviewHighlightRowCount = 4;
-    public const int OverviewHighlightRowChildCount = 2;
-    public const int OverviewHighlightRowGraphicCount = 1;
-    public const int OverviewFastestExtractionRowChildCount = 2;
-    public const int OverviewFastestExtractionRowGraphicCount = OverviewHighlightRowGraphicCount;
-    public const int OverviewFastestExtractionLabelChildCount = 0;
-    public const int OverviewFastestExtractionValueChildCount = 0;
-    public const int GraphicCount = 86;
-    public const int ButtonCount = 11;
-    public const int RectMaskCount = 1;
-    public const int OnlyOneEdgeModifierCount = 9;
 }
 
 internal sealed class RetainedBackControlActivation
@@ -4135,14 +4013,14 @@ internal static class RetainedBackArrowAssetPolicy
         var rightExclusive = 0;
         var bottomExclusive = 0;
         for (var y = 0; y < HeightPixels; y++)
-        for (var x = 0; x < WidthPixels; x++)
-        {
-            if (alpha[y * WidthPixels + x] == 0) continue;
-            left = Math.Min(left, x);
-            top = Math.Min(top, y);
-            rightExclusive = Math.Max(rightExclusive, x + 1);
-            bottomExclusive = Math.Max(bottomExclusive, y + 1);
-        }
+            for (var x = 0; x < WidthPixels; x++)
+            {
+                if (alpha[y * WidthPixels + x] == 0) continue;
+                left = Math.Min(left, x);
+                top = Math.Min(top, y);
+                rightExclusive = Math.Max(rightExclusive, x + 1);
+                bottomExclusive = Math.Max(bottomExclusive, y + 1);
+            }
 
         return left == VisibleLeftPixels
                && top == VisibleTopPixels
@@ -4274,32 +4152,6 @@ internal sealed class RetainedShellLifecycleState
     }
 }
 
-internal sealed class BoundedPage<T>
-{
-    public IReadOnlyList<T> Items { get; set; } = Array.Empty<T>();
-    public int PageIndex { get; set; }
-    public int PageCount { get; set; }
-    public int TotalCount { get; set; }
-}
-
-internal static class BoundedPageFactory
-{
-    public static BoundedPage<T> Create<T>(IReadOnlyList<T> source, int requestedPage, int pageSize)
-    {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (pageSize < 1 || pageSize > 100) throw new ArgumentOutOfRangeException(nameof(pageSize));
-        var pageCount = Math.Max(1, (source.Count + pageSize - 1) / pageSize);
-        var pageIndex = Math.Clamp(requestedPage, 0, pageCount - 1);
-        return new BoundedPage<T>
-        {
-            Items = source.Skip(pageIndex * pageSize).Take(pageSize).ToArray(),
-            PageIndex = pageIndex,
-            PageCount = pageCount,
-            TotalCount = source.Count
-        };
-    }
-}
-
 internal sealed class PanelOperationGate
 {
     public PanelOperation Current { get; private set; }
@@ -4377,6 +4229,7 @@ internal sealed class PanelInteractionState
 
 internal sealed class StatisticsPanelProjection
 {
+    internal EntityDisplayNames Names { get; set; } = EntityDisplayNames.Recorded;
     internal CombatProjectionBinding? CombatBinding { get; set; }
     internal EquipmentProjectionBinding? EquipmentBinding { get; set; }
     internal EconomyProjectionBinding? EconomyBinding { get; set; }
@@ -4416,7 +4269,6 @@ internal sealed class WeaponAmmunitionGroupProjection
     public long TotalFiringActions { get; set; }
     public long CorrelatedFiringActions { get; set; }
     public long UncorrelatedFiringActions { get; set; }
-    public bool HistoricalPairingUnavailable { get; set; }
     public IReadOnlyList<WeaponAmmunitionPairView> Ammunition { get; set; } =
         Array.Empty<WeaponAmmunitionPairView>();
 }
@@ -4427,7 +4279,6 @@ internal sealed class ItemUsePanelProjection
     public IReadOnlyList<ItemUseRowProjection> Items { get; set; } = Array.Empty<ItemUseRowProjection>();
     public IReadOnlyList<ItemUseGroupProjection> Groups { get; set; } = Array.Empty<ItemUseGroupProjection>();
     public IReadOnlyList<RunSummary> RecentRuns { get; set; } = Array.Empty<RunSummary>();
-    public bool HistoricalUnavailable { get; set; }
     public bool WasRepairedFromInvalidState { get; set; }
 }
 
@@ -4487,7 +4338,8 @@ internal static class StatisticsPanelProjectionFactory
         ProfileDocument profile,
         EconomyMetricCapabilities currentEconomyCapabilities,
         CraftingMetricCapabilities currentCraftingCapabilities,
-        WorldTimeMetricCapabilities currentWorldTimeCapabilities)
+        WorldTimeMetricCapabilities currentWorldTimeCapabilities,
+        EntityDisplayNames? names = null)
     {
         if (profile == null) throw new ArgumentNullException(nameof(profile));
         if (currentEconomyCapabilities == null)
@@ -4503,6 +4355,7 @@ internal static class StatisticsPanelProjectionFactory
         var equipment = EquipmentStatisticsViewModelFactory.Create(profile);
         var projection = new StatisticsPanelProjection
         {
+            Names = names ?? EntityDisplayNames.Recorded,
             Profile = profile,
             Runs = RunStatisticsViewModelFactory.Create(profile),
             Combat = CombatStatisticsViewModelFactory.Create(profile),
@@ -4569,7 +4422,6 @@ internal static class StatisticsPanelProjectionFactory
         return new ItemUsePanelProjection
         {
             Overall = profile.Statistics.Overall,
-            HistoricalUnavailable = profile.Statistics.RunTotals.ItemStatistics.HistoricalUnavailable,
             WasRepairedFromInvalidState =
                 profile.Statistics.RunTotals.ItemStatistics.WasRepairedFromInvalidState,
             Items = profile.Statistics.Items.Values
@@ -4614,7 +4466,6 @@ internal static class StatisticsPanelProjectionFactory
                 TotalFiringActions = weapon.Totals.FiringActions,
                 CorrelatedFiringActions = ammunition.Sum(value => value.Pair.FiringActions),
                 UncorrelatedFiringActions = uncorrelated,
-                HistoricalPairingUnavailable = weapons.Lifetime.HistoricalPairingUnavailable,
                 Ammunition = ammunition
             };
         }).ToArray();

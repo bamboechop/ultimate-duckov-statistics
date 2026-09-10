@@ -27,7 +27,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
     private readonly DeferredCheckpointWriter<CheckpointWrite> checkpointWriter;
     private readonly DeferredSnapshotWriter<ProfileWrite> profileWriter;
     private readonly EconomyActivationGate economyActivationGate;
-    private readonly NativeProfileTransitionBoundary profileTransitionBoundary = new();
+    private readonly NativeProfileTransitionBoundary profileTransitionBoundary;
     private Func<bool>? activeRunCheckpointFlusher;
     private Func<bool>? economyBoundaryFlusher;
     private Func<bool>? economyHoldingsBoundaryFlusher;
@@ -97,7 +97,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public NativeProfileCoordinator(Func<double>? monotonicClock = null)
     {
         this.monotonicClock = monotonicClock ?? (() => (double)System.Diagnostics.Stopwatch.GetTimestamp() / System.Diagnostics.Stopwatch.Frequency);
-        dataRoot = Path.Combine(Application.persistentDataPath, Core.ProductInfo.ModId);
+        profileTransitionBoundary = new NativeProfileTransitionBoundary(this.monotonicClock);
+        dataRoot = Path.Combine(Application.persistentDataPath, Core.ProductInfo.ModId, Core.ProductInfo.DataDirectory);
         checkpointWriter = new DeferredCheckpointWriter<CheckpointWrite>(write =>
         {
             NativeHotPathDiagnostics.CountCheckpointStoreAttempt();
@@ -155,6 +156,8 @@ internal sealed class NativeProfileCoordinator : IDisposable
     public ProfileOpenResult? LastOpenResult => repository?.LastOpenResult;
 
     public ProfileSaveReceipt? LastSaveReceipt => repository?.LastSaveReceipt;
+
+    public bool HasProfilePersistenceFailure => profileWriter.HasFailure;
 
     public long CompletedUserResetVersion { get; private set; }
 
@@ -218,7 +221,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
         WriteDiagnostic(
             $"Profile opened slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
             $"created={openResult.CreatedNew} rotated={openResult.RotatedGeneration} " +
-            $"recovered={openResult.RecoveredSnapshot} migrated={openResult.MigratedSchema} " +
+            $"recovered={openResult.RecoveredSnapshot} migrated={openResult.NormalizedProfile} " +
             $"unsupportedArchived={openResult.UnsupportedSchemaArchived} " +
             $"interruptedSession={openResult.InterruptedSessionRecovered} " +
             $"interruptedRun={openResult.InterruptedRunRecovered}.");
@@ -336,8 +339,12 @@ internal sealed class NativeProfileCoordinator : IDisposable
         UpdateCapabilities();
     }
 
-    private CapabilityRecord throwableCapability = new() { AdapterId = ThrowableUseObservation.CapabilityId,
-        State = AdapterCapabilityState.DisabledIncompatible, Detail = "Throwable tracking has not been initialized." };
+    private CapabilityRecord throwableCapability = new()
+    {
+        AdapterId = ThrowableUseObservation.CapabilityId,
+        State = AdapterCapabilityState.DisabledIncompatible,
+        Detail = "Throwable tracking has not been initialized."
+    };
 
     public void SetThrowableCapability(CapabilityRecord value)
     { throwableCapability = CloneCapability(value); UpdateCapabilities(); }
@@ -563,6 +570,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     public bool RetryPendingProfileTransition()
     {
+        if (!profileTransitionBoundary.HasPendingTransition) return true;
         var completed = profileTransitionBoundary.Retry(
             FlushProfileTransitionBoundaries,
             message => WriteDiagnostic(message, "Error"));
@@ -1274,7 +1282,7 @@ internal sealed class NativeProfileCoordinator : IDisposable
 
     private static string FormatOpenResult(ProfileOpenResult result) =>
         $"created={result.CreatedNew}; rotated={result.RotatedGeneration}; recoveredSnapshot={result.RecoveredSnapshot}; "
-        + $"migratedSchema={result.MigratedSchema}; unsupportedSchemaArchived={result.UnsupportedSchemaArchived}; "
+        + $"migratedSchema={result.NormalizedProfile}; unsupportedSchemaArchived={result.UnsupportedSchemaArchived}; "
         + $"interruptedSessionRecovered={result.InterruptedSessionRecovered}; interruptedRunRecovered={result.InterruptedRunRecovered}; "
         + $"loadFailures={result.LoadFailures.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 

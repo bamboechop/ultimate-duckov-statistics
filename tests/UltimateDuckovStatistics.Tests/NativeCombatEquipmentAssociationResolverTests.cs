@@ -41,15 +41,20 @@ public sealed class NativeCombatEquipmentAssociationResolverTests
         var resolver = new NativeCombatEquipmentAssociationResolver();
         var trigger = new object();
         var current = Association("loadout:b", "weapon:b");
+        var providerCalls = 0;
 
         resolver.CaptureDelayedEffectOrigin(
-            trigger, Association("loadout:a", "weapon:a"), "generation", "run", "map");
+            trigger, Association("loadout:a", "weapon:a"), "generation", "run", "map", "source-segment");
         var tick = resolver.ResolveEffect(
-            trigger, delayed: true, originatingScope: null, () => current,
-            "generation", "run", "map");
+            trigger, delayed: true, () => { providerCalls++; return current; },
+            "generation", "run");
 
         Assert.Equal("loadout:a", tick.LoadoutId);
         Assert.Equal("weapon:a", tick.SelectedWeaponId);
+        Assert.Equal(0, providerCalls);
+        Assert.True(resolver.TryGetOrigin(trigger, "generation", "run", out var sourceMap, out var sourceSegment));
+        Assert.Equal("map", sourceMap);
+        Assert.Equal("source-segment", sourceSegment);
     }
 
     [Fact]
@@ -61,9 +66,9 @@ public sealed class NativeCombatEquipmentAssociationResolverTests
         var providerCalls = 0;
 
         var tick = resolver.ResolveEffect(
-            new object(), delayed: true, originatingScope: null,
+            new object(), delayed: true,
             () => { providerCalls++; return Association("loadout:b", "weapon:b"); },
-            "generation", "run", "map");
+            "generation", "run");
 
         Assert.Equal(0, providerCalls);
         Assert.Equal(EquipmentEventAssociation.UnavailableId, tick.LoadoutId);
@@ -79,12 +84,12 @@ public sealed class NativeCombatEquipmentAssociationResolverTests
         var resolver = new NativeCombatEquipmentAssociationResolver();
         var trigger = new object();
         resolver.CaptureDelayedEffectOrigin(
-            trigger, Association("loadout:a", "weapon:a"), "generation", "run", "map");
+            trigger, Association("loadout:a", "weapon:a"), "generation", "run", "map", "source-segment");
 
         resolver.CaptureDelayedEffectOrigin(
             trigger, Association("loadout:b", "weapon:b"), "generation", "run", "map");
-        var laterTick = resolver.ResolveEffect(trigger, true, null,
-            () => Association("loadout:current", "weapon:current"), "generation", "run", "map");
+        var laterTick = resolver.ResolveEffect(trigger, true,
+            () => Association("loadout:current", "weapon:current"), "generation", "run");
 
         Assert.Equal(EquipmentEventAssociation.UnavailableId, laterTick.LoadoutId);
     }
@@ -100,8 +105,8 @@ public sealed class NativeCombatEquipmentAssociationResolverTests
             trigger, Association("loadout:a", "weapon:a"), "generation", "run:a", "map");
 
         var differentRunTick = resolver.ResolveEffect(
-            trigger, true, null, () => Association("loadout:b", "weapon:b"),
-            "generation", "run:b", "map");
+            trigger, true, () => Association("loadout:b", "weapon:b"),
+            "generation", "run:b");
 
         Assert.Equal(EquipmentEventAssociation.UnavailableId, differentRunTick.LoadoutId);
     }
@@ -125,11 +130,9 @@ public sealed class NativeCombatEquipmentAssociationResolverTests
         var tick = resolver.ResolveEffect(
             trigger,
             true,
-            null,
             () => Association("loadout:b", "weapon:b"),
             "generation",
-            "run",
-            "duckov:map:B");
+            "run");
 
         Assert.Equal("loadout:a", tick.LoadoutId);
         Assert.True(resolver.TryGetOrigin(trigger, "generation", "run", out var mapId, out var segmentId));
@@ -137,10 +140,23 @@ public sealed class NativeCombatEquipmentAssociationResolverTests
         Assert.Equal("run:segment:0", segmentId);
     }
 
+    [Fact]
+    public void ImmediateEffectEvaluatesItsNativeScopeProviderOnceAndClonesIt()
+    {
+        var resolver = new NativeCombatEquipmentAssociationResolver();
+        var association = Association("loadout:current", "weapon:current");
+        var calls = 0;
+        var resolved = resolver.ResolveEffect(new object(), delayed: false,
+            () => { calls++; return association; }, "generation", "run");
+        Assert.Equal(1, calls);
+        Assert.Equal(association.LoadoutId, resolved.LoadoutId);
+        Assert.NotSame(association, resolved);
+    }
+
     private static EquipmentEventAssociation Association(string loadoutId, string weaponId) => new()
     {
         LoadoutId = loadoutId,
-        SelectedWeaponSlotId = "slot:primary",
+        SelectedWeaponSlotId = "duckov:slot:PrimaryWeapon",
         SelectedWeaponId = weaponId,
         TotemSetId = "totems:a"
     };

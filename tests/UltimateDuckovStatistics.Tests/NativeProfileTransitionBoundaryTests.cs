@@ -1,6 +1,7 @@
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Diagnostics;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
@@ -21,7 +22,10 @@ public sealed class NativeProfileTransitionBoundaryTests
             ["generation-one", "session-one", "generation-two", "session-two", "generation-three", "session-three"]);
         var repository = new ProfileRepository(directory.Path, () => TestTime, identities.Dequeue);
         repository.Open(Identity(100));
-        var boundary = new NativeProfileTransitionBoundary();
+        var now = 0d;
+        var boundary = new NativeProfileTransitionBoundary(() => now);
+        var diagnostics = new DiagnosticStore(Path.Combine(directory.Path, "diagnostics.json"), 100, () => TestTime);
+        var failedAttempts = 0;
         var profileChangedCalls = 0;
         string? blockedTemporaryPath = null;
         boundary.Enqueue(
@@ -35,16 +39,34 @@ public sealed class NativeProfileTransitionBoundaryTests
                     blockedTemporaryPath = AtomicJsonPaths.GetTemporaryPath(repository.CurrentProfilePath!);
                     Directory.CreateDirectory(blockedTemporaryPath);
                 }
+                failedAttempts++;
                 repository.SetEconomyCapabilities(SupportedEconomyCapabilities());
             });
 
-        Assert.False(boundary.Retry(() => true, _ => { }));
+        Assert.False(boundary.Retry(() => true, message => diagnostics.Add(message)));
         var rotatedGeneration = repository.CurrentGenerationId;
         Assert.Equal("generation-two", rotatedGeneration);
         Assert.Equal(1, profileChangedCalls);
         Assert.True(boundary.HasPendingTransition);
 
+        // ModBehaviour.Update and cleanup drains must not repeatedly hit the failed writer.
+        for (var frame = 0; frame < 10_000; frame++)
+        {
+            Assert.False(boundary.Retry(() => true, message => diagnostics.Add(message)));
+            Assert.False(boundary.Drain(() => true, message => diagnostics.Add(message)));
+        }
+        Assert.Equal(1, failedAttempts);
+        Assert.Single(diagnostics.Entries);
+        foreach (var retryTime in new[] { 1d, 3d, 7d, 15d, 31d, 63d, 123d })
+        {
+            now = retryTime;
+            Assert.False(boundary.Retry(() => true, message => diagnostics.Add(message)));
+        }
+        Assert.Equal(8, failedAttempts);
+        Assert.Equal(3, diagnostics.Entries.Count);
+        Assert.Equal(1, profileChangedCalls);
         Directory.Delete(blockedTemporaryPath!);
+        now = 183;
         Assert.True(boundary.Retry(() => true, _ => { }));
 
         Assert.False(boundary.HasPendingTransition);
@@ -68,7 +90,8 @@ public sealed class NativeProfileTransitionBoundaryTests
         var oldGeneration = repository.CurrentGenerationId;
 
         const long transitionId = 41;
-        var transition = new NativeProfileTransitionBoundary();
+        var now = 0d;
+        var transition = new NativeProfileTransitionBoundary(() => now);
         var handoff = new CraftingProfileHandoffBoundary();
         handoff.Begin(transitionId);
         transition.Enqueue(
@@ -95,6 +118,7 @@ public sealed class NativeProfileTransitionBoundaryTests
         Assert.Equal(0, repository.Current.Statistics.Crafting.CompletionActions);
 
         acceptBoundary = true;
+        now = 1;
         Assert.True(transition.Retry(() => acceptBoundary, _ => { }));
         var targetGeneration = repository.CurrentGenerationId;
         Assert.NotEqual(oldGeneration, targetGeneration);
@@ -124,7 +148,8 @@ public sealed class NativeProfileTransitionBoundaryTests
         var oldGeneration = repository.CurrentGenerationId;
 
         const long transitionId = 42;
-        var transition = new NativeProfileTransitionBoundary();
+        var now = 0d;
+        var transition = new NativeProfileTransitionBoundary(() => now);
         var handoff = new CraftingProfileHandoffBoundary();
         var profileWriterAvailable = false;
         NativeProfileResetTransition.Queue(
@@ -167,6 +192,7 @@ public sealed class NativeProfileTransitionBoundaryTests
         Assert.Equal(0, repository.Current.Statistics.Crafting.CompletionActions);
 
         profileWriterAvailable = true;
+        now = 1;
         Assert.True(transition.Retry(() => true, _ => { }));
         Assert.NotEqual(oldGeneration, repository.CurrentGenerationId);
         Assert.Equal(1, repository.Current.Statistics.Crafting.CompletionActions);
@@ -184,6 +210,29 @@ public sealed class NativeProfileTransitionBoundaryTests
         Assert.Equal(oldGeneration, archived.GenerationId);
         Assert.Equal(0, archived.Statistics.Crafting.CompletionActions);
         Assert.Equal(0, archived.Statistics.Crafting.ProducedQuantity);
+    }
+
+    [Fact]
+    public void DeferredObserverIsNotReenteredUntilDueAndNextTransitionHasItsOwnBudget()
+    {
+        var now = 0d;
+        var boundary = new NativeProfileTransitionBoundary(() => now);
+        var observations = 0;
+        var steps = 0;
+        var diagnostics = new List<string>();
+        boundary.Enqueue("first", () => steps++);
+        boundary.Enqueue("second", () => steps++);
+        bool Observe() { observations++; return now >= 1; }
+        Assert.False(boundary.Retry(Observe, diagnostics.Add));
+        for (var frame = 0; frame < 10_000; frame++)
+            Assert.False(boundary.Drain(Observe, diagnostics.Add));
+        Assert.Equal(1, observations);
+        Assert.Equal(0, steps);
+        Assert.Single(diagnostics);
+        now = 1;
+        Assert.True(boundary.Drain(Observe, diagnostics.Add));
+        Assert.Equal(3, observations);
+        Assert.Equal(2, steps);
     }
 
     private static SaveIdentitySnapshot Identity(long creationTicks, int slot = 1) => new()
@@ -213,7 +262,6 @@ public sealed class NativeProfileTransitionBoundaryTests
             CashAmountDirection = Supported(),
             CashExternalAcquisition = Supported(),
             CashContextAttribution = Supported(),
-            CashTerminalOutcomes = Supported(),
             RouteAttribution = Supported()
         };
     }

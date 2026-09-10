@@ -15,8 +15,8 @@ param(
     [ValidateRange(10, 120)]
     [int]$CaptureSeconds = 30,
 
-    [ValidateRange(5, 30)]
-    [int]$AttachDelaySeconds = 10,
+    [ValidateRange(0, 30)]
+    [int]$AttachDelaySeconds = 0,
 
     [switch]$Idle,
 
@@ -34,6 +34,7 @@ param(
     [string]$Location = '',
     [string]$ShotCountExpectation = '',
     [switch]$ConsumableAction,
+    [switch]$ActivityAction,
     [string]$Consumable = '',
     [string]$ConsumableCountExpectation = '',
     [string]$StartingHealth = '',
@@ -53,6 +54,8 @@ param(
     [string]$BuildLabel = 'production',
     [switch]$ValidateOnly,
     [string]$ExpectedUdsVersion = '',
+    [string]$CandidateSourceCommit = '',
+    [string]$CampaignSha256 = '',
     [ValidatePattern('^$|^[a-fA-F0-9]{64}$')]
     [string]$ExpectedUdsDllSha256 = '',
     [ValidatePattern('^$|^[a-fA-F0-9]{64}$')]
@@ -82,6 +85,7 @@ if (-not $Idle -and $ActionStartSeconds -ge $ActionEndSeconds) {
 if ($Idle -and $ConsumableAction) {
     throw 'ConsumableAction cannot be combined with Idle.'
 }
+if ($ActivityAction -and ($Idle -or $ConsumableAction)) { throw 'ActivityAction must be a distinct non-idle action.' }
 if (-not (Test-Path -LiteralPath $CapFrameXInstallPath)) {
     throw "CapFrameX was not found at: $CapFrameXInstallPath"
 }
@@ -173,19 +177,9 @@ if ($Configuration -in @('C', 'D')) {
     $versionLine = Get-Content -LiteralPath $deployedInfoPath | Where-Object { $_ -match '^\s*version\s*=' } | Select-Object -First 1
     if ($null -eq $versionLine) { throw "Deployed info.ini has no version: $deployedInfoPath" }
     $deployedInfoVersion = ($versionLine -split '=', 2)[1].Trim()
-    if ([string]::IsNullOrWhiteSpace($ExpectedUdsVersion) -and $BuildLabel -eq 'production') {
-        $ExpectedUdsVersion = if ($Configuration -eq 'C') { '0.8.0' } else { '0.8.1' }
-    }
-    if ($BuildLabel -eq 'production' -and $Configuration -eq 'C') {
-        if ([string]::IsNullOrWhiteSpace($ExpectedUdsDllSha256)) {
-            $ExpectedUdsDllSha256 = 'd937f9a5b31e544e8fa9ba337f1ed2082a1c64c7a5a2fac33c6853d55de787a1'
-        }
-        if ([string]::IsNullOrWhiteSpace($ExpectedUdsCoreDllSha256)) {
-            $ExpectedUdsCoreDllSha256 = 'e2b06828ae60e71b2f7b9ef066562cab14241a3168ea0a251d9cb9003075cdeb'
-        }
-    }
-    if (($BuildLabel -eq 'production') -and ($Configuration -eq 'D') -and ([string]::IsNullOrWhiteSpace($ExpectedUdsDllSha256) -or [string]::IsNullOrWhiteSpace($ExpectedUdsCoreDllSha256))) {
-        throw 'Production configuration D requires both final candidate DLL hashes.'
+    if ($BuildLabel -eq 'production' -and ([string]::IsNullOrWhiteSpace($ExpectedUdsVersion) -or
+        [string]::IsNullOrWhiteSpace($ExpectedUdsDllSha256) -or [string]::IsNullOrWhiteSpace($ExpectedUdsCoreDllSha256))) {
+        throw 'Production C/D captures require an explicit candidate version and both DLL hashes.'
     }
     if ((-not [string]::IsNullOrWhiteSpace($ExpectedUdsVersion)) -and ($deployedInfoVersion -ne $ExpectedUdsVersion)) {
         throw "Configuration $Configuration requires UDS version '$ExpectedUdsVersion', found '$deployedInfoVersion'."
@@ -202,27 +196,6 @@ if ($Configuration -in @('C', 'D')) {
             throw "Deployed UDS Core DLL hash mismatch. Expected $ExpectedUdsCoreDllSha256, found $deployedCoreDllSha256."
         }
     }
-}
-
-if ($ValidateOnly) {
-    [pscustomobject]@{
-        Configuration = $Configuration
-        ProcessId = $duckovProcess.Id
-        ProcessStartedUtc = $duckovProcess.StartTime.ToUniversalTime().ToString('O')
-        ConfiguredActiveMods = $configuredActiveMods
-        LoadedMods = $loadedMods
-        UdsActivationObserved = $udsActivationObserved
-        DeployedUdsInfoVersion = $deployedInfoVersion
-        BuildLabel = $BuildLabel
-        CapFrameXVersion = $capFrameXVersion
-        CapFrameXApiBase = $CapFrameXApiBase
-        CapFrameXSensorLogging = [bool]$capFrameXSettings.UseSensorLogging
-        CapFrameXOverlayConfigured = $capFrameXOverlayConfigured
-        CapFrameXOverlayEffective = $capFrameXOverlayEffective
-        RtssInstalled = $rtssInstalled
-        RtssRunning = $rtssRunning
-    }
-    return
 }
 
 $requiredControls = [ordered]@{
@@ -242,6 +215,7 @@ $requiredControls = [ordered]@{
     GraphicsPreset = $GraphicsPreset
     RouteAssociationState = $RouteAssociationState
 }
+if (-not $Idle) { $requiredControls.ActionLabel = $ActionLabel }
 foreach ($control in $requiredControls.GetEnumerator()) {
     $controlValue = [string]$control.Value
     if ([string]::IsNullOrWhiteSpace($controlValue) -or $controlValue -match '^(pilot-not-yet-recorded|not-recorded)$') {
@@ -264,6 +238,36 @@ if ($ConsumableAction) {
     }
 }
 
+# CapFrameX uses .NET Framework file APIs. Its generated filename must stay
+# below MAX_PATH even when the campaign output lives under a long source hash.
+$stagingDirectory = [IO.Path]::GetFullPath((Join-Path $repoRoot ('artifacts/capture-staging/' + [guid]::NewGuid().ToString('N'))))
+$collectorFileName = 'CapFrameX-Duckov.exe-2000-01-01T000000.json.csv'
+if ((Join-Path $stagingDirectory $collectorFileName).Length -ge 260) {
+    throw 'CapFrameX capture staging requires a shorter repository path; its generated files must fit below 260 characters.'
+}
+
+if ($ValidateOnly) {
+    [pscustomobject]@{
+        Configuration = $Configuration
+        ProcessId = $duckovProcess.Id
+        ProcessStartedUtc = $duckovProcess.StartTime.ToUniversalTime().ToString('O')
+        ConfiguredActiveMods = $configuredActiveMods
+        LoadedMods = $loadedMods
+        UdsActivationObserved = $udsActivationObserved
+        DeployedUdsInfoVersion = $deployedInfoVersion
+        BuildLabel = $BuildLabel
+        CapFrameXVersion = $capFrameXVersion
+        CapFrameXApiBase = $CapFrameXApiBase
+        CapFrameXSensorLogging = [bool]$capFrameXSettings.UseSensorLogging
+        CapFrameXOverlayConfigured = $capFrameXOverlayConfigured
+        CapFrameXOverlayEffective = $capFrameXOverlayEffective
+        RtssInstalled = $rtssInstalled
+        RtssRunning = $rtssRunning
+        CapFrameXStagingDirectory = $stagingDirectory
+    }
+    return
+}
+
 $scenarioDirectory = Join-Path (Join-Path $OutputRoot $Configuration) $Scenario
 New-Item -ItemType Directory -Path $scenarioDirectory -Force | Out-Null
 $baseName = ('{0}-{1}-r{2:D2}' -f $Configuration.ToLowerInvariant(), $Scenario, $Run)
@@ -276,9 +280,8 @@ foreach ($path in @($csvPath, $capFrameXRawJsonPath, $metadataPath)) {
     }
 }
 
-$stagingDirectory = Join-Path $scenarioDirectory ('.{0}-capframex-staging-{1}' -f $baseName, [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $stagingDirectory | Out-Null
-$capFrameXCaptureComment = "UDS M8.1 $Configuration/$BuildLabel $Scenario r$($Run.ToString('D2'))"
+$capFrameXCaptureComment = "UDS $Configuration/$BuildLabel $Scenario r$($Run.ToString('D2'))"
 $capFrameXCaptureRequest = [ordered]@{
     CaptureTime = [double]$CaptureSeconds
     ProcessName = 'Duckov'
@@ -291,8 +294,12 @@ function Send-CaptureSignal([int]$Frequency) {
     try { [Console]::Beep($Frequency, 250) } catch { }
 }
 
-Write-Host "CapFrameX will begin the $CaptureSeconds-second capture after $AttachDelaySeconds seconds. Return focus to Duckov now."
-Start-Sleep -Seconds $AttachDelaySeconds
+if ($AttachDelaySeconds -gt 0) {
+    Write-Host "CapFrameX will begin the $CaptureSeconds-second capture after $AttachDelaySeconds seconds. Return focus to Duckov now."
+    Start-Sleep -Seconds $AttachDelaySeconds
+} else {
+    Write-Host "CapFrameX is starting the $CaptureSeconds-second capture now."
+}
 $captureStartedUtc = (Get-Date).ToUniversalTime()
 $captureControlClock = [System.Diagnostics.Stopwatch]::StartNew()
 try {
@@ -406,7 +413,9 @@ $harmony = if (Test-Path -LiteralPath $harmonyPath) { Get-Item -LiteralPath $har
 $capFrameXRun = @($capFrameXRecord.Runs)[0]
 $capFrameXSensorPayloadPresent = ($null -ne $capFrameXRun.SensorData) -or ($null -ne $capFrameXRun.SensorData2)
 $metadata = [ordered]@{
-    SchemaVersion = 5
+    SchemaVersion = 6
+    CandidateSourceCommit = $CandidateSourceCommit
+    CampaignSha256 = $CampaignSha256
     Configuration = $Configuration
     Scenario = $Scenario
     Run = $Run
@@ -432,7 +441,7 @@ $metadata = [ordered]@{
     EquipmentAndTotems = $EquipmentAndTotems
     Location = $Location
     ShotCountExpectation = $ShotCountExpectation
-    ActionKind = if ($Idle) { 'idle' } elseif ($ConsumableAction) { 'consumable' } else { 'weapon' }
+    ActionKind = if ($Idle) { 'idle' } elseif ($ConsumableAction) { 'consumable' } elseif ($ActivityAction) { 'activity' } else { 'weapon' }
     Consumable = $Consumable
     ConsumableCountExpectation = $ConsumableCountExpectation
     StartingHealth = $StartingHealth

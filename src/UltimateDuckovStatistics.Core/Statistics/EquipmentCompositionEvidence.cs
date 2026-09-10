@@ -56,15 +56,24 @@ public static class EquipmentCompositionReducer
         if (Exact(snapshot.LoadoutId) && snapshot.CharacterSlotStateComplete)
         {
             var copy = EquipmentStatisticsReducer.CloneSnapshot(snapshot);
-            var definition = new LoadoutDefinition { LoadoutId = copy.LoadoutId, Roots = copy.CharacterSlots,
-                Items = copy.Items, RootsComplete = copy.CharacterSlotStateComplete, NestedComplete = copy.NestedSlotStateComplete };
+            var definition = new LoadoutDefinition
+            {
+                LoadoutId = copy.LoadoutId,
+                Roots = copy.CharacterSlots,
+                Items = copy.Items,
+                RootsComplete = copy.CharacterSlotStateComplete,
+                NestedComplete = copy.NestedSlotStateComplete
+            };
             changed |= Register(target.Loadouts, definition);
         }
         if (Exact(snapshot.TotemSetId))
         {
-            var definition = new ActiveTotemSetDefinition { TotemSetId = snapshot.TotemSetId,
+            var definition = new ActiveTotemSetDefinition
+            {
+                TotemSetId = snapshot.TotemSetId,
                 Members = snapshot.Totems.Where(t => t.ActivationState == TotemActivationState.ProvenActive)
-                    .Select(CloneTotem).OrderBy(MemberKey, StringComparer.Ordinal).ToList() };
+                    .Select(CloneTotem).OrderBy(MemberKey, StringComparer.Ordinal).ToList()
+            };
             // Direct-slot attribution is state evidence; the existing set identity deliberately excludes it.
             foreach (var member in definition.Members) member.DirectSlotId = string.Empty;
             changed |= Register(target.ActiveTotemSets, definition);
@@ -73,29 +82,38 @@ public static class EquipmentCompositionReducer
     }
 
     public static void Advance(EquipmentCompositionEvidence target, EquipmentSnapshot snapshot, decimal delta)
+        => Advance(target, new DurationPlan(snapshot), delta);
+
+    internal sealed class DurationPlan
     {
-        var empty = snapshot.CharacterSlots.Where(s => s.State == EquipmentSlotState.Empty && s.IsDirectTotemSlot).ToList();
-        foreach (var slot in empty) _ = Add(target.EmptyDirectSlots.TryGetValue(slot.SlotId, out var old) ? old.ActiveDurationSeconds : 0, delta);
-        var pending = new List<(string Key, TotemStateDuration Row, decimal Total)>();
-        foreach (var group in snapshot.Totems.GroupBy(StateKey, StringComparer.Ordinal))
+        internal CharacterEquipmentSlotSnapshot[] EmptySlots { get; }
+        internal (string Key, TotemSnapshot Totem, int Ordinal)[] Totems { get; }
+
+        internal DurationPlan(EquipmentSnapshot snapshot)
         {
-            var ordinal = 0;
-            foreach (var totem in group)
-            {
-                ordinal++;
-                var key = CopyKey(totem, ordinal);
-                target.TotemStates.TryGetValue(key, out var old);
-                pending.Add((key, new TotemStateDuration { Totem = CloneTotem(totem), CopyOrdinal = ordinal },
-                    Add(old?.DurationSeconds ?? 0, delta)));
-            }
+            EmptySlots = snapshot.CharacterSlots.Where(s => s.State == EquipmentSlotState.Empty && s.IsDirectTotemSlot).ToArray();
+            Totems = snapshot.Totems.GroupBy(StateKey, StringComparer.Ordinal)
+                .SelectMany(group => group.Select((totem, index) => (CopyKey(totem, index + 1), totem, index + 1))).ToArray();
         }
-        foreach (var entry in pending)
+    }
+
+    internal static void Advance(EquipmentCompositionEvidence target, DurationPlan plan, decimal delta)
+    {
+        foreach (var slot in plan.EmptySlots)
+            _ = Add(target.EmptyDirectSlots.TryGetValue(slot.SlotId, out var old) ? old.ActiveDurationSeconds : 0, delta);
+        foreach (var entry in plan.Totems)
+            _ = Add(target.TotemStates.TryGetValue(entry.Key, out var old) ? old.DurationSeconds : 0, delta);
+        foreach (var entry in plan.Totems)
         {
             if (target.TotemStates.TryGetValue(entry.Key, out var old))
-            { old.DurationSeconds = entry.Total; old.Totem.DisplayName = Name(old.Totem.DisplayName, entry.Row.Totem.DisplayName, old.Totem.ItemId); }
-            else { entry.Row.DurationSeconds = entry.Total; target.TotemStates.Add(entry.Key, entry.Row); }
+            {
+                old.DurationSeconds = Add(old.DurationSeconds, delta);
+                old.Totem.DisplayName = Name(old.Totem.DisplayName, entry.Totem.DisplayName, old.Totem.ItemId);
+            }
+            else target.TotemStates.Add(entry.Key, new TotemStateDuration
+            { Totem = CloneTotem(entry.Totem), CopyOrdinal = entry.Ordinal, DurationSeconds = delta });
         }
-        foreach (var slot in empty)
+        foreach (var slot in plan.EmptySlots)
         {
             if (!target.EmptyDirectSlots.TryGetValue(slot.SlotId, out var row))
                 target.EmptyDirectSlots.Add(slot.SlotId, row = new EquipmentDurationAggregate { Id = slot.SlotId });
@@ -112,8 +130,12 @@ public static class EquipmentCompositionReducer
             _ = Add(target.TotemStates.TryGetValue(pair.Key, out var old) ? old.DurationSeconds : 0, pair.Value.DurationSeconds);
         foreach (var definition in source.Loadouts.Values) Register(target.Loadouts, CloneDefinition(definition));
         foreach (var definition in source.ActiveTotemSets.Values)
-            Register(target.ActiveTotemSets, new ActiveTotemSetDefinition { TotemSetId = definition.TotemSetId,
-                Conflicting = definition.Conflicting, Members = definition.Members.Select(CloneTotem).ToList() });
+            Register(target.ActiveTotemSets, new ActiveTotemSetDefinition
+            {
+                TotemSetId = definition.TotemSetId,
+                Conflicting = definition.Conflicting,
+                Members = definition.Members.Select(CloneTotem).ToList()
+            });
         foreach (var pair in source.TotemStates)
         {
             if (target.TotemStates.TryGetValue(pair.Key, out var old))
@@ -121,8 +143,12 @@ public static class EquipmentCompositionReducer
                 old.DurationSeconds = Add(old.DurationSeconds, pair.Value.DurationSeconds);
                 old.Totem.DisplayName = Name(old.Totem.DisplayName, pair.Value.Totem.DisplayName, old.Totem.ItemId);
             }
-            else target.TotemStates.Add(pair.Key, new TotemStateDuration { Totem = CloneTotem(pair.Value.Totem),
-                CopyOrdinal = pair.Value.CopyOrdinal, DurationSeconds = pair.Value.DurationSeconds });
+            else target.TotemStates.Add(pair.Key, new TotemStateDuration
+            {
+                Totem = CloneTotem(pair.Value.Totem),
+                CopyOrdinal = pair.Value.CopyOrdinal,
+                DurationSeconds = pair.Value.DurationSeconds
+            });
         }
         target.HistoricalUnavailable |= source.HistoricalUnavailable;
         foreach (var pair in source.EmptyDirectSlots)
@@ -249,22 +275,43 @@ public static class EquipmentCompositionReducer
             + Part(((int)r.ItemKind).ToString(CultureInfo.InvariantCulture)) + Part(r.IsDirectTotemSlot.ToString())));
     private static string NestedSignature(EquippedItemSnapshot i) => string.Concat(i.NestedSlots.OrderBy(s => s.Path, StringComparer.Ordinal)
         .Select(s => Part(s.Path) + Part(s.SlotKey) + Part(s.ItemId) + Part(((int)s.State).ToString(CultureInfo.InvariantCulture))));
-    private static EquipmentSnapshot Snapshot(LoadoutDefinition d) => new() { SnapshotId = "definition", LoadoutId = d.LoadoutId,
-        TotemSetId = EquipmentEventAssociation.UnavailableId, CharacterSlots = d.Roots, Items = d.Items,
-        CharacterSlotStateComplete = d.RootsComplete, NestedSlotStateComplete = d.NestedComplete };
+    private static EquipmentSnapshot Snapshot(LoadoutDefinition d) => new()
+    {
+        SnapshotId = "definition",
+        LoadoutId = d.LoadoutId,
+        TotemSetId = EquipmentEventAssociation.UnavailableId,
+        CharacterSlots = d.Roots,
+        Items = d.Items,
+        CharacterSlotStateComplete = d.RootsComplete,
+        NestedSlotStateComplete = d.NestedComplete
+    };
     private static LoadoutDefinition CloneDefinition(LoadoutDefinition d)
     {
         var copy = EquipmentStatisticsReducer.CloneSnapshot(Snapshot(d));
-        return new LoadoutDefinition { LoadoutId = d.LoadoutId, Roots = copy.CharacterSlots, Items = copy.Items,
-            RootsComplete = d.RootsComplete, NestedComplete = d.NestedComplete, Conflicting = d.Conflicting };
+        return new LoadoutDefinition
+        {
+            LoadoutId = d.LoadoutId,
+            Roots = copy.CharacterSlots,
+            Items = copy.Items,
+            RootsComplete = d.RootsComplete,
+            NestedComplete = d.NestedComplete,
+            Conflicting = d.Conflicting
+        };
     }
     private static bool Exact(string id) => !string.IsNullOrWhiteSpace(id) && id != EquipmentEventAssociation.UnavailableId;
     private static bool ValidTotem(TotemSnapshot? t) => t != null && !string.IsNullOrWhiteSpace(t.ItemId)
         && !string.IsNullOrWhiteSpace(t.ContainerId) && t.DisplayName != null && t.DirectSlotId != null
         && Enum.IsDefined(typeof(TotemCarryKind), t.CarryKind) && Enum.IsDefined(typeof(TotemActivationState), t.ActivationState)
         && (t.CarryKind == TotemCarryKind.DirectSlot || t.DirectSlotId.Length == 0);
-    private static TotemSnapshot CloneTotem(TotemSnapshot t) => new() { ItemId = t.ItemId, DisplayName = t.DisplayName ?? string.Empty,
-        CarryKind = t.CarryKind, ContainerId = t.ContainerId, DirectSlotId = t.DirectSlotId ?? string.Empty, ActivationState = t.ActivationState };
+    private static TotemSnapshot CloneTotem(TotemSnapshot t) => new()
+    {
+        ItemId = t.ItemId,
+        DisplayName = t.DisplayName ?? string.Empty,
+        CarryKind = t.CarryKind,
+        ContainerId = t.ContainerId,
+        DirectSlotId = t.DirectSlotId ?? string.Empty,
+        ActivationState = t.ActivationState
+    };
     private static string Part(string value) => value.Length.ToString(CultureInfo.InvariantCulture) + ":" + value;
     private static string MemberKey(TotemSnapshot t) => Part(((int)t.CarryKind).ToString(CultureInfo.InvariantCulture)) + Part(t.ContainerId) + Part(t.ItemId);
     private static string StateKey(TotemSnapshot t) => MemberKey(t) + Part(t.DirectSlotId ?? string.Empty) + Part(((int)t.ActivationState).ToString(CultureInfo.InvariantCulture));

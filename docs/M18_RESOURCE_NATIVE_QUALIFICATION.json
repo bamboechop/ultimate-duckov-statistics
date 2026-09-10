@@ -1,0 +1,354 @@
+{
+  "SchemaVersion": 1,
+  "RecordedUtc": "2026-09-10T12:39:49.544871+02:00",
+  "Scope": "Two native totem resource open/close cycles, export and ordinary package restoration",
+  "SourceCommit": "830ef3f5633e7ba1f3caa5a0ee4a518e4675315c",
+  "DiagnosticDllSha256": "74e4586ddc4dad2202b6ae76b65e2543eaa7454331333bdad9098e21c2b7e220",
+  "ResourceResult": "Pass",
+  "LogSha256": "8f94c0790261406e4ffc69da8aca0048151f273b5555cd3d494c3f015b6ed5ce",
+  "Snapshots": [
+    {
+      "version": "1",
+      "sequence": "1",
+      "utc": "2026-09-10T10:31:32.8067218Z",
+      "frame": "16642",
+      "meshes": "2773",
+      "materials": "1282",
+      "textures": "3167",
+      "totemOwnerCount": "0",
+      "udsRoots": "[]",
+      "udsInputOwners": "[]",
+      "totemOwners": "[]",
+      "observedMeshesNowAbsent": "[]",
+      "destroyedOwnerMeshCandidates": "[]",
+      "trackedMeshes": "0",
+      "missingOwnerMeshes": "0",
+      "trackingComplete": "true",
+      "globalCountsAreNotAttribution": "true",
+      "candidateIdsMayBeReused": "true"
+    },
+    {
+      "version": "1",
+      "sequence": "2",
+      "utc": "2026-09-10T10:31:38.6910489Z",
+      "frame": "17729",
+      "meshes": "3416",
+      "materials": "1301",
+      "textures": "3174",
+      "totemOwnerCount": "12",
+      "udsRoots": "[-268776:active]",
+      "udsInputOwners": "[-268766:active]",
+      "totemOwners": "[-288622:-288624:active,-288606:-288608:active,-288544:-288546:active,-288528:-288530:active,-284666:-284668:inactive,-284650:-284652:inactive,-284484:-284486:inactive,-284468:-284470:inactive,-279418:-279420:inactive,-279402:-279404:inactive,-271276:0:inactive,-271274:0:inactive]",
+      "observedMeshesNowAbsent": "[]",
+      "destroyedOwnerMeshCandidates": "[]",
+      "trackedMeshes": "10",
+      "missingOwnerMeshes": "2",
+      "trackingComplete": "true",
+      "globalCountsAreNotAttribution": "true",
+      "candidateIdsMayBeReused": "true"
+    },
+    {
+      "version": "1",
+      "sequence": "3",
+      "utc": "2026-09-10T10:31:43.941445Z",
+      "frame": "18810",
+      "meshes": "2773",
+      "materials": "1282",
+      "textures": "3167",
+      "totemOwnerCount": "0",
+      "udsRoots": "[]",
+      "udsInputOwners": "[]",
+      "totemOwners": "[]",
+      "observedMeshesNowAbsent": "[-288622:-288624,-288606:-288608,-288544:-288546,-288528:-288530,-284666:-284668,-284650:-284652,-284484:-284486,-284468:-284470,-279418:-279420,-279402:-279404]",
+      "destroyedOwnerMeshCandidates": "[]",
+      "trackedMeshes": "0",
+      "missingOwnerMeshes": "0",
+      "trackingComplete": "true",
+      "globalCountsAreNotAttribution": "true",
+      "candidateIdsMayBeReused": "true"
+    },
+    {
+      "version": "1",
+      "sequence": "4",
+      "utc": "2026-09-10T10:31:50.5993286Z",
+      "frame": "20086",
+      "meshes": "3427",
+      "materials": "1301",
+      "textures": "3174",
+      "totemOwnerCount": "13",
+      "udsRoots": "[-295460:active]",
+      "udsInputOwners": "[-295450:active]",
+      "totemOwners": "[-317322:-317324:inactive,-313718:-313720:active,-313702:-313704:active,-313640:-313642:active,-313624:-313626:active,-311350:-311352:inactive,-311334:-311336:inactive,-311168:-311170:inactive,-311152:-311154:inactive,-306102:-306104:inactive,-306086:-306088:inactive,-297960:0:inactive,-297958:0:inactive]",
+      "observedMeshesNowAbsent": "[]",
+      "destroyedOwnerMeshCandidates": "[]",
+      "trackedMeshes": "11",
+      "missingOwnerMeshes": "2",
+      "trackingComplete": "true",
+      "globalCountsAreNotAttribution": "true",
+      "candidateIdsMayBeReused": "true"
+    },
+    {
+      "version": "1",
+      "sequence": "5",
+      "utc": "2026-09-10T10:31:55.3196899Z",
+      "frame": "21017",
+      "meshes": "2773",
+      "materials": "1282",
+      "textures": "3167",
+      "totemOwnerCount": "0",
+      "udsRoots": "[]",
+      "udsInputOwners": "[]",
+      "totemOwners": "[]",
+      "observedMeshesNowAbsent": "[-306102:-306104,-311152:-311154,-311168:-311170,-311334:-311336,-311350:-311352,-313624:-313626,-313640:-313642,-313702:-313704,-313718:-313720,-317322:-317324,-306086:-306088]",
+      "destroyedOwnerMeshCandidates": "[]",
+      "trackedMeshes": "0",
+      "missingOwnerMeshes": "0",
+      "trackingComplete": "true",
+      "globalCountsAreNotAttribution": "true",
+      "candidateIdsMayBeReused": "true"
+    }
+  ],
+  "Cycles": [
+    {
+      "Sequence": "3",
+      "ObservedPairs": [
+        "-279402:-279404",
+        "-279418:-279420",
+        "-284468:-284470",
+        "-284484:-284486",
+        "-284650:-284652",
+        "-284666:-284668",
+        "-288528:-288530",
+        "-288544:-288546",
+        "-288606:-288608",
+        "-288622:-288624"
+      ],
+      "AbsentPairs": [
+        "-279402:-279404",
+        "-279418:-279420",
+        "-284468:-284470",
+        "-284484:-284486",
+        "-284650:-284652",
+        "-284666:-284668",
+        "-288528:-288530",
+        "-288544:-288546",
+        "-288606:-288608",
+        "-288622:-288624"
+      ],
+      "Candidates": []
+    },
+    {
+      "Sequence": "5",
+      "ObservedPairs": [
+        "-306086:-306088",
+        "-306102:-306104",
+        "-311152:-311154",
+        "-311168:-311170",
+        "-311334:-311336",
+        "-311350:-311352",
+        "-313624:-313626",
+        "-313640:-313642",
+        "-313702:-313704",
+        "-313718:-313720",
+        "-317322:-317324"
+      ],
+      "AbsentPairs": [
+        "-306086:-306088",
+        "-306102:-306104",
+        "-311152:-311154",
+        "-311168:-311170",
+        "-311334:-311336",
+        "-311350:-311352",
+        "-313624:-313626",
+        "-313640:-313642",
+        "-313702:-313704",
+        "-313718:-313720",
+        "-317322:-317324"
+      ],
+      "Candidates": []
+    }
+  ],
+  "InactiveOwnersWithoutMesh": [
+    {
+      "Sequence": "2",
+      "Owner": "-271276"
+    },
+    {
+      "Sequence": "2",
+      "Owner": "-271274"
+    },
+    {
+      "Sequence": "4",
+      "Owner": "-297958"
+    },
+    {
+      "Sequence": "4",
+      "Owner": "-297960"
+    }
+  ],
+  "ReaderCorrection": {
+    "OriginalResult": "Needs review; two inactive zero-mesh owners in each open snapshot were mistakenly included in the expected released mesh set.",
+    "Reason": "The native SpriteMesh getter reports no live mesh as ID zero. Native OnEnable allocates the mesh; inactive components may have none. Mesh destruction is evaluated only for nonzero mesh identities actually observed. Closed owner/root/input absence is still required.",
+    "Change": "Offline reader only; active zero-mesh owners, missing releases and retained mesh/input owners still require review. No production change or repeated native capture.",
+    "Cases": {
+      "actual": "Pass",
+      "active_missing_mesh": "Needs review",
+      "retained_mesh": "Needs review",
+      "retained_input": "Needs review"
+    },
+    "CorrectedReaderSha256": "663b8aa640f2408e256fa758f61eac432db054466d2db73680cb1ef3ce8093c3",
+    "OriginalResultSha256": "3ab81d3a102afefa656495596fa7bbaa0c82637cab8f1d124fa0e43693cab543",
+    "CorrectedResultSha256": "a2885b13f4ee2b26be8de13645e8956de41464a06980f0d488f54a962d670139"
+  },
+  "Export": {
+    "Name": "20260910T1032017133179Z-304ab645d198451e992c0cb3057ebe87",
+    "Sha256": "7365e412c9b459276a5bed8fccdf38cb5f2c6edabe1328e9c7a1c961fc0bf414",
+    "Files": 37,
+    "Slot": 1,
+    "GenerationId": "304ab645d198451e992c0cb3057ebe87",
+    "Revision": 4238,
+    "Runs": 5,
+    "CapabilityCount": 62,
+    "BaselinePartialCapabilities": {
+      "native-economy-money-source": 1,
+      "native-economy-money-context": 1,
+      "native-economy-cash-acquisition": 1
+    }
+  },
+  "OrdinaryRestoration": {
+    "RecordedUtc": "2026-09-10T10:36:57.1703416Z",
+    "UserConfirmedClosure": true,
+    "SourceCommit": "830ef3f5633e7ba1f3caa5a0ee4a518e4675315c",
+    "InstalledKind": "Ordinary",
+    "Files": [
+      {
+        "Name": "info.ini",
+        "Sha256": "2cd0a7e45d5da9b2a44e860c0e5e1a28f07c0107fef86603335523521c8b54e5"
+      },
+      {
+        "Name": "INSTALL.md",
+        "Sha256": "7a00d33745dc37425bc8396780e672027738103ea5fe1c39f0c1ba129e6af016"
+      },
+      {
+        "Name": "LICENSE",
+        "Sha256": "04e8cf95fce9a5f2ced55639328dabaf55698116acc56bfd0a0912246238541c"
+      },
+      {
+        "Name": "UltimateDuckovStatistics.Core.dll",
+        "Sha256": "e2a9256f58ba08b3bc5b127184a297548c85020f23d90564b763ca8754984ca6"
+      },
+      {
+        "Name": "UltimateDuckovStatistics.dll",
+        "Sha256": "08c59c3b03ea47fc2bdb455486eb0f2fd31ae8c76d05c5aca21bcb4eeb57b937"
+      }
+    ],
+    "UdsDataFilesUnchanged": 2943,
+    "ProtectedFilesUnchanged": true,
+    "TransactionResidue": false,
+    "Log": "artifacts/m18-resource-native-20260910/ordinary-deployment.log",
+    "NativeColdActivation": "Pass; subsequent same-generation export and unchanged persisted run/statistics projections verified below."
+  },
+  "PriorRemoteDelivery": {
+    "VerifiedAtUtc": "2026-09-10T10:17:08.3209135Z",
+    "ApprovedCommit": "c074386667907e625ffe8acf1b594db1ce30f57e",
+    "Repository": "bamboechop/ultimate-duckov-statistics",
+    "Branch": "codex/m18-release-hardening",
+    "PullRequest": "https://github.com/bamboechop/ultimate-duckov-statistics/pull/19",
+    "PreparedBodyMatches": true,
+    "Checks": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-09-10T10:14:37Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/bamboechop/ultimate-duckov-statistics/actions/runs/34464780634/job/102830688894",
+        "name": "core (Debug)",
+        "startedAt": "2026-09-10T10:11:57Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-09-10T10:15:07Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/bamboechop/ultimate-duckov-statistics/actions/runs/34464773456/job/102830665473",
+        "name": "core (Debug)",
+        "startedAt": "2026-09-10T10:11:52Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-09-10T10:14:46Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/bamboechop/ultimate-duckov-statistics/actions/runs/34464780634/job/102830688997",
+        "name": "core (Release)",
+        "startedAt": "2026-09-10T10:11:58Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-09-10T10:14:57Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/bamboechop/ultimate-duckov-statistics/actions/runs/34464773456/job/102830665334",
+        "name": "core (Release)",
+        "startedAt": "2026-09-10T10:11:52Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-09-10T10:12:00Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/bamboechop/ultimate-duckov-statistics/actions/runs/34464780634/job/102830688618",
+        "name": "source-safety",
+        "startedAt": "2026-09-10T10:11:56Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-09-10T10:11:59Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/bamboechop/ultimate-duckov-statistics/actions/runs/34464773456/job/102830665127",
+        "name": "source-safety",
+        "startedAt": "2026-09-10T10:11:53Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      }
+    ]
+  },
+  "UserReport": "Done in response to confirmation of green Diagnostics, five retained runs, successful export and request to mention visual/input issues. No issue reported.",
+  "Limits": [
+    "Only observed UDS mesh identities and closed UI owners. Global counts and process memory do not prove attribution, GPU reclamation or unbounded-history performance.",
+    "Exact baseline global counts are supporting context, not independent attribution of every native allocation.",
+    "Player log contains a native GL.End requires material.SetPass before message with UnityPlayer-only stack before the measured snapshots; no UDS call path is established by that message.",
+    "Observed performance acceptance, controlled multi-target and bounded-history decisions are unchanged."
+  ],
+  "OrdinaryColdActivation": {
+    "Result": "Pass",
+    "ExportName": "20260910T1039454525949Z-304ab645d198451e992c0cb3057ebe87",
+    "ExportUtc": "2026-09-10T10:39:45.452Z",
+    "ExportSha256": "093084664ba3e3c4be17719c6f51702640e8178b99cbf7bbbe81a8cf8f5b6c50",
+    "Files": 37,
+    "Slot": 1,
+    "GenerationId": "304ab645d198451e992c0cb3057ebe87",
+    "Revision": 4268,
+    "Runs": 5,
+    "UnchangedProjectionFields": [
+      "Runs",
+      "Overall",
+      "Groups",
+      "Items",
+      "RunTotals",
+      "RunRecords",
+      "Crafting"
+    ],
+    "CapabilitiesUnchanged": true,
+    "ProfileOpen": "[UDS] Profile opened slot=1 generation=304ab645d198451e992c0cb3057ebe87 created=False rotated=False recovered=False migrated=True unsupportedArchived=False interruptedSession=False interruptedRun=False.",
+    "DiagnosticSnapshotOrCounterLogPresent": false,
+    "LogSha256": "1dd6920b39474fba26834604b091655a5b008c916d061ca9bec5dfaadae73664",
+    "UserReport": "Done in response to confirmation of green Diagnostics, five retained runs, successful export and request to mention visual/input issues. No issue reported."
+  },
+  "SubsequentCoverageDecision": "M18_COVERAGE_ACCEPTANCE.json records explicit acceptance of both limits; their measured/not-exercised status is unchanged."
+}

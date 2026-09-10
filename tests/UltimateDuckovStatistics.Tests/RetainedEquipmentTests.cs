@@ -9,6 +9,25 @@ namespace UltimateDuckovStatistics.Tests;
 #pragma warning disable CA1861
 public sealed class RetainedEquipmentTests
 {
+    [Fact]
+    public void CurrentLanguageResolvesEquipmentAndLoadoutTooltipsWithoutChangingDurationsOrComposition()
+    {
+        var profile = Profile(); var snapshot = EquipmentCompositionTests.Snapshot();
+        var item = snapshot.Items[0]; item.ItemDisplayName = "Schrott-Bogen";
+        snapshot.CharacterSlots[0].ItemDisplayName = "Schrott-Bogen";
+        Observe(profile, snapshot);
+        var before = System.Text.Json.JsonSerializer.Serialize(profile);
+        var p = Projection(profile); p.Names = new EntityDisplayNames(id => id == item.ItemId ? "Scrap Bow" : null,
+            (parent, key) => parent == item.ItemId && key == "Scope" ? "Sight" : null);
+        var result = EquipmentPresentationFactory.Create(p, "g")!;
+        Assert.Equal("Scrap Bow", result.Weapons[0].Name);
+        Assert.Equal(10, result.Weapons[0].Duration);
+        Assert.Contains(result.Weapons[0].Groups, group => group.Name == "Sight");
+        Assert.Contains("Scrap Bow", result.MostUsed!.Slots[0].Text, StringComparison.Ordinal);
+        Assert.Contains("Sight", result.MostUsed.Slots[0].Text, StringComparison.Ordinal);
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(profile));
+    }
+
     private static ProfileDocument Profile()
     {
         var profile = new ProfileDocument { GenerationId = "g", Statistics = new ProfileStatistics { SaveGenerationId = "g" } };
@@ -29,14 +48,21 @@ public sealed class RetainedEquipmentTests
         if (expand) foreach (var id in p.ExpansionIds) s.Toggle("g", id);
         var d = new EquipmentDocument(Measure); d.Page(s, right, narrow ? 900 : 1400, narrow); return d;
     }
-    [Fact] public void FactoryBindsCompletePublicationAndRejectsMixedOrLostGeneration()
+    [Fact]
+    public void FactoryBindsCompletePublicationAndRejectsMixedOrLostGeneration()
     {
         var p = Projection(); Assert.NotNull(EquipmentPresentationFactory.Create(p, "g"));
         Assert.Null(EquipmentPresentationFactory.Create(p, "other"));
         p.Profile.Statistics.SaveGenerationId = "lost"; Assert.Null(EquipmentPresentationFactory.Create(p, "g"));
     }
     [Theory]
-    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)] [InlineData(5)] [InlineData(6)]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
     public void ReplacedPublicationMemberFailsBinding(int field)
     {
         var p = Projection();
@@ -52,7 +78,8 @@ public sealed class RetainedEquipmentTests
         }
         Assert.Null(EquipmentPresentationFactory.Create(p, "g"));
     }
-    [Fact] public void LongerSingleRunLoadoutWinsAndDefinitionCopiesAreImmutable()
+    [Fact]
+    public void LongerSingleRunLoadoutWinsAndDefinitionCopiesAreImmutable()
     {
         var p = Profile(); var a = Observe(p, duration: 999); var id = a.Loadouts.Keys.Single(); a.Loadouts[id].RunOccurrences = 1;
         a.Loadouts.Add("recurring", new EquipmentDurationAggregate { Id = "recurring", ActiveDurationSeconds = 10, RunOccurrences = 3 });
@@ -61,7 +88,8 @@ public sealed class RetainedEquipmentTests
         a.Composition.Loadouts[id].Items[0].NestedSlots.Clear(); a.Composition.Loadouts[id].Roots.Clear();
         Assert.Equal(2, presented.MostUsed.Slots.Count); Assert.Single(presented.MostUsed.Slots[0].Attachments);
     }
-    [Fact] public void MostUsedUsesOrdinalIdForEqualDurationAndKeepsActualCount()
+    [Fact]
+    public void MostUsedUsesOrdinalIdForEqualDurationAndKeepsActualCount()
     {
         var p = Profile(); var rows = p.Statistics.RunTotals.EquipmentStatistics.Loadouts;
         rows.Add("a", new EquipmentDurationAggregate { Id = "a", ActiveDurationSeconds = 50, RunOccurrences = 7 });
@@ -70,7 +98,8 @@ public sealed class RetainedEquipmentTests
         rows["Z"].RunOccurrences = 0;
         Assert.Equal("Used in 0 runs", Present(p).MostUsed!.Caption);
     }
-    [Fact] public void SingleRunHistoricalWinnerStaysUnavailableAndRecurringExportKeepsItsFilter()
+    [Fact]
+    public void SingleRunHistoricalWinnerStaysUnavailableAndRecurringExportKeepsItsFilter()
     {
         var p = Profile(); var a = Observe(p); a.Loadouts.Values.Single().RunOccurrences = 3;
         a.Loadouts.Add("long-single", new EquipmentDurationAggregate { Id = "long-single", ActiveDurationSeconds = 500, RunOccurrences = 1 });
@@ -84,7 +113,8 @@ public sealed class RetainedEquipmentTests
         Assert.Equal(500, a.Loadouts["long-single"].ActiveDurationSeconds);
         Assert.Equal(1, a.Loadouts["long-single"].RunOccurrences);
     }
-    [Fact] public void ReplacedLifetimeLoadoutPublicationFailsBindingAndEmptyStateHasNoRunThreshold()
+    [Fact]
+    public void ReplacedLifetimeLoadoutPublicationFailsBindingAndEmptyStateHasNoRunThreshold()
     {
         var projection = Projection(); projection.Equipment.Lifetime.Loadouts = new();
         Assert.Null(EquipmentPresentationFactory.Create(projection, "g"));
@@ -92,14 +122,21 @@ public sealed class RetainedEquipmentTests
         Assert.Contains(doc.Rows, r => r.Name == "No loadout observations recorded");
         Assert.DoesNotContain(doc.Rows, r => r.Name.Contains("recurring", StringComparison.OrdinalIgnoreCase));
     }
-    [Fact] public void HistoricalLoadoutKeepsDurationAndNeverParsesDescription()
+    [Fact]
+    public void HistoricalLoadoutKeepsDurationAndNeverParsesDescription()
     {
-        var p = Profile(); p.Statistics.RunTotals.EquipmentStatistics.Loadouts.Add("old", new EquipmentDurationAggregate {
-            Id = "old", DisplayName = "weapon:99; Scope", ActiveDurationSeconds = 20, RunOccurrences = 3 });
+        var p = Profile(); p.Statistics.RunTotals.EquipmentStatistics.Loadouts.Add("old", new EquipmentDurationAggregate
+        {
+            Id = "old",
+            DisplayName = "weapon:99; Scope",
+            ActiveDurationSeconds = 20,
+            RunOccurrences = 3
+        });
         var result = Present(p).MostUsed!; Assert.Equal(20, result.Duration); Assert.Empty(result.Slots);
         Assert.Contains("unavailable", result.Notice); Assert.DoesNotContain("Scope", result.Name);
     }
-    [Fact] public void SelectedTimeGroupsSlotsAndRemainsDifferentFromEquippedDuration()
+    [Fact]
+    public void SelectedTimeGroupsSlotsAndRemainsDifferentFromEquippedDuration()
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot(); s.SelectedWeaponId = s.Items[0].ItemId; s.SelectedWeaponSlotId = s.Items[0].SlotId;
         var a = Observe(p, s); a.SelectedWeapons.Values.Single().ActiveDurationSeconds = 3;
@@ -107,10 +144,18 @@ public sealed class RetainedEquipmentTests
         var result = Present(p); Assert.Equal(5, result.SelectedWeapons.Single().Duration); Assert.Equal(10, result.Weapons.Single().Duration);
         Assert.Equal(2, result.SelectedWeapons.Single().Groups.Single().Rows.Count); Assert.Contains("selected", result.SelectedWeapons.Single().Caption);
     }
-    [Fact] public void RecentRunUsesOwnMostUsedAndExactRouteNeverTerminalOrNewestFallback()
+    [Fact]
+    public void RecentRunUsesOwnMostUsedAndExactRouteNeverTerminalOrNewestFallback()
     {
-        var p = Profile(); var a = Observe(p); var run = new RunSummary { RunId = "old", SaveGenerationId = "g", StartedUtc = new DateTime(2026, 9, 1, 1, 2, 3, DateTimeKind.Utc), EndedUtc = DateTime.UtcNow,
-            MapDisplayName = "Route", EquipmentStatistics = EquipmentStatisticsReducer.Clone(a) };
+        var p = Profile(); var a = Observe(p); var run = new RunSummary
+        {
+            RunId = "old",
+            SaveGenerationId = "g",
+            StartedUtc = new DateTime(2026, 9, 1, 1, 2, 3, DateTimeKind.Utc),
+            EndedUtc = DateTime.UtcNow,
+            StartingMapDisplayName = "Route",
+            EquipmentStatistics = EquipmentStatisticsReducer.Clone(a)
+        };
         run.EquipmentStatistics.Loadouts.Add("history", new EquipmentDurationAggregate { Id = "history", ActiveDurationSeconds = 99 });
         p.Statistics.Runs.Add(run); var result = Present(p);
         Assert.Equal(99, result.Recent.Single().Duration); Assert.Empty(result.Recent.Single().Slots);
@@ -118,10 +163,17 @@ public sealed class RetainedEquipmentTests
         Assert.Contains("Most used during this run", result.Recent[0].Caption);
         Assert.StartsWith(run.StartedUtc.ToLocalTime().ToString("yyyy-MM-dd - HH:mm", System.Globalization.CultureInfo.InvariantCulture), result.Recent[0].Caption);
     }
-    [Fact] public void WeaponsOrderAndNestedStatePreserveEmptyPartialAndModdedGroups()
+    [Fact]
+    public void WeaponsOrderAndNestedStatePreserveEmptyPartialAndModdedGroups()
     {
-        var p = Profile(); var s = EquipmentCompositionTests.Snapshot(); s.Items[0].NestedSlots.Add(new NestedEquipmentSlotSnapshot {
-            Path = "3:Mod/", SlotKey = "Mod", SlotDisplayName = "Modded", ItemId = "mod:1", ItemDisplayName = "Attachment" });
+        var p = Profile(); var s = EquipmentCompositionTests.Snapshot(); s.Items[0].NestedSlots.Add(new NestedEquipmentSlotSnapshot
+        {
+            Path = "3:Mod/",
+            SlotKey = "Mod",
+            SlotDisplayName = "Modded",
+            ItemId = "mod:1",
+            ItemDisplayName = "Attachment"
+        });
         Observe(p, s); var result = Present(p); var w = result.Weapons.Single();
         Assert.Contains(w.Groups, g => g.Name == "Scope" && g.Rows.Single().Name == "Nothing equipped");
         Assert.Contains(w.Groups, g => g.Name == "Modded" && g.Rows.Single().ItemId == "mod:1");
@@ -132,7 +184,8 @@ public sealed class RetainedEquipmentTests
         Assert.Equal(EquipmentSlotState.Empty, empty.EvidenceState);
         Assert.Equal(new[] { 0, 1, 2, 3, 4, 5 }, new[] { "Scope", "Muzzle", "Grip", "Stock", "Tactics", "Magazine" }.Select(EquipmentPresentationFactory.NestedOrder));
     }
-    [Fact] public void ArmorExcludesKnownWeaponAndTotemSlotsButRetainsUnknownEmpty()
+    [Fact]
+    public void ArmorExcludesKnownWeaponAndTotemSlotsButRetainsUnknownEmpty()
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot(); Observe(p, s);
         var result = Present(p); Assert.Single(result.Armor); Assert.Equal("Modded slot", result.Armor[0].Name);
@@ -141,35 +194,46 @@ public sealed class RetainedEquipmentTests
             row => row.Name == "Nothing equipped");
         Assert.True(empty.HasIcon); Assert.True(empty.EmptyIcon);
     }
-    [Fact] public void TotemStatesSeparateInactiveDirectPresenceAndUnknownToteFromActiveSets()
+    [Fact]
+    public void TotemStatesSeparateInactiveDirectPresenceAndUnknownToteFromActiveSets()
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot();
         s.Totems[0].ActivationState = TotemActivationState.ProvenInactive;
-        s.Totems.Add(new TotemSnapshot { ItemId = "duckov:totem:3", DisplayName = "Carried", CarryKind = TotemCarryKind.ToteInventory,
-            ContainerId = "duckov:tote:1255", ActivationState = TotemActivationState.Unknown });
+        s.Totems.Add(new TotemSnapshot
+        {
+            ItemId = "duckov:totem:3",
+            DisplayName = "Carried",
+            CarryKind = TotemCarryKind.ToteInventory,
+            ContainerId = "duckov:tote:1255",
+            ActivationState = TotemActivationState.Unknown
+        });
         s.TotemSetId = EquipmentIdentity.ActiveTotemSetId(s.Totems); Observe(p, s);
         var result = Present(p); Assert.Single(result.DirectTotems); Assert.Single(result.ToteTotems); Assert.Empty(result.ActiveSets);
         Assert.Contains("Proven inactive", result.DirectTotems[0].Groups[0].Rows[0].Caption); Assert.Contains("carried", result.ToteTotems[0].Caption);
         var doc = Document(result, EquipmentPanelSection.Totems, true); Assert.Contains(doc.Rows, r => r.Name == "Presence is tracked; effect activation is unknown");
     }
-    [Fact] public void SingletonWordingRequiresExactDefinitionAndNeverHumanDescription()
+    [Fact]
+    public void SingletonWordingRequiresExactDefinitionAndNeverHumanDescription()
     {
         var p = Profile(); var a = Observe(p); var exact = Present(p); Assert.Contains("No other active totem", exact.ActiveSets[0].Notice);
         a.Composition.ActiveTotemSets.Clear(); a.TotemSets.Values.Single().DisplayName = "One totem";
         Assert.DoesNotContain("No other active totem", Present(p).ActiveSets[0].Notice);
     }
-    [Fact] public void EmptyDirectTimeRequiresTypedProofNotLocalizedEmptyName()
+    [Fact]
+    public void EmptyDirectTimeRequiresTypedProofNotLocalizedEmptyName()
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot(); s.CharacterSlots[1].SlotDisplayName = "Totem slot 1"; Observe(p, s);
         Assert.Empty(Present(p).EmptySlots);
         var doc = Document(Present(p), EquipmentPanelSection.Totems); Assert.Contains(doc.Rows, r => r.Name == "Unavailable");
     }
-    [Fact] public void CurrentDegradationDoesNotHideHistoricalValuesOrValidSibling()
+    [Fact]
+    public void CurrentDegradationDoesNotHideHistoricalValuesOrValidSibling()
     {
         var p = Profile(); Observe(p); p.Capabilities.Single(c => c.AdapterId == EquipmentCapabilityIds.DirectTotems).State = AdapterCapabilityState.DisabledIncompatible;
         var result = Present(p); Assert.Single(result.DirectTotems); Assert.NotEmpty(result.Notices["direct"]); Assert.Equal("", result.Notices["tote"]);
     }
-    [Fact] public void EverySelectorStatePreservesOffsetsExpansionAndResetsOnGenerationLoss()
+    [Fact]
+    public void EverySelectorStatePreservesOffsetsExpansionAndResetsOnGenerationLoss()
     {
         var p = Profile(); Observe(p); var result = Present(p); var s = new EquipmentSelection(); s.Refresh(result);
         Assert.Equal(EquipmentPanelSection.Loadouts, s.Page);
@@ -179,7 +243,9 @@ public sealed class RetainedEquipmentTests
         Assert.Equal(10, s.Offset("primary", 100, 110)); s.Refresh(null); Assert.False(s.Expanded(result.Weapons[0].Id)); Assert.False(s.Toggle("g", result.Weapons[0].Id));
         Assert.Equal(EquipmentPanelSection.Loadouts, s.Page);
     }
-    [Theory] [InlineData(false)] [InlineData(true)]
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void MeasuredDocumentRetainsAllGroupsLongNamesAndAdditionalGridSlots(bool narrow)
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot();
@@ -193,11 +259,17 @@ public sealed class RetainedEquipmentTests
         Assert.Equal(result.Armor.Count, armorLeft.Rows.Concat(armorRight.Rows).Count(r => r.Kind == EquipmentRowKind.Heading));
         Assert.Contains(armorLeft.Rows.Concat(armorRight.Rows), r => r.Kind == EquipmentRowKind.Heading && r.Height > 80);
     }
-    [Fact] public void NarrowNestedGroupsStackEntireLeftColumnBeforeRightColumn()
+    [Fact]
+    public void NarrowNestedGroupsStackEntireLeftColumnBeforeRightColumn()
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot();
-        foreach (var key in new[] { "Muzzle", "Grip", "Stock", "Tactics", "Magazine" }) s.Items[0].NestedSlots.Add(new NestedEquipmentSlotSnapshot {
-            Path = key.Length + ":" + key + "/", SlotKey = key, SlotDisplayName = key, State = EquipmentSlotState.Empty });
+        foreach (var key in new[] { "Muzzle", "Grip", "Stock", "Tactics", "Magazine" }) s.Items[0].NestedSlots.Add(new NestedEquipmentSlotSnapshot
+        {
+            Path = key.Length + ":" + key + "/",
+            SlotKey = key,
+            SlotDisplayName = key,
+            State = EquipmentSlotState.Empty
+        });
         Observe(p, s); var result = Present(p);
         var narrow = Document(result, EquipmentPanelSection.Weapons, narrow: true, expand: true);
         var headings = narrow.Rows.Where(r => r.Kind == EquipmentRowKind.Heading).ToArray();
@@ -205,7 +277,8 @@ public sealed class RetainedEquipmentTests
         var desktop = Document(result, EquipmentPanelSection.Weapons, expand: true);
         Assert.True(desktop.Rows.Where(r => r.Kind == EquipmentRowKind.Heading).Select(r => r.X).Distinct().Count() > 1);
     }
-    [Fact] public void LargeHistoryMaterializesOnlyVisibleRowsAndReachesTrueBottom()
+    [Fact]
+    public void LargeHistoryMaterializesOnlyVisibleRowsAndReachesTrueBottom()
     {
         var d = new EquipmentDocument(Measure); float y = 30;
         for (var i = 0; i < 10000; i++) y += d.Add(new EquipmentRenderRow { Id = "row:" + i, Name = "Weapon " + i, Kind = EquipmentRowKind.Item }, 30, y, 800);
@@ -217,37 +290,47 @@ public sealed class RetainedEquipmentTests
         Assert.True(OverflowCuePolicy.Resolve(500, d.Height, bottom / 2).ShowTrailing);
         Assert.True(OverflowCuePolicy.Resolve(500, d.Height, bottom).ShowLeading); Assert.False(OverflowCuePolicy.Resolve(500, d.Height, bottom).ShowTrailing);
     }
-    [Fact] public void ReadonlyRowsDoNotAcquireActionsAndOnlyHeadersExpand()
+    [Fact]
+    public void ReadonlyRowsDoNotAcquireActionsAndOnlyHeadersExpand()
     {
         var p = Profile(); Observe(p); var result = Present(p);
         var doc = Document(result, EquipmentPanelSection.Weapons, expand: true);
         Assert.Single(doc.Rows, r => r.Actionable); Assert.True(doc.Rows.Single(r => r.Actionable).Expandable);
         Assert.All(Document(result, EquipmentPanelSection.Loadouts).Rows.Where(r => r.Kind != EquipmentRowKind.Slot), r => Assert.False(r.Actionable));
     }
-    [Fact] public void ZeroDurationRowRemainsZeroWhileAbsentObservationHasItsOwnNotice()
+    [Fact]
+    public void ZeroDurationRowRemainsZeroWhileAbsentObservationHasItsOwnNotice()
     {
         var p = Profile(); var a = Observe(p); a.SelectedWeapons.Add("slot|weapon", new EquipmentDurationAggregate { Id = "slot|weapon", ActiveDurationSeconds = 0 });
         Assert.Equal(0, Present(p).SelectedWeapons.Single().Duration);
         Assert.Contains(Document(Present(), EquipmentPanelSection.Loadouts).Rows, r => r.Name == "No observations recorded");
     }
-    [Fact] public void SelectedDurationOverflowIsRejectedRatherThanInvented()
+    [Fact]
+    public void SelectedDurationOverflowIsRejectedRatherThanInvented()
     {
         var p = Profile(); var a = p.Statistics.RunTotals.EquipmentStatistics;
         a.SelectedWeapons.Add("a|w", new EquipmentDurationAggregate { Id = "a|w", ActiveDurationSeconds = decimal.MaxValue });
         a.SelectedWeapons.Add("b|w", new EquipmentDurationAggregate { Id = "b|w", ActiveDurationSeconds = decimal.MaxValue });
         Assert.Throws<OverflowException>(() => Present(p));
     }
-    [Fact] public void NativeTotemSlotLabelsUseProvenStableKeysAndRetainExactAttribution()
+    [Fact]
+    public void NativeTotemSlotLabelsUseProvenStableKeysAndRetainExactAttribution()
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot(); s.Totems[0].DirectSlotId = "duckov:slot:Totem2";
-        s.CharacterSlots.Add(new CharacterEquipmentSlotSnapshot { SlotId = "duckov:slot:Totem1", SlotDisplayName = "Totem",
-            IsDirectTotemSlot = true, State = EquipmentSlotState.Empty });
+        s.CharacterSlots.Add(new CharacterEquipmentSlotSnapshot
+        {
+            SlotId = "duckov:slot:Totem1",
+            SlotDisplayName = "Totem",
+            IsDirectTotemSlot = true,
+            State = EquipmentSlotState.Empty
+        });
         Observe(p, s); var result = Present(p);
         Assert.Equal("Totem slot 1", result.EmptySlots.Single().Name);
         Assert.Equal("Totem slot 2", result.DirectTotems.Single().Groups[0].Rows[0].Name);
         Assert.DoesNotContain(result.Armor, g => g.Name == "Totem");
     }
-    [Fact] public void BackpackExpandsOnlyObservedNestedEquipmentSlots()
+    [Fact]
+    public void BackpackExpandsOnlyObservedNestedEquipmentSlots()
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot();
         s.Items[0].Kind = EquipmentItemKind.Backpack; s.Items[0].SlotId = "duckov:slot:Backpack"; s.Items[0].SlotDisplayName = "Backpack";
@@ -257,20 +340,28 @@ public sealed class RetainedEquipmentTests
         var bag = result.Armor.Single(g => g.Name == "Backpack").Rows.Single(); Assert.True(bag.Expandable);
         Assert.Equal("Nothing equipped", bag.Groups.Single().Rows.Single().Name);
     }
-    [Fact] public void MissingNamesAndIconsNeverUseStableIdsAsPrimaryWeaponLabel()
+    [Fact]
+    public void MissingNamesAndIconsNeverUseStableIdsAsPrimaryWeaponLabel()
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot(); s.Items[0].ItemDisplayName = s.CharacterSlots[0].ItemDisplayName = "";
         Observe(p, s); var w = Present(p).Weapons.Single(); Assert.Equal("Unknown item", w.Name);
         Assert.Equal("duckov:weapon:1", w.ItemId); Assert.Null(CombatItemIconPolicy.Resolve<object>(w.ItemId, _ => null));
     }
-    [Fact] public void RecentHistoryIsCompleteAndNewestEndTimestampFirst()
+    [Fact]
+    public void RecentHistoryIsCompleteAndNewestEndTimestampFirst()
     {
         var p = Profile();
-        for (var i = 0; i < 100; i++) p.Statistics.Runs.Add(new RunSummary { RunId = i.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            SaveGenerationId = "g", EndedUtc = DateTime.UnixEpoch.AddSeconds(i), MapDisplayName = "Route" });
+        for (var i = 0; i < 100; i++) p.Statistics.Runs.Add(new RunSummary
+        {
+            RunId = i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            SaveGenerationId = "g",
+            EndedUtc = DateTime.UnixEpoch.AddSeconds(i),
+            StartingMapDisplayName = "Route"
+        });
         var result = Present(p); Assert.Equal(100, result.Recent.Count); Assert.Equal("99", result.Recent[0].RunId);
     }
-    [Fact] public void CapturedSlotInspectionWorksByIdentityAndNeverAddsActionsToEmptyRoots()
+    [Fact]
+    public void CapturedSlotInspectionWorksByIdentityAndNeverAddsActionsToEmptyRoots()
     {
         var p = Profile(); var a = Observe(p); a.Loadouts.Values.Single().RunOccurrences = 2;
         var state = new EquipmentSelection(); state.Refresh(Present(p));
@@ -282,7 +373,8 @@ public sealed class RetainedEquipmentTests
         state.Focus("primary", id); state.Refresh(Present());
         Assert.Null(state.InspectedId); Assert.Null(state.FocusId("primary"));
     }
-    [Fact] public void LoadoutFooterShowsOneDurationAndOneSpecificHistoricalNotice()
+    [Fact]
+    public void LoadoutFooterShowsOneDurationAndOneSpecificHistoricalNotice()
     {
         var p = Profile(); var a = p.Statistics.RunTotals.EquipmentStatistics;
         a.Composition.HistoricalUnavailable = true;
@@ -295,7 +387,8 @@ public sealed class RetainedEquipmentTests
         Assert.DoesNotContain(doc.Rows.TakeWhile(r => r.Kind != EquipmentRowKind.Footer), r => r.Name.Contains("Earlier history is unavailable", StringComparison.Ordinal));
         Assert.Single(doc.Rows, r => r.Name.Contains("active time", StringComparison.Ordinal) || r.Caption.Contains("active time", StringComparison.Ordinal));
     }
-    [Fact] public void SelectedRowsAreCompactAndWeaponTotalsAreOnTheSecondLine()
+    [Fact]
+    public void SelectedRowsAreCompactAndWeaponTotalsAreOnTheSecondLine()
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot(); s.SelectedWeaponId = s.Items[0].ItemId; s.SelectedWeaponSlotId = s.Items[0].SlotId;
         Observe(p, s); var result = Present(p);
@@ -310,7 +403,8 @@ public sealed class RetainedEquipmentTests
         Assert.StartsWith("00:10.000 equipped in ", slot.Name); Assert.False(slot.Actionable);
         Assert.Equal(slot.NameHeight + 4, slot.Height);
     }
-    [Fact] public void RecentRouteUsesEndpointsAndSharedLocalizedButtonLabel()
+    [Fact]
+    public void RecentRouteUsesEndpointsAndSharedLocalizedButtonLabel()
     {
         var p = Profile(); var run = new RunSummary { RunId = "route", SaveGenerationId = "g", EndedUtc = DateTime.UnixEpoch };
         run.Segments.Add(new() { SegmentIndex = 2, MapDisplayName = "End" });
@@ -325,7 +419,9 @@ public sealed class RetainedEquipmentTests
         run.Segments.RemoveAll(s => s.SegmentIndex != 0);
         Assert.Equal("Start", Present(p).Recent.Single().Name);
     }
-    [Theory] [InlineData(false)] [InlineData(true)]
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void ExpandedSurfaceEnclosesHeaderAndDetailsButNotTheNextItem(bool gear)
     {
         var p = Profile(); var s = EquipmentCompositionTests.Snapshot();
@@ -347,14 +443,16 @@ public sealed class RetainedEquipmentTests
             r => Assert.True(r.Y + r.Height <= surface.Y + surface.Height));
         Assert.Empty(open.VisibleSurfaces(surface.Y + surface.Height + 101, 100));
     }
-    [Fact] public void TallExpandedSurfaceDoesNotExpandVisibleRowWork()
+    [Fact]
+    public void TallExpandedSurfaceDoesNotExpandVisibleRowWork()
     {
         var d = new EquipmentDocument(Measure); float y = 30;
         for (var i = 0; i < 10000; i++) y += d.Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Item, Name = "Attachment" }, 30, y, 800);
         d.Surfaces.Add(new EquipmentSurface(30, 30, 800, y - 30)); d.Seal();
         Assert.Single(d.VisibleSurfaces(d.Height - 500, 500)); Assert.True(d.Visible(d.Height - 500, 500).Count < 30);
     }
-    [Fact] public void ProductionCompositionWiresLifecycleNativeFeedbackRoundedClippingAndCleanup()
+    [Fact]
+    public void ProductionCompositionWiresLifecycleNativeFeedbackRoundedClippingAndCleanup()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root != null && !File.Exists(Path.Combine(root.FullName, "UltimateDuckovStatistics.sln"))) root = root.Parent;

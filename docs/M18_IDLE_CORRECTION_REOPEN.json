@@ -1,0 +1,312 @@
+{
+  "SourceCommit": "7667fdface781af0f8038e8b1b6a39475ba217f8",
+  "Result": "Pass for user-confirmed green Diagnostics/current run and inspected restart/export retention; native performance remains unqualified",
+  "UserConfirmation": {
+    "QuestionCallId": "call_v8IMH9OrHEqXE3YQTPJHplOV",
+    "Answer": "All good. Exported."
+  },
+  "ActivationUtc": "2026-09-08T23:11:24.0320138Z",
+  "ProcessIdAtInspection": 25968,
+  "GenerationId": "6e5cbc624f234ec1a773e40251a0da39",
+  "CreatedOrRotated": false,
+  "RecoveredOrInterrupted": false,
+  "OpenLogMigratedFlag": true,
+  "OpenLogMigratedFlagScope": "Preserved verbatim; this does not establish an unsupported predecessor migration. Same-generation current-schema completed statistics remain unchanged.",
+  "CompletedRuns": 1,
+  "RunId": "77bb3a8ed0a546ffaea41aa66fa3b40f",
+  "CompletedRunAndEquipmentHistoryUnchanged": true,
+  "StableProfileAndJsonSections": [
+    "Runs",
+    "RunTotals",
+    "RunRecords",
+    "Overall",
+    "Crafting",
+    "HealingCaptureComplete"
+  ],
+  "EmptyItemsAndGroupsAgree": true,
+  "EconomyTotalsUnchanged": true,
+  "Currency": {
+    "Money": 11739,
+    "Cash": 60,
+    "ExportedLiquidWealth": 11799
+  },
+  "Capabilities": {
+    "Supported": 59,
+    "ExpectedExperimental": 3
+  },
+  "Diagnostics": {
+    "Info": 13,
+    "Warning": 0,
+    "Error": 0
+  },
+  "RunsAndRunTotalsCsvAgree": true,
+  "ExpectedLiveDifferences": "Revision/update time, current-observation timestamps, new activation replay cursor and native-save bookkeeping can advance. World time continued during the live session; the later profile is not presented as the exact export-time snapshot.",
+  "WorldTimeAtExport": {
+    "CalendarDaysAdvanced": 3,
+    "ObservedGameTimeTicks": 2444608990000,
+    "CompletedSleepSessions": 0,
+    "SleepAdvancedTimeTicks": 0,
+    "Capabilities": {
+      "CalendarDays": {
+        "State": 0,
+        "Provenance": "GameClock.OnGameClockStep with GameClock.Day and TimeOfDay ticks; installed native day length is 86,300 seconds."
+      },
+      "ObservedElapsed": {
+        "State": 0,
+        "Provenance": "GameClock.OnGameClockStep with GameClock.Day and TimeOfDay ticks; installed native day length is 86,300 seconds."
+      },
+      "CompletedSleepSessions": {
+        "State": 0,
+        "Provenance": "Exact GameClock.Step(float) advancement paired once with Duckov.UI.SleepView.OnAfterSleep."
+      },
+      "SleepAdvancedTime": {
+        "State": 0,
+        "Provenance": "Exact GameClock.Step(float) advancement paired once with Duckov.UI.SleepView.OnAfterSleep."
+      }
+    },
+    "CalendarArithmeticUnavailable": false,
+    "ObservedElapsedArithmeticUnavailable": false,
+    "SleepSessionArithmeticUnavailable": false,
+    "SleepElapsedArithmeticUnavailable": false,
+    "WasRepairedFromInvalidState": false
+  },
+  "WorldTimeAtLaterProfile": {
+    "CalendarDaysAdvanced": 3,
+    "ObservedGameTimeTicks": 2510394630000,
+    "CompletedSleepSessions": 0,
+    "SleepAdvancedTimeTicks": 0,
+    "Capabilities": {
+      "CalendarDays": {
+        "State": 0,
+        "Provenance": "GameClock.OnGameClockStep with GameClock.Day and TimeOfDay ticks; installed native day length is 86,300 seconds."
+      },
+      "ObservedElapsed": {
+        "State": 0,
+        "Provenance": "GameClock.OnGameClockStep with GameClock.Day and TimeOfDay ticks; installed native day length is 86,300 seconds."
+      },
+      "CompletedSleepSessions": {
+        "State": 0,
+        "Provenance": "Exact GameClock.Step(float) advancement paired once with Duckov.UI.SleepView.OnAfterSleep."
+      },
+      "SleepAdvancedTime": {
+        "State": 0,
+        "Provenance": "Exact GameClock.Step(float) advancement paired once with Duckov.UI.SleepView.OnAfterSleep."
+      }
+    },
+    "CalendarArithmeticUnavailable": false,
+    "ObservedElapsedArithmeticUnavailable": false,
+    "SleepSessionArithmeticUnavailable": false,
+    "SleepElapsedArithmeticUnavailable": false,
+    "WasRepairedFromInvalidState": false
+  },
+  "Evidence": [
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-idle-performance-deployment/slot-01-profile-before.json",
+      "Bytes": 171170,
+      "Sha256": "1c07087c308c6ed482e50eb69f9e06b0185de93015e359d8b14405333aafce7f"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/profile.json",
+      "Bytes": 171180,
+      "Sha256": "1911dfda44cbf67b8da1cc53f4ca2eb874a4f50cd6029000d1eb7b6c03127581"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/diagnostics.json",
+      "Bytes": 2948,
+      "Sha256": "4c8cf18d1ea3b4993395d767f47bd426bcd7da2015ef332003cc62cd70888974"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/player-export-session.log",
+      "Bytes": 24922,
+      "Sha256": "2a835f81aa29c7217e706344c9bc08d66c28a7050590ae5c8ac0c177b3b27775"
+    }
+  ],
+  "ExportFiles": [
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/active_totem_set_definitions.csv",
+      "Bytes": 1375,
+      "Sha256": "672fec4d332d3a2d025343048b493c04961df59a6b3c97f494caf1c2810d6693"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/ammunition_totals.csv",
+      "Bytes": 79,
+      "Sha256": "32feb190ccfae094f6e91e65e4a9f590e262b18a49233987568796fcc09c3bb5"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/cash_acquisition.csv",
+      "Bytes": 5085,
+      "Sha256": "0fe556232ccd29ffe1568ff386eb1d69887b90aeec01d79858d348169fc47361"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/character_equipment_slots.csv",
+      "Bytes": 17431,
+      "Sha256": "023b6c0819795213eb89429792f64a78b728a00588519285a9f498ca32967a41"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/combat_attribution.csv",
+      "Bytes": 2289,
+      "Sha256": "e71476246ce1f9040761c1b0b23aff634cb8758073a097f4e1ac5f7cd4e3c9a3"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/combat_totals.csv",
+      "Bytes": 452,
+      "Sha256": "afe19a473a171541a792ec25edaaf2dc7a4d81e88dae2c9ed6b62bdff1b54e92"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/containers.csv",
+      "Bytes": 372,
+      "Sha256": "0cc0037c041ae7046fa0090dec10e9d113ec6e2db2a061afc7ab750bcff00384"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/crafting_recipes.csv",
+      "Bytes": 363,
+      "Sha256": "e3a44d253741208a997e3d57430f635a24594a16beb01c4f6de9e7891b64b82a"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/crafting_resource_associations.csv",
+      "Bytes": 306,
+      "Sha256": "fb66048832bd0c32ba5f33132b9cfc1beb6c1c350a2bcdb6b911ee3c331eeaef"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/crafting_resources.csv",
+      "Bytes": 220,
+      "Sha256": "ca80b4e395c976f36053fdd1c6b8135a73e5cf43b91cb26d2a16a704564a036e"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/crafting_totals.csv",
+      "Bytes": 2324,
+      "Sha256": "defc2939658a90434f02b8b0d5e83c5e7f3b52e96298d27c9c4f32fbb5c548a0"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/economy_contexts.csv",
+      "Bytes": 196,
+      "Sha256": "82e99ef6ae9dafafb4ebba12c6d99a7e5d3e90298a1289a1e40f0b47cf600ed2"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/economy_holdings.csv",
+      "Bytes": 1458,
+      "Sha256": "29c7979afdea7965f13d464d538cb0e3e137154e80efa9b4ec03e36ff025e350"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/economy_sources.csv",
+      "Bytes": 184,
+      "Sha256": "e2939d3251865dcd47e03acdfe4dd2050822ec2e03d9974228501f3ccbd7e141"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/economy_totals.csv",
+      "Bytes": 13376,
+      "Sha256": "91f7d79d74f27a31af2b80478ae777ee9c2f007fb03e78b12024ffc339c83a65"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/equipment_combat.csv",
+      "Bytes": 539,
+      "Sha256": "172ee4de330172cfe773d136e277bc296765980af8508c55f7a7cdb134fb9700"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/equipment_totals.csv",
+      "Bytes": 10053,
+      "Sha256": "888ce0f5b709f10c47bb1f3d7bb61afa13b5103a85582cd5508e71a22a161509"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/equipped_item_nested_slots.csv",
+      "Bytes": 18840,
+      "Sha256": "101ad3a4e62cfaf45dd423c6ed1866b773a2a2d7967b0696b4493d615d2c01cb"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/groups.csv",
+      "Bytes": 202,
+      "Sha256": "5b7df10c652a457739358172bdd0658cccaaab200868d18771c7a0fcea9c431e"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/items.csv",
+      "Bytes": 235,
+      "Sha256": "ba23dce656e049ac47ad3713a0524fa31eed3583504179f11819d9ab7f4c1a3c"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/loadout_definitions.csv",
+      "Bytes": 28737,
+      "Sha256": "2e55e2b9329e07a38ac4408f1522d28803c7f62dd1de3d3a5137b8d9405ee554"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/map_totals.csv",
+      "Bytes": 798,
+      "Sha256": "d8852891aa9d5b4bc1a4ffcbe0b3a8acd0980546a747e192d14a1b92f12720e9"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/overview.csv",
+      "Bytes": 350,
+      "Sha256": "b5022254b8d2072bf3dc5035ddb26147e3325e739151ea18b39d53b26642b177"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/records.csv",
+      "Bytes": 589,
+      "Sha256": "f8d0b8ef59f89b9adc2da1863192751af90e8269f088d0e84bb4f698530ec896"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/recurring_loadouts.csv",
+      "Bytes": 52,
+      "Sha256": "637363399a9e6ded64e793a87d5b3cfe13245448554c6a10a4fd95de76395676"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/route_map_totals.csv",
+      "Bytes": 924,
+      "Sha256": "980fa6fdaec28c39d34522b5c6295a177136b36f37a25891a80e43d32ff9c5f2"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/routes.csv",
+      "Bytes": 1237,
+      "Sha256": "d9942d52e6395306adaf722e02587b77aff993cf74dd392a71cfc9a477359c27"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/run_totals.csv",
+      "Bytes": 726,
+      "Sha256": "c94b2e5cc29a1a578f62d21e542a85daa046162194e5d1b7d8f98f881bdab9d0"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/runs.csv",
+      "Bytes": 1439,
+      "Sha256": "228d76c2a681a2ac68d2fa3260ed5944e9fe97a4a38a9bf8a4a85a06440e538a"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/segment_events.csv",
+      "Bytes": 215,
+      "Sha256": "b53da119af6fc44af80541a4770e50202ba97f6ba8f8b61ab8f16c94bcf5d463"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/segments.csv",
+      "Bytes": 1383,
+      "Sha256": "e9cf377455c1c8a06e250ec944ad5ffb2d677dfe75ce989ea5461a9dba11c8b7"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/statistics.json",
+      "Bytes": 170113,
+      "Sha256": "d74b5045cae33b25a0c729619639d3f4be9b7f90713b1f0b6d19b03eff64831e"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/terminal_loadouts.csv",
+      "Bytes": 5099,
+      "Sha256": "6ac6a8ecfa74b7940642f937e0dfa261668b1d6028c753f732d3da4c2c034f69"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/totem_state_durations.csv",
+      "Bytes": 2538,
+      "Sha256": "05ffa2a0b0a68e28329dcab3023faee47f900ac424e05a6e389b6065f754526f"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/weapon_ammunition_pairs.csv",
+      "Bytes": 1583,
+      "Sha256": "1478244b3836ea92ffd5f58d48002e43a6996a262555c8d155b2aad91000741a"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/weapon_totals.csv",
+      "Bytes": 75,
+      "Sha256": "48a6c1c86306da91b68ea80b033923d422438c1a3f0bfc3eb71b06f93da0beed"
+    },
+    {
+      "Path": "artifacts/qualification/7667fdface781af0f8038e8b1b6a39475ba217f8/native-reopen/export/world_time.csv",
+      "Bytes": 862,
+      "Sha256": "cb083e5eee1cf6de6f04acb232f3ea35f020bbb5e11a70b5c443c224b46862ed"
+    }
+  ],
+  "Remaining": "Fresh matched B/D idle samples and all other still-open native gates."
+}

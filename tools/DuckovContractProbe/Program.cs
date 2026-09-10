@@ -86,6 +86,8 @@ try
     using (var core = new AssemblyMetadata(corePath))
     {
         core.RequireType("Duckov.Modding", "ModBehaviour");
+        core.RequireField("Duckov.Modding", "ModManager", "activeMods", mustBePrivate: true,
+            mustBeInstance: true, exactFieldType: "System.Collections.Generic.Dictionary`2<System.String,Duckov.Modding.ModBehaviour>");
         core.RequireMethod("Duckov.Modding", "ModBehaviour", "OnAfterSetup", parameterCount: 0, mustBeFamily: true, mustBeVirtual: true);
         core.RequireMethod("Duckov.Modding", "ModBehaviour", "OnBeforeDeactivate", parameterCount: 0, mustBeFamily: true, mustBeVirtual: true);
 
@@ -199,6 +201,9 @@ try
         core.RequireMethod(string.Empty, "Grenade", "SetWeaponIdInfo", 1, mustBePublic: true, parameterTypeFragments: ["System.Int32"]);
         core.RequireField(string.Empty, "Grenade", "damageInfo", mustBePublic: true, fieldTypeFragment: "DamageInfo");
         core.RequireField(string.Empty, "Grenade", "createExplosion", mustBePublic: true, fieldTypeFragment: "System.Boolean");
+        core.RequireField(string.Empty, "Grenade", "createOnExlode", mustBePublic: true, fieldTypeFragment: "UnityEngine.GameObject");
+        core.RequireMethod(string.Empty, "Grenade", "Launch", 4, mustBePublic: true,
+            returnTypeFragment: "System.Void", parameterTypeFragments: ["UnityEngine.Vector3", "UnityEngine.Vector3", "CharacterMainControl", "System.Boolean"]);
         core.RequireField(string.Empty, "DamageInfo", "fromWeaponItemID", mustBePublic: true, fieldTypeFragment: "System.Int32");
         core.RequireField(string.Empty, "DamageInfo", "fromCharacter", mustBePublic: true, fieldTypeFragment: "CharacterMainControl");
         core.RequireField(string.Empty, "DamageInfo", "isExplosion", mustBePublic: true, fieldTypeFragment: "System.Boolean");
@@ -240,6 +245,10 @@ try
         core.RequireProperty(string.Empty, "LevelManager", "MainCharacter", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty(string.Empty, "LevelManager", "PetCharacter", "CharacterMainControl", mustBePublic: true);
         core.RequireProperty(string.Empty, "LevelManager", "PetProxy", "PetProxy", mustBePublic: true);
+        foreach (var shortcut in new[] { "OnUIInventoryInput", "OnUIMapInput", "OnUIQuestViewInput", "OnReloadInput" })
+            core.RequireMethod(string.Empty, "CharacterInputControl", shortcut, 1, mustBePublic: true,
+                mustBeStatic: false, returnTypeFragment: "System.Void",
+                parameterTypeFragments: ["CallbackContext"]);
         core.RequireProperty(string.Empty, "InputManager", "InputActived", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "InputManager", "AimingEnemyHead", "System.Boolean", mustBePublic: true);
         core.RequireProperty(string.Empty, "GameManager", "Paused", "System.Boolean", mustBePublic: true, mustBeStatic: true);
@@ -429,6 +438,9 @@ try
         core.RequireField(string.Empty, "InteractableBase", "interactCharacter", mustBeFamily: true, fieldTypeFragment: "CharacterMainControl");
         core.RequireMethod(string.Empty, "SceneInfoCollection", "GetSceneID", parameterCount: 1, mustBePublic: true, returnTypeFragment: "System.String", parameterTypeFragments: ["System.Int32"]);
         core.RequireMethod(string.Empty, "SceneInfoCollection", "GetSceneInfo", parameterCount: 1, mustBePublic: true, returnTypeFragment: "SceneInfoEntry", parameterTypeFragments: ["System.String"]);
+        core.RequireProperty(string.Empty, "SceneInfoEntry", "ID", "System.String", mustBePublic: true);
+        core.RequireProperty(string.Empty, "SceneInfoEntry", "DisplayNameRaw", "System.String", mustBePublic: true);
+        core.RequireProperty("Duckov.Utilities", "GameplayDataSettings", "CharacterRandomPresetData", "CharacterRandomPresets", mustBePublic: true);
         core.RequireMethod(
             string.Empty,
             "Health",
@@ -555,10 +567,18 @@ try
             parameterTypeFragments: ["System.Int32"]);
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "Name", "System.String", mustBePublic: true);
         itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "DisplayName", "System.String", mustBePublic: true);
+        itemStats.RequireProperty("ItemStatsSystem", "ItemMetaData", "DisplayNameKey", "System.String", mustBePublic: true);
         itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "icon", mustBePublic: true, fieldTypeFragment: "UnityEngine.Sprite");
         itemStats.RequireField("ItemStatsSystem", "ItemMetaData", "id", mustBePublic: true, fieldTypeFragment: "System.Int32");
         itemStats.RequireMethod("ItemStatsSystem", "ItemAssetsCollection", "GetPrefab", 1, mustBePublic: true,
             mustBeStatic: true, returnTypeFragment: "ItemStatsSystem.Item", parameterTypeFragments: ["System.Int32"]);
+    }
+
+    using (var unityCore = new AssemblyMetadata(Path.Combine(managedRoot, "UnityEngine.CoreModule.dll")))
+    {
+        unityCore.RequireMethod("UnityEngine", "Object", "Instantiate", 3,
+            mustBePublic: true, mustBeStatic: true, returnTypeFragment: "UnityEngine.Object",
+            parameterTypeFragments: ["UnityEngine.Object", "UnityEngine.Vector3", "UnityEngine.Quaternion"]);
     }
 
     using (var ui = new AssemblyMetadata(unityUiPath))
@@ -593,6 +613,9 @@ try
 
     using (var localization = new AssemblyMetadata(sodaLocalizationPath))
     {
+        localization.RequireProperty("SodaCraft.Localizations", "LocalizationManager", "Initialized", "System.Boolean", mustBePublic: true);
+        localization.RequireProperty("SodaCraft.Localizations", "LocalizationManager", "DataModel", "LocalizationDataModel", mustBePublic: true);
+        localization.RequireEvent("SodaCraft.Localizations", "LocalizationManager", "OnSetLanguage", "UnityEngine.SystemLanguage");
         localization.RequireField("SodaCraft.Localizations", "LocalizationManager", "overrideTexts", mustBePublic: true, mustBeStatic: true, fieldTypeFragment: "System.Collections.Generic.Dictionary");
         localization.RequireMethod("SodaCraft.Localizations", "LocalizationManager", "SetOverrideText", 2, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String", "System.String"]);
         localization.RequireMethod("SodaCraft.Localizations", "LocalizationManager", "RemoveOverrideText", 1, mustBePublic: true, mustBeStatic: true, parameterTypeFragments: ["System.String"]);
@@ -1173,7 +1196,9 @@ internal sealed class AssemblyMetadata : IDisposable
         bool mustBePrivate = false,
         bool mustBeFamily = false,
         bool mustBeStatic = false,
-        string? fieldTypeFragment = null)
+        string? fieldTypeFragment = null,
+        bool mustBeInstance = false,
+        string? exactFieldType = null)
     {
         var type = reader.GetTypeDefinition(FindType(@namespace, typeName));
         foreach (var handle in type.GetFields())
@@ -1182,6 +1207,8 @@ internal sealed class AssemblyMetadata : IDisposable
             if (string.Equals(reader.GetString(field.Name), fieldName, StringComparison.Ordinal)
                 && (fieldTypeFragment == null
                     || field.DecodeSignature(typeProvider, reader).Contains(fieldTypeFragment, StringComparison.Ordinal))
+                && (exactFieldType == null || field.DecodeSignature(typeProvider, reader) == exactFieldType)
+                && (!mustBeInstance || (field.Attributes & FieldAttributes.Static) == 0)
                 && (!mustBePublic
                     || (field.Attributes & FieldAttributes.FieldAccessMask) == FieldAttributes.Public)
                 && (!mustBePrivate

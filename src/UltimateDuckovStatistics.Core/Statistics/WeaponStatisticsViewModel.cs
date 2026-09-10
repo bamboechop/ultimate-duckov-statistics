@@ -40,14 +40,6 @@ public static class WeaponStatisticsViewModelFactory
             lifetime,
             capabilities.FiringActions,
             ReadState(profile, WeaponCapabilityIds.FiringActions, capabilities.FiringActions.State));
-        capabilities.AmmunitionConsumption.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
-            lifetime,
-            capabilities.AmmunitionConsumption,
-            ReadState(profile, WeaponCapabilityIds.AmmunitionConsumption, capabilities.AmmunitionConsumption.State));
-        capabilities.Projectiles.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
-            lifetime,
-            capabilities.Projectiles,
-            ReadState(profile, WeaponCapabilityIds.Projectiles, capabilities.Projectiles.State));
         capabilities.WeaponIdentity.State = WeaponStatisticsReducer.ResolveCurrentAvailability(
             lifetime,
             capabilities.WeaponIdentity,
@@ -76,7 +68,7 @@ public static class WeaponStatisticsViewModelFactory
                 .ThenBy(value => value.WeaponId, StringComparer.Ordinal)
                 .ToArray(),
             AmmunitionTypes = lifetime.AmmunitionTypes.Values
-                .OrderByDescending(value => value.Totals.AmmunitionUnitsConsumed)
+                .OrderByDescending(value => value.Totals.FiringActions)
                 .ThenBy(value => value.DisplayName, StringComparer.Ordinal)
                 .ThenBy(value => value.AmmunitionId, StringComparer.Ordinal)
                 .ToArray(),

@@ -319,51 +319,6 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "M9")]
-    public void LegacyIdentityEvidenceIsCompactedOnlyAfterItsCheckpointIsRecoveredAndDeleted()
-    {
-        using var directory = new TemporaryDirectory();
-        var repository = Repository(directory.Path);
-        repository.Open(Identity());
-        repository.EnableDeferredItemPersistence();
-        var generation = repository.CurrentGenerationId;
-        var profilePath = repository.CurrentProfilePath!;
-        repository.CloseClean();
-
-        var profileStore = new AtomicJsonStore<ProfileDocument>();
-        var legacyProfile = profileStore.Load(profilePath).Value!;
-        SetMoneyInflow(legacyProfile.Statistics.Economy, 5);
-        legacyProfile.Statistics.Economy.RecentEventIds.Add("legacy:persisted");
-        legacyProfile.Statistics.Economy.ReplayCursor = null;
-        legacyProfile.DeferredItemPersistence!.RunId = "run-checkpoint";
-        SetMoneyInflow(legacyProfile.DeferredItemPersistence.AppliedLifetimeEconomy, 5);
-        legacyProfile.DeferredItemPersistence.AppliedLifetimeEconomy.RecentEventIds.Add("legacy:persisted");
-        legacyProfile.DeferredItemPersistence.AppliedLifetimeEconomy.ReplayCursor = null;
-        profileStore.Save(profilePath, legacyProfile);
-
-        var checkpoint = Checkpoint(generation, 8);
-        SetMoneyInflow(checkpoint.Economy, 12);
-        checkpoint.Economy.RecentEventIds.AddRange(["legacy:persisted", "legacy:checkpoint-only"]);
-        checkpoint.Economy.ReplayCursor = null;
-        foreach (var segment in checkpoint.Segments)
-            segment.Economy.ReplayCursor = null;
-        var activeRunPath = ActiveRunPath(directory.Path);
-        new AtomicJsonStore<ActiveRunCheckpoint>().Save(activeRunPath, checkpoint);
-
-        var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-        Assert.Equal(12, recovery.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Equal(12, Assert.Single(recovery.Current.Statistics.Runs).Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(recovery.Current.Statistics.Economy.RecentEventIds);
-        Assert.Empty(recovery.Current.DeferredItemPersistence!.AppliedLifetimeEconomy.RecentEventIds);
-        Assert.False(File.Exists(activeRunPath));
-        Assert.False(File.Exists(AtomicJsonPaths.GetBackupPath(activeRunPath)));
-        Assert.False(File.Exists(AtomicJsonPaths.GetTemporaryPath(activeRunPath)));
-        recovery.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "M9")]
     [Trait("Category", "Performance")]
     public void DeferredBaseEconomyMutationRequiresTheCoalescedSnapshotWriterToPersist()
     {
@@ -430,13 +385,10 @@ public sealed class ActiveRunPersistenceTests
 
         Assert.False(repository.RecordDeferred(first!));
         Assert.Equal(4096, repository.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(repository.Current.Statistics.Economy.RecentEventIds);
-        Assert.False(repository.Current.Statistics.Economy.DeduplicationSaturated);
         Assert.Equal(last!.ProducerActivationId, repository.Current.Statistics.Economy.ReplayCursor!.ActivationId);
         Assert.Equal(last.ProducerSequence, repository.Current.Statistics.Economy.ReplayCursor.ClosedThroughSequence);
         var watermark = repository.Current.DeferredItemPersistence!.AppliedLifetimeEconomy;
         Assert.Equal(4096, watermark.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(watermark.RecentEventIds);
         Assert.Equal(last.ProducerSequence, watermark.ReplayCursor!.ClosedThroughSequence);
     }
 
@@ -476,7 +428,6 @@ public sealed class ActiveRunPersistenceTests
             CurrencyFlowDirection.Inflow,
             1)));
         Assert.True(repository.Current.Statistics.Economy.MoneyArithmeticSaturated);
-        Assert.Empty(repository.Current.DeferredItemPersistence!.AppliedLifetimeEconomy.RecentEventIds);
         repository.SaveSnapshot(repository.CapturePersistenceSnapshot());
         repository.CloseClean();
 
@@ -599,11 +550,9 @@ public sealed class ActiveRunPersistenceTests
         var recovery = Repository(directory.Path);
         Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
         Assert.Equal(4103, recovery.Current.Statistics.Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.Empty(recovery.Current.Statistics.Economy.RecentEventIds);
         Assert.Equal(
             7,
             Assert.Single(recovery.Current.Statistics.Runs).Economy.Currencies["Money"].Totals.GrossInflow);
-        Assert.False(recovery.Current.Statistics.Economy.DeduplicationSaturated);
         recovery.CloseClean();
 
         var repeated = Repository(directory.Path);
@@ -659,7 +608,8 @@ public sealed class ActiveRunPersistenceTests
         var generation = repository.CurrentGenerationId;
         var tracker = ActiveTracker(generation);
         repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(1), 1)!);
-        var boundary = new NativeRunTerminalBoundary();
+        var terminalNow = 0d;
+        var boundary = new NativeRunTerminalBoundary(() => terminalNow);
         var observerCalls = 0;
         boundary.SetTerminalObserver(() =>
         {
@@ -694,6 +644,7 @@ public sealed class ActiveRunPersistenceTests
         Assert.True(tracker.IsActive);
         Assert.True(boundary.HasPendingTerminal);
 
+        terminalNow = 1;
         var transition = boundary.Retry(
             tracker,
             _ => { },
@@ -779,9 +730,7 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(AdapterCapabilityState.Supported, recovered.LifecycleCapability);
         Assert.True(recovered.RecordEligible);
         Assert.Equal(MapSegmentExitReason.Extracted, Assert.Single(recovered.Segments).ExitReason);
-        Assert.Equal(5, recovered.Economy.CashRaidOutcomes.Acquired);
-        Assert.Equal(5, recovered.Economy.CashRaidOutcomes.Secured);
-        Assert.Equal(0, recovered.Economy.CashRaidOutcomes.Unresolved);
+        Assert.Equal(5, recovered.Economy.CashAcquired);
         Assert.Equal(1, recovery.Current.Statistics.RunTotals.Outcomes[nameof(RunOutcome.Extracted)]);
         recovery.CloseClean();
     }
@@ -870,9 +819,7 @@ public sealed class ActiveRunPersistenceTests
         AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
             checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
             {
-                EventId = "invalid-association",
                 EventKind = "combat",
-                TimestampUtc = TestTime.AddSeconds(7),
                 FirstTimestampUtc = TestTime.AddSeconds(7),
                 LastTimestampUtc = TestTime.AddSeconds(7),
                 Count = 1,
@@ -889,9 +836,7 @@ public sealed class ActiveRunPersistenceTests
         AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
             checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
             {
-                EventId = "one-sided-association",
                 EventKind = "combat",
-                TimestampUtc = TestTime.AddSeconds(7),
                 FirstTimestampUtc = TestTime.AddSeconds(7),
                 LastTimestampUtc = TestTime.AddSeconds(7),
                 Count = 1,
@@ -940,14 +885,12 @@ public sealed class ActiveRunPersistenceTests
             checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
             {
                 EventKind = "item-use",
-                TimestampUtc = TestTime.AddSeconds(7),
                 FirstTimestampUtc = TestTime.AddSeconds(7),
                 LastTimestampUtc = TestTime.AddSeconds(7),
                 SourceSegmentId = segment.SegmentId,
                 SourceMapId = segment.MapId,
                 OutcomeSegmentId = segment.SegmentId,
                 OutcomeMapId = segment.MapId,
-                Representation = SegmentEventAssociationRepresentation.ExactAggregate,
                 Count = 0
             });
         });
@@ -964,14 +907,12 @@ public sealed class ActiveRunPersistenceTests
             checkpoint.SegmentEventAssociations.Add(new SegmentEventAssociation
             {
                 EventKind = "item-use",
-                TimestampUtc = TestTime.AddSeconds(7),
                 FirstTimestampUtc = TestTime.AddSeconds(7),
                 LastTimestampUtc = TestTime.AddSeconds(7),
                 SourceSegmentId = segment.SegmentId,
                 SourceMapId = segment.MapId,
                 OutcomeSegmentId = segment.SegmentId,
                 OutcomeMapId = segment.MapId,
-                Representation = SegmentEventAssociationRepresentation.ExactAggregate,
                 Count = 0
             });
         }
@@ -1017,43 +958,6 @@ public sealed class ActiveRunPersistenceTests
     [Fact]
     [Trait("Category", "M10")]
     [Trait("Category", "Persistence")]
-    public void SchemaNineSaturatedActiveCheckpointRecoversExactRowsWithIncompleteProvenance()
-    {
-        using var directory = new TemporaryDirectory();
-        var repository = Repository(directory.Path);
-        repository.Open(Identity());
-        var generation = repository.CurrentGenerationId;
-        repository.CloseClean();
-        var checkpoint = RouteCheckpoint(generation, 5);
-        checkpoint.SchemaVersion = 9;
-        checkpoint.RouteCapabilities.CurrentEventAttributionCapture = null!;
-        RouteStatisticsReducer.DisableAttribution(
-            checkpoint.RouteCapabilities,
-            "The defensive 2048-event association bound was reached.");
-        var segment = checkpoint.Segments[0];
-        for (var index = 0; index < RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun; index++)
-            checkpoint.SegmentEventAssociations.Add(LegacyRouteAssociation($"legacy-checkpoint-{index}", segment));
-        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
-
-        var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-        var run = Assert.Single(recovery.Current.Statistics.Runs);
-        Assert.Equal(RouteStatisticsReducer.LegacyMaximumRawEventAssociationsPerRun, run.SegmentEventAssociations.Count);
-        Assert.All(run.SegmentEventAssociations, association =>
-        {
-            Assert.Equal(SegmentEventAssociationRepresentation.LegacyRaw, association.Representation);
-            Assert.Equal(1, association.Count);
-        });
-        Assert.True(run.HistoricalEventAttributionIncomplete);
-        Assert.Contains("2,048", run.HistoricalEventAttributionProvenance, StringComparison.Ordinal);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
-        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.CurrentEventAttributionCapture.State);
-        recovery.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "M10")]
-    [Trait("Category", "Persistence")]
     public void SchemaTenAggregateCheckpointSurvivesFailedWriteRetryAndDurableRestartExactlyOnce()
     {
         using var directory = new TemporaryDirectory();
@@ -1082,8 +986,6 @@ public sealed class ActiveRunPersistenceTests
             AmmunitionId = "duckov:ammo:test",
             AmmunitionDisplayName = "Test ammunition",
             FiringActionCount = 1,
-            AmmunitionUnitsConsumed = 1,
-            ProjectileCount = 1,
             Capabilities = SupportedCapabilities()
         }));
         var combat = CombatEvent(generation, "restart:late-combat", "target:late", "Late target");
@@ -1124,7 +1026,6 @@ public sealed class ActiveRunPersistenceTests
         Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
         var run = Assert.Single(recovery.Current.Statistics.Runs);
         var association = Assert.Single(run.SegmentEventAssociations, value => value.EventKind == "item-use");
-        Assert.Equal(SegmentEventAssociationRepresentation.ExactAggregate, association.Representation);
         Assert.Equal(2049, association.Count);
         Assert.Equal(2053, run.SegmentEventAssociations.Sum(value => value.Count));
         Assert.Equal(5, run.SegmentEventAssociations.Count);
@@ -1281,7 +1182,7 @@ public sealed class ActiveRunPersistenceTests
                 TimestampUtc = TestTime,
                 SaveGenerationId = generation,
                 RunId = backup.RunId,
-                MapId = backup.MapId,
+                MapId = backup.StartingMapId,
                 Currency = CurrencyKind.Money,
                 Direction = CurrencyFlowDirection.Inflow,
                 Amount = 7,
@@ -1378,7 +1279,7 @@ public sealed class ActiveRunPersistenceTests
         primary.ContainerState = new ContainerRunCheckpointState
         {
             Statistics = missingStatistics ? null! : primaryStatistics,
-            LootedContainerKeys = missingStableKeys ? null! : new List<int>()
+            LootedContainerIdentities = missingStableKeys ? null! : new List<string>()
         };
         new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), primary);
 
@@ -1409,10 +1310,10 @@ public sealed class ActiveRunPersistenceTests
             SnapshotId = "snapshot:a",
             LoadoutId = "loadout:a",
             SelectedWeaponId = "weapon:a",
-            SelectedWeaponSlotId = "slot:primary",
+            SelectedWeaponSlotId = "duckov:slot:PrimaryWeapon",
             TotemSetId = "totems:a",
             Items = new List<EquippedItemSnapshot>
-            { new() { SlotId = "slot:primary", ItemId = "weapon:a", ItemDisplayName = "Rifle", Kind = EquipmentItemKind.Weapon, AttachmentSignature = "attachments:a" } }
+            { new() { SlotId = "duckov:slot:PrimaryWeapon", ItemId = "weapon:a", ItemDisplayName = "Rifle", Kind = EquipmentItemKind.Weapon, AttachmentSignature = "attachments:a" } }
         }));
         repository.SaveActiveRun(tracker.CreateCheckpoint(TestTime.AddSeconds(4), 4)!);
 
@@ -1459,13 +1360,12 @@ public sealed class ActiveRunPersistenceTests
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     [Trait("Category", "Weapon")]
-    public void PartiallyPopulatedWeaponCheckpointIsNormalizedBeforeInterruptedRecovery()
+    public void PartiallyPopulatedWeaponCheckpointIsRejectedBeforeInterruptedRecovery()
     {
         using var directory = new TemporaryDirectory();
         var repository = Repository(directory.Path);
         repository.Open(Identity());
         var checkpoint = Checkpoint(repository.CurrentGenerationId, 3);
-        checkpoint.SchemaVersion = 13;
         checkpoint.WeaponStatistics.Totals = null!;
         checkpoint.WeaponStatistics.Weapons = null!;
         checkpoint.WeaponStatistics.AmmunitionTypes = null!;
@@ -1474,32 +1374,27 @@ public sealed class ActiveRunPersistenceTests
         new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
 
         var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-
-        var recovered = Assert.Single(recovery.Current.Statistics.Runs);
-        Assert.NotNull(recovered.WeaponStatistics.Totals);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.FiringActions);
-        Assert.Empty(recovered.WeaponStatistics.Weapons);
-        Assert.Empty(recovered.WeaponStatistics.AmmunitionTypes);
+        Assert.False(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.Empty(recovery.Current.Statistics.Runs);
+        var preserved = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(ActiveRunPath(directory.Path))!, "checkpoint-recovery"));
+        Assert.NotEmpty(preserved);
         recovery.CloseClean();
+
     }
 
     [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     [Trait("Category", "Weapon")]
-    public void NullCheckpointAvailabilityMembersAreNormalizedBeforeInterruptedRecovery()
+    public void NullCheckpointAvailabilityMembersAreRejectedBeforeInterruptedRecovery()
     {
         using var directory = new TemporaryDirectory();
         var repository = Repository(directory.Path);
         repository.Open(Identity());
         var checkpoint = Checkpoint(repository.CurrentGenerationId, 3);
-        checkpoint.SchemaVersion = 13;
         checkpoint.WeaponStatistics.Capabilities = new WeaponMetricCapabilities
         {
             FiringActions = null!,
-            AmmunitionConsumption = null!,
-            Projectiles = null!,
             WeaponIdentity = null!,
             AmmunitionIdentity = null!
         };
@@ -1507,15 +1402,12 @@ public sealed class ActiveRunPersistenceTests
         new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
 
         var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-
-        var recovered = Assert.Single(recovery.Current.Statistics.Runs);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.FiringActions);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.AmmunitionConsumption);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.Projectiles);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.WeaponIdentity);
-        Assert.NotNull(recovered.WeaponStatistics.Capabilities.AmmunitionIdentity);
+        Assert.False(recovery.Open(Identity()).InterruptedRunRecovered);
+        Assert.Empty(recovery.Current.Statistics.Runs);
+        var preserved = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(ActiveRunPath(directory.Path))!, "checkpoint-recovery"));
+        Assert.NotEmpty(preserved);
         recovery.CloseClean();
+
     }
 
     [Fact]
@@ -1566,8 +1458,6 @@ public sealed class ActiveRunPersistenceTests
         Assert.Equal(4, run.PhysicalDistance);
         Assert.Equal(9, run.TeleportDistance);
         Assert.Equal(1, run.WeaponStatistics.Totals.FiringActions);
-        Assert.Equal(1, run.WeaponStatistics.Totals.AmmunitionUnitsConsumed);
-        Assert.Equal(6, run.WeaponStatistics.Totals.Projectiles);
         Assert.Equal(1, recovery.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         Assert.Null(recovery.Current.Statistics.RunRecords.Extraction.Shortest);
         recovery.CloseClean();
@@ -1578,33 +1468,6 @@ public sealed class ActiveRunPersistenceTests
         Assert.Single(repeated.Current.Statistics.Runs);
         Assert.Equal(1, repeated.Current.Statistics.RunTotals.WeaponStatistics.Totals.FiringActions);
         repeated.CloseClean();
-    }
-
-    [Fact]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "Run")]
-    [Trait("Category", "Combat")]
-    public void SchemaFourCheckpointRecoveryRetainsHistoricalCombatUnavailability()
-    {
-        using var directory = new TemporaryDirectory();
-        var repository = Repository(directory.Path);
-        repository.Open(Identity());
-        var checkpoint = Checkpoint(repository.CurrentGenerationId, 4);
-        checkpoint.SchemaVersion = 4;
-        checkpoint.CombatStatistics = null!;
-        repository.CloseClean();
-        new AtomicJsonStore<ActiveRunCheckpoint>().Save(ActiveRunPath(directory.Path), checkpoint);
-
-        var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-
-        var run = Assert.Single(recovery.Current.Statistics.Runs);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
-            run.CombatStatistics.Capabilities.DamageDealt.State);
-        Assert.Contains("predates M5", run.CombatStatistics.Capabilities.DamageDealt.Provenance);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
-            recovery.Current.Statistics.RunTotals.CombatStatistics.Capabilities.DamageDealt.State);
-        recovery.CloseClean();
     }
 
     [Fact]
@@ -1810,7 +1673,7 @@ public sealed class ActiveRunPersistenceTests
         AssertCurrentSchemaEquipmentPrimaryRejected(checkpoint =>
         {
             var transition = Assert.Single(checkpoint.EquipmentStatistics.Transitions);
-            transition.SelectedWeaponSlotId = "slot:primary";
+            transition.SelectedWeaponSlotId = "duckov:slot:PrimaryWeapon";
             transition.SelectedWeaponId = string.Empty;
         });
     }
@@ -2126,56 +1989,6 @@ public sealed class ActiveRunPersistenceTests
     }
 
     [Fact]
-    [Trait("Category", "Run")]
-    [Trait("Category", "Combat")]
-    [Trait("Category", "Persistence")]
-    [Trait("Category", "M11")]
-    public void SchemaTenActiveRunRecoveryMigratesAmbiguousDeathsBeforeLifetimeAggregation()
-    {
-        using var directory = new TemporaryDirectory();
-        var repository = Repository(directory.Path);
-        repository.Open(Identity());
-        var checkpoint = Checkpoint(repository.CurrentGenerationId, 5);
-        checkpoint.SchemaVersion = 10;
-        checkpoint.CombatStatistics = new CombatStatisticsAggregate
-        {
-            Totals = new CombatMetricTotals { EnemiesKilled = 2 }
-        };
-        checkpoint.CombatStatistics.Ownership["Player"] = new CombatBreakdownAggregate
-        {
-            Id = "Player",
-            DisplayName = "Player",
-            Totals = new CombatMetricTotals { EnemiesKilled = 1 }
-        };
-        checkpoint.CombatStatistics.Ownership["Environmental"] = new CombatBreakdownAggregate
-        {
-            Id = "Environmental",
-            DisplayName = "Environmental",
-            Totals = new CombatMetricTotals { EnemiesKilled = 1 }
-        };
-        checkpoint.EquipmentStatistics.CombatAssociations["legacy"] = new EquipmentCombatAssociationAggregate
-        {
-            LoadoutId = "legacy-loadout",
-            EnemiesKilled = 2
-        };
-        repository.SaveActiveRun(checkpoint);
-
-        var recovery = Repository(directory.Path);
-        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
-        var run = Assert.Single(recovery.Current.Statistics.Runs);
-
-        Assert.Equal(1, run.CombatStatistics.Totals.KillsByYou);
-        Assert.Equal(0, run.CombatStatistics.Totals.ObservedWorldDeaths);
-        Assert.Equal(1, run.CombatStatistics.Totals.LegacyUnclassifiedDeaths);
-        Assert.True(run.CombatStatistics.HistoricalOwnershipUnavailable);
-        Assert.Equal(2,
-            Assert.Single(run.EquipmentStatistics.CombatAssociations.Values).LegacyUnclassifiedDeathCredit);
-        Assert.Equal(1, recovery.Current.Statistics.RunTotals.CombatStatistics.Totals.KillsByYou);
-        Assert.Equal(1, recovery.Current.Statistics.RunTotals.CombatStatistics.Totals.LegacyUnclassifiedDeaths);
-        recovery.CloseClean();
-    }
-
-    [Fact]
     [Trait("Category", "Persistence")]
     [Trait("Category", "Run")]
     public void ActiveRunRecoveryUsesOrphanedTemporarySnapshot()
@@ -2376,20 +2189,6 @@ public sealed class ActiveRunPersistenceTests
         return tracker.CreateCheckpoint(TestTime.AddSeconds(activeSeconds), activeSeconds)!;
     }
 
-    private static SegmentEventAssociation LegacyRouteAssociation(string eventId, MapSegmentSummary segment) => new()
-    {
-        EventId = eventId,
-        EventKind = "item-use",
-        TimestampUtc = TestTime.AddSeconds(1),
-        FirstTimestampUtc = TestTime.AddSeconds(1),
-        LastTimestampUtc = TestTime.AddSeconds(1),
-        Count = 1,
-        SourceSegmentId = segment.SegmentId,
-        SourceMapId = segment.MapId,
-        OutcomeSegmentId = segment.SegmentId,
-        OutcomeMapId = segment.MapId
-    };
-
     private static RunLifecycleTracker ActiveTracker(string generation)
     {
         var tracker = new RunLifecycleTracker(() => "run-deferred-items");
@@ -2456,7 +2255,6 @@ public sealed class ActiveRunPersistenceTests
             CashAmountDirection = Available(),
             CashExternalAcquisition = Available(),
             CashContextAttribution = Available(),
-            CashTerminalOutcomes = Available(),
             RouteAttribution = Available()
         };
     }
@@ -2511,9 +2309,9 @@ public sealed class ActiveRunPersistenceTests
         RunId = "run-checkpoint",
         SaveGenerationId = generation,
         NativeRaidId = "42",
-        MapId = "duckov:map:warehouse",
-        MapDisplayName = "Warehouse",
-        MapKnown = true,
+        StartingMapId = "duckov:map:warehouse",
+        StartingMapDisplayName = "Warehouse",
+        StartingMapKnown = true,
         StartedUtc = TestTime,
         LastObservedUtc = TestTime.AddSeconds(20),
         ActiveDurationSeconds = activeSeconds,
@@ -2547,8 +2345,6 @@ public sealed class ActiveRunPersistenceTests
             AmmunitionId = "duckov:ammo:2",
             AmmunitionDisplayName = "Test shell",
             FiringActionCount = 1,
-            AmmunitionUnitsConsumed = 1,
-            ProjectileCount = 6,
             Capabilities = SupportedCapabilities()
         });
         return statistics;
@@ -2590,7 +2386,7 @@ public sealed class ActiveRunPersistenceTests
             TotemSetId = "totems:none",
             Items = new List<EquippedItemSnapshot>
             {
-                new() { SlotId = "slot:primary", ItemId = "weapon:a", ItemDisplayName = "Rifle" }
+                new() { SlotId = "duckov:slot:PrimaryWeapon", ItemId = "weapon:a", ItemDisplayName = "Rifle" }
             }
         }, 0);
         EquipmentStatisticsReducer.Advance(statistics, activeSeconds);
@@ -2604,7 +2400,7 @@ public sealed class ActiveRunPersistenceTests
             Capabilities = ContainerNativeContractPolicy.Supported(),
             UniqueContainersLooted = keys.Length
         },
-        LootedContainerKeys = keys.OrderBy(value => value).ToList()
+        LootedContainerIdentities = keys.Select(value => $"duckov:map:warehouse\u001f{value}").OrderBy(value => value, StringComparer.Ordinal).ToList()
     };
 
     private static CombatRecorded CombatEvent(
@@ -2640,8 +2436,6 @@ public sealed class ActiveRunPersistenceTests
     private static WeaponMetricCapabilities SupportedCapabilities() => new()
     {
         FiringActions = Supported(),
-        AmmunitionConsumption = Supported(),
-        Projectiles = Supported(),
         WeaponIdentity = Supported(),
         AmmunitionIdentity = Supported()
     };
@@ -2710,8 +2504,6 @@ public sealed class ActiveRunPersistenceTests
         AmmunitionId = "duckov:ammo:2",
         AmmunitionDisplayName = "Test round",
         FiringActionCount = 1,
-        AmmunitionUnitsConsumed = 1,
-        ProjectileCount = 1,
         Capabilities = SupportedCapabilities()
     };
 

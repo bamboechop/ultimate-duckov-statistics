@@ -14,31 +14,30 @@ internal sealed class NativeItemUseAdapter : IDisposable
     private readonly Func<ItemUseCompletion, bool> completionHandler;
     private readonly Action<string> diagnosticHandler;
     private readonly IHealingAttributionObserver? healingObserver;
-    private readonly Func<string?>? runIdProvider;
-    private readonly Func<string?>? mapIdProvider;
-    private readonly Func<string?>? segmentIdProvider;
+    private readonly Func<string?> runIdProvider;
+    private readonly Func<string?> mapIdProvider;
+    private readonly Func<string?> segmentIdProvider;
     private readonly ItemUseCorrelator correlator;
     private readonly SubscriptionGate subscriptionGate = new();
-    private readonly NativeRaidContext raidContext = new();
     private DateTime nextExpiryUtc = DateTime.MinValue;
 
     public NativeItemUseAdapter(
         Func<string> saveGenerationIdProvider,
         Func<ItemUseCompletion, bool> completionHandler,
         Action<string> diagnosticHandler,
-        IHealingAttributionObserver? healingObserver = null,
-        Func<string?>? runIdProvider = null,
-        Func<string?>? mapIdProvider = null,
-        Func<string?>? segmentIdProvider = null)
+        IHealingAttributionObserver? healingObserver,
+        Func<string?> runIdProvider,
+        Func<string?> mapIdProvider,
+        Func<string?> segmentIdProvider)
     {
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.completionHandler = completionHandler ?? throw new ArgumentNullException(nameof(completionHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
         this.healingObserver = healingObserver;
-        this.runIdProvider = runIdProvider;
-        this.mapIdProvider = mapIdProvider;
-        this.segmentIdProvider = segmentIdProvider;
+        this.runIdProvider = runIdProvider ?? throw new ArgumentNullException(nameof(runIdProvider));
+        this.mapIdProvider = mapIdProvider ?? throw new ArgumentNullException(nameof(mapIdProvider));
+        this.segmentIdProvider = segmentIdProvider ?? throw new ArgumentNullException(nameof(segmentIdProvider));
         correlator = new ItemUseCorrelator(() => Guid.NewGuid().ToString("N"));
     }
 
@@ -56,7 +55,6 @@ internal sealed class NativeItemUseAdapter : IDisposable
         Item.onUseStatic += OnUseStarted;
         UsageUtilities.OnItemUsedStaticEvent += OnUsageSucceeded;
         CA_UseItem.OnItemUsedByPlayer += OnMainPlayerUseCompleted;
-        raidContext.Subscribe();
         nextExpiryUtc = DateTime.UtcNow.AddSeconds(30);
         diagnosticHandler("Native item-use hooks subscribed.");
     }
@@ -101,7 +99,6 @@ internal sealed class NativeItemUseAdapter : IDisposable
         Item.onUseStatic -= OnUseStarted;
         UsageUtilities.OnItemUsedStaticEvent -= OnUsageSucceeded;
         CA_UseItem.OnItemUsedByPlayer -= OnMainPlayerUseCompleted;
-        raidContext.Dispose();
         correlator.Clear();
         healingObserver?.Reset();
         diagnosticHandler("Native item-use hooks unsubscribed.");
@@ -235,9 +232,9 @@ internal sealed class NativeItemUseAdapter : IDisposable
             Durability = item.Durability,
             TimestampUtc = DateTime.UtcNow,
             SaveGenerationId = generationId,
-            RunId = runIdProvider?.Invoke() ?? raidContext.CurrentRunId,
-            MapId = mapIdProvider?.Invoke() ?? NativeRaidContext.GetMapId(),
-            SegmentId = segmentIdProvider?.Invoke(),
+            RunId = runIdProvider(),
+            MapId = mapIdProvider() ?? NativeRaidContext.GetMapId(),
+            SegmentId = segmentIdProvider(),
             GameVersion = Application.version ?? string.Empty,
             GameBuild = "24013657",
             GameplayContext = NativeRaidContext.GetGameplayContext(),

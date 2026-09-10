@@ -1,0 +1,11 @@
+# Diagnostics status width
+
+The native disabled-Harmony repeat confirmed the actionable dependency explanation. Its Diagnostics screenshot showed `Error · Harmony not loaded` wrapping despite unused space between the short system title and status. The accordion limited the status to 36% of the row width. A later explicit Overview screenshot disproves the earlier broad World time fit acceptance; see the [initialization correction](M18_WORLD_TIME_INITIALIZATION.md).
+
+The status now uses space remaining after the native measured title and the existing insets and gap, up to its own preferred width plus padding. Both title and status keep their font size, wrapping and measured row height. Long titles and rows that cannot fit both labels retain a bounded wrapping allocation. The calculation is shared by system and Recent issues headers and contains no Harmony-specific text or reference-resolution widths.
+
+This reversible layout correction adds no tests that duplicate its width arithmetic. Existing complete Debug/Release suites, native builds, changed-file formatting/analyzers, installed contract probing, independent production/native review and reproducible packaging provide delivery evidence. The shell suite does not render this child view; one-line native glyph acceptance remains a user check.
+
+[Harmony restoration](M18_HARMONY_RESTORATION_QUALIFICATION.json) now passes: the user enabled HarmonyLib and fully restarted, all 29 previously disabled capabilities returned to Supported, and the recorded one sleep/59 minutes and historical capture gaps remain. The [native status-label check](M18_DIAGNOSTICS_WIDTH_NATIVE_QUALIFICATION.json) now passes: the user replied “Fits.” to the requested missing-Harmony check at 2560x1440. No new screenshot or export was requested or supplied. The [World time repeat](M18_WORLD_TIME_NATIVE_QUALIFICATION.json) passes separately. Harmony must be enabled for subsequent performance qualification; current enablement is not inferred from the geometry confirmation alone.
+
+Delivery identities and completed checks are recorded in [the correction evidence](M18_DIAGNOSTICS_WIDTH_CORRECTION.json). M18 native performance and other outstanding qualification gates remain open.

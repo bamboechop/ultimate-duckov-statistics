@@ -377,6 +377,9 @@ internal sealed class NativeWorldTimeAdapter : IDisposable, IRetryableCleanup
 
     private void OnGameClockStep()
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.GameClockCallback);
+#endif
         var currentClock = GameClock.Instance;
         object? instance = currentClock == null ? null : currentClock;
         if (capabilities.ObservedElapsed.State != AdapterCapabilityState.Supported || instance == null) return;

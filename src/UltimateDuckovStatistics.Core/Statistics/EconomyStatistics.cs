@@ -22,14 +22,7 @@ public sealed class CurrencyEconomyAggregate
     [DataMember(Order = 4)] public Dictionary<string, CurrencyFlowTotals> Contexts { get; set; } = new(StringComparer.Ordinal);
 }
 
-[DataContract]
-public sealed class CashRaidOutcomeAggregate
-{
-    [DataMember(Order = 1)] public long Acquired { get; set; }
-    [DataMember(Order = 2)] public long Secured { get; set; }
-    [DataMember(Order = 3)] public long Lost { get; set; }
-    [DataMember(Order = 4)] public long Unresolved { get; set; }
-}
+
 
 [DataContract]
 public sealed class EconomyReplayCursor
@@ -42,27 +35,16 @@ public sealed class EconomyReplayCursor
 public sealed class EconomyStatisticsAggregate
 {
     [DataMember(Order = 1)] public Dictionary<string, CurrencyEconomyAggregate> Currencies { get; set; } = new(StringComparer.Ordinal);
-    [DataMember(Order = 2)] public CashRaidOutcomeAggregate CashRaidOutcomes { get; set; } = new();
+    [DataMember(Order = 2)] public long CashAcquired { get; set; }
     [DataMember(Order = 3)] public EconomyMetricCapabilities Capabilities { get; set; } = new();
-    // Legacy schema-9 candidate evidence. Corrected M9 never appends here; it is
-    // compacted only after old checkpoint recovery artifacts are no longer replayable.
-    [DataMember(Order = 4)] public List<string> RecentEventIds { get; set; } = new();
-    [DataMember(Order = 5)] public bool HistoricalUnavailable { get; set; }
     [DataMember(Order = 6)] public bool WasRepairedFromInvalidState { get; set; }
-    [DataMember(Order = 7)] public bool CashTerminalDispositionAmbiguous { get; set; }
-    [DataMember(Order = 8)] public bool CashTerminalDispositionRecorded { get; set; }
-    // Legacy schema-9 candidate marker. It is migrated to
-    // LegacyIdentitySaturationIncomplete at the post-recovery compaction boundary.
-    [DataMember(Order = 9)] public bool DeduplicationSaturated { get; set; }
     [DataMember(Order = 10)] public bool MoneyArithmeticSaturated { get; set; }
     [DataMember(Order = 11)] public bool CashArithmeticSaturated { get; set; }
-    [DataMember(Order = 12, EmitDefaultValue = false)] public EconomyReplayCursor? ReplayCursor { get; set; } = new();
-    [DataMember(Order = 13)] public bool LegacyIdentitySaturationIncomplete { get; set; }
+    [DataMember(Order = 12)] public EconomyReplayCursor ReplayCursor { get; set; } = new();
 }
 
 public static class EconomyStatisticsReducer
 {
-    private const int LegacyMaximumRecentEventIds = 2048;
 
     public static bool Record(EconomyStatisticsAggregate aggregate, string saveGenerationId, CurrencyFlowRecorded value)
         => Record(aggregate, saveGenerationId, value, out _);
@@ -86,7 +68,7 @@ public static class EconomyStatisticsReducer
         if (WouldOverflow(currency.Totals, value.Direction, value.Amount)
             || (value.Currency == CurrencyKind.Cash
                 && value.ProvenExternalRaidAcquisition
-                && WouldOverflow(aggregate.CashRaidOutcomes.Acquired, value.Amount)))
+                && WouldOverflow(aggregate.CashAcquired, value.Amount)))
         {
             ApplyArithmeticSaturation(aggregate, value.Currency);
             capabilityChanged = true;
@@ -100,34 +82,12 @@ public static class EconomyStatisticsReducer
         {
             if (value.ProvenExternalRaidAcquisition)
             {
-                aggregate.CashRaidOutcomes.Acquired = SaturatingAdd(aggregate.CashRaidOutcomes.Acquired, value.Amount);
+                aggregate.CashAcquired = SaturatingAdd(aggregate.CashAcquired, value.Amount);
             }
-            else if (value.Direction == CurrencyFlowDirection.Outflow && aggregate.CashRaidOutcomes.Acquired > 0)
-            {
-                aggregate.CashTerminalDispositionAmbiguous = true;
-            }
+
         }
 
         return true;
-    }
-
-    public static void FinalizeCashRaidOutcome(EconomyStatisticsAggregate aggregate, RunOutcome outcome)
-    {
-        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        NormalizePersisted(aggregate);
-        if (aggregate.CashTerminalDispositionRecorded) return;
-        var acquired = aggregate.CashRaidOutcomes.Acquired;
-        if (acquired > 0)
-        {
-            if (outcome == RunOutcome.Interrupted || aggregate.CashTerminalDispositionAmbiguous
-                || aggregate.Capabilities.CashTerminalOutcomes.State != AdapterCapabilityState.Supported)
-                aggregate.CashRaidOutcomes.Unresolved = SaturatingAdd(aggregate.CashRaidOutcomes.Unresolved, acquired);
-            else if (outcome == RunOutcome.Extracted)
-                aggregate.CashRaidOutcomes.Secured = SaturatingAdd(aggregate.CashRaidOutcomes.Secured, acquired);
-            else if (outcome == RunOutcome.Died)
-                aggregate.CashRaidOutcomes.Lost = SaturatingAdd(aggregate.CashRaidOutcomes.Lost, acquired);
-        }
-        aggregate.CashTerminalDispositionRecorded = true;
     }
 
     public static void Merge(EconomyStatisticsAggregate target, EconomyStatisticsAggregate source)
@@ -139,7 +99,7 @@ public static class EconomyStatisticsReducer
         NormalizePersisted(source);
         var moneyOverflow = CurrencyMergeWouldOverflow(target, source, CurrencyKind.Money);
         var cashOverflow = CurrencyMergeWouldOverflow(target, source, CurrencyKind.Cash)
-                           || CashOutcomeMergeWouldOverflow(target.CashRaidOutcomes, source.CashRaidOutcomes);
+                           || WouldOverflow(target.CashAcquired, source.CashAcquired);
         var mergeMoney = !target.MoneyArithmeticSaturated && !moneyOverflow;
         var mergeCash = !target.CashArithmeticSaturated && !cashOverflow;
         foreach (var row in source.Currencies.Values)
@@ -153,20 +113,12 @@ public static class EconomyStatisticsReducer
         }
         if (mergeCash)
         {
-            target.CashRaidOutcomes.Acquired = SaturatingAdd(target.CashRaidOutcomes.Acquired, source.CashRaidOutcomes.Acquired);
-            target.CashRaidOutcomes.Secured = SaturatingAdd(target.CashRaidOutcomes.Secured, source.CashRaidOutcomes.Secured);
-            target.CashRaidOutcomes.Lost = SaturatingAdd(target.CashRaidOutcomes.Lost, source.CashRaidOutcomes.Lost);
-            target.CashRaidOutcomes.Unresolved = SaturatingAdd(target.CashRaidOutcomes.Unresolved, source.CashRaidOutcomes.Unresolved);
+            target.CashAcquired = SaturatingAdd(target.CashAcquired, source.CashAcquired);
         }
-        target.HistoricalUnavailable |= source.HistoricalUnavailable;
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
-        target.CashTerminalDispositionAmbiguous |= source.CashTerminalDispositionAmbiguous;
-        target.CashTerminalDispositionRecorded |= source.CashTerminalDispositionRecorded;
-        target.LegacyIdentitySaturationIncomplete |= source.LegacyIdentitySaturationIncomplete
-                                                     || source.DeduplicationSaturated;
         target.MoneyArithmeticSaturated |= source.MoneyArithmeticSaturated;
         target.CashArithmeticSaturated |= source.CashArithmeticSaturated;
-        target.Capabilities = targetWasUninitialized && !target.HistoricalUnavailable
+        target.Capabilities = targetWasUninitialized
             ? CloneCapabilities(source.Capabilities)
             : MergeCapabilities(target.Capabilities, source.Capabilities);
         if (moneyOverflow || source.MoneyArithmeticSaturated)
@@ -181,24 +133,12 @@ public static class EconomyStatisticsReducer
         NormalizePersisted(source);
         var clone = new EconomyStatisticsAggregate
         {
-            CashRaidOutcomes = new CashRaidOutcomeAggregate
-            {
-                Acquired = source.CashRaidOutcomes.Acquired,
-                Secured = source.CashRaidOutcomes.Secured,
-                Lost = source.CashRaidOutcomes.Lost,
-                Unresolved = source.CashRaidOutcomes.Unresolved
-            },
+            CashAcquired = source.CashAcquired,
             Capabilities = CloneCapabilities(source.Capabilities),
-            RecentEventIds = source.RecentEventIds.ToList(),
-            HistoricalUnavailable = source.HistoricalUnavailable,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
-            CashTerminalDispositionAmbiguous = source.CashTerminalDispositionAmbiguous,
-            CashTerminalDispositionRecorded = source.CashTerminalDispositionRecorded,
-            DeduplicationSaturated = source.DeduplicationSaturated,
             MoneyArithmeticSaturated = source.MoneyArithmeticSaturated,
             CashArithmeticSaturated = source.CashArithmeticSaturated,
-            ReplayCursor = CloneReplayCursor(source.ReplayCursor),
-            LegacyIdentitySaturationIncomplete = source.LegacyIdentitySaturationIncomplete
+            ReplayCursor = CloneReplayCursor(source.ReplayCursor)
         };
         foreach (var entry in source.Currencies)
         {
@@ -229,13 +169,9 @@ public static class EconomyStatisticsReducer
         difference = new EconomyStatisticsAggregate
         {
             Capabilities = CloneCapabilities(total.Capabilities),
-            HistoricalUnavailable = total.HistoricalUnavailable,
             WasRepairedFromInvalidState = total.WasRepairedFromInvalidState,
-            CashTerminalDispositionAmbiguous = total.CashTerminalDispositionAmbiguous,
-            CashTerminalDispositionRecorded = total.CashTerminalDispositionRecorded,
             MoneyArithmeticSaturated = total.MoneyArithmeticSaturated,
-            CashArithmeticSaturated = total.CashArithmeticSaturated,
-            LegacyIdentitySaturationIncomplete = total.LegacyIdentitySaturationIncomplete
+            CashArithmeticSaturated = total.CashArithmeticSaturated
         };
         foreach (var totalEntry in total.Currencies)
         {
@@ -247,29 +183,23 @@ public static class EconomyStatisticsReducer
             if (row.Totals.GrossInflow > 0 || row.Totals.GrossOutflow > 0) difference.Currencies[totalEntry.Key] = row;
         }
         if (baseline.Currencies.Keys.Any(key => !total.Currencies.ContainsKey(key))) return false;
-        if (!TrySubtract(total.CashRaidOutcomes.Acquired, baseline.CashRaidOutcomes.Acquired, out var acquired)
-            || !TrySubtract(total.CashRaidOutcomes.Secured, baseline.CashRaidOutcomes.Secured, out var secured)
-            || !TrySubtract(total.CashRaidOutcomes.Lost, baseline.CashRaidOutcomes.Lost, out var lost)
-            || !TrySubtract(total.CashRaidOutcomes.Unresolved, baseline.CashRaidOutcomes.Unresolved, out var unresolved))
+        if (!TrySubtract(total.CashAcquired, baseline.CashAcquired, out var acquired))
             return false;
-        difference.CashRaidOutcomes = new CashRaidOutcomeAggregate
-        { Acquired = acquired, Secured = secured, Lost = lost, Unresolved = unresolved };
+        difference.CashAcquired = acquired;
         return true;
     }
 
     public static bool IsEmpty(EconomyStatisticsAggregate value)
     {
         if (value == null) return true;
-        if (value.Currencies == null || value.CashRaidOutcomes == null) return false;
+        if (value.Currencies == null) return false;
         return value.Currencies.Values.All(row => row.Totals.GrossInflow == 0 && row.Totals.GrossOutflow == 0)
-               && value.CashRaidOutcomes.Acquired == 0 && value.CashRaidOutcomes.Secured == 0
-               && value.CashRaidOutcomes.Lost == 0 && value.CashRaidOutcomes.Unresolved == 0;
+               && value.CashAcquired == 0;
     }
 
     public static bool HasExactSupportedCurrency(EconomyStatisticsAggregate aggregate, CurrencyKind currency)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        if (aggregate.HistoricalUnavailable) return false;
         return currency switch
         {
             CurrencyKind.Money => !aggregate.MoneyArithmeticSaturated
@@ -280,13 +210,6 @@ public static class EconomyStatisticsReducer
         };
     }
 
-    public static bool HasExactCapturedCurrency(EconomyStatisticsAggregate aggregate, CurrencyKind currency)
-    {
-        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        return !IsCurrencyArithmeticSaturated(aggregate, currency)
-               && aggregate.Currencies.ContainsKey(currency.ToString());
-    }
-
     public static bool IsExactCurrencyComposition(
         EconomyStatisticsAggregate total,
         IEnumerable<EconomyStatisticsAggregate> components,
@@ -295,23 +218,13 @@ public static class EconomyStatisticsReducer
         if (total == null) throw new ArgumentNullException(nameof(total));
         if (components == null) throw new ArgumentNullException(nameof(components));
         var supportedComposition = HasExactSupportedCurrency(total, currency);
-        var historicalCapturedComposition = total.HistoricalUnavailable
-                                            && !IsCurrencyArithmeticSaturated(total, currency);
-        if (!supportedComposition && !historicalCapturedComposition) return true;
+        if (!supportedComposition) return true;
 
         var expected = new CurrencyEconomyAggregate { Currency = currency };
         foreach (var component in components)
         {
             if (component == null) return false;
             if (supportedComposition && !HasExactSupportedCurrency(component, currency)) return false;
-            if (historicalCapturedComposition
-                && !HasExactCapturedCurrency(component, currency))
-            {
-                if (!component.Currencies.ContainsKey(currency.ToString())
-                    && !IsCurrencyArithmeticSaturated(component, currency))
-                    continue;
-                return false;
-            }
             if (!component.Currencies.TryGetValue(currency.ToString(), out var row)) continue;
             if (!TryMergeExact(expected, row)) return false;
         }
@@ -332,28 +245,10 @@ public static class EconomyStatisticsReducer
         foreach (var component in components)
         {
             if (component == null || component.CashArithmeticSaturated
-                                  || !TryAddExact(expected, component.CashRaidOutcomes.Acquired, out expected))
+                                  || !TryAddExact(expected, component.CashAcquired, out expected))
                 return false;
         }
-        return total.CashRaidOutcomes.Acquired == expected;
-    }
-
-    public static bool IsExactCashOutcomeComposition(
-        EconomyStatisticsAggregate total,
-        IEnumerable<EconomyStatisticsAggregate> components)
-    {
-        if (total == null) throw new ArgumentNullException(nameof(total));
-        if (components == null) throw new ArgumentNullException(nameof(components));
-        if (total.CashArithmeticSaturated) return true;
-
-        var expected = new CashRaidOutcomeAggregate();
-        foreach (var component in components)
-        {
-            if (component == null || component.CashArithmeticSaturated
-                                  || !TryAddCashOutcomes(expected, component.CashRaidOutcomes))
-                return false;
-        }
-        return CashOutcomesEqual(total.CashRaidOutcomes, expected);
+        return total.CashAcquired == expected;
     }
 
     private static bool IsCurrencyArithmeticSaturated(EconomyStatisticsAggregate aggregate, CurrencyKind currency) =>
@@ -364,45 +259,12 @@ public static class EconomyStatisticsReducer
             _ => true
         };
 
-    public static void MergeTerminalOutcomes(EconomyStatisticsAggregate target, EconomyStatisticsAggregate run)
-    {
-        if (target == null) throw new ArgumentNullException(nameof(target));
-        if (run == null) throw new ArgumentNullException(nameof(run));
-        NormalizePersisted(target);
-        NormalizePersisted(run);
-        if (target.CashArithmeticSaturated)
-        {
-            target.CashTerminalDispositionAmbiguous = true;
-            target.CashTerminalDispositionRecorded |= run.CashTerminalDispositionRecorded;
-            return;
-        }
-        var arithmeticSaturated = WouldOverflow(target.CashRaidOutcomes.Secured, run.CashRaidOutcomes.Secured)
-                                  || WouldOverflow(target.CashRaidOutcomes.Lost, run.CashRaidOutcomes.Lost)
-                                  || WouldOverflow(target.CashRaidOutcomes.Unresolved, run.CashRaidOutcomes.Unresolved);
-        if (arithmeticSaturated)
-        {
-            target.CashTerminalDispositionAmbiguous = true;
-            target.CashTerminalDispositionRecorded |= run.CashTerminalDispositionRecorded;
-            ApplyArithmeticSaturation(target, CurrencyKind.Cash);
-            return;
-        }
-        target.CashRaidOutcomes.Secured = SaturatingAdd(target.CashRaidOutcomes.Secured, run.CashRaidOutcomes.Secured);
-        target.CashRaidOutcomes.Lost = SaturatingAdd(target.CashRaidOutcomes.Lost, run.CashRaidOutcomes.Lost);
-        target.CashRaidOutcomes.Unresolved = SaturatingAdd(target.CashRaidOutcomes.Unresolved, run.CashRaidOutcomes.Unresolved);
-        target.CashTerminalDispositionAmbiguous |= run.CashTerminalDispositionAmbiguous;
-        target.CashTerminalDispositionRecorded |= run.CashTerminalDispositionRecorded;
-        if (run.CashArithmeticSaturated)
-            ApplyArithmeticSaturation(target, CurrencyKind.Cash);
-    }
-
     public static bool NormalizePersisted(EconomyStatisticsAggregate aggregate)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
         var repaired = false;
         aggregate.Currencies ??= Repair(new Dictionary<string, CurrencyEconomyAggregate>(StringComparer.Ordinal), ref repaired);
-        aggregate.CashRaidOutcomes ??= Repair(new CashRaidOutcomeAggregate(), ref repaired);
         aggregate.Capabilities ??= Repair(new EconomyMetricCapabilities(), ref repaired);
-        aggregate.RecentEventIds ??= Repair(new List<string>(), ref repaired);
         aggregate.ReplayCursor ??= Repair(new EconomyReplayCursor(), ref repaired);
         NormalizeCapabilities(aggregate.Capabilities, ref repaired);
         NormalizeReplayCursor(aggregate.ReplayCursor, ref repaired);
@@ -417,19 +279,6 @@ public static class EconomyStatisticsReducer
             if (!string.Equals(entry.Key, key, StringComparison.Ordinal)) repaired = true;
         }
         aggregate.Currencies = normalized;
-        var deduped = aggregate.RecentEventIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).Take(LegacyMaximumRecentEventIds).ToList();
-        if (deduped.Count != aggregate.RecentEventIds.Count) repaired = true;
-        aggregate.RecentEventIds = deduped;
-        if (aggregate.RecentEventIds.Count == LegacyMaximumRecentEventIds && !aggregate.DeduplicationSaturated)
-        {
-            aggregate.DeduplicationSaturated = true;
-            repaired = true;
-        }
-        if (aggregate.DeduplicationSaturated)
-        {
-            if (!aggregate.LegacyIdentitySaturationIncomplete) repaired = true;
-            aggregate.LegacyIdentitySaturationIncomplete = true;
-        }
         if (aggregate.MoneyArithmeticSaturated)
         {
             if (MoneyCapabilities(aggregate.Capabilities).Any(value => value.State != AdapterCapabilityState.DisabledIncompatible))
@@ -442,26 +291,7 @@ public static class EconomyStatisticsReducer
                 repaired = true;
             ApplyArithmeticSaturation(aggregate, CurrencyKind.Cash);
         }
-        aggregate.CashRaidOutcomes.Acquired = NonNegative(aggregate.CashRaidOutcomes.Acquired, ref repaired);
-        aggregate.CashRaidOutcomes.Secured = NonNegative(aggregate.CashRaidOutcomes.Secured, ref repaired);
-        aggregate.CashRaidOutcomes.Lost = NonNegative(aggregate.CashRaidOutcomes.Lost, ref repaired);
-        aggregate.CashRaidOutcomes.Unresolved = NonNegative(aggregate.CashRaidOutcomes.Unresolved, ref repaired);
-        if (!TrySumExactly(
-                new[]
-                {
-                    aggregate.CashRaidOutcomes.Secured,
-                    aggregate.CashRaidOutcomes.Lost,
-                    aggregate.CashRaidOutcomes.Unresolved
-                },
-                out var resolvedCash)
-            || resolvedCash > aggregate.CashRaidOutcomes.Acquired)
-        {
-            aggregate.CashRaidOutcomes.Secured = 0;
-            aggregate.CashRaidOutcomes.Lost = 0;
-            aggregate.CashRaidOutcomes.Unresolved = aggregate.CashRaidOutcomes.Acquired;
-            aggregate.CashTerminalDispositionAmbiguous = true;
-            repaired = true;
-        }
+        aggregate.CashAcquired = NonNegative(aggregate.CashAcquired, ref repaired);
         aggregate.WasRepairedFromInvalidState |= repaired;
         return repaired;
     }
@@ -469,14 +299,8 @@ public static class EconomyStatisticsReducer
     public static void Validate(EconomyStatisticsAggregate aggregate)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        if (aggregate.Currencies == null || aggregate.CashRaidOutcomes == null || aggregate.Capabilities == null
-            || aggregate.RecentEventIds == null || aggregate.ReplayCursor == null)
+        if (aggregate.Currencies == null || aggregate.Capabilities == null || aggregate.ReplayCursor == null)
             throw new ArgumentException("Economy roots are missing.", nameof(aggregate));
-        if (aggregate.RecentEventIds.Count > LegacyMaximumRecentEventIds || aggregate.RecentEventIds.Any(string.IsNullOrWhiteSpace)
-            || aggregate.RecentEventIds.Distinct(StringComparer.Ordinal).Count() != aggregate.RecentEventIds.Count)
-            throw new ArgumentException("Legacy economy identity evidence is invalid.", nameof(aggregate));
-        if (aggregate.RecentEventIds.Count == LegacyMaximumRecentEventIds && !aggregate.DeduplicationSaturated)
-            throw new ArgumentException("Legacy economy identity saturation state is invalid.", nameof(aggregate));
         ValidateReplayCursor(aggregate.ReplayCursor);
         foreach (var entry in aggregate.Currencies)
         {
@@ -484,7 +308,7 @@ public static class EconomyStatisticsReducer
                 throw new ArgumentException("Economy currency identity is invalid.", nameof(aggregate));
             ValidateCurrency(entry.Value);
         }
-        ValidateOutcome(aggregate.CashRaidOutcomes);
+        ValidateCashAcquired(aggregate.CashAcquired);
         ValidateCapabilities(aggregate.Capabilities);
         if (aggregate.MoneyArithmeticSaturated
             && MoneyCapabilities(aggregate.Capabilities).Any(value => value.State != AdapterCapabilityState.DisabledIncompatible))
@@ -497,16 +321,10 @@ public static class EconomyStatisticsReducer
     public static void ValidateRecoveryCandidate(EconomyStatisticsAggregate aggregate)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        if (aggregate.Currencies == null || aggregate.CashRaidOutcomes == null
-            || aggregate.Capabilities == null || aggregate.RecentEventIds == null)
+        if (aggregate.Currencies == null
+            || aggregate.Capabilities == null || aggregate.ReplayCursor == null)
             throw new ArgumentException("Economy roots are missing.", nameof(aggregate));
-        if (aggregate.RecentEventIds.Count > LegacyMaximumRecentEventIds
-            || aggregate.RecentEventIds.Any(string.IsNullOrWhiteSpace)
-            || aggregate.RecentEventIds.Distinct(StringComparer.Ordinal).Count() != aggregate.RecentEventIds.Count)
-            throw new ArgumentException("Legacy economy identity evidence is unsafe.", nameof(aggregate));
-        if (aggregate.RecentEventIds.Count == LegacyMaximumRecentEventIds && !aggregate.DeduplicationSaturated)
-            throw new ArgumentException("Legacy economy identity saturation evidence is inconsistent.", nameof(aggregate));
-        if (aggregate.ReplayCursor != null) ValidateReplayCursor(aggregate.ReplayCursor);
+        ValidateReplayCursor(aggregate.ReplayCursor);
         foreach (var entry in aggregate.Currencies)
         {
             var value = entry.Value;
@@ -521,7 +339,7 @@ public static class EconomyStatisticsReducer
             if (!Composes(value.Totals, value.Sources) || !Composes(value.Totals, value.Contexts))
                 throw new ArgumentException("Economy breakdowns do not compose to their currency totals.", nameof(aggregate));
         }
-        ValidateOutcome(aggregate.CashRaidOutcomes);
+        ValidateCashAcquired(aggregate.CashAcquired);
     }
 
     public static EconomyMetricCapabilities CloneCapabilities(EconomyMetricCapabilities source) => new()
@@ -532,7 +350,6 @@ public static class EconomyStatisticsReducer
         CashAmountDirection = Clone(source.CashAmountDirection),
         CashExternalAcquisition = Clone(source.CashExternalAcquisition),
         CashContextAttribution = Clone(source.CashContextAttribution),
-        CashTerminalOutcomes = Clone(source.CashTerminalOutcomes),
         RouteAttribution = Clone(source.RouteAttribution)
     };
 
@@ -555,7 +372,7 @@ public static class EconomyStatisticsReducer
         if (capabilities == null) throw new ArgumentNullException(nameof(capabilities));
         var aggregateWasUninitialized = IsUninitialized(aggregate);
         NormalizePersisted(aggregate);
-        aggregate.Capabilities = aggregateWasUninitialized && !aggregate.HistoricalUnavailable
+        aggregate.Capabilities = aggregateWasUninitialized
             ? CloneCapabilities(capabilities)
             : MergeLifetimeCapabilities(aggregate.Capabilities, capabilities);
         if (aggregate.MoneyArithmeticSaturated) ApplyArithmeticSaturation(aggregate, CurrencyKind.Money);
@@ -573,25 +390,13 @@ public static class EconomyStatisticsReducer
         return true;
     }
 
-    public static bool CompactLegacyReplayEvidence(
-        EconomyStatisticsAggregate aggregate,
-        bool clearReplayCursor)
+    public static bool ClearReplayCursor(EconomyStatisticsAggregate aggregate)
     {
         if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
-        NormalizePersisted(aggregate);
-        var changed = aggregate.RecentEventIds.Count > 0 || aggregate.DeduplicationSaturated;
-        if (aggregate.DeduplicationSaturated)
-            aggregate.LegacyIdentitySaturationIncomplete = true;
-        aggregate.RecentEventIds.Clear();
-        aggregate.DeduplicationSaturated = false;
-        if (clearReplayCursor
-            && (!string.IsNullOrEmpty(aggregate.ReplayCursor!.ActivationId)
-                || aggregate.ReplayCursor.ClosedThroughSequence != 0))
-        {
-            aggregate.ReplayCursor = new EconomyReplayCursor();
-            changed = true;
-        }
-        return changed;
+        if (string.IsNullOrEmpty(aggregate.ReplayCursor?.ActivationId)
+            && aggregate.ReplayCursor?.ClosedThroughSequence == 0) return false;
+        aggregate.ReplayCursor = new EconomyReplayCursor();
+        return true;
     }
 
     public static void ApplyArithmeticSaturation(EconomyStatisticsAggregate aggregate, CurrencyKind currency)
@@ -609,7 +414,6 @@ public static class EconomyStatisticsReducer
         aggregate.Capabilities.CashAmountDirection = RestrictForSaturation(aggregate.Capabilities.CashAmountDirection, reason);
         aggregate.Capabilities.CashExternalAcquisition = RestrictForSaturation(aggregate.Capabilities.CashExternalAcquisition, reason);
         aggregate.Capabilities.CashContextAttribution = RestrictForSaturation(aggregate.Capabilities.CashContextAttribution, reason);
-        aggregate.Capabilities.CashTerminalOutcomes = RestrictForSaturation(aggregate.Capabilities.CashTerminalOutcomes, reason);
     }
 
     public static long SaturatingDifference(long inflow, long outflow)
@@ -777,25 +581,6 @@ public static class EconomyStatisticsReducer
                && WouldOverflow(targetValue.Totals, sourceValue.Totals);
     }
 
-    private static bool CashOutcomeMergeWouldOverflow(CashRaidOutcomeAggregate target, CashRaidOutcomeAggregate source) =>
-        WouldOverflow(target.Acquired, source.Acquired)
-        || WouldOverflow(target.Secured, source.Secured)
-        || WouldOverflow(target.Lost, source.Lost)
-        || WouldOverflow(target.Unresolved, source.Unresolved);
-
-    private static bool TryAddCashOutcomes(CashRaidOutcomeAggregate target, CashRaidOutcomeAggregate source)
-    {
-        if (!TryAddExact(target.Acquired, source.Acquired, out var acquired)
-            || !TryAddExact(target.Secured, source.Secured, out var secured)
-            || !TryAddExact(target.Lost, source.Lost, out var lost)
-            || !TryAddExact(target.Unresolved, source.Unresolved, out var unresolved))
-            return false;
-        target.Acquired = acquired;
-        target.Secured = secured;
-        target.Lost = lost;
-        target.Unresolved = unresolved;
-        return true;
-    }
 
     private static bool TryAddExact(long left, long right, out long result)
     {
@@ -804,12 +589,6 @@ public static class EconomyStatisticsReducer
         result = left + right;
         return true;
     }
-
-    private static bool CashOutcomesEqual(CashRaidOutcomeAggregate left, CashRaidOutcomeAggregate right) =>
-        left.Acquired == right.Acquired
-        && left.Secured == right.Secured
-        && left.Lost == right.Lost
-        && left.Unresolved == right.Unresolved;
 
     private static bool WouldOverflow(long left, long right) => left > long.MaxValue - right;
 
@@ -873,7 +652,6 @@ public static class EconomyStatisticsReducer
         CashAmountDirection = Restrict(a.CashAmountDirection, b.CashAmountDirection),
         CashExternalAcquisition = Restrict(a.CashExternalAcquisition, b.CashExternalAcquisition),
         CashContextAttribution = Restrict(a.CashContextAttribution, b.CashContextAttribution),
-        CashTerminalOutcomes = Restrict(a.CashTerminalOutcomes, b.CashTerminalOutcomes),
         RouteAttribution = Restrict(a.RouteAttribution, b.RouteAttribution)
     };
 
@@ -887,7 +665,6 @@ public static class EconomyStatisticsReducer
             CashAmountDirection = RestrictLifetime(recorded.CashAmountDirection, current.CashAmountDirection),
             CashExternalAcquisition = RestrictLifetime(recorded.CashExternalAcquisition, current.CashExternalAcquisition),
             CashContextAttribution = RestrictLifetime(recorded.CashContextAttribution, current.CashContextAttribution),
-            CashTerminalOutcomes = RestrictLifetime(recorded.CashTerminalOutcomes, current.CashTerminalOutcomes),
             RouteAttribution = RestrictLifetime(recorded.RouteAttribution, current.RouteAttribution)
         };
 
@@ -917,16 +694,9 @@ public static class EconomyStatisticsReducer
     private static bool IsUninitialized(EconomyStatisticsAggregate value)
     {
         if (!IsEmpty(value)
-            || value.HistoricalUnavailable
             || value.WasRepairedFromInvalidState
-            || value.CashTerminalDispositionAmbiguous
-            || value.CashTerminalDispositionRecorded
-            || value.DeduplicationSaturated
             || value.MoneyArithmeticSaturated
             || value.CashArithmeticSaturated
-            || value.LegacyIdentitySaturationIncomplete
-            || value.RecentEventIds == null
-            || value.RecentEventIds.Count != 0
             || value.Capabilities == null)
             return false;
 
@@ -1009,7 +779,7 @@ public static class EconomyStatisticsReducer
         value.MoneyAmountDirection ??= Repair(new MetricAvailability(), ref repaired); value.MoneySourceAttribution ??= Repair(new MetricAvailability(), ref repaired);
         value.MoneyContextAttribution ??= Repair(new MetricAvailability(), ref repaired); value.CashAmountDirection ??= Repair(new MetricAvailability(), ref repaired);
         value.CashExternalAcquisition ??= Repair(new MetricAvailability(), ref repaired); value.CashContextAttribution ??= Repair(new MetricAvailability(), ref repaired);
-        value.CashTerminalOutcomes ??= Repair(new MetricAvailability(), ref repaired); value.RouteAttribution ??= Repair(new MetricAvailability(), ref repaired);
+        value.RouteAttribution ??= Repair(new MetricAvailability(), ref repaired);
         foreach (var availability in Capabilities(value))
         {
             if (!Enum.IsDefined(typeof(AdapterCapabilityState), availability.State))
@@ -1043,13 +813,11 @@ public static class EconomyStatisticsReducer
         return true;
     }
     private static CurrencyFlowTotals CloneTotals(CurrencyFlowTotals source) => new() { GrossInflow = source.GrossInflow, GrossOutflow = source.GrossOutflow };
-    private static EconomyReplayCursor? CloneReplayCursor(EconomyReplayCursor? source) => source == null
-        ? null
-        : new EconomyReplayCursor
-        {
-            ActivationId = source.ActivationId,
-            ClosedThroughSequence = source.ClosedThroughSequence
-        };
+    private static EconomyReplayCursor CloneReplayCursor(EconomyReplayCursor source) => new()
+    {
+        ActivationId = source.ActivationId,
+        ClosedThroughSequence = source.ClosedThroughSequence
+    };
     private static void ValidateCurrency(CurrencyEconomyAggregate value)
     {
         var validSources = Enum.GetNames(typeof(CurrencySourceCategory));
@@ -1071,7 +839,6 @@ public static class EconomyStatisticsReducer
         yield return value.CashAmountDirection;
         yield return value.CashExternalAcquisition;
         yield return value.CashContextAttribution;
-        yield return value.CashTerminalOutcomes;
         yield return value.RouteAttribution;
     }
 
@@ -1098,7 +865,6 @@ public static class EconomyStatisticsReducer
         yield return value.CashAmountDirection;
         yield return value.CashExternalAcquisition;
         yield return value.CashContextAttribution;
-        yield return value.CashTerminalOutcomes;
     }
 
     private static void ValidateCapabilities(EconomyMetricCapabilities value)
@@ -1107,12 +873,9 @@ public static class EconomyStatisticsReducer
                 availability == null || !Enum.IsDefined(typeof(AdapterCapabilityState), availability.State)))
             throw new ArgumentException("Economy capabilities are incomplete.", nameof(value));
     }
-    private static void ValidateOutcome(CashRaidOutcomeAggregate value)
+    private static void ValidateCashAcquired(long value)
     {
-        if (value.Acquired < 0 || value.Secured < 0 || value.Lost < 0 || value.Unresolved < 0
-            || !TrySumExactly(new[] { value.Secured, value.Lost, value.Unresolved }, out var resolved)
-            || resolved > value.Acquired)
-            throw new ArgumentException("Cash raid outcomes are invalid.", nameof(value));
+        if (value < 0) throw new ArgumentException("Cash acquisition must be non-negative.", nameof(value));
     }
     private static T Repair<T>(T value, ref bool repaired) { repaired = true; return value; }
     private static long SaturatingAdd(long left, long right)

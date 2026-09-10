@@ -1,0 +1,23 @@
+{
+  "Weapon": "",
+  "WeaponModifications": "",
+  "Ammunition": "",
+  "EquipmentAndTotems": "",
+  "Location": "",
+  "ShotCountExpectation": "",
+  "SaveGenerationId": "",
+  "BackgroundApplicationState": "",
+  "Resolution": "",
+  "DisplayMode": "",
+  "RefreshRateHz": "",
+  "FrameLimiterFps": "",
+  "VSyncState": "",
+  "GraphicsPreset": "",
+  "RouteAssociationState": "",
+  "ActionLabel": "",
+  "Consumable": "",
+  "ConsumableCountExpectation": "",
+  "StartingHealth": "",
+  "ActiveDamageEffects": "",
+  "PassiveHealingEffects": ""
+}

@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$DuckovPath,
 
-    [string]$Version = '0.17.0'
+    [string]$Version = '1.0.0-rc.1'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,6 +12,8 @@ if ($Version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+$declaredVersion = ((Get-Content -LiteralPath (Join-Path $repoRoot 'mod\info.ini') | Where-Object { $_ -match '^\s*version\s*=' }) -split '=', 2)[1].Trim()
+if ($Version -ne $declaredVersion) { throw 'Requested release version differs from the source manifest.' }
 & (Join-Path $PSScriptRoot 'build.ps1') -DuckovPath $DuckovPath
 
 $packageRoot = Join-Path $repoRoot 'artifacts\package\UltimateDuckovStatistics'
@@ -29,7 +31,7 @@ foreach ($path in @($archivePath, $checksumPath)) {
     }
 }
 
-Compress-Archive -LiteralPath $packageRoot -DestinationPath $archivePath -CompressionLevel Optimal
+& (Join-Path $PSScriptRoot 'archive-package.ps1') -PackagePath $packageRoot -ArchivePath $archivePath -Version $Version
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::OpenRead($archivePath)

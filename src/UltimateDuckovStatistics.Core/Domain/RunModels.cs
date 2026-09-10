@@ -60,15 +60,6 @@ public sealed class RunSummary
     [DataMember(Order = 4, EmitDefaultValue = false)]
     public string? NativeRaidId { get; set; }
 
-    [DataMember(Order = 5)]
-    public string MapId { get; set; } = MapIdentity.UnknownId;
-
-    [DataMember(Order = 6)]
-    public string MapDisplayName { get; set; } = MapIdentity.UnknownDisplayName;
-
-    [DataMember(Order = 7)]
-    public bool MapKnown { get; set; }
-
     [DataMember(Order = 8)]
     public DateTime StartedUtc { get; set; }
 
@@ -162,9 +153,6 @@ public sealed class RunSummary
     [DataMember(Order = 38)]
     public RouteMetricCapabilities RouteCapabilities { get; set; } = new();
 
-    [DataMember(Order = 39)]
-    public bool HistoricalRouteUnavailable { get; set; }
-
     [DataMember(Order = 40)]
     public bool RouteWasRepairedFromInvalidState { get; set; }
 
@@ -187,6 +175,9 @@ public sealed class RunSummary
 [DataContract]
 public sealed class ActiveRunCheckpoint
 {
+    [DataMember(Order = 60)]
+    public string FormatId { get; set; } = ProductInfo.ProfileFormatId;
+
     [DataMember(Order = 44)] public bool HealingCaptureComplete { get; set; }
 
     [DataMember(Order = 43)] public TerminalLoadout TerminalLoadout { get; set; } = new();
@@ -202,15 +193,6 @@ public sealed class ActiveRunCheckpoint
 
     [DataMember(Order = 4, EmitDefaultValue = false)]
     public string? NativeRaidId { get; set; }
-
-    [DataMember(Order = 5)]
-    public string MapId { get; set; } = MapIdentity.UnknownId;
-
-    [DataMember(Order = 6)]
-    public string MapDisplayName { get; set; } = MapIdentity.UnknownDisplayName;
-
-    [DataMember(Order = 7)]
-    public bool MapKnown { get; set; }
 
     [DataMember(Order = 8)]
     public DateTime StartedUtc { get; set; }
@@ -284,9 +266,6 @@ public sealed class ActiveRunCheckpoint
     [DataMember(Order = 31)]
     public RouteMetricCapabilities RouteCapabilities { get; set; } = new();
 
-    [DataMember(Order = 32)]
-    public bool HistoricalRouteUnavailable { get; set; }
-
     [DataMember(Order = 33)]
     public bool RouteWasRepairedFromInvalidState { get; set; }
 
@@ -338,17 +317,13 @@ public sealed class ActiveRunCheckpoint
         }
         var routeCapabilities = RouteCapabilities
                                 ?? RouteStatisticsReducer.Unavailable("Route capability record was missing during interrupted recovery.");
-        var routeSupported = !HistoricalRouteUnavailable
-                             && routeCapabilities.OrderedRoute?.State == AdapterCapabilityState.Supported
+        var routeSupported = routeCapabilities.OrderedRoute?.State == AdapterCapabilityState.Supported
                              && routeCapabilities.Segments?.State == AdapterCapabilityState.Supported;
         var result = new RunSummary
         {
             RunId = RunId,
             SaveGenerationId = SaveGenerationId,
             NativeRaidId = NativeRaidId,
-            MapId = MapId,
-            MapDisplayName = MapDisplayName,
-            MapKnown = MapKnown,
             StartedUtc = startedUtc,
             EndedUtc = endedUtc,
             ActiveDurationSeconds = FiniteNonNegative(ActiveDurationSeconds),
@@ -385,7 +360,6 @@ public sealed class ActiveRunCheckpoint
             Segments = recoveredSegments,
             TransitionExcludedDistance = FiniteNonNegative(TransitionExcludedDistance),
             RouteCapabilities = RouteStatisticsReducer.CloneCapabilities(routeCapabilities),
-            HistoricalRouteUnavailable = HistoricalRouteUnavailable,
             RouteWasRepairedFromInvalidState = RouteWasRepairedFromInvalidState,
             SegmentEventAssociations = SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
             HealingCaptureComplete = HealingCaptureComplete,
@@ -394,8 +368,6 @@ public sealed class ActiveRunCheckpoint
             HistoricalEventAttributionIncomplete = HistoricalEventAttributionIncomplete,
             HistoricalEventAttributionProvenance = HistoricalEventAttributionProvenance
         };
-
-        EconomyStatisticsReducer.FinalizeCashRaidOutcome(result.Economy, outcome);
         return result;
     }
 

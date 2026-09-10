@@ -1,0 +1,73 @@
+{
+  "Request": "User asked to remove the extra 10-second delay for focusing Duckov from future captures.",
+  "Change": "Capture wrapper accepts 0..30 seconds and defaults to zero; zero skips the focus-delay sleep. Explicit nonzero values remain supported. Campaign preparation selects the new zero-delay matrix.",
+  "Preserved": "Original matrix and all completed capture files, campaign hashes, 30-second measurement, five-second firing pre-action window, action offsets, three repetitions, thresholds, signals and user-controlled readiness.",
+  "Validation": [
+    "PowerShell syntax parsed successfully.",
+    "Isolated delay branch invoked with mocked output/sleep: zero invokes no sleep; explicit 10 invokes exactly one 10-second sleep. No live capture or sleeping in this check.",
+    "New matrix differs from original only in AttachDelaySeconds (10 to 0).",
+    "Prepared follow-up campaign verifies the existing two-checkout package proof and ordinary five-file artifact audit; candidate DLLs are unchanged.",
+    "Full high-rate-empty B ValidateOnly preflight passes with zero delay, only Harmony loaded, sensors disabled and no effective overlay. No firing capture started."
+  ],
+  "SourceEvidence": [
+    {
+      "Path": "scripts/capture-frame-times.ps1",
+      "Bytes": 25371,
+      "Sha256": "766c1b9f13d6b315c069627772206a482f66ef981d438c8882c8ef93e8c97bfd"
+    },
+    {
+      "Path": "scripts/prepare-m18-campaign.ps1",
+      "Bytes": 2007,
+      "Sha256": "879508c1ce34ebf5564d8f5b74b5e0e30e98673d9a15871ac2807554945169c1"
+    },
+    {
+      "Path": "docs/M18_CAPTURE_MATRIX.json",
+      "Bytes": 2908,
+      "Sha256": "0b73549baacb6aee4e196e55d1831ea20d6d074a41d6f470a34dd36b0ad89fe8"
+    },
+    {
+      "Path": "docs/M18_CAPTURE_MATRIX_NO_FOCUS_DELAY.json",
+      "Bytes": 2907,
+      "Sha256": "f701e059be59429f0ad06da3003823a18da01cc433ad408cecf203ddc5234e0c"
+    }
+  ],
+  "FollowUpCampaign": {
+    "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay/campaign.json",
+    "Bytes": 4264,
+    "Sha256": "367bf25fa55ba7db4ce69c80d97cc3a38fee40b7b9ea4062835c637406e8091d"
+  },
+  "SetupEvidence": [
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay/firing-setup.json",
+      "Bytes": 717,
+      "Sha256": "46b934ff8279f67a858a0807875dd672ce7538364bf4b0db32c5145038878b36"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay/controls.high-rate-empty.B.json",
+      "Bytes": 2906,
+      "Sha256": "294f6a2c579ea5fb361c79983fe19782f9b53ec1931f20a62ad5b4dfd2664d56"
+    },
+    {
+      "Path": "artifacts/qualification/88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay/firing-preflight.json",
+      "Bytes": 716,
+      "Sha256": "0fe8cd1e01141420b769b7fc2e76ad11d5fa2115c949085d448450488a56dd6e"
+    }
+  ],
+  "NativeCandidateSource": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "Limits": "This changes capture preparation only; it does not require a mod replacement or requalify the old frames under new metadata. Future physical readiness and action success remain user-controlled.",
+  "IndependentReview": {
+    "Result": "Pass for bounded idle result, preserved raw evidence and future zero-delay tooling. Independent computation reproduces all 46,501 frames and both raw input paths; full M18 acceptance remains open.",
+    "Evidence": [
+      {
+        "Path": "artifacts/m18-idle-reconciliation-review/review.md",
+        "Bytes": 3186,
+        "Sha256": "afddc91fbadc7950e9f67cce5f25eaff42074d03ddf60f812123d3ef6d687665"
+      },
+      {
+        "Path": "artifacts/m18-idle-reconciliation-review/result.json",
+        "Bytes": 22476,
+        "Sha256": "89db8e7d0265b054c0cd43ea274cfde9fcaa35820afaa1170d37ef89a7d9cc11"
+      }
+    ]
+  }
+}

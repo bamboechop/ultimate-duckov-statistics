@@ -1,0 +1,250 @@
+{
+  "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "Status": "Pass for observed multi-map/revisit extraction, per-visit enemy and weapon attribution, corpse exclusion, saved-profile/JSON/CSV agreement and the supplied Runs screenshot.",
+  "Slot": 1,
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "RunId": "967b0ed59289428d8fe8ad9eb9470255",
+  "NativeRaidId": "199",
+  "BeforeExportId": "20260908T1315114307803Z-063240a5b57647138bc4de0c18179981",
+  "ExportId": "20260908T1325118070599Z-063240a5b57647138bc4de0c18179981",
+  "ExportRevision": 1481,
+  "ObservedProfileRevision": 1723,
+  "UserReported": {
+    "Route": [
+      "Lagerbereich",
+      "Keller",
+      "Lagerbereich"
+    ],
+    "Outcome": "Extracted",
+    "FirstVisit": "MMG: two wolves and two regular ducks killed. Items taken from both ducks and one wolf; other wolf corpse opened without taking items.",
+    "ReturnVisit": "SR-3M: two regular ducks killed. One corpse ignored, the other opened without taking items."
+  },
+  "Observed": {
+    "CompletedRuns": 1,
+    "Outcome": "Extracted",
+    "Segments": 3,
+    "DistinctMaps": 2,
+    "ActiveSeconds": 262.78781089999995,
+    "WallClockSeconds": 273.7968026,
+    "PhysicalDistanceMetres": 821.6755559067316,
+    "TeleportDistanceMetres": 0,
+    "Integrity": "Normal",
+    "RecordEligible": true,
+    "Kills": 6,
+    "RangedKills": 6,
+    "ScavKills": 4,
+    "WolfKills": 2,
+    "MMGKills": 4,
+    "SR3MKills": 2,
+    "FiringActions": 62,
+    "RangedHits": 23,
+    "ContainersOpened": 0,
+    "CashInflow": 60,
+    "CashOutflow": 0,
+    "MoneyHeld": 14508,
+    "CashHeld": 60
+  },
+  "Route": [
+    {
+      "SegmentId": "967b0ed59289428d8fe8ad9eb9470255:segment:0",
+      "MapId": "duckov:map:Level_HiddenWarehouse",
+      "MapDisplayName": "Lagerbereich",
+      "ActiveSeconds": 127.34798150000006,
+      "PhysicalDistanceMetres": 342.222754283265,
+      "Kills": 4,
+      "FiringActions": 48,
+      "ContainersOpened": 0
+    },
+    {
+      "SegmentId": "967b0ed59289428d8fe8ad9eb9470255:segment:1",
+      "MapId": "duckov:map:Level_HiddenWarehouse_CellarUnderGround",
+      "MapDisplayName": "Keller",
+      "ActiveSeconds": 57.75081739999996,
+      "PhysicalDistanceMetres": 235.0698482841365,
+      "Kills": 0,
+      "FiringActions": 0,
+      "ContainersOpened": 0
+    },
+    {
+      "SegmentId": "967b0ed59289428d8fe8ad9eb9470255:segment:2",
+      "MapId": "duckov:map:Level_HiddenWarehouse",
+      "MapDisplayName": "Lagerbereich",
+      "ActiveSeconds": 77.68901199999993,
+      "PhysicalDistanceMetres": 244.38295333932996,
+      "Kills": 2,
+      "FiringActions": 14,
+      "ContainersOpened": 0
+    }
+  ],
+  "Agreement": {
+    "OneNativeStartAndExtraction": true,
+    "CompleteRunDeepEqualsSavedProfile": true,
+    "SeparateReturnVisitWithinSameRun": true,
+    "RouteMapTotalsCountOneRunAndTwoWarehouseVisits": true,
+    "ReportedEnemiesAndWeaponKillsMatchPerVisit": true,
+    "EquipmentCombatMatchesSelectedWeaponKills": true,
+    "AllCsvStructuresValid": true,
+    "TargetedCsvMetricsMatchJson": true,
+    "CraftingAndMoneyMetricsRetained": true,
+    "NoRemainingActiveRunCheckpoint": true
+  },
+  "CorpseObservationScope": "User reports five corpse accesses, with items taken from three. UDS records zero containers and logs corpse exclusion. The diagnostic is throttled by provenance and cannot independently establish the number of accessed or looted corpses; no corpse-count metric is claimed.",
+  "Scope": "This covers ordinary direct-fire weapon switching, a three-visit route and the supplied Runs detail screenshot. Delayed effects/throwables, this run cold reopen, hover detail, full UI/resources/recovery/performance and history soak remain separate.",
+  "DeathFollowUp": "Pass separately on slot 1: M18_DEATH_QUALIFICATION.json records the subsequent bow/Spider-Bot death run and confirms this multi-map run remains unchanged.",
+  "EvidenceManifestSha256": "27dad527bf745291226a721c9f72a36f9f8e9aae7eac3329547924073b7d7ae3",
+  "KeyEvidenceFiles": [
+    {
+      "File": "export/combat_attribution.csv",
+      "Bytes": 27397,
+      "Sha256": "d69f7a2254b09c13218a823536a56d725f220bf5aa1c6b41854bc95d4bde8e8e"
+    },
+    {
+      "File": "export/containers.csv",
+      "Bytes": 485,
+      "Sha256": "4a82c04385dd5d6396a55a58598195781d13f7d0d10ce52fb45be87d01145934"
+    },
+    {
+      "File": "export/equipment_combat.csv",
+      "Bytes": 4735,
+      "Sha256": "4f33d74048cbba6104ef58b04f2af598cf6efa85702debc512c38bd79c534f47"
+    },
+    {
+      "File": "export/route_map_totals.csv",
+      "Bytes": 1266,
+      "Sha256": "b5b76a8cac1522a170d5a5b60063e40b1008c53c870325df5468c6200483c3f5"
+    },
+    {
+      "File": "export/routes.csv",
+      "Bytes": 1338,
+      "Sha256": "ba5304e093ee60ac23b580c5fb8fd280e6513e8286ce257354736631cf392d14"
+    },
+    {
+      "File": "export/runs.csv",
+      "Bytes": 1560,
+      "Sha256": "1524171a277f170e3d5b049fff6f8434115476437ac2e9af1556f86b67147b0c"
+    },
+    {
+      "File": "export/segments.csv",
+      "Bytes": 2461,
+      "Sha256": "a464c5cc221d3e06d057296c637a8ced956f01b5d5c6f256d3d77c2a1899d8a0"
+    },
+    {
+      "File": "export/statistics.json",
+      "Bytes": 355021,
+      "Sha256": "9b665f4a5f657034d9700dd098b61e4047a7626374e043dfa4214472046f8e96"
+    },
+    {
+      "File": "player-observed.log",
+      "Bytes": 27171,
+      "Sha256": "d4fed5254ede3ae1188d5fa3c9bf5de1e2a76c9f684b20794ccf5e2c499c7651"
+    },
+    {
+      "File": "profile-observed.json",
+      "Bytes": 356263,
+      "Sha256": "e411f29426a04d397fb7b7174f6930482e84249cd8704747ed688c2bc2fae088"
+    }
+  ],
+  "VisualQualification": {
+    "Status": "Pass for visible multi-map Runs detail, summary, combat, terminal root-slot grid and occupied/empty attachment indicators in the supplied screenshot.",
+    "Method": "Manual visual inspection of the original screenshot, followed by numeric and slot-state comparison against the preserved export. No image transformation or automatic OCR was used.",
+    "Screenshot": {
+      "OriginalName": "codex-clipboard-1b4b37b0-cf1a-4995-9dfb-aac8e839a7d3.png",
+      "PreservedFile": "runs-route-equipment.png",
+      "Width": 2560,
+      "Height": 1440,
+      "Bytes": 2391370,
+      "Sha256": "7bea3a3ac5832004b0c97ef16fb5f1e46e7b7c1982dc516fbd1bb53c17eab96f"
+    },
+    "VisibleSummary": {
+      "Title": "Lagerbereich",
+      "Outcome": "Extracted",
+      "RunNumber": 1,
+      "Segments": 3,
+      "DistinctMaps": 2,
+      "Integrity": "Normal",
+      "RecordEligible": true,
+      "ActiveTime": "04:22.788",
+      "DistanceMetres": "821.68",
+      "Kills": 6,
+      "Containers": 0,
+      "CashNet": "+60",
+      "DamageDealt": "260",
+      "DamageTaken": "5.11",
+      "AccuracyPercent": "37.10",
+      "Headshots": 7,
+      "HeadshotFinalBlows": 4,
+      "HpRestored": 0,
+      "RangedFiringActions": 62,
+      "RangedHits": 23,
+      "RangedKills": 6,
+      "MeleeSwings": 0,
+      "MeleeHits": 0,
+      "MeleeKills": 0
+    },
+    "VisibleRoute": [
+      {
+        "Name": "Lagerbereich",
+        "ActiveTime": "02:07.348",
+        "DistanceMetres": "342.22",
+        "Kills": 4,
+        "FiringActions": 48,
+        "Containers": 0
+      },
+      {
+        "Name": "Keller",
+        "ActiveTime": "00:57.751",
+        "DistanceMetres": "235.07",
+        "Kills": 0,
+        "FiringActions": 0,
+        "Containers": 0
+      },
+      {
+        "Name": "Lagerbereich",
+        "ActiveTime": "01:17.689",
+        "DistanceMetres": "244.38",
+        "Kills": 2,
+        "FiringActions": 14,
+        "Containers": 0
+      }
+    ],
+    "Equipment": {
+      "TerminalCaptureState": "Complete",
+      "RootSlotsShown": 10,
+      "OccupiedRootSlots": 9,
+      "EmptyRootSlot": "Headset",
+      "VisibleIconCategories": [
+        "armor",
+        "backpack",
+        "gas mask",
+        "empty headset",
+        "helmet",
+        "axe",
+        "MMG",
+        "SR-3M",
+        "orange totem",
+        "blue totem"
+      ],
+      "NestedIndicators": {
+        "Backpack": {
+          "Occupied": 1,
+          "Empty": 0
+        },
+        "MeleeWeapon": {
+          "Occupied": 0,
+          "Empty": 1
+        },
+        "PrimaryWeapon": {
+          "Occupied": 4,
+          "Empty": 0
+        },
+        "SecondaryWeapon": {
+          "Occupied": 3,
+          "Empty": 1
+        }
+      }
+    },
+    "LayoutObservation": "All nine tab labels, three route entries, summary values and equipment cells are visible without clipped text or overlaps between UDS controls in this frame.",
+    "Scope": "One supplied 2560x1440 screenshot. Root icon categories and slot occupancy agree with the captured loadout; exact item IDs and attachment identities are not independently proven by unlabelled icons. Hover details, keyboard/input behavior, scrolling, other resolutions/languages, other tabs, native resource lifetime and performance remain separate. The displayed FPS counter is not performance acceptance evidence.",
+    "EvidenceManifestSha256": "c6b18e750686da17f8add00875b841b97fb91dbdf5c5aa6b82822dbc4a0168fd"
+  }
+}

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyVersion>2.4.1.0</AssemblyVersion>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <DefineConstants Condition="'$(UDSPerformanceDiagnostics)' == 'true'">$(DefineConstants);UDS_PERFORMANCE_DIAGNOSTICS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/RetainedPanelModal.cs" Link="ProductionUI/RetainedPanelModal.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeHotPathDiagnostics.cs" Link="Production/Adapters/NativeHotPathDiagnostics.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeHotPathTimings.cs" Link="Production/Adapters/NativeHotPathTimings.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeUiResourceDiagnostics.cs" Link="Production/Adapters/NativeUiResourceDiagnostics.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/ReflectiveHarmonyPatcher.cs" Link="Production/Adapters/ReflectiveHarmonyPatcher.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/NativePanelShortcutGuard.cs" Link="Production/UI/NativePanelShortcutGuard.cs" />
+    <Compile Include="../Shared/HarmonyBoundaryStubs.cs" Link="HarmonyBoundaryStubs.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/EntityDisplayNames.cs" Link="ProductionUI/EntityDisplayNames.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeEntityDisplayNames.cs" Link="ProductionUI/NativeEntityDisplayNames.cs" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2"><PrivateAssets>all</PrivateAssets></PackageReference>
+    <ProjectReference Include="../../src/UltimateDuckovStatistics.Core/UltimateDuckovStatistics.Core.csproj" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/*Presentation.cs;../../src/UltimateDuckovStatistics/UI/*ViewPolicy.cs;../../src/UltimateDuckovStatistics/UI/*Text.cs;../../src/UltimateDuckovStatistics/UI/StatisticsPanelProjection.cs;../../src/UltimateDuckovStatistics/UI/CombatTableSort.cs;../../src/UltimateDuckovStatistics/UI/DiagnosticsCapabilityCatalog.cs;../../src/UltimateDuckovStatistics/UI/DiagnosticsPathPrivacy.cs;../../src/UltimateDuckovStatistics/UI/PanelOperations.cs;../../src/UltimateDuckovStatistics/UI/RetainedStatisticsShell.cs;../../src/UltimateDuckovStatistics/UI/RetainedTabScroll.cs;../../src/UltimateDuckovStatistics/UI/RetainedTabLabelMaterial.cs;../../src/UltimateDuckovStatistics/UI/RetainedNativeStatisticsPanel.cs" Link="ProductionUI/%(Filename)%(Extension)" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeProfileResetTransition.cs" Link="ProductionAdapters/NativeProfileResetTransition.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeUiIntegration.cs" Link="ProductionUI/NativeUiIntegration.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeTotemIconAppearance.cs" Link="ProductionUI/NativeTotemIconAppearance.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/OwnedTotemIconShadow.cs" Link="ProductionUI/OwnedTotemIconShadow.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeIntegrityProbe.cs" Link="ProductionAdapters/NativeIntegrityProbe.cs" />
+  </ItemGroup>
+</Project>

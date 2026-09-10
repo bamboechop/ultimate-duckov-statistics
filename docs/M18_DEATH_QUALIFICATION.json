@@ -1,0 +1,99 @@
+{
+  "SourceCommit": "f0187b2893bdb341298d094ef161f39e0ba56ba4",
+  "Status": "Pass for observed native death outcome, bow kill, Spider-Bot killer, terminal capture and saved-profile/JSON/CSV agreement.",
+  "Slot": 1,
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "RunId": "c3962c74d1414d9481f68a4ba4c3a207",
+  "NativeRaidId": "201",
+  "BeforeExportId": "20260908T1325118070599Z-063240a5b57647138bc4de0c18179981",
+  "ExportId": "20260908T1347229424563Z-063240a5b57647138bc4de0c18179981",
+  "ExportRevision": 2828,
+  "ObservedProfileRevision": 3044,
+  "UserReported": {
+    "BowDuckKills": 1,
+    "DiedTo": "spider bot",
+    "AdditionalShortExtractionConfirmed": true
+  },
+  "AdditionalConfirmedRun": {
+    "RunId": "9fc9b640c5bb4339aa94bc4b174469e6",
+    "NativeRaidId": "200",
+    "Map": "Nullpunkt",
+    "Outcome": "Extracted",
+    "ActiveSeconds": 22.824730199999976,
+    "KriegsaxtKills": 1
+  },
+  "Observed": {
+    "Map": "Nullpunkt",
+    "Outcome": "Died",
+    "Segments": 1,
+    "ActiveSeconds": 54.60724960000016,
+    "PhysicalDistanceMetres": 207.12620345788065,
+    "TeleportDistanceMetres": 0.3660496473312378,
+    "Integrity": "Normal",
+    "RecordEligible": true,
+    "KillsByYou": 1,
+    "RangedKills": 1,
+    "PlayerDeaths": 1,
+    "WeaponId": "duckov:weapon:357",
+    "WeaponDisplayName": "Schrott-Bogen",
+    "AmmunitionId": "duckov:ammo:648",
+    "EnemyId": "duckov:target:preset:cname-scav",
+    "KillerId": "duckov:attacker:preset:cname-robspider",
+    "KillerDisplayName": "Spider-Bot",
+    "ObservedWorldDeathsKeptSeparate": 3,
+    "TerminalLoadoutState": "Complete",
+    "TerminalSelectedWeaponId": "duckov:weapon:357"
+  },
+  "Agreement": {
+    "OneNativeStartAndDiedCompletion": true,
+    "NoExtractionForDeathRun": true,
+    "CompleteRunDeepEqualsSavedProfile": true,
+    "ReportedBowKillAndSpiderKillerMatch": true,
+    "PriorMultiMapRunUnchanged": true,
+    "AdditionalTripExplainedByUser": true,
+    "RunTotalsTwoExtractedOneDied": true,
+    "TargetedCsvMetricsMatchJson": true,
+    "AllCsvStructuresValid": true,
+    "CraftingAndCurrencyMetricsRetained": true,
+    "NoRemainingActiveRunCheckpoint": true
+  },
+  "Scope": "One ordinary Nullpunkt death. Native tutorial death/retry, this run cold reopen and visual details, delayed effects/throwables, broader UI/resources/recovery/performance and history soak remain separate. Three observed world deaths are recorded separately and were not claimed as user kills or independently confirmed by the user.",
+  "EvidenceManifestSha256": "fff6b5b706b292617e2eecdfb15713fef00bb1495807fb835e731dff08baeeaf",
+  "KeyEvidenceFiles": [
+    {
+      "File": "export/combat_attribution.csv",
+      "Bytes": 67286,
+      "Sha256": "b1e388610203779f53d034ae0e96002a8dae95ddbf9541cc1ada6b2aa6b2ca20"
+    },
+    {
+      "File": "export/run_totals.csv",
+      "Bytes": 760,
+      "Sha256": "8c8acb2a2d664933c114cda6987f145b8cc1f27b540c10a3d41034484700e21a"
+    },
+    {
+      "File": "export/runs.csv",
+      "Bytes": 2771,
+      "Sha256": "81c82ddf298fe769dcd00be696fb687549142fc81759d3fcc419060dc5c10f75"
+    },
+    {
+      "File": "export/statistics.json",
+      "Bytes": 634843,
+      "Sha256": "6901251e031f2dd595190bbdf6b6fe7670f36e690f112bf85ac232f0b92fdff6"
+    },
+    {
+      "File": "export/terminal_loadouts.csv",
+      "Bytes": 12528,
+      "Sha256": "52803f11eb49036d42a0eea3fabc8d2b4f473c25596f25b7ad01c352aac8d464"
+    },
+    {
+      "File": "player-observed.log",
+      "Bytes": 49302,
+      "Sha256": "0568208da85e607cb9fc9dc66abb55c317d9738b4671f076d51bbd2f00aeb69e"
+    },
+    {
+      "File": "profile-observed.json",
+      "Bytes": 636085,
+      "Sha256": "bac73b639e3ac95891435f28ac85183e88cc0d0d191e51786c75909e22e5f8e7"
+    }
+  ]
+}

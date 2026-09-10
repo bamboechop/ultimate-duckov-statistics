@@ -1,0 +1,373 @@
+{
+  "RecordedUtc": "2026-09-09T20:05:39.271368+00:00",
+  "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+  "CheckoutAtReview": "1ab0e76ddd72851de0f3b569b64795fade0144bf",
+  "EvidenceRoot": "C:\\Users\\micro\\projects\\ultimate-duckov-statistics\\artifacts\\qualification\\88efddb5eacdab40a40498b62f90fdde14d167af-no-focus-delay",
+  "EvidenceManifest": {
+    "Path": "second-auto-single-review-input.json",
+    "Sha256": "6349e5693a11cf0abf2dd4d56329e35aa1742391a30d95c1b3e98347ed0e2b72"
+  },
+  "FrozenReportSha256": "02ba7dc22c345afaa991c639580c33d82ddb14f0ef96d514179c086a3b506376",
+  "CaptureCount": 6,
+  "TotalFrames": 42933,
+  "Status": "Pass for bounded numerical gates and independent artifact/native composition review. Original base-UI ceiling failure and other M18 gates remain open.",
+  "Evidence": {
+    "RecordedUtc": "2026-09-09T20:03:58.277192+00:00",
+    "Scenario": "second-auto-single",
+    "SourceCommit": "88efddb5eacdab40a40498b62f90fdde14d167af",
+    "CampaignSha256": "367bf25fa55ba7db4ce69c80d97cc3a38fee40b7b9ea4062835c637406e8091d",
+    "AnalysisSha256": "69a3e6f3f95d6bf730295242ef166cb9cc2112057cdd4e84e6947991f2187ec1",
+    "VerificationScriptSha256": "8b74486193fa831049a2ece096d79778f11aeef30d80565fbd4d734c1822bebd",
+    "TotalFrames": 42933,
+    "Samples": [
+      {
+        "Configuration": "B",
+        "Run": 1,
+        "Frames": 6482,
+        "WholeMedianMs": 4.5409,
+        "WholeP99Ms": 5.829900999999981,
+        "ActionMedianMs": 5.0088,
+        "ActionP99Ms": 6.517611000000005,
+        "WholeMaterialRate": 0.015427337241592102,
+        "ActionMaterialRate": 0,
+        "Spikes": [
+          {
+            "OffsetSeconds": 22.1412882000004,
+            "FrameTimeMilliseconds": 59.0268,
+            "DuringAction": false,
+            "CpuBusyMilliseconds": 58.9725,
+            "GpuBusyMilliseconds": 2.6938
+          }
+        ],
+        "ActionCluster": false,
+        "CsvSha256": "f3fd4b4651edffb823a5f9457ebc7d8c9e0e4b9f33c3fb6ca145dae62bc3ab4a",
+        "RawJsonSha256": "3ad8131a65dce3d179f5955fbdada4d501c894983cbdbc0085a14bd5017baa8e",
+        "MetadataSha256": "5631807a7fd3fc6fbec8ba8bfd3cf760d89e3026d93772d8f1510fb8da93234d"
+      },
+      {
+        "Configuration": "B",
+        "Run": 2,
+        "Frames": 6814,
+        "WholeMedianMs": 4.19625,
+        "WholeP99Ms": 5.5351099999999995,
+        "ActionMedianMs": 4.7486,
+        "ActionP99Ms": 5.995100000000001,
+        "WholeMaterialRate": 0.0146756677428823,
+        "ActionMaterialRate": 0,
+        "Spikes": [
+          {
+            "OffsetSeconds": 16.5048104000016,
+            "FrameTimeMilliseconds": 808.9041,
+            "DuringAction": false,
+            "CpuBusyMilliseconds": 808.8493,
+            "GpuBusyMilliseconds": 2.6865
+          }
+        ],
+        "ActionCluster": false,
+        "CsvSha256": "d460b92dfe7efb773e214baf0ae6115bbdd5ee29bb76d4c96ccb5263ce731b1d",
+        "RawJsonSha256": "00a93dcc9e34e1cd0d11f16d2310e4944471a9402cc3178f6bf58a9cecfacd27",
+        "MetadataSha256": "3375e9331d6a7d3aea09945a50e36cede86199b31b63f29d006f058aa0647c0f"
+      },
+      {
+        "Configuration": "B",
+        "Run": 3,
+        "Frames": 7400,
+        "WholeMedianMs": 3.9964,
+        "WholeP99Ms": 5.016403,
+        "ActionMedianMs": 4.2244,
+        "ActionP99Ms": 5.432449999999999,
+        "WholeMaterialRate": 0,
+        "ActionMaterialRate": 0,
+        "Spikes": [],
+        "ActionCluster": false,
+        "CsvSha256": "cb15c0fa77f313faf0dc250bdef3c02a09f37e5e98d5caba232983b0d27761af",
+        "RawJsonSha256": "db7bc7ef357ad92722fc8bb38e4af14ada24eee2bc2defddc9cef518b1b24a87",
+        "MetadataSha256": "7edd7c73518f2dc877223ef35c2c9abb3c0f43384651e05b61bd6d275881334c"
+      },
+      {
+        "Configuration": "D",
+        "Run": 1,
+        "Frames": 7670,
+        "WholeMedianMs": 3.8381499999999997,
+        "WholeP99Ms": 4.992747999999999,
+        "ActionMedianMs": 4.284750000000001,
+        "ActionP99Ms": 5.612789999999999,
+        "WholeMaterialRate": 0.01303780964797914,
+        "ActionMaterialRate": 0.13404825737265416,
+        "Spikes": [],
+        "ActionCluster": false,
+        "CsvSha256": "fe68e6612e7c945f129824345918cbe48a2a0f2dd5adf3c8ab9b37979796cfe3",
+        "RawJsonSha256": "61efab1e9fe5dcca622e158511b1dc20917aa0ab428934669dcd75adfd60167d",
+        "MetadataSha256": "19908108c2140972a33c12ec472f42f961b822298c2ca1d3b15195c3ea26ebc2"
+      },
+      {
+        "Configuration": "D",
+        "Run": 2,
+        "Frames": 7215,
+        "WholeMedianMs": 4.0886,
+        "WholeP99Ms": 5.399579999999999,
+        "ActionMedianMs": 4.460649999999999,
+        "ActionP99Ms": 6.182839999999987,
+        "WholeMaterialRate": 0.01386001386001386,
+        "ActionMaterialRate": 0,
+        "Spikes": [],
+        "ActionCluster": false,
+        "CsvSha256": "d9bbc9cdcdfeae59215cc43187af572cb7186b31fe302ab7522acbd89771a1b0",
+        "RawJsonSha256": "c4663dd4859df2ee48983bfff737f4347ee663c7f0261012c537740c86b7242a",
+        "MetadataSha256": "fbcb547cabdaf4d305f19e489bf43a356963077b9571d6c5b584c020b803fec9"
+      },
+      {
+        "Configuration": "D",
+        "Run": 3,
+        "Frames": 7352,
+        "WholeMedianMs": 3.9866,
+        "WholeP99Ms": 5.209853999999996,
+        "ActionMedianMs": 4.38095,
+        "ActionP99Ms": 5.830038999999999,
+        "WholeMaterialRate": 0.02720348204570185,
+        "ActionMaterialRate": 0,
+        "Spikes": [
+          {
+            "OffsetSeconds": 28.179380500005202,
+            "FrameTimeMilliseconds": 109.4207,
+            "DuringAction": false,
+            "CpuBusyMilliseconds": 109.3637,
+            "GpuBusyMilliseconds": 2.6644
+          }
+        ],
+        "ActionCluster": false,
+        "CsvSha256": "f85f1d0d3d270655d827e683e861462032561957f3d82e64d8d8cf7e4cff1d4c",
+        "RawJsonSha256": "ef6eb68abf88c971ba4bc3fe67c031488e269a22fa64e6573ce3a2c14160cce9",
+        "MetadataSha256": "625d30652fae615f22756d3aae6cffd409cc6fd774c282ff693801fc8f364af3"
+      }
+    ],
+    "Aggregates": {
+      "B": {
+        "Configuration": "B",
+        "BuildLabel": "production",
+        "Scenario": "second-auto-single",
+        "RunCount": 3,
+        "MedianOfRunMediansMilliseconds": 4.19625,
+        "MedianOfRunP99Milliseconds": 5.5351099999999995,
+        "MedianFramesOver16MillisecondsPercentage": 0.0146756677428823,
+        "CapturesWithSpikeCluster": 0,
+        "CapturesWithActionSpikeCluster": 0,
+        "MedianOfRunCpuBusyMediansMilliseconds": 4.1381,
+        "MedianOfRunCpuBusyP99Milliseconds": 5.477104999999999,
+        "MedianOfRunGpuBusyMediansMilliseconds": 2.786,
+        "MedianOfRunGpuBusyP99Milliseconds": 3.178119,
+        "MedianOfRunActionMediansMilliseconds": 4.7486,
+        "MedianOfRunActionP99Milliseconds": 5.995100000000001,
+        "MedianActionFramesOver16MillisecondsPercentage": 0,
+        "MedianOfRunActionCpuBusyMediansMilliseconds": 4.687,
+        "MedianOfRunActionCpuBusyP99Milliseconds": 5.939080000000001,
+        "MedianOfRunActionGpuBusyMediansMilliseconds": 2.8266,
+        "MedianOfRunActionGpuBusyP99Milliseconds": 3.228780000000001
+      },
+      "D": {
+        "Configuration": "D",
+        "BuildLabel": "production",
+        "Scenario": "second-auto-single",
+        "RunCount": 3,
+        "MedianOfRunMediansMilliseconds": 3.9866,
+        "MedianOfRunP99Milliseconds": 5.209853999999996,
+        "MedianFramesOver16MillisecondsPercentage": 0.01386001386001386,
+        "CapturesWithSpikeCluster": 0,
+        "CapturesWithActionSpikeCluster": 0,
+        "MedianOfRunCpuBusyMediansMilliseconds": 3.9275,
+        "MedianOfRunCpuBusyP99Milliseconds": 5.146484999999998,
+        "MedianOfRunGpuBusyMediansMilliseconds": 2.8243,
+        "MedianOfRunGpuBusyP99Milliseconds": 3.267188,
+        "MedianOfRunActionMediansMilliseconds": 4.38095,
+        "MedianOfRunActionP99Milliseconds": 5.830038999999999,
+        "MedianActionFramesOver16MillisecondsPercentage": 0,
+        "MedianOfRunActionCpuBusyMediansMilliseconds": 4.3205,
+        "MedianOfRunActionCpuBusyP99Milliseconds": 5.770826,
+        "MedianOfRunActionGpuBusyMediansMilliseconds": 2.8967,
+        "MedianOfRunActionGpuBusyP99Milliseconds": 3.348092
+      }
+    },
+    "Comparison": {
+      "BaselineConfiguration": "B",
+      "BaselineBuildLabel": "production",
+      "CandidateConfiguration": "D",
+      "CandidateBuildLabel": "production",
+      "Scenario": "second-auto-single",
+      "MedianOverheadPercentage": -4.996127494787006,
+      "P99OverheadPercentage": -5.876233715319179,
+      "FramesOver16MillisecondsPercentagePointDelta": -0.0008156538828684411,
+      "BaselineActionSpikeClusterCaptures": 0,
+      "CandidateActionSpikeClusterCaptures": 0,
+      "HasRepeatableNewActionSpikeCluster": false,
+      "CpuBusyMedianOverheadPercentage": -5.089292187235673,
+      "CpuBusyP99OverheadPercentage": -6.0364006167491935,
+      "GpuBusyMedianOverheadPercentage": 1.3747307968413391,
+      "GpuBusyP99OverheadPercentage": 2.80256969610011,
+      "ActionMedianOverheadPercentage": -7.742281935728412,
+      "ActionP99OverheadPercentage": -2.7532651665527097,
+      "ActionFramesOver16MillisecondsPercentagePointDelta": 0,
+      "ActionCpuBusyMedianOverheadPercentage": -7.819500746746321,
+      "ActionCpuBusyP99OverheadPercentage": -2.832997703348006,
+      "ActionGpuBusyMedianOverheadPercentage": 2.4800113210217134,
+      "ActionGpuBusyP99OverheadPercentage": 3.6952657040739467
+    },
+    "Gates": {
+      "Engineering": "Pass numerically",
+      "Ceiling": "Pass numerically",
+      "MaterialRate": "Pass",
+      "RepeatableNewActionCluster": "None"
+    },
+    "NativeAgreement": {
+      "RunId": "2c595cb1c0c9465185c83315fa069bb9",
+      "GenerationId": "5f1224d178674b0984c1b40940bb93cc",
+      "RunShots": 120,
+      "RunCompletedProjectiles": 120,
+      "RunKills": 4,
+      "RunDamageDealt": 140,
+      "RunRangedHits": 12,
+      "RunDamageReceived": 51.37348937988281,
+      "LifetimeShots": 210,
+      "ValidDShots": 90,
+      "ValidDKills": 3,
+      "InvalidAttemptGameplayShots": 30,
+      "InvalidAttemptGameplayKills": 1,
+      "WeaponId": "duckov:weapon:256",
+      "AmmunitionId": "duckov:ammo:603",
+      "Outcome": "Extracted",
+      "ProfileRunEqualsExportRun": true,
+      "DormantProfileUnchangedAcrossB": true,
+      "Checkpoints": [
+        {
+          "Path": "second-auto-single-D-before/active-run.json",
+          "Shots": 0,
+          "Kills": 0,
+          "Sha256": "aea2cd63c231b52077884af226346cbef280a2d9a70243f1e15772586d8690c1"
+        },
+        {
+          "Path": "second-auto-single-D1-after-active-run.json",
+          "Shots": 30,
+          "Kills": 1,
+          "Sha256": "6bc4b5c0a647932e685a55e710e0e201b98e1a529f000297908bf0e1f4297025"
+        },
+        {
+          "Path": "invalid/second-auto-single-D2-second-duck/after-active-run.json",
+          "Shots": 60,
+          "Kills": 2,
+          "Sha256": "f00f25aa5e9382d740fa2a8d11787146c8c445d62988883f31bcf84e74b6159c"
+        },
+        {
+          "Path": "second-auto-single-D2-after-active-run.json",
+          "Shots": 90,
+          "Kills": 3,
+          "Sha256": "67b325fbaba499c003e566caaa76b136b72dbae42fb26ccee3c49d0ace577747"
+        }
+      ]
+    },
+    "ConfirmationHashes": {
+      "B": "5c058718ad5a06426f18cab8c19e25aa2355dc88e49954acbac2e65abcda4c51",
+      "D": "0206461b77c023f37a3f8a8fbbfd318708bedb66af4a2f3e4892b6aed51af52f"
+    },
+    "InvalidAttempts": [
+      {
+        "Path": "invalid\\second-auto-single-D2-second-duck\\invalid.json",
+        "Sha256": "cba460b3175264fd23e7d344b74a63357c1c29ca8e8c21b81c5aa3257021cebe",
+        "Reason": "User-reported second enemy attacked throughout capture, violating single-target control. Entire original capture preserved; exclusion is based solely on reported control violation, not frame results.",
+        "OriginalHashes": {
+          "d-second-auto-single-r02.csv": "72ac8854eabace5c44d75eeb27f6f631709ac9d1a9aadb5dc9ebb145634deb77",
+          "d-second-auto-single-r02.capframex.json": "6f1789b85710fae4a6af70ac3bbef35f4458aff3b39bd7912276fe76fb3de2a1",
+          "d-second-auto-single-r02.capture.json": "4dc607464137a03c8d31408ca083a56cd21f1e0b26514522002b51a60a1baba7",
+          "second-auto-single-D2-ready.json": "379da89ba1bbdf1e85be52c1234e4f1578380708083d537de7c5543b40a0b500",
+          "second-auto-single-D2-capture.log": "f2202b6a641712acbff1ef48f82039b62e4e6df56d48b1a7ede5d99c780090f3"
+        }
+      },
+      {
+        "Path": "invalid\\second-auto-single-B1-phone-call\\invalid.json",
+        "Sha256": "3a32c8d3740b0d85e40e300e8aefd7377a9f8d7c81e730a519e2020ad76b810a",
+        "Reason": "User-reported phone interruption invalidates the controlled action/focus interval. Exclusion is independent of frame results; entire capture preserved.",
+        "OriginalHashes": {
+          "b-second-auto-single-r01.csv": "9918d776fcefabe471753d4faa754cec559b74fc0bfe0483e3317ec40b00c1fb",
+          "b-second-auto-single-r01.capframex.json": "d55be3692e00a6f95678d1f16e199125df53afdf24b121430c3d359f70b07384",
+          "b-second-auto-single-r01.capture.json": "a41508438ba5936dfdd669946cea19161bb4890d7a516ef034569bf1f988a637",
+          "second-auto-single-B1-ready.json": "8029c7776362e99afde4eecb1089f7796fb3b3fb98efcb5a713396618602e2b4",
+          "second-auto-single-B1-capture.log": "e78a6c9b94c68f15ae9d64e2b26a89ffc4ae16ca04e30468512cc47278f7623d"
+        }
+      }
+    ],
+    "EvidenceHashes": {
+      "second-auto-single-D-native-verified.json": "3755e1d9fda0bf10a9a62aa6ceee1d92e461eeb9a58aad85b22475314a1e763f",
+      "second-auto-single-D-after\\profile.json": "fff5fa1b27db2ffcad0ed318d1a27e606e862d65b8c62880014f4966172fd413",
+      "second-auto-single-B-before\\profile.json": "b479d1a3a1bae5729eeb758b7c5a2de78ac533c867eb7abe16d4b15d469eef91",
+      "second-auto-single-B-after\\profile.json": "b479d1a3a1bae5729eeb758b7c5a2de78ac533c867eb7abe16d4b15d469eef91",
+      "second-auto-single-D-export\\active_totem_set_definitions.csv": "4f30b490280483ccf97f033aeb897570031158d5a1807c0f0887ae64760bc55b",
+      "second-auto-single-D-export\\ammunition_totals.csv": "7116a17e00f19b14bdca4fc110dd457e57c359b4cc8cbed41d25aafbc6b1aedb",
+      "second-auto-single-D-export\\cash_acquisition.csv": "3502c0105938790289cf4e62bab80d88ff01d1b7d01c03c786abec276511380f",
+      "second-auto-single-D-export\\character_equipment_slots.csv": "751a73c08d51c9a986bd310e04cb624d182408758035cd4886fe560696af300e",
+      "second-auto-single-D-export\\combat_attribution.csv": "8130135d8de0aeadc81cb3b601f0a11d33536c4fa5173e573ca7fcf5999754c4",
+      "second-auto-single-D-export\\combat_totals.csv": "21719ed389ae59f611a84f4ef69e5ba831855cd622413725771b6916ef9a874b",
+      "second-auto-single-D-export\\containers.csv": "db2e0496a43f132cdd0893d71a402862267cff26cc97eaf89d837beae175ebe5",
+      "second-auto-single-D-export\\crafting_recipes.csv": "e3a44d253741208a997e3d57430f635a24594a16beb01c4f6de9e7891b64b82a",
+      "second-auto-single-D-export\\crafting_resource_associations.csv": "fb66048832bd0c32ba5f33132b9cfc1beb6c1c350a2bcdb6b911ee3c331eeaef",
+      "second-auto-single-D-export\\crafting_resources.csv": "ca80b4e395c976f36053fdd1c6b8135a73e5cf43b91cb26d2a16a704564a036e",
+      "second-auto-single-D-export\\crafting_totals.csv": "defc2939658a90434f02b8b0d5e83c5e7f3b52e96298d27c9c4f32fbb5c548a0",
+      "second-auto-single-D-export\\economy_contexts.csv": "e6f8eb73c1f9015df435a0bb6b6cb5f412e65223f59b494606fbdde751f26914",
+      "second-auto-single-D-export\\economy_holdings.csv": "b5327e60b9c0f2bc4d8756f0a8fb4905a70a537f4699bca5a8be2bc0362402e0",
+      "second-auto-single-D-export\\economy_sources.csv": "267fe3585cbb62af5cd69149c8db3cc1e82dcba96cd96135d6eaf35d1fb68075",
+      "second-auto-single-D-export\\economy_totals.csv": "9bb79fc320ac4dd81ec894b5c3448c410cb01d911a9a931a22ace1536b599bd9",
+      "second-auto-single-D-export\\equipment_combat.csv": "a9ac25f493c3ade91b007ebc4e5bac3445bbcd30cbc4a0069c2d48302f611982",
+      "second-auto-single-D-export\\equipment_totals.csv": "f6b3cad356f937dd779f8e97021ee71f6b511dbddd8df63507e2a9f7ac84def6",
+      "second-auto-single-D-export\\equipped_item_nested_slots.csv": "924f1e45c7b5298cd365d797ad1549275fa5ebb81ac8cb5716c0db89f2da694d",
+      "second-auto-single-D-export\\groups.csv": "5b7df10c652a457739358172bdd0658cccaaab200868d18771c7a0fcea9c431e",
+      "second-auto-single-D-export\\items.csv": "ba23dce656e049ac47ad3713a0524fa31eed3583504179f11819d9ab7f4c1a3c",
+      "second-auto-single-D-export\\loadout_definitions.csv": "ddd95a6193734578f52fe449017e73bf81b2a6888a30468dc139694ef3976fe5",
+      "second-auto-single-D-export\\map_totals.csv": "05b545334f07339abcbe6aaa60c3453439eb4c869d80a51a4fd1670493227a80",
+      "second-auto-single-D-export\\overview.csv": "c8d2068e45827d9388c45275c66f87f52e63b5288194bd6238ed8ed53d5f14cf",
+      "second-auto-single-D-export\\records.csv": "2d392c2543b582a9c0680165f10bb5c0ba0c2ca0b1d6d1bd599d2a6430617a18",
+      "second-auto-single-D-export\\recurring_loadouts.csv": "ca793f21ee6dbe32649c6191cf975868f1cd4f5afc31acfa0169d9aa18ea23fe",
+      "second-auto-single-D-export\\route_map_totals.csv": "0ba969f56799c456fa3557bdc58ad70545bc2ae7ab62fccddae3ec17d7f39f9a",
+      "second-auto-single-D-export\\routes.csv": "48bd61d3f58f8ef09446174c70e5630ff405062f1d6fa240ea2f6e73884d3bbd",
+      "second-auto-single-D-export\\run_totals.csv": "70833d153c78e82953942670b28179d9f73bf04bdda31d509eee999efb3b14b0",
+      "second-auto-single-D-export\\runs.csv": "9aaac1f0237663bbd732e0ba0b3b9097361c2f91c7507d0dd4f8ba9a4f52c6be",
+      "second-auto-single-D-export\\segment_events.csv": "8a980f0272629c67d4b3eba6c3f0e14f03ff0aeeec938ea996e07d691bd78a7e",
+      "second-auto-single-D-export\\segments.csv": "01e07bb33c7c5c148bb09f3bee2da5cd7bb18f4fcbf19737ccbb89a3d95c450d",
+      "second-auto-single-D-export\\statistics.json": "47aec566a40e1173882d738f9d4e83b563498925db5174ac1a09a0b6dcc97bf0",
+      "second-auto-single-D-export\\terminal_loadouts.csv": "29bfc1047dadaab54098de4c1c150a586cf051d3054e3688ff16eb80ba52a5a2",
+      "second-auto-single-D-export\\totem_state_durations.csv": "e0e38f5ae0314f47101f26d3de19d5da5b466388d97234e22b8a8003d68553a0",
+      "second-auto-single-D-export\\weapon_ammunition_pairs.csv": "16cc54083fcc36c2358b970f03e1aaa377e569e730832eceee0cacb36aa1cb2a",
+      "second-auto-single-D-export\\weapon_totals.csv": "7b464857f6d0d7943de96b2d903e4d3f2591e0a6d718fb64a451ff8b19f50247",
+      "second-auto-single-D-export\\world_time.csv": "e1fc8db36e7bec0ca1bf1ff8a07a7157d6d7d20b1379ac67a6a109e60a78ba8e"
+    },
+    "Verified": [
+      "All42933 raw frame times, CPU/GPU values and timestamps replayed, with whole/action summaries, thresholds, clusters and paired frame-time comparisons reproduced.",
+      "All six accepted captures match campaign/source/DLL/mod identity, zero added focus delay and user-confirmed full30-round magazine, one regular-duck kill and no perceived hitch.",
+      "Native0/30/60/90/120 checkpoint composition separates invalid performance attempt from valid actions while retaining all legitimate gameplay statistics. Extracted profile/run/lifetimeJSON and targetedCSV agree.",
+      "Two original invalid attempts retained with original raw/session/metadata/readiness/log hashes: D2second enemy and B1phonecall. Exclusion is solely based on user-reported control violations."
+    ],
+    "Limitations": [
+      "D-first/B-later sessions and encounter variation remain unisolated. Negative D/B percentages do not prove UDS speeds the game or identify a causal method cost.",
+      "D replacement samples followed51.37348937988281 damage from the invalid second-enemy attempt; later restart/return changes character-state history. Exact startingHP and targetspawn/range/armor/AI are not independently standardized.",
+      "All valid unfavorable frames are retained, including B1/B2 and D3 post-action spikes and D1 material action frame. User-perceived no-hitch reports do not erase them.",
+      "Same MMG and retainedSR3M setup requested and userconfirmed; B native attachments/ammunition are not observed with UDSdisabled. Later B1confirmation gives30/210 afterreload; earlier interruptedB ammunition use and exact counts remain unknown.",
+      "CurrentD started with one prior90-shot empty-space run; this short-history cell does not qualify progressed-history or memory/resource behavior.",
+      "Independent artifact review pending. This cell passes numerical gates but does not resolve prior base-UI ceiling failure or remaining M18 gates."
+    ]
+  },
+  "IndependentReview": {
+    "RecordedUtc": "2026-09-09T21:06:42.857292+00:00",
+    "Reviewer": "Fresh independent mmg_single_evidence_review agent",
+    "Verdict": "Pass for bounded MMG single-target evidence; no actionable discrepancy found.",
+    "ReviewedHead": "1ab0e76ddd72851de0f3b569b64795fade0144bf",
+    "ManifestSha256": "6349e5693a11cf0abf2dd4d56329e35aa1742391a30d95c1b3e98347ed0e2b72",
+    "ReferencesVerified": 83,
+    "FramesIndependentlyReplayed": 42933,
+    "Verified": [
+      "All raw frame/CPU/GPU/timestamp values, whole/action statistics, duration/FPS, thresholds/spikes/clusters, aggregates and every comparison.",
+      "Source/campaign/DLL/mod/control identities; ordinary candidate source unchanged since earlier firing-path review.",
+      "Native0/30/60/90/120 shots and projectiles,0/1/2/3/4 kills, exact profile/export run and lifetime agreement,29combat-attributionCSVrows and15firingCSVrows, capabilities, loadout and unchanged B profile.",
+      "Both invalid attempts and all valid spikes retained; invalid D gameplay remains in exported120shots/4kills/140damage/12hits.",
+      "Exact frozen report in durable evidence and three narrative documents agree."
+    ],
+    "Limitations": "D-first/B-later sessions, injury/encounter variation and B identity observation remain disclosed. No causal improvement claim. Existing base-UI ceiling failure and other M18 gates remain open.",
+    "EvidencePath": "second-auto-single-independent-review.json",
+    "EvidenceSha256": "a65db640005c22d9aeb7e60ad2c4b3f989eaffad4822d4f68f4ba21fc1a955e1"
+  }
+}

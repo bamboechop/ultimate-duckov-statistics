@@ -4,6 +4,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.UI.ProceduralImage;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+using UltimateDuckovStatistics.Adapters;
+#endif
 
 namespace UltimateDuckovStatistics.UI;
 
@@ -317,6 +320,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         Action close,
         out string? error)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelCreate);
+#endif
         if (targetCanvas == null) throw new ArgumentNullException(nameof(targetCanvas));
         if (projection == null) throw new ArgumentNullException(nameof(projection));
         if (selectTab == null) throw new ArgumentNullException(nameof(selectTab));
@@ -578,6 +584,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
     public void RefreshProjection(StatisticsPanelProjection projection, string generation)
     {
         if (shellRoot == null || overviewTypography == null) return;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelRefresh);
+#endif
         projectionAvailable = true;
         var retainedViewRun = overviewLatestRunViewRun;
         // Keep the selectable and its highlight alive across live projection refreshes.
@@ -610,6 +619,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         if (!PanelInteractionState.NavigationOrder.Contains(tab))
             throw new ArgumentOutOfRangeException(nameof(tab));
         if (selectedTab == tab) return;
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelTabChange);
+#endif
         selectedTab = tab;
         foreach (var control in tabControls) control.VisualState.Apply(selectedTab);
         overviewContentVisibility?.Apply(selectedTab);
@@ -630,6 +642,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
 
     public bool Tick(out string? error)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelLayout);
+#endif
         error = null;
         try
         {
@@ -787,7 +802,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             headingMaterial);
         var latestRunMapPresentation = RetainedLatestRunMapPresentationFactory.Create(
             runBadgePresentation,
-            UiText.Get);
+            UiText.Get, projection.Names);
         latestRunMapName = CreateOverviewLatestRunMapName(
             latestRunCardRect,
             latestRunMapPresentation,
@@ -1912,6 +1927,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             return lastAppliedVisualLayout;
         }
 
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelVisualLayout);
+#endif
         var referenceTransform = RetainedReferenceTransformPolicy.Create(
             viewportPixelWidth,
             viewportPixelHeight,
@@ -2202,6 +2220,27 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             layout.OverviewWorldTimeStatistics.Width,
             layout.OverviewWorldTimeStatistics.Height);
         worldTimeStatisticsControl.Label.fontSize = layout.OverviewWorldTimeStatistics.FontSize;
+        // Capture-status suffixes can add wrapped lines. Measure at the actual
+        // content width and grow the card so the complete evidence stays visible.
+        var worldTimeHeight = RetainedActiveMeasurementPolicy.Measure(
+            overviewContentView!.activeSelf, overviewContentView.SetActive,
+            () =>
+            {
+                // TMP Awake can restore game defaults when Overview activates.
+                // Restore the owned wrapping policy after activation, before measuring.
+                worldTimeStatisticsControl.Label.enableWordWrapping = RetainedOverviewWorldTimeStatisticsPolicy.WordWrapping;
+                return worldTimeStatisticsControl.Label.GetPreferredValues(
+                    layout.OverviewWorldTimeStatistics.Width, float.PositiveInfinity).y;
+            });
+        if (!float.IsNaN(worldTimeHeight) && !float.IsInfinity(worldTimeHeight) && worldTimeHeight > 0f)
+        {
+            worldTimeHeight = Math.Max(layout.OverviewWorldTimeStatistics.Height, worldTimeHeight);
+            worldTimeStatisticsControl.Rect.sizeDelta = new Vector2(
+                layout.OverviewWorldTimeStatistics.Width, worldTimeHeight);
+            var inset = layout.OverviewWorldTimeStatistics.Top - layout.OverviewWorldTimeCard.Top;
+            worldTimeCardRect.sizeDelta = new Vector2(layout.OverviewWorldTimeCard.Width,
+                Math.Max(layout.OverviewWorldTimeCard.Height, worldTimeHeight + inset * 2f));
+        }
         for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
             ApplyStatisticsRowLayout(
                 overviewProfileSummaryRows[index],

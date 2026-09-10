@@ -279,7 +279,8 @@ public sealed class WorldTimeObservationTests
         repository.Open(slotA);
         var boundary = new NativeWorldTimeObservationBoundary();
         var handoff = new NativeWorldTimeProfileHandoffBoundary();
-        var profileTransition = new NativeProfileTransitionBoundary();
+        var transitionSeconds = 0d;
+        var profileTransition = new NativeProfileTransitionBoundary(() => transitionSeconds);
         var slotAClock = new object();
         var slotBClock = new object();
         var identityReads = new List<int>();
@@ -331,6 +332,7 @@ public sealed class WorldTimeObservationTests
                 Assert.True(completed);
             });
 
+        transitionSeconds += 60;
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
         Assert.Equal(1, preOpenState!.Slot);
         Assert.Equal("generation-a", preOpenState.GenerationId);
@@ -342,6 +344,7 @@ public sealed class WorldTimeObservationTests
         Assert.True(Directory.Exists(blockedSessionTemporaryPath));
 
         Directory.Delete(blockedSessionTemporaryPath);
+        transitionSeconds += 60;
         Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
         Assert.NotNull(openResult);
         Assert.False(openResult.CreatedNew);
@@ -389,7 +392,8 @@ public sealed class WorldTimeObservationTests
         repository.SetWorldTimeCapabilities(WorldTimeNativeContractPolicy.Supported("clock", "sleep"));
         var boundary = new NativeWorldTimeObservationBoundary();
         var handoff = new NativeWorldTimeProfileHandoffBoundary();
-        var profileTransition = new NativeProfileTransitionBoundary();
+        var transitionSeconds = 0d;
+        var profileTransition = new NativeProfileTransitionBoundary(() => transitionSeconds);
         var slotAClock = new object();
         var slotBClock = new object();
         var reuseDecisions = new List<bool>();
@@ -452,7 +456,9 @@ public sealed class WorldTimeObservationTests
                 out _)));
 
         Assert.Null(handoff.Observe(repository.CurrentGenerationId, slotAClock, Read(2, 505), boundary));
+        transitionSeconds += 60;
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
+        transitionSeconds += 60;
         Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
         Assert.Equal([false, true], reuseDecisions);
         Assert.Equal(2, repository.Current.Slot);
@@ -532,7 +538,8 @@ public sealed class WorldTimeObservationTests
         repository.Open(slotA);
         var boundary = new NativeWorldTimeObservationBoundary();
         var handoff = new NativeWorldTimeProfileHandoffBoundary();
-        var profileTransition = new NativeProfileTransitionBoundary();
+        var transitionSeconds = 0d;
+        var profileTransition = new NativeProfileTransitionBoundary(() => transitionSeconds);
         var slotAClock = new object();
         var slotBClock = new object();
         var transitionFaulted = true;
@@ -570,11 +577,13 @@ public sealed class WorldTimeObservationTests
                 repository.SetWorldTimeCapabilities(WorldTimeNativeContractPolicy.Supported("clock", "sleep"));
             });
 
+        transitionSeconds += 60;
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
         Assert.True(handoff.HasUncommittedData);
         transitionFaulted = false;
 
         // Cleanup performs the drain directly; no Update retry occurs after the fault clears.
+        transitionSeconds += 60;
         Assert.True(profileTransition.Drain(
             () => boundary.FlushPending(repository.RecordWorldTimeDeferred),
             _ => { }));
@@ -583,6 +592,7 @@ public sealed class WorldTimeObservationTests
         repository.Flush();
 
         // Idempotent cleanup cannot publish the transferred mutation twice.
+        transitionSeconds += 60;
         Assert.True(profileTransition.Drain(
             () => boundary.FlushPending(repository.RecordWorldTimeDeferred),
             _ => { }));
@@ -618,7 +628,8 @@ public sealed class WorldTimeObservationTests
         repository.Open(slotA);
         var boundary = new NativeWorldTimeObservationBoundary();
         var handoff = new NativeWorldTimeProfileHandoffBoundary();
-        var profileTransition = new NativeProfileTransitionBoundary();
+        var transitionSeconds = 0d;
+        var profileTransition = new NativeProfileTransitionBoundary(() => transitionSeconds);
         var slotAClock = new object();
         var transitionFaulted = true;
         var slotBSessionPath = Path.Combine(
@@ -651,11 +662,13 @@ public sealed class WorldTimeObservationTests
                 out _,
                 out _)));
 
+        transitionSeconds += 60;
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
         Assert.True(handoff.HasUncommittedData);
         transitionFaulted = false;
 
         // Cleanup drains the changed-profile commit before any B clock instance has loaded.
+        transitionSeconds += 60;
         Assert.True(profileTransition.Drain(
             () => boundary.FlushPending(repository.RecordWorldTimeDeferred),
             _ => { }));
@@ -707,7 +720,8 @@ public sealed class WorldTimeObservationTests
         repository.SetWorldTimeCapabilities(supportedCapabilities);
         var boundary = new NativeWorldTimeObservationBoundary();
         var handoff = new NativeWorldTimeProfileHandoffBoundary();
-        var profileTransition = new NativeProfileTransitionBoundary();
+        var transitionSeconds = 0d;
+        var profileTransition = new NativeProfileTransitionBoundary(() => transitionSeconds);
         var slotAClock = new object();
         var slotBClock = new object();
         var failBeforeFirstOpen = true;
@@ -766,6 +780,7 @@ public sealed class WorldTimeObservationTests
                 if (!mutation.IsEmpty) Assert.True(repository.RecordWorldTimeDeferred(mutation));
             },
             () => repository.SetWorldTimeCapabilities(supportedCapabilities));
+        transitionSeconds += 60;
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
 
         Assert.Equal(
@@ -805,7 +820,9 @@ public sealed class WorldTimeObservationTests
             });
         Assert.Null(handoff.Observe(repository.CurrentGenerationId, slotBClock, Read(20, 1_010), boundary));
 
+        transitionSeconds += 60;
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
+        transitionSeconds += 60;
         Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
         Assert.Equal([false, true], reuseDecisions);
         Assert.Equal([1], identityReads);
@@ -882,7 +899,8 @@ public sealed class WorldTimeObservationTests
     {
         var boundary = new NativeWorldTimeObservationBoundary();
         var handoff = new NativeWorldTimeProfileHandoffBoundary();
-        var profileTransition = new NativeProfileTransitionBoundary();
+        var transitionSeconds = 0d;
+        var profileTransition = new NativeProfileTransitionBoundary(() => transitionSeconds);
         var sequence = new List<string>();
         var failBeforeBaseline = true;
         var clock = new object();
@@ -910,10 +928,12 @@ public sealed class WorldTimeObservationTests
                 Read(3, 100),
                 out _,
                 out _)));
+        transitionSeconds += 60;
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
 
         sequence.Add("OnNewBoot");
         var boot = handoff.Observe("pre-rotation", clock, Read(3, 100), boundary);
+        transitionSeconds += 60;
         Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
         var mutation = boundary.TakePending();
 
@@ -933,7 +953,8 @@ public sealed class WorldTimeObservationTests
         const string selectedGeneration = "selected-slot";
         var boundary = new NativeWorldTimeObservationBoundary();
         var handoff = new NativeWorldTimeProfileHandoffBoundary();
-        var profileTransition = new NativeProfileTransitionBoundary();
+        var transitionSeconds = 0d;
+        var profileTransition = new NativeProfileTransitionBoundary(() => transitionSeconds);
         var priorClock = new object();
         var selectedClock = new object();
         var failBeforeCommit = true;
@@ -960,6 +981,7 @@ public sealed class WorldTimeObservationTests
                 null,
                 out _,
                 out var completedSleepTransferred) && completedSleepTransferred));
+        transitionSeconds += 60;
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
 
         Assert.True(handoff.Observe(
@@ -971,6 +993,7 @@ public sealed class WorldTimeObservationTests
         Assert.Equal(transitionId, activeTransitionId);
         Assert.True(handoff.BeginSleepCompletion(activeTransitionId, TimeSpan.FromHours(1).Ticks));
         Assert.True(handoff.CompleteSleep());
+        transitionSeconds += 60;
         Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
 
         var mutation = boundary.TakePending();
@@ -1045,7 +1068,8 @@ public sealed class WorldTimeObservationTests
     {
         var boundary = new NativeWorldTimeObservationBoundary();
         var handoff = new NativeWorldTimeProfileHandoffBoundary();
-        var profileTransition = new NativeProfileTransitionBoundary();
+        var transitionSeconds = 0d;
+        var profileTransition = new NativeProfileTransitionBoundary(() => transitionSeconds);
         var slotAClock = new object();
         var slotBClock = new object();
         var slotCClock = new object();
@@ -1080,6 +1104,7 @@ public sealed class WorldTimeObservationTests
                 Assert.True(sleepTransferred);
                 committed.Add(("slot-b", boundary.TakePending()));
             });
+        transitionSeconds += 60;
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
 
         handoff.Observe("slot-a", slotBClock, Read(20, 4_600), boundary);
@@ -1104,7 +1129,9 @@ public sealed class WorldTimeObservationTests
                 committed.Add(("slot-c", boundary.TakePending()));
             });
 
+        transitionSeconds += 60;
         Assert.False(profileTransition.Retry(boundaryObserver: null, _ => { }));
+        transitionSeconds += 60;
         Assert.True(profileTransition.Retry(boundaryObserver: null, _ => { }));
 
         Assert.Equal(["slot-b", "slot-c"], committed.Select(result => result.Generation));

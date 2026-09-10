@@ -211,13 +211,12 @@ public static class RunReducer
     {
         CombatStatisticsReducer.PreflightPlayerKillMerge(profile.RunTotals.CombatStatistics, run.CombatStatistics);
         EquipmentStatisticsReducer.PreflightPlayerKillMerge(profile.RunTotals.EquipmentStatistics, run.EquipmentStatistics);
-        if (profile.RunTotals.Maps.TryGetValue(run.MapId, out var map))
+        if (profile.RunTotals.Maps.TryGetValue(run.StartingMapId, out var map))
         {
             CombatStatisticsReducer.PreflightPlayerKillMerge(map.CombatStatistics, run.CombatStatistics);
             EquipmentStatisticsReducer.PreflightPlayerKillMerge(map.EquipmentStatistics, run.EquipmentStatistics);
         }
-        if (run.HistoricalRouteUnavailable ||
-            run.RouteCapabilities.RouteAwareMapTotals.State != AdapterCapabilityState.Supported
+        if (run.RouteCapabilities.RouteAwareMapTotals.State != AdapterCapabilityState.Supported
             && !(run.HistoricalEventAttributionIncomplete && run.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported)) return;
         // Route segments are separate observations, including repeated map visits.
         // Simulate their checked addition before publishing any completed-run mutation.
@@ -256,14 +255,9 @@ public static class RunReducer
             summary.ContainerStatistics,
             adoptSourceCapability: totals.TotalRuns == 1);
 
-        var legacyStartingMap = string.IsNullOrWhiteSpace(summary.StartingMapId)
-                                || (string.Equals(summary.StartingMapId, MapIdentity.UnknownId, StringComparison.Ordinal)
-                                    && !string.Equals(summary.MapId, MapIdentity.UnknownId, StringComparison.Ordinal));
-        var startingMapId = legacyStartingMap ? summary.MapId : summary.StartingMapId;
-        var startingMapDisplayName = legacyStartingMap || string.IsNullOrWhiteSpace(summary.StartingMapDisplayName)
-            ? summary.MapDisplayName
-            : summary.StartingMapDisplayName;
-        var startingMapKnown = summary.StartingMapKnown || summary.MapKnown;
+        var startingMapId = summary.StartingMapId;
+        var startingMapDisplayName = summary.StartingMapDisplayName;
+        var startingMapKnown = summary.StartingMapKnown;
         if (!totals.Maps.TryGetValue(startingMapId, out var map))
         {
             map = new MapRunAggregate
@@ -294,14 +288,11 @@ public static class RunReducer
         ItemStatisticsAggregateReducer.Merge(map.ItemStatistics, summary.ItemStatistics);
         EconomyStatisticsReducer.Merge(map.Economy, summary.Economy);
 
-        var routeMapTotalsSupported = summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported
-                                      && !summary.HistoricalRouteUnavailable;
+        var routeMapTotalsSupported = summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported;
         var routeMapKnownPartialAvailable = summary.HistoricalEventAttributionIncomplete
-                                            && !summary.HistoricalRouteUnavailable
                                             && summary.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported;
         var routeMapTotalsAvailable = routeMapTotalsSupported || routeMapKnownPartialAvailable;
-        var economyRouteAttributionSupported = summary.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported
-                                               && !summary.Economy.HistoricalUnavailable;
+        var economyRouteAttributionSupported = summary.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported;
         if (routeMapTotalsAvailable || economyRouteAttributionSupported)
         {
             foreach (var segmentGroup in summary.Segments.GroupBy(segment => segment.MapId, StringComparer.Ordinal))
@@ -365,13 +356,8 @@ public static class RunReducer
         var overall = summary.Outcome == RunOutcome.Extracted ? records.Extraction : records.Death;
         UpdatePair(overall, summary);
 
-        var legacyStartingMap = string.IsNullOrWhiteSpace(summary.StartingMapId)
-                                || (string.Equals(summary.StartingMapId, MapIdentity.UnknownId, StringComparison.Ordinal)
-                                    && !string.Equals(summary.MapId, MapIdentity.UnknownId, StringComparison.Ordinal));
-        var startingMapId = legacyStartingMap ? summary.MapId : summary.StartingMapId;
-        var startingMapDisplayName = legacyStartingMap || string.IsNullOrWhiteSpace(summary.StartingMapDisplayName)
-            ? summary.MapDisplayName
-            : summary.StartingMapDisplayName;
+        var startingMapId = summary.StartingMapId;
+        var startingMapDisplayName = summary.StartingMapDisplayName;
         if (!records.Maps.TryGetValue(startingMapId, out var map))
         {
             map = new MapRunDurationRecords
@@ -423,8 +409,8 @@ public static class RunReducer
         RunId = summary.RunId,
         ActiveDurationSeconds = summary.ActiveDurationSeconds,
         StartedUtc = summary.StartedUtc,
-        MapId = summary.MapId,
-        MapDisplayName = summary.MapDisplayName
+        MapId = summary.StartingMapId,
+        MapDisplayName = summary.StartingMapDisplayName
     };
 
     private static void AddOutcome(Dictionary<string, long> outcomes, RunOutcome outcome)
@@ -440,10 +426,11 @@ public static class RunReducer
         {
             throw new ArgumentNullException(nameof(summary));
         }
-        if (string.IsNullOrWhiteSpace(summary.RunId)
+        if (summary.SchemaVersion != ProductInfo.SchemaVersion
+            || string.IsNullOrWhiteSpace(summary.RunId)
             || string.IsNullOrWhiteSpace(summary.SaveGenerationId)
-            || string.IsNullOrWhiteSpace(summary.MapId)
-            || string.IsNullOrWhiteSpace(summary.MapDisplayName)
+            || string.IsNullOrWhiteSpace(summary.StartingMapId)
+            || string.IsNullOrWhiteSpace(summary.StartingMapDisplayName)
             || summary.EndedUtc < summary.StartedUtc
             || !IsFiniteNonNegative(summary.ActiveDurationSeconds)
             || !IsFiniteNonNegative(summary.WallClockDurationSeconds)
@@ -454,14 +441,11 @@ public static class RunReducer
             throw new ArgumentException("Run summary is invalid.", nameof(summary));
         }
 
-        if (summary.SchemaVersion >= 17)
-        {
-            if (summary.TerminalLoadout == null) throw new ArgumentException("Terminal loadout state is missing.", nameof(summary));
-            summary.TerminalLoadout.Validate(summary.Outcome);
-            Persistence.RunDataSchema.Validate(summary.CombatStatistics, summary.EquipmentStatistics);
-            foreach (var segment in summary.Segments)
-                Persistence.RunDataSchema.Validate(segment.CombatStatistics, segment.EquipmentStatistics);
-        }
+        if (summary.TerminalLoadout == null) throw new ArgumentException("Terminal loadout state is missing.", nameof(summary));
+        summary.TerminalLoadout.Validate(summary.Outcome);
+        Persistence.RunDataSchema.Validate(summary.CombatStatistics, summary.EquipmentStatistics);
+        foreach (var segment in summary.Segments)
+            Persistence.RunDataSchema.Validate(segment.CombatStatistics, segment.EquipmentStatistics);
         WeaponStatisticsReducer.ValidateAggregate(summary.WeaponStatistics);
         CombatStatisticsReducer.ValidateAggregate(summary.CombatStatistics);
         EquipmentStatisticsReducer.ValidateAggregate(summary.EquipmentStatistics);
@@ -473,8 +457,7 @@ public static class RunReducer
         if (summary.Segments.Count > 0)
         {
             RouteStatisticsReducer.Validate(summary.Segments, allowOpenLast: false);
-            if (!summary.HistoricalRouteUnavailable
-                && !string.Equals(summary.StartingMapId, summary.Segments[0].MapId, StringComparison.Ordinal))
+            if (!string.Equals(summary.StartingMapId, summary.Segments[0].MapId, StringComparison.Ordinal))
                 throw new ArgumentException("Run starting map does not match its first retained segment.", nameof(summary));
         }
         RouteStatisticsReducer.ValidateAssociations(summary.Segments, summary.SegmentEventAssociations);
@@ -487,8 +470,7 @@ public static class RunReducer
 
         ValidateRunEconomyComposition(summary);
 
-        if (!summary.HistoricalRouteUnavailable
-            && summary.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported)
+        if (summary.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported)
         {
             if (summary.Segments.Count == 0)
                 throw new ArgumentException("Supported run route has no segment.", nameof(summary));
@@ -518,7 +500,7 @@ public static class RunReducer
         ValidateEconomyFanOut("completed-run totals", profile.RunTotals.Economy, profile.Runs.Select(run => run.Economy));
 
         var runsByStartingMap = profile.Runs.GroupBy(
-            run => ResolveStartingMapId(run),
+            run => run.StartingMapId,
             StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
         foreach (var entry in profile.RunTotals.Maps)
         {
@@ -532,9 +514,7 @@ public static class RunReducer
             ValidateMissingEconomyFanOut($"starting-map totals '{entry.Key}'", entry.Value.Select(run => run.Economy));
 
         var segmentsByMap = profile.Runs
-            .Where(run => !run.HistoricalRouteUnavailable
-                          && !run.Economy.HistoricalUnavailable
-                          && run.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported)
+            .Where(run => run.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported)
             .SelectMany(run => run.Segments)
             .GroupBy(segment => segment.MapId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Select(segment => segment.Economy).ToList(), StringComparer.Ordinal);
@@ -552,23 +532,19 @@ public static class RunReducer
 
     private static void ValidateRunEconomyComposition(RunSummary summary)
     {
-        if (summary.HistoricalRouteUnavailable
-            || summary.Economy.HistoricalUnavailable
-            || summary.Economy.Capabilities.RouteAttribution.State != AdapterCapabilityState.Supported)
+        if (summary.Economy.Capabilities.RouteAttribution.State != AdapterCapabilityState.Supported)
             return;
 
         ValidateEconomyFanOut(
             $"run '{summary.RunId}' segment composition",
             summary.Economy,
-            summary.Segments.Select(segment => segment.Economy),
-            validateTerminalOutcomes: false);
+            summary.Segments.Select(segment => segment.Economy));
     }
 
     private static void ValidateEconomyFanOut(
         string scope,
         EconomyStatisticsAggregate total,
-        IEnumerable<EconomyStatisticsAggregate> components,
-        bool validateTerminalOutcomes = true)
+        IEnumerable<EconomyStatisticsAggregate> components)
     {
         var materialized = components.ToList();
         foreach (CurrencyKind currency in Enum.GetValues(typeof(CurrencyKind)))
@@ -576,11 +552,8 @@ public static class RunReducer
             if (!EconomyStatisticsReducer.IsExactCurrencyComposition(total, materialized, currency))
                 throw new ArgumentException($"Current-schema {scope} does not equal its exact {currency} composition.");
         }
-        var cashOutcomesCompose = validateTerminalOutcomes
-            ? EconomyStatisticsReducer.IsExactCashOutcomeComposition(total, materialized)
-            : EconomyStatisticsReducer.IsExactCashAcquisitionComposition(total, materialized);
-        if (!cashOutcomesCompose)
-            throw new ArgumentException($"Current-schema {scope} does not equal its exact Cash raid-outcome composition.");
+        if (!EconomyStatisticsReducer.IsExactCashAcquisitionComposition(total, materialized))
+            throw new ArgumentException($"Current-schema {scope} does not equal its exact Cash acquisition composition.");
     }
 
     private static void ValidateMissingEconomyFanOut(
@@ -591,28 +564,16 @@ public static class RunReducer
         foreach (CurrencyKind currency in Enum.GetValues(typeof(CurrencyKind)))
         {
             if (materialized.Any(component =>
-                    (EconomyStatisticsReducer.HasExactSupportedCurrency(component, currency)
-                     || component.HistoricalUnavailable
-                     && EconomyStatisticsReducer.HasExactCapturedCurrency(component, currency))
+                    (EconomyStatisticsReducer.HasExactSupportedCurrency(component, currency))
                     && component.Currencies.TryGetValue(currency.ToString(), out var row)
                     && (row.Totals.GrossInflow != 0 || row.Totals.GrossOutflow != 0)))
                 throw new ArgumentException($"Current-schema {scope} is missing exact {currency} contributions.");
         }
         if (materialized.Any(component =>
                 !component.CashArithmeticSaturated
-                && (component.CashRaidOutcomes.Acquired != 0
-                    || component.CashRaidOutcomes.Secured != 0
-                    || component.CashRaidOutcomes.Lost != 0
-                    || component.CashRaidOutcomes.Unresolved != 0)))
-            throw new ArgumentException($"Current-schema {scope} is missing exact Cash raid-outcome contributions.");
+                && (component.CashAcquired != 0)))
+            throw new ArgumentException($"Current-schema {scope} is missing exact Cash acquisition contributions.");
     }
-
-    private static string ResolveStartingMapId(RunSummary summary) =>
-        string.IsNullOrWhiteSpace(summary.StartingMapId)
-        || (string.Equals(summary.StartingMapId, MapIdentity.UnknownId, StringComparison.Ordinal)
-            && !string.Equals(summary.MapId, MapIdentity.UnknownId, StringComparison.Ordinal))
-            ? summary.MapId
-            : summary.StartingMapId;
 
     private static bool IsFiniteNonNegative(double value) =>
         value >= 0 && !double.IsNaN(value) && !double.IsInfinity(value);

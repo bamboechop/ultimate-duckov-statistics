@@ -119,6 +119,9 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
 
     private void OnMainCharacterShoot(ItemAgent_Gun agent)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.WeaponFireCallback);
+#endif
         try
         {
             var runId = runIdProvider();
@@ -200,8 +203,6 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
                     ? string.Empty
                     : ReadAmmunitionDisplayName(gun, ammunitionTypeId),
                 FiringActionCount = 1,
-                AmmunitionUnitsConsumed = null,
-                ProjectileCount = null,
                 Capabilities = eventCapabilities,
                 EquipmentAssociation = equipmentAssociationProvider()
             };
@@ -223,10 +224,7 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
 
     private static CapabilityRecord[] DisabledCapabilities(string detail) => new[]
     {
-        Capability(WeaponCapabilityIds.TriggerAttempts, AdapterCapabilityState.DisabledIncompatible, detail),
         Capability(WeaponCapabilityIds.FiringActions, AdapterCapabilityState.DisabledIncompatible, detail),
-        Capability(WeaponCapabilityIds.AmmunitionConsumption, AdapterCapabilityState.DisabledIncompatible, detail),
-        Capability(WeaponCapabilityIds.Projectiles, AdapterCapabilityState.DisabledIncompatible, detail),
         Capability(WeaponCapabilityIds.WeaponIdentity, AdapterCapabilityState.DisabledIncompatible, detail),
         Capability(WeaponCapabilityIds.AmmunitionIdentity, AdapterCapabilityState.DisabledIncompatible, detail),
         Capability(WeaponCapabilityIds.WeaponAmmunitionPairing, AdapterCapabilityState.DisabledIncompatible, detail)
@@ -238,21 +236,9 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
         ? new[]
         {
             Capability(
-                WeaponCapabilityIds.TriggerAttempts,
-                AdapterCapabilityState.DisabledIncompatible,
-                "The verified public firing event does not emit for rejected trigger attempts or dry fire; trigger-attempt counts are unavailable."),
-            Capability(
                 WeaponCapabilityIds.FiringActions,
                 AdapterCapabilityState.Supported,
                 "Public ItemAgent_Gun.OnMainCharacterShootEvent proves one accepted firing action callback; each callback receives a unique UDS event ID."),
-            Capability(
-                WeaponCapabilityIds.AmmunitionConsumption,
-                AdapterCapabilityState.DisabledIncompatible,
-                "ItemSetting_Gun.UseABullet can return without consuming a loaded item, and the public firing callback exposes no proven pre/post result."),
-            Capability(
-                WeaponCapabilityIds.Projectiles,
-                AdapterCapabilityState.DisabledIncompatible,
-                "ItemAgent_Gun.ShootOneBullet can return before projectile acquisition, and ShotCount alone does not prove created projectiles."),
             Capability(
                 WeaponCapabilityIds.WeaponIdentity,
                 AdapterCapabilityState.Supported,
@@ -279,8 +265,6 @@ internal sealed class NativeWeaponFireAdapter : IDisposable, IRetryableCleanup
     private static WeaponMetricCapabilities DisabledMetricCapabilities(string detail) => new()
     {
         FiringActions = Availability(AdapterCapabilityState.DisabledIncompatible, detail),
-        AmmunitionConsumption = Availability(AdapterCapabilityState.DisabledIncompatible, detail),
-        Projectiles = Availability(AdapterCapabilityState.DisabledIncompatible, detail),
         WeaponIdentity = Availability(AdapterCapabilityState.DisabledIncompatible, detail),
         AmmunitionIdentity = Availability(AdapterCapabilityState.DisabledIncompatible, detail),
         WeaponAmmunitionPairing = Availability(AdapterCapabilityState.DisabledIncompatible, detail)

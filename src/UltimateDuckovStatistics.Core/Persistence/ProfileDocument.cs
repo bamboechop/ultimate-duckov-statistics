@@ -64,6 +64,9 @@ public sealed class CapabilityRecord
 [DataContract]
 public sealed class ProfileDocument
 {
+    [DataMember(Order = 14)]
+    public string FormatId { get; set; } = ProductInfo.ProfileFormatId;
+
     [DataMember(Order = 1)]
     public int SchemaVersion { get; set; } = ProductInfo.SchemaVersion;
 
@@ -120,6 +123,9 @@ public sealed class DeferredItemPersistenceState
 [DataContract]
 public sealed class SessionCheckpoint
 {
+    [DataMember(Order = 6)]
+    public string FormatId { get; set; } = ProductInfo.ProfileFormatId;
+
     [DataMember(Order = 1)]
     public int SchemaVersion { get; set; } = ProductInfo.SchemaVersion;
 

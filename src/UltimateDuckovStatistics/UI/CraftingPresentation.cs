@@ -78,8 +78,12 @@ internal static class CraftingPresentationFactory
     {
         if (p == null || string.IsNullOrWhiteSpace(generation) || p.CraftingBinding?.Matches(p, generation) != true) return null;
         var t = text ?? UiText.Get; var a = p.Crafting; var c = p.CraftingCapabilities;
-        string Name(string id, string name) => string.IsNullOrWhiteSpace(name) || name == id
-            ? string.Format(CultureInfo.CurrentCulture, t("ui.crafting_unknown_item"), id) : name.Trim();
+        string Name(string id, string name)
+        {
+            name = p.Names.Get(id, name);
+            return string.IsNullOrWhiteSpace(name) || name == id
+                ? string.Format(CultureInfo.CurrentCulture, t("ui.crafting_unknown_item"), id) : name.Trim();
+        }
         var outputSupported = Supported(c.CompletionActions) && Supported(c.OutputIdentity);
         var resourceSupported = Supported(c.ItemResourceIdentity);
         var associationSupported = Supported(c.OutputResourceAssociation);
@@ -135,7 +139,7 @@ internal static class CraftingPresentationFactory
         if (a.WasRepairedFromInvalidState)
         { outputNotice = Join(outputNotice, t("ui.crafting_recorded_partial")); resourceNotice = Join(resourceNotice, t("ui.crafting_recorded_partial")); }
         return new CraftingPresentation(generation, outputRows, resourceRows, outputNotice, resourceNotice,
-            t(outputSupported && !a.HistoricalUnavailable ? "ui.crafting_outputs_empty" : "ui.unavailable"),
+            t(outputSupported ? "ui.crafting_outputs_empty" : "ui.unavailable"),
             t(resourceSupported && !a.ResourceHistoryUnavailable ? "ui.crafting_resources_empty" : "ui.unavailable"));
     }
     private static bool Supported(MetricAvailability availability) => availability.State == AdapterCapabilityState.Supported;

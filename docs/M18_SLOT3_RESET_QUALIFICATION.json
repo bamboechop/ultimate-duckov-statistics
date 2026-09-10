@@ -1,0 +1,89 @@
+{
+  "SourceCommit": "c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7",
+  "Slot": 3,
+  "PreviousGenerationId": "5872f0daafc14aabb2cd8207cbcc4494",
+  "PreviousRevision": 2219,
+  "RunsBefore": 2,
+  "Status": "Pass for user-confirmed Cancel preserving both runs, confirmed reset showing empty Runs, and observed reset/archive/generation isolation with profile/JSON/targeted-CSV agreement.",
+  "UserSelection": "Probably 3 first as there is barely any data in there. Unless we do not need any more data afterwards, then we can also use 1.",
+  "Decision": "Use slot 3. Keep slot 1 history for later performance qualification.",
+  "EvidenceRoot": "artifacts/qualification/c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7/native-slot3-reset",
+  "BeforeManifestSha256": "7873cf0a1b8f1c5415be1c2ed31ff17e6049942d24b30fbf33821fb70311d624",
+  "Procedure": [
+    "Select slot 3 and reach base; verify the two retained runs.",
+    "Open Diagnostics, request Reset UDS profile, then Cancel. Verify both runs remain.",
+    "Request Reset UDS profile again and confirm once. Runs should be empty and the native save/inventory remain intact.",
+    "Export statistics once after completion. Verify a new exact UDS generation and preservation of the prior generation in its reset archive."
+  ],
+  "Boundaries": "User performs native UI/reset. No Duckov save modifications or automated profile reset/reconstruction. Current native holdings may remain visible in the fresh statistics profile.",
+  "ArchiveDirectoriesBefore": [
+    "20260908T1023542154171Z-75f61991044e4ee9855c9429e54e855c-DuckovNewGame",
+    "20260908T1140529540491Z-153f0548340f4daaa8c81c91646b7282-DuckovSaveDeleted"
+  ],
+  "UserReport": "Exported",
+  "NativeUiConfirmation": "Yes, cancel preserved both runs. And yes, reset show an empty runs page.",
+  "NewGenerationId": "51fe1548e0d94fce9de3e22d3b99305d",
+  "ExportId": "20260908T1721272359109Z-51fe1548e0d94fce9de3e22d3b99305d",
+  "ExportRevision": 13,
+  "ProfileRevision": 196,
+  "Archive": "20260908T1721201314285Z-5872f0daafc14aabb2cd8207cbcc4494-UserReset-75772406bb1d4190832b590b33df5d4c",
+  "ArchivedProfileRevision": 2237,
+  "ArchivedRunsExact": 2,
+  "ArchivedStatistics": "Both complete runs, item totals, run totals/records, crafting and currency-flow data match the preserved baseline. Capability publication, clock progression, holdings freshness and replay metadata reflect the selected-profile session before reset.",
+  "NewStatistics": "Zero runs, item uses/healing, currency flows, crafts and completed sleep sessions; observed world time accumulates after reset. Current holdings reobserve 0 Money and 136 Cash.",
+  "UnchangedSlot1": "Same generation; nine exact runs, item totals, run totals/records, Economy and crafting unchanged from prior shortcut qualification.",
+  "SettingsUnchanged": true,
+  "ObservedResetCompletions": 1,
+  "ExportAgreement": {
+    "ProductionReprojection": "StatisticsExporter.Create on the captured profile reproduces the entire exported document except later revision/clock progression. It applies current native capability states to uninitialized empty RunTotals; recorded numeric data agrees.",
+    "ReprojectionDifferencePaths": [
+      "/Revision",
+      "/WorldTime/ObservedGameTimeTicks"
+    ],
+    "EmptyCsvTables": [
+      "runs.csv",
+      "segments.csv",
+      "segment_events.csv",
+      "items.csv",
+      "groups.csv",
+      "routes.csv",
+      "map_totals.csv",
+      "route_map_totals.csv",
+      "terminal_loadouts.csv"
+    ],
+    "CheckedCsvSummaries": [
+      "overview.csv",
+      "run_totals.csv",
+      "world_time.csv",
+      "economy_holdings.csv",
+      "crafting_totals.csv"
+    ]
+  },
+  "InstalledFilesVerified": 5,
+  "PreservedExportFiles": 37,
+  "AfterManifestSha256": "8a1d562dcf3d4060d74c00ae0984f7fc0a58886c61b016367c2d21dfaa56043e",
+  "Remaining": "Reset-generation cold reopen and native missing-primary backup recovery passed in M18_SLOT3_BACKUP_RECOVERY_QUALIFICATION.json. Deliberate degradation, other recovery scenarios and native resource/performance/high-history qualification remain open.",
+  "BackupRecoveryRehearsal": {
+    "Path": "artifacts/qualification/c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7/native-slot3-reset/backup-rehearsal/result.json",
+    "Sha256": "0891e83c0830dbde68de686d075171f3aa1c724471d5d07e379f2ddb2dd99ecd",
+    "Result": {
+      "Result": "Pass for isolated production repository rehearsal using a copied current native backup; this is not native acceptance.",
+      "GenerationId": "51fe1548e0d94fce9de3e22d3b99305d",
+      "LoadSource": "Backup",
+      "RecoveredSnapshot": true,
+      "CreatedNew": false,
+      "RotatedGeneration": false,
+      "RepairedPrimaryExists": true,
+      "ObservedGameTimeTicks": 207577230000,
+      "BackupSha256": "69c3d5fde80bdd7d135a60565173a7980d9dc8e1a17efe227424e9dcf63f4b9f",
+      "NativeFilesModified": false
+    },
+    "NextNativeCheck": "Use the user-selected slot 3 generation. A completed sleep will provide a visible nonzero statistic; after clean shutdown preserve both primary and backup, validate them, then prepare a reversible missing-primary recovery. No native file has been altered for this rehearsal."
+  },
+  "SubsequentSleepMarker": {
+    "UserReport": "Slept for 59m, exported, closed.",
+    "CompletedSleepSessions": 1,
+    "SleepAdvancedSeconds": 3540,
+    "Evidence": "M18_SLOT3_BACKUP_RECOVERY_QUALIFICATION.json"
+  }
+}

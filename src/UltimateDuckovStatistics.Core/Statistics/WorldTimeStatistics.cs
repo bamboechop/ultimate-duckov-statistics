@@ -27,8 +27,6 @@ public sealed class WorldTimeStatisticsAggregate
     [DataMember(Order = 3)] public long CompletedSleepSessions { get; set; }
     [DataMember(Order = 4)] public long SleepAdvancedTimeTicks { get; set; }
     [DataMember(Order = 5)] public WorldTimeMetricCapabilities Capabilities { get; set; } = new();
-    [DataMember(Order = 6)] public bool HistoricalUnavailable { get; set; }
-    [DataMember(Order = 7)] public string HistoricalProvenance { get; set; } = string.Empty;
     [DataMember(Order = 8)] public bool CalendarArithmeticUnavailable { get; set; }
     [DataMember(Order = 9)] public bool ObservedElapsedArithmeticUnavailable { get; set; }
     [DataMember(Order = 10)] public bool SleepSessionArithmeticUnavailable { get; set; }
@@ -153,7 +151,6 @@ public static class WorldTimeStatisticsReducer
             aggregate.Capabilities.SleepAdvancedTime = Unavailable("Invalid persisted metric was repaired to zero; current capture is disabled.");
             changed = true;
         }
-        aggregate.HistoricalProvenance ??= string.Empty;
         return changed;
     }
 
@@ -181,8 +178,6 @@ public static class WorldTimeStatisticsReducer
             CompletedSleepSessions = source.CompletedSleepSessions,
             SleepAdvancedTimeTicks = source.SleepAdvancedTimeTicks,
             Capabilities = CloneCapabilities(source.Capabilities),
-            HistoricalUnavailable = source.HistoricalUnavailable,
-            HistoricalProvenance = source.HistoricalProvenance,
             CalendarArithmeticUnavailable = source.CalendarArithmeticUnavailable,
             ObservedElapsedArithmeticUnavailable = source.ObservedElapsedArithmeticUnavailable,
             SleepSessionArithmeticUnavailable = source.SleepSessionArithmeticUnavailable,

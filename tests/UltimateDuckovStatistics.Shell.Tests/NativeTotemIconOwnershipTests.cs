@@ -1,0 +1,135 @@
+using ItemStatsSystem;
+using LeTai.TrueShadow;
+using UltimateDuckovStatistics.UI;
+using UnityEngine;
+using UnityEngine.UI;
+using Xunit;
+
+namespace UltimateDuckovStatistics.Shell.Tests;
+
+public sealed class NativeTotemIconOwnershipTests : IDisposable
+{
+    private const int TotemId = 3001;
+    private readonly Sprite borrowedIcon = new();
+    private readonly List<GameObject> roots = new();
+
+    public NativeTotemIconOwnershipTests()
+    {
+        ItemAssetsCollection.Metadata[TotemId] = new ItemMetaData
+        {
+            id = TotemId,
+            icon = borrowedIcon,
+            displayQuality = 4,
+            tags = new List<ItemTag> { new() { name = "Totem" } }
+        };
+    }
+
+    [Fact]
+    public void RepeatedTotemCreationAndNativeDestructionReleasePrivateMeshesAndPreserveNativeStyle()
+    {
+        var meshes = new List<Mesh>();
+        for (var cycle = 0; cycle < 25; cycle++)
+        {
+            var icon = CreateIcon();
+            NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+            var shadow = Assert.IsType<OwnedTotemIconShadow>(icon.GetComponent<TrueShadow>());
+            shadow.NativeEnable();
+            var mesh = Assert.IsType<Mesh>(shadow.SpriteMesh);
+            meshes.Add(mesh);
+            Assert.Equal(3, shadow.Size);
+            Assert.Equal(.5f, shadow.Spread);
+            Assert.True(shadow.UseCasterAlpha && shadow.IgnoreCasterColor && shadow.IgnoreExternalActive);
+            Assert.False(shadow.ShadowAsSibling);
+            Assert.Equal(4, shadow.AppliedQuality);
+            shadow.NativeDisable();
+            shadow.NativeDestroy();
+            UnityEngine.Object.Destroy(icon.gameObject);
+            Assert.True(mesh.Destroyed);
+            Assert.Equal(1, shadow.NativeCleanupCount);
+            Assert.False(borrowedIcon.Destroyed);
+        }
+        Assert.Equal(25, meshes.Distinct().Count());
+        Assert.All(meshes, mesh => Assert.True(mesh.Destroyed));
+    }
+
+    [Fact]
+    public void PooledTotemShadowReusesItsMeshAcrossClearAndReenable()
+    {
+        var icon = CreateIcon();
+        NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+        var shadow = Assert.IsType<OwnedTotemIconShadow>(icon.GetComponent<TrueShadow>());
+        shadow.NativeEnable();
+        var mesh = Assert.IsType<Mesh>(shadow.SpriteMesh);
+        for (var cycle = 0; cycle < 25; cycle++)
+        {
+            NativeTotemIconAppearance.Clear(icon);
+            shadow.NativeDisable();
+            Assert.False(shadow.enabled);
+            Assert.False(mesh.Destroyed);
+            NativeTotemIconAppearance.Apply(icon, "duckov:item:3001");
+            shadow.NativeEnable();
+            Assert.Same(shadow, Assert.Single(icon.GetComponents<TrueShadow>()));
+            Assert.Same(mesh, shadow.SpriteMesh);
+            Assert.True(shadow.enabled);
+        }
+        shadow.NativeDisable();
+        shadow.NativeDestroy();
+        Assert.True(mesh.Destroyed);
+    }
+
+    [Fact]
+    public void ExistingNativeShadowDoesNotAcquireUdsMeshOwnership()
+    {
+        var icon = CreateIcon();
+        var native = icon.gameObject.AddComponent<TrueShadow>();
+        native.NativeEnable();
+        var mesh = Assert.IsType<Mesh>(native.SpriteMesh);
+        NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+        Assert.Same(native, Assert.Single(icon.GetComponents<TrueShadow>()));
+        Assert.Null(icon.GetComponent<OwnedTotemIconShadow>());
+        NativeTotemIconAppearance.Clear(icon);
+        Assert.False(mesh.Destroyed);
+        Assert.False(borrowedIcon.Destroyed);
+        UnityEngine.Object.Destroy(mesh);
+    }
+
+    [Fact]
+    public void NativeCleanupFailureStillReleasesTheOwnedMesh()
+    {
+        var icon = CreateIcon();
+        NativeTotemIconAppearance.Apply(icon, "duckov:totem:3001");
+        var shadow = Assert.IsType<OwnedTotemIconShadow>(icon.GetComponent<TrueShadow>());
+        shadow.NativeEnable();
+        var mesh = Assert.IsType<Mesh>(shadow.SpriteMesh);
+        shadow.ThrowDuringNativeCleanup = true;
+        Assert.Throws<InvalidOperationException>(shadow.NativeDestroy);
+        Assert.True(mesh.Destroyed);
+        Assert.Equal(1, shadow.NativeCleanupCount);
+        Assert.False(borrowedIcon.Destroyed);
+    }
+
+    [Theory]
+    [InlineData("duckov:totem:unknown")]
+    [InlineData("duckov:item:3002")]
+    public void UnavailableMetadataDoesNotAllocateAShadow(string id)
+    {
+        var icon = CreateIcon();
+        NativeTotemIconAppearance.Apply(icon, id);
+        Assert.Empty(icon.GetComponents<TrueShadow>());
+    }
+
+    private Image CreateIcon()
+    {
+        var root = new GameObject("UDS totem image");
+        roots.Add(root);
+        var icon = root.AddComponent<Image>();
+        icon.sprite = borrowedIcon;
+        return icon;
+    }
+
+    public void Dispose()
+    {
+        ItemAssetsCollection.Metadata.Remove(TotemId);
+        foreach (var root in roots) UnityEngine.Object.Destroy(root);
+    }
+}

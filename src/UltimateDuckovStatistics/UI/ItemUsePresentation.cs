@@ -46,9 +46,11 @@ internal sealed class ItemUseEntry
     public ItemUseValue Health { get; }
     public ItemUseEntry(string id, string name, CanonicalItemGroup group, string groupName, string effects,
         long count, ItemUseValue uses, ItemUseValue amount, ItemUseValue health, IEnumerable<ItemEffectTag>? effectTags = null)
-    { ItemId = id; Name = name; Group = group; GroupName = groupName; Effects = effects;
+    {
+        ItemId = id; Name = name; Group = group; GroupName = groupName; Effects = effects;
         Count = count; Uses = uses; Amount = amount; Health = health;
-        EffectTags = Array.AsReadOnly(effectTags?.Distinct().ToArray() ?? Array.Empty<ItemEffectTag>()); }
+        EffectTags = Array.AsReadOnly(effectTags?.Distinct().ToArray() ?? Array.Empty<ItemEffectTag>());
+    }
     public bool Matches(CanonicalItemGroup group) => Group == group || EffectTags.Any(tag => group switch
     {
         CanonicalItemGroup.Healing => tag == ItemEffectTag.Healing,
@@ -79,8 +81,10 @@ internal sealed class ItemUseRun
     public string EmptyText { get; }
     public ItemUseRun(string id, string title, string caption, RetainedRunBadgeState outcome,
         IEnumerable<ItemUseEntry> items, string emptyText)
-    { RunId = id; Title = title; Caption = caption; Outcome = outcome;
-        Items = Array.AsReadOnly(items.ToArray()); EmptyText = emptyText; }
+    {
+        RunId = id; Title = title; Caption = caption; Outcome = outcome;
+        Items = Array.AsReadOnly(items.ToArray()); EmptyText = emptyText;
+    }
 }
 internal sealed class ItemUsePresentation
 {
@@ -131,7 +135,7 @@ internal static class ItemUsePresentationFactory
         if (!throwsSupported) notices.Add(t("ui.item_use_throwable_unavailable"));
         if (!lifetimeHealthSupported) notices.Add(t("ui.item_use_healing_unavailable"));
         if (repaired) notices.Add(t("ui.item_use_repaired"));
-        var items = source.Items.Select(item => Entry(item.ItemId, item.DisplayName, item.Group, item.EffectTags, item.Totals,
+        var items = source.Items.Select(item => Entry(item.ItemId, projection.Names.Get(item.ItemId, item.DisplayName), item.Group, item.EffectTags, item.Totals,
             usesSupported, throwsSupported, lifetimeHealthSupported, repaired, t)).OrderByDescending(item => item.Count)
             .ThenBy(item => item.Name, StringComparer.Ordinal).ThenBy(item => item.ItemId, StringComparer.Ordinal).ToArray();
         var groups = Enum.GetValues(typeof(CanonicalItemGroup)).Cast<CanonicalItemGroup>().Select(group =>
@@ -146,19 +150,15 @@ internal static class ItemUsePresentationFactory
         var runs = source.RecentRuns.OrderByDescending(run => run.EndedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal).Select(run =>
         {
             var aggregate = run.ItemStatistics; var incomplete = aggregate.WasRepairedFromInvalidState;
-            var runHealthSupported = healthSupported && run.HealingCaptureComplete
-                && !aggregate.HistoricalUnavailable && !run.HistoricalEventAttributionIncomplete;
-            var runItems = aggregate.Items.Values.Select(item => Entry(item.ItemId, item.DisplayName, item.Group, item.EffectTags,
+            var runHealthSupported = healthSupported && run.HealingCaptureComplete && !run.HistoricalEventAttributionIncomplete;
+            var runItems = aggregate.Items.Values.Select(item => Entry(item.ItemId, projection.Names.Get(item.ItemId, item.DisplayName), item.Group, item.EffectTags,
                     item.Totals, usesSupported, throwsSupported, runHealthSupported, incomplete, t))
                 .OrderByDescending(item => item.Count).ThenBy(item => item.Name, StringComparer.Ordinal)
                 .ThenBy(item => item.ItemId, StringComparer.Ordinal).ToArray();
-            // Historical absence cannot prove an empty run, but it does not add a
-            // development-history notice to otherwise recorded item rows.
-            var exactEmpty = !aggregate.HistoricalUnavailable && !incomplete && allUsesSupported;
-            var usage = Count(aggregate.Overall.ActivationCount, allUsesSupported, incomplete
-                || aggregate.HistoricalUnavailable && aggregate.Overall.ActivationCount == 0, t);
-            var health = Number(aggregate.Overall.ActualHealthRestored, runHealthSupported, incomplete
-                || aggregate.HistoricalUnavailable && aggregate.Overall.ActualHealthRestored == 0, t);
+            // Only complete supported capture can prove an empty run.
+            var exactEmpty = !incomplete && allUsesSupported;
+            var usage = Count(aggregate.Overall.ActivationCount, allUsesSupported, incomplete, t);
+            var health = Number(aggregate.Overall.ActualHealthRestored, runHealthSupported, incomplete, t);
             var route = run.Segments.OrderBy(segment => segment.SegmentIndex).ToArray();
             var exactMaps = UiText.HasAvailableSegments(run) && !run.RouteWasRepairedFromInvalidState
                 && route.All(segment => segment.MapKnown && !segment.WasRepairedFromInvalidState);
@@ -168,11 +168,11 @@ internal static class ItemUsePresentationFactory
                 Timestamp(run.StartedUtc, local, t), maps };
             metadata.Add(Format(t(aggregate.Overall.ActivationCount == 1 ? "ui.item_use_use_value" : "ui.item_use_uses_value"), usage.Text));
             metadata.Add(Format(t("ui.item_use_hp_value"), health.Text));
-            string Map(bool known, string name) => known && !string.IsNullOrWhiteSpace(name) ? name : t("ui.overview_latest_run_unknown_map");
-            var title = route.Length > 0 ? Map(route[0].MapKnown, route[0].MapDisplayName)
-                : Map(run.StartingMapKnown || run.MapKnown, run.StartingMapKnown ? run.StartingMapDisplayName : run.MapDisplayName);
+            string Map(bool known, string id, string name) => known && !string.IsNullOrWhiteSpace(name) ? projection.Names.Get(id, name) : t("ui.overview_latest_run_unknown_map");
+            var title = route.Length > 0 ? Map(route[0].MapKnown, route[0].MapId, route[0].MapDisplayName)
+                : Map(run.StartingMapKnown, run.StartingMapId, run.StartingMapDisplayName);
             if (route.Length > 1 && route[0].MapId != route[route.Length - 1].MapId)
-                title += " - " + Map(route[route.Length - 1].MapKnown, route[route.Length - 1].MapDisplayName);
+                title += " - " + Map(route[route.Length - 1].MapKnown, route[route.Length - 1].MapId, route[route.Length - 1].MapDisplayName);
             return new ItemUseRun(run.RunId, title, string.Join(" · ", metadata), RetainedRunBadgePresentationFactory.MapOutcome(run.Outcome),
                 runItems, exactEmpty ? t("ui.item_use_no_run_uses") : t("ui.item_use_run_unavailable"));
         }).ToArray();
@@ -197,19 +197,27 @@ internal static class ItemUsePresentationFactory
         Enum.IsDefined(typeof(CanonicalItemGroup), group) ? t("ui.item_use_group_" + group.ToString().ToLowerInvariant()) : t("ui.unavailable");
     private static string EffectName(ItemEffectTag effect, Func<string, string> t) => effect switch
     {
-        ItemEffectTag.Healing => GroupName(CanonicalItemGroup.Healing, t), ItemEffectTag.Food => GroupName(CanonicalItemGroup.Food, t),
-        ItemEffectTag.Drink => GroupName(CanonicalItemGroup.Drink, t), ItemEffectTag.Special => GroupName(CanonicalItemGroup.Special, t),
-        ItemEffectTag.Buff => t("ui.item_use_effect_buff"), ItemEffectTag.DebuffRemoval => t("ui.item_use_effect_debuffremoval"),
-        ItemEffectTag.Throwable => t("ui.item_use_effect_throwable"), _ => t("ui.unavailable")
+        ItemEffectTag.Healing => GroupName(CanonicalItemGroup.Healing, t),
+        ItemEffectTag.Food => GroupName(CanonicalItemGroup.Food, t),
+        ItemEffectTag.Drink => GroupName(CanonicalItemGroup.Drink, t),
+        ItemEffectTag.Special => GroupName(CanonicalItemGroup.Special, t),
+        ItemEffectTag.Buff => t("ui.item_use_effect_buff"),
+        ItemEffectTag.DebuffRemoval => t("ui.item_use_effect_debuffremoval"),
+        ItemEffectTag.Throwable => t("ui.item_use_effect_throwable"),
+        _ => t("ui.unavailable")
     };
     internal static ItemUseValue Amount(AggregateTotals totals, bool supported, bool repaired, Func<string, string> t)
     {
         var values = new List<string>(); var unknown = totals.AmountsByUnit.Count == 0; var positive = false;
         foreach (var amount in totals.AmountsByUnit.OrderBy(entry => entry.Key, StringComparer.Ordinal))
         {
-            var key = amount.Key switch { nameof(ConsumptionUnit.Item) => amount.Value == 1 ? "ui.item_use_item_unit" : "ui.item_use_items_unit",
+            var key = amount.Key switch
+            {
+                nameof(ConsumptionUnit.Item) => amount.Value == 1 ? "ui.item_use_item_unit" : "ui.item_use_items_unit",
                 nameof(ConsumptionUnit.StackUnit) => amount.Value == 1 ? "ui.item_use_stack_one_unit" : "ui.item_use_stack_unit",
-                nameof(ConsumptionUnit.Durability) => "ui.item_use_durability_unit", _ => "" };
+                nameof(ConsumptionUnit.Durability) => "ui.item_use_durability_unit",
+                _ => ""
+            };
             if (key.Length == 0 || !Finite(amount.Value)) { unknown = true; continue; }
             values.Add(amount.Value.ToString("N3", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.') + " " + t(key));
             positive |= amount.Value > 0;

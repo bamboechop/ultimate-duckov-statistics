@@ -1,0 +1,266 @@
+{
+  "SourceCommit": "9f503b7bfafd0350b427d6eeb3de55b02be7e47a",
+  "Status": "Pass for native tutorial start, two-segment route, extraction and displayed run/profile/JSON/CSV agreement.",
+  "ExportId": "20260908T1145417048373Z-5872f0daafc14aabb2cd8207cbcc4494",
+  "Slot": 3,
+  "GenerationId": "5872f0daafc14aabb2cd8207cbcc4494",
+  "ExportRevision": 227,
+  "ObservedProfileRevision": 227,
+  "RunId": "1f9fb18e0bc64259adcdbc3031a1ba18",
+  "NativeRaidId": null,
+  "Observed": {
+    "Outcome": "Extracted",
+    "ActiveSeconds": 168.7574764,
+    "DistanceMetres": 625.0205580292734,
+    "Segments": [
+      {
+        "MapId": "duckov:map:Level_Guide_1",
+        "DisplayName": "Gefängnis",
+        "ActiveSeconds": 144.6737732,
+        "DistanceMetres": 520.2594989496655
+      },
+      {
+        "MapId": "duckov:map:Level_Guide_2",
+        "DisplayName": "Gefängnis",
+        "ActiveSeconds": 24.083703200000002,
+        "DistanceMetres": 104.76105907960805
+      }
+    ],
+    "Kills": 4,
+    "RangedKills": 3,
+    "EffectKills": 1,
+    "Containers": 9,
+    "CashNet": 58,
+    "CashContext": "Raid",
+    "FiringActions": 15,
+    "CompletedProjectiles": 15,
+    "RangedHits": 11,
+    "Headshots": 8,
+    "HeadshotFinalBlows": 0,
+    "DamageDealt": 92.39999961853027,
+    "DamageTaken": 0,
+    "ActualHpRestored": 0,
+    "ItemUses": [
+      {
+        "ItemId": "duckov:item:108",
+        "DisplayName": "Whiskey",
+        "ActivationCount": 1
+      },
+      {
+        "ItemId": "duckov:item:1181",
+        "DisplayName": "Lolli",
+        "ActivationCount": 1
+      }
+    ],
+    "TransitionExcludedMetres": 239.7000208700026,
+    "TerminalEquipmentComplete": true
+  },
+  "Agreement": {
+    "ExportRunDeepEqualsSavedProfileRun": true,
+    "ScreenshotDisplayedTotalsMatch": true,
+    "TargetedCsvBreakdownsMatch": true,
+    "AllCsvStructuresValid": true,
+    "NoRemainingActiveRunCheckpoint": true,
+    "OneNativeStartAndCompletion": true,
+    "InstalledFiveFileHashesMatchCandidate": true,
+    "EarlierBaselineExportFilesUnchanged": 37
+  },
+  "Remaining": [
+    "Native tutorial death/retry scenario",
+    "Exact gameplay action ground truth beyond the supplied screen and export",
+    "Other M18 native/performance gates"
+  ],
+  "Files": [
+    {
+      "File": "active_totem_set_definitions.csv",
+      "Bytes": 5106,
+      "Sha256": "64cc868a7940064435f67cf0e35194c0ae760812e283141d12974d158012daaf"
+    },
+    {
+      "File": "ammunition_totals.csv",
+      "Bytes": 407,
+      "Sha256": "dff5f3e8dde1a8a2a6d95ff8b7588843369a3996f9c1aeaefa299e4b06f0f39d"
+    },
+    {
+      "File": "cash_acquisition.csv",
+      "Bytes": 6745,
+      "Sha256": "3880c3d2d4f5ab02cff4640ca56f1046650cf2371e8e6582b613ff8bd30ea2a1"
+    },
+    {
+      "File": "character_equipment_slots.csv",
+      "Bytes": 33757,
+      "Sha256": "171c8298d96ba4a2c7472e9f5272c4db5a04236735c832a86c563a8d63f4479c"
+    },
+    {
+      "File": "combat_attribution.csv",
+      "Bytes": 23035,
+      "Sha256": "267a4c8efad2fbccfc8fd2ea364df5c107983d4b1572e7c41c0ded104e016709"
+    },
+    {
+      "File": "combat_totals.csv",
+      "Bytes": 528,
+      "Sha256": "8af96e8eb1da4cf1d3c9be2dcddc8fbebbef32dab008061b5683d7c2b0f17285"
+    },
+    {
+      "File": "containers.csv",
+      "Bytes": 441,
+      "Sha256": "273253ee3aefcfb4b4cd85fb87cc86c35a31ba2d3387924ead153f155f9ce10b"
+    },
+    {
+      "File": "crafting_recipes.csv",
+      "Bytes": 363,
+      "Sha256": "e3a44d253741208a997e3d57430f635a24594a16beb01c4f6de9e7891b64b82a"
+    },
+    {
+      "File": "crafting_resource_associations.csv",
+      "Bytes": 306,
+      "Sha256": "fb66048832bd0c32ba5f33132b9cfc1beb6c1c350a2bcdb6b911ee3c331eeaef"
+    },
+    {
+      "File": "crafting_resources.csv",
+      "Bytes": 220,
+      "Sha256": "ca80b4e395c976f36053fdd1c6b8135a73e5cf43b91cb26d2a16a704564a036e"
+    },
+    {
+      "File": "crafting_totals.csv",
+      "Bytes": 2324,
+      "Sha256": "defc2939658a90434f02b8b0d5e83c5e7f3b52e96298d27c9c4f32fbb5c548a0"
+    },
+    {
+      "File": "economy_contexts.csv",
+      "Bytes": 1981,
+      "Sha256": "4e2a064bb087e63848f566a797fa3ad72b188da710b06ee714c3dea25fb76641"
+    },
+    {
+      "File": "economy_holdings.csv",
+      "Bytes": 1451,
+      "Sha256": "0661e4b741b37f4063e9d2742b0c416fb8f765a7db1dbf038d0c9f80219846ad"
+    },
+    {
+      "File": "economy_sources.csv",
+      "Bytes": 5257,
+      "Sha256": "e177d6d7ad5ded9a16d8b8297538ee573e85a6a8e63f1bec5ad11e6059bb34ea"
+    },
+    {
+      "File": "economy_totals.csv",
+      "Bytes": 17808,
+      "Sha256": "5ebc5efd4cb05ffc9f8b6d3f2805859344646b6bc93919bb4ed98c57561ba124"
+    },
+    {
+      "File": "equipment_combat.csv",
+      "Bytes": 4931,
+      "Sha256": "942502f0cfe66e788fde86a1b4dae79b438707936cd65ce62a88c2f32047b9c9"
+    },
+    {
+      "File": "equipment_totals.csv",
+      "Bytes": 22660,
+      "Sha256": "e579be2e5d85b050a5b8d364bc070ae2501ad14485c75b793885e01e0fc9521a"
+    },
+    {
+      "File": "equipped_item_nested_slots.csv",
+      "Bytes": 13143,
+      "Sha256": "956dd141308bc45fe34683825d5500cfe109c1a73f428713370da89c26d5083e"
+    },
+    {
+      "File": "groups.csv",
+      "Bytes": 315,
+      "Sha256": "f7274865ef90b4b45a2bb05e5b53ccf91b001a486ca221a1d184291212576f4e"
+    },
+    {
+      "File": "items.csv",
+      "Bytes": 429,
+      "Sha256": "56ebc5cdb82179dc5c4dc882e0fb0de5fb0fda6374a545b0e62b2db49e2b62da"
+    },
+    {
+      "File": "loadout_definitions.csv",
+      "Bytes": 132715,
+      "Sha256": "81a06a753b1614f541b1790680b5417621fe30a179f9239ddc1c3b8ca52f8a83"
+    },
+    {
+      "File": "map_totals.csv",
+      "Bytes": 794,
+      "Sha256": "6cdb423e29b95729817e66a3b54edff0cdfa2a8f31d024a9c2a967621cb35154"
+    },
+    {
+      "File": "overview.csv",
+      "Bytes": 349,
+      "Sha256": "09c55a082fa6a953eab7432e2ca36a7b2478354feccf81ea1ba3f73a1d0e46b9"
+    },
+    {
+      "File": "records.csv",
+      "Bytes": 581,
+      "Sha256": "7ff4e95cc6f4beb6a1b841981823d108655d6178831b5f58238b363593db6fe7"
+    },
+    {
+      "File": "recurring_loadouts.csv",
+      "Bytes": 52,
+      "Sha256": "637363399a9e6ded64e793a87d5b3cfe13245448554c6a10a4fd95de76395676"
+    },
+    {
+      "File": "route_map_totals.csv",
+      "Bytes": 1220,
+      "Sha256": "96636b23f5036903cddaeb691bb927c1bc86f1f4053f5e4e615c21d841ec7057"
+    },
+    {
+      "File": "routes.csv",
+      "Bytes": 1250,
+      "Sha256": "3013647a939ea77e9face9b1eb3f1793863871e3a9b89d16d00b96606f1e5173"
+    },
+    {
+      "File": "run_totals.csv",
+      "Bytes": 743,
+      "Sha256": "98e6ef70432b0c9086fb00fb93eb152edb9f7bfda01ca86ce2737041d998f359"
+    },
+    {
+      "File": "runs.csv",
+      "Bytes": 1471,
+      "Sha256": "a4a63e7c1f065e3b6bea643c81ed7c77459698858d178612e8cab75b6bf4cc31"
+    },
+    {
+      "File": "segment_events.csv",
+      "Bytes": 1232,
+      "Sha256": "dd26a15a848d59c748934a460dd4924ef4e665dbb781fb59e6e573c4d4002699"
+    },
+    {
+      "File": "segments.csv",
+      "Bytes": 1896,
+      "Sha256": "bf00297b426227b6c5859955eee2f4aa3876b7b76a4e986f8281e8f523a19020"
+    },
+    {
+      "File": "statistics.json",
+      "Bytes": 366354,
+      "Sha256": "f6bfe51963db8aa961466f0520bf837d4549eb58d403e348536228b7b10c9b5d"
+    },
+    {
+      "File": "terminal_loadouts.csv",
+      "Bytes": 3782,
+      "Sha256": "aa205bab3ec214a8530443bcced71cd8a7f5fa671b49dbcda75980ff2c56c063"
+    },
+    {
+      "File": "totem_state_durations.csv",
+      "Bytes": 5002,
+      "Sha256": "6e1f32a5796e8bf063c150e5b30c027027a4fdce3f58fc7fe9f5f77e0cc34715"
+    },
+    {
+      "File": "weapon_ammunition_pairs.csv",
+      "Bytes": 7588,
+      "Sha256": "3db44a4691bb30964d04a6c2af5f0f4978311c5b14680ff2e1c323124cd522ab"
+    },
+    {
+      "File": "weapon_totals.csv",
+      "Bytes": 683,
+      "Sha256": "8b237c8a76862677c1f163384b3bcb4682a9a455f0fe3c92f30cc6e5451cb417"
+    },
+    {
+      "File": "world_time.csv",
+      "Bytes": 862,
+      "Sha256": "ec42afef9c6a890f767aad4e8b8972ec8f8c3cfc2290a58499c72e312d638a4a"
+    }
+  ],
+  "LocalEvidenceSha256": {
+    "profile-observed.json": "a29eb0966b51bc6aeffc10a11d261fcc15cbd9f3dc07526d68a0fa3585088ac7",
+    "player-observed.log": "66a355537dd1a6f03d3c05d3fd131cf82af808a75fb18eca2ea013c3cc5c68a7",
+    "user-runs-screenshot.png": "64eb8ad7d52115e19db7417d95be31ce8d9aeb55ad8092b27e971a26559ac744"
+  },
+  "ColdReopen": "Pass for the completed run: same generation, one run and unchanged metrics. M18_TUTORIAL_REOPEN_QUALIFICATION.json separately records an incorrect lifetime Cash outflow at shutdown, addressed by M18_DIRECT_QUIT_CASH_CORRECTION.json."
+}

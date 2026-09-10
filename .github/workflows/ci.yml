@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, feat/consumable-mvp, feat/healing-attribution]
+    branches: [main, codex/m18-release-hardening]
   pull_request:
 
 permissions:
@@ -11,6 +11,9 @@ permissions:
 jobs:
   core:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
@@ -21,7 +24,11 @@ jobs:
       - name: Restore game-independent projects
         run: dotnet restore .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj
       - name: Test core
-        run: dotnet test .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj -c Release --no-restore --collect:"XPlat Code Coverage"
+        run: dotnet test .\tests\UltimateDuckovStatistics.Tests\UltimateDuckovStatistics.Tests.csproj -c ${{ matrix.configuration }} --no-restore --collect:"XPlat Code Coverage"
+      - name: Test retained shell through isolated native boundaries
+        run: dotnet test .\tests\UltimateDuckovStatistics.Shell.Tests\UltimateDuckovStatistics.Shell.Tests.csproj -c ${{ matrix.configuration }}
+      - name: Audit core PE and PDB identities
+        run: ./scripts/audit-artifacts.ps1 -InputPaths @('./src/UltimateDuckovStatistics.Core/bin/${{ matrix.configuration }}/netstandard2.1/UltimateDuckovStatistics.Core.dll', './src/UltimateDuckovStatistics.Core/bin/${{ matrix.configuration }}/netstandard2.1/UltimateDuckovStatistics.Core.pdb')
       - name: Build contract probe
         run: dotnet build .\tools\DuckovContractProbe\DuckovContractProbe.csproj -c Release
       - name: Build frame-time analyzer

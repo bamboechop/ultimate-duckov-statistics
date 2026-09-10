@@ -1,0 +1,134 @@
+{
+  "SourceCommit": "b8c1f08c9be566766de75a5379651a4d86ab06dd",
+  "NativeDllSha256": "db10e6d3690d9144bf91c731c61c140d54f56bb139f4373c638852c0dc6259a3",
+  "Status": "Pass for actionable Harmony diagnosis, disabled-Harmony UI/export, retained statistics and quiet unchanged retries. The later explicit screenshot disproves the earlier broad World time fit acceptance; restoration subsequently passed separately. Status-row fit was outside this observation; the subsequent user-confirmed pass is linked separately.",
+  "UserReport": "We should give the Error . Harmony not loaded more space to fit in one line. Everything else looks good, exported and closed.",
+  "Slot": 3,
+  "GenerationId": "51fe1548e0d94fce9de3e22d3b99305d",
+  "SessionStartedUtc": "2026-09-08T19:33:30.9345422Z",
+  "ApplicationQuittingUtc": "2026-09-08T19:35:33.2517502Z",
+  "SessionDurationSeconds": 122.317208,
+  "CleanShutdown": true,
+  "CreatedRotatedRecoveredInterrupted": false,
+  "Mods": {
+    "AllowLoadingMod": {
+      "__type": "bool",
+      "value": true
+    },
+    "ModActive_UltimateDuckovStatistics": {
+      "__type": "bool",
+      "value": true
+    },
+    "ModActive_HarmonyLoadMod": {
+      "__type": "bool",
+      "value": false
+    },
+    "ModActive_DuckovItemIconExporter": {
+      "__type": "bool",
+      "value": false
+    }
+  },
+  "NativeUi": {
+    "HarmonyDiagnosis": "Screenshot confirms the missing-Harmony banner, actionable installation/enablement/full-restart guidance, and cause-bearing system/issue rows.",
+    "WorldTimeFit": "Earlier broad Everything else looks good report was interpreted as fit acceptance without an Overview screenshot. Superseded by the explicit overflow screenshot after Harmony restoration; see M18_HARMONY_RESTORATION_QUALIFICATION.json.",
+    "StatusRowWidth": "Screenshot confirms unnecessary two-line Error / Harmony not loaded despite spare row width; root handles correction separately.",
+    "MenuEntry": "Pause entry attached but activation not observed in this lifecycle; no click acceptance inferred.",
+    "ShortcutIsolation": "Expected unavailable without Harmony; one warning this lifecycle."
+  },
+  "ExportId": "20260908T1935318760481Z-51fe1548e0d94fce9de3e22d3b99305d",
+  "ExportFiles": 37,
+  "CsvFiles": 36,
+  "UnchangedCsvFilesComparedWithOriginalMissingHarmonyExport": 33,
+  "ChangedCsvFiles": [
+    "economy_holdings.csv",
+    "overview.csv",
+    "world_time.csv"
+  ],
+  "ExportRevision": 1557,
+  "ClosedRevision": 1562,
+  "PreviousClosedRevision": 1428,
+  "RetainedStatistics": {
+    "UnchangedProfileSections": [
+      "Overall",
+      "Items",
+      "Groups",
+      "RecentEventIds",
+      "Runs",
+      "RunTotals",
+      "RunRecords",
+      "Crafting",
+      "HealingCaptureComplete"
+    ],
+    "EconomyUnchangedExceptActivationReplayCursor": true,
+    "CompletedSleepSessions": 1,
+    "SleepAdvancedSeconds": 3540,
+    "Runs": 0,
+    "HealingCaptureComplete": false,
+    "Money": 0,
+    "Cash": 136,
+    "CapabilityRecordsUnchanged": true,
+    "ClosedPrimaryEqualsBackup": true,
+    "Slot1Generation": "063240a5b57647138bc4de0c18179981",
+    "Slot1Runs": 9,
+    "Slot1FourFilesAndBothSettingsFilesUnchanged": true
+  },
+  "WorldTimeProgress": {
+    "CalendarDaysBefore": 1,
+    "CalendarDaysExportAndClosed": 2,
+    "ObservedTicksBefore": 861139740000,
+    "ObservedTicksExport": 1763547440000,
+    "ObservedTicksClosed": 1763874880000,
+    "ClosedDeltaSeconds": 90273.514,
+    "Explanation": "Player.log records New boot. The existing installed-native LevelManager.OnNewBoot contract calls GameClock.StepTimeTil(07:00), a forward jump that may cross a day. M12_NATIVE_CONTRACTS.md records this as observed time and calendar advancement, not sleep. Ordinary clock progression also contributes; exact per-callback arithmetic was not instrumented."
+  },
+  "Capabilities": {
+    "Supported": 30,
+    "ExperimentalExpectedPartial": 3,
+    "DisabledIncompatible": 29,
+    "IndependentSiblings": "Public item-use, runs/movement/maps/routes, firing/weapon/ammunition identity, melee/death callbacks, equipment, economy and calendar observation remain supported. Sleep, healing and Harmony-dependent combat/crafting/container metrics fail closed."
+  },
+  "Logging": {
+    "BareMissingHarmonyTotal": 3,
+    "BareMissingHarmonyAfterActivation": 0,
+    "ContextualMissingHarmonyReports": 4,
+    "OriginalBareMissingHarmonyTotal": 233,
+    "OriginalBareMissingHarmonyAfterActivation": 230,
+    "CurrentLifecycleDiagnosticEntries": 6,
+    "CurrentLifecycleWarnings": 1,
+    "CurrentLifecycleErrors": 0,
+    "OtherMessages": "One GL.End material message and seven un-attributed Index was out of range initialization messages exist; both message texts already occur in earlier native recovery logs. No UDS source stack is provided; this is not an error-free Player.log claim."
+  },
+  "PersistenceEvidence": "Revision increases 1428 to 1562 across 122.317 seconds with normal one-second world-time publication plus lifecycle/export/save events. Unchanged capabilities and no retry-log repetition corroborate the unchanged-support guard in NativeCombatAttributionAdapter.ActivateCapabilities. No physical-write counter or full callback trace was captured, so native file-write frequency was not directly quantified.",
+  "DataIsolation": {
+    "PreviousFiles": 2241,
+    "CurrentFiles": 2278,
+    "UnchangedFiles": 2237,
+    "ChangedFiles": [
+      "v1\\profiles\\slot-03\\current\\diagnostics.json",
+      "v1\\profiles\\slot-03\\current\\diagnostics.json.bak",
+      "v1\\profiles\\slot-03\\current\\profile.json",
+      "v1\\profiles\\slot-03\\current\\profile.json.bak"
+    ],
+    "AddedExportFiles": 37,
+    "MissingFiles": 0,
+    "ConfigurationRead": "Only mod-related Global.json fields preserved read-only.",
+    "DuckovSavesModifiedByAgent": false,
+    "NativeSaveByteComparison": "Not performed for this repeat; native game save writes remain user/game-controlled."
+  },
+  "EvidenceRoot": "artifacts/qualification/b8c1f08c9be566766de75a5379651a4d86ab06dd/native-missing-harmony-repeat",
+  "ManifestFiles": 51,
+  "ManifestSha256": "e2cbdf8cb49583cd9597508681801cb2db67708d49d56e48980e56e4cda1c9e4",
+  "DataComparisonSha256": "c64076ab816fdeae5b19361d7c0e604a73b708d857f83c255e7b6af8b7a064e5",
+  "Limits": [
+    "Harmony restoration was not performed in this disabled session; the subsequent native restoration passes in M18_HARMONY_RESTORATION_QUALIFICATION.json.",
+    "Later status-width correction needs its own native visual confirmation.",
+    "No missing-Harmony raid gameplay/combat or per-callback clock trace was performed.",
+    "No native frame-time capture, physical profile-write measurement or high-history workload."
+  ],
+  "Verification": "All 51 manifest entries rehashed; generation, retained actions, sleep and capabilities compared; all 36 CSV parsed; JSON/world-time CSV agree; 33 CSV unchanged; complete prior 2241-file UDS manifest compared with current 2278 files.",
+  "ReportPath": "artifacts/qualification/b8c1f08c9be566766de75a5379651a4d86ab06dd/native-missing-harmony-repeat/report.md",
+  "ReportSha256": "ec56da927b6363dfdce9fc0f027196b584a4e767d1c56fa695f2ac8195070e87",
+  "StatusWidthCorrection": "M18_DIAGNOSTICS_WIDTH_CORRECTION.json",
+  "LaterQualification": "M18_HARMONY_RESTORATION_QUALIFICATION.json",
+  "LaterStatusWidthQualification": "M18_DIAGNOSTICS_WIDTH_NATIVE_QUALIFICATION.json"
+}

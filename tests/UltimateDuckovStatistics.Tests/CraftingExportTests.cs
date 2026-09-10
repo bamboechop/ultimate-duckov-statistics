@@ -16,8 +16,6 @@ public sealed class CraftingExportTests
     {
         var aggregate = new CraftingStatisticsAggregate
         {
-            HistoricalUnavailable = true,
-            HistoricalProvenance = "pre-M13 unavailable"
         };
         CraftingStatisticsReducer.InitializeOrRestrictCapabilities(
             aggregate,
@@ -50,7 +48,6 @@ public sealed class CraftingExportTests
 
         Assert.Equal(2, jsonCrafting.GetProperty("CompletionActions").GetInt64());
         Assert.Equal(14, jsonCrafting.GetProperty("ProducedQuantity").GetInt64());
-        Assert.True(jsonCrafting.GetProperty("HistoricalUnavailable").GetBoolean());
         Assert.Equal("2", total["completion_actions"]);
         Assert.Equal("14", total["produced_quantity"]);
         Assert.Equal("900001", output["output_item_id"]);
@@ -59,19 +56,7 @@ public sealed class CraftingExportTests
         Assert.Equal("7", recipe["batch_quantity"]);
         Assert.Equal("2", recipe["batch_actions"]);
         Assert.Equal(nameof(AdapterCapabilityState.Supported), total["completion_capability"]);
-        Assert.Equal("True", total["historical_unavailable"]);
-        Assert.Equal("2", UiText.FormatCraftingCount(2, aggregate.Capabilities.CompletionActions));
-        Assert.Equal("14", UiText.FormatCraftingCount(14, aggregate.Capabilities.ProducedQuantity));
 
-        var unavailable = CraftingNativeContractPolicy.Unavailable("gap");
-        Assert.Equal("Unsupported", UiText.FormatCraftingCount(0, unavailable.CompletionActions));
-        Assert.Equal("2 (capture incomplete)", UiText.FormatCraftingCount(2, unavailable.CompletionActions));
-        Assert.Equal(
-            "2 (capture incomplete)",
-            UiText.FormatCraftingCount(
-                2,
-                aggregate.Capabilities.CompletionActions,
-                unavailable.RecipeIdentity));
     }
 
     [Fact]

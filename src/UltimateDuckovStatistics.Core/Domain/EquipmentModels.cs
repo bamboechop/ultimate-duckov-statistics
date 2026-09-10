@@ -49,7 +49,6 @@ public sealed class EquipmentMetricCapabilities
     [DataMember(Order = 3)] public MetricAvailability AttachmentMetadata { get; set; } = new();
     [DataMember(Order = 4)] public MetricAvailability DirectTotems { get; set; } = new();
     [DataMember(Order = 5)] public MetricAvailability ToteContents { get; set; } = new();
-    [DataMember(Order = 6)] public MetricAvailability ToteActivation { get; set; } = new();
     [DataMember(Order = 7)] public MetricAvailability CharacterSlotState { get; set; } = new();
     [DataMember(Order = 8)] public MetricAvailability NestedSlotState { get; set; } = new();
 }

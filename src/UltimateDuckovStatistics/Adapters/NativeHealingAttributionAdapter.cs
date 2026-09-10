@@ -26,6 +26,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
     private bool lifecycleSubscribed;
     private bool retryWhenHarmonyLoads;
     private DateTime nextInitializationAttemptUtc;
+    private string? lastHarmonyInitializationFailure;
     private readonly IncrementalPatchInspectionScheduler patchInspectionScheduler = new(TimeSpan.FromSeconds(2));
     private bool patchCleanupPending;
     private DateTime nextPatchCleanupAttemptUtc;
@@ -87,10 +88,15 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                                     || !ReflectiveHarmonyPatcher.IsHarmonyLoaded;
             nextInitializationAttemptUtc = DateTime.UtcNow.AddSeconds(1);
             SetCapability(Disabled(harmonyDetail));
-            diagnosticHandler(harmonyDetail);
+            if (lastHarmonyInitializationFailure != harmonyDetail)
+            {
+                lastHarmonyInitializationFailure = harmonyDetail;
+                diagnosticHandler(harmonyDetail);
+            }
             return Capability;
         }
 
+        lastHarmonyInitializationFailure = null;
         patcherLease.Attach(createdPatcher);
         var patcher = createdPatcher;
         try
@@ -122,7 +128,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
                 effectMethod,
                 HealingHarmonyCallbacks.EffectPrefixMethod,
                 finalizer: HealingHarmonyCallbacks.EffectFinalizerMethod);
-            patcher.Patch(buffMethod, postfix: HealingHarmonyCallbacks.BuffPostfixMethod);
+            patcher.Patch(buffMethod, HealingHarmonyCallbacks.BuffPrefixMethod, HealingHarmonyCallbacks.BuffPostfixMethod);
             patchRegistrations = registrations;
             foreach (var registration in patchRegistrations)
             {
@@ -481,6 +487,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
             HealingPatchPoint.Buff,
             buffMethod,
             [
+                new HarmonyPatchExpectation("Prefixes", HealingHarmonyCallbacks.BuffPrefixMethod),
                 new HarmonyPatchExpectation("Postfixes", HealingHarmonyCallbacks.BuffPostfixMethod)
             ])
     ];

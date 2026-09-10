@@ -1,0 +1,183 @@
+{
+  "SourceCommit": "e4824ff9d34d87b9e6b2b9a5c09e67ae3df39ceb",
+  "Status": "Pass for observed Brand-Muni damage and player burn kill with bow/SR-3M switches, originating equipment retention, and saved-profile/JSON/CSV agreement.",
+  "Slot": 1,
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "RunId": "0069673272cf476a9d88d2cf0560d494",
+  "NativeRaidId": "206",
+  "ExportId": "20260908T1533463539366Z-063240a5b57647138bc4de0c18179981",
+  "ExportRevision": 6149,
+  "ObservedProfileRevision": 6152,
+  "UserReported": "Completed the requested throw-and-switch test; enemy duck died.",
+  "Observed": {
+    "ItemId": "duckov:item:941",
+    "ItemName": "Brand-Muni",
+    "Uses": 1,
+    "StackUnitsConsumed": 1,
+    "Outcome": "Extracted",
+    "ActiveSeconds": 31.607259699999986,
+    "PhysicalDistanceMetres": 131.77919305410364,
+    "PlayerDamage": 35,
+    "KillsByYou": 1,
+    "KillCategory": "Effect",
+    "DamageWeaponId": "duckov:weapon:941",
+    "DamageCause": "DamageOverTime",
+    "FiringActions": 0,
+    "MeleeSwings": 0,
+    "ObservedWorldDeaths": 0,
+    "SelectedWeaponTransitions": [
+      {
+        "ActiveTimeSeconds": 0.659060400000044,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": "duckov:weapon:736"
+      },
+      {
+        "ActiveTimeSeconds": 1.1135002999999415,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": ""
+      },
+      {
+        "ActiveTimeSeconds": 17.387631900000088,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": "duckov:weapon:736"
+      },
+      {
+        "ActiveTimeSeconds": 17.90346909999994,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": "duckov:weapon:357"
+      },
+      {
+        "ActiveTimeSeconds": 18.31244319999996,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": "duckov:weapon:736"
+      },
+      {
+        "ActiveTimeSeconds": 18.707602299999962,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": "duckov:weapon:357"
+      },
+      {
+        "ActiveTimeSeconds": 20.326187899999923,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": "duckov:weapon:736"
+      },
+      {
+        "ActiveTimeSeconds": 21.49483220000002,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": "duckov:weapon:357"
+      },
+      {
+        "ActiveTimeSeconds": 25.144147799999928,
+        "ToLoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+        "SelectedWeaponId": ""
+      },
+      {
+        "ActiveTimeSeconds": 31.607259699999986,
+        "ToLoadoutId": "duckov:equipment:unavailable",
+        "SelectedWeaponId": ""
+      }
+    ],
+    "DamageEquipmentAssociation": {
+      "LoadoutId": "duckov:loadout:9c56dfeba1abe3b70e3e2984",
+      "SelectedWeaponId": "",
+      "TotemSetId": "duckov:totem-set:e3b0c44298fc1c149afbf4c8",
+      "FiringActions": 0,
+      "DamageDealt": 35,
+      "DamageReceived": 0,
+      "RangedHits": 0,
+      "MeleeHits": 0,
+      "PlayerDeaths": 0,
+      "SelectedWeaponSlotId": "",
+      "KillsByYou": 1,
+      "PlayerKills": {
+        "Ranged": 0,
+        "Melee": 0,
+        "Effect": 1,
+        "Environmental": 0,
+        "Unknown": 0,
+        "EvidenceSource": "CombatRecorded.AttackKind on the same proven KillsByYou event.",
+        "Throwables": 0
+      }
+    }
+  },
+  "EventWindow": {
+    "ItemUseUtc": "2026-09-08T15:33:15.2890000Z",
+    "FirstCombatUtc": "2026-09-08T15:33:15.7780000Z",
+    "LastCombatUtc": "2026-09-08T15:33:23.5210000Z",
+    "CombatAssociationCount": 19,
+    "SixPostThrowSelectionsWithinCombatWindow": true,
+    "TimingBasis": "Run active and wall-clock durations differ by under 0.001 seconds. All six alternating SR-3M/bow selections fall between the first and last recorded combat timestamps. The aggregate does not expose each damage tick or a distinct final-blow timestamp."
+  },
+  "Agreement": {
+    "SavedRunsEqualJson": true,
+    "AllSevenPriorRunsUnchanged": true,
+    "TargetedCsvMatchesJson": true,
+    "AllCsvStructuresValid": true,
+    "CraftingAndEconomyUnchanged": true,
+    "AllOutgoingDamageAndKillAttributedToPlayerAndBrandMuni": true,
+    "NoBowOrRifleDamageOrKillCredit": true,
+    "OriginalThrowEquipmentRetained": true,
+    "SourceAndOutcomeMapSegmentAgree": true
+  },
+  "Holdings": {
+    "Money": 12154,
+    "Cash": 60
+  },
+  "LifetimeBrandMuni": {
+    "PlayerDamage": 56,
+    "KillsByYou": 1
+  },
+  "NativeUiAcceptance": {
+    "Status": "Pass by user confirmation",
+    "LatestRunsView": {
+      "DamageDealt": 35,
+      "KillsByYou": 1
+    },
+    "CombatLifetimeBrandMuniRow": {
+      "DamageDealt": 56,
+      "KillsByYou": 1
+    },
+    "Evidence": "The user confirmed Both views match after checking the requested Runs and Combat values. No screenshot or broader layout/input acceptance is claimed."
+  },
+  "Classification": "The burning final blow is an Effect kill with Brand-Muni as its actual damage weapon. Periodic zone/buff effects do not use the direct grenade-explosion Throwables category, consistent with M17_THROWABLES.md.",
+  "Scope": "Qualifies this observed same-map player burn and held-weapon-switch sequence. Mixed player/NPC hazard origins, cross-map live lingering effects, broader UI, native recovery/degradation and performance remain separate. Historical failed runs remain unmodified.",
+  "NoUdsFailureOrPendingWarningInObservedLog": true,
+  "EvidenceManifestSha256": "c95164cddf4cd92d60507a88349389644088af53dcf3190cdca0c0d7cd1d5d2b",
+  "KeyEvidenceFiles": [
+    {
+      "File": "export/combat_attribution.csv",
+      "Bytes": 113242,
+      "Sha256": "2bc71c2f097094c36f6e45ec714724ec53b00816b22573a2b20e2ed20ca7c6fb"
+    },
+    {
+      "File": "export/equipment_combat.csv",
+      "Bytes": 19109,
+      "Sha256": "51e874e0f40056a87a8e102d813d4c6d8b0c0cd9fb419ded05eea885f64db86c"
+    },
+    {
+      "File": "export/runs.csv",
+      "Bytes": 5796,
+      "Sha256": "5617bc56e7a9cb3d097fe975c016e132054f2cf194a997b780c837ddae7376bc"
+    },
+    {
+      "File": "export/segment_events.csv",
+      "Bytes": 5546,
+      "Sha256": "0b32755fbb4d2c041e613521843270ed622482111bf1dfc1e4d97e4fe4024564"
+    },
+    {
+      "File": "export/statistics.json",
+      "Bytes": 1158753,
+      "Sha256": "649ecd99c61022c36e465bd49ad911f8eb236380c6b3c0a5292bc5d9e894834c"
+    },
+    {
+      "File": "player-observed.log",
+      "Bytes": 47236,
+      "Sha256": "a957a4e890502b0b5a0bd0d4b8041bf60a52a137cd4976a128d11aef4a90a6c9"
+    },
+    {
+      "File": "profile-observed.json",
+      "Bytes": 1160652,
+      "Sha256": "6e23f411e9c7d68d0be4b4624902e896bc667fc5dac5bbd759e2cc919b1f8432"
+    }
+  ]
+}

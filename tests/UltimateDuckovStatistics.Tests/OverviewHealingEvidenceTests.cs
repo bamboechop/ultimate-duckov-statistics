@@ -10,6 +10,48 @@ namespace UltimateDuckovStatistics.Tests;
 [Collection(NativeEconomyAdapterTestGroup.CollectionName)]
 public sealed class OverviewHealingEvidenceTests
 {
+    [Fact]
+    public void RepeatedPatcherInitializationFailureReportsOnceAndStillRecoversOnTick()
+    {
+        HarmonyLib.Harmony.ClearAll();
+        Assert.True(ReflectiveHarmonyPatcher.TryCreate(out var prior, out var detail), detail);
+        var reports = new List<string>();
+        using var adapter = new NativeHealingAttributionAdapter(_ => { }, reports.Add, new NativeBuffApplicationObservationBoundary());
+        var capabilityChanges = 0;
+        adapter.CapabilityChanged += _ => capabilityChanges++;
+        try
+        {
+            // Registered cleanup failure enters the same retry branch as a missing
+            // Harmony assembly, without pretending a loaded assembly can unload.
+            HarmonyLib.Harmony.FailNextUnpatches(4);
+            Assert.False(prior!.TryDispose(out _));
+            Assert.Equal(AdapterCapabilityState.DisabledIncompatible, adapter.Initialize().State);
+            Retry();
+            Retry();
+            Assert.Equal(1, capabilityChanges);
+            Assert.Single(reports);
+            Assert.Contains("previous UDS activation is still pending", reports[0]);
+            Retry();
+            Assert.Equal(AdapterCapabilityState.Supported, adapter.Capability.State);
+            Assert.Equal(2, capabilityChanges);
+            Assert.Contains(reports, report => report.Contains("patches active", StringComparison.Ordinal));
+        }
+        finally
+        {
+            HarmonyLib.Harmony.FailNextUnpatches(0);
+            adapter.Dispose();
+            prior!.Dispose();
+            HarmonyLib.Harmony.ClearAll();
+        }
+
+        void Retry()
+        {
+            typeof(NativeHealingAttributionAdapter).GetField("nextInitializationAttemptUtc", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(adapter, DateTime.MinValue);
+            adapter.Tick();
+        }
+    }
+
     [Theory]
     [InlineData(0, false, "0.00", "0")]
     [InlineData(12.5, false, "12.50", "12.5")]
@@ -57,11 +99,30 @@ public sealed class OverviewHealingEvidenceTests
             var profile = coordinator.Current!;
             Assert.Equal(failed.Detail, Assert.Single(profile.Capabilities, cap => cap.AdapterId == NativeHealingAttributionAdapter.AdapterId).Detail);
             // Same-format retained observations; ordinary item-use data is independently available.
-            ItemUseReducer.Apply(profile.Statistics, new ItemUseRecorded { EventId = "use", SaveGenerationId = profile.GenerationId,
-                GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing,
-                ActivationCount = 1, AmountConsumed = 1, ConsumptionUnit = ConsumptionUnit.Item });
-            if (retained > 0) HealingReducer.Apply(profile.Statistics, new HealingApplied { EventId = "heal", ApplicationId = "application", SourceItemUseEventId = "use", SaveGenerationId = profile.GenerationId,
-                GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing, ActualHealthRestored = retained });
+            ItemUseReducer.Apply(profile.Statistics, new ItemUseRecorded
+            {
+                EventId = "use",
+                SaveGenerationId = profile.GenerationId,
+                GameplayContext = GameplayContext.Raid,
+                ItemId = "medkit",
+                DisplayName = "Medkit",
+                Group = CanonicalItemGroup.Healing,
+                ActivationCount = 1,
+                AmountConsumed = 1,
+                ConsumptionUnit = ConsumptionUnit.Item
+            });
+            if (retained > 0) HealingReducer.Apply(profile.Statistics, new HealingApplied
+            {
+                EventId = "heal",
+                ApplicationId = "application",
+                SourceItemUseEventId = "use",
+                SaveGenerationId = profile.GenerationId,
+                GameplayContext = GameplayContext.Raid,
+                ItemId = "medkit",
+                DisplayName = "Medkit",
+                Group = CanonicalItemGroup.Healing,
+                ActualHealthRestored = retained
+            });
             var projection = StatisticsPanelProjectionFactory.Create(profile, new(), new(), new());
             var overview = ProfileSummaryPresentationFactory.Create(projection, UiText.Get);
             var itemUse = ItemUsePresentationFactory.Create(projection, profile.GenerationId)!;
@@ -123,14 +184,46 @@ public sealed class OverviewHealingEvidenceTests
             Assert.Equal(disabledAtStart ? AdapterCapabilityState.DisabledIncompatible : AdapterCapabilityState.Supported, adapter.Capability.State);
             lifecycle.Initialize(); lifecycle.Tick(); Assert.True(lifecycle.IsActive);
             var generation = coordinator.CurrentGenerationId;
-            var use = new ItemUseRecorded { SegmentId = lifecycle.CurrentSegmentId, EventId = "run-use", SaveGenerationId = generation, RunId = lifecycle.CurrentRunId!, TimestampUtc = DateTime.UtcNow, MapId = lifecycle.CurrentMapId!,
-                GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing,
-                ActivationCount = 1, AmountConsumed = 1, ConsumptionUnit = ConsumptionUnit.Item };
+            var use = new ItemUseRecorded
+            {
+                SegmentId = lifecycle.CurrentSegmentId,
+                EventId = "run-use",
+                SaveGenerationId = generation,
+                RunId = lifecycle.CurrentRunId!,
+                TimestampUtc = DateTime.UtcNow,
+                MapId = lifecycle.CurrentMapId!,
+                GameplayContext = GameplayContext.Raid,
+                ItemId = "medkit",
+                DisplayName = "Medkit",
+                Group = CanonicalItemGroup.Healing,
+                ActivationCount = 1,
+                AmountConsumed = 1,
+                ConsumptionUnit = ConsumptionUnit.Item
+            };
             Assert.True(coordinator.HandleItemUse(new Core.Tracking.ItemUseCompletion(Core.Tracking.ItemUseCompletionDisposition.Counted, use)));
             Assert.True(lifecycle.RecordItemUse(use));
-            if (restored > 0) { var heal = new HealingApplied { EventId = "run-heal", ApplicationId = "application",
-                SourceSegmentId = lifecycle.CurrentSegmentId, SourceMapId = lifecycle.CurrentMapId, OutcomeSegmentId = lifecycle.CurrentSegmentId, OutcomeMapId = lifecycle.CurrentMapId, SourceItemUseEventId = use.EventId, SaveGenerationId = generation, RunId = lifecycle.CurrentRunId!, TimestampUtc = DateTime.UtcNow, MapId = lifecycle.CurrentMapId!,
-                GameplayContext = GameplayContext.Raid, ItemId = "medkit", DisplayName = "Medkit", Group = CanonicalItemGroup.Healing, ActualHealthRestored = restored }; coordinator.HandleHealing(heal); Assert.True(lifecycle.RecordHealing(heal)); }
+            if (restored > 0)
+            {
+                var heal = new HealingApplied
+                {
+                    EventId = "run-heal",
+                    ApplicationId = "application",
+                    SourceSegmentId = lifecycle.CurrentSegmentId,
+                    SourceMapId = lifecycle.CurrentMapId,
+                    OutcomeSegmentId = lifecycle.CurrentSegmentId,
+                    OutcomeMapId = lifecycle.CurrentMapId,
+                    SourceItemUseEventId = use.EventId,
+                    SaveGenerationId = generation,
+                    RunId = lifecycle.CurrentRunId!,
+                    TimestampUtc = DateTime.UtcNow,
+                    MapId = lifecycle.CurrentMapId!,
+                    GameplayContext = GameplayContext.Raid,
+                    ItemId = "medkit",
+                    DisplayName = "Medkit",
+                    Group = CanonicalItemGroup.Healing,
+                    ActualHealthRestored = restored
+                }; coordinator.HandleHealing(heal); Assert.True(lifecycle.RecordHealing(heal));
+            }
             if (loseCapture)
             {
                 // Drain earlier writes so the failure occurs in this capability publication.
@@ -165,7 +258,7 @@ public sealed class OverviewHealingEvidenceTests
             Assert.True(coordinator.Current!.Statistics.Runs.Count == 1, string.Join(" | ", messages));
             var path = coordinator.CurrentProfilePath;
             coordinator.Dispose();
-            var loaded = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(path, Core.Persistence.ProfileMigrator.ValidateRecoveryCandidate);
+            var loaded = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(path, Core.Persistence.ProfileFormat.ValidateRecoveryCandidate);
             Assert.True(loaded.Found);
             var run = Assert.Single(loaded.Value!.Statistics.Runs);
             Assert.Equal(!disabledAtStart && !loseCapture, run.HealingCaptureComplete);
@@ -239,7 +332,7 @@ public sealed class OverviewHealingEvidenceTests
             var pruned = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(retainedPath))!;
             pruned["Statistics"]!["Runs"]!.AsArray().Clear();
             File.WriteAllText(retainedPath, pruned.ToJsonString());
-            var reloadedLifetime = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(retainedPath, Core.Persistence.ProfileMigrator.ValidateRecoveryCandidate);
+            var reloadedLifetime = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(retainedPath, Core.Persistence.ProfileFormat.ValidateRecoveryCandidate);
             Assert.True(reloadedLifetime.Found, string.Join("; ", reloadedLifetime.Failures));
             Assert.Empty(reloadedLifetime.Value!.Statistics.Runs);
             AssertLifetime(reloadedLifetime.Value);
@@ -249,7 +342,7 @@ public sealed class OverviewHealingEvidenceTests
             foreach (var entry in missing["Statistics"]!["Runs"]!.AsArray()) entry!.AsObject().Remove("HealingCaptureComplete");
             var missingPath = Path.Combine(directory.Path, "missing-capture.json");
             File.WriteAllText(missingPath, missing.ToJsonString());
-            var withoutCapture = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(missingPath, Core.Persistence.ProfileMigrator.ValidateRecoveryCandidate);
+            var withoutCapture = new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Load(missingPath, Core.Persistence.ProfileFormat.ValidateRecoveryCandidate);
             Assert.True(withoutCapture.Found);
             Assert.False(withoutCapture.Value!.Statistics.HealingCaptureComplete);
             Assert.False(Assert.Single(withoutCapture.Value.Statistics.Runs).HealingCaptureComplete);

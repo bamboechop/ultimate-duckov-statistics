@@ -12,25 +12,15 @@ public sealed class PlayerKillPartition
     [DataMember(Order = 3)] public long Effect { get; set; }
     [DataMember(Order = 4)] public long Environmental { get; set; }
     [DataMember(Order = 5)] public long Unknown { get; set; }
-    [DataMember(Order = 6)] public long HistoricalUnclassified { get; set; }
-    [DataMember(Order = 7)] public bool HistoricalIncomplete { get; set; }
     [DataMember(Order = 9)] public long Throwables { get; set; }
 
-    [DataMember(Order = 8)] public string EvidenceSource { get; set; } = "CombatRecorded.AttackKind on the same proven KillsByYou event; HistoricalUnclassified has no attack-kind evidence.";
+    [DataMember(Order = 8)] public string EvidenceSource { get; set; } = "CombatRecorded.AttackKind on the same proven KillsByYou event.";
 
-    public bool ClassificationComplete => !HistoricalIncomplete && Unknown == 0;
-    public string Provenance => HistoricalIncomplete
-        ? "Pre-schema-17 attack-kind history is unavailable; retained new buckets do not backfill it."
-        : Unknown > 0 ? "Same-event attack kind includes unknown player kills; ranged/melee split is incomplete."
+    public bool ClassificationComplete => Unknown == 0;
+    public string Provenance => Unknown > 0 ? "Same-event attack kind includes unknown player kills; ranged/melee split is incomplete."
         : "Every proven player kill is partitioned by its same-event native attack kind.";
 
     public PlayerKillPartition Clone() => (PlayerKillPartition)MemberwiseClone();
-
-    public static PlayerKillPartition Historical(long total) => new()
-    {
-        HistoricalUnclassified = total,
-        HistoricalIncomplete = true
-    };
 
     public static PlayerKillPartition FromEvent(CombatRecorded value)
     {
@@ -49,12 +39,11 @@ public sealed class PlayerKillPartition
 
     public void Validate(long total)
     {
-        if (string.IsNullOrWhiteSpace(EvidenceSource) || Ranged < 0 || Melee < 0 || Throwables < 0 || Effect < 0 || Environmental < 0 || Unknown < 0
-            || HistoricalUnclassified < 0 || HistoricalUnclassified > 0 && !HistoricalIncomplete)
+        if (string.IsNullOrWhiteSpace(EvidenceSource) || Ranged < 0 || Melee < 0 || Throwables < 0 || Effect < 0 || Environmental < 0 || Unknown < 0)
             throw new ArgumentException("Player-kill partition contains invalid counters or history.");
         try
         {
-            if (checked(Ranged + Melee + Throwables + Effect + Environmental + Unknown + HistoricalUnclassified) != total)
+            if (checked(Ranged + Melee + Throwables + Effect + Environmental + Unknown) != total)
                 throw new ArgumentException("Player-kill partition does not reconcile to KillsByYou.");
         }
         catch (OverflowException exception)
@@ -70,8 +59,6 @@ public sealed class PlayerKillPartition
         Throwables = checked(left.Throwables + right.Throwables),
         Effect = checked(left.Effect + right.Effect),
         Environmental = checked(left.Environmental + right.Environmental),
-        Unknown = checked(left.Unknown + right.Unknown),
-        HistoricalUnclassified = checked(left.HistoricalUnclassified + right.HistoricalUnclassified),
-        HistoricalIncomplete = left.HistoricalIncomplete || right.HistoricalIncomplete
+        Unknown = checked(left.Unknown + right.Unknown)
     };
 }

@@ -10,6 +10,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeCombatAttributionAdapter.cs" Link="ProductionAdapters/NativeCombatAttributionAdapter.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/CombatHarmonyBridge.cs" Link="ProductionAdapters/CombatHarmonyBridge.cs" />
+    <Compile Include="../Shared/HarmonyBoundaryStubs.cs" Link="HarmonyBoundaryStubs.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/UI/EntityDisplayNames.cs" Link="ProductionUI/EntityDisplayNames.cs" />
+    <Compile Include="..\..\tools\ArtifactAudit\ArtifactPathAudit.cs" Link="Tools\ArtifactPathAudit.cs" />
+    <Compile Include="..\..\tools\ArtifactAudit\OrdinaryReleaseAudit.cs" Link="Tools\OrdinaryReleaseAudit.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2">
@@ -23,6 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RetainedTabLabelMaterial.cs" Link="ProductionUI\RetainedTabLabelMaterial.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsPathPrivacy.cs" Link="UI\DiagnosticsPathPrivacy.cs" />
     <ProjectReference Include="..\..\src\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EquipmentPresentation.cs" Link="ProductionUI\EquipmentPresentation.cs" />
@@ -122,8 +132,11 @@
              Link="ProductionUI\RunsHistoryButton.cs" />
     <Compile Include="..\..\tools\FrameTimeAnalyzer\FrameTimeAnalysis.cs"
              Link="Performance\FrameTimeAnalysis.cs" />
+    <Compile Include="..\..\tools\FrameTimeAnalyzer\CampaignEvidence.cs" Link="Performance\CampaignEvidence.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeHotPathDiagnostics.cs"
              Link="Performance\NativeHotPathDiagnostics.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeHotPathTimings.cs"
+             Link="Performance/NativeHotPathTimings.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\IncrementalPatchInspectionScheduler.cs"
              Link="Performance\IncrementalPatchInspectionScheduler.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\ReferenceScopeStack.cs"
@@ -139,5 +152,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeGrenadeAttribution.cs" Link="ProductionAdapters\NativeGrenadeAttribution.cs" />
+    <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeGrenadeHazardOrigins.cs" Link="ProductionAdapters\NativeGrenadeHazardOrigins.cs" />
   </ItemGroup>
 </Project>

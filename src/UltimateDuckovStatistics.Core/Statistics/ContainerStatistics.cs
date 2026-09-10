@@ -14,7 +14,6 @@ public sealed class ContainerStatisticsAggregate
 {
     [DataMember(Order = 1)] public ContainerMetricCapabilities Capabilities { get; set; } = new();
     [DataMember(Order = 2)] public long UniqueContainersLooted { get; set; }
-    [DataMember(Order = 3)] public bool HistoricalUnavailable { get; set; }
     [DataMember(Order = 4)] public bool WasRepairedFromInvalidState { get; set; }
 }
 
@@ -24,7 +23,6 @@ public sealed class ContainerRunCheckpointState
     public const int DeduplicationCapacity = 4096;
 
     [DataMember(Order = 1)] public ContainerStatisticsAggregate Statistics { get; set; } = new();
-    [DataMember(Order = 2)] public List<int> LootedContainerKeys { get; set; } = new();
     [DataMember(Order = 3)] public bool DeduplicationSaturated { get; set; }
     [DataMember(Order = 4)] public bool WasRepairedFromInvalidState { get; set; }
     [DataMember(Order = 5)] public List<string> LootedContainerIdentities { get; set; } = new();
@@ -55,8 +53,6 @@ public static class ContainerStatisticsReducer
         }
 
         state.LootedContainerIdentities.Insert(~identityIndex, identity);
-        var keyIndex = state.LootedContainerKeys.BinarySearch(value.ContainerKey);
-        if (keyIndex < 0) state.LootedContainerKeys.Insert(~keyIndex, value.ContainerKey);
         state.Statistics.UniqueContainersLooted = SaturatingAdd(state.Statistics.UniqueContainersLooted, 1);
         return true;
     }
@@ -71,16 +67,14 @@ public static class ContainerStatisticsReducer
         NormalizePersisted(target);
         NormalizePersisted(source);
         var adoptFirstRunCapability = adoptSourceCapability
-                                      && IsEmpty(target)
-                                      && !target.HistoricalUnavailable;
+                                      && IsEmpty(target);
         target.UniqueContainersLooted = SaturatingAdd(target.UniqueContainersLooted, source.UniqueContainersLooted);
         target.Capabilities.UniqueContainersLooted = adoptFirstRunCapability
             ? Clone(source.Capabilities.UniqueContainersLooted)
             : Restrict(
                 target.Capabilities.UniqueContainersLooted,
                 source.Capabilities.UniqueContainersLooted,
-                preferSourceOnTie: !target.HistoricalUnavailable);
-        target.HistoricalUnavailable |= source.HistoricalUnavailable;
+                preferSourceOnTie: true);
         target.WasRepairedFromInvalidState |= source.WasRepairedFromInvalidState;
     }
 
@@ -92,7 +86,6 @@ public static class ContainerStatisticsReducer
         {
             Capabilities = CloneCapabilities(source.Capabilities),
             UniqueContainersLooted = source.UniqueContainersLooted,
-            HistoricalUnavailable = source.HistoricalUnavailable,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState
         };
     }
@@ -104,7 +97,6 @@ public static class ContainerStatisticsReducer
         return new ContainerRunCheckpointState
         {
             Statistics = Clone(source.Statistics),
-            LootedContainerKeys = source.LootedContainerKeys.ToList(),
             DeduplicationSaturated = source.DeduplicationSaturated,
             WasRepairedFromInvalidState = source.WasRepairedFromInvalidState,
             LootedContainerIdentities = source.LootedContainerIdentities.ToList()
@@ -159,21 +151,7 @@ public static class ContainerStatisticsReducer
         var repaired = false;
         value.Statistics ??= Repair(new ContainerStatisticsAggregate(), ref repaired);
         repaired |= NormalizePersisted(value.Statistics);
-        value.LootedContainerKeys ??= Repair(new List<int>(), ref repaired);
         value.LootedContainerIdentities ??= Repair(new List<string>(), ref repaired);
-        var normalized = value.LootedContainerKeys.Distinct().OrderBy(key => key).ToList();
-        if (!value.LootedContainerKeys.SequenceEqual(normalized))
-        {
-            value.LootedContainerKeys = normalized;
-            repaired = true;
-        }
-        if (value.LootedContainerIdentities.Count == 0 && value.LootedContainerKeys.Count > 0)
-        {
-            value.LootedContainerIdentities = value.LootedContainerKeys
-                .Select(key => $"legacy:{key}")
-                .OrderBy(identity => identity, StringComparer.Ordinal)
-                .ToList();
-        }
         var identities = value.LootedContainerIdentities
             .Where(identity => !string.IsNullOrWhiteSpace(identity))
             .Distinct(StringComparer.Ordinal)
@@ -218,14 +196,13 @@ public static class ContainerStatisticsReducer
         return repaired;
     }
 
-    public static void ValidateRecoveryCandidate(ContainerRunCheckpointState? value, int schemaVersion)
+    public static void ValidateRecoveryCandidate(ContainerRunCheckpointState? value)
     {
-        if (schemaVersion >= 7 && (value == null
+        if (value == null
             || value.Statistics == null
             || value.Statistics.Capabilities == null
             || value.Statistics.Capabilities.UniqueContainersLooted == null
-            || value.LootedContainerKeys == null
-            || (schemaVersion >= 8 && value.LootedContainerIdentities == null)))
+            || value.LootedContainerIdentities == null)
         {
             throw new ArgumentException("Current-schema container checkpoint is incomplete.", nameof(value));
         }
@@ -251,7 +228,7 @@ public static class ContainerStatisticsReducer
             aggregate.Capabilities.UniqueContainersLooted.Provenance = RepairProvenance;
             return;
         }
-        if (aggregate.HistoricalUnavailable || aggregate.UniqueContainersLooted > 0) return;
+        if (aggregate.UniqueContainersLooted > 0) return;
         aggregate.Capabilities.UniqueContainersLooted = new MetricAvailability
         {
             State = state,
@@ -288,9 +265,7 @@ public static class ContainerStatisticsReducer
     }
 
     private static string StableIdentity(ContainerLooted value) =>
-        string.IsNullOrWhiteSpace(value.SegmentId)
-            ? $"legacy:{value.ContainerKey}"
-            : $"{value.MapId}\u001f{value.ContainerKey}";
+        $"{value.MapId}\u001f{value.ContainerKey}";
 
     private static MetricAvailability Restrict(MetricAvailability left, MetricAvailability right, bool preferSourceOnTie) =>
         (int)left.State > (int)right.State || (!preferSourceOnTie && left.State == right.State)

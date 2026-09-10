@@ -395,7 +395,7 @@ public sealed class CraftingStatisticsTests
     }
 
     [Fact]
-    public void InstalledSingularResultContractKeepsUnprovenDimensionsExplicitlyUnavailable()
+    public void InstalledSingularResultContractPublishesSupportedDimensions()
     {
         var capabilities = CraftingNativeContractPolicy.Supported("completion", "formula");
 
@@ -407,11 +407,6 @@ public sealed class CraftingStatisticsTests
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.ItemResourceIdentity.State);
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.OutputResourceAssociation.State);
         Assert.Equal(AdapterCapabilityState.Supported, capabilities.CurrencyCharge.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.CurrencyMoneyCashSplit.State);
-        Assert.Contains("no exact Money/Cash split", capabilities.CurrencyMoneyCashSplit.Provenance, StringComparison.Ordinal);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.WorkstationIdentity.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.ContextAttribution.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capabilities.MultipleOutputRecipes.State);
         var records = CraftingNativeContractPolicy.ToRecords(capabilities, "test");
         Assert.Equal(CraftingCapabilityIds.All, records.Select(record => record.AdapterId));
         Assert.Equal(CraftingCapabilityIds.All.Count, records.Select(record => record.AdapterId).Distinct(StringComparer.Ordinal).Count());

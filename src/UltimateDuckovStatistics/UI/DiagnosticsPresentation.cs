@@ -16,11 +16,14 @@ internal sealed class DiagnosticsRuntimeSnapshot
     public string DataRoot { get; set; } = "";
     public string Hotkey { get; set; } = "F8";
     public string GameVersion { get; set; } = "";
+    public bool? HarmonyLoaded { get; set; }
     public string OpenDetail { get; set; } = "";
     public ProfileSaveReceipt? SaveReceipt { get; set; }
+    public bool ProfilePersistenceFailed { get; set; }
     public ProfileOpenResult? OpenResult { get; set; }
     public NativeMenuIntegrationState MainMenu { get; set; }
     public NativeMenuIntegrationState BaseMenu { get; set; }
+    public NativeMenuIntegrationState ShortcutIsolation { get; set; }
     public IReadOnlyList<DiagnosticEntry> Entries { get; set; } = Array.Empty<DiagnosticEntry>();
     public bool TransitionPending { get; set; }
 }
@@ -39,24 +42,25 @@ internal sealed class DiagnosticsCapability
     public string Name { get; }
     public string Status { get; }
     public DiagnosticsHealth Health { get; }
-    public bool BaselineLimitation { get; }
     public string Version { get; }
     public string State { get; }
     public string Detail { get; }
-    public DiagnosticsCapability(string id, string name, string status, DiagnosticsHealth health, bool limitation,
-        string version, string state, string detail)
-    { Id = id; Name = name; Status = status; Health = health; BaselineLimitation = limitation; Version = version; State = state; Detail = detail; }
+    public bool HarmonyUnavailable { get; }
+    public DiagnosticsCapability(string id, string name, string status, DiagnosticsHealth health,
+        string version, string state, string detail, bool harmonyUnavailable = false)
+    { Id = id; Name = name; Status = status; Health = health; Version = version; State = state; Detail = detail; HarmonyUnavailable = harmonyUnavailable; }
 }
 internal sealed class DiagnosticsSystem
 {
     public string Id { get; }
     public string Name { get; }
     public DiagnosticsHealth Health { get; }
+    public string Status { get; }
     public IReadOnlyList<DiagnosticsCapability> Capabilities { get; }
     public IReadOnlyList<DiagnosticsValue> ExtraRows { get; }
     public DiagnosticsSystem(string id, string name, DiagnosticsHealth health, IEnumerable<DiagnosticsCapability> capabilities,
-        IEnumerable<DiagnosticsValue>? extra = null)
-    { Id = id; Name = name; Health = health; Capabilities = Array.AsReadOnly(capabilities.ToArray()); ExtraRows = Array.AsReadOnly(extra?.ToArray() ?? Array.Empty<DiagnosticsValue>()); }
+        string status, IEnumerable<DiagnosticsValue>? extra = null)
+    { Id = id; Name = name; Health = health; Status = status; Capabilities = Array.AsReadOnly(capabilities.ToArray()); ExtraRows = Array.AsReadOnly(extra?.ToArray() ?? Array.Empty<DiagnosticsValue>()); }
 }
 internal sealed class DiagnosticsIssue
 {
@@ -93,17 +97,16 @@ internal sealed class DiagnosticsPresentation
     public IReadOnlyList<DiagnosticsLogEntry> Log { get; }
     public IReadOnlyList<DiagnosticsValue> Versions { get; }
     public IReadOnlyList<DiagnosticsValue> Recovery { get; }
-    public IReadOnlyList<DiagnosticsValue> Limitations { get; }
     public string OpenDetail { get; }
     public DiagnosticsPresentation(string generation, string profile, string lastSaved, string dataRoot, string hotkey,
         DiagnosticsHealth health, string bannerTitle, string bannerDetail, IEnumerable<DiagnosticsSystem> systems,
         IEnumerable<DiagnosticsIssue> issues, IEnumerable<DiagnosticsLogEntry> log, IEnumerable<DiagnosticsValue> versions,
-        IEnumerable<DiagnosticsValue> recovery, IEnumerable<DiagnosticsValue> limitations, string openDetail)
+        IEnumerable<DiagnosticsValue> recovery, string openDetail)
     {
         GenerationId = generation; ProfileLabel = profile; LastSaved = lastSaved; DataRoot = dataRoot; Hotkey = hotkey;
         Health = health; BannerTitle = bannerTitle; BannerDetail = bannerDetail; OpenDetail = openDetail;
         Systems = Array.AsReadOnly(systems.ToArray()); Issues = Array.AsReadOnly(issues.ToArray()); Log = Array.AsReadOnly(log.ToArray());
-        Versions = Array.AsReadOnly(versions.ToArray()); Recovery = Array.AsReadOnly(recovery.ToArray()); Limitations = Array.AsReadOnly(limitations.ToArray());
+        Versions = Array.AsReadOnly(versions.ToArray()); Recovery = Array.AsReadOnly(recovery.ToArray());
     }
 }
 
@@ -118,6 +121,9 @@ internal static class DiagnosticsPresentationFactory
         var t = text ?? UiText.Get;
         var profile = projection.Profile;
         var unavailable = t("ui.unavailable");
+        var harmonyMissing = runtime.HarmonyLoaded == false;
+        string Status(DiagnosticsHealth state, bool needsHarmony) => t("ui." + state.ToString().ToLowerInvariant())
+            + (needsHarmony ? " · " + t("ui.diag_harmony_not_loaded") : "");
         var entries = runtime.Entries.OrderByDescending(e => e.TimestampUtc).Take(50)
             .Select(e => new DiagnosticEntry { TimestampUtc = e.TimestampUtc, Severity = e.Severity, Message = e.Message }).ToArray();
         var grouped = profile.Capabilities.GroupBy(c => c.AdapterId, StringComparer.Ordinal)
@@ -134,40 +140,57 @@ internal static class DiagnosticsPresentationFactory
             {
                 grouped.TryGetValue(d.Id, out var records);
                 var record = records?.Length == 1 ? records[0] : null;
-                var health = record?.State == AdapterCapabilityState.Supported ? DiagnosticsHealth.Working
-                    : d.BaselineLimitation || record?.State == AdapterCapabilityState.Experimental ? DiagnosticsHealth.Limited : DiagnosticsHealth.Error;
-                var status = record == null ? unavailable : record.State == AdapterCapabilityState.DisabledIncompatible && d.BaselineLimitation
-                    ? unavailable : t("ui." + health.ToString().ToLowerInvariant());
+                var health = record?.State == AdapterCapabilityState.Supported
+                    || (record?.State == AdapterCapabilityState.Experimental && d.PartialCoverageIsExpected) ? DiagnosticsHealth.Working
+                    : record?.State == AdapterCapabilityState.Experimental ? DiagnosticsHealth.Limited : DiagnosticsHealth.Error;
+                // A missing/conflicting record cannot prove why a metric is unavailable.
+                // Only annotate a reported failure of a known Harmony dependency.
+                var needsHarmony = harmonyMissing && d.RequiresHarmony && record?.State == AdapterCapabilityState.DisabledIncompatible;
+                var status = record == null ? unavailable : Status(health, needsHarmony);
                 return new DiagnosticsCapability(d.Id, group == "other" ? d.EnglishName : t(d.TextKey), status, health,
-                    d.BaselineLimitation, record?.Version ?? unavailable, record?.State.ToString() ?? unavailable,
-                    record == null ? t(records?.Length > 1 ? "ui.diag_conflicting_contract" : "ui.diag_missing_contract") : DetailForDisplay(record.Detail ?? unavailable, t));
+                    record?.Version ?? unavailable, record?.State.ToString() ?? unavailable,
+                    record == null ? t(records?.Length > 1 ? "ui.diag_conflicting_contract" : "ui.diag_missing_contract") : DetailForDisplay(record.Detail ?? unavailable, t), needsHarmony);
             }).ToArray();
-            var relevant = capabilities.Where(c => !c.BaselineLimitation).ToArray();
-            var state = relevant.Any(c => c.Health == DiagnosticsHealth.Error) ? DiagnosticsHealth.Error
-                : relevant.Any(c => c.Health == DiagnosticsHealth.Limited) ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
+            var state = capabilities.Any(c => c.Health == DiagnosticsHealth.Error) ? DiagnosticsHealth.Error
+                : capabilities.Any(c => c.Health == DiagnosticsHealth.Limited) ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
             var extra = new List<DiagnosticsValue>();
             if (group == "storage")
             {
                 var receipt = runtime.SaveReceipt;
                 var saved = receipt?.GenerationId == generation;
                 var pending = !saved || receipt!.Revision < profile.Revision;
-                var failedWrite = entries.Any(e => e.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase)
+                var failedWrite = runtime.ProfilePersistenceFailed || entries.Any(e => e.Severity.Equals("Error", StringComparison.OrdinalIgnoreCase)
                     && IsPersistenceFailure(e.Message) && (!saved || e.TimestampUtc > receipt!.SavedUtc));
-                var disk = failedWrite ? DiagnosticsHealth.Error : pending ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
+                // Deferred updates (including the normal world-time save cadence) are
+                // pending data, not degraded storage. A matching receipt still proves
+                // storage is working without claiming the newest revision is durable.
+                var disk = failedWrite ? DiagnosticsHealth.Error : !saved ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
                 if (disk > state) state = disk;
-                extra.Add(new DiagnosticsValue(t("ui.diag_profile_writes"), t(failedWrite ? "ui.error" : pending ? "ui.diag_pending_write" : "ui.working"), disk));
+                extra.Add(new DiagnosticsValue(t("ui.diag_profile_writes"), t(failedWrite ? "ui.error" : pending ? "ui.diag_pending_write" : "ui.working"),
+                    pending && saved && !failedWrite ? null : disk));
             }
-            systems.Add(new DiagnosticsSystem(group, t("ui.diag_group_" + group), state, capabilities, extra));
+            systems.Add(new DiagnosticsSystem(group, t("ui.diag_group_" + group), state, capabilities,
+                Status(state, capabilities.Any(c => c.HarmonyUnavailable)), extra));
         }
-        var menuLimited = runtime.MainMenu != NativeMenuIntegrationState.Available || runtime.BaseMenu != NativeMenuIntegrationState.Available;
+        var menusVerified = runtime.MainMenu == NativeMenuIntegrationState.Available && runtime.BaseMenu == NativeMenuIntegrationState.Available;
+        var menuUnavailable = runtime.MainMenu == NativeMenuIntegrationState.Unavailable || runtime.BaseMenu == NativeMenuIntegrationState.Unavailable;
         string MenuState(NativeMenuIntegrationState state) => t(state == NativeMenuIntegrationState.Available ? "ui.working"
             : state == NativeMenuIntegrationState.NotObserved ? "ui.not_observed"
             : state == NativeMenuIntegrationState.AttachedUnverified ? "ui.attached_unverified" : "ui.unavailable");
-        systems.Add(new DiagnosticsSystem("menu", t("ui.menu_access"), menuLimited ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working,
-            Array.Empty<DiagnosticsCapability>(), new[] {
-                new DiagnosticsValue(t("ui.main_menu_entry"), MenuState(runtime.MainMenu), runtime.MainMenu == NativeMenuIntegrationState.Available ? DiagnosticsHealth.Working : DiagnosticsHealth.Limited),
-                new DiagnosticsValue(t("ui.base_pause_entry"), MenuState(runtime.BaseMenu), runtime.BaseMenu == NativeMenuIntegrationState.Available ? DiagnosticsHealth.Working : DiagnosticsHealth.Limited),
+        DiagnosticsHealth? MenuHealth(NativeMenuIntegrationState state) => state switch
+        {
+            NativeMenuIntegrationState.Available => DiagnosticsHealth.Working,
+            NativeMenuIntegrationState.Unavailable => DiagnosticsHealth.Limited,
+            _ => null
+        };
+        var shortcutNeedsHarmony = harmonyMissing && runtime.ShortcutIsolation == NativeMenuIntegrationState.Unavailable;
+        var menuHealth = menuUnavailable || runtime.ShortcutIsolation == NativeMenuIntegrationState.Unavailable ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
+        systems.Add(new DiagnosticsSystem("menu", t("ui.menu_access"), menuHealth,
+            Array.Empty<DiagnosticsCapability>(), Status(menuHealth, shortcutNeedsHarmony), new[] {
+                new DiagnosticsValue(t("ui.main_menu_entry"), MenuState(runtime.MainMenu), MenuHealth(runtime.MainMenu)),
+                new DiagnosticsValue(t("ui.base_pause_entry"), MenuState(runtime.BaseMenu), MenuHealth(runtime.BaseMenu)),
                 new DiagnosticsValue(string.Format(CultureInfo.CurrentCulture, t("ui.diag_hotkey_fallback"), runtime.Hotkey), t("ui.working"), DiagnosticsHealth.Working),
+                new DiagnosticsValue(t("ui.diag_shortcut_isolation"), shortcutNeedsHarmony ? t("ui.diag_harmony_not_loaded") : MenuState(runtime.ShortcutIsolation), MenuHealth(runtime.ShortcutIsolation)),
                 new DiagnosticsValue(t("ui.diag_outside_raids"), t("ui.working"), DiagnosticsHealth.Working)
             }));
         systems = systems.OrderBy(s => Array.IndexOf(DiagnosticsCapabilityCatalog.GroupOrder.ToArray(), s.Id)).ToList();
@@ -175,18 +198,28 @@ internal static class DiagnosticsPresentationFactory
         var health = tracking.Any(s => s.Health == DiagnosticsHealth.Error) ? DiagnosticsHealth.Error
             : tracking.Any(s => s.Health == DiagnosticsHealth.Limited) ? DiagnosticsHealth.Limited : DiagnosticsHealth.Working;
         var bannerTitle = t(health == DiagnosticsHealth.Error ? "ui.diag_tracking_error" : health == DiagnosticsHealth.Limited ? "ui.diag_tracking_limited"
-            : menuLimited ? "ui.diag_tracking_working" : "ui.diag_all_working");
-        var menuUnavailable = runtime.MainMenu == NativeMenuIntegrationState.Unavailable || runtime.BaseMenu == NativeMenuIntegrationState.Unavailable;
+            : menusVerified ? "ui.diag_all_working" : "ui.diag_tracking_working");
         var bannerDetail = health == DiagnosticsHealth.Error ? t("ui.diag_tracking_error_detail")
             : health == DiagnosticsHealth.Limited ? t("ui.diag_tracking_limited_detail")
             : menuUnavailable ? string.Format(CultureInfo.CurrentCulture, t("ui.diag_menu_fallback"), runtime.Hotkey) : t("ui.diag_supported_recording");
+        var harmonyAffected = tracking.SelectMany(s => s.Capabilities).Any(c => c.HarmonyUnavailable);
+        if (harmonyAffected || shortcutNeedsHarmony)
+        {
+            if (health == DiagnosticsHealth.Working) health = DiagnosticsHealth.Limited;
+            bannerTitle = t("ui.diag_harmony_banner");
+            bannerDetail = t("ui.diag_harmony_recovery") + "\n" + t("ui.diag_tracking_error_detail");
+        }
 
         var issues = new List<DiagnosticsIssue>();
-        foreach (var system in systems.Where(s => s.Id != "menu" && s.Capabilities.Any(c => c.Health == DiagnosticsHealth.Error && !c.BaselineLimitation)))
+        foreach (var system in systems.Where(s => s.Id != "menu" && s.Capabilities.Any(c => c.Health == DiagnosticsHealth.Error)))
         {
-            var affected = string.Join(", ", system.Capabilities.Where(c => c.Health == DiagnosticsHealth.Error && !c.BaselineLimitation).Select(c => c.Name));
-            issues.Add(new DiagnosticsIssue("capability:" + system.Id, system.Name + " · " + t("ui.diag_tracking_unavailable"),
-                string.Format(CultureInfo.CurrentCulture, t("ui.diag_affected_metrics"), affected) + "\n" + t("ui.diag_tracking_recovery"), "Error"));
+            var affected = string.Join(", ", system.Capabilities.Where(c => c.Health == DiagnosticsHealth.Error).Select(c => c.Name));
+            var needsHarmony = system.Capabilities.Any(c => c.HarmonyUnavailable);
+            var otherFailure = system.Capabilities.Any(c => c.Health == DiagnosticsHealth.Error && !c.HarmonyUnavailable);
+            issues.Add(new DiagnosticsIssue("capability:" + system.Id, system.Name + " · " + t(needsHarmony ? "ui.diag_harmony_not_loaded" : "ui.diag_tracking_unavailable"),
+                string.Format(CultureInfo.CurrentCulture, t("ui.diag_affected_metrics"), affected)
+                + (needsHarmony ? "\n" + t("ui.diag_harmony_recovery") : "")
+                + (otherFailure ? "\n" + t("ui.diag_tracking_recovery") : ""), "Error"));
         }
         var issueGroups = entries.Where(e => IsIssue(e.Severity)
             && !e.Message.StartsWith("Duplicate ", StringComparison.OrdinalIgnoreCase)
@@ -227,11 +260,9 @@ internal static class DiagnosticsPresentationFactory
             new DiagnosticsValue(t("ui.diag_profile_format"), profile.SchemaVersion.ToString(CultureInfo.InvariantCulture)),
             new DiagnosticsValue(t("ui.diag_statistics_format"), stats.SchemaVersion.ToString(CultureInfo.InvariantCulture))
         };
-        var limitations = systems.SelectMany(s => s.Capabilities).Where(c => c.BaselineLimitation && c.State != AdapterCapabilityState.Supported.ToString())
-            .Select(c => new DiagnosticsValue(c.Name, c.Detail));
         var lastSaved = runtime.SaveReceipt?.GenerationId == generation ? Timestamp(runtime.SaveReceipt.SavedUtc) : unavailable;
         return new DiagnosticsPresentation(generation, string.Format(CultureInfo.CurrentCulture, t("ui.diag_save_slot"), profile.Slot), lastSaved,
-            runtime.DataRoot, runtime.Hotkey, health, bannerTitle, bannerDetail, systems, issues.Take(12), log, versions, recovery, limitations, runtime.OpenDetail);
+            runtime.DataRoot, runtime.Hotkey, health, bannerTitle, bannerDetail, systems, issues.Take(12), log, versions, recovery, runtime.OpenDetail);
     }
 
     public static string Timestamp(DateTime utc) => utc == default ? UiText.Get("ui.unavailable")

@@ -28,7 +28,8 @@ public sealed class NativeUserResetSafetyTests : IDisposable
     {
         using var directory = new TemporaryDirectory();
         Application.persistentDataPath = directory.Path;
-        using var coordinator = new NativeProfileCoordinator();
+        var monotonicSeconds = 0d;
+        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds);
         coordinator.Initialize();
         var generation = coordinator.CurrentGenerationId;
         long craftingStarted = 0, craftingCompleted = 0, holdingsStarted = 0, holdingsCompleted = 0;
@@ -61,6 +62,7 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         Assert.Equal(0, worldClockResets);
         Assert.False(coordinator.HasPendingProfileTransition);
         Assert.Equal(0, coordinator.CompletedUserResetVersion);
+        monotonicSeconds += 60;
         Assert.True(coordinator.RetryPendingProfileTransition());
         Assert.Equal(generation, coordinator.CurrentGenerationId);
         Assert.Same(failed, coordinator.LastUserResetAttempt);
@@ -77,7 +79,8 @@ public sealed class NativeUserResetSafetyTests : IDisposable
     {
         using var directory = new TemporaryDirectory();
         Application.persistentDataPath = directory.Path;
-        using var coordinator = new NativeProfileCoordinator();
+        var monotonicSeconds = 0d;
+        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds);
         coordinator.Initialize();
         var generation = coordinator.CurrentGenerationId;
         var changed = 0;
@@ -98,6 +101,7 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         Assert.Equal(0, coordinator.CompletedUserResetVersion);
         Directory.Delete(blockedTemporary!);
 
+        monotonicSeconds += 60;
         Assert.True(coordinator.RetryPendingProfileTransition());
         var completed = coordinator.LastUserResetAttempt!;
         Assert.Equal(pending.TransitionId, completed.TransitionId);
@@ -117,7 +121,8 @@ public sealed class NativeUserResetSafetyTests : IDisposable
     {
         using var directory = new TemporaryDirectory();
         Application.persistentDataPath = directory.Path;
-        using var coordinator = new NativeProfileCoordinator();
+        var monotonicSeconds = 0d;
+        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds);
         coordinator.Initialize();
         var generation = coordinator.CurrentGenerationId;
         var boundaryReady = false;
@@ -131,6 +136,7 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         Assert.Equal(token, coordinator.LastUserResetAttempt.TransitionId);
 
         boundaryReady = true;
+        monotonicSeconds += 60;
         Assert.True(coordinator.RetryPendingProfileTransition());
         Assert.Equal(token, coordinator.LastUserResetAttempt.TransitionId);
         Assert.Equal(NativeUserResetOutcome.Success, coordinator.LastUserResetAttempt.Outcome);
@@ -144,14 +150,16 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         Application.persistentDataPath = directory.Path;
         var main = new CharacterMainControl
         {
-            IsMainCharacter = true, CharacterItem = new Item { Inventory = new Inventory() }
+            IsMainCharacter = true,
+            CharacterItem = new Item { Inventory = new Inventory() }
         };
         CharacterMainControl.Main = main;
         PlayerStorage.Inventory = new Inventory();
         PetProxy.PetInventory = new Inventory();
         LevelManager.Instance = new LevelManagerInstance
         {
-            MainCharacter = main, PetProxy = new PetProxy { Inventory = PetProxy.PetInventory }
+            MainCharacter = main,
+            PetProxy = new PetProxy { Inventory = PetProxy.PetInventory }
         };
         LevelManager.LevelInited = true;
         LevelManager.LevelInitializing = false;
@@ -198,6 +206,7 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         Assert.True(completion.FinishPublication(completionToken));
 
         boundaryReady = true;
+        monotonicSeconds += 60;
         using (var held = new FileStream(coordinator.CurrentProfilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
             Assert.True(coordinator.RetryPendingProfileTransition());
 
@@ -225,7 +234,8 @@ public sealed class NativeUserResetSafetyTests : IDisposable
     {
         using var directory = new TemporaryDirectory();
         Application.persistentDataPath = directory.Path;
-        using var coordinator = new NativeProfileCoordinator();
+        var monotonicSeconds = 0d;
+        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds);
         coordinator.Initialize();
         var ready = false;
         coordinator.SetActiveRunCheckpointBarrier(() => ready);
@@ -234,6 +244,7 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         Assert.Equal(NativeUserResetOutcome.Pending, coordinator.LastUserResetAttempt!.Outcome);
         Assert.Equal(generation, coordinator.CurrentGenerationId);
         ready = true;
+        monotonicSeconds += 60;
         Assert.True(coordinator.RetryPendingProfileTransition());
         Assert.Equal(NativeUserResetOutcome.Success, coordinator.LastUserResetAttempt.Outcome);
     }

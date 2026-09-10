@@ -28,7 +28,14 @@ internal static class CombatHarmonyBridge
     public static void CaptureProjectile(Projectile projectile, ProjectileContext context) =>
         adapter?.CaptureProjectile(projectile, context);
 
-    public static CombatNativeScope? PushProjectile(Projectile projectile) => Push(adapter?.CreateProjectileScope(projectile));
+    public static CombatNativeScope? PushProjectile(Projectile projectile)
+    {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        // This synchronous scope ends before the native Projectile.Update body runs.
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.ProjectileScopePush);
+#endif
+        return Push(adapter?.CreateProjectileScope(projectile));
+    }
 
     public static void CompleteProjectile(Projectile projectile) => adapter?.CompleteProjectile(projectile);
 
@@ -38,15 +45,30 @@ internal static class CombatHarmonyBridge
     public static CombatNativeScope? PushEffect(EffectTriggerEventContext context) =>
         Push(adapter?.CreateEffectScope(context));
 
-    public static CombatNativeScope? PushEnvironmentalDamage() =>
-        Push(adapter?.CreateEnvironmentalScope());
+    public static CombatNativeScope? PushEnvironmentalDamage(ZoneDamage zone) =>
+        Push(adapter?.CreateEnvironmentalScope(zone));
+
+    public static void CaptureGrenadeLaunch(Grenade grenade, CharacterMainControl source)
+    {
+        try { adapter?.CaptureGrenadeLaunch(grenade, source); }
+        catch (Exception exception) { adapter?.DisableGrenadeHazards(exception); }
+    }
+
+    public static void CaptureGrenadeClone(UnityEngine.Object original, UnityEngine.Object clone)
+    {
+        var scope = NativeGrenadeAttribution.MatchCreatedPrefab(original);
+        if (scope == null) return;
+        try { adapter?.CaptureGrenadeClone(scope, clone); }
+        catch (Exception exception) { adapter?.DisableGrenadeHazards(exception); }
+    }
 
     public static void CaptureBuffApplication(
         CharacterBuffManager manager,
         Buff buffPrefab,
         CharacterMainControl? fromWho,
-        int overrideWeaponID) =>
-        adapter?.CaptureBuffApplication(manager, buffPrefab, fromWho, overrideWeaponID);
+        int overrideWeaponID,
+        bool newlyCreated) =>
+        adapter?.CaptureBuffApplication(manager, buffPrefab, fromWho, overrideWeaponID, newlyCreated);
 
     public static void CaptureEffectApplication(Effect effect) =>
         adapter?.CaptureEffectApplication(effect);
@@ -101,6 +123,9 @@ internal static class CombatHarmonyBridge
 
     public static void Pop(CombatNativeScope? scope)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.CombatScopePop);
+#endif
         scopes?.Pop(scope);
     }
 
@@ -137,6 +162,7 @@ internal sealed class CombatNativeScope
     public bool HeadshotCounted { get; set; }
     public bool HeadshotFinalBlowCounted { get; set; }
     public EquipmentEventAssociation EquipmentAssociation { get; set; } = new();
+    public NativeGrenadeHazardOrigins.Origin? GrenadeHazardOrigin { get; set; }
 }
 
 internal sealed class CombatHealthPatchState
@@ -199,11 +225,21 @@ internal static class CombatHarmonyCallbacks
         return __exception;
     }
 
-    private static void EffectPrefix(EffectTriggerEventContext context, out CombatNativeScope? __state) =>
+    private static void EffectPrefix(EffectTriggerEventContext context, out CombatNativeScope? __state)
+    {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(context.source is UpdateTrigger
+            ? NativeHotPathArea.CombatEffectUpdate
+            : context.source is TickTrigger ? NativeHotPathArea.CombatEffectTick : NativeHotPathArea.CombatEffectOther);
+#endif
         __state = CombatHarmonyBridge.PushEffect(context);
+    }
 
     private static Exception? EffectFinalizer(Exception? __exception, CombatNativeScope? __state)
     {
+#if UDS_PERFORMANCE_DIAGNOSTICS
+        using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.CombatEffectFinalizer);
+#endif
         CombatHarmonyBridge.Pop(__state);
         return __exception;
     }
@@ -211,8 +247,14 @@ internal static class CombatHarmonyCallbacks
     private static void EffectApplicationPostfix(Effect __instance) =>
         CombatHarmonyBridge.CaptureEffectApplication(__instance);
 
-    private static void EnvironmentalDamagePrefix(out CombatNativeScope? __state) =>
-        __state = CombatHarmonyBridge.PushEnvironmentalDamage();
+    private static void EnvironmentalDamagePrefix(ZoneDamage __instance, out CombatNativeScope? __state) =>
+        __state = CombatHarmonyBridge.PushEnvironmentalDamage(__instance);
+
+    private static void GrenadeLaunchPostfix(Grenade __instance, CharacterMainControl fromCharacter) =>
+        CombatHarmonyBridge.CaptureGrenadeLaunch(__instance, fromCharacter);
+
+    private static void GrenadeClonePostfix(UnityEngine.Object original, UnityEngine.Object __result) =>
+        CombatHarmonyBridge.CaptureGrenadeClone(original, __result);
 
     private static Exception? EnvironmentalDamageFinalizer(Exception? __exception, CombatNativeScope? __state)
     {
@@ -232,6 +274,8 @@ internal static class CombatHarmonyCallbacks
     public static MethodInfo EffectFinalizerMethod => Get(nameof(EffectFinalizer));
     public static MethodInfo EffectApplicationPostfixMethod => Get(nameof(EffectApplicationPostfix));
     public static MethodInfo EnvironmentalDamagePrefixMethod => Get(nameof(EnvironmentalDamagePrefix));
+    public static MethodInfo GrenadeLaunchPostfixMethod => Get(nameof(GrenadeLaunchPostfix));
+    public static MethodInfo GrenadeClonePostfixMethod => Get(nameof(GrenadeClonePostfix));
     public static MethodInfo EnvironmentalDamageFinalizerMethod => Get(nameof(EnvironmentalDamageFinalizer));
 
     private static MethodInfo Get(string name) => typeof(CombatHarmonyCallbacks).GetMethod(

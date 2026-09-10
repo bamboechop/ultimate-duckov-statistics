@@ -1,0 +1,62 @@
+{
+  "SourceCommit": "c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7",
+  "Status": "Pass for user-confirmed native shortcut repeat and observed cold-reopen/profile/export retention.",
+  "UserConfirmation": "Works.",
+  "RequestedUiCheck": [
+    "At base, open UDS with F8: Tab leaves inventory closed; Ctrl+Tab and Ctrl+Shift+Tab cycle tabs.",
+    "Inventory, map, quest and reload shortcuts do not start native actions while UDS is open; reload requires a suitable gun and ammunition.",
+    "Escape cancels hotkey capture, then closes UDS; ordinary shortcuts and movement return."
+  ],
+  "UiScope": "Pass by user confirmation responding to the complete requested sequence. No action-level trace, screenshot or explicit ammunition setup was supplied; this does not establish all other gameplay/controller input isolation.",
+  "ExportId": "20260908T1714105743791Z-063240a5b57647138bc4de0c18179981",
+  "GenerationId": "063240a5b57647138bc4de0c18179981",
+  "Slot": 1,
+  "ExportRevision": 7860,
+  "ProfileRevision": 8012,
+  "PreDeploymentProfileRevision": 7753,
+  "StartupUtc": "2026-09-08T17:12:40.4387385Z",
+  "SameGenerationReopenedWithoutInterruption": true,
+  "NormalizedProfileOnReopen": true,
+  "NormalizationNote": "The existing migrated log label reports ProfileOpenResult.NormalizedProfile, not a version migration. The format and schema remain current; persisted current holdings are downgraded until reobserved. No run or item statistics changed.",
+  "RetainedRunsExact": 9,
+  "CsvRuns": 9,
+  "CsvSegments": 11,
+  "PrePostDifferences": [
+    "/Identity/ContentSha256",
+    "/Identity/ObservedLength",
+    "/Identity/ObservedWriteUtcTicks",
+    "/Identity/SaveTimeBinary",
+    "/PendingSave",
+    "/Revision",
+    "/Statistics/Economy/ReplayCursor/ActivationId",
+    "/Statistics/Holdings/Cash/ObservedUtc",
+    "/Statistics/Holdings/Money/ObservedUtc",
+    "/Statistics/WorldTime/CalendarDaysAdvanced",
+    "/Statistics/WorldTime/ObservedGameTimeTicks",
+    "/UpdatedUtc"
+  ],
+  "ExportAgreement": {
+    "ExactProfileSections": [
+      "Overall",
+      "Runs",
+      "RunTotals",
+      "RunRecords",
+      "Economy",
+      "Crafting",
+      "HealingCaptureComplete"
+    ],
+    "Items": "Exact item IDs, captured names and totals; group dictionary/list projection agrees.",
+    "WorldTime": "Export is immutable revision 7860; the later live profile differs only by continued observed clock advancement within WorldTime. Sleep totals are unchanged.",
+    "WorldTimeDifferencePaths": [
+      "/ObservedGameTimeTicks"
+    ],
+    "Holdings": "Current Money 12154 and Cash 60 match the profile; derived liquid wealth is 12214.",
+    "Csv": "Nine run IDs/map labels/durations/distances/kills and eleven segment IDs/map labels/durations/kills agree with JSON."
+  },
+  "Diagnostics": "All 11 combat hooks active; no UDS failure or shortcut-isolation warning in the preserved startup/export log. Non-UDS native messages are retained, not classified as UDS errors.",
+  "InstalledFilesVerified": 5,
+  "PreservedExportFiles": 37,
+  "EvidenceRoot": "artifacts/qualification/c2e88861d28e0a0b5adc03f8a5fbbc5289feabf7/native-shortcut-reopen",
+  "ManifestSha256": "d077d5237370479cb9532fff9eb57598b631bef27d66f88d8fd03fa264411f10",
+  "Remaining": "Deliberate native recovery/degradation, broader gameplay/controller input coverage, measured resources/performance and high-history qualification remain separate."
+}

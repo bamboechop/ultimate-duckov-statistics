@@ -7,6 +7,25 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class RetainedRunsTests
 {
+    [Fact]
+    public void CurrentLanguageResolvesRouteAndDeepAttachmentWithImmediateParent()
+    {
+        var run = Run("translated", 1); run.StartingMapId = "duckov:map:A";
+        run.StartingMapDisplayName = "Lagerbereich"; run.Segments[0].MapId = run.StartingMapId;
+        run.Segments[0].MapDisplayName = run.StartingMapDisplayName;
+        var p = Projection(run); p.Names = new EntityDisplayNames(id => id == "duckov:map:A" ? "Warehouse" : null,
+            (parent, key) => parent == "duckov:item:2" && key == "Special" ? "Attachment accessory" : null);
+        Assert.Equal("Warehouse", RunsPresentationFactory.Create(p, "g")!.Runs[0].Title);
+        var nested = new[] {
+            new TerminalNestedSlot("5:Scope/", "Scope", "Scope", EquipmentSlotState.Occupied, "duckov:item:2", "Adapter"),
+            new TerminalNestedSlot("5:Scope/7:Special/", "Special", "Alt", EquipmentSlotState.Empty, "", "") };
+        var root = new TerminalRootSlot("duckov:slot:PrimaryWeapon", "Weapon", EquipmentSlotState.Occupied,
+            "duckov:weapon:357", "Bow", EquipmentItemKind.Weapon, true, nested);
+        var result = RunsPresentationFactory.PresentSlot(root, UiText.Get, p.Names);
+        Assert.Contains("Attachment accessory", result.Text, StringComparison.Ordinal);
+        Assert.Equal("Alt", nested[1].DisplayName);
+    }
+
     [Theory]
     [InlineData("g", "g", false)]
     [InlineData("g", "new", true)]
@@ -170,7 +189,7 @@ public sealed class RetainedRunsTests
         Assert.Equal("0", exact.Summary[3].Value);
         Assert.Contains("0 kills", exact.Melee);
         run.CombatStatistics.Capabilities.KillsByYou.State = AdapterCapabilityState.DisabledIncompatible;
-        run.ContainerStatistics.HistoricalUnavailable = true;
+        run.ContainerStatistics.Capabilities.UniqueContainersLooted.State = AdapterCapabilityState.DisabledIncompatible;
         var unavailable = Present(run).Runs[0];
         Assert.Equal("Unavailable", unavailable.Summary[2].Value);
         Assert.Equal("Unavailable", unavailable.Summary[3].Value);
@@ -178,12 +197,14 @@ public sealed class RetainedRunsTests
     }
 
     [Fact]
-    public void HistoricalPartialFieldsKeepUsefulProvenValues()
+    public void RepairedPartialFieldsKeepUsefulProvenValues()
     {
         var run = Run("r", 1);
-        run.ContainerStatistics.HistoricalUnavailable = true; run.ContainerStatistics.UniqueContainersLooted = 7;
-        run.ItemStatistics.HistoricalUnavailable = true; run.ItemStatistics.Overall.ActualHealthRestored = 23;
-        run.HistoricalRouteUnavailable = true;
+        run.ContainerStatistics.UniqueContainersLooted = 7;
+        run.ContainerStatistics.WasRepairedFromInvalidState = true;
+        run.ItemStatistics.Overall.ActualHealthRestored = 23;
+        run.ItemStatistics.WasRepairedFromInvalidState = true;
+        run.RouteWasRepairedFromInvalidState = true;
         var result = Present(run).Runs[0];
         Assert.Contains("7 (partial", result.Summary[3].Value);
         Assert.Contains("23 (partial", result.Summary[9].Value);
@@ -261,21 +282,21 @@ public sealed class RetainedRunsTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void IncompleteClassificationsDoNotCreateExactZeros(bool historical)
+    public void IncompleteClassificationsDoNotCreateExactZeros(bool missingPartition)
     {
         var run = Run("r", 1);
         run.CombatStatistics.Totals.KillsByYou = 5;
-        run.CombatStatistics.Totals.PlayerKills = historical ? PlayerKillPartition.Historical(5) : new PlayerKillPartition { Unknown = 5 };
+        run.CombatStatistics.Totals.PlayerKills = missingPartition ? null! : new PlayerKillPartition { Unknown = 5 };
         var result = Present(run).Runs[0];
         Assert.Contains("Unavailable kills", result.Melee);
         Assert.DoesNotContain("0 kills", result.Ranged);
-        Assert.Contains(historical ? "Historical" : "incomplete", result.Ranged);
+        Assert.Contains("incomplete", result.Ranged);
     }
 
     [Fact]
-    public void NewlyExactRunIsNotContaminatedByHistoricalSibling()
+    public void ExactRunIsNotContaminatedByUnprovenSibling()
     {
-        var old = Run("old", 1); old.CombatStatistics.Totals.PlayerKills = PlayerKillPartition.Historical(0);
+        var old = Run("old", 1); old.CombatStatistics.Totals.PlayerKills = null!;
         var current = Run("current", 2);
         var result = Present(old, current);
         Assert.Contains("0 kills", result.Runs[0].Melee);
@@ -496,7 +517,7 @@ public sealed class RetainedRunsTests
         if (boundary == "route") run.RouteCapabilities.Segments.State = AdapterCapabilityState.Experimental;
         if (boundary == "combat") segment.CombatStatistics.Capabilities.MeleeSwings.State = AdapterCapabilityState.Experimental;
         if (boundary == "firing") segment.WeaponStatistics.Capabilities.FiringActions.State = AdapterCapabilityState.Experimental;
-        if (boundary == "container") segment.ContainerStatistics.HistoricalUnavailable = true;
+        if (boundary == "container") segment.ContainerStatistics.Capabilities.UniqueContainersLooted.State = AdapterCapabilityState.Experimental;
         if (boundary == "attribution") run.HistoricalEventAttributionIncomplete = true;
         if (boundary == "repair") segment.WasRepairedFromInvalidState = true;
         var text = Present(run).Runs[0].Segments[0].Value;
@@ -912,9 +933,6 @@ public sealed class RetainedRunsTests
             Outcome = RunOutcome.Extracted,
             LifecycleCapability = AdapterCapabilityState.Supported,
             MovementCapability = AdapterCapabilityState.Supported,
-            MapKnown = true,
-            MapId = "a",
-            MapDisplayName = "First",
             StartingMapKnown = true,
             StartingMapId = "a",
             StartingMapDisplayName = "First",

@@ -15,7 +15,7 @@ internal sealed class NativeUiIntegration : IDisposable
 {
     private const string LocalizationPrefix = "ultimate-duckov-statistics.";
     private readonly NativeProfileCoordinator coordinator;
-    private readonly Action<PanelAccessSurface> openPanel;
+    private readonly Func<PanelAccessSurface, bool> openPanel;
     private readonly Action<PanelAccessSurface> closePanel;
     private readonly Dictionary<int, GameObject> injectedByRoot = new();
     private readonly Dictionary<PanelAccessSurface, Canvas> panelCanvases = new();
@@ -32,7 +32,7 @@ internal sealed class NativeUiIntegration : IDisposable
 
     public NativeUiIntegration(
         NativeProfileCoordinator coordinator,
-        Action<PanelAccessSurface> openPanel,
+        Func<PanelAccessSurface, bool> openPanel,
         Action<PanelAccessSurface> closePanel)
     {
         this.coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
@@ -86,6 +86,18 @@ internal sealed class NativeUiIntegration : IDisposable
     {
         try
         {
+            if (surface == PanelAccessSurface.BasePauseMenu)
+            {
+                // Duckov places PauseMenu on a child of its screen-space canvas.
+                // Resolve that live owner on every menu activation: closing clears
+                // the cache while the injected button survives for reuse.
+                canvas = PauseMenu.Instance == null ? null : PauseMenu.Instance
+                    .GetComponentsInParent<Canvas>(includeInactive: false)
+                    .FirstOrDefault(IsUsablePanelCanvas);
+                if (canvas == null) return false;
+                panelCanvases[surface] = canvas;
+                return true;
+            }
             if (panelCanvases.TryGetValue(surface, out var exact) && IsUsablePanelCanvas(exact))
             {
                 canvas = exact;
@@ -291,15 +303,19 @@ internal sealed class NativeUiIntegration : IDisposable
 
     private void HandleInjectedButtonActivated(PanelAccessSurface surface)
     {
-        openPanel(surface);
+        var opened = openPanel(surface);
+        var state = opened ? NativeMenuIntegrationState.Available : NativeMenuIntegrationState.Unavailable;
         if (surface == PanelAccessSurface.MainMenu)
-            MainMenuState = NativeMenuIntegrationState.Available;
+            MainMenuState = state;
         else if (surface == PanelAccessSurface.BasePauseMenu)
-            BasePauseMenuState = NativeMenuIntegrationState.Available;
-        coordinator.ReportUiDiagnostic($"M17 native {surface} statistics entry activation observed.");
+            BasePauseMenuState = state;
+        coordinator.ReportUiDiagnostic(opened
+            ? $"M17 native {surface} statistics entry opened successfully."
+            : $"M17 native {surface} statistics entry could not open; the configured hotkey remains available.",
+            opened ? "Info" : "Warning");
     }
 
-    private static bool IsUsablePanelCanvas(Canvas? canvas)
+    private static bool IsUsablePanelCanvas([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] Canvas? canvas)
     {
         return canvas != null
                && canvas.enabled
@@ -595,89 +611,5 @@ internal sealed class NativeItemIconResolver
         {
             return null;
         }
-    }
-}
-
-internal sealed class NativePanelTheme : IDisposable
-{
-    private readonly List<Texture2D> ownedTextures = new();
-    private bool initialized;
-
-    public GUIStyle Window { get; private set; } = new();
-    public GUIStyle Tab { get; private set; } = new();
-    public GUIStyle Section { get; private set; } = new();
-    public GUIStyle Muted { get; private set; } = new();
-
-    public void EnsureInitialized()
-    {
-        if (initialized) return;
-        Window = new GUIStyle(GUI.skin.window)
-        {
-            padding = new RectOffset(18, 18, 28, 16),
-            fontSize = 15
-        };
-        var windowBackground = Texture(new Color(0.075f, 0.09f, 0.085f, 0.98f));
-        var windowTextColor = new Color(0.9f, 0.83f, 0.65f);
-        ApplyState(Window.normal, windowBackground, windowTextColor);
-        ApplyState(Window.hover, windowBackground, windowTextColor);
-        ApplyState(Window.active, windowBackground, windowTextColor);
-        ApplyState(Window.focused, windowBackground, windowTextColor);
-        ApplyState(Window.onNormal, windowBackground, windowTextColor);
-        ApplyState(Window.onHover, windowBackground, windowTextColor);
-        ApplyState(Window.onActive, windowBackground, windowTextColor);
-        ApplyState(Window.onFocused, windowBackground, windowTextColor);
-        Tab = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = 13,
-            fixedHeight = 34
-        };
-        Tab.normal.background = Texture(new Color(0.12f, 0.15f, 0.14f, 1f));
-        Tab.normal.textColor = new Color(0.79f, 0.76f, 0.66f);
-        Tab.hover.background = Texture(new Color(0.2f, 0.25f, 0.22f, 1f));
-        Tab.hover.textColor = Color.white;
-        Tab.onNormal.background = Texture(new Color(0.35f, 0.31f, 0.18f, 1f));
-        Tab.onNormal.textColor = new Color(1f, 0.88f, 0.48f);
-        Tab.onHover = Tab.onNormal;
-        Section = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 16,
-            fontStyle = FontStyle.Bold,
-            normal = { textColor = new Color(0.96f, 0.82f, 0.45f) }
-        };
-        Muted = new GUIStyle(GUI.skin.label)
-        {
-            wordWrap = true,
-            normal = { textColor = new Color(0.65f, 0.68f, 0.62f) }
-        };
-        initialized = true;
-    }
-
-    private static void ApplyState(GUIStyleState state, Texture2D background, Color textColor)
-    {
-        state.background = background;
-        state.textColor = textColor;
-    }
-
-    private Texture2D Texture(Color color)
-    {
-        var texture = new Texture2D(1, 1, TextureFormat.RGBA32, mipChain: false)
-        {
-            hideFlags = HideFlags.HideAndDontSave,
-            wrapMode = TextureWrapMode.Clamp,
-            filterMode = FilterMode.Point
-        };
-        texture.SetPixel(0, 0, color);
-        texture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
-        ownedTextures.Add(texture);
-        return texture;
-    }
-
-    public void Dispose()
-    {
-        foreach (var texture in ownedTextures.Where(value => value != null))
-            UnityEngine.Object.Destroy(texture);
-        ownedTextures.Clear();
-        initialized = false;
     }
 }

@@ -17,15 +17,22 @@ $manifestPath = Join-Path $repoRoot 'artifacts\performance\diagnostic-package.ma
 dotnet restore (Join-Path $repoRoot 'UltimateDuckovStatistics.sln')
 if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed with exit code $LASTEXITCODE." }
 
+# Do not combine cached dependencies or a compiler server from an older runtime
+# with a fresh native diagnostic after a local SDK/runtime update.
 dotnet build (Join-Path $repoRoot 'src\UltimateDuckovStatistics\UltimateDuckovStatistics.csproj') `
-    -c Release --no-restore `
+    -c Release --no-restore --no-incremental `
+    -p:UseSharedCompilation=false `
     -p:DuckovPath=$resolvedDuckovPath `
     -p:UDSPerformanceDiagnostics=true `
     -p:OutputPath=$buildRoot
 if ($LASTEXITCODE -ne 0) { throw "diagnostic build failed with exit code $LASTEXITCODE." }
 
 foreach ($path in @($packageRoot)) {
-    if (Test-Path -LiteralPath $path) { Remove-Item -Recurse -Force -LiteralPath $path }
+    if ([IO.Path]::GetFullPath($path) -ne [IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts/performance/diagnostic-package/UltimateDuckovStatistics'))) { throw 'Unsafe diagnostic cleanup path.' }
+    if (Test-Path -LiteralPath $path) {
+        if ((Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Diagnostic package must not be a reparse point.' }
+        Remove-Item -Recurse -Force -LiteralPath $path
+    }
 }
 New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
 $inputs = @(
@@ -61,8 +68,11 @@ $sourceTreeBytes = [System.Text.Encoding]::UTF8.GetBytes($sourceInventory -join 
 $sourceTreeSha256 = [Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($sourceTreeBytes)).ToLowerInvariant()
 $manifest = [ordered]@{
     SchemaVersion = 1
-    BuildKind = 'M8.1 opt-in performance diagnostic; never a release candidate'
+    BuildKind = 'Opt-in performance diagnostic; never a release candidate'
     PerformanceDiagnostics = $true
+    IncrementalBuild = $false
+    SharedCompilation = $false
+    DotnetSdk = (& dotnet --version).Trim()
     RepositoryCommit = (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot rev-parse HEAD).Trim()
     RepositoryWorktreeStatus = @(& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot status --short)
     SourceTreeSha256 = $sourceTreeSha256

@@ -18,7 +18,7 @@ Perform each gameplay action yourself, waiting for the crafted output to arrive 
 
 | Case | User action | Required UDS result |
 | --- | --- | --- |
-| Baseline | Inspect Crafting before crafting | Current M13 actions/output quantities, M16 resource totals, currency totals, capability states, generation, and any pre-M16 partial-history notice are visible. Money/Cash split is unavailable. |
+| Baseline | Inspect Crafting before crafting | Current M13 actions/output quantities, M16 resource totals, currency totals, capability states, generation, and current partial-evidence notices are visible. Money/Cash split is omitted. |
 | Successful combined cost | Complete one recipe with item and currency cost | Successful actions increase by one; produced quantity increases by the recipe's declared result amount; each captured item cost increases by exactly its event-time declared amount; currency-charged actions increase by one and total currency by the declared charge. |
 | Shared resource | Complete a different output recipe using one resource from the first | The shared resource lifetime total increases by the second declared amount. Its derived breakdown retains separate exact output and recipe associations and consumption-action counts. |
 | Item-only or free recipe | If accessible, complete a recipe with zero currency | Completion/output and item-cost totals update as declared; currency action and amount do not change. If no such accessible recipe exists, record the case as not exercised rather than fabricating it. |
