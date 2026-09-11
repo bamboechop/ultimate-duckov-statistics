@@ -2,7 +2,7 @@
 
 This follow-up starts from the committed localization baseline `a2452850dc7d558906e5b41a41b239cc6b5cb6ac`. It retains native language-change subscriptions, translation keys, placeholders, statistics definitions and coverage explanations. The [published rc.2](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0-rc.2) and its publication receipt are unchanged. The local development package retains the existing version metadata; its distinct filename and hashes identify this build, not the published ZIP.
 
-Initial layout implementation source: `7ed195a53a905bbba0dacfea780df6839e50059c`. The Diagnostics cache correction below follows that delivery. Current review and CI are on [PR #24](https://github.com/bamboechop/ultimate-duckov-statistics/pull/24).
+Initial layout implementation source: `7ed195a53a905bbba0dacfea780df6839e50059c`. The Diagnostics cache and confirmation-caption corrections below follow that delivery. Current review and CI are on [PR #24](https://github.com/bamboechop/ultimate-duckov-statistics/pull/24).
 
 ## Causes and implementation
 
@@ -68,3 +68,10 @@ The corrected ordinary package was deployed with Duckov closed, all five install
 The modal title/body refreshed in `PanelModal.Sync`, but Cancel and Confirm Reset captions were translated only in the constructor. Their assignments now run beside the title update, before the existing measured button layout. This covers both a dialog opened after a language switch and a dialog already visible during the switch, including the shared hotkey-capture Cancel button.
 
 All four production-shell regressions fail with the old construction-only captions and pass with the correction. They exercise reset/hotkey modes, English → German → English, switching before opening/while visible, 1280×720 and 720×480 layouts, measured caption fit, retained button/focus identity, cancellation, unchanged listeners and untouched profile contents. Existing reset-dispatch and modal-blocking tests remain in the full suite. Native confirmation: switch the existing shell to German, open the reset dialog, confirm `ABBRECHEN` and `UDS-PROFIL ZURÜCKSETZEN`, then cancel; also check the hotkey dialog's Cancel caption and switching back to English.
+
+Correction source: `e08785e73f958a2c9efb938d3a8f2a4e6a9574f4`. Debug and Release each pass 2,020 main, 80 ordinary shell and 84 diagnostic shell tests. Native probing/build, formatting/analyzers, package/IL/path checks and independent extraction pass. Two isolated builds reproduce the DLLs, PDBs and ZIP, matching the local modal-correction archive.
+
+This ordinary package supersedes the Diagnostics-only local deployment. Deployment ran with Duckov closed; all five installed hashes match and no transaction residue remains. The prior build is backed up under `artifacts/deployment-backups/ab8d73cafcfd49e3b06bcf40ec27a46c/UltimateDuckovStatistics`. Published rc.2 remains unchanged.
+
+- Archive: `artifacts/localization-layout/UltimateDuckovStatistics-german-ui-modal-local.zip`, **666,075 bytes**, SHA-256 `62bf7124c2154a1bf3def96bdf47bd17be170f1274451d14ea39736273f94413`.
+- Updated `UltimateDuckovStatistics.dll` SHA-256: `e69ec1323bf6028214f7048948d858a23d02bcfc99d12bd9a7b08905fb14f027`. The other four package-file hashes remain those listed above.
