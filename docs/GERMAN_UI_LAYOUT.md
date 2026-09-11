@@ -62,3 +62,9 @@ The corrected ordinary package was deployed with Duckov closed, all five install
 
 - Archive: `artifacts/localization-layout/UltimateDuckovStatistics-german-ui-diagnostics-local.zip`, **666,074 bytes**, SHA-256 `dd56d976a22b395d53c0b1ad0f4f59993da137d6de6ff43aa6789972d8b10ae0`.
 - Updated `UltimateDuckovStatistics.dll` SHA-256: `604eea1cb2e3a91e6c1f2efc9e06cc1e04c50aca951066b65e56ffab86e9fb2a`. The other four package-file hashes remain those listed above.
+
+## Retained confirmation-caption correction
+
+The modal title/body refreshed in `PanelModal.Sync`, but Cancel and Confirm Reset captions were translated only in the constructor. Their assignments now run beside the title update, before the existing measured button layout. This covers both a dialog opened after a language switch and a dialog already visible during the switch, including the shared hotkey-capture Cancel button.
+
+All four production-shell regressions fail with the old construction-only captions and pass with the correction. They exercise reset/hotkey modes, English → German → English, switching before opening/while visible, 1280×720 and 720×480 layouts, measured caption fit, retained button/focus identity, cancellation, unchanged listeners and untouched profile contents. Existing reset-dispatch and modal-blocking tests remain in the full suite. Native confirmation: switch the existing shell to German, open the reset dialog, confirm `ABBRECHEN` and `UDS-PROFIL ZURÜCKSETZEN`, then cancel; also check the hotkey dialog's Cancel caption and switching back to English.
