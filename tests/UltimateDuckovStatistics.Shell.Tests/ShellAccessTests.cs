@@ -165,7 +165,7 @@ public sealed partial class ShellAccessTests : IDisposable
         discord.onClick.Invoke(); panel.Tick();
         Assert.False(Find("AboutLinkFailure").activeInHierarchy);
         Find("CombatTab").GetComponent<Button>().onClick.Invoke(); panel.Tick();
-        Assert.True(Find("CombatView").activeInHierarchy);
+        Assert.True(Find("CombatContentView").activeInHierarchy);
         discord.onClick.Invoke(); Assert.Equal(3, launches.Count);
         panel.Dispose(); support.onClick.Invoke(); discord.onClick.Invoke();
         Assert.Equal(3, launches.Count);

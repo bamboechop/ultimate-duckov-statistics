@@ -47,6 +47,8 @@ internal sealed partial class RetainedStatisticsShell
         public void Refresh(ItemUsePresentation? next)
         {
             if (disposed) return; Capture();
+            empty.text = UiText.Get("ui.item_use_empty");
+            unavailable.text = UiText.Get("ui.profile_unavailable");
             var focused = GameManager.EventSystem?.currentSelectedGameObject;
             restoreFocus = next != null && selection.Snapshot?.GenerationId == next.GenerationId && focused != null
                 ? focused.transform.IsChildOf(left.Panel) ? left : focused.transform.IsChildOf(right.Panel) ? right : null : null;

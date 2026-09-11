@@ -65,6 +65,10 @@ internal sealed partial class RetainedStatisticsShell
 
         public void Refresh(RecordsPresentation? next)
         {
+            overallHeading.text = UiText.Get("ui.records_overall");
+            mapsHeading.text = UiText.Get("ui.records_per_map");
+            unavailable.text = UiText.Get("ui.profile_unavailable");
+            noMaps.text = UiText.Get("ui.records_no_maps");
             scroll.Capture(page.Offset); scroll.Refresh(next?.GenerationId);
             snapshot = next;
             if (next != null) page.SetOffset(scroll.Offset);
@@ -90,6 +94,7 @@ internal sealed partial class RetainedStatisticsShell
                 control.Heading.text = data.Heading; control.Notice.text = data.Notice;
                 if (control.Button != null)
                 {
+                    control.Button.Label.text = UiText.Get(RetainedOverviewLatestRunViewRunPolicy.TextKey);
                     control.Button.Rect.gameObject.SetActive(data.RunId != null);
                     control.Button.Button.interactable = data.RunId != null;
                 }

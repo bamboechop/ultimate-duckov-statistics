@@ -9,7 +9,8 @@ using UnityEngine;
 
 // Isolated external boundaries. Actual panel orchestration, shared shell,
 // overview, projection factories, tab construction/scroll and material ownership
-// and native menu discovery are source-linked. Child views and GPU assets are not.
+// and native menu discovery are source-linked, as are Records, Item Use, Combat,
+// About and modal views. Other child views and GPU assets are isolated.
 namespace UltimateDuckovStatistics.Adapters
 {
     internal sealed class NativeProfileCoordinator(string dataRoot)
@@ -68,18 +69,26 @@ namespace UltimateDuckovStatistics.UI
     }
     internal static class NativeThrowableIdentity { public static bool IsThrowable(string id) => false; }
     internal sealed class RunsFocusHandler : MonoBehaviour { public Action? Selected; public Action<UnityEngine.EventSystems.MoveDirection>? Move; }
-    internal sealed class RunsHistoryButton : UnityEngine.UI.Button { }
+    internal sealed class RunsHistoryButton : UnityEngine.UI.Button
+    {
+        public RunsRowBinding Binding { get; } = new();
+        public void Configure(UnityEngine.UI.Graphic background) { targetGraphic = background; }
+        public void BindInteractionOverlay(UnityEngine.UI.Graphic background, bool actionable)
+        { interactable = enabled = actionable; background.raycastTarget = actionable; }
+    }
+    internal sealed class RunsScrollRect : UnityEngine.UI.ScrollRect
+    {
+        public void MoveBy(float amount) => content.anchoredPosition = new Vector2(0,
+            Math.Clamp(content.anchoredPosition.y + amount, 0, Math.Max(0, content.rect.height - viewport.rect.height)));
+    }
     internal sealed class RunsButtonFeedback : MonoBehaviour { }
     internal sealed partial class RetainedStatisticsShell
     {
-        private static void AddButtonFeedback(UnityEngine.UI.Button button) { }
+        private static void AddButtonFeedback(UnityEngine.UI.Button button) { button.gameObject.AddComponent<RunsButtonFeedback>(); }
         private RunsView? runsView;
-        private RecordsView? recordsView;
-        private CombatView? combatView;
         private EquipmentView? equipmentView;
         private EconomyView? economyView;
         private CraftingView? craftingView;
-        private ItemUseView? itemUseView;
         private DiagnosticsView? diagnosticsView;
         public void RefreshDiagnostics(DiagnosticsPresentation? presentation) => diagnosticsView?.Refresh(presentation);
         public void InvalidateProjection() { }
@@ -101,12 +110,9 @@ namespace UltimateDuckovStatistics.UI
             public void Dispose() => UnityEngine.Object.Destroy(root);
         }
         private sealed class RunsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action fallback) : BoundaryView(parent);
-        private sealed class RecordsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action fallback) : BoundaryView(parent);
-        private sealed class CombatView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action fallback) : BoundaryView(parent);
         private sealed class EquipmentView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action fallback) : BoundaryView(parent);
         private sealed class EconomyView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action fallback) : BoundaryView(parent);
         private sealed class CraftingView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action fallback) : BoundaryView(parent);
-        private sealed class ItemUseView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action fallback) : BoundaryView(parent);
         private sealed class DiagnosticsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, PanelOperationController operations, Action hotkey, Func<bool> copyExport, Func<bool> copyData, Action fallback) : BoundaryView(parent);
     }
 }

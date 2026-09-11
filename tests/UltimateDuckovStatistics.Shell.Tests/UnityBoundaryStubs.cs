@@ -85,6 +85,7 @@ namespace UnityEngine
         public readonly List<Transform> Children = new();
         public Transform parent = null!;
         public Vector3 localScale = Vector3.one;
+        public Quaternion localRotation;
         public int childCount => Children.Count;
         public void SetParent(Transform? value, bool worldPositionStays = false) { parent?.Children.Remove(this); parent = value!; parent?.Children.Add(this); gameObject.NotifyTextActivation(); }
         public Transform GetChild(int index) => Children[index];
@@ -103,10 +104,11 @@ namespace UnityEngine
         public enum Axis { Horizontal, Vertical }
         public void SetSizeWithCurrentAnchors(Axis axis, float value) { if (axis == Axis.Horizontal) sizeDelta.x = value; else sizeDelta.y = value; }
     }
-    public struct Vector2(float x, float y) { public float x = x, y = y; public static Vector2 zero => new(0, 0); public static Vector2 one => new(1, 1); }
+    public struct Vector2(float x, float y) { public float x = x, y = y; public static Vector2 zero => new(0, 0); public static Vector2 one => new(1, 1); public static Vector2 operator +(Vector2 a, Vector2 b) => new(a.x + b.x, a.y + b.y); }
+    public struct Quaternion { public static Quaternion Euler(float x, float y, float z) => new(); }
     public struct Vector3(float x, float y, float z) { public float x = x, y = y, z = z; public static Vector3 one => new(1, 1, 1); public static Vector3 zero => new(0, 0, 0); }
     public struct Vector4(float x, float y, float z, float w) { public float x = x, y = y, z = z, w = w; public static Vector4 zero => new(0, 0, 0, 0); }
-    public struct Rect(float x, float y, float width, float height) { public float x = x, y = y, width = width, height = height; }
+    public struct Rect(float x, float y, float width, float height) { public float x = x, y = y, width = width, height = height; public float yMax => y + height; }
     public struct Bounds { public Vector3 min, max, size, center; }
     public struct Color(float r, float g, float b, float a = 1) { public float r = r, g = g, b = b, a = a; public static Color clear => new(0, 0, 0, 0); public static Color white => new(1, 1, 1); public static Color black => new(0, 0, 0); }
     public struct Color32(byte r, byte g, byte b, byte a) { public byte r = r, g = g, b = b, a = a; public static implicit operator Color(Color32 c) => new(c.r / 255f, c.g / 255f, c.b / 255f, c.a / 255f); }
@@ -187,6 +189,8 @@ namespace TMPro
     public class TMP_FontAsset : Object { public bool HasCharacter(char c, bool searchFallbacks = false, bool tryAddCharacter = false) => true; public bool HasCharacter(uint c, bool searchFallbacks = false, bool tryAddCharacter = false) => true; }
     public class TextMeshProUGUI : UnityEngine.UI.Graphic
     {
+        // Glyph ink remains a native visual check; wrapping uses the measurement model below.
+        public TMP_TextInfo textInfo = new();
         public static long Measurements;
         public string text = ""; public TMP_FontAsset font = null!; public Material fontSharedMaterial = null!;
         public float fontSize = -99, fontSizeMin, fontSizeMax, characterSpacing, lineSpacing, wordSpacing, paragraphSpacing;
@@ -217,6 +221,11 @@ namespace TMPro
         public Bounds textBounds => new() { size = new(preferredWidth, preferredHeight, 0) };
     }
     public static class ShaderUtilities { public static void UpdateShaderRatios(Material material) { } }
+    public sealed class TMP_TextInfo { public int characterCount; public TMP_CharacterInfo[] characterInfo = Array.Empty<TMP_CharacterInfo>(); }
+    public struct TMP_CharacterInfo { public bool isVisible; public TMP_TextElement? textElement; public float scale; public Vector3 topLeft, bottomLeft; }
+    public sealed class TMP_TextElement { public Glyph? glyph; }
+    public sealed class Glyph { public GlyphMetrics metrics; }
+    public struct GlyphMetrics { public float height; }
 }
 namespace Duckov.UI { public sealed class TooltipsProvider : UnityEngine.MonoBehaviour { public string text = ""; } }
 namespace Duckov.UI.Animations { public class ButtonAnimation : UnityEngine.MonoBehaviour { } }
