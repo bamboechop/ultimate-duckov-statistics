@@ -4,8 +4,7 @@ namespace UltimateDuckovStatistics.UI;
 
 internal sealed partial class RetainedStatisticsShell
 {
-    // Only the scroll viewport is isolated. The modal's focus, blocking, buttons,
-    // operation dispatch and restoration all execute RetainedPanelModal.cs.
+    // Scroll physics are isolated; consuming views execute their production layout.
     private sealed class ScrollRegion : IDisposable
     {
         public UnityEngine.UI.ScrollRect Scroll { get; }
@@ -18,7 +17,7 @@ internal sealed partial class RetainedStatisticsShell
             Rect.SetParent(parent);
             Rect.gameObject.AddComponent<RunsFocusHandler>();
             Rect.gameObject.AddComponent<UnityEngine.UI.Selectable>();
-            Scroll = Rect.gameObject.AddComponent<UnityEngine.UI.ScrollRect>();
+            Scroll = Rect.gameObject.AddComponent<RunsScrollRect>();
             Scroll.scrollSensitivity = 40;
             Scroll.viewport = (RectTransform)new GameObject("Viewport").transform;
             Scroll.viewport.SetParent(Rect);

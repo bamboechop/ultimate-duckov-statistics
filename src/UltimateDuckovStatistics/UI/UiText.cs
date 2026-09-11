@@ -151,7 +151,7 @@ internal static class UiText
             ["ui.overview_extraction_rate"] = "Extraction rate",
             ["ui.overview_total_active_raid_time"] = "Total active raid time",
             ["ui.overview_total_distance_travelled"] = "Total distance travelled",
-            ["ui.overview_total_recorded_distance"] = "Total recorded distance",
+            ["ui.overview_total_recorded_distance"] = "Total movement distance",
             ["ui.overview_raid_distance"] = "Raid distance",
             ["ui.overview_base_distance"] = "Recorded base distance",
             ["ui.distance_not_recorded"] = "Not recorded",
@@ -421,6 +421,8 @@ internal static class UiText
     public static void ConfigureNativeResolver(Func<string, string?>? resolver) => nativeResolver = resolver;
 
     internal static IReadOnlyDictionary<string, string> EnglishFallbacks => English;
+
+    internal static IReadOnlyDictionary<string, string> GermanFallbacks => GermanText.All;
 
     public static string Get(string key) => Resolve(key, nativeResolver);
 

@@ -1,5 +1,7 @@
 # Validation and delivery evidence
 
+The [German localization and retained layout follow-up](docs/GERMAN_UI_LAYOUT.md) records measured overview reflow, tab clipping/navigation, local package/deployment proof and the affected native acceptance checklist. The published rc.2 artifact is unchanged.
+
 The [RC2 publication receipt](docs/RC2_PUBLICATION.json) records the verified release tag and independently downloaded ZIP/sidecar with exact five-file readback. The [RC2 release record](docs/RC2_RELEASE.md#published-rc2-verification) records final automated qualification and the immutable release source.
 
 The [RC2 release record](docs/RC2_RELEASE.md) consolidates the four merged follow-up batches and the user's 2026-09-11 confirmation that their final in-game checks passed. This supersedes earlier pending-check wording in those batch records. Historical M18 performance measurements and accepted coverage limits retain their original scope; release packaging is verified separately against its exact source.

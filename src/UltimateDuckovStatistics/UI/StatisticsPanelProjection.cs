@@ -1348,7 +1348,7 @@ internal static class RetainedProfileSummaryRowsPolicy
         new(ProfileSummaryMetric.TotalRuns, "OverviewFirstStatistics", "ui.overview_total_runs", "Total runs"),
         new(ProfileSummaryMetric.ExtractionRate, "OverviewExtractionRate", "ui.overview_extraction_rate", "Extraction rate"),
         new(ProfileSummaryMetric.TotalActiveRaidTime, "OverviewTotalActiveRaidTime", "ui.overview_total_active_raid_time", "Total active raid time"),
-        new(ProfileSummaryMetric.TotalDistanceTravelled, "OverviewTotalDistanceTravelled", "ui.overview_total_recorded_distance", "Total recorded distance"),
+        new(ProfileSummaryMetric.TotalDistanceTravelled, "OverviewTotalDistanceTravelled", "ui.overview_total_recorded_distance", "Total movement distance"),
         new(ProfileSummaryMetric.RaidDistance, "OverviewRaidDistance", "ui.overview_raid_distance", "Raid distance"),
         new(ProfileSummaryMetric.BaseDistance, "OverviewBaseDistance", "ui.overview_base_distance", "Recorded base distance"),
         new(ProfileSummaryMetric.KillsByYou, "OverviewKillsByYou", "ui.overview_kills_by_you", "Kills by you"),

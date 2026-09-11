@@ -45,7 +45,6 @@ internal sealed partial class RetainedStatisticsShell
             warning.color = new Color32(250, 73, 100, 255);
             cancel = Button(scroll.Content, "Cancel", new Color32(72, 195, 242, 255), out cancelLabel);
             confirm = Button(scroll.Content, "ConfirmReset", new Color32(250, 73, 100, 255), out confirmLabel);
-            cancelLabel.text = UiText.Get("ui.diag_cancel"); confirmLabel.text = UiText.Get("ui.diag_reset_confirm");
             cancel.onClick.AddListener(() => { if (resetMode) operations.CancelConfirmation(); else cancelHotkey(); });
             confirm.onClick.AddListener(() => { if (resetMode) operations.ConfirmReset(); });
             root.gameObject.SetActive(false);
@@ -79,6 +78,7 @@ internal sealed partial class RetainedStatisticsShell
                 group.interactable = false;
             }
             title.text = UiText.Get(reset ? "ui.diag_reset_title" : "ui.diag_hotkey_title");
+            cancelLabel.text = UiText.Get("ui.diag_cancel"); confirmLabel.text = UiText.Get("ui.diag_reset_confirm");
             body.text = reset ? string.Format(System.Globalization.CultureInfo.CurrentCulture, UiText.Get("ui.diag_reset_body"), profileLabel) : UiText.Get("ui.diag_hotkey_body");
             warning.text = reset ? UiText.Get("ui.diag_reset_irreversible") : warningText;
             confirm.gameObject.SetActive(reset); confirm.interactable = reset && operations.Current == PanelOperation.None;

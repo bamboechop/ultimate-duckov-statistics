@@ -55,6 +55,8 @@ internal sealed partial class RetainedStatisticsShell
         {
             if (disposed) return;
             Capture();
+            footer.text = UiText.Get("ui.combat_firing_footer");
+            unavailable.text = UiText.Get("ui.profile_unavailable");
             var focused = GameManager.EventSystem?.currentSelectedGameObject;
             restoreFocus = next != null && selection.Snapshot?.GenerationId == next.GenerationId && focused != null
                 ? focused.transform.IsChildOf(primary.Panel) ? primary : focused.transform.IsChildOf(ammunition.Panel) ? ammunition

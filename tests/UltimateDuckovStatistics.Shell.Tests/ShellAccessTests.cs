@@ -10,7 +10,7 @@ using Xunit;
 
 namespace UltimateDuckovStatistics.Shell.Tests;
 
-public sealed class ShellAccessTests : IDisposable
+public sealed partial class ShellAccessTests : IDisposable
 {
     [Theory]
     [InlineData(2560, 1440)]
@@ -165,7 +165,7 @@ public sealed class ShellAccessTests : IDisposable
         discord.onClick.Invoke(); panel.Tick();
         Assert.False(Find("AboutLinkFailure").activeInHierarchy);
         Find("CombatTab").GetComponent<Button>().onClick.Invoke(); panel.Tick();
-        Assert.True(Find("CombatView").activeInHierarchy);
+        Assert.True(Find("CombatContentView").activeInHierarchy);
         discord.onClick.Invoke(); Assert.Equal(3, launches.Count);
         panel.Dispose(); support.onClick.Invoke(); discord.onClick.Invoke();
         Assert.Equal(3, launches.Count);
@@ -230,6 +230,45 @@ public sealed class ShellAccessTests : IDisposable
         Assert.True(Has("Ground Zero"));
         Assert.Equal(original, System.Text.Json.JsonSerializer.Serialize(coordinator.Current));
         SceneInfoCollection.Scenes.Clear(); SodaCraft.Localizations.LocalizationManager.Translations.Clear();
+    }
+
+    [Fact]
+    public void StatisticsLocalizationKeepsEnglishKeysAndSwitchesCompleteGermanTable()
+    {
+        Assert.Equal(
+            UiText.EnglishFallbacks.Keys.OrderBy(key => key),
+            UiText.GermanFallbacks.Keys.OrderBy(key => key));
+        Assert.Equal(UiText.EnglishFallbacks.Count, UiText.GermanFallbacks.Count);
+
+        try
+        {
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
+            using var panel = new NativeStatisticsPanel(coordinator);
+            Press(panel, KeyCode.F8);
+            bool HasText(string value) => GameObject.Live
+                .SelectMany(go => go.GetComponents<TextMeshProUGUI>())
+                .Any(text => text.text == value);
+            Assert.True(HasText("Overview"));
+            Assert.Equal("Overview", UiText.Get("ui.overview"));
+            Assert.Equal("Overview", SodaCraft.Localizations.LocalizationManager.GetPlainText(
+                "ultimate-duckov-statistics.ui.overview"));
+
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.German);
+            Assert.Equal("Übersicht", UiText.Get("ui.overview"));
+            panel.Tick();
+            Assert.True(HasText("Übersicht"));
+            Assert.False(HasText("Overview"));
+            Assert.Equal("Übersicht", UiText.Get("ui.overview"));
+            Assert.Equal("Übersicht", SodaCraft.Localizations.LocalizationManager.GetPlainText(
+                "ultimate-duckov-statistics.ui.overview"));
+
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
+            Assert.Equal("Overview", UiText.Get("ui.overview"));
+        }
+        finally
+        {
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
+        }
     }
 
     private readonly string fixtureRoot = Path.Combine(Path.GetTempPath(), "uds-shell-" + Guid.NewGuid().ToString("N"));
