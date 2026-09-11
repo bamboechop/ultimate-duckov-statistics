@@ -90,6 +90,31 @@ public sealed class NativeEntityDisplayNamesTests : IDisposable
         Assert.Equal("saved", resolver.Names.Get("duckov:target:preset:cname-robspider", "saved"));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void SceneIdKeyWithoutUsableTranslationRetainsRecordedFallback(string? translation)
+    {
+        const string sceneId = "Level_Farm_JLab_Facility";
+        const string mapId = "duckov:map:" + sceneId;
+        SceneInfoCollection.Scenes[sceneId] = new() { ID = sceneId, DisplayNameRaw = sceneId };
+        if (translation != null)
+            LocalizationManager.Translations[(SystemLanguage.English, sceneId)] = translation;
+        using var resolver = new NativeEntityDisplayNames();
+        Assert.Equal("J-Lab-Anlage", resolver.Names.Get(mapId, "J-Lab-Anlage"));
+        var reads = LocalizationManager.Reads;
+        Assert.Equal("another recorded name", resolver.Names.Get(mapId, "another recorded name"));
+        Assert.Equal(reads, LocalizationManager.Reads);
+
+        LocalizationManager.Translations[(SystemLanguage.English, sceneId)] = "J-Lab Facility";
+        resolver.Invalidate();
+        Assert.Equal("J-Lab Facility", resolver.Names.Get(mapId, "J-Lab-Anlage"));
+        reads = LocalizationManager.Reads;
+        Assert.Equal("J-Lab Facility", resolver.Names.Get(mapId, "another recorded name"));
+        Assert.Equal(reads, LocalizationManager.Reads);
+    }
+
     [Fact]
     public void SlotNamesRequireExactParentAndUniqueKey()
     {

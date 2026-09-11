@@ -58,7 +58,8 @@ internal sealed class NativeEntityDisplayNames : IDisposable
         {
             var nativeId = id.Substring(mapPrefix.Length);
             var scene = SceneInfoCollection.GetSceneInfo(nativeId);
-            return scene != null && scene.ID == nativeId && scene.DisplayNameRaw != nativeId
+            // A scene ID can also be its localization key. Localized rejects missing translations.
+            return scene != null && scene.ID == nativeId
                 ? Localized(scene.DisplayNameRaw) : null;
         }
         const string rootPrefix = "duckov:slot:";
