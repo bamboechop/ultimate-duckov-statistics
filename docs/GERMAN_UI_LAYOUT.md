@@ -75,3 +75,18 @@ This ordinary package supersedes the Diagnostics-only local deployment. Deployme
 
 - Archive: `artifacts/localization-layout/UltimateDuckovStatistics-german-ui-modal-local.zip`, **666,075 bytes**, SHA-256 `62bf7124c2154a1bf3def96bdf47bd17be170f1274451d14ea39736273f94413`.
 - Updated `UltimateDuckovStatistics.dll` SHA-256: `e69ec1323bf6028214f7048948d858a23d02bcfc99d12bd9a7b08905fb14f027`. The other four package-file hashes remain those listed above.
+
+## Retained tab-caption correction
+
+Records, Item Use and Combat retained several captions assigned only during construction. Their existing refresh/bind methods now reload those strings from localization keys before the dirty views are measured: Records section headings, empty-map/unavailable messages and pooled View run buttons; Item Use's empty/unavailable messages; and Combat's firing-action explanation/unavailable message. No per-tick measurement or additional layout invalidation is introduced.
+
+Six regressions fail with the old captions and pass with the fix. The shell suite now source-links these three production views and their text-measurement adapter, replacing empty child-view substitutes. Coverage includes English → German → English, visible/hidden tabs, desktop/narrow layouts, caption fit, retained Records buttons/listeners, unchanged profile contents/revision, and no measurement on a subsequent unchanged tick. Unity/TMP assets and scroll physics remain isolated boundaries; glyph ink and native interaction are not automated visual proof.
+
+Correction source: `6ead50cfbca0b524772e3423222cea7cf53b139b`. Debug and Release each pass 2,020 main, 86 ordinary shell and 90 diagnostic shell tests. Native contract probing, warning-free builds, formatting/analyzers, package/IL/path audits and independent extraction pass. Two isolated builds reproduce the DLLs, PDBs and ZIP, matching the local archive.
+
+This package supersedes the modal-only local deployment. Deployment ran with Duckov closed; independent readback matched all five installed files and found no transaction residue. The prior build is backed up under `artifacts/deployment-backups/cb15bbd38b1849d2a0784ead8fa7ec8d/UltimateDuckovStatistics`. Published rc.2 remains unchanged.
+
+- Archive: `artifacts/localization-layout/UltimateDuckovStatistics-german-ui-retained-tabs-local.zip`, **666,128 bytes**, SHA-256 `0f387bbf611312f30ebd63cf8daa65c5c6929faf76aad7c0e341504e8d093bfc`.
+- Updated `UltimateDuckovStatistics.dll` SHA-256: `8ac5e74a03c5b89ba8f51a30b51451d62d8718ec9c82b60cbc1cf2f276962e61`. The other four package-file hashes remain those listed above.
+
+Native acceptance: create the shell in English, switch to German, then open Records and check both section headings and View run buttons. Check Item Use's empty message and Combat → Weapons & ammunition's firing-action explanation. Repeat while each view is visible, switch back to English, and check desktop/narrow wrapping and button fit.
