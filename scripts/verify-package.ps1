@@ -6,7 +6,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $resolved = (Resolve-Path -LiteralPath $PackagePath).Path
-$required = @('info.ini', 'UltimateDuckovStatistics.dll', 'UltimateDuckovStatistics.Core.dll', 'INSTALL.md', 'LICENSE')
+$required = @('info.ini', 'preview.png', 'UltimateDuckovStatistics.dll', 'UltimateDuckovStatistics.Core.dll', 'INSTALL.md', 'LICENSE')
 $forbiddenExact = @('0Harmony.dll', 'TeamSoda.Duckov.Core.dll', 'ItemStatsSystem.dll', 'Assembly-CSharp.dll')
 $forbiddenPrefixes = @('UnityEngine', 'Unity.', 'System.', 'mscorlib')
 
@@ -39,7 +39,7 @@ $actualRelativePaths = @($allFiles | ForEach-Object {
 $expectedRelativePaths = @($required | Sort-Object)
 $inventoryDifference = Compare-Object -ReferenceObject $expectedRelativePaths -DifferenceObject $actualRelativePaths
 if ($inventoryDifference) {
-    throw "Package inventory must contain exactly the five permitted files. Found: $($actualRelativePaths -join ', ')"
+    throw "Package inventory must contain exactly the six permitted files. Found: $($actualRelativePaths -join ', ')"
 }
 
 $unexpectedDlls = $allFiles | Where-Object {

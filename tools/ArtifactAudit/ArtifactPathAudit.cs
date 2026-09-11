@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+using System.IO.Compression;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
@@ -18,6 +20,16 @@ public static class ArtifactPathAudit
         foreach (var path in paths)
         {
             var bytes = File.ReadAllBytes(path);
+            if (Path.GetExtension(path).Equals(".png", StringComparison.OrdinalIgnoreCase))
+            {
+                CheckPng(bytes, (payload, source) =>
+                {
+                    Check(Encoding.UTF8.GetString(payload), path, source);
+                    Check(Encoding.Unicode.GetString(payload), path, source);
+                    if (payload.Length > 1) Check(Encoding.Unicode.GetString(payload, 1, payload.Length - 1), path, source);
+                });
+                continue;
+            }
             var metadataFile = Path.GetExtension(path).Equals(".dll", StringComparison.OrdinalIgnoreCase)
                                || Path.GetExtension(path).Equals(".pdb", StringComparison.OrdinalIgnoreCase);
             Check(Encoding.UTF8.GetString(bytes), path, "UTF-8 bytes", !metadataFile);
@@ -115,6 +127,72 @@ public static class ArtifactPathAudit
             }
         }
 
+    }
+
+    // PNG pixel/palette bytes are not text. Inspect metadata separately, inflating the
+    // compressed text/profile chunks before checking them for builder identities.
+    private static void CheckPng(byte[] bytes, Action<byte[], string> check)
+    {
+        ReadOnlySpan<byte> signature = [137, 80, 78, 71, 13, 10, 26, 10];
+        if (!bytes.AsSpan().StartsWith(signature)) throw new InvalidDataException("Invalid PNG signature.");
+        var offset = signature.Length;
+        var hasImageData = false;
+        while (bytes.Length - offset >= 12)
+        {
+            var length = BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(offset, 4));
+            if (length > bytes.Length - offset - 12) throw new InvalidDataException("Truncated PNG chunk.");
+            var type = Encoding.ASCII.GetString(bytes, offset + 4, 4);
+            if (offset == signature.Length && (type != "IHDR" || length != 13))
+                throw new InvalidDataException("Missing PNG image header.");
+            var payload = bytes.AsSpan(offset + 8, (int)length).ToArray();
+            offset += 12 + (int)length;
+            if (type == "IEND")
+            {
+                if (length != 0 || !hasImageData || offset != bytes.Length)
+                    throw new InvalidDataException("Invalid PNG image end or trailing data.");
+                return;
+            }
+            if (type == "IDAT") { hasImageData = true; continue; }
+            if (type is "IHDR" or "PLTE") continue;
+            if (type is "zTXt" or "iCCP")
+            {
+                var separator = Array.IndexOf(payload, (byte)0);
+                if (separator < 1 || separator + 1 >= payload.Length || payload[separator + 1] != 0)
+                    throw new InvalidDataException($"Invalid PNG {type} compression header.");
+                check(payload[..separator], $"PNG {type} keyword");
+                check(Inflate(payload[(separator + 2)..]), $"PNG {type} decoded metadata");
+            }
+            else if (type == "iTXt")
+            {
+                var separator = Array.IndexOf(payload, (byte)0);
+                if (separator < 1 || separator + 2 >= payload.Length || payload[separator + 1] > 1 || payload[separator + 2] != 0)
+                    throw new InvalidDataException("Invalid PNG iTXt compression header.");
+                var languageEnd = Array.IndexOf(payload, (byte)0, separator + 3);
+                var translatedEnd = languageEnd < 0 ? -1 : Array.IndexOf(payload, (byte)0, languageEnd + 1);
+                if (translatedEnd < 0) throw new InvalidDataException("Invalid PNG iTXt text header.");
+                check(payload[..(translatedEnd + 1)], "PNG iTXt header");
+                var text = payload[(translatedEnd + 1)..];
+                check(payload[separator + 1] == 1 ? Inflate(text) : text, "PNG iTXt decoded metadata");
+            }
+            else check(payload, $"PNG {type} metadata");
+        }
+        throw new InvalidDataException("Missing PNG image end.");
+
+        static byte[] Inflate(byte[] compressed)
+        {
+            using var input = new MemoryStream(compressed, writable: false);
+            using var inflater = new ZLibStream(input, CompressionMode.Decompress);
+            using var output = new MemoryStream();
+            var buffer = new byte[8192];
+            int read;
+            while ((read = inflater.Read(buffer)) > 0)
+            {
+                if (output.Length + read > 16 * 1024 * 1024)
+                    throw new InvalidDataException("PNG metadata exceeds the 16 MiB audit limit.");
+                output.Write(buffer, 0, read);
+            }
+            return output.ToArray();
+        }
     }
 
     private static string? InformationalVersion(MetadataReader metadata)

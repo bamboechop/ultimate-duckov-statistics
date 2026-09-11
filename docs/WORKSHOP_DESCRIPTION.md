@@ -1,6 +1,6 @@
 # Workshop description for 1.0.0
 
-This is the prepared description for the first 1.0.0 listing; no Workshop item has been created. M18 implementation and bounded native qualification are recorded in [M18 acceptance](M18_ACCEPTANCE.md), with follow-ups in the [release notes](../RELEASE_NOTES.md). Complete the [release procedure](RELEASE_PROCESS.md), choose a preview from the current native UI, and verify subscription installation before declaring this a supported distribution channel. Publish only the description between the separators below; the preparation notes and optional promo caption are not part of the item description.
+This is the prepared description for the first 1.0.0 listing; no Workshop item has been created. M18 implementation and bounded native qualification are recorded in [M18 acceptance](M18_ACCEPTANCE.md), with follow-ups in the [release notes](../RELEASE_NOTES.md). The approved preview is tracked at [mod/preview.png](../mod/preview.png) and is copied by packaging/deployment alongside [mod/info.ini](../mod/info.ini). Complete the [release procedure](RELEASE_PROCESS.md) and verify subscription installation before declaring this a supported distribution channel. Publish only the description between the separators below; the preparation notes and optional promo caption are not part of the item description.
 
 ---
 
@@ -23,6 +23,8 @@ Overview shows recorded base distance, raid distance and their combined total. B
 Installation, local data, limitations and troubleshooting: [project documentation](https://github.com/bamboechop/ultimate-duckov-statistics). Source is available under the MIT license.
 
 **Created by bamboechop.**
+
+**Preview artwork:** AI-generated using an in-game character screenshot as a reference.
 
 Want to help translate UDS? Leave a comment on the Steam Workshop page and mention the language you could help with.
 

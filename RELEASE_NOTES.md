@@ -1,6 +1,8 @@
 # Ultimate Duckov Statistics 1.0.0
 
-Prepared for the first Steam Workshop release. This entry describes the 1.0.0 source and package; it does not record a publication. The [release procedure](docs/RELEASE_PROCESS.md) covers the remaining exact-source verification, Workshop setup and publication steps. [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) are authoritative for published tags and assets.
+The [GitHub release v1.0.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) was published from `2cf01cdeb1d2f1f1be453a2aee705b4d42b0919f`. Its original five-file ZIP remains unchanged. The first Steam Workshop listing and subscription-install verification are pending; the [release procedure](docs/RELEASE_PROCESS.md) covers those steps.
+
+Workshop preparation adds the approved preview as tracked `mod/preview.png`, updates the category metadata in `mod/info.ini`, and includes both in packaging and deployment. Current packages have six files, including the preview, with the same 1.0.0 runtime DLLs. The in-game uploader may overwrite the requested categories with `Mod`; verify the resulting listing after upload.
 
 UDS records local, per-save raid history and routes, combat, equipment and totems, economy, crafting, item use and healing, containers, world time and sleep. Ten native tabs are available outside raids through the main menu, base pause menu or configurable F8. It requires separately installed HarmonyLib, has no telemetry or account, and never writes Duckov saves.
 

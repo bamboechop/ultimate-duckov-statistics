@@ -52,6 +52,7 @@ New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
 
 $files = @(
     @{ Source = (Join-Path $repoRoot 'mod\info.ini'); Destination = 'info.ini' },
+    @{ Source = (Join-Path $repoRoot 'mod\preview.png'); Destination = 'preview.png' },
     @{ Source = $modAssembly; Destination = 'UltimateDuckovStatistics.dll' },
     @{ Source = $coreAssembly; Destination = 'UltimateDuckovStatistics.Core.dll' },
     @{ Source = (Join-Path $repoRoot 'INSTALL.md'); Destination = 'INSTALL.md' },

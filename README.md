@@ -2,7 +2,7 @@
 
 Ultimate Duckov Statistics (UDS) records proven single-player gameplay events in local per-save profiles. It never writes Duckov save files and has no telemetry or online account.
 
-The source and package metadata target **1.0.0**, the planned first Steam Workshop release. It includes the M18 hardening, four post-M18 feature and UI batches, German localization and layout corrections, and the simplified About translation invitation. See [release notes](RELEASE_NOTES.md) for the final scope and [release preparation](docs/RELEASE_PROCESS.md) for the remaining publication steps. Version metadata alone does not indicate publication: [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) remain authoritative, and the first Workshop listing and subscription-install verification are pending.
+The [GitHub release v1.0.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) includes the M18 hardening, four post-M18 feature and UI batches, German localization and layout corrections, and the simplified About translation invitation. The first Steam Workshop listing and subscription-install verification remain pending. Current packaging adds the repository-owned Workshop preview and metadata to the same 1.0.0 runtime. See [release notes](RELEASE_NOTES.md) and the [release procedure](docs/RELEASE_PROCESS.md); the published GitHub archive retains its original contents.
 
 ## Install and use
 
@@ -44,7 +44,7 @@ Install .NET 8 and set `DUCKOV_PATH` to the local game root. Run:
 ./scripts/build.ps1 -DuckovPath $env:DUCKOV_PATH
 ```
 
-This runs Debug/Release tests, the installed-native probe, warning-free native build, exact-five-file packaging and artifact audits. The isolated shell suite source-links real panel/shell code and tests access, overflow, input/focus, listener and private-material ownership through boundary doubles. It cannot establish native rendering or GPU resource behavior.
+This runs Debug/Release tests, the installed-native probe, warning-free native build, exact-six-file packaging and artifact audits. The package includes the two DLLs, `INSTALL.md`, `LICENSE`, and the tracked `mod/info.ini` and `mod/preview.png`. Deployment copies and verifies all six files, so no manual preview or metadata copying is needed. The isolated shell suite source-links real panel/shell code and tests access, overflow, input/focus, listener and private-material ownership through boundary doubles. It cannot establish native rendering or GPU resource behavior.
 
 `verify-reproducibility.ps1` builds an immutable commit under two checkout roots and compares both DLLs, both portable PDBs and deterministic ZIP bytes. `audit-artifacts.ps1 -OrdinaryRelease` checks builder-path leakage and absence of diagnostic IL call sites. `deploy.ps1` requires a closed game, retains a verified previous UDS package outside the native loader scan root and reads back exact deployed hashes.
 

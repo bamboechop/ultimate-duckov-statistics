@@ -9,6 +9,7 @@ public sealed class DeploymentTests
         "info.ini",
         "INSTALL.md",
         "LICENSE",
+        "preview.png",
         "UltimateDuckovStatistics.Core.dll",
         "UltimateDuckovStatistics.dll"
     };
@@ -19,11 +20,12 @@ public sealed class DeploymentTests
     [InlineData("TeamSoda.Duckov.Core.dll", "Forbidden dependency")]
     [InlineData("UnityEngine.CoreModule.dll", "Framework/game dependency")]
     [InlineData("System.Runtime.dll", "Framework/game dependency")]
-    [InlineData("uds-ui-equipment-loadouts.jpg", "exactly the five permitted files")]
-    [InlineData("uds-ui-equipment-weapons.jpg", "exactly the five permitted files")]
-    [InlineData("uds-ui-equipment-armor-and-gear.jpg", "exactly the five permitted files")]
-    [InlineData("uds-ui-equipment-totems.jpg", "exactly the five permitted files")]
-    public void PackageVerificationRejectsForbiddenDependencies(string dependencyName, string expectedError)
+    [InlineData("uds-ui-equipment-loadouts.jpg", "exactly the six permitted files")]
+    [InlineData("uds-ui-equipment-weapons.jpg", "exactly the six permitted files")]
+    [InlineData("uds-ui-equipment-armor-and-gear.jpg", "exactly the six permitted files")]
+    [InlineData("uds-ui-equipment-totems.jpg", "exactly the six permitted files")]
+    [InlineData(null, "Package is missing required file: preview.png")]
+    public void PackageVerificationRejectsInvalidInventory(string? dependencyName, string expectedError)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -36,7 +38,14 @@ public sealed class DeploymentTests
             File.WriteAllText(Path.Combine(temporaryDirectory.Path, name), $"package:{name}");
         }
 
-        File.WriteAllText(Path.Combine(temporaryDirectory.Path, dependencyName), "must not be bundled");
+        if (dependencyName == null)
+        {
+            File.Delete(Path.Combine(temporaryDirectory.Path, "preview.png"));
+        }
+        else
+        {
+            File.WriteAllText(Path.Combine(temporaryDirectory.Path, dependencyName), "must not be bundled");
+        }
         var repositoryRoot = FindRepositoryRoot();
         var startInfo = new ProcessStartInfo
         {

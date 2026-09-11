@@ -41,6 +41,7 @@ try {
         'UltimateDuckovStatistics/info.ini',
         'UltimateDuckovStatistics/INSTALL.md',
         'UltimateDuckovStatistics/LICENSE',
+        'UltimateDuckovStatistics/preview.png',
         'UltimateDuckovStatistics/UltimateDuckovStatistics.Core.dll',
         'UltimateDuckovStatistics/UltimateDuckovStatistics.dll'
     )

@@ -1,6 +1,6 @@
 # Install and use Ultimate Duckov Statistics
 
-This guide accompanies **Ultimate Duckov Statistics 1.0.0**, prepared for its first Steam Workshop release. English and German are included. The first listing and subscription-install verification are pending; check the [project releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for publication rather than treating the version number as proof of release. The supported upgrade baseline begins when 1.0.0 is explicitly distributed through the verified Workshop channel. Earlier `0.x` builds and v1 release candidates were voluntary testing artifacts.
+This guide accompanies **Ultimate Duckov Statistics 1.0.0**, [published on GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) and being prepared for its first Steam Workshop release. English and German are included. The first Workshop listing and subscription-install verification are pending. The supported upgrade baseline begins when 1.0.0 is explicitly distributed through the verified Workshop channel. Earlier `0.x` builds and v1 release candidates were voluntary testing artifacts.
 
 ## Verified native baseline
 
@@ -8,7 +8,7 @@ This guide accompanies **Ultimate Duckov Statistics 1.0.0**, prepared for its fi
 - Windows, single player.
 - [HarmonyLib Workshop item 3589088839](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839), verified at Harmony 2.4.1.0.
 
-Game and Harmony assemblies are supplied separately. The UDS package contains exactly `info.ini`, two UDS DLLs, this guide, and `LICENSE`.
+Game and Harmony assemblies are supplied separately. Current UDS packages contain exactly six files: `info.ini`, `preview.png`, two UDS DLLs, this guide, and `LICENSE`. The published GitHub v1.0.0 ZIP predates the Workshop preview and retains its original five-file inventory; both contain the same runtime DLLs.
 
 ## Local installation and Workshop transition
 
