@@ -206,8 +206,10 @@ internal sealed class CombatDocument
         return y - start;
     }
     public float Cards(IReadOnlyList<CombatMetric> metrics, float x, float y, float width, bool stacked)
+        => Cards(metrics, x, y, width, CombatLayoutPolicy.CardColumns(width, stacked));
+    private float Cards(IReadOnlyList<CombatMetric> metrics, float x, float y, float width, int columns)
     {
-        var columns = CombatLayoutPolicy.CardColumns(width, stacked); var w = (width - (columns - 1) * 20) / columns; var start = y;
+        var w = (width - (columns - 1) * 20) / columns; var start = y;
         for (var first = 0; first < metrics.Count; first += columns)
         {
             var batch = new List<CombatRenderRow>();
@@ -223,7 +225,11 @@ internal sealed class CombatDocument
     public void Summary(CombatPresentation p, float width, bool stacked)
     {
         var w = width - 60; float y = 30;
-        y += Heading("ui.records_overall", 30, y, w); y += Cards(p.Overall, 30, y, w, stacked);
+        y += Heading("ui.records_overall", 30, y, w);
+        // The presentation retains its damage/damage/kills/deaths/accuracy order.
+        // Group outcomes above damage and accuracy, with full-width cards on narrow surfaces.
+        y += Cards(new[] { p.Overall[2], p.Overall[3] }, 30, y, w, w >= 500 ? 2 : 1);
+        y += Cards(new[] { p.Overall[0], p.Overall[1], p.Overall[4] }, 30, y, w, w >= 750 ? 3 : 1);
         var two = !stacked && w >= 1000; var cw = two ? (w - 30) / 2 : w;
         var left = y + Heading("ui.runs_ranged", 30, y, cw); left += Metrics(p.Ranged, 30, left, cw);
         left += 20;

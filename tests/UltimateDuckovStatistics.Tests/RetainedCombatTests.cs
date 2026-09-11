@@ -109,8 +109,8 @@ public sealed class RetainedCombatTests
                 PercentageWithinObservedWeaponPairs = pair.Percentage
             }).ToArray()
         };
-    private static CombatDocument Document() => new((value, width, size) => Math.Max(1, value.Split('\n').Sum(line => Math.Max(1, (int)Math.Ceiling(line.Length * size * .5 / Math.Max(1, width))))) * size,
-        (value, size) => value.Length * size * .5f);
+    private static CombatDocument Document(Func<string, string>? text = null) => new((value, width, size) => Math.Max(1, value.Split('\n').Sum(line => Math.Max(1, (int)Math.Ceiling(line.Length * size * .5 / Math.Max(1, width))))) * size,
+        (value, size) => value.Length * size * .5f, text);
 
     [Fact]
     public void WeaponSelectionRetainsCurrentIdentityAndRejectsStaleCallbacks()
@@ -377,6 +377,39 @@ public sealed class RetainedCombatTests
         Assert.All(d.Rows, row => { Assert.True(row.X >= 30); Assert.True(row.Width > 0); Assert.True(row.X + row.Width <= widths.Page - 29); });
     }
     [Theory]
+    [InlineData(1500, false)]
+    [InlineData(1000, false)]
+    [InlineData(900, true)]
+    [InlineData(420, true)]
+    public void SummaryGroupsOutcomesAboveDamageAndAccuracyAcrossLanguageReflow(float width, bool stacked)
+    {
+        var projection = Projection();
+        projection.Combat.Capabilities.DamageDealt.State = AdapterCapabilityState.DisabledIncompatible;
+        foreach (var translations in new[] { UiText.EnglishFallbacks, UiText.GermanFallbacks, UiText.EnglishFallbacks })
+        {
+            string Text(string key) => translations[key];
+            var snapshot = CombatPresentationFactory.Create(projection, "g", Text)!;
+            var document = Document(Text); document.Summary(snapshot, width, stacked);
+            var cards = document.Rows.Where(row => row.Kind == CombatRowKind.Card).ToArray();
+            Assert.Equal(new[] { "ui.kills_by_you", "ui.overview_deaths", "ui.overview_damage_dealt", "ui.overview_damage_taken", "ui.overall_accuracy" }
+                .Select(key => RunsViewStyle.Uppercase(Text(key))), cards.Select(row => row.Cells[1]));
+            Assert.Equal(Text("ui.unavailable"), cards[2].Cells[0]);
+            var bands = cards.GroupBy(row => row.Y).ToArray();
+            Assert.Equal(width >= 810 ? new[] { 2, 3 } : new[] { 1, 1, 1, 1, 1 }, bands.Select(band => band.Count()));
+            for (var i = 0; i < bands.Length; i++)
+            {
+                var band = bands[i].OrderBy(row => row.X).ToArray();
+                Assert.Equal(30, band[0].X, 3);
+                Assert.Equal(width - 30, band[^1].X + band[^1].Width, 3);
+                Assert.All(band, row => { Assert.Equal(band[0].Width, row.Width, 3); Assert.Equal(band[0].Height, row.Height, 3); });
+                for (var j = 1; j < band.Length; j++) Assert.Equal(20, band[j].X - band[j - 1].X - band[j - 1].Width, 3);
+                if (i > 0) Assert.Equal(20, band[0].Y - bands[i - 1].First().Y - bands[i - 1].First().Height, 3);
+            }
+            var ranged = Assert.Single(document.Rows, row => row.Kind == CombatRowKind.Heading && row.Cells[0] == Text("ui.runs_ranged"));
+            Assert.True(ranged.Y >= cards.Max(row => row.Y + row.Height) + 20);
+        }
+    }
+    [Theory]
     [InlineData(600, 600, 0, false, false)]
     [InlineData(600, 1400, 0, false, true)]
     [InlineData(600, 1400, 200, true, true)]
@@ -513,8 +546,8 @@ public sealed class RetainedCombatTests
         var p = Present(Projection()); var d = Document();
         if (incoming) d.Table(p.Attackers, "", 1500, null, true, p, false); else d.Summary(p, 1500, false);
         var cards = d.Rows.Where(r => r.Kind == CombatRowKind.Card).ToArray();
-        var metrics = incoming ? p.IncomingCards : p.Overall;
-        for (var i = 0; i < 4; i++)
+        var metrics = incoming ? p.IncomingCards : new[] { p.Overall[2], p.Overall[3], p.Overall[0], p.Overall[1], p.Overall[4] };
+        for (var i = 0; i < metrics.Count; i++)
         {
             Assert.Equal(metrics[i].Value.Text, cards[i].Cells[0]);
             Assert.Equal(RunsViewStyle.Uppercase(metrics[i].Label), cards[i].Cells[1]);
