@@ -36,7 +36,7 @@ internal static class EconomyLayoutPolicy
     public static float BoundedHeight(bool stacked, float available, float content) => stacked
         ? Math.Max(1, Math.Min(content, Math.Max(320, available * .9f))) : Math.Max(1, available);
     public static float[] TableColumns(float width, IReadOnlyList<string> headers, IEnumerable<EconomyFlowRow> rows,
-        Func<string, float, float> measure)
+        Func<string, float, float> measure, string? inflowDetail = null)
     {
         var source = rows.ToArray(); var values = new float[3];
         for (var i = 0; i < values.Length; i++)
@@ -44,6 +44,7 @@ internal static class EconomyLayoutPolicy
             var column = i;
             values[i] = Math.Max(measure(headers[i], 20), source.Select(row => measure(Cell(row, column), 28)).DefaultIfEmpty(0).Max()) + 15;
         }
+        if (inflowDetail != null) values[0] = Math.Max(values[0], measure(inflowDetail, 22) + 15);
         var label = width - values.Sum() - 30;
         return label < 180 ? Array.Empty<float>() : new[] { label, values[0] + 10, values[1] + 10, values[2] + 10 };
     }
@@ -165,7 +166,9 @@ internal sealed class EconomyDocument
         y += Notice(notice, x, y, width);
         if (rows.Count == 0) return y + (notice.Length == 0 ? Label(text("ui.economy_no_flows"), x, y, width, 24, true, id: id + ":empty") + 10 : 0);
         var headers = new[] { text("ui.economy_in"), text("ui.economy_out"), text("ui.economy_net") };
-        var columns = EconomyLayoutPolicy.TableColumns(width, headers, rows, measureWidth);
+        var acquired = cash != null && rows.Any(row => row.Id == nameof(GameplayContext.Raid))
+            ? Value(cash.ProvenRaidAcquired, true) : null;
+        var columns = EconomyLayoutPolicy.TableColumns(width, headers, rows, measureWidth, acquired);
         if (columns.Length > 0)
         {
             float tx = x + columns[0], hh = 0;
@@ -194,11 +197,13 @@ internal sealed class EconomyDocument
             if (cash != null && row.Id == nameof(GameplayContext.Raid))
             {
                 // This has only an inflow cell: it is neither a net nor terminal secured profit.
-                var labelWidth = columns.Length > 0 ? columns[0] - 25 : width * .7f;
-                var amountX = columns.Length > 0 ? x + columns[0] : x + width * .7f + 10;
-                var amountWidth = columns.Length > 0 ? columns[1] : width * .3f - 10;
-                var rh = Label(text("ui.economy_of_which_acquired"), x + 20, y, labelWidth, 22, id: id + ":acquired:label");
-                rh = Math.Max(rh, Label(Value(cash.ProvenRaidAcquired, true), amountX, y, amountWidth, 22, alignment: EconomyTextAlignment.Right, id: id + ":acquired:value"));
+                var amountWidth = columns.Length > 0 ? columns[1] : Math.Min(width - 20, measureWidth(acquired!, 22) + 15);
+                var labelWidth = columns.Length > 0 ? columns[0] - 25 : width - 30 - amountWidth;
+                var amountX = columns.Length > 0 ? x + columns[0] : x + width - amountWidth;
+                var separateLine = labelWidth < 120;
+                var rh = Label(text("ui.economy_of_which_acquired"), x + 20, y, separateLine ? width - 20 : labelWidth, 22, id: id + ":acquired:label");
+                if (separateLine) { y += rh + 3; rh = 0; }
+                rh = Math.Max(rh, Label(acquired!, amountX, y, amountWidth, 22, alignment: EconomyTextAlignment.Right, id: id + ":acquired:value"));
                 y += rh + 6;
                 y += Notice(cash.AcquisitionNotice, x + 20, y, width - 20);
             }

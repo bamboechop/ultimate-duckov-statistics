@@ -262,6 +262,35 @@ public sealed class RetainedEconomyTests
         Assert.True(label.Y >= raid.Y + raid.Height); Assert.True(label.X > raid.X); Assert.Equal("+100", value.Text);
         Assert.DoesNotContain(d.Elements, e => e.Id.StartsWith("Cash:contexts:acquired", StringComparison.Ordinal) && e.Text.Contains("net", StringComparison.OrdinalIgnoreCase));
     }
+    [Theory]
+    [InlineData(1550, false)]
+    [InlineData(1000, false)]
+    [InlineData(600, true)]
+    [InlineData(520, false)]
+    public void UnavailableAcquisitionReservesMeasuredWidthAcrossLanguageAndNarrowReflow(float width, bool stacked)
+    {
+        var profile = Profile();
+        Record(profile.Statistics.Economy, CurrencyKind.Cash, 6300, context: GameplayContext.Raid);
+        profile.Statistics.Economy.Capabilities.CashExternalAcquisition.State = AdapterCapabilityState.DisabledIncompatible;
+        foreach (var translations in new[] { UiText.EnglishFallbacks, UiText.GermanFallbacks, UiText.EnglishFallbacks })
+        {
+            string Text(string key) => translations[key];
+            var snapshot = EconomyPresentationFactory.Create(Projection(profile), "g", Text)!;
+            Assert.Null(snapshot.Cash.ProvenRaidAcquired);
+            var document = new EconomyDocument(Measure, MeasureWidth, Text); document.Primary(snapshot, width, stacked);
+            var label = Assert.Single(document.Elements, e => e.Id == "Cash:contexts:acquired:label");
+            var value = Assert.Single(document.Elements, e => e.Id == "Cash:contexts:acquired:value");
+            var raid = Assert.Single(document.Elements, e => e.Id == "Cash:contexts:Raid:label");
+            var inflow = Assert.Single(document.Elements, e => e.Id == "Cash:contexts:Raid:0");
+            Assert.Equal(Text("ui.unavailable"), value.Text);
+            Assert.True(value.Width >= MeasureWidth(value.Text, value.Size));
+            Assert.Equal(Measure(value.Text, float.MaxValue, value.Size), value.Height, 3);
+            Assert.True(label.Y >= inflow.Y + inflow.Height);
+            Assert.True(value.Y >= label.Y + label.Height || value.X >= label.X + label.Width + 5);
+            if (raid.Y == inflow.Y) Assert.Equal(inflow.X + inflow.Width, value.X + value.Width, 3);
+            Assert.All(document.Elements, e => { Assert.True(e.X >= 0); Assert.True(e.X + e.Width <= width + .01f); Assert.True(e.Y + e.Height <= document.Height); });
+        }
+    }
     [Fact]
     public void AcquisitionDoesNotReconstructMissingRaidContext()
     {
