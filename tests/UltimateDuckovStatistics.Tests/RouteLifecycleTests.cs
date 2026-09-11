@@ -264,7 +264,7 @@ public sealed partial class RouteLifecycleTests
 
     [Fact]
     [Trait("Category", "M8")]
-    public void DelayedEffectWithoutApplicationJoinKeepsOutcomeDamageAndPersistsPartialRoute()
+    public void DelayedEffectWithoutApplicationJoinKeepsExactOutcomeTotalsAfterReload()
     {
         var tracker = Start("A");
         var outcomeSegment = tracker.ActiveSegmentId!;
@@ -280,7 +280,7 @@ public sealed partial class RouteLifecycleTests
         Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.Segments.State);
         Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.CurrentEventAttributionCapture.State);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible, summary.RouteCapabilities.EventAttribution.State);
-        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, summary.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.Equal(AdapterCapabilityState.Supported, summary.RouteCapabilities.RouteAwareMapTotals.State);
         Assert.Equal("item-use", Assert.Single(summary.SegmentEventAssociations).EventKind);
 
         using var directory = new TemporaryDirectory();
@@ -299,6 +299,10 @@ public sealed partial class RouteLifecycleTests
         Assert.Equal(9, recovered.Segments[0].CombatStatistics.Totals.DamageDealt);
         Assert.True(recovered.HistoricalEventAttributionIncomplete);
         Assert.Equal("item-use", Assert.Single(recovered.SegmentEventAssociations).EventKind);
+        Assert.Equal(AdapterCapabilityState.Supported, recovered.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.False(loaded.Value.Statistics.RunTotals.RouteMaps["duckov:map:A"].HistoricalUnavailable);
+        Assert.False(loaded.Value.Statistics.RunTotals.RouteAwareHistoryUnavailable);
+        Assert.False(ProfileFormat.Normalize(loaded.Value));
     }
 
     [Fact]
@@ -333,13 +337,96 @@ public sealed partial class RouteLifecycleTests
         var recovered = Assert.Single(loaded.Value!.Statistics.Runs);
         Assert.True(recovered.HistoricalEventAttributionIncomplete);
         Assert.True(recovered.HealingCaptureComplete);
+        loaded.Value.Capabilities.Add(new() { AdapterId = "native-healing-attribution", State = AdapterCapabilityState.Supported });
         var projection = StatisticsPanelProjectionFactory.Create(loaded.Value, new(), new(), new());
         var detail = Assert.Single(RunsPresentationFactory.Create(projection, document.GenerationId)!.Runs);
         Assert.Equal("1", detail.Summary.Single(row => row.Key == UiText.Get("ui.runs_containers")).Value);
         Assert.Equal("+6,300", detail.Summary.Single(row => row.Key == UiText.Get("ui.runs_cash_net")).Value);
         Assert.Equal("7", detail.Summary.Single(row => row.Key == UiText.Get("ui.runs_hp")).Value);
-        Assert.Contains("1* container", detail.Segments[0].Value);
+        Assert.Contains("1 container", detail.Segments[0].Value);
+        Assert.DoesNotContain('*', detail.Segments[0].Value);
+        Assert.Empty(detail.ValueNotice);
+        var itemRun = Assert.Single(ItemUsePresentationFactory.Create(projection, document.GenerationId)!.RecentRuns);
+        Assert.Equal("7", Assert.Single(itemRun.Items).Health.Text);
+        Assert.Contains("7 HP restored", itemRun.Caption);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MissingDestinationRemainsPartialRegardlessOfSourceGapOrder(bool sourceGapFirst)
+    {
+        var tracker = Start("A");
+        var segment = tracker.ActiveSegmentId!;
+        var sourceGap = Combat("source-gap", tracker, string.Empty, "unknown", segment, "A");
+        var outcomeGap = Combat("outcome-gap", tracker, segment, "A", "missing-destination", "A");
+        Assert.True(tracker.RecordCombat(sourceGapFirst ? sourceGap : outcomeGap));
+        var first = tracker.CreateCheckpoint(Now.AddSeconds(6), 6)!.HistoricalEventAttributionProvenance;
+        Assert.True(tracker.RecordCombat(sourceGapFirst ? outcomeGap : sourceGap));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 8)).Completed!;
+        Assert.Equal(18, run.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(9, run.Segments[0].CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(first, run.HistoricalEventAttributionProvenance);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.Contains("Event=combat", run.RouteCapabilities.RouteAwareMapTotals.Provenance);
+        Assert.Contains("missing-destination", run.RouteCapabilities.RouteAwareMapTotals.Provenance);
+        var document = Document(run);
+        document.Statistics.Holdings.SaveGenerationId = document.GenerationId;
+        var detail = RunsPresentationFactory.Create(StatisticsPanelProjectionFactory.Create(document, new(), new(), new()), document.GenerationId)!.Runs[0];
         Assert.Contains(UiText.Get("ui.runs_segment_attribution_notice"), detail.ValueNotice);
+        RunReducer.Validate(run);
+    }
+
+    [Fact]
+    public void RepeatedUnknownOriginsKeepOneBoundedDiagnosticAndExactLaterMaps()
+    {
+        var tracker = Start("A");
+        var segment = tracker.ActiveSegmentId!;
+        for (var i = 0; i < 100; i++)
+        {
+            var value = Combat("gap-" + i, tracker, new string('s', 1000), new string('m', 1000), segment, "A");
+            value.TimestampUtc = Now.AddSeconds(1 + i / 100d);
+            Assert.True(tracker.RecordCombat(value));
+        }
+        Transition(tracker, 3, 4, "B");
+        Assert.True(tracker.RecordItemUse(Item("use-b", tracker, "B")));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 8)).Completed!;
+        Assert.Equal(900, run.Segments[0].CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.Contains("Event=combat", run.HistoricalEventAttributionProvenance);
+        Assert.Contains(Now.AddSeconds(1).ToString("O"), run.HistoricalEventAttributionProvenance);
+        Assert.True(run.HistoricalEventAttributionProvenance.Length < 800);
+        Assert.Equal("item-use", Assert.Single(run.SegmentEventAssociations).EventKind);
+        var document = Document(run);
+        document.Statistics.Runs.Clear();
+        Assert.True(RunReducer.Apply(document.Statistics, run));
+        Assert.All(document.Statistics.RunTotals.RouteMaps.Values, map => Assert.False(map.HistoricalUnavailable));
+        var export = StatisticsExporter.Create(document, Now.AddSeconds(9));
+        var lines = export.SegmentsCsv.Trim().Split('\n');
+        Assert.EndsWith(",route_map_totals_capability", lines[0].Trim());
+        Assert.All(lines.Skip(1), line => Assert.EndsWith(",Supported", line.Trim()));
+        using var json = System.Text.Json.JsonDocument.Parse(export.Json);
+        Assert.Equal(run.HistoricalEventAttributionProvenance,
+            json.RootElement.GetProperty("Runs")[0].GetProperty("HistoricalEventAttributionProvenance").GetString());
+    }
+
+    [Fact]
+    public void HealingWithUnknownSourceKeepsKnownOutcomeAndMissingOutcomeStillDegradesTotals()
+    {
+        var tracker = Start("A");
+        var segment = tracker.ActiveSegmentId!;
+        Assert.True(tracker.RecordItemUse(Item("use-a", tracker, "A")));
+        Assert.True(tracker.RecordHealing(Healing("origin-gap", tracker, "", "unknown", segment, "A")));
+        var checkpoint = tracker.CreateCheckpoint(Now.AddSeconds(6), 6)!;
+        Assert.Equal(7, checkpoint.ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Equal(7, checkpoint.Segments[0].ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Equal(AdapterCapabilityState.Supported, checkpoint.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.Contains("Event=healing", checkpoint.HistoricalEventAttributionProvenance);
+        Assert.True(tracker.RecordHealing(Healing("outcome-gap", tracker, segment, "A", "missing", "A")));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 8)).Completed!;
+        Assert.Equal(14, run.ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Equal(7, run.Segments[0].ItemStatistics.Overall.ActualHealthRestored);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.RouteAwareMapTotals.State);
     }
 
     [Theory]

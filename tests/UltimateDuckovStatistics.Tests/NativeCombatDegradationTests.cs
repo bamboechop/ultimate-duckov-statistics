@@ -2,6 +2,8 @@ using System.Reflection;
 using ItemStatsSystem;
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Statistics;
+using UltimateDuckovStatistics.Core.Tracking;
 using UnityEngine;
 
 namespace UltimateDuckovStatistics.Tests;
@@ -13,6 +15,10 @@ public sealed class NativeCombatDegradationTests : IDisposable
     private readonly NativeCombatAttributionAdapter adapter;
     private readonly CharacterMainControl player = new() { IsMainCharacter = true };
     private readonly List<string> diagnostics = new();
+    private string mapId = "m";
+    private string? segmentId;
+    private string loadoutId = "at-shot";
+    private Func<CombatRecorded, bool>? recordEvent;
 
     public NativeCombatDegradationTests()
     {
@@ -27,8 +33,8 @@ public sealed class NativeCombatDegradationTests : IDisposable
         MultiSceneCore.Instance = null;
         var buffTrust = new NativeBuffApplicationObservationBoundary();
         buffTrust.MarkTrusted();
-        adapter = new(() => "g", () => "r", () => "m", value => { events.Add(value); return true; },
-            _ => { }, diagnostics.Add, buffTrust, () => new() { LoadoutId = "at-shot" });
+        adapter = new(() => "g", () => "r", () => mapId, value => { events.Add(value); return recordEvent?.Invoke(value) ?? true; },
+            _ => { }, diagnostics.Add, buffTrust, () => new() { LoadoutId = loadoutId }, () => segmentId);
         adapter.Initialize();
         Assert.Equal(AdapterCapabilityState.Supported, adapter.MetricCapabilities.Accuracy.State);
     }
@@ -228,6 +234,97 @@ public sealed class NativeCombatDegradationTests : IDisposable
         Assert.Equal(2, events.Sum(value => value.CompletedPlayerProjectiles));
         Assert.Equal(2, events.Sum(value => value.RangedHits));
         Assert.Equal(30, events.Sum(value => value.ActualDamageDealt));
+    }
+
+    [Fact]
+    public void RefreshedBuffAfterEquipmentChangeKeepsExactRouteThroughNativeHealthCallback()
+    {
+        var tracker = StartRoute();
+        var buff = new Duckov.Buffs.Buff { ID = 1, fromWho = player, fromWeaponID = 42 };
+        var manager = new CharacterBuffManager();
+        manager.Buffs.Add(buff);
+        // Installed AddBuff retains the original same-ID instance and calls
+        // NotifyIncomingBuffWithSameID, including when the held weapon changed.
+        CombatHarmonyBridge.CaptureBuffApplication(manager, buff, player, 42, newlyCreated: true);
+        loadoutId = "after-weapon-swap";
+        CombatHarmonyBridge.CaptureBuffApplication(manager, buff, player, 43, newlyCreated: false);
+        var context = new EffectTriggerEventContext { source = new TickTrigger { Parent = buff } };
+        var scope = adapter.CreateEffectScope(context)!;
+        Assert.Equal(EquipmentEventAssociation.UnavailableId, scope.EquipmentAssociation.LoadoutId);
+        Assert.Equal(segmentId, scope.SourceSegmentId);
+        RecordEffectDamage(context, player, new Health { CurrentHealth = 100, Character = new CharacterMainControl(), team = Teams.enemy });
+        var run = tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.Extracted, TimestampUtc = DateTime.UtcNow.AddSeconds(1), MonotonicSeconds = 1
+        }).Completed!;
+        Assert.False(run.HistoricalEventAttributionIncomplete);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.Equal(10, run.CombatStatistics.Totals.DamageDealt);
+        Assert.Equal(10, Assert.Single(run.Segments).CombatStatistics.Totals.DamageDealt);
+        var association = Assert.Single(run.SegmentEventAssociations);
+        Assert.Equal(segmentId, association.SourceSegmentId);
+        Assert.Equal(segmentId, association.OutcomeSegmentId);
+    }
+
+    [Fact]
+    public void NpcEffectApplicationCapturesMapWithoutBorrowingPlayerEquipment()
+    {
+        var tracker = StartRoute();
+        var npc = new CharacterMainControl();
+        var effect = new Effect { Item = new Item { Character = npc } };
+        var trigger = new TickTrigger { Master = new EffectMaster { Item = effect.Item } };
+        effect.Triggers.Add(trigger);
+        CombatHarmonyCallbacks.EffectApplicationPostfixMethod.Invoke(null, [effect]);
+        var context = new EffectTriggerEventContext { source = trigger };
+        var scope = adapter.CreateEffectScope(context)!;
+        Assert.Equal(EquipmentEventAssociation.UnavailableId, scope.EquipmentAssociation.LoadoutId);
+        Assert.Equal(segmentId, scope.SourceSegmentId);
+        RecordEffectDamage(context, npc, new Health { CurrentHealth = 100, Character = player, IsMainCharacterHealth = true, team = Teams.player });
+        var run = tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.Extracted, TimestampUtc = DateTime.UtcNow.AddSeconds(1), MonotonicSeconds = 1
+        }).Completed!;
+        Assert.False(run.HistoricalEventAttributionIncomplete);
+        Assert.Equal(10, run.CombatStatistics.Totals.DamageReceived);
+        Assert.Equal(10, Assert.Single(run.Segments).CombatStatistics.Totals.DamageReceived);
+        Assert.Single(run.SegmentEventAssociations);
+    }
+
+    private RunLifecycleTracker StartRoute()
+    {
+        var tracker = new RunLifecycleTracker(() => "r");
+        var now = DateTime.UtcNow;
+        tracker.Apply(new RunLifecycleEvent { Kind = RunLifecycleEventKind.RaidInitialized, NativeRaidId = "1", TimestampUtc = now });
+        tracker.Apply(new RunLifecycleEvent
+        {
+            Kind = RunLifecycleEventKind.ControlReady, TimestampUtc = now,
+            StartContext = new RunStartContext
+            {
+                SaveGenerationId = "g", NativeRaidId = "1", Map = new MapIdentity { MapId = "duckov:map:A", DisplayName = "A", IsKnown = true },
+                LifecycleCapability = AdapterCapabilityState.Supported, MovementCapability = AdapterCapabilityState.Supported,
+                MapCapability = AdapterCapabilityState.Supported, RouteCapabilities = RouteStatisticsReducer.Supported("native boundary test"),
+                CombatCapabilities = adapter.MetricCapabilities
+            }
+        });
+        mapId = tracker.ActiveMapId!;
+        segmentId = tracker.ActiveSegmentId;
+        recordEvent = value => { Assert.True(tracker.RecordCombat(value)); return true; };
+        return tracker;
+    }
+
+    private static void RecordEffectDamage(EffectTriggerEventContext context, CharacterMainControl actor, Health target)
+    {
+        object?[] effect = [context, null];
+        CombatHarmonyCallbacks.EffectPrefixMethod.Invoke(null, effect);
+        try
+        {
+            object?[] hurt = [target, new DamageInfo { fromCharacter = actor }, null];
+            CombatHarmonyCallbacks.HealthPrefixMethod.Invoke(null, hurt);
+            target.CurrentHealth -= 10;
+            CombatHarmonyCallbacks.HealthPostfixMethod.Invoke(null, [target, hurt[2]]);
+        }
+        finally { CombatHarmonyCallbacks.EffectFinalizerMethod.Invoke(null, [null, effect[1]]); }
     }
 
     private Projectile Capture()

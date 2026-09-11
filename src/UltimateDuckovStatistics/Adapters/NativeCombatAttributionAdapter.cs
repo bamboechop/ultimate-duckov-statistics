@@ -531,10 +531,13 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         try { parentBuff = effect.GetComponentInParent<Buff>(); }
         catch { }
         if (parentBuff != null && !hookSupport.BuffApplication) return;
+        if (parentBuff == null && effect.Item == null) return;
         var actor = parentBuff?.fromWho ?? effect.Item?.GetCharacterMainControl();
-        if (ToActorEvidence(actor).Kind != CombatActorEvidenceKind.Player) return;
-        var association = CombatHarmonyBridge.CurrentScope?.EquipmentAssociation
-                          ?? equipmentAssociationProvider();
+        // The application location is observable for NPC/environment effects too.
+        // Only player ownership can supply the player's equipment association.
+        var association = ToActorEvidence(actor).Kind == CombatActorEvidenceKind.Player
+            ? CombatHarmonyBridge.CurrentScope?.EquipmentAssociation ?? equipmentAssociationProvider()
+            : new EquipmentEventAssociation();
         var generationId = saveGenerationIdProvider();
         var runId = runIdProvider() ?? string.Empty;
         var mapId = mapIdProvider() ?? MapIdentity.UnknownId;

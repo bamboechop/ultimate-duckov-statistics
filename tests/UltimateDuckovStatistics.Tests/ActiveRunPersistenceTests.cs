@@ -1058,7 +1058,34 @@ public sealed class ActiveRunPersistenceTests
     public void CurrentSchemaInconsistentRouteCapabilitiesLoseToValidBackup()
     {
         AssertCurrentSchemaRoutePrimaryRejected(checkpoint =>
-            checkpoint.RouteCapabilities.EventAttribution.State = AdapterCapabilityState.DisabledIncompatible);
+            checkpoint.RouteCapabilities.Segments.State = AdapterCapabilityState.DisabledIncompatible);
+    }
+
+    [Fact]
+    public void SourceAssociationGapCheckpointRetainsExactMapTotalsThroughInterruptedRecovery()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = Repository(directory.Path);
+        repository.Open(Identity());
+        var checkpoint = RouteCheckpoint(repository.CurrentGenerationId, 8);
+        checkpoint.HistoricalEventAttributionIncomplete = true;
+        checkpoint.HistoricalEventAttributionProvenance = "Observed outcome with an unresolved effect origin.";
+        RouteStatisticsReducer.MarkAttributionIncomplete(checkpoint.RouteCapabilities,
+            checkpoint.HistoricalEventAttributionProvenance, mapTotalsIncomplete: false);
+        repository.SaveActiveRun(checkpoint);
+        repository.CloseClean();
+
+        var recovery = Repository(directory.Path);
+        Assert.True(recovery.Open(Identity()).InterruptedRunRecovered);
+        var run = Assert.Single(recovery.Current.Statistics.Runs);
+        Assert.Equal(8, run.ActiveDurationSeconds);
+        Assert.True(run.HistoricalEventAttributionIncomplete);
+        Assert.Equal(checkpoint.HistoricalEventAttributionProvenance, run.HistoricalEventAttributionProvenance);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, run.RouteCapabilities.EventAttribution.State);
+        Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.RouteAwareMapTotals.State);
+        Assert.False(run.RouteWasRepairedFromInvalidState);
+        Assert.False(Assert.Single(recovery.Current.Statistics.RunTotals.RouteMaps).Value.HistoricalUnavailable);
+        recovery.CloseClean();
     }
 
     [Fact]

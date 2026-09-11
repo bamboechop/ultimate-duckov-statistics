@@ -723,7 +723,7 @@ public static class StatisticsExporter
     private static string CreateSegmentsCsv(StatisticsExportDocument document)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("run_id,segment_id,segment_index,map_id,map_display_name,map_known,entered_utc,exited_utc,active_duration_seconds,physical_distance,teleport_distance,transition_excluded_distance,exit_reason,segment_capability,event_attribution_capability,item_activations,actual_health_restored,firing_actions,damage_dealt,damage_received,ranged_hits,melee_hits,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,player_deaths,unique_containers_looted,integrity_tags,repaired_invalid_state,current_event_capture_capability,historical_event_attribution_incomplete,damage_dealt_state,damage_received_state,ranged_hits_state,melee_hits_state,kills_by_you_state,observed_world_deaths_state,player_deaths_state");
+        builder.AppendLine("run_id,segment_id,segment_index,map_id,map_display_name,map_known,entered_utc,exited_utc,active_duration_seconds,physical_distance,teleport_distance,transition_excluded_distance,exit_reason,segment_capability,event_attribution_capability,item_activations,actual_health_restored,firing_actions,damage_dealt,damage_received,ranged_hits,melee_hits,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,player_deaths,unique_containers_looted,integrity_tags,repaired_invalid_state,current_event_capture_capability,historical_event_attribution_incomplete,damage_dealt_state,damage_received_state,ranged_hits_state,melee_hits_state,kills_by_you_state,observed_world_deaths_state,player_deaths_state,route_map_totals_capability");
         foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
             foreach (var segment in run.Segments.OrderBy(value => value.SegmentIndex))
                 builder.Append(Csv(run.RunId)).Append(',').Append(Csv(segment.SegmentId)).Append(',')
@@ -756,7 +756,8 @@ public static class StatisticsExporter
                     .Append(segment.CombatStatistics.Capabilities.MeleeHits.State).Append(',')
                     .Append(segment.CombatStatistics.Capabilities.KillsByYou.State).Append(',')
                     .Append(segment.CombatStatistics.Capabilities.ObservedWorldDeaths.State).Append(',')
-                    .Append(segment.CombatStatistics.Capabilities.PlayerDeaths.State).AppendLine();
+                    .Append(segment.CombatStatistics.Capabilities.PlayerDeaths.State).Append(',')
+                    .Append(run.RouteCapabilities.RouteAwareMapTotals.State).AppendLine();
         return builder.ToString();
     }
 

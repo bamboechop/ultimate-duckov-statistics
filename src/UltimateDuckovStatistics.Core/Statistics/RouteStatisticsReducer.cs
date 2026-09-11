@@ -112,10 +112,11 @@ public static class RouteStatisticsReducer
         target.CurrentEventAttributionCapture = Availability(AdapterCapabilityState.DisabledIncompatible, provenance);
     }
 
-    public static void MarkAttributionIncomplete(RouteMetricCapabilities target, string provenance)
+    public static void MarkAttributionIncomplete(RouteMetricCapabilities target, string provenance, bool mapTotalsIncomplete = true)
     {
         target.EventAttribution = Availability(AdapterCapabilityState.DisabledIncompatible, provenance);
-        target.RouteAwareMapTotals = Availability(AdapterCapabilityState.DisabledIncompatible, provenance);
+        if (mapTotalsIncomplete)
+            target.RouteAwareMapTotals = Availability(AdapterCapabilityState.DisabledIncompatible, provenance);
     }
 
     public static void DisableRoute(RouteMetricCapabilities target, string provenance)
@@ -343,7 +344,8 @@ public static class RouteStatisticsReducer
         var captureSupported = value.CurrentEventAttributionCapture.State == AdapterCapabilityState.Supported;
         return orderedRouteSupported == segmentsSupported
                && (!attributionSupported || segmentsSupported)
-               && (!routeMapTotalsSupported || attributionSupported)
+               // Outcome counters do not require a proven source-to-outcome join.
+               && (!routeMapTotalsSupported || segmentsSupported)
                && (!captureSupported || segmentsSupported);
     }
 

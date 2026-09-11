@@ -95,6 +95,39 @@ public sealed class NativeCombatEquipmentAssociationResolverTests
     }
 
     [Fact]
+    public void EquipmentConflictKeepsSameSegmentOrigin()
+    {
+        var resolver = new NativeCombatEquipmentAssociationResolver();
+        var trigger = new object();
+        resolver.CaptureDelayedEffectOrigin(trigger, Association("a", "weapon:a"), "g", "r", "map", "segment");
+        resolver.CaptureDelayedEffectOrigin(trigger, Association("b", "weapon:b"), "g", "r", "map", "segment");
+        Assert.Equal(EquipmentEventAssociation.UnavailableId,
+            resolver.ResolveEffect(trigger, true, () => throw new InvalidOperationException(), "g", "r").LoadoutId);
+        Assert.True(resolver.TryGetOrigin(trigger, "g", "r", out var map, out var segment));
+        Assert.Equal("map", map);
+        Assert.Equal("segment", segment);
+    }
+
+    [Theory]
+    [InlineData("map-b", "segment-b")]
+    [InlineData("map-a", "revisit-segment")]
+    public void DifferentApplicationSegmentKeepsEquipmentButCannotReuseFirstOrigin(string laterMap, string laterSegment)
+    {
+        var resolver = new NativeCombatEquipmentAssociationResolver();
+        var trigger = new object();
+        var equipment = Association("a", "weapon:a");
+        resolver.CaptureDelayedEffectOrigin(trigger, equipment, "g", "r", "map-a", "segment-a");
+        resolver.CaptureDelayedEffectOrigin(trigger, equipment, "g", "r", laterMap, laterSegment);
+        Assert.False(resolver.TryGetOrigin(trigger, "g", "r", out var map, out var segment));
+        Assert.Equal(MapIdentity.UnknownId, map);
+        Assert.Empty(segment);
+        Assert.Equal("a", resolver.ResolveEffect(trigger, true, () => throw new InvalidOperationException(), "g", "r").LoadoutId);
+        // Returning to the original segment cannot erase the conflicting application.
+        resolver.CaptureDelayedEffectOrigin(trigger, equipment, "g", "r", "map-a", "segment-a");
+        Assert.False(resolver.TryGetOrigin(trigger, "g", "r", out _, out _));
+    }
+
+    [Fact]
     [Trait("Category", "Combat")]
     [Trait("Category", "Equipment")]
     public void DelayedEffectOriginCannotCrossRunContext()

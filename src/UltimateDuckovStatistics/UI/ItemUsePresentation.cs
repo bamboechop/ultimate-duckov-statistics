@@ -150,7 +150,7 @@ internal static class ItemUsePresentationFactory
         var runs = source.RecentRuns.OrderByDescending(run => run.EndedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal).Select(run =>
         {
             var aggregate = run.ItemStatistics; var incomplete = aggregate.WasRepairedFromInvalidState;
-            var runHealthSupported = healthSupported && run.HealingCaptureComplete && !run.HistoricalEventAttributionIncomplete;
+            var runHealthSupported = healthSupported && run.HealingCaptureComplete;
             var runItems = aggregate.Items.Values.Select(item => Entry(item.ItemId, projection.Names.Get(item.ItemId, item.DisplayName), item.Group, item.EffectTags,
                     item.Totals, usesSupported, throwsSupported, runHealthSupported, incomplete, t))
                 .OrderByDescending(item => item.Count).ThenBy(item => item.Name, StringComparer.Ordinal)

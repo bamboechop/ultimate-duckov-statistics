@@ -214,9 +214,11 @@ public sealed class RetainedRunsTests
     }
 
     [Theory]
-    [InlineData(0, 0, 0)]
-    [InlineData(21, 6300, 230)]
-    public void SegmentAttributionGapDoesNotDowngradeIndependentRunTotals(long containers, long cash, double health)
+    [InlineData(0, 0, 0, false)]
+    [InlineData(0, 0, 0, true)]
+    [InlineData(21, 6300, 230, false)]
+    [InlineData(21, 6300, 230, true)]
+    public void SegmentAttributionGapDoesNotDowngradeIndependentRunTotals(long containers, long cash, double health, bool mapTotalsIncomplete)
     {
         var run = Run("route-gap", 1);
         run.HealingCaptureComplete = true;
@@ -231,6 +233,7 @@ public sealed class RetainedRunsTests
         run.HistoricalEventAttributionIncomplete = true;
         run.HistoricalEventAttributionProvenance = "A source segment could not be resolved; overall statistics remain available.";
         run.RouteCapabilities.EventAttribution.State = AdapterCapabilityState.DisabledIncompatible;
+        if (mapTotalsIncomplete) run.RouteCapabilities.RouteAwareMapTotals.State = AdapterCapabilityState.DisabledIncompatible;
         var before = System.Text.Json.JsonSerializer.Serialize(run);
         foreach (var table in new[] { UiText.EnglishFallbacks, UiText.GermanFallbacks, UiText.EnglishFallbacks })
         {
@@ -239,10 +242,11 @@ public sealed class RetainedRunsTests
             Assert.Equal(exact.Summary[3].Value, detail.Summary[3].Value);
             Assert.Equal(exact.Summary[4].Value, detail.Summary[4].Value);
             Assert.Equal(exact.Summary[9].Value, detail.Summary[9].Value);
-            Assert.Equal(Text("ui.runs_partial_values_notice") + "\n" + Text("ui.runs_segment_attribution_notice"), detail.ValueNotice);
-            Assert.Contains("1* " + Text("ui.runs_kill"), detail.Segments[0].Value);
-            Assert.Contains("2* " + Text("ui.runs_firing_actions"), detail.Segments[0].Value);
-            Assert.Contains("1* " + Text("ui.runs_container"), detail.Segments[0].Value);
+            Assert.Equal(mapTotalsIncomplete ? Text("ui.runs_partial_values_notice") + "\n" + Text("ui.runs_segment_attribution_notice") : string.Empty, detail.ValueNotice);
+            var marker = mapTotalsIncomplete ? "*" : string.Empty;
+            Assert.Contains("1" + marker + " " + Text("ui.runs_kill"), detail.Segments[0].Value);
+            Assert.Contains("2" + marker + " " + Text("ui.runs_firing_actions"), detail.Segments[0].Value);
+            Assert.Contains("1" + marker + " " + Text("ui.runs_container"), detail.Segments[0].Value);
             Assert.DoesNotContain(Text("ui.runs_partial"), detail.Segments[0].Value);
         }
         Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(run));
@@ -588,7 +592,7 @@ public sealed class RetainedRunsTests
         if (boundary == "combat") segment.CombatStatistics.Capabilities.MeleeSwings.State = AdapterCapabilityState.Experimental;
         if (boundary == "firing") segment.WeaponStatistics.Capabilities.FiringActions.State = AdapterCapabilityState.Experimental;
         if (boundary == "container") segment.ContainerStatistics.Capabilities.UniqueContainersLooted.State = AdapterCapabilityState.Experimental;
-        if (boundary == "attribution") run.HistoricalEventAttributionIncomplete = true;
+        if (boundary == "attribution") run.RouteCapabilities.RouteAwareMapTotals.State = AdapterCapabilityState.DisabledIncompatible;
         if (boundary == "repair") segment.WasRepairedFromInvalidState = true;
         var text = Present(run).Runs[0].Segments[0].Value;
         Assert.DoesNotContain("No combat", text); Assert.DoesNotContain("No containers", text);

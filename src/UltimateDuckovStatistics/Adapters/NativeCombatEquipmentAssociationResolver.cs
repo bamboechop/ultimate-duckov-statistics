@@ -34,7 +34,7 @@ internal sealed class NativeCombatEquipmentAssociationResolver
                 existing = null;
             }
 
-            return existing is { Ambiguous: false }
+            return existing is { EquipmentAmbiguous: false }
                 ? Clone(existing.Association)
                 : new EquipmentEventAssociation();
         }
@@ -73,7 +73,7 @@ internal sealed class NativeCombatEquipmentAssociationResolver
         {
             if (delayedEffectOrigins.TryGetValue(source, out var origin)
                 && origin.Matches(generationId, runId)
-                && !origin.Ambiguous)
+                && !origin.RouteAmbiguous)
             {
                 mapId = origin.MapId;
                 segmentId = origin.SegmentId;
@@ -108,13 +108,21 @@ internal sealed class NativeCombatEquipmentAssociationResolver
         if (existing == null)
         {
             existing = new DelayedEffectOrigin(
-                generationId, runId, mapId, segmentId, Clone(association), ambiguous: false);
+                generationId, runId, mapId, segmentId, Clone(association));
             delayedEffectOrigins.Add(source, existing);
         }
-        else if (!Same(existing.Association, association))
+        else
         {
-            existing.Association = new EquipmentEventAssociation();
-            existing.Ambiguous = true;
+            // A same-ID buff can be refreshed after an equipment change without
+            // losing its independently proven map origin (and vice versa).
+            if (!existing.EquipmentAmbiguous && !Same(existing.Association, association))
+            {
+                existing.Association = new EquipmentEventAssociation();
+                existing.EquipmentAmbiguous = true;
+            }
+            if (!string.Equals(existing.MapId, mapId, StringComparison.Ordinal)
+                || !string.Equals(existing.SegmentId, segmentId, StringComparison.Ordinal))
+                existing.RouteAmbiguous = true;
         }
         return existing;
     }
@@ -134,15 +142,13 @@ internal sealed class NativeCombatEquipmentAssociationResolver
             string runId,
             string mapId,
             string segmentId,
-            EquipmentEventAssociation association,
-            bool ambiguous)
+            EquipmentEventAssociation association)
         {
             GenerationId = generationId ?? string.Empty;
             RunId = runId ?? string.Empty;
             MapId = mapId ?? string.Empty;
             SegmentId = segmentId ?? string.Empty;
             Association = association;
-            Ambiguous = ambiguous;
         }
 
         private string GenerationId { get; }
@@ -150,7 +156,8 @@ internal sealed class NativeCombatEquipmentAssociationResolver
         public string MapId { get; }
         public string SegmentId { get; }
         public EquipmentEventAssociation Association { get; set; }
-        public bool Ambiguous { get; set; }
+        public bool EquipmentAmbiguous { get; set; }
+        public bool RouteAmbiguous { get; set; }
 
         public bool Matches(string generationId, string runId) =>
             string.Equals(GenerationId, generationId, StringComparison.Ordinal)

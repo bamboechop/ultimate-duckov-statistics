@@ -168,7 +168,7 @@ internal static class RunsPresentationFactory
         var metadata = $"{t("ui.runs_run")} {number} · {stamp} · {maps}";
         var integrity = $"{t("ui.runs_integrity")}: {run.IntegrityTags} · "
             + t(run.RecordEligible ? "ui.runs_eligible" : "ui.runs_ineligible");
-        var attributionPartial = run.HistoricalEventAttributionIncomplete;
+        var mapTotalsSupported = run.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported;
         var headshots = Count(v.Headshots, c.Headshots) + " (" + Count(v.HeadshotFinalBlows, c.HeadshotFinalBlows) + " " + t("ui.runs_final_blows") + ")";
         string Accuracy(double? ratio, bool empty) => ratio.HasValue ? ratio.Value.ToString("P2", CultureInfo.InvariantCulture)
             : empty ? "—" : t("ui.unavailable");
@@ -195,7 +195,7 @@ internal static class RunsPresentationFactory
         var segments = run.Segments.Select((segment, index) =>
         {
             var exact = routeExact && !segment.WasRepairedFromInvalidState;
-            var eventsExact = exact && !attributionPartial && run.RouteCapabilities.EventAttribution.State == AdapterCapabilityState.Supported;
+            var eventsExact = exact && mapTotalsSupported;
             var kills = FormatCount(segment.CombatStatistics.Totals.KillsByYou, eventsExact
                 && !segment.CombatStatistics.WasRepairedFromInvalidState
                 && segment.CombatStatistics.Capabilities.KillsByYou.State == AdapterCapabilityState.Supported, t, Partial);
@@ -228,7 +228,7 @@ internal static class RunsPresentationFactory
         var slots = data.TerminalSlots.Select(slot => PresentSlot(slot, t, names));
         var equipmentState = t("ui.runs_terminal_" + data.TerminalState.ToString().ToLowerInvariant());
         var valueNotice = hasPartialValues ? t("ui.runs_partial_values_notice") : string.Empty;
-        if (attributionPartial || run.RouteCapabilities.EventAttribution.State != AdapterCapabilityState.Supported)
+        if (!mapTotalsSupported)
             valueNotice += (valueNotice.Length > 0 ? "\n" : string.Empty) + t("ui.runs_segment_attribution_notice");
         return new RunDetailPresentation(run.RunId, title, metadata, integrity,
             RetainedRunBadgePresentationFactory.MapOutcome(run.Outcome), summary, routeSummary, segments,

@@ -289,7 +289,7 @@ public static class RunReducer
         EconomyStatisticsReducer.Merge(map.Economy, summary.Economy);
 
         var routeMapTotalsSupported = summary.RouteCapabilities.RouteAwareMapTotals.State == AdapterCapabilityState.Supported;
-        var routeMapKnownPartialAvailable = summary.HistoricalEventAttributionIncomplete
+        var routeMapKnownPartialAvailable = !routeMapTotalsSupported && summary.HistoricalEventAttributionIncomplete
                                             && summary.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported;
         var routeMapTotalsAvailable = routeMapTotalsSupported || routeMapKnownPartialAvailable;
         var economyRouteAttributionSupported = summary.Economy.Capabilities.RouteAttribution.State == AdapterCapabilityState.Supported;

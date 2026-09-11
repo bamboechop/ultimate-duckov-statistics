@@ -418,9 +418,9 @@ public sealed class RunLifecycleTracker
             }
             else if (active.CurrentEventCaptureSupported)
             {
-                MarkHistoricalEventAttributionIncomplete(
-                    active,
-                    "A combat outcome occurred without a proven active destination segment; overall combat remains available.");
+                RecordAttributionGap("combat", value.TimestampUtc, value.SourceSegmentId, value.SourceMapId,
+                    value.OutcomeSegmentId, value.OutcomeMapId ?? value.MapId, mapTotalsIncomplete: true,
+                    "Outcome did not match the active destination segment; overall combat remains available.");
             }
             if (active.CurrentEventCaptureSupported)
             {
@@ -675,9 +675,9 @@ public sealed class RunLifecycleTracker
         }
         else if (changed && active.CurrentEventCaptureSupported)
         {
-            MarkHistoricalEventAttributionIncomplete(
-                active,
-                "A healing outcome occurred without a proven active destination segment; overall healing remains available.");
+            RecordAttributionGap("healing", value.TimestampUtc, value.SourceSegmentId, value.SourceMapId,
+                value.OutcomeSegmentId, value.OutcomeMapId ?? value.MapId, mapTotalsIncomplete: true,
+                "Outcome did not match the active destination segment; overall healing remains available.");
         }
         if (changed && active.CurrentEventCaptureSupported)
             RecordAssociation(
@@ -1096,17 +1096,17 @@ public sealed class RunLifecycleTracker
         if (active == null || !active.CurrentEventCaptureSupported) return;
         active.SegmentsById.TryGetValue(sourceSegmentId ?? string.Empty, out var source);
         active.SegmentsById.TryGetValue(outcomeSegmentId ?? string.Empty, out var outcome);
-        if (source == null
-            || outcome == null
-            || !string.Equals(source.MapId, sourceMapId, StringComparison.Ordinal)
-            || !string.Equals(outcome.MapId, outcomeMapId, StringComparison.Ordinal))
+        var sourceKnown = source != null && string.Equals(source.MapId, sourceMapId, StringComparison.Ordinal);
+        var outcomeKnown = outcome != null && string.Equals(outcome.MapId, outcomeMapId, StringComparison.Ordinal);
+        if (!sourceKnown || !outcomeKnown)
         {
-            MarkHistoricalEventAttributionIncomplete(
-                active,
-                "An event association lacked a complete proven source/outcome segment join; overall statistics remain available.");
+            RecordAttributionGap(eventKind, timestampUtc, sourceSegmentId, sourceMapId,
+                outcomeSegmentId, outcomeMapId, mapTotalsIncomplete: !outcomeKnown,
+                outcomeKnown ? "Source origin is unresolved; outcome totals remain independently recorded."
+                    : "Destination segment is unresolved; overall statistics remain available.");
             return;
         }
-        var key = new EventAssociationKey(eventKind, source.SegmentId, outcome.SegmentId);
+        var key = new EventAssociationKey(eventKind, source!.SegmentId, outcome!.SegmentId);
         var eventTimestampUtc = EnsureUtc(timestampUtc);
         if (active.EventAssociationsByKey.TryGetValue(key, out var aggregate))
         {
@@ -1142,12 +1142,29 @@ public sealed class RunLifecycleTracker
         active.EventAssociationsByKey.Add(key, association);
     }
 
-    private static void MarkHistoricalEventAttributionIncomplete(ActiveState state, string provenance)
+    private void RecordAttributionGap(string eventKind, DateTime timestampUtc,
+        string? sourceSegmentId, string? sourceMapId, string? outcomeSegmentId, string? outcomeMapId,
+        bool mapTotalsIncomplete, string reason)
+    {
+        if (active == null) return;
+        // Persist the first association gap and, independently, the first counter gap.
+        // Repeated effect ticks neither allocate diagnostic strings nor grow history.
+        if (active.HistoricalEventAttributionIncomplete
+            && (!mapTotalsIncomplete || active.RouteCapabilities.RouteAwareMapTotals.State != AdapterCapabilityState.Supported))
+            return;
+        static string Id(string? value) => string.IsNullOrWhiteSpace(value) ? "<missing>"
+            : value!.Length <= 128 ? value : value.Substring(0, 128);
+        var provenance = $"{reason} Event={eventKind}; time={EnsureUtc(timestampUtc):O}; "
+            + $"source={Id(sourceSegmentId)} / {Id(sourceMapId)}; outcome={Id(outcomeSegmentId)} / {Id(outcomeMapId)}.";
+        MarkHistoricalEventAttributionIncomplete(active, provenance, mapTotalsIncomplete);
+    }
+
+    private static void MarkHistoricalEventAttributionIncomplete(ActiveState state, string provenance, bool mapTotalsIncomplete = true)
     {
         state.HistoricalEventAttributionIncomplete = true;
         if (string.IsNullOrWhiteSpace(state.HistoricalEventAttributionProvenance))
             state.HistoricalEventAttributionProvenance = provenance;
-        RouteStatisticsReducer.MarkAttributionIncomplete(state.RouteCapabilities, provenance);
+        RouteStatisticsReducer.MarkAttributionIncomplete(state.RouteCapabilities, provenance, mapTotalsIncomplete);
     }
 
     private static void CloseSegment(MapSegmentSummary segment, DateTime timestampUtc, MapSegmentExitReason reason)
