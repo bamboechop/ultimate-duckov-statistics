@@ -211,9 +211,94 @@ public sealed class CombatWeaponDetailsTests
         Assert.Equal("123.5 (" + UiText.Get("ui.combat_partial") + ")", Value(known, "Damage dealt").Text);
         foreach (var row in weapons.Where(w => w.Row.Id != "known"))
         {
-            Assert.Equal(CombatEvidence.Unavailable, Value(row, "Damage dealt").Evidence);
             Assert.Empty(row.Ammunition);
         }
+        var firing = Assert.Single(weapons, w => w.Row.Id == "unattributed-firing:" + unknown);
+        Assert.Equal(CombatEvidence.Unavailable, Value(firing, "Damage dealt").Evidence);
+        var combat = Assert.Single(weapons, w => w.Row.Id == "unattributed-combat:" + unknown);
+        Assert.True(combat.IsUnattributedCombat);
+        Assert.Equal("123.5", Value(combat, "Damage dealt").Text);
+        Assert.Equal("2", Value(combat, "Kills by you").Text);
+        Assert.False(combat.HasRangedEvidence);
+        Assert.DoesNotContain(combat.Metrics, m => m.Label is "Firing actions" or "Accuracy" or "Hits");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RecordedEffectBucketSurvivesProductionProjectionAndLocalizedDocument(bool german)
+    {
+        var p = Projection(); var profile = p.Profile;
+        var a = p.Combat.Lifetime;
+        a.Capabilities = CombatNativeContractPolicy.CreateSupportedCapabilities();
+        profile.Capabilities = CombatNativeContractPolicy.ToRecords(a.Capabilities, "test").ToList();
+        p.Weapons.Lifetime.Capabilities = WeaponNativeContractPolicy.CreateMetricCapabilities();
+        foreach (var id in WeaponCapabilityIds.All)
+            profile.Capabilities.Add(new CapabilityRecord { AdapterId = id, State = AdapterCapabilityState.Supported });
+        // The incident shape: independently recorded player effect outcomes, no weapon ID,
+        // and incoming damage sharing the unknown bucket. No new firing evidence is invented.
+        a.Totals.DamageDealt = 6181.094778060913;
+        a.Totals.KillsByYou = 89;
+        a.Totals.PlayerKills = new PlayerKillPartition { Ranged = 87, Effect = 2 };
+        a.Weapons["duckov:weapon:unknown"] = new CombatBreakdownAggregate
+        {
+            Id = "duckov:weapon:unknown", DisplayName = "Körper",
+            Totals = new CombatMetricTotals
+            {
+                DamageDealt = 196.60929775238037, DamageCaused = 196.60929775238037,
+                DamageReceived = 18.461532592773438, KillsByYou = 2,
+                PlayerKills = new PlayerKillPartition { Effect = 2 }
+            }
+        };
+        string Text(string key) => german ? UiText.GermanFallbacks[key] : UiText.Get(key);
+        var projection = StatisticsPanelProjectionFactory.Create(profile, new(), new(), new());
+        var result = CombatPresentationFactory.Create(projection, "g", Text)!;
+        var weapon = Assert.Single(result.Weapons);
+        Assert.Equal(Text("ui.combat_unattributed"), weapon.Row.Name);
+        Assert.Equal("196.61", weapon.Row.Actions.Text);
+        Assert.Equal(Text("ui.overview_damage_dealt"), weapon.ActionLabel);
+        Assert.Equal("2", Value(weapon, Text("ui.kills_by_you")).Text);
+        Assert.Equal("2", Value(weapon, Text("ui.combat_effect_kills")).Text);
+        Assert.Equal(3, weapon.Metrics.Count);
+        Assert.All(weapon.Metrics, m => Assert.Equal(CombatEvidence.Supported, m.Value.Evidence));
+        Assert.Empty(weapon.Ammunition);
+        Assert.Equal("6,181.09", Assert.Single(result.Overall, m => m.Label == Text("ui.overview_damage_dealt")).Value.Text);
+        Assert.Equal("89", Assert.Single(result.Overall, m => m.Label == Text("ui.kills_by_you")).Value.Text);
+        var selection = new CombatSelection(); selection.Refresh(result);
+        var document = new CombatDocument((s, w, size) => Math.Max(size, MathF.Ceiling(s.Length * size / w) * size), (s, size) => s.Length * size, Text);
+        document.Items(selection, 480, true);
+        Assert.Contains(document.Rows, r => r.Kind == CombatRowKind.Heading && r.Cells[0] == Text("ui.combat_unattributed"));
+        Assert.DoesNotContain(document.Rows, r => r.Kind == CombatRowKind.Heading && r.Cells[0] == Text("ui.ammunition"));
+        Assert.Contains(document.Rows, r => r.Kind == CombatRowKind.Notice && r.Cells[0] == Text("ui.combat_unattributed_notice"));
+        Assert.DoesNotContain(document.Rows, r => r.Kind == CombatRowKind.Item);
+        Assert.Equal(196.60929775238037, a.Weapons["duckov:weapon:unknown"].Totals.DamageDealt);
+    }
+
+    [Fact]
+    public void UnattributedOutcomesDependOnTheirOwnCapabilitiesAndRepairState()
+    {
+        var p = Projection(); var totals = Combat(p, "duckov:weapon:unknown");
+        p.Combat.Capabilities.WeaponIdentity.State = AdapterCapabilityState.DisabledIncompatible;
+        var weapon = Assert.Single(Present(p).Weapons);
+        Assert.Equal(CombatEvidence.Supported, Value(weapon, "Damage dealt").Evidence);
+        Assert.Equal(CombatEvidence.Supported, Value(weapon, "Kills by you").Evidence);
+        p.Combat.Capabilities.KillsByYou.State = AdapterCapabilityState.DisabledIncompatible;
+        Assert.Equal(CombatEvidence.Partial, Value(Assert.Single(Present(p).Weapons), "Kills by you").Evidence);
+        totals.KillsByYou = 0;
+        Assert.Equal(CombatEvidence.Unavailable, Value(Assert.Single(Present(p).Weapons), "Kills by you").Evidence);
+        p.Combat.Lifetime.WasRepairedFromInvalidState = true;
+        Assert.Equal(CombatEvidence.Partial, Value(Assert.Single(Present(p).Weapons), "Damage dealt").Evidence);
+    }
+
+    [Theory]
+    [InlineData("duckov:weapon:unknown", "known")]
+    [InlineData("known", "duckov:weapon:unknown")]
+    public void MismatchedUnknownIdentityDoesNotBecomeARecordedBucket(string key, string storedId)
+    {
+        var p = Projection(); Combat(p, key); p.Combat.Lifetime.Weapons[key].Id = storedId;
+        var weapon = Assert.Single(Present(p).Weapons);
+        Assert.False(weapon.IsUnattributedCombat);
+        Assert.Equal(CombatEvidence.Unavailable, Value(weapon, "Damage dealt").Evidence);
     }
 
     [Fact]

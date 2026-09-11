@@ -80,6 +80,8 @@ internal static class UiText
             ["ui.combat_effect"] = "Effect",
             ["ui.combat_environmental"] = "Environmental",
             ["ui.combat_unknown"] = "Unknown",
+            ["ui.combat_unattributed"] = "Unattributed combat",
+            ["ui.combat_unattributed_notice"] = "Recorded combat credited to you, with no identified weapon. These values are already included in your overall totals.",
             ["ui.combat_owner_othernpc"] = "Other NPC",
             ["ui.combat_owner_environmental"] = "Environmental",
             ["ui.combat_owner_unknown"] = "Unknown",

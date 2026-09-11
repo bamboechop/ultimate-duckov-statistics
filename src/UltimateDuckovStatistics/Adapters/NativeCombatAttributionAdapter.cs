@@ -933,7 +933,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     private static string ReadItemDisplayName(int typeId, string kind)
     {
-        if (typeId < 0) return $"Unknown {kind}";
+        if (typeId <= 0) return $"Unknown {kind}";
         try
         {
             var metadata = ItemAssetsCollection.GetMetaData(typeId);

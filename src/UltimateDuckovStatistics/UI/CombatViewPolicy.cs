@@ -294,14 +294,14 @@ internal sealed class CombatDocument
     {
         var p = selection.Snapshot!; var w = width - 60; float y = 30;
         var weaponLabels = p.Weapons.ToDictionary(weapon => weapon.Row.Id, weapon => weapon.ActionLabel, StringComparer.Ordinal);
-        y += Heading(ammunition ? "ui.combat_weapon_details" : "ui.combat_weapons", 30, y, w);
+        y += Heading(ammunition ? selection.Weapon?.IsUnattributedCombat == true ? "ui.combat_unattributed" : "ui.combat_weapon_details" : "ui.combat_weapons", 30, y, w);
         if (ammunition)
         {
             var weapon = selection.Weapon;
             if (weapon == null) { Notice(text("ui.combat_no_pairs"), 30, y, w); return; }
             y += Metrics(weapon.Metrics, 30, y, w);
             y += 20;
-            y += Heading("ui.ammunition", 30, y, w);
+            if (!weapon.IsUnattributedCombat) y += Heading("ui.ammunition", 30, y, w);
             y += Notice(weapon.Notice, 30, y, w);
         }
         else y += Notice(p.WeaponNotice, 30, y, w);

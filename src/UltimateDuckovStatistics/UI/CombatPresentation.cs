@@ -85,11 +85,13 @@ internal sealed class CombatWeapon
     public IReadOnlyList<CombatMetric> Metrics { get; }
     public string ActionLabel { get; }
     public bool HasRangedEvidence { get; }
+    public bool IsUnattributedCombat { get; }
     public CombatWeapon(CombatItemRow row, IEnumerable<CombatItemRow> ammunition, string notice,
-        IEnumerable<CombatMetric> metrics, string actionLabel, bool hasRangedEvidence)
+        IEnumerable<CombatMetric> metrics, string actionLabel, bool hasRangedEvidence, bool isUnattributedCombat = false)
     {
         Row = row; Ammunition = Array.AsReadOnly(ammunition.ToArray()); Notice = notice;
         Metrics = Array.AsReadOnly(metrics.ToArray()); ActionLabel = actionLabel; HasRangedEvidence = hasRangedEvidence;
+        IsUnattributedCombat = isUnattributedCombat;
     }
 }
 internal sealed class CombatPresentation
@@ -199,7 +201,7 @@ internal static class CombatPresentationFactory
         var enemyNotice = Notice(enemyRows.Length, "ui.combat_no_enemies", a.WasRepairedFromInvalidState
             || enemyRows.Length == 0 && (n.DamageDealt > 0 || n.KillsByYou > 0 || n.ObservedWorldDeaths > 0),
             new[] { cap.EnemyIdentity, cap.DamageDealt, cap.KillsByYou, cap.ObservedWorldDeaths }, t);
-        var sources = new List<(WeaponAmmunitionGroupProjection? Fire, CombatBreakdownAggregate? Combat, string Id)>();
+        var sources = new List<(WeaponAmmunitionGroupProjection? Fire, CombatBreakdownAggregate? Combat, string Id, bool Unattributed)>();
         var throwableItems = p.Profile.Statistics.Items.Where(pair => pair.Key == pair.Value.ItemId
                 && pair.Value.EffectTags.Contains(ItemEffectTag.Throwable)
                 && NativeItemTypeIdPolicy.TryParse(pair.Key, out var typeId) && typeId > 0
@@ -216,16 +218,16 @@ internal static class CombatPresentationFactory
                 firingIds.Add(group.WeaponId);
                 if (a.Weapons.TryGetValue(group.WeaponId, out var candidate) && candidate.Id == group.WeaponId) combat = candidate;
             }
-            sources.Add((group, combat, ExactWeaponId(group.WeaponId) ? group.WeaponId : "unattributed-firing:" + group.WeaponId));
+            sources.Add((group, combat, ExactWeaponId(group.WeaponId) ? group.WeaponId : "unattributed-firing:" + group.WeaponId, false));
         }
         foreach (var pair in a.Weapons)
             if (HasPlayerWeaponEvidence(pair.Value.Totals)
                 && (!ExactWeaponId(pair.Key) || pair.Key != pair.Value.Id || !firingIds.Contains(pair.Key)))
                 sources.Add((null, pair.Value, ExactWeaponId(pair.Key) && pair.Key == pair.Value.Id
-                    ? pair.Key : "unattributed-combat:" + pair.Key));
+                    ? pair.Key : "unattributed-combat:" + pair.Key, !ExactWeaponId(pair.Key) && pair.Key == pair.Value.Id));
         foreach (var pair in throwableItems)
             if (pair.Value.Totals.ActivationCount > 0 && !sources.Any(value => value.Id == pair.Key))
-                sources.Add((null, null, pair.Key));
+                sources.Add((null, null, pair.Key, false));
         var unattributed = a.Weapons.Where(pair => !ExactWeaponId(pair.Key) || pair.Key != pair.Value.Id).Select(pair => pair.Value.Totals).ToArray();
         var missingFiringAttribution = w.Lifetime.Totals.FiringActions > p.WeaponAmmunitionGroups.Where(g => ExactWeaponId(g.WeaponId)).Sum(g => (decimal)g.TotalFiringActions);
         var weaponRows = sources.OrderByDescending(s => s.Fire?.TotalFiringActions ?? 0)
@@ -233,6 +235,23 @@ internal static class CombatPresentationFactory
                 ?? (throwableItems.TryGetValue(s.Id, out var used) ? used.DisplayName : ""), s.Id), StringComparer.Ordinal).ThenBy(s => s.Id, StringComparer.Ordinal)
             .Select(source =>
             {
+                if (source.Unattributed)
+                {
+                    // The bucket's recorded outcomes do not require a known weapon. Do not join it
+                    // to unknown firing/munition records or infer an attack type from its label.
+                    var totals = source.Combat!.Totals;
+                    CombatValue Recorded(long value) => Metric(value, cap.KillsByYou.State, a.WasRepairedFromInvalidState, t);
+                    var recordedKills = M("ui.kills_by_you", Recorded(totals.KillsByYou));
+                    var recordedDamage = M("ui.overview_damage_dealt", Metric(totals.DamageDealt,
+                        cap.DamageDealt.State, a.WasRepairedFromInvalidState, t));
+                    var recorded = new List<CombatMetric> { recordedKills, recordedDamage };
+                    if (totals.PlayerKills.Effect > 0) recorded.Add(M("ui.combat_effect_kills", Recorded(totals.PlayerKills.Effect), t("ui.combat_effect_kills_tooltip")));
+                    if (totals.PlayerKills.Environmental > 0) recorded.Add(M("ui.combat_environmental_kills", Recorded(totals.PlayerKills.Environmental)));
+                    if (totals.PlayerKills.Unknown > 0) recorded.Add(M("ui.combat_unknown_kills", Recorded(totals.PlayerKills.Unknown)));
+                    var summary = totals.DamageDealt > 0 ? recordedDamage : recordedKills;
+                    return new CombatWeapon(new CombatItemRow(source.Id, t("ui.combat_unattributed"), summary.Value, Unavailable(), ""),
+                        Array.Empty<CombatItemRow>(), t("ui.combat_unattributed_notice"), recorded, summary.Label, false, true);
+                }
                 throwableItems.TryGetValue(source.Id, out var throwableItem);
                 var exact = source.Fire != null ? ExactWeaponId(source.Fire.WeaponId)
                     : source.Combat != null ? source.Id == source.Combat.Id && ExactWeaponId(source.Id) : throwableItem != null;

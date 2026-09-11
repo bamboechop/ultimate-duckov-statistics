@@ -67,6 +67,8 @@ internal static class GermanText
         ["ui.combat_effect"] = "Effekt",
         ["ui.combat_environmental"] = "Umgebung",
         ["ui.combat_unknown"] = "Unbekannt",
+        ["ui.combat_unattributed"] = "Kampf ohne Waffenzuordnung",
+        ["ui.combat_unattributed_notice"] = "Dir zugerechnete Kampfwerte ohne erkannte Waffe. Diese Werte sind bereits in deinen Gesamtwerten enthalten.",
         ["ui.combat_owner_othernpc"] = "Anderer NPC",
         ["ui.combat_owner_environmental"] = "Umgebung",
         ["ui.combat_owner_unknown"] = "Unbekannt",
