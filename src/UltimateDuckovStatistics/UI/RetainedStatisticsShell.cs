@@ -246,6 +246,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
 
     private GameObject? root;
     private ScrollRegion? overviewSummaryScroll;
+    private ScrollRegion? overviewHighlightsScroll;
     private CombatTooltip? overviewDistanceTooltip;
     private Canvas? canvas;
     private RectTransform? shellRoot;
@@ -573,6 +574,18 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         var overviewGeneration = generation;
         overviewLatestRunViewRun.Button.interactable = overviewRun != null;
         overviewLatestRunViewRun.Button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+        var focus = overviewLatestRunViewRun.Button.GetComponent<RunsFocusHandler>()
+                    ?? overviewLatestRunViewRun.Button.gameObject.AddComponent<RunsFocusHandler>();
+        focus.Selected = () =>
+        {
+            if (overviewHighlightsScroll == null || overviewRightPanelContentRect == null || overviewLatestRunCardRect == null) return;
+            var top = -overviewRightPanelContentRect.anchoredPosition.y - overviewLatestRunCardRect.anchoredPosition.y
+                      - overviewLatestRunViewRun.Rect.anchoredPosition.y;
+            overviewHighlightsScroll.SetOffset(RunsLayoutPolicy.Reveal(overviewHighlightsScroll.Offset,
+                overviewHighlightsScroll.Rect.rect.height, overviewHighlightsScroll.Content.rect.height,
+                top, overviewLatestRunViewRun.Rect.rect.height));
+        };
+        focus.Move = _ => GameManager.EventSystem?.SetSelectedGameObject(overviewHighlightsScroll?.Rect.gameObject);
         if (overviewRun != null)
         {
             var runId = overviewRun.RunId;
@@ -593,11 +606,15 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
 #endif
         projectionAvailable = true;
         var summaryOffset = overviewSummaryScroll?.Offset ?? 0;
+        var highlightsOffset = overviewHighlightsScroll?.Offset ?? 0;
+        var highlightsFocused = overviewHighlightsScroll != null && GameManager.EventSystem?.currentSelectedGameObject == overviewHighlightsScroll.Rect.gameObject;
         var summaryFocused = overviewSummaryScroll != null && GameManager.EventSystem?.currentSelectedGameObject == overviewSummaryScroll.Rect.gameObject;
         overviewDistanceTooltip?.Dispose();
         overviewDistanceTooltip = null;
         overviewSummaryScroll?.Dispose();
         overviewSummaryScroll = null;
+        overviewHighlightsScroll?.Dispose();
+        overviewHighlightsScroll = null;
         var retainedViewRun = overviewLatestRunViewRun;
         // Keep the selectable and its highlight alive across live projection refreshes.
         // Detach before disabling the old view so hover, press and focus are retained.
@@ -621,10 +638,12 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         economyView?.Refresh(EconomyPresentationFactory.Create(projection, generation));
         craftingView?.Refresh(CraftingPresentationFactory.Create(projection, generation));
         itemUseView?.Refresh(ItemUsePresentationFactory.Create(projection, generation));
-        RefreshVisualLayout(force: true);
         RefreshStaticText();
+        RefreshVisualLayout(force: true);
         overviewSummaryScroll?.SetOffset(summaryOffset);
+        overviewHighlightsScroll?.SetOffset(highlightsOffset);
         if (summaryFocused && overviewSummaryScroll != null) GameManager.EventSystem?.SetSelectedGameObject(overviewSummaryScroll.Rect.gameObject);
+        if (highlightsFocused && overviewHighlightsScroll != null) GameManager.EventSystem?.SetSelectedGameObject(overviewHighlightsScroll.Rect.gameObject);
     }
 
     public void RefreshStaticText()
@@ -632,7 +651,13 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         aboutView?.RefreshText();
         if (headerTitleGraphic != null) headerTitleGraphic.text = UiText.Get("ui.title");
         foreach (var control in tabControls)
-            control.Label.text = UiText.Get(control.Specification.TextKey);
+        {
+            var text = UiText.Get(control.Specification.TextKey);
+            if (control.Label.text == text) continue;
+            control.Label.text = text;
+            measuredTabWidths = null;
+            lastAppliedVisualLayout = null;
+        }
     }
 
     public void SetSelectedTab(StatisticsPanelTab tab)
@@ -785,11 +810,23 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 FocusSelectedTab();
             else if (direction == UnityEngine.EventSystems.MoveDirection.Up || direction == UnityEngine.EventSystems.MoveDirection.Down)
                 overviewSummaryScroll.SetOffset(overviewSummaryScroll.Offset + (direction == UnityEngine.EventSystems.MoveDirection.Up ? -1 : 1) * overviewSummaryScroll.Scroll.scrollSensitivity);
+            else if (direction == UnityEngine.EventSystems.MoveDirection.Right && overviewHighlightsScroll != null)
+                GameManager.EventSystem?.SetSelectedGameObject(overviewHighlightsScroll.Rect.gameObject);
+        };
+        leftPanelContentRect = CreateOverviewLeftPanelContent(overviewSummaryScroll.Content);
+        overviewHighlightsScroll = new ScrollRegion(rightPanelRect, "OverviewHighlightsScroll");
+        overviewHighlightsScroll.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
+        overviewHighlightsScroll.Rect.GetComponent<RunsFocusHandler>().Move = direction =>
+        {
+            if (direction == UnityEngine.EventSystems.MoveDirection.Up && overviewHighlightsScroll.Offset <= 0) FocusSelectedTab();
+            else if (direction == UnityEngine.EventSystems.MoveDirection.Up || direction == UnityEngine.EventSystems.MoveDirection.Down)
+                overviewHighlightsScroll.SetOffset(overviewHighlightsScroll.Offset + (direction == UnityEngine.EventSystems.MoveDirection.Up ? -1 : 1) * overviewHighlightsScroll.Scroll.scrollSensitivity);
+            else if (direction == UnityEngine.EventSystems.MoveDirection.Left)
+                GameManager.EventSystem?.SetSelectedGameObject(overviewSummaryScroll.Rect.gameObject);
             else if (direction == UnityEngine.EventSystems.MoveDirection.Right && overviewLatestRunViewRun?.Button.interactable == true)
                 GameManager.EventSystem?.SetSelectedGameObject(overviewLatestRunViewRun.Button.gameObject);
         };
-        leftPanelContentRect = CreateOverviewLeftPanelContent(overviewSummaryScroll.Content);
-        rightPanelContentRect = CreateOverviewRightPanelContent(rightPanelRect);
+        rightPanelContentRect = CreateOverviewRightPanelContent(overviewHighlightsScroll.Content);
         profileSummaryHeadingRect = CreateOverviewProfileSummaryHeading(
             leftPanelContentRect,
             typography,
@@ -1711,6 +1748,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         background.overrideSprite = null;
         background.type = Image.Type.Simple;
         background.raycastTarget = RetainedOverviewTabPolicy.BackgroundBlocksRaycasts;
+        background.maskable = true;
 
         modifier = tab.AddComponent<OnlyOneEdgeModifier>();
         modifier.Side = OnlyOneEdgeModifier.ProceduralImageEdge.Top;
@@ -1741,6 +1779,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         label = labelObject.AddComponent<TextMeshProUGUI>();
         label.font = typography.Font;
         label.fontSharedMaterial = labelMaterial;
+        label.maskable = true;
         label.text = UiText.Get(specification.TextKey);
         label.fontStyle = FontStyles.Normal;
         label.fontWeight = FontWeight.Regular;
@@ -1977,9 +2016,10 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             viewportPixelWidth,
             viewportPixelHeight,
             canvasScaleFactor);
-        var preferredReferenceWidths = MeasureTabReferenceWidths(
-            referenceTransform,
-            canvasScaleFactor);
+        var preferredReferenceWidths = measuredTabWidths;
+        if (preferredReferenceWidths == null || lastViewportPixelWidth != viewportPixelWidth
+            || lastViewportPixelHeight != viewportPixelHeight || lastCanvasScaleFactor != canvasScaleFactor)
+            measuredTabWidths = preferredReferenceWidths = MeasureTabReferenceWidths(referenceTransform, canvasScaleFactor);
         var latestRunBadgeControl = overviewLatestRunBadge!;
         var latestRunViewRunControl = overviewLatestRunViewRun!;
         var layout = RetainedActiveMeasurementPolicy.Measure(
@@ -2289,16 +2329,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 overviewProfileSummaryRows[index],
                 layout.OverviewProfileSummaryRows[index],
                 layout.OverviewLeftPanel);
-        if (overviewSummaryScroll != null)
-        {
-            var panel = layout.OverviewLeftPanel;
-            var lastRow = layout.OverviewProfileSummaryRows[layout.OverviewProfileSummaryRows.Count - 1].Surface;
-            var contentHeight = Math.Max(panel.ContentHeight, lastRow.Top + lastRow.Height - panel.ContentTop + referenceTransform.CanvasLength(20));
-            overviewSummaryScroll.Size(panel.ContentLeft - panel.Left, panel.ContentTop - panel.Top,
-                panel.ContentWidth, panel.ContentHeight, contentHeight);
-            leftPanelContentRect.anchoredPosition = Vector2.zero;
-            leftPanelContentRect.sizeDelta = new Vector2(panel.ContentWidth, contentHeight);
-        }
+        ReflowOverview(layout, viewportPixelWidth);
         lastViewportPixelWidth = viewportPixelWidth;
         lastViewportPixelHeight = viewportPixelHeight;
         lastCanvasScaleFactor = canvasScaleFactor;
@@ -2496,10 +2527,15 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         tabScroll = null;
         tabViewport = null;
         tabContent = null;
+        earlierTabs = laterTabs = null;
+        earlierTabsLabel = laterTabsLabel = null;
+        measuredTabWidths = null;
         overviewDistanceTooltip?.Dispose();
         overviewDistanceTooltip = null;
         overviewSummaryScroll?.Dispose();
         overviewSummaryScroll = null;
+        overviewHighlightsScroll?.Dispose();
+        overviewHighlightsScroll = null;
         overviewTypography = null;
         tabSelected = null;
         projectionAvailable = true;

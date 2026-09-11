@@ -10,7 +10,7 @@ using Xunit;
 
 namespace UltimateDuckovStatistics.Shell.Tests;
 
-public sealed class ShellAccessTests : IDisposable
+public sealed partial class ShellAccessTests : IDisposable
 {
     [Theory]
     [InlineData(2560, 1440)]

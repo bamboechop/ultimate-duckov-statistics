@@ -1758,7 +1758,7 @@ public sealed class StatisticsPanelProjectionTests
             "Total runs",
             "Extraction rate",
             "Total active raid time",
-            "Total recorded distance",
+            "Total movement distance",
             "Raid distance",
             "Recorded base distance",
             "Kills by you",

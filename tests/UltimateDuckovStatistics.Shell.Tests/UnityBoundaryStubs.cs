@@ -143,9 +143,10 @@ namespace UnityEngine.Events
 }
 namespace UnityEngine.EventSystems
 {
+    public interface IScrollHandler { void OnScroll(PointerEventData data); }
     public interface IPointerEnterHandler { void OnPointerEnter(PointerEventData data); }
     public interface IPointerExitHandler { void OnPointerExit(PointerEventData data); }
-    public sealed class PointerEventData { public UnityEngine.Vector2 position; public UnityEngine.Camera? enterEventCamera; }
+    public sealed class PointerEventData { public bool used; public UnityEngine.Vector2 scrollDelta; public void Use() => used = true; public UnityEngine.Vector2 position; public UnityEngine.Camera? enterEventCamera; }
     public enum MoveDirection { Left, Right, Up, Down, None }
     public class EventSystem { public UnityEngine.GameObject? currentSelectedGameObject; public void SetSelectedGameObject(UnityEngine.GameObject? value) { currentSelectedGameObject = value; value?.GetComponent<UltimateDuckovStatistics.UI.RunsFocusHandler>()?.Selected?.Invoke(); } }
 }
@@ -159,7 +160,7 @@ namespace UnityEngine.UI
     public struct ColorBlock { public Color normalColor, highlightedColor, pressedColor, selectedColor, disabledColor; public float colorMultiplier, fadeDuration; public static ColorBlock defaultColorBlock => new(); }
     public class Selectable : Behaviour { public enum Transition { None, ColorTint, SpriteSwap, Animation } public Transition transition; public Navigation navigation; public ColorBlock colors; public Graphic targetGraphic = null!; public bool interactable = true; public bool IsActive() => isActiveAndEnabled; public bool IsInteractable() => interactable; }
     public class Button : Selectable { public sealed class ButtonClickedEvent : UnityEngine.Events.UnityEvent { } public ButtonClickedEvent onClick = new(); }
-    public class ScrollRect : Behaviour { public sealed class ScrollEvent { private readonly List<Action<Vector2>> listeners = new(); public void AddListener(Action<Vector2> listener) => listeners.Add(listener); public void RemoveAllListeners() => listeners.Clear(); public void Invoke(Vector2 value) { foreach (var listener in listeners.ToArray()) listener(value); } } public ScrollEvent onValueChanged = new(); public RectTransform content = null!, viewport = null!; public bool horizontal, vertical; public float scrollSensitivity; public MovementType movementType; public enum MovementType { Clamped, Elastic, Unrestricted } public void StopMovement() { } }
+    public class ScrollRect : Behaviour { public bool inertia; public virtual void OnScroll(UnityEngine.EventSystems.PointerEventData data) { } public sealed class ScrollEvent { private readonly List<Action<Vector2>> listeners = new(); public void AddListener(Action<Vector2> listener) => listeners.Add(listener); public void RemoveAllListeners() => listeners.Clear(); public void Invoke(Vector2 value) { foreach (var listener in listeners.ToArray()) listener(value); } } public ScrollEvent onValueChanged = new(); public RectTransform content = null!, viewport = null!; public bool horizontal, vertical; public float scrollSensitivity; public MovementType movementType; public enum MovementType { Clamped, Elastic, Unrestricted } public void StopMovement() { } }
     public class GraphicRaycaster : Behaviour { }
     public class CanvasScaler : Behaviour { }
     public class LayoutGroup : MonoBehaviour { }
