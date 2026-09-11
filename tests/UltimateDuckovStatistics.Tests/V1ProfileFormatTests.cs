@@ -23,6 +23,8 @@ public sealed class V1ProfileFormatTests
         Assert.True(first.Open(Identity()).CreatedNew);
         var generation = first.CurrentGenerationId;
         Assert.Equal(ProductInfo.ProfileFormatId, first.Current.FormatId);
+        Assert.Equal(1, first.Current.SchemaVersion);
+        Assert.Equal(1, first.Current.Statistics.SchemaVersion);
         first.CloseClean();
 
         var second = Repository(directory.Path);
@@ -35,11 +37,12 @@ public sealed class V1ProfileFormatTests
     }
 
     [Theory]
-    [InlineData(null, 18)]
-    [InlineData("uds-profile-v0", 18)]
-    [InlineData("uds-profile-v2", 18)]
+    [InlineData(null, 1)]
+    [InlineData("uds-profile-v0", 1)]
+    [InlineData("uds-profile-v2", 1)]
     [InlineData("uds-profile-v1", 999)]
-    [InlineData("uds-profile-v1", 1)]
+    [InlineData("uds-profile-v1", 18)]
+    [InlineData("uds-profile-v1", 0)]
     public void IncompatiblePrimaryIsPreservedWithoutConversionOrBackupRollback(string? format, int schema)
     {
         using var directory = new TemporaryDirectory();

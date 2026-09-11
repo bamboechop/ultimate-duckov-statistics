@@ -2,15 +2,15 @@
 
 Ultimate Duckov Statistics (UDS) records proven single-player gameplay events in local per-save profiles. It never writes Duckov save files and has no telemetry or online account.
 
-M17 is the completed feature baseline. M18 release hardening merged through [PR #19](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19) on 2026-09-10 as `6e2d8b9bb7fda5b8cc0b9296cb399256315b4319`. It removes pre-v1 compatibility paths, impossible metrics and unused runtime code, and hardens persistence and the ordinary Release artifact. Independent reviews and native qualification are complete within the [recorded acceptance bounds](docs/M18_ACCEPTANCE.md), including accepted performance deviations and coverage limits. Release state is authoritative on [GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/releases); Workshop publication and supported-channel verification remain separate steps.
+The source and package metadata target **1.0.0**, the planned first Steam Workshop release. It includes the M18 hardening, four post-M18 feature and UI batches, German localization and layout corrections, and the simplified About translation invitation. See [release notes](RELEASE_NOTES.md) for the final scope and [release preparation](docs/RELEASE_PROCESS.md) for the remaining publication steps. Version metadata alone does not indicate publication: [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) remain authoritative, and the first Workshop listing and subscription-install verification are pending.
 
 ## Install and use
 
-The four post-M18 batches add UI fixes, combat accuracy and kill breakdowns, About/community links, and recorded base distance with stronger panel backgrounds. They merged through [PR #20](https://github.com/bamboechop/ultimate-duckov-statistics/pull/20), [PR #21](https://github.com/bamboechop/ultimate-duckov-statistics/pull/21), [PR #22](https://github.com/bamboechop/ultimate-duckov-statistics/pull/22) and [PR #23](https://github.com/bamboechop/ultimate-duckov-statistics/pull/23). See the [RC2 release record](docs/RC2_RELEASE.md) for scope and the user's completed in-game acceptance; the [release page](https://github.com/bamboechop/ultimate-duckov-statistics/releases) remains authoritative for publication.
+English and German are included. UDS follows the game's language, including changes while the panel is open. Tabs provide overflow indicators and scrolling controls; measured wrapping and spacing keep longer translations readable. Translation volunteers can leave their language in a Steam Workshop comment once the listing is available.
 
 See [INSTALL.md](INSTALL.md) for installation, activation, data locations, export/reset and troubleshooting. The verified baseline is Duckov 2.3.30 / Steam build 24013657 / Unity 2022.3.62f2 on Windows, with the separately installed [HarmonyLib dependency](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) at 2.4.1.0. Game, Unity and Harmony DLLs are never bundled.
 
-Outside raids, open Statistics from the main menu, base pause menu or configurable F8. The retained native shell contains Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, About and Diagnostics. About introduces UDS and provides optional author support and community translation contact links. Long localization text uses measured layout, clipping and scrolling. Missing required native objects can prevent construction; appearance differences do not reject the shell.
+Outside raids, open Statistics from the main menu, base pause menu or configurable F8. The retained native shell contains Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, About and Diagnostics. About introduces UDS and its author, and invites translation volunteers to leave a comment on the Steam Workshop page. It contains no external links or browser actions. Long localization text uses measured layout, clipping and scrolling. Missing required native objects can prevent construction; appearance differences do not reject the shell.
 
 ## Statistics and evidence
 
@@ -28,13 +28,13 @@ The [native contract documents](docs/M17_NATIVE_CONTRACTS.md) and [M18 removal i
 
 ## Local data and current format
 
-The format identity is `uds-profile-v1`, with data below `%USERPROFILE%/AppData/LocalLow/TeamSoda/Duckov/UltimateDuckovStatistics/v1/`. The candidate starts fresh without importing or deleting pre-v1 data. Clean installation and current-format reinstallation are supported; no schema-by-schema `0.x` reader ships. Incompatible/future profiles are preserved intact.
+The first public format baseline is `uds-profile-v1`, **schema 1**, with data below `%USERPROFILE%/AppData/LocalLow/TeamSoda/Duckov/UltimateDuckovStatistics/v1/`. This deliberately starts fresh from the schema-18 development/RC profiles; they are incompatible and are not converted. If left on disk, the mod archives them intact and creates fresh statistics. Older `0.x` data is not imported or deleted. Clean installation and valid schema-1 reinstallation are supported; no development-data migration code ships. Incompatible/future profiles remain protected. Schema revisions follow stored-format changes independently of release versions.
 
 Current-format validation, atomic primary/backup/temporary recovery, interrupted-run/session recovery, generation isolation, deferred replay watermarks and reset/export safety remain required. A failed durability boundary retains pending data with bounded retry and diagnostics. Reset archives only the UDS generation and defaults to Cancel. Export captures an immutable generation snapshot as local JSON and CSV.
 
 Save fingerprints and native pre-save evidence prevent unrelated save generations from being combined. Playing while UDS is inactive can make continuity unprovable; the prior generation is then archived. See [local-data and privacy details](docs/LOCAL_DATA.md).
 
-Every `0.x` GitHub download was a development artifact for voluntary testing. Supported upgrade guarantees begin with the first version explicitly declared as distributed through a supported channel. The RC does not silently establish that publication baseline.
+Every `0.x` GitHub download and v1 release candidate was a voluntary testing artifact. The planned supported upgrade baseline is 1.0.0 when it is explicitly published through the verified Steam Workshop channel. A local build or GitHub testing download alone does not establish that baseline.
 
 ## Build and qualify
 
@@ -48,4 +48,4 @@ This runs Debug/Release tests, the installed-native probe, warning-free native b
 
 `verify-reproducibility.ps1` builds an immutable commit under two checkout roots and compares both DLLs, both portable PDBs and deterministic ZIP bytes. `audit-artifacts.ps1 -OrdinaryRelease` checks builder-path leakage and absence of diagnostic IL call sites. `deploy.ps1` requires a closed game, retains a verified previous UDS package outside the native loader scan root and reads back exact deployed hashes.
 
-Follow [PERFORMANCE.md](PERFORMANCE.md), the [M18 capture matrix](docs/M18_CAPTURE_MATRIX.json), [validation evidence](TESTING.md) and [release procedure](docs/RELEASE_PROCESS.md). Synthetic stress tests support diagnosis; ordinary Release D versus Harmony-only B gameplay captures determine native performance acceptance. New metrics and UI redesign are outside M18.
+Follow [PERFORMANCE.md](PERFORMANCE.md), [validation evidence](TESTING.md) and the [release procedure](docs/RELEASE_PROCESS.md). The [M18 acceptance record](docs/M18_ACCEPTANCE.md) and [RC2 record](docs/RC2_RELEASE.md) preserve completed reviews and native qualification, including accepted performance deviations and coverage limits. Synthetic stress tests support diagnosis; recorded ordinary Release versus Harmony-only gameplay captures establish the bounded native performance evidence. Version-only changes require new artifact verification, not a repeated unaffected gameplay campaign.

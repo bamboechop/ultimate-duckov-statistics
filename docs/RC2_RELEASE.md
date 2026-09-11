@@ -1,5 +1,7 @@
 # RC2 release record
 
+This is the historical RC2 record. Current 1.0.0 preparation, including later German UI work and removal of the About support/Discord links, is described in [release notes](../RELEASE_NOTES.md) and the [release procedure](RELEASE_PROCESS.md). The versions, hashes and publication facts below remain RC2 evidence.
+
 RC2 combines the four post-M18 implementation batches with the accepted M18 baseline. This record describes delivered scope and user acceptance; [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) and [Actions](https://github.com/bamboechop/ultimate-duckov-statistics/actions) are authoritative for publication and CI state.
 
 ## Merged scope

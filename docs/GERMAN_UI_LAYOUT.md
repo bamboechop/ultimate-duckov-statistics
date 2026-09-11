@@ -1,6 +1,6 @@
 # German localization and retained overview/tab layout
 
-This follow-up starts from the committed localization baseline `a2452850dc7d558906e5b41a41b239cc6b5cb6ac`. It retains native language-change subscriptions, translation keys, placeholders, statistics definitions and coverage explanations. The [published rc.2](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0-rc.2) and its publication receipt are unchanged. The local development package retains the existing version metadata; its distinct filename and hashes identify this build, not the published ZIP.
+This follow-up started from the committed localization baseline `a2452850dc7d558906e5b41a41b239cc6b5cb6ac`. It retains native language-change subscriptions, translation keys, placeholders, statistics definitions and coverage explanations. The historical local packages below retained RC version metadata and are identified by their distinct filenames and hashes. These changes are included in the final [1.0.0 scope](../RELEASE_NOTES.md); the [published rc.2](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0-rc.2) and its publication receipt are unchanged.
 
 Initial layout implementation source: `7ed195a53a905bbba0dacfea780df6839e50059c`. The Diagnostics cache and confirmation-caption corrections below follow that delivery. Current review and CI are on [PR #24](https://github.com/bamboechop/ultimate-duckov-statistics/pull/24).
 

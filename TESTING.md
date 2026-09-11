@@ -1,5 +1,11 @@
 # Validation and delivery evidence
 
+The current release target is **1.0.0**, with the first public profile/export schema baseline reset from development 18 to **1**. [Release notes](RELEASE_NOTES.md) and the [release procedure](docs/RELEASE_PROCESS.md) describe its final scope and publication gates. Build metadata, runtime `ProductInfo` and `info.ini` agree; format ID `uds-profile-v1` and data directory `v1` remain. Native-adapter versions still identify their game contracts. Historical schema-18 test counts, hashes and native observations below qualify their named sources, not every later package automatically.
+
+Current-format tests cover fresh schema-1 installation, reinstallation without generation rotation, incompatible schema-18 primary preservation without conversion or rollback to its valid backup, and missing/foreign/future format rejection. Current-schema recovery and export tests use the final schema identity. The authorized deletion of this developer's obsolete local profiles is a one-time cleanup, not an automatic deletion policy in the mod.
+
+Schema-1 preparation on 2026-09-11 passed 2,021 main and 86 ordinary shell tests in each Debug/Release configuration, the installed-native probe, zero-warning Release builds and ordinary package/ZIP audits. Independent readback confirmed release `1.0.0` and schema `1` in the packaged core, matched all five ZIP payload files to the package, and verified its checksum sidecar. Deployment with Duckov closed passed all five installed hashes. The user-authorized local cleanup removed 22 schema-18 UDS files (3,482,113 bytes), including old profiles, their backups, diagnostics and settings; the UDS data directory is recreated by the next launch. Duckov saves were not modified. This is local working-tree validation; final frozen-source reproducibility, CI, native launch acceptance and publication remain separate gates.
+
 The [German localization and retained layout follow-up](docs/GERMAN_UI_LAYOUT.md) records measured overview reflow, tab clipping/navigation, local package/deployment proof and the affected native acceptance checklist. The published rc.2 artifact is unchanged.
 
 The [RC2 publication receipt](docs/RC2_PUBLICATION.json) records the verified release tag and independently downloaded ZIP/sidecar with exact five-file readback. The [RC2 release record](docs/RC2_RELEASE.md#published-rc2-verification) records final automated qualification and the immutable release source.
@@ -8,7 +14,7 @@ The [RC2 release record](docs/RC2_RELEASE.md) consolidates the four merged follo
 
 The [post-M18 opacity and base-distance batch](docs/RC2_OPACITY_BASE_DISTANCE.md) records the 85% dimmer, 75% inner panels, base-movement collection and current-format persistence, combined/raid/base UI and exports, and focused native gameplay/rendering acceptance. Accepted unchanged M18/UI/Combat/About evidence is reused.
 
-The [post-M18 About/community batch](docs/RC2_ABOUT_COMMUNITY.md) records the ten-tab integration, installed URL-opening contract, prepared unpublished community copy and affected manual checklist. It records approved author/link content, automated shell qualification, verified ordinary local package/deployment and the separate user-controlled visual/browser checks.
+The [post-M18 About/community batch](docs/RC2_ABOUT_COMMUNITY.md) records the original ten-tab integration and its historical link checks. For 1.0.0 the support/Discord buttons, URL-opening contract and unused translations were removed. Production-shell regressions cover the remaining English/German invitation while visible and hidden, scrolling/focus through resize, repeated open/close and idle layout stability. Native visual acceptance of the simplified view is separate from those boundary tests.
 
 The [post-M18 Combat Statistics batch](docs/RC2_COMBAT_STATISTICS.md) defines the combined, ranged, melee and weapon firing-action ratios, effect-kill presentation, installed-native evidence, regression scope and remaining user-controlled checks for this contribution to rc.2. Existing ranged exports and the accepted M18/UI-batch evidence retain their meanings.
 

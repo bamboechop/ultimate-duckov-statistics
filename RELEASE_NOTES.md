@@ -1,4 +1,36 @@
-# Ultimate Duckov Statistics 1.0.0-rc.1 — release hardening
+# Ultimate Duckov Statistics 1.0.0
+
+Prepared for the first Steam Workshop release. This entry describes the 1.0.0 source and package; it does not record a publication. The [release procedure](docs/RELEASE_PROCESS.md) covers the remaining exact-source verification, Workshop setup and publication steps. [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) are authoritative for published tags and assets.
+
+UDS records local, per-save raid history and routes, combat, equipment and totems, economy, crafting, item use and healing, containers, world time and sleep. Ten native tabs are available outside raids through the main menu, base pause menu or configurable F8. It requires separately installed HarmonyLib, has no telemetry or account, and never writes Duckov saves.
+
+## Included in 1.0.0
+
+- M18 persistence, recovery and performance hardening; removal of unsupported pre-v1 migration code, impossible metric adapters and unused runtime UI code.
+- Clear empty-profile views, whole-number restored-HP display, export feedback cleared on close/profile changes, equipment spacing, cleaned-up economy labels and stable totem shading.
+- Combined, ranged and melee accuracy, selected-weapon firing-action accuracy, and a visible Effects / DoT kill category. Unknown, unavailable and partial observations retain their meaning.
+- Recorded base distance alongside raid distance and their combined total, with persistence, exports and coverage information. Runs, routes and records remain raid-only.
+- An 85% shared background dimmer with 75% inner panels; no blur dependency.
+- English and German, live language switching, measured Overview wrapping and column spacing, corrected tab clipping, and clickable overflow chevrons with consistent scrolling.
+- About with the mod description, author and translation invitation. Volunteers are directed to Steam Workshop comments; support/Discord links and browser-opening code have been removed.
+
+## Build and data identity
+
+The mod manifest, assembly product/informational version, Diagnostics, activation logs and release tooling report `1.0.0`. Assembly/file versions are `1.0.0.0`. The installable archive is named `UltimateDuckovStatistics-v1.0.0.zip`, accompanied by its SHA-256 sidecar. Profile/export schema versions and native-adapter contract versions retain their independent meanings.
+
+The first public persisted baseline is `uds-profile-v1`, **schema 1**, in the existing `v1` data directory. This intentionally replaces development schema 18 before public distribution; RC and earlier local preparation profiles are not converted. If still present, incompatible profiles are archived intact and new statistics begin. Valid schema-1 reinstallation and recovery remain supported. Older `0.x` data remains untouched and is not imported. Schema and release numbers evolve independently after this initial baseline. The supported upgrade baseline begins with the explicitly published and verified Workshop distribution of 1.0.0, not with the local version bump.
+
+The verified native baseline is Windows, Duckov 2.3.30 / Steam build 24013657, Unity 2022.3.62f2 and separately installed HarmonyLib 2.4.1.0. See [INSTALL.md](INSTALL.md) for activation, local data and limitations. The [M18 acceptance record](docs/M18_ACCEPTANCE.md), [RC2 record](docs/RC2_RELEASE.md) and [German UI record](docs/GERMAN_UI_LAYOUT.md) preserve the scope of earlier testing and user acceptance. Accepted performance deviations and bounded native coverage remain explicit; the new version number does not represent an additional gameplay/performance campaign.
+
+## Earlier release candidates
+
+The records below describe historical builds. Their original versions, hashes and qualification remain unchanged; removed behavior is not a description of 1.0.0.
+
+### Ultimate Duckov Statistics 1.0.0-rc.2 — post-M18 follow-ups
+
+The published [RC2 release](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0-rc.2) combined UI cleanup, combat statistics, the original About/community links, opacity and base distance. Its [release record](docs/RC2_RELEASE.md) and [publication receipt](docs/RC2_PUBLICATION.json) retain the exact source, asset identities and user acceptance. German localization/layout and removal of the About links are later 1.0.0 changes, not replacements for the published RC2 assets.
+
+### Ultimate Duckov Statistics 1.0.0-rc.1 — release hardening
 
 M18 merged through [PR #19](https://github.com/bamboechop/ultimate-duckov-statistics/pull/19) on 2026-09-10 as `6e2d8b9bb7fda5b8cc0b9296cb399256315b4319`, from reviewed head `87eed7e57c02a3aa80ce6962a0e0cbc927534dbd`. Two independent reviews found no actionable defects. Native qualification is complete within the accepted performance and coverage bounds in [M18 acceptance](docs/M18_ACCEPTANCE.md). Release publication and Workshop channel verification remain separate steps.
 

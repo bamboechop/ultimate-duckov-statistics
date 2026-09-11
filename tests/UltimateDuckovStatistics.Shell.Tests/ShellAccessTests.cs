@@ -38,37 +38,38 @@ public sealed partial class ShellAccessTests : IDisposable
         Assert.Same(Find("OverviewTab"), GameManager.EventSystem.currentSelectedGameObject);
     }
 
-    [Fact]
-    public void AboutPointerHitSurfacesDispatchBothApprovedLinks()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AboutTranslationInvitationRefreshesWithoutActionButtons(bool visibleDuringSwitch)
     {
-        var launches = new List<string>(); Application.UrlLauncher = launches.Add;
         using var panel = new NativeStatisticsPanel(coordinator); Press(panel, KeyCode.F8);
-        Find("AboutTab").GetComponent<Button>().onClick.Invoke(); panel.Tick();
-        foreach (var name in new[] { "AboutSupport", "AboutDiscord" })
+        if (visibleDuringSwitch) Find("AboutTab").GetComponent<Button>().onClick.Invoke();
+        panel.Tick();
+        var invitation = Find("AboutInvitation").GetComponent<TextMeshProUGUI>();
+        Assert.Equal(UiText.EnglishFallbacks["ui.about_translation"], invitation.text);
+        try
         {
-            var button = Find(name).GetComponent<Button>();
-            var background = button.GetComponent<UnityEngine.UI.ProceduralImage.ProceduralImage>();
-            // Installed GraphicRaycaster excludes graphics with raycastTarget=false.
-            // Model that pointer-hit boundary before invoking the native Button event;
-            // direct onClick tests alone cannot detect a non-clickable surface.
-            var hit = button.GetComponentsInChildren<Graphic>().FirstOrDefault(g => g.raycastTarget && g.isActiveAndEnabled);
-            Assert.Same(background, hit);
-            Assert.NotEqual(Find("AboutCard").GetComponent<Graphic>().color, background.color);
-            Assert.Equal(1f, background.color.a);
-            var receiver = hit!.GetComponentInParent<Button>();
-            Assert.Same(button, receiver);
-            Assert.True(receiver.IsInteractable());
-            receiver.onClick.Invoke();
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.German);
+            panel.Tick();
+            if (!visibleDuringSwitch) Find("AboutTab").GetComponent<Button>().onClick.Invoke();
+            panel.Tick();
+            Assert.Equal(UiText.GermanFallbacks["ui.about_translation"], invitation.text);
+            Assert.Empty(Find("AboutContentView").GetComponentsInChildren<Button>());
+            Assert.False(invitation.raycastTarget);
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
+            panel.Tick();
+            Assert.Equal(UiText.EnglishFallbacks["ui.about_translation"], invitation.text);
         }
-        Assert.Equal(new[] { "https://ko-fi.com/bamboechop", "https://discord.gg/8ngDVJ7jHH" }, launches);
+        finally { SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English); }
     }
 
     [Fact]
-    public void AboutLongLocalizedContentCanBeScrolledAndFocusedAcrossResizeWithoutLaunchingLinks()
+    public void AboutLongLocalizedContentCanBeScrolledAndFocusedAcrossResize()
     {
-        var launches = new List<string>(); Application.UrlLauncher = launches.Add;
         using var panel = new NativeStatisticsPanel(coordinator);
-        UiText.ConfigureNativeResolver(key => key.StartsWith("ui.about", StringComparison.Ordinal) ? new string('W', key == "ui.about_description" || key == "ui.about_translation" ? 1800 : 240) : null);
+        var longText = string.Join("\n", Enumerable.Repeat("Long localized About content", 40));
+        UiText.ConfigureNativeResolver(key => key == "ui.about_description" || key == "ui.about_translation" ? longText : null);
         Press(panel, KeyCode.F8);
         Find("AboutTab").GetComponent<Button>().onClick.Invoke(); panel.Tick();
         var scroll = Find("AboutScroll").GetComponent<ScrollRect>();
@@ -78,25 +79,20 @@ public sealed partial class ShellAccessTests : IDisposable
         scroll.GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Down);
         Assert.True(scroll.content.anchoredPosition.y > 0);
         scroll.GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Right);
-        var support = Find("AboutSupport").GetComponent<Button>();
-        support.GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Down);
-        var discord = Find("AboutDiscord");
-        Assert.Same(discord, GameManager.EventSystem.currentSelectedGameObject);
+        Assert.Same(scroll.gameObject, GameManager.EventSystem.currentSelectedGameObject);
         ((RectTransform)canvas.transform).sizeDelta = new Vector2(960, 540); panel.Tick();
         Assert.True(Find("AboutContentView").activeInHierarchy);
-        Assert.Same(discord, GameManager.EventSystem.currentSelectedGameObject);
-        var rect = (RectTransform)discord.transform;
-        Assert.True(-rect.anchoredPosition.y + rect.rect.height <= scroll.content.anchoredPosition.y + ((RectTransform)scroll.transform).rect.height + .01f);
-        Assert.True(rect.rect.width <= scroll.content.rect.width - 60 + .01f);
-        discord.GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Left);
         Assert.Same(scroll.gameObject, GameManager.EventSystem.currentSelectedGameObject);
-        Assert.Empty(launches);
+        var rect = (RectTransform)Find("AboutInvitation").transform;
+        Assert.True(-rect.anchoredPosition.y + rect.rect.height <= scroll.content.rect.height);
+        Assert.True(rect.rect.width <= scroll.content.rect.width - 60 + .01f);
+        scroll.GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Left);
+        Assert.Same(Find("AboutTab"), GameManager.EventSystem.currentSelectedGameObject);
     }
 
     [Fact]
     public void AboutPrecedesDiagnosticsAndIsStaticWithAnEmptyProfileAndUnavailableAdaptersAcrossReopen()
     {
-        var launches = new List<string>(); Application.UrlLauncher = launches.Add;
         var original = System.Text.Json.JsonSerializer.Serialize(coordinator.Current);
         using var panel = new NativeStatisticsPanel(coordinator);
         for (var cycle = 0; cycle < 3; cycle++)
@@ -120,55 +116,17 @@ public sealed partial class ShellAccessTests : IDisposable
             for (var i = 0; i < 30; i++) panel.Tick();
             Assert.Equal(objects, GameObject.Live.Count);
             Assert.Equal(measurements, TextMeshProUGUI.Measurements);
-            var support = Find("AboutSupport").GetComponent<Button>();
+            Assert.Empty(about.GetComponentsInChildren<Button>());
             Find("AboutTab").GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Down);
             Assert.Same(Find("AboutScroll"), GameManager.EventSystem!.currentSelectedGameObject);
-            Find("AboutScroll").GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Right);
-            Assert.Same(support.gameObject, GameManager.EventSystem.currentSelectedGameObject);
-            support.GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Down);
-            Assert.Same(Find("AboutDiscord"), GameManager.EventSystem.currentSelectedGameObject);
-            Find("AboutDiscord").GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Up);
-            support.GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Up);
+            var scrollFocus = Find("AboutScroll").GetComponent<RunsFocusHandler>();
+            scrollFocus.Move!(UnityEngine.EventSystems.MoveDirection.Up);
             Assert.Same(Find("AboutTab"), GameManager.EventSystem.currentSelectedGameObject);
             Press(panel, KeyCode.Escape);
             Assert.DoesNotContain(GameObject.Live, go => go.name == "AboutContentView");
-            Assert.Equal(0, support.onClick.ListenerCount);
-            support.onClick.Invoke();
+            Assert.Null(scrollFocus.Move);
         }
-        Assert.Empty(launches);
         Assert.Equal(original, System.Text.Json.JsonSerializer.Serialize(coordinator.Current));
-    }
-
-    [Fact]
-    public void AboutDispatchesFixedLinksOnlyOnActivationAndRecoversFromLauncherFailure()
-    {
-        var launches = new List<string>(); Application.UrlLauncher = launches.Add;
-        using var panel = new NativeStatisticsPanel(coordinator); Press(panel, KeyCode.F8);
-        var support = Find("AboutSupport").GetComponent<Button>();
-        var discord = Find("AboutDiscord").GetComponent<Button>();
-        support.onClick.Invoke(); discord.onClick.Invoke(); // Hidden content cannot dispatch.
-        Assert.Empty(launches);
-        Find("AboutTab").GetComponent<Button>().onClick.Invoke(); panel.Tick();
-        Find("AboutTab").GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Down);
-        panel.Tick(); Assert.Empty(launches);
-        support.onClick.Invoke(); discord.onClick.Invoke();
-        Assert.Equal(new[] { "https://ko-fi.com/bamboechop", "https://discord.gg/8ngDVJ7jHH" }, launches);
-        Assert.All(launches, url => Assert.Equal("https", new Uri(url).Scheme));
-        var blocks = InputManager.Blocks.Count;
-        Application.UrlLauncher = _ => throw new InvalidOperationException("Launcher unavailable");
-        discord.onClick.Invoke(); panel.Tick();
-        Assert.True(Find("AboutContentView").activeInHierarchy);
-        Assert.True(Find("AboutLinkFailure").activeInHierarchy);
-        Assert.Same(discord.gameObject, GameManager.EventSystem!.currentSelectedGameObject);
-        Assert.Equal(blocks, InputManager.Blocks.Count);
-        Application.UrlLauncher = launches.Add;
-        discord.onClick.Invoke(); panel.Tick();
-        Assert.False(Find("AboutLinkFailure").activeInHierarchy);
-        Find("CombatTab").GetComponent<Button>().onClick.Invoke(); panel.Tick();
-        Assert.True(Find("CombatContentView").activeInHierarchy);
-        discord.onClick.Invoke(); Assert.Equal(3, launches.Count);
-        panel.Dispose(); support.onClick.Invoke(); discord.onClick.Invoke();
-        Assert.Equal(3, launches.Count);
     }
 
     [Theory]
@@ -656,7 +614,6 @@ public sealed partial class ShellAccessTests : IDisposable
     }
     public void Dispose()
     {
-        Application.UrlLauncher = null;
         UiText.ConfigureNativeResolver(null);
         foreach (var go in GameObject.Live.ToArray()) UnityEngine.Object.Destroy(go);
         LevelManager.Instance = null;

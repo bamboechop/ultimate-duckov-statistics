@@ -15,7 +15,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <VersionPrefix>1.0.0</VersionPrefix>
-    <VersionSuffix>rc.2</VersionSuffix>
     <Authors>Ultimate Duckov Statistics contributors</Authors>
     <Copyright>Copyright (c) 2026 Ultimate Duckov Statistics contributors</Copyright>
   </PropertyGroup>

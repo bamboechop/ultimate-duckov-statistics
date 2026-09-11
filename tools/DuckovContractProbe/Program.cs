@@ -576,9 +576,6 @@ try
 
     using (var unityCore = new AssemblyMetadata(Path.Combine(managedRoot, "UnityEngine.CoreModule.dll")))
     {
-        unityCore.RequireMethod("UnityEngine", "Application", "OpenURL", 1,
-            mustBePublic: true, mustBeStatic: true, returnTypeFragment: "System.Void",
-            parameterTypeFragments: ["System.String"]);
         unityCore.RequireMethod("UnityEngine", "Object", "Instantiate", 3,
             mustBePublic: true, mustBeStatic: true, returnTypeFragment: "UnityEngine.Object",
             parameterTypeFragments: ["UnityEngine.Object", "UnityEngine.Vector3", "UnityEngine.Quaternion"]);

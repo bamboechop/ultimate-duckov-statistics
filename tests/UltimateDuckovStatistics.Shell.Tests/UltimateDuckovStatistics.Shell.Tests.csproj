@@ -11,7 +11,6 @@
     <Compile Include="../../src/UltimateDuckovStatistics/UI/RetainedRecordsView.cs;../../src/UltimateDuckovStatistics/UI/RetainedItemUseView.cs;../../src/UltimateDuckovStatistics/UI/RetainedCombatView.cs;../../src/UltimateDuckovStatistics/UI/CombatNativeTextMeasurement.cs" Link="ProductionUI/%(Filename)%(Extension)" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/RetainedOverviewLayout.cs" Link="ProductionUI/RetainedOverviewLayout.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/RetainedAboutView.cs" Link="ProductionUI/RetainedAboutView.cs" />
-    <Compile Include="../../src/UltimateDuckovStatistics/UI/CommunityLinks.cs" Link="ProductionUI/CommunityLinks.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/CombatTooltip.cs" Link="ProductionUI/CombatTooltip.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/RetainedPanelModal.cs" Link="ProductionUI/RetainedPanelModal.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeHotPathDiagnostics.cs" Link="Production/Adapters/NativeHotPathDiagnostics.cs" />

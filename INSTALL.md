@@ -1,6 +1,6 @@
 # Install and use Ultimate Duckov Statistics
 
-This `1.0.0-rc.2` package is a release candidate for voluntary testing. It includes the four merged post-M18 batches and the user's completed in-game acceptance recorded in the [RC2 release record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/RC2_RELEASE.md). The [M18 acceptance record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/M18_ACCEPTANCE.md) retains the accepted performance and coverage bounds. Workshop channel verification and final v1.0 promotion remain separate release steps. The first version explicitly distributed through a supported channel will declare the supported upgrade baseline. Earlier `0.x` GitHub downloads were development artifacts.
+This guide accompanies **Ultimate Duckov Statistics 1.0.0**, prepared for its first Steam Workshop release. English and German are included. The first listing and subscription-install verification are pending; check the [project releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for publication rather than treating the version number as proof of release. The supported upgrade baseline begins when 1.0.0 is explicitly distributed through the verified Workshop channel. Earlier `0.x` builds and v1 release candidates were voluntary testing artifacts.
 
 ## Verified native baseline
 
@@ -10,7 +10,9 @@ This `1.0.0-rc.2` package is a release candidate for voluntary testing. It inclu
 
 Game and Harmony assemblies are supplied separately. The UDS package contains exactly `info.ini`, two UDS DLLs, this guide, and `LICENSE`.
 
-## Installation and tester transition
+## Local installation and Workshop transition
+
+Use the local package until the official Workshop listing is available. When switching to a Workshop subscription, close Duckov and remove the manually installed UDS mod folder first so only one UDS copy is loaded. Keep the separate statistics directory; changing installation channel does not require a statistics reset. The Workshop item ID will be recorded after the first listing is created and verified.
 
 1. Close Duckov and install the HarmonyLib dependency.
 2. Retain a backup of the existing `UltimateDuckovStatistics` mod folder. Replace only that folder under `<Duckov>/Duckov_Data/Mods/` with the extracted package.
@@ -18,13 +20,13 @@ Game and Harmony assemblies are supplied separately. The UDS package contains ex
 4. Select the desired save. Outside raids, open **Statistics** from the main menu or base pause menu, or use configurable F8.
 5. Check Diagnostics for current capability and persistence health. An unavailable integration may leave F8 as the access path.
 
-The v1 format identity is `uds-profile-v1`. Its separate data directory is `%USERPROFILE%/AppData/LocalLow/TeamSoda/Duckov/UltimateDuckovStatistics/v1/`. Starting the candidate creates fresh v1 statistics without importing, resetting, or deleting the older UDS data beside it. Do not copy an old profile into this directory. Incompatible/future identities are preserved intact and a fresh current profile is opened; current-format backup and temporary-file recovery remain supported. Reinstalling the same current-format candidate preserves its statistics.
+The first public format identity is `uds-profile-v1`, **schema 1**. Its data directory is `%USERPROFILE%/AppData/LocalLow/TeamSoda/Duckov/UltimateDuckovStatistics/v1/`. Earlier local 1.0.0 preparation builds and release candidates used development schema 18. The final baseline intentionally starts fresh: those profiles are not converted. If present, incompatible profiles are archived intact and a fresh current profile is opened. Older `0.x` data beside this directory is neither imported nor deleted. Do not copy an older-format profile into the current directory. Schema-1 backup/temporary recovery and reinstallation preserve valid current-format statistics. Schema versions track the stored format independently of the mod release number.
 
 To uninstall, close Duckov and remove only its UDS mod folder. Statistics remain in the external data directory. The repository deployment tool verifies Duckov is closed, checks every deployed hash, and retains a verified prior-mod backup under repository `artifacts/deployment-backups/` for reversal.
 
 ## Statistics and access
 
-All ten retained tabs use the same native shell. It supports localized labels, scrolling, keyboard focus, and responsive layout. Statistics access is deliberately unavailable during raids. Changing the selected save invalidates controls from the previous statistics generation. About precedes Diagnostics and remains available with an empty profile or unavailable measurements whenever the panel can open. Its optional support and Discord buttons open your browser only when activated.
+All ten retained tabs use the same native shell. It supports English/German language switching, wrapping, scrolling with overflow indicators, keyboard focus, and responsive layout. Statistics access is deliberately unavailable during raids. Changing the selected save invalidates controls from the previous statistics generation. About precedes Diagnostics and remains available with an empty profile or unavailable measurements whenever the panel can open. It contains the mod description, author attribution, and a translation invitation directing volunteers to Steam Workshop comments, with no external links or browser actions.
 
 Runs begin when the living main duck gains control in a native raid. Loading/base activity is excluded from raid duration and movement. Unknown identity, unavailable capture, partial attribution, repaired evidence, and proven empty observations remain distinct. Disabling a dependency does not invent zeros or erase independently supported sibling metrics.
 
@@ -42,12 +44,12 @@ Diagnostics exports an immutable snapshot of the captured generation as JSON and
 
 Reset requires confirmation, defaults to Cancel, archives the current UDS generation read-only and starts an empty one. It does not reset the game save. A blocked durability boundary keeps the request pending and prevents duplicate submissions; a rolled-back failure retains the original generation. Do not remove backup or temporary files to bypass validation.
 
-## Troubleshooting and release readiness
+## Troubleshooting
 
 - Confirm activation before save selection. Check the intended generation and current adapter states in Diagnostics.
 - If native menu integration is unavailable, try F8 outside a raid. Long labels or finite content overflow should remain scrollable and must not suppress the shell.
 - For persistence trouble, retain the profile, backup, temporary/checkpoint files and diagnostics. Failed persistence/transition work keeps its pending state and retries with bounded backoff; changing slots may remain deferred until that boundary is durable.
-- For export, UI or statistics disagreement, retain the candidate version, DLL hashes, ordered reproduction steps and relevant local export. Report through the [repository issues](https://github.com/bamboechop/ultimate-duckov-statistics/issues).
+- For export, UI or statistics disagreement, retain the UDS version shown in Diagnostics, DLL hashes, ordered reproduction steps and relevant local export. Report through the [repository issues](https://github.com/bamboechop/ultimate-duckov-statistics/issues).
 - Do not edit the Duckov save or reset real statistics as a troubleshooting shortcut. Recovery and reset rehearsals belong in isolated fixtures unless the user chooses otherwise.
 
-Workshop upload, dependency declaration, release publication and v1 promotion remain separate approval steps. Consult the repository's [release procedure](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/RELEASE_PROCESS.md) and [M18 acceptance record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/M18_ACCEPTANCE.md) for completed qualification, accepted limits and remaining release steps.
+The [release procedure](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/RELEASE_PROCESS.md) tracks final artifact verification, Workshop setup and publication. The [M18 acceptance record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/M18_ACCEPTANCE.md) and [RC2 record](https://github.com/bamboechop/ultimate-duckov-statistics/blob/main/docs/RC2_RELEASE.md) retain the completed native qualification and accepted performance/coverage limits. Version preparation does not repeat or expand that evidence.

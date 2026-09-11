@@ -4,9 +4,15 @@ This batch is merged. The user confirmed final in-game acceptance on 2026-09-11;
 
 This batch contributed to the combined `v1.0.0-rc.2`. It does not publish a release or a Workshop item. Its immutable base is `48428b32cf0108d59bd73c1a981a7acdc2078f68`, the merge of [Combat Statistics PR #21](https://github.com/bamboechop/ultimate-duckov-statistics/pull/21).
 
-## Approved public content
+## Workshop preparation change
 
-Author: **bamboechop**. Fixed runtime destinations are declared together in [`CommunityLinks.cs`](../src/UltimateDuckovStatistics/UI/CommunityLinks.cs):
+After rc.2, the user requested removal of both the support and Discord links for Workshop preparation. Current About content retains the mod description, author attribution, and the English/German translation invitation, directing volunteers to Steam Workshop comments. The buttons, browser launcher, button-specific focus/layout handling, unused translations, and native browser contract check have been removed. Scrolling, live localization, tab access, and cleanup remain supported.
+
+The delivery and validation records below describe the historical rc.2 implementation, including its original links; they do not describe current About behavior. The published rc.2 package remains unchanged. Native acceptance of the simplified view should check English/German text, narrow-window scrolling, and keyboard return from the scroll viewport to the About tab.
+
+## Original rc.2 public content (historical)
+
+Author: **bamboechop**. The original `CommunityLinks` class declared the two fixed runtime destinations:
 
 - Optional support: [Ko-fi](https://ko-fi.com/bamboechop).
 - Community and translation contact: [Discord](https://discord.gg/8ngDVJ7jHH).

@@ -1,5 +1,7 @@
 # Performance qualification
 
+The current release target is 1.0.0. The chronological M18 campaign below retains the versions and hashes actually measured; it is not a new measurement of the final 1.0.0 package. The [M18 acceptance record](docs/M18_ACCEPTANCE.md) is authoritative for completed qualification and accepted limits, superseding the earlier pending-campaign wording below. Version/documentation changes alone do not require repeating accepted captures; later behavior changes require checks of the affected work.
+
 The user has [accepted the observed deviations](docs/M18_PERFORMANCE_ACCEPTANCE.json) for the measured ordinary candidate based on no reported gameplay hindrance. The numerical misses and all frame/control evidence below remain unchanged; they no longer independently block acceptance. No further capture or optimization is requested solely to meet those thresholds. Unmeasured workloads, native resource safety and correctness remain separate.
 
 ## M18 campaign, declared before acceptance capture
