@@ -55,3 +55,10 @@ The ordinary package was deployed with Duckov closed. Independent readback match
 `NativeStatisticsPanel.RefreshDiagnostics()` cached already-translated strings using profile revision and runtime evidence. A language change dirtied the profile projection but left that separate cache valid. `HandleLanguageChanged()` now invalidates the diagnostics revision as well. The next normal tick rebuilds and delivers the snapshot after all language callbacks have applied translation overrides; the native Diagnostics view accepts it and marks its retained content dirty.
 
 The regression fails on the prior implementation and passes with the fix for both an already-visible Diagnostics tab and one opened after the switch. It checks English → German → English banner/detail/system text, unchanged profile revision, save receipt, diagnostic entries and profile contents, and cache reuse on subsequent unchanged ticks. The remaining native check is to repeat that language sequence in Diagnostics without recording new statistics and confirm the banner updates immediately on the next UI tick.
+
+Correction source: `1e7c33a7a7013ffd45a3392da6f986313523b6c5`. Debug and Release each pass 2,020 main, 76 ordinary shell and 80 diagnostic shell tests. Native probing/build, formatting/analyzers, package/IL/path checks and independent ZIP extraction pass. Two isolated builds reproduce the DLLs, PDBs and ZIP, matching the local correction archive.
+
+The corrected ordinary package was deployed with Duckov closed, all five installed hashes verified and no transaction residue. The prior layout build is backed up under `artifacts/deployment-backups/bbd39214814e45408429eb6a41993c4b/UltimateDuckovStatistics`. This supersedes the initial local deployment above; the published rc.2 release is unchanged.
+
+- Archive: `artifacts/localization-layout/UltimateDuckovStatistics-german-ui-diagnostics-local.zip`, **666,074 bytes**, SHA-256 `dd56d976a22b395d53c0b1ad0f4f59993da137d6de6ff43aa6789972d8b10ae0`.
+- Updated `UltimateDuckovStatistics.dll` SHA-256: `604eea1cb2e3a91e6c1f2efc9e06cc1e04c50aca951066b65e56ffab86e9fb2a`. The other four package-file hashes remain those listed above.
