@@ -156,6 +156,8 @@ internal static class GermanText
         ["ui.runs_empty"] = "Noch keine Raids aufgezeichnet. Schließe einen Raid ab, um die aufgezeichnete Historie hier zu sehen.",
         ["ui.runs_requested_unavailable"] = "Der angeforderte Raid ist in diesem Profil nicht verfügbar. Wähle einen Raid aus der Historie.",
         ["ui.runs_partial"] = "unvollständig; nur aufgezeichnete Werte",
+        ["ui.runs_partial_values_notice"] = "* Unvollständiger Wert; nur aufgezeichnete Daten werden angezeigt.",
+        ["ui.runs_segment_attribution_notice"] = "Einige Werte pro Karte können unvollständig sein. Die Raid-Gesamtwerte werden separat erfasst.",
         ["ui.runs_integrity"] = "Integrität",
         ["ui.runs_eligible"] = "Geeignete Datensätze",
         ["ui.runs_ineligible"] = "Ungeeignete Datensätze",

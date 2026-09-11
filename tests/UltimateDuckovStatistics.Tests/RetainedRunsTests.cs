@@ -206,10 +206,80 @@ public sealed class RetainedRunsTests
         run.ItemStatistics.WasRepairedFromInvalidState = true;
         run.RouteWasRepairedFromInvalidState = true;
         var result = Present(run).Runs[0];
-        Assert.Contains("7 (partial", result.Summary[3].Value);
-        Assert.Contains("23 (partial", result.Summary[9].Value);
-        Assert.Contains("partial", result.RouteSummary);
+        Assert.Equal("7*", result.Summary[3].Value);
+        Assert.Equal("23*", result.Summary[9].Value);
+        Assert.EndsWith("*", result.RouteSummary);
+        Assert.Equal(UiText.Get("ui.runs_partial_values_notice"), result.ValueNotice);
         Assert.Contains("unavailable", result.EquipmentState, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(0, 0, 0)]
+    [InlineData(21, 6300, 230)]
+    public void SegmentAttributionGapDoesNotDowngradeIndependentRunTotals(long containers, long cash, double health)
+    {
+        var run = Run("route-gap", 1);
+        run.HealingCaptureComplete = true;
+        run.ContainerStatistics.UniqueContainersLooted = containers;
+        run.ItemStatistics.Overall.ActualHealthRestored = health;
+        run.Economy.Currencies["Cash"] = new() { Currency = CurrencyKind.Cash, Totals = new() { GrossInflow = cash } };
+        run.Segments[0].CombatStatistics.Totals.KillsByYou = 1;
+        run.Segments[0].WeaponStatistics.Totals.FiringActions = 2;
+        run.Segments[0].ContainerStatistics.UniqueContainersLooted = 1;
+        var exact = Present(run).Runs[0];
+        Assert.Empty(exact.ValueNotice);
+        run.HistoricalEventAttributionIncomplete = true;
+        run.HistoricalEventAttributionProvenance = "A source segment could not be resolved; overall statistics remain available.";
+        run.RouteCapabilities.EventAttribution.State = AdapterCapabilityState.DisabledIncompatible;
+        var before = System.Text.Json.JsonSerializer.Serialize(run);
+        foreach (var table in new[] { UiText.EnglishFallbacks, UiText.GermanFallbacks, UiText.EnglishFallbacks })
+        {
+            string Text(string key) => table[key];
+            var detail = RunsPresentationFactory.Create(Projection(run), "g", Text)!.Runs[0];
+            Assert.Equal(exact.Summary[3].Value, detail.Summary[3].Value);
+            Assert.Equal(exact.Summary[4].Value, detail.Summary[4].Value);
+            Assert.Equal(exact.Summary[9].Value, detail.Summary[9].Value);
+            Assert.Equal(Text("ui.runs_partial_values_notice") + "\n" + Text("ui.runs_segment_attribution_notice"), detail.ValueNotice);
+            Assert.Contains("1* " + Text("ui.runs_kill"), detail.Segments[0].Value);
+            Assert.Contains("2* " + Text("ui.runs_firing_actions"), detail.Segments[0].Value);
+            Assert.Contains("1* " + Text("ui.runs_container"), detail.Segments[0].Value);
+            Assert.DoesNotContain(Text("ui.runs_partial"), detail.Segments[0].Value);
+        }
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(run));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(12)]
+    public void FamilyCaptureGapsKeepPartialPositiveAndUnavailableZeroValues(long value)
+    {
+        var run = Run("capture-gap", 1);
+        run.ContainerStatistics.UniqueContainersLooted = value;
+        run.ContainerStatistics.Capabilities.UniqueContainersLooted.State = AdapterCapabilityState.Experimental;
+        run.ItemStatistics.Overall.ActualHealthRestored = value;
+        run.HealingCaptureComplete = false;
+        run.Economy.Currencies["Cash"] = new() { Currency = CurrencyKind.Cash, Totals = new() { GrossOutflow = value } };
+        run.Economy.Capabilities.CashAmountDirection.State = AdapterCapabilityState.Experimental;
+        var detail = Present(run).Runs[0];
+        var expected = value == 0 ? "Unavailable" : "12*";
+        Assert.Equal(expected, detail.Summary[3].Value);
+        Assert.Equal(value == 0 ? "Unavailable" : "-12*", detail.Summary[4].Value);
+        Assert.Equal(expected, detail.Summary[9].Value);
+        Assert.Equal(value == 0 ? string.Empty : UiText.Get("ui.runs_partial_values_notice"), detail.ValueNotice);
+        Assert.DoesNotContain(UiText.Get("ui.runs_segment_attribution_notice"), detail.ValueNotice);
+    }
+
+    [Fact]
+    public void CombatOnlyPartialValuesStillExplainTheirMarker()
+    {
+        var run = Run("combat-gap", 1);
+        run.HealingCaptureComplete = true;
+        run.CombatStatistics.Capabilities.MeleeSwings.State = AdapterCapabilityState.Experimental;
+        run.CombatStatistics.Totals.MeleeSwings = 1;
+        var detail = Present(run).Runs[0];
+        Assert.StartsWith("1* swing", detail.Melee);
+        Assert.Equal(UiText.Get("ui.runs_partial_values_notice"), detail.ValueNotice);
+        Assert.DoesNotContain(detail.Summary, row => row.Value.Contains('*'));
     }
 
     [Fact]

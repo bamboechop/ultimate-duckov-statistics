@@ -301,6 +301,47 @@ public sealed partial class RouteLifecycleTests
         Assert.Equal("item-use", Assert.Single(recovered.SegmentEventAssociations).EventKind);
     }
 
+    [Fact]
+    public void UnresolvedDelayedEffectDoesNotMakeSavedRunWideTotalsPartial()
+    {
+        var tracker = new RunLifecycleTracker(() => "run-1");
+        tracker.SetHealingCapability(AdapterCapabilityState.Supported);
+        tracker.Apply(Event(RunLifecycleEventKind.RaidInitialized, 0, nativeRaidId: "1"));
+        tracker.Apply(Event(RunLifecycleEventKind.ControlReady, 0, context: Context("A", "1")));
+        var segment = tracker.ActiveSegmentId!;
+        Assert.True(tracker.RecordItemUse(Item("use-a", tracker, "A")));
+        Assert.True(tracker.RecordHealing(Healing("heal-a", tracker, segment, "A", segment, "A")));
+        Assert.True(tracker.RecordContainer(Container("container-a", tracker, 42)));
+        Assert.True(tracker.RecordCurrencyFlow(Currency("cash-a", tracker, "A", CurrencyKind.Cash, CurrencyFlowDirection.Inflow, 6300)));
+        var damage = Combat("unresolved-effect", tracker, segment, "A", segment, "A");
+        CombatObservationPolicy.ApplySourceIdentity(damage, delayedEffect: true, MapIdentity.UnknownId, string.Empty);
+        Assert.True(tracker.RecordCombat(damage));
+        var run = tracker.Apply(Event(RunLifecycleEventKind.Extracted, 10)).Completed!;
+        Assert.True(run.HistoricalEventAttributionIncomplete);
+        Assert.True(run.HealingCaptureComplete);
+
+        using var directory = new TemporaryDirectory();
+        var document = Document(run);
+        document.Statistics.Holdings.SaveGenerationId = document.GenerationId;
+        document.Statistics.Runs.Clear();
+        Assert.True(RunReducer.Apply(document.Statistics, run));
+        var store = new AtomicJsonStore<ProfileDocument>();
+        var path = Path.Combine(directory.Path, "profile.json");
+        store.Save(path, document);
+        var loaded = store.Load(path, ProfileFormat.ValidateRecoveryCandidate);
+        Assert.True(loaded.Found, string.Join("; ", loaded.Failures));
+        var recovered = Assert.Single(loaded.Value!.Statistics.Runs);
+        Assert.True(recovered.HistoricalEventAttributionIncomplete);
+        Assert.True(recovered.HealingCaptureComplete);
+        var projection = StatisticsPanelProjectionFactory.Create(loaded.Value, new(), new(), new());
+        var detail = Assert.Single(RunsPresentationFactory.Create(projection, document.GenerationId)!.Runs);
+        Assert.Equal("1", detail.Summary.Single(row => row.Key == UiText.Get("ui.runs_containers")).Value);
+        Assert.Equal("+6,300", detail.Summary.Single(row => row.Key == UiText.Get("ui.runs_cash_net")).Value);
+        Assert.Equal("7", detail.Summary.Single(row => row.Key == UiText.Get("ui.runs_hp")).Value);
+        Assert.Contains("1* container", detail.Segments[0].Value);
+        Assert.Contains(UiText.Get("ui.runs_segment_attribution_notice"), detail.ValueNotice);
+    }
+
     [Theory]
     [InlineData(false, "duckov:map:outcome", "outcome-segment")]
     [InlineData(true, MapIdentity.UnknownId, "")]

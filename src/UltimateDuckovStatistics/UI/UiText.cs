@@ -170,6 +170,8 @@ internal static class UiText
             ["ui.runs_empty"] = "No recorded runs yet. Complete a raid to see its recorded history here.",
             ["ui.runs_requested_unavailable"] = "The requested run is unavailable in this profile. Select a run from the history.",
             ["ui.runs_partial"] = "partial; recorded values only",
+            ["ui.runs_partial_values_notice"] = "* Incomplete value; only recorded data is shown.",
+            ["ui.runs_segment_attribution_notice"] = "Some per-map statistics may be incomplete. Run totals are tracked separately.",
             ["ui.runs_integrity"] = "Integrity",
             ["ui.runs_eligible"] = "Records eligible",
             ["ui.runs_ineligible"] = "Records ineligible",

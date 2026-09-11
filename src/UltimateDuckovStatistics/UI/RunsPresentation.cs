@@ -31,16 +31,17 @@ internal sealed class RunDetailPresentation
     public IReadOnlyList<RunSlotPresentation> Slots { get; }
     public string Ranged { get; }
     public string Melee { get; }
+    public string ValueNotice { get; }
     public RunDetailPresentation(string id, string title, string metadata, string integrity,
         RetainedRunBadgeState outcome, IEnumerable<KeyValuePair<string, string>> summary,
         string routeSummary, IEnumerable<KeyValuePair<string, string>> segments,
-        string equipmentState, TerminalLoadoutState terminalState, IEnumerable<RunSlotPresentation> slots, string ranged, string melee)
+        string equipmentState, TerminalLoadoutState terminalState, IEnumerable<RunSlotPresentation> slots, string ranged, string melee, string valueNotice)
     {
         Id = id; Title = title; Metadata = metadata; Integrity = integrity; Outcome = outcome;
         Summary = Array.AsReadOnly(summary.ToArray()); RouteSummary = routeSummary;
         Segments = Array.AsReadOnly(segments.ToArray()); EquipmentState = equipmentState;
         TerminalState = terminalState;
-        Slots = Array.AsReadOnly(slots.ToArray()); Ranged = ranged; Melee = melee;
+        Slots = Array.AsReadOnly(slots.ToArray()); Ranged = ranged; Melee = melee; ValueNotice = valueNotice;
     }
 }
 
@@ -140,17 +141,19 @@ internal static class RunsPresentationFactory
         var c = combat.Capabilities;
         var v = combat.Totals;
         var broken = combat.WasRepairedFromInvalidState;
+        var hasPartialValues = false;
+        Func<string, string> Partial = value => { hasPartialValues = true; return value + "*"; };
         string Metric(double value, MetricAvailability capability, bool partial = false) =>
-            Format(value, capability.State == AdapterCapabilityState.Supported && !broken && !partial, t);
+            Format(value, capability.State == AdapterCapabilityState.Supported && !broken && !partial, t, formatPartial: Partial);
         string Count(long value, MetricAvailability capability, bool partial = false) =>
-            FormatCount(value, capability.State == AdapterCapabilityState.Supported && !broken && !partial, t);
+            FormatCount(value, capability.State == AdapterCapabilityState.Supported && !broken && !partial, t, Partial);
         var routeExact = !run.RouteWasRepairedFromInvalidState
             && run.RouteCapabilities.OrderedRoute.State == AdapterCapabilityState.Supported
             && run.RouteCapabilities.Segments.State == AdapterCapabilityState.Supported;
         var mapsExact = routeExact && run.Segments.Count > 0 && run.Segments.All(segment => segment.MapKnown);
         var maps = mapsExact ? Plural(run.Segments.Select(segment => segment.MapId).Distinct(StringComparer.Ordinal).Count(), "map", t) : t("ui.unavailable");
         var routeSummary = Plural(run.Segments.Count, "segment", t) + " · " + maps;
-        if (!routeExact) routeSummary += " · " + t("ui.runs_partial");
+        if (!routeExact) routeSummary = Partial(routeSummary);
         var first = run.Segments.FirstOrDefault();
         var last = run.Segments.LastOrDefault();
         var title = first != null ? Map(first.MapKnown, names.Get(first.MapId, first.MapDisplayName), t)
@@ -171,22 +174,23 @@ internal static class RunsPresentationFactory
             : empty ? "—" : t("ui.unavailable");
         var accuracy = Accuracy(CombatAccuracyProjection.Overall(v, c, broken), CombatAccuracyProjection.OverallIsEmpty(v, c, broken));
         var cash = run.Economy.Currencies.TryGetValue(CurrencyKind.Cash.ToString(), out var currency) ? currency.Totals.NetFlow : 0;
+        // Run totals are captured independently of source/outcome segment joins.
         var cashExact = !run.Economy.WasRepairedFromInvalidState
-            && run.Economy.Capabilities.CashAmountDirection.State == AdapterCapabilityState.Supported && !attributionPartial;
+            && run.Economy.Capabilities.CashAmountDirection.State == AdapterCapabilityState.Supported;
         var cashText = cashExact ? cash.ToString("+#,0;-#,0;0", CultureInfo.InvariantCulture)
-            : cash != 0 ? cash.ToString(CultureInfo.InvariantCulture) + " (" + t("ui.runs_partial") + ")" : t("ui.unavailable");
+            : cash != 0 ? Partial(cash.ToString("+#,0;-#,0;0", CultureInfo.InvariantCulture)) : t("ui.unavailable");
         var summary = new[]
         {
             Pair(t("ui.overview_latest_run_active_time"), Duration(run.ActiveDurationSeconds, run.LifecycleCapability == AdapterCapabilityState.Supported, t)),
             Pair(t("ui.overview_latest_run_distance"), Distance(run.PhysicalDistance, run.MovementCapability == AdapterCapabilityState.Supported, t)),
             Pair(t("ui.overview_kills_by_you"), Count(v.KillsByYou, c.KillsByYou)),
-            Pair(t("ui.runs_containers"), Containers(run.ContainerStatistics, attributionPartial, t)),
+            Pair(t("ui.runs_containers"), Containers(run.ContainerStatistics, false, t, Partial)),
             Pair(t("ui.runs_cash_net"), cashText),
             Pair(t("ui.overview_damage_dealt"), Metric(v.DamageDealt, c.DamageDealt)),
             Pair(t("ui.overview_damage_taken"), Metric(v.DamageReceived, c.DamageReceived)),
             Pair(t("ui.runs_accuracy"), accuracy), Pair(t("ui.runs_headshots"), headshots),
             Pair(t("ui.runs_hp"), Format(run.ItemStatistics.Overall.ActualHealthRestored,
-                run.HealingCaptureComplete && !run.ItemStatistics.WasRepairedFromInvalidState && !attributionPartial, t, health: true))
+                run.HealingCaptureComplete && !run.ItemStatistics.WasRepairedFromInvalidState, t, health: true, formatPartial: Partial))
         };
         var segments = run.Segments.Select((segment, index) =>
         {
@@ -194,20 +198,20 @@ internal static class RunsPresentationFactory
             var eventsExact = exact && !attributionPartial && run.RouteCapabilities.EventAttribution.State == AdapterCapabilityState.Supported;
             var kills = FormatCount(segment.CombatStatistics.Totals.KillsByYou, eventsExact
                 && !segment.CombatStatistics.WasRepairedFromInvalidState
-                && segment.CombatStatistics.Capabilities.KillsByYou.State == AdapterCapabilityState.Supported, t);
+                && segment.CombatStatistics.Capabilities.KillsByYou.State == AdapterCapabilityState.Supported, t, Partial);
             var firing = FormatCount(segment.WeaponStatistics.Totals.FiringActions, eventsExact
                 && !segment.WeaponStatistics.WasRepairedFromInvalidState
-                && segment.WeaponStatistics.Capabilities.FiringActions.State == AdapterCapabilityState.Supported, t);
-            var containers = Containers(segment.ContainerStatistics, !eventsExact, t);
+                && segment.WeaponStatistics.Capabilities.FiringActions.State == AdapterCapabilityState.Supported, t, Partial);
+            var containers = Containers(segment.ContainerStatistics, !eventsExact, t, Partial);
             var facts = Duration(segment.ActiveDurationSeconds, exact && run.LifecycleCapability == AdapterCapabilityState.Supported, t)
                 + " · " + Distance(segment.PhysicalDistance, exact && run.MovementCapability == AdapterCapabilityState.Supported, t)
-                + " · " + SegmentActivity(segment, eventsExact, kills, firing, containers, t);
+                + " · " + SegmentActivity(segment, eventsExact, kills, firing, containers, t, Partial);
             return Pair($"{index + 1}  {Map(segment.MapKnown, names.Get(segment.MapId, segment.MapDisplayName), t)}", facts);
-        });
+        }).ToArray(); // Resolve partial markers before constructing their shared explanation.
         var rangedKills = Count(data.RangedKills, c.KillsByYou, !data.RangedMeleeExact);
         var meleeKills = Count(data.MeleeKills, c.KillsByYou, !data.RangedMeleeExact);
         var ranged = Unit(FormatCount(run.WeaponStatistics.Totals.FiringActions,
-                !run.WeaponStatistics.WasRepairedFromInvalidState && run.WeaponStatistics.Capabilities.FiringActions.State == AdapterCapabilityState.Supported, t), "firing_action", t)
+                !run.WeaponStatistics.WasRepairedFromInvalidState && run.WeaponStatistics.Capabilities.FiringActions.State == AdapterCapabilityState.Supported, t, Partial), "firing_action", t)
             + "\n" + Unit(Count(v.RangedHits, c.RangedHits), "hit", t)
             + "\n" + Unit(Count(v.Headshots, c.Headshots), "headshot", t)
             + "\n" + Count(v.HeadshotFinalBlows, c.HeadshotFinalBlows) + " " + t("ui.runs_headshot_final_blows")
@@ -223,9 +227,12 @@ internal static class RunsPresentationFactory
         }
         var slots = data.TerminalSlots.Select(slot => PresentSlot(slot, t, names));
         var equipmentState = t("ui.runs_terminal_" + data.TerminalState.ToString().ToLowerInvariant());
+        var valueNotice = hasPartialValues ? t("ui.runs_partial_values_notice") : string.Empty;
+        if (attributionPartial || run.RouteCapabilities.EventAttribution.State != AdapterCapabilityState.Supported)
+            valueNotice += (valueNotice.Length > 0 ? "\n" : string.Empty) + t("ui.runs_segment_attribution_notice");
         return new RunDetailPresentation(run.RunId, title, metadata, integrity,
             RetainedRunBadgePresentationFactory.MapOutcome(run.Outcome), summary, routeSummary, segments,
-            equipmentState, data.TerminalState, slots, ranged, melee);
+            equipmentState, data.TerminalState, slots, ranged, melee, valueNotice);
     }
 
     internal static RunSlotPresentation PresentSlot(TerminalRootSlot slot, Func<string, string> t, EntityDisplayNames? names = null)
@@ -259,7 +266,7 @@ internal static class RunsPresentationFactory
     }
 
     private static string SegmentActivity(MapSegmentSummary segment, bool eventsExact, string kills,
-        string firing, string containers, Func<string, string> t)
+        string firing, string containers, Func<string, string> t, Func<string, string> formatPartial)
     {
         var combat = segment.CombatStatistics;
         var totals = combat.Totals;
@@ -292,15 +299,15 @@ internal static class RunsPresentationFactory
             var combatExact = eventsExact && !combat.WasRepairedFromInvalidState;
             var hasPrimaryActivity = totals.KillsByYou > 0 || segment.WeaponStatistics.Totals.FiringActions > 0;
             if (!hasPrimaryActivity && totals.MeleeSwings > 0) facts.Add(Unit(FormatCount(totals.MeleeSwings,
-                combatExact && capabilities.MeleeSwings.State == AdapterCapabilityState.Supported, t), "swing", t));
+                combatExact && capabilities.MeleeSwings.State == AdapterCapabilityState.Supported, t, formatPartial), "swing", t));
             if (!hasPrimaryActivity && totals.DamageDealt > 0) facts.Add(t("ui.overview_damage_dealt") + ": " + Format(totals.DamageDealt,
-                combatExact && capabilities.DamageDealt.State == AdapterCapabilityState.Supported, t));
+                combatExact && capabilities.DamageDealt.State == AdapterCapabilityState.Supported, t, formatPartial: formatPartial));
             if (!hasPrimaryActivity && totals.DamageReceived > 0) facts.Add(t("ui.overview_damage_taken") + ": " + Format(totals.DamageReceived,
-                combatExact && capabilities.DamageReceived.State == AdapterCapabilityState.Supported, t));
+                combatExact && capabilities.DamageReceived.State == AdapterCapabilityState.Supported, t, formatPartial: formatPartial));
             if (facts.Count == 0 && totals.RangedHits > 0) facts.Add(t("ui.runs_ranged") + ": " + Unit(FormatCount(totals.RangedHits,
-                combatExact && capabilities.RangedHits.State == AdapterCapabilityState.Supported, t), "hit", t));
+                combatExact && capabilities.RangedHits.State == AdapterCapabilityState.Supported, t, formatPartial), "hit", t));
             if (facts.Count == 0 && totals.MeleeHits > 0) facts.Add(t("ui.runs_melee") + ": " + Unit(FormatCount(totals.MeleeHits,
-                combatExact && capabilities.MeleeHits.State == AdapterCapabilityState.Supported, t), "hit", t));
+                combatExact && capabilities.MeleeHits.State == AdapterCapabilityState.Supported, t, formatPartial), "hit", t));
             if (facts.Count == 0 && combatComplete && (totals.DamageCaused > 0 || totals.CompletedPlayerProjectiles > 0
                 || totals.Headshots > 0 || totals.HeadshotFinalBlows > 0 || totals.ObservedWorldDeaths > 0 || totals.PlayerDeaths > 0))
                 facts.Add(t("ui.runs_combat_activity"));
@@ -313,20 +320,22 @@ internal static class RunsPresentationFactory
     private static KeyValuePair<string, string> Pair(string label, string value) => new(label, value);
     private static string Map(bool known, string name, Func<string, string> t) => known && !string.IsNullOrWhiteSpace(name) ? name : t("ui.overview_latest_run_unknown_map");
     private static string Plural(int count, string unit, Func<string, string> t) => Unit(count.ToString(CultureInfo.InvariantCulture), unit, t);
-    private static string Unit(string value, string unit, Func<string, string> t) => value + " " + t("ui.runs_" + unit + (value == "1" ? "" : unit == "headshot" || unit == "container" ? "s_plural" : "s"));
+    private static string Unit(string value, string unit, Func<string, string> t) => value + " " + t("ui.runs_" + unit + (value is "1" or "1*" ? "" : unit == "headshot" || unit == "container" ? "s_plural" : "s"));
     private static string Duration(double value, bool exact, Func<string, string> t) => exact && RetainedRunDurationFormatter.TryFormat(value, out var formatted) ? formatted : t("ui.unavailable");
     private static string Distance(double value, bool exact, Func<string, string> t) => exact && value >= 0 && !double.IsInfinity(value)
         ? value >= 1000 ? (value / 1000).ToString("0.00", CultureInfo.InvariantCulture) + " km" : value.ToString("0.##", CultureInfo.InvariantCulture) + " m" : t("ui.unavailable");
-    private static string Containers(ContainerStatisticsAggregate value, bool partial, Func<string, string> t) => FormatCount(value.UniqueContainersLooted,
-        !partial && !value.WasRepairedFromInvalidState && value.Capabilities.UniqueContainersLooted.State == AdapterCapabilityState.Supported, t);
-    internal static string FormatCount(long value, bool exact, Func<string, string> t) => value < 0 ? t("ui.unavailable")
-        : exact ? value.ToString(CultureInfo.InvariantCulture) : value > 0 ? value.ToString(CultureInfo.InvariantCulture) + " (" + t("ui.runs_partial") + ")" : t("ui.unavailable");
-    internal static string Format(double value, bool exact, Func<string, string> t, bool health = false)
+    private static string Containers(ContainerStatisticsAggregate value, bool partial, Func<string, string> t, Func<string, string> formatPartial) => FormatCount(value.UniqueContainersLooted,
+        !partial && !value.WasRepairedFromInvalidState && value.Capabilities.UniqueContainersLooted.State == AdapterCapabilityState.Supported, t, formatPartial);
+    internal static string FormatCount(long value, bool exact, Func<string, string> t, Func<string, string>? formatPartial = null) => value < 0 ? t("ui.unavailable")
+        : exact ? value.ToString(CultureInfo.InvariantCulture) : value > 0 ? PartialText(value.ToString(CultureInfo.InvariantCulture), t, formatPartial) : t("ui.unavailable");
+    internal static string Format(double value, bool exact, Func<string, string> t, bool health = false, Func<string, string>? formatPartial = null)
     {
         if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || !exact && value == 0) return t("ui.unavailable");
         var formatted = health ? UiText.FormatHealth(value) : value.ToString("0.##", CultureInfo.InvariantCulture);
-        return exact ? formatted : formatted + " (" + t("ui.runs_partial") + ")";
+        return exact ? formatted : PartialText(formatted, t, formatPartial);
     }
+    private static string PartialText(string value, Func<string, string> t, Func<string, string>? formatPartial) =>
+        formatPartial != null ? formatPartial(value) : value + " (" + t("ui.runs_partial") + ")";
 }
 
 internal static class RunsLayoutPolicy

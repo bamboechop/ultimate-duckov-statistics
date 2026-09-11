@@ -232,6 +232,7 @@ internal sealed partial class RetainedStatisticsShell
         private readonly TextMeshProUGUI title;
         private readonly TextMeshProUGUI metadata;
         private readonly TextMeshProUGUI integrity;
+        private readonly TextMeshProUGUI valueNotice;
         private readonly TextMeshProUGUI routeHeading;
         private readonly TextMeshProUGUI routeSummary;
         private readonly List<(TextMeshProUGUI Title, TextMeshProUGUI Detail)> segments = new();
@@ -293,6 +294,7 @@ internal sealed partial class RetainedStatisticsShell
             title = Text(fixedDetail, "RunTitle", 48);
             metadata = Text(fixedDetail, "RunMetadata", 22);
             integrity = Text(fixedDetail, "RunIntegrity", 22);
+            valueNotice = Text(fixedDetail, "RunValueNotice", 20); valueNotice.color = Muted;
             for (var i = 0; i < 10; i++)
             {
                 var label = Text(fixedDetail, "SummaryLabel" + i, RunsViewStyle.SummaryLabelSize);
@@ -387,6 +389,8 @@ internal sealed partial class RetainedStatisticsShell
             equipmentCard.GetComponent<ProceduralImage>().color = run?.TerminalState == TerminalLoadoutState.Complete
                 ? new Color(0, 0, 0, RetainedOverviewPanelStylePolicy.LayerAlpha) : new Color(.15f, .15f, .15f, RetainedOverviewPanelStylePolicy.LayerAlpha);
             metadata.text = run?.Metadata ?? string.Empty; integrity.text = run?.Integrity ?? string.Empty;
+            valueNotice.text = run?.ValueNotice ?? string.Empty;
+            valueNotice.gameObject.SetActive(valueNotice.text.Length > 0);
             for (var i = 0; i < summary.Count; i++)
             {
                 summary[i].Label.text = run == null ? string.Empty : RunsViewStyle.Uppercase(run.Summary[i].Key);
@@ -512,6 +516,7 @@ internal sealed partial class RetainedStatisticsShell
                     labelHeight = Math.Max(labelHeight, Put(summary[i].Label, (i - start) * (cellWidth + 20), y + valueHeight + 4, cellWidth));
                 y += labelHeight + 4 + valueHeight + 26;
             }
+            if (valueNotice.gameObject.activeSelf) y += Put(valueNotice, 0, y, detailWidth) + 12;
             // Extremely long localized/stored header content can exhaust a desktop column.
             // Reuse the existing responsive page so every section stays reachable, never reject text.
             if (selection.Selected != null && !useStacked && y + 250 > height) { Reflow(forceStacked: true); return; }

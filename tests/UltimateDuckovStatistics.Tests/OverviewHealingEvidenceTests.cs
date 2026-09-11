@@ -141,8 +141,8 @@ public sealed class OverviewHealingEvidenceTests
 
     [Theory]
     [InlineData(true, false, 0, "Unavailable", false)]
-    [InlineData(false, true, 12.5, "13 (partial; recorded values only)", false)]
-    [InlineData(false, true, 12.5, "13 (partial; recorded values only)", true)]
+    [InlineData(false, true, 12.5, "13*", false)]
+    [InlineData(false, true, 12.5, "13*", true)]
     [InlineData(false, true, 0, "Unavailable", true)]
     [InlineData(false, false, 0, "0", false)]
     [InlineData(false, false, 12.5, "13", false)]
@@ -265,6 +265,7 @@ public sealed class OverviewHealingEvidenceTests
             var projection = StatisticsPanelProjectionFactory.Create(loaded.Value, new(), new(), new());
             var detail = Assert.Single(RunsPresentationFactory.Create(projection, generation)!.Runs);
             Assert.Equal(expected, detail.Summary.Single(row => row.Key == UiText.Get("ui.runs_hp")).Value);
+            if (loseCapture && restored > 0) Assert.Contains(UiText.Get("ui.runs_partial_values_notice"), detail.ValueNotice);
             // Restart against the same saved run after removing the conflicting patch.
             adapter.Dispose();
             HarmonyLib.Harmony.ClearAll();
