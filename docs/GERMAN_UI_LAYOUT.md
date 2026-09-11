@@ -2,7 +2,7 @@
 
 This follow-up starts from the committed localization baseline `a2452850dc7d558906e5b41a41b239cc6b5cb6ac`. It retains native language-change subscriptions, translation keys, placeholders, statistics definitions and coverage explanations. The [published rc.2](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0-rc.2) and its publication receipt are unchanged. The local development package retains the existing version metadata; its distinct filename and hashes identify this build, not the published ZIP.
 
-Implementation source: `7ed195a53a905bbba0dacfea780df6839e50059c`. Current review and CI are on [PR #24](https://github.com/bamboechop/ultimate-duckov-statistics/pull/24).
+Initial layout implementation source: `7ed195a53a905bbba0dacfea780df6839e50059c`. The Diagnostics cache correction below follows that delivery. Current review and CI are on [PR #24](https://github.com/bamboechop/ultimate-duckov-statistics/pull/24).
 
 ## Causes and implementation
 
@@ -28,7 +28,7 @@ Validated on 2026-09-11:
 
 Unity/TMP boundary doubles model hierarchy, activation and approximate text measurements. They do not prove native glyph bounds, shader clipping, raycast execution, GPU effects or final visual quality. Native acceptance remains with the user.
 
-## Local package and deployment
+## Initial layout package and deployment
 
 `artifacts/localization-layout/UltimateDuckovStatistics-german-ui-local.zip` contains exactly the five permitted package files and was independently extracted, hash-compared and audited. ZIP size: **666,078 bytes**. SHA-256: `e372da88246a580a0c3cfc03527546ffdf9077bbf4cb9978818781f1c09015f3`.
 
@@ -49,3 +49,9 @@ The ordinary package was deployed with Duckov closed. Independent readback match
 3. On an overflowing strip, check both chevrons and both ends. Wheel down/right reveals later tabs; up/left reveals earlier tabs. Selection stays unchanged. Check that tabs/effects do not enter gutters or cross the underline, and clicking clipped areas cannot activate a hidden tab.
 4. Navigate tabs with the keyboard, then manually scroll away from the selected tab and wait for statistics refresh. Focus navigation must reveal its tab, and routine refresh must preserve manual browsing. Wheel over the body must scroll only the body, with base-game input still blocked.
 5. Switch language live, resize between fitting/overflowing layouts, and close/reopen. Bounds and disabled controls must update; a fitting strip must hide arrows and clear its offset. Confirm the existing totem shadows and reset/export modal behavior remain visually intact.
+
+## Diagnostics language-cache correction
+
+`NativeStatisticsPanel.RefreshDiagnostics()` cached already-translated strings using profile revision and runtime evidence. A language change dirtied the profile projection but left that separate cache valid. `HandleLanguageChanged()` now invalidates the diagnostics revision as well. The next normal tick rebuilds and delivers the snapshot after all language callbacks have applied translation overrides; the native Diagnostics view accepts it and marks its retained content dirty.
+
+The regression fails on the prior implementation and passes with the fix for both an already-visible Diagnostics tab and one opened after the switch. It checks English → German → English banner/detail/system text, unchanged profile revision, save receipt, diagnostic entries and profile contents, and cache reuse on subsequent unchanged ticks. The remaining native check is to repeat that language sequence in Diagnostics without recording new statistics and confirm the banner updates immediately on the next UI tick.

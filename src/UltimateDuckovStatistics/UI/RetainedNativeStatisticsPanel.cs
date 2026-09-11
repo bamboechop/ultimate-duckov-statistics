@@ -264,7 +264,14 @@ internal sealed class NativeStatisticsPanel : IDisposable
         return true;
     }
 
-    private void HandleLanguageChanged() { projectionDirty = true; shell.RefreshStaticText(); }
+    private void HandleLanguageChanged()
+    {
+        projectionDirty = true;
+        // Rebuild on Tick, after all language callbacks have applied translation
+        // overrides, even when the profile revision and runtime evidence are unchanged.
+        diagnosticsRevision = -1;
+        shell.RefreshStaticText();
+    }
 
     private void HandleProfileChanging()
     {
