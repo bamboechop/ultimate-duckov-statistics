@@ -2,6 +2,8 @@
 
 This follow-up starts from the committed localization baseline `a2452850dc7d558906e5b41a41b239cc6b5cb6ac`. It retains native language-change subscriptions, translation keys, placeholders, statistics definitions and coverage explanations. The [published rc.2](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0-rc.2) and its publication receipt are unchanged. The local development package retains the existing version metadata; its distinct filename and hashes identify this build, not the published ZIP.
 
+Implementation source: `7ed195a53a905bbba0dacfea780df6839e50059c`. Current review and CI are on [PR #24](https://github.com/bamboechop/ultimate-duckov-statistics/pull/24).
+
 ## Causes and implementation
 
 - Profile Summary's scroll clip began at the panel's content inset, while the heading has a shared upward optical offset of 19 reference pixels. The clip therefore crossed the heading. Both overview clips now include the panels' existing outer padding, preserving heading alignment and placing the heading rectangle 11 reference pixels below the top clip. Clipping remains enabled.
@@ -22,6 +24,7 @@ Validated on 2026-09-11:
 - Changed-source formatting, analyzer verification and `git diff --check` pass; no forbidden game/Harmony binaries are tracked.
 - Production-shell tests cover English/German switching, empty/populated profiles, 2559×1439, 1280×720, 720×480 and resize to 960×540; measured label/value containment and separation; long label/item/map reflow; subsequent section positions; right-panel scroll/focus retention; fitting/overflowing tab strips, chevrons, wheel axes and event consumption, focus reveal, refresh, resize, close/reopen and listener cleanup. Existing modal/input and totem ownership tests continue to pass.
 - The committed localization test was reviewed and retained: it verifies translation-key coverage and actual live switching. New behavior checks execute the production shell/reflow/event implementation. The existing English overview-label expectation follows the requested wording change; no layout expectation was weakened.
+- `scripts/verify-reproducibility.ps1` reproduced both DLLs, both PDBs and the deterministic ZIP from immutable source `7ed195a53a905bbba0dacfea780df6839e50059c` in two isolated roots with .NET SDK 8.0.425. That ZIP also matches the local deployed package archive below.
 
 Unity/TMP boundary doubles model hierarchy, activation and approximate text measurements. They do not prove native glyph bounds, shader clipping, raycast execution, GPU effects or final visual quality. Native acceptance remains with the user.
 
