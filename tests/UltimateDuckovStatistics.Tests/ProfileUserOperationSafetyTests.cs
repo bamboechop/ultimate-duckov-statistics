@@ -22,8 +22,7 @@ public sealed class ProfileUserOperationSafetyTests
         // worker is scheduled or finishes serializing a large lifetime profile.
         Assert.True(repository.CompleteRun(Run(repository, "later", 90, "farm")));
         var result = ProfileExportWriter.WriteToRoot(snapshot, Path.Combine(directory.Path, "exports"), TestTime);
-        var exported = new AtomicJsonStore<StatisticsExportDocument>()
-            .Load(Path.Combine(result.Directory, "statistics.json")).Value!;
+        var exported = ExportArchiveTestReader.ReadDocument(result);
 
         Assert.Equal(revision, exported.Revision);
         Assert.True(repository.Current.Revision > exported.Revision);
@@ -51,8 +50,7 @@ public sealed class ProfileUserOperationSafetyTests
 
         var exportRoot = Path.Combine(directory.Path, "exports");
         var result = ProfileExportWriter.WriteToRoot(snapshot, exportRoot, TestTime);
-        var exported = new AtomicJsonStore<StatisticsExportDocument>()
-            .Load(Path.Combine(result.Directory, "statistics.json")).Value!;
+        var exported = ExportArchiveTestReader.ReadDocument(result);
         Assert.Equal(snapshot.GenerationId, exported.GenerationId);
         Assert.NotEqual(repository.CurrentGenerationId, exported.GenerationId);
         Assert.Equal("archived-run", Assert.Single(exported.Runs).RunId);

@@ -13,7 +13,7 @@ public sealed class ExportTests
 {
     private static long economySequence;
     private static readonly DateTime TestTime = new(2026, 8, 9, 13, 0, 0, DateTimeKind.Utc);
-    private static readonly string[] ExpectedExportFileNames = { "statistics.json" };
+    private static readonly string[] ExpectedExportFileNames = { "statistics.zip" };
 
     [Fact]
     [Trait("Category", "Export")]
@@ -465,7 +465,51 @@ public sealed class ExportTests
         Assert.Throws<IOException>(() => ProfileExportWriter.Write(profile, profilePath, TestTime));
         Assert.Equal(original, File.ReadAllBytes(path));
         var later = ProfileExportWriter.Write(profile, profilePath, TestTime.AddSeconds(1));
-        Assert.Equal(profile.Revision, Deserialize(File.ReadAllText(Assert.Single(later.Files))).Revision);
+        Assert.Equal(profile.Revision, ExportArchiveTestReader.ReadDocument(later).Revision);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Category", "Export")]
+    public void ZipContainsOnlyByteExactCompressedJson(bool withRun)
+    {
+        using var directory = new TemporaryDirectory();
+        var profile = CreateProfile();
+        if (withRun)
+            RunReducer.Apply(profile.Statistics, CreateRun("run-one", RunOutcome.Extracted, 95, 123.5, 8));
+        ItemUseReducer.Apply(profile.Statistics, CreateUse("one", "item:one", "Suppe 雪, \"groß\"\r\n", CanonicalItemGroup.Food, 1.23456789, ConsumptionUnit.Durability));
+        var expected = Encoding.UTF8.GetBytes(StatisticsExporter.Create(profile, TestTime).Json);
+
+        var result = ProfileExportWriter.Write(profile, Path.Combine(directory.Path, "profile.json"), TestTime);
+
+        Assert.Equal(expected, ExportArchiveTestReader.ReadJson(result));
+        Assert.Equal(result.Files, Directory.GetFiles(result.Directory));
+        Assert.True(new FileInfo(Assert.Single(result.Files)).Length < expected.Length);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    public void RunReadFailureDoesNotPublishAnIncompleteZipAndLaterExportCanSucceed()
+    {
+        using var directory = new TemporaryDirectory();
+        var profile = CreateProfile();
+        var run = CreateRun("unreadable", RunOutcome.Extracted, 95, 123.5, 8);
+        profile.Statistics.Runs = new FailingExportHistory(run);
+        var profilePath = Path.Combine(directory.Path, "profile.json");
+
+        Assert.Throws<IOException>(() => ProfileExportWriter.Write(profile, profilePath, TestTime));
+        Assert.Empty(Directory.GetFiles(directory.Path, "*.zip", SearchOption.AllDirectories));
+
+        profile.Statistics.Runs = new List<RunSummary> { run };
+        var result = ProfileExportWriter.Write(profile, profilePath, TestTime.AddSeconds(1));
+        Assert.Equal(run.RunId, Assert.Single(ExportArchiveTestReader.ReadDocument(result).Runs).RunId);
+    }
+
+    private sealed class FailingExportHistory(RunSummary run) : List<RunSummary>(new[] { run }), IIndexedRunHistory
+    {
+        public IReadOnlyList<RunOverview> Overview { get; } = new[] { RunOverview.From(run) };
+        public RunSummary GetById(string runId) => throw new IOException("Detached run could not be read.");
     }
 
     private static ProfileDocument CreateProfile() => new()

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO.Compression;
 using UltimateDuckovStatistics.Core.Persistence;
 
 namespace UltimateDuckovStatistics.Core.Export;
@@ -61,11 +62,17 @@ public static class ProfileExportWriter
             Path.GetFullPath(exportRoot),
             $"{exportedUtc.ToString("yyyyMMddTHHmmssfffffffZ", CultureInfo.InvariantCulture)}-{profile.GenerationId}");
         Directory.CreateDirectory(exportDirectory);
-        var path = Path.Combine(exportDirectory, "statistics.json");
+        var path = Path.Combine(exportDirectory, "statistics.zip");
         var temporaryPath = AtomicJsonPaths.GetTemporaryPath(path);
         using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
         {
-            StatisticsExporter.WriteJson(profile, exportedUtc, stream);
+            // Finalize the entry and central directory before flushing and publishing.
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                var entry = archive.CreateEntry("statistics.json", CompressionLevel.Optimal);
+                using var json = entry.Open();
+                StatisticsExporter.WriteJson(profile, exportedUtc, json);
+            }
             stream.Flush(flushToDisk: true);
         }
 

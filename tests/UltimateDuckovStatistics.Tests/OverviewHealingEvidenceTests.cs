@@ -301,7 +301,7 @@ public sealed class OverviewHealingEvidenceTests
             Assert.Equal(!disabledAtStart && !loseCapture, reopened.Current!.Statistics.HealingCaptureComplete);
             AssertLifetime(reopened.Current);
             var exported = reopened.ExportCurrent();
-            using (var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(exported.Directory, "statistics.json"))))
+            using (var json = System.Text.Json.JsonDocument.Parse(ExportArchiveTestReader.ReadJson(exported)))
             {
                 Assert.Equal(run.HealingCaptureComplete, json.RootElement.GetProperty("HealingCaptureComplete").GetBoolean());
                 Assert.Equal((int)AdapterCapabilityState.Supported, json.RootElement.GetProperty("HealingCaptureState").GetInt32());

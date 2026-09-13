@@ -748,7 +748,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         PrepareCurrentExport();
         using var snapshot = repository!.CaptureExportSnapshotAsync().GetAwaiter().GetResult();
         var result = ProfileExportWriter.Write(snapshot, DateTime.UtcNow);
-        WriteDiagnostic($"Exported JSON statistics to {result.Directory}.");
+        WriteDiagnostic($"Exported zipped JSON statistics to {result.Directory}.");
         return result;
     }
 

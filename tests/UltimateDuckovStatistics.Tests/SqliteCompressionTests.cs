@@ -81,8 +81,7 @@ public sealed class SqliteCompressionTests : IDisposable
             using var snapshot = await upgraded.CaptureExport(profile.GenerationId, profile.Revision);
             var exported = ProfileExportWriter.WriteToRoot(snapshot, Path.Combine(directory.Path, "export"), now);
             Assert.Single(exported.Files);
-            foreach (var file in expectedExport.Files)
-                Assert.Equal(File.ReadAllBytes(file), File.ReadAllBytes(Path.Combine(exported.Directory, Path.GetFileName(file))));
+            Assert.Equal(ExportArchiveTestReader.ReadJson(expectedExport), ExportArchiveTestReader.ReadJson(exported));
         }
         using var db = new SqliteStore(DatabasePath, true);
         Assert.Equal(7, db.ScalarLong("PRAGMA user_version"));

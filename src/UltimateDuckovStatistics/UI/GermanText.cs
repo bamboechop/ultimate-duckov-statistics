@@ -317,7 +317,7 @@ internal static class GermanText
         ["ui.runtime_issues"] = "Laufzeitprobleme",
         ["ui.issue_guidance"] = "Wenn das Problem bestehen bleibt, prüfe Player.log. Nicht betroffene Aufzeichnungen laufen weiter, sofern ihre Zustandsgruppe keinen Fehler meldet.",
         ["ui.data_path"] = "Datenpfad",
-        ["ui.export"] = "JSON exportieren",
+        ["ui.export"] = "ZIP exportieren",
         ["ui.reset"] = "Dieses UDS-Profil zurücksetzen",
         ["ui.reset_warning"] = "Beim Zurücksetzen wird die aktuelle UDS-Generation schreibgeschützt archiviert und bei null neu begonnen. Dies kann innerhalb von UDS nicht rückgängig gemacht werden. Duckov-Speicherstände werden nicht geändert.",
         ["ui.confirm_reset"] = "Zurücksetzen bestätigen",

@@ -82,8 +82,8 @@ public sealed class NativeTutorialRunTests
         }
         AssertRun(Assert.Single(h.Coordinator.Current!.Statistics.Runs));
         var export = h.Coordinator.ExportCurrent();
-        var json = new AtomicJsonStore<StatisticsExportDocument>().Load(Path.Combine(export.Directory, "statistics.json"));
-        AssertRun(Assert.Single(json.Value!.Runs));
+        var json = ExportArchiveTestReader.ReadDocument(export);
+        AssertRun(Assert.Single(json.Runs));
         h.Lifecycle.Dispose();
         h.Economy.Dispose();
         h.Coordinator.Dispose();

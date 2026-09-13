@@ -36,9 +36,9 @@ public sealed class SqliteExportTests : IDisposable
             Assert.Equal(0, snapshot.Document.Revision);
             var result = ProfileExportWriter.WriteToRoot(snapshot, Path.Combine(directory, "streamed"), Now);
             Assert.Single(result.Files);
-            Assert.Equal("statistics.json", Path.GetFileName(Assert.Single(result.Files)));
+            Assert.Equal("statistics.zip", Path.GetFileName(Assert.Single(result.Files)));
             Assert.Equal(result.Files, Directory.GetFiles(result.Directory));
-            Assert.Equal(expected, File.ReadAllBytes(result.Files[0]));
+            Assert.Equal(expected, ExportArchiveTestReader.ReadJson(result));
         }
         Assert.Empty(Directory.EnumerateDirectories(Path.Combine(directory, "export-staging")));
     }

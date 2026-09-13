@@ -149,7 +149,7 @@ public sealed partial class RouteLifecycleTests
 
         var result = ProfileExportWriter.WriteToRoot(reopened.CaptureExportSnapshot(), Path.Combine(directory.Path, "exports"), clock);
         Assert.Single(result.Files);
-        var exported = new AtomicJsonStore<StatisticsExportDocument>().Load(Path.Combine(result.Directory, "statistics.json")).Value!;
+        var exported = ExportArchiveTestReader.ReadDocument(result);
         Assert.Equal(reopened.CurrentGenerationId, exported.GenerationId);
         AssertHistory(exported.Runs, exported.RunTotals);
         Assert.Equal(expectedSegments.Count, exported.Overall.ActivationCount);
