@@ -2,7 +2,7 @@
 
 Ultimate Duckov Statistics (UDS) records proven single-player gameplay events in local per-save profiles. It never writes Duckov save files and has no telemetry or online account.
 
-The [GitHub release v1.0.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) includes the M18 hardening, four post-M18 feature and UI batches, German localization and layout corrections, and the simplified About translation invitation. The first Steam Workshop listing and subscription-install verification remain pending. Current source also includes unreleased incremental SQLite persistence and save-identity performance improvements, alongside the repository-owned Workshop preview and metadata. See [release notes](RELEASE_NOTES.md) and the [release procedure](docs/RELEASE_PROCESS.md); the published GitHub archive retains its original contents.
+The [GitHub release v1.0.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) includes the M18 hardening, four post-M18 feature and UI batches, German localization and layout corrections, and the simplified About translation invitation. The first Steam Workshop listing and subscription-install verification remain pending. Current source also includes unreleased incremental SQLite persistence, lossless record compression and save-identity performance improvements, alongside the repository-owned Workshop preview and metadata. See [release notes](RELEASE_NOTES.md) and the [release procedure](docs/RELEASE_PROCESS.md); the published GitHub archive retains its original contents.
 
 ## Install and use
 

@@ -49,7 +49,7 @@ public sealed class NativeSqliteCompositionTests : IDisposable
         SavesSystem.RaiseCollectSaveData();
         using (var db = new SqliteStore(coordinator.CurrentProfilePath, readOnly: true))
         {
-            var metadata = ProfileRecordCodec.Decode<ProfileMetadataRecord>(db.Blob("SELECT payload FROM records WHERE kind=1")!);
+            var metadata = ProfileRecordCodec.Decode<ProfileMetadataRecord>(SqliteProfileStorage.ReadRootPayload(db, 1)!);
             var distance = ProfileRecordCodec.Decode<BaseMovementStatistics>(db.Blob("SELECT payload FROM records WHERE kind=3")!);
             Assert.Equal(7, distance.RecordedMeters);
             Assert.NotNull(metadata.PendingSave);

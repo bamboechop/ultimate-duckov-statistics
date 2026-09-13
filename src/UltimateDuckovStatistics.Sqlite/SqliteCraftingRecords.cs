@@ -60,7 +60,7 @@ internal static class SqliteCraftingRecords
     {
         var change = write.Records.FirstOrDefault(row => row.Address.Kind == ProfileRecordKind.Crafting);
         if (change?.Bytes == null) return false;
-        var previousBytes = db.Blob("SELECT payload FROM records WHERE kind=9");
+        var previousBytes = SqliteProfileStorage.ReadRootPayload(db, 9);
         if (previousBytes == null) return true;
         var previous = ProfileRecordCodec.Decode<CraftingStatisticsAggregate>(previousBytes);
         var next = ProfileRecordCodec.Decode<CraftingStatisticsAggregate>(change.Bytes);
@@ -77,7 +77,7 @@ internal static class SqliteCraftingRecords
     internal static void ValidateAffected(SqliteStore db, IncrementalProfileWrite write, bool scopeChanged)
     {
         if (!write.Records.Any(row => row.Address.Kind == ProfileRecordKind.Crafting || Owns(row.Address.Kind))) return;
-        var header = ProfileRecordCodec.Decode<CraftingStatisticsAggregate>(db.Blob("SELECT payload FROM records WHERE kind=9")
+        var header = ProfileRecordCodec.Decode<CraftingStatisticsAggregate>(SqliteProfileStorage.ReadRootPayload(db, 9)
             ?? throw new InvalidDataException("Crafting header is missing."));
         CraftingStatisticsReducer.ValidateHeader(header);
         // A capability/arithmetic transition can change the validity rules for

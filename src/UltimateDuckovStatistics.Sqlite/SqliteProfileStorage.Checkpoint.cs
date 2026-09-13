@@ -16,7 +16,7 @@ public sealed partial class SqliteProfileStorage
     private static void ValidateCheckpointTransaction(SqliteStore db, IncrementalProfileWrite write)
     {
         if (!write.Records.Any(record => record.Address.Kind >= ProfileRecordKind.ActiveCheckpoint || record.Address.Kind == ProfileRecordKind.CompletedRun)) return;
-        var bytes = db.Blob("SELECT payload FROM records WHERE kind=24");
+        var bytes = ReadRootPayload(db, 24);
         if (bytes == null)
         {
             if (db.ScalarLong("SELECT count(*) FROM records WHERE kind BETWEEN 25 AND 27") != 0)
@@ -60,14 +60,14 @@ public sealed partial class SqliteProfileStorage
         {
             if (record.Bytes == null) throw new InvalidDataException("Incremental checkpoint root cannot be removed independently.");
             var next = ProfileRecordCodec.Decode<CheckpointRootRecord>(record.Bytes);
-            var oldBytes = db.Blob("SELECT payload FROM records WHERE kind=24");
+            var oldBytes = ReadRootPayload(db, 24);
             if (oldBytes != null)
             {
                 var previous = ProfileRecordCodec.Decode<CheckpointRootRecord>(oldBytes);
                 if (previous.Header.RunId != next.Header.RunId || previous.Header.SaveGenerationId != next.Header.SaveGenerationId)
                     throw new InvalidDataException("A pending checkpoint cannot be replaced by another run owner.");
             }
-            var legacyBytes = db.Blob("SELECT payload FROM records WHERE kind=23");
+            var legacyBytes = ReadRootPayload(db, 23);
             if (legacyBytes != null)
             {
                 var previous = ProfileRecordCodec.Decode<ActiveRunCheckpoint>(legacyBytes);

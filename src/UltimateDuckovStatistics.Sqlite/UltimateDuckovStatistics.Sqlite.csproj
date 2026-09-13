@@ -4,6 +4,7 @@
     <Description>Generation-owned incremental SQLite persistence for Ultimate Duckov Statistics.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="UltimateDuckovStatistics.Tests" />
     <ProjectReference Include="../UltimateDuckovStatistics.Core/UltimateDuckovStatistics.Core.csproj" />
     <Reference Include="UdsPrototype.SQLiteRaw.Core"><HintPath>../../third_party/sqlite/UdsPrototype.SQLiteRaw.Core.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="UdsPrototype.SQLiteRaw.Provider"><HintPath>../../third_party/sqlite/UdsPrototype.SQLiteRaw.Provider.dll</HintPath><Private>true</Private></Reference>

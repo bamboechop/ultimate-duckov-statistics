@@ -35,7 +35,7 @@ public sealed partial class SqliteProfileStorage
         var scopes = 1 + db.ScalarLong("SELECT count(*) FROM records WHERE kind IN (28,29)");
         if (scopes * 29 != db.ScalarLong("SELECT count(*) FROM records WHERE kind=30"))
             throw new InvalidDataException("Maintained metric scope completeness is inconsistent.");
-        var total = ProfileRecordCodec.Decode<RunAggregateTotals>(db.Blob("SELECT payload FROM records WHERE kind=15")
+        var total = ProfileRecordCodec.Decode<RunAggregateTotals>(ReadRootPayload(db, 15)
             ?? throw new InvalidDataException("Run totals are missing."));
         if (total.TotalRuns != db.ScalarLong("SELECT count(*) FROM records WHERE kind=17"))
             throw new InvalidDataException("Completed run count disagrees with its maintained total.");

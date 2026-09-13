@@ -8,22 +8,24 @@ namespace UltimateDuckovStatistics.Sqlite;
 /// <summary>One exclusively owned generation, with a queue containing only durability work.</summary>
 public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, IProfileExportSource, IProfileStorageMaintenance
 {
-    private const int StorageVersion = 6;
+    private const int StorageVersion = 7;
     private readonly object gate = new();
     private readonly ProfileRecordCodec codec;
     private readonly FileStream ownership;
     private readonly string exportRoot;
+    private readonly Action<string>? diagnostic;
     private Task tail = Task.CompletedTask;
     private SqliteStore? connection;
     private bool disposed;
     private string? owner;
     private volatile bool readFailure;
 
-    public SqliteProfileStorage(string path, ProfileRecordCodec codec, string? exportRoot = null)
+    public SqliteProfileStorage(string path, ProfileRecordCodec codec, string? exportRoot = null, Action<string>? diagnostic = null)
     {
         Path = System.IO.Path.GetFullPath(path);
         this.exportRoot = System.IO.Path.GetFullPath(exportRoot ?? System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, "export-staging"));
         this.codec = codec ?? throw new ArgumentNullException(nameof(codec));
+        this.diagnostic = diagnostic;
         readFailure = File.Exists(Path + ".read-failure");
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
         // The OS releases this lease on process death. A second generation writer
@@ -172,7 +174,7 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
         if (connection != null) return connection;
         if (!File.Exists(Path)) throw new FileNotFoundException("SQLite profile has not been imported.", Path);
         var db = new SqliteStore(Path);
-        try { db.Configure(); db.DisableAutomaticCheckpoint(); connection = db; return db; }
+        try { PrepareFormat(db); db.Configure(); db.DisableAutomaticCheckpoint(); connection = db; return db; }
         catch { db.Dispose(); throw; }
     }
 
@@ -196,7 +198,7 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
         PrepareRunMetricRecord(db, record);
         if (key.Kind == ProfileRecordKind.DeferredHeader)
         {
-            var old = db.Blob("SELECT payload FROM records WHERE kind=? AND k1='' AND k2='' AND k3=''", (int)key.Kind);
+            var old = ReadRootPayload(db, (int)key.Kind);
             var previousId = old == null ? null : ProfileRecordCodec.Decode<DeferredMetadataRecord>(old).RunId;
             var nextId = record.Bytes == null ? null : ProfileRecordCodec.Decode<DeferredMetadataRecord>(record.Bytes).RunId;
             if (record.Bytes == null || previousId != nextId)
@@ -206,13 +208,13 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
             db.Exec("DELETE FROM records WHERE kind=? AND k1=? AND k2=? AND k3=?", (int)key.Kind, key.First, key.Second, key.Third);
         else
             db.Exec("INSERT INTO records(kind,k1,k2,k3,payload,payload_sha) VALUES(?,?,?,?,?,?) ON CONFLICT(kind,k1,k2,k3) DO UPDATE SET payload=excluded.payload,payload_sha=excluded.payload_sha",
-                (int)key.Kind, key.First, key.Second, key.Third, record.Bytes, HashBytes(record.Bytes));
+                (int)key.Kind, key.First, key.Second, key.Third, SqliteRecordPayload.Encode(record.Bytes), HashBytes(record.Bytes));
         if (key.Kind == ProfileRecordKind.CompletedRun) PutHistoryIndex(db, record);
     }
 
     private static void ValidateTransaction(SqliteStore db, IncrementalProfileWrite write, bool craftingScopeChanged)
     {
-        var metadata = ProfileRecordCodec.Decode<ProfileMetadataRecord>(db.Blob("SELECT payload FROM records WHERE kind=1")
+        var metadata = ProfileRecordCodec.Decode<ProfileMetadataRecord>(ReadRootPayload(db, 1)
             ?? throw new InvalidDataException("Profile metadata was removed."));
         if (metadata.GenerationId != write.GenerationId || metadata.Revision != write.Revision)
             throw new InvalidDataException("Profile metadata and receipt disagree.");
@@ -221,7 +223,7 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
         ValidateRunMetricTransaction(db, write);
         // Checkpoint and terminal run cannot both own the same run identity.
         if (!write.Records.Any(record => record.Address.Kind is ProfileRecordKind.ActiveCheckpoint or ProfileRecordKind.CompletedRun)) return;
-        var checkpointBytes = db.Blob("SELECT payload FROM records WHERE kind=23");
+        var checkpointBytes = ReadRootPayload(db, 23);
         if (checkpointBytes != null)
         {
             var checkpoint = ProfileRecordCodec.Decode<ActiveRunCheckpoint>(checkpointBytes);
@@ -249,8 +251,8 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
             }
             foreach (var row in db.EnumerateRows("SELECT k1,k2,k3,payload,payload_sha FROM records WHERE kind=? ORDER BY ordinal", number))
             {
-                VerifyHash((byte[])row[3], (byte[])row[4]);
-                yield return new ProfileRecordChange(new ProfileRecordAddress(kind, (string)row[0], (string)row[1], (string)row[2]), 0, (byte[])row[3]);
+                var bytes = DecodePayload((byte[])row[3], (byte[])row[4]);
+                yield return new ProfileRecordChange(new ProfileRecordAddress(kind, (string)row[0], (string)row[1], (string)row[2]), 0, bytes);
             }
         }
     }

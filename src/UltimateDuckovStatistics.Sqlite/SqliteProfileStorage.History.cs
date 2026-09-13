@@ -83,7 +83,7 @@ public sealed partial class SqliteProfileStorage
         using var reader = new SqliteStore(Path, readOnly: true);
         var rows = reader.Rows("SELECT payload,payload_sha FROM records WHERE kind=17 AND k1=?", runId);
         if (rows.Count != 1) throw new InvalidDataException("A retained run is missing.");
-        var bytes = (byte[])rows[0][0]; VerifyHash(bytes, (byte[])rows[0][1]);
+        var bytes = DecodePayload((byte[])rows[0][0], (byte[])rows[0][1]);
         var run = ProfileRecordCodec.Decode<RunSummary>(bytes);
         if (run.RunId != runId || run.SaveGenerationId != historyGeneration || run.SchemaVersion != ProductInfo.SchemaVersion)
             throw new InvalidDataException("Retained run identity or schema is invalid.");
