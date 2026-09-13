@@ -152,7 +152,7 @@ internal sealed partial class RetainedStatisticsShell
             dirty = false;
             if (selection.Snapshot == null)
             {
-                unavailable.text = operations.Current == PanelOperation.Reset ? UiText.Get("ui.diag_operation_pending") : UiText.Get("ui.profile_unavailable");
+                unavailable.text = operations.Current is PanelOperation.Reset or PanelOperation.Restore ? UiText.Get("ui.diag_operation_pending") : UiText.Get("ui.profile_unavailable");
                 Place(unavailable.rectTransform, 30, 30, Math.Max(1, width - 60), measure.Height(unavailable.text, width - 60, 30));
                 return;
             }
@@ -212,6 +212,15 @@ internal sealed partial class RetainedStatisticsShell
             Button(settings, "action:reset", resetText, row[1].Y > 0 ? 30 : w - 30 - rw, resetY, rw, resetHeight, Red,
                 () => { operations.RequestResetConfirmation(); dirty = true; }, false, operations.CanStart, size: 25, centered: true, radius: 25);
             y = Math.Max(y + exportHeight, resetY + resetHeight) + 20;
+            if (operations.RestoreAvailable)
+            {
+                var restoreText = UiText.Get("ui.restore");
+                var bw = Math.Min(w - 60, measure.Width(restoreText, 25) + 40);
+                var bh = Math.Max(50, measure.Height(restoreText, bw - 40, 25) + 16);
+                Button(settings, "action:restore", restoreText, 30, y, bw, bh, Blue,
+                    () => { operations.RequestRestoreSelection(); dirty = true; }, false, operations.CanStart, 25, true, 25);
+                y += bh + 20;
+            }
             if (operations.LastNotice is PanelOperationNotice notice)
             {
                 y += Label(settings, "operation:notice", OperationText(notice), 30, y, w - 60, 25,
@@ -425,9 +434,11 @@ internal sealed partial class RetainedStatisticsShell
         private static Color HealthColor(DiagnosticsHealth health) => health == DiagnosticsHealth.Error ? Red : health == DiagnosticsHealth.Limited ? Orange : Green;
         private static string OperationText(PanelOperationNotice notice) => UiText.Get(notice.Outcome switch
         {
-            PanelOperationOutcome.Running => notice.Operation == PanelOperation.Export ? "ui.diag_export_running" : "ui.diag_reset_running",
+            PanelOperationOutcome.Running => notice.Operation == PanelOperation.Export ? "ui.diag_export_running"
+                : notice.Operation == PanelOperation.Restore ? "ui.restore_running" : "ui.diag_reset_running",
             PanelOperationOutcome.Pending => "ui.diag_operation_pending",
-            PanelOperationOutcome.Success => notice.Operation == PanelOperation.Export ? "ui.diag_export_success" : "ui.diag_reset_success",
+            PanelOperationOutcome.Success => notice.Operation == PanelOperation.Export ? "ui.diag_export_success"
+                : notice.Operation == PanelOperation.Restore ? "ui.restore_success" : "ui.diag_reset_success",
             PanelOperationOutcome.ClipboardUnavailable => "ui.diag_export_clipboard",
             _ => "ui.diag_operation_failure"
         });

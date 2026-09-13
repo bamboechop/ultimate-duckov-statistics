@@ -39,7 +39,8 @@ internal enum PanelOperation
 {
     None,
     Export,
-    Reset
+    Reset,
+    Restore
 }
 
 internal enum PanelAccessSurface

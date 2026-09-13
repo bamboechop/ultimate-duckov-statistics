@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using System.Threading;
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Export;
 
@@ -37,9 +38,23 @@ internal sealed class PanelOperationController : IDisposable
     private long priorResetTransition;
     private bool queued, disposed;
     private bool exportResultDismissed;
+    private Func<Task<IReadOnlyList<string>>>? listRestoreSources;
+    private Func<string, CancellationToken, Task<StatisticsRestorePreview>>? readRestore;
+    private Func<StatisticsRestorePreview, bool>? restore;
+    private Task<IReadOnlyList<string>>? restoreListTask;
+    private Task<StatisticsRestorePreview>? restorePreviewTask;
+    private CancellationTokenSource? restorePreviewCancellation;
+    private StatisticsRestorePreview? queuedRestore;
+    public bool RestoreSelectionVisible { get; private set; }
+    public bool RestoreAvailable => restore != null;
+    public IReadOnlyList<string> RestoreSources { get; private set; } = Array.Empty<string>();
+    public string RestorePath { get; private set; } = "";
+    public string RestoreError { get; private set; } = "";
+    public StatisticsRestorePreview? RestorePreview { get; private set; }
+    public bool RestoreLoading => restoreListTask != null || restorePreviewTask != null;
 
     public PanelOperation Current => gate.Current;
-    public bool ModalVisible => interaction.ResetConfirmationVisible;
+    public bool ModalVisible => interaction.ResetConfirmationVisible || RestoreSelectionVisible;
     public bool CanStart => !disposed && Current == PanelOperation.None && !ModalVisible && !transitioning();
     public PanelOperationNotice? LastNotice { get; private set; }
 
@@ -58,6 +73,77 @@ internal sealed class PanelOperationController : IDisposable
         requestedGeneration = generation(); queued = true; exportResultDismissed = false;
         Publish(PanelOperationOutcome.Running); return true;
     }
+    public void ConfigureRestore(Func<Task<IReadOnlyList<string>>> list, Func<string, CancellationToken, Task<StatisticsRestorePreview>> preview,
+        Func<StatisticsRestorePreview, bool> apply)
+    { listRestoreSources = list; readRestore = preview; restore = apply; }
+
+    public bool RequestRestoreSelection()
+    {
+        if (!CanStart || !RestoreAvailable || string.IsNullOrWhiteSpace(generation())) return false;
+        confirmationGeneration = generation(); RestoreSelectionVisible = true; RestoreError = "";
+        RestoreSources = Array.Empty<string>(); RestorePreview = null; RestorePath = "";
+        try { restoreListTask = listRestoreSources!(); }
+        catch (Exception exception) { RestoreError = exception.Message; }
+        return true;
+    }
+
+    public void SelectRestorePath(string path)
+    {
+        if (!RestoreSelectionVisible || transitioning()) return;
+        CancelPreview();
+        RestorePath = path; RestorePreview = null; RestoreError = "";
+        restorePreviewCancellation = new CancellationTokenSource();
+        try { restorePreviewTask = readRestore!(path, restorePreviewCancellation.Token); }
+        catch (Exception exception) { RestoreError = exception.Message; }
+    }
+
+    public void MoveRestoreSource(int delta)
+    {
+        if (!RestoreSelectionVisible || RestoreSources.Count == 0) return;
+        var index = Math.Max(0, RestoreSources.ToList().IndexOf(RestorePath));
+        SelectRestorePath(RestoreSources[((index + delta) % RestoreSources.Count + RestoreSources.Count) % RestoreSources.Count]);
+    }
+
+    public bool ConfirmRestore()
+    {
+        if (disposed || !RestoreSelectionVisible || RestoreLoading || RestorePreview == null || Current != PanelOperation.None) return false;
+        var expected = confirmationGeneration;
+        var preview = RestorePreview;
+        CancelConfirmation();
+        if (transitioning() || generation() != expected || !gate.TryBegin(PanelOperation.Restore)) return false;
+        requestedGeneration = expected; queuedRestore = preview; queued = true;
+        Publish(PanelOperationOutcome.Running); return true;
+    }
+
+    private void TickRestoreSelection()
+    {
+        if (!RestoreSelectionVisible) return;
+        if (restoreListTask?.IsCompleted == true)
+        {
+            var task = restoreListTask; restoreListTask = null;
+            try { RestoreSources = task.GetAwaiter().GetResult(); if (RestoreSources.Count > 0 && RestorePath.Length == 0) SelectRestorePath(RestoreSources[0]); }
+            catch (Exception exception) { RestoreError = exception.Message; }
+        }
+        if (restorePreviewTask?.IsCompleted == true)
+        {
+            var task = restorePreviewTask; restorePreviewTask = null;
+            restorePreviewCancellation?.Dispose(); restorePreviewCancellation = null;
+            try { RestorePreview = task.GetAwaiter().GetResult(); }
+            catch (Exception exception) { RestoreError = exception.Message; }
+        }
+    }
+
+    private static void ObserveAbandoned(Task? task)
+    {
+        if (task != null) _ = task.ContinueWith(completed => { _ = completed.Exception; },
+            System.Threading.CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+    private void CancelPreview()
+    {
+        restorePreviewCancellation?.Cancel(); restorePreviewCancellation?.Dispose(); restorePreviewCancellation = null;
+        ObserveAbandoned(restorePreviewTask); restorePreviewTask = null;
+    }
     public bool RequestResetConfirmation()
     {
         if (!CanStart || string.IsNullOrWhiteSpace(generation())) return false;
@@ -65,11 +151,15 @@ internal sealed class PanelOperationController : IDisposable
     }
     public bool CancelConfirmation()
     {
-        confirmationGeneration = ""; return interaction.CancelModal();
+        confirmationGeneration = "";
+        var restoring = RestoreSelectionVisible;
+        RestoreSelectionVisible = false; RestorePreview = null; RestoreSources = Array.Empty<string>();
+        ObserveAbandoned(restoreListTask); restoreListTask = null; CancelPreview();
+        return interaction.CancelModal() || restoring;
     }
     public bool ConfirmReset()
     {
-        if (disposed || !ModalVisible || Current != PanelOperation.None) return false;
+        if (disposed || !interaction.ResetConfirmationVisible || Current != PanelOperation.None) return false;
         var expected = confirmationGeneration;
         CancelConfirmation();
         if (transitioning() || expected.Length == 0 || generation() != expected || !gate.TryBegin(PanelOperation.Reset)) return false;
@@ -84,6 +174,7 @@ internal sealed class PanelOperationController : IDisposable
             && (transitioning() || generation() != (Current == PanelOperation.Export ? requestedGeneration : LastNotice!.GenerationId)))
             DismissExportResult();
         if (ModalVisible && (generation() != confirmationGeneration || transitioning())) CancelConfirmation();
+        TickRestoreSelection();
         if (queued)
         {
             queued = false;
@@ -95,13 +186,14 @@ internal sealed class PanelOperationController : IDisposable
                 else
                 {
                     priorResetTransition = resetAttempt()?.TransitionId ?? 0;
-                    _ = reset();
+                    if (Current == PanelOperation.Restore) { var preview = queuedRestore!; queuedRestore = null; _ = restore!(preview); }
+                    else _ = reset();
                     ObserveReset();
                 }
             }
             catch (Exception exception)
             {
-                if (Current == PanelOperation.Reset && transitioning())
+                if ((Current == PanelOperation.Reset || Current == PanelOperation.Restore) && transitioning())
                     Publish(PanelOperationOutcome.Pending, detail: exception.GetType().Name + ": " + exception.Message);
                 else Finish(PanelOperationOutcome.Failure, detail: exception.GetType().Name + ": " + exception.Message);
             }
@@ -121,12 +213,12 @@ internal sealed class PanelOperationController : IDisposable
             { copied = false; clipboardDetail = exception.GetType().Name + ": " + exception.Message; }
             Finish(copied ? PanelOperationOutcome.Success : PanelOperationOutcome.ClipboardUnavailable, result.Directory, clipboardDetail);
         }
-        if (Current == PanelOperation.Reset && !queued) ObserveReset();
+        if ((Current == PanelOperation.Reset || Current == PanelOperation.Restore) && !queued) ObserveReset();
     }
 
     private void ObserveReset()
     {
-        if (Current != PanelOperation.Reset) return;
+        if (Current != PanelOperation.Reset && Current != PanelOperation.Restore) return;
         var attempt = resetAttempt();
         if (attempt != null && attempt.TransitionId > priorResetTransition && attempt.RequestedGenerationId == requestedGeneration)
         {
@@ -137,12 +229,13 @@ internal sealed class PanelOperationController : IDisposable
             { Finish(PanelOperationOutcome.Failure, detail: attempt.Detail); return; }
         }
         if (!transitioning())
-            Finish(PanelOperationOutcome.Failure, detail: "The reset service did not confirm a completed reset for the requested UDS generation.");
+            Finish(PanelOperationOutcome.Failure, detail: "The profile replacement service did not confirm completion for the requested UDS generation.");
         else if (LastNotice?.Outcome != PanelOperationOutcome.Pending)
             Publish(PanelOperationOutcome.Pending, detail: attempt?.Detail ?? "");
     }
     private void Finish(PanelOperationOutcome outcome, string path = "", string detail = "")
     {
+        queuedRestore = null;
         var operation = Current;
         var notice = new PanelOperationNotice(operation, outcome, requestedGeneration, path, detail,
             generation() == requestedGeneration && !transitioning(),
@@ -176,7 +269,7 @@ internal sealed class PanelOperationController : IDisposable
     public void Dispose()
     {
         if (disposed) return;
-        disposed = true; queued = false; CancelConfirmation();
+        disposed = true; queued = false; queuedRestore = null; CancelConfirmation();
         var task = exportTask; exportTask = null;
         if (task != null)
             _ = task.ContinueWith(completed => { _ = completed.Exception; },

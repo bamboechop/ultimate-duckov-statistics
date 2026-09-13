@@ -6,6 +6,73 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class PanelOperationControllerTests
 {
+    [Fact]
+    public void RestoreRequiresACompletedPreviewAndExplicitConfirmationThenUsesTheFrozenSelectionOnce()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "statistics.json");
+        File.WriteAllText(path, StatisticsExporter.Create(StatisticsRestoreTests.PopulatedProfile(), NativeProfileJsonWriterTests.Now).Json);
+        var preview = StatisticsRestoreReader.Read(path, 1);
+        using var h = new Harness();
+        var completion = new TaskCompletionSource<StatisticsRestorePreview>();
+        var restores = 0;
+        h.Controller.ConfigureRestore(() => Task.FromResult<IReadOnlyList<string>>(new[] { path }), (_, _) => completion.Task,
+            value => { Assert.Same(preview, value); restores++; return h.CommitReset(); });
+        Assert.True(h.Controller.RequestRestoreSelection());
+        Assert.False(h.Controller.ConfirmReset()); Assert.False(h.Controller.RequestExport());
+        h.Controller.Tick(); Assert.Equal(path, h.Controller.RestorePath); Assert.True(h.Controller.RestoreLoading);
+        Assert.False(h.Controller.ConfirmRestore()); Assert.Equal(0, restores);
+        completion.SetResult(preview); h.Controller.Tick();
+        Assert.Same(preview, h.Controller.RestorePreview); Assert.Equal(0, restores);
+        Assert.True(h.Controller.ConfirmRestore()); Assert.False(h.Controller.ConfirmRestore());
+        Assert.Equal(0, restores); h.Controller.Tick(); h.Controller.Tick();
+        Assert.Equal(1, restores); Assert.Equal(0, h.ResetCalls);
+        Assert.Equal(PanelOperation.Restore, h.Controller.LastNotice!.Operation);
+        Assert.Equal(PanelOperationOutcome.Success, h.Controller.LastNotice.Outcome);
+        Assert.True(h.Controller.CanStart);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CancelOrProfileChangeDiscardsAnInFlightRestorePreview(bool changeProfile)
+    {
+        using var h = new Harness();
+        var completion = new TaskCompletionSource<StatisticsRestorePreview>();
+        CancellationToken captured = default;
+        h.Controller.ConfigureRestore(() => Task.FromResult<IReadOnlyList<string>>(["a.zip"]), (_, token) => { captured = token; return completion.Task; },
+            _ => throw new InvalidOperationException("Must not restore"));
+        Assert.True(h.Controller.RequestRestoreSelection()); h.Controller.Tick();
+        if (changeProfile) { h.Generation = "other"; h.Controller.Tick(); }
+        else Assert.True(h.Controller.CancelConfirmation());
+        Assert.True(captured.IsCancellationRequested);
+        completion.SetException(new IOException("Failed after cancellation")); h.Controller.Tick();
+        Assert.False(h.Controller.ModalVisible); Assert.Null(h.Controller.RestorePreview);
+        Assert.False(h.Controller.ConfirmRestore()); Assert.Empty(h.Notices);
+    }
+
+    [Fact]
+    public void RestoreSelectionFailureCanBeCorrectedAndQueuedRestoreRejectsAChangedGeneration()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "statistics.json");
+        File.WriteAllText(path, StatisticsExporter.Create(StatisticsRestoreTests.PopulatedProfile(), NativeProfileJsonWriterTests.Now).Json);
+        var preview = StatisticsRestoreReader.Read(path, 1);
+        using var h = new Harness();
+        var calls = 0;
+        h.Controller.ConfigureRestore(() => Task.FromResult<IReadOnlyList<string>>(["a.zip"]),
+            (value, _) => value == "external.zip" ? Task.FromResult(preview) : Task.FromException<StatisticsRestorePreview>(new IOException("Invalid export")),
+            _ => { calls++; return true; });
+        Assert.True(h.Controller.RequestRestoreSelection()); h.Controller.Tick();
+        Assert.NotEmpty(h.Controller.RestoreError); Assert.False(h.Controller.ConfirmRestore());
+        h.Controller.SelectRestorePath("external.zip"); h.Controller.Tick(); Assert.NotNull(h.Controller.RestorePreview);
+        h.Controller.MoveRestoreSource(-1); h.Controller.Tick(); Assert.Equal("a.zip", h.Controller.RestorePath);
+        Assert.Null(h.Controller.RestorePreview);
+        h.Controller.SelectRestorePath("external.zip"); h.Controller.Tick(); Assert.True(h.Controller.ConfirmRestore());
+        h.Generation = "other"; h.Controller.Tick();
+        Assert.Equal(0, calls); Assert.Equal(PanelOperationOutcome.Failure, h.Controller.LastNotice!.Outcome);
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]

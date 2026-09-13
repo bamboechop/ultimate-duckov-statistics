@@ -790,23 +790,54 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         repository.Flush();
     }
 
-    public bool ResetCurrent()
+    public System.Threading.Tasks.Task<IReadOnlyList<string>> ListRestoreSourcesAsync() =>
+        System.Threading.Tasks.Task.Run<IReadOnlyList<string>>(() =>
+        {
+            var root = Path.Combine(dataRoot, "exports");
+            if (!Directory.Exists(root)) return Array.Empty<string>();
+            var directories = new[] { root }.Concat(Directory.EnumerateDirectories(root)
+                .Where(path => (File.GetAttributes(path) & FileAttributes.ReparsePoint) == 0));
+            return directories.SelectMany(Directory.EnumerateFiles)
+                .Where(path => (Path.GetFileName(path) == "statistics.json" || Path.GetFileName(path) == "statistics.zip")
+                    && (File.GetAttributes(path) & FileAttributes.ReparsePoint) == 0)
+                .OrderByDescending(File.GetLastWriteTimeUtc).ThenBy(path => path, StringComparer.Ordinal).ToArray();
+        });
+
+    public System.Threading.Tasks.Task<StatisticsRestorePreview> PreviewRestoreAsync(string path, System.Threading.CancellationToken cancellationToken = default)
+    {
+        var slot = repository?.Current.Slot ?? throw new InvalidOperationException("No profile is open for restore.");
+        return System.Threading.Tasks.Task.Run(() => StatisticsRestoreReader.Read(path, slot, cancellationToken), cancellationToken);
+    }
+
+    public bool RestoreCurrent(StatisticsRestorePreview preview)
+    {
+        if (preview == null) throw new ArgumentNullException(nameof(preview));
+        if (NativeRaidContext.IsRaidMap()) throw new InvalidOperationException("Restore is only available outside raids.");
+        return ReplaceCurrent(preview);
+    }
+
+    public bool ResetCurrent() => ReplaceCurrent(null);
+
+    private bool ReplaceCurrent(StatisticsRestorePreview? restore)
     {
         if (repository == null)
         {
-            throw new InvalidOperationException("No profile is open for reset.");
+            throw new InvalidOperationException("No profile is open for replacement.");
         }
 
         if (HasPendingProfileTransition)
-            throw new InvalidOperationException("A profile transition is already pending; reset cannot select a generation.");
+            throw new InvalidOperationException("A profile transition is already pending; replacement cannot select a generation.");
 
         var currentIdentity = ReadIdentity(repository.Current.Slot);
         var resetIdentity = ReadIdentity();
+        if (restore != null && (restore.Slot != currentIdentity.Slot || restore.Slot != resetIdentity.Slot))
+            throw new InvalidOperationException("The selected save slot changed before restore.");
         var profileTransitionId = NextProfileTransitionId();
         var requestedGeneration = repository.CurrentGenerationId;
+        var operation = restore == null ? "User reset" : "User restore";
         LastUserResetAttempt = new NativeUserResetAttempt(profileTransitionId, requestedGeneration,
-            NativeUserResetOutcome.Pending, string.Empty, "The reset is waiting for its persistence boundary.");
-        lastOpenStatus = "User reset remains queued; completion has not been reported and Diagnostics contains the blocking boundary.";
+            NativeUserResetOutcome.Pending, string.Empty, operation + " is waiting for its persistence boundary.");
+        lastOpenStatus = operation + " remains queued; completion has not been reported and Diagnostics contains the blocking boundary.";
         NativeProfileResetTransition.Queue(
             profileTransitionId,
             craftingProfileChangeStarted: transitionId =>
@@ -823,7 +854,11 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
             waitRunCheckpoint: WaitRunCheckpoint,
             drainProfileWriter: DrainProfileWriterForUserReset,
             refreshIdentity: () => repository.RefreshIdentityForUserReset(currentIdentity),
-            rotateRepository: () => repository.Rotate(resetIdentity, "UserReset"),
+            rotateRepository: () =>
+            {
+                if (restore == null) repository.Rotate(resetIdentity, "UserReset");
+                else repository.RestoreStatistics(resetIdentity, restore, requestedGeneration);
+            },
             openDiagnostics: OpenDiagnosticsForCurrentGeneration,
             worldTimeProfileChanged: () => PublishProfileEvent(
                 WorldTimeProfileChangedWithCurrentClock,
@@ -845,8 +880,8 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
                 CompletedUserResetVersion++;
                 LastUserResetAttempt = new NativeUserResetAttempt(profileTransitionId, requestedGeneration,
                     NativeUserResetOutcome.Success, repository.CurrentGenerationId, string.Empty);
-                lastOpenStatus = "User reset completed; the prior UDS generation was archived read-only.";
-                WriteDiagnostic($"User reset created generation {repository.CurrentGenerationId}; prior data was archived read-only.");
+                lastOpenStatus = operation + " completed; the prior UDS generation was archived read-only.";
+                WriteDiagnostic($"{operation} created generation {repository.CurrentGenerationId}; prior data was archived read-only.");
             },
             resetFailed: failure =>
             {
@@ -854,8 +889,8 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
                     : $"{failure.InnerException.GetType().Name}: {failure.InnerException.Message}";
                 LastUserResetAttempt = new NativeUserResetAttempt(profileTransitionId, requestedGeneration,
                     NativeUserResetOutcome.Failure, failure.PreservedGenerationId, detail);
-                lastOpenStatus = "User reset failed; the original UDS generation remains active.";
-                WriteDiagnostic($"User reset failed with the original generation preserved: {detail}", "Error");
+                lastOpenStatus = operation + " failed; the original UDS generation remains active.";
+                WriteDiagnostic($"{operation} failed with the original generation preserved: {detail}", "Error");
             });
         return LastUserResetAttempt.Outcome == NativeUserResetOutcome.Success;
     }

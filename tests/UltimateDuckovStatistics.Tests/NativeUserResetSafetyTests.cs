@@ -6,6 +6,8 @@ using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
+using UltimateDuckovStatistics.Core.Export;
+using UltimateDuckovStatistics.Sqlite;
 using UnityEngine;
 
 namespace UltimateDuckovStatistics.Tests;
@@ -16,6 +18,39 @@ public sealed class NativeUserResetSafetyTests : IDisposable
     private readonly string originalPersistentDataPath = Application.persistentDataPath;
 
     public NativeUserResetSafetyTests() => ResetNative();
+
+    [Fact]
+    public async Task NativeRestoreRebindsObserversThroughTheProductionSqliteTransition()
+    {
+        using var directory = new TemporaryDirectory();
+        Application.persistentDataPath = directory.Path;
+        SqliteLibrary.Initialize(Path.Combine(AppContext.BaseDirectory, "sqlite3.dll"));
+        using var coordinator = new NativeProfileCoordinator(); coordinator.Initialize();
+        var source = StatisticsRestoreTests.PopulatedProfile(); source.Slot = coordinator.Current!.Slot;
+        var path = Path.Combine(directory.Path, "statistics.json");
+        File.WriteAllText(path, StatisticsExporter.Create(source, NativeProfileJsonWriterTests.Now).Json);
+        var preview = await coordinator.PreviewRestoreAsync(path);
+        var generation = coordinator.CurrentGenerationId;
+        long started = 0, finished = 0;
+        var changed = 0;
+        coordinator.CraftingProfileChangeStarted += token => started = token;
+        coordinator.CraftingProfileChangeCompleted += token => finished = token;
+        coordinator.ProfileChanged += () => changed++;
+        Assert.Throws<InvalidOperationException>(() => coordinator.RestoreCurrent(preview));
+        var context = NativeRaidContext.GameplayContext;
+        try
+        {
+            NativeRaidContext.GameplayContext = GameplayContext.Base;
+            Assert.True(coordinator.RestoreCurrent(preview));
+        }
+        finally { NativeRaidContext.GameplayContext = context; }
+        Assert.Equal(NativeUserResetOutcome.Success, coordinator.LastUserResetAttempt!.Outcome);
+        Assert.NotEqual(generation, coordinator.CurrentGenerationId);
+        Assert.True(started > 0); Assert.Equal(started, finished); Assert.Equal(1, changed);
+        Assert.Equal(3, coordinator.Current.Statistics.Runs.Count);
+        Assert.Equal(31.25, coordinator.Current.Statistics.Overall.ActualHealthRestored);
+        Assert.Null(ProfileFormat.ValidateRecoveryCandidate(coordinator.Current));
+    }
 
     public void Dispose()
     {

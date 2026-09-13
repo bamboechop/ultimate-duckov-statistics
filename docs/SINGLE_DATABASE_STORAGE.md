@@ -6,7 +6,7 @@ The native factory now uses `SqliteProfileStorage` directly. Changed records, ge
 
 The duplicate commit queue, independent-copy validation/rebuild/promotion and second maintenance worker have been removed. The single-database removal itself made no storage schema or representation change. The subsequent [record-compression follow-up](COMPRESSED_SQLITE_STORAGE.md) adds a one-time format-6-to-7 conversion. Neither change adds an export-import feature.
 
-Primary corruption is a storage failure, with no automatic duplicate fallback. Validators and retained-record failure markers remain active; the mod must not acknowledge writes against a generation known to have damaged records. Existing JSON files are retained from the initial import, but a failed SQLite load does not select those older values. Remaining WAL/SHM or retained-record failure evidence, as well as an obsolete `.recovery` file, prevents silent JSON reimport when the primary is missing. Restoring a user-kept JSON export remains separately planned work.
+Primary corruption is a storage failure, with no automatic duplicate fallback. Validators and retained-record failure markers remain active; the mod must not acknowledge writes against a generation known to have damaged records. Existing JSON files are retained from the initial import, but a failed SQLite load does not select those older values. Remaining WAL/SHM or retained-record failure evidence, as well as an obsolete `.recovery` file, prevents silent JSON reimport when the primary is missing. Current source provides an explicit [Diagnostics restore flow](JSON_RESTORE.md) for user-kept JSON/ZIP exports; it requires an open profile and does not add an automatic fallback for corruption.
 
 ## Retiring old local copies
 

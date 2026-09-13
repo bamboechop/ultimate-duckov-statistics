@@ -11,97 +11,97 @@ namespace UltimateDuckovStatistics.Core.Export;
 [DataContract]
 public sealed class StatisticsExportDocument
 {
-    [DataMember(Order = 17)] public bool HealingCaptureComplete { get; set; }
-    [DataMember(Order = 18)] public AdapterCapabilityState HealingCaptureState { get; set; }
-    [DataMember(Order = 19)] public bool HealingEvidenceRepaired { get; set; }
-    [DataMember(Order = 20)] public DistanceStatisticsProjection Distance { get; set; } = new();
+    [DataMember(IsRequired = true, Order = 17)] public bool HealingCaptureComplete { get; set; }
+    [DataMember(IsRequired = true, Order = 18)] public AdapterCapabilityState HealingCaptureState { get; set; }
+    [DataMember(IsRequired = true, Order = 19)] public bool HealingEvidenceRepaired { get; set; }
+    [DataMember(IsRequired = true, Order = 20)] public DistanceStatisticsProjection Distance { get; set; } = new();
 
-    [DataMember(Order = 1)]
+    [DataMember(IsRequired = true, Order = 1)]
     public int SchemaVersion { get; set; } = ProductInfo.SchemaVersion;
 
-    [DataMember(Order = 2)]
+    [DataMember(IsRequired = true, Order = 2)]
     public DateTime ExportedUtc { get; set; }
 
-    [DataMember(Order = 3)]
+    [DataMember(IsRequired = true, Order = 3)]
     public string GenerationId { get; set; } = string.Empty;
 
-    [DataMember(Order = 4)]
+    [DataMember(IsRequired = true, Order = 4)]
     public int Slot { get; set; }
 
-    [DataMember(Order = 5)]
+    [DataMember(IsRequired = true, Order = 5)]
     public long Revision { get; set; }
 
-    [DataMember(Order = 6)]
+    [DataMember(IsRequired = true, Order = 6)]
     public AggregateTotals Overall { get; set; } = new();
 
-    [DataMember(Order = 7)]
+    [DataMember(IsRequired = true, Order = 7)]
     public List<GroupExportRow> Groups { get; set; } = new();
 
-    [DataMember(Order = 8)]
+    [DataMember(IsRequired = true, Order = 8)]
     public List<ItemExportRow> Items { get; set; } = new();
 
-    [DataMember(Order = 9)]
+    [DataMember(IsRequired = true, Order = 9)]
     public RunAggregateTotals RunTotals { get; set; } = new();
 
-    [DataMember(Order = 10)]
+    [DataMember(IsRequired = true, Order = 10)]
     public IList<RunSummary> Runs { get; set; } = new List<RunSummary>();
 
-    [DataMember(Order = 11)]
+    [DataMember(IsRequired = true, Order = 11)]
     public RunDurationRecords RunRecords { get; set; } = new();
 
-    [DataMember(Order = 12)]
+    [DataMember(IsRequired = true, Order = 12)]
     public List<CapabilityRecord> Capabilities { get; set; } = new();
 
-    [DataMember(Order = 13)]
+    [DataMember(IsRequired = true, Order = 13)]
     public EconomyStatisticsAggregate Economy { get; set; } = new();
 
-    [DataMember(Order = 14)]
+    [DataMember(IsRequired = true, Order = 14)]
     public WorldTimeStatisticsAggregate WorldTime { get; set; } = new();
 
-    [DataMember(Order = 15)]
+    [DataMember(IsRequired = true, Order = 15)]
     public CraftingStatisticsAggregate Crafting { get; set; } = new();
 
-    [DataMember(Order = 16)]
+    [DataMember(IsRequired = true, Order = 16)]
     public EconomyHoldingsExport Holdings { get; set; } = new();
 }
 
 [DataContract]
 public sealed class EconomyHoldingsExport
 {
-    [DataMember(Order = 1)] public string SaveGenerationId { get; set; } = string.Empty;
-    [DataMember(Order = 2)] public EconomyHoldingObservation Money { get; set; } = new();
-    [DataMember(Order = 3)] public EconomyHoldingObservation Cash { get; set; } = new();
-    [DataMember(Order = 4)] public EconomyHoldingObservation LiquidWealth { get; set; } = new();
-    [DataMember(Order = 5)] public EconomyHoldingsMetricCapabilities Capabilities { get; set; } = new();
-    [DataMember(Order = 8)] public bool WasRepairedFromInvalidState { get; set; }
+    [DataMember(IsRequired = true, Order = 1)] public string SaveGenerationId { get; set; } = string.Empty;
+    [DataMember(IsRequired = true, Order = 2)] public EconomyHoldingObservation Money { get; set; } = new();
+    [DataMember(IsRequired = true, Order = 3)] public EconomyHoldingObservation Cash { get; set; } = new();
+    [DataMember(IsRequired = true, Order = 4)] public EconomyHoldingObservation LiquidWealth { get; set; } = new();
+    [DataMember(IsRequired = true, Order = 5)] public EconomyHoldingsMetricCapabilities Capabilities { get; set; } = new();
+    [DataMember(IsRequired = true, Order = 8)] public bool WasRepairedFromInvalidState { get; set; }
 }
 
 [DataContract]
 public sealed class GroupExportRow
 {
-    [DataMember(Order = 1)]
+    [DataMember(IsRequired = true, Order = 1)]
     public string Group { get; set; } = string.Empty;
 
-    [DataMember(Order = 2)]
+    [DataMember(IsRequired = true, Order = 2)]
     public AggregateTotals Totals { get; set; } = new();
 }
 
 [DataContract]
 public sealed class ItemExportRow
 {
-    [DataMember(Order = 1)]
+    [DataMember(IsRequired = true, Order = 1)]
     public string ItemId { get; set; } = string.Empty;
 
-    [DataMember(Order = 2)]
+    [DataMember(IsRequired = true, Order = 2)]
     public string DisplayName { get; set; } = string.Empty;
 
-    [DataMember(Order = 3)]
+    [DataMember(IsRequired = true, Order = 3)]
     public string Group { get; set; } = string.Empty;
 
-    [DataMember(Order = 4)]
+    [DataMember(IsRequired = true, Order = 4)]
     public List<string> EffectTags { get; set; } = new();
 
-    [DataMember(Order = 5)]
+    [DataMember(IsRequired = true, Order = 5)]
     public AggregateTotals Totals { get; set; } = new();
 }
 

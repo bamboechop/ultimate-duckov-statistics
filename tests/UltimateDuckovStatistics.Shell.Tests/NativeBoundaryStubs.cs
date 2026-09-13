@@ -35,6 +35,9 @@ namespace UltimateDuckovStatistics.Adapters
         public void ReportUiDiagnostic(string message, string severity = "Info") => Reports.Add(message);
         public Func<Task<ProfileExportResult>> Export = () => throw new NotSupportedException("Not an export test");
         public Task<ProfileExportResult> BeginExportCurrent() => Export();
+        public Task<IReadOnlyList<string>> ListRestoreSourcesAsync() => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+        public Task<StatisticsRestorePreview> PreviewRestoreAsync(string path, System.Threading.CancellationToken cancellationToken = default) => Task.FromResult(StatisticsRestoreReader.Read(path, Current.Slot, cancellationToken));
+        public bool RestoreCurrent(StatisticsRestorePreview preview) => throw new NotSupportedException("Not a restore test");
         public void ChangeProfile(ProfileDocument next) { ProfileChanging?.Invoke(); Current = next; ProfileChanged?.Invoke(); }
         public bool ResetCurrent() => throw new NotSupportedException("Not a reset test");
     }

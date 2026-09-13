@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Diagnostics.CodeAnalysis;
+using UltimateDuckovStatistics.Core.Export;
 
 namespace UltimateDuckovStatistics.Core.Persistence;
 
@@ -32,7 +33,16 @@ public sealed partial class ProfileRepository
     // Prepare both new-generation files before moving the active directory. A failed
     // preparation leaves the existing profile and session active; a failed promotion
     // restores that exact directory and its original file attributes.
-    private void RotateUserProfile(SaveIdentitySnapshot identity)
+    public void RestoreStatistics(SaveIdentitySnapshot identity, StatisticsRestorePreview preview, string expectedGeneration)
+    {
+        if (preview == null) throw new ArgumentNullException(nameof(preview));
+        ValidateIdentity(identity);
+        if (CurrentGenerationId != expectedGeneration || preview.Slot != identity.Slot)
+            throw new InvalidOperationException("The restore destination changed.");
+        RotateUserProfile(identity, preview);
+    }
+
+    private void RotateUserProfile(SaveIdentitySnapshot identity, StatisticsRestorePreview? restore = null)
     {
         var previous = Current;
         if (pendingUserResetRollback != null)
@@ -49,19 +59,21 @@ public sealed partial class ProfileRepository
                 new InvalidOperationException("A UDS reset cannot rotate another save slot."));
         var activeDirectory = currentDirectory!;
         var slotDirectory = GetSlotDirectory(identity.Slot);
-        var next = CreateNewProfile(identity, "UserReset");
+        var reason = restore == null ? "UserReset" : "UserRestore";
+        var next = CreateNewProfile(identity, reason);
         var suffix = Guid.NewGuid().ToString("N");
         var preparedDirectory = Path.Combine(slotDirectory, ".uds-reset-" + suffix);
         var archivesDirectory = Path.Combine(slotDirectory, "archives");
         var safeGeneration = string.Concat(previous.GenerationId.Select(c => char.IsLetterOrDigit(c) ? c : '-'));
         var timestamp = EnsureUtc(utcNow()).ToString("yyyyMMddTHHmmssfffffffZ", CultureInfo.InvariantCulture);
-        var archiveDirectory = Path.Combine(archivesDirectory, $"{timestamp}-{safeGeneration}-UserReset-{suffix}");
+        var archiveDirectory = Path.Combine(archivesDirectory, $"{timestamp}-{safeGeneration}-{reason}-{suffix}");
         var attributes = new Dictionary<string, FileAttributes>(StringComparer.OrdinalIgnoreCase);
         var movedPrevious = false;
         var promoted = false;
         var storageSuspended = false;
         try
         {
+            if (restore != null) next.Statistics = restore.CreateStatistics(next.GenerationId, next.UpdatedUtc);
             SaveCurrent();
             Directory.CreateDirectory(preparedDirectory);
             PrepareResetStorage(preparedDirectory, next, new SessionCheckpoint

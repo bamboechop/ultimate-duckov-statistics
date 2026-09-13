@@ -1,4 +1,6 @@
 using System.Reflection;
+using SodaCraft.Localizations;
+using TMPro;
 using UltimateDuckovStatistics.Core.Export;
 using UltimateDuckovStatistics.UI;
 using UnityEngine;
@@ -27,6 +29,39 @@ public sealed class RetainedPanelModalTests : IDisposable
             new NativeHeaderTitleTypography(), new Material(), operations,
             (Action)(() => hotkeyCancellations++), (Action)(() => fallbackCalls++))!;
         GameManager.EventSystem.SetSelectedGameObject(prior);
+    }
+
+    [Fact]
+    public void RestoreModalContainsFocusDisablesUnvalidatedConfirmationAndRefreshesTranslations()
+    {
+        var reads = new List<string>(); var restores = 0;
+        operations.ConfigureRestore(() => Task.FromResult<IReadOnlyList<string>>(new[] { "first.zip", "second.zip" }),
+            (path, _) => { reads.Add(path); return Task.FromException<StatisticsRestorePreview>(new IOException("bad export")); },
+            _ => { restores++; return true; });
+        Assert.True(operations.RequestRestoreSelection()); operations.Tick(); Sync(reset: true);
+        Assert.Same(Cancel.gameObject, Selected); Assert.True(Confirm.gameObject.activeSelf); Assert.False(Confirm.interactable);
+        Move(false); Assert.Equal("PreviousExport", Selected!.name);
+        Move(false); Assert.Equal("NextExport", Selected!.name);
+        Move(false); Assert.Equal("CopiedExport", Selected!.name);
+        Move(false); Assert.Same(Cancel.gameObject, Selected);
+        Find("NextExport").GetComponent<Button>().onClick.Invoke(); operations.Tick();
+        Assert.Equal("second.zip", reads.Last());
+        GUIUtility.systemCopyBuffer = "external.json";
+        Find("CopiedExport").GetComponent<Button>().onClick.Invoke(); operations.Tick();
+        Assert.Equal("external.json", reads.Last());
+        try
+        {
+            foreach (var language in new[] { SystemLanguage.German, SystemLanguage.English })
+            {
+                LocalizationManager.SetLanguage(language); Sync(reset: true);
+                Assert.Equal(UiText.Get("ui.restore_title"), Find("Title").GetComponent<TextMeshProUGUI>().text);
+                Assert.Equal(UiText.Get("ui.restore_copied_path"), Find("CopiedExportLabel").GetComponent<TextMeshProUGUI>().text);
+                Assert.Equal(UiText.Get("ui.restore_confirm"), Find("ConfirmResetLabel").GetComponent<TextMeshProUGUI>().text);
+            }
+        }
+        finally { LocalizationManager.SetLanguage(SystemLanguage.English); }
+        Confirm.onClick.Invoke(); operations.Tick(); Assert.Equal(0, restores); Assert.Equal(0, resetCalls);
+        Cancel.onClick.Invoke(); Sync(); Assert.False(operations.ModalVisible); Assert.Same(prior, Selected);
     }
 
     [Fact]

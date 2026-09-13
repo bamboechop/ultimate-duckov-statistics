@@ -60,6 +60,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             () => coordinator.HasPendingProfileTransition, coordinator.BeginExportCurrent, coordinator.ResetCurrent,
             () => coordinator.LastUserResetAttempt,
             TryCopyPath, HandleOperationNotice);
+        operations.ConfigureRestore(coordinator.ListRestoreSourcesAsync, coordinator.PreviewRestoreAsync, coordinator.RestoreCurrent);
         coordinator.ProfileChanging += HandleProfileChanging;
         coordinator.ProfileChanged += HandleProfileChanged;
     }
@@ -336,17 +337,17 @@ internal sealed class NativeStatisticsPanel : IDisposable
         if (notice.Outcome == PanelOperationOutcome.Running) return;
         if (notice.Outcome == PanelOperationOutcome.Pending)
         {
-            coordinator.ReportUiDiagnostic("M17 UI reset awaiting completion. " + notice.Detail, "Warning");
+            coordinator.ReportUiDiagnostic($"UI {notice.Operation} awaiting completion. " + notice.Detail, "Warning");
             nativeUi.ShowToast(UiText.Get("ui.diag_operation_pending"));
             return;
         }
         if (notice.Outcome == PanelOperationOutcome.Success || notice.Outcome == PanelOperationOutcome.ClipboardUnavailable)
         {
-            if (notice.Operation == PanelOperation.Reset)
+            if (notice.Operation == PanelOperation.Reset || notice.Operation == PanelOperation.Restore)
             {
                 projectionDirty = true;
-                coordinator.ReportUiDiagnostic("M17 UI reset completed; the previous UDS generation was archived.");
-                nativeUi.ShowToast(UiText.Get("ui.diag_reset_success"));
+                coordinator.ReportUiDiagnostic($"UI {notice.Operation} completed; the previous UDS generation was archived.");
+                nativeUi.ShowToast(UiText.Get(notice.Operation == PanelOperation.Restore ? "ui.restore_success" : "ui.diag_reset_success"));
             }
             else
             {
@@ -358,8 +359,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
         var prefix = notice.Operation == PanelOperation.Export ? "M17 UI export failed. "
-            : notice.PriorProfileStillActive ? "M17 UI reset failed; previous profile remains active. "
-            : "M17 UI reset could not be completed for the requested generation. ";
+            : notice.PriorProfileStillActive ? $"UI {notice.Operation} failed; previous profile remains active. "
+            : $"UI {notice.Operation} could not be completed for the requested generation. ";
         coordinator.ReportUiDiagnostic(prefix + notice.Detail, "Error");
         if (notice.PresentResult) nativeUi.ShowToast(UiText.Get("ui.diag_operation_failure"));
     }
