@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />
+    <ProjectReference Include="..\UltimateDuckovStatistics.Sqlite\UltimateDuckovStatistics.Sqlite.csproj" />
+    <Reference Include="Newtonsoft.Json" HintPath="$(DuckovManagedPath)\Newtonsoft.Json.dll" Private="false" />
     <Reference Include="TeamSoda.Duckov.Core" HintPath="$(DuckovManagedPath)\TeamSoda.Duckov.Core.dll" Private="false" />
     <Reference Include="ItemStatsSystem" HintPath="$(DuckovManagedPath)\ItemStatsSystem.dll" Private="false" />
     <Reference Include="TeamSoda.Duckov.Utilities" HintPath="$(DuckovManagedPath)\TeamSoda.Duckov.Utilities.dll" Private="false" />

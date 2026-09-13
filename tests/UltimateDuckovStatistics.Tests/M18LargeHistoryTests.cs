@@ -188,7 +188,7 @@ public sealed partial class RouteLifecycleTests
         reopened.CloseClean();
         output.WriteLine($"M18_LARGE_HISTORY runs={runCount} segments={expectedSegments.Count} exports={result.Files.Count}; managed correctness only, no native rendering or resource claim.");
 
-        void AssertHistory(IReadOnlyList<RunSummary> runs, RunAggregateTotals totals)
+        void AssertHistory(IEnumerable<RunSummary> runs, RunAggregateTotals totals)
         {
             Assert.Equal(expectedRuns.Keys, runs.Select(run => run.RunId));
             Assert.Equal(runCount, totals.TotalRuns);

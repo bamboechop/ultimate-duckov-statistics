@@ -1,7 +1,6 @@
 using Saves;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
+using Duckov.Scenes;
+using Duckov.UI;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Diagnostics;
 using UltimateDuckovStatistics.Core.Domain;
@@ -18,9 +17,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
     private const int DiagnosticCapacity = 200;
     private readonly MonotonicCadenceGate persistenceDiagnosticCadence = new(60);
     private readonly Func<double> monotonicClock;
-    private static readonly Regex SaveTimePattern = new(
-        "\\\"SaveTime\\\"\\s*:\\s*\\{[^{}]*?\\\"value\\\"\\s*:\\s*(-?\\d+)",
-        RegexOptions.CultureInvariant);
+    private readonly Func<string, Action<string>, ProfileRepository> repositoryFactory;
     private readonly string dataRoot;
     private DiagnosticStore? diagnostics;
     private ProfileRepository? repository;
@@ -35,6 +32,10 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
     private Func<bool>? craftingBoundaryFlusher;
     private Func<bool>? craftingProfileTransitionBoundaryFlusher;
     private bool subscribed;
+    private bool nativeSaveBoundaryActive;
+    private double nextStorageMaintenance;
+    private double nextStorageOpportunity;
+    private System.Threading.Tasks.Task<ProfileMaintenanceResult>? storageMaintenance;
     private bool saveResetAwaitingNewGameReport;
     private long profileTransitionSequence;
     private string lastOpenStatus = "Profile has not been opened.";
@@ -94,15 +95,18 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
     private EconomyHoldingsMetricCapabilities economyHoldingsMetricCapabilities =
         EconomyHoldingsNativeContractPolicy.Unavailable(EconomyHoldingsNativeContractPolicy.BootstrapProvenance);
 
-    public NativeProfileCoordinator(Func<double>? monotonicClock = null)
+    public NativeProfileCoordinator(Func<double>? monotonicClock = null,
+        Func<string, Action<string>, ProfileRepository>? repositoryFactory = null)
     {
+        this.repositoryFactory = repositoryFactory ?? NativeProfileStorage.Create;
         this.monotonicClock = monotonicClock ?? (() => (double)System.Diagnostics.Stopwatch.GetTimestamp() / System.Diagnostics.Stopwatch.Frequency);
         profileTransitionBoundary = new NativeProfileTransitionBoundary(this.monotonicClock);
         dataRoot = Path.Combine(Application.persistentDataPath, Core.ProductInfo.ModId, Core.ProductInfo.DataDirectory);
         checkpointWriter = new DeferredCheckpointWriter<CheckpointWrite>(write =>
         {
             NativeHotPathDiagnostics.CountCheckpointStoreAttempt();
-            write.Repository.SaveActiveRun(write.Checkpoint);
+            if (write.Snapshot != null) write.Repository.SaveSnapshot(write.Snapshot);
+            else write.Repository.SaveActiveRun(write.Checkpoint!);
             NativeHotPathDiagnostics.CountCheckpointStoreSuccess();
         });
         profileWriter = new DeferredSnapshotWriter<ProfileWrite>(CaptureProfileWrite, write =>
@@ -201,11 +205,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         }
 
         Directory.CreateDirectory(dataRoot);
-        repository = new ProfileRepository(
-            dataRoot,
-            () => DateTime.UtcNow,
-            () => Guid.NewGuid().ToString("N"),
-            message => WriteDiagnostic(message));
+        repository = repositoryFactory(dataRoot, message => WriteDiagnostic(message));
 
         var openResult = repository.Open(ReadIdentity());
         lastOpenStatus = FormatOpenResult(openResult);
@@ -217,6 +217,8 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         SavesSystem.OnSaveDeleted += OnSaveDeleted;
         SavesSystem.OnCollectSaveData += OnCollectSaveData;
         LevelManager.OnNewGameReport += OnNewGameReport;
+        SceneLoader.onBeforeSetSceneActive += OnStorageLoading;
+        SleepView.OnAfterSleep += OnStorageSleep;
         subscribed = true;
         WriteDiagnostic(
             $"Profile opened slot={repository.Current.Slot} generation={repository.CurrentGenerationId} " +
@@ -617,11 +619,35 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
                 return false;
             }
 
-            return checkpointWriter.TrySubmit(new CheckpointWrite(currentRepository, checkpoint));
+            return checkpointWriter.TryCaptureAndSubmit(() => new CheckpointWrite(currentRepository, checkpoint));
         }
         catch (Exception exception)
         {
             ReportPersistenceFailure(exception, "Failed to persist active-run checkpoint");
+            return false;
+        }
+    }
+
+    public bool HandleIncrementalRunCheckpoint(RunLifecycleTracker tracker, DateTime timestampUtc, double monotonicSeconds, RunOutcome? terminalOutcome)
+    {
+        try
+        {
+            var currentRepository = repository;
+            if (currentRepository == null) return false;
+            return checkpointWriter.TryCaptureAndSubmit(() =>
+            {
+                if (currentRepository.UsesIncrementalStorage)
+                    return new CheckpointWrite(currentRepository, currentRepository.CaptureActiveRunPersistence(tracker, timestampUtc, monotonicSeconds, terminalOutcome));
+                var checkpoint = tracker.CreateCheckpoint(timestampUtc, monotonicSeconds)
+                    ?? throw new InvalidOperationException("The active checkpoint owner disappeared.");
+                checkpoint.PendingTerminalOutcome = terminalOutcome;
+                NativeHotPathDiagnostics.CountCheckpointClone();
+                return new CheckpointWrite(currentRepository, checkpoint);
+            });
+        }
+        catch (Exception exception)
+        {
+            ReportPersistenceFailure(exception, "Failed to capture incremental active-run checkpoint");
             return false;
         }
     }
@@ -632,10 +658,48 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
 
     public DeferredWriteState TickProfilePersistence(bool activeRunCheckpointCurrent = true)
     {
+        TickStorageMaintenance();
         QueueBaseMovementPersistence();
         var result = ObserveProfileResult(profileWriter.Tick(activeRunCheckpointCurrent));
         if (result == DeferredWriteState.Succeeded && !profileWriter.IsDirty) baseMovementWriteQueued = false;
         return result;
+    }
+
+    private void TickStorageMaintenance()
+    {
+        ObserveStorageMaintenance();
+        var now = monotonicClock();
+        if (now < nextStorageMaintenance) return;
+        nextStorageMaintenance = now + 60;
+        RequestStorageMaintenance(ProfileMaintenanceReason.LongSession);
+    }
+
+    private void OnStorageLoading(SceneLoadingContext _) => OnStorageSleep();
+
+    private void OnStorageSleep()
+    {
+        // Installed hooks follow an awaited Show and precede activation/hide.
+        // Treat them as scheduling hints, never as proof rendering is black.
+        var now = monotonicClock();
+        if (now < nextStorageOpportunity) return;
+        nextStorageOpportunity = now + 5;
+        RequestStorageMaintenance(ProfileMaintenanceReason.LoadingOrSleep);
+    }
+
+    private void RequestStorageMaintenance(ProfileMaintenanceReason reason)
+    {
+        if (repository == null || HasPendingProfileTransition || storageMaintenance is { IsCompleted: false }) return;
+        ObserveStorageMaintenance();
+        try { storageMaintenance = repository.RequestStorageMaintenance(reason); }
+        catch (Exception exception) { ReportPersistenceFailure(exception, "Storage maintenance could not start"); }
+    }
+
+    private void ObserveStorageMaintenance()
+    {
+        if (storageMaintenance is not { IsCompleted: true }) return;
+        var completed = storageMaintenance; storageMaintenance = null;
+        try { completed.GetAwaiter().GetResult(); }
+        catch (Exception exception) { ReportPersistenceFailure(exception, "Storage maintenance remains incomplete"); }
     }
 
     public bool HandleRunCompleted(RunSummary summary)
@@ -681,7 +745,8 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
 
     public ProfileExportResult ExportCurrent()
     {
-        var snapshot = PrepareCurrentExport();
+        PrepareCurrentExport();
+        using var snapshot = repository!.CaptureExportSnapshotAsync().GetAwaiter().GetResult();
         var result = ProfileExportWriter.Write(snapshot, DateTime.UtcNow);
         WriteDiagnostic($"Exported JSON and CSV statistics to {result.Directory}.");
         return result;
@@ -689,15 +754,21 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
 
     public System.Threading.Tasks.Task<ProfileExportResult> BeginExportCurrent()
     {
-        // Native barriers and identity reads remain on the main thread. Only the
-        // detached snapshot's serialization and file writes run in the worker.
-        var snapshot = PrepareCurrentExport();
+        // Native barriers and identity reads remain on the main thread. Storage
+        // pins this revision before later commands, then copies it off the save queue.
+        PrepareCurrentExport();
+        var capture = repository!.CaptureExportSnapshotAsync();
         var exportedUtc = DateTime.UtcNow;
         var exportRoot = Path.Combine(dataRoot, "exports");
-        return System.Threading.Tasks.Task.Run(() => ProfileExportWriter.WriteToRoot(snapshot, exportRoot, exportedUtc));
+        return capture.ContinueWith(completed =>
+        {
+            using var snapshot = completed.GetAwaiter().GetResult();
+            return ProfileExportWriter.WriteToRoot(snapshot, exportRoot, exportedUtc);
+        }, System.Threading.CancellationToken.None, System.Threading.Tasks.TaskContinuationOptions.None,
+            System.Threading.Tasks.TaskScheduler.Default);
     }
 
-    private ProfilePersistenceSnapshot PrepareCurrentExport()
+    private void PrepareCurrentExport()
     {
         if (HasPendingProfileTransition)
             throw new InvalidOperationException("A profile transition is pending; export cannot select a generation.");
@@ -717,7 +788,6 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         DrainProfileWriter();
         repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
         repository.Flush();
-        return repository.CaptureExportSnapshot();
     }
 
     public bool ResetCurrent()
@@ -798,6 +868,8 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
             SavesSystem.OnSaveDeleted -= OnSaveDeleted;
             SavesSystem.OnCollectSaveData -= OnCollectSaveData;
             LevelManager.OnNewGameReport -= OnNewGameReport;
+            SceneLoader.onBeforeSetSceneActive -= OnStorageLoading;
+            SleepView.OnAfterSleep -= OnStorageSleep;
             subscribed = false;
         }
 
@@ -816,8 +888,14 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         {
             Debug.LogException(exception);
         }
-
-        repository = null;
+        finally
+        {
+            // Resource release is unconditional; only CloseClean above can
+            // acknowledge a clean session after the final durability boundary.
+            try { repository?.Dispose(); }
+            catch (Exception exception) { Debug.LogException(exception); }
+            finally { repository = null; }
+        }
     }
 
     private void OnSetFile()
@@ -925,25 +1003,73 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
 
     private void OnCollectSaveData()
     {
+        // Nested native notifications are covered by the outer boundary's latest
+        // snapshot. They must not drain or capture while it is being prepared.
+        if (nativeSaveBoundaryActive) return;
+        nativeSaveBoundaryActive = true;
         try
         {
-            if (!FlushBaseMovement()) throw new IOException("Base movement remains pending at a profile boundary.");
+            var currentRepository = repository;
+            if (currentRepository == null) return;
+            var generation = currentRepository.CurrentGenerationId;
+            Exception? preparationFailure = null;
+            var result = profileWriter.FlushForBoundary(() =>
+                PrepareNativeSaveBoundary(currentRepository, generation, out preparationFailure));
+            if (result.State is DeferredWriteState.Pending or DeferredWriteState.Failed || profileWriter.IsDirty)
+            {
+                ObserveProfileResult(result);
+                throw result.Exception ?? new IOException("Native-save profile durability remains pending.");
+            }
+
+            baseMovementWriteQueued = false;
+            if (preparationFailure != null) throw preparationFailure;
+        }
+        catch (Exception exception)
+        {
+            ReportPersistenceFailure(exception, "Native-save profile boundary failed");
+        }
+        finally { nativeSaveBoundaryActive = false; }
+    }
+
+    private bool PrepareNativeSaveBoundary(ProfileRepository currentRepository, string generation, out Exception? failure)
+    {
+        failure = null;
+        try
+        {
+            if (!PublishBaseMovementForNativeSave()) throw new IOException("Base movement remains pending at a profile boundary.");
             if (economyHoldingsBoundaryFlusher?.Invoke() == false)
                 throw new IOException("Economy holdings remain pending before native save collection.");
             if (worldTimeBoundaryFlusher?.Invoke() == false)
                 throw new IOException("World-time aggregate remains pending before native save collection.");
             if (craftingBoundaryFlusher?.Invoke() == false)
                 throw new IOException("Crafting aggregate or capability publication remains pending before native save collection.");
-            if (repository != null)
-            {
-                DrainProfileWriter();
-                repository.PrepareForNativeSave(ReadIdentity(repository.Current.Slot));
-            }
         }
         catch (Exception exception)
         {
-            ReportPersistenceFailure(exception, "Pre-save identity refresh failed");
+            // Accepted publications now belong to Current, while each adapter
+            // retains its unaccepted values. Persist the accepted subset if safe.
+            profileWriter.MarkDirty();
+            failure = exception;
         }
+
+        if (activeRunCheckpointFlusher?.Invoke() == false) return false;
+        if (!ReferenceEquals(repository, currentRepository) || currentRepository.CurrentGenerationId != generation)
+            throw new IOException("The profile generation changed during native-save preparation.");
+        if (failure != null) return true;
+
+        try
+        {
+            var identity = ReadIdentity(currentRepository.Current.Slot);
+            if (currentRepository.PrepareForNativeSaveDeferred(identity)) profileWriter.MarkDirty();
+        }
+        catch (Exception exception)
+        {
+            // A failed identity read must not discard accepted aggregate data or
+            // manufacture a new lineage. Any partial staging retains a writer.
+            profileWriter.MarkDirty();
+            failure = exception;
+        }
+        return true;
     }
 
     private void OnNewGameReport()
@@ -1095,24 +1221,11 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         saveTimeBinary = null;
         try
         {
-            byte[] hash;
-            string content;
-            using (var stream = new FileStream(
-                       file.FullName,
-                       FileMode.Open,
-                       FileAccess.Read,
-                       FileShare.ReadWrite | FileShare.Delete))
-            using (var sha256 = SHA256.Create())
+            (string Hash, long? SaveTime) fingerprint;
+            using (var stream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read,
+                       FileShare.ReadWrite | FileShare.Delete, 64 * 1024, FileOptions.SequentialScan))
             {
-                hash = sha256.ComputeHash(stream);
-                stream.Position = 0;
-                using var reader = new StreamReader(
-                    stream,
-                    Encoding.UTF8,
-                    detectEncodingFromByteOrderMarks: true,
-                    bufferSize: 4096,
-                    leaveOpen: false);
-                content = reader.ReadToEnd();
+                fingerprint = NativeSaveFingerprint.Read(stream);
             }
 
             file.Refresh();
@@ -1124,16 +1237,8 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
                 return;
             }
 
-            contentSha256 = BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
-            var match = SaveTimePattern.Match(content);
-            if (match.Success && long.TryParse(
-                    match.Groups[1].Value,
-                    System.Globalization.NumberStyles.Integer,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out var parsedSaveTime))
-            {
-                saveTimeBinary = parsedSaveTime;
-            }
+            contentSha256 = fingerprint.Hash;
+            saveTimeBinary = fingerprint.SaveTime;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -1156,13 +1261,23 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
 
     private void UpdateCapabilities()
     {
+        if (nativeSaveBoundaryActive)
+        {
+            profileWriter.MarkDirty();
+            ApplyCurrentCapabilities(deferPersistence: true);
+            return;
+        }
         DrainProfileWriter();
         ApplyCurrentCapabilities();
     }
 
-    private void ApplyCurrentCapabilities()
+    private void ApplyCurrentCapabilities() => ApplyCurrentCapabilities(deferPersistence: false);
+
+    private void ApplyCurrentCapabilities(bool deferPersistence)
     {
-        repository?.SetCapabilitySnapshot(new[]
+        var currentRepository = repository;
+        if (currentRepository == null) return;
+        var capabilities = new[]
         {
             new CapabilityRecord
             {
@@ -1179,11 +1294,13 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
                 Detail = "Duckov public SavesSystem and LevelManager events with read-only save-lineage verification"
             },
             healingCapability
-        }.Concat(new[] { throwableCapability }).Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities).Concat(economyHoldingsCapabilities),
-        economyMetricCapabilities,
-        worldTimeMetricCapabilities,
-        craftingMetricCapabilities,
-        economyHoldingsMetricCapabilities);
+        }.Concat(new[] { throwableCapability }).Concat(runCapabilities).Concat(weaponCapabilities).Concat(combatCapabilities).Concat(equipmentCapabilities).Concat(containerCapabilities).Concat(economyCapabilities).Concat(worldTimeCapabilities).Concat(craftingCapabilities).Concat(economyHoldingsCapabilities);
+        if (deferPersistence)
+            currentRepository.SetCapabilitySnapshotDeferred(capabilities, economyMetricCapabilities,
+                worldTimeMetricCapabilities, craftingMetricCapabilities, economyHoldingsMetricCapabilities);
+        else
+            currentRepository.SetCapabilitySnapshot(capabilities, economyMetricCapabilities,
+                worldTimeMetricCapabilities, craftingMetricCapabilities, economyHoldingsMetricCapabilities);
     }
 
     private void ReportPersistenceFailure(Exception exception, string operation)
@@ -1223,7 +1340,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         }
 
         var result = profileWriter.Flush();
-        if (result.State != DeferredWriteState.Failed) return;
+        if (result.State is DeferredWriteState.None or DeferredWriteState.Succeeded) return;
         ObserveProfileResult(result);
         throw result.Exception ?? new IOException("Deferred profile persistence failed without an exception.");
     }
@@ -1236,7 +1353,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         if (activeRunCheckpointFlusher != null && !activeRunCheckpointFlusher())
             throw new IOException("The active-run checkpoint barrier remains pending before reset.");
         var result = profileWriter.Flush();
-        if (result.State != DeferredWriteState.Failed) return;
+        if (result.State is DeferredWriteState.None or DeferredWriteState.Succeeded) return;
         ObserveProfileResult(result);
         throw new UserProfileResetFailedException(repository!.CurrentGenerationId,
             result.Exception ?? new IOException("Deferred profile persistence failed without an exception."));
@@ -1272,10 +1389,15 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         {
             Repository = repository ?? throw new ArgumentNullException(nameof(repository));
             Checkpoint = checkpoint ?? throw new ArgumentNullException(nameof(checkpoint));
+            Snapshot = repository.UsesIncrementalStorage ? repository.CaptureActiveRunPersistence(checkpoint) : null;
         }
 
+        public CheckpointWrite(ProfileRepository repository, ProfilePersistenceSnapshot snapshot)
+        { Repository = repository; Snapshot = snapshot; }
+
         public ProfileRepository Repository { get; }
-        public ActiveRunCheckpoint Checkpoint { get; }
+        public ActiveRunCheckpoint? Checkpoint { get; }
+        public ProfilePersistenceSnapshot? Snapshot { get; }
     }
 
     private sealed class ProfileWrite

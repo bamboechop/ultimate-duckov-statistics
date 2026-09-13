@@ -16,22 +16,23 @@ internal sealed class RunsPresentation
     }
 }
 
-internal sealed class RunDetailPresentation
+internal class RunDetailPresentation
 {
     public string Id { get; }
     public string Title { get; }
     public string Metadata { get; }
-    public string Integrity { get; }
+    public virtual string Integrity { get; }
     public RetainedRunBadgeState Outcome { get; }
-    public IReadOnlyList<KeyValuePair<string, string>> Summary { get; }
-    public string RouteSummary { get; }
-    public IReadOnlyList<KeyValuePair<string, string>> Segments { get; }
-    public string EquipmentState { get; }
-    public TerminalLoadoutState TerminalState { get; }
-    public IReadOnlyList<RunSlotPresentation> Slots { get; }
-    public string Ranged { get; }
-    public string Melee { get; }
-    public string ValueNotice { get; }
+    public virtual IReadOnlyList<KeyValuePair<string, string>> Summary { get; }
+    public virtual string RouteSummary { get; }
+    public virtual IReadOnlyList<KeyValuePair<string, string>> Segments { get; }
+    public virtual string EquipmentState { get; }
+    public virtual TerminalLoadoutState TerminalState { get; }
+    public virtual IReadOnlyList<RunSlotPresentation> Slots { get; }
+    public virtual string Ranged { get; }
+    public virtual string Melee { get; }
+    public virtual string ValueNotice { get; }
+    public virtual RunDetailPresentation Resolve() => this;
     public RunDetailPresentation(string id, string title, string metadata, string integrity,
         RetainedRunBadgeState outcome, IEnumerable<KeyValuePair<string, string>> summary,
         string routeSummary, IEnumerable<KeyValuePair<string, string>> segments,
@@ -43,6 +44,25 @@ internal sealed class RunDetailPresentation
         TerminalState = terminalState;
         Slots = Array.AsReadOnly(slots.ToArray()); Ranged = ranged; Melee = melee; ValueNotice = valueNotice;
     }
+}
+
+internal sealed class DeferredRunDetailPresentation : RunDetailPresentation
+{
+    private readonly Lazy<RunDetailPresentation> detail;
+    public DeferredRunDetailPresentation(string id, string title, string metadata, RetainedRunBadgeState outcome, Func<RunDetailPresentation> load)
+        : base(id, title, metadata, "", outcome, Array.Empty<KeyValuePair<string, string>>(), "", Array.Empty<KeyValuePair<string, string>>(), "", default, Array.Empty<RunSlotPresentation>(), "", "", "")
+    { detail = new Lazy<RunDetailPresentation>(load); }
+    public override RunDetailPresentation Resolve() => detail.Value;
+    public override string Integrity => detail.Value.Integrity;
+    public override IReadOnlyList<KeyValuePair<string, string>> Summary => detail.Value.Summary;
+    public override string RouteSummary => detail.Value.RouteSummary;
+    public override IReadOnlyList<KeyValuePair<string, string>> Segments => detail.Value.Segments;
+    public override string EquipmentState => detail.Value.EquipmentState;
+    public override TerminalLoadoutState TerminalState => detail.Value.TerminalState;
+    public override IReadOnlyList<RunSlotPresentation> Slots => detail.Value.Slots;
+    public override string Ranged => detail.Value.Ranged;
+    public override string Melee => detail.Value.Melee;
+    public override string ValueNotice => detail.Value.ValueNotice;
 }
 
 internal sealed class RunEquipmentEvidence
@@ -82,7 +102,16 @@ internal sealed class RunsSelection
     private string? retainedId;
     public RunsPresentation? Snapshot { get; private set; }
     public string? SelectedId { get; private set; }
-    public RunDetailPresentation? Selected => Snapshot?.Runs.FirstOrDefault(run => run.Id == SelectedId);
+    public RunDetailPresentation? Selected
+    {
+        get
+        {
+            try { return Snapshot?.Runs.FirstOrDefault(run => run.Id == SelectedId)?.Resolve(); }
+            catch (Exception exception) when (exception is IOException or InvalidDataException or System.Runtime.Serialization.SerializationException or KeyNotFoundException or ArgumentException or InvalidOperationException)
+            { RequestedRunUnavailable = true; DetailFailure = exception; return null; }
+        }
+    }
+    public Exception? DetailFailure { get; private set; }
     public bool RequestedRunUnavailable { get; private set; }
 
     public bool Refresh(RunsPresentation snapshot, string expectedGeneration)
@@ -96,13 +125,14 @@ internal sealed class RunsSelection
             : snapshot.Runs.Count == 0 ? null : snapshot.Runs[0].Id;
         retainedGeneration = null; retainedId = null;
         RequestedRunUnavailable = false;
+        DetailFailure = null;
         return true;
     }
 
     public bool Select(string id)
     {
         if (Snapshot?.Runs.Any(run => run.Id == id) != true) return false;
-        SelectedId = id; RequestedRunUnavailable = false; return true;
+        SelectedId = id; RequestedRunUnavailable = false; DetailFailure = null; return true;
     }
 
     public bool Route(string generation, string id)
@@ -123,14 +153,35 @@ internal static class RunsPresentationFactory
     public static RunsPresentation? Create(StatisticsPanelProjection projection, string expectedGeneration,
         Func<string, string>? text = null, Func<DateTime, DateTime>? toLocal = null)
     {
-        if (!StatisticsPanelProjectionFactory.HasProvableGeneration(projection.Profile, expectedGeneration)) return null;
+        if (!StatisticsPanelProjectionFactory.HasProvableGeneration(projection.Profile, expectedGeneration)
+            || !RunHistory.Matches(projection.Profile.Statistics.Runs, projection.Runs.Runs, expectedGeneration)) return null;
+        var resolve = text ?? UiText.Get;
+        var local = toLocal ?? (value => value.ToLocalTime());
+        if (projection.Runs.Runs is RunHistoryView indexed && indexed.Source is IIndexedRunHistory)
+            return new RunsPresentation(expectedGeneration, indexed.Overview.Select((row, index) =>
+                CreateHistoryRow(row, indexed.Count - index, resolve, local, projection.Names,
+                    () => CreateRun(RunHistory.GetById(indexed.Source, row.RunId), indexed.Count - index, resolve, local, projection.Names))));
         var runs = projection.Runs.Runs.OrderByDescending(run => run.StartedUtc)
             .ThenBy(run => run.RunId, StringComparer.Ordinal).ToArray();
         if (runs.Any(run => run.SaveGenerationId != expectedGeneration || string.IsNullOrWhiteSpace(run.RunId))
             || runs.Select(run => run.RunId).Distinct(StringComparer.Ordinal).Count() != runs.Length) return null;
-        var resolve = text ?? UiText.Get;
         return new RunsPresentation(expectedGeneration, runs.Select((run, index) =>
             CreateRun(run, runs.Length - index, resolve, toLocal ?? (value => value.ToLocalTime()), projection.Names)));
+    }
+
+    private static DeferredRunDetailPresentation CreateHistoryRow(RunOverview row, int number, Func<string, string> t,
+        Func<DateTime, DateTime> toLocal, EntityDisplayNames names, Func<RunDetailPresentation> load)
+    {
+        var maps = row.RouteExact && row.RouteMapsKnown ? Plural(row.DistinctMapCount, "map", t) : t("ui.unavailable");
+        var title = Map(row.FirstMapKnown, names.Get(row.FirstMapId, row.FirstMapDisplayName), t);
+        if (row.LastMapId != row.FirstMapId) title += " - " + Map(row.LastMapKnown, names.Get(row.LastMapId, row.LastMapDisplayName), t);
+        var stamp = t("ui.unavailable");
+        if (row.StartedUtc != default)
+        {
+            try { stamp = toLocal(DateTime.SpecifyKind(row.StartedUtc, DateTimeKind.Utc)).ToString(RunDateStyle.Format, CultureInfo.InvariantCulture); }
+            catch { /* Match the established unavailable timestamp behavior. */ }
+        }
+        return new DeferredRunDetailPresentation(row.RunId, title, $"{t("ui.runs_run")} {number} · {stamp} · {maps}", RetainedRunBadgePresentationFactory.MapOutcome(row.Outcome), load);
     }
 
     private static RunDetailPresentation CreateRun(RunSummary run, int number,

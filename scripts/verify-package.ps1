@@ -6,7 +6,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $resolved = (Resolve-Path -LiteralPath $PackagePath).Path
-$required = @('info.ini', 'preview.png', 'UltimateDuckovStatistics.dll', 'UltimateDuckovStatistics.Core.dll', 'INSTALL.md', 'LICENSE')
+. (Join-Path $PSScriptRoot 'package-inventory.ps1')
+$required = @((Get-UdsPackageInputs -RepositoryRoot (Split-Path -Parent $PSScriptRoot) -BuildRoot $resolved).Destination)
 $forbiddenExact = @('0Harmony.dll', 'TeamSoda.Duckov.Core.dll', 'ItemStatsSystem.dll', 'Assembly-CSharp.dll')
 $forbiddenPrefixes = @('UnityEngine', 'Unity.', 'System.', 'mscorlib')
 
@@ -39,14 +40,16 @@ $actualRelativePaths = @($allFiles | ForEach-Object {
 $expectedRelativePaths = @($required | Sort-Object)
 $inventoryDifference = Compare-Object -ReferenceObject $expectedRelativePaths -DifferenceObject $actualRelativePaths
 if ($inventoryDifference) {
-    throw "Package inventory must contain exactly the six permitted files. Found: $($actualRelativePaths -join ', ')"
+    throw "Package inventory must contain exactly the declared permitted files. Found: $($actualRelativePaths -join ', ')"
 }
 
 $unexpectedDlls = $allFiles | Where-Object {
-    $_.Extension -eq '.dll' -and $_.Name -notin @('UltimateDuckovStatistics.dll', 'UltimateDuckovStatistics.Core.dll')
+    $_.Extension -eq '.dll' -and $_.Name -notin $required
 }
 if ($unexpectedDlls) {
     throw "Unexpected DLL(s) found in package: $($unexpectedDlls.Name -join ', ')"
 }
+
+Test-UdsPinnedDependencies -Directory $resolved
 
 Write-Output "Package validation passed: $resolved"

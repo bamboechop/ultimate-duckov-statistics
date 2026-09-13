@@ -1517,9 +1517,10 @@ internal static class ProfileSummaryPresentationFactory
     private static string FormatActiveRaidTime(IReadOnlyList<RunSummary> runs, Func<string, string> text)
     {
         var totalSeconds = 0d;
-        foreach (var run in runs ?? Array.Empty<RunSummary>())
+        var durations = runs is RunHistoryView indexed ? indexed.Overview.Select(run => run.ActiveDurationSeconds)
+            : (runs ?? Array.Empty<RunSummary>()).Select(run => run.ActiveDurationSeconds);
+        foreach (var seconds in durations)
         {
-            var seconds = run.ActiveDurationSeconds;
             if (seconds < 0d || double.IsNaN(seconds) || double.IsInfinity(seconds)) continue;
             totalSeconds += seconds;
             if (double.IsInfinity(totalSeconds)) return text("ui.unavailable");
@@ -1689,8 +1690,9 @@ internal static class OverviewHighlightsPresentationFactory
         string? routeDisplayName = null;
         if (!string.IsNullOrWhiteSpace(record.RunId))
         {
-            var run = projection.Runs.Runs.FirstOrDefault(candidate =>
-                string.Equals(candidate.RunId, record.RunId, StringComparison.Ordinal));
+            var run = projection.Runs.Runs is RunHistoryView { Source: IIndexedRunHistory } indexed
+                ? indexed.Overview.Any(row => row.RunId == record.RunId) ? RunHistory.GetById(indexed.Source, record.RunId) : null
+                : projection.Runs.Runs.FirstOrDefault(candidate => string.Equals(candidate.RunId, record.RunId, StringComparison.Ordinal));
             if (run != null && UiText.HasAvailableSegments(run))
             {
                 var mapDisplayNames = run.Segments
@@ -4404,19 +4406,12 @@ internal static class StatisticsPanelProjectionFactory
                 .OrderByDescending(value => value.ActiveDurationSeconds)
                 .ThenBy(value => value.Id, StringComparer.Ordinal)
                 .ToArray(),
-            RecentEquipmentRuns = profile.Statistics.Runs
-                .OrderByDescending(value => value.EndedUtc)
-                .ThenBy(value => value.RunId, StringComparer.Ordinal)
-                .ToArray(),
+            RecentEquipmentRuns = RunHistory.Ordered(profile.Statistics.Runs, byEnd: true),
             Containers = ContainerStatisticsViewModelFactory.Create(profile),
             Holdings = EconomyHoldingsReducer.Project(profile.Statistics.Holdings),
             Economy = profile.Statistics.Economy,
             CurrentEconomyCapabilities = EconomyStatisticsReducer.CloneCapabilities(currentEconomyCapabilities),
-            RecentEconomyRuns = profile.Statistics.Runs
-                .OrderByDescending(value => value.EndedUtc)
-                .ThenBy(value => value.RunId, StringComparer.Ordinal)
-                .Take(12)
-                .ToArray(),
+            RecentEconomyRuns = RunHistory.Recent(profile.Statistics.Runs, 12),
             WorldTime = profile.Statistics.WorldTime,
             WorldTimeCapabilities = WorldTimeStatisticsReducer.RestrictWithCurrent(
                 profile.Statistics.WorldTime.Capabilities,
@@ -4468,11 +4463,7 @@ internal static class StatisticsPanelProjectionFactory
                 })
                 .ToArray(),
             Groups = groups,
-            RecentRuns = profile.Statistics.Runs
-                .OrderByDescending(value => value.EndedUtc)
-                .ThenBy(value => value.RunId, StringComparer.Ordinal)
-                .Take(12)
-                .ToArray()
+            RecentRuns = RunHistory.Recent(profile.Statistics.Runs, 12)
         };
     }
 

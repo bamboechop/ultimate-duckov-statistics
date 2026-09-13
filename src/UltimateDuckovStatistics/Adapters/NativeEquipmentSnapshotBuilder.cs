@@ -94,7 +94,8 @@ internal static class NativeEquipmentSnapshotBuilder
                     ItemId = itemId,
                     ItemDisplayName = DisplayName(item),
                     ItemKind = kind
-                    , IsDirectTotemSlot = IsDirectTotemSlot(slot)
+                    ,
+                    IsDirectTotemSlot = IsDirectTotemSlot(slot)
                 });
                 if (IsTotem(item))
                 {

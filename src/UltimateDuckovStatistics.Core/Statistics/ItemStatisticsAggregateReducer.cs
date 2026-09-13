@@ -7,6 +7,7 @@ public static class ItemStatisticsAggregateReducer
     public static bool Record(ItemStatisticsAggregate target, string saveGenerationId, ItemUseRecorded value)
     {
         var profile = Wrap(target, saveGenerationId, value.TimestampUtc);
+        EntryChanges.Mark(profile.Items, value.ItemId);
         var changed = ItemUseReducer.Apply(profile, value);
         Unwrap(target, profile);
         return changed;
@@ -15,6 +16,7 @@ public static class ItemStatisticsAggregateReducer
     public static bool Record(ItemStatisticsAggregate target, string saveGenerationId, HealingApplied value)
     {
         var profile = Wrap(target, saveGenerationId, value.TimestampUtc);
+        EntryChanges.Mark(profile.Items, value.ItemId);
         var changed = HealingReducer.Apply(profile, value);
         Unwrap(target, profile);
         return changed;
@@ -32,6 +34,7 @@ public static class ItemStatisticsAggregateReducer
             throw new InvalidOperationException("A healing event cannot be reduced into a different save generation.");
         NormalizePersisted(target);
         if (target.RecentEventIds.Contains(value.EventId, StringComparer.Ordinal)) return false;
+        EntryChanges.Mark(target.Items, value.ItemId);
         if (!target.Items.TryGetValue(value.ItemId, out var item))
         {
             item = new ItemAggregate
@@ -86,6 +89,7 @@ public static class ItemStatisticsAggregateReducer
         Add(target.Overall, source.Overall);
         foreach (var entry in source.Items)
         {
+            EntryChanges.Mark(target.Items, entry.Key);
             if (!target.Items.TryGetValue(entry.Key, out var item))
             {
                 var cloned = Clone(new ItemStatisticsAggregate
@@ -433,6 +437,32 @@ public static class ItemStatisticsAggregateReducer
             }
         }
         return true;
+    }
+
+    internal static ItemStatisticsAggregate CaptureCheckpointComposition(ItemStatisticsAggregate source)
+    {
+        var result = new ItemStatisticsAggregate();
+        // Match the original insertion order and floating-point additions.
+        // This fan-out runs when item entries change, not on movement saves.
+        foreach (var item in source.Items.Values)
+        {
+            Add(result.Overall, item.Totals);
+            var key = item.Group.ToString();
+            if (!result.Groups.TryGetValue(key, out var totals)) result.Groups.Add(key, totals = new AggregateTotals());
+            Add(totals, item.Totals);
+        }
+        return result;
+    }
+
+    internal static void ValidateCheckpointComposition(ItemStatisticsAggregate source, ItemStatisticsAggregate composed)
+    {
+        if (source.RecentEventIds.Any(string.IsNullOrWhiteSpace)
+            || source.RecentEventIds.Distinct(StringComparer.Ordinal).Count() != source.RecentEventIds.Count
+            || !TotalsEqual(source.Overall, composed.Overall) || source.Groups.Count != composed.Groups.Count)
+            throw new ArgumentException("Checkpoint item composition is inconsistent.");
+        foreach (var group in source.Groups)
+            if (!composed.Groups.TryGetValue(group.Key, out var expected) || !TotalsEqual(group.Value, expected))
+                throw new ArgumentException("Checkpoint item group composition is inconsistent.");
     }
 
     private static void Normalize(AggregateTotals value, ref bool repaired)

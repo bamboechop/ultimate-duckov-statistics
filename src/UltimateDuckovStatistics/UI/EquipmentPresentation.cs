@@ -67,6 +67,10 @@ internal sealed class EquipmentPresentation
     public EquipmentEntry? MostUsed { get; }
     public IReadOnlyList<EquipmentEntry> SelectedWeapons { get; }
     public IReadOnlyList<EquipmentEntry> Recent { get; }
+    public int HistoryOffset { get; }
+    public int HistoryTotal { get; }
+    private readonly Func<int, EquipmentPresentation?>? historyPage;
+    public EquipmentPresentation? LoadHistoryPage(int offset) => historyPage?.Invoke(offset);
     public IReadOnlyList<EquipmentEntry> Weapons { get; }
     public IReadOnlyList<EquipmentGroup> Armor { get; }
     public IReadOnlyList<EquipmentEntry> DirectTotems { get; }
@@ -78,9 +82,11 @@ internal sealed class EquipmentPresentation
     public IReadOnlyDictionary<string, RunSlotPresentation> InspectableSlots { get; }
     public EquipmentPresentation(string generation, EquipmentEntry? mostUsed, IEnumerable<EquipmentEntry> selected, IEnumerable<EquipmentEntry> recent,
         IEnumerable<EquipmentEntry> weapons, IEnumerable<EquipmentGroup> armor, IEnumerable<EquipmentEntry> direct, IEnumerable<EquipmentEntry> empty,
-        IEnumerable<EquipmentEntry> sets, IEnumerable<EquipmentEntry> tote, IDictionary<string, string> notices)
+        IEnumerable<EquipmentEntry> sets, IEnumerable<EquipmentEntry> tote, IDictionary<string, string> notices,
+        int historyOffset = 0, int? historyTotal = null, Func<int, EquipmentPresentation?>? historyPage = null)
     {
         GenerationId = generation; MostUsed = mostUsed; SelectedWeapons = Copy(selected); Recent = Copy(recent); Weapons = Copy(weapons);
+        HistoryOffset = historyOffset; HistoryTotal = historyTotal ?? Recent.Count; this.historyPage = historyPage;
         Armor = Array.AsReadOnly(armor.ToArray()); DirectTotems = Copy(direct); EmptySlots = Copy(empty); ActiveSets = Copy(sets); ToteTotems = Copy(tote);
         Notices = new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(new Dictionary<string, string>(notices));
         ExpansionIds = Array.AsReadOnly(Weapons.Concat(Armor.SelectMany(g => g.Rows)).Concat(DirectTotems).Where(r => r.Expandable).Select(r => r.Id).ToArray());
@@ -96,13 +102,15 @@ internal sealed class EquipmentPresentation
 
 internal static class EquipmentPresentationFactory
 {
-    public static EquipmentPresentation? Create(StatisticsPanelProjection p, string generation, Func<string, string>? text = null)
+    public static EquipmentPresentation? Create(StatisticsPanelProjection p, string generation, Func<string, string>? text = null, int historyOffset = 0)
     {
         if (p == null || string.IsNullOrWhiteSpace(generation) || p.EquipmentBinding?.Matches(p, generation) != true
-            || p.Runs.Runs.Any(r => r.SaveGenerationId != generation)
-            || p.Runs.Runs.Select(r => r.RunId).Distinct(StringComparer.Ordinal).Count() != p.Runs.Runs.Count) return null;
-        var routableRuns = new HashSet<RunSummary>(p.Runs.Runs);
-        if (p.RecentEquipmentRuns.Any(r => r.SaveGenerationId != generation || !routableRuns.Contains(r))) return null;
+            || !RunHistory.Matches(p.Profile.Statistics.Runs, p.Runs.Runs, generation)) return null;
+        var paged = p.RecentEquipmentRuns is RunHistoryView { Source: IIndexedRunHistory };
+        if (paged ? !RunHistory.Matches(p.Profile.Statistics.Runs, p.RecentEquipmentRuns, generation)
+            : p.RecentEquipmentRuns.Any(r => r.SaveGenerationId != generation || !p.Profile.Statistics.Runs.Contains(r))) return null;
+        const int historyPageSize = 12;
+        historyOffset = paged ? Math.Max(0, Math.Min(historyOffset, Math.Max(0, (p.RecentEquipmentRuns.Count - 1) / historyPageSize * historyPageSize))) : 0;
         var t = text ?? UiText.Get; var a = p.Equipment.Lifetime; var c = p.Equipment.Capabilities;
         EquipmentCompositionReducer.Validate(a.Composition);
         string Name(string? name, string? id = null)
@@ -151,7 +159,9 @@ internal static class EquipmentPresentationFactory
                 return new EquipmentEntry("selected:" + g.Key, Name(name, g.Key), g.Key, Sum(g.Select(r => r.Row.ActiveDurationSeconds)),
                     t("ui.equipment_selected_time"), groups: new[] { new EquipmentGroup(t("ui.equipment_selected_by_slot"), slots) });
             }).OrderByDescending(r => r.Duration).ThenBy(r => r.Name, StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal).ToArray();
-        var recent = p.RecentEquipmentRuns.OrderByDescending(r => r.EndedUtc).ThenBy(r => r.RunId, StringComparer.Ordinal).Select(run =>
+        var visibleHistory = paged ? Enumerable.Range(historyOffset, Math.Min(historyPageSize, p.RecentEquipmentRuns.Count - historyOffset)).Select(index => p.RecentEquipmentRuns[index])
+            : p.RecentEquipmentRuns.OrderByDescending(r => r.EndedUtc).ThenBy(r => r.RunId, StringComparer.Ordinal);
+        var recent = visibleHistory.Select(run =>
         {
             var row = run.EquipmentStatistics.Loadouts.Values.OrderByDescending(r => r.ActiveDurationSeconds).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
             var segments = run.Segments.OrderBy(s => s.SegmentIndex).ToArray();
@@ -186,7 +196,8 @@ internal static class EquipmentPresentationFactory
                 d?.Conflicting == true ? t("ui.equipment_conflict") : available && members.Length == 1 ? t("ui.equipment_singleton") : "",
                 groups: new[] { new EquipmentGroup("", members) });
         }).ToArray();
-        return new EquipmentPresentation(generation, most, selected, recent, weapons, armor, direct, empty, sets, tote, notices);
+        return new EquipmentPresentation(generation, most, selected, recent, weapons, armor, direct, empty, sets, tote, notices,
+            historyOffset, p.RecentEquipmentRuns.Count, paged ? offset => Create(p, generation, text, offset) : null);
 
         EquipmentEntry Loadout(EquipmentStatisticsAggregate source, EquipmentDurationAggregate row, string id, string name, string runId, string caption)
         {

@@ -1,8 +1,12 @@
+# Unreleased persistence improvements
+
+Routine saves update changed SQLite records instead of serializing all retained runs. Completed-run detail reads are lazy, exports retain JSON/CSV, and current-format JSON import preserves the original files. An independent recovery database remains in this build. Fresh native-save identity checks use buffered SHA256 and timestamp extraction to reduce main-thread work without weakening save-generation checks. See [storage and privacy](docs/LOCAL_DATA.md) and [save-identity qualification](docs/SAVE_IDENTITY_PERFORMANCE.md). These changes are not in the existing GitHub v1.0.0 archive.
+
 # Ultimate Duckov Statistics 1.0.0
 
 The [GitHub release v1.0.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) was published from `2cf01cdeb1d2f1f1be453a2aee705b4d42b0919f`. Its original five-file ZIP remains unchanged. The first Steam Workshop listing and subscription-install verification are pending; the [release procedure](docs/RELEASE_PROCESS.md) covers those steps.
 
-Workshop preparation adds the approved preview as tracked `mod/preview.png`, updates the category metadata in `mod/info.ini`, and includes both in packaging and deployment. Current packages have six files, including the preview, with the same 1.0.0 runtime DLLs. The in-game uploader may overwrite the requested categories with `Mod`; verify the resulting listing after upload.
+Workshop preparation adds the approved preview as tracked `mod/preview.png`, updates the category metadata in `mod/info.ini`, and includes both in packaging and deployment. The initial Workshop preparation package had six files, including the preview. Current source packages have 13 files for the persistence improvements described above. The in-game uploader may overwrite the requested categories with `Mod`; verify the resulting listing after upload.
 
 UDS records local, per-save raid history and routes, combat, equipment and totems, economy, crafting, item use and healing, containers, world time and sleep. Ten native tabs are available outside raids through the main menu, base pause menu or configurable F8. It requires separately installed HarmonyLib, has no telemetry or account, and never writes Duckov saves.
 

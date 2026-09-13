@@ -45,6 +45,17 @@ internal sealed partial class NativeProfileCoordinator
         }
     }
 
+    private bool PublishBaseMovementForNativeSave()
+    {
+        try { return baseMovementBoundaryPublisher?.Invoke() != false; }
+        finally
+        {
+            // Even a partially accepted publication must retain a writer owner.
+            // The enclosing native-save boundary acknowledges the queued write.
+            QueueBaseMovementPersistence(force: true);
+        }
+    }
+
     private void QueueBaseMovementPersistence(bool force = false)
     {
         var now = monotonicClock();

@@ -13,9 +13,17 @@ public sealed class ThrowableUseTests
     public void ProductionRepositoryReopenAndExportRetainThrowableCounts()
     {
         using var directory = new TemporaryDirectory();
-        var identity = new SaveIdentitySnapshot { Slot = 1, SaveFilePresent = true, SaveFileCreationUtcTicks = 100,
-            ObservedWriteUtcTicks = 110, ObservedLength = 4096, GameVersion = "2.3.30", ContentSha256 = new string('a', 64),
-            SaveTimeBinary = DateTime.UnixEpoch.AddTicks(100).ToBinary() };
+        var identity = new SaveIdentitySnapshot
+        {
+            Slot = 1,
+            SaveFilePresent = true,
+            SaveFileCreationUtcTicks = 100,
+            ObservedWriteUtcTicks = 110,
+            ObservedLength = 4096,
+            GameVersion = "2.3.30",
+            ContentSha256 = new string('a', 64),
+            SaveTimeBinary = DateTime.UnixEpoch.AddTicks(100).ToBinary()
+        };
         var repository = new ProfileRepository(directory.Path, () => DateTime.UtcNow, () => Guid.NewGuid().ToString("N")); repository.Open(identity);
         var snapshot = Snapshot(); snapshot.SaveGenerationId = repository.Current.GenerationId;
         var observation = ThrowableUseObservation.Begin(snapshot, true, true)!; observation.MarkReleased();
@@ -30,9 +38,18 @@ public sealed class ThrowableUseTests
         Assert.Equal(1, exported.Totals.ActivationCount); Assert.Contains("Throwable", exported.EffectTags);
         reopened.CloseClean();
     }
-    private static ItemUseSnapshot Snapshot() => new() { ItemId = "duckov:item:67", DisplayName = "Grenade",
-        SaveGenerationId = "g", RunId = "r", MapId = "m", SegmentId = "s", GameplayContext = GameplayContext.Raid,
-        Stackable = true, StackCount = 4 };
+    private static ItemUseSnapshot Snapshot() => new()
+    {
+        ItemId = "duckov:item:67",
+        DisplayName = "Grenade",
+        SaveGenerationId = "g",
+        RunId = "r",
+        MapId = "m",
+        SegmentId = "s",
+        GameplayContext = GameplayContext.Raid,
+        Stackable = true,
+        StackCount = 4
+    };
     [Theory]
     [InlineData(false, true, GameplayContext.Raid)]
     [InlineData(true, false, GameplayContext.Raid)]

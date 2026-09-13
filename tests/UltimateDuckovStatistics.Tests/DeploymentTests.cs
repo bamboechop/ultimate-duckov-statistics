@@ -11,7 +11,14 @@ public sealed class DeploymentTests
         "LICENSE",
         "preview.png",
         "UltimateDuckovStatistics.Core.dll",
-        "UltimateDuckovStatistics.dll"
+        "UltimateDuckovStatistics.dll",
+        "UltimateDuckovStatistics.Sqlite.dll",
+        "UdsPrototype.SQLiteRaw.Core.dll",
+        "UdsPrototype.SQLiteRaw.Provider.dll",
+        "sqlite3.dll",
+        "SQLitePCLRaw-LICENSE.txt",
+        "SQLitePCLRaw-NOTICE.txt",
+        "SQLITE_DEPENDENCIES.md"
     };
 
     [Theory]
@@ -20,10 +27,13 @@ public sealed class DeploymentTests
     [InlineData("TeamSoda.Duckov.Core.dll", "Forbidden dependency")]
     [InlineData("UnityEngine.CoreModule.dll", "Framework/game dependency")]
     [InlineData("System.Runtime.dll", "Framework/game dependency")]
-    [InlineData("uds-ui-equipment-loadouts.jpg", "exactly the six permitted files")]
-    [InlineData("uds-ui-equipment-weapons.jpg", "exactly the six permitted files")]
-    [InlineData("uds-ui-equipment-armor-and-gear.jpg", "exactly the six permitted files")]
-    [InlineData("uds-ui-equipment-totems.jpg", "exactly the six permitted files")]
+    [InlineData("uds-ui-equipment-loadouts.jpg", "exactly the declared permitted files")]
+    [InlineData("uds-ui-equipment-weapons.jpg", "exactly the declared permitted files")]
+    [InlineData("uds-ui-equipment-armor-and-gear.jpg", "exactly the declared permitted files")]
+    [InlineData("uds-ui-equipment-totems.jpg", "exactly the declared permitted files")]
+    [InlineData("sqlite3.dll", "Pinned dependency hash differs")]
+    [InlineData("UdsPrototype.SQLiteRaw.Core.dll", "Pinned dependency hash differs")]
+    [InlineData("UdsPrototype.SQLiteRaw.Provider.dll", "Pinned dependency hash differs")]
     [InlineData(null, "Package is missing required file: preview.png")]
     public void PackageVerificationRejectsInvalidInventory(string? dependencyName, string expectedError)
     {
@@ -33,10 +43,7 @@ public sealed class DeploymentTests
         }
 
         using var temporaryDirectory = new TemporaryDirectory();
-        foreach (var name in ExpectedFiles)
-        {
-            File.WriteAllText(Path.Combine(temporaryDirectory.Path, name), $"package:{name}");
-        }
+        CreatePackage(temporaryDirectory.Path);
 
         if (dependencyName == null)
         {
@@ -85,10 +92,7 @@ public sealed class DeploymentTests
         Directory.CreateDirectory(packageRoot);
         Directory.CreateDirectory(destination);
         File.WriteAllText(Path.Combine(gameRoot, "Duckov.exe"), string.Empty);
-        foreach (var name in ExpectedFiles)
-        {
-            File.WriteAllText(Path.Combine(packageRoot, name), $"package:{name}");
-        }
+        CreatePackage(packageRoot);
 
         File.WriteAllText(Path.Combine(destination, "0Harmony.dll"), "stale forbidden dependency");
         File.WriteAllText(Path.Combine(destination, "obsolete.dll"), "stale obsolete dependency");
@@ -150,10 +154,7 @@ public sealed class DeploymentTests
         Directory.CreateDirectory(packageRoot);
         Directory.CreateDirectory(destination);
         File.WriteAllText(Path.Combine(gameRoot, "Duckov.exe"), string.Empty);
-        foreach (var name in ExpectedFiles)
-        {
-            File.WriteAllText(Path.Combine(packageRoot, name), $"package:{name}");
-        }
+        CreatePackage(packageRoot);
 
         File.WriteAllText(Path.Combine(destination, "info.ini"), "name = UltimateDuckovStatistics");
         File.WriteAllText(Path.Combine(destination, "UltimateDuckovStatistics.dll"), "old deployment");
@@ -212,6 +213,14 @@ public sealed class DeploymentTests
         Assert.Equal("old deployment", File.ReadAllText(Path.Combine(retainedBackup, "UltimateDuckovStatistics.dll")));
         Assert.Equal("package:UltimateDuckovStatistics.dll", File.ReadAllText(Path.Combine(destination, "UltimateDuckovStatistics.dll")));
 
+    }
+
+    private static void CreatePackage(string directory)
+    {
+        foreach (var name in ExpectedFiles)
+            File.WriteAllText(Path.Combine(directory, name), $"package:{name}");
+        foreach (var name in new[] { "sqlite3.dll", "UdsPrototype.SQLiteRaw.Core.dll", "UdsPrototype.SQLiteRaw.Provider.dll" })
+            File.Copy(Path.Combine(FindRepositoryRoot(), "third_party", "sqlite", name), Path.Combine(directory, name), overwrite: true);
     }
 
     private static string FindRepositoryRoot()

@@ -174,7 +174,7 @@ public sealed class NativeBaseMovementTests
             Application.persistentDataPath = directory.Path;
             Saves.SavesSystem.CurrentSlot = 3;
             CreateSave(3);
-            Coordinator = new NativeProfileCoordinator(() => Now);
+            Coordinator = new NativeProfileCoordinator(() => Now, repositoryFactory: NativeJsonRepositoryFixture.Create);
             Coordinator.Initialize();
             CharacterMainControl.Main = Main;
             LevelManager.Instance = new LevelManagerInstance { MainCharacter = Main, IsBaseLevel = true };

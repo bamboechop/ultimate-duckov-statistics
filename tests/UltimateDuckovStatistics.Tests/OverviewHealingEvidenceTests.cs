@@ -86,7 +86,7 @@ public sealed class OverviewHealingEvidenceTests
             var save = Path.Combine(directory.Path, Saves.SavesSystem.GetFilePath(1));
             Directory.CreateDirectory(Path.GetDirectoryName(save)!);
             File.WriteAllText(save, "{\"SaveTime\":{\"value\":1}}");
-            using var coordinator = new NativeProfileCoordinator();
+            using var coordinator = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
             coordinator.Initialize();
             // A foreign prefix makes real adapter activation fail before any capture is enabled.
             new HarmonyLib.Harmony("foreign-healing").Patch(typeof(Health).GetMethod(nameof(Health.AddHealth))!,
@@ -160,7 +160,7 @@ public sealed class OverviewHealingEvidenceTests
             var save = Path.Combine(directory.Path, Saves.SavesSystem.GetFilePath(1));
             Directory.CreateDirectory(Path.GetDirectoryName(save)!);
             File.WriteAllText(save, "{\"SaveTime\":{\"value\":1}}");
-            using var coordinator = new NativeProfileCoordinator(); coordinator.Initialize();
+            using var coordinator = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create); coordinator.Initialize();
             InputManager.InputActived = true; GameManager.Paused = false;
             NativeRaidContext.GameplayContext = GameplayContext.Raid;
             Duckov.Scenes.SceneLoader.IsSceneLoading = false;
@@ -269,7 +269,7 @@ public sealed class OverviewHealingEvidenceTests
             // Restart against the same saved run after removing the conflicting patch.
             adapter.Dispose();
             HarmonyLib.Harmony.ClearAll();
-            using var reopened = new NativeProfileCoordinator(); reopened.Initialize();
+            using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create); reopened.Initialize();
             using var recoveredAdapter = new NativeHealingAttributionAdapter(reopened.HandleHealing, _ => { }, new NativeBuffApplicationObservationBoundary());
             recoveredAdapter.CapabilityChanged += reopened.SetHealingCapability;
             reopened.SetHealingCapability(recoveredAdapter.Initialize());

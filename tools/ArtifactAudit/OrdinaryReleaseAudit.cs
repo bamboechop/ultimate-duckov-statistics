@@ -16,10 +16,16 @@ public static class OrdinaryReleaseAudit
     {
         using var stream = File.OpenRead(assemblyPath);
         using var pe = new PEReader(stream);
+        if (!pe.HasMetadata)
+        {
+            if (PinnedDependencies.IsPinnedNative(assemblyPath, File.ReadAllBytes(assemblyPath))) return;
+            throw new BadImageFormatException("Unexpected native dependency in an ordinary package.");
+        }
         var metadata = pe.GetMetadataReader();
+        _ = PinnedDependencies.IsPinnedManaged(assemblyPath, File.ReadAllBytes(assemblyPath));
         foreach (var typeHandle in metadata.TypeDefinitions)
         {
-            if (metadata.GetString(metadata.GetTypeDefinition(typeHandle).Name) == "NativeUiResourceDiagnostics")
+            if (metadata.GetString(metadata.GetTypeDefinition(typeHandle).Name) is "NativeUiResourceDiagnostics" or "CorePersistenceTimings")
                 throw new InvalidDataException("Ordinary Release contains the opt-in native resource diagnostic type.");
         }
         foreach (var handle in metadata.MethodDefinitions)
@@ -69,6 +75,6 @@ public static class OrdinaryReleaseAudit
             HandleKind.TypeReference => metadata.GetString(metadata.GetTypeReference((TypeReferenceHandle)handle).Name),
             _ => ""
         };
-        return name is "NativeHotPathDiagnostics" or "NativeHotPathCounterSnapshot" or "NativeHotPathMeasurement";
+        return name is "NativeHotPathDiagnostics" or "NativeHotPathCounterSnapshot" or "NativeHotPathMeasurement" or "CorePersistenceTimings";
     }
 }

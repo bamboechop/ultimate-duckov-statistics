@@ -78,6 +78,8 @@ internal sealed partial class RetainedStatisticsShell
                 if (!int.TryParse(id, out var index) || !selection.SelectPage((EquipmentPanelSection)index)) return;
                 primary.Clear(); secondary.Clear();
             }
+            else if (id == "history:previous" || id == "history:next")
+            { if (!selection.MoveHistory(generation, id == "history:next")) return; primary.Clear(); secondary.Clear(); }
             else if (id.StartsWith("route:", StringComparison.Ordinal))
             { var runId = id.Substring(6); if (selection.Snapshot.CanRoute(generation, runId)) route(generation, runId); return; }
             else if (id.StartsWith("inspect:", StringComparison.Ordinal)) { if (!selection.Inspect(generation, id)) return; }

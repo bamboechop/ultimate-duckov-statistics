@@ -32,7 +32,7 @@ public static class CombatStatisticsViewModelFactory
                 .ThenBy(x => x.DisplayName, StringComparer.Ordinal).ToArray(),
             Ownership = lifetime.Ownership.Values.OrderByDescending(x => x.Totals.ObservedWorldDeaths)
                 .ThenBy(x => x.DisplayName, StringComparer.Ordinal).ToArray(),
-            Runs = profile.Statistics.Runs.OrderByDescending(x => x.StartedUtc).ToArray()
+            Runs = RunHistory.Ordered(profile.Statistics.Runs)
         };
     }
 

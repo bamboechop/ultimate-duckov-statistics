@@ -34,6 +34,14 @@ public sealed class ProfilePersistenceSnapshot
         Document = document ?? throw new ArgumentNullException(nameof(document));
     }
 
+    internal ProfilePersistenceSnapshot(string path, string generationId, long revision, Task commit)
+    {
+        Path = path; Document = new ProfileDocument { GenerationId = generationId, Revision = revision };
+        IncrementalCommit = commit;
+    }
+
+    internal Task? IncrementalCommit { get; }
+
     internal string Path { get; }
 
     internal ProfileDocument Document { get; }
@@ -54,14 +62,14 @@ public sealed class ProfileSaveReceipt
     { GenerationId = generationId; Revision = revision; SavedUtc = savedUtc; }
 }
 
-public sealed partial class ProfileRepository
+public sealed partial class ProfileRepository : IDisposable
 {
     private static readonly TimeSpan NativeSaveIntentWindow = TimeSpan.FromSeconds(30);
     private readonly string dataRoot;
     private readonly Func<DateTime> utcNow;
     private readonly Func<string> idFactory;
     private readonly Action<string> diagnostic;
-    private readonly AtomicJsonStore<ProfileDocument> profileStore = new();
+    private readonly AtomicJsonStore<ProfileDocument> profileStore;
     private readonly AtomicJsonStore<SessionCheckpoint> sessionStore = new();
     private readonly AtomicJsonStore<ActiveRunCheckpoint> activeRunStore = new();
     private readonly List<CapabilityRecord> configuredCapabilities = new();
@@ -79,12 +87,18 @@ public sealed partial class ProfileRepository
         string dataRoot,
         Func<DateTime> utcNow,
         Func<string> idFactory,
-        Action<string>? diagnostic = null)
+        Action<string>? diagnostic = null,
+        Action<Stream, ProfileDocument>? writeProfile = null,
+        Func<string, IIncrementalProfileStorage>? createIncrementalStorage = null,
+        ProfileRecordCodec? recordCodec = null)
     {
         this.dataRoot = Path.GetFullPath(dataRoot ?? throw new ArgumentNullException(nameof(dataRoot)));
         this.utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
         this.idFactory = idFactory ?? throw new ArgumentNullException(nameof(idFactory));
         this.diagnostic = diagnostic ?? (_ => { });
+        profileStore = writeProfile == null ? new() : new(writeProfile);
+        this.createIncrementalStorage = createIncrementalStorage;
+        this.recordCodec = recordCodec ?? new ProfileRecordCodec();
     }
 
     public ProfileDocument Current => current
@@ -92,7 +106,7 @@ public sealed partial class ProfileRepository
 
     public string CurrentGenerationId => current?.GenerationId ?? string.Empty;
 
-    public string? CurrentProfilePath => currentDirectory == null ? null : GetProfilePath(currentDirectory);
+    public string? CurrentProfilePath => incrementalStorage?.Path ?? (currentDirectory == null ? null : GetProfilePath(currentDirectory));
 
     public ProfileOpenResult Open(SaveIdentitySnapshot identity, string creationReason = "Startup")
     {
@@ -114,7 +128,7 @@ public sealed partial class ProfileRepository
         currentDirectory = Path.Combine(slotDirectory, "current");
         Directory.CreateDirectory(currentDirectory);
         var profilePath = GetProfilePath(currentDirectory);
-        var loaded = profileStore.Load(profilePath, ProfileFormat.ValidateRecoveryCandidate);
+        var loaded = LoadProfile(profilePath);
         result.LoadFailures = loaded.Failures;
         result.LoadSource = loaded.Source;
 
@@ -138,7 +152,8 @@ public sealed partial class ProfileRepository
             var candidate = loaded.Value;
             try
             {
-                result.NormalizedProfile = ProfileFormat.Normalize(candidate);
+                result.NormalizedProfile = candidate.Statistics.Runs is IIndexedRunHistory
+                    ? ProfileFormat.NormalizeTrustedLiveState(candidate) : ProfileFormat.Normalize(candidate);
             }
             catch (NotSupportedException exception)
             {
@@ -156,6 +171,7 @@ public sealed partial class ProfileRepository
             if (!result.UnsupportedSchemaArchived)
             {
                 current = candidate;
+                if (result.NormalizedProfile) changes?.Import(current, includeHistory: false);
                 if (!IdentityMatches(candidate, identity))
                 {
                     result.InterruptedRunRecovered = RecoverInterruptedRun();
@@ -182,10 +198,11 @@ public sealed partial class ProfileRepository
             }
         }
 
+        if (UsesIncrementalStorage) EnsureIncrementalStorage();
         ApplyConfiguredCapabilities();
         result.InterruptedRunRecovered |= RecoverInterruptedRun();
         result.InterruptedSessionRecovered |= RecoverInterruptedSession();
-        if (ProfileFormat.CompactEconomyReplayEvidenceAfterRecovery(Current))
+        if (CompactReplayOnOpen())
         {
             Current.Revision++;
             Current.UpdatedUtc = EnsureUtc(utcNow());
@@ -229,6 +246,7 @@ public sealed partial class ProfileRepository
         var profile = Current;
         var changed = WorldTimeStatisticsReducer.Apply(profile.Statistics.WorldTime, mutation);
         if (!changed) return false;
+        changes?.WorldTime();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         return true;
@@ -243,6 +261,7 @@ public sealed partial class ProfileRepository
             profile.GenerationId,
             mutation);
         if (!changed) return false;
+        changes?.Crafting(mutation);
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         return true;
@@ -254,6 +273,7 @@ public sealed partial class ProfileRepository
         var profile = Current;
         var changed = EconomyHoldingsReducer.Apply(profile.Statistics.Holdings, mutation);
         if (!changed) return false;
+        changes?.Holdings();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         return true;
@@ -272,6 +292,7 @@ public sealed partial class ProfileRepository
             cash,
             provenance);
         if (!changed) return false;
+        changes?.Holdings();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         return true;
@@ -290,6 +311,7 @@ public sealed partial class ProfileRepository
             cash,
             provenance);
         if (!changed) return false;
+        changes?.Holdings();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         return true;
@@ -303,6 +325,7 @@ public sealed partial class ProfileRepository
         var previousUpdatedUtc = profile.UpdatedUtc;
         if (!EconomyStatisticsReducer.BeginReplayActivation(profile.Statistics.Economy, activationId))
             return false;
+        changes?.Economy();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         try
@@ -315,6 +338,7 @@ public sealed partial class ProfileRepository
             profile.Statistics.Economy = previousEconomy;
             profile.Revision = previousRevision;
             profile.UpdatedUtc = previousUpdatedUtc;
+            changes?.Economy();
             throw;
         }
     }
@@ -345,6 +369,7 @@ public sealed partial class ProfileRepository
         }
 
         profile.DeferredItemPersistence = new DeferredItemPersistenceState();
+        changes?.DeferredState();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();
@@ -358,6 +383,7 @@ public sealed partial class ProfileRepository
         }
 
         EnsureSchemaCanBeSaved(current);
+        if (UsesIncrementalStorage) return CaptureIncremental();
         var document = CloneForDeferredPersistence(current);
         document.SchemaVersion = ProductInfo.SchemaVersion;
         document.Statistics.SchemaVersion = ProductInfo.SchemaVersion;
@@ -373,6 +399,13 @@ public sealed partial class ProfileRepository
         }
 
         pendingUserResetRollback?.Restore();
+        if (snapshot.IncrementalCommit != null)
+        {
+            snapshot.IncrementalCommit.GetAwaiter().GetResult();
+            System.Threading.Volatile.Write(ref lastSaveReceipt,
+                new ProfileSaveReceipt(snapshot.GenerationId, snapshot.Revision, EnsureUtc(utcNow())));
+            return;
+        }
         EnsureSchemaCanBeSaved(snapshot.Document);
         var validationFailure = ProfileFormat.ValidateRecoveryCandidate(snapshot.Document);
         if (!string.IsNullOrWhiteSpace(validationFailure))
@@ -400,6 +433,7 @@ public sealed partial class ProfileRepository
             return false;
         }
 
+        changes?.Item(itemUse.ItemId);
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         if (!defer)
@@ -425,6 +459,7 @@ public sealed partial class ProfileRepository
             return false;
         }
 
+        changes?.Item(healing.ItemId);
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         if (!defer)
@@ -448,6 +483,7 @@ public sealed partial class ProfileRepository
         if (!changed)
         {
             if (!capabilityChanged) return false;
+            changes?.Economy();
             profile.Revision++;
             profile.UpdatedUtc = EnsureUtc(utcNow());
             if (!deferPersistence) SaveCurrent();
@@ -455,6 +491,7 @@ public sealed partial class ProfileRepository
         }
         if (retainRunRecoveryWatermark && !RecordDeferredWatermark(profile, flow))
             throw new InvalidOperationException("Deferred economy watermark rejected a lifetime economy mutation.");
+        changes?.Economy();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         if (!deferPersistence) SaveCurrent();
@@ -463,20 +500,29 @@ public sealed partial class ProfileRepository
 
     public void SaveActiveRun(ActiveRunCheckpoint checkpoint)
     {
+        if (UsesIncrementalStorage) { SaveSnapshot(CaptureActiveRunPersistence(checkpoint)); return; }
+        ValidateActiveRunForSave(checkpoint);
+        activeRunStore.Save(GetActiveRunPath(currentDirectory!), checkpoint);
+    }
+
+    private void ValidateActiveRunForSave(ActiveRunCheckpoint checkpoint)
+    {
+        if (currentDirectory == null) throw new InvalidOperationException("No profile generation is open.");
+        ValidateActiveCheckpointForStorage(checkpoint, Current.GenerationId);
+        pendingUserResetRollback?.Restore();
+    }
+
+    internal static void ValidateActiveCheckpointForStorage(ActiveRunCheckpoint checkpoint, string generationId)
+    {
         if (checkpoint == null)
         {
             throw new ArgumentNullException(nameof(checkpoint));
         }
 
-        if (currentDirectory == null)
-        {
-            throw new InvalidOperationException("No profile generation is open.");
-        }
-
         if (checkpoint.SchemaVersion != ProductInfo.SchemaVersion
             || !string.Equals(checkpoint.FormatId, ProductInfo.ProfileFormatId, StringComparison.Ordinal)
             || string.IsNullOrWhiteSpace(checkpoint.RunId)
-            || !string.Equals(checkpoint.SaveGenerationId, Current.GenerationId, StringComparison.Ordinal))
+            || !string.Equals(checkpoint.SaveGenerationId, generationId, StringComparison.Ordinal))
         {
             throw new ArgumentException("Active-run checkpoint does not match the current generation.", nameof(checkpoint));
         }
@@ -546,8 +592,6 @@ public sealed partial class ProfileRepository
             throw new ArgumentException("Active-run checkpoint contains an invalid pending terminal outcome.", nameof(checkpoint));
         RunReducer.Validate(checkpoint.ToRecoverySummary());
         checkpoint.SchemaVersion = ProductInfo.SchemaVersion;
-        pendingUserResetRollback?.Restore();
-        activeRunStore.Save(GetActiveRunPath(currentDirectory), checkpoint);
     }
 
     public bool CompleteRun(RunSummary summary)
@@ -567,12 +611,13 @@ public sealed partial class ProfileRepository
             profile.Revision++;
             profile.UpdatedUtc = EnsureUtc(summary.EndedUtc);
             completionPersistencePendingRunId = summary.RunId;
+            changes?.CompletedRun(Current, summary);
             SaveCurrent();
         }
 
         try
         {
-            if (currentDirectory != null)
+            if (!UsesIncrementalStorage && currentDirectory != null)
                 activeRunStore.Delete(GetActiveRunPath(currentDirectory));
         }
         catch
@@ -592,11 +637,24 @@ public sealed partial class ProfileRepository
         var profile = Current;
         if (!profile.Statistics.HealingCaptureComplete) return;
         profile.Statistics.HealingCaptureComplete = false;
+        changes?.Statistics();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
     }
 
     public void SetCapabilitySnapshot(
+        IEnumerable<CapabilityRecord> capabilities,
+        EconomyMetricCapabilities economyCapabilities,
+        WorldTimeMetricCapabilities worldTimeCapabilities,
+        CraftingMetricCapabilities craftingCapabilities,
+        EconomyHoldingsMetricCapabilities? holdingsCapabilities = null)
+    {
+        SetCapabilitySnapshotDeferred(capabilities, economyCapabilities, worldTimeCapabilities,
+            craftingCapabilities, holdingsCapabilities);
+        SaveCurrent();
+    }
+
+    public void SetCapabilitySnapshotDeferred(
         IEnumerable<CapabilityRecord> capabilities,
         EconomyMetricCapabilities economyCapabilities,
         WorldTimeMetricCapabilities worldTimeCapabilities,
@@ -626,9 +684,9 @@ public sealed partial class ProfileRepository
         };
         if (holdingsCapabilities != null)
             EconomyHoldingsReducer.ApplyCapabilities(profile.Statistics.Holdings, holdingsCapabilities);
+        changes?.Capabilities();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
-        SaveCurrent();
     }
 
     public void SetEconomyCapabilities(EconomyMetricCapabilities capabilities)
@@ -637,6 +695,7 @@ public sealed partial class ProfileRepository
         var profile = Current;
         profile.Statistics.Economy ??= new EconomyStatisticsAggregate();
         EconomyStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.Economy, capabilities);
+        changes?.Economy();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();
@@ -648,6 +707,7 @@ public sealed partial class ProfileRepository
         var profile = Current;
         profile.Statistics.WorldTime ??= new WorldTimeStatisticsAggregate();
         WorldTimeStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.WorldTime, capabilities);
+        changes?.WorldTime();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();
@@ -659,6 +719,7 @@ public sealed partial class ProfileRepository
         var profile = Current;
         profile.Statistics.Crafting ??= new CraftingStatisticsAggregate();
         CraftingStatisticsReducer.InitializeOrRestrictCapabilities(profile.Statistics.Crafting, capabilities);
+        changes?.Capabilities();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();
@@ -673,6 +734,7 @@ public sealed partial class ProfileRepository
             SaveGenerationId = profile.GenerationId
         };
         EconomyHoldingsReducer.ApplyCapabilities(profile.Statistics.Holdings, capabilities);
+        changes?.Holdings();
         profile.Revision++;
         profile.UpdatedUtc = EnsureUtc(utcNow());
         SaveCurrent();
@@ -740,6 +802,11 @@ public sealed partial class ProfileRepository
 
     public void PrepareForNativeSave(SaveIdentitySnapshot identity)
     {
+        if (PrepareForNativeSaveDeferred(identity)) SaveCurrent();
+    }
+
+    public bool PrepareForNativeSaveDeferred(SaveIdentitySnapshot identity)
+    {
         ValidateIdentity(identity);
         var profile = Current;
         if (profile.Slot != identity.Slot)
@@ -752,7 +819,7 @@ public sealed partial class ProfileRepository
             || !identity.SaveTimeBinary.HasValue)
         {
             diagnostic("Native save intent was not recorded because stable save identity metadata was unavailable.");
-            return;
+            return false;
         }
 
         profile.Identity = identity;
@@ -764,7 +831,7 @@ public sealed partial class ProfileRepository
         };
         profile.UpdatedUtc = profile.PendingSave.CollectedUtc;
         profile.Revision++;
-        SaveCurrent();
+        return true;
     }
 
     public void Flush()
@@ -784,8 +851,9 @@ public sealed partial class ProfileRepository
 
         current.PendingSave = null;
         SaveCurrent();
-        sessionStore.Delete(GetSessionPath(currentDirectory));
+        SaveSession(null);
         diagnostic($"Closed generation {current.GenerationId} cleanly.");
+        CloseIncrementalStorage();
         current = null;
         currentDirectory = null;
     }
@@ -802,8 +870,9 @@ public sealed partial class ProfileRepository
         // Open compares the newly observed identity, but retire the prior UDS
         // session so the re-selection is never reported as an interruption.
         SaveCurrent();
-        sessionStore.Delete(GetSessionPath(currentDirectory));
+        SaveSession(null);
         diagnostic($"Closed generation {current.GenerationId} for same-slot re-selection.");
+        CloseIncrementalStorage();
         current = null;
         currentDirectory = null;
     }
@@ -868,7 +937,7 @@ public sealed partial class ProfileRepository
         }
 
         var sessionPath = GetSessionPath(currentDirectory);
-        var sessionArtifactsExist = File.Exists(sessionPath)
+        var sessionArtifactsExist = UsesIncrementalStorage && incrementalStorage != null ? recoveredSessionEvidence : File.Exists(sessionPath)
                                     || File.Exists(AtomicJsonPaths.GetBackupPath(sessionPath))
                                     || File.Exists(AtomicJsonPaths.GetTemporaryPath(sessionPath));
         if (!sessionArtifactsExist)
@@ -876,14 +945,17 @@ public sealed partial class ProfileRepository
             return false;
         }
 
-        var loaded = sessionStore.Load(sessionPath);
+        var loaded = UsesIncrementalStorage && incrementalStorage != null
+            ? new AtomicJsonLoadResult<SessionCheckpoint>(recoveredSession, AtomicJsonLoadSource.Primary, Array.Empty<string>(), false)
+            : sessionStore.Load(sessionPath);
         var interruptedGeneration = loaded.Value?.GenerationId ?? "unknown";
         if (Current.Statistics.BaseMovement is { } baseMovement) baseMovement.HasKnownGaps = true;
+        changes?.BaseMovement();
         Current.InterruptedSessionCount++;
         Current.Revision++;
         Current.UpdatedUtc = EnsureUtc(utcNow());
-        SaveCurrent();
-        sessionStore.Delete(sessionPath);
+        if (UsesIncrementalStorage) SaveSession(null);
+        else { SaveCurrent(); sessionStore.Delete(sessionPath); }
         diagnostic($"Recovered interrupted UDS session for generation {interruptedGeneration}.");
         return true;
     }
@@ -896,7 +968,7 @@ public sealed partial class ProfileRepository
         }
 
         var path = GetActiveRunPath(currentDirectory);
-        var artifactsExist = File.Exists(path)
+        var artifactsExist = UsesIncrementalStorage && incrementalStorage != null ? recoveredCheckpoint != null : File.Exists(path)
                              || File.Exists(AtomicJsonPaths.GetBackupPath(path))
                              || File.Exists(AtomicJsonPaths.GetTemporaryPath(path));
         if (!artifactsExist)
@@ -904,7 +976,9 @@ public sealed partial class ProfileRepository
             return false;
         }
 
-        var loaded = activeRunStore.Load(path, ValidateActiveRunCheckpointForRecovery);
+        var loaded = UsesIncrementalStorage && incrementalStorage != null
+            ? new AtomicJsonLoadResult<ActiveRunCheckpoint>(recoveredCheckpoint, AtomicJsonLoadSource.Primary, Array.Empty<string>(), false)
+            : activeRunStore.Load(path, ValidateActiveRunCheckpointForRecovery);
         var checkpoint = loaded.Value;
         if (checkpoint == null)
         {
@@ -921,8 +995,7 @@ public sealed partial class ProfileRepository
         }
 
         var summary = checkpoint.ToRecoverySummary();
-        var alreadyFinalized = Current.Statistics.Runs.Any(
-            run => string.Equals(run.RunId, summary.RunId, StringComparison.Ordinal));
+        var alreadyFinalized = RunHistory.ContainsId(Current.Statistics.Runs, summary.RunId);
         var recoveredLifetimeItems = !alreadyFinalized && RecoverDeferredLifetimeItems(checkpoint);
         var recoveredLifetimeEconomy = !alreadyFinalized && RecoverDeferredLifetimeEconomy(checkpoint);
         var applied = RunReducer.Apply(Current.Statistics, summary);
@@ -932,10 +1005,20 @@ public sealed partial class ProfileRepository
         {
             Current.Revision++;
             Current.UpdatedUtc = summary.EndedUtc;
+            // Recovery may reconcile several formerly deferred lifetime entries.
+            // This exceptional full reconciliation is never a routine save path.
+            changes?.Import(Current, includeHistory: false);
+            changes?.CompletedRun(Current, summary);
             SaveCurrent();
         }
 
-        activeRunStore.Delete(path);
+        if (UsesIncrementalStorage)
+        {
+            if (!(applied || recoveredLifetimeItems || recoveredLifetimeEconomy || clearedDeferredWatermark))
+                SaveSnapshot(CaptureIncremental(checkpointChanged: true));
+            recoveredCheckpoint = null;
+        }
+        else activeRunStore.Delete(path);
         diagnostic(
             applied
                 ? $"Recovered {summary.Outcome.ToString().ToLowerInvariant()} run {summary.RunId} "
@@ -1076,8 +1159,10 @@ public sealed partial class ProfileRepository
         }
     }
 
+    internal static void ValidateCheckpointRouteHeader(ActiveRunCheckpoint checkpoint) => ValidateAndNormalizeRouteCheckpoint(checkpoint, validateMetricEntries: false);
+
     private static void ValidateAndNormalizeRouteCheckpoint(
-        ActiveRunCheckpoint checkpoint)
+        ActiveRunCheckpoint checkpoint, bool validateMetricEntries = true)
     {
         if ((checkpoint.RouteCapabilities == null
                 || checkpoint.Segments == null
@@ -1101,6 +1186,7 @@ public sealed partial class ProfileRepository
         checkpoint.MovementBaseline ??= new MovementBaselineState();
         RouteStatisticsReducer.ValidateCapabilities(checkpoint.RouteCapabilities);
         ValidateHistoricalEventAttribution(checkpoint);
+        if (validateMetricEntries)
         {
             ItemStatisticsAggregateReducer.Validate(checkpoint.ItemStatistics);
             if (!ItemStatisticsAggregateReducer.IsCompositionConsistent(checkpoint.ItemStatistics))
@@ -1120,7 +1206,8 @@ public sealed partial class ProfileRepository
             throw new ArgumentException("Supported route checkpoint has no segment.", nameof(checkpoint));
         if (hasRetainedSegments)
         {
-            RouteStatisticsReducer.Validate(checkpoint.Segments, allowOpenLast: true);
+            if (validateMetricEntries) RouteStatisticsReducer.Validate(checkpoint.Segments, allowOpenLast: true);
+            else RouteStatisticsReducer.ValidateCheckpointHeaders(checkpoint.Segments, allowOpenLast: true);
             if (!string.Equals(checkpoint.StartingMapId, checkpoint.Segments[0].MapId, StringComparison.Ordinal))
                 throw new ArgumentException("Active route checkpoint starting map does not match its first segment.", nameof(checkpoint));
         }
@@ -1147,9 +1234,12 @@ public sealed partial class ProfileRepository
         {
             throw new ArgumentException("Unavailable route checkpoint retained an active segment pointer or open segment.", nameof(checkpoint));
         }
-        RouteStatisticsReducer.NormalizePersisted(checkpoint.Segments);
-        ItemStatisticsAggregateReducer.NormalizePersisted(checkpoint.ItemStatistics);
-        ItemStatisticsAggregateReducer.Validate(checkpoint.ItemStatistics);
+        if (validateMetricEntries)
+        {
+            RouteStatisticsReducer.NormalizePersisted(checkpoint.Segments);
+            ItemStatisticsAggregateReducer.NormalizePersisted(checkpoint.ItemStatistics);
+            ItemStatisticsAggregateReducer.Validate(checkpoint.ItemStatistics);
+        }
         if (checkpoint.MovementBaseline.HasBaseline
             && (!Finite(checkpoint.MovementBaseline.X)
                 || !Finite(checkpoint.MovementBaseline.Y)
@@ -1211,8 +1301,7 @@ public sealed partial class ProfileRepository
         }
 
         var profile = Current;
-        sessionStore.Save(
-            GetSessionPath(currentDirectory),
+        SaveSession(
             new SessionCheckpoint
             {
                 SessionId = idFactory(),
@@ -1235,6 +1324,7 @@ public sealed partial class ProfileRepository
         current.Statistics.SchemaVersion = ProductInfo.SchemaVersion;
         current.Statistics.SaveGenerationId = current.GenerationId;
         current.Statistics.Holdings.SaveGenerationId = current.GenerationId;
+        if (UsesIncrementalStorage) { SaveSnapshot(CaptureIncremental()); return; }
         profileStore.Save(GetProfilePath(currentDirectory), current);
         System.Threading.Volatile.Write(ref lastSaveReceipt,
             new ProfileSaveReceipt(current.GenerationId, current.Revision, EnsureUtc(utcNow())));
@@ -1338,7 +1428,7 @@ public sealed partial class ProfileRepository
             return true;
         }
 
-        return !profile.Statistics.Runs.Any(run => string.Equals(run.RunId, runId, StringComparison.Ordinal));
+        return !RunHistory.ContainsId(profile.Statistics.Runs, runId);
     }
 
     private static bool RecordDeferredWatermark(ProfileDocument profile, HealingApplied healing)
@@ -1376,7 +1466,7 @@ public sealed partial class ProfileRepository
         }
         else if (!string.Equals(state.RunId, runId, StringComparison.Ordinal))
         {
-            if (!profile.Statistics.Runs.Any(run => string.Equals(run.RunId, state.RunId, StringComparison.Ordinal)))
+            if (!RunHistory.ContainsId(profile.Statistics.Runs, state.RunId))
             {
                 throw new InvalidOperationException("Deferred item persistence cannot span two active runs.");
             }
@@ -1515,6 +1605,7 @@ public sealed partial class ProfileRepository
 
     private void ArchiveCurrentDirectory(string slotDirectory, string reason, string? generationId = null)
     {
+        CloseIncrementalStorage();
         var source = Path.Combine(slotDirectory, "current");
         if (!Directory.Exists(source) || !Directory.EnumerateFileSystemEntries(source).Any())
         {

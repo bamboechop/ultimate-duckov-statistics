@@ -59,6 +59,13 @@ internal sealed class DeferredCheckpointWriter<T>
         return true;
     }
 
+    public bool TryCaptureAndSubmit(Func<T> capture)
+    {
+        if (capture == null) throw new ArgumentNullException(nameof(capture));
+        if (pending != null) return false;
+        return TrySubmit(capture());
+    }
+
     public DeferredWriteResult Poll()
     {
         if (pending == null) return DeferredWriteResult.None;
@@ -91,6 +98,7 @@ internal sealed class DeferredSnapshotWriter<T>
     private bool dirty;
     private readonly PersistenceRetryBackoff retry;
     private DeferredWriteResult? lastFailure;
+    private bool flushing;
 
     public DeferredSnapshotWriter(Func<T> capture, Action<T> write, Func<double>? clock = null)
     {
@@ -110,6 +118,7 @@ internal sealed class DeferredSnapshotWriter<T>
 
     public DeferredWriteResult Tick(bool allowSubmit = true)
     {
+        if (flushing) return DeferredWriteResult.Pending;
         var observed = writer.Poll();
         if (observed.State == DeferredWriteState.Pending)
         {
@@ -132,7 +141,25 @@ internal sealed class DeferredSnapshotWriter<T>
         return TryCaptureAndSubmit();
     }
 
-    public DeferredWriteResult Flush()
+    public DeferredWriteResult Flush() => FlushCore(prepare: null);
+
+    // Preparation runs on the caller after the old snapshot has finished, once
+    // per boundary even when the final snapshot needs its bounded retry.
+    public DeferredWriteResult FlushForBoundary(Func<bool> prepare)
+    {
+        if (prepare == null) throw new ArgumentNullException(nameof(prepare));
+        return FlushCore(prepare);
+    }
+
+    private DeferredWriteResult FlushCore(Func<bool>? prepare)
+    {
+        if (flushing) return DeferredWriteResult.Pending;
+        flushing = true;
+        try { return FlushPrepared(prepare); }
+        finally { flushing = false; }
+    }
+
+    private DeferredWriteResult FlushPrepared(Func<bool>? prepare)
     {
         // Explicit flushes share the same budget as frame-driven submissions.
         // A delayed failure remains failure, never a successful durability barrier.
@@ -160,6 +187,32 @@ internal sealed class DeferredSnapshotWriter<T>
                 }
 
                 retryUsed = true;
+            }
+
+            if (prepare != null)
+            {
+                try
+                {
+                    if (!prepare())
+                    {
+                        dirty = true;
+                        // A checkpoint refusal is not a successful profile barrier.
+                        // Preserve an older storage failure's retry ownership too.
+                        if (firstFailure == null) return DeferredWriteResult.Pending;
+                        var failed = DeferredWriteResult.Failed(firstFailure);
+                        RememberFailure(failed);
+                        return failed;
+                    }
+                }
+                catch (Exception exception)
+                {
+                    var failed = DeferredWriteResult.Failed(firstFailure == null
+                        ? exception
+                        : new AggregateException(firstFailure, exception));
+                    RememberFailure(failed);
+                    return failed;
+                }
+                prepare = null;
             }
 
             if (!dirty)

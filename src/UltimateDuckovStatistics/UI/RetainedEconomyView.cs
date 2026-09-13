@@ -49,7 +49,7 @@ internal sealed partial class RetainedStatisticsShell
             Capture(); RememberFocus();
             if (next == null || next.GenerationId != selection.Snapshot?.GenerationId) pendingFocus = null;
             if (RetainedRefreshPolicy.RequiresInvalidation(selection.Snapshot?.GenerationId, next?.GenerationId))
-                { primary.Clear(); recent.Clear(); }
+            { primary.Clear(); recent.Clear(); }
             selection.Refresh(next);
             outer.Rect.gameObject.SetActive(next != null); unavailable.gameObject.SetActive(next == null);
             var focused = GameManager.EventSystem?.currentSelectedGameObject;
@@ -294,8 +294,13 @@ internal sealed partial class RetainedStatisticsShell
                 {
                     var label = control.Label!; label.text = element.Text; label.fontSize = element.Size;
                     label.color = element.Muted ? new Color32(177, 177, 177, 255) : Color.white;
-                    label.alignment = element.Alignment switch { EconomyTextAlignment.Center => TextAlignmentOptions.Top,
-                        EconomyTextAlignment.Right => TextAlignmentOptions.TopRight, EconomyTextAlignment.MiddleLeft => TextAlignmentOptions.MidlineLeft, _ => TextAlignmentOptions.TopLeft };
+                    label.alignment = element.Alignment switch
+                    {
+                        EconomyTextAlignment.Center => TextAlignmentOptions.Top,
+                        EconomyTextAlignment.Right => TextAlignmentOptions.TopRight,
+                        EconomyTextAlignment.MiddleLeft => TextAlignmentOptions.MidlineLeft,
+                        _ => TextAlignmentOptions.TopLeft
+                    };
                     if (element.Size == 46.3f) CombatNativeTextMeasurement.AlignInkTop(label);
                     if (element.Kind == EconomyElementKind.Chevron)
                     {
@@ -335,7 +340,8 @@ internal sealed partial class RetainedStatisticsShell
                 }
                 var rows = document?.Elements.Where(e => e.Kind == EconomyElementKind.RunToggle).ToArray() ?? Array.Empty<EconomyElement>();
                 var next = Array.FindIndex(rows, e => e.Id == element.Id) + delta;
-                if (next < 0) owner.focusTabs(); else if (next < rows.Length) Focus(rows[next].Id);
+                if (next < 0) owner.focusTabs();
+                else if (next < rows.Length) Focus(rows[next].Id);
                 else FocusViewport();
             }
             public void Dispose()

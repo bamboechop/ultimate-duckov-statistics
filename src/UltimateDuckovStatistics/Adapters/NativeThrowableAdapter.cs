@@ -30,8 +30,10 @@ internal sealed class NativeThrowableAdapter : IRetryableCleanup
 
     public NativeThrowableAdapter(Func<string> generation, Func<string?> run, Func<string?> map, Func<string?> segment,
         Action<ItemUseRecorded> publish, Action<CapabilityRecord> capability, Action<string> diagnostic)
-    { this.generation = generation; this.run = run; this.map = map; this.segment = segment;
-        this.publish = publish; this.capability = capability; this.diagnostic = diagnostic; }
+    {
+        this.generation = generation; this.run = run; this.map = map; this.segment = segment;
+        this.publish = publish; this.capability = capability; this.diagnostic = diagnostic;
+    }
 
     public void Initialize()
     {
@@ -93,11 +95,19 @@ internal sealed class NativeThrowableAdapter : IRetryableCleanup
             var typeId = item.TypeID;
             var snapshot = new ItemUseSnapshot
             {
-                ItemId = "duckov:item:" + typeId.ToString(CultureInfo.InvariantCulture), DisplayName = item.DisplayName,
-                SaveGenerationId = adapter.generation(), RunId = adapter.run(), MapId = adapter.map(), SegmentId = adapter.segment(),
-                GameplayContext = NativeRaidContext.GetGameplayContext(), IntegrityTags = NativeIntegrityProbe.Read(),
-                GameVersion = Application.version, GameBuild = "24013657", AdapterVersion = Version,
-                Stackable = item.Stackable, StackCount = item.StackCount
+                ItemId = "duckov:item:" + typeId.ToString(CultureInfo.InvariantCulture),
+                DisplayName = item.DisplayName,
+                SaveGenerationId = adapter.generation(),
+                RunId = adapter.run(),
+                MapId = adapter.map(),
+                SegmentId = adapter.segment(),
+                GameplayContext = NativeRaidContext.GetGameplayContext(),
+                IntegrityTags = NativeIntegrityProbe.Read(),
+                GameVersion = Application.version,
+                GameBuild = "24013657",
+                AdapterVersion = Version,
+                Stackable = item.Stackable,
+                StackCount = item.StackCount
             };
             var observation = ThrowableUseObservation.Begin(snapshot, true, true);
             if (observation == null) return;

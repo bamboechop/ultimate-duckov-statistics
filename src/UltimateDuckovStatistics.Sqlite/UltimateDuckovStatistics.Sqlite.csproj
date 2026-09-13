@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Description>Generation-owned incremental SQLite persistence for Ultimate Duckov Statistics.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../UltimateDuckovStatistics.Core/UltimateDuckovStatistics.Core.csproj" />
+    <Reference Include="UdsPrototype.SQLiteRaw.Core"><HintPath>../../third_party/sqlite/UdsPrototype.SQLiteRaw.Core.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="UdsPrototype.SQLiteRaw.Provider"><HintPath>../../third_party/sqlite/UdsPrototype.SQLiteRaw.Provider.dll</HintPath><Private>true</Private></Reference>
+    <None Include="../../third_party/sqlite/sqlite3.dll" Link="sqlite3.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -52,6 +52,7 @@ public static class ContainerStatisticsReducer
             return false;
         }
 
+        EntryChanges.Mark(state.LootedContainerIdentities, identity);
         state.LootedContainerIdentities.Insert(~identityIndex, identity);
         state.Statistics.UniqueContainersLooted = SaturatingAdd(state.Statistics.UniqueContainersLooted, 1);
         return true;

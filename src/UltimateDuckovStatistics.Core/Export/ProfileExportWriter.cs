@@ -19,6 +19,39 @@ public sealed class ProfileExportResult
 
 public static class ProfileExportWriter
 {
+    public static ProfileExportResult Write(ProfileExportSnapshot snapshot, DateTime exportedUtc) =>
+        WriteToRoot(snapshot, Path.Combine(Path.GetDirectoryName(Path.GetFullPath(snapshot.ProfilePath))!, "exports"), exportedUtc);
+
+    public static ProfileExportResult WriteToRoot(ProfileExportSnapshot snapshot, string exportRoot, DateTime exportedUtc)
+    {
+        if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+        exportedUtc = exportedUtc.Kind == DateTimeKind.Utc ? exportedUtc : exportedUtc.ToUniversalTime();
+        var directory = Path.Combine(Path.GetFullPath(exportRoot),
+            $"{exportedUtc.ToString("yyyyMMddTHHmmssfffffffZ", CultureInfo.InvariantCulture)}-{snapshot.Document.GenerationId}");
+        Directory.CreateDirectory(directory);
+        var streams = new Dictionary<string, FileStream>(StringComparer.Ordinal);
+        var files = new List<string>();
+        try
+        {
+            StatisticsExporter.WriteStreaming(snapshot.Document, exportedUtc, name =>
+            {
+                var path = Path.Combine(directory, name);
+                var stream = new FileStream(AtomicJsonPaths.GetTemporaryPath(path), FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                streams.Add(path, stream);
+                return stream;
+            });
+            foreach (var pair in streams)
+            {
+                pair.Value.Flush(flushToDisk: true);
+                pair.Value.Dispose();
+                File.Move(AtomicJsonPaths.GetTemporaryPath(pair.Key), pair.Key);
+                files.Add(pair.Key);
+            }
+        }
+        finally { foreach (var stream in streams.Values) stream.Dispose(); }
+        return new ProfileExportResult(directory, files);
+    }
+
     public static ProfileExportResult Write(ProfilePersistenceSnapshot snapshot, DateTime exportedUtc)
     {
         if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));

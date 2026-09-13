@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeSaveFingerprint.cs" Link="ProductionAdapters/NativeSaveFingerprint.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeProfileCoordinator.BaseMovement.cs" Link="ProductionAdapters/NativeProfileCoordinator.BaseMovement.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeRunLifecycleAdapter.BaseMovement.cs" Link="ProductionAdapters/NativeRunLifecycleAdapter.BaseMovement.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeCombatAttributionAdapter.cs" Link="ProductionAdapters/NativeCombatAttributionAdapter.cs" />
@@ -18,10 +19,20 @@
     <Compile Include="../../src/UltimateDuckovStatistics/UI/EntityDisplayNames.cs" Link="ProductionUI/EntityDisplayNames.cs" />
     <Compile Include="..\..\tools\ArtifactAudit\ArtifactPathAudit.cs" Link="Tools\ArtifactPathAudit.cs" />
     <Compile Include="..\..\tools\ArtifactAudit\OrdinaryReleaseAudit.cs" Link="Tools\OrdinaryReleaseAudit.cs" />
+    <Compile Include="..\..\tools\ArtifactAudit\PinnedDependencies.cs" Link="Tools\PinnedDependencies.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <!-- Pin the same version/target API as Duckov. Local qualification can set
+         ProfileJsonTestAssemblyPath to exercise the exact installed DLL too. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" GeneratePathProperty="true" ExcludeAssets="all" />
+    <Reference Include="Newtonsoft.Json" Private="true">
+      <HintPath Condition="'$(ProfileJsonTestAssemblyPath)' == ''">$(PkgNewtonsoft_Json)/lib/netstandard2.0/Newtonsoft.Json.dll</HintPath>
+      <HintPath Condition="'$(ProfileJsonTestAssemblyPath)' != ''">$(ProfileJsonTestAssemblyPath)</HintPath>
+    </Reference>
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeProfileJsonWriter.cs" Link="ProductionAdapters/NativeProfileJsonWriter.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeProfileStorage.cs" Link="ProductionAdapters/NativeProfileStorage.cs" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2">
       <PrivateAssets>all</PrivateAssets>
@@ -37,6 +48,7 @@
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\RetainedTabLabelMaterial.cs" Link="ProductionUI\RetainedTabLabelMaterial.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\DiagnosticsPathPrivacy.cs" Link="UI\DiagnosticsPathPrivacy.cs" />
     <ProjectReference Include="..\..\src\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />
+    <ProjectReference Include="..\..\src\UltimateDuckovStatistics.Sqlite\UltimateDuckovStatistics.Sqlite.csproj" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EquipmentPresentation.cs" Link="ProductionUI\EquipmentPresentation.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EquipmentViewPolicy.cs" Link="ProductionUI\EquipmentViewPolicy.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\UI\EconomyPresentation.cs" Link="ProductionUI\EconomyPresentation.cs" />

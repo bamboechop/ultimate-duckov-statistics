@@ -30,6 +30,7 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
     private const double CombatCheckpointIntervalSeconds = 1;
     private readonly Func<string> saveGenerationIdProvider;
     private readonly Func<ActiveRunCheckpoint, bool> checkpointHandler;
+    private readonly Func<RunLifecycleTracker, DateTime, double, RunOutcome?, bool>? incrementalCheckpointHandler;
     private readonly Func<RunSummary, bool> completionHandler;
     private readonly Action<IReadOnlyList<CapabilityRecord>> capabilityHandler;
     private readonly Action<string> diagnosticHandler;
@@ -83,13 +84,15 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
         Func<EconomyMetricCapabilities>? economyCapabilitiesProvider = null,
         Func<DeferredWriteState>? checkpointCompletionPoller = null,
         Func<DeferredWriteState>? checkpointCompletionFlusher = null,
-        Func<double>? monotonicSecondsProvider = null)
+        Func<double>? monotonicSecondsProvider = null,
+        Func<RunLifecycleTracker, DateTime, double, RunOutcome?, bool>? incrementalCheckpointHandler = null)
     {
         completionBoundary = new NativeRunCompletionBoundary(monotonicSecondsProvider);
         terminalBoundary = new NativeRunTerminalBoundary(monotonicSecondsProvider);
         this.saveGenerationIdProvider = saveGenerationIdProvider
             ?? throw new ArgumentNullException(nameof(saveGenerationIdProvider));
         this.checkpointHandler = checkpointHandler ?? throw new ArgumentNullException(nameof(checkpointHandler));
+        this.incrementalCheckpointHandler = incrementalCheckpointHandler;
         this.completionHandler = completionHandler ?? throw new ArgumentNullException(nameof(completionHandler));
         this.capabilityHandler = capabilityHandler ?? throw new ArgumentNullException(nameof(capabilityHandler));
         this.diagnosticHandler = diagnosticHandler ?? throw new ArgumentNullException(nameof(diagnosticHandler));
@@ -635,16 +638,19 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
             if (!awaitPersistence) return false;
             DrainPendingCheckpoint();
         }
-        var checkpoint = tracker.CreateCheckpoint(utcNow, monotonicSeconds);
-        if (checkpoint == null)
+        bool accepted;
+        if (incrementalCheckpointHandler != null)
+            accepted = tracker.IsActive && incrementalCheckpointHandler(tracker, utcNow, monotonicSeconds, pendingTerminalOutcome);
+        else
         {
-            return false;
+            var checkpoint = tracker.CreateCheckpoint(utcNow, monotonicSeconds);
+            if (checkpoint == null) return false;
+            checkpoint.PendingTerminalOutcome = pendingTerminalOutcome;
+            NativeHotPathDiagnostics.CountCheckpointClone();
+            accepted = checkpointHandler(checkpoint);
         }
-        checkpoint.PendingTerminalOutcome = pendingTerminalOutcome;
-        NativeHotPathDiagnostics.CountCheckpointClone();
         var mutationRevision = tracker.CheckpointMutationRevision;
-
-        if (!checkpointHandler(checkpoint))
+        if (!accepted)
         {
             checkpointScheduler.RecordResult(succeeded: false, monotonicSeconds: monotonicSeconds);
             return false;

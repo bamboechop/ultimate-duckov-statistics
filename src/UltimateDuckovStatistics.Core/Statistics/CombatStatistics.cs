@@ -76,6 +76,11 @@ public sealed class CombatStatisticsNormalizationResult
 
 public static class CombatStatisticsReducer
 {
+    internal static void ValidateChangedBreakdown(CombatBreakdownAggregate row)
+    {
+        ValidateTotals(row.Totals, CombatRelationshipScope.Breakdown);
+        row.Totals.PlayerKills.Validate(row.Totals.KillsByYou);
+    }
     public static void Apply(CombatStatisticsAggregate target, CombatRecorded value)
     {
         ValidateAggregate(target);
@@ -383,6 +388,7 @@ public static class CombatStatisticsReducer
     {
         id = string.IsNullOrWhiteSpace(id) ? "unknown" : id;
         name = string.IsNullOrWhiteSpace(name) ? id : name;
+        EntryChanges.Mark(rows, id);
         if (!rows.TryGetValue(id, out var row))
         {
             row = new CombatBreakdownAggregate { Id = id, DisplayName = name };

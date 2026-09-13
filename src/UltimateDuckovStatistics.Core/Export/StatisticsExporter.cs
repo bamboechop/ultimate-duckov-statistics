@@ -12,6 +12,8 @@ namespace UltimateDuckovStatistics.Core.Export;
 [DataContract]
 public sealed class StatisticsExportDocument
 {
+    [IgnoreDataMember] internal bool RunRowsOnly { get; set; }
+
     [DataMember(Order = 17)] public bool HealingCaptureComplete { get; set; }
     [DataMember(Order = 18)] public AdapterCapabilityState HealingCaptureState { get; set; }
     [DataMember(Order = 19)] public bool HealingEvidenceRepaired { get; set; }
@@ -45,7 +47,7 @@ public sealed class StatisticsExportDocument
     public RunAggregateTotals RunTotals { get; set; } = new();
 
     [DataMember(Order = 10)]
-    public List<RunSummary> Runs { get; set; } = new();
+    public IList<RunSummary> Runs { get; set; } = new List<RunSummary>();
 
     [DataMember(Order = 11)]
     public RunDurationRecords RunRecords { get; set; } = new();
@@ -263,7 +265,7 @@ public static class StatisticsExporter
     };
     private static readonly char[] CsvSpecialCharacters = { ',', '"', '\r', '\n' };
 
-    public static StatisticsExportBundle Create(ProfileDocument profile, DateTime exportedUtc)
+    internal static StatisticsExportDocument CreateDocument(ProfileDocument profile, DateTime exportedUtc, bool streamHistory)
     {
         if (profile == null)
         {
@@ -304,9 +306,9 @@ public static class StatisticsExporter
             ApplyCurrentContainerCapability(map.ContainerStatistics, profile.Capabilities, allowUninitializedFallback: false);
         }
 
-        var runs = profile.Statistics.Runs.Select(CloneRun).ToList();
-        foreach (var run in runs)
+        RunSummary ProjectRun(RunSummary source)
         {
+            var run = CloneRun(source);
             run.WeaponStatistics.Capabilities = ApplyCurrentWeaponCapabilityStates(
                 run.WeaponStatistics,
                 profile.Capabilities,
@@ -327,7 +329,11 @@ public static class StatisticsExporter
                     profile.Capabilities,
                     allowUninitializedFallback: false);
             }
+            return run;
         }
+        IList<RunSummary> runs = streamHistory
+            ? new ExportRunHistory(profile.Statistics.Runs, ProjectRun)
+            : profile.Statistics.Runs.Select(ProjectRun).ToList();
 
         var holdingsProjection = EconomyHoldingsReducer.Project(profile.Statistics.Holdings);
         var document = new StatisticsExportDocument
@@ -380,6 +386,12 @@ public static class StatisticsExporter
             }
         };
 
+        return document;
+    }
+
+    public static StatisticsExportBundle Create(ProfileDocument profile, DateTime exportedUtc)
+    {
+        var document = CreateDocument(profile, exportedUtc, streamHistory: false);
         return new StatisticsExportBundle(
             document,
             SerializeJson(document),
@@ -417,10 +429,90 @@ public static class StatisticsExporter
             CreateCraftingResourceAssociationsCsv(document));
     }
 
-    private static string CreateEconomyHoldingsCsv(StatisticsExportDocument document)
+    // Each CSV keeps its established ordering. Related files share a decoded,
+    // projected run during one pass; no full-history object graph is retained.
+    internal static void WriteStreaming(ProfileDocument profile, DateTime exportedUtc, Func<string, Stream> open)
+    {
+        var document = CreateDocument(profile, exportedUtc, streamHistory: true);
+        var history = document.Runs;
+        new DataContractJsonSerializer(typeof(StatisticsExportDocument), new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true })
+            .WriteObject(open("statistics.json"), document);
+        using (var terminal = new StreamWriter(open("terminal_loadouts.csv"), new UTF8Encoding(false), 4096, leaveOpen: true))
+            CreateTerminalLoadoutsCsv(profile.Statistics.Runs, terminal);
+        var specifications = new (string Name, int Order, Action<TextWriter> Write)[]
+        {
+            ("overview.csv", 0, output => CreateOverviewCsv(document, output)),
+            ("groups.csv", 0, output => CreateGroupsCsv(document, output)),
+            ("items.csv", 0, output => CreateItemsCsv(document, output)),
+            ("runs.csv", 1, output => CreateRunsCsv(document, output)),
+            ("run_totals.csv", 0, output => CreateRunTotalsCsv(document, output)),
+            ("map_totals.csv", 0, output => CreateMapTotalsCsv(document, output)),
+            ("records.csv", 0, output => CreateRecordsCsv(document, output)),
+            ("combat_totals.csv", 1, output => CreateCombatTotalsCsv(document, output)),
+            ("combat_attribution.csv", 1, output => CreateCombatAttributionCsv(document, output)),
+            ("weapon_totals.csv", 1, output => CreateWeaponTotalsCsv(document, output)),
+            ("ammunition_totals.csv", 1, output => CreateAmmunitionTotalsCsv(document, output)),
+            ("weapon_ammunition_pairs.csv", 1, output => CreateWeaponAmmunitionPairsCsv(document, output)),
+            ("equipment_totals.csv", 1, output => CreateEquipmentTotalsCsv(document, output)),
+            ("loadout_definitions.csv", 2, output => EquipmentCompositionCsv.Loadouts(document, output)),
+            ("active_totem_set_definitions.csv", 2, output => EquipmentCompositionCsv.ActiveSets(document, output)),
+            ("totem_state_durations.csv", 2, output => EquipmentCompositionCsv.TotemStates(document, output)),
+            ("character_equipment_slots.csv", 1, output => CreateCharacterEquipmentSlotsCsv(document, output)),
+            ("equipped_item_nested_slots.csv", 1, output => CreateEquippedItemNestedSlotsCsv(document, output)),
+            ("recurring_loadouts.csv", 0, output => CreateRecurringLoadoutsCsv(document, output)),
+            ("equipment_combat.csv", 1, output => CreateEquipmentCombatCsv(document, output)),
+            ("containers.csv", 1, output => CreateContainersCsv(document, output)),
+            ("routes.csv", 1, output => CreateRoutesCsv(document, output)),
+            ("segments.csv", 1, output => CreateSegmentsCsv(document, output)),
+            ("segment_events.csv", 1, output => CreateSegmentEventsCsv(document, output)),
+            ("route_map_totals.csv", 0, output => CreateRouteMapTotalsCsv(document, output)),
+            ("economy_totals.csv", 1, output => CreateEconomyTotalsCsv(document, output)),
+            ("economy_sources.csv", 1, output => CreateEconomySourcesCsv(document, output)),
+            ("economy_contexts.csv", 1, output => CreateEconomyContextsCsv(document, output)),
+            ("cash_acquisition.csv", 1, output => CreateCashAcquisitionCsv(document, output)),
+            ("economy_holdings.csv", 0, output => CreateEconomyHoldingsCsv(document, output)),
+            ("world_time.csv", 0, output => CreateWorldTimeCsv(document, output)),
+            ("crafting_totals.csv", 0, output => CreateCraftingTotalsCsv(document, output)),
+            ("crafting_recipes.csv", 0, output => CreateCraftingRecipesCsv(document, output)),
+            ("crafting_resources.csv", 0, output => CreateCraftingResourcesCsv(document, output)),
+            ("crafting_resource_associations.csv", 0, output => CreateCraftingResourceAssociationsCsv(document, output)),
+        };
+        var writers = new List<StreamWriter>();
+        try
+        {
+            document.Runs = Array.Empty<RunSummary>();
+            foreach (var specification in specifications)
+            {
+                var writer = new StreamWriter(open(specification.Name), new UTF8Encoding(false), 4096, leaveOpen: true);
+                writers.Add(writer);
+                specification.Write(writer); // Header and lifetime/map rows once.
+            }
+            document.RunRowsOnly = true;
+            var current = new RunSummary[1];
+            document.Runs = current;
+            foreach (var order in new[] { 1, 2 })
+            {
+                var runs = order == 1 ? RunHistory.Ascending(history) : RunHistory.ById(history);
+                foreach (var run in runs)
+                {
+                    current[0] = run;
+                    for (var index = 0; index < specifications.Length; index++)
+                        if (specifications[index].Order == order) specifications[index].Write(writers[index]);
+                }
+            }
+        }
+        finally
+        {
+            document.Runs = history;
+            document.RunRowsOnly = false;
+            foreach (var writer in writers) writer.Dispose();
+        }
+    }
+
+    private static string CreateEconomyHoldingsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
         var value = document.Holdings;
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("save_generation_id,money_state,money_value,money_observed_utc,money_observation_provenance,money_freshness_provenance,money_capability,money_capability_provenance,cash_state,cash_value,cash_observed_utc,cash_observation_provenance,cash_freshness_provenance,cash_capability,cash_capability_provenance,liquid_wealth_state,liquid_wealth_value,liquid_wealth_observed_utc,liquid_wealth_observation_provenance,liquid_wealth_freshness_provenance,liquid_wealth_capability,liquid_wealth_capability_provenance,repaired_invalid_state");
         builder.Append(Csv(value.SaveGenerationId)).Append(',');
         AppendObservation(value.Money, value.Capabilities.Money);
@@ -443,10 +535,10 @@ public static class StatisticsExporter
         }
     }
 
-    private static string CreateCraftingTotalsCsv(StatisticsExportDocument document)
+    private static string CreateCraftingTotalsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
         var value = document.Crafting;
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("scope,output_item_id,display_name,completion_actions,produced_quantity,currency_charge_actions,currency_charged,completion_capability,completion_provenance,quantity_capability,quantity_provenance,output_identity_capability,output_identity_provenance,recipe_identity_capability,recipe_identity_provenance,batch_metadata_capability,batch_metadata_provenance,item_resource_capability,item_resource_provenance,output_resource_association_capability,output_resource_association_provenance,currency_charge_capability,currency_charge_provenance,resource_history_unavailable,resource_history_provenance,currency_history_unavailable,currency_history_provenance,completion_arithmetic_unavailable,quantity_arithmetic_unavailable,resource_action_arithmetic_unavailable,resource_quantity_arithmetic_unavailable,currency_action_arithmetic_unavailable,currency_amount_arithmetic_unavailable,repaired_invalid_state");
         Append("lifetime", string.Empty, string.Empty, value.CompletionActions, value.ProducedQuantity, value.CurrencyChargeActions, value.CurrencyCharged);
         foreach (var output in value.Outputs.Values.OrderBy(output => output.OutputItemId, StringComparer.Ordinal))
@@ -482,10 +574,10 @@ public static class StatisticsExporter
         }
     }
 
-    private static string CreateCraftingRecipesCsv(StatisticsExportDocument document)
+    private static string CreateCraftingRecipesCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
         var value = document.Crafting;
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("output_item_id,display_name,recipe_id,completion_actions,produced_quantity,currency_charge_actions,currency_charged,batch_quantity,batch_actions,recipe_identity_capability,recipe_identity_provenance,batch_metadata_capability,batch_metadata_provenance,currency_charge_capability,currency_charge_provenance,currency_history_unavailable,currency_history_provenance");
         foreach (var output in value.Outputs.Values.OrderBy(output => output.OutputItemId, StringComparer.Ordinal))
         {
@@ -519,10 +611,10 @@ public static class StatisticsExporter
         }
     }
 
-    private static string CreateCraftingResourcesCsv(StatisticsExportDocument document)
+    private static string CreateCraftingResourcesCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
         var value = document.Crafting;
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("resource_item_id,display_name,consumed_quantity,item_resource_capability,item_resource_provenance,resource_history_unavailable,resource_history_provenance,resource_quantity_arithmetic_unavailable,repaired_invalid_state");
         foreach (var resource in value.Resources.Values.OrderBy(resource => resource.ResourceItemId, StringComparer.Ordinal))
         {
@@ -539,10 +631,10 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateCraftingResourceAssociationsCsv(StatisticsExportDocument document)
+    private static string CreateCraftingResourceAssociationsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
         var value = document.Crafting;
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("output_item_id,output_display_name,recipe_id,resource_item_id,resource_display_name,consumption_actions,consumed_quantity,association_capability,association_provenance,resource_history_unavailable,resource_history_provenance,resource_action_arithmetic_unavailable,resource_quantity_arithmetic_unavailable");
         foreach (var output in value.Outputs.Values.OrderBy(output => output.OutputItemId, StringComparer.Ordinal))
             foreach (var recipe in output.Recipes.Values.OrderBy(recipe => recipe.RecipeId, StringComparer.Ordinal))
@@ -568,10 +660,10 @@ public static class StatisticsExporter
     private static long ParseBatchQuantity(string value) =>
         long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var result) ? result : long.MaxValue;
 
-    private static string CreateWorldTimeCsv(StatisticsExportDocument document)
+    private static string CreateWorldTimeCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
         var value = document.WorldTime;
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("calendar_days_advanced,observed_game_time_ticks,observed_game_time_seconds,completed_sleep_sessions,sleep_advanced_time_ticks,sleep_advanced_time_seconds,calendar_capability,calendar_provenance,observed_elapsed_capability,observed_elapsed_provenance,sleep_sessions_capability,sleep_sessions_provenance,sleep_time_capability,sleep_time_provenance,repaired_invalid_state");
         builder.Append(value.CalendarDaysAdvanced.ToString(CultureInfo.InvariantCulture)).Append(',')
             .Append(value.ObservedGameTimeTicks.ToString(CultureInfo.InvariantCulture)).Append(',')
@@ -587,9 +679,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateEconomyTotalsCsv(StatisticsExportDocument document)
+    private static string CreateEconomyTotalsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,map_display_name,currency,gross_inflow,gross_outflow,net_flow,amount_capability,amount_capability_provenance,source_capability,source_capability_provenance,context_capability,context_capability_provenance,repaired_invalid_state,arithmetic_saturated");
         foreach (var scope in EconomyScopes(document))
             foreach (var currency in Enum.GetValues(typeof(CurrencyKind)).Cast<CurrencyKind>())
@@ -613,9 +705,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateEconomySourcesCsv(StatisticsExportDocument document)
+    private static string CreateEconomySourcesCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,source,gross_inflow,gross_outflow,net_flow,source_capability,source_capability_provenance,repaired_invalid_state,arithmetic_saturated");
         foreach (var scope in EconomyScopes(document))
             foreach (var currency in scope.Economy.Currencies.Values.OrderBy(value => value.Currency))
@@ -633,9 +725,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateEconomyContextsCsv(StatisticsExportDocument document)
+    private static string CreateEconomyContextsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,currency,gameplay_context,gross_inflow,gross_outflow,net_flow,context_capability,context_capability_provenance,repaired_invalid_state,arithmetic_saturated");
         foreach (var scope in EconomyScopes(document))
             foreach (var currency in scope.Economy.Currencies.Values.OrderBy(value => value.Currency))
@@ -653,9 +745,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateCashAcquisitionCsv(StatisticsExportDocument document)
+    private static string CreateCashAcquisitionCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,acquired,acquisition_capability,acquisition_capability_provenance,repaired_invalid_state,cash_arithmetic_saturated");
         foreach (var scope in EconomyScopes(document))
             builder.Append(Csv(scope.Scope)).Append(',').Append(Csv(scope.ScopeId)).Append(',')
@@ -670,13 +762,16 @@ public static class StatisticsExporter
 
     private static IEnumerable<EconomyScope> EconomyScopes(StatisticsExportDocument document)
     {
-        yield return new EconomyScope("lifetime", document.GenerationId, string.Empty, string.Empty, string.Empty, string.Empty, document.Economy);
-        yield return new EconomyScope("completed_runs", document.GenerationId, string.Empty, string.Empty, string.Empty, string.Empty, document.RunTotals.Economy);
-        foreach (var map in document.RunTotals.Maps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
-            yield return new EconomyScope("starting_map", map.MapId, string.Empty, string.Empty, map.MapId, map.DisplayName, map.Economy);
-        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
-            yield return new EconomyScope("route_map", map.MapId, string.Empty, string.Empty, map.MapId, map.DisplayName, map.Economy);
-        foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
+        if (!document.RunRowsOnly)
+        {
+            yield return new EconomyScope("lifetime", document.GenerationId, string.Empty, string.Empty, string.Empty, string.Empty, document.Economy);
+            yield return new EconomyScope("completed_runs", document.GenerationId, string.Empty, string.Empty, string.Empty, string.Empty, document.RunTotals.Economy);
+            foreach (var map in document.RunTotals.Maps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+                yield return new EconomyScope("starting_map", map.MapId, string.Empty, string.Empty, map.MapId, map.DisplayName, map.Economy);
+            foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+                yield return new EconomyScope("route_map", map.MapId, string.Empty, string.Empty, map.MapId, map.DisplayName, map.Economy);
+        }
+        foreach (var run in RunHistory.Ascending(document.Runs))
         {
             yield return new EconomyScope("run", run.RunId, run.RunId, string.Empty, run.StartingMapId, run.StartingMapDisplayName, run.Economy);
             foreach (var segment in run.Segments.OrderBy(value => value.SegmentIndex))
@@ -695,11 +790,11 @@ public static class StatisticsExporter
         ? (economy.Capabilities.MoneyAmountDirection, economy.Capabilities.MoneySourceAttribution, economy.Capabilities.MoneyContextAttribution)
         : (economy.Capabilities.CashAmountDirection, economy.Capabilities.CashExternalAcquisition, economy.Capabilities.CashContextAttribution);
 
-    private static string CreateRoutesCsv(StatisticsExportDocument document)
+    private static string CreateRoutesCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("run_id,starting_map_id,starting_map_display_name,ending_map_id,ending_map_display_name,route_signature,segment_count,ordered_route_capability,ordered_route_provenance,segment_capability,segment_provenance,event_attribution_capability,event_attribution_provenance,route_map_totals_capability,route_map_totals_provenance,repaired_invalid_state,current_event_capture_capability,current_event_capture_provenance,historical_event_attribution_incomplete,historical_event_attribution_provenance,associated_event_count,association_row_count");
-        foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
+        foreach (var run in RunHistory.Ascending(document.Runs))
             builder.Append(Csv(run.RunId)).Append(',').Append(Csv(run.StartingMapId)).Append(',')
                 .Append(Csv(run.StartingMapDisplayName)).Append(',').Append(Csv(run.EndingMapId)).Append(',')
                 .Append(Csv(run.EndingMapDisplayName)).Append(',').Append(Csv(run.RouteSignature)).Append(',')
@@ -720,11 +815,11 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateSegmentsCsv(StatisticsExportDocument document)
+    private static string CreateSegmentsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("run_id,segment_id,segment_index,map_id,map_display_name,map_known,entered_utc,exited_utc,active_duration_seconds,physical_distance,teleport_distance,transition_excluded_distance,exit_reason,segment_capability,event_attribution_capability,item_activations,actual_health_restored,firing_actions,damage_dealt,damage_received,ranged_hits,melee_hits,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,player_deaths,unique_containers_looted,integrity_tags,repaired_invalid_state,current_event_capture_capability,historical_event_attribution_incomplete,damage_dealt_state,damage_received_state,ranged_hits_state,melee_hits_state,kills_by_you_state,observed_world_deaths_state,player_deaths_state,route_map_totals_capability");
-        foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
+        foreach (var run in RunHistory.Ascending(document.Runs))
             foreach (var segment in run.Segments.OrderBy(value => value.SegmentIndex))
                 builder.Append(Csv(run.RunId)).Append(',').Append(Csv(segment.SegmentId)).Append(',')
                     .Append(segment.SegmentIndex.ToString(CultureInfo.InvariantCulture)).Append(',').Append(Csv(segment.MapId)).Append(',')
@@ -761,11 +856,11 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateSegmentEventsCsv(StatisticsExportDocument document)
+    private static string CreateSegmentEventsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("run_id,event_kind,source_segment_id,source_map_id,outcome_segment_id,outcome_map_id,association_count,first_timestamp_utc,last_timestamp_utc,historical_event_attribution_incomplete,current_event_capture_capability");
-        foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
+        foreach (var run in RunHistory.Ascending(document.Runs))
             foreach (var value in run.SegmentEventAssociations.OrderBy(value => value.LastTimestampUtc).ThenBy(value => value.EventKind, StringComparer.Ordinal)
                 .ThenBy(value => value.SourceSegmentId, StringComparer.Ordinal).ThenBy(value => value.OutcomeSegmentId, StringComparer.Ordinal))
                 builder.Append(Csv(run.RunId)).Append(',').Append(Csv(value.EventKind)).Append(',')
@@ -779,9 +874,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateRouteMapTotalsCsv(StatisticsExportDocument document)
+    private static string CreateRouteMapTotalsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("map_id,map_display_name,map_known,runs_visited,segment_visits,active_duration_seconds,physical_distance,teleport_distance,transition_excluded_distance,item_activations,actual_health_restored,firing_actions,damage_dealt,damage_received,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,unique_containers_looted,historical_unavailable,repaired_invalid_state,damage_dealt_state,damage_received_state,kills_by_you_state,observed_world_deaths_state");
         foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
             builder.Append(Csv(map.MapId)).Append(',').Append(Csv(map.DisplayName)).Append(',').Append(map.IsKnown ? "true" : "false").Append(',')
@@ -808,16 +903,19 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateContainersCsv(StatisticsExportDocument document)
+    private static string CreateContainersCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,map_display_name,unique_containers_looted,capability,repaired_invalid_state");
-        Append("lifetime", document.GenerationId, string.Empty, document.RunTotals.ContainerStatistics);
-        foreach (var map in document.RunTotals.Maps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
-            Append("starting_map", map.MapId, map.DisplayName, map.ContainerStatistics);
-        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
-            Append("route_map", map.MapId, map.DisplayName, map.ContainerStatistics);
-        foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
+        if (!document.RunRowsOnly)
+        {
+            Append("lifetime", document.GenerationId, string.Empty, document.RunTotals.ContainerStatistics);
+            foreach (var map in document.RunTotals.Maps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+                Append("starting_map", map.MapId, map.DisplayName, map.ContainerStatistics);
+            foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+                Append("route_map", map.MapId, map.DisplayName, map.ContainerStatistics);
+        }
+        foreach (var run in RunHistory.Ascending(document.Runs))
             Append("run", run.RunId, run.StartingMapDisplayName, run.ContainerStatistics);
         return builder.ToString();
 
@@ -830,23 +928,26 @@ public static class StatisticsExporter
         }
     }
 
-    private static string CreateEquipmentTotalsCsv(StatisticsExportDocument document)
+    private static string CreateEquipmentTotalsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,breakdown,entity_id,display_name,active_duration_seconds,run_occurrences");
-        AppendEquipmentDurations(builder, "lifetime", document.GenerationId, document.RunTotals.EquipmentStatistics);
-        foreach (var map in document.RunTotals.Maps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
-            AppendEquipmentDurations(builder, "starting_map", map.MapId, map.EquipmentStatistics);
-        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
-            AppendEquipmentDurations(builder, "route_map", map.MapId, map.EquipmentStatistics);
-        foreach (var run in document.Runs.OrderBy(x => x.StartedUtc).ThenBy(x => x.RunId, StringComparer.Ordinal))
+        if (!document.RunRowsOnly)
+        {
+            AppendEquipmentDurations(builder, "lifetime", document.GenerationId, document.RunTotals.EquipmentStatistics);
+            foreach (var map in document.RunTotals.Maps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
+                AppendEquipmentDurations(builder, "starting_map", map.MapId, map.EquipmentStatistics);
+            foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
+                AppendEquipmentDurations(builder, "route_map", map.MapId, map.EquipmentStatistics);
+        }
+        foreach (var run in RunHistory.Ascending(document.Runs))
             AppendEquipmentDurations(builder, "run", run.RunId, run.EquipmentStatistics);
         return builder.ToString();
     }
 
-    private static string CreateWeaponAmmunitionPairsCsv(StatisticsExportDocument document)
+    private static string CreateWeaponAmmunitionPairsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,projection,weapon_id,weapon_display_name,ammunition_id,ammunition_display_name,accepted_firing_actions,percentage_within_observed_projection_pairs,pairing_state,pairing_provenance,uncorrelated_firing_actions,repaired_invalid_state");
         foreach (var scope in M14Scopes(document))
         {
@@ -907,9 +1008,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateCharacterEquipmentSlotsCsv(StatisticsExportDocument document)
+    private static string CreateCharacterEquipmentSlotsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,slot_id,slot_display_name,state,item_id,item_display_name,item_kind,active_duration_seconds,observed_slot_duration_seconds,capability_state,capability_provenance,repaired_invalid_state");
         foreach (var scope in M14Scopes(document))
         {
@@ -945,9 +1046,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateEquippedItemNestedSlotsCsv(StatisticsExportDocument document)
+    private static string CreateEquippedItemNestedSlotsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,run_id,segment_id,map_id,parent_slot_id,parent_item_id,parent_item_display_name,parent_item_kind,nested_path,slot_key,slot_display_name,state,item_id,item_display_name,active_duration_seconds,observed_path_duration_seconds,capability_state,capability_provenance,repaired_invalid_state");
         foreach (var scope in M14Scopes(document))
         {
@@ -992,7 +1093,7 @@ public static class StatisticsExporter
     private static string ExportComponent(string value) =>
         value.Length.ToString(CultureInfo.InvariantCulture) + ":" + value;
 
-    private static void AppendEquipmentDurations(StringBuilder builder, string scope, string scopeId, EquipmentStatisticsAggregate statistics)
+    private static void AppendEquipmentDurations(CsvOutput builder, string scope, string scopeId, EquipmentStatisticsAggregate statistics)
     {
         Append("slot", statistics.Slots);
         Append("item", statistics.Items);
@@ -1012,9 +1113,9 @@ public static class StatisticsExporter
         }
     }
 
-    private static string CreateRecurringLoadoutsCsv(StatisticsExportDocument document)
+    private static string CreateRecurringLoadoutsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("loadout_id,active_duration_seconds,run_occurrences");
         foreach (var row in document.RunTotals.EquipmentStatistics.Loadouts.Values
                      .Where(x => x.RunOccurrences >= 2)
@@ -1025,22 +1126,25 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateEquipmentCombatCsv(StatisticsExportDocument document)
+    private static string CreateEquipmentCombatCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,loadout_id,selected_weapon_slot_id,selected_weapon_id,totem_set_id,firing_actions,damage_dealt,damage_received,ranged_hits,melee_hits,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,player_deaths,damage_dealt_state,damage_received_state,ranged_hits_state,melee_hits_state,kills_by_you_state,player_deaths_state,ownership_state");
-        AppendEquipmentCombat(builder, "lifetime", document.GenerationId, document.RunTotals.EquipmentStatistics, document.RunTotals.CombatStatistics);
-        foreach (var map in document.RunTotals.Maps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
-            AppendEquipmentCombat(builder, "starting_map", map.MapId, map.EquipmentStatistics, map.CombatStatistics);
-        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
-            AppendEquipmentCombat(builder, "route_map", map.MapId, map.EquipmentStatistics, map.CombatStatistics);
-        foreach (var run in document.Runs.OrderBy(x => x.StartedUtc).ThenBy(x => x.RunId, StringComparer.Ordinal))
+        if (!document.RunRowsOnly)
+        {
+            AppendEquipmentCombat(builder, "lifetime", document.GenerationId, document.RunTotals.EquipmentStatistics, document.RunTotals.CombatStatistics);
+            foreach (var map in document.RunTotals.Maps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
+                AppendEquipmentCombat(builder, "starting_map", map.MapId, map.EquipmentStatistics, map.CombatStatistics);
+            foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
+                AppendEquipmentCombat(builder, "route_map", map.MapId, map.EquipmentStatistics, map.CombatStatistics);
+        }
+        foreach (var run in RunHistory.Ascending(document.Runs))
             AppendEquipmentCombat(builder, "run", run.RunId, run.EquipmentStatistics, run.CombatStatistics);
         return builder.ToString();
     }
 
     private static void AppendEquipmentCombat(
-        StringBuilder builder,
+        CsvOutput builder,
         string scope,
         string scopeId,
         EquipmentStatisticsAggregate statistics,
@@ -1077,9 +1181,9 @@ public static class StatisticsExporter
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    private static string CreateOverviewCsv(StatisticsExportDocument document)
+    private static string CreateOverviewCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         AppendTotalsHeader(builder, "generation_id,slot,revision,exported_utc,raid_distance_meters,base_distance_meters,total_recorded_distance_meters,base_collection_started_utc,movement_collection_available,raid_distance_partial,base_distance_partial,total_distance_partial,distance_coverage");
         builder.Append(Csv(document.GenerationId)).Append(',')
             .Append(document.Slot.ToString(CultureInfo.InvariantCulture)).Append(',')
@@ -1098,9 +1202,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateGroupsCsv(StatisticsExportDocument document)
+    private static string CreateGroupsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         AppendTotalsHeader(builder, "group");
         foreach (var group in document.Groups)
         {
@@ -1111,9 +1215,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateItemsCsv(StatisticsExportDocument document)
+    private static string CreateItemsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         AppendTotalsHeader(builder, "item_id,display_name,group,effect_tags");
         foreach (var item in document.Items)
         {
@@ -1127,12 +1231,12 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateRunsCsv(StatisticsExportDocument document)
+    private static string CreateRunsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine(
             "run_id,save_generation_id,native_raid_id,starting_map_id,starting_map_display_name,starting_map_known,ending_map_id,ending_map_display_name,route_signature,started_utc,ended_utc,active_duration_seconds,wall_clock_duration_seconds,outcome,physical_distance,teleport_distance,transition_excluded_distance,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,unique_containers_looted,container_capability,integrity_tags,record_eligible,game_version,game_build,lifecycle_capability,lifecycle_adapter_version,movement_capability,movement_adapter_version,map_capability,map_adapter_version,kills_by_you_state,observed_world_deaths_state");
-        foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
+        foreach (var run in RunHistory.Ascending(document.Runs))
         {
             builder.Append(Csv(run.RunId)).Append(',')
                 .Append(Csv(run.SaveGenerationId)).Append(',')
@@ -1172,10 +1276,10 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateRunTotalsCsv(StatisticsExportDocument document)
+    private static string CreateRunTotalsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
         var totals = document.RunTotals;
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("generation_id,total_runs,extracted,died,interrupted,physical_distance,teleport_distance,transition_excluded_distance,route_aware_history_unavailable,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,unique_containers_looted,container_capability,kills_by_you_state,observed_world_deaths_state");
         builder.Append(Csv(document.GenerationId)).Append(',')
             .Append(totals.TotalRuns.ToString(CultureInfo.InvariantCulture)).Append(',')
@@ -1196,9 +1300,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateMapTotalsCsv(StatisticsExportDocument document)
+    private static string CreateMapTotalsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("aggregation_scope,map_id,map_display_name,map_known,total_runs,extracted,died,interrupted,physical_distance,teleport_distance,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,unique_containers_looted,container_capability,item_activations,actual_health_restored,item_repaired_invalid_state,kills_by_you_state,observed_world_deaths_state");
         foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
         {
@@ -1226,9 +1330,9 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateRecordsCsv(StatisticsExportDocument document)
+    private static string CreateRecordsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("scope,map_id,map_display_name,outcome,record,run_id,active_duration_seconds,started_utc");
         AppendRecordPair(builder, "overall", string.Empty, string.Empty, RunOutcome.Extracted, document.RunRecords.Extraction);
         AppendRecordPair(builder, "overall", string.Empty, string.Empty, RunOutcome.Died, document.RunRecords.Death);
@@ -1241,19 +1345,21 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateCombatTotalsCsv(StatisticsExportDocument document)
+    private static string CreateCombatTotalsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,scope_display_name,firing_actions,firing_actions_state,weapon_identity_state,ammunition_identity_state");
-        AppendCombatTotals(builder, "lifetime", document.GenerationId, "Lifetime", document.RunTotals.WeaponStatistics, document.Capabilities);
-        foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+        if (!document.RunRowsOnly)
         {
-            AppendCombatTotals(builder, "starting_map", map.MapId, map.DisplayName, map.WeaponStatistics, document.Capabilities);
+            AppendCombatTotals(builder, "lifetime", document.GenerationId, "Lifetime", document.RunTotals.WeaponStatistics, document.Capabilities);
+            foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+            {
+                AppendCombatTotals(builder, "starting_map", map.MapId, map.DisplayName, map.WeaponStatistics, document.Capabilities);
+            }
+            foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+                AppendCombatTotals(builder, "route_map", map.MapId, map.DisplayName, map.WeaponStatistics, document.Capabilities);
         }
-        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
-            AppendCombatTotals(builder, "route_map", map.MapId, map.DisplayName, map.WeaponStatistics, document.Capabilities);
-
-        foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
+        foreach (var run in RunHistory.Ascending(document.Runs))
         {
             AppendCombatTotals(builder, "run", run.RunId, run.StartingMapDisplayName, run.WeaponStatistics, document.Capabilities);
         }
@@ -1261,19 +1367,21 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateWeaponTotalsCsv(StatisticsExportDocument document)
+    private static string CreateWeaponTotalsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,weapon_id,display_name,firing_actions,firing_actions_state");
-        AppendWeaponTotals(builder, "lifetime", document.GenerationId, document.RunTotals.WeaponStatistics);
-        foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+        if (!document.RunRowsOnly)
         {
-            AppendWeaponTotals(builder, "starting_map", map.MapId, map.WeaponStatistics);
+            AppendWeaponTotals(builder, "lifetime", document.GenerationId, document.RunTotals.WeaponStatistics);
+            foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+            {
+                AppendWeaponTotals(builder, "starting_map", map.MapId, map.WeaponStatistics);
+            }
+            foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+                AppendWeaponTotals(builder, "route_map", map.MapId, map.WeaponStatistics);
         }
-        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
-            AppendWeaponTotals(builder, "route_map", map.MapId, map.WeaponStatistics);
-
-        foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
+        foreach (var run in RunHistory.Ascending(document.Runs))
         {
             AppendWeaponTotals(builder, "run", run.RunId, run.WeaponStatistics);
         }
@@ -1281,22 +1389,25 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateCombatAttributionCsv(StatisticsExportDocument document)
+    private static string CreateCombatAttributionCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,breakdown,entity_id,display_name,damage_caused,damage_dealt,damage_received,completed_player_projectiles,ranged_hits,accuracy,melee_swings,melee_hits,kills_by_you,ranged_kills_by_you,melee_kills_by_you,throwable_kills_by_you,throwable_kills_state,effect_kills_by_you,environmental_kills_by_you,unknown_kills_by_you,kill_classification_complete,ranged_melee_exact,kill_classification_provenance,observed_world_deaths,player_deaths,headshots,headshot_final_blows,damage_dealt_state,damage_received_state,accuracy_state,melee_swings_state,melee_hits_state,kills_by_you_state,observed_world_deaths_state,player_deaths_state,ownership_state,enemy_identity_state,enemy_family_state,cause_state,weapon_identity_state,ammunition_identity_state,damage_over_time_state,headshots_state,headshot_final_blows_state,repaired");
-        AppendCombatAttributionScope(builder, "lifetime", document.GenerationId, document.RunTotals.CombatStatistics);
-        foreach (var map in document.RunTotals.Maps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
-            AppendCombatAttributionScope(builder, "starting_map", map.MapId, map.CombatStatistics);
-        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
-            AppendCombatAttributionScope(builder, "route_map", map.MapId, map.CombatStatistics);
-        foreach (var run in document.Runs.OrderBy(x => x.StartedUtc).ThenBy(x => x.RunId, StringComparer.Ordinal))
+        if (!document.RunRowsOnly)
+        {
+            AppendCombatAttributionScope(builder, "lifetime", document.GenerationId, document.RunTotals.CombatStatistics);
+            foreach (var map in document.RunTotals.Maps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
+                AppendCombatAttributionScope(builder, "starting_map", map.MapId, map.CombatStatistics);
+            foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(x => x.MapId, StringComparer.Ordinal))
+                AppendCombatAttributionScope(builder, "route_map", map.MapId, map.CombatStatistics);
+        }
+        foreach (var run in RunHistory.Ascending(document.Runs))
             AppendCombatAttributionScope(builder, "run", run.RunId, run.CombatStatistics);
         return builder.ToString();
     }
 
     private static void AppendCombatAttributionScope(
-        StringBuilder builder, string scope, string scopeId, CombatStatisticsAggregate statistics)
+        CsvOutput builder, string scope, string scopeId, CombatStatisticsAggregate statistics)
     {
         AppendCombatAttributionRow(builder, scope, scopeId, "total", string.Empty, "Total", statistics.Totals, statistics);
         AppendRows("enemy", statistics.Enemies);
@@ -1316,7 +1427,7 @@ public static class StatisticsExporter
     }
 
     private static void AppendCombatAttributionRow(
-        StringBuilder builder, string scope, string scopeId, string breakdown, string entityId,
+        CsvOutput builder, string scope, string scopeId, string breakdown, string entityId,
         string displayName, CombatMetricTotals totals, CombatStatisticsAggregate statistics)
     {
         var caps = statistics.Capabilities;
@@ -1358,9 +1469,9 @@ public static class StatisticsExporter
             kills.ClassificationComplete && availability.State == AdapterCapabilityState.Supported ? "true" : "false",
             Csv(kills.Provenance)) + ",";
 
-    public static string CreateTerminalLoadoutsCsv(IEnumerable<RunSummary> runs)
+    public static string CreateTerminalLoadoutsCsv(IEnumerable<RunSummary> runs, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink);
         builder.AppendLine("run_id,outcome,terminal_state,terminal_provenance,root_slots_complete,nested_slots_complete,entry_kind,root_slot_id,root_slot_display_name,root_state,root_item_id,root_item_display_name,nested_path,nested_slot_key,nested_slot_display_name,nested_state,nested_item_id,nested_item_display_name");
         foreach (var run in runs)
         {
@@ -1384,19 +1495,21 @@ public static class StatisticsExporter
         return builder.ToString();
     }
 
-    private static string CreateAmmunitionTotalsCsv(StatisticsExportDocument document)
+    private static string CreateAmmunitionTotalsCsv(StatisticsExportDocument document, TextWriter? sink = null)
     {
-        var builder = new StringBuilder();
+        var builder = new CsvOutput(sink, document.RunRowsOnly);
         builder.AppendLine("scope,scope_id,ammunition_id,display_name,firing_actions,firing_actions_state");
-        AppendAmmunitionTotals(builder, "lifetime", document.GenerationId, document.RunTotals.WeaponStatistics);
-        foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+        if (!document.RunRowsOnly)
         {
-            AppendAmmunitionTotals(builder, "starting_map", map.MapId, map.WeaponStatistics);
+            AppendAmmunitionTotals(builder, "lifetime", document.GenerationId, document.RunTotals.WeaponStatistics);
+            foreach (var map in document.RunTotals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+            {
+                AppendAmmunitionTotals(builder, "starting_map", map.MapId, map.WeaponStatistics);
+            }
+            foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
+                AppendAmmunitionTotals(builder, "route_map", map.MapId, map.WeaponStatistics);
         }
-        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal))
-            AppendAmmunitionTotals(builder, "route_map", map.MapId, map.WeaponStatistics);
-
-        foreach (var run in document.Runs.OrderBy(run => run.StartedUtc).ThenBy(run => run.RunId, StringComparer.Ordinal))
+        foreach (var run in RunHistory.Ascending(document.Runs))
         {
             AppendAmmunitionTotals(builder, "run", run.RunId, run.WeaponStatistics);
         }
@@ -1405,7 +1518,7 @@ public static class StatisticsExporter
     }
 
     private static void AppendCombatTotals(
-        StringBuilder builder,
+        CsvOutput builder,
         string scope,
         string scopeId,
         string scopeDisplayName,
@@ -1423,7 +1536,7 @@ public static class StatisticsExporter
     }
 
     private static void AppendWeaponTotals(
-        StringBuilder builder,
+        CsvOutput builder,
         string scope,
         string scopeId,
         WeaponStatisticsAggregate statistics)
@@ -1437,7 +1550,7 @@ public static class StatisticsExporter
     }
 
     private static void AppendAmmunitionTotals(
-        StringBuilder builder,
+        CsvOutput builder,
         string scope,
         string scopeId,
         WeaponStatisticsAggregate statistics)
@@ -1451,7 +1564,7 @@ public static class StatisticsExporter
     }
 
     private static void AppendWeaponMetricTotals(
-        StringBuilder builder,
+        CsvOutput builder,
         WeaponMetricTotals totals,
         WeaponMetricCapabilities capabilities)
     {
@@ -1583,7 +1696,7 @@ public static class StatisticsExporter
             : WeaponStatisticsReducer.RestrictAvailability(recorded, current);
 
     private static void AppendRecordPair(
-        StringBuilder builder,
+        CsvOutput builder,
         string scope,
         string mapId,
         string mapName,
@@ -1595,7 +1708,7 @@ public static class StatisticsExporter
     }
 
     private static void AppendRecord(
-        StringBuilder builder,
+        CsvOutput builder,
         string scope,
         string mapId,
         string mapName,
@@ -1618,7 +1731,7 @@ public static class StatisticsExporter
             .Append(Csv(record.StartedUtc.ToString("O", CultureInfo.InvariantCulture))).AppendLine();
     }
 
-    private static void AppendTotalsHeader(StringBuilder builder, string prefix)
+    private static void AppendTotalsHeader(CsvOutput builder, string prefix)
     {
         builder.Append(prefix).Append(",activation_count,actual_hp_restored,healing_capture_complete,healing_capture_state,healing_evidence_repaired,healing_evidence_state");
         foreach (var unit in AmountUnits)
@@ -1629,7 +1742,7 @@ public static class StatisticsExporter
         builder.AppendLine();
     }
 
-    private static void AppendTotals(StringBuilder builder, AggregateTotals totals, StatisticsExportDocument document)
+    private static void AppendTotals(CsvOutput builder, AggregateTotals totals, StatisticsExportDocument document)
     {
         builder.Append(totals.ActivationCount.ToString(CultureInfo.InvariantCulture))
             .Append(',')
@@ -1790,18 +1903,21 @@ public static class StatisticsExporter
 
     private static IEnumerable<M14AssociationScope> M14Scopes(StatisticsExportDocument document)
     {
-        yield return new M14AssociationScope(
-            "lifetime", document.GenerationId, string.Empty, string.Empty, string.Empty,
-            document.RunTotals.WeaponStatistics, document.RunTotals.EquipmentStatistics);
-        foreach (var map in document.RunTotals.Maps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+        if (!document.RunRowsOnly)
+        {
             yield return new M14AssociationScope(
-                "starting_map", map.MapId, string.Empty, string.Empty, map.MapId,
-                map.WeaponStatistics, map.EquipmentStatistics);
-        foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
-            yield return new M14AssociationScope(
-                "route_map", map.MapId, string.Empty, string.Empty, map.MapId,
-                map.WeaponStatistics, map.EquipmentStatistics);
-        foreach (var run in document.Runs.OrderBy(value => value.StartedUtc).ThenBy(value => value.RunId, StringComparer.Ordinal))
+                "lifetime", document.GenerationId, string.Empty, string.Empty, string.Empty,
+                document.RunTotals.WeaponStatistics, document.RunTotals.EquipmentStatistics);
+            foreach (var map in document.RunTotals.Maps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+                yield return new M14AssociationScope(
+                    "starting_map", map.MapId, string.Empty, string.Empty, map.MapId,
+                    map.WeaponStatistics, map.EquipmentStatistics);
+            foreach (var map in document.RunTotals.RouteMaps.Values.OrderBy(value => value.MapId, StringComparer.Ordinal))
+                yield return new M14AssociationScope(
+                    "route_map", map.MapId, string.Empty, string.Empty, map.MapId,
+                    map.WeaponStatistics, map.EquipmentStatistics);
+        }
+        foreach (var run in RunHistory.Ascending(document.Runs))
         {
             yield return new M14AssociationScope(
                 "run", run.RunId, run.RunId, string.Empty, run.StartingMapId,

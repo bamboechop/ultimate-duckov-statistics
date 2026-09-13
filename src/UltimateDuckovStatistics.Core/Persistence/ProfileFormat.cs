@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.Serialization;
 using UltimateDuckovStatistics.Core.Compatibility;
@@ -6,8 +7,32 @@ using UltimateDuckovStatistics.Core.Statistics;
 
 namespace UltimateDuckovStatistics.Core.Persistence;
 
-public static class ProfileFormat
+public static partial class ProfileFormat
 {
+    internal static void ValidateRecordMembers(object value)
+    {
+        var missing = FindMissingRequiredDataMember(value, "Record");
+        if (missing != null) throw new ArgumentException("Persisted record is incomplete: " + missing);
+    }
+    // Cache only immutable reflection metadata. Every walk still reads and validates
+    // the current member values, including after a previous successful validation.
+    private static readonly ConcurrentDictionary<Type, (PropertyInfo Property, bool EmitDefaultValue)[]> requiredMembers = new();
+
+    private static (PropertyInfo Property, bool EmitDefaultValue)[] GetRequiredMembers(Type type) =>
+        requiredMembers.GetOrAdd(type, candidate => candidate.GetCustomAttribute<DataContractAttribute>() == null
+            ? Array.Empty<(PropertyInfo, bool)>()
+            : candidate.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Select(property => (Property: property, Attribute: property.GetCustomAttribute<DataMemberAttribute>()))
+                .Where(entry => entry.Attribute != null)
+                .Select(entry => (entry.Property, entry.Attribute!.EmitDefaultValue))
+                .ToArray());
+
+    private static bool IsRequiredMemberLeaf(object value)
+    {
+        var type = value.GetType();
+        return type.IsPrimitive || type.IsEnum || value is string or decimal or DateTime or Guid;
+    }
+
     public static string? ValidateRecoveryCandidate(ProfileDocument profile)
     {
         if (profile == null)
@@ -251,8 +276,7 @@ public static class ProfileFormat
             return path;
         }
 
-        var type = value.GetType();
-        if (type.IsPrimitive || type.IsEnum || value is string or decimal or DateTime or Guid)
+        if (IsRequiredMemberLeaf(value))
         {
             return null;
         }
@@ -276,6 +300,7 @@ public static class ProfileFormat
                     return $"{path}[{entry.Key}]";
                 }
 
+                if (IsRequiredMemberLeaf(entry.Value)) continue;
                 var missing = FindMissingRequiredDataMember(entry.Value, $"{path}[{entry.Key}]");
                 if (missing != null)
                 {
@@ -291,6 +316,12 @@ public static class ProfileFormat
             var index = 0;
             foreach (var item in sequence)
             {
+                if (item != null && IsRequiredMemberLeaf(item))
+                {
+                    index++;
+                    continue;
+                }
+
                 var missing = FindMissingRequiredDataMember(item, $"{path}[{index}]");
                 if (missing != null)
                 {
@@ -303,25 +334,19 @@ public static class ProfileFormat
             return null;
         }
 
-        if (type.GetCustomAttribute<DataContractAttribute>() == null)
+        foreach (var member in GetRequiredMembers(value.GetType()))
         {
-            return null;
-        }
-
-        foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
-        {
-            var dataMember = property.GetCustomAttribute<DataMemberAttribute>();
-            if (dataMember == null)
-            {
-                continue;
-            }
-
-            var memberPath = path + "." + property.Name;
+            var property = member.Property;
             var memberValue = property.GetValue(value);
-            if (memberValue == null && !dataMember.EmitDefaultValue)
+            if (memberValue == null && !member.EmitDefaultValue)
             {
                 continue;
             }
+
+            // A present scalar has no children; construct paths only when a member
+            // can be missing or needs a recursive walk.
+            if (memberValue != null && IsRequiredMemberLeaf(memberValue)) continue;
+            var memberPath = path + "." + property.Name;
 
             var missing = FindMissingRequiredDataMember(
                 memberValue,

@@ -30,7 +30,7 @@ public sealed class TerminalCheckpointCompositionTests
             Directory.CreateDirectory(Path.GetDirectoryName(save)!);
             File.WriteAllText(save, "{\"SaveTime\":{\"value\":1}}");
             var now = 0d;
-            using var coordinator = new NativeProfileCoordinator(() => now);
+            using var coordinator = new NativeProfileCoordinator(() => now, repositoryFactory: NativeJsonRepositoryFixture.Create);
             coordinator.Initialize();
             InputManager.InputActived = true;
             GameManager.Paused = false;

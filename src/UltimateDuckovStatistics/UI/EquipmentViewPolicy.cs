@@ -5,6 +5,7 @@ namespace UltimateDuckovStatistics.UI;
 internal sealed class EquipmentSelection
 {
     private static readonly string[] SelectorIds = { "0", "1", "2", "3" };
+    private static readonly string[] HistoryIds = { "history:previous", "history:next" };
     public EquipmentPresentation? Snapshot { get; private set; }
     public EquipmentPanelSection Page { get; private set; }
     public string? InspectedId { get; private set; }
@@ -13,6 +14,8 @@ internal sealed class EquipmentSelection
     private readonly Dictionary<string, string> focus = new(StringComparer.Ordinal);
     public void Refresh(EquipmentPresentation? next)
     {
+        if (next != null && Snapshot?.GenerationId == next.GenerationId && Snapshot.HistoryOffset != next.HistoryOffset)
+            next = next.LoadHistoryPage(Snapshot.HistoryOffset) ?? next;
         if (next == null || Snapshot?.GenerationId != next.GenerationId)
         { Page = EquipmentPanelSection.Loadouts; InspectedId = null; expanded.Clear(); offsets.Clear(); focus.Clear(); }
         Snapshot = next;
@@ -20,11 +23,20 @@ internal sealed class EquipmentSelection
         expanded.IntersectWith(next.ExpansionIds);
         if (InspectedId != null && !next.InspectableSlots.ContainsKey(InspectedId)) InspectedId = null;
         var valid = new HashSet<string>(next.ExpansionIds.Concat(next.Recent.Select(r => "route:" + r.RunId))
-            .Concat(next.InspectableSlots.Keys).Concat(SelectorIds), StringComparer.Ordinal);
+            .Concat(next.InspectableSlots.Keys).Concat(SelectorIds).Concat(HistoryIds), StringComparer.Ordinal);
         foreach (var key in focus.Where(p => !valid.Contains(p.Value)).Select(p => p.Key).ToArray()) focus.Remove(key);
     }
     public bool SelectPage(EquipmentPanelSection page)
     { if (Snapshot == null || !Enum.IsDefined(typeof(EquipmentPanelSection), page)) return false; Page = page; return true; }
+    public bool MoveHistory(string generation, bool forward)
+    {
+        if (Snapshot?.GenerationId != generation) return false;
+        var offset = Snapshot.HistoryOffset + (forward ? 12 : -12);
+        if (offset < 0 || offset >= Snapshot.HistoryTotal) return false;
+        var next = Snapshot.LoadHistoryPage(offset);
+        if (next == null || next.GenerationId != generation) return false;
+        Snapshot = next; InspectedId = null; offsets.Clear(); focus.Clear(); return true;
+    }
     public bool Toggle(string generation, string id)
     {
         if (Snapshot?.GenerationId != generation || !Snapshot.ExpansionIds.Contains(id)) return false;
@@ -171,10 +183,21 @@ internal sealed class EquipmentDocument
         var directTotem = selection?.Page == EquipmentPanelSection.Totems && entry.Id.StartsWith("direct:", StringComparison.Ordinal);
         var durationBelowName = weapon || directTotem;
         var caption = hideCaption ? "" : durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) + " " + entry.Caption : entry.Caption;
-        y += Add(new EquipmentRenderRow { Id = entry.Id, Kind = EquipmentRowKind.Item, Name = entry.Name,
-            Compact = compact, Plain = plain,
-            IconId = entry.ItemId, EvidenceState = evidenceState ?? entry.EvidenceState, Value = value && !durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) : "", Caption = caption,
-            Actionable = selection != null && entry.Expandable, Expandable = selection != null && entry.Expandable, Selected = expanded }, x, y, w);
+        y += Add(new EquipmentRenderRow
+        {
+            Id = entry.Id,
+            Kind = EquipmentRowKind.Item,
+            Name = entry.Name,
+            Compact = compact,
+            Plain = plain,
+            IconId = entry.ItemId,
+            EvidenceState = evidenceState ?? entry.EvidenceState,
+            Value = value && !durationBelowName ? EquipmentLayoutPolicy.Duration(entry.Duration) : "",
+            Caption = caption,
+            Actionable = selection != null && entry.Expandable,
+            Expandable = selection != null && entry.Expandable,
+            Selected = expanded
+        }, x, y, w);
         y += Notice(entry.Notice, x, y, w);
         if (expanded)
         {
@@ -185,13 +208,19 @@ internal sealed class EquipmentDocument
                 if (weapon)
                     foreach (var slot in groups[0].Rows)
                     {
-                        var slotName = slot.Id switch {
+                        var slotName = slot.Id switch
+                        {
                             "duckov:slot:PrimaryWeapon" => text("ui.equipment_primary_weapon_slot"),
                             "duckov:slot:SecondaryWeapon" => text("ui.equipment_secondary_weapon_slot"),
-                            "duckov:slot:MeleeWeapon" => text("ui.equipment_melee_weapon_slot"), _ => slot.Name };
-                        y += Add(new EquipmentRenderRow { Kind = EquipmentRowKind.SlotDuration,
+                            "duckov:slot:MeleeWeapon" => text("ui.equipment_melee_weapon_slot"),
+                            _ => slot.Name
+                        };
+                        y += Add(new EquipmentRenderRow
+                        {
+                            Kind = EquipmentRowKind.SlotDuration,
                             Name = string.Format(System.Globalization.CultureInfo.CurrentCulture, text("ui.equipment_equipped_in_slot"),
-                                EquipmentLayoutPolicy.Duration(slot.Duration), slotName) }, x + 10, y, w - 20);
+                                EquipmentLayoutPolicy.Duration(slot.Duration), slotName)
+                        }, x + 10, y, w - 20);
                     }
                 else if (directTotem)
                     foreach (var slot in groups[0].Rows)
@@ -200,8 +229,11 @@ internal sealed class EquipmentDocument
                         // presence as activity. The ordinary active case follows the compact mock.
                         var qualification = slot.Caption == text("ui.equipment_activation_provenactive")
                             && groups[0].Rows.Count(r => r.Name == slot.Name) == 1 ? "" : " · " + slot.Caption;
-                        y += Add(new EquipmentRenderRow { Kind = EquipmentRowKind.SlotDuration,
-                            Name = slot.Name + ": " + EquipmentLayoutPolicy.Duration(slot.Duration) + qualification }, x + 10, y, w - 20);
+                        y += Add(new EquipmentRenderRow
+                        {
+                            Kind = EquipmentRowKind.SlotDuration,
+                            Name = slot.Name + ": " + EquipmentLayoutPolicy.Duration(slot.Duration) + qualification
+                        }, x + 10, y, w - 20);
                     }
                 else
                 {
@@ -249,8 +281,13 @@ internal sealed class EquipmentDocument
             const float rightMargin = 15;
             var title = new EquipmentRenderRow { Kind = EquipmentRowKind.Heading, Name = entry.Name };
             Add(title, x, y, width - buttonWidth - rightMargin - 10);
-            var button = new EquipmentRenderRow { Id = "route:" + entry.RunId, Kind = EquipmentRowKind.Route,
-                Name = label, Actionable = true };
+            var button = new EquipmentRenderRow
+            {
+                Id = "route:" + entry.RunId,
+                Kind = EquipmentRowKind.Route,
+                Name = label,
+                Actionable = true
+            };
             Add(button, x + width - rightMargin - buttonWidth, y, buttonWidth);
             // Center against the measured map text, allowing either label to wrap.
             var headerHeight = Math.Max(title.NameHeight, button.Height);
@@ -262,9 +299,15 @@ internal sealed class EquipmentDocument
         if (entry.RunId.Length > 0) y += Notice(entry.Caption, x, y, width);
         var size = RunsViewStyle.SlotSize(width);
         for (var i = 0; i < entry.Slots.Count; i++)
-            Add(new EquipmentRenderRow { Id = EquipmentPresentation.InspectionId(entry, entry.Slots[i]), Kind = EquipmentRowKind.Slot,
-                    Slot = entry.Slots[i], IconId = entry.Slots[i].ItemId, Actionable = entry.Slots[i].CanOpenDetails,
-                    Selected = selection.InspectedId == EquipmentPresentation.InspectionId(entry, entry.Slots[i]) },
+            Add(new EquipmentRenderRow
+            {
+                Id = EquipmentPresentation.InspectionId(entry, entry.Slots[i]),
+                Kind = EquipmentRowKind.Slot,
+                Slot = entry.Slots[i],
+                IconId = entry.Slots[i].ItemId,
+                Actionable = entry.Slots[i].CanOpenDetails,
+                Selected = selection.InspectedId == EquipmentPresentation.InspectionId(entry, entry.Slots[i])
+            },
                 x + 10 + i % 5 * (size + 10), y + i / 5 * (size + 10), size);
         y += (entry.Slots.Count + 4) / 5 * (size + 10);
         var inspected = entry.Slots.FirstOrDefault(slot => EquipmentPresentation.InspectionId(entry, slot) == selection.InspectedId);
@@ -275,9 +318,12 @@ internal sealed class EquipmentDocument
             if (!inspected.NestedComplete) y += Notice(text("ui.runs_nested_partial"), x, y, width);
         }
         y += Notice(entry.Notice, x, y, width);
-        y += Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Footer,
+        y += Add(new EquipmentRenderRow
+        {
+            Kind = EquipmentRowKind.Footer,
             Name = entry.Notice == text("ui.unavailable") ? text("ui.unavailable") : EquipmentLayoutPolicy.Duration(entry.Duration) + " " + text("ui.equipment_active_time"),
-            Value = entry.RunId.Length == 0 ? entry.Caption : "" }, x, y, width);
+            Value = entry.RunId.Length == 0 ? entry.Caption : ""
+        }, x, y, width);
         Surfaces.Add(new EquipmentSurface(x, start, width, y - start));
         return y - start + 20;
     }
@@ -301,6 +347,13 @@ internal sealed class EquipmentDocument
                 else
                 {
                     y += Heading(text("ui.equipment_recent"), x, y, w, section: true);
+                    if (p.HistoryTotal > p.Recent.Count)
+                    {
+                        y += Notice(text("ui.page") + " " + (p.HistoryOffset / 12 + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                            + " / " + ((p.HistoryTotal + 11) / 12).ToString(System.Globalization.CultureInfo.InvariantCulture), x, y, w);
+                        if (p.HistoryOffset > 0) y += Add(new EquipmentRenderRow { Id = "history:previous", Kind = EquipmentRowKind.Route, Name = text("ui.previous"), Actionable = true }, x, y, w);
+                        if (p.HistoryOffset + p.Recent.Count < p.HistoryTotal) y += Add(new EquipmentRenderRow { Id = "history:next", Kind = EquipmentRowKind.Route, Name = text("ui.next"), Actionable = true }, x, y, w);
+                    }
                     foreach (var row in p.Recent) y += Loadout(row, x, y, w, selection);
                     if (p.Recent.Count == 0) Empty();
                 }

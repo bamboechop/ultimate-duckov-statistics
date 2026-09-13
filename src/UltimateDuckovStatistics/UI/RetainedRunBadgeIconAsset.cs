@@ -42,12 +42,12 @@ internal sealed class RetainedRunBadgeIconAsset : IDisposable
 
             var pixels = new Color32[alpha.Length];
             for (var topDownY = 0; topDownY < height; topDownY++)
-            for (var x = 0; x < width; x++)
-            {
-                var sourceIndex = topDownY * width + x;
-                var textureIndex = (height - 1 - topDownY) * width + x;
-                pixels[textureIndex] = new Color32(255, 255, 255, alpha[sourceIndex]);
-            }
+                for (var x = 0; x < width; x++)
+                {
+                    var sourceIndex = topDownY * width + x;
+                    var textureIndex = (height - 1 - topDownY) * width + x;
+                    pixels[textureIndex] = new Color32(255, 255, 255, alpha[sourceIndex]);
+                }
 
             texture.SetPixels32(pixels);
             texture.Apply(updateMipmaps: false, makeNoLongerReadable: true);

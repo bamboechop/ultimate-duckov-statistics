@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.IO.Compression;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 using System.Text;
 using ArtifactAudit;
 
@@ -10,6 +11,41 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class ArtifactPathAuditTests
 {
+    [Fact]
+    public void PackageAuditsRequireTheExactPinnedNativeDependency()
+    {
+        var native = Path.Combine(AppContext.BaseDirectory, "sqlite3.dll");
+        Assert.Equal(1, ArtifactPathAudit.Audit([native], []));
+        OrdinaryReleaseAudit.Verify(native);
+        using var directory = new TemporaryDirectory();
+        var changed = Path.Combine(directory.Path, "sqlite3.dll");
+        var bytes = File.ReadAllBytes(native);
+        bytes[^1] ^= 1;
+        File.WriteAllBytes(changed, bytes);
+        Assert.Throws<InvalidDataException>(() => ArtifactPathAudit.Audit([changed], []));
+        Assert.Throws<InvalidDataException>(() => OrdinaryReleaseAudit.Verify(changed));
+        var renamed = Path.Combine(directory.Path, "unknown.dll");
+        File.Copy(native, renamed);
+        Assert.Throws<BadImageFormatException>(() => ArtifactPathAudit.Audit([renamed], []));
+    }
+
+    [Theory]
+    [InlineData("UdsPrototype.SQLiteRaw.Core.dll")]
+    [InlineData("UdsPrototype.SQLiteRaw.Provider.dll")]
+    public void ProviderVersionIsIndependentlyPinnedWhilePackagePathsAndIlAreStillAudited(string name)
+    {
+        var provider = Path.Combine(AppContext.BaseDirectory, name);
+        Assert.Equal(1, ArtifactPathAudit.Audit([provider], [], Core.ProductInfo.Version));
+        OrdinaryReleaseAudit.Verify(provider);
+        using var directory = new TemporaryDirectory();
+        var changed = Path.Combine(directory.Path, name);
+        var bytes = File.ReadAllBytes(provider);
+        bytes[^1] ^= 1;
+        File.WriteAllBytes(changed, bytes);
+        Assert.Throws<InvalidDataException>(() => ArtifactPathAudit.Audit([changed], [], Core.ProductInfo.Version));
+        Assert.Throws<InvalidDataException>(() => OrdinaryReleaseAudit.Verify(changed));
+    }
+
     [Fact]
     public void OrdinaryReleaseIlRejectsTheInstrumentedAdapterComposition()
     {
@@ -27,6 +63,43 @@ public sealed class ArtifactPathAuditTests
         using var directory = new TemporaryDirectory();
         var path = WritePdb(directory.Path, source);
         Assert.Throws<InvalidDataException>(() => ArtifactPathAudit.Audit([path], []));
+    }
+
+    [Fact]
+    public void NumericMetadataIndexesAreNotTextButUncPathsInPeHeapsAndPayloadsStillReject()
+    {
+        using var directory = new TemporaryDirectory();
+        var metadata = new MetadataBuilder();
+        metadata.AddModule(0, metadata.GetOrAddString("NumericIndexes"), metadata.GetOrAddGuid(Guid.NewGuid()), default, default);
+        // Valid local-variable signatures whose blob indexes happen to spell
+        // the same UNC-like bytes observed in an actual diagnostic Core build.
+        metadata.GetOrAddBlob(new byte[0x5c5c - 5]);
+        foreach (var count in new[] { 3, 12, 30, 1 })
+        {
+            var signature = new byte[] { 0x07, (byte)count }.Concat(Enumerable.Repeat((byte)0x08, count)).ToArray();
+            metadata.AddStandaloneSignature(metadata.GetOrAddBlob(signature));
+        }
+        var binary = WritePe(metadata);
+        Assert.Contains("\\\\b\\q\\", Encoding.UTF8.GetString(File.ReadAllBytes(binary)), StringComparison.Ordinal);
+        Assert.Equal(1, ArtifactPathAudit.Audit([binary], []));
+        var withPath = new MetadataBuilder();
+        withPath.AddModule(0, withPath.GetOrAddString("PathPayload"), withPath.GetOrAddGuid(Guid.NewGuid()), default, default);
+        withPath.GetOrAddUserString("\\\\server\\share\\builder\\Mod.cs");
+        Assert.Throws<InvalidDataException>(() => ArtifactPathAudit.Audit([WritePe(withPath)], []));
+        var opaque = Path.Combine(directory.Path, "payload.bin");
+        File.WriteAllText(opaque, "\\\\b\\q\\Mod.cs");
+        Assert.Throws<InvalidDataException>(() => ArtifactPathAudit.Audit([opaque], []));
+        var pdb = WritePdb(directory.Path, "\\\\server\\share\\Mod.cs");
+        Assert.Throws<InvalidDataException>(() => ArtifactPathAudit.Audit([pdb], []));
+
+        string WritePe(MetadataBuilder builder)
+        {
+            var pe = new ManagedPEBuilder(new PEHeaderBuilder(), new MetadataRootBuilder(builder), new BlobBuilder());
+            var bytes = new BlobBuilder(); pe.Serialize(bytes);
+            var path = Path.Combine(directory.Path, "indexes.dll");
+            File.WriteAllBytes(path, bytes.ToArray());
+            return path;
+        }
     }
 
     [Fact]

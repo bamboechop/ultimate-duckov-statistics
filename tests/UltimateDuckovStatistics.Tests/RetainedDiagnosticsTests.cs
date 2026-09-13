@@ -532,7 +532,7 @@ public sealed class RetainedDiagnosticsTests
         try
         {
             var seconds = 0d;
-            using var coordinator = new NativeProfileCoordinator(() => seconds);
+            using var coordinator = new NativeProfileCoordinator(() => seconds, repositoryFactory: NativeJsonRepositoryFixture.Create);
             coordinator.Initialize();
             void ChangeWorldTime()
             {

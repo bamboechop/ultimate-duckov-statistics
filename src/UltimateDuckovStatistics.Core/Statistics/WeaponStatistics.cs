@@ -157,6 +157,7 @@ public static class WeaponStatisticsReducer
         Add(target.Totals, source.Totals);
         foreach (var sourceWeapon in source.Weapons.Values)
         {
+            EntryChanges.Mark(target.Weapons, sourceWeapon.WeaponId);
             if (!target.Weapons.TryGetValue(sourceWeapon.WeaponId, out var targetWeapon))
             {
                 targetWeapon = new WeaponAggregate
@@ -173,6 +174,7 @@ public static class WeaponStatisticsReducer
 
         foreach (var sourceAmmunition in source.AmmunitionTypes.Values)
         {
+            EntryChanges.Mark(target.AmmunitionTypes, sourceAmmunition.AmmunitionId);
             if (!target.AmmunitionTypes.TryGetValue(sourceAmmunition.AmmunitionId, out var targetAmmunition))
             {
                 targetAmmunition = new AmmunitionAggregate
@@ -190,6 +192,7 @@ public static class WeaponStatisticsReducer
         foreach (var sourcePair in source.WeaponAmmunitionPairs.Values)
         {
             var key = PairKey(sourcePair.WeaponId, sourcePair.AmmunitionId);
+            EntryChanges.Mark(target.WeaponAmmunitionPairs, key);
             if (!target.WeaponAmmunitionPairs.TryGetValue(key, out var targetPair))
             {
                 targetPair = new WeaponAmmunitionPairAggregate
@@ -521,6 +524,7 @@ public static class WeaponStatisticsReducer
 
     private static WeaponAggregate GetOrCreateWeapon(WeaponStatisticsAggregate target, ShotRecorded shot)
     {
+        EntryChanges.Mark(target.Weapons, shot.WeaponId);
         if (!target.Weapons.TryGetValue(shot.WeaponId, out var weapon))
         {
             weapon = new WeaponAggregate
@@ -537,6 +541,7 @@ public static class WeaponStatisticsReducer
 
     private static AmmunitionAggregate GetOrCreateAmmunition(WeaponStatisticsAggregate target, ShotRecorded shot)
     {
+        EntryChanges.Mark(target.AmmunitionTypes, shot.AmmunitionId);
         if (!target.AmmunitionTypes.TryGetValue(shot.AmmunitionId, out var ammunition))
         {
             ammunition = new AmmunitionAggregate
@@ -585,6 +590,7 @@ public static class WeaponStatisticsReducer
         if (weaponKnown && ammunitionKnown && pairSupported)
         {
             var key = PairKey(shot.WeaponId, shot.AmmunitionId);
+            EntryChanges.Mark(target.WeaponAmmunitionPairs, key);
             if (!target.WeaponAmmunitionPairs.TryGetValue(key, out var pair))
             {
                 pair = new WeaponAmmunitionPairAggregate
@@ -602,6 +608,8 @@ public static class WeaponStatisticsReducer
             return;
         }
         target.UncorrelatedFiringActions = CheckedAdd(target.UncorrelatedFiringActions, actions);
+        if (weaponKnown) EntryChanges.Mark(target.UncorrelatedWeaponFiringActions, shot.WeaponId);
+        if (ammunitionKnown) EntryChanges.Mark(target.UncorrelatedAmmunitionFiringActions, shot.AmmunitionId);
         if (weaponKnown)
             target.UncorrelatedWeaponFiringActions[shot.WeaponId] = CheckedAdd(
                 target.UncorrelatedWeaponFiringActions.GetValueOrDefault(shot.WeaponId), actions);
@@ -628,7 +636,10 @@ public static class WeaponStatisticsReducer
     private static void MergeCheckedCounts(Dictionary<string, long> target, Dictionary<string, long> source)
     {
         foreach (var entry in source)
+        {
+            EntryChanges.Mark(target, entry.Key);
             target[entry.Key] = CheckedAdd(target.GetValueOrDefault(entry.Key), entry.Value);
+        }
     }
 
     private static void Add(WeaponMetricTotals target, ShotRecorded shot)
@@ -850,6 +861,20 @@ public static class WeaponStatisticsReducer
         if (statistics.Capabilities.WeaponAmmunitionPairing.State == AdapterCapabilityState.Supported
             && CheckedAdd(pairTotal, statistics.UncorrelatedFiringActions) != statistics.Totals.FiringActions)
             throw new ArgumentException("Firing actions do not reconcile with correlated and explicitly uncorrelated actions.");
+    }
+
+    internal static void ValidateCheckpointHeader(WeaponStatisticsAggregate statistics)
+    {
+        if (statistics?.Totals == null || statistics.Capabilities == null || statistics.UncorrelatedFiringActions < 0)
+            throw new ArgumentException("Weapon checkpoint header is incomplete.");
+        ValidateTotals(statistics.Totals); ValidateCapabilities(statistics.Capabilities);
+    }
+
+    internal static void ValidateCheckpointPairing(long total, long paired, long uncorrelated, AdapterCapabilityState pairing)
+    {
+        var combined = CheckedAdd(paired, uncorrelated);
+        if (combined > total || pairing == AdapterCapabilityState.Supported && combined != total)
+            throw new ArgumentException("Weapon checkpoint pairing does not reconcile with its independent count.");
     }
 
     private static long CheckedSum(IEnumerable<long> values)

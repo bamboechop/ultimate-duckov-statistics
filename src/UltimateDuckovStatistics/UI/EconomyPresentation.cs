@@ -101,10 +101,8 @@ internal static class EconomyPresentationFactory
     public static EconomyPresentation? Create(StatisticsPanelProjection p, string generation, Func<string, string>? text = null)
     {
         if (p == null || string.IsNullOrWhiteSpace(generation) || p.EconomyBinding?.Matches(p, generation) != true
-            || p.Runs.Runs.Any(r => r.SaveGenerationId != generation || string.IsNullOrWhiteSpace(r.RunId))
-            || p.Runs.Runs.Select(r => r.RunId).Distinct(StringComparer.Ordinal).Count() != p.Runs.Runs.Count) return null;
-        var runs = new HashSet<RunSummary>(p.Runs.Runs);
-        if (p.RecentEconomyRuns.Any(r => !runs.Contains(r))) return null;
+            || !RunHistory.Matches(p.Profile.Statistics.Runs, p.Runs.Runs, generation)) return null;
+        if (p.RecentEconomyRuns.Any(r => !p.Profile.Statistics.Runs.Contains(r))) return null;
         var t = text ?? UiText.Get;
         var holdings = p.Holdings;
         // The reducer owns comparability and checked addition. Do not recalculate wealth from flows.
@@ -115,7 +113,7 @@ internal static class EconomyPresentationFactory
         // Reconfirm independent current components even if a consumer replaced a capability after publication.
         if (values[1].State != EconomyHoldingObservationState.Current || values[2].State != EconomyHoldingObservationState.Current)
             values[0] = new EconomyHolding(t("ui.liquid_wealth"), null, EconomyHoldingObservationState.Unavailable, t("ui.economy_liquid_unavailable"));
-        var order = p.Runs.Runs.OrderByDescending(r => r.StartedUtc).ThenBy(r => r.RunId, StringComparer.Ordinal)
+        var order = RunHistory.Overview(p.Profile.Statistics.Runs).OrderByDescending(r => r.StartedUtc).ThenBy(r => r.RunId, StringComparer.Ordinal)
             .Select((r, index) => (r.RunId, Number: p.Runs.Runs.Count - index)).ToDictionary(r => r.RunId, r => r.Number, StringComparer.Ordinal);
         var recent = p.RecentEconomyRuns.OrderByDescending(r => r.EndedUtc).ThenBy(r => r.RunId, StringComparer.Ordinal).Select(r =>
         {

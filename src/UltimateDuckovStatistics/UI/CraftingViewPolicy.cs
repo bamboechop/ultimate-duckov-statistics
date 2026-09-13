@@ -53,24 +53,39 @@ internal static class CraftingDocument
         string Phrase(string key, long? count) => count.HasValue ? string.Format(CultureInfo.CurrentCulture, t(key), Count(count)) : t("ui.unavailable");
         void Notice(string value)
         { if (value.Length > 0) y += document.Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Notice, Name = value }, x, y, w); }
-        y += document.Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Heading, SectionHeading = true,
-            Name = t(resources ? "ui.crafting_resources" : "ui.crafting_outputs") }, x, y, w);
+        y += document.Add(new EquipmentRenderRow
+        {
+            Kind = EquipmentRowKind.Heading,
+            SectionHeading = true,
+            Name = t(resources ? "ui.crafting_resources" : "ui.crafting_outputs")
+        }, x, y, w);
         Notice(resources ? p.ResourceNotice : p.OutputNotice);
         var entries = resources ? p.Resources : p.Outputs;
         if (entries.Count == 0) Notice(resources ? p.ResourceEmpty : p.OutputEmpty);
         foreach (var entry in entries)
         {
             var start = y; var expanded = selection.Expanded(entry.Id);
-            var header = new EquipmentRenderRow { Id = entry.Id, Kind = EquipmentRowKind.Item,
-                Name = entry.Name, Value = resources ? Count(entry.Count) : Phrase("ui.crafting_times", entry.Count),
-                IconId = CraftingIconPolicy.ResolveId(entry.ItemId), Actionable = true, Expandable = true, Selected = expanded };
+            var header = new EquipmentRenderRow
+            {
+                Id = entry.Id,
+                Kind = EquipmentRowKind.Item,
+                Name = entry.Name,
+                Value = resources ? Count(entry.Count) : Phrase("ui.crafting_times", entry.Count),
+                IconId = CraftingIconPolicy.ResolveId(entry.ItemId),
+                Actionable = true,
+                Expandable = true,
+                Selected = expanded
+            };
             // The 10px separation belongs after the complete card, never between its header and details.
             document.Add(header, x, y, w); y += header.Height;
             if (expanded)
             {
-                y += document.Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Item,
+                y += document.Add(new EquipmentRenderRow
+                {
+                    Kind = EquipmentRowKind.Item,
                     Name = t(resources ? "ui.crafting_used_for" : "ui.crafting_resources_used"),
-                    Value = resources ? "" : Phrase("ui.crafting_produced", entry.ProducedQuantity) }, x, y, w);
+                    Value = resources ? "" : Phrase("ui.crafting_produced", entry.ProducedQuantity)
+                }, x, y, w);
                 foreach (var detail in entry.Details)
                 {
                     var name = resources && detail.ProducedQuantity.HasValue
@@ -78,9 +93,14 @@ internal static class CraftingDocument
                     var value = resources && detail.ConsumedQuantity.HasValue
                         ? string.Format(CultureInfo.CurrentCulture, t("ui.crafting_using"), Count(detail.ConsumedQuantity), entry.Name)
                         : Phrase("ui.crafting_used", detail.ConsumedQuantity);
-                    y += document.Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Item, Name = name, Value = value,
+                    y += document.Add(new EquipmentRenderRow
+                    {
+                        Kind = EquipmentRowKind.Item,
+                        Name = name,
+                        Value = value,
                         Caption = resources && !detail.ProducedQuantity.HasValue ? t("ui.crafting_produced_unavailable") : "",
-                        IconId = CraftingIconPolicy.ResolveId(detail.ItemId) }, x + 10, y, w - 20);
+                        IconId = CraftingIconPolicy.ResolveId(detail.ItemId)
+                    }, x + 10, y, w - 20);
                 }
                 if (entry.DetailNotice.Length > 0)
                     y += document.Add(new EquipmentRenderRow { Kind = EquipmentRowKind.Notice, Name = entry.DetailNotice }, x, y, w);

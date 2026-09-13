@@ -36,6 +36,7 @@ public sealed partial class ProfileRepository
             };
             var updatedUtc = EnsureUtc(utcNow());
             profile.Statistics.BaseMovement = next;
+            changes?.BaseMovement();
             profile.Revision++;
             profile.UpdatedUtc = updatedUtc;
         }

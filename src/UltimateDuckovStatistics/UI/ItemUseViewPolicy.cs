@@ -199,8 +199,14 @@ internal sealed class ItemUseDocument
             var label = RunsViewStyle.Uppercase(group.HasValue ? ItemUsePresentationFactory.GroupName(group.Value, text) : text("ui.item_use_all"));
             var fw = Math.Min(inner, measureWidth(label, 20) + 24);
             if (fx > 30 && fx + fw > width - 30) { y += filterHeight + 10; fx = 30; filterHeight = 0; }
-            var row = new ItemUseRenderRow { Id = "filter:" + (group.HasValue ? ((int)group.Value).ToString(CultureInfo.InvariantCulture) : "all"),
-                Kind = ItemUseRowKind.Filter, Name = label, Actionable = true, Selected = selection.Filter == group };
+            var row = new ItemUseRenderRow
+            {
+                Id = "filter:" + (group.HasValue ? ((int)group.Value).ToString(CultureInfo.InvariantCulture) : "all"),
+                Kind = ItemUseRowKind.Filter,
+                Name = label,
+                Actionable = true,
+                Selected = selection.Filter == group
+            };
             Add(row, fx, y, fw); filterHeight = Math.Max(filterHeight, row.Height); fx += fw + 10;
         }
         y += filterHeight + 20;
@@ -209,8 +215,17 @@ internal sealed class ItemUseDocument
         foreach (var item in items)
         {
             var cardTop = y; var id = "item:" + item.ItemId; var expanded = selection.Expanded(id);
-            y += Add(new ItemUseRenderRow { Id = id, Kind = ItemUseRowKind.Item, Name = item.Name, IconId = item.ItemId,
-                Value = Uses(item.Uses, item.Count), Expandable = true, Actionable = true, Selected = expanded }, 30, y, inner) + 10;
+            y += Add(new ItemUseRenderRow
+            {
+                Id = id,
+                Kind = ItemUseRowKind.Item,
+                Name = item.Name,
+                IconId = item.ItemId,
+                Value = Uses(item.Uses, item.Count),
+                Expandable = true,
+                Actionable = true,
+                Selected = expanded
+            }, 30, y, inner) + 10;
             if (expanded)
             {
                 y += Statistics(new[] { new KeyValuePair<string, string>(text("ui.item_use_amount"), item.Amount.Text),
@@ -238,8 +253,17 @@ internal sealed class ItemUseDocument
             var routeLabel = text(RetainedOverviewLatestRunViewRunPolicy.TextKey);
             var routeWidth = Math.Min(inner * .27f, measureWidth(routeLabel, RetainedOverviewLatestRunViewRunPolicy.ReferenceFontSize)
                 + 2 * RetainedOverviewLatestRunViewRunPolicy.HorizontalLabelPaddingPixels);
-            var header = new ItemUseRenderRow { Id = id, Kind = ItemUseRowKind.Run, Name = run.Title, Caption = run.Caption,
-                Expandable = true, Actionable = true, Selected = expanded, Outcome = run.Outcome };
+            var header = new ItemUseRenderRow
+            {
+                Id = id,
+                Kind = ItemUseRowKind.Run,
+                Name = run.Title,
+                Caption = run.Caption,
+                Expandable = true,
+                Actionable = true,
+                Selected = expanded,
+                Outcome = run.Outcome
+            };
             Add(header, 30, y, inner);
             var route = new ItemUseRenderRow { Id = "route:" + run.RunId, Kind = ItemUseRowKind.Route, Name = routeLabel, Actionable = true };
             var headerBand = Math.Max(header.BadgeHeight, header.NameHeight);
@@ -252,9 +276,15 @@ internal sealed class ItemUseDocument
             {
                 if (run.Items.Count == 0) y += Notice(run.EmptyText, 50, y, inner - 40);
                 foreach (var item in run.Items)
-                    y += Add(new ItemUseRenderRow { Kind = ItemUseRowKind.Item, Name = item.Name, IconId = item.ItemId, Value = Uses(item.Uses, item.Count),
+                    y += Add(new ItemUseRenderRow
+                    {
+                        Kind = ItemUseRowKind.Item,
+                        Name = item.Name,
+                        IconId = item.ItemId,
+                        Value = Uses(item.Uses, item.Count),
                         Caption = item.Health.Evidence == ItemUseEvidence.Supported && item.Health.Text == "0" ? ""
-                            : ItemUsePresentationFactory.Format(text("ui.item_use_hp_value"), item.Health.Text) }, 50, y, inner - 40) + 10;
+                            : ItemUsePresentationFactory.Format(text("ui.item_use_hp_value"), item.Health.Text)
+                    }, 50, y, inner - 40) + 10;
                 y += Add(route, width - 50 - routeWidth, y, routeWidth) + 20;
                 Surfaces.Add(new ItemUseSurface(30, cardTop, inner, y - cardTop, 10)); y += 10;
             }

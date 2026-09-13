@@ -34,7 +34,7 @@ public sealed class ProfileStatistics
     public List<string> RecentEventIds { get; set; } = new();
 
     [DataMember(Order = 9)]
-    public List<RunSummary> Runs { get; set; } = new();
+    public IList<RunSummary> Runs { get; set; } = new List<RunSummary>();
 
     [DataMember(Order = 10)]
     public RunAggregateTotals RunTotals { get; set; } = new();
@@ -62,6 +62,14 @@ public sealed class ProfileStatistics
     {
         HealingCaptureComplete = false;
         Holdings = null!;
+    }
+
+    [OnDeserialized]
+    private void OnDeserialized(StreamingContext _)
+    {
+        // DCS materializes an interface collection as an array. The public JSON
+        // contract stays an array, while the live reducer retains append ownership.
+        if (Runs?.IsReadOnly == true) Runs = new List<RunSummary>(Runs);
     }
 }
 

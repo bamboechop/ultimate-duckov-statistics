@@ -11,7 +11,7 @@ public sealed class V1ProfileFormatTests
     [Fact]
     public void NativeCompositionUsesSeparateV1Directory()
     {
-        var coordinator = new NativeProfileCoordinator();
+        var coordinator = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         Assert.Equal(Path.Combine(UnityEngine.Application.persistentDataPath, ProductInfo.ModId, "v1"), coordinator.DataRoot);
     }
 

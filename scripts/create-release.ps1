@@ -12,6 +12,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'package-inventory.ps1')
 $declaredVersion = ((Get-Content -LiteralPath (Join-Path $repoRoot 'mod\info.ini') | Where-Object { $_ -match '^\s*version\s*=' }) -split '=', 2)[1].Trim()
 if ($Version -ne $declaredVersion) { throw 'Requested release version differs from the source manifest.' }
 & (Join-Path $PSScriptRoot 'build.ps1') -DuckovPath $DuckovPath
@@ -37,14 +38,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
 try {
     $entries = @($archive.Entries | Where-Object { -not [string]::IsNullOrEmpty($_.Name) })
-    $expected = @(
-        'UltimateDuckovStatistics/info.ini',
-        'UltimateDuckovStatistics/INSTALL.md',
-        'UltimateDuckovStatistics/LICENSE',
-        'UltimateDuckovStatistics/preview.png',
-        'UltimateDuckovStatistics/UltimateDuckovStatistics.Core.dll',
-        'UltimateDuckovStatistics/UltimateDuckovStatistics.dll'
-    )
+    $expected = @(Get-UdsPackageInputs -RepositoryRoot $repoRoot -BuildRoot $packageRoot | ForEach-Object { 'UltimateDuckovStatistics/' + $_.Destination })
     $actual = @($entries | ForEach-Object { $_.FullName.Replace('\', '/') } | Sort-Object)
     $expectedSorted = @($expected | Sort-Object)
     if (Compare-Object -ReferenceObject $expectedSorted -DifferenceObject $actual) {

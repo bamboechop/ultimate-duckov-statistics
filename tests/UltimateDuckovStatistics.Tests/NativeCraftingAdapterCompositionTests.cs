@@ -160,7 +160,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         AssertCraftingHistoryAndCapabilitiesUntouched(result.Coordinator);
         result.StopRuntime();
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
         Assert.Equal(generationId, reopened.CurrentGenerationId);
         var diagnostics = new List<string>();
@@ -208,7 +208,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         AssertCraftingHistoryAndCapabilitiesUntouched(result.Coordinator);
         result.StopRuntime();
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
         Assert.Equal(generationId, reopened.CurrentGenerationId);
         var diagnostics = new List<string>();
@@ -445,7 +445,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(0, ReadResourceActions(profilePath));
         Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
 
         Assert.Equal(generationId, reopened.CurrentGenerationId);
@@ -496,7 +496,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(6, ReadResourceQuantity(profilePath));
         Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
 
         Assert.Equal(generationId, reopened.CurrentGenerationId);
@@ -542,7 +542,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(150, ReadLifetimeCurrency(profilePath));
         Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
 
         Assert.Equal(generationId, reopened.CurrentGenerationId);
@@ -597,7 +597,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(300, ReadLifetimeCurrency(profilePath));
         Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
 
         Assert.Equal(generationId, reopened.CurrentGenerationId);
@@ -648,7 +648,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(150, ReadLifetimeCurrency(profilePath));
         Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
 
         Assert.Equal(generationId, reopened.CurrentGenerationId);
@@ -699,7 +699,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(1, ReadRecipeCurrency(profilePath));
         Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
 
         Assert.Equal(generationId, reopened.CurrentGenerationId);
@@ -749,7 +749,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(0, ReadLifetimeCurrency(profilePath));
         Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
 
         Assert.Equal(generationId, reopened.CurrentGenerationId);
@@ -797,7 +797,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(150, ReadLifetimeCurrency(profilePath));
         Assert.Equal(backupBeforeCorruption, File.ReadAllText(backupPath));
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
 
         Assert.Equal(generationId, reopened.CurrentGenerationId);
@@ -902,7 +902,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
 
         var profilePath = CurrentProfilePath(seeded);
         Assert.Equal(long.MaxValue, ReadCompletionActions(profilePath));
-        using (var coordinator = new NativeProfileCoordinator())
+        using (var coordinator = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create))
         {
             coordinator.Initialize();
             Assert.Equal(generationId, coordinator.CurrentGenerationId);
@@ -963,7 +963,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
                 detail.Contains("failed", StringComparison.OrdinalIgnoreCase));
         }
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
 
         Assert.Equal(generationId, reopened.CurrentGenerationId);
@@ -1010,7 +1010,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         CraftingStatisticsReducer.Validate(seeded.Coordinator.Current.Statistics.Crafting);
         seeded.StopRuntime();
 
-        using (var coordinator = new NativeProfileCoordinator())
+        using (var coordinator = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create))
         {
             coordinator.Initialize();
             Assert.Equal(generationId, coordinator.CurrentGenerationId);
@@ -1065,7 +1065,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
                 detail.Contains("failed", StringComparison.OrdinalIgnoreCase));
         }
 
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
 
         Assert.Equal(generationId, reopened.CurrentGenerationId);
@@ -1109,7 +1109,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Application.persistentDataPath = directory.Path;
         WriteNativeSave(directory.Path);
         Saves.SavesSystem.CurrentSlot = 1;
-        var coordinator = new NativeProfileCoordinator();
+        var coordinator = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         coordinator.Initialize();
         var diagnostics = new List<string>();
         var adapter = new NativeCraftingAdapter(
@@ -1132,7 +1132,7 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Application.persistentDataPath = directory.Path;
         WriteNativeSave(directory.Path);
         Saves.SavesSystem.CurrentSlot = 1;
-        var coordinator = new NativeProfileCoordinator();
+        var coordinator = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         coordinator.Initialize();
         var diagnostics = new List<string>();
         var adapter = new NativeCraftingAdapter(

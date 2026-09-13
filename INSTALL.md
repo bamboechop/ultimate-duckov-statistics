@@ -1,6 +1,6 @@
 # Install and use Ultimate Duckov Statistics
 
-This guide accompanies **Ultimate Duckov Statistics 1.0.0**, [published on GitHub](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) and being prepared for its first Steam Workshop release. English and German are included. The first Workshop listing and subscription-install verification are pending. The supported upgrade baseline begins when 1.0.0 is explicitly distributed through the verified Workshop channel. Earlier `0.x` builds and v1 release candidates were voluntary testing artifacts.
+This guide accompanies the current **Ultimate Duckov Statistics 1.0.0** source build, including unreleased SQLite persistence improvements. The [published GitHub 1.0.0 archive](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) retains its original JSON-only runtime; the current build is being prepared for the first Steam Workshop release. English and German are included. The first Workshop listing and subscription-install verification are pending. The supported upgrade baseline begins when 1.0.0 is explicitly distributed through the verified Workshop channel. Earlier `0.x` builds and v1 release candidates were voluntary testing artifacts.
 
 ## Verified native baseline
 
@@ -8,7 +8,7 @@ This guide accompanies **Ultimate Duckov Statistics 1.0.0**, [published on GitHu
 - Windows, single player.
 - [HarmonyLib Workshop item 3589088839](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839), verified at Harmony 2.4.1.0.
 
-Game and Harmony assemblies are supplied separately. Current UDS packages contain exactly six files: `info.ini`, `preview.png`, two UDS DLLs, this guide, and `LICENSE`. The published GitHub v1.0.0 ZIP predates the Workshop preview and retains its original five-file inventory; both contain the same runtime DLLs.
+Game and Harmony assemblies are supplied separately. The package contains 13 files: the mod metadata and preview, three UDS assemblies, two isolated SQLitePCLRaw assemblies, the pinned SQLite native library, its provider license and notice, the dependency inventory, this guide, and `LICENSE`. Newtonsoft.Json is supplied by Duckov; it is not bundled. See `SQLITE_DEPENDENCIES.md` for exact dependency identities and licenses.
 
 ## Local installation and Workshop transition
 
@@ -40,7 +40,13 @@ The verified baseline does not prove rejected trigger attempts, ammunition units
 
 UDS has no telemetry or network reporting and never writes Duckov saves. It stores local per-save profiles, bounded diagnostics, checkpoints, recovery files and exports. It reads save fingerprints and native SaveTime evidence to prevent accidental mixing of unrelated generations. A normal native pre-save observation can preserve continuity across an interrupted save; playing a save while UDS is inactive may leave continuity unprovable, in which case the prior statistics generation is archived.
 
+UDS stores current statistics in `profile.sqlite` and an independent `profile.sqlite.recovery` copy. Both use durable SQLite transactions; a save remains pending until both copies acknowledge the changed records. Completed-run details remain JSON records inside SQLite. Routine changes update affected records without rewriting retained history; this representation is not a storage-size reduction. Keep each database together with any `-wal`, `-shm`, ownership and read-failure evidence files when backing up or investigating a problem. Close Duckov before manually copying its data directory.
+
+When no SQLite store exists, a valid current-format JSON profile is imported through a fully validated staging database. The original JSON and its recovery candidates remain intact. Once SQLite exists it is authoritative; failed SQLite recovery does not silently revert to the old JSON. Do not downgrade to a JSON-only build against statistics changed in SQLite: older JSON-only builds cannot read those new changes. Retain the whole pre-test data-directory backup for an intentional rollback. SQLite's internal record schema is independent of the unchanged public JSON export format.
+
 Diagnostics exports an immutable snapshot of the captured generation as JSON and CSV under the v1 data root. Paths remain available when clipboard copying fails. Treat exports as local gameplay data and inspect them before sharing.
+
+Exports copy a consistent database revision and format files on a worker. A reset or slot change cannot mix generations into an export that has completed its snapshot copy. Very large histories still take time and temporary disk space to export. Substantial WAL maintenance uses a separate worker when confirmed loading/sleep hooks provide a scheduling hint, with a bounded-frequency fallback during long sessions; a hook is not treated as proof that rendering is already hidden.
 
 Reset requires confirmation, defaults to Cancel, archives the current UDS generation read-only and starts an empty one. It does not reset the game save. A blocked durability boundary keeps the request pending and prevents duplicate submissions; a rolled-back failure retains the original generation. Do not remove backup or temporary files to bypass validation.
 

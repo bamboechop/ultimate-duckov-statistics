@@ -300,7 +300,9 @@ public sealed class ActiveRunCheckpoint
 
     public RunSummary ToRecoverySummary() => ToSummary(PendingTerminalOutcome ?? RunOutcome.Interrupted);
 
-    private RunSummary ToSummary(RunOutcome outcome)
+    internal RunSummary ToCheckpointStructureSummary() => ToSummary(PendingTerminalOutcome ?? RunOutcome.Interrupted, structureOnly: true);
+
+    private RunSummary ToSummary(RunOutcome outcome, bool structureOnly = false)
     {
         var endedUtc = EnsureUtc(LastObservedUtc == default ? StartedUtc : LastObservedUtc);
         var startedUtc = EnsureUtc(StartedUtc);
@@ -309,7 +311,8 @@ public sealed class ActiveRunCheckpoint
             endedUtc = startedUtc;
         }
         var recoveredSegments = Segments
-            .Select(segment => RouteStatisticsReducer.CloneSegmentForRecovery(segment, endedUtc, outcome))
+            .Select(segment => RouteStatisticsReducer.CloneSegmentForRecovery(
+                structureOnly ? RouteStatisticsReducer.CheckpointStructureHeader(segment) : segment, endedUtc, outcome))
             .ToList();
         if (TransitionPending && outcome == RunOutcome.Interrupted && recoveredSegments.Count > 0)
         {
@@ -344,10 +347,10 @@ public sealed class ActiveRunCheckpoint
             MovementAdapterVersion = MovementAdapterVersion,
             MapCapability = MapCapability,
             MapAdapterVersion = MapAdapterVersion,
-            WeaponStatistics = WeaponStatisticsReducer.Clone(WeaponStatistics),
-            CombatStatistics = CombatStatisticsReducer.Clone(CombatStatistics),
-            EquipmentStatistics = EquipmentStatisticsReducer.Clone(EquipmentStatistics),
-            ContainerStatistics = ContainerStatisticsReducer.Clone(ContainerState.Statistics),
+            WeaponStatistics = structureOnly ? new WeaponStatisticsAggregate() : WeaponStatisticsReducer.Clone(WeaponStatistics),
+            CombatStatistics = structureOnly ? new CombatStatisticsAggregate() : CombatStatisticsReducer.Clone(CombatStatistics),
+            EquipmentStatistics = structureOnly ? new EquipmentStatisticsAggregate() : EquipmentStatisticsReducer.Clone(EquipmentStatistics),
+            ContainerStatistics = structureOnly ? new ContainerStatisticsAggregate() : ContainerStatisticsReducer.Clone(ContainerState.Statistics),
             StartingMapId = StartingMapId,
             StartingMapDisplayName = StartingMapDisplayName,
             StartingMapKnown = StartingMapKnown,
@@ -363,7 +366,7 @@ public sealed class ActiveRunCheckpoint
             RouteWasRepairedFromInvalidState = RouteWasRepairedFromInvalidState,
             SegmentEventAssociations = SegmentEventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
             HealingCaptureComplete = HealingCaptureComplete,
-            ItemStatistics = ItemStatisticsAggregateReducer.Clone(ItemStatistics),
+            ItemStatistics = structureOnly ? new ItemStatisticsAggregate() : ItemStatisticsAggregateReducer.Clone(ItemStatistics),
             Economy = EconomyStatisticsReducer.Clone(Economy),
             HistoricalEventAttributionIncomplete = HistoricalEventAttributionIncomplete,
             HistoricalEventAttributionProvenance = HistoricalEventAttributionProvenance

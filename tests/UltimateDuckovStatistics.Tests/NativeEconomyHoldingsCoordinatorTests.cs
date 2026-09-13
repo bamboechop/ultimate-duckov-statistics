@@ -50,7 +50,7 @@ public sealed class NativeEconomyHoldingsCoordinatorTests : IDisposable
             EconomyManager.RaiseLoaded();
         };
 
-        using var coordinator = new NativeProfileCoordinator();
+        using var coordinator = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         coordinator.Initialize();
         using var adapter = new NativeEconomyHoldingsAdapter(
             () => coordinator.CurrentGenerationId,
@@ -133,7 +133,7 @@ public sealed class NativeEconomyHoldingsCoordinatorTests : IDisposable
         EconomyManager.Instance = economyManager;
         EconomyManager.Money = 333;
 
-        using var coordinator = new NativeProfileCoordinator();
+        using var coordinator = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         coordinator.Initialize();
         using var adapter = new NativeEconomyHoldingsAdapter(
             () => coordinator.CurrentGenerationId,

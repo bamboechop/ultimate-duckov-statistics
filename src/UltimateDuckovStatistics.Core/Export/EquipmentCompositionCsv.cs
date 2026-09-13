@@ -7,13 +7,13 @@ namespace UltimateDuckovStatistics.Core.Export;
 
 public static class EquipmentCompositionCsv
 {
-    public static string Loadouts(StatisticsExportDocument document) => Write(document, "loadout");
-    public static string ActiveSets(StatisticsExportDocument document) => Write(document, "active_set");
-    public static string TotemStates(StatisticsExportDocument document) => Write(document, "totem_state");
+    public static string Loadouts(StatisticsExportDocument document, TextWriter? output = null) => Write(document, "loadout", output);
+    public static string ActiveSets(StatisticsExportDocument document, TextWriter? output = null) => Write(document, "active_set", output);
+    public static string TotemStates(StatisticsExportDocument document, TextWriter? output = null) => Write(document, "totem_state", output);
 
-    private static string Write(StatisticsExportDocument document, string family)
+    private static string Write(StatisticsExportDocument document, string family, TextWriter? writer)
     {
-        var output = new StringBuilder("generation_id,scope,scope_id,run_id,kind,definition_id,evidence,slot_id,path,slot_key,slot_name,state,item_id,item_name,item_kind,roots_complete,nested_complete,carry_kind,container_id,activation,copy_ordinal,duration_seconds,run_occurrences\n");
+        var output = new CsvOutput(writer, document.RunRowsOnly).Append("generation_id,scope,scope_id,run_id,kind,definition_id,evidence,slot_id,path,slot_key,slot_name,state,item_id,item_name,item_kind,roots_complete,nested_complete,carry_kind,container_id,activation,copy_ordinal,duration_seconds,run_occurrences\n");
         foreach (var scope in Scopes(document))
         {
             var evidence = scope.Value.Composition;
@@ -84,10 +84,13 @@ public static class EquipmentCompositionCsv
     }
     private static IEnumerable<(string Kind, string Id, string Run, EquipmentStatisticsAggregate Value)> Scopes(StatisticsExportDocument d)
     {
-        yield return ("lifetime", d.GenerationId, "", d.RunTotals.EquipmentStatistics);
-        foreach (var map in d.RunTotals.Maps.Values.OrderBy(m => m.MapId, StringComparer.Ordinal)) yield return ("starting_map", map.MapId, "", map.EquipmentStatistics);
-        foreach (var map in d.RunTotals.RouteMaps.Values.OrderBy(m => m.MapId, StringComparer.Ordinal)) yield return ("route_map", map.MapId, "", map.EquipmentStatistics);
-        foreach (var run in d.Runs.OrderBy(r => r.RunId, StringComparer.Ordinal))
+        if (!d.RunRowsOnly)
+        {
+            yield return ("lifetime", d.GenerationId, "", d.RunTotals.EquipmentStatistics);
+            foreach (var map in d.RunTotals.Maps.Values.OrderBy(m => m.MapId, StringComparer.Ordinal)) yield return ("starting_map", map.MapId, "", map.EquipmentStatistics);
+            foreach (var map in d.RunTotals.RouteMaps.Values.OrderBy(m => m.MapId, StringComparer.Ordinal)) yield return ("route_map", map.MapId, "", map.EquipmentStatistics);
+        }
+        foreach (var run in RunHistory.ById(d.Runs))
         {
             yield return ("run", run.RunId, run.RunId, run.EquipmentStatistics);
             foreach (var segment in run.Segments.OrderBy(s => s.SegmentIndex)) yield return ("route_segment", segment.SegmentId, run.RunId, segment.EquipmentStatistics);

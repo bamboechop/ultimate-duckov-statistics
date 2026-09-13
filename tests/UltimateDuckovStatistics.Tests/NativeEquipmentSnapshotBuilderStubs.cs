@@ -589,15 +589,18 @@ namespace Duckov.Scenes
     {
         public static bool IsSceneLoading { get; set; }
         public static event Action<SceneLoadingContext>? onStartedLoadingScene;
+        public static event Action<SceneLoadingContext>? onBeforeSetSceneActive;
         public static event Action<SceneLoadingContext>? onFinishedLoadingScene;
         public static event Action<SceneLoadingContext>? onAfterSceneInitialize;
         public static void RaiseStarted() => onStartedLoadingScene?.Invoke(new SceneLoadingContext());
+        public static void RaiseBeforeActive() => onBeforeSetSceneActive?.Invoke(new SceneLoadingContext());
         public static void RaiseFinished() => onFinishedLoadingScene?.Invoke(new SceneLoadingContext());
         public static void RaiseAfterInitialize() => onAfterSceneInitialize?.Invoke(new SceneLoadingContext());
         public static void ResetNativeState()
         {
             IsSceneLoading = false;
             onStartedLoadingScene = null;
+            onBeforeSetSceneActive = null;
             onFinishedLoadingScene = null;
             onAfterSceneInitialize = null;
         }

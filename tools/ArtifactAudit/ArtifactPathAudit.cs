@@ -20,6 +20,10 @@ public static class ArtifactPathAudit
         foreach (var path in paths)
         {
             var bytes = File.ReadAllBytes(path);
+            // This exact upstream native binary has no managed UDS metadata.
+            // Its immutable identity is audited separately from our PE/PDB paths.
+            if (PinnedDependencies.IsPinnedNative(path, bytes)) continue;
+            var pinnedManaged = PinnedDependencies.IsPinnedManaged(path, bytes);
             if (Path.GetExtension(path).Equals(".png", StringComparison.OrdinalIgnoreCase))
             {
                 CheckPng(bytes, (payload, source) =>
@@ -32,14 +36,11 @@ public static class ArtifactPathAudit
             }
             var metadataFile = Path.GetExtension(path).Equals(".dll", StringComparison.OrdinalIgnoreCase)
                                || Path.GetExtension(path).Equals(".pdb", StringComparison.OrdinalIgnoreCase);
-            Check(Encoding.UTF8.GetString(bytes), path, "UTF-8 bytes", !metadataFile);
-            Check(Encoding.Unicode.GetString(bytes), path, "UTF-16 bytes", !metadataFile);
-            // A UTF-16 string can begin at either byte alignment inside a PE section.
-            if (bytes.Length > 1) Check(Encoding.Unicode.GetString(bytes, 1, bytes.Length - 1), path, "UTF-16 odd bytes", !metadataFile);
             using var stream = new MemoryStream(bytes, writable: false);
             if (Path.GetExtension(path).Equals(".pdb", StringComparison.OrdinalIgnoreCase))
             {
                 using var provider = MetadataReaderProvider.FromPortablePdbStream(stream);
+                CheckRaw(MaskMetadataRows(bytes, provider.GetMetadataReader(), 0), path, !metadataFile);
                 CheckDocuments(provider.GetMetadataReader(), path);
             }
             else if (Path.GetExtension(path).Equals(".dll", StringComparison.OrdinalIgnoreCase))
@@ -57,6 +58,7 @@ public static class ArtifactPathAudit
                     }
                 }
                 var metadata = pe.GetMetadataReader();
+                CheckRaw(MaskMetadataRows(bytes, metadata, pe.PEHeaders.MetadataStartOffset), path, !metadataFile);
                 var block = pe.GetMetadata();
                 var strings = block.GetContent(metadata.GetHeapMetadataOffset(HeapIndex.String), metadata.GetHeapSize(HeapIndex.String));
                 Check(Encoding.UTF8.GetString(strings.AsSpan()), path, "PE string heap");
@@ -71,7 +73,7 @@ public static class ArtifactPathAudit
                         : ((first & 0x1f) << 24) | (userStrings[offset + 1] << 16) | (userStrings[offset + 2] << 8) | userStrings[offset + 3];
                     offset = checked(offset + prefix + length);
                 }
-                if (expectedVersion != null && InformationalVersion(metadata) != expectedVersion)
+                if (expectedVersion != null && !pinnedManaged && InformationalVersion(metadata) != expectedVersion)
                     failures.Add($"{Path.GetFileName(path)}: assembly informational version differs from {expectedVersion}.");
                 foreach (var handle in metadata.TypeDefinitions)
                 {
@@ -80,10 +82,19 @@ public static class ArtifactPathAudit
                     Check(metadata.GetString(type.Name), path, "PE type");
                 }
             }
+            else CheckRaw(bytes, path, !metadataFile);
 
         }
         if (failures.Count > 0) throw new InvalidDataException(string.Join(Environment.NewLine, failures.Distinct(StringComparer.Ordinal)));
         return paths.Length;
+
+        void CheckRaw(byte[] bytes, string path, bool scanGenericUnix)
+        {
+            Check(Encoding.UTF8.GetString(bytes), path, "UTF-8 bytes", scanGenericUnix);
+            Check(Encoding.Unicode.GetString(bytes), path, "UTF-16 bytes", scanGenericUnix);
+            // A UTF-16 string can begin at either byte alignment inside a PE section.
+            if (bytes.Length > 1) Check(Encoding.Unicode.GetString(bytes, 1, bytes.Length - 1), path, "UTF-16 odd bytes", scanGenericUnix);
+        }
 
         void CheckDocuments(MetadataReader metadata, string path)
         {
@@ -127,6 +138,20 @@ public static class ArtifactPathAudit
             }
         }
 
+    }
+
+    private static byte[] MaskMetadataRows(byte[] bytes, MetadataReader metadata, int metadataStart)
+    {
+        // ECMA-335 rows contain numeric indexes/RVAs/flags, not inline text.
+        // Adjacent blob indexes can happen to spell a UNC path. Preserve all
+        // heaps/resources in the raw scan; resolve PE/PDB identities above.
+        var textBytes = (byte[])bytes.Clone();
+        foreach (var table in Enum.GetValues<TableIndex>())
+        {
+            var length = checked(metadata.GetTableRowSize(table) * metadata.GetTableRowCount(table));
+            if (length != 0) Array.Clear(textBytes, checked(metadataStart + metadata.GetTableMetadataOffset(table)), length);
+        }
+        return textBytes;
     }
 
     // PNG pixel/palette bytes are not text. Inspect metadata separately, inflating the

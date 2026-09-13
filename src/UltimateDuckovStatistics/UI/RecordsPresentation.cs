@@ -42,21 +42,24 @@ internal static class RecordsPresentationFactory
         if (!StatisticsPanelProjectionFactory.HasProvableGeneration(projection.Profile, generation)) return null;
         var model = projection.Runs;
         var statistics = projection.Profile.Statistics;
-        var profileRuns = new HashSet<RunSummary>(statistics.Runs);
         // These are the exact objects composed by the shared projection factory. Never combine
         // current generation labels with a detached/stale view model from another publication.
         if (!ReferenceEquals(model.Records, statistics.RunRecords)
-            || model.Runs.Count != statistics.Runs.Count
-            || model.Runs.Any(run => !profileRuns.Contains(run) || run.SaveGenerationId != generation || string.IsNullOrWhiteSpace(run.RunId))
-            || model.Runs.Select(run => run.RunId).Distinct(StringComparer.Ordinal).Count() != model.Runs.Count
+            || !RunHistory.Matches(statistics.Runs, model.Runs, generation)
             || model.Maps.Count != statistics.RunTotals.Maps.Count
             || model.Maps.Any(map => string.IsNullOrWhiteSpace(map.MapId))
             || model.Maps.Select(map => map.MapId).Distinct(StringComparer.Ordinal).Count() != model.Maps.Count
             || model.Maps.Any(map => !statistics.RunTotals.Maps.TryGetValue(map.MapId, out var source) || !ReferenceEquals(map, source))) return null;
         var t = text ?? UiText.Get;
         var local = toLocal ?? (value => value.ToLocalTime());
-        var runs = model.Runs.ToDictionary(run => run.RunId, StringComparer.Ordinal);
-        var startingRuns = model.Runs.ToLookup(run => run.StartingMapId, StringComparer.Ordinal);
+        var overview = RunHistory.Overview(statistics.Runs);
+        var identities = new HashSet<string>(overview.Select(run => run.RunId), StringComparer.Ordinal);
+        var pairs = new[] { model.Records.Extraction, model.Records.Death }
+            .Concat(model.Records.Maps.Values.Where(map => map != null).SelectMany(map => new[] { map.Extraction, map.Death }));
+        var runs = pairs.Where(pair => pair != null).SelectMany(pair => new[] { pair.Shortest, pair.Longest })
+            .Where(reference => reference != null && identities.Contains(reference.RunId)).Select(reference => reference!.RunId)
+            .Distinct(StringComparer.Ordinal).ToDictionary(id => id, id => RunHistory.GetById(statistics.Runs, id), StringComparer.Ordinal);
+        var startingRuns = overview.ToLookup(run => run.StartingMapId, StringComparer.Ordinal);
         var overall = new List<RecordsCard>();
         AddOverall(model.Records.Extraction, RunOutcome.Extracted, "extraction", overall, runs, t, local, projection.Names);
         AddOverall(model.Records.Death, RunOutcome.Died, "death", overall, runs, t, local, projection.Names);
@@ -93,7 +96,7 @@ internal static class RecordsPresentationFactory
                 : MapName(id, map.DisplayName, map.IsKnown, t, projection.Names), rows,
                 notice: map == null || !validMapRecords ? t("ui.records_inconsistent") : ""));
         }
-        return new RecordsPresentation(generation, overall, cards, runs.Count > 0 || model.TotalRuns > 0);
+        return new RecordsPresentation(generation, overall, cards, overview.Count > 0 || model.TotalRuns > 0);
     }
 
     private static void AddOverall(DurationRecordPair? pair, RunOutcome outcome, string category,

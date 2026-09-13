@@ -49,6 +49,14 @@ public sealed class AtomicJsonStore<T>
             UseSimpleDictionaryFormat = true,
             SerializeReadOnlyTypes = false
         });
+    private readonly Action<Stream, T> writeObject;
+
+    public AtomicJsonStore() => writeObject = serializer.WriteObject;
+
+    // The store retains ownership of the stream and its durable commit. A
+    // specialized writer changes only how the value is written to that stream.
+    public AtomicJsonStore(Action<Stream, T> writeObject) =>
+        this.writeObject = writeObject ?? throw new ArgumentNullException(nameof(writeObject));
 
     public void Save(string path, T value)
     {
@@ -70,7 +78,7 @@ public sealed class AtomicJsonStore<T>
         var temporaryPath = AtomicJsonPaths.GetTemporaryPath(fullPath);
         using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
-            serializer.WriteObject(stream, value);
+            writeObject(stream, value);
             stream.Flush(flushToDisk: true);
         }
 
@@ -87,7 +95,7 @@ public sealed class AtomicJsonStore<T>
 
     public AtomicJsonLoadResult<T> Load(string path) => Load(path, semanticValidator: null);
 
-    public AtomicJsonLoadResult<T> Load(string path, Func<T, string?>? semanticValidator)
+    public AtomicJsonLoadResult<T> Load(string path, Func<T, string?>? semanticValidator, bool repairPrimary = true)
     {
         var fullPath = Path.GetFullPath(path);
         var failures = new List<string>();
@@ -125,7 +133,7 @@ public sealed class AtomicJsonStore<T>
                     continue;
                 }
 
-                var repaired = candidate.Source != AtomicJsonLoadSource.Primary
+                var repaired = repairPrimary && candidate.Source != AtomicJsonLoadSource.Primary
                     && TryRepairPrimary(candidate.Path, fullPath);
                 return new AtomicJsonLoadResult<T>(value, candidate.Source, failures, repaired);
             }

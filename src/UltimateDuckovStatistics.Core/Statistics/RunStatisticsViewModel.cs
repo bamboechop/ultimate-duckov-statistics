@@ -62,10 +62,7 @@ public static class RunStatisticsViewModelFactory
         }
 
         var totals = profile.Statistics.RunTotals;
-        var runs = profile.Statistics.Runs
-            .OrderByDescending(run => run.StartedUtc)
-            .ThenBy(run => run.RunId, StringComparer.Ordinal)
-            .ToArray();
+        var runs = RunHistory.Ordered(profile.Statistics.Runs);
         return new RunStatisticsViewModel
         {
             TotalRuns = totals.TotalRuns,
@@ -78,7 +75,7 @@ public static class RunStatisticsViewModelFactory
                 string.Equals(capability.AdapterId, MovementAdapterId, StringComparison.Ordinal)
                 && capability.State == AdapterCapabilityState.Supported),
             Runs = runs,
-            RunRows = runs.Select(CreateRunRow).ToArray(),
+            RunRows = new ProjectedRunRows(runs, CreateRunRow),
             Records = profile.Statistics.RunRecords,
             Maps = totals.Maps.Values.OrderBy(map => map.MapId, StringComparer.Ordinal).ToArray()
         };

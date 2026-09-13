@@ -86,10 +86,7 @@ public static class WeaponStatisticsViewModelFactory
                         : value.FiringActions * 100d / pairedByWeapon[value.WeaponId]
                 })
                 .ToArray(),
-            Runs = profile.Statistics.Runs
-                .OrderByDescending(run => run.StartedUtc)
-                .ThenBy(run => run.RunId, StringComparer.Ordinal)
-                .ToArray()
+            Runs = RunHistory.Ordered(profile.Statistics.Runs)
         };
     }
 

@@ -40,14 +40,14 @@ internal sealed class RetainedBackArrowAsset : IDisposable
 
             var pixels = new Color32[alpha.Length];
             for (var topDownY = 0; topDownY < RetainedBackArrowAssetPolicy.HeightPixels; topDownY++)
-            for (var x = 0; x < RetainedBackArrowAssetPolicy.WidthPixels; x++)
-            {
-                var sourceIndex = topDownY * RetainedBackArrowAssetPolicy.WidthPixels + x;
-                var textureIndex = (RetainedBackArrowAssetPolicy.HeightPixels - 1 - topDownY)
-                                   * RetainedBackArrowAssetPolicy.WidthPixels
-                                   + x;
-                pixels[textureIndex] = new Color32(255, 255, 255, alpha[sourceIndex]);
-            }
+                for (var x = 0; x < RetainedBackArrowAssetPolicy.WidthPixels; x++)
+                {
+                    var sourceIndex = topDownY * RetainedBackArrowAssetPolicy.WidthPixels + x;
+                    var textureIndex = (RetainedBackArrowAssetPolicy.HeightPixels - 1 - topDownY)
+                                       * RetainedBackArrowAssetPolicy.WidthPixels
+                                       + x;
+                    pixels[textureIndex] = new Color32(255, 255, 255, alpha[sourceIndex]);
+                }
 
             texture.SetPixels32(pixels);
             texture.Apply(updateMipmaps: false, makeNoLongerReadable: true);

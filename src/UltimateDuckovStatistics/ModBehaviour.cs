@@ -219,7 +219,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
                 () => containerAdapter.OwnedValue?.MetricCapabilities ?? new Core.Statistics.ContainerMetricCapabilities(),
                 () => economyAdapter?.MetricCapabilities ?? new Core.Domain.EconomyMetricCapabilities(),
                 profileCoordinator.PollRunCheckpoint,
-                profileCoordinator.FlushRunCheckpoint);
+                profileCoordinator.FlushRunCheckpoint,
+                incrementalCheckpointHandler: profileCoordinator.HandleIncrementalRunCheckpoint);
             newRunLifecycleAdapter.ConfigureBaseMovement(
                 profileCoordinator.HandleBaseMovement, profileCoordinator.FlushBaseMovement,
                 () => profileCoordinator.HasPendingProfileTransition);

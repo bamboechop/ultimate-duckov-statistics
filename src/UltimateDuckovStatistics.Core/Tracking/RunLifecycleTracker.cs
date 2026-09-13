@@ -85,7 +85,7 @@ public sealed class RunLifecycleTransition
     public RunSummary? Completed { get; internal set; }
 }
 
-public sealed class RunLifecycleTracker
+public sealed partial class RunLifecycleTracker
 {
     public const double DefaultCheckpointIntervalSeconds = 5;
     private readonly Func<string> runIdFactory;
@@ -266,6 +266,8 @@ public sealed class RunLifecycleTracker
         var segment = active.CurrentSegment ?? active.TransitionSourceSegment;
         if (segment != null)
         {
+            if (result.Disposition is MovementDisposition.Physical or MovementDisposition.Teleport or MovementDisposition.TransitionExcluded)
+                EntryChanges.ScopeChanged(segment);
             switch (result.Disposition)
             {
                 case MovementDisposition.Physical:
@@ -331,6 +333,7 @@ public sealed class RunLifecycleTracker
             active.CurrentSegment.IntegrityTags = RunIntegrityPolicy.Accumulate(
                 active.CurrentSegment.IntegrityTags,
                 integrityTags);
+            EntryChanges.ScopeChanged(active.CurrentSegment);
         }
         return true;
     }
@@ -589,6 +592,7 @@ public sealed class RunLifecycleTracker
                     active.Context.SaveGenerationId,
                     value,
                     out segmentCapabilityChanged);
+                if (segmentChanged || segmentCapabilityChanged) EntryChanges.ScopeChanged(segment);
             }
             else if (runChanged || runCapabilityChanged)
             {
@@ -632,7 +636,10 @@ public sealed class RunLifecycleTracker
             Provenance = reason
         };
         foreach (var segment in state.Segments)
+        {
             segment.Economy.Capabilities.RouteAttribution = CloneAvailability(state.Economy.Capabilities.RouteAttribution);
+            EntryChanges.ScopeChanged(segment);
+        }
     }
 
     private static void SynchronizeEconomyRouteCapability(ActiveState state)
@@ -692,6 +699,9 @@ public sealed class RunLifecycleTracker
     }
 
     public ActiveRunCheckpoint? CreateCheckpoint(DateTime timestampUtc, double monotonicSeconds)
+        => CreateCheckpoint(timestampUtc, monotonicSeconds, detached: true);
+
+    private ActiveRunCheckpoint? CreateCheckpoint(DateTime timestampUtc, double monotonicSeconds, bool detached)
     {
         if (active == null)
         {
@@ -719,25 +729,25 @@ public sealed class RunLifecycleTracker
             MovementAdapterVersion = active.Context.MovementAdapterVersion,
             MapCapability = active.Context.MapCapability,
             MapAdapterVersion = active.Context.MapAdapterVersion,
-            WeaponStatistics = WeaponStatisticsReducer.Clone(active.WeaponStatistics),
-            CombatStatistics = CombatStatisticsReducer.Clone(active.CombatStatistics),
-            EquipmentStatistics = EquipmentStatisticsReducer.Clone(active.EquipmentStatistics),
-            TerminalLoadout = active.TerminalLoadout.Clone(),
-            ContainerState = ContainerStatisticsReducer.Clone(active.ContainerState),
+            WeaponStatistics = detached ? WeaponStatisticsReducer.Clone(active.WeaponStatistics) : active.WeaponStatistics,
+            CombatStatistics = detached ? CombatStatisticsReducer.Clone(active.CombatStatistics) : active.CombatStatistics,
+            EquipmentStatistics = detached ? EquipmentStatisticsReducer.Clone(active.EquipmentStatistics) : active.EquipmentStatistics,
+            TerminalLoadout = detached ? active.TerminalLoadout.Clone() : active.TerminalLoadout,
+            ContainerState = detached ? ContainerStatisticsReducer.Clone(active.ContainerState) : active.ContainerState,
             StartingMapId = active.Context.Map.MapId,
             StartingMapDisplayName = active.Context.Map.DisplayName,
             StartingMapKnown = active.Context.Map.IsKnown,
-            Segments = active.Segments.Select(RouteStatisticsReducer.CloneSegment).ToList(),
+            Segments = detached ? active.Segments.Select(RouteStatisticsReducer.CloneSegment).ToList() : active.Segments,
             TransitionExcludedDistance = movement.TransitionExcludedDistance,
-            RouteCapabilities = RouteStatisticsReducer.CloneCapabilities(active.RouteCapabilities),
+            RouteCapabilities = detached ? RouteStatisticsReducer.CloneCapabilities(active.RouteCapabilities) : active.RouteCapabilities,
             RouteWasRepairedFromInvalidState = false,
-            SegmentEventAssociations = active.EventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList(),
+            SegmentEventAssociations = detached ? active.EventAssociations.Select(RouteStatisticsReducer.CloneAssociation).ToList() : active.EventAssociations,
             HealingCaptureComplete = active.HealingCaptureComplete,
-            ItemStatistics = ItemStatisticsAggregateReducer.Clone(active.ItemStatistics),
+            ItemStatistics = detached ? ItemStatisticsAggregateReducer.Clone(active.ItemStatistics) : active.ItemStatistics,
             TransitionPending = active.TransitionPending,
             CurrentSegmentId = active.CurrentSegment?.SegmentId,
             MovementBaseline = movement.CaptureBaseline(),
-            Economy = EconomyStatisticsReducer.Clone(active.Economy),
+            Economy = detached ? EconomyStatisticsReducer.Clone(active.Economy) : active.Economy,
             HistoricalEventAttributionIncomplete = active.HistoricalEventAttributionIncomplete,
             HistoricalEventAttributionProvenance = active.HistoricalEventAttributionProvenance
         };
@@ -988,6 +998,7 @@ public sealed class RunLifecycleTracker
         };
 
         active = null;
+        incrementalCheckpoint = null;
         combatCheckpointRequired = false;
         checkpointMutationRevision = 0;
         movement.Reset();
@@ -1020,6 +1031,7 @@ public sealed class RunLifecycleTracker
         EquipmentStatisticsReducer.Advance(active.EquipmentStatistics, active.ActiveDurationSeconds);
         if (active.CurrentSegment != null)
         {
+            EntryChanges.ScopeChanged(active.CurrentSegment);
             EquipmentStatisticsReducer.Advance(
                 active.CurrentSegment.EquipmentStatistics,
                 active.CurrentSegment.ActiveDurationSeconds);
@@ -1031,6 +1043,7 @@ public sealed class RunLifecycleTracker
 
     private void RequireCombatCheckpoint()
     {
+        if (active?.CurrentSegment != null) EntryChanges.ScopeChanged(active.CurrentSegment);
         combatCheckpointRequired = true;
         if (checkpointMutationRevision < long.MaxValue) checkpointMutationRevision++;
     }
@@ -1123,6 +1136,7 @@ public sealed class RunLifecycleTracker
                 return;
             }
             aggregate.Count++;
+            EntryChanges.ScopeChanged(aggregate);
             if (eventTimestampUtc < aggregate.FirstTimestampUtc) aggregate.FirstTimestampUtc = eventTimestampUtc;
             if (eventTimestampUtc > aggregate.LastTimestampUtc) aggregate.LastTimestampUtc = eventTimestampUtc;
             return;
@@ -1169,6 +1183,7 @@ public sealed class RunLifecycleTracker
 
     private static void CloseSegment(MapSegmentSummary segment, DateTime timestampUtc, MapSegmentExitReason reason)
     {
+        EntryChanges.ScopeChanged(segment);
         var exitedUtc = EnsureUtc(timestampUtc);
         segment.ExitedUtc = exitedUtc < segment.EnteredUtc ? segment.EnteredUtc : exitedUtc;
         segment.ExitReason = reason;

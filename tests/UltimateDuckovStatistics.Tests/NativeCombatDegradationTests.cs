@@ -255,7 +255,9 @@ public sealed class NativeCombatDegradationTests : IDisposable
         RecordEffectDamage(context, player, new Health { CurrentHealth = 100, Character = new CharacterMainControl(), team = Teams.enemy });
         var run = tracker.Apply(new RunLifecycleEvent
         {
-            Kind = RunLifecycleEventKind.Extracted, TimestampUtc = DateTime.UtcNow.AddSeconds(1), MonotonicSeconds = 1
+            Kind = RunLifecycleEventKind.Extracted,
+            TimestampUtc = DateTime.UtcNow.AddSeconds(1),
+            MonotonicSeconds = 1
         }).Completed!;
         Assert.False(run.HistoricalEventAttributionIncomplete);
         Assert.Equal(AdapterCapabilityState.Supported, run.RouteCapabilities.EventAttribution.State);
@@ -283,7 +285,9 @@ public sealed class NativeCombatDegradationTests : IDisposable
         RecordEffectDamage(context, npc, new Health { CurrentHealth = 100, Character = player, IsMainCharacterHealth = true, team = Teams.player });
         var run = tracker.Apply(new RunLifecycleEvent
         {
-            Kind = RunLifecycleEventKind.Extracted, TimestampUtc = DateTime.UtcNow.AddSeconds(1), MonotonicSeconds = 1
+            Kind = RunLifecycleEventKind.Extracted,
+            TimestampUtc = DateTime.UtcNow.AddSeconds(1),
+            MonotonicSeconds = 1
         }).Completed!;
         Assert.False(run.HistoricalEventAttributionIncomplete);
         Assert.Equal(10, run.CombatStatistics.Totals.DamageReceived);
@@ -298,12 +302,17 @@ public sealed class NativeCombatDegradationTests : IDisposable
         tracker.Apply(new RunLifecycleEvent { Kind = RunLifecycleEventKind.RaidInitialized, NativeRaidId = "1", TimestampUtc = now });
         tracker.Apply(new RunLifecycleEvent
         {
-            Kind = RunLifecycleEventKind.ControlReady, TimestampUtc = now,
+            Kind = RunLifecycleEventKind.ControlReady,
+            TimestampUtc = now,
             StartContext = new RunStartContext
             {
-                SaveGenerationId = "g", NativeRaidId = "1", Map = new MapIdentity { MapId = "duckov:map:A", DisplayName = "A", IsKnown = true },
-                LifecycleCapability = AdapterCapabilityState.Supported, MovementCapability = AdapterCapabilityState.Supported,
-                MapCapability = AdapterCapabilityState.Supported, RouteCapabilities = RouteStatisticsReducer.Supported("native boundary test"),
+                SaveGenerationId = "g",
+                NativeRaidId = "1",
+                Map = new MapIdentity { MapId = "duckov:map:A", DisplayName = "A", IsKnown = true },
+                LifecycleCapability = AdapterCapabilityState.Supported,
+                MovementCapability = AdapterCapabilityState.Supported,
+                MapCapability = AdapterCapabilityState.Supported,
+                RouteCapabilities = RouteStatisticsReducer.Supported("native boundary test"),
                 CombatCapabilities = adapter.MetricCapabilities
             }
         });

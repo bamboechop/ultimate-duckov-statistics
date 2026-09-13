@@ -59,17 +59,21 @@ public sealed partial class ProfileRepository
         var attributes = new Dictionary<string, FileAttributes>(StringComparer.OrdinalIgnoreCase);
         var movedPrevious = false;
         var promoted = false;
+        var storageSuspended = false;
         try
         {
             SaveCurrent();
             Directory.CreateDirectory(preparedDirectory);
-            profileStore.Save(GetProfilePath(preparedDirectory), next);
-            sessionStore.Save(GetSessionPath(preparedDirectory), new SessionCheckpoint
+            PrepareResetStorage(preparedDirectory, next, new SessionCheckpoint
             {
-                SessionId = idFactory(), GenerationId = next.GenerationId,
-                StartedUtc = EnsureUtc(utcNow()), ProfileRevisionAtStart = next.Revision
+                SessionId = idFactory(),
+                GenerationId = next.GenerationId,
+                StartedUtc = EnsureUtc(utcNow()),
+                ProfileRevisionAtStart = next.Revision
             });
             Directory.CreateDirectory(archivesDirectory);
+            storageSuspended = true;
+            SuspendIncrementalStorageForReset();
             foreach (var file in Directory.EnumerateFiles(activeDirectory, "*", SearchOption.AllDirectories))
                 attributes.Add(file.Substring(activeDirectory.Length + 1), File.GetAttributes(file));
             Directory.Move(activeDirectory, archiveDirectory);
@@ -81,9 +85,10 @@ public sealed partial class ProfileRepository
         }
         catch (Exception exception)
         {
-            if (movedPrevious && !promoted)
+            if (storageSuspended && !promoted)
             {
-                var rollback = new UserResetRollback(activeDirectory, archiveDirectory, attributes, exception);
+                var rollback = new UserResetRollback(activeDirectory, archiveDirectory, attributes, movedPrevious,
+                    () => { if (UsesIncrementalStorage) EnsureIncrementalStorage(); }, exception);
                 pendingUserResetRollback = rollback;
                 rollback.Restore();
                 pendingUserResetRollback = null;
@@ -101,7 +106,9 @@ public sealed partial class ProfileRepository
                 catch (UnauthorizedAccessException) { }
             }
         }
+        CloseIncrementalStorage();
         current = next;
+        if (UsesIncrementalStorage) EnsureIncrementalStorage();
         completionPersistencePendingRunId = null;
         LastOpenResult = new ProfileOpenResult { CreatedNew = true, RotatedGeneration = true, LoadSource = AtomicJsonLoadSource.Missing };
         System.Threading.Volatile.Write(ref lastSaveReceipt,
@@ -113,14 +120,18 @@ public sealed partial class ProfileRepository
         private readonly string activeDirectory;
         private readonly string archiveDirectory;
         private readonly Dictionary<string, FileAttributes> attributes;
+        private readonly Action restoreStorage;
+        private bool directoryRestored;
         private bool restored;
 
         public UserResetRollback(string activeDirectory, string archiveDirectory,
-            Dictionary<string, FileAttributes> attributes, Exception cause)
+            Dictionary<string, FileAttributes> attributes, bool movedPrevious, Action restoreStorage, Exception cause)
         {
             this.activeDirectory = activeDirectory;
             this.archiveDirectory = archiveDirectory;
             this.attributes = attributes;
+            this.restoreStorage = restoreStorage;
+            directoryRestored = !movedPrevious;
             Cause = cause;
         }
 
@@ -129,9 +140,16 @@ public sealed partial class ProfileRepository
         public void Restore()
         {
             if (restored) return;
-            foreach (var entry in attributes)
-                File.SetAttributes(Path.Combine(archiveDirectory, entry.Key), entry.Value);
-            Directory.Move(archiveDirectory, activeDirectory);
+            if (!directoryRestored)
+            {
+                foreach (var entry in attributes)
+                    File.SetAttributes(Path.Combine(archiveDirectory, entry.Key), entry.Value);
+                Directory.Move(archiveDirectory, activeDirectory);
+                directoryRestored = true;
+            }
+            // A restored directory alone is not a resumed generation. Failure to
+            // reopen its owner keeps this transaction pending at the same step.
+            restoreStorage();
             restored = true;
         }
     }

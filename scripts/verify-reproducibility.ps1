@@ -25,7 +25,15 @@ foreach ($checkoutName in @('checkout-a', 'different-long-checkout-root-b')) {
     $zip = Join-Path $checkout 'artifacts/candidate.zip'
     $version = ((Get-Content -LiteralPath (Join-Path $package 'info.ini') | Where-Object { $_ -match '^\s*version\s*=' }) -split '=', 2)[1].Trim()
     & (Join-Path $checkout 'scripts/archive-package.ps1') -PackagePath $package -ArchivePath $zip -Version $version
-    $files = @($zip) + @(Get-ChildItem -File -LiteralPath (Join-Path $checkout 'src/UltimateDuckovStatistics/bin/Release/netstandard2.1') | Where-Object { $_.Name -match '^UltimateDuckovStatistics(?:\.Core)?\.(?:dll|pdb)$' } | ForEach-Object { $_.FullName })
+    $ownedBuild = Join-Path $checkout 'src/UltimateDuckovStatistics/bin/Release/netstandard2.1'
+    $ownedNames = @('UltimateDuckovStatistics.dll', 'UltimateDuckovStatistics.pdb',
+        'UltimateDuckovStatistics.Core.dll', 'UltimateDuckovStatistics.Core.pdb',
+        'UltimateDuckovStatistics.Sqlite.dll', 'UltimateDuckovStatistics.Sqlite.pdb')
+    $files = @($zip) + @($ownedNames | ForEach-Object {
+        $file = Join-Path $ownedBuild $_
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Missing reproducibility input: $_" }
+        $file
+    })
     $hashes = [ordered]@{}
     foreach ($file in $files) { $hashes[[IO.Path]::GetFileName($file)] = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() }
     $records += [pscustomobject]@{ Checkout = $checkoutName; Hashes = $hashes }

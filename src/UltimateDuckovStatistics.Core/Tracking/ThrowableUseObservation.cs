@@ -27,12 +27,25 @@ public sealed class ThrowableUseObservation
         else if (destroyed) { unit = snapshot.Stackable ? ConsumptionUnit.StackUnit : ConsumptionUnit.Item; amount = snapshot.Stackable ? snapshot.StackCount : 1; }
         return new ItemUseRecorded
         {
-            EventId = Guid.NewGuid().ToString("N"), TimestampUtc = utc, SaveGenerationId = snapshot.SaveGenerationId,
-            RunId = snapshot.RunId, MapId = snapshot.MapId, SegmentId = snapshot.SegmentId,
-            GameVersion = snapshot.GameVersion, GameBuild = snapshot.GameBuild, GameplayContext = snapshot.GameplayContext,
-            IntegrityTags = snapshot.IntegrityTags, AdapterCapability = snapshot.AdapterCapability, AdapterVersion = snapshot.AdapterVersion,
-            ItemId = snapshot.ItemId, DisplayName = snapshot.DisplayName, Group = CanonicalItemGroup.Special,
-            EffectTags = new() { ItemEffectTag.Throwable }, ActivationCount = 1, AmountConsumed = amount, ConsumptionUnit = unit
+            EventId = Guid.NewGuid().ToString("N"),
+            TimestampUtc = utc,
+            SaveGenerationId = snapshot.SaveGenerationId,
+            RunId = snapshot.RunId,
+            MapId = snapshot.MapId,
+            SegmentId = snapshot.SegmentId,
+            GameVersion = snapshot.GameVersion,
+            GameBuild = snapshot.GameBuild,
+            GameplayContext = snapshot.GameplayContext,
+            IntegrityTags = snapshot.IntegrityTags,
+            AdapterCapability = snapshot.AdapterCapability,
+            AdapterVersion = snapshot.AdapterVersion,
+            ItemId = snapshot.ItemId,
+            DisplayName = snapshot.DisplayName,
+            Group = CanonicalItemGroup.Special,
+            EffectTags = new() { ItemEffectTag.Throwable },
+            ActivationCount = 1,
+            AmountConsumed = amount,
+            ConsumptionUnit = unit
         };
     }
 }

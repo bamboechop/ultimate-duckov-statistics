@@ -824,6 +824,7 @@ public static partial class EquipmentStatisticsReducer
         decimal? maximumStartingValue = null)
     {
         var key = preparedKey ?? CharacterSlotStateKey(slot);
+        EntryChanges.Mark(target, key);
         if (!target.TryGetValue(key, out var row))
         {
             row = new CharacterSlotStateDurationAggregate
@@ -851,6 +852,7 @@ public static partial class EquipmentStatisticsReducer
         decimal? maximumStartingValue = null)
     {
         var key = preparedKey ?? NestedSlotStateKey(parent.SlotId, parent.ItemId, slot);
+        EntryChanges.Mark(target, key);
         if (!target.TryGetValue(key, out var row))
         {
             row = new NestedSlotStateDurationAggregate
@@ -910,6 +912,7 @@ public static partial class EquipmentStatisticsReducer
                 slot.ItemDisplayName,
                 out var itemChanged);
             changed |= slotChanged || itemChanged;
+            if (slotChanged || itemChanged) EntryChanges.Mark(target.CharacterSlotStates, CharacterSlotStateKey(slot));
         }
         foreach (var parent in snapshot.Items)
         {
@@ -938,6 +941,7 @@ public static partial class EquipmentStatisticsReducer
                     slot.ItemDisplayName,
                     out var itemChanged);
                 changed |= parentChanged || slotChanged || itemChanged;
+                if (parentChanged || slotChanged || itemChanged) EntryChanges.Mark(target.NestedSlotStates, NestedSlotStateKey(parent.SlotId, parent.ItemId, slot));
             }
         }
         foreach (var group in snapshot.Totems
@@ -968,6 +972,7 @@ public static partial class EquipmentStatisticsReducer
         {
             return false;
         }
+        EntryChanges.Mark(target, key);
         row.DisplayName = displayName;
         return true;
     }
@@ -1089,6 +1094,7 @@ public static partial class EquipmentStatisticsReducer
         var selected = association.SelectedWeaponId ?? string.Empty;
         var selectedSlot = association.SelectedWeaponSlotId ?? string.Empty;
         var key = loadout + "|" + selectedSlot + "|" + selected + "|" + totems;
+        EntryChanges.Mark(target.CombatAssociations, key);
         if (!target.CombatAssociations.TryGetValue(key, out var row))
         {
             row = new EquipmentCombatAssociationAggregate { LoadoutId = loadout, SelectedWeaponSlotId = selectedSlot, SelectedWeaponId = selected, TotemSetId = totems };
@@ -1104,6 +1110,7 @@ public static partial class EquipmentStatisticsReducer
         decimal delta, decimal maximumStartingValue)
     {
         if (string.IsNullOrWhiteSpace(id)) return;
+        EntryChanges.Mark(target, id);
         if (!target.TryGetValue(id, out var row))
         { row = new EquipmentDurationAggregate { Id = id, DisplayName = name }; target[id] = row; }
         if (!string.IsNullOrWhiteSpace(name)) row.DisplayName = name;
@@ -1114,6 +1121,7 @@ public static partial class EquipmentStatisticsReducer
     {
         foreach (var pair in source)
         {
+            EntryChanges.Mark(target, pair.Key);
             if (!target.TryGetValue(pair.Key, out var row))
             { row = new EquipmentDurationAggregate { Id = pair.Value.Id, DisplayName = pair.Value.DisplayName }; target[pair.Key] = row; }
             row.DisplayName = string.IsNullOrWhiteSpace(pair.Value.DisplayName) ? row.DisplayName : pair.Value.DisplayName;
@@ -1298,6 +1306,10 @@ public static partial class EquipmentStatisticsReducer
                 repaired = true;
                 continue;
             }
+            if (row.SlotId != row.SlotId.Trim() || row.SlotDisplayName != (row.SlotDisplayName?.Trim() ?? string.Empty)
+                || row.ItemId != (row.State == EquipmentSlotState.Occupied ? row.ItemId.Trim() : string.Empty)
+                || row.ItemDisplayName != (row.State == EquipmentSlotState.Occupied ? row.ItemDisplayName?.Trim() ?? string.Empty : string.Empty))
+                EntryChanges.Mark(source, pair.Key);
             row.SlotId = row.SlotId.Trim();
             row.SlotDisplayName = row.SlotDisplayName?.Trim() ?? string.Empty;
             row.ItemId = row.State == EquipmentSlotState.Occupied ? row.ItemId.Trim() : string.Empty;
@@ -1320,6 +1332,7 @@ public static partial class EquipmentStatisticsReducer
             if (string.IsNullOrWhiteSpace(existing.ItemDisplayName)) existing.ItemDisplayName = row.ItemDisplayName;
             repaired = true;
         }
+        EntryChanges.TransferUnchangedEntries(source, normalized);
         return normalized;
     }
 
@@ -1336,6 +1349,12 @@ public static partial class EquipmentStatisticsReducer
                 repaired = true;
                 continue;
             }
+            if (row.ParentSlotId != row.ParentSlotId.Trim() || row.ParentItemId != row.ParentItemId.Trim()
+                || row.ParentItemDisplayName != (row.ParentItemDisplayName?.Trim() ?? string.Empty) || row.Path != row.Path.Trim()
+                || row.SlotKey != row.SlotKey.Trim() || row.SlotDisplayName != (row.SlotDisplayName?.Trim() ?? string.Empty)
+                || row.ItemId != (row.State == EquipmentSlotState.Occupied ? row.ItemId.Trim() : string.Empty)
+                || row.ItemDisplayName != (row.State == EquipmentSlotState.Occupied ? row.ItemDisplayName?.Trim() ?? string.Empty : string.Empty))
+                EntryChanges.Mark(source, pair.Key);
             row.ParentSlotId = row.ParentSlotId.Trim();
             row.ParentItemId = row.ParentItemId.Trim();
             row.ParentItemDisplayName = row.ParentItemDisplayName?.Trim() ?? string.Empty;
@@ -1363,6 +1382,7 @@ public static partial class EquipmentStatisticsReducer
             if (string.IsNullOrWhiteSpace(existing.ItemDisplayName)) existing.ItemDisplayName = row.ItemDisplayName;
             repaired = true;
         }
+        EntryChanges.TransferUnchangedEntries(source, normalized);
         return normalized;
     }
 

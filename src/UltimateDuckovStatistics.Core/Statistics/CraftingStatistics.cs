@@ -439,6 +439,12 @@ public static class CraftingStatisticsReducer
 
     public static void Validate(CraftingStatisticsAggregate aggregate)
     {
+        ValidateHeader(aggregate);
+        ValidateChildren(aggregate);
+    }
+
+    internal static void ValidateHeader(CraftingStatisticsAggregate aggregate)
+    {
         if (aggregate == null || aggregate.Capabilities == null || aggregate.Outputs == null || aggregate.Resources == null)
             throw new ArgumentException("Crafting roots are missing.", nameof(aggregate));
         foreach (var value in EnumerateCapabilities(aggregate.Capabilities)) ValidateAvailability(value);
@@ -454,6 +460,10 @@ public static class CraftingStatisticsReducer
                 aggregate.CurrencyCharged))
             throw new ArgumentException("Crafting totals are invalid.", nameof(aggregate));
 
+    }
+
+    private static void ValidateChildren(CraftingStatisticsAggregate aggregate)
+    {
         var associationQuantityByResource = new Dictionary<string, long>(StringComparer.Ordinal);
         long outputActions = 0;
         long outputQuantity = 0;
@@ -947,7 +957,7 @@ public static class CraftingStatisticsReducer
             throw new ArgumentException("Crafting batch composition is inconsistent.", nameof(mutation));
     }
 
-    private static void ValidateBatches(CraftingStatisticsAggregate aggregate, CraftingRecipeAggregate recipe)
+    internal static void ValidateBatches(CraftingStatisticsAggregate aggregate, CraftingRecipeAggregate recipe)
     {
         long batchActions = 0;
         long batchQuantity = 0;
@@ -970,7 +980,7 @@ public static class CraftingStatisticsReducer
             throw new ArgumentException("Crafting batch composition is inconsistent.", nameof(aggregate));
     }
 
-    private static void ValidateComposition(
+    internal static void ValidateComposition(
         MetricAvailability capability,
         long childActions,
         long parentActions,
@@ -995,7 +1005,7 @@ public static class CraftingStatisticsReducer
         if (childActions != parentActions || childAmount != parentAmount) throw new ArgumentException(message);
     }
 
-    private static bool HasImpossibleCurrencyPair(
+    internal static bool HasImpossibleCurrencyPair(
         CraftingStatisticsAggregate aggregate,
         long actions,
         long amount)

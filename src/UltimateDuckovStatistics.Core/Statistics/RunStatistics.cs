@@ -152,6 +152,25 @@ public sealed class RunDurationRecords
 
 public static class RunReducer
 {
+    // Rare correction/import proof: replay in retained order without retaining
+    // all run details, subtracting saturated totals, or using SQL arithmetic.
+    internal static ProfileStatistics RebuildRunStatistics(string generation, IEnumerable<RunSummary> runs)
+    {
+        var result = new ProfileStatistics { SaveGenerationId = generation };
+        var identities = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var run in runs)
+        {
+            Validate(run);
+            if (run.SaveGenerationId != generation || !identities.Add(run.RunId))
+                throw new InvalidDataException("Run replay ownership is invalid.");
+            PreflightPlayerKillMerge(result, run);
+            result.HealingCaptureComplete &= run.HealingCaptureComplete;
+            AddTotals(result.RunTotals, run);
+            if (run.RecordEligible && run.Outcome is RunOutcome.Extracted or RunOutcome.Died) AddRecord(result.RunRecords, run);
+        }
+        return result;
+    }
+
     public static bool Apply(ProfileStatistics profile, RunSummary summary)
     {
         if (profile == null)
@@ -164,7 +183,7 @@ public static class RunReducer
             throw new InvalidOperationException("A run cannot be reduced into a different save generation.");
         }
 
-        if (profile.Runs.Any(run => string.Equals(run.RunId, summary.RunId, StringComparison.Ordinal)))
+        if (RunHistory.ContainsId(profile.Runs, summary.RunId))
         {
             return false;
         }
@@ -420,7 +439,14 @@ public static class RunReducer
         outcomes[key] = SaturatingAdd(current, 1);
     }
 
-    public static void Validate(RunSummary summary)
+    public static void Validate(RunSummary summary) => Validate(summary, validateMetricEntries: true);
+
+    // Used only after the private tracker has checked changed metric entries
+    // and their fan-outs. Route headers and fixed-size economy composition are
+    // still checked using the same rules as full recovery validation.
+    internal static void ValidateCheckpointStructure(RunSummary summary) => Validate(summary, validateMetricEntries: false);
+
+    private static void Validate(RunSummary summary, bool validateMetricEntries)
     {
         if (summary == null)
         {
@@ -443,20 +469,24 @@ public static class RunReducer
 
         if (summary.TerminalLoadout == null) throw new ArgumentException("Terminal loadout state is missing.", nameof(summary));
         summary.TerminalLoadout.Validate(summary.Outcome);
-        Persistence.RunDataSchema.Validate(summary.CombatStatistics, summary.EquipmentStatistics);
-        foreach (var segment in summary.Segments)
-            Persistence.RunDataSchema.Validate(segment.CombatStatistics, segment.EquipmentStatistics);
-        WeaponStatisticsReducer.ValidateAggregate(summary.WeaponStatistics);
-        CombatStatisticsReducer.ValidateAggregate(summary.CombatStatistics);
-        EquipmentStatisticsReducer.ValidateAggregate(summary.EquipmentStatistics);
-        ContainerStatisticsReducer.ValidateAggregate(summary.ContainerStatistics);
-        ItemStatisticsAggregateReducer.Validate(summary.ItemStatistics);
+        if (validateMetricEntries)
+        {
+            Persistence.RunDataSchema.Validate(summary.CombatStatistics, summary.EquipmentStatistics);
+            foreach (var segment in summary.Segments)
+                Persistence.RunDataSchema.Validate(segment.CombatStatistics, segment.EquipmentStatistics);
+            WeaponStatisticsReducer.ValidateAggregate(summary.WeaponStatistics);
+            CombatStatisticsReducer.ValidateAggregate(summary.CombatStatistics);
+            EquipmentStatisticsReducer.ValidateAggregate(summary.EquipmentStatistics);
+            ContainerStatisticsReducer.ValidateAggregate(summary.ContainerStatistics);
+            ItemStatisticsAggregateReducer.Validate(summary.ItemStatistics);
+        }
         EconomyStatisticsReducer.Validate(summary.Economy);
         RouteStatisticsReducer.ValidateCapabilities(summary.RouteCapabilities);
 
         if (summary.Segments.Count > 0)
         {
-            RouteStatisticsReducer.Validate(summary.Segments, allowOpenLast: false);
+            if (validateMetricEntries) RouteStatisticsReducer.Validate(summary.Segments, allowOpenLast: false);
+            else RouteStatisticsReducer.ValidateCheckpointHeaders(summary.Segments, allowOpenLast: false);
             if (!string.Equals(summary.StartingMapId, summary.Segments[0].MapId, StringComparison.Ordinal))
                 throw new ArgumentException("Run starting map does not match its first retained segment.", nameof(summary));
         }

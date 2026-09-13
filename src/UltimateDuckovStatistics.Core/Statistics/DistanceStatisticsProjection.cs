@@ -26,12 +26,13 @@ public sealed class DistanceStatisticsProjection
             && profile.Capabilities.Any(c => c.AdapterId == RunStatisticsViewModelFactory.MovementAdapterId
                 && c.State == AdapterCapabilityState.Supported);
         var raid = profile.Statistics.RunTotals.PhysicalDistance;
-        double? raidMeters = available || raid > 0 || profile.Statistics.Runs.Any(r => r.MovementCapability == AdapterCapabilityState.Supported)
+        var history = RunHistory.Overview(profile.Statistics.Runs);
+        double? raidMeters = available || raid > 0 || history.Any(r => r.MovementCapability == AdapterCapabilityState.Supported)
             ? raid : null;
         var recordedBase = profile.Statistics.BaseMovement;
         BaseMovementStatistics.Validate(recordedBase);
         var baseMeters = recordedBase?.RecordedMeters;
-        var raidPartial = !available || profile.Statistics.Runs.Any(r => r.MovementCapability != AdapterCapabilityState.Supported);
+        var raidPartial = !available || history.Any(r => r.MovementCapability != AdapterCapabilityState.Supported);
         var basePartial = recordedBase == null || !available || recordedBase.HasKnownGaps;
         return new DistanceStatisticsProjection
         {

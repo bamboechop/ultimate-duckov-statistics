@@ -105,6 +105,7 @@ public static class EquipmentCompositionReducer
             _ = Add(target.TotemStates.TryGetValue(entry.Key, out var old) ? old.DurationSeconds : 0, delta);
         foreach (var entry in plan.Totems)
         {
+            EntryChanges.Mark(target.TotemStates, entry.Key);
             if (target.TotemStates.TryGetValue(entry.Key, out var old))
             {
                 old.DurationSeconds = Add(old.DurationSeconds, delta);
@@ -115,6 +116,7 @@ public static class EquipmentCompositionReducer
         }
         foreach (var slot in plan.EmptySlots)
         {
+            EntryChanges.Mark(target.EmptyDirectSlots, slot.SlotId);
             if (!target.EmptyDirectSlots.TryGetValue(slot.SlotId, out var row))
                 target.EmptyDirectSlots.Add(slot.SlotId, row = new EquipmentDurationAggregate { Id = slot.SlotId });
             row.DisplayName = slot.SlotDisplayName; row.ActiveDurationSeconds = Add(row.ActiveDurationSeconds, delta);
@@ -138,6 +140,7 @@ public static class EquipmentCompositionReducer
             });
         foreach (var pair in source.TotemStates)
         {
+            EntryChanges.Mark(target.TotemStates, pair.Key);
             if (target.TotemStates.TryGetValue(pair.Key, out var old))
             {
                 old.DurationSeconds = Add(old.DurationSeconds, pair.Value.DurationSeconds);
@@ -153,6 +156,7 @@ public static class EquipmentCompositionReducer
         target.HistoricalUnavailable |= source.HistoricalUnavailable;
         foreach (var pair in source.EmptyDirectSlots)
         {
+            EntryChanges.Mark(target.EmptyDirectSlots, pair.Key);
             if (!target.EmptyDirectSlots.TryGetValue(pair.Key, out var row))
                 target.EmptyDirectSlots.Add(pair.Key, row = new EquipmentDurationAggregate { Id = pair.Key });
             row.DisplayName = Name(row.DisplayName, pair.Value.DisplayName, pair.Key);
@@ -204,6 +208,12 @@ public static class EquipmentCompositionReducer
     }
 
     private static bool Register(Dictionary<string, LoadoutDefinition> target, LoadoutDefinition incoming)
+    {
+        try { var changed = RegisterCore(target, incoming); if (changed) EntryChanges.Mark(target, incoming.LoadoutId); return changed; }
+        catch { EntryChanges.Mark(target, incoming.LoadoutId); throw; }
+    }
+
+    private static bool RegisterCore(Dictionary<string, LoadoutDefinition> target, LoadoutDefinition incoming)
     {
         if (!target.TryGetValue(incoming.LoadoutId, out var old)) { target.Add(incoming.LoadoutId, incoming); return true; }
         if (old.Conflicting) return false;
@@ -257,6 +267,12 @@ public static class EquipmentCompositionReducer
     }
 
     private static bool Register(Dictionary<string, ActiveTotemSetDefinition> target, ActiveTotemSetDefinition incoming)
+    {
+        try { var changed = RegisterCore(target, incoming); if (changed) EntryChanges.Mark(target, incoming.TotemSetId); return changed; }
+        catch { EntryChanges.Mark(target, incoming.TotemSetId); throw; }
+    }
+
+    private static bool RegisterCore(Dictionary<string, ActiveTotemSetDefinition> target, ActiveTotemSetDefinition incoming)
     {
         if (!target.TryGetValue(incoming.TotemSetId, out var old)) { target.Add(incoming.TotemSetId, incoming); return true; }
         if (old.Conflicting) return false;

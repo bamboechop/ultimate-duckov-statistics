@@ -242,11 +242,14 @@ public sealed class CombatWeaponDetailsTests
         a.Totals.PlayerKills = new PlayerKillPartition { Ranged = 87, Effect = 2 };
         a.Weapons["duckov:weapon:unknown"] = new CombatBreakdownAggregate
         {
-            Id = "duckov:weapon:unknown", DisplayName = "Körper",
+            Id = "duckov:weapon:unknown",
+            DisplayName = "Körper",
             Totals = new CombatMetricTotals
             {
-                DamageDealt = 196.60929775238037, DamageCaused = 196.60929775238037,
-                DamageReceived = 18.461532592773438, KillsByYou = 2,
+                DamageDealt = 196.60929775238037,
+                DamageCaused = 196.60929775238037,
+                DamageReceived = 18.461532592773438,
+                KillsByYou = 2,
                 PlayerKills = new PlayerKillPartition { Effect = 2 }
             }
         };

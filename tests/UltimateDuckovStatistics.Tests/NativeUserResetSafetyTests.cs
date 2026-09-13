@@ -29,7 +29,7 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         using var directory = new TemporaryDirectory();
         Application.persistentDataPath = directory.Path;
         var monotonicSeconds = 0d;
-        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds);
+        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds, repositoryFactory: NativeJsonRepositoryFixture.Create);
         coordinator.Initialize();
         var generation = coordinator.CurrentGenerationId;
         long craftingStarted = 0, craftingCompleted = 0, holdingsStarted = 0, holdingsCompleted = 0;
@@ -80,7 +80,7 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         using var directory = new TemporaryDirectory();
         Application.persistentDataPath = directory.Path;
         var monotonicSeconds = 0d;
-        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds);
+        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds, repositoryFactory: NativeJsonRepositoryFixture.Create);
         coordinator.Initialize();
         var generation = coordinator.CurrentGenerationId;
         var changed = 0;
@@ -122,7 +122,7 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         using var directory = new TemporaryDirectory();
         Application.persistentDataPath = directory.Path;
         var monotonicSeconds = 0d;
-        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds);
+        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds, repositoryFactory: NativeJsonRepositoryFixture.Create);
         coordinator.Initialize();
         var generation = coordinator.CurrentGenerationId;
         var boundaryReady = false;
@@ -167,7 +167,7 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         EconomyManager.Money = 333;
         Saves.SavesSystem.EconomyDataExists = false;
         var monotonicSeconds = 0.0;
-        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds);
+        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds, repositoryFactory: NativeJsonRepositoryFixture.Create);
         coordinator.Initialize();
         using var holdings = new NativeEconomyHoldingsAdapter(
             () => coordinator.CurrentGenerationId, coordinator.HandleEconomyHoldings,
@@ -235,7 +235,7 @@ public sealed class NativeUserResetSafetyTests : IDisposable
         using var directory = new TemporaryDirectory();
         Application.persistentDataPath = directory.Path;
         var monotonicSeconds = 0d;
-        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds);
+        using var coordinator = new NativeProfileCoordinator(() => monotonicSeconds, repositoryFactory: NativeJsonRepositoryFixture.Create);
         coordinator.Initialize();
         var ready = false;
         coordinator.SetActiveRunCheckpointBarrier(() => ready);

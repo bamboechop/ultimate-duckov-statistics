@@ -14,7 +14,7 @@ public sealed class NativePersistenceDiagnosticTests
         UnityEngine.Debug.ExceptionLogged = exceptions.Add;
         try
         {
-            using var coordinator = new NativeProfileCoordinator(() => now);
+            using var coordinator = new NativeProfileCoordinator(() => now, repositoryFactory: NativeJsonRepositoryFixture.Create);
             coordinator.SetActiveRunCheckpointBarrier(() => false);
             var summary = new RunSummary { RunId = "pending" };
             for (var frame = 0; frame < 10000; frame++)

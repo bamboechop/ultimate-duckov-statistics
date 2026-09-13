@@ -11,10 +11,14 @@ public sealed class CombatNativeControlTests
     public void SectionPaddingExcludesFaceLeadingAndSymmetricSdfPadding()
     {
         var label = new TextMeshProUGUI(); label.gameObject.SetParentActive(true);
-        label.textInfo = new TMP_TextInfo { characterCount = 1, characterInfo = new[] {
+        label.textInfo = new TMP_TextInfo
+        {
+            characterCount = 1,
+            characterInfo = new[] {
             new TMP_CharacterInfo { isVisible = true, scale = 1, bottomLeft = (0, -40), topLeft = (0, -8),
                 textElement = new TMP_TextElement { glyph = new MeasurementGlyph { metrics = new MeasurementGlyphMetrics { height = 24 } } } }
-        } };
+        }
+        };
         var measurement = new CombatNativeTextMeasurement(label);
         Assert.Equal(34.3f, measurement.SectionHeight("Heading", 800, 46.3f), precision: 3);
         label.rectTransform.anchoredPosition = new UnityEngine.Vector2(30, -30);

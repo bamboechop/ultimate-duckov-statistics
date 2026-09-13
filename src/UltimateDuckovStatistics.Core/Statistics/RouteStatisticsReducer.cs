@@ -153,6 +153,15 @@ public static class RouteStatisticsReducer
     public static MapSegmentSummary CloneSegmentForInterruptedRecovery(MapSegmentSummary source, DateTime endedUtc)
         => CloneSegmentForRecovery(source, endedUtc, RunOutcome.Interrupted);
 
+    internal static MapSegmentSummary CheckpointStructureHeader(MapSegmentSummary source)
+    {
+        var header = Persistence.CheckpointRecordHeaders.Segment(source);
+        header.WeaponStatistics = new WeaponStatisticsAggregate(); header.CombatStatistics = new CombatStatisticsAggregate();
+        header.EquipmentStatistics = new EquipmentStatisticsAggregate(); header.ItemStatistics = new ItemStatisticsAggregate();
+        header.ContainerStatistics = new ContainerStatisticsAggregate();
+        return header;
+    }
+
     public static MapSegmentSummary CloneSegmentForRecovery(
         MapSegmentSummary source,
         DateTime endedUtc,
@@ -268,7 +277,11 @@ public static class RouteStatisticsReducer
         return repaired;
     }
 
-    public static void Validate(IReadOnlyList<MapSegmentSummary> segments, bool allowOpenLast)
+    public static void Validate(IReadOnlyList<MapSegmentSummary> segments, bool allowOpenLast) => Validate(segments, allowOpenLast, validateMetricEntries: true);
+
+    internal static void ValidateCheckpointHeaders(IReadOnlyList<MapSegmentSummary> segments, bool allowOpenLast) => Validate(segments, allowOpenLast, validateMetricEntries: false);
+
+    private static void Validate(IReadOnlyList<MapSegmentSummary> segments, bool allowOpenLast, bool validateMetricEntries)
     {
         if (segments == null || segments.Count == 0 || segments.Count > MaximumSegmentsPerRun)
             throw new ArgumentException("Route segment count is invalid.", nameof(segments));
@@ -291,12 +304,15 @@ public static class RouteStatisticsReducer
                 || (closed && segment.ExitedUtc < segment.EnteredUtc)
                 || (open && (!allowOpenLast || index != segments.Count - 1)))
                 throw new ArgumentException("Route contains an invalid open or closed segment.", nameof(segments));
-            ItemStatisticsAggregateReducer.Validate(segment.ItemStatistics);
-            WeaponStatisticsReducer.ValidateAggregate(segment.WeaponStatistics);
-            CombatStatisticsReducer.ValidateAggregate(segment.CombatStatistics);
-            EquipmentStatisticsReducer.ValidateAggregate(segment.EquipmentStatistics);
-            ValidateSegmentEquipmentOccurrences(segment.EquipmentStatistics);
-            ContainerStatisticsReducer.ValidateAggregate(segment.ContainerStatistics);
+            if (validateMetricEntries)
+            {
+                ItemStatisticsAggregateReducer.Validate(segment.ItemStatistics);
+                WeaponStatisticsReducer.ValidateAggregate(segment.WeaponStatistics);
+                CombatStatisticsReducer.ValidateAggregate(segment.CombatStatistics);
+                EquipmentStatisticsReducer.ValidateAggregate(segment.EquipmentStatistics);
+                ValidateSegmentEquipmentOccurrences(segment.EquipmentStatistics);
+                ContainerStatisticsReducer.ValidateAggregate(segment.ContainerStatistics);
+            }
             EconomyStatisticsReducer.Validate(segment.Economy);
         }
     }

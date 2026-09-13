@@ -6,6 +6,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'package-inventory.ps1')
 if ([string]::IsNullOrWhiteSpace($DuckovPath)) {
     throw 'DuckovPath (or DUCKOV_PATH) is required.'
 }
@@ -35,13 +36,7 @@ foreach ($path in @($packageRoot)) {
     }
 }
 New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
-$inputs = @(
-    @{ Source = (Join-Path $repoRoot 'mod\info.ini'); Destination = 'info.ini' },
-    @{ Source = (Join-Path $buildRoot 'UltimateDuckovStatistics.dll'); Destination = 'UltimateDuckovStatistics.dll' },
-    @{ Source = (Join-Path $buildRoot 'UltimateDuckovStatistics.Core.dll'); Destination = 'UltimateDuckovStatistics.Core.dll' },
-    @{ Source = (Join-Path $repoRoot 'INSTALL.md'); Destination = 'INSTALL.md' },
-    @{ Source = (Join-Path $repoRoot 'LICENSE'); Destination = 'LICENSE' }
-)
+$inputs = @(Get-UdsPackageInputs -RepositoryRoot $repoRoot -BuildRoot $buildRoot)
 foreach ($input in $inputs) {
     Copy-Item -Force -LiteralPath $input.Source -Destination (Join-Path $packageRoot $input.Destination)
 }

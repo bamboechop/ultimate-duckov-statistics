@@ -7,7 +7,11 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class NativeGrenadeAttributionTests
 {
     [Theory]
-    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
     public void UnprovenExplosionsKeepTheirExistingClassification(int missing)
     {
         var source = new CharacterMainControl { IsMainCharacter = missing != 0 };

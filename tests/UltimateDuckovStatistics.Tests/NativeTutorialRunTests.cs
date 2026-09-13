@@ -90,7 +90,7 @@ public sealed class NativeTutorialRunTests
         h.Lifecycle.Dispose();
         h.Economy.Dispose();
         h.Coordinator.Dispose();
-        using var reopened = new NativeProfileCoordinator();
+        using var reopened = new NativeProfileCoordinator(repositoryFactory: NativeJsonRepositoryFixture.Create);
         reopened.Initialize();
         Assert.Equal(generation, reopened.CurrentGenerationId);
         AssertRun(Assert.Single(reopened.Current!.Statistics.Runs));
@@ -237,7 +237,7 @@ public sealed class NativeTutorialRunTests
             var save = Path.Combine(directory.Path, Saves.SavesSystem.GetFilePath(3));
             Directory.CreateDirectory(Path.GetDirectoryName(save)!);
             File.WriteAllText(save, "{\"SaveTime\":{\"value\":1}}");
-            Coordinator = new NativeProfileCoordinator(() => Now);
+            Coordinator = new NativeProfileCoordinator(() => Now, repositoryFactory: NativeJsonRepositoryFixture.Create);
             Coordinator.Initialize();
             CharacterMainControl.Main = Main;
             LevelManager.Instance = new LevelManagerInstance { MainCharacter = Main };
