@@ -31,7 +31,7 @@ Both cases retained identical full-profile hashes before and after the workload,
 
 Warm median capture allocations were unchanged. In the three-run case, complete base/crafting durability boundaries changed from 1.57/1.83 ms to 1.74/2.13 ms; active-checkpoint updates changed from 4.30 to 5.05 ms. Total managed allocations per update increased by roughly 34–65 KiB on the worker. The 1,000-run case showed similarly bounded updates without history rewrites. Initial conversion plus open took 0.37 seconds for the recorded profile and 3.82 seconds for the large profile; conversion did not repeat on reopen. These are desktop measurements, not Unity frame-time claims.
 
-Source, logs and copied-profile measurements are retained under local `artifacts/storage-optimization/`. ZIP exports and any cleanup of old user-created exports or import files remain separate work.
+Source, logs and copied-profile measurements are retained under local `artifacts/storage-optimization/`. [JSON-only ZIP export](JSON_EXPORT.md) and [confirmed JSON/ZIP restore](JSON_RESTORE.md) were subsequently implemented. Retiring older user-created exports or import files is optional local cleanup, separate from runtime storage behavior.
 
 ## Native acceptance — 2026-09-13
 
