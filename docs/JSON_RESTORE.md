@@ -35,3 +35,5 @@ Automated validation on 2026-09-13 passed 2,225 main tests and 91 shell tests in
 Deployed for native acceptance on 2026-09-13 with Duckov closed. All 13 installed files matched the validated package by SHA-256. Deployment changed the mod package only; no live UDS statistics or Duckov saves were restored.
 
 The user subsequently reported that the in-game flow appeared to work with a freshly created export and requested committing it after matching the Diagnostics restore button's uppercase style. Both English and German action labels now use uppercase. This native check does not independently demonstrate rollback to older values because the selected export closely matched the current statistics; the automated tests cover replacement of different target values and persistence afterward.
+
+The uppercase-label build was deployed on 2026-09-13 after its native Release/package audit and 13 focused localization/modal tests passed. All 13 installed files matched the package by SHA-256; deployment evidence is retained locally in `artifacts/housekeeping-deploy.log`. This deployment did not restore or modify live statistics or Duckov saves.

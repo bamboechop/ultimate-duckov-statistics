@@ -1,6 +1,6 @@
 # Combat encounter history proposal
 
-Status: feature proposal from the September 12, 2026 playtest discussion. No feed capture, persistence, or UI has been implemented. Initial native map-contract findings are recorded below; full feasibility remains pending. Address the current freeze investigation and storage efficiency before implementing it. This is a future feature release, not a reason to change the published 1.0.0 tag.
+Status: feature proposal from the September 12, 2026 playtest discussion. No feed capture, persistence, or UI has been implemented. Initial native map-contract findings are recorded below; full feasibility remains pending. The preceding performance and storage follow-ups were completed on September 13; this proposal still requires its own scope and qualification. This is a future feature release, not a reason to change the published 1.0.0 tag.
 
 ## Intended experience
 
@@ -14,6 +14,8 @@ A chronological kill feed within each recorded run, with expandable enemy encoun
 - An optional enemy illustration with separate head/body hit markers. Headshot evidence can place a marker in the head region; other hits can use a schematic body region. This must not imply measured impact coordinates without native evidence for those positions.
 
 The feed should retain unresolved weapon/effect identities and uncertain ownership explicitly. Kill credit, weapon identity, and enemy identity are separate facts; one being unavailable must not erase the others. Old runs contain aggregates rather than these encounter-level joins, so their feeds cannot be reconstructed from existing totals.
+
+Placement direction: integrate the feed and selected encounter's map into the existing Runs tab; do not add a new top-level tab. The user is still considering the exact layout. A possible flow is select a run, open its kill feed, then select an encounter to view its map and details. Treat this as a layout candidate, not a finalized design.
 
 ## Suggested first scope
 
@@ -36,7 +38,7 @@ Initial read-only inspection of the installed Duckov 2.3.30 assembly on Septembe
 
 Capture the two actors' world positions and their individual scene IDs at the fatal health transition, before death cleanup removes the necessary objects. Retain height so later floor handling remains possible. Bind these positions to the same encounter/event as the credited kill or player death, not a later corpse position or the player's next movement sample. Validate callback timing and object lifetimes before implementing capture.
 
-The map UI can distinguish the player marker, enemy marker, and death marker. An optional connector or distance describes the two recorded positions; it is not a proven bullet trajectory, line of sight, or firing distance. In a delayed effect, the attack origin and the actor positions at death can differ. If an actor is gone or on another map, preserve that limitation and show only endpoints that belong to the selected map. Do not invent a remote attacker location for environmental or unresolved deaths.
+The map UI can distinguish the player marker, enemy marker, and death marker. The user approved a connecting line and distance between the two points as part of the proposed experience. Show them when both endpoints are known and share the displayed map. They describe the two recorded positions, not a proven bullet trajectory, line of sight, or firing distance. In a delayed effect, the attack origin and the actor positions at death can differ. If an actor is gone or on another map, preserve that limitation and show only endpoints that belong to the selected map. Do not invent a remote attacker location for environmental or unresolved deaths.
 
 Persist coordinates and stable map references, with any necessary calibration stored once per scene/run rather than per event. Borrow native artwork at display time; do not embed map images in each event or profile. Establish an asset retrieval path for base/main-menu viewing and restart, and handle scene layers, interiors, missing/no-signal maps, and later game map changes. Missing artwork should leave the textual event available. Reproduce the verified conversion in UDS-owned presentation without repurposing the game's active map UI.
 

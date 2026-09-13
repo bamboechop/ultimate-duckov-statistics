@@ -1,33 +1,53 @@
 # Workshop description for 1.0.0
 
-This is the prepared description for the first 1.0.0 listing; no Workshop item has been created. M18 implementation and bounded native qualification are recorded in [M18 acceptance](M18_ACCEPTANCE.md), with follow-ups in the [release notes](../RELEASE_NOTES.md). The approved preview is tracked at [mod/preview.png](../mod/preview.png) and is copied by packaging/deployment alongside [mod/info.ini](../mod/info.ini). Complete the [release procedure](RELEASE_PROCESS.md) and verify subscription installation before declaring this a supported distribution channel. Publish only the description between the separators below; the preparation notes and optional promo caption are not part of the item description.
+Paste the contents of the code block below into the Steam Workshop description. It uses [Steam formatting tags](https://steamcommunity.com/comment/ForumTopic/formattinghelp); do not copy the Markdown code fences or these preparation notes. The final link is the GitHub repository, following the author attribution and AI usage disclosure.
 
----
+The preview is tracked at [mod/preview.png](../mod/preview.png), with the short in-game description in [mod/info.ini](../mod/info.ini). This longer description is maintained on the Workshop page. Follow the [release procedure](RELEASE_PROCESS.md) for publication and subscription-install verification. Detailed measurement and development-data limitations remain in [INSTALL.md](../INSTALL.md); completed qualification is recorded in [M18 acceptance](M18_ACCEPTANCE.md) and [release notes](../RELEASE_NOTES.md).
 
-**Ultimate Duckov Statistics** keeps local, per-save statistics for Escape from Duckov: raids and routes, combat, equipment, item use and healing, economy, crafting, world time and sleep.
+```text
+[h2]Every raid has a story. See yours in numbers.[/h2]
 
-Open Statistics outside a raid from the main menu, base pause menu or F8. Ten tabs cover your statistics, recorded expeditions and About. About introduces UDS and its author, and invites community translation help. Diagnostics explains unavailable or partial measurements and exports a ZIP containing a JSON snapshot. Resetting UDS statistics archives its own generation; it does not change Duckov saves.
+[b]Ultimate Duckov Statistics (UDS)[/b] brings your raids, combat, equipment, item use, economy, and crafting together in one place. Review individual runs, track your personal bests, and discover which weapons and loadouts you use most.
 
-**Languages:** English and German. UDS follows the game's language, including changes while the statistics panel is open.
+[h2]What can you track?[/h2]
+[list]
+[*][b]Raids and routes:[/b] Revisit recorded runs, the maps you visited, active raid time, distance travelled, extractions, and containers opened.
+[*][b]Personal records:[/b] Follow highlights such as your fastest extraction and longest successful raid.
+[*][b]Combat:[/b] Explore damage, kills, ranged and melee accuracy, headshots, and weapon and ammunition statistics.
+[*][b]Equipment:[/b] See your loadouts, weapons, attachments, armor, and totems, including time equipped during raids.
+[*][b]Item use and healing:[/b] Find your most-used items and see how much health you've restored.
+[*][b]Economy and crafting:[/b] Follow Money and Cash holdings and flows, crafted items, and resources spent on crafting.
+[*][b]Movement and world time:[/b] Check distance travelled in raids and at your base, along with world time and sleep statistics.
+[/list]
 
-**Dependency:** install and enable [HarmonyLib](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) separately. UDS does not bundle Harmony or game assemblies. The qualification baseline is Windows, Duckov 2.3.30 / Steam build 24013657, Unity 2022.3.62f2 and Harmony 2.4.1.0. Later game updates or conflicting patches may disable affected statistics while independently supported metrics continue.
+[h2]Getting started[/h2]
+[olist]
+[*]Subscribe to UDS and the required [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839]HarmonyLib[/url] dependency.
+[*]Enable both in the game's Mods menu and restart if prompted. Keep only one active copy of UDS if you previously installed it manually.
+[*]Outside a raid, press [b]F8[/b] or open Statistics from the main menu or base pause menu. You can change the shortcut in Diagnostics.
+[/olist]
 
-**Privacy:** no telemetry, account or network service. Profiles, recovery files and exports remain on your computer. UDS does not open external links. Exports can reveal gameplay history, timestamps and save-slot metadata; inspect them before sharing.
+Tracking begins while UDS is enabled; earlier gameplay cannot be reconstructed. Statistics are stored separately for each save.
 
-**Measurement limits:** UDS records evidence the game exposes. It does not infer rejected trigger attempts, ammunition consumption from firing callbacks, tote-effect activation, crafting workstation or map attribution, crafting Money/Cash split, or the final disposition of fungible Cash. Unknown and partial evidence remains visibly identified.
+[h2]Your statistics stay yours[/h2]
+UDS stores its data locally on your computer. [b]No account, no telemetry, and no changes to your Duckov save files.[/b] Export your statistics as a ZIP containing JSON from Diagnostics for your own analysis or sharing. You can also restore a saved JSON or ZIP export for the same save slot, with a preview and confirmation before replacing your current UDS statistics.
 
-Overview shows recorded base distance, raid distance and their combined total. Base distance starts when UDS first observes it; earlier movement cannot be reconstructed. Run and route statistics remain raid-only.
+[h2]Languages and translation help[/h2]
+[b]English and German[/b] are included. UDS follows the game's language setting.
 
-**Development-data transition:** 1.0.0 establishes the first public schema at 1 and starts fresh from development/RC schema 18. Incompatible profiles are preserved in an archive, not converted. Older `0.x` data remains untouched and is not imported. Valid final-schema statistics survive reinstallation. Keep one active UDS installation when switching from a manual install to Workshop.
+Want to help bring UDS to your language? [b]Leave a comment below and tell me which language you'd like to help translate.[/b]
 
-Installation, local data, limitations and troubleshooting: [project documentation](https://github.com/bamboechop/ultimate-duckov-statistics). Source is available under the MIT license.
+[h2]Compatibility and feedback[/h2]
+Tested on [b]Windows with Duckov 2.3.30[/b]. UDS records the statistics exposed by the game and labels incomplete or unavailable measurements. Game updates or other mods can affect tracking; check Diagnostics if something looks wrong.
 
-**Created by bamboechop.**
+Found a bug or have a suggestion? Leave a comment or open a GitHub issue with your UDS version, game version, and steps to reproduce it.
 
-**Preview artwork:** AI-generated using an in-game character screenshot as a reference.
+[b]Created by bamboechop.[/b]
 
-Want to help translate UDS? Leave a comment on the Steam Workshop page and mention the language you could help with.
+[h2]AI usage disclosure[/h2]
+AI tools were used extensively for development, code reviews, and documentation. The Workshop preview artwork was generated with AI using an in-game screenshot as a reference. Feature decisions and in-game testing were handled by bamboechop.
 
----
+[url=https://github.com/bamboechop/ultimate-duckov-statistics]GitHub repository — source code, documentation, and issue tracker[/url]
+```
 
 Optional future promo caption (unpublished): “Help translate UDS. Tell me your language in a Steam Workshop comment.”
