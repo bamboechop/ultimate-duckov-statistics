@@ -84,9 +84,6 @@ public sealed class NativeTutorialRunTests
         var export = h.Coordinator.ExportCurrent();
         var json = new AtomicJsonStore<StatisticsExportDocument>().Load(Path.Combine(export.Directory, "statistics.json"));
         AssertRun(Assert.Single(json.Value!.Runs));
-        var rows = File.ReadAllLines(Path.Combine(export.Directory, "runs.csv"));
-        Assert.Equal(2, rows.Length);
-        Assert.StartsWith($"{id},{generation},,duckov:map:{subSceneId},", rows[1], StringComparison.Ordinal);
         h.Lifecycle.Dispose();
         h.Economy.Dispose();
         h.Coordinator.Dispose();

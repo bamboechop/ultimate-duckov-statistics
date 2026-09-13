@@ -51,24 +51,6 @@ public sealed class M14LosslessAssociationTests
         Assert.Equal(2, Pair(profile.RunTotals.RouteMaps["duckov:map:A"].WeaponStatistics, "weapon:a", "ammo:x").FiringActions);
         WeaponStatisticsReducer.ValidateAggregate(run.WeaponStatistics);
 
-        var pairCsv = StatisticsExporter.Create(Profile(run), Now.AddMinutes(1)).WeaponAmmunitionPairsCsv;
-        var pairLines = pairCsv.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(value => value.TrimEnd('\r').Split(','))
-            .ToArray();
-        var headers = pairLines[0];
-        var scopeIndex = Array.IndexOf(headers, "scope");
-        var projectionIndex = Array.IndexOf(headers, "projection");
-        var weaponIndex = Array.IndexOf(headers, "weapon_id");
-        var ammunitionIndex = Array.IndexOf(headers, "ammunition_id");
-        var percentageIndex = Array.IndexOf(headers, "percentage_within_observed_projection_pairs");
-        var weaponProjection = Assert.Single(pairLines.Skip(1), row => row[scopeIndex] == "run"
-            && row[projectionIndex] == "weapon_to_ammunition"
-            && row[weaponIndex] == "weapon:b" && row[ammunitionIndex] == "ammo:x");
-        var ammunitionProjection = Assert.Single(pairLines.Skip(1), row => row[scopeIndex] == "run"
-            && row[projectionIndex] == "ammunition_to_weapon"
-            && row[weaponIndex] == "weapon:b" && row[ammunitionIndex] == "ammo:x");
-        Assert.Equal(100d, double.Parse(weaponProjection[percentageIndex], System.Globalization.CultureInfo.InvariantCulture));
-        Assert.Equal(100d / 3d, double.Parse(ammunitionProjection[percentageIndex], System.Globalization.CultureInfo.InvariantCulture), 10);
     }
 
     [Fact]
@@ -430,7 +412,7 @@ public sealed class M14LosslessAssociationTests
     [Fact]
     [Trait("Category", "M14")]
     [Trait("Category", "Export")]
-    public void UiJsonAndDedicatedCsvAgreeAndExposeBothPairProjectionsAndSlotStates()
+    public void UiAndJsonExposePairsAndSlotStates()
     {
         var tracker = Start("A");
         tracker.RecordShot(Shot("pair", tracker, "weapon:a", "Weapon A", "ammo:x", "Ammo X"));
@@ -441,14 +423,6 @@ public sealed class M14LosslessAssociationTests
         var view = WeaponStatisticsViewModelFactory.Create(profile);
 
         Assert.Equal(1, Assert.Single(view.WeaponAmmunitionPairs).Pair.FiringActions);
-        Assert.Contains("weapon_to_ammunition", export.WeaponAmmunitionPairsCsv);
-        Assert.Contains("ammunition_to_weapon", export.WeaponAmmunitionPairsCsv);
-        Assert.Contains("percentage_within_observed_projection_pairs", export.WeaponAmmunitionPairsCsv);
-        Assert.Contains("route_segment", export.WeaponAmmunitionPairsCsv);
-        Assert.Contains("duckov:slot:PrimaryWeapon", export.CharacterEquipmentSlotsCsv);
-        Assert.Contains(",Empty,", export.CharacterEquipmentSlotsCsv);
-        Assert.Contains("5:scope", export.EquippedItemNestedSlotsCsv);
-        Assert.Contains(",Occupied,", export.EquippedItemNestedSlotsCsv);
         Assert.Contains("\"WeaponAmmunitionPairs\"", export.Json);
         Assert.Contains("\"CharacterSlotStates\"", export.Json);
         Assert.Contains("\"NestedSlotStates\"", export.Json);
@@ -520,28 +494,6 @@ public sealed class M14LosslessAssociationTests
                 EquipmentSlotState.Occupied).ActiveDurationSeconds);
         }
 
-        var pairRows = RouteSegmentRows(export.WeaponAmmunitionPairsCsv);
-        Assert.Equal(4, pairRows.Count);
-        Assert.All(pairRows, row =>
-        {
-            Assert.Equal("1", row["accepted_firing_actions"]);
-            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["pairing_state"]);
-        });
-        var characterRows = RouteSegmentRows(export.CharacterEquipmentSlotsCsv);
-        Assert.Equal(6, characterRows.Count);
-        Assert.All(characterRows, row =>
-        {
-            Assert.Equal("2", row["active_duration_seconds"]);
-            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["capability_state"]);
-        });
-        var nestedRows = RouteSegmentRows(export.EquippedItemNestedSlotsCsv);
-        Assert.Equal(6, nestedRows.Count);
-        Assert.All(nestedRows, row =>
-        {
-            Assert.Equal("2", row["active_duration_seconds"]);
-            Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), row["capability_state"]);
-        });
-
         Assert.All(run.Segments, segment =>
         {
             Assert.Equal(
@@ -562,19 +514,6 @@ public sealed class M14LosslessAssociationTests
             Detail = "Current native adapter is incompatible."
         };
 
-        static IReadOnlyList<IReadOnlyDictionary<string, string>> RouteSegmentRows(string csv)
-        {
-            var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                .Select(line => line.TrimEnd('\r').Split(','))
-                .ToArray();
-            var headers = lines[0];
-            return lines.Skip(1)
-                .Where(row => row[0] == "route_segment")
-                .Select(row => (IReadOnlyDictionary<string, string>)headers
-                    .Select((header, index) => (header, value: row[index]))
-                    .ToDictionary(value => value.header, value => value.value, StringComparer.Ordinal))
-                .ToArray();
-        }
     }
 
     [Fact]

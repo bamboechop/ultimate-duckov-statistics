@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text;
 using UltimateDuckovStatistics.Core.Persistence;
 
 namespace UltimateDuckovStatistics.Core.Export;
@@ -25,31 +24,7 @@ public static class ProfileExportWriter
     public static ProfileExportResult WriteToRoot(ProfileExportSnapshot snapshot, string exportRoot, DateTime exportedUtc)
     {
         if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
-        exportedUtc = exportedUtc.Kind == DateTimeKind.Utc ? exportedUtc : exportedUtc.ToUniversalTime();
-        var directory = Path.Combine(Path.GetFullPath(exportRoot),
-            $"{exportedUtc.ToString("yyyyMMddTHHmmssfffffffZ", CultureInfo.InvariantCulture)}-{snapshot.Document.GenerationId}");
-        Directory.CreateDirectory(directory);
-        var streams = new Dictionary<string, FileStream>(StringComparer.Ordinal);
-        var files = new List<string>();
-        try
-        {
-            StatisticsExporter.WriteStreaming(snapshot.Document, exportedUtc, name =>
-            {
-                var path = Path.Combine(directory, name);
-                var stream = new FileStream(AtomicJsonPaths.GetTemporaryPath(path), FileMode.CreateNew, FileAccess.Write, FileShare.None);
-                streams.Add(path, stream);
-                return stream;
-            });
-            foreach (var pair in streams)
-            {
-                pair.Value.Flush(flushToDisk: true);
-                pair.Value.Dispose();
-                File.Move(AtomicJsonPaths.GetTemporaryPath(pair.Key), pair.Key);
-                files.Add(pair.Key);
-            }
-        }
-        finally { foreach (var stream in streams.Values) stream.Dispose(); }
-        return new ProfileExportResult(directory, files);
+        return WriteToRoot(snapshot.Document, exportRoot, exportedUtc);
     }
 
     public static ProfileExportResult Write(ProfilePersistenceSnapshot snapshot, DateTime exportedUtc)
@@ -86,63 +61,15 @@ public static class ProfileExportWriter
             Path.GetFullPath(exportRoot),
             $"{exportedUtc.ToString("yyyyMMddTHHmmssfffffffZ", CultureInfo.InvariantCulture)}-{profile.GenerationId}");
         Directory.CreateDirectory(exportDirectory);
-        var bundle = StatisticsExporter.Create(profile, exportedUtc);
-        var files = new[]
-        {
-            WriteAtomicText(exportDirectory, "statistics.json", bundle.Json),
-            WriteAtomicText(exportDirectory, "overview.csv", bundle.OverviewCsv),
-            WriteAtomicText(exportDirectory, "groups.csv", bundle.GroupsCsv),
-            WriteAtomicText(exportDirectory, "items.csv", bundle.ItemsCsv),
-            WriteAtomicText(exportDirectory, "runs.csv", bundle.RunsCsv),
-            WriteAtomicText(exportDirectory, "terminal_loadouts.csv", StatisticsExporter.CreateTerminalLoadoutsCsv(profile.Statistics.Runs)),
-            WriteAtomicText(exportDirectory, "run_totals.csv", bundle.RunTotalsCsv),
-            WriteAtomicText(exportDirectory, "map_totals.csv", bundle.MapTotalsCsv),
-            WriteAtomicText(exportDirectory, "records.csv", bundle.RecordsCsv),
-            WriteAtomicText(exportDirectory, "combat_totals.csv", bundle.CombatTotalsCsv),
-            WriteAtomicText(exportDirectory, "combat_attribution.csv", bundle.CombatAttributionCsv),
-            WriteAtomicText(exportDirectory, "weapon_totals.csv", bundle.WeaponTotalsCsv),
-            WriteAtomicText(exportDirectory, "ammunition_totals.csv", bundle.AmmunitionTotalsCsv),
-            WriteAtomicText(exportDirectory, "weapon_ammunition_pairs.csv", bundle.WeaponAmmunitionPairsCsv),
-            WriteAtomicText(exportDirectory, "equipment_totals.csv", bundle.EquipmentTotalsCsv),
-            WriteAtomicText(exportDirectory, "loadout_definitions.csv", bundle.LoadoutDefinitionsCsv),
-            WriteAtomicText(exportDirectory, "active_totem_set_definitions.csv", bundle.ActiveTotemSetDefinitionsCsv),
-            WriteAtomicText(exportDirectory, "totem_state_durations.csv", bundle.TotemStateDurationsCsv),
-            WriteAtomicText(exportDirectory, "character_equipment_slots.csv", bundle.CharacterEquipmentSlotsCsv),
-            WriteAtomicText(exportDirectory, "equipped_item_nested_slots.csv", bundle.EquippedItemNestedSlotsCsv),
-            WriteAtomicText(exportDirectory, "recurring_loadouts.csv", bundle.RecurringLoadoutsCsv),
-            WriteAtomicText(exportDirectory, "equipment_combat.csv", bundle.EquipmentCombatCsv),
-            WriteAtomicText(exportDirectory, "containers.csv", bundle.ContainersCsv),
-            WriteAtomicText(exportDirectory, "routes.csv", bundle.RoutesCsv),
-            WriteAtomicText(exportDirectory, "segments.csv", bundle.SegmentsCsv),
-            WriteAtomicText(exportDirectory, "segment_events.csv", bundle.SegmentEventsCsv),
-            WriteAtomicText(exportDirectory, "route_map_totals.csv", bundle.RouteMapTotalsCsv),
-            WriteAtomicText(exportDirectory, "economy_totals.csv", bundle.EconomyTotalsCsv),
-            WriteAtomicText(exportDirectory, "economy_sources.csv", bundle.EconomySourcesCsv),
-            WriteAtomicText(exportDirectory, "economy_contexts.csv", bundle.EconomyContextsCsv),
-            WriteAtomicText(exportDirectory, "cash_acquisition.csv", bundle.CashAcquisitionCsv),
-            WriteAtomicText(exportDirectory, "economy_holdings.csv", bundle.EconomyHoldingsCsv),
-            WriteAtomicText(exportDirectory, "world_time.csv", bundle.WorldTimeCsv),
-            WriteAtomicText(exportDirectory, "crafting_totals.csv", bundle.CraftingTotalsCsv),
-            WriteAtomicText(exportDirectory, "crafting_recipes.csv", bundle.CraftingRecipesCsv),
-            WriteAtomicText(exportDirectory, "crafting_resources.csv", bundle.CraftingResourcesCsv),
-            WriteAtomicText(exportDirectory, "crafting_resource_associations.csv", bundle.CraftingResourceAssociationsCsv)
-        };
-        return new ProfileExportResult(exportDirectory, files);
-    }
-
-    private static string WriteAtomicText(string directory, string fileName, string contents)
-    {
-        var path = Path.Combine(directory, fileName);
+        var path = Path.Combine(exportDirectory, "statistics.json");
         var temporaryPath = AtomicJsonPaths.GetTemporaryPath(path);
         using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-        using (var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
         {
-            writer.Write(contents);
-            writer.Flush();
+            StatisticsExporter.WriteJson(profile, exportedUtc, stream);
             stream.Flush(flushToDisk: true);
         }
 
         File.Move(temporaryPath, path);
-        return path;
+        return new ProfileExportResult(exportDirectory, new[] { path });
     }
 }

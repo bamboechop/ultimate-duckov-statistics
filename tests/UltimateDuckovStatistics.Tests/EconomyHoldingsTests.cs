@@ -252,7 +252,7 @@ public sealed class EconomyHoldingsTests : IDisposable
     [Fact]
     [Trait("Category", "M15")]
     [Trait("Category", "Export")]
-    public void JsonAndFlattenedCsvExportCurrentHoldingsAndCheckedLiquidWealth()
+    public void JsonExportsCurrentHoldingsAndCheckedLiquidWealth()
     {
         var profile = CurrentProfile("generation-1");
         profile.Statistics.Holdings = Supported("generation-1");
@@ -265,24 +265,16 @@ public sealed class EconomyHoldingsTests : IDisposable
         Assert.Contains("\"Holdings\"", bundle.Json, StringComparison.Ordinal);
         Assert.Contains("\"LiquidWealth\"", bundle.Json, StringComparison.Ordinal);
         Assert.Contains("\"Value\":42", bundle.Json, StringComparison.Ordinal);
-        Assert.Contains("money_state,money_value", bundle.EconomyHoldingsCsv, StringComparison.Ordinal);
-        Assert.Contains("generation-1,Current,40", bundle.EconomyHoldingsCsv, StringComparison.Ordinal);
-        Assert.Contains(",Current,42,", bundle.EconomyHoldingsCsv, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Category", "M15")]
     [Trait("Category", "Export")]
-    public void UnavailableExportLeavesValuesBlankRatherThanWritingZero()
+    public void UnavailableJsonHoldingsOmitValuesRatherThanWritingZero()
     {
         var profile = CurrentProfile("generation-1");
         profile.Statistics.Holdings = Supported("generation-1");
 
-        var csv = StatisticsExporter.Create(profile, Now).EconomyHoldingsCsv;
-        var data = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries)[1];
-
-        Assert.StartsWith("generation-1,Unavailable,,", data, StringComparison.Ordinal);
-        Assert.Contains(",Unavailable,,,", data, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -34,7 +34,7 @@ public sealed class ProfileUserOperationSafetyTests
         Assert.Single(exported.RunRecords.Maps);
         Assert.Equal(2, repository.Current.Statistics.RunTotals.TotalRuns);
         Assert.Equal("later", repository.Current.Statistics.RunRecords.Extraction.Longest!.RunId);
-        Assert.Equal(37, result.Files.Count);
+        Assert.Single(result.Files);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
         repository.CloseClean();
     }

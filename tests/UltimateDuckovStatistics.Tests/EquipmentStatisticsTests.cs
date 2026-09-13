@@ -169,7 +169,6 @@ public sealed class EquipmentStatisticsTests
 
         Assert.Equal("current type 1255 AnyThing slot contract", lifetime.Capabilities.ToteContents.Provenance);
 
-
     }
 
     [Fact]
@@ -212,7 +211,6 @@ public sealed class EquipmentStatisticsTests
             EquipmentNativeContractPolicy.CreateSupportedCapabilities(), "current").ToList();
         var currentModel = EquipmentStatisticsViewModelFactory.Create(current);
         Assert.Equal(AdapterCapabilityState.Supported, currentModel.Capabilities.EquipmentSlots.State);
-
 
     }
 
@@ -337,7 +335,7 @@ public sealed class EquipmentStatisticsTests
     }
 
     [Fact]
-    public void ExportsIncludeEquipmentAndOnlyRecurringLifetimeLoadouts()
+    public void JsonIncludesEquipmentAndAllLifetimeLoadouts()
     {
         var profile = Profile(6);
         var equipment = profile.Statistics.RunTotals.EquipmentStatistics;
@@ -357,14 +355,12 @@ public sealed class EquipmentStatisticsTests
         var jsonEquipment = json.RootElement.GetProperty("RunTotals").GetProperty("EquipmentStatistics");
 
         Assert.Equal(12.125m, jsonEquipment.GetProperty("Items").GetProperty("slot|item").GetProperty("ActiveDurationSeconds").GetDecimal());
-        Assert.Contains("lifetime,generation,item,slot|item,Vest,12.125,0", bundle.EquipmentTotalsCsv);
-        Assert.Contains("lifetime,generation,slot,slot,Armor,12.125,0", bundle.EquipmentTotalsCsv);
-        Assert.Contains("lifetime,generation,slotted_weapon,duckov:slot:PrimaryWeapon|weapon:a,Rifle,9,0", bundle.EquipmentTotalsCsv);
-        Assert.Contains("lifetime,generation,totem_state,tote|totem|unknown|copy:1,Totem [Unknown],7,0", bundle.EquipmentTotalsCsv);
-        Assert.Contains("recurring,15.0625,2", bundle.RecurringLoadoutsCsv);
-        Assert.DoesNotContain("single", bundle.RecurringLoadoutsCsv);
-        Assert.StartsWith("scope,scope_id,loadout_id,selected_weapon_slot_id", bundle.EquipmentCombatCsv);
-        Assert.Contains("lifetime,generation,recurring,duckov:slot:PrimaryWeapon,weapon:a,totems:a,0,9", bundle.EquipmentCombatCsv);
+        Assert.Equal(12.125m, jsonEquipment.GetProperty("Slots").GetProperty("slot").GetProperty("ActiveDurationSeconds").GetDecimal());
+        Assert.Equal(9, jsonEquipment.GetProperty("SlottedWeapons").GetProperty("duckov:slot:PrimaryWeapon|weapon:a").GetProperty("ActiveDurationSeconds").GetDecimal());
+        Assert.Equal(7, jsonEquipment.GetProperty("TotemStates").GetProperty("tote|totem|unknown|copy:1").GetProperty("ActiveDurationSeconds").GetDecimal());
+        Assert.Equal(1, jsonEquipment.GetProperty("Loadouts").GetProperty("single").GetProperty("RunOccurrences").GetInt64());
+        Assert.Equal(2, jsonEquipment.GetProperty("Loadouts").GetProperty("recurring").GetProperty("RunOccurrences").GetInt64());
+        Assert.Equal(9, Assert.Single(jsonEquipment.GetProperty("CombatAssociations").EnumerateObject()).Value.GetProperty("DamageDealt").GetDouble());
     }
 
     [Fact]

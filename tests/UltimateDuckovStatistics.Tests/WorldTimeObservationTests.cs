@@ -239,10 +239,6 @@ public sealed class WorldTimeObservationTests
             repository.Current,
             new DateTime(2026, 8, 21, 12, 1, 0, DateTimeKind.Utc));
         Assert.Equal(TimeSpan.FromMinutes(61).Ticks, export.Document.WorldTime.ObservedGameTimeTicks);
-        Assert.Contains(
-            "0,36600000000,3660,1,36000000000,3600,",
-            export.WorldTimeCsv,
-            StringComparison.Ordinal);
         Assert.Equal("01:01:00", UiText.FormatWorldTimeDuration(
             export.Document.WorldTime.ObservedGameTimeTicks,
             export.Document.WorldTime.Capabilities.ObservedElapsed));
@@ -852,7 +848,6 @@ public sealed class WorldTimeObservationTests
             repository.Current,
             new DateTime(2026, 8, 21, 12, 1, 0, DateTimeKind.Utc));
         Assert.Equal(TimeSpan.FromMinutes(61).Ticks, export.Document.WorldTime.ObservedGameTimeTicks);
-        Assert.Contains("0,36600000000,3660,1,36000000000,3600,", export.WorldTimeCsv, StringComparison.Ordinal);
         Assert.Equal("01:01:00", UiText.FormatWorldTimeDuration(
             export.Document.WorldTime.ObservedGameTimeTicks,
             export.Document.WorldTime.Capabilities.ObservedElapsed));
@@ -1021,7 +1016,6 @@ public sealed class WorldTimeObservationTests
 
         Assert.Equal(1, export.Document.WorldTime.CompletedSleepSessions);
         Assert.Equal(TimeSpan.FromHours(1).Ticks, export.Document.WorldTime.SleepAdvancedTimeTicks);
-        Assert.Contains(",1,36000000000,3600,", export.WorldTimeCsv, StringComparison.Ordinal);
         Assert.Equal("1", UiText.FormatWorldTimeCount(
             export.Document.WorldTime.CompletedSleepSessions,
             export.Document.WorldTime.Capabilities.CompletedSleepSessions));

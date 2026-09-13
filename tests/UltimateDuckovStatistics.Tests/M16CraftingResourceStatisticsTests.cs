@@ -68,9 +68,6 @@ public sealed class M16CraftingResourceStatisticsTests
         var jsonCrafting = json.RootElement.GetProperty("Crafting");
         Assert.Equal(150, jsonCrafting.GetProperty("CurrencyCharged").GetInt64());
         Assert.Equal(5, jsonCrafting.GetProperty("Resources").GetProperty("764").GetProperty("ConsumedQuantity").GetInt64());
-        Assert.Contains("764,High-tier Parts,5", bundle.CraftingResourcesCsv, StringComparison.Ordinal);
-        Assert.Contains("131,Audited Output,1026,764,High-tier Parts,1,5", bundle.CraftingResourceAssociationsCsv, StringComparison.Ordinal);
-        Assert.Contains("1026,1,1,1,150", bundle.CraftingRecipesCsv, StringComparison.Ordinal);
 
         var reopened = Repository(temporaryDirectory.Path, "unused-generation", "session-reopen");
         Assert.True(reopened.Open(identity).InterruptedSessionRecovered);

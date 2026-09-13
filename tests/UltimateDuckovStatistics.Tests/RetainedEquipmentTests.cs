@@ -99,7 +99,7 @@ public sealed class RetainedEquipmentTests
         Assert.Equal("Used in 0 runs", Present(p).MostUsed!.Caption);
     }
     [Fact]
-    public void SingleRunHistoricalWinnerStaysUnavailableAndRecurringExportKeepsItsFilter()
+    public void SingleRunHistoricalWinnerStaysUnavailableAndJsonRetainsItsEvidence()
     {
         var p = Profile(); var a = Observe(p); a.Loadouts.Values.Single().RunOccurrences = 3;
         a.Loadouts.Add("long-single", new EquipmentDurationAggregate { Id = "long-single", ActiveDurationSeconds = 500, RunOccurrences = 1 });
@@ -108,8 +108,8 @@ public sealed class RetainedEquipmentTests
         var card = EquipmentPresentationFactory.Create(projection, "g")!.MostUsed!;
         Assert.Equal(500, card.Duration); Assert.Equal("Used in 1 run", card.Caption);
         Assert.Empty(card.Slots); Assert.Contains("unavailable", card.Notice);
-        var csv = UltimateDuckovStatistics.Core.Export.StatisticsExporter.Create(p, DateTime.UnixEpoch).RecurringLoadoutsCsv;
-        Assert.DoesNotContain("long-single", csv); Assert.Contains(a.Loadouts.Keys.First(), csv);
+        var exported = UltimateDuckovStatistics.Core.Export.StatisticsExporter.Create(p, DateTime.UnixEpoch).Document;
+        Assert.Equal(1, exported.RunTotals.EquipmentStatistics.Loadouts["long-single"].RunOccurrences);
         Assert.Equal(500, a.Loadouts["long-single"].ActiveDurationSeconds);
         Assert.Equal(1, a.Loadouts["long-single"].RunOccurrences);
     }

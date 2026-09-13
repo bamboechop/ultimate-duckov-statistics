@@ -35,11 +35,6 @@ public sealed class CombatAccuracyPresentationTests
         AssertPresentation(loaded);
         var after = StatisticsExporter.Create(loaded, Session.Now);
         Assert.Equal(before.Json, after.Json);
-        Assert.Equal(before.CombatAttributionCsv, after.CombatAttributionCsv);
-        var csv = before.CombatAttributionCsv.Split('\n');
-        var accuracyColumn = Array.IndexOf(csv[0].Trim().Split(','), "accuracy");
-        var lifetime = csv.First(line => line.StartsWith("lifetime,", StringComparison.Ordinal)).Split(',');
-        Assert.Equal(projectiles == 0 ? "" : ((double)rangedHits / projectiles).ToString(CultureInfo.InvariantCulture), lifetime[accuracyColumn]);
 
         void AssertPresentation(ProfileDocument data)
         {

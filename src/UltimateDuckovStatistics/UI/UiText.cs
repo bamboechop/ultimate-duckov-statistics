@@ -331,7 +331,7 @@ internal static class UiText
             ["ui.runtime_issues"] = "Runtime issues",
             ["ui.issue_guidance"] = "If the issue persists, inspect Player.log. Unaffected tracking continues unless its health group reports an error.",
             ["ui.data_path"] = "Data path",
-            ["ui.export"] = "Export JSON + CSV",
+            ["ui.export"] = "Export JSON",
             ["ui.reset"] = "Reset this UDS profile",
             ["ui.reset_warning"] = "Reset archives the current UDS generation read-only and starts at zero. It cannot be undone from within UDS. Duckov saves are not changed.",
             ["ui.confirm_reset"] = "Confirm reset",

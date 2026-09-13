@@ -138,7 +138,6 @@ public sealed class OverviewHealingEvidenceTests
         }
     }
 
-
     [Theory]
     [InlineData(true, false, 0, "Unavailable", false)]
     [InlineData(false, true, 12.5, "13*", false)]
@@ -309,25 +308,6 @@ public sealed class OverviewHealingEvidenceTests
                 Assert.False(json.RootElement.GetProperty("HealingEvidenceRepaired").GetBoolean());
                 Assert.Equal(restored, json.RootElement.GetProperty("Overall").GetProperty("ActualHealthRestored").GetDouble());
             }
-            foreach (var file in new[] { "overview.csv", "groups.csv", "items.csv" })
-            {
-                var lines = File.ReadAllLines(Path.Combine(exported.Directory, file));
-                var columns = lines[0].Split(',');
-                foreach (var line in lines.Skip(1).Where(line => line.Length > 0))
-                {
-                    // This fixture has no embedded commas or quoted fields.
-                    var cells = line.Split(',');
-                    string Cell(string key) => cells[Array.IndexOf(columns, key)].Trim('"');
-                    Assert.Equal(columns.Length, cells.Length);
-                    Assert.Equal(restored, double.Parse(Cell("actual_hp_restored"), System.Globalization.CultureInfo.InvariantCulture));
-                    Assert.Equal(run.HealingCaptureComplete ? "true" : "false", Cell("healing_capture_complete"));
-                    Assert.Equal("Supported", Cell("healing_capture_state"));
-                    Assert.Equal("false", Cell("healing_evidence_repaired"));
-                    Assert.Equal(run.HealingCaptureComplete ? "Supported" : restored > 0 ? "Partial" : "Unavailable", Cell("healing_evidence_state"));
-                }
-                Assert.True(lines.Length > 1);
-            }
-
             // Simulate retained-history eviction; the lifetime flag must survive without run rows.
             var retainedPath = Path.Combine(directory.Path, "without-run-history.json");
             new Core.Persistence.AtomicJsonStore<Core.Persistence.ProfileDocument>().Save(retainedPath, reopened.Current);

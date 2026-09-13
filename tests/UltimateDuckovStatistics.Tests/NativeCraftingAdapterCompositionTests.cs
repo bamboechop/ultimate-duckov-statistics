@@ -46,8 +46,6 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             AdapterCapabilityState.DisabledIncompatible,
             result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
         var export = StatisticsExporter.Create(result.Coordinator.Current, DateTime.UtcNow);
-        Assert.DoesNotContain("9001", export.CraftingResourcesCsv, StringComparison.Ordinal);
-        Assert.DoesNotContain("9001", export.CraftingResourceAssociationsCsv, StringComparison.Ordinal);
         using (var json = JsonDocument.Parse(export.Json))
             Assert.False(json.RootElement.GetProperty("Crafting").GetProperty("Resources").TryGetProperty("9001", out _));
         Assert.Equal(1, ItemUtilities.PlayerItemOperationCount);
@@ -77,8 +75,8 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
             AdapterCapabilityState.Supported,
             result.Coordinator.CurrentCraftingCapabilities.ItemResourceIdentity.State);
         var export = StatisticsExporter.Create(result.Coordinator.Current, DateTime.UtcNow);
-        Assert.Contains("9001,Item 9001,6", export.CraftingResourcesCsv, StringComparison.Ordinal);
-        Assert.Contains("7001,Item 7001,modded-duplicate,9001,Item 9001,1,6", export.CraftingResourceAssociationsCsv, StringComparison.Ordinal);
+        Assert.Equal(6, export.Document.Crafting.Resources["9001"].ConsumedQuantity);
+        Assert.Equal(6, export.Document.Crafting.Outputs["7001"].Recipes["modded-duplicate"].Resources["9001"].ConsumedQuantity);
         Assert.Equal(6, ReadResourceQuantity(CurrentProfilePath(result)));
         Assert.Empty(ItemUtilities.OwnedItems);
         Assert.Equal(1, ItemUtilities.PlayerItemOperationCount);
@@ -106,8 +104,6 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal(3, ItemUtilities.OwnedItems[0].StackCount);
         Assert.Equal(2, ItemUtilities.ScanCount);
         var export = StatisticsExporter.Create(result.Coordinator.Current, DateTime.UtcNow);
-        Assert.DoesNotContain("9001", export.CraftingResourcesCsv, StringComparison.Ordinal);
-        Assert.DoesNotContain("9001", export.CraftingResourceAssociationsCsv, StringComparison.Ordinal);
         using (var json = JsonDocument.Parse(export.Json))
             Assert.False(json.RootElement.GetProperty("Crafting").GetProperty("Resources").TryGetProperty("9001", out _));
         Assert.Contains(result.Diagnostics, detail =>
@@ -135,8 +131,6 @@ public sealed class NativeCraftingAdapterCompositionTests : IDisposable
         Assert.Equal([3, 6], ItemUtilities.OwnedItems.Select(item => item.StackCount).OrderBy(count => count).ToArray());
         Assert.Equal(2, ItemUtilities.ScanCount);
         var export = StatisticsExporter.Create(result.Coordinator.Current, DateTime.UtcNow);
-        Assert.DoesNotContain("9001", export.CraftingResourcesCsv, StringComparison.Ordinal);
-        Assert.DoesNotContain("9001", export.CraftingResourceAssociationsCsv, StringComparison.Ordinal);
         using (var json = JsonDocument.Parse(export.Json))
             Assert.False(json.RootElement.GetProperty("Crafting").GetProperty("Resources").TryGetProperty("9001", out _));
         Assert.Contains(result.Diagnostics, detail =>

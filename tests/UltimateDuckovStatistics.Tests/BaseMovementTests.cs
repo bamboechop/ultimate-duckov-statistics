@@ -173,8 +173,6 @@ public sealed class BaseMovementTests
         var export = StatisticsExporter.Create(profile, Started);
         Assert.Equal(distance.CombinedMeters, export.Document.Distance.CombinedMeters);
         Assert.Equal(distance.BaseMeters, export.Document.Distance.BaseMeters);
-        Assert.Contains("base_distance_meters", export.OverviewCsv);
-        Assert.Contains("total_recorded_distance_meters", export.OverviewCsv);
         profile.Statistics.BaseMovement!.HasKnownGaps = true;
         Assert.True(DistanceStatisticsProjection.Create(profile).CombinedPartial);
         profile.Statistics.BaseMovement = null;

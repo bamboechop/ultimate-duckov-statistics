@@ -23,7 +23,7 @@ public sealed class SqliteExportTests : IDisposable
         var database = Path.Combine(directory, "profile.sqlite");
         var storage = new SqliteProfileStorage(database, codec);
         storage.Import(profile, null, null);
-        var expected = ProfileExportWriter.Write(profile, Path.Combine(directory, "original", "profile.json"), Now);
+        var expected = System.Text.Encoding.UTF8.GetBytes(StatisticsExporter.Create(profile, Now).Json);
         var captured = storage.CaptureExport(profile.GenerationId, profile.Revision);
         profile.Revision++;
         profile.UpdatedUtc = Now.AddMinutes(1);
@@ -35,9 +35,10 @@ public sealed class SqliteExportTests : IDisposable
             storage.Dispose();
             Assert.Equal(0, snapshot.Document.Revision);
             var result = ProfileExportWriter.WriteToRoot(snapshot, Path.Combine(directory, "streamed"), Now);
-            Assert.Equal(37, result.Files.Count);
-            foreach (var file in expected.Files)
-                Assert.Equal(File.ReadAllBytes(file), File.ReadAllBytes(Path.Combine(result.Directory, Path.GetFileName(file))));
+            Assert.Single(result.Files);
+            Assert.Equal("statistics.json", Path.GetFileName(Assert.Single(result.Files)));
+            Assert.Equal(result.Files, Directory.GetFiles(result.Directory));
+            Assert.Equal(expected, File.ReadAllBytes(result.Files[0]));
         }
         Assert.Empty(Directory.EnumerateDirectories(Path.Combine(directory, "export-staging")));
     }
@@ -104,7 +105,7 @@ public sealed class SqliteExportTests : IDisposable
         repository.Rotate(identity, "UserReset");
         Assert.NotEqual(previous, repository.CurrentGenerationId);
         var exported = ProfileExportWriter.WriteToRoot(snapshot, Path.Combine(directory, "reset-export"), Now);
-        Assert.Equal(37, exported.Files.Count);
+        Assert.Single(exported.Files);
         Assert.Equal(previous, snapshot.Document.GenerationId);
         Assert.Equal(8, snapshot.Document.Statistics.BaseMovement!.RecordedMeters);
     }

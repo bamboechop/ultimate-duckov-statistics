@@ -80,7 +80,7 @@ public sealed class SqliteCompressionTests : IDisposable
             Assert.Equal(codec.Encode(checkpoint), codec.Encode(state.Checkpoint!));
             using var snapshot = await upgraded.CaptureExport(profile.GenerationId, profile.Revision);
             var exported = ProfileExportWriter.WriteToRoot(snapshot, Path.Combine(directory.Path, "export"), now);
-            Assert.Equal(37, exported.Files.Count);
+            Assert.Single(exported.Files);
             foreach (var file in expectedExport.Files)
                 Assert.Equal(File.ReadAllBytes(file), File.ReadAllBytes(Path.Combine(exported.Directory, Path.GetFileName(file))));
         }

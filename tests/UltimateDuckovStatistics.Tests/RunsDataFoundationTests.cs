@@ -328,17 +328,7 @@ public sealed class RunsDataFoundationTests
         var export = StatisticsExporter.Create(profile, DateTime.UtcNow);
         Assert.Contains("PlayerKills", export.Json, StringComparison.Ordinal);
         Assert.Contains("TerminalLoadout", export.Json, StringComparison.Ordinal);
-        foreach (var csv in new[] { export.RunsCsv, export.RunTotalsCsv, export.MapTotalsCsv, export.RouteMapTotalsCsv,
-                     export.SegmentsCsv, export.CombatAttributionCsv, export.EquipmentCombatCsv })
-        {
-            var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            var header = lines[0].TrimEnd('\r').Split(',');
-            Assert.Contains("kill_classification_provenance", header);
-            var bucket = Array.IndexOf(header, kind.ToString().ToLowerInvariant() + "_kills_by_you");
-            Assert.True(bucket >= 0);
-            Assert.Contains(lines.Skip(1), line => line.Split(',')[bucket] == "1");
-        }
-        Assert.Contains("duckov:slot:ModEmpty", StatisticsExporter.CreateTerminalLoadoutsCsv(new[] { run }), StringComparison.Ordinal);
+        Assert.Contains("duckov:slot:ModEmpty", export.Json, StringComparison.Ordinal);
     }
 
     [Fact]

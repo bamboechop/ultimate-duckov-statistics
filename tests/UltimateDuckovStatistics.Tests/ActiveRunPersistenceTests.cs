@@ -39,7 +39,7 @@ public sealed class ActiveRunPersistenceTests
         Assert.Single(run.EquipmentStatistics.Composition.Loadouts);
         Assert.Equal(5, run.EquipmentStatistics.Composition.TotemStates.Values.Single().DurationSeconds);
         Assert.Single(recovery.Current.Statistics.RunTotals.EquipmentStatistics.Composition.Loadouts);
-        Assert.Contains("duckov:slot:totem-a", StatisticsExporter.Create(recovery.Current, TestTime).TotemStateDurationsCsv);
+        Assert.Contains("duckov:slot:totem-a", StatisticsExporter.Create(recovery.Current, TestTime).Json);
         recovery.CloseClean();
     }
 
@@ -257,12 +257,6 @@ public sealed class ActiveRunPersistenceTests
             Assert.Equal(2, overall.GetProperty("ActivationCount").GetInt64());
             Assert.Equal(25, overall.GetProperty("ActualHealthRestored").GetDouble(), precision: 6);
         }
-        AssertItemTotals(SingleCsvRow(export.OverviewCsv), "activation_count", "actual_hp_restored");
-        AssertItemTotals(SingleCsvRow(export.GroupsCsv), "activation_count", "actual_hp_restored");
-        AssertItemTotals(SingleCsvRow(export.ItemsCsv), "activation_count", "actual_hp_restored");
-        AssertItemTotals(SingleCsvRow(export.MapTotalsCsv), "item_activations", "actual_health_restored");
-        AssertItemTotals(SingleCsvRow(export.RouteMapTotalsCsv), "item_activations", "actual_health_restored");
-        AssertItemTotals(SingleCsvRow(export.SegmentsCsv), "item_activations", "actual_health_restored");
         recovery.CloseClean();
     }
 
@@ -1816,13 +1810,6 @@ public sealed class ActiveRunPersistenceTests
             Assert.Equal(1, totals.GetProperty("Headshots").GetInt64());
             Assert.Equal(0, totals.GetProperty("HeadshotFinalBlows").GetInt64());
         }
-        var fatalTarget = Assert.Single(
-            ParseCsv(export.CombatAttributionCsv),
-            row => row["scope"] == "lifetime"
-                   && row["breakdown"] == "enemy"
-                   && row["entity_id"] == "duckov:target:b");
-        Assert.Equal("0", fatalTarget["headshots"]);
-        Assert.Equal("0", fatalTarget["headshot_final_blows"]);
         recovery.CloseClean();
     }
 
@@ -1986,32 +1973,20 @@ public sealed class ActiveRunPersistenceTests
             Assert.Equal(0, totals.GetProperty("KillsByYou").GetInt64());
             Assert.Equal(1, totals.GetProperty("ObservedWorldDeaths").GetInt64());
         }
-        var total = Assert.Single(
-            ParseCsv(export.CombatAttributionCsv),
-            row => row["scope"] == "lifetime" && row["breakdown"] == "total");
-        Assert.Equal("0", total["kills_by_you"]);
-        Assert.Equal("1", total["observed_world_deaths"]);
         if (!applicationObservationTrusted || !effectTriggerTrusted)
         {
-            Assert.Equal("DisabledIncompatible", total["kills_by_you_state"]);
-            Assert.Equal("DisabledIncompatible", total["observed_world_deaths_state"]);
-
-            var runRow = Assert.Single(ParseCsv(export.RunsCsv));
-            var runTotalsRow = Assert.Single(ParseCsv(export.RunTotalsCsv));
-            var mapTotalsRow = Assert.Single(ParseCsv(export.MapTotalsCsv));
-            var routeMapTotalsRow = Assert.Single(ParseCsv(export.RouteMapTotalsCsv));
-            var segmentRow = Assert.Single(ParseCsv(export.SegmentsCsv));
-            Assert.All(
-                new[] { runRow, runTotalsRow, mapTotalsRow, routeMapTotalsRow, segmentRow },
-                row =>
-                {
-                    Assert.Equal("DisabledIncompatible", row["kills_by_you_state"]);
-                    Assert.Equal("DisabledIncompatible", row["observed_world_deaths_state"]);
-                });
-            Assert.Equal("DisabledIncompatible", routeMapTotalsRow["damage_dealt_state"]);
-            Assert.Equal("DisabledIncompatible", segmentRow["damage_dealt_state"]);
+            var document = export.Document;
+            var exportedRun = Assert.Single(document.Runs);
+            var scopes = new[] { document.RunTotals.CombatStatistics, exportedRun.CombatStatistics,
+                Assert.Single(document.RunTotals.Maps).Value.CombatStatistics,
+                Assert.Single(document.RunTotals.RouteMaps).Value.CombatStatistics,
+                Assert.Single(exportedRun.Segments).CombatStatistics };
+            Assert.All(scopes, combat =>
+            {
+                Assert.Equal(AdapterCapabilityState.DisabledIncompatible, combat.Capabilities.KillsByYou.State);
+                Assert.Equal(AdapterCapabilityState.DisabledIncompatible, combat.Capabilities.ObservedWorldDeaths.State);
+            });
         }
-        Assert.Empty(ParseCsv(export.EquipmentCombatCsv));
         recovery.CloseClean();
     }
 
@@ -2572,85 +2547,4 @@ public sealed class ActiveRunPersistenceTests
         "slot-01",
         "current",
         "active-run.json");
-
-    private static Dictionary<string, string> SingleCsvRow(string csv)
-    {
-        var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(line => line.TrimEnd('\r'))
-            .ToArray();
-        Assert.Equal(2, lines.Length);
-        var headers = lines[0].Split(',');
-        var values = lines[1].Split(',');
-        Assert.Equal(headers.Length, values.Length);
-        return headers.Select((header, index) => new KeyValuePair<string, string>(header, values[index]))
-            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-    }
-
-    private static List<IReadOnlyDictionary<string, string>> ParseCsv(string csv)
-    {
-        var rows = new List<List<string>>();
-        var row = new List<string>();
-        var field = new StringBuilder();
-        var quoted = false;
-        for (var index = 0; index < csv.Length; index++)
-        {
-            var character = csv[index];
-            if (quoted)
-            {
-                if (character == '"' && index + 1 < csv.Length && csv[index + 1] == '"')
-                {
-                    field.Append('"');
-                    index++;
-                }
-                else if (character == '"')
-                {
-                    quoted = false;
-                }
-                else
-                {
-                    field.Append(character);
-                }
-
-                continue;
-            }
-
-            if (character == '"')
-            {
-                quoted = true;
-            }
-            else if (character == ',')
-            {
-                row.Add(field.ToString());
-                field.Clear();
-            }
-            else if (character == '\n')
-            {
-                row.Add(field.ToString().TrimEnd('\r'));
-                field.Clear();
-                rows.Add(row);
-                row = new List<string>();
-            }
-            else
-            {
-                field.Append(character);
-            }
-        }
-
-        var headers = rows[0];
-        return rows.Skip(1)
-            .Where(values => values.Count > 1)
-            .Select(values => (IReadOnlyDictionary<string, string>)headers
-                .Select((header, index) => new KeyValuePair<string, string>(header, values[index]))
-                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal))
-            .ToList();
-    }
-
-    private static void AssertItemTotals(
-        Dictionary<string, string> row,
-        string activationColumn,
-        string healingColumn)
-    {
-        Assert.Equal("2", row[activationColumn]);
-        Assert.Equal("25", row[healingColumn]);
-    }
 }

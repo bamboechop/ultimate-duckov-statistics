@@ -320,7 +320,7 @@ public sealed class ContainerStatisticsTests
 
     [Fact]
     [Trait("Category", "Container")]
-    public void CurrentContainerRepairMarkerRemainsUnavailableInUiJsonAndCsv()
+    public void CurrentContainerRepairMarkerRemainsUnavailableInUiJson()
     {
         var profile = Profile();
         profile.Statistics.RunTotals.ContainerStatistics = new ContainerStatisticsAggregate { WasRepairedFromInvalidState = true };
@@ -337,14 +337,13 @@ public sealed class ContainerStatisticsTests
         Assert.False(string.IsNullOrWhiteSpace(model.CapabilityDetail));
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
             export.Document.RunTotals.ContainerStatistics.Capabilities.UniqueContainersLooted.State);
-        Assert.Contains("lifetime,generation-1,,0,DisabledIncompatible,true", export.ContainersCsv);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
             lifetime.Capabilities.UniqueContainersLooted.State);
     }
 
     [Fact]
     [Trait("Category", "Container")]
-    public void LifetimeMapRunJsonAndCsvTotalsAgree()
+    public void LifetimeMapRunAndJsonTotalsAgree()
     {
         var profile = Profile();
         var tracker = StartedTracker();
@@ -364,8 +363,6 @@ public sealed class ContainerStatisticsTests
         Assert.Equal(AdapterCapabilityState.Supported,
             profile.Statistics.RunTotals.Maps[summary.StartingMapId].ContainerStatistics.Capabilities.UniqueContainersLooted.State);
         Assert.Contains("\"UniqueContainersLooted\":2", export.Json, StringComparison.Ordinal);
-        Assert.Contains("run," + summary.RunId + ",Warehouse,2,Supported", export.ContainersCsv, StringComparison.Ordinal);
-        Assert.Contains(",2,Supported", export.RunsCsv, StringComparison.Ordinal);
     }
 
     [Fact]

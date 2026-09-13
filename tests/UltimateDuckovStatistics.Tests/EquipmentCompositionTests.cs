@@ -159,7 +159,7 @@ public sealed class EquipmentCompositionTests
         Assert.True(recovered.Value!.Composition.Loadouts.Values.Single().Conflicting);
     }
     [Fact]
-    public void JsonAndDedicatedCsvPreserveStructuredTruthAndHistoricalGaps()
+    public void JsonPreservesStructuredTruthAndHistoricalGaps()
     {
         var profile = new ProfileDocument { GenerationId = "equipment-generation", Statistics = new ProfileStatistics { SaveGenerationId = "equipment-generation" } };
         profile.Statistics.RunTotals.EquipmentStatistics = Observed();
@@ -167,9 +167,12 @@ public sealed class EquipmentCompositionTests
         a.Loadouts.Add("historical", new EquipmentDurationAggregate { Id = "historical", DisplayName = "Never parse", ActiveDurationSeconds = 22 });
         var bundle = StatisticsExporter.Create(profile, DateTime.UtcNow);
         Assert.Contains("Composition", bundle.Json); Assert.Contains("DirectSlotId", bundle.Json);
-        Assert.Contains("\"historical\",\"Unavailable\"", bundle.LoadoutDefinitionsCsv);
-        Assert.Contains("5:Scope/", bundle.LoadoutDefinitionsCsv); Assert.Contains("ProvenActive", bundle.ActiveTotemSetDefinitionsCsv);
-        Assert.Contains("duckov:slot:totem-a", bundle.TotemStateDurationsCsv);
+        Assert.Contains("duckov:slot:totem-a", bundle.Json);
+        var equipment = bundle.Document.RunTotals.EquipmentStatistics;
+        Assert.Equal(22, equipment.Loadouts["historical"].ActiveDurationSeconds);
+        Assert.False(equipment.Composition.Loadouts.ContainsKey("historical"));
+        Assert.Single(equipment.Composition.ActiveTotemSets);
+        Assert.Single(equipment.Composition.TotemStates);
     }
     [Fact]
     public void ActiveRunRouteCheckpointCompletedRunAndLifetimeShareExactComposition()

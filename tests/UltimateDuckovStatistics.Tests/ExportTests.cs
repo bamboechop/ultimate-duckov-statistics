@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using UltimateDuckovStatistics.Core;
@@ -14,50 +13,11 @@ public sealed class ExportTests
 {
     private static long economySequence;
     private static readonly DateTime TestTime = new(2026, 8, 9, 13, 0, 0, DateTimeKind.Utc);
-    private static readonly string[] ExpectedExportFileNames =
-    {
-        "active_totem_set_definitions.csv",
-        "ammunition_totals.csv",
-        "cash_acquisition.csv",
-        "character_equipment_slots.csv",
-        "combat_attribution.csv",
-        "combat_totals.csv",
-        "containers.csv",
-        "crafting_recipes.csv",
-        "crafting_resource_associations.csv",
-        "crafting_resources.csv",
-        "crafting_totals.csv",
-        "economy_contexts.csv",
-        "economy_holdings.csv",
-        "economy_sources.csv",
-        "economy_totals.csv",
-        "equipment_combat.csv",
-        "equipment_totals.csv",
-        "equipped_item_nested_slots.csv",
-        "groups.csv",
-        "items.csv",
-        "loadout_definitions.csv",
-        "map_totals.csv",
-        "overview.csv",
-        "records.csv",
-        "recurring_loadouts.csv",
-        "route_map_totals.csv",
-        "routes.csv",
-        "run_totals.csv",
-        "runs.csv",
-        "segment_events.csv",
-        "segments.csv",
-        "statistics.json",
-        "terminal_loadouts.csv",
-        "totem_state_durations.csv",
-        "weapon_ammunition_pairs.csv",
-        "weapon_totals.csv",
-        "world_time.csv"
-    };
+    private static readonly string[] ExpectedExportFileNames = { "statistics.json" };
 
     [Fact]
     [Trait("Category", "Export")]
-    public void JsonAndCsvExportsRepresentTheSameTotals()
+    public void JsonExportPreservesItemRunMapAndRecordTotals()
     {
         var profile = CreateProfile();
         ItemUseReducer.Apply(profile.Statistics, CreateUse("one", "item:one", "Medkit", CanonicalItemGroup.Healing, 1, ConsumptionUnit.Item));
@@ -68,84 +28,31 @@ public sealed class ExportTests
 
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
-        foreach (var property in bundle.GetType().GetProperties().Where(property =>
-                     property.PropertyType == typeof(string) && property.Name.EndsWith("Csv", StringComparison.Ordinal)))
-            ParseCsv((string)property.GetValue(bundle)!);
         var uiModel = WeaponStatisticsViewModelFactory.Create(profile);
-        var overview = ParseCsv(bundle.OverviewCsv);
-        var groups = ParseCsv(bundle.GroupsCsv);
-        var items = ParseCsv(bundle.ItemsCsv);
-        var runs = ParseCsv(bundle.RunsCsv);
-        var runTotals = Assert.Single(ParseCsv(bundle.RunTotalsCsv));
-        var mapTotals = Assert.Single(ParseCsv(bundle.MapTotalsCsv));
-        var records = ParseCsv(bundle.RecordsCsv);
-        var combatTotals = ParseCsv(bundle.CombatTotalsCsv);
-        var weaponTotals = ParseCsv(bundle.WeaponTotalsCsv);
-        var ammunitionTotals = ParseCsv(bundle.AmmunitionTotalsCsv);
-
         Assert.Equal(2, json.Overall.ActivationCount);
-        Assert.Equal(json.Overall.ActivationCount, ReadLong(Assert.Single(overview), "activation_count"));
-        Assert.Equal(json.Groups.Sum(group => group.Totals.ActivationCount), groups.Sum(row => ReadLong(row, "activation_count")));
-        Assert.Equal(json.Items.Sum(item => item.Totals.ActivationCount), items.Sum(row => ReadLong(row, "activation_count")));
         Assert.Equal(json.Overall.ActivationCount, json.Groups.Sum(group => group.Totals.ActivationCount));
         Assert.Equal(json.Overall.ActivationCount, json.Items.Sum(item => item.Totals.ActivationCount));
-        Assert.Equal(1, ReadDouble(Assert.Single(overview), "item_amount"));
-        Assert.Equal(2.5, ReadDouble(Assert.Single(overview), "durability_amount"), precision: 6);
-        Assert.Equal(12.5, ReadDouble(Assert.Single(overview), "actual_hp_restored"), precision: 6);
-        Assert.Equal(
-            json.Overall.ActualHealthRestored,
-            groups.Sum(row => ReadDouble(row, "actual_hp_restored")),
-            precision: 6);
-        Assert.Equal(
-            json.Overall.ActualHealthRestored,
-            items.Sum(row => ReadDouble(row, "actual_hp_restored")),
-            precision: 6);
-        Assert.Equal(
-            json.Overall.ActualHealthRestored,
-            json.Groups.Sum(group => group.Totals.ActualHealthRestored),
-            precision: 6);
-        Assert.Equal(
-            json.Overall.ActualHealthRestored,
-            json.Items.Sum(item => item.Totals.ActualHealthRestored),
-            precision: 6);
-        Assert.True(Assert.Single(overview).ContainsKey("unknown_amount"));
-        Assert.DoesNotContain("unknown_amount_amount", Assert.Single(overview).Keys);
-        Assert.Equal(json.RunTotals.TotalRuns, runs.Count);
-        Assert.Equal(json.RunTotals.TotalRuns, ReadLong(runTotals, "total_runs"));
-        Assert.Equal(json.RunTotals.TotalRuns, ReadLong(mapTotals, "total_runs"));
-        Assert.Equal(json.RunTotals.PhysicalDistance, ReadDouble(runTotals, "physical_distance"), precision: 6);
-        Assert.Equal(json.RunTotals.TeleportDistance, ReadDouble(runTotals, "teleport_distance"), precision: 6);
-        Assert.Equal(json.Runs.Sum(run => run.PhysicalDistance), ReadDouble(runTotals, "physical_distance"), precision: 6);
-        Assert.Equal(json.Runs.Sum(run => run.TeleportDistance), ReadDouble(runTotals, "teleport_distance"), precision: 6);
-        Assert.Equal(4, records.Count(row => row["scope"] == "overall"));
-        Assert.Equal(
-            json.RunRecords.Extraction.Shortest!.RunId,
-            Assert.Single(records, row => row["scope"] == "overall"
-                && row["outcome"] == nameof(RunOutcome.Extracted)
-                && row["record"] == "shortest")["run_id"]);
-        Assert.Equal(
-            json.RunRecords.Death.Shortest!.RunId,
-            Assert.Single(records, row => row["scope"] == "overall"
-                && row["outcome"] == nameof(RunOutcome.Died)
-                && row["record"] == "shortest")["run_id"]);
-        var lifetimeCombat = Assert.Single(combatTotals, row => row["scope"] == "lifetime");
-        Assert.Equal(json.RunTotals.WeaponStatistics.Totals.FiringActions, ReadLong(lifetimeCombat, "firing_actions"));
+        Assert.Equal(1, json.Overall.AmountsByUnit[nameof(ConsumptionUnit.Item)]);
+        Assert.Equal(2.5, json.Overall.AmountsByUnit[nameof(ConsumptionUnit.Durability)], precision: 6);
+        Assert.Equal(12.5, json.Overall.ActualHealthRestored, precision: 6);
+        Assert.Equal(json.Overall.ActualHealthRestored, json.Groups.Sum(group => group.Totals.ActualHealthRestored), precision: 6);
+        Assert.Equal(json.Overall.ActualHealthRestored, json.Items.Sum(item => item.Totals.ActualHealthRestored), precision: 6);
+        Assert.Equal(2, json.RunTotals.TotalRuns);
+        Assert.Equal(json.RunTotals.TotalRuns, json.Runs.Count);
+        Assert.Equal(json.RunTotals.TotalRuns, Assert.Single(json.RunTotals.Maps).Value.TotalRuns);
+        Assert.Equal(json.Runs.Sum(run => run.PhysicalDistance), json.RunTotals.PhysicalDistance, precision: 6);
+        Assert.Equal(json.Runs.Sum(run => run.TeleportDistance), json.RunTotals.TeleportDistance, precision: 6);
+        Assert.Equal("run-one", json.RunRecords.Extraction.Shortest!.RunId);
+        Assert.Equal("run-two", json.RunRecords.Death.Shortest!.RunId);
         Assert.Equal(json.RunTotals.WeaponStatistics.Totals.FiringActions, uiModel.Lifetime.Totals.FiringActions);
-        Assert.Equal(nameof(AdapterCapabilityState.Supported), lifetimeCombat["firing_actions_state"]);
         Assert.Equal(uiModel.Capabilities.FiringActions.State, json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
-        Assert.Equal(4, combatTotals.Count);
-        Assert.Equal(
-            json.RunTotals.WeaponStatistics.Weapons.Values.Sum(value => value.Totals.FiringActions),
-            weaponTotals.Where(row => row["scope"] == "lifetime").Sum(row => ReadLong(row, "firing_actions")));
-        Assert.Equal(json.RunTotals.WeaponStatistics.AmmunitionTypes.Values.Sum(value => value.Totals.FiringActions),
-            ammunitionTotals.Where(row => row["scope"] == "lifetime").Sum(row => ReadLong(row, "firing_actions")));
     }
 
     [Fact]
     [Trait("Category", "Export")]
     [Trait("Category", "Combat")]
     [Trait("Category", "M11")]
-    public void JsonUiAndCsvAgreeOnPlayerKillsObservedDeathsOwnershipAndEquipmentCredit()
+    public void JsonAndUiAgreeOnPlayerKillsObservedDeathsOwnershipAndEquipmentCredit()
     {
         var profile = CreateProfile();
         profile.Capabilities.AddRange(CombatNativeContractPolicy.ToRecords(
@@ -190,39 +97,20 @@ public sealed class ExportTests
         var view = CombatStatisticsViewModelFactory.Create(profile);
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
-        var combatRows = ParseCsv(bundle.CombatAttributionCsv);
-        var total = Assert.Single(combatRows,
-            row => row["scope"] == "lifetime" && row["breakdown"] == "total");
-        var companionRow = Assert.Single(combatRows,
-            row => row["scope"] == "lifetime" && row["breakdown"] == "ownership"
-                   && row["entity_id"] == "Companion");
-        var equipment = Assert.Single(ParseCsv(bundle.EquipmentCombatCsv),
-            row => row["scope"] == "lifetime");
-        var runRow = Assert.Single(ParseCsv(bundle.RunsCsv));
-        var runTotals = Assert.Single(ParseCsv(bundle.RunTotalsCsv));
-        var mapTotals = Assert.Single(ParseCsv(bundle.MapTotalsCsv));
-
         Assert.Equal(1, view.Lifetime.Totals.KillsByYou);
         Assert.Equal(2, view.Lifetime.Totals.ObservedWorldDeaths);
         Assert.Equal(1, json.RunTotals.CombatStatistics.Totals.KillsByYou);
         Assert.Equal(2, json.RunTotals.CombatStatistics.Totals.ObservedWorldDeaths);
-        Assert.Equal("1", total["kills_by_you"]);
-        Assert.Equal("2", total["observed_world_deaths"]);
-        Assert.Equal("1", companionRow["observed_world_deaths"]);
-        Assert.Equal("1", equipment["kills_by_you"]);
-        Assert.Equal("1", runRow["kills_by_you"]);
-        Assert.Equal("2", runRow["observed_world_deaths"]);
-        Assert.Equal("1", runTotals["kills_by_you"]);
-        Assert.Equal("2", mapTotals["observed_world_deaths"]);
-        Assert.DoesNotContain("enemies_killed", bundle.CombatAttributionCsv.Split('\n')[0], StringComparison.Ordinal);
-        Assert.DoesNotContain("enemies_killed", bundle.EquipmentCombatCsv.Split('\n')[0], StringComparison.Ordinal);
+        Assert.Equal(1, Assert.Single(json.Runs).CombatStatistics.Totals.KillsByYou);
+        Assert.Equal(2, Assert.Single(json.RunTotals.Maps).Value.CombatStatistics.Totals.ObservedWorldDeaths);
+        Assert.Equal(1, Assert.Single(json.RunTotals.EquipmentStatistics.CombatAssociations).Value.KillsByYou);
     }
 
     [Fact]
     [Trait("Category", "Export")]
     [Trait("Category", "Combat")]
     [Trait("Category", "M11")]
-    public void EquipmentCombatCsvCarriesCurrentUnavailableCombatCapabilityStates()
+    public void JsonPreservesEquipmentCreditAndCurrentUnavailableCombatCapabilities()
     {
         var profile = CreateProfile();
         profile.Capabilities.AddRange(CombatNativeContractPolicy.ToRecords(
@@ -259,32 +147,28 @@ public sealed class ExportTests
         foreach (var capability in profile.Capabilities.Where(value => disabledCapabilityIds.Contains(value.AdapterId)))
             capability.State = AdapterCapabilityState.DisabledIncompatible;
 
-        var row = Assert.Single(
-            ParseCsv(StatisticsExporter.Create(profile, TestTime).EquipmentCombatCsv),
-            value => value["scope"] == "lifetime");
-
-        Assert.Equal("10", row["damage_dealt"]);
-        Assert.Equal("1", row["kills_by_you"]);
-        Assert.Equal("DisabledIncompatible", row["damage_dealt_state"]);
-        Assert.Equal("DisabledIncompatible", row["damage_received_state"]);
-        Assert.Equal("DisabledIncompatible", row["ranged_hits_state"]);
-        Assert.Equal("DisabledIncompatible", row["melee_hits_state"]);
-        Assert.Equal("DisabledIncompatible", row["kills_by_you_state"]);
-        Assert.Equal("DisabledIncompatible", row["player_deaths_state"]);
-        Assert.Equal("DisabledIncompatible", row["ownership_state"]);
+        var json = Deserialize(StatisticsExporter.Create(profile, TestTime).Json);
+        var combat = json.RunTotals.CombatStatistics;
+        Assert.Equal(10, combat.Totals.DamageDealt);
+        Assert.Equal(1, combat.Totals.KillsByYou);
+        Assert.Equal(1, Assert.Single(json.RunTotals.EquipmentStatistics.CombatAssociations).Value.KillsByYou);
+        Assert.All(new[] { combat.Capabilities.DamageDealt, combat.Capabilities.DamageReceived,
+            combat.Capabilities.RangedHits, combat.Capabilities.MeleeHits, combat.Capabilities.KillsByYou,
+            combat.Capabilities.PlayerDeaths, combat.Capabilities.Ownership },
+            capability => Assert.Equal(AdapterCapabilityState.DisabledIncompatible, capability.State));
     }
 
     [Fact]
     [Trait("Category", "Export")]
-    public void CsvEscapesItemNamesWithoutChangingTheirValue()
+    public void JsonEscapesItemNamesWithoutChangingTheirValue()
     {
         var profile = CreateProfile();
         const string name = "Soup, \"Deluxe\"\r\nLarge";
         ItemUseReducer.Apply(profile.Statistics, CreateUse("one", "item:one", name, CanonicalItemGroup.Food, 1, ConsumptionUnit.StackUnit));
 
-        var row = Assert.Single(ParseCsv(StatisticsExporter.Create(profile, TestTime).ItemsCsv));
+        var row = Assert.Single(Deserialize(StatisticsExporter.Create(profile, TestTime).Json).Items);
 
-        Assert.Equal(name, row["display_name"]);
+        Assert.Equal(name, row.DisplayName);
     }
 
     [Fact]
@@ -304,14 +188,10 @@ public sealed class ExportTests
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
         var runJson = Assert.Single(json.Runs);
-        var runCsv = Assert.Single(
-            ParseCsv(bundle.CombatTotalsCsv),
-            row => row["scope"] == "run" && row["scope_id"] == "historical-run");
 
         Assert.Equal(
             AdapterCapabilityState.DisabledIncompatible,
             runJson.WeaponStatistics.Capabilities.FiringActions.State);
-        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), runCsv["firing_actions_state"]);
     }
 
     [Fact]
@@ -331,15 +211,11 @@ public sealed class ExportTests
 
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
-        var lifetimeCsv = Assert.Single(
-            ParseCsv(bundle.CombatTotalsCsv),
-            row => row["scope"] == "lifetime");
 
         Assert.Equal(7, json.RunTotals.WeaponStatistics.Totals.FiringActions);
         Assert.Equal(
             AdapterCapabilityState.DisabledIncompatible,
             json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
-        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), lifetimeCsv["firing_actions_state"]);
     }
 
     [Fact]
@@ -357,9 +233,6 @@ public sealed class ExportTests
         var model = WeaponStatisticsViewModelFactory.Create(profile);
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
-        var lifetimeCsv = Assert.Single(
-            ParseCsv(bundle.CombatTotalsCsv),
-            row => row["scope"] == "lifetime");
 
         Assert.Equal(0, lifetime.Totals.FiringActions);
         Assert.True(lifetime.WasRepairedFromInvalidState);
@@ -374,7 +247,6 @@ public sealed class ExportTests
         Assert.Equal(
             AdapterCapabilityState.DisabledIncompatible,
             json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
-        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), lifetimeCsv["firing_actions_state"]);
     }
 
     [Fact]
@@ -392,9 +264,6 @@ public sealed class ExportTests
         var model = WeaponStatisticsViewModelFactory.Create(profile);
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
-        var lifetimeCsv = Assert.Single(
-            ParseCsv(bundle.CombatTotalsCsv),
-            row => row["scope"] == "lifetime");
 
         Assert.True(lifetime.WasRepairedFromInvalidState);
         Assert.False(WeaponStatisticsReducer.IsEmpty(lifetime));
@@ -404,7 +273,6 @@ public sealed class ExportTests
         Assert.Equal(
             AdapterCapabilityState.DisabledIncompatible,
             json.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
-        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), lifetimeCsv["firing_actions_state"]);
     }
 
     [Fact]
@@ -442,18 +310,14 @@ public sealed class ExportTests
         var initialModel = WeaponStatisticsViewModelFactory.Create(repository.Current);
         var initialBundle = StatisticsExporter.Create(repository.Current, TestTime);
         var initialJson = Deserialize(initialBundle.Json);
-        var initialCombat = Assert.Single(
-            ParseCsv(initialBundle.CombatTotalsCsv),
-            row => row["scope"] == "lifetime");
         Assert.Equal(
             AdapterCapabilityState.DisabledIncompatible,
             initialModel.Capabilities.FiringActions.State);
         Assert.Equal(
             AdapterCapabilityState.DisabledIncompatible,
             initialJson.RunTotals.WeaponStatistics.Capabilities.FiringActions.State);
-        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), initialCombat["firing_actions_state"]);
-        Assert.Empty(ParseCsv(initialBundle.WeaponTotalsCsv));
-        Assert.Empty(ParseCsv(initialBundle.AmmunitionTotalsCsv));
+        Assert.Empty(initialJson.RunTotals.WeaponStatistics.Weapons);
+        Assert.Empty(initialJson.RunTotals.WeaponStatistics.AmmunitionTypes);
 
         lifetime.Weapons["weapon:valid"] = new WeaponAggregate
         {
@@ -471,20 +335,13 @@ public sealed class ExportTests
         var secondModel = WeaponStatisticsViewModelFactory.Create(repository.Current);
         var secondBundle = StatisticsExporter.Create(repository.Current, TestTime);
         var after = Serialize(repository.Current);
-        var weapon = Assert.Single(ParseCsv(firstBundle.WeaponTotalsCsv));
-        var ammunition = Assert.Single(ParseCsv(firstBundle.AmmunitionTotalsCsv));
 
         Assert.Equal(before, after);
         Assert.Equal(firstBundle.Json, secondBundle.Json);
-        Assert.Equal(firstBundle.CombatTotalsCsv, secondBundle.CombatTotalsCsv);
-        Assert.Equal(firstBundle.WeaponTotalsCsv, secondBundle.WeaponTotalsCsv);
-        Assert.Equal(firstBundle.AmmunitionTotalsCsv, secondBundle.AmmunitionTotalsCsv);
         Assert.Equal(
             AdapterCapabilityState.DisabledIncompatible,
             firstModel.Capabilities.FiringActions.State);
         Assert.Equal(firstModel.Capabilities.FiringActions.State, secondModel.Capabilities.FiringActions.State);
-        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), weapon["firing_actions_state"]);
-        Assert.Equal(nameof(AdapterCapabilityState.DisabledIncompatible), ammunition["firing_actions_state"]);
         repository.CloseClean();
     }
 
@@ -502,17 +359,12 @@ public sealed class ExportTests
         var secondModel = WeaponStatisticsViewModelFactory.Create(profile);
         var secondBundle = StatisticsExporter.Create(profile, TestTime);
         var after = Serialize(profile);
-        var lifetimeCsv = Assert.Single(
-            ParseCsv(firstBundle.CombatTotalsCsv),
-            row => row["scope"] == "lifetime");
 
         Assert.True(WeaponStatisticsReducer.IsEmpty(profile.Statistics.RunTotals.WeaponStatistics));
         Assert.Equal(AdapterCapabilityState.Supported, firstModel.Capabilities.FiringActions.State);
         Assert.Equal(firstModel.Capabilities.FiringActions.State, secondModel.Capabilities.FiringActions.State);
-        Assert.Equal(nameof(AdapterCapabilityState.Supported), lifetimeCsv["firing_actions_state"]);
         Assert.Equal(before, after);
         Assert.Equal(firstBundle.Json, secondBundle.Json);
-        Assert.Equal(firstBundle.CombatTotalsCsv, secondBundle.CombatTotalsCsv);
     }
 
     [Fact]
@@ -528,18 +380,19 @@ public sealed class ExportTests
             CreateUse("two", "item:stable", "Item", CanonicalItemGroup.Drink, 2, ConsumptionUnit.Durability));
 
         var bundle = StatisticsExporter.Create(profile, TestTime);
-        var item = Assert.Single(ParseCsv(bundle.ItemsCsv));
-        var group = Assert.Single(ParseCsv(bundle.GroupsCsv));
+        var json = Deserialize(bundle.Json);
+        var item = Assert.Single(json.Items);
+        var group = Assert.Single(json.Groups);
 
-        Assert.Equal(nameof(CanonicalItemGroup.Healing), item["group"]);
-        Assert.Equal(item["group"], group["group"]);
-        Assert.Equal(ReadLong(item, "activation_count"), ReadLong(group, "activation_count"));
+        Assert.Equal(nameof(CanonicalItemGroup.Healing), item.Group);
+        Assert.Equal(item.Group, group.Group);
+        Assert.Equal(item.Totals.ActivationCount, group.Totals.ActivationCount);
     }
 
     [Fact]
     [Trait("Category", "Export")]
     [Trait("Category", "M9")]
-    public void EconomyJsonAndFlattenedCsvAgreeWithStableDimensionsAndCapabilities()
+    public void EconomyJsonPreservesStableDimensionsAndCapabilities()
     {
         var profile = CreateProfile();
         profile.Statistics.Economy.Capabilities = EconomyCapabilities();
@@ -558,73 +411,21 @@ public sealed class ExportTests
 
         var bundle = StatisticsExporter.Create(profile, TestTime);
         var json = Deserialize(bundle.Json);
-        var totals = ParseCsv(bundle.EconomyTotalsCsv);
-        var sources = ParseCsv(bundle.EconomySourcesCsv);
-        var contexts = ParseCsv(bundle.EconomyContextsCsv);
-        var outcomes = ParseCsv(bundle.CashAcquisitionCsv);
-        var money = Assert.Single(totals, row => row["scope"] == "lifetime" && row["currency"] == "Money");
 
         Assert.Equal(100, json.Economy.Currencies["Money"].Totals.GrossInflow);
         Assert.Equal(30, json.Economy.Currencies["Money"].Totals.GrossOutflow);
         Assert.Equal(70, json.Economy.Currencies["Money"].Totals.NetFlow);
         Assert.Equal(profile.Statistics.Economy.ReplayCursor!.ActivationId, json.Economy.ReplayCursor!.ActivationId);
         Assert.Equal(profile.Statistics.Economy.ReplayCursor.ClosedThroughSequence, json.Economy.ReplayCursor.ClosedThroughSequence);
-        Assert.Equal(100, ReadLong(money, "gross_inflow"));
-        Assert.Equal(30, ReadLong(money, "gross_outflow"));
-        Assert.Equal(70, ReadLong(money, "net_flow"));
-        Assert.Equal("Supported", money["amount_capability"]);
-        Assert.Equal("test", money["amount_capability_provenance"]);
-        Assert.Equal("false", money["arithmetic_saturated"]);
-        Assert.False(money.ContainsKey("deduplication_saturated"));
-        Assert.Equal(100, sources.Where(row => row["scope"] == "lifetime" && row["currency"] == "Money").Sum(row => ReadLong(row, "gross_inflow")));
-        Assert.Equal(30, sources.Where(row => row["scope"] == "lifetime" && row["currency"] == "Money").Sum(row => ReadLong(row, "gross_outflow")));
-        Assert.Contains(sources, row => row["scope"] == "lifetime" && row["source"] == "Reward" && row["gross_inflow"] == "100");
-        Assert.Contains(sources, row => row["scope"] == "lifetime" && row["source"] == "Purchase" && row["gross_outflow"] == "30");
-        Assert.Contains(contexts, row => row["scope"] == "lifetime" && row["gameplay_context"] == "Reward" && row["gross_inflow"] == "100");
-        Assert.Contains(contexts, row => row["scope"] == "lifetime" && row["gameplay_context"] == "Shop" && row["gross_outflow"] == "30");
-        var lifetimeOutcome = Assert.Single(outcomes, row => row["scope"] == "lifetime");
-        Assert.Equal("7", lifetimeOutcome["acquired"]);
-        Assert.Equal(bundle.EconomyTotalsCsv, StatisticsExporter.Create(profile, TestTime).EconomyTotalsCsv);
-    }
-
-    [Fact]
-    [Trait("Category", "Export")]
-    [Trait("Category", "M9")]
-    public void EconomySourceAndContextCsvUseInvariantAsciiNegativeNumbers()
-    {
-        var profile = CreateProfile();
-        profile.Statistics.Economy.Capabilities = EconomyCapabilities();
-        EconomyStatisticsReducer.Record(
-            profile.Statistics.Economy,
-            profile.GenerationId,
-            EconomyFlow(
-                "culture-outflow",
-                CurrencyKind.Money,
-                CurrencyFlowDirection.Outflow,
-                3,
-                CurrencySourceCategory.Purchase,
-                GameplayContext.Shop));
-        var previousCulture = CultureInfo.CurrentCulture;
-        try
-        {
-            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fa-IR");
-            var bundle = StatisticsExporter.Create(profile, TestTime);
-            var source = Assert.Single(
-                ParseCsv(bundle.EconomySourcesCsv),
-                row => row["scope"] == "lifetime" && row["source"] == "Purchase");
-            var context = Assert.Single(
-                ParseCsv(bundle.EconomyContextsCsv),
-                row => row["scope"] == "lifetime" && row["gameplay_context"] == "Shop");
-
-            Assert.Equal("-3", source["net_flow"]);
-            Assert.Equal("-3", context["net_flow"]);
-            Assert.Equal(-3, ReadLong(source, "net_flow"));
-            Assert.Equal(-3, ReadLong(context, "net_flow"));
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = previousCulture;
-        }
+        var money = json.Economy.Currencies["Money"];
+        Assert.Equal(100, money.Sources["Reward"].GrossInflow);
+        Assert.Equal(30, money.Sources["Purchase"].GrossOutflow);
+        Assert.Equal(100, money.Contexts["Reward"].GrossInflow);
+        Assert.Equal(30, money.Contexts["Shop"].GrossOutflow);
+        Assert.Equal(AdapterCapabilityState.Supported, json.Economy.Capabilities.MoneyAmountDirection.State);
+        Assert.Equal("test", json.Economy.Capabilities.MoneyAmountDirection.Provenance);
+        Assert.Equal(7, json.Economy.CashAcquired);
+        Assert.Equal(bundle.Json, StatisticsExporter.Create(profile, TestTime).Json);
     }
 
     [Fact]
@@ -639,13 +440,32 @@ public sealed class ExportTests
 
         var result = ProfileExportWriter.Write(profile, profilePath, TestTime);
 
-        Assert.Equal(37, result.Files.Count);
+        Assert.Single(result.Files);
         Assert.All(result.Files, path => Assert.True(File.Exists(path)));
         Assert.Equal(
             ExpectedExportFileNames,
             result.Files.Select(System.IO.Path.GetFileName).OrderBy(name => name, StringComparer.Ordinal));
+        Assert.Equal(result.Files, Directory.GetFiles(result.Directory));
         Assert.Empty(Directory.EnumerateFiles(result.Directory, "*.tmp"));
         Assert.Contains("generation-a", result.Directory, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Export")]
+    public void ExistingExportIsNeverOverwrittenWhenDestinationCollides()
+    {
+        using var directory = new TemporaryDirectory();
+        var profile = CreateProfile();
+        var profilePath = Path.Combine(directory.Path, "profile.json");
+        var first = ProfileExportWriter.Write(profile, profilePath, TestTime);
+        var path = Assert.Single(first.Files);
+        var original = File.ReadAllBytes(path);
+        profile.Revision++;
+
+        Assert.Throws<IOException>(() => ProfileExportWriter.Write(profile, profilePath, TestTime));
+        Assert.Equal(original, File.ReadAllBytes(path));
+        var later = ProfileExportWriter.Write(profile, profilePath, TestTime.AddSeconds(1));
+        Assert.Equal(profile.Revision, Deserialize(File.ReadAllText(Assert.Single(later.Files))).Revision);
     }
 
     private static ProfileDocument CreateProfile() => new()
@@ -848,70 +668,4 @@ public sealed class ExportTests
         serializer.WriteObject(stream, profile);
         return Encoding.UTF8.GetString(stream.ToArray());
     }
-
-    private static List<IReadOnlyDictionary<string, string>> ParseCsv(string csv)
-    {
-        var rows = new List<List<string>>();
-        var row = new List<string>();
-        var field = new StringBuilder();
-        var quoted = false;
-        for (var index = 0; index < csv.Length; index++)
-        {
-            var character = csv[index];
-            if (quoted)
-            {
-                if (character == '"' && index + 1 < csv.Length && csv[index + 1] == '"')
-                {
-                    field.Append('"');
-                    index++;
-                }
-                else if (character == '"')
-                {
-                    quoted = false;
-                }
-                else
-                {
-                    field.Append(character);
-                }
-
-                continue;
-            }
-
-            if (character == '"')
-            {
-                quoted = true;
-            }
-            else if (character == ',')
-            {
-                row.Add(field.ToString());
-                field.Clear();
-            }
-            else if (character == '\n')
-            {
-                row.Add(field.ToString().TrimEnd('\r'));
-                field.Clear();
-                rows.Add(row);
-                row = new List<string>();
-            }
-            else
-            {
-                field.Append(character);
-            }
-        }
-
-        var headers = rows[0];
-        Assert.All(rows.Skip(1).Where(values => values.Count > 1), values => Assert.Equal(headers.Count, values.Count));
-        return rows.Skip(1)
-            .Where(values => values.Count > 1)
-            .Select(values => (IReadOnlyDictionary<string, string>)headers
-                .Select((header, index) => new KeyValuePair<string, string>(header, values[index]))
-                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal))
-            .ToList();
-    }
-
-    private static long ReadLong(IReadOnlyDictionary<string, string> row, string key) =>
-        long.Parse(row[key], NumberStyles.Integer, CultureInfo.InvariantCulture);
-
-    private static double ReadDouble(IReadOnlyDictionary<string, string> row, string key) =>
-        double.Parse(row[key], NumberStyles.Float, CultureInfo.InvariantCulture);
 }

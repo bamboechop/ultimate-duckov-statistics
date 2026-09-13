@@ -579,10 +579,10 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
         var export = StatisticsExporter.Create(profile, DateTime.UnixEpoch.AddMinutes(1));
         Assert.Contains("\"ItemDisplayName\":\"Enriched modded weapon\"", export.Json);
         Assert.Contains("\"ItemDisplayName\":\"Enriched modded optic\"", export.Json);
-        Assert.Contains("Enriched primary slot", export.CharacterEquipmentSlotsCsv);
-        Assert.Contains("Enriched modded weapon", export.CharacterEquipmentSlotsCsv);
-        Assert.Contains("Enriched scope slot", export.EquippedItemNestedSlotsCsv);
-        Assert.Contains("Enriched modded optic", export.EquippedItemNestedSlotsCsv);
+        Assert.Contains("Enriched primary slot", export.Json);
+        Assert.Contains("Enriched modded weapon", export.Json);
+        Assert.Contains("Enriched scope slot", export.Json);
+        Assert.Contains("Enriched modded optic", export.Json);
     }
 
     [Fact]
@@ -738,28 +738,18 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
             && value.State == EquipmentSlotState.Empty);
 
         var export = StatisticsExporter.Create(reopened.Current, DateTime.UnixEpoch.AddMinutes(3));
-        var csv = export.EquippedItemNestedSlotsCsv.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(value => value.TrimEnd('\r').Split(','))
-            .ToArray();
-        var headers = csv[0];
-        var parentSlotIndex = Array.IndexOf(headers, "parent_slot_id");
-        var pathIndex = Array.IndexOf(headers, "nested_path");
-        var stateIndex = Array.IndexOf(headers, "state");
-        var itemIndex = Array.IndexOf(headers, "item_id");
-        var durationIndex = Array.IndexOf(headers, "active_duration_seconds");
-        var capabilityIndex = Array.IndexOf(headers, "capability_state");
-        var backpackRows = csv.Skip(1)
-            .Where(row => row[parentSlotIndex] == "duckov:slot:Backpack")
-            .ToArray();
+        var exportedEquipment = Assert.Single(export.Document.Runs).EquipmentStatistics;
+        var backpackRows = exportedEquipment.NestedSlotStates.Values
+            .Where(row => row.ParentSlotId == "duckov:slot:Backpack").ToArray();
         Assert.NotEmpty(backpackRows);
         Assert.All(backpackRows, row =>
         {
-            Assert.Equal("4:Cube/", row[pathIndex]);
-            Assert.Equal("Occupied", row[stateIndex]);
-            Assert.Equal("duckov:item:901", row[itemIndex]);
-            Assert.Equal("5", row[durationIndex]);
-            Assert.Equal("DisabledIncompatible", row[capabilityIndex]);
+            Assert.Equal("4:Cube/", row.Path);
+            Assert.Equal(EquipmentSlotState.Occupied, row.State);
+            Assert.Equal("duckov:item:901", row.ItemId);
+            Assert.Equal(5, row.ActiveDurationSeconds);
         });
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, exportedEquipment.Capabilities.NestedSlotState.State);
         Assert.Contains("Readable sibling", export.Json);
         reopened.CloseClean();
     }
@@ -930,19 +920,16 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
             && value.Path == "5:Pouch/").ActiveDurationSeconds);
 
         var export = StatisticsExporter.Create(reopened.Current, DateTime.UnixEpoch.AddMinutes(3));
-        Assert.DoesNotContain(ParseCsv(export.CharacterEquipmentSlotsCsv), row =>
-            row["slot_id"] == "duckov:slot:ModRoot");
-        Assert.DoesNotContain(ParseCsv(export.EquippedItemNestedSlotsCsv), row =>
-            row["parent_slot_id"] == "duckov:slot:Backpack"
-            && row["nested_path"] == "4:Cube/");
-        var exportedUnique = Assert.Single(ParseCsv(export.EquippedItemNestedSlotsCsv), row =>
-            row["scope"] == "run"
-            && row["parent_slot_id"] == "duckov:slot:Backpack"
-            && row["nested_path"] == "5:Pouch/");
-        Assert.Equal("Occupied", exportedUnique["state"]);
-        Assert.Equal("duckov:item:902", exportedUnique["item_id"]);
-        Assert.Equal("5", exportedUnique["active_duration_seconds"]);
-        Assert.Equal("DisabledIncompatible", exportedUnique["capability_state"]);
+        var exportedEquipment = Assert.Single(export.Document.Runs).EquipmentStatistics;
+        Assert.DoesNotContain(exportedEquipment.CharacterSlotStates.Values, row => row.SlotId == "duckov:slot:ModRoot");
+        Assert.DoesNotContain(exportedEquipment.NestedSlotStates.Values, row =>
+            row.ParentSlotId == "duckov:slot:Backpack" && row.Path == "4:Cube/");
+        var exportedUnique = Assert.Single(exportedEquipment.NestedSlotStates.Values, row =>
+            row.ParentSlotId == "duckov:slot:Backpack" && row.Path == "5:Pouch/");
+        Assert.Equal(EquipmentSlotState.Occupied, exportedUnique.State);
+        Assert.Equal("duckov:item:902", exportedUnique.ItemId);
+        Assert.Equal(5, exportedUnique.ActiveDurationSeconds);
+        Assert.Equal(AdapterCapabilityState.DisabledIncompatible, exportedEquipment.Capabilities.NestedSlotState.State);
         reopened.CloseClean();
     }
 
@@ -1159,19 +1146,17 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
         var export = StatisticsExporter.Create(reopened.Current, DateTime.UnixEpoch.AddMinutes(2));
         Assert.DoesNotContain("duckov:loadout:", export.Json, StringComparison.Ordinal);
         Assert.DoesNotContain("duckov:totem-set:", export.Json, StringComparison.Ordinal);
-        Assert.Empty(ParseCsv(export.RecurringLoadoutsCsv));
-        Assert.DoesNotContain(ParseCsv(export.EquipmentTotalsCsv), row =>
-            row["breakdown"] is "loadout" or "totem_set");
-        var firingRows = ParseCsv(export.EquipmentCombatCsv)
-            .Where(row => row["firing_actions"] != "0")
-            .ToArray();
+        Assert.Empty(export.Document.RunTotals.EquipmentStatistics.Loadouts);
+        Assert.Empty(export.Document.RunTotals.EquipmentStatistics.TotemSets);
+        var firingRows = export.Document.Runs.SelectMany(run => run.EquipmentStatistics.CombatAssociations.Values)
+            .Where(row => row.FiringActions != 0).ToArray();
         Assert.NotEmpty(firingRows);
         Assert.All(firingRows, row =>
         {
-            Assert.Equal(EquipmentEventAssociation.UnavailableId, row["loadout_id"]);
-            Assert.Equal(EquipmentEventAssociation.UnavailableId, row["totem_set_id"]);
-            Assert.Equal("duckov:weapon:700", row["selected_weapon_id"]);
-            Assert.Equal("duckov:slot:PrimaryWeapon", row["selected_weapon_slot_id"]);
+            Assert.Equal(EquipmentEventAssociation.UnavailableId, row.LoadoutId);
+            Assert.Equal(EquipmentEventAssociation.UnavailableId, row.TotemSetId);
+            Assert.Equal("duckov:weapon:700", row.SelectedWeaponId);
+            Assert.Equal("duckov:slot:PrimaryWeapon", row.SelectedWeaponSlotId);
         });
         reopened.CloseClean();
     }
@@ -1453,20 +1438,16 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
             value.AdapterId == EquipmentCapabilityIds.NestedSlotState).State);
 
         var export = StatisticsExporter.Create(repository.Current, DateTime.UnixEpoch.AddSeconds(now));
-        var characterRows = ParseCsv(export.CharacterEquipmentSlotsCsv)
-            .Where(row => row["scope"] == "run" && row["slot_id"] == "duckov:slot:Backpack")
-            .ToDictionary(row => row["run_id"], StringComparer.Ordinal);
-        Assert.Equal("5", characterRows[first.RunId]["active_duration_seconds"]);
-        Assert.Equal("DisabledIncompatible", characterRows[first.RunId]["capability_state"]);
-        Assert.Equal("5", characterRows[second.RunId]["active_duration_seconds"]);
-        Assert.Equal("Supported", characterRows[second.RunId]["capability_state"]);
-        var nestedRows = ParseCsv(export.EquippedItemNestedSlotsCsv)
-            .Where(row => row["scope"] == "run" && row["nested_path"] == "4:Cube/")
-            .ToDictionary(row => row["run_id"], StringComparer.Ordinal);
-        Assert.Equal("5", nestedRows[first.RunId]["active_duration_seconds"]);
-        Assert.Equal("DisabledIncompatible", nestedRows[first.RunId]["capability_state"]);
-        Assert.Equal("5", nestedRows[second.RunId]["active_duration_seconds"]);
-        Assert.Equal("Supported", nestedRows[second.RunId]["capability_state"]);
+        foreach (var exportedRun in export.Document.Runs)
+        {
+            var equipment = exportedRun.EquipmentStatistics;
+            var expectedState = exportedRun.RunId == first.RunId
+                ? AdapterCapabilityState.DisabledIncompatible : AdapterCapabilityState.Supported;
+            Assert.Equal(5, Assert.Single(equipment.CharacterSlotStates.Values, row => row.SlotId == "duckov:slot:Backpack").ActiveDurationSeconds);
+            Assert.Equal(5, Assert.Single(equipment.NestedSlotStates.Values, row => row.Path == "4:Cube/").ActiveDurationSeconds);
+            Assert.Equal(expectedState, equipment.Capabilities.CharacterSlotState.State);
+            Assert.Equal(expectedState, equipment.Capabilities.NestedSlotState.State);
+        }
         repository.CloseClean();
     }
 
@@ -1557,52 +1538,6 @@ public sealed class NativeEquipmentAdapterPerformanceTests : IDisposable
 
         Assert.Equal(1, publications);
         Assert.Equal(EquipmentEventAssociation.UnavailableId, adapter.CaptureAssociation().LoadoutId);
-    }
-
-    private static List<IReadOnlyDictionary<string, string>> ParseCsv(string csv)
-    {
-        var rows = new List<List<string>>();
-        var row = new List<string>();
-        var field = new System.Text.StringBuilder();
-        var quoted = false;
-        for (var index = 0; index < csv.Length; index++)
-        {
-            var character = csv[index];
-            if (quoted)
-            {
-                if (character == '"' && index + 1 < csv.Length && csv[index + 1] == '"')
-                {
-                    field.Append('"');
-                    index++;
-                }
-                else if (character == '"') quoted = false;
-                else field.Append(character);
-                continue;
-            }
-
-            if (character == '"') quoted = true;
-            else if (character == ',')
-            {
-                row.Add(field.ToString());
-                field.Clear();
-            }
-            else if (character == '\n')
-            {
-                row.Add(field.ToString().TrimEnd('\r'));
-                field.Clear();
-                rows.Add(row);
-                row = new List<string>();
-            }
-            else field.Append(character);
-        }
-
-        var headers = rows[0];
-        return rows.Skip(1)
-            .Where(values => values.Count > 1)
-            .Select(values => (IReadOnlyDictionary<string, string>)headers
-                .Select((header, index) => new KeyValuePair<string, string>(header, values[index]))
-                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal))
-            .ToList();
     }
 
     public void Dispose()

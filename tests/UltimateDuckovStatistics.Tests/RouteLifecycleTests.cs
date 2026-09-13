@@ -402,9 +402,6 @@ public sealed partial class RouteLifecycleTests
         Assert.True(RunReducer.Apply(document.Statistics, run));
         Assert.All(document.Statistics.RunTotals.RouteMaps.Values, map => Assert.False(map.HistoricalUnavailable));
         var export = StatisticsExporter.Create(document, Now.AddSeconds(9));
-        var lines = export.SegmentsCsv.Trim().Split('\n');
-        Assert.EndsWith(",route_map_totals_capability", lines[0].Trim());
-        Assert.All(lines.Skip(1), line => Assert.EndsWith(",Supported", line.Trim()));
         using var json = System.Text.Json.JsonDocument.Parse(export.Json);
         Assert.Equal(run.HistoricalEventAttributionProvenance,
             json.RootElement.GetProperty("Runs")[0].GetProperty("HistoricalEventAttributionProvenance").GetString());
@@ -746,7 +743,7 @@ public sealed partial class RouteLifecycleTests
     [Fact]
     [Trait("Category", "M10")]
     [Trait("Category", "Export")]
-    public void EveryLateAssociationFamilyReachesRunSegmentStartingMapRouteMapUiJsonAndCsv()
+    public void EveryLateAssociationFamilyReachesRunSegmentStartingMapRouteMapUiJson()
     {
         var tracker = Start("A");
         for (var index = 0; index < 2050; index++)
@@ -812,12 +809,6 @@ public sealed partial class RouteLifecycleTests
         Assert.Contains("\"EventKind\":\"container\"", export.Json);
         Assert.Contains("\"EventKind\":\"item-use\"", export.Json);
         Assert.Contains("\"EventKind\":\"healing\"", export.Json);
-        Assert.Contains(",2050,", export.SegmentEventsCsv);
-        Assert.Contains(",combat,", export.SegmentEventsCsv);
-        Assert.Contains(",healing,", export.SegmentEventsCsv);
-        Assert.Contains(",2055,6", export.RoutesCsv);
-        Assert.Contains(",Supported,false", export.SegmentsCsv);
-        Assert.Contains("loadout-a", export.EquipmentTotalsCsv);
     }
 
     [Fact]
@@ -1397,7 +1388,7 @@ public sealed partial class RouteLifecycleTests
 
     [Fact]
     [Trait("Category", "M8")]
-    public void JsonAndFlattenedRouteExportsUseStableJoinKeysAndHistoricalScopes()
+    public void JsonRouteExportUsesStableJoinKeysAndHistoricalScopes()
     {
         var tracker = Start("A");
         Transition(tracker, 2, 4, "B");
@@ -1417,10 +1408,6 @@ public sealed partial class RouteLifecycleTests
         RunReducer.Apply(profile.Statistics, run);
 
         var export = StatisticsExporter.Create(profile, Now.AddMinutes(1));
-        Assert.Contains("run-1,duckov:map:A,A,duckov:map:B,B,duckov:map:A>duckov:map:B,2", export.RoutesCsv);
-        Assert.Contains("run-1,run-1:segment:0,0,duckov:map:A", export.SegmentsCsv);
-        Assert.Contains("starting_map,duckov:map:A", export.MapTotalsCsv);
-        Assert.Contains("duckov:map:B,B,true,1,1", export.RouteMapTotalsCsv);
         Assert.Contains("\"RouteSignature\":\"duckov:map:A>duckov:map:B\"", export.Json);
         Assert.Equal("A → B", UiText.FormatRoute(run));
     }

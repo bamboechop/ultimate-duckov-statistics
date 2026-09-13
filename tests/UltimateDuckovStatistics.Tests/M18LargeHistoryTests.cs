@@ -1,5 +1,4 @@
 using System.Globalization;
-using Microsoft.VisualBasic.FileIO;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
 using UltimateDuckovStatistics.Core.Persistence;
@@ -149,42 +148,13 @@ public sealed partial class RouteLifecycleTests
         Assert.Equal("history-0003", reopened.Current.Statistics.RunRecords.Death.Longest!.RunId);
 
         var result = ProfileExportWriter.WriteToRoot(reopened.CaptureExportSnapshot(), Path.Combine(directory.Path, "exports"), clock);
-        Assert.Equal(37, result.Files.Count);
+        Assert.Single(result.Files);
         var exported = new AtomicJsonStore<StatisticsExportDocument>().Load(Path.Combine(result.Directory, "statistics.json")).Value!;
         Assert.Equal(reopened.CurrentGenerationId, exported.GenerationId);
         AssertHistory(exported.Runs, exported.RunTotals);
         Assert.Equal(expectedSegments.Count, exported.Overall.ActivationCount);
         Assert.Equal(expectedHealing, exported.Overall.ActualHealthRestored);
         Assert.Equal(expectedMoney, exported.Economy.Currencies["Money"].Totals.GrossInflow);
-        var csv = result.Files.Where(path => path.EndsWith(".csv", StringComparison.Ordinal))
-            .ToDictionary(path => Path.GetFileName(path), ReadHistoryCsv, StringComparer.Ordinal);
-        Assert.Equal(expectedRuns.Keys, csv["runs.csv"].Select(row => row["run_id"]));
-        Assert.Equal(expectedRuns.Keys, csv["routes.csv"].Select(row => row["run_id"]));
-        foreach (var row in csv["routes.csv"])
-        {
-            var expected = expectedRuns[row["run_id"]];
-            Assert.Equal(expected.Route, row["route_signature"]);
-            Assert.Equal(expected.Visits, int.Parse(row["segment_count"], CultureInfo.InvariantCulture));
-            Assert.Equal(expected.Visits * 4, int.Parse(row["associated_event_count"], CultureInfo.InvariantCulture));
-        }
-        Assert.Equal(expectedSegments.Count, csv["segments.csv"].Count);
-        foreach (var row in csv["segments.csv"])
-        {
-            var expected = expectedSegments[row["segment_id"]];
-            Assert.Equal(expected.Run, row["run_id"]);
-            Assert.Equal(expected.Map, row["map_id"]);
-            Assert.Equal(expected.Duration, double.Parse(row["active_duration_seconds"], CultureInfo.InvariantCulture));
-            Assert.Equal(expected.Healing, double.Parse(row["actual_health_restored"], CultureInfo.InvariantCulture));
-            Assert.Equal("1", row["item_activations"]);
-            Assert.Equal("1", row["firing_actions"]);
-            Assert.Equal("9", row["damage_dealt"]);
-        }
-        var economyRows = csv["economy_totals.csv"].Where(row => row["scope"] == "run" && row["currency"] == "Money").ToArray();
-        Assert.Equal(expectedRuns.Keys, economyRows.Select(row => row["run_id"]));
-        Assert.Equal(expectedMoney, economyRows.Sum(row => long.Parse(row["gross_inflow"], CultureInfo.InvariantCulture)));
-        Assert.Equal(expectedRuns.Keys, csv["terminal_loadouts.csv"].Select(row => row["run_id"]).Distinct(StringComparer.Ordinal));
-        Assert.Equal(expectedRuns.Keys, csv["segment_events.csv"].Select(row => row["run_id"]).Distinct(StringComparer.Ordinal));
-        Assert.Equal(expectedSegments.Count * 4, csv["segment_events.csv"].Count);
         reopened.CloseClean();
         output.WriteLine($"M18_LARGE_HISTORY runs={runCount} segments={expectedSegments.Count} exports={result.Files.Count}; managed correctness only, no native rendering or resource claim.");
 
@@ -210,6 +180,17 @@ public sealed partial class RouteLifecycleTests
                 Assert.Equal(expected.Outcome, run.Outcome);
                 Assert.Equal(expected.Duration, run.ActiveDurationSeconds);
                 Assert.Equal(expected.Visits, run.Segments.Count);
+                Assert.Equal(expected.Visits * 4, run.SegmentEventAssociations.Count);
+                foreach (var segment in run.Segments)
+                {
+                    var detail = expectedSegments[segment.SegmentId];
+                    Assert.Equal(detail.Map, segment.MapId);
+                    Assert.Equal(detail.Duration, segment.ActiveDurationSeconds);
+                    Assert.Equal(detail.Healing, segment.ItemStatistics.Overall.ActualHealthRestored);
+                    Assert.Equal(1, segment.ItemStatistics.Overall.ActivationCount);
+                    Assert.Equal(1, segment.WeaponStatistics.Totals.FiringActions);
+                    Assert.Equal(9, segment.CombatStatistics.Totals.DamageDealt);
+                }
             }
             foreach (var (id, expected) in expectedMaps)
             {
@@ -225,18 +206,4 @@ public sealed partial class RouteLifecycleTests
         }
     }
 
-    private static List<Dictionary<string, string>> ReadHistoryCsv(string path)
-    {
-        using var parser = new TextFieldParser(path) { HasFieldsEnclosedInQuotes = true };
-        parser.SetDelimiters(",");
-        var headers = parser.ReadFields()!;
-        var rows = new List<Dictionary<string, string>>();
-        while (!parser.EndOfData)
-        {
-            var fields = parser.ReadFields()!;
-            Assert.Equal(headers.Length, fields.Length);
-            rows.Add(headers.Zip(fields).ToDictionary(pair => pair.First, pair => pair.Second, StringComparer.Ordinal));
-        }
-        return rows;
-    }
 }

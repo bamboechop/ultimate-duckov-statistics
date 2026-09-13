@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
@@ -12,7 +11,7 @@ namespace UltimateDuckovStatistics.Tests;
 public sealed class WorldTimeExportTests
 {
     [Fact]
-    public void ProfileJsonCsvAndUiFormattingUseTheSameExactWorldTimeTotals()
+    public void ProfileJsonAndUiFormattingUseTheSameExactWorldTimeTotals()
     {
         var aggregate = new WorldTimeStatisticsAggregate
         {
@@ -39,10 +38,6 @@ public sealed class WorldTimeExportTests
         var bundle = StatisticsExporter.Create(profile, new DateTime(2026, 8, 20, 12, 0, 0, DateTimeKind.Utc));
         using var json = JsonDocument.Parse(bundle.Json);
         var jsonWorldTime = json.RootElement.GetProperty("WorldTime");
-        var csvLines = bundle.WorldTimeCsv.Trim().Split('\n');
-        var csvHeaders = csvLines[0].TrimEnd('\r').Split(',');
-        var csvValues = csvLines[1].TrimEnd('\r').Split(',');
-        var csv = csvHeaders.Zip(csvValues).ToDictionary(pair => pair.First, pair => pair.Second);
 
         Assert.Equal(2, bundle.Document.WorldTime.CalendarDaysAdvanced);
         Assert.Equal(TimeSpan.FromHours(5).Ticks, bundle.Document.WorldTime.ObservedGameTimeTicks);
@@ -59,16 +54,6 @@ public sealed class WorldTimeExportTests
             jsonCapabilities.GetProperty("CompletedSleepSessions").GetProperty("State").GetInt32());
         Assert.Equal((int)AdapterCapabilityState.Supported,
             jsonCapabilities.GetProperty("SleepAdvancedTime").GetProperty("State").GetInt32());
-        Assert.Equal("2", csv["calendar_days_advanced"]);
-        Assert.Equal(TimeSpan.FromHours(5).Ticks.ToString(CultureInfo.InvariantCulture), csv["observed_game_time_ticks"]);
-        Assert.Equal("18000", csv["observed_game_time_seconds"]);
-        Assert.Equal("3", csv["completed_sleep_sessions"]);
-        Assert.Equal(TimeSpan.FromMinutes(90).Ticks.ToString(CultureInfo.InvariantCulture), csv["sleep_advanced_time_ticks"]);
-        Assert.Equal("5400", csv["sleep_advanced_time_seconds"]);
-        Assert.Equal(nameof(AdapterCapabilityState.Supported), csv["calendar_capability"]);
-        Assert.Equal(nameof(AdapterCapabilityState.Supported), csv["observed_elapsed_capability"]);
-        Assert.Equal(nameof(AdapterCapabilityState.Supported), csv["sleep_sessions_capability"]);
-        Assert.Equal(nameof(AdapterCapabilityState.Supported), csv["sleep_time_capability"]);
         Assert.Equal("05:00:00", UiText.FormatWorldTimeDuration(
             bundle.Document.WorldTime.ObservedGameTimeTicks,
             bundle.Document.WorldTime.Capabilities.ObservedElapsed));
@@ -87,26 +72,5 @@ public sealed class WorldTimeExportTests
             TimeSpan.FromMinutes(90).Ticks,
             unavailable.SleepAdvancedTime));
         Assert.Equal("Unsupported", UiText.FormatWorldTimeCount(0, unavailable.CompletedSleepSessions));
-    }
-
-    [Fact]
-    public void FileExportIncludesDedicatedWorldTimeCsvAlongsideJson()
-    {
-        using var temporaryDirectory = new TemporaryDirectory();
-        var profile = new ProfileDocument
-        {
-            GenerationId = "generation-1",
-            Slot = 1,
-            Statistics = new ProfileStatistics { SaveGenerationId = "generation-1" }
-        };
-
-        var result = ProfileExportWriter.Write(
-            profile,
-            Path.Combine(temporaryDirectory.Path, "profile.json"),
-            new DateTime(2026, 8, 20, 12, 0, 0, DateTimeKind.Utc));
-
-        Assert.Contains(result.Files, path => string.Equals(Path.GetFileName(path), "world_time.csv", StringComparison.Ordinal));
-        Assert.Contains(result.Files, path => string.Equals(Path.GetExtension(path), ".json", StringComparison.Ordinal));
-        Assert.All(result.Files, path => Assert.True(File.Exists(path)));
     }
 }

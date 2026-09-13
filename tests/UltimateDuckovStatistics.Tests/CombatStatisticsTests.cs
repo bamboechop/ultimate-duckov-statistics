@@ -941,7 +941,6 @@ public sealed class CombatStatisticsTests
         var export = StatisticsExporter.Create(profile, Now);
 
         Assert.Equal(AdapterCapabilityState.Supported, model.Capabilities.DamageDealt.State);
-        Assert.Contains("Supported", export.CombatAttributionCsv);
         Assert.Equal(AdapterCapabilityState.DisabledIncompatible,
             profile.Statistics.RunTotals.CombatStatistics.Capabilities.DamageDealt.State);
         Assert.True(CombatStatisticsReducer.IsEmpty(profile.Statistics.RunTotals.CombatStatistics));
@@ -980,7 +979,7 @@ public sealed class CombatStatisticsTests
     [Fact]
     [Trait("Category", "Combat")]
     [Trait("Category", "Export")]
-    public void UiJsonAndCombatCsvAgreeWithoutMutatingHistoricalCapabilities()
+    public void UiAndJsonAgreeWithoutMutatingHistoricalCapabilities()
     {
         var profile = Profile();
         var tracker = StartedTracker();
@@ -1007,7 +1006,6 @@ public sealed class CombatStatisticsTests
 
         Assert.Equal(8.5, view.Lifetime.Totals.DamageDealt);
         Assert.Equal(0.5, view.Accuracy);
-        Assert.Contains(",8.5,8.5,0,2,1,0.5,", export.CombatAttributionCsv);
         Assert.Contains("\"DamageDealt\":8.5", export.Json);
         Assert.Equal(recordedState, profile.Statistics.RunTotals.CombatStatistics.Capabilities.DamageDealt.State);
     }

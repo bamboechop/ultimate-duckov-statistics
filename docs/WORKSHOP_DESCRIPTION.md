@@ -6,7 +6,7 @@ This is the prepared description for the first 1.0.0 listing; no Workshop item h
 
 **Ultimate Duckov Statistics** keeps local, per-save statistics for Escape from Duckov: raids and routes, combat, equipment, item use and healing, economy, crafting, world time and sleep.
 
-Open Statistics outside a raid from the main menu, base pause menu or F8. Ten tabs cover your statistics, recorded expeditions and About. About introduces UDS and its author, and invites community translation help. Diagnostics explains unavailable or partial measurements and exports a JSON snapshot with CSV tables. Resetting UDS statistics archives its own generation; it does not change Duckov saves.
+Open Statistics outside a raid from the main menu, base pause menu or F8. Ten tabs cover your statistics, recorded expeditions and About. About introduces UDS and its author, and invites community translation help. Diagnostics explains unavailable or partial measurements and exports a JSON snapshot. Resetting UDS statistics archives its own generation; it does not change Duckov saves.
 
 **Languages:** English and German. UDS follows the game's language, including changes while the statistics panel is open.
 
