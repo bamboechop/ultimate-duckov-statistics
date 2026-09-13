@@ -16,6 +16,6 @@ internal static class NativeProfileStorage
         SqliteLibrary.Initialize(Path.Combine(assemblyDirectory, "sqlite3.dll"));
         var codec = new ProfileRecordCodec(NativeProfileJsonWriter.WriteRecord);
         return new ProfileRepository(dataRoot, () => DateTime.UtcNow, () => Guid.NewGuid().ToString("N"), diagnostic,
-            NativeProfileJsonWriter.Write, path => new RecoverableSqliteProfileStorage(path, codec, Path.Combine(dataRoot, "export-staging")), codec);
+            NativeProfileJsonWriter.Write, path => new SqliteProfileStorage(path, codec, Path.Combine(dataRoot, "export-staging")), codec);
     }
 }

@@ -1,0 +1,25 @@
+# Single-database persistence
+
+Following the 2026-09-13 user decision, current source persists each UDS generation in one `profile.sqlite`. This supersedes the continuously updated recovery copy used during the initial SQLite qualification. It is an unreleased change; the published GitHub v1.0.0 archive remains unchanged.
+
+The native factory now uses `SqliteProfileStorage` directly. Changed records, generation metadata and the receipt commit together. WAL and FULL synchronization remain enabled; interrupted writes are handled by SQLite transaction recovery. Failed commits retain their unacknowledged changes for bounded retry. Completed-run reads, active-run/session recovery, generation isolation, detached export snapshots and reset archive/rollback handling retain their existing contracts. Passive WAL maintenance still runs separately from the save queue. The first export establishes the live WAL writer before pinning its read snapshot, preventing a cold export from blocking a subsequent journal-mode transition.
+
+The duplicate commit queue, independent-copy validation/rebuild/promotion and second maintenance worker have been removed. The single-database removal makes no storage schema or representation change. This change does not add an export-import feature.
+
+Primary corruption is a storage failure, with no automatic duplicate fallback. Validators and retained-record failure markers remain active; the mod must not acknowledge writes against a generation known to have damaged records. Existing JSON files are retained from the initial import, but a failed SQLite load does not select those older values. Remaining WAL/SHM or retained-record failure evidence, as well as an obsolete `.recovery` file, prevents silent JSON reimport when the primary is missing. Restoring a user-kept JSON export remains separately planned work.
+
+## Retiring old local copies
+
+Runtime does not scan for or delete old recovery files. A valid primary can open, save and export while those files are present, damaged or locked. They can be retired separately after Duckov is closed, the primary plus its WAL has passed full record/export validation, and the primary and recovery committed contents have been compared. Keep the primary's `-wal` and `-shm` files: they belong to the active database and are not duplicate backups.
+
+Only the exact obsolete `profile.sqlite.recovery`, its own `-wal`/`-shm`/ownership/read-failure files, and `profile.sqlite.pair-owner` belong to this retirement. Archived generations, original JSON, exports and any preserved failure evidence require separate consideration. Deployment itself replaces mod files only.
+
+## Qualification
+
+On 2026-09-13, the single-database source passed 2,193 main tests and 90 shell tests in both Debug and Release, native builds with no warnings/errors, and the installed Duckov contract probe. Tests exercise native factory composition, primary busy/full/transaction failure and retry, interrupted-run/session recovery, reset failure/rollback, ownership release, run corrections, detached exports, and corrupt retained records. A valid primary continues through save/export/reopen while obsolete recovery files are locked or damaged; missing/damaged primaries do not select the old copy or stale JSON.
+
+A disposable copy of the current three-run profile passed full validation and exact primary/recovery table comparison. After retiring the obsolete files in that copy, a normal commit, exact replay and reopen preserved the complete profile and every non-receipt table. All 37 JSON/CSV export files matched byte-for-byte against the baseline both before and after reopening. The five obsolete files totalled 4,328,328 bytes; this is the copied profile's recovery-file footprint, not a general database compression ratio. Local evidence is under `artifacts/single-database/`.
+
+The ordinary single-database build was deployed on 2026-09-13. The five verified obsolete files were retired from the active profile; all other 84 UDS data files remained unchanged by deployment and retirement.
+
+The user then completed the save/export/restart check, sold surplus ammunition and reported no problems. Readback confirms both launches opened the same generation and closed cleanly, revision advanced from 7293 to 7392, and recorded sales inflow increased by 2,994. The fresh 37-file export at revision 7371 agrees with the reopened database's recorded economy values; its event-replay cursor correctly belongs to the earlier process. All three runs are unchanged and match the export. Database integrity is `ok`, the installed package still matches deployment, and no recovery files were recreated. No UDS persistence failure appears in either log. Local acceptance evidence is under `artifacts/single-database/acceptance/`.

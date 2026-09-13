@@ -15,6 +15,10 @@ public sealed partial class SqliteProfileStorage
             if (exportResult is { IsCompleted: false }) throw new InvalidOperationException("An export snapshot is already being prepared.");
             var reservation = Queue(() =>
             {
+                // Import promotes a DELETE-journal database. Establish the live
+                // WAL writer before pinning a reader, so the first export cannot
+                // block a later commit's journal-mode transition.
+                Open();
                 var reader = new SqliteStore(Path, readOnly: true);
                 try
                 {

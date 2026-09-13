@@ -168,7 +168,7 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
 
     private SqliteStore Open()
     {
-        if (readFailure) throw new InvalidDataException("A retained SQLite record failed validation; this generation requires recovery before further writes.");
+        if (readFailure) throw new InvalidDataException("A retained SQLite record failed validation; this generation is blocked from further reads and writes.");
         if (connection != null) return connection;
         if (!File.Exists(Path)) throw new FileNotFoundException("SQLite profile has not been imported.", Path);
         var db = new SqliteStore(Path);

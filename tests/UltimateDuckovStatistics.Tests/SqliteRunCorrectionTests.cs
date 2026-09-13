@@ -25,7 +25,7 @@ public sealed class SqliteRunCorrectionTests : IDisposable
         repository = Repository(); repository.Open(input.Identity);
     }
     private ProfileRepository Repository() => new(directory.Path, () => Now, () => Guid.NewGuid().ToString("N"),
-        writeProfile: NativeProfileJsonWriter.Write, createIncrementalStorage: path => new RecoverableSqliteProfileStorage(path, codec), recordCodec: codec);
+        writeProfile: NativeProfileJsonWriter.Write, createIncrementalStorage: path => new SqliteProfileStorage(path, codec), recordCodec: codec);
 
     [Fact]
     public async Task CorrectionRebuildsAffectedRecordsAndRemovesObsoleteEntriesWithoutRewritingOtherRuns()
@@ -61,11 +61,11 @@ public sealed class SqliteRunCorrectionTests : IDisposable
     }
 
     [Fact]
-    public async Task FailedReplicaRetainsCorrectionForNormalRetryAndNextCompletion()
+    public async Task FailedPrimaryRetainsCorrectionForNormalRetryAndNextCompletion()
     {
         var replacement = CopyFirst(); replacement.WeaponStatistics = new();
         var prepared = await repository.PrepareRunCorrection(replacement);
-        using (var locked = new SqliteStore(repository.CurrentProfilePath! + ".recovery"))
+        using (var locked = new SqliteStore(repository.CurrentProfilePath!))
         {
             locked.Exec("BEGIN IMMEDIATE");
             Assert.Throws<SqliteFailure>(() => repository.ApplyRunCorrection(prepared));
@@ -94,7 +94,7 @@ public sealed class SqliteRunCorrectionTests : IDisposable
         Directory.CreateDirectory(current);
         new AtomicJsonStore<ProfileDocument>().Save(Path.Combine(current, "profile.json"), profile);
         using var owner = new ProfileRepository(root, () => Now, () => Guid.NewGuid().ToString("N"),
-            writeProfile: NativeProfileJsonWriter.Write, createIncrementalStorage: path => new RecoverableSqliteProfileStorage(path, codec), recordCodec: codec);
+            writeProfile: NativeProfileJsonWriter.Write, createIncrementalStorage: path => new SqliteProfileStorage(path, codec), recordCodec: codec);
         owner.Open(profile.Identity);
         var before = codec.Encode(owner.Current);
         await Assert.ThrowsAsync<InvalidOperationException>(() => owner.PrepareRunCorrection(CopyFirst()));

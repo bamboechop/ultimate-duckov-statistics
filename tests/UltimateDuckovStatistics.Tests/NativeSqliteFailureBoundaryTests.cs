@@ -177,12 +177,12 @@ public sealed class NativeSqliteFailureBoundaryTests : IDisposable
                     // write even when no deferred publication remains dirty.
                 }
                 else Assert.True(PublishMeters(9));
-                busy = new SqliteStore(path + ".recovery"); busy.Exec("BEGIN IMMEDIATE");
+                busy = new SqliteStore(path); busy.Exec("BEGIN IMMEDIATE");
             }
             coordinator.Dispose();
         }
         finally { if (busy != null) { busy.Exec("ROLLBACK"); busy.Dispose(); } }
-        using (var lease = new FileStream(path + ".pair-owner", FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
+        using (var lease = new FileStream(path + ".owner", FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
         using (var db = new SqliteStore(path, true)) Assert.Equal(1, db.ScalarLong("SELECT session_present FROM profile_state"));
         using var reopened = new NativeProfileCoordinator(() => clock);
         reopened.Initialize();
@@ -198,7 +198,7 @@ public sealed class NativeSqliteFailureBoundaryTests : IDisposable
     {
         var prepared = Path.GetFileName(Path.GetDirectoryName(path)!).StartsWith(".uds-reset-", StringComparison.Ordinal);
         if (!prepared && ++activeOpens > 1 && failRestoration) throw new IOException("Owner cannot be reopened yet.");
-        var inner = new RecoverableSqliteProfileStorage(path, codec);
+        var inner = new SqliteProfileStorage(path, codec);
         return new DisposeObservation(inner, () =>
         {
             if (prepared && blockPromotion)
@@ -226,13 +226,11 @@ public sealed class NativeSqliteFailureBoundaryTests : IDisposable
 
     private static void AssertStored(string path, double meters, int crafted = 0, int runs = 0)
     {
-        foreach (var file in new[] { path, path + ".recovery" })
-        {
-            using var db = new SqliteStore(file, true);
-            Assert.Equal(meters, ProfileRecordCodec.Decode<BaseMovementStatistics>(db.Blob("SELECT payload FROM records WHERE kind=3")!).RecordedMeters);
-            Assert.Equal(runs, db.ScalarLong("SELECT count(*) FROM history_index"));
-            Assert.Equal(crafted, db.ScalarLong("SELECT COALESCE(SUM(quantity),0) FROM crafting WHERE kind=?", (int)ProfileRecordKind.CraftingOutput));
-        }
+        using var db = new SqliteStore(path, true);
+        Assert.Equal(meters, ProfileRecordCodec.Decode<BaseMovementStatistics>(db.Blob("SELECT payload FROM records WHERE kind=3")!).RecordedMeters);
+        Assert.Equal(runs, db.ScalarLong("SELECT count(*) FROM history_index"));
+        Assert.Equal(crafted, db.ScalarLong("SELECT COALESCE(SUM(quantity),0) FROM crafting WHERE kind=?", (int)ProfileRecordKind.CraftingOutput));
+        Assert.False(File.Exists(path + ".recovery"));
     }
 
     public void Dispose()

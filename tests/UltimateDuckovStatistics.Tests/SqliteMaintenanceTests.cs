@@ -43,10 +43,10 @@ public sealed class SqliteMaintenanceTests : IDisposable
     }
 
     [Fact]
-    public async Task SmallWalWaitsForOpportunityAndBothCopiesRemainEquivalent()
+    public async Task SmallWalWaitsForOpportunityAndPreservesTheCommittedRevision()
     {
         var profile = NativeProfileJsonWriterTests.CreateProfile();
-        using var storage = new RecoverableSqliteProfileStorage(Path.Combine(directory, "profile.sqlite"), codec);
+        using var storage = new SqliteProfileStorage(Path.Combine(directory, "profile.sqlite"), codec);
         storage.Import(profile, null, null);
         profile.Revision++;
         var changes = new ProfileChangeJournal(profile.GenerationId, codec); changes.Metadata();
@@ -54,11 +54,10 @@ public sealed class SqliteMaintenanceTests : IDisposable
         Assert.False((await storage.RequestMaintenance(ProfileMaintenanceReason.LongSession)).Attempted);
         Assert.True((await storage.RequestMaintenance(ProfileMaintenanceReason.LoadingOrSleep)).Attempted);
         using var primary = new SqliteStore(storage.Path, readOnly: true);
-        using var recovery = new SqliteStore(storage.RecoveryPath, readOnly: true);
         Assert.Equal("ok", primary.ScalarText("PRAGMA integrity_check"));
-        Assert.Equal("ok", recovery.ScalarText("PRAGMA integrity_check"));
-        Assert.Equal(primary.ScalarLong("SELECT revision FROM profile_state"), recovery.ScalarLong("SELECT revision FROM profile_state"));
-        Assert.Equal(primary.Blob("SELECT digest FROM receipt"), recovery.Blob("SELECT digest FROM receipt"));
+        Assert.Equal(profile.Revision, primary.ScalarLong("SELECT revision FROM profile_state"));
+        Assert.Equal(1, primary.ScalarLong("SELECT count(*) FROM receipt"));
+        Assert.False(File.Exists(storage.Path + ".recovery"));
     }
 
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }

@@ -23,7 +23,7 @@ public sealed partial class ProfileRepository
     private AtomicJsonLoadResult<ProfileDocument> LoadProfile(string profilePath)
     {
         var databasePath = Path.Combine(Path.GetDirectoryName(profilePath)!, "profile.sqlite");
-        if (createIncrementalStorage == null || !File.Exists(databasePath) && !File.Exists(databasePath + ".recovery"))
+        if (createIncrementalStorage == null || !HasSqliteProfileEvidence(databasePath))
             return profileStore.Load(profilePath, ProfileFormat.ValidateRecoveryCandidate, repairPrimary: !UsesIncrementalStorage);
         incrementalStorage = createIncrementalStorage(databasePath);
         var state = incrementalStorage.Load() ?? throw new InvalidDataException("An existing SQLite profile has no committed state.");
@@ -34,6 +34,14 @@ public sealed partial class ProfileRepository
         return new AtomicJsonLoadResult<ProfileDocument>(state.Profile, AtomicJsonLoadSource.Primary, Array.Empty<string>(), false);
     }
 
+    private static bool HasSqliteProfileEvidence(string path) => File.Exists(path)
+        // Retained WAL/failure evidence or an obsolete recovery file must not
+        // turn a missing primary into an import of older JSON. The old recovery
+        // file is never opened, promoted or maintained. Empty owner lease files
+        // alone do not prove a database was successfully imported.
+        || File.Exists(path + "-wal") || File.Exists(path + "-shm")
+        || File.Exists(path + ".read-failure") || File.Exists(path + ".recovery");
+
     private void EnsureIncrementalStorage()
     {
         if (incrementalStorage != null) return;
@@ -41,7 +49,7 @@ public sealed partial class ProfileRepository
         var storage = createIncrementalStorage(Path.Combine(currentDirectory, "profile.sqlite"));
         try
         {
-            if (File.Exists(storage.Path) || File.Exists(storage.Path + ".recovery"))
+            if (HasSqliteProfileEvidence(storage.Path))
             {
                 var restored = storage.Load() ?? throw new InvalidDataException("Restored SQLite generation is empty.");
                 if (restored.Profile.GenerationId != Current.GenerationId) throw new InvalidDataException("Restored SQLite generation does not match its owner.");

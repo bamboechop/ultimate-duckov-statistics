@@ -1,6 +1,6 @@
 # Unreleased persistence improvements
 
-Routine saves update changed SQLite records instead of serializing all retained runs. Completed-run detail reads are lazy, exports retain JSON/CSV, and current-format JSON import preserves the original files. An independent recovery database remains in this build. Fresh native-save identity checks use buffered SHA256 and timestamp extraction to reduce main-thread work without weakening save-generation checks. See [storage and privacy](docs/LOCAL_DATA.md) and [save-identity qualification](docs/SAVE_IDENTITY_PERFORMANCE.md). These changes are not in the existing GitHub v1.0.0 archive.
+Routine saves update changed SQLite records instead of serializing all retained runs. Completed-run detail reads are lazy, exports retain JSON/CSV, and current-format JSON import preserves the original files. Persistence now uses one database: automatic recovery-copy writes, maintenance and promotion have been removed while retaining FULL-synchronized WAL transactions. Existing primary databases open without conversion; primary corruption has no automatic duplicate fallback. Old recovery files are left untouched for separately verified retirement. Fresh native-save identity checks use buffered SHA256 and timestamp extraction to reduce main-thread work without weakening save-generation checks. See [storage and privacy](docs/LOCAL_DATA.md) and [save-identity qualification](docs/SAVE_IDENTITY_PERFORMANCE.md). These changes are not in the existing GitHub v1.0.0 archive.
 
 # Ultimate Duckov Statistics 1.0.0
 

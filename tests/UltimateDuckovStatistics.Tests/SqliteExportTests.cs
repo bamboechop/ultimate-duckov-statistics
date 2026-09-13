@@ -21,7 +21,7 @@ public sealed class SqliteExportTests : IDisposable
     {
         var profile = Profile();
         var database = Path.Combine(directory, "profile.sqlite");
-        var storage = new RecoverableSqliteProfileStorage(database, codec);
+        var storage = new SqliteProfileStorage(database, codec);
         storage.Import(profile, null, null);
         var expected = ProfileExportWriter.Write(profile, Path.Combine(directory, "original", "profile.json"), Now);
         var captured = storage.CaptureExport(profile.GenerationId, profile.Revision);
@@ -43,10 +43,24 @@ public sealed class SqliteExportTests : IDisposable
     }
 
     [Fact]
+    public async Task FirstExportEstablishesWalBeforeAnyRoutineCommit()
+    {
+        var profile = Profile();
+        using var storage = new SqliteProfileStorage(Path.Combine(directory, "profile.sqlite"), codec);
+        storage.Import(profile, null, null);
+        using (var imported = new SqliteStore(storage.Path, readOnly: true))
+            Assert.Equal("delete", imported.ScalarText("PRAGMA journal_mode"));
+        using var snapshot = await storage.CaptureExport(profile.GenerationId, profile.Revision);
+        using var live = new SqliteStore(storage.Path, readOnly: true);
+        Assert.Equal("wal", live.ScalarText("PRAGMA journal_mode"));
+        Assert.Equal(codec.Encode(profile), codec.Encode(snapshot.Document));
+    }
+
+    [Fact]
     public async Task WrongRevisionRejectsExportWithoutPoisoningDurableWrites()
     {
         var profile = Profile();
-        using var storage = new RecoverableSqliteProfileStorage(Path.Combine(directory, "profile.sqlite"), codec);
+        using var storage = new SqliteProfileStorage(Path.Combine(directory, "profile.sqlite"), codec);
         storage.Import(profile, null, null);
         await Assert.ThrowsAsync<InvalidOperationException>(() => storage.CaptureExport(profile.GenerationId, 42));
         profile.Revision++;

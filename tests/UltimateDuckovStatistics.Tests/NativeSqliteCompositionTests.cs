@@ -35,7 +35,7 @@ public sealed class NativeSqliteCompositionTests : IDisposable
     }
 
     [Fact]
-    public void ActualFactoryCommitsNativePublicationsAndLineageToBothDatabases()
+    public void ActualFactoryCommitsNativePublicationsAndLineageToOneDatabase()
     {
         Assert.EndsWith("profile.sqlite", coordinator.CurrentProfilePath, StringComparison.Ordinal);
         Assert.False(File.Exists(Path.Combine(Path.GetDirectoryName(coordinator.CurrentProfilePath)!, "profile.json")));
@@ -47,9 +47,8 @@ public sealed class NativeSqliteCompositionTests : IDisposable
                 [new("100", "Bandage", "recipe", 1, 2, new() { ["2"] = 1 })]));
         });
         SavesSystem.RaiseCollectSaveData();
-        foreach (var path in new[] { coordinator.CurrentProfilePath, coordinator.CurrentProfilePath + ".recovery" })
+        using (var db = new SqliteStore(coordinator.CurrentProfilePath, readOnly: true))
         {
-            using var db = new SqliteStore(path, readOnly: true);
             var metadata = ProfileRecordCodec.Decode<ProfileMetadataRecord>(db.Blob("SELECT payload FROM records WHERE kind=1")!);
             var distance = ProfileRecordCodec.Decode<BaseMovementStatistics>(db.Blob("SELECT payload FROM records WHERE kind=3")!);
             Assert.Equal(7, distance.RecordedMeters);
@@ -60,26 +59,28 @@ public sealed class NativeSqliteCompositionTests : IDisposable
             Assert.Equal("ok", db.ScalarText("PRAGMA integrity_check"));
         }
         Assert.Equal(2, coordinator.Current!.Statistics.Crafting.ProducedQuantity);
+        Assert.Empty(Directory.EnumerateFiles(Path.GetDirectoryName(coordinator.CurrentProfilePath)!, "*.recovery*"));
+        Assert.False(File.Exists(coordinator.CurrentProfilePath + ".pair-owner"));
     }
 
     [Fact]
-    public void ReplicaBusyKeepsAcceptedMovementForRetryWithoutDoubleCounting()
+    public void PrimaryBusyKeepsAcceptedMovementForRetryWithoutDoubleCounting()
     {
         coordinator.SetBaseMovementBoundaryPublisher(() => PublishMeters(9));
-        using (var lockOwner = new SqliteStore(coordinator.CurrentProfilePath + ".recovery"))
+        var previousReceipt = coordinator.Current!.Revision;
+        using (var lockOwner = new SqliteStore(coordinator.CurrentProfilePath))
         {
             lockOwner.Exec("BEGIN IMMEDIATE");
             SavesSystem.RaiseCollectSaveData();
             Assert.Equal(9, coordinator.Current!.Statistics.BaseMovement!.RecordedMeters);
+            Assert.Equal(previousReceipt, lockOwner.ScalarLong("SELECT revision FROM profile_state"));
             lockOwner.Exec("ROLLBACK");
         }
         clock += 5;
         SavesSystem.RaiseCollectSaveData();
         using var primary = new SqliteStore(coordinator.CurrentProfilePath, readOnly: true);
-        using var recovery = new SqliteStore(coordinator.CurrentProfilePath + ".recovery", readOnly: true);
-        Assert.Equal(primary.ScalarLong("SELECT revision FROM profile_state"), recovery.ScalarLong("SELECT revision FROM profile_state"));
-        Assert.Equal(primary.Blob("SELECT digest FROM receipt"), recovery.Blob("SELECT digest FROM receipt"));
-        Assert.Equal(9, ProfileRecordCodec.Decode<BaseMovementStatistics>(recovery.Blob("SELECT payload FROM records WHERE kind=3")!).RecordedMeters);
+        Assert.Equal(coordinator.Current!.Revision, primary.ScalarLong("SELECT revision FROM profile_state"));
+        Assert.Equal(9, ProfileRecordCodec.Decode<BaseMovementStatistics>(primary.Blob("SELECT payload FROM records WHERE kind=3")!).RecordedMeters);
     }
 
     [Fact]

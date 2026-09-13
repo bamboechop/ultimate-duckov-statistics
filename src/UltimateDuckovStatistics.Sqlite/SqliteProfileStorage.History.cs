@@ -65,7 +65,7 @@ public sealed partial class SqliteProfileStorage
         {
             readFailure = true;
             // Keep query failure separate from an empty run. The marker also
-            // routes the next open through independent recovery validation.
+            // prevents reopening this generation as healthy after a restart.
             try
             {
                 using var marker = new FileStream(Path + ".read-failure", FileMode.CreateNew, FileAccess.Write, FileShare.Read);
