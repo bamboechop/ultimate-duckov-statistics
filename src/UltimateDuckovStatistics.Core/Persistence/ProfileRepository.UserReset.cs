@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Diagnostics.CodeAnalysis;
+using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Export;
 
 namespace UltimateDuckovStatistics.Core.Persistence;
@@ -20,6 +21,7 @@ public sealed class UserProfileResetFailedException : IOException
 public sealed partial class ProfileRepository
 {
     private UserResetRollback? pendingUserResetRollback;
+    private UserResetActivation? pendingUserResetActivation;
 
     public void RefreshIdentityForUserReset(SaveIdentitySnapshot identity)
     {
@@ -37,13 +39,27 @@ public sealed partial class ProfileRepository
     {
         if (preview == null) throw new ArgumentNullException(nameof(preview));
         ValidateIdentity(identity);
-        if (CurrentGenerationId != expectedGeneration || preview.Slot != identity.Slot)
+        if (preview.Slot != identity.Slot)
             throw new InvalidOperationException("The restore destination changed.");
-        RotateUserProfile(identity, preview);
+        RotateUserProfile(identity, preview, expectedGeneration);
     }
 
-    private void RotateUserProfile(SaveIdentitySnapshot identity, StatisticsRestorePreview? restore = null)
+    private void RotateUserProfile(SaveIdentitySnapshot identity, StatisticsRestorePreview? restore = null,
+        string? expectedGeneration = null)
     {
+        if (pendingUserResetActivation is { } activation)
+        {
+            // Promotion already committed this request. Retry only activation;
+            // another preview, slot or expected generation cannot take it over.
+            if (identity.Slot != activation.Profile.Slot || !ReferenceEquals(restore, activation.Restore)
+                || (restore != null && expectedGeneration != activation.PreviousGenerationId)
+                || (CurrentGenerationId != activation.PreviousGenerationId && !ReferenceEquals(current, activation.Profile)))
+                throw new InvalidOperationException("A different profile replacement is awaiting activation.");
+            ActivateUserProfile(activation);
+            return;
+        }
+        if (restore != null && CurrentGenerationId != expectedGeneration)
+            throw new InvalidOperationException("The restore destination changed.");
         var previous = Current;
         if (pendingUserResetRollback != null)
         {
@@ -61,6 +77,7 @@ public sealed partial class ProfileRepository
         var slotDirectory = GetSlotDirectory(identity.Slot);
         var reason = restore == null ? "UserReset" : "UserRestore";
         var next = CreateNewProfile(identity, reason);
+        var replacement = new UserResetActivation(previous.GenerationId, next, restore);
         var suffix = Guid.NewGuid().ToString("N");
         var preparedDirectory = Path.Combine(slotDirectory, ".uds-reset-" + suffix);
         var archivesDirectory = Path.Combine(slotDirectory, "archives");
@@ -94,6 +111,7 @@ public sealed partial class ProfileRepository
                 File.SetAttributes(Path.Combine(archiveDirectory, entry.Key), entry.Value | FileAttributes.ReadOnly);
             Directory.Move(preparedDirectory, activeDirectory);
             promoted = true;
+            pendingUserResetActivation = replacement;
         }
         catch (Exception exception)
         {
@@ -118,13 +136,40 @@ public sealed partial class ProfileRepository
                 catch (UnauthorizedAccessException) { }
             }
         }
-        CloseIncrementalStorage();
-        current = next;
+        ActivateUserProfile(replacement);
+    }
+
+    private void ActivateUserProfile(UserResetActivation activation)
+    {
+        var next = activation.Profile;
+        if (!ReferenceEquals(current, next))
+        {
+            CloseIncrementalStorage();
+            current = next;
+            // Publications accepted while reopening is deferred must retain
+            // their journal; retries must not replace this owner or its changes.
+            if (UsesIncrementalStorage) changes = new ProfileChangeJournal(next.GenerationId, recordCodec);
+        }
         if (UsesIncrementalStorage) EnsureIncrementalStorage();
         completionPersistencePendingRunId = null;
         LastOpenResult = new ProfileOpenResult { CreatedNew = true, RotatedGeneration = true, LoadSource = AtomicJsonLoadSource.Missing };
         System.Threading.Volatile.Write(ref lastSaveReceipt,
             new ProfileSaveReceipt(next.GenerationId, next.Revision, EnsureUtc(utcNow())));
+        pendingUserResetActivation = null;
+    }
+
+    private sealed class UserResetActivation
+    {
+        public UserResetActivation(string previousGenerationId, ProfileDocument profile, StatisticsRestorePreview? restore)
+        {
+            PreviousGenerationId = previousGenerationId;
+            Profile = profile;
+            Restore = restore;
+        }
+
+        public string PreviousGenerationId { get; }
+        public ProfileDocument Profile { get; }
+        public StatisticsRestorePreview? Restore { get; }
     }
 
     private sealed class UserResetRollback

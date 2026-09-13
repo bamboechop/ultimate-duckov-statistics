@@ -4,6 +4,7 @@ using Saves;
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Compatibility;
 using UltimateDuckovStatistics.Core.Domain;
+using UltimateDuckovStatistics.Core.Export;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.Core.Tracking;
@@ -23,6 +24,7 @@ public sealed class NativeSqliteFailureBoundaryTests : IDisposable
     private readonly ProfileRepository repository;
     private int activeOpens;
     private bool failRestoration;
+    private bool failOnLoad;
     private bool blockPromotion;
     private FileStream? preparedHandle;
     private double clock;
@@ -154,6 +156,91 @@ public sealed class NativeSqliteFailureBoundaryTests : IDisposable
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PromotedReplacementRetriesActivationWithoutRotatingAgain(bool restore, bool failureDuringLoad)
+    {
+        Complete("previous-run");
+        Assert.True(PublishMeters(4)); Assert.True(coordinator.FlushBaseMovement());
+        var path = coordinator.CurrentProfilePath;
+        var previousGeneration = coordinator.CurrentGenerationId;
+        var source = StatisticsRestoreTests.PopulatedProfile();
+        var sourcePath = Path.Combine(directory.Path, "statistics.json");
+        File.WriteAllText(sourcePath, StatisticsExporter.Create(source, Now).Json);
+        var preview = await coordinator.PreviewRestoreAsync(sourcePath);
+        long started = 0, completed = 0;
+        var handoffs = 0;
+        coordinator.CraftingProfileChangeStarted += token => started = token;
+        coordinator.CraftingProfileChangeCompleted += token => completed = token;
+        coordinator.ProfileChanged += () => handoffs++;
+        failOnLoad = failureDuringLoad;
+        failRestoration = true;
+        var context = NativeRaidContext.GameplayContext;
+        try
+        {
+            NativeRaidContext.GameplayContext = GameplayContext.Base;
+            Assert.False(restore ? coordinator.RestoreCurrent(preview) : coordinator.ResetCurrent());
+        }
+        finally { NativeRaidContext.GameplayContext = context; }
+        var generation = coordinator.CurrentGenerationId;
+        Assert.NotEqual(previousGeneration, generation);
+        Assert.Equal(NativeUserResetOutcome.Pending, coordinator.LastUserResetAttempt!.Outcome);
+        Assert.True(coordinator.HasPendingProfileTransition);
+        Assert.True(started > 0); Assert.Equal(0, completed); Assert.Equal(0, handoffs);
+        Assert.Equal(previousGeneration, repository.LastSaveReceipt!.GenerationId);
+        Assert.Equal(restore ? 3 : 0, coordinator.Current!.Statistics.Runs.Count);
+        var archives = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(path)!)!, "archives");
+        var archived = Assert.Single(Directory.EnumerateDirectories(archives));
+        var archivedBytes = File.ReadAllBytes(Path.Combine(archived, "profile.sqlite"));
+        Assert.Empty(Directory.EnumerateDirectories(Path.GetDirectoryName(archives)!, ".uds-reset-*"));
+
+        // An unrelated request must not take over the committed activation.
+        if (restore)
+        {
+            var identity = repository.Current.Identity;
+            var otherPreview = await coordinator.PreviewRestoreAsync(sourcePath);
+            Assert.Throws<InvalidOperationException>(() => repository.RestoreStatistics(identity, otherPreview, previousGeneration));
+            Assert.Throws<InvalidOperationException>(() => repository.RestoreStatistics(identity, preview, generation));
+            Assert.Throws<InvalidOperationException>(() => repository.Rotate(identity, "UserReset"));
+        }
+        clock += 60;
+        Assert.False(coordinator.RetryPendingProfileTransition());
+        Assert.Equal(generation, coordinator.CurrentGenerationId);
+        Assert.Equal(0, handoffs);
+        Assert.True(PublishMeters(3)); // Retain changes accepted by the promoted owner while activation waits.
+        Assert.False(coordinator.FlushBaseMovement());
+        failRestoration = false;
+        clock += 60;
+        Assert.True(coordinator.RetryPendingProfileTransition());
+        Assert.False(coordinator.HasPendingProfileTransition);
+        Assert.Equal(NativeUserResetOutcome.Success, coordinator.LastUserResetAttempt.Outcome);
+        Assert.Equal(started, completed); Assert.Equal(1, handoffs);
+        Assert.Equal(previousGeneration, coordinator.LastUserResetAttempt.RequestedGenerationId);
+        Assert.Equal(generation, coordinator.LastUserResetAttempt.CompletedGenerationId);
+        Assert.Equal(generation, repository.LastSaveReceipt!.GenerationId);
+        Assert.Equal(1, coordinator.CompletedUserResetVersion);
+        Assert.Equal(archived, Assert.Single(Directory.EnumerateDirectories(archives)));
+        Assert.Equal(archivedBytes, File.ReadAllBytes(Path.Combine(archived, "profile.sqlite")));
+        Assert.True(coordinator.RetryPendingProfileTransition());
+        Assert.Equal(1, handoffs);
+        AssertStored(path, (restore ? 123.456 : 0) + 3, crafted: restore ? 2 : 0, runs: restore ? 3 : 0);
+
+        Assert.True(PublishMeters(5)); Assert.True(coordinator.FlushBaseMovement());
+        Complete("after-replacement");
+        var meters = (restore ? 123.456 : 0) + 5;
+        var runs = restore ? 4 : 1;
+        AssertStored(path, meters, crafted: restore ? 2 : 0, runs: runs);
+        SavesSystem.SetFile(1); // A later native transition must also settle.
+        Assert.False(coordinator.HasPendingProfileTransition);
+        Assert.Equal(generation, coordinator.CurrentGenerationId);
+        Assert.Equal(runs, coordinator.Current!.Statistics.Runs.Count);
+        Assert.Equal(meters, coordinator.Current.Statistics.BaseMovement!.RecordedMeters);
+        Assert.Null(ProfileFormat.ValidateRecoveryCandidate(coordinator.Current));
+    }
+
+    [Theory]
     [InlineData("checkpoint")]
     [InlineData("identity")]
     [InlineData("busy")]
@@ -197,13 +284,13 @@ public sealed class NativeSqliteFailureBoundaryTests : IDisposable
     private DisposeObservation CreateStorage(string path)
     {
         var prepared = Path.GetFileName(Path.GetDirectoryName(path)!).StartsWith(".uds-reset-", StringComparison.Ordinal);
-        if (!prepared && ++activeOpens > 1 && failRestoration) throw new IOException("Owner cannot be reopened yet.");
+        if (!prepared && ++activeOpens > 1 && failRestoration && !failOnLoad) throw new IOException("Owner cannot be reopened yet.");
         var inner = new SqliteProfileStorage(path, codec);
         return new DisposeObservation(inner, () =>
         {
             if (prepared && blockPromotion)
                 preparedHandle = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        });
+        }, () => !prepared && failRestoration && failOnLoad);
     }
 
     private bool PublishMeters(double value) => coordinator.HandleBaseMovement(new()
@@ -243,10 +330,14 @@ public sealed class NativeSqliteFailureBoundaryTests : IDisposable
         directory.Dispose();
     }
 
-    private sealed class DisposeObservation(IIncrementalProfileStorage inner, Action released) : IIncrementalProfileStorage
+    private sealed class DisposeObservation(IIncrementalProfileStorage inner, Action released, Func<bool> failLoad) : IIncrementalProfileStorage
     {
         public string Path => inner.Path;
-        public IncrementalProfileState? Load() => inner.Load();
+        public IncrementalProfileState? Load()
+        {
+            if (failLoad()) throw new IOException("Owner cannot be loaded yet.");
+            return inner.Load();
+        }
         public void Import(ProfileDocument profile, SessionCheckpoint? session, ActiveRunCheckpoint? checkpoint, bool sessionEvidencePresent = false) => inner.Import(profile, session, checkpoint, sessionEvidencePresent);
         public Task Commit(IncrementalProfileWrite write) => inner.Commit(write);
         public Task Drain() => inner.Drain();
