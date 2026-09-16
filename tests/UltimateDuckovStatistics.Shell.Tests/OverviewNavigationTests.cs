@@ -1,4 +1,5 @@
 using TMPro;
+using UltimateDuckovStatistics.Core.Encounters;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Statistics;
 using UltimateDuckovStatistics.UI;
@@ -11,6 +12,35 @@ namespace UltimateDuckovStatistics.Shell.Tests;
 
 public sealed partial class ShellAccessTests
 {
+    [Fact]
+    public void DistanceQueryStartsOnlyWhenOpenedAndUpdatesRetainedRowsWithoutRebuildingTheShell()
+    {
+        var profile = coordinator.Current;
+        profile.Statistics.Runs.Add(new RunSummary { RunId = "distance-run", SaveGenerationId = profile.GenerationId, RecordEligible = true });
+        profile.EncounterHistory = new List<EncounterRecord>
+        {
+            new() { RunId = "distance-run", Id = "visit", VisitId = "visit", Kind = EncounterRecordKind.Visit, Visit = new() { MapId = "map" } },
+            new() { RunId = "distance-run", Id = "kill", VisitId = "visit", Kind = EncounterRecordKind.Encounter,
+                Encounter = new() { ActorId = "enemy", Outcome = EncounterOutcome.PlayerKill, EndedSeconds = 10,
+                    FinalSource = new() { Credit = EncounterCredit.Player }, PlayerPosition = new(), EnemyPosition = new() { X = 35.29f } } }
+        };
+        using var panel = new NativeStatisticsPanel(coordinator);
+        for (var i = 0; i < 10; i++) panel.Tick();
+        var query = Field<KillDistanceHighlightsQuery>(panel, "killDistances");
+        Assert.False(query.Loading); Assert.Null(query.Value);
+        Press(panel, KeyCode.F8);
+        var longest = Find("OverviewLongestKillDistanceValue");
+        var latest = Find(RetainedOverviewLatestRunCardPolicy.Name);
+        for (var i = 0; query.Loading && i < 500; i++) { Thread.Sleep(10); panel.Tick(); }
+        Assert.False(query.Loading); Assert.False(query.Failed);
+        Assert.Same(longest, Find("OverviewLongestKillDistanceValue"));
+        Assert.Same(latest, Find(RetainedOverviewLatestRunCardPolicy.Name));
+        Assert.Equal(35.29d.ToString("0.00", System.Globalization.CultureInfo.CurrentCulture) + " m", longest.GetComponent<TextMeshProUGUI>().text);
+        var measurements = TextMeshProUGUI.Measurements;
+        for (var i = 0; i < 10; i++) panel.Tick();
+        Assert.Equal(measurements, TextMeshProUGUI.Measurements);
+    }
+
     [Theory]
     [InlineData(2559, 1439, false)]
     [InlineData(2559, 1439, true)]
@@ -52,6 +82,10 @@ public sealed partial class ShellAccessTests
             Assert.True(-latestHeading.anchoredPosition.y >= -last.anchoredPosition.y + last.rect.height);
             Assert.Equal(language == SystemLanguage.German ? "Rekorde" : "Records", UiText.Get("ui.records"));
             Assert.Equal(language == SystemLanguage.German ? "Itemnutzung" : "Item Use", UiText.Get("ui.item_use"));
+            Assert.Equal(language == SystemLanguage.German ? "Weiteste Eliminierungsdistanz" : "Longest kill distance",
+                Find("OverviewLongestKillDistanceLabel").GetComponent<TextMeshProUGUI>().text);
+            Assert.Equal(language == SystemLanguage.German ? "Kürzeste Eliminierungsdistanz" : "Shortest kill distance",
+                Find("OverviewShortestKillDistanceLabel").GetComponent<TextMeshProUGUI>().text);
             Assert.Equal(language == SystemLanguage.German ? "Gesamte Bewegungsdistanz" : "Total movement distance",
                 Find("OverviewTotalDistanceTravelledRowLabel").GetComponent<TextMeshProUGUI>().text);
             if (populated)
@@ -109,7 +143,7 @@ public sealed partial class ShellAccessTests
             }
         };
         shell.RefreshProjection(projection, coordinator.CurrentGenerationId);
-        var spec = RetainedOverviewHighlightsRowsPolicy.Specifications.Last();
+        var spec = RetainedOverviewHighlightsRowsPolicy.Specifications.Single(value => value.Metric == OverviewHighlightMetric.MostUsedConsumable);
         CheckRow(spec.LabelName, spec.ValueName, 1, false);
         Assert.StartsWith(longName, Find(spec.ValueName).GetComponent<TextMeshProUGUI>().text);
         var row = Find(spec.RowName).GetComponent<RectTransform>();

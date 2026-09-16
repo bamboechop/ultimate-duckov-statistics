@@ -62,11 +62,13 @@ The accepted loot presentation uses each item's first inspected quantity, combin
 
 The illustration is deferred until after release and a separate user decision to resume it. If resumed, prove capture semantics and the rendering approach first. A body marker based only on headshot/non-headshot classification is schematic, not a hit-location replay.
 
-## Deferred Overview highlights — kill distance
+## Overview highlights — kill distance (1.1.1)
 
 Idea recorded on September 15, 2026: add **longest kill distance** and **shortest kill distance** highlights to Overview. The inspiration was the user's reported 35.29 m M700 kill with an 8× scope.
 
-Use recorded player/enemy positions at the killing blow for player-attributed kills, consistent with the distance already shown in encounter details. Missing position evidence must not become a zero-distance record. Confirm the available evidence and aggregation rules when this idea is taken up; it is not implemented or part of the current encounter feature's completion criteria. Finish that feature first.
+Overview adds longest and shortest kill distance from confirmed player kills in completed, record-eligible runs belonging to the current statistics generation. Distance is horizontal player-to-enemy separation at the killing blow, consistent with Map & Kills; it is not projectile travel or separation from an earlier attack origin. All recorded attack types qualify, including melee and effects. Missing, nonfinite or conflicting-map positions are excluded; a genuinely observed zero separation is valid. A damage-history gap alone does not erase valid fatal-position evidence. Map artwork is not required.
+
+The panel reads only visit and encounter record families on a background worker, using run-index eligibility without loading historical run details. Results are cached until encounter/visit evidence or eligible runs change. Ordinary damage, route, loot and unrelated profile updates do not reread the history. Profile changes cancel stale work, and failed reads show Unavailable rather than publishing partial extrema; reopening the panel retries. Empty results show a dash. Existing recorded encounters participate without backfilling aggregate-only runs or changing the persisted/export schema. Native visual/performance acceptance of the new highlights remains a separate step before Workshop publication.
 
 ## Deferred enemy silhouettes — one-off model rendering
 
