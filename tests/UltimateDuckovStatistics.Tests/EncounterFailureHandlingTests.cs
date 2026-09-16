@@ -124,8 +124,10 @@ public sealed class EncounterFailureHandlingTests
         Assert.Contains(saved, row => row.Route != null);
     }
 
-    [Fact]
-    public async Task FailedCaptureWaitsForStorageThenCompletesRunAndRestoresDurableNotice()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailedCaptureWaitsForStorageThenCompletesRunAndRestoresDurableNotice(bool missingContext)
     {
         using var directory = new TemporaryDirectory();
         SqliteLibrary.Initialize(Path.Combine(AppContext.BaseDirectory, "sqlite3.dll"));
@@ -139,7 +141,8 @@ public sealed class EncounterFailureHandlingTests
         using var source = Open("source"); source.Open(identity);
         var generation = source.CurrentGenerationId;
         var tracker = IncrementalCheckpointProtocolTests.Started(generation, route: true, runId: "run");
-        Break(pipe, generation);
+        if (missingContext) pipe.Record(generation, "run", "map", "", 4, "combat_fatal", new { });
+        else Break(pipe, generation);
         var storageAvailable = false;
         var boundary = new NativeRunTerminalBoundary(() => clock);
         boundary.SetTerminalObserver(() => pipe.Pump((owner, row) =>
@@ -150,7 +153,8 @@ public sealed class EncounterFailureHandlingTests
         }, flush: true));
         var terminal = new RunLifecycleEvent { Kind = RunLifecycleEventKind.Extracted, TimestampUtc = now.AddSeconds(10), MonotonicSeconds = 10 };
         Assert.Null(boundary.Apply(tracker, terminal, _ => { }, () => true).Completed);
-        Assert.True(boundary.HasPendingTerminal); Assert.True(tracker.IsActive); Assert.NotNull(pipe.Failure);
+        Assert.True(boundary.HasPendingTerminal); Assert.True(tracker.IsActive);
+        Assert.Equal(!missingContext, pipe.Failure != null);
         Assert.True(pipe.HasPending);
         storageAvailable = true; clock = 61;
         var completed = boundary.Retry(tracker, _ => { }, _ => { source.Flush(); return true; }).Completed;
@@ -158,7 +162,9 @@ public sealed class EncounterFailureHandlingTests
         source.CompleteRun(completed!); source.CloseClean();
         using var reopened = Open("source"); reopened.Open(identity);
         var warning = Assert.Single(reopened.ReadEncounters("run"));
-        Assert.Equal(EncounterRecordKind.Coverage, warning.Kind); Assert.True(warning.Coverage!.CaptureStopped);
+        Assert.Equal(EncounterRecordKind.Coverage, warning.Kind);
+        Assert.Equal(!missingContext, warning.Coverage!.CaptureStopped);
+        Assert.Equal(missingContext ? EncounterCaptureIssue.ContextUnavailable : EncounterCaptureIssue.ReductionFailed, warning.Coverage.Issue);
         using var snapshot = await reopened.CaptureExportSnapshotAsync();
         var export = ProfileExportWriter.WriteToRoot(snapshot, Path.Combine(directory.Path, "exports"), now);
         var preview = StatisticsRestoreReader.Read(Assert.Single(export.Files), 1);
@@ -167,7 +173,7 @@ public sealed class EncounterFailureHandlingTests
         using var verified = Open("restored"); verified.Open(identity);
         var records = verified.ReadEncounters("run").ToArray();
         Assert.Equal(codec.Encode(warning), codec.Encode(Assert.Single(records)));
-        Assert.Equal("ui.encounters_capture_stopped", StoredEncounterRun.Build(records).CoverageNoticeKey);
+        Assert.Equal(missingContext ? "ui.encounters_capture_incomplete" : "ui.encounters_capture_stopped", StoredEncounterRun.Build(records).CoverageNoticeKey);
         Assert.Empty(StoredEncounterRun.Build(records).Visits);
         verified.CloseClean(); reopened.CloseClean();
     }

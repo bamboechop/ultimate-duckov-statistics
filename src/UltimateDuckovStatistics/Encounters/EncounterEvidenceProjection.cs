@@ -22,6 +22,7 @@ internal sealed class EncounterEvidenceProjection
     private int ordinal;
     private RouteConnection connection = RouteConnection.Start;
     private double lastTime;
+    private bool missingContextReported;
 
     public EncounterEvidenceProjection(string session) { this.session = session; }
     public static bool Accepts(string kind) => kind is "path-visit" or "path-point" or "path-gap"
@@ -35,7 +36,30 @@ internal sealed class EncounterEvidenceProjection
         if (run != runId) throw new InvalidOperationException("Drain the previous run before changing capture ownership.");
         lastTime = Math.Max(lastTime, time);
         if (kind == "session-end") { EndVisit(time); return; }
-        if (string.IsNullOrWhiteSpace(map) || string.IsNullOrWhiteSpace(segment)) return;
+        if (string.IsNullOrWhiteSpace(map) || string.IsNullOrWhiteSpace(segment))
+        {
+            // Loading can temporarily clear the route segment. Its gap notification
+            // is still useful, but does not itself mean gameplay evidence was lost.
+            if (kind is "path-gap" or "path-discontinuity")
+            {
+                connection = RouteConnection.Gap;
+                if (visit != null) { visit.Visit!.HasGaps = true; Mark(visit); }
+                return;
+            }
+            // Actual observations cannot be attached to a fabricated or stale visit.
+            // Route exhaustion leaves the run active with no current segment, so
+            // explicitly retain this loss at run level and allow later recovery.
+            EndVisit(time);
+            if (!missingContextReported)
+            {
+                missingContextReported = true;
+                Mark(new EncounterRecord { RunId = run, Id = session + "/context-unavailable",
+                    Kind = EncounterRecordKind.Coverage,
+                    Coverage = new EncounterCoverage { Issue = EncounterCaptureIssue.ContextUnavailable,
+                        ObservedSeconds = time, CaptureStopped = false } });
+            }
+            return;
+        }
         // Combat can arrive before the map observer's first sample. Its later
         // path-visit announcement must not split the same run/segment again.
         if (visit == null || visit.Visit!.MapId != map || visit.Visit.SegmentId != segment) NewVisit(map, segment, time);

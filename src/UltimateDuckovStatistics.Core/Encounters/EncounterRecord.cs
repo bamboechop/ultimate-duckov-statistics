@@ -3,7 +3,7 @@ using System.Runtime.Serialization;
 namespace UltimateDuckovStatistics.Core.Encounters;
 
 public enum EncounterRecordKind { Visit = 1, Route = 2, Encounter = 3, Damage = 4, Inventory = 5, Loot = 6, Coverage = 7 }
-public enum EncounterCaptureIssue { QueueLimit = 1, ReductionFailed = 2, NativeCaptureFailed = 3, CombatIncomplete = 4, LootIncomplete = 5, MapIncomplete = 6 }
+public enum EncounterCaptureIssue { QueueLimit = 1, ReductionFailed = 2, NativeCaptureFailed = 3, CombatIncomplete = 4, LootIncomplete = 5, MapIncomplete = 6, ContextUnavailable = 7 }
 public enum RouteConnection { Start = 0, Walk = 1, Teleport = 2, Gap = 3 }
 public enum EncounterOutcome { PlayerKill = 1, PlayerDeath = 2, OtherDeath = 3 }
 public enum EncounterCredit { Unknown = 0, Player = 1, Other = 2 }
