@@ -16,8 +16,7 @@ internal sealed class StoredEncounterRun
     internal static StoredEncounterRun Build(EncounterRecord[] records)
     {
         var result = new StoredEncounterRun { Records = records, Visits = StoredEncounterMap.Build(records),
-            Events = records.Where(record => record.Encounter?.Outcome != null)
-                .OrderBy(record => record.Encounter!.EndedSeconds).ThenBy(record => record.Id, StringComparer.Ordinal).ToArray() };
+            Events = OrderEvents(records).ToArray() };
         result.CoverageNoticeKey = records.Any(record => record.Coverage?.CaptureStopped == true) ? "ui.encounters_capture_stopped"
             : records.Any(record => record.Coverage != null) ? "ui.encounters_capture_incomplete" : null;
         var visits = result.Visits.Select((visit, index) => (visit.VisitId, index)).ToDictionary(pair => pair.VisitId, pair => pair.index);
@@ -31,6 +30,12 @@ internal sealed class StoredEncounterRun
     }
 
     internal int EventIndex(string id) => eventIndices.TryGetValue(id, out var index) ? index : -1;
+
+    internal static IOrderedEnumerable<EncounterRecord> OrderEvents(IEnumerable<EncounterRecord> records) =>
+        records.Where(record => record.Encounter?.Outcome != null)
+            .OrderBy(record => record.Encounter!.EndedSeconds)
+            .ThenBy(record => record.Encounter!.FatalSequence ?? long.MaxValue)
+            .ThenBy(record => record.Id, StringComparer.Ordinal);
     internal int VisitIndex(int eventIndex) => eventIndex >= 0 && eventIndex < eventVisits.Length ? eventVisits[eventIndex] : -1;
 }
 

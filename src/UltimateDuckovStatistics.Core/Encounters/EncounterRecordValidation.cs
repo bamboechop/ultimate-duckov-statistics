@@ -56,6 +56,8 @@ public static class EncounterRecordValidation
             Interval(encounter.StartedSeconds, encounter.EndedSeconds);
             Require(encounter.EndedSeconds.HasValue == encounter.Outcome.HasValue, "Encounter outcome needs its event time.");
             if (encounter.Outcome.HasValue) Require(Enum.IsDefined(typeof(EncounterOutcome), encounter.Outcome.Value), "Invalid encounter outcome.");
+            if (encounter.FatalSequence.HasValue)
+                Require(encounter.Outcome.HasValue && encounter.FatalSequence.Value > 0, "Fatal sequence needs a recorded outcome and positive order.");
             if (encounter.PlayerPosition != null) Position(encounter.PlayerPosition);
             if (encounter.EnemyPosition != null) Position(encounter.EnemyPosition);
             if (encounter.SourcePosition != null) Position(encounter.SourcePosition);
@@ -127,7 +129,8 @@ public static class EncounterRecordValidation
         if (previous.Encounter is { } oldEncounter && next.Encounter is { } newEncounter)
             Require(oldEncounter.ActorId == newEncounter.ActorId && (!oldEncounter.Outcome.HasValue
                 || (oldEncounter.Outcome == newEncounter.Outcome && oldEncounter.EndedSeconds == newEncounter.EndedSeconds
-                    && oldEncounter.OutcomeVisitId == newEncounter.OutcomeVisitId)), "A recorded fatal outcome cannot change actor, visit or time.");
+                    && oldEncounter.OutcomeVisitId == newEncounter.OutcomeVisitId
+                    && oldEncounter.FatalSequence == newEncounter.FatalSequence)), "A recorded fatal outcome cannot change actor, visit, time or sequence.");
         if (previous.Damage is { } oldDamage && next.Damage is { } newDamage)
             Require(oldDamage.Incoming == newDamage.Incoming && newDamage.Amount >= oldDamage.Amount
                 && newDamage.Hits >= oldDamage.Hits && newDamage.Headshots >= oldDamage.Headshots, "Recorded damage cannot move backwards or change direction.");

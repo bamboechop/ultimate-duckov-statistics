@@ -37,8 +37,8 @@ internal sealed class StoredEncounterMap
     private static StoredEncounterMap BuildMap(string mapId, EncounterRecord[] visits, EncounterRecord[] records)
     {
         var ids = new HashSet<string>(visits.Select(visit => visit.Id));
-        var events = records.Where(record => record.Encounter?.Outcome != null && ids.Contains(record.Encounter.OutcomeVisitId ?? record.VisitId))
-            .OrderBy(record => record.Encounter!.EndedSeconds).ToArray();
+        var events = StoredEncounterRun.OrderEvents(records.Where(record => record.Encounter != null
+            && ids.Contains(record.Encounter.OutcomeVisitId ?? record.VisitId))).ToArray();
         var actors = new HashSet<string>(events.Select(record => record.Encounter!.ActorId));
         var relatedIds = new HashSet<string>(records.Where(record => record.Encounter != null && actors.Contains(record.Encounter.ActorId)).Select(record => record.Id));
         var relevant = records.Where(record => ids.Contains(record.VisitId) || relatedIds.Contains(record.Id)

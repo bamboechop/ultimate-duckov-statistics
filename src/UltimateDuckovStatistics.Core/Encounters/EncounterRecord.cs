@@ -110,6 +110,9 @@ public sealed class EncounterDetail
     [DataMember(IsRequired = true, Order = 9)] public bool HasGaps { get; set; }
     [DataMember(Order = 10, EmitDefaultValue = false)] public EncounterPosition? SourcePosition { get; set; }
     [DataMember(Order = 11, EmitDefaultValue = false)] public string? OutcomeVisitId { get; set; }
+    // Native fatal-boundary order, independent of actor discovery and shared timestamps.
+    // Absent when the recording did not retain this evidence; never reconstructed.
+    [DataMember(Order = 12, EmitDefaultValue = false)] public long? FatalSequence { get; set; }
 }
 
 [DataContract]

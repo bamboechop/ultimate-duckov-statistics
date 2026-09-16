@@ -9,7 +9,7 @@ using UltimateDuckovStatistics.Sqlite;
 
 namespace UltimateDuckovStatistics.Tests;
 
-public sealed class EncounterPersistenceTests : IDisposable
+public sealed partial class EncounterPersistenceTests : IDisposable
 {
     private readonly TemporaryDirectory directory = new();
     private readonly ProfileRecordCodec codec = new(NativeProfileJsonWriter.WriteRecord);

@@ -132,6 +132,7 @@ internal sealed class EncounterEvidenceProjection
             record.Encounter.Outcome = incoming ? EncounterOutcome.PlayerDeath : creditedPlayer ? EncounterOutcome.PlayerKill : EncounterOutcome.OtherDeath;
             record.Encounter.OutcomeVisitId = visit!.Id;
             record.Encounter.EndedSeconds = time;
+            record.Encounter.FatalSequence = (long?)data["FatalSequence"];
             record.Encounter.FinalSource = attribution;
             record.Encounter.PlayerPosition = Position(data["Candidate"]?["PlayerPosition"]);
             record.Encounter.EnemyPosition = Position(data["Candidate"]?[incoming ? "SourcePosition" : "TargetPosition"]);
