@@ -383,8 +383,7 @@ internal sealed partial class RetainedStatisticsShell
                 var marker = eventPins[i];
                 var visible = selectedEvent < 0 && i < map.Events.Length && displayedProgress >= 0
                     && (displayedProgress >= 1 || displayedProgress > 0 && map.Timeline.MarkerProgress(map.Events[i].Encounter!.EndedSeconds ?? 0) <= displayedProgress);
-                if (!visible || !(EncounterMapFocus.TryProject(map.Events[i].Encounter!.EnemyPosition, map, out var point)
-                    || EncounterMapFocus.TryProject(map.Events[i].Encounter!.PlayerPosition, map, out point)))
+                if (!visible || !EncounterMapFocus.TryProjectOverview(map.Events[i].Encounter!, map, out var point))
                 { marker.Root.gameObject.SetActive(false); continue; }
                 var globalIndex = encounterSelection.Run.EventIndex(map.Events[i].Id);
                 if (marker.Index != globalIndex)

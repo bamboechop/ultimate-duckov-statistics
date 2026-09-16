@@ -136,6 +136,36 @@ public sealed class EncounterMapObserverRegressionTests
 public sealed class EncounterMapFocusRegressionTests
 {
     [Theory]
+    [InlineData(EncounterOutcome.PlayerDeath, true)]
+    [InlineData(EncounterOutcome.PlayerKill, false)]
+    [InlineData(EncounterOutcome.OtherDeath, false)]
+    public void OverviewMarkerUsesTheActorWhoDied(EncounterOutcome outcome, bool playerDied)
+    {
+        var map = Map();
+        var encounter = new EncounterDetail { Outcome = outcome, PlayerPosition = Position(10), EnemyPosition = Position(40) };
+        Assert.True(EncounterMapFocus.TryProjectOverview(encounter, map, out var marker));
+        Assert.True(EncounterMapFocus.TryProject(playerDied ? encounter.PlayerPosition : encounter.EnemyPosition, map, out var expected));
+        Assert.Equal(expected.X, marker.X); Assert.Equal(expected.Y, marker.Y);
+        var focus = EncounterMapFocus.Create(encounter, map, 600, 500);
+        Assert.True(focus.PlayerAvailable); Assert.True(focus.EnemyAvailable); Assert.True(focus.ConnectorAvailable);
+    }
+
+    [Theory]
+    [InlineData(EncounterOutcome.PlayerDeath, true)]
+    [InlineData(EncounterOutcome.PlayerKill, false)]
+    [InlineData(EncounterOutcome.OtherDeath, false)]
+    public void MissingDeathLocationDoesNotBorrowTheOtherEndpoint(EncounterOutcome outcome, bool playerDied)
+    {
+        var map = Map();
+        var encounter = new EncounterDetail
+        { Outcome = outcome, PlayerPosition = playerDied ? null : Position(10), EnemyPosition = playerDied ? Position(40) : null };
+        Assert.False(EncounterMapFocus.TryProjectOverview(encounter, map, out _));
+        var focus = EncounterMapFocus.Create(encounter, map, 600, 500);
+        Assert.Equal(!playerDied, focus.PlayerAvailable); Assert.Equal(playerDied, focus.EnemyAvailable);
+        Assert.False(focus.ConnectorAvailable);
+    }
+
+    [Theory]
     [InlineData(true, false)]
     [InlineData(false, true)]
     [InlineData(true, true)]

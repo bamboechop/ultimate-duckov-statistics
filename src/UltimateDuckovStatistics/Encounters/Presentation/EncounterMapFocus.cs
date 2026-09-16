@@ -26,6 +26,10 @@ internal readonly struct EncounterMapFocus
         return new EncounterMapFocus(hasPlayer, hasEnemy, player, enemy, frame);
     }
 
+    public static bool TryProjectOverview(EncounterDetail encounter, StoredEncounterMap map, out EncounterMapPoint point) =>
+        // The marker denotes where the death occurred, never the surviving endpoint.
+        TryProject(encounter.Outcome == EncounterOutcome.PlayerDeath ? encounter.PlayerPosition : encounter.EnemyPosition, map, out point);
+
     public static bool TryProject(EncounterPosition? position, StoredEncounterMap map, out EncounterMapPoint point)
     {
         point = default;
