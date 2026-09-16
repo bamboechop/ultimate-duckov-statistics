@@ -4,7 +4,7 @@ public static class ProductInfo
 {
     public const string Name = "Ultimate Duckov Statistics";
     public const string ModId = "UltimateDuckovStatistics";
-    public const string Version = "1.0.0";
+    public const string Version = "1.1.0";
     public const string ProfileFormatId = "uds-profile-v1";
     public const string DataDirectory = "v1";
     // First public persisted-format baseline; independent of the release version.
