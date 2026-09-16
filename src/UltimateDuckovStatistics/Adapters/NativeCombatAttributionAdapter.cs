@@ -87,7 +87,9 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         | (hookSupport.ProjectileRelease ? 0 : EncounterCombatHookLoss.ProjectileRelease)
         | (hookSupport.MeleeCheck ? 0 : EncounterCombatHookLoss.Melee)
         | (hookSupport.EffectTrigger ? 0 : EncounterCombatHookLoss.Effect)
-        | (hookSupport.BuffApplication && ReadBuffApplicationObservationTrust() ? 0 : EncounterCombatHookLoss.BuffOwnership);
+        | (hookSupport.BuffApplication && ReadBuffApplicationObservationTrust() ? 0 : EncounterCombatHookLoss.BuffOwnership)
+        | (hookSupport.EnvironmentalDamage ? 0 : EncounterCombatHookLoss.Environmental)
+        | (CanObserveGrenadeHazards ? 0 : EncounterCombatHookLoss.GrenadeOwnership);
 
     public EquipmentEventAssociation CaptureEquipmentAssociation() => equipmentAssociationProvider();
 

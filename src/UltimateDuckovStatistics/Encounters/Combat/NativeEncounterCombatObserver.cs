@@ -129,6 +129,13 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
         PushObserverState(state);
     }
 
+    internal static void ObserveEnvironmentalBegin(CombatNativeScope? resolvedScope)
+    {
+        if (!HasActiveContext()) return;
+        EnvironmentalPrefix(resolvedScope, out var state);
+        PushObserverState(state);
+    }
+
     private static void PushObserverState(AttackState state)
     {
         try { (observerAttackStates ??= new()).Push(state); }
@@ -623,6 +630,33 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
                 BuffLayers = buff != null ? buff.CurrentLayers : -1,
                 Delayed = context.source is TickTrigger || context.source is UpdateTrigger
             }) { LiveActor = source };
+        }
+        catch (Exception exception) { probe?.Disable(exception); }
+    }
+
+    private static void EnvironmentalPrefix(CombatNativeScope? resolvedScope, out AttackState __state)
+    {
+        __state = default;
+        var probe = active;
+        try
+        {
+            if (probe?.CanCapture() != true) return;
+            __state = new AttackState(probe, attack);
+            // ZoneDamage clears its native actor. Only the shared owner's proven
+            // grenade-to-zone correlation can supply thrower and item attribution.
+            // Unknown/rejected zones must also shadow an enclosing attack.
+            var resolved = resolvedScope != null && !resolvedScope.ConflictingActorEvidence;
+            var physical = resolved ? resolvedScope!.PhysicalSource : null;
+            var credited = resolved ? resolvedScope!.CreditedSource : null;
+            attack = new AttackRuntime(probe, new SourceSnapshot
+            {
+                Kind = resolvedScope?.IsEffect == true ? "effect" : "environmental",
+                Provenance = "shared combat environmental ownership resolution", ActorCreditResolved = resolved,
+                Physical = probe.Actor(physical), Credited = probe.Actor(credited),
+                OriginallyPlayer = credited != null && ReferenceEquals(credited, CharacterMainControl.Main),
+                WeaponId = resolved ? resolvedScope!.WeaponTypeId : -1,
+                Delayed = resolvedScope?.IsDamageOverTime == true
+            }) { LiveActor = physical ?? credited };
         }
         catch (Exception exception) { probe?.Disable(exception); }
     }

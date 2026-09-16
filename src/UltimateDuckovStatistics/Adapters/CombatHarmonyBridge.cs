@@ -278,8 +278,11 @@ internal static class CombatHarmonyCallbacks
     private static void EffectApplicationPostfix(Effect __instance) =>
         CombatHarmonyBridge.CaptureEffectApplication(__instance);
 
-    private static void EnvironmentalDamagePrefix(ZoneDamage __instance, out CombatNativeScope? __state) =>
+    private static void EnvironmentalDamagePrefix(ZoneDamage __instance, out CombatNativeScope? __state)
+    {
         __state = CombatHarmonyBridge.PushEnvironmentalDamage(__instance);
+        NativeEncounterCombatObserver.ObserveEnvironmentalBegin(__state);
+    }
 
     private static void GrenadeLaunchPostfix(Grenade __instance, CharacterMainControl fromCharacter) =>
         CombatHarmonyBridge.CaptureGrenadeLaunch(__instance, fromCharacter);
@@ -290,6 +293,7 @@ internal static class CombatHarmonyCallbacks
     private static Exception? EnvironmentalDamageFinalizer(Exception? __exception, CombatNativeScope? __state)
     {
         CombatHarmonyBridge.Pop(__state);
+        NativeEncounterCombatObserver.ObserveAttackFinally(__exception);
         return __exception;
     }
 
