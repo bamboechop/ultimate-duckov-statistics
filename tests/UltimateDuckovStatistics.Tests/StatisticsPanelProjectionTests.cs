@@ -2599,10 +2599,14 @@ public sealed class StatisticsPanelProjectionTests
             (OverviewHighlightMetric.MostUsedWeapon, "OverviewMostUsedWeaponRow",
                 "ui.overview_most_used_weapon", "Most-used weapon", 608f, 628f),
             (OverviewHighlightMetric.MostUsedConsumable, "OverviewMostUsedConsumableRow",
-                "ui.overview_most_used_consumable", "Most-used consumable", 684f, 704f)
+                "ui.overview_most_used_consumable", "Most-used consumable", 684f, 704f),
+            (OverviewHighlightMetric.LongestKillDistance, "OverviewLongestKillDistanceRow",
+                "ui.overview_longest_kill_distance", "Longest kill distance", 760f, 780f),
+            (OverviewHighlightMetric.ShortestKillDistance, "OverviewShortestKillDistanceRow",
+                "ui.overview_shortest_kill_distance", "Shortest kill distance", 836f, 856f)
         };
 
-        Assert.Equal(4, RetainedOverviewHighlightsRowsPolicy.RowCount);
+        Assert.Equal(6, RetainedOverviewHighlightsRowsPolicy.RowCount);
         Assert.Equal(76f, RetainedOverviewHighlightsRowsPolicy.RowStepPixels);
         Assert.Equal(10f, RetainedOverviewHighlightsRowsPolicy.RowGapPixels);
         Assert.Equal(expected.Length, RetainedOverviewHighlightsRowsPolicy.Specifications.Count);
@@ -2646,7 +2650,7 @@ public sealed class StatisticsPanelProjectionTests
 
         Assert.Same(layout.OverviewHighlightRows[0], layout.OverviewFastestExtractionRow);
         Assert.Same(layout.OverviewHighlightEntries[0], layout.OverviewFastestExtractionEntry);
-        Assert.Equal(750f, layout.OverviewHighlightRows[^1].Top + layout.OverviewHighlightRows[^1].Height);
+        Assert.Equal(902f, layout.OverviewHighlightRows[^1].Top + layout.OverviewHighlightRows[^1].Height);
         Assert.Equal(RetainedOverviewFirstStatisticsRowEntryPolicy.FontAssetName,
             RetainedOverviewFastestExtractionEntryPolicy.FontAssetName);
         Assert.Equal(RetainedOverviewFirstStatisticsRowEntryPolicy.MaterialName,
@@ -2669,8 +2673,8 @@ public sealed class StatisticsPanelProjectionTests
     {
         var layout = CreateRetainedVisualLayout(viewportWidth, viewportHeight);
         var transform = layout.ReferenceTransform;
-        var referenceTops = new[] { 456f, 532f, 608f, 684f };
-        var referenceContentTops = new[] { 476f, 552f, 628f, 704f };
+        var referenceTops = new[] { 456f, 532f, 608f, 684f, 760f, 836f };
+        var referenceContentTops = new[] { 476f, 552f, 628f, 704f, 780f, 856f };
 
         for (var index = 0; index < RetainedOverviewHighlightsRowsPolicy.RowCount; index++)
         {
@@ -2720,6 +2724,16 @@ public sealed class StatisticsPanelProjectionTests
             {
                 Assert.Equal(OverviewHighlightMetric.MostUsedConsumable, value.Metric);
                 Assert.Equal("Med-Kit (S) - 5 uses", value.Value);
+            },
+            value =>
+            {
+                Assert.Equal(OverviewHighlightMetric.LongestKillDistance, value.Metric);
+                Assert.Equal("—", value.Value);
+            },
+            value =>
+            {
+                Assert.Equal(OverviewHighlightMetric.ShortestKillDistance, value.Metric);
+                Assert.Equal("—", value.Value);
             });
     }
 
@@ -3042,7 +3056,7 @@ public sealed class StatisticsPanelProjectionTests
 
         var presentations = OverviewHighlightsPresentationFactory.Create(projection, Resolve);
 
-        Assert.Equal(4, presentations.Count);
+        Assert.Equal(6, presentations.Count);
         Assert.All(presentations, value => Assert.StartsWith("localized:ui.overview_", value.Label));
         Assert.Contains(longName, presentations[2].Value, StringComparison.Ordinal);
         Assert.Contains(longName, presentations[3].Value, StringComparison.Ordinal);
@@ -3196,7 +3210,7 @@ public sealed class StatisticsPanelProjectionTests
 
         Assert.Same(layout.ReferenceTransform, heading.ReferenceTransform);
         Assert.Equal(1330f, heading.Left);
-        Assert.Equal(790f, heading.Top);
+        Assert.Equal(942f, heading.Top);
         Assert.Equal(1115f, heading.Width);
         Assert.Equal(60f, heading.Height);
         Assert.Equal(46.3f, heading.FontSize);
@@ -3289,14 +3303,14 @@ public sealed class StatisticsPanelProjectionTests
 
         Assert.Same(layout.ReferenceTransform, card.ReferenceTransform);
         Assert.Equal(1330f, card.Left);
-        Assert.Equal(846f, card.Top);
+        Assert.Equal(998f, card.Top);
         Assert.Equal(558f, card.Width);
         Assert.Equal(349f, card.Height);
         Assert.Equal(20f, card.CornerRadius);
         Assert.Equal(layout.OverviewRightPanel.ContentLeft, card.Left);
         Assert.Equal(heading.Top + 56f, card.Top);
         Assert.Equal(1888f, card.Left + card.Width);
-        Assert.Equal(1195f, card.Top + card.Height);
+        Assert.Equal(1347f, card.Top + card.Height);
     }
 
     [Theory]
@@ -3698,7 +3712,7 @@ public sealed class StatisticsPanelProjectionTests
             if (viewportWidth == 2560f && viewportHeight == 1440f)
             {
                 Assert.Equal(1350f, badge.Left, 5);
-                Assert.Equal(866f, badge.Top, 5);
+                Assert.Equal(1018f, badge.Top, 5);
             }
         }
     }
@@ -3985,7 +3999,7 @@ public sealed class StatisticsPanelProjectionTests
             {
                 var expectedLeft = specification.State == RetainedRunBadgeState.Died ? 1449f : 1502f;
                 Assert.Equal(expectedLeft, map.Left, 5);
-                Assert.Equal(866f, map.Top, 5);
+                Assert.Equal(1018f, map.Top, 5);
                 Assert.Equal(30f, map.Height, 5);
             }
         }
@@ -4296,7 +4310,7 @@ public sealed class StatisticsPanelProjectionTests
             if (viewportWidth == 2560f && viewportHeight == 1440f && canvasScaleFactor == 1f)
             {
                 Assert.Equal(1350f, statistics.Left, 5);
-                Assert.Equal(916f, statistics.Top, 5);
+                Assert.Equal(1068f, statistics.Top, 5);
                 Assert.Equal(76f,
                     layout.OverviewLatestRunCard.Top + layout.OverviewLatestRunCard.Height
                     - statistics.Top - statistics.Height,
@@ -4496,10 +4510,10 @@ public sealed class StatisticsPanelProjectionTests
             if (viewportWidth == 2560f && viewportHeight == 1440f && canvasScaleFactor == 1f)
             {
                 Assert.Equal(1350f, viewRun.Left, 5);
-                Assert.Equal(1125f, viewRun.Top, 5);
+                Assert.Equal(1277f, viewRun.Top, 5);
                 Assert.Equal(135f, viewRun.Width, 5);
-                Assert.Equal(1175f, viewRun.Top + viewRun.Height, 5);
-                Assert.Equal(1195f,
+                Assert.Equal(1327f, viewRun.Top + viewRun.Height, 5);
+                Assert.Equal(1347f,
                     layout.OverviewLatestRunCard.Top + layout.OverviewLatestRunCard.Height,
                     5);
             }
@@ -4674,19 +4688,19 @@ public sealed class StatisticsPanelProjectionTests
         Assert.Same(layout.ReferenceTransform, card.ReferenceTransform);
         Assert.Same(layout.ReferenceTransform, statistics.ReferenceTransform);
         Assert.Equal(1918f, card.Left);
-        Assert.Equal(846f, card.Top);
+        Assert.Equal(998f, card.Top);
         Assert.Equal(527f, card.Width);
         Assert.Equal(121f, card.Height);
         Assert.Equal(10f, card.CornerRadius);
         Assert.Equal(2445f, card.Left + card.Width);
-        Assert.Equal(967f, card.Top + card.Height);
+        Assert.Equal(1119f, card.Top + card.Height);
         Assert.Equal(30f, card.Left - latestCard.Left - latestCard.Width);
         Assert.Equal(layout.OverviewRightPanel.ContentLeft + layout.OverviewRightPanel.ContentWidth,
             card.Left + card.Width);
         Assert.Equal(latestCard.Top, card.Top);
 
         Assert.Equal(1938f, card.ContentLeft);
-        Assert.Equal(866f, card.ContentTop);
+        Assert.Equal(1018f, card.ContentTop);
         Assert.Equal(487f, card.ContentWidth);
         Assert.Equal(81f, card.ContentHeight);
         Assert.Equal(card.ContentLeft, heading.Left);

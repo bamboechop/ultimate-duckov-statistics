@@ -1,3 +1,4 @@
+using Duckov.UI;
 using TMPro;
 using UnityEngine;
 
@@ -5,6 +6,23 @@ namespace UltimateDuckovStatistics.UI;
 
 internal sealed partial class RetainedStatisticsShell
 {
+    // Completing a background distance query updates the retained rows, without
+    // rebuilding Overview or rebinding every other statistics tab.
+    public void RefreshKillDistanceHighlights(StatisticsPanelProjection projection)
+    {
+        for (var i = 0; i < overviewHighlightRows.Count; i++)
+        {
+            var metric = RetainedOverviewHighlightsRowsPolicy.Specifications[i].Metric;
+            if (metric is not (OverviewHighlightMetric.LongestKillDistance or OverviewHighlightMetric.ShortestKillDistance)) continue;
+            var row = overviewHighlightRows[i];
+            row.Value.text = OverviewHighlightsPresentationFactory.FormatKillDistance(projection,
+                metric == OverviewHighlightMetric.LongestKillDistance, UiText.Get);
+            row.Rect.GetComponent<TooltipsProvider>().text = "<noparse>" + (row.Label.text + ": " + row.Value.text)
+                .Replace("<", "＜").Replace(">", "＞") + "</noparse>";
+        }
+        RefreshVisualLayout(force: true);
+    }
+
     // Runs only when text/projection or viewport dimensions change. Measure the
     // active native TMP controls at their final widths, including long names.
     private void ReflowOverview(RetainedVisualCanvasLayout layout, float viewportWidth)

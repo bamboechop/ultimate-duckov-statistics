@@ -1636,7 +1636,9 @@ internal enum OverviewHighlightMetric
     FastestExtraction,
     LongestSuccessfulRaid,
     MostUsedWeapon,
-    MostUsedConsumable
+    MostUsedConsumable,
+    LongestKillDistance,
+    ShortestKillDistance
 }
 
 internal sealed class OverviewHighlightPresentation
@@ -1676,9 +1678,19 @@ internal static class OverviewHighlightsPresentationFactory
                     OverviewHighlightMetric.LongestSuccessfulRaid => FormatLongestSuccessfulRaid(projection, text),
                     OverviewHighlightMetric.MostUsedWeapon => FormatMostUsedWeapon(projection, text),
                     OverviewHighlightMetric.MostUsedConsumable => FormatMostUsedConsumable(projection, text),
+                    OverviewHighlightMetric.LongestKillDistance => FormatKillDistance(projection, longest: true, text),
+                    OverviewHighlightMetric.ShortestKillDistance => FormatKillDistance(projection, longest: false, text),
                     _ => text("ui.unavailable")
                 }
             }).ToArray();
+    }
+
+    internal static string FormatKillDistance(StatisticsPanelProjection projection, bool longest, Func<string, string> text)
+    {
+        if (projection.KillDistancesLoading) return text("ui.overview_highlights_loading");
+        if (projection.KillDistancesFailed) return text("ui.unavailable");
+        var record = longest ? projection.KillDistances?.Longest : projection.KillDistances?.Shortest;
+        return record == null ? text("ui.em_dash") : record.Meters.ToString("0.00", CultureInfo.CurrentCulture) + " m";
     }
 
     private static string FormatLongestSuccessfulRaid(
@@ -2020,7 +2032,7 @@ internal sealed class RetainedOverviewHighlightRowSpecification
 
 internal static class RetainedOverviewHighlightsRowsPolicy
 {
-    public const int RowCount = 4;
+    public const int RowCount = 6;
     public const float RowStepPixels = 76f;
     public const float RowGapPixels = RowStepPixels - RetainedOverviewFastestExtractionRowPolicy.HeightPixels;
 
@@ -2066,6 +2078,26 @@ internal static class RetainedOverviewHighlightsRowsPolicy
                 LabelTextKey = "ui.overview_most_used_consumable",
                 LabelEnglishFallback = "Most-used consumable",
                 TopOffsetPixels = RetainedOverviewFastestExtractionRowPolicy.TopOffsetPixels + RowStepPixels * 3f
+            },
+            new RetainedOverviewHighlightRowSpecification
+            {
+                Metric = OverviewHighlightMetric.LongestKillDistance,
+                RowName = "OverviewLongestKillDistanceRow",
+                LabelName = "OverviewLongestKillDistanceLabel",
+                ValueName = "OverviewLongestKillDistanceValue",
+                LabelTextKey = "ui.overview_longest_kill_distance",
+                LabelEnglishFallback = "Longest kill distance",
+                TopOffsetPixels = RetainedOverviewFastestExtractionRowPolicy.TopOffsetPixels + RowStepPixels * 4f
+            },
+            new RetainedOverviewHighlightRowSpecification
+            {
+                Metric = OverviewHighlightMetric.ShortestKillDistance,
+                RowName = "OverviewShortestKillDistanceRow",
+                LabelName = "OverviewShortestKillDistanceLabel",
+                ValueName = "OverviewShortestKillDistanceValue",
+                LabelTextKey = "ui.overview_shortest_kill_distance",
+                LabelEnglishFallback = "Shortest kill distance",
+                TopOffsetPixels = RetainedOverviewFastestExtractionRowPolicy.TopOffsetPixels + RowStepPixels * 5f
             }
         };
 
@@ -4269,6 +4301,9 @@ internal sealed class StatisticsPanelProjection
     internal CraftingProjectionBinding? CraftingBinding { get; set; }
     internal ItemUseProjectionBinding? ItemUseBinding { get; set; }
     public ProfileDocument Profile { get; set; } = new();
+    public UltimateDuckovStatistics.Core.Encounters.KillDistanceHighlights? KillDistances { get; set; }
+    public bool KillDistancesLoading { get; set; }
+    public bool KillDistancesFailed { get; set; }
     public RunStatisticsViewModel Runs { get; set; } = new();
     public CombatStatisticsViewModel Combat { get; set; } = new();
     public WeaponStatisticsViewModel Weapons { get; set; } = new();

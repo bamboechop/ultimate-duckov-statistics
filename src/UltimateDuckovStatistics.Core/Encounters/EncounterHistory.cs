@@ -27,8 +27,10 @@ internal sealed class EncounterHistory : IList<EncounterRecord>
     private readonly Dictionary<(string Run, EncounterRecordKind Kind, string Id), byte[]> pending = new();
     private readonly Dictionary<(string Run, EncounterRecordKind Kind, string Id), byte[]> recent = new();
     private IEncounterHistorySource? source;
+    private long distanceRevision;
+    internal long DistanceRevision { get { lock (gate) return distanceRevision; } }
     internal EncounterHistory(IEncounterHistorySource? source = null) => this.source = source;
-    internal void RestoreSource(IEncounterHistorySource restored) { lock (gate) source = restored; }
+    internal void RestoreSource(IEncounterHistorySource restored) { lock (gate) { source = restored; distanceRevision++; } }
     internal void Put(EncounterRecord record, byte[] bytes)
     {
         lock (gate)
@@ -36,6 +38,7 @@ internal sealed class EncounterHistory : IList<EncounterRecord>
             var key = EncounterRecordValidation.Key(record);
             pending[key] = bytes;
             Remember(key, bytes);
+            if (record.Kind is EncounterRecordKind.Visit or EncounterRecordKind.Encounter) distanceRevision++;
         }
     }
     internal void Acknowledge(string runId, EncounterRecordKind kind, string id, byte[] bytes)

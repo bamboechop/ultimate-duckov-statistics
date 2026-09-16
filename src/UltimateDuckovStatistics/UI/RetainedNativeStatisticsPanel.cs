@@ -1,6 +1,7 @@
 using UltimateDuckovStatistics.Adapters;
 using UltimateDuckovStatistics.Core.Persistence;
 using UltimateDuckovStatistics.Core.Diagnostics;
+using UltimateDuckovStatistics.Core.Encounters;
 using UnityEngine;
 
 namespace UltimateDuckovStatistics.UI;
@@ -15,6 +16,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private readonly NativeUiIntegration nativeUi;
     private readonly NativePanelShortcutGuard shortcutGuard;
     private readonly NativeEntityDisplayNames entityNames = new();
+    private readonly KillDistanceHighlightsQuery killDistances = new();
     private readonly RetainedStatisticsShell shell = new();
     private readonly RetainedShellLifecycleState lifecycle = new();
     private readonly PanelInteractionState interaction = new();
@@ -90,6 +92,27 @@ internal sealed class NativeStatisticsPanel : IDisposable
         }
 
         if (lifecycle.IsOpen && !coordinator.HasPendingProfileTransition
+            && StatisticsPanelProjectionFactory.HasProvableGeneration(coordinator.Current, coordinator.CurrentGenerationId))
+        {
+            try
+            {
+                if (killDistances.Refresh(coordinator.Current!) && presentedProjection != null && !projectionDirty
+                    && presentedGeneration == coordinator.CurrentGenerationId && presentedRevision == coordinator.Current!.Revision)
+                {
+                    BindKillDistances(presentedProjection);
+                    shell.RefreshKillDistanceHighlights(presentedProjection);
+                }
+            }
+            catch (Exception exception)
+            {
+                var surface = openSurface ?? PanelAccessSurface.Hotkey;
+                Close();
+                ReportShellFailure(surface, $"highlight refresh failed: {exception.GetType().Name}: {exception.Message}");
+                return;
+            }
+        }
+
+        if (lifecycle.IsOpen && !coordinator.HasPendingProfileTransition
             && (projectionDirty || presentedGeneration != coordinator.CurrentGenerationId || presentedRevision != coordinator.Current?.Revision))
         {
             var current = coordinator.Current;
@@ -107,6 +130,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
 #endif
                 var projection = StatisticsPanelProjectionFactory.Create(current!, coordinator.CurrentEconomyCapabilities,
                     coordinator.CurrentCraftingCapabilities, coordinator.CurrentWorldTimeCapabilities, entityNames.Names);
+                BindKillDistances(projection);
                 shell.RefreshProjection(projection, generation);
                 presentedProjection = projection;
             }
@@ -238,6 +262,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
                 coordinator.CurrentCraftingCapabilities,
                 coordinator.CurrentWorldTimeCapabilities,
                 entityNames.Names);
+            killDistances.RetryFailed();
+            killDistances.Refresh(profile!);
+            BindKillDistances(projection);
         }
         catch (Exception exception)
         {
@@ -292,6 +319,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
     private void HandleProfileChanging()
     {
+        killDistances.Reset();
         operations.DismissExportResult();
         operations.CancelConfirmation(); capturingHotkey = false;
         projectionDirty = true;
@@ -299,6 +327,13 @@ internal sealed class NativeStatisticsPanel : IDisposable
     }
 
     private void HandleProfileChanged() => projectionDirty = true;
+
+    private void BindKillDistances(StatisticsPanelProjection projection)
+    {
+        projection.KillDistances = killDistances.Value;
+        projection.KillDistancesLoading = killDistances.Loading;
+        projection.KillDistancesFailed = killDistances.Failed;
+    }
 
     private void HandleTabSelected(StatisticsPanelTab tab)
     {
@@ -550,6 +585,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         coordinator.ProfileChanged -= HandleProfileChanged;
         Close();
         operations.Dispose();
+        killDistances.Dispose();
         lifecycle.Dispose();
         shell.Dispose();
         nativeUi.Dispose();

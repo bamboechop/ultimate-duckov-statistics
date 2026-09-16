@@ -2,7 +2,7 @@
 
 Ultimate Duckov Statistics (UDS) records proven single-player gameplay events in local per-save profiles. It never writes Duckov save files and has no telemetry or online account.
 
-Current source targets **1.1.0**, including Runs → Map & Kills, incremental SQLite persistence, lossless record compression, JSON/ZIP export and restore, and save-identity performance improvements. It is being prepared for the first Steam Workshop listing and subscription-install verification. See [release notes](RELEASE_NOTES.md), the [release procedure](docs/RELEASE_PROCESS.md) and [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for publication. The earlier [GitHub v1.0.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) tag and archive retain their original contents.
+Current source targets **1.1.1**, including Overview longest/shortest kill-distance highlights, Runs → Map & Kills, incremental SQLite persistence, lossless record compression, JSON/ZIP export and restore, and save-identity performance improvements. The highlights passed local automated qualification and user UI acceptance. Final merged-source release qualification, the first Steam Workshop listing and subscription-install verification remain separate. See [release notes](RELEASE_NOTES.md), the [release procedure](docs/RELEASE_PROCESS.md) and [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for publication. The earlier [GitHub v1.0.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) tag and archive retain their original contents.
 
 ## Install and use
 
@@ -15,7 +15,7 @@ Outside raids, open Statistics from the main menu, base pause menu or configurab
 ## Statistics and evidence
 
 - Runs, physical movement, teleport/transition-excluded distance, ordered maps and repeated visits use native lifecycle boundaries. Active raid time excludes loading and pause. Records retain eligibility and integrity evidence.
-- Version 1.1.0 includes Runs → Map & Kills: automatic per-enemy encounters, animated walking paths, dotted teleports, separate visits and linked map/feed selection. Weapon/ammunition, damage and inspected loot retain recorded evidence. See [production integration and qualification](docs/COMBAT_ENCOUNTER_PRODUCTION.md).
+- Version 1.1.1 includes Runs → Map & Kills: automatic per-enemy encounters, animated walking paths, dotted teleports, separate visits and linked map/feed selection. Weapon/ammunition, damage and inspected loot retain recorded evidence. See [production integration and qualification](docs/COMBAT_ENCOUNTER_PRODUCTION.md).
 - Overview and exports separate recorded base distance from recorded raid distance and show their combined total. Base collection begins with the first valid observation; it cannot reconstruct earlier movement. Collection-start and partial-coverage information describe its limits. Runs, routes and records remain raid-only.
 - Accepted firing actions preserve proven weapon/ammunition pairing. Combat uses exact actual damage, actor ownership, player kills, observed world deaths, headshots and completed player projectiles. Delayed effects keep proven application-time source identity; unknown source evidence stays unknown while independently proven outcomes remain available. [Route completeness](docs/RUN_ATTRIBUTION.md) distinguishes source associations from per-map totals.
 - Equipment records observed loadout, attachment, native-slot and nested-slot state and active-raid duration. Proven empty, missing and partially observed state remain distinct. Container counting uses native map/key identity.
@@ -35,7 +35,7 @@ Current source stores changed records in one SQLite database and loads completed
 
 Save fingerprints and native pre-save evidence prevent unrelated save generations from being combined. Playing while UDS is inactive can make continuity unprovable; the prior generation is then archived. See [local-data and privacy details](docs/LOCAL_DATA.md).
 
-Every `0.x` GitHub download and v1 release candidate was a voluntary testing artifact. The planned supported upgrade baseline is 1.1.0 when it is explicitly published through the verified Steam Workshop channel. A local build or GitHub testing download alone does not establish that baseline.
+Every `0.x` GitHub download and v1 release candidate was a voluntary testing artifact. The planned supported upgrade baseline is 1.1.1 when it is explicitly published through the verified Steam Workshop channel. A local build or GitHub testing download alone does not establish that baseline.
 
 ## Build and qualify
 
