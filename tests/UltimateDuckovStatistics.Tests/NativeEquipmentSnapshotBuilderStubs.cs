@@ -166,6 +166,8 @@ namespace UnityEngine
 
     public readonly struct Vector3
     {
+        public static float Distance(Vector3 a, Vector3 b) =>
+            MathF.Sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
         public Vector3(float x, float y, float z)
         {
             this.x = x;

@@ -4,8 +4,8 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <AssemblyVersion>2.4.1.0</AssemblyVersion>
-    <!-- Linked production adapters target netstandard2.1, where the newer throw helpers are unavailable. -->
-    <NoWarn>$(NoWarn);CA1510;CA1512;CA1513</NoWarn>
+    <!-- Linked production adapters target netstandard2.1, where the newer throw/cryptography helpers are unavailable. -->
+    <NoWarn>$(NoWarn);CA1510;CA1512;CA1513;CA1850</NoWarn>
     <DefineConstants>$(DefineConstants);UDS_PERFORMANCE_DIAGNOSTICS;UDS_ENCOUNTER_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
 
@@ -15,6 +15,8 @@
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/EncounterEvidenceProjection.cs" Link="Encounters/EncounterEvidenceProjection.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/EncounterCapturePipeline.cs" Link="Encounters/EncounterCapturePipeline.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/StoredEncounterMap.cs" Link="Encounters/StoredEncounterMap.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Maps/NativeEncounterMapObserver.cs" Link="Encounters/NativeEncounterMapObserver.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/EncounterObservationContracts.cs" Link="Encounters/EncounterObservationContracts.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/StoredEncounterRun.cs" Link="Encounters/StoredEncounterRun.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/EncounterDamageText.cs" Link="Encounters/EncounterDamageText.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/EncounterLootPresentation.cs" Link="Encounters/EncounterLootPresentation.cs" />

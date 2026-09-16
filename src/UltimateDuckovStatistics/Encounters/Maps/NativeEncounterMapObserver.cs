@@ -85,19 +85,25 @@ internal sealed class NativeEncounterMapObserver : IEncounterObserver
                 DetachCharacter();
                 character = candidate;
                 character.OnSetPositionEvent += OnPlacement;
+                if (observing) Record("path-gap", new { visit, reason = "main-character-replaced", sequence = ++sequence });
                 observing = false;
             }
             var key = context.GenerationId + "|" + context.RunId + "|" + context.MapId + "|" + context.SegmentId;
-            if (!observing || key != visitKey)
+            if (key != visitKey)
             {
                 visit++;
                 visitKey = key;
                 calibrations.Clear(); // Publish calibration for every visit/run, even when cached artwork is reused.
-                Record("path-visit", new { visit, context.GenerationId, context.RunId, context.MapId, context.SegmentId, reason = observing ? "map-or-route-change" : "begin-or-resume", sequence = ++sequence });
-                observing = true;
+                Record("path-visit", new { visit, context.GenerationId, context.RunId, context.MapId, context.SegmentId, reason = "visit-identity-change", sequence = ++sequence });
                 lastSample = double.NegativeInfinity;
                 lastCalibration = double.NegativeInfinity;
             }
+            else if (!observing)
+                Record("path-gap", new { visit, reason = "observation-resumed", sequence = ++sequence });
+            // Pause/loading or a temporarily missing character interrupts sampling,
+            // not the visit identity. Resume after the recorded gap without a tab.
+            if (!observing) lastSample = double.NegativeInfinity;
+            observing = true;
             if (context.MonotonicSeconds - lastSample >= 0.2)
             {
                 var position = character.transform.position;

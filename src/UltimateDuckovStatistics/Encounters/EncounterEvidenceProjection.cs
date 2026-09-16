@@ -36,8 +36,9 @@ internal sealed class EncounterEvidenceProjection
         lastTime = Math.Max(lastTime, time);
         if (kind == "session-end") { EndVisit(time); return; }
         if (string.IsNullOrWhiteSpace(map) || string.IsNullOrWhiteSpace(segment)) return;
-        if (visit == null || visit.Visit!.MapId != map || visit.Visit.SegmentId != segment
-            || kind == "path-visit") NewVisit(map, segment, time);
+        // Combat can arrive before the map observer's first sample. Its later
+        // path-visit announcement must not split the same run/segment again.
+        if (visit == null || visit.Visit!.MapId != map || visit.Visit.SegmentId != segment) NewVisit(map, segment, time);
         if (kind == "path-gap" || kind == "path-discontinuity")
         { connection = RouteConnection.Gap; visit!.Visit!.HasGaps = true; Mark(visit); return; }
         if (kind == "path-point")
