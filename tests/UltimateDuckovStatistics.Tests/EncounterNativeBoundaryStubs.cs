@@ -14,7 +14,8 @@ internal static class NativeEncounterCombatObserver
     internal static void ObserveProjectileInit(Projectile projectile, ProjectileContext context) { }
     internal static void ObserveProjectileBegin(Projectile projectile) { }
     internal static void ObserveProjectileRelease(Projectile projectile) { }
-    internal static void ObserveEffectBegin(EffectTriggerEventContext context) { }
+    internal static Adapters.CombatNativeScope? LastEffectScope { get; private set; }
+    internal static void ObserveEffectBegin(EffectTriggerEventContext context, Adapters.CombatNativeScope? resolvedScope) => LastEffectScope = resolvedScope;
     internal static void ObserveMeleeBegin(ItemAgent_MeleeWeapon weapon, bool dealDamage) { }
     internal static void ObserveAttackFinally(Exception? exception) { }
 }

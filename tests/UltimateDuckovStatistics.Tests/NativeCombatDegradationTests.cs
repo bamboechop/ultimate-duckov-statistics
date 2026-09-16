@@ -93,6 +93,33 @@ public sealed class NativeCombatDegradationTests : IDisposable
     }
 
     [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void EncounterCallbackReceivesResolvedBuffOwnership(bool firstPlayer, bool secondPlayer)
+    {
+        var npc = new CharacterMainControl();
+        var first = firstPlayer ? player : npc;
+        var second = secondPlayer ? player : npc;
+        var buff = new Duckov.Buffs.Buff { ID = 1, fromWho = first, fromWeaponID = 42 };
+        var manager = new CharacterBuffManager(); manager.Buffs.Add(buff);
+        CombatHarmonyBridge.CaptureBuffApplication(manager, buff, first, 42, newlyCreated: true);
+        CombatHarmonyBridge.CaptureBuffApplication(manager, buff, second, 43, newlyCreated: false);
+        object?[] arguments = [new EffectTriggerEventContext { source = new TickTrigger { Parent = buff } }, null];
+        CombatHarmonyCallbacks.EffectPrefixMethod.Invoke(null, arguments);
+        try
+        {
+            var scope = Assert.IsType<CombatNativeScope>(arguments[1]);
+            Assert.Same(scope, Encounters.NativeEncounterCombatObserver.LastEffectScope);
+            Assert.Same(scope, CombatHarmonyBridge.CurrentScope);
+            Assert.Equal(firstPlayer != secondPlayer, scope.ConflictingActorEvidence);
+            Assert.Same(first, buff.fromWho); // Native retained field did not change.
+        }
+        finally { CombatHarmonyCallbacks.EffectFinalizerMethod.Invoke(null, [null, arguments[1]]); }
+    }
+
+    [Theory]
     [InlineData(typeof(Effect), "SetItem")]
     [InlineData(typeof(Projectile), "Init")]
     [InlineData(typeof(Projectile), "Update")]

@@ -115,10 +115,10 @@ internal sealed class NativeEncounterCombatObserver : IEncounterObserver
         PushObserverState(state);
     }
 
-    internal static void ObserveEffectBegin(EffectTriggerEventContext context)
+    internal static void ObserveEffectBegin(EffectTriggerEventContext context, CombatNativeScope? resolvedScope)
     {
         if (!HasActiveContext()) return;
-        EffectPrefix(context, out var state);
+        EffectPrefix(context, resolvedScope, out var state);
         PushObserverState(state);
     }
 
@@ -258,6 +258,7 @@ internal sealed class NativeEncounterCombatObserver : IEncounterObserver
         frame.Target = target != null ? Actor(target) : new ActorSnapshot { Id = sink.ActorId(health), Kind = "health-only" };
         frame.Source = source;
         var sourceActor = CurrentSourceActor() ?? info.fromCharacter;
+        if (source.Kind is "effect" or "unscoped-effect" && !source.ActorCreditResolved) sourceActor = null;
         if (sourceActor != null) frame.SourceActor = new WeakReference<CharacterMainControl>(sourceActor);
         Emit("combat_hurt_begin", new
         {
@@ -583,7 +584,7 @@ internal sealed class NativeEncounterCombatObserver : IEncounterObserver
         catch (Exception exception) { probe?.Disable(exception); }
     }
 
-    private static void EffectPrefix(EffectTriggerEventContext context, out AttackState __state)
+    private static void EffectPrefix(EffectTriggerEventContext context, CombatNativeScope? resolvedScope, out AttackState __state)
     {
         __state = default;
         var probe = active;
@@ -591,13 +592,17 @@ internal sealed class NativeEncounterCombatObserver : IEncounterObserver
         {
             if (probe?.CanCapture() != true) return;
             var buff = context.source != null ? context.source.GetComponentInParent<Buff>() : null;
-            var source = buff != null ? buff.fromWho : null;
+            // Reuse the trusted aggregate owner resolution. Native buffs retain their
+            // original actor/weapon even after another actor refreshes the same buff.
+            var resolved = resolvedScope != null && !resolvedScope.ConflictingActorEvidence;
+            var source = resolved ? resolvedScope!.PhysicalSource ?? resolvedScope.CreditedSource : null;
             __state = new AttackState(probe, attack);
             attack = new AttackRuntime(probe, new SourceSnapshot
             {
-                Kind = "effect", Provenance = "native retained buff fields; refresh/mixed contributors not causally resolved",
-                Credited = probe.Actor(source), OriginallyPlayer = source != null && ReferenceEquals(source, CharacterMainControl.Main),
-                WeaponId = buff != null ? buff.fromWeaponID : -1, BuffId = buff != null ? buff.ID : -1,
+                Kind = "effect", Provenance = "shared combat effect ownership resolution", ActorCreditResolved = resolved,
+                Physical = probe.Actor(source), Credited = probe.Actor(resolved ? resolvedScope!.CreditedSource : null),
+                OriginallyPlayer = ReferenceEquals(buff?.fromWho, CharacterMainControl.Main) && CharacterMainControl.Main != null,
+                WeaponId = resolved ? resolvedScope!.WeaponTypeId : -1, BuffId = buff != null ? buff.ID : -1,
                 BuffLayers = buff != null ? buff.CurrentLayers : -1,
                 Delayed = context.source is TickTrigger || context.source is UpdateTrigger
             }) { LiveActor = source };
@@ -712,6 +717,7 @@ internal sealed class NativeEncounterCombatObserver : IEncounterObserver
         public ActorSnapshot? OriginalCredited { get; set; }
         public ActorSnapshot? NativeDamageActor { get; set; }
         public bool OriginallyPlayer { get; set; }
+        public bool ActorCreditResolved { get; set; }
         public int WeaponId { get; set; } = -1;
         public int TargetAmmoId { get; set; } = -1;
         public int LoadedAmmoId { get; set; } = -1;

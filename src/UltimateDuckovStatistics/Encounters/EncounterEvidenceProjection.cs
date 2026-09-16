@@ -109,10 +109,11 @@ internal sealed class EncounterEvidenceProjection
     {
         var target = data["Target"]; var source = data["Source"];
         var incoming = (bool?)target?["IsMain"] == true;
-        var creditedPlayer = (bool?)source?["Credited"]?["IsMain"] == true;
+        var attribution = Source(source);
+        var creditedPlayer = attribution.Credit == EncounterCredit.Player;
         var physical = source?["Physical"];
         // Unknown attackers cannot be joined to one another through the shared zero ID.
-        var enemy = incoming ? ((long?)physical?["Id"] is > 0 ? physical : source?["Credited"]) : target;
+        var enemy = incoming ? (HasResolvedCredit(source) ? ((long?)physical?["Id"] is > 0 ? physical : source?["Credited"]) : null) : target;
         var suffix = (long?)enemy?["Id"] is > 0 ? null : "/unknown/" + (data["Transaction"] ?? data["FatalSequence"]);
         var record = Actor(enemy, time, suffix);
         if (kind == "combat_fatal")
@@ -130,7 +131,7 @@ internal sealed class EncounterEvidenceProjection
             record.Encounter.Outcome = incoming ? EncounterOutcome.PlayerDeath : creditedPlayer ? EncounterOutcome.PlayerKill : EncounterOutcome.OtherDeath;
             record.Encounter.OutcomeVisitId = visit!.Id;
             record.Encounter.EndedSeconds = time;
-            record.Encounter.FinalSource = Source(source);
+            record.Encounter.FinalSource = attribution;
             record.Encounter.PlayerPosition = Position(data["Candidate"]?["PlayerPosition"]);
             record.Encounter.EnemyPosition = Position(data["Candidate"]?[incoming ? "SourcePosition" : "TargetPosition"]);
             record.Encounter.SourcePosition = Position(data["Candidate"]?["SourcePosition"]);
@@ -141,7 +142,6 @@ internal sealed class EncounterEvidenceProjection
         if (!incoming && !creditedPlayer) return;
         var amount = (double?)data["ProposedHpLossOwnedAssignments"] ?? 0;
         if (!double.IsFinite(amount) || amount <= 0) return;
-        var attribution = Source(source);
         var id = record.Id + (incoming ? "/in/" : "/out/") + attribution.WeaponTypeId + "/" + attribution.AmmunitionTypeId
             + "/" + attribution.Mechanism + "/" + attribution.Credit;
         if (!damage.TryGetValue(id, out var tally))
@@ -204,13 +204,17 @@ internal sealed class EncounterEvidenceProjection
 
     private EncounterSource Source(JToken? data) => new()
     {
-        Credit = (bool?)data?["Credited"]?["IsMain"] == true ? EncounterCredit.Player
+        Credit = !HasResolvedCredit(data) ? EncounterCredit.Unknown
+            : (bool?)data?["Credited"]?["IsMain"] == true ? EncounterCredit.Player
             : (long?)data?["Credited"]?["Id"] is > 0 ? EncounterCredit.Other : EncounterCredit.Unknown,
-        PhysicalActorId = Id(data?["Physical"]), CreditedActorId = Id(data?["Credited"]),
-        WeaponTypeId = (int?)data?["WeaponId"] is > 0 ? (int?)data?["WeaponId"] : null,
-        AmmunitionTypeId = (bool?)data?["AmmoAgreement"] == true && (int?)data?["LoadedAmmoId"] is > 0 ? (int?)data?["LoadedAmmoId"] : null,
+        PhysicalActorId = HasResolvedCredit(data) ? Id(data?["Physical"]) : null,
+        CreditedActorId = HasResolvedCredit(data) ? Id(data?["Credited"]) : null,
+        WeaponTypeId = HasResolvedCredit(data) && (int?)data?["WeaponId"] is > 0 ? (int?)data?["WeaponId"] : null,
+        AmmunitionTypeId = HasResolvedCredit(data) && (bool?)data?["AmmoAgreement"] == true && (int?)data?["LoadedAmmoId"] is > 0 ? (int?)data?["LoadedAmmoId"] : null,
         Mechanism = (string?)data?["Kind"]
     };
+    private static bool HasResolvedCredit(JToken? data) => (string?)data?["Kind"] is not ("effect" or "unscoped-effect")
+        || (bool?)data?["ActorCreditResolved"] == true;
     private string? Id(JToken? actor) => (long?)actor?["Id"] is > 0 ? session + "/a" + (long?)actor?["Id"] : null;
     private static EncounterPosition? Coordinates(JToken? value, string map) => value is JArray a && a.Count == 3
         ? new EncounterPosition { X = (float)a[0], Y = (float)a[1], Z = (float)a[2], MapId = map } : null;

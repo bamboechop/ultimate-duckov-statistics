@@ -255,13 +255,13 @@ internal static class CombatHarmonyCallbacks
 
     private static void EffectPrefix(EffectTriggerEventContext context, out CombatNativeScope? __state)
     {
-        NativeEncounterCombatObserver.ObserveEffectBegin(context);
 #if UDS_PERFORMANCE_DIAGNOSTICS
         using var timing = NativeHotPathDiagnostics.Measure(context.source is UpdateTrigger
             ? NativeHotPathArea.CombatEffectUpdate
             : context.source is TickTrigger ? NativeHotPathArea.CombatEffectTick : NativeHotPathArea.CombatEffectOther);
 #endif
         __state = CombatHarmonyBridge.PushEffect(context);
+        NativeEncounterCombatObserver.ObserveEffectBegin(context, __state);
     }
 
     private static Exception? EffectFinalizer(Exception? __exception, CombatNativeScope? __state)
