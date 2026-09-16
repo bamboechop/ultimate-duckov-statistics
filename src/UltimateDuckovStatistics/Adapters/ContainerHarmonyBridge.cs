@@ -16,6 +16,8 @@ internal static class ContainerHarmonyBridge
     [ThreadStatic] private static int deathScopeDepth;
     private static NativeContainerAdapter? adapter;
 
+    internal static bool EncounterCorpseHooksTrusted => adapter?.CanObserveCorpseProvenance == true;
+
     public static void Attach(NativeContainerAdapter value)
     {
         adapter = value ?? throw new ArgumentNullException(nameof(value));
@@ -30,7 +32,7 @@ internal static class ContainerHarmonyBridge
 
     public static bool EnterDeathScope()
     {
-        if (adapter == null) return false;
+        if (!EncounterCorpseHooksTrusted) return false;
         deathScopeDepth++;
         return true;
     }
@@ -42,7 +44,7 @@ internal static class ContainerHarmonyBridge
 
     public static void MarkCreatedLootbox(InteractableLootbox? lootbox, InteractableLootbox? prefab)
     {
-        if (adapter == null || lootbox == null) return;
+        if (!EncounterCorpseHooksTrusted || lootbox == null) return;
         string? provenance = deathScopeDepth > 0 ? "character-death-scope" : null;
         if (provenance == null)
         {

@@ -14,7 +14,8 @@ namespace UltimateDuckovStatistics.Encounters;
 // reconciled transfer records represent proven directed quantity flow.
 internal sealed partial class NativeEncounterLootObserver : IEncounterObserver
 {
-    public Core.Encounters.EncounterCaptureIssue? FailureIssue => healthy ? null : Core.Encounters.EncounterCaptureIssue.LootIncomplete;
+    public Core.Encounters.EncounterCaptureIssue? FailureIssue => healthy && !sharedCorpseTrustLost
+        && ContainerHarmonyBridge.EncounterCorpseHooksTrusted ? null : Core.Encounters.EncounterCaptureIssue.LootIncomplete;
     private const string OwnerId = "at.bamboechop.ultimate-duckov-statistics.encounters.loot";
     private const int RegistryLimit = 4096;
     private const int ItemLimit = 32768;
@@ -39,6 +40,7 @@ internal sealed partial class NativeEncounterLootObserver : IEncounterObserver
     private bool disposed;
     private bool healthy;
     private bool observationLimited;
+    private bool sharedCorpseTrustLost;
     private int registeredItems;
     private long sequence;
     private double nextVerification;
@@ -90,6 +92,7 @@ internal sealed partial class NativeEncounterLootObserver : IEncounterObserver
             run = sink.Context.RunId;
             healthy = true;
             Status = "Active: split completion and reconciled directed loot quantities; aggregate coverage remains partial pending native qualification.";
+            if (sink.Context.Active) ObserveSharedCorpseTrust();
         }
         catch (Exception exception)
         {
@@ -108,9 +111,11 @@ internal sealed partial class NativeEncounterLootObserver : IEncounterObserver
             {
                 if (Environment.CurrentManagedThreadId != owningThread) return false;
                 var context = sink.Context;
-                return healthy && !disposed && context.Active
+                var active = healthy && !disposed && context.Active
                     && string.Equals(generation, context.GenerationId, StringComparison.Ordinal)
                     && string.Equals(run, context.RunId, StringComparison.Ordinal);
+                if (active) ObserveSharedCorpseTrust();
+                return active;
             }
             catch (Exception exception) { Fault(exception); return false; }
         }
@@ -128,6 +133,7 @@ internal sealed partial class NativeEncounterLootObserver : IEncounterObserver
                 generation = context.GenerationId;
                 run = context.RunId;
             }
+            if (context.Active) ObserveSharedCorpseTrust();
             DrainSplitCompletions();
             RefreshViewLifetime();
             if (context.MonotonicSeconds >= nextVerification)
@@ -177,6 +183,19 @@ internal sealed partial class NativeEncounterLootObserver : IEncounterObserver
         detachedRegistrations = 0;
         worldDropRegistrations = 0;
         observationLimited = false;
+        sharedCorpseTrustLost = false;
+    }
+
+    private void ObserveSharedCorpseTrust()
+    {
+        if (ContainerHarmonyBridge.EncounterCorpseHooksTrusted || sharedCorpseTrustLost) return;
+        sharedCorpseTrustLost = true;
+        // Reject any in-flight join through a now-untrusted shared death scope.
+        // Previously proven corpse identities and our own inventory/transfer
+        // hooks remain independent evidence and must keep working.
+        deaths.Clear();
+        Status = "Partial: shared corpse hooks unavailable; previously verified corpse observations continue.";
+        Emit("coverage", new { Reason = "Shared corpse provenance hooks unavailable", TransferCoverage = "Partial" });
     }
 
     private void Add(Type type, string name, Type result, Type[] parameters, string? prefix, string? postfix, string? finalizer)
@@ -219,7 +238,7 @@ internal sealed partial class NativeEncounterLootObserver : IEncounterObserver
 
     private DeathScope? BeginDeath(CharacterMainControl actor)
     {
-        if (!Active) return null;
+        if (!Active || !ContainerHarmonyBridge.EncounterCorpseHooksTrusted) return null;
         if (deaths.Count >= ScopeLimit) throw new InvalidOperationException("Loot death scope capacity reached.");
         var scope = new DeathScope(actor.CharacterItem, Id(actor), ++sequence);
         deaths.Add(scope);
@@ -235,7 +254,7 @@ internal sealed partial class NativeEncounterLootObserver : IEncounterObserver
 
     private void Created(Item source, InteractableLootbox? box)
     {
-        if (!Active || box == null || deaths.Count == 0) return;
+        if (!Active || !ContainerHarmonyBridge.EncounterCorpseHooksTrusted || box == null || deaths.Count == 0) return;
         var scope = deaths[deaths.Count - 1];
         if (!ReferenceEquals(scope.Item, source)) return;
         if (boxes.TryGetValue(box, out _)) return;

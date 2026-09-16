@@ -26,6 +26,9 @@
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Combat/NativeEncounterCombatObserver.Actors.cs" Link="Encounters/NativeEncounterCombatObserver.Actors.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Combat/NativeEncounterCombatObserver.cs" Link="Encounters/NativeEncounterCombatObserver.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/EncounterCombatHookLoss.cs" Link="ProductionAdapters/EncounterCombatHookLoss.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Loot/NativeEncounterLootObserver*.cs" Link="Encounters/%(Filename)%(Extension)" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeContainerAdapter.cs" Link="ProductionAdapters/NativeContainerAdapter.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/ContainerHarmonyBridge.cs" Link="ProductionAdapters/ContainerHarmonyBridge.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Maps/EncounterPathMath.cs" Link="Encounters/EncounterPathMath.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Loot/LootProbeQuantityEvidence.cs" Link="Encounters/LootProbeQuantityEvidence.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Loot/LootTransferAccounting.cs" Link="Encounters/LootTransferAccounting.cs" />

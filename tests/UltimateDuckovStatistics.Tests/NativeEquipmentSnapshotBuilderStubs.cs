@@ -2,7 +2,7 @@
 
 namespace ItemStatsSystem
 {
-    public sealed class Inventory
+    public sealed partial class Inventory
     {
         private static int nextInstanceId;
         private readonly int instanceId = Interlocked.Increment(ref nextInstanceId);
@@ -45,7 +45,7 @@ namespace ItemStatsSystem
 
 namespace ItemStatsSystem.Items
 {
-    public sealed class Slot
+    public sealed partial class Slot
     {
         public List<NativeSlotTag> requireTags { get; } = new();
         public string Key { get; set; } = string.Empty;
