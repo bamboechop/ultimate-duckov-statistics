@@ -32,7 +32,7 @@ The [production integration](docs/COMBAT_ENCOUNTER_PRODUCTION.md) enables automa
 
 **Enemy silhouettes with hit markers remain deferred.** Preserve the proposal to render bundled 3D models once and ship front/side silhouettes if the user later chooses to resume it. The encounter feature does not depend on illustrations.
 
-**Overview kill-distance highlights are the 1.1.1 task before Workshop publication.** Show the longest and shortest recorded player kill distance using confirmed fatal-position evidence from record-eligible completed runs. Existing encounter records can participate without a schema change. Implementation and validation follow the [distance rules](docs/COMBAT_ENCOUNTER_HISTORY.md#overview-highlights--kill-distance-111); in-game acceptance remains required before publication.
+**Overview kill-distance highlights are the 1.1.1 task before Workshop publication.** Show the longest and shortest recorded player kill distance using confirmed fatal-position evidence from record-eligible completed runs. Existing encounter records can participate without a schema change. Implementation, automated qualification and the user-accepted September 16 local UI check are recorded with the [distance rules](docs/COMBAT_ENCOUNTER_HISTORY.md#overview-highlights--kill-distance-111). Final merged-source release qualification and Workshop publication remain separate.
 
 ## 1. Project and delivery contract
 

@@ -2,7 +2,7 @@
 
 Ultimate Duckov Statistics (UDS) records proven single-player gameplay events in local per-save profiles. It never writes Duckov save files and has no telemetry or online account.
 
-Current source targets **1.1.1**, including Overview longest/shortest kill-distance highlights, Runs → Map & Kills, incremental SQLite persistence, lossless record compression, JSON/ZIP export and restore, and save-identity performance improvements. The new highlights must be qualified and accepted before the first Steam Workshop listing and subscription-install verification. See [release notes](RELEASE_NOTES.md), the [release procedure](docs/RELEASE_PROCESS.md) and [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for publication. The earlier [GitHub v1.0.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) tag and archive retain their original contents.
+Current source targets **1.1.1**, including Overview longest/shortest kill-distance highlights, Runs → Map & Kills, incremental SQLite persistence, lossless record compression, JSON/ZIP export and restore, and save-identity performance improvements. The highlights passed local automated qualification and user UI acceptance. Final merged-source release qualification, the first Steam Workshop listing and subscription-install verification remain separate. See [release notes](RELEASE_NOTES.md), the [release procedure](docs/RELEASE_PROCESS.md) and [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for publication. The earlier [GitHub v1.0.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) tag and archive retain their original contents.
 
 ## Install and use
 
