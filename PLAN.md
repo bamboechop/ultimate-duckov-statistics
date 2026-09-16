@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics — Master Implementation Plan
 
-Current target: **1.0.0**, prepared for the first Steam Workshop release. M0-M18 and the scoped playtest follow-ups below are complete, including performance, storage, export and restore work. Encounter history is integrated into ordinary builds, with final native qualification and review still pending. [Release notes](RELEASE_NOTES.md) describe the shipping scope; [release preparation](docs/RELEASE_PROCESS.md) tracks exact-source packaging, final affected acceptance, the first Workshop listing and publication. The milestone specifications and earlier delivery facts below are historical context, not a queue to repeat completed work.
+Current target: **1.0.0**, prepared for the first Steam Workshop release. M0-M18 and the scoped playtest follow-ups below are complete, including performance, storage, export and restore work. Encounter history completed its review corrections and received focused ordinary-build gameplay acceptance on September 16, 2026; see the [acceptance record](docs/COMBAT_ENCOUNTER_PRODUCTION.md#september-16-2026-reviewed-build-acceptance). [Release notes](RELEASE_NOTES.md) describe the shipping scope; [release preparation](docs/RELEASE_PROCESS.md) tracks exact-source packaging, final affected acceptance, the first Workshop listing and publication. The milestone specifications and earlier delivery facts below are historical context, not a queue to repeat completed work.
 
 ## Current playtest follow-ups — 2026-09-11
 
@@ -27,8 +27,8 @@ The [production integration](docs/COMBAT_ENCOUNTER_PRODUCTION.md) enables automa
 - [x] **Failure handling:** retain valid history, retry publication without repeating committed work, and persist incomplete-capture notices without permanently blocking run/profile transitions.
 - [x] **Design alignment:** user-accepted tabs, map visits, global linked feed, outlined routes, passive map tooltips, icon sizing, inline hit/headshot text and simplified loot tooltips. Overlapping encounter markers are intentional.
 - [x] **Production integration:** normal build capture/UI and separate opt-in diagnostics. This checkbox concerns implementation, not release or native acceptance of the resulting package.
-- [ ] **Final qualification and review:** ordinary-build restart/history/export, fresh automatic capture, English/German, affected failure UI and broader gameplay/frame-time checks; full build/package checks and independent review.
-- [ ] **Release preparation:** finish source review/commits, exact-source packaging and publication preparation. Gameplay and publication remain user-controlled.
+- [x] **Feature qualification and review — accepted 2026-09-16:** review corrections, full automated build/package checks and the user's focused ordinary-build gameplay test are complete. The requested test covered automatic capture, linked map/feed behavior, English/German, restart/history/export and perceived frame pacing. Failure injection remains automated evidence; this acceptance does not claim a new controlled long-run performance benchmark. See the [acceptance record](docs/COMBAT_ENCOUNTER_PRODUCTION.md#september-16-2026-reviewed-build-acceptance).
+- [ ] **Release preparation:** merge the accepted feature, prepare the exact release package and complete publication checks. Consult [PR #25](https://github.com/bamboechop/ultimate-duckov-statistics/pull/25) for merge and CI status. Merge, gameplay and publication remain user-controlled.
 
 **Enemy silhouettes with hit markers remain deferred.** Preserve the proposal to render bundled 3D models once and ship front/side silhouettes if the user later chooses to resume it. The encounter feature does not depend on illustrations.
 

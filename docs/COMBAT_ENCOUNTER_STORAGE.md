@@ -1,6 +1,6 @@
 # Incremental encounter storage
 
-This is the storage layer of [Map & Kills](COMBAT_ENCOUNTER_HISTORY.md). Ordinary builds connect live native observations to this repository API and the retained Runs view, with automatic capture for active runs. The [production integration record](COMBAT_ENCOUNTER_PRODUCTION.md) separates the optional diagnostic tools and remaining gameplay/frame-time qualification. Targeted earlier native passes are documented below.
+This is the storage layer of [Map & Kills](COMBAT_ENCOUNTER_HISTORY.md). Ordinary builds connect live native observations to this repository API and the retained Runs view, with automatic capture for active runs. The [production integration record](COMBAT_ENCOUNTER_PRODUCTION.md) separates the optional diagnostic tools, automated evidence and September 16 focused gameplay acceptance. Targeted earlier native passes are documented below.
 
 ## Owned records
 
