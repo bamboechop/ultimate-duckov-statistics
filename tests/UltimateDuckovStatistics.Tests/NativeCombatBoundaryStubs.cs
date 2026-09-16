@@ -6,6 +6,14 @@ using UnityEngine;
 
 public sealed partial class CharacterMainControl
 {
+    // Model Unity's destroyed-object comparison for the source-linked actor cache.
+    public static bool operator ==(CharacterMainControl? left, CharacterMainControl? right) =>
+        ReferenceEquals(left, null) ? ReferenceEquals(right, null) || right.DestroyCount > 0
+        : ReferenceEquals(right, null) ? left.DestroyCount > 0 : ReferenceEquals(left, right);
+    public static bool operator !=(CharacterMainControl? left, CharacterMainControl? right) => !(left == right);
+    public override bool Equals(object? obj) => ReferenceEquals(this, obj);
+    public override int GetHashCode() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
+    public Teams Team { get; set; } = Teams.enemy;
     public AttackAction attackAction { get; } = new();
     public CharacterPreset? characterPreset { get; set; }
     public string name { get; set; } = "Native character";

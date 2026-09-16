@@ -23,6 +23,7 @@
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/EncounterLootPresentation.cs" Link="Encounters/EncounterLootPresentation.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Diagnostics/EncounterDiagnosticWriter.cs" Link="Encounters/Diagnostics/EncounterDiagnosticWriter.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Combat/CombatProbeBoundary.cs" Link="Encounters/CombatProbeBoundary.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Combat/NativeEncounterCombatObserver.Actors.cs" Link="Encounters/NativeEncounterCombatObserver.Actors.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Maps/EncounterPathMath.cs" Link="Encounters/EncounterPathMath.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Loot/LootProbeQuantityEvidence.cs" Link="Encounters/LootProbeQuantityEvidence.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Loot/LootTransferAccounting.cs" Link="Encounters/LootTransferAccounting.cs" />

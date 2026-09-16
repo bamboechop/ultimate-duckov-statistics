@@ -1,12 +1,16 @@
 // Native observer boundary for source-linked aggregate adapter tests. These tests
 // exercise callback composition, not Unity actor discovery or native encounter capture.
-// Encounter reduction/persistence tests separately replay recorded native evidence.
+// Actor identity lookup is source-linked separately; other native observer behavior
+// remains stubbed. Reduction/persistence tests replay recorded native evidence.
 using ItemStatsSystem;
 
 namespace UltimateDuckovStatistics.Encounters;
 
-internal static class NativeEncounterCombatObserver
+internal sealed partial class NativeEncounterCombatObserver
 {
+    private readonly IEncounterObservationSink sink;
+    internal NativeEncounterCombatObserver(IEncounterObservationSink sink) { this.sink = sink; }
+    internal object ReadActorIdentity(CharacterMainControl? actor) => Actor(actor);
     internal static void ObserveHealthBegin(Health health, DamageInfo info) { }
     internal static void ObserveHealthComplete(Health health) { }
     internal static void ObserveHealthFinally(Health health, Exception? exception) { }

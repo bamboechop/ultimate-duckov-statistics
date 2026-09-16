@@ -11,7 +11,7 @@ using UnityEngine;
 namespace UltimateDuckovStatistics.Encounters;
 
 /// <summary>Short-session diagnostic capture. Never changes native arguments/results.</summary>
-internal sealed class NativeEncounterCombatObserver : IEncounterObserver
+internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
 {
     public Core.Encounters.EncounterCaptureIssue? FailureIssue => enabled ? null : Core.Encounters.EncounterCaptureIssue.CombatIncomplete;
     internal const string OwnerId = "at.bamboechop.ultimate-duckov-statistics.encounters.combat";
@@ -29,7 +29,6 @@ internal sealed class NativeEncounterCombatObserver : IEncounterObserver
     private readonly Queue<(int Id, long Origin)> originOrder = new();
     private ConditionalWeakTable<Health, Marker> relatedHealth = new();
     private ConditionalWeakTable<Health, Marker> confirmedDeaths = new();
-    private ConditionalWeakTable<CharacterMainControl, ActorSnapshot> actorLabels = new();
     private string generation = string.Empty;
     private string run = string.Empty;
     private long epoch;
@@ -458,20 +457,6 @@ internal sealed class NativeEncounterCombatObserver : IEncounterObserver
         return attack?.LiveActor;
     }
 
-    private ActorSnapshot Actor(CharacterMainControl? actor)
-    {
-        if (actor == null) return new ActorSnapshot();
-        if (actorLabels.TryGetValue(actor, out var label)) return label;
-        label = new ActorSnapshot
-        {
-            Id = sink.ActorId(actor), Kind = "character", IsMain = ReferenceEquals(actor, CharacterMainControl.Main),
-            PresetKey = actor.characterPreset != null ? actor.characterPreset.nameKey : string.Empty,
-            TeamAtFirstObservation = (int)actor.Team
-        };
-        actorLabels.Add(actor, label);
-        return label;
-    }
-
     private static PositionSnapshot Position(CharacterMainControl? actor)
     {
         if (actor == null) return new PositionSnapshot();
@@ -725,15 +710,6 @@ internal sealed class NativeEncounterCombatObserver : IEncounterObserver
         public int BuffId { get; set; } = -1;
         public int BuffLayers { get; set; } = -1;
         public bool Delayed { get; set; }
-    }
-
-    private sealed class ActorSnapshot
-    {
-        public int Id { get; set; }
-        public string Kind { get; set; } = "unavailable";
-        public string PresetKey { get; set; } = string.Empty;
-        public bool IsMain { get; set; }
-        public int TeamAtFirstObservation { get; set; } = -1;
     }
 
     private sealed class PositionSnapshot
