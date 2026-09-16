@@ -11,6 +11,43 @@ namespace UltimateDuckovStatistics.Tests;
 
 public sealed class ArtifactPathAuditTests
 {
+    [Theory]
+    [InlineData("UltimateDuckovStatistics.EncounterPrototype")]
+    [InlineData("UltimateDuckovStatistics.Encounters.Diagnostics")]
+    public void OrdinaryReleaseRejectsEncounterDiagnosticsEvenWithoutCallSites(string typeNamespace)
+    {
+        var metadata = new MetadataBuilder();
+        metadata.AddModule(0, metadata.GetOrAddString("EncounterPrototype"), metadata.GetOrAddGuid(Guid.NewGuid()), default, default);
+        metadata.AddTypeDefinition(System.Reflection.TypeAttributes.Public,
+            metadata.GetOrAddString(typeNamespace), metadata.GetOrAddString("Probe"),
+            default, MetadataTokens.FieldDefinitionHandle(1), MetadataTokens.MethodDefinitionHandle(1));
+        using var directory = new TemporaryDirectory();
+        var pe = new ManagedPEBuilder(new PEHeaderBuilder(), new MetadataRootBuilder(metadata), new BlobBuilder());
+        var bytes = new BlobBuilder(); pe.Serialize(bytes);
+        var path = Path.Combine(directory.Path, "prototype.dll");
+        File.WriteAllBytes(path, bytes.ToArray());
+        var error = Assert.Throws<InvalidDataException>(() => OrdinaryReleaseAudit.Verify(path));
+        Assert.Contains("encounter diagnostic", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OrdinaryNativeModCannotSilentlyOmitEncounterRuntime()
+    {
+        var metadata = new MetadataBuilder();
+        metadata.AddModule(0, metadata.GetOrAddString("UltimateDuckovStatistics"), metadata.GetOrAddGuid(Guid.NewGuid()), default, default);
+        metadata.AddAssembly(metadata.GetOrAddString("UltimateDuckovStatistics"), new Version(1, 0, 0, 0), default, default, 0, 0);
+        metadata.AddTypeDefinition(System.Reflection.TypeAttributes.Public,
+            metadata.GetOrAddString("UltimateDuckovStatistics"), metadata.GetOrAddString("ModBehaviour"),
+            default, MetadataTokens.FieldDefinitionHandle(1), MetadataTokens.MethodDefinitionHandle(1));
+        using var directory = new TemporaryDirectory();
+        var pe = new ManagedPEBuilder(new PEHeaderBuilder(), new MetadataRootBuilder(metadata), new BlobBuilder());
+        var bytes = new BlobBuilder(); pe.Serialize(bytes);
+        var path = Path.Combine(directory.Path, "UltimateDuckovStatistics.dll");
+        File.WriteAllBytes(path, bytes.ToArray());
+        var error = Assert.Throws<InvalidDataException>(() => OrdinaryReleaseAudit.Verify(path));
+        Assert.Contains("missing encounter runtime", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void PackageAuditsRequireTheExactPinnedNativeDependency()
     {

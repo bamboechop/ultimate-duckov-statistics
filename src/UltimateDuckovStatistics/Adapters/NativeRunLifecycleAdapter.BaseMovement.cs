@@ -40,7 +40,7 @@ internal sealed partial class NativeRunLifecycleAdapter
     private void TickBaseMovement(DateTime utcNow, double now)
     {
         if (baseMovement == null) return;
-        var level = LevelManager.Instance;
+        var level = NativeLevelAvailability.MayExist ? LevelManager.Instance : null;
         var generation = saveGenerationIdProvider();
         var ready = !tracker.IsActive && !loading && !paused && Time.timeScale > 0
             && baseProfileTransitionPending?.Invoke() != true

@@ -2,7 +2,7 @@
 
 namespace ItemStatsSystem
 {
-    public sealed class Inventory
+    public sealed partial class Inventory
     {
         private static int nextInstanceId;
         private readonly int instanceId = Interlocked.Increment(ref nextInstanceId);
@@ -45,7 +45,7 @@ namespace ItemStatsSystem
 
 namespace ItemStatsSystem.Items
 {
-    public sealed class Slot
+    public sealed partial class Slot
     {
         public List<NativeSlotTag> requireTags { get; } = new();
         public string Key { get; set; } = string.Empty;
@@ -124,6 +124,8 @@ public sealed partial class Health
 
 public struct DamageInfo
 {
+    public float damageValue;
+    public float finalDamage;
     public CharacterMainControl? fromCharacter;
     public int fromWeaponItemID;
     public bool isExplosion;
@@ -166,6 +168,8 @@ namespace UnityEngine
 
     public readonly struct Vector3
     {
+        public static float Distance(Vector3 a, Vector3 b) =>
+            MathF.Sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
         public Vector3(float x, float y, float z)
         {
             this.x = x;
@@ -193,6 +197,7 @@ namespace UnityEngine.SceneManagement
 {
     public readonly struct Scene
     {
+        public string name { get; } = "TestScene";
         public Scene(int buildIndex) => this.buildIndex = buildIndex;
         public readonly int buildIndex;
     }
@@ -490,6 +495,8 @@ public static class SceneInfoCollection
 #pragma warning disable CA1707 // Stubs mirror the installed Duckov native type names exactly.
 public sealed class ItemSetting_Gun
 {
+    public ItemStatsSystem.Item? LoadedBullet { get; set; }
+    public ItemStatsSystem.Item? GetCurrentLoadedBullet() => LoadedBullet;
     public int TargetBulletID { get; set; }
     public string CurrentBulletName { get; set; } = string.Empty;
 }

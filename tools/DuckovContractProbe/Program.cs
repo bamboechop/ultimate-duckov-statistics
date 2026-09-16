@@ -240,6 +240,7 @@ try
         core.RequireProperty(string.Empty, "LevelManager", "IsRaidMap");
         core.RequireProperty(string.Empty, "LevelManager", "IsBaseLevel");
         core.RequireProperty(string.Empty, "LevelManager", "Instance", "LevelManager", mustBePublic: true, mustBeStatic: true);
+        core.RequireField(string.Empty, "LevelManager", "instance", mustBePrivate: true, mustBeStatic: true, exactFieldType: "LevelManager");
         core.RequireProperty(string.Empty, "LevelManager", "LevelInited", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "LevelManager", "LevelInitializing", "System.Boolean", mustBePublic: true, mustBeStatic: true);
         core.RequireProperty(string.Empty, "LevelManager", "MainCharacter", "CharacterMainControl", mustBePublic: true);

@@ -18,6 +18,15 @@ internal static class ProfileRecordReconstruction
         {
             if (record.Bytes == null) continue;
             var key = record.Address;
+            if (key.Kind == ProfileRecordKind.Encounter)
+            {
+                if (profile == null) throw new InvalidDataException("Encounter has no profile owner.");
+                var encounter = ProfileRecordCodec.Decode<Encounters.EncounterRecord>(record.Bytes);
+                Encounters.EncounterRecordValidation.Validate(encounter);
+                if (!ProfileChangeJournal.EncounterAddress(encounter).Equals(key)) throw new InvalidDataException("Encounter address disagrees with its payload.");
+                (profile.EncounterHistory ??= new List<Encounters.EncounterRecord>()).Add(encounter);
+                continue;
+            }
             if (key.Kind >= ProfileRecordKind.CheckpointRoot && key.Kind <= ProfileRecordKind.CheckpointEntry)
             { checkpointRecords.Read(record); continue; }
             if (key.Kind == ProfileRecordKind.RunMetricEntry)

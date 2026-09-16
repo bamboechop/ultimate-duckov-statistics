@@ -4,10 +4,40 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <AssemblyVersion>2.4.1.0</AssemblyVersion>
-    <!-- Linked production adapters target netstandard2.1, where the newer throw helpers are unavailable. -->
-    <NoWarn>$(NoWarn);CA1510;CA1512;CA1513</NoWarn>
-    <DefineConstants>$(DefineConstants);UDS_PERFORMANCE_DIAGNOSTICS</DefineConstants>
+    <!-- Linked production adapters target netstandard2.1, where the newer throw/cryptography helpers are unavailable. -->
+    <NoWarn>$(NoWarn);CA1510;CA1512;CA1513;CA1850</NoWarn>
+    <DefineConstants>$(DefineConstants);UDS_PERFORMANCE_DIAGNOSTICS;UDS_ENCOUNTER_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Fixtures/Encounters/*.jsonl.gz" />
+    <EmbeddedResource Include="Fixtures/Encounters/*.records.json.gz" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/EncounterEvidenceProjection.cs" Link="Encounters/EncounterEvidenceProjection.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/EncounterCapturePipeline.cs" Link="Encounters/EncounterCapturePipeline.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/StoredEncounterMap.cs" Link="Encounters/StoredEncounterMap.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/EncounterMapFocus.cs" Link="Encounters/EncounterMapFocus.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Maps/NativeEncounterMapObserver.cs" Link="Encounters/NativeEncounterMapObserver.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/EncounterObservationContracts.cs" Link="Encounters/EncounterObservationContracts.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/StoredEncounterRun.cs" Link="Encounters/StoredEncounterRun.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/EncounterDamageText.cs" Link="Encounters/EncounterDamageText.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/EncounterLootPresentation.cs" Link="Encounters/EncounterLootPresentation.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Diagnostics/EncounterDiagnosticWriter.cs" Link="Encounters/Diagnostics/EncounterDiagnosticWriter.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Combat/CombatProbeBoundary.cs" Link="Encounters/CombatProbeBoundary.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Combat/NativeEncounterCombatObserver.Actors.cs" Link="Encounters/NativeEncounterCombatObserver.Actors.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Combat/NativeEncounterCombatObserver.cs" Link="Encounters/NativeEncounterCombatObserver.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/EncounterCombatHookLoss.cs" Link="ProductionAdapters/EncounterCombatHookLoss.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Loot/NativeEncounterLootObserver*.cs" Link="Encounters/%(Filename)%(Extension)" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeContainerAdapter.cs" Link="ProductionAdapters/NativeContainerAdapter.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/ContainerHarmonyBridge.cs" Link="ProductionAdapters/ContainerHarmonyBridge.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Maps/EncounterPathMath.cs" Link="Encounters/EncounterPathMath.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Loot/LootProbeQuantityEvidence.cs" Link="Encounters/LootProbeQuantityEvidence.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Loot/LootTransferAccounting.cs" Link="Encounters/LootTransferAccounting.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Diagnostics/EncounterCaptureReplay.cs" Link="Encounters/EncounterCaptureReplay.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Presentation/EncounterRevealTimeline.cs" Link="Encounters/EncounterRevealTimeline.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Maps/EncounterMapGeometry.cs" Link="Encounters/EncounterMapGeometry.cs" />
+    <Compile Include="../../src/UltimateDuckovStatistics/Encounters/Maps/EncounterRouteRaster.cs" Link="Encounters/EncounterRouteRaster.cs" />
+  </ItemGroup>
+
 
   <ItemGroup>
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeSaveFingerprint.cs" Link="ProductionAdapters/NativeSaveFingerprint.cs" />
@@ -169,5 +199,8 @@
   <ItemGroup>
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeGrenadeAttribution.cs" Link="ProductionAdapters\NativeGrenadeAttribution.cs" />
     <Compile Include="..\..\src\UltimateDuckovStatistics\Adapters\NativeGrenadeHazardOrigins.cs" Link="ProductionAdapters\NativeGrenadeHazardOrigins.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeLevelAvailability.cs" Link="ProductionAdapters/NativeLevelAvailability.cs" />
   </ItemGroup>
 </Project>

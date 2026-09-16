@@ -14,7 +14,7 @@ namespace UnityEngine.UI
 }
 namespace Duckov.Utilities
 {
-    public static class GameplayDataSettings
+    public static partial class GameplayDataSettings
     {
         public static ScrollPrefabSettings UIPrefabs { get; } = new();
     }

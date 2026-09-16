@@ -16,6 +16,8 @@ internal static class ContainerHarmonyBridge
     [ThreadStatic] private static int deathScopeDepth;
     private static NativeContainerAdapter? adapter;
 
+    internal static bool EncounterCorpseHooksTrusted => adapter?.CanObserveCorpseProvenance == true;
+
     public static void Attach(NativeContainerAdapter value)
     {
         adapter = value ?? throw new ArgumentNullException(nameof(value));
@@ -30,7 +32,7 @@ internal static class ContainerHarmonyBridge
 
     public static bool EnterDeathScope()
     {
-        if (adapter == null) return false;
+        if (!EncounterCorpseHooksTrusted) return false;
         deathScopeDepth++;
         return true;
     }
@@ -42,7 +44,7 @@ internal static class ContainerHarmonyBridge
 
     public static void MarkCreatedLootbox(InteractableLootbox? lootbox, InteractableLootbox? prefab)
     {
-        if (adapter == null || lootbox == null) return;
+        if (!EncounterCorpseHooksTrusted || lootbox == null) return;
         string? provenance = deathScopeDepth > 0 ? "character-death-scope" : null;
         if (provenance == null)
         {
@@ -74,19 +76,36 @@ internal static class ContainerHarmonyBridge
 
 internal static class ContainerHarmonyCallbacks
 {
-    private static void CharacterDeathPrefix(out bool __state) =>
-        __state = ContainerHarmonyBridge.EnterDeathScope();
-
-    private static Exception? CharacterDeathFinalizer(Exception? __exception, bool __state)
+    private sealed class PrototypeDeathState
     {
-        ContainerHarmonyBridge.ExitDeathScope(__state);
+        public bool Entered { get; set; }
+        public object? Observation { get; set; }
+    }
+
+    private static void CharacterDeathPrefix(CharacterMainControl __instance, out PrototypeDeathState __state)
+    {
+        __state = new PrototypeDeathState { Entered = ContainerHarmonyBridge.EnterDeathScope() };
+        try { __state.Observation = Encounters.NativeEncounterLootObserver.ObserveDeathStart(__instance); }
+        catch { /* Optional observation must never affect corpse exclusion or native death. */ }
+    }
+
+    private static Exception? CharacterDeathFinalizer(Exception? __exception, PrototypeDeathState? __state)
+    {
+        ContainerHarmonyBridge.ExitDeathScope(__state?.Entered == true);
+        try { Encounters.NativeEncounterLootObserver.ObserveDeathEnd(__state?.Observation); }
+        catch { /* Preserve the original native exception. */ }
         return __exception;
     }
 
     private static void CreateFromItemPostfix(
+        ItemStatsSystem.Item item,
         InteractableLootbox? __result,
-        InteractableLootbox? prefab) =>
+        InteractableLootbox? prefab)
+    {
         ContainerHarmonyBridge.MarkCreatedLootbox(__result, prefab);
+        try { Encounters.NativeEncounterLootObserver.ObserveCreated(item, __result); }
+        catch { /* Optional observation must never affect the existing marker. */ }
+    }
 
     public static MethodInfo CharacterDeathPrefixMethod => Get(nameof(CharacterDeathPrefix));
     public static MethodInfo CharacterDeathFinalizerMethod => Get(nameof(CharacterDeathFinalizer));

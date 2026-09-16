@@ -3,6 +3,7 @@ using Duckov.Buffs;
 using ItemStatsSystem;
 using UltimateDuckovStatistics.Core.Domain;
 using UltimateDuckovStatistics.Core.Tracking;
+using UltimateDuckovStatistics.Encounters;
 
 namespace UltimateDuckovStatistics.Adapters;
 
@@ -24,6 +25,8 @@ internal static class CombatHarmonyBridge
     }
 
     public static CombatNativeScope? CurrentScope => scopes?.Current;
+    internal static bool EncounterHealthHookTrusted => adapter?.CanObserveHealth == true;
+    internal static EncounterCombatHookLoss EncounterHookLoss => adapter?.EncounterHookLoss ?? EncounterCombatHookLoss.All;
 
     public static void CaptureProjectile(Projectile projectile, ProjectileContext context) =>
         adapter?.CaptureProjectile(projectile, context);
@@ -195,33 +198,59 @@ internal sealed class CombatHealthPatchState
 
 internal static class CombatHarmonyCallbacks
 {
-    private static void HealthPrefix(Health __instance, DamageInfo damageInfo, out CombatHealthPatchState __state) =>
+    private static void HealthPrefix(Health __instance, DamageInfo damageInfo, out CombatHealthPatchState __state)
+    {
+        NativeEncounterCombatObserver.ObserveHealthBegin(__instance, damageInfo);
         __state = CombatHarmonyBridge.BeginHealth(__instance, damageInfo);
+    }
 
-    private static void HealthPostfix(Health __instance, CombatHealthPatchState __state) =>
+    private static void HealthPostfix(Health __instance, CombatHealthPatchState __state)
+    {
         CombatHarmonyBridge.CompleteHealth(__instance, __state);
+        NativeEncounterCombatObserver.ObserveHealthComplete(__instance);
+    }
 
-    private static void ProjectileInitPostfix(Projectile __instance, ProjectileContext _context) =>
+    private static Exception? HealthFinalizer(Health __instance, Exception? __exception)
+    {
+        NativeEncounterCombatObserver.ObserveHealthFinally(__instance, __exception);
+        return __exception;
+    }
+
+    private static void ProjectileInitPostfix(Projectile __instance, ProjectileContext _context)
+    {
         CombatHarmonyBridge.CaptureProjectile(__instance, _context);
+        NativeEncounterCombatObserver.ObserveProjectileInit(__instance, _context);
+    }
 
-    private static void ProjectileUpdatePrefix(Projectile __instance, out CombatNativeScope? __state) =>
+    private static void ProjectileUpdatePrefix(Projectile __instance, out CombatNativeScope? __state)
+    {
         __state = CombatHarmonyBridge.PushProjectile(__instance);
+        NativeEncounterCombatObserver.ObserveProjectileBegin(__instance, __state);
+    }
 
     private static Exception? ProjectileUpdateFinalizer(Exception? __exception, CombatNativeScope? __state)
     {
         CombatHarmonyBridge.Pop(__state);
+        NativeEncounterCombatObserver.ObserveAttackFinally(__exception);
         return __exception;
     }
 
-    private static void ProjectileReleasePrefix(Projectile __instance) =>
+    private static void ProjectileReleasePrefix(Projectile __instance)
+    {
+        NativeEncounterCombatObserver.ObserveProjectileRelease(__instance);
         CombatHarmonyBridge.CompleteProjectile(__instance);
+    }
 
-    private static void MeleePrefix(ItemAgent_MeleeWeapon __instance, bool dealDamage, out CombatNativeScope? __state) =>
+    private static void MeleePrefix(ItemAgent_MeleeWeapon __instance, bool dealDamage, out CombatNativeScope? __state)
+    {
         __state = CombatHarmonyBridge.PushMelee(__instance, dealDamage);
+        NativeEncounterCombatObserver.ObserveMeleeBegin(__instance, dealDamage, __state);
+    }
 
     private static Exception? MeleeFinalizer(Exception? __exception, CombatNativeScope? __state)
     {
         CombatHarmonyBridge.Pop(__state);
+        NativeEncounterCombatObserver.ObserveAttackFinally(__exception);
         return __exception;
     }
 
@@ -233,6 +262,7 @@ internal static class CombatHarmonyCallbacks
             : context.source is TickTrigger ? NativeHotPathArea.CombatEffectTick : NativeHotPathArea.CombatEffectOther);
 #endif
         __state = CombatHarmonyBridge.PushEffect(context);
+        NativeEncounterCombatObserver.ObserveEffectBegin(context, __state);
     }
 
     private static Exception? EffectFinalizer(Exception? __exception, CombatNativeScope? __state)
@@ -241,14 +271,18 @@ internal static class CombatHarmonyCallbacks
         using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.CombatEffectFinalizer);
 #endif
         CombatHarmonyBridge.Pop(__state);
+        NativeEncounterCombatObserver.ObserveAttackFinally(__exception);
         return __exception;
     }
 
     private static void EffectApplicationPostfix(Effect __instance) =>
         CombatHarmonyBridge.CaptureEffectApplication(__instance);
 
-    private static void EnvironmentalDamagePrefix(ZoneDamage __instance, out CombatNativeScope? __state) =>
+    private static void EnvironmentalDamagePrefix(ZoneDamage __instance, out CombatNativeScope? __state)
+    {
         __state = CombatHarmonyBridge.PushEnvironmentalDamage(__instance);
+        NativeEncounterCombatObserver.ObserveEnvironmentalBegin(__state);
+    }
 
     private static void GrenadeLaunchPostfix(Grenade __instance, CharacterMainControl fromCharacter) =>
         CombatHarmonyBridge.CaptureGrenadeLaunch(__instance, fromCharacter);
@@ -259,11 +293,13 @@ internal static class CombatHarmonyCallbacks
     private static Exception? EnvironmentalDamageFinalizer(Exception? __exception, CombatNativeScope? __state)
     {
         CombatHarmonyBridge.Pop(__state);
+        NativeEncounterCombatObserver.ObserveAttackFinally(__exception);
         return __exception;
     }
 
     public static MethodInfo HealthPrefixMethod => Get(nameof(HealthPrefix));
     public static MethodInfo HealthPostfixMethod => Get(nameof(HealthPostfix));
+    public static MethodInfo HealthFinalizerMethod => Get(nameof(HealthFinalizer));
     public static MethodInfo ProjectileInitPostfixMethod => Get(nameof(ProjectileInitPostfix));
     public static MethodInfo ProjectileUpdatePrefixMethod => Get(nameof(ProjectileUpdatePrefix));
     public static MethodInfo ProjectileUpdateFinalizerMethod => Get(nameof(ProjectileUpdateFinalizer));

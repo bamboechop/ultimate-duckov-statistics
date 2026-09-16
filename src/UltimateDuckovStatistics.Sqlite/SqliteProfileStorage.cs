@@ -8,7 +8,7 @@ namespace UltimateDuckovStatistics.Sqlite;
 /// <summary>One exclusively owned generation, with a queue containing only durability work.</summary>
 public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, IProfileExportSource, IProfileStorageMaintenance
 {
-    private const int StorageVersion = 7;
+    private const int StorageVersion = 8;
     private readonly object gate = new();
     private readonly ProfileRecordCodec codec;
     private readonly FileStream ownership;
@@ -56,6 +56,7 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
         var failure = ProfileFormat.ValidateRecoveryCandidate(profile);
         if (failure != null) throw new ArgumentException("Import profile is invalid: " + failure, nameof(profile));
         if (checkpoint != null) ProfileRepository.ValidateActiveCheckpointForStorage(checkpoint, profile.GenerationId);
+        historyGeneration = profile.GenerationId;
         var journal = new ProfileChangeJournal(profile.GenerationId, codec);
         journal.Import(profile);
         var write = journal.Capture(profile, session, true, checkpoint, true);
@@ -196,6 +197,7 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
         if (SqliteCraftingRecords.Owns(key.Kind)) { SqliteCraftingRecords.Put(db, record); return; }
         PrepareCheckpointRecord(db, record);
         PrepareRunMetricRecord(db, record);
+        PrepareEncounterRecord(db, record);
         if (key.Kind == ProfileRecordKind.DeferredHeader)
         {
             var old = ReadRootPayload(db, (int)key.Kind);
@@ -212,7 +214,7 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
         if (key.Kind == ProfileRecordKind.CompletedRun) PutHistoryIndex(db, record);
     }
 
-    private static void ValidateTransaction(SqliteStore db, IncrementalProfileWrite write, bool craftingScopeChanged)
+    private void ValidateTransaction(SqliteStore db, IncrementalProfileWrite write, bool craftingScopeChanged)
     {
         var metadata = ProfileRecordCodec.Decode<ProfileMetadataRecord>(ReadRootPayload(db, 1)
             ?? throw new InvalidDataException("Profile metadata was removed."));
@@ -221,6 +223,7 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
         SqliteCraftingRecords.ValidateAffected(db, write, craftingScopeChanged);
         ValidateCheckpointTransaction(db, write);
         ValidateRunMetricTransaction(db, write);
+        ValidateEncounterTransaction(db, write);
         // Checkpoint and terminal run cannot both own the same run identity.
         if (!write.Records.Any(record => record.Address.Kind is ProfileRecordKind.ActiveCheckpoint or ProfileRecordKind.CompletedRun)) return;
         var checkpointBytes = ReadRootPayload(db, 23);
@@ -239,10 +242,10 @@ public sealed partial class SqliteProfileStorage : IIncrementalProfileStorage, I
     {
         // Stream individual retained payloads. Recovery/export may construct a
         // complete document, but never also retains a second all-run byte array.
-        for (var number = 1; number <= (int)ProfileRecordKind.MapRunRecords; number++)
+        for (var number = 1; number <= (int)ProfileRecordKind.Encounter; number++)
         {
             var kind = (ProfileRecordKind)number;
-            if (!includeHistory && kind == ProfileRecordKind.CompletedRun) continue;
+            if (!includeHistory && kind is ProfileRecordKind.CompletedRun or ProfileRecordKind.Encounter) continue;
             if (!includeCheckpoint && number >= 23 && number <= 27) continue;
             if (SqliteCraftingRecords.Owns(kind))
             {

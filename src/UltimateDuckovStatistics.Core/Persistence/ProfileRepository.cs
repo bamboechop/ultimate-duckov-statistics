@@ -1335,6 +1335,7 @@ public sealed partial class ProfileRepository : IDisposable
         var statistics = source.Statistics;
         return new ProfileDocument
         {
+            EncounterHistory = source.EncounterHistory?.Select(record => ProfileRecordCodec.Decode<Encounters.EncounterRecord>(new ProfileRecordCodec().Encode(record))).ToList(),
             SchemaVersion = source.SchemaVersion,
             FormatId = source.FormatId,
             GenerationId = source.GenerationId,

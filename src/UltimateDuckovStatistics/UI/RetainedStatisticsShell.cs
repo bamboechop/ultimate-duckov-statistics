@@ -378,6 +378,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             BuildOverview(rootRect, headerTitleTypography, projection);
             runsView = new RunsView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
                 () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
+            runsView.SetEncounterSource(projection);
             runsView.Refresh(RunsPresentationFactory.Create(projection, projection.Profile.GenerationId), projection.Profile.GenerationId);
             runsView.SetVisible(selectedTab == StatisticsPanelTab.Runs);
             recordsView = new RecordsView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,

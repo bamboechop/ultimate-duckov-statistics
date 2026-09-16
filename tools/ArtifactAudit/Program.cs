@@ -21,7 +21,7 @@ try
             ? Directory.EnumerateFiles(path, "*.dll", SearchOption.AllDirectories)
             : path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? [path] : Array.Empty<string>()))
             OrdinaryReleaseAudit.Verify(path);
-        Console.WriteLine("PASS: ordinary Release IL has no performance-diagnostic call sites.");
+        Console.WriteLine("PASS: ordinary Release excludes diagnostics; native mod encounter integration is present.");
     }
     Console.WriteLine($"PASS: {count} files; PE debug identities, portable PDB documents, UTF-8/UTF-16 payloads.");
     return 0;

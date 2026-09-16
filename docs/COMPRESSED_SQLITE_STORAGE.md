@@ -6,7 +6,7 @@ Compression belongs to the existing storage worker. A routine save still writes 
 
 ## Existing databases
 
-The internal SQLite format advances from 6 to 7, independently of public `uds-profile-v1` schema 1 and the mod release number. Format 6 is the actual preceding SQLite implementation; no unsupported `0.x` migration machinery is added.
+Compression introduced internal SQLite format 7 from format 6, independently of public `uds-profile-v1` schema 1 and the mod release number. The encounter-storage work subsequently adds [format 8](COMBAT_ENCOUNTER_STORAGE.md), preserving the compressed representation and advancing an existing format-7 database without payload rewrites. Format 6 is the actual preceding uncompressed SQLite implementation; no unsupported `0.x` migration machinery is added.
 
 Before opening a format-6 generation, the storage worker checkpoints its WAL and establishes a DELETE rollback journal with EXTRA synchronization. It verifies each original record checksum and changes only payload bytes, preserving row IDs, logical hashes, generation, revision, receipts and indexes. All conversion writes and the new format number commit in one transaction. An interrupted or failed transaction retains the old representation and can be retried after reopening. The conversion retains one record at a time rather than materializing every run.
 

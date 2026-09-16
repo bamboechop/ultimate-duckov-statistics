@@ -6,6 +6,7 @@
     <IsPackable>false</IsPackable>
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
     <DefineConstants Condition="'$(UDSPerformanceDiagnostics)' == 'true'">$(DefineConstants);UDS_PERFORMANCE_DIAGNOSTICS</DefineConstants>
+    <DefineConstants Condition="'$(UDSEncounterDiagnostics)' == 'true'">$(DefineConstants);UDS_ENCOUNTER_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/UltimateDuckovStatistics/UI/RetainedRecordsView.cs;../../src/UltimateDuckovStatistics/UI/RetainedItemUseView.cs;../../src/UltimateDuckovStatistics/UI/RetainedCombatView.cs;../../src/UltimateDuckovStatistics/UI/CombatNativeTextMeasurement.cs" Link="ProductionUI/%(Filename)%(Extension)" />
@@ -31,5 +32,8 @@
     <Compile Include="../../src/UltimateDuckovStatistics/UI/NativeItemIconAppearance.cs" Link="ProductionUI/NativeItemIconAppearance.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/UI/OwnedTotemIconShadow.cs" Link="ProductionUI/OwnedTotemIconShadow.cs" />
     <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeIntegrityProbe.cs" Link="ProductionAdapters/NativeIntegrityProbe.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../src/UltimateDuckovStatistics/Adapters/NativeLevelAvailability.cs" Link="ProductionAdapters/NativeLevelAvailability.cs" />
   </ItemGroup>
 </Project>

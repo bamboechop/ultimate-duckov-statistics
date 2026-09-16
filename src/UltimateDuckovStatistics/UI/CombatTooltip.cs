@@ -11,12 +11,14 @@ internal sealed class CombatTooltip : IDisposable
 {
     private readonly RectTransform parent, panel;
     private readonly TextMeshProUGUI label;
+    private readonly bool fitContentWidth;
     private CombatTooltipTrigger? current;
     private bool disposed;
 
-    public CombatTooltip(RectTransform parent, TMP_FontAsset font, Material material)
+    public CombatTooltip(RectTransform parent, TMP_FontAsset font, Material material, bool fitContentWidth = false)
     {
         this.parent = parent;
+        this.fitContentWidth = fitContentWidth;
         panel = Node(parent, "CombatTooltip");
         var background = panel.gameObject.AddComponent<ProceduralImage>();
         background.color = new Color(.015f, .035f, .05f, .98f); background.raycastTarget = false;
@@ -39,6 +41,7 @@ internal sealed class CombatTooltip : IDisposable
         panel.SetAsLastSibling(); panel.gameObject.SetActive(true);
         current = source; label.text = source.Text;
         var width = Math.Min(560, Math.Max(64, parent.rect.width - 20));
+        if (fitContentWidth) width = Math.Min(width, Math.Max(64, label.GetPreferredValues(source.Text).x + 32));
         var height = label.GetPreferredValues(source.Text, width - 32, float.PositiveInfinity).y + 32;
         var x = point.x + parent.rect.width * parent.pivot.x;
         var y = parent.rect.height * (1 - parent.pivot.y) - point.y;

@@ -57,6 +57,29 @@ public sealed class CombatTooltipTests
         UnityEngine.Object.Destroy(root.gameObject);
     }
 
+    [Fact]
+    public void CompactTooltipFitsShortLocalizedLabelsAndCapsLongDetails()
+    {
+        var root = Root();
+        using var tooltip = new CombatTooltip(root, new TMP_FontAsset(), new Material(), fitContentWidth: true);
+        var target = Target(root, tooltip, "Player");
+        var label = root.GetComponentsInChildren<TextMeshProUGUI>(true).Single();
+        var panel = (RectTransform)label.transform.parent;
+        target.OnPointerEnter(new PointerEventData { position = new Vector2(780, -570) });
+        Assert.InRange(panel.rect.width, 64, 559);
+        Assert.True(panel.rect.width >= label.GetPreferredValues(label.text).x + 32);
+        target.Bind(tooltip, "Spieler");
+        Assert.False(panel.gameObject.activeSelf);
+        target.OnPointerEnter(new PointerEventData());
+        Assert.Equal("Spieler", label.text);
+        target.Bind(tooltip, new string('W', 200));
+        target.OnPointerEnter(new PointerEventData());
+        Assert.Equal(560f, panel.rect.width);
+        target.OnDisable();
+        Assert.False(panel.gameObject.activeSelf);
+        tooltip.Dispose(); UnityEngine.Object.Destroy(root.gameObject);
+    }
+
     private static RectTransform Root()
     {
         var root = (RectTransform)new GameObject("Statistics menu canvas", typeof(Canvas)).transform;

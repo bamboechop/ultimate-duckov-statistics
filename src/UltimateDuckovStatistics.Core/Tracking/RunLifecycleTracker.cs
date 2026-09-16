@@ -122,6 +122,8 @@ public sealed partial class RunLifecycleTracker
 
     public string? ActiveRunId => active?.RunId;
 
+    public double ActiveElapsedSeconds => active?.ActiveDurationSeconds ?? 0;
+
     public string? ActiveMapId => active?.CurrentMap.MapId;
 
     public string? ActiveSegmentId => active?.CurrentSegment?.SegmentId;

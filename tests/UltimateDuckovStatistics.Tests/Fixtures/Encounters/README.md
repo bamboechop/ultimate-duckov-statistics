@@ -1,0 +1,5 @@
+# Native encounter evidence
+
+These gzip-compressed JSONL fixtures contain selected detached observations from the September 15, 2026 route/teleport and corpse-loot checks. Generation/run identifiers are replaced and envelope times made relative. No artwork, game save, filesystem path or profile database is included. The native payload shapes, ordering, coordinates, item identities and quantities are preserved. The early route capture includes a height-only placement originally tagged as a teleport; the projection must reject its zero horizontal displacement as a map teleport.
+
+`warehouse-visits.records.json.gz` contains only the 45 typed encounter records from the 17:04 UTC native export on September 15. Run/session identifiers are replaced; coordinates, visit references and observations remain intact. It covers Ground Zero → Warehouse Area → Cellar → Warehouse Area, ten player kills, 29 headshots across 33 projectile hits, and a no-art Cellar visit. It verifies separate visit routes, continuous encounter numbering and selection across visits using real persisted data. It contains no full profile or map image.

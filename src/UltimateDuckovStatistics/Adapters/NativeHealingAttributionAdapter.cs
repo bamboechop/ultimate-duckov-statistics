@@ -204,7 +204,7 @@ internal sealed class NativeHealingAttributionAdapter : IHealingAttributionObser
         CharacterBuffManager? manager = null;
         try
         {
-            var character = LevelManager.Instance?.MainCharacter;
+            var character = NativeLevelAvailability.MayExist ? LevelManager.Instance?.MainCharacter : null;
             manager = character?.GetBuffManager();
         }
         catch

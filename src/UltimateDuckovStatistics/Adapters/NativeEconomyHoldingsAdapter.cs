@@ -351,7 +351,7 @@ internal sealed class NativeEconomyHoldingsAdapter : IDisposable
 
     private void ReconcilePetInventorySubscription()
     {
-        var current = PetProxy.PetInventory;
+        var current = NativeLevelAvailability.MayExist ? PetProxy.PetInventory : null;
         if (ReferenceEquals(current, subscribedPetInventory)) return;
         UnsubscribePetInventory();
         subscribedPetInventory = current;

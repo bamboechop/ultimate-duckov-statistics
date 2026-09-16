@@ -59,6 +59,9 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
 
     public ContainerMetricCapabilities MetricCapabilities => ContainerStatisticsReducer.CloneCapabilities(capabilities);
 
+    internal bool CanObserveCorpseProvenance => callbackLifetime.CanHandleCallbacks
+        && capabilities.UniqueContainersLooted.State == AdapterCapabilityState.Supported;
+
     public IReadOnlyList<CapabilityRecord> Initialize()
     {
         if (callbackLifetime.DisposalStarted) throw new ObjectDisposedException(nameof(NativeContainerAdapter));
@@ -323,7 +326,7 @@ internal sealed partial class NativeContainerAdapter : IDisposable, IRetryableCl
 
     private static Exception Unwrap(Exception exception) =>
         exception is TargetInvocationException { InnerException: not null } invocation
-            ? invocation.InnerException
+            ? invocation.InnerException!
             : exception;
 
     private sealed class PatchRegistration

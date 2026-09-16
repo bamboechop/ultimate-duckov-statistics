@@ -127,6 +127,8 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
 
     public string? CurrentRunId => IsActive ? tracker.ActiveRunId : null;
 
+    public double CurrentRunElapsedSeconds => tracker.ActiveElapsedSeconds;
+
     public string? CurrentMapId => IsActive ? tracker.ActiveMapId : null;
 
     public string? CurrentSegmentId => IsActive ? tracker.ActiveSegmentId : null;
@@ -506,7 +508,7 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
 
     private bool CanStartUninitializedTutorial(RaidUtilities.RaidInfo raid)
     {
-        var level = LevelManager.Instance;
+        var level = NativeLevelAvailability.MayExist ? LevelManager.Instance : null;
         if (raid.ended || raid.dead || level == null
             || ReferenceEquals(startedTutorialHost, level.gameObject)) return false;
 
@@ -707,7 +709,7 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
         CharacterMainControl? observed = null;
         try
         {
-            var level = LevelManager.Instance;
+            var level = NativeLevelAvailability.MayExist ? LevelManager.Instance : null;
             var candidate = level?.MainCharacter;
             if (candidate != null && candidate.IsMainCharacter)
             {
@@ -784,7 +786,7 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
         }
 
         var multiSceneLoading = MultiSceneCore.Instance != null && MultiSceneCore.Instance.IsLoading;
-        var observedLoading = SceneLoader.IsSceneLoading || LevelManager.LevelInitializing || multiSceneLoading;
+        var observedLoading = SceneLoader.IsSceneLoading || (NativeLevelAvailability.MayExist && LevelManager.LevelInitializing) || multiSceneLoading;
         if (observedLoading != loading)
         {
             loading = observedLoading;
@@ -878,7 +880,7 @@ internal sealed partial class NativeRunLifecycleAdapter : IDisposable, IRetryabl
     {
         try
         {
-            var level = LevelManager.Instance;
+            var level = NativeLevelAvailability.MayExist ? LevelManager.Instance : null;
             if (level == null)
             {
                 return new MapIdentity();

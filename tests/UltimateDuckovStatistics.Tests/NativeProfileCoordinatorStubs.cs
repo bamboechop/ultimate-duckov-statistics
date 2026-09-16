@@ -9,8 +9,3 @@ internal static class NativeItemUseAdapter
 {
     internal const string AdapterVersion = "test";
 }
-
-internal sealed partial class NativeContainerAdapter
-{
-    internal const string AdapterVersion = "test";
-}

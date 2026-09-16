@@ -1,6 +1,6 @@
 # Ultimate Duckov Statistics — Master Implementation Plan
 
-Current target: **1.0.0**, prepared for the first Steam Workshop release. M0-M18 and the scoped playtest follow-ups below are complete, including performance, storage, export and restore work. The encounter-history proposal remains future scope. [Release notes](RELEASE_NOTES.md) describe the shipping scope; [release preparation](docs/RELEASE_PROCESS.md) tracks exact-source packaging, final affected acceptance, the first Workshop listing and publication. The milestone specifications and earlier delivery facts below are historical context, not a queue to repeat completed work.
+Current target: **1.0.0**, prepared for the first Steam Workshop release. M0-M18 and the scoped playtest follow-ups below are complete, including performance, storage, export and restore work. Encounter history completed its review corrections and received focused ordinary-build gameplay acceptance on September 16, 2026; see the [acceptance record](docs/COMBAT_ENCOUNTER_PRODUCTION.md#september-16-2026-reviewed-build-acceptance). [Release notes](RELEASE_NOTES.md) describe the shipping scope; [release preparation](docs/RELEASE_PROCESS.md) tracks exact-source packaging, final affected acceptance, the first Workshop listing and publication. The milestone specifications and earlier delivery facts below are historical context, not a queue to repeat completed work.
 
 ## Current playtest follow-ups — 2026-09-11
 
@@ -20,9 +20,19 @@ The screenshots and read-only incident evidence are retained locally with the pe
 
 Zipped JSON export is implemented: Diagnostics writes `statistics.zip` containing a single `statistics.json`, retaining the existing JSON schema, precision, frozen-generation snapshot, bounded history streaming and atomic publication. Compression runs on the existing explicit-export worker. CSV generation and parser-only tests have been removed; JSON/ZIP restore is implemented through Diagnostics with a validated preview, explicit confirmation and a fresh-generation replacement. The user smoke-tested a fresh-export restore and approved committing it; older-value replacement is covered by automated tests. See [the restore contract and test procedure](docs/JSON_RESTORE.md). See [JSON exports](docs/JSON_EXPORT.md).
 
-## Future feature proposal — combat encounter history
+## Combat encounter history — release qualification
 
-- [ ] **Per-run kill feed and enemy encounters.** Investigate individual enemy/weapon/effect attribution, damage exchanged, enemy weapon identity where available, and items actually looted from each corpse. Include kill/death locations on native map artwork, with player and enemy positions captured at the fatal event; native conversion contracts exist, but historical map loading remains to be verified. Consider an enemy illustration with schematic head/body hit markers. Full available corpse loot with taken-item highlighting remains an open scope decision. Native feasibility and storage/performance measurements must precede implementation. See the [feature proposal](docs/COMBAT_ENCOUNTER_HISTORY.md).
+The [production integration](docs/COMBAT_ENCOUNTER_PRODUCTION.md) enables automatic capture, incremental encounter storage and **Details | Map & Kills** in ordinary builds. The optional F5/F6 diagnostic tools are isolated from shipping packages. See the [accepted design](docs/COMBAT_ENCOUNTER_HISTORY.md), [native evidence](docs/COMBAT_ENCOUNTER_PROTOTYPE.md) and [storage contract](docs/COMBAT_ENCOUNTER_STORAGE.md).
+
+- [x] **Failure handling:** retain valid history, retry publication without repeating committed work, and persist incomplete-capture notices without permanently blocking run/profile transitions.
+- [x] **Design alignment:** user-accepted tabs, map visits, global linked feed, outlined routes, passive map tooltips, icon sizing, inline hit/headshot text and simplified loot tooltips. Overlapping encounter markers are intentional.
+- [x] **Production integration:** normal build capture/UI and separate opt-in diagnostics. This checkbox concerns implementation, not release or native acceptance of the resulting package.
+- [x] **Feature qualification and review — accepted 2026-09-16:** review corrections, full automated build/package checks and the user's focused ordinary-build gameplay test are complete. The requested test covered automatic capture, linked map/feed behavior, English/German, restart/history/export and perceived frame pacing. Failure injection remains automated evidence; this acceptance does not claim a new controlled long-run performance benchmark. See the [acceptance record](docs/COMBAT_ENCOUNTER_PRODUCTION.md#september-16-2026-reviewed-build-acceptance).
+- [ ] **Release preparation:** merge the accepted feature, prepare the exact release package and complete publication checks. Consult [PR #25](https://github.com/bamboechop/ultimate-duckov-statistics/pull/25) for merge and CI status. Merge, gameplay and publication remain user-controlled.
+
+**Enemy silhouettes with hit markers remain deferred.** Preserve the proposal to render bundled 3D models once and ship front/side silhouettes if the user later chooses to resume it. The encounter feature does not depend on illustrations.
+
+**Overview kill-distance highlights remain an idea for later.** Show the longest and shortest recorded player kill distance, using encounter position evidence. Finish the current encounter feature first; see the [deferred highlight idea](docs/COMBAT_ENCOUNTER_HISTORY.md#deferred-overview-highlights--kill-distance).
 
 ## 1. Project and delivery contract
 

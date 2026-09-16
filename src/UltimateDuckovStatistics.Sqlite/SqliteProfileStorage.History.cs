@@ -26,7 +26,7 @@ public sealed partial class SqliteProfileStorage
         foreach (var required in new[] { 1, 2, 4, 5, 6, 8, 9, 15, 16 })
             if (db.ScalarLong("SELECT count(*) FROM records WHERE kind=? AND k1='' AND k2='' AND k3=''", required) != 1)
                 throw new InvalidDataException("An authoritative profile root is missing.");
-        if (db.ScalarLong("SELECT count(*) FROM records WHERE kind<1 OR kind>32") != 0)
+        if (db.ScalarLong("SELECT count(*) FROM records WHERE kind<1 OR kind>33") != 0)
             throw new InvalidDataException("Profile contains an unknown record kind.");
         var state = ProfileRecordReconstruction.Read(ReadRecords(db, includeHistory: false, includeCheckpoint));
         var profile = state.Profile;
@@ -51,6 +51,8 @@ public sealed partial class SqliteProfileStorage
         // detail validation happens before any selected run reaches a consumer.
         historyGeneration = profile.GenerationId;
         profile.Statistics.Runs = new StoredRunHistory(overview, LoadRun);
+        if (db.ScalarLong("SELECT count(*) FROM records WHERE kind=33") > 0)
+            profile.EncounterHistory = new Core.Encounters.EncounterHistory(this);
         BaseMovementStatistics.Validate(profile.Statistics.BaseMovement);
         CraftingStatisticsReducer.Validate(profile.Statistics.Crafting);
         if (state.Checkpoint != null) ProfileRepository.ValidateActiveCheckpointForStorage(state.Checkpoint, profile.GenerationId);

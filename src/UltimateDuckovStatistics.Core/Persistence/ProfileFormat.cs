@@ -54,6 +54,8 @@ public static partial class ProfileFormat
 
         try { BaseMovementStatistics.Validate(profile.Statistics.BaseMovement); }
         catch (ArgumentException exception) { return exception.Message; }
+        try { Encounters.EncounterRecordValidation.ValidateHistory(profile.EncounterHistory); }
+        catch (ArgumentException exception) { return exception.Message; }
 
         var missingPath = FindMissingRequiredDataMember(profile, "Profile");
         if (missingPath != null)

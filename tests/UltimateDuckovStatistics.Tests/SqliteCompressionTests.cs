@@ -84,7 +84,7 @@ public sealed class SqliteCompressionTests : IDisposable
             Assert.Equal(ExportArchiveTestReader.ReadJson(expectedExport), ExportArchiveTestReader.ReadJson(exported));
         }
         using var db = new SqliteStore(DatabasePath, true);
-        Assert.Equal(7, db.ScalarLong("PRAGMA user_version"));
+        Assert.Equal(8, db.ScalarLong("PRAGMA user_version"));
         Assert.Equal("ok", db.ScalarText("PRAGMA integrity_check"));
         Assert.Equal(receipt, db.Blob("SELECT digest FROM receipt"));
         var rows = db.Rows("SELECT ordinal,kind,k1,k2,k3,payload,payload_sha FROM records ORDER BY ordinal");

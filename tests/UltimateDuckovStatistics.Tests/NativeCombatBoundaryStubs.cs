@@ -6,6 +6,17 @@ using UnityEngine;
 
 public sealed partial class CharacterMainControl
 {
+    private int relatedScene = 1;
+    public int RelatedScene { get => relatedScene; set => relatedScene = value; }
+    // Model Unity's destroyed-object comparison for the source-linked actor cache.
+    public static bool operator ==(CharacterMainControl? left, CharacterMainControl? right) =>
+        ReferenceEquals(left, null) ? ReferenceEquals(right, null) || right.DestroyCount > 0
+        : ReferenceEquals(right, null) ? left.DestroyCount > 0 : ReferenceEquals(left, right);
+    public static bool operator !=(CharacterMainControl? left, CharacterMainControl? right) => !(left == right);
+    public override bool Equals(object? obj) => ReferenceEquals(this, obj);
+    public override int GetHashCode() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
+    public Teams Team { get; set; } = Teams.enemy;
+    public GameObject gameObject { get; } = new();
     public AttackAction attackAction { get; } = new();
     public CharacterPreset? characterPreset { get; set; }
     public string name { get; set; } = "Native character";
@@ -27,8 +38,9 @@ public sealed class CharacterPreset
 }
 public sealed class PetAI { public CharacterMainControl? master; }
 public sealed class AICharacterController { public CharacterMainControl? leader; }
-public sealed partial class Health
+public sealed partial class Health : UnityEngine.Object
 {
+    public static event Action<Health, DamageInfo>? OnDead;
     public Teams team { get; set; } = Teams.enemy;
     public bool isZombie { get; set; }
     public CharacterMainControl? Character { get; set; }
@@ -98,6 +110,7 @@ namespace Duckov.Buffs
 {
     public sealed partial class Buff
     {
+        public int CurrentLayers { get; set; }
         public CharacterMainControl? fromWho;
         public int fromWeaponID;
         public T[] GetComponentsInChildren<T>(bool includeInactive) => Array.Empty<T>();
