@@ -124,6 +124,8 @@ public sealed partial class Health
 
 public struct DamageInfo
 {
+    public float damageValue;
+    public float finalDamage;
     public CharacterMainControl? fromCharacter;
     public int fromWeaponItemID;
     public bool isExplosion;
@@ -195,6 +197,7 @@ namespace UnityEngine.SceneManagement
 {
     public readonly struct Scene
     {
+        public string name { get; } = "TestScene";
         public Scene(int buildIndex) => this.buildIndex = buildIndex;
         public readonly int buildIndex;
     }
@@ -492,6 +495,8 @@ public static class SceneInfoCollection
 #pragma warning disable CA1707 // Stubs mirror the installed Duckov native type names exactly.
 public sealed class ItemSetting_Gun
 {
+    public ItemStatsSystem.Item? LoadedBullet { get; set; }
+    public ItemStatsSystem.Item? GetCurrentLoadedBullet() => LoadedBullet;
     public int TargetBulletID { get; set; }
     public string CurrentBulletName { get; set; } = string.Empty;
 }

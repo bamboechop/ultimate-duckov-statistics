@@ -78,6 +78,17 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
 
     public bool CanObserveHealth => IsActive && hookSupport.HealthHurt;
 
+    // Only dependencies used by encounter evidence belong here. For example,
+    // effect equipment-association drift must not disable projectile evidence.
+    internal EncounterCombatHookLoss EncounterHookLoss => !IsActive ? EncounterCombatHookLoss.All
+        : (hookSupport.HealthHurt ? 0 : EncounterCombatHookLoss.Health)
+        | (hookSupport.ProjectileInit ? 0 : EncounterCombatHookLoss.ProjectileInit)
+        | (hookSupport.ProjectileUpdate ? 0 : EncounterCombatHookLoss.ProjectileUpdate)
+        | (hookSupport.ProjectileRelease ? 0 : EncounterCombatHookLoss.ProjectileRelease)
+        | (hookSupport.MeleeCheck ? 0 : EncounterCombatHookLoss.Melee)
+        | (hookSupport.EffectTrigger ? 0 : EncounterCombatHookLoss.Effect)
+        | (hookSupport.BuffApplication && ReadBuffApplicationObservationTrust() ? 0 : EncounterCombatHookLoss.BuffOwnership);
+
     public EquipmentEventAssociation CaptureEquipmentAssociation() => equipmentAssociationProvider();
 
     private bool IsActive => !disposed && !cleanupPending && initialized;

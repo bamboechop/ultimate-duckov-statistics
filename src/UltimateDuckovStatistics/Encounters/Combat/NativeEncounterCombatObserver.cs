@@ -13,7 +13,8 @@ namespace UltimateDuckovStatistics.Encounters;
 /// <summary>Short-session diagnostic capture. Never changes native arguments/results.</summary>
 internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
 {
-    public Core.Encounters.EncounterCaptureIssue? FailureIssue => enabled ? null : Core.Encounters.EncounterCaptureIssue.CombatIncomplete;
+    public Core.Encounters.EncounterCaptureIssue? FailureIssue => enabled && reportedHookLoss == EncounterCombatHookLoss.None
+        ? null : Core.Encounters.EncounterCaptureIssue.CombatIncomplete;
     internal const string OwnerId = "at.bamboechop.ultimate-duckov-statistics.encounters.combat";
     private const int MaximumOrigins = 2048;
     private static NativeEncounterCombatObserver? active;
@@ -37,7 +38,7 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
     private bool subscribed;
     private bool disposed;
     private bool enabled;
-    private bool healthTrustReported;
+    private EncounterCombatHookLoss reportedHookLoss;
     private MethodInfo? setterMethod;
     private HarmonyPatchExpectation[] setterExpectations = Array.Empty<HarmonyPatchExpectation>();
     private double nextInspection;
@@ -107,10 +108,10 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
     internal static void ObserveProjectileInit(Projectile projectile, ProjectileContext context) => ProjectileInitPostfix(projectile, context);
     internal static void ObserveProjectileRelease(Projectile projectile) => ProjectileReleasePrefix(projectile);
 
-    internal static void ObserveProjectileBegin(Projectile projectile)
+    internal static void ObserveProjectileBegin(Projectile projectile, CombatNativeScope? resolvedScope)
     {
         if (!HasActiveContext()) return;
-        ProjectilePrefix(projectile, out var state);
+        ProjectilePrefix(projectile, resolvedScope, out var state);
         PushObserverState(state);
     }
 
@@ -121,10 +122,10 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
         PushObserverState(state);
     }
 
-    internal static void ObserveMeleeBegin(ItemAgent_MeleeWeapon weapon, bool dealDamage)
+    internal static void ObserveMeleeBegin(ItemAgent_MeleeWeapon weapon, bool dealDamage, CombatNativeScope? resolvedScope)
     {
         if (!HasActiveContext()) return;
-        MeleePrefix(weapon, dealDamage, out var state);
+        MeleePrefix(weapon, dealDamage, resolvedScope, out var state);
         PushObserverState(state);
     }
 
@@ -156,12 +157,7 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
         {
             if (disposed || !enabled) { Cleanup(); return; }
             Synchronize(context);
-            if (!CombatHarmonyBridge.EncounterHealthHookTrusted && !healthTrustReported)
-            {
-                healthTrustReported = true;
-                Status = "Partial: existing combat health hook unavailable; fatal fallback only.";
-                Emit("combat_coverage", new { HealthHookTrusted = false, Detail = Status });
-            }
+            if (context.Active) ObserveSharedHookTrust();
             if (context.MonotonicSeconds >= nextInspection)
             {
                 nextInspection = context.MonotonicSeconds + 2;
@@ -186,7 +182,27 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
     {
         if (Environment.CurrentManagedThreadId != owningThread || disposed || !enabled || !sink.Context.Active) return false;
         Synchronize(sink.Context);
+        ObserveSharedHookTrust();
         return true;
+    }
+
+    private void ObserveSharedHookTrust()
+    {
+        var loss = CombatHarmonyBridge.EncounterHookLoss;
+        var newlyLost = loss & ~reportedHookLoss;
+        if (newlyLost == EncounterCombatHookLoss.None) return;
+        reportedHookLoss |= loss;
+        if ((newlyLost & (EncounterCombatHookLoss.ProjectileSource | EncounterCombatHookLoss.ProjectileRelease)) != 0)
+        {
+            // The shared owner invalidates its in-flight correlations on these
+            // changes. Do not keep a second, apparently trusted copy alive.
+            origins.Clear();
+            originOrder.Clear();
+        }
+        Status = "Partial: shared combat hooks unavailable: " + reportedHookLoss + ". Independently trusted evidence continues.";
+        // Record directly: Emit calls CanCapture. The host persists this as run
+        // coverage, including when trust was lost before this run began.
+        sink.Record("combat_coverage", new { UntrustedHooks = reportedHookLoss.ToString(), Detail = Status });
     }
 
     private void Synchronize(EncounterObservationContext context)
@@ -202,7 +218,7 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
         confirmedDeaths = new();
         actorLabels = new();
         playerDeathRecorded = false;
-        healthTrustReported = false;
+        reportedHookLoss = EncounterCombatHookLoss.None;
         healthFrame = null;
         attack = null;
     }
@@ -424,7 +440,8 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
 
     private SourceSnapshot ReadSource(DamageInfo info)
     {
-        if (attack?.Owner == this)
+        if (attack?.Owner == this && (attack.Source.Kind != "projectile"
+            || (CombatHarmonyBridge.EncounterHookLoss & EncounterCombatHookLoss.ProjectileSource) == 0))
         {
             if (attack.Projectile != null && attack.Projectile.TryGetTarget(out var projectile) && projectile != null)
             {
@@ -544,18 +561,25 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
     private static void ProjectileInitPostfix(Projectile __instance, ProjectileContext _context)
     {
         var probe = active;
-        try { if (probe?.CanCapture() == true) probe.CaptureProjectile(__instance, _context); }
+        try
+        {
+            if (probe?.CanCapture() == true
+                && (CombatHarmonyBridge.EncounterHookLoss & EncounterCombatHookLoss.ProjectileSource) == 0)
+                probe.CaptureProjectile(__instance, _context);
+        }
         catch (Exception exception) { probe?.Disable(exception); }
     }
 
-    private static void ProjectilePrefix(Projectile __instance, out AttackState __state)
+    private static void ProjectilePrefix(Projectile __instance, CombatNativeScope? resolvedScope, out AttackState __state)
     {
         __state = default;
         var probe = active;
         try
         {
             if (probe?.CanCapture() != true) return;
-            var origin = probe.FindOrigin(__instance);
+            var origin = resolvedScope?.IsRanged == true
+                && (CombatHarmonyBridge.EncounterHookLoss & EncounterCombatHookLoss.ProjectileSource) == 0
+                ? probe.FindOrigin(__instance) : null;
             __state = new AttackState(probe, attack);
             attack = origin?.Runtime; // Missing origin must shadow an unrelated enclosing source.
         }
@@ -595,22 +619,27 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
         catch (Exception exception) { probe?.Disable(exception); }
     }
 
-    private static void MeleePrefix(ItemAgent_MeleeWeapon __instance, bool dealDamage, out AttackState __state)
+    private static void MeleePrefix(ItemAgent_MeleeWeapon __instance, bool dealDamage, CombatNativeScope? resolvedScope, out AttackState __state)
     {
         __state = default;
         var probe = active;
         try
         {
-            if (probe?.CanCapture() != true || !dealDamage) return;
-            var physical = __instance.Holder;
-            var credited = ReferenceEquals(physical, LevelManager.Instance?.ControllingCharacter) ? CharacterMainControl.Main : physical;
+            if (probe?.CanCapture() != true) return;
             __state = new AttackState(probe, attack);
+            // Even a rejected nested scope must shadow an enclosing attack and
+            // restore it in the finalizer. Never infer trust from the tap firing.
+            attack = null;
+            if (!dealDamage || resolvedScope?.IsMelee != true
+                || (CombatHarmonyBridge.EncounterHookLoss & EncounterCombatHookLoss.Melee) != 0) return;
+            var physical = resolvedScope.PhysicalSource;
+            var credited = resolvedScope.CreditedSource;
             attack = new AttackRuntime(probe, new SourceSnapshot
             {
-                Kind = "melee", Provenance = "damaging CheckCollidersInRange scope; native control-owner rewrite",
+                Kind = "melee", Provenance = "shared combat melee ownership resolution",
                 Physical = probe.Actor(physical), Credited = probe.Actor(credited),
                 OriginallyPlayer = credited != null && ReferenceEquals(credited, CharacterMainControl.Main),
-                WeaponId = __instance.Item != null ? __instance.Item.TypeID : -1
+                WeaponId = resolvedScope.WeaponTypeId
             }) { LiveActor = credited };
         }
         catch (Exception exception) { probe?.Disable(exception); }

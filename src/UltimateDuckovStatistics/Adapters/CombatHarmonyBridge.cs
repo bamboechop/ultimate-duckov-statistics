@@ -26,6 +26,7 @@ internal static class CombatHarmonyBridge
 
     public static CombatNativeScope? CurrentScope => scopes?.Current;
     internal static bool EncounterHealthHookTrusted => adapter?.CanObserveHealth == true;
+    internal static EncounterCombatHookLoss EncounterHookLoss => adapter?.EncounterHookLoss ?? EncounterCombatHookLoss.All;
 
     public static void CaptureProjectile(Projectile projectile, ProjectileContext context) =>
         adapter?.CaptureProjectile(projectile, context);
@@ -223,8 +224,8 @@ internal static class CombatHarmonyCallbacks
 
     private static void ProjectileUpdatePrefix(Projectile __instance, out CombatNativeScope? __state)
     {
-        NativeEncounterCombatObserver.ObserveProjectileBegin(__instance);
         __state = CombatHarmonyBridge.PushProjectile(__instance);
+        NativeEncounterCombatObserver.ObserveProjectileBegin(__instance, __state);
     }
 
     private static Exception? ProjectileUpdateFinalizer(Exception? __exception, CombatNativeScope? __state)
@@ -242,8 +243,8 @@ internal static class CombatHarmonyCallbacks
 
     private static void MeleePrefix(ItemAgent_MeleeWeapon __instance, bool dealDamage, out CombatNativeScope? __state)
     {
-        NativeEncounterCombatObserver.ObserveMeleeBegin(__instance, dealDamage);
         __state = CombatHarmonyBridge.PushMelee(__instance, dealDamage);
+        NativeEncounterCombatObserver.ObserveMeleeBegin(__instance, dealDamage, __state);
     }
 
     private static Exception? MeleeFinalizer(Exception? __exception, CombatNativeScope? __state)

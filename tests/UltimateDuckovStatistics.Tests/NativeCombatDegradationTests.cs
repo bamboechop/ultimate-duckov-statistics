@@ -9,12 +9,13 @@ using UnityEngine;
 namespace UltimateDuckovStatistics.Tests;
 
 [Collection(NativeHotPathDiagnosticsTestGroup.CollectionName)]
-public sealed class NativeCombatDegradationTests : IDisposable
+public sealed partial class NativeCombatDegradationTests : IDisposable
 {
     private readonly List<CombatRecorded> events = new();
     private readonly NativeCombatAttributionAdapter adapter;
     private readonly CharacterMainControl player = new() { IsMainCharacter = true };
     private readonly List<string> diagnostics = new();
+    private readonly NativeBuffApplicationObservationBoundary buffTrust = new();
     private string mapId = "m";
     private string? segmentId;
     private string loadoutId = "at-shot";
@@ -31,7 +32,7 @@ public sealed class NativeCombatDegradationTests : IDisposable
         GameManager.Paused = false;
         Duckov.Scenes.SceneLoader.IsSceneLoading = false;
         MultiSceneCore.Instance = null;
-        var buffTrust = new NativeBuffApplicationObservationBoundary();
+        MultiSceneCore.ActiveSubSceneID = "test-map";
         buffTrust.MarkTrusted();
         adapter = new(() => "g", () => "r", () => mapId, value => { events.Add(value); return recordEvent?.Invoke(value) ?? true; },
             _ => { }, diagnostics.Add, buffTrust, () => new() { LoadoutId = loadoutId }, () => segmentId);
@@ -99,6 +100,9 @@ public sealed class NativeCombatDegradationTests : IDisposable
     [InlineData(false, false)]
     public void EncounterCallbackReceivesResolvedBuffOwnership(bool firstPlayer, bool secondPlayer)
     {
+        var sink = new CombatSink();
+        using var observer = new Encounters.NativeEncounterCombatObserver(sink, diagnostics.Add);
+        Assert.Null(observer.FailureIssue);
         var npc = new CharacterMainControl();
         var first = firstPlayer ? player : npc;
         var second = secondPlayer ? player : npc;
@@ -111,7 +115,9 @@ public sealed class NativeCombatDegradationTests : IDisposable
         try
         {
             var scope = Assert.IsType<CombatNativeScope>(arguments[1]);
-            Assert.Same(scope, Encounters.NativeEncounterCombatObserver.LastEffectScope);
+            var source = Newtonsoft.Json.Linq.JObject.FromObject(Encounters.NativeEncounterCombatObserver.ReadActiveSource()!);
+            Assert.Equal(firstPlayer == secondPlayer, (bool)source["ActorCreditResolved"]!);
+            Assert.Equal(firstPlayer == secondPlayer ? 42 : -1, (int)source["WeaponId"]!);
             Assert.Same(scope, CombatHarmonyBridge.CurrentScope);
             Assert.Equal(firstPlayer != secondPlayer, scope.ConflictingActorEvidence);
             Assert.Same(first, buff.fromWho); // Native retained field did not change.
@@ -430,6 +436,7 @@ public sealed class NativeCombatDegradationTests : IDisposable
         HarmonyLib.Harmony.ClearAll();
         CharacterMainControl.ResetNativeState();
         LevelManager.ResetNativeState();
+        MultiSceneCore.ActiveSubSceneID = string.Empty;
         Time.frameCount = 0;
     }
 }
