@@ -273,7 +273,7 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
         frame.Target = target != null ? Actor(target) : new ActorSnapshot { Id = sink.ActorId(health), Kind = "health-only" };
         frame.Source = source;
         var sourceActor = CurrentSourceActor() ?? info.fromCharacter;
-        if (source.Kind is "effect" or "unscoped-effect" && !source.ActorCreditResolved) sourceActor = null;
+        if (!source.ActorCreditResolved) sourceActor = null;
         if (sourceActor != null) frame.SourceActor = new WeakReference<CharacterMainControl>(sourceActor);
         Emit("combat_hurt_begin", new
         {
@@ -458,11 +458,19 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
             }
             return attack.Source;
         }
+        // Some effect actions (including ExplosionAction) retain a buff actor
+        // without setting isFromBuffOrEffect. After Effect.Trigger loses trust,
+        // unscoped DamageInfo cannot prove either ownership or weapon identity.
+        var resolved = !info.isFromBuffOrEffect
+            && (CombatHarmonyBridge.EncounterHookLoss & EncounterCombatHookLoss.Effect) == 0;
         return new SourceSnapshot
         {
             Kind = info.isFromBuffOrEffect ? "unscoped-effect" : info.isExplosion ? "unscoped-explosion" : "unscoped",
             Provenance = "DamageInfo only; no verified source/ammo scope",
-            Credited = Actor(info.fromCharacter), WeaponId = info.fromWeaponItemID,
+            ActorCreditResolved = resolved,
+            Credited = Actor(resolved ? info.fromCharacter : null), WeaponId = resolved ? info.fromWeaponItemID : -1,
+            // Retained native player evidence may keep a health observation related;
+            // it must not become player damage/kill credit in the reducer.
             OriginallyPlayer = info.fromCharacter != null && ReferenceEquals(info.fromCharacter, CharacterMainControl.Main)
         };
     }
@@ -731,7 +739,7 @@ internal sealed partial class NativeEncounterCombatObserver : IEncounterObserver
         public ActorSnapshot? OriginalCredited { get; set; }
         public ActorSnapshot? NativeDamageActor { get; set; }
         public bool OriginallyPlayer { get; set; }
-        public bool ActorCreditResolved { get; set; }
+        public bool ActorCreditResolved { get; set; } = true;
         public int WeaponId { get; set; } = -1;
         public int TargetAmmoId { get; set; } = -1;
         public int LoadedAmmoId { get; set; } = -1;
