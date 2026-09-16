@@ -64,6 +64,9 @@ public sealed class CapabilityRecord
 [DataContract]
 public sealed class ProfileDocument
 {
+    [DataMember(Order = 15, EmitDefaultValue = false)]
+    public IList<Encounters.EncounterRecord>? EncounterHistory { get; set; }
+
     [DataMember(Order = 14)]
     public string FormatId { get; set; } = ProductInfo.ProfileFormatId;
 

@@ -90,7 +90,11 @@ public sealed partial class ProfileRepository
         var storageSuspended = false;
         try
         {
-            if (restore != null) next.Statistics = restore.CreateStatistics(next.GenerationId, next.UpdatedUtc);
+            if (restore != null)
+            {
+                next.Statistics = restore.CreateStatistics(next.GenerationId, next.UpdatedUtc);
+                next.EncounterHistory = restore.CreateEncounterHistory();
+            }
             SaveCurrent();
             Directory.CreateDirectory(preparedDirectory);
             PrepareResetStorage(preparedDirectory, next, new SessionCheckpoint

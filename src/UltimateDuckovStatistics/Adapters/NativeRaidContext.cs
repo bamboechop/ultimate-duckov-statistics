@@ -13,7 +13,7 @@ internal static class NativeRaidContext
                 return GameplayContext.Paused;
             }
 
-            var level = LevelManager.Instance;
+            var level = NativeLevelAvailability.MayExist ? LevelManager.Instance : null;
             if (level == null)
             {
                 return GameplayContext.Unknown;
@@ -56,7 +56,7 @@ internal static class NativeRaidContext
     {
         try
         {
-            return LevelManager.Instance != null && LevelManager.Instance.IsRaidMap;
+            return NativeLevelAvailability.MayExist && LevelManager.Instance != null && LevelManager.Instance.IsRaidMap;
         }
         catch
         {

@@ -19,6 +19,8 @@ public sealed class StatisticsRestorePreview
     public string SourceGenerationId => profile.GenerationId;
     public long RunCount => profile.Statistics.RunTotals.TotalRuns;
     public double RaidMeters => profile.Statistics.RunTotals.PhysicalDistance;
+    internal IList<Encounters.EncounterRecord>? CreateEncounterHistory() => profile.EncounterHistory?
+        .Select(record => ProfileRecordCodec.Decode<Encounters.EncounterRecord>(new ProfileRecordCodec().Encode(record))).ToList();
 
     internal ProfileStatistics CreateStatistics(string generationId, DateTime now)
     {
@@ -164,6 +166,8 @@ public static class StatisticsRestoreReader
                 throw new InvalidDataException("Run identity or generation is inconsistent.");
         }
         if (statistics.RunTotals.TotalRuns != statistics.Runs.Count) throw new InvalidDataException("Export is missing recorded runs.");
+        try { Encounters.EncounterRecordValidation.ValidateHistory(source.EncounterHistory, runIds); }
+        catch (ArgumentException exception) { throw new InvalidDataException("Export encounter history is invalid.", exception); }
         if (source.Distance.BaseCollectionStartedUtc.HasValue != source.Distance.BaseMeters.HasValue)
             throw new InvalidDataException("Base distance evidence is incomplete.");
         var profile = new ProfileDocument
@@ -176,6 +180,7 @@ public static class StatisticsRestoreReader
             GenerationReason = "UserRestore",
             Identity = new SaveIdentitySnapshot { Slot = source.Slot },
             Statistics = statistics,
+            EncounterHistory = source.EncounterHistory is { Count: > 0 } ? source.EncounterHistory : null,
             Capabilities = source.Capabilities
         };
         var error = ProfileFormat.ValidateRecoveryCandidate(profile);

@@ -6,6 +6,15 @@ public sealed partial class SqliteProfileStorage
     {
         var version = db.ScalarLong("PRAGMA user_version");
         if (version == StorageVersion) return;
+        if (version == 7 && db.ScalarLong("SELECT complete FROM profile_state WHERE id=1") == 1)
+        {
+            // New independently addressed record kinds; existing compressed
+            // payloads and their hashes remain untouched. No history backfill.
+            db.Exec("BEGIN IMMEDIATE");
+            try { db.Exec("PRAGMA user_version=" + StorageVersion); db.Exec("COMMIT"); }
+            catch { TryRollback(db); throw; }
+            return;
+        }
         if (version != 6 || db.ScalarLong("SELECT complete FROM profile_state WHERE id=1") != 1)
             throw new InvalidDataException("SQLite profile version or import marker is invalid.");
         if (db.ScalarText("PRAGMA quick_check") != "ok") throw new InvalidDataException("SQLite profile integrity check failed.");

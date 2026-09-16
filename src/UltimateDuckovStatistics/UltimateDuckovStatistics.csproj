@@ -7,7 +7,13 @@
     <DuckovPath Condition="'$(DuckovPath)' == ''">$(DUCKOV_PATH)</DuckovPath>
     <DuckovManagedPath>$(DuckovPath)\Duckov_Data\Managed</DuckovManagedPath>
     <DefineConstants Condition="'$(UDSPerformanceDiagnostics)' == 'true'">$(DefineConstants);UDS_PERFORMANCE_DIAGNOSTICS</DefineConstants>
+    <DefineConstants Condition="'$(UDSEncounterDiagnostics)' == 'true'">$(DefineConstants);UDS_ENCOUNTER_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityEngine.ImageConversionModule" HintPath="$(DuckovManagedPath)\UnityEngine.ImageConversionModule.dll" Private="false" />
+    <Reference Include="Unity.Collections" HintPath="$(DuckovManagedPath)\Unity.Collections.dll" Private="false" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\UltimateDuckovStatistics.Core\UltimateDuckovStatistics.Core.csproj" />

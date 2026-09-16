@@ -54,6 +54,7 @@ internal enum NativeHotPathArea
     PanelVisualLayout,
     PanelTabChange,
     PanelClose,
+    EncounterCapture,
     Count
 }
 

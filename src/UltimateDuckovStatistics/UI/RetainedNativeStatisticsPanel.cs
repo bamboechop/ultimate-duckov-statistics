@@ -43,6 +43,10 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private bool capturingHotkey;
     private string hotkeyWarning = "";
     private int hotkeyCaptureFrame;
+#if UDS_ENCOUNTER_DIAGNOSTICS
+    internal bool EncounterPreviewIsOpen { get; set; }
+    internal bool CanShowEncounterPreview => lifecycle.IsOpen && !operations.ModalVisible && !capturingHotkey;
+#endif
 #if UDS_PERFORMANCE_DIAGNOSTICS
     public bool TimingPanelIsOpen => lifecycle.IsOpen;
 #endif
@@ -133,6 +137,18 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
 
+#if UDS_ENCOUNTER_DIAGNOSTICS
+        // The evidence viewer borrows this panel's input/cursor ownership. Its
+        // full-screen raycast shield blocks clicks; suppress keyboard navigation too.
+        // F5 has preview priority over a user-configured F5 panel toggle. F6 is
+        // reserved for capture controls in this opt-in build only.
+        if (Input.GetKeyDown(KeyCode.F6) || CanShowEncounterPreview && Input.GetKeyDown(KeyCode.F5)) return;
+        if (lifecycle.IsOpen && EncounterPreviewIsOpen)
+        {
+            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(hotkey)) Close();
+            return;
+        }
+#endif
         if (lifecycle.IsOpen && Input.GetKeyDown(KeyCode.Escape))
         {
             if (operations.CancelConfirmation()) return;
@@ -436,6 +452,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
     private void Close()
     {
+#if UDS_ENCOUNTER_DIAGNOSTICS
+        EncounterPreviewIsOpen = false;
+#endif
         if (!lifecycle.Close()) return;
         operations.DismissExportResult();
 #if UDS_PERFORMANCE_DIAGNOSTICS

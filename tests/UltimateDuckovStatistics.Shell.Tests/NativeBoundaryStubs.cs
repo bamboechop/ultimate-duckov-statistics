@@ -112,7 +112,10 @@ namespace UltimateDuckovStatistics.UI
             public void FocusReset() { }
             public void Dispose() => UnityEngine.Object.Destroy(root);
         }
-        private sealed class RunsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action fallback) : BoundaryView(parent);
+        private sealed class RunsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action fallback) : BoundaryView(parent)
+        {
+            public void SetEncounterSource(StatisticsPanelProjection? projection) { }
+        }
         private sealed class EquipmentView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action fallback) : BoundaryView(parent);
         private sealed class EconomyView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action fallback) : BoundaryView(parent);
         private sealed class CraftingView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action fallback) : BoundaryView(parent);

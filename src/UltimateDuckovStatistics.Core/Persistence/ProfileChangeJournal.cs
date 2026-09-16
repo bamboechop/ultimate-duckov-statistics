@@ -15,7 +15,7 @@ internal enum ProfileRecordKind
     DeferredHeader = 18, DeferredItem = 19, DeferredGroups = 20, DeferredEconomy = 21,
     Session = 22, ActiveCheckpoint = 23, CheckpointRoot = 24, CheckpointSegment = 25,
     CheckpointCollection = 26, CheckpointEntry = 27, RunMap = 28, RouteMap = 29,
-    RunMetricCollection = 30, RunMetricEntry = 31, MapRunRecords = 32
+    RunMetricCollection = 30, RunMetricEntry = 31, MapRunRecords = 32, Encounter = 33
 }
 
 internal readonly struct ProfileRecordAddress : IEquatable<ProfileRecordAddress>
@@ -81,12 +81,21 @@ internal sealed class ProfileChangeJournal
     private readonly Dictionary<ProfileRecordAddress, byte[]?> checkpointRecords = new();
     private (long Version, IncrementalCheckpointCapture Capture)? checkpointReceipt;
     private readonly Dictionary<ProfileRecordAddress, byte[]?> preparedCorrection = new();
+    private readonly Dictionary<ProfileRecordAddress, byte[]> encounterRecords = new();
     private long runStatisticsReplacementVersion;
 
     internal ProfileChangeJournal(string generation, ProfileRecordCodec? codec = null)
     { this.generation = generation; this.codec = codec ?? new ProfileRecordCodec(); }
 
     internal void Metadata() => Mark(new ProfileRecordAddress(ProfileRecordKind.Metadata));
+    internal void Encounter(Encounters.EncounterRecord record, byte[] bytes)
+    {
+        var address = EncounterAddress(record);
+        lock (gate) { dirty[address] = checked(++version); encounterRecords[address] = bytes; }
+    }
+
+    internal static ProfileRecordAddress EncounterAddress(Encounters.EncounterRecord record) =>
+        new(ProfileRecordKind.Encounter, record.RunId, ((int)record.Kind).ToString(System.Globalization.CultureInfo.InvariantCulture), record.Id);
     internal void BaseMovement() => Mark(new ProfileRecordAddress(ProfileRecordKind.BaseMovement));
     internal void WorldTime() => Mark(new ProfileRecordAddress(ProfileRecordKind.WorldTime));
     internal void Holdings() => Mark(new ProfileRecordAddress(ProfileRecordKind.Holdings));
@@ -235,6 +244,8 @@ internal sealed class ProfileChangeJournal
         foreach (var scope in RunMetricRecords.AllScopes(profile)) RunMetrics(scope, RunMetricRecords.Scope(profile, scope));
         foreach (var key in profile.Statistics.RunRecords.Maps.Keys) Mark(new ProfileRecordAddress(ProfileRecordKind.MapRunRecords, key));
         if (includeHistory) foreach (var run in profile.Statistics.Runs) Mark(new ProfileRecordAddress(ProfileRecordKind.CompletedRun, run.RunId));
+        if (includeHistory && profile.EncounterHistory != null)
+            foreach (var record in profile.EncounterHistory) { Encounters.EncounterRecordValidation.Validate(record); Encounter(record, codec.Encode(record)); }
     }
 
     internal IncrementalProfileWrite Capture(ProfileDocument profile, SessionCheckpoint? session = null,
@@ -245,10 +256,11 @@ internal sealed class ProfileChangeJournal
         if (sessionChanged) { sessionPayload = session == null ? null : codec.Encode(session); Mark(new ProfileRecordAddress(ProfileRecordKind.Session)); }
         if (checkpointChanged) { ClearIncrementalCheckpoint(); checkpointPayload = checkpoint == null ? null : codec.Encode(checkpoint); Mark(new ProfileRecordAddress(ProfileRecordKind.ActiveCheckpoint)); }
         KeyValuePair<ProfileRecordAddress, long>[] marks; long through; long from; long captureOrder;
-        lock (gate) { marks = dirty.ToArray(); through = version; from = acknowledged; captureOrder = checked(++order); }
+        Dictionary<ProfileRecordAddress, byte[]> capturedEncounters;
+        lock (gate) { marks = dirty.ToArray(); through = version; from = acknowledged; captureOrder = checked(++order); capturedEncounters = new(encounterRecords); }
         // Encode before handing ownership to a worker. Each address resolves only
         // its changed entry; unrelated lifetime entries and history are untouched.
-        var records = marks.Select(mark => (checkpointRecords.TryGetValue(mark.Key, out var bytes) || preparedCorrection.TryGetValue(mark.Key, out bytes))
+        var records = marks.Select(mark => (checkpointRecords.TryGetValue(mark.Key, out var bytes) || preparedCorrection.TryGetValue(mark.Key, out bytes) || capturedEncounters.TryGetValue(mark.Key, out bytes))
             ? new ProfileRecordChange(mark.Key, mark.Value, bytes)
             : ProfileRecordCapture.Capture(profile, mark.Key, mark.Value, sessionPayload, checkpointPayload, codec)).ToArray();
         return new IncrementalProfileWrite(generation, owner, captureOrder, from, through, profile.Revision, records, runStatisticsReplacementVersion != 0);
@@ -262,7 +274,7 @@ internal sealed class ProfileChangeJournal
         {
             foreach (var record in write.Records)
                 if (dirty.TryGetValue(record.Address, out var current) && current <= record.Version)
-                { dirty.Remove(record.Address); preparedCorrection.Remove(record.Address); }
+                { dirty.Remove(record.Address); preparedCorrection.Remove(record.Address); encounterRecords.Remove(record.Address); }
             if (runStatisticsReplacementVersion != 0 && runStatisticsReplacementVersion <= write.ThroughVersion) runStatisticsReplacementVersion = 0;
             acknowledged = Math.Max(acknowledged, write.ThroughVersion);
             if (checkpointReceipt.HasValue && checkpointReceipt.Value.Version <= write.ThroughVersion)

@@ -97,8 +97,11 @@ internal sealed class RunsButtonFeedback : MonoBehaviour, ISelectHandler, IDesel
 internal sealed partial class RetainedStatisticsShell
 {
     private RunsView? runsView;
-    public void RefreshRuns(StatisticsPanelProjection? projection, string generation) =>
+    public void RefreshRuns(StatisticsPanelProjection? projection, string generation)
+    {
+        runsView?.SetEncounterSource(projection);
         runsView?.Refresh(projection == null ? null : RunsPresentationFactory.Create(projection, generation), generation);
+    }
     public void InvalidateProjection()
     {
         projectionAvailable = false;
@@ -189,7 +192,7 @@ internal sealed partial class RetainedStatisticsShell
         public void Dispose() => Scroll.onValueChanged.RemoveAllListeners();
     }
 
-    private sealed class RunsView : IDisposable
+    private sealed partial class RunsView : IDisposable
     {
         private sealed class HistoryControl : IDisposable
         {
@@ -274,6 +277,8 @@ internal sealed partial class RetainedStatisticsShell
         private (string Generation, string? RunId, float History, float Detail, float Route, float Page)? suspendedScroll;
         private bool restoreSuspendedScroll;
         private bool disposed;
+        private const float EncounterTabHeight =
+            80;
 
         public RunsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action focusTabs)
         {
@@ -332,6 +337,7 @@ internal sealed partial class RetainedStatisticsShell
             Stretch(closeLabel.rectTransform);
             evidenceClose.onClick.AddListener(HideEvidence);
             evidencePanel.gameObject.SetActive(false);
+            CreateEncounterView();
         }
 
         public void Refresh(RunsPresentation? snapshot, string generation)
@@ -369,6 +375,7 @@ internal sealed partial class RetainedStatisticsShell
         private void UpdateDetails()
         {
             var run = selection.Selected;
+            BindEncounterRun();
             if (evidenceIdentity is { } opened)
             {
                 var next = run != null && opened.SlotIndex < run.Slots.Count ? run.Slots[opened.SlotIndex] : null;
@@ -502,7 +509,7 @@ internal sealed partial class RetainedStatisticsShell
             var dy = useStacked ? hh + 40 : 0;
             Place(historyPanel, 0, 0, hw, hh);
             var detailWidth = dw - 60;
-            var y = Put(title, 0, 0, detailWidth) - CombatNativeTextMeasurement.AlignInkTop(title) + 6;
+            var y = EncounterTabHeight + Put(title, 0, EncounterTabHeight, detailWidth) - CombatNativeTextMeasurement.AlignInkTop(title) + 6;
             y += LayoutMetadata(y, detailWidth) + 24;
             var columns = RunsLayoutPolicy.SummaryColumns(useStacked);
             var cellWidth = (detailWidth - (columns - 1) * 20) / columns;
@@ -573,10 +580,11 @@ internal sealed partial class RetainedStatisticsShell
                 ? Math.Max(Math.Max(240, contentHeight + 60), height - dy) : contentHeight + 60;
             Place(detailPanel, useStacked ? 0 : hw + 40, dy, dw, dh);
             Place(fixedDetail, 30, 30, detailWidth, dh - 60);
-            if (selection.Selected == null) Place(title.rectTransform, 0, 0, detailWidth, dh - 60);
+            if (selection.Selected == null) Place(title.rectTransform, 0, EncounterTabHeight, detailWidth, dh - 60 - EncounterTabHeight);
             outer.Size(0, 0, width, height, useStacked ? dy + dh : height);
             outer.Scroll.vertical = useStacked;
             LayoutEvidence();
+            LayoutEncounters(hw, hh, dw, dy, useStacked);
             if (measuredHistory != selection.Snapshot || measuredHistoryWidth != hw - 60)
             {
                 MeasureHistory(hw - 60);
@@ -707,6 +715,7 @@ internal sealed partial class RetainedStatisticsShell
         public void Tick()
         {
             if (!root.gameObject.activeInHierarchy) return;
+            TickEncounters();
             if (evidencePanel.gameObject.activeSelf)
             {
                 var focused = GameManager.EventSystem?.currentSelectedGameObject;
@@ -913,6 +922,7 @@ internal sealed partial class RetainedStatisticsShell
         {
             if (disposed) return; disposed = true;
             rowPool.Dispose();
+            DisposeEncounters();
             evidencePanel.gameObject.SetActive(false); evidenceOwner = null;
             evidenceClose.onClick.RemoveAllListeners();
             foreach (var slot in slots) slot.Button.onClick.RemoveAllListeners();

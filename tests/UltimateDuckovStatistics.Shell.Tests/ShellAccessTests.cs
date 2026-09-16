@@ -12,6 +12,25 @@ namespace UltimateDuckovStatistics.Shell.Tests;
 
 public sealed partial class ShellAccessTests : IDisposable
 {
+#if !UDS_ENCOUNTER_DIAGNOSTICS
+    [Theory]
+    [InlineData(KeyCode.F5)]
+    [InlineData(KeyCode.F6)]
+    public void OrdinaryBuildAllowsFormerDiagnosticKeysAsPanelShortcuts(KeyCode key)
+    {
+        using var panel = new NativeStatisticsPanel(coordinator);
+        Press(panel, KeyCode.F8);
+        typeof(NativeStatisticsPanel).GetMethod("BeginHotkeyCapture", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(panel, null);
+        Time.frameCount++; // The assignment key arrives after the click that begins capture.
+        Press(panel, key);
+        Assert.False(Field<bool>(panel, "capturingHotkey"));
+        Assert.Equal(key, Field<KeyCode>(panel, "hotkey"));
+        Press(panel, KeyCode.Escape);
+        Press(panel, key);
+        Assert.True(Find(RetainedDimmerPolicy.RootName).activeInHierarchy);
+    }
+#endif
+
     [Theory]
     [InlineData(2560, 1440)]
     [InlineData(1280, 720)]

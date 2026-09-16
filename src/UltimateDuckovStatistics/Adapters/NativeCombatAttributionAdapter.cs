@@ -585,6 +585,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
         if (rangedHit || meleeHit) scope!.HitCounted = true;
         var headshot = projectileTransition.Headshot;
         if (headshot) scope!.HeadshotCounted = true;
+        if (headshot) Encounters.NativeEncounterCombatObserver.ObserveHeadshot(health);
         var headshotFinalBlow = projectileTransition.HeadshotFinalBlow;
         if (headshotFinalBlow) scope!.HeadshotFinalBlowCounted = true;
         var targetIdentity = ReadCharacterIdentity(target, "target");
@@ -694,7 +695,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
     private void SynchronizeMainCharacter()
     {
         CharacterMainControl? observed = null;
-        try { observed = CharacterMainControl.Main; } catch { }
+        try { if (NativeLevelAvailability.MayExist) observed = CharacterMainControl.Main; } catch { }
         if (ReferenceEquals(observed, subscribedMainCharacter)) return;
         if (subscribedMainCharacter?.attackAction != null) subscribedMainCharacter.attackAction.OnAttack -= OnMeleeAttack;
         subscribedMainCharacter = observed;
@@ -1115,7 +1116,7 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
             (CombatHook.GrenadeLaunch, m.GrenadeLaunch, [new("Postfixes", CombatHarmonyCallbacks.GrenadeLaunchPostfixMethod)]),
             (CombatHook.GrenadeObjectCreation, m.GrenadeObjectCreation, [new("Postfixes", CombatHarmonyCallbacks.GrenadeClonePostfixMethod)]),
             (CombatHook.GrenadeExplosion, m.GrenadeExplosion, [new("Prefixes", NativeGrenadeAttribution.PrefixMethod), new("Finalizers", NativeGrenadeAttribution.FinalizerMethod)]),
-            (CombatHook.HealthHurt, m.HealthHurt, [new("Prefixes", CombatHarmonyCallbacks.HealthPrefixMethod), new("Postfixes", CombatHarmonyCallbacks.HealthPostfixMethod)]),
+            (CombatHook.HealthHurt, m.HealthHurt, [new("Prefixes", CombatHarmonyCallbacks.HealthPrefixMethod), new("Postfixes", CombatHarmonyCallbacks.HealthPostfixMethod), new("Finalizers", CombatHarmonyCallbacks.HealthFinalizerMethod)]),
             (CombatHook.ProjectileInit, m.ProjectileInit, [new("Postfixes", CombatHarmonyCallbacks.ProjectileInitPostfixMethod)]),
             (CombatHook.ProjectileUpdate, m.ProjectileUpdate, [new("Prefixes", CombatHarmonyCallbacks.ProjectileUpdatePrefixMethod), new("Finalizers", CombatHarmonyCallbacks.ProjectileUpdateFinalizerMethod)]),
             (CombatHook.ProjectileRelease, m.ProjectileRelease, [new("Prefixes", CombatHarmonyCallbacks.ProjectileReleasePrefixMethod)]),
@@ -1142,7 +1143,8 @@ internal sealed class NativeCombatAttributionAdapter : IDisposable, IRetryableCl
                 patcher.Patch(registration.Original, NativeGrenadeAttribution.PrefixMethod, finalizer: NativeGrenadeAttribution.FinalizerMethod);
                 break;
             case CombatHook.HealthHurt:
-                patcher.Patch(registration.Original, CombatHarmonyCallbacks.HealthPrefixMethod, CombatHarmonyCallbacks.HealthPostfixMethod);
+                patcher.Patch(registration.Original, CombatHarmonyCallbacks.HealthPrefixMethod, CombatHarmonyCallbacks.HealthPostfixMethod,
+                    finalizer: CombatHarmonyCallbacks.HealthFinalizerMethod);
                 break;
             case CombatHook.ProjectileInit:
                 patcher.Patch(registration.Original, postfix: CombatHarmonyCallbacks.ProjectileInitPostfixMethod);

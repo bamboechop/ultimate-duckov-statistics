@@ -26,6 +26,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
     private readonly EconomyActivationGate economyActivationGate;
     private readonly NativeProfileTransitionBoundary profileTransitionBoundary;
     private Func<bool>? activeRunCheckpointFlusher;
+    private Func<bool>? encounterBoundaryFlusher;
     private Func<bool>? economyBoundaryFlusher;
     private Func<bool>? economyHoldingsBoundaryFlusher;
     private Func<bool>? worldTimeBoundaryFlusher;
@@ -545,6 +546,24 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
 
     public bool RetryPendingEconomyActivation() => economyActivationGate.EnsureReady();
 
+    public void SetEncounterBoundaryBarrier(Func<bool> flusher) => encounterBoundaryFlusher = flusher;
+
+    public bool HandleEncounter(string generation, UltimateDuckovStatistics.Core.Encounters.EncounterRecord record)
+    {
+        try
+        {
+            if (repository == null) return false;
+            repository.RecordEncounterDeferred(generation, record);
+            profileWriter.MarkDirty();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            ReportPersistenceFailure(exception, "Encounter journal publication remains pending");
+            return false;
+        }
+    }
+
     public void SetEconomyBoundaryBarrier(Func<bool> flusher)
     {
         economyBoundaryFlusher = flusher ?? throw new ArgumentNullException(nameof(flusher));
@@ -721,6 +740,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
     {
         try
         {
+            if (encounterBoundaryFlusher?.Invoke() == false) throw new IOException("Encounter capture remains pending.");
             if (!FlushBaseMovement()) throw new IOException("Base movement remains pending at a profile boundary.");
             if (economyHoldingsBoundaryFlusher?.Invoke() == false)
                 throw new IOException("Economy holdings remain pending during profile flush.");
@@ -777,6 +797,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
             throw new InvalidOperationException("No profile is open for export.");
         }
 
+        if (encounterBoundaryFlusher?.Invoke() == false) throw new IOException("Encounter capture remains pending.");
         if (!FlushBaseMovement()) throw new IOException("Base movement remains pending before export.");
         if (economyHoldingsBoundaryFlusher?.Invoke() == false)
             throw new IOException("Economy holdings remain pending before export.");
@@ -915,6 +936,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
             if (repository != null)
             {
                 repository.RefreshIdentity(ReadIdentity(repository.Current.Slot));
+                if (encounterBoundaryFlusher?.Invoke() == false) throw new IOException("Encounter capture remains pending.");
                 if (!FlushBaseMovement()) throw new IOException("Base movement remains pending during disposal.");
                 repository.CloseClean();
             }
@@ -1071,6 +1093,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
         failure = null;
         try
         {
+            if (encounterBoundaryFlusher?.Invoke() == false) throw new IOException("Encounter capture remains pending before native save.");
             if (!PublishBaseMovementForNativeSave()) throw new IOException("Base movement remains pending at a profile boundary.");
             if (economyHoldingsBoundaryFlusher?.Invoke() == false)
                 throw new IOException("Economy holdings remain pending before native save collection.");
@@ -1188,6 +1211,7 @@ internal sealed partial class NativeProfileCoordinator : IDisposable
 
     private bool FlushProfileTransitionBoundaries()
     {
+        if (encounterBoundaryFlusher?.Invoke() == false) return false;
         if (!FlushBaseMovement()) return false;
         if (economyHoldingsBoundaryFlusher?.Invoke() == false) return false;
         if (economyBoundaryFlusher?.Invoke() == false) return false;

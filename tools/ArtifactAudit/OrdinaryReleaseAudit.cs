@@ -22,10 +22,16 @@ public static class OrdinaryReleaseAudit
             throw new BadImageFormatException("Unexpected native dependency in an ordinary package.");
         }
         var metadata = pe.GetMetadataReader();
+        var nativeMod = metadata.IsAssembly && metadata.GetString(metadata.GetAssemblyDefinition().Name) == "UltimateDuckovStatistics";
+        var encounterTypes = new HashSet<string>(StringComparer.Ordinal);
+        var encounterCalls = new HashSet<string>(StringComparer.Ordinal);
         _ = PinnedDependencies.IsPinnedManaged(assemblyPath, File.ReadAllBytes(assemblyPath));
         foreach (var typeHandle in metadata.TypeDefinitions)
         {
-            if (metadata.GetString(metadata.GetTypeDefinition(typeHandle).Name) is "NativeUiResourceDiagnostics" or "CorePersistenceTimings")
+            var definition = metadata.GetTypeDefinition(typeHandle);
+            var typeName = metadata.GetString(definition.Name);
+            if (metadata.GetString(definition.Namespace) == "UltimateDuckovStatistics.Encounters") encounterTypes.Add(typeName);
+            if (typeName is "NativeUiResourceDiagnostics" or "CorePersistenceTimings")
                 throw new InvalidDataException("Ordinary Release contains the opt-in native resource diagnostic type.");
         }
         foreach (var handle in metadata.MethodDefinitions)
@@ -49,6 +55,13 @@ public static class OrdinaryReleaseAudit
                             ? metadata.GetMemberReference((MemberReferenceHandle)target).Parent : default;
                     if (IsDiagnosticType(metadata, owner))
                         throw new InvalidDataException($"Ordinary Release contains a performance-diagnostic call site: {metadata.GetString(method.Name)}.");
+                    if (nativeMod && target.Kind == HandleKind.MethodDefinition)
+                    {
+                        var called = metadata.GetMethodDefinition((MethodDefinitionHandle)target);
+                        var callerType = metadata.GetString(metadata.GetTypeDefinition(method.GetDeclaringType()).Name);
+                        var calledType = metadata.GetString(metadata.GetTypeDefinition(called.GetDeclaringType()).Name);
+                        encounterCalls.Add(callerType + "." + metadata.GetString(method.Name) + " -> " + calledType + "." + metadata.GetString(called.Name));
+                    }
                 }
                 offset += code.OperandType switch
                 {
@@ -64,6 +77,22 @@ public static class OrdinaryReleaseAudit
                 };
                 if (offset > il.Length) throw new BadImageFormatException("Truncated IL operand.");
             }
+        }
+        foreach (var typeHandle in metadata.TypeDefinitions)
+        {
+            var ns = metadata.GetString(metadata.GetTypeDefinition(typeHandle).Namespace);
+            if (ns.StartsWith("UltimateDuckovStatistics.EncounterPrototype", StringComparison.Ordinal)
+                || ns.StartsWith("UltimateDuckovStatistics.Encounters.Diagnostics", StringComparison.Ordinal))
+                throw new InvalidDataException("Ordinary Release contains an opt-in encounter diagnostic type.");
+        }
+        if (nativeMod)
+        {
+            foreach (var name in new[] { "EncounterCaptureHost", "EncounterCapturePipeline", "NativeEncounterCombatObserver",
+                "NativeEncounterLootObserver", "NativeEncounterMapObserver", "StoredEncounterRun" })
+                if (!encounterTypes.Contains(name)) throw new InvalidDataException("Ordinary Release is missing encounter runtime: " + name);
+            foreach (var call in new[] { "ModBehaviour.OnAfterSetup -> EncounterCaptureHost..ctor",
+                "ModBehaviour.Update -> EncounterCaptureHost.Tick", "RunsView.Tick -> RunsView.TickEncounters" })
+                if (!encounterCalls.Contains(call)) throw new InvalidDataException("Ordinary Release is missing encounter integration: " + call);
         }
     }
 

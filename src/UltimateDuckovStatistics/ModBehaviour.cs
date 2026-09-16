@@ -31,6 +31,7 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
     private readonly ProcessLifetimeCleanupOwner<NativeWorldTimeAdapter> worldTimeAdapter = new();
     private readonly ProcessLifetimeCleanupOwner<NativeCraftingAdapter> craftingAdapter = new();
     private NativeStatisticsPanel? statisticsPanel;
+    private Encounters.EncounterCaptureHost? encounterCapture;
 #if UDS_PERFORMANCE_DIAGNOSTICS
     private readonly NativeUiResourceDiagnostics uiResourceDiagnostics = new();
 #endif
@@ -252,7 +253,11 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             newEquipmentAdapter.Initialize();
             newRunLifecycleAdapter.SetDestinationReadyObserver(() => newEquipmentAdapter.CaptureAssociation());
             newRunLifecycleAdapter.SetTerminalLoadoutCapture(newEquipmentAdapter.CaptureTerminalLoadout);
-            newRunLifecycleAdapter.SetTerminalObserver(newEconomyAdapter.FlushPendingForBoundary);
+            newRunLifecycleAdapter.SetTerminalObserver(() =>
+            {
+                if (encounterCapture?.Flush() == false) return false;
+                return newEconomyAdapter.FlushPendingForBoundary();
+            });
             var newWeaponFireAdapter = new NativeWeaponFireAdapter(
                 () => profileCoordinator.CurrentGenerationId,
                 () => runLifecycleAdapter.OwnedValue?.CurrentRunId,
@@ -325,6 +330,15 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
             throwableAdapter.Assign(newThrowableAdapter);
             newThrowableAdapter.Initialize();
             statisticsPanel = new NativeStatisticsPanel(profileCoordinator);
+            encounterCapture = new Encounters.EncounterCaptureHost(
+                () => runLifecycleAdapter.OwnedValue, () => profileCoordinator,
+                message => Debug.Log($"{LogPrefix} {message}"));
+#if UDS_ENCOUNTER_DIAGNOSTICS
+            encounterCapture.EnableDiagnostics(
+                () => statisticsPanel?.CanShowEncounterPreview == true,
+                value => { if (statisticsPanel != null) statisticsPanel.EncounterPreviewIsOpen = value; });
+#endif
+            profileCoordinator.SetEncounterBoundaryBarrier(encounterCapture.Flush);
             initialized = true;
             Debug.Log(
                 $"{LogPrefix} activated utc={DateTime.UtcNow:O} " +
@@ -387,6 +401,10 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 #endif
         runLifecycleAdapter.OwnedValue?.Tick();
 #if UDS_PERFORMANCE_DIAGNOSTICS
+        using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.EncounterCapture))
+#endif
+        encounterCapture?.Tick();
+#if UDS_PERFORMANCE_DIAGNOSTICS
         using (NativeHotPathDiagnostics.Measure(NativeHotPathArea.Equipment))
 #endif
         equipmentAdapter.OwnedValue?.Tick();
@@ -435,6 +453,8 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void OnApplicationQuit()
     {
+        encounterCapture?.Dispose();
+        encounterCapture = null;
         DrainPendingProfileTransitions("application quit");
         FlushPendingEconomyHoldings("application quit");
         FlushPendingEconomy("application quit");
@@ -455,8 +475,14 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
         Cleanup();
     }
 
+#if UDS_ENCOUNTER_DIAGNOSTICS
+    private void OnGUI() => encounterCapture?.DrawDiagnosticStatus();
+#endif
+
     private void Cleanup()
     {
+        encounterCapture?.Dispose();
+        encounterCapture = null;
         var profileTransitionsDrained = DrainPendingProfileTransitions("deactivation");
         FlushPendingEconomyHoldings("deactivation");
         FlushPendingEconomy("deactivation");

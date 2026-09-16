@@ -131,7 +131,7 @@ namespace UnityEngine
             .Where(value => value is not Object native || !native.Destroyed).ToArray();
     }
     public static class Mathf { public static float Max(float a, float b) => Math.Max(a, b); public static float Min(float a, float b) => Math.Min(a, b); public static float Clamp(float x, float a, float b) => Math.Clamp(x, a, b); public static int RoundToInt(float v) => (int)Math.Round(v); public static bool Approximately(float a, float b) => Math.Abs(a - b) < .0001; }
-    public enum KeyCode { None, F8, F9, F10, Escape, Tab, LeftShift, RightShift, LeftControl, RightControl, Return, KeypadEnter, Mouse0, Mouse1 }
+    public enum KeyCode { None, F5, F6, F8, F9, F10, Escape, Tab, LeftShift, RightShift, LeftControl, RightControl, Return, KeypadEnter, Mouse0, Mouse1 }
     public static class Input { public static readonly HashSet<KeyCode> Down = new(); public static bool GetKeyDown(KeyCode key) => Down.Contains(key); public static bool GetKey(KeyCode key) => Down.Contains(key); public static bool anyKeyDown => Down.Count > 0; }
     public enum CursorLockMode { None, Locked, Confined }
     public static class Cursor { public static bool visible; public static CursorLockMode lockState; }
@@ -231,11 +231,22 @@ namespace Duckov.UI { public sealed class TooltipsProvider : UnityEngine.MonoBeh
 namespace Duckov.UI.Animations { public class ButtonAnimation : UnityEngine.MonoBehaviour { } }
 public static class GameManager { public static UnityEngine.EventSystems.EventSystem? EventSystem = new(); }
 public class InputManager : UnityEngine.Object { public static readonly HashSet<UnityEngine.GameObject> Blocks = new(); public static void DisableInput(UnityEngine.GameObject owner) => Blocks.Add(owner); public static void ActiveInput(UnityEngine.GameObject owner) => Blocks.Remove(owner); }
-public sealed class LevelManager { public static LevelManager? Instance; public bool IsBaseLevel = true; public InputManager InputManager = new(); }
+public sealed class LevelManager : UnityEngine.Object
+{
+    private static LevelManager? instance;
+    public static int MissingInstanceSearches;
+    public static LevelManager? Instance
+    {
+        get { if (instance == null) MissingInstanceSearches++; return instance; }
+        set => instance = value;
+    }
+    public bool IsBaseLevel = true;
+    public InputManager InputManager = new();
+}
 public sealed class UIInputEventData { public void Use() { } }
 public static class UIInputManager { public static event Action<UIInputEventData>? OnCancelEarly; public static int CancelListeners => OnCancelEarly?.GetInvocationList().Length ?? 0; }
 
-namespace UnityEngine { public static class Application { public static string version = "2.3.30"; } public static class Debug { public static void LogException(Exception exception) => throw exception; } public struct Vector2Int { public static Vector2 zero => new(0, 0); } }
+namespace UnityEngine { public static class Application { public static string version = "2.3.30"; } public static class Debug { public static void LogException(Exception exception) => throw exception; public static void LogWarning(object message) { } } public struct Vector2Int { public static Vector2 zero => new(0, 0); } }
 
 namespace UnityEngine.SceneManagement
 {

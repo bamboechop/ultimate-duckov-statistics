@@ -188,7 +188,7 @@ internal sealed class NativeEquipmentAdapter : IDisposable, IRetryableCleanup
 
     private void SynchronizeMain()
     {
-        var current = CharacterMainControl.Main;
+        var current = NativeLevelAvailability.MayExist ? CharacterMainControl.Main : null;
         if (current != null && !current.IsMainCharacter) current = null;
         var characterItem = current?.CharacterItem;
         if (ReferenceEquals(current, observedMain) && ReferenceEquals(characterItem, observedCharacterItem)) return;

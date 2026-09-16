@@ -57,6 +57,8 @@ public sealed partial class ProfileRepository
                 recoveredSessionEvidence = restored.SessionEvidencePresent;
                 if (Current.Statistics.Runs is ICommittedRunHistory retainedHistory)
                     retainedHistory.RestoreDetailSource(restored.Profile.Statistics.Runs);
+                if (Current.EncounterHistory is Encounters.EncounterHistory encounters && storage is Encounters.IEncounterHistorySource encounterSource)
+                    encounters.RestoreSource(encounterSource);
                 // A suspended reset retains its journal, including publications
                 // accepted while a failed owner restoration awaits retry.
                 changes ??= new ProfileChangeJournal(Current.GenerationId, recordCodec);
@@ -86,6 +88,7 @@ public sealed partial class ProfileRepository
         EnsureIncrementalStorage();
         var journal = changes!;
         var capturedHistory = Current.Statistics.Runs as Statistics.ICommittedRunHistory;
+        var capturedEncounters = Current.EncounterHistory as Encounters.EncounterHistory;
         var command = journal.Capture(Current, session, sessionChanged, checkpoint, checkpointChanged);
         // Enqueue while the caller still owns the capture boundary. The outer
         // deferred writers may wait later; they cannot reorder checkpoint and
@@ -95,6 +98,9 @@ public sealed partial class ProfileRepository
         {
             task.GetAwaiter().GetResult();
             journal.Acknowledge(command);
+            if (capturedEncounters != null)
+                foreach (var record in command.Records.Where(record => record.Address.Kind == ProfileRecordKind.Encounter))
+                    capturedEncounters.Acknowledge(record.Address.First, (Encounters.EncounterRecordKind)int.Parse(record.Address.Second, System.Globalization.CultureInfo.InvariantCulture), record.Address.Third, record.Bytes!);
             if (command.ReplaceRunStatistics)
             {
                 var pending = System.Threading.Volatile.Read(ref pendingRunCorrection);

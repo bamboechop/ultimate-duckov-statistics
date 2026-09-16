@@ -11,6 +11,7 @@ namespace UltimateDuckovStatistics.Core.Export;
 [DataContract]
 public sealed class StatisticsExportDocument
 {
+    [DataMember(Order = 21, EmitDefaultValue = false)] public IList<Encounters.EncounterRecord>? EncounterHistory { get; set; }
     [DataMember(IsRequired = true, Order = 17)] public bool HealingCaptureComplete { get; set; }
     [DataMember(IsRequired = true, Order = 18)] public AdapterCapabilityState HealingCaptureState { get; set; }
     [DataMember(IsRequired = true, Order = 19)] public bool HealingEvidenceRepaired { get; set; }
@@ -224,6 +225,7 @@ public static class StatisticsExporter
             Distance = DistanceStatisticsProjection.Create(profile),
             RunTotals = runTotals,
             Runs = runs,
+            EncounterHistory = ExportEncounterHistory.Create(profile, streamHistory),
             RunRecords = CloneRunRecords(profile.Statistics.RunRecords),
             Capabilities = profile.Capabilities.Select(CloneCapability).ToList(),
             Economy = EconomyStatisticsReducer.Clone(profile.Statistics.Economy),
