@@ -132,3 +132,48 @@ public sealed class EncounterMapObserverRegressionTests
         }
     }
 }
+
+public sealed class EncounterMapFocusRegressionTests
+{
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void EachKnownEndpointSurvivesSelection(bool playerKnown, bool enemyKnown)
+    {
+        var map = Map();
+        var focus = EncounterMapFocus.Create(new EncounterDetail
+        { PlayerPosition = playerKnown ? Position(20) : null, EnemyPosition = enemyKnown ? Position(30) : null }, map, 600, 500);
+        Assert.Equal(playerKnown, focus.PlayerAvailable);
+        Assert.Equal(enemyKnown, focus.EnemyAvailable);
+        Assert.Equal(playerKnown && enemyKnown, focus.ConnectorAvailable);
+        if (playerKnown) InFrame(focus.Player, focus.Frame);
+        if (enemyKnown) InFrame(focus.Enemy, focus.Frame);
+        if (playerKnown || enemyKnown) Assert.True(focus.Frame.Width < 1);
+        var closed = EncounterMapFocus.Create(null, map, 600, 500);
+        Assert.False(closed.PlayerAvailable); Assert.False(closed.EnemyAvailable);
+        Assert.True(closed.Frame.Width >= 1);
+    }
+
+    [Fact]
+    public void CrossMapOrInvalidEnemyDoesNotHideKnownPlayerOrInventDistance()
+    {
+        var map = Map(); var player = Position(20);
+        foreach (var enemy in new[] { new EncounterPosition { MapId = "other", X = 30 }, Position(float.NaN) })
+        {
+            var focus = EncounterMapFocus.Create(new EncounterDetail { PlayerPosition = player, EnemyPosition = enemy }, map, 600, 500);
+            Assert.True(focus.PlayerAvailable); Assert.False(focus.EnemyAvailable); Assert.False(focus.ConnectorAvailable);
+            InFrame(focus.Player, focus.Frame);
+        }
+    }
+
+    private static StoredEncounterMap Map() => new()
+    { MapId = "m", Calibration = new UltimateDuckovStatistics.Encounters.EncounterMapCalibration { Available = true, WorldSize = 100 } };
+    private static EncounterPosition Position(float x) => new() { MapId = "m", X = x, Z = 10 };
+    private static void InFrame(EncounterMapPoint point, EncounterMapFrame frame)
+    {
+        var screen = EncounterMapGeometry.ToScreen(point, frame, 600, 500);
+        Assert.InRange(screen.X, 0, 600); Assert.InRange(screen.Y, 0, 500);
+    }
+}

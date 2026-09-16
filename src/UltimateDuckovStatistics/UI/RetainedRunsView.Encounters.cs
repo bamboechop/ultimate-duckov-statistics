@@ -336,10 +336,10 @@ internal sealed partial class RetainedStatisticsShell
             }
             if (startRevealOnArtwork)
             { if (double.IsFinite(revealStart) && selectedEvent < 0) revealStart = Time.realtimeSinceStartupAsDouble; startRevealOnArtwork = false; }
-            mapFrame = EncounterMapGeometry.Overview(mapWidth, mapHeight);
-            var record = CurrentEncounter; EncounterMapPoint p = default, e = default;
-            var focus = record != null && Project(record.Encounter!.PlayerPosition, map!, out p) && Project(record.Encounter.EnemyPosition, map!, out e);
-            if (focus) mapFrame = EncounterMapGeometry.Focus(p, e, mapWidth, mapHeight);
+            var record = CurrentEncounter;
+            var focus = EncounterMapFocus.Create(record?.Encounter, map!, mapWidth, mapHeight);
+            var p = focus.Player; var e = focus.Enemy;
+            mapFrame = focus.Frame;
             mapImage.texture = mapAssets.Texture;
             Place(mapImage.rectTransform, (float)(-mapFrame.MinX / mapFrame.Width * mapWidth),
                 (float)((mapFrame.MinY + mapFrame.Height - 1) / mapFrame.Height * mapHeight),
@@ -364,9 +364,10 @@ internal sealed partial class RetainedStatisticsShell
             if (routeRender == null && requestedProgress != progress)
             {
                 requestedProgress = progress;
-                var strokes = focus ? new[] { new EncounterRouteStroke(p, e, false) } : map!.Strokes;
+                var strokes = record == null ? map!.Strokes : focus.ConnectorAvailable
+                    ? new[] { new EncounterRouteStroke(p, e, false) } : Array.Empty<EncounterRouteStroke>();
                 var frame = mapFrame; var w = mapWidth; var h = mapHeight; var epoch = mapEpoch;
-                var timeline = focus ? null : map!.Timeline;
+                var timeline = record != null ? null : map!.Timeline;
                 routeRender = Task.Run(() => { var raster = new EncounterRouteRaster(w, h); raster.Render(strokes, frame, timeline, progress);
                     return new RoutePixels { Raster = raster, Progress = progress, Epoch = epoch }; });
             }
@@ -382,7 +383,8 @@ internal sealed partial class RetainedStatisticsShell
                 var marker = eventPins[i];
                 var visible = selectedEvent < 0 && i < map.Events.Length && displayedProgress >= 0
                     && (displayedProgress >= 1 || displayedProgress > 0 && map.Timeline.MarkerProgress(map.Events[i].Encounter!.EndedSeconds ?? 0) <= displayedProgress);
-                if (!visible || !Project(map.Events[i].Encounter!.EnemyPosition ?? map.Events[i].Encounter!.PlayerPosition, map, out var point))
+                if (!visible || !(EncounterMapFocus.TryProject(map.Events[i].Encounter!.EnemyPosition, map, out var point)
+                    || EncounterMapFocus.TryProject(map.Events[i].Encounter!.PlayerPosition, map, out point)))
                 { marker.Root.gameObject.SetActive(false); continue; }
                 var globalIndex = encounterSelection.Run.EventIndex(map.Events[i].Id);
                 if (marker.Index != globalIndex)
@@ -392,11 +394,13 @@ internal sealed partial class RetainedStatisticsShell
                 }
                 Pin(marker, point, mapFrame, map.Events[i].Encounter!.Outcome == EncounterOutcome.PlayerDeath);
             }
-            if (!focus) { playerPin.Root.gameObject.SetActive(false); enemyPin.Root.gameObject.SetActive(false); }
-            distanceBox.gameObject.SetActive(focus);
-            if (focus)
+            if (focus.PlayerAvailable) Pin(playerPin, p, mapFrame, false, location: true);
+            else playerPin.Root.gameObject.SetActive(false);
+            if (focus.EnemyAvailable) Pin(enemyPin, e, mapFrame, true, location: true);
+            else enemyPin.Root.gameObject.SetActive(false);
+            distanceBox.gameObject.SetActive(focus.ConnectorAvailable);
+            if (focus.ConnectorAvailable)
             {
-                Pin(playerPin, p, mapFrame, false, location: true); Pin(enemyPin, e, mapFrame, true, location: true);
                 if (distanceEncounterId != record!.Id)
                 {
                     distanceEncounterId = record.Id;
@@ -414,13 +418,6 @@ internal sealed partial class RetainedStatisticsShell
             }
         }
 
-        private static bool Project(EncounterPosition? position, StoredEncounterMap map, out EncounterMapPoint point)
-        {
-            point = default;
-            return position != null && map.Calibration != null && (string.IsNullOrEmpty(position.MapId)
-                || EncounterPathMath.NativeSceneId(position.MapId!) == EncounterPathMath.NativeSceneId(map.MapId))
-                && EncounterMapGeometry.TryProject(map.Calibration, position.X, position.Z, out point);
-        }
         private void Pin(EncounterMarker pin, EncounterMapPoint point, EncounterMapFrame frame, bool hostile, bool location = false)
         {
             var screen = EncounterMapGeometry.ToScreen(point, frame, mapWidth, mapHeight);
