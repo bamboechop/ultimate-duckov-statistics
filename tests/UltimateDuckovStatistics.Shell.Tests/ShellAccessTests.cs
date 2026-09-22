@@ -48,7 +48,7 @@ public sealed partial class ShellAccessTests : IDisposable
         var offset = scroll.content.anchoredPosition.y;
         Assert.Equal(scroll.content.rect.height - ((RectTransform)scroll.transform).rect.height, offset, 3);
         var shell = Field<RetainedStatisticsShell>(panel, "shell");
-        shell.RefreshProjection(new StatisticsPanelProjection { Profile = coordinator.Current }, coordinator.CurrentGenerationId);
+        shell.RefreshProjection(new StatisticsPanelProjection { Profile = coordinator.Current }, coordinator.CurrentGenerationId); Tick(panel);
         scroll = Find("OverviewSummaryScroll").GetComponent<ScrollRect>();
         Assert.Equal(offset, scroll.content.anchoredPosition.y, 3);
         Assert.Same(scroll.gameObject, GameManager.EventSystem.currentSelectedGameObject);
@@ -63,21 +63,23 @@ public sealed partial class ShellAccessTests : IDisposable
     public void AboutTranslationInvitationRefreshesWithoutActionButtons(bool visibleDuringSwitch)
     {
         using var panel = new NativeStatisticsPanel(coordinator); Press(panel, KeyCode.F8);
-        if (visibleDuringSwitch) Find("AboutTab").GetComponent<Button>().onClick.Invoke();
-        panel.Tick();
+        Find("AboutTab").GetComponent<Button>().onClick.Invoke();
+        Tick(panel);
+        if (!visibleDuringSwitch) Find("OverviewTab").GetComponent<Button>().onClick.Invoke();
+        Tick(panel);
         var invitation = Find("AboutInvitation").GetComponent<TextMeshProUGUI>();
         Assert.Equal(UiText.EnglishFallbacks["ui.about_translation"], invitation.text);
         try
         {
             SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.German);
-            panel.Tick();
+            Tick(panel);
             if (!visibleDuringSwitch) Find("AboutTab").GetComponent<Button>().onClick.Invoke();
-            panel.Tick();
+            Tick(panel);
             Assert.Equal(UiText.GermanFallbacks["ui.about_translation"], invitation.text);
             Assert.Empty(Find("AboutContentView").GetComponentsInChildren<Button>());
             Assert.False(invitation.raycastTarget);
             SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
-            panel.Tick();
+            Tick(panel);
             Assert.Equal(UiText.EnglishFallbacks["ui.about_translation"], invitation.text);
         }
         finally { SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English); }
@@ -90,7 +92,7 @@ public sealed partial class ShellAccessTests : IDisposable
         var longText = string.Join("\n", Enumerable.Repeat("Long localized About content", 40));
         UiText.ConfigureNativeResolver(key => key == "ui.about_description" || key == "ui.about_translation" ? longText : null);
         Press(panel, KeyCode.F8);
-        Find("AboutTab").GetComponent<Button>().onClick.Invoke(); panel.Tick();
+        Find("AboutTab").GetComponent<Button>().onClick.Invoke(); Tick(panel);
         var scroll = Find("AboutScroll").GetComponent<ScrollRect>();
         Assert.True(scroll.content.rect.height > ((RectTransform)scroll.transform).rect.height);
         Find("AboutTab").GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Down);
@@ -99,7 +101,7 @@ public sealed partial class ShellAccessTests : IDisposable
         Assert.True(scroll.content.anchoredPosition.y > 0);
         scroll.GetComponent<RunsFocusHandler>().Move!(UnityEngine.EventSystems.MoveDirection.Right);
         Assert.Same(scroll.gameObject, GameManager.EventSystem.currentSelectedGameObject);
-        ((RectTransform)canvas.transform).sizeDelta = new Vector2(960, 540); panel.Tick();
+        ((RectTransform)canvas.transform).sizeDelta = new Vector2(960, 540); Tick(panel);
         Assert.True(Find("AboutContentView").activeInHierarchy);
         Assert.Same(scroll.gameObject, GameManager.EventSystem.currentSelectedGameObject);
         var rect = (RectTransform)Find("AboutInvitation").transform;
@@ -121,18 +123,19 @@ public sealed partial class ShellAccessTests : IDisposable
             Assert.Equal(10, tabRoot.transform.childCount);
             Assert.Equal("AboutTab", tabRoot.transform.GetChild(8).gameObject.name);
             Assert.Equal("DiagnosticsTab", tabRoot.transform.GetChild(9).gameObject.name);
+            Find("AboutTab").GetComponent<Button>().onClick.Invoke(); Tick(panel);
             var about = Find("AboutContentView");
             foreach (var specification in RetainedTabStripPolicy.Specifications)
             {
                 Find(specification.BackgroundName).GetComponent<Button>().onClick.Invoke();
-                panel.Tick();
+                Tick(panel);
                 Assert.Equal(specification.Tab, Field<PanelInteractionState>(panel, "interaction").SelectedTab);
                 Assert.Equal(specification.Tab == StatisticsPanelTab.About, about.activeInHierarchy);
             }
-            Find("AboutTab").GetComponent<Button>().onClick.Invoke(); panel.Tick();
+            Find("AboutTab").GetComponent<Button>().onClick.Invoke(); Tick(panel);
             Assert.Same(about, Find("AboutContentView"));
             var objects = GameObject.Live.Count; var measurements = TextMeshProUGUI.Measurements;
-            for (var i = 0; i < 30; i++) panel.Tick();
+            for (var i = 0; i < 30; i++) Tick(panel);
             Assert.Equal(objects, GameObject.Live.Count);
             Assert.Equal(measurements, TextMeshProUGUI.Measurements);
             Assert.Empty(about.GetComponentsInChildren<Button>());
@@ -142,8 +145,8 @@ public sealed partial class ShellAccessTests : IDisposable
             scrollFocus.Move!(UnityEngine.EventSystems.MoveDirection.Up);
             Assert.Same(Find("AboutTab"), GameManager.EventSystem.currentSelectedGameObject);
             Press(panel, KeyCode.Escape);
-            Assert.DoesNotContain(GameObject.Live, go => go.name == "AboutContentView");
-            Assert.Null(scrollFocus.Move);
+            Assert.False(about.activeInHierarchy);
+            Assert.NotNull(scrollFocus.Move);
         }
         Assert.Equal(original, System.Text.Json.JsonSerializer.Serialize(coordinator.Current));
     }
@@ -159,13 +162,13 @@ public sealed partial class ShellAccessTests : IDisposable
         coordinator.Export = () => completion.Task;
         using var panel = new NativeStatisticsPanel(coordinator); Press(panel, KeyCode.F8);
         var operations = Field<PanelOperationController>(panel, "operations");
-        Assert.True(operations.RequestExport()); panel.Tick();
-        void Complete() { completion.SetResult(new("finished-export", Array.Empty<string>())); panel.Tick(); }
+        Assert.True(operations.RequestExport()); Tick(panel);
+        void Complete() { completion.SetResult(new("finished-export", Array.Empty<string>())); Tick(panel); }
         if (completeBeforeBoundary) { Complete(); Assert.NotNull(operations.LastNotice); }
         if (profileChange)
         {
             var next = new ProfileDocument { GenerationId = "next", Statistics = new() { SaveGenerationId = "next" } };
-            coordinator.ChangeProfile(next); panel.Tick();
+            coordinator.ChangeProfile(next); Tick(panel);
         }
         else { Press(panel, KeyCode.Escape); Press(panel, KeyCode.F8); }
         Assert.Null(operations.LastNotice);
@@ -202,7 +205,7 @@ public sealed partial class ShellAccessTests : IDisposable
         bool Has(string value) => GameObject.Live.SelectMany(go => go.GetComponents<TextMeshProUGUI>()).Any(t => t.text == value);
         Assert.True(Has(englishName));
         SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.German);
-        panel.Tick();
+        Tick(panel);
         Assert.True(Has(germanName)); Assert.False(Has(englishName));
         Press(panel, KeyCode.Escape);
         SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.English);
@@ -235,7 +238,7 @@ public sealed partial class ShellAccessTests : IDisposable
 
             SodaCraft.Localizations.LocalizationManager.SetLanguage(SystemLanguage.German);
             Assert.Equal("Übersicht", UiText.Get("ui.overview"));
-            panel.Tick();
+            Tick(panel);
             Assert.True(HasText("Übersicht"));
             Assert.False(HasText("Overview"));
             Assert.Equal("Übersicht", UiText.Get("ui.overview"));
@@ -290,24 +293,24 @@ public sealed partial class ShellAccessTests : IDisposable
         var tabs = Find("HorizontalTabs").GetComponent<RectTransform>();
         Assert.True(tabs.rect.width > viewport.rect.width);
         var diagnostics = Find("DiagnosticsTab").GetComponent<Button>();
-        diagnostics.onClick.Invoke();
+        diagnostics.onClick.Invoke(); Tick(panel);
         Assert.True(tabs.anchoredPosition.x < 0);
         Assert.True(Find("DiagnosticsView").activeInHierarchy);
         Assert.Contains(root.GetComponentsInChildren<TextMeshProUGUI>(true), text => text.text.Length > 240);
 
         ((RectTransform)canvas.transform).sizeDelta = new Vector2(960, 540);
-        panel.Tick();
+        Tick(panel);
         Assert.True(root.activeInHierarchy);
         Assert.True(diagnostics.interactable);
         Assert.DoesNotContain(coordinator.Reports, report => report.Contains("unavailable", StringComparison.OrdinalIgnoreCase));
         Press(panel, KeyCode.Escape);
-        Assert.True(root.Destroyed);
+        Assert.False(root.activeInHierarchy);
         Assert.Equal(0, UIInputManager.CancelListeners);
         Assert.Empty(InputManager.Blocks);
     }
 
     [Fact]
-    public void RepeatedOpenCloseReleasesListenersMaterialAndInputOwnerAndClosedTicksDoNoMeasurement()
+    public void RepeatedOpenCloseRetainsViewsButReleasesInputAndFinalDisposalReleasesResources()
     {
         using var panel = new NativeStatisticsPanel(coordinator);
         var priorFocus = new GameObject("Prior native menu selection");
@@ -315,31 +318,44 @@ public sealed partial class ShellAccessTests : IDisposable
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
         var baselineObjects = GameObject.Live.Count;
+        Press(panel, KeyCode.F8);
+        var root = Find(RetainedDimmerPolicy.RootName);
+        var overview = Find("OverviewSummaryScroll");
+        var tabButton = Find("OverviewTab").GetComponent<Button>();
+        var ownedMaterial = Find("OverviewTabLabel").GetComponent<TextMeshProUGUI>().fontSharedMaterial;
+        var retainedObjects = GameObject.Live.Count;
         for (var cycle = 0; cycle < 25; cycle++)
         {
-            Press(panel, KeyCode.F8);
-            var root = Find(RetainedDimmerPolicy.RootName);
-            var tabButton = Find("OverviewTab").GetComponent<Button>();
-            var ownedMaterial = Find("OverviewTabLabel").GetComponent<TextMeshProUGUI>().fontSharedMaterial;
             Assert.Equal(1, UIInputManager.CancelListeners);
             Assert.Single(InputManager.Blocks);
             Assert.True(Cursor.visible);
             Press(panel, KeyCode.F8);
-            Assert.True(root.Destroyed);
-            Assert.True(ownedMaterial.Destroyed);
+            Assert.False(root.activeInHierarchy);
+            Assert.False(root.Destroyed);
+            Assert.False(ownedMaterial.Destroyed);
             Assert.False(NativeHeaderTitleTypographyResolver.Typography.Material.Destroyed);
-            Assert.Equal(0, tabButton.onClick.ListenerCount);
-            Assert.Equal(baselineObjects, GameObject.Live.Count);
+            Assert.Equal(1, tabButton.onClick.ListenerCount);
+            Assert.Equal(retainedObjects - 1, GameObject.Live.Count); // The input-block owner is released on close.
             Assert.Equal(0, UIInputManager.CancelListeners);
             Assert.Empty(InputManager.Blocks);
             Assert.Same(priorFocus, GameManager.EventSystem.currentSelectedGameObject);
             Assert.False(Cursor.visible);
             Assert.Equal(CursorLockMode.Locked, Cursor.lockState);
+            var measured = TextMeshProUGUI.Measurements;
+            Tick(panel, 400);
+            Assert.Equal(measured, TextMeshProUGUI.Measurements);
+            if (cycle < 24)
+            {
+                Press(panel, KeyCode.F8);
+                Assert.Same(root, Find(RetainedDimmerPolicy.RootName));
+                Assert.Same(overview, Find("OverviewSummaryScroll"));
+            }
         }
-        var measured = TextMeshProUGUI.Measurements;
-        for (var tick = 0; tick < 10_000; tick++) panel.Tick();
-        Assert.Equal(measured, TextMeshProUGUI.Measurements);
         panel.Dispose();
+        Assert.True(root.Destroyed);
+        Assert.True(ownedMaterial.Destroyed);
+        Assert.Equal(0, tabButton.onClick.ListenerCount);
+        Assert.Equal(baselineObjects, GameObject.Live.Count);
         Assert.Equal(0, coordinator.ProfileListeners);
         Assert.Equal(0, MainMenu.Listeners);
         Assert.Equal(0, PauseMenu.Listeners);
@@ -358,7 +374,7 @@ public sealed partial class ShellAccessTests : IDisposable
         Press(panel, KeyCode.F8);
         AssertWorldTimeFits();
         ((RectTransform)canvas.transform).sizeDelta = new Vector2(960, 540);
-        panel.Tick();
+        Tick(panel);
         AssertWorldTimeFits();
 
         void AssertWorldTimeFits()
@@ -389,10 +405,10 @@ public sealed partial class ShellAccessTests : IDisposable
         Open(panel, PanelAccessSurface.MainMenu);
         var root = Find(RetainedDimmerPolicy.RootName);
         NativeRaidContext.InRaid = true;
-        panel.Tick();
-        Assert.True(root.Destroyed);
+        Tick(panel);
+        Assert.False(root.activeInHierarchy);
         Press(panel, KeyCode.F8);
-        Assert.DoesNotContain(GameObject.Live, go => go.name == RetainedDimmerPolicy.RootName);
+        Assert.False(root.activeInHierarchy);
         Assert.Empty(InputManager.Blocks);
     }
 
@@ -417,7 +433,7 @@ public sealed partial class ShellAccessTests : IDisposable
         for (var cycle = 0; cycle < 3; cycle++)
         {
             PauseMenu.Hide();
-            Assert.True(firstRoot.Destroyed);
+            Assert.False(firstRoot.activeInHierarchy);
             PauseMenu.Show();
             injected.onClick.Invoke();
             var root = Find(RetainedDimmerPolicy.RootName);
@@ -425,7 +441,7 @@ public sealed partial class ShellAccessTests : IDisposable
             Assert.True(root.activeInHierarchy);
             Assert.Single(InputManager.Blocks);
             Press(panel, KeyCode.Escape);
-            Assert.True(root.Destroyed);
+            Assert.False(root.activeInHierarchy);
             Assert.Empty(InputManager.Blocks);
         }
         Assert.DoesNotContain(coordinator.Reports, report => report.Contains("unavailable", StringComparison.OrdinalIgnoreCase));
@@ -464,10 +480,10 @@ public sealed partial class ShellAccessTests : IDisposable
         string Writes() => Assert.Single(Snapshot().Systems.Single(s => s.Id == "storage").ExtraRows).Value;
         Assert.Equal("Pending", Writes());
         coordinator.HasProfilePersistenceFailure = true;
-        panel.Tick();
+        Tick(panel);
         Assert.Equal("Error", Writes());
         coordinator.HasProfilePersistenceFailure = false;
-        panel.Tick();
+        Tick(panel);
         Assert.Equal("Pending", Writes());
     }
 
@@ -522,7 +538,7 @@ public sealed partial class ShellAccessTests : IDisposable
         Assert.True(Find(RetainedDimmerPolicy.RootName).activeInHierarchy);
         Assert.False(Field<bool>(panel, "capturingHotkey"));
         Assert.True(Field<PanelOperationController>(panel, "operations").RequestResetConfirmation());
-        panel.Tick();
+        Tick(panel);
         native.Dispatch("OnUIInventoryInput");
         Assert.Equal(0, native.Calls);
         Press(panel, KeyCode.Escape);
@@ -546,7 +562,7 @@ public sealed partial class ShellAccessTests : IDisposable
         Assert.Equal(1, native.Calls);
         Press(panel, KeyCode.F8);
         UnityEngine.Object.Destroy(Find(RetainedDimmerPolicy.RootName));
-        panel.Tick();
+        Tick(panel);
         native.Dispatch("OnUIInventoryInput");
         Assert.Equal(2, native.Calls);
         Assert.Empty(InputManager.Blocks);
@@ -562,7 +578,7 @@ public sealed partial class ShellAccessTests : IDisposable
         {
             using var panel = new NativeStatisticsPanel(coordinator);
             Press(panel, KeyCode.F8);
-            Find("DiagnosticsTab").GetComponent<Button>().onClick.Invoke();
+            Find("DiagnosticsTab").GetComponent<Button>().onClick.Invoke(); Tick(panel);
             Assert.True(Find("DiagnosticsView").activeInHierarchy);
             Assert.Equal(NativeMenuIntegrationState.Unavailable, Field<NativePanelShortcutGuard>(panel, "shortcutGuard").State);
             var menu = Field<DiagnosticsPresentation>(panel, "diagnostics").Systems.Single(s => s.Id == "menu");
@@ -572,7 +588,7 @@ public sealed partial class ShellAccessTests : IDisposable
             Assert.True(runtime.HarmonyLoaded);
             Assert.Equal("Limited", menu.Status); // A foreign patch is not a missing dependency.
             Assert.Contains(menu.ExtraRows, row => row.Label.Contains("reload", StringComparison.Ordinal) && row.Value == "Unavailable");
-            for (var tick = 0; tick < 100; tick++) panel.Tick();
+            for (var tick = 0; tick < 100; tick++) Tick(panel);
             Assert.Single(coordinator.Reports, report => report.Contains("shortcut isolation unavailable", StringComparison.Ordinal));
             panel.Dispose();
             Assert.Equal("fixture.foreign.shortcuts", Assert.Single(HarmonyLib.Harmony.GetPatchInfo(method)!.Prefixes).owner);
@@ -589,7 +605,7 @@ public sealed partial class ShellAccessTests : IDisposable
         {
             Press(panel, KeyCode.F8);
             new HarmonyLib.Harmony("fixture.remove").UnpatchAll("at.bamboechop.ultimate-duckov-statistics.panel-shortcuts");
-            panel.Tick();
+            Tick(panel);
             Assert.Equal(NativeMenuIntegrationState.Unavailable, Field<NativePanelShortcutGuard>(panel, "shortcutGuard").State);
             Assert.Contains(coordinator.Reports, report => report.Contains("patch state changed", StringComparison.Ordinal));
         }
@@ -609,7 +625,7 @@ public sealed partial class ShellAccessTests : IDisposable
     }
 
     private static bool ForeignShortcut() => true;
-    private static T Field<T>(NativeStatisticsPanel panel, string name) => (T)typeof(NativeStatisticsPanel)
+    private static T Field<T>(object panel, string name) => (T)panel.GetType()
         .GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(panel)!;
 
     private static void PreparePauseMenu(Canvas host)
@@ -627,12 +643,25 @@ public sealed partial class ShellAccessTests : IDisposable
         if (surface == PanelAccessSurface.Hotkey) Press(panel, KeyCode.F8);
         else typeof(NativeStatisticsPanel).GetMethod("RequestOpen", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
                 .Invoke(panel, new object[] { surface });
+        Tick(panel);
     }
     private static void Press(NativeStatisticsPanel panel, KeyCode key)
     {
         Input.Down.Add(key);
-        try { panel.Tick(); }
-        finally { Input.Down.Clear(); Time.frameCount++; }
+        try { Frame(panel); }
+        finally { Input.Down.Clear(); }
+        Tick(panel);
+    }
+    // Frame boundaries matter: opening, projection and binding deliberately run separately.
+    private static void Frame(NativeStatisticsPanel panel)
+    {
+        Time.frameCount++;
+        Time.unscaledTime += .02f;
+        panel.Tick();
+    }
+    private static void Tick(NativeStatisticsPanel panel, int frames = 3)
+    {
+        for (var frame = 0; frame < frames; frame++) Frame(panel);
     }
     public void Dispose()
     {

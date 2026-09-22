@@ -23,7 +23,13 @@ namespace UnityEngine
     public enum HideFlags { None, DontSave, HideAndDontSave }
     public class Component : Object
     {
-        public GameObject gameObject = null!;
+        internal static bool RejectDestroyedAccess;
+        private GameObject owner = null!;
+        public GameObject gameObject
+        {
+            get => RejectDestroyedAccess && Destroyed ? throw new InvalidOperationException("Native component was destroyed.") : owner;
+            set => owner = value;
+        }
         public Transform transform => gameObject.transform;
         public T GetComponent<T>() where T : class => gameObject.GetComponent<T>();
         public T[] GetComponents<T>() where T : class => gameObject.GetComponents<T>();
@@ -43,12 +49,13 @@ namespace UnityEngine
     public class GameObject : Object
     {
         public static readonly List<GameObject> Live = new();
+        public static string? FailCreationOf;
         private readonly List<Component> components = new();
         public bool activeSelf = true;
         public bool activeInHierarchy => !Destroyed && activeSelf && (transform.parent?.gameObject.activeInHierarchy ?? true);
         public Transform transform { get; }
         public UnityEngine.SceneManagement.Scene scene => new();
-        public GameObject(string name, params Type[] types) { this.name = name; transform = new RectTransform { gameObject = this }; components.Add(transform); Live.Add(this); foreach (var type in types) if (type != typeof(RectTransform)) AddComponent(type); }
+        public GameObject(string name, params Type[] types) { if (name == FailCreationOf) throw new InvalidOperationException("Native object creation failed."); this.name = name; transform = new RectTransform { gameObject = this }; components.Add(transform); Live.Add(this); foreach (var type in types) if (type != typeof(RectTransform)) AddComponent(type); }
         public void SetActive(bool value) { activeSelf = value; NotifyTextActivation(); }
         internal void NotifyTextActivation()
         {
@@ -78,7 +85,7 @@ namespace UnityEngine
             return clone;
         }
         public T[] GetComponentsInChildren<T>(bool includeInactive = false) where T : class => components.OfType<T>().Concat(transform.Children.Where(t => includeInactive || t.gameObject.activeInHierarchy).SelectMany(t => t.gameObject.GetComponentsInChildren<T>(includeInactive))).ToArray();
-        internal void DestroyTree() { activeSelf = false; foreach (var child in transform.Children.ToArray()) Destroy(child.gameObject); foreach (var component in components) component.Destroyed = true; transform.SetParent(null); Live.Remove(this); }
+        internal void DestroyTree() { activeSelf = false; foreach (var child in transform.Children.ToArray()) Destroy(child.gameObject); transform.SetParent(null); foreach (var component in components) component.Destroyed = true; Live.Remove(this); }
     }
     public class Transform : Component
     {
@@ -135,7 +142,7 @@ namespace UnityEngine
     public static class Input { public static readonly HashSet<KeyCode> Down = new(); public static bool GetKeyDown(KeyCode key) => Down.Contains(key); public static bool GetKey(KeyCode key) => Down.Contains(key); public static bool anyKeyDown => Down.Count > 0; }
     public enum CursorLockMode { None, Locked, Confined }
     public static class Cursor { public static bool visible; public static CursorLockMode lockState; }
-    public static class Time { public static int frameCount; }
+    public static class Time { public static int frameCount; public static float unscaledTime; }
     public static class GUIUtility { public static string systemCopyBuffer = ""; }
 }
 namespace UnityEngine.Events
@@ -184,7 +191,7 @@ namespace TMPro
     using UnityEngine;
     public enum FontWeight { Regular, Bold }
     public enum FontStyles { Normal, Bold, Italic }
-    public enum TextAlignmentOptions { Left, Center, Right, TopLeft, Top, TopRight, MidlineLeft, Midline, BottomLeft }
+    public enum TextAlignmentOptions { Left, Center, Right, TopLeft, Top, TopRight, MidlineLeft, Midline, BottomLeft, BottomRight }
     public enum TextOverflowModes { Overflow, Ellipsis, Truncate, Masking, ScrollRect }
     public class TMP_FontAsset : Object { public bool HasCharacter(char c, bool searchFallbacks = false, bool tryAddCharacter = false) => true; public bool HasCharacter(uint c, bool searchFallbacks = false, bool tryAddCharacter = false) => true; }
     public class TextMeshProUGUI : UnityEngine.UI.Graphic

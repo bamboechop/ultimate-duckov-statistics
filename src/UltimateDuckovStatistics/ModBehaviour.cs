@@ -453,6 +453,9 @@ public sealed class ModBehaviour : Duckov.Modding.ModBehaviour
 
     private void OnApplicationQuit()
     {
+        // Release retained views while their native canvas still exists.
+        statisticsPanel?.Dispose();
+        statisticsPanel = null;
         encounterCapture?.Dispose();
         encounterCapture = null;
         DrainPendingProfileTransitions("application quit");

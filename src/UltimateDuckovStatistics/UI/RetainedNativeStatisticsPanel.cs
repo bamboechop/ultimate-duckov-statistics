@@ -34,6 +34,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
     private InputManager? blockedInputManager;
     private string presentedGeneration = string.Empty;
     private bool projectionDirty;
+    private int openAfterFrame;
+    private float nextProjectionRefresh;
     private StatisticsPanelProjection? presentedProjection;
     private DiagnosticsPresentation? diagnostics;
     private long presentedRevision = -1, diagnosticsRevision = -1;
@@ -82,6 +84,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         if (lifecycle.IsOpen && !shell.IsUsable)
         {
             Close();
+            shell.Dispose();
             return;
         }
         if (lifecycle.IsOpen && NativeRaidContext.IsRaidMap())
@@ -91,7 +94,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return;
         }
 
-        if (lifecycle.IsOpen && !coordinator.HasPendingProfileTransition
+        if (lifecycle.IsOpen && Time.frameCount > openAfterFrame && !coordinator.HasPendingProfileTransition
             && StatisticsPanelProjectionFactory.HasProvableGeneration(coordinator.Current, coordinator.CurrentGenerationId))
         {
             try
@@ -112,7 +115,8 @@ internal sealed class NativeStatisticsPanel : IDisposable
             }
         }
 
-        if (lifecycle.IsOpen && !coordinator.HasPendingProfileTransition
+        if (lifecycle.IsOpen && Time.frameCount > openAfterFrame && !coordinator.HasPendingProfileTransition
+            && (projectionDirty || Time.unscaledTime >= nextProjectionRefresh)
             && (projectionDirty || presentedGeneration != coordinator.CurrentGenerationId || presentedRevision != coordinator.Current?.Revision))
         {
             var current = coordinator.Current;
@@ -144,6 +148,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
             presentedGeneration = generation;
             presentedRevision = current!.Revision;
             projectionDirty = false;
+            nextProjectionRefresh = Time.unscaledTime + .25f;
         }
 
         if (lifecycle.IsOpen)
@@ -249,29 +254,18 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return false;
         }
 
-        StatisticsPanelProjection projection;
-        try
+        var reuse = shell.CanReuse(canvas, coordinator.CurrentGenerationId);
+        if (!reuse)
         {
-#if UDS_PERFORMANCE_DIAGNOSTICS
-            using var projectionTiming = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelOpenProjection);
-#endif
+            shell.Dispose();
             entityNames.Invalidate();
-            projection = StatisticsPanelProjectionFactory.Create(
-                profile!,
-                coordinator.CurrentEconomyCapabilities,
-                coordinator.CurrentCraftingCapabilities,
-                coordinator.CurrentWorldTimeCapabilities,
-                entityNames.Names);
-            killDistances.RetryFailed();
-            killDistances.Refresh(profile!);
-            BindKillDistances(projection);
+            presentedProjection = null;
+            presentedRevision = -1;
+            projectionDirty = true;
         }
-        catch (Exception exception)
-        {
-            ReportShellFailure(surface, $"statistics projection failed: {exception.GetType().Name}: {exception.Message}");
-            return false;
-        }
-
+        openAfterFrame = Time.frameCount;
+        nextProjectionRefresh = 0;
+        killDistances.RetryFailed();
         CaptureFocusAndCursor();
         if (!lifecycle.TryOpen())
         {
@@ -279,11 +273,21 @@ internal sealed class NativeStatisticsPanel : IDisposable
             return false;
         }
 
-        if (!shell.TryCreate(
+        if (reuse)
+        {
+            try { shell.Show(interaction.SelectedTab); }
+            catch (Exception exception)
+            {
+                Close(); shell.Dispose();
+                ReportShellFailure(surface, $"cached shell activation failed: {exception.Message}");
+                return false;
+            }
+        }
+        else if (!shell.TryCreate(
                 canvas,
-                projection,
+                new StatisticsPanelProjection { Profile = profile!, Names = entityNames.Names },
                 interaction.SelectedTab,
-                DiagnosticsPresentationFactory.Create(projection, coordinator.CurrentGenerationId, CaptureDiagnosticsRuntime()),
+                null,
                 operations,
                 BeginHotkeyCapture,
                 CancelHotkeyCapture,
@@ -300,11 +304,7 @@ internal sealed class NativeStatisticsPanel : IDisposable
         }
         openSurface = surface;
         presentedGeneration = coordinator.CurrentGenerationId;
-        presentedProjection = projection;
-        presentedRevision = profile!.Revision;
         diagnosticsRevision = -1;
-        RefreshDiagnostics(force: true);
-        projectionDirty = false;
         return true;
     }
 
@@ -323,7 +323,13 @@ internal sealed class NativeStatisticsPanel : IDisposable
         operations.DismissExportResult();
         operations.CancelConfirmation(); capturingHotkey = false;
         projectionDirty = true;
-        if (lifecycle.IsOpen) shell.InvalidateProjection();
+        // A cached view must never show a previous save/reset generation.
+        Close();
+        shell.Dispose();
+        presentedProjection = null;
+        presentedGeneration = string.Empty;
+        presentedRevision = -1;
+        entityNames.Invalidate();
     }
 
     private void HandleProfileChanged() => projectionDirty = true;
@@ -474,6 +480,11 @@ internal sealed class NativeStatisticsPanel : IDisposable
 
     private void ReportShellFailure(PanelAccessSurface surface, string detail)
     {
+        // A failed construction/bind is not a reusable cached view.
+        shell.Dispose();
+        presentedProjection = null;
+        presentedRevision = -1;
+        projectionDirty = true;
         coordinator.ReportUiDiagnostic(
             $"M17 retained-mode {surface} shell was unavailable: {detail}.",
             "Warning");
@@ -496,10 +507,9 @@ internal sealed class NativeStatisticsPanel : IDisposable
         using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelClose);
 #endif
         operations.CancelConfirmation(); capturingHotkey = false;
-        shell.Dispose();
+        shell.Hide();
         openSurface = null;
-        presentedGeneration = string.Empty;
-        presentedProjection = null; diagnostics = null; diagnosticsRevision = -1; presentedRevision = -1;
+        diagnostics = null; diagnosticsRevision = -1;
         RestoreFocusAndCursor();
     }
 

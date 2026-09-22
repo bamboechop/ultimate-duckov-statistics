@@ -25,19 +25,19 @@ public sealed partial class ShellAccessTests
                     FinalSource = new() { Credit = EncounterCredit.Player }, PlayerPosition = new(), EnemyPosition = new() { X = 35.29f } } }
         };
         using var panel = new NativeStatisticsPanel(coordinator);
-        for (var i = 0; i < 10; i++) panel.Tick();
+        for (var i = 0; i < 10; i++) Tick(panel);
         var query = Field<KillDistanceHighlightsQuery>(panel, "killDistances");
         Assert.False(query.Loading); Assert.Null(query.Value);
         Press(panel, KeyCode.F8);
         var longest = Find("OverviewLongestKillDistanceValue");
         var latest = Find(RetainedOverviewLatestRunCardPolicy.Name);
-        for (var i = 0; query.Loading && i < 500; i++) { Thread.Sleep(10); panel.Tick(); }
+        for (var i = 0; query.Loading && i < 500; i++) { Thread.Sleep(10); Tick(panel); }
         Assert.False(query.Loading); Assert.False(query.Failed);
         Assert.Same(longest, Find("OverviewLongestKillDistanceValue"));
         Assert.Same(latest, Find(RetainedOverviewLatestRunCardPolicy.Name));
         Assert.Equal(35.29d.ToString("0.00", System.Globalization.CultureInfo.CurrentCulture) + " m", longest.GetComponent<TextMeshProUGUI>().text);
         var measurements = TextMeshProUGUI.Measurements;
-        for (var i = 0; i < 10; i++) panel.Tick();
+        for (var i = 0; i < 10; i++) Tick(panel);
         Assert.Equal(measurements, TextMeshProUGUI.Measurements);
     }
 
@@ -64,7 +64,7 @@ public sealed partial class ShellAccessTests
         Press(panel, KeyCode.F8);
         foreach (var language in new[] { SystemLanguage.English, SystemLanguage.German, SystemLanguage.English })
         {
-            SodaCraft.Localizations.LocalizationManager.SetLanguage(language); panel.Tick();
+            SodaCraft.Localizations.LocalizationManager.SetLanguage(language); Tick(panel);
             var scale = width / 2560f;
             foreach (var spec in RetainedProfileSummaryRowsPolicy.Specifications)
                 CheckRow(spec.LabelName, spec.ValueName, scale, width < 1100);
@@ -94,10 +94,10 @@ public sealed partial class ShellAccessTests
                 Assert.True(map.rectTransform.rect.height >= map.GetPreferredValues(map.rectTransform.rect.width, float.PositiveInfinity).y);
             }
             var measurements = TextMeshProUGUI.Measurements;
-            for (var i = 0; i < 10; i++) panel.Tick();
+            for (var i = 0; i < 10; i++) Tick(panel);
             Assert.Equal(measurements, TextMeshProUGUI.Measurements);
         }
-        ((RectTransform)canvas.transform).sizeDelta = new Vector2(960, 540); panel.Tick();
+        ((RectTransform)canvas.transform).sizeDelta = new Vector2(960, 540); Tick(panel);
         CheckRow("OverviewFastestExtractionLabel", "OverviewFastestExtractionValue", 960f / 2560, true);
         Assert.Equal(original, System.Text.Json.JsonSerializer.Serialize(coordinator.Current));
     }
@@ -142,7 +142,7 @@ public sealed partial class ShellAccessTests
                     Totals = new AggregateTotals { ActivationCount = 5 } } }
             }
         };
-        shell.RefreshProjection(projection, coordinator.CurrentGenerationId);
+        shell.RefreshProjection(projection, coordinator.CurrentGenerationId); Tick(panel);
         var spec = RetainedOverviewHighlightsRowsPolicy.Specifications.Single(value => value.Metric == OverviewHighlightMetric.MostUsedConsumable);
         CheckRow(spec.LabelName, spec.ValueName, 1, false);
         Assert.StartsWith(longName, Find(spec.ValueName).GetComponent<TextMeshProUGUI>().text);
@@ -155,7 +155,7 @@ public sealed partial class ShellAccessTests
         right.GetComponent<RunsFocusHandler>().Move!(MoveDirection.Down);
         var offset = right.content.anchoredPosition.y;
         Assert.True(offset > 0);
-        shell.RefreshProjection(projection, coordinator.CurrentGenerationId);
+        shell.RefreshProjection(projection, coordinator.CurrentGenerationId); Tick(panel);
         right = Find("OverviewHighlightsScroll").GetComponent<ScrollRect>();
         Assert.Equal(offset, right.content.anchoredPosition.y);
         Assert.Same(right.gameObject, GameManager.EventSystem.currentSelectedGameObject);
@@ -184,7 +184,7 @@ public sealed partial class ShellAccessTests
         Assert.True(-scroll.content.anchoredPosition.x <= next.anchoredPosition.x);
         Assert.True(-scroll.content.anchoredPosition.x + scroll.viewport.rect.width >= next.anchoredPosition.x + next.rect.width - .01f);
         var prior = scroll.content.anchoredPosition.x;
-        shell.RefreshProjection(new StatisticsPanelProjection { Profile = coordinator.Current }, coordinator.CurrentGenerationId);
+        shell.RefreshProjection(new StatisticsPanelProjection { Profile = coordinator.Current }, coordinator.CurrentGenerationId); Tick(panel);
         Assert.Equal(prior, scroll.content.anchoredPosition.x);
         var wheel = new PointerEventData { scrollDelta = new Vector2(0, -1) };
         right.GetComponent<RetainedTabWheelForwarder>().OnScroll(wheel);
@@ -208,20 +208,23 @@ public sealed partial class ShellAccessTests
         GameManager.EventSystem!.SetSelectedGameObject(tabRects[^1].gameObject);
         Assert.True(scroll.content.anchoredPosition.x < 0);
         Assert.Equal(StatisticsPanelTab.Overview, shell.SelectedTab);
-        ((RectTransform)canvas.transform).sizeDelta = new Vector2(1280, 720); panel.Tick();
+        ((RectTransform)canvas.transform).sizeDelta = new Vector2(1280, 720); Tick(panel);
         Assert.InRange(-scroll.content.anchoredPosition.x, 0, scroll.content.rect.width - scroll.viewport.rect.width);
         var layout = (RetainedVisualCanvasLayout)typeof(RetainedStatisticsShell).GetField("lastAppliedVisualLayout", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(shell)!;
         var viewport = scroll.viewport;
         Assert.Equal(viewport.anchoredPosition.x - layout.Header.Left,
             layout.Header.Left + layout.Header.Width - viewport.anchoredPosition.x - viewport.rect.width, 3);
         Assert.Equal(layout.HeaderBottomBar.Top, -viewport.anchoredPosition.y + viewport.rect.height, 3);
-        longTabs = false; shell.RefreshStaticText(); panel.Tick();
+        longTabs = false; shell.RefreshStaticText(); Tick(panel);
         Assert.False(left.gameObject.activeSelf); Assert.False(right.gameObject.activeSelf);
         Assert.Equal(0, scroll.content.anchoredPosition.x);
         Press(panel, KeyCode.Escape);
-        Assert.Equal(0, left.onClick.ListenerCount); Assert.Equal(0, right.onClick.ListenerCount);
-        Assert.Null(scroll.ScrollBy);
+        Assert.Equal(1, left.onClick.ListenerCount); Assert.Equal(1, right.onClick.ListenerCount);
+        Assert.NotNull(scroll.ScrollBy);
         Press(panel, KeyCode.F8);
         Assert.Equal(0, Find("HorizontalTabs").GetComponent<RectTransform>().anchoredPosition.x);
+        panel.Dispose();
+        Assert.Equal(0, left.onClick.ListenerCount); Assert.Equal(0, right.onClick.ListenerCount);
+        Assert.Null(scroll.ScrollBy);
     }
 }

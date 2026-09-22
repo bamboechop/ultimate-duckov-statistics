@@ -1,0 +1,50 @@
+# Retained UI responsiveness experiment
+
+This experiment separates opening the UDS shell from preparing and displaying its statistics. It targets the first-open hitch and repeated open/close work. Native responsiveness and visual acceptance must be measured in game; automated lifecycle tests alone do not establish a frame-time improvement.
+
+## Behavior
+
+- The first open builds the header, navigation and the selected view's empty containers. Statistics projection waits until a subsequent frame; the selected view is bound on a later frame so the layout has an opportunity to render first. These are the actual view containers, which are reused when their data arrives.
+- Loading/refreshing text stays hidden for the first 250 ms of pending work, then appears inside the selected containers. Fast transitions show their content directly; cached content stays visible during refreshes. Selecting another tab or reopening starts a fresh delay, and completion hides the message immediately. Initial containers do not claim empty or unavailable data while awaiting a snapshot.
+- Each statistics tab's frame is constructed and laid out on first selection, with data binding deferred. Later selections reuse it. Only the selected tab binds, lays out and ticks; unvisited tabs are not constructed. About has static content and displays it immediately. Data-dependent sections and true empty states are resolved when their snapshot arrives.
+- Closing hides the owned hierarchy and releases native input, shortcut, cursor and focus ownership. The cached views remain available for another open on the same native canvas and UDS generation.
+- Reopening shows the cached view immediately. Profile revisions and language changes invalidate the data. Changed revisions are coalesced at a maximum of four projection refreshes per second while open; a newly opened panel checks immediately after its opening frame.
+- A profile transition closes and disposes the cache. A different native canvas, an externally destroyed hierarchy, or a failed construction/bind also causes rebuilding. No cached data is reused across generations. Application quit releases the panel before Unity destroys the native canvas; disposal also tolerates components that Unity has already destroyed.
+- Language changes refresh owned captions before affected layout measurement. Deferred work does not construct or measure hidden views after close.
+
+## Scope and tradeoffs
+
+Unity object construction, layout, native metadata access and the aggregate projection remain on the main thread. Existing safe background readers for encounter history and kill-distance highlights remain in use. This is not a claim that all data preparation is asynchronous or that first-open work can no longer cause a hitch.
+
+Retained views consume memory until their host/generation changes or the mod unloads. Unchanged reopening reuses Overview as well; a changed Overview projection still rebuilds its data subtree while preserving both outer panels. If measurements identify that rebuild or aggregate projection as the remaining bottleneck, they need separate work rather than merely another delay.
+
+The opt-in performance build adds `PanelViewBind` alongside shell creation, opening, projection, layout, close, and open/closed Update timings. It does not change the profile schema or published version and must not be published as a release.
+
+## Automated validation
+
+On September 22, 2026, local Debug and Release validation passed 2,481 main tests and 107 ordinary shell tests per configuration. The combined diagnostic shell variant passed 109 tests in each configuration. Ordinary native Debug/Release and the performance diagnostic Release build completed without warnings or errors; the native contract probe and ordinary package audits passed. The shell checks include staged first paint, lazy tab construction, repeated reopen identity, hidden inactivity, profile/canvas invalidation and localization. The test-build package and receipts are under the ignored `artifacts/retained-ui-responsiveness/20260922-first-trial/` directory. These results do not assert native performance acceptance.
+
+The first native recording exposed disposal after Unity had destroyed a cached Records hierarchy. The correction releases the panel during application quit and guards native access during disposal of already-destroyed view components. Two additional shell cases exercise open and closed caches with a boundary that rejects destroyed-component access. Debug/Release passed 2,481 main and 109 ordinary shell tests each; combined diagnostic shell tests passed 111 each. The native builds, probe and package audits also passed. The follow-up evidence is under `artifacts/retained-ui-responsiveness/slot1-investigation/`; the later native recordings below confirmed clean shutdown.
+
+The subsequent September 22 recording used the restored seven-run profile, which survived restart and closed cleanly. During the 60.23-second capture, three opens created one shell; their combined opening scope took 63.18 ms (50.75 ms maximum), and 1,275 closed-panel ticks took 0.38 ms combined. First projection preparation took 143.65 ms and Overview construction took 369.52 ms. These inclusive scopes do not measure whole-frame rendering and must not be added together. The user reported that the data returned and everything felt smooth, but disliked the brief loading-message flash. The 250 ms indicator delay addresses that feedback; it does not remove the measured first-use work. Evidence is under `artifacts/retained-ui-responsiveness/20260922-restored-trial/`.
+
+The indicator correction passed 2,481 main tests, 110 ordinary shell tests and 112 combined diagnostic shell tests in each of Debug and Release. The native contract probe, ordinary Release package audits and performance diagnostic build passed. The shell cases cover quick completion, delayed visibility and resetting the delay on selection/reopen; the subsequent user feedback and visual corrections are recorded below.
+
+The user found the delayed indicator better, but noticed the containers appearing only when binding completed. The follow-up constructs the selected view's containers first and retains them across binding, including Overview refreshes. Debug/Release validation passed 2,481 main tests, with the final shell checks passing 116 ordinary and 118 combined diagnostic cases per configuration. These cover initial containers, no premature empty/unavailable claims, delayed labels inside panels, background identity across refresh/reopen/resize, unchanged-reopen measurement reuse, and native construction failure cleanup/retry. Native Debug/Release builds, the contract probe, package audits and diagnostic build passed. Build evidence is under `artifacts/retained-ui-responsiveness/20260922-persistent-frames/`.
+
+The follow-up native recording on September 22 covered 32.46 seconds at the main menu. Two opens created one shell; the opening scopes took 49.63 ms and 7.22 ms, and 764 closed-panel ticks took 0.22 ms combined. Projection preparation took 150.01 ms and Overview content binding took 344.41 ms. These remain synchronous first-use costs; the container change does not establish a material reduction in them. The profile reopened without rotation, the log contained no UDS errors, and shutdown closed the generation cleanly. The user confirmed that the background flash was gone and reported no noticeable stalls. The archived log, installed-binary hash readback and timing analysis are under `artifacts/retained-ui-responsiveness/20260922-persistent-frames-trial/`. Gameplay refreshes and save transitions were not exercised by this capture.
+
+Subsequent visual inspection identified two initial-state artifacts: Records' View run controls briefly flashed brightly, and unsized inner scroll regions displayed small rounded outlines during deferred binding. The shared interaction overlay now starts with a transparent renderer tint, with its palette configured before ColorTint transitions are enabled. This follows the installed Unity UI contract: property changes start a tween from the renderer's current color. Scroll-edge indicators start disabled and become eligible only after their region has been laid out. Normal hover, keyboard selection and measured overflow cues remain in use. The user confirmed both visual corrections fixed on September 22, 2026; HDR screenshot exposure is unrelated.
+
+The final corrected source passed 2,481 main tests and 116 ordinary shell tests in each of Debug and Release, the installed-native contract probe, native Release compilation, ordinary package audits and the performance diagnostic build. The deployed diagnostic package was read back by hash before the user's visual check. Evidence is under `artifacts/retained-ui-responsiveness/20260922-initial-state/`. Automated checks, user-confirmed appearance and diagnostic measurements are separate forms of evidence; they do not establish a general absence of frame-time spikes.
+
+## Native comparison
+
+1. Launch Duckov freshly, reach the main menu and press F9 before opening UDS. The selected save is already loaded at the main menu.
+2. Open UDS once, wait for its values, then close and reopen it several times. Compare first open with repeated opens.
+3. Visit every tab, then revisit Runs, Combat and Equipment. Open a run's map and encounter details, close UDS and reopen it.
+4. Switch English/German and check both an already visited tab and one first visited after the language change.
+5. Close UDS and leave the main menu idle briefly; confirm its normal FPS returns. Press F10 to write the timing summary.
+6. Enter the base, start another F9 recording, open/close UDS there, sell or craft a small amount, then reopen and check updated values. Finish with F10 and close the game.
+
+Keep the previous installed package backup for rollback. Compare shell creation counts, first/repeated open maxima, view binding/layout maxima and closed-panel work separately. Overall native rendering and allocations outside the instrumented scopes still require the user's observation or an external frame-time capture.

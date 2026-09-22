@@ -38,6 +38,9 @@ internal sealed partial class RetainedStatisticsShell
         private float width, height;
         private bool dirty = true, disposed;
 
+        private bool awaitingData = true;
+        public RectTransform[] LoadingContainers => new[] { overall };
+
         public RecordsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action<string, string> route, Action focusTabs)
         {
             this.typography = typography; this.material = material; this.route = route; this.focusTabs = focusTabs;
@@ -61,6 +64,8 @@ internal sealed partial class RetainedStatisticsShell
             mapsHeading = Text(maps, "Heading", 46.3f, UiText.Get("ui.records_per_map"));
             unavailable = Text(root, "Unavailable", 30, UiText.Get("ui.profile_unavailable"));
             noMaps = Text(maps, "NoMaps", 20, UiText.Get("ui.records_no_maps"));
+            unavailable.gameObject.SetActive(false); noMaps.gameObject.SetActive(false);
+            overallHeading.gameObject.SetActive(false); maps.gameObject.SetActive(false);
         }
 
         public void Refresh(RecordsPresentation? next)
@@ -70,12 +75,14 @@ internal sealed partial class RetainedStatisticsShell
             unavailable.text = UiText.Get("ui.profile_unavailable");
             noMaps.text = UiText.Get("ui.records_no_maps");
             scroll.Capture(page.Offset); scroll.Refresh(next?.GenerationId);
+            awaitingData = false;
             snapshot = next;
             if (next != null) page.SetOffset(scroll.Offset);
             // Invalidation hides the whole old document immediately, including its controls.
             page.Rect.gameObject.SetActive(next != null); unavailable.gameObject.SetActive(next == null);
             if (next != null)
             {
+                overallHeading.gameObject.SetActive(true);
                 Bind(overallCards, overall, next.Overall, true);
                 Bind(mapCards, maps, next.Maps, false);
                 noMaps.gameObject.SetActive(next.Maps.Count == 0);
@@ -132,7 +139,8 @@ internal sealed partial class RetainedStatisticsShell
         }
         private static void Release(Card card)
         {
-            card.Dispose(); card.Root.gameObject.SetActive(false); UnityEngine.Object.Destroy(card.Root.gameObject);
+            card.Dispose();
+            if (card.Root != null) { card.Root.gameObject.SetActive(false); UnityEngine.Object.Destroy(card.Root.gameObject); }
         }
         public void SetVisible(bool visible)
         {
@@ -163,7 +171,13 @@ internal sealed partial class RetainedStatisticsShell
             root.localScale = new Vector3(scale, scale, 1); Place(root, shell.Header.Left, top, w, h);
             if (w != width || h != height) { scroll.Capture(page.Offset); width = w; height = h; dirty = true; }
             if (!dirty || !root.gameObject.activeInHierarchy) return;
-            dirty = false; Put(unavailable, 30, 30, width - 60);
+            dirty = false;
+            if (awaitingData)
+            {
+                Place(overall, 0, 0, width, height); page.Size(0, 0, width, height, height);
+                return;
+            }
+            Put(unavailable, 30, 30, width - 60);
             if (snapshot == null) return;
             var overallHeight = Section(overall, overallHeading, overallCards, 0);
             var mapHeight = snapshot.ShowMaps ? Section(maps, mapsHeading, mapCards, overallHeight + RecordsLayoutPolicy.SectionGap) : 0;

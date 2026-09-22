@@ -29,6 +29,15 @@ internal sealed partial class RetainedStatisticsShell
         private float width, height, pixels;
         private bool dirty = true, disposed;
 
+        private bool awaitingData = true;
+        public RectTransform[] LoadingContainers => new[] { left.LoadingContainer, right.LoadingContainer };
+        private void LayoutLoading()
+        {
+            var column = ItemUseLayoutPolicy.ColumnWidth(width, CombatLayoutPolicy.Stack(pixels));
+            LayoutPendingColumns(outer, left.Panel, right.Panel, width, height,
+                CombatLayoutPolicy.Stack(pixels), column, column);
+            left.PrepareLoading(); right.PrepareLoading();
+        }
         public ItemUseView(RectTransform parent, NativeHeaderTitleTypography typography, Material material,
             Action<string, string> route, Action focusTabs)
         {
@@ -37,8 +46,8 @@ internal sealed partial class RetainedStatisticsShell
             outer = new ScrollRegion(root, "ItemUseOuter", radius: 20); RoundedMask(outer);
             left = new ItemUseViewport(this, outer.Content, "left"); right = new ItemUseViewport(this, outer.Content, "right");
             emptyPanel = CreateOverviewPanel(root, "NoItemUses", out var modifier); modifier.Radius = 20;
-            empty = Text(emptyPanel, "Empty", 36); empty.text = UiText.Get("ui.item_use_empty"); empty.alignment = TextAlignmentOptions.Center; empty.color = Muted;
-            unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable");
+            empty = Text(emptyPanel, "Empty", 36); empty.text = UiText.Get("ui.item_use_empty"); empty.alignment = TextAlignmentOptions.Center; empty.color = Muted; emptyPanel.gameObject.SetActive(false);
+            unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable"); unavailable.gameObject.SetActive(false);
             measure = new CombatNativeTextMeasurement(Text(root, "Measurement", 28));
             outer.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
             outer.Rect.GetComponent<RunsFocusHandler>().Move = direction =>
@@ -46,6 +55,7 @@ internal sealed partial class RetainedStatisticsShell
         }
         public void Refresh(ItemUsePresentation? next)
         {
+            awaitingData = false;
             if (disposed) return; Capture();
             empty.text = UiText.Get("ui.item_use_empty");
             unavailable.text = UiText.Get("ui.profile_unavailable");
@@ -94,6 +104,7 @@ internal sealed partial class RetainedStatisticsShell
             { Capture(); width = frame.Width; height = frame.Height; pixels = viewportPixels; dirty = true; }
             root.localScale = new Vector3(frame.Scale, frame.Scale, 1); Place(root, shell.Header.Left, frame.Top, width, height);
             if (!dirty || !root.gameObject.activeInHierarchy) return;
+            if (awaitingData) { dirty = false; LayoutLoading(); return; }
             dirty = false;
             Place(unavailable.rectTransform, 30, 30, width - 60, measure.Height(unavailable.text, width - 60, 30));
             Place(emptyPanel, 0, 0, width, height); Place(empty.rectTransform, 40, 30, width - 80, height - 60);
@@ -144,7 +155,7 @@ internal sealed partial class RetainedStatisticsShell
                 public void Dispose()
                 {
                     Button.Binding.CancelPointer(); Button.onClick.RemoveAllListeners(); Focus.Move = null; Focus.Selected = null;
-                    Row = null; Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); Badge?.Dispose();
+                    Row = null; if (Icon != null) Icon.sprite = null; NativeItemIconAppearance.Clear(Icon); Badge?.Dispose();
                 }
             }
             public ItemUseViewport(ItemUseView owner, RectTransform parent, string region)
@@ -156,6 +167,24 @@ internal sealed partial class RetainedStatisticsShell
                 scroll.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
                 scroll.Rect.GetComponent<RunsFocusHandler>().Move = direction => Move(null, direction);
                 controls = new CombatControlPool<Control>(Create);
+            }
+            public RectTransform LoadingContainer
+            {
+                get
+                {
+                    if (surfaces.Count == 0)
+                    {
+                        var surface = CreateOverviewPanel(surfaceRoot, "ItemUseCard", out var modifier);
+                        modifier.Radius = 20; surface.GetComponent<ProceduralImage>().raycastTarget = false;
+                        surfaces.Add(surface);
+                    }
+                    return surfaces[0];
+                }
+            }
+            public void PrepareLoading()
+            {
+                scroll.Size(0, 0, Panel.rect.width, Panel.rect.height, Panel.rect.height);
+                Place(LoadingContainer, 0, 0, Panel.rect.width, Panel.rect.height);
             }
             public void Capture() => owner.selection.Capture(region, scroll.Offset);
             public string? FocusedRowId(GameObject focused) => controls.Items.FirstOrDefault(control => control.Rect.gameObject == focused)?.Row?.Id;
@@ -365,7 +394,7 @@ internal sealed partial class RetainedStatisticsShell
         public void Dispose()
         {
             if (disposed) return; disposed = true; left.Dispose(); right.Dispose(); outer.Dispose(); selection.Refresh(null);
-            root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject);
+            if (root != null) { root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject); }
         }
     }
 }

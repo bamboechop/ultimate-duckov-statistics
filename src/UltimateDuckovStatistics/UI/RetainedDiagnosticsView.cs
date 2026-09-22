@@ -10,7 +10,6 @@ namespace UltimateDuckovStatistics.UI;
 internal sealed partial class RetainedStatisticsShell
 {
     private DiagnosticsView? diagnosticsView;
-    public void RefreshDiagnostics(DiagnosticsPresentation? snapshot) => diagnosticsView?.Refresh(snapshot);
 
     private sealed class DiagnosticsView : IDisposable
     {
@@ -53,6 +52,12 @@ internal sealed partial class RetainedStatisticsShell
         private static Color Red => new Color32(250, 73, 100, 255);
         private static Color Green => new Color32(113, 192, 62, 255);
 
+        private bool awaitingData = true;
+        public RectTransform[] LoadingContainers => new[]
+        {
+            Panel(left.Content, "settings", 20), Panel(left.Content, "technical:panel", 20), Panel(right.Content, "health:panel", 20)
+        };
+
         public DiagnosticsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material,
             PanelOperationController operations, Action changeHotkey, Func<bool> copyExportPath, Func<bool> copyDataPath, Action focusTabs)
         {
@@ -66,7 +71,7 @@ internal sealed partial class RetainedStatisticsShell
             ConfigureScroll(outer, null); ConfigureScroll(left, leftButtons); ConfigureScroll(right, rightButtons);
             measure = new CombatNativeTextMeasurement(CreateText(root, "Measurement", 28));
             unavailable = CreateText(root, "Unavailable", 30);
-            unavailable.text = UiText.Get("ui.profile_unavailable");
+            unavailable.text = UiText.Get("ui.profile_unavailable"); unavailable.gameObject.SetActive(false);
             copyFeedback = Node(root, "CopyFeedback");
             copyFeedback.gameObject.AddComponent<ProceduralImage>().color = new Color(0, 0, 0, .95f);
             copyFeedback.gameObject.GetComponent<ProceduralImage>().raycastTarget = false;
@@ -93,6 +98,7 @@ internal sealed partial class RetainedStatisticsShell
         }
         public void Refresh(DiagnosticsPresentation? next)
         {
+            awaitingData = false;
             if (disposed) return;
             Capture(); RememberFocus();
             if (next == null || next.GenerationId != selection.Snapshot?.GenerationId)
@@ -150,6 +156,20 @@ internal sealed partial class RetainedStatisticsShell
             { Capture(); RememberFocus(); lastNotice = operations.LastNotice; lastOperation = operations.Current; lastCanStart = operations.CanStart; dirty = true; }
             if (!dirty || !root.gameObject.activeInHierarchy) return;
             dirty = false;
+            if (awaitingData)
+            {
+                var stack = DiagnosticsLayoutPolicy.Stack(pixels);
+                var cw = DiagnosticsLayoutPolicy.ColumnWidth(width, stack);
+                LayoutPendingColumns(outer, left.Rect, right.Rect, width, height, stack, cw, cw);
+                var leftHeight = left.Rect.rect.height; var rightHeight = right.Rect.rect.height;
+                left.Size(0, 0, cw, leftHeight, leftHeight);
+                right.Size(stack ? 0 : cw + 40, stack ? leftHeight + 40 : 0, cw, rightHeight, rightHeight);
+                Place(Panel(left.Content, "settings", 20), 0, 0, cw, leftHeight * .6f - 20);
+                Place(Panel(left.Content, "technical:panel", 20), 0, leftHeight * .6f + 20, cw, leftHeight * .4f - 20);
+                Place(Panel(right.Content, "health:panel", 20), 0, 0, cw, rightHeight);
+                return;
+            }
+
             if (selection.Snapshot == null)
             {
                 unavailable.text = operations.Current is PanelOperation.Reset or PanelOperation.Restore ? UiText.Get("ui.diag_operation_pending") : UiText.Get("ui.profile_unavailable");

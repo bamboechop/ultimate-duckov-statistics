@@ -93,13 +93,13 @@ namespace UltimateDuckovStatistics.UI
         private EconomyView? economyView;
         private CraftingView? craftingView;
         private DiagnosticsView? diagnosticsView;
-        public void RefreshDiagnostics(DiagnosticsPresentation? presentation) => diagnosticsView?.Refresh(presentation);
         public void InvalidateProjection() { }
         private void RefreshRuns(StatisticsPanelProjection projection, string generation) => runsView?.Refresh(RunsPresentationFactory.Create(projection, generation), generation);
         private class BoundaryView : IDisposable
         {
             private readonly GameObject root;
             protected BoundaryView(RectTransform parent) { root = new GameObject(GetType().Name); root.transform.SetParent(parent); }
+            public RectTransform[] LoadingContainers => new[] { (RectTransform)root.transform };
             public void Refresh(object? value, string? generation = null) { }
             public void SetVisible(bool value) => root.SetActive(value);
             public void Layout(RetainedVisualCanvasLayout layout, params float[] dimensions) { }

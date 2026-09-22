@@ -123,6 +123,7 @@ internal sealed partial class RetainedStatisticsShell
         public ScrollRect Scroll { get; }
         private readonly RunsOverflowEdge top;
         private readonly RunsOverflowEdge bottom;
+        private bool hasLayout;
         public float Offset => Math.Max(0, Content.anchoredPosition.y);
         public ScrollRegion(RectTransform parent, string name, RectTransform? contour = null, float radius = 10)
         {
@@ -162,6 +163,7 @@ internal sealed partial class RetainedStatisticsShell
             Content.sizeDelta = new Vector2(width, Math.Max(height, contentHeight));
             Stretch(top.rectTransform); Stretch(bottom.rectTransform);
             top.rectTransform.SetAsLastSibling(); bottom.rectTransform.SetAsLastSibling();
+            hasLayout = true;
             SetOffset(Offset);
         }
         public void SetOffset(float offset)
@@ -171,13 +173,16 @@ internal sealed partial class RetainedStatisticsShell
         }
         public void Cues()
         {
-            if (Rect.rect.height <= 0) return;
+            if (!hasLayout || Rect.rect.height <= 0) return;
             var state = OverflowCuePolicy.Resolve(Rect.rect.height, Content.rect.height, Offset);
             top.enabled = state.ShowLeading; bottom.enabled = state.ShowTrailing;
         }
         private static RunsOverflowEdge Edge(RectTransform parent, string name, bool top)
         {
             var edge = Node(parent, name).gameObject.AddComponent<RunsOverflowEdge>();
+            // Deferred views expose their frame before sizing the inner scroll regions.
+            // Only measured overflow may reveal these contours, never the default rect.
+            edge.enabled = false;
             edge.Top = top; edge.color = new Color(1, 1, 1, .3f); edge.raycastTarget = false; return edge;
         }
         private static RectTransform Node(RectTransform parent, string name)
@@ -189,7 +194,7 @@ internal sealed partial class RetainedStatisticsShell
         { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero; }
         private static void Place(RectTransform rect, float x, float y, float width, float height)
         { rect.anchoredPosition = new Vector2(x, -y); rect.sizeDelta = new Vector2(width, height); }
-        public void Dispose() => Scroll.onValueChanged.RemoveAllListeners();
+        public void Dispose() { if (Scroll != null) Scroll.onValueChanged.RemoveAllListeners(); }
     }
 
     private sealed partial class RunsView : IDisposable
@@ -280,6 +285,9 @@ internal sealed partial class RetainedStatisticsShell
         private const float EncounterTabHeight =
             80;
 
+        private bool awaitingData = true;
+        public RectTransform[] LoadingContainers => new[] { historyPanel, detailPanel };
+
         public RunsView(RectTransform parent, NativeHeaderTitleTypography typography, Material material, Action focusTabs)
         {
             this.typography = typography; this.material = material;
@@ -296,6 +304,7 @@ internal sealed partial class RetainedStatisticsShell
             equipmentCombat.Rect.GetComponent<ProceduralImage>().color = new Color(0, 0, 0, .12f);
             measure = Text(root, "Measure", 28); measure.enabled = false;
             empty = Text(history.Content, "EmptyHistory", 28);
+            empty.gameObject.SetActive(false);
             title = Text(fixedDetail, "RunTitle", 48);
             metadata = Text(fixedDetail, "RunMetadata", 22);
             integrity = Text(fixedDetail, "RunIntegrity", 22);
@@ -338,10 +347,14 @@ internal sealed partial class RetainedStatisticsShell
             evidenceClose.onClick.AddListener(HideEvidence);
             evidencePanel.gameObject.SetActive(false);
             CreateEncounterView();
+            fixedDetail.gameObject.SetActive(false); encounterTabs.gameObject.SetActive(false);
         }
 
         public void Refresh(RunsPresentation? snapshot, string generation)
         {
+            awaitingData = false;
+            fixedDetail.gameObject.SetActive(!mapSelected);
+            encounterTabs.gameObject.SetActive(true);
             var previousId = selection.SelectedId;
             if (snapshot == null && selection.Snapshot != null)
                 suspendedScroll = (selection.Snapshot.GenerationId, selection.SelectedId, history.Offset, equipmentCombat.Offset, route.Offset, outer.Offset);
@@ -364,6 +377,7 @@ internal sealed partial class RetainedStatisticsShell
         public void SetVisible(bool visible) { if (!visible) HideEvidence(false); root.gameObject.SetActive(visible); if (visible) dirty = true; }
         public void FocusHistory()
         {
+            if (awaitingData) { focusTabs(); return; }
             if (dirty && width > 0) Reflow();
             var rows = selection.Snapshot?.Runs;
             var index = rows == null ? -1 : Array.FindIndex(rows.ToArray(), row => row.Id == selection.SelectedId);
@@ -496,6 +510,14 @@ internal sealed partial class RetainedStatisticsShell
             Place(root, shell.Header.Left, top, newWidth, newHeight);
             if (width != newWidth || height != newHeight || stacked != newStacked)
             { width = newWidth; height = newHeight; stacked = newStacked; dirty = true; }
+            if (awaitingData && root.gameObject.activeInHierarchy)
+            {
+                var hw = RunsLayoutPolicy.HistoryWidth(width, stacked);
+                LayoutPendingColumns(outer, historyPanel, detailPanel, width, height, stacked, hw,
+                    stacked ? width : width - hw - 40, Math.Min(400, height * .45f));
+                history.Size(0, 0, hw, historyPanel.rect.height, historyPanel.rect.height);
+                return;
+            }
             if (dirty && root.gameObject.activeInHierarchy) Reflow();
         }
 
@@ -714,7 +736,7 @@ internal sealed partial class RetainedStatisticsShell
 
         public void Tick()
         {
-            if (!root.gameObject.activeInHierarchy) return;
+            if (awaitingData || !root.gameObject.activeInHierarchy) return;
             TickEncounters();
             if (evidencePanel.gameObject.activeSelf)
             {
@@ -923,7 +945,7 @@ internal sealed partial class RetainedStatisticsShell
             if (disposed) return; disposed = true;
             rowPool.Dispose();
             DisposeEncounters();
-            evidencePanel.gameObject.SetActive(false); evidenceOwner = null;
+            if (evidencePanel != null) evidencePanel.gameObject.SetActive(false); evidenceOwner = null;
             evidenceClose.onClick.RemoveAllListeners();
             foreach (var slot in slots) slot.Button.onClick.RemoveAllListeners();
             detailBadge?.Dispose(); routeBadge?.Dispose();
@@ -938,14 +960,18 @@ internal sealed partial class RetainedStatisticsShell
         var rect = (RectTransform)overlay.transform; rect.SetParent(button.transform, false);
         rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
         var graphic = overlay.AddComponent<ProceduralImage>(); graphic.raycastTarget = false;
+        // Native ColorTint tweens from the renderer's current color. A new renderer
+        // starts white, so initialize it transparently before enabling transitions.
+        graphic.canvasRenderer.SetColor(Color.clear);
         var highlightShape = overlay.AddComponent<UniformModifier>();
         highlightShape.Radius = buttonShape != null ? buttonShape.Radius : 10;
+        button.transition = Selectable.Transition.None;
         button.targetGraphic = graphic;
-        button.transition = Selectable.Transition.ColorTint;
         var colors = button.colors;
         colors.normalColor = Color.clear; colors.highlightedColor = new Color(1, 1, 1, .10f);
         colors.pressedColor = new Color(1, 1, 1, .20f); colors.selectedColor = new Color(1, 1, 1, .13f);
         colors.disabledColor = Color.clear; colors.fadeDuration = .1f; button.colors = colors;
+        button.transition = Selectable.Transition.ColorTint;
         button.gameObject.AddComponent<RunsButtonFeedback>().MatchShape(buttonShape, highlightShape);
     }
 }

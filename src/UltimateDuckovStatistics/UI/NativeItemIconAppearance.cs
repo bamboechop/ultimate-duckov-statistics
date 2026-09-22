@@ -42,8 +42,9 @@ internal static class NativeItemIconAppearance
         }
     }
 
-    public static void Clear(Image icon)
+    public static void Clear(Image? icon)
     {
+        if (icon == null) return;
         var shadow = icon.GetComponent<TrueShadow>();
         if (shadow != null) shadow.enabled = false;
     }

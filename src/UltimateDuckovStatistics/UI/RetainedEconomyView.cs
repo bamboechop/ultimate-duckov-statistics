@@ -19,7 +19,8 @@ internal sealed partial class RetainedStatisticsShell
         private readonly Material material;
         private readonly CombatNativeTextMeasurement measure;
         private readonly NativeItemIconResolver icons = new();
-        private readonly Sprite? moneyIcon;
+        private Sprite? moneyIcon;
+        private bool moneyIconResolved;
         private readonly TextMeshProUGUI unavailable;
         private readonly EconomySelection selection = new();
         private readonly Action<string, string> route;
@@ -28,24 +29,33 @@ internal sealed partial class RetainedStatisticsShell
         private bool dirty = true, disposed;
         private (EconomyViewport View, string Id, EconomyElementKind Kind)? pendingFocus;
 
+        private bool awaitingData = true;
+        public RectTransform[] LoadingContainers => new[] { primary.Panel, recent.Panel };
+        private void LayoutLoading()
+        {
+            var columns = EconomyLayoutPolicy.Widths(width, CombatLayoutPolicy.Stack(pixels));
+            LayoutPendingColumns(outer, primary.Panel, recent.Panel, width, height,
+                CombatLayoutPolicy.Stack(pixels), columns.Primary, columns.Recent);
+        }
         public EconomyView(RectTransform parent, NativeHeaderTitleTypography typography, Material material,
             Action<string, string> route, Action focusTabs)
         {
             this.typography = typography; this.material = material; this.route = route; this.focusTabs = focusTabs;
-            moneyIcon = ResolveMoneyIcon();
             root = Node(parent, "EconomyContentView");
             outer = new ScrollRegion(root, "EconomyOuter", radius: 20);
             primary = new EconomyViewport(this, outer.Content, "Primary");
             recent = new EconomyViewport(this, outer.Content, "Recent");
             measure = new CombatNativeTextMeasurement(Text(root, "Measurement", 28));
-            unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable");
+            unavailable = Text(root, "Unavailable", 30); unavailable.text = UiText.Get("ui.profile_unavailable"); unavailable.gameObject.SetActive(false);
             outer.Rect.GetComponent<Selectable>().navigation = new Navigation { mode = Navigation.Mode.None };
             outer.Rect.GetComponent<RunsFocusHandler>().Move = direction =>
             { if (direction == MoveDirection.Up || direction == MoveDirection.Left) focusTabs(); else FocusPage(); };
         }
         public void Refresh(EconomyPresentation? next)
         {
+            awaitingData = false;
             if (disposed) return;
+            if (next != null && !moneyIconResolved) { moneyIcon = ResolveMoneyIcon(); moneyIconResolved = true; }
             Capture(); RememberFocus();
             if (next == null || next.GenerationId != selection.Snapshot?.GenerationId) pendingFocus = null;
             if (RetainedRefreshPolicy.RequiresInvalidation(selection.Snapshot?.GenerationId, next?.GenerationId))
@@ -86,6 +96,7 @@ internal sealed partial class RetainedStatisticsShell
             { Capture(); RememberFocus(); width = frame.Width; height = frame.Height; pixels = viewportPixels; dirty = true; }
             root.localScale = new Vector3(frame.Scale, frame.Scale, 1); Place(root, shell.Header.Left, frame.Top, width, height);
             if (!dirty || !root.gameObject.activeInHierarchy) return;
+            if (awaitingData) { dirty = false; LayoutLoading(); return; }
             dirty = false;
             Place(unavailable.rectTransform, 30, 30, width - 60, measure.Height(unavailable.text, width - 60, 30));
             if (selection.Snapshot == null) return;
@@ -391,7 +402,7 @@ internal sealed partial class RetainedStatisticsShell
         {
             if (disposed) return; disposed = true;
             primary.Dispose(); recent.Dispose(); outer.Dispose(); selection.Refresh(null);
-            root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject);
+            if (root != null) { root.gameObject.SetActive(false); UnityEngine.Object.Destroy(root.gameObject); }
         }
     }
 }

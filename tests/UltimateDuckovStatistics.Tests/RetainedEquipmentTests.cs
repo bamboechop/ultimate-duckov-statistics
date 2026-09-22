@@ -458,8 +458,10 @@ public sealed class RetainedEquipmentTests
         while (root != null && !File.Exists(Path.Combine(root.FullName, "UltimateDuckovStatistics.sln"))) root = root.Parent;
         Assert.NotNull(root); var ui = Path.Combine(root.FullName, "src", "UltimateDuckovStatistics", "UI");
         var view = File.ReadAllText(Path.Combine(ui, "RetainedEquipmentView.cs"));
-        var shell = File.ReadAllText(Path.Combine(ui, "RetainedStatisticsShell.cs"));
-        Assert.Contains("equipmentView = new EquipmentView", shell); Assert.Contains("equipmentView?.Refresh", shell);
+        var shell = File.ReadAllText(Path.Combine(ui, "RetainedStatisticsShell.cs"))
+            + File.ReadAllText(Path.Combine(ui, "RetainedStatisticsShell.Lifecycle.cs"))
+            + File.ReadAllText(Path.Combine(ui, "RetainedStatisticsShell.Frames.cs"));
+        Assert.Contains("equipmentView ??= new EquipmentView", shell); Assert.Contains("equipmentView!.Refresh", shell);
         Assert.Contains("equipmentView?.SetVisible", shell); Assert.Contains("equipmentView?.Layout", shell); Assert.Contains("equipmentView?.Tick", shell);
         Assert.Contains("equipmentView?.Dispose", shell); Assert.Contains("equipmentView = null", shell);
         Assert.Contains("equipmentView?.Refresh(null)", File.ReadAllText(Path.Combine(ui, "RetainedRunsView.cs")));
