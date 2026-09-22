@@ -42,6 +42,7 @@ public sealed partial class ShellAccessTests
         try
         {
             Press(panel, KeyCode.F8);
+            OpenTab();
             var root = Find(tab + "ContentView");
             var keys = tab switch
             {
@@ -57,24 +58,24 @@ public sealed partial class ShellAccessTests
             if (tab == "Combat")
             {
                 var weapons = root.GetComponentsInChildren<TextMeshProUGUI>().Single(label => label.text == UiText.Get("ui.combat_weapons_ammunition"));
-                weapons.transform.parent!.GetComponent<Button>().onClick.Invoke(); panel.Tick();
+                weapons.transform.parent!.GetComponent<Button>().onClick.Invoke(); Tick(panel);
                 Assert.True(Find("FiringActionContract").activeInHierarchy);
             }
-            if (!visibleDuringSwitch) { Find("OverviewTab").GetComponent<Button>().onClick.Invoke(); panel.Tick(); }
-            LocalizationManager.SetLanguage(SystemLanguage.German); panel.Tick();
+            if (!visibleDuringSwitch) { Find("OverviewTab").GetComponent<Button>().onClick.Invoke(); Tick(panel); }
+            LocalizationManager.SetLanguage(SystemLanguage.German); Tick(panel);
             OpenTab();
             Check(UiText.GermanFallbacks);
             Assert.Same(root, Find(tab + "ContentView"));
             if (tab == "Records") Assert.Equal(retainedButtons, root.GetComponentsInChildren<Button>(true));
-            LocalizationManager.SetLanguage(SystemLanguage.English); panel.Tick();
+            LocalizationManager.SetLanguage(SystemLanguage.English); Tick(panel);
             Check(UiText.EnglishFallbacks);
             Assert.Equal(revision, coordinator.Current.Revision);
             Assert.Equal(profile, System.Text.Json.JsonSerializer.Serialize(coordinator.Current));
             var measurements = TextMeshProUGUI.Measurements;
-            panel.Tick();
+            Tick(panel);
             Assert.Equal(measurements, TextMeshProUGUI.Measurements);
 
-            void OpenTab() { Find(tab + "Tab").GetComponent<Button>().onClick.Invoke(); panel.Tick(); }
+            void OpenTab() { Find(tab + "Tab").GetComponent<Button>().onClick.Invoke(); Tick(panel); }
             void Check(IReadOnlyDictionary<string, string> translations)
             {
                 foreach (var (label, key) in captions)

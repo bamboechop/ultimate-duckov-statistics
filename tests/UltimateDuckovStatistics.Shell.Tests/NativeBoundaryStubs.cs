@@ -93,7 +93,6 @@ namespace UltimateDuckovStatistics.UI
         private EconomyView? economyView;
         private CraftingView? craftingView;
         private DiagnosticsView? diagnosticsView;
-        public void RefreshDiagnostics(DiagnosticsPresentation? presentation) => diagnosticsView?.Refresh(presentation);
         public void InvalidateProjection() { }
         private void RefreshRuns(StatisticsPanelProjection projection, string generation) => runsView?.Refresh(RunsPresentationFactory.Create(projection, generation), generation);
         private class BoundaryView : IDisposable

@@ -10,7 +10,6 @@ namespace UltimateDuckovStatistics.UI;
 internal sealed partial class RetainedStatisticsShell
 {
     private DiagnosticsView? diagnosticsView;
-    public void RefreshDiagnostics(DiagnosticsPresentation? snapshot) => diagnosticsView?.Refresh(snapshot);
 
     private sealed class DiagnosticsView : IDisposable
     {

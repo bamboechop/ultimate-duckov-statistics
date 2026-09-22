@@ -63,10 +63,12 @@ public sealed class OverviewRefreshTests
         while (directory != null && !File.Exists(Path.Combine(directory.FullName, "UltimateDuckovStatistics.sln"))) directory = directory.Parent;
         Assert.NotNull(directory);
         var source = File.ReadAllText(Path.Combine(directory.FullName, "src", "UltimateDuckovStatistics", "UI", "RetainedStatisticsShell.cs"));
-        var start = source.IndexOf("var layout = RetainedActiveMeasurementPolicy.Measure(", StringComparison.Ordinal);
+        var start = source.IndexOf("var layout = overviewContentView == null", StringComparison.Ordinal);
+        Assert.True(start >= 0);
         var end = source.IndexOf("var leftPanelRect =", start, StringComparison.Ordinal);
         var measurement = source[start..end];
-        Assert.Contains("overviewContentView!.activeSelf, overviewContentView.SetActive", measurement);
+        Assert.Contains("RetainedActiveMeasurementPolicy.Measure(", measurement);
+        Assert.Contains("overviewContentView.activeSelf, overviewContentView.SetActive", measurement);
         Assert.Contains("MeasureRunBadgeReferenceWidth(", measurement);
         Assert.Contains("MeasureLatestRunViewRunReferenceWidth(", measurement);
         var rowStart = source.IndexOf("private static RetainedOverviewHighlightRowControl CreateOverviewHighlightRow(", StringComparison.Ordinal);

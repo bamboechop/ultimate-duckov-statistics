@@ -135,7 +135,7 @@ namespace UnityEngine
     public static class Input { public static readonly HashSet<KeyCode> Down = new(); public static bool GetKeyDown(KeyCode key) => Down.Contains(key); public static bool GetKey(KeyCode key) => Down.Contains(key); public static bool anyKeyDown => Down.Count > 0; }
     public enum CursorLockMode { None, Locked, Confined }
     public static class Cursor { public static bool visible; public static CursorLockMode lockState; }
-    public static class Time { public static int frameCount; }
+    public static class Time { public static int frameCount; public static float unscaledTime; }
     public static class GUIUtility { public static string systemCopyBuffer = ""; }
 }
 namespace UnityEngine.Events

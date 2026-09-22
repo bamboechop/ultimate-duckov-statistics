@@ -47,6 +47,7 @@ internal enum NativeHotPathArea
     PanelOpen,
     PanelOpenProjection,
     PanelCreate,
+    PanelViewBind,
     PanelProjectionRefresh,
     PanelRefresh,
     PanelDiagnostics,

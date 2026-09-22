@@ -23,6 +23,7 @@ public sealed partial class ShellAccessTests
         try
         {
             Press(panel, KeyCode.F8);
+            Find("DiagnosticsTab").GetComponent<Button>().onClick.Invoke(); Tick(panel);
             var operations = Field<PanelOperationController>(panel, "operations");
             var cancel = Find("Cancel").GetComponent<Button>();
             var confirm = Find("ConfirmReset").GetComponent<Button>();
@@ -32,7 +33,7 @@ public sealed partial class ShellAccessTests
             {
                 if (reset) Assert.True(operations.RequestResetConfirmation());
                 else typeof(NativeStatisticsPanel).GetMethod("BeginHotkeyCapture", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, null);
-                panel.Tick();
+                Tick(panel);
             }
             if (openBeforeSwitch)
             {
@@ -42,7 +43,7 @@ public sealed partial class ShellAccessTests
             }
             var focus = GameManager.EventSystem!.currentSelectedGameObject;
             LocalizationManager.SetLanguage(SystemLanguage.German);
-            panel.Tick();
+            Tick(panel);
             if (!openBeforeSwitch) OpenModal();
             CheckCaptions(UiText.GermanFallbacks);
             if (openBeforeSwitch) Assert.Same(focus, GameManager.EventSystem.currentSelectedGameObject);
@@ -54,12 +55,12 @@ public sealed partial class ShellAccessTests
             Assert.Single(InputManager.Blocks);
 
             LocalizationManager.SetLanguage(SystemLanguage.English);
-            panel.Tick();
+            Tick(panel);
             CheckCaptions(UiText.EnglishFallbacks);
             Assert.True(germanWidth > ((RectTransform)cancel.transform).rect.width);
             Assert.Equal(1, cancel.onClick.ListenerCount);
             Assert.Equal(1, confirm.onClick.ListenerCount);
-            cancel.onClick.Invoke(); panel.Tick();
+            cancel.onClick.Invoke(); Tick(panel);
             Assert.False(Find("UDSOperationModal").activeSelf);
             Assert.False(operations.ModalVisible);
             Assert.False(Field<bool>(panel, "capturingHotkey"));

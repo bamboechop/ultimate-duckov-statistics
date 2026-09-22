@@ -375,42 +375,13 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
 
             overviewTypography = headerTitleTypography;
             tabSelected = selectTab;
-            BuildOverview(rootRect, headerTitleTypography, projection);
-            runsView = new RunsView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
-                () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
-            runsView.SetEncounterSource(projection);
-            runsView.Refresh(RunsPresentationFactory.Create(projection, projection.Profile.GenerationId), projection.Profile.GenerationId);
-            runsView.SetVisible(selectedTab == StatisticsPanelTab.Runs);
-            recordsView = new RecordsView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
-                (generation, id) => { runsView?.Route(generation, id); tabSelected?.Invoke(StatisticsPanelTab.Runs); },
-                () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
-            recordsView.Refresh(RecordsPresentationFactory.Create(projection, projection.Profile.GenerationId));
-            recordsView.SetVisible(selectedTab == StatisticsPanelTab.Records);
-            combatView = new CombatView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
-                () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
-            combatView.Refresh(CombatPresentationFactory.Create(projection, projection.Profile.GenerationId, isThrowable: NativeThrowableIdentity.IsThrowable));
-            combatView.SetVisible(selectedTab == StatisticsPanelTab.Combat);
-            equipmentView = new EquipmentView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
-                (generation, id) => { runsView?.Route(generation, id); tabSelected?.Invoke(StatisticsPanelTab.Runs); },
-                () => GameManager.EventSystem?.SetSelectedGameObject(tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject));
-            equipmentView.Refresh(EquipmentPresentationFactory.Create(projection, projection.Profile.GenerationId));
-            equipmentView.SetVisible(selectedTab == StatisticsPanelTab.Equipment);
-            economyView = new EconomyView(rootRect, headerTitleTypography, tabLabelMaterial.Instance, RouteToRun, FocusSelectedTab);
-            economyView.Refresh(EconomyPresentationFactory.Create(projection, projection.Profile.GenerationId));
-            economyView.SetVisible(selectedTab == StatisticsPanelTab.Economy);
-            craftingView = new CraftingView(rootRect, headerTitleTypography, tabLabelMaterial.Instance, FocusSelectedTab);
-            craftingView.Refresh(CraftingPresentationFactory.Create(projection, projection.Profile.GenerationId));
-            craftingView.SetVisible(selectedTab == StatisticsPanelTab.Crafting);
-            itemUseView = new ItemUseView(rootRect, headerTitleTypography, tabLabelMaterial.Instance, RouteToRun, FocusSelectedTab);
-            itemUseView.Refresh(ItemUsePresentationFactory.Create(projection, projection.Profile.GenerationId));
-            itemUseView.SetVisible(selectedTab == StatisticsPanelTab.ItemUse);
-            diagnosticsView = new DiagnosticsView(rootRect, headerTitleTypography, tabLabelMaterial.Instance,
-                operations, changeHotkey, copyExportPath, copyDataPath, FocusSelectedTab);
-            diagnosticsView.Refresh(diagnostics);
-            diagnosticsView.SetVisible(selectedTab == StatisticsPanelTab.Diagnostics);
-            aboutView = new AboutView(rootRect, headerTitleTypography, tabLabelMaterial.Instance, FocusSelectedTab);
-            aboutView.SetVisible(selectedTab == StatisticsPanelTab.About);
-            BindOverviewRun(projection.Profile.GenerationId);
+            cachedGeneration = projection.Profile.GenerationId;
+            cachedOperations = operations;
+            changeHotkeyAction = changeHotkey; cancelHotkeyAction = cancelHotkey;
+            copyExportAction = copyExportPath; copyDataAction = copyDataPath;
+            cachedDiagnostics = diagnostics;
+            contentAfterFrame = Time.frameCount;
+            projectionAvailable = false;
 
             headerRect = CreateHeaderBackground(
                 rootRect,
@@ -473,8 +444,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
                 headerTitleTypography,
                 out var createdHeaderTitleGraphic);
             headerTitleGraphic = createdHeaderTitleGraphic;
-            modal = new PanelModal(rootRect, headerTitleTypography, tabLabelMaterial.Instance, operations, cancelHotkey,
-                () => { if (selectedTab == StatisticsPanelTab.Diagnostics) diagnosticsView?.FocusReset(); else FocusSelectedTab(); });
+            CreateLoadingLabel();
             root.SetActive(RetainedTabMeasurementPolicy.RequiresActiveHierarchy);
             if (!root.activeInHierarchy)
             {
@@ -500,7 +470,11 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
     private void FocusSelectedTab() => GameManager.EventSystem?.SetSelectedGameObject(
         tabControls.First(control => control.Specification.Tab == selectedTab).Button.gameObject);
     private void RouteToRun(string generation, string id)
-    { runsView?.Route(generation, id); tabSelected?.Invoke(StatisticsPanelTab.Runs); }
+    {
+        pendingRunRoute = (generation, id);
+        boundViews.Remove(StatisticsPanelTab.Runs);
+        tabSelected?.Invoke(StatisticsPanelTab.Runs);
+    }
     private bool projectionAvailable = true;
 
     private void BuildOverview(RectTransform rootRect, NativeHeaderTitleTypography headerTitleTypography, StatisticsPanelProjection projection,
@@ -592,14 +566,25 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             var runId = overviewRun.RunId;
             overviewLatestRunViewRun.Button.onClick.AddListener(() =>
             {
-                runsView?.Route(overviewGeneration, runId);
-                tabSelected?.Invoke(StatisticsPanelTab.Runs);
+                RouteToRun(overviewGeneration, runId);
             });
         }
 
     }
 
     public void RefreshProjection(StatisticsPanelProjection projection, string generation)
+    {
+        if (cachedProjection == null) contentAfterFrame = Time.frameCount;
+        cachedProjection = projection;
+        cachedGeneration = generation;
+        projectionAvailable = true;
+        contentVersion++;
+        // Localization callbacks finish applying native overrides before this deferred refresh.
+        RefreshStaticText();
+        UpdateLoadingLabel();
+    }
+
+    private void RebuildOverview(StatisticsPanelProjection projection, string generation)
     {
         if (shellRoot == null || overviewTypography == null) return;
 #if UDS_PERFORMANCE_DIAGNOSTICS
@@ -632,14 +617,6 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         BuildOverview(shellRoot, overviewTypography, projection, retainedViewRun);
         overviewContentView?.transform.SetAsFirstSibling();
         BindOverviewRun(generation);
-        RefreshRuns(projection, generation);
-        recordsView?.Refresh(RecordsPresentationFactory.Create(projection, generation));
-        combatView?.Refresh(CombatPresentationFactory.Create(projection, generation, isThrowable: NativeThrowableIdentity.IsThrowable));
-        equipmentView?.Refresh(EquipmentPresentationFactory.Create(projection, generation));
-        economyView?.Refresh(EconomyPresentationFactory.Create(projection, generation));
-        craftingView?.Refresh(CraftingPresentationFactory.Create(projection, generation));
-        itemUseView?.Refresh(ItemUsePresentationFactory.Create(projection, generation));
-        RefreshStaticText();
         RefreshVisualLayout(force: true);
         overviewSummaryScroll?.SetOffset(summaryOffset);
         overviewHighlightsScroll?.SetOffset(highlightsOffset);
@@ -671,18 +648,9 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         using var timing = NativeHotPathDiagnostics.Measure(NativeHotPathArea.PanelTabChange);
 #endif
         selectedTab = tab;
-        foreach (var control in tabControls) control.VisualState.Apply(selectedTab);
-        overviewContentVisibility?.Apply(selectedTab);
-        if (!projectionAvailable) overviewContentView?.SetActive(false);
-        runsView?.SetVisible(selectedTab == StatisticsPanelTab.Runs);
-        recordsView?.SetVisible(selectedTab == StatisticsPanelTab.Records);
-        combatView?.SetVisible(selectedTab == StatisticsPanelTab.Combat);
-        equipmentView?.SetVisible(selectedTab == StatisticsPanelTab.Equipment);
-        economyView?.SetVisible(selectedTab == StatisticsPanelTab.Economy);
-        craftingView?.SetVisible(selectedTab == StatisticsPanelTab.Crafting);
-        itemUseView?.SetVisible(selectedTab == StatisticsPanelTab.ItemUse);
-        diagnosticsView?.SetVisible(selectedTab == StatisticsPanelTab.Diagnostics);
-        aboutView?.SetVisible(selectedTab == StatisticsPanelTab.About);
+        contentAfterFrame = Time.frameCount;
+        ApplyViewVisibility();
+        lastAppliedVisualLayout = null;
         EnsureSelectedTabVisible();
         var focused = GameManager.EventSystem?.currentSelectedGameObject;
         if (focused == null || !focused.activeInHierarchy)
@@ -697,24 +665,50 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
         error = null;
         try
         {
+            if (!IsUsable) return true;
+            BindSelectedView();
             var layout = RefreshVisualLayout(force: false);
-            runsView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
-            runsView?.Tick();
-            recordsView?.Layout(layout, shellRoot!.rect.height);
-            recordsView?.Tick();
-            combatView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
-            combatView?.Tick();
-            equipmentView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
-            equipmentView?.Tick();
-            economyView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
-            economyView?.Tick();
-            craftingView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
-            craftingView?.Tick();
-            itemUseView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
-            itemUseView?.Tick();
-            diagnosticsView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
-            diagnosticsView?.Tick();
-            aboutView?.Layout(layout, shellRoot!.rect.height);
+            if (selectedTab == StatisticsPanelTab.Runs)
+            {
+                runsView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+                runsView?.Tick();
+            }
+            if (selectedTab == StatisticsPanelTab.Records)
+            {
+                recordsView?.Layout(layout, shellRoot!.rect.height);
+                recordsView?.Tick();
+            }
+            if (selectedTab == StatisticsPanelTab.Combat)
+            {
+                combatView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+                combatView?.Tick();
+            }
+            if (selectedTab == StatisticsPanelTab.Equipment)
+            {
+                equipmentView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+                equipmentView?.Tick();
+            }
+            if (selectedTab == StatisticsPanelTab.Economy)
+            {
+                economyView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+                economyView?.Tick();
+            }
+            if (selectedTab == StatisticsPanelTab.Crafting)
+            {
+                craftingView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+                craftingView?.Tick();
+            }
+            if (selectedTab == StatisticsPanelTab.ItemUse)
+            {
+                itemUseView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+                itemUseView?.Tick();
+            }
+            if (selectedTab == StatisticsPanelTab.Diagnostics)
+            {
+                diagnosticsView?.Layout(layout, lastViewportPixelWidth, shellRoot!.rect.height);
+                diagnosticsView?.Tick();
+            }
+            if (selectedTab == StatisticsPanelTab.About) aboutView?.Layout(layout, shellRoot!.rect.height);
             modal?.Layout(layout, shellRoot!.rect.width, shellRoot.rect.height);
             return true;
         }
@@ -1970,30 +1964,8 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             || headerBottomBarSurfaceRect == null
             || headerBottomBarGraphic == null || headerBottomBarModifier == null
             || backButtonRect == null || backButtonModifier == null || backArrowRect == null
-            || headerTitleRect == null || headerTitleGraphic == null
-            || overviewLeftPanelRect == null || overviewLeftPanelModifier == null
-            || overviewRightPanelRect == null || overviewRightPanelModifier == null
-            || overviewLeftPanelContentRect == null
-            || overviewRightPanelContentRect == null
-            || overviewProfileSummaryHeadingRect == null
-            || overviewProfileSummaryHeadingGraphic == null
-            || overviewHighlightsHeadingRect == null
-            || overviewHighlightsHeadingGraphic == null
-            || overviewLatestRunHeadingRect == null
-            || overviewLatestRunHeadingGraphic == null
-            || overviewLatestRunCardRect == null
-            || overviewLatestRunCardModifier == null
-            || overviewLatestRunBadge == null
-            || overviewLatestRunMapName == null
-            || overviewLatestRunStatistics == null
-            || overviewLatestRunViewRun == null
-            || overviewWorldTimeHeadingRect == null
-            || overviewWorldTimeHeadingGraphic == null
-            || overviewWorldTimeCardRect == null
-            || overviewWorldTimeCardModifier == null
-            || overviewWorldTimeStatistics == null
-            || overviewHighlightRows.Count != RetainedOverviewHighlightsRowsPolicy.RowCount
-            || overviewProfileSummaryRows.Count != RetainedProfileSummaryRowsPolicy.RowCount)
+            || headerTitleRect == null || headerTitleGraphic == null)
+
         {
             throw new InvalidOperationException("The retained visual layout is not fully initialized.");
         }
@@ -2023,8 +1995,10 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             measuredTabWidths = preferredReferenceWidths = MeasureTabReferenceWidths(referenceTransform, canvasScaleFactor);
         var latestRunBadgeControl = overviewLatestRunBadge!;
         var latestRunViewRunControl = overviewLatestRunViewRun!;
-        var layout = RetainedActiveMeasurementPolicy.Measure(
-            overviewContentView!.activeSelf, overviewContentView.SetActive, () =>
+        var layout = overviewContentView == null || selectedTab != StatisticsPanelTab.Overview
+            ? RetainedVisualLayoutPolicy.Create(referenceTransform, preferredReferenceWidths)
+            : RetainedActiveMeasurementPolicy.Measure(
+            overviewContentView.activeSelf, overviewContentView.SetActive, () =>
         {
             if (latestRunBadgeControl.Presentation.IsVisible
                 && latestRunBadgeControl.Presentation.State.HasValue
@@ -2114,223 +2088,234 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
             layout.HeaderTitle.Width,
             layout.HeaderTitle.Height);
         headerTitleGraphic.fontSize = layout.HeaderTitle.FontSize;
-        leftPanelRect.anchoredPosition = new Vector2(
-            layout.OverviewLeftPanel.Left,
-            -layout.OverviewLeftPanel.Top);
-        leftPanelRect.sizeDelta = new Vector2(
-            layout.OverviewLeftPanel.Width,
-            layout.OverviewLeftPanel.Height);
-        leftPanelModifier.Radius = layout.OverviewLeftPanel.CornerRadius;
-        rightPanelRect.anchoredPosition = new Vector2(
-            layout.OverviewRightPanel.Left,
-            -layout.OverviewRightPanel.Top);
-        rightPanelRect.sizeDelta = new Vector2(
-            layout.OverviewRightPanel.Width,
-            layout.OverviewRightPanel.Height);
-        rightPanelModifier.Radius = layout.OverviewRightPanel.CornerRadius;
-        leftPanelContentRect.anchoredPosition = new Vector2(
-            layout.OverviewLeftPanel.ContentLeft - layout.OverviewLeftPanel.Left,
-            -(layout.OverviewLeftPanel.ContentTop - layout.OverviewLeftPanel.Top));
-        leftPanelContentRect.sizeDelta = new Vector2(
-            layout.OverviewLeftPanel.ContentWidth,
-            layout.OverviewLeftPanel.ContentHeight);
-        rightPanelContentRect.anchoredPosition = new Vector2(
-            layout.OverviewRightPanel.ContentLeft - layout.OverviewRightPanel.Left,
-            -(layout.OverviewRightPanel.ContentTop - layout.OverviewRightPanel.Top));
-        rightPanelContentRect.sizeDelta = new Vector2(
-            layout.OverviewRightPanel.ContentWidth,
-            layout.OverviewRightPanel.ContentHeight);
-        profileSummaryHeadingRect.anchoredPosition = new Vector2(
-            layout.OverviewProfileSummaryHeading.Left
-            - layout.OverviewLeftPanel.ContentLeft
-            + layout.OverviewProfileSummaryHeading.OpticalOffsetX,
-            -(layout.OverviewProfileSummaryHeading.Top - layout.OverviewLeftPanel.ContentTop)
-            + layout.OverviewProfileSummaryHeading.OpticalOffsetY);
-        profileSummaryHeadingRect.sizeDelta = new Vector2(
-            layout.OverviewProfileSummaryHeading.Width,
-            layout.OverviewProfileSummaryHeading.Height);
-        profileSummaryHeadingGraphic.fontSize = layout.OverviewProfileSummaryHeading.FontSize;
-        highlightsHeadingRect.anchoredPosition = new Vector2(
-            layout.OverviewHighlightsHeading.Left
-            - layout.OverviewRightPanel.ContentLeft
-            + layout.OverviewHighlightsHeading.OpticalOffsetX,
-            -(layout.OverviewHighlightsHeading.Top - layout.OverviewRightPanel.ContentTop)
-            + layout.OverviewHighlightsHeading.OpticalOffsetY);
-        highlightsHeadingRect.sizeDelta = new Vector2(
-            layout.OverviewHighlightsHeading.Width,
-            layout.OverviewHighlightsHeading.Height);
-        highlightsHeadingGraphic.fontSize = layout.OverviewHighlightsHeading.FontSize;
-        for (var index = 0; index < overviewHighlightRows.Count; index++)
+        if (loadingText != null)
         {
-            var control = overviewHighlightRows[index];
-            var row = layout.OverviewHighlightRows[index];
-            var entry = layout.OverviewHighlightEntries[index];
-            control.Rect.anchoredPosition = new Vector2(
-                row.Left - layout.OverviewRightPanel.ContentLeft,
-                -(row.Top - layout.OverviewRightPanel.ContentTop));
-            control.Rect.sizeDelta = new Vector2(row.Width, row.Height);
-            control.Modifier.Radius = row.CornerRadius;
-            ApplyStatisticsRowTextLayout(
-                control.LabelRect,
-                control.Label,
-                entry.LabelLeft - row.Left,
-                entry.LabelTop - row.Top,
-                entry.LabelWidth,
-                entry.LabelHeight,
-                entry.FontSize);
-            ApplyStatisticsRowTextLayout(
-                control.ValueRect,
-                control.Value,
-                entry.ValueLeft - row.Left,
-                entry.ValueTop - row.Top,
-                entry.ValueWidth,
-                entry.ValueHeight,
-                entry.FontSize);
+            var rect = loadingText.rectTransform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
+            rect.anchoredPosition = new Vector2(layout.OverviewLeftPanel.Left, -layout.OverviewLeftPanel.Top);
+            rect.sizeDelta = new Vector2(layout.OverviewLeftPanel.Width, 32);
+            loadingText.fontSize = layout.ReferenceTransform.CanvasLength(20);
         }
-        latestRunHeadingRect.anchoredPosition = new Vector2(
-            layout.OverviewLatestRunHeading.Left
-            - layout.OverviewRightPanel.ContentLeft
-            + layout.OverviewLatestRunHeading.OpticalOffsetX,
-            -(layout.OverviewLatestRunHeading.Top - layout.OverviewRightPanel.ContentTop)
-            + layout.OverviewLatestRunHeading.OpticalOffsetY);
-        latestRunHeadingRect.sizeDelta = new Vector2(
-            layout.OverviewLatestRunHeading.Width,
-            layout.OverviewLatestRunHeading.Height);
-        latestRunHeadingGraphic.fontSize = layout.OverviewLatestRunHeading.FontSize;
-        latestRunCardRect.anchoredPosition = new Vector2(
-            layout.OverviewLatestRunCard.Left - layout.OverviewRightPanel.ContentLeft,
-            -(layout.OverviewLatestRunCard.Top - layout.OverviewRightPanel.ContentTop));
-        latestRunCardRect.sizeDelta = new Vector2(
-            layout.OverviewLatestRunCard.Width,
-            layout.OverviewLatestRunCard.Height);
-        latestRunCardModifier.Radius = layout.OverviewLatestRunCard.CornerRadius;
-        var latestRunBadgeLayout = layout.OverviewLatestRunBadge;
-        latestRunBadgeControl.Rect.gameObject.SetActive(
-            latestRunBadgeControl.Presentation.IsVisible && latestRunBadgeLayout != null);
-        if (latestRunBadgeLayout != null)
+        if (overviewContentView != null && selectedTab == StatisticsPanelTab.Overview)
         {
-            latestRunBadgeControl.Rect.anchoredPosition = new Vector2(
-                latestRunBadgeLayout.Left - layout.OverviewLatestRunCard.Left,
-                -(latestRunBadgeLayout.Top - layout.OverviewLatestRunCard.Top));
-            latestRunBadgeControl.Rect.sizeDelta = new Vector2(
-                latestRunBadgeLayout.Width,
-                latestRunBadgeLayout.Height);
-            latestRunBadgeControl.Modifier.Radius = latestRunBadgeLayout.CornerRadius;
-            latestRunBadgeControl.IconRect.anchoredPosition = new Vector2(
-                latestRunBadgeLayout.IconLeft,
-                -latestRunBadgeLayout.IconTop);
-            latestRunBadgeControl.IconRect.sizeDelta = new Vector2(
-                latestRunBadgeLayout.IconWidth,
-                latestRunBadgeLayout.IconHeight);
-            if (latestRunBadgeControl.IconText != null)
-                latestRunBadgeControl.IconText.fontSize = latestRunBadgeLayout.FontSize;
-            latestRunBadgeControl.LabelRect.anchoredPosition = new Vector2(
-                latestRunBadgeLayout.LabelLeft,
-                -latestRunBadgeLayout.LabelTop);
-            latestRunBadgeControl.LabelRect.sizeDelta = new Vector2(
-                latestRunBadgeLayout.LabelWidth,
-                latestRunBadgeLayout.LabelHeight);
-            latestRunBadgeControl.Label.fontSize = latestRunBadgeLayout.FontSize;
-        }
-        var latestRunMapNameLayout = layout.OverviewLatestRunMapName;
-        latestRunMapNameControl.Rect.gameObject.SetActive(
-            latestRunMapNameControl.Presentation.IsVisible && latestRunMapNameLayout != null);
-        if (latestRunMapNameLayout != null)
-        {
-            latestRunMapNameControl.Rect.anchoredPosition = new Vector2(
-                latestRunMapNameLayout.Left - layout.OverviewLatestRunCard.Left,
-                -(latestRunMapNameLayout.Top - layout.OverviewLatestRunCard.Top));
-            latestRunMapNameControl.Rect.sizeDelta = new Vector2(
-                latestRunMapNameLayout.Width,
-                latestRunMapNameLayout.Height);
-            latestRunMapNameControl.Label.fontSize = latestRunMapNameLayout.FontSize;
-        }
-        var latestRunStatisticsLayout = layout.OverviewLatestRunStatistics;
-        latestRunStatisticsControl.Rect.gameObject.SetActive(
-            latestRunStatisticsControl.Presentation.IsVisible && latestRunStatisticsLayout != null);
-        if (latestRunStatisticsLayout != null)
-        {
-            latestRunStatisticsControl.Rect.anchoredPosition = new Vector2(
-                latestRunStatisticsLayout.Left - layout.OverviewLatestRunCard.Left,
-                -(latestRunStatisticsLayout.Top - layout.OverviewLatestRunCard.Top));
-            latestRunStatisticsControl.Rect.sizeDelta = new Vector2(
-                latestRunStatisticsLayout.Width,
-                latestRunStatisticsLayout.Height);
-            latestRunStatisticsControl.Label.fontSize = latestRunStatisticsLayout.FontSize;
-        }
-        var latestRunViewRunLayout = layout.OverviewLatestRunViewRun;
-        latestRunViewRunControl.Rect.gameObject.SetActive(
-            latestRunViewRunControl.Presentation.IsVisible && latestRunViewRunLayout != null);
-        if (latestRunViewRunLayout != null)
-        {
-            latestRunViewRunControl.Rect.anchoredPosition = new Vector2(
-                latestRunViewRunLayout.Left - layout.OverviewLatestRunCard.Left,
-                -(latestRunViewRunLayout.Top - layout.OverviewLatestRunCard.Top));
-            latestRunViewRunControl.Rect.sizeDelta = new Vector2(
-                latestRunViewRunLayout.Width,
-                latestRunViewRunLayout.Height);
-            latestRunViewRunControl.Modifier.Radius = latestRunViewRunLayout.CornerRadius;
-            latestRunViewRunControl.LabelRect.anchoredPosition = new Vector2(
-                latestRunViewRunLayout.LabelLeft,
-                -latestRunViewRunLayout.LabelTop);
-            latestRunViewRunControl.LabelRect.sizeDelta = new Vector2(
-                latestRunViewRunLayout.LabelWidth,
-                latestRunViewRunLayout.LabelHeight);
-            latestRunViewRunControl.Label.fontSize = latestRunViewRunLayout.FontSize;
-        }
-        worldTimeHeadingRect.anchoredPosition = new Vector2(
-            layout.OverviewWorldTimeHeading.Left
-            - layout.OverviewRightPanel.ContentLeft
-            + layout.OverviewWorldTimeHeading.OpticalOffsetX,
-            -(layout.OverviewWorldTimeHeading.Top - layout.OverviewRightPanel.ContentTop)
-            + layout.OverviewWorldTimeHeading.OpticalOffsetY);
-        worldTimeHeadingRect.sizeDelta = new Vector2(
-            layout.OverviewWorldTimeHeading.Width,
-            layout.OverviewWorldTimeHeading.Height);
-        worldTimeHeadingGraphic.fontSize = layout.OverviewWorldTimeHeading.FontSize;
-        worldTimeCardRect.anchoredPosition = new Vector2(
-            layout.OverviewWorldTimeCard.Left - layout.OverviewRightPanel.ContentLeft,
-            -(layout.OverviewWorldTimeCard.Top - layout.OverviewRightPanel.ContentTop));
-        worldTimeCardRect.sizeDelta = new Vector2(
-            layout.OverviewWorldTimeCard.Width,
-            layout.OverviewWorldTimeCard.Height);
-        worldTimeCardModifier.Radius = layout.OverviewWorldTimeCard.CornerRadius;
-        worldTimeStatisticsControl.Rect.gameObject.SetActive(
-            worldTimeStatisticsControl.Presentation.IsVisible);
-        worldTimeStatisticsControl.Rect.anchoredPosition = new Vector2(
-            layout.OverviewWorldTimeStatistics.Left - layout.OverviewWorldTimeCard.Left,
-            -(layout.OverviewWorldTimeStatistics.Top - layout.OverviewWorldTimeCard.Top));
-        worldTimeStatisticsControl.Rect.sizeDelta = new Vector2(
-            layout.OverviewWorldTimeStatistics.Width,
-            layout.OverviewWorldTimeStatistics.Height);
-        worldTimeStatisticsControl.Label.fontSize = layout.OverviewWorldTimeStatistics.FontSize;
-        // Capture-status suffixes can add wrapped lines. Measure at the actual
-        // content width and grow the card so the complete evidence stays visible.
-        var worldTimeHeight = RetainedActiveMeasurementPolicy.Measure(
-            overviewContentView!.activeSelf, overviewContentView.SetActive,
-            () =>
+            leftPanelRect.anchoredPosition = new Vector2(
+                layout.OverviewLeftPanel.Left,
+                -layout.OverviewLeftPanel.Top);
+            leftPanelRect.sizeDelta = new Vector2(
+                layout.OverviewLeftPanel.Width,
+                layout.OverviewLeftPanel.Height);
+            leftPanelModifier.Radius = layout.OverviewLeftPanel.CornerRadius;
+            rightPanelRect.anchoredPosition = new Vector2(
+                layout.OverviewRightPanel.Left,
+                -layout.OverviewRightPanel.Top);
+            rightPanelRect.sizeDelta = new Vector2(
+                layout.OverviewRightPanel.Width,
+                layout.OverviewRightPanel.Height);
+            rightPanelModifier.Radius = layout.OverviewRightPanel.CornerRadius;
+            leftPanelContentRect.anchoredPosition = new Vector2(
+                layout.OverviewLeftPanel.ContentLeft - layout.OverviewLeftPanel.Left,
+                -(layout.OverviewLeftPanel.ContentTop - layout.OverviewLeftPanel.Top));
+            leftPanelContentRect.sizeDelta = new Vector2(
+                layout.OverviewLeftPanel.ContentWidth,
+                layout.OverviewLeftPanel.ContentHeight);
+            rightPanelContentRect.anchoredPosition = new Vector2(
+                layout.OverviewRightPanel.ContentLeft - layout.OverviewRightPanel.Left,
+                -(layout.OverviewRightPanel.ContentTop - layout.OverviewRightPanel.Top));
+            rightPanelContentRect.sizeDelta = new Vector2(
+                layout.OverviewRightPanel.ContentWidth,
+                layout.OverviewRightPanel.ContentHeight);
+            profileSummaryHeadingRect.anchoredPosition = new Vector2(
+                layout.OverviewProfileSummaryHeading.Left
+                - layout.OverviewLeftPanel.ContentLeft
+                + layout.OverviewProfileSummaryHeading.OpticalOffsetX,
+                -(layout.OverviewProfileSummaryHeading.Top - layout.OverviewLeftPanel.ContentTop)
+                + layout.OverviewProfileSummaryHeading.OpticalOffsetY);
+            profileSummaryHeadingRect.sizeDelta = new Vector2(
+                layout.OverviewProfileSummaryHeading.Width,
+                layout.OverviewProfileSummaryHeading.Height);
+            profileSummaryHeadingGraphic.fontSize = layout.OverviewProfileSummaryHeading.FontSize;
+            highlightsHeadingRect.anchoredPosition = new Vector2(
+                layout.OverviewHighlightsHeading.Left
+                - layout.OverviewRightPanel.ContentLeft
+                + layout.OverviewHighlightsHeading.OpticalOffsetX,
+                -(layout.OverviewHighlightsHeading.Top - layout.OverviewRightPanel.ContentTop)
+                + layout.OverviewHighlightsHeading.OpticalOffsetY);
+            highlightsHeadingRect.sizeDelta = new Vector2(
+                layout.OverviewHighlightsHeading.Width,
+                layout.OverviewHighlightsHeading.Height);
+            highlightsHeadingGraphic.fontSize = layout.OverviewHighlightsHeading.FontSize;
+            for (var index = 0; index < overviewHighlightRows.Count; index++)
             {
-                // TMP Awake can restore game defaults when Overview activates.
-                // Restore the owned wrapping policy after activation, before measuring.
-                worldTimeStatisticsControl.Label.enableWordWrapping = RetainedOverviewWorldTimeStatisticsPolicy.WordWrapping;
-                return worldTimeStatisticsControl.Label.GetPreferredValues(
-                    layout.OverviewWorldTimeStatistics.Width, float.PositiveInfinity).y;
-            });
-        if (!float.IsNaN(worldTimeHeight) && !float.IsInfinity(worldTimeHeight) && worldTimeHeight > 0f)
-        {
-            worldTimeHeight = Math.Max(layout.OverviewWorldTimeStatistics.Height, worldTimeHeight);
+                var control = overviewHighlightRows[index];
+                var row = layout.OverviewHighlightRows[index];
+                var entry = layout.OverviewHighlightEntries[index];
+                control.Rect.anchoredPosition = new Vector2(
+                    row.Left - layout.OverviewRightPanel.ContentLeft,
+                    -(row.Top - layout.OverviewRightPanel.ContentTop));
+                control.Rect.sizeDelta = new Vector2(row.Width, row.Height);
+                control.Modifier.Radius = row.CornerRadius;
+                ApplyStatisticsRowTextLayout(
+                    control.LabelRect,
+                    control.Label,
+                    entry.LabelLeft - row.Left,
+                    entry.LabelTop - row.Top,
+                    entry.LabelWidth,
+                    entry.LabelHeight,
+                    entry.FontSize);
+                ApplyStatisticsRowTextLayout(
+                    control.ValueRect,
+                    control.Value,
+                    entry.ValueLeft - row.Left,
+                    entry.ValueTop - row.Top,
+                    entry.ValueWidth,
+                    entry.ValueHeight,
+                    entry.FontSize);
+            }
+            latestRunHeadingRect.anchoredPosition = new Vector2(
+                layout.OverviewLatestRunHeading.Left
+                - layout.OverviewRightPanel.ContentLeft
+                + layout.OverviewLatestRunHeading.OpticalOffsetX,
+                -(layout.OverviewLatestRunHeading.Top - layout.OverviewRightPanel.ContentTop)
+                + layout.OverviewLatestRunHeading.OpticalOffsetY);
+            latestRunHeadingRect.sizeDelta = new Vector2(
+                layout.OverviewLatestRunHeading.Width,
+                layout.OverviewLatestRunHeading.Height);
+            latestRunHeadingGraphic.fontSize = layout.OverviewLatestRunHeading.FontSize;
+            latestRunCardRect.anchoredPosition = new Vector2(
+                layout.OverviewLatestRunCard.Left - layout.OverviewRightPanel.ContentLeft,
+                -(layout.OverviewLatestRunCard.Top - layout.OverviewRightPanel.ContentTop));
+            latestRunCardRect.sizeDelta = new Vector2(
+                layout.OverviewLatestRunCard.Width,
+                layout.OverviewLatestRunCard.Height);
+            latestRunCardModifier.Radius = layout.OverviewLatestRunCard.CornerRadius;
+            var latestRunBadgeLayout = layout.OverviewLatestRunBadge;
+            latestRunBadgeControl.Rect.gameObject.SetActive(
+                latestRunBadgeControl.Presentation.IsVisible && latestRunBadgeLayout != null);
+            if (latestRunBadgeLayout != null)
+            {
+                latestRunBadgeControl.Rect.anchoredPosition = new Vector2(
+                    latestRunBadgeLayout.Left - layout.OverviewLatestRunCard.Left,
+                    -(latestRunBadgeLayout.Top - layout.OverviewLatestRunCard.Top));
+                latestRunBadgeControl.Rect.sizeDelta = new Vector2(
+                    latestRunBadgeLayout.Width,
+                    latestRunBadgeLayout.Height);
+                latestRunBadgeControl.Modifier.Radius = latestRunBadgeLayout.CornerRadius;
+                latestRunBadgeControl.IconRect.anchoredPosition = new Vector2(
+                    latestRunBadgeLayout.IconLeft,
+                    -latestRunBadgeLayout.IconTop);
+                latestRunBadgeControl.IconRect.sizeDelta = new Vector2(
+                    latestRunBadgeLayout.IconWidth,
+                    latestRunBadgeLayout.IconHeight);
+                if (latestRunBadgeControl.IconText != null)
+                    latestRunBadgeControl.IconText.fontSize = latestRunBadgeLayout.FontSize;
+                latestRunBadgeControl.LabelRect.anchoredPosition = new Vector2(
+                    latestRunBadgeLayout.LabelLeft,
+                    -latestRunBadgeLayout.LabelTop);
+                latestRunBadgeControl.LabelRect.sizeDelta = new Vector2(
+                    latestRunBadgeLayout.LabelWidth,
+                    latestRunBadgeLayout.LabelHeight);
+                latestRunBadgeControl.Label.fontSize = latestRunBadgeLayout.FontSize;
+            }
+            var latestRunMapNameLayout = layout.OverviewLatestRunMapName;
+            latestRunMapNameControl.Rect.gameObject.SetActive(
+                latestRunMapNameControl.Presentation.IsVisible && latestRunMapNameLayout != null);
+            if (latestRunMapNameLayout != null)
+            {
+                latestRunMapNameControl.Rect.anchoredPosition = new Vector2(
+                    latestRunMapNameLayout.Left - layout.OverviewLatestRunCard.Left,
+                    -(latestRunMapNameLayout.Top - layout.OverviewLatestRunCard.Top));
+                latestRunMapNameControl.Rect.sizeDelta = new Vector2(
+                    latestRunMapNameLayout.Width,
+                    latestRunMapNameLayout.Height);
+                latestRunMapNameControl.Label.fontSize = latestRunMapNameLayout.FontSize;
+            }
+            var latestRunStatisticsLayout = layout.OverviewLatestRunStatistics;
+            latestRunStatisticsControl.Rect.gameObject.SetActive(
+                latestRunStatisticsControl.Presentation.IsVisible && latestRunStatisticsLayout != null);
+            if (latestRunStatisticsLayout != null)
+            {
+                latestRunStatisticsControl.Rect.anchoredPosition = new Vector2(
+                    latestRunStatisticsLayout.Left - layout.OverviewLatestRunCard.Left,
+                    -(latestRunStatisticsLayout.Top - layout.OverviewLatestRunCard.Top));
+                latestRunStatisticsControl.Rect.sizeDelta = new Vector2(
+                    latestRunStatisticsLayout.Width,
+                    latestRunStatisticsLayout.Height);
+                latestRunStatisticsControl.Label.fontSize = latestRunStatisticsLayout.FontSize;
+            }
+            var latestRunViewRunLayout = layout.OverviewLatestRunViewRun;
+            latestRunViewRunControl.Rect.gameObject.SetActive(
+                latestRunViewRunControl.Presentation.IsVisible && latestRunViewRunLayout != null);
+            if (latestRunViewRunLayout != null)
+            {
+                latestRunViewRunControl.Rect.anchoredPosition = new Vector2(
+                    latestRunViewRunLayout.Left - layout.OverviewLatestRunCard.Left,
+                    -(latestRunViewRunLayout.Top - layout.OverviewLatestRunCard.Top));
+                latestRunViewRunControl.Rect.sizeDelta = new Vector2(
+                    latestRunViewRunLayout.Width,
+                    latestRunViewRunLayout.Height);
+                latestRunViewRunControl.Modifier.Radius = latestRunViewRunLayout.CornerRadius;
+                latestRunViewRunControl.LabelRect.anchoredPosition = new Vector2(
+                    latestRunViewRunLayout.LabelLeft,
+                    -latestRunViewRunLayout.LabelTop);
+                latestRunViewRunControl.LabelRect.sizeDelta = new Vector2(
+                    latestRunViewRunLayout.LabelWidth,
+                    latestRunViewRunLayout.LabelHeight);
+                latestRunViewRunControl.Label.fontSize = latestRunViewRunLayout.FontSize;
+            }
+            worldTimeHeadingRect.anchoredPosition = new Vector2(
+                layout.OverviewWorldTimeHeading.Left
+                - layout.OverviewRightPanel.ContentLeft
+                + layout.OverviewWorldTimeHeading.OpticalOffsetX,
+                -(layout.OverviewWorldTimeHeading.Top - layout.OverviewRightPanel.ContentTop)
+                + layout.OverviewWorldTimeHeading.OpticalOffsetY);
+            worldTimeHeadingRect.sizeDelta = new Vector2(
+                layout.OverviewWorldTimeHeading.Width,
+                layout.OverviewWorldTimeHeading.Height);
+            worldTimeHeadingGraphic.fontSize = layout.OverviewWorldTimeHeading.FontSize;
+            worldTimeCardRect.anchoredPosition = new Vector2(
+                layout.OverviewWorldTimeCard.Left - layout.OverviewRightPanel.ContentLeft,
+                -(layout.OverviewWorldTimeCard.Top - layout.OverviewRightPanel.ContentTop));
+            worldTimeCardRect.sizeDelta = new Vector2(
+                layout.OverviewWorldTimeCard.Width,
+                layout.OverviewWorldTimeCard.Height);
+            worldTimeCardModifier.Radius = layout.OverviewWorldTimeCard.CornerRadius;
+            worldTimeStatisticsControl.Rect.gameObject.SetActive(
+                worldTimeStatisticsControl.Presentation.IsVisible);
+            worldTimeStatisticsControl.Rect.anchoredPosition = new Vector2(
+                layout.OverviewWorldTimeStatistics.Left - layout.OverviewWorldTimeCard.Left,
+                -(layout.OverviewWorldTimeStatistics.Top - layout.OverviewWorldTimeCard.Top));
             worldTimeStatisticsControl.Rect.sizeDelta = new Vector2(
-                layout.OverviewWorldTimeStatistics.Width, worldTimeHeight);
-            var inset = layout.OverviewWorldTimeStatistics.Top - layout.OverviewWorldTimeCard.Top;
-            worldTimeCardRect.sizeDelta = new Vector2(layout.OverviewWorldTimeCard.Width,
-                Math.Max(layout.OverviewWorldTimeCard.Height, worldTimeHeight + inset * 2f));
+                layout.OverviewWorldTimeStatistics.Width,
+                layout.OverviewWorldTimeStatistics.Height);
+            worldTimeStatisticsControl.Label.fontSize = layout.OverviewWorldTimeStatistics.FontSize;
+            // Capture-status suffixes can add wrapped lines. Measure at the actual
+            // content width and grow the card so the complete evidence stays visible.
+            var worldTimeHeight = RetainedActiveMeasurementPolicy.Measure(
+                overviewContentView!.activeSelf, overviewContentView.SetActive,
+                () =>
+                {
+                    // TMP Awake can restore game defaults when Overview activates.
+                    // Restore the owned wrapping policy after activation, before measuring.
+                    worldTimeStatisticsControl.Label.enableWordWrapping = RetainedOverviewWorldTimeStatisticsPolicy.WordWrapping;
+                    return worldTimeStatisticsControl.Label.GetPreferredValues(
+                        layout.OverviewWorldTimeStatistics.Width, float.PositiveInfinity).y;
+                });
+            if (!float.IsNaN(worldTimeHeight) && !float.IsInfinity(worldTimeHeight) && worldTimeHeight > 0f)
+            {
+                worldTimeHeight = Math.Max(layout.OverviewWorldTimeStatistics.Height, worldTimeHeight);
+                worldTimeStatisticsControl.Rect.sizeDelta = new Vector2(
+                    layout.OverviewWorldTimeStatistics.Width, worldTimeHeight);
+                var inset = layout.OverviewWorldTimeStatistics.Top - layout.OverviewWorldTimeCard.Top;
+                worldTimeCardRect.sizeDelta = new Vector2(layout.OverviewWorldTimeCard.Width,
+                    Math.Max(layout.OverviewWorldTimeCard.Height, worldTimeHeight + inset * 2f));
+            }
+            for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
+                ApplyStatisticsRowLayout(
+                    overviewProfileSummaryRows[index],
+                    layout.OverviewProfileSummaryRows[index],
+                    layout.OverviewLeftPanel);
+            ReflowOverview(layout, viewportPixelWidth);
         }
-        for (var index = 0; index < overviewProfileSummaryRows.Count; index++)
-            ApplyStatisticsRowLayout(
-                overviewProfileSummaryRows[index],
-                layout.OverviewProfileSummaryRows[index],
-                layout.OverviewLeftPanel);
-        ReflowOverview(layout, viewportPixelWidth);
         lastViewportPixelWidth = viewportPixelWidth;
         lastViewportPixelHeight = viewportPixelHeight;
         lastCanvasScaleFactor = canvasScaleFactor;
@@ -2510,6 +2495,7 @@ internal sealed partial class RetainedStatisticsShell : IDisposable
 
     private void DestroyRoot()
     {
+        ResetCachedContent();
         overviewLatestRunViewRun?.Button.onClick.RemoveAllListeners();
         recordsView?.Dispose();
         combatView?.Dispose();

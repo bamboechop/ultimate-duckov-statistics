@@ -170,6 +170,7 @@ internal static class GermanText
         ["ui.overview_longest_kill_distance"] = "Weiteste Eliminierungsdistanz",
         ["ui.overview_shortest_kill_distance"] = "Kürzeste Eliminierungsdistanz",
         ["ui.overview_highlights_loading"] = "Wird geladen…",
+        ["ui.refreshing"] = "Wird aktualisiert…",
         ["ui.overview_firing_actions_unit"] = "Schussaktionen",
         ["ui.overview_uses_unit"] = "Verwendungen",
         ["ui.overview_total_runs"] = "Raids insgesamt",

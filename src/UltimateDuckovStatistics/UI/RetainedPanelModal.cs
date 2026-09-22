@@ -11,7 +11,15 @@ internal sealed partial class RetainedStatisticsShell
 {
     private PanelModal? modal;
     public bool ModalVisible => modal?.Visible == true;
-    public void SyncModal(bool reset, bool hotkey, string profileLabel, string warning) => modal?.Sync(reset, hotkey, profileLabel, warning);
+    public void SyncModal(bool reset, bool hotkey, string profileLabel, string warning)
+    {
+        if ((reset || hotkey) && IsUsable) EnsureModal();
+        modal?.Sync(reset, hotkey, profileLabel, warning);
+    }
+
+    private void EnsureModal() => modal ??= new PanelModal(shellRoot!, overviewTypography!, tabLabelMaterial!.Instance,
+        cachedOperations!, cancelHotkeyAction!,
+        () => { if (selectedTab == StatisticsPanelTab.Diagnostics) diagnosticsView?.FocusReset(); else FocusSelectedTab(); });
     public void MoveModalFocus(bool reverse) => modal?.MoveFocus(reverse);
 
     private sealed class PanelModal : IDisposable

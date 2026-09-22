@@ -184,6 +184,7 @@ internal static class UiText
             ["ui.overview_longest_kill_distance"] = "Longest kill distance",
             ["ui.overview_shortest_kill_distance"] = "Shortest kill distance",
             ["ui.overview_highlights_loading"] = "Loading…",
+            ["ui.refreshing"] = "Refreshing…",
             ["ui.overview_firing_actions_unit"] = "firing actions",
             ["ui.overview_uses_unit"] = "uses",
             ["ui.overview_total_runs"] = "Total runs",
