@@ -2,7 +2,7 @@
 
 Ultimate Duckov Statistics (UDS) records proven single-player gameplay events in local per-save profiles. It never writes Duckov save files and has no telemetry or online account.
 
-Current source targets **1.1.1**, including Overview longest/shortest kill-distance highlights, Runs → Map & Kills, incremental SQLite persistence, lossless record compression, JSON/ZIP export and restore, and save-identity performance improvements. The highlights passed local automated qualification and user UI acceptance. Final merged-source release qualification, the first Steam Workshop listing and subscription-install verification remain separate. See [release notes](RELEASE_NOTES.md), the [release procedure](docs/RELEASE_PROCESS.md) and [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for publication. The earlier [GitHub v1.0.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) tag and archive retain their original contents.
+Current source prepares **1.2.0**, adding the retained UI improvements merged through [PR #28](https://github.com/bamboechop/ultimate-duckov-statistics/pull/28). [GitHub v1.1.1](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.1.1) was published on September 16, 2026, adding Overview longest/shortest kill-distance highlights to the Map & Kills, SQLite persistence and JSON/ZIP backup features released in [v1.1.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.1.0). The new UI behavior is not in those published downloads. See [release notes](RELEASE_NOTES.md), the [release procedure](docs/RELEASE_PROCESS.md) and [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for publication. The first Steam Workshop listing and subscription-install verification remain separate from GitHub publication.
 
 ## Install and use
 
@@ -11,6 +11,8 @@ English and German are included. UDS follows the game's language, including chan
 See [INSTALL.md](INSTALL.md) for installation, activation, data locations, export/reset and troubleshooting. The verified baseline is Duckov 2.3.30 / Steam build 24013657 / Unity 2022.3.62f2 on Windows, with the separately installed [HarmonyLib dependency](https://steamcommunity.com/sharedfiles/filedetails/?id=3589088839) at 2.4.1.0. Game, Unity and Harmony DLLs are never bundled.
 
 Outside raids, open Statistics from the main menu, base pause menu or configurable F8. The retained native shell contains Overview, Runs, Records, Combat, Equipment, Economy, Crafting, Item Use, About and Diagnostics. About introduces UDS and its author, and invites translation volunteers to leave a comment on the Steam Workshop page. It contains no external links or browser actions. Long localization text uses measured layout, clipping and scrolling. Missing required native objects can prevent construction; appearance differences do not reject the shell.
+
+In current source, opening displays the selected view's containers before filling in its data. Loading text appears only after 250 ms, and visited views stay cached while closed for reuse on reopening. Profile or native-canvas changes discard that cache. The user confirmed smooth opening and the removal of the initial visual flashes; see the [retained UI behavior and qualification](docs/RETAINED_UI_RESPONSIVENESS_EXPERIMENT.md).
 
 ## Statistics and evidence
 
@@ -35,7 +37,7 @@ Current source stores changed records in one SQLite database and loads completed
 
 Save fingerprints and native pre-save evidence prevent unrelated save generations from being combined. Playing while UDS is inactive can make continuity unprovable; the prior generation is then archived. See [local-data and privacy details](docs/LOCAL_DATA.md).
 
-Every `0.x` GitHub download and v1 release candidate was a voluntary testing artifact. The planned supported upgrade baseline is 1.1.1 when it is explicitly published through the verified Steam Workshop channel. A local build or GitHub testing download alone does not establish that baseline.
+Every `0.x` GitHub download and v1 release candidate was a voluntary testing artifact. The supported Workshop upgrade baseline will be the version explicitly distributed through the verified Steam Workshop channel. A local build or GitHub testing download alone does not establish that baseline.
 
 ## Build and qualify
 
