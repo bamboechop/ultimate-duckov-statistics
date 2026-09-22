@@ -1,4 +1,4 @@
-# Workshop description for 1.1.0
+# Workshop description for 1.2.0
 
 Paste the contents of the code block below into the Steam Workshop description. It uses [Steam formatting tags](https://steamcommunity.com/comment/ForumTopic/formattinghelp); do not copy the Markdown code fences or these preparation notes. The final link is the GitHub repository, following the author attribution and AI usage disclosure.
 
@@ -13,7 +13,7 @@ The preview is tracked at [mod/preview.png](../mod/preview.png), with the short 
 [list]
 [*][b]Raids and routes:[/b] Revisit recorded runs, the maps you visited, active raid time, distance travelled, extractions, and containers opened.
 [*][b]Map & Kills:[/b] Watch your recorded route unfold, including teleport connections. Select an encounter to see where it happened, the distance between you and the enemy when both positions are known, damage exchanged, weapons, ammunition, and inspected loot. Repeated visits to the same map stay separate.
-[*][b]Personal records:[/b] Follow highlights such as your fastest extraction and longest successful raid.
+[*][b]Personal records:[/b] Follow highlights such as your fastest extraction, longest successful raid, and longest and shortest recorded kill distance.
 [*][b]Combat:[/b] Explore damage, kills, ranged and melee accuracy, headshots, and weapon and ammunition statistics.
 [*][b]Equipment:[/b] See your loadouts, weapons, attachments, armor, and totems, including time equipped during raids.
 [*][b]Item use and healing:[/b] Find your most-used items and see how much health you've restored.

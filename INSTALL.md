@@ -1,6 +1,6 @@
 # Install and use Ultimate Duckov Statistics
 
-This guide accompanies **Ultimate Duckov Statistics 1.1.1**, including Overview kill-distance highlights, Map & Kills, SQLite persistence improvements and JSON/ZIP export and restore. English and German are included. Version 1.1.1 is being prepared for the first Steam Workshop listing and subscription-install verification; consult [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for published packages. The supported Workshop upgrade baseline begins when 1.1.1 is explicitly distributed through that verified channel. The earlier [GitHub 1.0.0 archive](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.0.0) retains its original JSON-only runtime. Earlier `0.x` builds and v1 release candidates were voluntary testing artifacts.
+This guide accompanies **Ultimate Duckov Statistics 1.2.0**, which adds immediate view containers and cached UI reopening to the Overview kill-distance highlights, Map & Kills, SQLite persistence and JSON/ZIP export/restore features in [1.1.1](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.1.1). English and German are included. Consult [GitHub releases](https://github.com/bamboechop/ultimate-duckov-statistics/releases) for published packages; a local preparation package does not establish publication. The first Steam Workshop listing and subscription-install verification remain pending, with 1.2.0 as the planned first Workshop version. The supported Workshop upgrade baseline begins with the version explicitly distributed through that verified channel. Earlier published archives retain their original contents; `0.x` builds and v1 release candidates were voluntary testing artifacts.
 
 ## Verified native baseline
 
@@ -27,6 +27,8 @@ To uninstall, close Duckov and remove only its UDS mod folder. Statistics remain
 ## Statistics and access
 
 All ten retained tabs use the same native shell. It supports English/German language switching, wrapping, scrolling with overflow indicators, keyboard focus, and responsive layout. Statistics access is deliberately unavailable during raids. Changing the selected save invalidates controls from the previous statistics generation. About precedes Diagnostics and remains available with an empty profile or unavailable measurements whenever the panel can open. It contains the mod description, author attribution, and a translation invitation directing volunteers to Steam Workshop comments, with no external links or browser actions.
+
+In 1.2.0, the selected view's containers appear first and data fills them afterward. Loading text appears inside them only after 250 ms. Closing hides and caches visited views; reopening reuses them while refreshing changed statistics. Save-generation and native-canvas changes discard the cache. These changes do not require a new raid or a statistics restore.
 
 Runs begin when the living main duck gains control in a native raid. Loading/base activity is excluded from raid duration and movement. Unknown identity, unavailable capture, partial attribution, repaired evidence, and proven empty observations remain distinct. Disabling a dependency does not invent zeros or erase independently supported sibling metrics.
 
