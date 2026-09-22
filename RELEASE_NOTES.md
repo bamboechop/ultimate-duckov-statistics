@@ -1,8 +1,8 @@
-# Ultimate Duckov Statistics 1.2.0 — release preparation
+# Ultimate Duckov Statistics 1.2.0
 
 The retained UI update merged through [PR #28](https://github.com/bamboechop/ultimate-duckov-statistics/pull/28) shows view containers immediately, defers data binding, and caches visited views across close/reopen. Loading messages wait 250 ms and appear inside the existing containers. Profile/canvas invalidation and native shutdown release retained resources. Initial View run highlight flashes and premature scroll outlines are corrected. The user confirmed smooth opening and the visual fixes on September 22, 2026; [qualification notes](docs/RETAINED_UI_RESPONSIVENESS_EXPERIMENT.md) distinguish that acceptance from timing measurements and automated coverage.
 
-Build metadata, runtime Diagnostics and the mod manifest target 1.2.0. The installable archive is `UltimateDuckovStatistics-v1.2.0.zip` with its SHA-256 sidecar. These changes are not in the published v1.1.1 archive. Final merged-source qualification and publication follow the [release procedure](docs/RELEASE_PROCESS.md). No profile or export schema change is introduced; current-format 1.1.1 statistics remain compatible. The first Workshop listing and subscription-install verification are separate user-controlled steps.
+[GitHub v1.2.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.2.0) was published on September 22, 2026 from `52c6c4537ad51fa75557671adaaaf6cef9b54716`. Build metadata, runtime Diagnostics and the mod manifest report 1.2.0. The installable archive is `UltimateDuckovStatistics-v1.2.0.zip` with its SHA-256 sidecar; the tag and both public downloads passed [independent verification](docs/V1_2_0_PUBLICATION.json), including all 13 packaged files. Earlier published archives remain unchanged. No profile or export schema change is introduced; current-format 1.1.1 statistics remain compatible. The first Workshop listing and subscription-install verification remain separate user-controlled steps in the [release procedure](docs/RELEASE_PROCESS.md).
 
 # Ultimate Duckov Statistics 1.1.1
 

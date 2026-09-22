@@ -1,6 +1,6 @@
 # Retained UI responsiveness
 
-The retained UI work merged through [PR #28](https://github.com/bamboechop/ultimate-duckov-statistics/pull/28) on September 22, 2026 as `a65101163e3b51ea3dd611ad17f2473ff55750fd` and is included in the 1.2.0 release preparation. It separates opening the UDS shell from preparing and displaying its statistics. The user confirmed smooth opening and the final visual corrections. Native observations and automated lifecycle tests remain separate from controlled frame-time measurements.
+The retained UI work merged through [PR #28](https://github.com/bamboechop/ultimate-duckov-statistics/pull/28) on September 22, 2026 as `a65101163e3b51ea3dd611ad17f2473ff55750fd` and shipped in [GitHub v1.2.0](https://github.com/bamboechop/ultimate-duckov-statistics/releases/tag/v1.2.0) that day. It separates opening the UDS shell from preparing and displaying its statistics. The user confirmed smooth opening and the final visual corrections. Native observations and automated lifecycle tests remain separate from controlled frame-time measurements.
 
 ## Behavior
 
